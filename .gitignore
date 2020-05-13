@@ -1,3 +1,6 @@
 /.idea
 /src_cpp/.sconsign.dblite
 /src_erl/*.beam
+/lib/*.so
+*.o
+/src_py/.sconsign.dblite

@@ -6,6 +6,7 @@ def log_print(text):
 	print("[NErlNet] "+text)
 
 log_print("Version - "+str(NErlNet_VER))
+log_print("CWD: "+os.getcwd())
 
 if os.path.isfile(".sconsign.dblite"):
 	os.remove(".sconsign.dblite")
@@ -42,11 +43,16 @@ if int(debug):
 	env.Append(CPPFLAGS = '-g')
 
 SHARED_LIB_FLAG = False
-shared_lib = ARGUMENTS.get('shared', 0)
-if int(shared_lib):
+shared_lib = ARGUMENTS.get('shared', False)
+if shared_lib:
 	SHARED_LIB_FLAG = True
 	log_print("Compiling cppSANN to shared library")
 	log_print(".so will be saved to lib directory")
+
+input_src_dir = ARGUMENTS.get('src', "")
+if input_src_dir:
+	src_dir = input_src_dir
+
 
 help_menu = ARGUMENTS.get('help', 0)
 if int(help_menu):
@@ -80,6 +86,8 @@ else:
 		
 		for elem in matches:
 			objects_list.append(env.Object(os.path.join(subdir,elem)))
+
+	print(objects_list)
 
 	if SHARED_LIB_FLAG:
 		env.Library(os.path.join(lib_dir,"NErlNet.so"), objects_list)

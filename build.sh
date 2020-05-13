@@ -1,3 +1,4 @@
 #!/bin/bash
 
-python src_py/BuildScript.py
+cd src_py
+python BuildScript.py cpp=True
