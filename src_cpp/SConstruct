@@ -5,16 +5,12 @@ NErlNet_VER = 0.1
 def log_print(text):
 	print("[NErlNet] "+text)
 
-def printinfo(text):
-	print("info: "+text)
-	print("[cppSANN] Version - "+str(NErlNet_VER))
+log_print("Version - "+str(NErlNet_VER))
 
 if os.path.isfile(".sconsign.dblite"):
 	os.remove(".sconsign.dblite")
 
 MAIN_FILE = "test.cpp"
-	
-printinfo("cwd: "+os.getcwd())
 
 project_dir = os.getcwd()
 build_dir = os.path.join(project_dir,'build')
