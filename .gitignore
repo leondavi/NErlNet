@@ -1,2 +1,3 @@
 /.idea
 /src_cpp/.sconsign.dblite
+/src_erl/*.beam
