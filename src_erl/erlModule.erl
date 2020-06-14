@@ -1,7 +1,7 @@
 -module(erlModule).
 
 %% API
--export([foo/1, bar/1, square/1, square/2, push/1, squareTest/1, matrix/2, testSquareM1/2, dListSquare/1,singleton/0]).
+-export([foo/1,testMatrix/2,singleton/0,singletonGetData/0,singletonSetData/1,testSingleton/2]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
@@ -9,30 +9,14 @@
 
 %%  Function init in turn calls erlang:load_nif/2 which loads the NIF library and replaces the foo,bar,square functions with its native implementation in C
 init() ->
-  ok = erlang:load_nif("./nifModule_nif", 0).
+  ok = erlang:load_nif("/home/ziv/workspace/NErlNet/src_cpp/./nifModule_nif", 0).
 
 %% Add 1 - using int
 foo(_X) ->
   %% Each NIF must have an implementation in Erlang to be invoked if the function is called before the NIF library is successfully loaded. A typical such stub implementation is to call erlang:nif_error which will raise an exception. The Erlang function can also be used as a fallback implementation if the NIF library lacks implementation for some OS or hardware architecture for example.
   exit(nif_library_not_loaded).
 
-%% Multiply by 2 - using int
-bar(_Y) ->
-  exit(nif_library_not_loaded).
 
-%% Square all the elements in List - using std::vector
-square(_List) ->
-  exit(nif_library_not_loaded).
-
-%% Add List2 arguments to List arguments if they are in the same size. Returns List if not. - using std::vector
-square(_List, _List2) ->
-  exit(nif_library_not_loaded).
-
-squareTest(_List) -> square(_List)++[9].
-
-%% Add 10 to back and 20 to front - using std::deque
-push(_List) ->
-  exit(nif_library_not_loaded).
 
 %%----------------------------------------------------
 %% Matrix RxW : List of lists (each list is a row)
@@ -60,25 +44,43 @@ createMList([H|T], NewList) ->
   createMList(T, NewList ++ H).
 
 testMatrix(R, W) ->
-  matrixToList(matrix(R, W)).
+  dList(matrixToList(matrix(R, W))).
 
 
-testSquareM1(R, W) ->
-  M=matrixToList(matrix(R, W)),
-  square(M).
+%testSquareM1(R, W) ->
+%  M=matrixToList(matrix(R, W)),
+%  M.
 
 %% Make double list
 dList(List) -> dList(List,[]).
 dList([],NewList) -> NewList;
 dList([H|T],NewList) -> dList(T,NewList++[H+0.0]).
 
-dListSquare(List)->square(dList(List)).
+%dListSquare(List)->List.
 	
-%%------------
+%%---------------------------------------------------
 singleton()->
 	exit(nif_library_not_loaded).
 	
+singletonGetData() ->
+	exit(nif_library_not_loaded).
 
+singletonSetData(_Int) ->
+	exit(nif_library_not_loaded).
 
+testSingleton(Data1,Data2) ->
+	A = singletonGetData(),
+	io:fwrite("Singleton initial data: ~p ~n",[A]),
+	_Pid1 = spawn(fun()->start(Data1) end),
+	_Pid2 = spawn(fun()->start(Data2) end),
+	timer:sleep(100),
+	B = singletonGetData(),
+	io:fwrite("Singleton finish data: ~p ~n",[B]).
 
+start(Data) ->
+	FirstData = singletonGetData(),
+	io:fwrite("Singleton from pid ~p first data: ~p ~n",[self(),FirstData]),
+	singletonSetData(Data),
+	UpdatedData = singletonGetData(),
+	io:fwrite("Singleton from pid ~p updated data: ~p ~n",[self(),UpdatedData]).
 
