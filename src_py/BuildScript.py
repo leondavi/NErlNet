@@ -13,6 +13,8 @@ def build_cpp():
     os.system("scons src=../src_cpp shared=True")
 
     if os.path.exists("lib/"+SO_RESULT_FILE):
+        if os.path.exists("../"+"lib/"):
+    	    shutil.rmtree("../"+"lib/")
         shutil.move("lib/","../"+"lib/")
 
 
