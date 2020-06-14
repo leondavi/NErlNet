@@ -1,14 +1,9 @@
 // g++ -fno-rtti -o nifModule_nif.so -fpic -shared test.cpp nifModule_nif.cpp
 
-#include "nifpp.h"
+#include "include/nifpp.h"
 #include <vector>
 #include <deque>
 
-extern int foo(int x);
-extern int bar(int y);
-//extern std::vector<T> square(std::vector<T> listVec);
-extern std::deque<int> push(std::deque<int> listDeq);
-extern std::vector<int> square2(std::vector<int> listVec, std::vector<int> listVec2);
 
 
 // -----------Functions---------------
@@ -19,6 +14,11 @@ std::vector<double> square(std::vector<double> listVec) {
     } 
     return listVec;
 }
+
+int foo(int x) {
+  return x+1;
+}
+
 //-------------------------------
 
 
@@ -34,59 +34,7 @@ static ERL_NIF_TERM foo_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_int(env, ret);
 }
 
-static ERL_NIF_TERM bar_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    int y, ret;
-    if (!enif_get_int(env, argv[0], &y)) {
-	return enif_make_badarg(env);
-    }
-    ret = bar(y);
-    return enif_make_int(env, ret);
-}
 
-static ERL_NIF_TERM square_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-	
-  	std::vector<double> listVec, ret;
-
-	try{
-		nifpp::get_throws(env, argv[0], listVec);
-		ret = square(listVec);
-		return nifpp::make(env, ret);
-    	}
-	catch(nifpp::badarg){}
-	return enif_make_badarg(env);
-}
-
-static ERL_NIF_TERM square2_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-  	std::vector<int> listVec, listVec2, ret;
-
-	try{
-		nifpp::get_throws(env, argv[0], listVec);
-		nifpp::get_throws(env, argv[1], listVec2);
-
-		ret = square2(listVec, listVec2);
-		return nifpp::make(env, ret);
-    	}
-	catch(nifpp::badarg){}
-	return enif_make_badarg(env);
-}
-
-static ERL_NIF_TERM push_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-  	std::deque<int> listDeq, ret;
-	nifpp::TERM term;
-
-	try{
-		nifpp::get_throws(env, argv[0], listDeq);
-		ret = push(listDeq);
-		term = nifpp::make(env, ret);
-		return term;
-    	}
-	catch(nifpp::badarg){}
-	return enif_make_badarg(env);
-}
 //--------------------------------------
 
 // Singleton
@@ -148,12 +96,22 @@ Singleton *Singleton::GetInstance()
     return instance;
 }
 
+class GetSingleton {
+
+    Singleton *s;
+public:
+    GetSingleton() {
+        s = s->GetInstance();
+    }
+
+};
+
 static ERL_NIF_TERM singleton_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	
 
 // Singleton test
-    Singleton *s = s->GetInstance();
+  //  Singleton *s = s->GetInstance();
     //cout << s->getData() << endl;
     //s->setData(100);
     //cout << s->getData() << endl;
@@ -169,8 +127,42 @@ static ERL_NIF_TERM singleton_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     	}
 	catch(nifpp::badarg){}*/
 	//return enif_make_badarg(env);
-	return nifpp::make(env, s);
+
+    try
+    {
+        auto s_ptr = nifpp::construct_resource<GetSingleton>();
+        return nifpp::make(env, s_ptr);
+    }
+    catch(nifpp::badarg) {}
+    //catch(std::ios_base::failure) {}
+    return enif_make_badarg(env);
+
+	//return nifpp::make(env, s);
 }
+
+
+
+static ERL_NIF_TERM singletonGetData_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    Singleton *s = s->GetInstance();
+    int data = s->getData();
+
+    return enif_make_int(env, data);
+}
+
+static ERL_NIF_TERM singletonSetData_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    Singleton *s = s->GetInstance();
+    int data;
+
+    if (!enif_get_int(env, argv[0], &data)) {
+	return enif_make_badarg(env);
+    }
+    s->setData(data);
+
+    return enif_make_int(env, data);
+}
+
 
 //--------------------------------------
 
@@ -180,14 +172,19 @@ static ERL_NIF_TERM singleton_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 // Describes a NIF by its name, arity, and implementation.
 static ErlNifFunc nif_funcs[] = {
     {"foo", 1, foo_nif},
-    {"bar", 1, bar_nif},
-    {"square", 1, square_nif},
-    {"square", 2, square2_nif},
-    {"singleton", 0, singleton_nif},
-    {"push", 1, push_nif}
+    {"singletonGetData", 0, singletonGetData_nif},
+    {"singletonSetData", 1, singletonSetData_nif},
+    {"singleton", 0, singleton_nif}
 };
+
+
+static int load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
+{
+    nifpp::register_resource<GetSingleton>(env, nullptr, "GetSingleton");
+    return 0;
+}
 
 // The first argument must be the name of the Erlang module as a C-identifier. It will be stringified by the macro.
 // The second argument is the array of ErlNifFunc structures containing name, arity, and function pointer of each NIF.
 // The remaining arguments are pointers to callback functions that can be used to initialize the library. They are not used in this simple example, hence they are all set to NULL.
-ERL_NIF_INIT(erlModule, nif_funcs, NULL, NULL, NULL, NULL)
+ERL_NIF_INIT(erlModule, nif_funcs, load, NULL, NULL, NULL)
