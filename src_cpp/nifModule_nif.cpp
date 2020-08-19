@@ -23,7 +23,9 @@ int foo(int x) {
 
 
 
-// All terms of type ERL_NIF_TERM belong to an environment of type ErlNifEnv. The lifetime of a term is controlled by the lifetime of its environment object. All API functions that read or write terms has the environment that the term belongs to as the first function argument.
+// All terms of type ERL_NIF_TERM belong to an environment of type ErlNifEnv.
+// The lifetime of a term is controlled by the lifetime of its environment object.
+// All API functions that read or write terms has the environment that the term belongs to as the first function argument.
 static ERL_NIF_TERM foo_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     int x, ret;
@@ -37,30 +39,49 @@ static ERL_NIF_TERM foo_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 //--------------------------------------
 
-// Singleton
-class Singleton {
+// Neural network manager singleton
+class nnManager {
 private:
-    static Singleton *instance;
+    static nnManager *instance;
     //static std::mutex mutex_;
 protected:
-    ~Singleton() {}
+    ~nnManager() {}
+    std::unordered_map<int, int> midTidMap; // <Mid,Pid> - Model id, process id
+    std::unordered_map<int, int> pidTidMap; // <Pid,Tid> - Process id, Thread id
     int data;
 
-    Singleton() {
+    nnManager() {
         data = 0;
     }
+
+    //thread_create(model_id) {
+    //}
 
 public:
     /**
      * Singletons should not be cloneable.
      */
-    Singleton(Singleton &other) = delete;
+    nnManager(nnManager &other) = delete;
     /**
      * Singletons should not be assignable.
      */
-    void operator=(const Singleton &) = delete;
+    void operator=(const nnManager &) = delete;
 
-    static Singleton *GetInstance();
+   /* nnManager(data)
+    {
+	    if (instance == nullptr)
+	    {
+		//std::lock_guard<std::mutex> lock(mutex_);
+		//if (instance == nullptr)
+		//{
+		    instance = new nnManager();
+		//}
+	    }
+	    return instance;
+    }*/
+
+
+    static nnManager *GetInstance();
 
     int getData() {
         return this -> data;
@@ -75,47 +96,47 @@ public:
  * Static methods should be defined outside the class.
  */
 //Initialize pointer to zero so that it can be initialized in first call to getInstance
-Singleton* Singleton::instance{nullptr};
-//std::mutex Singleton::mutex_;
+nnManager* nnManager::instance{nullptr};
+//std::mutex nnManager::mutex_;
 
 /**
  * The first time we call GetInstance we will lock the storage location
  *      and then we make sure again that the variable is null and then we
  *      set the value. RU:
  */
-Singleton *Singleton::GetInstance()
+nnManager *nnManager::GetInstance()
 {
     if (instance == nullptr)
     {
         //std::lock_guard<std::mutex> lock(mutex_);
         //if (instance == nullptr)
         //{
-            instance = new Singleton();
+            instance = new nnManager();
         //}
     }
     return instance;
 }
 
-class GetSingleton {
+class GetnnManager {
 
-    Singleton *s;
+    nnManager *s;
 public:
-    GetSingleton() {
+    GetnnManager() {
         s = s->GetInstance();
     }
 
 };
 
-static ERL_NIF_TERM singleton_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM nnManager_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	
 
-// Singleton test
-  //  Singleton *s = s->GetInstance();
+// nnManager test
+  //  nnManager *s = s->GetInstance();
     //cout << s->getData() << endl;
     //s->setData(100);
     //cout << s->getData() << endl;
-    //Singleton * s1 = s->GetInstance();
+    //nnManager * s1 = s->GetInstance();
     //cout << s1->getData() << endl;
 
   	//std::vector<double> listVec, ret;
@@ -130,7 +151,7 @@ static ERL_NIF_TERM singleton_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
     try
     {
-        auto s_ptr = nifpp::construct_resource<GetSingleton>();
+        auto s_ptr = nifpp::construct_resource<GetnnManager>();
         return nifpp::make(env, s_ptr);
     }
     catch(nifpp::badarg) {}
@@ -142,17 +163,17 @@ static ERL_NIF_TERM singleton_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
 
 
-static ERL_NIF_TERM singletonGetData_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM nnManagerGetData_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    Singleton *s = s->GetInstance();
+    nnManager *s = s->GetInstance();
     int data = s->getData();
 
     return enif_make_int(env, data);
 }
 
-static ERL_NIF_TERM singletonSetData_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM nnManagerSetData_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    Singleton *s = s->GetInstance();
+    nnManager *s = s->GetInstance();
     int data;
 
     if (!enif_get_int(env, argv[0], &data)) {
@@ -172,15 +193,15 @@ static ERL_NIF_TERM singletonSetData_nif(ErlNifEnv* env, int argc, const ERL_NIF
 // Describes a NIF by its name, arity, and implementation.
 static ErlNifFunc nif_funcs[] = {
     {"foo", 1, foo_nif},
-    {"singletonGetData", 0, singletonGetData_nif},
-    {"singletonSetData", 1, singletonSetData_nif},
-    {"singleton", 0, singleton_nif}
+    {"nnManagerGetData", 0, nnManagerGetData_nif},
+    {"nnManagerSetData", 1, nnManagerSetData_nif},
+    {"nnManager", 0, nnManager_nif}
 };
 
 
 static int load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
 {
-    nifpp::register_resource<GetSingleton>(env, nullptr, "GetSingleton");
+    nifpp::register_resource<GetnnManager>(env, nullptr, "GetnnManager");
     return 0;
 }
 
