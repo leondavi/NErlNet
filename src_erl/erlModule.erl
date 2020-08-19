@@ -1,21 +1,24 @@
 -module(erlModule).
 
 %% API
--export([foo/1,testMatrix/2,singleton/0,singletonGetData/0,singletonSetData/1,testSingleton/2]).
+-export([testMatrix/2,nnManager/0,nnManagerGetData/0,nnManagerSetData/1,testnnManager/2]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
 
 
-%%  Function init in turn calls erlang:load_nif/2 which loads the NIF library and replaces the foo,bar,square functions with its native implementation in C
+%%  Function init in turn calls erlang:load_nif/2 which loads the NIF library and replaces the erlang functions with its
+%%  native implementation in C
 init() ->
-  ok = erlang:load_nif("/home/ziv/workspace/NErlNet/src_cpp/./nifModule_nif", 0).
+	RelativeDirPath = filename:dirname(filename:absname("")),
+	Nif_Module_Cpp_Path = string:concat(RelativeDirPath,"/src_cpp/./nifModule_nif"),
+  ok = erlang:load_nif(Nif_Module_Cpp_Path, 0). % Relative path
 
+% todo: delete function foo
 %% Add 1 - using int
-foo(_X) ->
+%foo(_X) ->
   %% Each NIF must have an implementation in Erlang to be invoked if the function is called before the NIF library is successfully loaded. A typical such stub implementation is to call erlang:nif_error which will raise an exception. The Erlang function can also be used as a fallback implementation if the NIF library lacks implementation for some OS or hardware architecture for example.
-  exit(nif_library_not_loaded).
-
+%  exit(nif_library_not_loaded).
 
 
 %%----------------------------------------------------
@@ -59,28 +62,28 @@ dList([H|T],NewList) -> dList(T,NewList++[H+0.0]).
 %dListSquare(List)->List.
 	
 %%---------------------------------------------------
-singleton()->
+nnManager()->
 	exit(nif_library_not_loaded).
 	
-singletonGetData() ->
+nnManagerGetData() ->
 	exit(nif_library_not_loaded).
 
-singletonSetData(_Int) ->
+nnManagerSetData(_Int) ->
 	exit(nif_library_not_loaded).
 
-testSingleton(Data1,Data2) ->
-	A = singletonGetData(),
-	io:fwrite("Singleton initial data: ~p ~n",[A]),
+testnnManager(Data1,Data2) ->
+	A = nnManagerGetData(),
+	io:fwrite("nnManager initial data: ~p ~n",[A]),
 	_Pid1 = spawn(fun()->start(Data1) end),
 	_Pid2 = spawn(fun()->start(Data2) end),
 	timer:sleep(100),
-	B = singletonGetData(),
-	io:fwrite("Singleton finish data: ~p ~n",[B]).
+	B = nnManagerGetData(),
+	io:fwrite("nnManager finish data: ~p ~n",[B]).
 
 start(Data) ->
-	FirstData = singletonGetData(),
-	io:fwrite("Singleton from pid ~p first data: ~p ~n",[self(),FirstData]),
-	singletonSetData(Data),
-	UpdatedData = singletonGetData(),
-	io:fwrite("Singleton from pid ~p updated data: ~p ~n",[self(),UpdatedData]).
+	FirstData = nnManagerGetData(),
+	io:fwrite("nnManager from pid ~p first data: ~p ~n",[self(),FirstData]),
+	nnManagerSetData(Data),
+	UpdatedData = nnManagerGetData(),
+	io:fwrite("nnManager from pid ~p updated data: ~p ~n",[self(),UpdatedData]).
 
