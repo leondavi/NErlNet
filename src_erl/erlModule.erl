@@ -1,7 +1,8 @@
 -module(erlModule).
 
 %% API
--export([testMatrix/2,nnManager/0,nnManagerGetData/0,nnManagerSetData/1,testnnManager/2]).
+-export([testMatrix/2,nnManager/0,nnManagerGetData/0,nnManagerSetData/1,testnnManager/2,
+	train_predict/0, train_predict/4, train_predict2/4, niftest/0, thread_create_test/0, predict/0]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
@@ -11,14 +12,19 @@
 %%  native implementation in C
 init() ->
 	RelativeDirPath = filename:dirname(filename:absname("")),
-	Nif_Module_Cpp_Path = string:concat(RelativeDirPath,"/src_cpp/./nifModule_nif"),
-  ok = erlang:load_nif(Nif_Module_Cpp_Path, 0). % Relative path
+	Nif_Module_Cpp_Path = string:concat(RelativeDirPath,"/src_cpp/./nifModule_nif"), % Relative path for nifModule_nif
+	%Nif_Module_Cpp_Path = string:concat(RelativeDirPath,"/src_py/lib/./libnifModule_nif"), % Relative path for nifModule_nif
+	%% load_info is the second argument to erlang:load_nif/2
+  ok = erlang:load_nif(Nif_Module_Cpp_Path, 0).
 
 % todo: delete function foo
 %% Add 1 - using int
-%foo(_X) ->
-  %% Each NIF must have an implementation in Erlang to be invoked if the function is called before the NIF library is successfully loaded. A typical such stub implementation is to call erlang:nif_error which will raise an exception. The Erlang function can also be used as a fallback implementation if the NIF library lacks implementation for some OS or hardware architecture for example.
-%  exit(nif_library_not_loaded).
+%%foo(_X) ->
+  %% Each NIF must have an implementation in Erlang to be invoked if the function is called before the NIF library is successfully loaded.
+  %% A typical such stub implementation is to call erlang:nif_error which will raise an exception.
+  %% The Erlang function can also be used as a fallback implementation if the NIF library lacks implementation for some OS
+  %% or hardware architecture for example.
+  % exit(nif_library_not_loaded).
 
 
 %%----------------------------------------------------
@@ -87,3 +93,34 @@ start(Data) ->
 	UpdatedData = nnManagerGetData(),
 	io:fwrite("nnManager from pid ~p updated data: ~p ~n",[self(),UpdatedData]).
 
+%%---------------------------------------------------
+%% Train module
+%% MatrixXd data_mat - list of lists, MatrixXd label_mat - list of lists,
+%% std::vector<uint32_t> layers_sizes - list, int train_predict - integer (0-train, 1-predict)
+train_predict(data_mat, label_mat, layers_sizes, train_predict) ->
+	exit(nif_library_not_loaded).
+
+train_predict() ->
+	exit(nif_library_not_loaded).
+
+%% train_predict - mode: 1 - train, 2 - predict
+train_predict2(train_predict, data_mat, label_mat, layers_sizes) ->
+	exit(nif_library_not_loaded).
+
+niftest() ->
+	io:fwrite("start train_predict ~n"),
+	_Pid1 = spawn(fun()->train_predict(1,2,3,4) end),
+	io:fwrite("start sleep 1 seconds ~n"),
+	_Pid4 = spawn(fun()->timer:sleep(1000) end),
+	io:fwrite("start train_predict2 ~n"),
+	_Pid2 = spawn(fun()->train_predict2(1,2,3,4) end),
+	io:fwrite("start sleep 1 seconds ~n"),
+	_Pid3 = spawn(fun()->timer:sleep(1000) end),
+	timer:sleep(1000),
+	io:fwrite("finish all ~n").
+
+thread_create_test() ->
+	exit(nif_library_not_loaded).
+
+predict() ->
+	exit(nif_library_not_loaded).
