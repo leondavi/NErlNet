@@ -20,10 +20,6 @@ std::vector<double> square(std::vector<double> listVec) {
     return listVec;
 }
 /*
-int foo(int x) {
-  return x+1;
-}
-
 //-------------------------------
 
 
@@ -189,6 +185,8 @@ static ERL_NIF_TERM nnManagerSetData_nif(ErlNifEnv* env, int argc, const ERL_NIF
     return enif_make_int(env, data);
 }
 
+int m = 3;
+
 // Predict function
 static void* predictFun(void *arg){
 
@@ -209,17 +207,59 @@ static void* trainFun(void *arg){
 
 static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    // mode = 1 - train, 2 - predict
+    // mode = 0 - model creation, 1 - train, 2 - predict
     int mode;
 
     if (!enif_get_int(env, argv[0], &mode)) {
         return enif_make_badarg(env);
     }
 
+    // Create model
+    if(mode == 0){
+        //ErlNifTid tid;
+        //int *argP = &m;
+
+        int optimizer;
+        double learning_rate, train_set_size;
+        std::vector<double> layers_sizes, activation_list;
+        ERL_NIF_TERM ret_data_mat, ret_label_mat, ret_layers_sizes;
+
+        try{
+            nifpp::get_throws(env, argv[1], data_mat);
+            nifpp::get_throws(env, argv[2], label_mat);
+            nifpp::get_throws(env, argv[3], layers_sizes);
+            ret_data_mat = nifpp::make(env, data_mat);
+            ret_label_mat = nifpp::make(env, label_mat);
+            ret_layers_sizes = nifpp::make(env, layers_sizes);
+            return ret_label_mat;
+        }
+        catch(nifpp::badarg){
+           return enif_make_badarg(env);
+        }
+    }
     // Train mode
-    if(mode == 1){
-        ErlNifTid tid;
-        int *argP = &t;
+    else if(mode == 1){
+        //ErlNifTid tid;
+        //int *argP = &m;
+
+        std::vector<double> data_mat,label_mat, layers_sizes;
+        ERL_NIF_TERM ret_data_mat, ret_label_mat, ret_layers_sizes;
+
+        try{
+            nifpp::get_throws(env, argv[1], data_mat);
+            nifpp::get_throws(env, argv[2], label_mat);
+            nifpp::get_throws(env, argv[3], layers_sizes);
+            ret_data_mat = nifpp::make(env, data_mat);
+            ret_label_mat = nifpp::make(env, label_mat);
+            ret_layers_sizes = nifpp::make(env, layers_sizes);
+            return ret_label_mat;
+        }
+        catch(nifpp::badarg){
+           return enif_make_badarg(env);
+        }
+
+
+        //  MatrixXd data_mat(4,8);
 
         // int enif_thread_create(char *name, ErlNifTid *tid, void * (*func)(void *), void *args, ErlNifThreadOpts *opts)
         // name -A string identifying the created thread. It is used to identify the thread in planned future debug functionality.
@@ -240,13 +280,12 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     // Predict mode
     else if (mode == 2){
         ErlNifTid tid;
-        int *argP = &t;
+        int *argP = &m;
 
         int res = enif_thread_create((char*)"predict", &tid, predictFun, argP, NULL);
         return enif_make_int(env, res);
         printf("finish predict nif.\n");
     }
-
     //deafault_test();
     /*nnManager *s = s->GetInstance();
     int data;
@@ -262,7 +301,7 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     //printf("Wait for 10 seconds to exit.\n");
     //std::this_thread::sleep_for(std::chrono::seconds(10));
 
-    return enif_make_int(env, 1);
+    return enif_make_int(env, mode);
 }
 
 
@@ -332,11 +371,11 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 // Describes a NIF by its name in erlang, arity, implementation in c/c++ (ERL_NIF_TERM) and dirty nif flag.
 static ErlNifFunc nif_funcs[] = {
-    //{"foo", 1, foo_nif},
     {"nnManagerGetData", 0, nnManagerGetData_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"nnManagerSetData", 1, nnManagerSetData_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
-    {"train_predict", 0, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND},
-    {"train_predict2", 4, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"train_predict", 3, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, module_create
+
+    {"module_create", 3, module_create_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // TODO: add module_create_nif
 
     {"predict", 0, predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"thread_create_test", 0, thread_create_test_nif},
