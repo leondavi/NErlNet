@@ -2,7 +2,8 @@
 
 %% API
 -export([testMatrix/2,nnManager/0,nnManagerGetData/0,nnManagerSetData/1,testnnManager/2,
-	train_predict/0, train_predict/3, train_predict2double/3, niftest/0, thread_create_test/0, predict/0, module_create/6]).
+	 train/5, create_module/6, train_predict2double/5, train_predict2double/3, niftest/0, thread_create_test/0,
+	 predict/0, module_create/5]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
@@ -65,6 +66,9 @@ dList(List) -> dList(List,[]).
 dList([],NewList) -> NewList;
 dList([H|T],NewList) -> dList(T,NewList++[H+0.0]).
 
+% Convert "int" to "double"
+dInt(Int) -> Int+0.0.
+
 %dListSquare(List)->List.
 
 %%---------------------------------------------------
@@ -94,17 +98,29 @@ start(Data) ->
 	io:fwrite("nnManager from pid ~p updated data: ~p ~n",[self(),UpdatedData]).
 
 %%---------------------------------------------------
+
+%% ---- Create module ----
 %% layers_sizes - list
 %% Learning_rate - number (0-1). Usually 1/number_of_samples
 %% Train_set_size - percentage number. Usually 70%-80%
 %% Activation_list (optional) - list
 %% Optimizer (optional) - default ADAM
-module_create(0, Layers_sizes, Learning_rate, Train_set_size, Activation_list, Optimizer)->
-  exit(nif_library_not_loaded).
+module_create(Layers_sizes, Learning_rate, Train_set_size, Activation_list, Optimizer)->
+	create_module(0, Layers_sizes, Learning_rate, dInt(Train_set_size), Activation_list, Optimizer).
 
+%% Create module
+create_module(0, _Layers_sizes, _Learning_rate, _Train_set_size, _Activation_list, _Optimizer) ->
+	exit(nif_library_not_loaded).
+
+%% ---- Train  ----
 
 %% train_predict - mode: 0 - model creation, 1 - train, 2 - predict
-%% data_mat, label_mat - list of lists
+%% Rows, Col, Labels - "int"
+%% Data_Label_mat - list of lists
+train_predict2double(Create_train_predict_mode, Rows, Col, Labels, Data_Label_mat) -> % TODO
+	%% make double list and send to train_predict
+	train_predict(Create_train_predict_mode, Rows, Col, Labels, dList(Data_Label_mat)).
+
 train_predict2double(Create_train_predict_mode, Data_mat, Label_mat) ->
 	%% make double list and send to train_predict
 	train_predict(Create_train_predict_mode, dList(Data_mat), dList(Label_mat)).
@@ -112,17 +128,19 @@ train_predict2double(Create_train_predict_mode, Data_mat, Label_mat) ->
 %% Train module
 %% MatrixXd data_mat - list of lists, MatrixXd label_mat - list of lists,
 %% std::vector<uint32_t> layers_sizes - list, int train_predict - integer
-train_predict(_Train_predict_mode, _Data_mat, _Label_mat) ->
+train_predict(_Train_predict_mode, _Rows, _Col, _Labels, _Data_Label_mat) ->
   exit(nif_library_not_loaded).
+
+
 
 
 niftest() ->
 	io:fwrite("start train_predict ~n"),
-	_Pid1 = spawn(fun()->train_predict(1,2,3,4) end),
+	_Pid1 = spawn(fun()->train_predict(1,2,3) end),
 	io:fwrite("start sleep 1 seconds ~n"),
 	_Pid4 = spawn(fun()->timer:sleep(1000) end),
 	io:fwrite("start train_predict2 ~n"),
-	_Pid2 = spawn(fun()->train_predict(1,2,3,4) end),
+	_Pid2 = spawn(fun()->train_predict(1,2,3) end),
 	io:fwrite("start sleep 1 seconds ~n"),
 	_Pid3 = spawn(fun()->timer:sleep(1000) end),
 	timer:sleep(1000),
