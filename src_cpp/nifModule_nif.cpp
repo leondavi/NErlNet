@@ -39,6 +39,41 @@ std::vector<double> square(std::vector<double> listVec) {
 */
 
 //--------------------------------------
+// ----- Structs ------
+// Create model parameters struct
+struct CreateModelParam {
+
+    int optimizer;
+    double learning_rate, train_set_size;
+    std::vector<int> activation_list;
+    std::vector<uint32_t> layers_sizes;
+    ErlNifTid tid;
+};
+
+// Train mode parameters struct
+struct TrainParam {
+
+    int rows, col, labels;
+    std::vector<double> data_label_mat;
+    ErlNifTid tid;
+};
+
+// Predict mode parameters struct
+struct PredictParam {
+
+    std::vector<double> data_mat;
+    ErlNifTid tid;
+};
+
+//TODO: delete struct
+struct TestStruct {
+
+    int data_mat;
+    ErlNifTid tid;
+};
+
+//-------------------------------------------
+
 
 // Neural network manager singleton
 class nnManager {
@@ -185,17 +220,6 @@ static ERL_NIF_TERM nnManagerSetData_nif(ErlNifEnv* env, int argc, const ERL_NIF
     return enif_make_int(env, data);
 }
 
-int m = 3;
-
-struct PredictParam {
-
-    int optimizer;
-    double learning_rate, train_set_size;
-    std::vector<int> activation_list;
-    std::vector<uint32_t> layers_sizes;
-    ErlNifTid tid;
-};
-
 
 // Predict function
 static void* predictFun(void *arg){
@@ -222,9 +246,9 @@ static void* trainFun(void *arg){
 // Create module function
 static void* createModuleFun(void *arg){
 
-    //struct PredictParam* model = (struct PredictParam*)arg;
+    struct CreateModelParam* modelPtr = (struct CreateModelParam*)arg;
 
-    //api(model->layers_sizes);
+    api(modelPtr->layers_sizes, modelPtr->learning_rate); //TODO: think about sending only the pointer, add the optional parameters
     printf("finish create module fun.\n");
 
     return 0;
@@ -242,27 +266,40 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     // Create model
     if(mode == 0){
 
-        ERL_NIF_TERM ret_layers_sizes, ret_learning_rate, ret_train_set_size;
+        //ERL_NIF_TERM ret_layers_sizes, ret_learning_rate, ret_train_set_size;
 
         //std::vector<uint32_t> argP = layers_sizes;
-
-        PredictParam* model;
+        struct CreateModelParam model;
+        CreateModelParam* modelPtr = &model;
+        //CreateModelParam* model;
 
         try{
-            nifpp::get_throws(env, argv[1], model->layers_sizes);
-            nifpp::get_throws(env, argv[2], model->learning_rate);
-            nifpp::get_throws(env, argv[3], model->train_set_size);
-            nifpp::get_throws(env, argv[4], model->activation_list); // optional
-            nifpp::get_throws(env, argv[5], model->optimizer); // optional
+            // Convert the erlang nif types to C++ types
+            nifpp::get_throws(env, argv[1], modelPtr->layers_sizes);
+            nifpp::get_throws(env, argv[2], modelPtr->learning_rate);
+            nifpp::get_throws(env, argv[3], modelPtr->train_set_size);
+            nifpp::get_throws(env, argv[4], modelPtr->activation_list); // optional
+            nifpp::get_throws(env, argv[5], modelPtr->optimizer); // optional
 
 
             //ret_layers_sizes = nifpp::make(env, model->layers_sizes);
             //ret_learning_rate = nifpp::make(env, model->learning_rate);
             //ret_train_set_size = nifpp::make(env, model->train_set_size);
 
-            int res = enif_thread_create((char*)"createModule", &(model->tid), createModuleFun, model, NULL);
+            // int enif_thread_create(char *name, ErlNifTid *tid, void * (*func)(void *), void *args, ErlNifThreadOpts *opts)
+            // name -A string identifying the created thread. It is used to identify the thread in planned future debug functionality.
+            // tid - A pointer to a thread identifier variable.
+            // func - A pointer to a function to execute in the created thread.
+            // arg - A pointer to argument to the func function.
+            // opts - A pointer to thread options to use or NULL.
+            // Returns 0 on success, otherwise an errno value is returned to indicate the error.
+            // The newly created thread begins executing in the function pointed to by func, and func is passed arg as argument.
+            // When erl_drv_thread_create returns, the thread identifier of the newly created thread is available in *tid.
+            // opts can be either a NULL pointer, or a pointer to an ErlDrvThreadOpts structure.
+            // If opts is a NULL pointer, default options are used, otherwise the passed options are used.
+            int res = enif_thread_create((char*)"createModule", &(modelPtr->tid), createModuleFun, modelPtr, 0);
 
-            printf("finish create module nif.\n");
+            printf("finish create module nif, thread_create_res:  " , res , " tid: " , modelPtr->tid , ".\n"); // TODO: add tid to print
             return enif_make_int(env, res);
         }
         catch(nifpp::badarg){
@@ -272,20 +309,28 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     }
     // Train mode
     else if(mode == 1){
-        ErlNifTid tid;
-        int *argP = &m;
 
-        std::vector<double> data_mat,label_mat, layers_sizes;
-        ERL_NIF_TERM ret_data_mat, ret_label_mat, ret_layers_sizes;
+        struct TrainParam train;
+        TrainParam* trainPtr = &train;
+
+        //int *argP = &m;
 
         try{
-            nifpp::get_throws(env, argv[1], data_mat);
-            nifpp::get_throws(env, argv[2], label_mat);
-            nifpp::get_throws(env, argv[3], layers_sizes);
-            ret_data_mat = nifpp::make(env, data_mat);
-            ret_label_mat = nifpp::make(env, label_mat);
-            ret_layers_sizes = nifpp::make(env, layers_sizes);
-            return ret_label_mat;
+            // Convert the erlang nif types to C++ types
+            nifpp::get_throws(env, argv[1], trainPtr->rows);
+            nifpp::get_throws(env, argv[2], trainPtr->col);
+            nifpp::get_throws(env, argv[3], trainPtr->labels);
+            nifpp::get_throws(env, argv[3], trainPtr->data_label_mat);
+
+            // ret_data_mat = nifpp::make(env, data_mat);
+            // ret_label_mat = nifpp::make(env, label_mat);
+            // ret_layers_sizes = nifpp::make(env, layers_sizes);
+
+
+            int res = enif_thread_create((char*)"trainModule", &(trainPtr->tid), trainFun, trainPtr, NULL);
+
+            printf("finish train module nif.\n"); // TODO: add tid to print
+            return enif_make_int(env, res);
         }
         catch(nifpp::badarg){
            return enif_make_badarg(env);
@@ -294,30 +339,33 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
 
         //  MatrixXd data_mat(4,8);
 
-        // int enif_thread_create(char *name, ErlNifTid *tid, void * (*func)(void *), void *args, ErlNifThreadOpts *opts)
-        // name -A string identifying the created thread. It is used to identify the thread in planned future debug functionality.
-        // tid - A pointer to a thread identifier variable.
-        // func - A pointer to a function to execute in the created thread.
-        // arg - A pointer to argument to the func function.
-        // opts - A pointer to thread options to use or NULL.
-        // Returns 0 on success, otherwise an errno value is returned to indicate the error.
-        // The newly created thread begins executing in the function pointed to by func, and func is passed arg as argument.
-        // When erl_drv_thread_create returns, the thread identifier of the newly created thread is available in *tid.
-        // opts can be either a NULL pointer, or a pointer to an ErlDrvThreadOpts structure.
-        // If opts is a NULL pointer, default options are used, otherwise the passed options are used.
         //int ret = enif_thread_create(NULL, &tid, nif_worker_fn, argP, NULL);
-        int res = enif_thread_create((char*)"train", &tid, trainFun, argP, NULL);
-        return enif_make_int(env, res);
-        printf("finish train nif.\n");
+        //int res = enif_thread_create((char*)"train", &tid, trainFun, argP, NULL);
+        //return enif_make_int(env, res);
+        //printf("finish train nif.\n");
     }
     // Predict mode
     else if (mode == 2){
-        ErlNifTid tid;
-        int *argP = &m;
+        //int j = 8;
+        //int* argP = &j;
 
-        int res = enif_thread_create((char*)"predict", &tid, predictFun, argP, NULL);
+        //struct TestStruct test;
+        //TestStruct* testPtr = &test;
+        //testPtr->data_mat = 3;
+
+        //ErlNifTid tid1;
+        struct PredictParam predict;
+        PredictParam* predictPtr = &predict;
+
+        // Convert the erlang nif types to C++ types
+        nifpp::get_throws(env, argv[1], predictPtr->data_mat);
+
+
+        int res = enif_thread_create((char*)"predictModule", &(predictPtr->tid), predictFun, predictPtr, NULL);
+        //int res = enif_thread_create((char*)"predictModule", &(testPtr->tid), predictFun, testPtr, NULL);
+
+        printf("finish predict nif.\n"); // TODO: add tid
         return enif_make_int(env, res);
-        printf("finish predict nif.\n");
     }
     //deafault_test();
     /*nnManager *s = s->GetInstance();
@@ -337,6 +385,7 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     return enif_make_int(env, mode);
 }
 
+// ---------------------------------
 
 static void* nif_worker_fn(void *arg){
 
@@ -381,7 +430,8 @@ static ERL_NIF_TERM thread_create_test_nif(ErlNifEnv* env, int argc, const ERL_N
 static ErlNifFunc nif_funcs[] = {
     {"nnManagerGetData", 0, nnManagerGetData_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"nnManagerSetData", 1, nnManagerSetData_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
-    {"train_predict", 3, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for train predict
+    {"train_predict", 5, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for train
+    {"train_predict", 2, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for predict
     {"create_module", 6, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for module create
 
     {"thread_create_test", 0, thread_create_test_nif},
