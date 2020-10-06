@@ -2,8 +2,8 @@
 
 %% API
 -export([testMatrix/2,nnManager/0,nnManagerGetData/0,nnManagerSetData/1,testnnManager/2,
-	 train/5, create_module/6, train_predict2double/5, train_predict2double/3, niftest/0, thread_create_test/0,
-	 predict/0, module_create/5]).
+	 create_module/6, train2double/4, predict2double/1, niftest/0, thread_create_test/0,
+	 predict/0, module_create/5, train_predict/2, train_predict/5]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
@@ -116,31 +116,47 @@ create_module(0, _Layers_sizes, _Learning_rate, _Train_set_size, _Activation_lis
 
 %% train_predict - mode: 0 - model creation, 1 - train, 2 - predict
 %% Rows, Col, Labels - "int"
-%% Data_Label_mat - list of lists
-train_predict2double(Create_train_predict_mode, Rows, Col, Labels, Data_Label_mat) -> % TODO
+%% Data_Label_mat - list
+train2double(Rows, Col, Labels, Data_Label_mat) -> % TODO
 	%% make double list and send to train_predict
-	train_predict(Create_train_predict_mode, Rows, Col, Labels, dList(Data_Label_mat)).
+	train_predict(1, Rows, Col, Labels, dList(Data_Label_mat)).
 
-train_predict2double(Create_train_predict_mode, Data_mat, Label_mat) ->
+%% Second version - optional for the future
+%%train_predict2double(Create_train_predict_mode, Data_mat, Label_mat) ->
 	%% make double list and send to train_predict
-	train_predict(Create_train_predict_mode, dList(Data_mat), dList(Label_mat)).
+	%%train_predict(Create_train_predict_mode, dList(Data_mat), dList(Label_mat)).
 
 %% Train module
-%% MatrixXd data_mat - list of lists, MatrixXd label_mat - list of lists,
-%% std::vector<uint32_t> layers_sizes - list, int train_predict - integer
-train_predict(_Train_predict_mode, _Rows, _Col, _Labels, _Data_Label_mat) ->
+%% _Rows, _Col, _Labels - "ints"
+%% _Data_Label_mat - list
+train_predict(1, _Rows, _Col, _Labels, _Data_Label_mat) ->
   exit(nif_library_not_loaded).
+
+
+%% ---- Predict ----
+
+%% _Rows, _Col, _Labels - "ints"
+%% _Data_Label_mat - list
+predict2double(_Data_mat) ->
+	%% make double list and send to train_predict
+	train_predict(2, dList(_Data_mat)).
+
+%% Predict module
+%% _Rows, _Col, _Labels - "ints"
+%% _Data_Label_mat - list
+train_predict(2, _Data_mat) ->
+	exit(nif_library_not_loaded).
 
 
 
 
 niftest() ->
 	io:fwrite("start train_predict ~n"),
-	_Pid1 = spawn(fun()->train_predict(1,2,3) end),
+	_Pid1 = spawn(fun()->train_predict(1,2,3,4,5) end),
 	io:fwrite("start sleep 1 seconds ~n"),
 	_Pid4 = spawn(fun()->timer:sleep(1000) end),
 	io:fwrite("start train_predict2 ~n"),
-	_Pid2 = spawn(fun()->train_predict(1,2,3) end),
+	_Pid2 = spawn(fun()->train_predict(1,2,3,4,5) end),
 	io:fwrite("start sleep 1 seconds ~n"),
 	_Pid3 = spawn(fun()->timer:sleep(1000) end),
 	timer:sleep(1000),
