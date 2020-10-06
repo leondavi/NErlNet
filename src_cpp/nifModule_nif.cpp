@@ -5,42 +5,20 @@
 #include <deque>
 #include "include/cppSANN/src/tests/default_test.h"
 #include "include/cppSANN/src/tests/api.h"
-//#include "include/cppSANN/src/Models/include/Model.h"
 #include <thread>
 
+// Codes for the module state
+enum ModuleMode {CREATE = 0, TRAIN = 1, PREDICT = 2};
 
-
-// -----------Functions---------------
-// todo: delete function
-std::vector<double> square(std::vector<double> listVec) {
-  
-    for(int i=0; i < listVec.size(); ++i) {
-       	listVec[i] = listVec[i]*listVec[i];
-    } 
-    return listVec;
-}
-/*
-//-------------------------------
-
-
-
-// All terms of type ERL_NIF_TERM belong to an environment of type ErlNifEnv.
-// The lifetime of a term is controlled by the lifetime of its environment object.
-// All API functions that read or write terms has the environment that the term belongs to as the first function argument.
-//static ERL_NIF_TERM foo_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-//{
- //   int x, ret;
-  //  if (!enif_get_int(env, argv[0], &x)) {
-//	return enif_make_badarg(env);
- //   }
-  //  ret = foo(x);
-   // return enif_make_int(env, ret);
-//}
-*/
-
-//--------------------------------------
 // ----- Structs ------
+
 // Create model parameters struct
+// layers_sizes - list in erlang. represents the layers sizes of the neural network
+// Learning_rate - number (0-1). Usually 1/number_of_samples
+// Train_set_size - percentage number. Usually 70%-80%. Represents the portion of the data that we train
+// Activation_list (optional) - list
+// Optimizer (optional) - default ADAM
+// tid - unique thread identification
 struct CreateModelParam {
 
     int optimizer;
@@ -51,6 +29,10 @@ struct CreateModelParam {
 };
 
 // Train mode parameters struct
+// rows, col - Represents the rows and columns of the data matrix
+// labels - Represents the label portion of tha label matrix from the data_label matrix
+// tid - unique thread identification
+// data_Label_mat - list in erlang. Represents tha data and the label matrix (last columns) together
 struct TrainParam {
 
     int rows, col, labels;
@@ -59,16 +41,11 @@ struct TrainParam {
 };
 
 // Predict mode parameters struct
+// data_mat - The data matrix without the labels
+// tid - unique thread identification
 struct PredictParam {
 
     std::vector<double> data_mat;
-    ErlNifTid tid;
-};
-
-//TODO: delete struct
-struct TestStruct {
-
-    int data_mat;
     ErlNifTid tid;
 };
 
@@ -163,6 +140,9 @@ public:
 
 };
 
+// All terms of type ERL_NIF_TERM belong to an environment of type ErlNifEnv.
+// The lifetime of a term is controlled by the lifetime of its environment object.
+// All API functions that read or write terms has the environment that the term belongs to as the first function argument.
 static ERL_NIF_TERM nnManager_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	
@@ -220,8 +200,9 @@ static ERL_NIF_TERM nnManagerSetData_nif(ErlNifEnv* env, int argc, const ERL_NIF
     return enif_make_int(env, data);
 }
 
+// ---------------------------------------------------
 
-// Predict function
+// Predict function - runs on a separate thread (thread_create)
 static void* predictFun(void *arg){
 
     //int * argP;
@@ -232,7 +213,7 @@ static void* predictFun(void *arg){
     return 0;
 }
 
-// Train function
+// Train function - runs on a separate thread (thread_create)
 static void* trainFun(void *arg){
 
     //int * argP;
@@ -243,28 +224,32 @@ static void* trainFun(void *arg){
     return 0;
 }
 
-// Create module function
+// Create module function - runs on a separate thread (thread_create)
 static void* createModuleFun(void *arg){
 
     struct CreateModelParam* modelPtr = (struct CreateModelParam*)arg;
 
-    api(modelPtr->layers_sizes, modelPtr->learning_rate); //TODO: think about sending only the pointer, add the optional parameters
+    //deafault_test();
+    api(modelPtr->layers_sizes, modelPtr->learning_rate); //TODO: think about sending only the pointer,add the optional parameters and check why I can't run it more then once
+    //api(modelPtr);
     printf("finish create module fun.\n");
 
     return 0;
 }
 
+// Train, Predict and Create module nif
 static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     // mode = 0 - model creation, 1 - train, 2 - predict
     int mode;
 
+    // Get mode (int) from erlang term
     if (!enif_get_int(env, argv[0], &mode)) {
         return enif_make_badarg(env);
     }
 
-    // Create model
-    if(mode == 0){
+    // Create model - 0
+    if(mode == CREATE){
 
         //ERL_NIF_TERM ret_layers_sizes, ret_learning_rate, ret_train_set_size;
 
@@ -275,6 +260,8 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
 
         try{
             // Convert the erlang nif types to C++ types
+            // get_throws is a template wrapper for enif_get_XXX(). Provides the option to use c++ types.
+            // It will throw nifpp::badarg upon failure unlike nifpp::get() that will return true on success, false on failure.
             nifpp::get_throws(env, argv[1], modelPtr->layers_sizes);
             nifpp::get_throws(env, argv[2], modelPtr->learning_rate);
             nifpp::get_throws(env, argv[3], modelPtr->train_set_size);
@@ -299,7 +286,7 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
             // If opts is a NULL pointer, default options are used, otherwise the passed options are used.
             int res = enif_thread_create((char*)"createModule", &(modelPtr->tid), createModuleFun, modelPtr, 0);
 
-            printf("finish create module nif, thread_create_res:  " , res , " tid: " , modelPtr->tid , ".\n"); // TODO: add tid to print
+            printf("finish create module nif.\n"); // TODO: add tid  and res to print
             return enif_make_int(env, res);
         }
         catch(nifpp::badarg){
@@ -307,13 +294,11 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
             return enif_make_badarg(env);
         }
     }
-    // Train mode
-    else if(mode == 1){
+    // Train mode - 1
+    else if(mode == TRAIN){
 
         struct TrainParam train;
         TrainParam* trainPtr = &train;
-
-        //int *argP = &m;
 
         try{
             // Convert the erlang nif types to C++ types
@@ -326,8 +311,7 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
             // ret_label_mat = nifpp::make(env, label_mat);
             // ret_layers_sizes = nifpp::make(env, layers_sizes);
 
-
-            int res = enif_thread_create((char*)"trainModule", &(trainPtr->tid), trainFun, trainPtr, NULL);
+            int res = enif_thread_create((char*)"trainModule", &(trainPtr->tid), trainFun, trainPtr, 0);
 
             printf("finish train module nif.\n"); // TODO: add tid to print
             return enif_make_int(env, res);
@@ -335,34 +319,17 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
         catch(nifpp::badarg){
            return enif_make_badarg(env);
         }
-
-
-        //  MatrixXd data_mat(4,8);
-
-        //int ret = enif_thread_create(NULL, &tid, nif_worker_fn, argP, NULL);
-        //int res = enif_thread_create((char*)"train", &tid, trainFun, argP, NULL);
-        //return enif_make_int(env, res);
-        //printf("finish train nif.\n");
     }
-    // Predict mode
-    else if (mode == 2){
-        //int j = 8;
-        //int* argP = &j;
+    // Predict mode - 2
+    else if (mode == PREDICT){
 
-        //struct TestStruct test;
-        //TestStruct* testPtr = &test;
-        //testPtr->data_mat = 3;
-
-        //ErlNifTid tid1;
         struct PredictParam predict;
         PredictParam* predictPtr = &predict;
 
         // Convert the erlang nif types to C++ types
         nifpp::get_throws(env, argv[1], predictPtr->data_mat);
 
-
-        int res = enif_thread_create((char*)"predictModule", &(predictPtr->tid), predictFun, predictPtr, NULL);
-        //int res = enif_thread_create((char*)"predictModule", &(testPtr->tid), predictFun, testPtr, NULL);
+        int res = enif_thread_create((char*)"predictModule", &(predictPtr->tid), predictFun, predictPtr, 0);
 
         printf("finish predict nif.\n"); // TODO: add tid
         return enif_make_int(env, res);
@@ -386,6 +353,8 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
 }
 
 // ---------------------------------
+
+// ---test---- TODO: delete
 
 static void* nif_worker_fn(void *arg){
 
@@ -421,20 +390,18 @@ static ERL_NIF_TERM thread_create_test_nif(ErlNifEnv* env, int argc, const ERL_N
     return enif_make_int(env, res);
 }
 
+// ---- end test ----
+
 //--------------------------------------
-
-
-
 
 // Describes a NIF by its name in erlang, arity, implementation in c/c++ (ERL_NIF_TERM) and dirty nif flag.
 static ErlNifFunc nif_funcs[] = {
     {"nnManagerGetData", 0, nnManagerGetData_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
     {"nnManagerSetData", 1, nnManagerSetData_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
-    {"train_predict", 5, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for train
-    {"train_predict", 2, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for predict
-    {"create_module", 6, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for module create
-
-    {"thread_create_test", 0, thread_create_test_nif},
+    {"train_predict", 5, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For train
+    {"train_predict", 2, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For predict
+    {"create_module", 6, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For module create
+    {"thread_create_test", 0, thread_create_test_nif}, // TODO: delete test
     {"nnManager", 0, nnManager_nif}
 };
 
@@ -456,5 +423,4 @@ static int load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
 // NULL - The fourth argument NULL is ignored. It was earlier used for the deprecated reload callback which is no longer supported since OTP 20.
 // The remaining arguments are pointers to callback functions that can be used to initialize the library.
 // They are not used in this simple example, hence they are all set to NULL.
-
 ERL_NIF_INIT(erlModule, nif_funcs, load, NULL, NULL, NULL)
