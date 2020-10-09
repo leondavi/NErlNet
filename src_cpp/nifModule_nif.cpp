@@ -229,15 +229,6 @@ static void* predictFun(void *arg){
 // Train function - runs on a separate thread (thread_create)
 static void* trainFun(void *arg){
 
-    //int * argP;
-    //argP = (int *)arg;
-
-    //int rows, col, labels;
-    //std::vector<double> data_label_mat;
-    //ErlNifTid tid;
-
-    //api(/*modelPtr->layers_sizes,*/ modelPtr->learning_rate);
-
     TrainParam* trainPtr = (TrainParam*)arg;
 
     // Get the singleton instance
@@ -246,24 +237,29 @@ static void* trainFun(void *arg){
     // Get the model from the singleton
     SANN::Model* modelPtr = s-> getModelPtr(0); // TODO: make it general, change the 0
 
-    // Get the data matrix from the data_label_mat vector
+    // Get the data matrix from the data_label_mat vector and initialize the data matrix. TODO: Think how to do it native to eigen
+    MatrixXd data_mat(trainPtr->rows, trainPtr->col);
+    int i = 0;
+    for (int r = 0; r < trainPtr->rows; r++){
+        for (int c = 0; c < trainPtr->col; c++){
+            data_mat(r,c) = trainPtr->data_label_mat[i];
+            i++;
+        }
+    }
 
-    /*MatrixXd data_mat(4,8); data_mat <<  1,2,3,2,3,2,1,0,
-                                         1,2,3,2,3,2,1,0,
-                                         1,2,3,2,3,2,1,0,
-                                         1,2,3,2,3,2,1,0;
-
-    // Get the label matrix from the data_label_mat vector
-
-    trainPtr->rows;
-    trainPtr->col;
-    trainPtr->labels;
-    trainPtr->data_label_mat;
-
+    // Get the label matrix from the data_label_mat vector and initialize the label matrix
+    MatrixXd label_mat(trainPtr->rows, trainPtr->labels);
+    int j = 1;
+    for (int r = 0; r < trainPtr->rows; r++){
+        for (int c = 0; c < trainPtr->labels; c++){
+            label_mat(r,c) = trainPtr->data_label_mat[i+j]; // TODO: correct it
+            j++;
+        }
+    }
 
     // Train the model with recieved parameters
-    modelPtr->train(trainPtr->data_mat,trainPtr->label_mat,true); // TODO: the true parameter is redundant
-*/
+    modelPtr->train(data_mat,label_mat,true); // TODO: the true parameter is redundant
+
     printf("finish train fun.\n");
 
     return 0;
