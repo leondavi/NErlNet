@@ -151,12 +151,12 @@ train_predict(2, _Data_mat) ->
 
 
 niftest() ->
-	io:fwrite("start train_predict ~n"),
-	_Pid1 = spawn(fun()->train_predict(1,2,3,4,5) end),
-	io:fwrite("start sleep 1 seconds ~n"),
-	_Pid4 = spawn(fun()->timer:sleep(1000) end),
-	io:fwrite("start train_predict2 ~n"),
-	_Pid2 = spawn(fun()->train_predict(1,2,3,4,5) end),
+	io:fwrite("start module_create ~n"),
+	_Pid1 = spawn(fun()->module_create([8,4,3,2], 0.01, 80, [2,1,1,2], 1) end),
+	io:fwrite("start sleep 10 seconds ~n"),
+	_Pid4 = spawn(fun()->timer:sleep(10000) end),
+	io:fwrite("start module_create ~n"),
+	_Pid2 = spawn(fun()->erlModule:module_create([8,4,3,2], 0.01, 80, [2,1,1,2], 1) end),
 	io:fwrite("start sleep 1 seconds ~n"),
 	_Pid3 = spawn(fun()->timer:sleep(1000) end),
 	timer:sleep(1000),
