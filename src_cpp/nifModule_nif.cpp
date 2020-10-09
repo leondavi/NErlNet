@@ -49,6 +49,14 @@ struct PredictParam {
     ErlNifTid tid;
 };
 
+
+struct MidStruct {
+
+    SANN::Model model;
+    ErlNifTid tid;
+    //TODO: add PID
+};
+
 //-------------------------------------------
 
 
@@ -59,16 +67,16 @@ private:
     //static std::mutex mutex_;
 protected:
     ~nnManager() {}
-    std::unordered_map<int, int> midTidMap; // <Mid,Pid> - Model id, process id
-    std::unordered_map<int, int> pidTidMap; // <Pid,Tid> - Process id, Thread id
+    //std::unordered_map<int, int> midTidMap; // <Mid,Pid> - Model id, process id
+    //std::unordered_map<int, int> pidTidMap; // <Pid,Tid> - Process id, Thread id
+    std::unordered_map<int, SANN::Model*> MidNumModel; // <Mid,Model struct>
     int data;
+
 
     nnManager() {
         data = 0;
+        //SANN::Model model(layers_sizes,learning_rate);
     }
-
-    //thread_create(model_id) {
-    //}
 
 public:
     /**
@@ -100,8 +108,13 @@ public:
         return this -> data;
     }
 
-    void setData(int data) {
-        this -> data = data;
+    SANN::Model* getModelPtr(int data){
+        return this->MidNumModel[data];
+    }
+
+    void setData(SANN::Model * modelPtr) {
+        this -> data = this->data + 1;
+        this -> MidNumModel.insert({ this->data, modelPtr });
     }
 };
 
@@ -195,7 +208,7 @@ static ERL_NIF_TERM nnManagerSetData_nif(ErlNifEnv* env, int argc, const ERL_NIF
     if (!enif_get_int(env, argv[0], &data)) {
 	return enif_make_badarg(env);
     }
-    s->setData(data);
+   // s->setData(data);
 
     return enif_make_int(env, data);
 }
@@ -219,23 +232,65 @@ static void* trainFun(void *arg){
     //int * argP;
     //argP = (int *)arg;
 
+    //int rows, col, labels;
+    //std::vector<double> data_label_mat;
+    //ErlNifTid tid;
+
+    //api(/*modelPtr->layers_sizes,*/ modelPtr->learning_rate);
+
+    TrainParam* trainPtr = (TrainParam*)arg;
+
+    // Get the singleton instance
+    nnManager *s = s->GetInstance();
+
+    // Get the model from the singleton
+    SANN::Model* modelPtr = s-> getModelPtr(0); // TODO: make it general, change the 0
+
+    // Get the data matrix from the data_label_mat vector
+
+    /*MatrixXd data_mat(4,8); data_mat <<  1,2,3,2,3,2,1,0,
+                                         1,2,3,2,3,2,1,0,
+                                         1,2,3,2,3,2,1,0,
+                                         1,2,3,2,3,2,1,0;
+
+    // Get the label matrix from the data_label_mat vector
+
+    trainPtr->rows;
+    trainPtr->col;
+    trainPtr->labels;
+    trainPtr->data_label_mat;
+
+
+    // Train the model with recieved parameters
+    modelPtr->train(trainPtr->data_mat,trainPtr->label_mat,true); // TODO: the true parameter is redundant
+*/
     printf("finish train fun.\n");
 
     return 0;
 }
-
+/*
 // Create module function - runs on a separate thread (thread_create)
 static void* createModuleFun(void *arg){
 
     struct CreateModelParam* modelPtr = (struct CreateModelParam*)arg;
 
+
+    //std::vector<uint32_t> layers_sizes{8,4,3,2};
+   // std::vector<act_t> act_types_vec{act_t::ACT_NONE,act_t::ACT_SIGMOID,act_t::ACT_SIGMOID,act_t::ACT_NONE};
+    //SANN::Model model(layers_sizes,0.01);
+    //model.set_activations(act_types_vec);
+   // model.set_optimizer(Optimizers::OPT_ADAM);//The default is Adam optimizer but you can select another
+
+    //std::vector<uint32_t> layers_sizes{8,4,3,2};
+
     //deafault_test();
     api(modelPtr->layers_sizes, modelPtr->learning_rate); //TODO: think about sending only the pointer,add the optional parameters and check why I can't run it more then once
-    //api(modelPtr);
+    //api();
+    //api(modelPtr->learning_rate);
     printf("finish create module fun.\n");
 
     return 0;
-}
+}*/
 
 // Train, Predict and Create module nif
 static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -254,9 +309,10 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
         //ERL_NIF_TERM ret_layers_sizes, ret_learning_rate, ret_train_set_size;
 
         //std::vector<uint32_t> argP = layers_sizes;
-        struct CreateModelParam model;
-        CreateModelParam* modelPtr = &model;
+        //struct CreateModelParam model;
+       // CreateModelParam* modelPtr = &model;
         //CreateModelParam* model;
+        CreateModelParam* modelPtr = new CreateModelParam(); //TODO: IN the future change to shared/unique pointers
 
         try{
             // Convert the erlang nif types to C++ types
@@ -267,6 +323,24 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
             nifpp::get_throws(env, argv[3], modelPtr->train_set_size);
             nifpp::get_throws(env, argv[4], modelPtr->activation_list); // optional
             nifpp::get_throws(env, argv[5], modelPtr->optimizer); // optional
+
+            // Default parameter. TODO: Will be changed in the future
+            std::vector<act_t> act_types_vec{act_t::ACT_NONE,act_t::ACT_SIGMOID,act_t::ACT_SIGMOID,act_t::ACT_NONE};
+
+            //MidStruct* MidStructPtr = new MidStruct();
+
+            // Create the model with the default and received parameters
+            SANN::Model model(modelPtr->layers_sizes,modelPtr->learning_rate);
+            model.set_activations(act_types_vec);
+            model.set_optimizer(Optimizers::OPT_ADAM);//The default is Adam optimizer but you can select another
+
+            SANN::Model *modelPtr = &model;
+
+            // Create the singleton instance
+            nnManager *s = s->GetInstance();
+
+            // Put the model record to the map
+            s->setData(modelPtr);
 
 
             //ret_layers_sizes = nifpp::make(env, model->layers_sizes);
@@ -284,10 +358,10 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
             // When erl_drv_thread_create returns, the thread identifier of the newly created thread is available in *tid.
             // opts can be either a NULL pointer, or a pointer to an ErlDrvThreadOpts structure.
             // If opts is a NULL pointer, default options are used, otherwise the passed options are used.
-            int res = enif_thread_create((char*)"createModule", &(modelPtr->tid), createModuleFun, modelPtr, 0);
+            //int res = enif_thread_create((char*)"createModule", &(modelPtr->tid), createModuleFun, modelPtr, 0);
 
-            printf("finish create module nif.\n"); // TODO: add tid  and res to print
-            return enif_make_int(env, res);
+            printf("finish create module nif.\n");
+            return enif_make_int(env, 2); // TODO: change the return value
         }
         catch(nifpp::badarg){
             //return enif_make_int(env, mode);
@@ -297,8 +371,10 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
     // Train mode - 1
     else if(mode == TRAIN){
 
-        struct TrainParam train;
-        TrainParam* trainPtr = &train;
+        //struct TrainParam train;
+        //TrainParam* trainPtr = &train;
+
+        TrainParam* trainPtr = new TrainParam(); //TODO: IN the future change to shared/unique pointers
 
         try{
             // Convert the erlang nif types to C++ types
@@ -310,6 +386,8 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
             // ret_data_mat = nifpp::make(env, data_mat);
             // ret_label_mat = nifpp::make(env, label_mat);
             // ret_layers_sizes = nifpp::make(env, layers_sizes);
+
+
 
             int res = enif_thread_create((char*)"trainModule", &(trainPtr->tid), trainFun, trainPtr, 0);
 
