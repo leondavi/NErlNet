@@ -1,9 +1,9 @@
 -module(erlModule).
 
 %% API
--export([testMatrix/2,nnManager/0,nnManagerGetData/0,nnManagerGetModelPtr/1 ,nnManagerSetData/1,testnnManager/2,
+-export([testMatrix/2,nnManager/0,nnManagerGetMid/0,nnManagerGetModelPtr/1 ,nnManagerSetData/1,testnnManager/2,
 	 create_module/6, train2double/5, predict2double/4, niftest/0, thread_create_test/0,
-	 predict/0, module_create/5, train_predict/5, train_predict/6, nnManagerSetModelPtrDat/2]).
+	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, nnManagerSetModelPtrDat/2]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
@@ -75,7 +75,7 @@ dInt(Int) -> Int+0.0.
 nnManager()->
 	exit(nif_library_not_loaded).
 
-nnManagerGetData() ->
+nnManagerGetMid() ->
 	exit(nif_library_not_loaded).
 
 nnManagerGetModelPtr(_Mid) ->
@@ -88,19 +88,19 @@ nnManagerSetData(_Int) ->
 	exit(nif_library_not_loaded).
 
 testnnManager(Data1,Data2) ->
-	A = nnManagerGetData(),
+	A = nnManagerGetMid(),
 	io:fwrite("nnManager initial data: ~p ~n",[A]),
 	_Pid1 = spawn(fun()->start(Data1) end),
 	_Pid2 = spawn(fun()->start(Data2) end),
 	timer:sleep(100),
-	B = nnManagerGetData(),
+	B = nnManagerGetMid(),
 	io:fwrite("nnManager finish data: ~p ~n",[B]).
 
 start(Data) ->
-	FirstData = nnManagerGetData(),
+	FirstData = nnManagerGetMid(),
 	io:fwrite("nnManager from pid ~p first data: ~p ~n",[self(),FirstData]),
 	nnManagerSetData(Data),
-	UpdatedData = nnManagerGetData(),
+	UpdatedData = nnManagerGetMid(),
 	io:fwrite("nnManager from pid ~p updated data: ~p ~n",[self(),UpdatedData]).
 
 %%---------------------------------------------------
@@ -120,22 +120,22 @@ create_module(0, _Layers_sizes, _Learning_rate, _Train_set_size, _Activation_lis
 
 %% ---- Train  ----
 
-%% train_predict - mode: 0 - model creation, 1 - train, 2 - predict
+%% train_predict_create - mode: 0 - model creation, 1 - train, 2 - predict
 %% Rows, Col, Labels - "int"
 %% Data_Label_mat - list
 train2double(Rows, Col, Labels, Data_Label_mat, ModelId) -> % TODO
-	%% make double list and send to train_predict
-	train_predict(1, Rows, Col, Labels, dList(Data_Label_mat), ModelId).
+	%% make double list and send to train_predict_create
+	train_predict_create(1, Rows, Col, Labels, dList(Data_Label_mat), ModelId).
 
 %% Second version - optional for the future
 %%train_predict2double(Create_train_predict_mode, Data_mat, Label_mat) ->
-	%% make double list and send to train_predict
-	%%train_predict(Create_train_predict_mode, dList(Data_mat), dList(Label_mat)).
+	%% make double list and send to train_predict_create
+	%%train_predict_create(Create_train_predict_mode, dList(Data_mat), dList(Label_mat)).
 
 %% Train module
 %% _Rows, _Col, _Labels - "ints"
 %% _Data_Label_mat - list
-train_predict(1, _Rows, _Col, _Labels, _Data_Label_mat, _ModelId) ->
+train_predict_create(1, _Rows, _Col, _Labels, _Data_Label_mat, _ModelId) ->
   exit(nif_library_not_loaded).
 
 
@@ -144,13 +144,13 @@ train_predict(1, _Rows, _Col, _Labels, _Data_Label_mat, _ModelId) ->
 %% _Rows, _Col, _Labels - "ints"
 %% _Data_Label_mat - list
 predict2double(_Data_mat, _rows, _cols, _ModelId) ->
-	%% make double list and send to train_predict
-	train_predict(2, dList(_Data_mat), _rows, _cols, _ModelId).
+	%% make double list and send to train_predict_create
+	train_predict_create(2, dList(_Data_mat), _rows, _cols, _ModelId).
 
 %% Predict module
 %% _Rows, _Col, _Labels - "ints"
 %% _Data_Label_mat - list
-train_predict(2, _Data_mat, _rows, _cols, _ModelId) ->
+train_predict_create(2, _Data_mat, _rows, _cols, _ModelId) ->
 	exit(nif_library_not_loaded).
 
 
