@@ -6,6 +6,7 @@
 #include "include/cppSANN/src/tests/default_test.h"
 //#include "include/cppSANN/src/tests/api.h"
 #include <thread>
+#include <memory>
 
 // Codes for the module state
 enum ModuleMode {CREATE = 0, TRAIN = 1, PREDICT = 2};
@@ -35,9 +36,10 @@ struct CreateModelParam {
 // data_Label_mat - list in erlang. Represents tha data and the label matrix (last columns) together
 struct TrainParam {
 
-    int rows, col, labels;
+    int rows, col, labels, mid;
     std::vector<double> data_label_mat;
     ErlNifTid tid;
+    ErlNifPid pid;
 };
 
 // Predict mode parameters struct
@@ -45,9 +47,11 @@ struct TrainParam {
 // tid - unique thread identification
 struct PredictParam {
 
-    int rows, cols;
+    int rows, cols, mid;
     std::vector<double> data_mat;
     ErlNifTid tid;
+    ErlNifPid pid;
+    ErlNifEnv* envi;
 };
 
 
@@ -67,15 +71,14 @@ private:
     static nnManager *instance;
     //static std::mutex mutex_;
 protected:
-    //~nnManager() {}
+    ~nnManager() {}
     //std::unordered_map<int, int> midTidMap; // <Mid,Pid> - Model id, process id
     //std::unordered_map<int, int> pidTidMap; // <Pid,Tid> - Process id, Thread id
-    std::unordered_map<int, SANN::Model*> MidNumModel; // <Mid,Model struct>
-    int data;
-
+    std::unordered_map<int, std::shared_ptr<SANN::Model>> MidNumModel; // <Mid,Model struct>
+    int mid;
 
     nnManager() {
-        data = 0;
+        mid = 0;
     }
 
 public:
@@ -105,16 +108,16 @@ public:
     static nnManager *GetInstance();
 
     int getData() {
-        return this -> data;
+        return this -> mid;
     }
 
-    SANN::Model* getModelPtr(int data){
-        return this->MidNumModel[data];
+    std::shared_ptr<SANN::Model> getModelPtr(int mid){
+        return this->MidNumModel[mid];
     }
 
-    void setData(SANN::Model * modelPtr) {
-        this -> MidNumModel.insert({ this->data, modelPtr });
-        this -> data = this->data + 1;
+    void setData(std::shared_ptr<SANN::Model> modelPtr) {
+        this -> MidNumModel.insert({ this->mid, modelPtr });
+        this -> mid = this->mid + 1;
     }
 };
 
@@ -181,32 +184,53 @@ static ERL_NIF_TERM nnManagerGetData_nif(ErlNifEnv* env, int argc, const ERL_NIF
     return enif_make_int(env, data);
 }
 
+// TODO: implement this function just if needed
 static ERL_NIF_TERM nnManagerGetModelPtr_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    int mid;
+    int mid, ret;
 
     if (!enif_get_int(env, argv[0], &mid)) {
         return enif_make_badarg(env);
     }
 
     nnManager *s = s->GetInstance();
-    SANN::Model* model = s->getModelPtr(mid);
+    std::shared_ptr<SANN::Model> model = s->getModelPtr(mid);
+    ret = model->getDat();
 
-    return enif_make_int(env, mid); // todo: change to something else
+    return enif_make_int(env, ret); // todo: change to something else
 }
+
+static ERL_NIF_TERM nnManagerSetModelPtrDat_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    int dat, ret ,mid;
+
+    if (!enif_get_int(env, argv[0], &dat)) {
+        return enif_make_badarg(env);
+    }
+    if (!enif_get_int(env, argv[1], &mid)) {
+        return enif_make_badarg(env);
+    }
+
+    nnManager *s = s->GetInstance();
+    std::shared_ptr<SANN::Model> model = s->getModelPtr(mid);
+    ret = model->setDat(dat);
+
+    return enif_make_int(env, ret); // todo: change to something else
+}
+
 
 
 static ERL_NIF_TERM nnManagerSetData_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     nnManager *s = s->GetInstance();
-    int data;
+    int mid;
 
-    if (!enif_get_int(env, argv[0], &data)) {
+    if (!enif_get_int(env, argv[0], &mid)) {
 	return enif_make_badarg(env);
     }
-   // s->setData(data);
+    //s->setData(mid);
 
-    return enif_make_int(env, data);
+    return enif_make_int(env, mid);
 }
 
 // ---------------------------------------------------
@@ -220,7 +244,7 @@ static void* predictFun(void *arg){
     nnManager *s = s->GetInstance();
 
     // Get the model from the singleton
-    SANN::Model* modelPtr = s-> getModelPtr(0); // TODO: make it general, change the 0
+    std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(predictPtr->mid);
 
     // Get the data(predict) matrix from the data_label_mat vector and initialize the data matrix. TODO: Think how to do it native to eigen
     MatrixXd data_matrix(predictPtr->rows, predictPtr->cols); // TODO: send the col and rows
@@ -240,11 +264,38 @@ static void* predictFun(void *arg){
     }
 
     // Predict model with received parameters
-    MatrixXd results = modelPtr->predict(data_matrix); //todo: change data_with_noise
+    MatrixXd resultsMat = modelPtr->predict(data_matrix);
 
     //TODO: update the result matrix in a visible place
+    std::vector<double> results_vec;
+    int index = 0;
+    for (int r = 0; r < resultsMat.rows(); r++){
+        for (int c = 0; c < resultsMat.cols(); c++){
+            results_vec.push_back(resultsMat(r,c));
+            //std::cout<<results_vec[index]<< " " << std::endl; // Debug print
+            index++;
+        }
+    }
 
-    std::cout<<"results: \n"<<results<<std::endl;
+    std::cout<<"results: \n"<<resultsMat<<std::endl;
+
+
+    std::cout<<predictPtr->envi<< " " << std::endl;
+    //ERL_NIF_TERM retResults = nifpp::make(predictPtr->envi, results_vec);
+    nifpp::TERM retResults = nifpp::make(predictPtr->envi, results_vec);
+
+    // Get the pid of the calling process
+    //enif_self(predictPtr->envi, &(predictPtr->pid));
+
+    // Sends a message to a process. Parameters:
+    // caller_env - The environment of the calling process or callback. Must be NULL only if calling from a custom thread not spawned by ERTS.
+    // *to_pid - The pid of the receiving process. The pid is to refer to a process on the local node.
+    // msg_env - The environment of the message term. Must be a process independent environment allocated with enif_alloc_env or NULL.
+    // msg - The message term to send.
+    //enif_send(NULL,&(predictPtr->pid), predictPtr->envi,retResults);
+    //enif_clear_env(Env);
+
+    //delete predictPtr; // TODO: Check for memory leaks. delete envi
 
     printf("finish predict fun.\n");
 
@@ -260,7 +311,7 @@ static void* trainFun(void *arg){
     nnManager *s = s->GetInstance();
 
     // Get the model from the singleton
-    SANN::Model* modelPtr = s-> getModelPtr(0); // TODO: make it general, change the 0
+    std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(trainPtr->mid);
 
     // Get the data matrix from the data_label_mat vector and initialize the data matrix. TODO: Think how to do it native to eigen
     MatrixXd data_mat(trainPtr->rows, trainPtr->col);
@@ -296,6 +347,8 @@ static void* trainFun(void *arg){
 
     // Train the model with recieved parameters
     modelPtr->train(data_mat,label_mat,false); // TODO: the false parameter is redundant?
+
+    delete trainPtr;
 
     printf("finish train fun.\n");
 
@@ -339,12 +392,17 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
             std::vector<act_t> act_types_vec{act_t::ACT_NONE,act_t::ACT_SIGMOID,act_t::ACT_SIGMOID,act_t::ACT_NONE};
 
             // Create the model with the default and received parameters
-           static SANN::Model model(modelParamPtr.layers_sizes,modelParamPtr.learning_rate); // TODO: Think about the static declaration
+           //static SANN::Model model(modelParamPtr.layers_sizes,modelParamPtr.learning_rate); // TODO: Think about the static declaration
 
-            model.set_activations(act_types_vec);
-            model.set_optimizer(Optimizers::OPT_ADAM);// The default is Adam optimizer but you can select another
+            SANN::Model *model = new SANN::Model(modelParamPtr.layers_sizes,modelParamPtr.learning_rate);
+            std::shared_ptr<SANN::Model> modelPtr(model);
 
-            SANN::Model *modelPtr = &model;
+            modelPtr->set_activations(act_types_vec);
+            modelPtr->set_optimizer(Optimizers::OPT_ADAM);// The default is Adam optimizer but you can select another
+
+            //SANN::Model *modelPtr = &model;
+
+            std::cout << &model << std::endl; // debug
 
             // Create the singleton instance
             nnManager *s = s->GetInstance();
@@ -373,6 +431,7 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
             nifpp::get_throws(env, argv[2], trainPtr->col);
             nifpp::get_throws(env, argv[3], trainPtr->labels);
             nifpp::get_throws(env, argv[4], trainPtr->data_label_mat);
+            nifpp::get_throws(env, argv[5], trainPtr->mid); // model id
 
             // int enif_thread_create(char *name, ErlNifTid *tid, void * (*func)(void *), void *args, ErlNifThreadOpts *opts)
             // name -A string identifying the created thread. It is used to identify the thread in planned future debug functionality.
@@ -406,6 +465,10 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
         nifpp::get_throws(env, argv[1], predictPtr->data_mat);
         nifpp::get_throws(env, argv[2], predictPtr->rows);
         nifpp::get_throws(env, argv[3], predictPtr->cols);
+        nifpp::get_throws(env, argv[4], predictPtr->mid); // model id
+        predictPtr->envi = env;
+
+        std::cout<<predictPtr->envi<< " " << std::endl;
 
         // Create the thread to run predict
         int res = enif_thread_create((char*)"predictModule", &(predictPtr->tid), predictFun, predictPtr, 0);
@@ -423,12 +486,13 @@ static ERL_NIF_TERM train_predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TE
 // Describes a NIF by its name in erlang, arity, implementation in c/c++ (ERL_NIF_TERM) and dirty nif flag.
 static ErlNifFunc nif_funcs[] = {
     {"nnManagerGetData", 0, nnManagerGetData_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
-    {"nnManagerGetModelPtr", 1, nnManagerGetModelPtr_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
+    {"nnManagerGetModelPtr", 1, nnManagerGetModelPtr_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
     {"nnManagerSetData", 1, nnManagerSetData_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND},
-    {"train_predict", 5, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For train
-    {"train_predict", 4, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For predict
+    {"train_predict", 6, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For train
+    {"train_predict", 5, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For predict
     {"create_module", 6, train_predict_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For module create
-    {"nnManager", 0, nnManager_nif}
+    {"nnManager", 0, nnManager_nif},
+    {"nnManagerSetModelPtrDat", 2, nnManagerSetModelPtrDat_nif} // for debug
 };
 
 // load_info is the second argument to erlang:load_nif/2.
@@ -437,9 +501,9 @@ static ErlNifFunc nif_funcs[] = {
 // The library fails to load if load returns anything other than 0. load can be NULL if initialization is not needed.
 static int load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
 {
-    nifpp::register_resource<GetnnManager>(env, nullptr, "GetnnManager");
-    nifpp::register_resource<nnManager>(env, nullptr, "nnManager");
-    nifpp::register_resource<SANN::Model>(env, nullptr, "nnManager");
+    //nifpp::register_resource<GetnnManager>(env, nullptr, "GetnnManager");
+    //nifpp::register_resource<nnManager>(env, nullptr, "nnManager");
+   // nifpp::register_resource<SANN::Model>(env, nullptr, "nnManager");
     return 0;
 }
 
