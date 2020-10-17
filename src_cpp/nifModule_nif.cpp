@@ -3,6 +3,7 @@
 #include "include/nifpp.h"
 #include <vector>
 #include <deque>
+#include <unordered_map>
 #include "include/cppSANN/src/tests/default_test.h" // TODO: Change it to a c include class
 #include <thread>
 #include <memory>
@@ -111,6 +112,10 @@ public:
         this -> MidNumModel.insert({ this->mid, modelPtr });
         this -> mid = this->mid + 1;
     }
+
+    void deleteModel(int mid){
+        this->MidNumModel.erase(mid); // TODO: Check for memmory leaks
+    }
 };
 
 /**
@@ -173,6 +178,22 @@ static ERL_NIF_TERM nnManagerGetMid_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 {
     nnManager *s = s->GetInstance();
     int mid = s->getMid();
+
+    return enif_make_int(env, mid);
+}
+
+// Delete model by mid from the map
+static ERL_NIF_TERM nnManagerDeleteModel_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    int mid;
+
+    // Get mid (int) from erlang term
+    if (!enif_get_int(env, argv[0], &mid)) {
+        return enif_make_badarg(env);
+    }
+
+    nnManager *s = s->GetInstance();
+    s->deleteModel(mid);
 
     return enif_make_int(env, mid);
 }
@@ -270,15 +291,15 @@ static void* predictFun(void *arg){
 
     nifpp::TERM retResults = nifpp::make(env, results_vec);
 
-    // Get the pid of the calling process
-    enif_self(env, &(predictPtr->pid));
-
     // Sends a message to a process. Parameters:
     // caller_env - The environment of the calling process or callback. Must be NULL only if calling from a custom thread not spawned by ERTS.
     // *to_pid - The pid of the receiving process. The pid is to refer to a process on the local node.
     // msg_env - The environment of the message term. Must be a process independent environment allocated with enif_alloc_env or NULL.
     // msg - The message term to send.
-    enif_send(NULL,&(predictPtr->pid), env,retResults);
+    if(enif_send(NULL,&(predictPtr->pid), env,retResults))
+        printf("enif_send succeed\n");
+    else
+        printf("enif_send failed\n");
 
     // Frees all terms in an environment and clears it for reuse.
     enif_clear_env(env);
@@ -348,6 +369,7 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
 
     // Create model - 0
     if(mode == CREATE){
+
         // Struct that stores the model create parameters
         CreateModelParam modelParamPtr = CreateModelParam();
 
@@ -430,6 +452,11 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
         nifpp::get_throws(env, argv[3], predictPtr->cols);
         nifpp::get_throws(env, argv[4], predictPtr->mid); // model id
 
+        // Get the pid of the calling process
+        ErlNifPid pid;
+        enif_self(env, &pid);
+        predictPtr->pid = pid;
+
         // Create the thread to run predict
         int res = enif_thread_create((char*)"predictModule", &(predictPtr->tid), predictFun, predictPtr, 0);
 
@@ -447,7 +474,8 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
 static ErlNifFunc nif_funcs[] = {
     {"train_predict_create", 6, train_predict_create_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For train
     {"train_predict_create", 5, train_predict_create_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For predict
-    {"create_module", 6, train_predict_create_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For module create. TODO: Think about using it in a regular scheduler
+    {"create_module", 6, train_predict_create_nif}, // For module create. TODO: Think about using it in a dirty scheduler
+    {"nnManagerDeleteModel", 1, nnManagerDeleteModel_nif}, // Delete model by mid
     {"nnManagerGetMid", 0, nnManagerGetMid_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
     {"nnManagerGetModelPtr", 1, nnManagerGetModelPtr_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
     {"nnManagerSetData", 1, nnManagerSetData_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
