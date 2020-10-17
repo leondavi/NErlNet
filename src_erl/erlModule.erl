@@ -3,7 +3,7 @@
 %% API
 -export([testMatrix/2,nnManager/0,nnManagerGetMid/0,nnManagerGetModelPtr/1 ,nnManagerSetData/1,testnnManager/2,
 	 create_module/6, train2double/5, predict2double/4, niftest/0, thread_create_test/0,
-	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, nnManagerSetModelPtrDat/2]).
+	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, nnManagerSetModelPtrDat/2, nnManagerDeleteModel/1]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
@@ -87,6 +87,9 @@ nnManagerSetModelPtrDat(_Dat, _Mid) ->
 nnManagerSetData(_Int) ->
 	exit(nif_library_not_loaded).
 
+nnManagerDeleteModel(_Mid) ->
+	exit(nif_library_not_loaded).
+
 testnnManager(Data1,Data2) ->
 	A = nnManagerGetMid(),
 	io:fwrite("nnManager initial data: ~p ~n",[A]),
@@ -145,7 +148,11 @@ train_predict_create(1, _Rows, _Col, _Labels, _Data_Label_mat, _ModelId) ->
 %% _Data_Label_mat - list
 predict2double(_Data_mat, _rows, _cols, _ModelId) ->
 	%% make double list and send to train_predict_create
-	train_predict_create(2, dList(_Data_mat), _rows, _cols, _ModelId).
+	_Return = train_predict_create(2, dList(_Data_mat), _rows, _cols, _ModelId),
+	receive
+		RESULTS->
+		io:fwrite("Results: ~p\n",[RESULTS])
+	end.
 
 %% Predict module
 %% _Rows, _Col, _Labels - "ints"
@@ -159,20 +166,20 @@ train_predict_create(2, _Data_mat, _rows, _cols, _ModelId) ->
 niftest() ->
 	io:fwrite("start module_create ~n"),
 	_Pid1 = spawn(fun()->module_create([8,4,3,2], 0.01, 80, [2,1,1,2], 1) end),
-	io:fwrite("start sleep 5 seconds ~n"),
-	timer:sleep(5000),
+	io:fwrite("start sleep 2 seconds ~n"),
+	timer:sleep(2000),
 	io:fwrite("start train2double ~n"),
 	_Pid2 = spawn(fun()->erlModule:train2double(4, 8, 2, [1,2,3,2,3,2,1,0,1,2,3,2,3,2,1,0,1,2,3,2,3,2,1,0,1,2,3,2,3,2,1,0,0,1,0,1,0,1,0,1],0) end),
-	io:fwrite("start sleep 5 seconds ~n"),
-	timer:sleep(5000),
+	io:fwrite("start sleep 2 seconds ~n"),
+	timer:sleep(2000),
 	io:fwrite("start train2double 2 ~n"),
 	_Pid4 = spawn(fun()->erlModule:train2double(4, 8, 2, [1,2,3,2,3,2,1,0,1,2,3,2,3,2,1,0,1,2,3,2,3,2,1,0,1,2,3,2,3,2,1,0,0,1,0,1,0,1,0,1],0) end),
-	io:fwrite("start sleep 5 seconds ~n"),
-	timer:sleep(5000),
+	io:fwrite("start sleep 2 seconds ~n"),
+	timer:sleep(2000),
 	io:fwrite("start predict2double ~n"),
 	_Pid3 = spawn(fun()->erlModule:predict2double([1,2,3,2,3,2,1,0,1,2,3,2,3,2,1,0,1,2,3,2,3,2,1,0,1,2,3,2,3,2,1,0],4,8,0) end),
-	io:fwrite("start sleep 5 seconds ~n"),
-	timer:sleep(5000),
+	io:fwrite("start sleep 2 seconds ~n"),
+	timer:sleep(2000),
 	io:fwrite("finish all ~n").
 
 thread_create_test() ->
