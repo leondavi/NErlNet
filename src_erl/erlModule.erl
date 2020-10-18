@@ -128,7 +128,11 @@ create_module(0, _Layers_sizes, _Learning_rate, _Train_set_size, _Activation_lis
 %% Data_Label_mat - list
 train2double(Rows, Col, Labels, Data_Label_mat, ModelId) -> % TODO
 	%% make double list and send to train_predict_create
-	train_predict_create(1, Rows, Col, Labels, dList(Data_Label_mat), ModelId).
+	_Return = train_predict_create(1, Rows, Col, Labels, dList(Data_Label_mat), ModelId),
+	receive
+		LOSS_FUNC->
+			io:fwrite("Loss func: ~p\n",[LOSS_FUNC])
+	end.
 
 %% Second version - optional for the future
 %%train_predict2double(Create_train_predict_mode, Data_mat, Label_mat) ->

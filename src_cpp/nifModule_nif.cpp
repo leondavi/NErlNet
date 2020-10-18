@@ -313,6 +313,8 @@ static void* predictFun(void *arg){
 static void* trainFun(void *arg){
 
     TrainParam* trainPtr = (TrainParam*)arg;
+    double loss_val;
+    ErlNifEnv *env = enif_alloc_env();
 
     // Get the singleton instance
     nnManager *s = s->GetInstance();
@@ -345,8 +347,19 @@ static void* trainFun(void *arg){
         }
     }
 
-    // Train the model with recieved parameters
-    modelPtr->train(data_mat,label_mat);
+    // Train the model with recieved parameters and get loss value
+    loss_val = modelPtr->train(data_mat,label_mat);
+
+    nifpp::TERM loss_val_term = nifpp::make(env, loss_val);
+
+    // Send to erlang process the loss value
+    if(enif_send(NULL,&(trainPtr->pid), env,loss_val_term))
+        printf("enif_send succeed\n");
+    else
+        printf("enif_send failed\n");
+
+    // Frees all terms in an environment and clears it for reuse.
+    enif_clear_env(env);
 
     delete trainPtr;
     printf("finish train fun.\n");
@@ -419,6 +432,11 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
             nifpp::get_throws(env, argv[3], trainPtr->labels);
             nifpp::get_throws(env, argv[4], trainPtr->data_label_mat);
             nifpp::get_throws(env, argv[5], trainPtr->mid); // model id
+
+            // Get the pid of the calling process
+            ErlNifPid pid;
+            enif_self(env, &pid);
+            trainPtr->pid = pid;
 
             // int enif_thread_create(char *name, ErlNifTid *tid, void * (*func)(void *), void *args, ErlNifThreadOpts *opts)
             // name -A string identifying the created thread. It is used to identify the thread in planned future debug functionality.
