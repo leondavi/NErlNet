@@ -17,10 +17,14 @@
 %% gen_statem callbacks
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,
   code_change/4, callback_mode/0]).
+%% States functions
+-export([idle/3, train/3, predict/3]).
+%% Client functions
+-export([train/2, predict/2, create/2]).
 
 -define(SERVER, ?MODULE).
 
--record(nerlNetStatem_state, {dig1=1,dig2=2,dig3=4,dig4=5}).).
+-record(nerlNetStatem_state, {dig1=1,dig2=2,dig3=4,dig4=5}).
 
 %%%===================================================================
 %%% API
@@ -41,13 +45,14 @@ start_link() ->
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
 init([]) ->
-  {ok, state_name, #nerlNetStatem_state{}}.
+  {ok, idle, []}.
+  %{ok, idle, #nerlNetStatem_state{}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
 %% the callback mode of the callback module.
 callback_mode() ->
-  handle_event_function.
+  state_functions.
 
 %% @private
 %% @doc Called (1) whenever sys:get_status/1,2 is called by gen_statem or
@@ -91,24 +96,73 @@ code_change(_OldVsn, StateName, State = #nerlNetStatem_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
+%% Client functions
+train(Module,List) -> gen_statem:cast(?MODULE,{train,Module,List}).
+
+predict(Module,List) -> gen_statem:cast(?MODULE,{predict,Module,List}).
+
+create(Module,Learning_rate) -> gen_statem:cast(?MODULE,{create,Module,Learning_rate}).
+
 %% Define states
+%% State idle
 idle(cast, Train_predict, State) ->
+  {_Mode,Module,Learning_rate_List} = Train_predict,
   if
-    Train_predict == predict -> {next_state, predict, State};
-    Train_predict == train -> {next_state, train, State};
+    Train_predict == {predict,Module,Learning_rate_List} ->
+      %_Data_mat, _rows, _cols, _ModelId
+      Result = erlModule:predict2double(Learning_rate_List, 4, 8, Module),
+      io:fwrite("Results: ~p\n",[Result]),
+      {next_state, predict, Result};
+    Train_predict == {train,Module,Learning_rate_List} ->
+      % Rows, Col, Labels, Data_Label_mat, ModelId
+      Result = erlModule:train2double(4, 8, 2, Learning_rate_List, Module),
+      io:fwrite("Results: ~p\n",[Result]),
+      {next_state, train, State};
+    Train_predict == {create,Module,Learning_rate_List} ->
+      Result = erlModule:module_create([8,4,3,2], Learning_rate_List, 80, [2,1,1,2], 1),
+      io:fwrite("Results: ~p\n",[Result]),
+      {next_state, idle, State};
     true -> {next_state, idle, State}
   end.
 
+%% State train
 train(cast, Idle_predict, State) ->
+  {_Mode,Module,Learning_rate_List} = Idle_predict,
   if
-    Idle_predict == idle -> {next_state, idle, State};
-    Idle_predict == predict -> {next_state, predict, State};
+    Idle_predict == {predict,Module,Learning_rate_List} ->
+      %_Data_mat, _rows, _cols, _ModelId
+      Result = erlModule:predict2double(Learning_rate_List, 4, 8, Module),
+      io:fwrite("Results: ~p\n",[Result]),
+      {next_state, predict, Result};
+    Idle_predict == {train,Module,Learning_rate_List} ->
+      % Rows, Col, Labels, Data_Label_mat, ModelId
+      Result = erlModule:train2double(4, 8, 2, Learning_rate_List, Module),
+      io:fwrite("Results: ~p\n",[Result]),
+      {next_state, train, State};
+    Idle_predict == {create,Module,Learning_rate_List} ->
+      Result = erlModule:module_create([8,4,3,2], Learning_rate_List, 80, [2,1,1,2], 1),
+      io:fwrite("Results: ~p\n",[Result]),
+      {next_state, idle, State};
     true -> {next_state, train, State}
   end.
 
+%% State predict
 predict(cast, Idle_train, State) ->
+  {_Mode,Module,Learning_rate_List} = Idle_train,
   if
-    Idle_train == idle -> {next_state, idle, State};
-    Idle_train == train -> {next_state, train, State};
-    true -> {next_state, predict, State}
+    Idle_train == {predict,Module,Learning_rate_List} ->
+      %_Data_mat, _rows, _cols, _ModelId
+      Result = erlModule:predict2double(Learning_rate_List, 4, 8, Module),
+      io:fwrite("Results: ~p\n",[Result]),
+      {next_state, predict, Result};
+    Idle_train == {train,Module,Learning_rate_List} ->
+      % Rows, Col, Labels, Data_Label_mat, ModelId
+      Result = erlModule:train2double(4, 8, 2, Learning_rate_List, Module),
+      io:fwrite("Results: ~p\n",[Result]),
+      {next_state, train, State};
+    Idle_train == {create,Module,Learning_rate_List} ->
+      Result = erlModule:module_create([8,4,3,2], Learning_rate_List, 80, [2,1,1,2], 1),
+      io:fwrite("Results: ~p\n",[Result]),
+      {next_state, idle, State};
+    true -> {next_state, train, State}
   end.
