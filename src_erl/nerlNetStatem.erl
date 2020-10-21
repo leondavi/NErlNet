@@ -125,6 +125,8 @@ idle(cast, Train_predict, State) ->
     true -> {next_state, idle, State}
   end.
 
+
+
 %% State train
 train(cast, Idle_predict, State) ->
   {_Mode,Module,Learning_rate_List} = Idle_predict,
