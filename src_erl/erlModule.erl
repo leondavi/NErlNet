@@ -127,9 +127,9 @@ create_module(0, _Layers_sizes, _Learning_rate, _Train_set_size, _Activation_lis
 %% train_predict_create - mode: 0 - model creation, 1 - train, 2 - predict
 %% Rows, Col, Labels - "int"
 %% Data_Label_mat - list
-train2double(Rows, Col, Labels, Data_Label_mat, ModelId) -> % TODO
+train2double(Rows, Cols, Labels, Data_Label_mat, ModelId) -> % TODO
 	%% make double list and send to train_predict_create
-	_Return = train_predict_create(1, Rows, Col, Labels, dList(Data_Label_mat), ModelId),
+	_Return = train_predict_create(1, Rows, Cols, Labels, dList(Data_Label_mat), ModelId),
 	receive
 		LOSS_FUNC->
 			io:fwrite("Loss func: ~p\n",[LOSS_FUNC]),
@@ -144,7 +144,7 @@ train2double(Rows, Col, Labels, Data_Label_mat, ModelId) -> % TODO
 %% Train module
 %% _Rows, _Col, _Labels - "ints"
 %% _Data_Label_mat - list
-train_predict_create(1, _Rows, _Col, _Labels, _Data_Label_mat, _ModelId) ->
+train_predict_create(1, _Rows, _Cols, _Labels, _Data_Label_mat, _ModelId) ->
   exit(nif_library_not_loaded).
 
 
