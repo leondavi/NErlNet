@@ -65,8 +65,6 @@ private:
     //static std::mutex mutex_;
 protected:
     ~nnManager() {}
-    //std::unordered_map<int, int> midTidMap; // <Mid,Pid> - Model id, process id
-    //std::unordered_map<int, int> pidTidMap; // <Pid,Tid> - Process id, Thread id
     std::unordered_map<int, std::shared_ptr<SANN::Model>> MidNumModel; // <Mid,Model struct>
     int mid;
 
@@ -325,25 +323,24 @@ static void* trainFun(void *arg){
     // Get the data matrix from the data_label_mat vector and initialize the data matrix.
     MatrixXd data_mat(trainPtr->rows, trainPtr->col);
 
-    // Create the data matrix from a vector. TODO: Think how to do it native to eigen - optional
-    int i = 0;
-    for (int r = 0; r < trainPtr->rows; r++){
-        for (int c = 0; c < trainPtr->col; c++){
-            data_mat(r,c) = trainPtr->data_label_mat[i];
-            i++;
-        }
-    }
-
     // Get the label matrix from the data_label_mat vector and initialize the label matrix
     MatrixXd label_mat(trainPtr->rows, trainPtr->labels);
 
-    // Create the label matrix from a vector. TODO: Think how to do it native to eigen - optional
-    int j = 0;
+    // TODO: Think how to do it native to eigen - optional
+    int i = 0;
+    // Go over the rows (samples)
     for (int r = 0; r < trainPtr->rows; r++){
-        for (int c = 0; c < trainPtr->labels; c++){
-            label_mat(r,c) = trainPtr->data_label_mat[i+j]; // TODO: correct it if needed
-            //std::cout<<"("<<r<<","<<c<<") - "<< label_mat(r,c) <<std::endl; // Debug print
-            j++;
+        // Create the data matrix from a vector
+        for (int c = 0; c < trainPtr->col; c++){
+            data_mat(r,c) = trainPtr->data_label_mat[i];
+            //std::cout<<"Data "<<"("<<r<<","<<c<<") - "<< data_mat(r,c) <<std::endl;
+            i++;
+        }
+        // Create the label matrix from a vector
+        for(int l = 0; l < trainPtr->labels; l++){
+            label_mat(r,l) = trainPtr->data_label_mat[i];
+            //std::cout<<"Label " << "("<<r<<","<<l<<") - "<< label_mat(r,l) <<std::endl;
+            i++;
         }
     }
 
