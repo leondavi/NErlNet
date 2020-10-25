@@ -1,6 +1,9 @@
 # NErlNet
 Neural Network NIF module for Erlang
 
+Youtube link:https://youtu.be/wSG8nbs1GQY
+https://www.youtube.com/watch?v=Y9xT4foxwpY&feature=youtu.be
+
 prerequisite:
 
 1. python 3.7
