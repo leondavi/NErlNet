@@ -10,7 +10,7 @@
 -author("ziv").
 
 %% API
--export([readfile/2, readLines/6, sendToTrainPredict/8]).
+-export([readfile/6, readLines/6, sendToTrainPredict/8]).
 
 %% Read csv file that represents a data set
 %% File - File name with quotes and destination (if it's not in the current folder). For example: "skin_nonskin.csv"
@@ -19,7 +19,7 @@
 %% For example: 0.8 means: 80% of trainning samples and 20% of prediction samples
 %% ChunkSize - Number of samples per chunk that we send to train/predict module. If the chunk is larger than the amount
 %% of samples, than we send all the samples in one chunk.
-readfile(File, Train_predict_ratio) ->
+readfile(File, Train_predict_ratio,ChunkSize, Cols, _Labels, _ModelId) ->
   {ok, F} = file:open(File, [read, {encoding, utf8}]),
   FileLinesNumber=readNumOfLines(F,0),
   io:format("Total lines number: ~p~n", [FileLinesNumber]),
@@ -29,15 +29,12 @@ readfile(File, Train_predict_ratio) ->
   io:format("Total predict lines number: ~p~n", [PredictLines]),
   {ok, Fi} = file:open(File, [read, {encoding, utf8}]),
 
-  {Fi,FileLinesNumber,Train_Lines,PredictLines}.
+
+  SampleListTrain=readLines(Fi,Train_Lines,ChunkSize,[],train,Cols),
+  SampleListPredict=readLines(Fi,Train_Lines,ChunkSize,[],predict,Cols),
+  {FileLinesNumber,Train_Lines,PredictLines,SampleListTrain,SampleListPredict}.
 
 
-
-  %% Send samples to train
-  %sendToTrainPredict(Fi,Train_Lines,ChunkSize,train, Cols, Labels, ModelId).
-
-  %% Send samples to predict
-  %sendToTrainPredict(Fi,PredictLines,ChunkSize,predict, Cols, Labels, ModelId).
 
 
 %% Send samples to train/predict depends on the Mode
@@ -45,12 +42,12 @@ sendToTrainPredict(F,Train_predict_Lines,ChunkSize, NumOfChunks, Mode, Cols, Lab
   SampleList = readLines(F,Train_predict_Lines,ChunkSize,[],Mode,Cols),
   case Mode of
     train ->
-      io:format("Train chunk list: ~w~n", [SampleList]),
+      %io:format("Train chunk list: ~w~n", [SampleList]),
       LossVal=erlModule:train2double(ChunkSize, Cols, Labels, SampleList, ModelId), % Send to train
       io:fwrite("LossVal: ~p\n",[LossVal]);
       %timer:sleep(1000);
     predict ->
-      io:format("Predict chunk list: ~w~n", [SampleList]),
+      %io:format("Predict chunk list: ~w~n", [SampleList]),
       Result=erlModule:predict2double(SampleList, ChunkSize, Cols, ModelId), % Send to predict
       io:fwrite("Result: ~p\n",[Result])
   end,
@@ -88,7 +85,7 @@ case file:read_line(F) of
   {ok, Line} ->
     Trim = string:tokens(Line, ",\n"),
     SampleList=[begin {Integer,_}=string:to_integer(T), Integer end|| T<-Trim],
-    io:format("~w~n", [SampleList]),
+    %io:format("~w~n", [SampleList]),
     case Mode of
       predict ->
         {Data,_Labels}=lists:split(Features, SampleList),
