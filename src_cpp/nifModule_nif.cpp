@@ -285,7 +285,7 @@ static void* predictFun(void *arg){
             index++;
         }
     }
-    std::cout<<"results: \n"<<resultsMat<<std::endl; // TODO: Delete it in the end
+    //std::cout<<"results: \n"<<resultsMat<<std::endl; // TODO: Delete it in the end
 
     nifpp::TERM retResults = nifpp::make(env, results_vec);
 
@@ -343,6 +343,24 @@ static void* trainFun(void *arg){
             i++;
         }
     }
+
+    /*std::cout<<"Data: "<<std::endl;
+     for (int r = 0; r < trainPtr->rows; r++){
+            // Create the data matrix from a vector
+            for (int c = 0; c < trainPtr->col; c++){
+                std::cout<< data_mat(r,c) << " ";
+            }
+            std::cout<<"\n"<<std::endl;
+     }
+
+     std::cout<<"Label: "<<std::endl;
+     for (int r = 0; r < trainPtr->rows; r++){
+             // Create the label matrix from a vector
+             for(int l = 0; l < trainPtr->labels; l++){
+                 std::cout<< label_mat(r,l) << " ";
+             }
+             std::cout<<"\n"<<std::endl;
+     }*/
 
     // Train the model with recieved parameters and get loss value
     loss_val = modelPtr->train(data_mat,label_mat);
