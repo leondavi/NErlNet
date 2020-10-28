@@ -1,4 +1,8 @@
 # NErlNet
+<p align="center">
+  <img src="Nerlnet_logo.jpg" width="350" title="NerlNet">
+</p>
+
 Neural Network NIF module for Erlang
 
 prerequisite:
