@@ -3,7 +3,9 @@
   <img src="Nerlnet_logo.jpg" width="350" title="NerlNet">
 </p>
 
-Distributed Machine Learning Platform.
+Distributed Machine Learning Platform. 
+The communication is based on Erlang VM.
+Neural Network implementation is based on cppSANN library. 
 
 prerequisite:
 
