@@ -1,10 +1,10 @@
 -module(erlModule).
 
 %% API
--export([testMatrix/2,nnManager/0,nnManagerGetMid/0,nnManagerGetModelPtr/1 ,nnManagerSetData/1,testnnManager/2,
+-export([testMatrix/2,cppBridgeControler/0,cppBridgeControlerGetMid/0,cppBridgeControlerGetModelPtr/1 ,cppBridgeControlerSetData/1,testcppBridgeControler/2,
 	 create_module/6, train2double/5, predict2double/4, niftest/1, thread_create_test/0,
-	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, nnManagerSetModelPtrDat/2,
-	nnManagerDeleteModel/1, startTest/1]).
+	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, cppBridgeControlerSetModelPtrDat/2,
+	cppBridgeControlerDeleteModel/1, startTest/1]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
@@ -73,39 +73,39 @@ dInt(Int) -> Int+0.0.
 %dListSquare(List)->List.
 
 %%---------------------------------------------------
-nnManager()->
+cppBridgeControler()->
 	exit(nif_library_not_loaded).
 
-nnManagerGetMid() ->
+cppBridgeControlerGetMid() ->
 	exit(nif_library_not_loaded).
 
-nnManagerGetModelPtr(_Mid) ->
+cppBridgeControlerGetModelPtr(_Mid) ->
 	exit(nif_library_not_loaded).
 
-nnManagerSetModelPtrDat(_Dat, _Mid) ->
+cppBridgeControlerSetModelPtrDat(_Dat, _Mid) ->
 	exit(nif_library_not_loaded).
 
-nnManagerSetData(_Int) ->
+cppBridgeControlerSetData(_Int) ->
 	exit(nif_library_not_loaded).
 
-nnManagerDeleteModel(_Mid) ->
+cppBridgeControlerDeleteModel(_Mid) ->
 	exit(nif_library_not_loaded).
 
-testnnManager(Data1,Data2) ->
-	A = nnManagerGetMid(),
-	io:fwrite("nnManager initial data: ~p ~n",[A]),
+testcppBridgeControler(Data1,Data2) ->
+	A = cppBridgeControlerGetMid(),
+	io:fwrite("cppBridgeControler initial data: ~p ~n",[A]),
 	_Pid1 = spawn(fun()->start(Data1) end),
 	_Pid2 = spawn(fun()->start(Data2) end),
 	timer:sleep(100),
-	B = nnManagerGetMid(),
-	io:fwrite("nnManager finish data: ~p ~n",[B]).
+	B = cppBridgeControlerGetMid(),
+	io:fwrite("cppBridgeControler finish data: ~p ~n",[B]).
 
 start(Data) ->
-	FirstData = nnManagerGetMid(),
-	io:fwrite("nnManager from pid ~p first data: ~p ~n",[self(),FirstData]),
-	nnManagerSetData(Data),
-	UpdatedData = nnManagerGetMid(),
-	io:fwrite("nnManager from pid ~p updated data: ~p ~n",[self(),UpdatedData]).
+	FirstData = cppBridgeControlerGetMid(),
+	io:fwrite("cppBridgeControler from pid ~p first data: ~p ~n",[self(),FirstData]),
+	cppBridgeControlerSetData(Data),
+	UpdatedData = cppBridgeControlerGetMid(),
+	io:fwrite("cppBridgeControler from pid ~p updated data: ~p ~n",[self(),UpdatedData]).
 
 %%---------------------------------------------------
 

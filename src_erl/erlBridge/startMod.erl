@@ -13,7 +13,8 @@
 -export([start/9,startTrain/6,startPredict/5, startFSM/4,init/10]).
 
 start(File, _LayerSizes, _Learning_rate_List, Train_predict_ratio, ChunkSize, NumOfChunks, Cols, Labels, ModelId)->
-
+  %Mid=erlModule:module_create(LayerSizes, Learning_rate_List, 80, [2,1,1,2], 1),
+  %io:fwrite("Mid: ~p\n",[Mid]),
   {Fi,_FileLinesNumber,Train_Lines,PredictLines}=parse:readfile(File, Train_predict_ratio),
 
   %% Send samples to train
@@ -35,7 +36,10 @@ init(File, LayerSizes, Learning_rate_List, Train_predict_ratio, ChunkSize, NumOf
     parse:readfile(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId),
 
   startTrain(ChunkSize, Cols, Labels, SampleListTrain, ModelId,ProcNum),
+  %io:format("Train chunk list: ~w~n", [SampleListTrain]),
 
+  %startPredict(ChunkSize, Cols, SampleListTrain, ModelId,ProcNum),
+  %io:format("Predict chunk list: ~w~n", [SampleListPredict]),
 
   Finish_Time = os:system_time(microsecond),
   Time_elapsed=Finish_Time-Start_Time,
