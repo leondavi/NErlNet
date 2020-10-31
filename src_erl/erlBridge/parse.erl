@@ -29,12 +29,17 @@ readfile(File, Train_predict_ratio,ChunkSize, Cols, _Labels, _ModelId) ->
   io:format("Total predict lines number: ~p~n", [PredictLines]),
   {ok, Fi} = file:open(File, [read, {encoding, utf8}]),
 
-
+  %SampleListTrain=sendToTrainPredict(Fi,Train_Lines,ChunkSize,train, Cols, Labels, ModelId),
+  %SampleListPredict=sendToTrainPredict(Fi,Train_Lines,ChunkSize,predict, Cols, Labels, ModelId),
   SampleListTrain=readLines(Fi,Train_Lines,ChunkSize,[],train,Cols),
   SampleListPredict=readLines(Fi,Train_Lines,ChunkSize,[],predict,Cols),
   {FileLinesNumber,Train_Lines,PredictLines,SampleListTrain,SampleListPredict}.
 
+  %% Send samples to train
+  %sendToTrainPredict(Fi,Train_Lines,ChunkSize,train, Cols, Labels, ModelId).
 
+  %% Send samples to predict
+  %sendToTrainPredict(Fi,PredictLines,ChunkSize,predict, Cols, Labels, ModelId).
 
 
 %% Send samples to train/predict depends on the Mode

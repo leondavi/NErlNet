@@ -59,16 +59,16 @@ struct PredictParam {
 //----------------------------------------------------------------------------------------------------------------------
 
 // Neural network manager singleton
-class nnManager {
+class cppBridgeControler {
 private:
-    static nnManager *instance;
+    static cppBridgeControler *instance;
     //static std::mutex mutex_;
 protected:
-    ~nnManager() {}
+    ~cppBridgeControler() {}
     std::unordered_map<int, std::shared_ptr<SANN::Model>> MidNumModel; // <Mid,Model struct>
     int mid;
 
-    nnManager() {
+    cppBridgeControler() {
         mid = 0;
     }
 
@@ -76,27 +76,27 @@ public:
     /**
      * Singletons should not be cloneable.
      */
-    nnManager(nnManager &other) = delete;
+    cppBridgeControler(cppBridgeControler &other) = delete;
     /**
      * Singletons should not be assignable.
      */
-    void operator=(const nnManager &) = delete;
+    void operator=(const cppBridgeControler &) = delete;
 
     // TODO: Think about locking mechanism
-   /* nnManager(data)
+   /* cppBridgeControler(data)
     {
 	    if (instance == nullptr)
 	    {
 		//std::lock_guard<std::mutex> lock(mutex_);
 		//if (instance == nullptr)
 		//{
-		    instance = new nnManager();
+		    instance = new cppBridgeControler();
 		//}
 	    }
 	    return instance;
     }*/
 
-    static nnManager *GetInstance();
+    static cppBridgeControler *GetInstance();
 
     int getMid() {
         return this -> mid;
@@ -120,32 +120,32 @@ public:
  * Static methods should be defined outside the class.
  */
 //Initialize pointer to zero so that it can be initialized in first call to getInstance
-nnManager* nnManager::instance{nullptr};
-//std::mutex nnManager::mutex_;
+cppBridgeControler* cppBridgeControler::instance{nullptr};
+//std::mutex cppBridgeControler::mutex_;
 
 /**
  * The first time we call GetInstance we will lock the storage location
  *      and then we make sure again that the variable is null and then we
  *      set the value. RU:
  */
-nnManager *nnManager::GetInstance()
+cppBridgeControler *cppBridgeControler::GetInstance()
 {
     if (instance == nullptr)
     {
         //std::lock_guard<std::mutex> lock(mutex_);
         //if (instance == nullptr)
         //{
-            instance = new nnManager();
+            instance = new cppBridgeControler();
         //}
     }
     return instance;
 }
 
-class GetnnManager {
+class GetcppBridgeControler {
 
-    nnManager *s;
+    cppBridgeControler *s;
 public:
-    GetnnManager() {
+    cppBridgeControler() {
         s = s->GetInstance();
     }
 
@@ -157,11 +157,11 @@ public:
 // All terms of type ERL_NIF_TERM belong to an environment of type ErlNifEnv.
 // The lifetime of a term is controlled by the lifetime of its environment object.
 // All API functions that read or write terms has the environment that the term belongs to as the first function argument.
-static ERL_NIF_TERM nnManager_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM cppBridgeControler_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     try
     {
-        auto s_ptr = nifpp::construct_resource<GetnnManager>();
+        auto s_ptr = nifpp::construct_resource<GetcppBridgeControler>();
         return nifpp::make(env, s_ptr);
     }
     catch(nifpp::badarg) {}
@@ -172,16 +172,16 @@ static ERL_NIF_TERM nnManager_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 }
 
 // For debug porpuses. TODO: implement this function just if needed
-static ERL_NIF_TERM nnManagerGetMid_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM cppBridgeControlerGetMid_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    nnManager *s = s->GetInstance();
+    cppBridgeControler *s = s->GetInstance();
     int mid = s->getMid();
 
     return enif_make_int(env, mid);
 }
 
 // Delete model by mid from the map
-static ERL_NIF_TERM nnManagerDeleteModel_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM cppBridgeControlerDeleteModel_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     int mid;
 
@@ -190,14 +190,14 @@ static ERL_NIF_TERM nnManagerDeleteModel_nif(ErlNifEnv* env, int argc, const ERL
         return enif_make_badarg(env);
     }
 
-    nnManager *s = s->GetInstance();
+    cppBridgeControler *s = s->GetInstance();
     s->deleteModel(mid);
 
     return enif_make_int(env, mid);
 }
 
 // For debug porpuses. TODO: implement this function just if needed
-static ERL_NIF_TERM nnManagerGetModelPtr_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM cppBridgeControlerGetModelPtr_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     int mid, ret;
 
@@ -205,7 +205,7 @@ static ERL_NIF_TERM nnManagerGetModelPtr_nif(ErlNifEnv* env, int argc, const ERL
         return enif_make_badarg(env);
     }
 
-    nnManager *s = s->GetInstance();
+    cppBridgeControler *s = s->GetInstance();
     std::shared_ptr<SANN::Model> model = s->getModelPtr(mid);
     ret = model->getDat();
 
@@ -213,7 +213,7 @@ static ERL_NIF_TERM nnManagerGetModelPtr_nif(ErlNifEnv* env, int argc, const ERL
 }
 
 // For debug porpuses. TODO: implement this function just if needed
-static ERL_NIF_TERM nnManagerSetModelPtrDat_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM cppBridgeControlerSetModelPtrDat_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     int dat, ret ,mid;
 
@@ -224,7 +224,7 @@ static ERL_NIF_TERM nnManagerSetModelPtrDat_nif(ErlNifEnv* env, int argc, const 
         return enif_make_badarg(env);
     }
 
-    nnManager *s = s->GetInstance();
+    cppBridgeControler *s = s->GetInstance();
     std::shared_ptr<SANN::Model> model = s->getModelPtr(mid);
     ret = model->setDat(dat);
 
@@ -232,9 +232,9 @@ static ERL_NIF_TERM nnManagerSetModelPtrDat_nif(ErlNifEnv* env, int argc, const 
 }
 
 // For debug porpuses. TODO: implement this function just if needed
-static ERL_NIF_TERM nnManagerSetData_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM cppBridgeControlerSetData_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    nnManager *s = s->GetInstance();
+    cppBridgeControler *s = s->GetInstance();
     int mid;
 
     if (!enif_get_int(env, argv[0], &mid)) {
@@ -256,7 +256,7 @@ static void* predictFun(void *arg){
     ErlNifEnv *env = enif_alloc_env();
 
     // Get the singleton instance
-    nnManager *s = s->GetInstance();
+    cppBridgeControler *s = s->GetInstance();
 
     // Get the model from the singleton
     std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(predictPtr->mid);
@@ -315,7 +315,7 @@ static void* trainFun(void *arg){
     ErlNifEnv *env = enif_alloc_env();
 
     // Get the singleton instance
-    nnManager *s = s->GetInstance();
+    cppBridgeControler *s = s->GetInstance();
 
     // Get the model from the singleton
     std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(trainPtr->mid);
@@ -422,7 +422,7 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
             modelPtr->set_optimizer(Optimizers::OPT_ADAM);// The default is Adam optimizer but you can select another
 
             // Create the singleton instance
-            nnManager *s = s->GetInstance();
+            cppBridgeControler *s = s->GetInstance();
 
             // Put the model record to the map
             s->setData(modelPtr);
@@ -508,12 +508,12 @@ static ErlNifFunc nif_funcs[] = {
     {"train_predict_create", 6, train_predict_create_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For train
     {"train_predict_create", 5, train_predict_create_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For predict
     {"create_module", 6, train_predict_create_nif}, // For module create. TODO: Think about using it in a dirty scheduler
-    {"nnManagerDeleteModel", 1, nnManagerDeleteModel_nif}, // Delete model by mid
-    {"nnManagerGetMid", 0, nnManagerGetMid_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
-    {"nnManagerGetModelPtr", 1, nnManagerGetModelPtr_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
-    {"nnManagerSetData", 1, nnManagerSetData_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
-    {"nnManager", 0, nnManager_nif}, // for debug
-    {"nnManagerSetModelPtrDat", 2, nnManagerSetModelPtrDat_nif} // for debug
+    {"cppBridgeControlerDeleteModel", 1, cppBridgeControlerDeleteModel_nif}, // Delete model by mid
+    {"cppBridgeControlerGetMid", 0, cppBridgeControlerGetMid_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
+    {"cppBridgeControlerGetModelPtr", 1, cppBridgeControlerGetModelPtr_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
+    {"cppBridgeControlerSetData", 1, cppBridgeControlerSetData_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
+    {"cppBridgeControler", 0, cppBridgeControler_nif}, // for debug
+    {"cppBridgeControlerSetModelPtrDat", 2, cppBridgeControlerSetModelPtrDat_nif} // for debug
 };
 
 // TODO: Think about using this feature in the future
@@ -523,9 +523,9 @@ static ErlNifFunc nif_funcs[] = {
 // The library fails to load if load returns anything other than 0. load can be NULL if initialization is not needed.
 static int load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
 {
-    //nifpp::register_resource<GetnnManager>(env, nullptr, "GetnnManager");
-    //nifpp::register_resource<nnManager>(env, nullptr, "nnManager");
-   // nifpp::register_resource<SANN::Model>(env, nullptr, "nnManager");
+    //nifpp::register_resource<GetcppBridgeControler>(env, nullptr, "GetcppBridgeControler");
+    //nifpp::register_resource<cppBridgeControler>(env, nullptr, "cppBridgeControler");
+   // nifpp::register_resource<SANN::Model>(env, nullptr, "cppBridgeControler");
     return 0;
 }
 
