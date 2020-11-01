@@ -7,10 +7,13 @@ import shutil
 
 def build_cpp():
 
-    SO_RESULT_FILE = "libNErlNet.so"
+    SO_RESULT_FILE = "libNErlNetNif.so"
 
     print(os.getcwd())
     os.system("scons src=../src_cpp shared=True")
+
+    if os.path.exists("../"+"lib/"):
+        shutil.rmtree("../"+"lib/")
 
     if os.path.exists("lib/"+SO_RESULT_FILE):
         shutil.move("lib/","../"+"lib/")
