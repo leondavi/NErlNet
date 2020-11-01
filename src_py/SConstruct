@@ -1,7 +1,7 @@
 import os
 
 NErlNet_VER = 0.1
-
+SO_RESULT_FILE = "libNErlNetNif.so"
 def log_print(text):
 	print("[NErlNet] "+text)
 
@@ -88,8 +88,9 @@ else:
 			objects_list.append(env.Object(os.path.join(subdir,elem)))
 
 	print(objects_list)
-
+    
+    
 	if SHARED_LIB_FLAG:
-		env.Library(os.path.join(lib_dir,"NErlNet.so"), objects_list)
+		env.Library(os.path.join(lib_dir,SO_RESULT_FILE), objects_list)
 	else:
 		env.Program(os.path.join(build_dir,"NErlNet_exec"), objects_list)
