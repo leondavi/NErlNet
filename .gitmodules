@@ -1,3 +1,3 @@
 [submodule "src_cpp/cppSANN"]
 	path = src_cpp/cppSANN
-	url = git@github.com:leondavi/cppSANN.git
+	url = https://github.com/leondavi/cppSANN.git
