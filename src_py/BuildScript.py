@@ -3,7 +3,8 @@ import sys
 import os
 import shutil
 
-#-------------- Build Cpp----------------#
+# -------------- Build Cpp----------------#
+
 
 def build_cpp():
 
@@ -22,13 +23,23 @@ def build_cpp():
 def clean():
     shutil.rmtree("../"+"lib/")
 
-#-------------- Build Erlang --------------#
 
+# -------------- Build Erlang --------------#
+def build_erl():
 
+    os.chdir('../src_erl/erlBridge')
+    path = os.path.abspath(os.getcwd())
 
+    for subdir, dirs, files in os.walk(path):
+        for file in files:
+            # print os.path.join(subdir, file)
+            filepath = subdir + os.sep + file
 
-#---------------- Run Tests -----------------#
+            if filepath.endswith(".erl"):
+                print(filepath)
+                os.system("erl -compile %s" % filepath)
 
+# ---------------- Run Tests -----------------#
 
 
 def main():
@@ -41,13 +52,13 @@ def main():
         if arg == "clean" or arg == "clean=True" or arg=="clean=1":
             clean_f = True
 
-
-
     if build_cpp_f:
         build_cpp()
 
     if clean_f:
         clean()
+
+    build_erl()
 
 
 if __name__ == "__main__":
