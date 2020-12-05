@@ -8,7 +8,7 @@ import shutil
 
 def build_cpp():
 
-    SO_RESULT_FILE = "libNErlNetNif.so"
+    SO_RESULT_FILE = "libnifModule_nif.so"
 
     print(os.getcwd())
     os.system("scons src=../src_cpp shared=True")
@@ -19,6 +19,7 @@ def build_cpp():
     if os.path.exists("lib/"+SO_RESULT_FILE):
         shutil.move("lib/","../"+"lib/")
 
+    os.system("mv ../lib/%s ../src_cpp/cppBridge/" % SO_RESULT_FILE)
 
 def clean():
     shutil.rmtree("../"+"lib/")
