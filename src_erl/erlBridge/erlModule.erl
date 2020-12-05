@@ -14,7 +14,7 @@
 %%  native implementation in C
 init() ->
 	RelativeDirPath = filename:dirname(filename:dirname(filename:absname(""))), % NErlNet directory path
-	Nif_Module_Cpp_Path = string:concat(RelativeDirPath,"/src_cpp/cppBridge/./nifModule_nif"), % Relative path for nifModule_nif
+	Nif_Module_Cpp_Path = string:concat(RelativeDirPath,"/src_cpp/cppBridge/./libnifModule_nif"), % Relative path for nifModule_nif
 	%Nif_Module_Cpp_Path = string:concat(RelativeDirPath,"/src_py/lib/./libnifModule_nif"), % Relative path for nifModule_nif
 	%% load_info is the second argument to erlang:load_nif/2
   ok = erlang:load_nif(Nif_Module_Cpp_Path, 0).
