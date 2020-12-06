@@ -1,7 +1,7 @@
 import os
 
 NErlNet_VER = 0.1
-SO_RESULT_FILE = "libNErlNetNif.so"
+SO_RESULT_FILE = "nifModule_nif.so"
 def log_print(text):
 	print("[NErlNet] "+text)
 
@@ -26,7 +26,7 @@ include_paths	= [os.path.join(src_dir,'include')]
 cppDefines 		= {}
 cppFlags 		= ['-Wall']#, '-Werror']
 cxxFlags 		= ['-std=c++11']
-
+cxxFlags1 		= ['-fpic']
 
 #define environment
 
@@ -36,6 +36,7 @@ env.Append(LIBPATH 		= library_paths)
 env.Append(CPPDEFINES 	= cppDefines)
 env.Append(CPPFLAGS 		= cppFlags)
 env.Append(CXXFLAGS 		= cxxFlags)
+env.Append(CXXFLAGS 		= cxxFlags1)
 env.AppendUnique(CPPPATH = include_paths)
 
 debug = ARGUMENTS.get('debug_info', 0)
@@ -91,6 +92,7 @@ else:
     
     
 	if SHARED_LIB_FLAG:
-		env.Library(os.path.join(lib_dir,SO_RESULT_FILE), objects_list)
+		env['STATIC_AND_SHARED_OBJECTS_ARE_THE_SAME']=1
+		env.SharedLibrary(os.path.join(lib_dir,SO_RESULT_FILE), objects_list)
 	else:
 		env.Program(os.path.join(build_dir,"NErlNet_exec"), objects_list)
