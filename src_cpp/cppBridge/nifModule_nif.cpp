@@ -4,8 +4,11 @@
 #include <vector>
 #include <deque>
 #include <unordered_map>
-#include "include/cppSANN/src/tests/default_test.h" // TODO: Change it to a c include class
-#include <thread>
+#include "../cppSANN/src/Models/include/Model.h"
+//#include "../src_cpp/cppSANN/src/Models/include/ModelLoader.h"
+//#include "../src_cpp/cppSANN/src/Models/include/Autoencoder.h"
+//#include "../src_cpp/cppSANN/src/tests/default_test.h" // TODO: Change it to a c include class
+//#include <thread>
 #include <memory>
 
 // Codes for the module state
@@ -145,7 +148,7 @@ class GetcppBridgeControler {
 
     cppBridgeControler *s;
 public:
-    cppBridgeControler() {
+    GetcppBridgeControler() {
         s = s->GetInstance();
     }
 
@@ -207,7 +210,7 @@ static ERL_NIF_TERM cppBridgeControlerGetModelPtr_nif(ErlNifEnv* env, int argc, 
 
     cppBridgeControler *s = s->GetInstance();
     std::shared_ptr<SANN::Model> model = s->getModelPtr(mid);
-    ret = model->getDat();
+    //ret = model->getDat();
 
     return enif_make_int(env, ret); // todo: change to something else
 }
@@ -226,7 +229,7 @@ static ERL_NIF_TERM cppBridgeControlerSetModelPtrDat_nif(ErlNifEnv* env, int arg
 
     cppBridgeControler *s = s->GetInstance();
     std::shared_ptr<SANN::Model> model = s->getModelPtr(mid);
-    ret = model->setDat(dat);
+    //ret = model->setDat(dat);
 
     return enif_make_int(env, ret); // todo: change to something else
 }
@@ -274,7 +277,8 @@ static void* predictFun(void *arg){
     }
 
     // Predict model with received parameters
-    MatrixXd resultsMat = modelPtr->predict(data_matrix);
+    MatrixXd resultsMat;
+    modelPtr->predict(data_matrix, resultsMat);
 
     // Create the result vector from the result matrix
     std::vector<double> results_vec;
