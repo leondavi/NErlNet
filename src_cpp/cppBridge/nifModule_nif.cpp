@@ -10,6 +10,7 @@
 //#include "../src_cpp/cppSANN/src/tests/default_test.h" // TODO: Change it to a c include class
 //#include <thread>
 #include <memory>
+#include <mutex>
 
 // Codes for the module state
 enum ModuleMode {CREATE = 0, TRAIN = 1, PREDICT = 2};
@@ -65,11 +66,11 @@ struct PredictParam {
 class cppBridgeControler {
 private:
     static cppBridgeControler *instance;
-    //static std::mutex mutex_;
+    static std::mutex mutex_;
 protected:
     ~cppBridgeControler() {}
     std::unordered_map<int, std::shared_ptr<SANN::Model>> MidNumModel; // <Mid,Model struct>
-    int mid;
+    long mid;
 
     cppBridgeControler() {
         mid = 0;
@@ -105,13 +106,20 @@ public:
         return this -> mid;
     }
 
-    std::shared_ptr<SANN::Model> getModelPtr(int mid){
+    std::shared_ptr<SANN::Model> getModelPtr(int mid)
+    {
         return this->MidNumModel[mid];
     }
 
-    void setData(std::shared_ptr<SANN::Model> modelPtr) {
-        this -> MidNumModel.insert({ this->mid, modelPtr });
-        this -> mid = this->mid + 1;
+    long setData(std::shared_ptr<SANN::Model> modelPtr) {
+        long currMid = -1; //error 
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            currMid = this->mid; 
+            this->MidNumModel.insert({ currMid, modelPtr });
+            this->mid++;
+        }
+        return currMid;
     }
 
     void deleteModel(int mid){
@@ -135,13 +143,19 @@ cppBridgeControler *cppBridgeControler::GetInstance()
 {
     if (instance == nullptr)
     {
-        //std::lock_guard<std::mutex> lock(mutex_);
-        //if (instance == nullptr)
-        //{
-            instance = new cppBridgeControler();
-        //}
+        {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (instance == nullptr)
+            {
+                instance = new cppBridgeControler();
+            }
+        }//mutex end
     }
     return instance;
+}
+cppBridgeControler *cppBridgeControler::ValidateInstance()
+{
+    return instance != nullptr;
 }
 
 class GetcppBridgeControler {
@@ -388,9 +402,17 @@ static void* trainFun(void *arg){
 
 //----------------------------------------------------------------------------------------------------------------------
 
+static initNerlnetBridgeController() 
+{
+    // get instance 
+}
+
 // Train, Predict and Create module nif - Main nif
 static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    if !ValidateInstance()// check that instance valid 
+        return -1; 
+
     // mode = 0 - model creation, 1 - train, 2 - predict
     int mode;
 
