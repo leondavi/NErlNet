@@ -24,7 +24,7 @@ libraries 		= []
 library_paths 	= ''
 include_paths	= [os.path.join(src_dir,'include')]
 cppDefines 		= {}
-cppFlags 		= ['-Wall']#, '-Werror']
+cppFlags 		= ['-Wall','-Werror']
 cxxFlags 		= ['-std=c++11']
 cxxFlags1 		= ['-fpic']
 
