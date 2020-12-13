@@ -62,6 +62,9 @@ struct PredictParam {
 
 //----------------------------------------------------------------------------------------------------------------------
 
+
+// HEADER 
+
 // Neural network manager singleton
 class cppBridgeControler {
 private:
@@ -122,11 +125,18 @@ public:
         return currMid;
     }
 
-    void deleteModel(int mid){
-        this->MidNumModel.erase(mid); // TODO: Check for memmory leaks
+    inline void deleteModel(long mid){
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            this->MidNumModel.erase(mid); // TODO: Check for memmory leaks
+        }
     }
 };
 
+// HEADER END
+//---------------------------------------------------//
+// CPP
+//--------------------------------------------------//
 /**
  * Static methods should be defined outside the class.
  */
@@ -153,20 +163,8 @@ cppBridgeControler *cppBridgeControler::GetInstance()
     }
     return instance;
 }
-cppBridgeControler *cppBridgeControler::ValidateInstance()
-{
-    return instance != nullptr;
-}
+//------------------------------------------------------//
 
-class GetcppBridgeControler {
-
-    cppBridgeControler *s;
-public:
-    GetcppBridgeControler() {
-        s = s->GetInstance();
-    }
-
-};
 
 //----------------------------------------------------------------------------------------------------------------------
 
