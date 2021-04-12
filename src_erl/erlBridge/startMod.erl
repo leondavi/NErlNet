@@ -10,7 +10,7 @@
 -author("ziv").
 
 %% API
--export([start/9,startTrain/6,startPredict/5, startFSM/4,init/10]).
+-export([start/9,startTrain/6,startPredict/5,init/10]).
 
 start(File, _LayerSizes, _Learning_rate_List, Train_predict_ratio, ChunkSize, NumOfChunks, Cols, Labels, ModelId)->
   %Mid=erlModule:module_create(LayerSizes, Learning_rate_List, 80, [2,1,1,2], 1),
@@ -25,18 +25,36 @@ start(File, _LayerSizes, _Learning_rate_List, Train_predict_ratio, ChunkSize, Nu
   FinishReadPred=parse:sendToTrainPredict(Fi,PredictLines,ChunkSize,NumOfChunks,predict, Cols, Labels, ModelId),
   io:fwrite("FinishReadPred: ~p\n",[FinishReadPred]).
 
-
+%% Start Read the dataset and train predict
+%% ChunkSize - Number of samples (lines)
 init(File, LayerSizes, Learning_rate_List, Train_predict_ratio, ChunkSize, NumOfChunks, Cols, Labels, ModelId,ProcNum)->
   Start_Time = os:system_time(microsecond),
 
+  %% Start the state machine
   nerlNetStatem:start_link(),
+  %% Create the module
   nerlNetStatem:create(Learning_rate_List,LayerSizes),
 
-  {_FileLinesNumber,_Train_Lines,_PredictLines,SampleListTrain,SampleListPredict}=
+  %% Read the file
+  %% File - File name and path
+  %% Train_predict_ratio - For example 80 means 80 percent for train and 20 for predict
+  %% ChunkSize - How many cols (samples) to process for each thread
+  %% Cols - Number of columns in the CSV file excluding label columns(features)
+  %% Labels - Number of label columns in the CSV file
+  %% ModelId - Model id number
+  %% _FileLinesNumber -
+  %%
+  {_FileLinesNumber,_Train_Lines,_PredictLines,SampleListTrain,_SampleListPredict}=
     parse:readfile(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId),
+
+  %io:fwrite("TrainList: ~p\n",[SampleListTrain]),
+  %io:fwrite("Start sleep\n"),
+  %timer:sleep(1000000),
+  %io:fwrite("Finish sleep\n"),
 
   startTrain(ChunkSize, Cols, Labels, SampleListTrain, ModelId,ProcNum),
   %io:format("Train chunk list: ~w~n", [SampleListTrain]),
+
 
   %startPredict(ChunkSize, Cols, SampleListTrain, ModelId,ProcNum),
   %io:format("Predict chunk list: ~w~n", [SampleListPredict]),
@@ -52,7 +70,7 @@ startTrain(ChunkSize, Cols, Labels, SampleList, ModelId,ProcNum)->
   io:fwrite("TrainList: ~p\n",[SampleList]),
   Pid = spawn(fun()-> nerlNetStatem:train(ChunkSize, Cols, Labels, SampleList, ModelId) end),
   io:fwrite("Pid: ~p\n",[Pid]),
-  timer:sleep(10),
+  %timer:sleep(10),
   startTrain(ChunkSize, Cols, Labels, SampleList, ModelId,ProcNum-1).
 
 
@@ -65,10 +83,10 @@ startPredict(ChunkSize, Cols, SampleList, ModelId,ProcNum)->
   startPredict(ChunkSize, Cols, SampleList, ModelId,ProcNum-1).
 
 
-startFSM(LearningRate, Data_Label, Data, Mid)->
-  nerlNetStatem:start_link(),
-  nerlNetStatem:create(0,LearningRate),
-  nerlNetStatem:train(Mid,Data_Label),
-  timer:sleep(10),
-  nerlNetStatem:predict(Mid,Data).
+%startFSM(LearningRate, Data_Label, Data, Mid)->
+%  nerlNetStatem:start_link(),
+%  nerlNetStatem:create(0,LearningRate),
+%  nerlNetStatem:train(Mid,Data_Label),
+%  timer:sleep(10),
+%  nerlNetStatem:predict(Mid,Data).
 
