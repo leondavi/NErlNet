@@ -5,11 +5,9 @@
 #include <deque>
 #include <unordered_map>
 #include "../cppSANN/src/Models/include/Model.h"
-//#include "../src_cpp/cppSANN/src/Models/include/ModelLoader.h"
-//#include "../src_cpp/cppSANN/src/Models/include/Autoencoder.h"
-//#include "../src_cpp/cppSANN/src/tests/default_test.h" // TODO: Change it to a c include class
-//#include <thread>
 #include <memory>
+#include <mutex>
+
 
 // Codes for the module state
 enum ModuleMode {CREATE = 0, TRAIN = 1, PREDICT = 2};
@@ -60,16 +58,16 @@ struct PredictParam {
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-
+std::mutex mutex_;
 // Neural network manager singleton
 class cppBridgeControler {
 private:
     static cppBridgeControler *instance;
-    //static std::mutex mutex_;
+    //std::mutex mutex_;
 protected:
     ~cppBridgeControler() {}
     std::unordered_map<int, std::shared_ptr<SANN::Model>> MidNumModel; // <Mid,Model struct>
-    int mid;
+    long mid;
 
     cppBridgeControler() {
         mid = 0;
@@ -109,6 +107,7 @@ public:
         return this->MidNumModel[mid];
     }
 
+    // Insert new record to the MidNumModel map (new model ptr)
     void setData(std::shared_ptr<SANN::Model> modelPtr) {
         this -> MidNumModel.insert({ this->mid, modelPtr });
         this -> mid = this->mid + 1;
@@ -133,17 +132,25 @@ cppBridgeControler* cppBridgeControler::instance{nullptr};
  */
 cppBridgeControler *cppBridgeControler::GetInstance()
 {
+
+    std::cout << "Get instance" << '\n';
     if (instance == nullptr)
     {
+        std::cout << "instance= nullptr" << '\n';
+        mutex_.lock();
+        std::cout << "thread #" << '\n';
         //std::lock_guard<std::mutex> lock(mutex_);
-        //if (instance == nullptr)
-        //{
+        if (instance == nullptr)
+        {
             instance = new cppBridgeControler();
-        //}
+        }
+        mutex_.unlock();
     }
+    std::cout << "Get instance!= nullptr" << '\n';
     return instance;
 }
 
+// TODO: Delete it if not needed
 class GetcppBridgeControler {
 
     cppBridgeControler *s;
@@ -200,7 +207,7 @@ static ERL_NIF_TERM cppBridgeControlerDeleteModel_nif(ErlNifEnv* env, int argc, 
 }
 
 // For debug porpuses. TODO: implement this function just if needed
-static ERL_NIF_TERM cppBridgeControlerGetModelPtr_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+/*static ERL_NIF_TERM cppBridgeControlerGetModelPtr_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     int mid, ret;
 
@@ -247,7 +254,7 @@ static ERL_NIF_TERM cppBridgeControlerSetData_nif(ErlNifEnv* env, int argc, cons
 
     return enif_make_int(env, mid);
 }
-
+*/
 //----------------------------------------------------------------------------------------------------------------------
 
 // ----- Threaded functions -----
@@ -319,16 +326,21 @@ static void* trainFun(void *arg){
     ErlNifEnv *env = enif_alloc_env();
 
     // Get the singleton instance
+    printf("Get instance0.\n");
     cppBridgeControler *s = s->GetInstance();
+    printf("Got instance.\n");
 
     // Get the model from the singleton
     std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(trainPtr->mid);
+    printf("getModelPtr.\n");
 
     // Get the data matrix from the data_label_mat vector and initialize the data matrix.
     MatrixXd data_mat(trainPtr->rows, trainPtr->col);
 
     // Get the label matrix from the data_label_mat vector and initialize the label matrix
     MatrixXd label_mat(trainPtr->rows, trainPtr->labels);
+
+    printf("go over the list.\n");
 
     // TODO: Think how to do it native to eigen - optional
     int i = 0;
@@ -348,6 +360,8 @@ static void* trainFun(void *arg){
         }
     }
 
+    printf("finish to go over the list.\n");
+
     /*std::cout<<"Data: "<<std::endl;
      for (int r = 0; r < trainPtr->rows; r++){
             // Create the data matrix from a vector
@@ -366,8 +380,13 @@ static void* trainFun(void *arg){
              std::cout<<"\n"<<std::endl;
      }*/
 
+    printf("train the model.\n");
+
     // Train the model with recieved parameters and get loss value
     loss_val = modelPtr->train(data_mat,label_mat);
+
+    printf("finish train the model, loss fun:.\n");
+    std::cout<< loss_val << "\n";
 
     nifpp::TERM loss_val_term = nifpp::make(env, loss_val);
 
@@ -391,6 +410,7 @@ static void* trainFun(void *arg){
 // Train, Predict and Create module nif - Main nif
 static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    std::cout << "Create" << '\n';
     // mode = 0 - model creation, 1 - train, 2 - predict
     int mode;
 
@@ -511,13 +531,13 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
 static ErlNifFunc nif_funcs[] = {
     {"train_predict_create", 6, train_predict_create_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For train
     {"train_predict_create", 5, train_predict_create_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For predict
-    {"create_module", 6, train_predict_create_nif}, // For module create. TODO: Think about using it in a dirty scheduler
+    {"create_module", 6, train_predict_create_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For module create. TODO: Think about using it in a dirty scheduler
     {"cppBridgeControlerDeleteModel", 1, cppBridgeControlerDeleteModel_nif}, // Delete model by mid
     {"cppBridgeControlerGetMid", 0, cppBridgeControlerGetMid_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
-    {"cppBridgeControlerGetModelPtr", 1, cppBridgeControlerGetModelPtr_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
-    {"cppBridgeControlerSetData", 1, cppBridgeControlerSetData_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
+    //{"cppBridgeControlerGetModelPtr", 1, cppBridgeControlerGetModelPtr_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
+    //{"cppBridgeControlerSetData", 1, cppBridgeControlerSetData_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
     {"cppBridgeControler", 0, cppBridgeControler_nif}, // for debug
-    {"cppBridgeControlerSetModelPtrDat", 2, cppBridgeControlerSetModelPtrDat_nif} // for debug
+    //{"cppBridgeControlerSetModelPtrDat", 2, cppBridgeControlerSetModelPtrDat_nif} // for debug
 };
 
 // TODO: Think about using this feature in the future
