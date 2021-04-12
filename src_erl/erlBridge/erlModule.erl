@@ -2,9 +2,9 @@
 
 %% API
 -export([testMatrix/2,cppBridgeControler/0,cppBridgeControlerGetMid/0,cppBridgeControlerGetModelPtr/1 ,cppBridgeControlerSetData/1,testcppBridgeControler/2,
-	 create_module/6, train2double/5, predict2double/4, niftest/1, thread_create_test/0,
+	 create_module/6, train2double/6, predict2double/5, niftest/6, thread_create_test/0,
 	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, cppBridgeControlerSetModelPtrDat/2,
-	cppBridgeControlerDeleteModel/1, startTest/1]).
+	cppBridgeControlerDeleteModel/1, startTest/7]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
@@ -18,15 +18,6 @@ init() ->
 	%Nif_Module_Cpp_Path = string:concat(RelativeDirPath,"/src_py/lib/./libnifModule_nif"), % Relative path for nifModule_nif
 	%% load_info is the second argument to erlang:load_nif/2
   ok = erlang:load_nif(Nif_Module_Cpp_Path, 0).
-
-% todo: delete function foo
-%% Add 1 - using int
-%%foo(_X) ->
-  %% Each NIF must have an implementation in Erlang to be invoked if the function is called before the NIF library is successfully loaded.
-  %% A typical such stub implementation is to call erlang:nif_error which will raise an exception.
-  %% The Erlang function can also be used as a fallback implementation if the NIF library lacks implementation for some OS
-  %% or hardware architecture for example.
-  % exit(nif_library_not_loaded).
 
 
 %%----------------------------------------------------
@@ -116,7 +107,8 @@ start(Data) ->
 %% Activation_list (optional) - list
 %% Optimizer (optional) - default ADAM
 module_create(Layers_sizes, Learning_rate, Train_set_size, Activation_list, Optimizer)->
-	create_module(0, Layers_sizes, Learning_rate, dInt(Train_set_size), Activation_list, Optimizer).
+	Create_Result = create_module(0, Layers_sizes, Learning_rate, dInt(Train_set_size), Activation_list, Optimizer),
+	Create_Result.
 
 %% Create module
 create_module(0, _Layers_sizes, _Learning_rate, _Train_set_size, _Activation_list, _Optimizer) ->
@@ -127,12 +119,13 @@ create_module(0, _Layers_sizes, _Learning_rate, _Train_set_size, _Activation_lis
 %% train_predict_create - mode: 0 - model creation, 1 - train, 2 - predict
 %% Rows, Col, Labels - "int"
 %% Data_Label_mat - list
-train2double(Rows, Cols, Labels, Data_Label_mat, ModelId) -> % TODO
+train2double(Rows, Cols, Labels, Data_Label_mat, ModelId, PID) -> % TODO
 	%% make double list and send to train_predict_create
 	_Return = train_predict_create(1, Rows, Cols, Labels, dList(Data_Label_mat), ModelId),
 	receive
 		LOSS_FUNC->
 			io:fwrite("Loss func: ~p\n",[LOSS_FUNC]),
+			PID ! LOSS_FUNC, % Send the loss function to the calling process
 			LOSS_FUNC
 	end.
 
@@ -152,12 +145,13 @@ train_predict_create(1, _Rows, _Cols, _Labels, _Data_Label_mat, _ModelId) ->
 
 %% _Rows, _Col, _Labels - "ints"
 %% _Data_Label_mat - list
-predict2double(_Data_mat, _rows, _cols, _ModelId) ->
+predict2double(_Data_mat, _rows, _cols, _ModelId,PID) ->
 	%% make double list and send to train_predict_create
 	_Return = train_predict_create(2, dList(_Data_mat), _rows, _cols, _ModelId),
 	receive
 		RESULTS->
-		io:fwrite("Results: ~p\n",[RESULTS])
+		io:fwrite("Results: ~p\n",[RESULTS]),
+			PID ! RESULTS % Send the RESULTS to the calling process
 	end.
 
 %% Predict module
@@ -166,27 +160,47 @@ predict2double(_Data_mat, _rows, _cols, _ModelId) ->
 train_predict_create(2, _Data_mat, _rows, _cols, _ModelId) ->
 	exit(nif_library_not_loaded).
 
+%% ------------------------ TEST ----------------------------
+startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ProcNumTrain)->
 
-startTest(ProcNumTrain)->
 	Start_Time = os:system_time(microsecond),
 	io:fwrite("start module_create ~n"),
-	_Pid1 = spawn(fun()->module_create([8,4,3,2], 0.01, 80, [2,1,1,2], 1) end),
-	niftest(ProcNumTrain),
-	%timer:sleep(5),
+	%Pid1 = spawn(fun()->module_create([8,4,3,2], 0.01, 80, [2,1,1,2], 1) end),
+	module_create([3,2,1], 0.0001, 80, [2,1,1,2], 1),
+	%io:fwrite("Create PID ~p ~n",[Pid1]),
+
+	{_FileLinesNumber,_Train_Lines,_PredictLines,SampleListTrain,_SampleListPredict}=
+		parse:readfile(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId),
+
+	io:fwrite("TrainList: ~p\n",[SampleListTrain]),
+	io:fwrite("ChunkSize: ~p Cols: ~p, Labels: ~p, ModelId: ~p, pid: ~p \n",[ChunkSize,Cols,Labels, ModelId,self()]),
+	erlModule:train2double(ChunkSize, Cols, Labels, SampleListTrain,ModelId,self()),
+
+	%niftest(ProcNumTrain,SampleListTrain,Train_Lines,Cols,Labels,ModelId),
 	io:fwrite("start predict2double ~n"),
-	%_Pid3 = spawn(fun()->erlModule:predict2double([1,2,3,2,3,2,1,0,1,2,3,2,3,2,1,0,1,2,3,2,3,2,1,0,1,2,3,2,3,2,1,0],4,8,0) end),
+	Curr_PID = self(),
+	Pid3 = spawn(fun()->erlModule:predict2double([80,92,132],1,3,0,Curr_PID) end),
+	receive
+		RESULTS->
+			io:fwrite("PID: ~p Results: ~p\n",[Pid3, RESULTS])
+	end,
+
 	Finish_Time = os:system_time(microsecond),
 	Time_elapsed=Finish_Time-Start_Time,
 	io:fwrite("Time took for nif: ~p ms , Number of processes = ~p ~n",[Time_elapsed, ProcNumTrain]).
 
-niftest(0) ->
-	io:fwrite("finish all ~n");
-niftest(Num) ->
-	%timer:sleep(1),
+niftest(0,_SampleListTrain,_Train_Lines, _Cols, _Labels, _ModelId) ->
+	io:fwrite("finished all ~n");
+niftest(Num,SampleListTrain,Train_Lines,Cols,Labels, ModelId) ->
+	Curr_PID = self(),
 	io:fwrite("start train2double ~n"),
-	_Pid2 = spawn(fun()->erlModule:train2double(4, 8, 2, [1,2,3,2,3,2,1,0,1,2,3,2,3,2,1,0,1,2,3,2,3,2,1,0,1,2,3,2,3,2,1,0,0,1,0,1,0,1,0,1],0) end),
-	timer:sleep(1),
-	niftest(Num-1).
+	Pid2 = spawn(fun()->erlModule:train2double(Train_Lines, Cols, Labels, SampleListTrain,ModelId,Curr_PID) end),
+	receive
+		LOSS_FUNC->
+			io:fwrite("PID: ~p Loss func: ~p\n",[Pid2, LOSS_FUNC])
+	end,
+
+	niftest(Num-1,SampleListTrain,Train_Lines,Cols,Labels, ModelId).
 
 thread_create_test() ->
 	exit(nif_library_not_loaded).
