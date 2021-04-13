@@ -17,3 +17,6 @@ prerequisite:
 3. Clone this repository
 4. Update cppSANN submodule ```git submodule update --init --recursive```
 5. Call ```./build.sh``` to build the project. 
+
+
+This project uses C++11 Wrapper for Erlang NIF API (NIFPP: https://github.com/goertzenator/nifpp). 
