@@ -8,6 +8,9 @@
 #include <memory>
 #include <mutex>
 
+#define DEBUG_TRAIN_NIF 0
+#define DEBUG_PREDICT_NIF 0
+#define DEBUG_CREATE_NIF 0
 
 // Codes for the module state
 enum ModuleMode {CREATE = 0, TRAIN = 1, PREDICT = 2};
@@ -285,6 +288,7 @@ static void* predictFun(void *arg){
 
     // Predict model with received parameters
     MatrixXd resultsMat;
+    std::cout << "Start predicting (inside the thread)." << '\n';
     modelPtr->predict(data_matrix, resultsMat);
 
     // Create the result vector from the result matrix
@@ -296,8 +300,13 @@ static void* predictFun(void *arg){
             index++;
         }
     }
-    //std::cout<<"results: \n"<<resultsMat<<std::endl; // TODO: Delete it in the end
 
+#if DEBUG_PREDICT_NIF
+    // Print the result matrix
+    std::cout<<"results inside the nif predict thread: \n"<<resultsMat<<std::endl;
+#endif
+
+    // Convert the result vector to nif term
     nifpp::TERM retResults = nifpp::make(env, results_vec);
 
     // Sends a message to a process. Parameters:
@@ -313,7 +322,7 @@ static void* predictFun(void *arg){
     // Frees all terms in an environment and clears it for reuse.
     enif_clear_env(env);
     delete predictPtr; // TODO: Check for memory leaks
-    printf("finish predict fun.\n");
+    printf("Finish predict fun thread in the nif.\n");
 
     return 0;
 }
@@ -360,9 +369,12 @@ static void* trainFun(void *arg){
         }
     }
 
-    printf("finish to go over the list.\n");
+#if DEBUG_TRAIN_NIF
 
-    /*std::cout<<"Data: "<<std::endl;
+    printf("Finish to go over the list.\n");
+
+    // Print the Data (train features) matrix
+    std::cout<<"Data: "<<std::endl;
      for (int r = 0; r < trainPtr->rows; r++){
             // Create the data matrix from a vector
             for (int c = 0; c < trainPtr->col; c++){
@@ -371,6 +383,7 @@ static void* trainFun(void *arg){
             std::cout<<"\n"<<std::endl;
      }
 
+     // Print the label (train label) matrix
      std::cout<<"Label: "<<std::endl;
      for (int r = 0; r < trainPtr->rows; r++){
              // Create the label matrix from a vector
@@ -378,16 +391,20 @@ static void* trainFun(void *arg){
                  std::cout<< label_mat(r,l) << " ";
              }
              std::cout<<"\n"<<std::endl;
-     }*/
+     }
 
-    printf("train the model.\n");
+    printf("Start to train the model.\n");
+#endif
 
     // Train the model with recieved parameters and get loss value
     loss_val = modelPtr->train(data_mat,label_mat);
 
-    printf("finish train the model, loss fun:.\n");
+#if DEBUG_TRAIN_NIF
+    printf("Finish train the model, loss fun inside the nif thread: \n");
     std::cout<< loss_val << "\n";
+#endif
 
+    // Convert the lossFun value to a nif term
     nifpp::TERM loss_val_term = nifpp::make(env, loss_val);
 
     // Send to erlang process the loss value
@@ -400,17 +417,17 @@ static void* trainFun(void *arg){
     enif_clear_env(env);
 
     delete trainPtr;
-    printf("finish train fun.\n");
+    printf("Finish train fun thread in the nif.\n");
 
     return 0;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-// Train, Predict and Create module nif - Main nif
+// Train, Predict and Create module nif - Main nif (The NIF starts executing here)
 static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    std::cout << "Create" << '\n';
+    std::cout << "Start the NIF." << '\n';
     // mode = 0 - model creation, 1 - train, 2 - predict
     int mode;
 
@@ -432,18 +449,35 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
             nifpp::get_throws(env, argv[1], modelParamPtr.layers_sizes);
             nifpp::get_throws(env, argv[2], modelParamPtr.learning_rate);
             nifpp::get_throws(env, argv[3], modelParamPtr.train_set_size);
-            nifpp::get_throws(env, argv[4], modelParamPtr.activation_list); // optional
-            nifpp::get_throws(env, argv[5], modelParamPtr.optimizer); // optional
+            nifpp::get_throws(env, argv[4], modelParamPtr.activation_list);
+            nifpp::get_throws(env, argv[5], modelParamPtr.optimizer);
 
-            // Default parameter. TODO: Will be changed in the future
-            std::vector<act_t> act_types_vec{act_t::ACT_NONE,act_t::ACT_SIGMOID,act_t::ACT_SIGMOID,act_t::ACT_NONE};
+            // Create the activation list vector from the received activation list
+            std::vector<act_t> act_types_vec;
+            for(int i = 0; i < (int)(modelParamPtr.activation_list.size()); i++){
+                act_types_vec.push_back(static_cast<act_t>(modelParamPtr.activation_list[i]));
+            }
 
-            // Create the model with the default and received parameters. TODO: Think if unique pointer is a better option
+            Optimizers::opt_t optimizer = (Optimizers::opt_t)modelParamPtr.optimizer;
+
+#if DEBUG_CREATE_NIF
+            std::cout << "Optimizers::opt_t optimizer: " << optimizer << '\n';
+            std::cout << "act_types_vec: " << act_types_vec << '\n';
+            std::cout << "modelParamPtr.layers_sizes: " << modelParamPtr.layers_sizes << '\n';
+            std::cout << "modelParamPtr.learning_rate: " << modelParamPtr.learning_rate << '\n';
+#endif
+
+            std::cout << "Start creating the module." << '\n';
+
+            // Create the model with the received parameters. TODO: Think if unique pointer is a better option
             SANN::Model *model = new SANN::Model(modelParamPtr.layers_sizes,modelParamPtr.learning_rate);
             std::shared_ptr<SANN::Model> modelPtr(model);
 
+            // Set activations list
             modelPtr->set_activations(act_types_vec);
-            modelPtr->set_optimizer(Optimizers::OPT_ADAM);// The default is Adam optimizer but you can select another
+
+            // Set the optimizer
+            modelPtr->set_optimizer(optimizer);
 
             // Create the singleton instance
             cppBridgeControler *s = s->GetInstance();
@@ -451,7 +485,7 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
             // Put the model record to the map
             s->setData(modelPtr);
 
-            printf("finish create module nif.\n");
+            printf("Finish creating the module in the nif.\n");
             return enif_make_int(env, 0); // TODO: change the return value if needed
         }
         catch(nifpp::badarg){
@@ -477,6 +511,7 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
             enif_self(env, &pid);
             trainPtr->pid = pid;
 
+            // Start a thread with trainFun function to train the model in a separate thread
             // int enif_thread_create(char *name, ErlNifTid *tid, void * (*func)(void *), void *args, ErlNifThreadOpts *opts)
             // name -A string identifying the created thread. It is used to identify the thread in planned future debug functionality.
             // tid - A pointer to a thread identifier variable.
@@ -490,7 +525,7 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
             // If opts is a NULL pointer (0), default options are used, otherwise the passed options are used.
             int res = enif_thread_create((char*)"trainModule", &(trainPtr->tid), trainFun, trainPtr, 0);
 
-            printf("finish train module nif.\n");
+            printf("Finish train module nif (Not the thread itself).\n");
             return enif_make_int(env, res); // 0 - means the thread succeeded to run
         }
         catch(nifpp::badarg){
@@ -517,11 +552,12 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
         // Create the thread to run predict
         int res = enif_thread_create((char*)"predictModule", &(predictPtr->tid), predictFun, predictPtr, 0);
 
-        printf("finish predict nif.\n");
+        printf("Finish predict nif (Not the thread itself).\n");
         return enif_make_int(env, res); // 0 - means the thread succeeded to run
     }
 
     // This shouldn't happen in a regular situation
+    std::cout << "Incorrect mode entered: " << mode << ". Please run with the correct mode: 0 - Create, 1 - Train or 2 - Predict." << '\n';
     return enif_make_int(env, mode);
 }
 //----------------------------------------------------------------------------------------------------------------------

@@ -4,7 +4,7 @@
 -export([testMatrix/2,cppBridgeControler/0,cppBridgeControlerGetMid/0,cppBridgeControlerGetModelPtr/1 ,cppBridgeControlerSetData/1,testcppBridgeControler/2,
 	 create_module/6, train2double/6, predict2double/5, niftest/6, thread_create_test/0,
 	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, cppBridgeControlerSetModelPtrDat/2,
-	cppBridgeControlerDeleteModel/1, startTest/7]).
+	cppBridgeControlerDeleteModel/1, startTest/11]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
@@ -104,8 +104,11 @@ start(Data) ->
 %% layers_sizes - list
 %% Learning_rate - number (0-1). Usually 1/number_of_samples
 %% Train_set_size - percentage number. Usually 70%-80%
-%% Activation_list (optional) - list
-%% Optimizer (optional) - default ADAM
+%% Activation_list - list of activation functions for the layers:
+%% enum: ACT_NONE - 0, ACT_IDENTITY - 1, ACT_SIGMOID - 2, ACT_RELU - 3, ACT_LEAKY_RELU - 4, ACT_SWISH - 5, ACT_ELU - 6,
+%% ACT_TANH - 7, ACT_GAUSSIAN - 8, ACT_TOTAL - 9
+%% Optimizer (optional) - default ADAM :
+%% enum: OPT_NONE - 0, OPT_SGD - 1, OPT_MINI_BATCH_SGD - 2, OPT_MOMENTUM - 3, OPT_NAG -4, OPT_ADAGRAD - 5, OPT_ADAM -6
 module_create(Layers_sizes, Learning_rate, Train_set_size, Activation_list, Optimizer)->
 	Create_Result = create_module(0, Layers_sizes, Learning_rate, dInt(Train_set_size), Activation_list, Optimizer),
 	Create_Result.
@@ -161,12 +164,12 @@ train_predict_create(2, _Data_mat, _rows, _cols, _ModelId) ->
 	exit(nif_library_not_loaded).
 
 %% ------------------------ TEST ----------------------------
-startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ProcNumTrain)->
+startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationList, Learning_rate, Layers_sizes, Optimizer, ProcNumTrain)->
 
 	Start_Time = os:system_time(microsecond),
-	io:fwrite("start module_create ~n"),
+	io:fwrite("Start module_create in erlModule ~n"),
 	%Pid1 = spawn(fun()->module_create([8,4,3,2], 0.01, 80, [2,1,1,2], 1) end),
-	module_create([3,2,1], 0.0001, 80, [2,1,1,2], 1),
+	module_create(Layers_sizes, Learning_rate, 80, ActivationList, Optimizer), % TrainSetSize (80) not in use
 	%io:fwrite("Create PID ~p ~n",[Pid1]),
 
 	{_FileLinesNumber,_Train_Lines,_PredictLines,SampleListTrain,_SampleListPredict}=
