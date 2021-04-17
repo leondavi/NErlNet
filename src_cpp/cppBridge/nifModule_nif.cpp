@@ -26,7 +26,8 @@ enum ModuleMode {CREATE = 0, TRAIN = 1, PREDICT = 2};
 struct CreateModelParam {
 
     int optimizer;
-    double learning_rate, train_set_size;
+    unsigned long modelId;
+    double learning_rate;
     std::vector<int> activation_list;
     std::vector<uint32_t> layers_sizes;
 };
@@ -40,7 +41,8 @@ struct CreateModelParam {
 // pid - unique erlang process identification
 struct TrainParam {
 
-    int rows, col, labels, mid;
+    int rows, col, labels;
+    unsigned long mid;
     std::vector<double> data_label_mat;
     ErlNifTid tid;
     ErlNifPid pid;
@@ -54,7 +56,8 @@ struct TrainParam {
 // pid - unique erlang process identification
 struct PredictParam {
 
-    int rows, cols, mid;
+    int rows, cols;
+    unsigned long mid;
     std::vector<double> data_mat;
     ErlNifTid tid;
     ErlNifPid pid;
@@ -66,15 +69,11 @@ std::mutex mutex_;
 class cppBridgeControler {
 private:
     static cppBridgeControler *instance;
-    //std::mutex mutex_;
 protected:
     ~cppBridgeControler() {}
-    std::unordered_map<int, std::shared_ptr<SANN::Model>> MidNumModel; // <Mid,Model struct>
-    long mid;
+    std::unordered_map<unsigned long, std::shared_ptr<SANN::Model>> _MidNumModel; // <Mid,Model struct>
 
-    cppBridgeControler() {
-        mid = 0;
-    }
+    cppBridgeControler(){}
 
 public:
     /**
@@ -102,22 +101,17 @@ public:
 
     static cppBridgeControler *GetInstance();
 
-    int getMid() {
-        return this -> mid;
-    }
-
-    std::shared_ptr<SANN::Model> getModelPtr(int mid){
-        return this->MidNumModel[mid];
+    std::shared_ptr<SANN::Model> getModelPtr(unsigned long mid){
+        return this->_MidNumModel[mid];
     }
 
     // Insert new record to the MidNumModel map (new model ptr)
-    void setData(std::shared_ptr<SANN::Model> modelPtr) {
-        this -> MidNumModel.insert({ this->mid, modelPtr });
-        this -> mid = this->mid + 1;
+    void setData(std::shared_ptr<SANN::Model> modelPtr, unsigned long modelId) {
+        this -> _MidNumModel.insert({ modelId, modelPtr });
     }
 
-    void deleteModel(int mid){
-        this->MidNumModel.erase(mid); // TODO: Check for memmory leaks
+    void deleteModel(unsigned long mid){
+        this->_MidNumModel.erase(mid); // TODO: Check for memmory leaks
     }
 };
 
@@ -136,12 +130,9 @@ cppBridgeControler* cppBridgeControler::instance{nullptr};
 cppBridgeControler *cppBridgeControler::GetInstance()
 {
 
-    std::cout << "Get instance" << '\n';
     if (instance == nullptr)
     {
-        std::cout << "instance= nullptr" << '\n';
         mutex_.lock();
-        std::cout << "thread #" << '\n';
         //std::lock_guard<std::mutex> lock(mutex_);
         if (instance == nullptr)
         {
@@ -149,7 +140,6 @@ cppBridgeControler *cppBridgeControler::GetInstance()
         }
         mutex_.unlock();
     }
-    std::cout << "Get instance!= nullptr" << '\n';
     return instance;
 }
 
@@ -182,15 +172,6 @@ static ERL_NIF_TERM cppBridgeControler_nif(ErlNifEnv* env, int argc, const ERL_N
     return enif_make_badarg(env);
 
 	//return nifpp::make(env, s);
-}
-
-// For debug porpuses. TODO: implement this function just if needed
-static ERL_NIF_TERM cppBridgeControlerGetMid_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    cppBridgeControler *s = s->GetInstance();
-    int mid = s->getMid();
-
-    return enif_make_int(env, mid);
 }
 
 // Delete model by mid from the map
@@ -335,7 +316,6 @@ static void* trainFun(void *arg){
     ErlNifEnv *env = enif_alloc_env();
 
     // Get the singleton instance
-    printf("Get instance0.\n");
     cppBridgeControler *s = s->GetInstance();
     printf("Got instance.\n");
 
@@ -368,6 +348,9 @@ static void* trainFun(void *arg){
             i++;
         }
     }
+
+    //double *v = &trainPtr->data_label_mat[n];   TODO
+    //Eigen::Map<Eigen::MatrixXd> matrix(v,n + n * n,1);
 
 #if DEBUG_TRAIN_NIF
 
@@ -448,7 +431,7 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
             // It will throw nifpp::badarg upon failure unlike nifpp::get() that will return true on success, false on failure.
             nifpp::get_throws(env, argv[1], modelParamPtr.layers_sizes);
             nifpp::get_throws(env, argv[2], modelParamPtr.learning_rate);
-            nifpp::get_throws(env, argv[3], modelParamPtr.train_set_size);
+            nifpp::get_throws(env, argv[3], modelParamPtr.modelId);
             nifpp::get_throws(env, argv[4], modelParamPtr.activation_list);
             nifpp::get_throws(env, argv[5], modelParamPtr.optimizer);
 
@@ -482,8 +465,8 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
             // Create the singleton instance
             cppBridgeControler *s = s->GetInstance();
 
-            // Put the model record to the map
-            s->setData(modelPtr);
+            // Put the model record to the map with modelId
+            s->setData(modelPtr, modelParamPtr.modelId);
 
             printf("Finish creating the module in the nif.\n");
             return enif_make_int(env, 0); // TODO: change the return value if needed
@@ -569,7 +552,6 @@ static ErlNifFunc nif_funcs[] = {
     {"train_predict_create", 5, train_predict_create_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For predict
     {"create_module", 6, train_predict_create_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For module create. TODO: Think about using it in a dirty scheduler
     {"cppBridgeControlerDeleteModel", 1, cppBridgeControlerDeleteModel_nif}, // Delete model by mid
-    {"cppBridgeControlerGetMid", 0, cppBridgeControlerGetMid_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
     //{"cppBridgeControlerGetModelPtr", 1, cppBridgeControlerGetModelPtr_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
     //{"cppBridgeControlerSetData", 1, cppBridgeControlerSetData_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
     {"cppBridgeControler", 0, cppBridgeControler_nif}, // for debug
