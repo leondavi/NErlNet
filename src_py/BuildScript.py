@@ -8,7 +8,7 @@ import shutil
 
 def build_cpp():
 
-    SO_RESULT_FILE = "libnifModule_nif.so"
+    SO_RESULT_FILE = "libNerlNIF.so"
 
     print(os.getcwd())
     os.system("scons src=../src_cpp shared=True")
