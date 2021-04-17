@@ -1,7 +1,7 @@
 -module(erlModule).
 
 %% API
--export([testMatrix/2,cppBridgeControler/0,cppBridgeControlerGetMid/0,cppBridgeControlerGetModelPtr/1 ,cppBridgeControlerSetData/1,testcppBridgeControler/2,
+-export([testMatrix/2,cppBridgeControler/0,cppBridgeControlerGetModelPtr/1 ,cppBridgeControlerSetData/1,
 	 create_module/6, train2double/6, predict2double/5, niftest/6, thread_create_test/0,
 	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, cppBridgeControlerSetModelPtrDat/2,
 	cppBridgeControlerDeleteModel/1, startTest/11]).
@@ -59,15 +59,12 @@ dList([],NewList) -> NewList;
 dList([H|T],NewList) -> dList(T,NewList++[H+0.0]).
 
 % Convert "int" to "double"
-dInt(Int) -> Int+0.0.
+%dInt(Int) -> Int+0.0.
 
 %dListSquare(List)->List.
 
 %%---------------------------------------------------
 cppBridgeControler()->
-	exit(nif_library_not_loaded).
-
-cppBridgeControlerGetMid() ->
 	exit(nif_library_not_loaded).
 
 cppBridgeControlerGetModelPtr(_Mid) ->
@@ -82,22 +79,6 @@ cppBridgeControlerSetData(_Int) ->
 cppBridgeControlerDeleteModel(_Mid) ->
 	exit(nif_library_not_loaded).
 
-testcppBridgeControler(Data1,Data2) ->
-	A = cppBridgeControlerGetMid(),
-	io:fwrite("cppBridgeControler initial data: ~p ~n",[A]),
-	_Pid1 = spawn(fun()->start(Data1) end),
-	_Pid2 = spawn(fun()->start(Data2) end),
-	timer:sleep(100),
-	B = cppBridgeControlerGetMid(),
-	io:fwrite("cppBridgeControler finish data: ~p ~n",[B]).
-
-start(Data) ->
-	FirstData = cppBridgeControlerGetMid(),
-	io:fwrite("cppBridgeControler from pid ~p first data: ~p ~n",[self(),FirstData]),
-	cppBridgeControlerSetData(Data),
-	UpdatedData = cppBridgeControlerGetMid(),
-	io:fwrite("cppBridgeControler from pid ~p updated data: ~p ~n",[self(),UpdatedData]).
-
 %%---------------------------------------------------
 
 %% ---- Create module ----
@@ -109,12 +90,12 @@ start(Data) ->
 %% ACT_TANH - 7, ACT_GAUSSIAN - 8, ACT_TOTAL - 9
 %% Optimizer (optional) - default ADAM :
 %% enum: OPT_NONE - 0, OPT_SGD - 1, OPT_MINI_BATCH_SGD - 2, OPT_MOMENTUM - 3, OPT_NAG -4, OPT_ADAGRAD - 5, OPT_ADAM -6
-module_create(Layers_sizes, Learning_rate, Train_set_size, Activation_list, Optimizer)->
-	Create_Result = create_module(0, Layers_sizes, Learning_rate, dInt(Train_set_size), Activation_list, Optimizer),
+module_create(Layers_sizes, Learning_rate, Activation_list, Optimizer, ModelId)->
+	Create_Result = create_module(0, Layers_sizes, Learning_rate, ModelId, Activation_list, Optimizer),
 	Create_Result.
 
 %% Create module
-create_module(0, _Layers_sizes, _Learning_rate, _Train_set_size, _Activation_list, _Optimizer) ->
+create_module(0, _Layers_sizes, _Learning_rate, _ModelId, _Activation_list, _Optimizer) ->
 	exit(nif_library_not_loaded).
 
 %% ---- Train  ----
@@ -169,7 +150,7 @@ startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, Activation
 	Start_Time = os:system_time(microsecond),
 	io:fwrite("Start module_create in erlModule ~n"),
 	%Pid1 = spawn(fun()->module_create([8,4,3,2], 0.01, 80, [2,1,1,2], 1) end),
-	module_create(Layers_sizes, Learning_rate, 80, ActivationList, Optimizer), % TrainSetSize (80) not in use
+	module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
 	%io:fwrite("Create PID ~p ~n",[Pid1]),
 
 	{_FileLinesNumber,_Train_Lines,_PredictLines,SampleListTrain,_SampleListPredict}=
