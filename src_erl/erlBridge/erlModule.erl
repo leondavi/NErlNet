@@ -1,10 +1,10 @@
 -module(erlModule).
 
 %% API
--export([testMatrix/2,cppBridgeControler/0,cppBridgeControlerGetModelPtr/1 ,cppBridgeControlerSetData/1,
+-export([testMatrix/2,cppBridgeController/0,cppBridgeControllerGetModelPtr/1 ,cppBridgeControllerSetData/1,
 	 create_module/6, train2double/6, predict2double/5, niftest/6, thread_create_test/0,
-	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, cppBridgeControlerSetModelPtrDat/2,
-	cppBridgeControlerDeleteModel/1, startTest/11]).
+	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, cppBridgeControllerSetModelPtrDat/2,
+	cppBridgeControllerDeleteModel/1, startTest/11]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
@@ -14,8 +14,7 @@
 %%  native implementation in C
 init() ->
 	RelativeDirPath = filename:dirname(filename:dirname(filename:absname(""))), % NErlNet directory path
-	Nif_Module_Cpp_Path = string:concat(RelativeDirPath,"/src_cpp/cppBridge/./libnifModule_nif"), % Relative path for nifModule_nif
-	%Nif_Module_Cpp_Path = string:concat(RelativeDirPath,"/src_py/lib/./libnifModule_nif"), % Relative path for nifModule_nif
+	Nif_Module_Cpp_Path = string:concat(RelativeDirPath,"/src_cpp/cppBridge/./libNerlNIF"), % Relative path for nifModule_nif
 	%% load_info is the second argument to erlang:load_nif/2
   ok = erlang:load_nif(Nif_Module_Cpp_Path, 0).
 
@@ -64,19 +63,19 @@ dList([H|T],NewList) -> dList(T,NewList++[H+0.0]).
 %dListSquare(List)->List.
 
 %%---------------------------------------------------
-cppBridgeControler()->
+cppBridgeController()->
 	exit(nif_library_not_loaded).
 
-cppBridgeControlerGetModelPtr(_Mid) ->
+cppBridgeControllerGetModelPtr(_Mid) ->
 	exit(nif_library_not_loaded).
 
-cppBridgeControlerSetModelPtrDat(_Dat, _Mid) ->
+cppBridgeControllerSetModelPtrDat(_Dat, _Mid) ->
 	exit(nif_library_not_loaded).
 
-cppBridgeControlerSetData(_Int) ->
+cppBridgeControllerSetData(_Int) ->
 	exit(nif_library_not_loaded).
 
-cppBridgeControlerDeleteModel(_Mid) ->
+cppBridgeControllerDeleteModel(_Mid) ->
 	exit(nif_library_not_loaded).
 
 %%---------------------------------------------------
@@ -129,9 +128,9 @@ train_predict_create(1, _Rows, _Cols, _Labels, _Data_Label_mat, _ModelId) ->
 
 %% _Rows, _Col, _Labels - "ints"
 %% _Data_Label_mat - list
-predict2double(_Data_mat, _rows, _cols, _ModelId,PID) ->
+predict2double(Data_mat, Rows, Cols, ModelId,PID) ->
 	%% make double list and send to train_predict_create
-	_Return = train_predict_create(2, dList(_Data_mat), _rows, _cols, _ModelId),
+	_Return = train_predict_create(2, dList(Data_mat), Rows, Cols, ModelId),
 	receive
 		RESULTS->
 		io:fwrite("Results: ~p\n",[RESULTS]),
@@ -163,7 +162,7 @@ startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, Activation
 	%niftest(ProcNumTrain,SampleListTrain,Train_Lines,Cols,Labels,ModelId),
 	io:fwrite("start predict2double ~n"),
 	Curr_PID = self(),
-	Pid3 = spawn(fun()->erlModule:predict2double([80,92,132],1,3,0,Curr_PID) end),
+	Pid3 = spawn(fun()->erlModule:predict2double([80,92,132],1,3,ModelId,Curr_PID) end),
 	receive
 		RESULTS->
 			io:fwrite("PID: ~p Results: ~p\n",[Pid3, RESULTS])

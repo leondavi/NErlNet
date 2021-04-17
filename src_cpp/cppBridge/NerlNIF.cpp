@@ -1,12 +1,8 @@
-// g++ -fno-rtti -o nifModule_nif.so -fpic -shared test.cpp nifModule_nif.cpp
-
 #include "include/nifpp.h"
 #include <vector>
 #include <deque>
-#include <unordered_map>
 #include "../cppSANN/src/Models/include/Model.h"
-#include <memory>
-#include <mutex>
+#include "include/bridgeController.h"
 
 #define DEBUG_TRAIN_NIF 0
 #define DEBUG_PREDICT_NIF 0
@@ -64,118 +60,8 @@ struct PredictParam {
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-std::mutex mutex_;
-// Neural network manager singleton
-class cppBridgeControler {
-private:
-    static cppBridgeControler *instance;
-protected:
-    ~cppBridgeControler() {}
-    std::unordered_map<unsigned long, std::shared_ptr<SANN::Model>> _MidNumModel; // <Mid,Model struct>
-
-    cppBridgeControler(){}
-
-public:
-    /**
-     * Singletons should not be cloneable.
-     */
-    cppBridgeControler(cppBridgeControler &other) = delete;
-    /**
-     * Singletons should not be assignable.
-     */
-    void operator=(const cppBridgeControler &) = delete;
-
-    // TODO: Think about locking mechanism
-   /* cppBridgeControler(data)
-    {
-	    if (instance == nullptr)
-	    {
-		//std::lock_guard<std::mutex> lock(mutex_);
-		//if (instance == nullptr)
-		//{
-		    instance = new cppBridgeControler();
-		//}
-	    }
-	    return instance;
-    }*/
-
-    static cppBridgeControler *GetInstance();
-
-    std::shared_ptr<SANN::Model> getModelPtr(unsigned long mid){
-        return this->_MidNumModel[mid];
-    }
-
-    // Insert new record to the MidNumModel map (new model ptr)
-    void setData(std::shared_ptr<SANN::Model> modelPtr, unsigned long modelId) {
-        this -> _MidNumModel.insert({ modelId, modelPtr });
-    }
-
-    void deleteModel(unsigned long mid){
-        this->_MidNumModel.erase(mid); // TODO: Check for memmory leaks
-    }
-};
-
-/**
- * Static methods should be defined outside the class.
- */
-//Initialize pointer to zero so that it can be initialized in first call to getInstance
-cppBridgeControler* cppBridgeControler::instance{nullptr};
-//std::mutex cppBridgeControler::mutex_;
-
-/**
- * The first time we call GetInstance we will lock the storage location
- *      and then we make sure again that the variable is null and then we
- *      set the value. RU:
- */
-cppBridgeControler *cppBridgeControler::GetInstance()
-{
-
-    if (instance == nullptr)
-    {
-        mutex_.lock();
-        //std::lock_guard<std::mutex> lock(mutex_);
-        if (instance == nullptr)
-        {
-            instance = new cppBridgeControler();
-        }
-        mutex_.unlock();
-    }
-    return instance;
-}
-
-// TODO: Delete it if not needed
-class GetcppBridgeControler {
-
-    cppBridgeControler *s;
-public:
-    GetcppBridgeControler() {
-        s = s->GetInstance();
-    }
-
-};
-
-//----------------------------------------------------------------------------------------------------------------------
-
-// TODO: Delete it or think about using it
-// All terms of type ERL_NIF_TERM belong to an environment of type ErlNifEnv.
-// The lifetime of a term is controlled by the lifetime of its environment object.
-// All API functions that read or write terms has the environment that the term belongs to as the first function argument.
-static ERL_NIF_TERM cppBridgeControler_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    try
-    {
-        auto s_ptr = nifpp::construct_resource<GetcppBridgeControler>();
-        return nifpp::make(env, s_ptr);
-    }
-    catch(nifpp::badarg) {}
-    //catch(std::ios_base::failure) {}
-    return enif_make_badarg(env);
-
-	//return nifpp::make(env, s);
-}
-
 // Delete model by mid from the map
-static ERL_NIF_TERM cppBridgeControlerDeleteModel_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM cppBridgeControllerDeleteModel_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     int mid;
 
@@ -184,61 +70,11 @@ static ERL_NIF_TERM cppBridgeControlerDeleteModel_nif(ErlNifEnv* env, int argc, 
         return enif_make_badarg(env);
     }
 
-    cppBridgeControler *s = s->GetInstance();
+    cppBridgeController *s = s->GetInstance();
     s->deleteModel(mid);
 
     return enif_make_int(env, mid);
 }
-
-// For debug porpuses. TODO: implement this function just if needed
-/*static ERL_NIF_TERM cppBridgeControlerGetModelPtr_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    int mid, ret;
-
-    if (!enif_get_int(env, argv[0], &mid)) {
-        return enif_make_badarg(env);
-    }
-
-    cppBridgeControler *s = s->GetInstance();
-    std::shared_ptr<SANN::Model> model = s->getModelPtr(mid);
-    //ret = model->getDat();
-
-    return enif_make_int(env, ret); // todo: change to something else
-}
-
-// For debug porpuses. TODO: implement this function just if needed
-static ERL_NIF_TERM cppBridgeControlerSetModelPtrDat_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    int dat, ret ,mid;
-
-    if (!enif_get_int(env, argv[0], &dat)) {
-        return enif_make_badarg(env);
-    }
-    if (!enif_get_int(env, argv[1], &mid)) {
-        return enif_make_badarg(env);
-    }
-
-    cppBridgeControler *s = s->GetInstance();
-    std::shared_ptr<SANN::Model> model = s->getModelPtr(mid);
-    //ret = model->setDat(dat);
-
-    return enif_make_int(env, ret); // todo: change to something else
-}
-
-// For debug porpuses. TODO: implement this function just if needed
-static ERL_NIF_TERM cppBridgeControlerSetData_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    cppBridgeControler *s = s->GetInstance();
-    int mid;
-
-    if (!enif_get_int(env, argv[0], &mid)) {
-	return enif_make_badarg(env);
-    }
-    //s->setData(mid);
-
-    return enif_make_int(env, mid);
-}
-*/
 //----------------------------------------------------------------------------------------------------------------------
 
 // ----- Threaded functions -----
@@ -250,7 +86,7 @@ static void* predictFun(void *arg){
     ErlNifEnv *env = enif_alloc_env();
 
     // Get the singleton instance
-    cppBridgeControler *s = s->GetInstance();
+    cppBridgeController *s = s->GetInstance();
 
     // Get the model from the singleton
     std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(predictPtr->mid);
@@ -316,7 +152,7 @@ static void* trainFun(void *arg){
     ErlNifEnv *env = enif_alloc_env();
 
     // Get the singleton instance
-    cppBridgeControler *s = s->GetInstance();
+    cppBridgeController *s = s->GetInstance();
     printf("Got instance.\n");
 
     // Get the model from the singleton
@@ -349,7 +185,7 @@ static void* trainFun(void *arg){
         }
     }
 
-    //double *v = &trainPtr->data_label_mat[n];   TODO
+    //double *v = &trainPtr->data_label_mat[n];   TODO a
     //Eigen::Map<Eigen::MatrixXd> matrix(v,n + n * n,1);
 
 #if DEBUG_TRAIN_NIF
@@ -408,6 +244,9 @@ static void* trainFun(void *arg){
 //----------------------------------------------------------------------------------------------------------------------
 
 // Train, Predict and Create module nif - Main nif (The NIF starts executing here)
+// All terms of type ERL_NIF_TERM belong to an environment of type ErlNifEnv.
+// The lifetime of a term is controlled by the lifetime of its environment object.
+// All API functions that read or write terms has the environment that the term belongs to as the first function argument.
 static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     std::cout << "Start the NIF." << '\n';
@@ -463,7 +302,7 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
             modelPtr->set_optimizer(optimizer);
 
             // Create the singleton instance
-            cppBridgeControler *s = s->GetInstance();
+            cppBridgeController *s = s->GetInstance();
 
             // Put the model record to the map with modelId
             s->setData(modelPtr, modelParamPtr.modelId);
@@ -551,11 +390,7 @@ static ErlNifFunc nif_funcs[] = {
     {"train_predict_create", 6, train_predict_create_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For train
     {"train_predict_create", 5, train_predict_create_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For predict
     {"create_module", 6, train_predict_create_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For module create. TODO: Think about using it in a dirty scheduler
-    {"cppBridgeControlerDeleteModel", 1, cppBridgeControlerDeleteModel_nif}, // Delete model by mid
-    //{"cppBridgeControlerGetModelPtr", 1, cppBridgeControlerGetModelPtr_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
-    //{"cppBridgeControlerSetData", 1, cppBridgeControlerSetData_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // for debug
-    {"cppBridgeControler", 0, cppBridgeControler_nif}, // for debug
-    //{"cppBridgeControlerSetModelPtrDat", 2, cppBridgeControlerSetModelPtrDat_nif} // for debug
+    {"cppBridgeControllerDeleteModel", 1, cppBridgeControllerDeleteModel_nif} // Delete model by mid
 };
 
 // TODO: Think about using this feature in the future
@@ -565,9 +400,9 @@ static ErlNifFunc nif_funcs[] = {
 // The library fails to load if load returns anything other than 0. load can be NULL if initialization is not needed.
 static int load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
 {
-    //nifpp::register_resource<GetcppBridgeControler>(env, nullptr, "GetcppBridgeControler");
-    //nifpp::register_resource<cppBridgeControler>(env, nullptr, "cppBridgeControler");
-   // nifpp::register_resource<SANN::Model>(env, nullptr, "cppBridgeControler");
+    //nifpp::register_resource<GetcppBridgeController>(env, nullptr, "GetcppBridgeController");
+    //nifpp::register_resource<cppBridgeController>(env, nullptr, "cppBridgeController");
+   // nifpp::register_resource<SANN::Model>(env, nullptr, "cppBridgeController");
     return 0;
 }
 
