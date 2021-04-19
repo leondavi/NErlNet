@@ -10,7 +10,7 @@
 -author("ziv").
 
 %% API
--export([start/9,startTrain/6,startPredict/5,init/10]).
+-export([start/9,startTrain/6,startPredict/5,init/10,initNew/11]).
 
 start(File, _LayerSizes, _Learning_rate_List, Train_predict_ratio, ChunkSize, NumOfChunks, Cols, Labels, ModelId)->
   %Mid=erlModule:module_create(LayerSizes, Learning_rate_List, 80, [2,1,1,2], 1),
@@ -31,9 +31,11 @@ init(File, LayerSizes, Learning_rate_List, Train_predict_ratio, ChunkSize, NumOf
   Start_Time = os:system_time(microsecond),
 
   %% Start the state machine
-  nerlNetStatem:start_link(),
+  _Pid=nerlNetStatem:start_link(),
+
   %% Create the module
   nerlNetStatem:create(Learning_rate_List,LayerSizes),
+  %gen_statem:cast(Pid,create(Learning_rate_List,LayerSizes)),
 
   %% Read the file
   %% File - File name and path
@@ -63,6 +65,47 @@ init(File, LayerSizes, Learning_rate_List, Train_predict_ratio, ChunkSize, NumOf
   Time_elapsed=Finish_Time-Start_Time,
   io:fwrite("Time took for nif: ~p ms , Number of processes = ~p ChunkSize= ~p Num of chunks: ~p learning rate: ~p~n",
     [Time_elapsed, ProcNum, ChunkSize, NumOfChunks, Learning_rate_List]).
+
+%% Start Read the dataset and train predict
+%% ChunkSize - Number of samples (lines)
+initNew(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationList, Learning_rate, Layers_sizes, Optimizer, ProcNumTrain)->
+  Start_Time = os:system_time(microsecond),
+
+  %% Start the state machine
+  NerlNetStatemPid=nerlNetStatem:start_link(),
+
+  %% Create the module
+  gen_statem:cast(NerlNetStatemPid,{create,{Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId}}),
+
+  %% Read the file
+  %% File - File name and path
+  %% Train_predict_ratio - For example 80 means 80 percent for train and 20 for predict
+  %% ChunkSize - How many cols (samples) to process for each thread
+  %% Cols - Number of columns in the CSV file excluding label columns(features)
+  %% Labels - Number of label columns in the CSV file
+  %% ModelId - Model id number
+  %% _FileLinesNumber -
+  %%
+  {_FileLinesNumber,_Train_Lines,_PredictLines,SampleListTrain,_SampleListPredict}=
+    parse:readfile(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId),
+
+  %% Start train
+  gen_statem:cast(NerlNetStatemPid,{train,{ChunkSize, Cols, Labels, SampleListTrain, ModelId}}),
+
+  %io:format("Train chunk list: ~w~n", [SampleListTrain]),
+
+  timer:sleep(10),
+
+  %% Start predict
+  gen_statem:cast(NerlNetStatemPid,{predict,{[80,92,132], 1, Cols, ModelId}}), % TODO change arguments
+
+  %startPredict(ChunkSize, Cols, SampleListTrain, ModelId,ProcNum),
+  %io:format("Predict chunk list: ~w~n", [SampleListPredict]),
+
+  Finish_Time = os:system_time(microsecond),
+  Time_elapsed=Finish_Time-Start_Time,
+  io:fwrite("Time took for nif: ~p ms , Number of processes = ~p ChunkSize= ~p Num of chunks: ~p learning rate: ~p~n",
+    [Time_elapsed, ProcNumTrain, ChunkSize, 1, Learning_rate]).
 
 
 startTrain(_ChunkSize, _Cols, _Labels, _SampleList, _ModelId,0)-> finish;
