@@ -40,6 +40,9 @@ def build_erl():
                 print(filepath)
                 os.system("erl -compile %s" % filepath)
 
+    os.chdir('../nerlClient')
+    os.system("./rebar3 shell")
+
 # ---------------- Run Tests -----------------#
 
 

@@ -107,7 +107,7 @@ train2double(Rows, Cols, Labels, Data_Label_mat, ModelId, PID) -> % TODO
 	_Return = train_predict_create(1, Rows, Cols, Labels, dList(Data_Label_mat), ModelId),
 	receive
 		LOSS_FUNC->
-			io:fwrite("Loss func: ~p\n",[LOSS_FUNC]),
+			%io:fwrite("Loss func: ~p\n",[LOSS_FUNC]),
 			PID ! LOSS_FUNC, % Send the loss function to the calling process
 			LOSS_FUNC
 	end.
