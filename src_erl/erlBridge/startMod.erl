@@ -10,7 +10,7 @@
 -author("ziv").
 
 %% API
--export([start/9,startTrain/6,startPredict/5,init/10,initNew/11]).
+-export([start/9,startTrain/6,startPredict/5,init/10,initNew/11, startHandler/11, initp/11]).
 
 start(File, _LayerSizes, _Learning_rate_List, Train_predict_ratio, ChunkSize, NumOfChunks, Cols, Labels, ModelId)->
   %Mid=erlModule:module_create(LayerSizes, Learning_rate_List, 80, [2,1,1,2], 1),
@@ -66,16 +66,18 @@ init(File, LayerSizes, Learning_rate_List, Train_predict_ratio, ChunkSize, NumOf
   io:fwrite("Time took for nif: ~p ms , Number of processes = ~p ChunkSize= ~p Num of chunks: ~p learning rate: ~p~n",
     [Time_elapsed, ProcNum, ChunkSize, NumOfChunks, Learning_rate_List]).
 
+initp(_File, _Train_predict_ratio,_ChunkSize, _Cols, _Labels, _ModelId, _ActivationList, _Learning_rate, _Layers_sizes, _Optimizer, 0) ->
+  finished_initp;
+
+initp(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationList, Learning_rate, Layers_sizes, Optimizer, ProcNumTrain) ->
+  spawn(fun()-> initNew(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationList, Learning_rate, Layers_sizes, Optimizer, ProcNumTrain) end),
+  initp(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId+1, ActivationList, Learning_rate, Layers_sizes, Optimizer, ProcNumTrain-1).
+
 %% Start Read the dataset and train predict
 %% ChunkSize - Number of samples (lines)
 initNew(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationList, Learning_rate, Layers_sizes, Optimizer, ProcNumTrain)->
-  Start_Time = os:system_time(microsecond),
 
-  %% Start the state machine
-  NerlNetStatemPid=nerlNetStatem:start_link(),
-
-  %% Create the module
-  gen_statem:cast(NerlNetStatemPid,{create,{Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId}}),
+  Curr_PID = self(),
 
   %% Read the file
   %% File - File name and path
@@ -89,15 +91,30 @@ initNew(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationLi
   {_FileLinesNumber,_Train_Lines,_PredictLines,SampleListTrain,_SampleListPredict}=
     parse:readfile(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId),
 
+  %% Start the state machine
+  NerlNetStatemPid=nerlNetStatem:start_link(),
+
+  %% Create the module
+  gen_statem:cast(NerlNetStatemPid,{create,{Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId,Curr_PID}}),
+
+  Start_Time = os:system_time(microsecond),
+
   %% Start train
-  gen_statem:cast(NerlNetStatemPid,{train,{ChunkSize, Cols, Labels, SampleListTrain, ModelId}}),
+  gen_statem:cast(NerlNetStatemPid,{train,{ChunkSize, Cols, Labels, SampleListTrain, ModelId,Curr_PID}}),
 
-  %io:format("Train chunk list: ~w~n", [SampleListTrain]),
+  receive
+    LOSS_FUNC->
+      io:fwrite("PID: ~p Loss func: ~p\n",[Curr_PID, LOSS_FUNC])
+  end,
 
-  timer:sleep(10),
+  %timer:sleep(10),
 
   %% Start predict
-  gen_statem:cast(NerlNetStatemPid,{predict,{[80,92,132], 1, Cols, ModelId}}), % TODO change arguments
+  gen_statem:cast(NerlNetStatemPid,{predict,{[80,92,132], 1, Cols, ModelId,Curr_PID}}), % TODO change arguments
+  receive
+    Result->
+      io:fwrite("PID: ~p Result: ~p\n",[Curr_PID, Result])
+  end,
 
   %startPredict(ChunkSize, Cols, SampleListTrain, ModelId,ProcNum),
   %io:format("Predict chunk list: ~w~n", [SampleListPredict]),
@@ -106,6 +123,20 @@ initNew(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationLi
   Time_elapsed=Finish_Time-Start_Time,
   io:fwrite("Time took for nif: ~p ms , Number of processes = ~p ChunkSize= ~p Num of chunks: ~p learning rate: ~p~n",
     [Time_elapsed, ProcNumTrain, ChunkSize, 1, Learning_rate]).
+
+startHandler(_File, _Train_predict_ratio,_ChunkSize, _Cols, _Labels, ModelId, ActivationList, Learning_rate, Layers_sizes, Optimizer, _ProcNumTrain)->
+  %% Start the state machine
+  HandlerPid=handler:start_link(),
+  io:fwrite("HandlerPid: ~p\n",[HandlerPid]),
+
+  %% Create the module
+  gen_statem:cast(HandlerPid,{create,{Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId,self()}}),
+
+  receive
+    NerlNetStatemPid->
+      io:fwrite("NerlNetStatemPid: ~p\n",[NerlNetStatemPid])
+  end.
+
 
 
 startTrain(_ChunkSize, _Cols, _Labels, _SampleList, _ModelId,0)-> finish;

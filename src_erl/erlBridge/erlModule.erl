@@ -4,7 +4,7 @@
 -export([testMatrix/2,cppBridgeController/0,cppBridgeControllerGetModelPtr/1 ,cppBridgeControllerSetData/1,
 	 create_module/6, train2double/6, predict2double/5, niftest/6, thread_create_test/0,
 	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, cppBridgeControllerSetModelPtrDat/2,
-	cppBridgeControllerDeleteModel/1, startTest/11]).
+	cppBridgeControllerDeleteModel/1, startTest/11,train/7]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
@@ -144,7 +144,22 @@ train_predict_create(2, _Data_mat, _rows, _cols, _ModelId) ->
 	exit(nif_library_not_loaded).
 
 %% ------------------------ TEST ----------------------------
+
+train(0,_ChunkSize, _Cols, _Labels, _SampleListTrain,_ModelId,_Pid)->finished_train;
+train(ProcNumTrain,ChunkSize, Cols, Labels, SampleListTrain,ModelId,Pid)->
+	Curr_pid=self(),
+	Pid2=spawn(fun()->erlModule:train2double(ChunkSize, Cols, Labels, SampleListTrain,ModelId,Curr_pid) end),
+	receive
+		LOSS_FUNC->
+			io:fwrite("PID: ~p Loss func: ~p\n",[Pid2, LOSS_FUNC])
+	end,
+	train(ProcNumTrain-1,ChunkSize, Cols, Labels, SampleListTrain,ModelId,Pid).
+
+
 startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationList, Learning_rate, Layers_sizes, Optimizer, ProcNumTrain)->
+
+	{_FileLinesNumber,_Train_Lines,_PredictLines,SampleListTrain,_SampleListPredict}=
+		parse:readfile(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId),
 
 	Start_Time = os:system_time(microsecond),
 	io:fwrite("Start module_create in erlModule ~n"),
@@ -152,12 +167,9 @@ startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, Activation
 	module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
 	%io:fwrite("Create PID ~p ~n",[Pid1]),
 
-	{_FileLinesNumber,_Train_Lines,_PredictLines,SampleListTrain,_SampleListPredict}=
-		parse:readfile(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId),
-
-	io:fwrite("TrainList: ~p\n",[SampleListTrain]),
+	%io:fwrite("TrainList: ~p\n",[SampleListTrain]),
 	io:fwrite("ChunkSize: ~p Cols: ~p, Labels: ~p, ModelId: ~p, pid: ~p \n",[ChunkSize,Cols,Labels, ModelId,self()]),
-	erlModule:train2double(ChunkSize, Cols, Labels, SampleListTrain,ModelId,self()),
+	train(ProcNumTrain,ChunkSize, Cols, Labels, SampleListTrain,ModelId,self()),
 
 	%niftest(ProcNumTrain,SampleListTrain,Train_Lines,Cols,Labels,ModelId),
 	io:fwrite("start predict2double ~n"),
