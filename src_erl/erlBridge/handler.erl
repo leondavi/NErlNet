@@ -69,20 +69,31 @@ state_name(_EventType, _EventContent, State = #handler_state{}) ->
 
 %% Receives arguments for new instance creating
 receives(cast, EventContent, _State = #handler_state{}) ->
-{next_state, createInst, EventContent}.
+
+  io:fwrite("EventContent: ~p\n",[EventContent]),
+  {create,{Layers_sizes_list, Learning_rate, ActivationList, Optimizer, ModelId,CallerPid}} = EventContent,
+
+  io:fwrite("nerlNetStatem start link:\n"),
+  %% Create instance
+  NerlNetStatemPid=nerlNetStatem:start_link(),
+  io:fwrite("NerlNetStatemPid: ~p\n",[NerlNetStatemPid]),
+  %% Create the module
+  gen_statem:cast(NerlNetStatemPid, EventContent),
+  CallerPid!NerlNetStatemPid,
+
+{next_state, receives, _State}.
 
 %% Create the instance with the received arguments
-createInst(cast, _EventContent, InstanceInfo) ->
+createInst(cast, EventContent, _State) ->
 
-  {create,{Layers_sizes_list, Learning_rate, ActivationList, Optimizer, ModelId}} = InstanceInfo,
+  %{create,{Layers_sizes_list, Learning_rate, ActivationList, Optimizer, ModelId}} = InstanceInfo,
 
   % TODO Create instance
-  Pid=nerlNetStatem:start_link(),
+  NerlNetStatemPid=nerlNetStatem:start_link(),
   %% Create the module
-  nerlNetStatem:create(Learning_rate,Layers_sizes_list), %TODO correct the function
-  %gen_statem:cast(Pid,create(Learning_rate_List,LayerSizes)),
+  gen_statem:cast(NerlNetStatemPid, EventContent),
 
-  {next_state, sends, {finishCreatingInst,Pid}}.
+  {next_state, sends, {finishCreatingInst,NerlNetStatemPid}}.
 
 %% Send back the Pid of the created instance TODO also add mid?
 sends(cast, _EventContent, State) ->
