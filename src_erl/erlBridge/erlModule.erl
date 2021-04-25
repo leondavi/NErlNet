@@ -148,10 +148,11 @@ train_predict_create(2, _Data_mat, _rows, _cols, _ModelId) ->
 train(0,_ChunkSize, _Cols, _Labels, _SampleListTrain,_ModelId,_Pid)->finished_train;
 train(ProcNumTrain,ChunkSize, Cols, Labels, SampleListTrain,ModelId,Pid)->
 	Curr_pid=self(),
-	Pid2=spawn(fun()->erlModule:train2double(ChunkSize, Cols, Labels, SampleListTrain,ModelId,Curr_pid) end),
+	%Pid2=spawn(fun()->erlModule:train2double(ChunkSize, Cols, Labels, SampleListTrain,ModelId,Curr_pid) end),
+	erlModule:train2double(ChunkSize, Cols, Labels, SampleListTrain,ModelId,Curr_pid),
 	receive
-		LOSS_FUNC->
-			io:fwrite("PID: ~p Loss func: ~p\n",[Pid2, LOSS_FUNC])
+		LOSS_FUNC->LOSS_FUNC
+		%	io:fwrite("PID: ~p Loss func: ~p\n",[Pid2, LOSS_FUNC])
 	end,
 	train(ProcNumTrain-1,ChunkSize, Cols, Labels, SampleListTrain,ModelId,Pid).
 
@@ -162,7 +163,7 @@ startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, Activation
 		parse:readfile(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId),
 
 	Start_Time = os:system_time(microsecond),
-	io:fwrite("Start module_create in erlModule ~n"),
+	%io:fwrite("Start module_create in erlModule ~n"),
 	%Pid1 = spawn(fun()->module_create([8,4,3,2], 0.01, 80, [2,1,1,2], 1) end),
 	module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
 	%io:fwrite("Create PID ~p ~n",[Pid1]),
@@ -172,17 +173,17 @@ startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, Activation
 	train(ProcNumTrain,ChunkSize, Cols, Labels, SampleListTrain,ModelId,self()),
 
 	%niftest(ProcNumTrain,SampleListTrain,Train_Lines,Cols,Labels,ModelId),
-	io:fwrite("start predict2double ~n"),
-	Curr_PID = self(),
-	Pid3 = spawn(fun()->erlModule:predict2double([80,92,132],1,3,ModelId,Curr_PID) end),
-	receive
-		RESULTS->
-			io:fwrite("PID: ~p Results: ~p\n",[Pid3, RESULTS])
-	end,
+	%io:fwrite("start predict2double ~n"),
+	%Curr_PID = self(),
+	%Pid3 = spawn(fun()->erlModule:predict2double([80,92,132],1,3,ModelId,Curr_PID) end),
+	%receive
+	%	RESULTS->
+	%		io:fwrite("PID: ~p Results: ~p\n",[Pid3, RESULTS])
+	%end,
 
 	Finish_Time = os:system_time(microsecond),
-	Time_elapsed=Finish_Time-Start_Time,
-	io:fwrite("Time took for nif: ~p ms , Number of processes = ~p ~n",[Time_elapsed, ProcNumTrain]).
+	Time_elapsed=(Finish_Time-Start_Time)/ProcNumTrain,
+	io:fwrite("Time took for all the nif: ~p micro sec , Number of processes = ~p ~n",[Time_elapsed, ProcNumTrain]).
 
 niftest(0,_SampleListTrain,_Train_Lines, _Cols, _Labels, _ModelId) ->
 	io:fwrite("finished all ~n");
