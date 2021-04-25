@@ -18,9 +18,9 @@
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,
   code_change/4, callback_mode/0]).
 %% States functions
--export([idle/3, train/3, predict/3]).
+-export([idle/3, train/3, predict/3, init/3]).
 %% Client functions
--export([train/5, predict/4, create/2]).
+-export([train/5, predict/4, create/2,init/5]).
 
 -define(SERVER, ?MODULE).
 
@@ -34,7 +34,8 @@
 %% initialize. To ensure a synchronized start-up procedure, this
 %% function does not return until Module:init/1 has returned.
 start_link() ->
-  gen_statem:start_link({local, ?SERVER}, ?MODULE, [], []).
+  {ok,Pid} = gen_statem:start_link({local, ?SERVER}, ?MODULE, [], []),
+  Pid.
 
 %%%===================================================================
 %%% gen_statem callbacks
@@ -45,7 +46,7 @@ start_link() ->
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
 init([]) ->
-  {ok, idle, []}.
+  {ok, init, []}.
   %{ok, idle, #nerlNetStatem_state{}}.
 
 %% @private
@@ -103,92 +104,69 @@ predict(SampleList, ChunkSize, Cols, ModelId) -> gen_statem:cast(?MODULE,{predic
 
 create(Learning_rate,LayerSizes) -> gen_statem:cast(?MODULE,{create,{Learning_rate,LayerSizes}}).
 
+init(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId) -> gen_statem:cast(?MODULE,{create,{Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId}}).
+
+%------------
 %% Define states
+
+%% State init
+init(cast, Command, State) ->
+  io:fwrite("Start module_create in nerlNetStatem ~n"),
+  {_Mod,Param} = Command,
+  if
+    Command == {create,Param} ->
+      {_Mod,{Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId,_SenderPid}} = Command,
+      io:fwrite("start module_create ~n"),
+      Mid=erlModule:module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
+      io:fwrite("Mid: ~p\n",[Mid]),
+      {next_state, idle, State};
+    true -> {next_state, init, State}
+  end.
+
 %% State idle
 idle(cast, Train_predict, State) ->
   {_Mod,Param} = Train_predict,
+  Start_Time = os:system_time(microsecond),
   if
     Train_predict == {predict,Param} ->
-      {_Mod,{SampleList, ChunkSize, Cols, ModelId}} = Train_predict,
-      %_Data_mat, _rows, _cols, _ModelId
-      Result = erlModule:predict2double(SampleList, ChunkSize, Cols, ModelId), % Send to predict,
-      io:fwrite("Results: ~p\n",[Result]),
-      {next_state, predict, Result};
+      {_Mod,{Data_mat, Rows, Cols, ModelId,SenderPid}} = Train_predict,
+      io:fwrite("start predict2double ~n"),
+      Curr_PID = self(),
+      erlModule:predict2double(Data_mat,Rows,Cols,ModelId,Curr_PID),
+      receive
+        Result->
+          %io:fwrite("PID: ~p Result: ~p\n",[Curr_PID, Result]),
+          SenderPid!Result %TODO change to cast
+      end,
+
+      {next_state, idle, State};
 
     Train_predict == {train,Param} ->
-      {_Mod,{ChunkSize, Cols, Labels, SampleList, ModelId}} = Train_predict,
-      % Rows, Col, Labels, Data_Label_mat, ModelId
-      %Result = erlModule:train2double(4, 8, 2, Learning_rate_List, Module),
-      LossVal=erlModule:train2double(ChunkSize, Cols, Labels, SampleList, ModelId), % Send to train
-      io:fwrite("LossVal: ~p\n",[LossVal]),
-      {next_state, train, State};
+      {_Mod,{ChunkSize, Cols, Labels, SampleListTrain, ModelId,SenderPid}} = Train_predict,
+      Curr_PID = self(),
+      io:fwrite("start train2double ~n"),
+      %io:fwrite("TrainList: ~p\n",[SampleListTrain]),
+      io:fwrite("ChunkSize: ~p Cols: ~p, Labels: ~p, ModelId: ~p, pid: ~p \n",[ChunkSize,Cols,Labels, ModelId,self()]),
 
-    Train_predict == {create,Param} ->
-      {_Mod,{Learning_rate,LayerSizes}} = Train_predict,
-      io:fwrite("start module_create ~n"),
-      Mid=erlModule:module_create(LayerSizes, Learning_rate, 80, [2,1,1,2], 1),
-      %Result = erlModule:module_create([8,4,3,2], Learning_rate_List, 80, [2,1,1,2], 1),
-      io:fwrite("Mid: ~p\n",[Mid]),
+      _LossVal=erlModule:train2double(ChunkSize, Cols, Labels, SampleListTrain, ModelId,Curr_PID), % Send to train
+      receive
+        LOSS_FUNC->
+          %io:fwrite("PID: ~p Loss func: ~p\n",[Curr_PID, LOSS_FUNC]),
+          SenderPid!LOSS_FUNC %TODO change to cast
+      end,
+      Finish_Time = os:system_time(microsecond),
+      Time_elapsed=Finish_Time-Start_Time,
+      io:fwrite("Time took for train: ~p ms , ChunkSize= ~p Num of chunks: ~p~n", [Time_elapsed, ChunkSize, 1]),
       {next_state, idle, State};
-    true -> {next_state, create, State}
-  end.
 
-
-
-%% State train
-train(cast, Idle_predict, State) ->
-  {_Mod,Param} = Idle_predict,
-  if
-    Idle_predict == {predict,Param} ->
-      {_Mod,{SampleList, ChunkSize, Cols, ModelId}} = Idle_predict,
-      %_Data_mat, _rows, _cols, _ModelId
-      Result = erlModule:predict2double(SampleList, ChunkSize, Cols, ModelId), % Send to predict,
-      io:fwrite("Results: ~p\n",[Result]),
-      {next_state, predict, Result};
-
-    Idle_predict == {train,Param} ->
-      {_Mod,{ChunkSize, Cols, Labels, SampleList, ModelId}} = Idle_predict,
-      % Rows, Col, Labels, Data_Label_mat, ModelId
-      %Result = erlModule:train2double(4, 8, 2, Learning_rate_List, Module),
-      LossVal=erlModule:train2double(ChunkSize, Cols, Labels, SampleList, ModelId), % Send to train
-      io:fwrite("LossVal: ~p\n",[LossVal]),
-      {next_state, train, State};
-
-    Idle_predict == {create,Param} ->
-      {_Mod,{Learning_rate,LayerSizes}} = Idle_predict,
-      io:fwrite("start module_create ~n"),
-      Mid=erlModule:module_create(LayerSizes, Learning_rate, 80, [2,1,1,2], 1),
-      %Result = erlModule:module_create([8,4,3,2], Learning_rate_List, 80, [2,1,1,2], 1),
-      io:fwrite("Mid: ~p\n",[Mid]),
-      {next_state, idle, State};
     true -> {next_state, idle, State}
   end.
 
-%% State predict
-predict(cast, Idle_train, State) ->
-  {_Mod,Param} = Idle_train,
-  if
-    Idle_train == {predict,Param} ->
-      {_Mod,{SampleList, ChunkSize, Cols, ModelId}} = Idle_train,
-      %_Data_mat, _rows, _cols, _ModelId
-      Result = erlModule:predict2double(SampleList, ChunkSize, Cols, ModelId), % Send to predict,
-      io:fwrite("Results: ~p\n",[Result]),
-      {next_state, predict, Result};
 
-    Idle_train == {train,Param} ->
-      {_Mod,{ChunkSize, Cols, Labels, SampleList, ModelId}} = Idle_train,
-      % Rows, Col, Labels, Data_Label_mat, ModelId
-      %Result = erlModule:train2double(4, 8, 2, Learning_rate_List, Module),
-      LossVal=erlModule:train2double(ChunkSize, Cols, Labels, SampleList, ModelId), % Send to train
-      io:fwrite("LossVal: ~p\n",[LossVal]),
-      {next_state, train, State};
+%% State train TODO
+train(cast, _Idle_predict, State) ->
+  {next_state, idle, State}.
 
-    Idle_train == {create,Param} ->
-      {_Mod,{Learning_rate,LayerSizes}} = Idle_train,
-      io:fwrite("start module_create ~n"),
-      Mid=erlModule:module_create(LayerSizes, Learning_rate, 80, [2,1,1,2], 1),
-      %Result = erlModule:module_create([8,4,3,2], Learning_rate_List, 80, [2,1,1,2], 1),
-      io:fwrite("Mid: ~p\n",[Mid]),
-      {next_state, idle, State};
-    true -> {next_state, idle, State}
-  end.
+%% State predict TODO
+predict(cast, _Idle_train, State) ->
+{next_state, idle, State}.

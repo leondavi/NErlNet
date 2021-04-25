@@ -8,7 +8,7 @@ import shutil
 
 def build_cpp():
 
-    SO_RESULT_FILE = "libnifModule_nif.so"
+    SO_RESULT_FILE = "libNerlNIF.so"
 
     print(os.getcwd())
     os.system("scons src=../src_cpp shared=True")
@@ -39,6 +39,9 @@ def build_erl():
             if filepath.endswith(".erl"):
                 print(filepath)
                 os.system("erl -compile %s" % filepath)
+
+    os.chdir('../nerlClient')
+    os.system("./rebar3 shell")
 
 # ---------------- Run Tests -----------------#
 
