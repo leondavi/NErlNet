@@ -4,6 +4,10 @@
 #include "../cppSANN/src/Models/include/Model.h"
 #include "include/bridgeController.h"
 
+
+#include <chrono>
+using namespace std::chrono;
+
 #define DEBUG_TRAIN_NIF 0
 #define DEBUG_PREDICT_NIF 0
 #define DEBUG_CREATE_NIF 0
@@ -94,21 +98,19 @@ static void* predictFun(void *arg){
     // Get the data(predict) matrix from the data_label_mat vector and initialize the data matrix.
     MatrixXd data_matrix(predictPtr->rows, predictPtr->cols);
 
-    // Create the data matrix from a vector. TODO: Think how to do it native to eigen - optional
-    int i = 0;
-    for (int r = 0; r < predictPtr->rows; r++){
-        for (int c = 0; c < predictPtr->cols; c++){
-            data_matrix(r,c) = predictPtr->data_mat[i];
-            i++;
-        }
-    }
+    // Create the data matrix from a vector. Native in Eigen.
+    data_matrix = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(predictPtr->data_mat.data(), predictPtr->rows, predictPtr->cols,Stride<Dynamic,Dynamic>(1, predictPtr->cols));
 
     // Predict model with received parameters
     MatrixXd resultsMat;
+
+#if DEBUG_PREDICT_NIF
     std::cout << "Start predicting (inside the thread)." << '\n';
+#endif
+
     modelPtr->predict(data_matrix, resultsMat);
 
-    // Create the result vector from the result matrix
+    // Create the result vector from the result matrix TODO: Native in Eigen optionally
     std::vector<double> results_vec;
     int index = 0;
     for (int r = 0; r < resultsMat.rows(); r++){
@@ -132,14 +134,21 @@ static void* predictFun(void *arg){
     // msg_env - The environment of the message term. Must be a process independent environment allocated with enif_alloc_env or NULL.
     // msg - The message term to send.
     if(enif_send(NULL,&(predictPtr->pid), env,retResults))
+    {
+    #if DEBUG_PREDICT_NIF
         printf("enif_send succeed\n");
+    #endif
+    }
     else
         printf("enif_send failed\n");
 
     // Frees all terms in an environment and clears it for reuse.
     enif_clear_env(env);
     delete predictPtr; // TODO: Check for memory leaks
+
+    #if DEBUG_PREDICT_NIF
     printf("Finish predict fun thread in the nif.\n");
+    #endif
 
     return 0;
 }
@@ -153,11 +162,9 @@ static void* trainFun(void *arg){
 
     // Get the singleton instance
     cppBridgeController *s = s->GetInstance();
-    printf("Got instance.\n");
 
     // Get the model from the singleton
     std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(trainPtr->mid);
-    printf("getModelPtr.\n");
 
     // Get the data matrix from the data_label_mat vector and initialize the data matrix.
     MatrixXd data_mat(trainPtr->rows, trainPtr->col);
@@ -165,30 +172,15 @@ static void* trainFun(void *arg){
     // Get the label matrix from the data_label_mat vector and initialize the label matrix
     MatrixXd label_mat(trainPtr->rows, trainPtr->labels);
 
-    printf("go over the list.\n");
+    // Convert the vector to a matrix. Native to Eigen
+    int FeaturesAndLabels = trainPtr->col+trainPtr->labels; // Number of columns in total
+    data_mat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(trainPtr->data_label_mat.data(), trainPtr->rows, trainPtr->col,Stride<Dynamic,Dynamic>(1, FeaturesAndLabels));
+    label_mat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(&trainPtr->data_label_mat[trainPtr->col], trainPtr->rows, trainPtr->labels,Stride<Dynamic,Dynamic>(FeaturesAndLabels, FeaturesAndLabels));
 
-    // TODO: Think how to do it native to eigen - optional
-    int i = 0;
-    // Go over the rows (samples)
-    for (int r = 0; r < trainPtr->rows; r++){
-        // Create the data matrix from a vector
-        for (int c = 0; c < trainPtr->col; c++){
-            data_mat(r,c) = trainPtr->data_label_mat[i];
-            //std::cout<<"Data "<<"("<<r<<","<<c<<") - "<< data_mat(r,c) <<std::endl;
-            i++;
-        }
-        // Create the label matrix from a vector
-        for(int l = 0; l < trainPtr->labels; l++){
-            label_mat(r,l) = trainPtr->data_label_mat[i];
-            //std::cout<<"Label " << "("<<r<<","<<l<<") - "<< label_mat(r,l) <<std::endl;
-            i++;
-        }
-    }
+    #if DEBUG_TRAIN_NIF
 
-    //double *v = &trainPtr->data_label_mat[n];   TODO a
-    //Eigen::Map<Eigen::MatrixXd> matrix(v,n + n * n,1);
-
-#if DEBUG_TRAIN_NIF
+    std::cout <<mat<<std::endl;
+    std::cout <<labelMat<<std::endl;
 
     printf("Finish to go over the list.\n");
 
@@ -215,8 +207,17 @@ static void* trainFun(void *arg){
     printf("Start to train the model.\n");
 #endif
 
+    //auto start = high_resolution_clock::now();
+
     // Train the model with recieved parameters and get loss value
     loss_val = modelPtr->train(data_mat,label_mat);
+
+    //auto stop = high_resolution_clock::now();
+    //auto duration = duration_cast<microseconds>(stop - start);
+
+    // To get the value of duration use the count()
+    // member function on the duration object
+    //std::cout << "Train time inside the NIF (micro seconds): " << duration.count() << std::endl;
 
 #if DEBUG_TRAIN_NIF
     printf("Finish train the model, loss fun inside the nif thread: \n");
@@ -227,8 +228,11 @@ static void* trainFun(void *arg){
     nifpp::TERM loss_val_term = nifpp::make(env, loss_val);
 
     // Send to erlang process the loss value
-    if(enif_send(NULL,&(trainPtr->pid), env,loss_val_term))
-        printf("enif_send succeed\n");
+    if(enif_send(NULL,&(trainPtr->pid), env,loss_val_term)){
+    #if DEBUG_PREDICT_NIF
+            printf("enif_send succeed\n");
+    #endif
+    }
     else
         printf("enif_send failed\n");
 
@@ -236,7 +240,9 @@ static void* trainFun(void *arg){
     enif_clear_env(env);
 
     delete trainPtr;
+#if DEBUG_PREDICT_NIF
     printf("Finish train fun thread in the nif.\n");
+#endif
 
     return 0;
 }
@@ -249,7 +255,10 @@ static void* trainFun(void *arg){
 // All API functions that read or write terms has the environment that the term belongs to as the first function argument.
 static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    std::cout << "Start the NIF." << '\n';
+    #if DEBUG_PREDICT_NIF
+        std::cout << "Start the NIF." << '\n';
+    #endif
+
     // mode = 0 - model creation, 1 - train, 2 - predict
     int mode;
 
@@ -287,9 +296,8 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
             std::cout << "act_types_vec: " << act_types_vec << '\n';
             std::cout << "modelParamPtr.layers_sizes: " << modelParamPtr.layers_sizes << '\n';
             std::cout << "modelParamPtr.learning_rate: " << modelParamPtr.learning_rate << '\n';
+             std::cout << "Start creating the module." << '\n';
 #endif
-
-            std::cout << "Start creating the module." << '\n';
 
             // Create the model with the received parameters. TODO: Think if unique pointer is a better option
             SANN::Model *model = new SANN::Model(modelParamPtr.layers_sizes,modelParamPtr.learning_rate);
@@ -307,7 +315,10 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
             // Put the model record to the map with modelId
             s->setData(modelPtr, modelParamPtr.modelId);
 
+#if DEBUG_PREDICT_NIF
             printf("Finish creating the module in the nif.\n");
+#endif
+
             return enif_make_int(env, 0); // TODO: change the return value if needed
         }
         catch(nifpp::badarg){
@@ -347,7 +358,10 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
             // If opts is a NULL pointer (0), default options are used, otherwise the passed options are used.
             int res = enif_thread_create((char*)"trainModule", &(trainPtr->tid), trainFun, trainPtr, 0);
 
-            printf("Finish train module nif (Not the thread itself).\n");
+        #if DEBUG_PREDICT_NIF
+                    printf("Finish train module nif (Not the thread itself).\n");
+        #endif
+
             return enif_make_int(env, res); // 0 - means the thread succeeded to run
         }
         catch(nifpp::badarg){
@@ -374,7 +388,9 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
         // Create the thread to run predict
         int res = enif_thread_create((char*)"predictModule", &(predictPtr->tid), predictFun, predictPtr, 0);
 
+#if DEBUG_PREDICT_NIF
         printf("Finish predict nif (Not the thread itself).\n");
+#endif
         return enif_make_int(env, res); // 0 - means the thread succeeded to run
     }
 
