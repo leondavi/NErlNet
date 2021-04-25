@@ -1,7 +1,7 @@
 import os
 
 NErlNet_VER = 0.1
-SO_RESULT_FILE = "nifModule_nif.so"
+SO_RESULT_FILE = "NerlNIF.so"
 def log_print(text):
 	print("[NErlNet] "+text)
 
