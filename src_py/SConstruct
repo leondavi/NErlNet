@@ -41,7 +41,11 @@ env.AppendUnique(CPPPATH = include_paths)
 
 debug = ARGUMENTS.get('debug_info', 0)
 if int(debug):
+	log_print("Compiling Debug")
 	env.Append(CPPFLAGS = '-g')
+else:
+	log_print("Compiling Release")
+	env.Append(CPPFLAGS = '-O2')
 
 SHARED_LIB_FLAG = False
 shared_lib = ARGUMENTS.get('shared', False)
