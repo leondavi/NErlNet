@@ -17,7 +17,7 @@ init(Req0, [Client_StateM_Pid,Action]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {_,Body,_} = cowboy_req:read_body(Req0),
   CSV_Path = binary_to_list(Body),
-  io:format("handler got Body:~p~n",[CSV_Path]),
+  io:format("casting handler got Body:~p~n",[CSV_Path]),
   case Action of
     start ->  gen_statem:cast(Client_StateM_Pid,start_casting);
     stop ->  gen_statem:cast(Client_StateM_Pid,stop_casting)

@@ -17,7 +17,7 @@ init(Req0, [Client_StateM_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {ok,Body,_} = cowboy_req:read_body(Req0),
   Decoded_body = binary_to_list(Body),
-  io:format("handler got Body:~p~n",[Decoded_body]),
+  io:format("vector _handler got Body:~p~n",[Body]),
 %%  gen_statem:cast(Client_StateM_Pid,{hello}),
 
   Reply = io_lib:format("Body Received: ~p, Decoded Body = ~p ~n Client_StateM_Pid:~p, Handler's Pid: ~p~n ", [Body,Decoded_body,  Client_StateM_Pid,self()]),

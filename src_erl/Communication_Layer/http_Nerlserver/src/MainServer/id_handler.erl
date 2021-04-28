@@ -18,6 +18,7 @@ init(Req0, State) -> %State comes from last argument of the route
   Id = cowboy_req:binding(id, Req0),
   {IP, Port} = cowboy_req:peer(Req0),
 %%  now we can access CSV file and gather information about given object-id
+  io:format("id_handler got body:~p~n",[{MyObj, Id}]),
   Reply = io_lib:format("information asked for object - ~p, with id - ~p~n", [MyObj, Id]),
 
   Req = cowboy_req:reply(200,

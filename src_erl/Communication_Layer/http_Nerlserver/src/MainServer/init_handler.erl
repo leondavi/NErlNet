@@ -3,7 +3,7 @@
 %%% @copyright (C) 2021, <COMPANY>
 %%% @doc
 %%%
-%%% @end
+%%% @endClient_StateM_Pid
 %%% Created : 02. Jan 2021 4:05 AM
 %%%-------------------------------------------------------------------
 -module(init_handler).
@@ -21,9 +21,13 @@ init(Req0, [Main_genServer_Pid]) ->
 
   %Bindings also can be accessed as once, giving a map of all bindings of Req0:
   {ok,Body,_} = cowboy_req:read_body(Req0),
+  io:format("init _handler got body:~p~n",[Body]),
+
   Decoded_body = binary_to_list(Body),
+  gen_server:cast(Main_genServer_Pid,{initCSV,sources,Body}),
+
   Reply = io_lib:format("Body Received: ~p, Decoded Body = ~p ~n State:~p~n", [Body,Decoded_body, Main_genServer_Pid]),
-  gen_server:cast(Main_genServer_Pid,{initCSV,"./input/input.csv"}),
+
   Req = cowboy_req:reply(200,
     #{<<"content-type">> => <<"text/plain">>},
     Reply,

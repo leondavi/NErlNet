@@ -82,7 +82,7 @@ idle(cast, {csvList,CSVlist}, State = #source_statem_state{msgCounter = Counter,
 %%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
 idle(cast, start_casting, State = #source_statem_state{msgCounter = Counter, csvList =CSVlist}) ->
   %%[list of binarys from CSV file, Size of batch, 1/Hz, statem pid]
-  SourcePid = spawn(?MODULE,sendSamples,[CSVlist,1000,20,self()]),
+  SourcePid = spawn(?MODULE,sendSamples,[CSVlist,300,20,self()]),
   {next_state, casting_data, State#source_statem_state{msgCounter = Counter+1,sourcePid = SourcePid}};
 
 

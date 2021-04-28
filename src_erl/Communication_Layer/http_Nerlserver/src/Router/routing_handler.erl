@@ -14,21 +14,21 @@
 
 %%handler for routing all messages in the network.
 %%Action contains the information about the action performed, and Body contains the information needed for the action
-init(Req0, State = [Router_genserver_Pid,Action]) ->
+init(Req0, State = [Action,Router_genserver_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {ok,Body,_} = cowboy_req:read_body(Req0),
   Decoded_body = binary_to_list(Body),
-  io:format("handler got Body:~p~n",[Decoded_body]),
+  io:format("routing handler got Body:~p~n",[Body]),
 %%  gen_statem:cast(Client_StateM_Pid,{hello}),
   case Action of
       %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
     updateCSV ->  gen_server:cast(Router_genserver_Pid, {updateCSV,Body});
 
       %%sends an cast for genserver to make an http request for start feeding data.
-    start ->  gen_statem:cast(Router_genserver_Pid, {start_casting,Body});
+    start_training ->  gen_statem:cast(Router_genserver_Pid, {start_training,Body});
 
       %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
-    stop ->  gen_statem:cast(Router_genserver_Pid, {stop_casting})
+    stop_training ->  gen_statem:cast(Router_genserver_Pid, {stop_training})
   end,
   Reply = io_lib:format("Body Received: ~p, Decoded Body = ~p ~n Client_StateM_Pid:~p, Handler's Pid: ~p~n ", [Body,Decoded_body,  Router_genserver_Pid,self()]),
   Req = cowboy_req:reply(200,
