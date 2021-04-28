@@ -30,7 +30,7 @@
 -spec(start_link(args) ->
   {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 start_link({MainPid,RouterPort}) ->
-  start_connection("localhost",8082),
+  start_connection("localhost",8083),
   {ok,Gen_Server_Pid} = gen_server:start_link({local, ?SERVER}, ?MODULE, [], []),
   Gen_Server_Pid.
 
@@ -67,16 +67,20 @@ handle_call(_Request, _From, State = #main_genserver_state{}) ->
 {noreply, NewState :: #main_genserver_state{}, timeout() | hibernate} |
 {stop, Reason :: term(), NewState :: #main_genserver_state{}}).
 
-handle_cast({initCSV,Path}, State = #main_genserver_state{}) ->
-  httpc:request(post,{"http://localhost:8083/updateCSV", [],"application/x-www-form-urlencoded", {updateCSV,sources}}, [], []),
+%%TODO change atom sources to list of sources
+handle_cast({initCSV,sources,Path}, State = #main_genserver_state{}) ->
+%%  send router http request, to rout this message to all sensors
+  io:format("main server: requesting router to update csv at sources: Body: ~p~n",[Path]),
+%%  TODO find the router that can send this request to Sources**
+  httpc:request(post,{"http://localhost:8083/updateCSV", [],"application/x-www-form-urlencoded",Path}, [], []),
   {noreply, State};
 
-handle_cast({startLearning,Hz}, State = #main_genserver_state{}) ->
-  httpc:request(post,{"http://localhost:8082/start_training", [],"application/x-www-form-urlencoded",[Hz]}, [], []),
+handle_cast({start_learning,Body}, State = #main_genserver_state{}) ->
+  httpc:request(post,{"http://localhost:8082/start_training", [],"application/x-www-form-urlencoded",Body}, [], []),
   {noreply, State};
 
-handle_cast({stopLearning}, State = #main_genserver_state{}) ->
-  httpc:request(post,{"http://localhost:8082/stop_training", [],"application/x-www-form-urlencoded",[]}, [], []),
+handle_cast({stop_learning,Body}, State = #main_genserver_state{}) ->
+  httpc:request(post,{"http://localhost:8082/stop_training", [],"application/x-www-form-urlencoded",Body}, [], []),
   {noreply, State};
 
 

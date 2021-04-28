@@ -17,6 +17,8 @@
 init(Req0, [Client_StateM_Pid]) ->
 
   {ok,Body,_} = cowboy_req:read_body(Req0),
+  io:format("client init _handler got body:~p~n",[Body]),
+
   gen_statem:cast(Client_StateM_Pid,{init,Body}),
 
   %% reply ACKnowledge to main server for initiating, later send finished initiating http_request from client_stateM

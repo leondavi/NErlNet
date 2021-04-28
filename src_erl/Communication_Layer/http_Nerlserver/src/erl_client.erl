@@ -10,13 +10,13 @@
 -author("kapelnik").
 %%state <- {machines - [rasp1,rasp2,..]}
 %% API
--export([start_connection/0, send/0, start_training/0, stop_training/0]).
+-export([start_connection/0, updateCSV/0, start_training/0, stop_training/0]).
 start_connection() ->
   inets:start(),
   httpc:set_options([{proxy, {{"localhost", 8080},["localhost"]}}]).
 
 
-send() ->
+updateCSV() ->
 
 %%erlang request:   (using post method, because we want to receive a reply for our request)
 %%httpc:request(post,{URL,Headers,content type,Body),HTTPOptions, Profile)
@@ -27,9 +27,9 @@ send() ->
     httpc:request(post,{"http://localhost:8080/initNerlnet", [],"application/x-www-form-urlencoded","./input/input.csv"}, [], []).
 
 start_training()->
-  httpc:request(post,{"http://localhost:8080/start_training", [],"application/x-www-form-urlencoded","inputName"}, [], []).
+  httpc:request(post,{"http://localhost:8080/start_training", [],"application/x-www-form-urlencoded","listofsources"}, [], []).
 stop_training()->
-  httpc:request(post,{"http://localhost:8080/stop_training", [],"application/x-www-form-urlencoded",""}, [], []).
+  httpc:request(post,{"http://localhost:8080/stop_training", [],"application/x-www-form-urlencoded","listofsources"}, [], []).
 
 
 

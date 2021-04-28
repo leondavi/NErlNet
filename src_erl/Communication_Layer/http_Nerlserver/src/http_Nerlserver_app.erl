@@ -65,7 +65,7 @@ start(_StartType, _StartArgs) ->
     Source_StateM_Pid = source_statem:start_link([self(),Source_StateM_Args]),
 
     Router_genServer_Args= {self(),RouterPort},        %%TODO  make this a list of Routers
-    Router_genServer_Pid = source_statem:start_link([self(),Router_genServer_Args]),
+    Router_genServer_Pid = router_genserver:start_link([self(),Router_genServer_Args]),
 
 
 
@@ -83,8 +83,8 @@ start(_StartType, _StartArgs) ->
         {'_', [
 
             {"/initNerlnet",[],init_handler,[Main_genServer_Pid]},
-            {"/start_training",action_handler, [Main_genServer_Pid,start]},
-            {"/stop_training",action_handler, [Main_genServer_Pid,stop]},
+            {"/start_training",action_handler, [start, Main_genServer_Pid]},
+            {"/stop_training",action_handler, [stop, Main_genServer_Pid]},
             {"/[...]", no_matching_route_handler, [Main_genServer_Pid]}
         ]}
     ]),
@@ -95,12 +95,6 @@ start(_StartType, _StartArgs) ->
     %%Dispatcher for cowboy to rout each given http_request for the matching handler
     NerlClientDispatch = cowboy_router:compile([
         {'_', [
-            %%these are the handler for any kind of request. aditional infomation given inside *_handler.erl
-            %% {HostMatch, list({PathMatch, Handler, InitialState})}
-            %%%%%%%%The last arg becomes the State%%%%%%%%
-            %arg in the *_handler's init() method.
-            %%{"/req_name/:arg1/:arg2",[{arg1,constrains}, {arg2,int}], add_handler,[initial_state]}
-
             %%first http request from main server should be about starting parameters, find more info inside init_handler
             {"/init",client_init_handler, [Client_StateM_Pid]},
             {"/weights_vector",vector_handler, [Client_StateM_Pid]},
@@ -108,16 +102,24 @@ start(_StartType, _StartArgs) ->
         ]}
     ]),
 
+%%    Source server
     SourceDispatch = cowboy_router:compile([
         {'_', [
-            %%these are the handler for any kind of request. aditional infomation given inside *_handler.erl
-            %% {HostMatch, list({PathMatch, Handler, InitialState})}
-            %The last arg becomes the State
-            %arg in the *_handler's init() method.
-            %%{"/req_name/:arg1/:arg2",[{arg1,constrains}, {arg2,int}], add_handler,[]}
-            {"/updateCSV",csv_handler, [Source_StateM_Pid,Client_StateM_Pid]},
-            {"/start_training",casting_handler, [Source_StateM_Pid,Client_StateM_Pid,start]},
-            {"/stop_training",casting_handler, [Source_StateM_Pid,Client_StateM_Pid,stop]},
+
+            {"/updateCSV",csv_handler, [Source_StateM_Pid]},
+            {"/start_training",casting_handler, [Source_StateM_Pid,start]},
+            {"/stop_training",casting_handler, [Source_StateM_Pid,stop]},
+            {"/[...]", no_matching_route_handler, [Main_genServer_Pid]}
+        ]}
+    ]),
+
+    %%    Source server
+    RouterDispatch = cowboy_router:compile([
+        {'_', [
+
+            {"/updateCSV",routing_handler, [updateCSV,Router_genServer_Pid]},
+            {"/start_training",routing_handler, [start_training,Router_genServer_Pid]},
+            {"/stop_training",routing_handler, [stop_training,Router_genServer_Pid]},
             {"/[...]", no_matching_route_handler, [Main_genServer_Pid]}
         ]}
     ]),
@@ -132,8 +134,12 @@ start(_StartType, _StartArgs) ->
         [{port,NerlClientPort}], #{env => #{dispatch =>NerlClientDispatch}}
     ),
 
-    {ok, _} = cowboy:start_clear(http_listener,
+    {ok, _} = cowboy:start_clear(source_listener,
         [{port,SourcePort}], #{env => #{dispatch =>SourceDispatch}}
+    ),
+
+    {ok, _} = cowboy:start_clear(router_listener,
+        [{port,RouterPort}], #{env => #{dispatch =>RouterDispatch}}
     ),
 
     http_Nerlserver_sup:start_link().

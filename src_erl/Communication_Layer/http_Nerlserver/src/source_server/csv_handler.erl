@@ -13,14 +13,14 @@
 
 
 %%setter handler for editing weights in CSV file, can also send a reply to sender
-init(Req0, State = [Source_StateM_Pid,Client_StateM_Pid]) ->
+init(Req0, State = [Source_StateM_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {_,Body,_} = cowboy_req:read_body(Req0),
   CSV_Path = binary_to_list(Body),
-  io:format("handler got Body:~p~n",[CSV_Path]),
+  io:format("csv handler got Body:~p~n",[Body]),
   CSVlist = parser:parse_file(CSV_Path),
   gen_statem:cast(Source_StateM_Pid,{csvList,CSVlist}),
-  Reply = io_lib:format("Body Received: ~p, Decoded Body = ~p ~n Client_StateM_Pid:~p, Handler's Pid: ~p~n ", [Body,CSV_Path,  Client_StateM_Pid,self()]),
+  Reply = io_lib:format("Body Received: ~p, Decoded Body = ~p ~n  Handler's Pid: ~p~n ", [Body,CSV_Path,self()]),
   Req = cowboy_req:reply(200,
     #{<<"content-type">> => <<"text/plain">>},
     Reply,

@@ -28,13 +28,13 @@
 %%%===================================================================
 
 %% @doc Spawns the server and registers the local name (unique)
--spec(start_link() ->
+-spec(start_link(args) ->
   {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
-start_link() ->
-  gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 start_link(Args) ->
-  gen_server:start_link({local, ?SERVER}, ?MODULE, [], [Args]).
+  io:format("~p~n",[Args]),
+  {ok,Pid} = gen_server:start_link({local, ?SERVER}, ?MODULE, [], [Args]),
+  Pid.
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -45,10 +45,11 @@ start_link(Args) ->
 -spec(init(Args :: term()) ->
   {ok, State :: #router_genserver_state{}} | {ok, State :: #router_genserver_state{}, timeout() | hibernate} |
   {stop, Reason :: term()} | ignore).
-init([MainServerHostandPort,ClientsHostsandPorts,SourcesHostsandPorts]) ->
+%%TODO  Args = [MainServerHostandPort,ClientsHostsandPorts,SourcesHostsandPorts]
+init(Args) ->
     %% establish http connections with all servers in the net:
-    start_connection(ClientsHostsandPorts++SourcesHostsandPorts),
-  {ok, #router_genserver_state{main_server = MainServerHostandPort, clients = ClientsHostsandPorts, sources = SourcesHostsandPorts}}.
+  start_connection([{"localhost", 8080},{"localhost",8081},{"localhost",8082}]),
+  {ok, #router_genserver_state{}}.
 
 
 
@@ -59,11 +60,26 @@ init([MainServerHostandPort,ClientsHostsandPorts,SourcesHostsandPorts]) ->
   {noreply, NewState :: #router_genserver_state{}, timeout() | hibernate} |
   {stop, Reason :: term(), NewState :: #router_genserver_state{}}).
 
-handle_cast({send,From,To,Body}, State = #router_genserver_state{}) ->
+handle_cast({updateCSV,Body}, State = #router_genserver_state{}) ->
+%%  Body contrains list of sources to send the request, and input name
   case Body of
-     _ ->  httpc:request(post,{To++"/start_training", [],"application/x-www-form-urlencoded","inputName"}, [], [])
+    _ ->  httpc:request(post,{"http://localhost:8082/updateCSV", [],"application/x-www-form-urlencoded",Body}, [], [])
   end,
-{noreply, State};
+  {noreply, State};
+
+handle_cast({start_training,Body}, State = #router_genserver_state{}) ->
+%%  Body contrains list of sources to send the request, and input name
+  case Body of
+    _ ->  httpc:request(post,{"http://localhost:8082/start_training", [],"application/x-www-form-urlencoded",Body}, [], [])
+  end,
+  {noreply, State};
+
+handle_cast({stop_training,Body}, State = #router_genserver_state{}) ->
+%%  Body contrains list of sources to send the request, and input name
+  case Body of
+    _ ->  httpc:request(post,{"http://localhost:8082/stop_training", [],"application/x-www-form-urlencoded",Body}, [], [])
+  end,
+  {noreply, State};
 
 
 handle_cast(_Request, State = #router_genserver_state{}) ->
@@ -119,8 +135,12 @@ code_change(_OldVsn, State = #router_genserver_state{}, _Extra) ->
 %%%===================================================================
 start_connection([]) ->ok;
 
-start_connection([Host,Port|Tail]) ->
+start_connection([{Host, Port}|Tail]) ->
     inets:start(),
-    httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+    io:format("~p~n",[httpc:set_options([{proxy, {{Host, Port},[Host]}}])]),
     start_connection(Tail).
+
+start_connection2(Host,Port) ->
+  inets:start(),
+  httpc:set_options([{proxy, {{Host, Port},[Host]}}]).
 
