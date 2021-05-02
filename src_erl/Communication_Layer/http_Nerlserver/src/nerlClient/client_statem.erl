@@ -20,7 +20,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(client_statem_state, {msgCounter}).
+-record(client_statem_state, {portMap, msgCounter}).
 
 
 %%%===================================================================
@@ -34,9 +34,8 @@
 %%Arguments from Cowboy Server
 %%return gen_statem's Pid to Cowboy Server
 %%Client_StateM_Args= {self(),RouterPort},
-start_link({MainPid,RouterPort}) ->
-  start_connection("localhost",RouterPort),
-    {ok,Pid} = gen_statem:start_link(?MODULE, [], []),
+start_link(ConnectionsMap) ->
+    {ok,Pid} = gen_statem:start_link(?MODULE, ConnectionsMap, []),
     Pid.
 
 %%%===================================================================
@@ -48,8 +47,11 @@ start_link({MainPid,RouterPort}) ->
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
 %%initialize and go to state - idle
-init([]) ->
-  {ok, idle, #client_statem_state{msgCounter = 0}}.
+init({_SupPid,ConnectionsMap}) ->
+  inets:start(),
+  start_connection(maps:to_list(ConnectionsMap)),
+  {ok, idle, #client_statem_state{portMap = ConnectionsMap, msgCounter = 0}}.
+
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -112,6 +114,7 @@ code_change(_OldVsn, StateName, State = #client_statem_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-start_connection(Address,Port) ->
-  inets:start(),
-  httpc:set_options([{proxy, {{"localhost", 8080},["localhost"]}}]).
+start_connection([])->ok;
+start_connection([{_ServerName,{Host, Port}}|Tail]) ->
+  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  start_connection(Tail).

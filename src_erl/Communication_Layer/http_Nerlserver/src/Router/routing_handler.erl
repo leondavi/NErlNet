@@ -18,11 +18,12 @@ init(Req0, State = [Action,Router_genserver_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {ok,Body,_} = cowboy_req:read_body(Req0),
   Decoded_body = binary_to_list(Body),
+  Splitted = re:split(binary_to_list(Body), ",", [{return, list}]),
   io:format("routing handler got Body:~p~n",[Body]),
 %%  gen_statem:cast(Client_StateM_Pid,{hello}),
   case Action of
       %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
-    updateCSV ->  gen_server:cast(Router_genserver_Pid, {updateCSV,Body});
+    updateCSV ->  gen_server:cast(Router_genserver_Pid, {updateCSV,Splitted});
 
       %%sends an cast for genserver to make an http request for start feeding data.
     start_training ->  gen_statem:cast(Router_genserver_Pid, {start_training,Body});

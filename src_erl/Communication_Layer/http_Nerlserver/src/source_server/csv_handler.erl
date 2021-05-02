@@ -16,11 +16,11 @@
 init(Req0, State = [Source_StateM_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {_,Body,_} = cowboy_req:read_body(Req0),
-  CSV_Path = binary_to_list(Body),
+  CSV_Path = re:split(binary_to_list(Body), ",", [{return, list}]),
   io:format("csv handler got Body:~p~n",[Body]),
   CSVlist = parser:parse_file(CSV_Path),
   gen_statem:cast(Source_StateM_Pid,{csvList,CSVlist}),
-  Reply = io_lib:format("Body Received: ~p, Decoded Body = ~p ~n  Handler's Pid: ~p~n ", [Body,CSV_Path,self()]),
+  Reply = io_lib:format("ACKACK", []),
   Req = cowboy_req:reply(200,
     #{<<"content-type">> => <<"text/plain">>},
     Reply,

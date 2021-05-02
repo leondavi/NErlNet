@@ -20,18 +20,18 @@
 
 -define(SERVER, ?MODULE).
 
--record(main_genserver_state, {}).
+-record(main_genserver_state, {connectionsMap}).
 
-%%%===================================================================
+%%%===============================================================
+
 %%% API
 %%%===================================================================
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link(args) ->
   {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
-start_link({MainPid,RouterPort}) ->
-  start_connection("localhost",8083),
-  {ok,Gen_Server_Pid} = gen_server:start_link({local, ?SERVER}, ?MODULE, [], []),
+start_link(ConnectionsMap) ->
+  {ok,Gen_Server_Pid} = gen_server:start_link({local, ?SERVER}, ?MODULE, ConnectionsMap, []),
   Gen_Server_Pid.
 
 
@@ -44,8 +44,11 @@ start_link({MainPid,RouterPort}) ->
 -spec(init(Args :: term()) ->
 {ok, State :: #main_genserver_state{}} | {ok, State :: #main_genserver_state{}, timeout() | hibernate} |
 {stop, Reason :: term()} | ignore).
-init([]) ->
-  {ok, #main_genserver_state{}}.
+init({_SupPid,ConnectionsMap}) ->
+  inets:start(),
+%%  io:format("~p~n",[ConnectionsMap]),
+  start_connection(maps:to_list(ConnectionsMap)),
+  {ok, #main_genserver_state{connectionsMap = ConnectionsMap}}.
 
 %% @private
 %% @doc Handling call messages
@@ -68,11 +71,11 @@ handle_call(_Request, _From, State = #main_genserver_state{}) ->
 {stop, Reason :: term(), NewState :: #main_genserver_state{}}).
 
 %%TODO change atom sources to list of sources
-handle_cast({initCSV,sources,Path}, State = #main_genserver_state{}) ->
+handle_cast({initCSV,ListOfSources}, State = #main_genserver_state{connectionsMap = ConnectionMap}) ->
 %%  send router http request, to rout this message to all sensors
-  io:format("main server: requesting router to update csv at sources: Body: ~p~n",[Path]),
+  io:format("main server: requesting router to update csv at sources: Body: ~p~n",[ListOfSources]),
 %%  TODO find the router that can send this request to Sources**
-  httpc:request(post,{"http://localhost:8083/updateCSV", [],"application/x-www-form-urlencoded",Path}, [], []),
+  findroutAndsend(ListOfSources,ConnectionMap),
   {noreply, State};
 
 handle_cast({start_learning,Body}, State = #main_genserver_state{}) ->
@@ -122,7 +125,19 @@ code_change(_OldVsn, State = #main_genserver_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-start_connection(Host,Port) ->
-  inets:start(),
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]).
 
+%%Receives a list of routers and connects to them
+start_connection([])->ok;
+start_connection([{_ServerName,{Host, Port}}|Tail]) ->
+  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  start_connection(Tail).
+
+
+%%find Router and send message: finds the path for the named machine from connection map and send to the right router to forword.
+findroutAndsend([],_)->ok;
+findroutAndsend([[SourceName,InputFile]|ListOfSources], ConnectionsMap) ->
+%%  io:format("sourceName = ~p~n, Map = ~p~n",[SourceName,ConnectionsMap]),
+  {RouterHost,RouterPort} =maps:get(list_to_atom(SourceName),ConnectionsMap),
+  io:format("~p~n",[RouterPort]),
+  httpc:request(post,{"http://"++ RouterHost ++ ":"++integer_to_list(RouterPort) ++ "/updateCSV", [],"application/x-www-form-urlencoded",SourceName++","++InputFile}, [], []),
+  findroutAndsend(ListOfSources,ConnectionsMap).

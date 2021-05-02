@@ -21,7 +21,7 @@
 -define(SERVER, ?MODULE).
 
 
--record(router_genserver_state, {main_server,clients,sources}).
+-record(router_genserver_state, {connectionsMap}).
 
 %%%===================================================================
 %%% API
@@ -31,9 +31,8 @@
 -spec(start_link(args) ->
   {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 
-start_link(Args) ->
-  io:format("~p~n",[Args]),
-  {ok,Pid} = gen_server:start_link({local, ?SERVER}, ?MODULE, [], [Args]),
+start_link(ConnectionsMap) ->
+  {ok,Pid} = gen_server:start_link({local, ?SERVER}, ?MODULE, ConnectionsMap, []),
   Pid.
 
 %%%===================================================================
@@ -46,11 +45,11 @@ start_link(Args) ->
   {ok, State :: #router_genserver_state{}} | {ok, State :: #router_genserver_state{}, timeout() | hibernate} |
   {stop, Reason :: term()} | ignore).
 %%TODO  Args = [MainServerHostandPort,ClientsHostsandPorts,SourcesHostsandPorts]
-init(Args) ->
-    %% establish http connections with all servers in the net:
-  start_connection([{"localhost", 8080},{"localhost",8081},{"localhost",8082}]),
-  {ok, #router_genserver_state{}}.
 
+init({_SupPid,ConnectionsMap}) ->
+  inets:start(),
+  start_connection(maps:to_list(ConnectionsMap)),
+  {ok, #router_genserver_state{connectionsMap = ConnectionsMap}}.
 
 
 %% @private
@@ -60,11 +59,10 @@ init(Args) ->
   {noreply, NewState :: #router_genserver_state{}, timeout() | hibernate} |
   {stop, Reason :: term(), NewState :: #router_genserver_state{}}).
 
-handle_cast({updateCSV,Body}, State = #router_genserver_state{}) ->
+handle_cast({updateCSV,ListOfSources}, State = #router_genserver_state{connectionsMap = ConnectionMap}) ->
 %%  Body contrains list of sources to send the request, and input name
-  case Body of
-    _ ->  httpc:request(post,{"http://localhost:8082/updateCSV", [],"application/x-www-form-urlencoded",Body}, [], [])
-  end,
+  io:format("~p~n",[ListOfSources]),
+  findroutAndsend(splitbycouple(ListOfSources,[]),ConnectionMap),
   {noreply, State};
 
 handle_cast({start_training,Body}, State = #router_genserver_state{}) ->
@@ -133,14 +131,22 @@ code_change(_OldVsn, State = #router_genserver_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-start_connection([]) ->ok;
+start_connection([])->ok;
+start_connection([{_ServerName,{Host, Port}}|Tail]) ->
+  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  start_connection(Tail).
 
-start_connection([{Host, Port}|Tail]) ->
-    inets:start(),
-    io:format("~p~n",[httpc:set_options([{proxy, {{Host, Port},[Host]}}])]),
-    start_connection(Tail).
+findroutAndsend([],_)->ok;
+findroutAndsend([[SourceName,InputFile]|ListOfSources], ConnectionsMap) ->
+%%  io:format("sourceName = ~p~n, Map = ~p~n",[SourceName,ConnectionsMap]),
+  {SourceHost,SourcePort} =maps:get(list_to_atom(SourceName),ConnectionsMap),
+  io:format("~p~n",[SourcePort]),
+  httpc:request(post,{"http://"++ SourceHost ++ ":"++integer_to_list(SourcePort) ++ "/updateCSV", [],"application/x-www-form-urlencoded",InputFile}, [], []),
+  findroutAndsend(ListOfSources,ConnectionsMap).
 
-start_connection2(Host,Port) ->
-  inets:start(),
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]).
 
+splitbycouple([],Ret) ->Ret;
+splitbycouple(ListofCouples,Ret) ->
+  L1 = lists:sublist(ListofCouples,1,2),
+  L2 = lists:sublist(ListofCouples,3,length(ListofCouples)-1),
+  splitbycouple(L2,Ret++[L1]).

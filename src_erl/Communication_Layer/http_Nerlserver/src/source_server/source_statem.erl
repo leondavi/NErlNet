@@ -20,7 +20,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(source_statem_state, {msgCounter, sourcePid,csvList, num_of_features, num_of_labels}).
+-record(source_statem_state, {portMap, msgCounter, sourcePid,csvList, num_of_features, num_of_labels}).
 
 %%%===================================================================
 %%% API
@@ -32,9 +32,8 @@
 
 %%Arguments from Cowboy Server
 %%return Pid to Cowboy Server
-start_link(Args) ->
-  start_connection("localhost",8081),
-    {ok,Pid} = gen_statem:start_link(?MODULE, [], []),
+start_link(ConnectionsMap) ->
+    {ok,Pid} = gen_statem:start_link(?MODULE, ConnectionsMap, []),
     Pid.
 
 %%%===================================================================
@@ -46,8 +45,10 @@ start_link(Args) ->
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
 %%initialize and go to state - idle
-init([]) ->
-  {ok, idle, #source_statem_state{msgCounter = 1}}.
+init({_SupPid,ConnectionsMap}) ->
+  inets:start(),
+  start_connection(maps:to_list(ConnectionsMap)),
+  {ok, idle, #source_statem_state{portMap = ConnectionsMap, msgCounter = 1}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -76,13 +77,14 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 %%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
 idle(cast, {csvList,CSVlist}, State = #source_statem_state{msgCounter = Counter, num_of_labels = Num_of_Labels, num_of_features = Num_of_featurs}) ->
                                        %%[list of binarys from CSV file, Size of batch, 1/Hz]
+  io:format("~p~n",[length(CSVlist)]),
     {next_state, idle, State#source_statem_state{msgCounter = Counter+1,csvList =CSVlist}};
 
 
 %%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
 idle(cast, start_casting, State = #source_statem_state{msgCounter = Counter, csvList =CSVlist}) ->
   %%[list of binarys from CSV file, Size of batch, 1/Hz, statem pid]
-  SourcePid = spawn(?MODULE,sendSamples,[CSVlist,300,20,self()]),
+  SourcePid = spawn(?MODULE,sendSamples,[CSVlist,10,20,self()]),
   {next_state, casting_data, State#source_statem_state{msgCounter = Counter+1,sourcePid = SourcePid}};
 
 
@@ -98,6 +100,7 @@ casting_data(cast, stop_casting, State = #source_statem_state{msgCounter = Count
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1,sourcePid = none}};
 
 casting_data(cast, start_casting, State = #source_statem_state{msgCounter = Counter}) ->
+  io:format("aleready casting"),
   {next_state, casting_data, State#source_statem_state{msgCounter = Counter+1}}.
 
 
@@ -125,11 +128,6 @@ code_change(_OldVsn, StateName, State = #source_statem_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-start_connection(Address,Port) ->
-  inets:start(),
-  httpc:set_options([{proxy, {{"localhost", Port},["localhost"]}}]).
-
-
 %%send samples receive a batch size and casts the client with data. data received as a string containing floats and integers.
 %%CLIENT NEED TO PROCESS DATA BEFORE FEEDING THE DNN
 sendSamples([],_Batch_Size,_Hz,_Pid)->done;
@@ -154,3 +152,7 @@ sendSamples(ListOfSamples,Batch_Size,Hz,Pid)->
   end.
 
 
+start_connection([])->ok;
+start_connection([{_ServerName,{Host, Port}}|Tail]) ->
+  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  start_connection(Tail).
