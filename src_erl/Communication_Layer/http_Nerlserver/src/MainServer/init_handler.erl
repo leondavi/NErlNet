@@ -21,10 +21,11 @@ init(Req0, [Main_genServer_Pid]) ->
 
   %Bindings also can be accessed as once, giving a map of all bindings of Req0:
   {ok,Body,_} = cowboy_req:read_body(Req0),
-  io:format("init _handler got body:~p~n",[Body]),
-
   Decoded_body = binary_to_list(Body),
-  gen_server:cast(Main_genServer_Pid,{initCSV,sources,Body}),
+  Splitted = re:split(binary_to_list(Body), ",", [{return, list}]),
+
+  io:format("init _handler got body:~p~n",[Decoded_body]),
+  gen_server:cast(Main_genServer_Pid,{initCSV,  splitbycouple(Splitted,[])}),
 
   Reply = io_lib:format("Body Received: ~p, Decoded Body = ~p ~n State:~p~n", [Body,Decoded_body, Main_genServer_Pid]),
 
@@ -33,3 +34,11 @@ init(Req0, [Main_genServer_Pid]) ->
     Reply,
     Req0),
   {ok, Req, Main_genServer_Pid}.
+
+
+
+splitbycouple([],Ret) ->Ret;
+splitbycouple(ListofCouples,Ret) ->
+  L1 = lists:sublist(ListofCouples,1,2),
+  L2 = lists:sublist(ListofCouples,3,length(ListofCouples)-1),
+  splitbycouple(L2,Ret++[L1]).

@@ -43,29 +43,49 @@
 
 
 start(_StartType, _StartArgs) ->
-    MainServerPort = 8080,
-    NerlClientPort = 8081,
-    SourcePort = 8082,
-    RouterPort = 8083,
 
+%%%%local servers to open, AFTER parsing json, this is the maps will be created:
+    MainServerHostPort = {"localhost",8080},
+    Client1HostPort = {"localhost",8081},
+    Source1HostPort = {"localhost",8082},
+    Router1HostPort = {"localhost",8083},
+
+
+    MainServerPortMap =  #{mainServer => MainServerHostPort},
+    ClientsPortMap =  #{client1 => Client1HostPort},
+    SourcePortMap =  #{source1 => Source1HostPort},
+    RoutersPortMap =  #{router1 => Router1HostPort},
+    PortsMap = #{ mainServer => MainServerPortMap,clients => ClientsPortMap, sources => SourcePortMap,routers => RoutersPortMap},
+
+%%    connectivity map will be as follow:
+%%    name_atom of machine => {Host,Port} OR an atom router_name, indicating there is no direct http connection, and should pass request via router_name
+    MainServerConnectionsMap = #{client1 => Router1HostPort, source1 => Router1HostPort},
+    ClientConnectionsMap = #{mainServer => Router1HostPort},
+    RouterConnectionsMap_router1 = #{mainServer => MainServerHostPort, client1=>Client1HostPort, source1=>Source1HostPort},
+    SourceConnectionsMap = #{mainServer => Router1HostPort, client1=>Router1HostPort, source1=>Router1HostPort},
+
+%%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
+%%    TODO add separation - each entity receives its own portmap of routers
 
     %%Create a gen_Server for maintaining Database for Main Server.
     %% all http requests will be handled by Cowboy which updates main_genserver if necessary.
-    Main_genServer_Args= {self(),MainServerPort},        %%TODO change from mainserverport to routerport . also make this a list of client
+    Main_genServer_Args= {self(),MainServerConnectionsMap},        %%TODO change from mainserverport to routerport . also make this a list of client
     Main_genServer_Pid = main_genserver:start_link(Main_genServer_Args),
 
-
-
     %%Create a gen_StateM machine for maintaining Database for Client.
-    %% all http requests will be handled by Cowboy which updates Client_StateM if necessary.
-    Client_StateM_Args= {self(),MainServerPort},        %%make this a list of client
+    %% all http requests will be handled by Cowboy which updates client_statem if necessary.
+    Client_StateM_Args= {self(),ClientConnectionsMap},        %%make this a list of client
     Client_StateM_Pid = client_statem:start_link(Client_StateM_Args),
 
-    Source_StateM_Args= {self(),SourcePort},        %%TODO  make this a list of Sources
-    Source_StateM_Pid = source_statem:start_link([self(),Source_StateM_Args]),
+    %%Create a gen_StateM machine for maintaining Database for Source.
+    %% all http requests will be handled by Cowboy which updates source_statem if necessary.
+    Source_StateM_Args= {self(),SourceConnectionsMap},        %%TODO  make this a list of Sources
+    Source_StateM_Pid = source_statem:start_link(Source_StateM_Args),
 
-    Router_genServer_Args= {self(),RouterPort},        %%TODO  make this a list of Routers
-    Router_genServer_Pid = router_genserver:start_link([self(),Router_genServer_Args]),
+    %%Create a gen_Server for maintaining Database for Router.
+    %% all http requests will be handled by Cowboy which updates router_genserver if necessary.
+    Router_genServer_Args= {self(),RouterConnectionsMap_router1},        %%TODO  make this a list of Routers
+    Router_genServer_Pid = router_genserver:start_link(Router_genServer_Args),
 
 
 
@@ -125,27 +145,21 @@ start(_StartType, _StartArgs) ->
     ]),
 
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
-    %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.TODO check how to catch ! messages in listenerPid
-    {ok, _listenerPid} = cowboy:start_clear(main_http_listener,
-        [{port,MainServerPort}], #{env => #{dispatch =>MainServerDispatcher}}
-    ),
+    %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
+%%    TODO: after parsing json, change from *1HostPort to the original list imported from json
+    [init_cowboy_start_clear(Name,HostPort,MainServerDispatcher)||{Name,HostPort}<-maps:to_list(maps:get(mainServer,PortsMap))],
+    [init_cowboy_start_clear(Name,HostPort,NerlClientDispatch)||{Name,HostPort}<-maps:to_list(maps:get(clients,PortsMap))],
+    [init_cowboy_start_clear(Name,HostPort,SourceDispatch)||{Name,HostPort}<-maps:to_list(maps:get(sources,PortsMap))],
+    [init_cowboy_start_clear(Name,HostPort,RouterDispatch)||{Name,HostPort}<-maps:to_list(maps:get(routers,PortsMap))],
 
-    {ok, _} = cowboy:start_clear(client_http_listener,
-        [{port,NerlClientPort}], #{env => #{dispatch =>NerlClientDispatch}}
-    ),
-
-    {ok, _} = cowboy:start_clear(source_listener,
-        [{port,SourcePort}], #{env => #{dispatch =>SourceDispatch}}
-    ),
-
-    {ok, _} = cowboy:start_clear(router_listener,
-        [{port,RouterPort}], #{env => #{dispatch =>RouterDispatch}}
-    ),
-
+%%    start supervisor
     http_Nerlserver_sup:start_link().
 
-
-
+init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
+%%    TODO check how to catch ! messages in listenerPid
+    {ok, _listenerPid} = cowboy:start_clear(ListenerName,
+        [{port,Port}], #{env => #{dispatch =>Dispatcher}}
+    ).
 stop(_State) ->
     ok.
 
