@@ -96,6 +96,7 @@ handle_cast(_Request, State = #main_genserver_state{}) ->
 handle_info(_Info, State = #main_genserver_state{}) ->
 {noreply, State}.
 
+
 %% @private
 %% @doc This function is called by a gen_server when it is about to
 %% terminate. It should be the opposite of Module:init/1 and do any

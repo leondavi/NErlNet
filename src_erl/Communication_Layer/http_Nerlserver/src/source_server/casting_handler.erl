@@ -12,8 +12,6 @@
 -behaviour(application).
 
 
-
-
 %%setter handler for editing weights in CSV file, can also send a reply to sender
 init(Req0, [Client_StateM_Pid,Action]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:

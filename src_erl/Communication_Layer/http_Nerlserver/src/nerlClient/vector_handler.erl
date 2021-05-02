@@ -11,6 +11,7 @@
 -export([init/2,  start/2, stop/1]).
 -behaviour(application).
 
+
 %%handler for receiveing vectors of samples from Sensors
 init(Req0, [Client_StateM_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:

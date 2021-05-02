@@ -11,6 +11,7 @@
 -export([init/2]).
 -behaviour(application).
 
+
 %%setter handler for editing weights in CSV file, can also send a reply to sender
 init(Req0, [Main_genServer_Pid]) ->
 %%  Weight = cowboy_req:binding(weight, Req0),

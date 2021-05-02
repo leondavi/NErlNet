@@ -73,7 +73,6 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
   {next_state, NextStateName, State}.
 
 
-
 %%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
 idle(cast, {csvList,CSVlist}, State = #source_statem_state{msgCounter = Counter, num_of_labels = Num_of_Labels, num_of_features = Num_of_featurs}) ->
                                        %%[list of binarys from CSV file, Size of batch, 1/Hz]

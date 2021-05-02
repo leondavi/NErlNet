@@ -11,6 +11,7 @@
 -export([init/2,  start/2, stop/1]).
 -behaviour(application).
 
+
 %%handler for routing all messages in the network.
 %%Action contains the information about the action performed, and Body contains the information needed for the action
 init(Req0, State = [Router_genserver_Pid,Action]) ->
