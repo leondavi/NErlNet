@@ -20,6 +20,7 @@
 -behaviour(application).
 
 -export([start/2, stop/1]).
+
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
 %% ***  exit rebar3 shell: ctrl+g ->q

@@ -11,6 +11,7 @@
 -behavior(cowboy_handler).
 -export([init/2]).
 
+
 %This module created to receive information about a given id
 init(Req0, State) -> %State comes from last argument of the route
   MyObj = cowboy_req:binding(myobj, Req0),

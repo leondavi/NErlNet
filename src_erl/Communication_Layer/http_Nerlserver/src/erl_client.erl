@@ -17,6 +17,7 @@ start_connection() ->
 
 
 send() ->
+
 %%erlang request:   (using post method, because we want to receive a reply for our request)
 %%httpc:request(post,{URL,Headers,content type,Body),HTTPOptions, Profile)
 %%for example:

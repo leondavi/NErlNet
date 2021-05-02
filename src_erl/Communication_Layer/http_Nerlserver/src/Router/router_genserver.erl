@@ -105,6 +105,7 @@ handle_info(_Info, State = #router_genserver_state{}) ->
 terminate(_Reason, _State = #router_genserver_state{}) ->
   ok.
 
+
 %% @private
 %% @doc Convert process state when code is changed
 -spec(code_change(OldVsn :: term() | {down, term()}, State :: #router_genserver_state{},

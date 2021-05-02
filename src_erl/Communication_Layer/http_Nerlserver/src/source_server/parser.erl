@@ -12,6 +12,7 @@
 %% API
 -export([parse_file/1, parse_line/1]).
 
+
 %%parsing a given CSV file
 parse_file(File_Address) ->
 
