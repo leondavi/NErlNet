@@ -39,9 +39,9 @@ updateCSV() ->
     httpc:request(post,{"http://localhost:8080/initNerlnet", [],"application/x-www-form-urlencoded","source1,./input/input99.csv"}, [], []).
 
 start_training()->
-  httpc:request(post,{"http://localhost:8080/start_training", [],"application/x-www-form-urlencoded","source1"}, [], []).
+  httpc:request(post,{"http://localhost:8080/start_training", [],"application/x-www-form-urlencoded",<<"client1">>}, [], []).
 stop_training()->
-  httpc:request(post,{"http://localhost:8080/stop_training", [],"application/x-www-form-urlencoded","source1"}, [], []).
+  httpc:request(post,{"http://localhost:8080/stop_training", [],"application/x-www-form-urlencoded",<<"client1">>}, [], []).
 
 
 

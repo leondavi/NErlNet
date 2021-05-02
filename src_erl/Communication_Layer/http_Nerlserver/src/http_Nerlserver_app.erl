@@ -46,45 +46,53 @@ start(_StartType, _StartArgs) ->
 
 %%%%local servers to open, AFTER parsing json, this is the maps will be created:
     MainServerHostPort = {"localhost",8080},
+    MainName = mainServer,
+
     Client1HostPort = {"localhost",8081},
+    Client1Name = client1,
+
     Source1HostPort = {"localhost",8082},
+    Source1Name = source1,
+
     Router1HostPort = {"localhost",8083},
+    Router1Name = router1,
 
 
-    MainServerPortMap =  #{mainServer => MainServerHostPort},
-    ClientsPortMap =  #{client1 => Client1HostPort},
-    SourcePortMap =  #{source1 => Source1HostPort},
-    RoutersPortMap =  #{router1 => Router1HostPort},
+%%Server that should be established on this machine
+    MainServerPortMap =  #{MainName => MainServerHostPort},
+    ClientsPortMap =  #{Client1Name => Client1HostPort},
+    SourcePortMap =  #{Source1Name => Source1HostPort},
+    RoutersPortMap =  #{Router1Name => Router1HostPort},
     PortsMap = #{ mainServer => MainServerPortMap,clients => ClientsPortMap, sources => SourcePortMap,routers => RoutersPortMap},
 
 %%    connectivity map will be as follow:
 %%    name_atom of machine => {Host,Port} OR an atom router_name, indicating there is no direct http connection, and should pass request via router_name
-    MainServerConnectionsMap = #{client1 => Router1HostPort, source1 => Router1HostPort},
-    ClientConnectionsMap = #{mainServer => Router1HostPort},
-    RouterConnectionsMap_router1 = #{mainServer => MainServerHostPort, client1=>Client1HostPort, source1=>Source1HostPort},
-    SourceConnectionsMap = #{mainServer => Router1HostPort, client1=>Router1HostPort, source1=>Router1HostPort},
+    MainServerConnectionsMap = #{Client1Name => Router1HostPort, Source1Name => Router1HostPort},
+    ClientConnectionsMap = #{MainName => Router1HostPort},
+    RouterConnectionsMap_router1 = #{MainName => MainServerHostPort, Client1Name=>Client1HostPort, Source1Name=>Source1HostPort},
+    SourceConnectionsMap = #{MainName => Router1HostPort, Client1Name=>Router1HostPort, Source1Name=>Router1HostPort},
 
 %%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
 %%    TODO add separation - each entity receives its own portmap of routers
 
     %%Create a gen_Server for maintaining Database for Main Server.
     %% all http requests will be handled by Cowboy which updates main_genserver if necessary.
-    Main_genServer_Args= {self(),MainServerConnectionsMap},        %%TODO change from mainserverport to routerport . also make this a list of client
+    Main_genServer_Args= {MainName,MainServerConnectionsMap},        %%TODO change from mainserverport to routerport . also make this a list of client
     Main_genServer_Pid = main_genserver:start_link(Main_genServer_Args),
 
     %%Create a gen_StateM machine for maintaining Database for Client.
     %% all http requests will be handled by Cowboy which updates client_statem if necessary.
-    Client_StateM_Args= {self(),ClientConnectionsMap},        %%make this a list of client
+    Client_StateM_Args= {Client1Name,ClientConnectionsMap},        %%make this a list of client
     Client_StateM_Pid = client_statem:start_link(Client_StateM_Args),
 
     %%Create a gen_StateM machine for maintaining Database for Source.
     %% all http requests will be handled by Cowboy which updates source_statem if necessary.
-    Source_StateM_Args= {self(),SourceConnectionsMap},        %%TODO  make this a list of Sources
+    Source_StateM_Args= {Source1Name,SourceConnectionsMap},        %%TODO  make this a list of Sources
     Source_StateM_Pid = source_statem:start_link(Source_StateM_Args),
 
     %%Create a gen_Server for maintaining Database for Router.
     %% all http requests will be handled by Cowboy which updates router_genserver if necessary.
-    Router_genServer_Args= {self(),RouterConnectionsMap_router1},        %%TODO  make this a list of Routers
+    Router_genServer_Args= {Router1Name,RouterConnectionsMap_router1},        %%TODO  make this a list of Routers
     Router_genServer_Pid = router_genserver:start_link(Router_genServer_Args),
 
 
@@ -103,6 +111,7 @@ start(_StartType, _StartArgs) ->
         {'_', [
 
             {"/initNerlnet",[],init_handler,[Main_genServer_Pid]},
+            {"/csvReady",[],ack_handler,[Main_genServer_Pid]},
             {"/start_training",action_handler, [start, Main_genServer_Pid]},
             {"/stop_training",action_handler, [stop, Main_genServer_Pid]},
             {"/[...]", no_matching_route_handler, [Main_genServer_Pid]}
@@ -138,9 +147,11 @@ start(_StartType, _StartArgs) ->
         {'_', [
 
             {"/updateCSV",routing_handler, [updateCSV,Router_genServer_Pid]},
+            {"/csvReady",routing_handler, [csvReady,Router_genServer_Pid]},
             {"/start_training",routing_handler, [start_training,Router_genServer_Pid]},
+            {"/weights_vector",routing_handler, [rout,Router_genServer_Pid]},
             {"/stop_training",routing_handler, [stop_training,Router_genServer_Pid]},
-            {"/[...]", no_matching_route_handler, [Main_genServer_Pid]}
+            {"/[...]", no_matching_route_handler, [Router_genServer_Pid]}
         ]}
     ]),
 

@@ -20,7 +20,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(client_statem_state, {portMap, msgCounter}).
+-record(client_statem_state, {myName, portMap, msgCounter}).
 
 
 %%%===================================================================
@@ -47,10 +47,10 @@ start_link(ConnectionsMap) ->
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
 %%initialize and go to state - idle
-init({_SupPid,ConnectionsMap}) ->
+init({MyName,ConnectionsMap}) ->
   inets:start(),
   start_connection(maps:to_list(ConnectionsMap)),
-  {ok, idle, #client_statem_state{portMap = ConnectionsMap, msgCounter = 0}}.
+  {ok, idle, #client_statem_state{myName= MyName, portMap = ConnectionsMap, msgCounter = 0}}.
 
 
 %% @private

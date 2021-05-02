@@ -21,7 +21,7 @@
 -define(SERVER, ?MODULE).
 
 
--record(router_genserver_state, {connectionsMap}).
+-record(router_genserver_state, {myName, connectionsMap}).
 
 %%%===================================================================
 %%% API
@@ -46,10 +46,10 @@ start_link(ConnectionsMap) ->
   {stop, Reason :: term()} | ignore).
 %%TODO  Args = [MainServerHostandPort,ClientsHostsandPorts,SourcesHostsandPorts]
 
-init({_SupPid,ConnectionsMap}) ->
+init({MyName,ConnectionsMap}) ->
   inets:start(),
   start_connection(maps:to_list(ConnectionsMap)),
-  {ok, #router_genserver_state{connectionsMap = ConnectionsMap}}.
+  {ok, #router_genserver_state{myName = MyName, connectionsMap = ConnectionsMap}}.
 
 
 %% @private
@@ -59,23 +59,37 @@ init({_SupPid,ConnectionsMap}) ->
   {noreply, NewState :: #router_genserver_state{}, timeout() | hibernate} |
   {stop, Reason :: term(), NewState :: #router_genserver_state{}}).
 
-handle_cast({updateCSV,ListOfSources}, State = #router_genserver_state{connectionsMap = ConnectionMap}) ->
-%%  Body contrains list of sources to send the request, and input name
-  io:format("~p~n",[ListOfSources]),
-  findroutAndsend(splitbycouple(ListOfSources,[]),ConnectionMap),
+handle_cast({rout,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+%%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
+  [To,Vector] = binary:split(Body,<<"@">>),
+  {ClientHost,ClientPort} =maps:get(list_to_atom(binary_to_list(To)),ConnectionsMap),
+  http_request(ClientHost,ClientPort,"weights_vector",Vector),
   {noreply, State};
 
-handle_cast({start_training,Body}, State = #router_genserver_state{}) ->
+handle_cast({updateCSV,ListOfSources}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
-  case Body of
-    _ ->  httpc:request(post,{"http://localhost:8082/start_training", [],"application/x-www-form-urlencoded",Body}, [], [])
-  end,
+io:format("~p~n",[ListOfSources]),
+findroutAndsend(splitbycouple(ListOfSources,[]),ConnectionsMap),
+{noreply, State};
+
+handle_cast({csvReady,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+%%  Body contrains list of sources to send the request, and input name
+  {MainHost,MainPort} =maps:get(mainServer,ConnectionsMap),
+
+  http_request(MainHost,MainPort,"csvReady",Body),
+
+{noreply, State};
+
+handle_cast({start_training,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+%%  Body contrains list of sources to send the request, and input name
+  {SourceHost,SourcePort} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
+  http_request(SourceHost,SourcePort,"start_training",Body),
   {noreply, State};
 
 handle_cast({stop_training,Body}, State = #router_genserver_state{}) ->
 %%  Body contrains list of sources to send the request, and input name
   case Body of
-    _ ->  httpc:request(post,{"http://localhost:8082/stop_training", [],"application/x-www-form-urlencoded",Body}, [], [])
+    _ ->  http_request("localhost",8082,"stop_training",Body)
   end,
   {noreply, State};
 
@@ -141,7 +155,7 @@ findroutAndsend([[SourceName,InputFile]|ListOfSources], ConnectionsMap) ->
 %%  io:format("sourceName = ~p~n, Map = ~p~n",[SourceName,ConnectionsMap]),
   {SourceHost,SourcePort} =maps:get(list_to_atom(SourceName),ConnectionsMap),
   io:format("~p~n",[SourcePort]),
-  httpc:request(post,{"http://"++ SourceHost ++ ":"++integer_to_list(SourcePort) ++ "/updateCSV", [],"application/x-www-form-urlencoded",InputFile}, [], []),
+  http_request(SourceHost,SourcePort,"updateCSV",InputFile),
   findroutAndsend(ListOfSources,ConnectionsMap).
 
 
@@ -150,3 +164,8 @@ splitbycouple(ListofCouples,Ret) ->
   L1 = lists:sublist(ListofCouples,1,2),
   L2 = lists:sublist(ListofCouples,3,length(ListofCouples)-1),
   splitbycouple(L2,Ret++[L1]).
+
+
+http_request(Host, Port,Path, Body)->
+  httpc:request(post,{"http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path, [],"application/x-www-form-urlencoded",Body}, [], []).
+
