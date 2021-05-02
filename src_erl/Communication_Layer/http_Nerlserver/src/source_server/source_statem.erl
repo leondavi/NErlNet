@@ -16,11 +16,11 @@
 
 %% gen_statem callbacks
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,
-  code_change/4, callback_mode/0, idle/3, sendSamples/4, casting_data/3]).
+  code_change/4, callback_mode/0, idle/3, casting_data/3, sendSamples/7]).
 
 -define(SERVER, ?MODULE).
 
--record(source_statem_state, {portMap, msgCounter, sourcePid,csvList, num_of_features, num_of_labels}).
+-record(source_statem_state, {myName,portMap, msgCounter, sourcePid,csvList, num_of_features, num_of_labels}).
 
 %%%===================================================================
 %%% API
@@ -45,10 +45,10 @@ start_link(ConnectionsMap) ->
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
 %%initialize and go to state - idle
-init({_SupPid,ConnectionsMap}) ->
+init({MyName,ConnectionsMap}) ->
   inets:start(),
   start_connection(maps:to_list(ConnectionsMap)),
-  {ok, idle, #source_statem_state{portMap = ConnectionsMap, msgCounter = 1}}.
+  {ok, idle, #source_statem_state{myName = MyName, portMap = ConnectionsMap, msgCounter = 1}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -74,24 +74,25 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
   {next_state, NextStateName, State}.
 
 
-%%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
-idle(cast, {csvList,CSVlist}, State = #source_statem_state{msgCounter = Counter, num_of_labels = Num_of_Labels, num_of_features = Num_of_featurs}) ->
-                                       %%[list of binarys from CSV file, Size of batch, 1/Hz]
-  io:format("~p~n",[length(CSVlist)]),
-    {next_state, idle, State#source_statem_state{msgCounter = Counter+1,csvList =CSVlist}};
+%%This cast receive a list of samples to load to the records csvList
+idle(cast, {csvList,CSVlist}, State = #source_statem_state{myName = Myname, msgCounter = Counter, portMap = PortMap}) ->
+  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+%%  send an ACK to mainserver that the CSV file is ready
+  http_request(RouterHost,RouterPort,"csvReady",atom_to_list(Myname)),
+   {next_state, idle, State#source_statem_state{msgCounter = Counter+1,csvList =CSVlist}};
 
 
 %%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
-idle(cast, start_casting, State = #source_statem_state{msgCounter = Counter, csvList =CSVlist}) ->
+idle(cast, {start_casting,ClientName}, State = #source_statem_state{portMap = PortMap, msgCounter = Counter, csvList =CSVlist}) ->
+  {RouterHost,RouterPort} = maps:get(list_to_atom(binary_to_list(ClientName)),PortMap),
   %%[list of binarys from CSV file, Size of batch, 1/Hz, statem pid]
-  SourcePid = spawn(?MODULE,sendSamples,[CSVlist,10,20,self()]),
+  SourcePid = spawn(?MODULE,sendSamples,[CSVlist,10,20,self(),RouterHost,RouterPort,ClientName]),
   {next_state, casting_data, State#source_statem_state{msgCounter = Counter+1,sourcePid = SourcePid}};
 
 
 
 idle(cast, EventContent, State = #source_statem_state{msgCounter = Counter}) ->
-  io:format("Counter:~p ~n",[Counter]),
-  httpc:request(post,{"http://localhost:8080/noPath", [],"application/x-www-form-urlencoded",[EventContent]}, [], []),
+  http_request("localhost",8080,"noPath",[EventContent]),
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1}}.
 
 %%waiting for ether data list of sample been sent to finish OR stop message from main server.
@@ -130,23 +131,21 @@ code_change(_OldVsn, StateName, State = #source_statem_state{}, _Extra) ->
 %%%===================================================================
 %%send samples receive a batch size and casts the client with data. data received as a string containing floats and integers.
 %%CLIENT NEED TO PROCESS DATA BEFORE FEEDING THE DNN
-sendSamples([],_Batch_Size,_Hz,_Pid)->done;
-sendSamples(ListOfSamples,Batch_Size,Hz,Pid)->
+sendSamples([],_Batch_Size,_Hz,_Pid,_RouterHost,_RouterPort,_Name)->done;
+sendSamples(ListOfSamples,Batch_Size,Hz,Pid,RouterHost,RouterPort,Name)->
   NumOfSamples = length(ListOfSamples),
   if
       (NumOfSamples=<Batch_Size) ->
         BinaryHead = [list_to_binary(X++[","])||X<-ListOfSamples],
-        httpc:request(post,{"http://localhost:8081/weights_vector", [],"application/x-www-form-urlencoded",list_to_binary(BinaryHead)}, [], []);
+        http_request(RouterHost, RouterPort,"weights_vector", list_to_binary([list_to_binary([Name,<<"@">>]),BinaryHead]));
       true ->
           {Head, Tail} = lists:split(Batch_Size,ListOfSamples),
         BinaryHead = [list_to_binary(X++[","])||X<-Head],
-        io:format("Head:~p~n ToSend:~p~n",[Head,binary_to_list(list_to_binary(BinaryHead))]),
-
-        httpc:request(post,{"http://localhost:8081/weights_vector", [],"application/x-www-form-urlencoded",list_to_binary(BinaryHead)}, [], []),
+        http_request(RouterHost, RouterPort,"weights_vector", list_to_binary([list_to_binary([Name,<<"@">>]),BinaryHead])),
           receive
               %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
             stop_casting  ->  gen_statem:cast(Pid,{csvList,Tail})
-           after Hz-> sendSamples(Tail,Batch_Size,Hz,Pid)
+           after Hz-> sendSamples(Tail,Batch_Size,Hz,Pid,RouterHost,RouterPort,Name)
           end
 
   end.
@@ -156,3 +155,8 @@ start_connection([])->ok;
 start_connection([{_ServerName,{Host, Port}}|Tail]) ->
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
   start_connection(Tail).
+
+
+http_request(Host, Port,Path, Body)->
+  httpc:request(post,{"http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path, [],"application/x-www-form-urlencoded",Body}, [], []).
+

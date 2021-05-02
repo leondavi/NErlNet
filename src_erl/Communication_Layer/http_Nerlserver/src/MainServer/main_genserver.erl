@@ -20,7 +20,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(main_genserver_state, {connectionsMap}).
+-record(main_genserver_state, {connectionsMap,waitingList}).
 
 %%%===============================================================
 
@@ -75,23 +75,33 @@ handle_cast({initCSV,ListOfSources}, State = #main_genserver_state{connectionsMa
 %%  send router http request, to rout this message to all sensors
   io:format("main server: requesting router to update csv at sources: Body: ~p~n",[ListOfSources]),
 %%  TODO find the router that can send this request to Sources**
-  findroutAndsend(ListOfSources,ConnectionMap),
+  WaitingList = findroutAndsend(ListOfSources,ConnectionMap,[]),
+  {noreply, State#main_genserver_state{waitingList = WaitingList}};
+
+handle_cast({ack,Body}, State = #main_genserver_state{waitingList = WaitingList}) ->
+io:format("~p sent ACK~n, new Waitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),WaitingList--[list_to_atom(binary_to_list(Body))]]),
+
+{noreply, State#main_genserver_state{waitingList = WaitingList--[list_to_atom(binary_to_list(Body))]}};
+
+handle_cast({start_learning,Body}, State = #main_genserver_state{waitingList = []}) ->
+  http_request("localhost", 8082,"start_training", Body),
   {noreply, State};
 
-handle_cast({start_learning,Body}, State = #main_genserver_state{}) ->
-  httpc:request(post,{"http://localhost:8082/start_training", [],"application/x-www-form-urlencoded",Body}, [], []),
+handle_cast({start_learning,Body}, State = #main_genserver_state{waitingList = Waiting}) ->
+  io:format("Waiting for ~p~n",[Waiting]),
   {noreply, State};
 
 handle_cast({stop_learning,Body}, State = #main_genserver_state{}) ->
-  httpc:request(post,{"http://localhost:8082/stop_training", [],"application/x-www-form-urlencoded",Body}, [], []),
+  http_request("localhost", 8082,"stop_training", Body),
   {noreply, State};
 
 
 
 
 
-handle_cast(_Request, State = #main_genserver_state{}) ->
-  httpc:request(post,{"http://localhost:8082/updateCSV", [],"application/x-www-form-urlencoded","./input/input.csv"}, [], []),
+handle_cast(Request, State = #main_genserver_state{}) ->
+
+  io:format("thats strange:~p~n",[Request]),
   {noreply, State}.
 
 %% @private
@@ -134,10 +144,14 @@ start_connection([{_ServerName,{Host, Port}}|Tail]) ->
 
 
 %%find Router and send message: finds the path for the named machine from connection map and send to the right router to forword.
-findroutAndsend([],_)->ok;
-findroutAndsend([[SourceName,InputFile]|ListOfSources], ConnectionsMap) ->
+findroutAndsend([],_,WaitingList)->WaitingList;
+findroutAndsend([[SourceName,InputFile]|ListOfSources], ConnectionsMap,WaitingList) ->
 %%  io:format("sourceName = ~p~n, Map = ~p~n",[SourceName,ConnectionsMap]),
   {RouterHost,RouterPort} =maps:get(list_to_atom(SourceName),ConnectionsMap),
   io:format("~p~n",[RouterPort]),
-  httpc:request(post,{"http://"++ RouterHost ++ ":"++integer_to_list(RouterPort) ++ "/updateCSV", [],"application/x-www-form-urlencoded",SourceName++","++InputFile}, [], []),
-  findroutAndsend(ListOfSources,ConnectionsMap).
+  http_request(RouterHost, RouterPort,"updateCSV", SourceName++","++InputFile),
+  findroutAndsend(ListOfSources,ConnectionsMap,WaitingList++[list_to_atom(SourceName)]).
+
+
+http_request(Host, Port,Path, Body)->
+  httpc:request(post,{"http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path, [],"application/x-www-form-urlencoded",Body}, [], []).
