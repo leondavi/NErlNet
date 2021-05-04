@@ -207,25 +207,28 @@ static void* trainFun(void *arg){
     printf("Start to train the model.\n");
 #endif
 
-    //auto start = high_resolution_clock::now();
+    auto start = high_resolution_clock::now();
 
     // Train the model with recieved parameters and get loss value
     loss_val = modelPtr->train(data_mat,label_mat);
 
-    //auto stop = high_resolution_clock::now();
-    //auto duration = duration_cast<microseconds>(stop - start);
+    auto stop = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(stop - start);
 
     // To get the value of duration use the count()
     // member function on the duration object
-    //std::cout << "Train time inside the NIF (micro seconds): " << duration.count() << std::endl;
+    std::cout << "Train time inside the NIF (micro seconds): " << duration.count() << std::endl;
 
 #if DEBUG_TRAIN_NIF
     printf("Finish train the model, loss fun inside the nif thread: \n");
     std::cout<< loss_val << "\n";
 #endif
 
-    // Convert the lossFun value to a nif term
+    // Convert the train duration value to a nif term
     nifpp::TERM loss_val_term = nifpp::make(env, loss_val);
+
+    // Convert the lossFun value to a nif term
+    //nifpp::TERM duration_term = nifpp::make(env, duration.count());
 
     // Send to erlang process the loss value
     if(enif_send(NULL,&(trainPtr->pid), env,loss_val_term)){
