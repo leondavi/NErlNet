@@ -4,7 +4,7 @@
 -export([testMatrix/2,cppBridgeController/0,cppBridgeControllerGetModelPtr/1 ,cppBridgeControllerSetData/1,
 	 create_module/6, train2double/6, predict2double/5, niftest/6, thread_create_test/0,
 	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, cppBridgeControllerSetModelPtrDat/2,
-	cppBridgeControllerDeleteModel/1, startTest/11,train/7]).
+	cppBridgeControllerDeleteModel/1, startTest/11,train/8]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
@@ -145,16 +145,17 @@ train_predict_create(2, _Data_mat, _rows, _cols, _ModelId) ->
 
 %% ------------------------ TEST ----------------------------
 
-train(0,_ChunkSize, _Cols, _Labels, _SampleListTrain,_ModelId,_Pid)->finished_train;
-train(ProcNumTrain,ChunkSize, Cols, Labels, SampleListTrain,ModelId,Pid)->
+train(0,_ChunkSize, _Cols, _Labels, _SampleListTrain,_ModelId,_Pid,LOSS)->LOSS;
+train(ProcNumTrain,ChunkSize, Cols, Labels, SampleListTrain,ModelId,Pid,_LOSS)->
 	Curr_pid=self(),
 	%Pid2=spawn(fun()->erlModule:train2double(ChunkSize, Cols, Labels, SampleListTrain,ModelId,Curr_pid) end),
 	erlModule:train2double(ChunkSize, Cols, Labels, SampleListTrain,ModelId,Curr_pid),
 	receive
-		LOSS_FUNC->LOSS_FUNC
+		LOSS_FUNC->
+		  %LOSS_new = LOSS+LOSS_FUNC,
+			train(ProcNumTrain-1,ChunkSize, Cols, Labels, SampleListTrain,ModelId,Pid,LOSS_FUNC)
 		%	io:fwrite("PID: ~p Loss func: ~p\n",[Pid2, LOSS_FUNC])
-	end,
-	train(ProcNumTrain-1,ChunkSize, Cols, Labels, SampleListTrain,ModelId,Pid).
+	end.
 
 
 startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationList, Learning_rate, Layers_sizes, Optimizer, ProcNumTrain)->
@@ -162,15 +163,15 @@ startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, Activation
 	{_FileLinesNumber,_Train_Lines,_PredictLines,SampleListTrain,_SampleListPredict}=
 		parse:readfile(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId),
 
-	Start_Time = os:system_time(microsecond),
 	%io:fwrite("Start module_create in erlModule ~n"),
 	%Pid1 = spawn(fun()->module_create([8,4,3,2], 0.01, 80, [2,1,1,2], 1) end),
 	module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
 	%io:fwrite("Create PID ~p ~n",[Pid1]),
+	Start_Time = os:system_time(microsecond),
 
 	%io:fwrite("TrainList: ~p\n",[SampleListTrain]),
 	io:fwrite("ChunkSize: ~p Cols: ~p, Labels: ~p, ModelId: ~p, pid: ~p \n",[ChunkSize,Cols,Labels, ModelId,self()]),
-	train(ProcNumTrain,ChunkSize, Cols, Labels, SampleListTrain,ModelId,self()),
+	Loss=train(ProcNumTrain,ChunkSize, Cols, Labels, SampleListTrain,ModelId,self(),0.0),
 
 	%niftest(ProcNumTrain,SampleListTrain,Train_Lines,Cols,Labels,ModelId),
 	%io:fwrite("start predict2double ~n"),
@@ -182,6 +183,7 @@ startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, Activation
 	%end,
 
 	Finish_Time = os:system_time(microsecond),
+	io:fwrite("Loss value: ~p\n",[Loss]),
 	Time_elapsed=(Finish_Time-Start_Time)/ProcNumTrain,
 	io:fwrite("Time took for all the nif: ~p micro sec , Number of processes = ~p ~n",[Time_elapsed, ProcNumTrain]).
 
@@ -190,7 +192,8 @@ niftest(0,_SampleListTrain,_Train_Lines, _Cols, _Labels, _ModelId) ->
 niftest(Num,SampleListTrain,Train_Lines,Cols,Labels, ModelId) ->
 	Curr_PID = self(),
 	io:fwrite("start train2double ~n"),
-	Pid2 = spawn(fun()->erlModule:train2double(Train_Lines, Cols, Labels, SampleListTrain,ModelId,Curr_PID) end),
+	Pid2 = erlModule:train2double(Train_Lines, Cols, Labels, SampleListTrain,ModelId,Curr_PID),
+	%Pid2 = spawn(fun()->erlModule:train2double(Train_Lines, Cols, Labels, SampleListTrain,ModelId,Curr_PID) end),
 	receive
 		LOSS_FUNC->
 			io:fwrite("PID: ~p Loss func: ~p\n",[Pid2, LOSS_FUNC])
