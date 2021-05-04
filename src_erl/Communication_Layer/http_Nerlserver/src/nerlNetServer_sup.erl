@@ -4,7 +4,7 @@
 %% @end
 %%%-------------------------------------------------------------------
 
--module(http_Nerlserver_sup).
+-module('NerlNetServer_sup').
 
 -behaviour(supervisor).
 

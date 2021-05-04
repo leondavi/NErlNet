@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 14. Apr 2021 9:57 AM
 %%%-------------------------------------------------------------------
--module(source_statem).
+-module(sourceStatem).
 -author("kapelnik").
 
 -behaviour(gen_statem).
@@ -20,7 +20,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(source_statem_state, {myName,portMap, msgCounter, sourcePid,csvList, num_of_features, num_of_labels}).
+-record(source_statem_state, {castingTo, myName,portMap, msgCounter, sourcePids,csvList, num_of_features, num_of_labels}).
 
 %%%===================================================================
 %%% API
@@ -48,7 +48,7 @@ start_link(ConnectionsMap) ->
 init({MyName,ConnectionsMap}) ->
   inets:start(),
   start_connection(maps:to_list(ConnectionsMap)),
-  {ok, idle, #source_statem_state{myName = MyName, portMap = ConnectionsMap, msgCounter = 1}}.
+  {ok, idle, #source_statem_state{myName = MyName, portMap = ConnectionsMap, msgCounter = 1, castingTo = []}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -75,33 +75,41 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 
 
 %%This cast receive a list of samples to load to the records csvList
-idle(cast, {csvList,CSVlist}, State = #source_statem_state{myName = Myname, msgCounter = Counter, portMap = PortMap}) ->
+idle(cast, {csvList,ClientName,CSVlist}, State = #source_statem_state{castingTo = CastingTo, myName = Myname, msgCounter = Counter, portMap = PortMap}) ->
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
   http_request(RouterHost,RouterPort,"csvReady",atom_to_list(Myname)),
-   {next_state, idle, State#source_statem_state{msgCounter = Counter+1,csvList =CSVlist}};
+   {next_state, idle, State#source_statem_state{castingTo = CastingTo++[ClientName], msgCounter = Counter+1,csvList =CSVlist}};
 
 
 %%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
-idle(cast, {start_casting,ClientName}, State = #source_statem_state{portMap = PortMap, msgCounter = Counter, csvList =CSVlist}) ->
-  {RouterHost,RouterPort} = maps:get(list_to_atom(binary_to_list(ClientName)),PortMap),
-  %%[list of binarys from CSV file, Size of batch, 1/Hz, statem pid]
-  SourcePid = spawn(?MODULE,sendSamples,[CSVlist,10,20,self(),RouterHost,RouterPort,ClientName]),
-  {next_state, casting_data, State#source_statem_state{msgCounter = Counter+1,sourcePid = SourcePid}};
+idle(cast, {start_training}, State = #source_statem_state{castingTo = CastingTo, portMap = PortMap, msgCounter = Counter, csvList =CSVlist}) ->
+  Transmitters = [ spawnTransmitters(ClientName,CSVlist,PortMap)  ||ClientName<-CastingTo],
+  {next_state, casting_data, State#source_statem_state{msgCounter = Counter+1, sourcePids = Transmitters}};
 
+
+
+
+idle(cast, {stop_training}, State = #source_statem_state{msgCounter = Counter}) ->
+  io:format("already idle~n",[]),
+  {next_state, idle, State#source_statem_state{msgCounter = Counter+1}};
 
 
 idle(cast, EventContent, State = #source_statem_state{msgCounter = Counter}) ->
-  http_request("localhost",8080,"noPath",[EventContent]),
+  io:format("ignored: ~p~nstate - idle",[EventContent]),
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1}}.
 
 %%waiting for ether data list of sample been sent to finish OR stop message from main server.
-casting_data(cast, stop_casting, State = #source_statem_state{msgCounter = Counter,sourcePid = SourcePid}) ->
-  SourcePid ! stop_casting,
-  {next_state, idle, State#source_statem_state{msgCounter = Counter+1,sourcePid = none}};
+casting_data(cast, {stop_training,ClientName}, State = #source_statem_state{msgCounter = Counter,sourcePids = SourcePids}) ->
+  SourcePids ! {stop_casting,ClientName},
+  {next_state, idle, State#source_statem_state{msgCounter = Counter+1,sourcePids = SourcePids}};
 
-casting_data(cast, start_casting, State = #source_statem_state{msgCounter = Counter}) ->
-  io:format("aleready casting"),
+casting_data(cast, {start_training}, State = #source_statem_state{msgCounter = Counter}) ->
+  io:format("aleready casting~n",[]),
+  {next_state, casting_data, State#source_statem_state{msgCounter = Counter+1}};
+
+casting_data(cast, EventContent, State = #source_statem_state{msgCounter = Counter}) ->
+  io:format("ignored: ~p~nstate - casting data",[EventContent]),
   {next_state, casting_data, State#source_statem_state{msgCounter = Counter+1}}.
 
 
@@ -129,22 +137,33 @@ code_change(_OldVsn, StateName, State = #source_statem_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+
+
 %%send samples receive a batch size and casts the client with data. data received as a string containing floats and integers.
 %%CLIENT NEED TO PROCESS DATA BEFORE FEEDING THE DNN
+
+spawnTransmitters(ClientName,CSVlist,PortMap)->
+  {RouterHost,RouterPort} = maps:get(list_to_atom(ClientName),PortMap),
+  %%[list of binarys from CSV file, Size of batch, 1/Hz, statem pid]
+  spawn(?MODULE,sendSamples,[CSVlist,10,20,self(),RouterHost,RouterPort,ClientName]).
+
+
 sendSamples([],_Batch_Size,_Hz,_Pid,_RouterHost,_RouterPort,_Name)->done;
 sendSamples(ListOfSamples,Batch_Size,Hz,Pid,RouterHost,RouterPort,Name)->
+
   NumOfSamples = length(ListOfSamples),
   if
       (NumOfSamples=<Batch_Size) ->
         BinaryHead = [list_to_binary(X++[","])||X<-ListOfSamples],
-        http_request(RouterHost, RouterPort,"weights_vector", list_to_binary([list_to_binary([Name,<<"@">>]),BinaryHead]));
+        http_request(RouterHost, RouterPort,"weights_vector", list_to_binary([list_to_binary([Name,<<"#">>]),BinaryHead]));
       true ->
           {Head, Tail} = lists:split(Batch_Size,ListOfSamples),
         BinaryHead = [list_to_binary(X++[","])||X<-Head],
-        http_request(RouterHost, RouterPort,"weights_vector", list_to_binary([list_to_binary([Name,<<"@">>]),BinaryHead])),
+        http_request(RouterHost, RouterPort,"weights_vector", list_to_binary([list_to_binary([Name,<<"#">>]),BinaryHead])),
           receive
               %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
-            stop_casting  ->  gen_statem:cast(Pid,{csvList,Tail})
+            {stop_casting,_ClientName}  ->  gen_statem:cast(Pid,{csvList,Tail})
            after Hz-> sendSamples(Tail,Batch_Size,Hz,Pid,RouterHost,RouterPort,Name)
           end
 

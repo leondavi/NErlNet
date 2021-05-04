@@ -25,7 +25,7 @@ init(Req0, [Main_genServer_Pid]) ->
   Splitted = re:split(binary_to_list(Body), ",", [{return, list}]),
 
   io:format("init _handler got body:~p~n",[Decoded_body]),
-  gen_server:cast(Main_genServer_Pid,{initCSV,  splitbycouple(Splitted,[])}),
+  gen_server:cast(Main_genServer_Pid,{initCSV,  splitbytriplets(Splitted,[])}),
 
   Reply = io_lib:format("Body Received: ~p, Decoded Body = ~p ~n State:~p~n", [Body,Decoded_body, Main_genServer_Pid]),
 
@@ -37,8 +37,8 @@ init(Req0, [Main_genServer_Pid]) ->
 
 
 
-splitbycouple([],Ret) ->Ret;
-splitbycouple(ListofCouples,Ret) ->
-  L1 = lists:sublist(ListofCouples,1,2),
-  L2 = lists:sublist(ListofCouples,3,length(ListofCouples)-1),
-  splitbycouple(L2,Ret++[L1]).
+splitbytriplets([],Ret) ->Ret;
+splitbytriplets(ListofTriplets,Ret) ->
+  L1 = lists:sublist(ListofTriplets,1,3),
+  L2 = lists:sublist(ListofTriplets,4,length(ListofTriplets)-1),
+  splitbytriplets(L2,Ret++[L1]).

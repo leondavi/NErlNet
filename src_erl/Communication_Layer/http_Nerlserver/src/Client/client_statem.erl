@@ -12,11 +12,11 @@
 -behaviour(gen_statem).
 
 %% API
--export([start_link/1]).
+-export([start_link/1, predict/3]).
 
 %% gen_statem callbacks
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,
-    code_change/4, callback_mode/0, idle/3]).
+  code_change/4, callback_mode/0, idle/3, training/3]).
 
 -define(SERVER, ?MODULE).
 
@@ -83,11 +83,56 @@ idle(cast, {init,CONFIG}, State = #client_statem_state{msgCounter = Counter}) ->
   io:format("initiating, CONFIG received:~p ~n",[CONFIG]),
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
+idle(cast, {training}, State = #client_statem_state{myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
+%%  io:format("sending ACK   ~n",[]),
+  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+%%  send an ACK to mainserver that the CSV file is ready
+  http_request(RouterHost,RouterPort,"clientReady",atom_to_list(MyName)),
+  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
-idle(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
-  {next_state, idle, State#client_statem_state{msgCounter = Counter+1}}.
+idle(cast, {predict}, State = #client_statem_state{myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
+%%  io:format("sending ACK   ~n",[]),
+  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+%%  send an ACK to mainserver that the CSV file is ready
+  http_request(RouterHost,RouterPort,"clientReady",atom_to_list(MyName)),
+  {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
+
+idle(cast, EventContent, State = #client_statem_state{myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
+  io:format("client training ignored:  ~p ~n",[EventContent]),
+  {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
 
 
+training(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counter}) ->
+  io:format("sending samples  ~p ~n",[Vector]),
+  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+
+training(cast, {stop}, State = #client_statem_state{msgCounter = Counter}) ->
+  {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
+
+training(cast, {predict}, State = #client_statem_state{msgCounter = Counter}) ->
+  {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
+
+training(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
+  io:format("client training ignored:  ~p ~n",[EventContent]),
+  {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
+
+
+predict(cast, {predSample,Vector}, State = #client_statem_state{msgCounter = Counter}) ->
+  io:format("predicting samples  ~p ~n",[Vector]),
+  {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
+
+predict(cast, {training}, State = #client_statem_state{msgCounter = Counter}) ->
+  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+
+predict(cast, {stop}, State = #client_statem_state{msgCounter = Counter}) ->
+  {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
+
+predict(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
+  io:format("client predict ignored:  ~p ~n",[EventContent]),
+  {next_state, predict, State#client_statem_state{msgCounter = Counter+1}}.
+
+
+%%io:format("vector _handler got Body~n",[]),
 
 
 %% @private
@@ -118,3 +163,7 @@ start_connection([])->ok;
 start_connection([{_ServerName,{Host, Port}}|Tail]) ->
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
   start_connection(Tail).
+
+http_request(Host, Port,Path, Body)->
+  httpc:request(post,{"http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path, [],"application/x-www-form-urlencoded",Body}, [], []).
+

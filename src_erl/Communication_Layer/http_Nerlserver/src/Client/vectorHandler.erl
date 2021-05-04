@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 02. Jan 2021 4:05 AM
 %%%-------------------------------------------------------------------
--module(vector_handler).
+-module(vectorHandler).
 -author("kapelnik").
 -export([init/2,  start/2, stop/1]).
 -behaviour(application).
@@ -17,8 +17,8 @@ init(Req0, [Client_StateM_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {ok,Body,_} = cowboy_req:read_body(Req0),
 %%  Decoded_body = binary_to_list(Body),
-  io:format("vector _handler got Body~n",[]),
-%%  gen_statem:cast(Client_StateM_Pid,{hello}),
+
+  gen_statem:cast(Client_StateM_Pid,{sample,Body}),
 
   Reply = io_lib:format("Body Received~p~n ", [Client_StateM_Pid]),
   Req = cowboy_req:reply(200,

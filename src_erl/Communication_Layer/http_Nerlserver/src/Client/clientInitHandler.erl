@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 31. Dec 2020 4:41 AM
 %%%-------------------------------------------------------------------
--module(client_init_handler).
+-module(clientInitHandler).
 -author("kapelnik").
 -behavior(application).
 
@@ -14,12 +14,15 @@
 
 
 %%init_handler handles http requests for starting nerlnet with given parameters.
-init(Req0, [Client_StateM_Pid]) ->
+init(Req0, [Action,Client_StateM_Pid]) ->
 
   {ok,Body,_} = cowboy_req:read_body(Req0),
   io:format("client init _handler got body:~p~n",[Body]),
-
-  gen_statem:cast(Client_StateM_Pid,{init,Body}),
+  case Action of
+    init ->   gen_statem:cast(Client_StateM_Pid,{init,Body});
+    training -> gen_statem:cast(Client_StateM_Pid,{training});
+    predict -> gen_statem:cast(Client_StateM_Pid,{predict})
+  end,
 
   %% reply ACKnowledge to main server for initiating, later send finished initiating http_request from client_stateM
   Reply = io_lib:format("ACK", []),

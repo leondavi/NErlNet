@@ -15,7 +15,7 @@
 %%%-----------------------------------------------------------------------------------------------------------------------------------------------------------
 %%%-----------------------------------------------------------------------------------------------------------------------------------------------------------
 
--module(http_Nerlserver_app).
+-module('NerlNetServer_app').
 
 -behaviour(application).
 
@@ -57,6 +57,8 @@ start(_StartType, _StartArgs) ->
     Router1HostPort = {"localhost",8083},
     Router1Name = router1,
 
+%%    for mainserver only-
+    Clients = [Client1Name],
 
 %%Server that should be established on this machine
     MainServerPortMap =  #{MainName => MainServerHostPort},
@@ -77,8 +79,8 @@ start(_StartType, _StartArgs) ->
 
     %%Create a gen_Server for maintaining Database for Main Server.
     %% all http requests will be handled by Cowboy which updates main_genserver if necessary.
-    Main_genServer_Args= {MainName,MainServerConnectionsMap},        %%TODO change from mainserverport to routerport . also make this a list of client
-    Main_genServer_Pid = main_genserver:start_link(Main_genServer_Args),
+    Main_genServer_Args= {MainName,Clients,MainServerConnectionsMap},        %%TODO change from mainserverport to routerport . also make this a list of client
+    Main_genServer_Pid = mainGenserver:start_link(Main_genServer_Args),
 
     %%Create a gen_StateM machine for maintaining Database for Client.
     %% all http requests will be handled by Cowboy which updates client_statem if necessary.
@@ -88,12 +90,12 @@ start(_StartType, _StartArgs) ->
     %%Create a gen_StateM machine for maintaining Database for Source.
     %% all http requests will be handled by Cowboy which updates source_statem if necessary.
     Source_StateM_Args= {Source1Name,SourceConnectionsMap},        %%TODO  make this a list of Sources
-    Source_StateM_Pid = source_statem:start_link(Source_StateM_Args),
+    Source_StateM_Pid = sourceStatem:start_link(Source_StateM_Args),
 
     %%Create a gen_Server for maintaining Database for Router.
     %% all http requests will be handled by Cowboy which updates router_genserver if necessary.
     Router_genServer_Args= {Router1Name,RouterConnectionsMap_router1},        %%TODO  make this a list of Routers
-    Router_genServer_Pid = router_genserver:start_link(Router_genServer_Args),
+    Router_genServer_Pid = routerGenserver:start_link(Router_genServer_Args),
 
 
 
@@ -111,9 +113,11 @@ start(_StartType, _StartArgs) ->
         {'_', [
 
             {"/initNerlnet",[],init_handler,[Main_genServer_Pid]},
-            {"/csvReady",[],ack_handler,[Main_genServer_Pid]},
-            {"/start_training",action_handler, [start, Main_genServer_Pid]},
-            {"/stop_training",action_handler, [stop, Main_genServer_Pid]},
+            {"/csvReady",[],ack_handler,[source,Main_genServer_Pid]},
+            {"/clientReady",[],ack_handler,[client,Main_genServer_Pid]},
+            {"/clientsTraining",[],action_handler,[clients_training,Main_genServer_Pid]},
+            {"/startTraining",action_handler, [start, Main_genServer_Pid]},
+            {"/stopTraining",action_handler, [stop, Main_genServer_Pid]},
             {"/[...]", no_matching_route_handler, [Main_genServer_Pid]}
         ]}
     ]),
@@ -125,8 +129,10 @@ start(_StartType, _StartArgs) ->
     NerlClientDispatch = cowboy_router:compile([
         {'_', [
             %%first http request from main server should be about starting parameters, find more info inside init_handler
-            {"/init",client_init_handler, [Client_StateM_Pid]},
-            {"/weights_vector",vector_handler, [Client_StateM_Pid]},
+            {"/init",client_init_handler, [init,Client_StateM_Pid]},
+            {"/training",client_init_handler, [training,Client_StateM_Pid]},
+            {"/predict",client_init_handler, [predict,Client_StateM_Pid]},
+            {"/weightsVector",vector_handler, [Client_StateM_Pid]},
             {"/[...]", no_matching_route_handler, [Main_genServer_Pid]}
         ]}
     ]),
@@ -136,8 +142,8 @@ start(_StartType, _StartArgs) ->
         {'_', [
 
             {"/updateCSV",csv_handler, [Source_StateM_Pid]},
-            {"/start_training",casting_handler, [Source_StateM_Pid,start]},
-            {"/stop_training",casting_handler, [Source_StateM_Pid,stop]},
+            {"/startTraining",casting_handler, [start_training,Source_StateM_Pid]},
+            {"/stopTraining",casting_handler, [stop_training,Source_StateM_Pid]},
             {"/[...]", no_matching_route_handler, [Main_genServer_Pid]}
         ]}
     ]),
@@ -145,12 +151,13 @@ start(_StartType, _StartArgs) ->
     %%    Source server
     RouterDispatch = cowboy_router:compile([
         {'_', [
-
+            {"/clientTraining",routing_handler, [client_training,Router_genServer_Pid]},
             {"/updateCSV",routing_handler, [updateCSV,Router_genServer_Pid]},
             {"/csvReady",routing_handler, [csvReady,Router_genServer_Pid]},
-            {"/start_training",routing_handler, [start_training,Router_genServer_Pid]},
-            {"/weights_vector",routing_handler, [rout,Router_genServer_Pid]},
-            {"/stop_training",routing_handler, [stop_training,Router_genServer_Pid]},
+            {"/clientReady",routing_handler, [clientReady,Router_genServer_Pid]},
+            {"/startTraining",routing_handler, [start_training,Router_genServer_Pid]},
+            {"/weightsVector",routing_handler, [rout,Router_genServer_Pid]},
+            {"/stopTraining",routing_handler, [stop_training,Router_genServer_Pid]},
             {"/[...]", no_matching_route_handler, [Router_genServer_Pid]}
         ]}
     ]),
@@ -164,7 +171,7 @@ start(_StartType, _StartArgs) ->
     [init_cowboy_start_clear(Name,HostPort,RouterDispatch)||{Name,HostPort}<-maps:to_list(maps:get(routers,PortsMap))],
 
 %%    start supervisor
-    http_Nerlserver_sup:start_link().
+    'NerlNetServer_sup':start_link().
 
 init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
 %%    TODO check how to catch ! messages in listenerPid
