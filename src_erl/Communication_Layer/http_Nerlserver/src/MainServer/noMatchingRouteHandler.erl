@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 01. Jan 2021 4:58 AM
 %%%-------------------------------------------------------------------
--module(no_matching_route_handler).
+-module(noMatchingRouteHandler).
 -author("kapelnik").
 
 

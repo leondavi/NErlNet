@@ -6,27 +6,26 @@
 %%% @end
 %%% Created : 02. Jan 2021 4:05 AM
 %%%-------------------------------------------------------------------
--module(casting_handler).
+-module(csvHandler).
 -author("kapelnik").
 -export([init/2,  start/2, stop/1]).
 -behaviour(application).
 
 
 %%setter handler for editing weights in CSV file, can also send a reply to sender
-init(Req0, [Client_StateM_Pid,Action]) ->
+init(Req0, State = [Source_StateM_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {_,Body,_} = cowboy_req:read_body(Req0),
-  io:format("casting handler got Body:~p~n",[Body]),
-  case Action of
-    start ->  gen_statem:cast(Client_StateM_Pid, {start_casting,Body});
-    stop ->  gen_statem:cast(Client_StateM_Pid, {stop_casting,Body})
-  end,
-  Reply = io_lib:format("Body Received: ~p~n ", [Body]),
+  [ClientName|CSV_Path] = re:split(binary_to_list(Body), ",", [{return, list}]),
+  io:format("csv handler got Body:~p~n",[Body]),
+  CSVlist = parser:parse_file(CSV_Path),
+  gen_statem:cast(Source_StateM_Pid,{csvList,ClientName,CSVlist}),
+  Reply = io_lib:format("ACKACK", []),
   Req = cowboy_req:reply(200,
     #{<<"content-type">> => <<"text/plain">>},
     Reply,
     Req0),
-  {ok, Req, Client_StateM_Pid}.
+  {ok, Req, State}.
 
 
 start(StartType, StartArgs) ->

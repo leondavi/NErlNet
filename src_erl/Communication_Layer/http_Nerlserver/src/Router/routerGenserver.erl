@@ -61,37 +61,53 @@ init({MyName,ConnectionsMap}) ->
 
 handle_cast({rout,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
-  [To,Vector] = binary:split(Body,<<"@">>),
+  [To,Vector] = binary:split(Body,<<"#">>),
   {ClientHost,ClientPort} =maps:get(list_to_atom(binary_to_list(To)),ConnectionsMap),
-  http_request(ClientHost,ClientPort,"weights_vector",Vector),
+  http_request(ClientHost,ClientPort,"weightsVector",Vector),
   {noreply, State};
 
-handle_cast({updateCSV,ListOfSources}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+
+handle_cast({clientTraining, ClientName}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+%%  sending client "training" request
+  {ClientHost,ClientPort} =maps:get(list_to_atom(binary_to_list(ClientName)),ConnectionsMap),
+  http_request(ClientHost,ClientPort,"training",[]),
+  {noreply, State};
+
+handle_cast({clientPredict, ClientName}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+%%  sending client "training" request
+  {ClientHost,ClientPort} =maps:get(list_to_atom(binary_to_list(ClientName)),ConnectionsMap),
+  http_request(ClientHost,ClientPort,"predict",[]),
+  {noreply, State};
+
+handle_cast({updateCSV,SourcesClientsPaths}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
-io:format("~p~n",[ListOfSources]),
-findroutAndsend(splitbycouple(ListOfSources,[]),ConnectionsMap),
+io:format("~p~n",[SourcesClientsPaths]),
+findroutAndsend(splitbyTriplets(SourcesClientsPaths,[]),ConnectionsMap),
 {noreply, State};
 
 handle_cast({csvReady,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
   {MainHost,MainPort} =maps:get(mainServer,ConnectionsMap),
-
   http_request(MainHost,MainPort,"csvReady",Body),
-
-{noreply, State};
-
-handle_cast({start_training,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
-%%  Body contrains list of sources to send the request, and input name
-  {SourceHost,SourcePort} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
-  http_request(SourceHost,SourcePort,"start_training",Body),
   {noreply, State};
 
-handle_cast({stop_training,Body}, State = #router_genserver_state{}) ->
+handle_cast({clientReady,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
-  case Body of
-    _ ->  http_request("localhost",8082,"stop_training",Body)
-  end,
+  {MainHost,MainPort} =maps:get(mainServer,ConnectionsMap),
+  http_request(MainHost,MainPort,"clientReady",Body),
   {noreply, State};
+
+handle_cast({startTraining,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+%%  Body contrains list of sources to send the request, and input name
+    {SourceHost,SourcePort} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
+    http_request(SourceHost,SourcePort,"startTraining",Body),
+  {noreply, State};
+
+handle_cast({stopTraining,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+%%  Body contrains list of sources to send the request, and input name
+    {SourceHost,SourcePort} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
+    http_request(SourceHost,SourcePort,"stopTraining",Body),
+    {noreply, State};
 
 
 handle_cast(_Request, State = #router_genserver_state{}) ->
@@ -150,20 +166,22 @@ start_connection([{_ServerName,{Host, Port}}|Tail]) ->
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
   start_connection(Tail).
 
+%%list_to_binary([list_to_binary([Name,<<"#">>]),BinaryHead]))
+
 findroutAndsend([],_)->ok;
-findroutAndsend([[SourceName,InputFile]|ListOfSources], ConnectionsMap) ->
+findroutAndsend([[SourceName,ClientName,InputFile]|ListOfSources], ConnectionsMap) ->
 %%  io:format("sourceName = ~p~n, Map = ~p~n",[SourceName,ConnectionsMap]),
   {SourceHost,SourcePort} =maps:get(list_to_atom(SourceName),ConnectionsMap),
   io:format("~p~n",[SourcePort]),
-  http_request(SourceHost,SourcePort,"updateCSV",InputFile),
+  http_request(SourceHost,SourcePort,"updateCSV",ClientName++","++InputFile),
   findroutAndsend(ListOfSources,ConnectionsMap).
 
 
-splitbycouple([],Ret) ->Ret;
-splitbycouple(ListofCouples,Ret) ->
-  L1 = lists:sublist(ListofCouples,1,2),
-  L2 = lists:sublist(ListofCouples,3,length(ListofCouples)-1),
-  splitbycouple(L2,Ret++[L1]).
+splitbyTriplets([],Ret) ->Ret;
+splitbyTriplets(ListofTriplets,Ret) ->
+  L1 = lists:sublist(ListofTriplets,1,3),
+  L2 = lists:sublist(ListofTriplets,4,length(ListofTriplets)-1),
+  splitbyTriplets(L2,Ret++[L1]).
 
 
 http_request(Host, Port,Path, Body)->

@@ -18,11 +18,13 @@ init(Req0, State = [Action,Router_genserver_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {ok,Body,_} = cowboy_req:read_body(Req0),
   Decoded_body = binary_to_list(Body),
+  io:format("~p~n",[Body]),
 %%  gen_statem:cast(Client_StateM_Pid,{hello}),
   case Action of
 %%     router was meant to rout no?
     rout ->
       gen_server:cast(Router_genserver_Pid, {rout,Body});
+
     %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
     updateCSV ->
       Splitted = re:split(binary_to_list(Body), ",", [{return, list}]),
@@ -31,12 +33,18 @@ init(Req0, State = [Action,Router_genserver_Pid]) ->
     %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
     csvReady ->  gen_server:cast(Router_genserver_Pid, {csvReady, Body});
 
+    %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
+    clientReady ->  gen_server:cast(Router_genserver_Pid, {clientReady, Body});
+
+    clientTraining ->gen_server:cast(Router_genserver_Pid, {clientTraining, Body});
+
+    clientPredict ->gen_server:cast(Router_genserver_Pid, {clientPredict, Body});
 
     %%sends an cast for genserver to make an http request for start feeding data.
-    start_training ->  gen_statem:cast(Router_genserver_Pid, {start_training,Body});
+    startTraining ->  gen_statem:cast(Router_genserver_Pid, {startTraining,Body});
 
       %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
-    stop_training ->  gen_statem:cast(Router_genserver_Pid, {stop_training})
+    stopTraining ->  gen_statem:cast(Router_genserver_Pid, {stopTraining,Body})
   end,
   Reply = io_lib:format("Body Received: ~p, Decoded Body = ~p ~n Client_StateM_Pid:~p, Handler's Pid: ~p~n ", [Body,Decoded_body,  Router_genserver_Pid,self()]),
   Req = cowboy_req:reply(200,
