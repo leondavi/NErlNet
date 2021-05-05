@@ -6,10 +6,13 @@
 %%% @end
 %%% Created : 14. Apr 2021 9:57 AM
 %%%-------------------------------------------------------------------
--module(client_statem).
+-module(clientStatem).
 -author("kapelnik").
 
 -behaviour(gen_statem).
+
+-import('nerlNetStatem', []).
+%%-import('../../erlBridge/nerlNetStatem', []).
 
 %% API
 -export([start_link/1, predict/3]).
@@ -34,8 +37,8 @@
 %%Arguments from Cowboy Server
 %%return gen_statem's Pid to Cowboy Server
 %%Client_StateM_Args= {self(),RouterPort},
-start_link(ConnectionsMap) ->
-    {ok,Pid} = gen_statem:start_link(?MODULE, ConnectionsMap, []),
+start_link(Args) ->
+    {ok,Pid} = gen_statem:start_link(?MODULE, Args, []),
     Pid.
 
 %%%===================================================================
@@ -50,6 +53,13 @@ start_link(ConnectionsMap) ->
 init({MyName,ConnectionsMap}) ->
   inets:start(),
   start_connection(maps:to_list(ConnectionsMap)),
+
+%%  init nerlClient
+%%  nerlNetStatem:start_link(asd),
+
+
+
+
   {ok, idle, #client_statem_state{myName= MyName, portMap = ConnectionsMap, msgCounter = 0}}.
 
 
@@ -91,10 +101,7 @@ idle(cast, {training}, State = #client_statem_state{myName = MyName,msgCounter =
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 idle(cast, {predict}, State = #client_statem_state{myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
-%%  io:format("sending ACK   ~n",[]),
-  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
-%%  send an ACK to mainserver that the CSV file is ready
-  http_request(RouterHost,RouterPort,"clientReady",atom_to_list(MyName)),
+  ack(MyName,PortMap),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 idle(cast, EventContent, State = #client_statem_state{myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
@@ -109,7 +116,8 @@ training(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counte
 training(cast, {stop}, State = #client_statem_state{msgCounter = Counter}) ->
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
-training(cast, {predict}, State = #client_statem_state{msgCounter = Counter}) ->
+training(cast, {predict}, State = #client_statem_state{myName = MyName, portMap = PortMap, msgCounter = Counter}) ->
+  ack(MyName,PortMap),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
@@ -121,7 +129,8 @@ predict(cast, {predSample,Vector}, State = #client_statem_state{msgCounter = Cou
   io:format("predicting samples  ~p ~n",[Vector]),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
-predict(cast, {training}, State = #client_statem_state{msgCounter = Counter}) ->
+predict(cast, {training}, State = #client_statem_state{myName = MyName,portMap = PortMap,msgCounter = Counter}) ->
+  ack(MyName,PortMap),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, {stop}, State = #client_statem_state{msgCounter = Counter}) ->
@@ -167,3 +176,10 @@ start_connection([{_ServerName,{Host, Port}}|Tail]) ->
 http_request(Host, Port,Path, Body)->
   httpc:request(post,{"http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path, [],"application/x-www-form-urlencoded",Body}, [], []).
 
+
+
+ack(MyName, PortMap) ->
+  io:format("sending ACK   ~n",[]),
+  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+%%  send an ACK to mainserver that the CSV file is ready
+  http_request(RouterHost,RouterPort,"clientReady",atom_to_list(MyName)).

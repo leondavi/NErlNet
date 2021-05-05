@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 27. Apr 2021 11:05 AM
 %%%-------------------------------------------------------------------
--module(router_genserver).
+-module(routerGenserver).
 -author("kapelnik").
 
 -behaviour(gen_server).
@@ -97,16 +97,16 @@ handle_cast({clientReady,Body}, State = #router_genserver_state{connectionsMap =
   http_request(MainHost,MainPort,"clientReady",Body),
   {noreply, State};
 
-handle_cast({startTraining,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+handle_cast({startCasting,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
     {SourceHost,SourcePort} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
-    http_request(SourceHost,SourcePort,"startTraining",Body),
+    http_request(SourceHost,SourcePort,"startCasting",Body),
   {noreply, State};
 
-handle_cast({stopTraining,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+handle_cast({stopCasting,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
     {SourceHost,SourcePort} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
-    http_request(SourceHost,SourcePort,"stopTraining",Body),
+    http_request(SourceHost,SourcePort,"stopCasting",Body),
     {noreply, State};
 
 

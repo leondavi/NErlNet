@@ -1,10 +1,10 @@
 %%httpc:request("http://localhost:8080/weight/set/1").
 %%%-------------------------------------------------------------------
-%% @doc http_Nerlserver top level supervisor.
+%% @doc nerlNetServer top level supervisor.
 %% @end
 %%%-------------------------------------------------------------------
 
--module('NerlNetServer_sup').
+-module(nerlNetServer_sup).
 
 -behaviour(supervisor).
 
