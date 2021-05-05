@@ -31,7 +31,8 @@
 %% initialize. To ensure a synchronized start-up procedure, this
 %% function does not return until Module:init/1 has returned.
 start_link() ->
-  gen_statem:start_link({local, ?SERVER}, ?MODULE, [], []).
+  %gen_statem:start_link({local, ?SERVER}, ?MODULE, [], []).
+  gen_statem:start_link(?MODULE, [], []).
 
 %%%===================================================================
 %%% gen_statem callbacks
