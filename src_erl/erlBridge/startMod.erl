@@ -77,7 +77,6 @@ initp(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationList
 %% ChunkSize - Number of samples (lines)
 initNew(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationList, Learning_rate, Layers_sizes, Optimizer, ProcNumTrain)->
 
-  Curr_PID = self(),
 
   %% Read the file
   %% File - File name and path
@@ -91,30 +90,34 @@ initNew(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationLi
   {_FileLinesNumber,_Train_Lines,_PredictLines,SampleListTrain,_SampleListPredict}=
     parse:readfile(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId),
 
+  ClientPid = self(),
+
   %% Start the state machine
-  NerlNetStatemPid=nerlNetStatem:start_link(),
+  NerlNetStatemPid=nerlNetStatem:start_link({Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, ClientPid, Cols, Labels}),
 
   %% Create the module
-  gen_statem:cast(NerlNetStatemPid,{create,{Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId,Curr_PID}}),
+  %gen_statem:cast(NerlNetStatemPid,{create,{Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId,Curr_PID}}),
 
   Start_Time = os:system_time(microsecond),
 
   %% Start train
-  gen_statem:cast(NerlNetStatemPid,{train,{ChunkSize, Cols, Labels, SampleListTrain, ModelId,Curr_PID}}),
+  gen_statem:cast(NerlNetStatemPid,start_train),
+  gen_statem:cast(NerlNetStatemPid,{ChunkSize, SampleListTrain, ModelId}),
 
-  receive
-    LOSS_FUNC->
-      io:fwrite("PID: ~p Loss func: ~p\n",[Curr_PID, LOSS_FUNC])
-  end,
+  %receive
+  %  LOSS_FUNC->
+  %    io:fwrite("PID: ~p Loss func: ~p\n",[Curr_PID, LOSS_FUNC])
+  %end,
 
-  %timer:sleep(10),
+  timer:sleep(5000),
 
-  %% Start predict
-  gen_statem:cast(NerlNetStatemPid,{predict,{[80,92,132], 1, Cols, ModelId,Curr_PID}}), % TODO change arguments
-  receive
-    Result->
-      io:fwrite("PID: ~p Result: ~p\n",[Curr_PID, Result])
-  end,
+  % Start predict
+  gen_statem:cast(NerlNetStatemPid,start_predict),
+  gen_statem:cast(NerlNetStatemPid,{[80,92,132], 1, ModelId}), % TODO change arguments
+ % receive
+  %  Result->
+  %    io:fwrite("PID: ~p Result: ~p\n",[Curr_PID, Result])
+  %end,
 
   %startPredict(ChunkSize, Cols, SampleListTrain, ModelId,ProcNum),
   %io:format("Predict chunk list: ~w~n", [SampleListPredict]),
@@ -128,14 +131,18 @@ startHandler(_File, _Train_predict_ratio,_ChunkSize, _Cols, _Labels, ModelId, Ac
   %% Start the state machine
   HandlerPid=handler:start_link(),
   io:fwrite("HandlerPid: ~p\n",[HandlerPid]),
+  HandlerPid2=handler:start_link(),
+  io:fwrite("HandlerPid: ~p\n",[HandlerPid2]),
 
-  %% Create the module
+  %% Create the module TODO put it the the init
   gen_statem:cast(HandlerPid,{create,{Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId,self()}}),
 
   receive
     NerlNetStatemPid->
       io:fwrite("NerlNetStatemPid: ~p\n",[NerlNetStatemPid])
   end.
+
+  %gen_statem:cast(ClientStatemPid,{finishInit,NerlNetStatemPid,ModelId}). TODO
 
 
 
