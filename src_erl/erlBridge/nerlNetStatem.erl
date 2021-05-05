@@ -12,19 +12,17 @@
 -behaviour(gen_statem).
 
 %% API
--export([start_link/0]).
+-export([start_link/1]).
 
 %% gen_statem callbacks
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,
   code_change/4, callback_mode/0]).
 %% States functions
--export([idle/3, train/3, predict/3, init/3]).
-%% Client functions
--export([train/5, predict/4, create/2,init/5]).
+-export([idle/3, train/3, predict/3]).
 
 -define(SERVER, ?MODULE).
 
--record(nerlNetStatem_state, {dig1=1,dig2=2,dig3=4,dig4=5}).
+-record(nerlNetStatem_state, {clientPid, features, labels}).
 
 %%%===================================================================
 %%% API
@@ -33,8 +31,9 @@
 %% @doc Creates a gen_statem process which calls Module:init/1 to
 %% initialize. To ensure a synchronized start-up procedure, this
 %% function does not return until Module:init/1 has returned.
-start_link() ->
-  {ok,Pid} = gen_statem:start_link({local, ?SERVER}, ?MODULE, [], []),
+start_link(ARGS) ->
+  %{ok,Pid} = gen_statem:start_link({local, ?SERVER}, ?MODULE, [], []),
+  {ok,Pid} = gen_statem:start_link(?MODULE, ARGS, []),
   Pid.
 
 %%%===================================================================
@@ -45,9 +44,12 @@ start_link() ->
 %% @doc Whenever a gen_statem is started using gen_statem:start/[3,4] or
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
-init([]) ->
-  {ok, init, []}.
-  %{ok, idle, #nerlNetStatem_state{}}.
+init({Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, ClientPid, Features, Labels}) ->
+  io:fwrite("start module_create ~n"),
+  _Res=erlModule:module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
+  %io:fwrite("Mid: ~p\n",[Mid]),
+  %{ok, idle, []}.
+  {ok, idle, #nerlNetStatem_state{clientPid = ClientPid, features = Features, labels = Labels}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -97,76 +99,65 @@ code_change(_OldVsn, StateName, State = #nerlNetStatem_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-%% Client functions
-train(ChunkSize, Cols, Labels, SampleList, ModelId) -> gen_statem:cast(?MODULE,{train,{ChunkSize, Cols, Labels, SampleList, ModelId}}).
 
-predict(SampleList, ChunkSize, Cols, ModelId) -> gen_statem:cast(?MODULE,{predict,{SampleList, ChunkSize, Cols, ModelId}}).
-
-create(Learning_rate,LayerSizes) -> gen_statem:cast(?MODULE,{create,{Learning_rate,LayerSizes}}).
-
-init(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId) -> gen_statem:cast(?MODULE,{create,{Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId}}).
-
-%------------
 %% Define states
 
-%% State init
-init(cast, Command, State) ->
-  io:fwrite("Start module_create in nerlNetStatem ~n"),
-  {_Mod,Param} = Command,
-  if
-    Command == {create,Param} ->
-      {_Mod,{Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId,_SenderPid}} = Command,
-      io:fwrite("start module_create ~n"),
-      Mid=erlModule:module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
-      io:fwrite("Mid: ~p\n",[Mid]),
-      {next_state, idle, State};
-    true -> {next_state, init, State}
-  end.
-
 %% State idle
-idle(cast, Train_predict, State) ->
-  {_Mod,Param} = Train_predict,
-  Start_Time = os:system_time(microsecond),
-  if
-    Train_predict == {predict,Param} ->
-      {_Mod,{Data_mat, Rows, Cols, ModelId,SenderPid}} = Train_predict,
-      io:fwrite("start predict2double ~n"),
-      Curr_PID = self(),
-      erlModule:predict2double(Data_mat,Rows,Cols,ModelId,Curr_PID),
-      receive
-        Result->
-          %io:fwrite("PID: ~p Result: ~p\n",[Curr_PID, Result]),
-          SenderPid!Result %TODO change to cast
-      end,
+idle(cast, start_train, State = #nerlNetStatem_state{}) ->
+  io:fwrite("Go from idle to train\n"),
+  {next_state, train, State};
 
-      {next_state, idle, State};
+idle(cast, start_predict, State) ->
+  io:fwrite("Go from idle to predict\n"),
+  {next_state, predict, State};
 
-    Train_predict == {train,Param} ->
-      {_Mod,{ChunkSize, Cols, Labels, SampleListTrain, ModelId,SenderPid}} = Train_predict,
-      Curr_PID = self(),
-      io:fwrite("start train2double ~n"),
-      %io:fwrite("TrainList: ~p\n",[SampleListTrain]),
-      io:fwrite("ChunkSize: ~p Cols: ~p, Labels: ~p, ModelId: ~p, pid: ~p \n",[ChunkSize,Cols,Labels, ModelId,self()]),
-
-      _LossVal=erlModule:train2double(ChunkSize, Cols, Labels, SampleListTrain, ModelId,Curr_PID), % Send to train
-      receive
-        LOSS_FUNC->
-          %io:fwrite("PID: ~p Loss func: ~p\n",[Curr_PID, LOSS_FUNC]),
-          SenderPid!LOSS_FUNC %TODO change to cast
-      end,
-      Finish_Time = os:system_time(microsecond),
-      Time_elapsed=Finish_Time-Start_Time,
-      io:fwrite("Time took for train: ~p ms , ChunkSize= ~p Num of chunks: ~p~n", [Time_elapsed, ChunkSize, 1]),
-      {next_state, idle, State};
-
-    true -> {next_state, idle, State}
-  end.
-
-
-%% State train TODO
-train(cast, _Idle_predict, State) ->
+idle(cast, Param, State) ->
+  io:fwrite("Same state idle, command: ~p\n",[Param]),
   {next_state, idle, State}.
 
-%% State predict TODO
-predict(cast, _Idle_train, State) ->
-{next_state, idle, State}.
+%% State train
+train(cast, {ChunkSize, SampleListTrain,ModelId}, State = #nerlNetStatem_state{clientPid = ClientPid,
+  features = Features, labels = Labels}) ->
+  erlModule:train2double(ChunkSize, Features, Labels, SampleListTrain,ModelId,self()),
+  receive
+    LOSS_FUNC->
+  	  io:fwrite("Loss func: ~p\n",[LOSS_FUNC]),
+      gen_statem:cast(ClientPid,LOSS_FUNC)%%  TODO check the send back the loss function
+  end,
+  {next_state, train, State};
+
+train(cast, stop, State) ->
+  io:fwrite("Go from train to idle\n"),
+  {next_state, idle, State};
+
+train(cast, start_predict, State) ->
+  io:fwrite("Go from train to predict\n"),
+  {next_state, predict, State};
+
+train(cast, Param, State) ->
+  io:fwrite("Same state train, command: ~p\n",[Param]),
+  {next_state, train, State}.
+
+
+%% State predict
+predict(cast, {SampleListPredict, ChunkSize, ModelId}, State = #nerlNetStatem_state{clientPid = ClientPid, features = Features}) ->
+  erlModule:predict2double(SampleListPredict,ChunkSize,Features,ModelId,self()),
+  receive
+    RESULTS->
+      io:fwrite("Predict results: ~p\n",[RESULTS]),
+      gen_statem:cast(ClientPid,RESULTS)%%  TODO check the send back the results
+  end,
+
+  {next_state, predict, State};
+
+predict(cast, stop, State) ->
+  io:fwrite("Go from predict to idle\n"),
+  {next_state, idle, State};
+
+predict(cast, start_train, State) ->
+  io:fwrite("Go from predict to train\n"),
+  {next_state, train, State};
+
+predict(cast, Param, State) ->
+  io:fwrite("Same state Predict, command: ~p\n",[Param]),
+  {next_state, predict, State}.
