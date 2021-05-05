@@ -1,4 +1,4 @@
-{application, http_Nerlserver,
+{application, nerlNetServer,
  [{description, "An OTP application"},
   {vsn, "0.1.0"},
   {registered, []},

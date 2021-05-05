@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 02. Jan 2021 4:05 AM
 %%%-------------------------------------------------------------------
--module(routing_handler).
+-module(routingHandler).
 -author("kapelnik").
 -export([init/2,  start/2, stop/1]).
 -behaviour(application).
@@ -41,10 +41,10 @@ init(Req0, State = [Action,Router_genserver_Pid]) ->
     clientPredict ->gen_server:cast(Router_genserver_Pid, {clientPredict, Body});
 
     %%sends an cast for genserver to make an http request for start feeding data.
-    startTraining ->  gen_statem:cast(Router_genserver_Pid, {startTraining,Body});
+    startCasting ->  gen_statem:cast(Router_genserver_Pid, {startCasting,Body});
 
       %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
-    stopTraining ->  gen_statem:cast(Router_genserver_Pid, {stopTraining,Body})
+    stopCasting ->  gen_statem:cast(Router_genserver_Pid, {stopCasting,Body})
   end,
   Reply = io_lib:format("Body Received: ~p, Decoded Body = ~p ~n Client_StateM_Pid:~p, Handler's Pid: ~p~n ", [Body,Decoded_body,  Router_genserver_Pid,self()]),
   Req = cowboy_req:reply(200,

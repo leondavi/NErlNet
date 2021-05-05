@@ -6,7 +6,7 @@
 %%% @endClient_StateM_Pid
 %%% Created : 02. Jan 2021 4:05 AM
 %%%-------------------------------------------------------------------
--module(init_handler).
+-module(initHandler).
 -author("kapelnik").
 -export([init/2]).
 -behaviour(application).

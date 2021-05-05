@@ -18,8 +18,9 @@ init(Req0, [Action,Client_StateM_Pid]) ->
   {_,Body,_} = cowboy_req:read_body(Req0),
   io:format("casting handler got Body:~p~n",[Body]),
   case Action of
-    start_training ->  gen_statem:cast(Client_StateM_Pid, {start_training});
-    stop_training ->   gen_statem:cast(Client_StateM_Pid, {stop_training})
+    startCasting ->  gen_statem:cast(Client_StateM_Pid, {startCasting});
+    stopCasting ->   gen_statem:cast(Client_StateM_Pid, {stopCasting})
+
   end,
   Reply = io_lib:format("Body Received: ~p~n ", [Body]),
   Req = cowboy_req:reply(200,

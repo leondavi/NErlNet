@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 31. Dec 2020 4:41 AM
 %%%-------------------------------------------------------------------
--module(action_handler).
+-module(actionHandler).
 -author("kapelnik").
 -behavior(cowboy_handler).
 
@@ -19,9 +19,10 @@ init(Req0, [Action, Main_genserver_Pid]) ->
   {_,Body,_} = cowboy_req:read_body(Req0),
 
   case Action of
-    clients_training ->  gen_statem:cast(Main_genserver_Pid, {clients_training});
-    start ->  gen_statem:cast(Main_genserver_Pid, {start_training,Body});
-    stop ->  gen_statem:cast(Main_genserver_Pid, {stop_training,Body})
+    clientsTraining ->  gen_statem:cast(Main_genserver_Pid, {clientsTraining});
+    clientsPredict ->  gen_statem:cast(Main_genserver_Pid, {clientsPredict});
+    startCasting ->  gen_statem:cast(Main_genserver_Pid, {startCasting,Body});
+    stopCasting ->  gen_statem:cast(Main_genserver_Pid, {stopCasting,Body})
   end,
   Reply = io_lib:format("Body Received: ~p ~n ", [Body]),
   Req = cowboy_req:reply(200,

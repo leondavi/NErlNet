@@ -10,23 +10,11 @@
 -author("kapelnik").
 %%state <- {machines - [rasp1,rasp2,..]}
 %% API
--export([start_connection/0, updateCSV/0, start_training/0, stop_training/0, encodeMap/0, testing/0]).
+-export([start_connection/0, updateCSV/0, start_training/0, stop_training/0, encodeMap/0,  training/0]).
 start_connection() ->
   inets:start(),
   httpc:set_options([{proxy, {{"localhost", 8080},["localhost"]}}]).
 
-testing()->
-  String = "source1,./input/input99.csv,source2,./input/input2",
-
-  Listofbla = re:split(String, ",", [{return, list}]),
-%%  io:format("~p~n",[Listofbla]),
-  splitbycouple(Listofbla,[]).
-
-splitbycouple([],Ret) ->Ret;
-splitbycouple(ListofCouples,Ret) ->
-  L1 = lists:sublist(ListofCouples,1,2),
-  L2 = lists:sublist(ListofCouples,3,length(ListofCouples)-1),
-  splitbycouple(L2,Ret++[L1]).
 updateCSV() ->
 
 %%erlang request:   (using post method, because we want to receive a reply for our request)
@@ -36,12 +24,16 @@ updateCSV() ->
 
 %%  {ok, {{Version, 200, ReasonPhrase}, Headers, Body}} =
 %%Body here can be more than one source: for example "source1,./input/input99.csv,source2,./input/input123.csv":
-    httpc:request(post,{"http://localhost:8080/initNerlnet", [],"application/x-www-form-urlencoded","source1,./input/input99.csv"}, [], []).
+    httpc:request(post,{"http://localhost:8080/initNerlnet", [],"application/x-www-form-urlencoded","source1,client1,./input/input2.csv"}, [], []).
+
+%%sets all clients in training state
+training()->
+  httpc:request(post,{"http://localhost:8080/clientsTraining", [],"application/x-www-form-urlencoded",[]}, [], []).
 
 start_training()->
-  httpc:request(post,{"http://localhost:8080/start_training", [],"application/x-www-form-urlencoded",<<"client1">>}, [], []).
+  httpc:request(post,{"http://localhost:8080/startTraining", [],"application/x-www-form-urlencoded",<<"source1">>}, [], []).
 stop_training()->
-  httpc:request(post,{"http://localhost:8080/stop_training", [],"application/x-www-form-urlencoded",<<"client1">>}, [], []).
+  httpc:request(post,{"http://localhost:8080/stopTraining", [],"application/x-www-form-urlencoded",<<"source1">>}, [], []).
 
 
 

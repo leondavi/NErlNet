@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 31. Dec 2020 4:41 AM
 %%%-------------------------------------------------------------------
--module(clientInitHandler).
+-module(clientStateHandler).
 -author("kapelnik").
 -behavior(application).
 
