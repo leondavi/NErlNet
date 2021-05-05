@@ -87,7 +87,7 @@ readLines(F,LinesNumber,ChunkSize,ListOfSamples,Mode,Features)->
 case file:read_line(F) of
   eof ->
     ListOfSamples;
-  {ok, Line} ->
+    {ok, Line} ->
     Trim = string:tokens(Line, ",\n"),
     SampleList=[begin {Integer,_}=string:to_integer(T), Integer end|| T<-Trim],
     %io:format("~w~n", [SampleList]),
