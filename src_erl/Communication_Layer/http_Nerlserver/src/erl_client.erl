@@ -10,10 +10,19 @@
 -author("kapelnik").
 %%state <- {machines - [rasp1,rasp2,..]}
 %% API
--export([start_connection/0, updateCSV/0, start_training/0, stop_training/0, encodeMap/0,  training/0]).
+-export([start_connection/0, updateCSV/0, start_training/0, stop_training/0, encodeMap/0, training/0, test/0]).
 start_connection() ->
   inets:start(),
   httpc:set_options([{proxy, {{"localhost", 8080},["localhost"]}}]).
+
+
+test() ->
+  [Source|Splitted] = re:split("source1,worker1,worker2,./input/input99.csv", ",", [{return, list}]),
+  {Workers,Input} = getWorkerInput(Splitted,[]),
+  {Source,Workers,Input}.
+
+  getWorkerInput([Input],Workers)->{Workers,Input};
+getWorkerInput([Worker|WorkersAndInput],Workers) ->getWorkerInput(WorkersAndInput,Workers++[Worker]).
 
 updateCSV() ->
 

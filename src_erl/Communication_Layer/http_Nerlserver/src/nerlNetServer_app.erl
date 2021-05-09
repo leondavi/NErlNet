@@ -49,8 +49,13 @@ start(_StartType, _StartArgs) ->
     MainServerHostPort = {"localhost",8080},
     MainName = mainServer,
 
-    Client1HostPort = {"localhost",8081},
+    ClientHostPort = {"localhost",8081},
     Client1Name = client1,
+
+    Worker1Name = worker1,
+    Worker1Args = [asd,asd,asd,asd,asd,asd,asd],
+    Worker2Name = worker2,
+    Worker2Args = [dsa,dsa,dsa,dsa,dsa,dsa,dsa],
 
     Source1HostPort = {"localhost",8082},
     Source1Name = source1,
@@ -60,37 +65,38 @@ start(_StartType, _StartArgs) ->
 
 %%    for mainserver only-
     Clients = [Client1Name],
-
 %%Server that should be established on this machine
     MainServerPortMap =  #{MainName => MainServerHostPort},
-    ClientsPortMap =  #{Client1Name => Client1HostPort},
     SourcePortMap =  #{Source1Name => Source1HostPort},
     RoutersPortMap =  #{Router1Name => Router1HostPort},
+    ClientsPortMap =  #{Client1Name => ClientHostPort},
+
     PortsMap = #{ mainServer => MainServerPortMap,clients => ClientsPortMap, sources => SourcePortMap,routers => RoutersPortMap},
 
 %%    connectivity map will be as follow:
 %%    name_atom of machine => {Host,Port} OR an atom router_name, indicating there is no direct http connection, and should pass request via router_name
     MainServerConnectionsMap = #{Client1Name => Router1HostPort, Source1Name => Router1HostPort},
     ClientConnectionsMap = #{MainName => Router1HostPort},
-    RouterConnectionsMap_router1 = #{MainName => MainServerHostPort, Client1Name=>Client1HostPort, Source1Name=>Source1HostPort},
+    RouterConnectionsMap_router1 = #{MainName => MainServerHostPort, Client1Name=>ClientHostPort, Source1Name=>Source1HostPort},
     SourceConnectionsMap = #{MainName => Router1HostPort, Client1Name=>Router1HostPort, Source1Name=>Router1HostPort},
 
+    WorkersMap = #{Worker1Name => Client1Name, Worker2Name => Client1Name},
 %%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
 %%    TODO add separation - each entity receives its own portmap of routers
 
     %%Create a gen_Server for maintaining Database for Main Server.
     %% all http requests will be handled by Cowboy which updates main_genserver if necessary.
-    MainGenServer_Args= {MainName,Clients,MainServerConnectionsMap},        %%TODO change from mainserverport to routerport . also make this a list of client
+    MainGenServer_Args= {MainName,Clients,WorkersMap,MainServerConnectionsMap},        %%TODO change from mainserverport to routerport . also make this a list of client
     MainGenServerPid = mainGenserver:start_link(MainGenServer_Args),
 
     %%Create a gen_StateM machine for maintaining Database for Client.
     %% all http requests will be handled by Cowboy which updates client_statem if necessary.
-    ClientStatemArgs= {Client1Name,ClientConnectionsMap},        %%make this a list of client
+    ClientStatemArgs= {Client1Name,WorkersMap,ClientConnectionsMap},        %%make this a list of client
     ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
 
     %%Create a gen_StateM machine for maintaining Database for Source.
     %% all http requests will be handled by Cowboy which updates source_statem if necessary.
-    SourceStatemArgs= {Source1Name,SourceConnectionsMap},        %%TODO  make this a list of Sources
+    SourceStatemArgs= {Source1Name,WorkersMap,SourceConnectionsMap},        %%TODO  make this a list of Sources
     SourceStatemPid = sourceStatem:start_link(SourceStatemArgs),
 
     %%Create a gen_Server for maintaining Database for Router.
@@ -115,6 +121,7 @@ start(_StartType, _StartArgs) ->
 
             {"/updateCSV",[],initHandler,[MainGenServerPid]},
             {"/csvReady",[],ackHandler,[source,MainGenServerPid]},
+            {"/sourceDone",[],ackHandler,[sourceDone,MainGenServerPid]},
             {"/clientReady",[],ackHandler,[client,MainGenServerPid]},
             {"/clientsTraining",[],actionHandler,[clientsTraining,MainGenServerPid]},
             {"/clientsPredict",[],actionHandler,[clientsPredict,MainGenServerPid]},
@@ -133,6 +140,7 @@ start(_StartType, _StartArgs) ->
             %%first http request from main server should be about starting parameters, find more info inside initHandler
             {"/init",clientStateHandler, [init,ClientStatemPid]},
             {"/training",clientStateHandler, [training,ClientStatemPid]},
+            {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
             {"/predict",clientStateHandler, [predict,ClientStatemPid]},
             {"/weightsVector",vectorHandler, [ClientStatemPid]},
             {"/[...]", noMatchingRouteHandler, [MainGenServerPid]}
@@ -153,10 +161,12 @@ start(_StartType, _StartArgs) ->
     %%    Source server
     RouterDispatch = cowboy_router:compile([
         {'_', [
+            {"/clientIdle",routingHandler, [clientIdle,RouterGenServerPid]},
             {"/clientTraining",routingHandler, [clientTraining,RouterGenServerPid]},
             {"/clientPredict",routingHandler, [clientPredict,RouterGenServerPid]},
             {"/updateCSV",routingHandler, [updateCSV,RouterGenServerPid]},
             {"/csvReady",routingHandler, [csvReady,RouterGenServerPid]},
+            {"/sourceDone",routingHandler, [sourceDone,RouterGenServerPid]},
             {"/clientReady",routingHandler, [clientReady,RouterGenServerPid]},
             {"/weightsVector",routingHandler, [rout,RouterGenServerPid]},
             {"/startCasting",routingHandler, [startCasting,RouterGenServerPid]},

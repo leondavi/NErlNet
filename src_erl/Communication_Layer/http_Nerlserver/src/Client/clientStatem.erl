@@ -11,7 +11,7 @@
 
 -behaviour(gen_statem).
 
--import('nerlNetStatem', []).
+%%-import('nerlNetStatem', []).
 %%-import('../../erlBridge/nerlNetStatem', []).
 
 %% API
@@ -23,7 +23,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(client_statem_state, {myName, portMap, msgCounter}).
+-record(client_statem_state, {myName, workers, portMap, msgCounter}).
 
 
 %%%===================================================================
@@ -50,16 +50,18 @@ start_link(Args) ->
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
 %%initialize and go to state - idle
-init({MyName,ConnectionsMap}) ->
+
+
+%%NerlClientsArgs=[{ClientName,cppSANN Args},...]
+init({MyName,Workers,ConnectionsMap}) ->
   inets:start(),
   start_connection(maps:to_list(ConnectionsMap)),
 
-%%  init nerlClient
-%%  nerlNetStatem:start_link(asd),
+%%  init nerlClient with given parameters, and build a map :#{workerName=>WorkerPid,...}
+%%  WorkersPids = [{WorkerName,nerlNetStatem:start_link(WorkerName,CppSANNArgs)}||{WorkerName,CppSANNArgs}<-maps:to_list(Workers)],
+%%  WorkersMap = maps:from_list(WorkersPids),
 
-
-
-
+%%TODO workers = WorkersMap <-TODO ADD
   {ok, idle, #client_statem_state{myName= MyName, portMap = ConnectionsMap, msgCounter = 0}}.
 
 
@@ -97,10 +99,11 @@ idle(cast, {training}, State = #client_statem_state{myName = MyName,msgCounter =
 %%  io:format("sending ACK   ~n",[]),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
-  http_request(RouterHost,RouterPort,"clientReady",atom_to_list(MyName)),
+  ack(MyName,PortMap),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 idle(cast, {predict}, State = #client_statem_state{myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
+  %%  send an ACK to mainserver that the CSV file is ready
   ack(MyName,PortMap),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
@@ -113,7 +116,8 @@ training(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counte
   io:format("sending samples  ~p ~n",[Vector]),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
-training(cast, {stop}, State = #client_statem_state{msgCounter = Counter}) ->
+training(cast, {idle}, State = #client_statem_state{msgCounter = Counter}) ->
+  io:format("client going to state idle",[]),
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, {predict}, State = #client_statem_state{myName = MyName, portMap = PortMap, msgCounter = Counter}) ->
@@ -133,7 +137,8 @@ predict(cast, {training}, State = #client_statem_state{myName = MyName,portMap =
   ack(MyName,PortMap),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
-predict(cast, {stop}, State = #client_statem_state{msgCounter = Counter}) ->
+predict(cast, {idle}, State = #client_statem_state{msgCounter = Counter}) ->
+  io:format("client going to state idle",[]),
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->

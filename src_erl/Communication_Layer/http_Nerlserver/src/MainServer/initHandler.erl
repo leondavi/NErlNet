@@ -22,10 +22,11 @@ init(Req0, [Main_genServer_Pid]) ->
   %Bindings also can be accessed as once, giving a map of all bindings of Req0:
   {ok,Body,_} = cowboy_req:read_body(Req0),
   Decoded_body = binary_to_list(Body),
-  Splitted = re:split(binary_to_list(Body), ",", [{return, list}]),
-
+  [Source|WorkersAndInput] = re:split(binary_to_list(Body), ",", [{return, list}]),
+  {Workers,_Input} = getWorkerInput(WorkersAndInput,[]),
   io:format("init _handler got body:~p~n",[Decoded_body]),
-  gen_server:cast(Main_genServer_Pid,{initCSV,  splitbytriplets(Splitted,[])}),
+  gen_server:cast(Main_genServer_Pid,{initCSV, Source,Workers,Body}),
+%%  gen_server:cast(Main_genServer_Pid,{initCSV,  splitbytriplets(Splitted,[])}),
 
   Reply = io_lib:format("Body Received: ~p, Decoded Body = ~p ~n State:~p~n", [Body,Decoded_body, Main_genServer_Pid]),
 
@@ -35,10 +36,11 @@ init(Req0, [Main_genServer_Pid]) ->
     Req0),
   {ok, Req, Main_genServer_Pid}.
 
+getWorkerInput([Input],Workers)->{Workers,Input};
+getWorkerInput([Worker|WorkersAndInput],Workers) ->getWorkerInput(WorkersAndInput,Workers++[Worker]).
 
-
-splitbytriplets([],Ret) ->Ret;
-splitbytriplets(ListofTriplets,Ret) ->
-  L1 = lists:sublist(ListofTriplets,1,3),
-  L2 = lists:sublist(ListofTriplets,4,length(ListofTriplets)-1),
-  splitbytriplets(L2,Ret++[L1]).
+%%splitbytriplets([],Ret) ->Ret;
+%%splitbytriplets(ListofTriplets,Ret) ->
+%%  L1 = lists:sublist(ListofTriplets,1,3),
+%%  L2 = lists:sublist(ListofTriplets,4,length(ListofTriplets)-1),
+%%  splitbytriplets(L2,Ret++[L1]).
