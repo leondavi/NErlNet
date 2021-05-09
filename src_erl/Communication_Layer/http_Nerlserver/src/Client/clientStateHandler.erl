@@ -20,6 +20,7 @@ init(Req0, [Action,Client_StateM_Pid]) ->
   io:format("client init _handler got body:~p~n",[Body]),
   case Action of
     init ->   gen_statem:cast(Client_StateM_Pid,{init,Body});
+    idle -> gen_statem:cast(Client_StateM_Pid,{idle});
     training -> gen_statem:cast(Client_StateM_Pid,{training});
     predict -> gen_statem:cast(Client_StateM_Pid,{predict})
   end,

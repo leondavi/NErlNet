@@ -2,7 +2,8 @@ import requests
 
 
 def updateCSV():
-	r = requests.post('http://localhost:8080/updateCSV',data = "source1,client1,./input/input99.csv")
+	r = requests.post('http://localhost:8080/updateCSV',data = "source1,worker1,worker2,./input/input99.csv")
+	# r2 = requests.post('http://localhost:8080/updateCSV',data = "source2,worker5,worker7, ... ,./input/input4.csv")...
 	print(r.text)
 
 def clientsTraining():

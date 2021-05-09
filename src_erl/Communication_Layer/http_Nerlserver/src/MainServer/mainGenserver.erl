@@ -20,7 +20,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(main_genserver_state, {myName, state, clients, connectionsMap,sourcesWaitingList =[],clientsWaitingList =[]}).
+-record(main_genserver_state, {myName, state, workersMap, clients, connectionsMap,sourcesCastingList =[], sourcesWaitingList =[],clientsWaitingList =[]}).
 
 %%%===============================================================
 
@@ -44,11 +44,11 @@ start_link(Args) ->
 -spec(init(Args :: term()) ->
 {ok, State :: #main_genserver_state{}} | {ok, State :: #main_genserver_state{}, timeout() | hibernate} |
 {stop, Reason :: term()} | ignore).
-init({MyName,Clients,ConnectionsMap}) ->
+init({MyName,Clients,WorkersMap,ConnectionsMap}) ->
   inets:start(),
 %%  io:format("~p~n",[ConnectionsMap]),
   start_connection(maps:to_list(ConnectionsMap)),
-  {ok, #main_genserver_state{myName = MyName,state=init, clients = Clients, connectionsMap = ConnectionsMap}}.
+  {ok, #main_genserver_state{myName = MyName, workersMap = WorkersMap, state=idle, clients = Clients, connectionsMap = ConnectionsMap}}.
 
 %% @private
 %% @doc Handling call messages
@@ -71,16 +71,16 @@ handle_call(_Request, _From, State = #main_genserver_state{}) ->
 {stop, Reason :: term(), NewState :: #main_genserver_state{}}).
 
 
-handle_cast({initCSV,ListOfSourcesClients}, State = #main_genserver_state{state = init, connectionsMap = ConnectionMap}) ->
+handle_cast({initCSV, Source,Workers,Body}, State = #main_genserver_state{state = idle, sourcesWaitingList = SourcesWaitingList,connectionsMap = ConnectionMap}) ->
 %%  send router http request, to rout this message to all sensors
 %%  TODO find the router that can send this request to Sources**
-  WaitingList = findroutAndsend(ListOfSourcesClients,ConnectionMap,[]),
-  io:format("WaitingList = ~p~n",[WaitingList]),
-  {noreply, State#main_genserver_state{sourcesWaitingList = WaitingList}};
+  findroutAndsend(Source,Body,ConnectionMap),
+  io:format("WaitingList = ~p~n",[list_to_atom(Source)]),
+  {noreply, State#main_genserver_state{sourcesWaitingList = SourcesWaitingList++[list_to_atom(Source)]}};
 
-handle_cast({clientsTraining}, State = #main_genserver_state{state = training,clients = ListOfClients, connectionsMap = _ConnectionMap}) ->
+handle_cast({clientsTraining}, State = #main_genserver_state{state = casting,clients = ListOfClients, connectionsMap = _ConnectionMap}) ->
 %%  send router http request, to rout this message to all sensors
-  io:format("already training~n",[]),
+  io:format("already casting~n",[]),
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
 
 handle_cast({clientsTraining}, State = #main_genserver_state{clients = ListOfClients, connectionsMap = ConnectionMap}) ->
@@ -88,11 +88,11 @@ handle_cast({clientsTraining}, State = #main_genserver_state{clients = ListOfCli
   io:format("main server: setting all clients on training state: ~p~n",[ListOfClients]),
 %%  TODO find the router that can send this request to Sources**
   [{setClientState(clientTraining,ClientName, ConnectionMap)}|| ClientName<- ListOfClients],
-  {noreply, State#main_genserver_state{state = training, clientsWaitingList = ListOfClients}};
+  {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
 
-handle_cast({clientsPredict}, State = #main_genserver_state{state = predict, clients = ListOfClients, connectionsMap = ConnectionMap}) ->
+handle_cast({clientsPredict}, State = #main_genserver_state{state = casting, clients = ListOfClients, connectionsMap = ConnectionMap}) ->
 %%  send router http request, to rout this message to all sensors
-  io:format("already predicting~n",[]),
+  io:format("already casting~n",[]),
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
 
 handle_cast({clientsPredict}, State = #main_genserver_state{clients = ListOfClients, connectionsMap = ConnectionMap}) ->
@@ -100,8 +100,14 @@ handle_cast({clientsPredict}, State = #main_genserver_state{clients = ListOfClie
   io:format("main server: setting all clients on clientsPredict state: ~p~n",[ListOfClients]),
 %%  TODO find the router that can send this request to Sources**
   [{setClientState(clientPredict,ClientName, ConnectionMap)}|| ClientName<- ListOfClients],
-  {noreply, State#main_genserver_state{state = predict, clientsWaitingList = ListOfClients}};
+  {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
 
+handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, clients = ListOfClients, connectionsMap = ConnectionMap}) ->
+%%  send router http request, to rout this message to all sensors
+  io:format("main server: setting all clients on Idle state: ~p~n",[ListOfClients]),
+%%  TODO find the router that can send this request to Sources**
+  [{setClientState(clientIdle,ClientName, ConnectionMap)}|| ClientName<- ListOfClients],
+  {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
 
 %%handle_cast({startPredicting}, State = #main_genserver_state{clients = ListOfClients, connectionsMap = ConnectionMap}) ->
 %%%%  send router http request, to rout this message to all sensors
@@ -118,9 +124,22 @@ handle_cast({clientsPredict}, State = #main_genserver_state{clients = ListOfClie
 %%  {noreply, State#main_genserver_state{state = predict, clientsWaitingList = ListOfClients}};
 
 
+handle_cast({sourceDone,Body}, State = #main_genserver_state{sourcesCastingList = CastingList}) ->
+  io:format("~p done sending data ~n",[list_to_atom(binary_to_list(Body))]),
+  io:format("new Waiting List: ~p ~n",[CastingList--[list_to_atom(binary_to_list(Body))]]),
+  NewCastingList = CastingList--[list_to_atom(binary_to_list(Body))],
+  case NewCastingList of
+    [] -> NextState = State#main_genserver_state{state = idle, sourcesCastingList = NewCastingList},
+          gen_server:cast(self(),{clientsIdle});
+    _ -> NextState = State#main_genserver_state{state = casting, sourcesCastingList = NewCastingList}
+  end,
+  {noreply, NextState};
+
 handle_cast({sourceAck,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList}) ->
-  io:format("~p sent ACK~n, new sourceWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),WaitingList--[list_to_atom(binary_to_list(Body))]]),
+  io:format("~p sent ACK ~n",[list_to_atom(binary_to_list(Body))]),
+  io:format("new Waiting List: ~p ~n",[WaitingList--[list_to_atom(binary_to_list(Body))]]),
   {noreply, State#main_genserver_state{sourcesWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))]}};
+
 
 handle_cast({clientAck,Body}, State = #main_genserver_state{ clientsWaitingList = WaitingList}) ->
 
@@ -129,13 +148,17 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{ clientsWaitingList 
   {noreply, State#main_genserver_state{clientsWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))]}};
 
 %%TODO change Client_Names to list of clients
-handle_cast({startCasting,Source_Names}, State = #main_genserver_state{state = training, connectionsMap = ConnectionMap, sourcesWaitingList = [], clientsWaitingList = []}) ->
+handle_cast({startCasting,Source_Names}, State = #main_genserver_state{state = idle,sourcesCastingList=CastingList, connectionsMap = ConnectionMap, sourcesWaitingList = [], clientsWaitingList = []}) ->
   {RouterHost,RouterPort} = maps:get(list_to_atom(binary_to_list(Source_Names)),ConnectionMap),
   http_request(RouterHost,RouterPort,"startCasting", Source_Names),
-  {noreply, State};
+  io:format("old Casting list: ~p~n",[Source_Names]),
+  Splitted = re:split(binary_to_list(Source_Names), ",", [{return, list}]),
+  Sources = [list_to_atom(Source_Name)||Source_Name<-Splitted],
+  io:format("new Casting list: ~p~n",[Sources]),
+  {noreply, State#main_genserver_state{sourcesCastingList = CastingList++Sources, state = casting}};
 
 
-handle_cast({startCasting,_Body}, State = #main_genserver_state{state = training, sourcesWaitingList = SourcesWaiting, clientsWaitingList = ClientsWaiting}) ->
+handle_cast({startCasting,_Source_Names}, State = #main_genserver_state{sourcesWaitingList = SourcesWaiting, clientsWaitingList = ClientsWaiting}) ->
   io:format("Waiting for ~p~n",[{SourcesWaiting, ClientsWaiting}]),
   {noreply, State};
 
@@ -144,12 +167,10 @@ handle_cast({startCasting,_Source_Names}, State = #main_genserver_state{state = 
   {noreply, State};
 
 
-handle_cast({stopCasting,Source_Names}, State = #main_genserver_state{connectionsMap = ConnectionMap}) ->
+handle_cast({stopCasting,Source_Names}, State = #main_genserver_state{state = casting, connectionsMap = ConnectionMap}) ->
   {RouterHost,RouterPort} = maps:get(list_to_atom(binary_to_list(Source_Names)),ConnectionMap),
   http_request(RouterHost,RouterPort,"stopCasting", Source_Names),
-  {noreply, State};
-
-
+  {noreply, State#main_genserver_state{state = idle}};
 
 
 
@@ -191,22 +212,18 @@ code_change(_OldVsn, State = #main_genserver_state{}, _Extra) ->
 %%%===================================================================
 
 
-setClientState(clientTraining,ClientName, ConnectionMap) ->
+setClientState(StateAtom,ClientName, ConnectionMap) ->
   {RouterHost,RouterPort} =maps:get(ClientName, ConnectionMap),
-  http_request(RouterHost,RouterPort,"clientTraining", atom_to_list(ClientName));
-
-setClientState(clientPredict,ClientName, ConnectionMap) ->
-  {RouterHost,RouterPort} =maps:get(ClientName, ConnectionMap),
-  http_request(RouterHost,RouterPort,"clientPredict", atom_to_list(ClientName)).
+  http_request(RouterHost,RouterPort,atom_to_list(StateAtom), atom_to_list(ClientName)).
 
 %%find Router and send message: finds the path for the named machine from connection map and send to the right router to forword.
-findroutAndsend([],_,WaitingList)->WaitingList;
-findroutAndsend([[SourceName,ClientName,InputFile]|ListOfSources], ConnectionsMap,WaitingList) ->
-  io:format("WaitingList = ~p~n~n",[WaitingList]),
+%%findroutAndsend([],_,_,WaitingList)->WaitingList;
+%%Source,Workers,Input,WorkersMap,ConnectionMap
+findroutAndsend(SourceName,Body,ConnectionsMap) ->
+%%  io:format("WaitingList = ~p~n~n",[Workers]),
   {RouterHost,RouterPort} =maps:get(list_to_atom(SourceName),ConnectionsMap),
   io:format("~p~n",[RouterPort]),
-  http_request(RouterHost, RouterPort,"updateCSV", SourceName++","++ClientName++","++InputFile),
-  findroutAndsend(ListOfSources,ConnectionsMap,WaitingList++[list_to_atom(SourceName)]).
+  http_request(RouterHost, RouterPort,"updateCSV", Body).
 
 
 %%sending Body as an http request to {Host, Port} to path Path (=String)

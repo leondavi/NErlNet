@@ -67,6 +67,12 @@ handle_cast({rout,Body}, State = #router_genserver_state{connectionsMap = Connec
   {noreply, State};
 
 
+handle_cast({clientIdle, ClientName}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+%%  sending client "training" request
+  {ClientHost,ClientPort} =maps:get(list_to_atom(binary_to_list(ClientName)),ConnectionsMap),
+  http_request(ClientHost,ClientPort,"clientIdle",[]),
+  {noreply, State};
+
 handle_cast({clientTraining, ClientName}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  sending client "training" request
   {ClientHost,ClientPort} =maps:get(list_to_atom(binary_to_list(ClientName)),ConnectionsMap),
@@ -79,16 +85,25 @@ handle_cast({clientPredict, ClientName}, State = #router_genserver_state{connect
   http_request(ClientHost,ClientPort,"predict",[]),
   {noreply, State};
 
-handle_cast({updateCSV,SourcesClientsPaths}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+handle_cast({updateCSV,Source,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
-io:format("~p~n",[SourcesClientsPaths]),
-findroutAndsend(splitbyTriplets(SourcesClientsPaths,[]),ConnectionsMap),
+io:format("router to Source - ~p  sending Body - ~p~n",[Source,Body]),
+  {SourceHost, SourcePort} = maps:get(list_to_atom(Source),ConnectionsMap),
+  http_request(SourceHost, SourcePort,"updateCSV",Body),
+
+%%findroutAndsend(splitbyTriplets(SourcesClientsPaths,[]),ConnectionsMap),
 {noreply, State};
 
 handle_cast({csvReady,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
   {MainHost,MainPort} =maps:get(mainServer,ConnectionsMap),
   http_request(MainHost,MainPort,"csvReady",Body),
+  {noreply, State};
+
+handle_cast({sourceDone,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+%%  Body contrains list of sources to send the request, and input name
+  {MainHost,MainPort} =maps:get(mainServer,ConnectionsMap),
+  http_request(MainHost,MainPort,"sourceDone",Body),
   {noreply, State};
 
 handle_cast({clientReady,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->

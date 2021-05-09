@@ -27,18 +27,22 @@ init(Req0, State = [Action,Router_genserver_Pid]) ->
 
     %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
     updateCSV ->
-      Splitted = re:split(binary_to_list(Body), ",", [{return, list}]),
-      gen_server:cast(Router_genserver_Pid, {updateCSV,Splitted});
+      [Source|_] = re:split(binary_to_list(Body), ",", [{return, list}]),
+      gen_server:cast(Router_genserver_Pid, {updateCSV,Source,Body});
 
     %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
     csvReady ->  gen_server:cast(Router_genserver_Pid, {csvReady, Body});
 
-    %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
+    sourceDone ->  gen_server:cast(Router_genserver_Pid, {sourceDone, Body});
+
+    %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.clientIdle
     clientReady ->  gen_server:cast(Router_genserver_Pid, {clientReady, Body});
 
     clientTraining ->gen_server:cast(Router_genserver_Pid, {clientTraining, Body});
 
     clientPredict ->gen_server:cast(Router_genserver_Pid, {clientPredict, Body});
+    
+    clientIdle ->gen_server:cast(Router_genserver_Pid, {clientIdle, Body});
 
     %%sends an cast for genserver to make an http request for start feeding data.
     startCasting ->  gen_statem:cast(Router_genserver_Pid, {startCasting,Body});
