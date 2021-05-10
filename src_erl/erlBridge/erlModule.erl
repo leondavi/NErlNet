@@ -14,11 +14,12 @@
 %%  native implementation in C
 init() ->
 	RelativeDirPath = filename:dirname(filename:dirname(filename:absname(""))), % NErlNet directory path
-	io:fwrite("RelativeDirPath: ~p ~n",[RelativeDirPath]),
-	Nif_Module_Cpp_Path = string:concat(RelativeDirPath,"/src_cpp/cppBridge/./libNerlNIF"), % Relative path for nifModule_nif
+	RelativeDirPathNew = string:sub_string(RelativeDirPath, 1, 28),
+	Nif_Module_Cpp_Path = string:concat(RelativeDirPathNew,"src_cpp/cppBridge/./libNerlNIF"), % Relative path for nifModule_nif
+	io:fwrite("Nif_Module_Cpp_Path: ~p ~n",[Nif_Module_Cpp_Path]),
 	%% load_info is the second argument to erlang:load_nif/2
-  %ok = erlang:load_nif(Nif_Module_Cpp_Path, 0),
-	ok = erlang:load_nif("/home/ziv/workspace/NErlNet/src_cpp/cppBridge/libNerlNIF", 0).
+  ok = erlang:load_nif(Nif_Module_Cpp_Path, 0).
+	%ok = erlang:load_nif("/home/ziv/workspace/NErlNet/src_cpp/cppBridge/libNerlNIF", 0).
 
 
 %%----------------------------------------------------
