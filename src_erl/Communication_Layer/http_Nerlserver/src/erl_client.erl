@@ -10,16 +10,39 @@
 -author("kapelnik").
 %%state <- {machines - [rasp1,rasp2,..]}
 %% API
--export([start_connection/0, updateCSV/0, start_training/0, stop_training/0, encodeMap/0, training/0, test/0]).
+-export([start_connection/0, updateCSV/0, start_training/0, stop_training/0, encodeMap/0, training/0]).
 start_connection() ->
   inets:start(),
   httpc:set_options([{proxy, {{"localhost", 8080},["localhost"]}}]).
 
 
-test() ->
-  [Source|Splitted] = re:split("source1,worker1,worker2,./input/input99.csv", ",", [{return, list}]),
-  {Workers,Input} = getWorkerInput(Splitted,[]),
-  {Source,Workers,Input}.
+getHostName() ->
+  {ok, L} = inet:getif(),
+  IP = tuple_to_list(element(1, hd(L))),
+  A = lists:flatten(io_lib:format("~p", [IP])),
+  Subbed = lists:sublist(A,2,length(A)-2),
+  lists:flatten(string:replace(Subbed,",",".",all)).
+
+
+
+
+
+
+getNumbers([],List)->List;
+getNumbers([Head|Tail], List) ->
+%%  io:format("Head:~p~n",[Head]),
+  try list_to_float(Head) of
+    Float->    %io:format("~p~n",[Float]),
+      getNumbers(Tail,[(Float)]++List)
+  catch
+    error:Error->
+      %io:format("~p~n",[Error]),
+      getNumbers(Tail,[list_to_integer(Head)]++List)
+
+  end.
+
+
+
 
   getWorkerInput([Input],Workers)->{Workers,Input};
 getWorkerInput([Worker|WorkersAndInput],Workers) ->getWorkerInput(WorkersAndInput,Workers++[Worker]).
@@ -82,3 +105,5 @@ decode(Binary)->
   Binary_list =binary_to_list(Binary),
   List_of_floats = [binary_to_float(X)||X<-Binary_list],
   List_of_floats.
+
+
