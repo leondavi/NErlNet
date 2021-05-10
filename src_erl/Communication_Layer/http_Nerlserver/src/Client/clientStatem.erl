@@ -23,7 +23,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(client_statem_state, {myName, workers, portMap, msgCounter}).
+-record(client_statem_state, {myName, workersMap, portMap, msgCounter}).
 
 
 %%%===================================================================
@@ -58,11 +58,11 @@ init({MyName,Workers,ConnectionsMap}) ->
   start_connection(maps:to_list(ConnectionsMap)),
 
 %%  init nerlClient with given parameters, and build a map :#{workerName=>WorkerPid,...}
-%%  WorkersPids = [{WorkerName,nerlNetStatem:start_link(WorkerName,CppSANNArgs)}||{WorkerName,CppSANNArgs}<-maps:to_list(Workers)],
-%%  WorkersMap = maps:from_list(WorkersPids),
+  WorkersPids = [{WorkerName,nerlNetStatem:start_link({self(), WorkerName, CppSANNArgs})}||{WorkerName,CppSANNArgs}<-maps:to_list(Workers)],
+  WorkersMap = maps:from_list(WorkersPids),
 
 %%TODO workers = WorkersMap <-TODO ADD
-  {ok, idle, #client_statem_state{myName= MyName, portMap = ConnectionsMap, msgCounter = 0}}.
+  {ok, idle, #client_statem_state{myName= MyName, workersMap = WorkersMap, portMap = ConnectionsMap, msgCounter = 0}}.
 
 
 %% @private
@@ -95,14 +95,18 @@ idle(cast, {init,CONFIG}, State = #client_statem_state{msgCounter = Counter}) ->
   io:format("initiating, CONFIG received:~p ~n",[CONFIG]),
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
-idle(cast, {training}, State = #client_statem_state{myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
+idle(cast, {training}, State = #client_statem_state{workersMap = WorkersMap, myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
+  Workers = maps:to_list(WorkersMap),
+  [gen_statem:cast(WorkerPid,{training})|| {_WorkerName,WorkerPid}<-Workers],
 %%  io:format("sending ACK   ~n",[]),
-  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+%%  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
   ack(MyName,PortMap),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
-idle(cast, {predict}, State = #client_statem_state{myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
+idle(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
+  Workers = maps:to_list(WorkersMap),
+  [gen_statem:cast(WorkerPid,{predict})|| {_WorkerName,WorkerPid}<-Workers],
   %%  send an ACK to mainserver that the CSV file is ready
   ack(MyName,PortMap),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
@@ -111,16 +115,29 @@ idle(cast, EventContent, State = #client_statem_state{myName = MyName,msgCounter
   io:format("client training ignored:  ~p ~n",[EventContent]),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
 
-
-training(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counter}) ->
-  io:format("sending samples  ~p ~n",[Vector]),
+%%[WorkerName|[Sample]] = re:split(binary_to_list(Vector), "#", [{return, list}]),
+%%Input= lists:sublist(Sample,1,length(Sample)-1),
+%%Inp = re:split(Input, ",", [{return, list}]),
+%%Inps = lists:reverse(getNumbers(Inp,[])).
+training(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
+  io:format("sending samples to train ~p ~n",[Vector]),
+  [WorkerName|[Sample1]] = re:split(binary_to_list(Vector), "#", [{return, list}]),
+  Sample= lists:sublist(Sample1,1,length(Sample1)-1),
+  Splitted = re:split(Sample, ",", [{return, list}]),
+  ToSend =  lists:reverse(getNumbers(Splitted,[])),
+  WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
+  gen_statem:cast(WorkerPid, {sample,ToSend}),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
-training(cast, {idle}, State = #client_statem_state{msgCounter = Counter}) ->
+training(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
   io:format("client going to state idle",[]),
+  Workers = maps:to_list(WorkersMap),
+  [gen_statem:cast(WorkerPid,{idle})|| {_WorkerName,WorkerPid}<-Workers],
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
-training(cast, {predict}, State = #client_statem_state{myName = MyName, portMap = PortMap, msgCounter = Counter}) ->
+training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName, portMap = PortMap, msgCounter = Counter}) ->
+  Workers = maps:to_list(WorkersMap),
+  [gen_statem:cast(WorkerPid,{predict})|| {_WorkerName,WorkerPid}<-Workers],
   ack(MyName,PortMap),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
@@ -129,15 +146,25 @@ training(cast, EventContent, State = #client_statem_state{msgCounter = Counter})
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
 
 
-predict(cast, {predSample,Vector}, State = #client_statem_state{msgCounter = Counter}) ->
-  io:format("predicting samples  ~p ~n",[Vector]),
+predict(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
+  io:format("sending samples to predict ~p ~n",[Vector]),
+  [WorkerName|[Sample1]] = re:split(binary_to_list(Vector), "#", [{return, list}]),
+  Sample= lists:sublist(Sample1,1,length(Sample1)-1),
+  Splitted = re:split(Sample, ",", [{return, list}]),
+  ToSend =  lists:reverse(getNumbers(Splitted,[])),
+  WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
+  gen_statem:cast(WorkerPid, {sample,ToSend}),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
-predict(cast, {training}, State = #client_statem_state{myName = MyName,portMap = PortMap,msgCounter = Counter}) ->
+predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName,portMap = PortMap,msgCounter = Counter}) ->
+  Workers = maps:to_list(WorkersMap),
+  [gen_statem:cast(WorkerPid,{training})|| {_WorkerName,WorkerPid}<-Workers],
   ack(MyName,PortMap),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
-predict(cast, {idle}, State = #client_statem_state{msgCounter = Counter}) ->
+predict(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
+  Workers = maps:to_list(WorkersMap),
+  [gen_statem:cast(WorkerPid,{idle})|| {_WorkerName,WorkerPid}<-Workers],
   io:format("client going to state idle",[]),
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
@@ -188,3 +215,16 @@ ack(MyName, PortMap) ->
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
   http_request(RouterHost,RouterPort,"clientReady",atom_to_list(MyName)).
+
+getNumbers([],List)->List;
+getNumbers([Head|Tail], List) ->
+%%  io:format("Head:~p~n",[Head]),
+  try list_to_float(Head) of
+    Float->    %io:format("~p~n",[Float]),
+      getNumbers(Tail,[(Float)]++List)
+  catch
+    error:Error->
+      %io:format("~p~n",[Error]),
+      getNumbers(Tail,[list_to_integer(Head)]++List)
+
+  end.

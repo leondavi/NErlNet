@@ -44,23 +44,25 @@
 
 start(_StartType, _StartArgs) ->
 
+    HostName = getHostName(),
 
 %%%%local servers to open, AFTER parsing json, this is the maps will be created:
-    MainServerHostPort = {"localhost",8080},
+%%    we will know what to take frmo JSON file by the HostName we found ealier. main server knows this machines IP(HostName).
+    MainServerHostPort = {HostName,8080},
     MainName = mainServer,
+    ChunkSize=20,
 
-    ClientHostPort = {"localhost",8081},
+    ClientHostPort = {HostName,8081},
     Client1Name = client1,
-
     Worker1Name = worker1,
-    Worker1Args = [asd,asd,asd,asd,asd,asd,asd],
+    Worker1Args = {[3,2,1],0.01,[0,2,0],6,0,3,1,ChunkSize},
     Worker2Name = worker2,
-    Worker2Args = [dsa,dsa,dsa,dsa,dsa,dsa,dsa],
+    Worker2Args = {[3,2,1],0.01,[0,2,0],6,0,3,1,ChunkSize},
 
-    Source1HostPort = {"localhost",8082},
+    Source1HostPort = {HostName,8082},
     Source1Name = source1,
 
-    Router1HostPort = {"localhost",8083},
+    Router1HostPort = {HostName,8083},
     Router1Name = router1,
 
 %%    for mainserver only-
@@ -70,6 +72,7 @@ start(_StartType, _StartArgs) ->
     SourcePortMap =  #{Source1Name => Source1HostPort},
     RoutersPortMap =  #{Router1Name => Router1HostPort},
     ClientsPortMap =  #{Client1Name => ClientHostPort},
+    WorkersMap = #{Worker1Name => Client1Name, Worker2Name => Client1Name},
 
     PortsMap = #{ mainServer => MainServerPortMap,clients => ClientsPortMap, sources => SourcePortMap,routers => RoutersPortMap},
 
@@ -80,7 +83,6 @@ start(_StartType, _StartArgs) ->
     RouterConnectionsMap_router1 = #{MainName => MainServerHostPort, Client1Name=>ClientHostPort, Source1Name=>Source1HostPort},
     SourceConnectionsMap = #{MainName => Router1HostPort, Client1Name=>Router1HostPort, Source1Name=>Router1HostPort},
 
-    WorkersMap = #{Worker1Name => Client1Name, Worker2Name => Client1Name},
 %%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
 %%    TODO add separation - each entity receives its own portmap of routers
 
@@ -91,12 +93,13 @@ start(_StartType, _StartArgs) ->
 
     %%Create a gen_StateM machine for maintaining Database for Client.
     %% all http requests will be handled by Cowboy which updates client_statem if necessary.
-    ClientStatemArgs= {Client1Name,WorkersMap,ClientConnectionsMap},        %%make this a list of client
+    WorkersArgsMap = #{Worker1Name => Worker1Args, Worker2Name => Worker2Args},
+    ClientStatemArgs= {Client1Name,WorkersArgsMap,ClientConnectionsMap},        %%make this a list of client
     ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
 
     %%Create a gen_StateM machine for maintaining Database for Source.
     %% all http requests will be handled by Cowboy which updates source_statem if necessary.
-    SourceStatemArgs= {Source1Name,WorkersMap,SourceConnectionsMap},        %%TODO  make this a list of Sources
+    SourceStatemArgs= {Source1Name,WorkersMap,SourceConnectionsMap,ChunkSize},        %%TODO  make this a list of Sources
     SourceStatemPid = sourceStatem:start_link(SourceStatemArgs),
 
     %%Create a gen_Server for maintaining Database for Router.
@@ -195,6 +198,13 @@ stop(_State) ->
     ok.
 
 
+
+getHostName() ->
+    {ok, L} = inet:getif(),
+    IP = tuple_to_list(element(1, hd(L))),
+    A = lists:flatten(io_lib:format("~p", [IP])),
+    Subbed = lists:sublist(A,2,length(A)-2),
+    lists:flatten(string:replace(Subbed,",",".",all)).
 
 
 

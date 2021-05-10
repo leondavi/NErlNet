@@ -20,7 +20,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(source_statem_state, {castingTo=[], myName,workersMap,portMap, msgCounter=0, sourcePid=[],csvList="", num_of_features, num_of_labels}).
+-record(source_statem_state, {chunkSize, castingTo=[], myName,workersMap,portMap, msgCounter=0, sourcePid=[],csvList="", num_of_features, num_of_labels}).
 
 %%%===================================================================
 %%% API
@@ -45,10 +45,10 @@ start_link(ConnectionsMap) ->
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
 %%initialize and go to state - idle
-init({MyName,WorkersMap, ConnectionsMap}) ->
+init({MyName,WorkersMap, ConnectionsMap,ChunkSize}) ->
   inets:start(),
   start_connection(maps:to_list(ConnectionsMap)),
-  {ok, idle, #source_statem_state{myName = MyName, workersMap = WorkersMap, portMap = ConnectionsMap, msgCounter = 1, castingTo = []}}.
+  {ok, idle, #source_statem_state{chunkSize = ChunkSize,myName = MyName, workersMap = WorkersMap, portMap = ConnectionsMap, msgCounter = 1, castingTo = []}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -84,9 +84,9 @@ idle(cast, {csvList,Workers,CSVlist}, State = #source_statem_state{myName = Myna
 
 
 %%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
-idle(cast, {startCasting}, State = #source_statem_state{sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, portMap = PortMap, msgCounter = Counter, csvList =CSVlist}) ->
+idle(cast, {startCasting}, State = #source_statem_state{chunkSize = ChunkSize, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, portMap = PortMap, msgCounter = Counter, csvList =CSVlist}) ->
   io:format("start casting to: ~p~n",[CastingTo]),
-  Transmitter =  spawnTransmitter(CastingTo,CSVlist,PortMap,WorkersMap) ,
+  Transmitter =  spawnTransmitter(CastingTo,CSVlist,PortMap,WorkersMap,ChunkSize) ,
   {next_state, castingData, State#source_statem_state{msgCounter = Counter+1, sourcePid = Transmitter}};
 
 idle(cast, {startCasting}, State = #source_statem_state{sourcePid = _A, castingTo = CastingTo, portMap = PortMap, msgCounter = Counter, csvList =CSVlist}) ->
@@ -159,12 +159,12 @@ code_change(_OldVsn, StateName, State = #source_statem_state{}, _Extra) ->
 %%send samples receive a batch size and casts the client with data. data received as a string containing floats and integers.
 %%CLIENT NEED TO PROCESS DATA BEFORE FEEDING THE DNN
 
-spawnTransmitter(WorkersNames,CSVlist,PortMap,WorkersMap)->
+spawnTransmitter(WorkersNames,CSVlist,PortMap,WorkersMap,ChunkSize)->
 %%  ListOfWorkers = re:split(WorkersNames,",", [{return, list}]),
   Triplets =getHostPort(WorkersNames,WorkersMap,PortMap,[]),
   io:format("~p~n",[Triplets]),
   %%[list of binarys from CSV file, Size of batch, 1/Hz, statem pid]
-  spawn(?MODULE,sendSamples,[CSVlist,10,20,self(),Triplets]).
+  spawn(?MODULE,sendSamples,[CSVlist,ChunkSize,20,self(),Triplets]).
 
 getHostPort([],_WorkersMap,_PortMap,Ret)-> Ret;
 getHostPort([WorkerName|WorkersNames],WorkersMap,PortMap,Ret)->
@@ -174,25 +174,29 @@ getHostPort([WorkerName|WorkersNames],WorkersMap,PortMap,Ret)->
 
 
 
-sendSamples([],_Batch_Size,_Hz,Pid,_Triplets)->gen_statem:cast(Pid,{finishedCasting});
-sendSamples(ListOfSamples,Batch_Size,Hz,Pid,Triplets)->
+sendSamples([],_ChunkSize,_Hz,Pid,_Triplets)->gen_statem:cast(Pid,{finishedCasting});
+sendSamples(ListOfSamples,ChunkSize,Hz,Pid,Triplets)->
 
   NumOfSamples = length(ListOfSamples),
   if
-      (NumOfSamples=<Batch_Size) ->
+      (NumOfSamples=<ChunkSize) ->
         BinaryHead = [list_to_binary(X++[","])||X<-ListOfSamples],
+        %%        ToSend = binary:part(BinaryHead, {byte_size(BinaryHead), -1}),
+
         [http_request(RouterHost, RouterPort,"weightsVector", list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>]),BinaryHead]))|| {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
         gen_statem:cast(Pid,{finishedCasting});
       true ->
-          {Head, Tail} = lists:split(Batch_Size,ListOfSamples),
+          {Head, Tail} = lists:split(ChunkSize,ListOfSamples),
         BinaryHead = [list_to_binary(X++[","])||X<-Head],
+        %%        ToSend = binary:part(BinaryHead, {byte_size(BinaryHead), -1}),
+
         [http_request(RouterHost, RouterPort,"weightsVector", list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>]),BinaryHead]))|| {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
           receive
               %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
             {stopCasting}  ->
               io:format("stop casting no prob man",[]),
-              gen_statem:cast(Pid,{leftOvers,Tail})
-           after Hz-> sendSamples(Tail,Batch_Size,Hz,Pid,Triplets)
+              gen_statem:cast(Pid,{leftOvers,[]})
+           after Hz-> sendSamples(Tail,ChunkSize,Hz,Pid,Triplets)
           end
 
   end.
