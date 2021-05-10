@@ -93,7 +93,7 @@ initNew(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationLi
   ClientPid = self(),
 
   %% Start the state machine
-  NerlNetStatemPid=nerlNetStatem:start_link({Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, ClientPid, Cols, Labels}),
+  NerlNetStatemPid=nerlNetStatem:start_link({ClientPid,clientName,{Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Cols, Labels, ChunkSize}}),
 
   %% Create the module
   %gen_statem:cast(NerlNetStatemPid,{create,{Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId,Curr_PID}}),
@@ -101,8 +101,8 @@ initNew(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationLi
   Start_Time = os:system_time(microsecond),
 
   %% Start train
-  gen_statem:cast(NerlNetStatemPid,start_train),
-  gen_statem:cast(NerlNetStatemPid,{ChunkSize, SampleListTrain, ModelId}),
+  gen_statem:cast(NerlNetStatemPid,training),
+  gen_statem:cast(NerlNetStatemPid,{sample, SampleListTrain}),
 
   %receive
   %  LOSS_FUNC->
@@ -112,8 +112,8 @@ initNew(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationLi
   timer:sleep(5000),
 
   % Start predict
-  gen_statem:cast(NerlNetStatemPid,start_predict),
-  gen_statem:cast(NerlNetStatemPid,{[80,92,132], 1, ModelId}), % TODO change arguments
+  gen_statem:cast(NerlNetStatemPid,predict),
+  gen_statem:cast(NerlNetStatemPid,{sample, [80,92,132]}), % TODO change arguments chunkSize is different
  % receive
   %  Result->
   %    io:fwrite("PID: ~p Result: ~p\n",[Curr_PID, Result])
