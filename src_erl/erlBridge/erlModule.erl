@@ -14,9 +14,11 @@
 %%  native implementation in C
 init() ->
 	RelativeDirPath = filename:dirname(filename:dirname(filename:absname(""))), % NErlNet directory path
+	io:fwrite("RelativeDirPath: ~p ~n",[RelativeDirPath]),
 	Nif_Module_Cpp_Path = string:concat(RelativeDirPath,"/src_cpp/cppBridge/./libNerlNIF"), % Relative path for nifModule_nif
 	%% load_info is the second argument to erlang:load_nif/2
-  ok = erlang:load_nif(Nif_Module_Cpp_Path, 0).
+  %ok = erlang:load_nif(Nif_Module_Cpp_Path, 0),
+	ok = erlang:load_nif("/home/ziv/workspace/NErlNet/src_cpp/cppBridge/libNerlNIF", 0).
 
 
 %%----------------------------------------------------
@@ -102,14 +104,13 @@ create_module(0, _Layers_sizes, _Learning_rate, _ModelId, _Activation_list, _Opt
 %% train_predict_create - mode: 0 - model creation, 1 - train, 2 - predict
 %% Rows, Col, Labels - "int"
 %% Data_Label_mat - list
-train2double(Rows, Cols, Labels, Data_Label_mat, ModelId, PID) -> % TODO
+train2double(Rows, Cols, Labels, Data_Label_mat, ModelId, ClientPid) -> % TODO
 	%% make double list and send to train_predict_create
 	_Return = train_predict_create(1, Rows, Cols, Labels, dList(Data_Label_mat), ModelId),
 	receive
 		LOSS_FUNC->
 			%io:fwrite("Loss func: ~p\n",[LOSS_FUNC]),
-			PID ! LOSS_FUNC, % Send the loss function to the calling process
-			LOSS_FUNC
+			gen_statem:cast(ClientPid,{loss, LOSS_FUNC})
 	end.
 
 %% Second version - optional for the future
@@ -128,13 +129,13 @@ train_predict_create(1, _Rows, _Cols, _Labels, _Data_Label_mat, _ModelId) ->
 
 %% _Rows, _Col, _Labels - "ints"
 %% _Data_Label_mat - list
-predict2double(Data_mat, Rows, Cols, ModelId,PID) ->
+predict2double(Data_mat, Rows, Cols, ModelId, ClientPid) ->
 	%% make double list and send to train_predict_create
 	_Return = train_predict_create(2, dList(Data_mat), Rows, Cols, ModelId),
 	receive
 		RESULTS->
-		io:fwrite("Results: ~p\n",[RESULTS]),
-			PID ! RESULTS % Send the RESULTS to the calling process
+			io:fwrite("Results: ~p\n",[RESULTS]),
+			gen_statem:cast(ClientPid,{predictRes, RESULTS})
 	end.
 
 %% Predict module
