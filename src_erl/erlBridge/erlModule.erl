@@ -15,7 +15,7 @@
 init() ->
 	RelativeDirPath = filename:dirname(filename:dirname(filename:absname(""))), % NErlNet directory path
 	RelativeDirPathNew = string:sub_string(RelativeDirPath, 1, length(RelativeDirPath)-7),
-	Nif_Module_Cpp_Path = string:concat(RelativeDirPathNew,"src_cpp/cppBridge/./libNerlNIF"), % Relative path for nifModule_nif
+	Nif_Module_Cpp_Path = string:concat(RelativeDirPathNew,"NErlNet/src_cpp/cppBridge/libNerlNIF"), % Relative path for nifModule_nif
 	io:fwrite("Nif_Module_Cpp_Path: ~p ~n",[Nif_Module_Cpp_Path]),
 	%% load_info is the second argument to erlang:load_nif/2
   ok = erlang:load_nif(Nif_Module_Cpp_Path, 0).

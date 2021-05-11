@@ -101,19 +101,24 @@ initNew(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationLi
   Start_Time = os:system_time(microsecond),
 
   %% Start train
-  gen_statem:cast(NerlNetStatemPid,training),
+  gen_statem:cast(NerlNetStatemPid, {training}),
   gen_statem:cast(NerlNetStatemPid,{sample, SampleListTrain}),
 
+  receive
+    LOSS_FUNC->
+      %io:fwrite("Loss func: ~p\n",[LOSS_FUNC]),
+      LOSS_FUNC
+  end,
   %receive
   %  LOSS_FUNC->
   %    io:fwrite("PID: ~p Loss func: ~p\n",[Curr_PID, LOSS_FUNC])
   %end,
 
-  timer:sleep(5000),
+  %timer:sleep(5000),
 
   % Start predict
-  gen_statem:cast(NerlNetStatemPid,predict),
-  gen_statem:cast(NerlNetStatemPid,{sample, [80,92,132]}), % TODO change arguments chunkSize is different
+  %gen_statem:cast(NerlNetStatemPid,predict),
+  %gen_statem:cast(NerlNetStatemPid,{sample, [80,92,132]}), % TODO change arguments chunkSize is different
  % receive
   %  Result->
   %    io:fwrite("PID: ~p Result: ~p\n",[Curr_PID, Result])
