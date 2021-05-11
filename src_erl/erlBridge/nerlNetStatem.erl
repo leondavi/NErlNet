@@ -120,7 +120,8 @@ idle(cast, Param, State) ->
 %% Waiting for receiving results or loss function
 wait(cast, {loss,LOSS_FUNC}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState}) ->
       io:fwrite("Loss func in wait: ~p\n",[{LOSS_FUNC}]),
-      gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}),
+      %gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}),
+     ClientPid ! LOSS_FUNC,
       {next_state, NextState, State};
 
 wait(cast, {predictRes,RESULTS}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState}) ->

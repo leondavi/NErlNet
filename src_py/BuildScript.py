@@ -42,7 +42,7 @@ def build_erl():
                 
     os.system("pwd")
     os.chdir('../Communication_Layer/http_Nerlserver')
-    os.system("rebar3 shell")
+    #os.system("rebar3 shell")
 
 # ---------------- Run Tests -----------------#
 
