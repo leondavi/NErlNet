@@ -91,7 +91,7 @@ io:format("router to Source - ~p  sending Body - ~p~n",[Source,Body]),
   {SourceHost, SourcePort} = maps:get(list_to_atom(Source),ConnectionsMap),
   http_request(SourceHost, SourcePort,"updateCSV",Body),
 
-%%findroutAndsend(splitbyTriplets(SourcesClientsPaths,[]),ConnectionsMap),
+%%findroutAndsend(splitbyTriplets(SourcesClientsPaths,[]),ConnectionsMap),TODO RETURN THIS!!!!
 {noreply, State};
 
 handle_cast({csvReady,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
@@ -177,8 +177,9 @@ code_change(_OldVsn, State = #router_genserver_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 start_connection([])->ok;
-start_connection([{_ServerName,{Host, Port}}|Tail]) ->
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+start_connection([{ServerName,{Host, Port}}|Tail]) ->
+  Result = httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  io:format("Router is now connected to ~p, Result: ~p~n",[{ServerName,Host, Port},Result]),
   start_connection(Tail).
 
 %%list_to_binary([list_to_binary([Name,<<"#">>]),BinaryHead]))
@@ -200,5 +201,6 @@ splitbyTriplets(ListofTriplets,Ret) ->
 
 
 http_request(Host, Port,Path, Body)->
-  httpc:request(post,{"http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path, [],"application/x-www-form-urlencoded",Body}, [], []).
-
+  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
+  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
