@@ -52,37 +52,19 @@ start_link(Args) ->
 %%initialize and go to state - idle
 
 
-%%NerlClientsArgs=[{MyName,Workers,ConnectionsMap},...], Workers = list of maps of name and args
-%%  init nerlClient with given workers and parameters, and build a map :#{workerName=>WorkerPid,...}
-init({MyName,Workers,ChunkSize,ConnectionsMap}) ->
+%%NerlClientsArgs=[{ClientName,cppSANN Args},...]
+init({MyName,Workers,ConnectionsMap}) ->
   inets:start(),
   start_connection(maps:to_list(ConnectionsMap)),
-%% io:format("~p~n",[maps:to_list(Workers)]),
-  WorkersPids = createWorkers(Workers,self(),ChunkSize,[]),
-%%  [{WorkerName,nerlNetStatem:start_link({self(), WorkerName, CppSANNArgs})}||{WorkerName,CppSANNArgs}<-maps:to_list(Workers)],
+
+%%  init nerlClient with given parameters, and build a map :#{workerName=>WorkerPid,...}
+  WorkersPids = [{WorkerName,nerlNetStatem:start_link({self(), WorkerName, CppSANNArgs})}||{WorkerName,CppSANNArgs}<-maps:to_list(Workers)],
   WorkersMap = maps:from_list(WorkersPids),
 
 %%TODO workers = WorkersMap <-TODO ADD
   {ok, idle, #client_statem_state{myName= MyName, workersMap = WorkersMap, portMap = ConnectionsMap, msgCounter = 0}}.
 
-createWorkers([],_ClientPid,_ChunkSize,WorkersNamesPids) ->WorkersNamesPids;
-createWorkers([Worker|Workers],ClientPid,ChunkSize,WorkersNamesPids) ->
-  WorkerName = list_to_atom(binary_to_list(maps:get(<<"name">>,Worker))),
-  CppSANNArgsBinary = maps:get(<<"args">>,Worker),
-  Splitted = re:split(CppSANNArgsBinary,"@",[{return,list}]),
-  [Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels] = Splitted,
-  WorkerArgs ={string_to_list_int(Layers_sizes),list_to_float(Learning_rate),
-                  string_to_list_int(ActivationList), list_to_integer(Optimizer), list_to_integer(ModelId),
-                      list_to_integer(Features), list_to_integer(Labels),ChunkSize},
-  io:format("client starting worker:~p~n",[{WorkerName,WorkerArgs}]),
-  WorkerPid = nerlNetStatem:start_link({self(), WorkerName, WorkerArgs}),
-  createWorkers(Workers,ClientPid,ChunkSize,WorkersNamesPids++[{WorkerName, WorkerPid}]).
 
-%%return list of integer from string of lists of strings - "[2,2,2]" -> [2,2,2]
-string_to_list_int(String) ->
-  NoParenthesis = lists:sublist(String,2,length(String)-2),
-  Splitted = re:split(NoParenthesis,",",[{return,list}]),
-  [list_to_integer(X)||X<-Splitted].
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
 %% the callback mode of the callback module.
@@ -135,12 +117,10 @@ idle(cast, EventContent, State = #client_statem_state{myName = MyName,msgCounter
 
 
 training(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
-  [WorkerName|[Sample]] = re:split(binary_to_list(Vector), "#", [{return, list}]),
-%%  Sample= lists:sublist(Sample1,1,length(Sample1)),
+  [WorkerName|[Sample1]] = re:split(binary_to_list(Vector), "#", [{return, list}]),
+  Sample= lists:sublist(Sample1,1,length(Sample1)-1),
   Splitted = re:split(Sample, ",", [{return, list}]),
   ToSend =  lists:reverse(getNumbers(Splitted,[])),
-%%  io:format("ToSend~p~n",[ToSend]),
-
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
   gen_statem:cast(WorkerPid, {sample,ToSend}),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
@@ -235,10 +215,8 @@ ack(MyName, PortMap) ->
   http_request(RouterHost,RouterPort,"clientReady",atom_to_list(MyName)).
 
 getNumbers([],List)->List;
-getNumbers([[]|Tail], List) -> getNumbers(Tail,List);
 getNumbers([Head|Tail], List) ->
 %%  io:format("Head:~p~n",[Head]),
-
   try list_to_float(Head) of
     Float->    %io:format("~p~n",[Float]),
       getNumbers(Tail,[(Float)]++List)
