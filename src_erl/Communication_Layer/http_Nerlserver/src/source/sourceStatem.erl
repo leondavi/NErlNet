@@ -194,7 +194,7 @@ sendSamples(ListOfSamples,ChunkSize,Hz,Pid,Triplets)->
           receive
               %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
             {stopCasting}  ->
-              io:format("stop casting no prob man",[]),
+              io:format("source stop casting",[]),
               gen_statem:cast(Pid,{leftOvers,[]})
            after Hz-> sendSamples(Tail,ChunkSize,Hz,Pid,Triplets)
           end
@@ -209,5 +209,6 @@ start_connection([{_ServerName,{Host, Port}}|Tail]) ->
 
 
 http_request(Host, Port,Path, Body)->
-  httpc:request(post,{"http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path, [],"application/x-www-form-urlencoded",Body}, [], []).
-
+  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
+  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).

@@ -43,21 +43,23 @@
 
 
 start(_StartType, _StartArgs) ->
-
+    OtherHostName =  "192.168.0.107",
     HostName = getHostName(),
-
+    io:format("getHost: ~p, MyHost: ~p~n",[getHostName(),HostName]),
 %%%%local servers to open, AFTER parsing json, this is the maps will be created:
 %%    we will know what to take frmo JSON file by the HostName we found ealier. main server knows this machines IP(HostName).
     MainServerHostPort = {HostName,8080},
     MainName = mainServer,
-    ChunkSize=20,
+    ChunkSize=2,
 
     ClientHostPort = {HostName,8081},
     Client1Name = client1,
     Worker1Name = worker1,
-    Worker1Args = {[3,2,1],0.01,[0,2,0],6,0,3,1,ChunkSize},
+%%    Worker1Args = {[3,2,1],0.01,[0,2,0],6,0,3,1,ChunkSize},
+    Worker1Args = {[561,280,140,70,35,17,8,4,2,1],0.01,[0,2,2,2,2,2,2,2,2,0],6,0,561,1,ChunkSize},
     Worker2Name = worker2,
-    Worker2Args = {[3,2,1],0.01,[0,2,0],6,0,3,1,ChunkSize},
+%%    Worker2Args = {[3,2,1],0.01,[0,2,0],6,1,3,1,ChunkSize},
+    Worker2Args = {[561,280,140,70,35,17,8,4,2,1],0.01,[0,2,2,2,2,2,2,2,2,0],6,1,561,1,ChunkSize},
 
     Source1HostPort = {HostName,8082},
     Source1Name = source1,
@@ -133,7 +135,7 @@ start(_StartType, _StartArgs) ->
             {"/[...]", noMatchingRouteHandler, [MainGenServerPid]}
         ]}
     ]),
-
+%%
 
 
     %%Nerl Client
@@ -145,8 +147,7 @@ start(_StartType, _StartArgs) ->
             {"/training",clientStateHandler, [training,ClientStatemPid]},
             {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
             {"/predict",clientStateHandler, [predict,ClientStatemPid]},
-            {"/weightsVector",vectorHandler, [ClientStatemPid]},
-            {"/[...]", noMatchingRouteHandler, [MainGenServerPid]}
+            {"/weightsVector",vectorHandler, [ClientStatemPid]}
         ]}
     ]),
 
@@ -156,8 +157,7 @@ start(_StartType, _StartArgs) ->
 
             {"/updateCSV",csvHandler, [SourceStatemPid]},
             {"/startCasting",castingHandler, [startCasting,SourceStatemPid]},
-            {"/stopCasting",castingHandler, [stopCasting,SourceStatemPid]},
-            {"/[...]", noMatchingRouteHandler, [MainGenServerPid]}
+            {"/stopCasting",castingHandler, [stopCasting,SourceStatemPid]}
         ]}
     ]),
 
@@ -173,18 +173,18 @@ start(_StartType, _StartArgs) ->
             {"/clientReady",routingHandler, [clientReady,RouterGenServerPid]},
             {"/weightsVector",routingHandler, [rout,RouterGenServerPid]},
             {"/startCasting",routingHandler, [startCasting,RouterGenServerPid]},
-            {"/stopCasting",routingHandler, [stopCasting,RouterGenServerPid]},
-            {"/[...]", noMatchingRouteHandler, [RouterGenServerPid]}
+            {"/stopCasting",routingHandler, [stopCasting,RouterGenServerPid]}
         ]}
     ]),
 
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
 %%    TODO: after parsing json, change from *1HostPort to the original list imported from json
-    [init_cowboy_start_clear(Name,HostPort,MainServerDispatcher)||{Name,HostPort}<-maps:to_list(maps:get(mainServer,PortsMap))],
-    [init_cowboy_start_clear(Name,HostPort,NerlClientDispatch)||{Name,HostPort}<-maps:to_list(maps:get(clients,PortsMap))],
-    [init_cowboy_start_clear(Name,HostPort,SourceDispatch)||{Name,HostPort}<-maps:to_list(maps:get(sources,PortsMap))],
-    [init_cowboy_start_clear(Name,HostPort,RouterDispatch)||{Name,HostPort}<-maps:to_list(maps:get(routers,PortsMap))],
+%%    MainHostPort = maps:get(MainName, PortsMap),
+    init_cowboy_start_clear(MainName,MainServerHostPort,MainServerDispatcher),
+    [init_cowboy_start_clear(Name2,HostPort,NerlClientDispatch)||{Name2,HostPort}<-maps:to_list(maps:get(clients,PortsMap))],
+    [init_cowboy_start_clear(Name3,HostPort,SourceDispatch)||{Name3,HostPort}<-maps:to_list(maps:get(sources,PortsMap))],
+    [init_cowboy_start_clear(Name4,HostPort,RouterDispatch)||{Name4,HostPort}<-maps:to_list(maps:get(routers,PortsMap))],
 
 %%    start supervisor
     nerlNetServer_sup:start_link().

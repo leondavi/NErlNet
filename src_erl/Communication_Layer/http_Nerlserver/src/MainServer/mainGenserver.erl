@@ -46,7 +46,7 @@ start_link(Args) ->
 {stop, Reason :: term()} | ignore).
 init({MyName,Clients,WorkersMap,ConnectionsMap}) ->
   inets:start(),
-%%  io:format("~p~n",[ConnectionsMap]),
+  io:format("connection map:~p~n",[ConnectionsMap]),
   start_connection(maps:to_list(ConnectionsMap)),
   {ok, #main_genserver_state{myName = MyName, workersMap = WorkersMap, state=idle, clients = Clients, connectionsMap = ConnectionsMap}}.
 
@@ -214,7 +214,8 @@ code_change(_OldVsn, State = #main_genserver_state{}, _Extra) ->
 
 setClientState(StateAtom,ClientName, ConnectionMap) ->
   {RouterHost,RouterPort} =maps:get(ClientName, ConnectionMap),
-  http_request(RouterHost,RouterPort,atom_to_list(StateAtom), atom_to_list(ClientName)).
+%%  OK3 = httpc:request(post,{"http://" ++ RouterHost ++ ":"++integer_to_list(RouterPort) ++ "/" ++ atom_to_list(StateAtom), [],"application/x-www-form-urlencoded",atom_to_list(ClientName)}, [], []),  io:format("OK3: ~p~n",[OK3]).
+http_request(RouterHost,RouterPort,atom_to_list(StateAtom), atom_to_list(ClientName)).
 
 %%find Router and send message: finds the path for the named machine from connection map and send to the right router to forword.
 %%findroutAndsend([],_,_,WaitingList)->WaitingList;
@@ -222,18 +223,20 @@ setClientState(StateAtom,ClientName, ConnectionMap) ->
 findroutAndsend(SourceName,Body,ConnectionsMap) ->
 %%  io:format("WaitingList = ~p~n~n",[Workers]),
   {RouterHost,RouterPort} =maps:get(list_to_atom(SourceName),ConnectionsMap),
-  io:format("~p~n",[RouterPort]),
   http_request(RouterHost, RouterPort,"updateCSV", Body).
 
 
 %%sending Body as an http request to {Host, Port} to path Path (=String)
 %%Example:  http_request(RouterHost,RouterPort,"start_training", <<"client1,client2">>),
 http_request(Host, Port,Path, Body)->
-  httpc:request(post,{"http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path, [],"application/x-www-form-urlencoded",Body}, [], []).
+  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
+  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
 
 
 %%Receives a list of routers and connects to them
 start_connection([])->ok;
 start_connection([{_ServerName,{Host, Port}}|Tail]) ->
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  start_connection(Tail).
+  Res = httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  io:format("mainserver connecting to: ~p result: ~p~n",[{Host, Port},Res]),
+start_connection(Tail).
