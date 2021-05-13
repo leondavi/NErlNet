@@ -18,8 +18,6 @@ init(Req0, State = [Action,Router_genserver_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {ok,Body,_} = cowboy_req:read_body(Req0),
   Decoded_body = binary_to_list(Body),
-  io:format("~p~n",[Body]),
-%%  gen_statem:cast(Client_StateM_Pid,{hello}),
   case Action of
 %%     router was meant to rout no?
     rout ->

@@ -20,7 +20,7 @@ init(Req0, [Client_StateM_Pid]) ->
 
   gen_statem:cast(Client_StateM_Pid,{sample,Body}),
 
-  Reply = io_lib:format("Body Received~p~n ", [Client_StateM_Pid]),
+  Reply = io_lib:format("Sample Received~n ", []),
   Req = cowboy_req:reply(200,
     #{<<"content-type">> => <<"text/plain">>},
     Reply,
