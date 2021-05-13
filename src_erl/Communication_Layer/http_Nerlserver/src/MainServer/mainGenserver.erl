@@ -214,7 +214,8 @@ code_change(_OldVsn, State = #main_genserver_state{}, _Extra) ->
 
 setClientState(StateAtom,ClientName, ConnectionMap) ->
   {RouterHost,RouterPort} =maps:get(ClientName, ConnectionMap),
-  http_request(RouterHost,RouterPort,atom_to_list(StateAtom), atom_to_list(ClientName)).
+%%  OK3 = httpc:request(post,{"http://" ++ RouterHost ++ ":"++integer_to_list(RouterPort) ++ "/" ++ atom_to_list(StateAtom), [],"application/x-www-form-urlencoded",atom_to_list(ClientName)}, [], []),  io:format("OK3: ~p~n",[OK3]).
+http_request(RouterHost,RouterPort,atom_to_list(StateAtom), atom_to_list(ClientName)).
 
 %%find Router and send message: finds the path for the named machine from connection map and send to the right router to forword.
 %%findroutAndsend([],_,_,WaitingList)->WaitingList;
