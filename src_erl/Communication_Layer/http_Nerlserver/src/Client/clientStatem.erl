@@ -115,12 +115,8 @@ idle(cast, EventContent, State = #client_statem_state{myName = MyName,msgCounter
   io:format("client training ignored:  ~p ~n",[EventContent]),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
 
-%%[WorkerName|[Sample]] = re:split(binary_to_list(Vector), "#", [{return, list}]),
-%%Input= lists:sublist(Sample,1,length(Sample)-1),
-%%Inp = re:split(Input, ",", [{return, list}]),
-%%Inps = lists:reverse(getNumbers(Inp,[])).
+
 training(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
-  io:format("sending samples to train ~p ~n",[Vector]),
   [WorkerName|[Sample1]] = re:split(binary_to_list(Vector), "#", [{return, list}]),
   Sample= lists:sublist(Sample1,1,length(Sample1)-1),
   Splitted = re:split(Sample, ",", [{return, list}]),
@@ -206,7 +202,9 @@ start_connection([{_ServerName,{Host, Port}}|Tail]) ->
   start_connection(Tail).
 
 http_request(Host, Port,Path, Body)->
-  httpc:request(post,{"http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path, [],"application/x-www-form-urlencoded",Body}, [], []).
+  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
+  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
 
 
 
