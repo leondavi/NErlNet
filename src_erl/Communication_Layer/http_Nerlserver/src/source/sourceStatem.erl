@@ -75,7 +75,8 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 
 
 %%This cast receive a list of samples to load to the records csvList
-idle(cast, {csvList,Workers,CSVlist}, State = #source_statem_state{myName = Myname, msgCounter = Counter, portMap = PortMap}) ->
+idle(cast, {csvList,Workers,CSVPath}, State = #source_statem_state{chunkSize = ChunkSize, myName = Myname, msgCounter = Counter, portMap = PortMap}) ->
+  CSVlist = parser:parse_file(CSVPath,ChunkSize),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
   io:format("source updated Workers - ~p~n",[Workers]),
@@ -162,44 +163,21 @@ code_change(_OldVsn, StateName, State = #source_statem_state{}, _Extra) ->
 spawnTransmitter(WorkersNames,CSVlist,PortMap,WorkersMap,ChunkSize)->
 %%  ListOfWorkers = re:split(WorkersNames,",", [{return, list}]),
   Triplets =getHostPort(WorkersNames,WorkersMap,PortMap,[]),
-  io:format("~p~n",[Triplets]),
+%%  io:format("~p~n",[Triplets]),
   %%[list of binarys from CSV file, Size of batch, 1/Hz, statem pid]
   spawn(?MODULE,sendSamples,[CSVlist,ChunkSize,20,self(),Triplets]).
 
-getHostPort([],_WorkersMap,_PortMap,Ret)-> Ret;
-getHostPort([WorkerName|WorkersNames],WorkersMap,PortMap,Ret)->
-  ClientName = maps:get(list_to_atom(WorkerName),WorkersMap),
-  {RouterHost,RouterPort} = maps:get(ClientName,PortMap),
-  getHostPort(WorkersNames,WorkersMap, PortMap,Ret++[{ClientName,WorkerName,RouterHost,RouterPort}]).
-
-
 
 sendSamples([],_ChunkSize,_Hz,Pid,_Triplets)->gen_statem:cast(Pid,{finishedCasting});
-sendSamples(ListOfSamples,ChunkSize,Hz,Pid,Triplets)->
-
-  NumOfSamples = length(ListOfSamples),
-  if
-      (NumOfSamples=<ChunkSize) ->
-        BinaryHead = [list_to_binary(X++[","])||X<-ListOfSamples],
-        %%        ToSend = binary:part(BinaryHead, {byte_size(BinaryHead), -1}),
-
-        [http_request(RouterHost, RouterPort,"weightsVector", list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>]),BinaryHead]))|| {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
-        gen_statem:cast(Pid,{finishedCasting});
-      true ->
-          {Head, Tail} = lists:split(ChunkSize,ListOfSamples),
-        BinaryHead = [list_to_binary(X++[","])||X<-Head],
-        %%        ToSend = binary:part(BinaryHead, {byte_size(BinaryHead), -1}),
-
-        [http_request(RouterHost, RouterPort,"weightsVector", list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>]),BinaryHead]))|| {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
+sendSamples([Head|ListOfSamples],ChunkSize,Hz,Pid,Triplets)->
+        [http_request(RouterHost, RouterPort,"weightsVector", list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>]),list_to_binary(Head)]))|| {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
           receive
               %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
             {stopCasting}  ->
-              io:format("stop casting no prob man",[]),
+              io:format("source stop casting",[]),
               gen_statem:cast(Pid,{leftOvers,[]})
-           after Hz-> sendSamples(Tail,ChunkSize,Hz,Pid,Triplets)
-          end
-
-  end.
+           after Hz-> sendSamples(ListOfSamples,ChunkSize,Hz,Pid,Triplets)
+          end.
 
 
 start_connection([])->ok;
@@ -209,5 +187,54 @@ start_connection([{_ServerName,{Host, Port}}|Tail]) ->
 
 
 http_request(Host, Port,Path, Body)->
-  httpc:request(post,{"http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path, [],"application/x-www-form-urlencoded",Body}, [], []).
+  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
+  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
 
+getHostPort([],_WorkersMap,_PortMap,Ret)-> Ret;
+getHostPort([WorkerName|WorkersNames],WorkersMap,PortMap,Ret)->
+  ClientName = maps:get(list_to_atom(WorkerName),WorkersMap),
+  {RouterHost,RouterPort} = maps:get(ClientName,PortMap),
+  getHostPort(WorkersNames,WorkersMap, PortMap,Ret++[{ClientName,WorkerName,RouterHost,RouterPort}]).
+
+
+%%sendSamples([],_ChunkSize,_Hz,Pid,_Triplets)->gen_statem:cast(Pid,{finishedCasting});
+%%sendSamples([Head|ListOfSamples],ChunkSize,Hz,Pid,Triplets)->
+%%  [http_request(RouterHost, RouterPort,"weightsVector", list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>]),Head]))|| {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
+%%
+%%%%  NumOfSamples = length(ListOfSamples),
+%%%%  if
+%%%%      (NumOfSamples=<ChunkSize) ->
+%%%%        BinaryHead = [list_to_binary(X)||X<-ListOfSamples],
+%%%%%%                io:format("last chank : ~p~n",[BinaryHead]),
+%%%%
+%%%%%%        Last =  binary_to_list(lists:last(BinaryHead1)),
+%%%%%%
+%%%%%%        BinaryHead2 = lists:droplast(BinaryHead1),
+%%%%%%        BinaryHead =BinaryHead2++[list_to_binary(lists:sublist(Last,1,length(Last)-1))],
+%%%%%%        io:format("last chank after: ~p~n",[BinaryHead]),
+%%%%%%        BinaryHead = list_to_binary(lists:flatten(ListOfSamples)),
+%%%%        %%        ToSend = binary:part(BinaryHead, {byte_size(BinaryHead), -1}),
+%%%%
+%%%%        [http_request(RouterHost, RouterPort,"weightsVector", list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>]),BinaryHead]))|| {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
+%%%%        gen_statem:cast(Pid,{finishedCasting});
+%%%%      true ->
+%%%%          {Head, Tail} = lists:split(ChunkSize,ListOfSamples),
+%%%%%%        BinaryHead = [list_to_binary(X++[","])||X<-Head],
+%%%%        BinaryHead = [list_to_binary(X)||X<-Head],
+%%%%%%        io:format("a chank : ~p~n",[BinaryHead]),
+%%%%
+%%%%%%        io:format("BinaryHead: ~p~n",[BinaryHead]),
+%%%%%%        BinaryHead = list_to_binary(lists:flatten(Head)),
+%%%%        %%        ToSend = binary:part(BinaryHead, {byte_size(BinaryHead), -1}),
+%%%%
+%%%%        [http_request(RouterHost, RouterPort,"weightsVector", list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>]),BinaryHead]))|| {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
+%%  receive
+%%  %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
+%%    {stopCasting}  ->
+%%      io:format("source stop casting",[]),
+%%      gen_statem:cast(Pid,{leftOvers,[]})
+%%  after Hz-> sendSamples(ListOfSamples,ChunkSize,Hz,Pid,Triplets)
+%%  end.
+
+%%  end.

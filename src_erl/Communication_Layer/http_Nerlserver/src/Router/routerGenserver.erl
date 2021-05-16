@@ -31,8 +31,9 @@
 -spec(start_link(args) ->
   {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 
-start_link(ConnectionsMap) ->
-  {ok,Pid} = gen_server:start_link({local, ?SERVER}, ?MODULE, ConnectionsMap, []),
+start_link({MyName,ConnectionsMap}) ->
+
+  {ok,Pid} = gen_server:start_link({local, list_to_atom(binary_to_list(MyName))}, ?MODULE, {MyName,ConnectionsMap}, []),
   Pid.
 
 %%%===================================================================
@@ -62,36 +63,37 @@ init({MyName,ConnectionsMap}) ->
 handle_cast({rout,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
   [To,Vector] = binary:split(Body,<<"#">>),
-  {ClientHost,ClientPort} =maps:get(list_to_atom(binary_to_list(To)),ConnectionsMap),
-  http_request(ClientHost,ClientPort,"weightsVector",Vector),
+  {Host,Port} =maps:get(list_to_atom(binary_to_list(To)),ConnectionsMap),
+  http_request(Host,Port,"weightsVector",Vector),
   {noreply, State};
 
 
-handle_cast({clientIdle, ClientName}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+handle_cast({clientIdle, Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  sending client "training" request
-  {ClientHost,ClientPort} =maps:get(list_to_atom(binary_to_list(ClientName)),ConnectionsMap),
-  http_request(ClientHost,ClientPort,"clientIdle",[]),
+%%  io:format("sending client to idle~p~n",[ClientName]),
+  {Host,Port} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
+  http_request(Host,Port,"clientIdle",Body),
   {noreply, State};
 
-handle_cast({clientTraining, ClientName}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+handle_cast({clientTraining, Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  sending client "training" request
-  {ClientHost,ClientPort} =maps:get(list_to_atom(binary_to_list(ClientName)),ConnectionsMap),
-  http_request(ClientHost,ClientPort,"training",[]),
+  {Host,Port} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
+  http_request(Host,Port,"clientTraining",Body),
   {noreply, State};
 
-handle_cast({clientPredict, ClientName}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+handle_cast({clientPredict, Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  sending client "training" request
-  {ClientHost,ClientPort} =maps:get(list_to_atom(binary_to_list(ClientName)),ConnectionsMap),
-  http_request(ClientHost,ClientPort,"predict",[]),
+  {Host,Port} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
+  http_request(Host,Port,"clientPredict",Body),
   {noreply, State};
 
 handle_cast({updateCSV,Source,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
 io:format("router to Source - ~p  sending Body - ~p~n",[Source,Body]),
-  {SourceHost, SourcePort} = maps:get(list_to_atom(Source),ConnectionsMap),
-  http_request(SourceHost, SourcePort,"updateCSV",Body),
+  {Host,Port} = maps:get(list_to_atom(Source),ConnectionsMap),
+  http_request(Host,Port,"updateCSV",Body),
 
-%%findroutAndsend(splitbyTriplets(SourcesClientsPaths,[]),ConnectionsMap),
+%%findroutAndsend(splitbyTriplets(SourcesClientsPaths,[]),ConnectionsMap),TODO RETURN THIS!!!!
 {noreply, State};
 
 handle_cast({csvReady,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
@@ -177,8 +179,9 @@ code_change(_OldVsn, State = #router_genserver_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 start_connection([])->ok;
-start_connection([{_ServerName,{Host, Port}}|Tail]) ->
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+start_connection([{ServerName,{Host, Port}}|Tail]) ->
+  Result = httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  io:format("Router is now connected to ~p, Result: ~p~n",[{ServerName,Host, Port},Result]),
   start_connection(Tail).
 
 %%list_to_binary([list_to_binary([Name,<<"#">>]),BinaryHead]))
@@ -200,5 +203,7 @@ splitbyTriplets(ListofTriplets,Ret) ->
 
 
 http_request(Host, Port,Path, Body)->
-  httpc:request(post,{"http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path, [],"application/x-www-form-urlencoded",Body}, [], []).
-
+%%  io:format("sending body ~p to path ~p to hostport:~p~n",[Body,Path,{Host,Port}]),
+  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
+  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
