@@ -43,73 +43,13 @@
 
 
 start(_StartType, _StartArgs) ->
-    OtherHostName =  "192.168.0.107",
-    HostName = getHostName(),
-    io:format("getHost: ~p, MyHost: ~p~n",[getHostName(),HostName]),
-%%%%local servers to open, AFTER parsing json, this is the maps will be created:
-%%    we will know what to take frmo JSON file by the HostName we found ealier. main server knows this machines IP(HostName).
-    MainServerHostPort = {HostName,8080},
-    MainName = mainServer,
-    ChunkSize=2,
+%%    HostName = getHostName(),
+    HostName = "192.168.1.14",
+    io:format("My HostName: ~p~n",[list_to_binary(HostName)]),
 
-    ClientHostPort = {HostName,8081},
-    Client1Name = client1,
-    Worker1Name = worker1,
-%%    Worker1Args = {[3,2,1],0.01,[0,2,0],6,0,3,1,ChunkSize},
-    Worker1Args = {[561,280,140,70,35,17,8,4,2,1],0.01,[0,2,2,2,2,2,2,2,2,0],6,0,561,1,ChunkSize},
-    Worker2Name = worker2,
-%%    Worker2Args = {[3,2,1],0.01,[0,2,0],6,1,3,1,ChunkSize},
-    Worker2Args = {[561,280,140,70,35,17,8,4,2,1],0.01,[0,2,2,2,2,2,2,2,2,0],6,1,561,1,ChunkSize},
-
-    Source1HostPort = {HostName,8082},
-    Source1Name = source1,
-
-    Router1HostPort = {HostName,8083},
-    Router1Name = router1,
-
-%%    for mainserver only-
-    Clients = [Client1Name],
-%%Server that should be established on this machine
-    MainServerPortMap =  #{MainName => MainServerHostPort},
-    SourcePortMap =  #{Source1Name => Source1HostPort},
-    RoutersPortMap =  #{Router1Name => Router1HostPort},
-    ClientsPortMap =  #{Client1Name => ClientHostPort},
-    WorkersMap = #{Worker1Name => Client1Name, Worker2Name => Client1Name},
-
-    PortsMap = #{ mainServer => MainServerPortMap,clients => ClientsPortMap, sources => SourcePortMap,routers => RoutersPortMap},
-
-%%    connectivity map will be as follow:
-%%    name_atom of machine => {Host,Port} OR an atom router_name, indicating there is no direct http connection, and should pass request via router_name
-    MainServerConnectionsMap = #{Client1Name => Router1HostPort, Source1Name => Router1HostPort},
-    ClientConnectionsMap = #{MainName => Router1HostPort},
-    RouterConnectionsMap_router1 = #{MainName => MainServerHostPort, Client1Name=>ClientHostPort, Source1Name=>Source1HostPort},
-    SourceConnectionsMap = #{MainName => Router1HostPort, Client1Name=>Router1HostPort, Source1Name=>Router1HostPort},
-
-%%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
-%%    TODO add separation - each entity receives its own portmap of routers
-
-    %%Create a gen_Server for maintaining Database for Main Server.
-    %% all http requests will be handled by Cowboy which updates main_genserver if necessary.
-    MainGenServer_Args= {MainName,Clients,WorkersMap,MainServerConnectionsMap},        %%TODO change from mainserverport to routerport . also make this a list of client
-    MainGenServerPid = mainGenserver:start_link(MainGenServer_Args),
-
-    %%Create a gen_StateM machine for maintaining Database for Client.
-    %% all http requests will be handled by Cowboy which updates client_statem if necessary.
-    WorkersArgsMap = #{Worker1Name => Worker1Args, Worker2Name => Worker2Args},
-    ClientStatemArgs= {Client1Name,WorkersArgsMap,ClientConnectionsMap},        %%make this a list of client
-    ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
-
-    %%Create a gen_StateM machine for maintaining Database for Source.
-    %% all http requests will be handled by Cowboy which updates source_statem if necessary.
-    SourceStatemArgs= {Source1Name,WorkersMap,SourceConnectionsMap,ChunkSize},        %%TODO  make this a list of Sources
-    SourceStatemPid = sourceStatem:start_link(SourceStatemArgs),
-
-    %%Create a gen_Server for maintaining Database for Router.
-    %% all http requests will be handled by Cowboy which updates router_genserver if necessary.
-    RouterGenServerArgs= {Router1Name,RouterConnectionsMap_router1},        %%TODO  make this a list of Routers
-    RouterGenServerPid = routerGenserver:start_link(RouterGenServerArgs),
-
-
+    %%Server that should be established on this machine from JSON architecture:
+    {MainServer,ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers} = jsonParser:getDeviceEntities("./input/jsonArch1PC.json",list_to_binary(HostName)),
+    ChunkSize = 4,
 
 %%    Creating a Dispatcher for each Server from JSONs architecture - this dispatchers will rout http requests to the right handler.
 %%    Each dispatcher will be listening to a different PORT
@@ -119,23 +59,34 @@ start(_StartType, _StartArgs) ->
     %The last arg becomes the State
     %arg in the *Handler's init() method.
     %%{"/req_name/:arg1/:arg2",[{arg1,constrains}, {arg2,int}], addHandler,[]}
+    %%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
 
-    %%%Main Server
-    MainServerDispatcher = cowboy_router:compile([
-        {'_', [
+    createClientsAndWorkers(ClientsAndWorkers, ChunkSize, HostName),
+    createMainServer(MainServer,HostName),
+    createRouters(Routers,HostName),
+    createSources(Sources,WorkersMap, ChunkSize, HostName),
+%%    Worker1Args = {[3,2,1],0.01,[0,2,0],6,0,3,1,ChunkSize},
+%%    Worker1Args = {[561,280,140,70,35,17,8,4,2,1],0.01,[0,2,2,2,2,2,2,2,2,0],6,0,561,1,ChunkSize},
+%%    Worker2Args = {[3,2,1],0.01,[0,2,0],6,1,3,1,ChunkSize},
+%%    Worker2Args = {[561,280,140,70,35,17,8,4,2,1],0.01,[0,2,2,2,2,2,2,2,2,0],6,1,561,1,ChunkSize},
 
-            {"/updateCSV",[],initHandler,[MainGenServerPid]},
-            {"/csvReady",[],ackHandler,[source,MainGenServerPid]},
-            {"/sourceDone",[],ackHandler,[sourceDone,MainGenServerPid]},
-            {"/clientReady",[],ackHandler,[client,MainGenServerPid]},
-            {"/clientsTraining",[],actionHandler,[clientsTraining,MainGenServerPid]},
-            {"/clientsPredict",[],actionHandler,[clientsPredict,MainGenServerPid]},
-            {"/startCasting",actionHandler, [startCasting, MainGenServerPid]},
-            {"/stopCasting",actionHandler, [stopCasting, MainGenServerPid]},
-            {"/[...]", noMatchingRouteHandler, [MainGenServerPid]}
-        ]}
-    ]),
-%%
+%%    start supervisor
+    nerlNetServer_sup:start_link().
+
+
+%% internal functions
+
+createClientsAndWorkers(none, ChunkSize,_HostName) -> none;
+createClientsAndWorkers([], ChunkSize,_HostName) -> okdone;
+createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsMap}|ClientsAndWorkers], ChunkSize,HostName) ->
+    ClientName = list_to_atom(binary_to_list(maps:get(<<"name">>,ClientArgs))),
+    Port = list_to_integer(binary_to_list(maps:get(<<"port">>,ClientArgs))),
+
+    %%Create a gen_StateM machine for maintaining Database for Client.
+    %% all http requests will be handled by Cowboy which updates client_statem if necessary.
+%%    WorkersArgsMap = #{Worker1Name => Worker1Args, Worker2Name => Worker2Args},
+    ClientStatemArgs= {ClientName,WorkersArgs,ChunkSize,ClientConnectionsMap},        %%make this a list of client
+    ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
 
 
     %%Nerl Client
@@ -144,14 +95,31 @@ start(_StartType, _StartArgs) ->
         {'_', [
             %%first http request from main server should be about starting parameters, find more info inside initHandler
             {"/init",clientStateHandler, [init,ClientStatemPid]},
-            {"/training",clientStateHandler, [training,ClientStatemPid]},
+            {"/clientTraining",clientStateHandler, [training,ClientStatemPid]},
             {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
-            {"/predict",clientStateHandler, [predict,ClientStatemPid]},
+            {"/clientTPredict",clientStateHandler, [predict,ClientStatemPid]},
             {"/weightsVector",vectorHandler, [ClientStatemPid]}
         ]}
     ]),
 
-%%    Source server
+    %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
+    %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
+    init_cowboy_start_clear(ClientName, {HostName,Port},NerlClientDispatch),
+    createClientsAndWorkers(ClientsAndWorkers,ChunkSize,HostName).
+
+createSources(none,_WorkersMap,_ChunkSize,_HostName) -> none;
+createSources([],_WorkersMap,_ChunkSize,_HostName) -> okdone;
+createSources([{SourceArgs,SourceConnectionsMap}|Sources],WorkersMap,ChunkSize,HostName) ->
+    SourceName = list_to_atom(binary_to_list(maps:get(<<"name">>,SourceArgs))),
+    Port = list_to_integer(binary_to_list(maps:get(<<"port">>,SourceArgs))),
+
+    %%Create a gen_StateM machine for maintaining Database for Source.
+    %% all http requests will be handled by Cowboy which updates source_statem if necessary.
+    SourceStatemArgs= {SourceName,WorkersMap,SourceConnectionsMap,ChunkSize},        %%TODO  make this a list of Sources
+    SourceStatemPid = sourceStatem:start_link(SourceStatemArgs),
+
+
+    %%    Source server
     SourceDispatch = cowboy_router:compile([
         {'_', [
 
@@ -160,8 +128,28 @@ start(_StartType, _StartArgs) ->
             {"/stopCasting",castingHandler, [stopCasting,SourceStatemPid]}
         ]}
     ]),
+    %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
+    %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
+    init_cowboy_start_clear(SourceName, {HostName,Port},SourceDispatch),
+    createSources(Sources,WorkersMap,ChunkSize,HostName).
 
-    %%    Source server
+
+
+createRouters(none,_HostName) -> none;
+createRouters([],_HostName) -> okdone;
+createRouters([{RouterArgs,RouterCommectopmsMap}|Routers],HostName) ->
+    RouterName = maps:get(<<"name">>,RouterArgs),
+    Port =list_to_integer(binary_to_list( maps:get(<<"port">>,RouterArgs))),
+
+    %%Create a gen_Server for maintaining Database for Router.
+    %% all http requests will be handled by Cowboy which updates router_genserver if necessary.
+    %%    connectivity map will be as follow:
+    %%    name_atom of machine => {Host,Port} OR an atom router_name, indicating there is no direct http connection, and should pass request via router_name
+
+    RouterGenServerArgs= {RouterName,RouterCommectopmsMap},        %%TODO  make this a list of Routers
+    RouterGenServerPid = routerGenserver:start_link(RouterGenServerArgs),
+
+
     RouterDispatch = cowboy_router:compile([
         {'_', [
             {"/clientIdle",routingHandler, [clientIdle,RouterGenServerPid]},
@@ -176,27 +164,48 @@ start(_StartType, _StartArgs) ->
             {"/stopCasting",routingHandler, [stopCasting,RouterGenServerPid]}
         ]}
     ]),
-
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
-%%    TODO: after parsing json, change from *1HostPort to the original list imported from json
-%%    MainHostPort = maps:get(MainName, PortsMap),
-    init_cowboy_start_clear(MainName,MainServerHostPort,MainServerDispatcher),
-    [init_cowboy_start_clear(Name2,HostPort,NerlClientDispatch)||{Name2,HostPort}<-maps:to_list(maps:get(clients,PortsMap))],
-    [init_cowboy_start_clear(Name3,HostPort,SourceDispatch)||{Name3,HostPort}<-maps:to_list(maps:get(sources,PortsMap))],
-    [init_cowboy_start_clear(Name4,HostPort,RouterDispatch)||{Name4,HostPort}<-maps:to_list(maps:get(routers,PortsMap))],
+   init_cowboy_start_clear(RouterName, {HostName,Port},RouterDispatch),
+    createRouters(Routers,HostName).
 
-%%    start supervisor
-    nerlNetServer_sup:start_link().
+
+
+createMainServer(none,_HostName) -> none;
+createMainServer({[MainServerArgsMap],MainServerConnectionsMap,WorkersMap,ClientsNames},HostName) ->
+    MainName = mainServer,
+    Port = list_to_integer(binary_to_list(maps:get(<<"port">>,MainServerArgsMap))),
+
+    %%Create a gen_Server for maintaining Database for Main Server.
+    %% all http requests will be handled by Cowboy which updates main_genserver if necessary.
+    MainGenServer_Args= {MainName,ClientsNames,WorkersMap,MainServerConnectionsMap},        %%TODO change from mainserverport to routerport . also make this a list of client
+    MainGenServerPid = mainGenserver:start_link(MainGenServer_Args),
+
+    MainServerDispatcher = cowboy_router:compile([
+    {'_', [
+
+    {"/updateCSV",[],initHandler,[MainGenServerPid]},
+    {"/csvReady",[],ackHandler,[source,MainGenServerPid]},
+    {"/sourceDone",[],ackHandler,[sourceDone,MainGenServerPid]},
+    {"/clientReady",[],ackHandler,[client,MainGenServerPid]},
+    {"/clientsTraining",[],actionHandler,[clientsTraining,MainGenServerPid]},
+    {"/clientsPredict",[],actionHandler,[clientsPredict,MainGenServerPid]},
+    {"/startCasting",actionHandler, [startCasting, MainGenServerPid]},
+    {"/stopCasting",actionHandler, [stopCasting, MainGenServerPid]},
+    {"/[...]", noMatchingRouteHandler, [MainGenServerPid]}
+    ]}
+    ]),
+    %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
+    %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
+    init_cowboy_start_clear(MainName, {HostName,Port},MainServerDispatcher).
+
+
 
 init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
 %%    TODO check how to catch ! messages in listenerPid
     {ok, _listenerPid} = cowboy:start_clear(ListenerName,
         [{port,Port}], #{env => #{dispatch =>Dispatcher}}
     ).
-stop(_State) ->
-    ok.
-
 
 
 getHostName() ->
@@ -208,4 +217,5 @@ getHostName() ->
 
 
 
-%% internal functions
+stop(_State) ->
+    ok.
