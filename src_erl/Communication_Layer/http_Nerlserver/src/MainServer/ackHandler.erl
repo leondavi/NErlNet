@@ -16,7 +16,6 @@
 init(Req0, [Who,Main_genserver_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {_,Body,_} = cowboy_req:read_body(Req0),
-  io:format("ackHandler got body:~p~n",[Body]),
   case Who of
     source -> gen_statem:cast(Main_genserver_Pid, {sourceAck,Body});
     sourceDone -> gen_statem:cast(Main_genserver_Pid, {sourceDone,Body});
