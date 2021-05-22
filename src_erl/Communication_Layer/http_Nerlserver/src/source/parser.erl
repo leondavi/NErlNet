@@ -10,27 +10,57 @@
 -author("kapelnik").
 
 %% API
--export([parse_file/1, parse_line/1]).
+-export([parse_file/2]).
 
 
 %%parsing a given CSV file
-parse_file(File_Address) ->
+parse_file(File_Address,ChunkSize) ->
 
   {ok, Data} = file:read_file(File_Address),%%TODO change to File_Address
-  DataListtemp = binary_to_list(Data),
-  DataList = lists:sublist(DataListtemp,1,length(DataListtemp)),
-  Linestemp = [re:replace(X, "\r\n", "", [global,{return,list}])||X<-re:split(DataListtemp, "\r\n", [{return, list}])],
-  Lines = lists:sublist(Linestemp,1,length(Linestemp)-1).
-%%  io:format("~p~n",[Lines]),
-%%  [parse_line(Line)||Line<-Lines].
+  CSVlist = parse(Data),
+%%  io:format("~p~n",[CSVlist]),
+  Chunked= makeChunks(CSVlist,ChunkSize,ChunkSize,[],[]),
+%%  io:format("~p~n~n~n~n~n~n~n~n~n~n~n~n~n~n~n~n~n~n~n~n~n~n",[Chunked]),
+%%
+%%    A = divide(CSVlist,ChunkSize),
+  [append2(X)||X<-Chunked].
 
-parse_line(Line)->
 
-  [begin
-     case string:to_float(X) of
-       {error,no_float} -> list_to_integer(X);
-       {F,_Rest} -> F
-     end
-%%    {Int,_}=string:to_integer(X), Int
+parse(Data) ->
+  Lines = re:split(Data, "\r|\n|\r\n", [] ),
+  [ [begin
+       case  re:split(Token, "\"", [] ) of
+         [_,T,_] -> T;
+         [T] ->binary_to_list(T);  %%if token is not surrounded by ""
+%%                                  io:format("~p~n",[A]),A;
+         [] -> <<"">>
+       end
+     end || Token <- re:split(Line, ",", [] ) ] || Line <- Lines, Line =/= <<"">>].
 
-    end|| X<-string:tokens(Line,",")].
+
+makeChunks([],_Left,_ChunkSize,Acc,Ret) ->
+  Ret++[Acc];
+
+makeChunks([Head|Tail],1,ChunkSize,Acc,Ret) ->
+  makeChunks(Tail,ChunkSize,ChunkSize,[],Ret++[Acc++[Head]]);
+
+makeChunks([Head|Tail],Left,ChunkSize,Acc,Ret) ->
+  makeChunks(Tail,Left-1,ChunkSize,Acc++[Head],Ret).
+
+append2(List) -> append2(List,[]).
+append2([], Acc) ->
+  string:join([[X] || X <- Acc], ",");
+%%  makeString(Acc);
+%%                    io:format("~p~n",[A]),A;
+append2([H|T],Acc) -> append2(T, H ++ Acc).
+
+%%makeString([Head|Tail]) -> makeString(Tail,Head).
+%%makeString([Head],Ret) ->
+%%  A = string:concat(Ret,Head),
+%%  io:format("~p~n",[A]),A;
+%%makeString([Head|Tail],Acc) ->
+%%  Acc2=string:concat(Acc,","),
+%%%%  io:format("~p~n",[Acc2]),
+%%%%  io:format("~p~n",[binary_to_list(Head)]),
+%%
+%%  makeString(Tail,string:concat(Acc2,Head)).

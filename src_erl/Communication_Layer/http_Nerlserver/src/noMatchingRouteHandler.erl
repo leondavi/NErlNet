@@ -20,7 +20,6 @@ init(Req0, State) ->
   Path = cowboy_req:path(Req0),
   Qs = cowboy_req:qs(Req0),
   {ok,Body,_} = cowboy_req:read_body(Req0),
-
   Reply = io_lib:format("Somthing went wrong..Path attempted: ~p,~nBody: ~p~n", [Path,Body]),
 
   Req = cowboy_req:reply(200,

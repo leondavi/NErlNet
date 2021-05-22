@@ -66,6 +66,8 @@ start_training()->
   httpc:request(post,{"http://localhost:8080/startTraining", [],"application/x-www-form-urlencoded",<<"source1">>}, [], []).
 stop_training()->
   httpc:request(post,{"http://localhost:8080/stopTraining", [],"application/x-www-form-urlencoded",<<"source1">>}, [], []).
+  %%httpc:request(post,{"http://192.168.0.107:8082/updateCSV", [],"application/x-www-form-urlencoded","source1,worker1,worker2,./input/input2.csv"}, [], []).
+%%httpc:set_options([{proxy, {{"192.168.0.107", 8082},["192.168.0.107"]}}]).
 
 
 

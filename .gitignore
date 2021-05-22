@@ -11,3 +11,11 @@ src_cpp/.idea
 src_cpp/*.so
 /*.dump
 /*.iml
+/src_erl/Communication_Layer/http_Nerlserver/input/
+/src_erl/Communication_Layer/http_Nerlserver/_build/
+/src_erl/Communication_Layer/http_Nerlserver/rebar.lock
+/src_erl/erlBridge/erlModule.beam
+/src_erl/erlBridge/handler.beam
+/src_erl/erlBridge/nerlNetStatem.beam
+/src_erl/erlBridge/parse.beam
+/src_erl/erlBridge/startMod.beam
