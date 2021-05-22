@@ -4,7 +4,7 @@
 -export([testMatrix/2,cppBridgeController/0,cppBridgeControllerGetModelPtr/1 ,cppBridgeControllerSetData/1,
 	 create_module/6, train2double/6, predict2double/5, niftest/6, thread_create_test/0,
 	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, cppBridgeControllerSetModelPtrDat/2,
-	cppBridgeControllerDeleteModel/1, startTest/11,train/8]).
+	cppBridgeControllerDeleteModel/1, startTest/11,train/8, set_weights/3, get_weights/1]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
@@ -15,7 +15,9 @@
 init() ->
 	RelativeDirPath = filename:dirname(filename:dirname(filename:absname(""))), % NErlNet directory path
 	RelativeDirPathNew = string:sub_string(RelativeDirPath, 1, length(RelativeDirPath)-7),
-	Nif_Module_Cpp_Path = string:concat(RelativeDirPathNew,"NErlNet/src_cpp/cppBridge/libNerlNIF"), % Relative path for nifModule_nif
+	%Nif_Module_Cpp_Path = string:concat(RelativeDirPathNew,"NErlNet/src_cpp/cppBridge/libNerlNIF"), % Relative path for nifModule_nif
+	Nif_Module_Cpp_Path = string:concat(RelativeDirPathNew,"src_cpp/cppBridge/libNerlNIF"), % Relative path for nifModule_nif
+
 	io:fwrite("Nif_Module_Cpp_Path: ~p ~n",[Nif_Module_Cpp_Path]),
 	%% load_info is the second argument to erlang:load_nif/2
   ok = erlang:load_nif(Nif_Module_Cpp_Path, 0).
@@ -143,6 +145,15 @@ predict2double(Data_mat, Rows, Cols, ModelId, ClientPid) ->
 %% _Rows, _Col, _Labels - "ints"
 %% _Data_Label_mat - list
 train_predict_create(2, _Data_mat, _rows, _cols, _ModelId) ->
+	exit(nif_library_not_loaded).
+
+%% Set the new weights
+%% _Matrix, _Bias - lists
+set_weights(2, _Matrix, _Bias) ->
+	exit(nif_library_not_loaded).
+
+%% Get the weights
+get_weights(0) ->
 	exit(nif_library_not_loaded).
 
 %% ------------------------ TEST ----------------------------
