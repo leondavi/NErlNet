@@ -23,7 +23,7 @@ getDeviceEntities(JsonPath,HostName)->
   %%  retrive THIS device entities
   OnDeviceEntities1 = getOnDeviceEntities(maps:get(<<"devices">>,ArchitectureMap),HostName),
   OnDeviceEntities =re:split(binary_to_list(OnDeviceEntities1),",",[{return,list}]),
-%%  io:format("OnDeviceEntities:~n~p~n",[OnDeviceEntities]),
+  io:format("BinDevices:~n~p~n",[OnDeviceEntities]),
 
 
   %%  retrive THIS device Clients And Workers, returns a list of tuples:[{ClientArgumentsMap,WorkersMap,ConnectionMap},..]
@@ -54,11 +54,13 @@ getDeviceEntities(JsonPath,HostName)->
   %%  retrive  a map of arguments of the API Server
   ServerAPI = maps:get(<<"serverAPI">>,ArchitectureMap),
 
-  io:format("On Device Entities to Open:~nMainServer: ~p~nServerAPI: ~p~nClientsAndWorkers: ~p~nSources: ~p~nRouter: ~p~n",[MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers]),
+  io:format("OnDevice:~nMainServer: ~p~nServerAPI: ~p~nClientsAndWorkers: ~p~nSources: ~p~nRouter: ~p~n",[MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers]),
 
   {MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers}.
 
 
+%%[maps:put(list_to_atom(Worker),list_to_atom(binary_to_list(ClientName)),WorkersMap)||Worker<-Workers],
+%%
 
 %%getEntities findes the right device from devices map and returns it's entities
 getOnDeviceEntities([],_HostName) -> none;
@@ -149,9 +151,8 @@ getConnectionMap(Name,ArchMap) ->
 
 buildConnectionMap([],_ArchMap, ConnectionMap) -> ConnectionMap;
 buildConnectionMap([{EntityName,RouterName}|Entities],ArchMap, ConnectionMap) ->
-  EntityHost = getHost(maps:get(<<"devices">>,ArchMap),RouterName),
+  EntityHost = getHost(maps:get(<<"devices">>,ArchMap),EntityName),
   EntityPort = getPort(maps:get(<<"routers">>,ArchMap),RouterName),
-%%  io:format("@#@#Name- ~p, hostport - ~p~n",[EntityName,{EntityHost,EntityPort}]),
   buildConnectionMap(Entities,ArchMap, ConnectionMap#{list_to_atom(binary_to_list(EntityName)) => {EntityHost,EntityPort}}).
 
 getHost([DeviceMap|Devices],EntityName) ->
