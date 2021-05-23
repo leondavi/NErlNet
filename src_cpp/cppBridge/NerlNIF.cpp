@@ -89,10 +89,21 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     std::vector<double> weights_list, bias_list, combined_list;
     MatrixXd weights_mat;
     VectorXd bias;
+    int mid; // TODO add it
+    std::vector<std::shared_ptr<ANN::Weights>> vec_of_weights_ptrs;
 
-    // Get the weights_list mat
+    // Get the singleton instance
+    cppBridgeController *s = s->GetInstance();
 
-    // Get the bias_
+    // Get the model from the singleton
+    std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(mid);
+
+    // Get the weights_list ptr
+    vec_of_weights_ptrs = modelPtr->get_weights_of_model();
+
+    //for(int i = 0; ){
+
+    //
 
     // Convert the matrix to a vector. Native to Eigen
 
