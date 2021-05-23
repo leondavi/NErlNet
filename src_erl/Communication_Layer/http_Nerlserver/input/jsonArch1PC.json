@@ -18,7 +18,7 @@
   ],
   "mainServer": [
     {
-      "host": "inet 192.168.1.14",
+      "host": "192.168.1.14",
       "port": "8080",
       "args": "ASDF,ASDF,ASDGFG"
     }
@@ -49,12 +49,12 @@
   "routers": [
     {
       "name": "r1",
-      "host": "inet 192.168.1.14",
+      "host": "192.168.1.14",
       "port": "8083"
     },
     {
       "name": "r2",
-      "host": "inet 192.168.1.14",
+      "host": "192.168.1.14",
       "port": "8084"
     }
   ],

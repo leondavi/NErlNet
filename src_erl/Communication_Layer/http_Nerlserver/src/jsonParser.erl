@@ -21,7 +21,10 @@ getDeviceEntities(JsonPath,HostName)->
   WorkersMap = getWorkersMap(maps:get(<<"clients">>,ArchitectureMap),#{}),
 
   %%  retrive THIS device entities
-  OnDeviceEntities = getOnDeviceEntities(maps:get(<<"devices">>,ArchitectureMap),HostName),
+  OnDeviceEntities1 = getOnDeviceEntities(maps:get(<<"devices">>,ArchitectureMap),HostName),
+  OnDeviceEntities =re:split(binary_to_list(OnDeviceEntities1),",",[{return,list}]),
+  io:format("BinDevices:~n~p~n",[OnDeviceEntities]),
+
 
   %%  retrive THIS device Clients And Workers, returns a list of tuples:[{ClientArgumentsMap,WorkersMap,ConnectionMap},..]
   ClientsAndWorkers = getClients(maps:get(<<"clients">>,ArchitectureMap),OnDeviceEntities , [],maps:get(<<"workers">>,ArchitectureMap),ArchitectureMap),
@@ -37,7 +40,7 @@ getDeviceEntities(JsonPath,HostName)->
   %%  retrive THIS device MainServer, returns a map of arguments
 
 %%  check if a mainServer needed to be opened on this device, retrive arguments for main server or return none atom
-  OnDevice = lists:member(<<"mainServer">>,OnDeviceEntities),
+  OnDevice = lists:member("mainServer",OnDeviceEntities),
   if
     OnDevice == false -> MainServer = none;
     true -> MainServerArgs = maps:get(<<"mainServer">>,ArchitectureMap),
@@ -51,7 +54,7 @@ getDeviceEntities(JsonPath,HostName)->
   %%  retrive  a map of arguments of the API Server
   ServerAPI = maps:get(<<"serverAPI">>,ArchitectureMap),
 
-%%  io:format("OnDevice:~nMainServer: ~p~nServerAPI: ~p~nClientsAndWorkers: ~p~nSources: ~p~nRouter: ~p~n",[MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers]),
+  io:format("OnDevice:~nMainServer: ~p~nServerAPI: ~p~nClientsAndWorkers: ~p~nSources: ~p~nRouter: ~p~n",[MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers]),
 
   {MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers}.
 
@@ -74,7 +77,7 @@ getSources([],_OnDeviceSources,Return,_ArchMap) ->Return;
 getSources([Source|Sources],OnDeviceSources,Return,ArchMap) ->
 
   SourceName = maps:get(<<"name">>,Source),
-  OnDevice = lists:member(SourceName,OnDeviceSources),
+  OnDevice = lists:member(binary_to_list(SourceName),OnDeviceSources),
   if  OnDevice == false->
     getSources(Sources,OnDeviceSources,Return,ArchMap);
     true ->
@@ -88,7 +91,7 @@ getRouters([],_OnDeviceRouters,Return,ArchMap) ->Return;
 getRouters([Router|Routers],OnDeviceRouters,Return,ArchMap) ->
 
   RouterName = maps:get(<<"name">>,Router),
-  OnDevice = lists:member(RouterName,OnDeviceRouters),
+  OnDevice = lists:member(binary_to_list(RouterName),OnDeviceRouters),
   if  OnDevice == false->
     getRouters(Routers,OnDeviceRouters,Return,ArchMap);
     true ->
@@ -102,7 +105,7 @@ getClients([],_Entities,ClientsAndWorkers,_ArchWorkers,_ArchMap) ->ClientsAndWor
 getClients([Client|Tail],Entities,ClientsAndWorkers,ArchWorkers,ArchMap) ->
 
   ClientName = maps:get(<<"name">>,Client),
-  OnDevice = lists:member(ClientName,Entities),
+  OnDevice = lists:member(binary_to_list(ClientName),Entities),
   if  OnDevice == false->
     getClients(Tail,Entities,ClientsAndWorkers,ArchWorkers,ArchMap);
     true ->
@@ -143,6 +146,7 @@ buildRouterConnectionMap(MyRouterName,[{EntityName,RouterName}|Entities],ArchMap
 
 getConnectionMap(Name,ArchMap) ->
   ConnectionsList = maps:to_list(maps:get(Name,maps:get(<<"connectionsMap">>,ArchMap))),
+  io:format("~p connection Map from json: ~p~n",[Name,ConnectionsList]),
   buildConnectionMap(ConnectionsList,ArchMap, #{}).
 
 buildConnectionMap([],_ArchMap, ConnectionMap) -> ConnectionMap;
@@ -153,7 +157,9 @@ buildConnectionMap([{EntityName,RouterName}|Entities],ArchMap, ConnectionMap) ->
 
 getHost([DeviceMap|Devices],EntityName) ->
   Entities = maps:get(<<"entities">>, DeviceMap),
-  OnDevice = lists:member(EntityName,Entities),
+  OnDeviceEntities =re:split(binary_to_list(Entities),",",[{return,list}]),
+
+  OnDevice = lists:member(binary_to_list(EntityName),OnDeviceEntities),
   if  OnDevice == false->
     getHost(Devices,EntityName);
     true ->
