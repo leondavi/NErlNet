@@ -48,7 +48,7 @@ start(_StartType, _StartArgs) ->
     io:format("My HostName: ~p~n",[list_to_binary(HostName)]),
 
     %%Server that should be established on this machine from JSON architecture:
-    {MainServer,ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers} = jsonParser:getDeviceEntities("./input/finalJson.json",list_to_binary(HostName)),
+    {MainServer,ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers} = jsonParser:getDeviceEntities("./input/jsonArch1PC.json",list_to_binary(HostName)),
     ChunkSize = 2,
 
 %%    Creating a Dispatcher for each Server from JSONs architecture - this dispatchers will rout http requests to the right handler.

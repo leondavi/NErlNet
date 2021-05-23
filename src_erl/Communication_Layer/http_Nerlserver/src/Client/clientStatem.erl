@@ -135,11 +135,12 @@ idle(cast, EventContent, State = #client_statem_state{myName = MyName,msgCounter
 
 
 training(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
-  [WorkerName|[Sample]] = re:split(binary_to_list(Vector), "#", [{return, list}]),
+  [WorkerName,BatchNumber,Sample] = re:split(binary_to_list(Vector), "#", [{return, list}]),
 %%  Sample= lists:sublist(Sample1,1,length(Sample1)),
   Splitted = re:split(Sample, ",", [{return, list}]),
   ToSend =  lists:reverse(getNumbers(Splitted,[])),
-%%  io:format("ToSend~p~n",[ToSend]),
+  io:format("BatchNumber: ~p~n",[BatchNumber]),
+  io:format("Vector: ~p~n",[ToSend]),
 
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
   gen_statem:cast(WorkerPid, {sample,ToSend}),
@@ -164,12 +165,12 @@ training(cast, EventContent, State = #client_statem_state{msgCounter = Counter})
 
 predict(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
   io:format("sending samples to predict ~p ~n",[Vector]),
-  [WorkerName|[Sample1]] = re:split(binary_to_list(Vector), "#", [{return, list}]),
+  [WorkerName,BatchNumber|[Sample1]] = re:split(binary_to_list(Vector), "#", [{return, list}]),
   Sample= lists:sublist(Sample1,1,length(Sample1)-1),
   Splitted = re:split(Sample, ",", [{return, list}]),
   ToSend =  lists:reverse(getNumbers(Splitted,[])),
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
-  gen_statem:cast(WorkerPid, {sample,ToSend}),
+  gen_statem:cast(WorkerPid, {sample,BatchNumber,ToSend}),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName,portMap = PortMap,msgCounter = Counter}) ->
