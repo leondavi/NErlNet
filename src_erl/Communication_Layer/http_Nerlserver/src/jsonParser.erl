@@ -151,8 +151,9 @@ getConnectionMap(Name,ArchMap) ->
 
 buildConnectionMap([],_ArchMap, ConnectionMap) -> ConnectionMap;
 buildConnectionMap([{EntityName,RouterName}|Entities],ArchMap, ConnectionMap) ->
-  EntityHost = getHost(maps:get(<<"devices">>,ArchMap),EntityName),
+  EntityHost = getHost(maps:get(<<"devices">>,ArchMap),RouterName),
   EntityPort = getPort(maps:get(<<"routers">>,ArchMap),RouterName),
+  io:format("@#@#Name- ~p, hostport - ~p~n",[EntityName,{EntityHost,EntityPort}]),
   buildConnectionMap(Entities,ArchMap, ConnectionMap#{list_to_atom(binary_to_list(EntityName)) => {EntityHost,EntityPort}}).
 
 getHost([DeviceMap|Devices],EntityName) ->
