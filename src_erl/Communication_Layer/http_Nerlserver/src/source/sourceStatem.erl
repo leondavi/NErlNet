@@ -168,7 +168,11 @@ spawnTransmitter(WorkersNames,CSVlist,PortMap,WorkersMap,ChunkSize)->
   spawn(?MODULE,sendSamples,[CSVlist,ChunkSize,20,self(),Triplets]).
 
 
-sendSamples([],_ChunkSize,_Hz,Pid,_Triplets)->gen_statem:cast(Pid,{finishedCasting});
+sendSamples([],_ChunkSize,Hz,Pid,_Triplets)->
+  receive
+    after Hz ->    gen_statem:cast(Pid,{finishedCasting})
+end;
+
 sendSamples([Head|ListOfSamples],ChunkSize,Hz,Pid,Triplets)->
         [http_request(RouterHost, RouterPort,"weightsVector", list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>]),list_to_binary(Head)]))|| {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
           receive

@@ -230,7 +230,9 @@ findroutAndsend(SourceName,Body,ConnectionsMap) ->
 http_request(Host, Port,Path, Body)->
   URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
+  io:format("sending:  ~p~nto HostPo: ~p~n",[Body,{Host, Port}]),
+  Req = httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []),
+  io:format("Req: ~p~n",[Req]).
 
 
 %%Receives a list of routers and connects to them
