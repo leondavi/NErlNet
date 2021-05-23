@@ -1,6 +1,7 @@
 import os
 
-NErlNet_VER = 0.1
+NErlNet_VER = 0.2
+EIGEN_INCLUDE_PATH = "/usr/include/eigen3"
 SO_RESULT_FILE = "NerlNIF.so"
 def log_print(text):
 	print("[NErlNet] "+text)
@@ -22,7 +23,7 @@ src_dir = os.path.join(project_dir,'src')
 # Set our required libraries
 libraries 		= []
 library_paths 	= ''
-include_paths	= [os.path.join(src_dir,'include')]
+include_paths	= [os.path.join(src_dir,'include'),EIGEN_INCLUDE_PATH]
 cppDefines 		= {}
 cppFlags 		= ['-Wall']#, '-Werror']
 cxxFlags 		= ['-std=c++11']
