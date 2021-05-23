@@ -19,7 +19,7 @@ init(Req0, State = [Source_StateM_Pid]) ->
 %%  [ClientName|CSV_Path] = re:split(binary_to_list(Body), ",", [{return, list}]),
   [_Myself|Splitted]  = re:split(binary_to_list(Body), ",", [{return, list}]),
   {Workers, CSV_Path} = getWorkerInput(Splitted,[]),
-  io:format("csv handler got Body:~p~n",[Body]),
+%%  io:format("csv handler got Body:~p~n",[Body]),
   gen_statem:cast(Source_StateM_Pid,{csvList,Workers,CSV_Path}),
   Reply = io_lib:format("ACKACK", []),
   Req = cowboy_req:reply(200,

@@ -190,7 +190,7 @@ findroutAndsend([],_)->ok;
 findroutAndsend([[SourceName,ClientName,InputFile]|ListOfSources], ConnectionsMap) ->
 %%  io:format("sourceName = ~p~n, Map = ~p~n",[SourceName,ConnectionsMap]),
   {SourceHost,SourcePort} =maps:get(list_to_atom(SourceName),ConnectionsMap),
-  io:format("~p~n",[SourcePort]),
+%%  io:format("~p~n",[SourcePort]),
   http_request(SourceHost,SourcePort,"updateCSV",ClientName++","++InputFile),
   findroutAndsend(ListOfSources,ConnectionsMap).
 
