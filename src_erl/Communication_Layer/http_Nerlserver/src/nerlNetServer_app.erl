@@ -43,8 +43,8 @@
 
 
 start(_StartType, _StartArgs) ->
-    HostName = getHostName(),
-%%    HostName = "192.168.1.14",
+%%    HostName = getHostName(),
+    HostName = "192.168.0.107",
     io:format("My HostName: ~p~n",[list_to_binary(HostName)]),
 
     %%Server that should be established on this machine from JSON architecture:
