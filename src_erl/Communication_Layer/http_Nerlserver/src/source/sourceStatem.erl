@@ -16,7 +16,7 @@
 
 %% gen_statem callbacks
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,
-  code_change/4, callback_mode/0, idle/3, castingData/3, sendSamples/5]).
+  code_change/4, callback_mode/0, idle/3, castingData/3, sendSamples/6]).
 
 -define(SERVER, ?MODULE).
 
@@ -165,22 +165,22 @@ spawnTransmitter(WorkersNames,CSVlist,PortMap,WorkersMap,ChunkSize)->
   Triplets =getHostPort(WorkersNames,WorkersMap,PortMap,[]),
 %%  io:format("~p~n",[Triplets]),
   %%[list of binarys from CSV file, Size of batch, 1/Hz, statem pid]
-  spawn(?MODULE,sendSamples,[CSVlist,ChunkSize,20,self(),Triplets]).
+  spawn(?MODULE,sendSamples,[CSVlist,ChunkSize,20,self(),Triplets,0]).
 
 
-sendSamples([],_ChunkSize,Hz,Pid,_Triplets)->
+sendSamples([],_ChunkSize,Hz,Pid,_Triplets,_Counter)->
   receive
     after Hz ->    gen_statem:cast(Pid,{finishedCasting})
 end;
 
-sendSamples([Head|ListOfSamples],ChunkSize,Hz,Pid,Triplets)->
-        [http_request(RouterHost, RouterPort,"weightsVector", list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>]),list_to_binary(Head)]))|| {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
+sendSamples([Head|ListOfSamples],ChunkSize,Hz,Pid,Triplets,Counter)->
+        [http_request(RouterHost, RouterPort,"weightsVector", list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>,list_to_binary(integer_to_list(Counter)),<<"#">>]),list_to_binary(Head)]))|| {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
           receive
               %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
             {stopCasting}  ->
               io:format("source stop casting",[]),
               gen_statem:cast(Pid,{leftOvers,[]})
-           after Hz-> sendSamples(ListOfSamples,ChunkSize,Hz,Pid,Triplets)
+           after Hz-> sendSamples(ListOfSamples,ChunkSize,Hz,Pid,Triplets,Counter+1)
           end.
 
 
