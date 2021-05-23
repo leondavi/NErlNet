@@ -14,7 +14,7 @@ prerequisite:
 
 1. python 3.7
 2. Eigen library ```sudo apt install libeigen3-dev```
-3. Rebar3 package ```sudo apt-get install -y rebar```
+3. Installing Rebar3 package https://riptutorial.com/erlang/example/15669/installing-rebar3
 4. ```conda install -c anaconda scons```
 5. Clone this repository
 6. Update cppSANN submodule ```git submodule update --init --recursive```
