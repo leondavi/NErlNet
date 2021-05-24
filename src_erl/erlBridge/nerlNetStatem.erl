@@ -22,7 +22,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(nerlNetStatem_state, {clientPid, features, labels, myName, modelId, nextState, missedSamplesCount = 0}).
+-record(nerlNetStatem_state, {clientPid, features, labels, myName, modelId, nextState, missedSamplesCount = 0, missedTrainSamples= []}).
 
 %%%===================================================================
 %%% API
@@ -140,9 +140,10 @@ wait(cast, {predict}, State) ->
   io:fwrite("Waiting, next state - predict: \n"),
   {next_state, wait, State#nerlNetStatem_state{nextState = predict}};
 
-wait(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount}) ->
-  io:fwrite("Missed, got sample. Got: ~p \n Missed samples count: ~p\n",[{SampleListTrain}, MissedSamplesCount]),
-  {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1}};
+wait(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = MissedTrainSamples}) ->
+  io:fwrite("Missed, got sample. Got: ~p \n Missed batches count: ~p\n",[{SampleListTrain}, MissedSamplesCount]),
+  Miss = MissedTrainSamples++SampleListTrain,
+  {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1, missedTrainSamples = Miss}};
 
 wait(cast, Param, State) ->
   io:fwrite("Not supposed to be. Got: ~p\n",[{Param}]),
@@ -150,8 +151,7 @@ wait(cast, Param, State) ->
 
 
 %% State train
-train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId,
-  features = Features, labels = Labels}) ->
+train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels}) ->
   CurrPid = self(),
   ChunkSizeTrain = round(length(SampleListTrain)/(Features + Labels)),
   %io:fwrite("length(SampleListTrain)/(Features + Labels): ~p\n",[length(SampleListTrain)/(Features + Labels)]),
@@ -161,7 +161,15 @@ train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = Mo
   {next_state, wait, State#nerlNetStatem_state{nextState = train}};
 
 
+%train(cast, {idle}, State = #nerlNetStatem_state{missedTrainSamples = MissedTrainSamples,modelId = ModelId, features = Features, labels = Labels}) ->
+%  io:fwrite("Go from train to idle after finishing Missed train samples: ~p\n",[MissedTrainSamples]),
+  %trainMissed(MissedTrainSamples,ModelId,Features,Labels),
+%  io:fwrite("Go from train to idle\n"),
+%  {next_state, idle, State};
+
 train(cast, {idle}, State) ->
+  %io:fwrite("Go from train to idle after finishing Missed train samples: ~p\n",[MissedTrainSamples]),
+  %trainMissed(MissedTrainSamples,ModelId,Features,Labels),
   io:fwrite("Go from train to idle\n"),
   {next_state, idle, State};
 
@@ -173,6 +181,14 @@ train(cast, Param, State) ->
   io:fwrite("Same state train, not supposed to be, command: ~p\n",[Param]),
   {next_state, train, State}.
 
+trainMissed([],ModelId,Features,Labels)->
+  io:fwrite("Finished train samples\n");
+
+trainMissed([FirstTrainChunk|MissedTrainSamples],ModelId,Features,Labels)->
+  CurrPid = self(),
+  ChunkSizeTrain = round(length(FirstTrainChunk)/(Features + Labels)),
+  _Pid = spawn(fun()-> erlModule:train2double(ChunkSizeTrain, Features, Labels, FirstTrainChunk,ModelId,CurrPid) end),
+  trainMissed([FirstTrainChunk|MissedTrainSamples],ModelId,Features,Labels).
 
 %% State predict
 predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStatem_state{features = Features, modelId = ModelId}) ->
@@ -181,7 +197,7 @@ predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStat
   %io:fwrite("length(SampleListPredict)/Features): ~p\n",[length(SampleListPredict)/Features]),
   io:fwrite("Send sample to predict\n"),
   _Pid = spawn(fun()-> erlModule:predict2double(SampleListPredict,ChunkSizePred,Features,ModelId,CurrPID, CSVname, BatchID) end),
-  {next_state, wait, State#nerlNetStatem_state{nextState = train}};
+  {next_state, wait, State#nerlNetStatem_state{nextState = predict}};
 
 predict(cast, {idle}, State) ->
   io:fwrite("Go from predict to idle\n"),
