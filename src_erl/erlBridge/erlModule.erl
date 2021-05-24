@@ -2,7 +2,7 @@
 
 %% API
 -export([testMatrix/2,cppBridgeController/0,cppBridgeControllerGetModelPtr/1 ,cppBridgeControllerSetData/1,
-	 create_module/6, train2double/6, predict2double/5, niftest/6, thread_create_test/0,
+	 create_module/6, train2double/6, predict2double/7, niftest/6, thread_create_test/0,
 	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, cppBridgeControllerSetModelPtrDat/2,
 	cppBridgeControllerDeleteModel/1, startTest/11,train/8, set_weights/3, get_weights/1]).
 
@@ -132,13 +132,13 @@ train_predict_create(1, _Rows, _Cols, _Labels, _Data_Label_mat, _ModelId) ->
 
 %% _Rows, _Col, _Labels - "ints"
 %% _Data_Label_mat - list
-predict2double(Data_mat, Rows, Cols, ModelId, ClientPid) ->
+predict2double(Data_mat, Rows, Cols, ModelId, ClientPid,CSVname,BatchID) ->
 	%% make double list and send to train_predict_create
 	_Return = train_predict_create(2, dList(Data_mat), Rows, Cols, ModelId),
 	receive
 		RESULTS->
 			io:fwrite("Results: ~p\n",[RESULTS]),
-			gen_statem:cast(ClientPid,{predictRes, RESULTS})
+			gen_statem:cast(ClientPid,{predictRes,CSVname,BatchID, RESULTS})
 	end.
 
 %% Predict module

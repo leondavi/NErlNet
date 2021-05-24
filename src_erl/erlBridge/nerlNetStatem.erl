@@ -22,7 +22,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(nerlNetStatem_state, {clientPid, features, labels, myName, modelId, chunkSizeTrain, chunkSizePred, nextState}).
+-record(nerlNetStatem_state, {clientPid, features, labels, myName, modelId, nextState, missedSamplesCount = 0}).
 
 %%%===================================================================
 %%% API
@@ -44,14 +44,13 @@ start_link(ARGS) ->
 %% @doc Whenever a gen_statem is started using gen_statem:start/[3,4] or
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
-init({ClientPID, MyName, {Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels, ChunkSize}}) ->
+init({ClientPID, MyName, {Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels}}) ->
   io:fwrite("start module_create ~n"),
 
   _Res=erlModule:module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
   %io:fwrite("Mid: ~p\n",[Mid]),
   %{ok, idle, []}.
-  {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = MyName,
-    modelId = ModelId, chunkSizeTrain = ChunkSize, chunkSizePred = ChunkSize}}.
+  {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = MyName, modelId = ModelId}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -124,9 +123,9 @@ wait(cast, {loss,LOSS_FUNC}, State = #nerlNetStatem_state{clientPid = ClientPid,
      %ClientPid ! LOSS_FUNC,
       {next_state, NextState, State};
 
-wait(cast, {predictRes,RESULTS}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState}) ->
+wait(cast, {predictRes,CSVname, BatchID, RESULTS}, State = #nerlNetStatem_state{clientPid = ClientPid, nextState = NextState}) ->
   io:fwrite("Predict results: ~p\n",[RESULTS]),
-  gen_statem:cast(ClientPid,{predictRes, MyName, RESULTS}),
+  gen_statem:cast(ClientPid,{predictRes, CSVname, BatchID, RESULTS}),
   {next_state, NextState, State};
 
 wait(cast, {idle}, State) ->
@@ -141,16 +140,24 @@ wait(cast, {predict}, State) ->
   io:fwrite("Waiting, next state - predict: \n"),
   {next_state, wait, State#nerlNetStatem_state{nextState = predict}};
 
+wait(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount}) ->
+  io:fwrite("Missed, got sample. Got: ~p \n Missed samples count: ~p\n",[{SampleListTrain}, MissedSamplesCount]),
+  {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1}};
+
 wait(cast, Param, State) ->
   io:fwrite("Not supposed to be. Got: ~p\n",[{Param}]),
   {next_state, wait, State}.
 
+
 %% State train
 train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId,
-  features = Features, labels = Labels, chunkSizeTrain = ChunkSizeTrain}) ->
-  io:fwrite("Send sample to train\n"),
+  features = Features, labels = Labels}) ->
+  CurrPid = self(),
+  ChunkSizeTrain = round(length(SampleListTrain)/(Features + Labels)),
+  %io:fwrite("length(SampleListTrain)/(Features + Labels): ~p\n",[length(SampleListTrain)/(Features + Labels)]),
+  %io:fwrite("Send sample to train: ~p\n",[SampleListTrain]),
   io:fwrite("ChunkSizeTrain: ~p, Features: ~p Labels: ~p ModelId ~p\n",[ChunkSizeTrain, Features, Labels, ModelId]),
-  erlModule:train2double(ChunkSizeTrain, Features, Labels, SampleListTrain,ModelId,self()),
+  _Pid = spawn(fun()-> erlModule:train2double(ChunkSizeTrain, Features, Labels, SampleListTrain,ModelId,CurrPid) end),
   {next_state, wait, State#nerlNetStatem_state{nextState = train}};
 
 
@@ -168,10 +175,12 @@ train(cast, Param, State) ->
 
 
 %% State predict
-predict(cast, {sample, SampleListPredict}, State = #nerlNetStatem_state{features = Features,
-  chunkSizePred = ChunkSizePred, modelId = ModelId}) ->
+predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStatem_state{features = Features, modelId = ModelId}) ->
+  ChunkSizePred = round(length(SampleListPredict)/Features),
+  CurrPID = self(),
+  %io:fwrite("length(SampleListPredict)/Features): ~p\n",[length(SampleListPredict)/Features]),
   io:fwrite("Send sample to predict\n"),
-  erlModule:predict2double(SampleListPredict,ChunkSizePred,Features,ModelId,self()),
+  _Pid = spawn(fun()-> erlModule:predict2double(SampleListPredict,ChunkSizePred,Features,ModelId,CurrPID, CSVname, BatchID) end),
   {next_state, wait, State#nerlNetStatem_state{nextState = train}};
 
 predict(cast, {idle}, State) ->
