@@ -33,8 +33,8 @@ getWorkerInput([Input],Workers)->{Workers,Input};
 getWorkerInput([Worker|WorkersAndInput],Workers) ->getWorkerInput(WorkersAndInput,Workers++[Worker]).
 
 
-start(StartType, StartArgs) ->
+start(_StartType, _StartArgs) ->
   erlang:error(not_implemented).
 
-stop(State) ->
+stop(_State) ->
   erlang:error(not_implemented).
