@@ -30,8 +30,8 @@ init(Req0, [Action,Client_StateM_Pid]) ->
   {ok, Req, Client_StateM_Pid}.
 
 
-start(StartType, StartArgs) ->
+start(_StartType, _StartArgs) ->
   erlang:error(not_implemented).
 
-stop(State) ->
+stop(_State) ->
   erlang:error(not_implemented).

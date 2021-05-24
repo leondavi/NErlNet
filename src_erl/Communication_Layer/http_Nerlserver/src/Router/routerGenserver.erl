@@ -62,9 +62,9 @@ init({MyName,ConnectionsMap}) ->
 
 handle_cast({rout,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
-  [To,Vector] = binary:split(Body,<<"#">>),
+  [To|_Vector] = binary:split(Body,<<"#">>),
   {Host,Port} =maps:get(list_to_atom(binary_to_list(To)),ConnectionsMap),
-  http_request(Host,Port,"weightsVector",Vector),
+  http_request(Host,Port,"weightsVector",Body),
   {noreply, State};
 
 
@@ -83,6 +83,7 @@ handle_cast({clientTraining, Body}, State = #router_genserver_state{connectionsM
 
 handle_cast({clientPredict, Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
 %%  sending client "training" request
+%%  io:format("sending to client predict: ~p~n",[Body]),
   {Host,Port} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
   http_request(Host,Port,"clientPredict",Body),
   {noreply, State};
@@ -186,20 +187,20 @@ start_connection([{ServerName,{Host, Port}}|Tail]) ->
 
 %%list_to_binary([list_to_binary([Name,<<"#">>]),BinaryHead]))
 
-findroutAndsend([],_)->ok;
-findroutAndsend([[SourceName,ClientName,InputFile]|ListOfSources], ConnectionsMap) ->
-%%  io:format("sourceName = ~p~n, Map = ~p~n",[SourceName,ConnectionsMap]),
-  {SourceHost,SourcePort} =maps:get(list_to_atom(SourceName),ConnectionsMap),
-%%  io:format("~p~n",[SourcePort]),
-  http_request(SourceHost,SourcePort,"updateCSV",ClientName++","++InputFile),
-  findroutAndsend(ListOfSources,ConnectionsMap).
-
-
-splitbyTriplets([],Ret) ->Ret;
-splitbyTriplets(ListofTriplets,Ret) ->
-  L1 = lists:sublist(ListofTriplets,1,3),
-  L2 = lists:sublist(ListofTriplets,4,length(ListofTriplets)-1),
-  splitbyTriplets(L2,Ret++[L1]).
+%%findroutAndsend([],_)->ok;
+%%findroutAndsend([[SourceName,ClientName,InputFile]|ListOfSources], ConnectionsMap) ->
+%%%%  io:format("sourceName = ~p~n, Map = ~p~n",[SourceName,ConnectionsMap]),
+%%  {SourceHost,SourcePort} =maps:get(list_to_atom(SourceName),ConnectionsMap),
+%%%%  io:format("~p~n",[SourcePort]),
+%%  http_request(SourceHost,SourcePort,"updateCSV",ClientName++","++InputFile),
+%%  findroutAndsend(ListOfSources,ConnectionsMap).
+%%
+%%
+%%splitbyTriplets([],Ret) ->Ret;
+%%splitbyTriplets(ListofTriplets,Ret) ->
+%%  L1 = lists:sublist(ListofTriplets,1,3),
+%%  L2 = lists:sublist(ListofTriplets,4,length(ListofTriplets)-1),
+%%  splitbyTriplets(L2,Ret++[L1]).
 
 
 http_request(Host, Port,Path, Body)->

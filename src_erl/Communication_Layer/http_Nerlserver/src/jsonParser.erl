@@ -84,8 +84,8 @@ getSources([Source|Sources],OnDeviceSources,Return,ArchMap) ->
   end.
 
 %%getRouters findes all Routers needed to be opened on this device. returns [{RouterArgsMap,RoutersConnectionMap},...]
-getRouters([],_OnDeviceRouters,[],ArchMap) ->none;
-getRouters([],_OnDeviceRouters,Return,ArchMap) ->Return;
+getRouters([],_OnDeviceRouters,[],_ArchMap) ->none;
+getRouters([],_OnDeviceRouters,Return,_ArchMap) ->Return;
 getRouters([Router|Routers],OnDeviceRouters,Return,ArchMap) ->
 
   RouterName = maps:get(<<"name">>,Router),
@@ -144,7 +144,7 @@ buildRouterConnectionMap(MyRouterName,[{EntityName,RouterName}|Entities],ArchMap
 
 getConnectionMap(Name,ArchMap) ->
   ConnectionsList = maps:to_list(maps:get(Name,maps:get(<<"connectionsMap">>,ArchMap))),
-  io:format("~p connection Map from json: ~p~n",[Name,ConnectionsList]),
+%%  io:format("~p connection Map from json: ~p~n",[Name,ConnectionsList]),
   buildConnectionMap(ConnectionsList,ArchMap, #{}).
 
 buildConnectionMap([],_ArchMap, ConnectionMap) -> ConnectionMap;
@@ -189,9 +189,7 @@ getPortUnknown(ArchMap,EntityName)->
   end.
 
 %%returns a map of all workers  - key workerName, Value ClientName
-getWorkersMap([],WorkersMap)->
-  io:format("WorkersMap: ~p~n",[WorkersMap]),
-  WorkersMap;
+getWorkersMap([],WorkersMap)->WorkersMap;
 getWorkersMap([Client|Clients],WorkersMap)->
   ClientName = list_to_atom(binary_to_list(maps:get(<<"name">>,Client))),
   Workers = re:split(binary_to_list(maps:get(<<"workers">>,Client)),",",[{return,list}]),
