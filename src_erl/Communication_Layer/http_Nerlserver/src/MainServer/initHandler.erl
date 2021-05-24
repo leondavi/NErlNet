@@ -8,7 +8,7 @@
 %%%-------------------------------------------------------------------
 -module(initHandler).
 -author("kapelnik").
--export([init/2]).
+-export([init/2, start/2, stop/1]).
 -behaviour(application).
 
 
@@ -44,3 +44,9 @@ getWorkerInput([Worker|WorkersAndInput],Workers) ->getWorkerInput(WorkersAndInpu
 %%  L1 = lists:sublist(ListofTriplets,1,3),
 %%  L2 = lists:sublist(ListofTriplets,4,length(ListofTriplets)-1),
 %%  splitbytriplets(L2,Ret++[L1]).
+
+start(_StartType, _StartArgs) ->
+  erlang:error(not_implemented).
+
+stop(_State) ->
+  erlang:error(not_implemented).

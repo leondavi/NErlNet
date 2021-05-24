@@ -54,29 +54,29 @@ start_link(Args) ->
 
 %%NerlClientsArgs=[{MyName,Workers,ConnectionsMap},...], Workers = list of maps of name and args
 %%  init nerlClient with given workers and parameters, and build a map :#{workerName=>WorkerPid,...}
-init({MyName,Workers,ChunkSize,ConnectionsMap}) ->
+init({MyName,Workers,ConnectionsMap}) ->
   inets:start(),
   start_connection(maps:to_list(ConnectionsMap)),
 %% io:format("~p~n",[maps:to_list(Workers)]),
-  WorkersPids = createWorkers(Workers,self(),ChunkSize,[]),
+  WorkersPids = createWorkers(Workers,self(),[]),
 %%  [{WorkerName,nerlNetStatem:start_link({self(), WorkerName, CppSANNArgs})}||{WorkerName,CppSANNArgs}<-maps:to_list(Workers)],
   WorkersMap = maps:from_list(WorkersPids),
 
 %%TODO workers = WorkersMap <-TODO ADD
   {ok, idle, #client_statem_state{myName= MyName, workersMap = WorkersMap, portMap = ConnectionsMap, msgCounter = 0}}.
 
-createWorkers([],_ClientPid,_ChunkSize,WorkersNamesPids) ->WorkersNamesPids;
-createWorkers([Worker|Workers],ClientPid,ChunkSize,WorkersNamesPids) ->
+createWorkers([],_ClientPid,WorkersNamesPids) ->WorkersNamesPids;
+createWorkers([Worker|Workers],ClientPid,WorkersNamesPids) ->
   WorkerName = list_to_atom(binary_to_list(maps:get(<<"name">>,Worker))),
   CppSANNArgsBinary = maps:get(<<"args">>,Worker),
   Splitted = re:split(CppSANNArgsBinary,"@",[{return,list}]),
   [Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels] = Splitted,
   WorkerArgs ={string_to_list_int(Layers_sizes),list_to_float(Learning_rate),
                   string_to_list_int(ActivationList), list_to_integer(Optimizer), list_to_integer(ModelId),
-                      list_to_integer(Features), list_to_integer(Labels),ChunkSize},
+                      list_to_integer(Features), list_to_integer(Labels)},
   io:format("client starting worker:~p~n",[{WorkerName,WorkerArgs}]),
   WorkerPid = nerlNetStatem:start_link({self(), WorkerName, WorkerArgs}),
-  createWorkers(Workers,ClientPid,ChunkSize,WorkersNamesPids++[{WorkerName, WorkerPid}]).
+  createWorkers(Workers,ClientPid,WorkersNamesPids++[{WorkerName, WorkerPid}]).
 
 %%return list of integer from string of lists of strings - "[2,2,2]" -> [2,2,2]
 string_to_list_int(String) ->
@@ -123,25 +123,31 @@ idle(cast, {training}, State = #client_statem_state{workersMap = WorkersMap, myN
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 idle(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
+  io:format("client going to state predict",[]),
   Workers = maps:to_list(WorkersMap),
   [gen_statem:cast(WorkerPid,{predict})|| {_WorkerName,WorkerPid}<-Workers],
   %%  send an ACK to mainserver that the CSV file is ready
   ack(MyName,PortMap),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
-idle(cast, EventContent, State = #client_statem_state{myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
+idle(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
   io:format("client training ignored:  ~p ~n",[EventContent]),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
 
 
-training(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
-  [WorkerName,BatchNumber,Sample] = re:split(binary_to_list(Vector), "#", [{return, list}]),
-%%  Sample= lists:sublist(Sample1,1,length(Sample1)),
-  Splitted = re:split(Sample, ",", [{return, list}]),
-  ToSend =  lists:reverse(getNumbers(Splitted,[])),
-  io:format("BatchNumber: ~p~n",[BatchNumber]),
-  io:format("Vector: ~p~n",[ToSend]),
+training(cast, {sample,[]}, State = #client_statem_state{msgCounter = Counter}) ->
 
+  io:format("client go empty Vector~n",[]),
+
+  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+
+training(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
+  %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
+  [_ClientName,WorkerName,_CSVName, _BatchNumber,BatchOfSamples] = re:split(binary_to_list(Vector), "#", [{return, list}]),
+  Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
+  ToSend =  lists:reverse(getNumbers(Splitted,[])),
+%%  io:format("BatchNumber: ~p~n",[BatchNumber]),
+%%  io:format("Vector: ~p~n",[ToSend]),
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
   gen_statem:cast(WorkerPid, {sample,ToSend}),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
@@ -153,6 +159,7 @@ training(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgC
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName, portMap = PortMap, msgCounter = Counter}) ->
+  io:format("client going to state predict",[]),
   Workers = maps:to_list(WorkersMap),
   [gen_statem:cast(WorkerPid,{predict})|| {_WorkerName,WorkerPid}<-Workers],
   ack(MyName,PortMap),
@@ -160,17 +167,26 @@ training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,m
 
 training(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
   io:format("client training ignored:  ~p ~n",[EventContent]),
+  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+
+training(cast, {loss,LossFunction}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
+  io:format("sending ACK   ~n",[]),
+  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+%%  send an ACK to mainserver that the CSV file is ready
+  http_request(RouterHost,RouterPort,"clientReady",atom_to_list(MyName)).
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
 
 
-predict(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
-  io:format("sending samples to predict ~p ~n",[Vector]),
-  [WorkerName,BatchNumber|[Sample1]] = re:split(binary_to_list(Vector), "#", [{return, list}]),
-  Sample= lists:sublist(Sample1,1,length(Sample1)-1),
-  Splitted = re:split(Sample, ",", [{return, list}]),
+predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
+  %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
+  [_ClientName,WorkerName,CSVName, BatchNumber,BatchOfSamples] = re:split(binary_to_list(Body), "#", [{return, list}]),
+  Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
   ToSend =  lists:reverse(getNumbers(Splitted,[])),
+  io:format("CSVName: ~p, BatchNumber: ~p~n",[CSVName,BatchNumber]),
+%%  io:format("Vector: ~p~n",[ToSend]),
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
-  gen_statem:cast(WorkerPid, {sample,BatchNumber,ToSend}),
+  gen_statem:cast(WorkerPid, {sample,CSVName, BatchNumber,ToSend}),
+%%  gen_statem:cast(WorkerPid, {sample,ToSend}),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName,portMap = PortMap,msgCounter = Counter}) ->
@@ -188,9 +204,6 @@ predict(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgCo
 predict(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
   io:format("client predict ignored:  ~p ~n",[EventContent]),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}}.
-
-
-%%io:format("vector _handler got Body~n",[]),
 
 
 %% @private
@@ -244,7 +257,7 @@ getNumbers([Head|Tail], List) ->
     Float->    %io:format("~p~n",[Float]),
       getNumbers(Tail,[(Float)]++List)
   catch
-    error:Error->
+    error:_Error->
       %io:format("~p~n",[Error]),
       getNumbers(Tail,[list_to_integer(Head)]++List)
 
