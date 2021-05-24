@@ -96,10 +96,10 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     cppBridgeController *s = s->GetInstance();
 
     // Get the model from the singleton
-    std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(mid);
+    //std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(mid);
 
     // Get the weights_list ptr
-    vec_of_weights_ptrs = modelPtr->get_weights_of_model();
+    //vec_of_weights_ptrs = modelPtr->get_weights_of_model();
 
     //for(int i = 0; ){
 
@@ -474,8 +474,8 @@ static ErlNifFunc nif_funcs[] = {
     {"train_predict_create", 5, train_predict_create_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For predict
     {"create_module", 6, train_predict_create_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For module create. TODO: Think about using it in a dirty scheduler
     {"cppBridgeControllerDeleteModel", 1, cppBridgeControllerDeleteModel_nif}, // Delete model by mid
-    {"get_weights", 0, get_weights_nif}, // Get weights
-    {"set_weights", 2, set_weights_nif} // Set weights
+    {"get_weights", 1, get_weights_nif}, // Get weights
+    {"set_weights", 3, set_weights_nif} // Set weights
 };
 
 // TODO: Think about using this feature in the future
