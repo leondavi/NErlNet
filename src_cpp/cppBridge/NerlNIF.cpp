@@ -240,12 +240,14 @@ static void* trainFun(void *arg){
     // Convert the vector to a matrix. Native to Eigen
     int FeaturesAndLabels = trainPtr->col+trainPtr->labels; // Number of columns in total
     data_mat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(trainPtr->data_label_mat.data(), trainPtr->rows, trainPtr->col,Stride<Dynamic,Dynamic>(1, FeaturesAndLabels));
-    label_mat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(&trainPtr->data_label_mat[trainPtr->col], trainPtr->rows, trainPtr->labels,Stride<Dynamic,Dynamic>(FeaturesAndLabels, FeaturesAndLabels));
+    label_mat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(&trainPtr->data_label_mat[trainPtr->col], trainPtr->rows, trainPtr->labels,Stride<Dynamic,Dynamic>(1, FeaturesAndLabels));
 
     #if DEBUG_TRAIN_NIF
 
-    std::cout <<mat<<std::endl;
-    std::cout <<labelMat<<std::endl;
+    std::cout <<"data mat: "<<std::endl;
+    std::cout <<data_mat<<std::endl;
+    std::cout <<"label mat: "<<std::endl;
+    std::cout <<label_mat<<std::endl;
 
     printf("Finish to go over the list.\n");
 
