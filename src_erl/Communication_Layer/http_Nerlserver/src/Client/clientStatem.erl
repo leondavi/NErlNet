@@ -165,15 +165,14 @@ training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,m
   ack(MyName,PortMap),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
-training(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
-  io:format("client training ignored:  ~p ~n",[EventContent]),
+training(cast, {loss,LossFunction}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
+  io:format("LossFunction: ~p   ~n",[LossFunction]),
+%%  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+%%  TODO send loss to mainserver
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
-training(cast, {loss,LossFunction}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
-  io:format("sending ACK   ~n",[]),
-  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
-%%  send an ACK to mainserver that the CSV file is ready
-  http_request(RouterHost,RouterPort,"clientReady",atom_to_list(MyName)).
+training(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
+  io:format("client training ignored:  ~p ~n",[EventContent]),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
 
 
