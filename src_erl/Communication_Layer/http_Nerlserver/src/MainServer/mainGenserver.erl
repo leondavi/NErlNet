@@ -71,14 +71,14 @@ handle_call(_Request, _From, State = #main_genserver_state{}) ->
 {stop, Reason :: term(), NewState :: #main_genserver_state{}}).
 
 
-handle_cast({initCSV, Source,Workers,Body}, State = #main_genserver_state{state = idle, sourcesWaitingList = SourcesWaitingList,connectionsMap = ConnectionMap}) ->
+handle_cast({initCSV, Source,_Workers,Body}, State = #main_genserver_state{state = idle, sourcesWaitingList = SourcesWaitingList,connectionsMap = ConnectionMap}) ->
 %%  send router http request, to rout this message to all sensors
 %%  TODO find the router that can send this request to Sources**
   findroutAndsend(Source,Body,ConnectionMap),
   io:format("WaitingList = ~p~n",[list_to_atom(Source)]),
   {noreply, State#main_genserver_state{sourcesWaitingList = SourcesWaitingList++[list_to_atom(Source)]}};
 
-handle_cast({clientsTraining}, State = #main_genserver_state{state = casting,clients = ListOfClients, connectionsMap = _ConnectionMap}) ->
+handle_cast({clientsTraining}, State = #main_genserver_state{state = casting,clients = ListOfClients}) ->
 %%  send router http request, to rout this message to all sensors
   io:format("already casting~n",[]),
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
@@ -90,7 +90,7 @@ handle_cast({clientsTraining}, State = #main_genserver_state{clients = ListOfCli
   [{setClientState(clientTraining,ClientName, ConnectionMap)}|| ClientName<- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
 
-handle_cast({clientsPredict}, State = #main_genserver_state{state = casting, clients = ListOfClients, connectionsMap = ConnectionMap}) ->
+handle_cast({clientsPredict}, State = #main_genserver_state{state = casting, clients = ListOfClients}) ->
 %%  send router http request, to rout this message to all sensors
   io:format("already casting~n",[]),
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
@@ -230,9 +230,8 @@ findroutAndsend(SourceName,Body,ConnectionsMap) ->
 http_request(Host, Port,Path, Body)->
   URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  io:format("sending:  ~p~nto HostPo: ~p~n",[Body,{Host, Port}]),
-  Req = httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []),
-  io:format("Req: ~p~n",[Req]).
+%%  io:format("sending:  ~p~nto HostPo: ~p~n",[Body,{Host, Port}]),
+  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
 
 
 %%Receives a list of routers and connects to them

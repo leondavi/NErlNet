@@ -48,7 +48,7 @@ start(_StartType, _StartArgs) ->
     io:format("My HostName: ~p~n",[list_to_binary(HostName)]),
 
     %%Server that should be established on this machine from JSON architecture:
-    {MainServer,ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers} = jsonParser:getDeviceEntities("./input/jsonArch1PC.json",list_to_binary(HostName)),
+    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers} = jsonParser:getDeviceEntities("./input/jsonArch1PC.json",list_to_binary(HostName)),
     ChunkSize = 2,
 
 %%    Creating a Dispatcher for each Server from JSONs architecture - this dispatchers will rout http requests to the right handler.
@@ -61,7 +61,7 @@ start(_StartType, _StartArgs) ->
     %%{"/req_name/:arg1/:arg2",[{arg1,constrains}, {arg2,int}], addHandler,[]}
     %%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
 
-    createClientsAndWorkers(ClientsAndWorkers, ChunkSize, HostName),
+    createClientsAndWorkers(ClientsAndWorkers, HostName),
     createMainServer(MainServer,HostName),
     createRouters(Routers,HostName),
     createSources(Sources,WorkersMap, ChunkSize, HostName),
@@ -76,16 +76,16 @@ start(_StartType, _StartArgs) ->
 
 %% internal functions
 
-createClientsAndWorkers(none, ChunkSize,_HostName) -> none;
-createClientsAndWorkers([], ChunkSize,_HostName) -> okdone;
-createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsMap}|ClientsAndWorkers], ChunkSize,HostName) ->
+createClientsAndWorkers(none,_HostName) -> none;
+createClientsAndWorkers([], _HostName) -> okdone;
+createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsMap}|ClientsAndWorkers],HostName) ->
     ClientName = list_to_atom(binary_to_list(maps:get(<<"name">>,ClientArgs))),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,ClientArgs))),
 
     %%Create a gen_StateM machine for maintaining Database for Client.
     %% all http requests will be handled by Cowboy which updates client_statem if necessary.
 %%    WorkersArgsMap = #{Worker1Name => Worker1Args, Worker2Name => Worker2Args},
-    ClientStatemArgs= {ClientName,WorkersArgs,ChunkSize,ClientConnectionsMap},        %%make this a list of client
+    ClientStatemArgs= {ClientName,WorkersArgs,ClientConnectionsMap},        %%make this a list of client
     ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
 
 
@@ -97,7 +97,7 @@ createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsMap}|ClientsAn
             {"/init",clientStateHandler, [init,ClientStatemPid]},
             {"/clientTraining",clientStateHandler, [training,ClientStatemPid]},
             {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
-            {"/clientTPredict",clientStateHandler, [predict,ClientStatemPid]},
+            {"/clientPredict",clientStateHandler, [predict,ClientStatemPid]},
             {"/weightsVector",vectorHandler, [ClientStatemPid]}
         ]}
     ]),
@@ -105,7 +105,7 @@ createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsMap}|ClientsAn
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
     init_cowboy_start_clear(ClientName, {HostName,Port},NerlClientDispatch),
-    createClientsAndWorkers(ClientsAndWorkers,ChunkSize,HostName).
+    createClientsAndWorkers(ClientsAndWorkers,HostName).
 
 createSources(none,_WorkersMap,_ChunkSize,_HostName) -> none;
 createSources([],_WorkersMap,_ChunkSize,_HostName) -> okdone;
@@ -208,14 +208,14 @@ init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
     ).
 
 
-getHostName() ->
-    {ok, L} = inet:getif(),
-    IP = tuple_to_list(element(1, hd(L))),
-    A = lists:flatten(io_lib:format("~p", [IP])),
-    Subbed = lists:sublist(A,2,length(A)-2),
-    lists:flatten(string:replace(Subbed,",",".",all)).
-
-
+%%getHostName() ->
+%%    {ok, L} = inet:getif(),
+%%    IP = tuple_to_list(element(1, hd(L))),
+%%    A = lists:flatten(io_lib:format("~p", [IP])),
+%%    Subbed = lists:sublist(A,2,length(A)-2),
+%%    lists:flatten(string:replace(Subbed,",",".",all)).
+%%
+%%
 
 stop(_State) ->
     ok.
