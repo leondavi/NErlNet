@@ -8,9 +8,9 @@
 %%%-------------------------------------------------------------------
 -module(actionHandler).
 -author("kapelnik").
--behavior(cowboy_handler).
+-behavior(application).
 
--export([init/2]).
+-export([init/2, start/2, stop/1]).
 
 
 %%setter handler for editing weights in CSV file, can also send a reply to sender
@@ -30,3 +30,9 @@ init(Req0, [Action, Main_genserver_Pid]) ->
     Reply,
     Req0),
   {ok, Req, Main_genserver_Pid}.
+
+start(_StartType, _StartArgs) ->
+  erlang:error(not_implemented).
+
+stop(_State) ->
+  erlang:error(not_implemented).

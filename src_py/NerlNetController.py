@@ -2,7 +2,7 @@ import requests
 
 
 def updateCSV():
-	r = requests.post('http://192.168.0.107:8080/updateCSV',data = "s1,w1,w2,./input/shuffled-input99.csv")
+	r = requests.post('http://192.168.0.107:8080/updateCSV',data = "s1,w1,w2,./input/shuffled-input9.csv")
 	# r = requests.post('http://192.168.0.107:8080/updateCSV',data = "s1,w1,w2,./input/shuffled-input99.csv")
 	# r2 = requests.post('http://192.168.0.107:8080/updateCSV',data = "source2,worker5,worker7, ... ,./input/input4.csv")...
 	print(r.text)
