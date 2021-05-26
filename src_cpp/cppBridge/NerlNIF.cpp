@@ -153,6 +153,8 @@ static void* predictFun(void *arg){
 
     PredictParam* predictPtr = (PredictParam*)arg;
     ErlNifEnv *env = enif_alloc_env();
+    MatrixXd resultsMat;
+    ERL_NIF_TERM pred_res_and_time;
 
     // Get the singleton instance
     cppBridgeController *s = s->GetInstance();
@@ -166,14 +168,19 @@ static void* predictFun(void *arg){
     // Create the data matrix from a vector. Native in Eigen.
     data_matrix = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(predictPtr->data_mat.data(), predictPtr->rows, predictPtr->cols,Stride<Dynamic,Dynamic>(1, predictPtr->cols));
 
-    // Predict model with received parameters
-    MatrixXd resultsMat;
-
 #if DEBUG_PREDICT_NIF
     std::cout << "Start predicting (inside the thread)." << '\n';
 #endif
 
+    // Start timer for the prediction in cppSANN
+    auto start = high_resolution_clock::now();
+
+    // Predict model with received parameters
     modelPtr->predict(data_matrix, resultsMat);
+
+    // Stop the timer and calculate the time
+    auto stop = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(stop - start);
 
     // Create the result vector from the result matrix TODO: Native in Eigen optionally
     std::vector<double> results_vec;
@@ -193,12 +200,15 @@ static void* predictFun(void *arg){
     // Convert the result vector to nif term
     nifpp::TERM retResults = nifpp::make(env, results_vec);
 
+    // Convert the loss value and the train duration value to a nif term
+    pred_res_and_time = enif_make_tuple(env, 2, retResults,enif_make_double(env, duration.count()));
+
     // Sends a message to a process. Parameters:
     // caller_env - The environment of the calling process or callback. Must be NULL only if calling from a custom thread not spawned by ERTS.
     // *to_pid - The pid of the receiving process. The pid is to refer to a process on the local node.
     // msg_env - The environment of the message term. Must be a process independent environment allocated with enif_alloc_env or NULL.
     // msg - The message term to send.
-    if(enif_send(NULL,&(predictPtr->pid), env,retResults))
+    if(enif_send(NULL,&(predictPtr->pid), env,pred_res_and_time))
     {
     #if DEBUG_PREDICT_NIF
         printf("enif_send succeed\n");
@@ -224,6 +234,7 @@ static void* trainFun(void *arg){
     TrainParam* trainPtr = (TrainParam*)arg;
     double loss_val;
     ErlNifEnv *env = enif_alloc_env();
+    ERL_NIF_TERM loss_val_term;
 
     // Get the singleton instance
     cppBridgeController *s = s->GetInstance();
@@ -243,7 +254,6 @@ static void* trainFun(void *arg){
     label_mat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(&trainPtr->data_label_mat[trainPtr->col], trainPtr->rows, trainPtr->labels,Stride<Dynamic,Dynamic>(1, FeaturesAndLabels));
 
     #if DEBUG_TRAIN_NIF
-
     std::cout <<"data mat: "<<std::endl;
     std::cout <<data_mat<<std::endl;
     std::cout <<"label mat: "<<std::endl;
@@ -272,31 +282,47 @@ static void* trainFun(void *arg){
      }
 
     printf("Start to train the model.\n");
-#endif
+    #endif
+
+     // Start the timer for the training in cppSANN
+    auto start = high_resolution_clock::now();
 
     // Train the model with recieved parameters and get loss value
     loss_val = modelPtr->train(data_mat,label_mat);
 
-#if DEBUG_TRAIN_NIF
-    auto start = high_resolution_clock::now();
+    // Stop the timer and calculate the time took for training
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
+
+#if DEBUG_TRAIN_NIF
     // To get the value of duration use the count()
     // member function on the duration object
     std::cout << "Train time inside the NIF (micro seconds): " << duration.count() << std::endl;
-
 
     printf("Finish train the model, loss fun inside the nif thread: \n");
     std::cout<< loss_val << "\n";
 #endif
 
-    // Convert the train duration value to a nif term
-    nifpp::TERM loss_val_term = nifpp::make(env, loss_val);
+    // Check if the loss value is in range and not -NaN
+    if( loss_val > 1.7976931348623157e+308 || loss_val < -1.7976931348623157e+308 || loss_val != loss_val)
+    {
+        printf("Loss value not in range \n");
 
-    // Convert the lossFun value to a nif term
-    //nifpp::TERM duration_term = nifpp::make(env, duration.count());
+        // Convert the loss value to a nif term
+        loss_val_term = enif_make_atom(env, "nan");
+        #if DEBUG_PREDICT_NIF
+                std::cout << "loss_val_term: \n" << loss_val_term << "\n";
+        #endif
+    }
+    else{
+        // Convert the loss value and the train duration value to a nif term
+        loss_val_term = enif_make_tuple(env, 2, enif_make_double(env, loss_val),enif_make_double(env, duration.count()));
+        #if DEBUG_PREDICT_NIF
+                std::cout << "loss_val_term: \n" << loss_val_term << "\n";
+        #endif
+    }
 
-    // Send to erlang process the loss value
+    // Send to erlang process the loss value and time
     if(enif_send(NULL,&(trainPtr->pid), env,loss_val_term)){
     #if DEBUG_PREDICT_NIF
             printf("enif_send succeed\n");
