@@ -117,15 +117,20 @@ idle(cast, Param, State) ->
   {next_state, idle, State}.
 
 %% Waiting for receiving results or loss function
-wait(cast, {loss,LOSS_FUNC}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState}) ->
-      io:fwrite("Loss func in wait: ~p\n",[{LOSS_FUNC}]),
-      gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}),
-     %ClientPid ! LOSS_FUNC,
+%% Got nan or inf from loss function - Error, loss function too big for double
+wait(cast, {loss,nan,_Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState}) ->
+  io:fwrite("ERROR: Loss func in wait: nan (Loss function too big for double)\n"),
+  gen_statem:cast(ClientPid,{loss, MyName, nan}), %% TODO send to tal stop casting request with error desc
+  {next_state, NextState, State};
+
+wait(cast, {loss,{LOSS_FUNC,TimeCpp},Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState}) ->
+      io:fwrite("Loss func in wait: ~p\nTime for train execution in cppSANN (micro sec): ~p\nTime for train execution in NIF+cppSANN (micro sec): ~p\n",[LOSS_FUNC, TimeCpp, Time_NIF]),
+      gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}), %% TODO Add Time and Time_NIF to the cast
       {next_state, NextState, State};
 
-wait(cast, {predictRes,CSVname, BatchID, RESULTS}, State = #nerlNetStatem_state{clientPid = ClientPid, nextState = NextState}) ->
-  io:fwrite("Predict results: ~p\n",[RESULTS]),
-  gen_statem:cast(ClientPid,{predictRes, CSVname, BatchID, RESULTS}),
+wait(cast, {predictRes,CSVname, BatchID, {RESULTS,TimeCpp},Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, nextState = NextState}) ->
+  io:fwrite("Predict results: ~p\nTime for predict execution in cppSANN (micro sec): ~p\nTime for predict execution in NIF+cppSANN (micro sec): ~p\n",[RESULTS, TimeCpp, Time_NIF]),
+  gen_statem:cast(ClientPid,{predictRes, CSVname, BatchID, RESULTS}), %% TODO Add Time and Time_NIF to the cast
   {next_state, NextState, State};
 
 wait(cast, {idle}, State) ->
@@ -156,7 +161,7 @@ train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = Mo
   ChunkSizeTrain = round(length(SampleListTrain)/(Features + Labels)),
   %io:fwrite("length(SampleListTrain)/(Features + Labels): ~p\n",[length(SampleListTrain)/(Features + Labels)]),
   %io:fwrite("Send sample to train: ~p\n",[SampleListTrain]),
-  io:fwrite("ChunkSizeTrain: ~p, Features: ~p Labels: ~p ModelId ~p\n",[ChunkSizeTrain, Features, Labels, ModelId]),
+  %io:fwrite("ChunkSizeTrain: ~p, Features: ~p Labels: ~p ModelId ~p\n",[ChunkSizeTrain, Features, Labels, ModelId]),
   _Pid = spawn(fun()-> erlModule:train2double(ChunkSizeTrain, Features, Labels, SampleListTrain,ModelId,CurrPid) end),
   {next_state, wait, State#nerlNetStatem_state{nextState = train}};
 

@@ -107,13 +107,16 @@ create_module(0, _Layers_sizes, _Learning_rate, _ModelId, _Activation_list, _Opt
 %% train_predict_create - mode: 0 - model creation, 1 - train, 2 - predict
 %% Rows, Col, Labels - "int"
 %% Data_Label_mat - list
-train2double(Rows, Cols, Labels, Data_Label_mat, ModelId, ClientPid) -> % TODO
+train2double(Rows, Cols, Labels, Data_Label_mat, ModelId, ClientPid) ->
+	Start_Time = os:system_time(microsecond),
 	%% make double list and send to train_predict_create
 	_Return = train_predict_create(1, Rows, Cols, Labels, dList(Data_Label_mat), ModelId),
 	receive
-		LOSS_FUNC->
-			%io:fwrite("Loss func: ~p\n",[LOSS_FUNC]),
-			gen_statem:cast(ClientPid,{loss, LOSS_FUNC})
+		LOSS_And_Time->
+			%io:fwrite("Loss func in erlModule: ~p\n",[LOSS_FUNC]),
+			Finish_Time = os:system_time(microsecond),
+			Time_elapsedNIF=Finish_Time-Start_Time,
+			gen_statem:cast(ClientPid,{loss, LOSS_And_Time,Time_elapsedNIF}) % TODO Change the cast in the client
 	end.
 
 %% Second version - optional for the future
@@ -133,12 +136,15 @@ train_predict_create(1, _Rows, _Cols, _Labels, _Data_Label_mat, _ModelId) ->
 %% _Rows, _Col, _Labels - "ints"
 %% _Data_Label_mat - list
 predict2double(Data_mat, Rows, Cols, ModelId, ClientPid,CSVname,BatchID) ->
+	Start_Time = os:system_time(microsecond),
 	%% make double list and send to train_predict_create
 	_Return = train_predict_create(2, dList(Data_mat), Rows, Cols, ModelId),
 	receive
-		RESULTS->
-			io:fwrite("Results: ~p\n",[RESULTS]),
-			gen_statem:cast(ClientPid,{predictRes,CSVname,BatchID, RESULTS})
+		RESULTS_And_Time->
+			Finish_Time = os:system_time(microsecond),
+			Time_elapsedNIF=Finish_Time-Start_Time,
+			io:fwrite("Results: ~p\n",[RESULTS_And_Time]),
+			gen_statem:cast(ClientPid,{predictRes,CSVname,BatchID, RESULTS_And_Time,Time_elapsedNIF}) % TODO Change the cast in the client
 	end.
 
 %% Predict module
