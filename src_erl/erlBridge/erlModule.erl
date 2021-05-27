@@ -2,9 +2,9 @@
 
 %% API
 -export([testMatrix/2,cppBridgeController/0,cppBridgeControllerGetModelPtr/1 ,cppBridgeControllerSetData/1,
-	 create_module/6, train2double/6, predict2double/5, niftest/6, thread_create_test/0,
+	 create_module/6, train2double/6, predict2double/7, niftest/6, thread_create_test/0,
 	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, cppBridgeControllerSetModelPtrDat/2,
-	cppBridgeControllerDeleteModel/1, startTest/11,train/8]).
+	cppBridgeControllerDeleteModel/1, startTest/11,train/8, set_weights/3, get_weights/1]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
@@ -15,7 +15,9 @@
 init() ->
 	RelativeDirPath = filename:dirname(filename:dirname(filename:absname(""))), % NErlNet directory path
 	RelativeDirPathNew = string:sub_string(RelativeDirPath, 1, length(RelativeDirPath)-7),
-	Nif_Module_Cpp_Path = string:concat(RelativeDirPathNew,"src_cpp/cppBridge/./libNerlNIF"), % Relative path for nifModule_nif
+	%Nif_Module_Cpp_Path = string:concat(RelativeDirPathNew,"NErlNet/src_cpp/cppBridge/libNerlNIF"), % Relative path for nifModule_nif
+	Nif_Module_Cpp_Path = string:concat(RelativeDirPathNew,"src_cpp/cppBridge/libNerlNIF"), % Relative path for nifModule_nif
+
 	io:fwrite("Nif_Module_Cpp_Path: ~p ~n",[Nif_Module_Cpp_Path]),
 	%% load_info is the second argument to erlang:load_nif/2
   ok = erlang:load_nif(Nif_Module_Cpp_Path, 0).
@@ -105,13 +107,16 @@ create_module(0, _Layers_sizes, _Learning_rate, _ModelId, _Activation_list, _Opt
 %% train_predict_create - mode: 0 - model creation, 1 - train, 2 - predict
 %% Rows, Col, Labels - "int"
 %% Data_Label_mat - list
-train2double(Rows, Cols, Labels, Data_Label_mat, ModelId, ClientPid) -> % TODO
+train2double(Rows, Cols, Labels, Data_Label_mat, ModelId, ClientPid) ->
+	Start_Time = os:system_time(microsecond),
 	%% make double list and send to train_predict_create
 	_Return = train_predict_create(1, Rows, Cols, Labels, dList(Data_Label_mat), ModelId),
 	receive
-		LOSS_FUNC->
-			%io:fwrite("Loss func: ~p\n",[LOSS_FUNC]),
-			gen_statem:cast(ClientPid,{loss, LOSS_FUNC})
+		LOSS_And_Time->
+			%io:fwrite("Loss func in erlModule: ~p\n",[LOSS_FUNC]),
+			Finish_Time = os:system_time(microsecond),
+			Time_elapsedNIF=Finish_Time-Start_Time,
+			gen_statem:cast(ClientPid,{loss, LOSS_And_Time,Time_elapsedNIF}) % TODO Change the cast in the client
 	end.
 
 %% Second version - optional for the future
@@ -130,19 +135,31 @@ train_predict_create(1, _Rows, _Cols, _Labels, _Data_Label_mat, _ModelId) ->
 
 %% _Rows, _Col, _Labels - "ints"
 %% _Data_Label_mat - list
-predict2double(Data_mat, Rows, Cols, ModelId, ClientPid) ->
+predict2double(Data_mat, Rows, Cols, ModelId, ClientPid,CSVname,BatchID) ->
+	Start_Time = os:system_time(microsecond),
 	%% make double list and send to train_predict_create
 	_Return = train_predict_create(2, dList(Data_mat), Rows, Cols, ModelId),
 	receive
-		RESULTS->
-			io:fwrite("Results: ~p\n",[RESULTS]),
-			gen_statem:cast(ClientPid,{predictRes, RESULTS})
+		RESULTS_And_Time->
+			Finish_Time = os:system_time(microsecond),
+			Time_elapsedNIF=Finish_Time-Start_Time,
+			io:fwrite("Results: ~p\n",[RESULTS_And_Time]),
+			gen_statem:cast(ClientPid,{predictRes,CSVname,BatchID, RESULTS_And_Time,Time_elapsedNIF}) % TODO Change the cast in the client
 	end.
 
 %% Predict module
 %% _Rows, _Col, _Labels - "ints"
 %% _Data_Label_mat - list
 train_predict_create(2, _Data_mat, _rows, _cols, _ModelId) ->
+	exit(nif_library_not_loaded).
+
+%% Set the new weights
+%% _Matrix, _Bias - lists
+set_weights(2, _Matrix, _Bias) ->
+	exit(nif_library_not_loaded).
+
+%% Get the weights
+get_weights(0) ->
 	exit(nif_library_not_loaded).
 
 %% ------------------------ TEST ----------------------------

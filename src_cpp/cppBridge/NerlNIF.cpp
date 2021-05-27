@@ -81,6 +81,71 @@ static ERL_NIF_TERM cppBridgeControllerDeleteModel_nif(ErlNifEnv* env, int argc,
 }
 //----------------------------------------------------------------------------------------------------------------------
 
+// ----- Weights functions -----
+
+// Get weights
+static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    std::vector<double> weights_list, bias_list, combined_list;
+    MatrixXd weights_mat;
+    VectorXd bias;
+    int mid; // TODO add it
+    std::vector<std::shared_ptr<ANN::Weights>> vec_of_weights_ptrs;
+
+    // Get the singleton instance
+    cppBridgeController *s = s->GetInstance();
+
+    // Get the model from the singleton
+    //std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(mid);
+
+    // Get the weights_list ptr
+    //vec_of_weights_ptrs = modelPtr->get_weights_of_model();
+
+    //for(int i = 0; ){
+
+    //
+
+    // Convert the matrix to a vector. Native to Eigen
+
+    // Convert the bias_ to a vector. Native to Eigen
+
+    // Combine weights_list and bias_list
+
+    // Convert the combined_list to nif term
+    nifpp::TERM ret_combined_list = nifpp::make(env, combined_list);
+
+    // Return weights_list and bias_list
+    return ret_combined_list;
+}
+
+// Set weights
+static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    std::vector<double> weights_list, bias_list;
+    MatrixXd weightsMat;
+    VectorXd bias_;
+
+    try {
+        // Get a list of weightes and bias list
+        nifpp::get_throws(env, argv[0], weights_list);
+        nifpp::get_throws(env, argv[1], bias_list);
+
+        // Convert the vector to a matrix. Native to Eigen
+        //int FeaturesAndLabels = trainPtr->col+trainPtr->labels; // Number of columns in total
+        //weightsMat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(trainPtr->data_label_mat.data(), trainPtr->rows, trainPtr->col,Stride<Dynamic,Dynamic>(1, FeaturesAndLabels));
+
+        // Convert the vector to a VectorXd. Native to Eigen
+
+        // Set the weights
+
+    }
+    catch(nifpp::badarg){
+        return enif_make_badarg(env);
+    }
+
+    return enif_make_int(env, 0);
+}
+
 // ----- Threaded functions -----
 
 // Predict function - runs on a separate thread (thread_create)
@@ -88,6 +153,8 @@ static void* predictFun(void *arg){
 
     PredictParam* predictPtr = (PredictParam*)arg;
     ErlNifEnv *env = enif_alloc_env();
+    MatrixXd resultsMat;
+    ERL_NIF_TERM pred_res_and_time;
 
     // Get the singleton instance
     cppBridgeController *s = s->GetInstance();
@@ -101,14 +168,19 @@ static void* predictFun(void *arg){
     // Create the data matrix from a vector. Native in Eigen.
     data_matrix = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(predictPtr->data_mat.data(), predictPtr->rows, predictPtr->cols,Stride<Dynamic,Dynamic>(1, predictPtr->cols));
 
-    // Predict model with received parameters
-    MatrixXd resultsMat;
-
 #if DEBUG_PREDICT_NIF
     std::cout << "Start predicting (inside the thread)." << '\n';
 #endif
 
+    // Start timer for the prediction in cppSANN
+    auto start = high_resolution_clock::now();
+
+    // Predict model with received parameters
     modelPtr->predict(data_matrix, resultsMat);
+
+    // Stop the timer and calculate the time
+    auto stop = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(stop - start);
 
     // Create the result vector from the result matrix TODO: Native in Eigen optionally
     std::vector<double> results_vec;
@@ -128,12 +200,15 @@ static void* predictFun(void *arg){
     // Convert the result vector to nif term
     nifpp::TERM retResults = nifpp::make(env, results_vec);
 
+    // Convert the loss value and the train duration value to a nif term
+    pred_res_and_time = enif_make_tuple(env, 2, retResults,enif_make_double(env, duration.count()));
+
     // Sends a message to a process. Parameters:
     // caller_env - The environment of the calling process or callback. Must be NULL only if calling from a custom thread not spawned by ERTS.
     // *to_pid - The pid of the receiving process. The pid is to refer to a process on the local node.
     // msg_env - The environment of the message term. Must be a process independent environment allocated with enif_alloc_env or NULL.
     // msg - The message term to send.
-    if(enif_send(NULL,&(predictPtr->pid), env,retResults))
+    if(enif_send(NULL,&(predictPtr->pid), env,pred_res_and_time))
     {
     #if DEBUG_PREDICT_NIF
         printf("enif_send succeed\n");
@@ -159,6 +234,7 @@ static void* trainFun(void *arg){
     TrainParam* trainPtr = (TrainParam*)arg;
     double loss_val;
     ErlNifEnv *env = enif_alloc_env();
+    ERL_NIF_TERM loss_val_term;
 
     // Get the singleton instance
     cppBridgeController *s = s->GetInstance();
@@ -175,12 +251,13 @@ static void* trainFun(void *arg){
     // Convert the vector to a matrix. Native to Eigen
     int FeaturesAndLabels = trainPtr->col+trainPtr->labels; // Number of columns in total
     data_mat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(trainPtr->data_label_mat.data(), trainPtr->rows, trainPtr->col,Stride<Dynamic,Dynamic>(1, FeaturesAndLabels));
-    label_mat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(&trainPtr->data_label_mat[trainPtr->col], trainPtr->rows, trainPtr->labels,Stride<Dynamic,Dynamic>(FeaturesAndLabels, FeaturesAndLabels));
+    label_mat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(&trainPtr->data_label_mat[trainPtr->col], trainPtr->rows, trainPtr->labels,Stride<Dynamic,Dynamic>(1, FeaturesAndLabels));
 
     #if DEBUG_TRAIN_NIF
-
-    std::cout <<mat<<std::endl;
-    std::cout <<labelMat<<std::endl;
+    std::cout <<"data mat: "<<std::endl;
+    std::cout <<data_mat<<std::endl;
+    std::cout <<"label mat: "<<std::endl;
+    std::cout <<label_mat<<std::endl;
 
     printf("Finish to go over the list.\n");
 
@@ -205,32 +282,47 @@ static void* trainFun(void *arg){
      }
 
     printf("Start to train the model.\n");
-#endif
+    #endif
 
+     // Start the timer for the training in cppSANN
     auto start = high_resolution_clock::now();
 
     // Train the model with recieved parameters and get loss value
     loss_val = modelPtr->train(data_mat,label_mat);
 
+    // Stop the timer and calculate the time took for training
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
 
+#if DEBUG_TRAIN_NIF
     // To get the value of duration use the count()
     // member function on the duration object
     std::cout << "Train time inside the NIF (micro seconds): " << duration.count() << std::endl;
 
-#if DEBUG_TRAIN_NIF
     printf("Finish train the model, loss fun inside the nif thread: \n");
     std::cout<< loss_val << "\n";
 #endif
 
-    // Convert the train duration value to a nif term
-    nifpp::TERM loss_val_term = nifpp::make(env, loss_val);
+    // Check if the loss value is in range and not -NaN
+    if( loss_val > 1.7976931348623157e+308 || loss_val < -1.7976931348623157e+308 || loss_val != loss_val)
+    {
+        printf("Loss value not in range \n");
 
-    // Convert the lossFun value to a nif term
-    //nifpp::TERM duration_term = nifpp::make(env, duration.count());
+        // Convert the loss value to a nif term
+        loss_val_term = enif_make_atom(env, "nan");
+        #if DEBUG_PREDICT_NIF
+                std::cout << "loss_val_term: \n" << loss_val_term << "\n";
+        #endif
+    }
+    else{
+        // Convert the loss value and the train duration value to a nif term
+        loss_val_term = enif_make_tuple(env, 2, enif_make_double(env, loss_val),enif_make_double(env, duration.count()));
+        #if DEBUG_PREDICT_NIF
+                std::cout << "loss_val_term: \n" << loss_val_term << "\n";
+        #endif
+    }
 
-    // Send to erlang process the loss value
+    // Send to erlang process the loss value and time
     if(enif_send(NULL,&(trainPtr->pid), env,loss_val_term)){
     #if DEBUG_PREDICT_NIF
             printf("enif_send succeed\n");
@@ -409,7 +501,9 @@ static ErlNifFunc nif_funcs[] = {
     {"train_predict_create", 6, train_predict_create_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For train
     {"train_predict_create", 5, train_predict_create_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For predict
     {"create_module", 6, train_predict_create_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For module create. TODO: Think about using it in a dirty scheduler
-    {"cppBridgeControllerDeleteModel", 1, cppBridgeControllerDeleteModel_nif} // Delete model by mid
+    {"cppBridgeControllerDeleteModel", 1, cppBridgeControllerDeleteModel_nif}, // Delete model by mid
+    {"get_weights", 1, get_weights_nif}, // Get weights
+    {"set_weights", 3, set_weights_nif} // Set weights
 };
 
 // TODO: Think about using this feature in the future
