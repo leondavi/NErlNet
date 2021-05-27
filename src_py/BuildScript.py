@@ -38,7 +38,7 @@ def build_erl():
 
             if filepath.endswith(".erl"):
                 print(filepath)
-                os.system("erl -compile %s" % filepath)
+                #os.system("erl -compile %s" % filepath)
                 
     os.system("pwd")
     os.chdir('../Communication_Layer/http_Nerlserver')
