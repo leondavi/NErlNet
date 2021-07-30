@@ -19,10 +19,10 @@ prerequisite:
 5. Clone this repository
 6. Update cppSANN submodule ```git submodule update --init --recursive```
 7. Install the latest version of Erlang: 
-   ```wget -O- https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -```
-   ```echo "deb https://packages.erlang-solutions.com/ubuntu focal contrib" | sudo tee /etc/apt/sources.list.d/rabbitmq.list```
-   ```sudo apt update```
-   ```sudo apt install erlang```
+   ```wget -O- https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -```<br>
+   ```echo "deb https://packages.erlang-solutions.com/ubuntu focal contrib" | sudo tee /etc/apt/sources.list.d/rabbitmq.list```<br>
+   ```sudo apt update```<br>
+   ```sudo apt install erlang```<br>
 
 Building Nerlnet:
 ```./build.sh``` to build the project. 
