@@ -18,7 +18,14 @@ prerequisite:
 4. ```conda install -c anaconda scons```
 5. Clone this repository
 6. Update cppSANN submodule ```git submodule update --init --recursive```
-7. Call ```./build.sh``` to build the project. 
+7. Install the latest version of Erlang: 
+   ```wget -O- https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -```
+   ```echo "deb https://packages.erlang-solutions.com/ubuntu focal contrib" | sudo tee /etc/apt/sources.list.d/rabbitmq.list```
+   ```sudo apt update```
+   ```sudo apt install erlang```
+
+Building Nerlnet:
+```./build.sh``` to build the project. 
 
 
 This project uses C++11 Wrapper for Erlang NIF API (NIFPP: https://github.com/goertzenator/nifpp). 
