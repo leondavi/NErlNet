@@ -86,25 +86,80 @@ static ERL_NIF_TERM cppBridgeControllerDeleteModel_nif(ErlNifEnv* env, int argc,
 // Get weights
 static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    std::vector<double> weights_list, bias_list, combined_list;
-    MatrixXd weights_mat;
-    VectorXd bias;
-    int mid; // TODO add it
+
+    //std::vector<double> weights_list, bias_list, combined_list;
+    double* weights_list, *bias_list;
+    MatrixXd* weights_mat;
+    VectorXd* bias;
+    //int mid; // TODO add it
     std::vector<std::shared_ptr<ANN::Weights>> vec_of_weights_ptrs;
+
+    std::cout << "1!\n" << std::endl;
 
     // Get the singleton instance
     cppBridgeController *s = s->GetInstance();
 
+    std::cout << "2!\n" << std::endl;
+
     // Get the model from the singleton
-    //std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(mid);
+    std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(0);//TODO implement mid
+
+    std::cout << "3!\n" << std::endl;
 
     // Get the weights_list ptr
-    //vec_of_weights_ptrs = modelPtr->get_weights_of_model();
+    vec_of_weights_ptrs = modelPtr->get_weights_of_model();
 
-    //for(int i = 0; ){
+    std::cout << "4!\n" << std::endl;
 
-    //
+    // Go over all the weights and biases
+    for (std::vector<std::shared_ptr<ANN::Weights>>::iterator it = vec_of_weights_ptrs.begin() ; it != vec_of_weights_ptrs.end() ; it++)
+    {
+        std::cout << "5!\n" << std::endl;
+        std::cout << *it << "\n" << std::endl;
 
+        // Go over the weights matrixXD and put it to a c++ vector
+        weights_mat = (*it)->get_weights_mat_ptr();
+
+        std::cout << "6!\n" << std::endl;
+
+        //std::cout << "Rows:\n" << weights_mat->rows() << std::endl;
+        //std::cout << "Cols:\n" << weights_mat->cols() << std::endl;
+        //std::cout << "Here is the weights_mat:\n" << *weights_mat << std::endl;
+
+        // Convert MatrixXD to double*
+        //Map<MatrixXd>(weights_list, weights_mat->rows(), weights_mat->cols()) = *weights_mat;
+
+        weights_list = weights_mat->data();
+
+        std::cout << "7!\n" << std::endl;
+
+        //std::cout << "Here is the weights_list:\n" << weights_list[0] << std::endl;
+        //std::cout << "Here is the weights_list:\n" << weights_list[1] << std::endl;
+
+        std::cout << "8!\n" << std::endl;
+
+        weights_mat->size();
+
+        std::cout << "9!\n" << std::endl;
+
+
+        // Go over the bias vectorXD and put it to a c++ vector
+        bias=(*it)->get_bias_ptr();
+
+        std::cout << "10!\n" << std::endl;
+
+        // Convert VectorXD to double*
+        //Map<VectorXd>(bias_list, bias->size()) = *bias;
+        bias_list=bias->data();
+
+        std::cout << "11!\n" << std::endl;
+
+        bias->size();
+
+        std::cout << "12!\n" << std::endl;
+    }
+
+    std::cout << "13!\n" << std::endl;
     // Convert the matrix to a vector. Native to Eigen
 
     // Convert the bias_ to a vector. Native to Eigen
@@ -112,10 +167,12 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     // Combine weights_list and bias_list
 
     // Convert the combined_list to nif term
-    nifpp::TERM ret_combined_list = nifpp::make(env, combined_list);
+    //pred_res_and_time = enif_make_tuple(env, 2, retResults,enif_make_double(env, duration.count()));
+
+    //nifpp::TERM ret_combined_list = nifpp::make(env, combined_list);
 
     // Return weights_list and bias_list
-    return ret_combined_list;
+    return enif_make_int(env, 0);
 }
 
 // Set weights
