@@ -133,8 +133,8 @@ train_predict_create(1, _Rows, _Cols, _Labels, _Data_Label_mat, _ModelId) ->
 
 %% ---- Predict ----
 
-%% _Rows, _Col, _Labels - "ints"
-%% _Data_Label_mat - list
+%% Rows, Cols - "ints"
+%% Data_mat - list
 predict2double(Data_mat, Rows, Cols, ModelId, ClientPid,CSVname,BatchID) ->
 	Start_Time = os:system_time(microsecond),
 	%% make double list and send to train_predict_create
@@ -143,7 +143,7 @@ predict2double(Data_mat, Rows, Cols, ModelId, ClientPid,CSVname,BatchID) ->
 		RESULTS_And_Time->
 			Finish_Time = os:system_time(microsecond),
 			Time_elapsedNIF=Finish_Time-Start_Time,
-			io:fwrite("Results: ~p\n",[RESULTS_And_Time]),
+			%io:fwrite("Results: ~p\n",[RESULTS_And_Time]),
 			gen_statem:cast(ClientPid,{predictRes,CSVname,BatchID, RESULTS_And_Time,Time_elapsedNIF}) % TODO Change the cast in the client
 	end.
 
@@ -187,10 +187,11 @@ startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, Activation
 	module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
 	%io:fwrite("Create PID ~p ~n",[Pid1]),
 	Start_Time = os:system_time(microsecond),
+	get_weights(0),
 
 	%io:fwrite("TrainList: ~p\n",[SampleListTrain]),
 	io:fwrite("ChunkSize: ~p Cols: ~p, Labels: ~p, ModelId: ~p, pid: ~p \n",[ChunkSize,Cols,Labels, ModelId,self()]),
-	Loss=train(ProcNumTrain,ChunkSize, Cols, Labels, SampleListTrain,ModelId,self(),0.0),
+%	Loss=train(ProcNumTrain,ChunkSize, Cols, Labels, SampleListTrain,ModelId,self(),0.0),
 
 	%niftest(ProcNumTrain,SampleListTrain,Train_Lines,Cols,Labels,ModelId),
 	%io:fwrite("start predict2double ~n"),
@@ -202,7 +203,7 @@ startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, Activation
 	%end,
 
 	Finish_Time = os:system_time(microsecond),
-	io:fwrite("Loss value: ~p\n",[Loss]),
+%	io:fwrite("Loss value: ~p\n",[Loss]),
 	Time_elapsed=(Finish_Time-Start_Time)/ProcNumTrain,
 	io:fwrite("Time took for all the nif: ~p micro sec , Number of processes = ~p ~n",[Time_elapsed, ProcNumTrain]).
 
