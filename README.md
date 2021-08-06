@@ -13,12 +13,19 @@ https://www.youtube.com/watch?v=Y9xT4foxwpY&feature=youtu.be
 prerequisite:
 
 1. python 3.7
-2. Eigen library ```sudo apt install libeigen3-dev```
-3. Installing Rebar3 package https://riptutorial.com/erlang/example/15669/installing-rebar3
-4. ```conda install -c anaconda scons```
-5. Clone this repository
+2. Eigen and boost libraries ```sudo apt install libeigen3-dev libboost-all-dev```
+3. Install (or build from source) Rebar3 package https://github.com/erlang/rebar3 (Installation: https://riptutorial.com/erlang/example/15669/installing-rebar3)
+4. ```conda install -c anaconda scons``` or ```sudo apt install scons```
+5. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo>```
 6. Update cppSANN submodule ```git submodule update --init --recursive```
-7. Call ```./build.sh``` to build the project. 
+7. Install the latest version of Erlang: 
+   ```wget -O- https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -```<br>
+   ```echo "deb https://packages.erlang-solutions.com/ubuntu focal contrib" | sudo tee /etc/apt/sources.list.d/rabbitmq.list```<br>
+   ```sudo apt update```<br>
+   ```sudo apt install erlang```<br>
+
+Building Nerlnet:
+```./build.sh``` to build the project. 
 
 
 This project uses C++11 Wrapper for Erlang NIF API (NIFPP: https://github.com/goertzenator/nifpp). 
