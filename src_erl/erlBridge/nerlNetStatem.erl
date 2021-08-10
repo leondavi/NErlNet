@@ -48,10 +48,15 @@ init({ClientPID, MyName, {Layers_sizes, Learning_rate, ActivationList, Optimizer
   io:fwrite("start module_create ~n"),
 
   _Res=erlModule:module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
+  %io:fwrite("Layers_sizes: ~p, Learning_rate: ~p, ActivationList: ~p, Optimizer: ~p, ModelId ~p\n",[Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId]),
   %io:fwrite("Mid: ~p\n",[Mid]),
   %{ok, idle, []}.
   %timer:sleep(20000),
-  %erlModule:get_weights(0),
+  %Ret_weights_tuple = erlModule:get_weights(0),
+  %{Wheights,Bias,Size} = Ret_weights_tuple,
+  %io:fwrite("Size: ~p\n Bias: ~p\n\n Wheights: ~p\n", [Size,Bias,Wheights]),
+  %io:fwrite("Ret_weights_tuple: ~p\n",[Ret_weights_tuple]),
+  %file:write_file("NerlStatemOut.txt", [Size,Bias,Wheights]),
   {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = MyName, modelId = ModelId}}.
 
 %% @private
