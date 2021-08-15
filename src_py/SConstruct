@@ -75,7 +75,7 @@ else:
 	# get all cpp from source
 	for subdir, dirnames, filenames in os.walk(src_dir):
 		for filename in filenames:
-			if filename.endswith("cpp") or filename.endswith("cc"):
+			if ('opennn' not in subdir) and (filename.endswith("cpp") or filename.endswith("cc")):
 				if subdir not in cpp_files:
 					cpp_files[subdir] = []
 				cpp_files[subdir].append(filename)
