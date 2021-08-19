@@ -13,18 +13,18 @@ https://www.youtube.com/watch?v=Y9xT4foxwpY&feature=youtu.be
 prerequisite:
 
 1. python 3.7
-2. Eigen and boost libraries ```sudo apt install libeigen3-dev libboost-all-dev```
-3. Install (or build from source) Rebar3 package https://github.com/erlang/rebar3 (Installation: https://riptutorial.com/erlang/example/15669/installing-rebar3)
-4. ```conda install -c anaconda scons``` or ```sudo apt install scons```
-5. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo>```
-6. Update cppSANN submodule ```git submodule update --init --recursive```
-7. Install the latest version of Erlang: 
+2. Latest Erlang version:
    ```wget -O- https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -```<br>
    ```echo "deb https://packages.erlang-solutions.com/ubuntu focal contrib" | sudo tee /etc/apt/sources.list.d/rabbitmq.list```<br>
    ```sudo apt update```<br>
    ```sudo apt install erlang```<br>
+4. Eigen and boost libraries ```sudo apt install libeigen3-dev libboost-all-dev```
+5. Install (or build from source) Rebar3 package https://github.com/erlang/rebar3 (Installation: https://riptutorial.com/erlang/example/15669/installing-rebar3)
+6. ```conda install -c anaconda scons``` or ```sudo apt install scons```
+7. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo>```
+8. Update cppSANN submodule ```git submodule update --init --recursive```
 
-Building Nerlnet:
+# Building Nerlnet:
 ```./build.sh``` to build the project. 
 
 
