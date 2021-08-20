@@ -51,12 +51,15 @@ init({ClientPID, MyName, {Layers_sizes, Learning_rate, ActivationList, Optimizer
   %io:fwrite("Layers_sizes: ~p, Learning_rate: ~p, ActivationList: ~p, Optimizer: ~p, ModelId ~p\n",[Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId]),
   %io:fwrite("Mid: ~p\n",[Mid]),
   %{ok, idle, []}.
-  %timer:sleep(20000),
-  %Ret_weights_tuple = erlModule:get_weights(0),
-  %{Wheights,Bias,Size} = Ret_weights_tuple,
+  timer:sleep(20000),
+  Ret_weights_tuple = erlModule:get_weights(0),
+  {Wheights,Bias,Size} = Ret_weights_tuple,
   %io:fwrite("Size: ~p\n Bias: ~p\n\n Wheights: ~p\n", [Size,Bias,Wheights]),
   %io:fwrite("Ret_weights_tuple: ~p\n",[Ret_weights_tuple]),
-  %file:write_file("NerlStatemOut.txt", [Size,Bias,Wheights]),
+  %file:write_file("NerlStatemOut.txt", [Size]),
+  %file:write_file("NerlStatemOut.txt", [Bias]),
+  %file:write_file("NerlStatemOut.txt", [1,2,3]),
+  file:write_file("NerlStatemOut.txt", [lists:flatten(io_lib:format("~p~p~p",[Size,Bias,Wheights]))]),
   {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = MyName, modelId = ModelId}}.
 
 %% @private
@@ -131,7 +134,7 @@ wait(cast, {loss,nan,_Time_NIF}, State = #nerlNetStatem_state{clientPid = Client
   {next_state, NextState, State};
 
 wait(cast, {loss,{LOSS_FUNC,TimeCpp},Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState}) ->
-      %io:fwrite("Loss func in wait: ~p\nTime for train execution in cppSANN (micro sec): ~p\nTime for train execution in NIF+cppSANN (micro sec): ~p\n",[LOSS_FUNC, TimeCpp, Time_NIF]),
+      io:fwrite("Loss func in wait: ~p\nTime for train execution in cppSANN (micro sec): ~p\nTime for train execution in NIF+cppSANN (micro sec): ~p\n",[LOSS_FUNC, TimeCpp, Time_NIF]),
       gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}), %% TODO Add Time and Time_NIF to the cast
       {next_state, NextState, State};
 
@@ -153,7 +156,7 @@ wait(cast, {predict}, State) ->
   {next_state, wait, State#nerlNetStatem_state{nextState = predict}};
 
 wait(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = MissedTrainSamples}) ->
-  %io:fwrite("Missed, got sample. Got: ~p \n Missed batches count: ~p\n",[{SampleListTrain}, MissedSamplesCount]),
+  io:fwrite("Missed, got sample. Got: ~p \n Missed batches count: ~p\n",[{SampleListTrain}, MissedSamplesCount]),
   io:fwrite("Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
   Miss = MissedTrainSamples++SampleListTrain,
   {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1, missedTrainSamples = Miss}};
