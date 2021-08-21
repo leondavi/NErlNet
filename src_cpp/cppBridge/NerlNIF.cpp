@@ -192,6 +192,12 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     MatrixXd weightsMat;
     VectorXd bias_;
 
+     // Get the singleton instance
+    cppBridgeController *s = s->GetInstance();
+
+    // Get the model from the singleton
+    std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(0);//TODO implement mid
+
     try {
         // Get a list of weightes and bias list
         nifpp::get_throws(env, argv[0], weights_list);
@@ -244,7 +250,6 @@ static ERL_NIF_TERM average_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_
             }
         }
         
-      
         // Convert the vec_of_weights_vec to a nif term
         nifpp::TERM ret_weights_list = nifpp::make(env, vec_of_weights_vec);
 
@@ -620,9 +625,9 @@ static ErlNifFunc nif_funcs[] = {
     {"train_predict_create", 5, train_predict_create_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For predict
     {"create_module", 6, train_predict_create_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For module create. TODO: Think about using it in a dirty scheduler
     {"cppBridgeControllerDeleteModel", 1, cppBridgeControllerDeleteModel_nif}, // Delete model by mid
-    {"average_weights", 3, average_weights_nif}, // Average weights
+    {"average_weights", 4, average_weights_nif}, // Average weights
     {"get_weights", 1, get_weights_nif}, // Get weights
-    {"set_weights", 3, set_weights_nif} // Set weights
+    {"set_weights", 4, set_weights_nif} // Set weights
 };
 
 // TODO: Think about using this feature in the future

@@ -4,7 +4,7 @@
 -export([testMatrix/2,cppBridgeController/0,cppBridgeControllerGetModelPtr/1 ,cppBridgeControllerSetData/1,
 	 create_module/6, train2double/6, predict2double/7, niftest/6, thread_create_test/0,
 	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, cppBridgeControllerSetModelPtrDat/2,
-	cppBridgeControllerDeleteModel/1, startTest/11,train/8, set_weights/3, get_weights/1, average_weights/3]).
+	cppBridgeControllerDeleteModel/1, startTest/11,train/8, set_weights/4, get_weights/1, average_weights/4]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
@@ -155,14 +155,14 @@ train_predict_create(2, _Data_mat, _rows, _cols, _ModelId) ->
 
 %% Set the new weights
 %% _Matrix, _Bias - lists
-set_weights(2, _Matrix, _Bias) ->
+set_weights(_Matrix, _Bias, _Size, _ModelId) ->
 	exit(nif_library_not_loaded).
 
 %% Get the weights
-get_weights(0) ->
+get_weights(_Mid) ->
 	exit(nif_library_not_loaded).
 
-average_weights(_Matrix, _Biases, _Size) ->
+average_weights(_Matrix, _Biases, _Size, _ModelId) ->
 	exit(nif_library_not_loaded).
 
 %% ------------------------ TEST ----------------------------
