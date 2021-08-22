@@ -93,7 +93,6 @@ static ERL_NIF_TERM cppBridgeControllerDeleteModel_nif(ErlNifEnv* env, int argc,
 static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     std::vector<double> weights_list, bias_list, combined_list;
-    //double* weights_list, *bias_list;
     std::vector<std::shared_ptr<ANN::Weights>> vec_of_weights_ptr;
     MatrixXd* weights_mat;
     VectorXd* bias;
@@ -111,23 +110,12 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     // Get the weights_list ptr
     vec_of_weights_ptr = modelPtr->get_weights_of_model();
 
-    // Go over all the weights and biases
+    // Go over all the weights and biases 
     for (std::vector<std::shared_ptr<ANN::Weights>>::iterator it = vec_of_weights_ptr.begin() ; it != vec_of_weights_ptr.end() ; it++)
     {
-        //std::cout << *it << "\n" << std::endl;
 
         // Go over the weights matrixXD and put it to a c++ vector
         weights_mat = (*it)->get_weights_mat_ptr();
-
-
-        //std::cout << "Rows:\n" << weights_mat->rows() << std::endl;
-        //std::cout << "Cols:\n" << weights_mat->cols() << std::endl;
-        //std::cout << "Here is the weights_mat:\n" << *weights_mat << std::endl;
-
-        // Convert MatrixXD to double*
-        //Map<MatrixXd>(weights_list, weights_mat->rows(), weights_mat->cols()) = *weights_mat;
-
-        //weights_list = weights_mat->data();
 
         // Create the result vector from the result matrix TODO: Native in Eigen optionally
 
@@ -137,17 +125,10 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
             }
         }
 
-        //std::cout << "Here is the weights_list:\n" << weights_list[0] << std::endl;
-        //std::cout << "Here is the weights_list:\n" << weights_list[1] << std::endl;
-
         weights_mat->size();
 
         // Go over the bias vectorXD and put it to a c++ vector
         bias=(*it)->get_bias_ptr();
-
-        // Convert VectorXD to double*
-        //Map<VectorXd>(bias_list, bias->size()) = *bias;
-        //bias_list=bias->data();
 
         for (int i = 0; i < bias->size(); i++){
             bias_list_vec.push_back(bias->coeff(i));
@@ -160,8 +141,7 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         cerr << "Error: file could not be opened" << endl;
         exit(1);
     }
-    //outdata << bias_list_vec.data() << endl;
-    //outdata << weights_list_vec.data() << endl;
+
     for (const auto &e : bias_list_vec) outdata << e << "\n"; // Export bias
     outdata << "Finish Bias" << endl;
     for (const auto &e : weights_list_vec) outdata << e << "\n"; // Export weights_list_vec
@@ -204,8 +184,6 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         nifpp::get_throws(env, argv[1], bias_list);
 
         // Convert the vector to a matrix. Native to Eigen
-        //int FeaturesAndLabels = trainPtr->col+trainPtr->labels; // Number of columns in total
-        //weightsMat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(trainPtr->data_label_mat.data(), trainPtr->rows, trainPtr->col,Stride<Dynamic,Dynamic>(1, FeaturesAndLabels));
 
         // Convert the vector to a VectorXd. Native to Eigen
 
