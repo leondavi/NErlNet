@@ -30,6 +30,6 @@ prerequisite:
 
 This project uses C++11 Wrapper for Erlang NIF API (NIFPP: https://github.com/goertzenator/nifpp). 
 
-### Nerlnet architecture example:
+### Nerlnet architecture:
 ![Nerlnet Architecture](https://user-images.githubusercontent.com/18975070/130082950-0ebcf728-206d-444e-9459-0465b771cd97.jpg)
 
