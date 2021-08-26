@@ -4,6 +4,12 @@
 #include "../cppSANN/src/Models/include/Model.h"
 #include "include/bridgeController.h"
 
+#include <iostream>
+using std::cerr;
+using std::endl;
+#include <fstream>
+using std::ofstream;
+#include <cstdlib> // for exit function
 
 #include <chrono>
 using namespace std::chrono;
@@ -86,58 +92,164 @@ static ERL_NIF_TERM cppBridgeControllerDeleteModel_nif(ErlNifEnv* env, int argc,
 // Get weights
 static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    std::vector<double> weights_list, bias_list, combined_list;
-    MatrixXd weights_mat;
-    VectorXd bias;
-    int mid; // TODO add it
-    std::vector<std::shared_ptr<ANN::Weights>> vec_of_weights_ptrs;
+    std::vector<double> weights_list, bias_list;
+    std::vector<std::shared_ptr<ANN::Weights>> vec_of_weights_ptr;
+    MatrixXd* weights_mat;
+    VectorXd* bias;
+    std::vector<double> weights_list_vec, bias_list_vec;
+    ERL_NIF_TERM ret_tuple;
+    //int mid; // TODO add it
 
     // Get the singleton instance
     cppBridgeController *s = s->GetInstance();
 
     // Get the model from the singleton
-    //std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(mid);
+    std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(0);//TODO implement mid
 
     // Get the weights_list ptr
-    //vec_of_weights_ptrs = modelPtr->get_weights_of_model();
+    vec_of_weights_ptr = modelPtr->get_weights_of_model();
 
-    //for(int i = 0; ){
+    // Go over all the weights and biases 
+    for (std::vector<std::shared_ptr<ANN::Weights>>::iterator it = vec_of_weights_ptr.begin() ; it != vec_of_weights_ptr.end() ; it++)
+    {
 
-    //
+        // Go over the weights matrixXD and put it to a c++ vector
+        weights_mat = (*it)->get_weights_mat_ptr();
+
+        // Resize the weights vector 
+        weights_list_vec.resize(weights_mat->rows()*weights_mat->cols());
+
+        // Create the result vector from the result matrix TODO: Native in Eigen optionally
+        for (int r = 0; r < weights_mat->rows(); r++){
+            for (int c = 0; c < weights_mat->cols(); c++){
+                weights_list_vec[r*weights_mat->cols() + c] = weights_mat->coeff(r,c);
+            }
+        }
+
+        // Go over the bias vectorXD and put it to a c++ vector
+        bias=(*it)->get_bias_ptr();
+
+        // Resize the bias vector TODO: With map
+        bias_list_vec.resize(bias->size());
+
+        for (int i = 0; i < bias->size(); i++){
+            bias_list_vec[i] = bias->coeff(i);
+        }
+    }
+
+#if DEBUG_TRAIN_NIF
+    ofstream outdata; // outdata is to send the weights to a file
+    outdata.open("NerlNifCppOut.txt"); // opens the file
+    if( !outdata ) { // file couldn't be opened
+        cerr << "Error: file could not be opened" << endl;
+        exit(1);
+    }
+
+    for (const auto &e : bias_list_vec) outdata << e << "\n"; // Export bias
+    outdata << "Finish Bias" << endl;
+    for (const auto &e : weights_list_vec) outdata << e << "\n"; // Export weights_list_vec
+    outdata.close();
+
+#endif
 
     // Convert the matrix to a vector. Native to Eigen
 
     // Convert the bias_ to a vector. Native to Eigen
 
-    // Combine weights_list and bias_list
+    // Convert the weights_list_vec to nif term
+    nifpp::TERM ret_weights_list = nifpp::make(env, weights_list_vec);
 
-    // Convert the combined_list to nif term
-    nifpp::TERM ret_combined_list = nifpp::make(env, combined_list);
+    // Convert the bias_list_vec to nif term
+    nifpp::TERM ret_bias_list_vec = nifpp::make(env, bias_list_vec);
 
-    // Return weights_list and bias_list
-    return ret_combined_list;
+    // Return tuple: All weights matrixes combined to a vector, All biases combined to a vector, Number of weights matrixes/biases
+    ret_tuple = enif_make_tuple(env, 3, ret_weights_list, ret_bias_list_vec, enif_make_double(env, vec_of_weights_ptr.size()));
+
+    // Return weights_list and bias_list and the size of them
+    // return enif_make_int(env, 0);
+    return ret_tuple;
 }
 
 // Set weights
 static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     std::vector<double> weights_list, bias_list;
+    std::vector<std::shared_ptr<ANN::Weights>> vec_of_weights_ptr;
     MatrixXd weightsMat;
     VectorXd bias_;
+    int size, ModelId;
+
+     // Get the singleton instance
+    cppBridgeController *s = s->GetInstance();
+
+    // Get the model from the singleton
+    std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(0);//TODO implement mid
 
     try {
         // Get a list of weightes and bias list
         nifpp::get_throws(env, argv[0], weights_list);
         nifpp::get_throws(env, argv[1], bias_list);
+        nifpp::get_throws(env, argv[2], size);
+        nifpp::get_throws(env, argv[3], ModelId);
 
-        // Convert the vector to a matrix. Native to Eigen
-        //int FeaturesAndLabels = trainPtr->col+trainPtr->labels; // Number of columns in total
-        //weightsMat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(trainPtr->data_label_mat.data(), trainPtr->rows, trainPtr->col,Stride<Dynamic,Dynamic>(1, FeaturesAndLabels));
+        // Convert the vector to a matrix. (Native to Eigen TODO)    
+
 
         // Convert the vector to a VectorXd. Native to Eigen
 
-        // Set the weights
+        // Set the weights to the module
+        //modelPtr->set_weights(MatrixXd new_weights)
 
+    }
+    catch(nifpp::badarg){
+        return enif_make_badarg(env);
+    }
+
+    return enif_make_int(env, 0);
+}
+
+// Average weights
+static ERL_NIF_TERM average_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    std::vector<double> vec_of_weights_vec, vec_of_bias_vec;
+    std::vector<int> vec_of_sizes;
+    ERL_NIF_TERM ret_tuple;
+
+    try {
+        // Get the list of weightes, bias list and size
+        nifpp::get_throws(env, argv[0], vec_of_weights_vec);
+        nifpp::get_throws(env, argv[1], vec_of_bias_vec);
+        nifpp::get_throws(env, argv[2], vec_of_sizes);
+
+        // Go over the vector of biases vectors and vector of weights and average them
+        for(int vecIndex = 0; vecIndex < vec_of_bias_vec.size(); vecIndex++){
+            
+            // TODO : Go over the biases vector 
+            for (int r = 0; r < vec_of_sizes[vecIndex]; r++){
+                for (int c = 0; c < vec_of_sizes[vecIndex]; c++){
+                    //weights_list_vec.push_back(weights_mat->coeff(r,c));
+                }
+            }
+
+            // TODO : Go over the weights vector 
+              for (int r = 0; r < vec_of_sizes[vecIndex]; r++){
+                for (int c = 0; c < vec_of_sizes[vecIndex]; c++){
+
+                }
+            }
+        }
+        
+        // Convert the vec_of_weights_vec to a nif term
+        nifpp::TERM ret_weights_list = nifpp::make(env, vec_of_weights_vec);
+
+        // Convert the vec_of_bias_vec to a nif term
+        nifpp::TERM ret_bias_list_vec = nifpp::make(env, vec_of_bias_vec);
+
+        // Return tuple: All averaged vectors of weights vectors combined to a vector, All averaged vectors of biases vectors combined to a vector, Number of weights matrixes/biases vectors
+        ret_tuple = enif_make_tuple(env, 3, ret_weights_list, ret_bias_list_vec, enif_make_double(env, vec_of_sizes.size()));
+
+        // Return weights_list and bias_list and the size of them
+        return ret_tuple;
     }
     catch(nifpp::badarg){
         return enif_make_badarg(env);
@@ -182,13 +294,14 @@ static void* predictFun(void *arg){
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
 
+
     // Create the result vector from the result matrix TODO: Native in Eigen optionally
     std::vector<double> results_vec;
-    int index = 0;
+    results_vec.resize(resultsMat.rows()*resultsMat.cols());
+
     for (int r = 0; r < resultsMat.rows(); r++){
         for (int c = 0; c < resultsMat.cols(); c++){
-            results_vec.push_back(resultsMat(r,c));
-            index++;
+            results_vec[resultsMat.cols() + c] = resultsMat(r,c);
         }
     }
 
@@ -502,8 +615,9 @@ static ErlNifFunc nif_funcs[] = {
     {"train_predict_create", 5, train_predict_create_nif,ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For predict
     {"create_module", 6, train_predict_create_nif, ERL_NIF_DIRTY_JOB_CPU_BOUND}, // For module create. TODO: Think about using it in a dirty scheduler
     {"cppBridgeControllerDeleteModel", 1, cppBridgeControllerDeleteModel_nif}, // Delete model by mid
+    {"average_weights", 4, average_weights_nif}, // Average weights
     {"get_weights", 1, get_weights_nif}, // Get weights
-    {"set_weights", 3, set_weights_nif} // Set weights
+    {"set_weights", 4, set_weights_nif} // Set weights
 };
 
 // TODO: Think about using this feature in the future
