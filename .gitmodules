@@ -1,3 +1,6 @@
 [submodule "src_cpp/cppSANN"]
 	path = src_cpp/cppSANN
 	url = https://github.com/leondavi/cppSANN.git
+[submodule "src_cpp/opennn"]
+	path = src_cpp/opennn
+	url = https://github.com/Artelnics/opennn.git
