@@ -71,9 +71,13 @@ createWorkers([Worker|Workers],ClientPid,WorkersNamesPids) ->
   CppSANNArgsBinary = maps:get(<<"args">>,Worker),
   Splitted = re:split(CppSANNArgsBinary,"@",[{return,list}]),
   [Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels] = Splitted,
+  % TODO receive from JSON
+FederatedMode="0", CountLimit="1",
+  % TODO receive from JSON
+
   WorkerArgs ={string_to_list_int(Layers_sizes),list_to_float(Learning_rate),
                   string_to_list_int(ActivationList), list_to_integer(Optimizer), list_to_integer(ModelId),
-                      list_to_integer(Features), list_to_integer(Labels)},
+                      list_to_integer(Features), list_to_integer(Labels),list_to_integer(FederatedMode), list_to_integer(CountLimit)},
   io:format("client starting worker:~p~n",[{WorkerName,WorkerArgs}]),
   WorkerPid = nerlNetStatem:start_link({self(), WorkerName, WorkerArgs}),
   createWorkers(Workers,ClientPid,WorkersNamesPids++[{WorkerName, WorkerPid}]).
@@ -131,7 +135,7 @@ idle(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,myNam
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 idle(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
-  io:format("client training ignored:  ~p ~n",[EventContent]),
+  %io:format("client training ignored:  ~p ~n",[EventContent]),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
 
 
@@ -172,7 +176,7 @@ training(cast, {loss,LossFunction}, State = #client_statem_state{myName = MyName
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
-  io:format("client training ignored:  ~p ~n",[EventContent]),
+  %io:format("client training ignored:  ~p ~n",[EventContent]),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
 
 

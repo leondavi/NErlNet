@@ -92,12 +92,11 @@ static ERL_NIF_TERM cppBridgeControllerDeleteModel_nif(ErlNifEnv* env, int argc,
 // Get weights
 static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    std::vector<double> weights_list, bias_list, combined_list;
+    std::vector<double> weights_list, bias_list;
     std::vector<std::shared_ptr<ANN::Weights>> vec_of_weights_ptr;
     MatrixXd* weights_mat;
     VectorXd* bias;
-    std::vector<double> weights_list_vec;
-    std::vector<double> bias_list_vec;
+    std::vector<double> weights_list_vec, bias_list_vec;
     ERL_NIF_TERM ret_tuple;
     //int mid; // TODO add it
 
@@ -117,25 +116,29 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         // Go over the weights matrixXD and put it to a c++ vector
         weights_mat = (*it)->get_weights_mat_ptr();
 
-        // Create the result vector from the result matrix TODO: Native in Eigen optionally
+        // Resize the weights vector 
+        weights_list_vec.resize(weights_mat->rows()*weights_mat->cols());
 
+        // Create the result vector from the result matrix TODO: Native in Eigen optionally
         for (int r = 0; r < weights_mat->rows(); r++){
             for (int c = 0; c < weights_mat->cols(); c++){
-                weights_list_vec.push_back(weights_mat->coeff(r,c));
+                weights_list_vec[r*weights_mat->cols() + c] = weights_mat->coeff(r,c);
             }
         }
-
-        weights_mat->size();
 
         // Go over the bias vectorXD and put it to a c++ vector
         bias=(*it)->get_bias_ptr();
 
+        // Resize the bias vector TODO: With map
+        bias_list_vec.resize(bias->size());
+
         for (int i = 0; i < bias->size(); i++){
-            bias_list_vec.push_back(bias->coeff(i));
-            }
+            bias_list_vec[i] = bias->coeff(i);
+        }
     }
 
-    ofstream outdata; // outdata is like cin
+#if DEBUG_TRAIN_NIF
+    ofstream outdata; // outdata is to send the weights to a file
     outdata.open("NerlNifCppOut.txt"); // opens the file
     if( !outdata ) { // file couldn't be opened
         cerr << "Error: file could not be opened" << endl;
@@ -146,6 +149,8 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     outdata << "Finish Bias" << endl;
     for (const auto &e : weights_list_vec) outdata << e << "\n"; // Export weights_list_vec
     outdata.close();
+
+#endif
 
     // Convert the matrix to a vector. Native to Eigen
 
@@ -169,8 +174,10 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     std::vector<double> weights_list, bias_list;
+    std::vector<std::shared_ptr<ANN::Weights>> vec_of_weights_ptr;
     MatrixXd weightsMat;
     VectorXd bias_;
+    int size, ModelId;
 
      // Get the singleton instance
     cppBridgeController *s = s->GetInstance();
@@ -182,12 +189,16 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         // Get a list of weightes and bias list
         nifpp::get_throws(env, argv[0], weights_list);
         nifpp::get_throws(env, argv[1], bias_list);
+        nifpp::get_throws(env, argv[2], size);
+        nifpp::get_throws(env, argv[3], ModelId);
 
-        // Convert the vector to a matrix. Native to Eigen
+        // Convert the vector to a matrix. (Native to Eigen TODO)    
+
 
         // Convert the vector to a VectorXd. Native to Eigen
 
-        // Set the weights
+        // Set the weights to the module
+        //modelPtr->set_weights(MatrixXd new_weights)
 
     }
     catch(nifpp::badarg){
@@ -283,13 +294,14 @@ static void* predictFun(void *arg){
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
 
+
     // Create the result vector from the result matrix TODO: Native in Eigen optionally
     std::vector<double> results_vec;
-    int index = 0;
+    results_vec.resize(resultsMat.rows()*resultsMat.cols());
+
     for (int r = 0; r < resultsMat.rows(); r++){
         for (int c = 0; c < resultsMat.cols(); c++){
-            results_vec.push_back(resultsMat(r,c));
-            index++;
+            results_vec[resultsMat.cols() + c] = resultsMat(r,c);
         }
     }
 

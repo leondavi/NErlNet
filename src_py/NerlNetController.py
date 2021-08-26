@@ -39,16 +39,16 @@ while 1:
 		updateCSVtrain()	
 	elif action == "init2":
 		updateCSVpredict()
-	elif action == "training":
+	elif action == "train":
 		clientsTraining()
 
 	elif action == "predict":
 		clientsPredict()
 
-	elif action == "start Casting":
+	elif action == "start":
 		startCasting()
 
-	elif action == "stop Casting":
+	elif action == "stop":
 		stopCasting()
 
 

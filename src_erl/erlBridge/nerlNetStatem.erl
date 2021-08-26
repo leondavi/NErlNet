@@ -8,6 +8,7 @@
 %%%-------------------------------------------------------------------
 -module(nerlNetStatem).
 -author("ziv").
+-include("cppSANNStatemModes.hrl").
 
 -behaviour(gen_statem).
 
@@ -146,7 +147,7 @@ wait(cast, {loss, LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid 
   {LOSS_FUNC,TimeCpp} = LossAndTime,
   io:fwrite("Loss func in wait: ~p\nTime for train execution in cppSANN (micro sec): ~p\nTime for train execution in NIF+cppSANN (micro sec): ~p\n",[LOSS_FUNC, TimeCpp, Time_NIF]),
   if
-    FederatedMode == 1 and (Count == CountLimit)-> 
+    FederatedMode == ?MODE_FEDERATED and (Count == CountLimit)-> 
       % Get weights
       io:fwrite("Get weights: \n"),
       Ret_weights_tuple = erlModule:get_weights(Mid),
@@ -159,13 +160,14 @@ wait(cast, {loss, LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid 
       % Reset count and go to state train
       State#nerlNetStatem_state{count = 1};
 
-    FederatedMode == 1 ->
+    FederatedMode == ?MODE_FEDERATED ->
       %% Send back the loss value
       gen_statem:cast(ClientPid,{loss, federated, MyName, LOSS_FUNC}); %% TODO Add Time and Time_NIF to the cast
       %State#nerlNetStatem_state{count = Count + 1};
 
     true -> % Federated mode = 0 (not federated)
-    io:fwrite("NOT Federated wait: \n"),
+      io:fwrite("NOT Federated wait: \n"),
+      io:fwrite("loss statem: ~p\n", [LOSS_FUNC]),
       gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}) %% TODO Add Time and Time_NIF to the cast
   end,
 
@@ -222,6 +224,7 @@ train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = Mo
   %io:fwrite("length(SampleListTrain)/(Features + Labels): ~p\n",[length(SampleListTrain)/(Features + Labels)]),
   %io:fwrite("Send sample to train: ~p\n",[SampleListTrain]),
   %io:fwrite("ChunkSizeTrain: ~p, Features: ~p Labels: ~p ModelId ~p\n",[ChunkSizeTrain, Features, Labels, ModelId]),
+  %io:fwrite("Train state, pid: ~p\n", [CurrPid]),
   _Pid = spawn(fun()-> erlModule:train2double(ChunkSizeTrain, Features, Labels, SampleListTrain,ModelId,CurrPid) end),
   {next_state, wait, State#nerlNetStatem_state{nextState = train, count = Count + 1}};
 

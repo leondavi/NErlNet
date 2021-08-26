@@ -113,7 +113,7 @@ train2double(Rows, Cols, Labels, Data_Label_mat, ModelId, ClientPid) ->
 	_Return = train_predict_create(1, Rows, Cols, Labels, dList(Data_Label_mat), ModelId),
 	receive
 		LOSS_And_Time->
-			%io:fwrite("Loss func in erlModule: ~p\n",[LOSS_FUNC]),
+			io:fwrite("Loss and time func in erlModule: ~p\n",[LOSS_And_Time]),
 			Finish_Time = os:system_time(microsecond),
 			Time_elapsedNIF=Finish_Time-Start_Time,
 			gen_statem:cast(ClientPid,{loss, LOSS_And_Time,Time_elapsedNIF}) % TODO Change the cast in the client
