@@ -105,6 +105,7 @@ code_change(_OldVsn, StateName, State = #fedServ_state{}, _Extra) ->
 %% State receives
 receives(cast, WeightsTuple, State = #fedServ_state{buffer = Buffer, counter = Counter}) ->
   io:fwrite("receives state\n"),
+  
   State = #fedServ_state{counter = Counter + 1},
   {next_state, receives, State}.
 
