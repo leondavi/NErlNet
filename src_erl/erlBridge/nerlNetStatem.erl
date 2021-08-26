@@ -8,6 +8,7 @@
 %%%-------------------------------------------------------------------
 -module(nerlNetStatem).
 -author("ziv").
+-include("cppSANNStatemModes.hrl").
 
 -behaviour(gen_statem).
 
@@ -22,7 +23,10 @@
 
 -define(SERVER, ?MODULE).
 
--record(nerlNetStatem_state, {clientPid, features, labels, myName, modelId, nextState, missedSamplesCount = 0, missedTrainSamples= []}).
+%% federatedMode = 0 - Not federated, 1 - Federated get and send weights, 2 - Federated set weights
+%% countLimit - Number of samples to count before sending the weights for averaging. Predifined in the json file.
+%% count - Number of samples recieved for training after the last weights sended.
+-record(nerlNetStatem_state, {clientPid, features, labels, myName, modelId, nextState, missedSamplesCount = 0, missedTrainSamples= [], federatedMode, count = 0, countLimit}).
 
 %%%===================================================================
 %%% API
@@ -44,13 +48,21 @@ start_link(ARGS) ->
 %% @doc Whenever a gen_statem is started using gen_statem:start/[3,4] or
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
-init({ClientPID, MyName, {Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels}}) ->
+init({ClientPID, MyName, {Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels, FederatedMode, CountLimit}}) ->
+%init({ClientPID, MyName, {Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels}}) ->
+ % FederatedMode = 0, % TODO delete
+%  CountLimit = 1, % TODO delete
   io:fwrite("start module_create ~n"),
 
   _Res=erlModule:module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
+  io:fwrite("Layers_sizes: ~p, Learning_rate: ~p, ActivationList: ~p, Optimizer: ~p, ModelId ~p\n",[Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId]),
   %io:fwrite("Mid: ~p\n",[Mid]),
   %{ok, idle, []}.
-  {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = MyName, modelId = ModelId}}.
+  %timer:sleep(20000),
+  %Ret_weights_tuple = erlModule:get_weights(0),
+  %{Wheights,Bias,Size} = Ret_weights_tuple,
+  %file:write_file("NerlStatemOut.txt", [lists:flatten(io_lib:format("~p~p~p",[Size,Bias,Wheights]))]),
+  {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = MyName, modelId = ModelId, federatedMode = FederatedMode, countLimit = CountLimit}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -112,6 +124,14 @@ idle(cast, {predict}, State) ->
   io:fwrite("Go from idle to predict\n"),
   {next_state, predict, State};
 
+idle(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
+  {Wheights,Bias,Size} = Ret_weights_tuple,
+  io:fwrite("Set weights in wait state: \n"),
+
+  %% Set weights TODO maybe send the results of the update
+  _Result_set_weights = erlModule:set_weights(Wheights,Bias,Size,ModelId),
+  {next_state, NextState, State};
+
 idle(cast, Param, State) ->
   io:fwrite("Same state idle, command: ~p\n",[Param]),
   {next_state, idle, State}.
@@ -123,10 +143,51 @@ wait(cast, {loss,nan,_Time_NIF}, State = #nerlNetStatem_state{clientPid = Client
   gen_statem:cast(ClientPid,{loss, MyName, nan}), %% TODO send to tal stop casting request with error desc
   {next_state, NextState, State};
 
-wait(cast, {loss,{LOSS_FUNC,TimeCpp},Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState}) ->
-      io:fwrite("Loss func in wait: ~p\nTime for train execution in cppSANN (micro sec): ~p\nTime for train execution in NIF+cppSANN (micro sec): ~p\n",[LOSS_FUNC, TimeCpp, Time_NIF]),
-      gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}), %% TODO Add Time and Time_NIF to the cast
-      {next_state, NextState, State};
+wait(cast, {loss, LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState, count = Count, countLimit = CountLimit, modelId = Mid, federatedMode = FederatedMode}) ->
+  {LOSS_FUNC,TimeCpp} = LossAndTime,
+  io:fwrite("Loss func in wait: ~p\nTime for train execution in cppSANN (micro sec): ~p\nTime for train execution in NIF+cppSANN (micro sec): ~p\n",[LOSS_FUNC, TimeCpp, Time_NIF]),
+  if
+    FederatedMode == ?MODE_FEDERATED and (Count == CountLimit)-> 
+      % Get weights
+      io:fwrite("Get weights: \n"),
+      Ret_weights_tuple = erlModule:get_weights(Mid),
+      {Wheights,Bias,Size} = Ret_weights_tuple,
+      file:write_file("NerlStatemOut.txt", [lists:flatten(io_lib:format("~p~p~p",[Size,Bias,Wheights]))]), %  TODO delete, for debugging
+
+      % Send weights and loss value TODO
+      gen_statem:cast(ClientPid,{loss, federated_weights, MyName, LOSS_FUNC, Ret_weights_tuple}), %% TODO Add Time and Time_NIF to the cast
+      
+      % Reset count and go to state train
+      State#nerlNetStatem_state{count = 1};
+
+    FederatedMode == ?MODE_FEDERATED ->
+      %% Send back the loss value
+      gen_statem:cast(ClientPid,{loss, federated, MyName, LOSS_FUNC}); %% TODO Add Time and Time_NIF to the cast
+      %State#nerlNetStatem_state{count = Count + 1};
+
+    true -> % Federated mode = 0 (not federated)
+      io:fwrite("NOT Federated wait: \n"),
+      io:fwrite("loss statem: ~p\n", [LOSS_FUNC]),
+      gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}) %% TODO Add Time and Time_NIF to the cast
+  end,
+
+  {next_state, NextState, State};
+
+wait(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
+  {Wheights,Bias,Size} = Ret_weights_tuple,
+  io:fwrite("Set weights in wait state: \n"),
+
+  %% Set weights TODO
+  _Result_set_weights = erlModule:set_weights(Wheights,Bias,Size,ModelId),
+
+  {next_state, NextState, State};
+
+%wait(cast, {loss,LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState}) ->
+
+  %{LOSS_FUNC,TimeCpp} = LossAndTime,
+  %io:fwrite("Loss func in wait: ~p\nTime for train execution in cppSANN (micro sec): ~p\nTime for train execution in NIF+cppSANN (micro sec): ~p\n",[LOSS_FUNC, TimeCpp, Time_NIF]),
+ % gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}), %% TODO Add Time and Time_NIF to the cast
+%  {next_state, NextState, State};
 
 wait(cast, {predictRes,CSVname, BatchID, {RESULTS,TimeCpp},Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, nextState = NextState}) ->
   io:fwrite("Predict results: ~p\nTime for predict execution in cppSANN (micro sec): ~p\nTime for predict execution in NIF+cppSANN (micro sec): ~p\n",[RESULTS, TimeCpp, Time_NIF]),
@@ -147,6 +208,7 @@ wait(cast, {predict}, State) ->
 
 wait(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = MissedTrainSamples}) ->
   io:fwrite("Missed, got sample. Got: ~p \n Missed batches count: ~p\n",[{SampleListTrain}, MissedSamplesCount]),
+  io:fwrite("Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
   Miss = MissedTrainSamples++SampleListTrain,
   {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1, missedTrainSamples = Miss}};
 
@@ -156,14 +218,26 @@ wait(cast, Param, State) ->
 
 
 %% State train
-train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels}) ->
+train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels, count = Count}) ->
   CurrPid = self(),
   ChunkSizeTrain = round(length(SampleListTrain)/(Features + Labels)),
   %io:fwrite("length(SampleListTrain)/(Features + Labels): ~p\n",[length(SampleListTrain)/(Features + Labels)]),
   %io:fwrite("Send sample to train: ~p\n",[SampleListTrain]),
   %io:fwrite("ChunkSizeTrain: ~p, Features: ~p Labels: ~p ModelId ~p\n",[ChunkSizeTrain, Features, Labels, ModelId]),
+  %io:fwrite("Train state, pid: ~p\n", [CurrPid]),
   _Pid = spawn(fun()-> erlModule:train2double(ChunkSizeTrain, Features, Labels, SampleListTrain,ModelId,CurrPid) end),
-  {next_state, wait, State#nerlNetStatem_state{nextState = train}};
+  {next_state, wait, State#nerlNetStatem_state{nextState = train, count = Count + 1}};
+
+
+train(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{modelId = ModelId, nextState = NextState}) ->
+
+  {Wheights,Bias,Size} = Ret_weights_tuple,
+  io:fwrite("Set weights in train state: \n"),
+
+  %% Set weights TODO
+  _Result_set_weights = erlModule:set_weights(Wheights,Bias,Size,ModelId),
+
+  {next_state, NextState, State};
 
 
 %train(cast, {idle}, State = #nerlNetStatem_state{missedTrainSamples = MissedTrainSamples,modelId = ModelId, features = Features, labels = Labels}) ->
