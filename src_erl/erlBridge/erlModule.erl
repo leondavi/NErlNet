@@ -4,7 +4,7 @@
 -export([testMatrix/2,cppBridgeController/0,cppBridgeControllerGetModelPtr/1 ,cppBridgeControllerSetData/1,
 	 create_module/6, train2double/6, predict2double/7, niftest/6, thread_create_test/0,
 	 predict/0, module_create/5, train_predict_create/5, train_predict_create/6, cppBridgeControllerSetModelPtrDat/2,
-	cppBridgeControllerDeleteModel/1, startTest/11,train/8, set_weights/3, get_weights/1]).
+	cppBridgeControllerDeleteModel/1, startTest/11,train/8, set_weights/4, get_weights/1, average_weights/4]).
 
 %%  on_load directive is used get function init called automatically when the module is loaded
 -on_load(init/0).
@@ -113,7 +113,7 @@ train2double(Rows, Cols, Labels, Data_Label_mat, ModelId, ClientPid) ->
 	_Return = train_predict_create(1, Rows, Cols, Labels, dList(Data_Label_mat), ModelId),
 	receive
 		LOSS_And_Time->
-			%io:fwrite("Loss func in erlModule: ~p\n",[LOSS_FUNC]),
+			io:fwrite("Loss and time func in erlModule: ~p\n",[LOSS_And_Time]),
 			Finish_Time = os:system_time(microsecond),
 			Time_elapsedNIF=Finish_Time-Start_Time,
 			gen_statem:cast(ClientPid,{loss, LOSS_And_Time,Time_elapsedNIF}) % TODO Change the cast in the client
@@ -133,8 +133,8 @@ train_predict_create(1, _Rows, _Cols, _Labels, _Data_Label_mat, _ModelId) ->
 
 %% ---- Predict ----
 
-%% _Rows, _Col, _Labels - "ints"
-%% _Data_Label_mat - list
+%% Rows, Cols - "ints"
+%% Data_mat - list
 predict2double(Data_mat, Rows, Cols, ModelId, ClientPid,CSVname,BatchID) ->
 	Start_Time = os:system_time(microsecond),
 	%% make double list and send to train_predict_create
@@ -143,7 +143,7 @@ predict2double(Data_mat, Rows, Cols, ModelId, ClientPid,CSVname,BatchID) ->
 		RESULTS_And_Time->
 			Finish_Time = os:system_time(microsecond),
 			Time_elapsedNIF=Finish_Time-Start_Time,
-			io:fwrite("Results: ~p\n",[RESULTS_And_Time]),
+			%io:fwrite("Results: ~p\n",[RESULTS_And_Time]),
 			gen_statem:cast(ClientPid,{predictRes,CSVname,BatchID, RESULTS_And_Time,Time_elapsedNIF}) % TODO Change the cast in the client
 	end.
 
@@ -155,11 +155,14 @@ train_predict_create(2, _Data_mat, _rows, _cols, _ModelId) ->
 
 %% Set the new weights
 %% _Matrix, _Bias - lists
-set_weights(2, _Matrix, _Bias) ->
+set_weights(_Matrix, _Bias, _Size, _ModelId) ->
 	exit(nif_library_not_loaded).
 
 %% Get the weights
-get_weights(0) ->
+get_weights(_Mid) ->
+	exit(nif_library_not_loaded).
+
+average_weights(_Matrix, _Biases, _Size, _ModelId) ->
 	exit(nif_library_not_loaded).
 
 %% ------------------------ TEST ----------------------------
@@ -187,10 +190,11 @@ startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, Activation
 	module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
 	%io:fwrite("Create PID ~p ~n",[Pid1]),
 	Start_Time = os:system_time(microsecond),
+	get_weights(0),
 
 	%io:fwrite("TrainList: ~p\n",[SampleListTrain]),
 	io:fwrite("ChunkSize: ~p Cols: ~p, Labels: ~p, ModelId: ~p, pid: ~p \n",[ChunkSize,Cols,Labels, ModelId,self()]),
-	Loss=train(ProcNumTrain,ChunkSize, Cols, Labels, SampleListTrain,ModelId,self(),0.0),
+%	Loss=train(ProcNumTrain,ChunkSize, Cols, Labels, SampleListTrain,ModelId,self(),0.0),
 
 	%niftest(ProcNumTrain,SampleListTrain,Train_Lines,Cols,Labels,ModelId),
 	%io:fwrite("start predict2double ~n"),
@@ -202,7 +206,7 @@ startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, Activation
 	%end,
 
 	Finish_Time = os:system_time(microsecond),
-	io:fwrite("Loss value: ~p\n",[Loss]),
+%	io:fwrite("Loss value: ~p\n",[Loss]),
 	Time_elapsed=(Finish_Time-Start_Time)/ProcNumTrain,
 	io:fwrite("Time took for all the nif: ~p micro sec , Number of processes = ~p ~n",[Time_elapsed, ProcNumTrain]).
 
