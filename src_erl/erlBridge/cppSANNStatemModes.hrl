@@ -1,0 +1,2 @@
+-define(MODE_REGULAR, 0).
+-define(MODE_FEDERATED, 1).
