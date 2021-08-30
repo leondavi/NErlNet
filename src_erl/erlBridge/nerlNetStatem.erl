@@ -60,8 +60,9 @@ init({ClientPID, MyName, {Layers_sizes, Learning_rate, ActivationList, Optimizer
   %{ok, idle, []}.
   %timer:sleep(20000),
   %Ret_weights_tuple = erlModule:get_weights(0),
-  %{Wheights,Bias,Size} = Ret_weights_tuple,
-  %file:write_file("NerlStatemOut.txt", [lists:flatten(io_lib:format("~p~p~p",[Size,Bias,Wheights]))]),
+  %{Wheights,Bias,Biases_sizes_list,Wheights_sizes_list} = Ret_weights_tuple,
+  %file:write_file("NerlStatemOut.txt", [lists:flatten(io_lib:format("~p~p~p~p",[Bias,Wheights,Biases_sizes_list,Wheights_sizes_list]))]),
+  %erlModule:set_weights(Wheights, Bias, Biases_sizes_list,Wheights_sizes_list, 0),
   {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = MyName, modelId = ModelId, federatedMode = FederatedMode, countLimit = CountLimit}}.
 
 %% @private
