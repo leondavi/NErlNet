@@ -111,8 +111,8 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(ModelId);
 
     // Get the weights_list ptr
-    vec_of_weights_ptr = modelPtr->get_weights_of_model();
-
+    //vec_of_weights_ptr = modelPtr->get_weights_of_model();
+/*
     // Go over all the weights and biases 
     for (std::vector<std::shared_ptr<ANN::Weights>>::iterator it = vec_of_weights_ptr.begin() ; it != vec_of_weights_ptr.end() ; it++)
     {
@@ -150,9 +150,6 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         }
     }
 
-
-
-#if DEBUG_TRAIN_NIF
     ofstream outdata; // outdata is to send the weights to a file
     outdata.open("NerlNifCppOut.txt"); // opens the file
     if( !outdata ) { // file couldn't be opened
@@ -171,6 +168,9 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     outdata << ModelId << "\n";
     outdata << "Finish ModelId" << endl;
     outdata.close();
+*/
+#if DEBUG_TRAIN_NIF
+
 
 #endif
 
@@ -218,7 +218,7 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(ModelId);
 
         // Get the weights_list ptr
-        vec_of_weights_ptr = modelPtr->get_weights_of_model();
+        //vec_of_weights_ptr = modelPtr->get_weights_of_model();
 
         // Go over all the weights and biases 
         for (std::vector<std::shared_ptr<ANN::Weights>>::iterator it = vec_of_weights_ptr.begin() ; it != vec_of_weights_ptr.end() ; it++)
@@ -226,13 +226,15 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
             //*weights_Mat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(trainPtr->data_label_mat.data(), trainPtr->rows, trainPtr->col,Stride<Dynamic,Dynamic>(1, FeaturesAndLabels));
             // Convert the vector to a matrix. (TODO: Native to Eigen)
             // Create the matrix
-            weights_Mat(weights_vec_sizes[weight_index],weights_vec_sizes[weight_index+1]);
+            //weights_Mat(weights_vec_sizes[weight_index],weights_vec_sizes[weight_index+1]);
             for (int r = 0; r < weights_vec_sizes[weight_index]; r++){ // Go over the rows
                 for (int c = 0; c < weights_vec_sizes[weight_index+1]; c++){ // Go over the columns
-                    weights_Mat(r,c) = weights_list[r*weights_vec_sizes[weight_index+1] + c + weight_index_sum];
+                    //weights_Mat(r,c) = weights_list[r*weights_vec_sizes[weight_index+1] + c + weight_index_sum];
                 }
             }
-
+            std::cout << "1!!!" << std::endl;
+            std::cout << "weight_index_sum: " << weight_index_sum << std::endl;
+            std::cout << "weight_index: " << weight_index << std::endl;
 
 
             weight_index_sum += weights_vec_sizes[weight_index]*weights_vec_sizes[weight_index+1] + weights_vec_sizes[weight_index+1];
@@ -242,7 +244,7 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
             std::cout << "sizes_vec_index: " << sizes_vec_index << std::endl;
 
             // Set weights to the module
-            (*it)->set_weights(weights_Mat);
+            //(*it)->set_weights(weights_Mat);
 
             // Convert the vector to a VectorXd. Native to Eigen
             bias = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(&bias_list[bias_list_index], bias_vec_sizes[sizes_vec_index]);
@@ -250,14 +252,14 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
             std::cout << "bias: " << bias << std::endl;
 
             // Set biases to the module
-            (*it)->set_bias(*bias);
+            //(*it)->set_bias(*bias);
 
             // Next indexes place in the vector of sizes
             bias_list_index = bias_list_index + bias_vec_sizes[sizes_vec_index];
             sizes_vec_index++;
         }
     
-#if DEBUG_TRAIN_NIF
+
     ofstream outdata; // outdata is to send the weights to a file
     outdata.open("NerlNifCppOutSet.txt"); // opens the file
     if( !outdata ) { // file couldn't be opened
@@ -277,12 +279,12 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     outdata << "Finish ModelId" << endl;
 
     outdata.close();
-#endif
+
     }
     catch(nifpp::badarg){
         return enif_make_badarg(env);
     }
-    
+
     // TODO: Optionally return something else 
     return enif_make_int(env, 0);
 }
@@ -301,7 +303,7 @@ static ERL_NIF_TERM average_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_
         nifpp::get_throws(env, argv[2], vec_of_sizes);
 
         // Go over the vector of biases vectors and vector of weights and average them
-        for(int vecIndex = 0; vecIndex < vec_of_bias_vec.size(); vecIndex++){
+        for(int vecIndex = 0; vecIndex < (int)vec_of_bias_vec.size(); vecIndex++){
             
             // TODO : Go over the biases vector 
             for (int r = 0; r < vec_of_sizes[vecIndex]; r++){
