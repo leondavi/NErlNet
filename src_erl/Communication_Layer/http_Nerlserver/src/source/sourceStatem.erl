@@ -165,7 +165,7 @@ spawnTransmitter(WorkersNames,CSVPath,CSVlist,PortMap,WorkersMap,ChunkSize)->
 %%  ListOfWorkers = re:split(WorkersNames,",", [{return, list}]),
   Triplets =getHostPort(WorkersNames,WorkersMap,PortMap,[]),
 %%  io:format("~p~n",[Triplets]),
-  %%[list of binarys from CSV file, Size of batch, 1/Hz, statem pid]
+  %%[list of binarys from CSV file, Size of batch, 1/Hz (in milisecond), statem pid]
   spawn(?MODULE,sendSamples,[CSVlist,CSVPath,ChunkSize,60,self(),Triplets,0]).
 
 
