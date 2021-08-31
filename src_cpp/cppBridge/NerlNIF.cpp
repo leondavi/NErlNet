@@ -111,8 +111,8 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(ModelId);
 
     // Get the weights_list ptr
-    //vec_of_weights_ptr = modelPtr->get_weights_of_model();
-/*
+    modelPtr->get_weights(vec_of_weights_ptr);
+
     // Go over all the weights and biases 
     for (std::vector<std::shared_ptr<ANN::Weights>>::iterator it = vec_of_weights_ptr.begin() ; it != vec_of_weights_ptr.end() ; it++)
     {
@@ -168,7 +168,7 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     outdata << ModelId << "\n";
     outdata << "Finish ModelId" << endl;
     outdata.close();
-*/
+
 #if DEBUG_TRAIN_NIF
 
 
@@ -218,7 +218,7 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(ModelId);
 
         // Get the weights_list ptr
-        //vec_of_weights_ptr = modelPtr->get_weights_of_model();
+        modelPtr->get_weights(vec_of_weights_ptr);
 
         // Go over all the weights and biases 
         for (std::vector<std::shared_ptr<ANN::Weights>>::iterator it = vec_of_weights_ptr.begin() ; it != vec_of_weights_ptr.end() ; it++)
@@ -303,7 +303,7 @@ static ERL_NIF_TERM average_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_
         nifpp::get_throws(env, argv[2], vec_of_sizes);
 
         // Go over the vector of biases vectors and vector of weights and average them
-        for(int vecIndex = 0; vecIndex < (int)vec_of_bias_vec.size(); vecIndex++){
+        for(int vecIndex = 0; vecIndex < static_cast<int>(vec_of_bias_vec.size()); vecIndex++){
             
             // TODO : Go over the biases vector 
             for (int r = 0; r < vec_of_sizes[vecIndex]; r++){
