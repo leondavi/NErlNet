@@ -175,8 +175,23 @@ training(cast, {loss,LossFunction}, State = #client_statem_state{myName = MyName
 %%  TODO send loss to mainserver
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
+
+%%Federated Mode:
+training(cast, {loss, federated_weights, MyName, LOSS_FUNC, Ret_weights_tuple}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
+  io:format("MyName: ~p~n, LossFunction: ~p~n,  Ret_weights_tuple: ~p~n",[MyName, LOSS_FUNC, Ret_weights_tuple]),
+%%  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+%%  TODO send loss to mainserver
+  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+
+training(cast, {loss, federated_weights, MyName, LOSS_FUNC}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
+  io:format("MyName: ~p~n, LossFunction: ~p~n",[MyName, LOSS_FUNC]),
+%%  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+%%  TODO send loss to mainserver
+  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+
+
 training(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
-  %io:format("client training ignored:  ~p ~n",[EventContent]),
+  io:format("client training ignored!!!:  ~p ~n!!!",[EventContent]),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
 
 
