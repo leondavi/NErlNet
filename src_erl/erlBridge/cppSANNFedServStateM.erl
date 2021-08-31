@@ -15,8 +15,10 @@
 
 %% gen_statem callbacks
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,code_change/4, callback_mode/0]).
+%% Extra functions
+-export([averageFun/2]).
 %% States functions
--export([receives/3, average/3]).
+-export([average/3, receives/3]).
 
 -define(SERVER, ?MODULE).
 
@@ -103,16 +105,61 @@ code_change(_OldVsn, StateName, State = #fedServ_state{}, _Extra) ->
 %% Define states
 
 %% State receives
-receives(cast, WeightsTuple, State = #fedServ_state{buffer = Buffer, counter = Counter}) ->
+%% Receives the weights from the client
+receives(cast, {weights,WeightsTuple}, State = #fedServ_state{buffer = Buffer, counter = Counter, counterLimit =  CounterLimit}) ->
   io:fwrite("receives state\n"),
-  
-  State = #fedServ_state{counter = Counter + 1},
+  NewCount = Counter + 1,
+  if
+    NewCount < CounterLimit ->
+      %% Add to the buffer, increment the counter and continue to recieve weights
+      {next_state, receives, State#fedServ_state{counter = NewCount, buffer = Buffer ++ [WeightsTuple]}};
+
+    NewCount >= CounterLimit ->
+      %% Reset the buffer, decrease the counter by CounterLimit, start averaging in a different process and go to average state
+      _Pid = spawn(fun()-> averageFun(Buffer ++ [WeightsTuple],self()) end),
+      {next_state, average, State#fedServ_state{counter = NewCount - CounterLimit, buffer = []}};
+    
+    true ->
+      io:fwrite("Error: cppSANNEdServStateM not supposed to be here.\n"),
+      {next_state, receives, State#fedServ_state{counter = NewCount}}
+  end;
+
+
+%% Not supposed to be here
+receives(cast, Else, State) ->
+  io:fwrite("Error: State receives in cppSANNFedServStateM.erl. Got: ~p\n",[Else]),
   {next_state, receives, State}.
 
 
 
-
 %% State average
-average(cast, {F}, State = #fedServ_state{}) ->
-  io:fwrite("average state\n"),
+
+%% Got weights results
+average(cast, {weights,WeightsTuple}, State = #fedServ_state{buffer = Buffer, counter = Counter}) ->
+  io:fwrite("Got weights at average state.\n"),
+  {next_state, average, State#fedServ_state{counter = Counter + 1, buffer = Buffer ++ [WeightsTuple]}};
+
+%% Got average results
+average(cast, {average, WeightsTuple}, State= #fedServ_state{fedServPID = FedServPID, myName = MyName}) ->
+  io:fwrite("Average state: Got average results.\n"),
+  io:fwrite("The average results are: ~p\n",[WeightsTuple]),
+
+  %% Send the results to the clients through the main server
+  gen_statem:cast(FedServPID,{averageResult, MyName, WeightsTuple}),
+  {next_state, receives, State};
+
+
+%% Not supposed to be here
+average(cast, Else, State) ->
+  io:fwrite("Error: State average in cppSANNFedServStateM.erl. Got: ~p\n",[Else]),
   {next_state, average, State}.
+
+
+% Functions
+
+%% Do the averaging
+averageFun(WeightsBuffer,CallerPid) ->
+  % TODO: call average in the nif
+  %R = erlModule:average_weights(_Matrix, _Biases, _Size, _ModelId),
+  [Weights|_T] = WeightsBuffer,
+  gen_statem:cast(CallerPid,{average, Weights}).
