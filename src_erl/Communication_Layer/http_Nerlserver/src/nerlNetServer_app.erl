@@ -65,6 +65,7 @@ start(_StartType, _StartArgs) ->
     createMainServer(MainServer,HostName),
     createRouters(Routers,HostName),
     createSources(Sources,WorkersMap, ChunkSize, HostName),
+    createFederatedServer(federated,WorkersMap, HostName),
 %%    Worker1Args = {[3,2,1],0.01,[0,2,0],6,0,3,1,ChunkSize},
 %%    Worker1Args = {[561,280,140,70,35,17,8,4,2,1],0.01,[0,2,2,2,2,2,2,2,2,0],6,0,561,1,ChunkSize},
 %%    Worker2Args = {[3,2,1],0.01,[0,2,0],6,1,3,1,ChunkSize},
@@ -106,6 +107,31 @@ createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsMap}|ClientsAn
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
     init_cowboy_start_clear(ClientName, {HostName,Port},NerlClientDispatch),
     createClientsAndWorkers(ClientsAndWorkers,HostName).
+
+
+createFederatedServer(none,_WorkersMap,_HostName) -> none;
+createFederatedServer([],_WorkersMap,_HostName) -> okdone;
+createFederatedServer([{FederateArgs,FederateConnectionsMap}|Federate],WorkersMap,HostName) ->
+    FederatedName = list_to_atom(binary_to_list(maps:get(<<"name">>,FederateArgs))),
+    Port = list_to_integer(binary_to_list(maps:get(<<"port">>,FederateArgs))),
+
+    %%Create a gen_StateM machine for maintaining Database for Source.
+    %% all http requests will be handled by Cowboy which updates source_statem if necessary.
+    FederatedStatemArgs= {FederatedName,WorkersMap,FederateConnectionsMap},        %%TODO  make this a list of Sources
+    FederatedStatemPid = sourceStatem:start_link(FederatedStatemArgs),
+
+
+    %%    Source server
+    SourceDispatch = cowboy_router:compile([
+        {'_', [
+            {"/weights",weightsHandler, [stopCasting,FederatedStatemPid]}
+        ]}
+    ]),
+    %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
+    %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
+    init_cowboy_start_clear(SourceName, {HostName,Port},SourceDispatch),
+    createSources(Sources,WorkersMap,ChunkSize,HostName).
+
 
 createSources(none,_WorkersMap,_ChunkSize,_HostName) -> none;
 createSources([],_WorkersMap,_ChunkSize,_HostName) -> okdone;
@@ -219,3 +245,5 @@ init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
 
 stop(_State) ->
     ok.
+
+
