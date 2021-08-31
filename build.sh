@@ -3,4 +3,4 @@
 #Builds 
 
 cd src_py
-python BuildScript.py cpp=True
+python3 BuildScript.py cpp=True
