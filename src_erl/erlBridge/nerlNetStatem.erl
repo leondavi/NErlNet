@@ -130,7 +130,7 @@ idle(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{nextSta
   io:fwrite("Set weights in wait state: \n"),
 
   %% Set weights TODO maybe send the results of the update
-  _Result_set_weights = erlModule:set_weights(Wheights,Bias,Size,ModelId),
+  %_Result_set_weights = erlModule:set_weights(Wheights,Bias,Size,ModelId),
   {next_state, NextState, State};
 
 idle(cast, Param, State) ->
@@ -159,27 +159,26 @@ wait(cast, {loss, LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid 
       gen_statem:cast(ClientPid,{loss, federated_weights, MyName, LOSS_FUNC, Ret_weights_tuple}), %% TODO Add Time and Time_NIF to the cast
       
       % Reset count and go to state train
-      State#nerlNetStatem_state{count = 1};
+      {next_state, NextState, State#nerlNetStatem_state{count = 1}};
 
     FederatedMode == ?MODE_FEDERATED ->
       %% Send back the loss value
-      gen_statem:cast(ClientPid,{loss, federated, MyName, LOSS_FUNC}); %% TODO Add Time and Time_NIF to the cast
-      %State#nerlNetStatem_state{count = Count + 1};
+      gen_statem:cast(ClientPid,{loss, federated, MyName, LOSS_FUNC}), %% TODO Add Time and Time_NIF to the cast
+      {next_state, NextState, State#nerlNetStatem_state{count = Count + 1}};
 
     true -> % Federated mode = 0 (not federated)
       io:fwrite("NOT Federated wait: \n"),
       io:fwrite("loss statem: ~p\n", [LOSS_FUNC]),
-      gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}) %% TODO Add Time and Time_NIF to the cast
-  end,
-
-  {next_state, NextState, State};
+      gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}), %% TODO Add Time and Time_NIF to the cast
+      {next_state, NextState, State}
+  end;
 
 wait(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
   {Wheights,Bias,Size} = Ret_weights_tuple,
   io:fwrite("Set weights in wait state: \n"),
 
   %% Set weights TODO
-  _Result_set_weights = erlModule:set_weights(Wheights,Bias,Size,ModelId),
+  %_Result_set_weights = erlModule:set_weights(Wheights,Bias,Size,ModelId),
 
   {next_state, NextState, State};
 
@@ -236,7 +235,7 @@ train(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{modelI
   io:fwrite("Set weights in train state: \n"),
 
   %% Set weights TODO
-  _Result_set_weights = erlModule:set_weights(Wheights,Bias,Size,ModelId),
+  %_Result_set_weights = erlModule:set_weights(Wheights,Bias,Size,ModelId),
 
   {next_state, NextState, State};
 
