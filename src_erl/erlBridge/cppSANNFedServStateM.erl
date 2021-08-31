@@ -158,8 +158,8 @@ average(cast, Else, State) ->
 % Functions
 
 %% Do the averaging
-averageFun(WeightsBuffer,FedServPid) ->
+averageFun(WeightsBuffer,CallerPid) ->
   % TODO: call average in the nif
   %R = erlModule:average_weights(_Matrix, _Biases, _Size, _ModelId),
   [Weights|_T] = WeightsBuffer,
-  gen_statem:cast(FedServPid,{average, Weights}).
+  gen_statem:cast(CallerPid,{average, Weights}).
