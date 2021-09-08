@@ -114,13 +114,6 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     // Get the weights_list ptr
     modelPtr->get_weights(vec_of_weights_ptr);
 
-     ofstream outdata; // outdata is to send the weights to a file
-    outdata.open("NerlNifCppOut.txt"); // opens the file
-    if( !outdata ) { // file couldn't be opened
-        cerr << "Error: file could not be opened" << endl;
-        exit(1);
-    }
-
     // Go over all the weights and biases 
     for (std::vector<std::shared_ptr<ANN::Weights>>::iterator it = vec_of_weights_ptr.begin() ; it != vec_of_weights_ptr.end() ; it++)
     {
@@ -150,6 +143,14 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     }
 
 
+#if DEBUG_TRAIN_NIF
+    ofstream outdata; // outdata is to send the weights to a file
+    outdata.open("NerlNifCppOut.txt"); // opens the file
+    if( !outdata ) { // file couldn't be opened
+        cerr << "Error: file could not be opened" << endl;
+        exit(1);
+    }
+
     outdata << "Start weights_vec_sizes" << endl;
     for (const auto &e : weights_vec_sizes) outdata << e << "\n"; // Export bias_vec_sizes
     outdata << "Start wheigts: " << endl;
@@ -161,10 +162,6 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     outdata << "Start ModelId" << endl;
     outdata << ModelId << "\n";
     outdata.close();
-
-#if DEBUG_TRAIN_NIF
-
-
 #endif
 
     // Convert the weights_list_vec to nif term
@@ -262,26 +259,28 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
             bias_list_index = bias_list_index + bias_vec_sizes_int[sizes_vec_index];
             sizes_vec_index++;
         }
-    
-        ofstream outdata; // outdata is to send the weights to a file
-        outdata.open("NerlNifCppOutSet.txt"); // opens the file
-        if( !outdata ) { // file couldn't be opened
-            cerr << "Error: file could not be opened" << endl;
-            exit(1);
-        }
-        outdata << "bias_list_double:" << endl;
-        for (const auto &e : bias_list_double) outdata << e << "\n"; // Export bias
-        outdata << "weights_list_double:" << endl;
-        for (const auto &e : weights_list_double) outdata << e << "\n"; // Export weights_list_vec
-        outdata << "weights_vec_sizes_int:" << endl;
-        for (const auto &e : weights_vec_sizes_int) outdata << e << "\n"; // Export bias_vec_sizes
-        outdata << "bias_vec_sizes_int:" << endl;
-        for (const auto &e : bias_vec_sizes_int) outdata << e << "\n"; // Export bias_vec_sizes
-        outdata << "ModelId:" << endl;
-        outdata << ModelId << "\n";
+ #if DEBUG_TRAIN_NIF
+    ofstream outdata; // outdata is to send the weights to a file
+    outdata.open("NerlNifCppOutSet.txt"); // opens the file
+    if( !outdata ) { // file couldn't be opened
+        cerr << "Error: file could not be opened" << endl;
+        exit(1);
+    }
+    outdata << "bias_list_double:" << endl;
+    for (const auto &e : bias_list_double) outdata << e << "\n"; // Export bias
+    outdata << "weights_list_double:" << endl;
+    for (const auto &e : weights_list_double) outdata << e << "\n"; // Export weights_list_vec
+    outdata << "weights_vec_sizes_int:" << endl;
+    for (const auto &e : weights_vec_sizes_int) outdata << e << "\n"; // Export bias_vec_sizes
+    outdata << "bias_vec_sizes_int:" << endl;
+    for (const auto &e : bias_vec_sizes_int) outdata << e << "\n"; // Export bias_vec_sizes
+    outdata << "ModelId:" << endl;
+    outdata << ModelId << "\n";
 
-        outdata.close();
+    outdata.close();
 
+#endif   
+       
     }
     catch(nifpp::badarg){
         return enif_make_badarg(env);
@@ -296,7 +295,7 @@ static ERL_NIF_TERM average_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 {
     std::vector<std::string> vec_of_weightsAndBiases_vec_string;
     std::vector<double> vec_of_weightsAndBiases_vec_double, sum_of_weights;
-    int NumOfWeightsAndBiases;
+    int NumOfWeightsAndBiases, index = 0;
     
     ERL_NIF_TERM ret_tuple;
 
@@ -314,28 +313,18 @@ static ERL_NIF_TERM average_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_
         int OneWheightAndBiasesSize = vec_of_weightsAndBiases_vec_double.size()/NumOfWeightsAndBiases;
         sum_of_weights.resize(OneWheightAndBiasesSize,0);
 
-        for (const auto &e : sum_of_weights) std::cout << e << "\n";
-        std::cout << "Finish sum_of_weights" << "\n";
-
         // Sum all the biases and weights
         for(int vecIndex = 0; vecIndex < OneWheightAndBiasesSize; vecIndex++){
-            for(int i = 0; i < static_cast<int>(vec_of_weightsAndBiases_vec_double.size()); i+= OneWheightAndBiasesSize) {
+            for(int i = index; i < static_cast<int>(vec_of_weightsAndBiases_vec_double.size()); i+= OneWheightAndBiasesSize) {
                 sum_of_weights[vecIndex] += vec_of_weightsAndBiases_vec_double[i];
-                
-                std::cout << "vecIndex: " << vecIndex << std::endl;
-                std::cout << "i: " << i << std::endl;
-                std::cout << "vec_of_weightsAndBiases_vec_double[i]: " << vec_of_weightsAndBiases_vec_double[i] << std::endl;
-                std::cout << "sum_of_weights[vecIndex]: " << sum_of_weights[vecIndex] << std::endl;
-
             }
+            index++;
         }
 
         // Divide the sum of weights and biases vector by NumOfWeightsAndBiases to get the average vector
         for(int i = 0; i < static_cast<int>(sum_of_weights.size()); i++) {
             sum_of_weights[i] = sum_of_weights[i] / NumOfWeightsAndBiases;
         }
-
-        for (const auto &e : sum_of_weights) std::cout << e << "\n";
 
 
         // Convert the vec_of_weights_vec to a nif term
