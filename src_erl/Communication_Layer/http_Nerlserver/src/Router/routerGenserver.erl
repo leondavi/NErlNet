@@ -49,6 +49,7 @@ start_link({MyName,ConnectionsMap}) ->
 
 init({MyName,ConnectionsMap}) ->
   inets:start(),
+  io:format("Routers connection map:~n~p~n",[ConnectionsMap]),
   start_connection(maps:to_list(ConnectionsMap)),
   {ok, #router_genserver_state{myName = MyName, connectionsMap = ConnectionsMap}}.
 
@@ -65,6 +66,13 @@ handle_cast({rout,Body}, State = #router_genserver_state{connectionsMap = Connec
   [To|_Vector] = binary:split(Body,<<"#">>),
   {Host,Port} =maps:get(list_to_atom(binary_to_list(To)),ConnectionsMap),
   http_request(Host,Port,"weightsVector",Body),
+  {noreply, State};
+
+handle_cast({federatedWeights,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+%%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
+  [To|_Vector] = binary:split(Body,<<"#">>),
+  {Host,Port} =maps:get(list_to_atom(binary_to_list(To)),ConnectionsMap),
+  http_request(Host,Port,"federatedWeights",Body),
   {noreply, State};
 
 
