@@ -48,13 +48,13 @@ sendToTrainPredict(F,Train_predict_Lines,ChunkSize, NumOfChunks, Mode, Cols, Lab
   case Mode of
     train ->
       %io:format("Train chunk list: ~w~n", [SampleList]),
-      LossVal=erlModule:train2double(ChunkSize, Cols, Labels, SampleList, ModelId), % Send to train
-      io:fwrite("LossVal: ~p\n",[LossVal]);
+      LossVal=erlModule:train2double(ChunkSize, Cols, Labels, SampleList, ModelId); % Send to train
+      % io:fwrite("LossVal: ~p\n",[LossVal]);
       %timer:sleep(1000);
     predict ->
       %io:format("Predict chunk list: ~w~n", [SampleList]),
-      Result=erlModule:predict2double(SampleList, ChunkSize, Cols, ModelId), % Send to predict
-      io:fwrite("Result: ~p\n",[Result])
+      Result=erlModule:predict2double(SampleList, ChunkSize, Cols, ModelId) % Send to predict
+      % io:fwrite("Result: ~p\n",[Result])
   end,
   if
     Train_predict_Lines >= ChunkSize ->

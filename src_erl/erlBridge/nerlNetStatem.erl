@@ -159,7 +159,7 @@ idle(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{nextSta
   
   %% Set weights TODO maybe send the results of the update
   {WeightsStringList, BiasStringList, Biases_sizes_Stringlist, Wheights_sizes_Stringlist} = decodeTuple(Ret_weights_tuple),
-  io:fwrite("WeightsStringList: ~p BiasStringList: ~p Biases_sizes_Stringlist: ~p Wheights_sizes_Stringlist: ~p\n",[WeightsStringList,BiasStringList,Biases_sizes_Stringlist,Wheights_sizes_Stringlist]),
+  % io:fwrite("WeightsStringList: ~p BiasStringList: ~p Biases_sizes_Stringlist: ~p Wheights_sizes_Stringlist: ~p\n",[WeightsStringList,BiasStringList,Biases_sizes_Stringlist,Wheights_sizes_Stringlist]),
   _Result_set_weights = erlModule:set_weights(WeightsStringList, BiasStringList, Biases_sizes_Stringlist, Wheights_sizes_Stringlist, ModelId),
 
   {next_state, NextState, State};
@@ -180,11 +180,11 @@ wait(cast, {loss, LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid 
   %io:format("Count:~p~n",[Count]),
   %io:format("CountLimit:~p~n",[CountLimit]),
 
-  io:fwrite("Loss func in wait: ~p\nTime for train execution in cppSANN (micro sec): ~p\nTime for train execution in NIF+cppSANN (micro sec): ~p\n",[LOSS_FUNC, TimeCpp, Time_NIF]),
+  % io:fwrite("Loss func in wait: ~p\nTime for train execution in cppSANN (micro sec): ~p\nTime for train execution in NIF+cppSANN (micro sec): ~p\n",[LOSS_FUNC, TimeCpp, Time_NIF]),
   if Count == CountLimit ->
 %%    (Count == CountLimit) and FederatedMode == ?MODE_FEDERATED ->
       % Get weights
-      io:fwrite("Get weights: \n"),
+      % io:fwrite("Get weights: \n"),
       Ret_weights_tuple = erlModule:get_weights(Mid),
       {Wheights,Bias,Biases_sizes_list,Wheights_sizes_list} = Ret_weights_tuple,
 
@@ -211,18 +211,18 @@ wait(cast, {loss, LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid 
       {next_state, NextState, State#nerlNetStatem_state{count = Count + 1}};
 
     true -> % Federated mode = 0 (not federated)
-      io:fwrite("NOT Federated wait: \n"),
-      io:fwrite("loss statem: ~p\n", [LOSS_FUNC]),
+      % io:fwrite("NOT Federated wait: \n"),
+      % io:fwrite("loss statem: ~p\n", [LOSS_FUNC]),
       gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}), %% TODO Add Time and Time_NIF to the cast
       {next_state, NextState, State}
   end;
 
 wait(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
-  io:fwrite("Set weights in wait state: \n"),
+  % io:fwrite("Set weights in wait state: \n"),
 
   %% Set weights TODO
   {WeightsStringList, BiasStringList, Biases_sizes_Stringlist, Wheights_sizes_Stringlist} = decodeTuple(Ret_weights_tuple),
-  io:fwrite("WeightsStringList: ~p BiasStringList: ~p Biases_sizes_Stringlist: ~p Wheights_sizes_Stringlist: ~p\n",[WeightsStringList,BiasStringList,Biases_sizes_Stringlist,Wheights_sizes_Stringlist]),
+  % io:fwrite("WeightsStringList: ~p BiasStringList: ~p Biases_sizes_Stringlist: ~p Wheights_sizes_Stringlist: ~p\n",[WeightsStringList,BiasStringList,Biases_sizes_Stringlist,Wheights_sizes_Stringlist]),
   _Result_set_weights = erlModule:set_weights(WeightsStringList, BiasStringList, Biases_sizes_Stringlist, Wheights_sizes_Stringlist, ModelId),
 
   {next_state, NextState, State};
@@ -235,7 +235,7 @@ wait(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{nextSta
 %  {next_state, NextState, State};
 
 wait(cast, {predictRes,CSVname, BatchID, {RESULTS,TimeCpp},Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, nextState = NextState}) ->
-  io:fwrite("Predict results: ~p\nTime for predict execution in cppSANN (micro sec): ~p\nTime for predict execution in NIF+cppSANN (micro sec): ~p\n",[RESULTS, TimeCpp, Time_NIF]),
+  % io:fwrite("Predict results: ~p\nTime for predict execution in cppSANN (micro sec): ~p\nTime for predict execution in NIF+cppSANN (micro sec): ~p\n",[RESULTS, TimeCpp, Time_NIF]),
   gen_statem:cast(ClientPid,{predictRes, CSVname, BatchID, RESULTS}), %% TODO Add Time and Time_NIF to the cast
   {next_state, NextState, State};
 
@@ -276,11 +276,11 @@ train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = Mo
 
 train(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{modelId = ModelId, nextState = NextState}) ->
 
-  io:fwrite("Set weights in train state: \n"),
+  % io:fwrite("Set weights in train state: \n"),
 
   %% Set weights TODO
   {WeightsStringList, BiasStringList, Biases_sizes_Stringlist, Wheights_sizes_Stringlist} = decodeTuple(Ret_weights_tuple),
-  io:fwrite("WeightsStringList: ~p BiasStringList: ~p Biases_sizes_Stringlist: ~p Wheights_sizes_Stringlist: ~p\n",[WeightsStringList,BiasStringList,Biases_sizes_Stringlist,Wheights_sizes_Stringlist]),
+  % io:fwrite("WeightsStringList: ~p BiasStringList: ~p Biases_sizes_Stringlist: ~p Wheights_sizes_Stringlist: ~p\n",[WeightsStringList,BiasStringList,Biases_sizes_Stringlist,Wheights_sizes_Stringlist]),
   _Result_set_weights = erlModule:set_weights(WeightsStringList, BiasStringList, Biases_sizes_Stringlist, Wheights_sizes_Stringlist, ModelId),
 
   {next_state, NextState, State};
@@ -320,7 +320,7 @@ predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStat
   ChunkSizePred = round(length(SampleListPredict)/Features),
   CurrPID = self(),
   %io:fwrite("length(SampleListPredict)/Features): ~p\n",[length(SampleListPredict)/Features]),
-  io:fwrite("Send sample to predict\n"),
+  % io:fwrite("Send sample to predict\n"),
   _Pid = spawn(fun()-> erlModule:predict2double(SampleListPredict,ChunkSizePred,Features,ModelId,CurrPID, CSVname, BatchID) end),
   {next_state, wait, State#nerlNetStatem_state{nextState = predict}};
 
@@ -345,16 +345,8 @@ encode(Ret_weights_tuple)->
 encode1(Ret_weights_tuple)->
   {Weights,Bias,Biases_sizes_list,Wheights_sizes_list} = Ret_weights_tuple,
   ToSend = list_to_binary(Weights) ++ <<"@">> ++ list_to_binary(Bias) ++ <<"@">> ++ list_to_binary(Biases_sizes_list) ++ <<"@">>  ++ list_to_binary(Wheights_sizes_list),
-  io:format("ToSend  ~p",[ToSend]),
+  % io:format("ToSend  ~p",[ToSend]),
     ToSend.
-
-
-%decode(L,[], ResList) ->
-%  ResList;
-%decode("$",[H|T], ResList) ->
-%  decode("$",[H|T], ResList);
-%decode(String,[H|T], ResList) ->
-%  decode(H, T, ResList ++ H).
 
 decode(L) -> re:split(L, "@", [{return, list}]).
 decode1(L) -> re:split(L, "%", [{return, list}]).
