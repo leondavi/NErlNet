@@ -43,12 +43,25 @@
 
 
 start(_StartType, _StartArgs) ->
+
+    L1=["1.22","3.44","$","3.44","5.66"],
+    L2=["11.22","13.44","51.66"],
+    io:format("encode: ~p~n",[encodeList(L1)]),
+    BinaryL=list_to_binary(encodeList(L1)),
+    io:format("BinaryL: ~p~n",[BinaryL]),
+    W=decode(BinaryL),
+    io:format("decoded BinaryL: ~p~n",[W]),
+
+%%    io:format("decode: ~p~n",[encodeListofLists([encodeList(L1),encodeList(L2)])]),
+
+
+
 %%    HostName = getHostName(),
     HostName = "127.0.0.1",
     io:format("My HostName: ~p~n",[list_to_binary(HostName)]),
 
     %%Server that should be established on this machine from JSON architecture:
-    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers} = jsonParser:getDeviceEntities("./input/jsonArch1PC.json",list_to_binary(HostName)),
+    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap}} = jsonParser:getDeviceEntities("./input/jsonArch1PC.json",list_to_binary(HostName)),
     ChunkSize = 2,
 
 %%    Creating a Dispatcher for each Server from JSONs architecture - this dispatchers will rout http requests to the right handler.
@@ -65,6 +78,7 @@ start(_StartType, _StartArgs) ->
     createMainServer(MainServer,HostName),
     createRouters(Routers,HostName),
     createSources(Sources,WorkersMap, ChunkSize, HostName),
+    createFederatedServer(Federateds,WorkersMap, HostName),
 %%    Worker1Args = {[3,2,1],0.01,[0,2,0],6,0,3,1,ChunkSize},
 %%    Worker1Args = {[561,280,140,70,35,17,8,4,2,1],0.01,[0,2,2,2,2,2,2,2,2,0],6,0,561,1,ChunkSize},
 %%    Worker2Args = {[3,2,1],0.01,[0,2,0],6,1,3,1,ChunkSize},
@@ -81,11 +95,12 @@ createClientsAndWorkers([], _HostName) -> okdone;
 createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsMap}|ClientsAndWorkers],HostName) ->
     ClientName = list_to_atom(binary_to_list(maps:get(<<"name">>,ClientArgs))),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,ClientArgs))),
+    Federated = list_to_atom(binary_to_list(maps:get(<<"federated">>,ClientArgs))),
 
     %%Create a gen_StateM machine for maintaining Database for Client.
     %% all http requests will be handled by Cowboy which updates client_statem if necessary.
 %%    WorkersArgsMap = #{Worker1Name => Worker1Args, Worker2Name => Worker2Args},
-    ClientStatemArgs= {ClientName,WorkersArgs,ClientConnectionsMap},        %%make this a list of client
+    ClientStatemArgs= {ClientName,Federated,WorkersArgs,ClientConnectionsMap},        %%make this a list of client
     ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
 
 
@@ -98,7 +113,8 @@ createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsMap}|ClientsAn
             {"/clientTraining",clientStateHandler, [training,ClientStatemPid]},
             {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
             {"/clientPredict",clientStateHandler, [predict,ClientStatemPid]},
-            {"/weightsVector",vectorHandler, [ClientStatemPid]}
+            {"/weightsVector",vectorHandler, [ClientStatemPid]},
+            {"/federatedWeights",federatedHandler, [ClientStatemPid]}
         ]}
     ]),
 
@@ -106,6 +122,31 @@ createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsMap}|ClientsAn
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
     init_cowboy_start_clear(ClientName, {HostName,Port},NerlClientDispatch),
     createClientsAndWorkers(ClientsAndWorkers,HostName).
+
+
+createFederatedServer(none,_WorkersMap,_HostName) -> none;
+createFederatedServer([],_WorkersMap,_HostName) -> okdone;
+createFederatedServer([{FederateArgs,FederateConnectionsMap}|Federated],WorkersMap,HostName) ->
+    FederatedName = list_to_atom(binary_to_list(maps:get(<<"name">>,FederateArgs))),
+    Port = list_to_integer(binary_to_list(maps:get(<<"port">>,FederateArgs))),
+    CounterLimit = list_to_integer(binary_to_list(maps:get(<<"counterLimit">>,FederateArgs))),
+    %%Create a gen_StateM machine for maintaining Database for Federated Server.
+    %% all http requests will be handled by Cowboy which updates source_statem if necessary.
+    FederatedStatemArgs= {FederatedName,CounterLimit,WorkersMap,FederateConnectionsMap},        %%TODO  make this a list of Sources
+    FederatedStatemPid = cppSANNFedServStateM:start_link(FederatedStatemArgs),
+
+
+    %%    Source server
+    FederatedDispatch = cowboy_router:compile([
+        {'_', [
+            {"/weightsVector",weightsHandler, [FederatedStatemPid]}
+        ]}
+    ]),
+    %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
+    %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
+    init_cowboy_start_clear(FederatedName, {HostName,Port},FederatedDispatch),
+    createFederatedServer(Federated,WorkersMap,HostName).
+
 
 createSources(none,_WorkersMap,_ChunkSize,_HostName) -> none;
 createSources([],_WorkersMap,_ChunkSize,_HostName) -> okdone;
@@ -161,7 +202,8 @@ createRouters([{RouterArgs,RouterCommectopmsMap}|Routers],HostName) ->
             {"/clientReady",routingHandler, [clientReady,RouterGenServerPid]},
             {"/weightsVector",routingHandler, [rout,RouterGenServerPid]},
             {"/startCasting",routingHandler, [startCasting,RouterGenServerPid]},
-            {"/stopCasting",routingHandler, [stopCasting,RouterGenServerPid]}
+            {"/stopCasting",routingHandler, [stopCasting,RouterGenServerPid]},
+            {"/federatedWeights",routingHandler, [federatedWeights,RouterGenServerPid]}
         ]}
     ]),
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
@@ -219,3 +261,18 @@ init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
 
 stop(_State) ->
     ok.
+
+encodeList(L)->[_H|T] = encodeList(lists:reverse(L),[]), T.
+encodeList([],L) ->L;
+encodeList([H|T],L)->encodeList(T,L++"@"++H).
+
+encodeListofLists(L)->[_H|T] = encodeListofLists(lists:reverse(L),[]), T.
+encodeListofLists([],L) ->L;
+encodeListofLists([H|T],L)->encodeListofLists(T,L++"$"++H).
+
+
+decode(L) -> re:split(binary_to_list(L), "@", [{return, list}]).
+
+%%decodeLists(L) -> re:split(binary_to_list(L), "@", [{return, list}]).
+
+%%re:split("23@343%4@434343443", "%", [{return, list}]).

@@ -35,6 +35,7 @@ getDeviceEntities(JsonPath,HostName)->
   %%  retrive THIS device Routers, returns a list of tuples:[{RoutersArgumentsMap, ConnectionMap},..]
   Routers = getRouters(maps:get(<<"routers">>,ArchitectureMap),OnDeviceEntities , [],ArchitectureMap),
 
+  Federateds = {getFederated(maps:get(<<"federated">>,ArchitectureMap),OnDeviceEntities , [],ArchitectureMap),WorkersMap},
 
 
   %%  retrive THIS device MainServer, returns a map of arguments
@@ -54,9 +55,10 @@ getDeviceEntities(JsonPath,HostName)->
   %%  retrive  a map of arguments of the API Server
   ServerAPI = maps:get(<<"serverAPI">>,ArchitectureMap),
 
-  io:format("On Device Entities to Open:~nMainServer: ~p~nServerAPI: ~p~nClientsAndWorkers: ~p~nSources: ~p~nRouter: ~p~n",[MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers]),
+  io:format("On Device Entities to Open:~nMainServer: ~p~nServerAPI: ~p~nClientsAndWorkers: ~p~nSources: ~p~nRouters: ~p~n Federated Servers: ~p~n",
+                                      [MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds]),
 
-  {MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers}.
+  {MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds}.
 
 
 
@@ -70,6 +72,19 @@ getOnDeviceEntities([Device|Tail],HostName) ->
   end.
 
 %%getSources findes all sources needed to be opened on this device. returns [{sourceArgsMap,SourceConnectionMap},...]
+getFederated([],_OnDeviceSources,[],_ArchMap) ->none;
+getFederated([],_OnDeviceSources,Return,_ArchMap) ->Return;
+getFederated([Federated|Federateds],OnDeviceFederated,Return,ArchMap) ->
+
+  FederatedName = maps:get(<<"name">>,Federated),
+  OnDevice = lists:member(binary_to_list(FederatedName),OnDeviceFederated),
+  if  OnDevice == false->
+    getFederated(Federateds,OnDeviceFederated,Return,ArchMap);
+    true ->
+      ConnectionsMap = getConnectionMap(maps:get(<<"name">>,Federated),ArchMap),
+      getFederated(Federateds,OnDeviceFederated,Return++[{Federated,ConnectionsMap}],ArchMap)
+  end.
+
 getSources([],_OnDeviceSources,[],_ArchMap) ->none;
 getSources([],_OnDeviceSources,Return,_ArchMap) ->Return;
 getSources([Source|Sources],OnDeviceSources,Return,ArchMap) ->
@@ -181,11 +196,16 @@ getPortUnknown(ArchMap,<<"serverAPI">>)->
   [ServerAPI] = maps:get(<<"serverAPI">>,ArchMap),
   list_to_integer(binary_to_list(maps:get(<<"port">>, ServerAPI)));
 getPortUnknown(ArchMap,EntityName)->
-  Found = getPort(maps:get(<<"clients">>,ArchMap),EntityName),
-  if  Found == false->
-    getPort(maps:get(<<"sources">>,ArchMap),EntityName);
+  Foundclient = getPort(maps:get(<<"clients">>,ArchMap),EntityName),
+  if  Foundclient == false->
+    Foundsources = getPort(maps:get(<<"sources">>,ArchMap),EntityName),
+    if  Foundsources == false->
+         getPort(maps:get(<<"federated">>,ArchMap),EntityName);
+      true ->
+        Foundsources
+      end;
     true ->
-      Found
+      Foundclient
   end.
 
 %%returns a map of all workers  - key workerName, Value ClientName
