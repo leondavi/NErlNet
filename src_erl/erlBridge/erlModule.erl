@@ -18,7 +18,7 @@ init() ->
 	%Nif_Module_Cpp_Path = string:concat(RelativeDirPathNew,"NErlNet/src_cpp/cppBridge/libNerlNIF"), % Relative path for nifModule_nif
 	Nif_Module_Cpp_Path = string:concat(RelativeDirPathNew,"src_cpp/cppBridge/libNerlNIF"), % Relative path for nifModule_nif
 
-	io:fwrite("Nif_Module_Cpp_Path: ~p ~n",[Nif_Module_Cpp_Path]),
+	% io:fwrite("Nif_Module_Cpp_Path: ~p ~n",[Nif_Module_Cpp_Path]),
 	%% load_info is the second argument to erlang:load_nif/2
   ok = erlang:load_nif(Nif_Module_Cpp_Path, 0).
 	%ok = erlang:load_nif("/home/ziv/workspace/NErlNet/src_cpp/cppBridge/libNerlNIF", 0).
@@ -113,7 +113,7 @@ train2double(Rows, Cols, Labels, Data_Label_mat, ModelId, ClientPid) ->
 	_Return = train_predict_create(1, Rows, Cols, Labels, dList(Data_Label_mat), ModelId),
 	receive
 		LOSS_And_Time->
-			io:fwrite("Loss and time func in erlModule: ~p\n",[LOSS_And_Time]),
+			% io:fwrite("Loss and time func in erlModule: ~p\n",[LOSS_And_Time]),
 			Finish_Time = os:system_time(microsecond),
 			Time_elapsedNIF=Finish_Time-Start_Time,
 			gen_statem:cast(ClientPid,{loss, LOSS_And_Time,Time_elapsedNIF}) % TODO Change the cast in the client
@@ -152,8 +152,8 @@ train_predict_create(2, _Data_mat, _rows, _cols, _ModelId) ->
 	exit(nif_library_not_loaded).
 
 %% Set the new weights
-%% _Matrix, _Bias - lists
-set_weights(_Matrix, _Bias, _Biases_sizes_list, _Wheights_sizes_list, _ModelId) ->
+%% _Weights_list_string, _Bias - lists
+set_weights(_Weights_list_string, _Bias_list_string, _Biases_sizes_list, _Wheights_sizes_list, _ModelId) ->
 	exit(nif_library_not_loaded).
 
 %% Get the weights
@@ -214,7 +214,7 @@ niftest(Num,SampleListTrain,Train_Lines,Cols,Labels, ModelId) ->
 	Curr_PID = self(),
 	io:fwrite("start train2double ~n"),
 	Pid2 = erlModule:train2double(Train_Lines, Cols, Labels, SampleListTrain,ModelId,Curr_PID),
-	%Pid2 = spawn(fun()->erlModule:train2double(Train_Lines, Cols, Labels, SampleListTrain,ModelId,Curr_PID) end),
+	id2 = spawn(fun()->erlModule:train2double(Train_Lines, Cols, Labels, SampleListTrain,ModelId,Curr_PID) end),
 	receive
 		LOSS_FUNC->
 			io:fwrite("PID: ~p Loss func: ~p\n",[Pid2, LOSS_FUNC])
