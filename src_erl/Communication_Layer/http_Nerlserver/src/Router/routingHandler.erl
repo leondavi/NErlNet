@@ -48,6 +48,7 @@ init(Req0, State = [Action,Router_genserver_Pid]) ->
 
       %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
     stopCasting ->  gen_statem:cast(Router_genserver_Pid, {stopCasting,Body});
+    statistics  -> gen_statem:cast(Router_genserver_Pid, {statistics,Body});
 
     federatedWeights -> % io:format("router got action ~p body:~p~n",[Action,Body]),
       gen_statem:cast(Router_genserver_Pid, {federatedWeights,Body})

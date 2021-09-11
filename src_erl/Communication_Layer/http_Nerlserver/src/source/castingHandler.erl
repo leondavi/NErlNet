@@ -19,6 +19,7 @@ init(Req0, [Action,Client_StateM_Pid]) ->
 %%  io:format("casting handler got Body:~p~n",[Body]),
   case Action of
     startCasting ->  gen_statem:cast(Client_StateM_Pid, {startCasting});
+    statistics ->  gen_statem:cast(Client_StateM_Pid, {statistics});
     stopCasting ->   gen_statem:cast(Client_StateM_Pid, {stopCasting})
 
   end,

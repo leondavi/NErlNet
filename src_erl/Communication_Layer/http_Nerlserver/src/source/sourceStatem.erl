@@ -101,6 +101,11 @@ idle(cast, {stopCasting}, State = #source_statem_state{msgCounter = Counter}) ->
   io:format("already idle~n",[]),
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1}};
 
+idle(cast, {statistics}, State = #source_statem_state{myName =  MyName, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, portMap = PortMap, msgCounter = Counter, csvName = CSVName, csvList =CSVlist}) ->
+  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+  http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++"#"++integer_to_list(Counter))),
+%%  io:format("sending statistics casting to: ~p~n",[CastingTo]),
+  {next_state, idle, State#source_statem_state{msgCounter = Counter+1}};
 
 idle(cast, EventContent, State = #source_statem_state{msgCounter = Counter}) ->
   io:format("ignored: ~p~nstate - idle",[EventContent]),

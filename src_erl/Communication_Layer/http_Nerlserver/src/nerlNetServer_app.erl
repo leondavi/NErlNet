@@ -44,17 +44,6 @@
 
 start(_StartType, _StartArgs) ->
 
-    L1=["1.22","3.44","$","3.44","5.66"],
-    L2=["11.22","13.44","51.66"],
-    % io:format("encode: ~p~n",[encodeList(L1)]),
-    BinaryL=list_to_binary(encodeList(L1)),
-    % io:format("BinaryL: ~p~n",[BinaryL]),
-    W=decode(BinaryL),
-    % io:format("decoded BinaryL: ~p~n",[W]),
-
-%%    io:format("decode: ~p~n",[encodeListofLists([encodeList(L1),encodeList(L2)])]),
-
-
 
 %%    HostName = getHostName(),
     HostName = "127.0.0.1",
@@ -62,7 +51,7 @@ start(_StartType, _StartArgs) ->
 
     %%Server that should be established on this machine from JSON architecture:
     {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap}} = jsonParser:getDeviceEntities("./input/jsonArch1PC.json",list_to_binary(HostName)),
-    ChunkSize = 2,
+    ChunkSize = 1,
 
 %%    Creating a Dispatcher for each Server from JSONs architecture - this dispatchers will rout http requests to the right handler.
 %%    Each dispatcher will be listening to a different PORT
@@ -110,6 +99,7 @@ createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsMap}|ClientsAn
         {'_', [
             %%first http request from main server should be about starting parameters, find more info inside initHandler
             {"/init",clientStateHandler, [init,ClientStatemPid]},
+            {"/statistics",clientStateHandler, [statistics,ClientStatemPid]},
             {"/clientTraining",clientStateHandler, [training,ClientStatemPid]},
             {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
             {"/clientPredict",clientStateHandler, [predict,ClientStatemPid]},
@@ -139,7 +129,9 @@ createFederatedServer([{FederateArgs,FederateConnectionsMap}|Federated],WorkersM
     %%    Source server
     FederatedDispatch = cowboy_router:compile([
         {'_', [
-            {"/weightsVector",weightsHandler, [FederatedStatemPid]}
+            {"/weightsVector",weightsHandler, [weightsVector,FederatedStatemPid]},
+            {"/statistics",weightsHandler, [statistics,FederatedStatemPid]}
+
         ]}
     ]),
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
@@ -166,7 +158,8 @@ createSources([{SourceArgs,SourceConnectionsMap}|Sources],WorkersMap,ChunkSize,H
 
             {"/updateCSV",csvHandler, [SourceStatemPid]},
             {"/startCasting",castingHandler, [startCasting,SourceStatemPid]},
-            {"/stopCasting",castingHandler, [stopCasting,SourceStatemPid]}
+            {"/stopCasting",castingHandler, [stopCasting,SourceStatemPid]},
+            {"/statistics",castingHandler, [statistics,SourceStatemPid]}
         ]}
     ]),
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
@@ -194,6 +187,7 @@ createRouters([{RouterArgs,RouterCommectopmsMap}|Routers],HostName) ->
     RouterDispatch = cowboy_router:compile([
         {'_', [
             {"/clientIdle",routingHandler, [clientIdle,RouterGenServerPid]},
+            {"/statistics",routingHandler, [statistics,RouterGenServerPid]},
             {"/clientTraining",routingHandler, [clientTraining,RouterGenServerPid]},
             {"/clientPredict",routingHandler, [clientPredict,RouterGenServerPid]},
             {"/updateCSV",routingHandler, [updateCSV,RouterGenServerPid]},
@@ -226,17 +220,18 @@ createMainServer({[MainServerArgsMap],MainServerConnectionsMap,WorkersMap,Client
     MainServerDispatcher = cowboy_router:compile([
     {'_', [
 
-    {"/updateCSV",[],initHandler,[MainGenServerPid]},
-    {"/csvReady",[],ackHandler,[source,MainGenServerPid]},
-    {"/sourceDone",[],ackHandler,[sourceDone,MainGenServerPid]},
-    {"/clientReady",[],ackHandler,[client,MainGenServerPid]},
-    {"/clientsTraining",[],actionHandler,[clientsTraining,MainGenServerPid]},
-    {"/clientsPredict",[],actionHandler,[clientsPredict,MainGenServerPid]},
-    {"/startCasting",actionHandler, [startCasting, MainGenServerPid]},
-    {"/stopCasting",actionHandler, [stopCasting, MainGenServerPid]},
-    {"/[...]", noMatchingRouteHandler, [MainGenServerPid]}
-    ]}
-    ]),
+        {"/updateCSV",[],initHandler,[MainGenServerPid]},
+        {"/csvReady",[],ackHandler,[source,MainGenServerPid]},
+        {"/sourceDone",[],ackHandler,[sourceDone,MainGenServerPid]},
+        {"/clientReady",[],ackHandler,[client,MainGenServerPid]},
+        {"/clientsTraining",[],actionHandler,[clientsTraining,MainGenServerPid]},
+        {"/statistics",[],actionHandler,[statistics,MainGenServerPid]},
+        {"/clientsPredict",[],actionHandler,[clientsPredict,MainGenServerPid]},
+        {"/startCasting",actionHandler, [startCasting, MainGenServerPid]},
+        {"/stopCasting",actionHandler, [stopCasting, MainGenServerPid]},
+        {"/[...]", noMatchingRouteHandler, [MainGenServerPid]}
+        ]}
+        ]),
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
     init_cowboy_start_clear(MainName, {HostName,Port},MainServerDispatcher).
@@ -261,18 +256,3 @@ init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
 
 stop(_State) ->
     ok.
-
-encodeList(L)->[_H|T] = encodeList(lists:reverse(L),[]), T.
-encodeList([],L) ->L;
-encodeList([H|T],L)->encodeList(T,L++"@"++H).
-
-encodeListofLists(L)->[_H|T] = encodeListofLists(lists:reverse(L),[]), T.
-encodeListofLists([],L) ->L;
-encodeListofLists([H|T],L)->encodeListofLists(T,L++"$"++H).
-
-
-decode(L) -> re:split(binary_to_list(L), "@", [{return, list}]).
-
-%%decodeLists(L) -> re:split(binary_to_list(L), "@", [{return, list}]).
-
-%%re:split("23@343%4@434343443", "%", [{return, list}]).
