@@ -23,7 +23,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(client_statem_state, {myName, workersMap, portMap, msgCounter}).
+-record(client_statem_state, {myName, federatedServer,workersMap, portMap, msgCounter}).
 
 
 %%%===================================================================
@@ -54,7 +54,7 @@ start_link(Args) ->
 
 %%NerlClientsArgs=[{MyName,Workers,ConnectionsMap},...], Workers = list of maps of name and args
 %%  init nerlClient with given workers and parameters, and build a map :#{workerName=>WorkerPid,...}
-init({MyName,Workers,ConnectionsMap}) ->
+init({MyName,Federated,Workers,ConnectionsMap}) ->
   inets:start(),
   start_connection(maps:to_list(ConnectionsMap)),
 %% io:format("~p~n",[maps:to_list(Workers)]),
@@ -63,7 +63,7 @@ init({MyName,Workers,ConnectionsMap}) ->
   WorkersMap = maps:from_list(WorkersPids),
 
 %%TODO workers = WorkersMap <-TODO ADD
-  {ok, idle, #client_statem_state{myName= MyName, workersMap = WorkersMap, portMap = ConnectionsMap, msgCounter = 0}}.
+  {ok, idle, #client_statem_state{myName= MyName,federatedServer = Federated, workersMap = WorkersMap, portMap = ConnectionsMap, msgCounter = 0}}.
 
 createWorkers([],_ClientPid,WorkersNamesPids) ->WorkersNamesPids;
 createWorkers([Worker|Workers],ClientPid,WorkersNamesPids) ->
@@ -72,7 +72,7 @@ createWorkers([Worker|Workers],ClientPid,WorkersNamesPids) ->
   Splitted = re:split(CppSANNArgsBinary,"@",[{return,list}]),
   [Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels] = Splitted,
   % TODO receive from JSON
-FederatedMode="0", CountLimit="1",
+FederatedMode="1", CountLimit="3",
   % TODO receive from JSON
 
   WorkerArgs ={string_to_list_int(Layers_sizes),list_to_float(Learning_rate),
@@ -170,13 +170,44 @@ training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,m
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, {loss,LossFunction}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
-  io:format("LossFunction: ~p   ~n",[LossFunction]),
+  io:format("LossFunction1: ~p   ~n",[LossFunction]),
 %%  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
 %%  TODO send loss to mainserver
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
+%%Federated Mode:
+training(cast, {loss,federated_weights, Worker, LOSS_FUNC, Ret_weights}, State = #client_statem_state{federatedServer = Federated,myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
+%%  io:format("Worker: ~p~n, LossFunction: ~p~n,  Ret_weights_tuple: ~p~n",[Worker, LOSS_FUNC, Ret_weights_tuple]),
+  {RouterHost,RouterPort} = maps:get(Federated,PortMap),
+  io:format("sending weights :~p~n",[Ret_weights]),
+  io:format("sending weights binary :~p~n",[list_to_binary(Ret_weights)]),
+%%  ToSend = list_to_binary([list_to_binary(atom_to_list(Federated)),<<"#">>,list_to_binary(encode(Ret_weights_tuple))]),
+  ToSend = list_to_binary([list_to_binary(atom_to_list(Federated)),<<"#">>,list_to_binary(Ret_weights)]),
+
+%%io:format("lists:flatten: ~p~n, ",[{RouterHost,RouterPort}]),
+%%  io:format("ToSend: ~p~n, ",[ToSend]),
+%%["1.002,"30.2","2.1"]
+  http_request(RouterHost,RouterPort,"weightsVector", ToSend),
+%%  TODO send federated_weights to federated_server
+  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+
+training(cast, {loss, federated_weights, MyName, LOSS_FUNC}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
+  io:format("MyName: ~p~n, LossFunction2: ~p~n",[MyName, LOSS_FUNC]),
+%%  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+%%  TODO send federated_weights to federated_server
+  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+
+training(cast, {federatedAverageWeights,Body}, State = #client_statem_state{myName = MyName,portMap = PortMap,workersMap = WorkersMap, msgCounter = Counter}) ->
+  io:format("federatedAverageWeights Body!!!!: ~p~n",[Body]),
+  [_ClientName,WorkerName,Weights] = re:split(binary_to_list(Body),"#",[{return,list}]),
+  WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
+  gen_statem:cast(WorkerPid, {set_weights,Weights}),
+%%  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+%%  TODO send federated_weights to federated_server
+  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+
 training(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
-  %io:format("client training ignored:  ~p ~n",[EventContent]),
+  io:format("client training ignored!!!:  ~p ~n!!!",[EventContent]),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
 
 
@@ -239,10 +270,10 @@ start_connection([{_ServerName,{Host, Port}}|Tail]) ->
   start_connection(Tail).
 
 http_request(Host, Port,Path, Body)->
+%%  io:format("sending body ~p to path ~p to hostport:~p~n",[Body,Path,{Host,Port}]),
   URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
   httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
-
 
 
 ack(MyName, PortMap) ->
@@ -265,3 +296,10 @@ getNumbers([Head|Tail], List) ->
       getNumbers(Tail,[list_to_integer(Head)]++List)
 
   end.
+
+encode(Ret_weights_tuple)->
+  {Weights,Bias,Biases_sizes_list,Wheights_sizes_list} = Ret_weights_tuple,
+  ToSend =   list_to_binary(Weights) ++ <<"#">> ++ list_to_binary(Bias) ++ <<"@">> ++ list_to_binary(Biases_sizes_list) ++ <<"@">>  ++ list_to_binary(Wheights_sizes_list),
+  io:format("ToSend  ~p",[ToSend]),
+    ToSend.
+%%  Weights ++ <<"@">> ++ Bias ++ <<"@">> ++ [Biases_sizes_list] ++ <<"@">>  ++ Wheights_sizes_list.

@@ -61,8 +61,36 @@ init({ClientPID, MyName, {Layers_sizes, Learning_rate, ActivationList, Optimizer
   %timer:sleep(20000),
   %Ret_weights_tuple = erlModule:get_weights(0),
   %{Wheights,Bias,Biases_sizes_list,Wheights_sizes_list} = Ret_weights_tuple,
+  %ListToSend = Wheights ++ ["$"]  ++ Bias ++ ["$"]  ++ Biases_sizes_list ++ ["$"]  ++ Wheights_sizes_list,
+  %io:fwrite("ListToSend: ~p\n",[ListToSend]),
   %file:write_file("NerlStatemOut.txt", [lists:flatten(io_lib:format("~p~p~p~p",[Bias,Wheights,Biases_sizes_list,Wheights_sizes_list]))]),
-  %erlModule:set_weights(Wheights, Bias, Biases_sizes_list,Wheights_sizes_list, 0),
+  %timer:sleep(20000),
+ % erlModule:set_weights(["-0.3","-0.486040","0.306024","-0.480839","0.014879","0.333101","0.015029","-0.235519","0.206851","0.089756","-0.086243","-0.5"], Bias, Biases_sizes_list,Wheights_sizes_list, 0),
+
+  % timer:sleep(20000),
+  %Ret_weights_tuple1 = erlModule:get_weights(0),
+  %{Wheights1,Bias1,Biases_sizes_list1,Wheights_sizes_list1} = Ret_weights_tuple1,
+
+  %L1 = decode1("1@2@3%1@4@5"),
+  %io:fwrite("L1: ~p\n",[L1]),
+  %L1 = encodeList(["1","2","3","4"]),
+  %L2 = encodeList(["5","6"]),
+  %List2Send = L1++"%"++L2,
+  %io:fwrite("List2Send: ~p\n",[List2Send]),
+  %[L3,L4] = decode1(List2Send),
+  %L5 = decode(L3),
+  %L6 = decode(L4),
+  %io:fwrite("L5: ~p\n",[L5]),
+  %io:fwrite("L6: ~p\n",[L6]),
+
+  %file:write_file("NerlStatemOutAfterSet.txt", [lists:flatten(io_lib:format("~p~p~p~p",[Bias1,Wheights1,Biases_sizes_list1,Wheights_sizes_list1]))]),
+  %Ret_average_list = erlModule:average_weights([1,1,1,1,1,9,8,0,1,2,1,2],3),
+  %{AverageWeightsAndBiases,NumOfWeightsAndBiasesLists} = Ret_average_list,
+  %io:fwrite("AverageWeightsAndBiases: ~p\n",[AverageWeightsAndBiases]),
+  %io:fwrite("NumOfWeightsAndBiasesLists: ~p\n",[NumOfWeightsAndBiasesLists]),
+
+  %file:write_file("NerlStatemOutAverage.txt", [lists:flatten(io_lib:format("~p~p",[AverageWeightsAndBiases,NumOfWeightsAndBiasesLists]))]),
+
   {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = MyName, modelId = ModelId, federatedMode = FederatedMode, countLimit = CountLimit}}.
 
 %% @private
@@ -126,11 +154,14 @@ idle(cast, {predict}, State) ->
   {next_state, predict, State};
 
 idle(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
-  {Wheights,Bias,Size} = Ret_weights_tuple,
-  io:fwrite("Set weights in wait state: \n"),
 
+  io:fwrite("Set weights in wait state: \n"),
+  
   %% Set weights TODO maybe send the results of the update
-  %_Result_set_weights = erlModule:set_weights(Wheights,Bias,Size,ModelId),
+  {WeightsStringList, BiasStringList, Biases_sizes_Stringlist, Wheights_sizes_Stringlist} = decodeTuple(Ret_weights_tuple),
+  io:fwrite("WeightsStringList: ~p BiasStringList: ~p Biases_sizes_Stringlist: ~p Wheights_sizes_Stringlist: ~p\n",[WeightsStringList,BiasStringList,Biases_sizes_Stringlist,Wheights_sizes_Stringlist]),
+  _Result_set_weights = erlModule:set_weights(WeightsStringList, BiasStringList, Biases_sizes_Stringlist, Wheights_sizes_Stringlist, ModelId),
+
   {next_state, NextState, State};
 
 idle(cast, Param, State) ->
@@ -146,24 +177,37 @@ wait(cast, {loss,nan,_Time_NIF}, State = #nerlNetStatem_state{clientPid = Client
 
 wait(cast, {loss, LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState, count = Count, countLimit = CountLimit, modelId = Mid, federatedMode = FederatedMode}) ->
   {LOSS_FUNC,TimeCpp} = LossAndTime,
+  %io:format("Count:~p~n",[Count]),
+  %io:format("CountLimit:~p~n",[CountLimit]),
+
   io:fwrite("Loss func in wait: ~p\nTime for train execution in cppSANN (micro sec): ~p\nTime for train execution in NIF+cppSANN (micro sec): ~p\n",[LOSS_FUNC, TimeCpp, Time_NIF]),
-  if
-    FederatedMode == ?MODE_FEDERATED and (Count == CountLimit)-> 
+  if Count == CountLimit ->
+%%    (Count == CountLimit) and FederatedMode == ?MODE_FEDERATED ->
       % Get weights
       io:fwrite("Get weights: \n"),
       Ret_weights_tuple = erlModule:get_weights(Mid),
-      {Wheights,Bias,Size} = Ret_weights_tuple,
-      file:write_file("NerlStatemOut.txt", [lists:flatten(io_lib:format("~p~p~p",[Size,Bias,Wheights]))]), %  TODO delete, for debugging
+      {Wheights,Bias,Biases_sizes_list,Wheights_sizes_list} = Ret_weights_tuple,
+
+      %ListToSend = Wheights ++ ["$"]  ++ Bias ++ ["$"]  ++ Biases_sizes_list ++ ["$"]  ++ Wheights_sizes_list,
+      
+      L1 = encodeList(Wheights),
+      L2 = encodeList(Bias),
+      L3 = encodeList(Biases_sizes_list),
+      L4 = encodeList(Wheights_sizes_list),
+      ListToSend = L1++"%"++L2++"%"++L3++"%"++L4,
+      %io:fwrite("List2Send: ~p\n",[ListToSend]),
+
+      %file:write_file("NerlStatemOut.txt", [lists:flatten(io_lib:format("~p~p~p",[Size,Bias,Wheights]))]), %  TODO delete, for debugging
 
       % Send weights and loss value TODO
-      gen_statem:cast(ClientPid,{loss, federated_weights, MyName, LOSS_FUNC, Ret_weights_tuple}), %% TODO Add Time and Time_NIF to the cast
+      gen_statem:cast(ClientPid,{loss, federated_weights, MyName, LOSS_FUNC, ListToSend}), %% TODO Add Time and Time_NIF to the cast
       
       % Reset count and go to state train
       {next_state, NextState, State#nerlNetStatem_state{count = 1}};
 
     FederatedMode == ?MODE_FEDERATED ->
       %% Send back the loss value
-      gen_statem:cast(ClientPid,{loss, federated, MyName, LOSS_FUNC}), %% TODO Add Time and Time_NIF to the cast
+      gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}), %% TODO Add Time and Time_NIF to the cast
       {next_state, NextState, State#nerlNetStatem_state{count = Count + 1}};
 
     true -> % Federated mode = 0 (not federated)
@@ -174,11 +218,12 @@ wait(cast, {loss, LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid 
   end;
 
 wait(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
-  {Wheights,Bias,Size} = Ret_weights_tuple,
   io:fwrite("Set weights in wait state: \n"),
 
   %% Set weights TODO
-  %_Result_set_weights = erlModule:set_weights(Wheights,Bias,Size,ModelId),
+  {WeightsStringList, BiasStringList, Biases_sizes_Stringlist, Wheights_sizes_Stringlist} = decodeTuple(Ret_weights_tuple),
+  io:fwrite("WeightsStringList: ~p BiasStringList: ~p Biases_sizes_Stringlist: ~p Wheights_sizes_Stringlist: ~p\n",[WeightsStringList,BiasStringList,Biases_sizes_Stringlist,Wheights_sizes_Stringlist]),
+  _Result_set_weights = erlModule:set_weights(WeightsStringList, BiasStringList, Biases_sizes_Stringlist, Wheights_sizes_Stringlist, ModelId),
 
   {next_state, NextState, State};
 
@@ -218,7 +263,7 @@ wait(cast, Param, State) ->
 
 
 %% State train
-train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels, count = Count}) ->
+train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels}) ->
   CurrPid = self(),
   ChunkSizeTrain = round(length(SampleListTrain)/(Features + Labels)),
   %io:fwrite("length(SampleListTrain)/(Features + Labels): ~p\n",[length(SampleListTrain)/(Features + Labels)]),
@@ -226,16 +271,17 @@ train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = Mo
   %io:fwrite("ChunkSizeTrain: ~p, Features: ~p Labels: ~p ModelId ~p\n",[ChunkSizeTrain, Features, Labels, ModelId]),
   %io:fwrite("Train state, pid: ~p\n", [CurrPid]),
   _Pid = spawn(fun()-> erlModule:train2double(ChunkSizeTrain, Features, Labels, SampleListTrain,ModelId,CurrPid) end),
-  {next_state, wait, State#nerlNetStatem_state{nextState = train, count = Count + 1}};
+  {next_state, wait, State#nerlNetStatem_state{nextState = train}};
 
 
 train(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{modelId = ModelId, nextState = NextState}) ->
 
-  {Wheights,Bias,Size} = Ret_weights_tuple,
   io:fwrite("Set weights in train state: \n"),
 
   %% Set weights TODO
-  %_Result_set_weights = erlModule:set_weights(Wheights,Bias,Size,ModelId),
+  {WeightsStringList, BiasStringList, Biases_sizes_Stringlist, Wheights_sizes_Stringlist} = decodeTuple(Ret_weights_tuple),
+  io:fwrite("WeightsStringList: ~p BiasStringList: ~p Biases_sizes_Stringlist: ~p Wheights_sizes_Stringlist: ~p\n",[WeightsStringList,BiasStringList,Biases_sizes_Stringlist,Wheights_sizes_Stringlist]),
+  _Result_set_weights = erlModule:set_weights(WeightsStringList, BiasStringList, Biases_sizes_Stringlist, Wheights_sizes_Stringlist, ModelId),
 
   {next_state, NextState, State};
 
@@ -289,3 +335,38 @@ predict(cast, {training}, State) ->
 predict(cast, Param, State) ->
   io:fwrite("Same state Predict, command: ~p\n",[Param]),
   {next_state, predict, State}.
+
+
+
+encode(Ret_weights_tuple)->
+  {Wheights,Bias,Biases_sizes_list,Wheights_sizes_list} = Ret_weights_tuple,
+  Wheights ++ [a] ++ Bias ++ [a] ++ Biases_sizes_list ++ [a] ++ Wheights_sizes_list.
+
+encode1(Ret_weights_tuple)->
+  {Weights,Bias,Biases_sizes_list,Wheights_sizes_list} = Ret_weights_tuple,
+  ToSend = list_to_binary(Weights) ++ <<"@">> ++ list_to_binary(Bias) ++ <<"@">> ++ list_to_binary(Biases_sizes_list) ++ <<"@">>  ++ list_to_binary(Wheights_sizes_list),
+  io:format("ToSend  ~p",[ToSend]),
+    ToSend.
+
+
+%decode(L,[], ResList) ->
+%  ResList;
+%decode("$",[H|T], ResList) ->
+%  decode("$",[H|T], ResList);
+%decode(String,[H|T], ResList) ->
+%  decode(H, T, ResList ++ H).
+
+decode(L) -> re:split(L, "@", [{return, list}]).
+decode1(L) -> re:split(L, "%", [{return, list}]).
+
+encodeList(L)->[_H|T] = encodeList(L,[]), T.
+encodeList([],L) ->L;
+encodeList([H|T],L)->encodeList(T,L++"@"++H).
+
+decodeTuple(Ret_weights_tuple1) ->
+  [WeightsStringList1, BiasStringList1, Biases_sizes_Stringlist1, Wheights_sizes_Stringlist1] = decode1(Ret_weights_tuple1),
+  WeightsStringList = decode(WeightsStringList1),
+  BiasStringList = decode(BiasStringList1),
+  Biases_sizes_Stringlist = decode(Biases_sizes_Stringlist1),
+  Wheights_sizes_Stringlist = decode(Wheights_sizes_Stringlist1),
+  {WeightsStringList, BiasStringList, Biases_sizes_Stringlist, Wheights_sizes_Stringlist}.
