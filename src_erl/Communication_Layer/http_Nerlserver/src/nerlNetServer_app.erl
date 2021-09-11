@@ -46,11 +46,11 @@ start(_StartType, _StartArgs) ->
 
     L1=["1.22","3.44","$","3.44","5.66"],
     L2=["11.22","13.44","51.66"],
-    io:format("encode: ~p~n",[encodeList(L1)]),
+    % io:format("encode: ~p~n",[encodeList(L1)]),
     BinaryL=list_to_binary(encodeList(L1)),
-    io:format("BinaryL: ~p~n",[BinaryL]),
+    % io:format("BinaryL: ~p~n",[BinaryL]),
     W=decode(BinaryL),
-    io:format("decoded BinaryL: ~p~n",[W]),
+    % io:format("decoded BinaryL: ~p~n",[W]),
 
 %%    io:format("decode: ~p~n",[encodeListofLists([encodeList(L1),encodeList(L2)])]),
 
@@ -58,7 +58,7 @@ start(_StartType, _StartArgs) ->
 
 %%    HostName = getHostName(),
     HostName = "127.0.0.1",
-    io:format("My HostName: ~p~n",[list_to_binary(HostName)]),
+    % io:format("My HostName: ~p~n",[list_to_binary(HostName)]),
 
     %%Server that should be established on this machine from JSON architecture:
     {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap}} = jsonParser:getDeviceEntities("./input/jsonArch1PC.json",list_to_binary(HostName)),

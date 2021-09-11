@@ -24,7 +24,7 @@ init(Req0, [Main_genServer_Pid]) ->
   Decoded_body = binary_to_list(Body),
   [Source|WorkersAndInput] = re:split(binary_to_list(Body), ",", [{return, list}]),
   {Workers,_Input} = getWorkerInput(WorkersAndInput,[]),
-  io:format("init _handler got body:~p~n",[Decoded_body]),
+  % io:format("init _handler got body:~p~n",[Decoded_body]),
   gen_server:cast(Main_genServer_Pid,{initCSV, Source,Workers,Body}),
 %%  gen_server:cast(Main_genServer_Pid,{initCSV,  splitbytriplets(Splitted,[])}),
 
