@@ -25,7 +25,7 @@
 %% federatedMode = 0 - Not federated, 1 - Federated get and send weights, 2 - Federated set weights
 %% countLimit - Number of samples to count before sending the weights for averaging. Predifined in the json file.
 %% count - Number of samples recieved for training after the last weights sended.
--record(fedServ_state, {counter, counterLimit, buffer, myName, myWorkers, workersMap, portMap, connectionMap, last2, cells, first=1}).
+-record(fedServ_state, {counter, counterLimit, buffer, myName, myWorkers, workersMap, portMap, connectionMap, last2, cells, first = 1, msgCounter=0}).
 
 %%%===================================================================
 %%% API
@@ -53,7 +53,7 @@ init({MyName,CounterLimit,WorkersMap,ConnectionsMap}) ->
   Workers = getWorkersNames(WorkersMap),
   inets:start(),
   start_connection(maps:to_list(ConnectionsMap)),
-  {ok, receives, #fedServ_state{counter = 0, counterLimit =  CounterLimit, buffer = [], myName = MyName,myWorkers = Workers, workersMap=WorkersMap, connectionMap = ConnectionsMap}}.
+  {ok, receives, #fedServ_state{msgCounter = 1, counter = 0, counterLimit =  CounterLimit, buffer = [], myName = MyName,myWorkers = Workers, workersMap=WorkersMap, connectionMap = ConnectionsMap}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -109,7 +109,7 @@ code_change(_OldVsn, StateName, State = #fedServ_state{}, _Extra) ->
 
 %% State receives
 %% Receives the weights from the client
-receives(cast, {weights,Ret_weights}, State = #fedServ_state{first = 1, buffer = Buffer, counter = Counter, counterLimit =  CounterLimit,myWorkers = Workers,workersMap = WorkersMap,connectionMap =  ConnectionMap}) ->
+receives(cast, {weightsVector,Ret_weights}, State = #fedServ_state{msgCounter = MsgCounter, first = 1, buffer = Buffer, counter = Counter, counterLimit =  CounterLimit,myWorkers = Workers,workersMap = WorkersMap,connectionMap =  ConnectionMap}) ->
   % io:fwrite("receives state\n"),
   NewCount = Counter + 1,
 
@@ -137,7 +137,7 @@ receives(cast, {weights,Ret_weights}, State = #fedServ_state{first = 1, buffer =
       %% Add to the buffer, increment the counter and continue to recieve weights
       % io:format("Weights: ~p ~n",[Weights]),
       % io:format("remove2Lasts(Weights): ~p ~n",[remove2Lasts(Weights)]),
-      {next_state, receives, State#fedServ_state{last2 = Last2, cells = Cells,first = 0, counter = NewCount, buffer = Buffer ++ [remove2Lasts(Weights)]}};
+      {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1, last2 = Last2, cells = Cells,first = 0, counter = NewCount, buffer = Buffer ++ [remove2Lasts(Weights)]}};
 
     NewCount >= CounterLimit ->
       %% Reset the buffer, decrease the counter by CounterLimit, start averaging in a different process and go to average state
@@ -149,16 +149,16 @@ receives(cast, {weights,Ret_weights}, State = #fedServ_state{first = 1, buffer =
 
 
 
-      {next_state, average, State#fedServ_state{last2 = Last2, cells = Cells,first = 0, counter = NewCount - CounterLimit, buffer = []}};
+      {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, last2 = Last2, cells = Cells,first = 0, counter = NewCount - CounterLimit, buffer = []}};
 
     true ->
       io:fwrite("Error: cppSANNEdServStateM not supposed to be here.\n"),
-      {next_state, receives, State#fedServ_state{last2 = Last2, cells = Cells,first = 0, counter = NewCount}}
+      {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1, last2 = Last2, cells = Cells,first = 0, counter = NewCount}}
   end;
 
 %% State receives
 %% Receives the weights from the client
-receives(cast, {weights,Ret_weights}, State = #fedServ_state{buffer = Buffer, counter = Counter, counterLimit =  CounterLimit,myWorkers = Workers,workersMap = WorkersMap,connectionMap =  ConnectionMap}) ->
+receives(cast, {weightsVector,Ret_weights}, State = #fedServ_state{msgCounter = MsgCounter, buffer = Buffer, counter = Counter, counterLimit =  CounterLimit,myWorkers = Workers,workersMap = WorkersMap,connectionMap =  ConnectionMap}) ->
   % io:fwrite("receives state\n"),
   NewCount = Counter + 1,
 
@@ -181,7 +181,7 @@ receives(cast, {weights,Ret_weights}, State = #fedServ_state{buffer = Buffer, co
       %% Add to the buffer, increment the counter and continue to recieve weights
       % io:format("Weights: ~p ~n",[Weights]),
       % io:format("remove2Lasts(Weights): ~p ~n",[remove2Lasts(Weights)]),
-      {next_state, receives, State#fedServ_state{counter = NewCount, buffer = Buffer ++ [remove2Lasts(Weights)]}};
+      {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1, counter = NewCount, buffer = Buffer ++ [remove2Lasts(Weights)]}};
 
     NewCount >= CounterLimit ->
       %% Reset the buffer, decrease the counter by CounterLimit, start averaging in a different process and go to average state
@@ -193,15 +193,20 @@ receives(cast, {weights,Ret_weights}, State = #fedServ_state{buffer = Buffer, co
 
 
 
-      {next_state, average, State#fedServ_state{counter = NewCount - CounterLimit, buffer = []}};
+      {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter = NewCount - CounterLimit, buffer = []}};
     
     true ->
       io:fwrite("Error: cppSANNEdServStateM not supposed to be here.\n"),
-      {next_state, receives, State#fedServ_state{counter = NewCount}}
+      {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1, counter = NewCount}}
   end;
 
+%%sending statistics to main server
+receives(cast, {statistics}, State = #fedServ_state{myName = MyName, msgCounter = MsgCounter, connectionMap =  ConnectionMap}) ->
+  {RouterHost,RouterPort} = maps:get(mainServer,ConnectionMap),
+  http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++"#"++integer_to_list(MsgCounter))),
+  {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1}};
 
-%% Not supposed to be here
+
 receives(cast, Else, State) ->
   io:fwrite("Error: State receives in cppSANNFedServStateM.erl. Got: ~p\n",[Else]),
   {next_state, receives, State}.
@@ -211,12 +216,19 @@ receives(cast, Else, State) ->
 %% State average
 
 %% Got weights results
-average(cast, {weights,WeightsTuple}, State = #fedServ_state{buffer = Buffer, counter = Counter}) ->
+average(cast, {weights,WeightsTuple}, State = #fedServ_state{msgCounter = MsgCounter, buffer = Buffer, counter = Counter}) ->
   % io:fwrite("Got weights at average state!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!.\n"),
-  {next_state, average, State#fedServ_state{counter = Counter + 1, buffer = Buffer ++ [remove2Lasts(WeightsTuple)]}};
+  {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter = Counter + 1, buffer = Buffer ++ [remove2Lasts(WeightsTuple)]}};
+
+%%sending statistics to main server
+average(cast, {statistics}, State = #fedServ_state{myName = MyName, msgCounter = MsgCounter, connectionMap =  ConnectionMap}) ->
+  {RouterHost,RouterPort} = maps:get(mainServer,ConnectionMap),
+  http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++"#"++integer_to_list(MsgCounter))),
+  {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1}};
+
 
 %% Got average results
-average(cast, {average, {WeightsList,Ziv}}, State= #fedServ_state{myName = MyName,last2 = Last2,cells = Cells, myWorkers = Workers,workersMap = WorkersMap,connectionMap = ConnectionMap}) ->
+average(cast, {average, {WeightsList,Ziv}}, State= #fedServ_state{msgCounter = MsgCounter, myName = MyName,last2 = Last2,cells = Cells, myWorkers = Workers,workersMap = WorkersMap,connectionMap = ConnectionMap}) ->
   % io:fwrite("The average results are: ~p\n",[WeightsList]),
   Triplets =getHostPort(Workers,WorkersMap,ConnectionMap,[]),
   ToSend = encodeBeforeSend(WeightsList,lists:sublist(Cells,length(Cells)-2))++Last2,
@@ -224,7 +236,7 @@ average(cast, {average, {WeightsList,Ziv}}, State= #fedServ_state{myName = MyNam
 
   _Pid = spawn(fun()-> broadcastWeights(list_to_binary(ToSend),Triplets) end),  %% Send the results to the clients through the main server
 %%  gen_statem:cast(FedServPID,{averageResult, MyName, WeightsTuple}),TODO add broadcast
-  {next_state, receives, State};
+  {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1}};
 
 
 %% Not supposed to be here

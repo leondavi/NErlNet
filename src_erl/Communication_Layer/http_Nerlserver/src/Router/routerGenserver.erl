@@ -21,7 +21,7 @@
 -define(SERVER, ?MODULE).
 
 
--record(router_genserver_state, {myName, connectionsMap}).
+-record(router_genserver_state, {myName, connectionsMap,msgCounter = 0}).
 
 %%%===================================================================
 %%% API
@@ -51,7 +51,7 @@ init({MyName,ConnectionsMap}) ->
   inets:start(),
   io:format("Routers connection map:~n~p~n",[ConnectionsMap]),
   start_connection(maps:to_list(ConnectionsMap)),
-  {ok, #router_genserver_state{myName = MyName, connectionsMap = ConnectionsMap}}.
+  {ok, #router_genserver_state{msgCounter = 1, myName = MyName, connectionsMap = ConnectionsMap}}.
 
 
 %% @private
@@ -61,42 +61,62 @@ init({MyName,ConnectionsMap}) ->
   {noreply, NewState :: #router_genserver_state{}, timeout() | hibernate} |
   {stop, Reason :: term(), NewState :: #router_genserver_state{}}).
 
-handle_cast({rout,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+handle_cast({rout,Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
   [To|_Vector] = binary:split(Body,<<"#">>),
   {Host,Port} =maps:get(list_to_atom(binary_to_list(To)),ConnectionsMap),
   http_request(Host,Port,"weightsVector",Body),
-  {noreply, State};
+  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
-handle_cast({federatedWeights,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+
+handle_cast({statistics,Body}, State = #router_genserver_state{myName = MyName,msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
+%%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'.
+%%  MyBinaryName = list_to_binary(atom_to_list(MyName)),
+%%  if Body = my name, its for me, if the body contains #, its for main server, else its for someone else
+  if Body == MyName ->
+        {Host,Port} =maps:get(mainServer,ConnectionsMap),
+        http_request(Host,Port,"statistics",list_to_binary(binary_to_list(MyName)++"#"++integer_to_list(MsgCounter)));
+    true ->
+        Splitted =  re:split(Body, "#", [{return, binary}]),
+        if length(Splitted) ==1 ->
+            {Host,Port} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
+            http_request(Host,Port,"statistics",Body);
+          true ->
+            {Host,Port} =maps:get(mainServer,ConnectionsMap),
+            http_request(Host,Port,"statistics",Body)
+            end
+    end,
+  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
+
+handle_cast({federatedWeights,Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
   [To|_Vector] = binary:split(Body,<<"#">>),
   {Host,Port} =maps:get(list_to_atom(binary_to_list(To)),ConnectionsMap),
   http_request(Host,Port,"federatedWeights",Body),
-  {noreply, State};
+  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
 
-handle_cast({clientIdle, Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+handle_cast({clientIdle, Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  sending client "training" request
 %%  io:format("sending client to idle~p~n",[ClientName]),
   {Host,Port} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
   http_request(Host,Port,"clientIdle",Body),
-  {noreply, State};
+  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
-handle_cast({clientTraining, Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+handle_cast({clientTraining, Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  sending client "training" request
   {Host,Port} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
   http_request(Host,Port,"clientTraining",Body),
-  {noreply, State};
+  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
-handle_cast({clientPredict, Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+handle_cast({clientPredict, Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  sending client "training" request
 %%  io:format("sending to client predict: ~p~n",[Body]),
   {Host,Port} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
   http_request(Host,Port,"clientPredict",Body),
-  {noreply, State};
+  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
-handle_cast({updateCSV,Source,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+handle_cast({updateCSV,Source,Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
 io:format("router to Source - ~p  sending Body - ~p~n",[Source,Body]),
   {Host,Port} = maps:get(list_to_atom(Source),ConnectionsMap),
@@ -105,39 +125,39 @@ io:format("router to Source - ~p  sending Body - ~p~n",[Source,Body]),
 %%findroutAndsend(splitbyTriplets(SourcesClientsPaths,[]),ConnectionsMap),TODO RETURN THIS!!!!
 {noreply, State};
 
-handle_cast({csvReady,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+handle_cast({csvReady,Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
   {MainHost,MainPort} =maps:get(mainServer,ConnectionsMap),
   http_request(MainHost,MainPort,"csvReady",Body),
-  {noreply, State};
+  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
-handle_cast({sourceDone,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+handle_cast({sourceDone,Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
   {MainHost,MainPort} =maps:get(mainServer,ConnectionsMap),
   http_request(MainHost,MainPort,"sourceDone",Body),
-  {noreply, State};
+  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
-handle_cast({clientReady,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+handle_cast({clientReady,Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
   {MainHost,MainPort} =maps:get(mainServer,ConnectionsMap),
   http_request(MainHost,MainPort,"clientReady",Body),
-  {noreply, State};
+  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
-handle_cast({startCasting,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+handle_cast({startCasting,Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
     {SourceHost,SourcePort} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
     http_request(SourceHost,SourcePort,"startCasting",Body),
-  {noreply, State};
+  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
-handle_cast({stopCasting,Body}, State = #router_genserver_state{connectionsMap = ConnectionsMap}) ->
+handle_cast({stopCasting,Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
     {SourceHost,SourcePort} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
     http_request(SourceHost,SourcePort,"stopCasting",Body),
-    {noreply, State};
+    {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
 
-handle_cast(_Request, State = #router_genserver_state{}) ->
-  {noreply, State}.
+handle_cast(_Request, State = #router_genserver_state{msgCounter = MsgCounter }) ->
+  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}}.
 
 
 
@@ -145,24 +165,24 @@ handle_cast(_Request, State = #router_genserver_state{}) ->
 %% @private
 %% @doc Handling call messages
 -spec(handle_call(Request :: term(), From :: {pid(), Tag :: term()},
-    State :: #router_genserver_state{}) ->
-  {reply, Reply :: term(), NewState :: #router_genserver_state{}} |
-  {reply, Reply :: term(), NewState :: #router_genserver_state{}, timeout() | hibernate} |
-  {noreply, NewState :: #router_genserver_state{}} |
-  {noreply, NewState :: #router_genserver_state{}, timeout() | hibernate} |
-  {stop, Reason :: term(), Reply :: term(), NewState :: #router_genserver_state{}} |
-  {stop, Reason :: term(), NewState :: #router_genserver_state{}}).
-handle_call(_Request, _From, State = #router_genserver_state{}) ->
+    State :: #router_genserver_state{ }) ->
+  {reply, Reply :: term(), NewState :: #router_genserver_state{ }} |
+  {reply, Reply :: term(), NewState :: #router_genserver_state{ }, timeout() | hibernate} |
+  {noreply, NewState :: #router_genserver_state{ }} |
+  {noreply, NewState :: #router_genserver_state{ }, timeout() | hibernate} |
+  {stop, Reason :: term(), Reply :: term(), NewState :: #router_genserver_state{ }} |
+  {stop, Reason :: term(), NewState :: #router_genserver_state{ }}).
+handle_call(_Request, _From, State = #router_genserver_state{ }) ->
   {reply, ok, State}.
 
 
 %% @private
 %% @doc Handling all non call/cast messages
--spec(handle_info(Info :: timeout() | term(), State :: #router_genserver_state{}) ->
-  {noreply, NewState :: #router_genserver_state{}} |
-  {noreply, NewState :: #router_genserver_state{}, timeout() | hibernate} |
-  {stop, Reason :: term(), NewState :: #router_genserver_state{}}).
-handle_info(_Info, State = #router_genserver_state{}) ->
+-spec(handle_info(Info :: timeout() | term(), State :: #router_genserver_state{ }) ->
+  {noreply, NewState :: #router_genserver_state{ }} |
+  {noreply, NewState :: #router_genserver_state{ }, timeout() | hibernate} |
+  {stop, Reason :: term(), NewState :: #router_genserver_state{ }}).
+handle_info(_Info, State = #router_genserver_state{ }) ->
   {noreply, State}.
 
 %% @private
@@ -178,7 +198,7 @@ terminate(_Reason, _State = #router_genserver_state{}) ->
 
 %% @private
 %% @doc Convert process state when code is changed
--spec(code_change(OldVsn :: term() | {down, term()}, State :: #router_genserver_state{},
+-spec(code_change(OldVsn :: term() | {down, term()}, State :: #router_genserver_state{ },
     Extra :: term()) ->
   {ok, NewState :: #router_genserver_state{}} | {error, Reason :: term()}).
 code_change(_OldVsn, State = #router_genserver_state{}, _Extra) ->

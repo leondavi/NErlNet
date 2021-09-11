@@ -101,6 +101,11 @@ idle(cast, {stopCasting}, State = #source_statem_state{msgCounter = Counter}) ->
   io:format("already idle~n",[]),
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1}};
 
+idle(cast, {statistics}, State = #source_statem_state{myName =  MyName, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, portMap = PortMap, msgCounter = Counter, csvName = CSVName, csvList =CSVlist}) ->
+  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+  http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++"#"++integer_to_list(Counter))),
+%%  io:format("sending statistics casting to: ~p~n",[CastingTo]),
+  {next_state, idle, State#source_statem_state{msgCounter = Counter+1}};
 
 idle(cast, EventContent, State = #source_statem_state{msgCounter = Counter}) ->
   io:format("ignored: ~p~nstate - idle",[EventContent]),
@@ -174,21 +179,54 @@ sendSamples([],_CSVPath,_ChunkSize,Hz,Pid,_Triplets,_Counter)->
     after Hz ->    gen_statem:cast(Pid,{finishedCasting})
 end;
 
-sendSamples([Head|ListOfSamples],CSVPath,ChunkSize,Hz,Pid,Triplets,Counter)->
+sendSamples(ListOfSamples,CSVPath,ChunkSize,Hz,Pid,Triplets,Counter)->
           %%this http request will be splitted at client's state machine by the following order:
           %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
-        [http_request(RouterHost, RouterPort,"weightsVector",
-                    list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>,list_to_binary(CSVPath),<<"#">>,list_to_binary(integer_to_list(Counter)),<<"#">>]),list_to_binary(Head)]))
-                  || {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
+  {ListOfSamples2,Counter2} = roundRobin(ListOfSamples,CSVPath,Counter,Triplets),
+%%        [http_request(RouterHost, RouterPort,"weightsVector",
+%%                    list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>,list_to_binary(CSVPath),<<"#">>,list_to_binary(integer_to_list(Counter)),<<"#">>]),list_to_binary(Head)]))
+%%                  || {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
           receive
               %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
             {stopCasting}  ->
               io:format("source stop casting",[]),
               gen_statem:cast(Pid,{leftOvers,[]})
-           after Hz-> sendSamples(ListOfSamples,CSVPath,ChunkSize,Hz,Pid,Triplets,Counter+1)
+           after Hz-> sendSamples(ListOfSamples2,CSVPath,ChunkSize,Hz,Pid,Triplets,Counter2)
           end.
 
+roundRobin(ListOfSamples,_CSVPath,Counter,[])-> {ListOfSamples, Counter};
+roundRobin(ListOfSamples,CSVPath,Counter,[{ClientName,WorkerName,RouterHost,RouterPort}|Triplets])->
 
+  ListOfSamples2=sendSample(ListOfSamples,CSVPath,Counter,ClientName,WorkerName,RouterHost,RouterPort),
+  roundRobin(ListOfSamples2,CSVPath,Counter+1,Triplets).
+
+sendSample([Head|ListOfSamples],CSVPath,Counter,ClientName,WorkerName,RouterHost,RouterPort)->
+%%  io:format("CSVPath ~p ,Counter ~p ,[{ClientName ~p ,WorkerName ~p ,RouterHost ~p ,RouterPort ~p ~n",[CSVPath,Counter,ClientName,WorkerName,RouterHost,RouterPort]),
+%%  io:format("CSVPath ~p ~n",[list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>,list_to_binary(CSVPath),<<"#">>,list_to_binary(integer_to_list(Counter)),<<"#">>]),list_to_binary(Head)])]),
+
+  http_request(RouterHost, RouterPort,"weightsVector",
+    list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>,list_to_binary(CSVPath),<<"#">>,list_to_binary(integer_to_list(Counter)),<<"#">>]),list_to_binary(Head)])),
+  ListOfSamples.
+
+%%this is the old send fashion, TODO add to json an option to choose between RoundRobin or not
+%%sendSamples([],_CSVPath,_ChunkSize,Hz,Pid,_Triplets,_Counter)->
+%%  receive
+%%  after Hz ->    gen_statem:cast(Pid,{finishedCasting})
+%%  end;
+%%
+%%sendSamples([Head|ListOfSamples],CSVPath,ChunkSize,Hz,Pid,Triplets,Counter)->
+%%  %%this http request will be splitted at client's state machine by the following order:
+%%  %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
+%%  [http_request(RouterHost, RouterPort,"weightsVector",
+%%    list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>,list_to_binary(CSVPath),<<"#">>,list_to_binary(integer_to_list(Counter)),<<"#">>]),list_to_binary(Head)]))
+%%    || {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
+%%  receive
+%%  %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
+%%    {stopCasting}  ->
+%%      io:format("source stop casting",[]),
+%%      gen_statem:cast(Pid,{leftOvers,[]})
+%%  after Hz-> sendSamples(ListOfSamples,CSVPath,ChunkSize,Hz,Pid,Triplets,Counter+1)
+%%  end.
 start_connection([])->ok;
 start_connection([{_ServerName,{Host, Port}}|Tail]) ->
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
@@ -206,6 +244,7 @@ getHostPort([WorkerName|WorkersNames],WorkersMap,PortMap,Ret)->
   {RouterHost,RouterPort} = maps:get(ClientName,PortMap),
   getHostPort(WorkersNames,WorkersMap, PortMap,Ret++[{ClientName,WorkerName,RouterHost,RouterPort}]).
 
+%%
 
 %%sendSamples([],_ChunkSize,_Hz,Pid,_Triplets)->gen_statem:cast(Pid,{finishedCasting});
 %%sendSamples([Head|ListOfSamples],ChunkSize,Hz,Pid,Triplets)->
