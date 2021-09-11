@@ -17,7 +17,7 @@ init(Req0, [Client_StateM_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {ok,Body,_} = cowboy_req:read_body(Req0),
 %%  Decoded_body = binary_to_list(Body),
-
+%%  io:format("client got sample"),
   gen_statem:cast(Client_StateM_Pid,{sample,Body}),
 
   Reply = io_lib:format("Sample Received~n ", []),

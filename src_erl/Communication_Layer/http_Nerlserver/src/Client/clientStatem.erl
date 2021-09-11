@@ -156,7 +156,7 @@ training(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counte
   Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
   ToSend =  lists:reverse(getNumbers(Splitted,[])),
 %%  io:format("BatchNumber: ~p~n",[BatchNumber]),
-%%  io:format("Vector: ~p~n",[ToSend]),
+  io:format("WorkerName: ~p~n",[WorkerName]),
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
   gen_statem:cast(WorkerPid, {sample,ToSend}),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
