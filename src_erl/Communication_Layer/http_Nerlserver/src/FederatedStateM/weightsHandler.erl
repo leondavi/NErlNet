@@ -13,12 +13,17 @@
 
 
 %%handler for receiveing vectors of samples from Sensors
-init(Req0, [FederatedStateM_Pid]) ->
+init(Req0, [Action,FederatedStateM_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {ok,Body,_} = cowboy_req:read_body(Req0),
 %%  Decoded_body = binary_to_list(Body),
 
-  gen_statem:cast(FederatedStateM_Pid,{weights,Body}),
+  case Action of
+
+    weightsVector -> gen_statem:cast(FederatedStateM_Pid,{weightsVector,Body});
+    statistics ->gen_statem:cast(FederatedStateM_Pid,{statistics})
+  end,
+
 
   Reply = io_lib:format("Weights Received~n ", []),
   Req = cowboy_req:reply(200,
