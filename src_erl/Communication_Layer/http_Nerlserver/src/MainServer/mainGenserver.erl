@@ -46,7 +46,7 @@ start_link(Args) ->
 {stop, Reason :: term()} | ignore).
 init({MyName,Clients,WorkersMap,ConnectionsMap}) ->
   inets:start(),
-  io:format("connection map:~p~n",[ConnectionsMap]),
+  % io:format("connection map:~p~n",[ConnectionsMap]),
   start_connection(maps:to_list(ConnectionsMap)),
   {ok, #main_genserver_state{myName = MyName, workersMap = WorkersMap, state=idle, clients = Clients, connectionsMap = ConnectionsMap}}.
 
@@ -136,14 +136,14 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{sourcesCastingList 
   {noreply, NextState};
 
 handle_cast({sourceAck,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList}) ->
-  io:format("~p sent ACK ~n",[list_to_atom(binary_to_list(Body))]),
+  % io:format("~p sent ACK ~n",[list_to_atom(binary_to_list(Body))]),
   io:format("new Waiting List: ~p ~n",[WaitingList--[list_to_atom(binary_to_list(Body))]]),
   {noreply, State#main_genserver_state{sourcesWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))]}};
 
 
 handle_cast({clientAck,Body}, State = #main_genserver_state{ clientsWaitingList = WaitingList}) ->
 
-  io:format("~p sent ACK~n new clientWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),WaitingList--[list_to_atom(binary_to_list(Body))]]),
+  % io:format("~p sent ACK~n new clientWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),WaitingList--[list_to_atom(binary_to_list(Body))]]),
 
   {noreply, State#main_genserver_state{clientsWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))]}};
 
@@ -151,7 +151,7 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{ clientsWaitingList 
 handle_cast({startCasting,Source_Names}, State = #main_genserver_state{state = idle,sourcesCastingList=CastingList, connectionsMap = ConnectionMap, sourcesWaitingList = [], clientsWaitingList = []}) ->
   {RouterHost,RouterPort} = maps:get(list_to_atom(binary_to_list(Source_Names)),ConnectionMap),
   http_request(RouterHost,RouterPort,"startCasting", Source_Names),
-  io:format("old Casting list: ~p~n",[Source_Names]),
+  % io:format("old Casting list: ~p~n",[Source_Names]),
   Splitted = re:split(binary_to_list(Source_Names), ",", [{return, list}]),
   Sources = [list_to_atom(Source_Name)||Source_Name<-Splitted],
   io:format("new Casting list: ~p~n",[Sources]),
