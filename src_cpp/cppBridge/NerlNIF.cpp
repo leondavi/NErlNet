@@ -179,6 +179,9 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     // Return tuple: All weights matrixes combined to a vector, All biases combined to a vector, Sizes of each weight matrixes/biases as lists
     ret_tuple = enif_make_tuple(env, 4, ret_weights_list, ret_bias_list_vec, ret_bias_vec_sizes_list, ret_weights_vec_sizes_list);
 
+    //std::cout << "weights_list_vec_string: " << weights_list_vec_string << std::endl;
+     //std::cout << "################################NIF bias_list_vec: " << bias_list_vec << std::endl;
+
     // Return weights_list and bias_list and the size of them
     return ret_tuple;
 }
@@ -301,13 +304,13 @@ static ERL_NIF_TERM average_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 
     try {
         // Get the list of weightes, bias list and size
-        nifpp::get_throws(env, argv[0], vec_of_weightsAndBiases_vec_string);
+        nifpp::get_throws(env, argv[0], vec_of_weightsAndBiases_vec_double);
         nifpp::get_throws(env, argv[1], NumOfWeightsAndBiases);
 
         // Convert list of strings to list of doubles
-        vec_of_weightsAndBiases_vec_double.resize(vec_of_weightsAndBiases_vec_string.size());
-        transform(vec_of_weightsAndBiases_vec_string.begin(), vec_of_weightsAndBiases_vec_string.end(), vec_of_weightsAndBiases_vec_double.begin(),
-        [](std::string const& val) {return std::stod(val);});
+        //vec_of_weightsAndBiases_vec_double.resize(vec_of_weightsAndBiases_vec_string.size());
+        //transform(vec_of_weightsAndBiases_vec_string.begin(), vec_of_weightsAndBiases_vec_string.end(), vec_of_weightsAndBiases_vec_double.begin(),
+        //[](std::string const& val) {return std::stod(val);});
 
         // The size of each weight and bias vector
         int OneWheightAndBiasesSize = vec_of_weightsAndBiases_vec_double.size()/NumOfWeightsAndBiases;
