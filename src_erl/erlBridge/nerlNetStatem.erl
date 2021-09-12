@@ -184,17 +184,22 @@ wait(cast, {loss, LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid 
   if Count == CountLimit ->
 %%    (Count == CountLimit) and FederatedMode == ?MODE_FEDERATED ->
       % Get weights
-      % io:fwrite("Get weights: \n"),
+      io:fwrite("Get weights: \n"),
       Ret_weights_tuple = erlModule:get_weights(Mid),
       {Wheights,Bias,Biases_sizes_list,Wheights_sizes_list} = Ret_weights_tuple,
+      % io:fwrite("Wheights: ~p,Bias: ~p,Biases_sizes_list: ~p,Wheights_sizes_list: ~p \n",[Wheights,Bias,Biases_sizes_list,Wheights_sizes_list]),
       
       L1 = encodeList(Wheights),
+       io:fwrite(" L1: ~p\n",[L1]),
       L2 = encodeList(Bias),
+      % io:fwrite(" L2: ~p\n",[L2]),
       L3 = encodeList(Biases_sizes_list),
+      io:fwrite(" L3: ~p\n",[L3]),
       L4 = encodeList(Wheights_sizes_list),
+      io:fwrite(" L4: ~p\n",[L4]),
       ListToSend = L1++"%"++L2++"%"++L3++"%"++L4,
       % io:fwrite("nerlNerStatem: Federated, Count == CountLimit, Count: ~p Wheights: ~p, Bias: ~p, Biases_sizes_list: ~p, Wheights_sizes_list: ~p, List2Send: ~p\n",[Count, Wheights, Bias, Biases_sizes_list, Wheights_sizes_list, ListToSend]),
-      io:fwrite("nerlNerStatem: Count == CountLimit, Count ~p: CountLimit: ~p, LOSS_FUNC: ~p\n",[Count, CountLimit, LOSS_FUNC]),
+      % io:fwrite("nerlNerStatem: Count == CountLimit, Count ~p: CountLimit: ~p, LOSS_FUNC: ~p\n",[Count, CountLimit, LOSS_FUNC]),
 
       %file:write_file("NerlStatemOut.txt", [lists:flatten(io_lib:format("~p~p~p",[Size,Bias,Wheights]))]), %  TODO delete, for debugging
 
@@ -361,9 +366,14 @@ encode1(Ret_weights_tuple)->
 decode(L) -> re:split(L, "@", [{return, list}]).
 decode1(L) -> re:split(L, "%", [{return, list}]).
 
-encodeList(L)->[_H|T] = encodeList(L,[]), T.
-encodeList([],L) ->L;
-encodeList([H|T],L)->encodeList(T,L++"@"++H).
+encodeList(L)->
+% io:fwrite("L: ~p~n",[L]),
+% file:write_file("encodeList.txt", [lists:flatten(io_lib:format("~p",[L]))]),
+[_H|T] = encodeList(L,[]), T.
+encodeList([],L) -> L;
+encodeList([H|T],L)->
+  % io:fwrite("L: ~p~n",[L]),
+  encodeList(T,L++"@"++H).
 
 decodeTuple(Ret_weights_tuple1) ->
   [WeightsStringList1, BiasStringList1, Biases_sizes_Stringlist1, Wheights_sizes_Stringlist1] = decode1(Ret_weights_tuple1),
