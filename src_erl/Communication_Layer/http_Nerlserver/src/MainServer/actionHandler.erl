@@ -19,8 +19,9 @@ init(Req0, [Action, Main_genserver_Pid]) ->
   {_,Body,_} = cowboy_req:read_body(Req0),
 
   case Action of
-    clientsTraining ->  gen_statem:cast(Main_genserver_Pid, {clientsTraining});
-    clientsPredict ->  gen_statem:cast(Main_genserver_Pid, {clientsPredict});
+    clientsTraining ->  gen_statem:cast(Main_genserver_Pid, {clientsTraining,Body});
+    clientsPredict ->  gen_statem:cast(Main_genserver_Pid, {clientsPredict,Body});
+    lossFunction ->  gen_statem:cast(Main_genserver_Pid, {lossFunction,Body});
     statistics ->  gen_statem:cast(Main_genserver_Pid, {statistics,Body});
     startCasting ->  gen_statem:cast(Main_genserver_Pid, {startCasting,Body});
     stopCasting ->  gen_statem:cast(Main_genserver_Pid, {stopCasting,Body})

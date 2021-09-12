@@ -80,24 +80,28 @@ handle_cast({initCSV, Source,_Workers,Body}, State = #main_genserver_state{state
   io:format("WaitingList = ~p~n",[list_to_atom(Source)]),
   {noreply, State#main_genserver_state{sourcesWaitingList = SourcesWaitingList++[list_to_atom(Source)],msgCounter = MsgCounter+1}};
 
-handle_cast({clientsTraining}, State = #main_genserver_state{state = casting,clients = ListOfClients,msgCounter = MsgCounter}) ->
+handle_cast({clientsTraining,Body}, State = #main_genserver_state{state = casting,clients = ListOfClients,msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
   io:format("already casting~n",[]),
+  io:format("Body:~p~n",[Body]),
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
-handle_cast({clientsTraining}, State = #main_genserver_state{clients = ListOfClients, connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
+handle_cast({clientsTraining,Body}, State = #main_genserver_state{clients = ListOfClients, connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
   io:format("main server: setting all clients on training state: ~p~n",[ListOfClients]),
+  io:format("Body:~p~n",[Body]),
+  io:format("binary_to_list(Body):~p~n",[binary_to_list(Body)]),
+  io:format("Splitted-(Body):~p~n",[re:split(binary_to_list(Body), ",", [{return, list}])]),
 %%  TODO find the router that can send this request to Sources**
   [{setClientState(clientTraining,ClientName, ConnectionMap)}|| ClientName<- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
-handle_cast({clientsPredict}, State = #main_genserver_state{state = casting, clients = ListOfClients,msgCounter = MsgCounter}) ->
+handle_cast({clientsPredict,_Body}, State = #main_genserver_state{state = casting, clients = ListOfClients,msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
   io:format("already casting~n",[]),
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
-handle_cast({clientsPredict}, State = #main_genserver_state{clients = ListOfClients, connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
+handle_cast({clientsPredict,_Body}, State = #main_genserver_state{clients = ListOfClients, connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
   io:format("main server: setting all clients on clientsPredict state: ~p~n",[ListOfClients]),
 %%  TODO find the router that can send this request to Sources**
@@ -196,6 +200,17 @@ handle_cast({stopCasting,Source_Names}, State = #main_genserver_state{state = ca
   http_request(RouterHost,RouterPort,"stopCasting", Source_Names),
   {noreply, State#main_genserver_state{state = idle,msgCounter = MsgCounter+1}};
 
+handle_cast({lossFunction,Body}, State = #main_genserver_state{connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
+%%  io:format("got loss function:- ~p~n",[Body]),
+  [WorkerName|LossFunction]=re:split(binary_to_list(Body), "#", [{return, list}]),
+
+  file:write_file("./output/"++WorkerName, LossFunction++"\n", [append]),
+
+%%TODO add send to serverAPI
+%%  {RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
+%%  http_request(RouterHost,RouterPort,"lossFunction", Body),
+  {noreply, State#main_genserver_state{state = idle,msgCounter = MsgCounter+1}};
+
 
 
 handle_cast(Request, State = #main_genserver_state{}) ->
@@ -273,3 +288,12 @@ getNewStatisticsMap(ConnectionList)->getNewStatisticsMap(ConnectionList,#{}).
 getNewStatisticsMap([],StatisticsMap) ->StatisticsMap;
 getNewStatisticsMap([{ServerName,{_Host, _Port}}|Tail],StatisticsMap) ->
   getNewStatisticsMap(Tail,maps:put(ServerName, 0, StatisticsMap)).
+
+encodeDoubleVectorToString(ListOfFloats)->
+  LL = lists:flatten(io_lib:format("~p",[ListOfFloats])),",",[{return,list}],
+  lists:sublist(LL,2,length(LL)).
+
+decode(L)->
+%%  LL=lists:sublist(L,2,length(L)-2),
+  LL=re:split(L,",",[{return,list}]),
+  [list_to_float(X)||X<-LL].
