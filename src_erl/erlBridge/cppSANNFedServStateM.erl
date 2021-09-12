@@ -121,18 +121,11 @@ receives(cast, {weightsVector,Ret_weights}, State = #fedServ_state{msgCounter = 
   Splitted=re:split(Weights,"%",[{return,list}]),
   [Nth,Nth2]=lists:sublist(Splitted,length(Splitted)-1,length(Splitted)),
   Last2=Nth++"%"++Nth2,
-  % io:format("got Cells!!!!!!!!!!!!!!@@@@@@@@@@@@@@@: ~p~n",[Cells]),
 
   if
     NewCount < CounterLimit ->
-%%      %%      TODO REMOVE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-%%      io:format("@@@@@@@@@@@@@@@@@@@@@@@@@@sending average weights to worker:~p~n",[WorkersMap]),
-%%      Triplets =getHostPort(Workers,WorkersMap,ConnectionMap,[]),
-%%
-%%      _Pid = spawn(fun()-> broadcastWeights(<<"AVARAGEWEIGHTS">>,Triplets) end),
-%%%%      TODO REMOVE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-%%
-      % io:format("NewCount < CounterLimit ~n"),
+
+      io:format("FedServer: NewCount < CounterLimit, CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
 
       %% Add to the buffer, increment the counter and continue to recieve weights
       % io:format("Weights: ~p ~n",[Weights]),
@@ -143,7 +136,8 @@ receives(cast, {weightsVector,Ret_weights}, State = #fedServ_state{msgCounter = 
       %% Reset the buffer, decrease the counter by CounterLimit, start averaging in a different process and go to average state
       % io:fwrite("sending to average.\n"),
       SelfPid = self(),
-      % io:format("self(): ~p~n",[SelfPid]),
+     io:format("FedServer: NewCount >= CounterLimit , CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
+
 
       _Pid = spawn(fun()-> averageFun(Buffer ++ [remove2Lasts(Weights)],SelfPid) end),
 
@@ -169,14 +163,9 @@ receives(cast, {weightsVector,Ret_weights}, State = #fedServ_state{msgCounter = 
 
   if
     NewCount < CounterLimit ->
-%%      %%      TODO REMOVE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-%%      io:format("@@@@@@@@@@@@@@@@@@@@@@@@@@sending average weights to worker:~p~n",[WorkersMap]),
-%%      Triplets =getHostPort(Workers,WorkersMap,ConnectionMap,[]),
-%%
-%%      _Pid = spawn(fun()-> broadcastWeights(<<"AVARAGEWEIGHTS">>,Triplets) end),
-%%%%      TODO REMOVE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-%%
-      % io:format("NewCount < CounterLimit ~n"),
+
+      io:format("FedServer: NewCount < CounterLimit, CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
+
 
       %% Add to the buffer, increment the counter and continue to recieve weights
       % io:format("Weights: ~p ~n",[Weights]),
@@ -188,6 +177,7 @@ receives(cast, {weightsVector,Ret_weights}, State = #fedServ_state{msgCounter = 
       % io:fwrite("sending to average.\n"),
       SelfPid = self(),
       % io:format("self(): ~p~n",[SelfPid]),
+      io:format("FedServer: NewCount >= CounterLimit , CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
 
       _Pid = spawn(fun()-> averageFun(Buffer ++ [remove2Lasts(Weights)],SelfPid) end),
 
@@ -232,7 +222,7 @@ average(cast, {average, {WeightsList,Ziv}}, State= #fedServ_state{msgCounter = M
   % io:fwrite("The average results are: ~p\n",[WeightsList]),
   Triplets =getHostPort(Workers,WorkersMap,ConnectionMap,[]),
   ToSend = encodeBeforeSend(WeightsList,lists:sublist(Cells,length(Cells)-2))++Last2,
-  % io:fwrite("ToSend: ~p\n",[ToSend]),
+  io:fwrite("Fed server at average state, ToSend: ~p, Ziv: ~p \n",[ToSend,Ziv]),
 
   _Pid = spawn(fun()-> broadcastWeights(list_to_binary(ToSend),Triplets) end),  %% Send the results to the clients through the main server
 %%  gen_statem:cast(FedServPID,{averageResult, MyName, WeightsTuple}),TODO add broadcast
@@ -249,15 +239,14 @@ average(cast, Else, State) ->
 
 %% Do the averaging
 averageFun(WeightsBuffer,CallerPid) ->
-  % TODO: call average in the nif
-  % io:fwrite("WeightsBuffer: ~p\n", [WeightsBuffer]),
+
+  % io:fwrite("FedServer, averageFun: WeightsBuffer: ~p\n", [WeightsBuffer]),
   WeightsBufferList = flatEncodedList(WeightsBuffer),
   % io:fwrite("WeightsBufferList: ~p\n", [WeightsBufferList]),
 
   AveragedWeights = erlModule:average_weights(WeightsBufferList, length(WeightsBuffer)),
-  % io:fwrite("GaverageFun**********************************************************.\n"),
   %[Weights|_T] = WeightsBuffer,
-  % io:fwrite("Weights at averageFun: ~p.\n",[AveragedWeights]),
+  % io:fwrite("AveragedWeights at averageFun: ~p.\n",[AveragedWeights]),
 
   gen_statem:cast(CallerPid,{average, AveragedWeights}).
 
@@ -313,11 +302,11 @@ getCells(Weights) ->
 
 
 encodeBeforeSend(L,Cells)->
-  % io:format("L  ~p,Cells  ~p~n",[[float_to_list(X)||X<-L],Cells]),
+  %  io:format("L  ~p,Cells  ~p~n",[[float_to_list(X)||X<-L],Cells]),
   encodeBeforeSend([float_to_list(X)||X<-L],Cells,[]).
 encodeBeforeSend([],_Cells,Ret)->Ret;
-encodeBeforeSend(L,[Cells],Ret)->encodeBeforeSend([],Cells,Ret++encodeHelper(lists:sublist(L,Cells,length(L)))++"%");
-encodeBeforeSend(L,[Head|Cells],Ret)->encodeBeforeSend(lists:sublist(L,Head,length(L)),Cells,Ret++encodeHelper(lists:sublist(L,Head))++"%").
+encodeBeforeSend(L,[Cells],Ret)->encodeBeforeSend([],Cells,Ret++encodeHelper(lists:sublist(L,length(L)))++"%");
+encodeBeforeSend(L,[Head|Cells],Ret)->encodeBeforeSend(lists:sublist(L,Head+1,length(L)),Cells,Ret++encodeHelper(lists:sublist(L,Head))++"%").
 
 encodeHelper(L)->[_H|T] = encodeHelper(L,[]), T.
 encodeHelper([],L) ->L;
