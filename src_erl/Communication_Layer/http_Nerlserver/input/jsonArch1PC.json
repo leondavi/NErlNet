@@ -33,7 +33,7 @@
     {
       "name": "c1",
       "port": "8081",
-      "workers": "w1",
+      "workers": "w1,w2",
       "federated": "f1"
     }
   ],
@@ -41,7 +41,7 @@
     {
       "name": "f1",
       "port": "8083",
-      "workers": "w1",
+      "workers": "w1,w2",
       "counterLimit": "2"
     }
   ],
@@ -71,11 +71,13 @@
 
     "s1": {
       "mainServer": "r1",
-      "c1": "r1"
+      "c1": "s1"
     },
     "mainServer": {
       "c1": "r1",
-      "s1": "r1"
+      "s1": "r1",
+      "r1": "r1",
+      "f1": "r1"
     },
     "r1": {
       "mainServer": "r1",

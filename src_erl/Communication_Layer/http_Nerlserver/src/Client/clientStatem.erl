@@ -63,7 +63,7 @@ init({MyName,Federated,Workers,ConnectionsMap}) ->
   WorkersMap = maps:from_list(WorkersPids),
 
 %%TODO workers = WorkersMap <-TODO ADD
-  {ok, idle, #client_statem_state{myName= MyName,federatedServer = Federated, workersMap = WorkersMap, portMap = ConnectionsMap, msgCounter = 0}}.
+  {ok, idle, #client_statem_state{myName= MyName,federatedServer = Federated, workersMap = WorkersMap, portMap = ConnectionsMap, msgCounter = 1}}.
 
 createWorkers([],_ClientPid,WorkersNamesPids) ->WorkersNamesPids;
 createWorkers([Worker|Workers],ClientPid,WorkersNamesPids) ->
@@ -117,6 +117,11 @@ idle(cast, {init,CONFIG}, State = #client_statem_state{msgCounter = Counter}) ->
   % io:format("initiating, CONFIG received:~p ~n",[CONFIG]),
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
+idle(cast, {statistics}, State = #client_statem_state{ myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
+  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+  http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++"#"++integer_to_list(Counter))),
+  {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
+
 idle(cast, {training}, State = #client_statem_state{workersMap = WorkersMap, myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
   Workers = maps:to_list(WorkersMap),
   [gen_statem:cast(WorkerPid,{training})|| {_WorkerName,WorkerPid}<-Workers],
@@ -151,7 +156,7 @@ training(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counte
   Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
   ToSend =  lists:reverse(getNumbers(Splitted,[])),
 %%  io:format("BatchNumber: ~p~n",[BatchNumber]),
-%%  io:format("Vector: ~p~n",[ToSend]),
+  io:format("WorkerName: ~p~n",[WorkerName]),
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
   gen_statem:cast(WorkerPid, {sample,ToSend}),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
@@ -216,11 +221,16 @@ predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,w
   [_ClientName,WorkerName,CSVName, BatchNumber,BatchOfSamples] = re:split(binary_to_list(Body), "#", [{return, list}]),
   Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
   ToSend =  lists:reverse(getNumbers(Splitted,[])),
-  % io:format("CSVName: ~p, BatchNumber: ~p~n",[CSVName,BatchNumber]),
+%%  io:format("CSVName: ~p, BatchNumber: ~p~n",[CSVName,BatchNumber]),
 %%  io:format("Vector: ~p~n",[ToSend]),
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
   gen_statem:cast(WorkerPid, {sample,CSVName, BatchNumber,ToSend}),
 %%  gen_statem:cast(WorkerPid, {sample,ToSend}),
+  {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
+
+predict(cast, {predictRes,InputName,ResultID,Result  }, State = #client_statem_state{msgCounter = Counter}) ->
+  io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
+
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName,portMap = PortMap,msgCounter = Counter}) ->
@@ -232,7 +242,7 @@ predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,m
 predict(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
   Workers = maps:to_list(WorkersMap),
   [gen_statem:cast(WorkerPid,{idle})|| {_WorkerName,WorkerPid}<-Workers],
-  io:format("client going to state idle",[]),
+  io:format("client going to state idle~n",[]),
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
@@ -277,7 +287,7 @@ http_request(Host, Port,Path, Body)->
 
 
 ack(MyName, PortMap) ->
-  % io:format("sending ACK   ~n",[]),
+    io:format("~p sending ACK   ~n",[MyName]),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
   http_request(RouterHost,RouterPort,"clientReady",atom_to_list(MyName)).

@@ -31,6 +31,10 @@ def stopCasting():
 	r = requests.post('http://127.0.0.1:8080/stopCasting',data = "s1")
 	print(r.text)
 
+def statistics():
+	r = requests.post('http://127.0.0.1:8080/statistics',data = "getStatistics")
+	print(r.text)
+
 
 
 
@@ -51,6 +55,9 @@ while 1:
 
 	elif action == "stop":
 		stopCasting()
+
+	elif action == "stats":
+		statistics()
 
 
 
