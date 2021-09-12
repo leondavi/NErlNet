@@ -152,28 +152,38 @@ handle_cast({statistics,Body}, State = #main_genserver_state{statisticsCounter =
 %%  {noreply, State#main_genserver_state{state = predict, clientsWaitingList = ListOfClients}};
 
 
-handle_cast({sourceDone,Body}, State = #main_genserver_state{sourcesCastingList = CastingList,msgCounter = MsgCounter}) ->
+handle_cast({sourceDone,Body}, State = #main_genserver_state{connectionsMap = ConnectionMap, sourcesCastingList = CastingList,msgCounter = MsgCounter}) ->
   io:format("~p done sending data ~n",[list_to_atom(binary_to_list(Body))]),
   io:format("new Waiting List: ~p ~n",[CastingList--[list_to_atom(binary_to_list(Body))]]),
   NewCastingList = CastingList--[list_to_atom(binary_to_list(Body))],
   case NewCastingList of
     [] -> NextState = State#main_genserver_state{state = idle, sourcesCastingList = NewCastingList,msgCounter = MsgCounter},
-          gen_server:cast(self(),{clientsIdle});
+          gen_server:cast(self(),{clientsIdle}),
+          ack(ConnectionMap);
     _ -> NextState = State#main_genserver_state{state = casting, sourcesCastingList = NewCastingList,msgCounter = MsgCounter+1}
   end,
   {noreply, NextState};
 
-handle_cast({sourceAck,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList,msgCounter = MsgCounter}) ->
+handle_cast({sourceAck,Body}, State = #main_genserver_state{connectionsMap = ConnectionMap, sourcesWaitingList = WaitingList,msgCounter = MsgCounter}) ->
   % io:format("~p sent ACK ~n",[list_to_atom(binary_to_list(Body))]),
-  io:format("new Waiting List: ~p ~n",[WaitingList--[list_to_atom(binary_to_list(Body))]]),
-  {noreply, State#main_genserver_state{sourcesWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],msgCounter = MsgCounter+1}};
+%%  io:format("new Waiting List: ~p ~n",[WaitingList--[list_to_atom(binary_to_list(Body))]]),
+  NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
+  if length(NewWaitingList) == 0 ->
+    ack(ConnectionMap);
+    true->
+      io:format("~p sent ACK~n new sourceWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
+  end,
+  {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList,msgCounter = MsgCounter+1}};
 
 
-handle_cast({clientAck,Body}, State = #main_genserver_state{ clientsWaitingList = WaitingList,msgCounter = MsgCounter}) ->
-
- io:format("~p sent ACK~n new clientWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),WaitingList--[list_to_atom(binary_to_list(Body))]]),
-
-  {noreply, State#main_genserver_state{clientsWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],msgCounter = MsgCounter+1}};
+handle_cast({clientAck,Body}, State = #main_genserver_state{ clientsWaitingList = WaitingList,msgCounter = MsgCounter,connectionsMap = ConnectionMap}) ->
+  NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
+  if length(NewWaitingList) == 0 ->
+            ack(ConnectionMap);
+    true->
+            io:format("~p sent ACK~n new clientWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
+    end,
+  {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList, msgCounter = MsgCounter+1}};
 
 %%TODO change Client_Names to list of clients
 handle_cast({startCasting,Source_Names}, State = #main_genserver_state{state = idle,sourcesCastingList=CastingList, connectionsMap = ConnectionMap, sourcesWaitingList = [], clientsWaitingList = [],msgCounter = MsgCounter}) ->
@@ -207,6 +217,16 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{connectionsMap = 
   file:write_file("./output/"++WorkerName, LossFunction++"\n", [append]),
 
 %%TODO add send to serverAPI
+%%  {RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
+%%  http_request(RouterHost,RouterPort,"lossFunction", Body),
+  {noreply, State#main_genserver_state{state = idle,msgCounter = MsgCounter+1}};
+
+handle_cast({predictRes,Body}, State = #main_genserver_state{connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
+  io:format("Main Serwer got predictRes:- ~p~n",[Body]),
+  [InputName,ResultID,Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
+  file:write_file("./output/"++"predict"++InputName, ResultID++" " ++Result++"\n", [append]),
+
+%%%%TODO add send to serverAPI
 %%  {RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
 %%  http_request(RouterHost,RouterPort,"lossFunction", Body),
   {noreply, State#main_genserver_state{state = idle,msgCounter = MsgCounter+1}};
@@ -297,3 +317,9 @@ decode(L)->
 %%  LL=lists:sublist(L,2,length(L)-2),
   LL=re:split(L,",",[{return,list}]),
   [list_to_float(X)||X<-LL].
+
+ack(PortMap) ->
+  io:format("sending ACK to serverAPI"),
+  {RouterHost,RouterPort} = maps:get(serverAPI,PortMap),
+%%  send an ACK to mainserver that the CSV file is ready
+  http_request(RouterHost,RouterPort,"ack","ack").

@@ -121,7 +121,7 @@ castingData(cast, {startCasting}, State = #source_statem_state{msgCounter = Coun
   {next_state, castingData, State#source_statem_state{msgCounter = Counter+1}};
 
 castingData(cast, {leftOvers,Tail}, State = #source_statem_state{msgCounter = Counter}) ->
-  io:format("received leftovers- ~p~n",[Tail]),
+%%  io:format("received leftovers- ~p~n",[Tail]),
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1,csvList = Tail}};
 
 castingData(cast, {finishedCasting}, State = #source_statem_state{myName = MyName, msgCounter = Counter, portMap = PortMap}) ->

@@ -175,10 +175,9 @@ training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,m
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, {loss,WorkerName,LossFunction}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
-   io:format("LossFunction1: ~p   ~n",[LossFunction]),
+%%   io:format("LossFunction1: ~p   ~n",[LossFunction]),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
-  http_request(RouterHost,RouterPort,"LossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,float_to_binary(LossFunction)])),
-%%  TODO send loss to mainserver
+  http_request(RouterHost,RouterPort,"lossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,float_to_binary(LossFunction)])),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 %%Federated Mode:
@@ -229,9 +228,10 @@ predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,w
 %%  gen_statem:cast(WorkerPid, {sample,ToSend}),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
-predict(cast, {predictRes,InputName,ResultID,Result  }, State = #client_statem_state{msgCounter = Counter}) ->
+predict(cast, {predictRes,InputName,ResultID,Result  }, State = #client_statem_state{msgCounter = Counter,portMap = PortMap}) ->
   io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
-
+  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+  http_request(RouterHost,RouterPort,"predictRes", list_to_binary([list_to_binary(InputName),<<"#">>,ResultID,<<"#">>,float_to_binary(Result)])),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName,portMap = PortMap,msgCounter = Counter}) ->

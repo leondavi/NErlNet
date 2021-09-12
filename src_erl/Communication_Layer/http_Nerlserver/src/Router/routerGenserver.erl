@@ -94,6 +94,13 @@ handle_cast({lossFunction,Body}, State = #router_genserver_state{msgCounter = Ms
   http_request(Host,Port,"lossFunction",Body),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
+handle_cast({predictRes,Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
+%%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
+  {Host,Port} =maps:get(mainServer,ConnectionsMap),
+  http_request(Host,Port,"predictRes",Body),
+  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
+
+
 
 handle_cast({federatedWeights,Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'

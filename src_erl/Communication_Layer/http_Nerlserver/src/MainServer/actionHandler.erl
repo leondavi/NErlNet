@@ -22,6 +22,7 @@ init(Req0, [Action, Main_genserver_Pid]) ->
     clientsTraining ->  gen_statem:cast(Main_genserver_Pid, {clientsTraining,Body});
     clientsPredict ->  gen_statem:cast(Main_genserver_Pid, {clientsPredict,Body});
     lossFunction ->  gen_statem:cast(Main_genserver_Pid, {lossFunction,Body});
+    predictRes ->  gen_statem:cast(Main_genserver_Pid, {predictRes,Body});
     statistics ->  gen_statem:cast(Main_genserver_Pid, {statistics,Body});
     startCasting ->  gen_statem:cast(Main_genserver_Pid, {startCasting,Body});
     stopCasting ->  gen_statem:cast(Main_genserver_Pid, {stopCasting,Body})
