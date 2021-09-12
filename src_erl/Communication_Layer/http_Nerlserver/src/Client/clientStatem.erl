@@ -72,7 +72,7 @@ createWorkers([Worker|Workers],ClientPid,WorkersNamesPids) ->
   Splitted = re:split(CppSANNArgsBinary,"@",[{return,list}]),
   [Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels] = Splitted,
   % TODO receive from JSON
-FederatedMode="1", CountLimit="3",
+FederatedMode="0", CountLimit="3",
   % TODO receive from JSON
 
   WorkerArgs ={string_to_list_int(Layers_sizes),list_to_float(Learning_rate),
