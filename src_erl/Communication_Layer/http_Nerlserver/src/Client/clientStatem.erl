@@ -156,7 +156,7 @@ training(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counte
   Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
   ToSend =  lists:reverse(getNumbers(Splitted,[])),
 %%  io:format("BatchNumber: ~p~n",[BatchNumber]),
-  io:format("WorkerName: ~p~n",[WorkerName]),
+%%  io:format("WorkerName: ~p~n",[WorkerName]),
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
   gen_statem:cast(WorkerPid, {sample,ToSend}),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
@@ -175,8 +175,9 @@ training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,m
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, {loss,WorkerName,LossFunction}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
-  % io:format("LossFunction1: ~p   ~n",[LossFunction]),
-%%  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+   io:format("LossFunction1: ~p   ~n",[LossFunction]),
+  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+  http_request(RouterHost,RouterPort,"LossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,float_to_binary(LossFunction)])),
 %%  TODO send loss to mainserver
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
