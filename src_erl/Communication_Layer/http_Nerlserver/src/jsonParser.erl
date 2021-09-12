@@ -160,14 +160,21 @@ buildRouterConnectionMap(MyRouterName,[{EntityName,RouterName}|Entities],ArchMap
 getConnectionMap(Name,ArchMap) ->
   ConnectionsList = maps:to_list(maps:get(Name,maps:get(<<"connectionsMap">>,ArchMap))),
 %%  io:format("~p connection Map from json: ~p~n",[Name,ConnectionsList]),
-  buildConnectionMap(ConnectionsList,ArchMap, #{}).
+  buildConnectionMap(Name,ConnectionsList,ArchMap, #{}).
 
-buildConnectionMap([],_ArchMap, ConnectionMap) -> ConnectionMap;
-buildConnectionMap([{EntityName,RouterName}|Entities],ArchMap, ConnectionMap) ->
+buildConnectionMap(_Name,[],_ArchMap, ConnectionMap) -> ConnectionMap;
+buildConnectionMap(Name,[{EntityName,Name}|Entities],ArchMap, ConnectionMap) ->
+  EntityHost = getHost(maps:get(<<"devices">>,ArchMap),EntityName),
+  EntityPort = getPortUnknown(ArchMap,EntityName),%%  EntityHost = getHost(maps:get(<<"devices">>,ArchMap),RouterName),
+%%  EntityPort = getPort(maps:get(<<"routers">>,ArchMap),RouterName),
+%%  io:format("@#@#Name- ~p, hostport - ~p~n",[EntityName,{EntityHost,EntityPort}]),
+  buildConnectionMap(Name,Entities,ArchMap, ConnectionMap#{list_to_atom(binary_to_list(EntityName)) => {EntityHost,EntityPort}});
+
+buildConnectionMap(Name,[{EntityName,RouterName}|Entities],ArchMap, ConnectionMap) ->
   EntityHost = getHost(maps:get(<<"devices">>,ArchMap),RouterName),
   EntityPort = getPort(maps:get(<<"routers">>,ArchMap),RouterName),
 %%  io:format("@#@#Name- ~p, hostport - ~p~n",[EntityName,{EntityHost,EntityPort}]),
-  buildConnectionMap(Entities,ArchMap, ConnectionMap#{list_to_atom(binary_to_list(EntityName)) => {EntityHost,EntityPort}}).
+  buildConnectionMap(Name,Entities,ArchMap, ConnectionMap#{list_to_atom(binary_to_list(EntityName)) => {EntityHost,EntityPort}}).
 
 getHost([DeviceMap|Devices],EntityName) ->
   Entities = maps:get(<<"entities">>, DeviceMap),
