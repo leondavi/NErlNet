@@ -2,7 +2,8 @@
   "devices": [
     {
       "host": "192.168.0.100",
-      "entities": "serverAPI"
+      "entities": "serverAPI",
+      "port": "8090"
     },
     {
       "host": "127.0.0.1",
@@ -33,7 +34,7 @@
     {
       "name": "c1",
       "port": "8081",
-      "workers": "w1,w2",
+      "workers": "w1",
       "federated": "f1"
     }
   ],
@@ -41,7 +42,7 @@
     {
       "name": "f1",
       "port": "8083",
-      "workers": "w1,w2",
+      "workers": "w1",
       "counterLimit": "2"
     }
   ],
@@ -77,7 +78,8 @@
       "c1": "r1",
       "s1": "r1",
       "r1": "r1",
-      "f1": "r1"
+      "f1": "r1",
+      "serverAPI": "r1"
     },
     "r1": {
       "mainServer": "r1",

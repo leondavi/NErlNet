@@ -39,7 +39,7 @@ init(Req0, State = [Action,Router_genserver_Pid]) ->
 
     clientTraining ->gen_server:cast(Router_genserver_Pid, {clientTraining, Body});
     lossFunction ->gen_server:cast(Router_genserver_Pid, {lossFunction, Body});
-
+    predictRes ->gen_server:cast(Router_genserver_Pid, {predictRes, Body});
     clientPredict ->gen_server:cast(Router_genserver_Pid, {clientPredict, Body});
     
     clientIdle ->gen_server:cast(Router_genserver_Pid, {clientIdle, Body});

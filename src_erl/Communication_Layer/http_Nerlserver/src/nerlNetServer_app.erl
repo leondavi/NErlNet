@@ -187,7 +187,8 @@ createRouters([{RouterArgs,RouterCommectopmsMap}|Routers],HostName) ->
     RouterDispatch = cowboy_router:compile([
         {'_', [
             {"/clientIdle",routingHandler, [clientIdle,RouterGenServerPid]},
-            {"/LossFunction",routingHandler, [lossFunction,RouterGenServerPid]},
+            {"/lossFunction",routingHandler, [lossFunction,RouterGenServerPid]},
+            {"/predictRes",routingHandler, [predictRes,RouterGenServerPid]},
             {"/statistics",routingHandler, [statistics,RouterGenServerPid]},
             {"/clientTraining",routingHandler, [clientTraining,RouterGenServerPid]},
             {"/clientPredict",routingHandler, [clientPredict,RouterGenServerPid]},
@@ -223,6 +224,7 @@ createMainServer({[MainServerArgsMap],MainServerConnectionsMap,WorkersMap,Client
 
         {"/updateCSV",[],initHandler,[MainGenServerPid]},
         {"/lossFunction",[],actionHandler,[lossFunction,MainGenServerPid]},
+        {"/predictRes",[],actionHandler,[predictRes,MainGenServerPid]},
         {"/csvReady",[],ackHandler,[source,MainGenServerPid]},
         {"/sourceDone",[],ackHandler,[sourceDone,MainGenServerPid]},
         {"/clientReady",[],ackHandler,[client,MainGenServerPid]},
