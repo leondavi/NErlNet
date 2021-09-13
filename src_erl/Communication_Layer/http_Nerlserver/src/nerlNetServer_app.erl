@@ -187,6 +187,8 @@ createRouters([{RouterArgs,RouterCommectopmsMap}|Routers],HostName) ->
     RouterDispatch = cowboy_router:compile([
         {'_', [
             {"/clientIdle",routingHandler, [clientIdle,RouterGenServerPid]},
+            {"/lossFunction",routingHandler, [lossFunction,RouterGenServerPid]},
+            {"/predictRes",routingHandler, [predictRes,RouterGenServerPid]},
             {"/statistics",routingHandler, [statistics,RouterGenServerPid]},
             {"/clientTraining",routingHandler, [clientTraining,RouterGenServerPid]},
             {"/clientPredict",routingHandler, [clientPredict,RouterGenServerPid]},
@@ -221,15 +223,18 @@ createMainServer({[MainServerArgsMap],MainServerConnectionsMap,WorkersMap,Client
     {'_', [
 
         {"/updateCSV",[],initHandler,[MainGenServerPid]},
+        {"/lossFunction",[],actionHandler,[lossFunction,MainGenServerPid]},
+        {"/predictRes",[],actionHandler,[predictRes,MainGenServerPid]},
         {"/csvReady",[],ackHandler,[source,MainGenServerPid]},
         {"/sourceDone",[],ackHandler,[sourceDone,MainGenServerPid]},
         {"/clientReady",[],ackHandler,[client,MainGenServerPid]},
         {"/clientsTraining",[],actionHandler,[clientsTraining,MainGenServerPid]},
         {"/statistics",[],actionHandler,[statistics,MainGenServerPid]},
         {"/clientsPredict",[],actionHandler,[clientsPredict,MainGenServerPid]},
-        {"/startCasting",actionHandler, [startCasting, MainGenServerPid]},
-        {"/stopCasting",actionHandler, [stopCasting, MainGenServerPid]},
-        {"/[...]", noMatchingRouteHandler, [MainGenServerPid]}
+        {"/startCasting",[],actionHandler, [startCasting, MainGenServerPid]},
+        {"/stopCasting",[],actionHandler, [stopCasting, MainGenServerPid]},
+        {"/asd",[],noMatchingRouteHandler, [MainGenServerPid]},
+        {"/[...]", [],noMatchingRouteHandler, [MainGenServerPid]}
         ]}
         ]),
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
