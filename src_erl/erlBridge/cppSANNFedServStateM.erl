@@ -125,7 +125,7 @@ receives(cast, {weightsVector,Ret_weights}, State = #fedServ_state{msgCounter = 
   if
     NewCount < CounterLimit ->
 
-      io:format("FedServer: NewCount < CounterLimit, CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
+%%      io:format("FedServer: NewCount < CounterLimit, CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
 
       %% Add to the buffer, increment the counter and continue to recieve weights
       % io:format("Weights: ~p ~n",[Weights]),
@@ -136,7 +136,7 @@ receives(cast, {weightsVector,Ret_weights}, State = #fedServ_state{msgCounter = 
       %% Reset the buffer, decrease the counter by CounterLimit, start averaging in a different process and go to average state
       % io:fwrite("sending to average.\n"),
       SelfPid = self(),
-     io:format("FedServer: NewCount >= CounterLimit , CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
+%%     io:format("FedServer: NewCount >= CounterLimit , CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
 
 
       _Pid = spawn(fun()-> averageFun(Buffer ++ [remove2Lasts(Weights)],SelfPid) end),
@@ -164,7 +164,7 @@ receives(cast, {weightsVector,Ret_weights}, State = #fedServ_state{msgCounter = 
   if
     NewCount < CounterLimit ->
 
-      io:format("FedServer: NewCount < CounterLimit, CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
+%%      io:format("FedServer: NewCount < CounterLimit, CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
 
 
       %% Add to the buffer, increment the counter and continue to recieve weights
@@ -177,7 +177,7 @@ receives(cast, {weightsVector,Ret_weights}, State = #fedServ_state{msgCounter = 
       % io:fwrite("sending to average.\n"),
       SelfPid = self(),
       % io:format("self(): ~p~n",[SelfPid]),
-      io:format("FedServer: NewCount >= CounterLimit , CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
+%%      io:format("FedServer: NewCount >= CounterLimit , CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
 
       _Pid = spawn(fun()-> averageFun(Buffer ++ [remove2Lasts(Weights)],SelfPid) end),
 
