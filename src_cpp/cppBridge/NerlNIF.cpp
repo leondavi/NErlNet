@@ -389,7 +389,7 @@ static void* predictFun(void *arg){
 
     for (int r = 0; r < resultsMat.rows(); r++){
         for (int c = 0; c < resultsMat.cols(); c++){
-            results_vec[resultsMat.cols() + c] = resultsMat(r,c);
+            results_vec[r*resultsMat.cols() + c] = resultsMat(r,c);
         }
     }
 
