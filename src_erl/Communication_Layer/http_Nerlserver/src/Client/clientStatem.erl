@@ -228,10 +228,15 @@ predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,w
 %%  gen_statem:cast(WorkerPid, {sample,ToSend}),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
-predict(cast, {predictRes,InputName,ResultID,Result  }, State = #client_statem_state{msgCounter = Counter,portMap = PortMap}) ->
-  io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
+predict(cast, {predictRes,_InputName,_ResultID,[]}, State) ->
+  {next_state, predict, State};
+
+predict(cast, {predictRes,InputName,ResultID,Result}, State = #client_statem_state{msgCounter = Counter,portMap = PortMap}) ->
+  %io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
-  http_request(RouterHost,RouterPort,"predictRes", list_to_binary([list_to_binary(InputName),<<"#">>,ResultID,<<"#">>,float_to_binary(Result)])),
+  Result2 = lists:flatten(io_lib:format("~w",[Result])),",",[{return,list}],
+  Result3 = lists:sublist(Result2,2,length(Result2)-2),
+  http_request(RouterHost,RouterPort,"predictRes", list_to_binary([list_to_binary(InputName),<<"#">>,ResultID,<<"#">>,Result3])),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName,portMap = PortMap,msgCounter = Counter}) ->
