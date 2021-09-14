@@ -1,19 +1,21 @@
-from src_py.NerlnetPyAPI import run, creatJson, init
-import matplotlib.pyplot as plt
-import src_py.NerlnetPyAPI.settings
-from threading import Thread
-from src_py.expiremntFLow import *
-import requests
+import sys
+import os
 
+sys.path.append(os.getcwd()+'/src_py')
+
+from NerlnetPyAPI import run, creatJson, init
+import matplotlib.pyplot as plt
+import NerlnetPyAPI.settings
+from threading import Thread
+from expiremntFLow import *
+import requests
 import time
+
+DEFAULT_PORT = 8080
+port = DEFAULT_PORT
 
 
 def server():
-  if len(argv) == 121:
-    thread = Thread(target=run(port=int(argv[1])), args=(port,))
-    thread.start()
-    print("thread finished...exiting")
-  else:
     thread = Thread(target=run, args=(port,))
     thread.start()
     time.sleep(2)
@@ -43,11 +45,10 @@ def analyze():
   plt.show()
 
 
-if __name__ == "__main__":
-  from sys import argv
-
-  src_py.NerlnetPyAPI.settings.x = 6
-  port = int(input("pleas inter port of post requests/ extract from jason: "))
+def init():
+  
+  NerlnetPyAPI.settings.x = 6
+  port = int(input("pleas enter port of post requests / extract from json: "))
   jsonPath = 'src_py/architectures.json'
   server()
 
@@ -55,50 +56,54 @@ if __name__ == "__main__":
   #   jsonPath = 'src_py/architectures.json'
   print('Nerlnet initiating training..')
   trainRequests = initTrain()
-  src_py.NerlnetPyAPI.settings.x = len(trainRequests)
+  NerlnetPyAPI.settings.x = len(trainRequests)
   for trainRequest in trainRequests:
     r = requests.post(trainRequest[0], data=trainRequest[1])
     print(r.text)
 
-  while src_py.NerlnetPyAPI.settings.x != 0:
+  while NerlnetPyAPI.settings.x != 0:
     time.sleep(0.2)
 
   print('finish initiating start training..')
 
   print('startCasting..')
   listOfRequests = startCasting()
-  src_py.NerlnetPyAPI.settings.x = len(listOfRequests)
+  NerlnetPyAPI.settings.x = len(listOfRequests)
   for request in listOfRequests:
     r = requests.post(request[0], data=request[1])
     print(r.text)
 
-  while src_py.NerlnetPyAPI.settings.x != 0:
+  while NerlnetPyAPI.settings.x != 0:
     time.sleep(0.2)
 
   print('finished training!..')
 
   print('Nerlnet initiating predict..')
   listOfRequests = initPredict()
-  src_py.NerlnetPyAPI.settings.x = len(listOfRequests)
+  NerlnetPyAPI.settings.x = len(listOfRequests)
   for request in listOfRequests:
     r = requests.post(request[0], data=request[1])
     print(r.text)
 
-  while src_py.NerlnetPyAPI.settings.x != 0:
+  while NerlnetPyAPI.settings.x != 0:
     time.sleep(0.2)
     print('Nerlnet finished initiating predict..')
 
   print('startCasting..')
   listOfRequests = startCasting()
-  src_py.NerlnetPyAPI.settings.x = len(listOfRequests)
+  NerlnetPyAPI.settings.x = len(listOfRequests)
   for request in listOfRequests:
     r = requests.post(request[0], data=request[1])
     print(r.text)
 
-  while src_py.NerlnetPyAPI.settings.x != 0:
+  while NerlnetPyAPI.settings.x != 0:
     time.sleep(0.2)
 
   print('finished training!..')
 
   # analyze()
   # init(jsonPath)
+
+if __name__ == "__main__":
+    from sys import argv
+    init()
