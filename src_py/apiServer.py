@@ -11,11 +11,8 @@ from expiremntFLow import *
 import requests
 import time
 
-DEFAULT_PORT = 8080
-port = DEFAULT_PORT
 
-
-def server():
+def server(port):
     thread = Thread(target=run, args=(port,))
     thread.start()
     time.sleep(2)
@@ -44,13 +41,12 @@ def analyze():
   # function to show the plot
   plt.show()
 
-
-def init():
+DEFAULT_PORT = 8080
+def init(jsonPath = 'src_py/architectures.json',inputPort = DEFAULT_PORT):
   
   NerlnetPyAPI.settings.x = 6
-  port = int(input("pleas enter port of post requests / extract from json: "))
-  jsonPath = 'src_py/architectures.json'
-  server()
+  port = inputPort
+  server(port)
 
   # if creatJson():
   #   jsonPath = 'src_py/architectures.json'
