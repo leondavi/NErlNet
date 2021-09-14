@@ -20,3 +20,8 @@ src_cpp/*.so
 /src_erl/erlBridge/nerlNetStatem.beam
 /src_erl/erlBridge/parse.beam
 /src_erl/erlBridge/startMod.beam
+/src_py/__pycache__
+/src_py/.ipynb_checkpoints
+/src_py/NerlnetPyAPI/__pycache__
+/src_py/NerlnetPyAPI/.ipynb_checkpoints
+/.vscode

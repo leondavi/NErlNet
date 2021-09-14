@@ -8,7 +8,7 @@ import time
 from socketserver import ThreadingMixIn
 import requests
 import json
-import src_py.NerlnetPyAPI.settings
+import NerlnetPyAPI.settings
 
 in1 = ''
 in2 = ''
