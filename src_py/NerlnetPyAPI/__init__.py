@@ -60,9 +60,9 @@ class BaseServer(BaseHTTPRequestHandler):
                          .encode('utf-8') % post_data)
         outqueue.append(str(post_data.decode()))
         if post_data.decode() == 'ack':
-            src_py.NerlnetPyAPI.settings.x = src_py.NerlnetPyAPI.settings.x - 1
+            NerlnetPyAPI.settings.x = NerlnetPyAPI.settings.x - 1
         print(post_data.decode())
-        print(src_py.NerlnetPyAPI.settings.x)
+        print(NerlnetPyAPI.settings.x)
         print(outqueue)
         if post_data == b'exit':
             serverRun(True, ThreadedHTTPServer(('localhost', port), BaseServer))
@@ -119,8 +119,8 @@ def init(jasonPath): pass
     #             requests.post('http://127.0.0.1:8080/updateCSV', data="s4,w7,w8,./input/shuffled-input9.csv")]
     # for request in new_list:
     #     print(request.text)
-    # src_py.NerlnetPyAPI.settings.x = len(new_list)
-    # print(src_py.NerlnetPyAPI.settings.x)
+    # NerlnetPyAPI.settings.x = len(new_list)
+    # print(NerlnetPyAPI.settings.x)
 
 
 def clientsTraining():
