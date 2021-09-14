@@ -222,7 +222,7 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{connectionsMap = 
   {noreply, State#main_genserver_state{state = idle,msgCounter = MsgCounter+1}};
 
 handle_cast({predictRes,Body}, State = #main_genserver_state{connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
-  io:format("Main Serwer got predictRes:- ~p~n",[Body]),
+  %io:format("Main Server got predictRes:- ~p~n",[Body]),
   [InputName,ResultID,Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
   file:write_file("./output/"++"predict"++InputName, ResultID++" " ++Result++"\n", [append]),
 

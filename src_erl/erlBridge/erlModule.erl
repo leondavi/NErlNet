@@ -109,7 +109,7 @@ create_module(0, _Layers_sizes, _Learning_rate, _ModelId, _Activation_list, _Opt
 %% Data_Label_mat - list
 train2double(Rows, Cols, Labels, Data_Label_mat, ModelId, ClientPid) ->
 	% io:fwrite("erlModule.erl: Rows: ~p Cols: ~p Labels: ~p Data_Label_mat: ~p ModelId: ~p ClientPid: ~p ~n",[Rows, Cols, Labels, Data_Label_mat, ModelId, ClientPid]),
-	io:fwrite("erlModule.erl: Rows: ~p Cols: ~p ModelId: ~p ClientPid: ~p ~n",[Rows, Cols, ModelId, ClientPid]),
+	%io:fwrite("erlModule.erl: Rows: ~p Cols: ~p ModelId: ~p ClientPid: ~p ~n",[Rows, Cols, ModelId, ClientPid]),
 	
 	Start_Time = os:system_time(microsecond),
 	%% make double list and send to train_predict_create
@@ -139,6 +139,7 @@ train_predict_create(1, _Rows, _Cols, _Labels, _Data_Label_mat, _ModelId) ->
 predict2double(Data_mat, Rows, Cols, ModelId, ClientPid,CSVname,BatchID) ->
 	Start_Time = os:system_time(microsecond),
 	%% make double list and send to train_predict_create
+	%io:fwrite("Data_mat ~p, Rows ~p, Cols ~p, ModelId ~p, ClientPid ~p,CSVname ~p,BatchID ~p",[Data_mat, Rows, Cols, ModelId, ClientPid,CSVname,BatchID]),
 	_Return = train_predict_create(2, dList(Data_mat), Rows, Cols, ModelId),
 	receive
 		RESULTS_And_Time->
