@@ -94,7 +94,7 @@
       "s2": "r1",
       "r1": "r1",
       "f1": "r1",
-      "serverAPI": "r1"
+      "serverAPI": "mainServer"
     },
     "r1": {
       "mainServer": "r1",
@@ -104,7 +104,7 @@
       "s2": "r1"
     },
     "serverAPI": {
-      "mainServer": "r1"
+      "mainServer": "serverAPI"
     }
   }
 

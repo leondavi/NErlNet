@@ -51,11 +51,14 @@ init(Req0, State = [Action,Router_genserver_Pid]) ->
     stopCasting ->  gen_statem:cast(Router_genserver_Pid, {stopCasting,Body});
     statistics  -> gen_statem:cast(Router_genserver_Pid, {statistics,Body});
 
+    federatedWeightsVector  -> gen_statem:cast(Router_genserver_Pid, {federatedWeightsVector,Body});
+
     federatedWeights -> % io:format("router got action ~p body:~p~n",[Action,Body]),
       gen_statem:cast(Router_genserver_Pid, {federatedWeights,Body})
 
   end,
-  Reply = io_lib:format("Body Received: ~p, Decoded Body = ~p ~n Client_StateM_Pid:~p, Handler's Pid: ~p~n ", [Body,Decoded_body,  Router_genserver_Pid,self()]),
+  Reply = io_lib:format(" ", []),
+%%  Reply = io_lib:format("Body Received: ~p, Decoded Body = ~p ~n Client_StateM_Pid:~p, Handler's Pid: ~p~n ", [Body,Decoded_body,  Router_genserver_Pid,self()]),
   Req = cowboy_req:reply(200,
     #{<<"content-type">> => <<"text/plain">>},
     Reply,
