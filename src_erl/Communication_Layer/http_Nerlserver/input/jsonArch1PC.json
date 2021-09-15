@@ -3,17 +3,17 @@
     {
       "host": "localhost",
       "entities": "serverAPI",
-      "port": "8090"
+      "port": "8095"
     },
     {
       "host": "127.0.0.1",
-      "entities": "mainServer,c1,f1,s1,r1"
+      "entities": "mainServer,c1,f1,s1,r1,s2"
     }
   ],
   "serverAPI": [
     {
       "host": "localhost",
-      "port": "8090",
+      "port": "8095",
       "args": "ASDF,ASDF,ASDGFG"
     }
   ],
@@ -21,20 +21,26 @@
     {
       "host": "127.0.0.1",
       "port": "8080",
-      "args": "ASDF,ASDF,ASDGFG"
+      "args": ""
     }
   ],
   "workers": [
     {
       "name": "w1",
-      "args": "[561,10,6]@0.001@[0,2,0]@6@0@561@6"
+      "id": 0,
+      "args": "[561,20,15,13,10,6]@0.001@[0,2,3,3,3,0]@6@0@561@6"
+    },
+    {
+      "name": "w2",
+      "id": 1,
+      "args": "[561,20,15,13,10,6]@0.001@[0,2,3,3,3,0]@6@1@561@6"
     }
   ],
   "clients": [
     {
       "name": "c1",
       "port": "8081",
-      "workers": "w1",
+      "workers": "w1,w2",
       "federated": "f1"
     }
   ],
@@ -42,14 +48,18 @@
     {
       "name": "f1",
       "port": "8083",
-      "workers": "w1",
-      "counterLimit": "20"
+      "workers": "w1,w2",
+      "counterLimit": "2"
     }
   ],
   "sources": [
     {
       "name": "s1",
       "port": "8082"
+    },
+    {
+      "name": "s2",
+      "port": "8091"
     }
   ],
   "routers": [
@@ -74,9 +84,14 @@
       "mainServer": "r1",
       "c1": "r1"
     },
+    "s2": {
+      "mainServer": "r1",
+      "c1": "r1"
+    },
     "mainServer": {
       "c1": "r1",
       "s1": "r1",
+      "s2": "r1",
       "r1": "r1",
       "f1": "r1",
       "serverAPI": "mainServer"
@@ -85,7 +100,8 @@
       "mainServer": "r1",
       "c1": "r1",
       "f1": "r1",
-      "s1": "r1"
+      "s1": "r1",
+      "s2": "r1"
     },
     "serverAPI": {
       "mainServer": "serverAPI"
