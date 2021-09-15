@@ -124,12 +124,12 @@ castingData(cast, {leftOvers,Tail}, State = #source_statem_state{msgCounter = Co
 %%  io:format("received leftovers- ~p~n",[Tail]),
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1,csvList = Tail}};
 
-castingData(cast, {finishedCasting}, State = #source_statem_state{myName = MyName, msgCounter = Counter, portMap = PortMap}) ->
+castingData(cast, {finishedCasting,CounterReceived}, State = #source_statem_state{myName = MyName, msgCounter = Counter, portMap = PortMap}) ->
   io:format("source finished casting- ~n",[]),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
   http_request(RouterHost,RouterPort,"sourceDone", atom_to_list(MyName)),
-  {next_state, idle, State#source_statem_state{msgCounter = Counter+1,sourcePid = [], csvList = []}};
+  {next_state, idle, State#source_statem_state{msgCounter = Counter+CounterReceived+1,sourcePid = [], csvList = []}};
 
 castingData(cast, EventContent, State = #source_statem_state{msgCounter = Counter}) ->
   io:format("ignored: ~p~nstate - casting data",[EventContent]),
@@ -174,9 +174,9 @@ spawnTransmitter(WorkersNames,CSVPath,CSVlist,PortMap,WorkersMap,ChunkSize)->
   spawn(?MODULE,sendSamples,[CSVlist,CSVPath,ChunkSize,60,self(),Triplets,0]).
 
 
-sendSamples([],_CSVPath,_ChunkSize,Hz,Pid,_Triplets,_Counter)->
+sendSamples([],_CSVPath,_ChunkSize,Hz,Pid,_Triplets,Counter)->
   receive
-    after Hz ->    gen_statem:cast(Pid,{finishedCasting})
+    after Hz ->    gen_statem:cast(Pid,{finishedCasting,Counter})
 end;
 
 sendSamples(ListOfSamples,CSVPath,ChunkSize,Hz,Pid,Triplets,Counter)->

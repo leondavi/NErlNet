@@ -94,7 +94,7 @@ static ERL_NIF_TERM cppBridgeControllerDeleteModel_nif(ErlNifEnv* env, int argc,
 // Get weights
 static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    std::vector<std::string> weights_vec_sizes, bias_vec_sizes, bias_list_vec, weights_list_vec_string;
+    std::vector<double> weights_vec_sizes, bias_vec_sizes, bias_list_vec, weights_list_vec;
     std::vector<std::shared_ptr<ANN::Weights>> vec_of_weights_ptr;
     MatrixXd* weights_mat;
     VectorXd weights_Vec;
@@ -121,13 +121,13 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         weights_mat = (*it)->get_weights_mat_ptr();
 
         // Add weights matrix rows number and columns number to the weights_vec_sizes
-        weights_vec_sizes.push_back(std::to_string(weights_mat->rows()));
-        weights_vec_sizes.push_back(std::to_string(weights_mat->cols()));
+        weights_vec_sizes.push_back(weights_mat->rows());
+        weights_vec_sizes.push_back(weights_mat->cols());
 
         // Create the result vector from the result matrix TODO: Native in Eigen optionally
         for (int r = 0; r < weights_mat->rows(); r++){
             for (int c = 0; c < weights_mat->cols(); c++){
-                weights_list_vec_string.push_back(std::to_string(weights_mat->coeff(r,c)));
+                weights_list_vec.push_back(weights_mat->coeff(r,c));
             }
         }
 
@@ -135,10 +135,10 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         bias=(*it)->get_bias_ptr();
 
         // Add the bias size to the vector of bias sizes
-        bias_vec_sizes.push_back(std::to_string(bias->size()));
+        bias_vec_sizes.push_back(bias->size());
 
         for (bias_list_vec_index = 0; bias_list_vec_index< bias->size(); bias_list_vec_index++){
-            bias_list_vec.push_back(std::to_string(bias->coeff(bias_list_vec_index)));
+            bias_list_vec.push_back(bias->coeff(bias_list_vec_index));
         }
     }
 
@@ -165,7 +165,7 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 #endif
 
     // Convert the weights_list_vec to nif term
-    nifpp::TERM ret_weights_list = nifpp::make(env, weights_list_vec_string);
+    nifpp::TERM ret_weights_list = nifpp::make(env, weights_list_vec);
 
     // Convert the bias_list_vec to nif term
     nifpp::TERM ret_bias_list_vec = nifpp::make(env, bias_list_vec);
@@ -179,9 +179,6 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     // Return tuple: All weights matrixes combined to a vector, All biases combined to a vector, Sizes of each weight matrixes/biases as lists
     ret_tuple = enif_make_tuple(env, 4, ret_weights_list, ret_bias_list_vec, ret_bias_vec_sizes_list, ret_weights_vec_sizes_list);
 
-    //std::cout << "weights_list_vec_string: " << weights_list_vec_string << std::endl;
-     //std::cout << "################################NIF bias_list_vec: " << bias_list_vec << std::endl;
-
     // Return weights_list and bias_list and the size of them
     return ret_tuple;
 }
@@ -189,41 +186,24 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 // Set weights
 static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    std::vector<std::string> weights_list_string, bias_list_string, weights_vec_sizes_string, bias_vec_sizes_string;
     std::vector<double> weights_list_double, bias_list_double;
     std::vector<int> weights_vec_sizes_int, bias_vec_sizes_int;
     std::vector<std::shared_ptr<ANN::Weights>> vec_of_weights_ptr;
-    //MatrixXd weights_Mat;
     VectorXd bias;
     int ModelId, sizes_vec_index = 0, bias_list_index = 0, weight_index = 0, weight_index_sum = 0, weight_index_place = 0;
 
      // Get the singleton instance
     cppBridgeController *s = s->GetInstance();
 
+    std::cout<<"SET IN THE NIF!"<<std::endl;
+
     try {
         // Get a list of weightes, bias list, list of weights sizes, list of biases sizes and modelId
-        nifpp::get_throws(env, argv[0], weights_list_string);
-        nifpp::get_throws(env, argv[1], bias_list_string);
-        nifpp::get_throws(env, argv[2], bias_vec_sizes_string);
-        nifpp::get_throws(env, argv[3], weights_vec_sizes_string);
+        nifpp::get_throws(env, argv[0], weights_list_double);
+        nifpp::get_throws(env, argv[1], bias_list_double);
+        nifpp::get_throws(env, argv[2], bias_vec_sizes_int);
+        nifpp::get_throws(env, argv[3], weights_vec_sizes_int);
         nifpp::get_throws(env, argv[4], ModelId);
-
-        // Convert list of strings to list of doubles
-        weights_list_double.resize(weights_list_string.size());
-        transform(weights_list_string.begin(), weights_list_string.end(), weights_list_double.begin(),
-        [](std::string const& val) {return std::stod(val);});
-
-        bias_list_double.resize(bias_list_string.size());
-        transform(bias_list_string.begin(), bias_list_string.end(), bias_list_double.begin(),
-        [](std::string const& val) {return std::stod(val);});
-
-        weights_vec_sizes_int.resize(weights_vec_sizes_string.size());
-        transform(weights_vec_sizes_string.begin(), weights_vec_sizes_string.end(), weights_vec_sizes_int.begin(),
-        [](std::string const& val) {return std::stod(val);});
-
-        bias_vec_sizes_int.resize(bias_vec_sizes_string.size());
-        transform(bias_vec_sizes_string.begin(), bias_vec_sizes_string.end(), bias_vec_sizes_int.begin(),
-        [](std::string const& val) {return std::stod(val);});
 
         // Get the model from the singleton
         std::shared_ptr<SANN::Model> modelPtr = s-> getModelPtr(ModelId);
@@ -296,7 +276,6 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 // Average weights
 static ERL_NIF_TERM average_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    std::vector<std::string> vec_of_weightsAndBiases_vec_string;
     std::vector<double> vec_of_weightsAndBiases_vec_double, sum_of_weights;
     int NumOfWeightsAndBiases, index = 0;
     
@@ -306,11 +285,6 @@ static ERL_NIF_TERM average_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_
         // Get the list of weightes, bias list and size
         nifpp::get_throws(env, argv[0], vec_of_weightsAndBiases_vec_double);
         nifpp::get_throws(env, argv[1], NumOfWeightsAndBiases);
-
-        // Convert list of strings to list of doubles
-        //vec_of_weightsAndBiases_vec_double.resize(vec_of_weightsAndBiases_vec_string.size());
-        //transform(vec_of_weightsAndBiases_vec_string.begin(), vec_of_weightsAndBiases_vec_string.end(), vec_of_weightsAndBiases_vec_double.begin(),
-        //[](std::string const& val) {return std::stod(val);});
 
         // The size of each weight and bias vector
         int OneWheightAndBiasesSize = vec_of_weightsAndBiases_vec_double.size()/NumOfWeightsAndBiases;
@@ -329,7 +303,6 @@ static ERL_NIF_TERM average_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_
             sum_of_weights[i] = sum_of_weights[i] / NumOfWeightsAndBiases;
         }
 
-
         // Convert the vec_of_weights_vec to a nif term
         nifpp::TERM ret_average_weightsBias_list = nifpp::make(env, sum_of_weights);
 
@@ -337,7 +310,8 @@ static ERL_NIF_TERM average_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_
         ret_tuple = enif_make_tuple(env, 2, ret_average_weightsBias_list, enif_make_int(env, NumOfWeightsAndBiases));
 
         // Return weights_list and bias_list and the size of them
-        return ret_tuple;
+        return ret_average_weightsBias_list;
+//        return ret_tuple;
     }
     catch(nifpp::badarg){
         return enif_make_badarg(env);
@@ -389,7 +363,7 @@ static void* predictFun(void *arg){
 
     for (int r = 0; r < resultsMat.rows(); r++){
         for (int c = 0; c < resultsMat.cols(); c++){
-            results_vec[resultsMat.cols() + c] = resultsMat(r,c);
+            results_vec[r*resultsMat.cols() + c] = resultsMat(r,c);
         }
     }
 
