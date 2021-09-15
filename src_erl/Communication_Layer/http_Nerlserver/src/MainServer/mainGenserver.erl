@@ -324,4 +324,4 @@ ack(PortMap) ->
   io:format("sending ACK to serverAPI"),
 %%  {RouterHost,RouterPort} = maps:get(serverAPI,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
-  http_request("localhost",8090,"ack","ack").
+  http_request("localhost",8095,"ack","ack"). %TODO fix and remove magic number
