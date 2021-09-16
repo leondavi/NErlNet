@@ -48,6 +48,7 @@ start_link(ConnectionsMap) ->
 init({MyName,WorkersMap, ConnectionsMap,ChunkSize}) ->
   inets:start(),
   start_connection(maps:to_list(ConnectionsMap)),
+
   {ok, idle, #source_statem_state{chunkSize = ChunkSize,myName = MyName, workersMap = WorkersMap, portMap = ConnectionsMap, msgCounter = 1, castingTo = []}}.
 
 %% @private
@@ -77,6 +78,7 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 %%This cast receive a list of samples to load to the records csvList
 idle(cast, {csvList,Workers,CSVPath}, State = #source_statem_state{chunkSize = ChunkSize, myName = Myname, msgCounter = Counter, portMap = PortMap}) ->
   CSVlist = parser:parse_file(CSVPath,ChunkSize),
+  io:format("source updated Workers - ~p~n",[Workers]),
   CSVName = lists:last(re:split(CSVPath,"/",[{return,list}])),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready

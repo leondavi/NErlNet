@@ -77,7 +77,7 @@ handle_cast({initCSV, Source,_Workers,Body}, State = #main_genserver_state{state
 %%  send router http request, to rout this message to all sensors
 %%  TODO find the router that can send this request to Sources**
   findroutAndsend(Source,Body,ConnectionMap),
-  io:format("WaitingList = ~p~n",[list_to_atom(Source)]),
+  io:format("WaitingList = ~p~n",[SourcesWaitingList++[list_to_atom(Source)]]),
   {noreply, State#main_genserver_state{sourcesWaitingList = SourcesWaitingList++[list_to_atom(Source)],msgCounter = MsgCounter+1}};
 
 handle_cast({clientsTraining,Body}, State = #main_genserver_state{state = casting,clients = ListOfClients,msgCounter = MsgCounter}) ->
@@ -154,8 +154,9 @@ handle_cast({statistics,Body}, State = #main_genserver_state{statisticsCounter =
 
 handle_cast({sourceDone,Body}, State = #main_genserver_state{connectionsMap = ConnectionMap, sourcesCastingList = CastingList,msgCounter = MsgCounter}) ->
   io:format("~p done sending data ~n",[list_to_atom(binary_to_list(Body))]),
-  io:format("new Waiting List: ~p ~n",[CastingList--[list_to_atom(binary_to_list(Body))]]),
   NewCastingList = CastingList--[list_to_atom(binary_to_list(Body))],
+  io:format("new Waiting List: ~p ~n",[NewCastingList]),
+
   case NewCastingList of
     [] -> NextState = State#main_genserver_state{state = idle, sourcesCastingList = NewCastingList,msgCounter = MsgCounter},
           gen_server:cast(self(),{clientsIdle}),
@@ -165,14 +166,14 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{connectionsMap = Co
   {noreply, NextState};
 
 handle_cast({sourceAck,Body}, State = #main_genserver_state{connectionsMap = ConnectionMap, sourcesWaitingList = WaitingList,msgCounter = MsgCounter}) ->
-  % io:format("~p sent ACK ~n",[list_to_atom(binary_to_list(Body))]),
+   io:format("~n~p sent ACK ~n",[list_to_atom(binary_to_list(Body))]),
 %%  io:format("new Waiting List: ~p ~n",[WaitingList--[list_to_atom(binary_to_list(Body))]]),
   NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
-  if length(NewWaitingList) == 0 ->
-    ack(ConnectionMap);
-    true->
-      io:format("~p sent ACK~n new sourceWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
-  end,
+%%  if length(NewWaitingList) == 0 ->
+    ack(ConnectionMap),
+%%    true->
+%%      io:format("~p sent ACK~n new sourceWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
+%%  end,
   {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList,msgCounter = MsgCounter+1}};
 
 
@@ -187,10 +188,13 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{ clientsWaitingList 
 
 %%TODO change Client_Names to list of clients
 handle_cast({startCasting,Source_Names}, State = #main_genserver_state{state = idle,sourcesCastingList=CastingList, connectionsMap = ConnectionMap, sourcesWaitingList = [], clientsWaitingList = [],msgCounter = MsgCounter}) ->
-  {RouterHost,RouterPort} = maps:get(list_to_atom(binary_to_list(Source_Names)),ConnectionMap),
-  http_request(RouterHost,RouterPort,"startCasting", Source_Names),
-  % io:format("old Casting list: ~p~n",[Source_Names]),
   Splitted = re:split(binary_to_list(Source_Names), ",", [{return, list}]),
+
+  startCasting(Splitted,ConnectionMap),
+%%  [fun() -> {RouterHost,RouterPort} = maps:get(list_to_atom(binary_to_list(SourceName)),ConnectionMap),
+%%    io:format("sending StartCasting to: ~p~n",[SourceName]),
+%%
+%%    http_request(RouterHost,RouterPort,"startCasting", SourceName) end||SourceName<-re:split(Source_Names,",",[{return,list}])],
   Sources = [list_to_atom(Source_Name)||Source_Name<-Splitted],
   io:format("new Casting list: ~p~n",[Sources]),
   {noreply, State#main_genserver_state{sourcesCastingList = CastingList++Sources, state = casting,msgCounter = MsgCounter+1}};
@@ -319,6 +323,17 @@ decode(L)->
 %%  LL=lists:sublist(L,2,length(L)-2),
   LL=re:split(L,",",[{return,list}]),
   [list_to_float(X)||X<-LL].
+
+
+
+startCasting([],_ConnectionMap)->done;
+startCasting([SourceName|SourceNames],ConnectionMap)->
+  {RouterHost,RouterPort} = maps:get(list_to_atom(SourceName),ConnectionMap),
+  io:format("sending StartCasting to: ~p~n",[SourceName]),
+
+  http_request(RouterHost,RouterPort,"startCasting", SourceName),
+  startCasting(SourceNames,ConnectionMap).
+
 
 ack(PortMap) ->
   io:format("sending ACK to serverAPI"),

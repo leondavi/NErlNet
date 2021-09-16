@@ -41,7 +41,7 @@ def analyze():
   # function to show the plot
   plt.show()
 
-DEFAULT_PORT = 8080
+DEFAULT_PORT = 8095
 def init(jsonPath = 'src_py/architectures.json',inputPort = DEFAULT_PORT):
   
   NerlnetPyAPI.settings.x = 6

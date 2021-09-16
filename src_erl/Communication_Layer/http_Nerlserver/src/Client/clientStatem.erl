@@ -67,12 +67,13 @@ init({MyName,Federated,Workers,ConnectionsMap}) ->
 
 createWorkers([],_ClientPid,WorkersNamesPids) ->WorkersNamesPids;
 createWorkers([Worker|Workers],ClientPid,WorkersNamesPids) ->
+  FederatedMode="1", CountLimit="10",
+
   WorkerName = list_to_atom(binary_to_list(maps:get(<<"name">>,Worker))),
   CppSANNArgsBinary = maps:get(<<"args">>,Worker),
   Splitted = re:split(CppSANNArgsBinary,"@",[{return,list}]),
   [Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels] = Splitted,
   % TODO receive from JSON
-FederatedMode="1", CountLimit="10",
   % TODO receive from JSON
 
   WorkerArgs ={string_to_list_int(Layers_sizes),list_to_float(Learning_rate),
@@ -181,7 +182,7 @@ training(cast, {loss,WorkerName,nan}, State = #client_statem_state{myName = MyNa
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, {loss,WorkerName,LossFunction}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
-   io:format("LossFunction1: ~p   ~n",[LossFunction]),
+   io:format("WorkerName: ~p , LossFunction1: ~p   ~n",[WorkerName, LossFunction]),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
   http_request(RouterHost,RouterPort,"lossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,float_to_binary(LossFunction)])),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
