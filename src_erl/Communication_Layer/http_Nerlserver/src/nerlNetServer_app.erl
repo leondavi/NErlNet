@@ -145,7 +145,6 @@ createSources([],_WorkersMap,_ChunkSize,_HostName) -> okdone;
 createSources([{SourceArgs,SourceConnectionsMap}|Sources],WorkersMap,ChunkSize,HostName) ->
     SourceName = list_to_atom(binary_to_list(maps:get(<<"name">>,SourceArgs))),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,SourceArgs))),
-
     %%Create a gen_StateM machine for maintaining Database for Source.
     %% all http requests will be handled by Cowboy which updates source_statem if necessary.
     SourceStatemArgs= {SourceName,WorkersMap,SourceConnectionsMap,ChunkSize},        %%TODO  make this a list of Sources
