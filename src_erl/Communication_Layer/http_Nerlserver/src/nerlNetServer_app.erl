@@ -129,7 +129,7 @@ createFederatedServer([{FederateArgs,FederateConnectionsMap}|Federated],WorkersM
     %%    Source server
     FederatedDispatch = cowboy_router:compile([
         {'_', [
-            {"/weightsVector",weightsHandler, [weightsVector,FederatedStatemPid]},
+            {"/federatedWeightsVector",weightsHandler, [federatedWeightsVector,FederatedStatemPid]},
             {"/statistics",weightsHandler, [statistics,FederatedStatemPid]}
 
         ]}
@@ -199,6 +199,7 @@ createRouters([{RouterArgs,RouterCommectopmsMap}|Routers],HostName) ->
             {"/weightsVector",routingHandler, [rout,RouterGenServerPid]},
             {"/startCasting",routingHandler, [startCasting,RouterGenServerPid]},
             {"/stopCasting",routingHandler, [stopCasting,RouterGenServerPid]},
+            {"/federatedWeightsVector",routingHandler, [federatedWeightsVector,RouterGenServerPid]},
             {"/federatedWeights",routingHandler, [federatedWeights,RouterGenServerPid]}
         ]}
     ]),
