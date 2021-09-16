@@ -54,11 +54,11 @@
   ],
   "sources": [
     {
-      "name": "s1",
+      "name": "s2",
       "port": "8082"
     },
     {
-      "name": "s2",
+      "name": "s1",
       "port": "8091"
     }
   ],
