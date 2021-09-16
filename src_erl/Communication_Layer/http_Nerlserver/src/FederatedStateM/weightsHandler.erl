@@ -20,12 +20,13 @@ init(Req0, [Action,FederatedStateM_Pid]) ->
 
   case Action of
 
-    weightsVector -> gen_statem:cast(FederatedStateM_Pid,{weightsVector,Body});
+    federatedWeightsVector -> gen_statem:cast(FederatedStateM_Pid,{federatedWeightsVector,Body});
     statistics ->gen_statem:cast(FederatedStateM_Pid,{statistics})
   end,
 
 
-  Reply = io_lib:format("Weights Received~n ", []),
+%%  Reply = io_lib:format("Weights Received~n ", []),
+  Reply = io_lib:format(" ", []),
   Req = cowboy_req:reply(200,
     #{<<"content-type">> => <<"text/plain">>},
     Reply,

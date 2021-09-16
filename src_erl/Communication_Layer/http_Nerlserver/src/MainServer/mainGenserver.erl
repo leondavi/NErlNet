@@ -89,9 +89,9 @@ handle_cast({clientsTraining,Body}, State = #main_genserver_state{state = castin
 handle_cast({clientsTraining,Body}, State = #main_genserver_state{clients = ListOfClients, connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
   io:format("main server: setting all clients on training state: ~p~n",[ListOfClients]),
-  io:format("Body:~p~n",[Body]),
-  io:format("binary_to_list(Body):~p~n",[binary_to_list(Body)]),
-  io:format("Splitted-(Body):~p~n",[re:split(binary_to_list(Body), ",", [{return, list}])]),
+%%  io:format("Body:~p~n",[Body]),
+%%  io:format("binary_to_list(Body):~p~n",[binary_to_list(Body)]),
+%%  io:format("Splitted-(Body):~p~n",[re:split(binary_to_list(Body), ",", [{return, list}])]),
 %%  TODO find the router that can send this request to Sources**
   [{setClientState(clientTraining,ClientName, ConnectionMap)}|| ClientName<- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
@@ -129,7 +129,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{statisticsCounter =
       NewStatisticsMap = maps:put(list_to_atom(From),NewCounter,StatisticsMap),
         NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap,statisticsCounter = StatisticsCounter-1},
 
-      if StatisticsCounter == 1 ->
+      if StatisticsCounter == 2 ->
             io:format("new Statistics Map:~n~p~n",[NewStatisticsMap]);
           true ->
             ok
@@ -283,6 +283,8 @@ findroutAndsend(SourceName,Body,ConnectionsMap) ->
   {RouterHost,RouterPort} =maps:get(list_to_atom(SourceName),ConnectionsMap),
   http_request(RouterHost, RouterPort,"updateCSV", Body).
 
+findroutAndsendStatistics(serverAPI,_ConnectionsMap) ->io:format("");
+
 findroutAndsendStatistics(Entitie,ConnectionsMap) ->
 %%  io:format("WaitingList = ~p~n~n",[Workers]),
   {RouterHost,RouterPort} =maps:get(Entitie,ConnectionsMap),
@@ -320,6 +322,6 @@ decode(L)->
 
 ack(PortMap) ->
   io:format("sending ACK to serverAPI"),
-  {RouterHost,RouterPort} = maps:get(serverAPI,PortMap),
+%%  {RouterHost,RouterPort} = maps:get(serverAPI,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
-  http_request(RouterHost,RouterPort,"ack","ack").
+  http_request("localhost",8095,"ack","ack"). %TODO fix and remove magic number

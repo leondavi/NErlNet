@@ -100,12 +100,19 @@ handle_cast({predictRes,Body}, State = #router_genserver_state{msgCounter = MsgC
   http_request(Host,Port,"predictRes",Body),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
-
+handle_cast({federatedWeightsVector,Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
+%%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
+  {To,_Vector} = binary_to_term(Body),
+  {Host,Port} =maps:get(To,ConnectionsMap),
+  http_request(Host,Port,"federatedWeightsVector",Body),
+  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
 handle_cast({federatedWeights,Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
-  [To|_Vector] = binary:split(Body,<<"#">>),
-  {Host,Port} =maps:get(list_to_atom(binary_to_list(To)),ConnectionsMap),
+%%  [To|_Vector] = binary:split(Body,<<"#">>),
+    {ClientName,WorkerName,BinaryWeights} = binary_to_term(Body),
+
+{Host,Port} =maps:get(ClientName,ConnectionsMap),
   http_request(Host,Port,"federatedWeights",Body),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
