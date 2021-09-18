@@ -195,7 +195,7 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
      // Get the singleton instance
     cppBridgeController *s = s->GetInstance();
 
-    std::cout<<"SET IN THE NIF!"<<std::endl;
+    // std::cout<<"SET IN THE NIF!"<<std::endl;
 
     try {
         // Get a list of weightes, bias list, list of weights sizes, list of biases sizes and modelId

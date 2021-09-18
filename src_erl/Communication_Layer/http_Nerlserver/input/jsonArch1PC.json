@@ -1,4 +1,10 @@
 {
+  "NerlNetSettings": [
+  {
+    "frequency": "20",
+    "batchSize": "10"
+  }
+  ],
   "devices": [
     {
       "host": "localhost",
@@ -14,7 +20,7 @@
     {
       "host": "localhost",
       "port": "8095",
-      "args": "ASDF,ASDF,ASDGFG"
+      "args": ""
     }
   ],
   "mainServer": [
@@ -27,13 +33,31 @@
   "workers": [
     {
       "name": "w1",
-      "id": 0,
-      "args": "[3,2,1]@0.001@[0,2,0]@6@0@3@1"
+      "modelId": "0",
+      "FederatedMode": "1",
+      "CountLimit": "10",
+      "LayersSizes": "[561,250,125,60,30,15,6]",
+      "LearningRate":"0.001",
+      "_comment1": "Activation functions explain: 0- NONE, 1- IDENTITY, 2- SIGMOID, 3- RELU, 4- LEAKY_RELU, 5- SWISH, 6- ELU, 7- TANH, 8- GAUSSIAN, 9- TOTAL",
+      "ActivationFunctions":"[0,2,2,2,2,2,0]",
+      "Features": "561",
+      "Labels": "6",
+      "_comment2": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
+      "Optimizer":"6"
     },
     {
       "name": "w2",
-      "id": 1,
-      "args": "[3,2,1]@0.001@[0,2,0]@6@1@3@1"
+      "modelId": "1",
+      "FederatedMode": "1",
+      "CountLimit": "10",
+      "LayersSizes": "[561,250,125,60,30,15,6]",
+      "LearningRate":"0.001",
+      "_comment1": "Activation functions explain: 0- NONE, 1- IDENTITY, 2- SIGMOID, 3- RELU, 4- LEAKY_RELU, 5- SWISH, 6- ELU, 7- TANH, 8- ACT_GAUSSIAN, 9- ACT_TOTAL",
+      "ActivationFunctions":"[0,2,2,2,2,2,0]",
+      "Features": "561",
+      "Labels": "6",
+      "_comment2": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
+      "Optimizer":"6" 
     }
   ],
   "clients": [
@@ -53,10 +77,6 @@
     }
   ],
   "sources": [
-    {
-      "name": "s2",
-      "port": "8082"
-    },
     {
       "name": "s1",
       "port": "8091"
@@ -84,14 +104,9 @@
       "mainServer": "r1",
       "c1": "r1"
     },
-    "s2": {
-      "mainServer": "r1",
-      "c1": "r1"
-    },
     "mainServer": {
       "c1": "r1",
       "s1": "r1",
-      "s2": "r1",
       "r1": "r1",
       "f1": "r1",
       "serverAPI": "mainServer"
@@ -100,9 +115,8 @@
       "mainServer": "r1",
       "c1": "r1",
       "f1": "r1",
-      "s1": "r1",
-      "s2": "r1"
-    },
+      "s1": "r1"
+    },  
     "serverAPI": {
       "mainServer": "serverAPI"
     }
