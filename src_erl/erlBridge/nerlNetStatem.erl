@@ -50,10 +50,9 @@ start_link(ARGS) ->
 %% process to initialize.
 init({ClientPID, MyName, {Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels, FederatedMode, CountLimit}}) ->
   io:fwrite("start module_create ~n"),
+  io:fwrite("Layers_sizes ~p, Learning_rate ~p, ActivationList ~p, Optimizer ~p, ModelId ~p CountLimit ~p FederatedMode ~p~n",[Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, CountLimit, FederatedMode]),
 
   _Res=erlModule:module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
-  io:fwrite("Layers_sizes: ~p, Learning_rate: ~p, ActivationList: ~p, Optimizer: ~p, ModelId ~p\n",[Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId]),
-
   {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = MyName, modelId = ModelId, federatedMode = FederatedMode, countLimit = CountLimit}}.
 
 %% @private
@@ -233,12 +232,14 @@ wait(cast, Param, State) ->
 
 %% State train
 train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels}) ->
+  
+  % io:fwrite("SampleListTrain: ~p Features ~p Labels ~p\n",[SampleListTrain,Features, Labels]),
   CurrPid = self(),
   ChunkSizeTrain = round(length(SampleListTrain)/(Features + Labels)),
   %io:fwrite("length(SampleListTrain)/(Features + Labels): ~p\n",[length(SampleListTrain)/(Features + Labels)]),
   % io:fwrite("Send sample to train: ~p\n",[SampleListTrain]),
   % io:fwrite("ChunkSizeTrain: ~p, Features: ~p Labels: ~p ModelId ~p\n",[ChunkSizeTrain, Features, Labels, ModelId]),
-  %io:fwrite("Train state: got sample, pid: ~p\n", [CurrPid]),
+  % io:fwrite("Train state: got sample, pid: ~p ChunkSizeTrain ~p \n", [CurrPid,ChunkSizeTrain]),
   
   % file:write_file("NerlStatemOutTrain.txt", [lists:flatten(io_lib:format("ChunkSizeTrain: ~p Features: ~p Labels: ~p ModelId: ~p CurrPid: ~p MyName: ~p /n SampleListTrain: ~p /n",
   % [ChunkSizeTrain,Features,Labels,ModelId,CurrPid,MyName,SampleListTrain]))],[append]),

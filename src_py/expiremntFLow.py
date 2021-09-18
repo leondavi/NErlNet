@@ -1,6 +1,5 @@
 def initTrain():
-    new_list = [('http://127.0.0.1:8080/updateCSV', "s1,w1,./input/skin_nonskin.csv"),
-                ('http://127.0.0.1:8080/updateCSV', "s1,w2,./input/skin_nonskin.csv"),
+    new_list = [('http://127.0.0.1:8080/updateCSV', "s1,w1,w2,./input/inputShort.csv"),
                 ('http://127.0.0.1:8080/clientsTraining', "")]
     return new_list
 
@@ -9,7 +8,6 @@ def startCasting():
     return new_list
 
 def initPredict():
-    new_list = [('http://127.0.0.1:8080/updateCSV', "s1,w1,./input/skin_nonskin_predict.csv"),
-                ('http://127.0.0.1:8080/updateCSV', "s1,w2,./input/skin_nonskin_predict.csv"),
+    new_list = [('http://127.0.0.1:8080/updateCSV', "s1,w1,w2,./input/input9p.csv"),
                 ('http://127.0.0.1:8080/clientsPredict', "")]
     return new_list

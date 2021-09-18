@@ -50,8 +50,13 @@ start(_StartType, _StartArgs) ->
     % io:format("My HostName: ~p~n",[list_to_binary(HostName)]),
 
     %%Server that should be established on this machine from JSON architecture:
-    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap}} = jsonParser:getDeviceEntities("./input/jsonArch1PC.json",list_to_binary(HostName)),
-    ChunkSize = 1,
+    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities("./input/jsonArch1PC.json",list_to_binary(HostName)),
+    %  io:format("My NerlNetSettings: ~p~n",[NerlNetSettings]),
+
+    ChunkSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))),
+    Frequency = list_to_integer(binary_to_list(maps:get(<<"frequency">>,NerlNetSettings))),
+    %  io:format("My ChunkSize: ~p~n",[ChunkSize]),
+    %  io:format("My Frequency: ~p~n",[Frequency]),
 
 %%    Creating a Dispatcher for each Server from JSONs architecture - this dispatchers will rout http requests to the right handler.
 %%    Each dispatcher will be listening to a different PORT
@@ -66,7 +71,7 @@ start(_StartType, _StartArgs) ->
     createClientsAndWorkers(ClientsAndWorkers, HostName),
     createMainServer(MainServer,HostName),
     createRouters(Routers,HostName),
-    createSources(Sources,WorkersMap, ChunkSize, HostName),
+    createSources(Sources,WorkersMap, ChunkSize, Frequency, HostName),
     createFederatedServer(Federateds,WorkersMap, HostName),
 %%    Worker1Args = {[3,2,1],0.01,[0,2,0],6,0,3,1,ChunkSize},
 %%    Worker1Args = {[561,280,140,70,35,17,8,4,2,1],0.01,[0,2,2,2,2,2,2,2,2,0],6,0,561,1,ChunkSize},
@@ -140,14 +145,14 @@ createFederatedServer([{FederateArgs,FederateConnectionsMap}|Federated],WorkersM
     createFederatedServer(Federated,WorkersMap,HostName).
 
 
-createSources(none,_WorkersMap,_ChunkSize,_HostName) -> none;
-createSources([],_WorkersMap,_ChunkSize,_HostName) -> okdone;
-createSources([{SourceArgs,SourceConnectionsMap}|Sources],WorkersMap,ChunkSize,HostName) ->
+createSources(none,_WorkersMap,_ChunkSize,_Frequency,_HostName) -> none;
+createSources([],_WorkersMap,_ChunkSize,_Frequency,_HostName) -> okdone;
+createSources([{SourceArgs,SourceConnectionsMap}|Sources],WorkersMap,ChunkSize,Frequency,HostName) ->
     SourceName = list_to_atom(binary_to_list(maps:get(<<"name">>,SourceArgs))),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,SourceArgs))),
     %%Create a gen_StateM machine for maintaining Database for Source.
     %% all http requests will be handled by Cowboy which updates source_statem if necessary.
-    SourceStatemArgs= {SourceName,WorkersMap,SourceConnectionsMap,ChunkSize},        %%TODO  make this a list of Sources
+    SourceStatemArgs= {SourceName,WorkersMap,SourceConnectionsMap,ChunkSize,Frequency},        %%TODO  make this a list of Sources
     SourceStatemPid = sourceStatem:start_link(SourceStatemArgs),
 
 
@@ -164,7 +169,7 @@ createSources([{SourceArgs,SourceConnectionsMap}|Sources],WorkersMap,ChunkSize,H
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
     init_cowboy_start_clear(SourceName, {HostName,Port},SourceDispatch),
-    createSources(Sources,WorkersMap,ChunkSize,HostName).
+    createSources(Sources,WorkersMap,ChunkSize,Frequency,HostName).
 
 
 
