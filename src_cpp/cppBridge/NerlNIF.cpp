@@ -279,8 +279,6 @@ static ERL_NIF_TERM average_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     std::vector<double> vec_of_weightsAndBiases_vec_double, sum_of_weights;
     int NumOfWeightsAndBiases, index = 0;
     
-    ERL_NIF_TERM ret_tuple;
-
     try {
         // Get the list of weightes, bias list and size
         nifpp::get_throws(env, argv[0], vec_of_weightsAndBiases_vec_double);
@@ -306,12 +304,8 @@ static ERL_NIF_TERM average_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_
         // Convert the vec_of_weights_vec to a nif term
         nifpp::TERM ret_average_weightsBias_list = nifpp::make(env, sum_of_weights);
 
-        // Return tuple: All averaged vectors of weights and biases vectors combined to a vector and Number of weights matrixes/biases vectors
-        ret_tuple = enif_make_tuple(env, 2, ret_average_weightsBias_list, enif_make_int(env, NumOfWeightsAndBiases));
-
-        // Return weights_list and bias_list and the size of them
+        // Return weights_list and bias_list
         return ret_average_weightsBias_list;
-//        return ret_tuple;
     }
     catch(nifpp::badarg){
         return enif_make_badarg(env);
@@ -351,6 +345,27 @@ static void* predictFun(void *arg){
 
     // Predict model with received parameters
     modelPtr->predict(data_matrix, resultsMat);
+
+
+     ofstream outdata; // outdata is to send the weights to a file
+    outdata.open("NerlNifCppOutPredictData.txt", std::ios_base::app); // opens the file
+    if( !outdata ) { // file couldn't be opened
+        cerr << "Error: file could not be opened" << endl;
+        exit(1);
+    }
+    for (int r = 0; r < predictPtr->rows; r++){
+        // Create the data matrix from a vector
+        for (int c = 0; c < predictPtr->cols; c++){
+            outdata<< data_matrix(r,c) << " ";
+        }
+        for(int l = 0; l < 1; l++){
+            outdata<< resultsMat(r,l) << " ";
+        }
+        outdata << "\n";
+    }
+
+    outdata.close();
+
 
     // Stop the timer and calculate the time
     auto stop = high_resolution_clock::now();
@@ -428,6 +443,25 @@ static void* trainFun(void *arg){
     data_mat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(trainPtr->data_label_mat.data(), trainPtr->rows, trainPtr->col,Stride<Dynamic,Dynamic>(1, FeaturesAndLabels));
     label_mat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(&trainPtr->data_label_mat[trainPtr->col], trainPtr->rows, trainPtr->labels,Stride<Dynamic,Dynamic>(1, FeaturesAndLabels));
 
+    ofstream outdata; // outdata is to send the weights to a file
+    outdata.open("NerlNifCppOutTrainedData.txt", std::ios_base::app); // opens the file
+    if( !outdata ) { // file couldn't be opened
+        cerr << "Error: file could not be opened" << endl;
+        exit(1);
+    }
+    for (int r = 0; r < trainPtr->rows; r++){
+        // Create the data matrix from a vector
+        for (int c = 0; c < trainPtr->col; c++){
+            outdata<< data_mat(r,c) << " ";
+        }
+        for(int l = 0; l < trainPtr->labels; l++){
+            outdata<< label_mat(r,l) << " ";
+        }
+        outdata << "\n";
+    }
+
+    outdata.close();
+    
     #if DEBUG_TRAIN_NIF
     std::cout <<"data mat: "<<std::endl;
     std::cout <<data_mat<<std::endl;

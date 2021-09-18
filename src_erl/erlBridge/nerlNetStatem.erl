@@ -49,9 +49,6 @@ start_link(ARGS) ->
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
 init({ClientPID, MyName, {Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels, FederatedMode, CountLimit}}) ->
-%init({ClientPID, MyName, {Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels}}) ->
- % FederatedMode = 0, % TODO delete
-%  CountLimit = 1, % TODO delete
   io:fwrite("start module_create ~n"),
 
   _Res=erlModule:module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
@@ -119,12 +116,14 @@ idle(cast, {predict}, State) ->
   io:fwrite("Go from idle to predict\n"),
   {next_state, predict, State};
 
-idle(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
+idle(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
 
   io:fwrite("Set weights in wait state: \n"),
   
   %% Set weights TODO maybe send the results of the update
-  [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_tuple,
+  [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
+
+  %% Make bias sizes and weights sizes as integer 
   NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
   NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
 %%   io:fwrite("nerlNetStatem: Set weights in train state: WeightsList: ~p BiasList: ~p Biases_sizes_list: ~p Wheights_sizes_list: ~p\n",[WeightsList,BiasList,NewBiases_sizes_list,NewWheights_sizes_list]),
@@ -184,15 +183,16 @@ wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{clientPid
       {next_state, NextState, State}
   end;
 
-wait(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
+wait(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
   io:fwrite("Set weights in wait state: \n"),
 
   %% Set weights TODO
-  [WeightsList, BiasStringList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_tuple,
+  [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
+  %% Make bias sizes and weights sizes as integer 
   NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
   NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
 %%   io:fwrite("nerlNetStatem: Set weights in train state: WeightsList: ~p BiasList: ~p Biases_sizes_list: ~p Wheights_sizes_list: ~p\n",[WeightsList,BiasList,NewBiases_sizes_list,NewWheights_sizes_list]),
-  _Result_set_weights = erlModule:set_weights(WeightsList, BiasStringList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
+  _Result_set_weights = erlModule:set_weights(WeightsList, BiasList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
 
   {next_state, NextState, State};
 
@@ -247,7 +247,7 @@ train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = Mo
   {next_state, wait, State#nerlNetStatem_state{nextState = train}};
 
 
-train(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{modelId = ModelId, nextState = NextState}) ->
+train(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId = ModelId, nextState = NextState}) ->
 
   % io:fwrite("nerlNetStatem: Set weights in train state: \n"),
 
@@ -255,7 +255,9 @@ train(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{modelI
   % io:fwrite("Get weights before set: ~p~n",[Get_weights_tuple]),
 
   %% Set weights TODO
-  [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_tuple,
+  [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
+  
+  %% Make bias sizes and weights sizes as integer 
   NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
   NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
 %%   io:fwrite("nerlNetStatem: Set weights in train state: WeightsList: ~p BiasList: ~p Biases_sizes_list: ~p Wheights_sizes_list: ~p\n",[WeightsList,BiasList,NewBiases_sizes_list,NewWheights_sizes_list]),
