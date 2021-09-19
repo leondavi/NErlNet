@@ -151,9 +151,11 @@ training(cast, {sample,[]}, State = #client_statem_state{msgCounter = Counter}) 
 
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
-training(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
+training(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
   %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
-  [_ClientName,WorkerName,_CSVName, _BatchNumber,BatchOfSamples] = re:split(binary_to_list(Vector), "#", [{return, list}]),
+  {_ClientName, WorkerName, _CSVName, _BatchNumber, BatchOfSamples} = binary_to_term(Body),
+
+%%  [_ClientName,WorkerName,_CSVName, _BatchNumber,BatchOfSamples] = re:split(binary_to_list(Vector), "#", [{return, list}]),
   Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
   ToSend =  lists:reverse(getNumbers(Splitted,[])),
 %%  io:format("BatchNumber: ~p~n",[BatchNumber]),
@@ -238,7 +240,9 @@ training(cast, EventContent, State = #client_statem_state{msgCounter = Counter})
 
 predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
   %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
-  [_ClientName,WorkerName,CSVName, BatchNumber,BatchOfSamples] = re:split(binary_to_list(Body), "#", [{return, list}]),
+  {_ClientName, WorkerName, CSVName, BatchNumber, BatchOfSamples} = binary_to_term(Body),
+
+%%  [_ClientName,WorkerName,CSVName, BatchNumber,BatchOfSamples] = re:split(binary_to_list(Body), "#", [{return, list}]),
   Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
   ToSend =  lists:reverse(getNumbers(Splitted,[])),
 %%  io:format("CSVName: ~p, BatchNumber: ~p~n",[CSVName,BatchNumber]),
