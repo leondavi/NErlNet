@@ -15,7 +15,7 @@
 
 %% gen_statem callbacks
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,code_change/4, callback_mode/0]).
-%% Extra functions
+%% Extra functions  
 -export([averageFun/3]).
 %% States functions
 -export([average/3, receives/3]).
