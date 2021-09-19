@@ -43,7 +43,6 @@ def analyze(arr):
     # function to show the plot
     plt.show()
 
-
 def readfile():
     solution_path = "../src_erl/Communication_Layer/http_Nerlserver/output/w1"
 
