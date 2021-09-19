@@ -43,7 +43,6 @@ def analyze(arr):
     # function to show the plot
     plt.show()
 
-
 def readfile():
     solution_path = "w1.txt"
 
