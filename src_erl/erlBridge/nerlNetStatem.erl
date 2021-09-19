@@ -255,7 +255,7 @@ train(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId
   % Get_weights_tuple = erlModule:get_weights(ModelId),
   % io:fwrite("Get weights before set: ~p~n",[Get_weights_tuple]),
 
-  %% Set weights TODO
+  %% Set weights
   [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
   
   %% Make bias sizes and weights sizes as integer 

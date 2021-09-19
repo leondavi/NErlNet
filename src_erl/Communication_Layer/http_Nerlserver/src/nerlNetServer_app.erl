@@ -50,7 +50,7 @@ start(_StartType, _StartArgs) ->
     % io:format("My HostName: ~p~n",[list_to_binary(HostName)]),
 
     %%Server that should be established on this machine from JSON architecture:
-    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities("./input/jsonArch1PC.json",list_to_binary(HostName)),
+    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities("./input/jsonArch1PC2Workers.json",list_to_binary(HostName)),
     %  io:format("My NerlNetSettings: ~p~n",[NerlNetSettings]),
 
     ChunkSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))),
