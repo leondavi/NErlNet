@@ -25,3 +25,16 @@ src_cpp/*.so
 /src_py/NerlnetPyAPI/__pycache__
 /src_py/NerlnetPyAPI/.ipynb_checkpoints
 /.vscode
+*.bin
+*.cmake
+*.out
+*.log
+/CMakeFiles
+/build
+*.make
+/src_cpp/CMakeFiles
+/src_cpp/Makefile
+*.so
+/src_cpp/opennnBridge/CMakeFiles
+/src_cpp/opennnBridge/Makefile
+/src_cpp/opennnBridge/\[binary_dir\]

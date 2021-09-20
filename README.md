@@ -27,6 +27,16 @@ prerequisite:
 7. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo>```
 8. Update cppSANN submodule ```git submodule update --init --recursive```
 
+
+cmake instructions: 
+
+1. install cmake 
+2. create build directory ```mkdir build``` 
+3. call ```cmake -S src -B build```
+4. ```cd build```
+5. ```make```
+
+
 # Building Nerlnet:
 ```./build.sh``` to build the project. 
 
