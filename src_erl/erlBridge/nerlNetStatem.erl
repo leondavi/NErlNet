@@ -189,9 +189,9 @@ wait(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextStat
   [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
   %% Make bias sizes and weights sizes as integer 
   NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
-  NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
+  NewWeights_sizes_list = [round(X)||X<-Wheights_sizes_list],
 %%   io:fwrite("nerlNetStatem: Set weights in train state: WeightsList: ~p BiasList: ~p Biases_sizes_list: ~p Wheights_sizes_list: ~p\n",[WeightsList,BiasList,NewBiases_sizes_list,NewWheights_sizes_list]),
-  _Result_set_weights = erlModule:set_weights(WeightsList, BiasList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
+  _Result_set_weights = erlModule:set_weights(WeightsList, BiasList, NewBiases_sizes_list, NewWeights_sizes_list, ModelId),
 
   {next_state, NextState, State};
 
