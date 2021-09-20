@@ -32,7 +32,7 @@ cmake instructions:
 
 1. install cmake 
 2. create build directory ```mkdir build``` 
-3. call ```cmake -S src -B build```
+3. call ```cmake -B build```
 4. ```cd build```
 5. ```make```
 
