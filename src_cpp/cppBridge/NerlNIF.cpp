@@ -347,7 +347,23 @@ static void* predictFun(void *arg){
     modelPtr->predict(data_matrix, resultsMat);
 
 
-     ofstream outdata; // outdata is to send the weights to a file
+    // Stop the timer and calculate the time
+    auto stop = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(stop - start);
+
+
+    // Create the result vector from the result matrix TODO: Native in Eigen optionally
+    std::vector<double> results_vec;
+    results_vec.resize(resultsMat.rows()*resultsMat.cols());
+
+    for (int r = 0; r < resultsMat.rows(); r++){
+        for (int c = 0; c < resultsMat.cols(); c++){
+            results_vec[r*resultsMat.cols() + c] = resultsMat(r,c);
+        }
+    }
+
+#if DEBUG_PREDICT_NIF
+    ofstream outdata; // outdata is to send the weights to a file
     outdata.open("NerlNifCppOutPredictData.txt", std::ios_base::app); // opens the file
     if( !outdata ) { // file couldn't be opened
         cerr << "Error: file could not be opened" << endl;
@@ -366,23 +382,6 @@ static void* predictFun(void *arg){
 
     outdata.close();
 
-
-    // Stop the timer and calculate the time
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>(stop - start);
-
-
-    // Create the result vector from the result matrix TODO: Native in Eigen optionally
-    std::vector<double> results_vec;
-    results_vec.resize(resultsMat.rows()*resultsMat.cols());
-
-    for (int r = 0; r < resultsMat.rows(); r++){
-        for (int c = 0; c < resultsMat.cols(); c++){
-            results_vec[r*resultsMat.cols() + c] = resultsMat(r,c);
-        }
-    }
-
-#if DEBUG_PREDICT_NIF
     // Print the result matrix
     std::cout<<"results inside the nif predict thread: \n"<<resultsMat<<std::endl;
 #endif
@@ -443,7 +442,10 @@ static void* trainFun(void *arg){
     data_mat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(trainPtr->data_label_mat.data(), trainPtr->rows, trainPtr->col,Stride<Dynamic,Dynamic>(1, FeaturesAndLabels));
     label_mat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(&trainPtr->data_label_mat[trainPtr->col], trainPtr->rows, trainPtr->labels,Stride<Dynamic,Dynamic>(1, FeaturesAndLabels));
 
-    ofstream outdata; // outdata is to send the weights to a file
+    
+    #if DEBUG_TRAIN_NIF
+
+     ofstream outdata; // outdata is to send the weights to a file
     outdata.open("NerlNifCppOutTrainedData.txt", std::ios_base::app); // opens the file
     if( !outdata ) { // file couldn't be opened
         cerr << "Error: file could not be opened" << endl;
@@ -461,8 +463,7 @@ static void* trainFun(void *arg){
     }
 
     outdata.close();
-    
-    #if DEBUG_TRAIN_NIF
+
     std::cout <<"data mat: "<<std::endl;
     std::cout <<data_mat<<std::endl;
     std::cout <<"label mat: "<<std::endl;
@@ -604,7 +605,10 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
 #endif
 
             // Create the model with the received parameters. TODO: Think if unique pointer is a better option
-            SANN::Model *model = new SANN::Model(modelParamPtr.layers_sizes,modelParamPtr.learning_rate);
+            LossFunctions::loss_t lossValFuncion=LossFunctions::LOSS_CROSS_ENTROPY;
+            LossFunctionPtr lossFunction = select_loss_function(lossValFuncion);
+             
+            SANN::Model *model = new SANN::Model(modelParamPtr.layers_sizes,modelParamPtr.learning_rate,lossFunction);
             std::shared_ptr<SANN::Model> modelPtr(model);
 
             // Set activations list
