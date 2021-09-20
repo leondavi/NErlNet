@@ -77,15 +77,15 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 
 %%This cast receive a list of samples to load to the records csvList
 idle(cast, {csvList,Workers,CSVPath}, State = #source_statem_state{chunkSize = ChunkSize, myName = Myname, msgCounter = Counter, portMap = PortMap}) ->
-  % io:format("CSVPath - ~p~n",[CSVPath]),
-  % io:format("ChunkSize - ~p~n",[ChunkSize]),
- CSVlist = parser:parse_file(CSVPath,ChunkSize),
-  CSVName = lists:last(re:split(CSVPath,"/",[{return,list}])),
+ io:format("CSVPath - ~p~n",[CSVPath]),
+ io:format("ChunkSize - ~p~n",[ChunkSize]),
+ CSVlist = parser:parse(ChunkSize,CSVPath),
+%%  CSVName = lists:last(re:split(CSVPath,"/",[{return,list}])),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
   io:format("source updated Workers - ~p~n",[Workers]),
   http_request(RouterHost,RouterPort,"csvReady",atom_to_list(Myname)),
-   {next_state, idle, State#source_statem_state{csvName = CSVName, castingTo = Workers, msgCounter = Counter+1,csvList =CSVlist}};
+   {next_state, idle, State#source_statem_state{csvName = CSVPath, castingTo = Workers, msgCounter = Counter+1,csvList =CSVlist}};
 
 
 %%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
@@ -187,7 +187,7 @@ end;
 sendSamples(ListOfSamples,CSVPath,ChunkSize,Ms,Pid,Triplets,Counter)->
           %%this http request will be splitted at client's state machine by the following order:
           %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
-  {ListOfSamples2,Counter2} = roundRobin(ListOfSamples,CSVPath,Counter,Triplets),
+  {ListOfSamplesRest,NewCounter2} = roundRobin(ListOfSamples,CSVPath,Counter,Triplets),
 %%        [http_request(RouterHost, RouterPort,"weightsVector",
 %%                    list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>,list_to_binary(CSVPath),<<"#">>,list_to_binary(integer_to_list(Counter)),<<"#">>]),list_to_binary(Head)]))
 %%                  || {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
@@ -195,26 +195,27 @@ sendSamples(ListOfSamples,CSVPath,ChunkSize,Ms,Pid,Triplets,Counter)->
               %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
             {stopCasting}  ->
               io:format("source stop casting",[]),
-              gen_statem:cast(Pid,{leftOvers,[]})
+              gen_statem:cast(Pid,{leftOvers,ListOfSamplesRest})
            after Ms->
-             sendSamples(ListOfSamples2,CSVPath,ChunkSize,Ms,Pid,Triplets,Counter2)
+             sendSamples(ListOfSamplesRest,CSVPath,ChunkSize,Ms,Pid,Triplets,NewCounter2)
           end.
 
+roundRobin([],_CSVPath,Counter,_Triplets)-> {[], Counter};
 roundRobin(ListOfSamples,_CSVPath,Counter,[])-> {ListOfSamples, Counter};
 roundRobin(ListOfSamples,CSVPath,Counter,[{ClientName,WorkerName,RouterHost,RouterPort}|Triplets])->
+  [Head|Rest]=ListOfSamples,
+  sendSample(Head,CSVPath,Counter,ClientName,WorkerName,RouterHost,RouterPort),
+  roundRobin(Rest,CSVPath,Counter+1,Triplets).
 
-  ListOfSamples2=sendSample(ListOfSamples,CSVPath,Counter,ClientName,WorkerName,RouterHost,RouterPort),
-  roundRobin(ListOfSamples2,CSVPath,Counter+1,Triplets).
-
-sendSample([Head|ListOfSamples],CSVPath,Counter,ClientName,WorkerName,RouterHost,RouterPort)->
+sendSample(Sample,CSVPath,Counter,ClientName,WorkerName,RouterHost,RouterPort)->
 %%  io:format("CSVPath ~p ,Counter ~p ,[{ClientName ~p ,WorkerName ~p ,RouterHost ~p ,RouterPort ~p ~n",[CSVPath,Counter,ClientName,WorkerName,RouterHost,RouterPort]),
 %%  io:format("CSVPath ~p ~n",[list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>,list_to_binary(CSVPath),<<"#">>,list_to_binary(integer_to_list(Counter)),<<"#">>]),list_to_binary(Head)])]),
-  ToSend = term_to_binary({ClientName, WorkerName, CSVPath, Counter, Head}),
-  http_request(RouterHost, RouterPort,"weightsVector",ToSend),
+  ToSend = term_to_binary({ClientName, WorkerName, CSVPath, Counter, Sample}),
+  http_request(RouterHost, RouterPort,"weightsVector",ToSend).
 %%  http_request(RouterHost, RouterPort,"weightsVector",
 %%    list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>,list_to_binary(CSVPath),<<"#">>,list_to_binary(integer_to_list(Counter)),<<"#">>]),list_to_binary(Head)])),
 %%  list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>,list_to_binary(CSVPath),<<"#">>,list_to_binary(integer_to_list(Counter)),<<"#">>]),list_to_binary(Head)])),
-  ListOfSamples.
+%%  ListOfSamples.
 
 %%this is the old send fashion, TODO add to json an option to choose between RoundRobin or not
 %%sendSamples([],_CSVPath,_ChunkSize,Hz,Pid,_Triplets,_Counter)->

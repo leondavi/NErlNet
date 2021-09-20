@@ -226,13 +226,11 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{connectionsMap = 
   {noreply, State#main_genserver_state{state = idle,msgCounter = MsgCounter+1}};
 
 handle_cast({predictRes,Body}, State = #main_genserver_state{connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
-  %io:format("Main Server got predictRes:- ~p~n",[Body]),
-  [InputName,ResultID,Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
-  file:write_file("./output/"++"predict"++InputName, ResultID++" " ++Result++"\n", [append]),
+  [InputName,[ResultID],Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
+%%  io:format("Main Server got predictRes:- ~p~n",[{InputName,ResultID,Result}]),
+  CSVName = getCSVName(InputName),
+  file:write_file("./output/"++"predict"++CSVName, integer_to_list(ResultID)++" " ++Result++"\n", [append]),
 
-%%%%TODO add send to serverAPI
-%%  {RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-%%  http_request(RouterHost,RouterPort,"lossFunction", Body),
   {noreply, State#main_genserver_state{state = idle,msgCounter = MsgCounter+1}};
 
 
@@ -340,3 +338,6 @@ ack(PortMap) ->
 %%  {RouterHost,RouterPort} = maps:get(serverAPI,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
   http_request("localhost",8095,"ack","ack"). %TODO fix and remove magic number
+
+getCSVName(InputName) ->
+  lists:last(re:split(InputName, "/", [{return, list}])--[[]]).

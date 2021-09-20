@@ -167,8 +167,9 @@ training(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,
   {_ClientName, WorkerName, _CSVName, _BatchNumber, BatchOfSamples} = binary_to_term(Body),
 
 %%  [_ClientName,WorkerName,_CSVName, _BatchNumber,BatchOfSamples] = re:split(binary_to_list(Vector), "#", [{return, list}]),
-  Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
-  ToSend =  lists:reverse(getNumbers(Splitted,[])),
+%%  Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
+%%  ToSend =  lists:reverse(getNumbers(Splitted,[])),
+  ToSend =  decodeList(BatchOfSamples),
 %%  io:format("BatchNumber: ~p~n",[BatchNumber]),
 %%  io:format("WorkerName: ~p~n",[WorkerName]),
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
@@ -252,10 +253,13 @@ training(cast, EventContent, State = #client_statem_state{msgCounter = Counter})
 predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
   %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
   {_ClientName, WorkerName, CSVName, BatchNumber, BatchOfSamples} = binary_to_term(Body),
+%%  io:format("CSVName: ~p~n",[CSVName]),
 
 %%  [_ClientName,WorkerName,CSVName, BatchNumber,BatchOfSamples] = re:split(binary_to_list(Body), "#", [{return, list}]),
-  Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
-  ToSend =  lists:reverse(getNumbers(Splitted,[])),
+%%  Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
+%%  ToSend =  lists:reverse(getNumbers(Splitted,[])),
+  ToSend =  decodeList(BatchOfSamples),
+
 %%  io:format("CSVName: ~p, BatchNumber: ~p~n",[CSVName,BatchNumber]),
 %%  io:format("Vector: ~p~n",[ToSend]),
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
@@ -267,10 +271,10 @@ predict(cast, {predictRes,_InputName,_ResultID,[]}, State) ->
   {next_state, predict, State};
 
 predict(cast, {predictRes,InputName,ResultID,Result}, State = #client_statem_state{msgCounter = Counter,portMap = PortMap}) ->
-  %io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
   Result2 = lists:flatten(io_lib:format("~w",[Result])),",",[{return,list}],
   Result3 = lists:sublist(Result2,2,length(Result2)-2),
+  io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
   http_request(RouterHost,RouterPort,"predictRes", list_to_binary([list_to_binary(InputName),<<"#">>,ResultID,<<"#">>,Result3])),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
