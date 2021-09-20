@@ -72,7 +72,7 @@ def init(jsonPath = 'src_py/architectures.json',inputPort = DEFAULT_PORT):
   while NerlnetPyAPI.settings.x != 0:
     time.sleep(0.2)
 
-  print('finished training!..')
+  print('Finished training!..')
 
   print('Nerlnet initiating predict..')
   listOfRequests = initPredict()
@@ -95,7 +95,7 @@ def init(jsonPath = 'src_py/architectures.json',inputPort = DEFAULT_PORT):
   while NerlnetPyAPI.settings.x != 0:
     time.sleep(0.2)
 
-  print('finished training!..')
+  print('Finished predicting!..')
 
   # analyze()
   # init(jsonPath)

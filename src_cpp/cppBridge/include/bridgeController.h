@@ -32,20 +32,6 @@ public:
      */
     void operator=(const cppBridgeController &) = delete;
 
-    // TODO: Think about locking mechanism
-    /* cppBridgeController(data)
-     {
-         if (instance == nullptr)
-         {
-         //std::lock_guard<std::mutex> lock(mutex_);
-         //if (instance == nullptr)
-         //{
-             instance = new cppBridgeController();
-         //}
-         }
-         return instance;
-     }*/
-
     static cppBridgeController *GetInstance();
 
     std::shared_ptr<SANN::Model> getModelPtr(unsigned long mid){

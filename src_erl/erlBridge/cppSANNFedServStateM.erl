@@ -15,7 +15,7 @@
 
 %% gen_statem callbacks
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,code_change/4, callback_mode/0]).
-%% Extra functions
+%% Extra functions  
 -export([averageFun/3]).
 %% States functions
 -export([average/3, receives/3]).
@@ -116,7 +116,8 @@ receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{firs
 
   DecodedWeights= decodeListOfLists(Weights),
 %%  io:format("{_MyName,Weights}:~n~p~n",[DecodedWeights]),
-  Cells = [length(X)||X<-remove2Lasts(DecodedWeights)],
+  DecodedWeightsWithout2Last = remove2Lasts(DecodedWeights),
+  Cells = [length(X)||X<-DecodedWeightsWithout2Last],
 
 %%  io:format("decoded weights:~n~p~n",[DecodedWeights]),
 %%  [_MyName,Weights] = re:split(binary_to_list(Ret_weights),"#",[{return,list}]),
@@ -131,10 +132,9 @@ receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{firs
 
 %%      io:format("FedServer: NewCount < CounterLimit, CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
 
-
       %% Add to the buffer, increment the counter and continue to recieve weights
       % io:format("Weights: ~p ~n",[Weights]),
-      NewBuffer = lists:flatten(Buffer) ++ lists:flatten(remove2Lasts(DecodedWeights)),
+      NewBuffer = Buffer ++ lists:flatten(DecodedWeightsWithout2Last),
 %%      io:format("NewBuffer1: ~p ~n",[NewBuffer]),
 
       {next_state, receives, State#fedServ_state{first = 0,cells = Cells,last2 = TwoLasts, msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
@@ -146,9 +146,7 @@ receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{firs
       % io:format("self(): ~p~n",[SelfPid]),
 %%      io:format("FedServer: NewCount >= CounterLimit , CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
 
-      _Pid = spawn(fun()-> averageFun(Buffer ++ lists:flatten(remove2Lasts(DecodedWeights)),SelfPid,length(remove2Lasts(DecodedWeights))) end),
-
-
+      _Pid = spawn(fun()-> averageFun(Buffer ++ lists:flatten(DecodedWeightsWithout2Last),SelfPid,NewCount) end),
 
       {next_state, average, State#fedServ_state{first = 0,cells = Cells,last2 = TwoLasts,  msgCounter = MsgCounter+1, counter = NewCount - CounterLimit, buffer = []}};
 
@@ -166,6 +164,7 @@ receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgC
 %%  io:format("{_MyName,Weights}:~n~p~n",[Weights]),
 
   DecodedWeights = decodeListOfLists(Weights),
+  DecodedWeightsWithout2Last = remove2Lasts(DecodedWeights),
 %  io:format("flatten:~n~p~n",[lists:flatten(remove2Lasts(DecodedWeights))]),
 %%  io:format("decoded weights:~n~p~n",[DecodedWeights]),
 %%  [_MyName,Weights] = re:split(binary_to_list(Ret_weights),"#",[{return,list}]),
@@ -178,10 +177,10 @@ receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgC
 
 %%      io:format("FedServer: NewCount < CounterLimit, CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
 
-
       %% Add to the buffer, increment the counter and continue to recieve weights
       % io:format("Weights: ~p ~n",[Weights]),
-      NewBuffer = lists:flatten(Buffer) ++ lists:flatten(remove2Lasts(DecodedWeights)),
+    
+      NewBuffer = Buffer ++ lists:flatten(DecodedWeightsWithout2Last),
 %%       io:format("NewBuffer: ~p ~n",[NewBuffer]),
       {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
 
@@ -191,12 +190,10 @@ receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgC
       SelfPid = self(),
       % io:format("self(): ~p~n",[SelfPid]),
 %%      io:format("FedServer: NewCount >= CounterLimit , CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
-      NewBuffer = lists:flatten(Buffer) ++ lists:flatten(remove2Lasts(DecodedWeights)),
+      NewBuffer = Buffer ++ lists:flatten(DecodedWeightsWithout2Last),
 %%      io:format("NewBuffer2 ~p~n",[NewBuffer]),
 %%
-      _Pid = spawn(fun()-> averageFun(NewBuffer,SelfPid,length(remove2Lasts(DecodedWeights))) end),
-
-
+      _Pid = spawn(fun()-> averageFun(NewBuffer,SelfPid,NewCount) end),
 
       {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter = NewCount - CounterLimit, buffer = []}};
     
@@ -213,8 +210,7 @@ receives(cast, {statistics}, State = #fedServ_state{myName = MyName, msgCounter 
 
 
 receives(cast, Else, State) ->
-  io:fwrite("Error: State receives in cppSANNFedServStateM.erl. Got: ~p\n",[]),
-%%  io:fwrite("Error: State receives in cppSANNFedServStateM.erl. Got: ~p\n",[Else]),
+  io:fwrite("Error: State receives in cppSANNFedServStateM.erl. Got: ~p\n",[Else]),
   {next_state, receives, State}.
 
 
@@ -226,7 +222,7 @@ average(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgCo
   {_MyName,Weights} = binary_to_term(Ret_weights),
 
   DecodedWeights = decodeListOfLists(Weights),
-  NewBuffer = lists:flatten(Buffer) ++ lists:flatten(remove2Lasts(DecodedWeights)),
+  NewBuffer = Buffer ++ lists:flatten(remove2Lasts(DecodedWeights)),
 %%  io:format("NewBuffer3:~n~p~n",[NewBuffer]),
 
   {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter = Counter + 1, buffer = NewBuffer}};
@@ -294,13 +290,13 @@ average(cast, _Else, State) ->
 % Functions
 
 %% Do the averaging
-averageFun(WeightsBuffer,CallerPid,WeightsLength) ->
+averageFun(WeightsBuffer,CallerPid,WeightsAndBiasNumber) ->
 
   % io:fwrite("FedServer, averageFun: WeightsBuffer: ~p\n", [WeightsBuffer]),
 %%  WeightsBufferList = flatEncodedList(WeightsBuffer),
 %   io:fwrite("WeightsBuffer: ~p, length(WeightsBuffer)~p\n", [WeightsBuffer,WeightsLength]),
 
-  AveragedWeights = erlModule:average_weights(WeightsBuffer, WeightsLength),
+  AveragedWeights = erlModule:average_weights(WeightsBuffer, WeightsAndBiasNumber),
   %[Weights|_T] = WeightsBuffer,
 %%  io:fwrite("AveragedWeights at averageFun: ~p.\n",[AveragedWeights]),
 
