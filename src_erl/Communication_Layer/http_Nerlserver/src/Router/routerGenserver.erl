@@ -168,7 +168,9 @@ handle_cast({clientReady,Body}, State = #router_genserver_state{msgCounter = Msg
 
 handle_cast({startCasting,Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
-    {SourceHost,SourcePort} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
+  [Source|_] = re:split(binary_to_list(Body), ",", [{return, list}]),
+
+  {SourceHost,SourcePort} =maps:get(list_to_atom(Source),ConnectionsMap),
     http_request(SourceHost,SourcePort,"startCasting",Body),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
