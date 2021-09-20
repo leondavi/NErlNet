@@ -49,14 +49,10 @@ start_link(ARGS) ->
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
 init({ClientPID, MyName, {Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels, FederatedMode, CountLimit}}) ->
-%init({ClientPID, MyName, {Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels}}) ->
- % FederatedMode = 0, % TODO delete
-%  CountLimit = 1, % TODO delete
   io:fwrite("start module_create ~n"),
+  io:fwrite("Layers_sizes ~p, Learning_rate ~p, ActivationList ~p, Optimizer ~p, ModelId ~p CountLimit ~p FederatedMode ~p~n",[Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, CountLimit, FederatedMode]),
 
   _Res=erlModule:module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
-  io:fwrite("Layers_sizes: ~p, Learning_rate: ~p, ActivationList: ~p, Optimizer: ~p, ModelId ~p\n",[Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId]),
-
   {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = MyName, modelId = ModelId, federatedMode = FederatedMode, countLimit = CountLimit}}.
 
 %% @private
@@ -119,12 +115,14 @@ idle(cast, {predict}, State) ->
   io:fwrite("Go from idle to predict\n"),
   {next_state, predict, State};
 
-idle(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
+idle(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
 
   io:fwrite("Set weights in wait state: \n"),
   
   %% Set weights TODO maybe send the results of the update
-  [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_tuple,
+  [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
+
+  %% Make bias sizes and weights sizes as integer 
   NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
   NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
 %%   io:fwrite("nerlNetStatem: Set weights in train state: WeightsList: ~p BiasList: ~p Biases_sizes_list: ~p Wheights_sizes_list: ~p\n",[WeightsList,BiasList,NewBiases_sizes_list,NewWheights_sizes_list]),
@@ -184,15 +182,16 @@ wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{clientPid
       {next_state, NextState, State}
   end;
 
-wait(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
+wait(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
   io:fwrite("Set weights in wait state: \n"),
 
   %% Set weights TODO
-  [WeightsList, BiasStringList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_tuple,
+  [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
+  %% Make bias sizes and weights sizes as integer 
   NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
-  NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
+  NewWeights_sizes_list = [round(X)||X<-Wheights_sizes_list],
 %%   io:fwrite("nerlNetStatem: Set weights in train state: WeightsList: ~p BiasList: ~p Biases_sizes_list: ~p Wheights_sizes_list: ~p\n",[WeightsList,BiasList,NewBiases_sizes_list,NewWheights_sizes_list]),
-  _Result_set_weights = erlModule:set_weights(WeightsList, BiasStringList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
+  _Result_set_weights = erlModule:set_weights(WeightsList, BiasList, NewBiases_sizes_list, NewWeights_sizes_list, ModelId),
 
   {next_state, NextState, State};
 
@@ -233,12 +232,14 @@ wait(cast, Param, State) ->
 
 %% State train
 train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels}) ->
+  
+  % io:fwrite("SampleListTrain: ~p Features ~p Labels ~p\n",[SampleListTrain,Features, Labels]),
   CurrPid = self(),
   ChunkSizeTrain = round(length(SampleListTrain)/(Features + Labels)),
   %io:fwrite("length(SampleListTrain)/(Features + Labels): ~p\n",[length(SampleListTrain)/(Features + Labels)]),
   % io:fwrite("Send sample to train: ~p\n",[SampleListTrain]),
   % io:fwrite("ChunkSizeTrain: ~p, Features: ~p Labels: ~p ModelId ~p\n",[ChunkSizeTrain, Features, Labels, ModelId]),
-  %io:fwrite("Train state: got sample, pid: ~p\n", [CurrPid]),
+  % io:fwrite("Train state: got sample, pid: ~p ChunkSizeTrain ~p \n", [CurrPid,ChunkSizeTrain]),
   
   % file:write_file("NerlStatemOutTrain.txt", [lists:flatten(io_lib:format("ChunkSizeTrain: ~p Features: ~p Labels: ~p ModelId: ~p CurrPid: ~p MyName: ~p /n SampleListTrain: ~p /n",
   % [ChunkSizeTrain,Features,Labels,ModelId,CurrPid,MyName,SampleListTrain]))],[append]),
@@ -247,15 +248,17 @@ train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = Mo
   {next_state, wait, State#nerlNetStatem_state{nextState = train}};
 
 
-train(cast, {set_weights,Ret_weights_tuple}, State = #nerlNetStatem_state{modelId = ModelId, nextState = NextState}) ->
+train(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId = ModelId, nextState = NextState}) ->
 
   % io:fwrite("nerlNetStatem: Set weights in train state: \n"),
 
   % Get_weights_tuple = erlModule:get_weights(ModelId),
   % io:fwrite("Get weights before set: ~p~n",[Get_weights_tuple]),
 
-  %% Set weights TODO
-  [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_tuple,
+  %% Set weights
+  [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
+  
+  %% Make bias sizes and weights sizes as integer 
   NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
   NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
 %%   io:fwrite("nerlNetStatem: Set weights in train state: WeightsList: ~p BiasList: ~p Biases_sizes_list: ~p Wheights_sizes_list: ~p\n",[WeightsList,BiasList,NewBiases_sizes_list,NewWheights_sizes_list]),
