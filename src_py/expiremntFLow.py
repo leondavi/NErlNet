@@ -4,7 +4,8 @@ def initTrain():
     return new_list
 
 def startCasting():
-    new_list = [('http://127.0.0.1:8080/startCasting', "s1")]
+    # startCasting bode: "source_name1,source_2,....,numberOfSamplesToSend"
+    new_list = [('http://127.0.0.1:8080/startCasting', "s1,2")]
     return new_list
 
 def initPredict():

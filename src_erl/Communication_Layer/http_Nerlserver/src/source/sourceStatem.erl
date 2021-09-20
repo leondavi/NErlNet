@@ -16,7 +16,7 @@
 
 %% gen_statem callbacks
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,
-  code_change/4, callback_mode/0, idle/3, castingData/3, sendSamples/7]).
+  code_change/4, callback_mode/0, idle/3, castingData/3, sendSamples/8]).
 
 -define(SERVER, ?MODULE).
 
@@ -89,9 +89,11 @@ idle(cast, {csvList,Workers,CSVPath}, State = #source_statem_state{chunkSize = C
 
 
 %%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
-idle(cast, {startCasting}, State = #source_statem_state{frequency = Frequency, chunkSize = ChunkSize, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, portMap = PortMap, msgCounter = Counter, csvName = CSVName, csvList =CSVlist}) ->
+idle(cast, {startCasting,Body}, State = #source_statem_state{frequency = Frequency, chunkSize = ChunkSize, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, portMap = PortMap, msgCounter = Counter, csvName = CSVName, csvList =CSVlist}) ->
   io:format("start casting to: ~p~n",[CastingTo]),
-  Transmitter =  spawnTransmitter(CastingTo,CSVName,CSVlist,PortMap,WorkersMap,ChunkSize,Frequency) ,
+  [_Source,NumOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
+
+  Transmitter =  spawnTransmitter(CastingTo,CSVName,CSVlist,PortMap,WorkersMap,ChunkSize,Frequency,list_to_integer(NumOfBatchesToSend)) ,
   {next_state, castingData, State#source_statem_state{msgCounter = Counter+1, sourcePid = Transmitter}};
 
 idle(cast, {startCasting}, State = #source_statem_state{msgCounter = Counter}) ->
@@ -127,12 +129,12 @@ castingData(cast, {leftOvers,Tail}, State = #source_statem_state{msgCounter = Co
 %%  io:format("received leftovers- ~p~n",[Tail]),
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1,csvList = Tail}};
 
-castingData(cast, {finishedCasting,CounterReceived}, State = #source_statem_state{myName = MyName, msgCounter = Counter, portMap = PortMap}) ->
+castingData(cast, {finishedCasting,CounterReceived,ListOfSamples}, State = #source_statem_state{myName = MyName, msgCounter = Counter, portMap = PortMap}) ->
   io:format("source finished casting- ~n",[]),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
   http_request(RouterHost,RouterPort,"sourceDone", atom_to_list(MyName)),
-  {next_state, idle, State#source_statem_state{msgCounter = Counter+CounterReceived+1,sourcePid = [], csvList = []}};
+  {next_state, idle, State#source_statem_state{msgCounter = Counter+CounterReceived+1,csvList = ListOfSamples, sourcePid = []}};
 
 castingData(cast, EventContent, State = #source_statem_state{msgCounter = Counter}) ->
   io:format("ignored: ~p~nstate - casting data",[EventContent]),
@@ -169,22 +171,28 @@ code_change(_OldVsn, StateName, State = #source_statem_state{}, _Extra) ->
 %%send samples receive a batch size and casts the client with data. data received as a string containing floats and integers.
 %%CLIENT NEED TO PROCESS DATA BEFORE FEEDING THE DNN
 
-spawnTransmitter(WorkersNames,CSVPath,CSVlist,PortMap,WorkersMap,ChunkSize,Frequency)->
+spawnTransmitter(WorkersNames,CSVPath,CSVlist,PortMap,WorkersMap,ChunkSize,Frequency,NumOfBatchesToSend)->
 %%  ListOfWorkers = re:split(WorkersNames,",", [{return, list}]),
 Triplets =getHostPort(WorkersNames,WorkersMap,PortMap,[]),
 %%  io:format("~p~n",[Triplets]),
   %%[list of binarys from CSV file, Size of batch, 1/Hz (in milisecond), statem pid]
   Ms = round(1000/Frequency),
-  spawn(?MODULE,sendSamples,[CSVlist,CSVPath,ChunkSize,Ms,self(),Triplets,0]).
+  spawn(?MODULE,sendSamples,[CSVlist,CSVPath,ChunkSize,Ms,self(),Triplets,0,NumOfBatchesToSend]).
 
 
-sendSamples([],_CSVPath,_ChunkSize,Ms,Pid,_Triplets,Counter)->
+sendSamples(ListOfSamples,_CSVPath,_ChunkSize,Ms,Pid,_Triplets,Counter,NumOfBatchesToSend) when NumOfBatchesToSend=<0->
   receive
-    after Ms -> 
-              gen_statem:cast(Pid,{finishedCasting,Counter})
-end;
+  after Ms ->
+    gen_statem:cast(Pid,{finishedCasting,Counter,ListOfSamples})
+  end;
 
-sendSamples(ListOfSamples,CSVPath,ChunkSize,Ms,Pid,Triplets,Counter)->
+sendSamples([],_CSVPath,_ChunkSize,Ms,Pid,_Triplets,Counter,_NumOfBatchesToSend)->
+  receive
+  after Ms ->
+    gen_statem:cast(Pid,{finishedCasting,Counter,[]})
+  end;
+
+sendSamples(ListOfSamples,CSVPath,ChunkSize,Ms,Pid,Triplets,Counter,NumOfBatchesToSend)->
           %%this http request will be splitted at client's state machine by the following order:
           %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
   {ListOfSamplesRest,NewCounter2} = roundRobin(ListOfSamples,CSVPath,Counter,Triplets),
@@ -197,7 +205,7 @@ sendSamples(ListOfSamples,CSVPath,ChunkSize,Ms,Pid,Triplets,Counter)->
               io:format("source stop casting",[]),
               gen_statem:cast(Pid,{leftOvers,ListOfSamplesRest})
            after Ms->
-             sendSamples(ListOfSamplesRest,CSVPath,ChunkSize,Ms,Pid,Triplets,NewCounter2)
+             sendSamples(ListOfSamplesRest,CSVPath,ChunkSize,Ms,Pid,Triplets,NewCounter2,NumOfBatchesToSend-(NewCounter2-Counter))
           end.
 
 roundRobin([],_CSVPath,Counter,_Triplets)-> {[], Counter};
