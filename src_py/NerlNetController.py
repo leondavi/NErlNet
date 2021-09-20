@@ -2,18 +2,20 @@ import requests
 
 
 def updateCSVtrain():
-	# r = requests.post('http://127.0.0.1:8080/updateCSV',data = "s1,w1,w2,./input/inputShort.csv")
-	r = requests.post('http://127.0.0.1:8080/updateCSV',data = "s1,w1,./input/traininputShuffled.csv")
+	#r = requests.post('http://127.0.0.1:8080/updateCSV',data = "s1,w1,./input/train6labelsShuffled.csv")
+	#r = requests.post('http://127.0.0.1:8080/updateCSV',data = "s1,w1,./input/traininputShuffled.csv")
 	#r = requests.post('http://127.0.0.1:8080/updateCSV',data = "s1,w1,./input/traininput.csv")
 	#r = requests.post('http://127.0.0.1:8080/updateCSV',data = "s1,w1,./input/train70percent.csv")
 	#r = requests.post('http://127.0.0.1:8080/updateCSV',data = "s1,w1,./input/train70percentShuffled.csv")
-	
-	# r = requests.post('http://192.168.0.107:8080/updateCSV',data = "s1,w1,w2rr,./input/shuffled-input99.csv")
+	r = requests.post('http://127.0.0.1:8080/updateCSV',data = "s1,w1,./input/skin_nonskin.csv")
+	#r = requests.post('http://127.0.0.1:8080/updateCSV',data = "s1,w1,./input/train1Label.csv")
+	# r = requests.post('http://192.168.0.107:8080/updateCSV',data = "s1,w1,w2,./input/shuffled-input99.csv")
 	# r2 = requests.post('http://192.168.0.107:8080/updateCSV',data = "source2,worker5,worker7, ... ,./input/input4.csv")...
 	print(r.text)
 
 def updateCSVpredict():
-	r = requests.post('http://127.0.0.1:8080/updateCSV',data = "s1,w1,./input/predict10noLabels.csv")
+	r = requests.post('http://127.0.0.1:8080/updateCSV',data = "s1,w1,./input/predict6labelsNoLabels.csv")
+	#r = requests.post('http://127.0.0.1:8080/updateCSV',data = "s1,w1,./input/predict10NoLabels.csv")
 	#r = requests.post('http://127.0.0.1:8080/updateCSV',data = "s1,w1,./input/predict30percentNoLabels.csv")
 	# r = requests.post('http://192.168.0.107:8080/updateCSV',data = "s1,w1,w2,./input/shuffled-input99.csv")
 	# r2 = requests.post('http://192.168.0.107:8080/updateCSV',data = "source2,worker5,worker7, ... ,./input/input4.csv")...
