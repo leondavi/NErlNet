@@ -67,24 +67,35 @@ init({MyName,Federated,Workers,ConnectionsMap}) ->
 
 createWorkers([],_ClientPid,WorkersNamesPids) ->WorkersNamesPids;
 createWorkers([Worker|Workers],ClientPid,WorkersNamesPids) ->
-  FederatedMode="1", CountLimit="10",
-
+  %  FederatedMode="1", CountLimit="10",
+  io:format("Start create workers"),
+  CountLimit = binary_to_list(maps:get(<<"CountLimit">>,Worker)),
+  FederatedMode = binary_to_list(maps:get(<<"FederatedMode">>,Worker)),
   WorkerName = list_to_atom(binary_to_list(maps:get(<<"name">>,Worker))),
-  CppSANNArgsBinary = maps:get(<<"args">>,Worker),
-  Splitted = re:split(CppSANNArgsBinary,"@",[{return,list}]),
-  [Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels] = Splitted,
+  ModelId = binary_to_list(maps:get(<<"modelId">>,Worker)),
+  Layers_sizes = maps:get(<<"LayersSizes">>,Worker),
+  Learning_rate = maps:get(<<"LearningRate">>,Worker),
+  ActivationList = maps:get(<<"ActivationFunctions">>,Worker),
+  Features = binary_to_list(maps:get(<<"Features">>,Worker)),
+  Labels = binary_to_list(maps:get(<<"Labels">>,Worker)),
+  Optimizer = binary_to_list(maps:get(<<"Optimizer">>,Worker)),
+  % Splitted = re:split(CppSANNArgsBinary,"@",[{return,list}]),
+  % [Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels] = Splitted,
   % TODO receive from JSON
   % TODO receive from JSON
+  % io:format("CountLimit:~p FederatedMode ~p WorkerName ~p ModelId ~p Layers_sizes~p Learning_rate ~p ActivationList ~p Features ~p Labels~p Optimizer~p~n",[CountLimit,FederatedMode,WorkerName,ModelId,Layers_sizes,Learning_rate,ActivationList,Features,Labels,Optimizer]),
 
-  WorkerArgs ={string_to_list_int(Layers_sizes),list_to_float(Learning_rate),
+  WorkerArgs ={string_to_list_int(Layers_sizes),list_to_float(binary_to_list(Learning_rate)),
                   string_to_list_int(ActivationList), list_to_integer(Optimizer), list_to_integer(ModelId),
                       list_to_integer(Features), list_to_integer(Labels),list_to_integer(FederatedMode), list_to_integer(CountLimit)},
-  io:format("client starting worker:~p~n",[{WorkerName,WorkerArgs}]),
+  
+  % io:format("client starting worker:~p WorkerArgs ~p ~n",[WorkerName,WorkerArgs]),
   WorkerPid = nerlNetStatem:start_link({self(), WorkerName, WorkerArgs}),
   createWorkers(Workers,ClientPid,WorkersNamesPids++[{WorkerName, WorkerPid}]).
 
 %%return list of integer from string of lists of strings - "[2,2,2]" -> [2,2,2]
-string_to_list_int(String) ->
+string_to_list_int(Binary) ->
+  String = binary_to_list(Binary),
   NoParenthesis = lists:sublist(String,2,length(String)-2),
   Splitted = re:split(NoParenthesis,",",[{return,list}]),
   [list_to_integer(X)||X<-Splitted].
@@ -222,10 +233,10 @@ training(cast, {federatedAverageWeights,Body}, State = #client_statem_state{myNa
 
 %%  [_ClientName,WorkerName,Weights] = re:split(binary_to_list(Body),"#",[{return,list}]),
   WorkerPid = maps:get(WorkerName,WorkersMap),
-  io:format("client decoding weights!!!:   ~n!!!",[]),
+  % io:format("client decoding weights!!!:   ~n!!!",[]),
 
   DecodedWeights = decodeListOfLists(BinaryWeights),
-  io:format("client finished decoding weights!!!:   ~n!!!",[]),
+  % io:format("client finished decoding weights!!!:   ~n!!!",[]),
   gen_statem:cast(WorkerPid, {set_weights,  DecodedWeights}),
 %%  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
 %%  TODO send federated_weights to federated_server
