@@ -80,7 +80,7 @@ def startInit():
     print('finish initiating start training..')
 
 
-def startCAting():
+def startCasting():
     print('startCasting..')
     listOfRequests = startCasting()
     NerlnetPyAPI.settings.x = len(listOfRequests)
@@ -102,11 +102,11 @@ def init(jsonPath='src_py/architectures.json', inputPort=DEFAULT_PORT):
 
     startInit()
 
-    startCAting()
+    startCasting()
 
     startPredict()
 
-    startCAting()
+    startCasting()
 
     # analyze()
     # init(jsonPath)
