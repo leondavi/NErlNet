@@ -43,6 +43,7 @@ def analyze(arr):
     # function to show the plot
     plt.show()
 
+
 def readfile():
     solution_path = "w1.txt"
 
@@ -68,9 +69,24 @@ def startPredict():
         print('Nerlnet finished initiating predict..')
 
 
-def startInit():
+def startCasting(numberOfbatches='1000'):  # X i
+    print('startCasting..')
+    listOfRequests = startCastingStack()
+    NerlnetPyAPI.settings.x = len(listOfRequests)
+    for request in listOfRequests:
+        r = requests.post(request[0], data=request[1] + ',' + numberOfbatches)
+        print(r.text)
+    while NerlnetPyAPI.settings.x != 0:
+        time.sleep(0.2)
+    print('finished training!..')
+
+
+def startInit(jsonPath='src_py/architectures.json', inputPort=DEFAULT_PORT):  # X1
+
+    # if creatJson():
+    #   jsonPath = 'src_py/architectures.json'
     print('Nerlnet initiating training..')
-    trainRequests = initTrain()
+    trainRequests = initTrainStack()
     NerlnetPyAPI.settings.x = len(trainRequests)
     for trainRequest in trainRequests:
         r = requests.post(trainRequest[0], data=trainRequest[1])
@@ -78,36 +94,6 @@ def startInit():
     while NerlnetPyAPI.settings.x != 0:
         time.sleep(0.2)
     print('finish initiating start training..')
-
-
-def startCasting():
-    print('startCasting..')
-    listOfRequests = startCasting()
-    NerlnetPyAPI.settings.x = len(listOfRequests)
-    for request in listOfRequests:
-        r = requests.post(request[0], data=request[1])
-        print(r.text)
-    while NerlnetPyAPI.settings.x != 0:
-        time.sleep(0.2)
-    print('finished training!..')
-
-
-def init(jsonPath='src_py/architectures.json', inputPort=DEFAULT_PORT):
-    NerlnetPyAPI.settings.x = 6
-    port = inputPort
-    server(port)
-
-    # if creatJson():
-    #   jsonPath = 'src_py/architectures.json'
-
-    startInit()
-
-    startCasting()
-
-    startPredict()
-
-    startCasting()
-
     # analyze()
     # init(jsonPath)
 
@@ -115,5 +101,8 @@ def init(jsonPath='src_py/architectures.json', inputPort=DEFAULT_PORT):
 if __name__ == "__main__":
     from sys import argv
 
-    init()
+    NerlnetPyAPI.settings.x = 6
+    port = DEFAULT_PORT
+    server(port)
+    startInit()
     # analyze()

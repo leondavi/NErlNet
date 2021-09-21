@@ -1,11 +1,11 @@
-def initTrain():
-    new_list = [('http://127.0.0.1:8080/updateCSV', "s1,w1,./input/RunOrWalkTrain_splitted/"),
+def initTrainStack():
+    new_list = [('http://127.0.0.1:8080/updateCSV', "s1,w1,./input/inputShort.csv"),
+                ('http://127.0.0.1:8080/updateCSV', "s2,w2,./input/inputShort2.csv"),
                 ('http://127.0.0.1:8080/clientsTraining', "")]
     return new_list
 
-def startCasting():
-    # startCasting bode: "source_name1,source_2,....,numberOfSamplesToSend"
-    new_list = [('http://127.0.0.1:8080/startCasting', "s1,100000")]
+def startCastingStack():
+    new_list = [('http://127.0.0.1:8080/startCasting', "s1,s2")]
     return new_list
 
 def initPredict():
