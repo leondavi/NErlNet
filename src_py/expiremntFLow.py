@@ -1,5 +1,5 @@
 def initTrain():
-    new_list = [('http://127.0.0.1:8080/updateCSV', "s1,w1,./input/traininputShuffled.csv"),
+    new_list = [('http://127.0.0.1:8080/updateCSV', "s1,w1,./input/traininputShuffledNormalized.csv"),
                 ('http://127.0.0.1:8080/clientsTraining', "")]
     return new_list
 
