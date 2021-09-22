@@ -18,7 +18,7 @@ init(Req0, [Action,Client_StateM_Pid]) ->
   {_,Body,_} = cowboy_req:read_body(Req0),
 %%  io:format("casting handler got Body:~p~n",[Body]),
   case Action of
-    startCasting ->  gen_statem:cast(Client_StateM_Pid, {startCasting});
+    startCasting ->  gen_statem:cast(Client_StateM_Pid, {startCasting,Body});
     statistics ->  gen_statem:cast(Client_StateM_Pid, {statistics});
     stopCasting ->   gen_statem:cast(Client_StateM_Pid, {stopCasting})
 
