@@ -189,15 +189,12 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{ clientsWaitingList 
 %%TODO change Client_Names to list of clients
 handle_cast({startCasting,Source_Names}, State = #main_genserver_state{state = idle,sourcesCastingList=CastingList, connectionsMap = ConnectionMap, sourcesWaitingList = [], clientsWaitingList = [],msgCounter = MsgCounter}) ->
   Splitted = re:split(binary_to_list(Source_Names), ",", [{return, list}]),
-
-  startCasting(Splitted,ConnectionMap),
-%%  [fun() -> {RouterHost,RouterPort} = maps:get(list_to_atom(binary_to_list(SourceName)),ConnectionMap),
-%%    io:format("sending StartCasting to: ~p~n",[SourceName]),
-%%
-%%    http_request(RouterHost,RouterPort,"startCasting", SourceName) end||SourceName<-re:split(Source_Names,",",[{return,list}])],
-  Sources = [list_to_atom(Source_Name)||Source_Name<-Splitted],
-  io:format("new Casting list: ~p~n",[Sources]),
-  {noreply, State#main_genserver_state{sourcesCastingList = CastingList++Sources, state = casting,msgCounter = MsgCounter+1}};
+  NumOfSampleToSend = lists:last(Splitted),
+  Sources = lists:sublist(Splitted,length(Splitted)-1),
+  startCasting(Sources,NumOfSampleToSend,ConnectionMap),
+  SourcesAtoms = [list_to_atom(Source_Name)||Source_Name<-Sources],
+  io:format("new Casting list: ~p~n",[SourcesAtoms]),
+  {noreply, State#main_genserver_state{sourcesCastingList = CastingList++SourcesAtoms, state = casting,msgCounter = MsgCounter+1}};
 
 
 handle_cast({startCasting,_Source_Names}, State = #main_genserver_state{sourcesWaitingList = SourcesWaiting, clientsWaitingList = ClientsWaiting}) ->
@@ -226,13 +223,11 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{connectionsMap = 
   {noreply, State#main_genserver_state{state = idle,msgCounter = MsgCounter+1}};
 
 handle_cast({predictRes,Body}, State = #main_genserver_state{connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
-  %io:format("Main Server got predictRes:- ~p~n",[Body]),
-  [InputName,ResultID,Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
-  file:write_file("./output/"++"predict"++InputName, ResultID++" " ++Result++"\n", [append]),
+  [InputName,[ResultID],Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
+%%  io:format("Main Server got predictRes:- ~p~n",[{InputName,ResultID,Result}]),
+  CSVName = getCSVName(InputName),
+  file:write_file("./output/"++"predict"++CSVName, integer_to_list(ResultID)++" " ++Result++"\n", [append]),
 
-%%%%TODO add send to serverAPI
-%%  {RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-%%  http_request(RouterHost,RouterPort,"lossFunction", Body),
   {noreply, State#main_genserver_state{state = idle,msgCounter = MsgCounter+1}};
 
 
@@ -326,13 +321,13 @@ decode(L)->
 
 
 
-startCasting([],_ConnectionMap)->done;
-startCasting([SourceName|SourceNames],ConnectionMap)->
+startCasting([],_NumOfSampleToSend,_ConnectionMap)->done;
+startCasting([SourceName|SourceNames],NumOfSampleToSend,ConnectionMap)->
   {RouterHost,RouterPort} = maps:get(list_to_atom(SourceName),ConnectionMap),
-  io:format("sending StartCasting to: ~p~n",[SourceName]),
+  io:format("sending StartCasting to: ~p~n",[{SourceName++[","]++NumOfSampleToSend}]),
 
-  http_request(RouterHost,RouterPort,"startCasting", SourceName),
-  startCasting(SourceNames,ConnectionMap).
+  http_request(RouterHost,RouterPort,"startCasting", SourceName++[","]++NumOfSampleToSend),
+  startCasting(SourceNames,NumOfSampleToSend,ConnectionMap).
 
 
 ack(PortMap) ->
@@ -340,3 +335,6 @@ ack(PortMap) ->
 %%  {RouterHost,RouterPort} = maps:get(serverAPI,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
   http_request("localhost",8095,"ack","ack"). %TODO fix and remove magic number
+
+getCSVName(InputName) ->
+  lists:last(re:split(InputName, "/", [{return, list}])--[[]]).

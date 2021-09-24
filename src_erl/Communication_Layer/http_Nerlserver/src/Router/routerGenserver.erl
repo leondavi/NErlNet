@@ -63,8 +63,10 @@ init({MyName,ConnectionsMap}) ->
 
 handle_cast({rout,Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
-  [To|_Vector] = binary:split(Body,<<"#">>),
-  {Host,Port} =maps:get(list_to_atom(binary_to_list(To)),ConnectionsMap),
+%%  ToSend = term_to_binary({ClientName, WorkerName, CSVPath, Counter, Head}),
+  {To, _WorkerName, _CSVPath, _Counter, _Head} = binary_to_term(Body),
+%%  [To|_Vector] = binary:split(Body,<<"#">>),
+  {Host,Port} =maps:get(To,ConnectionsMap),
   http_request(Host,Port,"weightsVector",Body),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
@@ -166,7 +168,9 @@ handle_cast({clientReady,Body}, State = #router_genserver_state{msgCounter = Msg
 
 handle_cast({startCasting,Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name
-    {SourceHost,SourcePort} =maps:get(list_to_atom(binary_to_list(Body)),ConnectionsMap),
+  [Source|_] = re:split(binary_to_list(Body), ",", [{return, list}]),
+
+  {SourceHost,SourcePort} =maps:get(list_to_atom(Source),ConnectionsMap),
     http_request(SourceHost,SourcePort,"startCasting",Body),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
