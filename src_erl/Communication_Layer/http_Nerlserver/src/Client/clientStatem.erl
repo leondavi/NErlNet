@@ -267,8 +267,12 @@ predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,w
 %%  gen_statem:cast(WorkerPid, {sample,ToSend}),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
-predict(cast, {predictRes,_InputName,_ResultID,[]}, State) ->
-  {next_state, predict, State};
+predict(cast, {predictRes,InputName,ResultID,[]}, State = #client_statem_state{msgCounter = Counter,portMap = PortMap}) ->
+  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+
+  http_request(RouterHost,RouterPort,"predictRes", list_to_binary([list_to_binary(InputName),<<"#">>,integer_to_binary(ResultID),<<"#">>,""])),
+
+  {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, {predictRes,InputName,ResultID,Result}, State = #client_statem_state{msgCounter = Counter,portMap = PortMap}) ->
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),

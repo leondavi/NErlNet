@@ -212,13 +212,19 @@ roundRobin([],_CSVPath,Counter,_Triplets)-> {[], Counter};
 roundRobin(ListOfSamples,_CSVPath,Counter,[])-> {ListOfSamples, Counter};
 roundRobin(ListOfSamples,CSVPath,Counter,[{ClientName,WorkerName,RouterHost,RouterPort}|Triplets])->
   [Head|Rest]=ListOfSamples,
-  sendSample(Head,CSVPath,Counter,ClientName,WorkerName,RouterHost,RouterPort),
-  roundRobin(Rest,CSVPath,Counter+1,Triplets).
+  if(Head ==<<>>)->
+    roundRobin(Rest,CSVPath,Counter,[{ClientName,WorkerName,RouterHost,RouterPort}|Triplets]);
+    true ->
+      sendSample(Head,CSVPath,Counter,ClientName,WorkerName,RouterHost,RouterPort),
+      roundRobin(Rest,CSVPath,Counter+1,Triplets)
+      end.
 
-sendSample(Sample,CSVPath,Counter,ClientName,WorkerName,RouterHost,RouterPort)->
+
+sendSample(Sample,CSVPath, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
 %%  io:format("CSVPath ~p ,Counter ~p ,[{ClientName ~p ,WorkerName ~p ,RouterHost ~p ,RouterPort ~p ~n",[CSVPath,Counter,ClientName,WorkerName,RouterHost,RouterPort]),
 %%  io:format("CSVPath ~p ~n",[list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>,list_to_binary(CSVPath),<<"#">>,list_to_binary(integer_to_list(Counter)),<<"#">>]),list_to_binary(Head)])]),
-  ToSend = term_to_binary({ClientName, WorkerName, CSVPath, Counter, Sample}),
+  ToSend = term_to_binary({ClientName, WorkerName, CSVPath, BatchID, Sample}),
+%%  io:format("sending id: ~p~n",[BatchID]),
   http_request(RouterHost, RouterPort,"weightsVector",ToSend).
 %%  http_request(RouterHost, RouterPort,"weightsVector",
 %%    list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>,list_to_binary(CSVPath),<<"#">>,list_to_binary(integer_to_list(Counter)),<<"#">>]),list_to_binary(Head)])),
