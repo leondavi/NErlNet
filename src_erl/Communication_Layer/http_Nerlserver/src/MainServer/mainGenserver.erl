@@ -223,10 +223,12 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{connectionsMap = 
   {noreply, State#main_genserver_state{state = idle,msgCounter = MsgCounter+1}};
 
 handle_cast({predictRes,Body}, State = #main_genserver_state{connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
-  [InputName,[ResultID],Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
-%%  io:format("Main Server got predictRes:- ~p~n",[{InputName,ResultID,Result}]),
+  % io:format("Main Server got predictRes:Body- ~p ~n~n",[Body]),
+  % [InputName,[ResultID],Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
+  [InputName,ResultID,Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
+  % io:format("Main Server got predictRes:InputName- ~p ResultID: ~p Result: ~p~n",[InputName,ResultID,Result]),
   CSVName = getCSVName(InputName),
-  file:write_file("./output/"++"predict"++CSVName, integer_to_list(ResultID)++" " ++Result++"\n", [append]),
+  file:write_file("./output/"++"predict"++CSVName, ResultID++" " ++Result++"\n", [append]),
 
   {noreply, State#main_genserver_state{state = idle,msgCounter = MsgCounter+1}};
 
