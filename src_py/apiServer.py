@@ -150,14 +150,14 @@ def calculateAccuracy(resultPath, inputPath):
 if __name__ == "__main__":
     from sys import argv
 
-    # NerlnetPyAPI.settings.lenOfRequests = 6
-    # port = DEFAULT_PORT
-    # server(port)
-    # initTrain()
-    # startCasting()
-    # startPredict()
-    # startCasting()
-    # time.sleep(1)
+    NerlnetPyAPI.settings.lenOfRequests = 6
+    port = DEFAULT_PORT
+    server(port)
+    initTrain()
+    startCasting()
+    startPredict()
+    startCasting()
+    time.sleep(1)
     readfile()
     calculateAccuracy("../src_erl/Communication_Layer/http_Nerlserver/output/predictRunOrWalkPredictNolabels_splitted",
                       "../src_erl/Communication_Layer/http_Nerlserver/output/RunOrWalkPredictResults.csv")
