@@ -113,7 +113,7 @@ train2double(Rows, Cols, Labels, Data_Label_mat, ModelId, ClientPid) ->
 	
 	Start_Time = os:system_time(microsecond),
 	%% make double list and send to train_predict_create
-	_Return = train_predict_create(1, Rows, Cols, Labels, dList(Data_Label_mat), ModelId),
+	_Return = train_predict_create(1, Rows, Cols, Labels,Data_Label_mat, ModelId),
 	receive
 		LOSS_And_Time->
 			% io:fwrite("Loss and time func in erlModule: ~p\n",[LOSS_And_Time]),
@@ -140,7 +140,7 @@ predict2double(Data_mat, Rows, Cols, ModelId, ClientPid,CSVname,BatchID) ->
 	Start_Time = os:system_time(microsecond),
 	%% make double list and send to train_predict_create
 	%io:fwrite("Data_mat ~p, Rows ~p, Cols ~p, ModelId ~p, ClientPid ~p,CSVname ~p,BatchID ~p",[Data_mat, Rows, Cols, ModelId, ClientPid,CSVname,BatchID]),
-	_Return = train_predict_create(2, dList(Data_mat), Rows, Cols, ModelId),
+	_Return = train_predict_create(2, Data_mat, Rows, Cols, ModelId),
 	receive
 		RESULTS_And_Time->
 			Finish_Time = os:system_time(microsecond),

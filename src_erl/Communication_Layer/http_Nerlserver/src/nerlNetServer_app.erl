@@ -69,7 +69,7 @@ start(_StartType, _StartArgs) ->
     %%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
 
     createClientsAndWorkers(ClientsAndWorkers, HostName),
-    createMainServer(MainServer,HostName),
+    createMainServer(MainServer,ChunkSize,HostName),
     createRouters(Routers,HostName),
     createSources(Sources,WorkersMap, ChunkSize, Frequency, HostName),
     createFederatedServer(Federateds,WorkersMap, HostName),
@@ -214,14 +214,14 @@ createRouters([{RouterArgs,RouterCommectopmsMap}|Routers],HostName) ->
 
 
 
-createMainServer(none,_HostName) -> none;
-createMainServer({[MainServerArgsMap],MainServerConnectionsMap,WorkersMap,ClientsNames},HostName) ->
+createMainServer(none,_ChunkSize,_HostName) -> none;
+createMainServer({[MainServerArgsMap],MainServerConnectionsMap,WorkersMap,ClientsNames},ChunkSize,HostName) ->
     MainName = mainServer,
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,MainServerArgsMap))),
 
     %%Create a gen_Server for maintaining Database for Main Server.
     %% all http requests will be handled by Cowboy which updates main_genserver if necessary.
-    MainGenServer_Args= {MainName,ClientsNames,WorkersMap,MainServerConnectionsMap},        %%TODO change from mainserverport to routerport . also make this a list of client
+    MainGenServer_Args= {MainName,ClientsNames,ChunkSize,WorkersMap,MainServerConnectionsMap},        %%TODO change from mainserverport to routerport . also make this a list of client
     MainGenServerPid = mainGenserver:start_link(MainGenServer_Args),
 
     MainServerDispatcher = cowboy_router:compile([
