@@ -1,0 +1,125 @@
+{
+  "NerlNetSettings": [
+  {
+    "frequency": "20",
+    "batchSize": "100"
+  }
+  ],
+  "devices": [
+    {
+      "host": "localhost",
+      "entities": "serverAPI",
+      "port": "8095"
+    },
+    {
+      "host": "127.0.0.1",
+      "entities": "mainServer,c1,f1,s1,r1"
+    }
+  ],
+  "serverAPI": [
+    {
+      "host": "localhost",
+      "port": "8095",
+      "args": ""
+    }
+  ],
+  "mainServer": [
+    {
+      "host": "127.0.0.1",
+      "port": "8080",
+      "args": ""
+    }
+  ],
+  "workers": [
+  {
+      "name": "w1",
+      "modelId": "0",
+      "FederatedMode": "0",
+      "CountLimit": "10",
+      "LayersSizes": "[6,3,2,1]",
+      "LearningRate":"0.0001",
+      "_comment1": "Activation functions explain: 0- NONE, 1- IDENTITY, 2- SIGMOID, 3- RELU, 4- LEAKY_RELU, 5- SWISH, 6- ELU, 7- TANH, 8- GAUSSIAN, 9- TOTAL",
+      "ActivationFunctions":"[0,7,3,0]",
+      "Features": "6",
+      "Labels": "1",
+      "_comment2": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
+      "Optimizer":"5"
+    },
+    {
+      "name": "w2",
+      "modelId": "1",
+      "FederatedMode": "0",
+      "CountLimit": "10",
+      "LayersSizes": "[6,3,2,1]",
+      "LearningRate":"0.0001",
+      "_comment1": "Activation functions explain: 0- NONE, 1- IDENTITY, 2- SIGMOID, 3- RELU, 4- LEAKY_RELU, 5- SWISH, 6- ELU, 7- TANH, 8- GAUSSIAN, 9- TOTAL",
+      "ActivationFunctions":"[0,7,3,0]",
+      "Features": "6",
+      "Labels": "1",
+      "_comment2": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
+      "Optimizer":"5"
+    }
+  ],
+  "clients": [
+    {
+      "name": "c1",
+      "port": "8081",
+      "workers": "w1,w2",
+      "federated": "f1"
+    }
+  ],
+  "federated": [
+    {
+      "name": "f1",
+      "port": "8083",
+      "workers": "w1,w2",
+      "counterLimit": "2"
+    }
+  ],
+  "sources": [
+    {
+      "name": "s1",
+      "port": "8091"
+    }
+  ],
+  "routers": [
+    {
+      "name": "r1",
+      "host": "127.0.0.1",
+      "port": "8084"
+    }
+  ],
+  "connectionsMap":
+  {
+    "c1": {
+      "mainServer": "r1",
+      "f1": "r1"
+    },
+    "f1": {
+      "mainServer": "r1",
+      "c1": "r1"
+    },
+
+    "s1": {
+      "mainServer": "r1",
+      "c1": "r1"
+    },
+    "mainServer": {
+      "c1": "r1",
+      "s1": "r1",
+      "r1": "r1",
+      "f1": "r1",
+      "serverAPI": "mainServer"
+    },
+    "r1": {
+      "mainServer": "r1",
+      "c1": "r1",
+      "f1": "r1",
+      "s1": "r1"
+    },  
+    "serverAPI": {
+      "mainServer": "serverAPI"
+    }
+  }
+
+}
