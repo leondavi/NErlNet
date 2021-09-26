@@ -2,7 +2,7 @@ import sys
 
 resFile = open(sys.argv[1], "r")
 inputFile = open(sys.argv[2], "r")
-roundNumbersFile = open(sys.argv[1]+"round", "a")
+roundNumbersFile = open(sys.argv[1] + "round", "a")
 
 for y in resFile:
     ResLineWithIndex1 = y.split()
@@ -22,23 +22,23 @@ for y in resFile:
 
 roundNumbersFile.close()
 resFile.close()
-resRoundFile = open(sys.argv[1]+"round", "r")
+resRoundFile = open(sys.argv[1] + "round", "r")
 Lines = inputFile.readlines()
-total=0
-correct=0
+total = 0
+correct = 0
 for x in resRoundFile:
     splitted = x.split()
     Result = splitted[1]
-    index = int(splitted[0])-1
+    index = int(splitted[0]) - 1
     inputRes = Lines[index].rstrip()
     if Result == inputRes:
-        #print("correct!")
+        # print("correct!")
         total += 1
-        correct+=1
-    else :
-        #print("wrong!")
+        correct += 1
+    else:
+        # print("wrong!")
         total += 1
 
-print("Accuracy:", str(correct) + "/"+str(total), "=", str((correct / total) * 100), "%")
+print("Accuracy:", str(correct) + "/" + str(total), "=", str((correct / total) * 100), "%")
 inputFile.close()
 resRoundFile.close()
