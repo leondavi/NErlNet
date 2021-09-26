@@ -143,44 +143,39 @@ wait(cast, {loss,nan,_Time_NIF}, State = #nerlNetStatem_state{clientPid = Client
   gen_statem:cast(ClientPid,{loss, MyName, nan}), %% TODO send to tal stop casting request with error desc
   {next_state, NextState, State};
 
-wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState, count = Count, countLimit = CountLimit, modelId = Mid, federatedMode = FederatedMode}) ->
-  {LOSS_FUNC,TimeCpp} = LossAndTime,
-  %io:format("Count:~p~n",[Count]),
-  %io:format("CountLimit:~p~n",[CountLimit]),
-
-  % io:fwrite("Loss func in wait: ~p\nTime for train execution in cppSANN (micro sec): ~p\nTime for train execution in NIF+cppSANN (micro sec): ~p\n",[LOSS_FUNC, TimeCpp, _Time_NIF]),
+%% Federated mode
+wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState, count = Count, countLimit = CountLimit, modelId = Mid, federatedMode = ?MODE_FEDERATED}) ->
+  {LOSS_FUNC,_TimeCpp} = LossAndTime,
   if Count == CountLimit ->
-%%    (Count == CountLimit) and FederatedMode == ?MODE_FEDERATED ->
       % Get weights
-%%      io:fwrite("Get weights: \n"),
       Ret_weights_tuple = erlModule:get_weights(Mid),
       {Wheights,Bias,Biases_sizes_list,Wheights_sizes_list} = Ret_weights_tuple,
-      % io:fwrite("Wheights: ~p,Bias: ~p,Biases_sizes_list: ~p,Wheights_sizes_list: ~p \n",[Wheights,Bias,Biases_sizes_list,Wheights_sizes_list]),
 
       ListToSend = [Wheights,Bias,Biases_sizes_list,Wheights_sizes_list],
-      % io:fwrite("nerlNerStatem: Federated, Count == CountLimit, Count: ~p Wheights: ~p, Bias: ~p, Biases_sizes_list: ~p, Wheights_sizes_list: ~p, List2Send: ~p\n",[Count, Wheights, Bias, Biases_sizes_list, Wheights_sizes_list, ListToSend]),
-      % io:fwrite("nerlNerStatem: Count == CountLimit, Count ~p: CountLimit: ~p, LOSS_FUNC: ~p\n",[Count, CountLimit, LOSS_FUNC]),
 
-      %file:write_file("NerlStatemOut.txt", [lists:flatten(io_lib:format("~p~p~p",[Size,Bias,Wheights]))]), %  TODO delete, for debugging
-
-      % Send weights and loss value TODO
+      % Send weights and loss value
       gen_statem:cast(ClientPid,{loss, federated_weights, MyName, LOSS_FUNC, ListToSend}), %% TODO Add Time and Time_NIF to the cast
       
       % Reset count and go to state train
       {next_state, NextState, State#nerlNetStatem_state{count = 1}};
 
-    FederatedMode == ?MODE_FEDERATED ->
+    true ->
       %% Send back the loss value
-%%      io:fwrite("nerlNerStatem: Count < CountLimit, Count ~p: CountLimit: ~p, LOSS_FUNC: ~p\n",[Count, CountLimit, LOSS_FUNC]),
       gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}), %% TODO Add Time and Time_NIF to the cast
-      {next_state, NextState, State#nerlNetStatem_state{count = Count + 1}};
-
-    true -> % Federated mode = 0 (not federated)
-      % io:fwrite("NOT Federated wait: \n"),
-%%       io:fwrite("loss statem: ~p\n", [LOSS_FUNC]),
-      gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}), %% TODO Add Time and Time_NIF to the cast
-      {next_state, NextState, State}
+      {next_state, NextState, State#nerlNetStatem_state{count = Count + 1}}
   end;
+
+%% Regular mode (Not federated)
+wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState, federatedMode = ?MODE_REGULAR}) ->
+  {LOSS_FUNC,_TimeCpp} = LossAndTime,
+  % Federated mode = 0 (not federated)
+  gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}), %% TODO Add Time and Time_NIF to the cast
+  {next_state, NextState, State};
+
+% Not supposed to be here - for future additions
+wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{nextState = NextState}) ->
+  io:fwrite("Error, Not supposed to be here. nerlNetStatem. Got LossAndTime: ~p~n",[LossAndTime]),
+  {next_state, NextState, State};
 
 wait(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
   io:fwrite("Set weights in wait state: \n"),
@@ -190,17 +185,9 @@ wait(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextStat
   %% Make bias sizes and weights sizes as integer 
   NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
   NewWeights_sizes_list = [round(X)||X<-Wheights_sizes_list],
-%%   io:fwrite("nerlNetStatem: Set weights in train state: WeightsList: ~p BiasList: ~p Biases_sizes_list: ~p Wheights_sizes_list: ~p\n",[WeightsList,BiasList,NewBiases_sizes_list,NewWheights_sizes_list]),
   _Result_set_weights = erlModule:set_weights(WeightsList, BiasList, NewBiases_sizes_list, NewWeights_sizes_list, ModelId),
 
   {next_state, NextState, State};
-
-%wait(cast, {loss,LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState}) ->
-
-  %{LOSS_FUNC,TimeCpp} = LossAndTime,
-  %io:fwrite("Loss func in wait: ~p\nTime for train execution in cppSANN (micro sec): ~p\nTime for train execution in NIF+cppSANN (micro sec): ~p\n",[LOSS_FUNC, TimeCpp, Time_NIF]),
- % gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}), %% TODO Add Time and Time_NIF to the cast
-%  {next_state, NextState, State};
 
 wait(cast, {predictRes,CSVname, BatchID, {RESULTS,_TimeCpp},_Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, nextState = NextState}) ->
   % io:fwrite("Predict results: ~p\nTime for predict execution in cppSANN (micro sec): ~p\nTime for predict execution in NIF+cppSANN (micro sec): ~p\n",[RESULTS, _TimeCpp, _Time_NIF]),
