@@ -1,15 +1,17 @@
 import sys
 import os
-
-sys.path.append(os.getcwd()+'/src_py')
-
-from NerlnetPyAPI import run, creatJson, init
-import matplotlib.pyplot as plt
-import NerlnetPyAPI.settings
-from threading import Thread
-from expiremntFLow import *
+import numpy as np
 import requests
 import time
+import matplotlib.pyplot as plt
+import NerlnetPyAPI.settings
+from NerlnetPyAPI import run, creatJson, init
+from threading import Thread
+from expiremntFLow import *
+
+sys.path.append(os.getcwd() + '/src_py')
+
+DEFAULT_PORT = 8095
 
 
 def server(port):
@@ -19,87 +21,95 @@ def server(port):
     print("server running in background...")
 
 
-def analyze():
-  # x-axis values
-  x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]  # this for example you could extract it from external file
-  # y-axis values
-  y = [2, 4, 5, 7, 6, 8, 9, 11, 12, 12]  # this for example you could extract it from external file
+def analyze(arr):
+    # x-axis values
+    x = np.array([0] * len(arr))
+    for i in range(1, len(arr) + 1):
+        x[i - 1] = i;
+    y = arr  # this for example you could extract it from external file
 
-  # plotting points as a scatter plot
-  plt.scatter(x, y, label="stars", color="green",
-              marker="*", s=30)
+    # plotting points as a scatter plot
+    plt.plot(x, y)
 
-  # x-axis label
-  plt.xlabel('x - axis')
-  # frequency label
-  plt.ylabel('y - axis')
-  # plot title
-  plt.title('My scatter plot!')
-  # showing legend
-  plt.legend()
+    # x-axis label
+    plt.xlabel('x - axis')
+    # frequency label
+    plt.ylabel('y - axis')
+    # plot title
+    plt.title('My scatter plot!')
+    # showing legend
+    plt.legend()
 
-  # function to show the plot
-  plt.show()
+    # function to show the plot
+    plt.show()
 
-DEFAULT_PORT = 8095
-def init(jsonPath = 'src_py/architectures.json',inputPort = DEFAULT_PORT):
-  
-  NerlnetPyAPI.settings.x = 6
-  port = inputPort
-  server(port)
 
-  # if creatJson():
-  #   jsonPath = 'src_py/architectures.json'
-  print('Nerlnet initiating training..')
-  trainRequests = initTrain()
-  NerlnetPyAPI.settings.x = len(trainRequests)
-  for trainRequest in trainRequests:
-    r = requests.post(trainRequest[0], data=trainRequest[1])
-    print(r.text)
+def readfile():
+    solution_path = "w1.txt"
 
-  while NerlnetPyAPI.settings.x != 0:
-    time.sleep(0.2)
+    sequence_array = []
+    with open(solution_path, 'r') as f:
+        for line in f.readlines():
+            sequence_array.append(float(line))
+    # print(map(float, sequence_array))
 
-  print('finish initiating start training..')
+    print(sequence_array)
+    analyze(sequence_array)
 
-  print('startCasting..')
-  listOfRequests = startCasting()
-  NerlnetPyAPI.settings.x = len(listOfRequests)
-  for request in listOfRequests:
-    r = requests.post(request[0], data=request[1])
-    print(r.text)
 
-  while NerlnetPyAPI.settings.x != 0:
-    time.sleep(0.2)
+def startPredict():
+    print('Nerlnet initiating predict..')
+    listOfRequests = initPredict()
+    NerlnetPyAPI.settings.lenOfRequests = len(listOfRequests)
+    for request in listOfRequests:
+        r = requests.post(request[0], data=request[1])
+        print(r.text)
+    while NerlnetPyAPI.settings.lenOfRequests != 0:
+        time.sleep(0.2)
+        print('Nerlnet finished initiating predict..')
 
-  print('Finished training!..')
 
-  print('Nerlnet initiating predict..')
-  listOfRequests = initPredict()
-  NerlnetPyAPI.settings.x = len(listOfRequests)
-  for request in listOfRequests:
-    r = requests.post(request[0], data=request[1])
-    print(r.text)
+def startCasting(numberOfbatches='1000'):  # X i
+    print('startCasting..')
+    listOfRequests = startCastingStack()
+    NerlnetPyAPI.settings.lenOfRequests = len(listOfRequests)
+    for request in listOfRequests:
+        r = requests.post(request[0], data=request[1] + ',' + numberOfbatches)
+        print(r.text)
+    while NerlnetPyAPI.settings.lenOfRequests != 0:
+        time.sleep(0.2)
+    print('finished training!..')
 
-  while NerlnetPyAPI.settings.x != 0:
-    time.sleep(0.2)
-    print('Nerlnet finished initiating predict..')
 
-  print('startCasting..')
-  listOfRequests = startCasting()
-  NerlnetPyAPI.settings.x = len(listOfRequests)
-  for request in listOfRequests:
-    r = requests.post(request[0], data=request[1])
-    print(r.text)
+def initTrain(jsonPath='src_py/architectures.json', inputPort=DEFAULT_PORT):  # X1
 
-  while NerlnetPyAPI.settings.x != 0:
-    time.sleep(0.2)
+    # if creatJson():
+    #   jsonPath = 'src_py/architectures.json'
+    print('Nerlnet initiating training..')
+    trainRequests = initTrainStack()
+    NerlnetPyAPI.settings.lenOfRequests = len(trainRequests)
+    for trainRequest in trainRequests:
+        r = requests.post(trainRequest[0], data=trainRequest[1])
+        print(r.text)
+    while NerlnetPyAPI.settings.lenOfRequests != 0:
+        time.sleep(0.2)
+    print('finish initiating start training..')
+    # init(jsonPath)
 
-  print('Finished predicting!..')
 
-  # analyze()
-  # init(jsonPath)
+def getLoosVector():
+    pass
+
+
+def getDistanceVector():
+    pass
+
 
 if __name__ == "__main__":
     from sys import argv
-    init()
+
+    NerlnetPyAPI.settings.lenOfRequests = 6
+    port = DEFAULT_PORT
+    server(port)
+    initTrain()
+    # analyze()
