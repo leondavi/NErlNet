@@ -20,7 +20,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(main_genserver_state, {statisticsCounter=0,myName, state, workersMap, clients, connectionsMap, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [],statisticsMap, msgCounter=0}).
+-record(main_genserver_state, {statisticsCounter = 0, myName, state, workersMap, clients, connectionsMap, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [], statisticsMap, msgCounter = 0, batchSize}).
 
 %%%===============================================================
 
@@ -44,13 +44,13 @@ start_link(Args) ->
 -spec(init(Args :: term()) ->
 {ok, State :: #main_genserver_state{}} | {ok, State :: #main_genserver_state{}, timeout() | hibernate} |
 {stop, Reason :: term()} | ignore).
-init({MyName,Clients,WorkersMap,ConnectionsMap}) ->
+init({MyName,Clients,BatchSize,WorkersMap,ConnectionsMap}) ->
   inets:start(),
   % io:format("connection map:~p~n",[ConnectionsMap]),
   start_connection(maps:to_list(ConnectionsMap)),
   NewStatisticsMap = getNewStatisticsMap(maps:to_list(ConnectionsMap)),
   io:format("New StatisticsMap = ~p~n",[NewStatisticsMap]),
-  {ok, #main_genserver_state{myName = MyName, workersMap = WorkersMap, state=idle, clients = Clients, connectionsMap = ConnectionsMap,msgCounter = 1,statisticsMap = NewStatisticsMap}}.
+  {ok, #main_genserver_state{myName = MyName, workersMap = WorkersMap, batchSize = BatchSize, state=idle, clients = Clients, connectionsMap = ConnectionsMap,msgCounter = 1,statisticsMap = NewStatisticsMap}}.
 
 %% @private
 %% @doc Handling call messages
@@ -220,15 +220,27 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{connectionsMap = 
 %%TODO add send to serverAPI
 %%  {RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
 %%  http_request(RouterHost,RouterPort,"lossFunction", Body),
-  {noreply, State#main_genserver_state{state = idle,msgCounter = MsgCounter+1}};
+  {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
-handle_cast({predictRes,Body}, State = #main_genserver_state{connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
-  [InputName,[ResultID],Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
-%%  io:format("Main Server got predictRes:- ~p~n",[{InputName,ResultID,Result}]),
-  CSVName = getCSVName(InputName),
-  file:write_file("./output/"++"predict"++CSVName, integer_to_list(ResultID)++" " ++Result++"\n", [append]),
+handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSize, connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
+  % [InputName,[ResultID],Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
+  [InputName,BatchID,Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
+  if (Result==[]) ->
+        ListOfResults = ["error"||_<-lists:seq(1,BatchSize)];
+      true ->
+       ListOfResults = re:split(Result, ",", [{return, list}])
+  end,
 
-  {noreply, State#main_genserver_state{state = idle,msgCounter = MsgCounter+1}};
+  %%  io:format("predictRes- length(ListOfResults): ~p~n{InputName,BatchID,Result} ~p ~n",[length(ListOfResults),{InputName,BatchID,Result}]),
+%%      io:format("predictResID- ~p~n",[BatchID]),
+
+      % io:format("Main Server got predictRes:InputName- ~p ResultID: ~p Result: ~p~n",[InputName,ResultID,Result]),
+      CSVName = getCSVName(InputName),
+      %%  file:write_file("./output/"++"predict"++CSVName, ResultID++" " ++Result++"\n", [append]),
+      writeToFile(ListOfResults,BatchID,CSVName,BatchSize),
+
+
+  {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
 
 
@@ -338,3 +350,17 @@ ack(PortMap) ->
 
 getCSVName(InputName) ->
   lists:last(re:split(InputName, "/", [{return, list}])--[[]]).
+
+
+%%this function takes a batch of samples, calculate the samples id and writes them to a file
+writeToFile(ListOfSamples,BatchID,CSVName,BatchSize)->
+  StartID = list_to_integer(BatchID)*BatchSize,
+  SampleSize = round(length(ListOfSamples)/BatchSize),
+  writeSamplesToFile(ListOfSamples,StartID,CSVName,SampleSize).
+
+writeSamplesToFile([],_HeadID,_CSVName,_SampleSize)->ok;
+writeSamplesToFile(ListOfSamples,HeadID,CSVName,SampleSize)->
+  Head = lists:sublist(ListOfSamples,SampleSize),
+  file:write_file("./output/"++"predict"++CSVName, integer_to_list(HeadID)++" " ++Head++"\n", [append]),
+%%  io:format("./output/predict~p   ~p~p~n", [CSVName,integer_to_list(HeadID),Head]),
+  writeSamplesToFile(lists:sublist(ListOfSamples,SampleSize+1,length(ListOfSamples)),HeadID+1,CSVName,SampleSize).

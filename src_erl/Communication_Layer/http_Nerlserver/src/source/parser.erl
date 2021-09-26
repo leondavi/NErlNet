@@ -54,7 +54,6 @@ parse_file(ChunkSize,File_Address) ->
 %%  io:format("Decoded!!!: ~n",[]),
   Chunked.
 
-%%L =[ [[1.1,2.2,3.3,4.4],[1.1,2.2,3.3,4.4]]++[[5.5,6.6,7.7,8.8],[1.1,2.2,3.3,4.4]]].
 encodeListOfLists(L)->encodeListOfLists(L,[]).
 encodeListOfLists([],Ret)->
   Ret;

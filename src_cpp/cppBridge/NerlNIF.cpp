@@ -605,7 +605,7 @@ static ERL_NIF_TERM train_predict_create_nif(ErlNifEnv* env, int argc, const ERL
 #endif
 
             // Create the model with the received parameters. TODO: Think if unique pointer is a better option
-            LossFunctions::loss_t lossValFuncion=LossFunctions::LOSS_CROSS_ENTROPY;
+            LossFunctions::loss_t lossValFuncion=LossFunctions::LOSS_MSE;
             LossFunctionPtr lossFunction = select_loss_function(lossValFuncion);
              
             SANN::Model *model = new SANN::Model(modelParamPtr.layers_sizes,modelParamPtr.learning_rate,lossFunction);
