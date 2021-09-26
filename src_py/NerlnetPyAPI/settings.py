@@ -1,8 +1,8 @@
-x = 0
+lenOfRequests = 0
 
 
 def glob():
     global myList
     myList = []
-    global x
-    x = 0
+    global lenOfRequests
+    lenOfRequests = 0

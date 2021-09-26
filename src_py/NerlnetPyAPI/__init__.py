@@ -60,9 +60,9 @@ class BaseServer(BaseHTTPRequestHandler):
                          .encode('utf-8') % post_data)
         outqueue.append(str(post_data.decode()))
         if post_data.decode() == 'ack':
-            NerlnetPyAPI.settings.x = NerlnetPyAPI.settings.x - 1
+            NerlnetPyAPI.settings.lenOfRequests = NerlnetPyAPI.settings.lenOfRequests - 1
         print(post_data.decode())
-        print(NerlnetPyAPI.settings.x)
+        print(NerlnetPyAPI.settings.lenOfRequests)
         print(outqueue)
         if post_data == b'exit':
             serverRun(True, ThreadedHTTPServer(('localhost', port), BaseServer))

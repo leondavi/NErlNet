@@ -1,18 +1,18 @@
 import sys
 import os
 import numpy as np
+import requests
+import time
+import matplotlib.pyplot as plt
+import NerlnetPyAPI.settings
+from NerlnetPyAPI import run, creatJson, init
+from threading import Thread
+from expiremntFLow import *
 
 sys.path.append(os.getcwd() + '/src_py')
 
-from NerlnetPyAPI import run, creatJson, init
-import matplotlib.pyplot as plt
-import NerlnetPyAPI.settings
-from threading import Thread
-from expiremntFLow import *
-import requests
-import time
-
 DEFAULT_PORT = 8095
+
 
 def server(port):
     thread = Thread(target=run, args=(port,))
@@ -60,11 +60,11 @@ def readfile():
 def startPredict():
     print('Nerlnet initiating predict..')
     listOfRequests = initPredict()
-    NerlnetPyAPI.settings.x = len(listOfRequests)
+    NerlnetPyAPI.settings.lenOfRequests = len(listOfRequests)
     for request in listOfRequests:
         r = requests.post(request[0], data=request[1])
         print(r.text)
-    while NerlnetPyAPI.settings.x != 0:
+    while NerlnetPyAPI.settings.lenOfRequests != 0:
         time.sleep(0.2)
         print('Nerlnet finished initiating predict..')
 
@@ -72,37 +72,44 @@ def startPredict():
 def startCasting(numberOfbatches='1000'):  # X i
     print('startCasting..')
     listOfRequests = startCastingStack()
-    NerlnetPyAPI.settings.x = len(listOfRequests)
+    NerlnetPyAPI.settings.lenOfRequests = len(listOfRequests)
     for request in listOfRequests:
         r = requests.post(request[0], data=request[1] + ',' + numberOfbatches)
         print(r.text)
-    while NerlnetPyAPI.settings.x != 0:
+    while NerlnetPyAPI.settings.lenOfRequests != 0:
         time.sleep(0.2)
     print('finished training!..')
 
 
-def startInit(jsonPath='src_py/architectures.json', inputPort=DEFAULT_PORT):  # X1
+def initTrain(jsonPath='src_py/architectures.json', inputPort=DEFAULT_PORT):  # X1
 
     # if creatJson():
     #   jsonPath = 'src_py/architectures.json'
     print('Nerlnet initiating training..')
     trainRequests = initTrainStack()
-    NerlnetPyAPI.settings.x = len(trainRequests)
+    NerlnetPyAPI.settings.lenOfRequests = len(trainRequests)
     for trainRequest in trainRequests:
         r = requests.post(trainRequest[0], data=trainRequest[1])
         print(r.text)
-    while NerlnetPyAPI.settings.x != 0:
+    while NerlnetPyAPI.settings.lenOfRequests != 0:
         time.sleep(0.2)
     print('finish initiating start training..')
-    # analyze()
     # init(jsonPath)
+
+
+def getLoosVector():
+    pass
+
+
+def getDistanceVector():
+    pass
 
 
 if __name__ == "__main__":
     from sys import argv
 
-    NerlnetPyAPI.settings.x = 6
+    NerlnetPyAPI.settings.lenOfRequests = 6
     port = DEFAULT_PORT
     server(port)
-    startInit()
+    initTrain()
     # analyze()
