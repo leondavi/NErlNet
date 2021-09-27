@@ -130,7 +130,10 @@ handle_cast({statistics,Body}, State = #main_genserver_state{statisticsCounter =
         NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap,statisticsCounter = StatisticsCounter-1},
 
       if StatisticsCounter == 2 ->
-            io:format("new Statistics Map:~n~p~n",[NewStatisticsMap]);
+            io:format("new Statistics Map:~n~p~n",[NewStatisticsMap]),
+            ack(ConnectionMap),
+            {RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
+            http_request(RouterHost,RouterPort,"statistics", maps:to_list(NewStatisticsMap));
           true ->
             ok
         end
