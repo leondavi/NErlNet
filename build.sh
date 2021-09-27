@@ -8,7 +8,6 @@ mv inputDataFiles/RunOrWalkPredictNolabels_splitted/ ./src_erl/Communication_Lay
 mv inputDataFiles/RunOrWalkTrain_splitted/ ./src_erl/Communication_Layer/http_Nerlserver/input/
 mv inputDataFiles/RunOrWalkPredictNolabelsNormalized_splitted/ ./src_erl/Communication_Layer/http_Nerlserver/input/
 mv inputDataFiles/RunOrWalkTrainNormalized_splitted/ ./src_erl/Communication_Layer/http_Nerlserver/input/
-mv inputDataFiles/RunOrWalkPredictResults.csv ./src_erl/Communication_Layer/http_Nerlserver/output/
 
 cd src_py
 python3 BuildScript.py cpp=True
