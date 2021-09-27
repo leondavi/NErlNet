@@ -1,5 +1,6 @@
 import sys
 import os
+import glob
 import numpy as np
 import requests
 import time
@@ -220,11 +221,10 @@ def calculateAccuracy(resultPath, inputPath):
     resRoundFile.close()
 
 def removeRedundantFiles():
-    os.remove("../src_erl/Communication_Layer/http_Nerlserver/output/w1")
-    #os.remove("../src_erl/Communication_Layer/http_Nerlserver/output/predictRunOrWalkPredictNolabelsNormalized_splitted")
-    #os.remove("../src_erl/Communication_Layer/http_Nerlserver/output/predictRunOrWalkPredictNolabelsNormalized_splittedround")
-    os.remove("../src_erl/Communication_Layer/http_Nerlserver/output/predictRunOrWalkPredictNolabels_splitted")
-    os.remove("../src_erl/Communication_Layer/http_Nerlserver/output/predictRunOrWalkPredictNolabels_splittedround")
+    files = glob.glob('../src_erl/Communication_Layer/http_Nerlserver/output/*')
+    for f in files:
+        os.remove(f)
+
 
 if __name__ == "__main__":
     from sys import argv
@@ -242,4 +242,4 @@ if __name__ == "__main__":
     time.sleep(1)
     readfile()
     calculateAccuracy("../src_erl/Communication_Layer/http_Nerlserver/output/predictRunOrWalkPredictNolabels_splitted",
-                      "../src_erl/Communication_Layer/http_Nerlserver/output/RunOrWalkPredictResults.csv")
+                      "../inputDataFiles/RunOrWalkPredictResults.csv")
