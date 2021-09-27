@@ -14,7 +14,8 @@ sys.path.append(os.getcwd() + '/src_py')
 DEFAULT_PORT = 8095
 
 
-def server(port):
+
+def server(port=DEFAULT_PORT):
     thread = Thread(target=run, args=(port,))
     thread.start()
     time.sleep(2)
@@ -105,6 +106,121 @@ def getDistanceVector():
     pass
 
 
+    # x-axis label
+    plt.xlabel('x - axis')
+    # frequency label
+    plt.ylabel('y - axis')
+    # plot title
+    plt.title('My scatter plot!')
+    # showing legend
+    plt.legend()
+
+    # function to show the plot
+    plt.show()
+
+def readfile():
+    solution_path = "../src_erl/Communication_Layer/http_Nerlserver/output/w1"
+
+    sequence_array = []
+    with open(solution_path, 'r') as f:
+        for line in f.readlines():
+            sequence_array.append(float(line))
+    analyze(sequence_array)
+
+
+def startPredict():
+    print('Nerlnet initiating predict..')
+    listOfRequests = initPredict()
+    NerlnetPyAPI.settings.lenOfRequests = len(listOfRequests)
+    for request in listOfRequests:
+        r = requests.post(request[0], data=request[1])
+        print(r.text)
+    while NerlnetPyAPI.settings.lenOfRequests != 0:
+        time.sleep(0.2)
+        print('Nerlnet finished initiating predict..')
+
+
+def startCasting(numberOfbatches='1000'):  # X i
+    print('startCasting..')
+    listOfRequests = startCastingStack()
+    NerlnetPyAPI.settings.lenOfRequests = len(listOfRequests)
+    for request in listOfRequests:
+        r = requests.post(request[0], data=request[1] + ',' + numberOfbatches)
+        print(r.text)
+    while NerlnetPyAPI.settings.lenOfRequests != 0:
+        time.sleep(0.2)
+    print('finished training!..')
+
+
+def initTrain(jsonPath='src_py/architectures.json', inputPort=DEFAULT_PORT):  # X1
+
+    # if creatJson():
+    #   jsonPath = 'src_py/architectures.json'
+    print('Nerlnet initiating training..')
+    trainRequests = initTrainStack()
+    NerlnetPyAPI.settings.lenOfRequests = len(trainRequests)
+    for trainRequest in trainRequests:
+        r = requests.post(trainRequest[0], data=trainRequest[1])
+        print(r.text)
+    while NerlnetPyAPI.settings.lenOfRequests != 0:
+        time.sleep(0.2)
+    print('finish initiating start training..')
+    # init(jsonPath)
+
+
+def getLoosVector():
+    pass
+
+
+def getDistanceVector():
+    pass
+
+def calculateAccuracy(resultPath, inputPath):
+    resFile = open(resultPath, "r")
+    inputFile = open(inputPath, "r")
+    roundNumbersFile = open(resultPath + "round", "a")
+
+    for y in resFile:
+        ResLineWithIndex1 = y.split()
+        ResLine1 = ResLineWithIndex1[1]
+        numbers = ResLine1.split(",")
+        numberslen = len(numbers) - 1
+        roundNumbersFile.write(ResLineWithIndex1[0] + " ")
+        for number, item in enumerate(numbers):
+            if number == numberslen:
+                roundedNumber = round(float(item))
+                roundNumbersFile.write(str(roundedNumber))
+            else:
+                roundedNumber = round(float(item))
+                roundNumbersFile.write(str(roundedNumber) + ",")
+
+        roundNumbersFile.write("\n")
+
+    roundNumbersFile.close()
+    resFile.close()
+    resRoundFile = open(resultPath + "round", "r")
+    Lines = inputFile.readlines()
+    total = 0
+    correct = 0
+    for x in resRoundFile:
+        splitted = x.split()
+        Result = splitted[1]
+        index = int(splitted[0]) - 1
+        inputRes = Lines[index].rstrip()
+        if Result == inputRes:
+            # print("correct!")
+            total += 1
+            correct += 1
+        else:
+            # print("wrong!")
+            total += 1
+
+    print("Accuracy:", str(correct) + "/" + str(total), "=", str((correct / total) * 100), "%")
+    inputFile.close()
+    resRoundFile.close()
+
+
+
 if __name__ == "__main__":
     from sys import argv
 
@@ -113,3 +229,10 @@ if __name__ == "__main__":
     server(port)
     initTrain()
     # analyze()
+    startCasting()
+    startPredict()
+    startCasting()
+    time.sleep(1)
+    readfile()
+    calculateAccuracy("../src_erl/Communication_Layer/http_Nerlserver/output/predictRunOrWalkPredictNolabels_splitted",
+                      "../src_erl/Communication_Layer/http_Nerlserver/output/RunOrWalkPredictResults.csv")
