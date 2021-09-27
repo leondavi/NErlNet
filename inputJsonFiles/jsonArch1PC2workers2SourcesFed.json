@@ -47,8 +47,8 @@
     },
 	{
       "name": "w2",
-      "modelId": "2",
-      "FederatedMode": "0",
+      "modelId": "1",
+      "FederatedMode": "1",
       "CountLimit": "10",
       "LayersSizes": "[6,3,2,1]",
       "LearningRate":"0.00001",
@@ -64,7 +64,7 @@
     {
       "name": "c1",
       "port": "8081",
-      "workers": "w1",
+      "workers": "w1,w2",
       "federated": "f1"
     }
   ],
@@ -72,8 +72,8 @@
     {
       "name": "f1",
       "port": "8083",
-      "workers": "w1",
-      "counterLimit": "2"
+      "workers": "w1,w2",
+      "counterLimit": "20"
     }
   ],
   "sources": [
