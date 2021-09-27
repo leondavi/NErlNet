@@ -219,10 +219,17 @@ def calculateAccuracy(resultPath, inputPath):
     inputFile.close()
     resRoundFile.close()
 
-
+def removeRedundantFiles():
+    os.remove("../src_erl/Communication_Layer/http_Nerlserver/output/w1")
+    #os.remove("../src_erl/Communication_Layer/http_Nerlserver/output/predictRunOrWalkPredictNolabelsNormalized_splitted")
+    #os.remove("../src_erl/Communication_Layer/http_Nerlserver/output/predictRunOrWalkPredictNolabelsNormalized_splittedround")
+    os.remove("../src_erl/Communication_Layer/http_Nerlserver/output/predictRunOrWalkPredictNolabels_splitted")
+    os.remove("../src_erl/Communication_Layer/http_Nerlserver/output/predictRunOrWalkPredictNolabels_splittedround")
 
 if __name__ == "__main__":
     from sys import argv
+
+    removeRedundantFiles()
 
     NerlnetPyAPI.settings.lenOfRequests = 6
     port = DEFAULT_PORT
