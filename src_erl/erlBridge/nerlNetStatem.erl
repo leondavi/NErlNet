@@ -125,9 +125,7 @@ idle(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextStat
   %% Make bias sizes and weights sizes as integer 
   NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
   NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
-%%   io:fwrite("nerlNetStatem: Set weights in train state: WeightsList: ~p BiasList: ~p Biases_sizes_list: ~p Wheights_sizes_list: ~p\n",[WeightsList,BiasList,NewBiases_sizes_list,NewWheights_sizes_list]),
   _Result_set_weights = erlModule:set_weights(WeightsList, BiasList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
-  % io:fwrite("WeightsList: ~p BiasList: ~p Biases_sizes_list: ~p Wheights_sizes_list: ~p\n",[WeightsList,BiasList,Biases_sizes_list,Wheights_sizes_list]),
   _Result_set_weights = erlModule:set_weights(WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list, ModelId),
 
   {next_state, NextState, State};
@@ -180,7 +178,7 @@ wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{nextState
 wait(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
   io:fwrite("Set weights in wait state: \n"),
 
-  %% Set weights TODO
+  %% Set weights
   [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
   %% Make bias sizes and weights sizes as integer 
   NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
@@ -190,7 +188,6 @@ wait(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextStat
   {next_state, NextState, State};
 
 wait(cast, {predictRes,CSVname, BatchID, {RESULTS,_TimeCpp},_Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, nextState = NextState}) ->
-  % io:fwrite("Predict results: ~p\nTime for predict execution in cppSANN (micro sec): ~p\nTime for predict execution in NIF+cppSANN (micro sec): ~p\n",[RESULTS, _TimeCpp, _Time_NIF]),
   gen_statem:cast(ClientPid,{predictRes, CSVname, BatchID, RESULTS}), %% TODO Add Time and Time_NIF to the cast
   {next_state, NextState, State};
 
@@ -207,7 +204,6 @@ wait(cast, {predict}, State) ->
   {next_state, wait, State#nerlNetStatem_state{nextState = predict}};
 
 wait(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = MissedTrainSamples}) ->
-%%  io:fwrite("Missed, got sample. Got: ~p \n Missed batches count: ~p\n",[{SampleListTrain}, MissedSamplesCount]),
   io:fwrite("Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
   Miss = MissedTrainSamples++SampleListTrain,
   {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1, missedTrainSamples = Miss}};
@@ -219,53 +215,25 @@ wait(cast, Param, State) ->
 
 %% State train
 train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels}) ->
-  
-  % io:fwrite("SampleListTrain: ~p Features ~p Labels ~p\n",[SampleListTrain,Features, Labels]),
   CurrPid = self(),
   ChunkSizeTrain = round(length(SampleListTrain)/(Features + Labels)),
-  %io:fwrite("length(SampleListTrain)/(Features + Labels): ~p\n",[length(SampleListTrain)/(Features + Labels)]),
-  % io:fwrite("Send sample to train: ~p\n",[SampleListTrain]),
-  % io:fwrite("ChunkSizeTrain: ~p, Features: ~p Labels: ~p ModelId ~p\n",[ChunkSizeTrain, Features, Labels, ModelId]),
-  % io:fwrite("Train state: got sample, pid: ~p ChunkSizeTrain ~p \n", [CurrPid,ChunkSizeTrain]),
-  
-  % file:write_file("NerlStatemOutTrain.txt", [lists:flatten(io_lib:format("ChunkSizeTrain: ~p Features: ~p Labels: ~p ModelId: ~p CurrPid: ~p MyName: ~p /n SampleListTrain: ~p /n",
-  % [ChunkSizeTrain,Features,Labels,ModelId,CurrPid,MyName,SampleListTrain]))],[append]),
-
   _Pid = spawn(fun()-> erlModule:train2double(ChunkSizeTrain, Features, Labels, SampleListTrain,ModelId,CurrPid) end),
   {next_state, wait, State#nerlNetStatem_state{nextState = train}};
 
 
 train(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId = ModelId, nextState = NextState}) ->
-
-  % io:fwrite("nerlNetStatem: Set weights in train state: \n"),
-
-  % Get_weights_tuple = erlModule:get_weights(ModelId),
-  % io:fwrite("Get weights before set: ~p~n",[Get_weights_tuple]),
-
   %% Set weights
   [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
   
   %% Make bias sizes and weights sizes as integer 
   NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
   NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
-%%   io:fwrite("nerlNetStatem: Set weights in train state: WeightsList: ~p BiasList: ~p Biases_sizes_list: ~p Wheights_sizes_list: ~p\n",[WeightsList,BiasList,NewBiases_sizes_list,NewWheights_sizes_list]),
   _Result_set_weights = erlModule:set_weights(WeightsList, BiasList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
-
-  % Get_weights_tuple1 = erlModule:get_weights(ModelId),
-  % io:fwrite("Get weights after set: ~p~n",[Get_weights_tuple1]),
 
   {next_state, NextState, State};
 
 
-%train(cast, {idle}, State = #nerlNetStatem_state{missedTrainSamples = MissedTrainSamples,modelId = ModelId, features = Features, labels = Labels}) ->
-%  io:fwrite("Go from train to idle after finishing Missed train samples: ~p\n",[MissedTrainSamples]),
-  %trainMissed(MissedTrainSamples,ModelId,Features,Labels),
-%  io:fwrite("Go from train to idle\n"),
-%  {next_state, idle, State};
-
 train(cast, {idle}, State) ->
-  %io:fwrite("Go from train to idle after finishing Missed train samples: ~p\n",[MissedTrainSamples]),
-  %trainMissed(MissedTrainSamples,ModelId,Features,Labels),
   io:fwrite("Go from train to idle\n"),
   {next_state, idle, State};
 
@@ -277,21 +245,10 @@ train(cast, Param, State) ->
   io:fwrite("Same state train, not supposed to be, command: ~p\n",[Param]),
   {next_state, train, State}.
 
-trainMissed([],ModelId,Features,Labels)->
-  io:fwrite("Finished train samples\n");
-
-trainMissed([FirstTrainChunk|MissedTrainSamples],ModelId,Features,Labels)->
-  CurrPid = self(),
-  ChunkSizeTrain = round(length(FirstTrainChunk)/(Features + Labels)),
-  _Pid = spawn(fun()-> erlModule:train2double(ChunkSizeTrain, Features, Labels, FirstTrainChunk,ModelId,CurrPid) end),
-  trainMissed([FirstTrainChunk|MissedTrainSamples],ModelId,Features,Labels).
-
 %% State predict
 predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStatem_state{features = Features, modelId = ModelId}) ->
   ChunkSizePred = round(length(SampleListPredict)/Features),
   CurrPID = self(),
-  %io:fwrite("length(SampleListPredict)/Features): ~p\n",[length(SampleListPredict)/Features]),
-  % io:fwrite("Send sample to predict\n"),
   _Pid = spawn(fun()-> erlModule:predict2double(SampleListPredict,ChunkSizePred,Features,ModelId,CurrPID, CSVname, BatchID) end),
   {next_state, wait, State#nerlNetStatem_state{nextState = predict}};
 
