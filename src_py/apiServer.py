@@ -1,5 +1,6 @@
 import sys
 import os
+import glob
 import numpy as np
 import requests
 import time
@@ -219,10 +220,16 @@ def calculateAccuracy(resultPath, inputPath):
     inputFile.close()
     resRoundFile.close()
 
+def removeRedundantFiles():
+    files = glob.glob('../src_erl/Communication_Layer/http_Nerlserver/output/*')
+    for f in files:
+        os.remove(f)
 
 
 if __name__ == "__main__":
     from sys import argv
+
+    removeRedundantFiles()
 
     NerlnetPyAPI.settings.lenOfRequests = 6
     port = DEFAULT_PORT
@@ -235,4 +242,4 @@ if __name__ == "__main__":
     time.sleep(1)
     readfile()
     calculateAccuracy("../src_erl/Communication_Layer/http_Nerlserver/output/predictRunOrWalkPredictNolabels_splitted",
-                      "../src_erl/Communication_Layer/http_Nerlserver/output/RunOrWalkPredictResults.csv")
+                      "../inputDataFiles/RunOrWalkPredictResults.csv")

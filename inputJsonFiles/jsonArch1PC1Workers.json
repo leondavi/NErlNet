@@ -39,11 +39,11 @@
       "LayersSizes": "[6,3,2,1]",
       "LearningRate":"0.0001",
       "_comment1": "Activation functions explain: 0- NONE, 1- IDENTITY, 2- SIGMOID, 3- RELU, 4- LEAKY_RELU, 5- SWISH, 6- ELU, 7- TANH, 8- GAUSSIAN, 9- TOTAL",
-      "ActivationFunctions":"[0,7,3,0]",
+      "ActivationFunctions":"[0,2,2,0]",
       "Features": "6",
       "Labels": "1",
       "_comment2": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "Optimizer":"5"
+      "Optimizer":"6"
     }
   ],
   "clients": [
