@@ -47,6 +47,7 @@ def analyze(arr):
 
 
 def readfile():
+    time.sleep(1)
     solution_path = "w1.txt"
 
     sequence_array = []
@@ -225,12 +226,18 @@ def removeRedundantFiles():
     for f in files:
         os.remove(f)
 
+def statistics():
+    new_list = [('http://127.0.0.1:8080/statistics', 'getStatistics')]
+    requests.post('http://127.0.0.1:8080/statistics', data='getStatistics')
+    return new_list
 
 if __name__ == "__main__":
     from sys import argv
 
     removeRedundantFiles()
 
+
+    statistics()
     NerlnetPyAPI.settings.lenOfRequests = 6
     port = DEFAULT_PORT
     server(port)
@@ -239,7 +246,6 @@ if __name__ == "__main__":
     startCasting()
     startPredict()
     startCasting()
-    time.sleep(1)
     readfile()
     calculateAccuracy("../src_erl/Communication_Layer/http_Nerlserver/output/predictRunOrWalkPredictNolabels_splitted",
                       "../inputDataFiles/RunOrWalkPredictResults.csv")

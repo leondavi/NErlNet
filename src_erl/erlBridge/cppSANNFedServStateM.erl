@@ -221,10 +221,10 @@ average(cast, _Else, State) ->
 
 %% Do the averaging
 averageFun(WeightsBuffer,CallerPid,WeightsAndBiasNumber) ->
-  io:fwrite("FedServer, averageFun: WeightsAndBiasNumber: ~p\n", [WeightsAndBiasNumber]),
-  io:fwrite("FedServer, averageFun: WeightsBuffer: ~p\n", [WeightsBuffer]),
+  % io:fwrite("FedServer, averageFun: WeightsAndBiasNumber: ~p\n", [WeightsAndBiasNumber]),
+  % io:fwrite("FedServer, averageFun: WeightsBuffer: ~p\n", [WeightsBuffer]),
   AveragedWeights = erlModule:average_weights(WeightsBuffer, WeightsAndBiasNumber),
-  io:fwrite("AveragedWeights at averageFun: ~p.\n",[AveragedWeights]),
+  % io:fwrite("AveragedWeights at averageFun: ~p.\n",[AveragedWeights]),
   gen_statem:cast(CallerPid,{average, AveragedWeights}).
 
 
