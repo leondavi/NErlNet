@@ -15,7 +15,6 @@ in2 = ''
 in3 = ''
 in4 = ''
 
-outqueue = []
 serveQueue = []
 globvarN = 0
 port = 0
@@ -50,32 +49,52 @@ class BaseServer(BaseHTTPRequestHandler):
         self._set_headers()
 
     def do_POST(self):
-        global outqueue
-        # print("do")
-        # time.sleep(5)
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length)
         self._set_headers()
         self.wfile.write("<html><body><p>POST!</p><p>%s</p></body></html>"
                          .encode('utf-8') % post_data)
-        outqueue.append(str(post_data.decode()))
-        print(NerlnetPyAPI.settings.lenOfRequests)
+        # print(NerlnetPyAPI.settings.lenOfRequests)
+        # print(post_data.decode())
         if post_data.decode() == 'ack':
+            print("ack received")
+            NerlnetPyAPI.settings.ackQueue.append(str(post_data.decode()))
             NerlnetPyAPI.settings.lenOfRequests = NerlnetPyAPI.settings.lenOfRequests - 1
+
+        else:
+            strSplited = splitStr(post_data.decode())
+            if strSplited[0] == 'statistics':
+                NerlnetPyAPI.settings.statistics.append(strSplited[1])
+            elif not NerlnetPyAPI.settings.losDict:
+                splitedStr = splitStr(post_data.decode())
+                NerlnetPyAPI.settings.losDict.update({splitedStr[1]: [splitedStr[1]]})
+            else:
+                splitedStr = splitStr(post_data.decode())
+                curr = NerlnetPyAPI.settings.losDict.get(splitedStr[0])
+                NerlnetPyAPI.settings.losDict.update({splitedStr[1]: [curr] + [splitedStr[1]]})
+
         print(post_data.decode())
         print(NerlnetPyAPI.settings.lenOfRequests)
-        print(outqueue)
+        print(NerlnetPyAPI.settings.ackQueue)
         if post_data == b'exit':
             serverRun(True, ThreadedHTTPServer(('localhost', port), BaseServer))
         else:
             pass
 
 
-def run(port=80,interrupted=False):
+def run(port=80, interrupted=False):
     server = ThreadedHTTPServer(('localhost', port), BaseServer)
     print('Starting server, use <Ctrl-C> to stop')
     print('HTTP server running on port %s' % port)
     serverRun(interrupted, server)
+
+
+def splitStr(word):
+    splitedArr = word.split('#')
+    stripSplitedSTR = []
+    for str in splitedArr:
+        stripSplitedSTR.append(str.strip())
+    return stripSplitedSTR
 
 
 def serverRun(interrupted, server):
@@ -112,16 +131,18 @@ def initData():
 
 
 def init(jasonPath): pass
-    # data = initData()  # ask tal about the accurate data
-    # data = initData()  # ask tal about the accurate data
-    # new_list = [requests.post('http://127.0.0.1:8080/updateCSV', data="s1,w1,w2,./input/shuffled-input9.csv"),
-    #             requests.post('http://127.0.0.1:8080/updateCSV', data="s2,w3,w4,./input/shuffled-input9.csv"),
-    #             requests.post('http://127.0.0.1:8080/updateCSV', data="s3,w5,w6,./input/shuffled-input9.csv"),
-    #             requests.post('http://127.0.0.1:8080/updateCSV', data="s4,w7,w8,./input/shuffled-input9.csv")]
-    # for request in new_list:
-    #     print(request.text)
-    # NerlnetPyAPI.settings.x = len(new_list)
-    # print(NerlnetPyAPI.settings.x)
+
+
+# data = initData()  # ask tal about the accurate data
+# data = initData()  # ask tal about the accurate data
+# new_list = [requests.post('http://127.0.0.1:8080/updateCSV', data="s1,w1,w2,./input/shuffled-input9.csv"),
+#             requests.post('http://127.0.0.1:8080/updateCSV', data="s2,w3,w4,./input/shuffled-input9.csv"),
+#             requests.post('http://127.0.0.1:8080/updateCSV', data="s3,w5,w6,./input/shuffled-input9.csv"),
+#             requests.post('http://127.0.0.1:8080/updateCSV', data="s4,w7,w8,./input/shuffled-input9.csv")]
+# for request in new_list:
+#     print(request.text)
+# NerlnetPyAPI.settings.x = len(new_list)
+# print(NerlnetPyAPI.settings.x)
 
 
 def clientsTraining():

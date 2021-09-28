@@ -132,6 +132,7 @@ idle(cast, {init,CONFIG}, State = #client_statem_state{msgCounter = Counter}) ->
 idle(cast, {statistics}, State = #client_statem_state{ myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
   http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++"#"++integer_to_list(Counter))),
+
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
 idle(cast, {training}, State = #client_statem_state{workersMap = WorkersMap, myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
