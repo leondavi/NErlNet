@@ -86,7 +86,7 @@ handle_cast({clientsTraining,Body}, State = #main_genserver_state{state = castin
   io:format("Body:~p~n",[Body]),
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
-handle_cast({clientsTraining,Body}, State = #main_genserver_state{clients = ListOfClients, connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
+handle_cast({clientsTraining, _Body}, State = #main_genserver_state{clients = ListOfClients, connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
   io:format("main server: setting all clients on training state: ~p~n",[ListOfClients]),
 %%  io:format("Body:~p~n",[Body]),
@@ -117,7 +117,7 @@ handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, clients =
 
 %%get Statistics from all Entities in the network
 handle_cast({statistics,Body}, State = #main_genserver_state{statisticsCounter = StatisticsCounter, connectionsMap = ConnectionMap,statisticsMap = StatisticsMap,msgCounter = MsgCounter}) ->
-  io:format("Body:~n~p~n",[Body]),
+%%  io:format("Body:~n~p~n",[Body]),
 
   if Body == <<"getStatistics">> ->
         [findroutAndsendStatistics(Name,ConnectionMap)||{Name,_Counter}<-maps:to_list(StatisticsMap)],
@@ -130,10 +130,13 @@ handle_cast({statistics,Body}, State = #main_genserver_state{statisticsCounter =
         NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap,statisticsCounter = StatisticsCounter-1},
 
       if StatisticsCounter == 2 ->
-            io:format("new Statistics Map:~n~p~n",[NewStatisticsMap]),
-            ack(ConnectionMap),
+            Statistics = maps:to_list(NewStatisticsMap),
+            StatisticsList = lists:flatten(io_lib:format("~w",[Statistics])),",",[{return,list}],
+        io:format("new Statistics Map:~n~p~n",[StatisticsList]),
+
+        ack(ConnectionMap),
             {RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-            http_request(RouterHost,RouterPort,"statistics", maps:to_list(NewStatisticsMap));
+            http_request(RouterHost,RouterPort,"", "statistics#" ++ StatisticsList);
           true ->
             ok
         end
@@ -214,15 +217,17 @@ handle_cast({stopCasting,Source_Names}, State = #main_genserver_state{state = ca
   http_request(RouterHost,RouterPort,"stopCasting", Source_Names),
   {noreply, State#main_genserver_state{state = idle,msgCounter = MsgCounter+1}};
 
+handle_cast({lossFunction,<<>>}, State = #main_genserver_state{msgCounter = MsgCounter}) ->
+  {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 handle_cast({lossFunction,Body}, State = #main_genserver_state{connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
 %%  io:format("got loss function:- ~p~n",[Body]),
-  [WorkerName|LossFunction]=re:split(binary_to_list(Body), "#", [{return, list}]),
+%%  [WorkerName|LossFunction]=re:split(binary_to_list(Body), "#", [{return, list}]),
 
-  file:write_file("./output/"++WorkerName, LossFunction++"\n", [append]),
+  {RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
+  http_request(RouterHost,RouterPort,"", "lossFunction#"++ binary_to_list(Body)),
+%%  file:write_file("./output/"++WorkerName, LossFunction++"\n", [append]),
 
-%%TODO add send to serverAPI
-%%  {RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-%%  http_request(RouterHost,RouterPort,"lossFunction", Body),
+
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
 handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSize, connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
