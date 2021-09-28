@@ -28,7 +28,7 @@ prerequisite:
 8. Update cppSANN submodule ```git submodule update --init --recursive```
 
 # Building Nerlnet:
-```./build.sh``` to build the project. 
+```./build.sh``` to build the project and run main server. 
 
 
 This project uses C++11 Wrapper for Erlang NIF API (NIFPP: https://github.com/goertzenator/nifpp). 
