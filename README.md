@@ -7,8 +7,8 @@
 </p>
 
 Distributed Machine Learning Platform. 
-The communication is based on Erlang VM.
-Neural Network implementation is based on cppSANN library. 
+The communication is based on Cowboy http web server and Erlang VM. .
+Neural Network implementation is based on cppSANN library (will be replaced by opennn). 
 
 Youtube link:https://youtu.be/wSG8nbs1GQY
 https://www.youtube.com/watch?v=Y9xT4foxwpY&feature=youtu.be
