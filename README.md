@@ -6,8 +6,8 @@
   <img src="Nerlnet_logo.jpg" width="350" title="NerlNet">
 </p>
 
-Distributed Machine Learning Platform. 
-The communication is based on Cowboy http web server and Erlang VM. .
+Distributed Machine Learning open source Platform. 
+The communication is based on Cowboy http web server and Erlang VM.
 Neural Network implementation is based on cppSANN library (will be replaced by opennn). 
 
 Youtube link:https://youtu.be/wSG8nbs1GQY
