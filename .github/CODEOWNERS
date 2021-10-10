@@ -1,5 +1,7 @@
 /src_erl/    @kapelnik @zivmo99 @leondavi
-/src_cpp/    @zivmo99 @leondavi 
+/src_cpp/cppBridge        @zivmo99 @leondavi 
+/src_cpp/opennnBridge/    @leondavi @dordor7 @evgenyan95
+/src_cpp                  @leondavi
 /src_py/     @kapelnik @zivmo99 @leondavi
 /.github/    @leondavi
 /src_py/apiServer/  @leondavi @kapelnik @Aslanso
