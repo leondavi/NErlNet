@@ -40,6 +40,7 @@
 #include <deque>
 #include <set>
 #include <unordered_set>
+#include <memory>
 #if NIFPP_HAS_MAPS
 #include <map>
 #include <unordered_map>
