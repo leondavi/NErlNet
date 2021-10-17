@@ -1,6 +1,6 @@
 
 
-#include "include/niftest.h"
+#include "include/niftest.h" // example of how to use nif
 /*#include <vector>
 #include <deque>
 #include "Eigen/Core"
