@@ -7,6 +7,12 @@
 #include <string>
 #include "ModelParams.h"
 
+#include "Eigen/Core"
+#include "unsupported/Eigen/CXX11/Tensor"
+#include "opennn.h"
+
+using namespace OpenNN;
+
 #define DEBUG_CREATE_NIF 0
 
 static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
