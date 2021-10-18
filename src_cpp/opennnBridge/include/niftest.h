@@ -1,15 +1,17 @@
 #pragma once 
 
 //#include <iostream>
+#include "convert.h"
 #include "nifpp.h"
 #include <erl_nif.h>
 #include <vector>
 #include <string>
 #include "ModelParams.h"
 
-#include "Eigen/Core"
-#include "unsupported/Eigen/CXX11/Tensor"
-#include "opennn.h"
+//#include "Eigen/Core"
+//#include "unsupported/Eigen/CXX11/Tensor"
+#include <eigen3/Eigen/Core>
+#include "../../opennn/opennn/opennn.h"
 
 using namespace OpenNN;
 
@@ -17,12 +19,34 @@ using namespace OpenNN;
 
 static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    //Tensor<Index, 1> neural_network_architecture(3);
+    //neural_network_architecture.setValues({1, 3, 1});
+    ModelParams modelParamsInst;
     try{
-         ModelParams modelParamsInst;
-         //std::vector<int> activation_list1;
-         nifpp::get_throws(env,argv[0],*(modelParamsInst.GetAcvtivationList()));
-         //nifpp::get_throws(env,argv[1],modelParamPtr.model_type); TODO
-        }
+         //ModelParams modelParamsInst;
+         //nifpp::get_throws(env,argv[0],*(modelParamsInst.GetAcvtivationList()));
+         nifpp::get_throws(env,argv[1],modelParamsInst._modelType); //TODO
+         nifpp::get_throws(env,argv[2],*(modelParamsInst.GetLayersSizes()));
+
+         Tensor<Index, 1> neural_network_architecture = convert::Vector_to_Tensor(*(modelParamsInst.GetLayersSizes()));
+
+         
+         if (modelParamsInst._modelType == 1){          
+             NeuralNetwork neural_network(NeuralNetwork::Approximation,neural_network_architecture);              
+         }                                                           
+         else if(modelParamsInst._modelType == 2){      
+             NeuralNetwork neural_network(NeuralNetwork::Classification,neural_network_architecture);               
+         }                                                           
+         else if(modelParamsInst._modelType == 3){         
+             NeuralNetwork neural_network(NeuralNetwork::Forecasting,neural_network_architecture);     
+         }           
+    }                                                                
+            
+    
+   
+
+
+        
     catch(nifpp::badarg){
             return enif_make_badarg(env);
      }
