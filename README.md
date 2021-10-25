@@ -6,9 +6,9 @@
   <img src="Nerlnet_logo.jpg" width="350" title="NerlNet">
 </p>
 
-Distributed Machine Learning Platform. 
-The communication is based on Erlang VM.
-Neural Network implementation is based on cppSANN library. 
+Distributed Machine Learning open source Platform. 
+The communication is based on Cowboy http web server and Erlang VM.
+Neural Network implementation is based on cppSANN library (will be replaced by opennn). 
 
 Youtube link:https://youtu.be/wSG8nbs1GQY
 https://www.youtube.com/watch?v=Y9xT4foxwpY&feature=youtu.be
@@ -28,7 +28,7 @@ prerequisite:
 8. Update cppSANN submodule ```git submodule update --init --recursive```
 
 # Building Nerlnet:
-```./build.sh``` to build the project. 
+```./build.sh``` to build the project and run main server. 
 
 
 This project uses C++11 Wrapper for Erlang NIF API (NIFPP: https://github.com/goertzenator/nifpp). 
