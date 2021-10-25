@@ -32,9 +32,10 @@ cmake instructions:
 
 1. install cmake 
 2. create build directory ```mkdir build``` 
-3. call ```cmake -B build```
+3. Release Build: ```cmake -S . -B build/release -DCMAKE_BUILD_TYPE=RELEASE```
 4. ```cd build```
 5. ```make -j4```
+6. Debug Build: ```cmake -S . -B build/debug -DCMAKE_BUILD_TYPE=DEBUG```
 
 
 # Building Nerlnet:
