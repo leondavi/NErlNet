@@ -5,7 +5,7 @@
 //#include <unsupported/Eigen/CXX11/Tensor>
 namespace convert
 {
-
+/*
 // convert from Tensor to Matrix start ------------------------------------------------------------------------------------------------
 template<typename T>
 using  MatrixType = Eigen::Matrix<T,Eigen::Dynamic, Eigen::Dynamic>;
@@ -18,7 +18,7 @@ MatrixType<Scalar> Tensor_to_Matrix(const Eigen::Tensor<Scalar,rank> &tensor,con
 // convert from Tensor to Matrix end------------------------------------------------------------------------------------------------
 
 
-/*
+
 // convert from Matrix to Tensor start ------------------------------------------------------------------------------------------------
 template<typename Scalar, typename... Dims>
 Eigen::Tensor<Scalar, Eigen::Index> Matrix_to_Tensor(const MatrixType<Scalar> &matrix, Dims... dims)
