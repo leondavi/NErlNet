@@ -7,18 +7,13 @@
   ],
   "devices": [
     {
-      "host": "localhost",
-      "entities": "serverAPI",
-      "port": "8095"
-    },
-    {
       "host": "127.0.0.1",
       "entities": "mainServer,c1,f1,s1,r1"
     }
   ],
   "serverAPI": [
     {
-      "host": "localhost",
+      "host": "127.0.0.1",
       "port": "8095",
       "args": ""
     }
@@ -79,7 +74,9 @@
   "sources": [
     {
       "name": "s1",
-      "port": "8091"
+      "port": "8091",
+      "method": "1",
+      "COMMENTS": "method allowed: '1': sends each exapme to all clients listed, '2': round robin between all clients"
     }
   ],
   "routers": [

@@ -232,7 +232,8 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{connectionsMap = 
 
 handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSize, connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
   % [InputName,[ResultID],Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
-  [InputName,BatchID,Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
+  {InputName,BatchID,Result}=binary_to_term(Body),
+%%  [InputName,BatchID,Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
   if (Result==[]) ->
         ListOfResults = ["error"||_<-lists:seq(1,BatchSize)];
       true ->
@@ -352,9 +353,9 @@ startCasting([SourceName|SourceNames],NumOfSampleToSend,ConnectionMap)->
 
 ack(PortMap) ->
   io:format("sending ACK to serverAPI"),
-%%  {RouterHost,RouterPort} = maps:get(serverAPI,PortMap),
+  {RouterHost,RouterPort} = maps:get(serverAPI,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
-  http_request("localhost",8095,"ack","ack"). %TODO fix and remove magic number
+  http_request(RouterHost,RouterPort,"ack","ack"). %TODO fix and remove magic number
 
 getCSVName(InputName) ->
   lists:last(re:split(InputName, "/", [{return, list}])--[[]]).
@@ -362,7 +363,7 @@ getCSVName(InputName) ->
 
 %%this function takes a batch of samples, calculate the samples id and writes them to a file
 writeToFile(ListOfSamples,BatchID,CSVName,BatchSize)->
-  StartID = list_to_integer(BatchID)*BatchSize,
+  StartID = BatchID*BatchSize,
   SampleSize = round(length(ListOfSamples)/BatchSize),
   writeSamplesToFile(ListOfSamples,StartID,CSVName,SampleSize).
 
