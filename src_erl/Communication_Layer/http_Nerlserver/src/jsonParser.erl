@@ -165,6 +165,15 @@ getConnectionMap(Name,ArchMap) ->
   buildConnectionMap(Name,ConnectionsList,ArchMap, #{}).
 
 buildConnectionMap(_Name,[],_ArchMap, ConnectionMap) -> ConnectionMap;
+
+buildConnectionMap(Name,[{<<"serverAPI">>,_Name}|Entities],ArchMap, ConnectionMap) ->
+  [ServerAPIMap] = maps:get(<<"serverAPI">>,ArchMap),
+  io:format("ServerAPIMap ~p~n",[ServerAPIMap]),
+  EntityHost = binary_to_list(maps:get(<<"host">>,ServerAPIMap)),
+  EntityPort = list_to_integer(binary_to_list(maps:get(<<"port">>, ServerAPIMap))),
+  buildConnectionMap(Name,Entities,ArchMap, ConnectionMap#{serverAPI => {EntityHost,EntityPort}});
+
+
 buildConnectionMap(Name,[{EntityName,Name}|Entities],ArchMap, ConnectionMap) ->
   EntityHost = getHost(maps:get(<<"devices">>,ArchMap),EntityName),
   EntityPort = getPortUnknown(ArchMap,EntityName),%%  EntityHost = getHost(maps:get(<<"devices">>,ArchMap),RouterName),
