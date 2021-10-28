@@ -1,5 +1,5 @@
 -module(erlModule).
-
+-define(NIF_SO_PATH,"src_cpp/cppBridge/libNerlNIF").
 %% API
 -export([testMatrix/2,cppBridgeController/0,cppBridgeControllerGetModelPtr/1 ,cppBridgeControllerSetData/1,
 	 create_module/6, train2double/6, predict2double/7, niftest/6, thread_create_test/0,
@@ -16,7 +16,7 @@ init() ->
 	RelativeDirPath = filename:dirname(filename:dirname(filename:absname(""))), % NErlNet directory path
 	RelativeDirPathNew = string:sub_string(RelativeDirPath, 1, length(RelativeDirPath)-7),
 	%Nif_Module_Cpp_Path = string:concat(RelativeDirPathNew,"NErlNet/src_cpp/cppBridge/libNerlNIF"), % Relative path for nifModule_nif
-	Nif_Module_Cpp_Path = string:concat(RelativeDirPathNew,"src_cpp/cppBridge/libNerlNIF"), % Relative path for nifModule_nif
+	Nif_Module_Cpp_Path = string:concat(RelativeDirPathNew,?NIF_SO_PATH), % Relative path for nifModule_nif
 
 	% io:fwrite("Nif_Module_Cpp_Path: ~p ~n",[Nif_Module_Cpp_Path]),
 	%% load_info is the second argument to erlang:load_nif/2

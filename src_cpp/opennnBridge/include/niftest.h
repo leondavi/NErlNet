@@ -34,8 +34,17 @@ enum LayerType {scaling = 1, convolutional = 2 , perceptron = 3 , pooling = 4 , 
                 longShortTermMemory = 6 , recurrent = 7 , unscaling = 8 , bounding = 9 };
 
 
+
+static ERL_NIF_TERM jello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+        std::cout << "jello";
+        return enif_make_string(env, "Hello world @@@!", ERL_NIF_LATIN1);
+
+}
+
 static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    std::cout << "bad arg1234";
     //Tensor<Index, 1> neural_network_architecture(3);
     //neural_network_architecture.setValues({1, 3, 1});
     ModelParams modelParamsInst;
@@ -46,11 +55,12 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     try{
          //ModelParams modelParamsInst;
-         nifpp::get_throws(env,argv[1],modelParamsInst._modelId);
-         nifpp::get_throws(env,argv[2],modelParamsInst._modelType); 
+
+      //   nifpp::get_throws(env,argv[1],modelParamsInst._modelId);
+        // nifpp::get_throws(env,argv[2],modelParamsInst._modelType); 
          nifpp::get_throws(env,argv[3],*(modelParamsInst.GetLayersSizes()));
-         nifpp::get_throws(env,argv[4],*(modelParamsInst.GetLayersTypes()));
-         nifpp::get_throws(env,argv[5],*(modelParamsInst.GetAcvtivationList())); // list of activation functions
+        // nifpp::get_throws(env,argv[4],*(modelParamsInst.GetLayersTypes()));
+        // nifpp::get_throws(env,argv[5],*(modelParamsInst.GetAcvtivationList())); // list of activation functions
          
 
 
@@ -108,8 +118,13 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          // Put the model record to the map with modelId
          s->setData(modelPtr, modelParamsInst._modelId);      
     }   
-    catch(nifpp::badarg){
-            return enif_make_badarg(env);
+    //catch(nifpp::badarg){
+     //       std::cout << "bad arg123";
+     //       return enif_make_badarg(env);
+    // }
+     catch(...){
+            std::cout << "bad arg1235";
+            //return enif_make_badarg(env);
      }                                                             
             
     } //end CREATE mode
@@ -118,11 +133,8 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 
     }
-
-        
     
-    
-    return enif_make_string(env, "Hello world!", ERL_NIF_LATIN1);
+    return enif_make_string(env, "Hello world! @@@@@", ERL_NIF_LATIN1);
 /*
 #if DEBUG_CREATE_NIF
             std::cout << "Optimizers::opt_t optimizer: " << optimizer << '\n';
@@ -136,7 +148,8 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 static ErlNifFunc nif_funcs[] =
 {
-    {"hello", 0, hello}
+    {"hello", 1, hello}
+   // {"jello", 1, jello}
 };
 
 // TODO: Think about using this feature in the future

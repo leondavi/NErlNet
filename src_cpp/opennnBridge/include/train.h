@@ -42,7 +42,7 @@ static void* trainFun(void *arg){
     int FeaturesAndLabels = trainPtr->col+trainPtr->labels; // Number of columns in total
     data_mat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(trainPtr->data_label_mat.data(), trainPtr->rows, trainPtr->col,Stride<Dynamic,Dynamic>(1, FeaturesAndLabels));
     label_mat = Map<MatrixXd,0, Stride<Dynamic,Dynamic>>(&trainPtr->data_label_mat[trainPtr->col], trainPtr->rows, trainPtr->labels,Stride<Dynamic,Dynamic>(1, FeaturesAndLabels));
-
+    
     
 
      // Start the timer for the training in cppSANN
