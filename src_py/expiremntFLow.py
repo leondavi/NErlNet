@@ -9,7 +9,7 @@ def startCastingStack():
     new_list = [('http://127.0.0.1:8080/startCasting', "s1,s2")]
     return new_list
 
-def initPredict():
+def initPredictStack():
     new_list = [('http://127.0.0.1:8080/updateCSV', "s1,w1,./input/RunOrWalkPredictNolabels_splitted/"),
                 ('http://127.0.0.1:8080/clientsPredict', "")]
     return new_list

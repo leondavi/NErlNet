@@ -132,6 +132,7 @@ idle(cast, {init,CONFIG}, State = #client_statem_state{msgCounter = Counter}) ->
 idle(cast, {statistics}, State = #client_statem_state{ myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
   http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++"#"++integer_to_list(Counter))),
+
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
 idle(cast, {training}, State = #client_statem_state{workersMap = WorkersMap, myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
@@ -192,13 +193,15 @@ training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,m
 training(cast, {loss,WorkerName,nan}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
 %%   io:format("LossFunction1: ~p   ~n",[LossFunction]),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
-  http_request(RouterHost,RouterPort,"lossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,<<"nan">>])),
+  http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,"nan"})),
+%%  http_request(RouterHost,RouterPort,"lossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,<<"nan">>])),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, {loss,WorkerName,LossFunction}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
    io:format("WorkerName: ~p , LossFunction1: ~p   ~n",[WorkerName, LossFunction]),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
-  http_request(RouterHost,RouterPort,"lossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,float_to_binary(LossFunction)])),
+  http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,LossFunction})),
+%%  http_request(RouterHost,RouterPort,"lossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,float_to_binary(LossFunction)])),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 
@@ -269,9 +272,8 @@ predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,w
 
 predict(cast, {predictRes,InputName,ResultID,[]}, State = #client_statem_state{msgCounter = Counter,portMap = PortMap}) ->
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
-
-  http_request(RouterHost,RouterPort,"predictRes", list_to_binary([list_to_binary(InputName),<<"#">>,integer_to_binary(ResultID),<<"#">>,""])),
-
+  http_request(RouterHost,RouterPort,"predictRes", term_to_binary({InputName,ResultID,""})),
+%%  http_request(RouterHost,RouterPort,"predictRes", list_to_binary([list_to_binary(InputName),<<"#">>,integer_to_binary(ResultID),<<"#">>,""])),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, {predictRes,InputName,ResultID,Result}, State = #client_statem_state{msgCounter = Counter,portMap = PortMap}) ->
@@ -279,7 +281,8 @@ predict(cast, {predictRes,InputName,ResultID,Result}, State = #client_statem_sta
   Result2 = lists:flatten(io_lib:format("~w",[Result])),",",[{return,list}],
   Result3 = lists:sublist(Result2,2,length(Result2)-2),
   % io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
-  http_request(RouterHost,RouterPort,"predictRes", list_to_binary([list_to_binary(InputName),<<"#">>,integer_to_binary(ResultID),<<"#">>,Result3])),
+  http_request(RouterHost,RouterPort,"predictRes", term_to_binary({InputName,ResultID,Result3})),
+%%  http_request(RouterHost,RouterPort,"predictRes", list_to_binary([list_to_binary(InputName),<<"#">>,integer_to_binary(ResultID),<<"#">>,Result3])),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName,portMap = PortMap,msgCounter = Counter}) ->
