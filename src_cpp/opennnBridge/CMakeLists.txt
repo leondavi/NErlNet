@@ -9,6 +9,7 @@ message("-- [OPENNN_BRIDGE] Eigen Include Directory: ${EIGEN3_INCLUDE_DIR}")
 
 set(SRC_CODE 
 	"include/nifpp.h"
+	"include/nifppEigenExtensions.h"
 	"tmp.cpp")
 add_library(${PROJECT_NAME} STATIC ${SRC_CODE})
 
