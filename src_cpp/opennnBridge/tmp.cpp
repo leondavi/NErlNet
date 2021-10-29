@@ -1,9 +1,5 @@
 
-#include "include/nifpp.h"
-#include <vector>
-#include <deque>
-#include "Eigen/Core"
-#include "unsupported/Eigen/CXX11/Tensor"
+#include "include/nifppEigenExtensions.h"
 #include "opennn.h"
 
 using namespace OpenNN;
