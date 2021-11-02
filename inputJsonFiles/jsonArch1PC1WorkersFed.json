@@ -1,16 +1,11 @@
 {
   "NerlNetSettings": [
   {
-    "frequency": "20",
-    "batchSize": "10"
+    "frequency": "30",
+    "batchSize": "100"
   }
   ],
   "devices": [
-    {
-      "host": "localhost",
-      "entities": "serverAPI",
-      "port": "8095"
-    },
     {
       "host": "127.0.0.1",
       "entities": "mainServer,c1,f1,s1,r1"
@@ -18,7 +13,7 @@
   ],
   "serverAPI": [
     {
-      "host": "localhost",
+      "host": "127.0.0.1",
       "port": "8095",
       "args": ""
     }
@@ -36,35 +31,21 @@
       "modelId": "0",
       "FederatedMode": "1",
       "CountLimit": "10",
-      "LayersSizes": "[561,250,125,60,30,15,6]",
-      "LearningRate":"0.001",
+      "LayersSizes": "[6,3,2,1]",
+      "LearningRate":"0.0001",
       "_comment1": "Activation functions explain: 0- NONE, 1- IDENTITY, 2- SIGMOID, 3- RELU, 4- LEAKY_RELU, 5- SWISH, 6- ELU, 7- TANH, 8- GAUSSIAN, 9- TOTAL",
-      "ActivationFunctions":"[0,2,2,2,2,2,0]",
-      "Features": "561",
-      "Labels": "6",
+      "ActivationFunctions":"[0,2,2,0]",
+      "Features": "6",
+      "Labels": "1",
       "_comment2": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
       "Optimizer":"6"
-    },
-    {
-      "name": "w2",
-      "modelId": "1",
-      "FederatedMode": "1",
-      "CountLimit": "10",
-      "LayersSizes": "[561,250,125,60,30,15,6]",
-      "LearningRate":"0.001",
-      "_comment1": "Activation functions explain: 0- NONE, 1- IDENTITY, 2- SIGMOID, 3- RELU, 4- LEAKY_RELU, 5- SWISH, 6- ELU, 7- TANH, 8- ACT_GAUSSIAN, 9- ACT_TOTAL",
-      "ActivationFunctions":"[0,2,2,2,2,2,0]",
-      "Features": "561",
-      "Labels": "6",
-      "_comment2": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "Optimizer":"6" 
     }
   ],
   "clients": [
     {
       "name": "c1",
       "port": "8081",
-      "workers": "w1,w2",
+      "workers": "w1",
       "federated": "f1"
     }
   ],
@@ -72,14 +53,16 @@
     {
       "name": "f1",
       "port": "8083",
-      "workers": "w1,w2",
-      "counterLimit": "2"
+      "workers": "w1",
+      "counterLimit": "10"
     }
   ],
   "sources": [
     {
       "name": "s1",
-      "port": "8091"
+      "port": "8091",
+      "method": "1",
+      "COMMENTS": "method allowed: '1': sends each exapme to all clients listed, '2': round robin between all clients"
     }
   ],
   "routers": [
