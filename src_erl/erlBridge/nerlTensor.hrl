@@ -1,0 +1,2 @@
+-record(nerlTensor, {x :: integer(), y :: integer(), z :: integer(), data :: list()}).
+-define(nerlTensorAsList(_nerlTensor), [#_nerlTensor.x,#_nerlTensor.y,#_nerlTensor.z]++#_nerlTensor.data).
