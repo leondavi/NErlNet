@@ -15,7 +15,7 @@
 
 %% gen_statem callbacks
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,code_change/4, callback_mode/0]).
-%% Extra functions
+%% Extra functions  
 -export([averageFun/3]).
 %% States functions
 -export([average/3, receives/3]).
@@ -35,7 +35,6 @@
 %% initialize. To ensure a synchronized start-up procedure, this
 %% function does not return until Module:init/1 has returned.
 start_link(ARGS) ->
-  %{ok,Pid} = gen_statem:start_link({local, ?SERVER}, ?MODULE, [], []),
   {ok,Pid} = gen_statem:start_link(?MODULE, ARGS, []),
   Pid.
 
@@ -109,47 +108,26 @@ code_change(_OldVsn, StateName, State = #fedServ_state{}, _Extra) ->
 
 %% State receives
 %% Receives the weights from the client
-receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{first = 1, msgCounter = MsgCounter, buffer = Buffer, counter = Counter, counterLimit =  CounterLimit,myWorkers = Workers,workersMap = WorkersMap,connectionMap =  ConnectionMap}) ->
-  % io:fwrite("receives state\n"),
+receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{first = 1, msgCounter = MsgCounter, buffer = Buffer, counter = Counter, counterLimit =  CounterLimit,myWorkers = _Workers,workersMap = _WorkersMap,connectionMap =  _ConnectionMap}) ->
   NewCount = Counter + 1,
   {_MyName,Weights} = binary_to_term(Ret_weights),
 
   DecodedWeights= decodeListOfLists(Weights),
-%%  io:format("{_MyName,Weights}:~n~p~n",[DecodedWeights]),
-  Cells = [length(X)||X<-remove2Lasts(DecodedWeights)],
+  DecodedWeightsWithout2Last = remove2Lasts(DecodedWeights),
+  Cells = [length(X)||X<-DecodedWeightsWithout2Last],
 
-%%  io:format("decoded weights:~n~p~n",[DecodedWeights]),
-%%  [_MyName,Weights] = re:split(binary_to_list(Ret_weights),"#",[{return,list}]),
-  % io:format("got Weights: ~p~n",[Weights]),
-  % io:format("got NewCount: ~p~n",[NewCount]),
-  % io:format("got CounterLimit: ~p~n",[CounterLimit]),
   TwoLasts = lists:sublist(DecodedWeights,length(DecodedWeights)-1,length(DecodedWeights)),
-%%  io:format("TwoLasts: ~p~n",[TwoLasts]),
 
   if
     NewCount < CounterLimit ->
-
-%%      io:format("FedServer: NewCount < CounterLimit, CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
-
-
       %% Add to the buffer, increment the counter and continue to recieve weights
-      % io:format("Weights: ~p ~n",[Weights]),
-      NewBuffer = lists:flatten(Buffer) ++ lists:flatten(remove2Lasts(DecodedWeights)),
-%%      io:format("NewBuffer1: ~p ~n",[NewBuffer]),
-
+      NewBuffer = Buffer ++ lists:flatten(DecodedWeightsWithout2Last),
       {next_state, receives, State#fedServ_state{first = 0,cells = Cells,last2 = TwoLasts, msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
 
     NewCount >= CounterLimit ->
       %% Reset the buffer, decrease the counter by CounterLimit, start averaging in a different process and go to average state
-      % io:fwrite("sending to average.\n"),
       SelfPid = self(),
-      % io:format("self(): ~p~n",[SelfPid]),
-%%      io:format("FedServer: NewCount >= CounterLimit , CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
-
-      _Pid = spawn(fun()-> averageFun(Buffer ++ lists:flatten(remove2Lasts(DecodedWeights)),SelfPid,length(remove2Lasts(DecodedWeights))) end),
-
-
-
+      _Pid = spawn(fun()-> averageFun(Buffer ++ lists:flatten(DecodedWeightsWithout2Last),SelfPid,NewCount) end),
       {next_state, average, State#fedServ_state{first = 0,cells = Cells,last2 = TwoLasts,  msgCounter = MsgCounter+1, counter = NewCount - CounterLimit, buffer = []}};
 
     true ->
@@ -160,43 +138,25 @@ receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{firs
 %% State receives
 %% Receives the weights from the client
 receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgCounter = MsgCounter, buffer = Buffer, counter = Counter, counterLimit =  CounterLimit}) ->
-  % io:fwrite("receives state\n"),
   NewCount = Counter + 1,
   {_MyName,Weights} = binary_to_term(Ret_weights),
-%%  io:format("{_MyName,Weights}:~n~p~n",[Weights]),
 
   DecodedWeights = decodeListOfLists(Weights),
-%  io:format("flatten:~n~p~n",[lists:flatten(remove2Lasts(DecodedWeights))]),
-%%  io:format("decoded weights:~n~p~n",[DecodedWeights]),
-%%  [_MyName,Weights] = re:split(binary_to_list(Ret_weights),"#",[{return,list}]),
-  % io:format("got Weights: ~p~n",[Weights]),
-  % io:format("got NewCount: ~p~n",[NewCount]),
-  % io:format("got CounterLimit: ~p~n",[CounterLimit]),
+  DecodedWeightsWithout2Last = remove2Lasts(DecodedWeights),
 
   if
     NewCount < CounterLimit ->
 
-%%      io:format("FedServer: NewCount < CounterLimit, CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
-
-
-      %% Add to the buffer, increment the counter and continue to recieve weights
-      % io:format("Weights: ~p ~n",[Weights]),
-      NewBuffer = lists:flatten(Buffer) ++ lists:flatten(remove2Lasts(DecodedWeights)),
-%%       io:format("NewBuffer: ~p ~n",[NewBuffer]),
+      %% Add to the buffer, increment the counter and continue to recieve weights    
+      NewBuffer = Buffer ++ lists:flatten(DecodedWeightsWithout2Last),
       {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
 
     NewCount >= CounterLimit ->
+
       %% Reset the buffer, decrease the counter by CounterLimit, start averaging in a different process and go to average state
-      % io:fwrite("sending to average.\n"),
       SelfPid = self(),
-      % io:format("self(): ~p~n",[SelfPid]),
-%%      io:format("FedServer: NewCount >= CounterLimit , CounterLimit: ~p, NewCount: ~p, Curr Buffer: ~p,  Got Weights: ~p, remove2Lasts(Weights): ~p~n",[CounterLimit, NewCount, Buffer, Weights, remove2Lasts(Weights)]),
-      NewBuffer = lists:flatten(Buffer) ++ lists:flatten(remove2Lasts(DecodedWeights)),
-%%      io:format("NewBuffer2 ~p~n",[NewBuffer]),
-%%
-      _Pid = spawn(fun()-> averageFun(NewBuffer,SelfPid,length(remove2Lasts(DecodedWeights))) end),
-
-
+      NewBuffer = Buffer ++ lists:flatten(DecodedWeightsWithout2Last),
+      _Pid = spawn(fun()-> averageFun(NewBuffer,SelfPid,NewCount) end),
 
       {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter = NewCount - CounterLimit, buffer = []}};
     
@@ -211,12 +171,9 @@ receives(cast, {statistics}, State = #fedServ_state{myName = MyName, msgCounter 
   http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++"#"++integer_to_list(MsgCounter))),
   {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1}};
 
-
 receives(cast, Else, State) ->
-  io:fwrite("Error: State receives in cppSANNFedServStateM.erl. Got: ~p\n",[]),
-%%  io:fwrite("Error: State receives in cppSANNFedServStateM.erl. Got: ~p\n",[Else]),
+  io:fwrite("Error: State receives in cppSANNFedServStateM.erl. Got: ~p\n",[Else]),
   {next_state, receives, State}.
-
 
 
 %% State average
@@ -224,11 +181,8 @@ receives(cast, Else, State) ->
 %% Got weights results
 average(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgCounter = MsgCounter, buffer = Buffer, counter = Counter}) ->
   {_MyName,Weights} = binary_to_term(Ret_weights),
-
   DecodedWeights = decodeListOfLists(Weights),
-  NewBuffer = lists:flatten(Buffer) ++ lists:flatten(remove2Lasts(DecodedWeights)),
-%%  io:format("NewBuffer3:~n~p~n",[NewBuffer]),
-
+  NewBuffer = Buffer ++ lists:flatten(remove2Lasts(DecodedWeights)),
   {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter = Counter + 1, buffer = NewBuffer}};
 
 %% Got weights results
@@ -237,8 +191,6 @@ average(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgCo
 
   DecodedWeights = decodeListOfLists(Weights),
   NewBuffer = lists:flatten(remove2Lasts(DecodedWeights)),
-%%  io:format("NewBuffer3:~n~p~n",[NewBuffer]),
-
   {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter = Counter + 1, buffer = NewBuffer}};
 
 %%sending statistics to main server
@@ -248,38 +200,13 @@ average(cast, {statistics}, State = #fedServ_state{myName = MyName, msgCounter =
   {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1}};
 
 
-%%%% Got average results
-%%average(cast, {average, {WeightsList,_Ziv}}, State= #fedServ_state{msgCounter = MsgCounter, last2 = Last2,cells = Cells, myWorkers = Workers,workersMap = WorkersMap,connectionMap = ConnectionMap}) ->
-%%%%   io:fwrite("The average results are: ~p\n",[WeightsList]),
-%%
-%%  Triplets =getHostPort(Workers,WorkersMap,ConnectionMap,[]),
-%%%%  ToSend = encodeBeforeSend(WeightsList,lists:sublist(Cells,length(Cells)-2))++Last2,
-%%  ListsofWeights = getCells(Cells,WeightsList),
-%%%%  io:fwrite("getCells: ~p\n",[ListsofWeights]),
-%%%%  io:fwrite("Last2: ~p\n",[Last2]),
-%%%%  io:fwrite("ListsofWeights++Last2: ~p\n",[ListsofWeights++Last2]),
-%%
-%%  ToSend = encodeListOfLists(ListsofWeights++Last2),
-%%%%  io:fwrite("Fed server at average state, ToSend: ~p, Ziv: ~p \n",[ToSend,Ziv]),
-%%
-%%  _Pid = spawn(fun()-> broadcastWeights(ToSend,Triplets) end),  %% Send the results to the clients through the main server
-%%%%  gen_statem:cast(FedServPID,{averageResult, MyName, WeightsTuple}),TODO add broadcast
-%%  {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1}};
-
 %% Got average results
 average(cast, {average, WeightsList}, State= #fedServ_state{msgCounter = MsgCounter,last2 = Last2,cells = Cells, myWorkers = Workers,workersMap = WorkersMap,connectionMap = ConnectionMap}) ->
-%%   io:fwrite("The average results are: ~p\n",[WeightsList]),
 
   Triplets =getHostPort(Workers,WorkersMap,ConnectionMap,[]),
-%%  ToSend = encodeBeforeSend(WeightsList,lists:sublist(Cells,length(Cells)-2))++Last2,
   ListsofWeights = getCells(Cells,WeightsList),
-%%  io:fwrite("getCells: ~p\n",[ListsofWeights]),
-%%  io:fwrite("Last2: ~p\n",[Last2]),
-%%  io:fwrite("ListsofWeights++Last2: ~p\n",[ListsofWeights++Last2]),
 
   ToSend = encodeListOfLists(ListsofWeights++Last2),
-%%  io:fwrite("Fed server at average state, ToSend:  ~p \n",[ToSend]),
-
   _Pid = spawn(fun()-> broadcastWeights(ToSend,Triplets) end),  %% Send the results to the clients through the main server
 %%  gen_statem:cast(FedServPID,{averageResult, MyName, WeightsTuple}),TODO add broadcast
   {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1}};
@@ -287,23 +214,17 @@ average(cast, {average, WeightsList}, State= #fedServ_state{msgCounter = MsgCoun
 %% Not supposed to be here
 average(cast, _Else, State) ->
   io:fwrite("Error: State average in cppSANNFedServStateM.erl. Got: \n",[]),
-%%  io:fwrite("Error: State average in cppSANNFedServStateM.erl. Got: ~p\n",[Else]),
   {next_state, average, State}.
 
 
 % Functions
 
 %% Do the averaging
-averageFun(WeightsBuffer,CallerPid,WeightsLength) ->
-
+averageFun(WeightsBuffer,CallerPid,WeightsAndBiasNumber) ->
+  % io:fwrite("FedServer, averageFun: WeightsAndBiasNumber: ~p\n", [WeightsAndBiasNumber]),
   % io:fwrite("FedServer, averageFun: WeightsBuffer: ~p\n", [WeightsBuffer]),
-%%  WeightsBufferList = flatEncodedList(WeightsBuffer),
-%   io:fwrite("WeightsBuffer: ~p, length(WeightsBuffer)~p\n", [WeightsBuffer,WeightsLength]),
-
-  AveragedWeights = erlModule:average_weights(WeightsBuffer, WeightsLength),
-  %[Weights|_T] = WeightsBuffer,
-%%  io:fwrite("AveragedWeights at averageFun: ~p.\n",[AveragedWeights]),
-
+  AveragedWeights = erlModule:average_weights(WeightsBuffer, WeightsAndBiasNumber),
+  % io:fwrite("AveragedWeights at averageFun: ~p.\n",[AveragedWeights]),
   gen_statem:cast(CallerPid,{average, AveragedWeights}).
 
 
@@ -322,13 +243,6 @@ http_request(Host, Port,Path, Body)->
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
   httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
 
-
-%%broadcastWeights(WeightsTuple,[Worker|Workers],ConnectionMap) ->
-%%  {RouterHost,RouterPort} = maps:get(Worker,ConnectionMap),
-%%  io:format("@@@@@@@@@@@@@@@@@@@@@@@@@@sending average weights to worker:~p~n",[Worker]),
-%%  http_request(RouterHost,RouterPort,"federatedWeights", list_to_binary([list_to_binary(atom_to_list(Worker)),<<"#">>,<<"asd">>])),
-%%  broadcastWeights(WeightsTuple,Workers,ConnectionMap).
-
 broadcastWeights(BinaryWeights,Triplets) ->
 
   [http_request(RouterHost,RouterPort,"federatedWeights", term_to_binary({ClientName,WorkerName,BinaryWeights}))
@@ -342,37 +256,12 @@ getHostPort([WorkerName|WorkersNames],WorkersMap,PortMap,Ret)->
   getHostPort(WorkersNames,WorkersMap, PortMap,Ret++[{ClientName,WorkerName,RouterHost,RouterPort}]).
 
 remove2Lasts(L)-> lists:sublist(L,length(L)-2).
-%%  Splitted = re:split(L,"%",[{return,list}]),
-%%  Cutted = lists:sublist(Splitted,length(Splitted)-2),
-%%  encodeList(Cutted).
-
-encodeList(L)->[_H|T] = encodeList(L,[]), T.
-encodeList([],L) ->L;
-encodeList([H|T],L)->encodeList(T,L++"%"++H).
-
-flatEncodedList(L)->
-  lists:flatten([[list_to_float(Y)||Y<-re:split(X,"@",[{return,list}])]||X<-re:split(encodeList(L),"%",[{return,list}])]).
 
 getCells(Cells,WeightsList) ->
-%%  io:format("Cells:~p~n",[Cells]),
   getCells(Cells,WeightsList,[]).
 getCells([_Cell],WeightsList,Ret) ->Ret++[WeightsList];
 getCells([Cell|Cells],WeightsList,Ret) ->
 getCells(Cells,lists:sublist(WeightsList,Cell+1,length(WeightsList)),Ret++[lists:sublist(WeightsList,Cell)]).
-%%  io:format("~p~n",[Weights]),
-%%  [length(re:split(X,"@",[{return,list}]))||X<-re:split(Weights,"%",[{return,list}])].
-
-
-encodeBeforeSend(L,Cells)->
-  %  io:format("L  ~p,Cells  ~p~n",[[float_to_list(X)||X<-L],Cells]),
-  encodeBeforeSend([float_to_list(X)||X<-L],Cells,[]).
-encodeBeforeSend([],_Cells,Ret)->Ret;
-encodeBeforeSend(L,[Cells],Ret)->encodeBeforeSend([],Cells,Ret++encodeHelper(lists:sublist(L,length(L)))++"%");
-encodeBeforeSend(L,[Head|Cells],Ret)->encodeBeforeSend(lists:sublist(L,Head+1,length(L)),Cells,Ret++encodeHelper(lists:sublist(L,Head))++"%").
-
-encodeHelper(L)->[_H|T] = encodeHelper(L,[]), T.
-encodeHelper([],L) ->L;
-encodeHelper([H|T],L)->encodeHelper(T,L++"@"++H).
 
 
 %%This encoder receives a lists of lists: [[1.0,1.1,11.2],[2.0,2.1,22.2]] and returns a binary

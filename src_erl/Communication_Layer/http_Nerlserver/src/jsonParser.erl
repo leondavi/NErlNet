@@ -16,6 +16,8 @@ getDeviceEntities(JsonPath,HostName)->
 %%TODO ADD CHECK FOR VALID INPUT:  io:format("~p~n",[jsx:is_json(Data)]),
   %%Decode Json to architecute map:
   ArchitectureMap = jsx:decode(Data,[]),
+  NerlNetSettings = maps:get(<<"NerlNetSettings">>,ArchitectureMap),
+  % NerlNetSettings=nerlNetSettings,
 
   %%  get workers to clients map
   WorkersMap = getWorkersMap(maps:get(<<"clients">>,ArchitectureMap),#{}),
@@ -58,7 +60,7 @@ getDeviceEntities(JsonPath,HostName)->
   io:format("On Device Entities to Open:~nMainServer: ~p~nServerAPI: ~p~nClientsAndWorkers: ~p~nSources: ~p~nRouters: ~p~n Federated Servers: ~p~n",
                                       [MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds]),
 
-  {MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds}.
+  {MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds,NerlNetSettings}.
 
 
 
@@ -163,6 +165,15 @@ getConnectionMap(Name,ArchMap) ->
   buildConnectionMap(Name,ConnectionsList,ArchMap, #{}).
 
 buildConnectionMap(_Name,[],_ArchMap, ConnectionMap) -> ConnectionMap;
+
+buildConnectionMap(Name,[{<<"serverAPI">>,_Name}|Entities],ArchMap, ConnectionMap) ->
+  [ServerAPIMap] = maps:get(<<"serverAPI">>,ArchMap),
+  io:format("ServerAPIMap ~p~n",[ServerAPIMap]),
+  EntityHost = binary_to_list(maps:get(<<"host">>,ServerAPIMap)),
+  EntityPort = list_to_integer(binary_to_list(maps:get(<<"port">>, ServerAPIMap))),
+  buildConnectionMap(Name,Entities,ArchMap, ConnectionMap#{serverAPI => {EntityHost,EntityPort}});
+
+
 buildConnectionMap(Name,[{EntityName,Name}|Entities],ArchMap, ConnectionMap) ->
   EntityHost = getHost(maps:get(<<"devices">>,ArchMap),EntityName),
   EntityPort = getPortUnknown(ArchMap,EntityName),%%  EntityHost = getHost(maps:get(<<"devices">>,ArchMap),RouterName),
