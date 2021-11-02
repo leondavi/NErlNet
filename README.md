@@ -28,14 +28,13 @@ prerequisite:
 8. Update cppSANN submodule ```git submodule update --init --recursive```
 
 
-cmake instructions: 
+Build Instructions (OpennnNIF): 
 
-1. install cmake 
-2. create build directory ```mkdir build``` 
-3. Release Build: ```cmake -S . -B build/release -DCMAKE_BUILD_TYPE=RELEASE```<br>
+1. install cmake  
+2. Release Build: ```cmake -S . -B build/release -DCMAKE_BUILD_TYPE=RELEASE```<br>
    Debug Build: ```cmake -S . -B build/debug -DCMAKE_BUILD_TYPE=DEBUG```
-4. ```cd build/<debug/release>```
-5. ```make -j4```
+3. ```cd build/<debug/release>```
+4. ```make -j4```
 
 
 # Building Nerlnet:
