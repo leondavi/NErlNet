@@ -9,12 +9,12 @@
 -define(BUILD_TYPE,"release").
 -endif. 
 
--define(ERL_SRC_DIR,"src_erl").
+-define(THIS_FILE_RELATIVE_TO_PROJECT_ROOT,"src_erl"). % if this file moves to inner place than update this define
 -on_load(init/0).
 
 init() ->
       {_,CWD} = file:get_cwd(), 
-      CWD_UPPER_DIR = re:replace(CWD,"/"++?ERL_SRC_DIR,"",[{return,list}]),
+      CWD_UPPER_DIR = re:replace(CWD,"/"++?THIS_FILE_RELATIVE_TO_PROJECT_ROOT,"",[{return,list}]),
       FULL_PATH = CWD_UPPER_DIR++"/build/"++?BUILD_TYPE++"/libnerlnet",
       io:format("~p",[FULL_PATH]),
       erlang:load_nif(FULL_PATH, 0),
