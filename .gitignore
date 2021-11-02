@@ -4,6 +4,7 @@
 /lib/*.so
 *.o
 *.csv
+*.orig
 /src_py/.sconsign.dblite
 /cmake-build-debug
 /out

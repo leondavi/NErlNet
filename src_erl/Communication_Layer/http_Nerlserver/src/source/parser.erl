@@ -1,3 +1,4 @@
+
 %%%-------------------------------------------------------------------
 %%% @author kapelnik
 %%% @copyright (C) 2021, <COMPANY>
@@ -10,57 +11,88 @@
 -author("kapelnik").
 
 %% API
--export([parse_file/2]).
+-export([parse/2]).
 
+
+
+%%use this decoder to decode one line after parsing
+%%    decodeList(Binary)->  decodeList(Binary,[]).
+%%    decodeList(<<>>,L) -> L;
+%%    decodeList(<<A:64/float,Rest/binary>>,L) -> decodeList(Rest,L++[A]).
+
+%%this parser takes a CSV folder containing chunked data, parsing into a list of binary.
+%%each record in the line is a batch of samples
+parse(ChunkSize,FolderName)->
+%%  FolderName="./../input/shuffled-input1_splitted/",
+  parse_all(ChunkSize,FolderName,1,[]).
+
+
+parse_all(ChunkSize,FolderName,Counter,Ret)->
+  try   parse_file(ChunkSize,FolderName++integer_to_list(Counter)++".csv") of
+    L ->
+      parse_all(ChunkSize,FolderName,Counter+1,Ret++L)
+  catch
+    error: _->Ret
+  end.
 
 %%parsing a given CSV file
-parse_file(File_Address,ChunkSize) ->
+parse_file(ChunkSize,File_Address) ->
+
+%%  io:format("File_Address:~p~n~n",[File_Address]),
 
   {ok, Data} = file:read_file(File_Address),%%TODO change to File_Address
-  CSVlist = parse(Data),
-%%  io:format("~p~n",[CSVlist]),
-  Chunked= makeChunks(CSVlist,ChunkSize,ChunkSize,[],[]),
-%%  io:format("~p~n~n~n~n~n~n~n~n~n~n~n~n~n~n~n~n~n~n~n~n~n~n",[Chunked]),
+  Lines = re:split(Data, "\r|\n|\r\n", [{return,binary}] ),
+
+%%  get binary lines
+  ListsOfListsOfFloats = encodeListOfLists(Lines),
+
+%%chunk data
+  Chunked= makeChunks(ListsOfListsOfFloats,ChunkSize,ChunkSize,<<>>,[]),
+%%  io:format("Chunked!~n",[]),
+%%%%  Decoded = decodeListOfLists(Chunked ),
 %%
-%%    A = divide(CSVlist,ChunkSize),
-  [append2(X)||X<-Chunked].
+%%  io:format("Decoded!!!: ~n",[]),
+  Chunked.
+
+encodeListOfLists(L)->encodeListOfLists(L,[]).
+encodeListOfLists([],Ret)->
+  Ret;
+encodeListOfLists([[<<>>]|Tail],Ret)->
+  encodeListOfLists(Tail,Ret);
+encodeListOfLists([Head|Tail],Ret)->
+  encodeListOfLists(Tail,Ret++[encodeFloatsList(Head)]).
 
 
-parse(Data) ->
-  Lines = re:split(Data, "\r|\n|\r\n", [] ),
-  [ [begin
-       case  re:split(Token, "\"", [] ) of
-         [_,T,_] -> T;
-         [T] ->binary_to_list(T);  %%if token is not surrounded by ""
-%%                                  io:format("~p~n",[A]),A;
-         [] -> <<"">>
-       end
-     end || Token <- re:split(Line, ",", [] ) ] || Line <- Lines, Line =/= <<"">>].
+%%return a binary representing a list of floats: List-> <<binaryofthisList>>
+encodeFloatsList(L)->
+  Splitted = re:split(binary_to_list(L), ",", [{return,list}]),
+  encodeFloatsList(Splitted,<<>>).
+encodeFloatsList([],Ret)->Ret;
+encodeFloatsList([<<>>|ListOfFloats],Ret)->
+  encodeFloatsList(ListOfFloats,Ret);
+encodeFloatsList([[]|ListOfFloats],Ret)->
+  encodeFloatsList(ListOfFloats,Ret);
+encodeFloatsList([H|ListOfFloats],Ret)->
+  try list_to_float(H) of
+    Float->
+      encodeFloatsList(ListOfFloats,<<Ret/binary,Float:64/float>>)
+  catch
+    error:_Error->
+      Integer = list_to_integer(H),
+      encodeFloatsList(ListOfFloats,<<Ret/binary,Integer:64/float>>)
+
+  end.
 
 
+
+
+
+makeChunks(L,1,1,_,_) ->L;
 makeChunks([],_Left,_ChunkSize,Acc,Ret) ->
   Ret++[Acc];
 
 makeChunks([Head|Tail],1,ChunkSize,Acc,Ret) ->
-  makeChunks(Tail,ChunkSize,ChunkSize,[],Ret++[Acc++[Head]]);
+  makeChunks(Tail,ChunkSize,ChunkSize,<<>>,Ret++[<<Acc/binary,Head/binary>>]);
 
 makeChunks([Head|Tail],Left,ChunkSize,Acc,Ret) ->
-  makeChunks(Tail,Left-1,ChunkSize,Acc++[Head],Ret).
-
-append2(List) -> append2(List,[]).
-append2([], Acc) ->
-  string:join([[X] || X <- Acc], ",");
-%%  makeString(Acc);
-%%                    io:format("~p~n",[A]),A;
-append2([H|T],Acc) -> append2(T, H ++ Acc).
-
-%%makeString([Head|Tail]) -> makeString(Tail,Head).
-%%makeString([Head],Ret) ->
-%%  A = string:concat(Ret,Head),
-%%  io:format("~p~n",[A]),A;
-%%makeString([Head|Tail],Acc) ->
-%%  Acc2=string:concat(Acc,","),
-%%%%  io:format("~p~n",[Acc2]),
-%%%%  io:format("~p~n",[binary_to_list(Head)]),
-%%
-%%  makeString(Tail,string:concat(Acc2,Head)).
+  makeChunks(Tail,Left-1,ChunkSize,<<Acc/binary,Head/binary>>,Ret).

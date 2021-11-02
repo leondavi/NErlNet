@@ -4,11 +4,18 @@
 
 -on_load(init/0).
 
+-define(DEBUG,false). % set here if it is debug or release  TODO change to read from hrl auto generated file
+-ifdef(DEBUG).
+-define(BUILD_TYPE,"debug").
+-else.
+-define(BUILD_TYPE,"release").
+-endif. 
+
 init() ->
-      io:format("reached init"),
-      erlang:load_nif("/home/evgeny/work_test/NErlNet/build/libnerlnet", 0),
-      io:format("after init").
-%jello() ->
+      {_,CWD} = file:get_cwd(), 
+      FULL_PATH = CWD ++ "/../build/"++?BUILD_TYPE++"/libnerlnet",
+      erlang:load_nif(FULL_PATH, 0),
+      ok.
       % io:format("hello"),
       %hello("hello").
       %erlang:hello().

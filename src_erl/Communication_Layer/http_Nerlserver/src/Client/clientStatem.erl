@@ -67,24 +67,35 @@ init({MyName,Federated,Workers,ConnectionsMap}) ->
 
 createWorkers([],_ClientPid,WorkersNamesPids) ->WorkersNamesPids;
 createWorkers([Worker|Workers],ClientPid,WorkersNamesPids) ->
-  FederatedMode="1", CountLimit="10",
-
+  %  FederatedMode="1", CountLimit="10",
+  io:format("Start create workers"),
+  CountLimit = binary_to_list(maps:get(<<"CountLimit">>,Worker)),
+  FederatedMode = binary_to_list(maps:get(<<"FederatedMode">>,Worker)),
   WorkerName = list_to_atom(binary_to_list(maps:get(<<"name">>,Worker))),
-  CppSANNArgsBinary = maps:get(<<"args">>,Worker),
-  Splitted = re:split(CppSANNArgsBinary,"@",[{return,list}]),
-  [Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels] = Splitted,
+  ModelId = binary_to_list(maps:get(<<"modelId">>,Worker)),
+  Layers_sizes = maps:get(<<"LayersSizes">>,Worker),
+  Learning_rate = maps:get(<<"LearningRate">>,Worker),
+  ActivationList = maps:get(<<"ActivationFunctions">>,Worker),
+  Features = binary_to_list(maps:get(<<"Features">>,Worker)),
+  Labels = binary_to_list(maps:get(<<"Labels">>,Worker)),
+  Optimizer = binary_to_list(maps:get(<<"Optimizer">>,Worker)),
+  % Splitted = re:split(CppSANNArgsBinary,"@",[{return,list}]),
+  % [Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels] = Splitted,
   % TODO receive from JSON
   % TODO receive from JSON
+  % io:format("CountLimit:~p FederatedMode ~p WorkerName ~p ModelId ~p Layers_sizes~p Learning_rate ~p ActivationList ~p Features ~p Labels~p Optimizer~p~n",[CountLimit,FederatedMode,WorkerName,ModelId,Layers_sizes,Learning_rate,ActivationList,Features,Labels,Optimizer]),
 
-  WorkerArgs ={string_to_list_int(Layers_sizes),list_to_float(Learning_rate),
+  WorkerArgs ={string_to_list_int(Layers_sizes),list_to_float(binary_to_list(Learning_rate)),
                   string_to_list_int(ActivationList), list_to_integer(Optimizer), list_to_integer(ModelId),
                       list_to_integer(Features), list_to_integer(Labels),list_to_integer(FederatedMode), list_to_integer(CountLimit)},
-  io:format("client starting worker:~p~n",[{WorkerName,WorkerArgs}]),
+  
+  % io:format("client starting worker:~p WorkerArgs ~p ~n",[WorkerName,WorkerArgs]),
   WorkerPid = nerlNetStatem:start_link({self(), WorkerName, WorkerArgs}),
   createWorkers(Workers,ClientPid,WorkersNamesPids++[{WorkerName, WorkerPid}]).
 
 %%return list of integer from string of lists of strings - "[2,2,2]" -> [2,2,2]
-string_to_list_int(String) ->
+string_to_list_int(Binary) ->
+  String = binary_to_list(Binary),
   NoParenthesis = lists:sublist(String,2,length(String)-2),
   Splitted = re:split(NoParenthesis,",",[{return,list}]),
   [list_to_integer(X)||X<-Splitted].
@@ -121,6 +132,7 @@ idle(cast, {init,CONFIG}, State = #client_statem_state{msgCounter = Counter}) ->
 idle(cast, {statistics}, State = #client_statem_state{ myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
   http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++"#"++integer_to_list(Counter))),
+
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
 idle(cast, {training}, State = #client_statem_state{workersMap = WorkersMap, myName = MyName,msgCounter = Counter,portMap = PortMap}) ->
@@ -151,11 +163,14 @@ training(cast, {sample,[]}, State = #client_statem_state{msgCounter = Counter}) 
 
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
-training(cast, {sample,Vector}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
+training(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
   %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
-  [_ClientName,WorkerName,_CSVName, _BatchNumber,BatchOfSamples] = re:split(binary_to_list(Vector), "#", [{return, list}]),
-  Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
-  ToSend =  lists:reverse(getNumbers(Splitted,[])),
+  {_ClientName, WorkerName, _CSVName, _BatchNumber, BatchOfSamples} = binary_to_term(Body),
+
+%%  [_ClientName,WorkerName,_CSVName, _BatchNumber,BatchOfSamples] = re:split(binary_to_list(Vector), "#", [{return, list}]),
+%%  Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
+%%  ToSend =  lists:reverse(getNumbers(Splitted,[])),
+  ToSend =  decodeList(BatchOfSamples),
 %%  io:format("BatchNumber: ~p~n",[BatchNumber]),
 %%  io:format("WorkerName: ~p~n",[WorkerName]),
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
@@ -178,13 +193,15 @@ training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,m
 training(cast, {loss,WorkerName,nan}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
 %%   io:format("LossFunction1: ~p   ~n",[LossFunction]),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
-  http_request(RouterHost,RouterPort,"lossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,<<"nan">>])),
+  http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,"nan"})),
+%%  http_request(RouterHost,RouterPort,"lossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,<<"nan">>])),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, {loss,WorkerName,LossFunction}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
    io:format("WorkerName: ~p , LossFunction1: ~p   ~n",[WorkerName, LossFunction]),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
-  http_request(RouterHost,RouterPort,"lossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,float_to_binary(LossFunction)])),
+  http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,LossFunction})),
+%%  http_request(RouterHost,RouterPort,"lossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,float_to_binary(LossFunction)])),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 
@@ -222,10 +239,10 @@ training(cast, {federatedAverageWeights,Body}, State = #client_statem_state{myNa
 
 %%  [_ClientName,WorkerName,Weights] = re:split(binary_to_list(Body),"#",[{return,list}]),
   WorkerPid = maps:get(WorkerName,WorkersMap),
-  io:format("client decoding weights!!!:   ~n!!!",[]),
+  % io:format("client decoding weights!!!:   ~n!!!",[]),
 
   DecodedWeights = decodeListOfLists(BinaryWeights),
-  io:format("client finished decoding weights!!!:   ~n!!!",[]),
+  % io:format("client finished decoding weights!!!:   ~n!!!",[]),
   gen_statem:cast(WorkerPid, {set_weights,  DecodedWeights}),
 %%  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
 %%  TODO send federated_weights to federated_server
@@ -238,9 +255,14 @@ training(cast, EventContent, State = #client_statem_state{msgCounter = Counter})
 
 predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
   %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
-  [_ClientName,WorkerName,CSVName, BatchNumber,BatchOfSamples] = re:split(binary_to_list(Body), "#", [{return, list}]),
-  Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
-  ToSend =  lists:reverse(getNumbers(Splitted,[])),
+  {_ClientName, WorkerName, CSVName, BatchNumber, BatchOfSamples} = binary_to_term(Body),
+%%  io:format("CSVName: ~p~n",[CSVName]),
+
+%%  [_ClientName,WorkerName,CSVName, BatchNumber,BatchOfSamples] = re:split(binary_to_list(Body), "#", [{return, list}]),
+%%  Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
+%%  ToSend =  lists:reverse(getNumbers(Splitted,[])),
+  ToSend =  decodeList(BatchOfSamples),
+
 %%  io:format("CSVName: ~p, BatchNumber: ~p~n",[CSVName,BatchNumber]),
 %%  io:format("Vector: ~p~n",[ToSend]),
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
@@ -248,15 +270,19 @@ predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,w
 %%  gen_statem:cast(WorkerPid, {sample,ToSend}),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
-predict(cast, {predictRes,_InputName,_ResultID,[]}, State) ->
-  {next_state, predict, State};
+predict(cast, {predictRes,InputName,ResultID,[]}, State = #client_statem_state{msgCounter = Counter,portMap = PortMap}) ->
+  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
+  http_request(RouterHost,RouterPort,"predictRes", term_to_binary({InputName,ResultID,""})),
+%%  http_request(RouterHost,RouterPort,"predictRes", list_to_binary([list_to_binary(InputName),<<"#">>,integer_to_binary(ResultID),<<"#">>,""])),
+  {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, {predictRes,InputName,ResultID,Result}, State = #client_statem_state{msgCounter = Counter,portMap = PortMap}) ->
-  %io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
   Result2 = lists:flatten(io_lib:format("~w",[Result])),",",[{return,list}],
   Result3 = lists:sublist(Result2,2,length(Result2)-2),
-  http_request(RouterHost,RouterPort,"predictRes", list_to_binary([list_to_binary(InputName),<<"#">>,ResultID,<<"#">>,Result3])),
+  % io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
+  http_request(RouterHost,RouterPort,"predictRes", term_to_binary({InputName,ResultID,Result3})),
+%%  http_request(RouterHost,RouterPort,"predictRes", list_to_binary([list_to_binary(InputName),<<"#">>,integer_to_binary(ResultID),<<"#">>,Result3])),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName,portMap = PortMap,msgCounter = Counter}) ->
