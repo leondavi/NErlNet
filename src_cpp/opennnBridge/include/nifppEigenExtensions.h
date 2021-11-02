@@ -134,9 +134,9 @@ namespace nifpp
     template<typename Type> nifpp::TERM makeTensor(ErlNifEnv *env, const Tensor3D<Type> &tensor)
     {
         const auto& d = tensor.dimensions();
-        std::vector<float> listRepresentation(&d[0], d.data() + MAX_SUPPORTED_DIMS);
+        std::vector<Type> listRepresentation(&d[0], d.data() + MAX_SUPPORTED_DIMS);
         dims tensDims(listRepresentation);
-        std::vector<float> tensorVec(tensor.data(), tensor.data()+tensDims.xyz);
+        std::vector<Type> tensorVec(tensor.data(), tensor.data()+tensDims.xyz);
         listRepresentation.insert( listRepresentation.end(), 
                                    std::make_move_iterator(tensorVec.begin()), std::make_move_iterator(tensorVec.end()));
 
