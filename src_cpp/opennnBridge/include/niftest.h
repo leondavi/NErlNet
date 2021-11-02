@@ -1,33 +1,140 @@
 #pragma once 
 
 //#include <iostream>
+#include "convert.h"
 #include "nifpp.h"
 #include <erl_nif.h>
 #include <vector>
 #include <string>
 #include "ModelParams.h"
+#include <map>
 
-#include "Eigen/Core"
-#include "unsupported/Eigen/CXX11/Tensor"
-#include "opennn.h"
+
+//#include "Eigen/Core"
+//#include "unsupported/Eigen/CXX11/Tensor"
+#include <eigen3/Eigen/Core>
+#include "../../opennn/opennn/opennn.h"
+#include "bridgeController.h"
+//#include "train.h"
 
 using namespace OpenNN;
 
 #define DEBUG_CREATE_NIF 0
 
+enum ModuleMode {CREATE = 0, TRAIN = 1, PREDICT = 2};
+
+
+ 
+   
+enum ActivationFunction {Threshold = 1, SymmetricThreshold = 2 , Logistic = 3 , HyperbolicTangent = 4 ,
+                         Linear = 5 , RectifiedLinear = 6 , ExponentialLinear = 7 , ScaledExponentialLinear = 8 ,
+                         SoftPlus = 9 , SoftSign = 10 , HardSigmoid = 11 };
+
+enum LayerType {scaling = 1, convolutional = 2 , perceptron = 3 , pooling = 4 , probabilistic = 5 ,
+                longShortTermMemory = 6 , recurrent = 7 , unscaling = 8 , bounding = 9 };
+
+
+
+static ERL_NIF_TERM jello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+        std::cout << "jello";
+        return enif_make_string(env, "Hello world @@@!", ERL_NIF_LATIN1);
+
+}
+
 static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    std::cout << "bad arg1234";
+    //Tensor<Index, 1> neural_network_architecture(3);
+    //neural_network_architecture.setValues({1, 3, 1});
+    ModelParams modelParamsInst;
+
+    int mode;
+    nifpp::get_throws(env,argv[0],mode);
+    if(mode == CREATE){
+
     try{
-         ModelParams modelParamsInst;
-         //std::vector<int> activation_list1;
-         nifpp::get_throws(env,argv[0],*(modelParamsInst.GetAcvtivationList()));
-         //nifpp::get_throws(env,argv[1],modelParamPtr.model_type); TODO
-        }
-    catch(nifpp::badarg){
-            return enif_make_badarg(env);
-     }
+         //ModelParams modelParamsInst;
+
+      //   nifpp::get_throws(env,argv[1],modelParamsInst._modelId);
+        // nifpp::get_throws(env,argv[2],modelParamsInst._modelType); 
+         nifpp::get_throws(env,argv[3],*(modelParamsInst.GetLayersSizes()));
+        // nifpp::get_throws(env,argv[4],*(modelParamsInst.GetLayersTypes()));
+        // nifpp::get_throws(env,argv[5],*(modelParamsInst.GetAcvtivationList())); // list of activation functions
+         
+
+
+
+         Tensor<Index, 1> neural_network_architecture = convert::Vector_to_Tensor(*(modelParamsInst.GetLayersSizes()));
+         NeuralNetwork *neural_network = new NeuralNetwork(NeuralNetwork::Approximation,neural_network_architecture); // its can be a problem
+
+         if (modelParamsInst._modelType == 1){     
+             neural_network->set(NeuralNetwork::Approximation,neural_network_architecture);     
+             
+               
+         }                                                           
+         else if(modelParamsInst._modelType == 2){     
+             neural_network->set(NeuralNetwork::Classification,neural_network_architecture); 
+                         
+         }                                                           
+         else if(modelParamsInst._modelType == 3){   
+             neural_network->set(NeuralNetwork::Forecasting,neural_network_architecture);      
+               
+         }
+
+         for(int i = 0; i < (int)(neural_network->get_layers_number()); i++){
+          
+             //Layer::Type layer_type = neural_network.get_layer_pointer(i)->get_type();
+            if(modelParamsInst.GetLayersTypes()->at(i) == scaling){
+                 // dynamic_cast<ScalingLayer*>(neural_network.get_trainable_layers_pointers()(i))->set_activation_function(ScalingLayer::LongShortTermMemory);
+            }
+
+            if(modelParamsInst.GetLayersTypes()->at(i) == convolutional){
+                  dynamic_cast<ConvolutionalLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(ConvolutionalLayer::Logistic);
+            }
+
+            if(modelParamsInst.GetLayersTypes()->at(i) == perceptron){
+                  dynamic_cast<PerceptronLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(PerceptronLayer::HyperbolicTangent);
+            }
+         //dynamic_cast<ProbabilisticLayer*>(neural_network.get_trainable_layers_pointers()(1))->set_activation_function(ProbabilisticLayer::Logistic);
+         }
+         //ScalingLayer* scaling_layer_pointer = neural_network.get_scaling_layer_pointer();
+         //scaling_layer_pointer->set_scaling_methods(ScalingLayer::NoScaling);
+
+         
+         //for(int i = 0; i < (int)(modelParamsInst.GetAcvtivationList().size()); i++){
+             //act_types_vec.push_back(static_cast<act_t>(modelParamPtr.activation_list[i]));
+         //}
     
-    return enif_make_string(env, "Hello world!", ERL_NIF_LATIN1);
+
+         //set_activations_function(ProbabilisticLayer::S);
+         
+
+         std::shared_ptr<OpenNN::NeuralNetwork> modelPtr(neural_network);
+
+         // Create the singleton instance
+         opennnBridgeController *s = s->GetInstance();
+
+         // Put the model record to the map with modelId
+         s->setData(modelPtr, modelParamsInst._modelId);      
+    }   
+    //catch(nifpp::badarg){
+     //       std::cout << "bad arg123";
+     //       return enif_make_badarg(env);
+    // }
+     catch(...){
+            std::cout << "bad arg1235";
+            //return enif_make_badarg(env);
+     }                                                             
+            
+    } //end CREATE mode
+   
+    else if(mode == TRAIN){
+
+
+    }
+    
+    return enif_make_string(env, "Hello world! @@@@@", ERL_NIF_LATIN1);
 /*
 #if DEBUG_CREATE_NIF
             std::cout << "Optimizers::opt_t optimizer: " << optimizer << '\n';
@@ -41,7 +148,8 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 static ErlNifFunc nif_funcs[] =
 {
-    {"hello", 0, hello}
+    {"hello", 1, hello}
+   // {"jello", 1, jello}
 };
 
 // TODO: Think about using this feature in the future

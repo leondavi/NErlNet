@@ -1,6 +1,6 @@
 -module(niftest).
 
--export([init/0, hello/0]).
+-export([init/0,hello/1]).
 
 -on_load(init/0).
 
@@ -16,6 +16,10 @@ init() ->
       FULL_PATH = CWD ++ "/../build/"++?BUILD_TYPE++"/libnerlnet",
       erlang:load_nif(FULL_PATH, 0),
       ok.
+      % io:format("hello"),
+      %hello("hello").
+      %erlang:hello().
+      % erlang:nif_error("NIF library not loaded").
 
-hello() ->
-      erlang:nif_error("NIF library not loaded").
+hello(Integer) when is_integer(Integer) ->
+      exit(nif_library_not_loaded).
