@@ -2,8 +2,6 @@
 
 //#include <iostream>
 #include "convert.h"
-#include "nifpp.h"
-#include <erl_nif.h>
 #include <vector>
 #include <string>
 #include "ModelParams.h"
@@ -16,6 +14,8 @@
 #include "../../opennn/opennn/opennn.h"
 #include "bridgeController.h"
 //#include "train.h"
+
+#include "nifppEigenExtensions.h"
 
 using namespace OpenNN;
 
@@ -33,7 +33,39 @@ enum ActivationFunction {Threshold = 1, SymmetricThreshold = 2 , Logistic = 3 , 
 enum LayerType {scaling = 1, convolutional = 2 , perceptron = 3 , pooling = 4 , probabilistic = 5 ,
                 longShortTermMemory = 6 , recurrent = 7 , unscaling = 8 , bounding = 9 };
 
+//TODO improve
+inline std::string  Tensor2str(nifpp::Tensor3D<float> &inputTensor)
+{
+    std::string outputStr = "";
+    auto dims = inputTensor.dimensions();
+    for(int x=0; x < (int)dims[0] ; x++)
+    {
+        for(int y=0; y < (int)dims[1]; y++)
+        {
+            for(int z=0; z < (int)dims[2]; z++)
+            {
+                outputStr += to_string(static_cast<float>(inputTensor(x,y,z)));
+                if(z < ((int) dims[2] - 1))
+                {
+                    outputStr += ",";
+                }
+            }
+            outputStr += "\n";
+        }
+        outputStr += "\n";
+    }
+    return outputStr;
+}
 
+static ERL_NIF_TERM printTensor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    std::cout<<"printTensor"<<std::endl;
+    nifpp::Tensor3D<float> newTensor; 
+    nifpp::getTensor(env,argv[0],newTensor);
+
+    //std::cout<<"Received Tensor: "<<std::endl;
+   // std::cout<<Tensor2str(newTensor)<<std::endl;
+}
 
 static ERL_NIF_TERM jello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -148,7 +180,8 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 static ErlNifFunc nif_funcs[] =
 {
-    {"hello", 1, hello}
+    {"hello", 1, hello},
+    {"printTensor",1, printTensor}
    // {"jello", 1, jello}
 };
 

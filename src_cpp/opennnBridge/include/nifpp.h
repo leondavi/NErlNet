@@ -299,6 +299,17 @@ inline TERM make(ErlNifEnv *env, const bool var)
 
 
 // Number conversions
+inline int get(ErlNifEnv *env, ERL_NIF_TERM term, float &var)
+{
+    double tmpVar;
+    int res = enif_get_double(env, term, &tmpVar);
+    var = static_cast<float>(tmpVar);
+    return res;
+}
+inline TERM make(ErlNifEnv *env, const float var)
+{
+    return TERM(enif_make_double(env, static_cast<double>(var)));
+}
 
 inline int get(ErlNifEnv *env, ERL_NIF_TERM term, double &var)
 {
@@ -308,7 +319,6 @@ inline TERM make(ErlNifEnv *env, const double var)
 {
     return TERM(enif_make_double(env, var));
 }
-
 
 inline int get(ErlNifEnv *env, ERL_NIF_TERM term, int &var)
 {
