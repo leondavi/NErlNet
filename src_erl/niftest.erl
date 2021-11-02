@@ -1,6 +1,6 @@
 -module(niftest).
 
--export([init/0,hello/1]).
+-export([init/0,hello/4]).
 
 -on_load(init/0).
 
@@ -14,5 +14,8 @@ init() ->
       %erlang:hello().
       % erlang:nif_error("NIF library not loaded").
 
-hello(Integer) when is_integer(Integer) ->
+%hello(Integer ) when is_integer(Integer) ->
+%      exit(nif_library_not_loaded).
+
+hello(Integer, Integer , Integer ,[]) ->
       exit(nif_library_not_loaded).

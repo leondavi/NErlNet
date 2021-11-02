@@ -15,6 +15,7 @@
 #include <eigen3/Eigen/Core>
 #include "../../opennn/opennn/opennn.h"
 #include "bridgeController.h"
+#include "nifppEigenExtensions.h"
 //#include "train.h"
 
 using namespace OpenNN;
@@ -44,30 +45,33 @@ static ERL_NIF_TERM jello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    std::cout << "bad arg1234";
+    
     //Tensor<Index, 1> neural_network_architecture(3);
     //neural_network_architecture.setValues({1, 3, 1});
     ModelParams modelParamsInst;
-
+    int layers_num;
     int mode;
+    std::vector<int> v;
     nifpp::get_throws(env,argv[0],mode);
     if(mode == CREATE){
 
     try{
-         //ModelParams modelParamsInst;
-
-      //   nifpp::get_throws(env,argv[1],modelParamsInst._modelId);
-        // nifpp::get_throws(env,argv[2],modelParamsInst._modelType); 
-         nifpp::get_throws(env,argv[3],*(modelParamsInst.GetLayersSizes()));
+         
+         nifpp::get_throws(env,argv[1],modelParamsInst._modelId);
+         nifpp::get_throws(env,argv[2],modelParamsInst._modelType); 
+         nifpp::get_throws(env,argv[3],v); 
+        // nifpp::get_throws(env,argv[3],*modelParamsInst._layersSizes); // problem here.
+        //nifpp::get_throws(env,argv[3],*(modelParamsInst.GetLayersSizes()));
         // nifpp::get_throws(env,argv[4],*(modelParamsInst.GetLayersTypes()));
         // nifpp::get_throws(env,argv[5],*(modelParamsInst.GetAcvtivationList())); // list of activation functions
          
-
+         return enif_make_string(env, "catch - problem in try", ERL_NIF_LATIN1);
 
 
          Tensor<Index, 1> neural_network_architecture = convert::Vector_to_Tensor(*(modelParamsInst.GetLayersSizes()));
+         
          NeuralNetwork *neural_network = new NeuralNetwork(NeuralNetwork::Approximation,neural_network_architecture); // its can be a problem
-
+         
          if (modelParamsInst._modelType == 1){     
              neural_network->set(NeuralNetwork::Approximation,neural_network_architecture);     
              
@@ -98,6 +102,8 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             }
          //dynamic_cast<ProbabilisticLayer*>(neural_network.get_trainable_layers_pointers()(1))->set_activation_function(ProbabilisticLayer::Logistic);
          }
+
+         layers_num = (int)neural_network->get_layers_number();
          //ScalingLayer* scaling_layer_pointer = neural_network.get_scaling_layer_pointer();
          //scaling_layer_pointer->set_scaling_methods(ScalingLayer::NoScaling);
 
@@ -123,7 +129,7 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
      //       return enif_make_badarg(env);
     // }
      catch(...){
-            std::cout << "bad arg1235";
+           return enif_make_string(env, "catch - problem in try", ERL_NIF_LATIN1);
             //return enif_make_badarg(env);
      }                                                             
             
@@ -133,8 +139,9 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 
     }
-    
-    return enif_make_string(env, "Hello world! @@@@@", ERL_NIF_LATIN1);
+
+    return enif_make_int(env,layers_num);
+    //return enif_make_string(env, "Hello world! @@@@@", ERL_NIF_LATIN1);
 /*
 #if DEBUG_CREATE_NIF
             std::cout << "Optimizers::opt_t optimizer: " << optimizer << '\n';
@@ -148,7 +155,7 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 static ErlNifFunc nif_funcs[] =
 {
-    {"hello", 1, hello}
+    {"hello", 4 , hello}
    // {"jello", 1, jello}
 };
 
