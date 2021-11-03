@@ -60,11 +60,21 @@ inline std::string  Tensor2str(nifpp::Tensor3D<float> &inputTensor)
 static ERL_NIF_TERM printTensor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     std::cout<<"printTensor"<<std::endl;
-    nifpp::Tensor3D<float> newTensor; 
-    nifpp::getTensor(env,argv[0],newTensor);
-
+    nifpp::str_atom atomType;
+    nifpp::get_throws(env,argv[1],atomType);
+    if(atomType == "float")
+    {
+        nifpp::Tensor3D<float> newTensor; 
+        nifpp::getTensor(env,argv[0],newTensor);
+    }
+    else if(atomType == "integer")
+    {
+        nifpp::Tensor3D<int> newTensor; 
+        nifpp::getTensor(env,argv[0],newTensor);
+    }
     //std::cout<<"Received Tensor: "<<std::endl;
    // std::cout<<Tensor2str(newTensor)<<std::endl;
+   return enif_make_string(env, "Hello world! @@@@@", ERL_NIF_LATIN1);
 }
 
 static ERL_NIF_TERM jello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -181,7 +191,7 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 static ErlNifFunc nif_funcs[] =
 {
     {"hello", 1, hello},
-    {"printTensor",1, printTensor}
+    {"printTensor",2, printTensor}
    // {"jello", 1, jello}
 };
 

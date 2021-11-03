@@ -30,14 +30,15 @@ namespace nifpp
         int z;
         int xyz;
 
-        dims(const std::vector<int> &dimsVec)
+        template<typename Type>
+        dims(const std::vector<Type> &dimsVec)
         {
             enum {DIMS_X_IDX,DIMS_Y_IDX,DIMS_Z_IDX,DIMS_TOTAL};
             if(dimsVec.size() == DIMS_TOTAL)
             {
-                x = dimsVec[DIMS_X_IDX];
-                y = dimsVec[DIMS_Y_IDX];
-                z = dimsVec[DIMS_Z_IDX];
+                x = static_cast<int>(dimsVec[DIMS_X_IDX]);
+                y = static_cast<int>(dimsVec[DIMS_Y_IDX]);
+                z = static_cast<int>(dimsVec[DIMS_Z_IDX]);
                 xyz = x * y * z;
             }
         }
@@ -129,8 +130,10 @@ namespace nifpp
         newTensor.reshape(dimsArray);
         std::cout<<"after rehsape"<<std::endl;
 
+        return 1;
     }
 
+//TODO check this function
     template<typename Type> nifpp::TERM makeTensor(ErlNifEnv *env, const Tensor3D<Type> &tensor)
     {
         const auto& d = tensor.dimensions();
