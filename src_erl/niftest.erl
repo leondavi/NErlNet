@@ -1,20 +1,24 @@
 -module(niftest).
 
--export([init/0,hello/4]).
-
--on_load(init/0).
+-export([init/0,hello/4,printTensor/2]).
 
 -define(DEBUG,false). % set here if it is debug or release  TODO change to read from hrl auto generated file
--ifdef(DEBUG).
+-if(DEBUG).
 -define(BUILD_TYPE,"debug").
 -else.
 -define(BUILD_TYPE,"release").
 -endif. 
 
+-define(THIS_FILE_PATH_RELATIVE_TO_PROJECT_ROOT,"src_erl"). % if this file moves to inner place than update this define
+-on_load(init/0).
+
 init() ->
       {_,CWD} = file:get_cwd(), 
-      FULL_PATH = CWD ++ "/../build/"++?BUILD_TYPE++"/libnerlnet",
-      erlang:load_nif(FULL_PATH, 0),
+      CWD_UPPER_DIR = re:replace(CWD,"/"++?THIS_FILE_PATH_RELATIVE_TO_PROJECT_ROOT,"",[{return,list}]),
+      FULL_PATH = CWD_UPPER_DIR++"/build/"++?BUILD_TYPE++"/libnerlnet",
+      io:format("~p",[CWD_UPPER_DIR]),
+      RES = erlang:load_nif(FULL_PATH, 0),
+      io:format("load nif results: ~p",[RES]),
       ok.
       % io:format("hello"),
       %hello("hello").
@@ -25,4 +29,7 @@ init() ->
 %      exit(nif_library_not_loaded).
 
 hello(Integer, Integer , Integer ,[]) ->
+      exit(nif_library_not_loaded).
+
+printTensor(List,Type) when is_list(List) -> 
       exit(nif_library_not_loaded).
