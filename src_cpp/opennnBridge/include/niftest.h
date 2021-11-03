@@ -1,9 +1,6 @@
 #pragma once 
 
 //#include <iostream>
-#include "convert.h"
-#include "nifpp.h"
-#include <erl_nif.h>
 #include <vector>
 #include <string>
 #include "ModelParams.h"
@@ -17,6 +14,8 @@
 #include "bridgeController.h"
 #include "nifppEigenExtensions.h"
 //#include "train.h"
+
+#include "nifppEigenExtensions.h"
 
 using namespace OpenNN;
 
@@ -34,7 +33,49 @@ enum ActivationFunction {Threshold = 1, SymmetricThreshold = 2 , Logistic = 3 , 
 enum LayerType {scaling = 1, convolutional = 2 , perceptron = 3 , pooling = 4 , probabilistic = 5 ,
                 longShortTermMemory = 6 , recurrent = 7 , unscaling = 8 , bounding = 9 };
 
+//TODO improve
+inline std::string  Tensor2str(nifpp::Tensor3D<float> &inputTensor)
+{
+    std::string outputStr = "";
+    auto dims = inputTensor.dimensions();
+    for(int x=0; x < (int)dims[0] ; x++)
+    {
+        for(int y=0; y < (int)dims[1]; y++)
+        {
+            for(int z=0; z < (int)dims[2]; z++)
+            {
+                outputStr += to_string(static_cast<float>(inputTensor(x,y,z)));
+                if(z < ((int) dims[2] - 1))
+                {
+                    outputStr += ",";
+                }
+            }
+            outputStr += "\n";
+        }
+        outputStr += "\n";
+    }
+    return outputStr;
+}
 
+static ERL_NIF_TERM printTensor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    std::cout<<"printTensor"<<std::endl;
+    nifpp::str_atom atomType;
+    nifpp::get_throws(env,argv[1],atomType);
+    if(atomType == "float")
+    {
+        nifpp::Tensor3D<float> newTensor; 
+        nifpp::getTensor(env,argv[0],newTensor);
+    }
+    else if(atomType == "integer")
+    {
+        nifpp::Tensor3D<int> newTensor; 
+        nifpp::getTensor(env,argv[0],newTensor);
+    }
+    //std::cout<<"Received Tensor: "<<std::endl;
+   // std::cout<<Tensor2str(newTensor)<<std::endl;
+   return enif_make_string(env, "Hello world! @@@@@", ERL_NIF_LATIN1);
+}
 
 static ERL_NIF_TERM jello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -46,12 +87,13 @@ static ERL_NIF_TERM jello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     
-    //Tensor<Index, 1> neural_network_architecture(3);
-    //neural_network_architecture.setValues({1, 3, 1});
+    Tensor<Index, 1> neural_network_architecture(3);
+    neural_network_architecture.setValues({1, 3, 1});
     ModelParams modelParamsInst;
     int layers_num;
     int mode;
     std::vector<int> v;
+    nifpp::Tensor3D<Index> t;
     nifpp::get_throws(env,argv[0],mode);
     if(mode == CREATE){
 
@@ -59,32 +101,38 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          
          nifpp::get_throws(env,argv[1],modelParamsInst._modelId);
          nifpp::get_throws(env,argv[2],modelParamsInst._modelType); 
-         nifpp::get_throws(env,argv[3],v); 
-        // nifpp::get_throws(env,argv[3],*modelParamsInst._layersSizes); // problem here.
+         //nifpp::get_throws(env,argv[3],v); 
+         nifpp::getTensor(env,argv[3],t);
         //nifpp::get_throws(env,argv[3],*(modelParamsInst.GetLayersSizes()));
         // nifpp::get_throws(env,argv[4],*(modelParamsInst.GetLayersTypes()));
         // nifpp::get_throws(env,argv[5],*(modelParamsInst.GetAcvtivationList())); // list of activation functions
          
-         return enif_make_string(env, "catch - problem in try", ERL_NIF_LATIN1);
+        
 
-
-         Tensor<Index, 1> neural_network_architecture = convert::Vector_to_Tensor(*(modelParamsInst.GetLayersSizes()));
+         Eigen::Tensor<Index,1> t1(t.size());
+         for (int i =0 ; i< t.size(); i++){
+         t1(i) = t(i,0,0);
+         }
          
-         NeuralNetwork *neural_network = new NeuralNetwork(NeuralNetwork::Approximation,neural_network_architecture); // its can be a problem
+         
+         NeuralNetwork *neural_network = new NeuralNetwork(NeuralNetwork::Approximation,t1); // its can be a problem
+
          
          if (modelParamsInst._modelType == 1){     
-             neural_network->set(NeuralNetwork::Approximation,neural_network_architecture);     
+             neural_network->set(NeuralNetwork::Approximation,t1);     
              
                
          }                                                           
          else if(modelParamsInst._modelType == 2){     
-             neural_network->set(NeuralNetwork::Classification,neural_network_architecture); 
+             neural_network->set(NeuralNetwork::Classification,t1); 
                          
          }                                                           
          else if(modelParamsInst._modelType == 3){   
-             neural_network->set(NeuralNetwork::Forecasting,neural_network_architecture);      
+             neural_network->set(NeuralNetwork::Forecasting,t1);      
                
          }
+         return enif_make_string(env, "catch - problem in try", ERL_NIF_LATIN1);
+         
 
          for(int i = 0; i < (int)(neural_network->get_layers_number()); i++){
           
@@ -155,7 +203,8 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 static ErlNifFunc nif_funcs[] =
 {
-    {"hello", 4 , hello}
+    {"hello", 4 , hello},
+    {"printTensor",2, printTensor}
    // {"jello", 1, jello}
 };
 
