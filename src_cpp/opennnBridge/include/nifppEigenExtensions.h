@@ -48,8 +48,11 @@ namespace nifpp
 
     template<typename Type>
     using Tensor3D = Eigen::Tensor<Type,MAX_SUPPORTED_DIMS>;
+    template<typename Type> //
+    using Tensor1D = Eigen::Tensor<Type,1>; //
 
     template<typename Type> int getTensor(ErlNifEnv *env, ERL_NIF_TERM term, Tensor3D<Type> &tensor);
+    template<typename Type> int getTensor1D(ErlNifEnv *env, ERL_NIF_TERM term, Tensor1D<Type> &tensor); //
     template<typename Type> TERM makeTensor(ErlNifEnv *env, const Tensor3D<Type> &tensor);
 
 
@@ -65,7 +68,7 @@ namespace nifpp
      * @param tensorPtr 
      * @return int 
      */
-    template<typename Type> int getTensor(ErlNifEnv *env, ERL_NIF_TERM term, Tensor3D<Type> &tensor)
+    template<typename Type> int getTensor(ErlNifEnv *env, ERL_NIF_TERM term, Tensor3D<Type> &tensor)   /// 3D
     {
         unsigned len;
         Type var;
@@ -132,6 +135,81 @@ namespace nifpp
 
         return 1;
     }
+
+
+
+
+template<typename Type> int getTensor1D(ErlNifEnv *env, ERL_NIF_TERM term, Tensor1D<Type> &tensor) ///1D
+    {
+        unsigned len;
+        Type var;
+        if(!enif_is_list(env, term)) return 0;
+        int ret = enif_get_list_length(env, term, &len);
+        if(!ret) return 0;
+              
+        ERL_NIF_TERM head, tail;
+        tail = term; //very important to initalize the tail as whole list
+
+        // Dimensions Read 
+        std::vector<int> dimsVector(MAX_SUPPORTED_DIMS);
+        std::cout<<"A"<<std::endl;
+        for(int i=0; i<MAX_SUPPORTED_DIMS; i++)
+        {
+            if (enif_get_list_cell(env, tail, &head, &tail))
+            {
+                if(!get(env, head, var)) 
+                {
+
+                    std::cout<<"get Error"<<std::endl;
+                    return 0;
+                }
+                std::cout<<"var dims: "<<var<<std::endl;
+                dimsVector[i] = static_cast<int>(var);
+            }
+            else
+            {
+                throw std::runtime_error(EXCEPTION_STR_INVALID_ERL_TENSOR);
+            }
+        }
+        std::cout<<"B"<<std::endl;
+        dims tensorDims(dimsVector);
+        if ((len - MAX_SUPPORTED_DIMS) != tensorDims.xyz) // length = numOfDims + x*y*z
+        {
+            throw std::runtime_error(EXCEPTION_STR_INVALID_ERL_TENSOR);
+        }
+        //TODO optimization 
+        Tensor<Type,1> newTensor(tensorDims.xyz); // we start with a flat tensor to copy the data easily
+                std::cout<<"tensorDims.xyz: "<<tensorDims.xyz<<std::endl;
+
+        for(int idx = 0; idx < tensorDims.xyz; idx++) //copy flat tensor 
+        {
+            if(enif_get_list_cell(env, tail, &head, &tail))
+            {
+
+                Type var;
+                if(!get(env, head, var)) return 0; // conversion failure
+                
+                newTensor(idx) = var;//TODO optimization 
+                std::cout<<"idx "<<idx<<" var: "<<newTensor(idx) <<std::endl;
+
+            }
+            else
+            {
+                throw  std::runtime_error(EXCEPTION_STR_INVALID_ERL_TENSOR);
+            }
+        }
+        tensor = newTensor;
+        Eigen::array<int, 3> dimsArray{{tensorDims.x,tensorDims.y,tensorDims.z}};
+        //reshape 
+        std::cout<<"before rehsape"<<std::endl;
+        newTensor.reshape(dimsArray);
+        std::cout<<"after rehsape"<<std::endl;
+
+        return 1;
+    }
+
+
+
 
 //TODO check this function
     template<typename Type> nifpp::TERM makeTensor(ErlNifEnv *env, const Tensor3D<Type> &tensor)
