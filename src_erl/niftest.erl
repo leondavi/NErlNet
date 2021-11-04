@@ -1,6 +1,6 @@
 -module(niftest).
 
--export([init/0,hello/4,printTensor/2]).
+-export([init/0,hello/5,printTensor/2]).
 
 -define(DEBUG,false). % set here if it is debug or release  TODO change to read from hrl auto generated file
 -if(DEBUG).
@@ -28,7 +28,7 @@ init() ->
 %hello(Integer ) when is_integer(Integer) ->
 %      exit(nif_library_not_loaded).
 
-hello(Integer, Integer , Integer ,[]) ->
+hello(Integer, Integer , Integer , [] , []) ->
       exit(nif_library_not_loaded).
 
 printTensor(List,Type) when is_list(List) -> 
