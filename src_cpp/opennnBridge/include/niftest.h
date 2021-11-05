@@ -24,10 +24,12 @@ using namespace OpenNN;
 enum ModuleMode {CREATE = 0, TRAIN = 1, PREDICT = 2};
 
 enum ModuleType {APPROXIMATION = 1, CLASSIFICATION = 2, FORECASTING = 3};
+
+enum ScalingMethods {NoScaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5};
    
 enum ActivationFunction {Threshold = 1, SymmetricThreshold = 2 , Logistic = 3 , HyperbolicTangent = 4 ,
                          Linear = 5 , RectifiedLinear = 6 , ExponentialLinear = 7 , ScaledExponentialLinear = 8 ,
-                         SoftPlus = 9 , SoftSign = 10 , HardSigmoid = 11 };
+                         SoftPlus = 9 , SoftSign = 10 , HardSigmoid = 11 , Binary = 12 , Competitive = 14 , Softmax = 15 };
 
 enum LayerType {scaling = 1, convolutional = 2 , perceptron = 3 , pooling = 4 , probabilistic = 5 ,
                 longShortTermMemory = 6 , recurrent = 7 , unscaling = 8 , bounding = 9 };
@@ -89,25 +91,29 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ModelParams modelParamsInst;
     int layers_num;
     int mode;
+    int scaling_method;
     nifpp::Tensor1D<Index> neural_network_architecture;
     nifpp::Tensor1D<Index> activations_functions;
     nifpp::get_throws(env,argv[0],mode);
     if(mode == CREATE){
 
     try{
-         
+         // get data from erlang ----------------------------------------------------------------------------------------
          nifpp::get_throws(env,argv[1],modelParamsInst._modelId);
-         nifpp::get_throws(env,argv[2],modelParamsInst._modelType); 
-         nifpp::getTensor1D(env,argv[3],neural_network_architecture);
-         nifpp::getTensor1D(env,argv[4],activations_functions);
+         nifpp::get_throws(env,argv[2],modelParamsInst._modelType);
+         nifpp::get_throws(env,argv[3],scaling_method);  
+         nifpp::getTensor1D(env,argv[4],neural_network_architecture);
+         nifpp::getTensor1D(env,argv[5],activations_functions);
         // nifpp::get_throws(env,argv[5],*(modelParamsInst.GetAcvtivationList())); // list of activation functions
-         //Tensor<Index, 1> neural_network_architecture(3);
+        //--------------------------------------------------------------------------------------------------------------
 
+
+         //Tensor<Index, 1> neural_network_architecture(3);
          //neural_network_architecture.setValues({1, 3, 1});
 
+         // creat neural network . typy + layers number and size. -------------------------------------------------------------
          NeuralNetwork *neural_network = new NeuralNetwork(NeuralNetwork::Approximation,neural_network_architecture); // difolt
 
-         
          if (modelParamsInst._modelType == APPROXIMATION){     
              neural_network->set(NeuralNetwork::Approximation,neural_network_architecture);     
                    
@@ -120,6 +126,10 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
              neural_network->set(NeuralNetwork::Forecasting,neural_network_architecture);      
                
          }
+         //-------------------------------------------------------------------------------------------------------------
+
+
+         //chech the inputs from erlang and neural network architecture ---------------------------------------------------
          Index layer_num = neural_network->get_layers_number();
          std::cout<< layer_num <<std::endl;
          std::cout<< neural_network_architecture(0) <<std::endl;
@@ -128,41 +138,89 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          //std::cout<< neural_network_architecture(3) <<std::endl;
          int si = (neural_network->get_trainable_layers_pointers()).size() ;
          std::cout<< si <<std::endl;
-         string type1 = (neural_network->get_trainable_layers_pointers()(0))->get_type_string();
+         string type1 = (neural_network->get_trainable_layers_pointers()(1))->get_type_string();
          std::cout<<  type1 <<std::endl;
+         //------------------------------------------------------------------------------------------------------
+
          //return enif_make_string(env, "catch - problem in try", ERL_NIF_LATIN1);
         
+         
+         // set scaling method for scaling layer ---------------------------------------------------------------------------
+         ScalingLayer* scaling_layer_pointer = neural_network->get_scaling_layer_pointer();
+         if(scaling_method == NoScaling)
+        {
+            scaling_layer_pointer->set_scaling_methods(ScalingLayer::NoScaling);
+        }
+        else if(scaling_method == MinimumMaximum)
+        {
+            scaling_layer_pointer->set_scaling_methods(ScalingLayer::MinimumMaximum);
+        }
+        else if(scaling_method == MeanStandardDeviation)
+        {
+            scaling_layer_pointer->set_scaling_methods(ScalingLayer::MeanStandardDeviation);
+        }
+        else if(scaling_method == StandardDeviation)
+        {
+            scaling_layer_pointer->set_scaling_methods(ScalingLayer::StandardDeviation);
+        }
+        //else if(scaling_method == Logarithm)  
+        //{
+        //    scaling_layer_pointer->set_scaling_methods(ScalingLayer::Logarithm);   //Logarithm exists in opennn site but commpiler dont recognaize it. 
+        //}
+        //------------------------------------------------------------------------------------------------------------------
 
+
+
+        // set activation functions for trainable layers -------------------------------------------------------------------
          for(int i = 0; i < (int)((neural_network->get_trainable_layers_pointers()).size() ); i++){
           
              //Layer::Type layer_type = neural_network.get_layer_pointer(i)->get_type();
-            if(activations_functions(i) == scaling){
-                 // dynamic_cast<ScalingLayer*>(neural_network.get_trainable_layers_pointers()(i))->set_activation_function(ScalingLayer::LongShortTermMemory);
+          if( (neural_network->get_trainable_layers_pointers()(i))->get_type_string() == "Perceptron" );
+          {
+            if(activations_functions(i) == Threshold){
+                  dynamic_cast<PerceptronLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(PerceptronLayer::Threshold);
             }
+
+            if(activations_functions(i) == SymmetricThreshold){
+                  dynamic_cast<PerceptronLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(PerceptronLayer::SymmetricThreshold);
+            }
+
+            //if(activations_functions(i) == Logistic){ //problem with Logistic ,the compiler dont like it
+             //     dynamic_cast<PerceptronLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(PerceptronLayer::Logistic);
+            //}
 
             if(activations_functions(i) == HyperbolicTangent){
                   dynamic_cast<PerceptronLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(PerceptronLayer::HyperbolicTangent);
             }
+          }
 
-            if(activations_functions(i) == perceptron){
-                  //dynamic_cast<PerceptronLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(PerceptronLayer::HyperbolicTangent);
+          if((neural_network->get_trainable_layers_pointers()(i))->get_type_string() == "Probabilistic")
+          {
+            if(activations_functions(i) == Binary){
+                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(ProbabilisticLayer::Binary);
             }
-         //dynamic_cast<ProbabilisticLayer*>(neural_network.get_trainable_layers_pointers()(1))->set_activation_function(ProbabilisticLayer::Logistic);
+
+           // if(activations_functions(i) == Logistic){  //problem with Logistic ,the compiler dont like it
+                //  dynamic_cast<ProbabilisticLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(ProbabilisticLayer::Logistic);
+           // }
+
+            if(activations_functions(i) == Competitive){
+                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(ProbabilisticLayer::Competitive);
+            }
+
+            if(activations_functions(i) == Softmax){
+                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(ProbabilisticLayer::Softmax);
+            }
+
          }
+         }
+         //---------------------------------------------------------------------------------------------------------------
          
          
-         
-
-        
-         //ScalingLayer* scaling_layer_pointer = neural_network.get_scaling_layer_pointer();
-         //scaling_layer_pointer->set_scaling_methods(ScalingLayer::NoScaling);
-
-         
-        
 
      
          
-
+        // singelton part ----------------------------------------------------------------------------------------------
          std::shared_ptr<OpenNN::NeuralNetwork> modelPtr(neural_network);
 
          // Create the singleton instance
@@ -170,14 +228,13 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          
          // Put the model record to the map with modelId
          s->setData(modelPtr, modelParamsInst._modelId);  
-         return enif_make_string(env, "catch - problem in try", ERL_NIF_LATIN1);    
+         return enif_make_string(env, "catch - problem in try1", ERL_NIF_LATIN1); 
+         //-------------------------------------------------------------------------------------------------------------   
     }   
-    //catch(nifpp::badarg){
-     //       std::cout << "bad arg123";
-     //       return enif_make_badarg(env);
-    // }
+
+    
      catch(...){
-           return enif_make_string(env, "catch - problem in try", ERL_NIF_LATIN1);
+           return enif_make_string(env, "catch - problem in try2", ERL_NIF_LATIN1);
             //return enif_make_badarg(env);
      }                                                             
             
@@ -203,7 +260,7 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 static ErlNifFunc nif_funcs[] =
 {
-    {"hello", 5 , hello},
+    {"hello", 6 , hello},
     {"printTensor",2, printTensor}
    // {"jello", 1, jello}
 };
