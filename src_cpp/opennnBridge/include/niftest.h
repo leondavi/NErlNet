@@ -66,12 +66,12 @@ static ERL_NIF_TERM printTensor(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     if(atomType == "float")
     {
         nifpp::Tensor3D<float> newTensor; 
-        nifpp::getTensor(env,argv[0],newTensor);
+        nifpp::getTensor3D(env,argv[0],newTensor);
     }
     else if(atomType == "integer")
     {
         nifpp::Tensor3D<int> newTensor; 
-        nifpp::getTensor(env,argv[0],newTensor);
+        nifpp::getTensor3D(env,argv[0],newTensor);
     }
     //std::cout<<"Received Tensor: "<<std::endl;
    // std::cout<<Tensor2str(newTensor)<<std::endl;
@@ -218,7 +218,7 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          
          
 
-     
+         
          
         // singelton part ----------------------------------------------------------------------------------------------
          std::shared_ptr<OpenNN::NeuralNetwork> modelPtr(neural_network);
@@ -228,7 +228,7 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          
          // Put the model record to the map with modelId
          s->setData(modelPtr, modelParamsInst._modelId);  
-         return enif_make_string(env, "catch - problem in try1", ERL_NIF_LATIN1); 
+          //return enif_make_string(env, "catch - problem in try1", ERL_NIF_LATIN1);
          //-------------------------------------------------------------------------------------------------------------   
     }   
 
@@ -240,9 +240,49 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             
     } //end CREATE mode
    
+
+
     else if(mode == TRAIN){
 
+         TrainParams* trainptr =  new TrainParams();
 
+
+         Eigen::Tensor<float,2> data;
+
+         nifpp::get_throws(env, argv[2], trainptr->_mid); // model id
+         nifpp::getTensor2D(env,argv[4],data);
+         DataSet data_set;
+         data_set.set_data(data);
+         
+        
+        // Get the singleton instance
+         opennnBridgeController *s = s->GetInstance();
+         
+
+
+       // Get the model from the singleton
+         //std::shared_ptr<OpenNN::NeuralNetwork> modelPtr = std::make_shared<OpenNN::NeuralNetwork>();
+        // modelPtr = s-> getModelPtr(trainptr->_mid);
+         NeuralNetwork neural_network = *(s-> getModelPtr(trainptr->_mid));
+         
+         cout << neural_network.get_layers_number() <<std::endl;
+         TrainingStrategy training_strategy(&neural_network,&data_set);
+
+         
+
+         training_strategy.perform_training();  //this is not work
+
+         return enif_make_string(env, "catch - problem in try2", ERL_NIF_LATIN1);
+
+    
+    
+    
+    
+      if(mode == PREDICT){
+
+
+    }
+     
     }
 
     return enif_make_int(env,0);
