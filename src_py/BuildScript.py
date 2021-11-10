@@ -28,6 +28,7 @@ def clean():
 # -------------- Build Erlang --------------#
 REBAR_3_PATH = "src_erl/rebar3/rebar3"
 def build_erl():
+    print("Depracated Python build script")
     pyDirectory = str(os.getcwd())
 
     os.chdir('../src_erl/erlBridge')
