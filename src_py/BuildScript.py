@@ -26,6 +26,7 @@ def clean():
 
 
 # -------------- Build Erlang --------------#
+REBAR_3_PATH = "src_erl/rebar3/rebar3"
 def build_erl():
 
     os.chdir('../src_erl/erlBridge')
@@ -42,7 +43,7 @@ def build_erl():
                 
     os.system("pwd")
     os.chdir('../Communication_Layer/http_Nerlserver')
-    os.system("rebar3 shell")
+    os.system(REBAR_3_PATH+" shell")
 
 # ---------------- Run Tests -----------------#
 
