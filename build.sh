@@ -20,6 +20,8 @@ cd src_py
 python3 BuildScript.py cpp=True
 cd ..
 
-src_erl/rebar3/rebar3 shell --config  ../Communication_Layer/http_Nerlserver/rebar.config
+echo "Script PWD: $PWD"
 
-
+cd src_erl/Communication_Layer/http_Nerlserver
+../../rebar3/rebar3 shell 
+cd ../../../
