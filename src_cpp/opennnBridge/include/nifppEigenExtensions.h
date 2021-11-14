@@ -6,8 +6,9 @@
 /*
  just for debag
  c(niftest).
- niftest:hello(0,4,2,1,[4,1,1,2,5,6,1],[3,1,1,0,0,0]).
- niftest:hello(1,0,4,0,[2.0,3.0,1.0,4.0,5.0,6.0,7.0,4.0,5.0],[2,1,1,0,0]).
+ niftest:creat_nif(1,2,1,[3,1,1,1,2,3],[4,1,1,2,5,6,1],[3,1,1,0,0,0]).
+ niftest:train_nif(1,1,[2.0,3.0,1.0,4.0,5.0,6.0,7.0,4.0,5.0]).
+ niftest:predict_nif(int , []).
 */
 #pragma once 
 
@@ -140,9 +141,83 @@ namespace nifpp
         std::cout<<"before rehsape"<<std::endl;
         newTensor.reshape(dimsArray);
         std::cout<<"after rehsape"<<std::endl;
-
+        tensor = newTensor;
         return 1;
     }
+
+
+
+/*
+ template<typename Type> int getTensor2D(ErlNifEnv *env, ERL_NIF_TERM term, Tensor2D<Type> &tensor)   /// 3D
+    {
+        unsigned len;
+        Type var;
+        if(!enif_is_list(env, term)) return 0;
+        int ret = enif_get_list_length(env, term, &len);
+        if(!ret) return 0;
+              
+        ERL_NIF_TERM head, tail;
+        tail = term; //very important to initalize the tail as whole list
+
+        // Dimensions Read 
+        std::vector<int> dimsVector(MAX_SUPPORTED_DIMS);
+        std::cout<<"A"<<std::endl;
+        for(int i=0; i<MAX_SUPPORTED_DIMS; i++)
+        {
+            if (enif_get_list_cell(env, tail, &head, &tail))
+            {
+                if(!get(env, head, var)) 
+                {
+
+                    std::cout<<"get Error"<<std::endl;
+                    return 0;
+                }
+                std::cout<<"var dims: "<<var<<std::endl;
+                dimsVector[i] = static_cast<int>(var);
+            }
+            else
+            {
+                throw std::runtime_error(EXCEPTION_STR_INVALID_ERL_TENSOR);
+            }
+        }
+        std::cout<<"B"<<std::endl;
+        dims tensorDims(dimsVector);
+        if ((len - MAX_SUPPORTED_DIMS) != tensorDims.xyz) // length = numOfDims + x*y*z
+        {
+            throw std::runtime_error(EXCEPTION_STR_INVALID_ERL_TENSOR);
+        }
+        //TODO optimization 
+        Tensor<Type,1> newTensor(tensorDims.xyz); // we start with a flat tensor to copy the data easily
+                std::cout<<"tensorDims.xyz: "<<tensorDims.xyz<<std::endl;
+
+        for(int idx = 0; idx < tensorDims.xyz; idx++) //copy flat tensor 
+        {
+            if(enif_get_list_cell(env, tail, &head, &tail))
+            {
+
+                Type var;
+                if(!get(env, head, var)) return 0; // conversion failure
+                
+                newTensor(idx) = var;//TODO optimization 
+                std::cout<<"idx "<<idx<<" var: "<<newTensor(idx) <<std::endl;
+
+            }
+            else
+            {
+                throw  std::runtime_error(EXCEPTION_STR_INVALID_ERL_TENSOR);
+            }
+        }
+        Eigen::array<int, 3> dimsArray{{tensorDims.x,tensorDims.y}};
+        //reshape 
+        std::cout<<"before rehsape"<<std::endl;
+        newTensor.reshape(dimsArray);
+        std::cout<<"after rehsape"<<std::endl;
+        tensor = newTensor;
+        return 1;
+    }
+
+*/
+
 
 
 
@@ -221,6 +296,7 @@ namespace nifpp
 
         return 1;
     }
+
 
 
 

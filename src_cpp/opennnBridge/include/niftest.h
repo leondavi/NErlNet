@@ -21,9 +21,9 @@ using namespace OpenNN;
 
 #define DEBUG_CREATE_NIF 0
 
-enum ModuleMode {CREATE = 0, TRAIN = 1, PREDICT = 2};
+//enum ModuleMode {CREATE = 0, TRAIN = 1, PREDICT = 2};
 
-enum ModuleType {APPROXIMATION = 1, CLASSIFICATION = 2, FORECASTING = 3};
+enum ModuleType {APPROXIMATION = 1, CLASSIFICATION = 2, FORECASTING = 3 , ENCODER_DECODER = 4, FREENN = 5};
 
 enum ScalingMethods {NoScaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5};
    
@@ -85,34 +85,53 @@ static ERL_NIF_TERM jello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 }
 
-static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+
+
+static ERL_NIF_TERM creat_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     
     ModelParams modelParamsInst;
-    int layers_num;
-    int mode;
+    unsigned long modelId;
+    int modelType;
     int scaling_method;
+    nifpp::Tensor1D<Index> layer_types;
     nifpp::Tensor1D<Index> neural_network_architecture;
     nifpp::Tensor1D<Index> activations_functions;
-    nifpp::get_throws(env,argv[0],mode);
-    if(mode == CREATE){
+    
+   
 
     try{
          // get data from erlang ----------------------------------------------------------------------------------------
-         nifpp::get_throws(env,argv[1],modelParamsInst._modelId);
-         nifpp::get_throws(env,argv[2],modelParamsInst._modelType);
-         nifpp::get_throws(env,argv[3],scaling_method);  
+         nifpp::get_throws(env,argv[0],modelParamsInst._modelId);
+         nifpp::get_throws(env,argv[1],modelParamsInst._modelType);
+         nifpp::get_throws(env,argv[2],scaling_method); 
+         nifpp::getTensor1D(env,argv[3],layer_types); 
          nifpp::getTensor1D(env,argv[4],neural_network_architecture);
          nifpp::getTensor1D(env,argv[5],activations_functions);
-        // nifpp::get_throws(env,argv[5],*(modelParamsInst.GetAcvtivationList())); // list of activation functions
+
+         nifpp::get_throws(env,argv[0],modelId);
+         nifpp::get_throws(env,argv[1],modelType);
+
+
+
+        
         //--------------------------------------------------------------------------------------------------------------
+         
+         // set modelParamsInst ----------------------------------------------------------------------------------------
+         
+
+        
+         //----------------------------
 
 
          //Tensor<Index, 1> neural_network_architecture(3);
          //neural_network_architecture.setValues({1, 3, 1});
 
          // creat neural network . typy + layers number and size. -------------------------------------------------------------
-         NeuralNetwork *neural_network = new NeuralNetwork(NeuralNetwork::Approximation,neural_network_architecture); // difolt
+         //NeuralNetwork *neural_network = new NeuralNetwork(); // it's not good 
+         
+         std::shared_ptr<OpenNN::NeuralNetwork> neural_network = std::make_shared<OpenNN::NeuralNetwork>();
+
 
          if (modelParamsInst._modelType == APPROXIMATION){     
              neural_network->set(NeuralNetwork::Approximation,neural_network_architecture);     
@@ -125,6 +144,45 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          else if(modelParamsInst._modelType == FORECASTING){   
              neural_network->set(NeuralNetwork::Forecasting,neural_network_architecture);      
                
+         }
+
+         else if(modelParamsInst._modelType == ENCODER_DECODER){   
+             //neural_network->set(NeuralNetwork::Forecasting,neural_network_architecture);      
+               
+         }
+
+         else if(modelParamsInst._modelType == FREENN){ 
+             //OpenNN::Layer* L[] = 
+             std::cout << "start FREENN" << std::endl;  
+
+             //  creat neural networl layers
+             for(int i = 0 ; i < neural_network_architecture.size() ; i++){
+                 
+                 if (layer_types[i] == scaling){
+                     OpenNN::ScalingLayer* L = new ScalingLayer(); 
+                     //std::shared_ptr<OpenNN::ScalingLayer> L(new OpenNN::ScalingLayer()); //not work
+                     L->set(neural_network_architecture[i]);
+                     neural_network->add_layer(L); 
+                 }
+
+                 if (layer_types[i] == perceptron){
+                     OpenNN::PerceptronLayer* L = new PerceptronLayer();
+                     //std::shared_ptr<OpenNN::PerceptronLayer> L = std::make_shared<OpenNN::PerceptronLayer>(); // not work
+                     L->set_neurons_number(neural_network_architecture[i]);
+                     neural_network->add_layer(L); 
+                 }
+
+                 if (layer_types[i] == probabilistic){
+                     OpenNN::ProbabilisticLayer* L = new ProbabilisticLayer();
+                     //std::shared_ptr<OpenNN::ProbabilisticLayer> L = std::make_shared<OpenNN::ProbabilisticLayer>(); //not work
+                     L->set_neurons_number(neural_network_architecture[i]);
+                     neural_network->add_layer(L); 
+                 }
+
+                 std::cout << neural_network->get_layers_number() << std::endl; 
+                 std::cout << "end FREENN" << std::endl; 
+             }
+             return enif_make_string(env, "catch - problem in try5", ERL_NIF_LATIN1); 
          }
          //-------------------------------------------------------------------------------------------------------------
 
@@ -229,40 +287,43 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
          // Put the model record to the map with modelId
          s->setData(modelPtr, modelParamsInst._modelId);  
           //return enif_make_string(env, "catch - problem in try1", ERL_NIF_LATIN1);
+          return enif_make_string(env, "try2", ERL_NIF_LATIN1);
          //-------------------------------------------------------------------------------------------------------------   
     }   
-
+     
     
      catch(...){
            return enif_make_string(env, "catch - problem in try2", ERL_NIF_LATIN1);
             //return enif_make_badarg(env);
      }                                                             
             
-    } //end CREATE mode
-   
+    
+}  // end creat mode 
 
-
-    else if(mode == TRAIN){
+static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
+         
 
          TrainParams* trainptr =  new TrainParams();
-
+         int optimization_method;
 
          Eigen::Tensor<float,2> data;
 
-         nifpp::get_throws(env, argv[2], trainptr->_mid); // model id
-         nifpp::getTensor2D(env,argv[4],data);
+         nifpp::get_throws(env, argv[0],trainptr->_mid); // model id
+         nifpp::get_throws(env, argv[1],optimization_method);
+         nifpp::getTensor2D(env,argv[2],data);
+         
          DataSet data_set;
          data_set.set_data(data);
          
         
-        // Get the singleton instance
+         // Get the singleton instance
          opennnBridgeController *s = s->GetInstance();
          
 
 
-       // Get the model from the singleton
+         // Get the model from the singleton
          //std::shared_ptr<OpenNN::NeuralNetwork> modelPtr = std::make_shared<OpenNN::NeuralNetwork>();
-        // modelPtr = s-> getModelPtr(trainptr->_mid);
+         // modelPtr = s-> getModelPtr(trainptr->_mid);
          NeuralNetwork neural_network = *(s-> getModelPtr(trainptr->_mid));
          
          cout << neural_network.get_layers_number() <<std::endl;
@@ -270,22 +331,35 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
          
 
-         training_strategy.perform_training();  //this is not work
+         training_strategy.perform_training();  
 
          return enif_make_string(env, "catch - problem in try2", ERL_NIF_LATIN1);
+         
+}  //end TRAIN mode  
+    
+    
+static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
+         
+         
+         long int mid;
+         opennnBridgeController *s = s->GetInstance();
+         Eigen::Tensor<float,2> data;
+         nifpp::get_throws(env, argv[0], mid); // get model id
+         nifpp::getTensor2D(env,argv[1],data);            // get data for prediction
+         NeuralNetwork neural_network = *(s-> getModelPtr(mid)); //get neural network from singelton
+         cout << neural_network.get_layers_number() <<std::endl;
+         
+         //Tensor< float, 2 > calculate_outputs =  neural_network.calculate_outputs(data);
+         std::cout<<  "bbb" <<std::endl;
+         std::cout<< neural_network.calculate_outputs(data) <<std::endl;
+         std::cout<<  "aaa" <<std::endl;
+         return enif_make_string(env, "catch - problem in try3", ERL_NIF_LATIN1);
 
-    
-    
-    
-    
-      if(mode == PREDICT){
-
-
-    }
+         
      
-    }
+     //}
 
-    return enif_make_int(env,0);
+     return enif_make_int(env,0);
     //return enif_make_string(env, "Hello world! @@@@@", ERL_NIF_LATIN1);
 /*
 #if DEBUG_CREATE_NIF
@@ -296,11 +370,13 @@ static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             std::cout << "Start creating the module." << '\n';
 #endif
 */
-}
+}  //end PREDICT mode
 
 static ErlNifFunc nif_funcs[] =
 {
-    {"hello", 6 , hello},
+    {"creat_nif", 6 , creat_nif},
+    {"train_nif", 3 , train_nif},
+    {"predict_nif", 2 , predict_nif},
     {"printTensor",2, printTensor}
    // {"jello", 1, jello}
 };
