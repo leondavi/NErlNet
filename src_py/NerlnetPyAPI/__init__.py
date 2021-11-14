@@ -33,50 +33,48 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 class BaseServer(BaseHTTPRequestHandler):
 
-    def _set_headers(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'text/html')
-        self.end_headers()
+    def _set_headers(self): #Generate a map of header: value
+        self.send_response(200) #Send status code 200, for success
+        self.send_header('Content-type', 'text/html') #Specify the type of header, and its value
+        self.end_headers() #End headers list
 
-    def do_GET(self):
-        print("do")
-        time.sleep(5)
-        message = threading.currentThread().getName()
-        self.wfile.write(message)
-        self.wfile.write('\n')
+    def do_GET(self): #Defining the response to a get request
+        message = threading.currentThread().getName() #The message is the current thread's name
+        self.wfile.write(message) #Display the message (thread's name)
+        self.wfile.write('\n') 
 
     def do_HEAD(self):
         self._set_headers()
 
     def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
+        contentLength = int(self.headers['Content-Length']) #The length of our text
+        postData = self.rfile.read(contentLength)
         self._set_headers()
-        self.wfile.write("<html><body><p>POST!</p><p>%s</p></body></html>"
-                         .encode('utf-8') % post_data)
+        self.wfile.write("<html><body><p>POST</p><p>%s</p></body></html>"
+                         .encode('utf-8') % postData) #Write "Post", and than the contentLength
         # print(NerlnetPyAPI.settings.lenOfRequests)
-        # print(post_data.decode())
-        if post_data.decode() == 'ack':
+        # print(postData.decode())
+        if postData.decode() == 'ack':
             print("ack received")
-            NerlnetPyAPI.settings.ackQueue.append(str(post_data.decode()))
+            NerlnetPyAPI.settings.ackQueue.append(str(postData.decode()))
             NerlnetPyAPI.settings.lenOfRequests = NerlnetPyAPI.settings.lenOfRequests - 1
 
         else:
-            strSplited = splitStr(post_data.decode())
+            strSplited = splitStr(postData.decode())
             if strSplited[0] == 'statistics':
                 NerlnetPyAPI.settings.statistics.append(strSplited[1])
             elif not NerlnetPyAPI.settings.losDict:
-                splitedStr = splitStr(post_data.decode())
+                splitedStr = splitStr(postData.decode())
                 NerlnetPyAPI.settings.losDict.update({splitedStr[1]: [splitedStr[1]]})
             else:
-                splitedStr = splitStr(post_data.decode())
+                splitedStr = splitStr(postData.decode())
                 curr = NerlnetPyAPI.settings.losDict.get(splitedStr[0])
                 NerlnetPyAPI.settings.losDict.update({splitedStr[1]: [curr] + [splitedStr[1]]})
 
-        print(post_data.decode())
+        print(postData.decode())
         print(NerlnetPyAPI.settings.lenOfRequests)
         print(NerlnetPyAPI.settings.ackQueue)
-        if post_data == b'exit':
+        if postData == b'exit':
             serverRun(True, ThreadedHTTPServer(('localhost', port), BaseServer))
         else:
             pass

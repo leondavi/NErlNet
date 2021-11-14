@@ -2,7 +2,7 @@ lenOfRequests = 0
 ackQueue = []
 loosFunQueue = []
 statistics = []
-losDict = {}
+lossDict = {}
 
 
 def glob():
