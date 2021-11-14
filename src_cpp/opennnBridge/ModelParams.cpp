@@ -1,4 +1,5 @@
 #include "include/ModelParams.h"
+#include "include/FreeNN.h"
 
 /*
   model parameters class:
@@ -27,22 +28,26 @@
 
 */
 
-ModelParams::ModelParams(int optimizer, unsigned long modelId, double learningRate,int modelType, 
-			  std::shared_ptr<std::vector<int>> activationList, std::shared_ptr<std::vector<int>> layersSizes,
-			  std::shared_ptr<std::vector<int>> layersTypes) : 
+ModelParams::ModelParams(unsigned long modelId, int modelType, int scalingMethod,
+			  std::shared_ptr<Eigen::Tensor<int,1>> activationList, std::shared_ptr<Eigen::Tensor<int,1>> layersSizes,
+			  std::shared_ptr<Eigen::Tensor<int,1>> layersTypes) : 
 
+//_optimizer(optimizer),
+//_learningRate(learningRate),
 
-
-_optimizer(optimizer),
 _modelId(modelId),
 _modelType(modelType),
-_learningRate(learningRate),
+_scalingMethod(scalingMethod),
 _activationList(activationList),            
 _layersSizes(layersSizes),
 _layersTypes(layersTypes)
+
+
 {
 
 };
+
+
 
 TrainParams::TrainParams(int rows, int col, int labels, unsigned long mid, std::shared_ptr<std::vector<double>> data_label_mat, 
 			  ErlNifTid tid, ErlNifPid pid) :
@@ -59,3 +64,17 @@ _pid(pid)
 
 };
 
+
+
+
+FreeNN::FreeNN(OpenNN::NeuralNetwork neuralNetwork, Eigen::Tensor<int,1> layersSizes,
+               Eigen::Tensor<int,1> layersTypes ,  Eigen::Tensor<int,1> activationFunctions) :
+
+_neuralNetwork(neuralNetwork),
+_layersSizes(layersSizes),
+_layersTypes(layersTypes),
+_activationFunctions(activationFunctions)
+
+{
+
+};    

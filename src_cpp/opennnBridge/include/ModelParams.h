@@ -3,42 +3,54 @@
 #include <erl_nif.h>
 #include <memory>
 #include <vector>
+#include <eigen3/Eigen/Core>
+#include "../../opennn/opennn/opennn.h"
+
+
 
 class ModelParams 
 {
 public:
  	ModelParams() {};
- 	ModelParams(int optimizer, unsigned long modelId, double learningRate,int modelType, 
- 	std::shared_ptr<std::vector<int>> activationList, std::shared_ptr<std::vector<int>> layersSizes,
-    std::shared_ptr<std::vector<int>> layersTypes);
+ 	ModelParams( unsigned long modelId, int modelType, int scalingMethod,
+ 	std::shared_ptr<Eigen::Tensor<int,1>> activationList, std::shared_ptr<Eigen::Tensor<int,1>> layersSizes,
+    std::shared_ptr<Eigen::Tensor<int,1>> layersTypes);
 
-	int GetOptimizer() { return _optimizer; };
+
+	
 	unsigned long GetModelId() { return _modelId; };
-    double GetLearningRate() { return _learningRate; };
     int GetModelType() { return _modelType; };
-	std::shared_ptr<std::vector<int>> GetAcvtivationList() { return _activationList; };
-    std::shared_ptr<std::vector<int>> GetLayersSizes() { return _layersSizes; };
-    std::shared_ptr<std::vector<int>> GetLayersTypes() { return _layersTypes; };
+    int GetScalingMethod() { return _scalingMethod; };
+	std::shared_ptr<Eigen::Tensor<int,1>> GetAcvtivationList() { return _activationList; };
+    std::shared_ptr<Eigen::Tensor<int,1>> GetLayersSizes() { return _layersSizes; };
+    std::shared_ptr<Eigen::Tensor<int,1>> GetLayersTypes() { return _layersTypes; };
+
+    //int GetOptimizer() { return _optimizer; };
+    //double GetLearningRate() { return _learningRate; };
     
 
-    void setOptimizer(int x){this->_optimizer = x; };
+    
     void setModelId(unsigned long x){this->_modelId = x; };
-    void setLearningRate(double x){this->_learningRate = x; };
     void setModelType(int x){this->_modelType = x; };
-    void setAcvtivationList(std::shared_ptr<std::vector<int>>  x){this->_activationList = x; };
-    void setLayersSizes(std::shared_ptr<std::vector<int>>  x){this->_layersSizes = x; };
-    void setLayersTypes(std::shared_ptr<std::vector<int>>  x){this->_layersTypes = x; };
+    void setScalingMethod(int x){this->_scalingMethod = x; };
+    void setAcvtivationList(std::shared_ptr<Eigen::Tensor<int,1>>  x){this->_activationList = x; };
+    void setLayersSizes(std::shared_ptr<Eigen::Tensor<int,1>> x){this->_layersSizes = x; };
+    void setLayersTypes(std::shared_ptr<Eigen::Tensor<int,1>> x){this->_layersTypes = x; };
+
+    //void setOptimizer(int x){this->_optimizer = x; };
+    //void setLearningRate(double x){this->_learningRate = x; };
 
 
-    int _optimizer;
-    unsigned long _modelId;
-    double _learningRate;
-    int _modelType;
-    std::shared_ptr<std::vector<int>> _activationList; //shared pointers   std::shared_ptr<std::vector> _activationListPtr; 
-    std::shared_ptr<std::vector<int>> _layersSizes; //TODO try to use shared pointers
-    std::shared_ptr<std::vector<int>> _layersTypes;
     
-
+    unsigned long _modelId;
+    int _modelType;
+    int _scalingMethod;
+    std::shared_ptr<Eigen::Tensor<int,1>> _activationList; //shared pointers   std::shared_ptr<std::vector> _activationListPtr; 
+    std::shared_ptr<Eigen::Tensor<int,1>> _layersSizes; //TODO try to use shared pointers
+    std::shared_ptr<Eigen::Tensor<int,1>> _layersTypes;
+    
+    //double _learningRate;
+    //int _optimizer;
 private:
 
 };
@@ -83,3 +95,4 @@ public:
 private:
 
 };
+
