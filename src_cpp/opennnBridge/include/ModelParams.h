@@ -7,7 +7,6 @@
 #include "../../opennn/opennn/opennn.h"
 
 
-
 class ModelParams 
 {
 public:
@@ -95,4 +94,10 @@ public:
 private:
 
 };
+
+
+
+
+
+
 
