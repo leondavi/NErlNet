@@ -1,5 +1,5 @@
 #include "include/ModelParams.h"
-#include "include/FreeNN.h"
+#include "include/CustumNN.h"
 
 /*
   model parameters class:
@@ -66,15 +66,16 @@ _pid(pid)
 
 
 
-
-FreeNN::FreeNN(OpenNN::NeuralNetwork neuralNetwork, Eigen::Tensor<int,1> layersSizes,
-               Eigen::Tensor<int,1> layersTypes ,  Eigen::Tensor<int,1> activationFunctions) :
-
-_neuralNetwork(neuralNetwork),
-_layersSizes(layersSizes),
-_layersTypes(layersTypes),
-_activationFunctions(activationFunctions)
+/*
+CustumNN::CustumNN ():  //(OpenNN::NeuralNetwork neuralNetwork, Eigen::Tensor<int,1> layersSizes,
+                    //Eigen::Tensor<int,1> layersTypes ,  Eigen::Tensor<int,1> activationFunctions) :
+ 
+//_neuralNetwork(neuralNetwork),
+//_layersSizes(layersSizes),
+//_layersTypes(layersTypes),
+//_activationFunctions(activationFunctions)
 
 {
 
 };    
+*/

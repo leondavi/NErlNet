@@ -1,6 +1,6 @@
 -module(niftest).
 
--export([init/0,creat_nif/6,train_nif/3,predict_nif/2,printTensor/2]).
+-export([init/0,create_nif/6,train_nif/3,predict_nif/2,printTensor/2]).
 
 -define(DEBUG,false). % set here if it is debug or release  TODO change to read from hrl auto generated file
 -if(DEBUG).
@@ -28,7 +28,7 @@ init() ->
 %hello(Integer ) when is_integer(Integer) ->
 %      exit(nif_library_not_loaded).
 
-creat_nif(Integer, Integer , Integer , [] , [] , []) ->
+create_nif(Integer, Integer , Integer , [] , [] , []) ->
       exit(nif_library_not_loaded).
 
 train_nif(Integer,Integer, []) ->

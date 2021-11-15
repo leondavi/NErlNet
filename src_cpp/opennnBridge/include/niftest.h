@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include "ModelParams.h"
+#include "CustumNN.h"
 #include <map>
 
 
@@ -23,7 +24,7 @@ using namespace OpenNN;
 
 //enum ModuleMode {CREATE = 0, TRAIN = 1, PREDICT = 2};
 
-enum ModuleType {APPROXIMATION = 1, CLASSIFICATION = 2, FORECASTING = 3 , ENCODER_DECODER = 4, FREENN = 5};
+enum ModuleType {APPROXIMATION = 1, CLASSIFICATION = 2, FORECASTING = 3 , ENCODER_DECODER = 4, CUSTUMNN = 5};
 
 enum ScalingMethods {NoScaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5};
    
@@ -31,8 +32,18 @@ enum ActivationFunction {Threshold = 1, SymmetricThreshold = 2 , Logistic = 3 , 
                          Linear = 5 , RectifiedLinear = 6 , ExponentialLinear = 7 , ScaledExponentialLinear = 8 ,
                          SoftPlus = 9 , SoftSign = 10 , HardSigmoid = 11 , Binary = 12 , Competitive = 14 , Softmax = 15 };
 
-enum LayerType {scaling = 1, convolutional = 2 , perceptron = 3 , pooling = 4 , probabilistic = 5 ,
-                longShortTermMemory = 6 , recurrent = 7 , unscaling = 8 , bounding = 9 };
+//enum LayerType {scaling = 1, convolutional = 2 , perceptron = 3 , pooling = 4 , probabilistic = 5 ,
+                //longShortTermMemory = 6 , recurrent = 7 , unscaling = 8 , bounding = 9 };
+
+enum OptimizationMethod {GRADIENT__DESCENT = 1, CONJUGATE__GRADIENT = 2, QUASI__NEWTON_METHOD = 3 ,
+                         LEVENBERG__MARQUARDT_ALGORITHM = 4, STOCHASTIC__GRADIENT_DESCENT = 5 , ADAPTIVE__MOMENT_ESTIMATION = 6};
+               
+enum LossMethod {Sum_Squared_Error = 1, Mean_Squared_Error = 2, Normalized_Squared_Error = 3 ,
+                         Minkowski_Error = 4, Weighted_Squared_Error = 5 , Cross_Entropy_Error = 6};
+               
+
+
+
 
 //TODO improve
 inline std::string  Tensor2str(nifpp::Tensor3D<float> &inputTensor)
@@ -87,13 +98,14 @@ static ERL_NIF_TERM jello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 
 
-static ERL_NIF_TERM creat_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     
     ModelParams modelParamsInst;
     unsigned long modelId;
     int modelType;
     int scaling_method;
+    //int optimization_method;
     nifpp::Tensor1D<Index> layer_types;
     nifpp::Tensor1D<Index> neural_network_architecture;
     nifpp::Tensor1D<Index> activations_functions;
@@ -151,10 +163,11 @@ static ERL_NIF_TERM creat_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
                
          }
 
-         else if(modelParamsInst._modelType == FREENN){ 
+         else if(modelParamsInst._modelType == CUSTUMNN){ 
              //OpenNN::Layer* L[] = 
-             std::cout << "start FREENN" << std::endl;  
-
+             std::cout << "start CustumNN" << std::endl; 
+             //CustumNN custumNN;
+             
              //  creat neural networl layers
              for(int i = 0 ; i < neural_network_architecture.size() ; i++){
                  
@@ -180,8 +193,10 @@ static ERL_NIF_TERM creat_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
                  }
 
                  std::cout << neural_network->get_layers_number() << std::endl; 
-                 std::cout << "end FREENN" << std::endl; 
+                 std::cout << "end CustumNN" << std::endl; 
+                 
              }
+             
              return enif_make_string(env, "catch - problem in try5", ERL_NIF_LATIN1); 
          }
          //-------------------------------------------------------------------------------------------------------------
@@ -315,22 +330,58 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
          DataSet data_set;
          data_set.set_data(data);
          
-        
          // Get the singleton instance
          opennnBridgeController *s = s->GetInstance();
          
 
-
          // Get the model from the singleton
-         //std::shared_ptr<OpenNN::NeuralNetwork> modelPtr = std::make_shared<OpenNN::NeuralNetwork>();
-         // modelPtr = s-> getModelPtr(trainptr->_mid);
          NeuralNetwork neural_network = *(s-> getModelPtr(trainptr->_mid));
          
          cout << neural_network.get_layers_number() <<std::endl;
-         TrainingStrategy training_strategy(&neural_network,&data_set);
+         TrainingStrategy training_strategy(&neural_network ,&data_set);
 
+         // ask david
+         //TrainingStrategy training_strategy(&(*(s-> getModelPtr(trainptr->_mid))) ,&data_set);
+         
+         // set Optimization Method  -------------------------------------------------------------
+         if(optimization_method == GRADIENT__DESCENT){
+             training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::GRADIENT_DESCENT);
+         }
+         else if(optimization_method == CONJUGATE__GRADIENT)
+         {
+             training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::CONJUGATE_GRADIENT);
+         }
+         else if(optimization_method == QUASI__NEWTON_METHOD)
+         {
+             training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::QUASI_NEWTON_METHOD);
+         }
+         else if(optimization_method == LEVENBERG__MARQUARDT_ALGORITHM)
+         {
+             training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::LEVENBERG_MARQUARDT_ALGORITHM);
+         }
+         else if(optimization_method == STOCHASTIC__GRADIENT_DESCENT)
+         {
+             training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::STOCHASTIC_GRADIENT_DESCENT);
+         }
+         else if(optimization_method == ADAPTIVE__MOMENT_ESTIMATION)
+         {
+             training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::ADAPTIVE_MOMENT_ESTIMATION);
+             
+         }
+         else{
+             cout << "optimization_method not choosen " <<std::endl;
+         }
+         // end set optimization method ---------------------------------------------------------------
          
 
+
+         // set Loss Method ------------------------------------------------------------------------
+         
+
+         // end set Loss Method ------------------------------------------------------------------------
+         
+
+         // do NN trainig
          training_strategy.perform_training();  
 
          return enif_make_string(env, "catch - problem in try2", ERL_NIF_LATIN1);
@@ -374,7 +425,7 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 static ErlNifFunc nif_funcs[] =
 {
-    {"creat_nif", 6 , creat_nif},
+    {"create_nif", 6 , create_nif},
     {"train_nif", 3 , train_nif},
     {"predict_nif", 2 , predict_nif},
     {"printTensor",2, printTensor}
