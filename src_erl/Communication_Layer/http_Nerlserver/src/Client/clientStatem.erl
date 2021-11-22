@@ -23,7 +23,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(client_statem_state, {myName, federatedServer,workersMap, portMap, msgCounter}).
+-record(client_statem_state, {timingMap, myName, federatedServer,workersMap, portMap, msgCounter}).
 
 
 %%%===================================================================
@@ -152,7 +152,7 @@ idle(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,myNam
   ack(MyName,PortMap),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
-idle(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
+idle(cast, _EventContent, State = #client_statem_state{msgCounter = Counter}) ->
   %io:format("client training ignored:  ~p ~n",[EventContent]),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
 
@@ -256,11 +256,6 @@ training(cast, EventContent, State = #client_statem_state{msgCounter = Counter})
 predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
   %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
   {_ClientName, WorkerName, CSVName, BatchNumber, BatchOfSamples} = binary_to_term(Body),
-%%  io:format("CSVName: ~p~n",[CSVName]),
-
-%%  [_ClientName,WorkerName,CSVName, BatchNumber,BatchOfSamples] = re:split(binary_to_list(Body), "#", [{return, list}]),
-%%  Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
-%%  ToSend =  lists:reverse(getNumbers(Splitted,[])),
   ToSend =  decodeList(BatchOfSamples),
 
 %%  io:format("CSVName: ~p, BatchNumber: ~p~n",[CSVName,BatchNumber]),
@@ -344,27 +339,8 @@ ack(MyName, PortMap) ->
 %%  send an ACK to mainserver that the CSV file is ready
   http_request(RouterHost,RouterPort,"clientReady",atom_to_list(MyName)).
 
-getNumbers([],List)->List;
-getNumbers([[]|Tail], List) -> getNumbers(Tail,List);
-getNumbers([Head|Tail], List) ->
-%%  io:format("Head:~p~n",[Head]),
 
-  try list_to_float(Head) of
-    Float->    %io:format("~p~n",[Float]),
-      getNumbers(Tail,[(Float)]++List)
-  catch
-    error:_Error->
-      %io:format("~p~n",[Error]),
-      getNumbers(Tail,[list_to_integer(Head)]++List)
 
-  end.
-
-encode(Ret_weights_tuple)->
-  {Weights,Bias,Biases_sizes_list,Wheights_sizes_list} = Ret_weights_tuple,
-  ToSend =   list_to_binary(Weights) ++ <<"#">> ++ list_to_binary(Bias) ++ <<"@">> ++ list_to_binary(Biases_sizes_list) ++ <<"@">>  ++ list_to_binary(Wheights_sizes_list),
-  % io:format("ToSend  ~p",[ToSend]),
-    ToSend.
-%%  Weights ++ <<"@">> ++ Bias ++ <<"@">> ++ [Biases_sizes_list] ++ <<"@">>  ++ Wheights_sizes_list.
 
 %%This encoder receives a lists of lists: [[1.0,1.1,11.2],[2.0,2.1,22.2]] and returns a binary
 encodeListOfLists(L)->encodeListOfLists(L,[]).

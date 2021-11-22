@@ -22,7 +22,7 @@
 -define(SENDALL, 1).
 -define(ROUNDROBIN, 2).
 
--record(source_statem_state, {method, frequency, chunkSize, castingTo=[], myName,workersMap,portMap, msgCounter=0, sourcePid=[],csvName="", csvList="", num_of_features, num_of_labels}).
+-record(source_statem_state, {sendingMethod, frequency, chunkSize, castingTo=[], myName,workersMap,portMap, msgCounter=0, sourcePid=[],csvName="", csvList="", num_of_features, num_of_labels}).
 
 %%%===================================================================
 %%% API
@@ -51,7 +51,7 @@ init({MyName,WorkersMap, ConnectionsMap, Method, ChunkSize,Frequency}) ->
   inets:start(),
   start_connection(maps:to_list(ConnectionsMap)),
 
-  {ok, idle, #source_statem_state{method = Method, frequency = Frequency, chunkSize = ChunkSize,myName = MyName, workersMap = WorkersMap, portMap = ConnectionsMap, msgCounter = 1, castingTo = []}}.
+  {ok, idle, #source_statem_state{sendingMethod = Method, frequency = Frequency, chunkSize = ChunkSize,myName = MyName, workersMap = WorkersMap, portMap = ConnectionsMap, msgCounter = 1, castingTo = []}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -91,7 +91,7 @@ idle(cast, {csvList,Workers,CSVPath}, State = #source_statem_state{chunkSize = C
 
 
 %%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
-idle(cast, {startCasting,Body}, State = #source_statem_state{method = Method, frequency = Frequency, chunkSize = ChunkSize, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, portMap = PortMap, msgCounter = Counter, csvName = CSVName, csvList =CSVlist}) ->
+idle(cast, {startCasting,Body}, State = #source_statem_state{sendingMethod = Method, frequency = Frequency, chunkSize = ChunkSize, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, portMap = PortMap, msgCounter = Counter, csvName = CSVName, csvList =CSVlist}) ->
   io:format("start casting to: ~p~n",[CastingTo]),
   [_Source,NumOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
 

@@ -221,7 +221,6 @@ handle_cast({lossFunction,<<>>}, State = #main_genserver_state{msgCounter = MsgC
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 handle_cast({lossFunction,Body}, State = #main_genserver_state{connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
 %%  io:format("got loss function:- ~p~n",[Body]),
-%%  [WorkerName|LossFunction]=re:split(binary_to_list(Body), "#", [{return, list}]),
 
   {RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
   http_request(RouterHost,RouterPort,"", "lossFunction#"++ binary_to_list(Body)),
@@ -231,9 +230,7 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{connectionsMap = 
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
 handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSize, connectionsMap = ConnectionMap,msgCounter = MsgCounter}) ->
-  % [InputName,[ResultID],Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
   {InputName,BatchID,Result}=binary_to_term(Body),
-%%  [InputName,BatchID,Result]=re:split(binary_to_list(Body), "#", [{return, list}]),
   if (Result==[]) ->
         ListOfResults = ["error"||_<-lists:seq(1,BatchSize)];
       true ->
@@ -355,7 +352,7 @@ ack(PortMap) ->
   io:format("sending ACK to serverAPI"),
   {RouterHost,RouterPort} = maps:get(serverAPI,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
-  http_request(RouterHost,RouterPort,"ack","ack"). %TODO fix and remove magic number
+  http_request(RouterHost,RouterPort,"ack","ack").
 
 getCSVName(InputName) ->
   lists:last(re:split(InputName, "/", [{return, list}])--[[]]).

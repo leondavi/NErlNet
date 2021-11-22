@@ -45,7 +45,6 @@ start_link({MyName,ConnectionsMap}) ->
 -spec(init(Args :: term()) ->
   {ok, State :: #router_genserver_state{}} | {ok, State :: #router_genserver_state{}, timeout() | hibernate} |
   {stop, Reason :: term()} | ignore).
-%%TODO  Args = [MainServerHostandPort,ClientsHostsandPorts,SourcesHostsandPorts]
 
 init({MyName,ConnectionsMap}) ->
   inets:start(),
@@ -65,7 +64,6 @@ handle_cast({rout,Body}, State = #router_genserver_state{msgCounter = MsgCounter
 %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
 %%  ToSend = term_to_binary({ClientName, WorkerName, CSVPath, Counter, Head}),
   {To, _WorkerName, _CSVPath, _Counter, _Head} = binary_to_term(Body),
-%%  [To|_Vector] = binary:split(Body,<<"#">>),
   {Host,Port} =maps:get(To,ConnectionsMap),
   http_request(Host,Port,"weightsVector",Body),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
@@ -111,7 +109,6 @@ handle_cast({federatedWeightsVector,Body}, State = #router_genserver_state{msgCo
 
 handle_cast({federatedWeights,Body}, State = #router_genserver_state{msgCounter = MsgCounter, connectionsMap = ConnectionsMap}) ->
 %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
-%%  [To|_Vector] = binary:split(Body,<<"#">>),
     {ClientName,WorkerName,BinaryWeights} = binary_to_term(Body),
 
 {Host,Port} =maps:get(ClientName,ConnectionsMap),
@@ -238,7 +235,6 @@ start_connection([{ServerName,{Host, Port}}|Tail]) ->
   io:format("Router is now connected to ~p, Result: ~p~n",[{ServerName,Host, Port},Result]),
   start_connection(Tail).
 
-%%list_to_binary([list_to_binary([Name,<<"#">>]),BinaryHead]))
 
 %%findroutAndsend([],_)->ok;
 %%findroutAndsend([[SourceName,ClientName,InputFile]|ListOfSources], ConnectionsMap) ->
