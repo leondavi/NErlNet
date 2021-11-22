@@ -13,7 +13,7 @@
 #include <eigen3/Eigen/Core>
 #include "../../opennn/opennn/opennn.h"
 #include "bridgeController.h"
-#include "nifppEigenExtensions.h"
+//#include "nifppEigenExtensions.h"
 //#include "train.h"
 
 #include "nifppEigenExtensions.h"
@@ -123,9 +123,6 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
          nifpp::get_throws(env,argv[0],modelId);
          nifpp::get_throws(env,argv[1],modelType);
-
-
-
         
         //--------------------------------------------------------------------------------------------------------------
          
@@ -197,10 +194,16 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
                  
              }
              
-             return enif_make_string(env, "catch - problem in try5", ERL_NIF_LATIN1); 
+            // return enif_make_string(env, "catch - problem in try5", ERL_NIF_LATIN1); 
          }
          //-------------------------------------------------------------------------------------------------------------
 
+         // get weights test
+         std::cout << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl; 
+         Tensor< float, 1 > parameters = neural_network->get_parameters();
+         std::cout << parameters << std::endl;
+         std::cout << "bbbb" << std::endl; 
+         // end
 
          //chech the inputs from erlang and neural network architecture ---------------------------------------------------
          Index layer_num = neural_network->get_layers_number();
@@ -302,7 +305,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          // Put the model record to the map with modelId
          s->setData(modelPtr, modelParamsInst._modelId);  
           //return enif_make_string(env, "catch - problem in try1", ERL_NIF_LATIN1);
-          return enif_make_string(env, "try2", ERL_NIF_LATIN1);
+          return enif_make_string(env, "end create mode", ERL_NIF_LATIN1);
          //-------------------------------------------------------------------------------------------------------------   
     }   
      
@@ -320,12 +323,13 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 
          TrainParams* trainptr =  new TrainParams();
          int optimization_method;
-
+         int lose_method;
          Eigen::Tensor<float,2> data;
 
          nifpp::get_throws(env, argv[0],trainptr->_mid); // model id
          nifpp::get_throws(env, argv[1],optimization_method);
-         nifpp::getTensor2D(env,argv[2],data);
+         nifpp::get_throws(env, argv[2],lose_method);
+         nifpp::getTensor2D(env,argv[3],data);
          
          DataSet data_set;
          data_set.set_data(data);
@@ -333,15 +337,24 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
          // Get the singleton instance
          opennnBridgeController *s = s->GetInstance();
          
-
+        std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(trainptr->_mid);
          // Get the model from the singleton
-         NeuralNetwork neural_network = *(s-> getModelPtr(trainptr->_mid));
+         //NeuralNetwork neural_network = *(s-> getModelPtr(trainptr->_mid));
+
+         /*/ get weights test
+         std::cout << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl; 
+         Tensor< float, 1 > parameters = neural_network->get_parameters();
+         std::cout << parameters << std::endl;
+         std::cout << "bbbb" << std::endl; 
+         // end */ 
          
-         cout << neural_network.get_layers_number() <<std::endl;
-         TrainingStrategy training_strategy(&neural_network ,&data_set);
+         cout << neural_network->get_layers_number() <<std::endl;
+         //TrainingStrategy training_strategy(&neural_network ,&data_set);
 
          // ask david
-         //TrainingStrategy training_strategy(&(*(s-> getModelPtr(trainptr->_mid))) ,&data_set);
+         TrainingStrategy training_strategy(&(*(s-> getModelPtr(trainptr->_mid))) ,&data_set);
+
+         
          
          // set Optimization Method  -------------------------------------------------------------
          if(optimization_method == GRADIENT__DESCENT){
@@ -376,15 +389,49 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 
 
          // set Loss Method ------------------------------------------------------------------------
-         
+         if(lose_method == Sum_Squared_Error){
+             training_strategy.set_loss_method(TrainingStrategy::LossMethod::SUM_SQUARED_ERROR);
+         }
+         else if(lose_method == Mean_Squared_Error)
+         {
+             training_strategy.set_loss_method(TrainingStrategy::LossMethod::MEAN_SQUARED_ERROR);
+         }
+         else if(lose_method == Normalized_Squared_Error)
+         {
+             training_strategy.set_loss_method(TrainingStrategy::LossMethod::NORMALIZED_SQUARED_ERROR);
+         }
+         else if(lose_method == Minkowski_Error)
+         {
+             training_strategy.set_loss_method(TrainingStrategy::LossMethod::MINKOWSKI_ERROR);
+         }
+         else if(lose_method == Weighted_Squared_Error)
+         {
+             training_strategy.set_loss_method(TrainingStrategy::LossMethod::WEIGHTED_SQUARED_ERROR);
+         }
+         else if(lose_method == Cross_Entropy_Error)
+         {
+             training_strategy.set_loss_method(TrainingStrategy::LossMethod::CROSS_ENTROPY_ERROR );
+             
+         }
+         else{
+             cout << "lose_method not choosen " <<std::endl;
+         }
 
          // end set Loss Method ------------------------------------------------------------------------
          
 
          // do NN trainig
-         training_strategy.perform_training();  
+         training_strategy.perform_training(); 
+         
+         //get weitghts test
+         std::cout << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl; 
+         Tensor< float, 1 > parameters1 = neural_network->get_parameters();
+         std::cout << parameters1 << std::endl;
+         std::cout << "bbbb" << std::endl; 
+         //end 
+        
 
-         return enif_make_string(env, "catch - problem in try2", ERL_NIF_LATIN1);
+         return enif_make_string(env, "end TRAIN mode", ERL_NIF_LATIN1);
          
 }  //end TRAIN mode  
     
@@ -393,25 +440,26 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
          
          
          long int mid;
+         
          opennnBridgeController *s = s->GetInstance();
+        
          Eigen::Tensor<float,2> data;
          nifpp::get_throws(env, argv[0], mid); // get model id
-         nifpp::getTensor2D(env,argv[1],data);            // get data for prediction
-         NeuralNetwork neural_network = *(s-> getModelPtr(mid)); //get neural network from singelton
-         cout << neural_network.get_layers_number() <<std::endl;
+         nifpp::getTensor2D(env,argv[1],data); // get data for prediction
+          
+         //get neural network from singelton         
+         std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(mid); 
+         cout << neural_network->get_layers_number() <<std::endl;
          
          //Tensor< float, 2 > calculate_outputs =  neural_network.calculate_outputs(data);
          std::cout<<  "bbb" <<std::endl;
-         std::cout<< neural_network.calculate_outputs(data) <<std::endl;
+         std::cout<< neural_network->calculate_outputs(data) <<std::endl;
          std::cout<<  "aaa" <<std::endl;
-         return enif_make_string(env, "catch - problem in try3", ERL_NIF_LATIN1);
+         return enif_make_string(env, "end PREDICT mode", ERL_NIF_LATIN1);
 
          
-     
-     //}
-
-     return enif_make_int(env,0);
-    //return enif_make_string(env, "Hello world! @@@@@", ERL_NIF_LATIN1);
+     //return enif_make_int(env,0);
+    
 /*
 #if DEBUG_CREATE_NIF
             std::cout << "Optimizers::opt_t optimizer: " << optimizer << '\n';
@@ -423,12 +471,45 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 */
 }  //end PREDICT mode
 
+
+static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
+         
+         long int mid;
+         opennnBridgeController *s = s->GetInstance();
+
+         // get model id
+         nifpp::get_throws(env, argv[0], mid); 
+
+         //get neural network from singelton           
+         std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(mid);
+         
+         cout << neural_network->get_layers_number() <<std::endl;
+      
+         Index num = neural_network->get_layers_number();
+        
+
+         //get weitghts test
+         std::cout << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl; 
+         Tensor< float, 1 > parameters2 = neural_network->get_parameters();
+         std::cout << parameters2 << std::endl;
+         std::cout << "bbbb" << std::endl; 
+         //end 
+
+         return enif_make_string(env, "end get_weights_nif ", ERL_NIF_LATIN1);
+
+     //return enif_make_int(env,0);
+
+}  //end get_weights_nif 
+
+
+
 static ErlNifFunc nif_funcs[] =
 {
     {"create_nif", 6 , create_nif},
-    {"train_nif", 3 , train_nif},
+    {"train_nif", 4 , train_nif},
     {"predict_nif", 2 , predict_nif},
-    {"printTensor",2, printTensor}
+    {"printTensor",2, printTensor},
+    {"get_weights_nif",1, get_weights_nif}
    // {"jello", 1, jello}
 };
 
