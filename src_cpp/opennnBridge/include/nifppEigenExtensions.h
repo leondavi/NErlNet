@@ -3,13 +3,7 @@
  * 29/10/2021
  * 
  *****************************************************/ 
-/*
- just for debag
- c(niftest).
- niftest:creat_nif(1,2,1,[3,1,1,1,2,3],[4,1,1,2,5,6,1],[3,1,1,0,0,0]).
- niftest:train_nif(1,1,[2.0,3.0,1.0,4.0,5.0,6.0,7.0,4.0,5.0]).
- niftest:predict_nif(int , []).
-*/
+
 #pragma once 
 
 #include "nifpp.h"

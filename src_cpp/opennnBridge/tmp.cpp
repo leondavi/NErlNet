@@ -1,6 +1,6 @@
 
 
-#include "include/niftest.h" // example of how to use nif
+#include "include/niftest.h" 
 #include "include/nifppEigenExtensions.h"
 /*#include <vector>
 #include "opennn.h"
