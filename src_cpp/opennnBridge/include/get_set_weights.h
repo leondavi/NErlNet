@@ -29,14 +29,14 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
       
          Index num = neural_network->get_layers_number();
         
-
+         /*
          //get weitghts test
          std::cout << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl; 
          Tensor< float, 1 > parameters2 = neural_network->get_parameters();
          std::cout << parameters2 << std::endl;
          std::cout << "bbbb" << std::endl; 
          //end 
-
+         */
          return enif_make_string(env, "end get_weights_nif ", ERL_NIF_LATIN1);
 
      //return enif_make_int(env,0);

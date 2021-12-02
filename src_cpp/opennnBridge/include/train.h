@@ -30,9 +30,9 @@ struct TrainNN {
 
 static void* trainFun(void* arg){ 
          TrainNN* TrainNNptr = (TrainNN*)arg;
-         double loss_val;
+         int loss_val;
          ErlNifEnv *env = enif_alloc_env();
-
+         
          DataSet data_set;
          data_set.set_data(TrainNNptr->data);
          
@@ -44,13 +44,7 @@ static void* trainFun(void* arg){
          
          //NeuralNetwork neural_network = *(s-> getModelPtr(mid));
 
-         /*/ get weights test
-         std::cout << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl; 
-         Tensor< float, 1 > parameters = neural_network->get_parameters();
-         std::cout << parameters << std::endl;
-         std::cout << "bbbb" << std::endl; 
-         // end */ 
-         
+
          cout << neural_network->get_layers_number() <<std::endl;
          //TrainingStrategy training_strategy(&neural_network ,&data_set);
 
@@ -122,6 +116,7 @@ static void* trainFun(void* arg){
 
          // end set Loss Method ------------------------------------------------------------------------
          
+         /*
          std::cout << "zzzzzzzzzzzzzzzzzzzzzzzzzzz" << std::endl; 
          std::cout << neural_network->get_layers_number() << std::endl; 
          std::cout << (neural_network->get_layer_pointer(0))->get_neurons_number() << std::endl;
@@ -130,17 +125,24 @@ static void* trainFun(void* arg){
          std::cout << (neural_network->get_layer_pointer(3))->get_neurons_number() << std::endl;
          std::cout << (neural_network->get_trainable_layers_pointers()(0))->get_type_string() << std::endl;
          std::cout << (neural_network->get_trainable_layers_pointers()(1))->get_type_string() << std::endl;
+         */
+         //MeanSquaredError error = MeanSquaredError(&*neural_network , &data_set);//.calculate_error();
+          
          // do NN trainig
          training_strategy.perform_training(); 
          
+         /*
          //get weitghts test
          std::cout << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl; 
          Tensor< float, 1 > parameters1 = neural_network->get_parameters();
          std::cout << parameters1 << std::endl;
          std::cout << "bbbb" << std::endl; 
          //end 
-         loss_val = 0;
+         */
 
+         loss_val = 0;
+         //training_strategy.get_loss_index_pointer();
+         //loss_val->Mean_Squared_Error();
          // ask david
          //TrainingResults results;
          // Tensor<float , 1> rrr = results.get_training_error();
