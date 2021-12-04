@@ -9,9 +9,9 @@
 Nerlnet is an open-source library for research of distributed machine learning algorithms that gives full insights into both edge devices that run neural network models and both network performance and statistics.
 
 Nerlnet is composed by three different languages: <br>
-•	Erlang implements the network and communication, The communication layer is based on Cowboy http web server and Erlang VM.
-•	C++ OpenNN library implements the neural network edge compute devices
-•	Python manages Nerlnet and gathers information from it.
+•	Erlang implements the network and communication, The communication layer is based on Cowboy http web server and Erlang VM. <br>
+•	C++ OpenNN library implements the neural network edge compute devices. <br>
+•	Python manages Nerlnet and gathers information from it. <br>
 
 Youtube link:https://youtu.be/wSG8nbs1GQY
 https://www.youtube.com/watch?v=Y9xT4foxwpY&feature=youtu.be
