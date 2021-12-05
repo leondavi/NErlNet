@@ -24,7 +24,7 @@ Sensor, generates data and send it through the network. <br>
 Router that connects ECDs, sensors and other routers. <br>
 Communication with Nerlnet is done through a simple python API that can be easily used through Jupyter notebook.  <br> <br>
 The API allows the user to collect statistics insights of a distributed machine learning network: <br>
-Messages, throughput, loss, predictions, ECD performance.
+Messages, throughput, loss, predictions, ECD performance monitor.
 
 References and libraries:
 - [OpenNN](https://www.opennn.net/), an open-source neural networks library for machine learning. <br>
