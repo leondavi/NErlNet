@@ -46,18 +46,20 @@ start(_StartType, _StartArgs) ->
 
 
 %%    HostName = getHostName(),
-    HostName = "127.0.0.1",
     % io:format("My HostName: ~p~n",[list_to_binary(HostName)]),
+    HostName = "127.0.0.1",
 
     %%Server that should be established on this machine from JSON architecture:
     % {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities("./input/jsonArch1PC2Workers.json",list_to_binary(HostName)),
     %%    get json path from jsonPath file in main NErlNet directory
     {ok, InputJSON} = file:read_file("../../../jsonPath"),%%TODO change to File_Address
     Listed = binary_to_list(InputJSON),
-    JSONPath = lists:sublist(Listed,length(Listed)-1),
+    %ArchitectureAdderess, CommunicationMapAdderess are the paths for the json architecture file, where THIS machine can find its own entities by IP
+    [ArchitectureAdderess,CommunicationMapAdderess|_] =  re:split(Listed,"\n",[{return,list}]),
+     io:format("ArchitectureAdderess: ~p~n CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
 
     %%Server that should be established on this machine from JSON architecture:
-    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities(JSONPath,list_to_binary(HostName)),
+    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)),
 
 %  io:format("My NerlNetSettings: ~p~n",[NerlNetSettings]),
 
