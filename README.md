@@ -6,12 +6,26 @@
   <img src="Nerlnet_logo.jpg" width="350" title="NerlNet">
 </p>
 
-Nerlnet is an open-source library for research of distributed machine learning algorithms that gives full insights into both edge devices that run neural network models and both network performance and statistics.
+Nerlnet is an open-source library for research of distributed machine learning algorithms that gives full insights into both edge devices that run neural network models and both network performance and statistics. Nerlnet can simulates distributed ML architecture and deployed easily on IoT edge devices. 
 
-Nerlnet is written by three different languages: <br>
-•	Erlang implements the network and communication, The communication layer is based on Cowboy http web server and Erlang VM. <br>
-•	C++ OpenNN library implements the neural network edge compute devices. <br>
-•	Python manages Nerlnet and gathers information from it. <br>
+Nerlnet is implemented  by the following languages and libraries: <br>
+• Erlang implements the communication layer that is based on Cowboy http web server and Erlang VM. <br>
+• C++ OpenNN library implements the neural network edge compute devices.<br>
+• Python manages Nerlnet and gathers information from it. <br>
+
+![image](https://user-images.githubusercontent.com/18975070/144730156-5bd03ad7-fc5f-45e9-8b4e-62d582af2200.png) 
+![image](https://user-images.githubusercontent.com/18975070/144730182-c535b20a-a5f9-4d4f-8632-77d49732f17f.png) 
+![image](https://user-images.githubusercontent.com/18975070/144730189-4bad4fba-e559-45a6-b163-d3e5d7d87e1f.png) 
+![image](https://user-images.githubusercontent.com/18975070/144730205-5a665819-4be0-40aa-88e5-868ba99aab17.png)
+ 
+A Json script defines a distributed network layout that consists the following instances:  <br>
+Edge Compute Device (EDC) which is a worker that runs a neural network model. <br>
+Sensor, generates data and send it through the network. <br>
+Router that connects EDGs, sensors and other routers. <br>
+Communication with Nerlnet is done through a simple python API that can be easily used through Jupyter notebook.  <br> <br>
+The API allows the user to collect statistics insights of a distributed machine learning network: <br>
+Messages, throughput, loss, predictions, EDC performance.
+
 
 Youtube link:https://youtu.be/wSG8nbs1GQY
 https://www.youtube.com/watch?v=Y9xT4foxwpY&feature=youtu.be
