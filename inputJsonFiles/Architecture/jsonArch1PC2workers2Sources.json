@@ -1,14 +1,15 @@
 {
   "NerlNetSettings": [
-  {
-    "frequency": "30",
-    "batchSize": "100"
-  }
+    {
+      "frequency": "20",
+      "batchSize": "100"
+    }
   ],
+
   "devices": [
     {
       "host": "127.0.0.1",
-      "entities": "mainServer,c1,f1,s1,r1"
+      "entities": "mainServer,c1,f1,s1,r1,s2"
     }
   ],
   "serverAPI": [
@@ -32,7 +33,21 @@
       "FederatedMode": "0",
       "CountLimit": "10",
       "LayersSizes": "[6,3,2,1]",
-      "LearningRate":"0.0001",
+      "LearningRate":"0.00001",
+      "_comment1": "Activation functions explain: 0- NONE, 1- IDENTITY, 2- SIGMOID, 3- RELU, 4- LEAKY_RELU, 5- SWISH, 6- ELU, 7- TANH, 8- GAUSSIAN, 9- TOTAL",
+      "ActivationFunctions":"[0,7,3,0]",
+      "Features": "6",
+      "Labels": "1",
+      "_comment2": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
+      "Optimizer":"6"
+    },
+	{
+      "name": "w2",
+      "modelId": "1",
+      "FederatedMode": "0",
+      "CountLimit": "10",
+      "LayersSizes": "[6,3,2,1]",
+      "LearningRate":"0.00001",
       "_comment1": "Activation functions explain: 0- NONE, 1- IDENTITY, 2- SIGMOID, 3- RELU, 4- LEAKY_RELU, 5- SWISH, 6- ELU, 7- TANH, 8- GAUSSIAN, 9- TOTAL",
       "ActivationFunctions":"[0,2,2,0]",
       "Features": "6",
@@ -45,7 +60,7 @@
     {
       "name": "c1",
       "port": "8081",
-      "workers": "w1",
+      "workers": "w1,w2",
       "federated": "f1"
     }
   ],
@@ -53,8 +68,8 @@
     {
       "name": "f1",
       "port": "8083",
-      "workers": "w1",
-      "counterLimit": "1"
+      "workers": "w1,w2",
+      "counterLimit": "10"
     }
   ],
   "sources": [
@@ -62,6 +77,12 @@
       "name": "s1",
       "port": "8091",
       "method": "1",
+      "COMMENTS": "method allowed: '1': sends each exapme to all clients listed, '2': round robin between all clients"
+    },
+	{
+      "name": "s2",
+      "port": "8092",
+      "method": "2",
       "COMMENTS": "method allowed: '1': sends each exapme to all clients listed, '2': round robin between all clients"
     }
   ],
@@ -71,38 +92,5 @@
       "host": "127.0.0.1",
       "port": "8084"
     }
-  ],
-  "connectionsMap":
-  {
-    "c1": {
-      "mainServer": "r1",
-      "f1": "r1"
-    },
-    "f1": {
-      "mainServer": "r1",
-      "c1": "r1"
-    },
-
-    "s1": {
-      "mainServer": "r1",
-      "c1": "r1"
-    },
-    "mainServer": {
-      "c1": "r1",
-      "s1": "r1",
-      "r1": "r1",
-      "f1": "r1",
-      "serverAPI": "mainServer"
-    },
-    "r1": {
-      "mainServer": "r1",
-      "c1": "r1",
-      "f1": "r1",
-      "s1": "r1"
-    },  
-    "serverAPI": {
-      "mainServer": "serverAPI"
-    }
-  }
-
+  ]
 }
