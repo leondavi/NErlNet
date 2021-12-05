@@ -1,5 +1,5 @@
 def initTrainStack():
-    new_list = [('http://127.0.0.1:8080/updateCSV', "s1,w1,./input/RunOrWalkTrain_splitted/"),
+    new_list = [('http://127.0.0.1:8080/updateCSV', "s1,w1,RunOrWalkTrain_splitted"),
                 ('http://127.0.0.1:8080/clientsTraining', "")]
     return new_list
 
@@ -9,7 +9,7 @@ def startCastingStack():
     return new_list
 
 def initPredictStack():
-    new_list = [('http://127.0.0.1:8080/updateCSV', "s1,w1,./input/RunOrWalkPredictNolabels_splitted/"),
+    new_list = [('http://127.0.0.1:8080/updateCSV', "s1,w1,RunOrWalkPredictNolabels_splitted"),
                 ('http://127.0.0.1:8080/clientsPredict', "")]
     return new_list
 

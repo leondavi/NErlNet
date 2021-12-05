@@ -23,12 +23,12 @@
 %%this parser takes a CSV folder containing chunked data, parsing into a list of binary.
 %%each record in the line is a batch of samples
 parse(ChunkSize,FolderName)->
-%%  FolderName="./../input/shuffled-input1_splitted/",
+%%  FolderName="./input/shuffled-input1_splitted/",
   parse_all(ChunkSize,FolderName,1,[]).
 
 
 parse_all(ChunkSize,FolderName,Counter,Ret)->
-  try   parse_file(ChunkSize,FolderName++integer_to_list(Counter)++".csv") of
+  try   parse_file(ChunkSize,"../../../inputDataFiles/"++FolderName++"/"++integer_to_list(Counter)++".csv") of
     L ->
       parse_all(ChunkSize,FolderName,Counter+1,Ret++L)
   catch
