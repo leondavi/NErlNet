@@ -1,13 +1,16 @@
 from flask import Flask
 from flask_restful import Api, Resource
-import globalVars as globe
+import globalVars2 as globe
+import redis
+from rq import Queue
 import queue
 
-reciever = Flask(__name__)
-api = Api(reciever)
+receiver = Flask(__name__)
+api = Api(receiver)
 
-def runReciever():
-    reciever.run(debug=True)
+def runReceiver():
+    print("Starting receiver server...")
+    receiver.run(debug=True, threaded=True, port=8095)
 
 class test(Resource):
     def post(self):
@@ -15,14 +18,11 @@ class test(Resource):
 
 class testQueue(Resource):
     def post(self):
-        testHandeled = globe.ackQueue.get()
-        str = 'Test' + testHandeled
-        return {str : 'Passed!'} 
-
+        return {'Test' : 'Passed!'} 
 
 #Listener Server list of resources: 
 api.add_resource(test, "/test")
 api.add_resource(testQueue, "/testQueue")
 
 if __name__ == "__main__":
-    runReciever()
+    runReceiver()
