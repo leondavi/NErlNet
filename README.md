@@ -19,12 +19,12 @@ Nerlnet is implemented  by the following languages and libraries: <br>
 ![image](https://user-images.githubusercontent.com/18975070/144730205-5a665819-4be0-40aa-88e5-868ba99aab17.png)
  
 A Json script defines a distributed network layout that consists the following instances:  <br>
-Edge Compute Device (EDC) which is a worker that runs a neural network model. <br>
+Edge Compute Device (ECD) which is a worker that runs a neural network model. <br>
 Sensor, generates data and send it through the network. <br>
-Router that connects EDGs, sensors and other routers. <br>
+Router that connects ECDs, sensors and other routers. <br>
 Communication with Nerlnet is done through a simple python API that can be easily used through Jupyter notebook.  <br> <br>
 The API allows the user to collect statistics insights of a distributed machine learning network: <br>
-Messages, throughput, loss, predictions, EDC performance.
+Messages, throughput, loss, predictions, ECD performance.
 
 References and libraries:
 - [OpenNN](https://www.opennn.net/), an open-source neural networks library for machine learning. <br>
