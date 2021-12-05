@@ -349,7 +349,7 @@ startCasting([SourceName|SourceNames],NumOfSampleToSend,ConnectionMap)->
 
 
 ack(PortMap) ->
-  io:format("sending ACK to serverAPI"),
+  io:format("sending ACK to serverAPI~n"),
   {RouterHost,RouterPort} = maps:get(serverAPI,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
   http_request(RouterHost,RouterPort,"ack","ack").
