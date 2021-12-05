@@ -26,7 +26,10 @@ Communication with Nerlnet is done through a simple python API that can be easil
 The API allows the user to collect statistics insights of a distributed machine learning network: <br>
 Messages, throughput, loss, predictions, EDC performance.
 
-This project uses C++11 Wrapper for Erlang NIF API (NIFPP: https://github.com/goertzenator/nifpp). 
+References and libraries:
+- [OpenNN](https://www.opennn.net/), an open-source neural networks library for machine learning. <br>
+- [Cowboy](https://github.com/ninenines/cowboy) an HTTP server for Erlang/OTP.<br>
+- [NIFPP](https://github.com/goertzenator/nifpp) C++11 Wrapper for Erlang NIF API.<br> 
 
 ### Nerlnet architecture:
 ![Nerlnet Architecture](https://user-images.githubusercontent.com/18975070/141692829-f0cdca7d-96d1-43b0-920a-5821a14242f7.jpg)
