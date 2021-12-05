@@ -6,7 +6,7 @@
   <img src="Nerlnet_logo.jpg" width="350" title="NerlNet">
 </p>
 
-Nerlnet is an open-source library for research of distributed machine learning algorithms that gives full insights into both edge devices that run neural network models and both network performance and statistics. Nerlnet can simulates distributed ML architecture and deployed easily on IoT edge devices. 
+Nerlnet is an open-source library for research of distributed machine learning algorithms on IoT devices that gives full insights into both edge devices that run neural network models and both network performance and statistics. Nerlnet can simulates distributed ML architecture and deployed easily on IoT edge devices. 
 
 Nerlnet is implemented  by the following languages and libraries: <br>
 • Erlang implements the communication layer that is based on Cowboy http web server and Erlang VM. <br>
