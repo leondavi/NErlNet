@@ -85,6 +85,7 @@ idle(cast, {csvList,Workers,CSVPath}, State = #source_statem_state{chunkSize = C
 %%  CSVName = lists:last(re:split(CSVPath,"/",[{return,list}])),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
 %%  send an ACK to mainserver that the CSV file is ready
+  io:format("source updated transmitting list, total batches to send: - ~p~n",[length(CSVlist)]),
   io:format("source updated Workers - ~p~n",[Workers]),
   http_request(RouterHost,RouterPort,"csvReady",atom_to_list(Myname)),
    {next_state, idle, State#source_statem_state{csvName = CSVPath, castingTo = Workers, msgCounter = Counter+1,csvList =CSVlist}};

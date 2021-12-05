@@ -239,7 +239,7 @@ getWorkersMap([Client|Clients],WorkersMap)->
   NewMap = addAll(Workers,WorkersMap,ClientName),
   getWorkersMap(Clients,NewMap).
 
-addAll([],WorkersMape,_ClientName)->WorkersMape;
+addAll([],WorkersMap,_ClientName)->WorkersMap;
 addAll([Worker|Workers],WorkersMap,ClientName)->
   addAll(Workers,maps:put(list_to_atom(Worker),ClientName,WorkersMap),ClientName).
 
