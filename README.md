@@ -30,6 +30,7 @@ References and libraries:
 - [OpenNN](https://www.opennn.net/), an open-source neural networks library for machine learning. <br>
 - [Cowboy](https://github.com/ninenines/cowboy) an HTTP server for Erlang/OTP.<br>
 - [NIFPP](https://github.com/goertzenator/nifpp) C++11 Wrapper for Erlang NIF API.<br> 
+- [Rebar3](https://github.com/erlang/rebar3), an Erlang tool that makes it easy to create, develop, and release Erlang libraries, applications, and systems in a repeatable manner.
 
 ### Nerlnet architecture:
 ![Nerlnet Architecture](https://user-images.githubusercontent.com/18975070/141692829-f0cdca7d-96d1-43b0-920a-5821a14242f7.jpg)
@@ -46,10 +47,9 @@ prerequisite:
    ```echo "deb https://packages.erlang-solutions.com/ubuntu focal contrib" | sudo tee /etc/apt/sources.list.d/rabbitmq.list```<br>
    ```sudo apt update```<br>
    ```sudo apt install erlang```<br>
-4. Eigen and boost libraries ```sudo apt install libeigen3-dev libboost-all-dev``` (deprecated soon)
-5. Install (or build from source) Rebar3 package https://github.com/erlang/rebar3 (Installation: https://riptutorial.com/erlang/example/15669/installing-rebar3)
-6. ```conda install -c anaconda scons``` or ```sudo apt install scons```  (deprecated soon - moving to cmake)
-7. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo>```
-8. Update cppSANN submodule ```git submodule update --init --recursive``` (deprecated soon)
+3. Eigen and boost libraries ```sudo apt install libeigen3-dev libboost-all-dev``` (deprecated soon)
+4. ```conda install -c anaconda scons``` or ```sudo apt install scons```  (deprecated soon - moving to cmake)
+5. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo>```
+6. Update cppSANN submodule ```git submodule update --init --recursive``` (deprecated soon)
 
 ```./build.sh``` to build the project and run main server.
