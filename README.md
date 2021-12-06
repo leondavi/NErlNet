@@ -9,7 +9,7 @@
 Nerlnet is an open-source library for research of distributed machine learning algorithms on IoT devices that gives full insights into both edge devices that run neural network models and both network performance and statistics. Nerlnet can simulate distributed ML architectures and deploy them on various IoT devices. 
 
 Nerlnet is implemented using the following languages and libraries: <br>
-• Erlang is used for the communication layer. The implementation is based on Cowboy's http web server and Erlang VM. <br>
+• Erlang is used for the communication layer. The implementation is based on Cowboy's http web server. <br>
 • C++ OpenNN library implements the neural network edge compute devices.<br>
 • Python manages NerlNet and gathers information from it. <br>
 
