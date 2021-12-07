@@ -6,7 +6,7 @@
   <img src="Nerlnet_logo.jpg" width="350" title="NerlNet">
 </p>
 
-Nerlnet is an open-source library for research of distributed machine learning algorithms on IoT devices that gives full insights into both edge devices that run neural network models and both network performance and statistics. Nerlnet can simulate distributed ML architectures and deploy them on various IoT devices. 
+Nerlnet is an open-source library for research of distributed machine learning algorithms on IoT devices that gives full insights into both edge devices that run neural network models and both network performance and statistics. Nerlnet can simulate distributed ML architectures and deploy them on various IoT devices. <br><br>
 
 Nerlnet is implemented using the following languages and libraries: <br>
 • Erlang is used for the communication layer. The implementation is based on Cowboy's http web server. <br>
@@ -31,6 +31,9 @@ References and libraries:
 - [Cowboy](https://github.com/ninenines/cowboy) an HTTP server for Erlang/OTP.<br>
 - [NIFPP](https://github.com/goertzenator/nifpp) C++11 Wrapper for Erlang NIF API.<br> 
 - [Rebar3](https://github.com/erlang/rebar3), an Erlang tool that makes it easy to create, develop, and release Erlang libraries, applications, and systems in a repeatable manner.
+
+<p align="center"> <img src="https://user-images.githubusercontent.com/18975070/145023471-eb02efa1-01e5-4d7e-9b8d-697252e51568.png" width="120"> </p>
+Nerlnet is developed by the group of BGU-DML lab Ben Gurion University. <br>
 
 ### Nerlnet architecture:
 ![Nerlnet Architecture](https://user-images.githubusercontent.com/18975070/141692829-f0cdca7d-96d1-43b0-920a-5821a14242f7.jpg)
