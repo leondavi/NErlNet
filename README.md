@@ -35,7 +35,13 @@ References and libraries:
 <p align="center"> <img src="https://user-images.githubusercontent.com/18975070/145023471-eb02efa1-01e5-4d7e-9b8d-697252e51568.png" width="120"> </p>
 Nerlnet is developed by BGU-DML lab group from the School of Computer and Electrical Engineering in Ben Gurion University. <br>
 
-### Nerlnet architecture:
+### Introducing Nerlnet
+
+
+https://user-images.githubusercontent.com/18975070/145286597-340bbd31-0050-492f-8a27-e9a01eadd905.mp4
+
+
+### Nerlnet Architecture:
 ![Nerlnet Architecture](https://user-images.githubusercontent.com/18975070/141692829-f0cdca7d-96d1-43b0-920a-5821a14242f7.jpg)
 
 Youtube link: https://youtu.be/wSG8nbs1GQY
@@ -56,3 +62,4 @@ prerequisite:
 6. Update cppSANN submodule ```git submodule update --init --recursive``` (deprecated soon)
 
 ```./build.sh``` to build the project and run main server.
+
