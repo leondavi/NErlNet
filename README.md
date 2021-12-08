@@ -44,9 +44,6 @@ https://user-images.githubusercontent.com/18975070/145286597-340bbd31-0050-492f-
 ### Nerlnet Architecture:
 ![Nerlnet Architecture](https://user-images.githubusercontent.com/18975070/141692829-f0cdca7d-96d1-43b0-920a-5821a14242f7.jpg)
 
-Youtube link: https://youtu.be/wSG8nbs1GQY
-https://www.youtube.com/watch?v=Y9xT4foxwpY&feature=youtu.be
-
 # Building Nerlnet:
 prerequisite:
 
