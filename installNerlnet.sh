@@ -2,6 +2,8 @@
 
 # Run this script with sudo priviledges 
 
+apt-get -y install cmake
+
 if ! command -v erl &> /dev/null ; then
     echo "erlang could not be found"
     echo "Installing Erlang OTP" 
