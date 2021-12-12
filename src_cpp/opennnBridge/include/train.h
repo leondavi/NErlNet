@@ -8,14 +8,9 @@
 #include <eigen3/Eigen/Core>
 #include "../../opennn/opennn/opennn.h"
 
-using namespace OpenNN;
+#include "definitionsNN.h"
 
-enum LossMethod {Sum_Squared_Error = 1, Mean_Squared_Error = 2, Normalized_Squared_Error = 3 ,
-                         Minkowski_Error = 4, Weighted_Squared_Error = 5 , Cross_Entropy_Error = 6};
-
-enum OptimizationMethod {GRADIENT__DESCENT = 1, CONJUGATE__GRADIENT = 2, QUASI__NEWTON_METHOD = 3 ,
-                         LEVENBERG__MARQUARDT_ALGORITHM = 4, STOCHASTIC__GRADIENT_DESCENT = 5 , ADAPTIVE__MOMENT_ESTIMATION = 6};
-               
+using namespace OpenNN;             
 
 struct TrainNN {
 
@@ -86,10 +81,10 @@ static void* trainFun(void* arg){
 
 
          // set Loss Method ------------------------------------------------------------------------
-         if(TrainNNptr->lose_method == Sum_Squared_Error){
+         if(TrainNNptr->lose_method == E_LOSS_METHOD_SUM_SQUARED_ERROR){
              training_strategy.set_loss_method(TrainingStrategy::LossMethod::SUM_SQUARED_ERROR);
          }
-         else if(TrainNNptr->lose_method == Mean_Squared_Error)
+         else if(TrainNNptr->lose_method == E_LOSS_METHOD_MSE)
          {
              training_strategy.set_loss_method(TrainingStrategy::LossMethod::MEAN_SQUARED_ERROR);
          }

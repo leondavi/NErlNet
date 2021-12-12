@@ -23,15 +23,10 @@
 #include <eigen3/Eigen/Core>
 #include "../../opennn/opennn/opennn.h"
 
+//All enum defintions are defined in defnitions.h
+#include "definitionsNN.h"
+
 using namespace OpenNN;
-
-enum ModuleType {APPROXIMATION = 1, CLASSIFICATION = 2, FORECASTING = 3 , ENCODER_DECODER = 4, CUSTUMNN = 5};
-
-enum ScalingMethods {NoScaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5};
-   
-enum ActivationFunction {Threshold = 1, SymmetricThreshold = 2 , Logistic = 3 , HyperbolicTangent = 4 ,
-                         Linear = 5 , RectifiedLinear = 6 , ExponentialLinear = 7 , ScaledExponentialLinear = 8 ,
-                         SoftPlus = 9 , SoftSign = 10 , HardSigmoid = 11 , Binary = 12 , Competitive = 14 , Softmax = 15 };
 
 /*
 struct CreateNN {
@@ -115,21 +110,21 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
              //  create neural networl layers
              for(int i = 0 ; i < neural_network_architecture.size() ; i++){
                  
-                 if (layer_types[i] == scaling){
+                 if (layer_types[i] == E_LAYER_TYPE_SCALING){
                      OpenNN::ScalingLayer* L = new ScalingLayer(); 
                      //std::shared_ptr<OpenNN::ScalingLayer> L(new OpenNN::ScalingLayer()); //not work
                      L->set(neural_network_architecture[i]);
                      neural_network->add_layer(L); 
                  }
 
-                 if (layer_types[i] == perceptron){
+                 if (layer_types[i] == E_LAYER_TYPE_PERCEPTRON){
                      OpenNN::PerceptronLayer* L = new PerceptronLayer();
                      //std::shared_ptr<OpenNN::PerceptronLayer> L = std::make_shared<OpenNN::PerceptronLayer>(); // not work
                      L->set_neurons_number(neural_network_architecture[i]);
                      neural_network->add_layer(L); 
                  }
 
-                 if (layer_types[i] == probabilistic){
+                 if (layer_types[i] == E_LAYER_TYPE_PROBABILISTIC){
                      OpenNN::ProbabilisticLayer* L = new ProbabilisticLayer();
                      //std::shared_ptr<OpenNN::ProbabilisticLayer> L = std::make_shared<OpenNN::ProbabilisticLayer>(); //not work
                      L->set_neurons_number(neural_network_architecture[i]);
