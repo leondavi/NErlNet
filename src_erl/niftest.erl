@@ -30,7 +30,14 @@ init() ->
 
 %
 %
-%
+
+
+generateNormalDistributionList(Mean,Variance,SampleLength) ->
+      NewNormalDistributionList = [rand:normal(Mean,Variance) || _X <- lists:seq(1,SampleLength)], NewNormalDistributionList. 
+
+generateNormalDistributionSamples(0,_Mean,_Variance,_SampleLength,_ListOfSamples) -> _ListOfSamples;
+generateNormalDistributionSamples(N,Mean,Variance,SampleLength,ListOfSamples) -> generateNormalDistributionSamples(N-1,Mean,Variance,SampleLength,ListOfSamples ++ generateNormalDistributionList(Mean,Variance,SampleLength)).
+
 trainNifTest(NumberOfSamples) -> ModelID = 586000901, 
                   ModelType = 1, 
                   ScalingMethod = 2,
@@ -40,10 +47,17 @@ trainNifTest(NumberOfSamples) -> ModelID = 586000901,
                   LayersSizesLast = lists:last(LayersSizes),
                   LayersActivationFunctions = [6,6,6,6,6,11],  % to play with until getting convergence    
                   create_nif(ModelID, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
-                  RandomGeneratedData = [], % size NumberOfSamples*(LayersSizesFirst + LayersSizesLast,RandomGeneratedData)
+                  RandomGeneratedData = [] , % size NumberOfSamples*(LayersSizesFirst + LayersSizesLast,RandomGeneratedData)
+                  Class1Mean = 3,
+                  Class2Mean = 6,
+                  Class1Std = 1,
+                  Class2Std = 1,
+                  DataClass1 = generateNormalDistributionSamples(NumberOfSamples,Class1Mean,Class1Std,LayersSizesFirst,[]), 
+                  DataClass2 = generateNormalDistributionSamples(NumberOfSamples,Class2Mean,Class2Std,LayersSizesFirst,[]),
+                  %  @@@@ Tal and Evgeni TODO: create a mutual data tensor from shuffled data of class 1 and 2 and add the label (according to each class )
                   DataTensor = [NumberOfSamples,LayersSizesFirst + LayersSizesLast,1,RandomGeneratedData], % ask Tal to generate random matrix - with given dimensions LayerSizes.front + LayerSizes.back (128 + 1) X number of samples 
                   OptimizationMethod = 1,
-                  LossMethod = 2,
+                  LossMethod = 2, 
                   call_to_train(ModelID, OptimizationMethod , LossMethod , DataTensor ).
 
 
