@@ -45,7 +45,7 @@ static void* trainFun(void* arg){
          //NeuralNetwork neural_network = *(s-> getModelPtr(mid));
 
 
-         cout << neural_network->get_layers_number() <<std::endl;
+         //cout << neural_network->get_layers_number() <<std::endl;
          //TrainingStrategy training_strategy(&neural_network ,&data_set);
 
          // ask david

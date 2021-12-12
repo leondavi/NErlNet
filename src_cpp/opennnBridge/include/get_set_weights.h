@@ -17,6 +17,10 @@ using namespace OpenNN;
 static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
          
          long int mid;
+         ErlNifPid pid;
+
+         enif_self(env, &pid);
+
          opennnBridgeController *s = s->GetInstance();
 
          // get model id
@@ -32,11 +36,20 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
          /*
          //get weitghts test
          std::cout << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl; 
-         Tensor< float, 1 > parameters2 = neural_network->get_parameters();
          std::cout << parameters2 << std::endl;
          std::cout << "bbbb" << std::endl; 
          //end 
          */
+
+         Tensor< float, 1 > parameters = neural_network->get_parameters();
+         //std::cout << parameters << std::endl; 
+         ERL_NIF_TERM erl_parameters = nifpp::makeTensor1D(env, parameters);
+
+         if(enif_send(NULL,&(pid), env,erl_parameters)){
+             printf("enif_send succeed\n");
+         }
+         else printf("enif_send failed\n");
+
          return enif_make_string(env, "end get_weights_nif ", ERL_NIF_LATIN1);
 
      //return enif_make_int(env,0);
