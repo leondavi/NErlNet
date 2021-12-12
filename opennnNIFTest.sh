@@ -10,4 +10,4 @@ make .
 echo "Change directory to src_erl: $PWD"
 cd ../../src_erl
 
-# ask Tal how to run niftest.erl specific function with rebar
+erl -noshell -eval 'c(niftest),niftest:trainnif()' -eval 'init:stop()'
