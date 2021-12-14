@@ -2,11 +2,7 @@
 
 //#include <eigen3/Eigen/Core>
 #include "../../opennn/opennn/opennn.h"
-
-enum LayerType {scaling = 1, convolutional = 2 , perceptron = 3 , pooling = 4 , probabilistic = 5 ,
-                longShortTermMemory = 6 , recurrent = 7 , unscaling = 8 , bounding = 9 };
-
-
+#include "definitionsNN.h"
 
 class CustumNN : public OpenNN::NeuralNetwork
 {
@@ -33,7 +29,7 @@ public:
              //  creat neural networl layers
              for(int i = 0 ; i < neural_network_architecture.size() ; i++){
                  
-                 if (layer_types[i] == scaling){
+                 if (layer_types[i] == E_LAYER_TYPE_SCALING){
                      OpenNN::ScalingLayer* L = new OpenNN::ScalingLayer(); 
                      //std::shared_ptr<OpenNN::ScalingLayer> L(new OpenNN::ScalingLayer()); //not work
                      L->set(neural_network_architecture[i]);
@@ -42,7 +38,7 @@ public:
                       
                  }
 
-                 if (layer_types[i] == perceptron){
+                 if (layer_types[i] == E_LAYER_TYPE_PERCEPTRON){
                      OpenNN::PerceptronLayer* L = new OpenNN::PerceptronLayer();
                      //std::shared_ptr<OpenNN::PerceptronLayer> L = std::make_shared<OpenNN::PerceptronLayer>(); // not work
                      L->set_neurons_number(neural_network_architecture[i]);
@@ -50,7 +46,7 @@ public:
                      OpenNN::NeuralNetwork::add_layer(L);
                  }
 
-                 if (layer_types[i] == probabilistic){
+                 if (layer_types[i] == E_LAYER_TYPE_PROBABILISTIC){
                      OpenNN::ProbabilisticLayer* L = new OpenNN::ProbabilisticLayer();
                      //std::shared_ptr<OpenNN::ProbabilisticLayer> L = std::make_shared<OpenNN::ProbabilisticLayer>(); //not work
                      L->set_neurons_number(neural_network_architecture[i]);

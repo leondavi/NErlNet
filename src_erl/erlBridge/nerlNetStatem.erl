@@ -51,8 +51,14 @@ start_link(ARGS) ->
 init({ClientPID, MyName, {Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels, FederatedMode, CountLimit}}) ->
   io:fwrite("start module_create ~n"),
   io:fwrite("Layers_sizes ~p, Learning_rate ~p, ActivationList ~p, Optimizer ~p, ModelId ~p CountLimit ~p FederatedMode ~p~n",[Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, CountLimit, FederatedMode]),
-
-  _Res=erlModule:module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
+%%^^^^^^^^^^^^^^^^^^^^^^^^^^
+ModelID = 586000901,
+ModelType = 1, 
+ScalingMethod = 1,
+LayerTypesList = [1,1,1,3], 
+LayersSizes = [6,1,1,128,64,32,16,4,1],
+LayersActivationFunctions = [5,1,1,0,0,0,0,0],  % to play with until getting convergence 
+  _Res=niftest:create_nif(ModelID, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
   {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = MyName, modelId = ModelId, federatedMode = FederatedMode, countLimit = CountLimit}}.
 
 %% @private
@@ -217,7 +223,13 @@ wait(cast, Param, State) ->
 train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels}) ->
   CurrPid = self(),
   ChunkSizeTrain = round(length(SampleListTrain)/(Features + Labels)),
-  _Pid = spawn(fun()-> erlModule:train2double(ChunkSizeTrain, Features, Labels, SampleListTrain,ModelId,CurrPid) end),
+  % ^^^^^^^^^^^^^^^^^^
+  ModelID = 586000901,
+  OptimizationMethod = 1,
+  LossMethod = 2, 
+  RandomGeneratedData = lists:flatten([[rand:normal()||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,100)]),
+  DataTensor = [10.0 , 129.0 , 1.0] ++ RandomGeneratedData,
+  _Pid = spawn(fun()-> niftest:call_to_train(ModelID, OptimizationMethod , LossMethod , DataTensor ) end),
   {next_state, wait, State#nerlNetStatem_state{nextState = train}};
 
 
@@ -249,7 +261,11 @@ train(cast, Param, State) ->
 predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStatem_state{features = Features, modelId = ModelId}) ->
   ChunkSizePred = round(length(SampleListPredict)/Features),
   CurrPID = self(),
-  _Pid = spawn(fun()-> erlModule:predict2double(SampleListPredict,ChunkSizePred,Features,ModelId,CurrPID, CSVname, BatchID) end),
+    % ^^^^^^^^^^^^^^^^^^
+   ModelID = 586000901,
+   RandomGeneratedDataP = [rand:normal()||_<-lists:seq(1,1280)] ,
+   DataTensorP = [10.0 , 128.0 , 1.0] ++ RandomGeneratedDataP,
+  _Pid = spawn(fun()-> niftest:call_to_predict(ModelID,DataTensorP) end),
   {next_state, wait, State#nerlNetStatem_state{nextState = predict}};
 
 predict(cast, {idle}, State) ->

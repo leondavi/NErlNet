@@ -23,15 +23,10 @@
 #include <eigen3/Eigen/Core>
 #include "../../opennn/opennn/opennn.h"
 
+//All enum defintions are defined in defnitions.h
+#include "definitionsNN.h"
+
 using namespace OpenNN;
-
-enum ModuleType {APPROXIMATION = 1, CLASSIFICATION = 2, FORECASTING = 3 , ENCODER_DECODER = 4, CUSTUMNN = 5};
-
-enum ScalingMethods {NoScaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5};
-   
-enum ActivationFunction {Threshold = 1, SymmetricThreshold = 2 , Logistic = 3 , HyperbolicTangent = 4 ,
-                         Linear = 5 , RectifiedLinear = 6 , ExponentialLinear = 7 , ScaledExponentialLinear = 8 ,
-                         SoftPlus = 9 , SoftSign = 10 , HardSigmoid = 11 , Binary = 12 , Competitive = 14 , Softmax = 15 };
 
 /*
 struct CreateNN {
@@ -69,7 +64,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          nifpp::getTensor1D(env,argv[4],neural_network_architecture);
          nifpp::getTensor1D(env,argv[5],activations_functions);
 
-         
+         printf("get data");
         
         //--------------------------------------------------------------------------------------------------------------
          
@@ -87,7 +82,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          //NeuralNetwork *neural_network = new NeuralNetwork(); // it's not good 
          
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = std::make_shared<OpenNN::NeuralNetwork>();
-
+         printf("select model type\n");
 
          if (modelType == APPROXIMATION){     
              neural_network->set(NeuralNetwork::Approximation,neural_network_architecture);     
@@ -115,24 +110,24 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
              //  create neural networl layers
              for(int i = 0 ; i < neural_network_architecture.size() ; i++){
                  
-                 if (layer_types[i] == scaling){
+                 if (layer_types[i] == E_LAYER_TYPE_SCALING){
                      OpenNN::ScalingLayer* L = new ScalingLayer(); 
                      //std::shared_ptr<OpenNN::ScalingLayer> L(new OpenNN::ScalingLayer()); //not work
                      L->set(neural_network_architecture[i]);
                      neural_network->add_layer(L); 
                  }
 
-                 if (layer_types[i] == perceptron){
-                     OpenNN::PerceptronLayer* L = new PerceptronLayer();
+                 if (layer_types[i] == E_LAYER_TYPE_PERCEPTRON){
+                     OpenNN::PerceptronLayer* L = new PerceptronLayer(neural_network_architecture[i-1],neural_network_architecture[i]);
                      //std::shared_ptr<OpenNN::PerceptronLayer> L = std::make_shared<OpenNN::PerceptronLayer>(); // not work
-                     L->set_neurons_number(neural_network_architecture[i]);
+                     //L->set_neurons_number(neural_network_architecture[i]);
                      neural_network->add_layer(L); 
                  }
 
-                 if (layer_types[i] == probabilistic){
-                     OpenNN::ProbabilisticLayer* L = new ProbabilisticLayer();
+                 if (layer_types[i] == E_LAYER_TYPE_PROBABILISTIC){
+                     OpenNN::ProbabilisticLayer* L = new ProbabilisticLayer(neural_network_architecture[i-1],neural_network_architecture[i]);
                      //std::shared_ptr<OpenNN::ProbabilisticLayer> L = std::make_shared<OpenNN::ProbabilisticLayer>(); //not work
-                     L->set_neurons_number(neural_network_architecture[i]);
+                     //L->set_neurons_number(neural_network_architecture[i]);
                      neural_network->add_layer(L); 
                  }
 
@@ -143,15 +138,19 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
              
             // return enif_make_string(env, "catch - problem in try5", ERL_NIF_LATIN1); 
          }
-         //-------------------------------------------------------------------------------------------------------------
+         printf("end select model type\n");
 
+         //-------------------------------------------------------------------------------------------------------------
+         /*
          // get weights test
          std::cout << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl; 
          Tensor< float, 1 > parameters = neural_network->get_parameters();
          std::cout << parameters << std::endl;
          std::cout << "bbbb" << std::endl; 
          // end
-
+         */
+         
+         /*
          //chech the inputs from erlang and neural network architecture ---------------------------------------------------
          Index layer_num = neural_network->get_layers_number();
          std::cout<< layer_num <<std::endl;
@@ -164,10 +163,10 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          string type1 = (neural_network->get_trainable_layers_pointers()(1))->get_type_string();
          std::cout<<  type1 <<std::endl;
          //------------------------------------------------------------------------------------------------------
-
+         */
          //return enif_make_string(env, "catch - problem in try", ERL_NIF_LATIN1);
         
-         
+         printf("choose scaling method\n");
          // set scaling method for scaling layer ---------------------------------------------------------------------------
          ScalingLayer* scaling_layer_pointer = neural_network->get_scaling_layer_pointer();
          if(scaling_method == NoScaling)
@@ -191,9 +190,9 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         //    scaling_layer_pointer->set_scaling_methods(ScalingLayer::Logarithm);   //Logarithm exists in opennn site but commpiler dont recognaize it. 
         //}
         //------------------------------------------------------------------------------------------------------------------
+         printf("end choose scaling method\n");
 
-
-
+         printf("choose activation functions\n");
         // set activation functions for trainable layers -------------------------------------------------------------------
          for(int i = 0; i < (int)((neural_network->get_trainable_layers_pointers()).size() ); i++){
           
@@ -236,22 +235,25 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
             }
 
          }
+         
          }
          //---------------------------------------------------------------------------------------------------------------
-         
+         printf("end choose activation functions\n");
          
 
          
          
         // singelton part ----------------------------------------------------------------------------------------------
          std::shared_ptr<OpenNN::NeuralNetwork> modelPtr(neural_network);
-
+          printf("1\n");
          // Create the singleton instance
          opennnBridgeController *s = s->GetInstance();
+         printf("2\n");
          
          // Put the model record to the map with modelId
          s->setData(modelPtr, modelId);  
           //return enif_make_string(env, "catch - problem in try1", ERL_NIF_LATIN1);
+          printf("3\n");
           return enif_make_string(env, "end create mode", ERL_NIF_LATIN1);
          //-------------------------------------------------------------------------------------------------------------   
     }   
@@ -261,5 +263,5 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
            return enif_make_string(env, "catch - problem in try2", ERL_NIF_LATIN1);
             //return enif_make_badarg(env);
      }                                                             
-               
+   printf("end creat mode\n");            
 }  // end creat mode 

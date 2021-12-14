@@ -472,19 +472,20 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 
 static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
-
+         printf("aaaaaaaaaaaaaaaaaaaaaaaaaa");
          //std::shared_ptr<TrainNN> TrainNNptr = std::make_shared<TrainNN>();
          TrainNN* TrainNNptr = new TrainNN();
          nifpp::get_throws(env, argv[0],TrainNNptr->mid); // model id
          nifpp::get_throws(env, argv[1],TrainNNptr->optimization_method);
          nifpp::get_throws(env, argv[2],TrainNNptr->lose_method);
+         printf("getTensor2D data start");
          nifpp::getTensor2D(env,argv[3],TrainNNptr->data);
-
+         cout << TrainNNptr->data <<std::endl;
          ErlNifPid pid;
          enif_self(env, &pid);
          TrainNNptr->pid = pid;
 
-         
+         printf("call to trainfunc");
             
          //nifpp::TERM  r = makeTensor(env, &tensor);
          int res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, TrainNNptr, 0);
