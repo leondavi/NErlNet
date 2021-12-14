@@ -2,7 +2,7 @@ from flask import Flask
 from flask_restful import Api, Resource
 import transmitter as trans
 import receiverServer as receiver
-import globalVars2 as globe
+import src_py.apiServerNew.TotallyNew.globalVars as globe
 from multiprocessing import Process, Manager
 import time
 import queue
