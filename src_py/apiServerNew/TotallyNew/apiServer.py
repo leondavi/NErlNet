@@ -4,8 +4,6 @@ from receiver import *
 
 class APIServer():
     def __init__(self,mainServerIP = '127.0.0.1', mainServerPort = '8080'): 
-        self.mainServerIP = mainServerIP
-        self.mainServerPort = mainServerPort
         self.mainServerAddress = self.mainServerIP +":"+ self.mainServerPort
         self.transmitter = Transmitter(self.mainServerAddress)
         self.runReceiver()
@@ -19,7 +17,7 @@ class APIServer():
         print("Starting receiver server...")
         receiver.run(debug=True, threaded=True, port=8095)
 
-    def train(self,batchSize):
+    def train(self, mainServerAddress, batchSize):
         self.transmitter.initTrain()
         if (not "200OK") # TODO fix
             throw exception
