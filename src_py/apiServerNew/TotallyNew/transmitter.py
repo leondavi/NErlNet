@@ -1,18 +1,19 @@
 import requests
-import globalVars2 as globe
-import apiServer
+import globalVars as globe
+from experimentFlow import *
+#import apiServer
 #import time
 
 #DEFAULT_PORT = 8095
 
-class Transmitter():
+class Transmitter:
 
     def __init__(self):
-        self.mainServerAddress = apiServer.mainServerAddress
+        self.mainServerAddress = globe.mainServerAddress
         self.clientsTrainingAddress = self.mainServerAddress + '/clientsTraining'
         self.updateCSVAddress = self.mainServerAddress + '/updateCSV'
         self.startCastingAddress = self.mainServerAddress + '/startCasting'
-        self.clientsTrainingAddress = self.mainServerAddress + '/clientsPredict'
+        self.clientsPredictAddress = self.mainServerAddress + '/clientsPredict'
         self.statisticsAddress = self.mainServerAddress + '/statistics'
 
     def testPost(self,payloadNum):
@@ -25,19 +26,51 @@ class Transmitter():
         return(response.ok, response.status_code, response.json())
 
     def clientsTraining(self):
-        requests.post(self.clientsTrainingAddress, data='')
+        print('Training - Clients Training Phase')
 
+        response = requests.post(self.clientsTrainingAddress, data='')
+        print(response.ok, response.status_code)
+
+        globe.pendingAcks -= 1
+        
     def updateCSV(self):
-        requests.post(self.updateCSVAddress,
-            data='Sources, Workers, RunOrWalkTrain_splitted')
+        print('Training - Update CSV Phase')
+
+        response = requests.post(self.updateCSVAddress, data='s1,w1,RunOrWalkTrain_splitted')
+        print(response.ok, response.status_code)
+
+        globe.pendingAcks -= 1
 
     def startCasting(self):
-        requests.post(self.startCastingAddress, 
-            data='Sources, Workers, RunOrWalkPredictNolabels_splitted')
+        print('Training - Start Casting  Phase')
+
+        response = requests.post(self.startCastingAddress, data='s1')
+        print(response.ok, response.status_code)
+
+        globe.pendingAcks -= 1
 
     def clientsPredict(self):
-        requests.post(self.clientsPredictAddress, data='')
-    
+        response = requests.post(self.clientsPredictAddress, data='')
+        print(response.ok, response.status_code)
+
+    def train(self):
+        print('Training - Starting...')
+
+        globe.pendingAcks += 3
+
+        self.clientsTraining()
+        self.updateCSV()
+
+        while globe.pendingAcks > 1:
+            pass
+
+        self.startCasting()
+
+        while globe.pendingAcks > 0:
+            pass
+
+        #print('Training - Done!')
+
     def statistics(self):
         requests.post(self.statisticsAddress, data='getStatistics')
 
@@ -55,5 +88,6 @@ class Transmitter():
             pass
     """
 
-    if __name__ == "__main__":
-        print('transmitter')
+    #if __name__ == "__main__":
+#ins = Transmitter()
+#ins.train()

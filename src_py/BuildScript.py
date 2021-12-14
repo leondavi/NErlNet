@@ -60,8 +60,8 @@ def main():
         if arg == "clean" or arg == "clean=True" or arg=="clean=1":
             clean_f = True
 
-    if build_cpp_f:
-        build_cpp()
+    #if build_cpp_f:
+        # build_cpp()
 
     if clean_f:
         clean()
