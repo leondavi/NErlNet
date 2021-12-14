@@ -30,6 +30,13 @@ else:
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     pass
 
+def serverRun(interrupted, server):
+    if not interrupted:
+        server.serve_forever()
+        serveQueue.append(server)
+    else:
+        for _ in serveQueue:
+            ThreadedHTTPServer().shutdown()
 
 class BaseServer(BaseHTTPRequestHandler):
 
@@ -54,33 +61,36 @@ class BaseServer(BaseHTTPRequestHandler):
                          .encode('utf-8') % postData) #Write "Post", and than the contentLength
         # print(NerlnetPyAPI.settings.lenOfRequests)
         # print(postData.decode())
-        if postData.decode() == 'ack':
-            print("ack received")
-            NerlnetPyAPI.settings.ackQueue.append(str(postData.decode()))
-            NerlnetPyAPI.settings.lenOfRequests = NerlnetPyAPI.settings.lenOfRequests - 1
+        data = postData.decode()
+        
+        if data == 'ack':
+            print("Acknowledge Recieved")
+            NerlnetPyAPI.settings.ackQueue.append(str(data.decode())).append(str(data.decode()))
+            NerlnetPyAPI.settings.lenOfRequests  = NerlnetPyAPI.settings.lenOfRequests - 1
 
         else:
-            strSplited = splitStr(postData.decode())
-            if strSplited[0] == 'statistics':
-                NerlnetPyAPI.settings.statistics.append(strSplited[1])
-            elif not NerlnetPyAPI.settings.losDict:
-                splitedStr = splitStr(postData.decode())
-                NerlnetPyAPI.settings.losDict.update({splitedStr[1]: [splitedStr[1]]})
-            else:
-                splitedStr = splitStr(postData.decode())
-                curr = NerlnetPyAPI.settings.losDict.get(splitedStr[0])
-                NerlnetPyAPI.settings.losDict.update({splitedStr[1]: [curr] + [splitedStr[1]]})
+            dataSplit = splitStr(data)
 
-        print(postData.decode())
-        print(NerlnetPyAPI.settings.lenOfRequests)
-        print(NerlnetPyAPI.settings.ackQueue)
-        if postData == b'exit':
+            if dataSplit[0] == 'statistics':
+                NerlnetPyAPI.settings.statistics.append(dataSplit[1])
+
+            elif not NerlnetPyAPI.settings.lossDict:
+                NerlnetPyAPI.settings.lossDict.update({dataSplit[1]: [dataSplit[1]]})
+
+            else:
+                currentLoss = NerlnetPyAPI.settings.lossDict.get(dataSplit[0])
+                NerlnetPyAPI.settings.lossDict.update({dataSplit[1]: [currentLoss] + [dataSplit[1]]})
+
+        print(data)
+        print(NerlnetPyAPI.settings.lenOfRequests, NerlnetPyAPI.settings.ackQueue. NerlnetPyAPI.settings.lossDict)
+
+        if data == 'exit':
             serverRun(True, ThreadedHTTPServer(('localhost', port), BaseServer))
         else:
             pass
 
 
-def run(port=80, interrupted=False):
+def run(port=8095, interrupted=False):
     server = ThreadedHTTPServer(('localhost', port), BaseServer)
     print('Starting server, use <Ctrl-C> to stop')
     print('HTTP server running on port %s' % port)
@@ -89,20 +99,10 @@ def run(port=80, interrupted=False):
 
 def splitStr(word):
     splitedArr = word.split('#')
-    stripSplitedSTR = []
+    stripdataSplit = []
     for str in splitedArr:
-        stripSplitedSTR.append(str.strip())
-    return stripSplitedSTR
-
-
-def serverRun(interrupted, server):
-    if not interrupted:
-        server.serve_forever()
-        serveQueue.append(server)
-    else:
-        for _ in serveQueue:
-            ThreadedHTTPServer().shutdown()
-
+        stripdataSplit.append(str.strip())
+    return stripdataSplit
 
 def creatJson():
     creat()
