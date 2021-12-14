@@ -13,6 +13,7 @@ message("-- [OPENNN_BRIDGE] Eigen Include Directory: ${EIGEN3_INCLUDE_DIR}")
 set(SRC_CODE 
 	"ModelParams.cpp"
 	"include/nifpp.h"
+	"include/definitionsNN.h"
 	"include/nifppEigenExtensions.h"
 	"ModelParams.cpp"
 	"tmp.cpp")
