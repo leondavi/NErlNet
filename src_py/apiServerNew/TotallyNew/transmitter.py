@@ -30,8 +30,6 @@ class Transmitter:
 
         response = requests.post(self.clientsTrainingAddress, data='')
         print(response.ok, response.status_code)
-
-        globe.pendingAcks -= 1
         
     def updateCSV(self):
         print('Training - Update CSV Phase')
@@ -39,15 +37,11 @@ class Transmitter:
         response = requests.post(self.updateCSVAddress, data='s1,w1,RunOrWalkTrain_splitted')
         print(response.ok, response.status_code)
 
-        globe.pendingAcks -= 1
-
     def startCasting(self):
         print('Training - Start Casting  Phase')
 
         response = requests.post(self.startCastingAddress, data='s1')
         print(response.ok, response.status_code)
-
-        globe.pendingAcks -= 1
 
     def clientsPredict(self):
         response = requests.post(self.clientsPredictAddress, data='')
@@ -65,11 +59,6 @@ class Transmitter:
             pass
 
         self.startCasting()
-
-        while globe.pendingAcks > 0:
-            pass
-
-        #print('Training - Done!')
 
     def statistics(self):
         requests.post(self.statisticsAddress, data='getStatistics')
