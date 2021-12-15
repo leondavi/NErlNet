@@ -53,6 +53,7 @@ prerequisite:
    ```echo "deb https://packages.erlang-solutions.com/ubuntu focal contrib" | sudo tee /etc/apt/sources.list.d/rabbitmq.list```<br>
    ```sudo apt update```<br>
    ```sudo apt install erlang```<br>
+   ```sudo apt-get install build-essential```<br>
 3. Eigen and boost libraries ```sudo apt install libeigen3-dev libboost-all-dev``` (deprecated soon)
 4. ```conda install -c anaconda scons``` or ```sudo apt install scons```  (deprecated soon - moving to cmake)
 5. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo>```

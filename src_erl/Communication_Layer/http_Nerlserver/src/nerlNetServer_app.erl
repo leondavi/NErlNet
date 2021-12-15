@@ -43,9 +43,9 @@
 
 
 start(_StartType, _StartArgs) ->
-     HostName = getHostName(),
+     %HostName = getHostName(),
+     HostName = "127.0.0.1",
      io:format("My HostName: ~p~n",[HostName]),
-%    HostName = "127.0.0.1",
 
     %%Server that should be established on this machine from JSON architecture:
     % {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities("./input/jsonArch1PC2Workers.json",list_to_binary(HostName)),
