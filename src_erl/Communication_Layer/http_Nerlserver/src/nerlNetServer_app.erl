@@ -43,11 +43,9 @@
 
 
 start(_StartType, _StartArgs) ->
-
-
-%%    HostName = getHostName(),
-    % io:format("My HostName: ~p~n",[list_to_binary(HostName)]),
-    HostName = "127.0.0.1",
+     %HostName = getHostName(),
+     HostName = "127.0.0.1",
+     io:format("My HostName: ~p~n",[HostName]),
 
     %%Server that should be established on this machine from JSON architecture:
     % {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities("./input/jsonArch1PC2Workers.json",list_to_binary(HostName)),
@@ -266,12 +264,12 @@ init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
     ).
 
 
-%%getHostName() ->
-%%    {ok, L} = inet:getif(),
-%%    IP = tuple_to_list(element(1, hd(L))),
-%%    A = lists:flatten(io_lib:format("~p", [IP])),
-%%    Subbed = lists:sublist(A,2,length(A)-2),
-%%    lists:flatten(string:replace(Subbed,",",".",all)).
+getHostName() ->
+   {ok, L} = inet:getif(),
+   IP = tuple_to_list(element(1, hd(L))),
+   A = lists:flatten(io_lib:format("~p", [IP])),
+   Subbed = lists:sublist(A,2,length(A)-2),
+   lists:flatten(string:replace(Subbed,",",".",all)).
 %%
 %%
 
