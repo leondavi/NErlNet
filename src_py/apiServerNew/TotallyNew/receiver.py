@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request, jsonify
 from flask_restful import Api, Resource, reqparse
 from globalVars import *
 import globalVars as globe 
@@ -33,15 +33,8 @@ class train(Resource):
 
 class ack(Resource):
     def post(self):
-
-        ack = ackArgs.parse_args() 
-
-        result = {'received': ack}
-
-        globe.pendingAcks -= 1
-
-        print(result.json())
-        return result
+        reqData = request.form['ack']
+        print(reqData + 'Ack Received!')
 
 #Listener Server list of resources: 
 api.add_resource(test, "/test")

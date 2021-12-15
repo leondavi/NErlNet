@@ -9,8 +9,9 @@ class ApiServer():
     def __init__(self): 
         self.mainServerAddress = globe.mainServerAddress
 
-        self.transmitter = Transmitter()
         self.runReceiver()
+        time.sleep(1)
+        self.transmitter = Transmitter()
 
         self.manager = globe.manager
         self.managerQueue = globe.managerQueue
