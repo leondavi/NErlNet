@@ -49,7 +49,7 @@ prerequisite:
 
 1. python 3.7
 2. Latest Erlang version (OTP-24 minimum):
-   Use apt or build from source (https://www.erlang.org/doc/installation_guide/install)
+   Use apt or build from source (https://www.erlang.org/doc/installation_guide/install) <br>
    ```wget -O- https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -```<br>
    ```echo "deb https://packages.erlang-solutions.com/ubuntu focal contrib" | sudo tee /etc/apt/sources.list.d/rabbitmq.list```<br>
    ```sudo apt update```<br>
