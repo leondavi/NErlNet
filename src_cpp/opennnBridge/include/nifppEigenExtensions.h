@@ -397,9 +397,11 @@ template<typename Type> int getTensor1D(ErlNifEnv *env, ERL_NIF_TERM term, Tenso
 
     template<typename Type> nifpp::TERM makeTensor1D(ErlNifEnv *env, const Tensor1D<Type> &tensor)
     {
-        int x,y;
+        int x;
         const auto& d = tensor.dimensions();
-        std::vector<Type> listRepresentation(&d[0], d.data() + 3);
+    
+        ;
+        std::vector<Type> listRepresentation(&d[0], &d[0] + 3);
         listRepresentation[1] = 1;
         listRepresentation[2] = 1;
         //dims tensDims(listRepresentation);
@@ -408,7 +410,8 @@ template<typename Type> int getTensor1D(ErlNifEnv *env, ERL_NIF_TERM term, Tenso
         std::vector<Type> tensorVec(tensor.data(), tensor.data()+ x  );
         listRepresentation.insert( listRepresentation.end(), 
                                    std::make_move_iterator(tensorVec.begin()), std::make_move_iterator(tensorVec.end()));
-
+        
+       
         return make(env,listRepresentation);
     }
 }

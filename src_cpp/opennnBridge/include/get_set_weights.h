@@ -42,9 +42,12 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
          */
 
          Tensor< float, 1 > parameters = neural_network->get_parameters();
-         //std::cout << parameters << std::endl; 
+         
+         //printf("accccccccccccccc\n"); 
+         //std::cout << parameters << std::endl;
          ERL_NIF_TERM erl_parameters = nifpp::makeTensor1D(env, parameters);
-
+         
+         
          if(enif_send(NULL,&(pid), env,erl_parameters)){
              printf("enif_send succeed\n");
          }
