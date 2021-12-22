@@ -23,7 +23,7 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 
          opennnBridgeController *s = s->GetInstance();
 
-         // get model id
+         //get model id
          nifpp::get_throws(env, argv[0], mid); 
 
          //get neural network from singelton           
