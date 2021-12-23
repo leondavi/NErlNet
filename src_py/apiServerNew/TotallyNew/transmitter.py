@@ -2,7 +2,7 @@ import requests
 import globalVars as globe
 from experimentFlow import *
 #import apiServer
-#import time
+import time
 
 #DEFAULT_PORT = 8095
 
@@ -50,13 +50,14 @@ class Transmitter:
     def train(self):
         print('Training - Starting...')
 
-        globe.pendingAcks += 3
+        globe.pendingAcks += 3 #TODO: Remove magic number, pay atention to global variable changes.
 
         self.clientsTraining()
         self.updateCSV()
 
         while globe.pendingAcks > 1:
-            pass
+            time.sleep(0.005)
+            pass 
 
         self.startCasting()
 

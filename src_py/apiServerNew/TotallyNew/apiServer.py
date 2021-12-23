@@ -4,6 +4,8 @@ import globalVars as globe
 import receiver
 import os
 import time
+import signal
+import requests
 
 class ApiServer():
     def __init__(self): 
@@ -16,6 +18,12 @@ class ApiServer():
         self.manager = globe.manager
         self.managerQueue = globe.managerQueue
 
+    def exitHandler(self, signum, frame):
+            exitReq = requests.get(self.mainServerAddress + '/shutdown')
+            if exitReq.ok:
+                print("\nServer shutting down")
+                exit(0)
+
     def getTransmitter(self):
         return self.transmitter
 
@@ -23,7 +31,7 @@ class ApiServer():
         print("Starting receiver server...")
 
         #Creating a seperate process for the receiver, in the following block:
-        procs = []
+        procs = [] #TODO: delete this
 
         p1 = Process(target=receiver.initReceiver, args=())
         procs.append(p1)
@@ -32,7 +40,10 @@ class ApiServer():
         #It takes some time for the server to fully initiate
         time.sleep(0.5)
 
-        print("Receiver server started!")    
+        print("Receiver server started!")  
+        
+        # Terminate session when the user pressed CTRL+C
+        signal.signal(signal.SIGINT, self.exitHandler)  
 
     def train(self, mainServerAddress, batchSize):
         self.transmitter.train()
@@ -48,7 +59,6 @@ class ApiServer():
             #sleep(5)
         # wait on Queue
         #return ack.json() 
-        
 
 if __name__ == "__main__":
     apiServerInst = ApiServer()
