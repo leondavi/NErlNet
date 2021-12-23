@@ -14,6 +14,15 @@ ackArgs.add_argument('ack', type='str', help='Receiver Error - Please send Ackno
 
 def initReceiver():
     receiver.run(debug=True, threaded=True, port=8095)
+    
+class shutdown(Resource):
+    def get(self):
+        shut = request.environ.get('werkzeug.server.shutdown')
+
+        if shut is None:
+            raise RuntimeError('Shudown error: not running with the Werkzeug Server')
+
+        shut()
 
 class test(Resource):
     def post(self):
@@ -35,8 +44,11 @@ class ack(Resource):
     def post(self):
         reqData = request.form['ack']
         print(reqData + 'Ack Received!')
+        globe.pendingAcks -= 1
+        print(globe.pendingAcks)
 
 #Listener Server list of resources: 
 api.add_resource(test, "/test")
 api.add_resource(train, "/train")
 api.add_resource(ack, "/ack")
+api.add_resource(shutdown, "/shutdown")
