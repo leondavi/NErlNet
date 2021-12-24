@@ -1,22 +1,27 @@
-from multiprocessing import Process, Manager
+from multiprocessing import Process
 from transmitter import Transmitter
 import globalVars as globe
-import receiver
-import os
+from receiver import *
 import time
-import signal
 import requests
+import threading
+
 
 class ApiServer():
     def __init__(self): 
         self.mainServerAddress = globe.mainServerAddress
+        # starting receiver flask server process
 
-        self.runReceiver()
+        newThread = threading.Thread(target=initReceiver, args=())
+        self.threads = [] # list of processes
+        self.threads.append(newThread)
+        newThread.start()
+        self.getQueueData()
         time.sleep(1)
         self.transmitter = Transmitter()
 
-        self.manager = globe.manager
-        self.managerQueue = globe.managerQueue
+        #self.manager = globe.manager
+        #self.managerQueue = globe.managerQueue
 
     def exitHandler(self, signum, frame):
             exitReq = requests.get(self.mainServerAddress + '/shutdown')
@@ -27,23 +32,23 @@ class ApiServer():
     def getTransmitter(self):
         return self.transmitter
 
-    def runReceiver(self):
+    def stopServer(self):
+        receiver.stop()
+        return True
+
+    def getQueueData(self):
         print("Starting receiver server...")
+        received = False
+        while not received:
+            if not multiProcQueue.empty():
+                print("Message received")
+                msg = multiProcQueue.get()
+                print("message: "+str(msg))
+                received = True
+            time.sleep(1)
 
-        #Creating a seperate process for the receiver, in the following block:
-        procs = [] #TODO: delete this
-
-        p1 = Process(target=receiver.initReceiver, args=())
-        procs.append(p1)
-
-        p1.start()
-        #It takes some time for the server to fully initiate
-        time.sleep(0.5)
-
-        print("Receiver server started!")  
-        
-        # Terminate session when the user pressed CTRL+C
-        signal.signal(signal.SIGINT, self.exitHandler)  
+        print("Stopping server")
+        #self.stopServer()
 
     def train(self, mainServerAddress, batchSize):
         self.transmitter.train()
