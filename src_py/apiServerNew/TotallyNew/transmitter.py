@@ -1,10 +1,6 @@
 import requests
 import globalVars as globe
-from experimentFlow import *
-#import apiServer
 import time
-
-#DEFAULT_PORT = 8095
 
 class Transmitter:
 
@@ -16,9 +12,9 @@ class Transmitter:
         self.clientsPredictAddress = self.mainServerAddress + '/clientsPredict'
         self.statisticsAddress = self.mainServerAddress + '/statistics'
 
-    def testPost(self,payloadNum):
+    def testPost(self,address,payloadNum):
         payload = {'test' : payloadNum}
-        response = requests.post(self.mainServerAddress ,data = payload)
+        response = requests.post(address ,data = payload)
         print(response.ok, response.status_code, response.json())
         #Return true, if received: HTTP status code < 400
         #Return the HTTP status code for the response
