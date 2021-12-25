@@ -1,7 +1,7 @@
 //#pragma once 
 
 //#include <eigen3/Eigen/Core>
-#include "../../opennn/opennn/opennn.h"
+#include "../opennn/opennn/opennn.h"
 #include "definitionsNN.h"
 
 class CustumNN : public OpenNN::NeuralNetwork

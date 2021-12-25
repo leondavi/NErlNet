@@ -10,11 +10,21 @@ set(CMAKE_CXX_FLAGS "-fpic")
 include_directories(${EIGEN3_INCLUDE_DIR})
 message("-- [OPENNN_BRIDGE] Eigen Include Directory: ${EIGEN3_INCLUDE_DIR}")
 
+
+#set(SRC_CODE 
+#	"ModelParams.cpp"
+#	"include/nifpp.h"
+#	"include/definitionsNN.h"
+#	"include/nifppEigenExtensions.h"
+#	"ModelParams.cpp"
+#	"tmp.cpp")
+#add_library(${PROJECT_NAME} STATIC ${SRC_CODE})
+
 set(SRC_CODE 
 	"ModelParams.cpp"
-	"include/nifpp.h"
-	"include/definitionsNN.h"
-	"include/nifppEigenExtensions.h"
+	"nifpp.h"
+	"definitionsNN.h"
+	"nifppEigenExtensions.h"
 	"ModelParams.cpp"
 	"tmp.cpp")
 add_library(${PROJECT_NAME} STATIC ${SRC_CODE})

@@ -5,8 +5,8 @@
 #include <string>
 #include "ModelParams.h"
 #include <map>
-#include <eigen3/Eigen/Core>
-#include "../../opennn/opennn/opennn.h"
+//#include <eigen3/Eigen/Core>
+#include "../opennn/opennn/opennn.h"
 
 #include "definitionsNN.h"
 

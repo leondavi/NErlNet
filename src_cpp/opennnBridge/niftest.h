@@ -10,8 +10,8 @@
 
 //#include "Eigen/Core"
 //#include "unsupported/Eigen/CXX11/Tensor"
-#include <eigen3/Eigen/Core>
-#include "../../opennn/opennn/opennn.h"
+//#include <eigen3/Eigen/Core>
+#include "../opennn/opennn/opennn.h"
 #include "bridgeController.h"
 #include "create.h"
 #include "train.h"
