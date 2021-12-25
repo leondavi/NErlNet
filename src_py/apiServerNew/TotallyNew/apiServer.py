@@ -12,10 +12,8 @@ class ApiServer():
         self.mainServerAddress = globe.mainServerAddress
         # starting receiver flask server process
 
-        newThread = threading.Thread(target=initReceiver, args=())
-        self.threads = [] # list of processes
-        self.threads.append(newThread)
-        newThread.start()
+        self.serverThread = threading.Thread(target=initReceiver, args=())
+        self.serverThread.start()
         self.getQueueData()
         time.sleep(1)
         self.transmitter = Transmitter()

@@ -9,6 +9,6 @@ ApiServer()
 
 
 
-if __name__ == "__main__":
-    trans.testPost(baseReceiverAddress + '/test', 0)
-    trans.testQueue(baseReceiverAddress + '/testQueue')
+#if __name__ == "__main__":
+#    trans.testPost(baseReceiverAddress + '/test', 0)
+#    trans.testQueue(baseReceiverAddress + '/testQueue')

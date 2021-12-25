@@ -8,8 +8,6 @@ trans = Transmitter()
 
 trans.testPost(baseReceiverAddress + '/test', 0)
 
-result2 = trans.testQueue(baseReceiverAddress + '/testQueue')
-print(result2)
 
 
 
