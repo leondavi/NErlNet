@@ -5,7 +5,7 @@ import multiprocessing
 
 SERVER_BUSY = 0
 SERVER_DONE = 1
-multiProcQueue = multiprocessing.Queue()
+multiProcQueue = multiprocessing.Queue() # Create instance of queue
 
 receiver = Flask(__name__)
 api = Api(receiver)
@@ -15,16 +15,15 @@ ackArgs.add_argument('ack', type='str', help='Receiver Error - Please send Ackno
 
 def initReceiver():
     receiver.run(threaded=True, port=8095)
-    
+
 class shutdown(Resource):
     def get(self):
-        pass
-        #shut = request.environ.get('werkzeug.server.shutdown')
-
-        #if shut is None:
-        #    raise RuntimeError('Shudown error: not running with the Werkzeug Server')
-
-        #shut()
+        # https://stackoverflow.com/questions/15562446/how-to-stop-flask-application-without-using-ctrl-c
+        # https://stackoverflow.com/questions/37004983/what-exactly-is-werkzeug
+        shut = request.environ.get('werkzeug.server.shutdown')
+        if shut is None:
+            raise RuntimeError('Shudown error: not running with the Werkzeug Server')
+        shut()
 
 class test(Resource):
     def post(self):
