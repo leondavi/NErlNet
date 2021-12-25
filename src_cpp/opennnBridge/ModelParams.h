@@ -3,8 +3,8 @@
 #include <erl_nif.h>
 #include <memory>
 #include <vector>
-#include <eigen3/Eigen/Core>
-#include "../../opennn/opennn/opennn.h"
+//#include <eigen3/Eigen/Core>
+#include "../opennn/opennn/opennn.h"
 
 
 class ModelParams 

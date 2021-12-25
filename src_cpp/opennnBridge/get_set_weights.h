@@ -8,8 +8,8 @@
 
 
 
-#include <eigen3/Eigen/Core>
-#include "../../opennn/opennn/opennn.h"
+//#include <eigen3/Eigen/Core>
+#include "../opennn/opennn/opennn.h"
 #include "nifpp.h"
 
 using namespace OpenNN;
