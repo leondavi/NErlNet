@@ -1,5 +1,5 @@
-#include "include/ModelParams.h"
-#include "include/CustumNN.h"
+#include "ModelParams.h"
+#include "CustumNN.h"
 
 /*
   model parameters class:

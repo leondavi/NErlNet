@@ -1,7 +1,7 @@
 
 
-#include "include/niftest.h" 
-#include "include/nifppEigenExtensions.h"
+#include "niftest.h" 
+#include "nifppEigenExtensions.h"
 /*#include <vector>
 #include "opennn.h"
 
