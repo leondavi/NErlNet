@@ -21,8 +21,8 @@
 #include "choose_activation_function.h"
 //#include "CustumNN.h"
 #include <map>
-#include <eigen3/Eigen/Core>
-#include "../../opennn/opennn/opennn.h"
+//#include <eigen3/Eigen/Core>
+#include "../opennn/opennn/opennn.h"
 
 //All enum defintions are defined in defnitions.h
 #include "definitionsNN.h"

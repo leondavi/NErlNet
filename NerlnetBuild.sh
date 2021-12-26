@@ -23,3 +23,5 @@ else
 	cd ../../	
 fi
 
+cd src_erl/Communication_Layer/http_Nerlserver
+rebar3 shell
