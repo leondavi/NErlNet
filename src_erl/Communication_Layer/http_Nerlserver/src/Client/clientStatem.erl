@@ -23,7 +23,13 @@
 
 -define(SERVER, ?MODULE).
 
--record(client_statem_state, {myName, federatedServer,workersMap, portMap, msgCounter}).
+%   myName - Client Name,
+%   federatedServer - fed.server name,
+%   workersMap - this clients workers on this machine,
+%   portMap, all connections needed for this client
+%   msgCounter - gather messages statistics
+%   timingMap - gather Timing statistics: timingMap = #{{WorkerName1=>{LastBatchReceivedTime,totalBatches,AverageTrainingime},{Worker2,..}, ...}
+-record(client_statem_state, {myName, federatedServer,workersMap, portMap, msgCounter,timingMap}).
 
 
 %%%===================================================================
@@ -66,18 +72,19 @@ io:format(" niff loaded~n",[]),
  niftest:trainNifTest(100.0),
 %%  [{WorkerName,nerlNetStatem:start_link({self(), WorkerName, CppSANNArgs})}||{WorkerName,CppSANNArgs}<-maps:to_list(Workers)],
   WorkersMap = maps:from_list(WorkersPids),
+ io:format("TimingMap~p~n",[maps:to_list(TimingMap)]),
 
 %%TODO workers = WorkersMap <-TODO ADD
-  {ok, idle, #client_statem_state{myName= MyName,federatedServer = Federated, workersMap = WorkersMap, portMap = ConnectionsMap, msgCounter = 1}}.
+  {ok, idle, #client_statem_state{myName= MyName,timingMap = TimingMap, federatedServer = Federated, workersMap = WorkersMap, portMap = ConnectionsMap, msgCounter = 1}}.
 
-createWorkers([],_ClientPid,WorkersNamesPids) ->WorkersNamesPids;
-createWorkers([Worker|Workers],ClientPid,WorkersNamesPids) ->
+createWorkers([],_WorkerModelID,_ClientPid,WorkersNamesPids,TimingMap) ->{WorkersNamesPids,TimingMap};
+createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPids,TimingMap) ->
   %  FederatedMode="1", CountLimit="10",
   io:format("Start create workers"),
   CountLimit = binary_to_list(maps:get(<<"CountLimit">>,Worker)),
   FederatedMode = binary_to_list(maps:get(<<"FederatedMode">>,Worker)),
   WorkerName = list_to_atom(binary_to_list(maps:get(<<"name">>,Worker))),
-  ModelId = binary_to_list(maps:get(<<"modelId">>,Worker)),
+  ModelId = integer_to_list(WorkerModelID),
   Layers_sizes = maps:get(<<"LayersSizes">>,Worker),
   Learning_rate = maps:get(<<"LearningRate">>,Worker),
   ActivationList = maps:get(<<"ActivationFunctions">>,Worker),
@@ -96,7 +103,8 @@ createWorkers([Worker|Workers],ClientPid,WorkersNamesPids) ->
   
   % io:format("client starting worker:~p WorkerArgs ~p ~n",[WorkerName,WorkerArgs]),
   WorkerPid = nerlNetStatem:start_link({self(), WorkerName, WorkerArgs}),
-  createWorkers(Workers,ClientPid,WorkersNamesPids++[{WorkerName, WorkerPid}]).
+  % timingMap = #{{WorkerName1=>{LastBatchReceivedTime,totalBatches,AverageTrainingime},{Worker2,..}, ...}
+  createWorkers(Workers,WorkerModelID+1,ClientPid,WorkersNamesPids++[{WorkerName, WorkerPid}],maps:put(WorkerName,{0,0,0},TimingMap)).
 
 %%return list of integer from string of lists of strings - "[2,2,2]" -> [2,2,2]
 string_to_list_int(Binary) ->
@@ -157,30 +165,27 @@ idle(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,myNam
   ack(MyName,PortMap),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
-idle(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
+idle(cast, _EventContent, State = #client_statem_state{msgCounter = Counter}) ->
   %io:format("client training ignored:  ~p ~n",[EventContent]),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
 
 
 training(cast, {sample,[]}, State = #client_statem_state{msgCounter = Counter}) ->
 
-  io:format("client go empty Vector~n",[]),
+  io:format("client got empty Vector~n",[]),
 
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
-training(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
-  %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
+training(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap,timingMap = TimingMap}) ->
+  %%    Body:   {ClientName,WorkerName,CSVName,BatchNumber,BatchOfSamples}
   {_ClientName, WorkerName, _CSVName, _BatchNumber, BatchOfSamples} = binary_to_term(Body),
-
-%%  [_ClientName,WorkerName,_CSVName, _BatchNumber,BatchOfSamples] = re:split(binary_to_list(Vector), "#", [{return, list}]),
-%%  Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
-%%  ToSend =  lists:reverse(getNumbers(Splitted,[])),
   ToSend =  decodeList(BatchOfSamples),
-%%  io:format("BatchNumber: ~p~n",[BatchNumber]),
-%%  io:format("WorkerName: ~p~n",[WorkerName]),
+  Start = os:timestamp(),
+  {_LastBatchReceivedTime,TotalBatches,AverageTrainingime} = maps:get(list_to_atom(WorkerName),TimingMap),
+  NewTimingMap = maps:put(list_to_atom(WorkerName),{Start,TotalBatches+1,AverageTrainingime},TimingMap),
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
   gen_statem:cast(WorkerPid, {sample,ToSend}),
-  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+  {next_state, training, State#client_statem_state{msgCounter = Counter+1,timingMap = NewTimingMap}};
 
 training(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
   io:format("client going to state idle",[]),
@@ -202,12 +207,21 @@ training(cast, {loss,WorkerName,nan}, State = #client_statem_state{myName = MyNa
 %%  http_request(RouterHost,RouterPort,"lossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,<<"nan">>])),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
-training(cast, {loss,WorkerName,LossFunction}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
-   io:format("WorkerName: ~p , LossFunction1: ~p   ~n",[WorkerName, LossFunction]),
+training(cast, {loss,WorkerName,LossFunction}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter,timingMap = TimingMap}) ->
+  % Start = maps:get(WorkerName,TimingMap),
+  {Start,TotalBatches,AverageTrainingTime} = maps:get(WorkerName,TimingMap),
+  Finish = os:timestamp(),
+  TotalTrainingTime = (timer:now_diff(Finish, Start) / 1000),
+  if(TotalBatches>0) ->
+    NewAverage = ((AverageTrainingTime*(TotalBatches-1))+TotalTrainingTime)/TotalBatches,
+    NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,NewAverage},TimingMap);
+      % io:format("AverageTrainingTime: ~p~n",[NewAverage])
+    true ->       NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,TotalTrainingTime},TimingMap)
+    end,
+   io:format("WorkerName: ~p , LossFunction1: ~p,  ~n",[WorkerName, LossFunction]),
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
   http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,LossFunction})),
-%%  http_request(RouterHost,RouterPort,"lossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,float_to_binary(LossFunction)])),
-  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+  {next_state, training, State#client_statem_state{msgCounter = Counter+1,timingMap = NewTimingMap}};
 
 
 
@@ -215,32 +229,18 @@ training(cast, {loss,WorkerName,LossFunction}, State = #client_statem_state{myNa
 training(cast, {loss,federated_weights, Worker, LOSS_FUNC, Ret_weights}, State = #client_statem_state{federatedServer = Federated,myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
 %%  io:format("Worker: ~p~n, LossFunction: ~p~n,  Ret_weights_tuple: ~p~n",[Worker, LOSS_FUNC, Ret_weights_tuple]),
   {RouterHost,RouterPort} = maps:get(Federated,PortMap),
-  % io:format("sending weights :~p~n",[Ret_weights]),
-  % io:format("sending weights binary :~p~n",[list_to_binary(Ret_weights)]),
-%%  ToSend = list_to_binary([list_to_binary(atom_to_list(Federated)),<<"#">>,list_to_binary(Ret_weights)]),
-
-%%  TODO when ziv changes from string to list of lists remove this
-%%  Ret_weights2 = [[1.1,2.2],[3.3,4.4],[1,2],[2,3]],
-%%  io:format("Ret_weights: ~n~p~n",[Ret_weights]),
 
   ToSend = term_to_binary({Federated,encodeListOfLists(Ret_weights)}),
 
-%%  io:format("ToSend: ~p~n, ",[ToSend]),
-%%  io:format("ToSend: ~p~n, ",[ToSend]),
-%%["1.002,"30.2","2.1"]
   http_request(RouterHost,RouterPort,"federatedWeightsVector", ToSend),
-%%  TODO send federated_weights to federated_server
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, {loss, federated_weights, MyName, LOSS_FUNC}, State = #client_statem_state{myName = MyName,portMap = PortMap,  msgCounter = Counter}) ->
-  % io:format("MyName: ~p~n, LossFunction2: ~p~n",[MyName, LOSS_FUNC]),
-%%  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
-%%  TODO send federated_weights to federated_server
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, {federatedAverageWeights,Body}, State = #client_statem_state{myName = MyName,portMap = PortMap,workersMap = WorkersMap, msgCounter = Counter}) ->
 %% io:format("federatedAverageWeights Body!!!!: ~p~n",[Body]),
-  {ClientName,WorkerName,BinaryWeights} = binary_to_term(Body),
+  {_ClientName,WorkerName,BinaryWeights} = binary_to_term(Body),
 
 %%  [_ClientName,WorkerName,Weights] = re:split(binary_to_list(Body),"#",[{return,list}]),
   WorkerPid = maps:get(WorkerName,WorkersMap),
@@ -249,8 +249,6 @@ training(cast, {federatedAverageWeights,Body}, State = #client_statem_state{myNa
   DecodedWeights = decodeListOfLists(BinaryWeights),
   % io:format("client finished decoding weights!!!:   ~n!!!",[]),
   gen_statem:cast(WorkerPid, {set_weights,  DecodedWeights}),
-%%  {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
-%%  TODO send federated_weights to federated_server
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
@@ -258,36 +256,40 @@ training(cast, EventContent, State = #client_statem_state{msgCounter = Counter})
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
 
 
-predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap}) ->
+predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap, timingMap = TimingMap}) ->
   %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
   {_ClientName, WorkerName, CSVName, BatchNumber, BatchOfSamples} = binary_to_term(Body),
-%%  io:format("CSVName: ~p~n",[CSVName]),
-
-%%  [_ClientName,WorkerName,CSVName, BatchNumber,BatchOfSamples] = re:split(binary_to_list(Body), "#", [{return, list}]),
-%%  Splitted = re:split(BatchOfSamples, ",", [{return, list}]),
-%%  ToSend =  lists:reverse(getNumbers(Splitted,[])),
   ToSend =  decodeList(BatchOfSamples),
-
+  Start = os:timestamp(),
+  {_LastBatchReceivedTime,TotalBatches,AverageTrainingime} = maps:get(list_to_atom(WorkerName),TimingMap),
+  NewTimingMap = maps:put(list_to_atom(WorkerName),{Start,TotalBatches+1,AverageTrainingime},TimingMap),
 %%  io:format("CSVName: ~p, BatchNumber: ~p~n",[CSVName,BatchNumber]),
 %%  io:format("Vector: ~p~n",[ToSend]),
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
   gen_statem:cast(WorkerPid, {sample,CSVName, BatchNumber,ToSend}),
 %%  gen_statem:cast(WorkerPid, {sample,ToSend}),
-  {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
+  {next_state, predict, State#client_statem_state{msgCounter = Counter+1,timingMap = NewTimingMap}};
 
-predict(cast, {predictRes,InputName,ResultID,[]}, State = #client_statem_state{msgCounter = Counter,portMap = PortMap}) ->
+predict(cast, {predictRes,WorkerName,InputName,ResultID,[]}, State = #client_statem_state{msgCounter = Counter,portMap = PortMap}) ->
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
   http_request(RouterHost,RouterPort,"predictRes", term_to_binary({InputName,ResultID,""})),
-%%  http_request(RouterHost,RouterPort,"predictRes", list_to_binary([list_to_binary(InputName),<<"#">>,integer_to_binary(ResultID),<<"#">>,""])),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
-predict(cast, {predictRes,InputName,ResultID,Result}, State = #client_statem_state{msgCounter = Counter,portMap = PortMap}) ->
+predict(cast, {predictRes,WorkerName,InputName,ResultID,Result}, State = #client_statem_state{msgCounter = Counter,portMap = PortMap,timingMap = TimingMap}) ->
+    {Start,TotalBatches,AverageTrainingTime} = maps:get(WorkerName,TimingMap),
+  Finish = os:timestamp(),
+  TotalTrainingTime = (timer:now_diff(Finish, Start) / 1000),
+  if(TotalBatches>0) ->
+    NewAverage = ((AverageTrainingTime*(TotalBatches-1))+TotalTrainingTime)/TotalBatches,
+    NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,NewAverage},TimingMap);
+      % io:format("AverageTrainingTime: ~p~n",[NewAverage])
+    true ->       NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,TotalTrainingTime},TimingMap)
+    end,  
   {RouterHost,RouterPort} = maps:get(mainServer,PortMap),
   Result2 = lists:flatten(io_lib:format("~w",[Result])),",",[{return,list}],
   Result3 = lists:sublist(Result2,2,length(Result2)-2),
   % io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
   http_request(RouterHost,RouterPort,"predictRes", term_to_binary({InputName,ResultID,Result3})),
-%%  http_request(RouterHost,RouterPort,"predictRes", list_to_binary([list_to_binary(InputName),<<"#">>,integer_to_binary(ResultID),<<"#">>,Result3])),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName,portMap = PortMap,msgCounter = Counter}) ->
@@ -349,27 +351,8 @@ ack(MyName, PortMap) ->
 %%  send an ACK to mainserver that the CSV file is ready
   http_request(RouterHost,RouterPort,"clientReady",atom_to_list(MyName)).
 
-getNumbers([],List)->List;
-getNumbers([[]|Tail], List) -> getNumbers(Tail,List);
-getNumbers([Head|Tail], List) ->
-%%  io:format("Head:~p~n",[Head]),
 
-  try list_to_float(Head) of
-    Float->    %io:format("~p~n",[Float]),
-      getNumbers(Tail,[(Float)]++List)
-  catch
-    error:_Error->
-      %io:format("~p~n",[Error]),
-      getNumbers(Tail,[list_to_integer(Head)]++List)
 
-  end.
-
-encode(Ret_weights_tuple)->
-  {Weights,Bias,Biases_sizes_list,Wheights_sizes_list} = Ret_weights_tuple,
-  ToSend =   list_to_binary(Weights) ++ <<"#">> ++ list_to_binary(Bias) ++ <<"@">> ++ list_to_binary(Biases_sizes_list) ++ <<"@">>  ++ list_to_binary(Wheights_sizes_list),
-  % io:format("ToSend  ~p",[ToSend]),
-    ToSend.
-%%  Weights ++ <<"@">> ++ Bias ++ <<"@">> ++ [Biases_sizes_list] ++ <<"@">>  ++ Wheights_sizes_list.
 
 %%This encoder receives a lists of lists: [[1.0,1.1,11.2],[2.0,2.1,22.2]] and returns a binary
 encodeListOfLists(L)->encodeListOfLists(L,[]).

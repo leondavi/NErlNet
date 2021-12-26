@@ -8,16 +8,21 @@
 %%%-------------------------------------------------------------------
 -module(jsonParser).
 -author("kapelnik").
--export([getDeviceEntities/2]).
+-export([getDeviceEntities/3]).
 
-getDeviceEntities(JsonPath,HostName)->
-  {ok, Data} = file:read_file(JsonPath),
+getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
+  {ok, ArchitectureAdderessData} = file:read_file(ArchitectureAdderess),
+  {ok, CommunicationMapAdderessData} = file:read_file(CommunicationMapAdderess),
 
-%%TODO ADD CHECK FOR VALID INPUT:  io:format("~p~n",[jsx:is_json(Data)]),
-  %%Decode Json to architecute map:
-  ArchitectureMap = jsx:decode(Data,[]),
+%%TODO ADD CHECK FOR VALID INPUT:  
+  io:format("~p~n",[jsx:is_json(ArchitectureAdderessData)]),
+
+  %%Decode Json to architecute map and Connection map:
+  ArchitectureMap = jsx:decode(ArchitectureAdderessData,[]),
+  CommunicationMap= jsx:decode(CommunicationMapAdderessData,[]),
+
+% Get NerlNetSettings, batch size, frequency etc..
   NerlNetSettings = maps:get(<<"NerlNetSettings">>,ArchitectureMap),
-  % NerlNetSettings=nerlNetSettings,
 
   %%  get workers to clients map
   WorkersMap = getWorkersMap(maps:get(<<"clients">>,ArchitectureMap),#{}),
@@ -29,15 +34,15 @@ getDeviceEntities(JsonPath,HostName)->
 
 
   %%  retrive THIS device Clients And Workers, returns a list of tuples:[{ClientArgumentsMap,WorkersMap,ConnectionMap},..]
-  ClientsAndWorkers = getClients(maps:get(<<"clients">>,ArchitectureMap),OnDeviceEntities , [],maps:get(<<"workers">>,ArchitectureMap),ArchitectureMap),
+  ClientsAndWorkers = getClients(maps:get(<<"clients">>,ArchitectureMap),OnDeviceEntities , [],maps:get(<<"workers">>,ArchitectureMap),ArchitectureMap,CommunicationMap),
 
   %%  retrive THIS device Sources, returns a list of tuples:[{SourceArgumentsMap, ConnectionMap},..]
-  Sources = {getSources(maps:get(<<"sources">>, ArchitectureMap), OnDeviceEntities, [], ArchitectureMap),WorkersMap},
+  Sources = {getSources(maps:get(<<"sources">>, ArchitectureMap), OnDeviceEntities, [], ArchitectureMap,CommunicationMap),WorkersMap},
 
   %%  retrive THIS device Routers, returns a list of tuples:[{RoutersArgumentsMap, ConnectionMap},..]
-  Routers = getRouters(maps:get(<<"routers">>,ArchitectureMap),OnDeviceEntities , [],ArchitectureMap),
+  Routers = getRouters(maps:get(<<"routers">>,ArchitectureMap),OnDeviceEntities , [],ArchitectureMap,CommunicationMap),
 
-  Federateds = {getFederated(maps:get(<<"federated">>,ArchitectureMap),OnDeviceEntities , [],ArchitectureMap),WorkersMap},
+  Federateds = {getFederated(maps:get(<<"federated">>,ArchitectureMap),OnDeviceEntities , [],ArchitectureMap,CommunicationMap),WorkersMap},
 
 
   %%  retrive THIS device MainServer, returns a map of arguments
@@ -48,7 +53,7 @@ getDeviceEntities(JsonPath,HostName)->
     OnDevice == false -> MainServer = none;
     true -> MainServerArgs = maps:get(<<"mainServer">>,ArchitectureMap),
       ClientsNames = getAllClientsNames(maps:get(<<"clients">>,ArchitectureMap),[]),
-      MainServerConnectionsMap=getConnectionMap(<<"mainServer">>,ArchitectureMap),
+      MainServerConnectionsMap=getConnectionMap(<<"mainServer">>,ArchitectureMap,CommunicationMap),
       MainServer = {MainServerArgs,MainServerConnectionsMap,WorkersMap,ClientsNames}
   end,
 
@@ -74,60 +79,60 @@ getOnDeviceEntities([Device|Tail],HostName) ->
   end.
 
 %%getSources findes all sources needed to be opened on this device. returns [{sourceArgsMap,SourceConnectionMap},...]
-getFederated([],_OnDeviceSources,[],_ArchMap) ->none;
-getFederated([],_OnDeviceSources,Return,_ArchMap) ->Return;
-getFederated([Federated|Federateds],OnDeviceFederated,Return,ArchMap) ->
+getFederated([],_OnDeviceSources,[],_ArchMap,_CommunicationMap) ->none;
+getFederated([],_OnDeviceSources,Return,_ArchMap,_CommunicationMap) ->Return;
+getFederated([Federated|Federateds],OnDeviceFederated,Return,ArchMap,CommunicationMap) ->
 
   FederatedName = maps:get(<<"name">>,Federated),
   OnDevice = lists:member(binary_to_list(FederatedName),OnDeviceFederated),
   if  OnDevice == false->
-    getFederated(Federateds,OnDeviceFederated,Return,ArchMap);
+    getFederated(Federateds,OnDeviceFederated,Return,ArchMap,CommunicationMap);
     true ->
-      ConnectionsMap = getConnectionMap(maps:get(<<"name">>,Federated),ArchMap),
-      getFederated(Federateds,OnDeviceFederated,Return++[{Federated,ConnectionsMap}],ArchMap)
+      ConnectionsMap = getConnectionMap(maps:get(<<"name">>,Federated),ArchMap,CommunicationMap),
+      getFederated(Federateds,OnDeviceFederated,Return++[{Federated,ConnectionsMap}],ArchMap,CommunicationMap)
   end.
 
-getSources([],_OnDeviceSources,[],_ArchMap) ->none;
-getSources([],_OnDeviceSources,Return,_ArchMap) ->Return;
-getSources([Source|Sources],OnDeviceSources,Return,ArchMap) ->
+getSources([],_OnDeviceSources,[],_ArchMap,_CommunicationMap) ->none;
+getSources([],_OnDeviceSources,Return,_ArchMap,_CommunicationMap) ->Return;
+getSources([Source|Sources],OnDeviceSources,Return,ArchMap,CommunicationMap) ->
 
   SourceName = maps:get(<<"name">>,Source),
   OnDevice = lists:member(binary_to_list(SourceName),OnDeviceSources),
   if  OnDevice == false->
-    getSources(Sources,OnDeviceSources,Return,ArchMap);
+    getSources(Sources,OnDeviceSources,Return,ArchMap,CommunicationMap);
     true ->
-      ConnectionsMap = getConnectionMap(maps:get(<<"name">>,Source),ArchMap),
-      getSources(Sources,OnDeviceSources,Return++[{Source,ConnectionsMap}],ArchMap)
+      ConnectionsMap = getConnectionMap(maps:get(<<"name">>,Source),ArchMap,CommunicationMap),
+      getSources(Sources,OnDeviceSources,Return++[{Source,ConnectionsMap}],ArchMap,CommunicationMap)
   end.
 
 %%getRouters findes all Routers needed to be opened on this device. returns [{RouterArgsMap,RoutersConnectionMap},...]
-getRouters([],_OnDeviceRouters,[],_ArchMap) ->none;
-getRouters([],_OnDeviceRouters,Return,_ArchMap) ->Return;
-getRouters([Router|Routers],OnDeviceRouters,Return,ArchMap) ->
+getRouters([],_OnDeviceRouters,[],_ArchMap,_CommunicationMap) ->none;
+getRouters([],_OnDeviceRouters,Return,_ArchMap,_CommunicationMap) ->Return;
+getRouters([Router|Routers],OnDeviceRouters,Return,ArchMap,CommunicationMap) ->
 
   RouterName = maps:get(<<"name">>,Router),
   OnDevice = lists:member(binary_to_list(RouterName),OnDeviceRouters),
   if  OnDevice == false->
-    getRouters(Routers,OnDeviceRouters,Return,ArchMap);
+    getRouters(Routers,OnDeviceRouters,Return,ArchMap,CommunicationMap);
     true ->
-      ConnectionsMap = getRouterConnectionMap(maps:get(<<"name">>,Router),ArchMap),
-      getRouters(Routers,OnDeviceRouters,Return++[{Router,ConnectionsMap}],ArchMap)
+      ConnectionsMap = getRouterConnectionMap(maps:get(<<"name">>,Router),ArchMap,CommunicationMap),
+      getRouters(Routers,OnDeviceRouters,Return++[{Router,ConnectionsMap}],ArchMap,CommunicationMap)
   end.
 
 %%getClients findes all Clients And Workers needed to be opened on this device. returns [{ClientArgsMap,WorkersMap,ClientConnectionMap},...]
-getClients([],_Entities,[],_ArchWorkers,_ArchMap) ->none;
-getClients([],_Entities,ClientsAndWorkers,_ArchWorkers,_ArchMap) ->ClientsAndWorkers;
-getClients([Client|Tail],Entities,ClientsAndWorkers,ArchWorkers,ArchMap) ->
+getClients([],_Entities,[],_ArchWorkers,_ArchMap,_CommunicationMap) ->none;
+getClients([],_Entities,ClientsAndWorkers,_ArchWorkers,_ArchMap,_CommunicationMap) ->ClientsAndWorkers;
+getClients([Client|Tail],Entities,ClientsAndWorkers,ArchWorkers,ArchMap,CommunicationMap) ->
 
   ClientName = maps:get(<<"name">>,Client),
   OnDevice = lists:member(binary_to_list(ClientName),Entities),
   if  OnDevice == false->
-    getClients(Tail,Entities,ClientsAndWorkers,ArchWorkers,ArchMap);
+    getClients(Tail,Entities,ClientsAndWorkers,ArchWorkers,ArchMap,CommunicationMap);
     true ->
-      ConnectionsMap = getConnectionMap(maps:get(<<"name">>,Client),ArchMap),
+      ConnectionsMap = getConnectionMap(maps:get(<<"name">>,Client),ArchMap,CommunicationMap),
       ClientWorkers =re:split(binary_to_list(maps:get(<<"workers">>,Client)),",",[{return,list}]),
       Workers = getWorkers(ArchWorkers,ClientWorkers,[]),
-      getClients(Tail,Entities,ClientsAndWorkers++[{Client,Workers,ConnectionsMap}],ArchWorkers,ArchMap)
+      getClients(Tail,Entities,ClientsAndWorkers++[{Client,Workers,ConnectionsMap}],ArchWorkers,ArchMap,CommunicationMap)
   end.
 
 
@@ -143,8 +148,8 @@ getWorkers([Worker|Tail],ClientsWorkers,Workers) ->
   end.
 
 %%Builds a connnection map for the Router on this device to intreduce it later with all connected entities
-getRouterConnectionMap(RouterName,ArchMap) ->
-  ConnectionsList = maps:to_list(maps:get(RouterName,maps:get(<<"connectionsMap">>,ArchMap))),
+getRouterConnectionMap(RouterName,ArchMap,CommunicationMap) ->
+  ConnectionsList = maps:to_list(maps:get(RouterName,maps:get(<<"connectionsMap">>,CommunicationMap))),
   buildRouterConnectionMap(RouterName,ConnectionsList,ArchMap, #{}).
 
 
@@ -159,8 +164,8 @@ buildRouterConnectionMap(MyRouterName,[{EntityName,RouterName}|Entities],ArchMap
   EntityPort = getPort(maps:get(<<"routers">>,ArchMap),RouterName),
   buildRouterConnectionMap(MyRouterName,Entities,ArchMap, ConnectionMap#{list_to_atom(binary_to_list(EntityName)) => {EntityHost,EntityPort}}).
 
-getConnectionMap(Name,ArchMap) ->
-  ConnectionsList = maps:to_list(maps:get(Name,maps:get(<<"connectionsMap">>,ArchMap))),
+getConnectionMap(Name,ArchMap,CommunicationMap) ->
+  ConnectionsList = maps:to_list(maps:get(Name,maps:get(<<"connectionsMap">>,CommunicationMap))),
 %%  io:format("~p connection Map from json: ~p~n",[Name,ConnectionsList]),
   buildConnectionMap(Name,ConnectionsList,ArchMap, #{}).
 
@@ -234,7 +239,7 @@ getWorkersMap([Client|Clients],WorkersMap)->
   NewMap = addAll(Workers,WorkersMap,ClientName),
   getWorkersMap(Clients,NewMap).
 
-addAll([],WorkersMape,_ClientName)->WorkersMape;
+addAll([],WorkersMap,_ClientName)->WorkersMap;
 addAll([Worker|Workers],WorkersMap,ClientName)->
   addAll(Workers,maps:put(list_to_atom(Worker),ClientName,WorkersMap),ClientName).
 
