@@ -228,7 +228,7 @@ namespace nifpp
 
         // Dimensions Read 
         std::vector<int> dimsVector(MAX_SUPPORTED_DIMS);
-        std::cout<<"A"<<std::endl;
+        //std::cout<<"A"<<std::endl;
         for(int i=0; i<MAX_SUPPORTED_DIMS; i++)
         {
             if (enif_get_list_cell(env, tail, &head, &tail))
@@ -239,7 +239,7 @@ namespace nifpp
                     std::cout<<"get Error"<<std::endl;
                     return 0;
                 }
-                std::cout<<"var dims: "<<var<<std::endl;
+                //std::cout<<"var dims: "<<var<<std::endl;
                 dimsVector[i] = static_cast<int>(var);
             }
             else
@@ -247,7 +247,7 @@ namespace nifpp
                 throw std::runtime_error(EXCEPTION_STR_INVALID_ERL_TENSOR);
             }
         }
-        std::cout<<"B"<<std::endl;
+        //std::cout<<"B"<<std::endl;
         dims tensorDims(dimsVector);
         if ((len - MAX_SUPPORTED_DIMS) != tensorDims.xyz) // length = numOfDims + x*y*z
         {
@@ -255,7 +255,7 @@ namespace nifpp
         }
         //TODO optimization 
         Tensor<Type,2> newTensor(tensorDims.x,tensorDims.y); // we start with a 2D tensor to copy the data
-                std::cout<<"tensorDims.xyz: "<<tensorDims.xyz<<std::endl;
+                //std::cout<<"tensorDims.xyz: "<<tensorDims.xyz<<std::endl;
 
         for(int idx = 0; idx < tensorDims.xyz; idx++) //copy flat tensor 
         {
@@ -267,7 +267,7 @@ namespace nifpp
                 
                 //newTensor(idx) = var;//TODO optimization 
                 newTensor(idx/tensorDims.y , idx%tensorDims.y) = var;//TODO optimization 
-                std::cout<<"idx "<<idx<<" var: "<<newTensor(idx/tensorDims.y , idx%tensorDims.y) <<std::endl;
+                //std::cout<<"idx "<<idx<<" var: "<<newTensor(idx/tensorDims.y , idx%tensorDims.y) <<std::endl;
 
             }
             else

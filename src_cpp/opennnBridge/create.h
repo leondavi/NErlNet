@@ -65,7 +65,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          nifpp::getTensor1D(env,argv[4],neural_network_architecture);
          nifpp::getTensor1D(env,argv[5],activations_functions);
 
-         printf("get data");
+         printf("\nget data\n");
         
         //--------------------------------------------------------------------------------------------------------------
          
@@ -82,7 +82,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          }                                                           
          else if(modelType == CLASSIFICATION){     
              neural_network->set(NeuralNetwork::Classification,neural_network_architecture); 
-                         
+             
          }                                                           
          else if(modelType == FORECASTING){   
              neural_network->set(NeuralNetwork::Forecasting,neural_network_architecture);      
@@ -152,10 +152,13 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          printf("end select model type\n");
 
          
-        
          printf("choose scaling method\n");
          // set scaling method for scaling layer ---------------------------------------------------------------------------
+         //std::cout<< neural_network->get_layer_pointer(0)->get_type_string() <<std::endl;
+         //std::cout<< neural_network->get_layer_pointer(0)->get_neurons_number()<<std::endl;
          ScalingLayer* scaling_layer_pointer = neural_network->get_scaling_layer_pointer();
+         
+         printf("10\n");
          if(scaling_method == NoScaling)
         {
             scaling_layer_pointer->set_scaling_methods(ScalingLayer::NoScaling);
@@ -197,6 +200,8 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          printf("2\n");
          
          // Put the model record to the map with modelId
+         std::cout<< "your model ID is: " <<std::endl;
+         std::cout<< modelId <<std::endl;
          s->setData(modelPtr, modelId);  
           //return enif_make_string(env, "catch - problem in try1", ERL_NIF_LATIN1);
           printf("3\n");
