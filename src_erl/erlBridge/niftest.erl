@@ -27,11 +27,11 @@ init() ->
        %%FULL_PATH = CWD_UPPER_DIR++"/build/"++?BUILD_TYPE++"/libnerlnet",
 
    %  Full path
-       FULL_PATH = "/home/evgeny/work_test/NErlNet/build/release/libnerlnet",
+      %  FULL_PATH = "/home/evgeny/work_test/NErlNet/build/release/libnerlnet",
 
 
    % TODO TODO return to relative parh brfor commit to master. 
-      %FULL_PATH = "../../../build/"++?BUILD_TYPE++"/libnerlnet",
+      FULL_PATH = "../../../build/"++?BUILD_TYPE++"/libnerlnet",
       % io:format("~p~n",[CWD_UPPER_DIR]),
       RES = erlang:load_nif(FULL_PATH, 0),
       io:format("load nif results: ~p",[RES]),
@@ -66,6 +66,7 @@ trainNifTest(NumberOfSamples) -> ModelID = 586000901,
                   LayersActivationFunctions = [5,1,1,0,0,0,0,0],  % to play with until getting convergence    
                   _S = create_nif(ModelID, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
                   io:format("4 ~n"),
+                  io:format("43 ~n"),
                   RandomGeneratedData = lists:flatten([[rand:normal()||_<-lists:seq(1,128)] ++[1.0]||_<-lists:seq(1,100)]),
                   % RandomGeneratedData = [rand:normal()||_<-lists:seq(1,1290)] , % size NumberOfSamples*(LayersSizesFirst + LayersSizesLast,RandomGeneratedData)
                   %Class1Mean = 3,

@@ -48,18 +48,17 @@ start_link(ARGS) ->
 %% @doc Whenever a gen_statem is started using gen_statem:start/[3,4] or
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
-init({ClientPID, MyName, {Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, Features, Labels, FederatedMode, CountLimit}}) ->
+
+init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,FederatedMode,CountLimit,Optimizer, Features, Labels, ClientPID}) ->
   io:fwrite("start module_create ~n"),
-  io:fwrite("Layers_sizes ~p, Learning_rate ~p, ActivationList ~p, Optimizer ~p, ModelId ~p CountLimit ~p FederatedMode ~p~n",[Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId, CountLimit, FederatedMode]),
+  io:fwrite("WorkerName: ~p ,ModelId: ~p , ModelType: ~p , ScalingMethod: ~p ,LayerTypesList: ~p ,LayersSizes: ~p ,LayersActivationFunctions: ~p ,FederatedMode: ~p ,CountLimit: ~p ,Optimizer: ~p , Features: ~p , Labels: ~p , ClientPID: ~p~n"
+    ,[WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,FederatedMode,CountLimit,Optimizer, Features, Labels, ClientPID]),
 %%^^^^^^^^^^^^^^^^^^^^^^^^^^
-ModelID = 586000901,
-ModelType = 1, 
-ScalingMethod = 1,
-LayerTypesList = [1,1,1,3], 
-LayersSizes = [6,1,1,128,64,32,16,4,1],
-LayersActivationFunctions = [5,1,1,0,0,0,0,0],  % to play with until getting convergence 
-  _Res=niftest:create_nif(ModelID, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
-  {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = MyName, modelId = ModelId, federatedMode = FederatedMode, countLimit = CountLimit}}.
+
+  Res=niftest:create_nif(ModelId, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
+    io:fwrite("Res = ~p ~n",[Res]),
+
+  {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = WorkerName, modelId = ModelId, federatedMode = FederatedMode, countLimit = CountLimit}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -222,14 +221,14 @@ wait(cast, Param, State) ->
 %% State train
 train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels}) ->
   CurrPid = self(),
-  ChunkSizeTrain = round(length(SampleListTrain)/(Features + Labels)),
+  % ChunkSizeTrain = round(length(SampleListTrain)/(Features + Labels)),
   % ^^^^^^^^^^^^^^^^^^
-  ModelID = 586000901,
+  %ModelID = 586000901,
   OptimizationMethod = 1,
   LossMethod = 2, 
-  RandomGeneratedData = lists:flatten([[rand:normal()||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,100)]),
+  RandomGeneratedData = lists:flatten([[rand:normal()||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,10)]),
   DataTensor = [10.0 , 129.0 , 1.0] ++ RandomGeneratedData,
-  _Pid = spawn(fun()-> niftest:call_to_train(ModelID, OptimizationMethod , LossMethod , DataTensor ) end),
+  _Pid = spawn(fun()-> niftest:call_to_train(ModelId, OptimizationMethod , LossMethod , DataTensor ) end),
   {next_state, wait, State#nerlNetStatem_state{nextState = train}};
 
 

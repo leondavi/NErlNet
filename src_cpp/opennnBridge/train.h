@@ -40,10 +40,14 @@ static void* trainFun(void* arg){
          opennnBridgeController *s = s->GetInstance();
          printf("Get the model from the singleton \n");
          // Get the model from the singleton
+         cout << "model ID is " <<std::endl;
+         cout << TrainNNptr->mid << std::endl;
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(TrainNNptr->mid);
-         printf("end Get the model from the singleton \n");
          //NeuralNetwork neural_network = *(s-> getModelPtr(mid));
 
+
+         printf("end Get the model from the singleton \n");
+         
 
          //cout << neural_network->get_layers_number() <<std::endl;
          //TrainingStrategy training_strategy(&neural_network ,&data_set);
@@ -118,6 +122,20 @@ static void* trainFun(void* arg){
          printf("end set Loss Method \n");
          // end set Loss Method ------------------------------------------------------------------------
          
+         printf("ckech NN parameters\n");
+         Index layer_num = neural_network->get_layers_number();
+         std::cout<< "your layer_num : " <<std::endl;
+         std::cout<< layer_num <<std::endl;
+         std::cout<< neural_network->get_layer_pointer(0)->get_type_string() <<std::endl;
+         std::cout<< neural_network->get_layer_pointer(0)->get_neurons_number()<<std::endl;
+         std::cout<< neural_network->get_layer_pointer(0)->get_inputs_number() <<std::endl;
+         std::cout<< neural_network->get_layer_pointer(1)->get_type_string()  <<std::endl;
+         std::cout<< neural_network->get_layer_pointer(1)->get_neurons_number() <<std::endl;
+         std::cout<< neural_network->get_layer_pointer(2)->get_type_string()  <<std::endl;
+         std::cout<< neural_network->get_layer_pointer(2)->get_neurons_number() <<std::endl;
+         std::cout<< neural_network->get_layer_pointer(3)->get_type_string()  <<std::endl;
+         std::cout<< neural_network->get_layer_pointer(3)->get_neurons_number() <<std::endl;
+
   
          //MeanSquaredError error = MeanSquaredError(&*neural_network , &data_set);//.calculate_error();
           
@@ -125,6 +143,8 @@ static void* trainFun(void* arg){
          //chech the inputs from erlang and neural network architecture ---------------------------------------------------
          TestingAnalysis testing_analysis(&*neural_network, &data_set);
          
+
+
          //mean_squared_error.set(&*neural_network, &data_set);
          //cout << "mean_squared_error" <<std::endl;
          //cout << mean_squared_error.get_display() <<std::endl;
