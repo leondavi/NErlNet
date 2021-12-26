@@ -151,9 +151,9 @@ static void* trainFun(void* arg){
          printf( "befor training\n" );
          training_strategy.perform_training();
          printf ("after training\n" ); 
-         Tensor<float, 2> confusion_matrix = testing_analysis.calculate_percentage_error_data();
+         //Tensor<float, 2> confusion_matrix = testing_analysis.calculate_percentage_error_data();
          printf("calculate_testing_errors\n" );
-         std::cout << testing_analysis.calculate_percentage_error_data() <<std::endl;
+         //std::cout << testing_analysis.calculate_percentage_error_data() <<std::endl;
          //cout << mean_squared_error.calculate_error() <<std::endl; 
          /*
          //get weitghts test
@@ -165,20 +165,21 @@ static void* trainFun(void* arg){
          */
 
          loss_val = 0;
-     
+         /*
          ERL_NIF_TERM error = nifpp::makeTensor2D(env, confusion_matrix);
 
          if(enif_send(NULL,&(TrainNNptr->pid), env,error)){
              printf("enif_send succeed\n");
          }
          else printf("enif_send failed\n");
-         /*
+         */
+
          ERL_NIF_TERM loss_val_term = enif_make_int(env, loss_val);
          if(enif_send(NULL,&(TrainNNptr->pid), env,loss_val_term)){
              printf("enif_send succeed\n");
          }
          else printf("enif_send failed\n");
-         */
+         
          delete TrainNNptr;
          return 0;
          //return enif_make_string(env, "end TRAIN mode", ERL_NIF_LATIN1);

@@ -72,7 +72,7 @@ init({MyName,Federated,Workers,ConnectionsMap}) ->
 %%  [{WorkerName,nerlNetStatem:start_link({self(), WorkerName, CppSANNArgs})}||{WorkerName,CppSANNArgs}<-maps:to_list(Workers)],
   {WorkersMap,TimingMap} = createWorkers(Workers,586000901,self(),#{},#{}),
   io:format("TimingMap~p~n",[maps:to_list(TimingMap)]),
- niftest:trainNifTest(10.0),
+%  niftest:trainNifTest(10.0),
 
   {ok, idle, #client_statem_state{myName= MyName,timingMap = TimingMap, federatedServer = Federated, workersMap = WorkersMap, portMap = ConnectionsMap, msgCounter = 1}}.
 
@@ -83,9 +83,11 @@ createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,Timin
   ModelId = WorkerModelID,
   ModelType = list_to_integer(binary_to_list(maps:get(<<"modelType">>,Worker))),
   ScalingMethod = list_to_integer(binary_to_list(maps:get(<<"scalingMethod">>,Worker))),
-  LayerTypesList = maps:get(<<"layerTypesList">>,Worker),
-  LayersSizes = maps:get(<<"layersSizes">>,Worker),
-  LayersActivationFunctions = maps:get(<<"layersActivationFunctions">>,Worker),
+
+  LayerTypesList = string_to_list_int(maps:get(<<"layerTypesList">>,Worker)),
+  LayersSizes = string_to_list_int(maps:get(<<"layersSizes">>,Worker)),
+  LayersActivationFunctions = string_to_list_int(maps:get(<<"layersActivationFunctions">>,Worker)),
+
   FederatedMode = list_to_integer(binary_to_list(maps:get(<<"federatedMode">>,Worker))),
   CountLimit = list_to_integer(binary_to_list(maps:get(<<"countLimit">>,Worker))),
   Optimizer = list_to_integer(binary_to_list(maps:get(<<"optimizer">>,Worker))),

@@ -3,7 +3,7 @@
 %<<<<<<< HEAD
 %-export([init/0,create_nif/6,train_nif/4,trainn_nif/4,call_to_train/4,predict_nif/2,call_to_predict/2,get_weights_nif/1,call_to_get_weights/1,printTensor/2]).
 
--export([init/0,create_nif/6,train_nif/4,trainn_nif/4,call_to_train/4,predict_nif/2,call_to_predict/2,get_weights_nif/1,printTensor/2]).
+-export([init/0,create_nif/6,train_nif/4,trainn_nif/4,call_to_train/5,predict_nif/2,call_to_predict/2,get_weights_nif/1,printTensor/2]).
 -export([trainNifTest/1,call_to_get_weights/1]).
 
 -define(DEBUG,false). % set here if it is debug or release  TODO change to read from hrl auto generated file
@@ -66,8 +66,8 @@ trainNifTest(NumberOfSamples) -> ModelID = 586000901,
                   LayersActivationFunctions = [5,1,1,0,0,0,0,0],  % to play with until getting convergence    
                   _S = create_nif(ModelID, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
                   io:format("4 ~n"),
-                  io:format("43 ~n"),
-                  RandomGeneratedData = lists:flatten([[rand:normal()||_<-lists:seq(1,128)] ++[1.0]||_<-lists:seq(1,100)]),
+                  
+                  RandomGeneratedData = lists:flatten([[rand:normal()||_<-lists:seq(1,128)] ++[1.0]||_<-lists:seq(1,10)]),
                   % RandomGeneratedData = [rand:normal()||_<-lists:seq(1,1290)] , % size NumberOfSamples*(LayersSizesFirst + LayersSizesLast,RandomGeneratedData)
                   %Class1Mean = 3,
                   %Class2Mean = 6,
@@ -80,10 +80,13 @@ trainNifTest(NumberOfSamples) -> ModelID = 586000901,
                   %io:format("DataTensor ~p~n" , [DataTensor]),
                   OptimizationMethod = 1,
                   LossMethod = 2, 
-                  call_to_train(ModelID, OptimizationMethod , LossMethod , DataTensor ),
+                  io:format("5 ~n"),
+                  _Ret = call_to_train(ModelID, OptimizationMethod , LossMethod , DataTensor,self() ),
+                  io:format("6 ~n"),
                   RandomGeneratedDataP = [rand:normal()||_<-lists:seq(1,1280)] ,
                   DataTensorP = [10.0 , LayersSizesFirst , 1.0] ++ RandomGeneratedDataP,
-                  call_to_predict(ModelID,DataTensorP).
+                  call_to_predict(ModelID,DataTensorP),
+                  io:format("7 ~n").
 
 
 % ModelID - Unique ID of the neural network model 
@@ -94,12 +97,15 @@ create_nif(_ModelID, _ModelType , _ScalingMethod , _LayerTypesList , _LayersSize
 train_nif(Integer,Integer,Integer, []) ->
       exit(nif_library_not_loaded).
 
-call_to_train(ModelID,OptimizationMethod,LossMethod, DataTensor)->
+call_to_train(ModelID,OptimizationMethod,LossMethod, DataTensor, WorkerPid)->
+      io:format("berfor train  ~n "),
       RetVal=trainn_nif(ModelID,OptimizationMethod,LossMethod, DataTensor),
       io:format("RetVal= ~p~n ",[RetVal]),
       receive
             Ret->
-            io:format("Ret= ~p~n ",[Ret])
+            io:format("Ret= ~p~n ",[Ret]),
+            io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
+            gen_statem:cast(WorkerPid,{loss, Ret})
       end.
 
 trainn_nif(_ModelID,_OptimizationMethod,_LossMethod, _DataTensor) -> %TODO change to trainn_nif

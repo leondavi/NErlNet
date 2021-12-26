@@ -116,10 +116,6 @@ void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neural_netw
             }
 
          }
-
-         
-        
-         
     }
 }
 
