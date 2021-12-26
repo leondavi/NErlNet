@@ -193,8 +193,8 @@ wait(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextStat
 
   {next_state, NextState, State};
 
-wait(cast, {predictRes,CSVname, BatchID, {RESULTS,_TimeCpp},_Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, nextState = NextState}) ->
-  gen_statem:cast(ClientPid,{predictRes, CSVname, BatchID, RESULTS}), %% TODO Add Time and Time_NIF to the cast
+wait(cast, {predictRes,CSVname, BatchID, {RESULTS,_TimeCpp},_Time_NIF}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid, nextState = NextState}) ->
+  gen_statem:cast(ClientPid,{predictRes,MyName, CSVname, BatchID, RESULTS}), %% TODO Add Time and Time_NIF to the cast
   {next_state, NextState, State};
 
 wait(cast, {idle}, State) ->
