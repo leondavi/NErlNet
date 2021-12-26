@@ -54,8 +54,7 @@ init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,La
   io:fwrite("WorkerName: ~p ,ModelId: ~p , ModelType: ~p , ScalingMethod: ~p ,LayerTypesList: ~p ,LayersSizes: ~p ,LayersActivationFunctions: ~p ,FederatedMode: ~p ,CountLimit: ~p ,Optimizer: ~p , Features: ~p , Labels: ~p , ClientPID: ~p~n"
     ,[WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,FederatedMode,CountLimit,Optimizer, Features, Labels, ClientPID]),
 %%^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-  Res=niftest:create_nif(ModelId, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
+        Res=niftest:create_nif(ModelId, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
     io:fwrite("Res = ~p ~n",[Res]),
 
   {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = WorkerName, modelId = ModelId, federatedMode = FederatedMode, countLimit = CountLimit}}.
@@ -139,6 +138,14 @@ idle(cast, Param, State) ->
   io:fwrite("Same state idle, command: ~p\n",[Param]),
   {next_state, idle, State}.
 
+%% Regular mode (Not federated)
+wait(cast, {loss, LossFunc}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState}) ->
+  % Federated mode = 0 (not federated)
+  io:fwrite("loss LossFunc at worker: ~p~n",[{loss, LossFunc}]),
+  gen_statem:cast(ClientPid,{loss, MyName, LossFunc}), %% TODO Add Time and Time_NIF to the cast
+  {next_state, NextState, State};
+
+
 %% Waiting for receiving results or loss function
 %% Got nan or inf from loss function - Error, loss function too big for double
 wait(cast, {loss,nan,_Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState}) ->
@@ -167,6 +174,7 @@ wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{clientPid
       gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}), %% TODO Add Time and Time_NIF to the cast
       {next_state, NextState, State#nerlNetStatem_state{count = Count + 1}}
   end;
+
 
 %% Regular mode (Not federated)
 wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState, federatedMode = ?MODE_REGULAR}) ->
@@ -228,7 +236,8 @@ train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = Mo
   LossMethod = 2, 
   RandomGeneratedData = lists:flatten([[rand:normal()||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,10)]),
   DataTensor = [10.0 , 129.0 , 1.0] ++ RandomGeneratedData,
-  _Pid = spawn(fun()-> niftest:call_to_train(ModelId, OptimizationMethod , LossMethod , DataTensor ) end),
+  MyPid=self(),
+  _Pid = spawn(fun()-> niftest:call_to_train(ModelId, OptimizationMethod , LossMethod , DataTensor ,MyPid) end),
   {next_state, wait, State#nerlNetStatem_state{nextState = train}};
 
 

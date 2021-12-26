@@ -15,7 +15,7 @@
  */
 //#include <iostream>
 #include <vector>
-#include <string>
+#include "support.h"
 #include "ModelParams.h"
 #include "nifppEigenExtensions.h"
 #include "choose_activation_function.h"
@@ -26,6 +26,7 @@
 
 //All enum defintions are defined in defnitions.h
 #include "definitionsNN.h"
+
 
 using namespace OpenNN;
 
@@ -65,7 +66,9 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          nifpp::getTensor1D(env,argv[4],neural_network_architecture);
          nifpp::getTensor1D(env,argv[5],activations_functions);
 
+#ifdef DEBUG_FLAG
          printf("\nget data\n");
+#endif
         
         //--------------------------------------------------------------------------------------------------------------
          
@@ -74,7 +77,9 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          // creat neural network . typy + layers number and size. -------------------------------------------------------------
          
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = std::make_shared<OpenNN::NeuralNetwork>();
-         printf("select model type\n");
+    #if VERBOSITY_LEVEL <= VERBOSE_LOW     
+         printOpennnBridgeLog("select model type\n");
+    #endif 
 
          if (modelType == APPROXIMATION){     
              neural_network->set(NeuralNetwork::Approximation,neural_network_architecture);     
