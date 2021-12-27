@@ -15,7 +15,7 @@
  */
 //#include <iostream>
 #include <vector>
-#include "support.h"
+//#include "support.h"
 #include "ModelParams.h"
 #include "nifppEigenExtensions.h"
 #include "choose_activation_function.h"
@@ -78,7 +78,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = std::make_shared<OpenNN::NeuralNetwork>();
     #if VERBOSITY_LEVEL <= VERBOSE_LOW     
-         printOpennnBridgeLog("select model type\n");
+         //printOpennnBridgeLog("select model type\n");
     #endif 
 
          if (modelType == APPROXIMATION){     
