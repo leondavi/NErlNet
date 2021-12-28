@@ -223,7 +223,7 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{connectionsMap = 
 %%  io:format("got loss function:- ~p~n",[Body]),
 
   {RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-  http_request(RouterHost,RouterPort,"", "lossFunction#"++ binary_to_list(Body)),
+  http_request(RouterHost,RouterPort,"lossFunction", "lossFunction#"++ binary_to_list(Body)),
 %%  file:write_file("./output/"++WorkerName, LossFunction++"\n", [append]),
 
 
