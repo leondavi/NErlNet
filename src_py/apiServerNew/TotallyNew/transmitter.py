@@ -36,7 +36,7 @@ class Transmitter:
     def startCasting(self):
         print('Training - Start Casting  Phase')
 
-        response = requests.post(self.startCastingAddress, data='s1')
+        response = requests.post(self.startCastingAddress, data='s1,100')
         print(response.ok, response.status_code)
 
     def clientsPredict(self):
@@ -57,8 +57,27 @@ class Transmitter:
 
         self.startCasting()
 
+    def predict(self):
+        print('Prediction - Starting...')
+
+        #globe.pendingAcks += 3 #TODO: Remove magic number, pay atention to global variable changes.
+
+        self.clientsPredict()
+        self.updateCSV()
+
+        while globe.pendingAcks > 1:
+            time.sleep(0.005)
+            pass 
+
+        self.startCasting()
+
     def statistics(self):
         requests.post(self.statisticsAddress, data='getStatistics')
+    
+    def ackTest(self):
+        globe.pendingAcks += 1
+        response = requests.get('http://127.0.0.1:8095' + '/testglobe')
+        print(int(response.content))
 
     """
     def testQueue(address):
@@ -74,6 +93,8 @@ class Transmitter:
             pass
     """
 
-    #if __name__ == "__main__":
+if __name__ == "__main__":
+    trans = Transmitter()
+    trans.clientsTraining()
 #ins = Transmitter()
 #ins.train()

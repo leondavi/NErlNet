@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_restful import Api, Resource, reqparse
 from globalVars import *
 import multiprocessing
+import globalVars as globe
 
 SERVER_BUSY = 0
 SERVER_DONE = 1
@@ -34,15 +35,35 @@ class train(Resource):
     def post(self): 
         pass
 
+class predict(Resource):
+    def post(self):
+        pass
+
 class ack(Resource):
     def post(self):
         reqData = request.form['ack']
         print(reqData + 'Ack Received!')
-        #globe.pendingAcks -= 1
-        #print(globe.pendingAcks)
+        globe.pendingAcks -= 1
+        print(globe.pendingAcks)
+
+class testglobe(Resource):
+    def get(self):
+        return globe.pendingAcks
+
+class lossFunction(Resource):
+    def post(self):
+        reqData = request.form
+        reqData = list(reqData)
+        # From a list with only one string -> to a string
+        reqData = reqData[0].split('#')
+        print(reqData[2])
+
 
 #Listener Server list of resources: 
 api.add_resource(test, "/test")
 api.add_resource(train, "/train")
 api.add_resource(ack, "/ack")
 api.add_resource(shutdown, "/shutdown")
+api.add_resource(predict, "/predict")
+api.add_resource(testglobe, "/testglobe")
+api.add_resource(lossFunction, "/lossFunction")

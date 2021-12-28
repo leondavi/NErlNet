@@ -10,8 +10,8 @@ import threading
 class ApiServer():
     def __init__(self): 
         self.mainServerAddress = globe.mainServerAddress
-        # starting receiver flask server process
-
+        
+        # Starting receiver flask server process
         self.serverThread = threading.Thread(target=initReceiver, args=())
         self.serverThread.start()
         self.getQueueData()
@@ -22,10 +22,13 @@ class ApiServer():
         #self.managerQueue = globe.managerQueue
 
     def exitHandler(self, signum, frame):
-            exitReq = requests.get(self.mainServerAddress + '/shutdown')
-            if exitReq.ok:
-                print("\nServer shutting down")
-                exit(0)
+        print("\nServer shutting down")
+        exitReq = requests.get(self.mainServerAddress + '/shutdown')
+        if exitReq.ok:
+            exit(0)
+        else:
+            print("Server shutdown failed")
+            exit(1)
 
     def getTransmitter(self):
         return self.transmitter
@@ -37,17 +40,20 @@ class ApiServer():
     def getQueueData(self):
         print("Starting receiver server...")
         received = False
+        '''
         while not received:
             if not multiProcQueue.empty():
                 print("Message received")
                 msg = multiProcQueue.get()
-                print("message: "+str(msg))
+                print("Message:" +str(msg))
+                
                 received = True
-            time.sleep(1)
 
-        print("Stopping server")
-        #self.stopServer()
-
+            time.sleep(0.05)
+        
+        self.exitHandler()
+        '''
+        
     def train(self, mainServerAddress, batchSize):
         self.transmitter.train()
 
