@@ -1,3 +1,5 @@
+import multiprocessing 
+
 pendingAcks = 0
 
 mainServerIP = 'http://127.0.0.1' 
@@ -8,3 +10,7 @@ trainingListReq = [('http://127.0.0.1:8080/updateCSV', "s1,w1,RunOrWalkTrain_spl
                 ('http://127.0.0.1:8080/clientsTraining', "")]
 
 CastingListReq = [('http://127.0.0.1:8080/startCasting', "s1")]
+
+multiProcQueue = multiprocessing.Queue() # Create instance of queue
+
+lossMap = {}

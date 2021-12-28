@@ -9,19 +9,18 @@ import threading
 
 class ApiServer():
     def __init__(self): 
-        self.mainServerAddress = globe.mainServerAddress
+        self.mainServerIP = 'http://127.0.0.1' 
+        self.mainServerPort = '8080'
+        self.mainServerAddress = mainServerIP + ':' + mainServerPort
         
         # Starting receiver flask server process
         self.serverThread = threading.Thread(target=initReceiver, args=())
         self.serverThread.start()
-        self.getQueueData()
         time.sleep(1)
-        self.transmitter = Transmitter()
 
-        #self.manager = globe.manager
-        #self.managerQueue = globe.managerQueue
+        self.transmitter = Transmitter(self.mainServerAddress)
 
-    def exitHandler(self, signum, frame):
+    def exitHandler(self):
         print("\nServer shutting down")
         exitReq = requests.get(self.mainServerAddress + '/shutdown')
         if exitReq.ok:
@@ -38,24 +37,24 @@ class ApiServer():
         return True
 
     def getQueueData(self):
-        print("Starting receiver server...")
         received = False
-        '''
+        
         while not received:
             if not multiProcQueue.empty():
-                print("Message received")
-                msg = multiProcQueue.get()
-                print("Message:" +str(msg))
-                
-                received = True
-
-            time.sleep(0.05)
-        
-        self.exitHandler()
-        '''
-        
-    def train(self, mainServerAddress, batchSize):
+                print("Loss map created!")
+                lossMap = multiProcQueue.get()
+                print(lossMap)
+                return lossMap      
+            time.sleep(0.1)
+   
+    def train(self):
+        self.waitThread = threading.Thread(target=self.getQueueData, args=())
+        self.waitThread.start()
         self.transmitter.train()
+        
+
+    def statistics(self):
+        self.transmitter.statistics()
 
         #serverState = None
 
@@ -71,6 +70,7 @@ class ApiServer():
 
 if __name__ == "__main__":
     apiServerInst = ApiServer()
-    apiServerInst.transmitter.train()
+    #apiServerInst.transmitter.statistics()
+    apiServerInst.train()
     #transmitterInst = apiServerInst.getTransmitter()
     #transmitterInst.testPost()

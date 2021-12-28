@@ -1,12 +1,12 @@
 from flask import Flask, request, jsonify
 from flask_restful import Api, Resource, reqparse
 from globalVars import *
-import multiprocessing
 import globalVars as globe
+import multiprocessing
+
 
 SERVER_BUSY = 0
 SERVER_DONE = 1
-multiProcQueue = multiprocessing.Queue() # Create instance of queue
 
 receiver = Flask(__name__)
 api = Api(receiver)
@@ -46,18 +46,34 @@ class ack(Resource):
         globe.pendingAcks -= 1
         print(globe.pendingAcks)
 
+        if globe.pendingAcks == 0:
+            globe.multiProcQueue.put(lossMap)
+            
 class testglobe(Resource):
     def get(self):
         return globe.pendingAcks
 
 class lossFunction(Resource):
     def post(self):
+        # Receive string 'worker#loss' -> []
         reqData = request.form
         reqData = list(reqData)
-        # From a list with only one string -> to a string
+        # From a list with only one string -> to a string. split by delimiter...
         reqData = reqData[0].split('#')
-        print(reqData[2])
 
+        worker = reqData[0]
+        loss = float(reqData[1])
+
+        if not worker in globe.lossMap:
+            globe.lossMap[worker] = [loss]
+        else:
+            globe.lossMap[worker].append(loss)
+
+class statistics(Resource):
+    def post(self):
+        # Receive string 'worker#loss' -> []
+        reqData = request.form
+        print(reqData)
 
 #Listener Server list of resources: 
 api.add_resource(test, "/test")
@@ -67,3 +83,4 @@ api.add_resource(shutdown, "/shutdown")
 api.add_resource(predict, "/predict")
 api.add_resource(testglobe, "/testglobe")
 api.add_resource(lossFunction, "/lossFunction")
+api.add_resource(statistics, "/statistics")
