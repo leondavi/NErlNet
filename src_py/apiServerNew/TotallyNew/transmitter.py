@@ -4,8 +4,8 @@ import time
 
 class Transmitter:
 
-    def __init__(self):
-        self.mainServerAddress = globe.mainServerAddress
+    def __init__(self, mainServerAddress):
+        self.mainServerAddress = mainServerAddress
         self.clientsTrainingAddress = self.mainServerAddress + '/clientsTraining'
         self.updateCSVAddress = self.mainServerAddress + '/updateCSV'
         self.startCastingAddress = self.mainServerAddress + '/startCasting'
@@ -57,6 +57,13 @@ class Transmitter:
 
         self.startCasting()
 
+        while globe.pendingAcks > 0:
+            time.sleep(0.005)
+            pass 
+
+        globe.multiProcQueue.put(globe.lossMap)
+
+
     def predict(self):
         print('Prediction - Starting...')
 
@@ -72,6 +79,7 @@ class Transmitter:
         self.startCasting()
 
     def statistics(self):
+        globe.pendingAcks += 1
         requests.post(self.statisticsAddress, data='getStatistics')
     
     def ackTest(self):
