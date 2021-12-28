@@ -48,11 +48,9 @@ class ApiServer():
             time.sleep(0.1)
    
     def train(self):
-        self.waitThread = threading.Thread(target=self.getQueueData, args=())
-        self.waitThread.start()
         self.transmitter.train()
+        self.getQueueData()
         
-
     def statistics(self):
         self.transmitter.statistics()
 
