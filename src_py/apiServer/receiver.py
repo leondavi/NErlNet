@@ -13,6 +13,7 @@ api = Api(receiver)
 
 ackArgs = reqparse.RequestParser()
 ackArgs.add_argument('ack', type='str', help='Receiver Error - Please send Acknowledgment')
+#ackArgs.add_argument('lossFunction', type='str', help='Receiver Error - Please send lossFunction')
 
 def initReceiver():
     receiver.run(threaded=True, host=globe.localIp, port=8095)
