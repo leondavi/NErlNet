@@ -44,10 +44,35 @@ class networkMap():
         for router in routersJsons:
             self.routers.append(router['name'])
 
+    def printMap(self):
+        print(self.mainServerIp, self.clients, self.workers, self.federateds, self.sources, self.routers)
+
+    def toString(self, char): 
+        if char == 'c':
+            return ','.join(self.clients)
+        elif char == 'w':
+            return ','.join(self.workers)
+        elif char == 'f':
+            return ','.join(self.federateds)
+        elif char == 's':
+            return ','.join(self.sources)
+        elif char == 'r':
+            return ','.join(self.routers)
+        else:
+            raise ValueError('Not a valid char!\n \
+Please enter as input a vaild char:\n \
+c - clients\n \
+w - workers\n \
+f - federateds\n \
+s - sources\n \
+r - routers')
+
 if __name__ == "__main__":
     path = 'src_py/apiServer/map.json'
     map = networkMap(path)
-    print(map.routers)
+    map.printMap()
+    print(map.toString('r'))
+    print(map.toString('k'))
 
 
 
