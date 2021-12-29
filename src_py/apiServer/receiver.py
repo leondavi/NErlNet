@@ -16,7 +16,7 @@ ackArgs.add_argument('ack', type='str', help='Receiver Error - Please send Ackno
 #ackArgs.add_argument('lossFunction', type='str', help='Receiver Error - Please send lossFunction')
 
 def initReceiver():
-    receiver.run(threaded=True, host=globe.localIp, port=8095)
+    receiver.run(threaded=True, host='127.0.0.1', port=8095)
 
 class shutdown(Resource):
     def get(self):

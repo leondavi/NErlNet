@@ -18,6 +18,7 @@ lossMap = {}
 
 path = 'src_py/apiServer/map.json'
 map = NetworkMap(path)
+print(map.mainServerIp)
 
 '''
 trainingListReq = [('http://127.0.0.1:8080/updateCSV', "s1,w1,RunOrWalkTrain_splitted"),
