@@ -6,7 +6,6 @@ import time
 import requests
 import threading
 
-
 class ApiServer():
     def __init__(self): 
         self.mainServerIP = 'http://127.0.0.1' 

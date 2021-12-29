@@ -15,7 +15,7 @@ ackArgs = reqparse.RequestParser()
 ackArgs.add_argument('ack', type='str', help='Receiver Error - Please send Acknowledgment')
 
 def initReceiver():
-    receiver.run(threaded=True, port=8095)
+    receiver.run(threaded=True, host=globe.localIp, port=8095)
 
 class shutdown(Resource):
     def get(self):
