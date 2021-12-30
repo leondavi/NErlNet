@@ -8,9 +8,7 @@
 #include <map>
 
 
-//#include "Eigen/Core"
-//#include "unsupported/Eigen/CXX11/Tensor"
-//#include <eigen3/Eigen/Core>
+
 #include "../opennn/opennn/opennn.h"
 #include "nifppEigenExtensions.h"
 

@@ -7,8 +7,8 @@
 #pragma once 
 
 #include "nifpp.h"
-//#include "Eigen/Core"
-//#include "unsupported/Eigen/CXX11/Tensor"
+
+
 
 #define MAX_SUPPORTED_DIMS 3
 

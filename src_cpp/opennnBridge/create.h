@@ -15,13 +15,12 @@
  */
 //#include <iostream>
 #include <vector>
-//#include "support.h"
+#include "support.h"
 #include "ModelParams.h"
 #include "nifppEigenExtensions.h"
 #include "choose_activation_function.h"
 //#include "CustumNN.h"
 #include <map>
-//#include <eigen3/Eigen/Core>
 #include "../opennn/opennn/opennn.h"
 
 //All enum defintions are defined in defnitions.h
@@ -56,50 +55,51 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     
    
 
-    try{
+    
          // get data from erlang ----------------------------------------------------------------------------------------
-       
+        try{  
          nifpp::get_throws(env,argv[0],modelId);
          nifpp::get_throws(env,argv[1],modelType);
          nifpp::get_throws(env,argv[2],scaling_method); 
          nifpp::getTensor1D(env,argv[3],layer_types); 
          nifpp::getTensor1D(env,argv[4],neural_network_architecture);
          nifpp::getTensor1D(env,argv[5],activations_functions);
-
-#ifdef DEBUG_FLAG
-         printf("\nget data\n");
-#endif
-        
+         
+                  
+        }   
+     
+        catch(...){
+           return enif_make_string(env, "catch - get data from erlang", ERL_NIF_LATIN1);
+            //return enif_make_badarg(env);
+        }              
         //--------------------------------------------------------------------------------------------------------------
          
 
          
          // creat neural network . typy + layers number and size. -------------------------------------------------------------
-         
+        
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = std::make_shared<OpenNN::NeuralNetwork>();
-    #if VERBOSITY_LEVEL <= VERBOSE_LOW     
-         //printOpennnBridgeLog("select model type\n");
-    #endif 
-
-         if (modelType == APPROXIMATION){     
+        try{
+       
+         if (modelType == E_APPROXIMATION){     
              neural_network->set(NeuralNetwork::Approximation,neural_network_architecture);     
                    
          }                                                           
-         else if(modelType == CLASSIFICATION){     
+         else if(modelType == E_CLASSIFICATION){     
              neural_network->set(NeuralNetwork::Classification,neural_network_architecture); 
              
          }                                                           
-         else if(modelType == FORECASTING){   
+         else if(modelType == E_FORECASTING){   
              neural_network->set(NeuralNetwork::Forecasting,neural_network_architecture);      
                
          }
 
-         else if(modelType == ENCODER_DECODER){   
+         else if(modelType == E_NCODER_DECODER){   
              //neural_network->set(NeuralNetwork::Forecasting,neural_network_architecture);      
                
          }
 
-         else if(modelType == CUSTOMNN){ 
+         else if(modelType == E_CUSTOMNN){ 
              
              std::cout << "start CustumNN" << std::endl; 
              //CustumNN custumNN;
@@ -152,45 +152,62 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
                  
              }
              
-            // return enif_make_string(env, "catch - problem in try5", ERL_NIF_LATIN1); 
-         }
+         } //CUSTOMNN
+        } //try
+
+        catch(...){
+           return enif_make_string(env, "catch - select model type", ERL_NIF_LATIN1);
+        } 
+
          printf("end select model type\n");
 
          
          printf("choose scaling method\n");
+        try{ 
          // set scaling method for scaling layer ---------------------------------------------------------------------------
          //std::cout<< neural_network->get_layer_pointer(0)->get_type_string() <<std::endl;
          //std::cout<< neural_network->get_layer_pointer(0)->get_neurons_number()<<std::endl;
          ScalingLayer* scaling_layer_pointer = neural_network->get_scaling_layer_pointer();
-         
-         printf("10\n");
-         if(scaling_method == NoScaling)
+
+         if(scaling_method == E_ScalingMethods_NoScaling)
         {
             scaling_layer_pointer->set_scaling_methods(ScalingLayer::NoScaling);
         }
-        else if(scaling_method == MinimumMaximum)
+        else if(scaling_method == E_ScalingMethods_MinimumMaximum)
         {
             scaling_layer_pointer->set_scaling_methods(ScalingLayer::MinimumMaximum);
         }
-        else if(scaling_method == MeanStandardDeviation)
+        else if(scaling_method == E_ScalingMethods_MeanStandardDeviation)
         {
             scaling_layer_pointer->set_scaling_methods(ScalingLayer::MeanStandardDeviation);
         }
-        else if(scaling_method == StandardDeviation)
+        else if(scaling_method == E_ScalingMethods_StandardDeviation)
         {
             scaling_layer_pointer->set_scaling_methods(ScalingLayer::StandardDeviation);
         }
-        //else if(scaling_method == Logarithm)  
+        //else if(scaling_method == ScalingMethods_Logarithm)  
         //{
         //    scaling_layer_pointer->set_scaling_methods(ScalingLayer::Logarithm);   //Logarithm exists in opennn site but commpiler dont recognaize it. 
         //}
         //------------------------------------------------------------------------------------------------------------------
+        } //try
+
+        catch(...){
+           return enif_make_string(env, "catch - choose scaling method", ERL_NIF_LATIN1);
+        } 
          printf("end choose scaling method\n");
+
+
 
          printf("choose activation functions\n");
         // set activation functions for trainable layers -------------------------------------------------------------------
+        try{ 
          chooseActivationFunction(neural_network , activations_functions);
-   
+        }
+
+        catch(...){
+           return enif_make_string(env, "catch - choose activation functions", ERL_NIF_LATIN1);
+        } 
          //---------------------------------------------------------------------------------------------------------------
          printf("end choose activation functions\n");
          
@@ -198,27 +215,25 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          
          
         // singelton part ----------------------------------------------------------------------------------------------
+        try{ 
          std::shared_ptr<OpenNN::NeuralNetwork> modelPtr(neural_network);
-          printf("1\n");
+ 
          // Create the singleton instance
          opennnBridgeController *s = s->GetInstance();
-         printf("2\n");
-         
+
          // Put the model record to the map with modelId
          std::cout<< "your model ID is: " <<std::endl;
          std::cout<< modelId <<std::endl;
          s->setData(modelPtr, modelId);  
-          //return enif_make_string(env, "catch - problem in try1", ERL_NIF_LATIN1);
-          printf("3\n");
-          return enif_make_string(env, "end create mode", ERL_NIF_LATIN1);
+        }
+
+        catch(...){
+           return enif_make_string(env, "catch - singelton part", ERL_NIF_LATIN1);
+        } 
+          
+         return enif_make_string(env, "end create mode", ERL_NIF_LATIN1);
          //-------------------------------------------------------------------------------------------------------------   
-    }   
-     
-    
-     catch(...){
-           return enif_make_string(env, "catch - problem in try2", ERL_NIF_LATIN1);
-            //return enif_make_badarg(env);
-     }                                                             
+                                                   
    printf("end creat mode\n");            
 }  // end creat mode 
 

@@ -15,5 +15,7 @@ const std::string opennnBridgeLogPrefix = "[OPENNN_BRIDGE] ";
 
 void printOpennnBridgeLog(char* logStr)
 {
-    std::cout<<opennnBridgeLogPrefix<<logStr<<std::endl;
+   #if VERBOSITY_LEVEL == 1
+     std::cout << logStr << std::endl;
+   #endif 
 }

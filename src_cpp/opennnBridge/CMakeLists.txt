@@ -16,7 +16,6 @@ message("-- [OPENNN_BRIDGE] Eigen Include Directory: ${EIGEN3_INCLUDE_DIR}")
 #	"include/nifpp.h"
 #	"include/definitionsNN.h"
 #	"include/nifppEigenExtensions.h"
-#	"ModelParams.cpp"
 #	"tmp.cpp")
 #add_library(${PROJECT_NAME} STATIC ${SRC_CODE})
 

@@ -9,7 +9,7 @@ import threading
 
 class ApiServer():
     def __init__(self): 
-        self.mainServerIP = 'http://127.0.0.1' 
+        self.mainServerIP = 'http://192.168.0.102'
         self.mainServerPort = '8080'
         self.mainServerAddress = mainServerIP + ':' + mainServerPort
         

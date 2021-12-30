@@ -8,9 +8,6 @@
 #include <map>
 
 
-//#include "Eigen/Core"
-//#include "unsupported/Eigen/CXX11/Tensor"
-//#include <eigen3/Eigen/Core>
 #include "../opennn/opennn/opennn.h"
 #include "bridgeController.h"
 #include "create.h"
@@ -125,30 +122,28 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 
 static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
-             printf("in trainn_nif");
-
+         
          //std::shared_ptr<TrainNN> TrainNNptr = std::make_shared<TrainNN>();
          TrainNN* TrainNNptr = new TrainNN();
+        try{
          nifpp::get_throws(env, argv[0],TrainNNptr->mid); // model id
          nifpp::get_throws(env, argv[1],TrainNNptr->optimization_method);
          nifpp::get_throws(env, argv[2],TrainNNptr->lose_method);
-         printf("getTensor2D data start");
          nifpp::getTensor2D(env,argv[3],TrainNNptr->data);
-         //cout << TrainNNptr->data <<std::endl;
          ErlNifPid pid;
          enif_self(env, &pid);
          TrainNNptr->pid = pid;
-
-         printf("call to trainfunc");
-            
-         //nifpp::TERM  r = makeTensor(env, &tensor);
+        }
+        catch(...){
+           return enif_make_string(env, "catch - get data from erlang", ERL_NIF_LATIN1);
+        }       
+ 
          int res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, TrainNNptr, 0);
              
          return enif_make_string(env, "end comunication", ERL_NIF_LATIN1);
 
-     //return enif_make_int(env,0);
 
-}  //end 
+}  //end trainn_nif
 
 
 
