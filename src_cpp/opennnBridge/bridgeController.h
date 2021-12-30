@@ -31,19 +31,7 @@ public:
      */
     void operator=(const opennnBridgeController &) = delete; //disables creating a reference of x in y (& after var = reference)
 
-    // TODO: Think about locking mechanism
-    /* opennnBridgeController(data)
-     {
-         if (instance == nullptr)
-         {
-         //std::lock_guard<std::mutex> lock(mutex_);
-         //if (instance == nullptr)
-         //{
-             instance = new opennnBridgeController();
-         //}
-         }
-         return instance;
-     }*/
+   
 
     static opennnBridgeController *GetInstance();
 

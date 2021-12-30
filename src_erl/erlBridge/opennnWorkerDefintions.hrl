@@ -1,6 +1,6 @@
 
 
-getEnumMapActivationFunction() -> #{enum_threshold => 1, enum_SymmetricThreshold => 2, c=> 4, "a" => 1, "b" => 2, "c" => 4},.
+getEnumMapActivationFunction() -> #{enum_threshold => 1, enum_SymmetricThreshold => 2},.
 
 getEnumMapActivationFunction() -> #{Threshold => 1, enum_symmetric_threshold = 2 , Logistic = 3 , HyperbolicTangent = 4 ,
                          Linear = 5 , RectifiedLinear = 6 , ExponentialLinear = 7 , ScaledExponentialLinear = 8 ,
