@@ -32,7 +32,7 @@ class Transmitter:
         print(response.ok, response.status_code)
 
     def startCasting(self):
-        print('Training - Start Casting  Phase')
+        print('Start Casting  Phase')
         response = requests.post(self.startCastingAddress, data='s1,100')
         print(response.ok, response.status_code)
 
