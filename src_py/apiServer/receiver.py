@@ -40,7 +40,9 @@ class ack(Resource):
         globe.pendingAcks -= 1
         print(globe.pendingAcks)
 
+        # After receivng the final ACK, we conclude that the operation has finished.
         if globe.pendingAcks == 0:
+            # So, we are able to insert the loss map that was created to the queue:
             globe.multiProcQueue.put(lossMaps[-1])
 
 class lossFunction(Resource):
@@ -60,6 +62,9 @@ class lossFunction(Resource):
             currentLossMap[worker] = [loss]
         else:
             currentLossMap[worker].append(loss)
+        
+        # After receiving the entire map, we wait for the final ACK.
+        # Then we insert the map to the queue (See lines 43-46).
 
 class statistics(Resource):
     def post(self):
