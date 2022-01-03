@@ -57,7 +57,7 @@ if __name__ == "__main__":
     apiServerInst = ApiServer()
     apiServerInst.train()
     apiServerInst.predict()
-    #apiServerInst.transmitter.statistics()
+    apiServerInst.statistics()
     #transmitterInst = apiServerInst.getTransmitter()
     #transmitterInst.testPost()
 
