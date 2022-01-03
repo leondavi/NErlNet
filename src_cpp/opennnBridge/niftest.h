@@ -22,26 +22,6 @@ using namespace OpenNN;
 #define DEBUG_CREATE_NIF 0
 
 
-/*
-
-enum ModuleType {APPROXIMATION = 1, CLASSIFICATION = 2, FORECASTING = 3 , ENCODER_DECODER = 4, CUSTUMNN = 5};
-
-enum ScalingMethods {NoScaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5};
-   
-enum ActivationFunction {Threshold = 1, SymmetricThreshold = 2 , Logistic = 3 , HyperbolicTangent = 4 ,
-                         Linear = 5 , RectifiedLinear = 6 , ExponentialLinear = 7 , ScaledExponentialLinear = 8 ,
-                         SoftPlus = 9 , SoftSign = 10 , HardSigmoid = 11 , Binary = 12 , Competitive = 14 , Softmax = 15 };
-
-enum LayerType {scaling = 1, convolutional = 2 , perceptron = 3 , pooling = 4 , probabilistic = 5 ,
-                longShortTermMemory = 6 , recurrent = 7 , unscaling = 8 , bounding = 9 };
-
-enum OptimizationMethod {GRADIENT__DESCENT = 1, CONJUGATE__GRADIENT = 2, QUASI__NEWTON_METHOD = 3 ,
-                         LEVENBERG__MARQUARDT_ALGORITHM = 4, STOCHASTIC__GRADIENT_DESCENT = 5 , ADAPTIVE__MOMENT_ESTIMATION = 6};
-               
-enum LossMethod {Sum_Squared_Error = 1, Mean_Squared_Error = 2, Normalized_Squared_Error = 3 ,
-                         Minkowski_Error = 4, Weighted_Squared_Error = 5 , Cross_Entropy_Error = 6};
-*/               
-
 
 /*
 struct CreateNN {
@@ -99,11 +79,7 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
          std::cout<<  "aaa" <<std::endl;
          Tensor< float, 2 > calculate_outputs =  neural_network->calculate_outputs(data);
          std::cout<<  "bbb" <<std::endl;
-         /*
-         std::cout<<  "bbb" <<std::endl;
-         std::cout<< neural_network->calculate_outputs(data) <<std::endl;
-         std::cout<<  "aaa" <<std::endl;
-         */
+        
 
          ERL_NIF_TERM prediction = nifpp::makeTensor2D(env, calculate_outputs);
           
@@ -129,7 +105,8 @@ static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          nifpp::get_throws(env, argv[0],TrainNNptr->mid); // model id
          nifpp::get_throws(env, argv[1],TrainNNptr->optimization_method);
          nifpp::get_throws(env, argv[2],TrainNNptr->lose_method);
-         nifpp::getTensor2D(env,argv[3],TrainNNptr->data);
+         nifpp::get_throws(env, argv[3],TrainNNptr->learning_rate);
+         nifpp::getTensor2D(env,argv[4],TrainNNptr->data);
          ErlNifPid pid;
          enif_self(env, &pid);
          TrainNNptr->pid = pid;
@@ -154,7 +131,7 @@ static ErlNifFunc nif_funcs[] =
 {
     {"create_nif", 6 , create_nif},
     //{"train_nif", 4 , train_nif},
-    {"trainn_nif", 4 , trainn_nif},
+    {"trainn_nif", 5 , trainn_nif},
     {"predict_nif", 2 , predict_nif},
     {"printTensor",2, printTensor},
     {"get_weights_nif",1, get_weights_nif}

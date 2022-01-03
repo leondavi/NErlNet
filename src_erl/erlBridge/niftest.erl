@@ -3,7 +3,7 @@
 %<<<<<<< HEAD
 %-export([init/0,create_nif/6,train_nif/4,trainn_nif/4,call_to_train/4,predict_nif/2,call_to_predict/2,get_weights_nif/1,call_to_get_weights/1,printTensor/2]).
 
--export([init/0,create_nif/6,train_nif/4,trainn_nif/4,call_to_train/5,predict_nif/2,call_to_predict/2,get_weights_nif/1,printTensor/2]).
+-export([init/0,create_nif/6,train_nif/5,trainn_nif/5,call_to_train/6,predict_nif/2,call_to_predict/2,get_weights_nif/1,printTensor/2]).
 -export([trainNifTest/1,call_to_get_weights/1]).
 
 -define(DEBUG,false). % set here if it is debug or release  TODO change to read from hrl auto generated file
@@ -80,8 +80,9 @@ trainNifTest(NumberOfSamples) -> ModelID = 586000901,
                   %io:format("DataTensor ~p~n" , [DataTensor]),
                   OptimizationMethod = 1,
                   LossMethod = 2, 
+                  LearningRate = 1,
                   io:format("5 ~n"),
-                  _Ret = call_to_train(ModelID, OptimizationMethod , LossMethod , DataTensor,self() ),
+                  _Ret = call_to_train(ModelID, OptimizationMethod , LossMethod,LearningRate, DataTensor,self() ),
                   io:format("6 ~n"),
                   RandomGeneratedDataP = [rand:normal()||_<-lists:seq(1,1280)] ,
                   DataTensorP = [10.0 , LayersSizesFirst , 1.0] ++ RandomGeneratedDataP,
@@ -94,12 +95,12 @@ trainNifTest(NumberOfSamples) -> ModelID = 586000901,
 create_nif(_ModelID, _ModelType , _ScalingMethod , _LayerTypesList , _LayersSizes , _LayersActivationFunctions) ->
       exit(nif_library_not_loaded).
 
-train_nif(Integer,Integer,Integer, []) ->
+train_nif(Integer,Integer,Integer,Integer, []) ->
       exit(nif_library_not_loaded).
 
-call_to_train(ModelID,OptimizationMethod,LossMethod, DataTensor, WorkerPid)->
+call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, WorkerPid)->
       io:format("berfor train  ~n "),
-      RetVal=trainn_nif(ModelID,OptimizationMethod,LossMethod, DataTensor),
+      RetVal=trainn_nif(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor),
       io:format("RetVal= ~p~n ",[RetVal]),
       receive
             Ret->
@@ -108,7 +109,7 @@ call_to_train(ModelID,OptimizationMethod,LossMethod, DataTensor, WorkerPid)->
             gen_statem:cast(WorkerPid,{loss, Ret})
       end.
 
-trainn_nif(_ModelID,_OptimizationMethod,_LossMethod, _DataTensor) -> %TODO change to trainn_nif
+trainn_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor) -> %TODO change to trainn_nif
       exit(nif_library_not_loaded).
 
 call_to_predict(A,B)->
