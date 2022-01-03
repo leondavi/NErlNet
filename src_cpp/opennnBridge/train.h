@@ -15,6 +15,7 @@ struct TrainNN {
     long int mid;
     int optimization_method;
     int lose_method;
+    double learning_rate;
     Eigen::Tensor<float,2> data;
 
     ErlNifTid tid;
@@ -22,7 +23,7 @@ struct TrainNN {
 };
  
 static void* trainFun(void* arg){ 
-         printf("start train\n");
+       
          TrainNN* TrainNNptr = (TrainNN*)arg;
          double loss_val;
          ErlNifEnv *env = enif_alloc_env();         
@@ -34,24 +35,21 @@ static void* trainFun(void* arg){
         
          opennnBridgeController *s = s->GetInstance();
             
-         printf("Get the model from the singleton \n");
+     
 
          cout << "model ID is " <<std::endl;
          cout << TrainNNptr->mid << std::endl;
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(TrainNNptr->mid);
         
-         printf("end Get the model from the singleton \n");
          
-
-         // ask david
          TrainingStrategy training_strategy(&(*(s-> getModelPtr(TrainNNptr->mid))) ,&data_set);
 
          
-         printf("set Optimization Method\n");
          // set Optimization Method  -------------------------------------------------------------
         try{
          if(TrainNNptr->optimization_method == E_OM_GRADIENT_DESCENT){
-             training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::GRADIENT_DESCENT);
+             training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::STOCHASTIC_GRADIENT_DESCENT);
+             training_strategy.get_stochastic_gradient_descent_pointer()->set_initial_learning_rate(TrainNNptr->learning_rate);
          }
          else if(TrainNNptr->optimization_method == E_OM_CONJUGATE_GRADIENT)
          {
@@ -72,7 +70,7 @@ static void* trainFun(void* arg){
          else if(TrainNNptr->optimization_method == E_OM_ADAPTIVE_MOMENT_ESTIMATION)
          {
              training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::ADAPTIVE_MOMENT_ESTIMATION);
-             
+             training_strategy.get_adaptive_moment_estimation_pointer()->set_initial_learning_rate(TrainNNptr->learning_rate);
          }
          else{
              cout << "optimization_method not choosen " <<std::endl;
@@ -81,13 +79,13 @@ static void* trainFun(void* arg){
         catch(...){
            cout << "catch - set Optimization Method " <<std::endl;
         }         
-         printf("end set Optimization Method\n");
+      
          // end set optimization method ---------------------------------------------------------------
          
 
 
          // set Loss Method ------------------------------------------------------------------------
-         printf("set set Loss Method \n");
+       
         try{
          if(TrainNNptr->lose_method == E_LOSS_METHOD_SUM_SQUARED_ERROR){
              training_strategy.set_loss_method(TrainingStrategy::LossMethod::SUM_SQUARED_ERROR);
@@ -120,7 +118,7 @@ static void* trainFun(void* arg){
         catch(...){
            cout << "catch - set Loss Method " <<std::endl;
         }  
-         printf("end set Loss Method \n");
+         
          // end set Loss Method ------------------------------------------------------------------------
          
           
@@ -128,20 +126,16 @@ static void* trainFun(void* arg){
          //chech the inputs from erlang and neural network architecture ---------------------------------------------------
          TestingAnalysis testing_analysis(&*neural_network, &data_set);
          
-
-        
-         
-         printf( "befor training\n" );
+         training_strategy.set_maximum_epochs_number(1); 
         try{
          training_strategy.perform_training();
+         
         }
         catch(...){
            cout << "catch - do training" <<std::endl;
         }  
 
 
-         
-         printf( "calculate_testing_errors\n" );
         try{ 
          Tensor<type, 1> confusion_matrix = testing_analysis.calculate_testing_errors();
          //sse - confusion_matrix[0]

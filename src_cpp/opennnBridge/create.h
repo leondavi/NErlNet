@@ -159,10 +159,10 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
            return enif_make_string(env, "catch - select model type", ERL_NIF_LATIN1);
         } 
 
-         printf("end select model type\n");
+         
 
          
-         printf("choose scaling method\n");
+        
         try{ 
          // set scaling method for scaling layer ---------------------------------------------------------------------------
          //std::cout<< neural_network->get_layer_pointer(0)->get_type_string() <<std::endl;
@@ -195,11 +195,11 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         catch(...){
            return enif_make_string(env, "catch - choose scaling method", ERL_NIF_LATIN1);
         } 
-         printf("end choose scaling method\n");
+         
 
 
 
-         printf("choose activation functions\n");
+         
         // set activation functions for trainable layers -------------------------------------------------------------------
         try{ 
          chooseActivationFunction(neural_network , activations_functions);
@@ -209,7 +209,6 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
            return enif_make_string(env, "catch - choose activation functions", ERL_NIF_LATIN1);
         } 
          //---------------------------------------------------------------------------------------------------------------
-         printf("end choose activation functions\n");
          
 
          
@@ -233,8 +232,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
           
          return enif_make_string(env, "end create mode", ERL_NIF_LATIN1);
          //-------------------------------------------------------------------------------------------------------------   
-                                                   
-   printf("end creat mode\n");            
+                                                              
 }  // end creat mode 
 
 

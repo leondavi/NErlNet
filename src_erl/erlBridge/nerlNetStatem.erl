@@ -234,13 +234,14 @@ train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = Mo
   %ModelID = 586000901,
   OptimizationMethod = 1,
   LossMethod = 2, 
+  LearningRate = 1.0,
   RandomGeneratedData1 = [[rand:normal(0,1)||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,5)],
   RandomGeneratedData2 = [[rand:normal(2,1)||_<-lists:seq(1,128)] ++[2.0]||_<-lists:seq(1,5)],
   Shuffled = lists:flatten([X||{_,X} <- lists:sort([ {random:uniform(), N} || N <- RandomGeneratedData1++RandomGeneratedData2])]),
   %RandomGeneratedData = lists:flatten([[rand:normal()||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,10)]),
   DataTensor = [10.0 , 129.0 , 1.0] ++ Shuffled,
   MyPid=self(),
-  _Pid = spawn(fun()-> niftest:call_to_train(ModelId, OptimizationMethod , LossMethod , DataTensor ,MyPid) end),
+  _Pid = spawn(fun()-> niftest:call_to_train(ModelId, OptimizationMethod , LossMethod , LearningRate , DataTensor ,MyPid) end),
   {next_state, wait, State#nerlNetStatem_state{nextState = train}};
 
 

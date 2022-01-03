@@ -57,7 +57,9 @@ class lossFunction(Resource):
     def post(self):
         # Receive string 'worker#loss' -> []
         reqData = request.form
+        print(reqData)
         reqData = list(reqData)
+        print(reqData)
         # From a list with only one string -> to a string. split by delimiter...
         reqData = reqData[0].split('#')
 
