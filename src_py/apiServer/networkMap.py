@@ -61,7 +61,7 @@ class NetworkMap():
             return ','.join(self.routers)
         else:
             raise ValueError('Not a valid char!\n \
-Please a valid char as input:\n \
+Please enter a valid char as input:\n \
 c - clients\n \
 w - workers\n \
 f - federateds\n \
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     map = NetworkMap(path)
     map.printMap()
     print(map.toString('r'))
-    print(map.toString('k'))
+    #print(map.toString('k'))
 
 
 

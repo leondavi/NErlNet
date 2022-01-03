@@ -44,7 +44,7 @@ class Transmitter:
     def train(self):
         print('Training - Starting...')
 
-        globe.pendingAcks += 3 #TODO: Remove magic number, pay atention to global variable changes.
+        globe.pendingAcks += 2 + len(globe.map.sources) #TODO: Remove magic number, pay atention to global variable changes.
 
         self.clientsTraining()
         self.updateCSV()
@@ -65,9 +65,9 @@ class Transmitter:
     def predict(self):
         print('Prediction - Starting...')
 
-        globe.pendingAcks += 2 #TODO: Remove magic number, pay atention to global variable changes.
-
+        globe.pendingAcks += 2 + len(globe.map.sources) #TODO: Change sources.size() to actual size.
         self.clientsPredict()
+        self.updateCSV()
 
         while globe.pendingAcks > 1:
             time.sleep(0.005)
