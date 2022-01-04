@@ -5,17 +5,19 @@ import globalVars as globe
 import multiprocessing
 
 
-SERVER_BUSY = 0
-SERVER_DONE = 1
+#SERVER_BUSY = 0
+#SERVER_DONE = 1
 
 receiver = Flask(__name__)
 api = Api(receiver)
 
-ackArgs = reqparse.RequestParser()
-ackArgs.add_argument('ack', type='str', help='Receiver Error - Please send Acknowledgment')
+#ackPost = reqparse.RequestParser()
+#ackPost.add_argument('ack', type='str', help='Receiver Error - Please send Acknowledgment')
+#lossArgs = reqparse.RequestParser()
+#lossArgs.add_argument('lossFunction', type='str', help='Receiver Error - Please send lossFunction')
 
 def initReceiver():
-    receiver.run(threaded=True, port=8095)
+    receiver.run(threaded=True, host='127.0.0.1', port=8095)
 
 class shutdown(Resource):
     def get(self):
@@ -31,14 +33,6 @@ class test(Resource):
         multiProcQueue.put("new message @@@")
         return {'Test' : 'Passed!'} #Returns the response in JSON format
 
-class train(Resource):
-    def post(self): 
-        pass
-
-class predict(Resource):
-    def post(self):
-        pass
-
 class ack(Resource):
     def post(self):
         reqData = request.form['ack']
@@ -46,12 +40,10 @@ class ack(Resource):
         globe.pendingAcks -= 1
         print(globe.pendingAcks)
 
+        # After receivng the final ACK, we conclude that the operation has finished.
         if globe.pendingAcks == 0:
-            globe.multiProcQueue.put(lossMap)
-            
-class testglobe(Resource):
-    def get(self):
-        return globe.pendingAcks
+            # So, we are able to insert the loss map that was created to the queue:
+            globe.multiProcQueue.put(lossMaps[-1])
 
 class lossFunction(Resource):
     def post(self):
@@ -59,17 +51,33 @@ class lossFunction(Resource):
         reqData = request.form
         print(reqData)
         reqData = list(reqData)
-        print(reqData)
-        # From a list with only one string -> to a string. split by delimiter...
+
+        # From a list with only one string -> to a string. split by delimiter:
         reqData = reqData[0].split('#')
 
         worker = reqData[0]
         loss = float(reqData[1])
 
-        if not worker in globe.lossMap:
-            globe.lossMap[worker] = [loss]
+        currentLossMap = globe.lossMaps[-1]
+
+        if not worker in currentLossMap:
+            currentLossMap[worker] = [loss]
         else:
-            globe.lossMap[worker].append(loss)
+            currentLossMap[worker].append(loss)
+        
+        # After receiving the entire map, we wait for the final ACK.
+        # Then we insert the map to the queue (See lines 43-46).
+
+#http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++BatchID++"#"++CSVName++"#"++BatchSize)
+class predictRes(Resource):
+    def post(self):
+        # Receive string 'worker#loss' -> []
+        reqData = request.form
+        reqData = list(reqData)
+        # From a list with only one string -> to a string. split by delimiter:
+        reqData = reqData[0].split('#')
+
+        print(reqData)
 
 class statistics(Resource):
     def post(self):
@@ -79,10 +87,9 @@ class statistics(Resource):
 
 #Listener Server list of resources: 
 api.add_resource(test, "/test")
-api.add_resource(train, "/train")
 api.add_resource(ack, "/ack")
 api.add_resource(shutdown, "/shutdown")
-api.add_resource(predict, "/predict")
-api.add_resource(testglobe, "/testglobe")
 api.add_resource(lossFunction, "/lossFunction")
+
+api.add_resource(predictRes, "/predictRes")
 api.add_resource(statistics, "/statistics")
