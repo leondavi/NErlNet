@@ -28,7 +28,7 @@ void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neural_netw
          
 
          //Pooling
-         if( (neural_network->get_trainable_layers_pointers()(i))->get_type_string() == "Pooling" )
+         if( (neural_network->get_trainable_layers_pointers()(i))->get_type() == 3 ) //"Pooling"
          {
             if(activations_functions(i) == E_Pooling_Method_NoPooling){
                   dynamic_cast<PoolingLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_pooling_method(PoolingLayer::NoPooling);
@@ -45,10 +45,10 @@ void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neural_netw
 
         
          //Perceptron + LongShortTermMemory + Recurrent + Convolutional
-         if( ((neural_network->get_trainable_layers_pointers()(i))->get_type_string() == "Perceptron")
-             || ((neural_network->get_trainable_layers_pointers()(i))->get_type_string() == "LongShortTermMemory")
-             || ((neural_network->get_trainable_layers_pointers()(i))->get_type_string() == "Recurrent" )
-             || ( (neural_network->get_trainable_layers_pointers()(i))->get_type_string() == "Convolutional" ))
+         if( ((neural_network->get_trainable_layers_pointers()(i))->get_type() == 2) //"Perceptron"
+             || ((neural_network->get_trainable_layers_pointers()(i))->get_type() == 5) //"LongShortTermMemory"
+             || ((neural_network->get_trainable_layers_pointers()(i))->get_type() == 6 ) //"Recurrent"
+             || ( (neural_network->get_trainable_layers_pointers()(i))->get_type() == 1 )) //"Convolutional"
          {
             if(activations_functions(i) == E_AF_Threshold){
                   dynamic_cast<PerceptronLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(PerceptronLayer::Threshold);
@@ -97,7 +97,7 @@ void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neural_netw
 
 
          //Probabilistic
-         if((neural_network->get_trainable_layers_pointers()(i))->get_type_string() == "Probabilistic")
+         if((neural_network->get_trainable_layers_pointers()(i))->get_type() == 4) //"Probabilistic"
          {
             if(activations_functions(i) == PAF_Binary){
                   dynamic_cast<ProbabilisticLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(ProbabilisticLayer::Binary);
