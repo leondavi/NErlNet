@@ -28,7 +28,7 @@ class Transmitter:
         
     def updateCSV(self):
         print('Training - Update CSV Phase')
-        response = requests.post(self.updateCSVAddress, data='s1,w1,RunOrWalkTrain_splitted')
+        response = requests.post(self.updateCSVAddress, data='s1,w1,w2,RunOrWalkTrain_splitted')
         print(response.ok, response.status_code)
 
     def startCasting(self):
