@@ -1,3 +1,4 @@
+from os import replace
 from flask import Flask, request, jsonify
 from flask_restful import Api, Resource, reqparse
 from globalVars import *
@@ -17,7 +18,7 @@ api = Api(receiver)
 #lossArgs.add_argument('lossFunction', type='str', help='Receiver Error - Please send lossFunction')
 
 def initReceiver():
-    receiver.run(threaded=True, host='127.0.0.1', port=8095)
+    receiver.run(threaded=True, host='192.168.0.108', port=8095)
 
 class shutdown(Resource):
     def get(self):
@@ -56,7 +57,7 @@ class lossFunction(Resource):
         reqData = reqData[0].split('#')
 
         worker = reqData[0]
-        loss = float(reqData[1])
+        loss = float(reqData[1].replace(' ',''))
 
         currentLossMap = globe.lossMaps[-1]
 
