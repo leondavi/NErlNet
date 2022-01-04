@@ -223,7 +223,7 @@ getPortUnknown(ArchMap,EntityName)->
   if  Foundclient == false->
     Foundsources = getPort(maps:get(<<"sources">>,ArchMap),EntityName),
     if  Foundsources == false->
-         getPort(maps:get(<<"federated">>,ArchMap),EntityName);
+         getPort(maps:get(<<"routers">>,ArchMap),EntityName);
       true ->
         Foundsources
       end;
