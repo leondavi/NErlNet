@@ -11,7 +11,7 @@ multiProcQueue = multiprocessing.Queue() # Create instance of queue
 
 lossMaps = []
 
-path = 'src_py/apiServer/map.json'  
+path = './map.json'  
 map = NetworkMap(path)
 
 '''
