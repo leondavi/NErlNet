@@ -3,8 +3,8 @@
 %<<<<<<< HEAD
 %-export([init/0,create_nif/6,train_nif/4,trainn_nif/4,call_to_train/4,predict_nif/2,call_to_predict/2,get_weights_nif/1,call_to_get_weights/1,printTensor/2]).
 
--export([init/0,create_nif/6,train_nif/5,trainn_nif/5,call_to_train/6,predict_nif/2,call_to_predict/2,get_weights_nif/1,printTensor/2]).
--export([trainNifTest/1,call_to_get_weights/1]).
+-export([init/0,create_nif/6,train_nif/5,trainn_nif/5,call_to_train/6,predict_nif/2,call_to_predict/3,get_weights_nif/1,printTensor/2]).
+-export([call_to_get_weights/1]).
 
 -define(DEBUG,false). % set here if it is debug or release  TODO change to read from hrl auto generated file
 -if(DEBUG).
@@ -54,40 +54,6 @@ generateNormalDistributionList(Mean,Variance,SampleLength) ->
 generateNormalDistributionSamples(0,_Mean,_Variance,_SampleLength,_ListOfSamples) -> _ListOfSamples;
 generateNormalDistributionSamples(N,Mean,Variance,SampleLength,ListOfSamples) -> generateNormalDistributionSamples(N-1,Mean,Variance,SampleLength,ListOfSamples ++ generateNormalDistributionList(Mean,Variance,SampleLength)).
 
-trainNifTest(NumberOfSamples) -> ModelID = 586000901, 
-                  ModelType = 1, 
-                  ScalingMethod = 1,
-                  LayerTypesList = [1,1,1,3], 
-                  LayersSizes = [6,1,1,128,64,32,16,4,1],
-                  % LayersSizesFirst = hd(LayersSizes),
-                  LayersSizesFirst = 128.0,
-                  %LayersSizesLast = lists:last(LayersSizes),
-                  LayersSizesLast = 1.0,
-                  LayersActivationFunctions = [5,1,1,0,0,0,0,0],  % to play with until getting convergence    
-                  _S = create_nif(ModelID, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
-                  io:format("4 ~n"),
-                  
-                  RandomGeneratedData = lists:flatten([[rand:normal()||_<-lists:seq(1,128)] ++[1.0]||_<-lists:seq(1,10)]),
-                  % RandomGeneratedData = [rand:normal()||_<-lists:seq(1,1290)] , % size NumberOfSamples*(LayersSizesFirst + LayersSizesLast,RandomGeneratedData)
-                  %Class1Mean = 3,
-                  %Class2Mean = 6,
-                  %Class1Std = 1,
-                  %Class2Std = 1,
-                  %DataClass1 = generateNormalDistributionSamples(NumberOfSamples,Class1Mean,Class1Std,LayersSizesFirst,[]), 
-                  %DataClass2 = generateNormalDistributionSamples(NumberOfSamples,Class2Mean,Class2Std,LayersSizesFirst,[]),
-                  %  @@@@ Tal and Evgeni TODO: create a mutual data tensor from shuffled data of class 1 and 2 and add the label (according to each class )
-                  DataTensor = [NumberOfSamples , LayersSizesFirst + LayersSizesLast , 1.0] ++ RandomGeneratedData, % ask Tal to generate random matrix - with given dimensions LayerSizes.front + LayerSizes.back (128 + 1) X number of samples 
-                  %io:format("DataTensor ~p~n" , [DataTensor]),
-                  OptimizationMethod = 1,
-                  LossMethod = 2, 
-                  LearningRate = 1,
-                  io:format("5 ~n"),
-                  _Ret = call_to_train(ModelID, OptimizationMethod , LossMethod,LearningRate, DataTensor,self() ),
-                  io:format("6 ~n"),
-                  RandomGeneratedDataP = [rand:normal()||_<-lists:seq(1,1280)] ,
-                  DataTensorP = [10.0 , LayersSizesFirst , 1.0] ++ RandomGeneratedDataP,
-                  call_to_predict(ModelID,DataTensorP),
-                  io:format("7 ~n").
 
 
 % ModelID - Unique ID of the neural network model 
@@ -112,12 +78,12 @@ call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Wo
 trainn_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor) -> %TODO change to trainn_nif
       exit(nif_library_not_loaded).
 
-call_to_predict(A,B)->
-      RetVal = predict_nif(A, B),
-      io:format("RetVal= ~p~n ",[RetVal]),
+call_to_predict(ModelID, Data, WorkerPid)->
+      RetVal = predict_nif(ModelID, Data),
       receive
             Ret->
-            io:format("Ret= ~p~n ",[Ret])
+            io:format("Ret222= ~p~n Worker Pid: ~p ",[Ret,WorkerPid]),
+            gen_statem:cast(WorkerPid,{predictRes,RetVal}) 
       end.
 
 call_to_get_weights(A)->
