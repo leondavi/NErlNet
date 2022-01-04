@@ -59,12 +59,11 @@ struct PredictNN {
 
 
 static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
-         
          //PredictNN Predict;
          long int mid;
          Eigen::Tensor<float,2> data;
          ErlNifPid pid;
-
+         
          enif_self(env, &pid);
          
          opennnBridgeController *s = s->GetInstance();
@@ -72,13 +71,11 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
          
          nifpp::get_throws(env, argv[0], mid); // get model id
          nifpp::getTensor2D(env,argv[1],data); // get data for prediction
-          
          //get neural network from singelton         
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(mid); 
          cout << neural_network->get_layers_number() <<std::endl;
-         std::cout<<  "aaa" <<std::endl;
+        
          Tensor< float, 2 > calculate_outputs =  neural_network->calculate_outputs(data);
-         std::cout<<  "bbb" <<std::endl;
         
 
          ERL_NIF_TERM prediction = nifpp::makeTensor2D(env, calculate_outputs);
@@ -87,7 +84,7 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
              printf("enif_send succeed\n");
          }
          else printf("enif_send failed\n");
-
+         
          return enif_make_string(env, "end PREDICT mode", ERL_NIF_LATIN1);
 
          

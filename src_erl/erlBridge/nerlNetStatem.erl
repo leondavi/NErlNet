@@ -26,7 +26,7 @@
 %% federatedMode = 0 - Not federated, 1 - Federated get and send weights, 2 - Federated set weights
 %% countLimit - Number of samples to count before sending the weights for averaging. Predifined in the json file.
 %% count - Number of samples recieved for training after the last weights sended.
--record(nerlNetStatem_state, {clientPid, features, labels, myName, modelId, nextState, missedSamplesCount = 0, missedTrainSamples= [], federatedMode, count = 1, countLimit}).
+-record(nerlNetStatem_state, {clientPid, features, labels, myName, modelId, nextState, missedSamplesCount = 0, missedTrainSamples= [], federatedMode, count = 1, countLimit,optimizer, lossMethod, learningRate}).
 
 %%%===================================================================
 %%% API
@@ -49,7 +49,7 @@ start_link(ARGS) ->
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
 
-init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,FederatedMode,CountLimit,Optimizer, Features, Labels, ClientPID}) ->
+init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,FederatedMode,CountLimit,Optimizer, Features, Labels, LossMethod, LearningRate, ClientPID}) ->
   io:fwrite("start module_create ~n"),
   io:fwrite("WorkerName: ~p ,ModelId: ~p , ModelType: ~p , ScalingMethod: ~p ,LayerTypesList: ~p ,LayersSizes: ~p ,LayersActivationFunctions: ~p ,FederatedMode: ~p ,CountLimit: ~p ,Optimizer: ~p , Features: ~p , Labels: ~p , ClientPID: ~p~n"
     ,[WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,FederatedMode,CountLimit,Optimizer, Features, Labels, ClientPID]),
@@ -57,7 +57,8 @@ init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,La
         Res=niftest:create_nif(ModelId, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
     io:fwrite("Res = ~p ~n",[Res]),
 
-  {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = WorkerName, modelId = ModelId, federatedMode = FederatedMode, countLimit = CountLimit}}.
+  {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = WorkerName,
+                                 modelId = ModelId, federatedMode = FederatedMode,optimizer = Optimizer,  countLimit = CountLimit,learningRate = LearningRate, lossMethod = LossMethod}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -200,6 +201,12 @@ wait(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextStat
 
   {next_state, NextState, State};
 
+wait(cast, {predictRes,Res}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid, nextState = NextState}) ->
+    io:fwrite("got predict result ~p: \n",[Res]),
+
+  gen_statem:cast(ClientPid,{predictRes,MyName, "CSVname", 1, Res}), %% TODO TODO change csv name and batch id(1)
+  {next_state, NextState, State};
+
 wait(cast, {predictRes,CSVname, BatchID, {RESULTS,_TimeCpp},_Time_NIF}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid, nextState = NextState}) ->
   gen_statem:cast(ClientPid,{predictRes,MyName, CSVname, BatchID, RESULTS}), %% TODO Add Time and Time_NIF to the cast
   {next_state, NextState, State};
@@ -227,21 +234,19 @@ wait(cast, Param, State) ->
 
 
 %% State train
-train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels}) ->
-  CurrPid = self(),
+train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels, optimizer = Optimizer, lossMethod = LossMethod, learningRate = LearningRate}) ->
+  % CurrPid = self(),
   % ChunkSizeTrain = round(length(SampleListTrain)/(Features + Labels)),
   % ^^^^^^^^^^^^^^^^^^
   %ModelID = 586000901,
-  OptimizationMethod = 1,
-  LossMethod = 2, 
-  LearningRate = 1.0,
-  RandomGeneratedData1 = [[rand:normal(0,1)||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,5)],
-  RandomGeneratedData2 = [[rand:normal(2,1)||_<-lists:seq(1,128)] ++[2.0]||_<-lists:seq(1,5)],
+  % OptimizationMethod = 1,
+  RandomGeneratedData1 = [[rand:normal(-10,1)||_<-lists:seq(1,128)] ++[-10.0]||_<-lists:seq(1,5)],
+  RandomGeneratedData2 = [[rand:normal(10,1)||_<-lists:seq(1,128)] ++[10.0]||_<-lists:seq(1,5)],
   Shuffled = lists:flatten([X||{_,X} <- lists:sort([ {random:uniform(), N} || N <- RandomGeneratedData1++RandomGeneratedData2])]),
   %RandomGeneratedData = lists:flatten([[rand:normal()||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,10)]),
   DataTensor = [10.0 , 129.0 , 1.0] ++ Shuffled,
   MyPid=self(),
-  _Pid = spawn(fun()-> niftest:call_to_train(ModelId, OptimizationMethod , LossMethod , LearningRate , DataTensor ,MyPid) end),
+  _Pid = spawn(fun()-> niftest:call_to_train(ModelId, Optimizer , LossMethod , LearningRate , DataTensor ,MyPid) end),
   {next_state, wait, State#nerlNetStatem_state{nextState = train}};
 
 
@@ -274,10 +279,17 @@ predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStat
   ChunkSizePred = round(length(SampleListPredict)/Features),
   CurrPID = self(),
     % ^^^^^^^^^^^^^^^^^^
-   ModelID = 586000901,
-   RandomGeneratedDataP = [rand:normal()||_<-lists:seq(1,1280)] ,
-   DataTensorP = [10.0 , 128.0 , 1.0] ++ RandomGeneratedDataP,
-  _Pid = spawn(fun()-> niftest:call_to_predict(ModelID,DataTensorP) end),
+  %  ModelID = 586000901,
+  %  RandomGeneratedDataP = [rand:normal()||_<-lists:seq(1,1280)] ,
+    RandomGeneratedData1 = [[rand:normal(-10,1)||_<-lists:seq(1,128)]||_<-lists:seq(1,5)],
+  RandomGeneratedData2 = [[rand:normal(10,1)||_<-lists:seq(1,128)]||_<-lists:seq(1,5)],
+  Shuffled = lists:flatten([X||{_,X} <- lists:sort([ {random:uniform(), N} || N <- RandomGeneratedData1++RandomGeneratedData2])]),
+  %RandomGeneratedData = lists:flatten([[rand:normal()||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,10)]),
+  DataTensor = [10.0 , 128.0 , 1.0] ++ Shuffled,
+
+  %  DataTensorP = [10.0 , 128.0 , 1.0] ++ RandomGeneratedDataP,
+
+  _Pid = spawn(fun()-> niftest:call_to_predict(ModelId,DataTensor,CurrPID) end),
   {next_state, wait, State#nerlNetStatem_state{nextState = predict}};
 
 predict(cast, {idle}, State) ->
