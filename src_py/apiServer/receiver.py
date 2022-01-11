@@ -18,7 +18,7 @@ api = Api(receiver)
 #lossArgs.add_argument('lossFunction', type='str', help='Receiver Error - Please send lossFunction')
 
 def initReceiver():
-    receiver.run(threaded=True, host=globe.localIp, port=8095)
+    receiver.run(threaded=True, host='192.168.0.108', port=8095)
 
 class shutdown(Resource):
     def get(self):
