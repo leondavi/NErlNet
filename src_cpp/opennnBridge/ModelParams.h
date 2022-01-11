@@ -4,7 +4,6 @@
 #include <memory>
 #include <vector>
 #include "../opennn/opennn/opennn.h"
-#include <Eigen/Core>
 
 
 class ModelParams 
