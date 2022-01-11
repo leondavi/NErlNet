@@ -7,7 +7,7 @@ set(CMAKE_CXX_FLAGS "-fpic")
 #set(CMAKE_CXX_FLAGS "g")
 #set(CMAKE_CXX_FLAGS "-ggdb")
 
-#target_include_directories(${PROJECT_NAME} PRIVATE ${EIGEN3_INCLUDE_DIR})
+include_directories(${EIGEN3_INCLUDE_DIR})
 message("-- [OPENNN_BRIDGE] Eigen Include Directory: ${EIGEN3_INCLUDE_DIR}")
 
 
@@ -31,5 +31,5 @@ add_library(${PROJECT_NAME} STATIC ${SRC_CODE})
 set(OPENNN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../opennn/opennn/")
 add_subdirectory(${OPENNN_PATH} [binary_dir]) 
 
-target_include_directories(${PROJECT_NAME} PUBLIC ${OPENNN_PATH} ${EIGEN3_INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME} PUBLIC ${OPENNN_PATH})
 
