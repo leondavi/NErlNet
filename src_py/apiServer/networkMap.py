@@ -68,6 +68,9 @@ f - federateds\n \
 s - sources\n \
 r - routers')
 
+    #def options(self):
+    #    print("Please choose sources from {}".format(self.toList(s)))
+
 if __name__ == "__main__":
     path = 'src_py/apiServer/map.json'
     map = NetworkMap(path)
