@@ -7,6 +7,7 @@ set(CMAKE_CXX_FLAGS "-fpic")
 #set(CMAKE_CXX_FLAGS "g")
 #set(CMAKE_CXX_FLAGS "-ggdb")
 
+include_directories(${EIGEN3_INCLUDE_DIR})
 message("-- [OPENNN_BRIDGE] Eigen Include Directory: ${EIGEN3_INCLUDE_DIR}")
 
 
@@ -19,11 +20,17 @@ message("-- [OPENNN_BRIDGE] Eigen Include Directory: ${EIGEN3_INCLUDE_DIR}")
 #add_library(${PROJECT_NAME} STATIC ${SRC_CODE})
 
 set(SRC_CODE 
-	"ModelParams.cpp"
 	"nifpp.h"
-	"definitionsNN.h"
 	"nifppEigenExtensions.h"
+	"bridgeController.h"
+	"definitionsNN.h"
+	"helpFunc.h"
+	"train.h"
+	"CustumNN.h"
+	"niftest.h"
+    "ModelParams.h"	
 	"ModelParams.cpp"
+	"definitionsNN.h"
 	"tmp.cpp")
 add_library(${PROJECT_NAME} STATIC ${SRC_CODE})
 
