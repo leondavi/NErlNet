@@ -8,7 +8,7 @@ cmake -S . -B build/release -DCMAKE_BUILD_TYPE=RELEASE
 cd build/release
 echo "$NERLNET_BUILD_PREFIX Script CWD: $PWD"
 echo "$NERLNET_BUILD_PREFIX Build Nerlnet"
-make -j1 
+make -j4 
 cd ../../
 echo "$NERLNET_BUILD_PREFIX Script CWD: $PWD"
 
