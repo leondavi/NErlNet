@@ -17,13 +17,6 @@ REBAR3_SYMLINK=/usr/local/bin/rebar3
 
 if [ -f "$REBAR3_FILE" ]; then
 	echo "$NERLNET_BUILD_PREFIX rebar3 is installed, location: $REBAR3_FILE"
-	if [ -f "$REBAR3_SYMLINK" ]; then
-		echo "$NERLNET_BUILD_PREFIX rebar3 Synlink exists in /usr/local/bin"
-	else
-		echo "$NERLNET_BUILD_PREFIX $(tput setaf 1) Please run the following command from Nerlnet library root folder (or install rebar3 to usr/local/bin): $(tput sgr 0)"
-		echo "$NERLNET_BUILD_PREFIX $(tput setaf 1) sudo ln -s `pwd`/src_erl/rebar3/rebar3 /usr/local/bin/rebar3 $(tput sgr 0)"
-		echo "$NERLNET_BUILD_PREFIX "
-	fi
 else 
 	echo "$NERLNET_BUILD_PREFIX rebar3 Builder Start"
 	cd src_erl/rebar3
@@ -31,6 +24,15 @@ else
 	cd ../../	
 	echo "$NERLNET_BUILD_PREFIX rebar3 is Built at $REBAR3_FILE"
 fi
+
+if [ -f "$REBAR3_SYMLINK" ]; then
+        echo "$NERLNET_BUILD_PREFIX rebar3 Synlink exists in /usr/local/bin"
+else
+        echo "$NERLNET_BUILD_PREFIX $(tput setaf 1) Please run the following command from Nerlnet library root folder (or install rebar3 to usr/local/bin): $(tput sgr 0)"
+        echo "$NERLNET_BUILD_PREFIX $(tput setaf 1) sudo ln -s `pwd`/src_erl/rebar3/rebar3 /usr/local/bin/rebar3 $(tput sgr 0)"
+        echo "$NERLNET_BUILD_PREFIX "
+fi
+
 
 echo "$NERLNET_BUILD_PREFIX Starting rebar3 Shell"
 cd src_erl/Communication_Layer/http_Nerlserver
