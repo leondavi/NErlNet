@@ -20,16 +20,21 @@ message("-- [OPENNN_BRIDGE] Eigen Include Directory: ${EIGEN3_INCLUDE_DIR}")
 #add_library(${PROJECT_NAME} STATIC ${SRC_CODE})
 
 set(SRC_CODE 
-	"ModelParams.cpp"
 	"nifpp.h"
-	"definitionsNN.h"
 	"nifppEigenExtensions.h"
+	"bridgeController.h"
+	"definitionsNN.h"
+	"helpFunc.h"
+	"train.h"
+	"CustumNN.h"
+	"niftest.h"
+    "ModelParams.h"	
 	"ModelParams.cpp"
+	"definitionsNN.h"
 	"tmp.cpp")
 add_library(${PROJECT_NAME} STATIC ${SRC_CODE})
 
 set(OPENNN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../opennn/opennn/")
 add_subdirectory(${OPENNN_PATH} [binary_dir]) 
 
-target_include_directories(${PROJECT_NAME} PUBLIC ${OPENNN_PATH})
-
+target_include_directories(${PROJECT_NAME} PUBLIC ${OPENNN_PATH} ${EIGEN3_INCLUDE_DIR})
