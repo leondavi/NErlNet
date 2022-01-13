@@ -29,7 +29,7 @@
     {
       "name": "w1",
       "modelId": "0",
-      "modelType": "2",
+      "modelType": "1",
       "_comment0": "Model Type Explenation: TODOTODOTODO",
       "scalingMethod": "1",
       "_comment1": "Scaling Method Explenation: TODOTODOTODO",
@@ -42,9 +42,9 @@
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
       "lossMethod": "2",
       "_comment4": "TODOTODO explain methods",
-      "learningRate": "1",
+      "learningRate": "0.1",
       "_comment5": "TODOTODO explain learningRate",
-      "optimizer":"6",
+      "optimizer":"1",
       "features": "128",
       "labels": "1"
     }
