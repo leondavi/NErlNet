@@ -94,7 +94,7 @@ createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,Timin
   Features = list_to_integer(binary_to_list(maps:get(<<"features">>,Worker))),
   Labels = list_to_integer(binary_to_list(maps:get(<<"labels">>,Worker))),
   LossMethod = list_to_integer(binary_to_list(maps:get(<<"lossMethod">>,Worker))),
-  LearningRate = (list_to_float(binary_to_list(maps:get(<<"learningRate">>,Worker)))),
+  LearningRate = float(list_to_integer(binary_to_list(maps:get(<<"learningRate">>,Worker)))),
 
   WorkerArgs = {WorkerName,ModelId,ModelType,ScalingMethod
                 , LayerTypesList, LayersSizes
