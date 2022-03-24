@@ -136,7 +136,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{statisticsCounter =
 
         ack(ConnectionMap),
             {RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-            http_request(RouterHost,RouterPort,"statistics", StatisticsList);
+            http_request(RouterHost,RouterPort,"", "statistics#" ++ StatisticsList);
           true ->
             ok
         end
@@ -197,9 +197,6 @@ handle_cast({startCasting,Source_Names}, State = #main_genserver_state{state = i
   Splitted = re:split(binary_to_list(Source_Names), ",", [{return, list}]),
   NumOfSampleToSend = lists:last(Splitted),
   Sources = lists:sublist(Splitted,length(Splitted)-1),
-  io:format("start casting from py - ~p~n",[Source_Names]),
-  io:format("Sources: - ~p~n",[Sources]),
-
   startCasting(Sources,NumOfSampleToSend,ConnectionMap),
   SourcesAtoms = [list_to_atom(Source_Name)||Source_Name<-Sources],
   io:format("new Casting list: ~p~n",[SourcesAtoms]),
@@ -226,10 +223,7 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{connectionsMap = 
 %%  io:format("got loss function:- ~p~n",[Body]),
 
   {RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-  {WorkerName,LossFunction} = binary_to_term(Body),
-  ToSend = atom_to_list(WorkerName)++"#"++float_to_list(LossFunction),
-  io:format(" loss function:- ~p~n",[ToSend]),
-  http_request(RouterHost,RouterPort,"lossFunction", ToSend),
+  http_request(RouterHost,RouterPort,"", "lossFunction#"++ binary_to_list(Body)),
 %%  file:write_file("./output/"++WorkerName, LossFunction++"\n", [append]),
 
 
@@ -249,10 +243,7 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
       % io:format("Main Server got predictRes:InputName- ~p ResultID: ~p Result: ~p~n",[InputName,ResultID,Result]),
       CSVName = getCSVName(InputName),
       %%  file:write_file("./output/"++"predict"++CSVName, ResultID++" " ++Result++"\n", [append]),
-      % writeToFile(ListOfResults,BatchID,CSVName,BatchSize),
-      {RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-      %%  send an ACK to mainserver that the CSV file is ready
-      http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize)),
+      writeToFile(ListOfResults,BatchID,CSVName,BatchSize),
 
 
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};

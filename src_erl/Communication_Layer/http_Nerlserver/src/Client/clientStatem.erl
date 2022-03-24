@@ -93,13 +93,11 @@ createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,Timin
   Optimizer = list_to_integer(binary_to_list(maps:get(<<"optimizer">>,Worker))),
   Features = list_to_integer(binary_to_list(maps:get(<<"features">>,Worker))),
   Labels = list_to_integer(binary_to_list(maps:get(<<"labels">>,Worker))),
-  LossMethod = list_to_integer(binary_to_list(maps:get(<<"lossMethod">>,Worker))),
-  LearningRate = float(list_to_integer(binary_to_list(maps:get(<<"learningRate">>,Worker)))),
 
   WorkerArgs = {WorkerName,ModelId,ModelType,ScalingMethod
                 , LayerTypesList, LayersSizes
                 , LayersActivationFunctions, FederatedMode
-                , CountLimit, Optimizer, Features, Labels, LossMethod, LearningRate,  self() },
+                , CountLimit, Optimizer, Features, Labels, self() },
   WorkerPid = nerlNetStatem:start_link(WorkerArgs),
   % timingMap = #{{WorkerName1=>{LastBatchReceivedTime,totalBatches,AverageTrainingime},{Worker2,..}, ...}
   createWorkers(Workers,WorkerModelID+1,ClientPid,maps:put(WorkerName, WorkerPid,WorkersNamesPidsMap),maps:put(WorkerName,{0,0,0},TimingMap)).
