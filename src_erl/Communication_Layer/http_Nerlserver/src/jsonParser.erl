@@ -63,10 +63,14 @@ getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
 
   %%  retrive  a map of arguments of the API Server
   ServerAPI = maps:get(<<"serverAPI">>,ArchitectureMap),
+  io:format("All Vertices In Nerlnet Graph:~n~p~n",[digraph:vertices(G)]),
+  io:format("path:~n~p~n",[digraph:get_short_path(G,"serverAPI","c2")]),
+
 
   io:format("On Device Entities to Open:~nMainServer: ~p~nServerAPI: ~p~nClientsAndWorkers: ~p~nSources: ~p~nRouters: ~p~n Federated Servers: ~p~n",
                                       [MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds]),
 
+  
   {MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds,NerlNetSettings}.
 
 
@@ -272,6 +276,15 @@ getAllClientsNames([Client|Tail],ClientsNames) ->
     ListOfHosts = getAllHosts(ArchitectureMap),
     [addDeviceToGraph(G,ArchitectureMap, HostName)||HostName <- ListOfHosts],
     connectRouters(G,ArchitectureMap,CommunicationMap),
+
+    %%connect serverAPI to Main Server
+    [ServerAPI] = maps:get(<<"serverAPI">>,ArchitectureMap),
+    ServerAPIHost = binary_to_list(maps:get(<<"host">>,ServerAPI)),
+    ServerAPIPort = list_to_integer(binary_to_list(maps:get(<<"port">>,ServerAPI))),
+    digraph:add_vertex(G,"serverAPI", {ServerAPIHost,ServerAPIPort}),
+    addEdges(G,"serverAPI","mainServer"),
+    
+    %%return G
     G .
 
 addDeviceToGraph(G,ArchitectureMap, HostName)->
@@ -320,7 +333,7 @@ addEdges(G,V1,V2) ->
 addtograph(G,ArchitectureMap,MyRouter,HostName,MyRouter) -> okPass;
 addtograph(G,ArchitectureMap,Entitie,HostName,MyRouter) -> 
     io:format("~p~n",[{Entitie,HostName,getPortUnknown(ArchitectureMap,list_to_binary(Entitie))}]),
-    digraph:add_vertex(G,Entitie,{HostName,getPortUnknown(ArchitectureMap,Entitie)}),
+    digraph:add_vertex(G,Entitie,{HostName,getPortUnknown(ArchitectureMap,list_to_binary(Entitie))}),
     addEdges(G,Entitie,MyRouter).
 	
 getMyRouter(Routers,OnDeviceEntities) -> 

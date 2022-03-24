@@ -168,7 +168,7 @@ receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgC
 %%sending statistics to main server
 receives(cast, {statistics}, State = #fedServ_state{myName = MyName, msgCounter = MsgCounter, connectionMap =  ConnectionMap}) ->
   {RouterHost,RouterPort} = maps:get(mainServer,ConnectionMap),
-  http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++"#"++integer_to_list(MsgCounter))),
+  http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(MsgCounter))),
   {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1}};
 
 receives(cast, Else, State) ->
@@ -196,7 +196,7 @@ average(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgCo
 %%sending statistics to main server
 average(cast, {statistics}, State = #fedServ_state{myName = MyName, msgCounter = MsgCounter, connectionMap =  ConnectionMap}) ->
   {RouterHost,RouterPort} = maps:get(mainServer,ConnectionMap),
-  http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++"#"++integer_to_list(MsgCounter))),
+  http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(MsgCounter))),
   {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1}};
 
 

@@ -95,7 +95,7 @@ start(_StartType, _StartArgs) ->
 createClientsAndWorkers(none,_HostName) -> none;
 createClientsAndWorkers([], _HostName) -> okdone;
 createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsGraph}|ClientsAndWorkers],HostName) ->
-    ClientName = list_to_atom(binary_to_list(maps:get(<<"name">>,ClientArgs))),
+    ClientName = binary_to_list(maps:get(<<"name">>,ClientArgs)),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,ClientArgs))),
     Federated = list_to_atom(binary_to_list(maps:get(<<"federated">>,ClientArgs))),
 
@@ -130,7 +130,7 @@ createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsGraph}|Clients
 createFederatedServer(none,_WorkersMap,_HostName) -> none;
 createFederatedServer([],_WorkersMap,_HostName) -> okdone;
 createFederatedServer([{FederateArgs,ConnectionsGraph}|Federated],WorkersMap,HostName) ->
-    FederatedName = list_to_atom(binary_to_list(maps:get(<<"name">>,FederateArgs))),
+    FederatedName = binary_to_list(maps:get(<<"name">>,FederateArgs)),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,FederateArgs))),
     CounterLimit = list_to_integer(binary_to_list(maps:get(<<"counterLimit">>,FederateArgs))),
     %%Create a gen_StateM machine for maintaining Database for Federated Server.
@@ -156,7 +156,7 @@ createFederatedServer([{FederateArgs,ConnectionsGraph}|Federated],WorkersMap,Hos
 createSources(none,_WorkersMap,_ChunkSize,_Frequency,_HostName) -> none;
 createSources([],_WorkersMap,_ChunkSize,_Frequency,_HostName) -> okdone;
 createSources([{SourceArgs,ConnectionsGraph}|Sources],WorkersMap,ChunkSize,Frequency,HostName) ->
-    SourceName = list_to_atom(binary_to_list(maps:get(<<"name">>,SourceArgs))),
+    SourceName = binary_to_list(maps:get(<<"name">>,SourceArgs)),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,SourceArgs))),
     Method = list_to_integer(binary_to_list(maps:get(<<"method">>,SourceArgs))),
     %%Create a gen_StateM machine for maintaining Database for Source.
@@ -185,7 +185,7 @@ createSources([{SourceArgs,ConnectionsGraph}|Sources],WorkersMap,ChunkSize,Frequ
 createRouters(none,_HostName) -> none;
 createRouters([],_HostName) -> okdone;
 createRouters([{RouterArgs,ConnectionsGraph}|Routers],HostName) ->
-    RouterName = maps:get(<<"name">>,RouterArgs),
+    RouterName = binary_to_list(maps:get(<<"name">>,RouterArgs)),
     Port =list_to_integer(binary_to_list( maps:get(<<"port">>,RouterArgs))),
 
     %%Create a gen_Server for maintaining Database for Router.
@@ -225,7 +225,7 @@ createRouters([{RouterArgs,ConnectionsGraph}|Routers],HostName) ->
 
 createMainServer(none,_ChunkSize,_HostName) -> none;
 createMainServer({[MainServerArgsMap],ConnectionsGraph,WorkersMap,ClientsNames},ChunkSize,HostName) ->
-    MainName = mainServer,
+    MainName = "mainServer",
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,MainServerArgsMap))),
 
     %%Create a gen_Server for maintaining Database for Main Server.
