@@ -79,11 +79,11 @@ trainn_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor) 
       exit(nif_library_not_loaded).
 
 call_to_predict(ModelID, Data, WorkerPid)->
-      RetVal = predict_nif(ModelID, Data),
+      _RetVal = predict_nif(ModelID, Data),
       receive
             Ret->
             io:format("Ret222= ~p~n Worker Pid: ~p ",[Ret,WorkerPid]),
-            gen_statem:cast(WorkerPid,{predictRes,RetVal}) 
+            gen_statem:cast(WorkerPid,{predictRes,Ret}) 
       end.
 
 call_to_get_weights(A)->
