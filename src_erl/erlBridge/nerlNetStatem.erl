@@ -26,7 +26,7 @@
 %% federatedMode = 0 - Not federated, 1 - Federated get and send weights, 2 - Federated set weights
 %% countLimit - Number of samples to count before sending the weights for averaging. Predifined in the json file.
 %% count - Number of samples recieved for training after the last weights sended.
--record(nerlNetStatem_state, {clientPid, features, labels, myName, modelId, nextState, missedSamplesCount = 0, missedTrainSamples= [], federatedMode, count = 1, countLimit,optimizer, lossMethod, learningRate}).
+-record(nerlNetStatem_state, {clientPid, features, labels, myName, modelId, nextState, currentBatchID=0,  missedSamplesCount = 0, missedTrainSamples= [], federatedMode, count = 1, countLimit,optimizer, lossMethod, learningRate}).
 
 %%%===================================================================
 %%% API
@@ -116,9 +116,9 @@ idle(cast, {training}, State = #nerlNetStatem_state{}) ->
   io:fwrite("Go from idle to train\n"),
   {next_state, train, State};
 
-idle(cast, {predict}, State) ->
+idle(cast, {predict}, State = #nerlNetStatem_state{currentBatchID = CurrentBatchID}) ->
   io:fwrite("Go from idle to predict\n"),
-  {next_state, predict, State};
+  {next_state, predict, State#nerlNetStatem_state{currentBatchID = CurrentBatchID + 1}};
 
 idle(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
 
@@ -201,10 +201,10 @@ wait(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextStat
 
   {next_state, NextState, State};
 
-wait(cast, {predictRes,Res}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid, nextState = NextState}) ->
-    io:fwrite("got predict result ~p: \n",[Res]),
+wait(cast, {predictRes,Res}, State = #nerlNetStatem_state{currentBatchID = CurrentBatchID, myName = MyName, clientPid = ClientPid, nextState = NextState}) ->
+    io:fwrite("~ngot predict result ~p~n",[Res]),
 
-  gen_statem:cast(ClientPid,{predictRes,MyName, "CSVname", 1, Res}), %% TODO TODO change csv name and batch id(1)
+  gen_statem:cast(ClientPid,{predictRes,MyName, "CSVname",CurrentBatchID, Res}), %% TODO TODO change csv name and batch id(1)
   {next_state, NextState, State};
 
 wait(cast, {predictRes,CSVname, BatchID, {RESULTS,_TimeCpp},_Time_NIF}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid, nextState = NextState}) ->
@@ -275,7 +275,7 @@ train(cast, Param, State) ->
   {next_state, train, State}.
 
 %% State predict
-predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStatem_state{features = Features, modelId = ModelId}) ->
+predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStatem_state{currentBatchID = CurrentBatchID, features = Features, modelId = ModelId}) ->
   ChunkSizePred = round(length(SampleListPredict)/Features),
   CurrPID = self(),
     % ^^^^^^^^^^^^^^^^^^
@@ -290,7 +290,7 @@ predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStat
   %  DataTensorP = [10.0 , 128.0 , 1.0] ++ RandomGeneratedDataP,
 
   _Pid = spawn(fun()-> niftest:call_to_predict(ModelId,DataTensor,CurrPID) end),
-  {next_state, wait, State#nerlNetStatem_state{nextState = predict}};
+  {next_state, wait, State#nerlNetStatem_state{currentBatchID = CurrentBatchID + 1, nextState = predict}};
 
 predict(cast, {idle}, State) ->
   io:fwrite("Go from predict to idle\n"),
