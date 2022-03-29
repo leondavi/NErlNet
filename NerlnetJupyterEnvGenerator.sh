@@ -61,4 +61,6 @@ echo "generate symbloic link: inputDataFiles --> $jdir/inputDataFiles"
 ln -s `pwd`/inputDataFiles $jdir/inputDataFiles
 echo "generate symbloic link: inputJsonFiles --> $jdir/inputJsonFiles"
 ln -s `pwd`/inputJsonFiles $jdir/inputJsonFiles
+echo "generate symbloic link: src_py/map.json --> $jdir/map.json"
+ln -s `pwd`/src_py/apiServer/map.json $jdir/map.json
 
