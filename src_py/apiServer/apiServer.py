@@ -61,7 +61,7 @@ if __name__ == "__main__":
     apiServerInst.predict()
     apiServerInst.statistics()
     #transmitterInst = apiServerInst.getTransmitter()
-    ##transmitterInst.testPost()
+    #transmitterInst.testPost()
 
 '''
  def exitHandler(self):
