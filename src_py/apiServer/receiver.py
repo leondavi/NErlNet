@@ -4,6 +4,7 @@ from flask_restful import Api, Resource, reqparse
 from globalVars import *
 import globalVars as globe
 import multiprocessing
+import logging
 
 
 #SERVER_BUSY = 0
@@ -16,6 +17,9 @@ api = Api(receiver)
 #ackPost.add_argument('ack', type='str', help='Receiver Error - Please send Acknowledgment')
 #lossArgs = reqparse.RequestParser()
 #lossArgs.add_argument('lossFunction', type='str', help='Receiver Error - Please send lossFunction')
+
+if globe.jupyterFlag == 1: #If in Jupyter Notebook: Disable logging messages
+    logging.getLogger('werkzeug').disabled = True
 
 def initReceiver():
     receiver.run(threaded=True, host='127.0.0.1', port=8095)
@@ -36,10 +40,11 @@ class test(Resource):
 
 class ack(Resource):
     def post(self):
-        reqData = request.form['ack']
-        print(reqData + 'Ack Received!')
         globe.pendingAcks -= 1
-        print(globe.pendingAcks)
+        if globe.jupyterFlag == 0:
+            reqData = request.form['ack']
+            print(reqData + 'Ack Received!')
+            print(globe.pendingAcks)
 
         # After receivng the final ACK, we conclude that the operation has finished.
         if globe.pendingAcks == 0:
@@ -50,7 +55,8 @@ class lossFunction(Resource):
     def post(self):
         # Receive string 'worker#loss' -> []
         reqData = request.form
-        print(reqData)
+        if globe.jupyterFlag == 0:
+            print(reqData)
         reqData = list(reqData)
 
         # From a list with only one string -> to a string. split by delimiter:
@@ -76,11 +82,10 @@ class predictRes(Resource):
         # Receive string 'worker#loss' -> []
         reqData = request.form
         reqData = list(reqData)
-        print(reqData)
         # From a list with only one string -> to a string. split by delimiter:
         reqData = reqData[0].split('#')
-
-        print(reqData)
+        if globe.jupyterFlag == 0:
+            print(reqData)
 
 class statistics(Resource):
     def post(self):
