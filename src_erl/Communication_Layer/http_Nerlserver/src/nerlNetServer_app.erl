@@ -43,21 +43,21 @@
 
 
 start(_StartType, _StartArgs) ->
-
-
-%%    HostName = getHostName(),
-    HostName = "127.0.0.1",
-    % io:format("My HostName: ~p~n",[list_to_binary(HostName)]),
+     %HostName = getHostName(),
+     HostName = "127.0.0.1",
+     io:format("My HostName: ~p~n",[HostName]),
 
     %%Server that should be established on this machine from JSON architecture:
     % {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities("./input/jsonArch1PC2Workers.json",list_to_binary(HostName)),
     %%    get json path from jsonPath file in main NErlNet directory
     {ok, InputJSON} = file:read_file("../../../jsonPath"),%%TODO change to File_Address
     Listed = binary_to_list(InputJSON),
-    JSONPath = lists:sublist(Listed,length(Listed)-1),
+    %ArchitectureAdderess, CommunicationMapAdderess are the paths for the json architecture file, where THIS machine can find its own entities by IP
+    [ArchitectureAdderess,CommunicationMapAdderess|_] =  re:split(Listed,"\n",[{return,list}]),
+     io:format("ArchitectureAdderess: ~p~n CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
 
     %%Server that should be established on this machine from JSON architecture:
-    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities(JSONPath,list_to_binary(HostName)),
+    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)),
 
 %  io:format("My NerlNetSettings: ~p~n",[NerlNetSettings]),
 
@@ -94,15 +94,15 @@ start(_StartType, _StartArgs) ->
 
 createClientsAndWorkers(none,_HostName) -> none;
 createClientsAndWorkers([], _HostName) -> okdone;
-createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsMap}|ClientsAndWorkers],HostName) ->
-    ClientName = list_to_atom(binary_to_list(maps:get(<<"name">>,ClientArgs))),
+createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsGraph}|ClientsAndWorkers],HostName) ->
+    ClientName = binary_to_list(maps:get(<<"name">>,ClientArgs)),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,ClientArgs))),
     Federated = list_to_atom(binary_to_list(maps:get(<<"federated">>,ClientArgs))),
 
     %%Create a gen_StateM machine for maintaining Database for Client.
     %% all http requests will be handled by Cowboy which updates client_statem if necessary.
 %%    WorkersArgsMap = #{Worker1Name => Worker1Args, Worker2Name => Worker2Args},
-    ClientStatemArgs= {ClientName,Federated,WorkersArgs,ClientConnectionsMap},        %%make this a list of client
+    ClientStatemArgs= {ClientName,Federated,WorkersArgs,ClientConnectionsGraph},        %%make this a list of client
     ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
 
 
@@ -129,13 +129,13 @@ createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsMap}|ClientsAn
 
 createFederatedServer(none,_WorkersMap,_HostName) -> none;
 createFederatedServer([],_WorkersMap,_HostName) -> okdone;
-createFederatedServer([{FederateArgs,FederateConnectionsMap}|Federated],WorkersMap,HostName) ->
-    FederatedName = list_to_atom(binary_to_list(maps:get(<<"name">>,FederateArgs))),
+createFederatedServer([{FederateArgs,ConnectionsGraph}|Federated],WorkersMap,HostName) ->
+    FederatedName = binary_to_list(maps:get(<<"name">>,FederateArgs)),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,FederateArgs))),
     CounterLimit = list_to_integer(binary_to_list(maps:get(<<"counterLimit">>,FederateArgs))),
     %%Create a gen_StateM machine for maintaining Database for Federated Server.
     %% all http requests will be handled by Cowboy which updates source_statem if necessary.
-    FederatedStatemArgs= {FederatedName,CounterLimit,WorkersMap,FederateConnectionsMap},        %%TODO  make this a list of Sources
+    FederatedStatemArgs= {FederatedName,CounterLimit,WorkersMap,ConnectionsGraph},        %%TODO  make this a list of Sources
     FederatedStatemPid = cppSANNFedServStateM:start_link(FederatedStatemArgs),
 
 
@@ -155,13 +155,13 @@ createFederatedServer([{FederateArgs,FederateConnectionsMap}|Federated],WorkersM
 
 createSources(none,_WorkersMap,_ChunkSize,_Frequency,_HostName) -> none;
 createSources([],_WorkersMap,_ChunkSize,_Frequency,_HostName) -> okdone;
-createSources([{SourceArgs,SourceConnectionsMap}|Sources],WorkersMap,ChunkSize,Frequency,HostName) ->
-    SourceName = list_to_atom(binary_to_list(maps:get(<<"name">>,SourceArgs))),
+createSources([{SourceArgs,ConnectionsGraph}|Sources],WorkersMap,ChunkSize,Frequency,HostName) ->
+    SourceName = binary_to_list(maps:get(<<"name">>,SourceArgs)),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,SourceArgs))),
     Method = list_to_integer(binary_to_list(maps:get(<<"method">>,SourceArgs))),
     %%Create a gen_StateM machine for maintaining Database for Source.
     %% all http requests will be handled by Cowboy which updates source_statem if necessary.
-    SourceStatemArgs= {SourceName, WorkersMap, SourceConnectionsMap, Method, ChunkSize, Frequency},        %%TODO  make this a list of Sources
+    SourceStatemArgs= {SourceName, WorkersMap, ConnectionsGraph, Method, ChunkSize, Frequency},        %%TODO  make this a list of Sources
     SourceStatemPid = sourceStatem:start_link(SourceStatemArgs),
 
 
@@ -184,8 +184,8 @@ createSources([{SourceArgs,SourceConnectionsMap}|Sources],WorkersMap,ChunkSize,F
 
 createRouters(none,_HostName) -> none;
 createRouters([],_HostName) -> okdone;
-createRouters([{RouterArgs,RouterCommectopmsMap}|Routers],HostName) ->
-    RouterName = maps:get(<<"name">>,RouterArgs),
+createRouters([{RouterArgs,ConnectionsGraph}|Routers],HostName) ->
+    RouterName = binary_to_list(maps:get(<<"name">>,RouterArgs)),
     Port =list_to_integer(binary_to_list( maps:get(<<"port">>,RouterArgs))),
 
     %%Create a gen_Server for maintaining Database for Router.
@@ -193,7 +193,7 @@ createRouters([{RouterArgs,RouterCommectopmsMap}|Routers],HostName) ->
     %%    connectivity map will be as follow:
     %%    name_atom of machine => {Host,Port} OR an atom router_name, indicating there is no direct http connection, and should pass request via router_name
 
-    RouterGenServerArgs= {RouterName,RouterCommectopmsMap},        %%TODO  make this a list of Routers
+    RouterGenServerArgs= {RouterName,ConnectionsGraph},        %%TODO  make this a list of Routers
     RouterGenServerPid = routerGenserver:start_link(RouterGenServerArgs),
 
 
@@ -224,13 +224,13 @@ createRouters([{RouterArgs,RouterCommectopmsMap}|Routers],HostName) ->
 
 
 createMainServer(none,_ChunkSize,_HostName) -> none;
-createMainServer({[MainServerArgsMap],MainServerConnectionsMap,WorkersMap,ClientsNames},ChunkSize,HostName) ->
-    MainName = mainServer,
+createMainServer({[MainServerArgsMap],ConnectionsGraph,WorkersMap,ClientsNames},ChunkSize,HostName) ->
+    MainName = "mainServer",
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,MainServerArgsMap))),
 
     %%Create a gen_Server for maintaining Database for Main Server.
     %% all http requests will be handled by Cowboy which updates main_genserver if necessary.
-    MainGenServer_Args= {MainName,ClientsNames,ChunkSize,WorkersMap,MainServerConnectionsMap},        %%TODO change from mainserverport to routerport . also make this a list of client
+    MainGenServer_Args= {MainName,ClientsNames,ChunkSize,WorkersMap,ConnectionsGraph},        %%TODO change from mainserverport to routerport . also make this a list of client
     MainGenServerPid = mainGenserver:start_link(MainGenServer_Args),
 
     MainServerDispatcher = cowboy_router:compile([
@@ -264,12 +264,12 @@ init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
     ).
 
 
-%%getHostName() ->
-%%    {ok, L} = inet:getif(),
-%%    IP = tuple_to_list(element(1, hd(L))),
-%%    A = lists:flatten(io_lib:format("~p", [IP])),
-%%    Subbed = lists:sublist(A,2,length(A)-2),
-%%    lists:flatten(string:replace(Subbed,",",".",all)).
+getHostName() ->
+   {ok, L} = inet:getif(),
+   IP = tuple_to_list(element(1, hd(L))),
+   A = lists:flatten(io_lib:format("~p", [IP])),
+   Subbed = lists:sublist(A,2,length(A)-2),
+   lists:flatten(string:replace(Subbed,",",".",all)).
 %%
 %%
 
