@@ -6,7 +6,8 @@
 #include "ModelParams.h"
 #include "CustumNN.h"
 #include <map>
-
+#include <chrono>
+using namespace std::chrono;
 
 #include "../opennn/opennn/opennn.h"
 #include "bridgeController.h"
@@ -74,14 +75,14 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
          //get neural network from singelton         
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(mid); 
          cout << neural_network->get_layers_number() <<std::endl;
-        
+         
          Tensor< float, 2 > calculate_outputs =  neural_network->calculate_outputs(data);
         
 
          ERL_NIF_TERM prediction = nifpp::makeTensor2D(env, calculate_outputs);
           
          if(enif_send(NULL,&(pid), env,prediction)){
-             printf("enif_send succeed\n");
+             printf("enif_send succeed prediction\n");
          }
          else printf("enif_send failed\n");
          
@@ -96,8 +97,13 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
          
+          ERL_NIF_TERM train_time;
+          // Start timer for the train
+          high_resolution_clock::time_point start = high_resolution_clock::now();
+            
          //std::shared_ptr<TrainNN> TrainNNptr = std::make_shared<TrainNN>();
          TrainNN* TrainNNptr = new TrainNN();
+         TrainNNptr->start_time = start;
         try{
          nifpp::get_throws(env, argv[0],TrainNNptr->mid); // model id
          nifpp::get_throws(env, argv[1],TrainNNptr->optimization_method);
@@ -111,9 +117,17 @@ static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         catch(...){
            return enif_make_string(env, "catch - get data from erlang", ERL_NIF_LATIN1);
         }       
- 
+         
+         
          int res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, TrainNNptr, 0);
-             
+
+         
+         // Stop the timer and calculate the time took for training
+         //high_resolution_clock::time_point  stop = high_resolution_clock::now();
+         //auto duration = duration_cast<microseconds>(stop - start);
+         
+         return train_time;
+
          return enif_make_string(env, "end comunication", ERL_NIF_LATIN1);
 
 
