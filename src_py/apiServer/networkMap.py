@@ -7,6 +7,9 @@ class NetworkMap():
         file = open(path)
         self.jsonData = json.load(file)
 
+        # Getting the desired batch size:
+        self.batchSize = int(self.jsonData['NerlNetSettings'][0]['batchSize'])
+
         # Getting IP address of the main server:
         mainServerJson = self.jsonData['mainServer'][0]
         self.mainServerIp = mainServerJson['host']
@@ -46,7 +49,7 @@ class NetworkMap():
             self.routers.append(router['name'])
 
     def printMap(self):
-        print(self.mainServerIp, self.mainServerPort, self.clients, self.workers, self.federateds, self.sources, self.routers)
+        print(self.batchSize, self.mainServerIp, self.mainServerPort, self.clients, self.workers, self.federateds, self.sources, self.routers)
 
     def toString(self, char): 
         if char == 'c':
@@ -69,10 +72,10 @@ s - sources\n \
 r - routers')
 
 if __name__ == "__main__":
-    path = 'map.json'
+    path = '1s1wMap.json'
     map = NetworkMap(path)
     map.printMap()
-    print(map.toString('r'))
+    print(map.toString('s'))
     #print(map.toString('k'))
 
 

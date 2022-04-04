@@ -1,6 +1,7 @@
 import multiprocessing 
 import socket
 from networkMap import NetworkMap
+import json
 from IPython import get_ipython
 
 localHost = socket.gethostname()
@@ -12,8 +13,13 @@ multiProcQueue = multiprocessing.Queue() # Create instance of queue
 
 lossMaps = []
 
-path = 'map.json'  
-map = NetworkMap(path)
+mapPath = '1s1wMap.json'  
+map = NetworkMap(mapPath)
+
+expFlowPath = 'expFlowJson.json'
+file = open(expFlowPath)
+expFlow = json.load(file)
+
 
 def checkPlatform():
         ipy_str = str(type(get_ipython()))
@@ -28,9 +34,11 @@ jupyterFlag = checkPlatform()
 
 
 if __name__ == "__main__":
-    print(localIp)
-    print(checkPlatform())
-
+    #print(localIp)
+    #print(checkPlatform())
+    list = expFlow["Training"]["s1"]
+    str = ", ".join(list)
+    print(str)
 '''
 trainingListReq = [('http://127.0.0.1:8080/updateCSV', "s1,w1,RunOrWalkTrain_splitted"),
                 ('http://127.0.0.1:8080/clientsTraining', "")]

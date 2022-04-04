@@ -27,15 +27,24 @@ class Transmitter:
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
         
-    def updateCSV(self):
+    def updateCSV(self, currentPhase, sourceName):
         print('Update CSV Phase')
-        response = requests.post(self.updateCSVAddress, data='s1,w1,RunOrWalkTrain_splitted')
+
+        #Compose the correct string to send as data to the Main Server:
+        workersUnderSourceList = globe.expFlow[currentPhase][sourceName]
+        workersUnderSourceStr = ",".join(workersUnderSourceList)
+        dataStr = '{},{},RunOrWalkTrain_splitted'.format(sourceName, workersUnderSourceStr)
+
+        response = requests.post(self.updateCSVAddress, data=dataStr)
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
 
     def startCasting(self):
         print('Start Casting Phase')
-        response = requests.post(self.startCastingAddress, data='s1,100')
+
+        dataStr = "{},{}".format(globe.map.toString('s'), globe.map.batchSize)
+
+        response = requests.post(self.startCastingAddress, data=dataStr)
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
 
@@ -48,15 +57,17 @@ class Transmitter:
     def train(self):
         print('Training - Starting...')
 
-        globe.pendingAcks += 2 + len(globe.map.sources) #TODO: Remove magic number, pay atention to global variable changes.
-
+        globe.pendingAcks += 1 + len(globe.map.sources) 
         self.clientsTraining()
-        self.updateCSV()
 
-        while globe.pendingAcks > 1:
+        for source in globe.map.sources:
+            self.updateCSV("Training", source)
+
+        while globe.pendingAcks > 0:
             time.sleep(0.005)
             pass 
 
+        globe.pendingAcks += 1
         self.startCasting()
 
         while globe.pendingAcks > 0:
@@ -69,14 +80,17 @@ class Transmitter:
     def predict(self):
         print('Prediction - Starting...')
 
-        globe.pendingAcks += 2 + len(globe.map.sources) #TODO: Change sources.size() to actual size.
+        globe.pendingAcks += 1 + len(globe.map.sources) 
         self.clientsPredict()
-        self.updateCSV()
 
-        while globe.pendingAcks > 1:
+        for source in globe.map.sources:
+            self.updateCSV("Prediction", source)
+
+        while globe.pendingAcks > 0:
             time.sleep(0.005)
             pass 
 
+        globe.pendingAcks += 1
         self.startCasting()
 
         while globe.pendingAcks > 0:
