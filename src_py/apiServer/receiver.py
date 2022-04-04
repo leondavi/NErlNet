@@ -4,6 +4,7 @@ from flask_restful import Api, Resource, reqparse
 from globalVars import *
 import globalVars as globe
 import multiprocessing
+import logging
 
 
 #SERVER_BUSY = 0
@@ -17,8 +18,11 @@ api = Api(receiver)
 #lossArgs = reqparse.RequestParser()
 #lossArgs.add_argument('lossFunction', type='str', help='Receiver Error - Please send lossFunction')
 
+if globe.jupyterFlag == 1: #If in Jupyter Notebook: Disable logging messages
+    logging.getLogger('werkzeug').disabled = True
+
 def initReceiver():
-    receiver.run(threaded=True, host='192.168.0.108', port=8095)
+    receiver.run(threaded=True, host='127.0.0.1', port=8095)
 
 class shutdown(Resource):
     def get(self):
@@ -36,10 +40,11 @@ class test(Resource):
 
 class ack(Resource):
     def post(self):
-        reqData = request.form['ack']
-        print(reqData + 'Ack Received!')
         globe.pendingAcks -= 1
-        print(globe.pendingAcks)
+        if globe.jupyterFlag == 0:
+            reqData = request.form['ack']
+            print(reqData + 'Ack Received!')
+            print(globe.pendingAcks)
 
         # After receivng the final ACK, we conclude that the operation has finished.
         if globe.pendingAcks == 0:
@@ -50,7 +55,8 @@ class lossFunction(Resource):
     def post(self):
         # Receive string 'worker#loss' -> []
         reqData = request.form
-        print(reqData)
+        if globe.jupyterFlag == 0:
+            print(reqData)
         reqData = list(reqData)
 
         # From a list with only one string -> to a string. split by delimiter:
@@ -68,6 +74,7 @@ class lossFunction(Resource):
         
         # After receiving the entire map, we wait for the final ACK.
         # Then we insert the map to the queue (See lines 43-46).
+        
 
 #http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++BatchID++"#"++CSVName++"#"++BatchSize)
 class predictRes(Resource):
@@ -77,8 +84,8 @@ class predictRes(Resource):
         reqData = list(reqData)
         # From a list with only one string -> to a string. split by delimiter:
         reqData = reqData[0].split('#')
-
-        print(reqData)
+        if globe.jupyterFlag == 0:
+            print(reqData)
 
 class statistics(Resource):
     def post(self):
@@ -91,6 +98,5 @@ api.add_resource(test, "/test")
 api.add_resource(ack, "/ack")
 api.add_resource(shutdown, "/shutdown")
 api.add_resource(lossFunction, "/lossFunction")
-
 api.add_resource(predictRes, "/predictRes")
 api.add_resource(statistics, "/statistics")

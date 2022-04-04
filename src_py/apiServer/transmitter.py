@@ -22,24 +22,28 @@ class Transmitter:
         return(response.ok, response.status_code, response.json())
 
     def clientsTraining(self):
-        print('Training - Clients Training Phase')
+        print('Clients Training Phase')
         response = requests.post(self.clientsTrainingAddress, data='')
-        print(response.ok, response.status_code)
+        if globe.jupyterFlag == 0:
+            print(response.ok, response.status_code)
         
     def updateCSV(self):
-        print('Training - Update CSV Phase')
-        response = requests.post(self.updateCSVAddress, data='s1,w1,w2,RunOrWalkTrain_splitted')
-        print(response.ok, response.status_code)
+        print('Update CSV Phase')
+        response = requests.post(self.updateCSVAddress, data='s1,w1,RunOrWalkTrain_splitted')
+        if globe.jupyterFlag == 0:
+            print(response.ok, response.status_code)
 
     def startCasting(self):
-        print('Start Casting  Phase')
+        print('Start Casting Phase')
         response = requests.post(self.startCastingAddress, data='s1,100')
-        print(response.ok, response.status_code)
+        if globe.jupyterFlag == 0:
+            print(response.ok, response.status_code)
 
     def clientsPredict(self):
-        print('Prediction - Start Casting  Phase')
+        print('Clients Predict Phase')
         response = requests.post(self.clientsPredictAddress, data='')
-        print(response.ok, response.status_code)
+        if globe.jupyterFlag == 0:
+            print(response.ok, response.status_code)
 
     def train(self):
         print('Training - Starting...')

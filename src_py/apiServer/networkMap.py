@@ -7,7 +7,7 @@ class NetworkMap():
         file = open(path)
         self.jsonData = json.load(file)
 
-        # Getting the IP address of the main server:
+        # Getting IP address of the main server:
         mainServerJson = self.jsonData['mainServer'][0]
         self.mainServerIp = mainServerJson['host']
         self.mainServerPort = mainServerJson['port']
@@ -69,7 +69,7 @@ s - sources\n \
 r - routers')
 
 if __name__ == "__main__":
-    path = 'src_py/apiServer/map.json'
+    path = 'map.json'
     map = NetworkMap(path)
     map.printMap()
     print(map.toString('r'))

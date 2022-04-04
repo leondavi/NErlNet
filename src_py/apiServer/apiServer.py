@@ -32,7 +32,7 @@ class ApiServer():
         
         while not received:
             if not multiProcQueue.empty():
-                print("New loss map created!")
+                print("~New loss map has been created successfully~")
                 multiProcQueue.get()
                 received = True
             time.sleep(0.1)
@@ -41,14 +41,18 @@ class ApiServer():
         globe.lossMaps.append({})
         self.transmitter.train()
         self.getQueueData()
-        print(globe.lossMaps[-1])
+        if globe.jupyterFlag == 0:
+            print(globe.lossMaps[-1])
+        print('Training - Finished\n')
         return globe.lossMaps[-1]
 
     def predict(self):
         globe.lossMaps.append({})
         self.transmitter.predict()
         self.getQueueData()
-        print(globe.lossMaps[-1])
+        if globe.jupyterFlag == 0:
+            print(globe.lossMaps[-1])
+        print('Prediction - Finished\n')
         return globe.lossMaps[-1]
     
     def statistics(self):
@@ -57,8 +61,9 @@ class ApiServer():
 if __name__ == "__main__":
     apiServerInst = ApiServer()
     apiServerInst.train()
+    #print(globe.lossMaps)
     apiServerInst.predict()
-    apiServerInst.statistics()
+    #apiServerInst.statistics()
     #transmitterInst = apiServerInst.getTransmitter()
     #transmitterInst.testPost()
 
