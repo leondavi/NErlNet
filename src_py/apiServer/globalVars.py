@@ -1,6 +1,6 @@
 import multiprocessing 
 import socket
-from networkMap import NetworkMap
+from networkComponents import NetworkComponents
 import json
 from IPython import get_ipython
 
@@ -13,10 +13,14 @@ multiProcQueue = multiprocessing.Queue() # Create instance of queue
 
 lossMaps = []
 
-mapPath = '1s1wMap.json'  
-map = NetworkMap(mapPath)
-
-expFlowPath = 'expFlowJson.json'
+# Get the components of the current system:
+jsonPathLocation = '../jsonPath'
+jsonPath = open(jsonPathLocation)
+content = jsonPath.readlines()
+componentsPath = content[4][:-1]
+components = NetworkComponents(componentsPath)
+# Get the topology of the current system:
+expFlowPath = content[5]
 file = open(expFlowPath)
 expFlow = json.load(file)
 

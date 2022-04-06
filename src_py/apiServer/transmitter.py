@@ -42,7 +42,7 @@ class Transmitter:
     def startCasting(self):
         print('Start Casting Phase')
 
-        dataStr = "{},{}".format(globe.map.toString('s'), globe.map.batchSize) #Python's string format, {} are swapped by the variables in the brackets respectively.
+        dataStr = "{},{}".format(globe.components.toString('s'), globe.components.batchSize) #Python's string format, {} are swapped by the variables in the brackets respectively.
 
         response = requests.post(self.startCastingAddress, data=dataStr)
         if globe.jupyterFlag == 0:
@@ -55,14 +55,14 @@ class Transmitter:
             print(response.ok, response.status_code)
 
     def train(self):
-        print('Training - Starting...')
+        print('\nTraining - Starting...')
 
         # 1 Ack for clientsTraining(), <num of sources> Acks for updateCSV():
-        globe.pendingAcks += 1 + len(globe.map.sources) 
+        globe.pendingAcks += 1 + len(globe.components.sources) 
 
         self.clientsTraining()
 
-        for source in globe.map.sources:
+        for source in globe.components.sources:
             self.updateCSV("Training", source)
 
         while globe.pendingAcks > 0:
@@ -84,11 +84,11 @@ class Transmitter:
         print('Prediction - Starting...')
 
         # 1 Ack for clientsPredict(), <num of sources> Acks for updateCSV():
-        globe.pendingAcks += 1 + len(globe.map.sources) 
+        globe.pendingAcks += 1 + len(globe.components.sources) 
 
         self.clientsPredict()
 
-        for source in globe.map.sources:
+        for source in globe.components.sources:
             self.updateCSV("Prediction", source)
 
         while globe.pendingAcks > 0:
