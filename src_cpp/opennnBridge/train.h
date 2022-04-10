@@ -19,6 +19,7 @@ struct TrainNN {
     double learning_rate;
     Eigen::Tensor<float,2> data;
     high_resolution_clock::time_point start_time;
+    int display;
 
     ErlNifTid tid;
     ErlNifPid pid;
@@ -143,6 +144,8 @@ static void* trainFun(void* arg){
          TestingAnalysis testing_analysis(&*neural_network, &data_set);
          
          training_strategy.set_maximum_epochs_number(1); 
+         training_strategy.set_display(0);
+         //training_strategy.set_display(TrainNNptr->display);
 
         try{   
          training_strategy.perform_training();
@@ -168,18 +171,25 @@ static void* trainFun(void* arg){
            cout << "catch - calculate errors" <<std::endl;
         } 
          
-         ERL_NIF_TERM loss_val_term = enif_make_double(env, loss_val);
+         
          // Stop the timer and calculate the time took for training
          high_resolution_clock::time_point  stop = high_resolution_clock::now();
          auto duration = duration_cast<microseconds>(stop - TrainNNptr->start_time);
-         ERL_NIF_TERM pred_res_and_time = enif_make_tuple(env, 2, loss_val_term,enif_make_double(env, duration.count()));
- 
+
+         ERL_NIF_TERM loss_val_term = enif_make_double(env, loss_val);
+         ERL_NIF_TERM train_time = enif_make_double(env, duration.count());
+         
+         //cout << duration.count() <<std::endl;
+        
+         //ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 2, loss_val_term,enif_make_double(env, duration.count()));
+         ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 2, loss_val_term,train_time);
               
          
          if(enif_send(NULL,&(TrainNNptr->pid), env,loss_val_term)){
              //printf("enif_send succeed\n");
          }
          else printf("enif_send failed\n");
+         
          
          delete TrainNNptr;
          return 0;

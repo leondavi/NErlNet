@@ -178,6 +178,14 @@ wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{clientPid
 
 
 %% Regular mode (Not federated)
+wait(cast, {loss, {LossVal,Time}}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState, federatedMode = ?MODE_REGULAR}) ->
+
+io:fwrite("loss, {LossVal,Time}: ~p~n",[{loss, {LossVal,Time}}]),
+
+  gen_statem:cast(ClientPid,{loss, MyName, LossVal}), %% TODO Add Time and Time_NIF to the cast
+  {next_state, NextState, State};
+
+%% Regular mode (Not federated)
 wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState, federatedMode = ?MODE_REGULAR}) ->
   {LOSS_FUNC,_TimeCpp} = LossAndTime,
   % Federated mode = 0 (not federated)
