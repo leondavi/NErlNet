@@ -43,6 +43,7 @@ if __name__ == "__main__":
     list = expFlow["Training"]["s1"]
     str = ", ".join(list)
     print(str)
+    components.printComponents()
 '''
 trainingListReq = [('http://127.0.0.1:8080/updateCSV', "s1,w1,RunOrWalkTrain_splitted"),
                 ('http://127.0.0.1:8080/clientsTraining', "")]
