@@ -96,7 +96,7 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 
 static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
-         
+
           ERL_NIF_TERM train_time;
           // Start timer for the train
           high_resolution_clock::time_point start = high_resolution_clock::now();
@@ -104,15 +104,20 @@ static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          //std::shared_ptr<TrainNN> TrainNNptr = std::make_shared<TrainNN>();
          TrainNN* TrainNNptr = new TrainNN();
          TrainNNptr->start_time = start;
+         
         try{
          nifpp::get_throws(env, argv[0],TrainNNptr->mid); // model id
          nifpp::get_throws(env, argv[1],TrainNNptr->optimization_method);
          nifpp::get_throws(env, argv[2],TrainNNptr->lose_method);
          nifpp::get_throws(env, argv[3],TrainNNptr->learning_rate);
          nifpp::getTensor2D(env,argv[4],TrainNNptr->data);
+         //nifpp::get_throws(env, argv[5],TrainNNptr->display);
+         
          ErlNifPid pid;
          enif_self(env, &pid);
          TrainNNptr->pid = pid;
+         //std::out << "learning_rate : "<< std::endl;
+         //std::out << TrainNNptr->learning_rate << std::endl;
         }
         catch(...){
            return enif_make_string(env, "catch - get data from erlang", ERL_NIF_LATIN1);
@@ -126,7 +131,7 @@ static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          //high_resolution_clock::time_point  stop = high_resolution_clock::now();
          //auto duration = duration_cast<microseconds>(stop - start);
          
-         return train_time;
+         //return train_time;
 
          return enif_make_string(env, "end comunication", ERL_NIF_LATIN1);
 
