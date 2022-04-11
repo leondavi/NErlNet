@@ -227,9 +227,10 @@ handle_cast({lossFunction,<<>>}, State = #main_genserver_state{msgCounter = MsgC
 handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
 %%  io:format("got loss function:- ~p~n",[Body]),
     {RouterHost,RouterPort} = getShortPath(MyName,"serverAPI",NerlnetGraph),
-
+    {WorkerName,LossFunction} = binary_to_term(Body),
+    io:format("got loss function:- ~p~n",[{RouterHost,RouterPort,atom_to_list(WorkerName),float_to_list(LossFunction)}]),
   %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-  http_request(RouterHost,RouterPort,"", "lossFunction#"++ binary_to_list(Body)),
+  http_request(RouterHost,RouterPort,"lossFunction", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction)),
 %%  file:write_file("./output/"++WorkerName, LossFunction++"\n", [append]),
 
 

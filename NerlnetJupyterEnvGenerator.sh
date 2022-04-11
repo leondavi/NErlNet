@@ -47,18 +47,11 @@ echo "generate symbloic link: src_py/apiServer.py --> $jdir/apiServer.py"
 ln -s `pwd`/src_py/apiServer/apiServer.py $jdir/apiServer.py
 echo "generate symbloic link: src_py/globalVars.py --> $jdir/globalVars.py"
 ln -s `pwd`/src_py/apiServer/globalVars.py $jdir/globalVars.py
-echo "generate symbloic link: src_py/networkMap.py --> $jdir/networkMap.py"
-ln -s `pwd`/src_py/apiServer/networkMap.py $jdir/networkMap.py
+echo "generate symbloic link: src_py/networkComponents.py --> $jdir/networkComponents.py"
+ln -s `pwd`/src_py/apiServer/networkComponents.py $jdir/networkComponents.py
 echo "generate symbloic link: src_py/receiver.py --> $jdir/receiver.py"
 ln -s `pwd`/src_py/apiServer/receiver.py $jdir/receiver.py
 echo "generate symbloic link: src_py/transmitter.py --> $jdir/transmitter.py"
 ln -s `pwd`/src_py/apiServer/transmitter.py $jdir/transmitter.py
-echo "generate symbloic link: src_py/test.py --> $jdir/test.py"
-ln -s `pwd`/src_py/apiServer/test.py $jdir/test.py
-echo "generate symbloic link: jsonPath --> $jdir/jsonPath"
-ln -s `pwd`/jsonPath $jdir/jsonPath
-echo "generate symbloic link: inputDataFiles --> $jdir/inputDataFiles"
-ln -s `pwd`/inputDataFiles $jdir/inputDataFiles
-echo "generate symbloic link: inputJsonFiles --> $jdir/inputJsonFiles"
-ln -s `pwd`/inputJsonFiles $jdir/inputJsonFiles
+
 
