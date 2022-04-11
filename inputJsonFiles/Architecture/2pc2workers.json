@@ -1,17 +1,17 @@
 {
   "NerlNetSettings": [
   {
-    "frequency": "10",
-    "batchSize": "10"
+    "frequency": "50",
+    "batchSize": "100"
   }
   ],
   "devices": [
     {
-      "host": "127.0.0.1",
+      "host": "pc1",
       "entities": "mainServer,c1,s1,r1"
     },
     {
-      "host": "127.0.0.1",
+      "host": "pc2",
       "entities": "c2,r2"
     }
   ],
@@ -24,7 +24,7 @@
   ],
   "mainServer": [
     {
-      "host": "127.0.1.1",
+      "host": "pc1",
       "port": "8080",
       "args": ""
     }
@@ -102,13 +102,13 @@
  "routers": [
   {
     "name": "r1",
-    "host": "127.0.0.1",
+    "host": "pc1",
     "port": "8084"
   },
   {
     "name": "r2",
-    "host": "127.0.0.1",
-    "port": "8084"
+    "host": "pc2",
+    "port": "8085"
   }
   ]
 }
