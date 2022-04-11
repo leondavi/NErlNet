@@ -51,7 +51,7 @@ class NetworkComponents():
     def printComponents(self):
         print(self.batchSize, self.mainServerIp, self.mainServerPort, self.clients, self.workers, self.federateds, self.sources, self.routers)
 
-    def toString(self, char): 
+    def toString(self, char): #Prints the contents of any of the components' lists (e.g. "routers")
         if char == 'c':
             return ','.join(self.clients)
         elif char == 'w':
