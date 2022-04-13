@@ -300,7 +300,10 @@ predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStat
 
   %  DataTensorP = [10.0 , 128.0 , 1.0] ++ RandomGeneratedDataP,
 
+
   _Pid = spawn(fun()-> niftest:call_to_predict(ModelId,SampleListPredict,CurrPID) end),
+
+
   {next_state, wait, State#nerlNetStatem_state{currentBatchID = CurrentBatchID + 1, nextState = predict}};
 
 predict(cast, {idle}, State) ->

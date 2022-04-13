@@ -1,12 +1,11 @@
 import json
 
-class NetworkMap():
+class NetworkComponents():
 
     def __init__(self, path):
         # Loading the data in JSON format:
         file = open(path)
         self.jsonData = json.load(file)
-
 
         # Getting the desired batch size:
         self.batchSize = int(self.jsonData['NerlNetSettings'][0]['batchSize'])
@@ -49,10 +48,10 @@ class NetworkMap():
         for router in routersJsons:
             self.routers.append(router['name'])
 
-    def printMap(self):
+    def printComponents(self):
         print(self.batchSize, self.mainServerIp, self.mainServerPort, self.clients, self.workers, self.federateds, self.sources, self.routers)
 
-    def toString(self, char): 
+    def toString(self, char): #Prints the contents of any of the components' lists (e.g. "routers")
         if char == 'c':
             return ','.join(self.clients)
         elif char == 'w':
@@ -73,13 +72,9 @@ s - sources\n \
 r - routers')
 
 if __name__ == "__main__":
-
-    # path = 'map.json'
-
-    path = '1s1wMap.json'
-
-    map = NetworkMap(path)
-    map.printMap()
+    path = '1s2wComponents.json'
+    map = NetworkComponents(path)
+    map.printComponents()
     print(map.toString('s'))
     #print(map.toString('k'))
 
