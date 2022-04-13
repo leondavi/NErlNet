@@ -1,6 +1,6 @@
 import os
 
-def init(inputName = '/home/ziv/workspace/NErlNet/src_erl/Communication_Layer/http_Nerlserver/input/RunOrWalkPredictNolabels.csv', batchSize = 1000):
+def init(inputName = '../../inputDataFiles/heartTrain.csv', batchSize = 1000):
     newFileName = inputName[0:inputName.rindex('.')]
     parent_dir = inputName[0:inputName.rindex('/')]
     path = os.path.join("", newFileName+"_splitted")

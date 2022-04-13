@@ -66,11 +66,11 @@ train_nif(Integer,Integer,Integer,Integer, []) ->
 
 call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, WorkerPid)->
       io:format("berfor train  ~n "),
-      RetVal=trainn_nif(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor),
-      io:format("Train Time= ~p~n ",[RetVal]),
+      _RetVal=trainn_nif(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor),
+      %io:format("Train Time= ~p~n ",[RetVal]),
       receive
             Ret->
-            %io:format("Ret= ~p~n ",[Ret]),
+            io:format("Ret= ~p~n ",[Ret]),
             %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
             gen_statem:cast(WorkerPid,{loss, Ret})
       end.
@@ -82,7 +82,7 @@ call_to_predict(ModelID, Data, WorkerPid)->
       _RetVal = predict_nif(ModelID, Data),
       receive
             Ret->
-            %io:format("Ret222= ~p~n Worker Pid: ~p ",[Ret,WorkerPid]),            
+            io:format("Ret222= ~p~n Worker Pid: ~p ",[Ret,WorkerPid]),            
             gen_statem:cast(WorkerPid,{predictRes,Ret}) 
       end.
 
