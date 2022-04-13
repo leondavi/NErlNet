@@ -42,7 +42,7 @@
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
       "lossMethod": "2",
       "_comment4": "TODOTODO explain methods",
-      "learningRate": "1",
+      "learningRate": "1.0",
       "_comment5": "TODOTODO explain learningRate",
       "optimizer":"6",
       "features": "128",

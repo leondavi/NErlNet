@@ -194,8 +194,8 @@ namespace nifpp
 
                 Type var;
                 if(!get(env, head, var)) return 0; // conversion failure
-                
                 //newTensor(idx) = var;//TODO optimization 
+               
                 newTensor(idx/tensorDims.y , idx%tensorDims.y) = var;//TODO optimization 
                 //std::cout<<"idx "<<idx<<" var: "<<newTensor(idx/tensorDims.y , idx%tensorDims.y) <<std::endl;
 

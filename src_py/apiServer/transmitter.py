@@ -29,13 +29,13 @@ class Transmitter:
         
     def updateCSV(self):
         print('Update CSV Phase')
-        response = requests.post(self.updateCSVAddress, data='s1,w1,RunOrWalkTrain_splitted')
+        response = requests.post(self.updateCSVAddress, data='s1,w1,heartTrain_splitted')
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
 
     def startCasting(self):
         print('Start Casting Phase')
-        response = requests.post(self.startCastingAddress, data='s1,100')
+        response = requests.post(self.startCastingAddress, data='s1,90000')
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
 
