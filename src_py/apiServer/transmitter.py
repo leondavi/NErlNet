@@ -27,15 +27,28 @@ class Transmitter:
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
         
-    def updateCSV(self):
+
+    def updateCSV(self, currentPhase, sourceName): # currentPhase is either "Training", "Prediction" or "Statistics". 
         print('Update CSV Phase')
-        response = requests.post(self.updateCSVAddress, data='s1,w1,heartTrain_splitted')
+
+        # Compose the correct string to send as data to the Main Server:
+        workersUnderSourceList = globe.expFlow[currentPhase][sourceName]
+        workersUnderSourceStr = ",".join(workersUnderSourceList)
+        dataStr = '{},{},RunOrWalkTrain_splitted'.format(sourceName, workersUnderSourceStr) #Python's string format, {} are swapped by the variables in the brackets respectively.
+
+        response = requests.post(self.updateCSVAddress, data=dataStr)
+
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
 
     def startCasting(self):
         print('Start Casting Phase')
-        response = requests.post(self.startCastingAddress, data='s1,90000')
+
+
+        dataStr = "{},{}".format(globe.components.toString('s'), globe.components.batchSize) #Python's string format, {} are swapped by the variables in the brackets respectively.
+
+        response = requests.post(self.startCastingAddress, data=dataStr)
+
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
 
@@ -46,17 +59,22 @@ class Transmitter:
             print(response.ok, response.status_code)
 
     def train(self):
-        print('Training - Starting...')
+        print('\nTraining - Starting...')
 
-        globe.pendingAcks += 2 + len(globe.map.sources) #TODO: Remove magic number, pay atention to global variable changes.
+        # 1 Ack for clientsTraining(), <num of sources> Acks for updateCSV():
+        globe.pendingAcks += 1 + len(globe.components.sources) 
 
         self.clientsTraining()
-        self.updateCSV()
 
-        while globe.pendingAcks > 1:
+        for source in globe.components.sources:
+            self.updateCSV("Training", source)
+
+        while globe.pendingAcks > 0:
             time.sleep(0.005)
             pass 
-
+        
+        # 1 Ack for startCasting():
+        globe.pendingAcks += 1
         self.startCasting()
 
         while globe.pendingAcks > 0:
@@ -69,14 +87,20 @@ class Transmitter:
     def predict(self):
         print('Prediction - Starting...')
 
-        globe.pendingAcks += 2 + len(globe.map.sources) #TODO: Change sources.size() to actual size.
-        self.clientsPredict()
-        self.updateCSV()
+        # 1 Ack for clientsPredict(), <num of sources> Acks for updateCSV():
+        globe.pendingAcks += 1 + len(globe.components.sources) 
 
-        while globe.pendingAcks > 1:
+        self.clientsPredict()
+
+        for source in globe.components.sources:
+            self.updateCSV("Prediction", source)
+
+        while globe.pendingAcks > 0:
             time.sleep(0.005)
             pass 
 
+        # 1 Ack for startCasting():
+        globe.pendingAcks += 1
         self.startCasting()
 
         while globe.pendingAcks > 0:

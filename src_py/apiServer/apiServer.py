@@ -9,8 +9,8 @@ import threading
 class ApiServer():
     def __init__(self): 
 
-        mainServerIP = globe.map.mainServerIp
-        mainServerPort = globe.map.mainServerPort
+        mainServerIP = globe.components.mainServerIp
+        mainServerPort = globe.components.mainServerPort
         self.mainServerAddress = 'http://' + mainServerIP + ':' + mainServerPort
         
         # Starting receiver flask server process
