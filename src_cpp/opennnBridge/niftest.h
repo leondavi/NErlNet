@@ -51,7 +51,7 @@ static void* Predict_fun(void* arg){
 */
 
 static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
-         PredictNN* PredictNNptr = new PredictNN();
+         std::shared_ptr<PredictNN> PredictNNptr = std::make_shared<PredictNN>();
          long int mid;
          Eigen::Tensor<float,2> data;
          ErlNifPid pid;
@@ -63,7 +63,7 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         
          
          nifpp::get_throws(env, argv[0], PredictNNptr->mid); // get model id
-         nifpp::getTensor2D(env,argv[1],PredictNNptr->data); // get data for prediction
+         nifpp::getTensor2D(env,argv[1], PredictNNptr->data); // get data for prediction
          //get neural network from singelton         
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(mid); 
          cout << neural_network->get_layers_number() <<std::endl;
@@ -93,7 +93,7 @@ static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
           high_resolution_clock::time_point start = high_resolution_clock::now();
             
          //std::shared_ptr<TrainNN> TrainNNptr = std::make_shared<TrainNN>();
-         TrainNN* TrainNNptr = new TrainNN();
+         std::shared_ptr<TrainNN> TrainNNptr = std::make_shared<TrainNN>();
          TrainNNptr->start_time = start;
          
         try{
@@ -116,7 +116,7 @@ static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
            return enif_make_string(env, "catch - get data from erlang", ERL_NIF_LATIN1);
         }       
          
-         int res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, TrainNNptr, 0);
+         int res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, TrainNNptr.get(), 0);
         
          
          
