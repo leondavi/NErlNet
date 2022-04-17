@@ -57,11 +57,12 @@ static void* trainFun(void* arg){
          else data_set.set_data(TrainNNptr->data);
 
 
-
+         
         
          
          TrainingStrategy training_strategy(&(*(s-> getModelPtr(TrainNNptr->mid))) ,&data_set);
          
+        
          // set Optimization Method  -------------------------------------------------------------
         try{
          if(TrainNNptr->optimization_method == E_OM_GRADIENT_DESCENT){
@@ -99,7 +100,6 @@ static void* trainFun(void* arg){
       
          // end set optimization method ---------------------------------------------------------------
          
-
 
          // set Loss Method ------------------------------------------------------------------------
        
@@ -146,15 +146,14 @@ static void* trainFun(void* arg){
          training_strategy.set_maximum_epochs_number(1); 
          training_strategy.set_display(0);
          //training_strategy.set_display(TrainNNptr->display);
-
+     
         try{   
          training_strategy.perform_training();
         }
         catch(...){
            cout << "catch - do training" <<std::endl;
         }  
-
-
+     
         try{ 
          Tensor<type, 1> confusion_matrix = testing_analysis.calculate_testing_errors();
          //sse - confusion_matrix[0]
@@ -175,7 +174,10 @@ static void* trainFun(void* arg){
          // Stop the timer and calculate the time took for training
          high_resolution_clock::time_point  stop = high_resolution_clock::now();
          auto duration = duration_cast<microseconds>(stop - TrainNNptr->start_time);
-
+         if(isnan(loss_val)  ) {
+             loss_val = -1.0;
+             cout << "loss val = nan , please stop the raining and try another hiper parameters" <<std::endl;
+         }
          ERL_NIF_TERM loss_val_term = enif_make_double(env, loss_val);
          ERL_NIF_TERM train_time = enif_make_double(env, duration.count());
          
@@ -186,11 +188,9 @@ static void* trainFun(void* arg){
               
          
          if(enif_send(NULL,&(TrainNNptr->pid), env,loss_val_term)){
-             //printf("enif_send succeed\n");
+             printf("enif_send train succeed\n");
          }
          else printf("enif_send failed\n");
-         
-         
          delete TrainNNptr;
          return 0;
          //return enif_make_string(env, "end TRAIN mode", ERL_NIF_LATIN1);

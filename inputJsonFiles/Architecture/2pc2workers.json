@@ -7,8 +7,12 @@
   ],
   "devices": [
     {
-      "host": "127.0.0.1",
+      "host": "pc1",
       "entities": "mainServer,c1,s1,r1"
+    },
+    {
+      "host": "pc2",
+      "entities": "c2,r2"
     }
   ],
   "serverAPI": [
@@ -20,7 +24,7 @@
   ],
   "mainServer": [
     {
-      "host": "127.0.0.1",
+      "host": "pc1",
       "port": "8080",
       "args": ""
     }
@@ -29,20 +33,42 @@
     {
       "name": "w1",
       "modelId": "0",
-      "modelType": "5",
+      "modelType": "2",
       "_comment0": "Model Type Explenation: TODOTODOTODO",
       "scalingMethod": "1",
       "_comment1": "Scaling Method Explenation: TODOTODOTODO",
-      "layerTypesList": "[3,1,1,1,3,5]",
-      "layersSizes": "[3,1,1,128,16,128]",
+      "layerTypesList": "[1,1,1,3]",
+      "layersSizes": "[6,1,1,128,64,32,16,4,1]",
       "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5 ,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
-      "layersActivationFunctions":"[2,1,1,11,11]",
+      "layersActivationFunctions":"[5,1,1,11,11,11,11,11]",
       "federatedMode": "0",
       "countLimit": "10",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
       "lossMethod": "2",
       "_comment4": "TODOTODO explain methods",
-      "learningRate": "1.0",
+      "learningRate": "1",
+      "_comment5": "TODOTODO explain learningRate",
+      "optimizer":"6",
+      "features": "128",
+      "labels": "1"
+    },
+    {
+      "name": "w2",
+      "modelId": "0",
+      "modelType": "2",
+      "_comment0": "Model Type Explenation: TODOTODOTODO",
+      "scalingMethod": "1",
+      "_comment1": "Scaling Method Explenation: TODOTODOTODO",
+      "layerTypesList": "[1,1,1,3]",
+      "layersSizes": "[6,1,1,128,64,32,16,4,1]",
+      "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5 ,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
+      "layersActivationFunctions":"[5,1,1,11,11,11,11,11]",
+      "federatedMode": "0",
+      "countLimit": "10",
+      "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
+      "lossMethod": "2",
+      "_comment4": "TODOTODO explain methods",
+      "learningRate": "1",
       "_comment5": "TODOTODO explain learningRate",
       "optimizer":"6",
       "features": "128",
@@ -55,15 +81,15 @@
       "port": "8081",
       "workers": "w1",
       "federated": "f1"
+    },
+    {
+      "name": "c2",
+      "port": "8082",
+      "workers": "w2",
+      "federated": "f1"
     }
   ],
   "federated": [
-    {
-      "name": "f1",
-      "port": "8083",
-      "workers": "w1",
-      "counterLimit": "1"
-    }
   ],
   "sources": [
     {
@@ -74,10 +100,15 @@
     }
   ],
  "routers": [
-    {
-      "name": "r1",
-      "host": "127.0.0.1",
-      "port": "8084"
-    }
+  {
+    "name": "r1",
+    "host": "pc1",
+    "port": "8084"
+  },
+  {
+    "name": "r2",
+    "host": "pc2",
+    "port": "8085"
+  }
   ]
 }

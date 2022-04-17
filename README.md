@@ -47,7 +47,7 @@ https://user-images.githubusercontent.com/18975070/145286597-340bbd31-0050-492f-
 # Building Nerlnet:
 prerequisite:
 
-1. python 3.7
+1. python 3.7 with jupyter lab (only for the api gui server). 
 2. Latest Erlang version (OTP-24 minimum):
    Use apt or build from source (https://www.erlang.org/doc/installation_guide/install) <br>
    ```wget -O- https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -```<br>
@@ -55,22 +55,13 @@ prerequisite:
    ```sudo apt update```<br>
    ```sudo apt install erlang```<br>
    ```sudo apt-get install build-essential```<br>
-3. Eigen and boost libraries ```sudo apt install libeigen3-dev libboost-all-dev``` (deprecated soon)
-4. ```conda install -c anaconda scons``` or ```sudo apt install scons```  (deprecated soon - moving to cmake)
-5. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo>```
-6. Update cppSANN submodule ```git submodule update --init --recursive``` (deprecated soon)
+3. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo>```
+4. Install CMake minimal supported version 3.18: ```sudo apt install cmake```
 
 
-Build Instructions (OpennnNIF): 
+Build and run Instructions: 
 
-1. install cmake  
-2. Release Build: ```cmake -S . -B build/release -DCMAKE_BUILD_TYPE=RELEASE```<br>
-   Debug Build: ```cmake -S . -B build/debug -DCMAKE_BUILD_TYPE=DEBUG```
-3. ```cd build/<debug/release>```
-4. ```make -j4```
-
-
-```./build.sh``` to build the project and run main server.
-
+1. Give execution permission for NerlnetBuild.sh
+2. Run: ```./NerlnetBuild.sh```
 
 Contact Email: nerlnet@outlook.com 

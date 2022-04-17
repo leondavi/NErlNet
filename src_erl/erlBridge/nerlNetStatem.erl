@@ -248,20 +248,20 @@ train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = Mo
   % ^^^^^^^^^^^^^^^^^^
   %ModelID = 586000901,
   % OptimizationMethod = 1,
-
-  RandomGeneratedData1 = [[rand:normal(0,0.5)||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,5)],
-  RandomGeneratedData2 = [[rand:normal(1,0.5)||_<-lists:seq(1,128)] ++[1.0]||_<-lists:seq(1,5)],
-  %RandomGeneratedData1 = [[rand:normal(0,1)||_<-lists:seq(1,128)] ||_<-lists:seq(1,5)],
-  %RandomGeneratedData2 = [[rand:normal(1,1)||_<-lists:seq(1,128)] ||_<-lists:seq(1,5)],
+  io:format("~p~n",[SampleListTrain]),
+  %RandomGeneratedData1 = [[rand:normal(0,0.5)||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,5)],
+  %RandomGeneratedData2 = [[rand:normal(1,0.5)||_<-lists:seq(1,128)] ++[1.0]||_<-lists:seq(1,5)],
+  RandomGeneratedData1 = [[rand:normal(0,1)||_<-lists:seq(1,128)] ||_<-lists:seq(1,5)],
+  RandomGeneratedData2 = [[rand:normal(1,1)||_<-lists:seq(1,128)] ||_<-lists:seq(1,5)],
   Shuffled = lists:flatten([X||{_,X} <- lists:sort([ {random:uniform(), N} || N <- RandomGeneratedData1++RandomGeneratedData2])]),
   %RandomGeneratedData = lists:flatten([[rand:normal()||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,10)]),
-  DataTensor = [10.0 , 129.0 , 1.0] ++ Shuffled,
+  DataTensor = [10.0 , 128.0 , 1.0] ++ Shuffled,
   MyPid=self(),
-  _Pid = spawn(fun()-> niftest:call_to_train(ModelId, Optimizer , LossMethod , LearningRate , DataTensor ,MyPid) end),
+  _Pid = spawn(fun()-> niftest:call_to_train(ModelId, Optimizer , LossMethod , LearningRate , SampleListTrain ,MyPid) end),
   {next_state, wait, State#nerlNetStatem_state{nextState = train}};
 
 
-train(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId = ModelId, nextState = NextState}) ->
+  train(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId = ModelId, nextState = NextState}) ->
   %% Set weights
   [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
   
@@ -300,7 +300,10 @@ predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStat
 
   %  DataTensorP = [10.0 , 128.0 , 1.0] ++ RandomGeneratedDataP,
 
-  _Pid = spawn(fun()-> niftest:call_to_predict(ModelId,DataTensor,CurrPID) end),
+
+  _Pid = spawn(fun()-> niftest:call_to_predict(ModelId,SampleListPredict,CurrPID) end),
+
+
   {next_state, wait, State#nerlNetStatem_state{currentBatchID = CurrentBatchID + 1, nextState = predict}};
 
 predict(cast, {idle}, State) ->

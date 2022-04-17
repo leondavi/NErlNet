@@ -1,0 +1,16 @@
+{
+
+ "Training": {
+     "s1": ["w1"]
+
+},
+
+ "Prediction": {
+      "s1": ["w1"]
+ },
+
+ "Statistics": {
+        "s1": ["w1"]
+ }
+
+}

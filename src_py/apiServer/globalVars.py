@@ -1,6 +1,9 @@
 import multiprocessing 
 import socket
-from networkMap import NetworkMap
+
+from networkComponents import NetworkComponents
+import json
+
 from IPython import get_ipython
 
 localHost = socket.gethostname()
@@ -12,8 +15,19 @@ multiProcQueue = multiprocessing.Queue() # Create instance of queue
 
 lossMaps = []
 
-path = 'map.json'  
-map = NetworkMap(path)
+
+# Get the components of the current system:
+jsonPathLocation = '../jsonPath'
+jsonPath = open(jsonPathLocation)
+content = jsonPath.readlines()
+componentsPath = content[4][:-1]
+components = NetworkComponents(componentsPath)
+# Get the topology of the current system:
+expFlowPath = content[5]
+file = open(expFlowPath)
+expFlow = json.load(file)
+
+
 
 def checkPlatform():
         ipy_str = str(type(get_ipython()))
@@ -28,8 +42,13 @@ jupyterFlag = checkPlatform()
 
 
 if __name__ == "__main__":
-    print(localIp)
-    print(checkPlatform())
+
+    #print(localIp)
+    #print(checkPlatform())
+    list = expFlow["Training"]["s1"]
+    str = ", ".join(list)
+    print(str)
+    components.printComponents()
 
 '''
 trainingListReq = [('http://127.0.0.1:8080/updateCSV', "s1,w1,RunOrWalkTrain_splitted"),
