@@ -1,2 +1,7 @@
-../../../inputJsonFiles/Architecture/jsonArch2PC2Workers1Source.json
-../../../inputJsonFiles/ConnectionMap/2PC2Workers1Source.json
+../../../inputJsonFiles/Architecture/jsonArch1PC1Worker.json
+../../../inputJsonFiles/ConnectionMap/1PC1Worker.json
+
+# For Python API:
+../inputJsonFiles/Architecture/jsonArch1PC1Worker.json
+../inputJsonFiles/experimentsFlow/expFlowJson.json
+

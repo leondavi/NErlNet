@@ -285,6 +285,7 @@ predict(cast, {predictRes,WorkerName,InputName,ResultID,Result}, State = #client
     NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,NewAverage},TimingMap);
       % io:format("AverageTrainingTime: ~p~n",[NewAverage])
     true ->       NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,TotalTrainingTime},TimingMap)
+
   end,  
 {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
 Result2 = lists:flatten(io_lib:format("~w",[Result])),",",[{return,list}],
@@ -298,6 +299,7 @@ Workers = maps:to_list(WorkersMap),
 [gen_statem:cast(WorkerPid,{training})|| {_WorkerName,WorkerPid}<-Workers],
 ack(MyName,NerlnetGraph),
 {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+
 
 predict(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
 Workers = maps:to_list(WorkersMap),
@@ -347,6 +349,7 @@ httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
 
 
 ack(MyName, NerlnetGraph) ->
+
   io:format("~p sending ACK   ~n",[MyName]),
 {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
 %%  send an ACK to mainserver that the CSV file is ready
@@ -354,7 +357,9 @@ http_request(RouterHost,RouterPort,"clientReady",MyName).
 
 
 
+
 getShortPath(From,To,NerlnetGraph) when is_atom(To)-> 
+
   First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,atom_to_list(To))),
 
 {_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
@@ -364,6 +369,7 @@ getShortPath(From,To,NerlnetGraph) ->
 First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
 {_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
 {Host,Port}.
+
 %%This encoder receives a lists of lists: [[1.0,1.1,11.2],[2.0,2.1,22.2]] and returns a binary
 encodeListOfLists(L)->encodeListOfLists(L,[]).
 encodeListOfLists([],Ret)->term_to_binary(Ret);
