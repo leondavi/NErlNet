@@ -15,15 +15,20 @@ multiProcQueue = multiprocessing.Queue() # Create instance of queue
 
 lossMaps = []
 
-
+ARCHITECTURE_INDEX = 4
+GRAPH_INDEX = 5
 # Get the components of the current system:
-jsonPathLocation = '../jsonPath'
+
+E_TRAINING = 0
+E_PREDICTION = 1
+
+jsonPathLocation = '/home/david/workspace/NErlNet/jsonPath'
 jsonPath = open(jsonPathLocation)
 content = jsonPath.readlines()
 componentsPath = content[4][:-1]
 components = NetworkComponents(componentsPath)
 # Get the topology of the current system:
-expFlowPath = content[5]
+expFlowPath = content[ARCHITECTURE_INDEX].replace('\n','')
 file = open(expFlowPath)
 expFlow = json.load(file)
 
