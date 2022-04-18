@@ -27,14 +27,16 @@ class Transmitter:
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
         
-
-    def updateCSV(self, currentPhase, sourceName): # currentPhase is either "Training", "Prediction" or "Statistics". 
+    def updateCSV(self, currentPhase : int, sourceName): # currentPhase is either "Training", "Prediction" or "Statistics". 
         print('Update CSV Phase')
 
         # Compose the correct string to send as data to the Main Server:
         workersUnderSourceList = globe.expFlow[currentPhase][sourceName]
         workersUnderSourceStr = ",".join(workersUnderSourceList)
-        dataStr = '{},{},RunOrWalkTrain_splitted'.format(sourceName, workersUnderSourceStr) #Python's string format, {} are swapped by the variables in the brackets respectively.
+        if currentPhase == "Training":
+            dataStr = '{},{},heart2020Edit_train_splitted'.format(sourceName, workersUnderSourceStr) #Python's string format, {} are swapped by the variables in the brackets respectively.
+        elif currentPhase == "Prediction":
+            dataStr = '{},{},heart2020Edit_predict_splitted'.format(sourceName, workersUnderSourceStr) #Python's string format, {} are swapped by the variables in the brackets respectively.
 
         response = requests.post(self.updateCSVAddress, data=dataStr)
 
