@@ -7,6 +7,7 @@
 #include "CustumNN.h"
 #include <map>
 #include <chrono>
+
 using namespace std::chrono;
 
 #include "../opennn/opennn/opennn.h"
@@ -33,9 +34,10 @@ struct PredictNN {
     ErlNifTid tid;
 };
 
-/*
-static void* Predict_fun(void* arg){ 
-         PredictNN* PredictNNptr = (PredictNN*)arg;
+
+static void* PredictFun(void* arg){ 
+         //PredictNN* PredictNNptr = (PredictNN*)arg;
+         PredictNN* PredictNNptr = reinterpret_cast<PredictNN*>(arg);
          ErlNifEnv *env = enif_alloc_env();    
          opennnBridgeController *s = s->GetInstance();
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(PredictNNptr->mid);
@@ -45,37 +47,36 @@ static void* Predict_fun(void* arg){
              printf("enif_send succeed prediction\n");
           }
          else printf("enif_send failed\n");
-         delete PredictNNptr;
+         //delete PredictNNptr;
          return 0;
 }
-*/
+
 
 static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
          std::shared_ptr<PredictNN> PredictNNptr = std::make_shared<PredictNN>();
-         long int mid;
-         Eigen::Tensor<float,2> data;
+         //long int mid;
+         //Eigen::Tensor<float,2> data;
          ErlNifPid pid;
          
          enif_self(env, &pid);
          PredictNNptr->pid = pid;
 
-         opennnBridgeController *s = s->GetInstance();
+         //opennnBridgeController *s = s->GetInstance();
         
          
          nifpp::get_throws(env, argv[0], PredictNNptr->mid); // get model id
          nifpp::getTensor2D(env,argv[1], PredictNNptr->data); // get data for prediction
          //get neural network from singelton         
-         std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(mid); 
-         cout << neural_network->get_layers_number() <<std::endl;
-         Tensor< float, 2 > calculate_outputs =  neural_network->calculate_outputs(data);
+         //std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(mid); 
+         //Tensor< float, 2 > calculate_outputs =  neural_network->calculate_outputs(data);
         
-         ERL_NIF_TERM prediction = nifpp::makeTensor2D(env, calculate_outputs);
+         //ERL_NIF_TERM prediction = nifpp::makeTensor2D(env, calculate_outputs);
           
-         if(enif_send(NULL,&(pid), env,prediction)){
-             printf("enif_send succeed prediction\n");
-         }
-         else printf("enif_send failed\n");
-         //int res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), trainFun, PredictNNptr, 0);
+         //if(enif_send(NULL,&(pid), env,prediction)){
+         //    printf("enif_send succeed prediction\n");
+         //}
+         //else printf("enif_send failed\n");
+         int res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFun, PredictNNptr.get(), 0);
          
          return enif_make_string(env, "end PREDICT mode", ERL_NIF_LATIN1);
 
@@ -101,9 +102,7 @@ static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          nifpp::get_throws(env, argv[1],TrainNNptr->optimization_method);
          nifpp::get_throws(env, argv[2],TrainNNptr->lose_method);
          nifpp::get_throws(env, argv[3],TrainNNptr->learning_rate);
-         std::cout << "aaaaaaaaaaaa" << std::endl;
          nifpp::getTensor2D(env,argv[4],TrainNNptr->data);
-         std::cout << "bbbbb" << std::endl;
          //nifpp::get_throws(env, argv[5],TrainNNptr->display);
          
          ErlNifPid pid;
@@ -118,13 +117,6 @@ static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          
          int res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, TrainNNptr.get(), 0);
         
-         
-         
-         // Stop the timer and calculate the time took for training
-         //high_resolution_clock::time_point  stop = high_resolution_clock::now();
-         //auto duration = duration_cast<microseconds>(stop - start);
-         
-         //return train_time;
 
          return enif_make_string(env, "end comunication", ERL_NIF_LATIN1);
 

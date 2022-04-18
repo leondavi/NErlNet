@@ -27,7 +27,8 @@ struct TrainNN {
  
 static void* trainFun(void* arg){ 
        
-         TrainNN* TrainNNptr = (TrainNN*)arg;
+         //TrainNN* TrainNNptr = (TrainNN*)arg;
+         TrainNN* TrainNNptr = reinterpret_cast<TrainNN*>(arg);
          double loss_val;
          ErlNifEnv *env = enif_alloc_env();         
          DataSet data_set;
@@ -191,7 +192,7 @@ static void* trainFun(void* arg){
              printf("enif_send train succeed\n");
          }
          else printf("enif_send failed\n");
-         delete TrainNNptr;
+         //delete TrainNNptr;
          return 0;
          //return enif_make_string(env, "end TRAIN mode", ERL_NIF_LATIN1);
 }
