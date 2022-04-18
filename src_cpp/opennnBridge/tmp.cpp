@@ -1,6 +1,6 @@
 
 
-#include "niftest.h" 
+#include "openNNnif.h" 
 #include "nifppEigenExtensions.h"
 /*#include <vector>
 #include "opennn.h"

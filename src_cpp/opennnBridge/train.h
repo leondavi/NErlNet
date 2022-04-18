@@ -9,6 +9,8 @@
 
 #include "definitionsNN.h"
 
+#define TRAINING_STRATEGY_SET_DISPLAY_ON   1
+#define TRAINING_STRATEGY_SET_DISPLAY_OFF  0
 
 using namespace OpenNN;             
 
@@ -145,7 +147,7 @@ static void* trainFun(void* arg){
          TestingAnalysis testing_analysis(&*neural_network, &data_set);
          
          training_strategy.set_maximum_epochs_number(1); 
-         training_strategy.set_display(0);
+         training_strategy.set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF);
          //training_strategy.set_display(TrainNNptr->display);
      
         try{   

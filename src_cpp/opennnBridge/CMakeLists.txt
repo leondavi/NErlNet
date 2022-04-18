@@ -27,7 +27,7 @@ set(SRC_CODE
 	"helpFunc.h"
 	"train.h"
 	"CustumNN.h"
-	"niftest.h"
+	"openNNnif.h"
     "ModelParams.h"	
 	"ModelParams.cpp"
 	"definitionsNN.h"

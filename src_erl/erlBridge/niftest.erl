@@ -83,7 +83,7 @@ call_to_predict(ModelID, Data, WorkerPid)->
       receive
             Ret->
 
-            io:format("Ret222= ~p~n Worker Pid: ~p ",[Ret,WorkerPid]),
+            io:format("predict res = ~p~n Worker Pid: ~p ",[Ret,WorkerPid]),
 
             gen_statem:cast(WorkerPid,{predictRes,Ret}) 
       end.
