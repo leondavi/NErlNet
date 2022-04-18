@@ -27,6 +27,7 @@ class Transmitter:
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
         
+
     def updateCSV(self, currentPhase, sourceName): # currentPhase is either "Training", "Prediction" or "Statistics". 
         print('Update CSV Phase')
 
@@ -36,15 +37,18 @@ class Transmitter:
         dataStr = '{},{},RunOrWalkTrain_splitted'.format(sourceName, workersUnderSourceStr) #Python's string format, {} are swapped by the variables in the brackets respectively.
 
         response = requests.post(self.updateCSVAddress, data=dataStr)
+
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
 
     def startCasting(self):
         print('Start Casting Phase')
 
+
         dataStr = "{},{}".format(globe.components.toString('s'), globe.components.batchSize) #Python's string format, {} are swapped by the variables in the brackets respectively.
 
         response = requests.post(self.startCastingAddress, data=dataStr)
+
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
 

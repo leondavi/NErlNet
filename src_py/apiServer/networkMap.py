@@ -7,6 +7,7 @@ class NetworkMap():
         file = open(path)
         self.jsonData = json.load(file)
 
+
         # Getting the desired batch size:
         self.batchSize = int(self.jsonData['NerlNetSettings'][0]['batchSize'])
 
@@ -72,7 +73,11 @@ s - sources\n \
 r - routers')
 
 if __name__ == "__main__":
+
+    # path = 'map.json'
+
     path = '1s1wMap.json'
+
     map = NetworkMap(path)
     map.printMap()
     print(map.toString('s'))
