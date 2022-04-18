@@ -13,47 +13,27 @@
 -define(BUILD_TYPE,"release").
 -endif. 
 
--define(THIS_FILE_PATH_RELATIVE_TO_PROJECT_ROOT,"src_erl"). % if this file moves to inner place than update this define
+-define(NERLNET_DIR_STR,"NErlNet").
 -on_load(init/0).
 
+index_of(Item, List) -> index_of(Item, List, 1).
+index_of(_, [], _)  -> not_found;
+index_of(Item, [Item|_], Index) -> Index;
+index_of(Item, [_|Tl], Index) -> index_of(Item, Tl, Index+1).
+
 init() ->
-       %io:format("loading niff init()~n",[]),
-       {_,CWD} = file:get_cwd(), 
-       %io:format("CWD~p~n",[CWD]),
-       CWD_UPPER_DIR = re:replace(CWD,"/"++?THIS_FILE_PATH_RELATIVE_TO_PROJECT_ROOT,"",[{return,list}]),
-       %io:format("CWD_UPPER_DIR~p~n",[CWD_UPPER_DIR]),
-      
+       io:format("loading niff init()~n",[]),
+       {_,CWD} = file:get_cwd(),
+       SeparatedList = re:split(CWD,"/"),
+       SeparatedSubList = lists:sublist(SeparatedList,index_of(?NERLNET_DIR_STR,SeparatedList)),
+       NerlnetDir = lists:flatten(SeparatedSubList),
+       io:format("Nerlnet absolute Path~p~n",[NerlnetDir]),
    
-       %%FULL_PATH = CWD_UPPER_DIR++"/build/"++?BUILD_TYPE++"/libnerlnet",
+      FULL_PATH = NerlnetDir++"/build/"++?BUILD_TYPE++"/libnerlnet",
 
-   %  Full path
-      %  FULL_PATH = "/home/evgeny/work_test/NErlNet/build/release/libnerlnet",
-
-
-   % TODO TODO return to relative parh brfor commit to master. 
-      FULL_PATH = "../../../build/"++?BUILD_TYPE++"/libnerlnet",
-      % io:format("~p~n",[CWD_UPPER_DIR]),
       RES = erlang:load_nif(FULL_PATH, 0),
       io:format("load nif results: ~p",[RES]),
       ok.
-      % io:format("hello"),
-      %hello("hello").
-      %erlang:hello().
-      % erlang:nif_error("NIF library not loaded").
-
-%hello(Integer ) when is_integer(Integer) ->
-%      exit(nif_library_not_loaded).
-
-%
-%
-
-
-generateNormalDistributionList(Mean,Variance,SampleLength) ->
-      NewNormalDistributionList = [rand:normal(Mean,Variance) || _X <- lists:seq(1,round(SampleLength))], NewNormalDistributionList. 
-
-generateNormalDistributionSamples(0,_Mean,_Variance,_SampleLength,_ListOfSamples) -> _ListOfSamples;
-generateNormalDistributionSamples(N,Mean,Variance,SampleLength,ListOfSamples) -> generateNormalDistributionSamples(N-1,Mean,Variance,SampleLength,ListOfSamples ++ generateNormalDistributionList(Mean,Variance,SampleLength)).
-
 
 
 % ModelID - Unique ID of the neural network model 
