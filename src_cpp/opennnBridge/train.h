@@ -19,7 +19,7 @@ struct TrainNN {
     int optimization_method;
     int lose_method;
     double learning_rate;
-    Eigen::Tensor<float,2> data;
+    std::shared_ptr<Eigen::Tensor<float,2>> data;
     high_resolution_clock::time_point start_time;
     int display;
 
@@ -46,18 +46,18 @@ static void* trainFun(void* arg){
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(TrainNNptr->mid);
 
          int first_layer_size = neural_network->get_layers_neurons_numbers()(0);
-         int data_num_of_coloms = TrainNNptr->data.dimension(1);
+         int data_num_of_coloms = TrainNNptr->data->dimension(1);
          //std::cout<< first_layer_size <<std::endl;
          //std::cout<< data_num_of_coloms <<std::endl;
 
          // check if the neural network is outoencider 
          if (first_layer_size == data_num_of_coloms){
             Eigen::array<int, 2> bcast({1, 2});
-            Eigen::Tensor<float, 2> outoencider_data = TrainNNptr->data.broadcast(bcast);     
-            data_set.set_data(outoencider_data);
-            data_set.set(outoencider_data.dimension(1),data_num_of_coloms,data_num_of_coloms);
+            Eigen::Tensor<float, 2> autoencoder_data = TrainNNptr->data->broadcast(bcast);     
+            data_set.set_data(autoencoder_data);
+            data_set.set(autoencoder_data.dimension(1),data_num_of_coloms,data_num_of_coloms);
          }
-         else data_set.set_data(TrainNNptr->data);
+         else data_set.set_data(*(TrainNNptr->data));
 
 
          
