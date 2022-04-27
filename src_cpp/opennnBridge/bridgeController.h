@@ -10,15 +10,19 @@
 
 #endif //BUILDSCRIPT_PY_BRIDGECONTROLLER_H
 
+constexpr int BRIDGE_CONTROL_OPENN_NEURAL_NETWORK_TYPE = 0;
+
 std::mutex mutex_;
 // Neural network manager singleton
 class opennnBridgeController {
+
 private:
     static opennnBridgeController *instance;
 protected: // Enabling use of the clause only in other classes
     ~opennnBridgeController() {}
     std::unordered_map<unsigned long, std::shared_ptr<OpenNN::NeuralNetwork>> _MidNumModel; // <Mid,Model struct> Dictionary: choosing a model with  model id key
                                                                                   // SANN::Model to OpenNN::NeuralNetwork
+    std::unordered_map<unsigned long, int> _MidNumModelType;
     opennnBridgeController(){}
 
 public:
@@ -39,13 +43,20 @@ public:
         return this->_MidNumModel[mid]; //this=opennnBridgeController, go to the selected model's id.
     }
 
+    int getModelType(unsigned long mid)
+    {
+        return this->_MidNumModelType[mid];
+    }
+
     // Insert new record to the MidNumModel map (new model ptr)
-    void setData(std::shared_ptr<OpenNN::NeuralNetwork> modelPtr, unsigned long modelId) {
+    void setData(std::shared_ptr<OpenNN::NeuralNetwork> modelPtr, unsigned long modelId, int modelType = BRIDGE_CONTROL_OPENN_NEURAL_NETWORK_TYPE) {
         this -> _MidNumModel.insert({ modelId, modelPtr }); //Initialize the new data, acording to the selected model id, and its pointer.
+        this -> _MidNumModelType.insert({ modelId, modelType });
     }
 
     void deleteModel(unsigned long mid){
         this->_MidNumModel.erase(mid); // TODO: Check for memmory leaks
+        this -> _MidNumModelType.erase(mid);
     }
 };
 

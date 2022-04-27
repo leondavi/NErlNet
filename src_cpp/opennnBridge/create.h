@@ -19,7 +19,7 @@
 #include "ModelParams.h"
 #include "nifppEigenExtensions.h"
 #include "choose_activation_function.h"
-//#include "CustumNN.h"
+#include "CustumNN.h"
 #include <map>
 #include "../opennn/opennn/opennn.h"
 
@@ -49,9 +49,9 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     int modelType;
     int scaling_method;
     //int optimization_method;
-    nifpp::Tensor1D<Index> layer_types;
-    nifpp::Tensor1D<Index> neural_network_architecture;
-    nifpp::Tensor1D<Index> activations_functions;
+    std::shared_ptr<nifpp::Tensor1D<Index>> layer_types;
+    std::shared_ptr<nifpp::Tensor1D<Index>> neural_network_architecture;
+    std::shared_ptr<nifpp::Tensor1D<Index>> activations_functions;
     
    
 
@@ -79,18 +79,19 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          // creat neural network . typy + layers number and size. -------------------------------------------------------------
         
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = std::make_shared<OpenNN::NeuralNetwork>();
+        
         try{
        
          if (modelType == E_APPROXIMATION){     
-             neural_network->set(NeuralNetwork::Approximation,neural_network_architecture);     
+             neural_network->set(NeuralNetwork::Approximation,*neural_network_architecture);     
                    
          }                                                           
          else if(modelType == E_CLASSIFICATION){     
-             neural_network->set(NeuralNetwork::Classification,neural_network_architecture); 
+             neural_network->set(NeuralNetwork::Classification,*neural_network_architecture); 
              
          }                                                           
          else if(modelType == E_FORECASTING){   
-             neural_network->set(NeuralNetwork::Forecasting,neural_network_architecture);      
+             neural_network->set(NeuralNetwork::Forecasting,*neural_network_architecture);      
                
          }
 
@@ -99,58 +100,16 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
                
          }
 
-         else if(modelType == E_CUSTOMNN){ 
+         else if(modelType == E_CUSTOMNN)
+         { 
+             shared_ptr<CustumNN> customNNPtr = std::make_shared<CustumNN>();
+             neural_network = customNNPtr;
              
+             customNNPtr->setCustumNN(neural_network_architecture, layer_types, activations_functions); 
              std::cout << "start CustumNN" << std::endl; 
              //CustumNN custumNN;
              
-             //  create neural networl layers
-             for(int i = 0 ; i < neural_network_architecture.size() ; i++){
 
-                 if (layer_types[i] == E_LAYER_TYPE_SCALING){
-                     OpenNN::ScalingLayer* L = new ScalingLayer(); 
-                     //std::shared_ptr<OpenNN::ScalingLayer> L(new OpenNN::ScalingLayer()); //not work
-                     L->set(neural_network_architecture[i]);
-                     neural_network->add_layer(L); 
-                 }
-
-                 if (layer_types[i] == E_LAYER_TYPE_PERCEPTRON){
-                     OpenNN::PerceptronLayer* L = new PerceptronLayer(neural_network_architecture[i-1],neural_network_architecture[i]);
-                     neural_network->add_layer(L); 
-                 }
-
-                 /* //TODO understent how ConvolutionalLayer work.
-                 if (layer_types[i] == E_LAYER_TYPE_CONVOLUTIONAL){
-                     Tensor<Index, 1> new_inputs_dimensions(4);
-                     Tensor<Index, 1> new_kernels_dimensions(4);
-
-                     OpenNN::ConvolutionalLayer* L = new ConvolutionalLayer(neural_network_architecture[i-1],neural_network_architecture[i]);
-                     neural_network->add_layer(L); 
-                 }
-                 */
-
-                    //TODO understent how LongShortTermMemoryLayer work.
-                 if (layer_types[i] == E_LAYER_TYPE_LSTM){
-                     OpenNN::LongShortTermMemoryLayer* L = new LongShortTermMemoryLayer(neural_network_architecture[i-1],neural_network_architecture[i]);
-                     neural_network->add_layer(L); 
-                 }
-                    //TODO understent how RecurrentLayer work.
-                 if (layer_types[i] == E_LAYER_TYPE_RECURRENT){
-                     OpenNN::RecurrentLayer* L = new RecurrentLayer(neural_network_architecture[i-1],neural_network_architecture[i]);
-                     neural_network->add_layer(L); 
-                 }
-
-                 if (layer_types[i] == E_LAYER_TYPE_PROBABILISTIC){
-                     OpenNN::ProbabilisticLayer* L = new ProbabilisticLayer(neural_network_architecture[i-1],neural_network_architecture[i]);
-                     neural_network->add_layer(L); 
-                 }
-
-
-
-                 std::cout << neural_network->get_layers_number() << std::endl; 
-                 std::cout << "end CustumNN" << std::endl; 
-                 
-             }
              
          } //CUSTOMNN
         } //try
@@ -202,7 +161,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          
         // set activation functions for trainable layers -------------------------------------------------------------------
         try{ 
-         chooseActivationFunction(neural_network , activations_functions);
+             chooseActivationFunction(neural_network , activations_functions); //TODO move to custom NN
         }
 
         catch(...){

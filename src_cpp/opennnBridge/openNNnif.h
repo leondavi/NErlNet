@@ -15,7 +15,6 @@ using namespace std::chrono;
 #include "create.h"
 #include "train.h"
 #include "get_set_weights.h"
-#include "helpFunc.h"
 
 #include "nifppEigenExtensions.h"
 
@@ -29,7 +28,7 @@ using namespace OpenNN;
 struct PredictNN {
 
     long int mid;
-    Eigen::Tensor<float,2> data;
+    std::shared_ptr<Eigen::Tensor<float,2>> data;
     ErlNifPid pid;
     ErlNifTid tid;
 };
@@ -41,7 +40,7 @@ static void* PredictFun(void* arg){
          ErlNifEnv *env = enif_alloc_env();    
          opennnBridgeController *s = s->GetInstance();
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(PredictNNptr->mid);
-         Tensor< float, 2 > calculate_outputs =  neural_network->calculate_outputs(PredictNNptr->data);
+         Tensor< float, 2 > calculate_outputs =  neural_network->calculate_outputs(*(PredictNNptr->data));
          ERL_NIF_TERM prediction = nifpp::makeTensor2D(env, calculate_outputs);
          if(enif_send(NULL,&(PredictNNptr->pid), env,prediction)){
              printf("enif_send succeed prediction\n");
@@ -133,7 +132,7 @@ static ErlNifFunc nif_funcs[] =
     //{"train_nif", 4 , train_nif},
     {"trainn_nif", 5 , trainn_nif},
     {"predict_nif", 2 , predict_nif},
-    {"printTensor",2, printTensor},
+    //{"printTensor",2, printTensor},
     {"get_weights_nif",1, get_weights_nif}
    // {"jello", 1, jello}
 };
