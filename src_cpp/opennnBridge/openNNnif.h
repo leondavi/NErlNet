@@ -116,10 +116,9 @@ static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         }       
          
          int res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, TrainNNptr.get(), 0);
-        
 
          return enif_make_string(env, "end comunication", ERL_NIF_LATIN1);
-
+        
 
 }  //end trainn_nif
 
