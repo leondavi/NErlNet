@@ -248,7 +248,7 @@ train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = Mo
   % ^^^^^^^^^^^^^^^^^^
   %ModelID = 586000901,
   % OptimizationMethod = 1,
-  io:format("~p~n",[SampleListTrain]),
+  %io:format("~p~n",[SampleListTrain]),
   %RandomGeneratedData1 = [[rand:normal(0,0.5)||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,5)],
   %RandomGeneratedData2 = [[rand:normal(1,0.5)||_<-lists:seq(1,128)] ++[1.0]||_<-lists:seq(1,5)],
   RandomGeneratedData1 = [[rand:normal(0,1)||_<-lists:seq(1,128)] ||_<-lists:seq(1,5)],
