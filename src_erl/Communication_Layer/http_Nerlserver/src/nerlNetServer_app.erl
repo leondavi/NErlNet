@@ -21,6 +21,7 @@
 
 -export([start/2, stop/1]).
 
+-define(NERLNET_INIT_PORT,8484).
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
 %% ***  exit rebar3 shell: ctrl+g ->q
@@ -43,19 +44,48 @@
 
 
 start(_StartType, _StartArgs) ->
-     %HostName = getHostName(),
+     HostName = getHostName(),
      %HostName = "127.0.0.1",
-     HostName = "127.0.0.1",
+     %HostName = "127.0.0.1",
      io:format("My HostName: ~p~n",[HostName]),
 
-    %%Server that should be established on thi  s machine from JSON architecture:
-    % {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities("./input/jsonArch1PC2Workers.json",list_to_binary(HostName)),
-    %%    get json path from jsonPath file in main NErlNet directory
-    {ok, InputJSON} = file:read_file("../../../jsonPath"),%%TODO change to File_Address
+    %Create a listener that waits for a message from python about the adresses of the wanted json
+    createNerlnetInitiator(HostName),
+    receive 
+        {jsonAddress,MSG} -> JsonPath = MSG
+        after 10000 -> JsonPath = "../../../jsonPath"   %%TODO REMOVE after finished integrating with python!!! TODOTODO TODO 
+    end,
+
+    %Parse json and start nerlnet:
+     {ok, InputJSON} = file:read_file(JsonPath),%%TODO change to File_Address
     Listed = binary_to_list(InputJSON),
     %ArchitectureAdderess, CommunicationMapAdderess are the paths for the json architecture file, where THIS machine can find its own entities by IP
     [ArchitectureAdderess,CommunicationMapAdderess|_] =  re:split(Listed,"\n",[{return,list}]),
      io:format("ArchitectureAdderess: ~p~n CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
+
+
+    parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess),
+    nerlNetServer_sup:start_link().
+
+
+createNerlnetInitiator(HostName) ->
+    Port = ?NERLNET_INIT_PORT,
+    NerlnetInitiatorDispatch = cowboy_router:compile([
+        {'_', [
+
+            {"/updateJsonPath",jsonHandler, [self()]},
+            {"/isNerlnetDevice",iotHandler, [self()]}
+        ]}
+    ]),
+    %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
+    %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
+    init_cowboy_start_clear(nerlnetInitiator, {HostName,Port},NerlnetInitiatorDispatch).
+
+parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess) ->
+    %%Server that should be established on thi  s machine from JSON architecture:
+    % {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities("./input/jsonArch1PC2Workers.json",list_to_binary(HostName)),
+    %%    get json path from jsonPath file in main NErlNet directory
+    
 
     %%Server that should be established on this machine from JSON architecture:
     {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)),
@@ -81,14 +111,12 @@ start(_StartType, _StartArgs) ->
     createMainServer(MainServer,ChunkSize,HostName),
     createRouters(Routers,HostName),
     createSources(Sources,WorkersMap, ChunkSize, Frequency, HostName),
-    createFederatedServer(Federateds,WorkersMap, HostName),
+    createFederatedServer(Federateds,WorkersMap, HostName).
 %%    Worker1Args = {[3,2,1],0.01,[0,2,0],6,0,3,1,ChunkSize},
 %%    Worker1Args = {[561,280,140,70,35,17,8,4,2,1],0.01,[0,2,2,2,2,2,2,2,2,0],6,0,561,1,ChunkSize},
 %%    Worker2Args = {[3,2,1],0.01,[0,2,0],6,1,3,1,ChunkSize},
 %%    Worker2Args = {[561,280,140,70,35,17,8,4,2,1],0.01,[0,2,2,2,2,2,2,2,2,0],6,1,561,1,ChunkSize},
 
-%%    start supervisor
-    nerlNetServer_sup:start_link().
 
 
 %% internal functions
