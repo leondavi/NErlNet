@@ -55,9 +55,9 @@ prerequisite:
    ```sudo apt update```<br>
    ```sudo apt install erlang```<br>
    ```sudo apt-get install build-essential```<br>
-   Latest Erlang version Debian: 
-   ```wget https://packages.erlang-solutions.com/erlang/debian/pool/esl-erlang_24.2.1-1~debian~buster_amd64.deb```
-   ```apt install ./esl-erlang_24.2.1-1~debian~buster_amd64.deb```
+   Latest Erlang version Debian: <br>
+   ```wget https://packages.erlang-solutions.com/erlang/debian/pool/esl-erlang_24.2.1-1~debian~buster_amd64.deb```<br>
+   ```apt install ./esl-erlang_24.2.1-1~debian~buster_amd64.deb```<br>
 3. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo>```
 4. Install CMake minimal supported version 3.18: ```sudo apt install cmake```
 
