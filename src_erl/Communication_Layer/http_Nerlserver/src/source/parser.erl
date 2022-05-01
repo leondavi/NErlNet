@@ -28,7 +28,7 @@ parse(ChunkSize,FolderName)->
 
 
 parse_all(ChunkSize,FolderName,Counter,Ret)->
-  try   parse_file(ChunkSize,"../../../inputDataFiles/"++FolderName++"/"++integer_to_list(Counter)++".csv") of
+  try   parse_file(ChunkSize,"../../../inputDataDir/"++FolderName++"/"++integer_to_list(Counter)++".csv") of
     L ->
       parse_all(ChunkSize,FolderName,Counter+1,Ret++L)
   catch
