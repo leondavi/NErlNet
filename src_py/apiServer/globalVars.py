@@ -22,7 +22,7 @@ GRAPH_INDEX = 5
 E_TRAINING = 0
 E_PREDICTION = 1
 
-jsonPathLocation = '/home/david/workspace/NErlNet/jsonPath'
+jsonPathLocation = 'NErlNet/jsonPath'
 jsonPath = open(jsonPathLocation)
 content = jsonPath.readlines()
 componentsPath = content[4][:-1]
