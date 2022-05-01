@@ -18,8 +18,9 @@
 #include "support.h"
 #include "ModelParams.h"
 #include "nifppEigenExtensions.h"
-#include "choose_activation_function.h"
+#include "openNNExtensionFunction.h"
 #include "CustumNN.h"
+#include "Autoencoder.h"
 #include <map>
 #include "../opennn/opennn/opennn.h"
 
@@ -64,14 +65,15 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          nifpp::getTensor1D(env,argv[3],layer_types); 
          nifpp::getTensor1D(env,argv[4],neural_network_architecture);
          nifpp::getTensor1D(env,argv[5],activations_functions);
-         
+        
                   
         }   
      
         catch(...){
            return enif_make_string(env, "catch - get data from erlang", ERL_NIF_LATIN1);
             //return enif_make_badarg(env);
-        }              
+        } 
+                    
         //--------------------------------------------------------------------------------------------------------------
          
 
@@ -79,16 +81,16 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          // creat neural network . typy + layers number and size. -------------------------------------------------------------
         
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = std::make_shared<OpenNN::NeuralNetwork>();
-        
+         
         try{
-       
+             
          if (modelType == E_APPROXIMATION){     
              neural_network->set(NeuralNetwork::Approximation,*neural_network_architecture);     
                    
          }                                                           
          else if(modelType == E_CLASSIFICATION){     
              neural_network->set(NeuralNetwork::Classification,*neural_network_architecture); 
-             
+          
          }                                                           
          else if(modelType == E_FORECASTING){   
              neural_network->set(NeuralNetwork::Forecasting,*neural_network_architecture);      
@@ -100,15 +102,26 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
                
          }
 
-         else if(modelType == E_CUSTOMNN || E_AE || E_AEC)
+         else if(modelType == E_CUSTOMNN )
          { 
+             
              shared_ptr<CustumNN> customNNPtr = std::make_shared<CustumNN>();
              neural_network = customNNPtr;
-             
              customNNPtr->setCustumNN(neural_network_architecture, layer_types, activations_functions); 
              //std::cout << "start CustumNN" << std::endl; 
              
          } //CUSTOMNN
+
+         else if(modelType ==  E_AE || E_AEC)
+         { 
+             
+             shared_ptr<Autoencoder> autoencoderPtr = std::make_shared<Autoencoder>();
+             neural_network = autoencoderPtr;
+             autoencoderPtr->setCustumNN(neural_network_architecture, layer_types, activations_functions); 
+             //std::cout << "start CustumNN" << std::endl; 
+             
+         } //CUSTOMNN
+       
         } //try
 
         catch(...){
@@ -116,7 +129,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         } 
 
          
-
+        
          
         
         try{ 
@@ -184,7 +197,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         catch(...){
            return enif_make_string(env, "catch - singelton part", ERL_NIF_LATIN1);
         } 
-          
+ 
          return enif_make_string(env, "end create mode", ERL_NIF_LATIN1);
          //-------------------------------------------------------------------------------------------------------------   
                                                               

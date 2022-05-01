@@ -28,7 +28,7 @@ struct TrainNN {
 };
  
 static void* trainFun(void* arg){ 
-       
+  
          //TrainNN* TrainNNptr = (TrainNN*)arg;
          TrainNN* TrainNNptr = reinterpret_cast<TrainNN*>(arg);
          double loss_val;
@@ -47,19 +47,24 @@ static void* trainFun(void* arg){
          int modelType = s->getModelType(TrainNNptr->mid);
 
          int first_layer_size = neural_network->get_layers_neurons_numbers()(0);
-         int data_num_of_coloms = TrainNNptr->data->dimension(1);
-        
+         int data_num_of_cols = TrainNNptr->data->dimension(1);
 
+         //CustumNN *cc;
+         //cc = dynamic_cast<CustumNN*>(neural_network.get());
          // check if the neural network is outoencider 
          if (modelType == E_AE || modelType == E_AEC){
+            std::shared_ptr<Autoencoder> nn = std::static_pointer_cast<Autoencoder>(neural_network);
             Eigen::array<int, 2> bcast({1, 2});
-            Eigen::Tensor<float, 2> autoencoder_data = TrainNNptr->data->broadcast(bcast);     
-            data_set.set_data(autoencoder_data);
-            data_set.set(autoencoder_data.dimension(1),data_num_of_coloms,data_num_of_coloms);
+            std::shared_ptr<Eigen::Tensor<float, 2>> autoencoder_data;// = TrainNNptr->data->broadcast(bcast); 
+            nn->prepare_data(autoencoder_data,TrainNNptr->data);    
+            data_set.set_data(*autoencoder_data);
+            data_set.set(autoencoder_data->dimension(1),data_num_of_cols,data_num_of_cols);
          }
+      
+         
          else data_set.set_data(*(TrainNNptr->data));
 
-         
+       
          
         
          
@@ -149,14 +154,14 @@ static void* trainFun(void* arg){
          training_strategy.set_maximum_epochs_number(1); 
          training_strategy.set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF);
          //training_strategy.set_display(TrainNNptr->display);
-     
+         cout << "cccccccccc " <<std::endl;  
         try{   
          training_strategy.perform_training();
         }
         catch(...){
            cout << "catch - do training" <<std::endl;
         }  
-     
+        cout << "dddddddddd " <<std::endl;  
         try{ 
          Tensor<type, 1> confusion_matrix = testing_analysis.calculate_testing_errors();
          //sse - confusion_matrix[0]
@@ -188,7 +193,7 @@ static void* trainFun(void* arg){
         
          //ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 2, loss_val_term,enif_make_double(env, duration.count()));
          ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 2, loss_val_term,train_time);
-              
+            
          
          if(enif_send(NULL,&(TrainNNptr->pid), env,loss_val_term)){
              printf("enif_send train succeed\n");
