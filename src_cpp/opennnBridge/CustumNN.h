@@ -5,7 +5,6 @@
 #include "definitionsNN.h"
 
 using Tensor1DPtr = std::shared_ptr<Tensor<Index,1>>;
-
 class CustumNN : public OpenNN::NeuralNetwork
 {
 public:
@@ -22,7 +21,7 @@ public:
     
 
     void setCustumNN(Tensor1DPtr neural_network_architecture , Tensor1DPtr layer_types, 
-                          Tensor1DPtr Functions ){
+                          Tensor1DPtr activations_functions ){
         
        // this->_activationList = x;
        std::cout << "start CustumNN" << std::endl; 
@@ -60,6 +59,7 @@ public:
                  std::cout << OpenNN::NeuralNetwork::get_layers_number() << std::endl; 
                  std::cout << "end CustumNN" << std::endl; 
              }
+
 
     };
 

@@ -100,16 +100,13 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
                
          }
 
-         else if(modelType == E_CUSTOMNN)
+         else if(modelType == E_CUSTOMNN || E_AE || E_AEC)
          { 
              shared_ptr<CustumNN> customNNPtr = std::make_shared<CustumNN>();
              neural_network = customNNPtr;
              
              customNNPtr->setCustumNN(neural_network_architecture, layer_types, activations_functions); 
-             std::cout << "start CustumNN" << std::endl; 
-             //CustumNN custumNN;
-             
-
+             //std::cout << "start CustumNN" << std::endl; 
              
          } //CUSTOMNN
         } //try
@@ -175,14 +172,13 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         // singelton part ----------------------------------------------------------------------------------------------
         try{ 
          std::shared_ptr<OpenNN::NeuralNetwork> modelPtr(neural_network);
- 
          // Create the singleton instance
          opennnBridgeController *s = s->GetInstance();
 
          // Put the model record to the map with modelId
          std::cout<< "your model ID is: " <<std::endl;
          std::cout<< modelId <<std::endl;
-         s->setData(modelPtr, modelId);  
+         s->setData(modelPtr, modelId , modelType);  
         }
 
         catch(...){

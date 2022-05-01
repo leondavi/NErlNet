@@ -1,14 +1,15 @@
 #pragma once 
 
 #include "CustumNN.h"
-
+using Tensor2DPtr = std::shared_ptr<Tensor<float,2>>;
 class Autoencoder : public CustumNN
 {
     public: 
 
-    void setAutoencoder()
+    void setAutoencoder(Tensor1DPtr neural_network_architecture , Tensor1DPtr layer_types, 
+                          Tensor1DPtr activations_functions)
     {
-        this->setCustumNN();
+        this->setCustumNN(neural_network_architecture, layer_types, activations_functions);
 
         // check for AE constraints:
         // Symetric layers 
@@ -58,3 +59,17 @@ class AutoencoderClassifier : public Autoencoder
 };
 
 */
+
+int EAC_predic(Tensor2DPtr EA_input, Tensor2DPtr EA_output){
+    int EAC_prediction;
+    // TAL
+    //return EAC_prediction;
+    return 1;
+}
+
+int EAC_train(Tensor2DPtr EA_input, Tensor2DPtr EA_output ){
+    int EAC_prediction;
+    // TAL
+    //return EAC_prediction;
+    return 1;
+}
