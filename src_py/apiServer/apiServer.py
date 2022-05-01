@@ -20,6 +20,15 @@ class ApiServer():
 
         self.transmitter = Transmitter(self.mainServerAddress)
 
+    def getWorkersList(self):
+        return globe.components.toString('w')
+    
+    def getRoutersList(self):
+        return globe.components.toString('r')
+    
+    def getSourcesList(self):
+        return globe.components.toString('s')
+        
     def getTransmitter(self):
         return self.transmitter
 

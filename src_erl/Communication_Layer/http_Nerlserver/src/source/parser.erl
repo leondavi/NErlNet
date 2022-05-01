@@ -32,22 +32,23 @@ parse_all(ChunkSize,FolderName,Counter,Ret)->
     L ->
       parse_all(ChunkSize,FolderName,Counter+1,Ret++L)
   catch
-    error: _->Ret
+    error: E->io:format("#####Error at Parser: ~n~p~n",[E]),Ret
   end.
 
 %%parsing a given CSV file
 parse_file(ChunkSize,File_Address) ->
 
-%%  io:format("File_Address:~p~n~n",[File_Address]),
+    io:format("File_Address:~p~n~n",[File_Address]),
 
   {ok, Data} = file:read_file(File_Address),%%TODO change to File_Address
   Lines = re:split(Data, "\r|\n|\r\n", [{return,binary}] ),
 
+  SampleSize = length(re:split(binary_to_list(hd(Lines)), ",", [{return,list}])),
 %%  get binary lines
   ListsOfListsOfFloats = encodeListOfLists(Lines),
 
 %%chunk data
-  Chunked= makeChunks(ListsOfListsOfFloats,ChunkSize,ChunkSize,<<>>,[]),
+  Chunked= makeChunks(ListsOfListsOfFloats,ChunkSize,ChunkSize,<<>>,[],SampleSize),
 %%  io:format("Chunked!~n",[]),
 %%%%  Decoded = decodeListOfLists(Chunked ),
 %%
@@ -87,12 +88,12 @@ encodeFloatsList([H|ListOfFloats],Ret)->
 
 
 
-makeChunks(L,1,1,_,_) ->L;
-makeChunks([],_Left,_ChunkSize,Acc,Ret) ->
+makeChunks(L,1,1,_,_,_SampleSize) ->L;
+makeChunks([],_Left,_ChunkSize,Acc,Ret,_SampleSize) ->
   Ret++[Acc];
 
-makeChunks([Head|Tail],1,ChunkSize,Acc,Ret) ->
-  makeChunks(Tail,ChunkSize,ChunkSize,<<>>,Ret++[<<Acc/binary,Head/binary>>]);
+makeChunks([Head|Tail],1,ChunkSize,Acc,Ret,SampleSize) ->
+  makeChunks(Tail,ChunkSize,ChunkSize,<<>>,Ret++[<<ChunkSize:64/float,SampleSize:64/float,1:64/float,Acc/binary,Head/binary>>],SampleSize);
 
-makeChunks([Head|Tail],Left,ChunkSize,Acc,Ret) ->
-  makeChunks(Tail,Left-1,ChunkSize,<<Acc/binary,Head/binary>>,Ret).
+makeChunks([Head|Tail],Left,ChunkSize,Acc,Ret,SampleSize) ->
+  makeChunks(Tail,Left-1,ChunkSize,<<Acc/binary,Head/binary>>,Ret,SampleSize).

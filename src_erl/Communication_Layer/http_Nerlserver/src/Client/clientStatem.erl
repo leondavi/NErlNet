@@ -94,7 +94,8 @@ createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,Timin
   Features = list_to_integer(binary_to_list(maps:get(<<"features">>,Worker))),
   Labels = list_to_integer(binary_to_list(maps:get(<<"labels">>,Worker))),
   LossMethod = list_to_integer(binary_to_list(maps:get(<<"lossMethod">>,Worker))),
-  LearningRate = float(list_to_integer(binary_to_list(maps:get(<<"learningRate">>,Worker)))),
+  LearningRate = list_to_float(binary_to_list(maps:get(<<"learningRate">>,Worker))),
+  %LearningRate = list_to_float(binary_to_list(maps:get(<<"learningRate">>,Worker))),
 
   WorkerArgs = {WorkerName,ModelId,ModelType,ScalingMethod
                 , LayerTypesList, LayersSizes
@@ -284,29 +285,31 @@ predict(cast, {predictRes,WorkerName,InputName,ResultID,Result}, State = #client
     NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,NewAverage},TimingMap);
       % io:format("AverageTrainingTime: ~p~n",[NewAverage])
     true ->       NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,TotalTrainingTime},TimingMap)
-    end,  
-  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
-  Result2 = lists:flatten(io_lib:format("~w",[Result])),",",[{return,list}],
-  Result3 = lists:sublist(Result2,2,length(Result2)-2),
-  %io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
-  http_request(RouterHost,RouterPort,"predictRes", term_to_binary({InputName,ResultID,Result3})),
-  {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
+
+  end,  
+{RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+Result2 = lists:flatten(io_lib:format("~w",[Result])),",",[{return,list}],
+Result3 = lists:sublist(Result2,2,length(Result2)-2),
+%io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
+http_request(RouterHost,RouterPort,"predictRes", term_to_binary({InputName,ResultID,Result3})),
+{next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName,nerlnetGraph = NerlnetGraph,msgCounter = Counter}) ->
-  Workers = maps:to_list(WorkersMap),
-  [gen_statem:cast(WorkerPid,{training})|| {_WorkerName,WorkerPid}<-Workers],
-  ack(MyName,NerlnetGraph),
-  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+Workers = maps:to_list(WorkersMap),
+[gen_statem:cast(WorkerPid,{training})|| {_WorkerName,WorkerPid}<-Workers],
+ack(MyName,NerlnetGraph),
+{next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+
 
 predict(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
-  Workers = maps:to_list(WorkersMap),
-  [gen_statem:cast(WorkerPid,{idle})|| {_WorkerName,WorkerPid}<-Workers],
-  io:format("client going to state idle~n",[]),
-  {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
+Workers = maps:to_list(WorkersMap),
+[gen_statem:cast(WorkerPid,{idle})|| {_WorkerName,WorkerPid}<-Workers],
+io:format("client going to state idle~n",[]),
+{next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
-  io:format("client predict ignored:  ~p ~n",[EventContent]),
-  {next_state, predict, State#client_statem_state{msgCounter = Counter+1}}.
+io:format("client predict ignored:  ~p ~n",[EventContent]),
+{next_state, predict, State#client_statem_state{msgCounter = Counter+1}}.
 
 
 %% @private
@@ -314,8 +317,8 @@ predict(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) 
 %% gen_statem receives an event from call/2,  cast/2, or as a normal
 %% process message, this function is called.
 handle_event(_EventType, _EventContent, _StateName, State = #client_statem_state{}) ->
-  NextStateName = the_next_state_name,
-  {next_state, NextStateName, State}.
+NextStateName = the_next_state_name,
+{next_state, NextStateName, State}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it is about to
@@ -323,53 +326,57 @@ handle_event(_EventType, _EventContent, _StateName, State = #client_statem_state
 %% necessary cleaning up. When it returns, the gen_statem terminates with
 %% Reason. The return value is ignored.
 terminate(_Reason, _StateName, _State = #client_statem_state{}) ->
-  ok.
+ok.
 
 %% @private
 %% @doc Convert process state when code is changed
 code_change(_OldVsn, StateName, State = #client_statem_state{}, _Extra) ->
-  {ok, StateName, State}.
+{ok, StateName, State}.
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
 start_connection([])->ok;
 start_connection([{_ServerName,{Host, Port}}|Tail]) ->
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  start_connection(Tail).
+httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+start_connection(Tail).
 
 http_request(Host, Port,Path, Body)->
 %%  io:format("sending body ~p to path ~p to hostport:~p~n",[Body,Path,{Host,Port}]),
-  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
+URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
+httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
 
 
 ack(MyName, NerlnetGraph) ->
-    io:format("~p sending ACK   ~n",[MyName]),
-  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+
+  io:format("~p sending ACK   ~n",[MyName]),
+{RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
 %%  send an ACK to mainserver that the CSV file is ready
-  http_request(RouterHost,RouterPort,"clientReady",MyName).
+http_request(RouterHost,RouterPort,"clientReady",MyName).
+
 
 
 
 getShortPath(From,To,NerlnetGraph) when is_atom(To)-> 
-  	First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,atom_to_list(To))),
 
-	{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
-  {Host,Port};
+  First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,atom_to_list(To))),
+
+{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
+{Host,Port};
 
 getShortPath(From,To,NerlnetGraph) -> 
-	First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
-	{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
-  {Host,Port}.
+First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
+{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
+{Host,Port}.
+
 %%This encoder receives a lists of lists: [[1.0,1.1,11.2],[2.0,2.1,22.2]] and returns a binary
 encodeListOfLists(L)->encodeListOfLists(L,[]).
 encodeListOfLists([],Ret)->term_to_binary(Ret);
 encodeListOfLists([H|T],Ret)->encodeListOfLists(T,Ret++[encodeFloatsList(H)]).
 encodeFloatsList(ListOfFloats)->
-  ListOfBinaries = [<<X:64/float>>||X<-ListOfFloats],
-  list_to_binary(ListOfBinaries).
+ListOfBinaries = [<<X:64/float>>||X<-ListOfFloats],
+list_to_binary(ListOfBinaries).
 
 %%This decoder receives a binary <<131,108,0,0,0,2,106...>> and returns a lists of lists: [[1.0,1.1,11.2],[2.0,2.1,22.2]]
 decodeListOfLists(L)->decodeListOfLists(binary_to_term(L),[]).
