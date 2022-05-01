@@ -14,6 +14,7 @@ using namespace std::chrono;
 #include "bridgeController.h"
 #include "create.h"
 #include "train.h"
+#include "Autoencoder.h"
 #include "get_set_weights.h"
 
 #include "nifppEigenExtensions.h"
@@ -37,12 +38,27 @@ struct PredictNN {
 static void* PredictFun(void* arg){ 
          //PredictNN* PredictNNptr = (PredictNN*)arg;
          PredictNN* PredictNNptr = reinterpret_cast<PredictNN*>(arg);
+         ERL_NIF_TERM prediction;
+         int EAC_prediction; 
          ErlNifEnv *env = enif_alloc_env();    
          opennnBridgeController *s = s->GetInstance();
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(PredictNNptr->mid);
-         Tensor< float, 2 > calculate_outputs =  neural_network->calculate_outputs(*(PredictNNptr->data));
-         ERL_NIF_TERM prediction = nifpp::makeTensor2D(env, calculate_outputs);
-         if(enif_send(NULL,&(PredictNNptr->pid), env,prediction)){
+
+         //CustumNN *cc;
+         //cc = dynamic_cast<CustumNN*>(neural_network.get());
+         
+         int modelType = s->getModelType(PredictNNptr->mid); 
+         std::shared_ptr<Eigen::Tensor<float,2>> calculate_outputs = std::make_shared<Eigen::Tensor<float,2>>();
+         (*calculate_outputs) = neural_network->calculate_outputs(*(PredictNNptr->data));
+         
+         if(modelType == E_AEC){
+            EAC_prediction = EAC_predic(PredictNNptr->data, calculate_outputs);
+            prediction = enif_make_int(env, (EAC_prediction));
+         }
+         else
+            prediction = nifpp::makeTensor2D(env, (*calculate_outputs));
+
+         if(enif_send(NULL,&(PredictNNptr->pid), env, prediction)){
              printf("enif_send succeed prediction\n");
           }
          else printf("enif_send failed\n");

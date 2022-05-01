@@ -28,6 +28,7 @@ set(SRC_CODE
 	"CustumNN.h"
 	"openNNnif.h"
     "ModelParams.h"	
+	"Autoencoder.h"
 	"ModelParams.cpp"
 	"definitionsNN.h"
 	"tmp.cpp")

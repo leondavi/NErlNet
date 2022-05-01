@@ -3,7 +3,7 @@
 %<<<<<<< HEAD
 %-export([init/0,create_nif/6,train_nif/4,trainn_nif/4,call_to_train/4,predict_nif/2,call_to_predict/2,get_weights_nif/1,call_to_get_weights/1,printTensor/2]).
 
--export([init/0,create_nif/6,train_nif/5,trainn_nif/5,call_to_train/6,predict_nif/2,call_to_predict/3,get_weights_nif/1,printTensor/2]).
+-export([init/0,create_nif/6,train_nif/5,trainn_nif/5,call_to_train/6,predict_nif/2,call_to_predict/3,get_weights_nif/1]).
 -export([call_to_get_weights/1]).
 
 -define(DEBUG,false). % set here if it is debug or release  TODO change to read from hrl auto generated file
@@ -102,5 +102,5 @@ predict_nif(Integer, []) ->
 get_weights_nif(Integer) ->
       exit(nif_library_not_loaded).
 
-printTensor(List,Type) when is_list(List) -> 
-      exit(nif_library_not_loaded).
+% printTensor(List,Type) when is_list(List) -> 
+%       exit(nif_library_not_loaded).

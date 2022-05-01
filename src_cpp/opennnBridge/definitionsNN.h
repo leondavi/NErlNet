@@ -1,6 +1,6 @@
 #pragma once 
 
-enum ModuleType {E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5};
+enum ModuleType {E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7};
 
 enum ScalingMethods {E_ScalingMethods_NoScaling = 1 , E_ScalingMethods_MinimumMaximum = 2 , E_ScalingMethods_MeanStandardDeviation = 3 , E_ScalingMethods_StandardDeviation = 4 , E_ScalingMethods_Logarithm = 5};
    
