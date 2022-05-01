@@ -14,7 +14,7 @@ multiProcQueue = multiprocessing.Queue() # Create instance of queue
 lossMaps = []
 
 # Get the components of the current system:
-jsonPathLocation = '../jsonPath'
+jsonPathLocation = '/home/dor/workspace/NErlNet/jsonPath'
 jsonPath = open(jsonPathLocation)
 content = jsonPath.readlines()
 componentsPath = content[4][:-1]

@@ -15,10 +15,14 @@ class NetworkComponents():
         self.mainServerIp = mainServerJson['host']
         self.mainServerPort = mainServerJson['port']
 
-        # Getting the names of all the clients and workers:
+        # Initializing lists for all the relevant components:
         self.clients = []
         self.workers = []
+        self.federateds = []
+        self.sources = []
+        self.routers = []
 
+        # Getting the names of all the clients and workers:
         clientsJsons = self.jsonData['clients']
 
         for client in clientsJsons:
@@ -28,22 +32,16 @@ class NetworkComponents():
             self.workers.extend(subWorkers)
 
         # Getting the names of all the federated components:
-        self.federateds = []
-
         federatedsJsons = self.jsonData['federated']
         for federated in federatedsJsons:
             self.federateds.append(federated['name'])
 
         # Getting the names of all the sources:
-        self.sources = []
-
         sourcesJsons = self.jsonData['sources']
         for source in sourcesJsons:
             self.sources.append(source['name'])
 
         # Getting the names of all the routers:
-        self.routers = []
-
         routersJsons = self.jsonData['routers']
         for router in routersJsons:
             self.routers.append(router['name'])
