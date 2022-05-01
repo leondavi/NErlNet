@@ -53,9 +53,9 @@ namespace nifpp
     template<typename Type> //
     using Tensor1D = Eigen::Tensor<Type,1>; //
 
-    template<typename Type> int getTensor3D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor3D<Type>> tensor);
-    template<typename Type> int getTensor2D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor2D<Type>> tensor); //
-    template<typename Type> int getTensor1D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor1D<Type>> tensor); //
+    template<typename Type> int getTensor3D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor3D<Type>> & tensor);
+    template<typename Type> int getTensor2D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor2D<Type>> & tensor); //
+    template<typename Type> int getTensor1D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor1D<Type>> & tensor); //
     template<typename Type> TERM makeTensor(ErlNifEnv *env, const Tensor3D<Type> &tensor);
 
 
@@ -71,7 +71,7 @@ namespace nifpp
      * @param tensorPtr 
      * @return int 
      */
-    template<typename Type> int getTensor3D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor3D<Type>> tensor)   /// 3D
+    template<typename Type> int getTensor3D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor3D<Type>> & tensor)   /// 3D
     {
         unsigned len;
         Type var;
@@ -145,7 +145,7 @@ namespace nifpp
 
 
 
-    template<typename Type> int getTensor2D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor2D<Type>> tensor)   /// 3D
+    template<typename Type> int getTensor2D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor2D<Type>> & tensor)   /// 3D
     {
         unsigned len;
         Type var;
@@ -208,11 +208,13 @@ namespace nifpp
                 throw  std::runtime_error(EXCEPTION_STR_INVALID_ERL_TENSOR);
             }
         }
-
-        Eigen::array<int, 2> dimsArray{{tensorDims.x,tensorDims.y}};
+        
+        Eigen::array<int, 2> dimsArray({tensorDims.x,tensorDims.y});
         
         //std::cout<<"before rehsape"<<std::endl;
         (*newTensor).reshape(dimsArray);
+        cout << newTensor->dimension(0) << endl; 
+        cout << newTensor->dimension(1) << endl; 
         //std::cout<<"after rehsape"<<std::endl;
         //dimst = dimsArray2;
 
@@ -231,7 +233,7 @@ namespace nifpp
 
 
 
-template<typename Type> int getTensor1D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor1D<Type>> tensor) ///1D
+template<typename Type> int getTensor1D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor1D<Type>> & tensor) ///1D
     {
         unsigned len;
         Type var;
@@ -291,7 +293,6 @@ template<typename Type> int getTensor1D(ErlNifEnv *env, ERL_NIF_TERM term, std::
             }
         }
         tensor = newTensor;
-        
         //std::cout<<"tensor1D ok"<<std::endl;
 
         return 1;

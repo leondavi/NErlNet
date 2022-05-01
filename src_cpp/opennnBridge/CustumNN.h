@@ -4,11 +4,12 @@
 #include "../opennn/opennn/opennn.h"
 #include "definitionsNN.h"
 
-using Tensor1DPtr = std::shared_ptr<Tensor<Index,1>>;
+
 class CustumNN : public OpenNN::NeuralNetwork
 {
+
 public:
- 	//CustumNN() {};
+ 	//CustumNN(int modelType) : modelType(modelType) {};
  	//CustumNN(); // OpenNN::NeuralNetwork neuralNetwork , Eigen::Tensor<int,1> layersSizes, Eigen::Tensor<int,1> layersTypes,
                //Eigen::Tensor<int,1> activationFunctions);
  	
@@ -62,6 +63,7 @@ public:
 
 
     };
+
 
     // void setAcvtivationList(Eigen::Tensor<int,1>  x){this->_activationFunctions = x; };
     // void setLayersSizes(Eigen::Tensor<int,1>  x){this->_layersSizes = x; };

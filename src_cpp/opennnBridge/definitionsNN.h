@@ -22,3 +22,6 @@ enum OptimizationMethod {E_OM_GRADIENT_DESCENT = 1, E_OM_CONJUGATE_GRADIENT = 2,
                          E_OM_LEVENBERG_MARQUARDT_ALGORITHM = 4, E_OM_STOCHASTIC_GRADIENT_DESCENT = 5 , E_OM_ADAPTIVE_MOMENT_ESTIMATION = 6 /*ADAM*/};
 
 enum LearningRateAlgorithm {E_LRA_GOLDEN_SECTION = 1 /* LRA -Learning Rate Algorithm */,E_LRA_BRENT_METHOD = 2}; 
+
+using Tensor1DPtr = std::shared_ptr<Tensor<Index,1>>;
+using Tensor2DPtr = std::shared_ptr<Tensor<float,2>>;

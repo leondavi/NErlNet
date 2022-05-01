@@ -48,15 +48,15 @@ static void* PredictFun(void* arg){
          //cc = dynamic_cast<CustumNN*>(neural_network.get());
          
          int modelType = s->getModelType(PredictNNptr->mid); 
-         std::shared_ptr<Eigen::Tensor<float,2>> calculate_outputs = std::make_shared<Eigen::Tensor<float,2>>();
-         (*calculate_outputs) = neural_network->calculate_outputs(*(PredictNNptr->data));
-         
+         std::shared_ptr<Eigen::Tensor<float,2>> calculate_res = std::make_shared<Eigen::Tensor<float,2>>();
+         (*calculate_res) = neural_network->calculate_outputs(*(PredictNNptr->data));
          if(modelType == E_AEC){
-            EAC_prediction = EAC_predic(PredictNNptr->data, calculate_outputs);
+            
+            EAC_prediction = EAC_predic(PredictNNptr->data, calculate_res);
             prediction = enif_make_int(env, (EAC_prediction));
          }
          else
-            prediction = nifpp::makeTensor2D(env, (*calculate_outputs));
+            prediction = nifpp::makeTensor2D(env, (*calculate_res));
 
          if(enif_send(NULL,&(PredictNNptr->pid), env, prediction)){
              printf("enif_send succeed prediction\n");

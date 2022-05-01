@@ -1,7 +1,7 @@
 #pragma once 
 
 #include "CustumNN.h"
-using Tensor2DPtr = std::shared_ptr<Tensor<float,2>>;
+
 class Autoencoder : public CustumNN
 {
     public: 
@@ -15,15 +15,12 @@ class Autoencoder : public CustumNN
         // Symetric layers 
     }
 
-    void train()
-    {
-        // input layer == output layer
-    }
 
-    void predict()
+
+    void prepare_data(Tensor2DPtr data ,Tensor2DPtr & autoencoder_data)
     {
-        //input layer == output layer
-        // vector of prediction 
+        Eigen::array<int, 2> bcast({1, 2});
+        *autoencoder_data = (data->broadcast(bcast));    // this copy the tensor 
     }
     
 };
