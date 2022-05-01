@@ -28,7 +28,8 @@ parse(ChunkSize,FolderName)->
 
 
 parse_all(ChunkSize,FolderName,Counter,Ret)->
-  try   parse_file(ChunkSize,"../../../inputDataDir/"++FolderName++"/"++FolderName++integer_to_list(Counter)++".csv") of
+  Name = lists:last(re:split(FolderName,"/",[{return,list}])),
+  try   parse_file(ChunkSize,"../../../inputDataDir/"++FolderName++"/"++Name++integer_to_list(Counter)++".csv") of
     L ->
       parse_all(ChunkSize,FolderName,Counter+1,Ret++L)
   catch
