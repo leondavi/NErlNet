@@ -70,7 +70,7 @@ call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Wo
       %io:format("Train Time= ~p~n ",[RetVal]),
       receive
             Ret->
-            io:format("Ret= ~p~n ",[Ret]),
+            %io:format("Ret= ~p~n ",[Ret]),
             %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
             gen_statem:cast(WorkerPid,{loss, Ret})
       end.

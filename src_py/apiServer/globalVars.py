@@ -4,7 +4,7 @@ import socket
 from networkComponents import NetworkComponents
 import json
 
-from IPython import get_ipython
+#from IPython import get_ipython
 
 localHost = socket.gethostname()
 localIp = socket.gethostbyname(localHost)
@@ -22,18 +22,19 @@ GRAPH_INDEX = 5
 E_TRAINING = 0
 E_PREDICTION = 1
 
-jsonPathLocation = '/home/david/workspace/NErlNet/jsonPath'
+jsonPathLocation = 'NErlNet/jsonPath'
 jsonPath = open(jsonPathLocation)
 content = jsonPath.readlines()
 componentsPath = content[4][:-1]
 components = NetworkComponents(componentsPath)
 # Get the topology of the current system:
-expFlowPath = content[ARCHITECTURE_INDEX].replace('\n','')
+expFlowPath = content[GRAPH_INDEX].replace('\n','')
+print(expFlowPath)
 file = open(expFlowPath)
 expFlow = json.load(file)
 
 
-
+"""
 def checkPlatform():
         ipy_str = str(type(get_ipython()))
         if 'zmqshell' in ipy_str:
@@ -42,8 +43,9 @@ def checkPlatform():
             return 2 #Return 2 for IPython Shell.
         else:
             return 0 #Return 0 for Terminal.
+"""
 
-jupyterFlag = checkPlatform()
+jupyterFlag = 0
 
 
 if __name__ == "__main__":
