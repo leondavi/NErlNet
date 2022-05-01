@@ -9,6 +9,9 @@
 
 #include "definitionsNN.h"
 
+#define TRAINING_STRATEGY_SET_DISPLAY_ON   1
+#define TRAINING_STRATEGY_SET_DISPLAY_OFF  0
+
 using namespace OpenNN;             
 
 struct TrainNN {
@@ -17,6 +20,8 @@ struct TrainNN {
     int lose_method;
     double learning_rate;
     Eigen::Tensor<float,2> data;
+    high_resolution_clock::time_point start_time;
+    int display;
 
     ErlNifTid tid;
     ErlNifPid pid;
@@ -24,27 +29,43 @@ struct TrainNN {
  
 static void* trainFun(void* arg){ 
        
-         TrainNN* TrainNNptr = (TrainNN*)arg;
+         //TrainNN* TrainNNptr = (TrainNN*)arg;
+         TrainNN* TrainNNptr = reinterpret_cast<TrainNN*>(arg);
          double loss_val;
          ErlNifEnv *env = enif_alloc_env();         
          DataSet data_set;
-         data_set.set_data(TrainNNptr->data);
          
-        
          // Get the singleton instance
         
          opennnBridgeController *s = s->GetInstance();
             
      
 
-         cout << "model ID is " <<std::endl;
-         cout << TrainNNptr->mid << std::endl;
+         //cout << "model ID is " <<std::endl;
+         //cout << TrainNNptr->mid << std::endl;
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(TrainNNptr->mid);
+
+         int first_layer_size = neural_network->get_layers_neurons_numbers()(0);
+         int data_num_of_coloms = TrainNNptr->data.dimension(1);
+         //std::cout<< first_layer_size <<std::endl;
+         //std::cout<< data_num_of_coloms <<std::endl;
+
+         // check if the neural network is outoencider 
+         if (first_layer_size == data_num_of_coloms){
+            Eigen::array<int, 2> bcast({1, 2});
+            Eigen::Tensor<float, 2> outoencider_data = TrainNNptr->data.broadcast(bcast);     
+            data_set.set_data(outoencider_data);
+            data_set.set(outoencider_data.dimension(1),data_num_of_coloms,data_num_of_coloms);
+         }
+         else data_set.set_data(TrainNNptr->data);
+
+
+         
         
          
          TrainingStrategy training_strategy(&(*(s-> getModelPtr(TrainNNptr->mid))) ,&data_set);
-
          
+        
          // set Optimization Method  -------------------------------------------------------------
         try{
          if(TrainNNptr->optimization_method == E_OM_GRADIENT_DESCENT){
@@ -82,7 +103,6 @@ static void* trainFun(void* arg){
       
          // end set optimization method ---------------------------------------------------------------
          
-
 
          // set Loss Method ------------------------------------------------------------------------
        
@@ -127,15 +147,16 @@ static void* trainFun(void* arg){
          TestingAnalysis testing_analysis(&*neural_network, &data_set);
          
          training_strategy.set_maximum_epochs_number(1); 
-        try{
+         training_strategy.set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF);
+         //training_strategy.set_display(TrainNNptr->display);
+     
+        try{   
          training_strategy.perform_training();
-         
         }
         catch(...){
            cout << "catch - do training" <<std::endl;
         }  
-
-
+     
         try{ 
          Tensor<type, 1> confusion_matrix = testing_analysis.calculate_testing_errors();
          //sse - confusion_matrix[0]
@@ -151,17 +172,29 @@ static void* trainFun(void* arg){
         catch(...){
            cout << "catch - calculate errors" <<std::endl;
         } 
-       
-
- 
-              
+         
+         
+         // Stop the timer and calculate the time took for training
+         high_resolution_clock::time_point  stop = high_resolution_clock::now();
+         auto duration = duration_cast<microseconds>(stop - TrainNNptr->start_time);
+         if(isnan(loss_val)  ) {
+             loss_val = -1.0;
+             cout << "loss val = nan , please stop the raining and try another hiper parameters" <<std::endl;
+         }
          ERL_NIF_TERM loss_val_term = enif_make_double(env, loss_val);
+         ERL_NIF_TERM train_time = enif_make_double(env, duration.count());
+         
+         //cout << duration.count() <<std::endl;
+        
+         //ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 2, loss_val_term,enif_make_double(env, duration.count()));
+         ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 2, loss_val_term,train_time);
+              
+         
          if(enif_send(NULL,&(TrainNNptr->pid), env,loss_val_term)){
-             printf("enif_send succeed\n");
+             printf("enif_send train succeed\n");
          }
          else printf("enif_send failed\n");
-         
-         delete TrainNNptr;
+         //delete TrainNNptr;
          return 0;
          //return enif_make_string(env, "end TRAIN mode", ERL_NIF_LATIN1);
 }

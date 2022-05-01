@@ -2,5 +2,6 @@
 ../../../inputJsonFiles/ConnectionMap/1PC1Worker.json
 
 # For Python API:
-/home/dor/workspace/NErlNet/inputJsonFiles/Architecture/jsonArch1PC1Worker.json
-/home/dor/workspace/NErlNet/inputJsonFiles/experimentsFlow/expFlowJson.json
+NErlNet/inputJsonFiles/Architecture/jsonArch1PC1Worker.json
+NErlNet/inputJsonFiles/experimentsFlow/expFlowJson.json
+
