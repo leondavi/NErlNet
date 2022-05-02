@@ -1,5 +1,60 @@
 #!/bin/bash
 
+
+SHORT_OPTIONS_LIST=p:,j:,h
+LONG_OPTIONS_LIST=pull:,jobs:,help
+
+Branch="master"
+JobsNum=4
+
+help()
+{
+    echo "-------------------------------------" && echo "Nerlnet Build" && echo "-------------------------------------"
+    echo "Usage:"
+    echo "--p or --pull checkout to branch $Branch and pull the latest"
+    echo "--j or --jobs number of jobs to cmake build"
+    exit 2
+}
+
+gitOperations()
+{
+    git checkout $1
+    git pull origin $1
+    git submodule update --init --recursive
+
+}
+
+OPTS=$(getopt -a -n jupyterEnv --options $SHORT_OPTIONS_LIST --longoptions $LONG_OPTIONS_LIST -- "$@")
+#echo $OPTS
+
+eval set -- "$OPTS"
+
+while :
+do
+  case "$1" in
+    -p | --pull )
+      Branch="$2"
+      gitOperations $Branch
+      shift 2
+      ;;
+     -j | --jobs )
+      JobsNum="$2"
+      shift 2
+      ;;
+    -h | --help)
+      help
+      ;;
+    --)
+      shift;
+      break
+      ;;
+    *)
+      echo "Unexpected option: $1"
+      help
+      ;;
+  esac
+done
+
 NERLNET_BUILD_PREFIX="[Nerlnet Build] "
 
 echo "$NERLNET_BUILD_PREFIX Building Nerlnet Library"
@@ -8,7 +63,8 @@ cmake -S . -B build/release -DCMAKE_BUILD_TYPE=RELEASE
 cd build/release
 echo "$NERLNET_BUILD_PREFIX Script CWD: $PWD"
 echo "$NERLNET_BUILD_PREFIX Build Nerlnet"
-make -j4 
+echo "Jobs Number: $JobsNum"
+make -j$JobsNum 
 cd ../../
 echo "$NERLNET_BUILD_PREFIX Script CWD: $PWD"
 

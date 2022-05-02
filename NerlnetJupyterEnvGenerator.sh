@@ -57,8 +57,8 @@ ln -s `pwd`/src_py/apiServer/transmitter.py $jdir/transmitter.py
 #ln -s `pwd`/jsonPath $jdir/jsonPath
 echo "generate symbloic link: inputDataDir --> $jdir/inputDataDir"
 ln -s `pwd`/inputDataDir $jdir/inputDataDir
-echo "generate symbloic link: Nerlnet Directory --> $jdir/Nerlnet"
-ln -s `pwd` $jdir/Nerlnet
+echo "generate symbloic link: NErlNet Directory --> $jdir/NErlNet"
+ln -s `pwd` $jdir/NErlNet
 
 # to be Deprecated
 echo "generate symbloic link: inputJsonFiles --> $jdir/inputJsonFiles"
