@@ -11,7 +11,7 @@ help()
 {
     echo "-------------------------------------" && echo "Nerlnet Build" && echo "-------------------------------------"
     echo "Usage:"
-    echo "--p or --pull checkout to branch $Branch and pull the latest"
+    echo "--p or --pull Warning! this uses checkout -f! and branch name checkout to branch $Branch and pull the latest"
     echo "--j or --jobs number of jobs to cmake build"
     exit 2
 }
