@@ -18,7 +18,11 @@ help()
 
 gitOperations()
 {
-    git checkout $1
+    echo "Warning! git checkout -f is about to be executed"
+    sleep 5
+    echo "Interrupt is possible in the next 10 seconds"
+    sleep 10
+    git checkout -f $1
     git pull origin $1
     git submodule update --init --recursive
 
