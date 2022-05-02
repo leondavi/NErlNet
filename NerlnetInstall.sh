@@ -2,17 +2,32 @@
 
 # Run this script with sudo priviledges 
 
-apt-get -y install cmake
+NERLNET_LIB_DIR="/usr/local/lib/nerlnet-lib"
 
-if ! command -v erl &> /dev/null ; then
-    echo "erlang could not be found"
-    echo "Installing Erlang OTP" 
-    wget -O- https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -
-    echo "deb https://packages.erlang-solutions.com/ubuntu focal contrib" | sudo tee /etc/apt/sources.list.d/rabbitmq.list
-    apt update
-    apt install erlang
-else
-    echo "erlang is installed"
-    erl -noshell -eval 'erlang:display(erlang:system_info(system_version))' -eval 'init:stop()'
+function print()
+{
+    echo "[NERLNET] $1"
+}
+
+ARCH_TYPE=`uname -m`
+
+echo "installing Erlang and cmake"
+echo "Following commands should be executed with super user privilidges:"
+
+wget https://packages.erlang-solutions.com/erlang-solutions_2.0_all.deb
+sudo dpkg -i erlang-solutions_2.0_all.deb
+apt-get -y update
+apt-get -y install erlang cmake
+
+
+if [ "$ARCH_TYPE" = "x86_64" ]; then
+    print "Arch type: x86_64"
+elif [ "$ARCH_TYPE" = "armv7l" ]; then
+    print "Arch type: armv7l."
 fi
 
+print "Creating NErlNet-lib directory in $NERLNET_LIB_DIR"
+mkdir -p $NERLNET_LIB_DIR
+
+print "Adding a sym-link to NErlNet directory"
+ln -s `pwd` $NERLNET_LIB_DIR/NErlNet
