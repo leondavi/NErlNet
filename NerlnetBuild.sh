@@ -1,8 +1,8 @@
 #!/bin/bash
 
 
-SHORT_OPTIONS_LIST=p:,j:,h
-LONG_OPTIONS_LIST=pull:,jobs:,help
+SHORT_OPTIONS_LIST=p:,j:,c:,h
+LONG_OPTIONS_LIST=pull:,jobs:,clean:,help
 
 Branch="master"
 JobsNum=4
@@ -13,6 +13,7 @@ help()
     echo "Usage:"
     echo "--p or --pull Warning! this uses checkout -f! and branch name checkout to branch $Branch and pull the latest"
     echo "--j or --jobs number of jobs to cmake build"
+    echo "--c or --clean with any value remove build directory"
     exit 2
 }
 
@@ -25,7 +26,6 @@ gitOperations()
     git checkout -f $1
     git pull origin $1
     git submodule update --init --recursive
-
 }
 
 OPTS=$(getopt -a -n jupyterEnv --options $SHORT_OPTIONS_LIST --longoptions $LONG_OPTIONS_LIST -- "$@")
@@ -43,6 +43,15 @@ do
       ;;
      -j | --jobs )
       JobsNum="$2"
+      shift 2
+      ;;
+      -c | --clean )
+      echo "Are you sure that you want to remove build directory?"
+      sleep 1
+      echo "Intterupt this process is possible with ctrl+c"
+      echo "Remove build directory in 10 seconds"
+      sleep 10
+      rm -rf build
       shift 2
       ;;
     -h | --help)
@@ -92,8 +101,3 @@ else
         echo "$NERLNET_BUILD_PREFIX $(tput setaf 1) sudo ln -s `pwd`/src_erl/rebar3/rebar3 /usr/local/bin/rebar3 $(tput sgr 0)"
         echo "$NERLNET_BUILD_PREFIX "
 fi
-
-
-echo "$NERLNET_BUILD_PREFIX Starting rebar3 Shell"
-cd src_erl/Communication_Layer/http_Nerlserver
-rebar3 shell
