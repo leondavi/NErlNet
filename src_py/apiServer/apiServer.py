@@ -8,7 +8,6 @@ import threading
 
 class ApiServer():
     def __init__(self): 
-
         mainServerIP = globe.components.mainServerIp
         mainServerPort = globe.components.mainServerPort
         self.mainServerAddress = 'http://' + mainServerIP + ':' + mainServerPort
