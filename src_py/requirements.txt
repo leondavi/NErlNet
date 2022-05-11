@@ -55,7 +55,7 @@ click-repl                0.2.0                    pypi_0    pypi
 cloudpickle               1.6.0                      py_0  
 clyent                    1.2.2                    py38_1  
 colorama                  0.4.4              pyhd3eb1b0_0  
-colour-science            0.3.16             pyh44b312d_1    conda-forge
+forge
 conda                     4.12.0           py38h578d9bd_0    conda-forge
 conda-build               3.21.4           py38h06a4308_0  
 conda-content-trust       0.1.1              pyhd3eb1b0_0  
