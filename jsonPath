@@ -2,6 +2,6 @@
 ../../../inputJsonFiles/ConnectionMap/1PC1Worker.json
 
 # For Python API:
-../inputJsonFiles/Architecture/jsonArch1PC1Worker.json
-../inputJsonFiles/experimentsFlow/expFlowJson.json
+inputJsonFiles/Architecture/jsonArch1PC1Worker.json
+inputJsonFiles/experimentsFlow/expFlowJson.json
 

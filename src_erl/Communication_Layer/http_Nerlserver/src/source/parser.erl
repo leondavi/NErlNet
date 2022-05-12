@@ -23,12 +23,14 @@
 %%this parser takes a CSV folder containing chunked data, parsing into a list of binary.
 %%each record in the line is a batch of samples
 parse(ChunkSize,FolderName)->
+  io:format("curr dir: ~p~n",[file:get_cwd()]),
 %%  FolderName="./input/shuffled-input1_splitted/",
   parse_all(ChunkSize,FolderName,1,[]).
 
 
 parse_all(ChunkSize,FolderName,Counter,Ret)->
-  try   parse_file(ChunkSize,"../../../inputDataFiles/"++FolderName++"/"++integer_to_list(Counter)++".csv") of
+  Name = lists:last(re:split(FolderName,"/",[{return,list}])),
+  try   parse_file(ChunkSize,"../../../inputDataDir/"++FolderName++"_splitted/"++Name++integer_to_list(Counter)++".csv") of
     L ->
       parse_all(ChunkSize,FolderName,Counter+1,Ret++L)
   catch
@@ -74,7 +76,7 @@ encodeFloatsList([<<>>|ListOfFloats],Ret)->
 encodeFloatsList([[]|ListOfFloats],Ret)->
   encodeFloatsList(ListOfFloats,Ret);
 encodeFloatsList([H|ListOfFloats],Ret)->
-  try list_to_float(H) of
+    try list_to_float(H) of
     Float->
       encodeFloatsList(ListOfFloats,<<Ret/binary,Float:64/float>>)
   catch

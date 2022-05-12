@@ -49,6 +49,7 @@ static void* trainFun(void* arg){
          int first_layer_size = neural_network->get_layers_neurons_numbers()(0);
          int data_num_of_cols = TrainNNptr->data->dimension(1);
 
+
          //CustumNN *cc;
          //cc = dynamic_cast<CustumNN*>(neural_network.get());
          // check if the neural network is outoencider 
@@ -64,7 +65,15 @@ static void* trainFun(void* arg){
          
          else data_set.set_data(*(TrainNNptr->data));
 
-       
+ /*
+       if (first_layer_size == data_num_of_coloms){
+            Eigen::array<int, 2> bcast({1, 2});
+            Eigen::Tensor<float, 2> outoencider_data = TrainNNptr->data.broadcast(bcast);     
+            data_set.set_data(outoencider_data);
+            data_set.set(outoencider_data.dimension(1),data_num_of_coloms,data_num_of_coloms);
+         }
+         else data_set.set_data(TrainNNptr->data);
+         */      
          
         
          
@@ -154,15 +163,17 @@ static void* trainFun(void* arg){
          training_strategy.set_maximum_epochs_number(1); 
          training_strategy.set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF);
          //training_strategy.set_display(TrainNNptr->display);
-         cout << "cccccccccc " <<std::endl;  
+         
+         
         try{   
          training_strategy.perform_training();
         }
         catch(...){
            cout << "catch - do training" <<std::endl;
         }  
-        cout << "dddddddddd " <<std::endl;  
+        
         try{ 
+            Tensor< type, 2 > errors_2 = testing_analysis.calculate_errors();
          Tensor<type, 1> confusion_matrix = testing_analysis.calculate_testing_errors();
          //sse - confusion_matrix[0]
          //mse - confusion_matrix[1]
@@ -173,6 +184,8 @@ static void* trainFun(void* arg){
          else if(TrainNNptr->lose_method == E_LOSS_METHOD_MSE)          loss_val = confusion_matrix[1];  
          else if(TrainNNptr->lose_method == E_LOSS_METHOD_NSE)          loss_val = confusion_matrix[3]; 
          else loss_val = confusion_matrix[1];
+         loss_val = errors_2(0,0);
+         
         } 
         catch(...){
            cout << "catch - calculate errors" <<std::endl;
@@ -195,7 +208,7 @@ static void* trainFun(void* arg){
          ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 2, loss_val_term,train_time);
             
          
-         if(enif_send(NULL,&(TrainNNptr->pid), env,loss_val_term)){
+         if(enif_send(NULL,&(TrainNNptr->pid), env,train_res_and_time)){
              printf("enif_send train succeed\n");
          }
          else printf("enif_send failed\n");
