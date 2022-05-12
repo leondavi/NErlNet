@@ -184,9 +184,9 @@ namespace nifpp
             throw std::runtime_error(EXCEPTION_STR_INVALID_ERL_TENSOR);
         }
         //TODO optimization
-         //std::shared_ptr<Tensor2D<Type>> newTensor = std::make_shared<Tensor2D<Type>>(tensorDims.x,tensorDims.y); // we start with a 2D tensor to copy the data
+         std::shared_ptr<Tensor2D<Type>> newTensor = std::make_shared<Tensor2D<Type>>(tensorDims.x,tensorDims.y); // we start with a 2D tensor to copy the data
 
-        std::shared_ptr<Tensor2D<Type>> newTensor = std::make_shared<Tensor2D<Type>>(tensorDims.xyz,1); // using reshape 
+        //std::shared_ptr<Tensor2D<Type>> newTensor = std::make_shared<Tensor2D<Type>>(tensorDims.xyz,1); // using reshape 
                 //std::cout<<"tensorDims.xyz: "<<tensorDims.xyz<<std::endl;
 
         for(int idx = 0; idx < tensorDims.xyz; idx++) //copy flat tensor 
@@ -197,9 +197,9 @@ namespace nifpp
                 Type var;
                 if(!get(env, head, var)) return 0; // conversion failure
 
-                (*newTensor)(idx) = var;// using reshape
+                //(*newTensor)(idx) = var;// using reshape
                
-                //(*newTensor)(idx/tensorDims.y , idx%tensorDims.y) = var;//TODO optimization 
+                (*newTensor)(idx/tensorDims.y , idx%tensorDims.y) = var;//TODO optimization 
                 //std::cout<<"idx "<<idx<<" var: "<<newTensor(idx/tensorDims.y , idx%tensorDims.y) <<std::endl;
 
             }
@@ -212,9 +212,9 @@ namespace nifpp
         Eigen::array<int, 2> dimsArray({tensorDims.x,tensorDims.y});
         
         //std::cout<<"before rehsape"<<std::endl;
-        (*newTensor).reshape(dimsArray);
-        cout << newTensor->dimension(0) << endl; 
-        cout << newTensor->dimension(1) << endl; 
+        //(*newTensor).reshape(dimsArray);
+        //cout << newTensor->dimension(0) << endl; 
+        //cout << newTensor->dimension(1) << endl; 
         //std::cout<<"after rehsape"<<std::endl;
         //dimst = dimsArray2;
 
@@ -351,6 +351,3 @@ template<typename Type> int getTensor1D(ErlNifEnv *env, ERL_NIF_TERM term, std::
         return make(env,listRepresentation);
     }
 }
-
-
-
