@@ -1,6 +1,6 @@
 import multiprocessing 
 import socket
-
+import os
 from networkComponents import NetworkComponents
 import json
 
@@ -22,7 +22,8 @@ GRAPH_INDEX = 5
 E_TRAINING = 0
 E_PREDICTION = 1
 
-jsonPathLocation = 'NErlNet/jsonPath'
+username = os.getlogin()
+jsonPathLocation = '/home/{}/workspace/NErlNet/jsonPath'.format(username)
 jsonPath = open(jsonPathLocation)
 content = jsonPath.readlines()
 componentsPath = content[4][:-1]
