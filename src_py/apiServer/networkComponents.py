@@ -9,18 +9,25 @@ class NetworkComponents():
 
         # Getting the desired batch size:
         self.batchSize = int(self.jsonData['NerlNetSettings'][0]['batchSize'])
-
+        self.frequency = int(self.jsonData['NerlNetSettings'][0]['frequency'])
         # Getting IP address of the main server:
         mainServerJson = self.jsonData['mainServer'][0]
         self.mainServerIp = mainServerJson['host']
         self.mainServerPort = mainServerJson['port']
 
         # Initializing lists for all the relevant components:
+        self.devicesIp = []
         self.clients = []
         self.workers = []
         self.federateds = []
         self.sources = []
         self.routers = []
+
+        # Getting the names of all the devices:
+        devicesJsons = self.jsonData["devices"][0]
+
+        for device in devicesJsons:
+            self.devicesIp.append(devicesJsons["host"])
 
         # Getting the names of all the clients and workers:
         clientsJsons = self.jsonData['clients']
@@ -47,10 +54,13 @@ class NetworkComponents():
             self.routers.append(router['name'])
 
     def printComponents(self):
-        print(self.batchSize, self.mainServerIp, self.mainServerPort, self.clients, self.workers, self.federateds, self.sources, self.routers)
+        print(self.batchSize, self.frequency, self.devicesIp, self.mainServerIp, self.mainServerPort, \
+             self.clients, self.workers, self.federateds, self.sources, self.routers)
 
     def toString(self, char): #Prints the contents of any of the components' lists (e.g. "routers")
-        if char == 'c':
+        if char == 'd':
+            return ','.join(self.devicesIp)
+        elif char == 'c':
             return ','.join(self.clients)
         elif char == 'w':
             return ','.join(self.workers)
@@ -63,6 +73,7 @@ class NetworkComponents():
         else:
             raise ValueError('Not a valid char!\n \
 Please enter a valid char as input:\n \
+d - devices Ip\n \
 c - clients\n \
 w - workers\n \
 f - federateds\n \

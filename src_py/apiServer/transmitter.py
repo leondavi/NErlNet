@@ -43,11 +43,10 @@ class Transmitter:
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
 
-    def startCasting(self):
+    def startCasting(self, numOfBatches=99999999):
         print('Start Casting Phase')
 
-
-        dataStr = "{},{}".format(globe.components.toString('s'), globe.components.batchSize) #Python's string format, {} are swapped by the variables in the brackets respectively.
+        dataStr = "{},{}".format(globe.components.toString('s'), numOfBatches) #Python's string format, {} are swapped by the variables in the brackets respectively.
 
         response = requests.post(self.startCastingAddress, data=dataStr)
 
