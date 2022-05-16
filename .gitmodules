@@ -4,9 +4,6 @@
 [submodule "src_cpp/opennn"]
 	path = src_cpp/opennn
 	url = https://github.com/Artelnics/opennn.git
-[submodule "inputDataFiles"]
-	path = inputDataFiles
-	url = https://github.com/zivmo99/inputDataFiles.git
 [submodule "src_erl/rebar3"]
 	path = src_erl/rebar3
 	url = https://github.com/erlang/rebar3.git
