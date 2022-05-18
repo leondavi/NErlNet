@@ -1,6 +1,7 @@
 import requests
 import globalVars as globe
 import time
+import sys
 
 class Transmitter:
 
@@ -43,7 +44,7 @@ class Transmitter:
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
 
-    def startCasting(self, numOfBatches=99999999):
+    def startCasting(self, numOfBatches=sys.maxsize):
         print('Start Casting Phase')
 
         dataStr = "{},{}".format(globe.components.toString('s'), numOfBatches) #Python's string format, {} are swapped by the variables in the brackets respectively.
