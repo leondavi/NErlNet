@@ -36,6 +36,7 @@ struct PredictNN {
 
 
 static void* PredictFun(void* arg){ 
+       
          //PredictNN* PredictNNptr = (PredictNN*)arg;
          PredictNN* PredictNNptr = reinterpret_cast<PredictNN*>(arg);
          ERL_NIF_TERM prediction;
@@ -43,31 +44,36 @@ static void* PredictFun(void* arg){
          ErlNifEnv *env = enif_alloc_env();    
          opennnBridgeController *s = s->GetInstance();
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(PredictNNptr->mid);
-
+         
          //CustumNN *cc;
          //cc = dynamic_cast<CustumNN*>(neural_network.get());
          
          int modelType = s->getModelType(PredictNNptr->mid); 
          std::shared_ptr<Eigen::Tensor<float,2>> calculate_res = std::make_shared<Eigen::Tensor<float,2>>();
          (*calculate_res) = neural_network->calculate_outputs(*(PredictNNptr->data));
+     
          if(modelType == E_AEC){
             
-            EAC_prediction = EAC_predic(PredictNNptr->data, calculate_res);
-            prediction = enif_make_int(env, (EAC_prediction));
+            //EAC_prediction = EAC_predic(PredictNNptr->data, calculate_res);
+            //prediction = enif_make_int(env, (EAC_prediction));
          }
          else
             prediction = nifpp::makeTensor2D(env, (*calculate_res));
-
+            
+            //cout << calculate_res << endl;
+            
          if(enif_send(NULL,&(PredictNNptr->pid), env, prediction)){
              printf("enif_send succeed prediction\n");
           }
          else printf("enif_send failed\n");
+         
          //delete PredictNNptr;
          return 0;
 }
 
 
 static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
+         cout << "in predict" << endl;
          std::shared_ptr<PredictNN> PredictNNptr = std::make_shared<PredictNN>();
          //long int mid;
          //Eigen::Tensor<float,2> data;
@@ -75,12 +81,13 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
          
          enif_self(env, &pid);
          PredictNNptr->pid = pid;
-
+         
          //opennnBridgeController *s = s->GetInstance();
         
-         
+       
          nifpp::get_throws(env, argv[0], PredictNNptr->mid); // get model id
          nifpp::getTensor2D(env,argv[1], PredictNNptr->data); // get data for prediction
+   
          //get neural network from singelton         
          //std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(mid); 
          //Tensor< float, 2 > calculate_outputs =  neural_network->calculate_outputs(data);
@@ -92,7 +99,7 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
          //}
          //else printf("enif_send failed\n");
          int res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFun, PredictNNptr.get(), 0);
-         
+        
          return enif_make_string(env, "end PREDICT mode", ERL_NIF_LATIN1);
 
          

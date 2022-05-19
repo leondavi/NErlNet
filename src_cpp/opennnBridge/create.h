@@ -105,22 +105,32 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          else if(modelType == E_CUSTOMNN )
          { 
              
-             shared_ptr<CustumNN> customNNPtr = std::make_shared<CustumNN>();
+             shared_ptr<CustumNN> customNNPtr = std::make_shared<CustumNN>(); 
              neural_network = customNNPtr;
              customNNPtr->setCustumNN(neural_network_architecture, layer_types, activations_functions); 
-             //std::cout << "start CustumNN" << std::endl; 
              
          } //CUSTOMNN
 
-         else if(modelType ==  E_AE || E_AEC)
+         else if(modelType ==  E_AE)
          { 
-             
+
              shared_ptr<Autoencoder> autoencoderPtr = std::make_shared<Autoencoder>();
              neural_network = autoencoderPtr;
              autoencoderPtr->setCustumNN(neural_network_architecture, layer_types, activations_functions); 
              //std::cout << "start CustumNN" << std::endl; 
              
-         } //CUSTOMNN
+         } //Autoencoder
+
+          else if(modelType == E_AEC)
+         { 
+
+             shared_ptr<AutoencoderClassifier> autoencoderClassifierPtr = std::make_shared<AutoencoderClassifier>();
+             neural_network = autoencoderClassifierPtr;
+             autoencoderClassifierPtr->setCustumNN(neural_network_architecture, layer_types, activations_functions); 
+             //std::cout << "start CustumNN" << std::endl; 
+             
+         } //AutoencoderClassifier
+       
        
         } //try
 
@@ -131,13 +141,15 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          
         
          
-        
+        //std::cout << "aaaaaaaaaaa" << std::endl; 
         try{ 
          // set scaling method for scaling layer ---------------------------------------------------------------------------
-         //std::cout<< neural_network->get_layer_pointer(0)->get_type_string() <<std::endl;
-         //std::cout<< neural_network->get_layer_pointer(0)->get_neurons_number()<<std::endl;
+         //std::cout<< neural_network->get_layer_pointer(6)->get_type_string() <<std::endl;
+         //std::cout << "bbbbbbbbbbbbb" << std::endl;
+         //std::cout<< neural_network->get_layer_pointer(6)->get_neurons_number()<<std::endl;
+        // std::cout << "ccccccccccccc" << std::endl;
          ScalingLayer* scaling_layer_pointer = neural_network->get_scaling_layer_pointer();
-
+         // std::cout << "dddddddddddd" << std::endl;
          if(scaling_method == E_ScalingMethods_NoScaling)
         {
             scaling_layer_pointer->set_scaling_methods(ScalingLayer::NoScaling);
@@ -159,19 +171,22 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         //    scaling_layer_pointer->set_scaling_methods(ScalingLayer::Logarithm);   //Logarithm exists in opennn site but commpiler dont recognaize it. 
         //}
         //------------------------------------------------------------------------------------------------------------------
+          
         } //try
 
         catch(...){
            return enif_make_string(env, "catch - choose scaling method", ERL_NIF_LATIN1);
         } 
          
-
+       
 
 
          
         // set activation functions for trainable layers -------------------------------------------------------------------
         try{ 
+            
              chooseActivationFunction(neural_network , activations_functions); //TODO move to custom NN
+            
         }
 
         catch(...){

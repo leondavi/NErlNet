@@ -71,7 +71,7 @@ call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Wo
       %io:format("Train Time= ~p~n ",[RetVal]),
       receive
             Ret->
-            %io:format("Ret= ~p~n ",[Ret]),
+            io:format("Ret= ~p~n ",[Ret]),
             %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
             gen_statem:cast(WorkerPid,{loss, Ret})
       end.
@@ -80,19 +80,21 @@ trainn_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor) 
       exit(nif_library_not_loaded).
 
 call_to_predict(ModelID, Data, WorkerPid)->
+     
       _RetVal = predict_nif(ModelID, Data),
       receive
             Ret->
-            Max = lists:max(lists:sublist(Ret,4,length(Ret))),
-            case Max < 0.5 of 
-                  true ->
+            io:format("Ret= ~p~n ",[Ret]),      
+            %Max = lists:max(lists:sublist(Ret,4,length(Ret))),
+            %case Max < 0.5 of 
+            %      true ->
             %io:format("predict res = ~p~n Worker Pid: ~p ",[Ret,WorkerPid]),
 
-            gen_statem:cast(WorkerPid,{predictRes,Ret}) ;
-            _ -> io:format("SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~n
-      SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~n
-SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nMax:~p",[Max])
-            end
+            gen_statem:cast(WorkerPid,{predictRes,Ret}) 
+            %_ -> io:format("SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~n
+            %SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~n
+            %SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nMax:~p",[Max])
+            %end
       end.
 
 call_to_get_weights(A)->

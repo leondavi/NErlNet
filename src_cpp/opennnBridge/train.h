@@ -34,7 +34,7 @@ static void* trainFun(void* arg){
          double loss_val;
          ErlNifEnv *env = enif_alloc_env();         
          DataSet data_set;
-         
+        
          // Get the singleton instance
         
          opennnBridgeController *s = s->GetInstance();
@@ -48,34 +48,26 @@ static void* trainFun(void* arg){
 
          int first_layer_size = neural_network->get_layers_neurons_numbers()(0);
          int data_num_of_cols = TrainNNptr->data->dimension(1);
-
-
+         cout << first_layer_size << std::endl;
+         cout << neural_network->get_layers_neurons_numbers()(6) << std::endl;
+         cout << data_num_of_cols<< std::endl;
+         cout << modelType<< std::endl;
+            
          //CustumNN *cc;
          //cc = dynamic_cast<CustumNN*>(neural_network.get());
-         // check if the neural network is outoencider 
-         if (modelType == E_AE || modelType == E_AEC){
-            std::shared_ptr<Autoencoder> nn = std::static_pointer_cast<Autoencoder>(neural_network);
-            Eigen::array<int, 2> bcast({1, 2});
-            std::shared_ptr<Eigen::Tensor<float, 2>> autoencoder_data;// = TrainNNptr->data->broadcast(bcast); 
-            nn->prepare_data(autoencoder_data,TrainNNptr->data);    
-            data_set.set_data(*autoencoder_data);
-            data_set.set(autoencoder_data->dimension(1),data_num_of_cols,data_num_of_cols);
-         }
-      
-         
-         else data_set.set_data(*(TrainNNptr->data));
-
- /*
-       if (first_layer_size == data_num_of_coloms){
-            Eigen::array<int, 2> bcast({1, 2});
-            Eigen::Tensor<float, 2> outoencider_data = TrainNNptr->data.broadcast(bcast);     
+       
+         if ((modelType == E_AE || modelType == E_AEC) && first_layer_size == data_num_of_cols){
+            Eigen::array<int, 2> bcast({1, 2}); 
+            Eigen::Tensor<float, 2> outoencider_data = TrainNNptr->data->broadcast(bcast);  //  copy input layar to output layar , using bcast
+            if(modelType == E_AE){    
             data_set.set_data(outoencider_data);
-            data_set.set(outoencider_data.dimension(1),data_num_of_coloms,data_num_of_coloms);
+            data_set.set(outoencider_data.dimension(1),data_num_of_cols,data_num_of_cols);
+            }
          }
-         else data_set.set_data(TrainNNptr->data);
-         */      
+           else data_set.set_data(*(TrainNNptr->data));
+             
          
-        
+         
          
          TrainingStrategy training_strategy(&(*(s-> getModelPtr(TrainNNptr->mid))) ,&data_set);
          
@@ -161,17 +153,23 @@ static void* trainFun(void* arg){
          TestingAnalysis testing_analysis(&*neural_network, &data_set);
          
          training_strategy.set_maximum_epochs_number(1); 
-         training_strategy.set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF);
+         training_strategy.set_display(TRAINING_STRATEGY_SET_DISPLAY_ON);
          //training_strategy.set_display(TrainNNptr->display);
-         
-         
-        try{   
-         training_strategy.perform_training();
-        }
-        catch(...){
-           cout << "catch - do training" <<std::endl;
-        }  
         
+        
+         if(modelType == E_AEC){
+           std::shared_ptr<AutoencoderClassifier> Autoencoder_Classifier = std::static_pointer_cast<AutoencoderClassifier>(neural_network);
+         }
+         else{
+           try{  
+             training_strategy.perform_training();
+             }
+            catch(...){
+             cout << "catch - do training" <<std::endl;
+            }  
+         }
+
+
         try{ 
             Tensor< type, 2 > errors_2 = testing_analysis.calculate_errors();
          Tensor<type, 1> confusion_matrix = testing_analysis.calculate_testing_errors();
