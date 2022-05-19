@@ -1,6 +1,4 @@
 amqp==5.0.6
-anaconda-client==1.7.2
-anaconda-navigator==2.0.3
 appdirs==1.4.4
 argh==0.26.2
 atomicwrites==1.4.0
@@ -18,9 +16,6 @@ click-didyoumean==0.3.0
 click-plugins==1.1.1
 click-repl==0.2.0
 clyent==1.2.2
-conda==4.12.0
-conda-build==3.21.4
-conda-verify==3.4.2
 contextlib2==0.6.0.post1
 cycler==0.10.0
 cytoolz==0.11.0
