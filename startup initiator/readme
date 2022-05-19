@@ -1,0 +1,10 @@
+put startUp.sh in Desktop and give it execute permissions
+>chmod +x startUp.sh
+create a new entry in startup applications:
+>nano ~/.config/autostart/newshell.sh.desktop
+	 [Desktop Entry]
+	 Type=Application
+	 Exec=/home/pi/Desktop/startUp.sh
+	 Name=startUp
+	 Comment=startup script for nerlnet
+save and exit
