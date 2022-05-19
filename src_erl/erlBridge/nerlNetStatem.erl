@@ -118,7 +118,7 @@ idle(cast, {training}, State = #nerlNetStatem_state{}) ->
 
 idle(cast, {predict}, State = #nerlNetStatem_state{currentBatchID = CurrentBatchID}) ->
   io:fwrite("Go from idle to predict\n"),
-  {next_state, predict, State#nerlNetStatem_state{currentBatchID = CurrentBatchID + 1}};
+  {next_state, predict, State#nerlNetStatem_state{currentBatchID = CurrentBatchID + 1, nextState = predict}};
 
 idle(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
 
@@ -240,7 +240,7 @@ wait(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{missedSamples
   {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1, missedTrainSamples = Miss}};
 
 wait(cast, Param, State) ->
-  io:fwrite("Not supposed to be. Got: ~p\n",[{Param}]),
+ % io:fwrite("Not supposed to be. Got: ~p\n",[{Param}]),
   {next_state, wait, State}.
 
 

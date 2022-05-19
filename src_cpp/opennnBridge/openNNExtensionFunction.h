@@ -25,8 +25,7 @@ void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neural_netw
 {
    for(int i = 0; i < (int)((neural_network->get_trainable_layers_pointers()).size() ); i++){
           
-         
-      
+     
          //Pooling
          if( (neural_network->get_trainable_layers_pointers()(i))->get_type() == OpenNN::Layer::Type::Pooling ) //"Pooling"
          {
@@ -99,6 +98,8 @@ void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neural_netw
          //Probabilistic
          if((neural_network->get_trainable_layers_pointers()(i))->get_type() == 4) //"Probabilistic"
          {
+          
+               cout << i << endl;
             if((*activations_functions)(i) == PAF_Binary){
                   dynamic_cast<ProbabilisticLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(ProbabilisticLayer::Binary);
             }

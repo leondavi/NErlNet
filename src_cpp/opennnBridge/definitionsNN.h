@@ -10,7 +10,7 @@ enum ActivationFunction {E_AF_Threshold = 1, E_AF_SymmetricThreshold = 2 , E_AF_
 
 enum PoolingMethod { E_Pooling_Method_NoPooling = 1 , E_Pooling_Method_MaxPooling = 2 , E_Pooling_Method_AveragePooling = 3 };
 
-enum ProbabilisticGeneralFunctions { PAF_Binary , PAF_Logistic , PAF_Competitive , PAF_Softmax };
+enum ProbabilisticGeneralFunctions { PAF_Binary = 1 , PAF_Logistic = 2 , PAF_Competitive = 3, PAF_Softmax = 4};
 
 enum LayerType {E_LAYER_TYPE_DEFAULT = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 ,
                 E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 };
