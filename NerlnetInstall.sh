@@ -4,6 +4,8 @@
 
 NERLNET_LIB_DIR="/usr/local/lib/nerlnet-lib"
 NERLNET_DIR=$NERLNET_LIB_DIR/NErlNet
+NERLNET_LOG_DIR="/usr/local/lib/nerlnet-lib/log"
+LOGGED_IN_USER=$(logname)
 NumJobs=4
 
 function print()
@@ -32,6 +34,7 @@ fi
 
 print "Creating NErlNet-lib directory in $NERLNET_LIB_DIR"
 mkdir -p $NERLNET_LIB_DIR
+mkdir -p $NERLNET_LOG_DIR
 
 print "Adding a sym-link to NErlNet directory"
 ln -s `pwd` $NERLNET_DIR
@@ -46,11 +49,19 @@ echo -e "
 After=network.service
 
 [Service]
-ExecStart=$NERLNET_DIR/NerlnetRun.sh
-User=$(logname)
+ExecStart=$NERLNET_DIR/NerlnetStartup.sh
+User=$LOGGED_IN_USER
 
 [Install]
 WantedBy=default.target" > /etc/systemd/system/nerlnet.service
 
-sudo chmod 744 $NERLNET_DIR/NerlnetRun.sh
-sudo chmod 664 /etc/systemd/system/nerlnet.service
+chmod 744 $NERLNET_DIR/NerlnetRun.sh
+chmod 664 /etc/systemd/system/nerlnet.service
+chown -R $LOGGED_IN_USER $NERLNET_LOG_DIR
+chown -R $LOGGED_IN_USER $NERLNET_DIR
+
+echo "enable and start nerlnet.service"
+systemctl enable nerlnet.service
+systemctl start nerlnet.service
+
+rm *.deb
