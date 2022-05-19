@@ -64,7 +64,7 @@ getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
   %%  retrive  a map of arguments of the API Server
   ServerAPI = maps:get(<<"serverAPI">>,ArchitectureMap),
   io:format("All Vertices In Nerlnet Graph:~n~p~n",[digraph:vertices(G)]),
-  io:format("path:~n~p~n",[digraph:get_short_path(G,"serverAPI","c2")]),
+  io:format("path:~n~p~n",[digraph:get_short_path(G,"serverAPI","c1")]),
 
 
   io:format("On Device Entities to Open:~nMainServer: ~p~nServerAPI: ~p~nClientsAndWorkers: ~p~nSources: ~p~nRouters: ~p~n Federated Servers: ~p~n",
@@ -322,7 +322,8 @@ getAllHosts(ArchitectureMap) ->
 connectRouters(G,ArchitectureMap,CommunicationMap) -> 
 
     ConnectionsMap = maps:to_list(maps:get(<<"connectionsMap">>,CommunicationMap)),
-    [[addEdges(G,binary_to_list(Router),binary_to_list(ListOfRouters))||ListOfRouters <- ListOfRouters]||{Router,ListOfRouters}<-ConnectionsMap].
+    [[addEdges(G,binary_to_list(Router),binary_to_list(Component))||Component<-Components]||{Router,Components}<-ConnectionsMap].
+    % [[addEdges(G,binary_to_list(Router),binary_to_list(ListOfRouters))||ListOfRouters <- ListOfRouters]||{Router,ListOfRouters}<-ConnectionsMap].
     %io:format("ConnectionsMap:~n~p~n",[ConnectionsMap]).
 	
 addEdges(G,V1,V2) ->
