@@ -53,7 +53,7 @@ start(_StartType, _StartArgs) ->
     createNerlnetInitiator(HostName),
     receive 
         {jsonAddress,MSG} -> JsonPath = MSG
-        after 10000 -> JsonPath = "../../../jsonPath"   %%TODO REMOVE after finished integrating with python!!! TODOTODO TODO 
+        after 1000 -> JsonPath = "../../../jsonPath"   %%TODO REMOVE after finished integrating with python!!! TODOTODO TODO 
     end,
 
     %Parse json and start nerlnet:
