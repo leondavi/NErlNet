@@ -334,8 +334,8 @@ addEdges(G,V1,V2) ->
 addtograph(G,ArchitectureMap,MyRouter,HostName,MyRouter) -> okPass;
 addtograph(G,ArchitectureMap,Entitie,HostName,MyRouter) -> 
     io:format("~p~n",[{Entitie,HostName,getPortUnknown(ArchitectureMap,list_to_binary(Entitie))}]),
-    digraph:add_vertex(G,Entitie,{HostName,getPortUnknown(ArchitectureMap,list_to_binary(Entitie))}),
-    addEdges(G,Entitie,MyRouter).
+    digraph:add_vertex(G,Entitie,{HostName,getPortUnknown(ArchitectureMap,list_to_binary(Entitie))}).
+    % addEdges(G,Entitie,MyRouter).
 	
 getMyRouter(Routers,OnDeviceEntities) -> 
     [Common] = [X || X <- Routers, Y <- OnDeviceEntities, X == Y],
