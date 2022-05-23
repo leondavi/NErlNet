@@ -1,6 +1,7 @@
 import requests
 import globalVars as globe
 import time
+import sys
 
 class Transmitter:
 
@@ -34,20 +35,19 @@ class Transmitter:
         workersUnderSourceList = globe.expFlow[currentPhase][sourceName]
         workersUnderSourceStr = ",".join(workersUnderSourceList)
         if currentPhase == "Training":
-            dataStr = '{},{},heart2020Edit_train_splitted'.format(sourceName, workersUnderSourceStr) #Python's string format, {} are swapped by the variables in the brackets respectively.
+            dataStr = '{},{},HeartData/HeartTrain_splitted'.format(sourceName, workersUnderSourceStr) #Python's string format, {} are swapped by the variables in the brackets respectively.
         elif currentPhase == "Prediction":
-            dataStr = '{},{},heart2020Edit_predict_splitted'.format(sourceName, workersUnderSourceStr) #Python's string format, {} are swapped by the variables in the brackets respectively.
+            dataStr = '{},{},HeartData/HeartTrain_splitted'.format(sourceName, workersUnderSourceStr) #Python's string format, {} are swapped by the variables in the brackets respectively.
 
         response = requests.post(self.updateCSVAddress, data=dataStr)
 
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
 
-    def startCasting(self):
+    def startCasting(self, numOfBatches=sys.maxsize):
         print('Start Casting Phase')
 
-
-        dataStr = "{},{}".format(globe.components.toString('s'), globe.components.batchSize) #Python's string format, {} are swapped by the variables in the brackets respectively.
+        dataStr = "{},{}".format(globe.components.toString('s'), numOfBatches) #Python's string format, {} are swapped by the variables in the brackets respectively.
 
         response = requests.post(self.startCastingAddress, data=dataStr)
 
