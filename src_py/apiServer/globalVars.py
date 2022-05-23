@@ -33,17 +33,14 @@ file = open(expFlowPath)
 expFlow = json.load(file)
 
 # Check the platform we are running on:
-def checkPlatform():
-    ipythonPlatform = str(type(get_ipython()))
+ipythonPlatform = str(type(get_ipython()))
 
-    if 'zmqshell' in ipythonPlatform:
-        jupyterFlag =  1 #Return 1 for Jupyter Notebook.
-    elif 'terminal' in ipythonPlatform:
-        jupyterFlag =  2 #Return 2 for IPython Shell.
-    else:
-        jupyterFlag =  0 #Return 0 for Terminal.
-
-    return jupyterFlag
+if 'zmqshell' in ipythonPlatform:
+    jupyterFlag =  1 #Return 1 for Jupyter Notebook.
+elif 'terminal' in ipythonPlatform:
+    jupyterFlag =  2 #Return 2 for IPython Shell.
+else:
+    jupyterFlag =  0 #Return 0 for Terminal.
 
 if __name__ == "__main__":
     components.printComponents()
