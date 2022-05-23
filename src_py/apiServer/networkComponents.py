@@ -54,9 +54,19 @@ class NetworkComponents():
             self.routers.append(router['name'])
 
     def printComponents(self):
-        print(self.batchSize, self.frequency, self.devicesIp, self.mainServerIp, self.mainServerPort, \
-             self.clients, self.workers, self.federateds, self.sources, self.routers)
-
+        print("Network components:\n \
+                Batchsize: {}\n \
+                Frequency: {}\n \
+                devicesIp: {}\n \
+                mainServerIp: {}\n \
+                mainServerPort: {}\n \
+                Clients: {}\n \
+                Workers: {}\n \
+                Federated networks: {}\n \
+                Sources: {}\n \
+                Routers: {}\n".format(self.batchSize, self.frequency, self.devicesIp, self.mainServerIp, \
+                          self.mainServerPort, self.clients, self.workers, self.federateds, self.sources, self.routers))
+             
     def toString(self, char): #Prints the contents of any of the components' lists (e.g. "routers")
         if char == 'd':
             return ','.join(self.devicesIp)

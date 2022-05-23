@@ -13,17 +13,22 @@ class ApiServer():
         self.mainServerAddress = 'http://' + mainServerIP + ':' + mainServerPort
 
         # Send the content of jsonPath to each devices:
-        print("Sending jsonPath to devices...\n")
+        print("Sending JSON paths to devices...")
+
+        archiAddress = globe.content[0]
+        connMapAddress = globe.content[1]
+        data = archiAddress + '#' + connMapAddress
 
         for ip in globe.components.devicesIp:
-            response = requests.post(ip + "/8484/updateJsonPath", data=globe.content)
+            address = 'http://{}:8484/updateJsonPath'.format(ip)
 
+            response = requests.post(address, data)
             if globe.jupyterFlag == 0:
-                print(response)
+              print(response.ok, response.status_code)
 
-        time.sleep(3)
+        time.sleep(1)
         
-        # Starting receiver flask server process
+        # Starting receiver flask server process:
         print("Starting the receiver HTTP server...\n")
 
         self.serverThread = threading.Thread(target=initReceiver, args=())
