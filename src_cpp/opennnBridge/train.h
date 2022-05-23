@@ -21,7 +21,7 @@ struct TrainNN {
     double learning_rate;
     std::shared_ptr<Eigen::Tensor<float,2>> data;
     high_resolution_clock::time_point start_time;
-    int display;
+    double K_val;
 
     ErlNifTid tid;
     ErlNifPid pid;
@@ -35,12 +35,14 @@ static void* trainFun(void* arg){
          ErlNifEnv *env = enif_alloc_env();         
          DataSet data_set;
         
+        
          // Get the singleton instance
         
          opennnBridgeController *s = s->GetInstance();
             
-     
-
+         std::shared_ptr<Eigen::Tensor<float,2>> autoencider_data = std::make_shared<Eigen::Tensor<float,2>>();
+         // Eigen::Tensor<float,2> autoencider_data;
+         // std::shared_ptr<Eigen::Tensor<float,2>> autoencider_classifier_data(&autoencider_data); 
          //cout << "model ID is " <<std::endl;
          //cout << TrainNNptr->mid << std::endl;
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(TrainNNptr->mid);
@@ -48,30 +50,32 @@ static void* trainFun(void* arg){
 
          int first_layer_size = neural_network->get_layers_neurons_numbers()(0);
          int data_num_of_cols = TrainNNptr->data->dimension(1);
-         cout << first_layer_size << std::endl;
-         cout << neural_network->get_layers_neurons_numbers()(6) << std::endl;
-         cout << data_num_of_cols<< std::endl;
-         cout << modelType<< std::endl;
+         
             
          //CustumNN *cc;
          //cc = dynamic_cast<CustumNN*>(neural_network.get());
-       
+         
          if ((modelType == E_AE || modelType == E_AEC) && first_layer_size == data_num_of_cols){
-            Eigen::array<int, 2> bcast({1, 2}); 
-            Eigen::Tensor<float, 2> outoencider_data = TrainNNptr->data->broadcast(bcast);  //  copy input layar to output layar , using bcast
+            Eigen::array<int, 2> bcast({1, 2});      
+            cout << "model ID is " <<std::endl;   
+            *autoencider_data = TrainNNptr->data->broadcast(bcast);  //  copy input layar to output layar , using bcast
+            cout << "model ID is " <<std::endl;
             if(modelType == E_AE){    
-            data_set.set_data(outoencider_data);
-            data_set.set(outoencider_data.dimension(1),data_num_of_cols,data_num_of_cols);
+              data_set.set_data(*autoencider_data);
+              data_set.set(autoencider_data->dimension(1),data_num_of_cols,data_num_of_cols);
             }
          }
            else data_set.set_data(*(TrainNNptr->data));
-             
-         
-         
-         
+
+            
+           
+          
+           //cout << autoencider_classifier_data->dimension(0) << endl;
+           
+
+
          TrainingStrategy training_strategy(&(*(s-> getModelPtr(TrainNNptr->mid))) ,&data_set);
-         
-        
+       
          // set Optimization Method  -------------------------------------------------------------
         try{
          if(TrainNNptr->optimization_method == E_OM_GRADIENT_DESCENT){
@@ -158,7 +162,10 @@ static void* trainFun(void* arg){
         
         
          if(modelType == E_AEC){
+             
            std::shared_ptr<AutoencoderClassifier> Autoencoder_Classifier = std::static_pointer_cast<AutoencoderClassifier>(neural_network);
+           Autoencoder_Classifier->train(autoencider_data, TrainNNptr->data);
+           loss_val = 1;
          }
          else{
            try{  
@@ -167,28 +174,29 @@ static void* trainFun(void* arg){
             catch(...){
              cout << "catch - do training" <<std::endl;
             }  
+        
+
+
+            try{ 
+               
+                Tensor< type, 2 > errors_2 = testing_analysis.calculate_errors();
+            Tensor<type, 1> confusion_matrix = testing_analysis.calculate_testing_errors();
+            //sse - confusion_matrix[0]
+            //mse - confusion_matrix[1]
+            //root mse - confusion_matrix[2]
+            //nse - confusion_matrix[3]
+            ERL_NIF_TERM error = nifpp::makeTensor1D(env, confusion_matrix);
+            if(TrainNNptr->lose_method == E_LOSS_METHOD_SUM_SQUARED_ERROR) loss_val = confusion_matrix[0]; 
+            else if(TrainNNptr->lose_method == E_LOSS_METHOD_MSE)          loss_val = confusion_matrix[1];  
+            else if(TrainNNptr->lose_method == E_LOSS_METHOD_NSE)          loss_val = confusion_matrix[3]; 
+            else loss_val = confusion_matrix[1];
+            loss_val = errors_2(0,0);
+            
+            } 
+            catch(...){
+            cout << "catch - calculate errors" <<std::endl;
+            } 
          }
-
-
-        try{ 
-            Tensor< type, 2 > errors_2 = testing_analysis.calculate_errors();
-         Tensor<type, 1> confusion_matrix = testing_analysis.calculate_testing_errors();
-         //sse - confusion_matrix[0]
-         //mse - confusion_matrix[1]
-         //root mse - confusion_matrix[2]
-         //nse - confusion_matrix[3]
-         ERL_NIF_TERM error = nifpp::makeTensor1D(env, confusion_matrix);
-         if(TrainNNptr->lose_method == E_LOSS_METHOD_SUM_SQUARED_ERROR) loss_val = confusion_matrix[0]; 
-         else if(TrainNNptr->lose_method == E_LOSS_METHOD_MSE)          loss_val = confusion_matrix[1];  
-         else if(TrainNNptr->lose_method == E_LOSS_METHOD_NSE)          loss_val = confusion_matrix[3]; 
-         else loss_val = confusion_matrix[1];
-         loss_val = errors_2(0,0);
-         
-        } 
-        catch(...){
-           cout << "catch - calculate errors" <<std::endl;
-        } 
-         
          
          // Stop the timer and calculate the time took for training
          high_resolution_clock::time_point  stop = high_resolution_clock::now();
@@ -210,7 +218,7 @@ static void* trainFun(void* arg){
              printf("enif_send train succeed\n");
          }
          else printf("enif_send failed\n");
-         //delete TrainNNptr;
+       
          return 0;
          //return enif_make_string(env, "end TRAIN mode", ERL_NIF_LATIN1);
 }

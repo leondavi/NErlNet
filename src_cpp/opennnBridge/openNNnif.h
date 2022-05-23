@@ -126,6 +126,8 @@ static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          nifpp::get_throws(env, argv[3],TrainNNptr->learning_rate);
          nifpp::getTensor2D(env,argv[4],TrainNNptr->data);
          //nifpp::get_throws(env, argv[5],TrainNNptr->display);
+         //nifpp::get_throws(env, argv[5],TrainNNptr->display);
+         
          
          ErlNifPid pid;
          enif_self(env, &pid);
@@ -156,7 +158,8 @@ static ErlNifFunc nif_funcs[] =
     {"trainn_nif", 5 , trainn_nif},
     {"predict_nif", 2 , predict_nif},
     //{"printTensor",2, printTensor},
-    {"get_weights_nif",1, get_weights_nif}
+    {"get_weights_nif",1, get_weights_nif},
+    {"set_weights_nif",2, set_weights_nif}
    // {"jello", 1, jello}
 };
 

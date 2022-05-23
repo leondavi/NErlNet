@@ -123,8 +123,8 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
           else if(modelType == E_AEC)
          { 
-
-             shared_ptr<AutoencoderClassifier> autoencoderClassifierPtr = std::make_shared<AutoencoderClassifier>();
+             double k = 0.0;
+             shared_ptr<AutoencoderClassifier> autoencoderClassifierPtr = std::make_shared<AutoencoderClassifier>(k);
              neural_network = autoencoderClassifierPtr;
              autoencoderClassifierPtr->setCustumNN(neural_network_architecture, layer_types, activations_functions); 
              //std::cout << "start CustumNN" << std::endl; 
