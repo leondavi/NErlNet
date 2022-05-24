@@ -14,9 +14,13 @@ class ApiServer():
 
         # Send the content of jsonPath to each devices:
         print("Sending jsonPath to devices...\n")
-
+        toSend = globe.content[0].replace('\n','')+'#'+globe.content[1].replace('\n','')
+        print(toSend)
         for ip in globe.components.devicesIp:
-            response = requests.post(ip + "/8484/updateJsonPath", data=globe.content)
+        
+            print(ip + ":8484/updateJsonPath"+toSend)
+            address = 'http://{}:8484/updateJsonPath'.format(ip)
+            response = requests.post(address, data=toSend)
 
             if globe.jupyterFlag == 0:
                 print(response)
