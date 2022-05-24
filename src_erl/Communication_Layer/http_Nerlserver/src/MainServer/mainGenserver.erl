@@ -224,15 +224,22 @@ handle_cast({stopCasting,Source_Names}, State = #main_genserver_state{state = ca
 
 handle_cast({lossFunction,<<>>}, State = #main_genserver_state{msgCounter = MsgCounter}) ->
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
-handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
-%%  io:format("got loss function:- ~p~n",[Body]),
-    {RouterHost,RouterPort} = getShortPath(MyName,"serverAPI",NerlnetGraph),
-    {WorkerName,LossFunction} = binary_to_term(Body),
-    io:format("got loss function:- ~p~n",[{RouterHost,RouterPort,atom_to_list(WorkerName),float_to_list(LossFunction)}]),
-  %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-  http_request(RouterHost,RouterPort,"lossFunction", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction)),
-%%  file:write_file("./output/"++WorkerName, LossFunction++"\n", [append]),
+  handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
+    %%  io:format("got loss function:- ~p~n",[Body]),
+        {RouterHost,RouterPort} = getShortPath(MyName,"serverAPI",NerlnetGraph),
+      case   binary_to_term(Body) of
+        {WorkerName,{LossFunction,_Time}} ->
+          io:format("got loss function:- ~p~n",[{RouterHost,RouterPort,atom_to_list(WorkerName),float_to_list(LossFunction)}]),
+        %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
+        http_request(RouterHost,RouterPort,"lossFunction", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction));
+        {WorkerName,LossFunction} ->
+          io:format("got loss function:- ~p~n",[{RouterHost,RouterPort,atom_to_list(WorkerName),float_to_list(LossFunction)}]),
+        %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
+        http_request(RouterHost,RouterPort,"lossFunction", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction))
+        end,
+        %%  file:write_file("./output/"++WorkerName, LossFunction++"\n", [append]),
 
+    
 
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
