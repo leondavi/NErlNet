@@ -1,3 +1,4 @@
+/*
 #pragma once 
 
 //#include <iostream>
@@ -58,3 +59,4 @@ static ERL_NIF_TERM printTensor(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
    // std::cout<<Tensor2str(newTensor)<<std::endl;
    return enif_make_string(env, "Hello world! @@@@@", ERL_NIF_LATIN1);
 }
+*/

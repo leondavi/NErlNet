@@ -22,8 +22,10 @@ GRAPH_INDEX = 5
 E_TRAINING = 0
 E_PREDICTION = 1
 
+
 username = os.getlogin()
 jsonPathLocation = '/home/{}/workspace/NErlNet/jsonPath'.format(username)
+
 jsonPath = open(jsonPathLocation)
 content = jsonPath.readlines()
 componentsPath = content[4][:-1]

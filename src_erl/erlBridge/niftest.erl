@@ -4,7 +4,7 @@
 %-export([init/0,create_nif/6,train_nif/4,trainn_nif/4,call_to_train/4,predict_nif/2,call_to_predict/2,get_weights_nif/1,call_to_get_weights/1,printTensor/2]).
 
 -export([init/0,create_nif/6,train_nif/5,trainn_nif/5,call_to_train/6,predict_nif/2,call_to_predict/3,get_weights_nif/1,printTensor/2]).
--export([call_to_get_weights/1]).
+-export([call_to_get_weights/1,set_weights_nif/2]).
 
 -define(DEBUG,false). % set here if it is debug or release  TODO change to read from hrl auto generated file
 -if(DEBUG).
@@ -66,11 +66,12 @@ train_nif(Integer,Integer,Integer,Integer, []) ->
 
 call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, WorkerPid)->
       io:format("berfor train  ~n "),
+       %io:format("DataTensor= ~p~n ",[DataTensor]),
       _RetVal=trainn_nif(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor),
       %io:format("Train Time= ~p~n ",[RetVal]),
       receive
             Ret->
-            %io:format("Ret= ~p~n ",[Ret]),
+            io:format("Ret= ~p~n ",[Ret]),
             %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
             gen_statem:cast(WorkerPid,{loss, Ret})
       end.
@@ -79,27 +80,38 @@ trainn_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor) 
       exit(nif_library_not_loaded).
 
 call_to_predict(ModelID, Data, WorkerPid)->
+     
       _RetVal = predict_nif(ModelID, Data),
       receive
             Ret->
-
-            io:format("predict res = ~p~n Worker Pid: ~p ",[Ret,WorkerPid]),
+            io:format("Ret= ~p~n ",[Ret]),      
+            %Max = lists:max(lists:sublist(Ret,4,length(Ret))),
+            %case Max < 0.5 of 
+            %      true ->
+            %io:format("predict res = ~p~n Worker Pid: ~p ",[Ret,WorkerPid]),
 
             gen_statem:cast(WorkerPid,{predictRes,Ret}) 
+            %_ -> io:format("SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~n
+            %SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~n
+            %SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nMax:~p",[Max])
+            %end
       end.
 
-call_to_get_weights(A)->
-      RetVal = get_weights_nif(A),
+call_to_get_weights(ModelID)->
+      RetVal = get_weights_nif(ModelID),
       io:format("RetVal= ~p~n ",[RetVal]),
       receive
             Ret->
             io:format("Ret= ~p~n ",[Ret])
       end.
 
-predict_nif(Integer, []) ->
+predict_nif(ModelID, Data) ->
       exit(nif_library_not_loaded).
 
-get_weights_nif(Integer) ->
+get_weights_nif(ModelID) ->
+      exit(nif_library_not_loaded).
+
+set_weights_nif(ModelID, Weights) ->
       exit(nif_library_not_loaded).
 
 printTensor(List,Type) when is_list(List) -> 

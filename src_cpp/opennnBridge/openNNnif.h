@@ -14,8 +14,8 @@ using namespace std::chrono;
 #include "bridgeController.h"
 #include "create.h"
 #include "train.h"
+#include "Autoencoder.h"
 #include "get_set_weights.h"
-#include "helpFunc.h"
 
 #include "nifppEigenExtensions.h"
 
@@ -29,30 +29,51 @@ using namespace OpenNN;
 struct PredictNN {
 
     long int mid;
-    Eigen::Tensor<float,2> data;
+    std::shared_ptr<Eigen::Tensor<float,2>> data;
     ErlNifPid pid;
     ErlNifTid tid;
 };
 
 
 static void* PredictFun(void* arg){ 
+       
          //PredictNN* PredictNNptr = (PredictNN*)arg;
          PredictNN* PredictNNptr = reinterpret_cast<PredictNN*>(arg);
+         ERL_NIF_TERM prediction;
+         int EAC_prediction; 
          ErlNifEnv *env = enif_alloc_env();    
          opennnBridgeController *s = s->GetInstance();
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(PredictNNptr->mid);
-         Tensor< float, 2 > calculate_outputs =  neural_network->calculate_outputs(PredictNNptr->data);
-         ERL_NIF_TERM prediction = nifpp::makeTensor2D(env, calculate_outputs);
-         if(enif_send(NULL,&(PredictNNptr->pid), env,prediction)){
+         
+         //CustumNN *cc;
+         //cc = dynamic_cast<CustumNN*>(neural_network.get());
+         
+         int modelType = s->getModelType(PredictNNptr->mid); 
+         std::shared_ptr<Eigen::Tensor<float,2>> calculate_res = std::make_shared<Eigen::Tensor<float,2>>();
+         (*calculate_res) = neural_network->calculate_outputs(*(PredictNNptr->data));
+     
+         if(modelType == E_AEC){
+            
+            //EAC_prediction = EAC_predic(PredictNNptr->data, calculate_res);
+            //prediction = enif_make_int(env, (EAC_prediction));
+         }
+         else
+            prediction = nifpp::makeTensor2D(env, (*calculate_res));
+            
+            //cout << calculate_res << endl;
+            
+         if(enif_send(NULL,&(PredictNNptr->pid), env, prediction)){
              printf("enif_send succeed prediction\n");
           }
          else printf("enif_send failed\n");
+         
          //delete PredictNNptr;
          return 0;
 }
 
 
 static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
+         cout << "in predict" << endl;
          std::shared_ptr<PredictNN> PredictNNptr = std::make_shared<PredictNN>();
          //long int mid;
          //Eigen::Tensor<float,2> data;
@@ -60,12 +81,13 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
          
          enif_self(env, &pid);
          PredictNNptr->pid = pid;
-
+         
          //opennnBridgeController *s = s->GetInstance();
         
-         
+       
          nifpp::get_throws(env, argv[0], PredictNNptr->mid); // get model id
          nifpp::getTensor2D(env,argv[1], PredictNNptr->data); // get data for prediction
+   
          //get neural network from singelton         
          //std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(mid); 
          //Tensor< float, 2 > calculate_outputs =  neural_network->calculate_outputs(data);
@@ -77,7 +99,7 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
          //}
          //else printf("enif_send failed\n");
          int res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFun, PredictNNptr.get(), 0);
-         
+        
          return enif_make_string(env, "end PREDICT mode", ERL_NIF_LATIN1);
 
          
@@ -104,6 +126,8 @@ static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          nifpp::get_throws(env, argv[3],TrainNNptr->learning_rate);
          nifpp::getTensor2D(env,argv[4],TrainNNptr->data);
          //nifpp::get_throws(env, argv[5],TrainNNptr->display);
+         //nifpp::get_throws(env, argv[5],TrainNNptr->display);
+         
          
          ErlNifPid pid;
          enif_self(env, &pid);
@@ -133,8 +157,9 @@ static ErlNifFunc nif_funcs[] =
     //{"train_nif", 4 , train_nif},
     {"trainn_nif", 5 , trainn_nif},
     {"predict_nif", 2 , predict_nif},
-    {"printTensor",2, printTensor},
-    {"get_weights_nif",1, get_weights_nif}
+    //{"printTensor",2, printTensor},
+    {"get_weights_nif",1, get_weights_nif},
+    {"set_weights_nif",2, set_weights_nif}
    // {"jello", 1, jello}
 };
 
