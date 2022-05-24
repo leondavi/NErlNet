@@ -85,20 +85,20 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         try{
              
          if (modelType == E_APPROXIMATION){     
-             neural_network->set(NeuralNetwork::Approximation,*neural_network_architecture);     
+             neural_network->set(NeuralNetwork::ProjectType::Approximation,*neural_network_architecture);     
                    
          }                                                           
          else if(modelType == E_CLASSIFICATION){     
-             neural_network->set(NeuralNetwork::Classification,*neural_network_architecture); 
+             neural_network->set(NeuralNetwork::ProjectType::Classification,*neural_network_architecture); 
           
          }                                                           
          else if(modelType == E_FORECASTING){   
-             neural_network->set(NeuralNetwork::Forecasting,*neural_network_architecture);      
+             neural_network->set(NeuralNetwork::ProjectType::Forecasting,*neural_network_architecture);      
                
          }
 
          else if(modelType == E_NCODER_DECODER){   
-             //neural_network->set(NeuralNetwork::Forecasting,neural_network_architecture);      
+             //neural_network->set(NeuralNetwork::ProjectType::Forecasting,neural_network_architecture);      
                
          }
 
@@ -152,24 +152,24 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          // std::cout << "dddddddddddd" << std::endl;
          if(scaling_method == E_ScalingMethods_NoScaling)
         {
-            scaling_layer_pointer->set_scaling_methods(ScalingLayer::NoScaling);
+            scaling_layer_pointer->set_scalers(Scaler::NoScaling);
         }
         else if(scaling_method == E_ScalingMethods_MinimumMaximum)
         {
-            scaling_layer_pointer->set_scaling_methods(ScalingLayer::MinimumMaximum);
+            scaling_layer_pointer->set_scalers(Scaler::MinimumMaximum);
         }
         else if(scaling_method == E_ScalingMethods_MeanStandardDeviation)
         {
-            scaling_layer_pointer->set_scaling_methods(ScalingLayer::MeanStandardDeviation);
+            scaling_layer_pointer->set_scalers(Scaler::MeanStandardDeviation);
         }
         else if(scaling_method == E_ScalingMethods_StandardDeviation)
         {
-            scaling_layer_pointer->set_scaling_methods(ScalingLayer::StandardDeviation);
+            scaling_layer_pointer->set_scalers(Scaler::StandardDeviation);
         }
-        //else if(scaling_method == ScalingMethods_Logarithm)  
-        //{
-        //    scaling_layer_pointer->set_scaling_methods(ScalingLayer::Logarithm);   //Logarithm exists in opennn site but commpiler dont recognaize it. 
-        //}
+        else if(scaling_method == E_ScalingMethods_Logarithm)  
+        {
+            scaling_layer_pointer->set_scalers(Scaler::Logarithm);   //Logarithm exists in opennn site but commpiler dont recognaize it. 
+        }
         //------------------------------------------------------------------------------------------------------------------
           
         } //try
