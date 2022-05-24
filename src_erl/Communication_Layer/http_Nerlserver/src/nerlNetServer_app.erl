@@ -45,12 +45,12 @@
 
 start(_StartType, _StartArgs) ->
      HostName = getHostName(),
-     %HostName = "127.0.0.1",
+     %HostName = "host_1",
      %HostName = "127.0.0.1",
      io:format("My HostName: ~p~n",[HostName]),
 
     %Create a listener that waits for a message from python about the adresses of the wanted json
-    createNerlnetInitiator(HostName),
+    %createNerlnetInitiator(HostName),
     receive 
         {jsonAddress,MSG} -> JsonPath = MSG
         after 1000 -> JsonPath = "../../../jsonPath"   %%TODO REMOVE after finished integrating with python!!! TODOTODO TODO 
