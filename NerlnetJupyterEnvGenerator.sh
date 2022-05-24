@@ -47,13 +47,22 @@ echo "generate symbloic link: src_py/apiServer.py --> $jdir/apiServer.py"
 ln -s `pwd`/src_py/apiServer/apiServer.py $jdir/apiServer.py
 echo "generate symbloic link: src_py/globalVars.py --> $jdir/globalVars.py"
 ln -s `pwd`/src_py/apiServer/globalVars.py $jdir/globalVars.py
-
 echo "generate symbloic link: src_py/networkComponents.py --> $jdir/networkComponents.py"
 ln -s `pwd`/src_py/apiServer/networkComponents.py $jdir/networkComponents.py
-
 echo "generate symbloic link: src_py/receiver.py --> $jdir/receiver.py"
 ln -s `pwd`/src_py/apiServer/receiver.py $jdir/receiver.py
 echo "generate symbloic link: src_py/transmitter.py --> $jdir/transmitter.py"
 ln -s `pwd`/src_py/apiServer/transmitter.py $jdir/transmitter.py
+#echo "generate symbloic link: jsonPath --> $jdir/jsonPath"
+#ln -s `pwd`/jsonPath $jdir/jsonPath
+echo "generate symbloic link: inputDataDir --> $jdir/inputDataDir"
+ln -s `pwd`/inputDataDir $jdir/inputDataDir
+echo "generate symbloic link: NErlNet Directory --> $jdir/NErlNet"
+ln -s `pwd` $jdir/NErlNet
+
+# to be Deprecated
+echo "generate symbloic link: inputJsonFiles --> $jdir/inputJsonFiles"
+ln -s `pwd`/inputJsonFiles $jdir/inputJsonFiles
+
 
 
