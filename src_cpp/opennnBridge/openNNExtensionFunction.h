@@ -118,6 +118,29 @@ void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neural_netw
             }
 
          }
+
+         int last_layar2 = neural_network->get_layers_pointers().size()-2;
+         if(neural_network->get_layer_pointer(last_layar)->get_type() == 4) //"Probabilistic"
+         {
+          cout << "aaaa" << endl;
+            if((*activations_functions)(last_layar2) == PAF_Binary){
+                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar2))->set_activation_function(ProbabilisticLayer::Binary);
+            }
+
+            if((*activations_functions)(last_layar2) == PAF_Logistic){  //problem with Logistic ,the compiler dont like it
+                 dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar2))->set_activation_function(ProbabilisticLayer::Logistic);
+            }
+
+            if((*activations_functions)(last_layar2) == PAF_Competitive){
+                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar2))->set_activation_function(ProbabilisticLayer::Competitive);
+            }
+
+            if((*activations_functions)(last_layar2) == PAF_Softmax){
+                  cout << "bbb" << endl;
+                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar2))->set_activation_function(ProbabilisticLayer::Softmax);
+            }
+
+         }
     
 }
 
