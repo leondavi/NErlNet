@@ -84,30 +84,6 @@ createNerlnetInitiator(HostName) ->
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
     init_cowboy_start_clear(nerlnetInitiator, {HostName,Port},NerlnetInitiatorDispatch).
 
-parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess) ->
-    %%Server that should be established on thi  s machine from JSON architecture:
-    % {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities("./input/jsonArch1PC2Workers.json",list_to_binary(HostName)),
-    %%    get json path from jsonPath file in main NErlNet directory
-    
-
-
-
-    parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess),
-    nerlNetServer_sup:start_link().
-
-
-createNerlnetInitiator(HostName) ->
-    Port = ?NERLNET_INIT_PORT,
-    NerlnetInitiatorDispatch = cowboy_router:compile([
-        {'_', [
-
-            {"/updateJsonPath",jsonHandler, [self()]},
-            {"/isNerlnetDevice",iotHandler, [self()]}
-        ]}
-    ]),
-    %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
-    %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
-    init_cowboy_start_clear(nerlnetInitiator, {HostName,Port},NerlnetInitiatorDispatch).
 
 parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess) ->
     %%Server that should be established on thi  s machine from JSON architecture:
