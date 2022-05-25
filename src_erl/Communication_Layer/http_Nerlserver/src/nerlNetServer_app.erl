@@ -55,7 +55,7 @@ start(_StartType, _StartArgs) ->
 
         {jsonAddress,MSG} -> {ArchitectureAdderess,CommunicationMapAdderess} = MSG
         %%TODO remove this "after" part when python is ready to send jsonPaths
-        after 100000 ->   JsonPath = "../../../jsonPath",
+        after 10000 ->   JsonPath = "../../../jsonPath",
                         {ok, InputJSON} = file:read_file(JsonPath),%%TODO change to File_Address
                         Listed = binary_to_list(InputJSON),
                         %ArchitectureAdderess, CommunicationMapAdderess are the paths for the json architecture file, where THIS machine can find its own entities by IP
