@@ -3,7 +3,7 @@
 %<<<<<<< HEAD
 %-export([init/0,create_nif/6,train_nif/4,trainn_nif/4,call_to_train/4,predict_nif/2,call_to_predict/2,get_weights_nif/1,call_to_get_weights/1,printTensor/2]).
 
--export([init/0,create_nif/6,train_nif/5,trainn_nif/5,call_to_train/6,predict_nif/2,call_to_predict/3,get_weights_nif/1,printTensor/2]).
+-export([init/0,create_nif/6,train_nif/5,trainn_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,set_weights_nif/2]).
 
 -define(DEBUG,false). % set here if it is debug or release  TODO change to read from hrl auto generated file
@@ -79,7 +79,7 @@ call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Wo
 trainn_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor) -> %TODO change to trainn_nif
       exit(nif_library_not_loaded).
 
-call_to_predict(ModelID, Data, WorkerPid)->
+call_to_predict(ModelID, Data, WorkerPid,CSVname, BatchID)->
      
       _RetVal = predict_nif(ModelID, Data),
       receive
@@ -90,7 +90,7 @@ call_to_predict(ModelID, Data, WorkerPid)->
             %      true ->
             %io:format("predict res = ~p~n Worker Pid: ~p ",[Ret,WorkerPid]),
 
-            gen_statem:cast(WorkerPid,{predictRes,Ret}) 
+            gen_statem:cast(WorkerPid,{predictRes,Ret,CSVname, BatchID}) 
             %_ -> io:format("SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~n
             %SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~n
             %SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nMax:~p",[Max])

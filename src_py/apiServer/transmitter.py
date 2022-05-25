@@ -35,9 +35,9 @@ class Transmitter:
         workersUnderSourceList = globe.expFlow[currentPhase][sourceName]
         workersUnderSourceStr = ",".join(workersUnderSourceList)
         if currentPhase == "Training":
-            dataStr = '{},{},HeartData/HeartTrain_splitted'.format(sourceName, workersUnderSourceStr) #Python's string format, {} are swapped by the variables in the brackets respectively.
+            dataStr = '{},{},nums/zeros90Others10/norm_zeros90Others10_predict'.format(sourceName, workersUnderSourceStr) #Python's string format, {} are swapped by the variables in the brackets respectively.
         elif currentPhase == "Prediction":
-            dataStr = '{},{},HeartData/HeartTrain_splitted'.format(sourceName, workersUnderSourceStr) #Python's string format, {} are swapped by the variables in the brackets respectively.
+            dataStr = '{},{},nums/zeros90Others10/norm_zeros90Others10_predict'.format(sourceName, workersUnderSourceStr) #Python's string format, {} are swapped by the variables in the brackets respectively.
 
         response = requests.post(self.updateCSVAddress, data=dataStr)
 
