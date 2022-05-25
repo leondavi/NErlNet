@@ -13,7 +13,7 @@ class Transmitter:
         self.clientsPredictAddress = self.mainServerAddress + '/clientsPredict'
         self.statisticsAddress = self.mainServerAddress + '/statistics'
 
-    def testPost(self,address,payloadNum):
+    def testPost(self, address, payloadNum):
         payload = {'test' : payloadNum}
         response = requests.post(address ,data = payload)
         print(response.ok, response.status_code, response.json())
@@ -28,23 +28,25 @@ class Transmitter:
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
         
-    def updateCSV(self, currentPhase : int, sourceName): # currentPhase is either "Training", "Prediction" or "Statistics". 
+    def updateCSV(self, currentPhase, resList): # currentPhase is either "Training", "Prediction" or "Statistics". 
         print('Update CSV Phase')
 
-        # Compose the correct string to send as data to the Main Server:
-        workersUnderSourceList = globe.expFlow[currentPhase][sourceName]
-        workersUnderSourceStr = ",".join(workersUnderSourceList)
-        if currentPhase == "Training":
-            dataStr = '{},{},HeartData/HeartTrain_splitted'.format(sourceName, workersUnderSourceStr) #Python's string format, {} are swapped by the variables in the brackets respectively.
-        elif currentPhase == "Prediction":
-            dataStr = '{},{},HeartData/HeartTrain_splitted'.format(sourceName, workersUnderSourceStr) #Python's string format, {} are swapped by the variables in the brackets respectively.
+        for source in globe.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
+            sourceName = source['source name']
+            workersUnderSource = source['workers']
+            csvPathForSource = source['CSV path']
+
+            # If needed, create a new dictionary to store the results for the current CSV:
+            if self.checkIfCsvInResults(resList, csvPathForSource) == False:
+                resList.append({'CSV path': csvPathForSource})
+
+            dataStr = f'{sourceName},{workersUnderSource},{csvPathForSource}'
 
         response = requests.post(self.updateCSVAddress, data=dataStr)
-
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
 
-    def startCasting(self, numOfBatches=sys.maxsize):
+    def startCasting(self, numOfBatches=sys.maxsize): # numOfBatches, is no. of batches to request from the Main Server. Batch size is found at the architecture JSOn, which is available at globe.components
         print('Start Casting Phase')
 
         dataStr = "{},{}".format(globe.components.toString('s'), numOfBatches) #Python's string format, {} are swapped by the variables in the brackets respectively.
@@ -68,8 +70,7 @@ class Transmitter:
 
         self.clientsTraining()
 
-        for source in globe.components.sources:
-            self.updateCSV("Training", source)
+        self.updateCSV("Training", globe.trainResults)
 
         while globe.pendingAcks > 0:
             time.sleep(0.005)
@@ -83,8 +84,7 @@ class Transmitter:
             time.sleep(0.005)
             pass 
 
-        globe.multiProcQueue.put(globe.lossMaps[-1])
-
+        globe.multiProcQueue.put(globe.trainResults[-1])
 
     def predict(self):
         print('Prediction - Starting...')
@@ -94,8 +94,7 @@ class Transmitter:
 
         self.clientsPredict()
 
-        for source in globe.components.sources:
-            self.updateCSV("Prediction", source)
+        self.updateCSV("Training", globe.trainResults)
 
         while globe.pendingAcks > 0:
             time.sleep(0.005)
@@ -109,11 +108,19 @@ class Transmitter:
             time.sleep(0.005)
             pass 
 
-        globe.multiProcQueue.put(globe.lossMaps[-1])
+        globe.multiProcQueue.put(globe.predictResults[-1])
 
     def statistics(self):
         globe.pendingAcks += 1
         requests.post(self.statisticsAddress, data='getStatistics')
+
+    
+    def checkIfCsvInResults(self, resList, csv):
+        for resDict in resList:
+            if resDict['CSV path'] == csv:
+                return True
+        
+        return False
     
 if __name__ == "__main__":
     trans = Transmitter()

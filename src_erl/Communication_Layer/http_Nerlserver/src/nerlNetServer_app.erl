@@ -52,15 +52,18 @@ start(_StartType, _StartArgs) ->
     %Create a listener that waits for a message from python about the adresses of the wanted json
     createNerlnetInitiator(HostName),
     receive 
-        {jsonAddress,MSG} -> JsonPath = MSG
-        after 10000 -> JsonPath = "../../../jsonPath"   %%TODO REMOVE after finished integrating with python!!! TODOTODO TODO 
+
+        {jsonAddress,MSG} -> {ArchitectureAdderess,CommunicationMapAdderess} = MSG
+        %%TODO remove this "after" part when python is ready to send jsonPaths
+        after 100000 ->   JsonPath = "../../../jsonPath",
+                        {ok, InputJSON} = file:read_file(JsonPath),%%TODO change to File_Address
+                        Listed = binary_to_list(InputJSON),
+                        %ArchitectureAdderess, CommunicationMapAdderess are the paths for the json architecture file, where THIS machine can find its own entities by IP
+                        [ArchitectureAdderess,CommunicationMapAdderess|_] =  re:split(Listed,"\n",[{return,list}])
     end,
 
     %Parse json and start nerlnet:
-     {ok, InputJSON} = file:read_file(JsonPath),%%TODO change to File_Address
-    Listed = binary_to_list(InputJSON),
-    %ArchitectureAdderess, CommunicationMapAdderess are the paths for the json architecture file, where THIS machine can find its own entities by IP
-    [ArchitectureAdderess,CommunicationMapAdderess|_] =  re:split(Listed,"\n",[{return,list}]),
+     
      io:format("ArchitectureAdderess: ~p~n CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
 
 
@@ -80,6 +83,7 @@ createNerlnetInitiator(HostName) ->
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
     init_cowboy_start_clear(nerlnetInitiator, {HostName,Port},NerlnetInitiatorDispatch).
+
 
 parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess) ->
     %%Server that should be established on thi  s machine from JSON architecture:

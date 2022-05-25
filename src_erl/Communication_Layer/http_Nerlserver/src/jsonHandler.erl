@@ -24,11 +24,11 @@ init(Req0, [ApplicationPid]) ->
   _Path = cowboy_req:path(Req0),
   _Qs = cowboy_req:qs(Req0),
   {ok,Body,_} = cowboy_req:read_body(Req0),
-  JsonAddress = binary_to_list(Body),
-  io:format("Body at json Handler: ~p,~n sending to pid: ~p~n", [JsonAddress,ApplicationPid]),
+  [ArchitectureAdderess,CommunicationMapAdderess] = re:split(binary_to_list(Body),"#",[{return,list}]),
+  io:format("Body at json Handler: ~p,~n sending to pid: ~p~n", [ArchitectureAdderess,CommunicationMapAdderess]),
 
   %Notify the application that python is ready and send the addreses received in this http request:
-  ApplicationPid ! {jsonAddress,JsonAddress},
+  ApplicationPid ! {jsonAddress,{ArchitectureAdderess,CommunicationMapAdderess}},
   
   Reply = io_lib:format("nerlnet starting", []),
 

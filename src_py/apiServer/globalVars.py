@@ -6,15 +6,16 @@ import json
 from IPython import get_ipython
 
 #from IPython import get_ipython
-
 localHost = socket.gethostname()
 localIp = socket.gethostbyname(localHost)
 
 pendingAcks = 0
 
-multiProcQueue = multiprocessing.Queue() # Create instance of queue
+multiProcQueue = multiprocessing.Queue() # Create an instance of the queue
 
-lossMaps = []
+# Creating lists to store results
+trainResults = []
+predictResults = []
 
 # Get the components of the current system:
 ARCHITECTURE_INDEX = 4
@@ -22,13 +23,13 @@ GRAPH_INDEX = 5
 
 username = os.getlogin()
 jsonPathLocation = '/home/{}/workspace/NErlNet/jsonPath'.format(username)
+#jsonPathLocation = '/usr/local/lib/nerlnet-lib/NErlNet' #TODO: Check if working after using NerlnetInstall.sh, and delete previous line
 jsonPath = open(jsonPathLocation)
 content = jsonPath.readlines()
 componentsPath = content[ARCHITECTURE_INDEX][:-1]
 components = NetworkComponents(componentsPath)
 # Get the topology of the current system:
-expFlowPath = content[GRAPH_INDEX].replace('\n','')
-print(expFlowPath)
+expFlowPath = content[GRAPH_INDEX][:-1]
 file = open(expFlowPath)
 expFlow = json.load(file)
 
