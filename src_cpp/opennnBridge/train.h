@@ -59,6 +59,8 @@ static void* trainFun(void* arg){
             Eigen::array<int, 2> bcast({1, 2});      
             cout << "model ID is " <<std::endl;   
             *autoencider_data = TrainNNptr->data->broadcast(bcast);  //  copy input layar to output layar , using bcast
+            // cout<<"autoencider_data"<<* autoencider_data <<endl;
+
             cout << "model ID is " <<std::endl;
             if(modelType == E_AE){    
               data_set.set_data(*autoencider_data);
