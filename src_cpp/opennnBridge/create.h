@@ -152,23 +152,24 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          // std::cout << "dddddddddddd" << std::endl;
          if(scaling_method == E_ScalingMethods_NoScaling)
         {
-            scaling_layer_pointer->set_scalers(Scaler::NoScaling);
+         
+            scaling_layer_pointer->set_scaling_methods(OpenNN::ScalingLayer::ScalingMethod::NoScaling);
         }
         else if(scaling_method == E_ScalingMethods_MinimumMaximum)
         {
-            scaling_layer_pointer->set_scalers(Scaler::MinimumMaximum);
+            scaling_layer_pointer->set_scaling_methods(OpenNN::ScalingLayer::ScalingMethod::MinimumMaximum);
         }
         else if(scaling_method == E_ScalingMethods_MeanStandardDeviation)
         {
-            scaling_layer_pointer->set_scalers(Scaler::MeanStandardDeviation);
+            scaling_layer_pointer->set_scaling_methods(OpenNN::ScalingLayer::ScalingMethod::MeanStandardDeviation);
         }
         else if(scaling_method == E_ScalingMethods_StandardDeviation)
         {
-            scaling_layer_pointer->set_scalers(Scaler::StandardDeviation);
+            scaling_layer_pointer->set_scaling_methods(OpenNN::ScalingLayer::ScalingMethod::StandardDeviation);
         }
         else if(scaling_method == E_ScalingMethods_Logarithm)  
         {
-            scaling_layer_pointer->set_scalers(Scaler::Logarithm);   //Logarithm exists in opennn site but commpiler dont recognaize it. 
+           // scaling_layer_pointer->set_scaling_methods(OpenNN::ScalingLayer::ScalingMethod::Logarithm);   //Logarithm exists in opennn site but commpiler dont recognaize it. 
         }
         //------------------------------------------------------------------------------------------------------------------
           
