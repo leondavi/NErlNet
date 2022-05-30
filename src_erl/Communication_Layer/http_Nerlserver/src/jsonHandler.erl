@@ -25,7 +25,11 @@ init(Req0, [ApplicationPid]) ->
   _Qs = cowboy_req:qs(Req0),
   {ok,Body,_} = cowboy_req:read_body(Req0),
   [ArchitectureAdderess,CommunicationMapAdderess] = re:split(binary_to_list(Body),"#",[{return,list}]),
+<<<<<<< HEAD
   io:format("Body at json Handler: ~p,~n sending to pid: ~p~n", [ArchitectureAdderess,CommunicationMapAdderess]),
+=======
+  io:format("Body at json Handler: ~p,~n sending to pid: ~p~n", [ArchitectureAdderess,CommunicationMapAdderess,ApplicationPid]),
+>>>>>>> master
 
   %Notify the application that python is ready and send the addreses received in this http request:
   ApplicationPid ! {jsonAddress,{ArchitectureAdderess,CommunicationMapAdderess}},

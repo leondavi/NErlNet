@@ -66,16 +66,12 @@ class ApiServer():
     def train(self):
         self.transmitter.train()
         self.getQueueData()
-        if globe.jupyterFlag == 0:
-            print(globe.trainResults[-1])
         print('Training - Finished\n')
         return globe.trainResults[-1]
 
     def predict(self):
         self.transmitter.predict()
         self.getQueueData()
-        if globe.jupyterFlag == 0:
-            print(globe.predictResults[-1])
         print('Prediction - Finished\n')
         return globe.predictResults[-1]
     
