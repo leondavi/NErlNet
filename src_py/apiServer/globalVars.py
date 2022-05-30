@@ -21,6 +21,7 @@ predictResults = []
 ARCHITECTURE_INDEX = 4
 GRAPH_INDEX = 5
 
+
 username = os.getlogin()
 jsonPathLocation = '/home/{}/workspace/NErlNet/jsonPath'.format(username)
 #jsonPathLocation = '/usr/local/lib/nerlnet-lib/NErlNet' #TODO: Check if working after using NerlnetInstall.sh, and delete previous line

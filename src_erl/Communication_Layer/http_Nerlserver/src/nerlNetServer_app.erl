@@ -52,7 +52,7 @@ start(_StartType, _StartArgs) ->
     %Create a listener that waits for a message from python about the adresses of the wanted json
     createNerlnetInitiator(HostName),
     receive 
-<<<<<<< HEAD
+
 
         {jsonAddress,MSG} -> {ArchitectureAdderess,CommunicationMapAdderess} = MSG
         %%TODO remove this "after" part when python is ready to send jsonPaths

@@ -24,11 +24,11 @@ set(SRC_CODE
 	"nifppEigenExtensions.h"
 	"bridgeController.h"
 	"definitionsNN.h"
-	"helpFunc.h"
 	"train.h"
 	"CustumNN.h"
 	"openNNnif.h"
     "ModelParams.h"	
+	"Autoencoder.h"
 	"ModelParams.cpp"
 	"definitionsNN.h"
 	"tmp.cpp")
