@@ -71,9 +71,12 @@ call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Wo
       %io:format("Train Time= ~p~n ",[RetVal]),
       receive
             Ret->
-            io:format("Ret= ~p~n ",[Ret]),
-            %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
-            gen_statem:cast(WorkerPid,{loss, Ret})
+                  io:format("Ret= ~p~n ",[Ret]),
+                  %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
+                  gen_statem:cast(WorkerPid,{loss, Ret})
+            after 1000 ->  
+                  io:format("///// woker miss train batch ~n "),
+                  gen_statem:cast(WorkerPid,{loss, -1.0})
       end.
 
 trainn_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor) -> %TODO change to trainn_nif
@@ -95,6 +98,9 @@ call_to_predict(ModelID, Data, WorkerPid,CSVname, BatchID)->
             %SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~n
             %SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nMax:~p",[Max])
             %end
+            after 1000 -> 
+                  io:format("///// woker miss predict batch ~n "), 
+                  gen_statem:cast(WorkerPid,{predictRes, nan, CSVname, BatchID})
       end.
 
 call_to_get_weights(ModelID)->
