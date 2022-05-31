@@ -13,21 +13,24 @@ class ApiServer():
         self.mainServerAddress = 'http://' + mainServerIP + ':' + mainServerPort
 
         # Send the content of jsonPath to each devices:
-        print("Sending jsonPath to devices...\n")
-        toSend = globe.content[0].replace('\n','')+'#'+globe.content[1].replace('\n','')
-        print(toSend)
+
+        print("Sending JSON paths to devices...")
+
+        archiAddress = globe.content[0][:-1]
+        connMapAddress = globe.content[1][:-1]
+        data = archiAddress + '#' + connMapAddress
+
         for ip in globe.components.devicesIp:
-        
-            print(ip + ":8484/updateJsonPath"+toSend)
-            address = 'http://{}:8484/updateJsonPath'.format(ip)
-            response = requests.post(address, data=toSend)
+            address = f'http://{ip}:8484/updateJsonPath' # f for format
 
+
+            response = requests.post(address, data)
             if globe.jupyterFlag == 0:
-                print(response)
+              print(response.ok, response.status_code)
 
-        time.sleep(3)
+        time.sleep(1)
         
-        # Starting receiver flask server process
+        # Starting receiver flask server process:
         print("Starting the receiver HTTP server...\n")
 
         self.serverThread = threading.Thread(target=initReceiver, args=())
@@ -57,28 +60,22 @@ class ApiServer():
         
         while not received:
             if not multiProcQueue.empty():
-                print("~New loss map has been created successfully~")
-                multiProcQueue.get()
+                print("~New result has been created successfully~")
+                multiProcQueue.get() # Get the new result out of the queue
                 received = True
             time.sleep(0.1)
    
     def train(self):
-        globe.lossMaps.append({})
         self.transmitter.train()
         self.getQueueData()
-        if globe.jupyterFlag == 0:
-            print(globe.lossMaps[-1])
         print('Training - Finished\n')
-        return globe.lossMaps[-1]
+        return globe.trainResults[-1]
 
     def predict(self):
-        globe.lossMaps.append({})
         self.transmitter.predict()
         self.getQueueData()
-        if globe.jupyterFlag == 0:
-            print(globe.lossMaps[-1])
         print('Prediction - Finished\n')
-        return globe.lossMaps[-1]
+        return globe.predictResults[-1]
     
     def statistics(self):
         self.transmitter.statistics()

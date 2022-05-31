@@ -6,10 +6,6 @@ import globalVars as globe
 import multiprocessing
 import logging
 
-
-#SERVER_BUSY = 0
-#SERVER_DONE = 1
-
 receiver = Flask(__name__)
 api = Api(receiver)
 
@@ -23,6 +19,28 @@ if globe.jupyterFlag == 1: #If in Jupyter Notebook: Disable logging messages
 
 def initReceiver():
     receiver.run(threaded=True, host='127.0.0.1', port=8095)
+
+def findDictForCsv(resList, csvWorked):
+    for idx, resDict in enumerate(resList):
+        if resDict['CSV path'] == csvWorked:
+            return idx
+    
+    raise RuntimeError(f"ERROR(Receiver): Dictionary for {csvWorked} was not created.")
+
+def processResult(resData, resList):
+    worker = resData[0]
+    csvWorked = resData[1]
+    batchId = resData[2]
+    result = float(resData[3].replace(' ',''))
+
+    dictIdx = findDictForCsv(resList, csvWorked)
+
+    if not worker in resList[dictIdx]:
+        resList[dictIdx][worker] = [result]
+    else:
+        resList[dictIdx][worker].append(result)
+
+    #TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO 
 
 class shutdown(Resource):
     def get(self):
@@ -42,61 +60,43 @@ class ack(Resource):
     def post(self):
         globe.pendingAcks -= 1
         if globe.jupyterFlag == 0:
-            reqData = request.form['ack']
-            print(reqData + 'Ack Received!')
+            resData = request.form['ack']
+            print(resData + 'Ack Received!')
             print(globe.pendingAcks)
 
-        # After receivng the final ACK, we conclude that the operation has finished.
-        if globe.pendingAcks == 0:
-            # So, we are able to insert the loss map that was created to the queue:
-            globe.multiProcQueue.put(lossMaps[-1])
-
-class lossFunction(Resource):
+class trainRes(Resource):
     def post(self):
-        # Receive string 'worker#loss' -> []
-        reqData = request.form
+        # Result preprocessing:
+        resData = request.form
+        resData = list(resData)
+        resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter:
         if globe.jupyterFlag == 0:
-            print(reqData)
-        reqData = list(reqData)
+            print(resData)
 
-        # From a list with only one string -> to a string. split by delimiter:
-        reqData = reqData[0].split('#')
-
-        worker = reqData[0]
-        loss = float(reqData[1].replace(' ',''))
-
-        currentLossMap = globe.lossMaps[-1]
-
-        if not worker in currentLossMap:
-            currentLossMap[worker] = [loss]
-        else:
-            currentLossMap[worker].append(loss)
+        processResult(resData, globe.trainResults)
         
-        # After receiving the entire map, we wait for the final ACK.
-        # Then we insert the map to the queue (See lines 43-46).
         
-
 #http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++BatchID++"#"++CSVName++"#"++BatchSize)
 class predictRes(Resource):
     def post(self):
-        # Receive string 'worker#loss' -> []
-        reqData = request.form
-        reqData = list(reqData)
-        # From a list with only one string -> to a string. split by delimiter:
-        reqData = reqData[0].split('#')
+        # Result preprocessing:
+        resData = request.form
+        resData = list(resData)
+        resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter:
         if globe.jupyterFlag == 0:
-            print(reqData)
+            print(resData)
+
+        processResult(resData, globe.predictResults)
 
 class statistics(Resource):
     def post(self):
-        # Receive string 'worker#loss' -> []
-        reqData = request.form
-        print(reqData)
+        print('hi')
+        # TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
 
 #Listener Server list of resources: 
 api.add_resource(test, "/test")
 api.add_resource(ack, "/ack")
 api.add_resource(shutdown, "/shutdown")
-api.add_resource(lossFunction, "/lossFunction")
+api.add_resource(trainRes, "/lossFunction") # TODO: Change to "/trainRes", both here and in erl
 api.add_resource(predictRes, "/predictRes")
 api.add_resource(statistics, "/statistics")
