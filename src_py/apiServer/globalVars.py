@@ -3,62 +3,51 @@ import socket
 import os
 from networkComponents import NetworkComponents
 import json
+from IPython import get_ipython
 
 #from IPython import get_ipython
-
 localHost = socket.gethostname()
 localIp = socket.gethostbyname(localHost)
 
 pendingAcks = 0
 
-multiProcQueue = multiprocessing.Queue() # Create instance of queue
+multiProcQueue = multiprocessing.Queue() # Create an instance of the queue
 
-lossMaps = []
+# Creating lists to store results
+trainResults = []
+predictResults = []
 
+# Get the components of the current system:
 ARCHITECTURE_INDEX = 4
 GRAPH_INDEX = 5
-# Get the components of the current system:
-
-E_TRAINING = 0
-E_PREDICTION = 1
 
 
 username = os.getlogin()
 jsonPathLocation = '/home/{}/workspace/NErlNet/jsonPath'.format(username)
-
+#jsonPathLocation = '/usr/local/lib/nerlnet-lib/NErlNet' #TODO: Check if working after using NerlnetInstall.sh, and delete previous line
 jsonPath = open(jsonPathLocation)
 content = jsonPath.readlines()
-componentsPath = content[4][:-1]
+componentsPath = content[ARCHITECTURE_INDEX][:-1]
 components = NetworkComponents(componentsPath)
 # Get the topology of the current system:
-expFlowPath = content[GRAPH_INDEX].replace('\n','')
-print(expFlowPath)
+expFlowPath = content[GRAPH_INDEX][:-1]
 file = open(expFlowPath)
 expFlow = json.load(file)
 
+# Check the platform we are running on:
+ipythonPlatform = str(type(get_ipython()))
 
-"""
-def checkPlatform():
-        ipy_str = str(type(get_ipython()))
-        if 'zmqshell' in ipy_str:
-            return 1 #Return 1 for Jupyter Notebook.
-        elif 'terminal' in ipy_str:
-            return 2 #Return 2 for IPython Shell.
-        else:
-            return 0 #Return 0 for Terminal.
-"""
-
-jupyterFlag = 0
-
+if 'zmqshell' in ipythonPlatform:
+    jupyterFlag =  1 #Return 1 for Jupyter Notebook.
+elif 'terminal' in ipythonPlatform:
+    jupyterFlag =  2 #Return 2 for IPython Shell.
+else:
+    jupyterFlag =  0 #Return 0 for Terminal.
 
 if __name__ == "__main__":
-
-    #print(localIp)
-    #print(checkPlatform())
-    list = expFlow["Training"]["s1"]
-    str = ", ".join(list)
-    print(str)
     components.printComponents()
+    print(content[0])
+    print(content[1])
 
 '''
 trainingListReq = [('http://127.0.0.1:8080/updateCSV', "s1,w1,RunOrWalkTrain_splitted"),

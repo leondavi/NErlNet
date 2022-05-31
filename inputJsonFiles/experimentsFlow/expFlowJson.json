@@ -1,16 +1,25 @@
 {
+ "Training":  [
+     {
+        "source name": "s1",
+        "workers": "w1",
+        "CSV path": "HeartData/heart2020_train"
+     }
+ ],
 
- "Training": {
-     "s1": ["w1"]
+ "Prediction": [
+     {
+        "source name": "s1",
+        "workers": "w1",
+        "CSV path": "HeartData/heart2020_train"
+     }
+],
 
-},
-
- "Prediction": {
-      "s1": ["w1"]
- },
-
- "Statistics": {
-        "s1": ["w1"]
- }
-
+ "Statistics": [
+     {
+        "source name": "s1",
+        "workers": "w1",
+        "CSV path": "HeartData/heart2020_train"
+     }
+]
 }
