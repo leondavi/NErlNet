@@ -24,10 +24,10 @@ class NetworkComponents():
         self.routers = []
 
         # Getting the names of all the devices:
-        devicesJsons = self.jsonData["devices"][0]
+        devicesJsons = self.jsonData["devices"]
 
         for device in devicesJsons:
-            self.devicesIp.append(devicesJsons["host"])
+            self.devicesIp.append(device["host"])
 
         # Getting the names of all the clients and workers:
         clientsJsons = self.jsonData['clients']
@@ -54,9 +54,18 @@ class NetworkComponents():
             self.routers.append(router['name'])
 
     def printComponents(self):
-        print(self.batchSize, self.frequency, self.devicesIp, self.mainServerIp, self.mainServerPort, \
-             self.clients, self.workers, self.federateds, self.sources, self.routers)
-
+        print(f"Network components:\n \
+                Batchsize: {self.batchSize}\n \
+                Frequency: {self.frequency}\n \
+                devicesIp: {self.devicesIp}\n \
+                mainServerIp: {self.mainServerIp}\n \
+                mainServerPort: {self.mainServerPort}\n \
+                Clients: {self.clients}\n \
+                Workers: {self.workers}\n \
+                Federated networks: {self.federateds}\n \
+                Sources: {self.sources}\n \
+                Routers: {self.routers}\n")
+             
     def toString(self, char): #Prints the contents of any of the components' lists (e.g. "routers")
         if char == 'd':
             return ','.join(self.devicesIp)
