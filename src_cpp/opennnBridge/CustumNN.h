@@ -72,6 +72,16 @@ public:
                      OpenNN::NeuralNetwork::add_layer(L);
                  }
 
+                  if ((*layer_types)[i] == E_LAYER_TYPE_UNSCALING){
+                     //std::shared_ptr<OpenNN::ProbabilisticLayer> L = std::make_shared<OpenNN::ProbabilisticLayer>();
+                     OpenNN::UnscalingLayer *L = new OpenNN::UnscalingLayer;
+                     //std::shared_ptr<OpenNN::ProbabilisticLayer> L = std::make_shared<OpenNN::ProbabilisticLayer>(); //not work
+                     L->set((*neural_network_architecture)(i));
+                     //neural_network->add_layer(L);
+                     OpenNN::NeuralNetwork::add_layer(L);
+                 }
+                 //E_LAYER_TYPE_UNSCALING
+
                  //this = neural_network;
                  std::cout << "layer_types" << std::endl;
                  std::cout<< OpenNN::NeuralNetwork::get_layer_pointer(i)->get_type_string() <<std::endl;

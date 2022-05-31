@@ -88,16 +88,9 @@ call_to_predict(ModelID, Data, WorkerPid,CSVname, BatchID)->
       receive
             Ret->
             io:format("Ret= ~p~n ",[Ret]),      
-            %Max = lists:max(lists:sublist(Ret,4,length(Ret))),
-            %case Max < 0.5 of 
-            %      true ->
-            %io:format("predict res = ~p~n Worker Pid: ~p ",[Ret,WorkerPid]),
-
+      
             gen_statem:cast(WorkerPid,{predictRes,Ret,CSVname, BatchID}) 
-            %_ -> io:format("SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~n
-            %SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~n
-            %SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nMax:~p",[Max])
-            %end
+     
             after 1000 -> 
                   io:format("///// woker miss predict batch ~n "), 
                   gen_statem:cast(WorkerPid,{predictRes, nan, CSVname, BatchID})
