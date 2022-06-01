@@ -21,7 +21,7 @@ class Autoencoder : public CustumNN
 
 
 
-class AutoencoderClassifier : public Autoencoder
+class AutoencoderClassifier : public Autoencoder 
 {
     const double alpha = 0.7;
 
@@ -83,12 +83,13 @@ class AutoencoderClassifier : public Autoencoder
         
         return Th<loss_val ? 0 : 1;
     }
-    // train of AutoencoderClassifier 
 
-    void train(Tensor2DPtr autoencoder_data, Tensor2DPtr data)
+    // train of AutoencoderClassifier 
+    void train(Tensor2DPtr autoencoder_data, Tensor2DPtr data)//, std::shared_ptr<OpenNN::NeuralNetwork> neural_network)
     {
+      
         bool eac_flag = true;
-        //std::shared_ptr<OpenNN::NeuralNetwork> neural_network;
+        //std::shared_ptr<OpenNN::NeuralNetwork> neural_network(this);
         OpenNN::NeuralNetwork *neural_network;
         neural_network = this;
         OpenNN::DataSet data_set;
@@ -99,10 +100,10 @@ class AutoencoderClassifier : public Autoencoder
        
       
         int data_num_of_cols = data->dimension(1);
-        double loss_val; //MSE error
+        double loss_val; 
         training_strategy.set_loss_method(TrainingStrategy::LossMethod::MEAN_SQUARED_ERROR);
         training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::STOCHASTIC_GRADIENT_DESCENT);
-       // batch_samples_number
+        //batch_samples_number
         training_strategy.set_display(1);
 
         //int num_of_samples = autoencoder_data->dimension(0);
@@ -111,7 +112,7 @@ class AutoencoderClassifier : public Autoencoder
         // cout << "data to train: " << autoencider_data->dimension(0)<< " " << autoencider_data->dimension(1)  <<std::endl;
              
       
-         
+        
            // train_smaple.chip(0,0) = autoencoder_data.get()->chip(i, 0); //from autoencoder_data tensor get the i's train_smaple (singel sample).
            // predict_smaple.chip(0,0) = data.get()->chip(i, 0);
             try{
@@ -121,13 +122,15 @@ class AutoencoderClassifier : public Autoencoder
                     eac_flag = false;
                     std::cout << "catch AEC set_data " <<std::endl; 
             }
+             
             data_set.set(autoencoder_data->dimension(1),data_num_of_cols,data_num_of_cols);
-            
+          
             if(eac_flag == true && num_of_aec_cols == 512){
+               
                 training_strategy.perform_training(); // do training on train_smaple (singel sample).
             
           
-
+            
             TestingAnalysis testing_analysis(&*neural_network, &data_set);
             //cout << *autoencoder_data << endl;
             Eigen::Tensor<float,2> output = neural_network->calculate_outputs(*data); // calculate the AEC output for predict_smaple 
@@ -140,23 +143,18 @@ class AutoencoderClassifier : public Autoencoder
                    sum += loss(j,i);
                }
                  loss_val = sum;
-                 
+                 // Tal func here
              }
              cout << "loss_val " << loss_val <<  endl;
-            
+           
             }
             else{
                 cout << "eac_flag " << eac_flag << endl;
                 cout << "num_of_aec_cols " << num_of_aec_cols << endl;
             }
-            //Eigen::Tensor<float, 0> MSE_errore = (calculate_res - predict_smaple).abs().sum();  // calculate MSE between the smaple and AEC prediction.
-
            
             //int RetVal = classification_function(loss_val);       
-           
-       
-
-         cout << "-1-1-1-1-1-1-1-1-1-1 " <<  endl;
+        // cout << "-1-1-1-1-1-1-1-1-1-1 " <<  endl;
          return ;
     }
  // train of AutoencoderClassifier 
