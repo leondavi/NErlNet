@@ -23,16 +23,20 @@ GRAPH_INDEX = 5
 
 
 username = os.getlogin()
-jsonPathLocation = '/home/{}/workspace/NErlNet/jsonPath'.format(username)
-#jsonPathLocation = '/usr/local/lib/nerlnet-lib/NErlNet' #TODO: Check if working after using NerlnetInstall.sh, and delete previous line
+#jsonPathLocation = '/home/{}/workspace/NErlNet/jsonPath'.format(username) # Use this if NerlnetInstall.sh does not work
+jsonPathLocation = '/usr/local/lib/nerlnet-lib/NErlNet/jsonPath' 
 jsonPath = open(jsonPathLocation)
 content = jsonPath.readlines()
+# Get the components of the current system:
 componentsPath = content[ARCHITECTURE_INDEX][:-1]
 components = NetworkComponents(componentsPath)
-# Get the topology of the current system:
+# Get the flow of the current experiment:
 expFlowPath = content[GRAPH_INDEX][:-1]
 file = open(expFlowPath)
 expFlow = json.load(file)
+
+# Dict with {worker : csv}:
+workerCsv = {}
 
 # Check the platform we are running on:
 ipythonPlatform = str(type(get_ipython()))
