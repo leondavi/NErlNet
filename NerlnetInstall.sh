@@ -40,6 +40,7 @@ print "Adding a sym-link to NErlNet directory"
 ln -s `pwd` $NERLNET_DIR
 
 /bin/bash NerlnetBuild.sh --j $NumJobs
+rm /usr/local/bin/rebar3
 ln -s $NERLNET_DIR/src_erl/rebar3/rebar3 /usr/local/bin/rebar3
 /bin/bash NerlnetBuild.sh --j $NumJobs
 
