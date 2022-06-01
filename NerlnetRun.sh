@@ -24,5 +24,5 @@ fi
 
 cd src_erl/Communication_Layer/http_Nerlserver
 echo "Script CWD: $PWD"
-../../rebar3/rebar3 shell 
+rebar3 shell 
 cd ../../../

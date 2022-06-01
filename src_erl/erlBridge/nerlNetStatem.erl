@@ -178,7 +178,7 @@ wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{clientPid
       gen_statem:cast(ClientPid,{loss, federated_weights, MyName, LOSS_FUNC, ListToSend}), %% TODO Add Time and Time_NIF to the cast
       
       % Reset count and go to state train
-      {next_state, NextState, State#nerlNetStatem_state{count = 1}};
+      {next_state, NextState, State#nerlNetStatem_state{count = Count + 1}};
 
     true ->
       %% Send back the loss value
@@ -212,10 +212,10 @@ wait(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextStat
 
   {next_state, NextState, State};
 
-wait(cast, {predictRes,Res}, State = #nerlNetStatem_state{currentBatchID = CurrentBatchID, myName = MyName, clientPid = ClientPid, nextState = NextState}) ->
-    io:fwrite("~ngot predict result ~p~n",[Res]),
+wait(cast, {predictRes,Res,CSVname,BatchID}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid, nextState = NextState}) ->
+    io:fwrite("~nworker got predict result ~p~n",[{predictRes,Res,CSVname,BatchID}]),
 
-  gen_statem:cast(ClientPid,{predictRes,MyName, "CSVname",CurrentBatchID, Res}), %% TODO TODO change csv name and batch id(1)
+  gen_statem:cast(ClientPid,{predictRes,MyName, CSVname,BatchID, Res}), %% TODO TODO change csv name and batch id(1)
   {next_state, NextState, State};
 
 wait(cast, {predictRes,CSVname, BatchID, {RESULTS,_TimeCpp},_Time_NIF}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid, nextState = NextState}) ->
@@ -250,6 +250,7 @@ train(cast, {sample, []}, State = #nerlNetStatem_state{modelId = ModelId, featur
   
 
 train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels, optimizer = Optimizer, lossMethod = LossMethod, learningRate = LearningRate}) ->
+    % io:format("SampleListTrain ~p~n",[SampleListTrain]),
     % CurrPid = self(),
     % ChunkSizeTrain = round(length(SampleListTrain)/(Features + Labels)),
     % ^^^^^^^^^^^^^^^^^^
@@ -258,11 +259,11 @@ train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = Mo
     %io:format("~p~n",[SampleListTrain]),
     %RandomGeneratedData1 = [[rand:normal(0,0.5)||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,5)],
     %RandomGeneratedData2 = [[rand:normal(1,0.5)||_<-lists:seq(1,128)] ++[1.0]||_<-lists:seq(1,5)],
-    RandomGeneratedData1 = [[rand:normal(0,1)||_<-lists:seq(1,128)] ||_<-lists:seq(1,5)],
-    RandomGeneratedData2 = [[rand:normal(1,1)||_<-lists:seq(1,128)] ||_<-lists:seq(1,5)],
-    Shuffled = lists:flatten([X||{_,X} <- lists:sort([ {random:uniform(), N} || N <- RandomGeneratedData1++RandomGeneratedData2])]),
+    % RandomGeneratedData1 = [[rand:normal(0,1)||_<-lists:seq(1,128)] ||_<-lists:seq(1,5)],
+    % RandomGeneratedData2 = [[rand:normal(1,1)||_<-lists:seq(1,128)] ||_<-lists:seq(1,5)],
+    % Shuffled = lists:flatten([X||{_,X} <- lists:sort([ {random:uniform(), N} || N <- RandomGeneratedData1++RandomGeneratedData2])]),
     %RandomGeneratedData = lists:flatten([[rand:normal()||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,10)]),
-    DataTensor = [10.0 , 128.0 , 1.0] ++ Shuffled,
+    % DataTensor = [10.0 , 128.0 , 1.0] ++ Shuffled,
     MyPid=self(),
     _Pid = spawn(fun()-> niftest:call_to_train(ModelId, Optimizer , LossMethod , LearningRate , SampleListTrain ,MyPid) end),
     {next_state, wait, State#nerlNetStatem_state{nextState = train}};
@@ -293,29 +294,29 @@ train(cast, Param, State) ->
   {next_state, train, State}.
 
 %% State predict
-predict(cast, {sample,CSVname, BatchID, []}, State = #nerlNetStatem_state{currentBatchID = CurrentBatchID, features = Features, modelId = ModelId}) ->
+predict(cast, {sample,_CSVname, _BatchID, []}, State = #nerlNetStatem_state{}) ->
   
   {next_state, predict, State#nerlNetStatem_state{nextState = predict}};
 
-  predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStatem_state{currentBatchID = CurrentBatchID, features = Features, modelId = ModelId}) ->
-    ChunkSizePred = round(length(SampleListPredict)/Features),
+predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStatem_state{ modelId = ModelId}) ->
+    % ChunkSizePred = round(length(SampleListPredict)/Features),
     CurrPID = self(),
       % ^^^^^^^^^^^^^^^^^^
     %  ModelID = 586000901,
     %  RandomGeneratedDataP = [rand:normal()||_<-lists:seq(1,1280)] ,
-      RandomGeneratedData1 = [[rand:normal(0,0.5)||_<-lists:seq(1,128)]||_<-lists:seq(1,5)],
-    RandomGeneratedData2 = [[rand:normal(1,0.5)||_<-lists:seq(1,128)]||_<-lists:seq(1,5)],
-    Shuffled = lists:flatten([X||{_,X} <- lists:sort([ {random:uniform(), N} || N <- RandomGeneratedData1++RandomGeneratedData2])]),
+    %   RandomGeneratedData1 = [[rand:normal(0,0.5)||_<-lists:seq(1,128)]||_<-lists:seq(1,5)],
+    % RandomGeneratedData2 = [[rand:normal(1,0.5)||_<-lists:seq(1,128)]||_<-lists:seq(1,5)],
+    % Shuffled = lists:flatten([X||{_,X} <- lists:sort([ {random:uniform(), N} || N <- RandomGeneratedData1++RandomGeneratedData2])]),
     %RandomGeneratedData = lists:flatten([[rand:normal()||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,10)]),
-    DataTensor = [10.0 , 128.0 , 1.0] ++ Shuffled,
+    % DataTensor = [10.0 , 128.0 , 1.0] ++ Shuffled,
   
     %  DataTensorP = [10.0 , 128.0 , 1.0] ++ RandomGeneratedDataP,
   
   
-    _Pid = spawn(fun()-> niftest:call_to_predict(ModelId,SampleListPredict,CurrPID) end),
+    _Pid = spawn(fun()-> niftest:call_to_predict(ModelId,SampleListPredict,CurrPID,CSVname, BatchID) end),
   
   
-    {next_state, wait, State#nerlNetStatem_state{currentBatchID = CurrentBatchID + 1, nextState = predict}};
+    {next_state, wait, State#nerlNetStatem_state{nextState = predict}};
   
 predict(cast, {idle}, State) ->
   io:fwrite("Go from predict to idle\n"),

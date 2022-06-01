@@ -3,7 +3,7 @@
 %<<<<<<< HEAD
 %-export([init/0,create_nif/6,train_nif/4,trainn_nif/4,call_to_train/4,predict_nif/2,call_to_predict/2,get_weights_nif/1,call_to_get_weights/1,printTensor/2]).
 
--export([init/0,create_nif/6,train_nif/5,trainn_nif/5,call_to_train/6,predict_nif/2,call_to_predict/3,get_weights_nif/1,printTensor/2]).
+-export([init/0,create_nif/6,train_nif/5,trainn_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,set_weights_nif/2]).
 
 -define(DEBUG,false). % set here if it is debug or release  TODO change to read from hrl auto generated file
@@ -71,30 +71,29 @@ call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Wo
       %io:format("Train Time= ~p~n ",[RetVal]),
       receive
             Ret->
-            io:format("Ret= ~p~n ",[Ret]),
-            %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
-            gen_statem:cast(WorkerPid,{loss, Ret})
+                  io:format("Ret= ~p~n ",[Ret]),
+                  %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
+                  gen_statem:cast(WorkerPid,{loss, Ret})
+            after 1000 ->  
+                  io:format("///// woker miss train batch ~n "),
+                  gen_statem:cast(WorkerPid,{loss, -1.0})
       end.
 
 trainn_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor) -> %TODO change to trainn_nif
       exit(nif_library_not_loaded).
 
-call_to_predict(ModelID, Data, WorkerPid)->
+call_to_predict(ModelID, Data, WorkerPid,CSVname, BatchID)->
      
       _RetVal = predict_nif(ModelID, Data),
       receive
             Ret->
             io:format("Ret= ~p~n ",[Ret]),      
-            %Max = lists:max(lists:sublist(Ret,4,length(Ret))),
-            %case Max < 0.5 of 
-            %      true ->
-            %io:format("predict res = ~p~n Worker Pid: ~p ",[Ret,WorkerPid]),
-
-            gen_statem:cast(WorkerPid,{predictRes,Ret}) 
-            %_ -> io:format("SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~n
-            %SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nSDKLMFLKSMDFLKDFKFMDSKF#$#$#$~n
-            %SDKLMFLKSMDFLKDFKFMDSKF#$#$#$~nMax:~p",[Max])
-            %end
+      
+            gen_statem:cast(WorkerPid,{predictRes,Ret,CSVname, BatchID}) 
+     
+            after 1000 -> 
+                  io:format("///// woker miss predict batch ~n "), 
+                  gen_statem:cast(WorkerPid,{predictRes, nan, CSVname, BatchID})
       end.
 
 call_to_get_weights(ModelID)->

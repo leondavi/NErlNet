@@ -31,10 +31,12 @@ class Transmitter:
     def updateCSV(self, currentPhase, resList): # currentPhase is either "Training", "Prediction" or "Statistics". 
         print('Update CSV Phase')
 
+
         for source in globe.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
             sourceName = source['source name']
             workersUnderSource = source['workers']
             csvPathForSource = source['CSV path']
+
 
             # If needed, create a new dictionary to store the results for the current CSV:
             if self.checkIfCsvInResults(resList, csvPathForSource) == False:
