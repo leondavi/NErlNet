@@ -227,6 +227,7 @@ handle_cast({lossFunction,<<>>}, State = #main_genserver_state{msgCounter = MsgC
   handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
     %%  io:format("got loss function:- ~p~n",[Body]),
         {RouterHost,RouterPort} = getShortPath(MyName,"serverAPI",NerlnetGraph),
+        io:format("{RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
       case   binary_to_term(Body) of
         {WorkerName,{LossFunction,_Time}} ->
           io:format("got loss function:- ~p~n",[{RouterHost,RouterPort,atom_to_list(WorkerName),float_to_list(LossFunction)}]),
@@ -285,8 +286,10 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
 
       %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
       %%  send an ACK to mainserver that the CSV file is ready
-      http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize)),
-
+      %FloatsString = [float_to_list(Float)++","||Float<-ListOfResults],
+      ToSend=Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize),
+      io:format("predictResID- ~p~n",[ToSend]),
+      http_request(RouterHost,RouterPort,"predictRes",ToSend),
 
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
@@ -360,7 +363,8 @@ http_request(Host, Port,Path, Body)->
   URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
 %%  io:format("sending:  ~p~nto HostPo: ~p~n",[Body,{Host, Port}]),
-  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
+  _R = httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
+  %io:format("request:~p~n",[{R, Host, Port,Path, Body}]).
 
 
 %%Receives a list of routers and connects to them

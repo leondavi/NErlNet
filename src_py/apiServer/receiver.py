@@ -27,20 +27,20 @@ def findDictForCsv(resList, csvWorked):
     
     raise RuntimeError(f"ERROR(Receiver): Dictionary for {csvWorked} was not created.")
 
-def processResult(resData, resList):
+def processResult(resData, resList, currentPhase):
     worker = resData[0]
-    csvWorked = resData[1]
-    batchId = resData[2]
-    result = float(resData[3].replace(' ',''))
+    result = float(resData[1].replace(' ',''))
+    csvWorked = globe.workerCsv[worker]
 
-    dictIdx = findDictForCsv(resList, csvWorked)
+    if currentPhase == "Training":
+        dictIdx = findDictForCsv(globe.trainResults, csvWorked)
+    elif currentPhase == "Predict":
+        dictIdx = findDictForCsv(globe.predictResults, csvWorked)
 
     if not worker in resList[dictIdx]:
         resList[dictIdx][worker] = [result]
     else:
         resList[dictIdx][worker].append(result)
-
-    #TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO 
 
 class shutdown(Resource):
     def get(self):
@@ -69,24 +69,26 @@ class trainRes(Resource):
         # Result preprocessing:
         resData = request.form
         resData = list(resData)
-        resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter:
+        resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter
         if globe.jupyterFlag == 0:
             print(resData)
 
-        processResult(resData, globe.trainResults)
+        processResult(resData, globe.trainResults, "Training")
         
         
 #http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++BatchID++"#"++CSVName++"#"++BatchSize)
 class predictRes(Resource):
     def post(self):
         # Result preprocessing:
+        # Receiving from Erlang: Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize)
         resData = request.form
+        print(resData)
         resData = list(resData)
         resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter:
         if globe.jupyterFlag == 0:
             print(resData)
 
-        processResult(resData, globe.predictResults)
+        processResult(resData, globe.predictResults, "Prediction")
 
 class statistics(Resource):
     def post(self):
