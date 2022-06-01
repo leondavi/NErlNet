@@ -49,31 +49,30 @@ static void* trainFun(void* arg){
          opennnBridgeController *s = s->GetInstance();
          
             
-         std::shared_ptr<Eigen::Tensor<float,2>> autoencider_data = std::make_shared<Eigen::Tensor<float,2>>();
+         std::shared_ptr<Eigen::Tensor<float,2>> autoencoder_data;// = std::make_shared<Eigen::Tensor<float,2>>();
+         std::shared_ptr<Eigen::Tensor<float,2>> data_temp = std::make_shared<Eigen::Tensor<float,2>>();
+         *data_temp = *(TrainNNptr->data);
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(TrainNNptr->mid);
          int modelType = s->getModelType(TrainNNptr->mid);
-        
+         
 
-         int first_layer_size = 0;
-         try{
+         //int first_layer_size = 0;
          //first_layer_size = neural_network->get_layers_neurons_numbers()(0); 
-         }
-         catch(...){ cout << "catch in first_layer_size" <<std::endl; }
-     
-         int data_num_of_cols = TrainNNptr->data->dimension(1);
+  
        
             
          //CustumNN *cc;
          //cc = dynamic_cast<CustumNN*>(neural_network.get());
-         
+         int data_num_of_cols = TrainNNptr->data->dimension(1);
          if (modelType == E_AE || modelType == E_AEC){
-            Eigen::array<int, 2> bcast({1, 2});                   
-            *autoencider_data = TrainNNptr->data->broadcast(bcast);  //  copy input layar to output layar , using bcast
-            // cout<<"autoencider_data"<<* autoencider_data <<endl;
+            Eigen::array<int, 2> bcast({1, 2});  
+            autoencoder_data = std::make_shared<Eigen::Tensor<float,2>>(TrainNNptr->data->broadcast(bcast));                 
+            //autoencoder_data = TrainNNptr->data->broadcast(bcast);  //  copy input layar to output layar , using bcast
+            // cout<<"autoencoder_data"<<* autoencoder_data <<endl;
 
             if(modelType == E_AE){    
-              data_set.set_data(*autoencider_data);
-              data_set.set(autoencider_data->dimension(1),data_num_of_cols,data_num_of_cols);
+              data_set.set_data(*autoencoder_data);
+              data_set.set(autoencoder_data->dimension(1),data_num_of_cols,data_num_of_cols);
             }
          }
           
@@ -179,21 +178,23 @@ static void* trainFun(void* arg){
          TestingAnalysis testing_analysis(&*neural_network, &data_set);
          
          training_strategy.set_maximum_epochs_number(1); 
-         training_strategy.set_display(TRAINING_STRATEGY_SET_DISPLAY_ON);
+         training_strategy.set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF);
          float eac_loss_val = 0;
-        
+         
          if(modelType == E_AEC){
-            int autoencider_data_num_of_cols = autoencider_data->dimension(1);
-            if(data_num_of_cols == 256 && autoencider_data_num_of_cols == 512 && flag == true){
+            int autoencoder_data_num_of_cols = autoencoder_data->dimension(1);
+            
+            if(data_num_of_cols == 256 && autoencoder_data_num_of_cols == 512 && flag == true){
                 std::shared_ptr<AutoencoderClassifier> Autoencoder_Classifier = std::static_pointer_cast<AutoencoderClassifier>(neural_network);
-                Autoencoder_Classifier->train(autoencider_data, TrainNNptr->data);
-                cout << "00000000000" <<std::endl;
+                Autoencoder_Classifier->train(autoencoder_data, data_temp);//, neural_network);
+            
+                //cout << "00000000000" <<std::endl;
             }
             else{
                 loss_val = 1;
                 cout << "data set error  " <<std::endl; 
                 cout << "data_num_of_cols " << data_num_of_cols << std::endl; 
-                cout << "autoencider_data_num_of_cols " << autoencider_data_num_of_cols << std::endl;
+                cout << "autoencoder_data_num_of_cols " << autoencoder_data_num_of_cols << std::endl;
                 cout << "flag  " << flag << std::endl;
             }
          }
@@ -207,25 +208,26 @@ static void* trainFun(void* arg){
 
             try{ 
                
-                Tensor< type, 2 > errors_2 = testing_analysis.calculate_errors();
-            Tensor<type, 1> confusion_matrix = testing_analysis.calculate_testing_errors();
-            //sse - confusion_matrix[0]
-            //mse - confusion_matrix[1]
-            //root mse - confusion_matrix[2]
-            //nse - confusion_matrix[3]
-            ERL_NIF_TERM error = nifpp::makeTensor1D(env, confusion_matrix);
-            if(TrainNNptr->lose_method == E_LOSS_METHOD_SUM_SQUARED_ERROR) loss_val = confusion_matrix[0]; 
-            else if(TrainNNptr->lose_method == E_LOSS_METHOD_MSE)          loss_val = confusion_matrix[1];  
-            else if(TrainNNptr->lose_method == E_LOSS_METHOD_NSE)          loss_val = confusion_matrix[3]; 
-            else loss_val = confusion_matrix[1];
-            loss_val = errors_2(0,0);
+                Tensor< type, 2 > calculate_errors = testing_analysis.calculate_errors();
+            Tensor<type, 1> testing_errors = testing_analysis.calculate_testing_errors();
+            //sse - testing_errors[0]
+            //mse - testing_errors[1]
+            //root mse - testing_errors[2]
+            //nse - testing_errors[3]
+            ERL_NIF_TERM error = nifpp::makeTensor1D(env, testing_errors);
+            if(TrainNNptr->lose_method == E_LOSS_METHOD_SUM_SQUARED_ERROR) loss_val = testing_errors[0]; 
+            else if(TrainNNptr->lose_method == E_LOSS_METHOD_MSE)          loss_val = testing_errors[1];  
+            else if(TrainNNptr->lose_method == E_LOSS_METHOD_NSE)          loss_val = testing_errors[3]; 
+            else loss_val = testing_errors[1];
+            loss_val = calculate_errors(0,0);
             
             } 
             catch(...){
             cout << "catch - calculate errors" <<std::endl;
             } 
            }
-               else { cout << "data set error  " <<std::endl; 
+               else { 
+                cout << "data set error  " <<std::endl; 
                 cout << "data_num_of_cols " << data_num_of_cols << std::endl; 
                 cout << "flag  " << flag << std::endl;
                 }
