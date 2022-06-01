@@ -53,7 +53,8 @@ static void* PredictFun(void* arg){
          (*calculate_res) = neural_network->calculate_outputs(*(PredictNNptr->data));
      
          if(modelType == E_AEC){
-            
+             std::shared_ptr<AutoencoderClassifier> Autoencoder_Classifier = std::static_pointer_cast<AutoencoderClassifier>(neural_network);
+               Eigen::Tensor<int, 1> predictRes  = Autoencoder_Classifier->predict(PredictNNptr->data);
             //EAC_prediction = EAC_predic(PredictNNptr->data, calculate_res);
             //prediction = enif_make_int(env, (EAC_prediction));
          }
