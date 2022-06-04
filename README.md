@@ -56,7 +56,7 @@ On each machine that runs Nerlnet go through the following steps:
 After running the installation script, NErlNet directory can be accessed via the following path as well: 
 ```/usr/local/lib/nerlnet-lib```
 
-# Python API and Jupyter: 
+## Python API and Jupyter: 
 
 1. Create and activate a virtual environment for Nerlnet https://docs.python.org/3/library/venv.html
 2. Install required modules ```pip install -r /path/to/requirements.txt```
