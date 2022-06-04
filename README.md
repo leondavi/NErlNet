@@ -44,27 +44,16 @@ https://user-images.githubusercontent.com/18975070/145286597-340bbd31-0050-492f-
 ### Nerlnet Architecture:
 ![Nerlnet Architecture](https://user-images.githubusercontent.com/18975070/141692829-f0cdca7d-96d1-43b0-920a-5821a14242f7.jpg)
 
-# Building Nerlnet:
-prerequisite:
+# Build and Run Nerlnet:
 
-1. python 3.7 with jupyter lab (only for the api gui server). 
-2. Latest Erlang version (OTP-24 minimum) Ubuntu:
-   Use apt or build from source (https://www.erlang.org/doc/installation_guide/install) <br>
-   ```wget -O- https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -```<br>
-   ```echo "deb https://packages.erlang-solutions.com/ubuntu focal contrib" | sudo tee /etc/apt/sources.list.d/rabbitmq.list```<br>
-   ```sudo apt update```<br>
-   ```sudo apt install erlang```<br>
-   ```sudo apt-get install build-essential```<br>
-   Latest Erlang version Debian: <br>
-   ```wget https://packages.erlang-solutions.com/erlang/debian/pool/esl-erlang_24.2.1-1~debian~buster_amd64.deb```<br>
-   ```apt install ./esl-erlang_24.2.1-1~debian~buster_amd64.deb```<br>
-3. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo>```
-4. Install CMake minimal supported version 3.18: ```sudo apt install cmake```
+On each machine that runs Nerlnet go through the following steps: 
+1. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo>```
+2. Change directory to NErlNet.
+3. Run ```sudo ./NerlnetInstall.sh``` 
+4. Configure json files and update jsonPath
+5. Run ```./NerlnetRun.sh``` to start Nerlnet
 
-
-Build and run Instructions: 
-
-1. Give execution permission for NerlnetBuild.sh
-2. Run: ```./NerlnetBuild.sh```
+After running the installation script, NErlNet directory can be accessed via the following path as well: 
+```/usr/local/lib/nerlnet-lib```
 
 Contact Email: nerlnet@outlook.com 
