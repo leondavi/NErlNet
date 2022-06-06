@@ -2,6 +2,11 @@
 
 BUILD_DIRECTORY="build/release"
 buildNerlnetLibrary=0
+JobsNum=4
+
+if [ "$ARCH_TYPE" = "armv7l" ]; then
+        JobsNum=1
+fi
 
 if [ -d "$BUILD_DIRECTORY" ]; then
 	echo "Build Directory exists"
@@ -18,7 +23,7 @@ done
 
 if [[ "$buildNerlnetLibrary" -eq 1 ]] ; then
     echo "build script starts"
-    ./NerlnetBuild.sh
+    ./NerlnetBuild.sh -j $JobsNum
 fi
 
 
