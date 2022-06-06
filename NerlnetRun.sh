@@ -18,7 +18,7 @@ done
 
 if [[ "$buildNerlnetLibrary" -eq 1 ]] ; then
     echo "build script starts"
-    ./buildNerlnet.sh
+    ./NerlnetBuild.sh
 fi
 
 
