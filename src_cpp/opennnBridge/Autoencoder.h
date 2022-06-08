@@ -85,7 +85,7 @@ class AutoencoderClassifier : public Autoencoder
     }
 
     // train of AutoencoderClassifier 
-    void train(Tensor2DPtr autoencoder_data, Tensor2DPtr data)//, std::shared_ptr<OpenNN::NeuralNetwork> neural_network)
+    float train(Tensor2DPtr autoencoder_data, Tensor2DPtr data)//, std::shared_ptr<OpenNN::NeuralNetwork> neural_network)
     {
       
         bool eac_flag = true;
@@ -100,7 +100,7 @@ class AutoencoderClassifier : public Autoencoder
        
       
         int data_num_of_cols = data->dimension(1);
-        double loss_val; 
+        float loss_val; 
         training_strategy.set_loss_method(TrainingStrategy::LossMethod::MEAN_SQUARED_ERROR);
         training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::STOCHASTIC_GRADIENT_DESCENT);
         //batch_samples_number
@@ -136,7 +136,7 @@ class AutoencoderClassifier : public Autoencoder
             Eigen::Tensor<float,2> output = neural_network->calculate_outputs(*data); // calculate the AEC output for predict_smaple 
              cout<< "output(0) "<< output(0) << endl;
              Eigen::Tensor<float,2> loss = (output - *data).abs();
-             float loss_val;
+            
              for(int j = 0; j < loss.dimension(0); j++){
                  float sum = 0;
                for(int i = 0; i < loss.dimension(1); i++){
@@ -155,7 +155,7 @@ class AutoencoderClassifier : public Autoencoder
            
             //int RetVal = classification_function(loss_val);       
         // cout << "-1-1-1-1-1-1-1-1-1-1 " <<  endl;
-         return ;
+         return loss_val;
     }
  // train of AutoencoderClassifier 
 
