@@ -181,7 +181,7 @@ static void* trainFun(void* arg){
          
          training_strategy.set_maximum_epochs_number(1); 
          training_strategy.set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF);
-         float eac_loss_val = 0;
+         
          
          if(modelType == E_AEC){
             *data_temp = *(TrainNNptr->data);
@@ -189,7 +189,7 @@ static void* trainFun(void* arg){
             
             if(data_num_of_cols == 256 && autoencoder_data_num_of_cols == 512 && flag == true){
                 std::shared_ptr<AutoencoderClassifier> Autoencoder_Classifier = std::static_pointer_cast<AutoencoderClassifier>(neural_network);
-                Autoencoder_Classifier->train(autoencoder_data, data_temp);//, neural_network);
+                loss_val = Autoencoder_Classifier->train(autoencoder_data, data_temp);//, neural_network);
             
                 //cout << "00000000000" <<std::endl;
             }
