@@ -11,24 +11,6 @@ class ApiServer():
         mainServerIP = globe.components.mainServerIp
         mainServerPort = globe.components.mainServerPort
         self.mainServerAddress = 'http://' + mainServerIP + ':' + mainServerPort
-
-        # Send the content of jsonPath to each devices:
-
-        print("Sending JSON paths to devices...")
-
-        archiAddress = globe.content[0][:-1]
-        connMapAddress = globe.content[1][:-1]
-        data = archiAddress + '#' + connMapAddress
-
-        for ip in globe.components.devicesIp:
-            address = f'http://{ip}:8484/updateJsonPath' # f for format
-
-
-            response = requests.post(address, data)
-            if globe.jupyterFlag == 0:
-              print(response.ok, response.status_code)
-
-        time.sleep(1)
         
         # Starting receiver flask server process:
         print("Starting the receiver HTTP server...\n")
@@ -38,6 +20,22 @@ class ApiServer():
         time.sleep(1)
 
         self.transmitter = Transmitter(self.mainServerAddress)
+
+        # Send the content of jsonPath to each devices:
+        print("\nSending JSON paths to devices...")
+
+        archAddress = globe.content[0][:-1]
+        connMapAddress = globe.content[1][:-1]
+        data = archAddress + '#' + connMapAddress
+
+        for ip in globe.components.devicesIp:
+            address = f'http://{ip}:8484/updateJsonPath' # f for format
+
+            response = requests.post(address, data)
+            if globe.jupyterFlag == 0:
+              print(response.ok, response.status_code)
+
+        time.sleep(1)
 
     def getWorkersList(self):
         return globe.components.toString('w')

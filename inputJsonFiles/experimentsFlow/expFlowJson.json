@@ -3,7 +3,7 @@
      {
         "source name": "s1",
         "workers": "w1",
-        "CSV path": "HeartData/heart2020_train"
+        "CSV path": "OneTwo/OneTwo_train"
      }
  ],
 
@@ -11,7 +11,7 @@
      {
         "source name": "s1",
         "workers": "w1",
-        "CSV path": "HeartData/heart2020_train"
+        "CSV path": "OneTwo/OneTwo_predict"
      }
 ],
 
@@ -19,7 +19,7 @@
      {
         "source name": "s1",
         "workers": "w1",
-        "CSV path": "HeartData/heart2020_train"
+        "CSV path": "MNist/norm_zeros90Others10Small_predict"
      }
 ]
 }
