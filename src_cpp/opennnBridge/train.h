@@ -47,13 +47,15 @@ static void* trainFun(void* arg){
         
          // Get the singleton instance
          opennnBridgeController *s = s->GetInstance();
+         std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(TrainNNptr->mid);
+         int modelType = s->getModelType(TrainNNptr->mid);
+         
          
             
          std::shared_ptr<Eigen::Tensor<float,2>> autoencoder_data;// = std::make_shared<Eigen::Tensor<float,2>>();
          std::shared_ptr<Eigen::Tensor<float,2>> data_temp = std::make_shared<Eigen::Tensor<float,2>>();
-         *data_temp = *(TrainNNptr->data);
-         std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(TrainNNptr->mid);
-         int modelType = s->getModelType(TrainNNptr->mid);
+        
+         
          
 
          //int first_layer_size = 0;
@@ -179,14 +181,15 @@ static void* trainFun(void* arg){
          
          training_strategy.set_maximum_epochs_number(1); 
          training_strategy.set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF);
-         float eac_loss_val = 0;
+         
          
          if(modelType == E_AEC){
+            *data_temp = *(TrainNNptr->data);
             int autoencoder_data_num_of_cols = autoencoder_data->dimension(1);
             
             if(data_num_of_cols == 256 && autoencoder_data_num_of_cols == 512 && flag == true){
                 std::shared_ptr<AutoencoderClassifier> Autoencoder_Classifier = std::static_pointer_cast<AutoencoderClassifier>(neural_network);
-                Autoencoder_Classifier->train(autoencoder_data, data_temp);//, neural_network);
+                loss_val = Autoencoder_Classifier->train(autoencoder_data, data_temp);//, neural_network);
             
                 //cout << "00000000000" <<std::endl;
             }
