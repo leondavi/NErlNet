@@ -47,13 +47,15 @@ static void* trainFun(void* arg){
         
          // Get the singleton instance
          opennnBridgeController *s = s->GetInstance();
+         std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(TrainNNptr->mid);
+         int modelType = s->getModelType(TrainNNptr->mid);
+         
          
             
          std::shared_ptr<Eigen::Tensor<float,2>> autoencoder_data;// = std::make_shared<Eigen::Tensor<float,2>>();
          std::shared_ptr<Eigen::Tensor<float,2>> data_temp = std::make_shared<Eigen::Tensor<float,2>>();
-         *data_temp = *(TrainNNptr->data);
-         std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(TrainNNptr->mid);
-         int modelType = s->getModelType(TrainNNptr->mid);
+        
+         
          
 
          //int first_layer_size = 0;
@@ -182,6 +184,7 @@ static void* trainFun(void* arg){
          float eac_loss_val = 0;
          
          if(modelType == E_AEC){
+            *data_temp = *(TrainNNptr->data);
             int autoencoder_data_num_of_cols = autoencoder_data->dimension(1);
             
             if(data_num_of_cols == 256 && autoencoder_data_num_of_cols == 512 && flag == true){
