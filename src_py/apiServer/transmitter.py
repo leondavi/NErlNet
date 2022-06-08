@@ -31,12 +31,15 @@ class Transmitter:
     def updateCSV(self, currentPhase, resList): # currentPhase is either "Training", "Prediction" or "Statistics". 
         print('Update CSV Phase')
 
-
         for source in globe.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
             sourceName = source['source name']
             workersUnderSource = source['workers']
             csvPathForSource = source['CSV path']
 
+            # Add the workers to the workerCsv dict:
+            workersUnderSourceList = workersUnderSource.split(",")
+            for worker in workersUnderSourceList:
+                globe.workerCsv[worker] = csvPathForSource
 
             # If needed, create a new dictionary to store the results for the current CSV:
             if self.checkIfCsvInResults(resList, csvPathForSource) == False:
@@ -80,11 +83,12 @@ class Transmitter:
         
         # 1 Ack for startCasting():
         globe.pendingAcks += 1
-        self.startCasting()
+        self.startCasting(500) # TODO delete 10!!!!!!!
 
         while globe.pendingAcks > 0:
-            time.sleep(0.005)
+            time.sleep(0.05)
             pass 
+
 
         globe.multiProcQueue.put(globe.trainResults[-1])
 
@@ -96,7 +100,7 @@ class Transmitter:
 
         self.clientsPredict()
 
-        self.updateCSV("Training", globe.trainResults)
+        self.updateCSV("Prediction", globe.predictResults)
 
         while globe.pendingAcks > 0:
             time.sleep(0.005)
@@ -104,7 +108,8 @@ class Transmitter:
 
         # 1 Ack for startCasting():
         globe.pendingAcks += 1
-        self.startCasting()
+
+        self.startCasting(10)
 
         while globe.pendingAcks > 0:
             time.sleep(0.005)

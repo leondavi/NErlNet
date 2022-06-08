@@ -45,17 +45,17 @@
 
 start(_StartType, _StartArgs) ->
      HostName = getHostName(),
-     %HostName = "host_1",
+     %HostName = "127.0.0.1",
      %HostName = "127.0.0.1",
      io:format("My HostName: ~p~n",[HostName]),
 
     %Create a listener that waits for a message from python about the adresses of the wanted json
-    %createNerlnetInitiator(HostName),
+    createNerlnetInitiator(HostName),
     receive 
 
         {jsonAddress,MSG} -> {ArchitectureAdderess,CommunicationMapAdderess} = MSG
         %%TODO remove this "after" part when python is ready to send jsonPaths
-        after 10000 ->   JsonPath = "../../../jsonPath",
+        after 1000000 ->   JsonPath = "../../../jsonPath",
                         {ok, InputJSON} = file:read_file(JsonPath),%%TODO change to File_Address
                         Listed = binary_to_list(InputJSON),
                         %ArchitectureAdderess, CommunicationMapAdderess are the paths for the json architecture file, where THIS machine can find its own entities by IP
