@@ -94,51 +94,54 @@ void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neural_netw
             }
          }
       }
+      
            // neural_network->
          //Probabilistic
          //Probabilistic
          int last_layar = neural_network->get_layers_pointers().size()-1;
-         if(neural_network->get_layer_pointer(last_layar)->get_type() == 4) //"Probabilistic"
+         if(neural_network->get_layer_pointer(last_layar)->get_type() == OpenNN::Layer::Type::Probabilistic) //"Probabilistic"
          {
-         
             if((*activations_functions)(last_layar) == PAF_Binary){
-                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar))->set_activation_function(ProbabilisticLayer::Binary);
+                 // OpenNN::ProbabilisticLayer::softmax
+                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar))->set_activation_function(ProbabilisticLayer::ActivationFunction::Binary);
             }
-
+            
             if((*activations_functions)(last_layar) == PAF_Logistic){  //problem with Logistic ,the compiler dont like it
-                 dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar))->set_activation_function(ProbabilisticLayer::Logistic);
+                 dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar))->set_activation_function(ProbabilisticLayer::ActivationFunction::Logistic);
             }
 
             if((*activations_functions)(last_layar) == PAF_Competitive){
-                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar))->set_activation_function(ProbabilisticLayer::Competitive);
+                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar))->set_activation_function(ProbabilisticLayer::ActivationFunction::Competitive);
             }
 
             if((*activations_functions)(last_layar) == PAF_Softmax){
                
-                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar))->set_activation_function(ProbabilisticLayer::Softmax);
+                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar))->set_activation_function(ProbabilisticLayer::ActivationFunction::Softmax);
+                  
             }
 
          }
 
          int last_layar2 = neural_network->get_layers_pointers().size()-2;
-         if(neural_network->get_layer_pointer(last_layar)->get_type() == 4) //"Probabilistic"
+         if(neural_network->get_layer_pointer(last_layar)->get_type() == OpenNN::Layer::Type::Probabilistic) //"Probabilistic"
          {
        
             if((*activations_functions)(last_layar2) == PAF_Binary){
-                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar2))->set_activation_function(ProbabilisticLayer::Binary);
+                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar2))->set_activation_function(ProbabilisticLayer::ActivationFunction::Binary);
             }
 
             if((*activations_functions)(last_layar2) == PAF_Logistic){  //problem with Logistic ,the compiler dont like it
-                 dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar2))->set_activation_function(ProbabilisticLayer::Logistic);
+                 dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar2))->set_activation_function(ProbabilisticLayer::ActivationFunction::Logistic);
             }
 
             if((*activations_functions)(last_layar2) == PAF_Competitive){
-                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar2))->set_activation_function(ProbabilisticLayer::Competitive);
+                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar2))->set_activation_function(ProbabilisticLayer::ActivationFunction::Competitive);
             }
 
             if((*activations_functions)(last_layar2) == PAF_Softmax){
                  
-                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar2))->set_activation_function(ProbabilisticLayer::Softmax);
+                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar2))->set_activation_function(ProbabilisticLayer::ActivationFunction::Softmax);
+            
             }
 
          }
