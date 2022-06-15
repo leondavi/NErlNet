@@ -92,8 +92,8 @@ static void* trainFun(void* arg){
         
            TrainingStrategy training_strategy;
           if(flag == true) {
+            training_strategy.set_neural_network_pointer(neural_network.get()); // Line 95 should be executed before line 96 due to openNN issue
             training_strategy.set_data_set_pointer(&data_set);
-            training_strategy.set_neural_network_pointer(neural_network.get());
         
        
          
