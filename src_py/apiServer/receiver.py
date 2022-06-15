@@ -20,27 +20,23 @@ if globe.jupyterFlag == 1: #If in Jupyter Notebook: Disable logging messages
 def initReceiver():
     receiver.run(threaded=True, host='127.0.0.1', port=8095)
 
-def findDictForCsv(resList, csvWorked):
-    for idx, resDict in enumerate(resList):
-        if resDict['CSV path'] == csvWorked:
-            return idx
-    
-    raise RuntimeError(f"ERROR(Receiver): Dictionary for {csvWorked} was not created.")
+def processResult(resData, currentPhase):
+        worker = resData[0]
+        result = float(resData[1].replace(' ',''))
 
-def processResult(resData, resList, currentPhase):
-    worker = resData[0]
-    result = float(resData[1].replace(' ',''))
-    csvWorked = globe.workerCsv[worker]
+        if (currentPhase == "Training"):
+            for csvRes in globe.expResults.trainingResList:
+                if worker in csvRes.workers:
+                    for workerRes in csvRes.workersResList:
+                        if (workerRes.name == worker):
+                            workerRes.addResult(result)
 
-    if currentPhase == "Training":
-        dictIdx = findDictForCsv(globe.trainResults, csvWorked)
-    elif currentPhase == "Predict":
-        dictIdx = findDictForCsv(globe.predictResults, csvWorked)
-
-    if not worker in resList[dictIdx]:
-        resList[dictIdx][worker] = [result]
-    else:
-        resList[dictIdx][worker].append(result)
+        if (currentPhase == "Predicition"):
+            for csvRes in globe.expResults.predictionResList:
+                if worker in csvRes.workers:
+                    for workerRes in csvRes.workersResList:
+                        if (workerRes.name == worker):
+                            workerRes.addResult(result)
 
 class shutdown(Resource):
     def get(self):
@@ -73,7 +69,7 @@ class trainRes(Resource):
         if globe.jupyterFlag == 0:
             print(resData)
 
-        processResult(resData, globe.trainResults, "Training")
+        processResult(resData, "Training")
         
         
 #http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++BatchID++"#"++CSVName++"#"++BatchSize)
@@ -88,7 +84,7 @@ class predictRes(Resource):
         if globe.jupyterFlag == 0:
             print(resData)
 
-        processResult(resData, globe.predictResults, "Prediction")
+        processResult(resData, "Prediction")
 
 class statistics(Resource):
     def post(self):
@@ -102,3 +98,27 @@ api.add_resource(shutdown, "/shutdown")
 api.add_resource(trainRes, "/lossFunction") # TODO: Change to "/trainRes", both here and in erl
 api.add_resource(predictRes, "/predictRes")
 api.add_resource(statistics, "/statistics")
+
+"""
+def findDictForCsv(resList, csvWorked):
+    for idx, resDict in enumerate(resList):
+        if resDict['CSV path'] == csvWorked:
+            return idx
+    
+    raise RuntimeError(f"ERROR(Receiver): Dictionary for {csvWorked} was not created.")
+
+def processResult(resData, resList, currentPhase):
+    worker = resData[0]
+    result = float(resData[1].replace(' ',''))
+    csvWorked = globe.workerCsv[worker]
+
+    if currentPhase == "Training":
+        dictIdx = findDictForCsv(globe.trainResults, csvWorked)
+    elif currentPhase == "Predict":
+        dictIdx = findDictForCsv(globe.predictResults, csvWorked)
+
+    if not worker in resList[dictIdx]:
+        resList[dictIdx][worker] = [result]
+    else:
+        resList[dictIdx][worker].append(result)
+"""

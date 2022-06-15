@@ -2,6 +2,7 @@ import requests
 import globalVars as globe
 import time
 import sys
+from experiment import *
 
 class Transmitter:
 
@@ -51,10 +52,17 @@ class Transmitter:
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
 
-    def startCasting(self, numOfBatches=sys.maxsize): # numOfBatches, is no. of batches to request from the Main Server. Batch size is found at the architecture JSOn, which is available at globe.components
+    def startCasting(self, phase): # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
         print('Start Casting Phase')
 
-        dataStr = "{},{}".format(globe.components.toString('s'), numOfBatches) #Python's string format, {} are swapped by the variables in the brackets respectively.
+        if (phase=="Training"):
+            batchesPerSource = globe.expFlow["Batches per source"]["Training"]
+        elif (phase=="Prediction"):
+            batchesPerSource = globe.expFlow["Batches per source"]["Prediction"]
+        else:
+            batchesPerSource = sys.maxsize
+
+        dataStr = f"{globe.components.toString('s')},{batchesPerSource}" #Python's string format, {} are swapped by the variables in the brackets respectively.
 
         response = requests.post(self.startCastingAddress, data=dataStr)
 
@@ -70,6 +78,8 @@ class Transmitter:
     def train(self):
         print('\nTraining - Starting...')
 
+        globe.expResults.syncTrainingWithFlow()
+
         # 1 Ack for clientsTraining(), <num of sources> Acks for updateCSV():
         globe.pendingAcks += 1 + len(globe.components.sources) 
 
@@ -83,17 +93,20 @@ class Transmitter:
         
         # 1 Ack for startCasting():
         globe.pendingAcks += 1
-        self.startCasting(500) # TODO delete 10!!!!!!!
+
+        self.startCasting("Training") 
 
         while globe.pendingAcks > 0:
             time.sleep(0.05)
             pass 
 
 
-        globe.multiProcQueue.put(globe.trainResults[-1])
+        globe.multiProcQueue.put(globe.expResults)
 
-    def predict(self):
+    def predict(self, numOfBatches):
         print('Prediction - Starting...')
+
+        globe.expResults.syncPredicitionWithFlow()
 
         # 1 Ack for clientsPredict(), <num of sources> Acks for updateCSV():
         globe.pendingAcks += 1 + len(globe.components.sources) 
@@ -109,13 +122,13 @@ class Transmitter:
         # 1 Ack for startCasting():
         globe.pendingAcks += 1
 
-        self.startCasting(10)
+        self.startCasting("Prediction")
 
         while globe.pendingAcks > 0:
             time.sleep(0.005)
             pass 
 
-        globe.multiProcQueue.put(globe.predictResults[-1])
+        globe.multiProcQueue.put(globe.expResults)
 
     def statistics(self):
         globe.pendingAcks += 1
