@@ -31,7 +31,7 @@ class ApiServer():
         for ip in globe.components.devicesIp:
             address = f'http://{ip}:8484/updateJsonPath' # f for format
 
-            response = requests.post(address, data)
+            response = requests.post(address, data, timeout = 10)
             if globe.jupyterFlag == 0:
               print(response.ok, response.status_code)
 
@@ -59,21 +59,23 @@ class ApiServer():
         while not received:
             if not multiProcQueue.empty():
                 print("~New result has been created successfully~")
-                multiProcQueue.get() # Get the new result out of the queue
+                expResults = multiProcQueue.get() # Get the new result out of the queue
                 received = True
             time.sleep(0.1)
+
+            return expResults
    
     def train(self):
         self.transmitter.train()
-        self.getQueueData()
+        expResults = self.getQueueData()
         print('Training - Finished\n')
-        return globe.trainResults[-1]
+        return expResults
 
     def predict(self):
         self.transmitter.predict()
-        self.getQueueData()
+        expResults = self.getQueueData()
         print('Prediction - Finished\n')
-        return globe.predictResults[-1]
+        return expResults
     
     def statistics(self):
         self.transmitter.statistics()
