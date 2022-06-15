@@ -22,7 +22,7 @@
 -export([start/2, stop/1]).
 
 -define(NERLNET_INIT_PORT,8484).
--define(PYTHON_SERVER_WAITING_TIMEOUT_MS, 120000). % 120 seconds
+-define(PYTHON_SERVER_WAITING_TIMEOUT_MS, 360000). % 360 seconds
 -define(NERLNET_JSON_PATH,"/usr/local/lib/nerlnet-lib/NErlNet/jsonPath").
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
