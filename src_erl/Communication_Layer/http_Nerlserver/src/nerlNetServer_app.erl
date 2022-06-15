@@ -22,7 +22,7 @@
 -export([start/2, stop/1]).
 
 -define(NERLNET_INIT_PORT,8484).
--define(PYTHON_SERVER_WAITING_TIMEOUT_MS, 30000). % 30 seconds
+-define(PYTHON_SERVER_WAITING_TIMEOUT_MS, 120000). % 120 seconds
 -define(NERLNET_JSON_PATH,"/usr/local/lib/nerlnet-lib/NErlNet/jsonPath").
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
@@ -54,7 +54,7 @@ start(_StartType, _StartArgs) ->
     %Create a listener that waits for a message from python about the adresses of the wanted json
     createNerlnetInitiator(HostName),
     receive 
-        {jsonAddress,MSG} -> {ArchitectureAdderess,CommunicationMapAdderess} = MSG % TODO ask Tal what this msg receive block does
+        {jsonAddress,MSG} -> {ArchitectureAdderess,CommunicationMapAdderess} = MSG 
         %%TODO remove this "after" part when python is ready to send jsonPaths
         after ?PYTHON_SERVER_WAITING_TIMEOUT_MS ->   JsonPath = ?NERLNET_JSON_PATH,
                         {ok, InputJSON} = file:read_file(JsonPath),%%TODO change to File_Address
