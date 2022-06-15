@@ -225,16 +225,20 @@ getPortUnknown(ArchMap,<<"serverAPI">>)->
   [ServerAPI] = maps:get(<<"serverAPI">>,ArchMap),
   list_to_integer(binary_to_list(maps:get(<<"port">>, ServerAPI)));
 getPortUnknown(ArchMap,EntityName)->
-  Foundclient = getPort(maps:get(<<"clients">>,ArchMap),EntityName),
-  if  Foundclient == false->
-    Foundsources = getPort(maps:get(<<"sources">>,ArchMap),EntityName),
-    if  Foundsources == false->
-         getPort(maps:get(<<"federated">>,ArchMap),EntityName);
+  FoundRouter = getPort(maps:get(<<"routers">>,ArchMap),EntityName),
+  if  FoundRouter == false->
+    Foundclient = getPort(maps:get(<<"clients">>,ArchMap),EntityName),
+    if  Foundclient == false->
+      Foundsources = getPort(maps:get(<<"sources">>,ArchMap),EntityName),
+      if  Foundsources == false->
+          getPort(maps:get(<<"federated">>,ArchMap),EntityName);
+        true ->
+          Foundsources
+        end;
       true ->
-        Foundsources
-      end;
-    true ->
-      Foundclient
+        Foundclient
+    end;
+  true -> FoundRouter
   end.
 
 %%returns a map of all workers  - key workerName, Value ClientName
@@ -328,7 +332,7 @@ addEdges(G,V1,V2) ->
     digraph:add_edge(G,V2,V1).
 	
 
-addtograph(G,ArchitectureMap,MyRouter,HostName) -> okPass;
+%addtograph(G,ArchitectureMap,MyRouter,HostName) -> okPass;
 addtograph(G,ArchitectureMap,Entitie,HostName) -> 
     io:format("~p~n",[{Entitie,HostName,getPortUnknown(ArchitectureMap,list_to_binary(Entitie))}]),
     digraph:add_vertex(G,Entitie,{HostName,getPortUnknown(ArchitectureMap,list_to_binary(Entitie))}).
