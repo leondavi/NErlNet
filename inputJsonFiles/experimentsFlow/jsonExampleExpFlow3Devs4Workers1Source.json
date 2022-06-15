@@ -3,7 +3,7 @@
          {
             "source name": "s1",
             "workers": "w1,w2,w3,w4",
-            "CSV path": "OneTwo/OneTwo_train"
+            "CSV path": "MNist/pairsOfDigits/One+Two-withLabel"
          }
      ],
     
@@ -11,7 +11,7 @@
          {
             "source name": "s1",
             "workers": "w1,w2,w3,w4",
-            "CSV path": "OneTwo/OneTwo_predict"
+            "CSV path": "MNist/pairsOfDigits/One+Two-withoutLabel"
          }
     ],
     
