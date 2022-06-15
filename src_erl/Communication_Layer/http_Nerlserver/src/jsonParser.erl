@@ -296,22 +296,19 @@ addDeviceToGraph(G,ArchitectureMap, HostName)->
 
     %%ADD THIS TO NERLNET:
 
-    Routers = [binary_to_list(maps:get(<<"name">>,Router))||Router <- maps:get(<<"routers">>,ArchitectureMap)],
-    io:format("Routers:~n~p~n",[Routers]),
+    % Routers = [binary_to_list(maps:get(<<"name">>,Router))||Router <- maps:get(<<"routers">>,ArchitectureMap)],
+    % io:format("Routers:~n~p~n",[Routers]),
 
-
-
-
-    MyRouter = getMyRouter(Routers,OnDeviceEntities),
-    MyRouterPort = getPort(maps:get(<<"routers">>,ArchitectureMap),list_to_binary(MyRouter)),
+    % MyRouter = getMyRouter(Routers,OnDeviceEntities), TODO remove
+    % MyRouterPort = getPort(maps:get(<<"routers">>,ArchitectureMap),list_to_binary(MyRouter)), TODO remove
 
 
     %add this router to the graph G
-    digraph:add_vertex(G,MyRouter,{binary_to_list(HostName),getPort(maps:get(<<"routers">>,ArchitectureMap),list_to_binary(MyRouter))}),
-    io:format("~p~n",[{MyRouter,binary_to_list(HostName),getPort(maps:get(<<"routers">>,ArchitectureMap),list_to_binary(MyRouter))}]),
+    %digraph:add_vertex(G,MyRouter,{binary_to_list(HostName),getPort(maps:get(<<"routers">>,ArchitectureMap),list_to_binary(MyRouter))}),
+    %io:format("~p~n",[{MyRouter,binary_to_list(HostName),getPort(maps:get(<<"routers">>,ArchitectureMap),list_to_binary(MyRouter))}]),
 
 
-    [addtograph(G,ArchitectureMap,Entitie,binary_to_list(HostName),MyRouter)||Entitie<-OnDeviceEntities ],
+    [addtograph(G,ArchitectureMap,Entitie,binary_to_list(HostName)) || Entitie<-OnDeviceEntities ],
     G.
 
 getAllHosts(ArchitectureMap) -> 
@@ -330,9 +327,9 @@ addEdges(G,V1,V2) ->
     digraph:add_edge(G,V1,V2),
     digraph:add_edge(G,V2,V1).
 	
-	
-addtograph(G,ArchitectureMap,MyRouter,HostName,MyRouter) -> okPass;
-addtograph(G,ArchitectureMap,Entitie,HostName,MyRouter) -> 
+
+addtograph(G,ArchitectureMap,MyRouter,HostName) -> okPass;
+addtograph(G,ArchitectureMap,Entitie,HostName) -> 
     io:format("~p~n",[{Entitie,HostName,getPortUnknown(ArchitectureMap,list_to_binary(Entitie))}]),
     digraph:add_vertex(G,Entitie,{HostName,getPortUnknown(ArchitectureMap,list_to_binary(Entitie))}).
     % addEdges(G,Entitie,MyRouter).
