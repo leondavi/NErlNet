@@ -1,6 +1,6 @@
-/usr/local/lib/nerlnet-lib/NErlNet/inputJsonFiles/Architecture/jsonExampleArch3Devs4Workers1Source.json
-/usr/local/lib/nerlnet-lib/NErlNet/inputJsonFiles/ConnectionMap/jsonExampleConnectionMap3Devs4Workers1Source.json
+../../../inputJsonFiles/Architecture/jsonArch1PC1Worker_autoencoder.json
+../../../inputJsonFiles/ConnectionMap/1PC1Worker.json
 
 # For Python API:
-/usr/local/lib/nerlnet-lib/NErlNet/inputJsonFiles/Architecture/jsonExampleArch3Devs4Workers1Source.json
-/usr/local/lib/nerlnet-lib/NErlNet/inputJsonFiles/experimentsFlow/jsonExampleExpFlow3Devs4Workers1Source.json
+/home/nerlnet/workspace/NErlNet/inputJsonFiles/Architecture/jsonArch1PC1Worker_autoencoder.json
+/home/nerlnet/workspace/NErlNet/inputJsonFiles/experimentsFlow/expFlowJson.json
