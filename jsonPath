@@ -1,6 +1,6 @@
-../../../inputJsonFiles/Architecture/jsonArch1PC1Worker_autoencoder.json
-../../../inputJsonFiles/ConnectionMap/1PC1Worker.json
+../../../inputJsonFiles/Architecture/jsonArch2PC2Workers.json
+../../../inputJsonFiles/ConnectionMap/1Router2Clients.json
 
 # For Python API:
-/home/nerlnet/workspace/NErlNet/inputJsonFiles/Architecture/jsonArch1PC1Worker_autoencoder.json
-/home/nerlnet/workspace/NErlNet/inputJsonFiles/experimentsFlow/expFlowJson.json
+/home/nerlnet/workspace/NErlNet/inputJsonFiles/Architecture/jsonArch2PC2Workers.json
+/home/nerlnet/workspace/NErlNet/inputJsonFiles/experimentsFlow/jsonExampleExpFlow2Devs2Workers.json

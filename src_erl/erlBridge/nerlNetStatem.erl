@@ -266,6 +266,8 @@ train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = Mo
     % DataTensor = [10.0 , 128.0 , 1.0] ++ Shuffled,
     MyPid=self(),
     _Pid = spawn(fun()-> niftest:call_to_train(ModelId, Optimizer , LossMethod , LearningRate , SampleListTrain ,MyPid) end),
+
+
     {next_state, wait, State#nerlNetStatem_state{nextState = train}};
   
 
