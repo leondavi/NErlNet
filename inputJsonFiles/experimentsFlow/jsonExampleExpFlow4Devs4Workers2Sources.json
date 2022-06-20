@@ -1,12 +1,12 @@
 {
      "Training":  [
       {
-         "source name": "s1",
+         "source name": "s2",
          "workers": "w1,w2",
          "CSV path": "nums/One_Two_train"
       },
       {
-         "source name": "s2",
+         "source name": "s1",
          "workers": "w3,w4",
          "CSV path": "nums/One_Two_train"
       }
@@ -14,12 +14,12 @@
     
      "Prediction": [
       {
-         "source name": "s1",
+         "source name": "s2",
          "workers": "w1,w2",
          "CSV path": "nums/One_Two_predict"
       },
       {
-         "source name": "s2",
+         "source name": "s1",
          "workers": "w3,w4",
          "CSV path": "nums/One_Two_predict"
       }
