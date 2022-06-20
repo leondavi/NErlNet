@@ -260,42 +260,42 @@ predict(cast, {predictRes,WorkerName,InputName,ResultID,[]}, State = #client_sta
 
 predict(cast, {predictRes,WorkerName,InputName,ResultID,Result}, State = #client_statem_state{myName = MyName, msgCounter = Counter,nerlnetGraph = NerlnetGraph,timingMap = TimingMap}) ->
     {Start,TotalBatches,AverageTrainingTime} = maps:get(WorkerName,TimingMap),
-  Finish = os:timestamp(),
-    %io:format("predict result: ~n~p~n",[{predictRes,WorkerName,InputName,ResultID,Result}]),
+    Finish = os:timestamp(),
+      %io:format("predict result: ~n~p~n",[{predictRes,WorkerName,InputName,ResultID,Result}]),
 
-  TotalTrainingTime = (timer:now_diff(Finish, Start) / 1000),
-  if(TotalBatches>0) ->
-    NewAverage = ((AverageTrainingTime*(TotalBatches-1))+TotalTrainingTime)/TotalBatches,
-    NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,NewAverage},TimingMap);
-      % io:format("AverageTrainingTime: ~p~n",[NewAverage])
-    true ->       NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,TotalTrainingTime},TimingMap)
+    TotalTrainingTime = (timer:now_diff(Finish, Start) / 1000),
+    if(TotalBatches>0) ->
+      NewAverage = ((AverageTrainingTime*(TotalBatches-1))+TotalTrainingTime)/TotalBatches,
+      NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,NewAverage},TimingMap);
+        % io:format("AverageTrainingTime: ~p~n",[NewAverage])
+      true ->       NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,TotalTrainingTime},TimingMap)
 
-  end,  
-{RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
-Result2 = lists:flatten(io_lib:format("~w",[Result])),",",[{return,list}],
-Result3 = lists:sublist(Result2,2,length(Result2)-2),
-%io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
-http_request(RouterHost,RouterPort,"predictRes", term_to_binary({InputName,ResultID,Result3})),
-{next_state, predict, State#client_statem_state{timingMap =NewTimingMap, msgCounter = Counter+1}};
+    end,  
+    {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+    Result2 = lists:flatten(io_lib:format("~w",[Result])),",",[{return,list}],
+    Result3 = lists:sublist(Result2,2,length(Result2)-2),
+    %io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
+    http_request(RouterHost,RouterPort,"predictRes", term_to_binary({InputName,ResultID,Result3})),
+    {next_state, predict, State#client_statem_state{timingMap =NewTimingMap, msgCounter = Counter+1}};
 
 predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
-Workers = maps:to_list(WorkersMap),
-[gen_statem:cast(WorkerPid,{training})|| {_WorkerName,WorkerPid}<-Workers],
-MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
-{next_state, waitforWorkers, State#client_statem_state{nextState = training,  waitforWorkers = MyWorkers, msgCounter = Counter+1}};
+    Workers = maps:to_list(WorkersMap),
+    [gen_statem:cast(WorkerPid,{training})|| {_WorkerName,WorkerPid}<-Workers],
+    MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+    {next_state, waitforWorkers, State#client_statem_state{nextState = training,  waitforWorkers = MyWorkers, msgCounter = Counter+1}};
 
 
 predict(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
-Workers = maps:to_list(WorkersMap),
-[gen_statem:cast(WorkerPid,{idle})|| {_WorkerName,WorkerPid}<-Workers],
-io:format("client going to state idle~n",[]),
-MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+    Workers = maps:to_list(WorkersMap),
+    [gen_statem:cast(WorkerPid,{idle})|| {_WorkerName,WorkerPid}<-Workers],
+    io:format("client going to state idle~n",[]),
+    MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
 
-{next_state, idle, State#client_statem_state{nextState = idle,  waitforWorkers = MyWorkers,msgCounter = Counter+1}};
+    {next_state, waitforWorkers, State#client_statem_state{nextState = idle,  waitforWorkers = MyWorkers,msgCounter = Counter+1}};
 
 predict(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
-io:format("client predict ignored:  ~p ~n",[EventContent]),
-{next_state, predict, State#client_statem_state{msgCounter = Counter+1}}.
+    io:format("client predict ignored:  ~p ~n",[EventContent]),
+    {next_state, predict, State#client_statem_state{msgCounter = Counter+1}}.
 
 
 %% @private
