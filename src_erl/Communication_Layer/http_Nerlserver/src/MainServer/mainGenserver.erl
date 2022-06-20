@@ -190,7 +190,7 @@ handle_cast({sourceAck,Body}, State = #main_genserver_state{nerlnetGraph = Nerln
 handle_cast({clientAck,Body}, State = #main_genserver_state{ clientsWaitingList = WaitingList,msgCounter = MsgCounter,nerlnetGraph = NerlnetGraph}) ->
   NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
   if length(NewWaitingList) == 0 ->
-        ack(NerlnetGraph),
+        ack(NerlnetGraph);
         % ack(NerlnetGraph);
           
     true->
