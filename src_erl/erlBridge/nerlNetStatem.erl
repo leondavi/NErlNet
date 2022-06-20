@@ -117,13 +117,12 @@ idle(cast, {training}, State = #nerlNetStatem_state{myName = MyName,clientPid = 
   gen_statem:cast(ClientPid,{stateChange,MyName}),
   {next_state, train, State};
 
-idle(cast, {predict}, State = #nerlNetStatem_state{currentBatchID = CurrentBatchID,myName = MyName,clientPid = ClientPid}) ->
+idle(cast, {predict}, State = #nerlNetStatem_state{myName = MyName,clientPid = ClientPid}) ->
   io:fwrite("Go from idle to predict\n"),
   gen_statem:cast(ClientPid,{stateChange,MyName}),
+  {next_state, predict, State#nerlNetStatem_state{nextState = predict}};
 
-  {next_state, predict, State#nerlNetStatem_state{currentBatchID = CurrentBatchID + 1, nextState = predict}};
-
-idle(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId}) ->
+idle(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId=ModelId}) ->
 
   io:fwrite("Set weights in wait state: \n"),
   
@@ -134,7 +133,7 @@ idle(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextStat
   NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
   NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
   _Result_set_weights = erlModule:set_weights(WeightsList, BiasList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
-  _Result_set_weights = erlModule:set_weights(WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list, ModelId),
+  _Result_set_weights2 = erlModule:set_weights(WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list, ModelId),
 
   {next_state, idle, State};
 
