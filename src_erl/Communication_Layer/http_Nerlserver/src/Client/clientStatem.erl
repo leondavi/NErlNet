@@ -103,6 +103,8 @@ state_name(_EventType, _EventContent, State = #client_statem_state{}) ->
 
 waitforWorkers(cast, {stateChange,WorkerName}, State = #client_statem_state{myName = MyName, nerlnetGraph = NerlnetGraph, msgCounter = Counter,waitforWorkers = WaitforWorkers,nextState = NextState}) ->
   NewWaitforWorkers = WaitforWorkers--[WorkerName],
+  io:format("NewWaitforWorkers:  ~p ~n",[NewWaitforWorkers]),
+
   case NewWaitforWorkers of
     [] ->   ack(MyName,NerlnetGraph),
             {next_state, NextState, State#client_statem_state{waitforWorkers = [], msgCounter = Counter+1}};
@@ -167,10 +169,11 @@ training(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,
   {next_state, training, State#client_statem_state{msgCounter = Counter+1,timingMap = NewTimingMap}};
 
 training(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
-  io:format("client going to state idle",[]),
+  io:format("client going to state idle~n",[]),
   Workers = maps:to_list(WorkersMap),
   [gen_statem:cast(WorkerPid,{idle})|| {_WorkerName,WorkerPid}<-Workers],
   MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+  io:format("setting workers at idle: ~p~n",[MyWorkers]),
   {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = MyWorkers, nextState = idle, msgCounter = Counter+1}};
 
 training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap, msgCounter = Counter}) ->
