@@ -141,8 +141,10 @@ idle(cast, {init,CONFIG}, State = #client_statem_state{msgCounter = Counter}) ->
   % io:format("initiating, CONFIG received:~p ~n",[CONFIG]),
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
-idle(cast, {statistics}, State = #client_statem_state{ myName = MyName,msgCounter = Counter,nerlnetGraph = NerlnetGraph}) ->
+idle(cast, {statistics}, State = #client_statem_state{ myName = MyName,timingMap = TimingMap, msgCounter = Counter,nerlnetGraph = NerlnetGraph}) ->
   {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+  io:format("~p Timing map: ~p~n",[MyName, maps:to_list(TimingMap)]),
+
   http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(Counter))),
 
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
