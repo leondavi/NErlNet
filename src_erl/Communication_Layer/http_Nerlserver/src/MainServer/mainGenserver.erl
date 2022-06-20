@@ -169,8 +169,8 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{nerlnetGraph = Nerl
 
   case NewCastingList of
     [] -> NextState = State#main_genserver_state{state = idle, sourcesCastingList = NewCastingList,msgCounter = MsgCounter},
-          gen_server:cast(self(),{clientsIdle}),
-          ack(NerlnetGraph);
+          gen_server:cast(self(),{clientsIdle});
+          % ack(NerlnetGraph);
     _ -> NextState = State#main_genserver_state{state = casting, sourcesCastingList = NewCastingList,msgCounter = MsgCounter+1}
   end,
   {noreply, NextState};
@@ -190,7 +190,9 @@ handle_cast({sourceAck,Body}, State = #main_genserver_state{nerlnetGraph = Nerln
 handle_cast({clientAck,Body}, State = #main_genserver_state{ clientsWaitingList = WaitingList,msgCounter = MsgCounter,nerlnetGraph = NerlnetGraph}) ->
   NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
   if length(NewWaitingList) == 0 ->
-            ack(NerlnetGraph);
+        ack(NerlnetGraph),
+        ack(NerlnetGraph);
+          
     true->
             io:format("~p sent ACK~n new clientWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
     end,
