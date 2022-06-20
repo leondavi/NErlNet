@@ -51,7 +51,7 @@ class AutoencoderClassifier : public Autoencoder
 
     void loss_update(double loss_val)
     {
-        cout<<"updating loss: " << loss_val << endl;
+       // cout<<"updating loss: " << loss_val << endl;
         this->loss_val_=loss_val;
     }
 
@@ -189,19 +189,18 @@ class AutoencoderClassifier : public Autoencoder
         float lossRet[num_of_samples]; 
 
 
-        cout << "start tarin AutoencoderClassifier "  <<std::endl;
+      
         for(int i = 0 ; i < num_of_samples ; i++){
         
            predict_smaple.chip(0,0) = data.get()->chip(i, 0);           
  
            Eigen::Tensor<float,2> calculate_res;
            calculate_res = neural_network->calculate_outputs(predict_smaple); // calculate the AEC output for predict_smaple 
-            cout << "sample " << i <<endl;
-            // cout << calculate_res <<std::endl;
+      
            Eigen::Tensor<float, 0> MSE_errore = (calculate_res - predict_smaple).abs().sum();  // calculate MSE between the smaple and AEC prediction.
            loss_val = MSE_errore(0);
         Eigen::Tensor<float, 2> mseError = (calculate_res - predict_smaple).abs();  // calculate MSE between the smaple and AEC prediction.
-           cout<< "mseError = " << mseError <<endl ;  
+          // cout<< "mseError = " << mseError <<endl ;  
 
         //    loss_val = res.get_training_error();
 
@@ -209,10 +208,9 @@ class AutoencoderClassifier : public Autoencoder
            predRet[i]=RetVal;
            lossRet[i]=loss_val;
            predictRetTensor(i) = RetVal;
-           cout<< "RetVal from classification function: " << RetVal<< endl;
-           cout<< "loss_val = " << loss_val ;  
+ 
         }
-
+/* 
            cout<< ""<<endl ;  
            cout<< "predRet = "<<endl ;  
         for(int i = 0 ; i < num_of_samples ; i++)
@@ -221,7 +219,7 @@ class AutoencoderClassifier : public Autoencoder
         for(int i = 0 ; i < num_of_samples ; i++)
             cout<< " "<< lossRet[i] ;  
            cout<< ""<<endl ;  
-
+*/
          return predictRetTensor;
     }
 
