@@ -96,7 +96,7 @@ handle_cast({statistics,Body}, State = #router_genserver_state{myName = MyName,m
 handle_cast({lossFunction,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
 %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
     {Host,Port} = getShortPath(MyName,"mainServer",NerlnetGraph),
-    io:format("at router: lossFucntion: ~p~n",[Body]),
+    % io:format("at router: lossFucntion: ~p~n",[Body]),
   http_request(Host,Port,"lossFunction",Body),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 

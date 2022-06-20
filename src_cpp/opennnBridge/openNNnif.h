@@ -36,7 +36,7 @@ struct PredictNN {
 
 
 static void* PredictFun(void* arg){ 
-       
+        cout << "1111111111" << endl;
          //PredictNN* PredictNNptr = (PredictNN*)arg;
          PredictNN* PredictNNptr = reinterpret_cast<PredictNN*>(arg);
          ERL_NIF_TERM prediction;
@@ -44,14 +44,14 @@ static void* PredictFun(void* arg){
          ErlNifEnv *env = enif_alloc_env();    
          opennnBridgeController *s = s->GetInstance();
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(PredictNNptr->mid);
-          
+         
          //CustumNN *cc;
          //cc = dynamic_cast<CustumNN*>(neural_network.get());
          
          int modelType = s->getModelType(PredictNNptr->mid); 
          std::shared_ptr<Eigen::Tensor<float,2>> calculate_res = std::make_shared<Eigen::Tensor<float,2>>();
          (*calculate_res) = neural_network->calculate_outputs(*(PredictNNptr->data));
-     
+      
          if(modelType == E_AEC){
              
              std::shared_ptr<AutoencoderClassifier> Autoencoder_Classifier = std::static_pointer_cast<AutoencoderClassifier>(neural_network);
@@ -68,7 +68,7 @@ static void* PredictFun(void* arg){
              printf("enif_send succeed prediction\n");
           }
          else printf("enif_send failed\n");
-
+             cout << "2222222" << endl;
          //delete PredictNNptr;
          return 0;
 }
@@ -101,7 +101,7 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
          //}
          //else printf("enif_send failed\n");
          int res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFun, PredictNNptr.get(), 0);
-        
+           cout << "333333" << endl;
          return enif_make_string(env, "end PREDICT mode", ERL_NIF_LATIN1);
 
          

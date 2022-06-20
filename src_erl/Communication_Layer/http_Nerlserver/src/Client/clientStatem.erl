@@ -103,7 +103,7 @@ state_name(_EventType, _EventContent, State = #client_statem_state{}) ->
 
 waitforWorkers(cast, {stateChange,WorkerName}, State = #client_statem_state{myName = MyName, nerlnetGraph = NerlnetGraph, msgCounter = Counter,waitforWorkers = WaitforWorkers,nextState = NextState}) ->
   NewWaitforWorkers = WaitforWorkers--[WorkerName],
-  io:format("NewWaitforWorkers:  ~p ~n",[NewWaitforWorkers]),
+  % io:format("NewWaitforWorkers:  ~p ~n",[NewWaitforWorkers]),
 
   case NewWaitforWorkers of
     [] ->   ack(MyName,NerlnetGraph),
@@ -201,7 +201,7 @@ training(cast, {loss,WorkerName,LossFunction}, State = #client_statem_state{myNa
       % io:format("AverageTrainingTime: ~p~n",[NewAverage])
     true ->       NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,TotalTrainingTime},TimingMap)
     end,
-   io:format("WorkerName: ~p , LossFunction1: ~p,  ~n",[WorkerName, LossFunction]),
+  %  io:format("WorkerName: ~p , LossFunction1: ~p,  ~n",[WorkerName, LossFunction]),
   {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
   http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,LossFunction})),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1,timingMap = NewTimingMap}};
