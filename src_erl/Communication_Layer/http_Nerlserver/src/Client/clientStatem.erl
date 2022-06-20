@@ -105,8 +105,8 @@ waitforWorkers(cast, {stateChange,WorkerName}, State = #client_statem_state{myNa
   NewWaitforWorkers = WaitforWorkers--[WorkerName],
   case NewWaitforWorkers of
     [] ->   ack(MyName,NerlnetGraph),
-            {next_state, NextState, State#client_statem_state{msgCounter = Counter+1}};
-    true->  {next_state, waitforWorkers, State#client_statem_state{msgCounter = Counter+1}}
+            {next_state, NextState, State#client_statem_state{waitforWorkers = [], msgCounter = Counter+1}};
+    _->  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers, msgCounter = Counter+1}}
   end;
   
 waitforWorkers(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
@@ -170,14 +170,15 @@ training(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgC
   io:format("client going to state idle",[]),
   Workers = maps:to_list(WorkersMap),
   [gen_statem:cast(WorkerPid,{idle})|| {_WorkerName,WorkerPid}<-Workers],
-  {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
+  MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+  {next_state, waitforWorkers, State#client_statem_state{nextState = idle, msgCounter = Counter+1}};
 
-training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName, nerlnetGraph = NerlnetGraph, msgCounter = Counter}) ->
+training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap, msgCounter = Counter}) ->
   io:format("client going to state predict",[]),
   Workers = maps:to_list(WorkersMap),
   [gen_statem:cast(WorkerPid,{predict})|| {_WorkerName,WorkerPid}<-Workers],
-  ack(MyName,NerlnetGraph),
-  {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
+  MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+  {next_state, waitforWorkers, State#client_statem_state{nextState = predict, waitforWorkers = MyWorkers, msgCounter = Counter+1}};
 
 training(cast, {loss,WorkerName,nan}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter}) ->
 %%   io:format("LossFunction1: ~p   ~n",[LossFunction]),
@@ -272,20 +273,22 @@ Result2 = lists:flatten(io_lib:format("~w",[Result])),",",[{return,list}],
 Result3 = lists:sublist(Result2,2,length(Result2)-2),
 %io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
 http_request(RouterHost,RouterPort,"predictRes", term_to_binary({InputName,ResultID,Result3})),
-{next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
+{next_state, predict, State#client_statem_state{timingMap =NewTimingMap, msgCounter = Counter+1}};
 
-predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName,nerlnetGraph = NerlnetGraph,msgCounter = Counter}) ->
+predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
 Workers = maps:to_list(WorkersMap),
 [gen_statem:cast(WorkerPid,{training})|| {_WorkerName,WorkerPid}<-Workers],
-ack(MyName,NerlnetGraph),
-{next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+{next_state, waitforWorkers, State#client_statem_state{nextState = training,  waitforWorkers = MyWorkers, msgCounter = Counter+1}};
 
 
 predict(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
 Workers = maps:to_list(WorkersMap),
 [gen_statem:cast(WorkerPid,{idle})|| {_WorkerName,WorkerPid}<-Workers],
 io:format("client going to state idle~n",[]),
-{next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
+MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+
+{next_state, idle, State#client_statem_state{nextState = idle,  waitforWorkers = MyWorkers,msgCounter = Counter+1}};
 
 predict(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
 io:format("client predict ignored:  ~p ~n",[EventContent]),
