@@ -141,7 +141,6 @@ idle(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,myNam
   io:format("client going to state predict",[]),
   Workers = maps:to_list(WorkersMap),
   [gen_statem:cast(WorkerPid,{predict})|| {_WorkerName,WorkerPid}<-Workers],
-  %%  send an ACK to mainserver that the CSV file is ready
   MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
   {next_state, waitforWorkers, State#client_statem_state{nextState = predict, waitforWorkers = MyWorkers, msgCounter = Counter+1}};
 
