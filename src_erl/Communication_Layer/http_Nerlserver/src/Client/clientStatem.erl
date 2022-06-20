@@ -171,7 +171,7 @@ training(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgC
   Workers = maps:to_list(WorkersMap),
   [gen_statem:cast(WorkerPid,{idle})|| {_WorkerName,WorkerPid}<-Workers],
   MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
-  {next_state, waitforWorkers, State#client_statem_state{nextState = idle, msgCounter = Counter+1}};
+  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = MyWorkers, nextState = idle, msgCounter = Counter+1}};
 
 training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap, msgCounter = Counter}) ->
   io:format("client going to state predict",[]),
