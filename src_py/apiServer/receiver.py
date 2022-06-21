@@ -31,7 +31,7 @@ def processResult(resData, currentPhase):
                         if (workerRes.name == worker):
                             workerRes.addResult(result)
 
-        if (currentPhase == "Predicition"):
+        elif (currentPhase == "Predicition"):
             for csvRes in globe.expResults.predictionResList:
                 if worker in csvRes.workers:
                     for workerRes in csvRes.workersResList:
@@ -78,9 +78,9 @@ class predictRes(Resource):
         # Result preprocessing:
         # Receiving from Erlang: Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize)
         resData = request.form
-        print(resData)
         resData = list(resData)
         resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter:
+        print(resData)
         if globe.jupyterFlag == 0:
             print(resData)
 

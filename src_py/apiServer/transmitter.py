@@ -29,22 +29,13 @@ class Transmitter:
         if globe.jupyterFlag == 0:
             print(response.ok, response.status_code)
         
-    def updateCSV(self, currentPhase, resList): # currentPhase is either "Training", "Prediction" or "Statistics". 
+    def updateCSV(self, currentPhase): # currentPhase is either "Training", "Prediction" or "Statistics". 
         print('Update CSV Phase')
 
         for source in globe.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
             sourceName = source['source name']
             workersUnderSource = source['workers']
             csvPathForSource = source['CSV path']
-
-            # Add the workers to the workerCsv dict:
-            workersUnderSourceList = workersUnderSource.split(",")
-            for worker in workersUnderSourceList:
-                globe.workerCsv[worker] = csvPathForSource
-
-            # If needed, create a new dictionary to store the results for the current CSV:
-            if self.checkIfCsvInResults(resList, csvPathForSource) == False:
-                resList.append({'CSV path': csvPathForSource})
 
             dataStr = f'{sourceName},{workersUnderSource},{csvPathForSource}'
 
@@ -85,7 +76,7 @@ class Transmitter:
 
         self.clientsTraining()
 
-        self.updateCSV("Training", globe.trainResults)
+        self.updateCSV("Training")
 
         while globe.pendingAcks > 0:
             time.sleep(0.005)
@@ -100,10 +91,9 @@ class Transmitter:
             time.sleep(0.05)
             pass 
 
-
         globe.multiProcQueue.put(globe.expResults)
 
-    def predict(self, numOfBatches):
+    def predict(self):
         print('Prediction - Starting...')
 
         globe.expResults.syncPredicitionWithFlow()
@@ -113,7 +103,7 @@ class Transmitter:
 
         self.clientsPredict()
 
-        self.updateCSV("Prediction", globe.predictResults)
+        self.updateCSV("Prediction")
 
         while globe.pendingAcks > 0:
             time.sleep(0.005)
@@ -127,7 +117,8 @@ class Transmitter:
         while globe.pendingAcks > 0:
             time.sleep(0.005)
             pass 
-
+        
+        globe.expResults.remove0Tails()
         globe.multiProcQueue.put(globe.expResults)
 
     def statistics(self):
