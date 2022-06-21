@@ -80,7 +80,6 @@ class predictRes(Resource):
         resData = request.form
         resData = list(resData)
         resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter:
-        print(resData)
         if globe.jupyterFlag == 0:
             print(resData)
 
