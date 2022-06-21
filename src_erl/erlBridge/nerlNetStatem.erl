@@ -152,9 +152,9 @@ idle(cast, Param, State) ->
 
 %% Waiting for receiving results or loss function
 %% Got nan or inf from loss function - Error, loss function too big for double
-wait(cast, {loss,nan,_Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState,ackClient = AckClient}) ->
+wait(cast, {loss,nan,Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState,ackClient = AckClient}) ->
   io:fwrite("ERROR: Loss func in wait: nan (Loss function too big for double)\n"),
-  gen_statem:cast(ClientPid,{loss, MyName, nan}), %% TODO send to tal stop casting request with error desc
+  gen_statem:cast(ClientPid,{loss, MyName, nan,Time_NIF}), %% TODO send to tal stop casting request with error desc
   checkAndAck(MyName,ClientPid,AckClient),
 
   {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
@@ -165,7 +165,7 @@ wait(cast, {loss, {LossVal,Time}}, State = #nerlNetStatem_state{clientPid = Clie
 
 io:fwrite("loss, {LossVal,Time}: ~p~n",[{loss, {LossVal,Time}}]),
 
-  gen_statem:cast(ClientPid,{loss, MyName, LossVal}), %% TODO Add Time and Time_NIF to the cast
+  gen_statem:cast(ClientPid,{loss, MyName, LossVal,Time}), %% TODO Add Time and Time_NIF to the cast
   checkAndAck(MyName,ClientPid,AckClient),
 
   {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
@@ -180,7 +180,7 @@ wait(cast, {loss, LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid 
   {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
 
 %% Federated mode
-wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid,ackClient = AckClient, myName = MyName, nextState = NextState, count = Count, countLimit = CountLimit, modelId = Mid, federatedMode = ?MODE_FEDERATED}) ->
+wait(cast, {loss, LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid,ackClient = AckClient, myName = MyName, nextState = NextState, count = Count, countLimit = CountLimit, modelId = Mid, federatedMode = ?MODE_FEDERATED}) ->
   {LOSS_FUNC,_TimeCpp} = LossAndTime,
   if Count == CountLimit ->
       % Get weights
@@ -197,7 +197,7 @@ wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{clientPid
 
     true ->
       %% Send back the loss value
-      gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}), %% TODO Add Time and Time_NIF to the cast
+      gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC,Time_NIF}), %% TODO Add Time and Time_NIF to the cast
       checkAndAck(MyName,ClientPid,AckClient),
       
 
