@@ -19,7 +19,7 @@
 
 %% gen_statem callbacks
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,
-  code_change/4, callback_mode/0, idle/3, training/3]).
+  code_change/4, callback_mode/0, idle/3, training/3,waitforWorkers/3]).
 
 -define(SERVER, ?MODULE).
 
@@ -29,7 +29,7 @@
 %   NerlnetGraph, all connections needed for this client
 %   msgCounter - gather messages statistics
 %   timingMap - gather Timing statistics: timingMap = #{{WorkerName1=>{LastBatchReceivedTime,totalBatches,AverageTrainingime},{Worker2,..}, ...}
--record(client_statem_state, {myName, federatedServer,workersMap, nerlnetGraph, msgCounter,timingMap}).
+-record(client_statem_state, {myName, federatedServer,workersMap, nerlnetGraph, msgCounter,timingMap,nextState,waitforWorkers=[]}).
 
 
 %%%===================================================================
@@ -76,41 +76,7 @@ init({MyName,Federated,Workers,NerlnetGraph}) ->
 %  niftest:trainNifTest(10.0),
 
   {ok, idle, #client_statem_state{myName= MyName,timingMap = TimingMap, federatedServer = Federated, workersMap = WorkersMap, nerlnetGraph = NerlnetGraph, msgCounter = 1}}.
-createWorkers([],_WorkerModelID,_ClientPid,WorkersNamesPidsMap,TimingMap) ->{WorkersNamesPidsMap,TimingMap};
-createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,TimingMap) ->
-  %  FederatedMode="1", CountLimit="10",
-    WorkerName = list_to_atom(binary_to_list(maps:get(<<"name">>,Worker))),
-  ModelId = WorkerModelID,
-  ModelType = list_to_integer(binary_to_list(maps:get(<<"modelType">>,Worker))),
-  ScalingMethod = list_to_integer(binary_to_list(maps:get(<<"scalingMethod">>,Worker))),
 
-  LayerTypesList = string_to_list_int(maps:get(<<"layerTypesList">>,Worker)),
-  LayersSizes = string_to_list_int(maps:get(<<"layersSizes">>,Worker)),
-  LayersActivationFunctions = string_to_list_int(maps:get(<<"layersActivationFunctions">>,Worker)),
-
-  FederatedMode = list_to_integer(binary_to_list(maps:get(<<"federatedMode">>,Worker))),
-  CountLimit = list_to_integer(binary_to_list(maps:get(<<"countLimit">>,Worker))),
-  Optimizer = list_to_integer(binary_to_list(maps:get(<<"optimizer">>,Worker))),
-  Features = list_to_integer(binary_to_list(maps:get(<<"features">>,Worker))),
-  Labels = list_to_integer(binary_to_list(maps:get(<<"labels">>,Worker))),
-  LossMethod = list_to_integer(binary_to_list(maps:get(<<"lossMethod">>,Worker))),
-  LearningRate = list_to_float(binary_to_list(maps:get(<<"learningRate">>,Worker))),
-  %LearningRate = list_to_float(binary_to_list(maps:get(<<"learningRate">>,Worker))),
-
-  WorkerArgs = {WorkerName,ModelId,ModelType,ScalingMethod
-                , LayerTypesList, LayersSizes
-                , LayersActivationFunctions, FederatedMode
-                , CountLimit, Optimizer, Features, Labels, LossMethod, LearningRate,  self() },
-  WorkerPid = nerlNetStatem:start_link(WorkerArgs),
-  % timingMap = #{{WorkerName1=>{LastBatchReceivedTime,totalBatches,AverageTrainingime},{Worker2,..}, ...}
-  createWorkers(Workers,WorkerModelID+1,ClientPid,maps:put(WorkerName, WorkerPid,WorkersNamesPidsMap),maps:put(WorkerName,{0,0,0},TimingMap)).
-
-%%return list of integer from string of lists of strings - "[2,2,2]" -> [2,2,2]
-string_to_list_int(Binary) ->
-  String = binary_to_list(Binary),
-  NoParenthesis = lists:sublist(String,2,length(String)-2),
-  Splitted = re:split(NoParenthesis,",",[{return,list}]),
-  [list_to_integer(X)||X<-Splitted].
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
 %% the callback mode of the callback module.
@@ -135,14 +101,30 @@ state_name(_EventType, _EventContent, State = #client_statem_state{}) ->
   {next_state, NextStateName, State}.
 
 
+waitforWorkers(cast, {stateChange,WorkerName}, State = #client_statem_state{myName = MyName, nerlnetGraph = NerlnetGraph, msgCounter = Counter,waitforWorkers = WaitforWorkers,nextState = NextState}) ->
+  NewWaitforWorkers = WaitforWorkers--[WorkerName],
+  % io:format("NewWaitforWorkers:  ~p ~n",[NewWaitforWorkers]),
+
+  case NewWaitforWorkers of
+    [] ->   ack(MyName,NerlnetGraph),
+            {next_state, NextState, State#client_statem_state{waitforWorkers = [], msgCounter = Counter+1}};
+    _->  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers, msgCounter = Counter+1}}
+  end;
+  
+waitforWorkers(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
+  io:format("client waitforWorkers ignored!!!:  ~p ~n",[EventContent]),
+  {next_state, waitforWorkers, State#client_statem_state{msgCounter = Counter+1}}.
+  
 
 %%initiating nerlnet, given parameters in Body received by Cowboy init_handler
 idle(cast, {init,CONFIG}, State = #client_statem_state{msgCounter = Counter}) ->
   % io:format("initiating, CONFIG received:~p ~n",[CONFIG]),
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
-idle(cast, {statistics}, State = #client_statem_state{ myName = MyName,msgCounter = Counter,nerlnetGraph = NerlnetGraph}) ->
+idle(cast, {statistics}, State = #client_statem_state{ myName = MyName,timingMap = TimingMap, msgCounter = Counter,nerlnetGraph = NerlnetGraph}) ->
   {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+  io:format("~p Timing map: ~p~n",[MyName, maps:to_list(TimingMap)]),
+
   http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(Counter))),
 
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
@@ -153,19 +135,19 @@ idle(cast, {training}, State = #client_statem_state{workersMap = WorkersMap, myN
 %%  io:format("sending ACK   ~n",[]),
 %%  {RouterHost,RouterPort} =   {_,{RouterHost,RouterPort}} = digraph:vertex("mainServer",NerlnetGraph),
 %%  send an ACK to mainserver that the CSV file is ready
-  ack(MyName,NerlnetGraph),
-  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+  MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+  % ack(MyName,NerlnetGraph),
+  {next_state, waitforWorkers, State#client_statem_state{nextState = training, msgCounter = Counter+1,waitforWorkers = MyWorkers}};
 
 idle(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName,msgCounter = Counter,nerlnetGraph = NerlnetGraph}) ->
   io:format("client going to state predict",[]),
   Workers = maps:to_list(WorkersMap),
   [gen_statem:cast(WorkerPid,{predict})|| {_WorkerName,WorkerPid}<-Workers],
-  %%  send an ACK to mainserver that the CSV file is ready
-  ack(MyName,NerlnetGraph),
-  {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
+  MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+  {next_state, waitforWorkers, State#client_statem_state{nextState = predict, waitforWorkers = MyWorkers, msgCounter = Counter+1}};
 
-idle(cast, _EventContent, State = #client_statem_state{msgCounter = Counter}) ->
-  %io:format("client training ignored:  ~p ~n",[EventContent]),
+idle(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
+  io:format("client idle ignored!!!:  ~p ~n",[EventContent]),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
 
 
@@ -187,17 +169,19 @@ training(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,
   {next_state, training, State#client_statem_state{msgCounter = Counter+1,timingMap = NewTimingMap}};
 
 training(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
-  io:format("client going to state idle",[]),
+  io:format("client going to state idle~n",[]),
   Workers = maps:to_list(WorkersMap),
   [gen_statem:cast(WorkerPid,{idle})|| {_WorkerName,WorkerPid}<-Workers],
-  {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
+  MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+  io:format("setting workers at idle: ~p~n",[MyWorkers]),
+  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = MyWorkers, nextState = idle, msgCounter = Counter+1}};
 
-training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName, nerlnetGraph = NerlnetGraph, msgCounter = Counter}) ->
+training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap, msgCounter = Counter}) ->
   io:format("client going to state predict",[]),
   Workers = maps:to_list(WorkersMap),
   [gen_statem:cast(WorkerPid,{predict})|| {_WorkerName,WorkerPid}<-Workers],
-  ack(MyName,NerlnetGraph),
-  {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
+  MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+  {next_state, waitforWorkers, State#client_statem_state{nextState = predict, waitforWorkers = MyWorkers, msgCounter = Counter+1}};
 
 training(cast, {loss,WorkerName,nan}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter}) ->
 %%   io:format("LossFunction1: ~p   ~n",[LossFunction]),
@@ -217,7 +201,7 @@ training(cast, {loss,WorkerName,LossFunction}, State = #client_statem_state{myNa
       % io:format("AverageTrainingTime: ~p~n",[NewAverage])
     true ->       NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,TotalTrainingTime},TimingMap)
     end,
-   io:format("WorkerName: ~p , LossFunction1: ~p,  ~n",[WorkerName, LossFunction]),
+  %  io:format("WorkerName: ~p , LossFunction1: ~p,  ~n",[WorkerName, LossFunction]),
   {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
   http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,LossFunction})),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1,timingMap = NewTimingMap}};
@@ -276,40 +260,42 @@ predict(cast, {predictRes,WorkerName,InputName,ResultID,[]}, State = #client_sta
 
 predict(cast, {predictRes,WorkerName,InputName,ResultID,Result}, State = #client_statem_state{myName = MyName, msgCounter = Counter,nerlnetGraph = NerlnetGraph,timingMap = TimingMap}) ->
     {Start,TotalBatches,AverageTrainingTime} = maps:get(WorkerName,TimingMap),
-  Finish = os:timestamp(),
-    %io:format("predict result: ~n~p~n",[{predictRes,WorkerName,InputName,ResultID,Result}]),
+    Finish = os:timestamp(),
+      %io:format("predict result: ~n~p~n",[{predictRes,WorkerName,InputName,ResultID,Result}]),
 
-  TotalTrainingTime = (timer:now_diff(Finish, Start) / 1000),
-  if(TotalBatches>0) ->
-    NewAverage = ((AverageTrainingTime*(TotalBatches-1))+TotalTrainingTime)/TotalBatches,
-    NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,NewAverage},TimingMap);
-      % io:format("AverageTrainingTime: ~p~n",[NewAverage])
-    true ->       NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,TotalTrainingTime},TimingMap)
+    TotalTrainingTime = (timer:now_diff(Finish, Start) / 1000),
+    if(TotalBatches>0) ->
+      NewAverage = ((AverageTrainingTime*(TotalBatches-1))+TotalTrainingTime)/TotalBatches,
+      NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,NewAverage},TimingMap);
+        % io:format("AverageTrainingTime: ~p~n",[NewAverage])
+      true ->       NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,TotalTrainingTime},TimingMap)
 
-  end,  
-{RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
-Result2 = lists:flatten(io_lib:format("~w",[Result])),",",[{return,list}],
-Result3 = lists:sublist(Result2,2,length(Result2)-2),
-%io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
-http_request(RouterHost,RouterPort,"predictRes", term_to_binary({InputName,ResultID,Result3})),
-{next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
+    end,  
+    {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+    Result2 = lists:flatten(io_lib:format("~w",[Result])),",",[{return,list}],
+    Result3 = lists:sublist(Result2,2,length(Result2)-2),
+    %io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
+    http_request(RouterHost,RouterPort,"predictRes", term_to_binary({InputName,ResultID,Result3})),
+    {next_state, predict, State#client_statem_state{timingMap =NewTimingMap, msgCounter = Counter+1}};
 
-predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName,nerlnetGraph = NerlnetGraph,msgCounter = Counter}) ->
-Workers = maps:to_list(WorkersMap),
-[gen_statem:cast(WorkerPid,{training})|| {_WorkerName,WorkerPid}<-Workers],
-ack(MyName,NerlnetGraph),
-{next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
+    Workers = maps:to_list(WorkersMap),
+    [gen_statem:cast(WorkerPid,{training})|| {_WorkerName,WorkerPid}<-Workers],
+    MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+    {next_state, waitforWorkers, State#client_statem_state{nextState = training,  waitforWorkers = MyWorkers, msgCounter = Counter+1}};
 
 
 predict(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
-Workers = maps:to_list(WorkersMap),
-[gen_statem:cast(WorkerPid,{idle})|| {_WorkerName,WorkerPid}<-Workers],
-io:format("client going to state idle~n",[]),
-{next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
+    Workers = maps:to_list(WorkersMap),
+    [gen_statem:cast(WorkerPid,{idle})|| {_WorkerName,WorkerPid}<-Workers],
+    io:format("client going to state idle~n",[]),
+    MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+
+    {next_state, waitforWorkers, State#client_statem_state{nextState = idle,  waitforWorkers = MyWorkers,msgCounter = Counter+1}};
 
 predict(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
-io:format("client predict ignored:  ~p ~n",[EventContent]),
-{next_state, predict, State#client_statem_state{msgCounter = Counter+1}}.
+    io:format("client predict ignored:  ~p ~n",[EventContent]),
+    {next_state, predict, State#client_statem_state{msgCounter = Counter+1}}.
 
 
 %% @private
@@ -386,3 +372,38 @@ decodeList(Binary)->  decodeList(Binary,[]).
 decodeList(<<>>,L) -> L;
 decodeList(<<A:64/float,Rest/binary>>,L) -> decodeList(Rest,L++[A]).
 
+createWorkers([],_WorkerModelID,_ClientPid,WorkersNamesPidsMap,TimingMap) ->{WorkersNamesPidsMap,TimingMap};
+createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,TimingMap) ->
+  %  FederatedMode="1", CountLimit="10",
+    WorkerName = list_to_atom(binary_to_list(maps:get(<<"name">>,Worker))),
+  ModelId = WorkerModelID,
+  ModelType = list_to_integer(binary_to_list(maps:get(<<"modelType">>,Worker))),
+  ScalingMethod = list_to_integer(binary_to_list(maps:get(<<"scalingMethod">>,Worker))),
+
+  LayerTypesList = string_to_list_int(maps:get(<<"layerTypesList">>,Worker)),
+  LayersSizes = string_to_list_int(maps:get(<<"layersSizes">>,Worker)),
+  LayersActivationFunctions = string_to_list_int(maps:get(<<"layersActivationFunctions">>,Worker)),
+
+  FederatedMode = list_to_integer(binary_to_list(maps:get(<<"federatedMode">>,Worker))),
+  CountLimit = list_to_integer(binary_to_list(maps:get(<<"countLimit">>,Worker))),
+  Optimizer = list_to_integer(binary_to_list(maps:get(<<"optimizer">>,Worker))),
+  Features = list_to_integer(binary_to_list(maps:get(<<"features">>,Worker))),
+  Labels = list_to_integer(binary_to_list(maps:get(<<"labels">>,Worker))),
+  LossMethod = list_to_integer(binary_to_list(maps:get(<<"lossMethod">>,Worker))),
+  LearningRate = list_to_float(binary_to_list(maps:get(<<"learningRate">>,Worker))),
+  %LearningRate = list_to_float(binary_to_list(maps:get(<<"learningRate">>,Worker))),
+
+  WorkerArgs = {WorkerName,ModelId,ModelType,ScalingMethod
+                , LayerTypesList, LayersSizes
+                , LayersActivationFunctions, FederatedMode
+                , CountLimit, Optimizer, Features, Labels, LossMethod, LearningRate,  self() },
+  WorkerPid = nerlNetStatem:start_link(WorkerArgs),
+  % timingMap = #{{WorkerName1=>{LastBatchReceivedTime,totalBatches,AverageTrainingime},{Worker2,..}, ...}
+  createWorkers(Workers,WorkerModelID+1,ClientPid,maps:put(WorkerName, WorkerPid,WorkersNamesPidsMap),maps:put(WorkerName,{0,0,0},TimingMap)).
+
+%%return list of integer from string of lists of strings - "[2,2,2]" -> [2,2,2]
+string_to_list_int(Binary) ->
+  String = binary_to_list(Binary),
+  NoParenthesis = lists:sublist(String,2,length(String)-2),
+  Splitted = re:split(NoParenthesis,",",[{return,list}]),
+  [list_to_integer(X)||X<-Splitted].

@@ -48,8 +48,8 @@ init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
   inets:start(),
     io:format("Main Server ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
   start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
-
-  NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)--["mainServer"]]),
+  
+  NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- (digraph:vertices(NerlnetGraph)--["serverAPI"])--["mainServer"]]),
   io:format("New StatisticsMap = ~p~n",[NewStatisticsMap]),
   {ok, #main_genserver_state{myName = MyName, workersMap = WorkersMap, batchSize = BatchSize, state=idle, clients = Clients, nerlnetGraph = NerlnetGraph, msgCounter = 1,statisticsMap = NewStatisticsMap}}.
 
@@ -116,35 +116,36 @@ handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = 
   [{setClientState(clientIdle,ClientName, NerlnetGraph, MyName)}|| ClientName<- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
-%%get Statistics from all Entities in the network
+%%%get Statistics from all Entities in the network
 handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, statisticsCounter = StatisticsCounter, nerlnetGraph = NerlnetGraph,statisticsMap = StatisticsMap,msgCounter = MsgCounter}) ->
-%%  io:format("Body:~n~p~n",[Body]),
+    if Body == <<"getStatistics">> ->
+          NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- (digraph:vertices(NerlnetGraph)--["serverAPI"])--["mainServer"]]),
+          [findroutAndsendStatistics(MyName, Name,NerlnetGraph)||{Name,_Counter}<-maps:to_list(StatisticsMap)],
+          NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap, statisticsCounter = length(maps:to_list(StatisticsMap))};
+      true ->
+          %%      statistics arrived from Entity
+          [From|[NewCounter]] = re:split(binary_to_list(Body), "#", [{return, list}]),
 
-  if Body == <<"getStatistics">> ->
-        [findroutAndsendStatistics(MyName, Name,NerlnetGraph)||{Name,_Counter}<-maps:to_list(StatisticsMap)],
-        NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsCounter = length(maps:to_list(StatisticsMap))};
-    true ->
-%%      statistics arrived from Entity
-        [From|[NewCounter]] = re:split(binary_to_list(Body), "#", [{return, list}]),
+          NewStatisticsMap = maps:put(From,NewCounter,StatisticsMap),
 
-      NewStatisticsMap = maps:put(list_to_atom(From),NewCounter,StatisticsMap),
-        NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap,statisticsCounter = StatisticsCounter-1},
+          NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap,statisticsCounter = StatisticsCounter-1},
 
-      if StatisticsCounter == 2 ->
-            Statistics = maps:to_list(NewStatisticsMap),
-            StatisticsList = lists:flatten(io_lib:format("~w",[Statistics])),",",[{return,list}],
-            io:format("new Statistics Map:~n~p~n",[StatisticsList]),
+          if StatisticsCounter == 1 ->
+              Statistics = maps:to_list(NewStatisticsMap),
+              StatisticsList = lists:flatten(io_lib:format("~w",[Statistics])),",",[{return,list}],
+              io:format("new Statistics Map:~n~p~n",[StatisticsList]),
+              S = mapToString(Statistics,[]) ,
+              io:format("S: ~p~n",[S]),
+              ack(NerlnetGraph),
+              {RouterHost,RouterPort} = getShortPath(MyName,"serverAPI",NerlnetGraph),
 
-            ack(NerlnetGraph),
-            {RouterHost,RouterPort} = getShortPath(MyName,"serverAPI",NerlnetGraph),
-
-            %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-            http_request(RouterHost,RouterPort,"", "statistics#" ++ StatisticsList);
+              %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
+              http_request(RouterHost,RouterPort,"statistics", "statistics#" ++ S ++ "@mainServer#" ++integer_to_list(MsgCounter));
           true ->
-            ok
-        end
-    end,
-  {noreply, NewState};
+              ok
+          end
+      end,
+    {noreply, NewState};
 
 %%handle_cast({startPredicting}, State = #main_genserver_state{clients = ListOfClients, nerlnetGraph = NerlnetGraph}) ->
 %%%%  send router http request, to rout this message to all sensors
@@ -168,8 +169,8 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{nerlnetGraph = Nerl
 
   case NewCastingList of
     [] -> NextState = State#main_genserver_state{state = idle, sourcesCastingList = NewCastingList,msgCounter = MsgCounter},
-          gen_server:cast(self(),{clientsIdle}),
-          ack(NerlnetGraph);
+          gen_server:cast(self(),{clientsIdle});
+          % ack(NerlnetGraph);
     _ -> NextState = State#main_genserver_state{state = casting, sourcesCastingList = NewCastingList,msgCounter = MsgCounter+1}
   end,
   {noreply, NextState};
@@ -189,7 +190,9 @@ handle_cast({sourceAck,Body}, State = #main_genserver_state{nerlnetGraph = Nerln
 handle_cast({clientAck,Body}, State = #main_genserver_state{ clientsWaitingList = WaitingList,msgCounter = MsgCounter,nerlnetGraph = NerlnetGraph}) ->
   NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
   if length(NewWaitingList) == 0 ->
-            ack(NerlnetGraph);
+        ack(NerlnetGraph);
+        % ack(NerlnetGraph);
+          
     true->
             io:format("~p sent ACK~n new clientWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
     end,
@@ -227,14 +230,14 @@ handle_cast({lossFunction,<<>>}, State = #main_genserver_state{msgCounter = MsgC
   handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
     %%  io:format("got loss function:- ~p~n",[Body]),
         {RouterHost,RouterPort} = getShortPath(MyName,"serverAPI",NerlnetGraph),
-        io:format("{RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
+        % io:format("{RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
       case   binary_to_term(Body) of
         {WorkerName,{LossFunction,_Time}} ->
-          io:format("got loss function:- ~p~n",[{RouterHost,RouterPort,atom_to_list(WorkerName),float_to_list(LossFunction)}]),
+          % io:format("got loss function:- ~p~n",[{RouterHost,RouterPort,atom_to_list(WorkerName),float_to_list(LossFunction)}]),
         %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
         http_request(RouterHost,RouterPort,"lossFunction", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction));
         {WorkerName,LossFunction} ->
-          io:format("got loss function:- ~p~n",[{RouterHost,RouterPort,atom_to_list(WorkerName),float_to_list(LossFunction)}]),
+          % io:format("got loss function:- ~p~n",[{RouterHost,RouterPort,atom_to_list(WorkerName),float_to_list(LossFunction)}]),
         %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
         http_request(RouterHost,RouterPort,"lossFunction", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction))
         end,
@@ -355,7 +358,10 @@ findroutAndsendStatistics(MyName,Entitie,NerlnetGraph) ->
 %%  io:format("WaitingList = ~p~n~n",[Workers]),
   {RouterHost,RouterPort} = getShortPath(MyName,Entitie,NerlnetGraph),
 % {RouterHost,RouterPort} =maps:get(Entitie,ConnectionsMap),
-  http_request(RouterHost, RouterPort,"statistics", list_to_binary(atom_to_list(Entitie))).
+ case is_atom(Entitie) of
+      true -> http_request(RouterHost, RouterPort,"statistics", list_to_binary(atom_to_list(Entitie)));
+      _    -> http_request(RouterHost, RouterPort,"statistics", list_to_binary(Entitie))
+  end.
 
 %%sending Body as an http request to {Host, Port} to path Path (=String)
 %%Example:  http_request(RouterHost,RouterPort,"start_training", <<"client1,client2">>),
@@ -436,3 +442,10 @@ writeSamplesToFile(ListOfSamples,HeadID,CSVName,SampleSize)->
   file:write_file("./output/"++"predict"++CSVName, integer_to_list(HeadID)++" " ++Head++"\n", [append]),
 %%  io:format("./output/predict~p   ~p~p~n", [CSVName,integer_to_list(HeadID),Head]),
   writeSamplesToFile(lists:sublist(ListOfSamples,SampleSize+1,length(ListOfSamples)),HeadID+1,CSVName,SampleSize).
+
+
+  mapToString([],Ret) -> Ret;
+  mapToString([{Name,Counter}|StatisticsList],[]) -> mapToString(StatisticsList,Name++"#"++Counter);
+  mapToString([{Name,Counter}|StatisticsList],Ret) -> 
+      % io:format("~p~n",[{Name,Counter,Ret}]),
+      mapToString(StatisticsList,Ret++"@"++Name++"#"++Counter).
