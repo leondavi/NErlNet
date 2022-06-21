@@ -30,7 +30,7 @@ struct TrainNN {
 static void* trainFun(void* arg){ 
          bool flag = true;
          TrainNN* TrainNNptr;
-           cout << "in train " <<std::endl; 
+        //    cout << "in train " <<std::endl; 
          //TrainNN* TrainNNptr = (TrainNN*)arg;
          try{
            TrainNNptr = reinterpret_cast<TrainNN*>(arg);
@@ -202,12 +202,12 @@ static void* trainFun(void* arg){
             }
          }
          else{
-             cout << "do train " <<std::endl;
+            //  cout << "do train " <<std::endl;
  
              if(data_num_of_cols == 785 && flag == true){
                training_strategy.perform_training();
             
-              cout << "end train " <<std::endl;
+            //   cout << "end train " <<std::endl;
 
             try{ 
                
@@ -255,7 +255,7 @@ static void* trainFun(void* arg){
          
          
          if(enif_send(NULL,&(TrainNNptr->pid), env,train_res_and_time)){
-             printf("enif_send train succeed\n");
+            //  printf("enif_send train succeed\n");
          }
          else printf("enif_send failed\n");
        
