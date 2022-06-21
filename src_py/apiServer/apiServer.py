@@ -5,13 +5,14 @@ from receiver import *
 import time
 import requests
 import threading
+import matplotlib.pyplot as plt
 
 class ApiServer():
     def __init__(self): 
         mainServerIP = globe.components.mainServerIp
         mainServerPort = globe.components.mainServerPort
         self.mainServerAddress = 'http://' + mainServerIP + ':' + mainServerPort
-        self.resultsForExperiments = []
+        self.experiments = []
         
         # Starting receiver flask server process:
         print("Starting the receiver HTTP server...\n")
@@ -22,6 +23,9 @@ class ApiServer():
 
         self.transmitter = Transmitter(self.mainServerAddress)
 
+        print("\n***Please remember to execute NerlnetRun.sh before you continue.")
+        
+    def sendJsonsToDevices(self):
         # Send the content of jsonPath to each devices:
         print("\nSending JSON paths to devices...")
 
@@ -68,7 +72,11 @@ class ApiServer():
         return expResults
    
     def train(self):
-        globe.expResults.emptyExp()
+        # Choose a nem for the current experiment:
+        print("Please choose a name for the current experiment:")
+        globe.expResults.name = input()
+
+        globe.expResults.emptyExp() # Empty previous results
         self.transmitter.train()
         expResults = self.getQueueData()
         print('Training - Finished\n')
@@ -78,20 +86,99 @@ class ApiServer():
         self.transmitter.predict()
         expResults = self.getQueueData()
         print('Prediction - Finished\n')
-        self.resultsForExperiments.append(expResults) # Assuming a cycle of training -> prediction, saving only now.
+        self.experiments.append(expResults) # Assuming a cycle of training -> prediction, saving only now.
         return expResults
     
     def statistics(self):
-        self.transmitter.statistics()
+        if (len(self.experiments) == 0):
+            print("No experiments were condcted yet.")
+            return
+
+        print(f"{len(self.experiments)} experiments where saved:")
+        for i, exp in enumerate(self.experiments, start=1): 
+            print(f"{i}) {exp.name}")
+
+        while True:
+            print("\nPlease choose an experiment number:")
+            expNum = input()
+            expNum = int(expNum)
+
+            if (expNum > 0 and expNum <= len(self.experiments)):
+                expForStats = self.experiments[expNum-1]
+                break
+
+            else:
+                print("\nIllegal Input")
+
+        print("\n---Statistics Menu---\n\
+1) Create plot for the training loss function.\n\
+2) Display prediction accuracy.\n\
+3) Export results to CSV.\n")
+
+        while True:
+            print("Please choose an option:")
+            option = input()
+            option = int(option)
+
+            if (option > 0 and option <= 2):
+                break
+
+            else:
+                print("\nIllegal Input") 
+        
+        if (option == 1):
+            numOfCsvs = len(expForStats.trainingResList)
+
+            print(f"\nThe training phase contains {numOfCsvs} CSVs:")
+            for i, csvRes in enumerate(expForStats.trainingResList, start=1):
+                print(f"{i}) {csvRes.name}")
+
+            while True:
+                print("\nPlease choose a CSV number for the plot:")       
+                csvNum = input()
+                csvNum = int(csvNum)
+
+                if (csvNum > 0 and csvNum <= numOfCsvs):
+                    csvResPlot = expForStats.trainingResList[csvNum-1]
+                    break
+
+                else:
+                    print("\nIllegal Input") 
+
+            # Draw the plot using Matplotlib:
+            plt.figure(figsize = (30,15), dpi = 150)
+            plt.rcParams.update({'font.size': 22})
+
+            for workerRes in csvResPlot.workersResList:
+                data = workerRes.resList
+                plt.plot(data, linewidth = 3)
+
+            expTitle = (expForStats.name)
+            plt.title(f"Training - Loss Function - {expTitle}")
+            plt.xlabel('Batch No.', fontsize = 30)
+            plt.ylabel('Loss (MSE)', fontsize = 30)
+            plt.xlim(left=0)
+            plt.ylim(bottom=0)
+            plt.yticks(np.arange(0, max(data)+0.1, 0.1))
+            plt.grid(visible=True, which='major', linestyle='-')
+            plt.minorticks_on()
+            plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
+
+        if (option == 2):
+            #TODO
+            pass
+
+
+        if (option == 3):
+            #TODO
+            pass
 
 if __name__ == "__main__":
     apiServerInst = ApiServer()
-    apiServerInst.train()
-    #print(globe.lossMaps)
-    apiServerInst.predict()
-    #apiServerInst.statistics()
-    #transmitterInst = apiServerInst.getTransmitter()
-    #transmitterInst.testPost()
+    apiServerInst.statistics()
+    #apiServerInst.train()
+    #apiServerInst.predict()
+
 
 '''
  def exitHandler(self):
