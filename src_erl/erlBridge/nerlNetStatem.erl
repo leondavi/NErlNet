@@ -163,7 +163,7 @@ wait(cast, {loss,nan,Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientP
 %% Regular mode (Not federated)
 wait(cast, {loss, {LossVal,Time}}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState, federatedMode = ?MODE_REGULAR,ackClient = AckClient}) ->
 
-io:fwrite("loss, {LossVal,Time}: ~p~n",[{loss, {LossVal,Time}}]),
+% io:fwrite("loss, {LossVal,Time}: ~p~n",[{loss, {LossVal,Time}}]),
 
   gen_statem:cast(ClientPid,{loss, MyName, LossVal,Time/1000}), %% TODO Add Time and Time_NIF to the cast
   checkAndAck(MyName,ClientPid,AckClient),

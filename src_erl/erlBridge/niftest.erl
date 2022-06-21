@@ -65,7 +65,7 @@ train_nif(Integer,Integer,Integer,Integer, []) ->
       exit(nif_library_not_loaded).
 
 call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, WorkerPid)->
-      io:format("berfor train  ~n "),
+      % io:format("berfor train  ~n "),
        %io:format("DataTensor= ~p~n ",[DataTensor]),
       _RetVal=trainn_nif(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor),
       %io:format("Train Time= ~p~n ",[RetVal]),
