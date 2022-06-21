@@ -2,7 +2,7 @@
      "Training":  [
          {
             "source name": "s1",
-            "workers": "w1,w2,w3,w4",
+            "workers": "w1,w2",
             "CSV path": "nums/One_Two_train"
          }
      ],
@@ -10,14 +10,14 @@
      "Prediction": [
          {
             "source name": "s1",
-            "workers": "w1,w2,w3,w4",
+            "workers": "w1,w2",
             "CSV path": "nums/One_Two_predict"
          }
     ],
     
      "Statistics": [
          {
-            "workers": "w1,w2,w3,w4",
+            "workers": "w1,w2",
             "routers": "r1"
          }
     ]

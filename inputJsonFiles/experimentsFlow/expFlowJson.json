@@ -1,25 +1,25 @@
 {
- "Training":  [
-     {
-        "source name": "s1",
-        "workers": "w1",
-        "CSV path": "OneTwo/OneTwo_train"
-     }
- ],
-
- "Prediction": [
-     {
-        "source name": "s1",
-        "workers": "w1",
-        "CSV path": "OneTwo/OneTwo_predict"
-     }
-],
-
- "Statistics": [
-     {
-        "source name": "s1",
-        "workers": "w1",
-        "CSV path": "MNist/norm_zeros90Others10Small_predict"
-     }
-]
+   "Training":  [
+       {
+          "source name": "s1",
+          "workers": "w1",
+          "CSV path": "nums/norm_zeros90Others10Small_predict"
+       }
+   ],
+  
+   "Prediction": [
+       {
+          "source name": "s1",
+          "workers": "w1",
+          "CSV path": "nums/norm_zeros90Others10Small_predict"
+       }
+  ],
+  
+   "Statistics": [
+       {
+          "workers": "w1",
+          "routers": "r1"
+       }
+  ]
 }
+  
