@@ -11,6 +11,7 @@ class ApiServer():
         mainServerIP = globe.components.mainServerIp
         mainServerPort = globe.components.mainServerPort
         self.mainServerAddress = 'http://' + mainServerIP + ':' + mainServerPort
+        self.resultsForExperiments = []
         
         # Starting receiver flask server process:
         print("Starting the receiver HTTP server...\n")
@@ -36,6 +37,7 @@ class ApiServer():
               print(response.ok, response.status_code)
 
         time.sleep(1)
+        print("JSON paths sent to devices")
 
     def getWorkersList(self):
         return globe.components.toString('w')
@@ -57,15 +59,16 @@ class ApiServer():
         received = False
         
         while not received:
-            if not multiProcQueue.empty():
+            if not globe.multiProcQueue.empty():
                 print("~New result has been created successfully~")
-                expResults = multiProcQueue.get() # Get the new result out of the queue
+                expResults = globe.multiProcQueue.get() # Get the new result out of the queue
                 received = True
             time.sleep(0.1)
 
-            return expResults
+        return expResults
    
     def train(self):
+        globe.expResults.emptyExp()
         self.transmitter.train()
         expResults = self.getQueueData()
         print('Training - Finished\n')
@@ -75,6 +78,7 @@ class ApiServer():
         self.transmitter.predict()
         expResults = self.getQueueData()
         print('Prediction - Finished\n')
+        self.resultsForExperiments.append(expResults) # Assuming a cycle of training -> prediction, saving only now.
         return expResults
     
     def statistics(self):

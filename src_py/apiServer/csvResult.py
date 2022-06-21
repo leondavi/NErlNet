@@ -7,15 +7,12 @@ class CsvResult():
         self.name = csvName 
         self.workers = workers
         self.workedBySources = workedBySources
-        
-        self.workersResList = [] * len(workers)
-        CsvResult.addWorkers()
+        self.workersResList = [] 
 
-    def addWorkers(self, workerRes):
-        for idx, w in enumerate(self.workers):
-            newWorkerRes = WorkerResult(w, self.workedBySource, self.csvName)
-            self.workersResList[idx] = newWorkerRes
-
+    def addWorkers(self):
+        for w in self.workers:
+            newWorkerRes = WorkerResult(w, self.workedBySources, self.name)
+            self.workersResList.append(newWorkerRes)
 
 
     
