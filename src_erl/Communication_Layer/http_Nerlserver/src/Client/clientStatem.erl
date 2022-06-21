@@ -183,14 +183,14 @@ training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap, 
   MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
   {next_state, waitforWorkers, State#client_statem_state{nextState = predict, waitforWorkers = MyWorkers, msgCounter = Counter+1}};
 
-training(cast, {loss,WorkerName,nan}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter}) ->
+training(cast, {loss,WorkerName,nan,_Time_NIF}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter}) ->
 %%   io:format("LossFunction1: ~p   ~n",[LossFunction]),
   {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
   http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,"nan"})),
 %%  http_request(RouterHost,RouterPort,"lossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,<<"nan">>])),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
-training(cast, {loss,WorkerName,LossFunction}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter,timingMap = TimingMap}) ->
+training(cast, {loss,WorkerName,LossFunction,Time_NIF}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter,timingMap = TimingMap}) ->
   % Start = maps:get(WorkerName,TimingMap),
   {Start,TotalBatches,AverageTrainingTime} = maps:get(WorkerName,TimingMap),
   Finish = os:timestamp(),
@@ -201,7 +201,8 @@ training(cast, {loss,WorkerName,LossFunction}, State = #client_statem_state{myNa
       % io:format("AverageTrainingTime: ~p~n",[NewAverage])
     true ->       NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,TotalTrainingTime},TimingMap)
     end,
-  %  io:format("WorkerName: ~p , LossFunction1: ~p,  ~n",[WorkerName, LossFunction]),
+   io:format("WorkerName: ~p , train time: ~p, total time: ~p  ~n",[WorkerName, Time_NIF, TotalTrainingTime]),
+  
   {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
   http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,LossFunction})),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1,timingMap = NewTimingMap}};
