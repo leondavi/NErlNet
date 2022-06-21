@@ -91,6 +91,7 @@ class Transmitter:
             time.sleep(0.05)
             pass 
 
+        globe.expResults.remove0Tails()
         globe.multiProcQueue.put(globe.expResults)
 
     def predict(self):

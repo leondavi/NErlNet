@@ -5,6 +5,7 @@ from globalVars import *
 import globalVars as globe
 import multiprocessing
 import logging
+from predictBatch import *
 
 receiver = Flask(__name__)
 api = Api(receiver)
@@ -21,22 +22,29 @@ def initReceiver():
     receiver.run(threaded=True, host='127.0.0.1', port=8095)
 
 def processResult(resData, currentPhase):
-        worker = resData[0]
-        result = float(resData[1].replace(' ',''))
-
         if (currentPhase == "Training"):
-            for csvRes in globe.expResults.trainingResList:
-                if worker in csvRes.workers:
-                    for workerRes in csvRes.workersResList:
-                        if (workerRes.name == worker):
-                            workerRes.addResult(result)
+            # Parse the Result:
+            worker = resData[0]
+            result = float(resData[1].replace(' ',''))
+            #print(result)
+            if (result == -1):
+                print("Received loss=-1. The NN's weights have been reset.")
+            if (result != -1 and result != 0):
+                for csvRes in globe.expResults.trainingResList:
+                    if worker in csvRes.workers:
+                        for workerRes in csvRes.workersResList:
+                            if (workerRes.name == worker):
+                                workerRes.addResult(result)
 
         elif (currentPhase == "Predicition"):
+            # Parsing is done by the PredictBatch class:
+            newPredictBatch = PredictBatch(resData) 
+
             for csvRes in globe.expResults.predictionResList:
-                if worker in csvRes.workers:
+                if newPredictBatch.worker in csvRes.workers:
                     for workerRes in csvRes.workersResList:
-                        if (workerRes.name == worker):
-                            workerRes.addResult(result)
+                        if (workerRes.name == newPredictBatch.worker):
+                            workerRes.addResult(newPredictBatch)
 
 class shutdown(Resource):
     def get(self):
