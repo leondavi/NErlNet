@@ -92,8 +92,8 @@ static void* trainFun(void* arg){
         
            TrainingStrategy training_strategy;
           if(flag == true) {
+            training_strategy.set_neural_network_pointer(neural_network.get()); // Line 95 should be executed before line 96 due to openNN issue
             training_strategy.set_data_set_pointer(&data_set);
-            training_strategy.set_neural_network_pointer(neural_network.get());
         
        
          
@@ -241,7 +241,8 @@ static void* trainFun(void* arg){
          auto duration = duration_cast<microseconds>(stop - TrainNNptr->start_time);
          if(isnan(loss_val)  ) {
              loss_val = -1.0;
-             cout << "loss val = nan , please stop the raining and try another hiper parameters" <<std::endl;
+             cout << "loss val = nan , setting NN weights to random values" <<std::endl;
+             neural_network->set_parameters_random();
          }
          ERL_NIF_TERM loss_val_term = enif_make_double(env, loss_val);
           //ERL_NIF_TERM loss_val_term = enif_make_double(env, loss_val);

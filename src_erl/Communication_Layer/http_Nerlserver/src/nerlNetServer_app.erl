@@ -22,6 +22,8 @@
 -export([start/2, stop/1]).
 
 -define(NERLNET_INIT_PORT,8484).
+-define(PYTHON_SERVER_WAITING_TIMEOUT_MS, 360000). % 360 seconds
+-define(NERLNET_JSON_PATH,"/usr/local/lib/nerlnet-lib/NErlNet/jsonPath").
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
 %% ***  exit rebar3 shell: ctrl+g ->q
@@ -52,10 +54,9 @@ start(_StartType, _StartArgs) ->
     %Create a listener that waits for a message from python about the adresses of the wanted json
     createNerlnetInitiator(HostName),
     receive 
-
-        {jsonAddress,MSG} -> {ArchitectureAdderess,CommunicationMapAdderess} = MSG
+        {jsonAddress,MSG} -> {ArchitectureAdderess,CommunicationMapAdderess} = MSG 
         %%TODO remove this "after" part when python is ready to send jsonPaths
-        after 1000000 ->   JsonPath = "../../../jsonPath",
+        after ?PYTHON_SERVER_WAITING_TIMEOUT_MS ->   JsonPath = ?NERLNET_JSON_PATH,
                         {ok, InputJSON} = file:read_file(JsonPath),%%TODO change to File_Address
                         Listed = binary_to_list(InputJSON),
                         %ArchitectureAdderess, CommunicationMapAdderess are the paths for the json architecture file, where THIS machine can find its own entities by IP

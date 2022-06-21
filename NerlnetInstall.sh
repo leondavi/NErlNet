@@ -60,6 +60,7 @@ chmod 744 $NERLNET_DIR/NerlnetRun.sh
 chmod 664 /etc/systemd/system/nerlnet.service
 chown -R $LOGGED_IN_USER $NERLNET_LOG_DIR
 chown -R $LOGGED_IN_USER $NERLNET_DIR
+chown -R $LOGGED_IN_USER $NERLNET_DIR/build
 
 echo "enable and start nerlnet.service"
 systemctl enable nerlnet.service
