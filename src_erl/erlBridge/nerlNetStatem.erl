@@ -142,12 +142,12 @@ idle(cast, Param, State) ->
   {next_state, idle, State}.
 
 %% Regular mode (Not federated)
-wait(cast, {loss, LossFunc}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState,ackClient = AckClient}) ->
-  % Federated mode = 0 (not federated)
-  %io:fwrite("loss LossFunc at worker: ~p~n",[{loss, LossFunc}]),
-  gen_statem:cast(ClientPid,{loss, MyName, LossFunc}), %% TODO Add Time and Time_NIF to the cast
-  checkAndAck(MyName,ClientPid,AckClient),
-  {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
+% wait(cast, {loss, LossFunc}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState,ackClient = AckClient}) ->
+%   % Federated mode = 0 (not federated)
+%   %io:fwrite("loss LossFunc at worker: ~p~n",[{loss, LossFunc}]),
+%   gen_statem:cast(ClientPid,{loss, MyName, LossFunc}), %% TODO Add Time and Time_NIF to the cast
+%   checkAndAck(MyName,ClientPid,AckClient),
+%   {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
 
 
 %% Waiting for receiving results or loss function
@@ -170,6 +170,14 @@ io:fwrite("loss, {LossVal,Time}: ~p~n",[{loss, {LossVal,Time}}]),
 
   {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
 
+%% Regular mode (Not federated)
+wait(cast, {loss, LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid,ackClient = AckClient, myName = MyName, nextState = NextState, federatedMode = ?MODE_REGULAR}) ->
+  {LOSS_FUNC,_TimeCpp} = LossAndTime,
+  % Federated mode = 0 (not federated)
+  gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC,Time_NIF}), %% TODO Add Time and Time_NIF to the cast
+  checkAndAck(MyName,ClientPid,AckClient),
+
+  {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
 
 %% Federated mode
 wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid,ackClient = AckClient, myName = MyName, nextState = NextState, count = Count, countLimit = CountLimit, modelId = Mid, federatedMode = ?MODE_FEDERATED}) ->
@@ -196,16 +204,6 @@ wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{clientPid
       {next_state, NextState, State#nerlNetStatem_state{ackClient = 0, count = Count + 1}}
   end;
 
-
-
-%% Regular mode (Not federated)
-wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid,ackClient = AckClient, myName = MyName, nextState = NextState, federatedMode = ?MODE_REGULAR}) ->
-  {LOSS_FUNC,_TimeCpp} = LossAndTime,
-  % Federated mode = 0 (not federated)
-  gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC}), %% TODO Add Time and Time_NIF to the cast
-  checkAndAck(MyName,ClientPid,AckClient),
-
-  {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
 
 % Not supposed to be here - for future additions
 wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{nextState = NextState,myName = MyName,clientPid = ClientPid,ackClient = AckClient}) ->
