@@ -123,11 +123,9 @@ idle(cast, {init,CONFIG}, State = #client_statem_state{msgCounter = Counter}) ->
 
 idle(cast, {statistics}, State = #client_statem_state{ myName = MyName,timingMap = TimingMap, msgCounter = Counter,nerlnetGraph = NerlnetGraph}) ->
   {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
-  io:format("~p Timing map: ~p~n",[MyName, maps:to_list(TimingMap)]),
-
-  http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(Counter))),
-
+  sendStatistics(RouterHost,RouterPort,MyName,Counter,TimingMap),
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
+
 
 idle(cast, {training}, State = #client_statem_state{workersMap = WorkersMap, myName = MyName,msgCounter = Counter,nerlnetGraph = NerlnetGraph}) ->
   Workers = maps:to_list(WorkersMap),
@@ -162,8 +160,8 @@ training(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,
   {_ClientName, WorkerName, _CSVName, _BatchNumber, BatchOfSamples} = binary_to_term(Body),
   ToSend =  decodeList(BatchOfSamples),
   Start = os:timestamp(),
-  {_LastBatchReceivedTime,TotalBatches,AverageTrainingime} = maps:get(list_to_atom(WorkerName),TimingMap),
-  NewTimingMap = maps:put(list_to_atom(WorkerName),{Start,TotalBatches+1,AverageTrainingime},TimingMap),
+  {_LastBatchReceivedTime,TotalBatches,TotalTime} = maps:get(list_to_atom(WorkerName),TimingMap),
+  NewTimingMap = maps:put(list_to_atom(WorkerName),{Start,TotalBatches+1,TotalTime},TimingMap),
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
   gen_statem:cast(WorkerPid, {sample,ToSend}),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1,timingMap = NewTimingMap}};
@@ -192,21 +190,13 @@ training(cast, {loss,WorkerName,nan,_Time_NIF}, State = #client_statem_state{myN
 
 training(cast, {loss,WorkerName,LossFunction,Time_NIF}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter,timingMap = TimingMap}) ->
   % Start = maps:get(WorkerName,TimingMap),
-  {Start,TotalBatches,AverageTrainingTime} = maps:get(WorkerName,TimingMap),
-  Finish = os:timestamp(),
-  TotalTrainingTime = (timer:now_diff(Finish, Start) / 1000),
-  if(TotalBatches>0) ->
-    NewAverage = ((AverageTrainingTime*(TotalBatches-1))+TotalTrainingTime)/TotalBatches,
-    NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,NewAverage},TimingMap);
+  
       % io:format("AverageTrainingTime: ~p~n",[NewAverage])
-    true ->       NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,TotalTrainingTime},TimingMap)
-    end,
-   io:format("WorkerName: ~p , train time: ~p, total time: ~p  ~n",[WorkerName, Time_NIF, TotalTrainingTime]),
+  NewTimingMap = updateTimingMap(WorkerName,TimingMap),
   
   {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
   http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,LossFunction})),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1,timingMap = NewTimingMap}};
-
 
 
 %%Federated Mode:
@@ -245,8 +235,8 @@ predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,w
   {_ClientName, WorkerName, CSVName, BatchNumber, BatchOfSamples} = binary_to_term(Body),
   ToSend =  decodeList(BatchOfSamples),
   Start = os:timestamp(),
-  {_LastBatchReceivedTime,TotalBatches,AverageTrainingime} = maps:get(list_to_atom(WorkerName),TimingMap),
-  NewTimingMap = maps:put(list_to_atom(WorkerName),{Start,TotalBatches+1,AverageTrainingime},TimingMap),
+  {_LastBatchReceivedTime,TotalBatches,TotalTime} = maps:get(list_to_atom(WorkerName),TimingMap),
+  NewTimingMap = maps:put(list_to_atom(WorkerName),{Start,TotalBatches+1,TotalTime},TimingMap),
 %%  io:format("CSVName: ~p, BatchNumber: ~p~n",[CSVName,BatchNumber]),
 %%  io:format("Vector: ~p~n",[ToSend]),
   WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
@@ -256,27 +246,17 @@ predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,w
 
 predict(cast, {predictRes,WorkerName,InputName,ResultID,[]}, State = #client_statem_state{myName = MyName, msgCounter = Counter,nerlnetGraph = NerlnetGraph}) ->
   {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
-  http_request(RouterHost,RouterPort,"predictRes", term_to_binary({InputName,ResultID,""})),
+  http_request(RouterHost,RouterPort,"predictRes", term_to_binary({atom_to_list(WorkerName),InputName,ResultID,""})),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, {predictRes,WorkerName,InputName,ResultID,Result}, State = #client_statem_state{myName = MyName, msgCounter = Counter,nerlnetGraph = NerlnetGraph,timingMap = TimingMap}) ->
-    {Start,TotalBatches,AverageTrainingTime} = maps:get(WorkerName,TimingMap),
-    Finish = os:timestamp(),
-      %io:format("predict result: ~n~p~n",[{predictRes,WorkerName,InputName,ResultID,Result}]),
+    NewTimingMap = updateTimingMap(WorkerName,TimingMap),
 
-    TotalTrainingTime = (timer:now_diff(Finish, Start) / 1000),
-    if(TotalBatches>0) ->
-      NewAverage = ((AverageTrainingTime*(TotalBatches-1))+TotalTrainingTime)/TotalBatches,
-      NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,NewAverage},TimingMap);
-        % io:format("AverageTrainingTime: ~p~n",[NewAverage])
-      true ->       NewTimingMap = maps:put(WorkerName,{Start,TotalBatches,TotalTrainingTime},TimingMap)
-
-    end,  
     {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
     Result2 = lists:flatten(io_lib:format("~w",[Result])),",",[{return,list}],
     Result3 = lists:sublist(Result2,2,length(Result2)-2),
     %io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
-    http_request(RouterHost,RouterPort,"predictRes", term_to_binary({InputName,ResultID,Result3})),
+    http_request(RouterHost,RouterPort,"predictRes", term_to_binary({atom_to_list(WorkerName),InputName,ResultID,Result3})),
     {next_state, predict, State#client_statem_state{timingMap =NewTimingMap, msgCounter = Counter+1}};
 
 predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
@@ -400,7 +380,7 @@ createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,Timin
                 , CountLimit, Optimizer, Features, Labels, LossMethod, LearningRate,  self() },
   WorkerPid = nerlNetStatem:start_link(WorkerArgs),
   % timingMap = #{{WorkerName1=>{LastBatchReceivedTime,totalBatches,AverageTrainingime},{Worker2,..}, ...}
-  createWorkers(Workers,WorkerModelID+1,ClientPid,maps:put(WorkerName, WorkerPid,WorkersNamesPidsMap),maps:put(WorkerName,{0,0,0},TimingMap)).
+  createWorkers(Workers,WorkerModelID+1,ClientPid,maps:put(WorkerName, WorkerPid,WorkersNamesPidsMap),maps:put(WorkerName,{0,0,0.0},TimingMap)).
 
 %%return list of integer from string of lists of strings - "[2,2,2]" -> [2,2,2]
 string_to_list_int(Binary) ->
@@ -408,3 +388,22 @@ string_to_list_int(Binary) ->
   NoParenthesis = lists:sublist(String,2,length(String)-2),
   Splitted = re:split(NoParenthesis,",",[{return,list}]),
   [list_to_integer(X)||X<-Splitted].
+
+% calculates the avarage training time
+updateTimingMap(WorkerName,TimingMap)->
+
+  {Start,TotalBatches,TotalTime} = maps:get(WorkerName,TimingMap),
+  Finish = os:timestamp(),
+  TotalTrainingTime = (timer:now_diff(Finish, Start) / 1000),
+  % NewAverage = ((AverageTrainingTime*(TotalBatches))+TotalTrainingTime)/TotalBatches,
+  % io:format("{Start,TotalBatches,AverageTrainingTime}:  ~p  ~n",[{Start,TotalBatches,AverageTrainingTime}]),
+  % io:format("WorkerName: ~p ,  total time: ~p  ~n",[WorkerName, TotalTrainingTime]),
+
+  maps:put(WorkerName,{Start,TotalBatches,TotalTrainingTime+TotalTime},TimingMap).
+
+
+sendStatistics(RouterHost,RouterPort,MyName,Counter,TimingMap)->
+  % io:format("~p Timing map: ~p~n",[MyName, maps:to_list(TimingMap)]),
+  [S] = [atom_to_list(WorkerName)++"&"++float_to_list(TotalTime/TotalBatches,[{decimals, 2}])++"&"||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-maps:to_list(TimingMap)],
+  % io:format("client Timing map: ~p~n ",[S]),
+  http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(Counter)++"&"++lists:sublist(S,length(S)-1))).
