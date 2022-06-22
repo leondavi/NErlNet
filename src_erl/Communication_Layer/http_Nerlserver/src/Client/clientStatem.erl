@@ -404,6 +404,6 @@ updateTimingMap(WorkerName,TimingMap)->
 
 sendStatistics(RouterHost,RouterPort,MyName,Counter,TimingMap)->
   % io:format("~p Timing map: ~p~n",[MyName, maps:to_list(TimingMap)]),
-  S = lists:flatten([atom_to_list(WorkerName)++"#"++float_to_list(TotalTime/TotalBatches,[{decimals, 2}])++"@"||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-maps:to_list(TimingMap)]),
+  S = lists:flatten([atom_to_list(WorkerName)++"&"++float_to_list(TotalTime/TotalBatches,[{decimals, 2}])++"@"||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-maps:to_list(TimingMap)]),
   % io:format("client Timing map: ~p~n ",[S]),
   http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(Counter)++"@"++lists:sublist(S,length(S)-1))).
