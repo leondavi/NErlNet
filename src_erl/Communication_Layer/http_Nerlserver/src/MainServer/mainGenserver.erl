@@ -136,11 +136,12 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
               io:format("new Statistics Map:~n~p~n",[StatisticsList]),
               S = mapToString(Statistics,[]) ,
               io:format("S: ~p~n",[S]),
-              ack(NerlnetGraph),
               {RouterHost,RouterPort} = getShortPath(MyName,"serverAPI",NerlnetGraph),
 
               %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-              http_request(RouterHost,RouterPort,"statistics", "statistics#" ++ S ++ "@mainServer#" ++integer_to_list(MsgCounter));
+              http_request(RouterHost,RouterPort,"statistics", "statistics#" ++ S ++ "@mainServer#" ++integer_to_list(MsgCounter)),
+              ack(NerlnetGraph);
+
           true ->
               ok
           end
@@ -271,7 +272,7 @@ handle_cast({lossFunction,<<>>}, State = #main_genserver_state{msgCounter = MsgC
 %   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
 handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSize, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
-  {InputName,BatchID,Result}=binary_to_term(Body),
+  {WorkerName,InputName,BatchID,Result}=binary_to_term(Body),
   if (Result==[]) ->
         ListOfResults = ["error"||_<-lists:seq(1,BatchSize)];
       true ->
@@ -290,7 +291,7 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
       %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
       %%  send an ACK to mainserver that the CSV file is ready
       %FloatsString = [float_to_list(Float)++","||Float<-ListOfResults],
-      ToSend=Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize),
+      ToSend=WorkerName++"#"++Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize),
       io:format("predictResID- ~p~n",[ToSend]),
       http_request(RouterHost,RouterPort,"predictRes",ToSend),
 

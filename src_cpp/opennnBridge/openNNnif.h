@@ -36,7 +36,7 @@ struct PredictNN {
 
 
 static void* PredictFun(void* arg){ 
-        cout << "1111111111" << endl;
+      //  cout << "1111111111" << endl;
          //PredictNN* PredictNNptr = (PredictNN*)arg;
          PredictNN* PredictNNptr = reinterpret_cast<PredictNN*>(arg);
          ERL_NIF_TERM prediction;
@@ -50,7 +50,7 @@ static void* PredictFun(void* arg){
          
          int modelType = s->getModelType(PredictNNptr->mid); 
          std::shared_ptr<Eigen::Tensor<float,2>> calculate_res = std::make_shared<Eigen::Tensor<float,2>>();
-         (*calculate_res) = neural_network->calculate_outputs(*(PredictNNptr->data));
+         *calculate_res = neural_network->calculate_outputs( *(PredictNNptr->data));
       
          if(modelType == E_AEC){
              
@@ -60,15 +60,15 @@ static void* PredictFun(void* arg){
             prediction = nifpp::makeTensor1D(env, (predictRes));
          }
          else
-            prediction = nifpp::makeTensor2D(env, (*calculate_res));
+            prediction = nifpp::makeTensor2D(env, *calculate_res);
             
-            //cout << calculate_res << endl;
+          
             
          if(enif_send(NULL,&(PredictNNptr->pid), env, prediction)){
              printf("enif_send succeed prediction\n");
           }
          else printf("enif_send failed\n");
-             cout << "2222222" << endl;
+        //     cout << "2222222" << endl;
          //delete PredictNNptr;
          return 0;
 }
@@ -89,7 +89,7 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
        
          nifpp::get_throws(env, argv[0], PredictNNptr->mid); // get model id
          nifpp::getTensor2D(env,argv[1], PredictNNptr->data); // get data for prediction
-   
+    
          //get neural network from singelton         
          //std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(mid); 
          //Tensor< float, 2 > calculate_outputs =  neural_network->calculate_outputs(data);
@@ -101,7 +101,7 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
          //}
          //else printf("enif_send failed\n");
          int res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFun, PredictNNptr.get(), 0);
-           cout << "333333" << endl;
+        //   cout << "333333" << endl;
          return enif_make_string(env, "end PREDICT mode", ERL_NIF_LATIN1);
 
          
@@ -140,9 +140,12 @@ static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         catch(...){
            return enif_make_string(env, "catch - get data from erlang", ERL_NIF_LATIN1);
         }       
-         
+         try{
          int res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, TrainNNptr.get(), 0);
-
+         }
+         catch(...){
+            cout << "catch in enif_thread_create " << endl;
+         }
          return enif_make_string(env, "end comunication", ERL_NIF_LATIN1);
         
 
