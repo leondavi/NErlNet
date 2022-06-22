@@ -23,7 +23,7 @@ class ApiServer():
 
         self.transmitter = Transmitter(self.mainServerAddress)
 
-        print("\n***Please remember to execute NerlnetRun.sh before you continue.")
+        print("\n***Please remember to execute NerlnetRun.sh before continuing.")
         
     def sendJsonsToDevices(self):
         # Send the content of jsonPath to each devices:
@@ -73,7 +73,7 @@ class ApiServer():
    
     def train(self):
         # Choose a nem for the current experiment:
-        print("Please choose a name for the current experiment:")
+        print("\nPlease choose a name for the current experiment:")
         globe.expResults.name = input()
 
         globe.expResults.emptyExp() # Empty previous results
@@ -94,7 +94,8 @@ class ApiServer():
             print("No experiments were condcted yet.")
             return
 
-        print(f"{len(self.experiments)} experiments where saved:")
+        print("STATISTICS\n\n\
+List of saved experiments:")
         for i, exp in enumerate(self.experiments, start=1): 
             print(f"{i}) {exp.name}")
 
@@ -154,7 +155,7 @@ class ApiServer():
                 plt.plot(data, linewidth = 3)
 
             expTitle = (expForStats.name)
-            plt.title(f"Training - Loss Function - {expTitle}")
+            plt.title(f"Training - Loss Function - {expTitle}", fontsize=38)
             plt.xlabel('Batch No.', fontsize = 30)
             plt.ylabel('Loss (MSE)', fontsize = 30)
             plt.xlim(left=0)
