@@ -6,6 +6,7 @@ import time
 import requests
 import threading
 import matplotlib.pyplot as plt
+import pandas as pd
 
 class ApiServer():
     def __init__(self): 
@@ -87,6 +88,7 @@ class ApiServer():
         expResults = self.getQueueData()
         print('Prediction - Finished\n')
         self.experiments.append(expResults) # Assuming a cycle of training -> prediction, saving only now.
+        print("Experiment saved")
         return expResults
     
     def statistics(self):
@@ -94,15 +96,20 @@ class ApiServer():
             print("No experiments were condcted yet.")
             return
 
-        print("STATISTICS\n\n\
-List of saved experiments:")
+        print("STATISTICS\n")
+        print("List of saved experiments:")
         for i, exp in enumerate(self.experiments, start=1): 
             print(f"{i}) {exp.name}")
 
         while True:
             print("\nPlease choose an experiment number:")
             expNum = input()
-            expNum = int(expNum)
+
+            try:
+                expNum = int(expNum)
+            except ValueError:
+                print("\nIllegal Input") 
+                continue
 
             if (expNum > 0 and expNum <= len(self.experiments)):
                 expForStats = self.experiments[expNum-1]
@@ -117,9 +124,14 @@ List of saved experiments:")
 3) Export results to CSV.\n")
 
         while True:
-            print("Please choose an option:")
+            print("\nPlease choose an option:")
             option = input()
-            option = int(option)
+
+            try:
+                option = int(option)
+            except ValueError:
+                print("\nIllegal Input") 
+                continue
 
             if (option > 0 and option <= 2):
                 break
@@ -137,7 +149,12 @@ List of saved experiments:")
             while True:
                 print("\nPlease choose a CSV number for the plot:")       
                 csvNum = input()
-                csvNum = int(csvNum)
+
+                try:
+                    csvNum = int(csvNum)
+                except ValueError:
+                    print("\nIllegal Input") 
+                    continue
 
                 if (csvNum > 0 and csvNum <= numOfCsvs):
                     csvResPlot = expForStats.trainingResList[csvNum-1]
@@ -160,15 +177,116 @@ List of saved experiments:")
             plt.ylabel('Loss (MSE)', fontsize = 30)
             plt.xlim(left=0)
             plt.ylim(bottom=0)
-            plt.yticks(np.arange(0, max(data)+0.1, 0.1))
+            plt.legend(csvResPlot.workers)
             plt.grid(visible=True, which='major', linestyle='-')
             plt.minorticks_on()
             plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
 
-        if (option == 2):
-            #TODO
-            pass
+            plt.show()
 
+            return
+
+        if (option == 2):
+            print("\nPlease prepare a CSV with the last column containing the samples' labels.")
+
+            while True:
+                print("\nPlease enter the NON-SPLITTED CSV's path:") 
+                print("/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/", end = '')      
+                labelsCsvPath = input()
+                labelsCsvPath = '/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/' + labelsCsvPath
+
+                try:
+                    csvDf = pd.read_csv(labelsCsvPath)
+                    break
+
+                except OSError:
+                    print("\nInvalid path\n")
+
+            labelsDf = csvDf.iloc[:,-1]
+            labels = pd.unique(labelsDf)
+
+            numOfCsvs = len(expForStats.predictionResList)
+
+            print(f"\nThe prediction phase contains {numOfCsvs} CSVs:")
+            for i, csvRes in enumerate(expForStats.predictionResList, start=1):
+                print(f"{i}) {csvRes.name}")
+
+                while True:
+                    print("\nPlease choose the number for the corresponding (matching) CSV result:")       
+                    csvNum = input()
+
+                    try:
+                        csvNum = int(csvNum)
+                    except ValueError:
+                        print("\nIllegal Input") 
+                        continue
+
+                    if (csvNum > 0 and csvNum <= numOfCsvs):
+                        csvResAcc = expForStats.predictionResList[csvNum-1]
+                        break
+
+                    else:
+                        print("\nIllegal Input") 
+
+            accDict = {}
+            normsDict = {}
+
+            workersPredictions = csvResAcc.workersResList
+
+            for worker in workersPredictions:
+                for batch in worker.resList:
+                    for offset, prediction in enumerate(batch.predictions):
+                        sampleNum = batch.indexRange[0] + offset
+
+                        for i, label in enumerate(labels):
+                            newNorm = abs(prediction - label)
+                            normsDict[label] = newNorm
+
+                        nearestLabel = min(normsDict, key=normsDict.get)
+
+                        if (nearestLabel == labelsDf.iloc[sampleNum]):
+                            accDict[sampleNum] = 1
+
+                        else:
+                            accDict[sampleNum] = 0
+            
+            correctPreds = sum(accDict.values())
+            accuracy = correctPreds / len(accDict)
+
+            powIdx = 1
+            while True:
+                size = powIdx**2
+                nextSize = ((powIdx+1)**2)
+
+                if (nextSize > len(accDict)):
+                    break
+                
+                powIdx += 1
+
+            accDictPreds = list(accDict.values())
+            accDictPreds = np.array(accDictPreds)
+            accDictPreds = accDictPreds[:size]
+            accDictPreds = accDictPreds.reshape((powIdx,powIdx))
+
+            print(accDictPreds)
+            expTitle = (expForStats.name)
+
+            plt.figure(figsize = (8,8), dpi = 150)
+            plt.imshow(accDictPreds, cmap = 'OrRd')
+
+            plt.title(f"Prediction - Accuracy - {expTitle}", fontsize = 24)
+
+            for (i,j), _ in np.ndenumerate(accDictPreds):
+                txt = f'{(i * powIdx) + j + 1}'
+                plt.text(i, j, txt, ha='center', va='center')
+
+            plt.tick_params(left = False, right = False , labelleft = False , labelbottom = False, bottom = False)
+            plt.colorbar()
+
+            plt.show()
+    
+            print(f"\nAccuracy calculated: {accuracy} ({accuracy*100}%).")
+            return accuracy
 
         if (option == 3):
             #TODO
@@ -176,9 +294,10 @@ List of saved experiments:")
 
 if __name__ == "__main__":
     apiServerInst = ApiServer()
+    apiServerInst.sendJsonsToDevices()
+    apiServerInst.train()
+    apiServerInst.predict()
     apiServerInst.statistics()
-    #apiServerInst.train()
-    #apiServerInst.predict()
 
 
 '''

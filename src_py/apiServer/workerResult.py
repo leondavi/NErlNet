@@ -7,11 +7,11 @@ class WorkerResult():
         self.sourceWorked = sourceWorked
         self.csvWorked = csvWorked
 
-        self.resList =  np.zeros(1000000) # Pre-allocate to improve efficiency
+        self.resList =  [None] * 100000 # Pre-allocate to improve efficiency]
         self.resCounter = 0
 
-    def addResult(self, res):
-        self.resList[self.resCounter] = res
+    def addResult(self, batch):
+        self.resList[self.resCounter] = batch
         self.resCounter += 1
 
     def remove0Tail(self):
