@@ -1,8 +1,8 @@
 {
   "NerlNetSettings": [
   {
-    "frequency": "1",
-    "batchSize": "10"
+    "frequency": "2",
+    "batchSize": "5"
   }
   ],
   "devices": [
@@ -54,7 +54,7 @@
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
       "lossMethod": "6",
       "_comment4": "SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
-      "learningRate": "0.0005",
+      "learningRate": "0.005",
       "_comment5": "TODOTODO explain learningRate",
       "optimizer":"6",
       "features": "128",
