@@ -1,4 +1,10 @@
 {
+ "Batches per source": 
+   {
+      "Training": 500,
+      "Prediction": 10
+   },
+
    "Training":  [
        {
           "source name": "s1",
