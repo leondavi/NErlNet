@@ -136,11 +136,12 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
               io:format("new Statistics Map:~n~p~n",[StatisticsList]),
               S = mapToString(Statistics,[]) ,
               io:format("S: ~p~n",[S]),
-              ack(NerlnetGraph),
               {RouterHost,RouterPort} = getShortPath(MyName,"serverAPI",NerlnetGraph),
 
               %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-              http_request(RouterHost,RouterPort,"statistics", "statistics#" ++ S ++ "@mainServer#" ++integer_to_list(MsgCounter));
+              http_request(RouterHost,RouterPort,"statistics", "statistics#" ++ S ++ "@mainServer#" ++integer_to_list(MsgCounter)),
+              ack(NerlnetGraph);
+
           true ->
               ok
           end
