@@ -22,8 +22,8 @@ GRAPH_INDEX = 5
 
 
 username = os.getlogin()
-jsonPathLocation = '/home/{}/workspace/NErlNet/jsonPath'.format(username) # Use this if NerlnetInstall.sh does not work
-#jsonPathLocation = '/usr/local/lib/nerlnet-lib/NErlNet/jsonPath' 
+#jsonPathLocation = '/home/{}/workspace/NErlNet/jsonPath'.format(username) # Use this if NerlnetInstall.sh does not work
+jsonPathLocation = '/usr/local/lib/nerlnet-lib/NErlNet/jsonPath' 
 jsonPath = open(jsonPathLocation)
 content = jsonPath.readlines()
 # Get the components of the current system:

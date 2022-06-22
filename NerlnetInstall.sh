@@ -37,6 +37,7 @@ mkdir -p $NERLNET_LIB_DIR
 mkdir -p $NERLNET_LOG_DIR
 
 print "Adding a sym-link to NErlNet directory"
+rm $NERLNET_DIR
 ln -s `pwd` $NERLNET_DIR
 
 /bin/bash NerlnetBuild.sh --j $NumJobs
