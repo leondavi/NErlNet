@@ -197,21 +197,22 @@ class ApiServer():
 
                 try:
                     csvDf = pd.read_csv(labelsCsvPath)
+                    break
 
                 except OSError:
                     print("\nInvalid path\n")
 
-                labelsDf = csvDf.iloc[:,-1]
-                labels = pd.unique(labelsDf)
+            labelsDf = csvDf.iloc[:,-1]
+            labels = pd.unique(labelsDf)
 
-                numOfCsvs = len(expForStats.predictionResList)
+            numOfCsvs = len(expForStats.predictionResList)
 
-                print(f"\nThe prediction phase contains {numOfCsvs} CSVs:")
-                for i, csvRes in enumerate(expForStats.predictionResList, start=1):
-                    print(f"{i}) {csvRes.name}")
+            print(f"\nThe prediction phase contains {numOfCsvs} CSVs:")
+            for i, csvRes in enumerate(expForStats.predictionResList, start=1):
+                print(f"{i}) {csvRes.name}")
 
                 while True:
-                    print("\nPlease choose a number for the matching CSV result:")       
+                    print("\nPlease choose the number for the corresponding (matching) CSV result:")       
                     csvNum = input()
 
                     try:
@@ -227,36 +228,65 @@ class ApiServer():
                     else:
                         print("\nIllegal Input") 
 
-                accDict = {}
-                normsDict = {}
+            accDict = {}
+            normsDict = {}
 
-                workersPredictions = csvResAcc.workersResList
+            workersPredictions = csvResAcc.workersResList
 
-                for worker in workersPredictions:
-                    for batch in worker.resList:
-                        for offset, prediction in enumerate(batch.predictions):
-                            sampleNum = batch.indexRange[0] + offset
+            for worker in workersPredictions:
+                for batch in worker.resList:
+                    for offset, prediction in enumerate(batch.predictions):
+                        sampleNum = batch.indexRange[0] + offset
 
-                            for i, label in enumerate(labels):
-                                newNorm = abs(prediction - label)
-                                normsDict[label] = newNorm
+                        for i, label in enumerate(labels):
+                            newNorm = abs(prediction - label)
+                            normsDict[label] = newNorm
 
-                            nearestLabel = min(normsDict, key=normsDict.get)
+                        nearestLabel = min(normsDict, key=normsDict.get)
 
-                            if (nearestLabel == labelsDf.iloc[sampleNum]):
-                                accDict[sampleNum] = 1
+                        if (nearestLabel == labelsDf.iloc[sampleNum]):
+                            accDict[sampleNum] = 1
 
-                            else:
-                                accDict[sampleNum] = 0
+                        else:
+                            accDict[sampleNum] = 0
+            
+            correctPreds = sum(accDict.values())
+            accuracy = correctPreds / len(accDict)
+
+            powIdx = 1
+            while True:
+                size = powIdx**2
+                nextSize = ((powIdx+1)**2)
+
+                if (nextSize > len(accDict)):
+                    break
                 
-                correctPreds = sum(accDict.values())
-                accuracy = correctPreds / len(accDict)
+                powIdx += 1
 
-                print(accDict)
+            accDictPreds = list(accDict.values())
+            accDictPreds = np.array(accDictPreds)
+            accDictPreds = accDictPreds[:size]
+            accDictPreds = accDictPreds.reshape((powIdx,powIdx))
 
-                print(f"\n Accuracy calculated: {accuracy} ({accuracy*100})%.")
-                return accuracy
+            print(accDictPreds)
+            expTitle = (expForStats.name)
 
+            plt.figure(figsize = (8,8), dpi = 150)
+            plt.imshow(accDictPreds, cmap = 'OrRd')
+
+            plt.title(f"Prediction - Accuracy - {expTitle}", fontsize = 24)
+
+            for (i,j), _ in np.ndenumerate(accDictPreds):
+                txt = f'{(i * powIdx) + j + 1}'
+                plt.text(i, j, txt, ha='center', va='center')
+
+            plt.tick_params(left = False, right = False , labelleft = False , labelbottom = False, bottom = False)
+            plt.colorbar()
+
+            plt.show()
+    
+            print(f"\nAccuracy calculated: {accuracy} ({accuracy*100}%).")
+            return accuracy
 
         if (option == 3):
             #TODO
