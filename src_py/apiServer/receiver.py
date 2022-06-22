@@ -27,16 +27,16 @@ def processResult(resData, currentPhase):
             worker = resData[0]
             result = float(resData[1].replace(' ',''))
             #print(result)
-            if (result == -1):
+            if (int(result) == -1):
                 print("Received loss=-1. The NN's weights have been reset.")
-            if (result != -1 and result != 0):
+            if (int(result) != -1 and int(result != 0)):
                 for csvRes in globe.expResults.trainingResList:
                     if worker in csvRes.workers:
                         for workerRes in csvRes.workersResList:
                             if (workerRes.name == worker):
                                 workerRes.addResult(result)
 
-        elif (currentPhase == "Predicition"):
+        elif (currentPhase == "Prediction"):
             # Parsing is done by the PredictBatch class:
             newPredictBatch = PredictBatch(resData) 
 
