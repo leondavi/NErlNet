@@ -4,6 +4,9 @@ import os
 from networkComponents import NetworkComponents
 import json
 from IPython import get_ipython
+from experiment import *
+from csvResult import *
+from workerResult import *
 
 #from IPython import get_ipython
 localHost = socket.gethostname()
@@ -12,10 +15,6 @@ localIp = socket.gethostbyname(localHost)
 pendingAcks = 0
 
 multiProcQueue = multiprocessing.Queue() # Create an instance of the queue
-
-# Creating lists to store results
-trainResults = []
-predictResults = []
 
 # Get the components of the current system:
 ARCHITECTURE_INDEX = 4
@@ -47,6 +46,11 @@ elif 'terminal' in ipythonPlatform:
     jupyterFlag =  2 #Return 2 for IPython Shell.
 else:
     jupyterFlag =  0 #Return 0 for Terminal.
+
+# Prepare to get results from the receiver:
+expResults = Experiment()
+
+#TODO TODO TODO TODO TODO TODO
 
 if __name__ == "__main__":
     components.printComponents()
