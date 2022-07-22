@@ -1,6 +1,12 @@
+/*****************************************************
+ * Author: Evgeny Andrachnik
+ * 22/7/2022
+ * 
+ *****************************************************/ 
+
 #pragma once 
 
-//#include <iostream>
+
 #include <vector>
 #include <string>
 #include "ModelParams.h"
