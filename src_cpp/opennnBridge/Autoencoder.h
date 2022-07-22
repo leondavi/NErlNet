@@ -51,7 +51,7 @@ class AutoencoderClassifier : public Autoencoder
 
     void loss_update(double loss_val)
     {
-       // cout<<"updating loss: " << loss_val << endl;
+  
         this->loss_val_=loss_val;
     }
 
@@ -107,15 +107,10 @@ class AutoencoderClassifier : public Autoencoder
         //batch_samples_number
         training_strategy.set_display(1);
 
-        //int num_of_samples = autoencoder_data->dimension(0);
+    
         int num_of_aec_cols = autoencoder_data->dimension(1);
-        // cout << "autoencider_data: " << *autoencider_data  <<std::endl;
-        // cout << "data to train: " << autoencider_data->dimension(0)<< " " << autoencider_data->dimension(1)  <<std::endl;
-             
-      
-        
-           // train_smaple.chip(0,0) = autoencoder_data.get()->chip(i, 0); //from autoencoder_data tensor get the i's train_smaple (singel sample).
-           // predict_smaple.chip(0,0) = data.get()->chip(i, 0);
+       
+
             try{
             data_set.set_data(*autoencoder_data); // set data for training.
             }
@@ -130,19 +125,15 @@ class AutoencoderClassifier : public Autoencoder
                TrainingResults  res = training_strategy.perform_training(); // do training on train_smaple (singel sample).
                 cout  << "****train error: " << res.get_training_error() << endl;
                 TestingAnalysis testing_analysis(&*neural_network, &data_set);
-                //cout << *autoencoder_data << endl;
                 Eigen::Tensor<float,2> output = neural_network->calculate_outputs(*data); // calculate the AEC output for predict_smaple 
                 cout<< "output(0) "<< output(0) << endl;
                 Eigen::Tensor<float,2> loss = (output - *data).abs();
-                // cout<< "sample: "<< loss << endl;
 
                 for(int j = 0; j < loss.dimension(0); j++){
                     float sum = 0;
                 for(int i = 0; i < loss.dimension(1); i++){
                     sum += loss(j,i);
                 }
-                    // loss_val = sum;
-                    // printf("sum %f",sum);
                     cout<<"sum "<<j<<" : " << sum<<endl;
                     loss_val = res.get_training_error();
                     int RetVal = classification_function(loss_val);
@@ -160,8 +151,6 @@ class AutoencoderClassifier : public Autoencoder
                 cout << "num_of_aec_cols " << num_of_aec_cols << endl;
             }
            
-            //int RetVal = classification_function(loss_val);       
-        // cout << "-1-1-1-1-1-1-1-1-1-1 " <<  endl;
          return loss_val;
     }
  // train of AutoencoderClassifier 
@@ -199,10 +188,8 @@ class AutoencoderClassifier : public Autoencoder
       
            Eigen::Tensor<float, 0> MSE_errore = (calculate_res - predict_smaple).abs().sum();  // calculate MSE between the smaple and AEC prediction.
            loss_val = MSE_errore(0);
-        Eigen::Tensor<float, 2> mseError = (calculate_res - predict_smaple).abs();  // calculate MSE between the smaple and AEC prediction.
+           Eigen::Tensor<float, 2> mseError = (calculate_res - predict_smaple).abs();  // calculate MSE between the smaple and AEC prediction.
           // cout<< "mseError = " << mseError <<endl ;  
-
-        //    loss_val = res.get_training_error();
 
            int RetVal = classification_function(loss_val);
            predRet[i]=RetVal;
@@ -210,47 +197,11 @@ class AutoencoderClassifier : public Autoencoder
            predictRetTensor(i) = RetVal;
  
         }
-/* 
-           cout<< ""<<endl ;  
-           cout<< "predRet = "<<endl ;  
-        for(int i = 0 ; i < num_of_samples ; i++)
-            cout<< " "<< predRet[i] ;  
-        cout<< "lossRet = "<<endl ;  
-        for(int i = 0 ; i < num_of_samples ; i++)
-            cout<< " "<< lossRet[i] ;  
-           cout<< ""<<endl ;  
-*/
+
          return predictRetTensor;
     }
 
-/*
-    void AnomalyClassifier(mse)
-    {
-        // Based on David's thesis 
 
-        returns classification based on mse
-    }
-
- void predict()
-    {
-        // different predict 
-        AnomalyClassifier - return vecotr of labels
-    }
-*/
 };
 
 
-
-int EAC_predic(Tensor2DPtr EA_input, Tensor2DPtr EA_output){
-    int EAC_prediction;
-    // TAL
-    //return EAC_prediction;
-    return 1;
-}
-
-int EAC_train(Tensor2DPtr EA_input, Tensor2DPtr EA_output ){
-    int EAC_prediction;
-    // TAL
-    //return EAC_prediction;
-    return 1;
-}
