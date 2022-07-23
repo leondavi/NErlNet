@@ -71,7 +71,7 @@ init({MyName,Federated,Workers,NerlnetGraph}) ->
   % WorkersPids = createWorkers(Workers,self(),[]),
 
 %%  [{WorkerName,nerlNetStatem:start_link({self(), WorkerName, CppSANNArgs})}||{WorkerName,CppSANNArgs}<-maps:to_list(Workers)],
-  {WorkersMap,TimingMap} = createWorkers(Workers,586000901,self(),#{},#{}),
+  {WorkersMap,TimingMap} = createWorkers(Workers,1,self(),#{},#{}),
   io:format("TimingMap~p~n",[maps:to_list(TimingMap)]),
 %  niftest:trainNifTest(10.0),
 

@@ -22,6 +22,8 @@
 -export([idle/3, train/3, predict/3, wait/3]).
 
 -define(SERVER, ?MODULE).
+-define(MODE_REGULAR, 0).
+-define(MODE_FEDERATED, 1).
 
 %% federatedMode = 0 - Not federated, 1 - Federated get and send weights, 2 - Federated set weights
 %% countLimit - Number of samples to count before sending the weights for averaging. Predifined in the json file.
@@ -132,8 +134,8 @@ idle(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId=
   %% Make bias sizes and weights sizes as integer 
   NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
   NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
-  _Result_set_weights = erlModule:set_weights(WeightsList, BiasList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
-  _Result_set_weights2 = erlModule:set_weights(WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list, ModelId),
+  _Result_set_weights = niftest:set_weights_nif(WeightsList, BiasList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
+  _Result_set_weights2 = niftest:set_weights_nif(WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list, ModelId),
 
   {next_state, idle, State};
 
@@ -171,20 +173,20 @@ wait(cast, {loss, {LossVal,Time}}, State = #nerlNetStatem_state{clientPid = Clie
   {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
 
 %% Regular mode (Not federated)
-wait(cast, {loss, LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid,ackClient = AckClient, myName = MyName, nextState = NextState, federatedMode = ?MODE_REGULAR}) ->
-  {LOSS_FUNC,_TimeCpp} = LossAndTime,
-  % Federated mode = 0 (not federated)
-  gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC,Time_NIF/1000}), %% TODO Add Time and Time_NIF to the cast
-  checkAndAck(MyName,ClientPid,AckClient),
+% wait(cast, {loss, LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid,ackClient = AckClient, myName = MyName, nextState = NextState, federatedMode = ?MODE_REGULAR}) ->
+%   {LOSS_FUNC,_TimeCpp} = LossAndTime,
+%   % Federated mode = 0 (not federated)
+%   gen_statem:cast(ClientPid,{loss, MyName, LOSS_FUNC,Time_NIF/1000}), %% TODO Add Time and Time_NIF to the cast
+%   checkAndAck(MyName,ClientPid,AckClient),
 
-  {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
+%   {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
 
 %% Federated mode
-wait(cast, {loss, LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid,ackClient = AckClient, myName = MyName, nextState = NextState, count = Count, countLimit = CountLimit, modelId = Mid, federatedMode = ?MODE_FEDERATED}) ->
-  {LOSS_FUNC,_TimeCpp} = LossAndTime,
+wait(cast, {loss, {LOSS_FUNC,Time_NIF}}, State = #nerlNetStatem_state{clientPid = ClientPid,ackClient = AckClient, myName = MyName, nextState = NextState, count = Count, countLimit = CountLimit, modelId = Mid, federatedMode = ?MODE_FEDERATED}) ->
+  % {LOSS_FUNC,_TimeCpp} = LossAndTime,
   if Count == CountLimit ->
       % Get weights
-      Ret_weights_tuple = erlModule:get_weights(Mid),
+      Ret_weights_tuple = niftest:call_to_get_weights(Mid),
       {Wheights,Bias,Biases_sizes_list,Wheights_sizes_list} = Ret_weights_tuple,
 
       ListToSend = [Wheights,Bias,Biases_sizes_list,Wheights_sizes_list],
@@ -206,8 +208,17 @@ wait(cast, {loss, LossAndTime,Time_NIF}, State = #nerlNetStatem_state{clientPid 
 
 
 % Not supposed to be here - for future additions
-wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{nextState = NextState,myName = MyName,clientPid = ClientPid,ackClient = AckClient}) ->
-  io:fwrite("Error, Not supposed to be here. nerlNetStatem. Got LossAndTime: ~p~n",[LossAndTime]),
+% wait(cast, {loss, LossAndTime,_Time_NIF}, State = #nerlNetStatem_state{nextState = NextState,myName = MyName,clientPid = ClientPid,ackClient = AckClient}) ->
+%   io:fwrite("Error, Not supposed to be here. nerlNetStatem. Got LossAndTime: ~p~n",[LossAndTime]),
+%   checkAndAck(MyName,ClientPid,AckClient),
+
+%   {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
+
+% Not supposed to be here - for future additions
+wait(cast, {loss, LossAndTime}, State = #nerlNetStatem_state{ federatedMode = FederatedMode, nextState = NextState,myName = MyName,clientPid = ClientPid,ackClient = AckClient}) ->
+  io:fwrite("Error at worker, loss fun-: ~p~n",[LossAndTime]),
+  io:fwrite("FederatedMode-: ~p~n",[FederatedMode]),
+  
   checkAndAck(MyName,ClientPid,AckClient),
 
   {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
@@ -220,7 +231,7 @@ wait(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextStat
   %% Make bias sizes and weights sizes as integer 
   NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
   NewWeights_sizes_list = [round(X)||X<-Wheights_sizes_list],
-  _Result_set_weights = erlModule:set_weights(WeightsList, BiasList, NewBiases_sizes_list, NewWeights_sizes_list, ModelId),
+  _Result_set_weights = niftest:set_weights_nif(WeightsList, BiasList, NewBiases_sizes_list, NewWeights_sizes_list, ModelId),
   checkAndAck(MyName,ClientPid,AckClient),
 
   {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
@@ -258,7 +269,7 @@ wait(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{missedSamples
   {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1, missedTrainSamples = Miss}};
 
 wait(cast, Param, State) ->
- % io:fwrite("Not supposed to be. Got: ~p\n",[{Param}]),
+  io:fwrite("worker Not supposed to be. Got: ~p\n",[Param]),
   {next_state, wait, State}.
 
 
@@ -296,7 +307,7 @@ train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = Mo
   %% Make bias sizes and weights sizes as integer 
   NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
   NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
-  _Result_set_weights = erlModule:set_weights(WeightsList, BiasList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
+  _Result_set_weights = niftest:set_weights_nif(WeightsList, BiasList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
 
   {next_state, NextState, State};
 

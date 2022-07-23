@@ -25,7 +25,7 @@
 %% federatedMode = 0 - Not federated, 1 - Federated get and send weights, 2 - Federated set weights
 %% countLimit - Number of samples to count before sending the weights for averaging. Predifined in the json file.
 %% count - Number of samples recieved for training after the last weights sended.
--record(fedServ_state, {counter, counterLimit, buffer, myName, myWorkers, workersMap, portMap, connectionMap, last2, cells, first = 1, msgCounter = 0}).
+-record(fedServ_state, {counter, counterLimit, buffer, myName, myWorkers, workersMap, portMap, nerlnetGraph, last2, cells, first = 1, msgCounter = 0}).
 
 %%%===================================================================
 %%% API
@@ -46,13 +46,15 @@ start_link(ARGS) ->
 %% @doc Whenever a gen_statem is started using gen_statem:start/[3,4] or
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
-init({MyName,CounterLimit,WorkersMap,ConnectionsMap}) ->
+init({MyName,CounterLimit,WorkersMap,NerlnetGraph}) ->
 
   io:fwrite("start federated server stateM ~n"),
   Workers = getWorkersNames(WorkersMap),
   inets:start(),
-  start_connection(maps:to_list(ConnectionsMap)),
-  {ok, receives, #fedServ_state{msgCounter = 1, counter = 0, counterLimit =  CounterLimit, buffer = [], myName = MyName,myWorkers = Workers, workersMap=WorkersMap, connectionMap = ConnectionsMap}}.
+  io:format("Client ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
+  start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
+
+  {ok, receives, #fedServ_state{msgCounter = 1, counter = 0, counterLimit =  CounterLimit, buffer = [], myName = MyName,myWorkers = Workers, workersMap=WorkersMap, nerlnetGraph = NerlnetGraph}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -108,7 +110,7 @@ code_change(_OldVsn, StateName, State = #fedServ_state{}, _Extra) ->
 
 %% State receives
 %% Receives the weights from the client
-receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{first = 1, msgCounter = MsgCounter, buffer = Buffer, counter = Counter, counterLimit =  CounterLimit,myWorkers = _Workers,workersMap = _WorkersMap,connectionMap =  _ConnectionMap}) ->
+receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{first = 1, msgCounter = MsgCounter, buffer = Buffer, counter = Counter, counterLimit =  CounterLimit,myWorkers = _Workers,workersMap = _WorkersMap}) ->
   NewCount = Counter + 1,
   {_MyName,Weights} = binary_to_term(Ret_weights),
 
@@ -166,8 +168,10 @@ receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgC
   end;
 
 %%sending statistics to main server
-receives(cast, {statistics}, State = #fedServ_state{myName = MyName, msgCounter = MsgCounter, connectionMap =  ConnectionMap}) ->
-  {RouterHost,RouterPort} = maps:get(mainServer,ConnectionMap),
+receives(cast, {statistics}, State = #fedServ_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph =  NerlnetGraph}) ->
+  % {RouterHost,RouterPort} = maps:get(mainServer,ConnectionMap),
+    {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+
   http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(MsgCounter))),
   {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1}};
 
@@ -194,16 +198,18 @@ average(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgCo
   {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter = Counter + 1, buffer = NewBuffer}};
 
 %%sending statistics to main server
-average(cast, {statistics}, State = #fedServ_state{myName = MyName, msgCounter = MsgCounter, connectionMap =  ConnectionMap}) ->
-  {RouterHost,RouterPort} = maps:get(mainServer,ConnectionMap),
+average(cast, {statistics}, State = #fedServ_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph =  NerlnetGraph}) ->
+  % {RouterHost,RouterPort} = maps:get(mainServer,ConnectionMap),
+  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+
   http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(MsgCounter))),
   {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1}};
 
 
 %% Got average results
-average(cast, {average, WeightsList}, State= #fedServ_state{msgCounter = MsgCounter,last2 = Last2,cells = Cells, myWorkers = Workers,workersMap = WorkersMap,connectionMap = ConnectionMap}) ->
+average(cast, {average, WeightsList}, State= #fedServ_state{msgCounter = MsgCounter,myName = MyName, last2 = Last2,cells = Cells,  myWorkers = Workers,workersMap = WorkersMap,nerlnetGraph =  NerlnetGraph}) ->
 
-  Triplets =getHostPort(Workers,WorkersMap,ConnectionMap,[]),
+  Triplets =getHostPort(Workers,WorkersMap, MyName, NerlnetGraph,[]),
   ListsofWeights = getCells(Cells,WeightsList),
 
   ToSend = encodeListOfLists(ListsofWeights++Last2),
@@ -232,28 +238,19 @@ getWorkersNames(Map) ->getWorkersNames(maps:to_list(Map),[]).
 getWorkersNames([],L) ->L;
 getWorkersNames([{Worker,_Client}|Tail],L) ->getWorkersNames(Tail,L++[Worker]).
 
-%%NETWORK FUNCTIONS
-start_connection([])->ok;
-start_connection([{_ServerName,{Host, Port}}|Tail]) ->
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  start_connection(Tail).
-
-http_request(Host, Port,Path, Body)->
-  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
-
 broadcastWeights(BinaryWeights,Triplets) ->
 
   [http_request(RouterHost,RouterPort,"federatedWeights", term_to_binary({ClientName,WorkerName,BinaryWeights}))
     || {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets].
 
 
-getHostPort([],_WorkersMap,_PortMap,Ret)-> Ret;
-getHostPort([WorkerName|WorkersNames],WorkersMap,PortMap,Ret)->
+getHostPort([],_WorkersMap,_MyName,_NerlnetGraph,Ret)-> Ret;
+getHostPort([WorkerName|WorkersNames],WorkersMap,MyName,NerlnetGraph,Ret)->
   ClientName = maps:get(WorkerName,WorkersMap),
-  {RouterHost,RouterPort} = maps:get(ClientName,PortMap),
-  getHostPort(WorkersNames,WorkersMap, PortMap,Ret++[{ClientName,WorkerName,RouterHost,RouterPort}]).
+  % {RouterHost,RouterPort} = maps:get(ClientName,PortMap),
+  {RouterHost,RouterPort} = getShortPath(MyName,ClientName,NerlnetGraph),
+
+  getHostPort(WorkersNames,WorkersMap,MyName, NerlnetGraph,Ret++[{ClientName,WorkerName,RouterHost,RouterPort}]).
 
 remove2Lasts(L)-> lists:sublist(L,length(L)-2).
 
@@ -280,3 +277,28 @@ decodeList(Binary)->  decodeList(Binary,[]).
 decodeList(<<>>,L) -> L;
 decodeList(<<A:64/float,Rest/binary>>,L) -> decodeList(Rest,L++[A]).
 
+%%NETWORK FUNCTIONS
+start_connection([])->ok;
+start_connection([{_ServerName,{Host, Port}}|Tail]) ->
+  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  start_connection(Tail).
+
+http_request(Host, Port,Path, Body)->
+%%  io:format("sending body ~p to path ~p to hostport:~p~n",[Body,Path,{Host,Port}]),
+URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
+httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
+
+
+
+getShortPath(From,To,NerlnetGraph) when is_atom(To)-> 
+
+  First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,atom_to_list(To))),
+
+{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
+{Host,Port};
+
+getShortPath(From,To,NerlnetGraph) -> 
+First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
+{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
+{Host,Port}.

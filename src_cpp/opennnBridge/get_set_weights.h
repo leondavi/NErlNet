@@ -36,7 +36,10 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
  
          ERL_NIF_TERM erl_parameters = nifpp::makeTensor1D(env, parameters);
          
-         
+        cout << "parameters:" <<std::endl;
+        cout << parameters <<std::endl;
+    
+
          if(enif_send(NULL,&(pid), env,erl_parameters)){
              printf("enif_send succeed\n");
          }

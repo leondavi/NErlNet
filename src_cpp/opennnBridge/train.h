@@ -32,24 +32,29 @@ static void* trainFun(void* arg){
          TrainNN* TrainNNptr;
         //    cout << "in train " <<std::endl; 
          //TrainNN* TrainNNptr = (TrainNN*)arg;
-         try{
-           TrainNNptr = reinterpret_cast<TrainNN*>(arg);
-         }
-         catch(...){
-           cout << "arg catch" <<std::endl; 
-         }
+        //  try{
+        TrainNNptr = reinterpret_cast<TrainNN*>(arg);
+        // cout << "TrainNNptr learning_rate: " << TrainNNptr->learning_rate <<endl; 
+        // cout << "TrainNNptr lose_method: " << TrainNNptr->lose_method <<endl; 
+        int optimization_method = TrainNNptr->optimization_method ;
+        // cout << "TrainNNptr tid: " << TrainNNptr->tid <<endl; 
+
+        //  }
+        //  catch(...){
+        //    cout << "arg catch" <<std::endl; 
+        //  }
          double loss_val;
        
          ErlNifEnv *env = enif_alloc_env();    
              
          DataSet data_set;
-        
+
         
          // Get the singleton instance
          opennnBridgeController *s = s->GetInstance();
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(TrainNNptr->mid);
          int modelType = s->getModelType(TrainNNptr->mid);
-         
+
          
             
          std::shared_ptr<Eigen::Tensor<float,2>> autoencoder_data;// = std::make_shared<Eigen::Tensor<float,2>>();
@@ -66,6 +71,7 @@ static void* trainFun(void* arg){
          //CustumNN *cc;
          //cc = dynamic_cast<CustumNN*>(neural_network.get());
          int data_num_of_cols = TrainNNptr->data->dimension(1);
+
          if (modelType == E_AE || modelType == E_AEC){
             Eigen::array<int, 2> bcast({1, 2});  
             autoencoder_data = std::make_shared<Eigen::Tensor<float,2>>(TrainNNptr->data->broadcast(bcast));                 
@@ -89,42 +95,46 @@ static void* trainFun(void* arg){
                    }
            }
 
-        
+
            TrainingStrategy training_strategy;
           if(flag == true) {
             training_strategy.set_neural_network_pointer(neural_network.get()); // Line 95 should be executed before line 96 due to openNN issue
             training_strategy.set_data_set_pointer(&data_set);
         
        
-         
+
             // set Optimization Method  -------------------------------------------------------------
             try{
-            if(TrainNNptr->optimization_method == E_OM_GRADIENT_DESCENT){
+            if(optimization_method == E_OM_GRADIENT_DESCENT){
                 training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::STOCHASTIC_GRADIENT_DESCENT);
                 training_strategy.get_stochastic_gradient_descent_pointer()->set_initial_learning_rate(TrainNNptr->learning_rate);
             }
-            else if(TrainNNptr->optimization_method == E_OM_CONJUGATE_GRADIENT)
+            else if(optimization_method == E_OM_CONJUGATE_GRADIENT)
             {
                 training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::CONJUGATE_GRADIENT);
             }
-            else if(TrainNNptr->optimization_method == E_OM_QUASI_NEWTON_METHOD)
+            else if(optimization_method == E_OM_QUASI_NEWTON_METHOD)
             {
                 training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::QUASI_NEWTON_METHOD);
             }
-            else if(TrainNNptr->optimization_method == E_OM_LEVENBERG_MARQUARDT_ALGORITHM)
+            else if(optimization_method == E_OM_LEVENBERG_MARQUARDT_ALGORITHM)
             {
                 training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::LEVENBERG_MARQUARDT_ALGORITHM);
             }
-            else if(TrainNNptr->optimization_method == E_OM_STOCHASTIC_GRADIENT_DESCENT)
+            else if(optimization_method == E_OM_STOCHASTIC_GRADIENT_DESCENT)
             {
                 training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::STOCHASTIC_GRADIENT_DESCENT);
             }
-            else if(TrainNNptr->optimization_method == E_OM_ADAPTIVE_MOMENT_ESTIMATION)
+            else if(optimization_method == E_OM_ADAPTIVE_MOMENT_ESTIMATION)
             {
                 training_strategy.set_optimization_method(TrainingStrategy::OptimizationMethod::ADAPTIVE_MOMENT_ESTIMATION);
                 training_strategy.get_adaptive_moment_estimation_pointer()->set_initial_learning_rate(TrainNNptr->learning_rate);
             }
             else{
+                cout << "TrainNNptr learning_rate: " << TrainNNptr->learning_rate <<endl; 
+                cout << "TrainNNptr lose_method: " << TrainNNptr->lose_method <<endl; 
+                cout << "TrainNNptr optimization_method: " << TrainNNptr->optimization_method <<endl; 
+                cout << "TrainNNptr tid: " << TrainNNptr->tid <<endl;
                 flag = false;
                 cout << "optimization_method not choosen " <<std::endl;
             }
@@ -252,13 +262,18 @@ static void* trainFun(void* arg){
         
          //ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 2, loss_val_term,enif_make_double(env, duration.count()));
          ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 2, loss_val_term,train_time);
-         
-         
-         if(enif_send(NULL,&(TrainNNptr->pid), env,train_res_and_time)){
+        
+        if(enif_send(NULL,&(TrainNNptr->pid), env,train_res_and_time)){
             //  printf("enif_send train succeed\n");
-         }
-         else printf("enif_send failed\n");
-       
+        }
+        else {
+            cout << "loss val:" << loss_val<< endl;
+            cout << " train_time:" <<  train_time<< endl;
+        
+            printf("enif_send failed\n");
+
+        }
+        
          return 0;
          //return enif_make_string(env, "end TRAIN mode", ERL_NIF_LATIN1);
 }
