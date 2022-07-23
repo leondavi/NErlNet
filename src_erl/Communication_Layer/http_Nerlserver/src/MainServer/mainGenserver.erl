@@ -229,16 +229,15 @@ handle_cast({stopCasting,Source_Names}, State = #main_genserver_state{state = ca
 handle_cast({lossFunction,<<>>}, State = #main_genserver_state{msgCounter = MsgCounter}) ->
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
   handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
-    %%  io:format("got loss function:- ~p~n",[Body]),
         {RouterHost,RouterPort} = getShortPath(MyName,"serverAPI",NerlnetGraph),
         % io:format("{RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
       case   binary_to_term(Body) of
         {WorkerName,{LossFunction,_Time}} ->
-          % io:format("got loss function:- ~p~n",[{RouterHost,RouterPort,atom_to_list(WorkerName),float_to_list(LossFunction)}]),
+        io:format("main server got loss function:- ~p~n",[binary_to_term(Body)]),
         %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
         http_request(RouterHost,RouterPort,"lossFunction", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction));
         {WorkerName,LossFunction} ->
-          % io:format("got loss function:- ~p~n",[{RouterHost,RouterPort,atom_to_list(WorkerName),float_to_list(LossFunction)}]),
+        io:format("main server got loss function:- ~p~n",[binary_to_term(Body)]),
         %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
         http_request(RouterHost,RouterPort,"lossFunction", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction))
         end,

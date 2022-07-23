@@ -97,8 +97,8 @@ call_to_predict(ModelID, Data, WorkerPid,CSVname, BatchID)->
       end.
 
 call_to_get_weights(ModelID)->
-      RetVal = get_weights_nif(ModelID),
-      io:format("RetVal= ~p~n ",[RetVal]),
+      _RetVal = get_weights_nif(ModelID),
+      % io:format("RetVal= ~p~n ",[RetVal]),
       receive
             Ret->
             io:format("Ret= ~p~n ",[Ret])
