@@ -110,32 +110,39 @@ code_change(_OldVsn, StateName, State = #fedServ_state{}, _Extra) ->
 
 %% State receives
 %% Receives the weights from the client
-receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{first = 1, msgCounter = MsgCounter, buffer = Buffer, counter = Counter, counterLimit =  CounterLimit,myWorkers = _Workers,workersMap = _WorkersMap}) ->
-  NewCount = Counter + 1,
-  {_MyName,Weights} = binary_to_term(Ret_weights),
+% receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{first = 1, msgCounter = MsgCounter, buffer = Buffer, counter = Counter, counterLimit =  CounterLimit,myWorkers = _Workers,workersMap = _WorkersMap}) ->
+%   NewCount = Counter + 1,
+%   {_MyName,Weights} = binary_to_term(Ret_weights),
+%   % io:format("Federated Weights: ~p~n",[Weights]),
+%   % DecodedWeights= decodeListOfLists(Weights),
+%   % DecodedWeightsWithout2Last = remove2Lasts(DecodedWeights),
+%   % Cells = [length(X)||X<-DecodedWeightsWithout2Last],
 
-  DecodedWeights= decodeListOfLists(Weights),
-  DecodedWeightsWithout2Last = remove2Lasts(DecodedWeights),
-  Cells = [length(X)||X<-DecodedWeightsWithout2Last],
+%   % TwoLasts = lists:sublist(DecodedWeights,length(DecodedWeights)-1,length(DecodedWeights)),
 
-  TwoLasts = lists:sublist(DecodedWeights,length(DecodedWeights)-1,length(DecodedWeights)),
+%   if
+%       NewCount == 1 ->
+%       NewBuffer =  Weights,
+%       % {next_state, receives, State#fedServ_state{first = 0,cells = Cells,last2 = TwoLasts, msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
+%       {next_state, receives, State#fedServ_state{first = 0, msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
 
-  if
-    NewCount < CounterLimit ->
-      %% Add to the buffer, increment the counter and continue to recieve weights
-      NewBuffer = Buffer ++ lists:flatten(DecodedWeightsWithout2Last),
-      {next_state, receives, State#fedServ_state{first = 0,cells = Cells,last2 = TwoLasts, msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
+%     NewCount < CounterLimit ->
+%       %% Add to the buffer, increment the counter and continue to recieve weights
+%       % NewBuffer = Buffer ++ Weights,
+%       NewBuffer =  lists:zipwith(fun(X, Y) -> X+Y end,Buffer , Weights),
+%       % {next_state, receives, State#fedServ_state{first = 0,cells = Cells,last2 = TwoLasts, msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
+%       {next_state, receives, State#fedServ_state{first = 0, msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
 
-    NewCount >= CounterLimit ->
-      %% Reset the buffer, decrease the counter by CounterLimit, start averaging in a different process and go to average state
-      SelfPid = self(),
-      _Pid = spawn(fun()-> averageFun(Buffer ++ lists:flatten(DecodedWeightsWithout2Last),SelfPid,NewCount) end),
-      {next_state, average, State#fedServ_state{first = 0,cells = Cells,last2 = TwoLasts,  msgCounter = MsgCounter+1, counter = NewCount - CounterLimit, buffer = []}};
+%     NewCount >= CounterLimit ->
+%       %% Reset the buffer, decrease the counter by CounterLimit, start averaging in a different process and go to average state
+%       SelfPid = self(),
+%       _Pid = spawn(fun()-> averageFun(Buffer ++ Weights,SelfPid,NewCount) end),
+%       {next_state, average, State#fedServ_state{first = 0,  msgCounter = MsgCounter+1, counter = 0, buffer = []}};
 
-    true ->
-      io:fwrite("Error: cppSANNEdServStateM not supposed to be here.\n"),
-      {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1, counter = NewCount}}
-  end;
+%     true ->
+%       io:fwrite("Error: cppSANNEdServStateM not supposed to be here.\n"),
+%       {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1, counter = NewCount}}
+%   end;
 
 %% State receives
 %% Receives the weights from the client
@@ -143,24 +150,31 @@ receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgC
   NewCount = Counter + 1,
   {_MyName,Weights} = binary_to_term(Ret_weights),
 
-  DecodedWeights = decodeListOfLists(Weights),
-  DecodedWeightsWithout2Last = remove2Lasts(DecodedWeights),
+  % DecodedWeights = decodeListOfLists(Weights),
+  % DecodedWeightsWithout2Last = remove2Lasts(DecodedWeights),
 
   if
+    NewCount == 1 ->
+      NewBuffer =  Weights,
+      % {next_state, receives, State#fedServ_state{first = 0,cells = Cells,last2 = TwoLasts, msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
+      {next_state, receives, State#fedServ_state{first = 0, msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
+
     NewCount < CounterLimit ->
 
       %% Add to the buffer, increment the counter and continue to recieve weights    
-      NewBuffer = Buffer ++ lists:flatten(DecodedWeightsWithout2Last),
+      % NewBuffer = Buffer ++ Weights,
+      NewBuffer =  lists:zipwith(fun(X, Y) -> X+Y end,Buffer , Weights),
       {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
 
     NewCount >= CounterLimit ->
 
       %% Reset the buffer, decrease the counter by CounterLimit, start averaging in a different process and go to average state
       SelfPid = self(),
-      NewBuffer = Buffer ++ lists:flatten(DecodedWeightsWithout2Last),
+      % NewBuffer = Buffer ++ Weights,
+      NewBuffer =  lists:zipwith(fun(X, Y) -> X+Y end,Buffer , Weights),
       _Pid = spawn(fun()-> averageFun(NewBuffer,SelfPid,NewCount) end),
 
-      {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter = NewCount - CounterLimit, buffer = []}};
+      {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter = 0, buffer = []}};
     
     true ->
       io:fwrite("Error: cppSANNEdServStateM not supposed to be here.\n"),
@@ -183,18 +197,17 @@ receives(cast, Else, State) ->
 %% State average
 
 %% Got weights results
-average(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgCounter = MsgCounter, buffer = Buffer, counter = Counter}) ->
-  {_MyName,Weights} = binary_to_term(Ret_weights),
-  DecodedWeights = decodeListOfLists(Weights),
-  NewBuffer = Buffer ++ lists:flatten(remove2Lasts(DecodedWeights)),
-  {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter = Counter + 1, buffer = NewBuffer}};
-
-%% Got weights results
 average(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgCounter = MsgCounter, buffer = [], counter = Counter}) ->
   {_MyName,Weights} = binary_to_term(Ret_weights),
+  NewBuffer =  Weights,
 
-  DecodedWeights = decodeListOfLists(Weights),
-  NewBuffer = lists:flatten(remove2Lasts(DecodedWeights)),
+  {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter =  1, buffer = NewBuffer}};
+
+%% Got weights results
+average(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgCounter = MsgCounter, buffer = Buffer, counter = Counter}) ->
+  {_MyName,Weights} = binary_to_term(Ret_weights),
+  NewBuffer =  lists:zipwith(fun(X, Y) -> X+Y end,Buffer , Weights),
+
   {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter = Counter + 1, buffer = NewBuffer}};
 
 %%sending statistics to main server
@@ -210,10 +223,10 @@ average(cast, {statistics}, State = #fedServ_state{myName = MyName, msgCounter =
 average(cast, {average, WeightsList}, State= #fedServ_state{msgCounter = MsgCounter,myName = MyName, last2 = Last2,cells = Cells,  myWorkers = Workers,workersMap = WorkersMap,nerlnetGraph =  NerlnetGraph}) ->
 
   Triplets =getHostPort(Workers,WorkersMap, MyName, NerlnetGraph,[]),
-  ListsofWeights = getCells(Cells,WeightsList),
+  % ListsofWeights = getCells(Cells,WeightsList),
 
-  ToSend = encodeListOfLists(ListsofWeights++Last2),
-  _Pid = spawn(fun()-> broadcastWeights(ToSend,Triplets) end),  %% Send the results to the clients through the main server
+  % ToSend = encodeListOfLists(ListsofWeights++Last2),
+  _Pid = spawn(fun()-> broadcastWeights(WeightsList,Triplets) end),  %% Send the results to the clients through the main server
 %%  gen_statem:cast(FedServPID,{averageResult, MyName, WeightsTuple}),TODO add broadcast
   {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1}};
 
@@ -226,10 +239,13 @@ average(cast, _Else, State) ->
 % Functions
 
 %% Do the averaging
-averageFun(WeightsBuffer,CallerPid,WeightsAndBiasNumber) ->
+averageFun(WeightsBuffer,CallerPid,Count) ->
   % io:fwrite("FedServer, averageFun: WeightsAndBiasNumber: ~p\n", [WeightsAndBiasNumber]),
   % io:fwrite("FedServer, averageFun: WeightsBuffer: ~p\n", [WeightsBuffer]),
-  AveragedWeights = erlModule:average_weights(WeightsBuffer, WeightsAndBiasNumber),
+
+  % AveragedWeights = erlModule:average_weights(WeightsBuffer, WeightsAndBiasNumber),
+  AveragedWeights = [X/Count || X<-WeightsBuffer],
+
   % io:fwrite("AveragedWeights at averageFun: ~p.\n",[AveragedWeights]),
   gen_statem:cast(CallerPid,{average, AveragedWeights}).
 

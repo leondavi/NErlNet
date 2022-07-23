@@ -269,9 +269,7 @@ static void* trainFun(void* arg){
         else {
             cout << "loss val:" << loss_val<< endl;
             cout << " train_time:" <<  train_time<< endl;
-        
             printf("enif_send failed\n");
-
         }
         
          return 0;
