@@ -4,7 +4,7 @@
 %-export([init/0,create_nif/6,train_nif/4,trainn_nif/4,call_to_train/4,predict_nif/2,call_to_predict/2,get_weights_nif/1,call_to_get_weights/1,printTensor/2]).
 
 -export([init/0,create_nif/6,train_nif/5,trainn_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
--export([call_to_get_weights/1,set_weights_nif/2]).
+-export([call_to_get_weights/1,call_to_set_weights/2]).
 
 -define(DEBUG,false). % set here if it is debug or release  TODO change to read from hrl auto generated file
 -if(DEBUG).
@@ -100,8 +100,16 @@ call_to_get_weights(ModelID)->
       _RetVal = get_weights_nif(ModelID),
       % io:format("RetVal= ~p~n ",[RetVal]),
       receive
-            Ret->
-            io:format("Ret= ~p~n ",[Ret])
+            Ret->Ret
+            % io:format("Ret= ~p~n ",[Ret])
+      end.
+
+call_to_set_weights(ModelID,Weights)->
+      _RetVal = set_weights_nif(ModelID, Weights),
+      % io:format("RetVal= ~p~n ",[RetVal]),
+      receive
+            Ret->Ret
+            % io:format("Ret= ~p~n ",[Ret])
       end.
 
 predict_nif(ModelID, Data) ->

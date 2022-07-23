@@ -202,11 +202,12 @@ training(cast, {loss,WorkerName,LossFunction,Time_NIF}, State = #client_statem_s
 %%Federated Mode:
 training(cast, {loss,federated_weights, Worker, LOSS_FUNC, Ret_weights}, State = #client_statem_state{federatedServer = Federated,myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter}) ->
 %%  io:format("Worker: ~p~n, LossFunction: ~p~n,  Ret_weights_tuple: ~p~n",[Worker, LOSS_FUNC, Ret_weights_tuple]),
-  {RouterHost,RouterPort} = maps:get(Federated,NerlnetGraph),
+  % {RouterHost,RouterPort} = maps:get(Federated,NerlnetGraph),
+  {RouterHost,RouterPort} = getShortPath(MyName,Federated,NerlnetGraph),
 
-  ToSend = term_to_binary({Federated,encodeListOfLists(Ret_weights)}),
+  % ToSend = term_to_binary({Federated,encodeListOfLists(Ret_weights)}),
 
-  http_request(RouterHost,RouterPort,"federatedWeightsVector", ToSend),
+  http_request(RouterHost,RouterPort,"federatedWeightsVector", term_to_binary({Federated,Ret_weights})),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, {loss, federated_weights, MyName, LOSS_FUNC}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter}) ->
@@ -214,15 +215,15 @@ training(cast, {loss, federated_weights, MyName, LOSS_FUNC}, State = #client_sta
 
 training(cast, {federatedAverageWeights,Body}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,workersMap = WorkersMap, msgCounter = Counter}) ->
 %% io:format("federatedAverageWeights Body!!!!: ~p~n",[Body]),
-  {_ClientName,WorkerName,BinaryWeights} = binary_to_term(Body),
+  {_ClientName,WorkerName,Weights} = binary_to_term(Body),
 
 %%  [_ClientName,WorkerName,Weights] = re:split(binary_to_list(Body),"#",[{return,list}]),
   WorkerPid = maps:get(WorkerName,WorkersMap),
   % io:format("client decoding weights!!!:   ~n!!!",[]),
 
-  DecodedWeights = decodeListOfLists(BinaryWeights),
+  % DecodedWeights = decodeListOfLists(BinaryWeights),
   % io:format("client finished decoding weights!!!:   ~n!!!",[]),
-  gen_statem:cast(WorkerPid, {set_weights,  DecodedWeights}),
+  gen_statem:cast(WorkerPid, {set_weights,  Weights}),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->

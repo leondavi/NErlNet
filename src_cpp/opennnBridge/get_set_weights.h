@@ -14,6 +14,8 @@
 
 using namespace OpenNN;
 
+
+
 static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
          
          long int mid;
@@ -33,11 +35,13 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
          //Index num = neural_network->get_layers_number();
 
          Tensor< float, 1 > parameters = neural_network->get_parameters();
+        //  Tensor<Tensor<type, 1>, 1> parameters2 = get_trainable_layers_parameters(parameters);
  
          ERL_NIF_TERM erl_parameters = nifpp::makeTensor1D(env, parameters);
          
-        cout << "parameters:" <<std::endl;
-        cout << parameters <<std::endl;
+        cout << "sending parameters with size of:" ;
+        cout << parameters.size() <<std::endl;
+        // cout << parameters <<std::endl;
     
 
          if(enif_send(NULL,&(pid), env,erl_parameters)){
@@ -50,7 +54,6 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
      //return enif_make_int(env,0);
 
 }  //end get_weights_nif 
-
 
 
 
