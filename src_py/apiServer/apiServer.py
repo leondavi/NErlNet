@@ -1,27 +1,37 @@
-from multiprocessing import Process
 from transmitter import Transmitter
 import globalVars as globe
-from receiver import *
+import receiver
 import time
 import requests
 import threading
 import matplotlib.pyplot as plt
 import pandas as pd
+import sys
+import numpy as np
 
 class ApiServer():
-    def __init__(self): 
+    def __init__(self):        
         mainServerIP = globe.components.mainServerIp
         mainServerPort = globe.components.mainServerPort
         self.mainServerAddress = 'http://' + mainServerIP + ':' + mainServerPort
         self.experiments = []
         
-        # Starting receiver flask server process:
-        print("Starting the receiver HTTP server...\n")
+        print("Initializing the receiver thread...\n")
 
-        self.serverThread = threading.Thread(target=initReceiver, args=())
-        self.serverThread.start()
-        time.sleep(1)
+        print("Using the address from the architecture JSON file for the receiver.\n")
 
+        self.receiverProblem = threading.Event()
+        print(self.receiverProblem)
+        self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
+        self.receiverThread.start()   
+        self.receiverThread.join(2)
+
+        if (self.receiverProblem.is_set()):
+            print("Failed to initialize the receiver using the provided address.\n\
+Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
+            sys.exit()      
+
+        # Initalize an instance for the transmitter: 
         self.transmitter = Transmitter(self.mainServerAddress)
 
         print("\n***Please remember to execute NerlnetRun.sh before continuing.")
@@ -74,7 +84,7 @@ class ApiServer():
    
     def train(self):
         # Choose a nem for the current experiment:
-        print("\nPlease choose a name for the current experiment:")
+        print("\nPlease choose a name for the current experiment:", end = ' ')
         globe.expResults.name = input()
 
         globe.expResults.emptyExp() # Empty previous results
@@ -102,7 +112,7 @@ class ApiServer():
             print(f"{i}) {exp.name}")
 
         while True:
-            print("\nPlease choose an experiment number:")
+            print("\nPlease choose an experiment number:", end = ' ')
             expNum = input()
 
             try:
@@ -124,7 +134,7 @@ class ApiServer():
 3) Export results to CSV.\n")
 
         while True:
-            print("\nPlease choose an option:")
+            print("\nPlease choose an option:", end = ' ')
             option = input()
 
             try:
@@ -147,7 +157,7 @@ class ApiServer():
                 print(f"{i}) {csvRes.name}")
 
             while True:
-                print("\nPlease choose a CSV number for the plot:")       
+                print("\nPlease choose a CSV number for the plot:", end = ' ')       
                 csvNum = input()
 
                 try:
@@ -190,7 +200,7 @@ class ApiServer():
             print("\nPlease prepare a CSV with the last column containing the samples' labels.")
 
             while True:
-                print("\nPlease enter the NON-SPLITTED CSV's path:") 
+                print("\nPlease enter the NON-SPLITTED CSV's path:", end = ' ') 
                 print("/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/", end = '')      
                 labelsCsvPath = input()
                 labelsCsvPath = '/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/' + labelsCsvPath
@@ -212,7 +222,7 @@ class ApiServer():
                 print(f"{i}) {csvRes.name}")
 
                 while True:
-                    print("\nPlease choose the number for the corresponding (matching) CSV result:")       
+                    print("\nPlease choose the number for the corresponding (matching) CSV result:", end = ' ')       
                     csvNum = input()
 
                     try:
@@ -278,7 +288,7 @@ class ApiServer():
 
             for (i,j), _ in np.ndenumerate(accDictPreds):
                 txt = f'{(i * powIdx) + j + 1}'
-                plt.text(i, j, txt, ha='center', va='center')
+                plt.text(i, j, txt, ha='center', va='center', fontsize = 4, fontweight='bold')
 
             plt.tick_params(left = False, right = False , labelleft = False , labelbottom = False, bottom = False)
             plt.colorbar()

@@ -8,7 +8,6 @@ from experiment import *
 from csvResult import *
 from workerResult import *
 
-#from IPython import get_ipython
 localHost = socket.gethostname()
 localIp = socket.gethostbyname(localHost)
 
@@ -50,22 +49,15 @@ else:
 # Prepare to get results from the receiver:
 expResults = Experiment()
 
-#TODO TODO TODO TODO TODO TODO
-
 if __name__ == "__main__":
     components.printComponents()
     print(content[0])
     print(content[1])
 
+# Addresses for future development:
 '''
 trainingListReq = [('http://127.0.0.1:8080/updateCSV', "s1,w1,RunOrWalkTrain_splitted"),
                 ('http://127.0.0.1:8080/clientsTraining', "")]
 
 CastingListReq = [('http://127.0.0.1:8080/startCasting', "s1")]
-'''
-
-'''
-mainServerIP = 'http://127.0.0.1' 
-mainServerPort = '8080'
-mainServerAddress = mainServerIP + ':' + mainServerPort
 '''
