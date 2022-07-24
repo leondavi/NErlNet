@@ -58,7 +58,7 @@
       "features": "128",
       "labels": "1",
       "countLimit": "3",
-      "federatedMode": "1"
+      "federatedMode": "0"
     },
      {
       "name": "w2",
@@ -80,7 +80,7 @@
       "features": "128",
       "labels": "1",
       "countLimit": "3",
-      "federatedMode": "1"
+      "federatedMode": "0"
     },
     {
       "name": "w3",
@@ -102,7 +102,7 @@
       "features": "128",
       "labels": "1",
       "countLimit": "3",
-      "federatedMode": "1"
+      "federatedMode": "0"
     },
      {
       "name": "w4",
@@ -124,7 +124,7 @@
       "features": "128",
       "labels": "1",
       "countLimit": "3",
-      "federatedMode": "1"
+      "federatedMode": "0"
     }
   ],
   "clients": [
@@ -158,7 +158,7 @@
       "name": "f1",
       "port": "8083",
       "workers": "w1,w2,w3,w4",
-      "counterLimit": "2"
+      "counterLimit": "4"
     }
   ],
   "sources": [
