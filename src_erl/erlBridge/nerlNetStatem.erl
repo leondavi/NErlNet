@@ -240,9 +240,9 @@ wait(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextStat
   %niftest:call_to_set_weights(ModelId, Ret_weights_list),
   io:format("####end set weights####~n"),
 
-  checkAndAck(MyName,ClientPid,AckClient),
+  % checkAndAck(MyName,ClientPid,AckClient),
 
-  {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
+  {next_state, wait, State#nerlNetStatem_state{}};
 
 wait(cast, {predictRes,Res,CSVname,BatchID}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid, nextState = NextState,ackClient = AckClient}) ->
     io:fwrite("~nworker got predict result ~p~n",[{predictRes,Res,CSVname,BatchID}]),
@@ -288,6 +288,7 @@ train(cast, {sample, []}, State = #nerlNetStatem_state{modelId = ModelId, featur
 
 train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels, optimizer = Optimizer, lossMethod = LossMethod, learningRate = LearningRate}) ->
     % io:format("SampleListTrain ~p~n",[SampleListTrain]),
+    io:format("SampleListTrain ~p~n",["1"]),
     % CurrPid = self(),
     % ChunkSizeTrain = round(length(SampleListTrain)/(Features + Labels)),
     % ^^^^^^^^^^^^^^^^^^
@@ -319,7 +320,7 @@ train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = Mo
   io:format("####sending new weights to workers####~n"),
   %niftest:call_to_set_weights(ModelId, Ret_weights_list),
   io:format("####end set weights####~n"),
-  {next_state, NextState, State};
+  {next_state, train, State};
 
 
 train(cast, {idle}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid}) ->
