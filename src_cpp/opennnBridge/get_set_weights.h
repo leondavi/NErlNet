@@ -76,9 +76,9 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
          
          //cout << neural_network->get_layers_number() <<std::endl;
          //Index num = neural_network->get_layers_number();
-        cout << "111111111" <<std::endl;
+         cout << "111111111" <<std::endl;
          neural_network->set_parameters(*parameters);
-        cout << "222222222" <<std::endl;
+         cout << "222222222" <<std::endl;
          return enif_make_string(env, "end set_weights_nif ", ERL_NIF_LATIN1);
        
      //return enif_make_int(env,0);
