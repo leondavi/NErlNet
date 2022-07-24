@@ -58,10 +58,10 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 
 
 static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
-          
+          return enif_make_string(env, "end set_weights_nif ", ERL_NIF_LATIN1);
          long int mid;
          ErlNifPid pid;
-        
+         
          std::shared_ptr<Eigen::Tensor<float,1>> parameters;
         
          enif_self(env, &pid);
