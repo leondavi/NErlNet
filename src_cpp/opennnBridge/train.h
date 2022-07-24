@@ -28,9 +28,10 @@ struct TrainNN {
 };
  
 static void* trainFun(void* arg){ 
+
          bool flag = true;
          TrainNN* TrainNNptr;
-        //    cout << "in train " <<std::endl; 
+            cout << "in train " <<std::endl; 
          //TrainNN* TrainNNptr = (TrainNN*)arg;
         //  try{
         TrainNNptr = reinterpret_cast<TrainNN*>(arg);
@@ -260,7 +261,7 @@ static void* trainFun(void* arg){
           //ERL_NIF_TERM loss_val_term = enif_make_double(env, loss_val);
          ERL_NIF_TERM train_time = enif_make_double(env, duration.count());
          
-         //cout << duration.count() <<std::endl;
+         cout << "end train" <<std::endl;
         
          //ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 2, loss_val_term,enif_make_double(env, duration.count()));
          ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 2, loss_val_term,train_time);

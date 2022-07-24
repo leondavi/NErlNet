@@ -105,12 +105,12 @@ call_to_get_weights(ModelID)->
       end.
 
 call_to_set_weights(ModelID,Weights)->
-      _RetVal = set_weights_nif(ModelID, Weights),
-      % io:format("RetVal= ~p~n ",[RetVal]),
-      receive
-            Ret->Ret
+      RetVal = set_weights_nif(ModelID, Weights),
+      io:format("RetVal= ~p~n ",[RetVal]).
+      %receive
+      %      Ret->Ret
             % io:format("Ret= ~p~n ",[Ret])
-      end.
+      %end.
 
 predict_nif(ModelID, Data) ->
       exit(nif_library_not_loaded).

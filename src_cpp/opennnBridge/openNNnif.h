@@ -112,7 +112,7 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 
 static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
-            
+            cout << "in trainn_nif " << endl;
           ERL_NIF_TERM train_time;
           // Start timer for the train
           high_resolution_clock::time_point start = high_resolution_clock::now();
