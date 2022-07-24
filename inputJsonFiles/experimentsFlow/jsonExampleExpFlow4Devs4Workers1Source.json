@@ -9,7 +9,7 @@
          {
             "source name": "s1",
             "workers": "w1,w2,w3,w4",
-            "CSV path": "aecExp/norm_zeros90Others10Small_predict"
+            "CSV path": "gauss/gauss_train"
          }
      ],
     
@@ -17,7 +17,7 @@
          {
             "source name": "s1",
             "workers": "w1,w2,w3,w4",
-            "CSV path": "aecExp/norm_zeros90Others10Small_predict"
+            "CSV path": "gauss/gauss_predict"
          }
     ],
     
