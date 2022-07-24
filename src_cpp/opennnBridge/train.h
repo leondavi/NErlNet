@@ -71,6 +71,7 @@ static void* trainFun(void* arg){
          //CustumNN *cc;
          //cc = dynamic_cast<CustumNN*>(neural_network.get());
          int data_num_of_cols = TrainNNptr->data->dimension(1);
+         int NN_input_num = neural_network->get_inputs_number();
 
          if (modelType == E_AE || modelType == E_AEC){
             Eigen::array<int, 2> bcast({1, 2});  
@@ -214,7 +215,7 @@ static void* trainFun(void* arg){
          else{
             //  cout << "do train " <<std::endl;
  
-             if(data_num_of_cols == 785 && flag == true){
+             if(data_num_of_cols == (NN_input_num+1) && flag == true){
                training_strategy.perform_training();
             
             //   cout << "end train " <<std::endl;
@@ -242,6 +243,7 @@ static void* trainFun(void* arg){
                else { 
                 cout << "data set error  " <<std::endl; 
                 cout << "data_num_of_cols " << data_num_of_cols << std::endl; 
+                cout << "NN input num " << NN_input_num << std::endl; 
                 cout << "flag  " << flag << std::endl;
                 }
          }
