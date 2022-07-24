@@ -44,7 +44,7 @@ class Transmitter:
             print(response.ok, response.status_code)
 
     def startCasting(self, phase): # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
-        print('Start Casting Phase')
+        print('\nStart Casting Phase')
 
         if (phase=="Training"):
             batchesPerSource = globe.expFlow["Batches per source"]["Training"]
