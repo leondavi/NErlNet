@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import sys
 import numpy as np
+import os
 
 class ApiServer():
     def __init__(self):        
@@ -18,15 +19,17 @@ class ApiServer():
         
         print("Initializing the receiver thread...\n")
 
-        print("Using the address from the architecture JSON file for the receiver.\n")
+        # Initializing the receiver (a Flask HTTP server that receives results from the Main Server):
+        print("Using the address from the architecture JSON file for the receiver.")
+        print(f"(http://{globe.components.receiverHost}:{globe.components.receiverPort})\n")
 
         self.receiverProblem = threading.Event()
         print(self.receiverProblem)
         self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
         self.receiverThread.start()   
-        self.receiverThread.join(2)
+        self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
 
-        if (self.receiverProblem.is_set()):
+        if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
             print("Failed to initialize the receiver using the provided address.\n\
 Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
             sys.exit()      
@@ -48,7 +51,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             address = f'http://{ip}:8484/updateJsonPath' # f for format
 
             response = requests.post(address, data, timeout = 10)
-            if globe.jupyterFlag == 0:
+            if globe.jupyterFlag == False:
               print(response.ok, response.status_code)
 
         time.sleep(1)
@@ -70,6 +73,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         receiver.stop()
         return True
 
+    # Wait for a result to arrive to the queue, and get results which arrived:
     def getQueueData(self):
         received = False
         
@@ -102,11 +106,15 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         return expResults
     
     def statistics(self):
+        # Create a new folder for the results:
+        if not os.path.exists('/usr/local/lib/nerlnet-lib/NErlNet/Results'):
+            os.mkdir('/usr/local/lib/nerlnet-lib/NErlNet/Results')
+
         if (len(self.experiments) == 0):
-            print("No experiments were condcted yet.")
+            print("No experiments were conducted yet.")
             return
 
-        print("STATISTICS\n")
+        print("\n---STATISTICS---\n")
         print("List of saved experiments:")
         for i, exp in enumerate(self.experiments, start=1): 
             print(f"{i}) {exp.name}")
@@ -115,6 +123,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             print("\nPlease choose an experiment number:", end = ' ')
             expNum = input()
 
+            # Add exception for non-numeric inputs:
             try:
                 expNum = int(expNum)
             except ValueError:
@@ -124,7 +133,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             if (expNum > 0 and expNum <= len(self.experiments)):
                 expForStats = self.experiments[expNum-1]
                 break
-
+            
+            # Continue with the loop if expNum is not in the list:
             else:
                 print("\nIllegal Input")
 
@@ -143,7 +153,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 print("\nIllegal Input") 
                 continue
 
-            if (option > 0 and option <= 2):
+            if (option > 0 and option <= 3):
                 break
 
             else:
@@ -192,10 +202,12 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             plt.minorticks_on()
             plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
 
+            plt.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/results/Exp:{expForStats.name}_CSV:{csvResPlot.name}.png')
             plt.show()
 
             return
 
+        # A vizualiztion for correct/wrong samples:
         if (option == 2):
             print("\nPlease prepare a CSV with the last column containing the samples' labels.")
 
@@ -212,9 +224,11 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 except OSError:
                     print("\nInvalid path\n")
 
+            # Extract the labels (last) column from the CSV. Create a list of labels:
             labelsDf = csvDf.iloc[:,-1]
             labels = pd.unique(labelsDf)
 
+            # Choose the matching (to the original labeled CSV) CSV from the prediction results list:
             numOfCsvs = len(expForStats.predictionResList)
 
             print(f"\nThe prediction phase contains {numOfCsvs} CSVs:")
@@ -238,20 +252,24 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                     else:
                         print("\nIllegal Input") 
 
-            accDict = {}
-            normsDict = {}
+            accDict = {} # For each sample: 1/0 if the prediction was right/wrong. 
+            
 
             workersPredictions = csvResAcc.workersResList
 
+            # Generate the samples' indexes from the results:
             for worker in workersPredictions:
                 for batch in worker.resList:
                     for offset, prediction in enumerate(batch.predictions):
                         sampleNum = batch.indexRange[0] + offset
+                        normsDict = {} #  For all labels: label : the "distance" of prediction from the label. 
 
+                        # The distances of the current prediction from each of the labels: 
                         for i, label in enumerate(labels):
                             newNorm = abs(prediction - label)
                             normsDict[label] = newNorm
 
+                        # If there is minimum distance from the correct label - 1. Otherwise - 0:
                         nearestLabel = min(normsDict, key=normsDict.get)
 
                         if (nearestLabel == labelsDf.iloc[sampleNum]):
@@ -260,9 +278,11 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                         else:
                             accDict[sampleNum] = 0
             
+            # Calculate the accuracy:
             correctPreds = sum(accDict.values())
             accuracy = correctPreds / len(accDict)
 
+            '''
             powIdx = 1
             while True:
                 size = powIdx**2
@@ -294,13 +314,49 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             plt.colorbar()
 
             plt.show()
+            '''
     
-            print(f"\nAccuracy calculated: {accuracy} ({accuracy*100}%).")
+            print(f"\nAccuracy acquired: {round(accuracy, 3)} ({round(accuracy*100, 3)}%).")
             return accuracy
 
         if (option == 3):
-            #TODO
-            pass
+            # Create a new folder for the CSVs of the chosen experiment:
+            if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}'):
+                os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}')
+
+            numOfTrainingCsvs = len(expForStats.trainingResList)
+            numOfPredicitionCsvs = len(expForStats.predictionResList)
+
+            print(f"\nThe training phase contains {numOfTrainingCsvs} CSVs:")
+            for i, csvTrainRes in enumerate(expForStats.trainingResList, start=1):
+                print(f"{i}) {csvTrainRes.name}")
+
+            for csvTrainRes in expForStats.trainingResList:
+                # Create a new folder for the train results:
+                if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training'):
+                    os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training')
+
+                workersResCsv = csvTrainRes.workersResList.copy() # Craete a copy of the results list for the current CSV.
+
+                for i in range(len(workersResCsv)):
+                    workersResCsv[i] = pd.Series(workersResCsv[i].resList, name = workersResCsv[i].name, index = None)
+                    
+                newCsvDf = pd.concat(workersResCsv, axis=1)
+                print(newCsvDf)
+
+                fileName = csvTrainRes.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
+                newCsvDf.to_csv(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.csv', header = True, index = False)
+            '''
+            print(f"\nThe prediction phase contains {numOfPredicitionCsvs} CSVs:")
+            for i, csvPredictionRes in enumerate(expForStats.predictionResList, start=1):
+                print(f"{i}) {csvPredictionRes.name}")
+
+            # Generate the samples' indexes from the results:
+            for worker in workersPredictions:
+                for batch in worker.resList:
+                    for offset, prediction in enumerate(batch.predictions):
+                        sampleNum = batch.indexRange[0] + offset
+            '''
 
 if __name__ == "__main__":
     apiServerInst = ApiServer()

@@ -36,15 +36,14 @@ expFlow = json.load(file)
 # Dict with {worker : csv}:
 workerCsv = {}
 
-# Check the platform we are running on:
+# Check if we are running on Jupyter Notebook, to disable logging prompts:
 ipythonPlatform = str(type(get_ipython()))
 
-if 'zmqshell' in ipythonPlatform:
-    jupyterFlag =  1 #Return 1 for Jupyter Notebook.
-elif 'terminal' in ipythonPlatform:
-    jupyterFlag =  2 #Return 2 for IPython Shell.
-else:
-    jupyterFlag =  0 #Return 0 for Terminal.
+if 'zmqshell' in ipythonPlatform: # Check if runnnig on Jupyter Notebook.
+    jupyterFlag =  True 
+
+else: 
+    jupyterFlag = False
 
 # Prepare to get results from the receiver:
 expResults = Experiment()
