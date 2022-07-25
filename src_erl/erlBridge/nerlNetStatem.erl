@@ -271,10 +271,15 @@ wait(cast, {predict}, State) ->
   io:fwrite("Waiting, next state - predict: \n"),
   {next_state, wait, State#nerlNetStatem_state{nextState = predict,ackClient=1}};
 
-wait(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = MissedTrainSamples}) ->
+wait(cast, {sample, _SampleListTrain}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = MissedTrainSamples}) ->
   io:fwrite("Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
-  Miss = MissedTrainSamples++SampleListTrain,
-  {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1, missedTrainSamples = Miss}};
+  % Miss = MissedTrainSamples++SampleListTrain,
+  {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1}};
+
+wait(cast, {sample,_CSVname, _BatchID, _SampleListPredict}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = MissedTrainSamples}) ->
+  io:fwrite("Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
+  % Miss = MissedTrainSamples++SampleListTrain,
+  {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1}};
 
 wait(cast, Param, State) ->
   io:fwrite("worker Not supposed to be. Got: ~p\n",[Param]),

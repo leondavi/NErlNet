@@ -170,8 +170,8 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{nerlnetGraph = Nerl
 
   case NewCastingList of
     [] -> NextState = State#main_genserver_state{state = idle, sourcesCastingList = NewCastingList,msgCounter = MsgCounter},
-          gen_server:cast(self(),{clientsIdle});
-          % ack(NerlnetGraph);
+          gen_server:cast(self(),{clientsIdle}),
+          ack(NerlnetGraph);
     _ -> NextState = State#main_genserver_state{state = casting, sourcesCastingList = NewCastingList,msgCounter = MsgCounter+1}
   end,
   {noreply, NextState};
@@ -228,23 +228,26 @@ handle_cast({stopCasting,Source_Names}, State = #main_genserver_state{state = ca
 
 handle_cast({lossFunction,<<>>}, State = #main_genserver_state{msgCounter = MsgCounter}) ->
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
-  handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
-        {RouterHost,RouterPort} = getShortPath(MyName,"serverAPI",NerlnetGraph),
-        % io:format("{RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
-      case   binary_to_term(Body) of
-        {WorkerName,{LossFunction,_Time}} ->
-        io:format("main server got loss function:- ~p~n",[binary_to_term(Body)]),
-        %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-        http_request(RouterHost,RouterPort,"lossFunction", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction));
-        {WorkerName,LossFunction} ->
-        io:format("main server got loss function:- ~p~n",[binary_to_term(Body)]),
-        %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-        http_request(RouterHost,RouterPort,"lossFunction", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction))
-        end,
-        %%  file:write_file("./output/"++WorkerName, LossFunction++"\n", [append]),
+handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
+  try
+    {RouterHost,RouterPort} = getShortPath(MyName,"serverAPI",NerlnetGraph),
+    % io:format("sending loss to serverAPI {RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
+    case   binary_to_term(Body) of
+      {WorkerName,{LossFunction,_Time}} ->
+      io:format("main server got loss function:- ~p~n",[binary_to_term(Body)]),
+      %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
+      http_request(RouterHost,RouterPort,"lossFunction", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction));
+      {WorkerName,LossFunction} ->
+      io:format("main server got loss function:- ~p~n",[binary_to_term(Body)]),
+      %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
+      http_request(RouterHost,RouterPort,"lossFunction", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction))
+      end
+      %%  file:write_file("./output/"++WorkerName, LossFunction++"\n", [append]),
 
     
-
+  catch _Err:_E ->
+          io:format("loop - ignore ~n",[])
+  end,
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
 % handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSize, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
@@ -271,6 +274,10 @@ handle_cast({lossFunction,<<>>}, State = #main_genserver_state{msgCounter = MsgC
 %   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
 handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSize, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
+  try
+  {RouterHost,RouterPort} = getShortPath("mainServer","serverAPI",NerlnetGraph),
+  % io:format("sending predictRes to serverAPI {RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
+
   {WorkerName,InputName,BatchID,Result}=binary_to_term(Body),
   if (Result==[]) ->
         ListOfResults = ["error"||_<-lists:seq(1,BatchSize)];
@@ -285,15 +292,16 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
       CSVName = getCSVName(InputName),
       %%  file:write_file("./output/"++"predict"++CSVName, ResultID++" " ++Result++"\n", [append]),
       % writeToFile(ListOfResults,BatchID,CSVName,BatchSize),
-        {RouterHost,RouterPort} = getShortPath("mainServer","serverAPI",NerlnetGraph),
 
       %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
       %%  send an ACK to mainserver that the CSV file is ready
       %FloatsString = [float_to_list(Float)++","||Float<-ListOfResults],
       ToSend=WorkerName++"#"++Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize),
       io:format("predictResID- ~p~n",[ToSend]),
-      http_request(RouterHost,RouterPort,"predictRes",ToSend),
-
+      http_request(RouterHost,RouterPort,"predictRes",ToSend)
+  catch _Err:_E ->
+          io:format("loop - ignore ~n",[])
+  end,
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
 
