@@ -138,7 +138,7 @@ idle(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId=
   % _Result_set_weights2 = niftest:set_weights_nif(WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list, ModelId),
  io:format("####sending new weights to workers####~n"),
   %niftest:call_to_set_weights(ModelId, Ret_weights_list),
-  io:format("####end set weights####~n"),
+  io:format("####end set weights idle####~n"),
 
   {next_state, idle, State};
 
@@ -238,7 +238,7 @@ wait(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextStat
   % _Result_set_weights = niftest:set_weights_nif(WeightsList, BiasList, NewBiases_sizes_list, NewWeights_sizes_list, ModelId),
    io:format("####sending new weights to workers####~n"),
   %niftest:call_to_set_weights(ModelId, Ret_weights_list),
-  io:format("####end set weights####~n"),
+  io:format("####end set weights wait####~n"),
 
   % checkAndAck(MyName,ClientPid,AckClient),
 
@@ -318,8 +318,8 @@ train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = Mo
   % NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
   % _Result_set_weights = niftest:set_weights_nif(WeightsList, BiasList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
   io:format("####sending new weights to workers####~n"),
-  %niftest:call_to_set_weights(ModelId, Ret_weights_list),
-  io:format("####end set weights####~n"),
+  niftest:call_to_set_weights(ModelId, Ret_weights_list),
+  io:format("####end set weights train####~n"),
   {next_state, train, State};
 
 
