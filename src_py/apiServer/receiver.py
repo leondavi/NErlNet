@@ -14,7 +14,8 @@ api = Api(receiver)
 #lossArgs = reqparse.RequestParser()
 #lossArgs.add_argument('lossFunction', type='str', help='Receiver Error - Please send lossFunction')
 
-if globe.jupyterFlag == 1: #If in Jupyter Notebook: Disable logging messages
+#If in Jupyter Notebook: Disable logging messages:
+if globe.jupyterFlag == True: 
     logging.getLogger('werkzeug').disabled = True
 
 def initReceiver(receiverHost, receiverPort, event):
@@ -67,7 +68,7 @@ class test(Resource):
 class ack(Resource):
     def post(self):
         globe.pendingAcks -= 1
-        if globe.jupyterFlag == 0:
+        if globe.jupyterFlag == False:
             resData = request.form['ack']
             print(resData + 'Ack Received!')
             print(globe.pendingAcks)
@@ -78,7 +79,7 @@ class trainRes(Resource):
         resData = request.form
         resData = list(resData)
         resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter
-        if globe.jupyterFlag == 0:
+        if globe.jupyterFlag == False:
             print(resData)
 
         processResult(resData, "Training")
@@ -92,7 +93,7 @@ class predictRes(Resource):
         resData = request.form
         resData = list(resData)
         resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter:
-        if globe.jupyterFlag == 0:
+        if globe.jupyterFlag == False:
             print(resData)
 
         processResult(resData, "Prediction")

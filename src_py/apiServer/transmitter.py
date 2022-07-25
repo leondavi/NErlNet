@@ -26,7 +26,7 @@ class Transmitter:
     def clientsTraining(self):
         print('Clients Training Phase')
         response = requests.post(self.clientsTrainingAddress, data='')
-        if globe.jupyterFlag == 0:
+        if globe.jupyterFlag == False:
             print(response.ok, response.status_code)
         
     def updateCSV(self, currentPhase): # currentPhase is either "Training", "Prediction" or "Statistics". 
@@ -40,7 +40,7 @@ class Transmitter:
             dataStr = f'{sourceName},{workersUnderSource},{csvPathForSource}'
 
         response = requests.post(self.updateCSVAddress, data=dataStr)
-        if globe.jupyterFlag == 0:
+        if globe.jupyterFlag == False:
             print(response.ok, response.status_code)
 
     def startCasting(self, phase): # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
@@ -57,13 +57,13 @@ class Transmitter:
 
         response = requests.post(self.startCastingAddress, data=dataStr)
 
-        if globe.jupyterFlag == 0:
+        if globe.jupyterFlag == False:
             print(response.ok, response.status_code)
 
     def clientsPredict(self):
         print('Clients Predict Phase')
         response = requests.post(self.clientsPredictAddress, data='')
-        if globe.jupyterFlag == 0:
+        if globe.jupyterFlag == False:
             print(response.ok, response.status_code)
 
     def train(self):
