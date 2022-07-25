@@ -14,5 +14,5 @@ class PredictBatch():
         predsList = preds[3:]
         self.predictions = [float(pred) for pred in predsList]
         
-        self.indexRange = (self.batchSize * self.batchId, (self.batchSize * self.batchId) - 1)
+        self.indexRange = ((self.batchSize*self.batchId) + 1, (self.batchSize*self.batchId))
 
