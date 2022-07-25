@@ -143,7 +143,7 @@ idle(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId=
   {next_state, idle, State};
 
 idle(cast, Param, State) ->
-  io:fwrite("Same state idle, command: ~p\n",[Param]),
+  % io:fwrite("Same state idle, command: ~p\n",[Param]),
   {next_state, idle, State}.
 
 %% Regular mode (Not federated)
@@ -340,7 +340,7 @@ train(cast, {predict}, State = #nerlNetStatem_state{myName = MyName, clientPid =
   {next_state, predict, State};
 
 train(cast, Param, State) ->
-  io:fwrite("Same state train, not supposed to be, command: ~p\n",[Param]),
+  % io:fwrite("Same state train, not supposed to be, command: ~p\n",[Param]),
   {next_state, train, State}.
 
 %% State predict

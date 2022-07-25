@@ -236,11 +236,13 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, 
       {WorkerName,{LossFunction,_Time}} ->
       io:format("main server got loss function:- ~p~n",[binary_to_term(Body)]),
       %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-      http_request(RouterHost,RouterPort,"lossFunction", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction));
+      % http_request(RouterHost,RouterPort,"lossFunc", atom_to_list(WorkerName)++"#"++float_to_list(1.01));
+      http_request(RouterHost,RouterPort,"lossFunc", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction));
       {WorkerName,LossFunction} ->
       io:format("main server got loss function:- ~p~n",[binary_to_term(Body)]),
       %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-      http_request(RouterHost,RouterPort,"lossFunction", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction))
+      % http_request(RouterHost,RouterPort,"lossFunc", atom_to_list(WorkerName)++"#"++float_to_list(1.01))
+      http_request(RouterHost,RouterPort,"lossFunc", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction))
       end
       %%  file:write_file("./output/"++WorkerName, LossFunction++"\n", [append]),
 
@@ -298,7 +300,7 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
       %FloatsString = [float_to_list(Float)++","||Float<-ListOfResults],
       ToSend=WorkerName++"#"++Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize),
       io:format("predictResID- ~p~n",[ToSend]),
-      http_request(RouterHost,RouterPort,"predictRes",ToSend)
+      http_request(RouterHost,RouterPort,"predRes",ToSend)
   catch _Err:_E ->
           io:format("loop - ignore ~n",[])
   end,
@@ -377,8 +379,39 @@ http_request(Host, Port,Path, Body)->
   URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
 %%  io:format("sending:  ~p~nto HostPo: ~p~n",[Body,{Host, Port}]),
-  _R = httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
-  %io:format("request:~p~n",[{R, Host, Port,Path, Body}]).
+  R = httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []),
+  {ok,Res} = R,
+  Approve = element(2,element(1,Res)),
+  case Approve of
+    404 ->
+        io:format("sending:  ~p~nto HostPo: ~p~n Res: ~p",[Body,{Host, Port},R]),
+        io:format("Trying again in 1 second~n"),
+        timer:sleep(1000),
+        spawn(fun() ->http_request(Host, Port,Path, Body) end);
+      _ -> ok
+  end,
+ % if py
+  Ans = lists:sublist(element(3,Res),8),
+  case Ans of
+    "Somthing" ->
+        io:format("sending:  ~p~nto HostPo: ~p~nRes: ~p",[Body,{Host, Port},R]),
+        io:format("Trying again in 1 second~n"),
+        timer:sleep(1000),
+        spawn(fun() ->http_request(Host, Port,Path, Body) end);
+      _ -> ok
+  end,
+ % if python cant receive the request it turns back like this:
+  % request:{{ok,{{"HTTP/1.1",200,"OK"},
+  %             [{"date","Mon, 25 Jul 2022 15:47:41 GMT"},
+  %              {"server","Cowboy"},
+  %              {"content-length","96"},
+  %              {"content-type","text/plain"}],
+  %             "Somthing went wrong..Path attempted: <<\"/lossFunc\">>,\nBody: <<\"w2#1.01000000000000000888e+00\">>\n"}},
+  %        "127.0.0.1",8095,"lossFunc","w2#1.01000000000000000888e+00"}
+
+
+
+  io:format("request:~p~n",[{R, Host, Port,Path, Body}]).
 
 
 %%Receives a list of routers and connects to them
@@ -432,7 +465,7 @@ ack(NerlnetGraph) ->
   io:format("sending ACK to serverAPI~n"),
   {_,{Host, Port}} = digraph:vertex(NerlnetGraph,"serverAPI"),
 %%  send an ACK to mainserver that the CSV file is ready
-  http_request(Host, Port,"ack","ack").
+  http_request(Host, Port,"ackP","ack").
 
 getCSVName(InputName) ->
   lists:last(re:split(InputName, "/", [{return, list}])--[[]]).

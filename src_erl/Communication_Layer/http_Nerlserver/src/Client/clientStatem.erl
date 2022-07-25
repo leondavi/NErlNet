@@ -110,6 +110,14 @@ waitforWorkers(cast, {stateChange,WorkerName}, State = #client_statem_state{myNa
             {next_state, NextState, State#client_statem_state{waitforWorkers = [], msgCounter = Counter+1}};
     _->  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers, msgCounter = Counter+1}}
   end;
+
+waitforWorkers(cast, {NewState}, State = #client_statem_state{myName = MyName, workersMap = WorkersMap, nerlnetGraph = NerlnetGraph, msgCounter = Counter,waitforWorkers = WaitforWorkers,nextState = NextState}) ->
+  io:format("client going to state ~p~n",[State]),
+  Workers = maps:to_list(WorkersMap),
+  [gen_statem:cast(WorkerPid,{NewState})|| {_WorkerName,WorkerPid}<-Workers],
+  MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+  {next_state, waitforWorkers, State#client_statem_state{nextState = NewState, waitforWorkers = MyWorkers, msgCounter = Counter+1}};
+
   
 waitforWorkers(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
   io:format("client waitforWorkers ignored!!!:  ~p ~n",[EventContent]),
@@ -315,23 +323,16 @@ URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
 httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
 httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
 
-
 ack(MyName, NerlnetGraph) ->
-
   io:format("~p sending ACK   ~n",[MyName]),
-{RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
-%%  send an ACK to mainserver that the CSV file is ready
-http_request(RouterHost,RouterPort,"clientReady",MyName).
-
-
-
+  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+  %%  send an ACK to mainserver that the CSV file is ready
+  http_request(RouterHost,RouterPort,"clientReady",MyName).
 
 getShortPath(From,To,NerlnetGraph) when is_atom(To)-> 
-
   First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,atom_to_list(To))),
-
-{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
-{Host,Port};
+  {_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
+  {Host,Port};
 
 getShortPath(From,To,NerlnetGraph) -> 
 First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
