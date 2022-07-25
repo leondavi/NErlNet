@@ -170,32 +170,31 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{nerlnetGraph = Nerl
 
   case NewCastingList of
     [] -> NextState = State#main_genserver_state{state = idle, sourcesCastingList = NewCastingList,msgCounter = MsgCounter},
-          gen_server:cast(self(),{clientsIdle}),
-          ack(NerlnetGraph);
+          gen_server:cast(self(),{clientsIdle});
+          % ack(NerlnetGraph);
     _ -> NextState = State#main_genserver_state{state = casting, sourcesCastingList = NewCastingList,msgCounter = MsgCounter+1}
   end,
   {noreply, NextState};
 
 handle_cast({sourceAck,Body}, State = #main_genserver_state{nerlnetGraph = NerlnetGraph, sourcesWaitingList = WaitingList,msgCounter = MsgCounter}) ->
-   io:format("~n~p sent ACK ~n",[list_to_atom(binary_to_list(Body))]),
+    io:format("~n~p sent ACK ~n",[list_to_atom(binary_to_list(Body))]),
 %%  io:format("new Waiting List: ~p ~n",[WaitingList--[list_to_atom(binary_to_list(Body))]]),
-  NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
-%%  if length(NewWaitingList) == 0 ->
-    ack(NerlnetGraph),
-%%    true->
-%%      io:format("~p sent ACK~n new sourceWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
-%%  end,
+    NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
+    if length(NewWaitingList) == 0 ->
+        ack(NerlnetGraph);
+      true->
+        io:format("~p sent ACK~n new sourceWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
+    end,
   {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList,msgCounter = MsgCounter+1}};
 
 
-handle_cast({clientAck,Body}, State = #main_genserver_state{ clientsWaitingList = WaitingList,msgCounter = MsgCounter,nerlnetGraph = NerlnetGraph}) ->
+handle_cast({clientAck,Body}, State = #main_genserver_state{ state = CurrState, clientsWaitingList = WaitingList,msgCounter = MsgCounter,nerlnetGraph = NerlnetGraph}) ->
   NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
   if length(NewWaitingList) == 0 ->
         ack(NerlnetGraph);
         % ack(NerlnetGraph);
-          
     true->
-            io:format("~p sent ACK~n new clientWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
+        io:format("~p sent ACK~n new clientWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
     end,
   {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList, msgCounter = MsgCounter+1}};
 
@@ -399,7 +398,7 @@ http_request(Host, Port,Path, Body)->
         timer:sleep(1000),
         spawn(fun() ->http_request(Host, Port,Path, Body) end);
       _ -> ok
-  end,
+  end.
  % if python cant receive the request it turns back like this:
   % request:{{ok,{{"HTTP/1.1",200,"OK"},
   %             [{"date","Mon, 25 Jul 2022 15:47:41 GMT"},
@@ -411,7 +410,7 @@ http_request(Host, Port,Path, Body)->
 
 
 
-  io:format("request:~p~n",[{R, Host, Port,Path, Body}]).
+  % io:format("request:~p~n",[{R, Host, Port,Path, Body}]).
 
 
 %%Receives a list of routers and connects to them
