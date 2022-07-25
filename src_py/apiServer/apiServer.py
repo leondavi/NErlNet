@@ -160,6 +160,14 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 print("\nIllegal Input") 
         
         if (option == 1):
+            # Create a new folder for to save an image of the plot:
+            if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}'):
+                os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}')
+                os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training')
+
+            elif not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training'):
+                os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training')
+
             numOfCsvs = len(expForStats.trainingResList)
 
             print(f"\nThe training phase contains {numOfCsvs} CSVs:")
@@ -202,7 +210,10 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             plt.minorticks_on()
             plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
 
-            plt.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/results/Exp:{expForStats.name}_CSV:{csvResPlot.name}.png')
+            fileName = csvResPlot.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
+            plt.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.png')
+            print(f'\n{fileName}.png was Saved...')
+
             plt.show()
 
             return
