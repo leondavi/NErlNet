@@ -257,7 +257,7 @@ sendToAll([Head|ListOfSamples],CSVPath,ChunkSize,Hz,Pid,Triplets,Counter)->
     {stopCasting}  ->
       io:format("source stop casting",[]),
       gen_statem:cast(Pid,{leftOvers,ListOfSamples})
-  after Hz-> sendToAll(ListOfSamples,CSVPath,ChunkSize,Hz,Pid,Triplets,Counter+length(Triplets))
+  after Hz-> sendToAll(ListOfSamples,CSVPath,ChunkSize,Hz,Pid,Triplets,Counter+1)
   end.
 
 %%Sends one batch of samples to a client
