@@ -327,37 +327,52 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             numOfTrainingCsvs = len(expForStats.trainingResList)
             numOfPredicitionCsvs = len(expForStats.predictionResList)
 
-            print(f"\nThe training phase contains {numOfTrainingCsvs} CSVs:")
+            print(f"\nCreating training results files for the following {numOfTrainingCsvs} CSVs:")
             for i, csvTrainRes in enumerate(expForStats.trainingResList, start=1):
                 print(f"{i}) {csvTrainRes.name}")
+            print('\n')
 
             for csvTrainRes in expForStats.trainingResList:
                 # Create a new folder for the train results:
                 if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training'):
                     os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training')
 
-                workersResCsv = csvTrainRes.workersResList.copy() # Craete a copy of the results list for the current CSV.
+                workersTrainResCsv = csvTrainRes.workersResList.copy() # Craete a copy of the results list for the current CSV.
 
-                for i in range(len(workersResCsv)):
-                    workersResCsv[i] = pd.Series(workersResCsv[i].resList, name = workersResCsv[i].name, index = None)
+                for i in range(len(workersTrainResCsv)):
+                    workersTrainResCsv[i] = pd.Series(workersTrainResCsv[i].resList, name = workersTrainResCsv[i].name, index = None)
                     
-                newCsvDf = pd.concat(workersResCsv, axis=1)
-                print(newCsvDf)
+                newCsvDf = pd.concat(workersTrainResCsv, axis=1)
 
                 fileName = csvTrainRes.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
                 newCsvDf.to_csv(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.csv', header = True, index = False)
-            '''
-            print(f"\nThe prediction phase contains {numOfPredicitionCsvs} CSVs:")
+                print(f'{fileName}.csv Saved...')
+            
+            print(f"\nCreating prediction results files for the following {numOfPredicitionCsvs} CSVs:")
             for i, csvPredictionRes in enumerate(expForStats.predictionResList, start=1):
                 print(f"{i}) {csvPredictionRes.name}")
+            print('\n')
 
-            # Generate the samples' indexes from the results:
-            for worker in workersPredictions:
-                for batch in worker.resList:
-                    for offset, prediction in enumerate(batch.predictions):
-                        sampleNum = batch.indexRange[0] + offset
-            '''
+            for csvPredictRes in expForStats.predictionResList:
+                # Create a new folder for the prediction results:
+                if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction'):
+                    os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction')
 
+                csvPredictResDict = {} # Dictionary of sampleIndex : [worker, batchId]
+
+                # Add the results to the dictionary
+                for worker in csvPredictRes.workersResList:
+                    for batch in worker.resList:
+                        for offset, prediction in enumerate(batch.predictions):
+                            sampleNum = batch.indexRange[0] + offset
+                            csvPredictResDict[sampleNum] = [prediction, batch.worker, batch.batchId]
+
+                csvPredictResDf = pd.DataFrame.from_dict(csvPredictResDict, orient='index', columns = ['Prediction', 'Handled By Worker', 'Batch ID'])
+
+                fileName = csvPredictRes.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
+                csvPredictResDf.to_csv(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.csv', header = True, index = True)
+                print(f'{fileName}.csv Saved...')
+                
 if __name__ == "__main__":
     apiServerInst = ApiServer()
     apiServerInst.sendJsonsToDevices()
