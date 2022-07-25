@@ -368,6 +368,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                             csvPredictResDict[sampleNum] = [prediction, batch.worker, batch.batchId]
 
                 csvPredictResDf = pd.DataFrame.from_dict(csvPredictResDict, orient='index', columns = ['Prediction', 'Handled By Worker', 'Batch ID'])
+                csvPredictResDf.index.name = 'Sample Index'
 
                 fileName = csvPredictRes.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
                 csvPredictResDf.to_csv(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.csv', header = True, index = True)
