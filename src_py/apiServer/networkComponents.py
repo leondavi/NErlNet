@@ -11,10 +11,15 @@ class NetworkComponents():
         # Getting the desired batch size:
         self.batchSize = int(self.jsonData['NerlNetSettings'][0]['batchSize'])
         self.frequency = int(self.jsonData['NerlNetSettings'][0]['frequency'])
-        # Getting IP address of the main server:
+
+        # Getting the address of the main server:
         mainServerJson = self.jsonData['mainServer'][0]
         self.mainServerIp = mainServerJson['host']
         self.mainServerPort = mainServerJson['port']
+
+        # Getting the address for the receiver:
+        self.receiverHost = self.jsonData['serverAPI'][0]['host']
+        self.receiverPort = self.jsonData['serverAPI'][0]['port']
 
         # Initializing lists for all the relevant components:
         self.devicesIp = []
@@ -54,8 +59,20 @@ class NetworkComponents():
         for router in routersJsons:
             self.routers.append(router['name'])
 
+        # Checking is we are running an AEC in the current architecture:
+        model = self.jsonData['workers'][0]['modelType']
+
+        if (model == '7'):
+            self.aec = 1
+        else:
+            self.aec = 0
+
+
+
+
     def printComponents(self):
         print(f"Network components:\n \
+                Receiver's Address: http://{self.receiverHost}:{self.receiverPort}\n \
                 Batchsize: {self.batchSize}\n \
                 Frequency: {self.frequency}\n \
                 devicesIp: {self.devicesIp}\n \
@@ -65,7 +82,8 @@ class NetworkComponents():
                 Workers: {self.workers}\n \
                 Federated networks: {self.federateds}\n \
                 Sources: {self.sources}\n \
-                Routers: {self.routers}\n")
+                Routers: {self.routers}\n \
+                Running AEC: {self.aec}")
 
     def checkIdenticalAdresses(self):
         addressesDict = {}
