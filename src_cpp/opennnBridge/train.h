@@ -193,10 +193,14 @@ static void* trainFun(void* arg){
          //chech the inputs from erlang and neural network architecture ---------------------------------------------------
          //TestingAnalysis testing_analysis(&*neural_network, &data_set);
          TestingAnalysis testing_analysis;
+         cout << "8181818181" <<std::endl; 
          testing_analysis.set_neural_network_pointer(&*neural_network);
+         cout << "8282828282" <<std::endl; 
          testing_analysis.set_data_set_pointer(&data_set);
+         cout << "8383838383" <<std::endl; 
 
          training_strategy.set_maximum_epochs_number(1); 
+         cout << "8848484848484" <<std::endl; 
          training_strategy.set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF);
          
          cout << "9999999999" <<std::endl; 
