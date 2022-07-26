@@ -240,7 +240,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
             # If we are running an AEC - convert the 2 labels to 1's and 0's. (Majority (90%) label -> 1, Minority (10%) label -> 0).
             if (globe.components.aec == 1):
-                maxOccuranceLabel = max(labelsSeries.value_counts())
+                labelsOccuranceSeries = labelsSeries.value_counts()
+                maxOccuranceLabel = labelsOccuranceSeries.idxmax()
                 labelsSeries = (labelsSeries == maxOccuranceLabel).astype(int)
                 
             labels = pd.unique(labelsSeries)
@@ -271,7 +272,6 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
             accDict = {} # For each sample: 1/0 if the prediction was right/wrong. 
             
-
             workersPredictions = csvResAcc.workersResList
 
             # Generate the samples' indexes from the results:
