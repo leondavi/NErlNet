@@ -245,7 +245,7 @@ wait(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextStat
   {next_state, wait, State#nerlNetStatem_state{}};
 
 wait(cast, {predictRes,Res,CSVname,BatchID}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid, nextState = NextState,ackClient = AckClient}) ->
-    io:fwrite("~nworker got predict result ~p~n",[{predictRes,Res,CSVname,BatchID}]),
+   % io:fwrite("~nworker got predict result ~p~n",[{predictRes,Res,CSVname,BatchID}]),
 
   gen_statem:cast(ClientPid,{predictRes,MyName, CSVname,BatchID, Res}), %% TODO TODO change csv name and batch id(1)
   checkAndAck(MyName,ClientPid,AckClient),

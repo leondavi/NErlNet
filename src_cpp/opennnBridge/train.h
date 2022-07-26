@@ -50,20 +50,18 @@ static void* trainFun(void* arg){
              
          DataSet data_set;
 
-         cout << "1111111111" <<std::endl; 
+         
          // Get the singleton instance
          opennnBridgeController *s = s->GetInstance();
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(TrainNNptr->mid);
-         cout << "2222222" <<std::endl; 
+       
          int modelType = s->getModelType(TrainNNptr->mid);
-         cout << "333333" <<std::endl; 
-
+      
          
             
          std::shared_ptr<Eigen::Tensor<float,2>> autoencoder_data;// = std::make_shared<Eigen::Tensor<float,2>>();
          std::shared_ptr<Eigen::Tensor<float,2>> data_temp = std::make_shared<Eigen::Tensor<float,2>>();
-        
-         cout << "4444444" <<std::endl; 
+    
          
 
          //int first_layer_size = 0;
@@ -99,13 +97,13 @@ static void* trainFun(void* arg){
                    }
            }
 
-            cout << "5555555" <<std::endl; 
+
            TrainingStrategy training_strategy;
           if(flag == true) {
             training_strategy.set_neural_network_pointer(neural_network.get()); // Line 95 should be executed before line 96 due to openNN issue
             training_strategy.set_data_set_pointer(&data_set);
         
-         cout << "6666666" <<std::endl; 
+     
 
             // set Optimization Method  -------------------------------------------------------------
             try{
@@ -151,7 +149,7 @@ static void* trainFun(void* arg){
             // end set optimization method ---------------------------------------------------------------
            
             // set Loss Method ------------------------------------------------------------------------
-           cout << "7777777777" <<std::endl; 
+       
             try{
             if(TrainNNptr->lose_method == E_LOSS_METHOD_SUM_SQUARED_ERROR){
                 training_strategy.set_loss_method(TrainingStrategy::LossMethod::SUM_SQUARED_ERROR);
