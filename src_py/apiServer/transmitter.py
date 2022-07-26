@@ -39,7 +39,7 @@ class Transmitter:
 
             dataStr = f'{sourceName},{workersUnderSource},{csvPathForSource}'
 
-        response = requests.post(self.updateCSVAddress, data=dataStr)
+            response = requests.post(self.updateCSVAddress, data=dataStr)
         if globe.jupyterFlag == False:
             print(response.ok, response.status_code)
 
