@@ -275,7 +275,7 @@ static void* trainFun(void* arg){
           //ERL_NIF_TERM loss_val_term = enif_make_double(env, loss_val);
          ERL_NIF_TERM train_time = enif_make_double(env, duration.count());
          
-         cout << "end train" <<std::endl;
+        
         
          //ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 2, loss_val_term,enif_make_double(env, duration.count()));
          ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 2, loss_val_term,train_time);
@@ -290,6 +290,7 @@ static void* trainFun(void* arg){
         }
          }
          catch(...){cout << "catch in testing_analysis" << endl;}
+         cout << "end train" <<std::endl;
          return 0;
          //return enif_make_string(env, "end TRAIN mode", ERL_NIF_LATIN1);
 }
