@@ -246,8 +246,8 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, 
       %%  file:write_file("./output/"++WorkerName, LossFunction++"\n", [append]),
 
     
-  catch _Err:_E ->
-          io:format("loop - ignore ~n",[])
+  catch Err:E ->
+          io:format("Error receiving loss function ~p~n",[{Err,E}])
   end,
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
@@ -300,8 +300,8 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
       ToSend=WorkerName++"#"++Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize),
       io:format("predictResID- ~p~n",[ToSend]),
       http_request(RouterHost,RouterPort,"predRes",ToSend)
-  catch _Err:_E ->
-          io:format("loop - ignore ~n",[])
+  catch Err:E ->
+          io:format("Error receiving predict result ~p~n",[{Err,E}])
   end,
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
