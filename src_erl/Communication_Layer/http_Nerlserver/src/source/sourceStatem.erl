@@ -263,6 +263,9 @@ sendToAll([Head|ListOfSamples],CSVPath,ChunkSize,LengthOfSample,Hz,Pid,Triplets,
 
 %%Sends one batch of samples to a client
 sendSample(Sample,CSVPath,LengthOfSample, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
+  % when two workers(or more) are on the same device, they need a few miliseconds apart TODO remove this and manage on client
+  timer:sleep(5),
+  
   case byte_size(Sample) of
     LengthOfSample ->
         ToSend = term_to_binary({ClientName, WorkerName, CSVPath, BatchID, Sample}),

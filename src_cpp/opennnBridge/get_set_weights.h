@@ -43,12 +43,13 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         cout << parameters.size() <<std::endl;
         // cout << parameters <<std::endl;
     
-
+        try{
          if(enif_send(NULL,&(pid), env,erl_parameters)){
              printf("enif_send succeed\n");
          }
          else printf("enif_send failed\n");
-
+        }
+        catch(...){ cout << "/////////////////////////////////////////#################" <<std::endl;}
          return enif_make_string(env, "end get_weights_nif ", ERL_NIF_LATIN1);
 
      //return enif_make_int(env,0);
