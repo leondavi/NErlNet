@@ -50,11 +50,13 @@ static void* trainFun(void* arg){
              
          DataSet data_set;
 
-        
+         cout << "1111111111" <<std::endl; 
          // Get the singleton instance
          opennnBridgeController *s = s->GetInstance();
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(TrainNNptr->mid);
+         cout << "2222222" <<std::endl; 
          int modelType = s->getModelType(TrainNNptr->mid);
+         cout << "333333" <<std::endl; 
 
          
             
