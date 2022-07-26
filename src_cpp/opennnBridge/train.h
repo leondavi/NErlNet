@@ -192,11 +192,12 @@ static void* trainFun(void* arg){
          // do NN trainig
          //chech the inputs from erlang and neural network architecture ---------------------------------------------------
          //TestingAnalysis testing_analysis(&*neural_network, &data_set);
-         TestingAnalysis testing_analysis;
+         //TestingAnalysis testing_analysis;
+         std::shared_ptr<OpenNN::TestingAnalysis> testing_analysis =  std::make_shared<OpenNN::TestingAnalysis>();
          cout << "8181818181" <<std::endl; 
-         testing_analysis.set_neural_network_pointer(&*neural_network);
+         testing_analysis->set_neural_network_pointer(&*neural_network);
          cout << "8282828282" <<std::endl; 
-         testing_analysis.set_data_set_pointer(&data_set);
+         testing_analysis->set_data_set_pointer(&data_set);
          cout << "8383838383" <<std::endl; 
 
          training_strategy.set_maximum_epochs_number(1); 
@@ -234,8 +235,8 @@ static void* trainFun(void* arg){
 
             try{ 
                
-                Tensor< type, 2 > calculate_errors = testing_analysis.calculate_errors();
-            Tensor<type, 1> testing_errors = testing_analysis.calculate_testing_errors();
+                Tensor< type, 2 > calculate_errors = testing_analysis->calculate_errors();
+            Tensor<type, 1> testing_errors = testing_analysis->calculate_testing_errors();
             //sse - testing_errors[0]
             //mse - testing_errors[1]
             //root mse - testing_errors[2]
