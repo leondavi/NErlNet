@@ -3,7 +3,6 @@ from flask import Flask, request, jsonify
 from flask_restful import Api, Resource, reqparse
 from globalVars import *
 import globalVars as globe
-import multiprocessing
 import logging
 from predictBatch import *
 
@@ -15,11 +14,17 @@ api = Api(receiver)
 #lossArgs = reqparse.RequestParser()
 #lossArgs.add_argument('lossFunction', type='str', help='Receiver Error - Please send lossFunction')
 
-if globe.jupyterFlag == 1: #If in Jupyter Notebook: Disable logging messages
+#If in Jupyter Notebook: Disable logging messages:
+if globe.jupyterFlag == True: 
     logging.getLogger('werkzeug').disabled = True
 
-def initReceiver():
-    receiver.run(threaded=True, host='127.0.0.1', port=8095)
+def initReceiver(receiverHost, receiverPort, event):
+        try:
+            receiver.run(threaded = True, host = receiverHost, port = receiverPort) 
+
+        except:
+            event.set()
+            return
 
 def processResult(resData, currentPhase):
         if (currentPhase == "Training"):
@@ -63,7 +68,7 @@ class test(Resource):
 class ack(Resource):
     def post(self):
         globe.pendingAcks -= 1
-        if globe.jupyterFlag == 0:
+        if globe.jupyterFlag == False:
             resData = request.form['ack']
             print(resData + 'Ack Received!')
             print(globe.pendingAcks)
@@ -74,7 +79,7 @@ class trainRes(Resource):
         resData = request.form
         resData = list(resData)
         resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter
-        if globe.jupyterFlag == 0:
+        if globe.jupyterFlag == False:
             print(resData)
 
         processResult(resData, "Training")
@@ -88,7 +93,7 @@ class predictRes(Resource):
         resData = request.form
         resData = list(resData)
         resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter:
-        if globe.jupyterFlag == 0:
+        if globe.jupyterFlag == False:
             print(resData)
 
         processResult(resData, "Prediction")
@@ -128,4 +133,36 @@ def processResult(resData, resList, currentPhase):
         resList[dictIdx][worker] = [result]
     else:
         resList[dictIdx][worker].append(result)
+"""
+
+"""
+while True:
+                print("1) Use the default address (http://127.0.0.1:8095).")
+                print("2) Enter an address manually.")
+                print("\nPlease choose an option:", end = ' ')
+
+                option = input()
+
+                try:
+                    option = int(option)
+                except ValueError:
+                    print("\nIllegal Input") 
+                    continue
+
+                if (option > 0 and option <= 2):
+                    break
+
+                else:
+                    print("\nIllegal Input") 
+
+            if (option == 1):
+                print("\nUsing the default address to initialize the receiver.")
+                receiverHost = '127.0.0.1'
+                receiverPort = '8095'
+
+            elif (option == 2):
+                print("\nPlease enter the host IP for the receiver:", end = ' ')
+                receiverHost = input()
+                print("\nPlease enter the port for the receiver:", end = ' ')
+                receiverPort = input()       
 """
