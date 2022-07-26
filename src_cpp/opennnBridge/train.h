@@ -63,7 +63,7 @@ static void* trainFun(void* arg){
          std::shared_ptr<Eigen::Tensor<float,2>> autoencoder_data;// = std::make_shared<Eigen::Tensor<float,2>>();
          std::shared_ptr<Eigen::Tensor<float,2>> data_temp = std::make_shared<Eigen::Tensor<float,2>>();
         
-         
+         cout << "4444444" <<std::endl; 
          
 
          //int first_layer_size = 0;
@@ -99,13 +99,13 @@ static void* trainFun(void* arg){
                    }
            }
 
-
+            cout << "5555555" <<std::endl; 
            TrainingStrategy training_strategy;
           if(flag == true) {
             training_strategy.set_neural_network_pointer(neural_network.get()); // Line 95 should be executed before line 96 due to openNN issue
             training_strategy.set_data_set_pointer(&data_set);
         
-       
+         cout << "6666666" <<std::endl; 
 
             // set Optimization Method  -------------------------------------------------------------
             try{
@@ -151,7 +151,7 @@ static void* trainFun(void* arg){
             // end set optimization method ---------------------------------------------------------------
            
             // set Loss Method ------------------------------------------------------------------------
-        
+           cout << "7777777777" <<std::endl; 
             try{
             if(TrainNNptr->lose_method == E_LOSS_METHOD_SUM_SQUARED_ERROR){
                 training_strategy.set_loss_method(TrainingStrategy::LossMethod::SUM_SQUARED_ERROR);
@@ -187,7 +187,7 @@ static void* trainFun(void* arg){
         } // if(flag == true)
          
          // end set Loss Method ------------------------------------------------------------------------
-         
+         cout << "888888" <<std::endl; 
          
          // do NN trainig
          //chech the inputs from erlang and neural network architecture ---------------------------------------------------
@@ -196,7 +196,7 @@ static void* trainFun(void* arg){
          training_strategy.set_maximum_epochs_number(1); 
          training_strategy.set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF);
          
-         
+         cout << "9999999999" <<std::endl; 
          if(modelType == E_AEC){
             *data_temp = *(TrainNNptr->data);
             int autoencoder_data_num_of_cols = autoencoder_data->dimension(1);
@@ -219,7 +219,9 @@ static void* trainFun(void* arg){
             //  cout << "do train " <<std::endl;
  
              if(data_num_of_cols == (NN_input_num+1) && flag == true){
+                cout << "1010101010" <<std::endl; 
                training_strategy.perform_training();
+               cout << "1212121212" <<std::endl; 
             
             //   cout << "end train " <<std::endl;
 
@@ -250,7 +252,7 @@ static void* trainFun(void* arg){
                 cout << "flag  " << flag << std::endl;
                 }
          }
-       
+         cout << "1313131313" <<std::endl; 
          // Stop the timer and calculate the time took for training
          high_resolution_clock::time_point  stop = high_resolution_clock::now();
          auto duration = duration_cast<microseconds>(stop - TrainNNptr->start_time);
@@ -267,7 +269,7 @@ static void* trainFun(void* arg){
         
          //ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 2, loss_val_term,enif_make_double(env, duration.count()));
          ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 2, loss_val_term,train_time);
-        
+         
         if(enif_send(NULL,&(TrainNNptr->pid), env,train_res_and_time)){
             //  printf("enif_send train succeed\n");
         }
