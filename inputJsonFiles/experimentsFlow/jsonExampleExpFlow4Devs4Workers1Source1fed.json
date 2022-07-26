@@ -1,8 +1,8 @@
 {
    "Batches per source": 
      {
-        "Training": 50,
-        "Prediction": 50
+        "Training": 200,
+        "Prediction": 20
      },
   
      "Training":  [
