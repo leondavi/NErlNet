@@ -1,0 +1,31 @@
+{
+   "Batches per source": 
+     {
+        "Training": 500,
+        "Prediction": 500
+     },
+  
+     "Training":  [
+      {
+         "source name": "s1",
+         "workers": "w1",
+         "CSV path": "aecExp/1_90Others10/1_90Others10_train"
+      }
+     ],
+    
+     "Prediction": [
+         {
+            "source name": "s1",
+            "workers": "w1",
+            "CSV path": "aecExp/1_90Others10/1_90Others10_predict"
+         }
+    ],
+    
+     "Statistics": [
+         {
+            "workers": "w1",
+            "routers": "r1"
+         }
+    ]
+  }
+    
