@@ -1,6 +1,12 @@
+/*****************************************************
+ * Author: Evgeny Andrachnik
+ * 22/7/2022
+ * 
+ *****************************************************/ 
+
 #pragma once 
 
-//#include <iostream>
+
 #include <vector>
 #include <string>
 #include "ModelParams.h"
@@ -24,8 +30,6 @@ using namespace OpenNN;
 #define DEBUG_CREATE_NIF 0
 
 
-
-
 struct PredictNN {
 
     long int mid;
@@ -36,17 +40,13 @@ struct PredictNN {
 
 
 static void* PredictFun(void* arg){ 
-      //  cout << "1111111111" << endl;
-         //PredictNN* PredictNNptr = (PredictNN*)arg;
+
          PredictNN* PredictNNptr = reinterpret_cast<PredictNN*>(arg);
          ERL_NIF_TERM prediction;
          int EAC_prediction; 
          ErlNifEnv *env = enif_alloc_env();    
          opennnBridgeController *s = s->GetInstance();
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(PredictNNptr->mid);
-         
-         //CustumNN *cc;
-         //cc = dynamic_cast<CustumNN*>(neural_network.get());
          
          int modelType = s->getModelType(PredictNNptr->mid); 
          std::shared_ptr<Eigen::Tensor<float,2>> calculate_res = std::make_shared<Eigen::Tensor<float,2>>();
@@ -55,57 +55,34 @@ static void* PredictFun(void* arg){
          if(modelType == E_AEC){
              
              std::shared_ptr<AutoencoderClassifier> Autoencoder_Classifier = std::static_pointer_cast<AutoencoderClassifier>(neural_network);
-                Eigen::Tensor<int, 1> predictRes  = Autoencoder_Classifier->predict(PredictNNptr->data);
-            //EAC_prediction = EAC_predic(PredictNNptr->data, calculate_res);
-            prediction = nifpp::makeTensor1D(env, (predictRes));
+             Eigen::Tensor<int, 1> predictRes  = Autoencoder_Classifier->predict(PredictNNptr->data);
+             prediction = nifpp::makeTensor1D(env, (predictRes));
          }
          else
-            prediction = nifpp::makeTensor2D(env, *calculate_res);
-            
-          
-            
+             prediction = nifpp::makeTensor2D(env, *calculate_res);
+             
          if(enif_send(NULL,&(PredictNNptr->pid), env, prediction)){
              printf("enif_send succeed prediction\n");
           }
          else printf("enif_send failed\n");
-        //     cout << "2222222" << endl;
-         //delete PredictNNptr;
          return 0;
 }
 
 
 static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
-         cout << "in predict" << endl;
+
          std::shared_ptr<PredictNN> PredictNNptr = std::make_shared<PredictNN>();
-         //long int mid;
-         //Eigen::Tensor<float,2> data;
+
          ErlNifPid pid;
          
          enif_self(env, &pid);
          PredictNNptr->pid = pid;
-         
-         //opennnBridgeController *s = s->GetInstance();
-        
-       
+
          nifpp::get_throws(env, argv[0], PredictNNptr->mid); // get model id
          nifpp::getTensor2D(env,argv[1], PredictNNptr->data); // get data for prediction
-    
-         //get neural network from singelton         
-         //std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(mid); 
-         //Tensor< float, 2 > calculate_outputs =  neural_network->calculate_outputs(data);
-        
-         //ERL_NIF_TERM prediction = nifpp::makeTensor2D(env, calculate_outputs);
-          
-         //if(enif_send(NULL,&(pid), env,prediction)){
-         //    printf("enif_send succeed prediction\n");
-         //}
-         //else printf("enif_send failed\n");
+ 
          int res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFun, PredictNNptr.get(), 0);
-        //   cout << "333333" << endl;
          return enif_make_string(env, "end PREDICT mode", ERL_NIF_LATIN1);
-
-         
-     //return enif_make_int(env,0);
 
 }  //end PREDICT mode
 
@@ -117,7 +94,6 @@ static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
           // Start timer for the train
           high_resolution_clock::time_point start = high_resolution_clock::now();
             
-         //std::shared_ptr<TrainNN> TrainNNptr = std::make_shared<TrainNN>();
          std::shared_ptr<TrainNN> TrainNNptr = std::make_shared<TrainNN>();
          TrainNNptr->start_time = start;
          
@@ -127,28 +103,23 @@ static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          nifpp::get_throws(env, argv[2],TrainNNptr->lose_method);
          nifpp::get_throws(env, argv[3],TrainNNptr->learning_rate);
          nifpp::getTensor2D(env,argv[4],TrainNNptr->data);
-         //nifpp::get_throws(env, argv[5],TrainNNptr->display);
-         //nifpp::get_throws(env, argv[5],TrainNNptr->display);
-         
-         
+
          ErlNifPid pid;
          enif_self(env, &pid);
          TrainNNptr->pid = pid;
-         //std::out << "learning_rate : "<< std::endl;
-         //std::out << TrainNNptr->learning_rate << std::endl;
         }
         catch(...){
            return enif_make_string(env, "catch - get data from erlang", ERL_NIF_LATIN1);
-        }       
+        }  
+
          try{
          int res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, TrainNNptr.get(), 0);
          }
          catch(...){
             cout << "catch in enif_thread_create " << endl;
          }
-         return enif_make_string(env, "end comunication", ERL_NIF_LATIN1);
-        
 
+         return enif_make_string(env, "end comunication", ERL_NIF_LATIN1);
 }  //end trainn_nif
 
 
@@ -159,16 +130,13 @@ static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 static ErlNifFunc nif_funcs[] =
 {
     {"create_nif", 6 , create_nif},
-    //{"train_nif", 4 , train_nif},
     {"trainn_nif", 5 , trainn_nif},
     {"predict_nif", 2 , predict_nif},
-    //{"printTensor",2, printTensor},
     {"get_weights_nif",1, get_weights_nif},
     {"set_weights_nif",2, set_weights_nif}
-   // {"jello", 1, jello}
 };
 
-// TODO: Think about using this feature in the future
+
 // load_info is the second argument to erlang:load_nif/2.
 // *priv_data can be set to point to some private data if the library needs to keep a state between NIF calls.
 // enif_priv_data returns this pointer. *priv_data is initialized to NULL when load is called.
