@@ -32,6 +32,10 @@ class Experiment():
             for workerRes in csv.workersResList:
                 workerRes.remove0Tail()
 
+
+        # The prediction batches list is now NOT pre-allocated, cause batch size may differ.
+        '''
         for csv in self.predictionResList:
             for workerRes in csv.workersResList:
                 workerRes.remove0Tail()
+        '''
