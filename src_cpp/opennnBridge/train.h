@@ -193,7 +193,7 @@ static void* trainFun(void* arg){
          //chech the inputs from erlang and neural network architecture ---------------------------------------------------
          //TestingAnalysis testing_analysis(&*neural_network, &data_set);
          //TestingAnalysis testing_analysis;
-         try{
+    
          TestingAnalysis testing_analysis;
          //std::shared_ptr<OpenNN::TestingAnalysis> testing_analysis =  std::make_shared<OpenNN::TestingAnalysis>();
          cout << "8181818181" <<std::endl; 
@@ -288,8 +288,7 @@ static void* trainFun(void* arg){
             cout << " train_time:" <<  train_time<< endl;
             printf("enif_send failed\n");
         }
-         }
-         catch(...){cout << "catch in testing_analysis" << endl;}
+        
          cout << "end train" <<std::endl;
          return 0;
          //return enif_make_string(env, "end TRAIN mode", ERL_NIF_LATIN1);
