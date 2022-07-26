@@ -192,7 +192,7 @@ static void* trainFun(void* arg){
          // do NN trainig
          //chech the inputs from erlang and neural network architecture ---------------------------------------------------
          //TestingAnalysis testing_analysis(&*neural_network, &data_set);
-         TestingAnalysis testing_analysis;
+         //TestingAnalysis testing_analysis;
          try{
          TestingAnalysis testing_analysis;
          //std::shared_ptr<OpenNN::TestingAnalysis> testing_analysis =  std::make_shared<OpenNN::TestingAnalysis>();
