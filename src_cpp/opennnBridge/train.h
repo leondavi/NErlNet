@@ -191,8 +191,11 @@ static void* trainFun(void* arg){
          
          // do NN trainig
          //chech the inputs from erlang and neural network architecture ---------------------------------------------------
-         TestingAnalysis testing_analysis(&*neural_network, &data_set);
-         
+         //TestingAnalysis testing_analysis(&*neural_network, &data_set);
+         TestingAnalysis testing_analysis;
+         testing_analysis.set_neural_network_pointer(&*neural_network);
+         testing_analysis.set_data_set_pointer(&data_set);
+
          training_strategy.set_maximum_epochs_number(1); 
          training_strategy.set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF);
          
