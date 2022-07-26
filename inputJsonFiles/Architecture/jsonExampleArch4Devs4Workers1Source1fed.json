@@ -1,7 +1,7 @@
 {
   "NerlNetSettings": [
   {
-    "frequency": "5",
+    "frequency": "2",
     "batchSize": "10"
   }
   ],
@@ -9,10 +9,6 @@
     {
       "host": "192.168.0.108",
       "entities": "mainServer,c1,s1,r1,f1"
-    },
-    {
-      "host": "192.168.0.102",
-      "entities": "c2"
     },
     {
       "host": "192.168.0.103",
@@ -52,13 +48,13 @@
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
       "lossMethod": "6",
       "_comment4": "SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
-      "learningRate": "0.1",
+      "learningRate": "0.001",
       "_comment5": "TODOTODO explain learningRate",
       "optimizer":"6",
       "features": "128",
       "labels": "1",
       "countLimit": "5",
-      "federatedMode": "0"
+      "federatedMode": "1"
     },
      {
       "name": "w2",
@@ -80,7 +76,7 @@
       "features": "128",
       "labels": "1",
       "countLimit": "5",
-      "federatedMode": "0"
+      "federatedMode": "1"
     },
     {
       "name": "w3",
@@ -102,7 +98,7 @@
       "features": "128",
       "labels": "1",
       "countLimit": "5",
-      "federatedMode": "0"
+      "federatedMode": "1"
     },
      {
       "name": "w4",
@@ -124,20 +120,14 @@
       "features": "128",
       "labels": "1",
       "countLimit": "5",
-      "federatedMode": "0"
+      "federatedMode": "1"
     }
   ],
   "clients": [
     {
       "name": "c1",
       "port": "8081",
-      "workers": "w1",
-      "federated": "f1"
-    },
-    {
-      "name": "c2",
-      "port": "8082",
-      "workers": "w2",
+      "workers": "w1,w2",
       "federated": "f1"
     },
     {
