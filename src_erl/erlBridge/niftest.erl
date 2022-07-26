@@ -87,7 +87,7 @@ call_to_predict(ModelID, Data, WorkerPid,CSVname, BatchID)->
       _RetVal = predict_nif(ModelID, Data),
       receive
             Ret->
-            io:format("Ret= ~p~n ",[Ret]),      
+           % io:format("Ret= ~p~n ",[Ret]),      
       
             gen_statem:cast(WorkerPid,{predictRes,Ret,CSVname, BatchID}) 
      
@@ -97,11 +97,15 @@ call_to_predict(ModelID, Data, WorkerPid,CSVname, BatchID)->
       end.
 
 call_to_get_weights(ModelID)->
-      _RetVal = get_weights_nif(ModelID),
-      % io:format("RetVal= ~p~n ",[RetVal]),
-      receive
-            Ret->Ret
-            % io:format("Ret= ~p~n ",[Ret])
+      try
+            _RetVal = get_weights_nif(ModelID),
+            % io:format("RetVal= ~p~n ",[RetVal]),
+            receive
+                  Ret->Ret
+                  % io:format("Ret= ~p~n ",[Ret])
+            end
+      catch Err:E -> io:format("Couldnt get weights from worker~n~p~n",{Err,E}),
+            []
       end.
 
 call_to_set_weights(ModelID,Weights)->
