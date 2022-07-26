@@ -1,7 +1,7 @@
 {
   "NerlNetSettings": [
   {
-    "frequency": "5",
+    "frequency": "1",
     "batchSize": "10"
   }
   ],
@@ -58,7 +58,7 @@
       "features": "128",
       "labels": "1",
       "countLimit": "10",
-      "federatedMode": "0"
+      "federatedMode": "1"
     },
      {
       "name": "w2",
@@ -80,7 +80,7 @@
       "features": "128",
       "labels": "1",
       "countLimit": "10",
-      "federatedMode": "0"
+      "federatedMode": "1"
     },
     {
       "name": "w3",
@@ -102,7 +102,7 @@
       "features": "128",
       "labels": "1",
       "countLimit": "10",
-      "federatedMode": "0"
+      "federatedMode": "1"
     },
      {
       "name": "w4",
@@ -124,7 +124,7 @@
       "features": "128",
       "labels": "1",
       "countLimit": "10",
-      "federatedMode": "0"
+      "federatedMode": "1"
     }
   ],
   "clients": [
