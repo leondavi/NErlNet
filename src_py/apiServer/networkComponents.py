@@ -59,6 +59,15 @@ class NetworkComponents():
         for router in routersJsons:
             self.routers.append(router['name'])
 
+        # Checking is we are running an AEC in the current architecture:
+        model = self.jsonData['workers'][0]['modelType']
+
+        if (model == '7'):
+            self.aec = 1
+        else:
+            self.aec = 0
+
+
 
 
     def printComponents(self):
@@ -73,7 +82,8 @@ class NetworkComponents():
                 Workers: {self.workers}\n \
                 Federated networks: {self.federateds}\n \
                 Sources: {self.sources}\n \
-                Routers: {self.routers}\n")
+                Routers: {self.routers}\n \
+                Running AEC: {self.aec}")
 
     def checkIdenticalAdresses(self):
         addressesDict = {}

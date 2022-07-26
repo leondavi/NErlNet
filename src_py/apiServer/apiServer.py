@@ -223,7 +223,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             print("\nPlease prepare a CSV with the last column containing the samples' labels.")
 
             while True:
-                print("\nPlease enter the NON-SPLITTED CSV's path:", end = ' ') 
+                print("\nPlease enter the NON-SPLITTED CSV's path (including .csv):", end = ' ') 
                 print("/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/", end = '')      
                 labelsCsvPath = input()
                 labelsCsvPath = '/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/' + labelsCsvPath
@@ -236,8 +236,14 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                     print("\nInvalid path\n")
 
             # Extract the labels (last) column from the CSV. Create a list of labels:
-            labelsDf = csvDf.iloc[:,-1]
-            labels = pd.unique(labelsDf)
+            labelsSeries = csvDf.iloc[:,-1]
+
+            # If we are running an AEC - convert the 2 labels to 1's and 0's. (Majority (90%) label -> 1, Minority (10%) label -> 0).
+            if (globe.components.aec == 1):
+                maxOccuranceLabel = max(labelsSeries.value_counts())
+                labelsSeries = (labelsSeries == maxOccuranceLabel).astype(int)
+                
+            labels = pd.unique(labelsSeries)
 
             # Choose the matching (to the original labeled CSV) CSV from the prediction results list:
             numOfCsvs = len(expForStats.predictionResList)
