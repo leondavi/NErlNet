@@ -83,7 +83,7 @@ class AutoencoderClassifier : public Autoencoder
             ema_normal_update();
         double Th=(this->ema_event_+this->ema_normal_)/2;
         
-        return Th<loss_val ? 0 : -1;
+        return Th<loss_val ? 1 : 0;
     }
 
     // train of AutoencoderClassifier 

@@ -183,6 +183,7 @@ handle_cast({sourceAck,Body}, State = #main_genserver_state{nerlnetGraph = Nerln
     if length(NewWaitingList) == 0 ->
         ack(NerlnetGraph);
       true->
+        ack(NerlnetGraph),
         io:format("~p sent ACK~n new sourceWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
     end,
   {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList,msgCounter = MsgCounter+1}};
