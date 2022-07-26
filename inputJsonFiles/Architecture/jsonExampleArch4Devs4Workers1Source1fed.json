@@ -54,7 +54,7 @@
       "features": "128",
       "labels": "1",
       "countLimit": "5",
-      "federatedMode": "1"
+      "federatedMode": "0"
     },
      {
       "name": "w2",
@@ -76,7 +76,7 @@
       "features": "128",
       "labels": "1",
       "countLimit": "5",
-      "federatedMode": "1"
+      "federatedMode": "0"
     },
     {
       "name": "w3",
@@ -98,7 +98,7 @@
       "features": "128",
       "labels": "1",
       "countLimit": "5",
-      "federatedMode": "1"
+      "federatedMode": "0"
     },
      {
       "name": "w4",
@@ -120,7 +120,7 @@
       "features": "128",
       "labels": "1",
       "countLimit": "5",
-      "federatedMode": "1"
+      "federatedMode": "0"
     }
   ],
   "clients": [
