@@ -289,7 +289,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                         # If there is minimum distance from the correct label - 1. Otherwise - 0:
                         nearestLabel = min(normsDict, key=normsDict.get)
 
-                        if (nearestLabel == labelsDf.iloc[sampleNum]):
+                        if (nearestLabel == labelsSeries.iloc[sampleNum]):
                             accDict[sampleNum] = 1
 
                         else:
