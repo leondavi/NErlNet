@@ -234,12 +234,12 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, 
     % io:format("sending loss to serverAPI {RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
     case   binary_to_term(Body) of
       {WorkerName,{LossFunction,_Time}} ->
-      io:format("main server got loss function:- ~p~n",[binary_to_term(Body)]),
+     % io:format("main server got loss function:- ~p~n",[binary_to_term(Body)]),
       %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
       % http_request(RouterHost,RouterPort,"lossFunc", atom_to_list(WorkerName)++"#"++float_to_list(1.01));
       http_request(RouterHost,RouterPort,"lossFunc", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction));
       {WorkerName,LossFunction} ->
-      io:format("main server got loss function:- ~p~n",[binary_to_term(Body)]),
+     % io:format("main server got loss function:- ~p~n",[binary_to_term(Body)]),
       %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
       % http_request(RouterHost,RouterPort,"lossFunc", atom_to_list(WorkerName)++"#"++float_to_list(1.01))
       http_request(RouterHost,RouterPort,"lossFunc", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction))
