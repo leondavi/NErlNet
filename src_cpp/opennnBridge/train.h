@@ -256,19 +256,19 @@ static void* trainFun(void* arg){
          // Stop the timer and calculate the time took for training
          high_resolution_clock::time_point  stop = high_resolution_clock::now();
          auto duration = duration_cast<microseconds>(stop - TrainNNptr->start_time);
-
+          cout << "14141414" <<std::endl; 
 
          if(isnan(loss_val)  ) {
              loss_val = -1.0;
              cout << "loss val = nan , setting NN weights to random values" <<std::endl;
              neural_network->set_parameters_random();
          }
-
+          cout << "15151515" <<std::endl;
          ERL_NIF_TERM loss_val_term = enif_make_double(env, loss_val);
          ERL_NIF_TERM train_time = enif_make_double(env, duration.count());
         
          ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 2, loss_val_term,train_time);
-         
+          cout << "16161616" <<std::endl;
         if(enif_send(NULL,&(TrainNNptr->pid), env,train_res_and_time)){
             //  printf("enif_send train succeed\n");
         }
