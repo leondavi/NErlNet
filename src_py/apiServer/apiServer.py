@@ -349,11 +349,10 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             fig, ax = plt.subplots(figsize = (10,10), dpi = 150)
             plt.rcParams.update({'font.size': 14})
             expTitle = expForStats.name
-            ax.set_title(f"Prediction - Confusion Matrix - {expTitle}", fontsize = 18)
+            ax.set_title(f"Prediction - Confusion Matrix - {expTitle}\nAccuracy: {round(accuracy, 3)} ({round(accuracy*100, 3)}%)", fontsize = 18)
             ax.set_xlabel('True Labels', fontsize = 16)
             ax.set_ylabel('Predicted Labels', fontsize = 16)
-            ax.autoscale(enable=True, axis='both', tight=True)
-            confMatDisp.plot(ax=ax)
+            confMatDisp.plot(ax = ax)
             plt.show()
 
             fileName = csvResAcc.name.rsplit('/', 1)[1] # If the CSV name contains a path, then take everything to the right of the last '/'.
