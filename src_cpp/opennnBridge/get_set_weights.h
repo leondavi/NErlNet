@@ -39,13 +39,13 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
  
          ERL_NIF_TERM erl_parameters = nifpp::makeTensor1D(env, parameters);
          
-        cout << "sending parameters with size of:" ;
-        cout << parameters.size() <<std::endl;
+       // cout << "sending parameters with size of:" ;
+       // cout << parameters.size() <<std::endl;
         // cout << parameters <<std::endl;
     
 
          if(enif_send(NULL,&(pid), env,erl_parameters)){
-             printf("enif_send succeed\n");
+             //printf("enif_send succeed\n");
          }
          else printf("enif_send failed\n");
 
@@ -78,9 +78,9 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
          //cout << neural_network->get_layers_number() <<std::endl;
          //Index num = neural_network->get_layers_number();
          if(NN_parameters_number == new_parameters_number){
-         cout << "111111111" <<std::endl;
+     
          neural_network->set_parameters(*parameters);
-         cout << "222222222" <<std::endl;
+      
          }
          else{
             cout << "error update NN parameters" <<  std::endl;

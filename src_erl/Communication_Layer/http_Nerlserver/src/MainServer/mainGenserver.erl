@@ -299,7 +299,7 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
       %%  send an ACK to mainserver that the CSV file is ready
       %FloatsString = [float_to_list(Float)++","||Float<-ListOfResults],
       ToSend=WorkerName++"#"++Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize),
-      io:format("predictResID- ~p~n",[ToSend]),
+    %  io:format("predictResID- ~p~n",[ToSend]),
       http_request(RouterHost,RouterPort,"predRes",ToSend)
   catch Err:E ->
           io:format("Error receiving predict result ~p~n",[{Err,E}])
