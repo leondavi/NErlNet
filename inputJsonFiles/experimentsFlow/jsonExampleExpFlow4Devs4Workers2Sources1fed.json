@@ -1,0 +1,40 @@
+{
+  "Batches per source": 
+     {
+        "Training": 100,
+        "Prediction": 100
+     },
+     "Training":  [
+      {
+         "source name": "s2",
+         "workers": "w1,w2",
+         "CSV path": "gauss/gauss_train"
+      },
+      {
+         "source name": "s1",
+         "workers": "w3,w4",
+         "CSV path": "gauss/gauss2_train"
+      }
+     ],
+    
+     "Prediction": [
+      {
+         "source name": "s2",
+         "workers": "w1,w2",
+         "CSV path": "gauss/gauss_predict"
+      },
+      {
+         "source name": "s1",
+         "workers": "w3,w4",
+         "CSV path": "gauss/gauss2_predict"
+      }
+    ],
+    
+     "Statistics": [
+         {
+            "workers": "w1,w2,w3,w4",
+            "routers": "r1"
+         }
+    ]
+}
+    

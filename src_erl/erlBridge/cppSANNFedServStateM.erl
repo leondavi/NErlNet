@@ -25,7 +25,7 @@
 %% federatedMode = 0 - Not federated, 1 - Federated get and send weights, 2 - Federated set weights
 %% countLimit - Number of samples to count before sending the weights for averaging. Predifined in the json file.
 %% count - Number of samples recieved for training after the last weights sended.
--record(fedServ_state, {counter, counterLimit, buffer, myName, myWorkers, workersMap, portMap, connectionMap, last2, cells, first = 1, msgCounter = 0}).
+-record(fedServ_state, {counter, counterLimit, buffer, myName, myWorkers, workersMap, portMap, nerlnetGraph, last2, cells, first = 1, msgCounter = 0}).
 
 %%%===================================================================
 %%% API
@@ -46,13 +46,15 @@ start_link(ARGS) ->
 %% @doc Whenever a gen_statem is started using gen_statem:start/[3,4] or
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
-init({MyName,CounterLimit,WorkersMap,ConnectionsMap}) ->
+init({MyName,CounterLimit,WorkersMap,NerlnetGraph}) ->
 
   io:fwrite("start federated server stateM ~n"),
   Workers = getWorkersNames(WorkersMap),
   inets:start(),
-  start_connection(maps:to_list(ConnectionsMap)),
-  {ok, receives, #fedServ_state{msgCounter = 1, counter = 0, counterLimit =  CounterLimit, buffer = [], myName = MyName,myWorkers = Workers, workersMap=WorkersMap, connectionMap = ConnectionsMap}}.
+  io:format("Client ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
+  start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
+
+  {ok, receives, #fedServ_state{msgCounter = 1, counter = 0, counterLimit =  CounterLimit, buffer = [], myName = MyName,myWorkers = Workers, workersMap=WorkersMap, nerlnetGraph = NerlnetGraph}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -108,32 +110,39 @@ code_change(_OldVsn, StateName, State = #fedServ_state{}, _Extra) ->
 
 %% State receives
 %% Receives the weights from the client
-receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{first = 1, msgCounter = MsgCounter, buffer = Buffer, counter = Counter, counterLimit =  CounterLimit,myWorkers = _Workers,workersMap = _WorkersMap,connectionMap =  _ConnectionMap}) ->
-  NewCount = Counter + 1,
-  {_MyName,Weights} = binary_to_term(Ret_weights),
+% receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{first = 1, msgCounter = MsgCounter, buffer = Buffer, counter = Counter, counterLimit =  CounterLimit,myWorkers = _Workers,workersMap = _WorkersMap}) ->
+%   NewCount = Counter + 1,
+%   {_MyName,Weights} = binary_to_term(Ret_weights),
+%   % io:format("Federated Weights: ~p~n",[Weights]),
+%   % DecodedWeights= decodeListOfLists(Weights),
+%   % DecodedWeightsWithout2Last = remove2Lasts(DecodedWeights),
+%   % Cells = [length(X)||X<-DecodedWeightsWithout2Last],
 
-  DecodedWeights= decodeListOfLists(Weights),
-  DecodedWeightsWithout2Last = remove2Lasts(DecodedWeights),
-  Cells = [length(X)||X<-DecodedWeightsWithout2Last],
+%   % TwoLasts = lists:sublist(DecodedWeights,length(DecodedWeights)-1,length(DecodedWeights)),
 
-  TwoLasts = lists:sublist(DecodedWeights,length(DecodedWeights)-1,length(DecodedWeights)),
+%   if
+%       NewCount == 1 ->
+%       NewBuffer =  Weights,
+%       % {next_state, receives, State#fedServ_state{first = 0,cells = Cells,last2 = TwoLasts, msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
+%       {next_state, receives, State#fedServ_state{first = 0, msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
 
-  if
-    NewCount < CounterLimit ->
-      %% Add to the buffer, increment the counter and continue to recieve weights
-      NewBuffer = Buffer ++ lists:flatten(DecodedWeightsWithout2Last),
-      {next_state, receives, State#fedServ_state{first = 0,cells = Cells,last2 = TwoLasts, msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
+%     NewCount < CounterLimit ->
+%       %% Add to the buffer, increment the counter and continue to recieve weights
+%       % NewBuffer = Buffer ++ Weights,
+%       NewBuffer =  lists:zipwith(fun(X, Y) -> X+Y end,Buffer , Weights),
+%       % {next_state, receives, State#fedServ_state{first = 0,cells = Cells,last2 = TwoLasts, msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
+%       {next_state, receives, State#fedServ_state{first = 0, msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
 
-    NewCount >= CounterLimit ->
-      %% Reset the buffer, decrease the counter by CounterLimit, start averaging in a different process and go to average state
-      SelfPid = self(),
-      _Pid = spawn(fun()-> averageFun(Buffer ++ lists:flatten(DecodedWeightsWithout2Last),SelfPid,NewCount) end),
-      {next_state, average, State#fedServ_state{first = 0,cells = Cells,last2 = TwoLasts,  msgCounter = MsgCounter+1, counter = NewCount - CounterLimit, buffer = []}};
+%     NewCount >= CounterLimit ->
+%       %% Reset the buffer, decrease the counter by CounterLimit, start averaging in a different process and go to average state
+%       SelfPid = self(),
+%       _Pid = spawn(fun()-> averageFun(Buffer ++ Weights,SelfPid,NewCount) end),
+%       {next_state, average, State#fedServ_state{first = 0,  msgCounter = MsgCounter+1, counter = 0, buffer = []}};
 
-    true ->
-      io:fwrite("Error: cppSANNEdServStateM not supposed to be here.\n"),
-      {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1, counter = NewCount}}
-  end;
+%     true ->
+%       io:fwrite("Error: cppSANNEdServStateM not supposed to be here.\n"),
+%       {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1, counter = NewCount}}
+%   end;
 
 %% State receives
 %% Receives the weights from the client
@@ -141,24 +150,31 @@ receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgC
   NewCount = Counter + 1,
   {_MyName,Weights} = binary_to_term(Ret_weights),
 
-  DecodedWeights = decodeListOfLists(Weights),
-  DecodedWeightsWithout2Last = remove2Lasts(DecodedWeights),
+  % DecodedWeights = decodeListOfLists(Weights),
+  % DecodedWeightsWithout2Last = remove2Lasts(DecodedWeights),
 
   if
+    NewCount == 1 ->
+      NewBuffer =  Weights,
+      % {next_state, receives, State#fedServ_state{first = 0,cells = Cells,last2 = TwoLasts, msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
+      {next_state, receives, State#fedServ_state{first = 0, msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
+
     NewCount < CounterLimit ->
 
       %% Add to the buffer, increment the counter and continue to recieve weights    
-      NewBuffer = Buffer ++ lists:flatten(DecodedWeightsWithout2Last),
+      % NewBuffer = Buffer ++ Weights,
+      NewBuffer =  lists:zipwith(fun(X, Y) -> X+Y end,Buffer , Weights),
       {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1, counter = NewCount, buffer = NewBuffer}};
 
     NewCount >= CounterLimit ->
 
       %% Reset the buffer, decrease the counter by CounterLimit, start averaging in a different process and go to average state
       SelfPid = self(),
-      NewBuffer = Buffer ++ lists:flatten(DecodedWeightsWithout2Last),
+      % NewBuffer = Buffer ++ Weights,
+      NewBuffer =  lists:zipwith(fun(X, Y) -> X+Y end,Buffer , Weights),
       _Pid = spawn(fun()-> averageFun(NewBuffer,SelfPid,NewCount) end),
 
-      {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter = NewCount - CounterLimit, buffer = []}};
+      {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter = 0, buffer = []}};
     
     true ->
       io:fwrite("Error: cppSANNEdServStateM not supposed to be here.\n"),
@@ -166,8 +182,10 @@ receives(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgC
   end;
 
 %%sending statistics to main server
-receives(cast, {statistics}, State = #fedServ_state{myName = MyName, msgCounter = MsgCounter, connectionMap =  ConnectionMap}) ->
-  {RouterHost,RouterPort} = maps:get(mainServer,ConnectionMap),
+receives(cast, {statistics}, State = #fedServ_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph =  NerlnetGraph}) ->
+  % {RouterHost,RouterPort} = maps:get(mainServer,ConnectionMap),
+    {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+
   http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(MsgCounter))),
   {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1}};
 
@@ -179,35 +197,36 @@ receives(cast, Else, State) ->
 %% State average
 
 %% Got weights results
-average(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgCounter = MsgCounter, buffer = Buffer, counter = Counter}) ->
-  {_MyName,Weights} = binary_to_term(Ret_weights),
-  DecodedWeights = decodeListOfLists(Weights),
-  NewBuffer = Buffer ++ lists:flatten(remove2Lasts(DecodedWeights)),
-  {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter = Counter + 1, buffer = NewBuffer}};
-
-%% Got weights results
 average(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgCounter = MsgCounter, buffer = [], counter = Counter}) ->
   {_MyName,Weights} = binary_to_term(Ret_weights),
+  NewBuffer =  Weights,
 
-  DecodedWeights = decodeListOfLists(Weights),
-  NewBuffer = lists:flatten(remove2Lasts(DecodedWeights)),
+  {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter =  1, buffer = NewBuffer}};
+
+%% Got weights results
+average(cast, {federatedWeightsVector,Ret_weights}, State = #fedServ_state{msgCounter = MsgCounter, buffer = Buffer, counter = Counter}) ->
+  {_MyName,Weights} = binary_to_term(Ret_weights),
+  NewBuffer =  lists:zipwith(fun(X, Y) -> X+Y end,Buffer , Weights),
+
   {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1, counter = Counter + 1, buffer = NewBuffer}};
 
 %%sending statistics to main server
-average(cast, {statistics}, State = #fedServ_state{myName = MyName, msgCounter = MsgCounter, connectionMap =  ConnectionMap}) ->
-  {RouterHost,RouterPort} = maps:get(mainServer,ConnectionMap),
+average(cast, {statistics}, State = #fedServ_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph =  NerlnetGraph}) ->
+  % {RouterHost,RouterPort} = maps:get(mainServer,ConnectionMap),
+  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+
   http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(MsgCounter))),
   {next_state, average, State#fedServ_state{msgCounter = MsgCounter+1}};
 
 
 %% Got average results
-average(cast, {average, WeightsList}, State= #fedServ_state{msgCounter = MsgCounter,last2 = Last2,cells = Cells, myWorkers = Workers,workersMap = WorkersMap,connectionMap = ConnectionMap}) ->
+average(cast, {average, WeightsList}, State= #fedServ_state{msgCounter = MsgCounter,myName = MyName, last2 = Last2,cells = Cells,  myWorkers = Workers,workersMap = WorkersMap,nerlnetGraph =  NerlnetGraph}) ->
 
-  Triplets =getHostPort(Workers,WorkersMap,ConnectionMap,[]),
-  ListsofWeights = getCells(Cells,WeightsList),
+  Triplets =getHostPort(Workers,WorkersMap, MyName, NerlnetGraph,[]),
+  % ListsofWeights = getCells(Cells,WeightsList),
 
-  ToSend = encodeListOfLists(ListsofWeights++Last2),
-  _Pid = spawn(fun()-> broadcastWeights(ToSend,Triplets) end),  %% Send the results to the clients through the main server
+  % ToSend = encodeListOfLists(ListsofWeights++Last2),
+  _Pid = spawn(fun()-> broadcastWeights(WeightsList,Triplets) end),  %% Send the results to the clients through the main server
 %%  gen_statem:cast(FedServPID,{averageResult, MyName, WeightsTuple}),TODO add broadcast
   {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1}};
 
@@ -220,10 +239,13 @@ average(cast, _Else, State) ->
 % Functions
 
 %% Do the averaging
-averageFun(WeightsBuffer,CallerPid,WeightsAndBiasNumber) ->
+averageFun(WeightsBuffer,CallerPid,Count) ->
   % io:fwrite("FedServer, averageFun: WeightsAndBiasNumber: ~p\n", [WeightsAndBiasNumber]),
   % io:fwrite("FedServer, averageFun: WeightsBuffer: ~p\n", [WeightsBuffer]),
-  AveragedWeights = erlModule:average_weights(WeightsBuffer, WeightsAndBiasNumber),
+
+  % AveragedWeights = erlModule:average_weights(WeightsBuffer, WeightsAndBiasNumber),
+  AveragedWeights = [X/Count || X<-WeightsBuffer],
+
   % io:fwrite("AveragedWeights at averageFun: ~p.\n",[AveragedWeights]),
   gen_statem:cast(CallerPid,{average, AveragedWeights}).
 
@@ -232,28 +254,19 @@ getWorkersNames(Map) ->getWorkersNames(maps:to_list(Map),[]).
 getWorkersNames([],L) ->L;
 getWorkersNames([{Worker,_Client}|Tail],L) ->getWorkersNames(Tail,L++[Worker]).
 
-%%NETWORK FUNCTIONS
-start_connection([])->ok;
-start_connection([{_ServerName,{Host, Port}}|Tail]) ->
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  start_connection(Tail).
-
-http_request(Host, Port,Path, Body)->
-  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
-
 broadcastWeights(BinaryWeights,Triplets) ->
 
   [http_request(RouterHost,RouterPort,"federatedWeights", term_to_binary({ClientName,WorkerName,BinaryWeights}))
     || {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets].
 
 
-getHostPort([],_WorkersMap,_PortMap,Ret)-> Ret;
-getHostPort([WorkerName|WorkersNames],WorkersMap,PortMap,Ret)->
+getHostPort([],_WorkersMap,_MyName,_NerlnetGraph,Ret)-> Ret;
+getHostPort([WorkerName|WorkersNames],WorkersMap,MyName,NerlnetGraph,Ret)->
   ClientName = maps:get(WorkerName,WorkersMap),
-  {RouterHost,RouterPort} = maps:get(ClientName,PortMap),
-  getHostPort(WorkersNames,WorkersMap, PortMap,Ret++[{ClientName,WorkerName,RouterHost,RouterPort}]).
+  % {RouterHost,RouterPort} = maps:get(ClientName,PortMap),
+  {RouterHost,RouterPort} = getShortPath(MyName,ClientName,NerlnetGraph),
+
+  getHostPort(WorkersNames,WorkersMap,MyName, NerlnetGraph,Ret++[{ClientName,WorkerName,RouterHost,RouterPort}]).
 
 remove2Lasts(L)-> lists:sublist(L,length(L)-2).
 
@@ -280,3 +293,28 @@ decodeList(Binary)->  decodeList(Binary,[]).
 decodeList(<<>>,L) -> L;
 decodeList(<<A:64/float,Rest/binary>>,L) -> decodeList(Rest,L++[A]).
 
+%%NETWORK FUNCTIONS
+start_connection([])->ok;
+start_connection([{_ServerName,{Host, Port}}|Tail]) ->
+  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  start_connection(Tail).
+
+http_request(Host, Port,Path, Body)->
+%%  io:format("sending body ~p to path ~p to hostport:~p~n",[Body,Path,{Host,Port}]),
+URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
+httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
+
+
+
+getShortPath(From,To,NerlnetGraph) when is_atom(To)-> 
+
+  First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,atom_to_list(To))),
+
+{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
+{Host,Port};
+
+getShortPath(From,To,NerlnetGraph) -> 
+First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
+{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
+{Host,Port}.

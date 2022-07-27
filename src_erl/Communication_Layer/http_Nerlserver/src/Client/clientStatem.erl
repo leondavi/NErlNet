@@ -71,7 +71,7 @@ init({MyName,Federated,Workers,NerlnetGraph}) ->
   % WorkersPids = createWorkers(Workers,self(),[]),
 
 %%  [{WorkerName,nerlNetStatem:start_link({self(), WorkerName, CppSANNArgs})}||{WorkerName,CppSANNArgs}<-maps:to_list(Workers)],
-  {WorkersMap,TimingMap} = createWorkers(Workers,586000901,self(),#{},#{}),
+  {WorkersMap,TimingMap} = createWorkers(Workers,1,self(),#{},#{}),
   io:format("TimingMap~p~n",[maps:to_list(TimingMap)]),
 %  niftest:trainNifTest(10.0),
 
@@ -110,6 +110,14 @@ waitforWorkers(cast, {stateChange,WorkerName}, State = #client_statem_state{myNa
             {next_state, NextState, State#client_statem_state{waitforWorkers = [], msgCounter = Counter+1}};
     _->  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers, msgCounter = Counter+1}}
   end;
+
+waitforWorkers(cast, {NewState}, State = #client_statem_state{myName = MyName, workersMap = WorkersMap, nerlnetGraph = NerlnetGraph, msgCounter = Counter,waitforWorkers = WaitforWorkers,nextState = NextState}) ->
+  io:format("client going to state ~p~n",[State]),
+  Workers = maps:to_list(WorkersMap),
+  [gen_statem:cast(WorkerPid,{NewState})|| {_WorkerName,WorkerPid}<-Workers],
+  MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+  {next_state, waitforWorkers, State#client_statem_state{nextState = NewState, waitforWorkers = MyWorkers, msgCounter = Counter+1}};
+
   
 waitforWorkers(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
   io:format("client waitforWorkers ignored!!!:  ~p ~n",[EventContent]),
@@ -202,11 +210,12 @@ training(cast, {loss,WorkerName,LossFunction,Time_NIF}, State = #client_statem_s
 %%Federated Mode:
 training(cast, {loss,federated_weights, Worker, LOSS_FUNC, Ret_weights}, State = #client_statem_state{federatedServer = Federated,myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter}) ->
 %%  io:format("Worker: ~p~n, LossFunction: ~p~n,  Ret_weights_tuple: ~p~n",[Worker, LOSS_FUNC, Ret_weights_tuple]),
-  {RouterHost,RouterPort} = maps:get(Federated,NerlnetGraph),
+  % {RouterHost,RouterPort} = maps:get(Federated,NerlnetGraph),
+  {RouterHost,RouterPort} = getShortPath(MyName,Federated,NerlnetGraph),
 
-  ToSend = term_to_binary({Federated,encodeListOfLists(Ret_weights)}),
+  % ToSend = term_to_binary({Federated,encodeListOfLists(Ret_weights)}),
 
-  http_request(RouterHost,RouterPort,"federatedWeightsVector", ToSend),
+  http_request(RouterHost,RouterPort,"federatedWeightsVector", term_to_binary({Federated,Ret_weights})),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, {loss, federated_weights, MyName, LOSS_FUNC}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter}) ->
@@ -214,15 +223,15 @@ training(cast, {loss, federated_weights, MyName, LOSS_FUNC}, State = #client_sta
 
 training(cast, {federatedAverageWeights,Body}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,workersMap = WorkersMap, msgCounter = Counter}) ->
 %% io:format("federatedAverageWeights Body!!!!: ~p~n",[Body]),
-  {_ClientName,WorkerName,BinaryWeights} = binary_to_term(Body),
+  {_ClientName,WorkerName,Weights} = binary_to_term(Body),
 
 %%  [_ClientName,WorkerName,Weights] = re:split(binary_to_list(Body),"#",[{return,list}]),
   WorkerPid = maps:get(WorkerName,WorkersMap),
   % io:format("client decoding weights!!!:   ~n!!!",[]),
 
-  DecodedWeights = decodeListOfLists(BinaryWeights),
+  % DecodedWeights = decodeListOfLists(BinaryWeights),
   % io:format("client finished decoding weights!!!:   ~n!!!",[]),
-  gen_statem:cast(WorkerPid, {set_weights,  DecodedWeights}),
+  gen_statem:cast(WorkerPid, {set_weights,  Weights}),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
@@ -314,23 +323,16 @@ URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
 httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
 httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
 
-
 ack(MyName, NerlnetGraph) ->
-
   io:format("~p sending ACK   ~n",[MyName]),
-{RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
-%%  send an ACK to mainserver that the CSV file is ready
-http_request(RouterHost,RouterPort,"clientReady",MyName).
-
-
-
+  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+  %%  send an ACK to mainserver that the CSV file is ready
+  http_request(RouterHost,RouterPort,"clientReady",MyName).
 
 getShortPath(From,To,NerlnetGraph) when is_atom(To)-> 
-
   First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,atom_to_list(To))),
-
-{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
-{Host,Port};
+  {_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
+  {Host,Port};
 
 getShortPath(From,To,NerlnetGraph) -> 
 First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
