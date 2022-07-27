@@ -92,7 +92,7 @@ call_to_predict(ModelID, Data, WorkerPid,CSVname, BatchID)->
             gen_statem:cast(WorkerPid,{predictRes,Ret,CSVname, BatchID}) 
      
             after 1000 -> 
-                  io:format("///// woker miss predict batch ~n "), 
+                 % io:format("///// woker miss predict batch ~n "), 
                   gen_statem:cast(WorkerPid,{predictRes, nan, CSVname, BatchID})
       end.
 
@@ -109,8 +109,8 @@ call_to_get_weights(ModelID)->
       end.
 
 call_to_set_weights(ModelID,Weights)->
-      RetVal = set_weights_nif(ModelID, Weights),
-      io:format("RetVal= ~p~n ",[RetVal]).
+      _RetVal = set_weights_nif(ModelID, Weights).
+     % io:format("RetVal= ~p~n ",[RetVal]).
       %receive
       %      Ret->Ret
             % io:format("Ret= ~p~n ",[Ret])
