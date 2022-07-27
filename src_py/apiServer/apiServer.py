@@ -145,7 +145,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         print("\n---Statistics Menu---\n\
 1) Create plot for the training loss function.\n\
 2) Calculate accuracy and plot a confusion matrix.\n\
-3) Export results to CSV.\n")
+3) Export results to CSV.\n\
+4) Display communication statistics.\n")
 
         while True:
             print("\nPlease choose an option:", end = ' ')
@@ -157,7 +158,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 print("\nIllegal Input") 
                 continue
 
-            if (option > 0 and option <= 3):
+            if (option > 0 and option <= 4):
                 break
 
             else:
@@ -175,79 +176,54 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 print(f"{i}) {csvRes.name}")
 
             while True:
-                print("\nPlease choose a CSV number for the plot:", end = ' ')       
-                csvNum = input()
+                print("\nPlease choose a CSV number for the plot (for multiple CSVs, seperate their numbers with ', '):", end = ' ')       
+                csvNumsStr = input()
 
                 try:
-                    csvNum = int(csvNum)
+                    csvNumsList = csvNumsStr.split(', ')
+                    csvNumsList = [int(csvNum) for csvNum in csvNumsList]
                 except ValueError:
                     print("\nIllegal Input") 
                     continue
-
-                if (csvNum > 0 and csvNum <= numOfCsvs):
-                    csvResPlot = expForStats.trainingResList[csvNum-1]
+                
+                if (all(csvNum > 0 and csvNum <= numOfCsvs for csvNum in csvNumsList)): # Check if all CSV indexes are in the correct range.
                     break
 
                 else:
-                    print("\nIllegal Input") 
+                    print("\nInvalid Input") 
 
             # Draw the plot using Matplotlib:
             plt.figure(figsize = (30,15), dpi = 150)
             plt.rcParams.update({'font.size': 22})
 
-            for workerRes in csvResPlot.workersResList:
-                data = workerRes.resList
-                plt.plot(data, linewidth = 3)
+            for csvNum in csvNumsList:
+                csvResPlot = expForStats.trainingResList[csvNum-1]
+                for workerRes in csvResPlot.workersResList:
+                    data = workerRes.resList
+                    plt.plot(data, linewidth = 3)
 
-            expTitle = (expForStats.name)
-            plt.title(f"Training - Loss Function - {expTitle}", fontsize=38)
-            plt.xlabel('Batch No.', fontsize = 30)
-            plt.ylabel('Loss (MSE)', fontsize = 30)
-            plt.xlim(left=0)
-            plt.ylim(bottom=0)
-            plt.legend(csvResPlot.workers)
-            plt.grid(visible=True, which='major', linestyle='-')
-            plt.minorticks_on()
-            plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
+                expTitle = (expForStats.name)
+                plt.title(f"Training - Loss Function - {expTitle}", fontsize=38)
+                plt.xlabel('Batch No.', fontsize = 30)
+                plt.ylabel('Loss (MSE)', fontsize = 30)
+                plt.xlim(left=0)
+                plt.ylim(bottom=0)
+                plt.legend(csvResPlot.workers)
+                plt.grid(visible=True, which='major', linestyle='-')
+                plt.minorticks_on()
+                plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
 
-            fileName = csvResPlot.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
-            plt.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.png')
-            print(f'\n{fileName}.png was Saved...')
+                fileName = csvResPlot.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
+                plt.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.png')
+                print(f'\n{fileName}.png was Saved...')
 
-            plt.show()
+                plt.show()
 
             return
 
         if (option == 2):
             if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction'):
                 os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction')
-
-            print("\nPlease prepare a CSV with the last column containing the samples' labels.")
-
-            while True:
-                print("\nPlease enter the NON-SPLITTED CSV's path (including .csv):", end = ' ') 
-                print("/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/", end = '')      
-                labelsCsvPath = input()
-                labelsCsvPath = '/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/' + labelsCsvPath
-
-                try:
-                    csvDf = pd.read_csv(labelsCsvPath)
-                    break
-
-                except OSError:
-                    print("\nInvalid path\n")
-
-            # Extract the labels (last) column from the CSV. Create a list of labels:
-            labelsSeries = csvDf.iloc[:,-1]
-
-            # If we are running an AEC - convert the 2 labels to 1's and 0's. (Majority (90%) label -> 1, Minority (10%) label -> 0).
-            if (globe.components.aec == 1):
-                labelsOccuranceSeries = labelsSeries.value_counts()
-                maxOccuranceLabel = labelsOccuranceSeries.idxmax()
-                labelsSeries = (labelsSeries == maxOccuranceLabel).astype(int)
-                
-            labelsArr = pd.unique(labelsSeries)
-            labelsArr = np.sort(labelsArr)
 
             # Choose the matching (to the original labeled CSV) CSV from the prediction results list:
             numOfCsvs = len(expForStats.predictionResList)
@@ -257,49 +233,81 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 print(f"{i}) {csvRes.name}")
 
                 while True:
-                    print("\nPlease choose the number for the corresponding (matching) CSV result:", end = ' ')       
-                    csvNum = input()
+                    print("\nPlease choose a CSV number for accuracy calculation and confusion matrix (for multiple CSVs, seperate their numbers with ', '):", end = ' ')       
+                    csvNumsStr = input()
 
                     try:
-                        csvNum = int(csvNum)
+                        csvNumsList = csvNumsStr.split(', ')
+                        csvNumsList = [int(csvNum) for csvNum in csvNumsList]
+
                     except ValueError:
                         print("\nIllegal Input") 
-                        continue
+                        continue       
 
-                    if (csvNum > 0 and csvNum <= numOfCsvs):
-                        csvResAcc = expForStats.predictionResList[csvNum-1]
+                    if (all(csvNum > 0 and csvNum <= numOfCsvs for csvNum in csvNumsList)): # Check if all CSV indexes are in the correct range.
                         break
 
                     else:
-                        print("\nIllegal Input") 
+                        print("\nInvalid Input") 
+
+            print("\nPlease prepare the corresponding CSVs, with the last column containing the samples' labels.")
+
+            for i in range(len(csvNumsList)):
+                while True:
+                    print("\nPlease enter the path for the NON-SPLITTED labels CSV (including .csv):", end = ' ') 
+                    print("/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/", end = '')      
+                    labelsCsvPath = input()
+                    labelsCsvPath = '/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/' + labelsCsvPath
+
+                    try:
+                        labelsCsvDf = pd.read_csv(labelsCsvPath)
+                        break
+
+                    except OSError:
+                        print("\nInvalid path\n")
+
+            # Extract the labels (last) column from the CSV. Create a list of labels:
+            labelsSeries = labelsCsvDf.iloc[:,-1]
+
+            # If we are running an AEC - convert the 2 labels to 1's and 0's. (Majority (90%) label -> 1, Minority (10%) label -> 0).
+            if (globe.components.aec == 1):
+                labelsOccuranceSeries = labelsSeries.value_counts()
+                maxOccuranceLabel = labelsOccuranceSeries.idxmax()
+                labelsSeries = (labelsSeries == maxOccuranceLabel).astype(int)
+                
+            labelsArr = pd.unique(labelsSeries)
+            labelsArr = np.sort(labelsArr) 
 
             predsDict = {} # A dictionary containing all the predictions
             accDict = {} # For each sample: 1/0 if the prediction was right/wrong. 
             
-            workersPredictions = csvResAcc.workersResList
+            for csvNum in csvNumsList:
+                csvResAcc = expForStats.predictionResList[csvNum-1]
 
-            # Generate the samples' indexes from the results:
-            for worker in workersPredictions:
-                for batch in worker.resList:
-                    for offset, prediction in enumerate(batch.predictions):
-                        sampleNum = batch.indexRange[0] + offset
-                        normsDict = {} #  For all labels: label : the "distance" of prediction from the label. 
+                workersPredictions = csvResAcc.workersResList
 
-                        # The distances of the current prediction from each of the labels: 
-                        for i, label in enumerate(labelsArr):
-                            newNorm = abs(prediction - label)
-                            normsDict[label] = newNorm
+                # Generate the samples' indexes from the results:
+                for worker in workersPredictions:
+                    for batch in worker.resList:
+                        for offset, prediction in enumerate(batch.predictions):
+                            sampleNum = batch.indexRange[0] + offset
+                            normsDict = {} #  The "distance" of the current prediction prediction from each of the labels. 
 
-                        # If there is minimum distance from the correct label - 1. Otherwise - 0:
-                        currentPrediction = min(normsDict, key=normsDict.get)
+                            # The distances of the current prediction from each of the labels: 
+                            for i, label in enumerate(labelsArr):
+                                newNorm = abs(prediction - label)
+                                normsDict[label] = newNorm
 
-                        predsDict[sampleNum] = currentPrediction
+                            # If there is minimum distance from the correct label - 1. Otherwise - 0:
+                            currentPrediction = min(normsDict, key=normsDict.get)
 
-                        if (currentPrediction == labelsSeries.iloc[sampleNum]):
-                            accDict[sampleNum] = 1
+                            predsDict[sampleNum] = currentPrediction
 
-                        else:
-                            accDict[sampleNum] = 0
+                            if (currentPrediction == labelsSeries.iloc[sampleNum]):
+                                accDict[sampleNum] = 1
+
+                            else:
+                                accDict[sampleNum] = 0
             
             # Calculate the accuracy:
             correctPreds = sum(accDict.values())
@@ -384,10 +392,10 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 for i in range(len(workersTrainResCsv)):
                     workersTrainResCsv[i] = pd.Series(workersTrainResCsv[i].resList, name = workersTrainResCsv[i].name, index = None)
                     
-                newCsvDf = pd.concat(workersTrainResCsv, axis=1)
+                newlabelsCsvDf = pd.concat(workersTrainResCsv, axis=1)
 
                 fileName = csvTrainRes.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
-                newCsvDf.to_csv(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.csv', header = True, index = False)
+                newlabelsCsvDf.to_csv(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.csv', header = True, index = False)
                 print(f'{fileName}.csv Saved...')
             
             print(f"\nCreating prediction results files for the following {numOfPredicitionCsvs} CSVs:")
@@ -411,6 +419,12 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 fileName = csvPredictRes.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
                 csvPredictResDf.to_csv(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.csv', header = True, index = True)
                 print(f'{fileName}.csv Saved...')
+
+                return
+
+        if (option == 4):
+            self.transmitter.statistics()
+
                 
 if __name__ == "__main__":
     apiServerInst = ApiServer()
