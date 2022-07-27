@@ -91,7 +91,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         print("\nPlease choose a name for the current experiment:", end = ' ')
         globe.expResults.name = input()
 
-        globe.expResults.emptyExp() # Empty previous results
+        globe.expResults.emptyExp() # Start a new empty experiment
         self.transmitter.train()
         expResults = self.getQueueData()
         print('Training - Finished\n')
@@ -217,7 +217,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 plt.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.png')
                 print(f'\n{fileName}.png was Saved...')
 
-                plt.show()
+            plt.show()
 
             return
 
@@ -352,7 +352,10 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             SlicedLabelsSeries = labelsSeries.iloc[:predsSeries.size]
 
             # Create a confusion matrix based on the results:
-            confMat = confusion_matrix(SlicedLabelsSeries, predsSeries, labels = labelsArr)
+            SlicedLabelsSeriesStr = SlicedLabelsSeries.astype(str) # Convert floats to string, because confusion cannot handle "continous" values
+            predsSeriesStr = predsSeries.astype(str) # Convert floats to string, because confusion cannot handle "continous" values
+            labelsArrStr = labelsArr.astype(str) # Convert floats to string, because confusion cannot handle "continous" values
+            confMat = confusion_matrix(SlicedLabelsSeriesStr, predsSeriesStr, labels = labelsArrStr)
             confMatDisp = ConfusionMatrixDisplay(confMat, display_labels = labelsArr)
             fig, ax = plt.subplots(figsize = (10,10), dpi = 150)
             plt.rcParams.update({'font.size': 14})
