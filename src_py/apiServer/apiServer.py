@@ -250,21 +250,20 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                     else:
                         print("\nInvalid Input") 
 
-            print("\nPlease prepare the corresponding CSVs, with the last column containing the samples' labels.")
+            print("\nPlease prepare the original labeled CSV, with the last column containing the samples' labels.")
 
-            for i in range(len(csvNumsList)):
-                while True:
-                    print("\nPlease enter the path for the NON-SPLITTED labels CSV (including .csv):", end = ' ') 
-                    print("/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/", end = '')      
-                    labelsCsvPath = input()
-                    labelsCsvPath = '/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/' + labelsCsvPath
+            while True:
+                print("\nPlease enter the path for the NON-SPLITTED labels CSV (including .csv):", end = ' ') 
+                print("/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/", end = '')      
+                labelsCsvPath = input()
+                labelsCsvPath = '/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/' + labelsCsvPath
 
-                    try:
-                        labelsCsvDf = pd.read_csv(labelsCsvPath)
-                        break
+                try:
+                    labelsCsvDf = pd.read_csv(labelsCsvPath)
+                    break
 
-                    except OSError:
-                        print("\nInvalid path\n")
+                except OSError:
+                    print("\nInvalid path\n")
 
             # Extract the labels (last) column from the CSV. Create a list of labels:
             labelsSeries = labelsCsvDf.iloc[:,-1]
@@ -355,6 +354,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             SlicedLabelsSeriesStr = SlicedLabelsSeries.astype(str) # Convert floats to string, because confusion cannot handle "continous" values
             predsSeriesStr = predsSeries.astype(str) # Convert floats to string, because confusion cannot handle "continous" values
             labelsArrStr = labelsArr.astype(str) # Convert floats to string, because confusion cannot handle "continous" values
+            # Another option to solve this problem, is to numerize each classification group (group 1, group 2, ...), 
+            # and add legened to show the true label value for each group.
             confMat = confusion_matrix(SlicedLabelsSeriesStr, predsSeriesStr, labels = labelsArrStr)
             confMatDisp = ConfusionMatrixDisplay(confMat, display_labels = labelsArr)
             fig, ax = plt.subplots(figsize = (10,10), dpi = 150)
