@@ -41,12 +41,13 @@ class AutoencoderClassifier : public Autoencoder
 
     void ema_update()
     {
-        ema_ = ema_ == 0.0 ? this->loss_val_ : this->loss_val_ * alpha + ema_ * (1 - alpha);
+        ema_ = ema_ == 0.0 ? this->loss_val_ : (this->loss_val_ * alpha )+ (ema_ * (1 - alpha));
     }
 
     void emad_update()
     {
-        emad_ = emad_ == 0.0 ? abs(this->loss_val_-this->ema_) : abs(this->loss_val_-this->ema_) * alpha + emad_ * (1 - alpha);
+        emad_ = emad_ == 0.0 ? abs(this->loss_val_-this->ema_) : (abs(this->loss_val_-this->ema_) * alpha) + (emad_ * (1 - alpha));
+        
     }
 
     void loss_update(double loss_val)
@@ -82,7 +83,7 @@ class AutoencoderClassifier : public Autoencoder
             ema_normal_update();
         double Th=(this->ema_event_+this->ema_normal_)/2;
         
-        return Th<loss_val ? 0 : 1;
+        return Th<loss_val ? 1 : 0;
     }
 
     // train of AutoencoderClassifier 

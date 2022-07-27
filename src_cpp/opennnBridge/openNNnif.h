@@ -47,11 +47,13 @@ static void* PredictFun(void* arg){
          ErlNifEnv *env = enif_alloc_env();    
          opennnBridgeController *s = s->GetInstance();
          std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(PredictNNptr->mid);
-         
+               //   cout << "222222222222" << endl;
+
          int modelType = s->getModelType(PredictNNptr->mid); 
          std::shared_ptr<Eigen::Tensor<float,2>> calculate_res = std::make_shared<Eigen::Tensor<float,2>>();
          *calculate_res = neural_network->calculate_outputs( *(PredictNNptr->data));
-      
+            //   cout << "33333333333333" << endl;
+
          if(modelType == E_AEC){
              
              std::shared_ptr<AutoencoderClassifier> Autoencoder_Classifier = std::static_pointer_cast<AutoencoderClassifier>(neural_network);
@@ -61,8 +63,9 @@ static void* PredictFun(void* arg){
          else
              prediction = nifpp::makeTensor2D(env, *calculate_res);
              
+                  // cout << "44444444444" << endl;
          if(enif_send(NULL,&(PredictNNptr->pid), env, prediction)){
-             printf("enif_send succeed prediction\n");
+            // printf("enif_send succeed prediction\n");
           }
          else printf("enif_send failed\n");
          return 0;
@@ -89,7 +92,7 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 
 static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
-            
+           
           ERL_NIF_TERM train_time;
           // Start timer for the train
           high_resolution_clock::time_point start = high_resolution_clock::now();

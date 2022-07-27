@@ -35,8 +35,11 @@ parse_all(ChunkSize,FolderName,Counter,Ret)->
 
     L ->
       parse_all(ChunkSize,FolderName,Counter+1,Ret++L)
-  catch
-    error: E->io:format("#####Error at Parser: ~n~p~n",[E]),Ret
+  catch error: E->
+    if length(Ret) == 0  ->
+        io:format("#####Error at Parser: ~n~p~n",[E]);
+    true -> Ret
+  end
   end.
 
 %%parsing a given CSV file
