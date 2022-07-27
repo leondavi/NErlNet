@@ -185,20 +185,7 @@ static void* trainFun(void* arg){
         } // if(flag == true)
          
          // end set Loss Method ------------------------------------------------------------------------
-         cout << "888888" <<std::endl; 
-         
-         // do NN trainig
-         //chech the inputs from erlang and neural network architecture ---------------------------------------------------
-         //TestingAnalysis testing_analysis(&*neural_network, &data_set);
-         //TestingAnalysis testing_analysis;
-    
-         TestingAnalysis testing_analysis;
-         //std::shared_ptr<OpenNN::TestingAnalysis> testing_analysis =  std::make_shared<OpenNN::TestingAnalysis>();
-         cout << "8181818181" <<std::endl; 
-         testing_analysis.set_neural_network_pointer(&*neural_network);
-         cout << "8282828282" <<std::endl; 
-         testing_analysis.set_data_set_pointer(&data_set);
-         cout << "8383838383" <<std::endl; 
+   
 
          training_strategy.set_maximum_epochs_number(1); 
          cout << "8848484848484" <<std::endl; 
@@ -228,11 +215,25 @@ static void* trainFun(void* arg){
  
              if(data_num_of_cols == (NN_input_num+1) && flag == true){
                 cout << "1010101010" <<std::endl; 
-               training_strategy.perform_training();
+                TrainingResults  res = training_strategy.perform_training();
                cout << "1212121212" <<std::endl; 
+               loss_val = res.get_training_error();
             
             //   cout << "end train " <<std::endl;
-
+                  cout << "888888" <<std::endl; 
+         
+         // do NN trainig
+         //chech the inputs from erlang and neural network architecture ---------------------------------------------------
+         //TestingAnalysis testing_analysis(&*neural_network, &data_set);
+         //TestingAnalysis testing_analysis;
+    /*
+                TestingAnalysis testing_analysis;
+                //std::shared_ptr<OpenNN::TestingAnalysis> testing_analysis =  std::make_shared<OpenNN::TestingAnalysis>();
+                cout << "8181818181" <<std::endl; 
+                testing_analysis.set_neural_network_pointer(&*neural_network);
+                cout << "8282828282" <<std::endl; 
+                testing_analysis.set_data_set_pointer(&data_set);
+                cout << "8383838383" <<std::endl; 
             try{ 
                
                 Tensor< type, 2 > calculate_errors = testing_analysis.calculate_errors();
@@ -252,6 +253,7 @@ static void* trainFun(void* arg){
             catch(...){
             cout << "catch - calculate errors" <<std::endl;
             } 
+            */
            }
                else { 
                 cout << "data set error  " <<std::endl; 
