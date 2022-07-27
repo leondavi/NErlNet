@@ -1,3 +1,8 @@
+###########################################################
+##### Author: Dor Yarchi
+# Copyright: © 2022
+# Date: 27/07/2022
+###########################################################
 import requests
 import globalVars as globe
 import time
