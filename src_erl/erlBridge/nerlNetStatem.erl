@@ -293,35 +293,13 @@ train(cast, {sample, []}, State = #nerlNetStatem_state{modelId = ModelId, featur
 
 train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels, optimizer = Optimizer, lossMethod = LossMethod, learningRate = LearningRate}) ->
     % io:format("SampleListTrain ~p~n",[SampleListTrain]),
-    io:format("SampleListTrain ~p~n",["1"]),
-    % CurrPid = self(),
-    % ChunkSizeTrain = round(length(SampleListTrain)/(Features + Labels)),
-    % ^^^^^^^^^^^^^^^^^^
-    %ModelID = 586000901,
-    % OptimizationMethod = 1,
-    %io:format("~p~n",[SampleListTrain]),
-    %RandomGeneratedData1 = [[rand:normal(0,0.5)||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,5)],
-    %RandomGeneratedData2 = [[rand:normal(1,0.5)||_<-lists:seq(1,128)] ++[1.0]||_<-lists:seq(1,5)],
-    % RandomGeneratedData1 = [[rand:normal(0,1)||_<-lists:seq(1,128)] ||_<-lists:seq(1,5)],
-    % RandomGeneratedData2 = [[rand:normal(1,1)||_<-lists:seq(1,128)] ||_<-lists:seq(1,5)],
-    % Shuffled = lists:flatten([X||{_,X} <- lists:sort([ {random:uniform(), N} || N <- RandomGeneratedData1++RandomGeneratedData2])]),
-    %RandomGeneratedData = lists:flatten([[rand:normal()||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,10)]),
-    % DataTensor = [10.0 , 128.0 , 1.0] ++ Shuffled,
     MyPid=self(),
     _Pid = spawn(fun()-> niftest:call_to_train(ModelId, Optimizer , LossMethod , LearningRate , SampleListTrain ,MyPid) end),
-
-
     {next_state, wait, State#nerlNetStatem_state{nextState = train}};
   
 
   train(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId = ModelId, nextState = NextState}) ->
   %% Set weights
-  % [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
-  
-  % %% Make bias sizes and weights sizes as integer 
-  % NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
-  % NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
-  % _Result_set_weights = niftest:set_weights_nif(WeightsList, BiasList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
   io:format("####sending new weights to workers####~n"),
   niftest:call_to_set_weights(ModelId, Ret_weights_list),
   io:format("####end set weights train####~n"),
@@ -348,24 +326,10 @@ predict(cast, {sample,_CSVname, _BatchID, []}, State = #nerlNetStatem_state{}) -
   
   {next_state, predict, State#nerlNetStatem_state{nextState = predict}};
 
+% send predict sample to worker
 predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStatem_state{ modelId = ModelId}) ->
-    % ChunkSizePred = round(length(SampleListPredict)/Features),
     CurrPID = self(),
-      % ^^^^^^^^^^^^^^^^^^
-    %  ModelID = 586000901,
-    %  RandomGeneratedDataP = [rand:normal()||_<-lists:seq(1,1280)] ,
-    %   RandomGeneratedData1 = [[rand:normal(0,0.5)||_<-lists:seq(1,128)]||_<-lists:seq(1,5)],
-    % RandomGeneratedData2 = [[rand:normal(1,0.5)||_<-lists:seq(1,128)]||_<-lists:seq(1,5)],
-    % Shuffled = lists:flatten([X||{_,X} <- lists:sort([ {random:uniform(), N} || N <- RandomGeneratedData1++RandomGeneratedData2])]),
-    %RandomGeneratedData = lists:flatten([[rand:normal()||_<-lists:seq(1,128)] ++[0.0]||_<-lists:seq(1,10)]),
-    % DataTensor = [10.0 , 128.0 , 1.0] ++ Shuffled,
-  
-    %  DataTensorP = [10.0 , 128.0 , 1.0] ++ RandomGeneratedDataP,
-  
-  
     _Pid = spawn(fun()-> niftest:call_to_predict(ModelId,SampleListPredict,CurrPID,CSVname, BatchID) end),
-  
-  
     {next_state, wait, State#nerlNetStatem_state{nextState = predict}};
   
 predict(cast, {idle}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid}) ->
