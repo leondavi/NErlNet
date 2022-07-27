@@ -384,8 +384,8 @@ http_request(Host, Port,Path, Body)->
   Approve = element(2,element(1,Res)),
   case Approve of
     404 ->
-        io:format("sending:  ~p~nto HostPo: ~p~n Res: ~p",[Body,{Host, Port},R]),
-        io:format("Trying again in 0.01 second~n"),
+      %  io:format("sending:  ~p~nto HostPo: ~p~n Res: ~p",[Body,{Host, Port},R]),
+      %  io:format("Trying again in 0.01 second~n"),
         timer:sleep(10),
         spawn(fun() ->http_request(Host, Port,Path, Body) end);
       _ -> ok
@@ -394,8 +394,8 @@ http_request(Host, Port,Path, Body)->
   Ans = lists:sublist(element(3,Res),8),
   case Ans of
     "Somthing" ->
-        io:format("sending:  ~p~nto HostPo: ~p~nRes: ~p",[Body,{Host, Port},R]),
-        io:format("Trying again in 0.01 second~n"),
+       % io:format("sending:  ~p~nto HostPo: ~p~nRes: ~p",[Body,{Host, Port},R]),
+       % io:format("Trying again in 0.01 second~n"),
         timer:sleep(10),
         spawn(fun() ->http_request(Host, Port,Path, Body) end);
       _ -> ok
