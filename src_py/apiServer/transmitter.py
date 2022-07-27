@@ -7,6 +7,7 @@ from experiment import *
 class Transmitter:
 
     def __init__(self, mainServerAddress):
+        # Addresses used throughout the module:
         self.mainServerAddress = mainServerAddress
         self.clientsTrainingAddress = self.mainServerAddress + '/clientsTraining'
         self.updateCSVAddress = self.mainServerAddress + '/updateCSV'
@@ -123,20 +124,20 @@ class Transmitter:
         globe.multiProcQueue.put(globe.expResults)
 
     def statistics(self):
-        globe.pendingAcks += 1
-        requests.post(self.statisticsAddress, data='getStatistics')
-
+        requests.post(self.statisticsAddress, data='')
     
+if __name__ == "__main__":
+    trans = Transmitter()
+    trans.clientsTraining()
+
+    '''
     def checkIfCsvInResults(self, resList, csv):
         for resDict in resList:
             if resDict['CSV path'] == csv:
                 return True
         
         return False
-    
-if __name__ == "__main__":
-    trans = Transmitter()
-    trans.clientsTraining()
+    '''
 
     '''
     def ackTest(self):

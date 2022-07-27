@@ -76,6 +76,7 @@ class ack(Resource):
 class trainRes(Resource):
     def post(self):
         # Result preprocessing:
+        # Receiving from Erlang: "worker#loss"
         resData = request.form
         resData = list(resData)
         resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter
@@ -100,8 +101,9 @@ class predictRes(Resource):
 
 class statistics(Resource):
     def post(self):
-        print('hi')
-        # TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
+        print(request)
+        resData = request.form
+        print(resData)
 
 #Listener Server list of resources: 
 api.add_resource(test, "/test")
