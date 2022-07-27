@@ -208,7 +208,7 @@ static void* trainFun(void* arg){
 
                loss_val = res.get_training_error();
             
-            //   cout << "end train " <<std::endl;
+               cout << "loss_val " << loss_val << std::endl;
                   cout << "888888" <<std::endl; 
          
          // do NN trainig
