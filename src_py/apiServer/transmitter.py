@@ -129,7 +129,7 @@ class Transmitter:
         globe.multiProcQueue.put(globe.expResults)
 
     def statistics(self):
-        requests.post(self.statisticsAddress, data='')
+        requests.post(self.statisticsAddress, data='getStatistics')
     
 if __name__ == "__main__":
     trans = Transmitter()
