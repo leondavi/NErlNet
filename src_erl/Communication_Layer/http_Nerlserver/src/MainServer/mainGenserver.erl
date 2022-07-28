@@ -140,7 +140,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
 
               %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
               http_request(RouterHost,RouterPort,"statistics", "statistics#" ++ S ++ "@mainServer#" ++integer_to_list(MsgCounter)),
-              ack(NerlnetGraph);
+              %ack(NerlnetGraph);
 
           true ->
               ok
