@@ -4,7 +4,7 @@
 %-export([init/0,create_nif/6,train_nif/4,trainn_nif/4,call_to_train/4,predict_nif/2,call_to_predict/2,get_weights_nif/1,call_to_get_weights/1,printTensor/2]).
 
 -export([init/0,create_nif/6,train_nif/5,trainn_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
--export([call_to_get_weights/1,set_weights_nif/2]).
+-export([call_to_get_weights/1,call_to_set_weights/2]).
 
 -define(DEBUG,false). % set here if it is debug or release  TODO change to read from hrl auto generated file
 -if(DEBUG).
@@ -65,7 +65,7 @@ train_nif(Integer,Integer,Integer,Integer, []) ->
       exit(nif_library_not_loaded).
 
 call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, WorkerPid)->
-      io:format("berfor train  ~n "),
+      % io:format("berfor train  ~n "),
        %io:format("DataTensor= ~p~n ",[DataTensor]),
       _RetVal=trainn_nif(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor),
       %io:format("Train Time= ~p~n ",[RetVal]),
@@ -87,22 +87,34 @@ call_to_predict(ModelID, Data, WorkerPid,CSVname, BatchID)->
       _RetVal = predict_nif(ModelID, Data),
       receive
             Ret->
-            io:format("Ret= ~p~n ",[Ret]),      
+           % io:format("Ret= ~p~n ",[Ret]),      
       
             gen_statem:cast(WorkerPid,{predictRes,Ret,CSVname, BatchID}) 
      
             after 1000 -> 
-                  io:format("///// woker miss predict batch ~n "), 
+                 % io:format("///// woker miss predict batch ~n "), 
                   gen_statem:cast(WorkerPid,{predictRes, nan, CSVname, BatchID})
       end.
 
 call_to_get_weights(ModelID)->
-      RetVal = get_weights_nif(ModelID),
-      io:format("RetVal= ~p~n ",[RetVal]),
-      receive
-            Ret->
-            io:format("Ret= ~p~n ",[Ret])
+      try
+            _RetVal = get_weights_nif(ModelID),
+            % io:format("RetVal= ~p~n ",[RetVal]),
+            receive
+                  Ret->Ret
+                  % io:format("Ret= ~p~n ",[Ret])
+            end
+      catch Err:E -> io:format("Couldnt get weights from worker~n~p~n",{Err,E}),
+            []
       end.
+
+call_to_set_weights(ModelID,Weights)->
+      _RetVal = set_weights_nif(ModelID, Weights).
+     % io:format("RetVal= ~p~n ",[RetVal]).
+      %receive
+      %      Ret->Ret
+            % io:format("Ret= ~p~n ",[Ret])
+      %end.
 
 predict_nif(ModelID, Data) ->
       exit(nif_library_not_loaded).

@@ -1,24 +1,17 @@
 #pragma once 
 
-//#include <iostream>
 #include <vector>
 #include <string>
 #include "ModelParams.h"
-//#include "CustumNN.h"
 #include "definitionsNN.h"
 #include <map>
 
-
-//#include "Eigen/Core"
-//#include "unsupported/Eigen/CXX11/Tensor"
-//#include <eigen3/Eigen/Core>
 #include "../opennn/opennn/opennn.h"
 #include "nifppEigenExtensions.h"
 
 using namespace OpenNN;
 
 
-//
 
 // openNNExtensionFunction.h
 void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neural_network , std::shared_ptr<nifpp::Tensor1D<Index>> activations_functions)
@@ -95,14 +88,11 @@ void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neural_netw
          }
       }
       
-           // neural_network->
-         //Probabilistic
          //Probabilistic
          int last_layar = neural_network->get_layers_pointers().size()-1;
          if(neural_network->get_layer_pointer(last_layar)->get_type() == OpenNN::Layer::Type::Probabilistic) //"Probabilistic"
          {
             if((*activations_functions)(last_layar) == PAF_Binary){
-                 // OpenNN::ProbabilisticLayer::softmax
                   dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar))->set_activation_function(ProbabilisticLayer::ActivationFunction::Binary);
             }
             
@@ -115,9 +105,7 @@ void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neural_netw
             }
 
             if((*activations_functions)(last_layar) == PAF_Softmax){
-               
-                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar))->set_activation_function(ProbabilisticLayer::ActivationFunction::Softmax);
-                  
+                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar))->set_activation_function(ProbabilisticLayer::ActivationFunction::Softmax);    
             }
 
          }
@@ -138,16 +126,12 @@ void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neural_netw
                   dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar2))->set_activation_function(ProbabilisticLayer::ActivationFunction::Competitive);
             }
 
-            if((*activations_functions)(last_layar2) == PAF_Softmax){
-                 
-                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar2))->set_activation_function(ProbabilisticLayer::ActivationFunction::Softmax);
-            
+            if((*activations_functions)(last_layar2) == PAF_Softmax){               
+                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar2))->set_activation_function(ProbabilisticLayer::ActivationFunction::Softmax);         
             }
 
-         }
+         } //end choose Probabilistic method.
     
 }
 
 
-
-//Layer::Type layer_type = neural_network.get_layer_pointer(i)->get_type();
