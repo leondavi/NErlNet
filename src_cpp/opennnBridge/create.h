@@ -70,8 +70,9 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         }   
      
         catch(...){
+           cout << "catch - get data from erlang"  << endl;
            return enif_make_string(env, "catch - get data from erlang", ERL_NIF_LATIN1);
-            //return enif_make_badarg(env);
+     
         } 
                     
         //--------------------------------------------------------------------------------------------------------------
@@ -117,17 +118,15 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
              shared_ptr<Autoencoder> autoencoderPtr = std::make_shared<Autoencoder>();
              neural_network = autoencoderPtr;
              autoencoderPtr->setCustumNN(neural_network_architecture, layer_types, activations_functions); 
-             //std::cout << "start CustumNN" << std::endl; 
              
          } //Autoencoder
 
           else if(modelType == E_AEC)
          { 
-             double k = 0.1;
+             double k = 1.6;
              shared_ptr<AutoencoderClassifier> autoencoderClassifierPtr = std::make_shared<AutoencoderClassifier>(k);
              neural_network = autoencoderClassifierPtr;
              autoencoderClassifierPtr->setCustumNN(neural_network_architecture, layer_types, activations_functions); 
-             //std::cout << "start CustumNN" << std::endl; 
              
          } //AutoencoderClassifier
        
@@ -139,25 +138,15 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         } 
 
          
-        
-         
-        //std::cout << "aaaaaaaaaaa" << std::endl; 
         try{ 
          // set scaling method for scaling layer ---------------------------------------------------------------------------
-         //std::cout<< neural_network->get_layer_pointer(6)->get_type_string() <<std::endl;
-         //std::cout << "bbbbbbbbbbbbb" << std::endl;
-         //std::cout<< neural_network->get_layer_pointer(6)->get_neurons_number()<<std::endl;
-        // std::cout << "ccccccccccccc" << std::endl;
          ScalingLayer* scaling_layer_pointer = neural_network->get_scaling_layer_pointer();
-         // std::cout << "dddddddddddd" << std::endl;
          if(scaling_method == E_ScalingMethods_NoScaling)
         {
             scaling_layer_pointer->set_scalers(OpenNN::Scaler::NoScaling);
-          
         }
         else if(scaling_method == E_ScalingMethods_MinimumMaximum)
         {
-           // scaling_layer_pointer->set_scalers
             scaling_layer_pointer->set_scalers(OpenNN::Scaler::MinimumMaximum);
         }
         else if(scaling_method == E_ScalingMethods_MeanStandardDeviation)
@@ -186,9 +175,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          
         // set activation functions for trainable layers -------------------------------------------------------------------
         try{ 
-            
              chooseActivationFunction(neural_network , activations_functions); //TODO move to custom NN
-            
         }
 
         catch(...){
@@ -227,75 +214,10 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
 
 //-------------------------------------------------------------------------------------------------------------
+    
          /*
-         // get weights test
-         std::cout << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl; 
-         Tensor< float, 1 > parameters = neural_network->get_parameters();
-         std::cout << parameters << std::endl;
-         std::cout << "bbbb" << std::endl; 
-         // end
-         */
-         
-         /*
-         //chech the inputs from erlang and neural network architecture ---------------------------------------------------
-         Index layer_num = neural_network->get_layers_number();
-         std::cout<< layer_num <<std::endl;
-         std::cout<< neural_network_architecture(0) <<std::endl;
-         std::cout<< neural_network_architecture(1) <<std::endl;
-         std::cout<< neural_network_architecture(2) <<std::endl;
          //std::cout<< neural_network_architecture(3) <<std::endl;
          int si = (neural_network->get_trainable_layers_pointers()).size() ;
-         std::cout<< si <<std::endl;
-         string type1 = (neural_network->get_trainable_layers_pointers()(1))->get_type_string();
-         std::cout<<  type1 <<std::endl;
-         //------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------
          */
-         //return enif_make_string(env, "catch - problem in try", ERL_NIF_LATIN1);
-
-
-
-         /*
-               for(int i = 0; i < (int)((neural_network->get_trainable_layers_pointers()).size() ); i++){
-          
-             //Layer::Type layer_type = neural_network.get_layer_pointer(i)->get_type();
-          if( (neural_network->get_trainable_layers_pointers()(i))->get_type_string() == "Perceptron" );
-          {
-            if(activations_functions(i) == E_AF_Threshold){
-                  dynamic_cast<PerceptronLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(PerceptronLayer::Threshold);
-            }
-
-            if(activations_functions(i) == E_AF_SymmetricThreshold){
-                  dynamic_cast<PerceptronLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(PerceptronLayer::SymmetricThreshold);
-            }
-
-            //if(activations_functions(i) == Logistic){ //problem with Logistic ,the compiler dont like it
-             //     dynamic_cast<PerceptronLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(PerceptronLayer::Logistic);
-            //}
-
-            if(activations_functions(i) == E_AF_HyperbolicTangent){
-                  dynamic_cast<PerceptronLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(PerceptronLayer::HyperbolicTangent);
-            }
-          }
-
-          if((neural_network->get_trainable_layers_pointers()(i))->get_type_string() == "Probabilistic")
-          {
-            if(activations_functions(i) == E_AF_Binary){
-                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(ProbabilisticLayer::Binary);
-            }
-
-           // if(activations_functions(i) == Logistic){  //problem with Logistic ,the compiler dont like it
-                //  dynamic_cast<ProbabilisticLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(ProbabilisticLayer::Logistic);
-           // }
-
-            if(activations_functions(i) == E_AF_Competitive){
-                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(ProbabilisticLayer::Competitive);
-            }
-
-            if(activations_functions(i) == E_AF_Softmax){
-                  dynamic_cast<ProbabilisticLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(ProbabilisticLayer::Softmax);
-            }
-
-         }
-         
-         }
-         */
+  

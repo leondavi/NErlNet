@@ -15,22 +15,11 @@ public:
         
     }
 
- 	//CustumNN(int modelType) : modelType(modelType) {};
- 	//CustumNN(); // OpenNN::NeuralNetwork neuralNetwork , Eigen::Tensor<int,1> layersSizes, Eigen::Tensor<int,1> layersTypes,
-               //Eigen::Tensor<int,1> activationFunctions);
- 	
-    
-   // OpenNN::NeuralNetwork GetNeuralNetwork() { return _neuralNetwork; };
-   // Eigen::Tensor<int,1> GetLayersSizes() { return _layersSizes; };
-   // Eigen::Tensor<int,1> GetLayersTypes() { return _layersTypes; };
-   // Eigen::Tensor<int,1> GetAcvtivationFunctions() { return _activationFunctions; };
-    
     
 
     void setCustumNN(Tensor1DPtr neural_network_architecture , Tensor1DPtr layer_types, 
                           Tensor1DPtr activations_functions ){
         
-       // this->_activationList = x;
        std::cout << "start CustumNN" << std::endl; 
        std::cout << neural_network_architecture->size() << std::endl; 
     
@@ -42,70 +31,47 @@ public:
                 
                  
                  if ((*layer_types)[i] == E_LAYER_TYPE_SCALING){
-                     //std::shared_ptr<OpenNN::ScalingLayer> L = std::make_shared<OpenNN::ScalingLayer>(); 
                      OpenNN::ScalingLayer *L = new OpenNN::ScalingLayer; 
-                     //std::shared_ptr<OpenNN::ScalingLayer> L(new OpenNN::ScalingLayer()); //not work
                      L->set((*neural_network_architecture)(i));
-                     //neural_network->add_layer(L);
                      OpenNN::NeuralNetwork::add_layer(L);
-                     //std::cout<< OpenNN::NeuralNetwork::get_layer_pointer(0)->get_neurons_number()<<std::endl;
+          
                  }
-                       //std::cout<< OpenNN::NeuralNetwork::get_layer_pointer(0)->get_neurons_number()<<std::endl;
-                 
-                 
+          
                  if ((*layer_types)[i] == E_LAYER_TYPE_PERCEPTRON){
-                      //std::shared_ptr<OpenNN::PerceptronLayer> L = std::make_shared<OpenNN::PerceptronLayer>();
-                     //std::shared_ptr<OpenNN::PerceptronLayer> L = std::make_shared<OpenNN::PerceptronLayer>(); // not work
                      OpenNN::PerceptronLayer *L = new OpenNN::PerceptronLayer((*neural_network_architecture)(i-1), (*neural_network_architecture)(i));
-                     //L->set_neurons_number((*neural_network_architecture)(i), (*neural_network_architecture)(i+1));
-                     //neural_network->add_layer(L); 
                      OpenNN::NeuralNetwork::add_layer(L);
                  }
 
                 
                  if ((*layer_types)[i] == E_LAYER_TYPE_PROBABILISTIC){
-                     //std::shared_ptr<OpenNN::ProbabilisticLayer> L = std::make_shared<OpenNN::ProbabilisticLayer>();
                      OpenNN::ProbabilisticLayer *L = new OpenNN::ProbabilisticLayer((*neural_network_architecture)(i-1), (*neural_network_architecture)(i));;
-                     //std::shared_ptr<OpenNN::ProbabilisticLayer> L = std::make_shared<OpenNN::ProbabilisticLayer>(); //not work
-                     //L->set_neurons_number((*neural_network_architecture)(i));
-                     //neural_network->add_layer(L); 
                      OpenNN::NeuralNetwork::add_layer(L);
                  }
 
                   if ((*layer_types)[i] == E_LAYER_TYPE_UNSCALING){
-                     //std::shared_ptr<OpenNN::ProbabilisticLayer> L = std::make_shared<OpenNN::ProbabilisticLayer>();
                      OpenNN::UnscalingLayer *L = new OpenNN::UnscalingLayer;
-                     //std::shared_ptr<OpenNN::ProbabilisticLayer> L = std::make_shared<OpenNN::ProbabilisticLayer>(); //not work
                      L->set((*neural_network_architecture)(i));
-                     //neural_network->add_layer(L);
                      OpenNN::NeuralNetwork::add_layer(L);
                  }
                  //E_LAYER_TYPE_UNSCALING
 
-                 //this = neural_network;
-                 std::cout << "layer_types" << std::endl;
+
+                 std::cout << "layer types" << std::endl;
                  std::cout<< OpenNN::NeuralNetwork::get_layer_pointer(i)->get_type_string() <<std::endl;
                  std::cout<< OpenNN::NeuralNetwork::get_layer_pointer(i)->get_neurons_number()<<std::endl;
              }
-                 std::cout << OpenNN::NeuralNetwork::get_layers_number() << std::endl; 
+                 
+                 std::cout << "layers number: "<< OpenNN::NeuralNetwork::get_layers_number() << std::endl; 
                  std::cout << "end CustumNN" << std::endl; 
 
 
     };
 
-
-    // void setAcvtivationList(Eigen::Tensor<int,1>  x){this->_activationFunctions = x; };
-    // void setLayersSizes(Eigen::Tensor<int,1>  x){this->_layersSizes = x; };
-    // void setLayersTypes(Eigen::Tensor<int,1>  x){this->_layersTypes = x; };
-    
     
     
 private:
    
-   // OpenNN::NeuralNetwork _neuralNetwork; 
-   // Eigen::Tensor<int,1> _layersSizes;
-   // Eigen::Tensor<int,1> _layersTypes;
-   // Eigen::Tensor<int,1> _activationFunctions;
+
     
 
 
