@@ -1,3 +1,10 @@
+/*****************************************************
+ * Authors: Evgeni Andrachnic
+ * 29/10/2021
+ * 
+ * @copyright Copyright (c) 2021 Nerlnet
+ *****************************************************/ 
+
 #pragma once 
 
 #include <erl_nif.h>
