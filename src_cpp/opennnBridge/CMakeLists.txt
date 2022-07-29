@@ -1,3 +1,10 @@
+#****************************************************
+# Authors: David Leon
+# 29/10/2021
+# 
+# @copyright Copyright (c) 2021 Nerlnet
+# *****************************************************/ 
+
 project(opennnBridge)
 
 set(EIGEN3_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../opennn/eigen")

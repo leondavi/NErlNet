@@ -1,3 +1,10 @@
+#****************************************************
+# Authors: David Leon
+# 29/10/2021
+# 
+# @copyright Copyright (c) 2021 Nerlnet
+# *****************************************************/ 
+
 project(nerlnet DESCRIPTION "Nerlnet Distributed Machine Learning Research Platform")
 cmake_minimum_required(VERSION 3.16.3 FATAL_ERROR)
 
