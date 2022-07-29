@@ -1,6 +1,6 @@
 %%%-------------------------------------------------------------------
 %%% @author kapelnik
-%%% @copyright (C) 2021, <COMPANY>
+%%% @copyright (C) 2021, Nerlnet
 %%% @doc
 %%%
 %%% @endClient_StateM_Pid
