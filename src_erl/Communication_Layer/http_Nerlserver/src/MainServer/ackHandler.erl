@@ -1,6 +1,6 @@
 %%%-------------------------------------------------------------------
 %%% @author kapelnik
-%%% @copyright (C) 2020, <COMPANY>
+%%% @copyright (C) 2020, Nerlnet
 %%% @doc
 %%%
 %%% @end

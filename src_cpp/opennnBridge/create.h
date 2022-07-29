@@ -5,12 +5,12 @@
  * Create a neural network 
  * Given model parameters creates layers and generates an opennn neural network model 
  * 
- * @author Evgeni
+ * @authors  Evgeni Andrachnic & David Leon & Ziv Moldavsky
  * @brief 
  * @version 0.1
  * @date 2021-12-02
  * 
- * @copyright Copyright (c) 2021
+ * @copyright Copyright (c) 2021 Nerlnet
  * 
  */
 //#include <iostream>

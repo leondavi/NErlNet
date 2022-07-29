@@ -1,8 +1,10 @@
 /*****************************************************
- * Author: David Leon
+ * Authors: David Leon & Evgeni Andrachnic
  * 29/10/2021
  * 
+ * @copyright Copyright (c) 2021 Nerlnet
  *****************************************************/ 
+
 
 #pragma once 
 

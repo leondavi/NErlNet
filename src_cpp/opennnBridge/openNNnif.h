@@ -1,7 +1,8 @@
 /*****************************************************
- * Author: Evgeny Andrachnik
+ * Authors: David Leon, Ziv Moldavsky, Evgeny Andrachnik
  * 22/7/2022
  * 
+ * Copyright (c) 2021 Nerlnet
  *****************************************************/ 
 
 #pragma once 
