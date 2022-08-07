@@ -67,7 +67,7 @@ handle_event(Event, State) ->
         {wxClose, close_window} -> exit(normal);    %destroy(State#state.frame);
         _Button ->
             case ID of
-                ?GRAPH_ID ->        openGscreen;
+                ?GRAPH_ID ->        graphScreen:new(State#state.frame, "");
                 ?SERVER_ID ->       serverScreen:new(State#state.frame, "");
                 ?COMMS_ID ->        openGscreen;
                 ?JSON_ID ->         openGscreen;

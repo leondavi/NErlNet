@@ -21,19 +21,19 @@ handle_call(show_modal, _From, State) ->
     {reply, ok, State}.
 
 init([Parent, _Str])->
-    ServerFrame = wxFrame:new(Parent, 100, "NerlNet Server", [{size, {1280, 720}}, {pos, {0,0}}]),
+    ServerFrame = wxFrame:new(Parent, 200, "NerlNet Server", [{size, {1280, 720}}, {pos, {0,0}}]),
 
     %TODO: wrap text
-    _InfoBox = wxTextCtrl:new(ServerFrame, 101, 
+    _InfoBox = wxTextCtrl:new(ServerFrame, 201, 
         [{value, "CPU Usage of main server hosting device"},
             ?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
-    wxTextCtrl:new(ServerFrame, 102,
+    wxTextCtrl:new(ServerFrame, 202,
         [{value, "CPU Usage of main server hosting device"},
             ?BUTTON_SIZE(1), ?BUTTON_LOC(0, 1)]),
-    wxTextCtrl:new(ServerFrame, 103,
+    wxTextCtrl:new(ServerFrame, 203,
         [{value, "Sent/Received messages"},
             ?BUTTON_SIZE(1), ?BUTTON_LOC(0, 2)]),
-    wxTextCtrl:new(ServerFrame, 104, 
+    wxTextCtrl:new(ServerFrame, 204, 
         [{value, "mainServer guardian (if applicable)"}, 
             ?BUTTON_SIZE(1), ?BUTTON_LOC(0, 3)]),
 
