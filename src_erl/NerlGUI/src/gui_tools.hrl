@@ -1,7 +1,5 @@
--record(wx, {id,     %% Integer Identity of object.
-             obj,    %% Object reference that was used in the connect call.
-             userData, %% User data specified in the connect call.
-             event}).%% The event record 
+-include_lib("wx/include/wx.hrl").
+
 -record(state, {parent, frame}).
 
 -define(PADDING_W, 10).
