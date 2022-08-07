@@ -25,7 +25,6 @@ start(_StartType, _StartArgs) ->
 
     GUI = wx:new(),
     StartFrame = mainScreen:new(GUI, ""),
-    io:format("created screen: ~p~n", [StartFrame]),
     mainScreen:show(StartFrame),
 
     nerlGUI_sup:start_link().
