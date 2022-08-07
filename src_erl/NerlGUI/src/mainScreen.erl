@@ -60,7 +60,7 @@ init([Parent, _Str]) ->
     {StartFrame, #state{frame = StartFrame}}.
 
 
-handle_call(show, _From, State) ->
+handle_call(show_modal, _From, State) ->
     wxFrame:show(State#state.frame),
     {reply, ok, State}.
 
