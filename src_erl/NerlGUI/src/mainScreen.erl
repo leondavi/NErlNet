@@ -3,26 +3,20 @@
 -behaviour(wx_object).
 
 -export([new/2, show/1, destroy/1]).  %% API
--export([init/1, handle_call/3, handle_event/2]).
+-export([init/1, handle_call/3, handle_event/2, handle_info/2]).
 
--record(wx, {id,     %% Integer Identity of object.
-             obj,    %% Object reference that was used in the connect call.
-             userData, %% User data specified in the connect call.
-             event}).%% The event record 
--record(state, {frame}).
+-include("gui_tools.hrl").
 
--define(PADDING_W, 10).
--define(PADDING_H, 20).
--define(BUTTON_W, 200).
--define(BUTTON_H, 200).
--define(BUTTON_SIZE(Mult), {size, {?BUTTON_W*Mult, ?BUTTON_H*Mult}}).
--define(BUTTON_LOC(Row, Col), 
-    {pos, {(Col+1) * ?PADDING_H + Col * ?BUTTON_H, (Row+1) * ?PADDING_W + Row * ?BUTTON_W}}).
-
+-define(GRAPH_ID, 1).
+-define(SERVER_ID, 2).
+-define(ROUTER_ID, 3).
+-define(COMMS_ID, 4).
+-define(JSON_ID, 5).
+-define(DEVCONTROL_ID, 6).
 
 %% Client API
 new(Parent, _Msg) ->
-    wx_object:start(?MODULE, [Parent, self()], []).%self was ID?
+    wx_object:start(?MODULE, [Parent, self()], []).
 
 show(Frame) ->
     wx_object:call(Frame, show_modal).
@@ -37,8 +31,9 @@ init([Parent, _Str]) ->
     wxButton:connect(GraphButton, command_button_clicked, []),
 
     ServerStatsButton = wxButton:new(StartFrame, 2, [{label, "Main Server Status"}, ?BUTTON_SIZE(1), ?BUTTON_LOC(0,1)]), 
-    wxButton:connect(ServerStatsButton, command_button_clicked, [{callback, 
-        fun(_Event, _Obj) -> spawn(serverScreen, init, []) end }]),
+    %wxButton:connect(ServerStatsButton, command_button_clicked, [{callback, 
+    %    fun(_Event, _Obj) -> spawn(serverScreen, init, []) end }]),
+    wxButton:connect(ServerStatsButton, command_button_clicked, []),
 
     RouterStatsButton = wxButton:new(StartFrame, 3, [{label, "Router Stats"}, ?BUTTON_SIZE(1), ?BUTTON_LOC(0,2)]), 
     wxButton:connect(RouterStatsButton, command_button_clicked, []),
@@ -57,26 +52,46 @@ init([Parent, _Str]) ->
 
     wxFrame:connect(StartFrame, close_window),
     wxFrame:show(StartFrame),
-    {StartFrame, #state{frame = StartFrame}}.
+    {StartFrame, #state{parent = Parent, frame = StartFrame}}.
 
 
 handle_call(show_modal, _From, State) ->
     wxFrame:show(State#state.frame),
     {reply, ok, State}.
 
-handle_event(#wx{}, State) ->
-    io:format("Users clicked button~n",[]),
+handle_event(Event, State) ->
+    Type = Event#wx.event,
+    ID = Event#wx.id,
+    %io:format("Handling event type=~p~n",[Type]),
+    case Type of
+        {wxClose, close_window} -> exit(normal);    %destroy(State#state.frame);
+        _Button ->
+            case ID of
+                ?GRAPH_ID ->        openGscreen;
+                ?SERVER_ID ->       serverScreen:new(State#state.frame, "");
+                ?COMMS_ID ->        openGscreen;
+                ?JSON_ID ->         openGscreen;
+                ?DEVCONTROL_ID ->   openGscreen;
+                ?ROUTER_ID ->       openGscreen;
+                Other ->        io:format("Got event with ID=~p~n",[Other])
+            end
+        end,
+    
     {noreply, State}.
 
-loop(Frame)->
-    receive
-        {wx, _ID, _Ref, _Opt, Command}  ->
-            CMDString = element(2, Command),
-            case CMDString of
-                close_window ->             wx:destroy(), exit(normal);
-                Other ->                    io:format("bad event: ID=~p~n", [Other])
-            end;
+handle_info(Info, State)->
+    io:format("Got mes:~p~n",[Info]),
+    {noreply, State}.
 
-        Other -> io:format("Got other mes:~p~n", [Other])
-    end,
-    loop(Frame).
+% loop(Frame)->
+%     receive
+%         {wx, _ID, _Ref, _Opt, Command}  ->
+%             CMDString = element(2, Command),
+%             case CMDString of
+%                 close_window ->             wx:destroy(), exit(normal);
+%                 Other ->                    io:format("bad event: ID=~p~n", [Other])
+%             end;
+
+%         Other -> io:format("Got other mes:~p~n", [Other])
+%     end,
+%     loop(Frame).

@@ -1,20 +1,27 @@
 
 -module(serverScreen).
+-behaviour(wx_object).
 
--export([init/0]).
+-export([new/2, show/1, destroy/1]).  %% API
+-export([init/1, handle_call/3, handle_event/2, handle_info/2]).
 
--define(PADDING_W, 10).
--define(PADDING_H, 20).
--define(BUTTON_W, 200).
--define(BUTTON_H, 200).
--define(BUTTON_SIZE(Mult), {size, {?BUTTON_W*Mult, ?BUTTON_H*Mult}}).
--define(BUTTON_LOC(Row, Col), 
-    {pos, {(Col+1) * ?PADDING_H + Col * ?BUTTON_H, (Row+1) * ?PADDING_W + Row * ?BUTTON_W}}).
+-include("gui_tools.hrl").
 
-init()->
-    GUI = wx:new(),
-    ServerFrame = wxFrame:new(GUI, 100, "NerlNet Server", [{size, {1280, 720}}, {pos, {0,0}}]),
+new(Parent, _Msg) ->
+    wx_object:start(?MODULE, [Parent, self()], []).
 
+show(Frame) ->
+    wx_object:call(Frame, show_modal).
+
+destroy(Frame) ->
+    wx_object:call(Frame, destroy).
+
+handle_call(show_modal, _From, State) ->
+    wxFrame:show(State#state.frame),
+    {reply, ok, State}.
+
+init([Parent, _Str])->
+    ServerFrame = wxFrame:new(Parent, 100, "NerlNet Server", [{size, {1280, 720}}, {pos, {0,0}}]),
 
     %TODO: wrap text
     _InfoBox = wxTextCtrl:new(ServerFrame, 101, 
@@ -27,13 +34,20 @@ init()->
         [{value, "Sent/Received messages"},
             ?BUTTON_SIZE(1), ?BUTTON_LOC(0, 2)]),
     wxTextCtrl:new(ServerFrame, 104, 
-        [{value, "mainServer guardia (if applicable)"}, 
+        [{value, "mainServer guardian (if applicable)"}, 
             ?BUTTON_SIZE(1), ?BUTTON_LOC(0, 3)]),
 
-    wxFrame:show(ServerFrame),
-    loop(ServerFrame).
+    wxFrame:show(ServerFrame).
 
 
-loop(Frame)->
-    get_stats,
-    loop(Frame).
+handle_event(Event, State) ->
+    ID = Event#wx.id,
+    case ID of
+        Other ->        io:format("Got event with ID=~p~n",[Other])
+    end,
+    
+    {noreply, State}.
+
+handle_info(Info, State)->
+    io:format("Got mes:~p~n",[Info]),
+    {noreply, State}.
