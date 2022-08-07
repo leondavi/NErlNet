@@ -10,16 +10,23 @@
 -export([start/2, stop/1]).
 
 start(_StartType, _StartArgs) ->
+    application:start(sasl),
+    application:start(ranch),
     Dispatch = cowboy_router:compile([
-        {'_', [{"/", hello_handler, []}]}
+        {'_', [
+            {"/", hello_handler, []}
+        
+        ]}
     ]),
-    {ok, _} = cowboy:start_clear(my_http_listener,
+    {ok, _} = cowboy:start_clear(gui_listener,
         [{port, 8080}],
         #{env => #{dispatch => Dispatch}}
     ),
-    
+
     GUI = wx:new(),
-    _StartFrame = mainScreen:new(GUI, ""),
+    StartFrame = mainScreen:new(GUI, ""),
+    io:format("created screen: ~p~n", [StartFrame]),
+    mainScreen:show(StartFrame),
 
     nerlGUI_sup:start_link().
 
