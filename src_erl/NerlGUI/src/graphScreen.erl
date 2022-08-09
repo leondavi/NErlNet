@@ -24,25 +24,21 @@ init([Parent, _Str])->
     GraphFrame = wxFrame:new(Parent, 100, "NerlNet device graph", [{size, {1280, 720}}, {pos, {0,0}}]),
 
     %FileName = makeGraph(),
-    FilePath = "out.png",
-    %{ok, Data} = file:read_file(FilePath),
+    FileName = "graph.png",
+    %FilePath = "out.png",
+    %{ok, Data} = file:read_file(FileName),
 
-    Panel = wxPanel:new(GraphFrame, [?BUTTON_SIZE(2)]),
-    Vbox = wxBoxSizer:new(?wxHORIZONTAL),
-    wxSizer:add(Vbox, Panel, [{proportion, 1}, {flag, ?wxEXPAND}]),
-    Image = wxBitmap:new(FilePath, [{type, ?wxBITMAP_TYPE_PNG}]),
-    F = fun(I, _) -> redraw(Image,I) end,
-    wxPanel:connect(Panel, paint, [{callback,F}]),
+    %IMGPanel = wxPanel:new(GraphFrame, 101, [?BUTTON_SIZE(2), ?BUTTON_LOC(0, 0)]),
+    Image = wxBitmap:new(FileName, [{type, ?wxBITMAP_TYPE_PNG}]),
+    _StaticIMG = wxStaticBitmap:new(GraphFrame, 101, Image, [?BUTTON_SIZE(2), ?BUTTON_LOC(0, 0)]),
+
 
     _InfoBox = wxTextCtrl:new(GraphFrame, 102, 
         [{value, "CPU Usage of main server hosting device"},
             ?BUTTON_SIZE(1), ?BUTTON_LOC(0, 2)]),
 
-    wxFrame:show(GraphFrame).
-
-redraw(Image, #wx{obj=Panel}) ->
-    DC = wxPaintDC:new(Panel),
-    wxDC:drawBitmap(DC,Image,?BUTTON_LOC(0, 0)).
+    wxFrame:show(GraphFrame),
+    {GraphFrame, #state{parent = parent, frame = GraphFrame}}.
 
 handle_event(Event, State) ->
     ID = Event#wx.id,
@@ -56,22 +52,23 @@ makeGraph() ->
     %make the digraph
     %convert 
     graphviz:graph("G"),
-    graphviz:add_vertex("G", "w1"),
-    graphviz:add_vertex("G", "w2"),
-    graphviz:add_vertex("G", "w3"),
-    graphviz:add_vertex("G", "w4"),
-    graphviz:add_vertex("G", "mainServer"),
-    graphviz:add_vertex("G", "r1"),
-    graphviz:add_vertex("G", "r2"),
-    graphviz:add_edge("G", "w1", "r1"),
-    graphviz:add_edge("G", "w2", "r1"),
-    graphviz:add_edge("G", "mainServer", "r1"),
-    graphviz:add_edge("G", "w3", "r2"),
-    graphviz:add_edge("G", "w4", "r2"),
-    graphviz:add_edge("G", "r1", "r2"),
+    graphviz:add_node("w1"),
+    graphviz:add_node("w2"),
+    graphviz:add_node("w3"),
+    graphviz:add_node("w4"),
+    graphviz:add_node("mainServer"),
+    graphviz:add_node("r1"),
+    graphviz:add_node("r2"),
+    graphviz:add_edge("w1", "r1"),
+    graphviz:add_edge("w2", "r1"),
+    graphviz:add_edge("mainServer", "r1"),
+    graphviz:add_edge("w3", "r2"),
+    graphviz:add_edge("w4", "r2"),
+    graphviz:add_edge("r1", "r2"),
 
-    GraphPath = "graph.jpg",
-    graphviz:to_file(GraphPath, jpg),
+    GraphPath = "graph.png",
+    graphviz:to_file(GraphPath, png),
+    graphviz:delete(),
     GraphPath.
 
 

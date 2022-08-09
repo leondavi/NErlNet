@@ -37,7 +37,8 @@ init([Parent, _Str])->
         [{value, "mainServer guardian (if applicable)"}, 
             ?BUTTON_SIZE(1), ?BUTTON_LOC(0, 3)]),
 
-    wxFrame:show(ServerFrame).
+    wxFrame:show(ServerFrame),
+    {ServerFrame, #state{parent = parent, frame = ServerFrame}}.
 
 
 handle_event(Event, State) ->
