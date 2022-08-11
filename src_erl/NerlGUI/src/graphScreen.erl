@@ -32,10 +32,8 @@ init([Parent, _Str])->
     Image = wxBitmap:new(FileName, [{type, ?wxBITMAP_TYPE_PNG}]),
     _StaticIMG = wxStaticBitmap:new(GraphFrame, 101, Image, [?BUTTON_SIZE(2), ?BUTTON_LOC(0, 0)]),
 
-
-    _InfoBox = wxTextCtrl:new(GraphFrame, 102, 
-        [{value, "CPU Usage of main server hosting device"},
-            ?BUTTON_SIZE(1), ?BUTTON_LOC(0, 2)]),
+    wxStaticText:new(GraphFrame, 102, "Graph of devices in experiment:",
+            [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
 
     wxFrame:show(GraphFrame),
     {GraphFrame, #state{parent = parent, frame = GraphFrame}}.
@@ -52,19 +50,19 @@ makeGraph() ->
     %make the digraph
     %convert 
     graphviz:graph("G"),
-    graphviz:add_node("w1"),
-    graphviz:add_node("w2"),
-    graphviz:add_node("w3"),
-    graphviz:add_node("w4"),
+    graphviz:add_node("W1"),
+    graphviz:add_node("W2"),
+    graphviz:add_node("W3"),
+    graphviz:add_node("W4"),
     graphviz:add_node("mainServer"),
-    graphviz:add_node("r1"),
-    graphviz:add_node("r2"),
-    graphviz:add_edge("w1", "r1"),
-    graphviz:add_edge("w2", "r1"),
-    graphviz:add_edge("mainServer", "r1"),
-    graphviz:add_edge("w3", "r2"),
-    graphviz:add_edge("w4", "r2"),
-    graphviz:add_edge("r1", "r2"),
+    graphviz:add_node("R1"),
+    graphviz:add_node("R2"),
+    graphviz:add_edge("W1", "R1"),
+    graphviz:add_edge("W2", "R1"),
+    graphviz:add_edge("mainServer", "R1"),
+    graphviz:add_edge("W3", "R2"),
+    graphviz:add_edge("W4", "R2"),
+    graphviz:add_edge("R1", "R2"),
 
     GraphPath = "graph.png",
     graphviz:to_file(GraphPath, png),

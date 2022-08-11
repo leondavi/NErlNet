@@ -23,20 +23,28 @@ handle_call(show_modal, _From, State) ->
 init([Parent, _Str])->
     ServerFrame = wxFrame:new(Parent, 200, "NerlNet Server", [{size, {1280, 720}}, {pos, {0,0}}]),
 
-    %TODO: wrap text
-    _InfoBox = wxTextCtrl:new(ServerFrame, 201, 
-        [{value, "CPU Usage of main server hosting device"},
-            ?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
-    wxTextCtrl:new(ServerFrame, 202,
-        [{value, "CPU Usage of main server hosting device"},
-            ?BUTTON_SIZE(1), ?BUTTON_LOC(0, 1)]),
-    wxTextCtrl:new(ServerFrame, 203,
-        [{value, "Sent/Received messages"},
-            ?BUTTON_SIZE(1), ?BUTTON_LOC(0, 2)]),
-    wxTextCtrl:new(ServerFrame, 204, 
-        [{value, "mainServer guardian (if applicable)"}, 
-            ?BUTTON_SIZE(1), ?BUTTON_LOC(0, 3)]),
+    Title1 = wxStaticText:new(ServerFrame, 201, "CPU Usage of main server hosting device:",
+        [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
+    wxStaticText:new(ServerFrame, 211, "0%",
+        [?BUTTON_SIZE(1), ?BUTTON_LOC(0.5, 0)]),
 
+    Title2 = wxStaticText:new(ServerFrame, 202,"Number of active connections:",
+        [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 2)]),
+    wxStaticText:new(ServerFrame, 212, "0",
+        [?BUTTON_SIZE(1), ?BUTTON_LOC(0.5, 2)]),
+
+    Title3 = wxStaticText:new(ServerFrame, 203, "Sent/Received messages:",
+        [?BUTTON_SIZE(1), ?BUTTON_LOC(1, 0)]),
+    wxStaticText:new(ServerFrame, 213, "0/0",
+        [?BUTTON_SIZE(1), ?BUTTON_LOC(1.5, 0)]),
+
+    Title4 = wxStaticText:new(ServerFrame, 204, "mainServer guardian (if applicable):",
+        [?BUTTON_SIZE(1), ?BUTTON_LOC(1, 2)]),
+    wxStaticText:new(ServerFrame, 214, "no",
+        [?BUTTON_SIZE(1), ?BUTTON_LOC(1.5, 2)]),
+
+    wxStaticText:wrap(Title1, ?BUTTON_W),wxStaticText:wrap(Title2, ?BUTTON_W),wxStaticText:wrap(Title3, ?BUTTON_W),wxStaticText:wrap(Title4, ?BUTTON_W),
+    
     wxFrame:show(ServerFrame),
     {ServerFrame, #state{parent = parent, frame = ServerFrame}}.
 
