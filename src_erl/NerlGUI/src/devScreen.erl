@@ -64,5 +64,5 @@ handle_info(Info, State)->
     {noreply, State}.
 
 
-add_dev_button(Frame, Dev)->
+add_dev_button(_Frame, _Dev)->
     todo.
