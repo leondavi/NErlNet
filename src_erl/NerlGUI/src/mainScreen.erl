@@ -47,8 +47,7 @@ init([Parent, _Str]) ->
     DevControlButton = wxButton:new(StartFrame, 6, [{label, "Device Control"}, ?BUTTON_SIZE(1), ?BUTTON_LOC(1,2)]),
     wxButton:connect(DevControlButton, command_button_clicked, []),
 
-
-    _InfoBox = wxTextCtrl:new(StartFrame, 7, [{value, "NerlNet Info"}, ?BUTTON_SIZE(2), ?BUTTON_LOC(0, 3)]),
+    wxStaticText:new(StartFrame, 7, "NerlNet Info:", [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 3)]),
 
     wxFrame:connect(StartFrame, close_window),
     wxFrame:show(StartFrame),
@@ -69,10 +68,10 @@ handle_event(Event, State) ->
             case ID of
                 ?GRAPH_ID ->        graphScreen:new(State#state.frame, "");
                 ?SERVER_ID ->       serverScreen:new(State#state.frame, "");
+                ?ROUTER_ID ->       openGscreen;
                 ?COMMS_ID ->        openGscreen;
                 ?JSON_ID ->         openGscreen;
-                ?DEVCONTROL_ID ->   openGscreen;
-                ?ROUTER_ID ->       openGscreen;
+                ?DEVCONTROL_ID ->   devScreen:new(State#state.frame, "");
                 Other ->        io:format("Got event with ID=~p~n",[Other])
             end
         end,
@@ -82,16 +81,3 @@ handle_event(Event, State) ->
 handle_info(Info, State)->
     io:format("Got mes:~p~n",[Info]),
     {noreply, State}.
-
-% loop(Frame)->
-%     receive
-%         {wx, _ID, _Ref, _Opt, Command}  ->
-%             CMDString = element(2, Command),
-%             case CMDString of
-%                 close_window ->             wx:destroy(), exit(normal);
-%                 Other ->                    io:format("bad event: ID=~p~n", [Other])
-%             end;
-
-%         Other -> io:format("Got other mes:~p~n", [Other])
-%     end,
-%     loop(Frame).
