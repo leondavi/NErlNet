@@ -68,7 +68,7 @@ handle_event(Event, State) ->
             case ID of
                 ?GRAPH_ID ->        graphScreen:new(State#state.frame, "");
                 ?SERVER_ID ->       serverScreen:new(State#state.frame, "");
-                ?ROUTER_ID ->       openGscreen;
+                ?ROUTER_ID ->       routerScreen:new(State#state.frame, "");
                 ?COMMS_ID ->        openGscreen;
                 ?JSON_ID ->         openGscreen;
                 ?DEVCONTROL_ID ->   devScreen:new(State#state.frame, "");

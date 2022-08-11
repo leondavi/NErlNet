@@ -46,28 +46,29 @@ handle_event(Event, State) ->
     
     {noreply, State}.
 
-makeGraph() ->
-    %make the digraph
-    %convert 
-    graphviz:graph("G"),
-    graphviz:add_node("W1"),
-    graphviz:add_node("W2"),
-    graphviz:add_node("W3"),
-    graphviz:add_node("W4"),
-    graphviz:add_node("mainServer"),
-    graphviz:add_node("R1"),
-    graphviz:add_node("R2"),
-    graphviz:add_edge("W1", "R1"),
-    graphviz:add_edge("W2", "R1"),
-    graphviz:add_edge("mainServer", "R1"),
-    graphviz:add_edge("W3", "R2"),
-    graphviz:add_edge("W4", "R2"),
-    graphviz:add_edge("R1", "R2"),
+% %%generates graph.png and returns the filename
+% makeGraph() ->
+%     %make the digraph
+%     %convert 
+%     graphviz:graph("G"),
+%     graphviz:add_node("W1"),
+%     graphviz:add_node("W2"),
+%     graphviz:add_node("W3"),
+%     graphviz:add_node("W4"),
+%     graphviz:add_node("mainServer"),
+%     graphviz:add_node("R1"),
+%     graphviz:add_node("R2"),
+%     graphviz:add_edge("W1", "R1"),
+%     graphviz:add_edge("W2", "R1"),
+%     graphviz:add_edge("mainServer", "R1"),
+%     graphviz:add_edge("W3", "R2"),
+%     graphviz:add_edge("W4", "R2"),
+%     graphviz:add_edge("R1", "R2"),
 
-    GraphPath = "graph.png",
-    graphviz:to_file(GraphPath, png),
-    graphviz:delete(),
-    GraphPath.
+%     GraphPath = "graph.png",
+%     graphviz:to_file(GraphPath, png),
+%     graphviz:delete(),
+%     GraphPath.
 
 
 handle_info(Info, State)->
