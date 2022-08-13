@@ -27,6 +27,11 @@ destroy(Frame) ->
 init([Parent, _Str]) ->
     StartFrame = wxFrame:new(Parent, 0, "Main Screen", [{size, {1280, 720}}, {pos, {0,0}}]),
 
+    Font = wxFrame:getFont(StartFrame),
+    wxFont:setPointSize(Font, ?FONT_SIZE),
+    wxFrame:setFont(StartFrame, Font),
+
+
     GraphButton = wxButton:new(StartFrame, 1, [{label, "Nerlnet Graph"}, ?BUTTON_SIZE(1), ?BUTTON_LOC(0,0)]),
     wxButton:connect(GraphButton, command_button_clicked, []),
 
@@ -41,13 +46,14 @@ init([Parent, _Str]) ->
     CommsButton = wxButton:new(StartFrame, 4, [{label, "Communications\nPerformance"}, ?BUTTON_SIZE(1), ?BUTTON_LOC(1,0)]),
     wxButton:connect(CommsButton, command_button_clicked, []),
 
-    JSONButton = wxButton:new(StartFrame, 5, [{label, "Generate network JSON"}, ?BUTTON_SIZE(1), ?BUTTON_LOC(1,1)]),
+    JSONButton = wxButton:new(StartFrame, 5, [{label, "Generate\nnetwork JSON"}, ?BUTTON_SIZE(1), ?BUTTON_LOC(1,1)]),
     wxButton:connect(JSONButton, command_button_clicked, []),
 
     DevControlButton = wxButton:new(StartFrame, 6, [{label, "Device Control"}, ?BUTTON_SIZE(1), ?BUTTON_LOC(1,2)]),
     wxButton:connect(DevControlButton, command_button_clicked, []),
 
     wxStaticText:new(StartFrame, 7, "NerlNet Info:", [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 3)]),
+
 
     wxFrame:connect(StartFrame, close_window),
     wxFrame:show(StartFrame),
