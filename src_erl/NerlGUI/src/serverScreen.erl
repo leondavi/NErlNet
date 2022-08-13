@@ -43,8 +43,8 @@ init([Parent, _Str])->
     wxStaticText:new(ServerFrame, 214, "no",
         [?BUTTON_SIZE(1), ?BUTTON_LOC(1.5, 2)]),
 
-    wxStaticText:wrap(Title1, ?BUTTON_W),wxStaticText:wrap(Title2, ?BUTTON_W),wxStaticText:wrap(Title3, ?BUTTON_W),wxStaticText:wrap(Title4, ?BUTTON_W),
-    
+    wxStaticText:wrap(Title1, ?TILE_W),wxStaticText:wrap(Title2, ?TILE_W),wxStaticText:wrap(Title3, ?TILE_W),wxStaticText:wrap(Title4, ?TILE_W),
+
     wxFrame:show(ServerFrame),
     {ServerFrame, #state{parent = parent, frame = ServerFrame}}.
 

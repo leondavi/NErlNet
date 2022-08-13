@@ -12,6 +12,7 @@
 start(_StartType, _StartArgs) ->
     application:start(sasl),
     application:start(ranch),
+    application:start(inets),
     Dispatch = cowboy_router:compile([
         {'_', [
             {"/", hello_handler, []}
@@ -19,7 +20,7 @@ start(_StartType, _StartArgs) ->
         ]}
     ]),
     {ok, _} = cowboy:start_clear(gui_listener,
-        [{port, 8080}],
+        [{port, 8096}],
         #{env => #{dispatch => Dispatch}}
     ),
 

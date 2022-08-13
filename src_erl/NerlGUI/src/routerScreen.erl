@@ -33,7 +33,7 @@ init([Parent, _Str])->
         [?BUTTON_SIZE(1), ?BUTTON_LOC(0.5, 0)]),
 
 
-    wxStaticText:wrap(Title1, ?BUTTON_W),
+    wxStaticText:wrap(Title1, ?TILE_W),
     
     wxFrame:show(ServerFrame),
     {ServerFrame, #state{parent = parent, frame = ServerFrame}}.
