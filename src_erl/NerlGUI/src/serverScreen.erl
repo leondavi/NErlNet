@@ -23,6 +23,10 @@ handle_call(show_modal, _From, State) ->
 init([Parent, _Str])->
     ServerFrame = wxFrame:new(Parent, 200, "NerlNet Server", [{size, {1280, 720}}, {pos, {0,0}}]),
 
+    Font = wxFrame:getFont(ServerFrame),
+    wxFont:setPointSize(Font, ?FONT_SIZE),
+    wxFrame:setFont(ServerFrame, Font),
+
     Title1 = wxStaticText:new(ServerFrame, 201, "CPU Usage of main server hosting device:",
         [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
     wxStaticText:new(ServerFrame, 211, "0%",

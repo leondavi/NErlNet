@@ -22,6 +22,10 @@ destroy(Frame) ->
 init([Parent, _Str]) ->
     StartFrame = wxFrame:new(Parent, 700, "Main Screen", [{size, {1280, 720}}, {pos, {0,0}}]),
 
+    Font = wxFrame:getFont(StartFrame),
+    wxFont:setPointSize(Font, ?FONT_SIZE),
+    wxFrame:setFont(StartFrame, Font),
+
     wxStaticText:new(StartFrame, 701, "MainServer:", [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
 
     ServerStatsButton = wxButton:new(StartFrame, 711, [{label, "Main Server Status"}, ?BUTTON_SIZE(1), ?BUTTON_LOC(0.1,0)]), 

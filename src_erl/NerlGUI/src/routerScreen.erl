@@ -23,14 +23,18 @@ handle_call(show_modal, _From, State) ->
 init([Parent, _Str])->
     ServerFrame = wxFrame:new(Parent, 300, "NerlNet Routers", [{size, {1280, 720}}, {pos, {0,0}}]),
 
+    Font = wxFrame:getFont(ServerFrame),
+    wxFont:setPointSize(Font, ?FONT_SIZE),
+    wxFrame:setFont(ServerFrame, Font),
+
     Title1 = wxStaticText:new(ServerFrame, 301, "Router #1:",
         [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
     wxStaticText:new(ServerFrame, 311, "State/Mode:",
-        [?BUTTON_SIZE(1), ?BUTTON_LOC(0.1, 0)]),
+        [?BUTTON_SIZE(1), ?BUTTON_LOC(0.15, 0)]),
     wxStaticText:new(ServerFrame, 331, "connected to:",
-        [?BUTTON_SIZE(1), ?BUTTON_LOC(0.3, 0)]),
+        [?BUTTON_SIZE(1), ?BUTTON_LOC(0.45, 0)]),
     wxStaticText:new(ServerFrame, 321, "Sent/Recv messages:",
-        [?BUTTON_SIZE(1), ?BUTTON_LOC(0.5, 0)]),
+        [?BUTTON_SIZE(1), ?BUTTON_LOC(0.75, 0)]),
 
 
     wxStaticText:wrap(Title1, ?TILE_W),

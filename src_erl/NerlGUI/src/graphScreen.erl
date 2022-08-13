@@ -23,16 +23,20 @@ handle_call(show_modal, _From, State) ->
 init([Parent, _Str])->
     GraphFrame = wxFrame:new(Parent, 100, "NerlNet device graph", [{size, {1280, 720}}, {pos, {0,0}}]),
 
+    Font = wxFrame:getFont(GraphFrame),
+    wxFont:setPointSize(Font, ?FONT_SIZE),
+    wxFrame:setFont(GraphFrame, Font),
+
     {ok, {_ResCode, _Headers, Body}} = httpc:request(get, {?MAINSERVER_URL++"/getGraph", []}, [], []),
     Devices = string:split(Body, ",", all),
     %NerlGraph = httpc:request(post, {?MAINSERVER_URL++"/getGraph", [], [], body}, [], []),
     io:format("got graph: ~p~n", [Body]),
 
     FileName = makeGraph(Devices),
+    receive _Any -> wait after 1000 -> done end, %wait for picture to process
 
-    %IMGPanel = wxPanel:new(GraphFrame, 101, [?BUTTON_SIZE(2), ?BUTTON_LOC(0, 0)]),
     Image = wxBitmap:new(FileName, [{type, ?wxBITMAP_TYPE_PNG}]),
-    _StaticIMG = wxStaticBitmap:new(GraphFrame, 101, Image, [?BUTTON_SIZE(2), ?BUTTON_LOC(0, 0)]),
+    _StaticIMG = wxStaticBitmap:new(GraphFrame, 101, Image, [?BUTTON_SIZE(5), ?BUTTON_LOC(0, 0)]),
 
     wxStaticText:new(GraphFrame, 102, "Graph of devices in experiment:",
             [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
@@ -57,12 +61,12 @@ makeGraph(DeviceList) ->
     FileName = "graph.png",
     makeGraph(DeviceList, FileName).
 
+makeGraph([[]], FileName) -> makeGraph([], FileName);
 makeGraph([], FileName) -> 
     graphviz:to_file(FileName, png),
     graphviz:delete(),
     FileName;
 makeGraph([Device|DeviceList], FileName) -> 
-    
     graphviz:add_node(Device),
     graphviz:add_edge(Device, "MainServer"),
     makeGraph(DeviceList, FileName).
