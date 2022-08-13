@@ -2,6 +2,9 @@
 
 -record(state, {parent, frame}).
 
+-define(MAINSERVER_URL, "http://127.0.0.1:8080").
+
+
 -define(PADDING_W, 10).
 -define(PADDING_H, 20).
 -define(TILE_W, 200).

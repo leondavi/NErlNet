@@ -6,7 +6,7 @@ NERLNET_LIB_DIR="/usr/local/lib/nerlnet-lib"
 NERLNET_DIR=$NERLNET_LIB_DIR/NErlNet
 NERLNET_LOG_DIR="/usr/local/lib/nerlnet-lib/log"
 LOGGED_IN_USER=$(logname)
-NumJobs=4
+NumJobs=1
 
 function print()
 {
@@ -65,6 +65,6 @@ chown -R $LOGGED_IN_USER $NERLNET_DIR/build
 
 echo "enable and start nerlnet.service"
 systemctl enable nerlnet.service
-systemctl start nerlnet.service
+#systemctl start nerlnet.service
 
 rm *.deb

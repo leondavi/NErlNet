@@ -46,6 +46,8 @@ getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
 
   Federateds = {getFederated(maps:get(<<"federated">>,ArchitectureMap),OnDeviceEntities , [],ArchitectureMap,G),WorkersMap},
 
+  GUI_on_dev = lists:member("nerlGUI",OnDeviceEntities),
+  GUI = if GUI_on_dev -> maps:get(<<"nerlGUI">>,ArchitectureMap); true -> none end,
 
   %%  retrive THIS device MainServer, returns a map of arguments
 
@@ -55,7 +57,10 @@ getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
     OnDevice == false -> MainServer = none;
     true -> MainServerArgs = maps:get(<<"mainServer">>,ArchitectureMap),
       ClientsNames = getAllClientsNames(maps:get(<<"clients">>,ArchitectureMap),[]),
-     % MainServerConnectionsMap=getConnectionMap(<<"mainServer">>,ArchitectureMap,G),
+      % MainServerConnectionsMap=getConnectionMap(<<"mainServer">>,ArchitectureMap,G),
+      % add GUI connection to MainServer, if it exists
+      if GUI /= none -> addEdges(G, "mainServer", "nerlGUI");
+        true -> none end,
       MainServer = {MainServerArgs,G,WorkersMap,ClientsNames}
   end,
 
@@ -71,7 +76,7 @@ getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
                                       [MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds]),
 
   
-  {MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds,NerlNetSettings}.
+  {MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds,NerlNetSettings,GUI}.
 
 
 
@@ -112,8 +117,8 @@ getSources([Source|Sources],OnDeviceSources,Return,ArchMap,G) ->
   end.
 
 %%getRouters findes all Routers needed to be opened on this device. returns [{RouterArgsMap,RoutersConnectionMap},...]
-getRouters([],_OnDeviceRouters,[],_ArchMap,G) ->none;
-getRouters([],_OnDeviceRouters,Return,_ArchMap,G) ->Return;
+getRouters([],_OnDeviceRouters,[],_ArchMap,_G) ->none;
+getRouters([],_OnDeviceRouters,Return,_ArchMap,_G) ->Return;
 getRouters([Router|Routers],OnDeviceRouters,Return,ArchMap,G) ->
 
   RouterName = maps:get(<<"name">>,Router),
@@ -218,12 +223,27 @@ getPort([EntityMap|Entities],EntityName) ->
       getPort(Entities,EntityName)
   end.
 
+
+%%% TODO: make new port search func
+% getPortUnknown(ArchMap, Name)->
+%   case Name of
+%     <<"mainServer">> -> [MainServer] = maps:get(<<"mainServer">>,ArchMap),list_to_integer(binary_to_list(maps:get(<<"port">>, MainServer)));
+%     <<"serverAPI">> ->  [ServerAPI] = maps:get(<<"serverAPI">>,ArchMap),list_to_integer(binary_to_list(maps:get(<<"port">>, ServerAPI)));
+%     <<"nerlGUI">> ->    [NerlGUI] = maps:get(<<"nerlGUI">>,ArchMap),list_to_integer(binary_to_list(maps:get(<<"port">>, NerlGUI)));
+%     Other ->
+%       case getPort(maps:get(<<"routers">>,ArchMap),EntityName) of
+
+%   end.
+
 getPortUnknown(ArchMap,<<"mainServer">>)->
   [MainServer] = maps:get(<<"mainServer">>,ArchMap),
   list_to_integer(binary_to_list(maps:get(<<"port">>, MainServer)));
 getPortUnknown(ArchMap,<<"serverAPI">>)->
   [ServerAPI] = maps:get(<<"serverAPI">>,ArchMap),
   list_to_integer(binary_to_list(maps:get(<<"port">>, ServerAPI)));
+getPortUnknown(ArchMap,<<"nerlGUI">>)->
+  [NerlGUI] = maps:get(<<"nerlGUI">>,ArchMap),
+  list_to_integer(binary_to_list(maps:get(<<"port">>, NerlGUI)));
 getPortUnknown(ArchMap,EntityName)->
   FoundRouter = getPort(maps:get(<<"routers">>,ArchMap),EntityName),
   if  FoundRouter == false->

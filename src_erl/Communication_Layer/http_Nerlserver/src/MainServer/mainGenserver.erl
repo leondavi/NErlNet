@@ -44,6 +44,7 @@ start_link(Args) ->
 -spec(init(Args :: term()) ->
 {ok, State :: #main_genserver_state{}} | {ok, State :: #main_genserver_state{}, timeout() | hibernate} |
 {stop, Reason :: term()} | ignore).
+
 init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
   inets:start(),
     io:format("Main Server ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
@@ -63,8 +64,15 @@ init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
 {noreply, NewState :: #main_genserver_state{}, timeout() | hibernate} |
 {stop, Reason :: term(), Reply :: term(), NewState :: #main_genserver_state{}} |
 {stop, Reason :: term(), NewState :: #main_genserver_state{}}).
-handle_call(_Request, _From, State = #main_genserver_state{}) ->
-{reply, ok, State}.
+
+%% respond to GUI req
+handle_call(getGraph, _From, State) ->
+  NerlnetGraph = State#main_genserver_state.nerlnetGraph,
+  GraphMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- (digraph:vertices(NerlnetGraph)--["serverAPI"])--["mainServer"]]),
+  %DeviceList = maps:to_list(GraphMap),%%TODO: get actual graph
+  %Data = [DeviceName++","||{DeviceName, _Val} <- maps:to_list(GraphMap)],
+  Data = [DeviceName++","||DeviceName <- maps:keys(GraphMap)],
+  {reply, Data, State}.
 
 %% @private
 %% @doc Handling cast messages
@@ -419,7 +427,7 @@ start_connection([])->ok;
 start_connection([{_ServerName,{Host, Port}}|Tail]) ->
   Res = httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
   io:format("mainserver connecting to: ~p result: ~p~n",[{Host, Port},Res]),
-start_connection(Tail).
+  start_connection(Tail).
 
 
 getShortPath(From,To,NerlnetGraph) when is_atom(To)-> 

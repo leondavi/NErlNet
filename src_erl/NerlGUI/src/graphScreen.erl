@@ -23,10 +23,12 @@ handle_call(show_modal, _From, State) ->
 init([Parent, _Str])->
     GraphFrame = wxFrame:new(Parent, 100, "NerlNet device graph", [{size, {1280, 720}}, {pos, {0,0}}]),
 
-    %FileName = makeGraph(),
-    FileName = "graph.png",
-    %FilePath = "out.png",
-    %{ok, Data} = file:read_file(FileName),
+    {ok, {_ResCode, _Headers, Body}} = httpc:request(get, {?MAINSERVER_URL++"/getGraph", []}, [], []),
+    Devices = string:split(Body, ",", all),
+    %NerlGraph = httpc:request(post, {?MAINSERVER_URL++"/getGraph", [], [], body}, [], []),
+    io:format("got graph: ~p~n", [Body]),
+
+    FileName = makeGraph(Devices),
 
     %IMGPanel = wxPanel:new(GraphFrame, 101, [?BUTTON_SIZE(2), ?BUTTON_LOC(0, 0)]),
     Image = wxBitmap:new(FileName, [{type, ?wxBITMAP_TYPE_PNG}]),
@@ -46,29 +48,24 @@ handle_event(Event, State) ->
     
     {noreply, State}.
 
-% %%generates graph.png and returns the filename
-% makeGraph() ->
-%     %make the digraph
-%     %convert 
-%     graphviz:graph("G"),
-%     graphviz:add_node("W1"),
-%     graphviz:add_node("W2"),
-%     graphviz:add_node("W3"),
-%     graphviz:add_node("W4"),
-%     graphviz:add_node("mainServer"),
-%     graphviz:add_node("R1"),
-%     graphviz:add_node("R2"),
-%     graphviz:add_edge("W1", "R1"),
-%     graphviz:add_edge("W2", "R1"),
-%     graphviz:add_edge("mainServer", "R1"),
-%     graphviz:add_edge("W3", "R2"),
-%     graphviz:add_edge("W4", "R2"),
-%     graphviz:add_edge("R1", "R2"),
+%%generates graph from list and returns the filename
+makeGraph(DeviceList) ->
+    graphviz:graph("G"),
+    graphviz:add_node("MainServer"),
+    graphviz:add_node("ApiServer"),
+    graphviz:add_edge("MainServer", "ApiServer"),
+    FileName = "graph.png",
+    makeGraph(DeviceList, FileName).
 
-%     GraphPath = "graph.png",
-%     graphviz:to_file(GraphPath, png),
-%     graphviz:delete(),
-%     GraphPath.
+makeGraph([], FileName) -> 
+    graphviz:to_file(FileName, png),
+    graphviz:delete(),
+    FileName;
+makeGraph([Device|DeviceList], FileName) -> 
+    
+    graphviz:add_node(Device),
+    graphviz:add_edge(Device, "MainServer"),
+    makeGraph(DeviceList, FileName).
 
 
 handle_info(Info, State)->

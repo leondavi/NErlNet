@@ -46,8 +46,8 @@
 
 
 start(_StartType, _StartArgs) ->
-     HostName = getHostName(),
-     %HostName = "127.0.0.1",
+     %HostName = getHostName(),
+     HostName = "127.0.0.1",        %TODO: update jsons with real ips
      %HostName = "127.0.0.1",
      io:format("My HostName: ~p~n",[HostName]),
 
@@ -87,13 +87,13 @@ createNerlnetInitiator(HostName) ->
 
 
 parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess) ->
-    %%Server that should be established on thi  s machine from JSON architecture:
+    %%Server that should be established on this machine from JSON architecture:
     % {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities("./input/jsonArch1PC2Workers.json",list_to_binary(HostName)),
     %%    get json path from jsonPath file in main NErlNet directory
     
 
     %%Server that should be established on this machine from JSON architecture:
-    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)),
+    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings],_GUI} = jsonParser:getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)),
 
 %  io:format("My NerlNetSettings: ~p~n",[NerlNetSettings]),
 
@@ -269,7 +269,7 @@ createMainServer({[MainServerArgsMap],ConnectionsGraph,WorkersMap,ClientsNames},
 
     MainServerDispatcher = cowboy_router:compile([
     {'_', [
-
+        %Nerlnet actions
         {"/updateCSV",[],initHandler,[MainGenServerPid]},
         {"/lossFunction",[],actionHandler,[lossFunction,MainGenServerPid]},
         {"/predictRes",[],actionHandler,[predictRes,MainGenServerPid]},
@@ -281,7 +281,9 @@ createMainServer({[MainServerArgsMap],ConnectionsGraph,WorkersMap,ClientsNames},
         {"/clientsPredict",[],actionHandler,[clientsPredict,MainGenServerPid]},
         {"/startCasting",[],actionHandler, [startCasting, MainGenServerPid]},
         {"/stopCasting",[],actionHandler, [stopCasting, MainGenServerPid]},
-        {"/asd",[],noMatchingRouteHandler, [MainGenServerPid]},
+        %GUI actions
+        {"/getGraph",[],guiHandler, [getGraph, MainGenServerPid]},
+
         {"/[...]", [],noMatchingRouteHandler, [MainGenServerPid]}
         ]}
         ]),
