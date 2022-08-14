@@ -67,11 +67,10 @@ init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
 
 %% respond to GUI req
 handle_call(getGraph, _From, State) ->
-  NerlnetGraph = State#main_genserver_state.nerlnetGraph,
-  GraphMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- (digraph:vertices(NerlnetGraph)--["serverAPI"])--["mainServer"]]),
-  %DeviceList = maps:to_list(GraphMap),%%TODO: get actual graph
-  %Data = [DeviceName++","||{DeviceName, _Val} <- maps:to_list(GraphMap)],
-  Data = [DeviceName++","||DeviceName <- maps:keys(GraphMap)],
+  NerlGraph = State#main_genserver_state.nerlnetGraph,
+  FullGraph = [digraph:vertex(NerlGraph,Vertex) || Vertex <- (digraph:vertices(NerlGraph)--["serverAPI"])],
+  io:format("Full graph is: ~p~n", [FullGraph]),
+  Data = [Entity++"@"++IP++":"++integer_to_list(Port)++"#"||{Entity, {IP, Port}} <- FullGraph],
   {reply, Data, State}.
 
 %% @private
