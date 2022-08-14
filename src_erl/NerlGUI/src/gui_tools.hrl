@@ -1,6 +1,6 @@
 -include_lib("wx/include/wx.hrl").
 
--record(state, {parent, frame}).
+-record(state, {parent, frame, objs, nerlGraph}).
 
 -define(MAINSERVER_URL, "http://127.0.0.1:8080").
 

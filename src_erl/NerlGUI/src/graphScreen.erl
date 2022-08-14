@@ -26,20 +26,21 @@ init([Parent, _Str])->
     Font = wxFrame:getFont(GraphFrame),
     wxFont:setPointSize(Font, ?FONT_SIZE),
     wxFrame:setFont(GraphFrame, Font),
-    try
-        {ok, {_ResCode, _Headers, Body}} = httpc:request(get, {?MAINSERVER_URL++"/getGraph", []}, [], []),
-        Devices = string:split(Body, "#", all),
-        %NerlGraph = httpc:request(post, {?MAINSERVER_URL++"/getGraph", [], [], body}, [], []),
-        io:format("got graph: ~p~n", [Body]),
+    {ok, {_ResCode, _Headers, Body}} = httpc:request(get, {?MAINSERVER_URL++"/getGraph", []}, [], []),
+    io:format("got body: ~p~n", [Body]),
+    DevicesInfo = string:split(Body, "#", all),
+    Devices = [string:split(DeviceInfo, ",", all) || DeviceInfo <- DevicesInfo, DevicesInfo /=[[]]],
+    Edges = lists:droplast(lists:last(Devices)),
+    %NerlGraph = httpc:request(post, {?MAINSERVER_URL++"/getGraph", [], [], body}, [], []),
+    io:format("got graph: ~p~n", [Devices]),
+    DeviceList = lists:droplast(Devices),
 
-        FileName = makeGraphIMG(Devices),
-        receive _Any -> wait after 1000 -> done end, %wait for picture to process
+    FileName = makeGraphIMG(DeviceList, Edges),
+    receive _Any -> wait after 1000 -> done end, %wait for picture to process
 
-        Image = wxBitmap:new(FileName, [{type, ?wxBITMAP_TYPE_PNG}]),
-        _StaticIMG = wxStaticBitmap:new(GraphFrame, 101, Image, [?BUTTON_SIZE(4), ?BUTTON_LOC(0, 0)])
+    Image = wxBitmap:new(FileName, [{type, ?wxBITMAP_TYPE_PNG}]),
+    _StaticIMG = wxStaticBitmap:new(GraphFrame, 101, Image, [?BUTTON_SIZE(4), ?BUTTON_LOC(0, 0)]),
 
-        catch Err:Er -> io:format("couldnt connect, got Err: ~p,~p~n", [Err, Er])
-    end,
 
     wxStaticText:new(GraphFrame, 102, "Graph of devices in experiment:",
             [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
@@ -57,45 +58,27 @@ handle_event(Event, State) ->
 
 %%generates graph from list and returns the filename
 %devices are: Name,IP,Port
-makeGraphIMG(DeviceList) ->
-    %makeGraph(DeviceList),
+makeGraphIMG(DeviceList, Edges) ->
     graphviz:graph("G"),
-    graphviz:add_node("MainServer"),
-    graphviz:add_node("ApiServer"),
-    graphviz:add_edge("MainServer", "ApiServer"),
+    createNodes(DeviceList),
+    createEdges(Edges),
     FileName = "graph.png",
-    makeGraphIMG(DeviceList, FileName).
-
-makeGraphIMG([[]], FileName) -> makeGraphIMG([], FileName);
-makeGraphIMG([], FileName) -> 
     graphviz:to_file(FileName, png),
     graphviz:delete(),
-    FileName;
-makeGraphIMG([Device|DeviceList], FileName) -> 
-    {Name, IP, Port} = Device,
+    FileName.
+
+createNodes([])-> done;
+createNodes([Device|DeviceList])->
+    [Name, IP, Port] = Device,
     graphviz:add_node(Name),
-    graphviz:add_edge(Device, "MainServer"),
-    makeGraphIMG(DeviceList, FileName).
+    createNodes(DeviceList).
 
-%%%TODO: understand graph connections more, only routers connected? all connected? how to know what is device type?
-% makeGraph(DeviceList) ->
-%     G = digraph:new(),
-%     PCs = groupByIP(DeviceList, #{}),
-%     connectDevToRouter(PCs),
-%     connectRouters(PCs)
+createEdges([]) -> done;
+createEdges([Edge |Edges]) ->
+    [V1, V2] = string:split(Edge, "-"),
+    graphviz:add_edge(V1, V2),
+    createEdges(Edges).
 
-%     .
-
-% groupByIP([Device | Devices], Map) ->
-%     {Name, IP, Port} = Device,
-%     {DevicesInIP, OldMap} = maps:take(IP, Map),
-%     NewMap = 
-%         if DevicesInIP /= error ->
-%             NewDevicesInIP = DevicesInIP ++ [{Name, Port}],
-%             maps:put(IP, NewDevicesInIP, OldMap),
-%         true -> maps:put(IP, {Name, Port}, OldMap),
-            
-%     groupByIP(Devices, NewMap).
 
 handle_info(Info, State)->
     io:format("Got mes:~p~n",[Info]),
