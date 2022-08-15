@@ -20,7 +20,7 @@ handle_call(show_modal, _From, State) ->
     wxFrame:show(State#state.frame),
     {reply, ok, State}.
 
-init([Parent, _Str])->
+init([Parent, PPID])->
     ServerFrame = wxFrame:new(Parent, 300, "NerlNet Routers", [{size, {1280, 720}}, {pos, {0,0}}]),
 
     Font = wxFrame:getFont(ServerFrame),
@@ -40,7 +40,7 @@ init([Parent, _Str])->
     wxStaticText:wrap(Title1, ?TILE_W),
     
     wxFrame:show(ServerFrame),
-    {ServerFrame, #state{parent = parent, frame = ServerFrame}}.
+    {ServerFrame, #state{ppid = PPID, frame = ServerFrame}}.
 
 
 handle_event(Event, State) ->

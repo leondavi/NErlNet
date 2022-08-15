@@ -20,17 +20,15 @@ new(Parent, _Msg) ->
 
 show(Frame) ->
     wx_object:call(Frame, show_modal).
-
 destroy(Frame) ->
     wx_object:call(Frame, destroy).
 
-init([Parent, _Str]) ->
+init([Parent, PPID]) ->
     StartFrame = wxFrame:new(Parent, 0, "Main Screen", [{size, {1280, 720}}, {pos, {0,0}}]),
 
     Font = wxFrame:getFont(StartFrame),
     wxFont:setPointSize(Font, ?FONT_SIZE),
     wxFrame:setFont(StartFrame, Font),
-
 
     GraphButton = wxButton:new(StartFrame, 1, [{label, "Nerlnet Graph"}, ?BUTTON_SIZE(1), ?BUTTON_LOC(0,0)]),
     wxButton:connect(GraphButton, command_button_clicked, []),
@@ -54,25 +52,27 @@ init([Parent, _Str]) ->
 
     wxStaticText:new(StartFrame, 7, "NerlNet Info:", [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 3)]),
 
+    NerlInfo = wxTextCtrl:new(StartFrame, 701, 
+        [{size, {?TILE_W(2.5), ?TILE_H(3)}}, ?BUTTON_LOC(0.2, 3),
+            {style, ?wxDEFAULT bor ?wxTE_MULTILINE}]),
 
-    wxFrame:connect(StartFrame, close_window),
-    wxFrame:show(StartFrame),
-    {StartFrame, #state{parent = Parent, frame = StartFrame}}.
+    {StartFrame, #state{frame = StartFrame, objs=[NerlInfo]}}.
 
 
 handle_call(show_modal, _From, State) ->
     wxFrame:show(State#state.frame),
     {reply, ok, State}.
 
+
 handle_event(Event, State) ->
     Type = Event#wx.event,
     ID = Event#wx.id,
     %io:format("Handling event type=~p~n",[Type]),
     case Type of
-        {wxClose, close_window} -> exit(normal);    %destroy(State#state.frame);
+        {wxClose, close_window} -> exit(normal);
         _Button ->
             case ID of
-                ?GRAPH_ID ->        graphScreen:new(State#state.frame, "");
+                ?GRAPH_ID ->        graphScreen:new(State#state.frame, self());
                 ?SERVER_ID ->       serverScreen:new(State#state.frame, "");
                 ?ROUTER_ID ->       routerScreen:new(State#state.frame, "");
                 ?COMMS_ID ->        openGscreen;
@@ -85,5 +85,23 @@ handle_event(Event, State) ->
     {noreply, State}.
 
 handle_info(Info, State)->
-    io:format("Got mes:~p~n",[Info]),
-    {noreply, State}.
+    io:format("Got mes: ~p~n",[Info]),
+    NewState = 
+    try 
+        {Action, Data} = Info,
+        case Action of
+            addInfo -> 
+                [NerlInfo] = State#state.objs,
+                wxTextCtrl:appendText(NerlInfo, Data++"\n"),
+                State;
+            updateGraph ->
+                State#state{nerlGraph = Data};
+            getGraph ->
+                
+                Data ! State#state.nerlGraph,
+                State
+        end
+        catch Err:Er -> io:format("bad action: ~p ~p", [Err,Er]), State
+    end,
+
+    {noreply, NewState}.
