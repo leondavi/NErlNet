@@ -2,7 +2,9 @@
 
 -export([init/2]).
 
-init(Req0, State) ->
+init(Req0, State = [MainScreen]) ->
+
+
     Req = cowboy_req:reply(200,
         #{<<"content-type">> => <<"text/plain">>},
         <<"Hello Erlang!">>,

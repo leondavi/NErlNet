@@ -19,29 +19,31 @@ show(Frame) ->
 destroy(Frame) ->
     wx_object:call(Frame, destroy).
 
-init([Parent, _Str]) ->
-    StartFrame = wxFrame:new(Parent, 700, "Main Screen", [{size, {1280, 720}}, {pos, {0,0}}]),
+init([Parent, PPID]) ->
+    DevFrame = wxFrame:new(Parent, 700, "Main Screen", [{size, {1280, 720}}, {pos, {0,0}}]),
 
-    Font = wxFrame:getFont(StartFrame),
+    Font = wxFrame:getFont(DevFrame),
     wxFont:setPointSize(Font, ?FONT_SIZE),
-    wxFrame:setFont(StartFrame, Font),
+    wxFrame:setFont(DevFrame, Font),
 
-    wxStaticText:new(StartFrame, 701, "MainServer:", [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
+    wxStaticText:new(DevFrame, 701, "MainServer:", [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
 
-    ServerStatsButton = wxButton:new(StartFrame, 711, [{label, "Main Server Status"}, ?BUTTON_SIZE(1), ?BUTTON_LOC(0.1,0)]), 
+    ServerStatsButton = wxButton:new(DevFrame, 711, [{label, "Main Server Status"}, ?BUTTON_SIZE(1), ?BUTTON_LOC(0.1,0)]), 
     wxButton:connect(ServerStatsButton, command_button_clicked, []),
 
-    wxStaticText:new(StartFrame, 702, "Routers:", [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 1)]),
+    PPID ! {getGraph, self()},
+
+    wxStaticText:new(DevFrame, 702, "Routers:", [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 1)]),
     %add button for each router
 
-    wxStaticText:new(StartFrame, 703, "Workers:", [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 2)]),
+    wxStaticText:new(DevFrame, 703, "Workers:", [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 2)]),
     %add button for each router
 
-    wxStaticText:new(StartFrame, 704, "Sources:", [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 3)]),
+    wxStaticText:new(DevFrame, 704, "Sources:", [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 3)]),
     %add button for each router
 
-    wxFrame:show(StartFrame),
-    {StartFrame, #state{parent = Parent, frame = StartFrame}}.
+    wxFrame:show(DevFrame),
+    {DevFrame, #state{ppid = PPID, frame = DevFrame}}.
 
 
 handle_call(show_modal, _From, State) ->
@@ -65,6 +67,16 @@ handle_event(Event, State) ->
 
 handle_info(Info, State)->
     io:format("Got mes:~p~n",[Info]),
+    NerlGraph = Info,
+    % Routers = [digraph:vertex(NerlGraph, V) || V <- digraph:vertices(NerlGraph), lists:member($r, V)],
+    % Workers = [digraph:vertex(NerlGraph, V) || V <- digraph:vertices(NerlGraph), lists:member($w, V)],
+    % Sources = [digraph:vertex(NerlGraph, V) || V <- digraph:vertices(NerlGraph), lists:member($s, V)],
+
+    % %need to sequence the entities and give them all different ids
+
+    % RButtons = [wxButton:new(State#state.frame, Id, [{label, Name}, ?BUTTON_SIZE(1), ?BUTTON_LOC(0.1,0)]) || {Name, Label}<-Routers]
+
+
     {noreply, State}.
 
 

@@ -20,7 +20,7 @@ handle_call(show_modal, _From, State) ->
     wxFrame:show(State#state.frame),
     {reply, ok, State}.
 
-init([Parent, _Str])->
+init([Parent, PPID])->
     GraphFrame = wxFrame:new(Parent, 100, "NerlNet device graph", [{size, {1080, 820}}, {pos, {0,0}}]),
 
     Font = wxFrame:getFont(GraphFrame),
@@ -28,15 +28,20 @@ init([Parent, _Str])->
     wxFrame:setFont(GraphFrame, Font),
     {ok, {_ResCode, _Headers, Body}} = httpc:request(get, {?MAINSERVER_URL++"/getGraph", []}, [], []),
     io:format("got body: ~p~n", [Body]),
+    
     DevicesInfo = string:split(Body, "#", all),
     Devices = [string:split(DeviceInfo, ",", all) || DeviceInfo <- DevicesInfo, DevicesInfo /=[[]]],
     Edges = lists:droplast(lists:last(Devices)),
-    %NerlGraph = httpc:request(post, {?MAINSERVER_URL++"/getGraph", [], [], body}, [], []),
+
     io:format("got graph: ~p~n", [Devices]),
     DeviceList = lists:droplast(Devices),
 
-    FileName = makeGraphIMG(DeviceList, Edges),
-    receive _Any -> wait after 1000 -> done end, %wait for picture to process
+    {FileName, G} = makeGraphIMG(DeviceList, Edges),        %%save G globaly somewhere
+
+    PPID ! {updateGraph, G},
+    PPID ! {addInfo, "updated graph"},
+
+    receive _Any -> wait after 500 -> done end, %wait for picture to process
 
     Image = wxBitmap:new(FileName, [{type, ?wxBITMAP_TYPE_PNG}]),
     _StaticIMG = wxStaticBitmap:new(GraphFrame, 101, Image, [?BUTTON_SIZE(4), ?BUTTON_LOC(0, 0)]),
@@ -46,7 +51,7 @@ init([Parent, _Str])->
             [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
 
     wxFrame:show(GraphFrame),
-    {GraphFrame, #state{parent = parent, frame = GraphFrame}}.
+    {GraphFrame, #state{ppid = PPID, frame = GraphFrame}}.
 
 handle_event(Event, State) ->
     ID = Event#wx.id,
@@ -60,24 +65,27 @@ handle_event(Event, State) ->
 %devices are: Name,IP,Port
 makeGraphIMG(DeviceList, Edges) ->
     graphviz:graph("G"),
-    createNodes(DeviceList),
-    createEdges(Edges),
+    G = digraph:new(),
+    createNodes(DeviceList, G),
+    createEdges(Edges, G),
     FileName = "graph.png",
     graphviz:to_file(FileName, png),
     graphviz:delete(),
-    FileName.
+    {FileName, G}.
 
-createNodes([])-> done;
-createNodes([Device|DeviceList])->
+createNodes([], G)-> done;
+createNodes([Device|DeviceList], G)->
     [Name, IP, Port] = Device,
     graphviz:add_node(Name),
-    createNodes(DeviceList).
+    digraph:add_vertex(G, Name, {IP, Port}),
+    createNodes(DeviceList, G).
 
-createEdges([]) -> done;
-createEdges([Edge |Edges]) ->
+createEdges([], G) -> done;
+createEdges([Edge |Edges], G) ->
     [V1, V2] = string:split(Edge, "-"),
     graphviz:add_edge(V1, V2),
-    createEdges(Edges).
+    digraph:add_edge(G, V1, V2),
+    createEdges(Edges, G).
 
 
 handle_info(Info, State)->
