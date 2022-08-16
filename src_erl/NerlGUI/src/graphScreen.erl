@@ -26,26 +26,38 @@ init([Parent, PPID])->
     Font = wxFrame:getFont(GraphFrame),
     wxFont:setPointSize(Font, ?FONT_SIZE),
     wxFrame:setFont(GraphFrame, Font),
-    {ok, {_ResCode, _Headers, Body}} = httpc:request(get, {?MAINSERVER_URL++"/getGraph", []}, [], []),
-    io:format("got body: ~p~n", [Body]),
-    
-    DevicesInfo = string:split(Body, "#", all),
-    Devices = [string:split(DeviceInfo, ",", all) || DeviceInfo <- DevicesInfo, DevicesInfo /=[[]]],
-    Edges = lists:droplast(lists:last(Devices)),
+    Response =
+    try
+        httpc:request(get, {?MAINSERVER_URL++"/getGraph", []}, [], [])
+    catch Err:Er -> 
+        {Reason, Trace} = Er,
+        io:format("Err is: ~p",[Er]),
+        Mes = atom_to_list(Reason),
+        PPID ! {addInfo, "Graph error: "++ Mes},
+        bad_response
+    end,
+    if Response /= bad_response ->
+        {ok, {_ResCode, _Headers, Body}} = Response,
+        io:format("got body: ~p~n", [Body]),
 
-    io:format("got graph: ~p~n", [Devices]),
-    DeviceList = lists:droplast(Devices),
+        DevicesInfo = string:split(Body, "#", all),
+        Devices = [string:split(DeviceInfo, ",", all) || DeviceInfo <- DevicesInfo, DevicesInfo /=[[]]],
+        Edges = lists:droplast(lists:last(Devices)),
 
-    {FileName, G} = makeGraphIMG(DeviceList, Edges),        %%save G globaly somewhere
+        io:format("got graph: ~p~n", [Devices]),
+        DeviceList = lists:droplast(Devices),
 
-    PPID ! {updateGraph, G},
-    PPID ! {addInfo, "updated graph"},
+        {FileName, G} = makeGraphIMG(DeviceList, Edges),        %%save G globaly somewhere
+
+        PPID ! {updateGraph, G},
+        PPID ! {addInfo, "updated graph"},
+
+        Image = wxBitmap:new(FileName, [{type, ?wxBITMAP_TYPE_PNG}]),
+        _StaticIMG = wxStaticBitmap:new(GraphFrame, 101, Image, [?BUTTON_SIZE(4), ?BUTTON_LOC(0, 0)])
+    true-> skip end,
+
 
     receive _Any -> wait after 500 -> done end, %wait for picture to process
-
-    Image = wxBitmap:new(FileName, [{type, ?wxBITMAP_TYPE_PNG}]),
-    _StaticIMG = wxStaticBitmap:new(GraphFrame, 101, Image, [?BUTTON_SIZE(4), ?BUTTON_LOC(0, 0)]),
-
 
     wxStaticText:new(GraphFrame, 102, "Graph of devices in experiment:",
             [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
