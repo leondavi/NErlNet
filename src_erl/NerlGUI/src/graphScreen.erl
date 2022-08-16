@@ -26,18 +26,11 @@ init([Parent, PPID])->
     Font = wxFrame:getFont(GraphFrame),
     wxFont:setPointSize(Font, ?FONT_SIZE),
     wxFrame:setFont(GraphFrame, Font),
-    Response =
-    try
-        httpc:request(get, {?MAINSERVER_URL++"/getGraph", []}, [], [])
-    catch Err:Er -> 
-        {Reason, Trace} = Er,
-        io:format("Err is: ~p",[Er]),
-        Mes = atom_to_list(Reason),
-        PPID ! {addInfo, "Graph error: "++ Mes},
-        bad_response
-    end,
-    if Response /= bad_response ->
-        {ok, {_ResCode, _Headers, Body}} = Response,
+    Response = httpc:request(get, {?MAINSERVER_URL++"/getGraph", []}, [], []),
+
+    case Response of
+    {ok, Data} ->
+        {_ResCode, _Headers, Body} = Data,
         io:format("got body: ~p~n", [Body]),
 
         DevicesInfo = string:split(Body, "#", all),
@@ -47,17 +40,23 @@ init([Parent, PPID])->
         io:format("got graph: ~p~n", [Devices]),
         DeviceList = lists:droplast(Devices),
 
-        {FileName, G} = makeGraphIMG(DeviceList, Edges),        %%save G globaly somewhere
+        {FileName, G} = makeGraphIMG(DeviceList, Edges),
 
-        PPID ! {updateGraph, G},
+        PPID ! {updateGraph, serialize(G)},
         PPID ! {addInfo, "updated graph"},
 
         Image = wxBitmap:new(FileName, [{type, ?wxBITMAP_TYPE_PNG}]),
-        _StaticIMG = wxStaticBitmap:new(GraphFrame, 101, Image, [?BUTTON_SIZE(4), ?BUTTON_LOC(0, 0)])
-    true-> skip end,
+        _StaticIMG = wxStaticBitmap:new(GraphFrame, 101, Image, [?BUTTON_SIZE(4), ?BUTTON_LOC(0, 0)]),
 
+        receive _Any -> wait after 200 -> done end; %wait for picture to process
 
-    receive _Any -> wait after 500 -> done end, %wait for picture to process
+    {error, Err} ->
+        {Reason, Trace} = Err,
+        io:format("Err is: ~p~n",[Err]),
+        Mes = atom_to_list(Reason),
+        PPID ! {addInfo, "Graph error: "++ Mes}
+    end,
+
 
     wxStaticText:new(GraphFrame, 102, "Graph of devices in experiment:",
             [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
@@ -103,3 +102,9 @@ createEdges([Edge |Edges], G) ->
 handle_info(Info, State)->
     io:format("Got mes:~p~n",[Info]),
     {noreply, State}.
+
+serialize({digraph, V, E, N, B}) ->
+    {ets:tab2list(V),
+     ets:tab2list(E),
+     ets:tab2list(N),
+     B}.

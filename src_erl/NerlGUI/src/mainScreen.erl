@@ -86,22 +86,40 @@ handle_event(Event, State) ->
 
 handle_info(Info, State)->
     io:format("Got mes: ~p~n",[Info]),
+    {Action, Data} = Info,
     NewState = 
-    try 
-        {Action, Data} = Info,
-        case Action of
-            addInfo -> 
-                [NerlInfo] = State#state.objs,
-                wxTextCtrl:appendText(NerlInfo, Data++"\n"),
-                State;
-            updateGraph ->
-                State#state{nerlGraph = Data};
-            getGraph ->
-                
-                Data ! State#state.nerlGraph,
-                State
-        end
-        catch Err:Er -> io:format("bad action: ~p ~p", [Err,Er]), State
+    case Action of
+        addInfo -> 
+            [NerlInfo] = State#state.objs,
+            wxTextCtrl:appendText(NerlInfo, Data++"\n"),
+            State;
+        updateGraph ->
+            State#state{nerlGraph = deserialize(Data)};
+        getGraph ->
+            case State#state.nerlGraph of
+                undefined ->    self() ! {addInfo, "no graph to diplay devices"}, Data ! {show, self()};
+                Graph ->        Data ! {graphObj, serialize(State#state.nerlGraph)}
+            end,
+            State
     end,
 
     {noreply, NewState}.
+
+serialize({digraph, V, E, N, B}) ->
+    {ets:tab2list(V),
+     ets:tab2list(E),
+     ets:tab2list(N),
+     B}.
+
+deserialize({VL, EL, NL, B}) ->       
+    DG = {digraph, V, E, N, B} = case B of 
+       true -> digraph:new();
+       false -> digraph:new([acyclic])
+    end,
+    ets:delete_all_objects(V),
+    ets:delete_all_objects(E),
+    ets:delete_all_objects(N),
+    ets:insert(V, VL),
+    ets:insert(E, EL),
+    ets:insert(N, NL),
+    DG.
