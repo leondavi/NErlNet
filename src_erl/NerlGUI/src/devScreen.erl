@@ -68,9 +68,12 @@ handle_event(Event, State) ->
 handle_info(Info, State)->
     io:format("Got mes:~p~n",[Info]),
     NerlGraph = Info,
-    % Routers = [digraph:vertex(NerlGraph, V) || V <- digraph:vertices(NerlGraph), lists:member($r, V)],
-    % Workers = [digraph:vertex(NerlGraph, V) || V <- digraph:vertices(NerlGraph), lists:member($w, V)],
-    % Sources = [digraph:vertex(NerlGraph, V) || V <- digraph:vertices(NerlGraph), lists:member($s, V)],
+
+    NerlEntities = [digraph:vertex(NerlGraph, V) || V <- digraph:vertices(NerlGraph)--["serverAPI, mainServer", "nerlGUI"]],
+
+    % Routers = [digraph:vertex(NerlGraph, V) || V <- digraph:vertices(NerlGraph)--["serverAPI, mainServer", "nerlGUI"], lists:member($r, V)],
+    % Workers = [digraph:vertex(NerlGraph, V) || V <- digraph:vertices(NerlGraph)--["serverAPI, mainServer", "nerlGUI"], lists:member($w, V)],
+    % Sources = [digraph:vertex(NerlGraph, V) || V <- digraph:vertices(NerlGraph)--["serverAPI, mainServer", "nerlGUI"], lists:member($s, V)],
 
     % %need to sequence the entities and give them all different ids
 
