@@ -2,8 +2,8 @@
 -module(mainScreen).
 -behaviour(wx_object).
 
--export([new/2, show/1, destroy/1]).  %% API
--export([init/1, handle_call/3, handle_event/2, handle_info/2]).
+-export([new/2, show/1, destroy/1, setMainGenServer/1, addInfo/2, updateGraph/2, getGraph/1]).  %% API
+-export([init/1, handle_call/3, handle_cast/2, handle_event/2, handle_info/2]).
 
 -include("gui_tools.hrl").
 
@@ -14,7 +14,7 @@
 -define(JSON_ID, 5).
 -define(DEVCONTROL_ID, 6).
 
-%% Client API
+%%%%%%%%%%% Client API
 new(Parent, _Msg) ->
     wx_object:start(?MODULE, [Parent, self()], []).
 
@@ -23,6 +23,19 @@ show(Frame) ->
 destroy(Frame) ->
     wx_object:call(Frame, destroy).
 
+setMainGenServer(Frame) ->
+    wx_object:cast(Frame, {setGen, Frame}).
+
+updateGraph(Frame, Graph) ->
+    wx_object:cast(Frame, {updateGraph, Graph}).
+
+addInfo(Frame, Mes) ->
+    wx_object:cast(Frame, {addInfo, Mes}).
+
+getGraph(Frame) ->
+    wx_object:call(Frame, getGraph).
+
+%%%%init the screen
 init([Parent, PPID]) ->
     StartFrame = wxFrame:new(Parent, 0, "Main Screen", [{size, {1280, 720}}, {pos, {0,0}}]),
 
@@ -56,54 +69,77 @@ init([Parent, PPID]) ->
         [{size, {?TILE_W(2.5), ?TILE_H(3)}}, ?BUTTON_LOC(0.2, 3),
             {style, ?wxDEFAULT bor ?wxTE_MULTILINE}]),
 
-    {StartFrame, #state{frame = StartFrame, objs=[NerlInfo]}}.
+    {StartFrame, #state{frame = StartFrame, objs=#{infoBox => NerlInfo}}}.
 
+%%-----------------handle call / cast
 
 handle_call(show_modal, _From, State) ->
     wxFrame:show(State#state.frame),
-    {reply, ok, State}.
+    {reply, ok, State};
+
+handle_call(getGraph, _From, State) ->
+    {reply, serialize(State#state.nerlGraph), State}.
+
+handle_cast({setGen, Frame}, State) ->
+    {noreply, State#state{mainGen = Frame}};
+
+handle_cast({updateGraph, Graph}, State) ->
+    NerlGraph = deserialize(Graph),
+    {noreply, State#state{nerlGraph = NerlGraph}};
+
+handle_cast({addInfo, Mes}, State) ->
+    ObjsMap = State#state.objs,
+    NerlInfo = maps:get(infoBox, ObjsMap),
+    wxTextCtrl:appendText(NerlInfo, Mes++"\n"),
+    {noreply, State}.
 
 
 handle_event(Event, State) ->
     Type = Event#wx.event,
     ID = Event#wx.id,
     %io:format("Handling event type=~p~n",[Type]),
+    ObjsMap = State#state.objs,
+    NewState = 
     case Type of
         {wxClose, close_window} -> exit(normal);
         _Button ->
             case ID of
-                ?GRAPH_ID ->        graphScreen:new(State#state.frame, self());
-                ?SERVER_ID ->       serverScreen:new(State#state.frame, "");
-                ?ROUTER_ID ->       routerScreen:new(State#state.frame, "");
-                ?COMMS_ID ->        openGscreen;
-                ?JSON_ID ->         openGscreen;
-                ?DEVCONTROL_ID ->   devScreen:new(State#state.frame, "");
-                Other ->        io:format("Got event with ID=~p~n",[Other])
+                ?GRAPH_ID ->        State#state{objs=ObjsMap#{graphScreen => graphScreen:new(State#state.frame, State#state.mainGen)}};
+                ?SERVER_ID ->       
+                    ServerScreen = serverScreen:new(State#state.frame, State#state.mainGen),
+                    serverScreen:startProbe(ServerScreen),
+                    State#state{objs=ObjsMap#{serverScreen => ServerScreen}};
+                ?ROUTER_ID ->       State#state{objs=ObjsMap#{routerScreen => routerScreen:new(State#state.frame, State#state.mainGen)}};
+                ?COMMS_ID ->        State;
+                ?JSON_ID ->         State;
+                ?DEVCONTROL_ID ->   State#state{objs=ObjsMap#{devScreen => devScreen:new(State#state.frame, State#state.mainGen)}};
+                Other ->        io:format("Got event with ID=~p~n",[Other]), State
             end
         end,
     
-    {noreply, State}.
+    {noreply, NewState}.
 
 handle_info(Info, State)->
     io:format("Got mes: ~p~n",[Info]),
-    {Action, Data} = Info,
-    NewState = 
-    case Action of
-        addInfo -> 
-            [NerlInfo] = State#state.objs,
-            wxTextCtrl:appendText(NerlInfo, Data++"\n"),
-            State;
-        updateGraph ->
-            State#state{nerlGraph = deserialize(Data)};
-        getGraph ->
-            case State#state.nerlGraph of
-                undefined ->    self() ! {addInfo, "no graph to diplay devices"}, Data ! {show, self()};
-                Graph ->        Data ! {graphObj, serialize(State#state.nerlGraph)}
-            end,
-            State
-    end,
+    % {Action, Data} = Info,
+    % ObjsMap = State#state.objs,
+    % NewState = 
+    % case Action of
+    %     addInfo -> 
+    %         NerlInfo = maps:get(infoBox, ObjsMap),
+    %         wxTextCtrl:appendText(NerlInfo, Data++"\n"),
+    %         State;
+    %     updateGraph ->
+    %         State#state{nerlGraph = deserialize(Data)};
+    %     getGraph ->
+    %         case State#state.nerlGraph of
+    %             undefined ->    self() ! {addInfo, "no graph to diplay devices"}, Data ! {show, self()};
+    %             Graph ->        Data ! {graphObj, serialize(State#state.nerlGraph)}
+    %         end,
+    %         State
+    % end,
 
-    {noreply, NewState}.
+    {noreply, State}. %NewState
 
 serialize({digraph, V, E, N, B}) ->
     {ets:tab2list(V),

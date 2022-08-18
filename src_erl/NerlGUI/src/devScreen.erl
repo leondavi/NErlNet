@@ -10,8 +10,8 @@
 -include("gui_tools.hrl").
 
 %% Client API
-new(Parent, _Msg) ->
-    wx_object:start(?MODULE, [Parent, self()], []).
+new(Parent, Gen) ->
+    wx_object:start(?MODULE, [Parent, Gen], []).
 
 show(Frame) ->
     wx_object:call(Frame, show_modal).
@@ -19,7 +19,7 @@ show(Frame) ->
 destroy(Frame) ->
     wx_object:call(Frame, destroy).
 
-init([Parent, PPID]) ->
+init([Parent, Gen]) ->
     DevFrame = wxFrame:new(Parent, 700, "Main Screen", [{size, {1280, 720}}, {pos, {0,0}}]),
 
     Font = wxFrame:getFont(DevFrame),
@@ -32,7 +32,7 @@ init([Parent, PPID]) ->
     wxButton:connect(ServerStatsButton, command_button_clicked, []),
     io:format("ServerButton is:, ~p~n", [ServerStatsButton]),
 
-    PPID ! {getGraph, self()},
+    %PPID ! {getGraph, self()},
 
     wxStaticText:new(DevFrame, 720, "Routers:", [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 1)]),
     %add button for each router
@@ -43,12 +43,16 @@ init([Parent, PPID]) ->
     wxStaticText:new(DevFrame, 740, "Sources:", [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 3)]),
     %add button for each router
 
-    {DevFrame, #state{ppid = PPID, frame = DevFrame}}.
+    {DevFrame, #state{mainGen = Gen, frame = DevFrame}}.
 
 
 handle_call(show_modal, _From, State) ->
     wxFrame:show(State#state.frame),
     {reply, ok, State}.
+
+handle_cast({updateGraph, Graph}, _From, State) ->
+    NerlGraph = deserialize(Graph),
+    {noreply, State#state{nerlGraph = NerlGraph}}.
 
 handle_event(Event, State) ->
     Type = Event#wx.event,

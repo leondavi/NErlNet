@@ -16,11 +16,9 @@ start(_StartType, _StartArgs) ->
     
     GUI = wx:new(),
     StartFrame = mainScreen:new(GUI, ""),
+    mainScreen:setMainGenServer(StartFrame),
     mainScreen:show(StartFrame),
 
-    ScreenPID = wx_object:get_pid(StartFrame),
-    io:format("Screen PID=~p~n", [ScreenPID]),
-    ScreenPID ! {addInfo, "init GUI"},
     
     Dispatch = cowboy_router:compile([
         {'_', [
