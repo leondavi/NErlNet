@@ -78,13 +78,13 @@ handle_call(show_modal, _From, State) ->
     {reply, ok, State};
 
 handle_call(getGraph, _From, State) ->
-    {reply, serialize(State#state.nerlGraph), State}.
+    {reply, gui_tools:serialize(State#state.nerlGraph), State}.
 
 handle_cast({setGen, Frame}, State) ->
     {noreply, State#state{mainGen = Frame}};
 
 handle_cast({updateGraph, Graph}, State) ->
-    NerlGraph = deserialize(Graph),
+    NerlGraph = gui_tools:deserialize(Graph),
     {noreply, State#state{nerlGraph = NerlGraph}};
 
 handle_cast({addInfo, Mes}, State) ->
@@ -121,41 +121,4 @@ handle_event(Event, State) ->
 
 handle_info(Info, State)->
     io:format("Got mes: ~p~n",[Info]),
-    % {Action, Data} = Info,
-    % ObjsMap = State#state.objs,
-    % NewState = 
-    % case Action of
-    %     addInfo -> 
-    %         NerlInfo = maps:get(infoBox, ObjsMap),
-    %         wxTextCtrl:appendText(NerlInfo, Data++"\n"),
-    %         State;
-    %     updateGraph ->
-    %         State#state{nerlGraph = deserialize(Data)};
-    %     getGraph ->
-    %         case State#state.nerlGraph of
-    %             undefined ->    self() ! {addInfo, "no graph to diplay devices"}, Data ! {show, self()};
-    %             Graph ->        Data ! {graphObj, serialize(State#state.nerlGraph)}
-    %         end,
-    %         State
-    % end,
-
-    {noreply, State}. %NewState
-
-serialize({digraph, V, E, N, B}) ->
-    {ets:tab2list(V),
-     ets:tab2list(E),
-     ets:tab2list(N),
-     B}.
-
-deserialize({VL, EL, NL, B}) ->       
-    DG = {digraph, V, E, N, B} = case B of 
-       true -> digraph:new();
-       false -> digraph:new([acyclic])
-    end,
-    ets:delete_all_objects(V),
-    ets:delete_all_objects(E),
-    ets:delete_all_objects(N),
-    ets:insert(V, VL),
-    ets:insert(E, EL),
-    ets:insert(N, NL),
-    DG.
+    {noreply, State}.
