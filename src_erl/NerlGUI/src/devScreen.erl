@@ -3,7 +3,7 @@
 -behaviour(wx_object).
 
 -export([new/2, show/1, destroy/1]).  %% API
--export([init/1, handle_call/3, handle_event/2, handle_info/2]).
+-export([init/1, handle_call/3, handle_cast/2, handle_event/2, handle_info/2]).
 
 -define(SERVER_ID, 711).
 
@@ -50,8 +50,8 @@ handle_call(show_modal, _From, State) ->
     wxFrame:show(State#state.frame),
     {reply, ok, State}.
 
-handle_cast({updateGraph, Graph}, _From, State) ->
-    NerlGraph = deserialize(Graph),
+handle_cast({updateGraph, Graph}, State) ->
+    NerlGraph = gui_tools:deserialize(Graph),
     {noreply, State#state{nerlGraph = NerlGraph}}.
 
 handle_event(Event, State) ->
@@ -76,7 +76,7 @@ handle_info(Info, State)->
     case Action of
         show -> wxFrame:show(State#state.frame), State;
         graphObj -> 
-            NerlGraph = deserialize(Data),
+            NerlGraph = gui_tools:deserialize(Data),
             add_graph_buttons(State#state.frame, NerlGraph),
             self() ! {show, self()},
             State#state{nerlGraph = NerlGraph}
@@ -99,16 +99,3 @@ add_graph_buttons(Frame, NerlGraph)->
     CButtons = [wxButton:new(Frame, 730 + hd(lists:reverse(Name))-48, [{label, Name}, ?BUTTON_SIZE(1), ?BUTTON_LOC(0.1 + hd(lists:reverse(Name))-48,2)]) || {Name, Label} <- Clients],
     SButtons = [wxButton:new(Frame, 740 + hd(lists:reverse(Name))-48, [{label, Name}, ?BUTTON_SIZE(1), ?BUTTON_LOC(0.1 + hd(lists:reverse(Name))-48,3)]) || {Name, Label} <- Sources].
     
-
-deserialize({VL, EL, NL, B}) ->       
-    DG = {digraph, V, E, N, B} = case B of 
-       true -> digraph:new();
-       false -> digraph:new([acyclic])
-    end,
-    ets:delete_all_objects(V),
-    ets:delete_all_objects(E),
-    ets:delete_all_objects(N),
-    ets:insert(V, VL),
-    ets:insert(E, EL),
-    ets:insert(N, NL),
-    DG.

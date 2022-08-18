@@ -26,7 +26,7 @@ handle_call(show_modal, _From, State) ->
     {reply, ok, State}.
 
 handle_cast(startProbe, State) ->
-    NerlGraph = deserialize(mainScreen:getGraph(State#state.mainGen)),
+    NerlGraph = gui_tools:deserialize(mainScreen:getGraph(State#state.mainGen)),
     NewState = State#state{nerlGraph = NerlGraph},
     {ok, _Timer} = timer:apply_interval(?PROBE_TIME, serverScreen, probe, [NewState]),
     {noreply, NewState}.
@@ -93,16 +93,3 @@ probe(State) ->
             io:format("got stats: ~p~n", [StatisticsMap])
     end
     .
-
-deserialize({VL, EL, NL, B}) ->       
-    DG = {digraph, V, E, N, B} = case B of 
-       true -> digraph:new();
-       false -> digraph:new([acyclic])
-    end,
-    ets:delete_all_objects(V),
-    ets:delete_all_objects(E),
-    ets:delete_all_objects(N),
-    ets:insert(V, VL),
-    ets:insert(E, EL),
-    ets:insert(N, NL),
-    DG.
