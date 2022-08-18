@@ -75,7 +75,11 @@ handle_call(getGraph, _From, State) ->
   %io:format("graph edges are: ~p~n", [EdgesList]),
   Nodes = nodeString(NodesList),
   Edges = edgeString(EdgesList),
-  {reply, Nodes++Edges, State}.
+  {reply, Nodes++Edges, State};
+
+handle_call(getStats, _From, State = #main_genserver_state{myName = MyName, statisticsCounter = StatisticsCounter, nerlnetGraph = NerlnetGraph,statisticsMap = StatisticsMap,msgCounter = MsgCounter}) ->
+  io:format("returning stats: ~p~n", [StatisticsMap]),
+  {reply, StatisticsMap, State}.
 
 nodeString([Node |NodeList]) -> nodeString(NodeList, Node).
 nodeString([], Str) -> Str;
@@ -86,6 +90,8 @@ edgeString([], Str)-> Str;
 edgeString([Edge |EdgesList], Str)->
   {ID, V1, V2, Label} = Edge,
   edgeString(EdgesList, V1++"-"++V2++","++Str).
+
+updateGUI(GUIPID, Mes)-> GUIPID ! {addInfo, Mes}.
 
 %% @private
 %% @doc Handling cast messages

@@ -7,8 +7,8 @@
 
 -include("gui_tools.hrl").
 
-new(Parent, _Msg) ->
-    wx_object:start(?MODULE, [Parent, self()], []).
+new(Parent, Gen) ->
+    wx_object:start(?MODULE, [Parent, Gen], []).
 
 show(Frame) ->
     wx_object:call(Frame, show_modal).
@@ -20,12 +20,13 @@ handle_call(show_modal, _From, State) ->
     wxFrame:show(State#state.frame),
     {reply, ok, State}.
 
-init([Parent, PPID])->
+init([Parent, Gen])->
     GraphFrame = wxFrame:new(Parent, 100, "NerlNet device graph", [{size, {1080, 820}}, {pos, {0,0}}]),
 
     Font = wxFrame:getFont(GraphFrame),
     wxFont:setPointSize(Font, ?FONT_SIZE),
     wxFrame:setFont(GraphFrame, Font),
+
     Response = httpc:request(get, {?MAINSERVER_URL++"/getGraph", []}, [], []),
 
     case Response of
@@ -42,8 +43,8 @@ init([Parent, PPID])->
 
         {FileName, G} = makeGraphIMG(DeviceList, Edges),
 
-        PPID ! {updateGraph, serialize(G)},
-        PPID ! {addInfo, "updated graph"},
+        mainScreen:updateGraph(Gen, serialize(G)),
+        mainScreen:addInfo(Gen, "updated graph"),
 
         Image = wxBitmap:new(FileName, [{type, ?wxBITMAP_TYPE_PNG}]),
         _StaticIMG = wxStaticBitmap:new(GraphFrame, 101, Image, [?BUTTON_SIZE(4), ?BUTTON_LOC(0, 0)]),
@@ -54,7 +55,7 @@ init([Parent, PPID])->
         {Reason, Trace} = Err,
         io:format("Err is: ~p~n",[Err]),
         Mes = atom_to_list(Reason),
-        PPID ! {addInfo, "Graph error: "++ Mes}
+        mainScreen:addInfo(Gen, Mes)
     end,
 
 
@@ -62,7 +63,7 @@ init([Parent, PPID])->
             [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
 
     wxFrame:show(GraphFrame),
-    {GraphFrame, #state{ppid = PPID, frame = GraphFrame}}.
+    {GraphFrame, #state{mainGen = Gen, frame = GraphFrame}}.
 
 handle_event(Event, State) ->
     ID = Event#wx.id,

@@ -282,6 +282,7 @@ createMainServer({[MainServerArgsMap],ConnectionsGraph,WorkersMap,ClientsNames},
         {"/stopCasting",[],actionHandler, [stopCasting, MainGenServerPid]},
         %GUI actions
         {"/getGraph",[],guiHandler, [getGraph, MainGenServerPid]},
+        {"/getStats",[],guiHandler, [getStats, MainGenServerPid]},
 
         {"/[...]", [],noMatchingRouteHandler, [MainGenServerPid]}
         ]}

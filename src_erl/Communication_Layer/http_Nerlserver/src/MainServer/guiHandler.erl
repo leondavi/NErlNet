@@ -13,7 +13,8 @@ init(Req0, [Action, Main_genserver_Pid]) ->
 
   Reply = case Action of
     %getGraph ->  gen_statem:call(Main_genserver_Pid, {getGraph,Body})
-    getGraph ->  gen_statem:call(Main_genserver_Pid, getGraph)
+    getGraph ->  gen_statem:call(Main_genserver_Pid, getGraph);
+    getStats ->  gen_statem:call(Main_genserver_Pid, getStats)
   end,
   %Reply = io_lib:format("Body Received: ~p ~n ", [Body]),
   io:format("replying to gui with: ~p~n", [Reply]),

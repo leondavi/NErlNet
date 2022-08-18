@@ -7,8 +7,8 @@
 
 -include("gui_tools.hrl").
 
-new(Parent, _Msg) ->
-    wx_object:start(?MODULE, [Parent, self()], []).
+new(Parent, Gen) ->
+    wx_object:start(?MODULE, [Parent, Gen], []).
 
 show(Frame) ->
     wx_object:call(Frame, show_modal).
@@ -20,7 +20,7 @@ handle_call(show_modal, _From, State) ->
     wxFrame:show(State#state.frame),
     {reply, ok, State}.
 
-init([Parent, PPID])->
+init([Parent, Gen])->
     ServerFrame = wxFrame:new(Parent, 300, "NerlNet Routers", [{size, {1280, 720}}, {pos, {0,0}}]),
 
     Font = wxFrame:getFont(ServerFrame),
@@ -40,7 +40,7 @@ init([Parent, PPID])->
     wxStaticText:wrap(Title1, ?TILE_W),
     
     wxFrame:show(ServerFrame),
-    {ServerFrame, #state{ppid = PPID, frame = ServerFrame}}.
+    {ServerFrame, #state{mainGen = Gen, frame = ServerFrame}}.
 
 
 handle_event(Event, State) ->
