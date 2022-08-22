@@ -27,17 +27,23 @@ init([Parent, Gen])->
     wxFont:setPointSize(Font, ?FONT_SIZE),
     wxFrame:setFont(ServerFrame, Font),
 
-    Title1 = wxStaticText:new(ServerFrame, 301, "Router #1:",
-        [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
-    wxStaticText:new(ServerFrame, 311, "State/Mode:",
-        [?BUTTON_SIZE(1), ?BUTTON_LOC(0.15, 0)]),
-    wxStaticText:new(ServerFrame, 331, "connected to:",
-        [?BUTTON_SIZE(1), ?BUTTON_LOC(0.45, 0)]),
-    wxStaticText:new(ServerFrame, 321, "Sent/Recv messages:",
-        [?BUTTON_SIZE(1), ?BUTTON_LOC(0.75, 0)]),
+    % Title1 = wxStaticText:new(ServerFrame, 301, "Router #1:",
+    %     [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
+    % wxStaticText:new(ServerFrame, 311, "State/Mode:",
+    %     [?BUTTON_SIZE(1), ?BUTTON_LOC(0.15, 0)]),
+    % wxStaticText:new(ServerFrame, 331, "connected to:",
+    %     [?BUTTON_SIZE(1), ?BUTTON_LOC(0.45, 0)]),
+    % wxStaticText:new(ServerFrame, 321, "Sent/Recv messages:",
+    %     [?BUTTON_SIZE(1), ?BUTTON_LOC(0.75, 0)]),
+
+    %%init stat labels for 4 routers
+    [wxStaticText:new(ServerFrame, 300 + Num, "Router #"++integer_to_list(Num)++":",[?BUTTON_SIZE(1), ?BUTTON_LOC(0, Num)]) || Num <- lists:seq(1,4)],
+    [wxStaticText:new(ServerFrame, 300 + Num, "State/Mode:",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.15, Num)]) || Num <- lists:seq(1,4)],
+    [wxStaticText:new(ServerFrame, 300 + Num, "Connections:",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.45, Num)]) || Num <- lists:seq(1,4)],
+    [wxStaticText:new(ServerFrame, 300 + Num, "Sent/Recv messages:",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.75, Num)]) || Num <- lists:seq(1,4)],
 
 
-    wxStaticText:wrap(Title1, ?TILE_W),
+    %wxStaticText:wrap(Title1, ?TILE_W),
     
     wxFrame:show(ServerFrame),
     {ServerFrame, #state{mainGen = Gen, frame = ServerFrame}}.

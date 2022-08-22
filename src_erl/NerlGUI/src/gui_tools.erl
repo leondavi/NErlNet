@@ -1,15 +1,17 @@
 -module(gui_tools).
 
--export([serialize/1, deserialize/1]).
+-export([serialize/1, deserialize/1, makeGraphIMG/2]).
 
 
+serialize(undefined) -> undefined;
 serialize({digraph, V, E, N, B}) ->
     {ets:tab2list(V),
      ets:tab2list(E),
      ets:tab2list(N),
      B}.
 
-deserialize({VL, EL, NL, B}) ->       
+deserialize(undefined) -> undefined;
+deserialize({VL, EL, NL, B}) ->
     DG = {digraph, V, E, N, B} = case B of 
        true -> digraph:new();
        false -> digraph:new([acyclic])

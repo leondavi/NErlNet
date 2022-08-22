@@ -43,6 +43,7 @@ init([Parent, Gen]) ->
     wxStaticText:new(DevFrame, 740, "Sources:", [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 3)]),
     %add button for each router
 
+    wxFrame:show(DevFrame),
     {DevFrame, #state{mainGen = Gen, frame = DevFrame}}.
 
 
