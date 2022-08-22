@@ -3,7 +3,13 @@
 -export([init/2, http_request/4]).
 
 init(Req0, State = [MainScreen]) ->
+    {_,Body,_} = cowboy_req:read_body(Req0),
 
+    %body = "toScreen, info"
+    case Body of
+        "serverStats" -> gen_statem:cast(MainScreen, {clientsTraining,Body})
+
+    end,
     Req = cowboy_req:reply(200,
         #{<<"content-type">> => <<"text/plain">>},
         <<"Hello Erlang!">>,
@@ -17,7 +23,7 @@ http_request(Host, Port,Path, Body)->
   httpc:set_options([{proxy, {{Host, list_to_integer(Port)},[Host]}}]),
 %%  io:format("sending:  ~p~nto HostPo: ~p~n",[Body,{Host, Port}]),
   {ok,Res} = httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []),
-  io:format("Got response ~p~n", [Res]),
+  %io:format("Got response ~p~n", [Res]),
   Approve = element(2,element(1,Res)),
   case Approve of
     404 ->
