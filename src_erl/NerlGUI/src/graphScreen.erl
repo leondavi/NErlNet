@@ -49,7 +49,8 @@ init([Parent, Gen])->
         Image = wxBitmap:new(FileName, [{type, ?wxBITMAP_TYPE_PNG}]),
         _StaticIMG = wxStaticBitmap:new(GraphFrame, 101, Image, [?BUTTON_SIZE(4), ?BUTTON_LOC(0, 0)]),
 
-        receive _Any -> wait after 200 -> done end; %wait for picture to process
+        receive _Any -> wait after 200 -> done end           %wait for picture to process
+        ; 
 
     {error, Err} ->
         {Reason, Trace} = Err,

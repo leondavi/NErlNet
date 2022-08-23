@@ -246,7 +246,10 @@ createRouters([{RouterArgs,ConnectionsGraph}|Routers],HostName) ->
             {"/startCasting",routingHandler, [startCasting,RouterGenServerPid]},
             {"/stopCasting",routingHandler, [stopCasting,RouterGenServerPid]},
             {"/federatedWeightsVector",routingHandler, [federatedWeightsVector,RouterGenServerPid]},
-            {"/federatedWeights",routingHandler, [federatedWeights,RouterGenServerPid]}
+            {"/federatedWeights",routingHandler, [federatedWeights,RouterGenServerPid]},
+
+            %%GUI actions
+            {"/getStats",routingHandler, [getStats,RouterGenServerPid]}
         ]}
     ]),
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener

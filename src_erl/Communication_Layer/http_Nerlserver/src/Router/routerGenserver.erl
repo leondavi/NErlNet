@@ -197,6 +197,16 @@ handle_cast({stopCasting,Body}, State = #router_genserver_state{myName = MyName,
     {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
 
+%%%%%%%GUI ACTIONS
+handle_cast({getStats,Body}, State  = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
+    {Name, {Host,Port}} = digraph:vertex(NerlnetGraph, "nerlGUI"),
+    Connected = [ V++", " || V <- digraph:out_neighbours(NerlnetGraph, MyName)],
+    io:format("Conn list is: ~p~n",[Connected]),
+    Mes = "routerScreen@"++MyName++",messStats="++integer_to_list(MsgCounter)++";connList="++lists:merge(Connected),
+    http_request(Host,Port,"routerStats",Mes),
+    {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
+
+
 handle_cast(_Request, State = #router_genserver_state{msgCounter = MsgCounter }) ->
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}}.
 
