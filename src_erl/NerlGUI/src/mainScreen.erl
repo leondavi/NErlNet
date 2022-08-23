@@ -109,7 +109,6 @@ handle_event(Event, State) ->
     ObjsMap = State#state.objs,
     NewState = 
     case Type of
-        {wxClose, close_window} -> exit(normal);
         _Button ->
             case ID of
                 ?GRAPH_ID ->        State#state{objs=ObjsMap#{graphScreen => graphScreen:new(State#state.frame, State#state.mainGen)}};

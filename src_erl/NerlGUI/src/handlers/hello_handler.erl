@@ -18,7 +18,7 @@ init(Req0, State = [MainScreen]) ->
 
 %%sending Body as an http request to {Host, Port} to path Path (=String)
 %%Example:  http_request(RouterHost,RouterPort,"start_training", <<"client1,client2">>),
-http_request(Host, Port,Path, Body)->
+http_request(Host, Port, Path, Body)->
   URL = "http://" ++ Host ++ ":"++Port ++ "/" ++ Path,
   httpc:set_options([{proxy, {{Host, list_to_integer(Port)},[Host]}}]),
 %%  io:format("sending:  ~p~nto HostPo: ~p~n",[Body,{Host, Port}]),

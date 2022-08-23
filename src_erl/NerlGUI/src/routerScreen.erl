@@ -25,9 +25,16 @@ updateText(Frame, {ObjCode, Text}) ->
 
 handle_cast({startProbe, ThisGen}, State) ->
     NerlGraph = gui_tools:deserialize(mainScreen:getGraph(State#state.mainGen)),
-    ObjsMap = init_labels(NerlGraph, State#state.frame),
-    NewState = State#state{nerlGraph = NerlGraph, frame = ThisGen, objs = ObjsMap},
-    {ok, _Timer} = timer:apply_interval(?PROBE_TIME, routerScreen, probe, [NewState]),
+    case NerlGraph of
+        undefined -> 
+            Mes = "No graph initiated! Re-open graph screen....",
+            mainScreen:addInfo(State#state.mainGen, Mes),
+            NewState = State;
+        Graph ->        
+            ObjsMap = init_labels(NerlGraph, State#state.frame),
+            NewState = State#state{nerlGraph = NerlGraph, frame = ThisGen, objs = ObjsMap},
+            {ok, _Timer} = timer:apply_interval(?PROBE_TIME, routerScreen, probe, [NewState])
+    end,
     {noreply, NewState};
 
 handle_cast({fromHandler, Info}, State) ->
@@ -49,7 +56,7 @@ handle_call(show_modal, _From, State) ->
     {reply, ok, State}.
 
 init([Parent, Gen])->
-    ServerFrame = wxFrame:new(Parent, 300, "NerlNet Routers", [{size, {1280, 720}}, {pos, {0,0}}]),
+    ServerFrame = wxFrame:new(Parent, 300, "NerlNet Routers", [{size, {1280, 720}}, {pos, {20,20}}]),
 
     Font = wxFrame:getFont(ServerFrame),
     wxFont:setPointSize(Font, 14),      %no ?FONT_SIZE

@@ -75,7 +75,9 @@ handle_call(getGraph, _From, State) ->
   %io:format("graph edges are: ~p~n", [EdgesList]),
   Nodes = nodeString(NodesList),
   Edges = edgeString(EdgesList),
-  {reply, Nodes++Edges, State};
+
+  MsgCounter = State#main_genserver_state.msgCounter,
+  {reply, Nodes++Edges, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
 handle_call(getStats, _From, State) ->
   Mode = State#main_genserver_state.state,
@@ -83,7 +85,9 @@ handle_call(getStats, _From, State) ->
   Conn = digraph:out_degree(State#main_genserver_state.nerlnetGraph, "mainServer"),
   io:format("returning stats: ~p~n", [{Mode, RecvCounter}]),
   Mes = atom_to_list(Mode)++","++integer_to_list(RecvCounter)++","++integer_to_list(Conn),
-  {reply, Mes, State}.
+
+  MsgCounter = State#main_genserver_state.msgCounter,
+  {reply, Mes, State#main_genserver_state{msgCounter = MsgCounter+1}}.
 
 nodeString([Node |NodeList]) -> nodeString(NodeList, Node).
 nodeString([], Str) -> Str;
