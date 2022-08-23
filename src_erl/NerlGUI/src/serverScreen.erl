@@ -40,7 +40,7 @@ handle_cast({updateText, ObjCode, Text}, State) ->
     {noreply, State}.
 
 init([Parent, Gen])->
-    ServerFrame = wxFrame:new(Parent, 200, "NerlNet Server", [{size, {1280, 720}}, {pos, {10,10}}]),
+    ServerFrame = wxFrame:new(Parent, 200, "NerlNet Server", [{size, {920, 480}}, {pos, {10,10}}]),
 
     Font = wxFrame:getFont(ServerFrame),
     wxFont:setPointSize(Font, ?FONT_SIZE),
@@ -50,7 +50,6 @@ init([Parent, Gen])->
         [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 0)]),
     Mode_text = wxStaticText:new(ServerFrame, 211, "???",
         [?BUTTON_SIZE(1), ?BUTTON_LOC(0.5, 0)]),
-    io:format("mode text is: ~p~n", [Mode_text]),
 
     Title2 = wxStaticText:new(ServerFrame, 202,"Number of active connections:",
         [?BUTTON_SIZE(1), ?BUTTON_LOC(0, 2)]),

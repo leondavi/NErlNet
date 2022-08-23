@@ -85,7 +85,7 @@ handle_info(Info, State)->
     {noreply, NewState}.
 
 add_graph_buttons(Frame, NerlGraph)->
-    Verts = digraph:vertices(NerlGraph)--["serverAPI, mainServer", "nerlGUI"],
+    Verts = digraph:vertices(NerlGraph)--["serverAPI", "mainServer", "nerlGUI"],
 
     Routers = [digraph:vertex(NerlGraph, V) || V <- Verts, lists:member($r, V)],
     Clients = [digraph:vertex(NerlGraph, V) || V <- Verts, lists:member($c, V)],
