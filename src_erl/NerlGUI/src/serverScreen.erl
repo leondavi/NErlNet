@@ -7,8 +7,6 @@
 
 -include("gui_tools.hrl").
 
--define(PROBE_TIME, 1000).
-
 new(Parent, Gen) ->
     wx_object:start(?MODULE, [Parent, Gen], []).
 

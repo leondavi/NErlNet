@@ -4,15 +4,15 @@
 
 init(Req0, State = [MainScreen]) ->
     {_,Body,_} = cowboy_req:read_body(Req0),
+    Data = binary_to_list(Body),
+    io:format("hello_handler got: ~p~n", [Data]),
+    [ScreenName, Info] = string:split(Data, "@"),
+    %body = "toScreen@info"
+    wx_object:cast(MainScreen, {passInfo, list_to_atom(ScreenName), Info}),
 
-    %body = "toScreen, info"
-    case Body of
-        "serverStats" -> gen_statem:cast(MainScreen, {clientsTraining,Body})
-
-    end,
     Req = cowboy_req:reply(200,
         #{<<"content-type">> => <<"text/plain">>},
-        <<"Hello Erlang!">>,
+        <<"Got that">>,
         Req0),
     {ok, Req, State}.
 

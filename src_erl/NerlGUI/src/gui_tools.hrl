@@ -14,3 +14,5 @@
 -define(BUTTON_SIZE(Mult), {size, {round(?TILE_W*Mult), round(?TILE_H*Mult)}}).
 -define(BUTTON_LOC(Row, Col), 
     {pos, {round((Col+1) * ?PADDING_H + Col * ?TILE_H), round((Row+1) * ?PADDING_W + Row * ?TILE_W)}}).
+
+-define(PROBE_TIME, 1000).

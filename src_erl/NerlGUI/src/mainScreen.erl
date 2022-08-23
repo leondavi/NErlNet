@@ -80,6 +80,14 @@ handle_call(show_modal, _From, State) ->
 handle_call(getGraph, _From, State) ->
     {reply, gui_tools:serialize(State#state.nerlGraph), State}.
 
+handle_cast({passInfo, ScreenName, Info}, State) ->
+    try
+        ScreenGen = maps:get(ScreenName, State#state.objs),
+        io:format("calling ~p with ~p~n", [ScreenGen, Info]),
+        wx_object:cast(ScreenGen, {fromHandler,Info})
+    catch badKey -> mainScreen:cast(State#state.mainGen, {addInfo, "Nowhere to display info"}) end,
+    {noreply, State};
+
 handle_cast({setGen, Frame}, State) ->
     {noreply, State#state{mainGen = Frame}};
 
@@ -109,7 +117,10 @@ handle_event(Event, State) ->
                     ServerScreen = serverScreen:new(State#state.frame, State#state.mainGen),
                     serverScreen:startProbe(ServerScreen),
                     State#state{objs=ObjsMap#{serverScreen => ServerScreen}};
-                ?ROUTER_ID ->       State#state{objs=ObjsMap#{routerScreen => routerScreen:new(State#state.frame, State#state.mainGen)}};
+                ?ROUTER_ID ->
+                    RouterScreen = routerScreen:new(State#state.frame, State#state.mainGen),
+                    routerScreen:startProbe(RouterScreen),
+                    State#state{objs=ObjsMap#{routerScreen => RouterScreen}};
                 ?COMMS_ID ->        State;
                 ?JSON_ID ->         State;
                 ?DEVCONTROL_ID ->   State#state{objs=ObjsMap#{devScreen => devScreen:new(State#state.frame, State#state.mainGen)}};

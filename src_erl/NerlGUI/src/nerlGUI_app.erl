@@ -16,13 +16,14 @@ start(_StartType, _StartArgs) ->
     
     GUI = wx:new(),
     StartFrame = mainScreen:new(GUI, ""),
+    io:format("Main Frame Gen is: ~p~n", [StartFrame]),
     mainScreen:setMainGenServer(StartFrame),
     mainScreen:show(StartFrame),
 
     
     Dispatch = cowboy_router:compile([
         {'_', [
-            {"/", hello_handler, [StartFrame]}
+            {"/[...]", hello_handler, [StartFrame]}
         
         ]}
     ]),
