@@ -1,3 +1,8 @@
+###########################################################
+##### Author: Dor Yarchi
+# Copyright: © 2022
+# Date: 27/07/2022
+###########################################################
 from os import replace
 from flask import Flask, request, jsonify
 from flask_restful import Api, Resource, reqparse

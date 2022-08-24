@@ -1,3 +1,8 @@
+###########################################################
+##### Author: Dor Yarchi
+# Copyright: © 2022
+# Date: 27/07/2022
+###########################################################
 import requests
 import globalVars as globe
 import time
@@ -124,7 +129,7 @@ class Transmitter:
         globe.multiProcQueue.put(globe.expResults)
 
     def statistics(self):
-        requests.post(self.statisticsAddress, data='')
+        requests.post(self.statisticsAddress, data='getStatistics')
     
 if __name__ == "__main__":
     trans = Transmitter()
