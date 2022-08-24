@@ -23,7 +23,7 @@
      "Statistics": [
          {
             "workers": "w1,w2",
-            "routers": "r1,r2"
+            "routers": "r1,r2,r3"
          }
     ]
 }
