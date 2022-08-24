@@ -96,11 +96,17 @@ probe(State) ->
             {Name, {Host, Port}} = digraph:vertex(NerlGraph, "mainServer"),
             %hello_handler:http_request(Host, Port, "statistics", <<"getStatistics">>),
             %StatisticsMap = hello_handler:http_request(Host, Port, "getStats", ""),
-            Mes = hello_handler:http_request(Host, Port, "getStats", ""),
-            io:format("got stats: ~p~n", [Mes]),
-            LabelDatas = string:split([Mes], ",", all),
+            %%%TODO try black here
+            try
+                Mes = hello_handler:http_request(Host, Port, "getStats", ""),
+                io:format("got stats: ~p~n", [Mes]),
+                LabelDatas = string:split([Mes], ",", all),
 
-            updateServerText(State#state.frame, LabelDatas)
+                updateServerText(State#state.frame, LabelDatas)
+            catch Err:Er ->
+                ErrMes = "Couldn't reach "++Name++" @ "++Host++":"++Port,
+                mainScreen:addInfo(State#state.mainGen, ErrMes)
+            end
             %[Mode, Count, Conn] = string:split(Mes, ",", all),
 
             % serverScreen:updateText(State#state.frame, {mode, Mode}),

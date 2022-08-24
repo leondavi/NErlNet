@@ -105,13 +105,15 @@ handle_cast({addInfo, Mes}, State) ->
 handle_event(Event, State) ->
     Type = Event#wx.event,
     ID = Event#wx.id,
-    %io:format("Handling event type=~p~n",[Type]),
+    io:format("Handling event type=~p~n",[Type]),
     ObjsMap = State#state.objs,
     NewState = 
     case Type of
         _Button ->
             case ID of
-                ?GRAPH_ID ->        State#state{objs=ObjsMap#{graphScreen => graphScreen:new(State#state.frame, State#state.mainGen)}};
+                ?GRAPH_ID ->       
+                    io:format("starting graph screen~n"),
+                    State#state{objs=ObjsMap#{graphScreen => graphScreen:new(State#state.frame, State#state.mainGen)}};
                 ?SERVER_ID ->       
                     ServerScreen = serverScreen:new(State#state.frame, State#state.mainGen),
                     serverScreen:startProbe(ServerScreen),
