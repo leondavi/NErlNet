@@ -2,5 +2,5 @@
 ../../../inputJsonFiles/ConnectionMap/1Router3ClientsH.json
 
 # For Python API:
-/home/workspace/NErlNet/inputJsonFiles/Architecture/jsonExampleArch3Devs3Workers1SourceH.json
-/home/workspace/NErlNet/inputJsonFiles/experimentsFlow/jsonExampleExpFlow3Devs3Workers1SourceH.json
+/home/nerlnet/workspace/NErlNet/inputJsonFiles/Architecture/jsonExampleArch3Devs3Workers1SourceH.json
+/home/nerlnet/workspace/NErlNet/inputJsonFiles/experimentsFlow/jsonExampleExpFlow3Devs3Workers1SourceH.json
