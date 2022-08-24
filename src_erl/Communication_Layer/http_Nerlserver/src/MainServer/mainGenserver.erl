@@ -83,8 +83,8 @@ handle_call(getStats, _From, State) ->
   Mode = State#main_genserver_state.state,
   RecvCounter = State#main_genserver_state.msgCounter,
   Conn = digraph:out_degree(State#main_genserver_state.nerlnetGraph, "mainServer"),
-  io:format("returning stats: ~p~n", [{Mode, RecvCounter}]),
-  Mes = atom_to_list(Mode)++","++integer_to_list(RecvCounter)++","++integer_to_list(Conn),
+  %io:format("returning stats: ~p~n", [{Mode, RecvCounter}]),
+  Mes = "mode="++atom_to_list(Mode)++",stats="++integer_to_list(RecvCounter)++",conn="++integer_to_list(Conn),
 
   MsgCounter = State#main_genserver_state.msgCounter,
   {reply, Mes, State#main_genserver_state{msgCounter = MsgCounter+1}}.

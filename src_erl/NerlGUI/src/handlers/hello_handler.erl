@@ -35,11 +35,12 @@ http_request(Host, Port, Path, Body)->
   end,
  % if py
   Ans = lists:sublist(element(3,Res),8),
+  io:format("returning from req: ~p~n", [element(3,Res)]),
   case Ans of
     "Somthing" ->
        % io:format("sending:  ~p~nto HostPo: ~p~nRes: ~p",[Body,{Host, Port},R]),
        % io:format("Trying again in 0.01 second~n"),
         timer:sleep(10),
         spawn(fun() ->http_request(Host, Port,Path, Body) end);
-      _ -> Ans
+      _ -> element(3,Res)
   end.

@@ -46,10 +46,11 @@ init([Parent, Gen])->
         mainScreen:updateGraph(Gen, gui_tools:serialize(G)),
         mainScreen:addInfo(Gen, "updated graph"),
 
-        Image = wxBitmap:new(FileName, [{type, ?wxBITMAP_TYPE_PNG}]),
-        _StaticIMG = wxStaticBitmap:new(GraphFrame, 101, Image, [?BUTTON_SIZE(4), ?BUTTON_LOC(0, 0)]),
+        receive _Any -> wait after 100 -> done end,           %wait for picture to process
 
-        receive _Any -> wait after 200 -> done end           %wait for picture to process
+        Image = wxBitmap:new(FileName, [{type, ?wxBITMAP_TYPE_PNG}]),
+        _StaticIMG = wxStaticBitmap:new(GraphFrame, 101, Image, [?BUTTON_SIZE(4), ?BUTTON_LOC(0, 0)])
+
         ; 
 
     {error, Err} ->
