@@ -97,10 +97,19 @@ probe(State) ->
             %hello_handler:http_request(Host, Port, "statistics", <<"getStatistics">>),
             %StatisticsMap = hello_handler:http_request(Host, Port, "getStats", ""),
             Mes = hello_handler:http_request(Host, Port, "getStats", ""),
-            [Mode, Count, Conn] = string:split(Mes, ",", all),
             io:format("got stats: ~p~n", [Mes]),
+            LabelDatas = string:split([Mes], ",", all),
 
-            serverScreen:updateText(State#state.frame, {mode, Mode}),
-            serverScreen:updateText(State#state.frame, {stats, Count}),
-            serverScreen:updateText(State#state.frame, {conn, Conn})
+            updateServerText(State#state.frame, LabelDatas)
+            %[Mode, Count, Conn] = string:split(Mes, ",", all),
+
+            % serverScreen:updateText(State#state.frame, {mode, Mode}),
+            % serverScreen:updateText(State#state.frame, {stats, Count}),
+            % serverScreen:updateText(State#state.frame, {conn, Conn})
     end.
+
+updateServerText(Frame, [])-> done;
+updateServerText(Frame, [Info|MoreInfo])->
+    [Field, Data] = string:split(Info, "="),
+    serverScreen:updateText(Frame, {list_to_atom(Field), Data}),
+    updateServerText(Frame, MoreInfo).

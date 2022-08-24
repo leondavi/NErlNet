@@ -49,12 +49,12 @@ to_file(File, Format) -> graph_server ! {to_file, File, Format}.
 
 add_node(Graph, Id) ->
    {GraphId, Type, GraphOptions, Nodes, Edges} = Graph,
-   io:format("Add node ~s to graph ~s !~n",[Id, GraphId]),
+   %io:format("Add node ~s to graph ~s !~n",[Id, GraphId]),
    {GraphId, Type, GraphOptions, Nodes ++ [Id], Edges}.
 
 add_edge(Graph, NodeOne, NodeTwo) ->
    {GraphId, Type, GraphOptions, Nodes, Edges} = Graph,
-   io:format("Add edge ~s -> ~s to graph ~s !~n", [NodeOne, NodeTwo, GraphId]), 
+   %io:format("Add edge ~s -> ~s to graph ~s !~n", [NodeOne, NodeTwo, GraphId]), 
    {GraphId, Type, GraphOptions, Nodes, Edges ++ [{NodeOne, NodeTwo}]}.
 
 to_dot(Graph, File) ->
