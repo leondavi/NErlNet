@@ -46,8 +46,8 @@
 
 
 start(_StartType, _StartArgs) ->
-     %HostName = getHostName(),
-     HostName = "127.0.0.1",        %TODO: update jsons with real ips
+     HostName = getHostName(),
+     %HostName = "127.0.0.1",        %TODO: update jsons with real ips
      io:format("My HostName: ~p~n",[HostName]),
 
     %Create a listener that waits for a message from python about the adresses of the wanted json
