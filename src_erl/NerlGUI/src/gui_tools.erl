@@ -1,6 +1,6 @@
 -module(gui_tools).
 
--export([serialize/1, deserialize/1, makeGraphIMG/2]).
+-export([serialize/1, deserialize/1, makeGraphIMG/2, getMainServerURL/0]).
 
 
 serialize(undefined) -> undefined;
@@ -50,3 +50,12 @@ createEdges([Edge |Edges], G) ->
     graphviz:add_edge(V1, V2),
     digraph:add_edge(G, V1, V2),
     createEdges(Edges, G).
+
+getMainServerURL() ->
+   {ok, L} = inet:getif(),
+   IP = tuple_to_list(element(1, hd(L))),
+   A = lists:flatten(io_lib:format("~p", [IP])),
+   Subbed = lists:sublist(A,2,length(A)-2),
+   MainIP = lists:flatten(string:replace(Subbed,",",".",all)),
+   Port = "8080",
+   URL = "http://"++MainIP++":"++Port.
