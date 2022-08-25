@@ -10,3 +10,10 @@ Build and run
 
     $ rebar3 compile
     $ rebar3 shell
+
+
+Design
+====
+First, a main wx_object (of type gen_server) window is initiated. Then a cowboy server is opened and holds a pointer to this window.
+Pressing any of the buttons in the main window will open a subsequent child wx_object which will start probing the relevant NerlNetwork entities for changes in their state.
+closing any child window will stop the probe.
