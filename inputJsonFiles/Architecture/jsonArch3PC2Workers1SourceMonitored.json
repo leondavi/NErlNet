@@ -62,7 +62,7 @@
       "optimizer":"6",
       "features": "128",
       "labels": "1",
-       "countLimit": "10",
+       "countLimit": "10"
     },
     {
       "name": "w2",
@@ -85,7 +85,7 @@
       "optimizer":"6",
       "features": "128",
       "labels": "1",
-       "countLimit": "10",
+       "countLimit": "10"
     }
   ],
   "clients": [
