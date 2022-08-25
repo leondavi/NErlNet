@@ -5,6 +5,8 @@ NerlGUI is an external tool for NerlNet that allows to monitor each Entity in th
 * Make sure that there's a nerlGUI entity in the Arch json
 * Make sure to open the Graph screen before other screens to validate connection to network
 
+video example: https://www.youtube.com/watch?v=PJFUqJaL9mI
+
 Build and run
 -----
 
