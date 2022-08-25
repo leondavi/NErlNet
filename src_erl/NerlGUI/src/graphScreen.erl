@@ -26,7 +26,7 @@ init([Parent, Gen])->
     Font = wxFrame:getFont(GraphFrame),
     wxFont:setPointSize(Font, ?FONT_SIZE),
     wxFrame:setFont(GraphFrame, Font),
-    Response = httpc:request(get, {?MAINSERVER_URL++"/getGraph", []}, [], []),
+    Response = httpc:request(get, {gui_tools:getMainServerURL()++"/getGraph", []}, [], []),
 
     case Response of
     {ok, Data} ->
