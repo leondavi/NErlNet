@@ -2,8 +2,6 @@
 
 -record(state, {mainGen, frame, objs, nerlGraph}).
 
--define(MAINSERVER_URL, "http://127.0.0.1:8080").
-
 -define(FONT_SIZE, 15).
 -define(PADDING_W, 20).
 -define(PADDING_H, 30).
