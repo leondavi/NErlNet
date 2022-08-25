@@ -56,7 +56,7 @@ handle_call(show_modal, _From, State) ->
     {reply, ok, State}.
 
 init([Parent, Gen])->
-    ServerFrame = wxFrame:new(Parent, 300, "NerlNet Routers", [{size, {1280, 720}}, {pos, {20,20}}]),
+    ServerFrame = wxFrame:new(Parent, 300, "NerlNet Routers", [{size, {1280, 420}}, {pos, {20,20}}]),
 
     Font = wxFrame:getFont(ServerFrame),
     wxFont:setPointSize(Font, 14),      %no ?FONT_SIZE
