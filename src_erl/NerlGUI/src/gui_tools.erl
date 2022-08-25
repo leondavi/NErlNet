@@ -28,7 +28,7 @@ deserialize({VL, EL, NL, B}) ->
 %%generates graph from list and returns the filename
 %devices are: Name,IP,Port
 makeGraphIMG(DeviceList, Edges) ->
-    graphviz:graph("G"),
+    graphviz:digraph("G"),
     G = digraph:new(),
     createNodes(DeviceList, G),
     createEdges(Edges, G),
@@ -37,14 +37,14 @@ makeGraphIMG(DeviceList, Edges) ->
     graphviz:delete(),
     {FileName, G}.
 
-createNodes([], G)-> done;
+createNodes([], _G)-> done;
 createNodes([Device|DeviceList], G)->
     [Name, IP, Port] = Device,
     graphviz:add_node(Name),
     digraph:add_vertex(G, Name, {IP, Port}),
     createNodes(DeviceList, G).
 
-createEdges([], G) -> done;
+createEdges([], _G) -> done;
 createEdges([Edge |Edges], G) ->
     [V1, V2] = string:split(Edge, "-"),
     graphviz:add_edge(V1, V2),
