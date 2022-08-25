@@ -98,7 +98,10 @@ handle_cast({updateGraph, Graph}, State) ->
 handle_cast({addInfo, Mes}, State) ->
     ObjsMap = State#state.objs,
     NerlInfo = maps:get(infoBox, ObjsMap),
-    wxTextCtrl:appendText(NerlInfo, Mes++"\n"),
+    LastLine = wxTextCtrl:getLineText(NerlInfo, wxTextCtrl:getNumberOfLines(NerlInfo)-2),
+    io:format("Last line is : ~p~n",[LastLine]),
+    if LastLine /= Mes ->  wxTextCtrl:appendText(NerlInfo, Mes++"\n");
+        true -> skip end,
     {noreply, State}.
 
 

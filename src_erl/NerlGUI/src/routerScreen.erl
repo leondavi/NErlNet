@@ -117,26 +117,30 @@ probe(State) ->
             Mes = "No graph initiated! Re-open graph screen....",
             mainScreen:addInfo(State#state.mainGen, Mes);
         Graph -> 
-            Verts = digraph:vertices(NerlGraph)--["serverAPI", "mainServer", "nerlGUI"],
-            Routers = [digraph:vertex(NerlGraph, V) || V <- Verts, lists:member($r, V)],
+            Verts = digraph:vertices(Graph)--["serverAPI", "mainServer", "nerlGUI"],
+            Routers = [digraph:vertex(Graph, V) || V <- Verts, lists:member($r, V)],
             io:format("routers are ~p~n", [Routers]),
-            get_routers_stats(Routers, State#state.frame)
+            get_routers_stats(State#state.mainGen, Routers, State#state.frame)
             
     end.
 
-get_routers_stats([], _Frame) -> done;
-get_routers_stats([Router | Routers], Frame)->
+get_routers_stats(_MainGen, [], _Frame) -> done;
+get_routers_stats(MainGen, [Router | Routers], Frame)->
     io:format("probing ~p~n", [Router]),
     {Name, {Host, Port}} = Router,
-
-    Mes = hello_handler:http_request(Host, Port, "getStats", ""),               %TODO replace with cast from hello_handler
-    io:format("got stats: ~p~n", [Mes]),
+    try 
+        Mes = hello_handler:http_request(Host, Port, "getStats", ""),               %TODO replace with cast from hello_handler
+        io:format("got stats: ~p~n", [Mes])
+    catch _Err:_Er ->
+        ErrMes = "Couldn't reach "++Name++" @ "++Host++":"++Port,
+        mainScreen:addInfo(MainGen, ErrMes)
+    end,
     % [Mode, Conn, Comm] = string:split(Mes, ",", all),
     % routerScreen:updateText(Frame, {routerName, Name}),
     % routerScreen:updateText(Frame, {statesList, Mode}),
     % routerScreen:updateText(Frame, {connList, Conn}),
     % routerScreen:updateText(Frame, {messStats, Comm}),
-    get_routers_stats(Routers, Frame).
+    get_routers_stats(MainGen, Routers, Frame).
 
 updateRouterText(_State,_Name, [])-> done;
 updateRouterText(State, Name, [Info|MoreInfo])->
