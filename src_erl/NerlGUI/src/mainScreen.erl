@@ -68,6 +68,7 @@ init([Parent, PPID]) ->
     NerlInfo = wxTextCtrl:new(StartFrame, 701, 
         [{size, {?TILE_W(2.5), ?TILE_H(3)}}, ?BUTTON_LOC(0.2, 3),
             {style, ?wxDEFAULT bor ?wxTE_MULTILINE}]),
+    wxTextCtrl:setEditable(NerlInfo, false),
 
     {StartFrame, #state{frame = StartFrame, objs=#{infoBox => NerlInfo}}}.
 
