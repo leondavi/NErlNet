@@ -17,7 +17,7 @@ init(Req0, [Action, Main_genserver_Pid]) ->
     getStats ->  gen_statem:call(Main_genserver_Pid, getStats)
   end,
   %Reply = io_lib:format("Body Received: ~p ~n ", [Body]),
-  io:format("replying to call with: ~p~n", [Reply]),
+  %io:format("replying to call with: ~p~n", [Reply]),
   Req = cowboy_req:reply(200,
     #{<<"content-type">> => <<"text/plain">>},
     Reply,

@@ -70,7 +70,7 @@ init([Parent, Gen])->
     [wxStaticText:new(ServerFrame, ?wxID_ANY, "Sent/Recv messages:",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.75, Num)]) || Num <- lists:seq(1,4)],
 
     % Names =         [wxStaticText:new(ServerFrame, ?wxID_ANY, "????",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.1, Num)]) || Num <- lists:seq(1,4)],
-    StateLabels =   [wxStaticText:new(ServerFrame, ?wxID_ANY, "ACTIVE/DOWN",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.35, Num)]) || Num <- lists:seq(1,4)],
+    % StateLabels =   [wxStaticText:new(ServerFrame, ?wxID_ANY, "ACTIVE/DOWN",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.35, Num)]) || Num <- lists:seq(1,4)],
     % ConnList =      [wxStaticText:new(ServerFrame, ?wxID_ANY, "NONE",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.6, Num)]) || Num <- lists:seq(1,4)],
     % CommStats =     [wxStaticText:new(ServerFrame, ?wxID_ANY, "0/0",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.85, Num)]) || Num <- lists:seq(1,4)],
 
@@ -89,9 +89,10 @@ init_labels(NerlGraph, Frame)->
 createLabelMap(_Frame, [], Map, _Count)-> Map;
 createLabelMap(Frame, [{Name, _Conn}|Routers], Map, Count)->
     wxStaticText:new(Frame, ?wxID_ANY, Name,[?BUTTON_SIZE(1), ?BUTTON_LOC(0.1, Count)]),
+    StateLabel = wxStaticText:new(Frame, ?wxID_ANY, "ACTIVE/DOWN",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.35, Count)]),
     ConnLabel = wxStaticText:new(Frame, ?wxID_ANY, "NONE",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.6, Count)]),
     CommStats = wxStaticText:new(Frame, ?wxID_ANY, "0/0",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.85, Count)]),
-    NewMap = Map#{Name => #{connList => ConnLabel, messStats => CommStats}},
+    NewMap = Map#{Name => #{connList => ConnLabel, messStats => CommStats, state => StateLabel}},
     createLabelMap(Frame, Routers, NewMap, Count+1).
 
 
