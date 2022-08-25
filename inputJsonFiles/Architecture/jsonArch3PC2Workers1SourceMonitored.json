@@ -105,12 +105,7 @@
     }
   ],
   "federated": [
-    {
-      "name": "f1",
-      "port": "8083",
-      "workers": "w1",
-      "counterLimit": "1"
-    }
+
   ],
   "sources": [
     {
