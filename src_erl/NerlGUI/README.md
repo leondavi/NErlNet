@@ -18,8 +18,8 @@ JSONPATH file should be:
     $ /home/nerlnet/workspace/NErlNet/inputJsonFiles/experimentsFlow/jsonExampleExpFlow2Worke3Router1Source.json
 
 * Make sure to change "nerlnet" to ubuntu username
-* Make sure files exist in their dirs
-* Make sure to open the Graph screen before other screens to validate connection to network
+* Make sure that inputDataDir has "One_Two_train_splitted" and "One_Two_predict_splitted"
+* Make sure json files exist in their dirs
 
 Then run in the NerlGUI dir:
 
