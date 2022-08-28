@@ -22,7 +22,7 @@
 -export([start/2, stop/1]).
 
 -define(NERLNET_INIT_PORT,8484).
--define(PYTHON_SERVER_WAITING_TIMEOUT_MS, 360000). % 360 seconds
+-define(PYTHON_SERVER_WAITING_TIMEOUT_MS, 300000). % 300 seconds
 -define(NERLNET_JSON_PATH,"/usr/local/lib/nerlnet-lib/NErlNet/jsonPath").
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
@@ -47,8 +47,7 @@
 
 start(_StartType, _StartArgs) ->
      HostName = getHostName(),
-     %HostName = "127.0.0.1",
-     %HostName = "127.0.0.1",
+     %HostName = "127.0.0.1",        %TODO: update jsons with real ips
      io:format("My HostName: ~p~n",[HostName]),
 
     %Create a listener that waits for a message from python about the adresses of the wanted json
@@ -87,13 +86,13 @@ createNerlnetInitiator(HostName) ->
 
 
 parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess) ->
-    %%Server that should be established on thi  s machine from JSON architecture:
+    %%Server that should be established on this machine from JSON architecture:
     % {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities("./input/jsonArch1PC2Workers.json",list_to_binary(HostName)),
     %%    get json path from jsonPath file in main NErlNet directory
     
 
     %%Server that should be established on this machine from JSON architecture:
-    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)),
+    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings],_GUI} = jsonParser:getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)),
 
 %  io:format("My NerlNetSettings: ~p~n",[NerlNetSettings]),
 
@@ -247,7 +246,10 @@ createRouters([{RouterArgs,ConnectionsGraph}|Routers],HostName) ->
             {"/startCasting",routingHandler, [startCasting,RouterGenServerPid]},
             {"/stopCasting",routingHandler, [stopCasting,RouterGenServerPid]},
             {"/federatedWeightsVector",routingHandler, [federatedWeightsVector,RouterGenServerPid]},
-            {"/federatedWeights",routingHandler, [federatedWeights,RouterGenServerPid]}
+            {"/federatedWeights",routingHandler, [federatedWeights,RouterGenServerPid]},
+
+            %%GUI actions
+            {"/getStats",routingHandler, [getStats,RouterGenServerPid]}
         ]}
     ]),
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
@@ -269,7 +271,7 @@ createMainServer({[MainServerArgsMap],ConnectionsGraph,WorkersMap,ClientsNames},
 
     MainServerDispatcher = cowboy_router:compile([
     {'_', [
-
+        %Nerlnet actions
         {"/updateCSV",[],initHandler,[MainGenServerPid]},
         {"/lossFunction",[],actionHandler,[lossFunction,MainGenServerPid]},
         {"/predictRes",[],actionHandler,[predictRes,MainGenServerPid]},
@@ -281,7 +283,10 @@ createMainServer({[MainServerArgsMap],ConnectionsGraph,WorkersMap,ClientsNames},
         {"/clientsPredict",[],actionHandler,[clientsPredict,MainGenServerPid]},
         {"/startCasting",[],actionHandler, [startCasting, MainGenServerPid]},
         {"/stopCasting",[],actionHandler, [stopCasting, MainGenServerPid]},
-        {"/asd",[],noMatchingRouteHandler, [MainGenServerPid]},
+        %GUI actions
+        {"/getGraph",[],guiHandler, [getGraph, MainGenServerPid]},
+        {"/getStats",[],guiHandler, [getStats, MainGenServerPid]},
+
         {"/[...]", [],noMatchingRouteHandler, [MainGenServerPid]}
         ]}
         ]),

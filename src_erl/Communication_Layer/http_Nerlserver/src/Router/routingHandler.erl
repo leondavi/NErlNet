@@ -54,7 +54,10 @@ init(Req0, State = [Action,Router_genserver_Pid]) ->
     federatedWeightsVector  -> gen_statem:cast(Router_genserver_Pid, {federatedWeightsVector,Body});
 
     federatedWeights -> % io:format("router got action ~p body:~p~n",[Action,Body]),
-      gen_statem:cast(Router_genserver_Pid, {federatedWeights,Body})
+      gen_statem:cast(Router_genserver_Pid, {federatedWeights,Body});
+
+    %%%%%%%%%%%%%%GUI actions
+    getStats -> gen_server:cast(Router_genserver_Pid, {getStats,Body})
 
   end,
   Reply = io_lib:format(" ", []),

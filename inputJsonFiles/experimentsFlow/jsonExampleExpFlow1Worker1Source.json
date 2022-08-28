@@ -1,0 +1,30 @@
+{
+     "Batches per source": 
+     {
+        "Training": 500,
+        "Prediction": 500
+     },
+     "Training":  [
+         {
+            "source name": "s1",
+            "workers": "w1",
+            "CSV path": "One_Two_train"
+         }
+     ],
+    
+     "Prediction": [
+         {
+            "source name": "s1",
+            "workers": "w1",
+            "CSV path": "One_Two_predict"
+         }
+    ],
+    
+     "Statistics": [
+         {
+            "workers": "w1",
+            "routers": "r1"
+         }
+    ]
+}
+    
