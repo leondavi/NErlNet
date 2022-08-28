@@ -8,13 +8,20 @@
   "devices": [
     {
       "host": "127.0.0.1",
-      "entities": "mainServer,c1,s1,r1"
+      "entities": "mainServer,c1,s1,r1,nerlGUI"
     }
   ],
   "serverAPI": [
     {
       "host": "127.0.0.1",
       "port": "8095",
+      "args": ""
+    }
+  ],
+  "nerlGUI": [
+    {
+      "host": "127.0.0.1",
+      "port": "8096",
       "args": ""
     }
   ],

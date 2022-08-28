@@ -44,6 +44,7 @@ start_link(Args) ->
 -spec(init(Args :: term()) ->
 {ok, State :: #main_genserver_state{}} | {ok, State :: #main_genserver_state{}, timeout() | hibernate} |
 {stop, Reason :: term()} | ignore).
+
 init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
   inets:start(),
     io:format("Main Server ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
@@ -63,8 +64,40 @@ init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
 {noreply, NewState :: #main_genserver_state{}, timeout() | hibernate} |
 {stop, Reason :: term(), Reply :: term(), NewState :: #main_genserver_state{}} |
 {stop, Reason :: term(), NewState :: #main_genserver_state{}}).
-handle_call(_Request, _From, State = #main_genserver_state{}) ->
-{reply, ok, State}.
+
+%% respond to GUI req
+handle_call(getGraph, _From, State) ->
+  NerlGraph = State#main_genserver_state.nerlnetGraph,
+  FullNodes = [digraph:vertex(NerlGraph,Vertex) || Vertex <- digraph:vertices(NerlGraph)],
+  %io:format("Full graph is: ~p~n", [FullNodes]),
+  NodesList = [Entity++","++IP++","++integer_to_list(Port)++"#"||{Entity, {IP, Port}} <- FullNodes],
+  EdgesList = [digraph:edge(NerlGraph,Edge) || Edge <- digraph:edges(NerlGraph)],
+  %io:format("graph edges are: ~p~n", [EdgesList]),
+  Nodes = nodeString(NodesList),
+  Edges = edgeString(EdgesList),
+
+  MsgCounter = State#main_genserver_state.msgCounter,
+  {reply, Nodes++Edges, State#main_genserver_state{msgCounter = MsgCounter+1}};
+
+handle_call(getStats, _From, State) ->
+  Mode = State#main_genserver_state.state,
+  RecvCounter = State#main_genserver_state.msgCounter,
+  Conn = digraph:out_degree(State#main_genserver_state.nerlnetGraph, "mainServer"),
+  %io:format("returning stats: ~p~n", [{Mode, RecvCounter}]),
+  Mes = "mode="++atom_to_list(Mode)++",stats="++integer_to_list(RecvCounter)++",conn="++integer_to_list(Conn),
+
+  MsgCounter = State#main_genserver_state.msgCounter,
+  {reply, Mes, State#main_genserver_state{msgCounter = MsgCounter+1}}.
+
+nodeString([Node |NodeList]) -> nodeString(NodeList, Node).
+nodeString([], Str) -> Str;
+nodeString([Node |NodeList], Str)-> nodeString(NodeList, Node++Str).
+
+edgeString([Edge |EdgesList])-> {ID, V1, V2, Label} = Edge, edgeString(EdgesList, V1++"-"++V2++",").
+edgeString([], Str)-> Str;
+edgeString([Edge |EdgesList], Str)->
+  {ID, V1, V2, Label} = Edge,
+  edgeString(EdgesList, V1++"-"++V2++","++Str).
 
 %% @private
 %% @doc Handling cast messages
@@ -122,6 +155,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
           NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- (digraph:vertices(NerlnetGraph)--["serverAPI"])--["mainServer"]]),
           [findroutAndsendStatistics(MyName, Name,NerlnetGraph)||{Name,_Counter}<-maps:to_list(StatisticsMap)],
           NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap, statisticsCounter = length(maps:to_list(StatisticsMap))};
+       Body == <<>> ->  io:format("in Statistcs, State has: StatsCount=~p, MsgCount=~p~n", [StatisticsCounter, MsgCounter]), NewState = State;
       true ->
           %%      statistics arrived from Entity
           [From|[NewCounter]] = re:split(binary_to_list(Body), "#", [{return, list}]),
@@ -419,7 +453,7 @@ start_connection([])->ok;
 start_connection([{_ServerName,{Host, Port}}|Tail]) ->
   Res = httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
   io:format("mainserver connecting to: ~p result: ~p~n",[{Host, Port},Res]),
-start_connection(Tail).
+  start_connection(Tail).
 
 
 getShortPath(From,To,NerlnetGraph) when is_atom(To)-> 
