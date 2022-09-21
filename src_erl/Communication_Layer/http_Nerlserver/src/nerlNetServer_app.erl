@@ -22,7 +22,7 @@
 -export([start/2, stop/1]).
 
 -define(NERLNET_INIT_PORT,8484).
--define(PYTHON_SERVER_WAITING_TIMEOUT_MS, 360000). % 360 seconds
+-define(PYTHON_SERVER_WAITING_TIMEOUT_MS, 300000). % 300 seconds
 -define(NERLNET_JSON_PATH,"/usr/local/lib/nerlnet-lib/NErlNet/jsonPath").
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
@@ -46,8 +46,8 @@
 
 
 start(_StartType, _StartArgs) ->
-     %HostName = getHostName(),
-     HostName = "127.0.0.1",        %TODO: update jsons with real ips
+     HostName = getHostName(),
+     %HostName = "127.0.0.1",        %TODO: update jsons with real ips
      io:format("My HostName: ~p~n",[HostName]),
 
     %Create a listener that waits for a message from python about the adresses of the wanted json

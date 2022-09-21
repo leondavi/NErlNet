@@ -1,7 +1,7 @@
 {
     "connectionsMap":
     {
-        "r1":["mainServer", "c1", "r2", "s1"],
+        "r1":["mainServer", "c1", "r2", "s1","nerlGUI"],
         "r2":["r1","c2"]
     }
 }

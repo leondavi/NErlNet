@@ -68,6 +68,7 @@ init([Parent, PPID]) ->
     NerlInfo = wxTextCtrl:new(StartFrame, 701, 
         [{size, {?TILE_W(2.5), ?TILE_H(3)}}, ?BUTTON_LOC(0.2, 3),
             {style, ?wxDEFAULT bor ?wxTE_MULTILINE}]),
+    wxTextCtrl:setEditable(NerlInfo, false),
 
     {StartFrame, #state{frame = StartFrame, objs=#{infoBox => NerlInfo}}}.
 
@@ -98,20 +99,25 @@ handle_cast({updateGraph, Graph}, State) ->
 handle_cast({addInfo, Mes}, State) ->
     ObjsMap = State#state.objs,
     NerlInfo = maps:get(infoBox, ObjsMap),
-    wxTextCtrl:appendText(NerlInfo, Mes++"\n"),
+    LastLine = wxTextCtrl:getLineText(NerlInfo, wxTextCtrl:getNumberOfLines(NerlInfo)-2),
+    %io:format("Last line is : ~p~n",[LastLine]),
+    if LastLine /= Mes ->  wxTextCtrl:appendText(NerlInfo, Mes++"\n");
+        true -> skip end,
     {noreply, State}.
 
 
 handle_event(Event, State) ->
     Type = Event#wx.event,
     ID = Event#wx.id,
-    %io:format("Handling event type=~p~n",[Type]),
+    io:format("Handling event type=~p~n",[Type]),
     ObjsMap = State#state.objs,
     NewState = 
     case Type of
         _Button ->
             case ID of
-                ?GRAPH_ID ->        State#state{objs=ObjsMap#{graphScreen => graphScreen:new(State#state.frame, State#state.mainGen)}};
+                ?GRAPH_ID ->       
+                    io:format("starting graph screen~n"),
+                    State#state{objs=ObjsMap#{graphScreen => graphScreen:new(State#state.frame, State#state.mainGen)}};
                 ?SERVER_ID ->       
                     ServerScreen = serverScreen:new(State#state.frame, State#state.mainGen),
                     serverScreen:startProbe(ServerScreen),
