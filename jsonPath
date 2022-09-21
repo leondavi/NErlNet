@@ -1,6 +1,6 @@
-../../../inputJsonFiles/Architecture/jsonArch1PC1WorkerMonitored.json
-../../../inputJsonFiles/ConnectionMap/1PC1Worker.json
+../../../inputJsonFiles/Architecture/jsonArch3PC2Workers1SourceMonitored.json
+../../../inputJsonFiles/ConnectionMap/3Router2ClientsH.json
 
 # For Python API:
-/home/harancoh/Desktop/work/workspace/NErlNet/inputJsonFiles/Architecture/jsonArch1PC1WorkerMonitored.json
-/home/harancoh/Desktop/work/workspace/NErlNet/inputJsonFiles/experimentsFlow/jsonExampleExpFlow1Worker1Source.json
+/home/nerlnet/workspace/NErlNet/inputJsonFiles/Architecture/jsonArch3PC2Workers1SourceMonitored.json
+/home/nerlnet/workspace/NErlNet/inputJsonFiles/experimentsFlow/jsonExampleExpFlow2Worke3Router1Source.json

@@ -56,7 +56,7 @@ handle_call(show_modal, _From, State) ->
     {reply, ok, State}.
 
 init([Parent, Gen])->
-    ServerFrame = wxFrame:new(Parent, 300, "NerlNet Routers", [{size, {1280, 720}}, {pos, {20,20}}]),
+    ServerFrame = wxFrame:new(Parent, 300, "NerlNet Routers", [{size, {1280, 420}}, {pos, {20,20}}]),
 
     Font = wxFrame:getFont(ServerFrame),
     wxFont:setPointSize(Font, 14),      %no ?FONT_SIZE
@@ -70,7 +70,7 @@ init([Parent, Gen])->
     [wxStaticText:new(ServerFrame, ?wxID_ANY, "Sent/Recv messages:",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.75, Num)]) || Num <- lists:seq(1,4)],
 
     % Names =         [wxStaticText:new(ServerFrame, ?wxID_ANY, "????",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.1, Num)]) || Num <- lists:seq(1,4)],
-    StateLabels =   [wxStaticText:new(ServerFrame, ?wxID_ANY, "ACTIVE/DOWN",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.35, Num)]) || Num <- lists:seq(1,4)],
+    % StateLabels =   [wxStaticText:new(ServerFrame, ?wxID_ANY, "ACTIVE/DOWN",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.35, Num)]) || Num <- lists:seq(1,4)],
     % ConnList =      [wxStaticText:new(ServerFrame, ?wxID_ANY, "NONE",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.6, Num)]) || Num <- lists:seq(1,4)],
     % CommStats =     [wxStaticText:new(ServerFrame, ?wxID_ANY, "0/0",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.85, Num)]) || Num <- lists:seq(1,4)],
 
@@ -89,9 +89,10 @@ init_labels(NerlGraph, Frame)->
 createLabelMap(_Frame, [], Map, _Count)-> Map;
 createLabelMap(Frame, [{Name, _Conn}|Routers], Map, Count)->
     wxStaticText:new(Frame, ?wxID_ANY, Name,[?BUTTON_SIZE(1), ?BUTTON_LOC(0.1, Count)]),
+    StateLabel = wxStaticText:new(Frame, ?wxID_ANY, "ACTIVE/DOWN",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.35, Count)]),
     ConnLabel = wxStaticText:new(Frame, ?wxID_ANY, "NONE",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.6, Count)]),
     CommStats = wxStaticText:new(Frame, ?wxID_ANY, "0/0",[?BUTTON_SIZE(1), ?BUTTON_LOC(0.85, Count)]),
-    NewMap = Map#{Name => #{connList => ConnLabel, messStats => CommStats}},
+    NewMap = Map#{Name => #{connList => ConnLabel, messStats => CommStats, state => StateLabel}},
     createLabelMap(Frame, Routers, NewMap, Count+1).
 
 
@@ -117,26 +118,30 @@ probe(State) ->
             Mes = "No graph initiated! Re-open graph screen....",
             mainScreen:addInfo(State#state.mainGen, Mes);
         Graph -> 
-            Verts = digraph:vertices(NerlGraph)--["serverAPI", "mainServer", "nerlGUI"],
-            Routers = [digraph:vertex(NerlGraph, V) || V <- Verts, lists:member($r, V)],
+            Verts = digraph:vertices(Graph)--["serverAPI", "mainServer", "nerlGUI"],
+            Routers = [digraph:vertex(Graph, V) || V <- Verts, lists:member($r, V)],
             io:format("routers are ~p~n", [Routers]),
-            get_routers_stats(Routers, State#state.frame)
+            get_routers_stats(State#state.mainGen, Routers, State#state.frame)
             
     end.
 
-get_routers_stats([], _Frame) -> done;
-get_routers_stats([Router | Routers], Frame)->
+get_routers_stats(_MainGen, [], _Frame) -> done;
+get_routers_stats(MainGen, [Router | Routers], Frame)->
     io:format("probing ~p~n", [Router]),
     {Name, {Host, Port}} = Router,
-
-    Mes = hello_handler:http_request(Host, Port, "getStats", ""),               %TODO replace with cast from hello_handler
-    io:format("got stats: ~p~n", [Mes]),
+    try 
+        Mes = hello_handler:http_request(Host, Port, "getStats", ""),               %TODO replace with cast from hello_handler
+        io:format("got stats: ~p~n", [Mes])
+    catch _Err:_Er ->
+        ErrMes = "Couldn't reach "++Name++" @ "++Host++":"++Port,
+        mainScreen:addInfo(MainGen, ErrMes)
+    end,
     % [Mode, Conn, Comm] = string:split(Mes, ",", all),
     % routerScreen:updateText(Frame, {routerName, Name}),
     % routerScreen:updateText(Frame, {statesList, Mode}),
     % routerScreen:updateText(Frame, {connList, Conn}),
     % routerScreen:updateText(Frame, {messStats, Comm}),
-    get_routers_stats(Routers, Frame).
+    get_routers_stats(MainGen, Routers, Frame).
 
 updateRouterText(_State,_Name, [])-> done;
 updateRouterText(State, Name, [Info|MoreInfo])->
