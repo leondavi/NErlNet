@@ -93,7 +93,7 @@ nodeString([Node |NodeList]) -> nodeString(NodeList, Node).
 nodeString([], Str) -> Str;
 nodeString([Node |NodeList], Str)-> nodeString(NodeList, Node++Str).
 
-edgeString([Edge |EdgesList])-> {ID, V1, V2, Label} = Edge, edgeString(EdgesList, V1++"-"++V2++",").
+edgeString([Edge |EdgesList])-> {ID, V1, V2, Label} = Edge, edgeString(EdgesList, V1++"-"++V2).
 edgeString([], Str)-> Str;
 edgeString([Edge |EdgesList], Str)->
   {ID, V1, V2, Label} = Edge,
