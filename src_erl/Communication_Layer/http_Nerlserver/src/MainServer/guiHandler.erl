@@ -12,9 +12,8 @@ init(Req0, [Action, Main_genserver_Pid]) ->
   {_,_Body,_} = cowboy_req:read_body(Req0),
 
   Reply = case Action of
-    %getGraph ->  gen_statem:call(Main_genserver_Pid, {getGraph,Body})
-    getGraph ->  gen_statem:call(Main_genserver_Pid, getGraph);
-    getStats ->  gen_statem:call(Main_genserver_Pid, getStats)
+    getGraph ->  gen_server:call(Main_genserver_Pid, getGraph);
+    getStats ->  gen_server:call(Main_genserver_Pid, getStats)
   end,
   %Reply = io_lib:format("Body Received: ~p ~n ", [Body]),
   %io:format("replying to call with: ~p~n", [Reply]),
