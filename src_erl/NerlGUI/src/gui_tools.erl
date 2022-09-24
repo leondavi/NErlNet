@@ -63,5 +63,8 @@ getMainServerURL() ->
 sendReq(Host, Port, Action, Body) ->
     URL = "http://" ++ Host ++ ":"++Port ++ "/" ++ Action,
     httpc:set_options([{proxy, {{Host, list_to_integer(Port)},[Host]}}]),
-    {ok,Res} = httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []),
-    element(3,Res).
+    Res = httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []),
+    case Res of
+        {ok, Response} -> element(3, Response);
+        {error, Err} -> {error, Err}
+    end.
