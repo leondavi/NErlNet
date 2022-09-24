@@ -23,16 +23,20 @@ startProbe(Frame) ->
 
 handle_call(show_modal, _From, State) ->
     wxFrame:show(State#state.frame),
+    {reply, ok, State};
+
+handle_call(destroy, _From, State) ->
     {reply, ok, State}.
 
 handle_cast({startProbe, ThisGen}, State) ->
     NerlGraph = gui_tools:deserialize(mainScreen:getGraph(State#state.mainGen)),
     NewState = State#state{nerlGraph = NerlGraph, frame = ThisGen},
-    {ok, _Timer} = timer:apply_interval(?PROBE_TIME, graphScreen, probe, [NewState]),
-    {noreply, NewState};
+    {ok, Timer} = timer:apply_interval(?PROBE_TIME, graphScreen, probe, [NewState]),
+    ObjsMap = State#state.objs,
+    {noreply, NewState#state{objs = ObjsMap#{timer => Timer}}};
 
 handle_cast(refresh, State) ->
-    receive _Any -> wait after 500 -> done end,           %wait for picture to process
+    receive _Any -> wait after 200 -> done end,           %wait for picture to process
 
     Canvas = maps:get(canvas, State#state.objs),
 
@@ -101,10 +105,12 @@ handle_event(Event, State) ->
 
 handle_info(Info, State)->
     io:format("Got mes:~p~n",[Info]),
+    Timer = maps:get(timer, State#state.objs),
+    timer:cancel(Timer),
     {noreply, State}.
 
 probe(State) ->
-    io:format("probing for graph.....~n"),
+    %io:format("probing for graph.....~n"),
     Graph = State#state.nerlGraph,
     Verts = digraph:vertices(Graph)--["serverAPI", "mainServer", "nerlGUI"],
     Devices = [digraph:vertex(Graph, V) || V <- Verts],
