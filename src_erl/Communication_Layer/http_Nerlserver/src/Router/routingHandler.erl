@@ -45,16 +45,16 @@ init(Req0, State = [Action,Router_genserver_Pid]) ->
     clientIdle ->gen_server:cast(Router_genserver_Pid, {clientIdle, Body});
 
     %%sends an cast for genserver to make an http request for start feeding data.
-    startCasting ->  gen_statem:cast(Router_genserver_Pid, {startCasting,Body});
+    startCasting ->  gen_server:cast(Router_genserver_Pid, {startCasting,Body});
 
       %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
-    stopCasting ->  gen_statem:cast(Router_genserver_Pid, {stopCasting,Body});
-    statistics  -> gen_statem:cast(Router_genserver_Pid, {statistics,Body});
+    stopCasting ->  gen_server:cast(Router_genserver_Pid, {stopCasting,Body});
+    statistics  -> gen_server:cast(Router_genserver_Pid, {statistics,Body});
 
-    federatedWeightsVector  -> gen_statem:cast(Router_genserver_Pid, {federatedWeightsVector,Body});
+    federatedWeightsVector  -> gen_server:cast(Router_genserver_Pid, {federatedWeightsVector,Body});
 
     federatedWeights -> % io:format("router got action ~p body:~p~n",[Action,Body]),
-      gen_statem:cast(Router_genserver_Pid, {federatedWeights,Body});
+      gen_server:cast(Router_genserver_Pid, {federatedWeights,Body});
 
     %%%%%%%%%%%%%%GUI actions
     getStats -> gen_server:cast(Router_genserver_Pid, {getStats,Body})
