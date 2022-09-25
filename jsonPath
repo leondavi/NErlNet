@@ -1,6 +1,6 @@
-../../../inputJsonFiles/Architecture/jsonArch3PC2Workers1SourceMonitored.json
-../../../inputJsonFiles/ConnectionMap/3Router2ClientsH.json
+../../../inputJsonFiles/Architecture/jsonExampleArch4Devs4Workers2SourcesAzure.json
+../../../inputJsonFiles/ConnectionMap/1Router4Clients2Sources.json
 
 # For Python API:
-/home/nerlnet/workspace/NErlNet/inputJsonFiles/Architecture/jsonArch3PC2Workers1SourceMonitored.json
-/home/nerlnet/workspace/NErlNet/inputJsonFiles/experimentsFlow/jsonExampleExpFlow2Worke3Router1Source.json
+/home/nerluser/workspace/NErlNet/inputJsonFiles/Architecture/jsonExampleArch4Devs4Workers2SourcesAzure.json
+/home/nerluser/workspace/NErlNet/inputJsonFiles/experimentsFlow/jsonExampleExpFlow4Devs4Workers2Sources.json
