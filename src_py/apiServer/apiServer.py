@@ -3,9 +3,7 @@
 # Copyright: © 2022
 # Date: 27/07/2022
 ###########################################################
-from transmitter import Transmitter
-import globalVars as globe
-import receiver
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import time
 import requests
 import threading
@@ -14,7 +12,11 @@ import pandas as pd
 import sys
 import numpy as np
 import os
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
+from transmitter import Transmitter
+from networkComponents import NetworkComponents
+import globalVars as globe
+import receiver
 
 class ApiServer():
     def __init__(self):        
@@ -43,7 +45,11 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         self.transmitter = Transmitter(self.mainServerAddress)
 
         print("\n***Please remember to execute NerlnetRun.sh before continuing.")
-        
+    
+    def initialization(self, arch_path: str, conn_map_path: str, experiment_flow : str):    
+        components = NetworkComponents(arch_path) # TODO components path should come from jsonDirParser
+        components.printComponents()
+
     def sendJsonsToDevices(self):
         # Send the content of jsonPath to each devices:
         print("\nSending JSON paths to devices...")

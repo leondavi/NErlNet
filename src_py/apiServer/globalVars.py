@@ -6,7 +6,6 @@
 import multiprocessing 
 import socket
 import os
-from networkComponents import NetworkComponents
 import json
 from IPython import get_ipython
 from experiment import *
@@ -27,12 +26,11 @@ GRAPH_INDEX = 5
 
 username = os.getlogin()
 #jsonPathLocation = '/home/{}/workspace/NErlNet/jsonPath'.format(username) # Use this if NerlnetInstall.sh does not work
-jsonPathLocation = '/usr/local/lib/nerlnet-lib/NErlNet/jsonPath' 
+jsonPathLocation = '/usr/local/lib/nerlnet-lib/NErlNet/jsonPath'
 jsonPath = open(jsonPathLocation)
 content = jsonPath.readlines()
 # Get the components of the current system:
 componentsPath = content[ARCHITECTURE_INDEX][:-1]
-components = NetworkComponents(componentsPath)
 # Get the flow of the current experiment:
 expFlowPath = content[GRAPH_INDEX][:-1]
 file = open(expFlowPath)
@@ -54,7 +52,7 @@ else:
 expResults = Experiment()
 
 if __name__ == "__main__":
-    components.printComponents()
+    
     print(content[0])
     print(content[1])
 
