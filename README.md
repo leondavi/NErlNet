@@ -59,9 +59,19 @@ After running the installation script, NErlNet directory can be accessed via the
 ## Python API and Jupyter: 
 
 1. Create and activate a virtual environment for Nerlnet https://docs.python.org/3/library/venv.html
-2. Install required modules ```pip install -r src_py/requirements.txt```
+2. Install required modules ```pip install -r src_py/reqCleaned.txt```
 3. Install Jupyter Notebook ```pip install jupyterlab```
 4. import the ApiServer module to the notebook. 
 5. Follow the example: https://github.com/leondavi/NErlNet/blob/master/src_py/Deprecated/flow_example.ipynb 
+
+## Running remotely on azure 
+
+1. To connect to a machine use: ssh -i <path to private key> nerluser@<vm-public-ip> 
+2. To start a Jupyter instance remotely and then connect it to your local machine:
+  2a. activate venv: source <py-venv>/bin/activate
+  2b. install required python librarys: pip install -r <NErlNet dir>/src_py/reqCleaned.txt
+  2c. run Jupyter on remote computer: jupyter lab --no-browser --port 8889
+  2d. tunnel connection to local comp: ssh -i ~/.ssh/id_rsa_nerl -N -L localhost:8889:localhost:8889 nerluser@<remote ip>
+  2e. you can now open the notebook in your local browser at localhost:8889 and run experimnets as usual
 
 Contact Email: nerlnet@outlook.com 
