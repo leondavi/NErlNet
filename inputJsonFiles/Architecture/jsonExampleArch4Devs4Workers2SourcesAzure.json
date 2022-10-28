@@ -11,15 +11,15 @@
       "entities": "mainServer,c1,s1,s2,r1"
     },
     {
-      "host": "10.0.0.9",
+      "host": "10.0.0.7",
       "entities": "c2"
     },
     {
-      "host": "10.0.0.7",
+      "host": "10.0.0.8",
       "entities": "c3"
     },
     {
-      "host": "10.0.0.8",
+      "host": "10.0.0.9",
       "entities": "c4"
     }
   ],
