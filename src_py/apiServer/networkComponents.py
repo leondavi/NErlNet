@@ -4,13 +4,13 @@
 # Date: 27/07/2022
 ###########################################################
 import json
-import globalVars as globe
+#import globalVars as globe
 
 class NetworkComponents():
 
-    def __init__(self, path):
+    def __init__(self, arch_path):
         # Loading the data in JSON format:
-        file = open(path)
+        file = open(arch_path)
         self.jsonData = json.load(file)
 
         # Getting the desired batch size:
@@ -167,14 +167,6 @@ w - workers\n \
 f - federateds\n \
 s - sources\n \
 r - routers')
-
-if __name__ == "__main__":
-    path = globe.componentsPath
-    map = NetworkComponents(path)
-    map.printComponents()
-    print(map.toString('s'))
-    print(map.checkIdenticalAdresses())
-    #print(map.toString('k'))
 
 
 
