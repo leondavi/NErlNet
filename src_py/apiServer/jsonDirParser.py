@@ -30,6 +30,8 @@ class NerlFile():
         f = open(self.get_full_path())
         self.json = json.load(f)
 
+        return self.json
+
 class JsonDirParser():
 
     def __init__(self, jsonDirPath: str = JSON_DIRECTORY):
@@ -82,3 +84,12 @@ class JsonDirParser():
             EXPERIMENT_IDX = 2
             return self.arch_list[self.user_selection_tuple[ARCH_IDX]].get_full_path(), self.conn_map_list[self.user_selection_tuple[CONN_MAP_IDX]].get_full_path(), self.experiments_list[self.user_selection_tuple[EXPERIMENT_IDX]].get_full_path()
         return None, None, None
+
+    def get_user_selection_jsons(self):
+        if self.user_selection_tuple:
+            ARCH_IDX = 0
+            CONN_MAP_IDX = 1
+            EXPERIMENT_IDX = 2
+            return self.arch_list[self.user_selection_tuple[ARCH_IDX]].get_json(), self.conn_map_list[self.user_selection_tuple[CONN_MAP_IDX]].get_json(), self.experiments_list[self.user_selection_tuple[EXPERIMENT_IDX]].get_json()
+        return None, None, None
+
