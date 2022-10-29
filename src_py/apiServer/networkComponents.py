@@ -8,10 +8,9 @@ import json
 
 class NetworkComponents():
 
-    def __init__(self, arch_path):
+    def __init__(self, arch_json):
         # Loading the data in JSON format:
-        file = open(arch_path)
-        self.jsonData = json.load(file)
+        self.jsonData = arch_json
 
         # Getting the desired batch size:
         self.batchSize = int(self.jsonData['NerlNetSettings'][0]['batchSize'])

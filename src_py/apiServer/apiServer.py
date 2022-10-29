@@ -20,6 +20,13 @@ import receiver
 
 class ApiServer():
     def __init__(self):        
+        pass
+    
+    def initialization(self, arch_json: str, conn_map_json, experiment_flow_json ):
+        globe.experiment_flow_global.set_experiment_flow(experiment_flow_json)
+        globe.components = NetworkComponents(arch_json) # TODO components path should come from jsonDirParser
+        globe.components.printComponents()
+
         mainServerIP = globe.components.mainServerIp
         mainServerPort = globe.components.mainServerPort
         self.mainServerAddress = 'http://' + mainServerIP + ':' + mainServerPort
@@ -45,10 +52,6 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         self.transmitter = Transmitter(self.mainServerAddress)
 
         print("\n***Please remember to execute NerlnetRun.sh before continuing.")
-    
-    def initialization(self, arch_path: str, conn_map_path: str, experiment_flow : str):    
-        components = NetworkComponents(arch_path) # TODO components path should come from jsonDirParser
-        components.printComponents()
 
     def sendJsonsToDevices(self):
         # Send the content of jsonPath to each devices:
@@ -100,9 +103,9 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
     def train(self):
         # Choose a nem for the current experiment:
         print("\nPlease choose a name for the current experiment:", end = ' ')
-        globe.expResults.name = input()
+        globe.experiment_flow_global.name = input()
 
-        globe.expResults.emptyExp() # Start a new empty experiment
+        globe.experiment_flow_global.emptyExp() # Start a new empty experiment
         self.transmitter.train()
         expResults = self.getQueueData()
         print('Training - Finished\n')

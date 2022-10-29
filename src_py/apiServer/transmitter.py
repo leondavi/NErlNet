@@ -75,7 +75,7 @@ class Transmitter:
     def train(self):
         print('\nTraining - Starting...')
 
-        globe.expResults.syncTrainingWithFlow()
+        globe.experiment_flow_global.syncTrainingWithFlow()
 
         # 1 Ack for clientsTraining(), <num of sources> Acks for updateCSV():
         globe.pendingAcks += 1 + len(globe.components.sources) 
@@ -97,13 +97,13 @@ class Transmitter:
             time.sleep(0.05)
             pass 
 
-        globe.expResults.remove0Tails()
-        globe.multiProcQueue.put(globe.expResults)
+        globe.experiment_flow_global.remove0Tails()
+        globe.multiProcQueue.put(globe.experiment_flow_global)
 
     def predict(self):
         print('Prediction - Starting...')
 
-        globe.expResults.syncPredicitionWithFlow()
+        globe.experiment_flow_global.syncPredicitionWithFlow()
 
         # 1 Ack for clientsPredict(), <num of sources> Acks for updateCSV():
         globe.pendingAcks += 1 + len(globe.components.sources) 
@@ -125,8 +125,8 @@ class Transmitter:
             time.sleep(0.005)
             pass 
         
-        globe.expResults.remove0Tails()
-        globe.multiProcQueue.put(globe.expResults)
+        globe.experiment_flow_global.remove0Tails()
+        globe.multiProcQueue.put(globe.experiment_flow_global)
 
     def statistics(self):
         requests.post(self.statisticsAddress, data='getStatistics')

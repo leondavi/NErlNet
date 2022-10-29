@@ -32,9 +32,6 @@ content = jsonPath.readlines()
 # Get the components of the current system:
 componentsPath = content[ARCHITECTURE_INDEX][:-1]
 # Get the flow of the current experiment:
-expFlowPath = content[GRAPH_INDEX][:-1]
-file = open(expFlowPath)
-expFlow = json.load(file)
 
 # Dict with {worker : csv}:
 workerCsv = {}
@@ -48,8 +45,10 @@ if 'zmqshell' in ipythonPlatform: # Check if runnnig on Jupyter Notebook.
 else: 
     jupyterFlag = False
 
+# Global variables
+components = None # will be initialized in ApiServer
 # Prepare to get results from the receiver:
-expResults = Experiment()
+experiment_flow_global = Experiment()
 
 if __name__ == "__main__":
     
