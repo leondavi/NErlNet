@@ -39,7 +39,7 @@ class JsonDirParser():
         with open(jsonDirPath) as f:
             lines = f.readlines()
             if lines:
-                self.jsonDirPathStr = lines[0]
+                self.jsonDirPathStr = lines[0][:-1]
 
         self.arch_list = []
         self.conn_map_list = []
@@ -51,16 +51,15 @@ class JsonDirParser():
  
     
     def extract_lists(self, jsonDirPath):
-        for (dirpath, dirnames, filenames) in os.walk(jsonDirPath):
-            for filename in filenames:
-                print("checking "+dirpath+"/"+filename)
-                if filename.startswith(PREFIX_ARCH) and filename.endswith('json'): 
-                    self.arch_list.append(NerlFile(filename, dirpath))
-                if filename.startswith(PREFIX_CONNECTION_MAP) and filename.endswith('json'): 
-                    self.conn_map_list.append(NerlFile(filename, dirpath))
-                if filename.startswith(PREFIX_EXPERIMENT_FLOW) and filename.endswith('json'): 
-                    self.experiments_list.append(NerlFile(filename, dirpath))
-
+        for filename in os.listdir(jsonDirPath+"/Architecture"):
+            if filename.startswith(PREFIX_ARCH) and filename.endswith('json'): 
+                self.arch_list.append(NerlFile(filename, jsonDirPath+"/Architecture"))
+        for filename in os.listdir(jsonDirPath+"/ConnectionMap"):
+            if filename.startswith(PREFIX_CONNECTION_MAP) and filename.endswith('json'): 
+                self.conn_map_list.append(NerlFile(filename, jsonDirPath+"/ConnectionMap"))
+        for filename in os.listdir(jsonDirPath+"/experimentsFlow"):
+            if filename.startswith(PREFIX_EXPERIMENT_FLOW) and filename.endswith('json'): 
+                self.experiments_list.append(NerlFile(filename, jsonDirPath+"/experimentsFlow"))
 
     def print_lists(self):
         print("\nArchitechure Files\n--------------------\n")
@@ -80,7 +79,7 @@ class JsonDirParser():
         arch = input("enter arch file #")
         connection_map = input("enter conn_map file #")
         experiment = input("enter exp file #")
-        self.user_selection_tuple = (arch, connection_map, experiment)
+        self.user_selection_tuple = (int(arch), int(connection_map), int(experiment))
 
     def set_arch_connmap_experiment(self, arch : int, connection_map : int, experiment : int):
         self.user_selection_tuple = (arch, connection_map, experiment)
@@ -94,11 +93,11 @@ class JsonDirParser():
                 selectedArch = self.arch_list[self.user_selection_tuple[ARCH_IDX]].get_full_path()
                 selectedConn = self.conn_map_list[self.user_selection_tuple[CONN_MAP_IDX]].get_full_path()
                 selectedExp  = self.experiments_list[self.user_selection_tuple[EXPERIMENT_IDX]].get_full_path()
-
                 return selectedArch, selectedConn, selectedExp
-
             except:
+                print("bad select vector!")
                 return None, None, None
+
         return None, None, None
 
     def get_user_selection_jsons(self):
