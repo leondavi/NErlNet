@@ -82,8 +82,8 @@ class JsonDirParser():
         experiment = input("enter exp file #")
         self.user_selection_tuple = (arch, connection_map, experiment)
 
-    # def select_arch_connmap_experiment(self, arch : int, connection_map : int, experiment : int):
-    #     self.user_selection_tuple = (arch, connection_map, experiment)
+    def set_arch_connmap_experiment(self, arch : int, connection_map : int, experiment : int):
+        self.user_selection_tuple = (arch, connection_map, experiment)
 
     def get_user_selection_files(self):
         if self.user_selection_tuple:
