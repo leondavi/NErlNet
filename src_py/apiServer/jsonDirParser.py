@@ -47,11 +47,11 @@ class JsonDirParser():
 
         self.user_selection_tuple = None
 
-        self.extract_lists()
+        self.extract_lists(self.jsonDirPathStr)
  
     
-    def extract_lists(self):
-        for dirpath, dirnames, filenames in os.walk(self.jsonDirPathStr):
+    def extract_lists(self, jsonDirPath):
+        for (dirpath, dirnames, filenames) in os.walk(jsonDirPath):
             for filename in filenames:
                 print("checking "+dirpath+"/"+filename)
                 if filename.startswith(PREFIX_ARCH) and filename.endswith('json'): 
