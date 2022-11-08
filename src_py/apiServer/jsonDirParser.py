@@ -51,8 +51,9 @@ class JsonDirParser():
  
     
     def extract_lists(self):
-        for (dirpath, dirnames, filenames) in os.walk(self.jsonDirPathStr):
+        for dirpath, dirnames, filenames in os.walk(self.jsonDirPathStr):
             for filename in filenames:
+                print("checking "+dirpath+"/"+filename)
                 if filename.startswith(PREFIX_ARCH) and filename.endswith('json'): 
                     self.arch_list.append(NerlFile(filename, dirpath))
                 if filename.startswith(PREFIX_CONNECTION_MAP) and filename.endswith('json'): 
@@ -74,15 +75,30 @@ class JsonDirParser():
         for idx, elem in enumerate(self.experiments_list):
             print(f'{idx}. {elem}')
 
-    def select_arch_connmap_experiment(self, arch : int, connection_map : int, experiment : int):
+
+    def select_arch_connmap_experiment(self):
+        arch = input("enter arch file #")
+        connection_map = input("enter conn_map file #")
+        experiment = input("enter exp file #")
         self.user_selection_tuple = (arch, connection_map, experiment)
+
+    # def select_arch_connmap_experiment(self, arch : int, connection_map : int, experiment : int):
+    #     self.user_selection_tuple = (arch, connection_map, experiment)
 
     def get_user_selection_files(self):
         if self.user_selection_tuple:
             ARCH_IDX = 0
             CONN_MAP_IDX = 1
             EXPERIMENT_IDX = 2
-            return self.arch_list[self.user_selection_tuple[ARCH_IDX]].get_full_path(), self.conn_map_list[self.user_selection_tuple[CONN_MAP_IDX]].get_full_path(), self.experiments_list[self.user_selection_tuple[EXPERIMENT_IDX]].get_full_path()
+            try:
+                selectedArch = self.arch_list[self.user_selection_tuple[ARCH_IDX]].get_full_path()
+                selectedConn = self.conn_map_list[self.user_selection_tuple[CONN_MAP_IDX]].get_full_path()
+                selectedExp  = self.experiments_list[self.user_selection_tuple[EXPERIMENT_IDX]].get_full_path()
+
+                return selectedArch, selectedConn, selectedExp
+
+            except:
+                return None, None, None
         return None, None, None
 
     def get_user_selection_jsons(self):
@@ -90,6 +106,15 @@ class JsonDirParser():
             ARCH_IDX = 0
             CONN_MAP_IDX = 1
             EXPERIMENT_IDX = 2
-            return self.arch_list[self.user_selection_tuple[ARCH_IDX]].get_json(), self.conn_map_list[self.user_selection_tuple[CONN_MAP_IDX]].get_json(), self.experiments_list[self.user_selection_tuple[EXPERIMENT_IDX]].get_json()
+
+            try:
+                selectedArch = self.arch_list[self.user_selection_tuple[ARCH_IDX]].get_json()
+                selectedConn = self.conn_map_list[self.user_selection_tuple[CONN_MAP_IDX]].get_json()
+                selectedExp  = self.experiments_list[self.user_selection_tuple[EXPERIMENT_IDX]].get_json()
+
+                return selectedArch, selectedConn, selectedExp
+
+            except:
+                return None, None, None
         return None, None, None
 
