@@ -5,7 +5,7 @@ from experiment import *
 
 json_dir_parser = JsonDirParser()
 json_dir_parser.print_lists()
-json_dir_parser.select_arch_connmap_experiment(0,1,1)
+json_dir_parser.select_arch_connmap_experiment()
 print()
 print(json_dir_parser.get_user_selection_files())
 
