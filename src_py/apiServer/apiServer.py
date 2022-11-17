@@ -13,18 +13,24 @@ import sys
 import numpy as np
 import os
 
+from jsonDirParser import JsonDirParser
 from transmitter import Transmitter
 from networkComponents import NetworkComponents
 import globalVars as globe
 import receiver
 
 class ApiServer():
-    def __init__(self):        
+    def __init__(self):       
+        self.json_dir_parser = JsonDirParser()
         pass
     
-    def initialization(self, arch_json: str, conn_map_json, experiment_flow_json ):
-        globe.experiment_flow_global.set_experiment_flow(experiment_flow_json)
-        globe.components = NetworkComponents(arch_json) # TODO components path should come from jsonDirParser
+    def initialization(self, arch_json: str, conn_map_json, experiment_flow_json):
+        archData = self.json_dir_parser.json_from_path(arch_json)
+        connData = self.json_dir_parser.json_from_path(conn_map_json)
+        expData = self.json_dir_parser.json_from_path(experiment_flow_json)
+        
+        globe.experiment_flow_global.set_experiment_flow(expData)
+        globe.components = NetworkComponents(archData) # TODO components path should come from jsonDirParser
         globe.components.printComponents()
 
         mainServerIP = globe.components.mainServerIp
@@ -57,8 +63,16 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # Send the content of jsonPath to each devices:
         print("\nSending JSON paths to devices...")
 
-        archAddress = globe.content[0][:-1]
-        connMapAddress = globe.content[1][:-1]
+        # archAddress = globe.content[0][:-1]
+        # connMapAddress = globe.content[1][:-1]
+
+        archAddress , connMapAddress, exp_flow_json = self.getUserJsons()
+        [bad, archPath] = archAddress.split("/NErlNet")
+        archAddress = "../../.."+archPath
+
+        [bad, connPath] = connMapAddress.split("/NErlNet")
+        connMapAddress = "../../.."+connPath
+
         data = archAddress + '#' + connMapAddress
 
         for ip in globe.components.devicesIp:
@@ -70,6 +84,15 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
         time.sleep(1)
         print("JSON paths sent to devices")
+
+    def showJsons(self):
+        self.json_dir_parser.print_lists()
+    
+    def selectJsons(self):
+        self.json_dir_parser.select_arch_connmap_experiment()
+    
+    def getUserJsons(self):
+        return self.json_dir_parser.get_user_selection_files()
 
     def getWorkersList(self):
         return globe.components.toString('w')

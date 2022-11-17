@@ -54,9 +54,11 @@ class JsonDirParser():
         for filename in os.listdir(jsonDirPath+"/Architecture"):
             if filename.startswith(PREFIX_ARCH) and filename.endswith('json'): 
                 self.arch_list.append(NerlFile(filename, jsonDirPath+"/Architecture"))
+
         for filename in os.listdir(jsonDirPath+"/ConnectionMap"):
             if filename.startswith(PREFIX_CONNECTION_MAP) and filename.endswith('json'): 
                 self.conn_map_list.append(NerlFile(filename, jsonDirPath+"/ConnectionMap"))
+
         for filename in os.listdir(jsonDirPath+"/experimentsFlow"):
             if filename.startswith(PREFIX_EXPERIMENT_FLOW) and filename.endswith('json'): 
                 self.experiments_list.append(NerlFile(filename, jsonDirPath+"/experimentsFlow"))
@@ -73,7 +75,6 @@ class JsonDirParser():
         print("\nExperiments Flow Files\n--------------------\n")
         for idx, elem in enumerate(self.experiments_list):
             print(f'{idx}. {elem}')
-
 
     def select_arch_connmap_experiment(self):
         arch = input("enter arch file #")
@@ -117,3 +118,5 @@ class JsonDirParser():
                 return None, None, None
         return None, None, None
 
+    def json_from_path(self, json_path : str):
+        return json.load(open(json_path))

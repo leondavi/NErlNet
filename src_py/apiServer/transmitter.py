@@ -38,7 +38,7 @@ class Transmitter:
     def updateCSV(self, currentPhase): # currentPhase is either "Training", "Prediction" or "Statistics". 
         print('Update CSV Phase')
 
-        for source in globe.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
+        for source in globe.experiment_flow_global.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
             sourceName = source['source name']
             workersUnderSource = source['workers']
             csvPathForSource = source['CSV path']
@@ -53,9 +53,9 @@ class Transmitter:
         print('\nStart Casting Phase')
 
         if (phase=="Training"):
-            batchesPerSource = globe.expFlow["Batches per source"]["Training"]
+            batchesPerSource = globe.experiment_flow_global.expFlow["Batches per source"]["Training"]
         elif (phase=="Prediction"):
-            batchesPerSource = globe.expFlow["Batches per source"]["Prediction"]
+            batchesPerSource = globe.experiment_flow_global.expFlow["Batches per source"]["Prediction"]
         else:
             batchesPerSource = sys.maxsize
 
