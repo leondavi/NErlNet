@@ -3,9 +3,7 @@
 # Copyright: © 2022
 # Date: 27/07/2022
 ###########################################################
-from transmitter import Transmitter
-import globalVars as globe
-import receiver
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import time
 import requests
 import threading
@@ -14,10 +12,27 @@ import pandas as pd
 import sys
 import numpy as np
 import os
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
+from jsonDirParser import JsonDirParser
+from transmitter import Transmitter
+from networkComponents import NetworkComponents
+import globalVars as globe
+import receiver
 
 class ApiServer():
-    def __init__(self):        
+    def __init__(self):       
+        self.json_dir_parser = JsonDirParser()
+        pass
+    
+    def initialization(self, arch_json: str, conn_map_json, experiment_flow_json):
+        archData = self.json_dir_parser.json_from_path(arch_json)
+        connData = self.json_dir_parser.json_from_path(conn_map_json)
+        expData = self.json_dir_parser.json_from_path(experiment_flow_json)
+        
+        globe.experiment_flow_global.set_experiment_flow(expData)
+        globe.components = NetworkComponents(archData) # TODO components path should come from jsonDirParser
+        globe.components.printComponents()
+
         mainServerIP = globe.components.mainServerIp
         mainServerPort = globe.components.mainServerPort
         self.mainServerAddress = 'http://' + mainServerIP + ':' + mainServerPort
@@ -43,13 +58,21 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         self.transmitter = Transmitter(self.mainServerAddress)
 
         print("\n***Please remember to execute NerlnetRun.sh before continuing.")
-        
+
     def sendJsonsToDevices(self):
         # Send the content of jsonPath to each devices:
         print("\nSending JSON paths to devices...")
 
-        archAddress = globe.content[0][:-1]
-        connMapAddress = globe.content[1][:-1]
+        # archAddress = globe.content[0][:-1]
+        # connMapAddress = globe.content[1][:-1]
+
+        archAddress , connMapAddress, exp_flow_json = self.getUserJsons()
+        [bad, archPath] = archAddress.split("/NErlNet")
+        archAddress = "../../.."+archPath
+
+        [bad, connPath] = connMapAddress.split("/NErlNet")
+        connMapAddress = "../../.."+connPath
+
         data = archAddress + '#' + connMapAddress
 
         for ip in globe.components.devicesIp:
@@ -61,6 +84,15 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
         time.sleep(1)
         print("JSON paths sent to devices")
+
+    def showJsons(self):
+        self.json_dir_parser.print_lists()
+    
+    def selectJsons(self):
+        self.json_dir_parser.select_arch_connmap_experiment()
+    
+    def getUserJsons(self):
+        return self.json_dir_parser.get_user_selection_files()
 
     def getWorkersList(self):
         return globe.components.toString('w')
@@ -94,9 +126,9 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
     def train(self):
         # Choose a nem for the current experiment:
         print("\nPlease choose a name for the current experiment:", end = ' ')
-        globe.expResults.name = input()
+        globe.experiment_flow_global.name = input()
 
-        globe.expResults.emptyExp() # Start a new empty experiment
+        globe.experiment_flow_global.emptyExp() # Start a new empty experiment
         self.transmitter.train()
         expResults = self.getQueueData()
         print('Training - Finished\n')

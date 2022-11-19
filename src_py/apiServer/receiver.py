@@ -23,6 +23,9 @@ api = Api(receiver)
 if globe.jupyterFlag == True: 
     logging.getLogger('werkzeug').disabled = True
 
+# Prepare to get results from the receiver:
+experiment_flow_global = Experiment()
+
 def initReceiver(receiverHost, receiverPort, event):
         try:
             receiver.run(threaded = True, host = receiverHost, port = receiverPort) 
@@ -40,7 +43,7 @@ def processResult(resData, currentPhase):
             if (int(result) == -1):
                 print("Received loss=-1. The NN's weights have been reset.")
             if (int(result) != -1 and int(result != 0)):
-                for csvRes in globe.expResults.trainingResList:
+                for csvRes in globe.experiment_flow_global.trainingResList:
                     if worker in csvRes.workers:
                         for workerRes in csvRes.workersResList:
                             if (workerRes.name == worker):
@@ -50,7 +53,7 @@ def processResult(resData, currentPhase):
             # Parsing is done by the PredictBatch class:
             newPredictBatch = PredictBatch(resData) 
 
-            for csvRes in globe.expResults.predictionResList:
+            for csvRes in globe.experiment_flow_global.predictionResList:
                 if newPredictBatch.worker in csvRes.workers:
                     for workerRes in csvRes.workersResList:
                         if (workerRes.name == newPredictBatch.worker):
