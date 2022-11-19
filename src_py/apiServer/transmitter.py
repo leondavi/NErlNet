@@ -38,7 +38,7 @@ class Transmitter:
     def updateCSV(self, currentPhase): # currentPhase is either "Training", "Prediction" or "Statistics". 
         print('Update CSV Phase')
 
-        for source in globe.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
+        for source in globe.experiment_flow_global.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
             sourceName = source['source name']
             workersUnderSource = source['workers']
             csvPathForSource = source['CSV path']
@@ -53,9 +53,9 @@ class Transmitter:
         print('\nStart Casting Phase')
 
         if (phase=="Training"):
-            batchesPerSource = globe.expFlow["Batches per source"]["Training"]
+            batchesPerSource = globe.experiment_flow_global.expFlow["Batches per source"]["Training"]
         elif (phase=="Prediction"):
-            batchesPerSource = globe.expFlow["Batches per source"]["Prediction"]
+            batchesPerSource = globe.experiment_flow_global.expFlow["Batches per source"]["Prediction"]
         else:
             batchesPerSource = sys.maxsize
 
@@ -75,7 +75,7 @@ class Transmitter:
     def train(self):
         print('\nTraining - Starting...')
 
-        globe.expResults.syncTrainingWithFlow()
+        globe.experiment_flow_global.syncTrainingWithFlow()
 
         # 1 Ack for clientsTraining(), <num of sources> Acks for updateCSV():
         globe.pendingAcks += 1 + len(globe.components.sources) 
@@ -97,13 +97,13 @@ class Transmitter:
             time.sleep(0.05)
             pass 
 
-        globe.expResults.remove0Tails()
-        globe.multiProcQueue.put(globe.expResults)
+        globe.experiment_flow_global.remove0Tails()
+        globe.multiProcQueue.put(globe.experiment_flow_global)
 
     def predict(self):
         print('Prediction - Starting...')
 
-        globe.expResults.syncPredicitionWithFlow()
+        globe.experiment_flow_global.syncPredicitionWithFlow()
 
         # 1 Ack for clientsPredict(), <num of sources> Acks for updateCSV():
         globe.pendingAcks += 1 + len(globe.components.sources) 
@@ -125,8 +125,8 @@ class Transmitter:
             time.sleep(0.005)
             pass 
         
-        globe.expResults.remove0Tails()
-        globe.multiProcQueue.put(globe.expResults)
+        globe.experiment_flow_global.remove0Tails()
+        globe.multiProcQueue.put(globe.experiment_flow_global)
 
     def statistics(self):
         requests.post(self.statisticsAddress, data='getStatistics')

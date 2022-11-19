@@ -4,14 +4,13 @@
 # Date: 27/07/2022
 ###########################################################
 import json
-import globalVars as globe
+#import globalVars as globe
 
 class NetworkComponents():
 
-    def __init__(self, path):
+    def __init__(self, arch_json):
         # Loading the data in JSON format:
-        file = open(path)
-        self.jsonData = json.load(file)
+        self.jsonData = arch_json
 
         # Getting the desired batch size:
         self.batchSize = int(self.jsonData['NerlNetSettings'][0]['batchSize'])
@@ -167,14 +166,6 @@ w - workers\n \
 f - federateds\n \
 s - sources\n \
 r - routers')
-
-if __name__ == "__main__":
-    path = globe.componentsPath
-    map = NetworkComponents(path)
-    map.printComponents()
-    print(map.toString('s'))
-    print(map.checkIdenticalAdresses())
-    #print(map.toString('k'))
 
 
 
