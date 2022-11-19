@@ -3,6 +3,9 @@
 /src_erl/*.beam
 /lib/*.so
 *.o
+*.beam
+*.pyc
+/JupyterLabDir
 *.csv
 *.orig
 /src_py/.sconsign.dblite
