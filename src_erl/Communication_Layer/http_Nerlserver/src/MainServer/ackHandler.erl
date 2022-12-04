@@ -17,9 +17,9 @@ init(Req0, [Who,Main_genserver_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {_,Body,_} = cowboy_req:read_body(Req0),
   case Who of
-    source -> gen_statem:cast(Main_genserver_Pid, {sourceAck,Body});
-    sourceDone -> gen_statem:cast(Main_genserver_Pid, {sourceDone,Body});
-    client -> gen_statem:cast(Main_genserver_Pid, {clientAck,Body})
+    source -> gen_server:cast(Main_genserver_Pid, {sourceAck,Body});
+    sourceDone -> gen_server:cast(Main_genserver_Pid, {sourceDone,Body});
+    client -> gen_server:cast(Main_genserver_Pid, {clientAck,Body})
   end,
   Reply = io_lib:format("Body Received: ~p ~n ", [Body]),
   Req = cowboy_req:reply(200,
