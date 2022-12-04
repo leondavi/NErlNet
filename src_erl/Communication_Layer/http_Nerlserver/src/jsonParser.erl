@@ -29,7 +29,7 @@ getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
 
   %%  retrive THIS device entities
   OnDeviceEntities1 = getOnDeviceEntities(maps:get(<<"devices">>,ArchitectureMap),HostName),
-  OnDeviceEntities =re:split(binary_to_list(OnDeviceEntities1),",",[{return,list}]),
+  OnDeviceEntities = re:split(binary_to_list(OnDeviceEntities1),",",[{return,list}]),
   %%  io:format("OnDeviceEntities:~n~p~n",[OnDeviceEntities]),
 
   %%This function returns a graph G, represents all the connections in nerlnet. each entitie should have a copy of it.
@@ -68,8 +68,8 @@ getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
 
   %%  retrive  a map of arguments of the API Server
   ServerAPI = maps:get(<<"serverAPI">>,ArchitectureMap),
-  io:format("All Vertices In Nerlnet Graph:~n~p~n",[digraph:vertices(G)]),
-  io:format("path:~n~p~n",[digraph:get_short_path(G,"serverAPI","c1")]),
+  %io:format("All Edges In Nerlnet Graph:~n~p~n",[[digraph:edge(G,E) || E <- digraph:edges(G)]]),
+  %io:format("path:~n~p~n",[digraph:get_short_path(G,"serverAPI","c1")]),
 
 
   io:format("On Device Entities to Open:~nMainServer: ~p~nServerAPI: ~p~nClientsAndWorkers: ~p~nSources: ~p~nRouters: ~p~n Federated Servers: ~p~n",
@@ -348,8 +348,14 @@ connectRouters(G,ArchitectureMap,CommunicationMap) ->
     %io:format("ConnectionsMap:~n~p~n",[ConnectionsMap]).
 	
 addEdges(G,V1,V2) ->
-    digraph:add_edge(G,V1,V2),
-    digraph:add_edge(G,V2,V1).
+  Edges = [digraph:edge(G,E) || E <- digraph:edges(G)],
+  DupEdges = [E || {E, Vin, Vout, Label} <- Edges, Vin == V1, Vout == V2],
+  io:format("DupEdges are: ~p~n",[DupEdges]),
+  if length(DupEdges) /= 0 -> skip;
+    true ->
+      digraph:add_edge(G,V1,V2),
+      digraph:add_edge(G,V2,V1)
+  end.
 	
 
 %addtograph(G,ArchitectureMap,MyRouter,HostName) -> okPass;

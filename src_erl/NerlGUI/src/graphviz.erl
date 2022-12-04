@@ -1,7 +1,7 @@
 %%%   ALL RIGHTS RESERVED TO THE CREATOR OF THIS CODE: https://github.com/glejeune/erlang-graphviz
 
 -module(graphviz).
--export([digraph/1, graph/1, delete/0, add_node/1, add_edge/2, graph_server/1, to_dot/1, to_file/2]).
+-export([digraph/1, graph/1, delete/0, add_node/1, add_node/2, add_edge/2, graph_server/1, to_dot/1, to_file/2]).
 
 % -- Constructor
 digraph(Id) ->
@@ -18,7 +18,9 @@ delete() ->
 graph_server(Graph) ->
    receive
       {add_node, Id} -> 
-         graph_server(add_node(Graph, Id));
+         graph_server(add_nodeG(Graph, Id));
+      {add_node, Id, Color} -> 
+         graph_server(add_node(Graph, Id, Color));
 
       {add_edge, NodeOne, NodeTwo} -> 
          graph_server(add_edge(Graph, NodeOne, NodeTwo));
@@ -41,16 +43,22 @@ graph_server(Graph) ->
 % -- Methods
 
 add_node(Id) -> graph_server ! {add_node, Id}.
+add_node(Id, Color) -> graph_server ! {add_node, Id, Color}.
 add_edge(NodeOne, NodeTwo) -> graph_server ! {add_edge, NodeOne, NodeTwo}.
 to_dot(File) -> graph_server ! {to_dot, File}.
 to_file(File, Format) -> graph_server ! {to_file, File, Format}.
 
 % -- Implementation
 
-add_node(Graph, Id) ->
+add_nodeG(Graph, Id) ->
    {GraphId, Type, GraphOptions, Nodes, Edges} = Graph,
    %io:format("Add node ~s to graph ~s !~n",[Id, GraphId]),
    {GraphId, Type, GraphOptions, Nodes ++ [Id], Edges}.
+
+add_node(Graph, Id, Color) ->
+   {GraphId, Type, GraphOptions, Nodes, Edges} = Graph,
+   %io:format("Add node ~s to graph ~s !~n",[Id, GraphId]),
+   {GraphId, Type, GraphOptions, Nodes ++ [Id ++ " [color=\""++Color++"\"]"], Edges}.
 
 add_edge(Graph, NodeOne, NodeTwo) ->
    {GraphId, Type, GraphOptions, Nodes, Edges} = Graph,

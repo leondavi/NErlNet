@@ -1,6 +1,6 @@
 -module(gui_tools).
 
--export([serialize/1, deserialize/1, makeGraphIMG/2]).
+-export([serialize/1, deserialize/1, makeGraphIMG/2, getMainServerURL/0, sendReq/4]).
 
 
 serialize(undefined) -> undefined;
@@ -59,3 +59,12 @@ getMainServerURL() ->
    MainIP = lists:flatten(string:replace(Subbed,",",".",all)),
    Port = "8080",
    URL = "http://"++MainIP++":"++Port.
+
+sendReq(Host, Port, Action, Body) ->
+    URL = "http://" ++ Host ++ ":"++Port ++ "/" ++ Action,
+    httpc:set_options([{proxy, {{Host, list_to_integer(Port)},[Host]}}]),
+    Res = httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []),
+    case Res of
+        {ok, Response} -> element(3, Response);
+        {error, Err} -> {error, Err}
+    end.

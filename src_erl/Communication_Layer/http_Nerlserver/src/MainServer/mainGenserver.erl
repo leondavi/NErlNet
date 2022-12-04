@@ -50,7 +50,7 @@ init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
     io:format("Main Server ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
   start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
   
-  NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- (digraph:vertices(NerlnetGraph)--["serverAPI"])--["mainServer"]]),
+  NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--["serverAPI", "nerlGUI", "mainServer"]]),
   io:format("New StatisticsMap = ~p~n",[NewStatisticsMap]),
   {ok, #main_genserver_state{myName = MyName, workersMap = WorkersMap, batchSize = BatchSize, state=idle, clients = Clients, nerlnetGraph = NerlnetGraph, msgCounter = 1,statisticsMap = NewStatisticsMap}}.
 
@@ -93,7 +93,7 @@ nodeString([Node |NodeList]) -> nodeString(NodeList, Node).
 nodeString([], Str) -> Str;
 nodeString([Node |NodeList], Str)-> nodeString(NodeList, Node++Str).
 
-edgeString([Edge |EdgesList])-> {ID, V1, V2, Label} = Edge, edgeString(EdgesList, V1++"-"++V2++",").
+edgeString([Edge |EdgesList])-> {ID, V1, V2, Label} = Edge, edgeString(EdgesList, V1++"-"++V2).
 edgeString([], Str)-> Str;
 edgeString([Edge |EdgesList], Str)->
   {ID, V1, V2, Label} = Edge,
@@ -152,7 +152,7 @@ handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = 
 %%%get Statistics from all Entities in the network
 handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, statisticsCounter = StatisticsCounter, nerlnetGraph = NerlnetGraph,statisticsMap = StatisticsMap,msgCounter = MsgCounter}) ->
     if Body == <<"getStatistics">> ->
-          NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- (digraph:vertices(NerlnetGraph)--["serverAPI"])--["mainServer"]]),
+          NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--["serverAPI", "nerlGUI", "mainServer"]]),
           [findroutAndsendStatistics(MyName, Name,NerlnetGraph)||{Name,_Counter}<-maps:to_list(StatisticsMap)],
           NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap, statisticsCounter = length(maps:to_list(StatisticsMap))};
        Body == <<>> ->  io:format("in Statistcs, State has: StatsCount=~p, MsgCount=~p~n", [StatisticsCounter, MsgCounter]), NewState = State;

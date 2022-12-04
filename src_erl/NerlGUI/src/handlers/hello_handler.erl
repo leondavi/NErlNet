@@ -6,9 +6,13 @@ init(Req0, State = [MainScreen]) ->
     {_,Body,_} = cowboy_req:read_body(Req0),
     Data = binary_to_list(Body),
     io:format("hello_handler got: ~p~n", [Data]),
-    [ScreenName, Info] = string:split(Data, "@"),
-    %body = "toScreen@info"
-    wx_object:cast(MainScreen, {passInfo, list_to_atom(ScreenName), Info}),
+    case Data of
+      "nerlGUI" -> ignore;
+      Any ->
+        [ScreenName, Info] = string:split(Any, "@"),
+        %body = "toScreen@info"
+        wx_object:cast(MainScreen, {passInfo, list_to_atom(ScreenName), Info})
+    end,
 
     Req = cowboy_req:reply(200,
         #{<<"content-type">> => <<"text/plain">>},

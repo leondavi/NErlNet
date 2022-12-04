@@ -12,7 +12,6 @@ init(Req0, [Action, Main_genserver_Pid]) ->
   {_,_Body,_} = cowboy_req:read_body(Req0),
 
   Reply = case Action of
-    %getGraph ->  gen_statem:call(Main_genserver_Pid, {getGraph,Body})
     getGraph ->  gen_statem:call(Main_genserver_Pid, getGraph);
     getStats ->  gen_statem:call(Main_genserver_Pid, getStats)
   end,

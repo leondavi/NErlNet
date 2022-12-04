@@ -115,9 +115,11 @@ handle_event(Event, State) ->
     case Type of
         _Button ->
             case ID of
-                ?GRAPH_ID ->       
-                    io:format("starting graph screen~n"),
-                    State#state{objs=ObjsMap#{graphScreen => graphScreen:new(State#state.frame, State#state.mainGen)}};
+                ?GRAPH_ID -> 
+                    GraphScreen = graphScreen:new(State#state.frame, State#state.mainGen),
+                    graphScreen:show(GraphScreen),
+                    graphScreen:startProbe(GraphScreen),
+                    State#state{objs=ObjsMap#{graphScreen => GraphScreen}};
                 ?SERVER_ID ->       
                     ServerScreen = serverScreen:new(State#state.frame, State#state.mainGen),
                     serverScreen:startProbe(ServerScreen),
