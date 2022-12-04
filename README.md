@@ -64,14 +64,4 @@ After running the installation script, NErlNet directory can be accessed via the
 4. import the ApiServer module to the notebook. 
 5. Follow the example: https://github.com/leondavi/NErlNet/blob/master/src_py/Deprecated/flow_example.ipynb 
 
-## Running remotely on azure 
-
-1. To connect to a machine use: ```ssh -i <path to private key> nerluser@<vm-public-ip> ```
-2. To start a Jupyter instance remotely and then connect it to your local machine:
-3. activate venv: ```source <py-venv>/bin/activate```
-4. install required python librarys: ```pip install -r <NErlNet dir>/src_py/reqCleaned.txt```
-5. run Jupyter on remote computer: ```jupyter lab --no-browser --port 8889```
-6. tunnel connection to local comp: ```ssh -i ~/.ssh/id_rsa_nerl -N -L localhost:8889:localhost:8889 nerluser@<remote ip>```
-7. you can now open the notebook in your local browser at localhost:8889 and run experimnets as usual
-
 Contact Email: nerlnet@outlook.com 

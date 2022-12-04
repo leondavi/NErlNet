@@ -66,11 +66,12 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # archAddress = globe.content[0][:-1]
         # connMapAddress = globe.content[1][:-1]
 
+        # Jsons found in NErlNet/inputJsonFiles/{JSON_TYPE}/files.... for entities in src_erl to reach them, they must go up 3 dirs
         archAddress , connMapAddress, exp_flow_json = self.getUserJsons()
-        [bad, archPath] = archAddress.split("/NErlNet")
+        [JsonsPath, archPath] = archAddress.split("/NErlNet")
         archAddress = "../../.."+archPath
 
-        [bad, connPath] = connMapAddress.split("/NErlNet")
+        [JsonsPath, connPath] = connMapAddress.split("/NErlNet")
         connMapAddress = "../../.."+connPath
 
         data = archAddress + '#' + connMapAddress

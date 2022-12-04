@@ -22,6 +22,10 @@ multiProcQueue = multiprocessing.Queue() # Create an instance of the queue
 # Get the components of the current system:
 ARCHITECTURE_INDEX = 4
 GRAPH_INDEX = 5
+# Entity modes / commands
+TRAINING_STR = "Training"
+PREDICTION_STR = "Prediction"
+BATHCHES_PER_SOURCE_STR = "Batches per source"
 
 
 username = os.getlogin()
