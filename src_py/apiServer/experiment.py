@@ -18,16 +18,16 @@ class Experiment():
         self.expFlow = expFlow
 
     def syncTrainingWithFlow(self):
-       for source in self.expFlow ["Training"]:
+       for source in self.expFlow [globe.TRAINING_STR]:
            sourceWorkers = list(source["workers"].split(","))
-           newCsvRes = CsvResult("Training", workedBySources = source, csvName = source["CSV path"], workers = sourceWorkers)
+           newCsvRes = CsvResult(globe.TRAINING_STR, workedBySources = source, csvName = source["CSV path"], workers = sourceWorkers)
            newCsvRes.addWorkers()
            self.trainingResList.append(newCsvRes)
 
     def syncPredicitionWithFlow(self):
-       for source in self.expFlow["Prediction"]:
+       for source in self.expFlow[globe.PREDICTION_STR]:
            sourceWorkers = list(source["workers"].split(","))
-           newCsvRes = CsvResult("Prediction", workedBySources = source, csvName = source["CSV path"], workers = sourceWorkers)
+           newCsvRes = CsvResult(globe.PREDICTION_STR, workedBySources = source, csvName = source["CSV path"], workers = sourceWorkers)
            newCsvRes.addWorkers()
            self.predictionResList.append(newCsvRes)
 

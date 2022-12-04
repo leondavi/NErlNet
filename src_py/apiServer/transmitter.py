@@ -52,10 +52,10 @@ class Transmitter:
     def startCasting(self, phase): # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
         print('\nStart Casting Phase')
 
-        if (phase=="Training"):
-            batchesPerSource = globe.experiment_flow_global.expFlow["Batches per source"]["Training"]
-        elif (phase=="Prediction"):
-            batchesPerSource = globe.experiment_flow_global.expFlow["Batches per source"]["Prediction"]
+        if (phase==globe.TRAINING_STR):
+            batchesPerSource = globe.experiment_flow_global.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.TRAINING_STR]
+        elif (phase==globe.PREDICTION_STR):
+            batchesPerSource = globe.experiment_flow_global.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.PREDICTION_STR]
         else:
             batchesPerSource = sys.maxsize
 
@@ -82,7 +82,7 @@ class Transmitter:
 
         self.clientsTraining()
 
-        self.updateCSV("Training")
+        self.updateCSV(globe.TRAINING_STR)
 
         while globe.pendingAcks > 0:
             time.sleep(0.005)
@@ -91,7 +91,7 @@ class Transmitter:
         # 1 Ack for startCasting():
         globe.pendingAcks += 1
 
-        self.startCasting("Training") 
+        self.startCasting(globe.TRAINING_STR) 
 
         while globe.pendingAcks > 0:
             time.sleep(0.05)
@@ -110,7 +110,7 @@ class Transmitter:
 
         self.clientsPredict()
 
-        self.updateCSV("Prediction")
+        self.updateCSV(globe.PREDICTION_STR)
 
         while globe.pendingAcks > 0:
             time.sleep(0.005)
@@ -119,7 +119,7 @@ class Transmitter:
         # 1 Ack for startCasting():
         globe.pendingAcks += 1
 
-        self.startCasting("Prediction")
+        self.startCasting(globe.PREDICTION_STR)
 
         while globe.pendingAcks > 0:
             time.sleep(0.005)
