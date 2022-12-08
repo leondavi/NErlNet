@@ -31,6 +31,9 @@ class NerlFile():
         self.json = json.load(f)
 
         return self.json
+    
+    def __lt__(self, other):
+        return self.filename < other.filename
 
 class JsonDirParser():
 
@@ -63,6 +66,10 @@ class JsonDirParser():
                     self.experiments_list.append(NerlFile(filename, dirpath))
 
     def print_lists(self):
+        self.arch_list.sort()
+        self.conn_map_list.sort()
+        self.experiments_list.sort()
+
         print("\nArchitechure Files\n--------------------\n")
         for idx, elem in enumerate(self.arch_list):
             print(f'{idx}. {elem}')
