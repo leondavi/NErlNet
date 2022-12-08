@@ -72,8 +72,8 @@ getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
   %io:format("path:~n~p~n",[digraph:get_short_path(G,"serverAPI","c1")]),
 
 
-  io:format("On Device Entities to Open:~nMainServer: ~p~nServerAPI: ~p~nClientsAndWorkers: ~p~nSources: ~p~nRouters: ~p~n Federated Servers: ~p~n",
-                                      [MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds]),
+  %io:format("On Device Entities to Open:~nMainServer: ~p~nServerAPI: ~p~nClientsAndWorkers: ~p~nSources: ~p~nRouters: ~p~n Federated Servers: ~p~n",
+  %                                    [MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds]),
 
   
   {MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds,NerlNetSettings,GUI}.
@@ -350,7 +350,7 @@ connectRouters(G,ArchitectureMap,CommunicationMap) ->
 addEdges(G,V1,V2) ->
   Edges = [digraph:edge(G,E) || E <- digraph:edges(G)],
   DupEdges = [E || {E, Vin, Vout, Label} <- Edges, Vin == V1, Vout == V2],
-  io:format("DupEdges are: ~p~n",[DupEdges]),
+  %io:format("DupEdges are: ~p~n",[DupEdges]),
   if length(DupEdges) /= 0 -> skip;
     true ->
       digraph:add_edge(G,V1,V2),
