@@ -12,20 +12,10 @@ class CsvResult():
         self.workers = workers
         self.workedBySources = workedBySources
         self.workersResList = [] 
-
-        if (phase == 'Training'):
-            self.phase = 0
-
-        elif (phase == 'Prediction'):
-            self.phase = 1
-
-        else:
-            raise ValueError("Error in the CsvResult class - <phase> should be either 'Training' 'Prediction'.")
+        self.phase = phase
 
     def addWorkers(self):
         for w in self.workers:
             newWorkerRes = WorkerResult(w, self.phase, self.workedBySources, self.name)
             self.workersResList.append(newWorkerRes)
 
-
-    
