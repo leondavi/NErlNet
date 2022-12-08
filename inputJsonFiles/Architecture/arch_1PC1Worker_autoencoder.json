@@ -2,16 +2,12 @@
   "NerlNetSettings": [
   {
     "frequency": "10",
-
     "batchSize": "10"
-
   }
   ],
   "devices": [
     {
-
       "host": "192.168.239.128",
-
       "entities": "mainServer,c1,s1,r1"
     }
   ],
@@ -24,9 +20,7 @@
   ],
   "mainServer": [
     {
-
       "host": "192.168.239.128",
-
       "port": "8080",
       "args": ""
     }
@@ -82,9 +76,7 @@
  "routers": [
     {
       "name": "r1",
-
       "host": "192.168.239.128",
-
       "port": "8084"
     }
   ]
