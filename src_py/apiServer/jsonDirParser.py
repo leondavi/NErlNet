@@ -72,15 +72,15 @@ class JsonDirParser():
 
         print("\nArchitechure Files\n--------------------\n")
         for idx, elem in enumerate(self.arch_list):
-            print(f'{idx}. {elem}')
+            print(f'{idx}.\t{elem.filename}')
         
         print("\nConnection Map Files\n--------------------\n")
         for idx, elem in enumerate(self.conn_map_list):
-            print(f'{idx}. {elem}')
+            print(f'{idx}.\t{elem.filename}')
 
         print("\nExperiments Flow Files\n--------------------\n")
         for idx, elem in enumerate(self.experiments_list):
-            print(f'{idx}. {elem}')
+            print(f'{idx}.\t{elem.filename}')
 
     def select_arch_connmap_experiment(self):
         arch = input("enter arch file #")

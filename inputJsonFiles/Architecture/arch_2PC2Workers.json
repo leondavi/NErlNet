@@ -7,9 +7,7 @@
   ],
   "devices": [
     {
-
       "host": "192.168.0.108",
-
       "entities": "mainServer,c1,s1,r1"
     },
     {
@@ -26,9 +24,7 @@
   ],
   "mainServer": [
     {
-
       "host": "192.168.0.108",
-
       "port": "8080",
       "args": ""
     }
