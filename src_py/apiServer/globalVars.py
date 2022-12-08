@@ -54,10 +54,6 @@ components = None # will be initialized in ApiServer
 # Prepare to get results from the receiver:
 experiment_flow_global = Experiment()
 
-if __name__ == "__main__":
-    
-    print(content[0])
-    print(content[1])
 
 # Addresses for future development:
 '''
