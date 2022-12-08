@@ -8,7 +8,7 @@
   "devices": [
     {
       "host": "192.168.0.182",
-      "entities": "mainServer,c3,s1"
+      "entities": "mainServer,c3,s1,nerlGUI"
     },
     {
       "host": "192.168.0.131",
@@ -17,6 +17,13 @@
     {
       "host": "192.168.0.130",
       "entities": "c1,r1"
+    }
+  ],
+  "nerlGUI": [
+    {
+      "host": "192.168.0.182",
+      "port": "8096",
+      "args": ""
     }
   ],
   "serverAPI": [
