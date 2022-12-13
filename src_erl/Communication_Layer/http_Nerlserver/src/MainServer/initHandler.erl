@@ -22,8 +22,8 @@ init(Req0, [Main_genServer_Pid]) ->
   %Bindings also can be accessed as once, giving a map of all bindings of Req0:
   {ok,Body,_} = cowboy_req:read_body(Req0),
   Decoded_body = binary_to_list(Body),
-  [Source|WorkersAndInput] = re:split(binary_to_list(Body), ",", [{return, list}]),
-  {Workers,_Input} = getWorkerInput(WorkersAndInput,[]),
+  [Source|WorkersAndInput] = re:split(binary_to_list(Body), "#", [{return, list}]),
+  {Workers,SourceData} = getWorkerInput(WorkersAndInput,[]),
   % io:format("init _handler got body:~p~n",[Decoded_body]),
   gen_server:cast(Main_genServer_Pid,{initCSV, Source,Workers,Body}),
 %%  gen_server:cast(Main_genServer_Pid,{initCSV,  splitbytriplets(Splitted,[])}),

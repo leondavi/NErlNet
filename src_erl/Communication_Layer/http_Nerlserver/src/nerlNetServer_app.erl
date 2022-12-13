@@ -63,9 +63,8 @@ start(_StartType, _StartArgs) ->
 waitForInit() ->
     receive 
         {jsonAddress,MSG} -> {ArchitectureAdderess,CommunicationMapAdderess} = MSG;
-        Other -> io:format("Got bad message: ~p,~ncontinue listening for init Json~n",[Other])
-        after ?PYTHON_SERVER_WAITING_TIMEOUT_MS -> 
-            waitForInit()
+        Other -> io:format("Got bad message: ~p,~ncontinue listening for init Json~n",[Other]), waitForInit()
+        after ?PYTHON_SERVER_WAITING_TIMEOUT_MS -> waitForInit()
     end.
 
 createNerlnetInitiator(HostName) ->

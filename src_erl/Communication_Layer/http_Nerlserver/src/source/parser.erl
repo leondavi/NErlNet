@@ -1,4 +1,3 @@
-
 %%%-------------------------------------------------------------------
 %%% @author kapelnik
 %%% @copyright (C) 2021, Nerlnet
@@ -11,9 +10,16 @@
 -author("kapelnik").
 
 %% API
--export([parse/2]).
+-define(TMP_DATA_ADDR, "tmp/Data.csv").
+-export([parse/2, parseCSV/2]).
 
+parseCSV(ChunkSize, CSVData)->
+  io:format("curr dir: ~p~n",[file:get_cwd()]),
 
+  try file:delete(?TMP_DATA_ADDR) of ok -> done; Other -> throw(Other)
+  catch error:E -> noFile end,
+  file:write_file(?TMP_DATA_ADDR, CSVData),
+  parse_file(?TMP_DATA_ADDR).
 
 %%use this decoder to decode one line after parsing
 %%    decodeList(Binary)->  decodeList(Binary,[]).
@@ -47,7 +53,7 @@ parse_file(ChunkSize,File_Address) ->
 
     io:format("File_Address:~p~n~n",[File_Address]),
 
-  {ok, Data} = file:read_file(File_Address),%%TODO change to File_Address
+  {ok, Data} = file:read_file(File_Address),
   Lines = re:split(Data, "\r|\n|\r\n", [{return,binary}] ),
 
   SampleSize = length(re:split(binary_to_list(hd(Lines)), ",", [{return,list}])),
@@ -90,9 +96,6 @@ encodeFloatsList([H|ListOfFloats],Ret)->
       encodeFloatsList(ListOfFloats,<<Ret/binary,Integer:64/float>>)
 
   end.
-
-
-
 
 
 makeChunks(L,1,1,_,_,_SampleSize) ->L;

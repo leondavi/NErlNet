@@ -14,6 +14,7 @@ class Transmitter:
     def __init__(self, mainServerAddress):
         # Addresses used throughout the module:
         self.mainServerAddress = mainServerAddress
+        self.sourceInitAddr = self.mainServerAddress + '/sourceInit'
         self.clientsTrainingAddress = self.mainServerAddress + '/clientsTraining'
         self.updateCSVAddress = self.mainServerAddress + '/updateCSV'
         self.startCastingAddress = self.mainServerAddress + '/startCasting'
@@ -38,14 +39,27 @@ class Transmitter:
     def updateCSV(self, currentPhase): # currentPhase is either "Training", "Prediction" or "Statistics". 
         print('Update CSV Phase')
 
+        #split data and send to mainServer:
+        csvfile = open(globe.experiment_flow_global.expFlow['CSV path']+"_"+currentPhase.lower(), 'r').readlines()
+        linesPerSource = len(csvfile)/len(globe.components.sources)
+
+        SourceData = []
+        for row in range(0,len(csvfile),linesPerSource):
+            SourceData.append(csvfile[row:row+linesPerSource])
+            #response = requests.post(self.sourceInitAddr, data)
+
+        i=0
         for source in globe.experiment_flow_global.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
             sourceName = source['source name']
             workersUnderSource = source['workers']
-            csvPathForSource = source['CSV path']
+            #csvPathForSource = source['CSV path']
 
-            dataStr = f'{sourceName},{workersUnderSource},{csvPathForSource}'
-
+            #dataStr = f'{sourceName},{workersUnderSource},{csvPathForSource}'
+            dataStr = f'{sourceName}#{workersUnderSource}#{SourceData[i]}'
             response = requests.post(self.updateCSVAddress, data=dataStr)
+            i+=1
+
+
         if globe.jupyterFlag == False:
             print(response.ok, response.status_code)
 
