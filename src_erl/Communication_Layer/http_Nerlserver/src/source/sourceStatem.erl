@@ -80,10 +80,10 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 
 
 %%This cast receive a list of samples to load to the records csvList
-idle(cast, {csvList,Workers,CSVPath}, State = #source_statem_state{chunkSize = ChunkSize, myName = MyName, msgCounter = Counter, nerlnetGraph = NerlnetGraph}) ->
-  io:format("CSVPath - ~p~n",[CSVPath]),
+idle(cast, {csvList,Workers,CSVData}, State = #source_statem_state{chunkSize = ChunkSize, myName = MyName, msgCounter = Counter, nerlnetGraph = NerlnetGraph}) ->
+  %io:format("CSVData - ~p~n",[CSVData]),
   io:format("ChunkSize - ~p~n",[ChunkSize]),
-  CSVlist = parser:parse(ChunkSize,CSVPath),
+  CSVlist = parser:parseCSV(ChunkSize,CSVData),
   [Head|_] = CSVlist,
   LengthOfSample = byte_size(Head),
   %%  CSVName = lists:last(re:split(CSVPath,"/",[{return,list}])),

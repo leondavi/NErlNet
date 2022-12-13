@@ -107,10 +107,10 @@ edgeString([Edge |EdgesList], Str)->
 {stop, Reason :: term(), NewState :: #main_genserver_state{}}).
 
 
-handle_cast({initCSV, Source,_Workers,Body}, State = #main_genserver_state{state = idle, myName = MyName, sourcesWaitingList = SourcesWaitingList,nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
+handle_cast({initCSV, Source,_Workers,SourceData}, State = #main_genserver_state{state = idle, myName = MyName, sourcesWaitingList = SourcesWaitingList,nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
 %%  TODO find the router that can send this request to Sources**
-  findroutAndsend(MyName, Source,Body,NerlnetGraph),
+  findroutAndsend(MyName, Source,SourceData,NerlnetGraph),
   io:format("WaitingList = ~p~n",[SourcesWaitingList++[list_to_atom(Source)]]),
   {noreply, State#main_genserver_state{sourcesWaitingList = SourcesWaitingList++[list_to_atom(Source)],msgCounter = MsgCounter+1}};
 
