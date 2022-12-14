@@ -26,7 +26,7 @@ init(Req0, State = [Action,Router_genserver_Pid]) ->
 
     %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
     updateCSV ->
-      [Source|_] = re:split(binary_to_list(Body), ",", [{return, list}]),
+      [Source|_] = re:split(binary_to_list(Body), "#", [{return, list}]),
       gen_server:cast(Router_genserver_Pid, {updateCSV,Source,Body});
 
     %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
