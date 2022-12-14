@@ -22,24 +22,24 @@ parseCSV(ChunkSize, CSVData)->
   catch
     {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, E])
   end,
-  CleanData = cleanData(CSVData, [], []),
+  CleanData = cleanData(CSVData, "", []),
 
-  try file:write_file(?TMP_DATA_ADDR, Lines) of
+  try file:write_file(?TMP_DATA_ADDR, CleanData) of
     ok -> parse_file(ChunkSize, ?TMP_DATA_ADDR)
   catch
     {error,Er} -> io:format("couldn't write file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, Er])
   end.
 
 % ignore array chars []' , create new list of lines
-cleanData([], Line, Data)-> Data++Line;
+cleanData([], Line, Data)-> Data++(Line++"\n");
 cleanData([Char|CSVData], Line, Data)->
   case Char of
-    "[" -> cleanData(CSVData, Data);
-    "]" -> cleanData(CSVData, Data);
-    " " -> cleanData(CSVData, Data);
-    "'" -> cleanData(CSVData, Data);
-    "\\"-> cleanData(tl(CSVData), Data++(Line++"\n"));
-    Other -> cleanData(CSVData, Data, Line++Char)
+    "[" -> cleanData(CSVData, Line, Data);
+    "]" -> cleanData(CSVData, Line, Data);
+    " " -> cleanData(CSVData, Line, Data);
+    "'" -> cleanData(CSVData, Line, Data);
+    "\\"-> cleanData(tl(CSVData), "", Data++(Line++"\n"));  % new line
+    Other -> cleanData(CSVData, Line++Char, Data)           % normal char
   end.
 
 %%use this decoder to decode one line after parsing
