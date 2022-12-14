@@ -46,7 +46,6 @@ class Transmitter:
         SourceData = []
         for row in range(0,len(csvfile),linesPerSource):
             SourceData.append(csvfile[row:row+linesPerSource])
-            #response = requests.post(self.sourceInitAddr, data)
 
         i=0
         for source in globe.experiment_flow_global.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
@@ -58,7 +57,7 @@ class Transmitter:
             dataStr = f'{sourceName}#{workersUnderSource}#{SourceData[i]}'
             response = requests.post(self.updateCSVAddress, data=dataStr)
             i+=1
-        print(SourceData[0])
+
         print("Sent data to sources.")
         if globe.jupyterFlag == False:
             print(response.ok, response.status_code)
