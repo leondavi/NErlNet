@@ -39,7 +39,7 @@ cleanData([Char|CSVData], Line, Data)->
     " " -> cleanData(CSVData, Line, Data);
     "'" -> cleanData(CSVData, Line, Data);
     "\\"-> cleanData(tl(CSVData), "", Data++(Line++"\n"));  % new line
-    Other -> cleanData(CSVData, Line++Char, Data)           % normal char
+    Other -> cleanData(CSVData, Line++[Char], Data)           % normal char
   end.
 
 %%use this decoder to decode one line after parsing
