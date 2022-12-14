@@ -24,7 +24,7 @@ parseCSV(ChunkSize, CSVData)->
   end,
   CleanData = cleanData(CSVData),
 
-  Lines = [Line+"\n" || Line <- string:split(Data, "\n, ")],
+  Lines = [Line+"\n" || Line <- string:split(CleanData, "\n, ")],
 
   try file:write_file(?TMP_DATA_ADDR, Lines, [binary]) of
     ok -> parse_file(ChunkSize, ?TMP_DATA_ADDR)
