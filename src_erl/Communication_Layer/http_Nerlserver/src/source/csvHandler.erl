@@ -16,6 +16,7 @@
 init(Req0, State = [Source_StateM_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {_,Body,_} = cowboy_req:read_body(Req0),
+  Decoded_body = binary_to_list(Body),
 %%  [ClientName|CSV_Path] = re:split(binary_to_list(Body), ",", [{return, list}]),
   [SourceName, WorkersStr, CSVData] = string:split(Decoded_body, "#", all),
   WorkersList = string:split(WorkersStr, ",", all),
