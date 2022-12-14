@@ -80,6 +80,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             if globe.jupyterFlag == False:
               print(response.ok, response.status_code)
 
+        #split experiment data and send to individual sources:
+
         time.sleep(1)
         print("JSON paths sent to devices")
 
