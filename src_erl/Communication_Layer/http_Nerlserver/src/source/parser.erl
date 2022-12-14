@@ -19,7 +19,7 @@ parseCSV(ChunkSize, CSVData)->
   try file:delete(?TMP_DATA_ADDR) of ok -> done; Other -> throw(Other)
   catch error:E -> noFile end,
   file:write_file(?TMP_DATA_ADDR, CSVData),
-  parse_file(?TMP_DATA_ADDR).
+  parse_file(ChunkSize, ?TMP_DATA_ADDR).
 
 %%use this decoder to decode one line after parsing
 %%    decodeList(Binary)->  decodeList(Binary,[]).
