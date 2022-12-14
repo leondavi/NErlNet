@@ -40,8 +40,8 @@ class Transmitter:
         print('Update CSV Phase')
 
         #split data and send to mainServer:
-        csvfile = open(globe.experiment_flow_global.expFlow['CSV path']+"_"+currentPhase.lower(), 'r').readlines()
-        linesPerSource = len(csvfile)/len(globe.components.sources)
+        csvfile = open(globe.INPUT_DATA_PATH+globe.experiment_flow_global.expFlow['CSV path']+"_"+currentPhase.lower()+".csv", 'r').readlines()
+        linesPerSource = int(len(csvfile)/len(globe.components.sources))
 
         SourceData = []
         for row in range(0,len(csvfile),linesPerSource):
