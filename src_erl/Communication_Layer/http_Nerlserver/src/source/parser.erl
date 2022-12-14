@@ -10,7 +10,7 @@
 -author("kapelnik").
 
 %% API
--define(TMP_DATA_ADDR, "tmp/Data.csv").
+-define(TMP_DATA_ADDR, "Data.csv").
 -export([parse/2, parseCSV/2]).
 
 parseCSV(ChunkSize, CSVData)->
