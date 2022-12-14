@@ -20,7 +20,7 @@ init(Req0, [Main_genServer_Pid]) ->
 %%  can go to CSV file and edit weight
 
   %Bindings also can be accessed as once, giving a map of all bindings of Req0:
-  {ok,Body,_} = cowboy_req:read_body(Req0),
+  {_,Body,_} = cowboy_req:read_body(Req0),
   Decoded_body = binary_to_list(Body),
   [Source|WorkersAndInput] = re:split(binary_to_list(Body), "#", [{return, list}]),
   {Workers,SourceData} = getWorkerInput(WorkersAndInput,[]),

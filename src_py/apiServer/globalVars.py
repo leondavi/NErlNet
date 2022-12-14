@@ -53,7 +53,8 @@ else:
 components = None # will be initialized in ApiServer
 # Prepare to get results from the receiver:
 experiment_flow_global = Experiment()
-
+# inputDataPath
+INPUT_DATA_PATH = "/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/"
 
 # Addresses for future development:
 '''

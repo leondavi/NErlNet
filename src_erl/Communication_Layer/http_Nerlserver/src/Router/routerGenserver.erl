@@ -148,7 +148,7 @@ handle_cast({clientPredict, Body}, State = #router_genserver_state{myName = MyNa
 
 handle_cast({updateCSV,Source,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
 %%  Body contrains list of sources to send the request, and input name
-    io:format("router to Source - ~p  sending Body - ~p~n",[Source,Body]),
+    %io:format("router to Source - ~p  sending Body - ~p~n",[Source,Body]),
     {Host,Port} = getShortPath(MyName,list_to_atom(Source),NerlnetGraph),
     %{Host,Port} = maps:get(list_to_atom(Source),NerlnetGraph),
     http_request(Host,Port,"updateCSV",Body),
