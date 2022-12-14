@@ -24,7 +24,7 @@ parseCSV(ChunkSize, CSVData)->
   end,
   CleanData = cleanData(CSVData),
 
-  Lines = [Line+"\n" || Line <- string:split(CleanData, "\n, ")],
+  Lines = [Line+"\n" || Line <- string:split(CleanData, "\n, ", all)],
 
   try file:write_file(?TMP_DATA_ADDR, Lines, [binary]) of
     ok -> parse_file(ChunkSize, ?TMP_DATA_ADDR)
@@ -34,8 +34,7 @@ parseCSV(ChunkSize, CSVData)->
 
 cleanData(CSVData)->
   Clean1 = string:replace(CSVData, "[", "", all),
-  Clean2 = string:replace(Clean1, "'", "", all),
-  Clean3 = string:replace(Clean2, "\n, ", "\n", all).
+  Clean2 = string:replace(Clean1, "'", "", all).
 
 %%use this decoder to decode one line after parsing
 %%    decodeList(Binary)->  decodeList(Binary,[]).
