@@ -21,7 +21,7 @@ parseCSV(ChunkSize, CSVData)->
 
   try file:write_file(?TMP_DATA_ADDR, CSVData) of
     ok -> parse_file(ChunkSize, ?TMP_DATA_ADDR)
-  catch error:Er -> io:format("couldn't write file ~p,  beacuse~p~n",[?TMP_DATA_ADDR, Er]) end,
+  catch error:Er -> io:format("couldn't write file ~p,  beacuse~p~n",[?TMP_DATA_ADDR, Er])
   end
 
 
