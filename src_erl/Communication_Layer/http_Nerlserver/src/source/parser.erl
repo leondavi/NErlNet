@@ -24,7 +24,7 @@ parseCSV(ChunkSize, CSVData)->
   end,
   CleanData = cleanData(CSVData),
 
-  try file:write_file(?TMP_DATA_ADDR, CleanData) of
+  try file:write_file(?TMP_DATA_ADDR, CleanData, [binary]) of
     ok -> parse_file(ChunkSize, ?TMP_DATA_ADDR)
   catch
     {error,Er} -> io:format("couldn't write file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, Er])
@@ -68,7 +68,7 @@ parse_file(ChunkSize,File_Address) ->
     io:format("File_Address:~p~n~n",[File_Address]),
 
   {ok, Data} = file:read_file(File_Address),
-  Lines = re:split(Data, "\r|\n, |\\\n|\r\n", [{return,binary}] ),
+  Lines = re:split(Data, "\r|\n, |\r\n", [{return,binary}] ),
 
   SampleSize = length(re:split(binary_to_list(hd(Lines)), ",", [{return,list}])),
 %%  get binary lines
