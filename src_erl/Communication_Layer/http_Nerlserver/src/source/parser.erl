@@ -22,12 +22,18 @@ parseCSV(ChunkSize, CSVData)->
   catch
     {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, E])
   end,
+  CleanData = cleanData(CSVData),
 
-  try file:write_file(?TMP_DATA_ADDR, CSVData) of
+  try file:write_file(?TMP_DATA_ADDR, CleanData) of
     ok -> parse_file(ChunkSize, ?TMP_DATA_ADDR)
   catch
     {error,Er} -> io:format("couldn't write file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, Er])
   end.
+
+cleanData(CSVData)->
+  Clean1 = string:replace(CSVData, "[", "", all),
+  Clean2 = string:replace(Clean1, "'", "", all),
+  Clean3 = string:replace(Clean2, "\n, ", "\n", all).
 
 %%use this decoder to decode one line after parsing
 %%    decodeList(Binary)->  decodeList(Binary,[]).
