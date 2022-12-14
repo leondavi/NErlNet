@@ -17,11 +17,11 @@ parseCSV(ChunkSize, CSVData)->
   io:format("curr dir: ~p~n",[file:get_cwd()]),
 
   try file:delete(?TMP_DATA_ADDR) of ok -> done
-  catch error:E -> io:format("couldn't delete file ~p~n",[?TMP_DATA_ADDR]) end,
+  catch error:E -> io:format("couldn't delete file ~p, beacuse~p~n",[?TMP_DATA_ADDR, E]) end,
 
   try file:write_file(?TMP_DATA_ADDR, CSVData) of
     ok -> parse_file(ChunkSize, ?TMP_DATA_ADDR)
-  catch error:E -> io:format("couldn't write file ~p~n",[?TMP_DATA_ADDR])
+  catch error:Er -> io:format("couldn't write file ~p,  beacuse~p~n",[?TMP_DATA_ADDR, Er]) end,
   end
 
 
