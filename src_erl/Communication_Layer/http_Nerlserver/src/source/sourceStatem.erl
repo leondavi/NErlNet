@@ -92,7 +92,7 @@ idle(cast, {csvList,Workers,CSVData}, State = #source_statem_state{chunkSize = C
   io:format("source updated transmitting list, total batches to send: - ~p~n",[length(CSVlist)]),
   io:format("source updated Workers - ~p~n",[Workers]),
   http_request(RouterHost,RouterPort,"csvReady",MyName),
-  {next_state, idle, State#source_statem_state{csvName = CSVPath, lengthOfSample = LengthOfSample, castingTo = Workers, msgCounter = Counter+1,csvList =CSVlist}};
+  {next_state, idle, State#source_statem_state{lengthOfSample = LengthOfSample, castingTo = Workers, msgCounter = Counter+1,csvList =CSVlist}};
 
 
 %%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
