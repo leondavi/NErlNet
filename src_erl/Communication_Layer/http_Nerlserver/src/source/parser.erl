@@ -22,25 +22,25 @@ parseCSV(ChunkSize, CSVData)->
   catch
     {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, E])
   end,
-  % CleanData = cleanData(CSVData, []),
+  CleanData = cleanData(CSVData, [], []),
 
-  % Lines = [Line+"\n" || Line <- string:split(CleanData, "\n, ", all)],
-
-  try file:write_file(?TMP_DATA_ADDR, CSVData) of
+  try file:write_file(?TMP_DATA_ADDR, Lines) of
     ok -> parse_file(ChunkSize, ?TMP_DATA_ADDR)
   catch
     {error,Er} -> io:format("couldn't write file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, Er])
   end.
 
-% cleanData([], Data)-> Data;
-% cleanData([Char|CSVData], Data)->
-%   case Char of
-%     "[" -> cleanData(CSVData, Data);
-%     "]" -> cleanData(CSVData, Data);
-%     "'" -> cleanData(CSVData, Data);
-
-%   Clean1 = string:replace(CSVData, "[", "", all),
-%   Clean2 = string:replace(Clean1, "'", "", all).
+% ignore array chars []' , create new list of lines
+cleanData([], Line, Data)-> Data++Line;
+cleanData([Char|CSVData], Line, Data)->
+  case Char of
+    "[" -> cleanData(CSVData, Data);
+    "]" -> cleanData(CSVData, Data);
+    " " -> cleanData(CSVData, Data);
+    "'" -> cleanData(CSVData, Data);
+    "\\"-> cleanData(tl(CSVData), Data++(Line++"\n"));
+    Other -> cleanData(CSVData, Data, Line++Char)
+  end.
 
 %%use this decoder to decode one line after parsing
 %%    decodeList(Binary)->  decodeList(Binary,[]).
