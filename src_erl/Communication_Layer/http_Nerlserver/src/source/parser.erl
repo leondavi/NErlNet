@@ -17,7 +17,8 @@ parseCSV(ChunkSize, CSVData)->
   io:format("curr dir: ~p~n",[file:get_cwd()]),
 
   try file:delete(?TMP_DATA_ADDR) of
-    ok -> done
+    ok -> done;
+    {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, E])
   catch
     {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, E])
   end,
