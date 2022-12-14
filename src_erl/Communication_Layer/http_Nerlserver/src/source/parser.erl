@@ -16,16 +16,15 @@
 parseCSV(ChunkSize, CSVData)->
   io:format("curr dir: ~p~n",[file:get_cwd()]),
 
-  try file:delete(?TMP_DATA_ADDR) of ok -> done
-  catch error:E -> io:format("couldn't delete file ~p, beacuse~p~n",[?TMP_DATA_ADDR, E]) end,
+  try file:delete(?TMP_DATA_ADDR) of
+    ok -> done;
+    {error, E} -> io:format("couldn't delete file ~p, beacuse~p~n",[?TMP_DATA_ADDR, E])
+  end,
 
   try file:write_file(?TMP_DATA_ADDR, CSVData) of
-    ok -> parse_file(ChunkSize, ?TMP_DATA_ADDR)
-  catch error:Er -> io:format("couldn't write file ~p,  beacuse~p~n",[?TMP_DATA_ADDR, Er])
-  end
-
-
-  .
+    ok -> parse_file(ChunkSize, ?TMP_DATA_ADDR);
+    {error,Er} -> io:format("couldn't write file ~p,  beacuse~p~n",[?TMP_DATA_ADDR, Er])
+  end.
 
 %%use this decoder to decode one line after parsing
 %%    decodeList(Binary)->  decodeList(Binary,[]).
