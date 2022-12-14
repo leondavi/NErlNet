@@ -25,7 +25,7 @@ parseCSV(ChunkSize, CSVData)->
   CleanData = cleanData(CSVData, "", []),
 
   try file:write_file(?TMP_DATA_ADDR, CleanData) of
-    ok -> io:format("created tmpData.csv"), parse_file(ChunkSize, ?TMP_DATA_ADDR)
+    ok -> parse_file(ChunkSize, ?TMP_DATA_ADDR), io:format("created tmpData.csv")
   catch
     {error,Er} -> io:format("couldn't write file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, Er])
   end.
@@ -33,7 +33,6 @@ parseCSV(ChunkSize, CSVData)->
 % ignore array chars []' , create new list of lines
 cleanData([], Line, Data)-> Data++(Line++"\n");
 cleanData([Char|CSVData], Line, Data)->
-  io:format("working on char ~p~n",[Char]),
   case Char of
     "[" -> cleanData(CSVData, Line, Data);
     "]" -> cleanData(CSVData, Line, Data);
