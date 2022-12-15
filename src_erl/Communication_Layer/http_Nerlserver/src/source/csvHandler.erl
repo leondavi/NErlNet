@@ -18,9 +18,12 @@ init(Req0, State = [Source_StateM_Pid]) ->
   {_,Body,_} = cowboy_req:read_body(Req0),
   Decoded_body = binary_to_list(Body),
 %%  [ClientName|CSV_Path] = re:split(binary_to_list(Body), ",", [{return, list}]),
-  [SourceName, WorkersStr, CSVData] = string:split(Decoded_body, "#", all),
-  WorkersList = string:split(WorkersStr, ",", all),
-  gen_statem:cast(Source_StateM_Pid,{csvList,WorkersList,CSVData}),
+  try string:split(Decoded_body, "#", all) of 
+    [SourceName, WorkersStr, CSVData] ->
+        WorkersList = string:split(WorkersStr, ",", all),
+        gen_statem:cast(Source_StateM_Pid,{csvList,WorkersList,CSVData});
+    Data -> io:format("got additional data, what to do?~n")
+  end,
   %[_Myself|Splitted]  = re:split(binary_to_list(Body), "#", [{return, list}]),
   %{Workers, CSVData} = getWorkerInput(Splitted,[]),
 %%  io:format("csv handler got Body:~p~n",[Body]),
