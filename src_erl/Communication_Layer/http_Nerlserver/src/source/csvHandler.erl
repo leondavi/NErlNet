@@ -23,6 +23,7 @@ init(Req0, State = [Source_StateM_Pid]) ->
         WorkersList = string:split(WorkersStr, ",", all),
         gen_statem:cast(Source_StateM_Pid,{csvList,WorkersList,CSVData});
     Data -> io:format("got additional data, what to do?~n")
+  catch E:Er -> error
   end,
   %[_Myself|Splitted]  = re:split(binary_to_list(Body), "#", [{return, list}]),
   %{Workers, CSVData} = getWorkerInput(Splitted,[]),
