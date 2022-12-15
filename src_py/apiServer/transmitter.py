@@ -52,13 +52,15 @@ class Transmitter:
             sourceName = source['source name']
             workersUnderSource = source['workers']
             #csvPathForSource = source['CSV path']
-
+            SourceStr = ""
+            for Line in SourceData[i]:
+                SourceStr += Line
             #dataStr = f'{sourceName},{workersUnderSource},{csvPathForSource}'
-            dataStr = f'{sourceName}#{workersUnderSource}#{SourceData[i]}'
+            dataStr = f'{sourceName}#{workersUnderSource}#{SourceStr}'
             response = requests.post(self.updateCSVAddress, data=dataStr)
             i+=1
 
-        print("Sent data to sources.")
+        print("Data sent to sources")
         if globe.jupyterFlag == False:
             print(response.ok, response.status_code)
 
@@ -72,9 +74,9 @@ class Transmitter:
         else:
             batchesPerSource = sys.maxsize
 
-        dataStr = f"{globe.components.toString('s')},{batchesPerSource}" #Python's string format, {} are swapped by the variables in the brackets respectively.
+        dataStr = f"{globe.components.toString('s')},{batchesPerSource}" #sources, batches
 
-        response = requests.post(self.startCastingAddress, data=dataStr)
+        response = requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
 
         if globe.jupyterFlag == False:
             print(response.ok, response.status_code)
