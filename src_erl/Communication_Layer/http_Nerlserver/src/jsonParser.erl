@@ -9,8 +9,8 @@
 -module(jsonParser).
 -author("kapelnik").
 -export([getDeviceEntities/3]).
--define(ARCH_ADDR, "arch.json").
--define(COMM_ADDR, "conn.json").
+-define(ARCH_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/src_erl/Communication_Layer/http_Nerlserver/arch.json").
+-define(COMM_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/src_erl/Communication_Layer/http_Nerlserver/conn.json").
 
 getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
 
