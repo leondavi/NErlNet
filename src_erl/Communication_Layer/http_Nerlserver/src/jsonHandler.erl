@@ -29,7 +29,7 @@ init(Req0, [ApplicationPid]) ->
 
   io:format("got files: ~p~n",[binary_to_list(Body)]),
   %Notify the application that python is ready and send the addreses received in this http request:
-  ApplicationPid ! {jsonAddress,{ArchitectureAdderess,CommunicationMapAdderess}},
+  %ApplicationPid ! {jsonAddress,{ArchitectureAdderess,CommunicationMapAdderess}},
   
   Reply = io_lib:format("nerlnet starting", []),
 
