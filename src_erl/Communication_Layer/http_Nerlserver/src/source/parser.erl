@@ -78,7 +78,7 @@ parse_file(ChunkSize,File_Address) ->
     io:format("File_Address:~p~n~n",[File_Address]),
 
   {ok, Data} = file:read_file(File_Address),
-  Lines = re:split(Data, "\r|\n, |\r\n", [{return,binary}] ),
+  Lines = re:split(Data, "\r|\n|\r\n", [{return,binary}] ),
 
   SampleSize = length(re:split(binary_to_list(hd(Lines)), ",", [{return,list}])),
 %%  get binary lines
