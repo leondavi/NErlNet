@@ -24,7 +24,7 @@ init(Req0, [ApplicationPid]) ->
   % _Path = cowboy_req:path(Req0),
   % _Qs = cowboy_req:qs(Req0),
   {ok,Body,_} = cowboy_req:read_body(Req0),
-  FullReq = multipart(Req0),
+  %FullReq = multipart(Req0),
   % [ArchitectureAdderess,CommunicationMapAdderess] = re:split(binary_to_list(Body),"#",[{return,list}]),
   % io:format("Body at json Handler: ~p,~n sending to pid: ~p~n", [ArchitectureAdderess,CommunicationMapAdderess]),
   io:format("Headers are: ~p~n",[cowboy_req:header(<<"content-type">>, Req0)]),
