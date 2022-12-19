@@ -71,12 +71,14 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         [JsonsPath, connPath] = connMapAddress.split("/NErlNet")
         connMapAddress = "../../.."+connPath
 
+        files = [('arch', open(archAddress, 'rb')), ('conn', open(connMapAddress, 'rb'))]
         data = archAddress + '#' + connMapAddress
 
         for ip in globe.components.devicesIp:
             address = f'http://{ip}:8484/updateJsonPath' # f for format
+            response = requests.post(address, files=files)
 
-            response = requests.post(address, data, timeout = 10)
+            # response = requests.post(address, data, timeout = 10)
             if globe.jupyterFlag == False:
               print(response.ok, response.status_code)
 
@@ -90,6 +92,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
     
     def selectJsons(self):
         self.json_dir_parser.select_arch_connmap_experiment()
+    def selectJsons(self, arch, conn, exp):
+        self.json_dir_parser.set_arch_connmap_experiment(arch, conn, exp)
     
     def getUserJsons(self):
         return self.json_dir_parser.get_user_selection_files()
