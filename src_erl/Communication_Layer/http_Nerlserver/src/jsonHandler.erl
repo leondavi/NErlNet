@@ -53,7 +53,7 @@ init(Req0, [ApplicationPid]) ->
                 {file, _FieldName, Filename, _CType} ->
                     File = file:open(Filename, [append]),
                     Req2 = stream_file(Req1, File),
-                    {Req2, fileReady}
+                    {Req2, [fileReady]}
             end,
             multipart(Req, Data++BodyData);
         {done, Req} ->
