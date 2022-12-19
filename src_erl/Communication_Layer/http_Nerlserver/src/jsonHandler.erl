@@ -27,8 +27,8 @@ init(Req0, [ApplicationPid]) ->
   %FullReq = multipart(Req0),
   % [ArchitectureAdderess,CommunicationMapAdderess] = re:split(binary_to_list(Body),"#",[{return,list}]),
   % io:format("Body at json Handler: ~p,~n sending to pid: ~p~n", [ArchitectureAdderess,CommunicationMapAdderess]),
-  io:format("Headers are: ~p~n",[cowboy_req:header(<<"content-type">>, Req0)]),
-  io:format("got now: ~p~n",[binary_to_list(Body)]),
+  % io:format("Headers are: ~p~n",[cowboy_req:header(<<"content-type">>, Req0)]),
+  % io:format("got now: ~p~n",[binary_to_list(Body)]),
   %io:format("Full message: ~p~n",[FullReq]),
   %Notify the application that python is ready and send the addreses received in this http request:
   %ApplicationPid ! {jsonAddress,{ArchitectureAdderess,CommunicationMapAdderess}},
@@ -50,8 +50,8 @@ init(Req0, [ApplicationPid]) ->
                 {data, _FieldName} ->
                     {ok, Body, Req2} = cowboy_req:read_part_body(Req1),
                     {Req2, Body};
-                {file, _FieldName, Filename, _CType} ->
-                    File = file:open(Filename, [append]),
+                {file, FieldName, _Filename, _CType} ->
+                    {ok, File} = file:open(FieldName, [append]),
                     Req2 = stream_file(Req1, File),
                     {Req2, [fileReady]}
             end,
