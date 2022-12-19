@@ -36,7 +36,7 @@ getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
   %%  io:format("OnDeviceEntities:~n~p~n",[OnDeviceEntities]),
 
   %%This function returns a graph G, represents all the connections in nerlnet. each entitie should have a copy of it.
-  G = buildCommunicationGraph(ArchitectureAdderess,CommunicationMapAdderess),
+  G = buildCommunicationGraph(?ARCH_ADDR,?COMM_ADDR),
 
   %%  retrive THIS device Clients And Workers, returns a list of tuples:[{ClientArgumentsMap,WorkersMap,ConnectionMap},..]
   ClientsAndWorkers = getClients(maps:get(<<"clients">>,ArchitectureMap),OnDeviceEntities , [],maps:get(<<"workers">>,ArchitectureMap),ArchitectureMap,G),
