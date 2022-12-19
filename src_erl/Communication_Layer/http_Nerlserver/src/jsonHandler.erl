@@ -8,7 +8,7 @@
 %%%-------------------------------------------------------------------
 -module(jsonHandler).
 -author("kapelnik").
-
+-define(JSON_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/src_erl/Communication_Layer/http_Nerlserver/").
 
 %% API
 -export([init/2]).
@@ -20,7 +20,8 @@
 
 %%%%%% Getting files in multipart format.
 init(Req0, [ApplicationPid]) ->
-
+  deleteOldJson("arch.json"),
+  deleteOldJson("conn.json"),
   {Req, Data} = multipart(Req0, []),  % gets
   io:format("got Req: ~p~nData: ~p~n",[Req, Data]),
   {ok,Body,_} = cowboy_req:read_body(Req0),
@@ -70,3 +71,11 @@ stream_file(Req0, File) ->
             file:write(File, BodyChunk),
             stream_file(Req, File)
     end.
+
+deleteTMPData(Filename) ->
+  try file:delete(?JSON_ADDR++Filename) of
+    ok -> done;
+    {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[Filename, E])
+  catch
+    {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[Filename, E])
+  end.
