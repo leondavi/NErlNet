@@ -24,10 +24,12 @@ init(Req0, [ApplicationPid]) ->
   % _Path = cowboy_req:path(Req0),
   % _Qs = cowboy_req:qs(Req0),
   {ok,Body,_} = cowboy_req:read_body(Req0),
+  FullReq = multipart(Req0),
   % [ArchitectureAdderess,CommunicationMapAdderess] = re:split(binary_to_list(Body),"#",[{return,list}]),
   % io:format("Body at json Handler: ~p,~n sending to pid: ~p~n", [ArchitectureAdderess,CommunicationMapAdderess]),
-
-  io:format("got files: ~p~n",[binary_to_list(Body)]),
+  io:format("Headers are: ~p~n",[cowboy_req:header(<<"content-type">>, Req)]),
+  io:format("got now: ~p~n",[binary_to_list(Body)]),
+  io:format("Full message: ~p~n",[FullReq]),
   %Notify the application that python is ready and send the addreses received in this http request:
   %ApplicationPid ! {jsonAddress,{ArchitectureAdderess,CommunicationMapAdderess}},
   
@@ -38,3 +40,14 @@ init(Req0, [ApplicationPid]) ->
     Reply,
     Req0),
   {ok, Req, ApplicationPid}.
+
+  multipart(Req0) ->
+    case cowboy_req:read_part(Req0) of
+      {ok, Headers, Req1} ->
+        ?LOG_WARNING("Headers: p~n", [Headers]),
+        {ok, _Body, Req} = cowboy_req:read_part_body(Req1),
+        multipart(Req);
+      {done, Req} ->
+        ?LOG_WARNING("Req: p~n", [Req]),
+        Req
+    end.
