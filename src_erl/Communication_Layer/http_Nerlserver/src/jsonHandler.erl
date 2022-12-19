@@ -72,7 +72,7 @@ stream_file(Req0, File) ->
             stream_file(Req, File)
     end.
 
-deleteTMPData(Filename) ->
+deleteOldJson(Filename) ->
   try file:delete(?JSON_ADDR++Filename) of
     ok -> done;
     {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[Filename, E])
