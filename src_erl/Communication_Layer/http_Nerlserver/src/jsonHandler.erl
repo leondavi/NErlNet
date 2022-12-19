@@ -52,7 +52,7 @@ init(Req0, [ApplicationPid]) ->
                     {Req2, Body};
                 {file, _FieldName, Filename, _CType} ->
                     File = file:open(Filename, [append]),
-                    Req = stream_file(Req1, File),
+                    Req2 = stream_file(Req1, File),
                     {Req, fileReady}
             end,
             multipart(Req, Data++BodyData);
