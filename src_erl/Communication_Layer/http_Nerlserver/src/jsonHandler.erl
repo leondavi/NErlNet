@@ -23,6 +23,7 @@ init(Req0, [ApplicationPid]) ->
   % _Port = cowboy_req:port(Req0),
   % _Path = cowboy_req:path(Req0),
   % _Qs = cowboy_req:qs(Req0),
+  io:format("got Req: ~p~n",[Req0]),
   {ok,Body,_} = cowboy_req:read_body(Req0),
   %FullReq = multipart(Req0),
   % [ArchitectureAdderess,CommunicationMapAdderess] = re:split(binary_to_list(Body),"#",[{return,list}]),
