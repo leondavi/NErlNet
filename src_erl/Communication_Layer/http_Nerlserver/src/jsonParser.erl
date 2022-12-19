@@ -9,10 +9,13 @@
 -module(jsonParser).
 -author("kapelnik").
 -export([getDeviceEntities/3]).
+-define(ARCH_ADDR, "arch.json").
+-define(COMM_ADDR, "conn.json").
 
 getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
-  {ok, ArchitectureAdderessData} = file:read_file(ArchitectureAdderess),
-  {ok, CommunicationMapAdderessData} = file:read_file(CommunicationMapAdderess),
+
+  {ok, ArchitectureAdderessData} = file:read_file(?ARCH_ADDR),
+  {ok, CommunicationMapAdderessData} = file:read_file(?COMM_ADDR),
 
 %%TODO ADD CHECK FOR VALID INPUT:  
   io:format("~p~n",[jsx:is_json(ArchitectureAdderessData)]),

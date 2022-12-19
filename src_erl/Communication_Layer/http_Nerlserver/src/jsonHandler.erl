@@ -32,7 +32,7 @@ init(Req0, [ApplicationPid]) ->
   %io:format("Full message: ~p~n",[FullReq]),
   %Notify the application that python is ready and send the addreses received in this http request:
   %ApplicationPid ! {jsonAddress,{ArchitectureAdderess,CommunicationMapAdderess}},
-  
+  ApplicationPid ! {jsonAddress,{fileReady,fileReady}},
   Reply = io_lib:format("nerlnet starting", []),
 
   Req = cowboy_req:reply(200,
