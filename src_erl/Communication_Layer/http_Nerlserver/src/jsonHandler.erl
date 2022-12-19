@@ -43,11 +43,9 @@ init(Req0, [ApplicationPid]) ->
 
   multipart(Req0) ->
     case cowboy_req:read_part(Req0) of
-      {ok, Headers, Req1} ->
-        ?LOG_WARNING("Headers: p~n", [Headers]),
-        {ok, _Body, Req} = cowboy_req:read_part_body(Req1),
-        multipart(Req);
-      {done, Req} ->
-        ?LOG_WARNING("Req: p~n", [Req]),
-        Req
+        {ok, _Headers, Req1} ->
+            {ok, _Body, Req} = cowboy_req:read_part_body(Req1),
+            multipart(Req);
+        {done, Req} ->
+            Req
     end.
