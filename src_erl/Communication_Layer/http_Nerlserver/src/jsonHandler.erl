@@ -63,7 +63,7 @@ init(Req0, [ApplicationPid]) ->
 stream_file(Req0, File) ->
     case cowboy_req:read_part_body(Req0) of
         {ok, LastBodyChunk, Req} ->
-            file:write(File, LastBodyChunk)
+            file:write(File, LastBodyChunk),
             file:close(File),
             Req;
         {more, BodyChunk, Req} ->
