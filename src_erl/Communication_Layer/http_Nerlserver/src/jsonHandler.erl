@@ -17,13 +17,12 @@
 % response = requests.post('http://localhost:8484/updateJsonPath', data='../../../jsonPath')
 %From erlang(maybe for debug):
 %%httpc:request(post,{"http://localhost:8484/updateJsonPath", [],"application/x-www-form-urlencoded","../../../jsonPath"}, [], []).
+
+%%%%%% Getting files in multipart format.
 init(Req0, [ApplicationPid]) ->
-  % _Scheme = cowboy_req:scheme(Req0),
-  % _Host = cowboy_req:host(Req0),
-  % _Port = cowboy_req:port(Req0),
-  % _Path = cowboy_req:path(Req0),
-  % _Qs = cowboy_req:qs(Req0),
-  io:format("got Req: ~p~n",[Req0]),
+
+  {Req, Data} = multipart(Req0, []),  % gets
+  io:format("got Req: ~p~nData: ~p~n",[Req, Data]),
   {ok,Body,_} = cowboy_req:read_body(Req0),
   %FullReq = multipart(Req0),
   % [ArchitectureAdderess,CommunicationMapAdderess] = re:split(binary_to_list(Body),"#",[{return,list}]),
@@ -42,11 +41,32 @@ init(Req0, [ApplicationPid]) ->
     Req0),
   {ok, Req, ApplicationPid}.
 
-  multipart(Req0) ->
+
+  % returns {FullReq, Data}
+  multipart(Req0, Data) ->
     case cowboy_req:read_part(Req0) of
-        {ok, _Headers, Req1} ->
-            {ok, _Body, Req} = cowboy_req:read_part_body(Req1),
-            multipart(Req);
+        {ok, Headers, Req1} ->
+            {Req, BodyData} = case cow_multipart:form_data(Headers) of
+                {data, _FieldName} ->
+                    {ok, Body, Req2} = cowboy_req:read_part_body(Req1),
+                    {Req2, Body};
+                {file, _FieldName, Filename, _CType} ->
+                    File = file:open(Filename, [append]),
+                    Req = stream_file(Req1, File),
+                    {Req, fileReady}
+            end,
+            multipart(Req, Data++BodyData);
         {done, Req} ->
-            Req
+            {Req, Data}
+    end.
+
+stream_file(Req0, File) ->
+    case cowboy_req:read_part_body(Req0) of
+        {ok, LastBodyChunk, Req} ->
+            file:write(File, LastBodyChunk)
+            file:close(File),
+            Req;
+        {more, BodyChunk, Req} ->
+            file:write(File, BodyChunk)
+            stream_file(Req, File)
     end.
