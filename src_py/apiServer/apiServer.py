@@ -92,7 +92,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
     
     def selectJsons(self):
         self.json_dir_parser.select_arch_connmap_experiment()
-    def selectJsons(self, arch, conn, exp):
+
+    def setJsons(self, arch, conn, exp):
         self.json_dir_parser.set_arch_connmap_experiment(arch, conn, exp)
     
     def getUserJsons(self):
