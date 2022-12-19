@@ -67,6 +67,6 @@ stream_file(Req0, File) ->
             file:close(File),
             Req;
         {more, BodyChunk, Req} ->
-            file:write(File, BodyChunk)
+            file:write(File, BodyChunk),
             stream_file(Req, File)
     end.
