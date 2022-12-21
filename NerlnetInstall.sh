@@ -6,7 +6,7 @@ NERLNET_LIB_DIR="/usr/local/lib/nerlnet-lib"
 NERLNET_DIR=$NERLNET_LIB_DIR/NErlNet
 NERLNET_LOG_DIR="/usr/local/lib/nerlnet-lib/log"
 LOGGED_IN_USER=$(logname)
-NumJobs=1
+NumJobs=4
 
 function print()
 {
