@@ -24,6 +24,7 @@ sudo dpkg -i erlang-solutions_2.0_all.deb
 apt-get -y update
 apt-get -y install erlang cmake
 
+rm *.deb
 
 if [ "$ARCH_TYPE" = "x86_64" ]; then
     print "Arch type: x86_64"
