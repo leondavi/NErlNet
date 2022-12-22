@@ -326,7 +326,7 @@ getdeviceIP([], SubnetsList) ->
 getdeviceIP([IF|IFList], SubnetsList) ->
     {IF_name, Params} = IF,
     {addr, IF_addr} = lists:keyfind(addr, 1, Params),   % address format: {num, num, num, num}
-    DeviceIP = isAddrInSubnets(IF_addr, SubnetsList),
+    DeviceIP = isAddrInSubnets(IF_addr, SubnetsList).
 
 getNerlSubnets() ->
     {ok, Data} = file:read_file("/usr/local/lib/nerlnet-lib/NErlNet/NerlNet_subnets_config"),
