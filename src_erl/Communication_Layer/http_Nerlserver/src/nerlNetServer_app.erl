@@ -19,7 +19,7 @@
 
 -behaviour(application).
 
--export([start/2, stop/1]).
+-export([start/2, stop/1, getdeviceIP/0]).
 
 -define(NERLNET_INIT_PORT,8484).
 -define(PYTHON_SERVER_WAITING_TIMEOUT_MS, 300000). % 300 seconds
@@ -48,7 +48,7 @@
 start(_StartType, _StartArgs) ->
      HostName = getdeviceIP(),
      %HostName = "127.0.0.1",        %TODO: update jsons with real ips
-     io:format("My HostName: ~p~n",[HostName]),
+     logger:notice("This device IP: ~p~n", [DeviceIP]),
 
     %Create a listener that waits for a message from python about the adresses of the wanted json
     createNerlnetInitiator(HostName),
@@ -302,16 +302,6 @@ init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
         [{port,Port}], #{env => #{dispatch =>Dispatcher}}
     ).
 
-
-getHostName() ->
-   {ok, L} = inet:getif(),
-   IP = tuple_to_list(element(1, hd(L))),
-   A = lists:flatten(io_lib:format("~p", [IP])),
-   Subbed = lists:sublist(A,2,length(A)-2),
-   lists:flatten(string:replace(Subbed,",",".",all)).
-%%
-%%
-
 stop(_State) ->
     ok.
 
@@ -322,7 +312,7 @@ getdeviceIP() ->
     getdeviceIP(IFList, SubnetsList).
 
 getdeviceIP([], SubnetsList) ->
-    logger:error("No supported interface was found. Current supported interfaces list is: ~p",[SubnetsList]);
+    logger:error("No supported interface was found. Current supported interfaces list is: ~p.~nEdit NerlNet_subnets_config file to include your network",[SubnetsList]);
 getdeviceIP([IF|IFList], SubnetsList) ->
     {IF_name, Params} = IF,
     {addr, IF_addr} = lists:keyfind(addr, 1, Params),   % address format: {num, num, num, num}
