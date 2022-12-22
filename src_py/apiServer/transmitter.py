@@ -95,10 +95,10 @@ class Transmitter:
         # 1 Ack for clientsTraining(), <num of sources> Acks for updateCSV():
         globe.pendingAcks += 1 + len(globe.components.sources) 
 
-        self.clientsTraining()
-
         self.updateCSV(globe.TRAINING_STR)
 
+        self.clientsTraining()
+        
         while globe.pendingAcks > 0:
             time.sleep(0.005)
             pass 
