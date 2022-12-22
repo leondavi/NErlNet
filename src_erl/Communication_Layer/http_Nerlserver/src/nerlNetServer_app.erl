@@ -315,11 +315,14 @@ getdeviceIP([], SubnetsList) ->
     logger:error("No supported interface was found. Current supported interfaces list is: ~p.~nEdit NerlNet_subnets_config file to include your network",[SubnetsList]);
 getdeviceIP([IF|IFList], SubnetsList) ->
     {IF_name, Params} = IF,
-    {addr, IF_addr} = lists:keyfind(addr, 1, Params),   % address format: {num, num, num, num}
-    DeviceIP = isAddrInSubnets(IF_addr, SubnetsList),
-    case DeviceIP of
-        notFound -> getdeviceIP(IFList, SubnetsList);
-        IP -> IP
+    try
+        {addr, IF_addr} = lists:keyfind(addr, 1, Params),   % address format: {num, num, num, num}
+        DeviceIP = isAddrInSubnets(IF_addr, SubnetsList),
+        case DeviceIP of
+            notFound -> getdeviceIP(IFList, SubnetsList);
+            IP -> IP
+        end
+    catch error:E -> getdeviceIP(IFList, SubnetsList)
     end.
 
 getNerlSubnets() ->
