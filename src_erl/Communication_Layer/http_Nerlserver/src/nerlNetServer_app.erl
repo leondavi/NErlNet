@@ -314,3 +314,31 @@ getHostName() ->
 
 stop(_State) ->
     ok.
+
+% get this host ip
+getdeviceIP() ->
+    {ok, IFList} = inet:getifaddrs(),    % IFList format: [{IF_name, [{field, param},{},...]},...]
+    SubnetsList = getNerlSubnets(),
+    getdeviceIP(IFList, SubnetsList).
+
+getdeviceIP([], SubnetsList) ->
+    logger:error("No supported interface was found. Current supported interfaces list is: ~p",[SubnetsList]);
+getdeviceIP([IF|IFList], SubnetsList) ->
+    {IF_name, Params} = IF,
+    {addr, IF_addr} = lists:keyfind(addr, 1, Params),   % address format: {num, num, num, num}
+    DeviceIP = isAddrInSubnets(IF_addr, SubnetsList),
+
+getNerlSubnets() ->
+    {ok, Data} = file:read_file("/usr/local/lib/nerlnet-lib/NErlNet/NerlNet_subnets_config"),
+    Lines = string:split(binary_to_list(Data), "\n", all),
+    Subnets = [Subnet || Subnet <- Lines, hd(Subnet) /="#"],
+    lists:sort(Subnets).
+
+isAddrInSubnets(IF_addr, []) -> notFound;
+isAddrInSubnets(IF_addr, [Subnet|SubnetsList]) ->
+    %convert IF_addr to IP string
+    IP_LIST = tuple_to_list(IF_addr),
+    A = lists:flatten(io_lib:format("~p", [IP_LIST])),
+    Subbed = lists:sublist(A,2,length(A)-2),
+    IPString = lists:flatten(string:replace(Subbed,",",".",all)),
+    lists:prefix(Subnet, IPString).
