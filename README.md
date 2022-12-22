@@ -45,6 +45,7 @@ https://user-images.githubusercontent.com/18975070/145286597-340bbd31-0050-492f-
 ![Nerlnet Architecture](https://user-images.githubusercontent.com/18975070/141692829-f0cdca7d-96d1-43b0-920a-5821a14242f7.jpg)
 
 # Build and Run Nerlnet:
+cmake minimum version 3.18
 
 On each machine that runs Nerlnet go through the following steps: 
 1. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo>```
@@ -56,7 +57,8 @@ On each machine that runs Nerlnet go through the following steps:
 After running the installation script, NErlNet directory can be accessed via the following path as well: 
 ```/usr/local/lib/nerlnet-lib```
 
-## Python API and Jupyter: 
+## Python API and Jupyter (For GUI Server): 
+Minimum Python version: 3.8
 
 1. Create and activate a virtual environment for Nerlnet https://docs.python.org/3/library/venv.html
 2. Install required modules ```pip install -r src_py/requirements.txt```
