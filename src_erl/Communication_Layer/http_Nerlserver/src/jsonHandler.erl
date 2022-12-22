@@ -11,7 +11,7 @@
 -define(JSON_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/src_erl/Communication_Layer/http_Nerlserver/").
 
 %% API
--export([init/2]).
+-export([init/2, multipart/2]).
 % This handler waits for an http request from python. the syntax should be as follow:
 %From python:
 % response = requests.post('http://localhost:8484/updateJsonPath', data='../../../jsonPath')
@@ -22,7 +22,7 @@
 init(Req0, [ApplicationPid]) ->
   deleteOldJson("arch.json"),
   deleteOldJson("conn.json"),
-  {Req2, Data} = multipart(Req0, []),
+  {Req, Data} = multipart(Req0, []),  % gets
   io:format("got Req: ~p~nData: ~p~n",[Req, Data]),
   {ok,Body,_} = cowboy_req:read_body(Req0),
   ApplicationPid ! {jsonAddress,{fileReady,fileReady}},
