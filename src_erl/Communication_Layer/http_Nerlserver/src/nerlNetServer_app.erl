@@ -46,7 +46,7 @@
 
 
 start(_StartType, _StartArgs) ->
-     HostName = getHostName(),
+     HostName = getdeviceIP(),
      %HostName = "127.0.0.1",        %TODO: update jsons with real ips
      io:format("My HostName: ~p~n",[HostName]),
 
