@@ -326,7 +326,11 @@ getdeviceIP([], SubnetsList) ->
 getdeviceIP([IF|IFList], SubnetsList) ->
     {IF_name, Params} = IF,
     {addr, IF_addr} = lists:keyfind(addr, 1, Params),   % address format: {num, num, num, num}
-    DeviceIP = isAddrInSubnets(IF_addr, SubnetsList).
+    DeviceIP = isAddrInSubnets(IF_addr, SubnetsList),
+    case DeviceIP of
+        notFound -> getdeviceIP(IFList, SubnetsList);
+        IP -> IP
+    end.
 
 getNerlSubnets() ->
     {ok, Data} = file:read_file("/usr/local/lib/nerlnet-lib/NErlNet/NerlNet_subnets_config"),
@@ -341,4 +345,9 @@ isAddrInSubnets(IF_addr, [Subnet|SubnetsList]) ->
     A = lists:flatten(io_lib:format("~p", [IP_LIST])),
     Subbed = lists:sublist(A,2,length(A)-2),
     IPString = lists:flatten(string:replace(Subbed,",",".",all)),
-    lists:prefix(Subnet, IPString).
+    io:format("comparing ~p=~p~n",[IPString, Subnet]),
+    IPMatch = lists:prefix(Subnet, IPString),
+    case IPMatch of
+        false -> isAddrInSubnets(IF_addr, SubnetsList);
+        true -> IPString
+    end.
