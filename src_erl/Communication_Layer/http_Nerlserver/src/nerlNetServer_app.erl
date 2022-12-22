@@ -335,7 +335,7 @@ getdeviceIP([IF|IFList], SubnetsList) ->
 getNerlSubnets() ->
     {ok, Data} = file:read_file("/usr/local/lib/nerlnet-lib/NErlNet/NerlNet_subnets_config"),
     Lines = string:split(binary_to_list(Data), "\n", all),
-    Subnets = [Subnet || Subnet <- Lines, hd(Subnet) /="#"],
+    Subnets = [Subnet || Subnet <- Lines, hd(Subnet) /= $#],
     lists:sort(Subnets).
 
 isAddrInSubnets(IF_addr, []) -> notFound;
