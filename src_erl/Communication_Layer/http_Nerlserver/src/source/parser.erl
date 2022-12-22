@@ -14,34 +14,20 @@
 -export([parse/2, parseCSV/2, deleteTMPData/0]).
 
 parseCSV(ChunkSize, CSVData)->
-  io:format("curr dir: ~p~n",[file:get_cwd()]),
+  %io:format("curr dir: ~p~n",[file:get_cwd()]),
   deleteTMPData(),    % ideally do this when getting a fresh CSV (finished train -> start predict)
-  %CleanData = [Char || Char <- CSVData, Char =/= "[",Char =/= "]",Char =/= "'",Char =/= " "], %remove array chars
 
-  try file:write_file(?TMP_DATA_ADDR, CSVData) of
-    ok -> io:format("created tmpData.csv~n"), parse_file(ChunkSize, ?TMP_DATA_ADDR)
+  try
+    file:write_file(?TMP_DATA_ADDR, CSVData),
+    logger:notice("created tmpData.csv~n"), parse_file(ChunkSize, ?TMP_DATA_ADDR)
   catch
-    {error,Er} -> io:format("couldn't write file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, Er])
+    {error,Er} -> logger:error("couldn't write file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, Er])
   end.
 
-% ignore array chars []' , create new list of lines
-% cleanData([], Line, Data)-> Data++(Line++"\n");
-% cleanData([Char|CSVData], Line, Data)->
-%   case Char of
-%     "[" -> cleanData(CSVData, Line, Data);
-%     "]" -> cleanData(CSVData, Line, Data);
-%     " " -> cleanData(CSVData, Line, Data);
-%     "'" -> cleanData(CSVData, Line, Data);
-%     "\\"-> cleanData(tl(CSVData), "", Data++(Line++"\n"));  % new line
-%     Other -> cleanData(CSVData, Line++[Char], Data)         % normal char
-%   end.
-
 deleteTMPData() ->
-  try file:delete(?TMP_DATA_ADDR) of
-    ok -> done;
-    {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, E])
+  try file:delete(?TMP_DATA_ADDR) 
   catch
-    {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, E])
+    {error, E} -> logger:notice("couldn't delete file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, E])
   end.
 
 
