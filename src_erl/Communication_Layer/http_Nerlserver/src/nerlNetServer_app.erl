@@ -345,7 +345,7 @@ isAddrInSubnets(IF_addr, [Subnet|SubnetsList]) ->
     A = lists:flatten(io_lib:format("~p", [IP_LIST])),
     Subbed = lists:sublist(A,2,length(A)-2),
     IPString = lists:flatten(string:replace(Subbed,",",".",all)),
-    io:format("comparing ~p=~p~n",[IPString, Subnet]),
+    % io:format("comparing ~p=~p~n",[IPString, Subnet]),
     IPMatch = lists:prefix(Subnet, IPString),
     case IPMatch of
         false -> isAddrInSubnets(IF_addr, SubnetsList);
