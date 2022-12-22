@@ -22,17 +22,9 @@
 init(Req0, [ApplicationPid]) ->
   deleteOldJson("arch.json"),
   deleteOldJson("conn.json"),
-  {Req, Data} = multipart(Req0, []),  % gets
+  {Req2, Data} = multipart(Req0, []),
   io:format("got Req: ~p~nData: ~p~n",[Req, Data]),
   {ok,Body,_} = cowboy_req:read_body(Req0),
-  %FullReq = multipart(Req0),
-  % [ArchitectureAdderess,CommunicationMapAdderess] = re:split(binary_to_list(Body),"#",[{return,list}]),
-  % io:format("Body at json Handler: ~p,~n sending to pid: ~p~n", [ArchitectureAdderess,CommunicationMapAdderess]),
-  % io:format("Headers are: ~p~n",[cowboy_req:header(<<"content-type">>, Req0)]),
-  % io:format("got now: ~p~n",[binary_to_list(Body)]),
-  %io:format("Full message: ~p~n",[FullReq]),
-  %Notify the application that python is ready and send the addreses received in this http request:
-  %ApplicationPid ! {jsonAddress,{ArchitectureAdderess,CommunicationMapAdderess}},
   ApplicationPid ! {jsonAddress,{fileReady,fileReady}},
   Reply = io_lib:format("nerlnet starting", []),
 
@@ -73,9 +65,7 @@ stream_file(Req0, File) ->
     end.
 
 deleteOldJson(Filename) ->
-  try file:delete(?JSON_ADDR++Filename) of
-    ok -> done;
-    {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[Filename, E])
+  try file:delete(?JSON_ADDR++Filename)
   catch
     {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[Filename, E])
   end.
