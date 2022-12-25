@@ -325,14 +325,14 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
 %%      io:format("predictResID- ~p~n",[BatchID]),
 
       % io:format("Main Server got predictRes:InputName- ~p ResultID: ~p Result: ~p~n",[InputName,ResultID,Result]),
-      CSVName = getCSVName(InputName),
+      % CSVName = getCSVName(InputName),
       %%  file:write_file("./output/"++"predict"++CSVName, ResultID++" " ++Result++"\n", [append]),
       % writeToFile(ListOfResults,BatchID,CSVName,BatchSize),
 
       %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
       %%  send an ACK to mainserver that the CSV file is ready
       %FloatsString = [float_to_list(Float)++","||Float<-ListOfResults],
-      ToSend=WorkerName++"#"++Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize),
+      ToSend=WorkerName++"#"++Result++"#"++integer_to_list(BatchID)++"#"++InputName++"#"++integer_to_list(BatchSize),
     %  io:format("predictResID- ~p~n",[ToSend]),
       http_request(RouterHost,RouterPort,"predRes",ToSend)
   catch Err:E ->
