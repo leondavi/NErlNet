@@ -256,7 +256,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 plt.minorticks_on()
                 plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
 
-                fileName = csvResPlot.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
+                #fileName = csvResPlot.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
+                fileName = globe.experiment_flow_global.name
                 plt.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.png')
                 print(f'\n{fileName}.png was Saved...')
 
