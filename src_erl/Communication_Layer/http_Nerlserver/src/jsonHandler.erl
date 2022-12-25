@@ -40,9 +40,11 @@ init(Req0, [ApplicationPid]) ->
     case cowboy_req:read_part(Req0) of
         {ok, Headers, Req1} ->
             {Req, BodyData} = case cow_multipart:form_data(Headers) of
+                %% The multipart message contains normal/basic data
                 {data, _FieldName} ->
                     {ok, Body, Req2} = cowboy_req:read_part_body(Req1),
                     {Req2, Body};
+                %% The message contains a file
                 {file, FieldName, _Filename, _CType} ->
                     {ok, File} = file:open(FieldName, [append]),
                     Req2 = stream_file(Req1, File),

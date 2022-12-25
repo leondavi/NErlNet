@@ -23,6 +23,7 @@
 
 -define(NERLNET_INIT_PORT,8484).
 -define(PYTHON_SERVER_WAITING_TIMEOUT_MS, 1000).
+-define(SUBNETS_CONFIG_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/NerlNet_subnets_config").
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
 %% ***  exit rebar3 shell: ctrl+g ->q
@@ -319,7 +320,7 @@ getdeviceIP([IF|IFList], SubnetsList) ->
     end.
 
 getNerlSubnets() ->
-    {ok, Data} = file:read_file("/usr/local/lib/nerlnet-lib/NErlNet/NerlNet_subnets_config"),
+    {ok, Data} = file:read_file(?SUBNETS_CONFIG_ADDR),
     Lines = string:split(binary_to_list(Data), "\n", all),
     Subnets = [Subnet || Subnet <- Lines, hd(Subnet) /= $#],
     lists:sort(Subnets).
