@@ -19,15 +19,15 @@ parseCSV(ChunkSize, CSVData)->
 
   try
     file:write_file(?TMP_DATA_ADDR, CSVData),
-    logger:notice("created tmpData.csv~n"), parse_file(ChunkSize, ?TMP_DATA_ADDR)
+    logger:notice("created tmpData.csv"), parse_file(ChunkSize, ?TMP_DATA_ADDR)
   catch
-    {error,Er} -> logger:error("couldn't write file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, Er])
+    {error,Er} -> logger:error("couldn't write file ~p, beacuse ~p",[?TMP_DATA_ADDR, Er])
   end.
 
 deleteTMPData() ->
   try file:delete(?TMP_DATA_ADDR) 
   catch
-    {error, E} -> logger:notice("couldn't delete file ~p, beacuse ~p~n",[?TMP_DATA_ADDR, E])
+    {error, E} -> logger:notice("couldn't delete file ~p, beacuse ~p",[?TMP_DATA_ADDR, E])
   end.
 
 

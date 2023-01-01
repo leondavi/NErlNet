@@ -18,6 +18,7 @@ init(Req0, State = [Source_StateM_Pid]) ->
   {_,Body,_} = cowboy_req:read_body(Req0),
   Decoded_body = binary_to_list(Body),
 %%  [ClientName|CSV_Path] = re:split(binary_to_list(Body), ",", [{return, list}]),
+  %% TODO: receive file data differently so it can be appended together / multipart
   try string:split(Decoded_body, "#", all) of 
     [SourceName, WorkersStr, CSVData] ->
         WorkersList = string:split(WorkersStr, ",", all),
