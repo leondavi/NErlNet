@@ -35,7 +35,7 @@ init(Req0, [ApplicationPid]) ->
   {ok, Req, ApplicationPid}.
 
 
-  % returns {FullReq, Data}
+  % returns {FullReq, Data} / {FullReq, [fileReady]}
   multipart(Req0, Data) ->
     case cowboy_req:read_part(Req0) of
         {ok, Headers, Req1} ->
