@@ -192,7 +192,7 @@ Triplets =getHostPort(WorkersNames,WorkersMap,NerlnetGraph,MyName,[]),
 sendSamples(ListOfSamples,_CSVPath,_ChunkSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,NumOfBatchesToSend,_Method) when NumOfBatchesToSend=<0->
   receive
   after Ms ->
-    gen_statem:cast(Pid,{finishedCasting,Counter,ListOfSamples}), io:format("sent samp~n")
+    gen_statem:cast(Pid,{finishedCasting,Counter,ListOfSamples}), io:format("sent all samples~n")
   end;
 
 sendSamples([],_CSVPath,_ChunkSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,_NumOfBatchesToSend,_Method)->
@@ -204,6 +204,7 @@ sendSamples([],_CSVPath,_ChunkSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,_Nu
 sendSamples(ListOfSamples,CSVPath,ChunkSize,LengthOfSample, Ms,Pid,Triplets,Counter,NumOfBatchesToSend,Method)->
           %%this http request will be splitted at client's state machine by the following order:
           %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
+  io:format("~p samples left to send~n", [NumOfBatchesToSend]),
   if Method == ?SENDALL ->
         %%sending batch to all clients"
         [Head|ListOfSamplesRest]=ListOfSamples,
