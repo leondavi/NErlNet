@@ -2,8 +2,8 @@
    "CSV path": "One_Two",
    "Batches per source": 
      {
-        "Training": 60,
-        "Prediction": 10
+        "Training": 200,
+        "Prediction": 50
      },
   
      "Training":  [
