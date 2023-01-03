@@ -115,12 +115,17 @@ class Transmitter:
         #globe.experiment_flow_global.remove0Tails()
         globe.multiProcQueue.put(globe.experiment_flow_global)
 
-    def continueTrain(self):
+
+    def contPhase(self, phase):     # phase can be train/training no matter capitals, otherwise predict
         print("starting additional training")
 
         globe.pendingAcks += 1
-
-        self.clientsTraining() 
+        if(phase.lower() == "train" or phase.lower() == "training"):
+            self.clientsTraining()
+            phase = globe.TRAINING_STR
+        else:
+            self.clientsPredict()
+            phase = globe.PREDICTION_STR
 
         while globe.pendingAcks > 0:
             time.sleep(0.05)
@@ -128,7 +133,7 @@ class Transmitter:
 
         globe.pendingAcks += 1
 
-        self.startCasting(globe.TRAINING_STR) 
+        self.startCasting(phase) 
 
         while globe.pendingAcks > 0:
             time.sleep(0.05)
