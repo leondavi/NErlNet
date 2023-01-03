@@ -39,13 +39,14 @@ init(Req0, State = [Source_StateM_Pid]) ->
 
 read_all_data(Req0) -> read_all_data(Req0, []).
 read_all_data(Req0, Got) ->
+  %io:format("length of read data so far is ~p~n",[length(Got)]),
   case cowboy_req:read_body(Req0) of
       {ok, Data, Req} ->
           Decoded = binary_to_list(Data),
-          Got++Data;
+          Got++Decoded;
       {more, Data, Req} ->
           Decoded = binary_to_list(Data),
-          read_all_data(Req, Got++Data)
+          read_all_data(Req, Got++Decoded)
   end.
 
 
