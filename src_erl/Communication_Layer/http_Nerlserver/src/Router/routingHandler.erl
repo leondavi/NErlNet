@@ -16,7 +16,7 @@
 %%Action contains the information about the action performed, and Body contains the information needed for the action
 init(Req0, State = [Action,Router_genserver_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
-  {_,Body,_} = cowboy_req:read_body(Req0, #{length => 50000000}),
+  {_,Body,_} = cowboy_req:read_body(Req0, #{length => 25000000}),
   Decoded_body = binary_to_list(Body),
 %  io:format("router got action ~p body:~p~n",[Action,Body]),
   case Action of
