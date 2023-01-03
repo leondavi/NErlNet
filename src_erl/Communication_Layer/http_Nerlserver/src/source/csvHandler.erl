@@ -14,22 +14,15 @@
 
 %%setter handler for editing weights in CSV file, can also send a reply to sender
 init(Req0, State = [Source_StateM_Pid]) ->
-  {_,Body,_} = cowboy_req:read_body(Req0),
-  %Decoded_body = binary_to_list(Body),
-  Decoded_body = read_all_data(Req0),
+  {_,Body,_} = cowboy_req:read_body(Req0, #{length => 50000000}),
+  Decoded_body = binary_to_list(Body),
+  %Decoded_body = read_all_data(Req0),
 %%  [ClientName|CSV_Path] = re:split(binary_to_list(Body), ",", [{return, list}]),
   %% TODO: receive file data differently so it can be appended together / multipart
-  try string:split(Decoded_body, "#", all) of 
-    [SourceName, WorkersStr, CSVData] ->
-        WorkersList = string:split(WorkersStr, ",", all),
-        gen_statem:cast(Source_StateM_Pid,{csvList,WorkersList,CSVData});
-    Data -> io:format("got additional data, what to do?~n")
-  catch E:Er -> error
-  end,
-  %[_Myself|Splitted]  = re:split(binary_to_list(Body), "#", [{return, list}]),
-  %{Workers, CSVData} = getWorkerInput(Splitted,[]),
-%%  io:format("csv handler got Body:~p~n",[Body]),
-  %gen_statem:cast(Source_StateM_Pid,{csvList,Workers,CSVData}),
+  [SourceName, WorkersStr, CSVData] = string:split(Decoded_body, "#", all)
+  WorkersList = string:split(WorkersStr, ",", all),
+  gen_statem:cast(Source_StateM_Pid,{csvList,WorkersList,CSVData}),
+  
   Reply = io_lib:format("ACKACK", []),
   Req = cowboy_req:reply(200,
     #{<<"content-type">> => <<"text/plain">>},
@@ -39,7 +32,7 @@ init(Req0, State = [Source_StateM_Pid]) ->
 
 read_all_data(Req0) -> read_all_data(Req0, []).
 read_all_data(Req0, Got) ->
-  %io:format("length of read data so far is ~p~n",[length(Got)]),
+  %io:format("length of read data so far: ~p~n",[length(Got)]),
   case cowboy_req:read_body(Req0) of
       {ok, Data, Req} ->
           Decoded = binary_to_list(Data),

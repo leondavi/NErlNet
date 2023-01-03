@@ -20,11 +20,12 @@ init(Req0, [Main_genServer_Pid]) ->
 %%  can go to CSV file and edit weight
 
   %Bindings also can be accessed as once, giving a map of all bindings of Req0:
-  {_,Body,_} = cowboy_req:read_body(Req0),
+  {_,Body,_} = cowboy_req:read_body(Req0, #{length => 50000000}),  %read up to 100MB
   Decoded_body = binary_to_list(Body),
-  [SourceName, WorkersStr, Data] = string:split(Decoded_body, "#", all),
-  WorkersList = string:split(WorkersStr, ",", all),
-  gen_server:cast(Main_genServer_Pid,{initCSV, SourceName,WorkersList,Body}),
+  %Decoded_body = read_all_data(Req0),
+  [SourceName, _WorkersStr, Data] = string:split(Decoded_body, "#", all),
+  %WorkersList = string:split(WorkersStr, ",", all),
+  gen_server:cast(Main_genServer_Pid,{initCSV, SourceName, Body}),
   %[Source|WorkersAndInput] = re:split(binary_to_list(Body), "#", [{return, list}]),
   %{Workers,SourceData} = getWorkerInput(WorkersAndInput,[]),
   % io:format("init _handler got body:~p~n",[Decoded_body]),
@@ -42,11 +43,17 @@ init(Req0, [Main_genServer_Pid]) ->
 getWorkerInput([Input],Workers)->{Workers,Input};
 getWorkerInput([Worker|WorkersAndInput],Workers) ->getWorkerInput(WorkersAndInput,Workers++[Worker]).
 
-%%splitbytriplets([],Ret) ->Ret;
-%%splitbytriplets(ListofTriplets,Ret) ->
-%%  L1 = lists:sublist(ListofTriplets,1,3),
-%%  L2 = lists:sublist(ListofTriplets,4,length(ListofTriplets)-1),
-%%  splitbytriplets(L2,Ret++[L1]).
+read_all_data(Req0) -> read_all_data(Req0, []).
+read_all_data(Req0, Got) ->
+  io:format("length of read data so far: ~p~n",[length(Got)]),
+  case cowboy_req:read_body(Req0) of
+      {ok, Data, Req} ->
+          Decoded = binary_to_list(Data),
+          Got++Decoded;
+      {more, Data, Req} ->
+          Decoded = binary_to_list(Data),
+          read_all_data(Req, Got++Decoded)
+  end.
 
 start(_StartType, _StartArgs) ->
   erlang:error(not_implemented).
