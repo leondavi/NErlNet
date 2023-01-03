@@ -14,9 +14,9 @@
 
 %%setter handler for editing weights in CSV file, can also send a reply to sender
 init(Req0, State = [Source_StateM_Pid]) ->
-  %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {_,Body,_} = cowboy_req:read_body(Req0),
-  Decoded_body = binary_to_list(Body),
+  %Decoded_body = binary_to_list(Body),
+  Decoded_body = binary_to_list(read_all_data(Req0)),
 %%  [ClientName|CSV_Path] = re:split(binary_to_list(Body), ",", [{return, list}]),
   %% TODO: receive file data differently so it can be appended together / multipart
   try string:split(Decoded_body, "#", all) of 
@@ -36,6 +36,15 @@ init(Req0, State = [Source_StateM_Pid]) ->
     Reply,
     Req0),
   {ok, Req, State}.
+
+read_all_data(Req0) -> read_all_data(Req0, []).
+read_all_data(Req0, Got) ->
+  case cowboy_req:read_body(Req0) of
+      {ok, Data, Req} ->
+          Got++Data;
+      {more, Data, Req} ->
+          read_all_data(Req, Got++Data)
+  end.
 
 
 getWorkerInput([Input],Workers)->{Workers,Input};
