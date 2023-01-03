@@ -19,10 +19,10 @@ init(Req0, State = [Source_StateM_Pid]) ->
   %Decoded_body = read_all_data(Req0),
 %%  [ClientName|CSV_Path] = re:split(binary_to_list(Body), ",", [{return, list}]),
   %% TODO: receive file data differently so it can be appended together / multipart
-  [SourceName, WorkersStr, CSVData] = string:split(Decoded_body, "#", all)
+  [SourceName, WorkersStr, CSVData] = string:split(Decoded_body, "#", all),
   WorkersList = string:split(WorkersStr, ",", all),
   gen_statem:cast(Source_StateM_Pid,{csvList,WorkersList,CSVData}),
-  
+
   Reply = io_lib:format("ACKACK", []),
   Req = cowboy_req:reply(200,
     #{<<"content-type">> => <<"text/plain">>},
