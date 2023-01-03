@@ -20,7 +20,7 @@ init(Req0, [Main_genServer_Pid]) ->
 %%  can go to CSV file and edit weight
 
   %Bindings also can be accessed as once, giving a map of all bindings of Req0:
-  {_,Body,_} = cowboy_req:read_body(Req0, #{length => 50000000}),  %read up to 100MB
+  {_,Body,_} = cowboy_req:read_body(Req0, #{length => 25000000}),  %read up to 100MB
   Decoded_body = binary_to_list(Body),
   %Decoded_body = read_all_data(Req0),
   [SourceName, _WorkersStr, Data] = string:split(Decoded_body, "#", all),

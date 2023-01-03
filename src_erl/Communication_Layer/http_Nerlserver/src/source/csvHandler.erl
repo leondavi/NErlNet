@@ -14,7 +14,7 @@
 
 %%setter handler for editing weights in CSV file, can also send a reply to sender
 init(Req0, State = [Source_StateM_Pid]) ->
-  {_,Body,_} = cowboy_req:read_body(Req0, #{length => 50000000}),
+  {_,Body,_} = cowboy_req:read_body(Req0, #{length => 25000000}),
   Decoded_body = binary_to_list(Body),
   %Decoded_body = read_all_data(Req0),
 %%  [ClientName|CSV_Path] = re:split(binary_to_list(Body), ",", [{return, list}]),
