@@ -140,6 +140,12 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         print('Training - Finished\n')
         return expResults
 
+    def continueTrain(self):
+        self.transmitter.continueTrain()
+        expResults = self.getQueueData()
+        print('Training - Finished\n')
+        return expResults
+
     def predict(self):
         self.transmitter.predict()
         expResults = self.getQueueData()

@@ -112,7 +112,28 @@ class Transmitter:
             time.sleep(0.05)
             pass 
 
-        globe.experiment_flow_global.remove0Tails()
+        #globe.experiment_flow_global.remove0Tails()
+        globe.multiProcQueue.put(globe.experiment_flow_global)
+
+    def continueTrain(self):
+        print("starting additional training")
+
+        globe.pendingAcks += 1
+
+        self.clientsTraining() 
+
+        while globe.pendingAcks > 0:
+            time.sleep(0.05)
+            pass 
+
+        globe.pendingAcks += 1
+
+        self.startCasting(globe.TRAINING_STR) 
+
+        while globe.pendingAcks > 0:
+            time.sleep(0.05)
+            pass 
+
         globe.multiProcQueue.put(globe.experiment_flow_global)
 
     def predict(self):
