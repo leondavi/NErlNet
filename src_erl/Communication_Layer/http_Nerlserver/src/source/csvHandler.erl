@@ -10,11 +10,11 @@
 -author("kapelnik").
 -export([init/2,  start/2, stop/1]).
 -behaviour(application).
-
+-define(DATA_LEN, 10*1000*1000). % default is 8MB, here set to 10MB
 
 %%setter handler for editing weights in CSV file, can also send a reply to sender
 init(Req0, State = [Source_StateM_Pid]) ->
-  {_,Body,_} = cowboy_req:read_body(Req0, #{length => 10000000}),
+  {_,Body,_} = cowboy_req:read_body(Req0, #{length => ?DATA_LEN}),
   Decoded_body = binary_to_list(Body),
   %Decoded_body = read_all_data(Req0),
 %%  [ClientName|CSV_Path] = re:split(binary_to_list(Body), ",", [{return, list}]),

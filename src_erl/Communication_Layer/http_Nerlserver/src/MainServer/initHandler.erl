@@ -11,6 +11,7 @@
 -export([init/2, start/2, stop/1]).
 -behaviour(application).
 
+-define(DATA_LEN, 10*1000*1000). % default is 8MB, here set to 10MB
 
 %%setter handler for editing weights in CSV file, can also send a reply to sender
 init(Req0, [Main_genServer_Pid]) ->
@@ -20,7 +21,7 @@ init(Req0, [Main_genServer_Pid]) ->
 %%  can go to CSV file and edit weight
 
   %Bindings also can be accessed as once, giving a map of all bindings of Req0:
-  {_,Body,_} = cowboy_req:read_body(Req0, #{length => 10000000}),  %read up to 10MB (default was 8MB)
+  {_,Body,_} = cowboy_req:read_body(Req0, #{length => ?DATA_LEN}),  %read up to 10MB (default was 8MB)
   Decoded_body = binary_to_list(Body),
   %Decoded_body = read_all_data(Req0),
   [SourceName, _WorkersStr, Data] = string:split(Decoded_body, "#", all),
