@@ -42,3 +42,5 @@ src_cpp/*.so
 /src_cpp/opennnBridge/CMakeFiles
 /src_cpp/opennnBridge/Makefile
 /src_cpp/opennnBridge/\[binary_dir\]
+src_erl/NerlGUI/_build/*
+examples/.ipynb_checkpoints/simple_run-checkpoint.ipynb

@@ -63,25 +63,27 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # Send the content of jsonPath to each devices:
         print("\nSending JSON paths to devices...")
 
-        # archAddress = globe.content[0][:-1]
-        # connMapAddress = globe.content[1][:-1]
-
         # Jsons found in NErlNet/inputJsonFiles/{JSON_TYPE}/files.... for entities in src_erl/Comm_layer/http_nerl/src to reach them, they must go up 3 dirs
         archAddress , connMapAddress, exp_flow_json = self.getUserJsons()
-        [JsonsPath, archPath] = archAddress.split("/NErlNet")
-        archAddress = "../../.."+archPath
+        #[JsonsPath, archPath] = archAddress.split("/NErlNet")
+        #archAddress = "../../.."+archPath
 
-        [JsonsPath, connPath] = connMapAddress.split("/NErlNet")
-        connMapAddress = "../../.."+connPath
+        #[JsonsPath, connPath] = connMapAddress.split("/NErlNet")
+        #connMapAddress = "../../.."+connPath
 
         data = archAddress + '#' + connMapAddress
 
         for ip in globe.components.devicesIp:
-            address = f'http://{ip}:8484/updateJsonPath' # f for format
+            with open(archAddress, 'rb') as f1, open(connMapAddress, 'rb') as f2:
+                files = [('arch.json', f1), ('conn.json', f2)]
+                address = f'http://{ip}:8484/updateJsonPath' # f for format
+                response = requests.post(address, files=files)
 
-            response = requests.post(address, data, timeout = 10)
+            # response = requests.post(address, data, timeout = 10)
             if globe.jupyterFlag == False:
               print(response.ok, response.status_code)
+
+        #split experiment data and send to individual sources:
 
         time.sleep(1)
         print("JSON paths sent to devices")
@@ -91,6 +93,9 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
     
     def selectJsons(self):
         self.json_dir_parser.select_arch_connmap_experiment()
+
+    def setJsons(self, arch, conn, exp):
+        self.json_dir_parser.set_arch_connmap_experiment(arch, conn, exp)
     
     def getUserJsons(self):
         return self.json_dir_parser.get_user_selection_files()
@@ -131,6 +136,12 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
         globe.experiment_flow_global.emptyExp() # Start a new empty experiment
         self.transmitter.train()
+        expResults = self.getQueueData()
+        print('Training - Finished\n')
+        return expResults
+
+    def contPhase(self, phase):
+        self.transmitter.contPhase(phase)
         expResults = self.getQueueData()
         print('Training - Finished\n')
         return expResults
@@ -251,7 +262,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 plt.minorticks_on()
                 plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
 
-                fileName = csvResPlot.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
+                #fileName = csvResPlot.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
+                fileName = globe.experiment_flow_global.name
                 plt.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.png')
                 print(f'\n{fileName}.png was Saved...')
 

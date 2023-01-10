@@ -62,7 +62,7 @@ init({MyName,NerlnetGraph}) ->
   {stop, Reason :: term(), NewState :: #router_genserver_state{}}).
 
 handle_cast({rout,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
-%%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
+%%  Body contains list of sources to send the request, and input name list of clients should be before  '@'
 %%  ToSend = term_to_binary({ClientName, WorkerName, CSVPath, Counter, Head}),
   {To, _WorkerName, _CSVPath, _Counter, _Head} = binary_to_term(Body),
   {Host,Port} = getShortPath(MyName,To,NerlnetGraph),
@@ -148,7 +148,7 @@ handle_cast({clientPredict, Body}, State = #router_genserver_state{myName = MyNa
 
 handle_cast({updateCSV,Source,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
 %%  Body contrains list of sources to send the request, and input name
-    io:format("router to Source - ~p  sending Body - ~p~n",[Source,Body]),
+    %io:format("router to Source - ~p  sending Body - ~p~n",[Source,Body]),
     {Host,Port} = getShortPath(MyName,list_to_atom(Source),NerlnetGraph),
     %{Host,Port} = maps:get(list_to_atom(Source),NerlnetGraph),
     http_request(Host,Port,"updateCSV",Body),

@@ -22,8 +22,8 @@
 -export([start/2, stop/1, getdeviceIP/0]).
 
 -define(NERLNET_INIT_PORT,8484).
--define(PYTHON_SERVER_WAITING_TIMEOUT_MS, 300000). % 300 seconds
--define(NERLNET_JSON_PATH,"/usr/local/lib/nerlnet-lib/NErlNet/jsonPath").
+-define(PYTHON_SERVER_WAITING_TIMEOUT_MS, 1000).
+-define(SUBNETS_CONFIG_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/NerlNet_subnets_config").
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
 %% ***  exit rebar3 shell: ctrl+g ->q
@@ -52,24 +52,21 @@ start(_StartType, _StartArgs) ->
 
     %Create a listener that waits for a message from python about the adresses of the wanted json
     createNerlnetInitiator(HostName),
-    receive 
-        {jsonAddress,MSG} -> {ArchitectureAdderess,CommunicationMapAdderess} = MSG 
-        %%TODO remove this "after" part when python is ready to send jsonPaths
-        after ?PYTHON_SERVER_WAITING_TIMEOUT_MS ->   JsonPath = ?NERLNET_JSON_PATH,
-                        {ok, InputJSON} = file:read_file(JsonPath),%%TODO change to File_Address
-                        Listed = binary_to_list(InputJSON),
-                        %ArchitectureAdderess, CommunicationMapAdderess are the paths for the json architecture file, where THIS machine can find its own entities by IP
-                        [ArchitectureAdderess,CommunicationMapAdderess|_] =  re:split(Listed,"\n",[{return,list}])
-    end,
+    {ArchitectureAdderess,CommunicationMapAdderess} = waitForInit(),
 
     %Parse json and start nerlnet:
      
      io:format("ArchitectureAdderess: ~p~n CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
 
-
     parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess),
     nerlNetServer_sup:start_link().
 
+waitForInit() ->
+    receive 
+        {jsonAddress,MSG} -> {ArchitectureAdderess,CommunicationMapAdderess} = MSG;
+        Other -> io:format("Got bad message: ~p,~ncontinue listening for init Json~n",[Other]), waitForInit()
+        after ?PYTHON_SERVER_WAITING_TIMEOUT_MS -> waitForInit()
+    end.
 
 createNerlnetInitiator(HostName) ->
     Port = ?NERLNET_INIT_PORT,
@@ -326,7 +323,7 @@ getdeviceIP([IF|IFList], SubnetsList) ->
     end.
 
 getNerlSubnets() ->
-    {ok, Data} = file:read_file("/usr/local/lib/nerlnet-lib/NErlNet/NerlNet_subnets_config"),
+    {ok, Data} = file:read_file(?SUBNETS_CONFIG_ADDR),
     Lines = string:split(binary_to_list(Data), "\n", all),
     Subnets = [Subnet || Subnet <- Lines, hd(Subnet) /= $#],
     lists:sort(Subnets).

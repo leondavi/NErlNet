@@ -107,10 +107,10 @@ edgeString([Edge |EdgesList], Str)->
 {stop, Reason :: term(), NewState :: #main_genserver_state{}}).
 
 
-handle_cast({initCSV, Source,_Workers,Body}, State = #main_genserver_state{state = idle, myName = MyName, sourcesWaitingList = SourcesWaitingList,nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
+handle_cast({initCSV, Source,SourceData}, State = #main_genserver_state{state = idle, myName = MyName, sourcesWaitingList = SourcesWaitingList,nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
 %%  TODO find the router that can send this request to Sources**
-  findroutAndsend(MyName, Source,Body,NerlnetGraph),
+  findroutAndsend(MyName, Source,SourceData,NerlnetGraph),
   io:format("WaitingList = ~p~n",[SourcesWaitingList++[list_to_atom(Source)]]),
   {noreply, State#main_genserver_state{sourcesWaitingList = SourcesWaitingList++[list_to_atom(Source)],msgCounter = MsgCounter+1}};
 
@@ -325,14 +325,14 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
 %%      io:format("predictResID- ~p~n",[BatchID]),
 
       % io:format("Main Server got predictRes:InputName- ~p ResultID: ~p Result: ~p~n",[InputName,ResultID,Result]),
-      CSVName = getCSVName(InputName),
+      % CSVName = getCSVName(InputName),
       %%  file:write_file("./output/"++"predict"++CSVName, ResultID++" " ++Result++"\n", [append]),
       % writeToFile(ListOfResults,BatchID,CSVName,BatchSize),
 
       %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
       %%  send an ACK to mainserver that the CSV file is ready
       %FloatsString = [float_to_list(Float)++","||Float<-ListOfResults],
-      ToSend=WorkerName++"#"++Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize),
+      ToSend=WorkerName++"#"++Result++"#"++integer_to_list(BatchID)++"#"++InputName++"#"++integer_to_list(BatchSize),
     %  io:format("predictResID- ~p~n",[ToSend]),
       http_request(RouterHost,RouterPort,"predRes",ToSend)
   catch Err:E ->

@@ -4,6 +4,7 @@
 # Date: 27/07/2022
 ###########################################################
 import numpy as np
+import globalVars as globe
 
 class WorkerResult():
 
@@ -11,30 +12,26 @@ class WorkerResult():
         self.name  = workerName
         self.sourceWorked = sourceWorked
         self.csvWorked = csvWorked
+        self.phase = phase
 
-        if (phase == 'Training' or phase == 0):
-            self.phase = 0
+        if (phase == globe.TRAINING_STR):
             self.resList =  [None] * 100000 # Pre-allocate to improve efficiency.
 
-        elif (phase == 'Prediction' or phase == 1):
-            self.phase = 1
-            self.resList = [] #Not pre-allocated, cause batch size may differ.
+        elif (phase == globe.PREDICTION_STR):
+            self.resList = [] #Not pre-allocated, batch size may differ.
 
-        else:
-            raise ValueError("Error in the WorkerResult class - <phase> should be either 'Training' 'Prediction'.")
-        
         self.numOfResults = 0
 
     def addResult(self, result):
-        if (self.phase == 0):
+        if (self.phase == globe.TRAINING_STR):
             self.resList[self.numOfResults] = result
         
-        elif (self.phase == 1):
+        elif (self.phase == globe.PREDICTION_STR):
             self.resList.append(result)
 
         self.numOfResults += 1
 
     # Remove excess list cells in the pre-allocated list for the Training phase:
     def remove0Tail(self):
-        if (self.phase == 0):
+        if (self.phase == globe.TRAINING_STR):
             self.resList = self.resList[:self.numOfResults]

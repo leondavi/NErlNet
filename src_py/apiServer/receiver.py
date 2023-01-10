@@ -41,7 +41,7 @@ def processResult(resData, currentPhase):
             result = float(resData[1].replace(' ',''))
             #print(result)
             if (int(result) == -1):
-                print("Received loss=-1. The NN's weights have been reset.")
+                print(f"Received loss=-1 from worker {worker}. The NN's weights have been reset.")
             if (int(result) != -1 and int(result != 0)):
                 for csvRes in globe.experiment_flow_global.trainingResList:
                     if worker in csvRes.workers:

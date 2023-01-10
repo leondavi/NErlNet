@@ -1,4 +1,3 @@
-
 %%%-------------------------------------------------------------------
 %%% @author kapelnik
 %%% @copyright (C) 2021, Nerlnet
@@ -11,8 +10,25 @@
 -author("kapelnik").
 
 %% API
--export([parse/2]).
+-define(TMP_DATA_ADDR, "tmpData.csv").
+-export([parse/2, parseCSV/2, deleteTMPData/0]).
 
+parseCSV(ChunkSize, CSVData)->
+  %io:format("curr dir: ~p~n",[file:get_cwd()]),
+  deleteTMPData(),    % ideally do this when getting a fresh CSV (finished train -> start predict)
+
+  try
+    file:write_file(?TMP_DATA_ADDR, CSVData),
+    logger:notice("created tmpData.csv"), parse_file(ChunkSize, ?TMP_DATA_ADDR)
+  catch
+    {error,Er} -> logger:error("couldn't write file ~p, beacuse ~p",[?TMP_DATA_ADDR, Er])
+  end.
+
+deleteTMPData() ->
+  try file:delete(?TMP_DATA_ADDR) 
+  catch
+    {error, E} -> logger:notice("couldn't delete file ~p, beacuse ~p",[?TMP_DATA_ADDR, E])
+  end.
 
 
 %%use this decoder to decode one line after parsing
@@ -47,7 +63,7 @@ parse_file(ChunkSize,File_Address) ->
 
     io:format("File_Address:~p~n~n",[File_Address]),
 
-  {ok, Data} = file:read_file(File_Address),%%TODO change to File_Address
+  {ok, Data} = file:read_file(File_Address),
   Lines = re:split(Data, "\r|\n|\r\n", [{return,binary}] ),
 
   SampleSize = length(re:split(binary_to_list(hd(Lines)), ",", [{return,list}])),
@@ -90,9 +106,6 @@ encodeFloatsList([H|ListOfFloats],Ret)->
       encodeFloatsList(ListOfFloats,<<Ret/binary,Integer:64/float>>)
 
   end.
-
-
-
 
 
 makeChunks(L,1,1,_,_,_SampleSize) ->L;
