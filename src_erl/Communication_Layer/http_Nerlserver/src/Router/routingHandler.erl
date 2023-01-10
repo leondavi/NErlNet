@@ -10,13 +10,13 @@
 -author("kapelnik").
 -export([init/2,  start/2, stop/1]).
 -behaviour(application).
-
+-define(DATA_LEN, 10*1000*1000). % default is 8MB, here set to 10MB
 
 %%handler for routing all messages in the network.
 %%Action contains the information about the action performed, and Body contains the information needed for the action
 init(Req0, State = [Action,Router_genserver_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
-  {ok,Body,_} = cowboy_req:read_body(Req0),
+  {_,Body,_} = cowboy_req:read_body(Req0, #{length => ?DATA_LEN}),
   Decoded_body = binary_to_list(Body),
 %  io:format("router got action ~p body:~p~n",[Action,Body]),
   case Action of
@@ -26,7 +26,7 @@ init(Req0, State = [Action,Router_genserver_Pid]) ->
 
     %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
     updateCSV ->
-      [Source|_] = re:split(binary_to_list(Body), ",", [{return, list}]),
+      [Source|_] = re:split(binary_to_list(Body), "#", [{return, list}]),
       gen_server:cast(Router_genserver_Pid, {updateCSV,Source,Body});
 
     %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.

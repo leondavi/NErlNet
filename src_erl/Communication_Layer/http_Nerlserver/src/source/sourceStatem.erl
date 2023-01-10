@@ -80,10 +80,10 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 
 
 %%This cast receive a list of samples to load to the records csvList
-idle(cast, {csvList,Workers,CSVPath}, State = #source_statem_state{chunkSize = ChunkSize, myName = MyName, msgCounter = Counter, nerlnetGraph = NerlnetGraph}) ->
-  io:format("CSVPath - ~p~n",[CSVPath]),
+idle(cast, {csvList,Workers,CSVData}, State = #source_statem_state{chunkSize = ChunkSize, myName = MyName, msgCounter = Counter, nerlnetGraph = NerlnetGraph}) ->
+  %io:format("CSVData - ~p~n",[CSVData]),
   io:format("ChunkSize - ~p~n",[ChunkSize]),
-  CSVlist = parser:parse(ChunkSize,CSVPath),
+  CSVlist = parser:parseCSV(ChunkSize,CSVData),
   [Head|_] = CSVlist,
   LengthOfSample = byte_size(Head),
   %%  CSVName = lists:last(re:split(CSVPath,"/",[{return,list}])),
@@ -92,7 +92,7 @@ idle(cast, {csvList,Workers,CSVPath}, State = #source_statem_state{chunkSize = C
   io:format("source updated transmitting list, total batches to send: - ~p~n",[length(CSVlist)]),
   io:format("source updated Workers - ~p~n",[Workers]),
   http_request(RouterHost,RouterPort,"csvReady",MyName),
-  {next_state, idle, State#source_statem_state{csvName = CSVPath, lengthOfSample = LengthOfSample, castingTo = Workers, msgCounter = Counter+1,csvList =CSVlist}};
+  {next_state, idle, State#source_statem_state{lengthOfSample = LengthOfSample, castingTo = Workers, msgCounter = Counter+1,csvList =CSVlist}};
 
 
 %%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
@@ -192,7 +192,7 @@ Triplets =getHostPort(WorkersNames,WorkersMap,NerlnetGraph,MyName,[]),
 sendSamples(ListOfSamples,_CSVPath,_ChunkSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,NumOfBatchesToSend,_Method) when NumOfBatchesToSend=<0->
   receive
   after Ms ->
-    gen_statem:cast(Pid,{finishedCasting,Counter,ListOfSamples})
+    gen_statem:cast(Pid,{finishedCasting,Counter,ListOfSamples}), io:format("sent all samples~n")
   end;
 
 sendSamples([],_CSVPath,_ChunkSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,_NumOfBatchesToSend,_Method)->
@@ -204,6 +204,7 @@ sendSamples([],_CSVPath,_ChunkSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,_Nu
 sendSamples(ListOfSamples,CSVPath,ChunkSize,LengthOfSample, Ms,Pid,Triplets,Counter,NumOfBatchesToSend,Method)->
           %%this http request will be splitted at client's state machine by the following order:
           %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
+  io:format("~p samples left to send~n", [NumOfBatchesToSend]),
   if Method == ?SENDALL ->
         %%sending batch to all clients"
         [Head|ListOfSamplesRest]=ListOfSamples,

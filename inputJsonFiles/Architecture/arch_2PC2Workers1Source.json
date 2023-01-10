@@ -1,30 +1,30 @@
 {
   "NerlNetSettings": [
   {
-    "frequency": "50",
-    "batchSize": "100"
+    "frequency": "10",
+    "batchSize": "10"
   }
   ],
   "devices": [
     {
-      "host": "pc1",
+      "host": "192.168.0.108",
       "entities": "mainServer,c1,s1,r1"
     },
     {
-      "host": "pc2",
+      "host": "192.168.0.103",
       "entities": "c2,r2"
     }
   ],
   "serverAPI": [
     {
-      "host": "127.0.0.1",
+      "host": "192.168.0.100",
       "port": "8095",
       "args": ""
     }
   ],
   "mainServer": [
     {
-      "host": "pc1",
+      "host": "192.168.0.102",
       "port": "8080",
       "args": ""
     }
@@ -33,7 +33,7 @@
     {
       "name": "w1",
       "modelId": "0",
-      "modelType": "2",
+      "modelType": "1",
       "_comment0": "Model Type Explenation: TODOTODOTODO",
       "scalingMethod": "1",
       "_comment1": "Scaling Method Explenation: TODOTODOTODO",
@@ -90,6 +90,12 @@
     }
   ],
   "federated": [
+    {
+      "name": "f1",
+      "port": "8083",
+      "workers": "w1",
+      "counterLimit": "1"
+    }
   ],
   "sources": [
     {
@@ -102,12 +108,12 @@
  "routers": [
   {
     "name": "r1",
-    "host": "pc1",
+    "host": "192.168.0.102",
     "port": "8084"
   },
   {
     "name": "r2",
-    "host": "pc2",
+    "host": "192.168.0.113",
     "port": "8085"
   }
   ]

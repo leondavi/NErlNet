@@ -9,10 +9,13 @@
 -module(jsonParser).
 -author("kapelnik").
 -export([getDeviceEntities/3]).
+-define(ARCH_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/src_erl/Communication_Layer/http_Nerlserver/arch.json").
+-define(COMM_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/src_erl/Communication_Layer/http_Nerlserver/conn.json").
 
 getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
-  {ok, ArchitectureAdderessData} = file:read_file(ArchitectureAdderess),
-  {ok, CommunicationMapAdderessData} = file:read_file(CommunicationMapAdderess),
+
+  {ok, ArchitectureAdderessData} = file:read_file(?ARCH_ADDR),
+  {ok, CommunicationMapAdderessData} = file:read_file(?COMM_ADDR),
 
 %%TODO ADD CHECK FOR VALID INPUT:  
   io:format("~p~n",[jsx:is_json(ArchitectureAdderessData)]),
@@ -33,7 +36,7 @@ getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
   %%  io:format("OnDeviceEntities:~n~p~n",[OnDeviceEntities]),
 
   %%This function returns a graph G, represents all the connections in nerlnet. each entitie should have a copy of it.
-  G = buildCommunicationGraph(ArchitectureAdderess,CommunicationMapAdderess),
+  G = buildCommunicationGraph(?ARCH_ADDR,?COMM_ADDR),
 
   %%  retrive THIS device Clients And Workers, returns a list of tuples:[{ClientArgumentsMap,WorkersMap,ConnectionMap},..]
   ClientsAndWorkers = getClients(maps:get(<<"clients">>,ArchitectureMap),OnDeviceEntities , [],maps:get(<<"workers">>,ArchitectureMap),ArchitectureMap,G),
@@ -72,8 +75,8 @@ getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
   %io:format("path:~n~p~n",[digraph:get_short_path(G,"serverAPI","c1")]),
 
 
-  io:format("On Device Entities to Open:~nMainServer: ~p~nServerAPI: ~p~nClientsAndWorkers: ~p~nSources: ~p~nRouters: ~p~n Federated Servers: ~p~n",
-                                      [MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds]),
+  %io:format("On Device Entities to Open:~nMainServer: ~p~nServerAPI: ~p~nClientsAndWorkers: ~p~nSources: ~p~nRouters: ~p~n Federated Servers: ~p~n",
+  %                                    [MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds]),
 
   
   {MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds,NerlNetSettings,GUI}.
@@ -350,7 +353,7 @@ connectRouters(G,ArchitectureMap,CommunicationMap) ->
 addEdges(G,V1,V2) ->
   Edges = [digraph:edge(G,E) || E <- digraph:edges(G)],
   DupEdges = [E || {E, Vin, Vout, Label} <- Edges, Vin == V1, Vout == V2],
-  io:format("DupEdges are: ~p~n",[DupEdges]),
+  %io:format("DupEdges are: ~p~n",[DupEdges]),
   if length(DupEdges) /= 0 -> skip;
     true ->
       digraph:add_edge(G,V1,V2),

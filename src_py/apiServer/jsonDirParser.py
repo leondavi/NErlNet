@@ -31,6 +31,9 @@ class NerlFile():
         self.json = json.load(f)
 
         return self.json
+    
+    def __lt__(self, other):
+        return self.filename < other.filename
 
 class JsonDirParser():
 
@@ -51,30 +54,33 @@ class JsonDirParser():
  
     
     def extract_lists(self, jsonDirPath):
-        for filename in os.listdir(jsonDirPath+"/Architecture"):
-            if filename.startswith(PREFIX_ARCH) and filename.endswith('json'): 
-                self.arch_list.append(NerlFile(filename, jsonDirPath+"/Architecture"))
+        for dirpath, dirnames, filenames in os.walk(jsonDirPath):
+            for filename in filenames:
+                if filename.startswith(PREFIX_ARCH) and filename.endswith('json'): 
+                    self.arch_list.append(NerlFile(filename, dirpath))
 
-        for filename in os.listdir(jsonDirPath+"/ConnectionMap"):
-            if filename.startswith(PREFIX_CONNECTION_MAP) and filename.endswith('json'): 
-                self.conn_map_list.append(NerlFile(filename, jsonDirPath+"/ConnectionMap"))
-
-        for filename in os.listdir(jsonDirPath+"/experimentsFlow"):
-            if filename.startswith(PREFIX_EXPERIMENT_FLOW) and filename.endswith('json'): 
-                self.experiments_list.append(NerlFile(filename, jsonDirPath+"/experimentsFlow"))
+                if filename.startswith(PREFIX_CONNECTION_MAP) and filename.endswith('json'): 
+                    self.conn_map_list.append(NerlFile(filename, dirpath))
+                
+                if filename.startswith(PREFIX_EXPERIMENT_FLOW) and filename.endswith('json'): 
+                    self.experiments_list.append(NerlFile(filename, dirpath))
 
     def print_lists(self):
+        self.arch_list.sort()
+        self.conn_map_list.sort()
+        self.experiments_list.sort()
+
         print("\nArchitechure Files\n--------------------\n")
         for idx, elem in enumerate(self.arch_list):
-            print(f'{idx}. {elem}')
+            print(f'{idx}.\t{elem.filename}')
         
         print("\nConnection Map Files\n--------------------\n")
         for idx, elem in enumerate(self.conn_map_list):
-            print(f'{idx}. {elem}')
+            print(f'{idx}.\t{elem.filename}')
 
         print("\nExperiments Flow Files\n--------------------\n")
         for idx, elem in enumerate(self.experiments_list):
-            print(f'{idx}. {elem}')
+            print(f'{idx}.\t{elem.filename}')
 
     def select_arch_connmap_experiment(self):
         arch = input("enter arch file #")

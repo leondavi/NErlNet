@@ -1,15 +1,16 @@
 {
+   "CSV path": "One_Two",
    "Batches per source": 
      {
-        "Training": 90,
-        "Prediction": 10
+        "Training": 200,
+        "Prediction": 50
      },
   
      "Training":  [
          {
             "source name": "s1",
             "workers": "w1,w2,w3",
-            "CSV path": "gauss/gauss_train"
+            "CSV path": "One_Two"
          }
      ],
     
@@ -17,7 +18,7 @@
          {
             "source name": "s1",
             "workers": "w1,w2,w3",
-            "CSV path": "gauss/gauss_predict"
+            "CSV path": "One_Two"
          }
     ],
     
