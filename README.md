@@ -45,8 +45,8 @@ https://user-images.githubusercontent.com/18975070/145286597-340bbd31-0050-492f-
 ![Nerlnet Architecture](https://user-images.githubusercontent.com/18975070/141692829-f0cdca7d-96d1-43b0-920a-5821a14242f7.jpg)
 
 # Build and Run Nerlnet:
-Minimum cmake version 3.18
-Minimum erlang version 
+Minimum cmake version 3.18 <br>
+Minimum erlang version otp 24 <br>
 
 On each machine that runs Nerlnet go through the following steps: 
 1. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo>```
