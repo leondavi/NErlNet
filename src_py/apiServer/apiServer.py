@@ -26,31 +26,32 @@ class ApiServer():
 
     def help(self):
 
-        print("""
-            _____NERLNET CHECKLIST_____
-            0. make sure data and jsons in correct places
+        print(
+"""
+_____NERLNET CHECKLIST_____
+0. make sure data and jsons in correct places
             
-            _____API COMMANDS_____
-            Setting experiment:
-            -showJsons():                       shows available arch / conn / exp layouts
-            -selectJsons():                     get input from user for arch / conn / exp selection
-            -setJsons(arch, conn, exp):         set layout in code
-            -getUserJsons():                    returns the selected arch / conn / exp
-            -initialization(arch, conn, exp):   set up server for a NerlNet run
-            -sendJsonsToDevices():              send each NerlNet device the arch / conn jsons to init entities on it
-            -sendDataToSources(phase):          phase can be "training" / "prediction". send the experiment data to sources (currently happens in beggining of train/predict)
-            Starting Run:
-            -train():                           start training phase
-            -predict():                         start prediction phase
-            -contPhase(phase):                  send another `Batch_size` of a phase (must be called after initial train/predict)
-            Get Info:
-            -statistics():                      get specific statistics of experiment (lossFunc graph, accuracy, etc...)
+_____API COMMANDS_____
+Setting experiment:
+-showJsons():                       shows available arch / conn / exp layouts
+-selectJsons():                     get input from user for arch / conn / exp selection
+-setJsons(arch, conn, exp):         set layout in code
+-getUserJsons():                    returns the selected arch / conn / exp
+-initialization(arch, conn, exp):   set up server for a NerlNet run
+-sendJsonsToDevices():              send each NerlNet device the arch / conn jsons to init entities on it
+-sendDataToSources(phase):          phase can be "training" / "prediction". send the experiment data to sources (currently happens in beggining of train/predict)
+Starting Run:
+-train():                           start training phase
+-predict():                         start prediction phase
+-contPhase(phase):                  send another `Batch_size` of a phase (must be called after initial train/predict)
+Get Info:
+-statistics():                      get specific statistics of experiment (lossFunc graph, accuracy, etc...)
 
-            _____GLOBAL VARIABLES / CONSTANTS_____
-            pendingAcks:                        makes sure API command reaches all relevant entities
-            multiProcQueue:                     a queue for combining data after train / predict phases
-            TRAINING_STR = "Training"
-            PREDICTION_STR = "Prediction"
+_____GLOBAL VARIABLES / CONSTANTS_____
+pendingAcks:                        makes sure API command reaches all relevant entities
+multiProcQueue:                     a queue for combining data after train / predict phases
+TRAINING_STR = "Training"
+PREDICTION_STR = "Prediction"
         """)
     
     def initialization(self, arch_json: str, conn_map_json, experiment_flow_json):
