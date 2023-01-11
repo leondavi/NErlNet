@@ -26,12 +26,10 @@ class ApiServer():
 
     def help(self):
 
-        print(
-            """
+        print("""
             _____NERLNET CHECKLIST_____
             0. make sure data and jsons in correct places
             
-
             _____API COMMANDS_____
             Setting experiment:
             -showJsons():                       shows available arch / conn / exp layouts
@@ -40,10 +38,12 @@ class ApiServer():
             -getUserJsons():                    returns the selected arch / conn / exp
             -initialization(arch, conn, exp):   set up server for a NerlNet run
             -sendJsonsToDevices():              send each NerlNet device the arch / conn jsons to init entities on it
-            -sendDataToSources():               send the experiment data to sources (currently happens in beggining of train/predict)
+            -sendDataToSources(phase):          phase can be "training" / "prediction". send the experiment data to sources (currently happens in beggining of train/predict)
+            Starting Run:
             -train():                           start training phase
             -predict():                         start prediction phase
             -contPhase(phase):                  send another `Batch_size` of a phase (must be called after initial train/predict)
+            Get Info:
             -statistics():                      get specific statistics of experiment (lossFunc graph, accuracy, etc...)
 
             _____GLOBAL VARIABLES / CONSTANTS_____
@@ -62,7 +62,7 @@ class ApiServer():
         globe.components = NetworkComponents(archData) # TODO components path should come from jsonDirParser
         globe.components.printComponents()
         globe.experiment_flow_global.printExp()
-        
+
         mainServerIP = globe.components.mainServerIp
         mainServerPort = globe.components.mainServerPort
         self.mainServerAddress = 'http://' + mainServerIP + ':' + mainServerPort
@@ -162,8 +162,14 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
     def sendDataToSources(self, phase):
         print("***********NOT READY************")
         print("\nSending data to sources")
+        # <num of sources> Acks for updateCSV():
+        globe.pendingAcks += len(globe.components.sources) 
 
         self.transmitter.updateCSV(phase)
+
+        while globe.pendingAcks > 0:
+            time.sleep(0.005)
+            pass 
 
         print("\nData ready in sources")
 

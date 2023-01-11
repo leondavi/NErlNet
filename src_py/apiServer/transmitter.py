@@ -93,9 +93,7 @@ class Transmitter:
         globe.experiment_flow_global.syncTrainingWithFlow()
 
         # 1 Ack for clientsTraining(), <num of sources> Acks for updateCSV():
-        globe.pendingAcks += 1 + len(globe.components.sources) 
-
-        self.updateCSV(globe.TRAINING_STR)
+        globe.pendingAcks += 1
 
         self.clientsTraining()
         
@@ -147,9 +145,7 @@ class Transmitter:
         globe.experiment_flow_global.syncPredicitionWithFlow()
 
         # 1 Ack for clientsPredict(), <num of sources> Acks for updateCSV():
-        globe.pendingAcks += 1 + len(globe.components.sources) 
-
-        self.updateCSV(globe.PREDICTION_STR)
+        globe.pendingAcks += 1
 
         self.clientsPredict()
 
