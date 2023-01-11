@@ -23,6 +23,35 @@ class ApiServer():
     def __init__(self):       
         self.json_dir_parser = JsonDirParser()
         pass
+
+    def help(self):
+
+        print(
+            """
+            _____NERLNET CHECKLIST_____
+            0. make sure data and jsons in correct places
+            
+
+            _____API COMMANDS_____
+            Setting experiment:
+            -showJsons():                       shows available arch / conn / exp layouts
+            -selectJsons():                     get input from user for arch / conn / exp selection
+            -setJsons(arch, conn, exp):         set layout in code
+            -getUserJsons():                    returns the selected arch / conn / exp
+            -initialization(arch, conn, exp):   set up server for a NerlNet run
+            -sendJsonsToDevices():              send each NerlNet device the arch / conn jsons to init entities on it
+            -sendDataToSources():               send the experiment data to sources (currently happens in beggining of train/predict)
+            -train():                           start training phase
+            -predict():                         start prediction phase
+            -contPhase(phase):                  send another `Batch_size` of a phase (must be called after initial train/predict)
+            -statistics():                      get specific statistics of experiment (lossFunc graph, accuracy, etc...)
+
+            _____GLOBAL VARIABLES / CONSTANTS_____
+            pendingAcks:                        makes sure API command reaches all relevant entities
+            multiProcQueue:                     a queue for combining data after train / predict phases
+            TRAINING_STR = "Training"
+            PREDICTION_STR = "Prediction"
+        """)
     
     def initialization(self, arch_json: str, conn_map_json, experiment_flow_json):
         archData = self.json_dir_parser.json_from_path(arch_json)
@@ -32,7 +61,8 @@ class ApiServer():
         globe.experiment_flow_global.set_experiment_flow(expData)
         globe.components = NetworkComponents(archData) # TODO components path should come from jsonDirParser
         globe.components.printComponents()
-
+        globe.experiment_flow_global.printExp()
+        
         mainServerIP = globe.components.mainServerIp
         mainServerPort = globe.components.mainServerPort
         self.mainServerAddress = 'http://' + mainServerIP + ':' + mainServerPort
@@ -57,7 +87,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # Initalize an instance for the transmitter: 
         self.transmitter = Transmitter(self.mainServerAddress)
 
-        print("\n***Please remember to execute NerlnetRun.sh before continuing.")
+        print("\n***Please remember to execute NerlnetRun.sh on each device before continuing.")
 
     def sendJsonsToDevices(self):
         # Send the content of jsonPath to each devices:
@@ -129,6 +159,15 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
         return expResults
    
+    def sendDataToSources(self, phase):
+        print("***********NOT READY************")
+        print("\nSending data to sources")
+
+        self.transmitter.updateCSV(phase)
+
+        print("\nData ready in sources")
+
+
     def train(self):
         # Choose a nem for the current experiment:
         print("\nPlease choose a name for the current experiment:", end = ' ')
