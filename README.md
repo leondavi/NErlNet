@@ -64,7 +64,9 @@ Minimum Python version: 3.8
 1. Create and activate a virtual environment for Nerlnet https://docs.python.org/3/library/venv.html
 2. Install required modules ```pip install -r src_py/requirements.txt```
 3. Install Jupyter Notebook ```pip install jupyterlab```
-4. import the ApiServer module to the notebook. 
-5. Follow the example: https://github.com/leondavi/NErlNet/blob/master/src_py/Deprecated/flow_example.ipynb 
+4. Call Jupyter environment creator script with an experiment directory ```./NerlnetJupyterEnvGenerator.sh --j <experiment_direcotry>```
+5. import the ApiServer module to the notebook. 
+6. Follow the example: https://github.com/leondavi/NErlNet/blob/master/src_py/Deprecated/flow_example.ipynb 
 
 Contact Email: nerlnet@outlook.com 
+NerlnetJupyterEnvGenerator.sh
