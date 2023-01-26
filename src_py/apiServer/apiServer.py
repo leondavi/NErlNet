@@ -161,7 +161,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         return expResults
    
     def sendDataToSources(self, phase):
-        print("***********NOT READY************")
+        print("***********IN TESTING************")
         print("\nSending data to sources")
         # <num of sources> Acks for updateCSV():
         globe.pendingAcks += len(globe.components.sources) 
