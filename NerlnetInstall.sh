@@ -15,9 +15,9 @@ function print()
 
 ARCH_TYPE=`uname -m`
 
-print "Execute this script within NErlNet directory with super user privilidges!"
+print "Execute this script within NErlNet directory with super user privileges!"
 sleep 5
-echo "Following commands will be executed with super user privilidges:"
+echo "Following commands will be executed with super user privileges:"
 echo "installing Erlang and cmake"
 wget https://packages.erlang-solutions.com/erlang-solutions_2.0_all.deb
 sudo dpkg -i erlang-solutions_2.0_all.deb

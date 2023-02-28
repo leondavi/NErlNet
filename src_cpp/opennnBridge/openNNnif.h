@@ -127,8 +127,129 @@ static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 }  //end trainn_nif
 
 
+bool is_big_endian(void)
+{
+    union {
+        uint32_t i;
+        char c[4];
+    } bint = {0x01020304};
+
+    return bint.c[0] == 1;
+}
+
+static ERL_NIF_TERM encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
+
+    #if DEBUG_ENCODE
+        std::cout << "Start the encode_nif." << '\n';
+    #endif
+
+    bool isEndian = is_big_endian();
+    if (isEndian)
+    {
+        std::cout << "\nThe system is Big Endian: " << std::endl;
+    }
+    else
+    {
+        std::cout << "\nThe system is Little Endian: " << std::endl;
+    }
+    
+
+    int NumOfBytes{};
+
+    // Get NumOfBytes (int) from erlang term
+    if (!enif_get_int(env, argv[1], &NumOfBytes)) {
+        return enif_make_badarg(env);
+    }
+
+    union {
+        int receiveInt;
+        double receivedDouble;
+        char arrayOfChars[sizeof(double)];
+    } receivedNum;
 
 
+    if (enif_get_double(env, argv[0], &receivedNum.receivedDouble))
+    {
+        #if DEBUG_ENCODE
+            std::cout << "Its a double" << std::endl;
+        #endif
+
+        return enif_make_string_len(env, (char*)(&receivedNum.arrayOfChars),NumOfBytes, ERL_NIF_LATIN1);
+    } 
+    else if (enif_get_int(env, argv[0], &receivedNum.receiveInt)) 
+    {
+        #if DEBUG_ENCODE
+            std::cout << "Its an integer" << std::endl;
+        #endif
+
+        return enif_make_string_len(env, (char*)(&receivedNum.arrayOfChars),NumOfBytes, ERL_NIF_LATIN1);
+    } 
+    else
+    {
+        return enif_make_atom(env, "Not_a_number");
+    }
+
+    #if DEBUG_ENCODE
+        std::cout << "Print array_of_chars:" << std::endl;
+        for(int k = 0; k < sizeof(double); k++)
+        {
+            std::cout << (int)receivedNum.arrayOfChars[k] << std::endl;
+        }
+    #endif
+
+    return enif_make_atom(env, "Finished encode NIF not as expected");
+
+}  
+
+
+static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
+
+    #if DEBUG_DECODE
+        std::cout << "Start the decode_nif." << '\n';
+    #endif
+
+    int NumOfBytes{};
+
+    // Get NumOfBytes (int) from erlang term
+    if (!enif_get_int(env, argv[1], &NumOfBytes)) {
+        return enif_make_badarg(env);
+    }
+
+    union {
+        int receiveInt;
+        double receivedDouble;
+        unsigned char arrayOfChars[sizeof(double)];
+        
+    } receivedString;
+
+    //char* buf = (char*) enif_alloc(NumOfBytes + 1);
+    
+    if (!enif_get_string(env, argv[0], (char*)receivedString.arrayOfChars, NumOfBytes+1, ERL_NIF_LATIN1)) {
+        enif_free(receivedString.arrayOfChars);
+        return enif_make_badarg(env);
+    }
+
+    #if DEBUG_DECODE
+        std::cout << "Print array_of_chars:" << std::endl;
+        for(int k = 0; k < sizeof(receivedString.arrayOfChars); k++)
+        {
+            std::cout << (int)receivedString.arrayOfChars[k] << std::endl;
+        }
+        //std::cout << receivedString.receivedDouble << std::endl;
+        //std::cout << receivedString.receiveInt << std::endl;
+    #endif
+
+    if(NumOfBytes == 8)
+    {
+        return enif_make_double(env, receivedString.receivedDouble);
+    }
+    else if (NumOfBytes == 4)
+    {
+        return enif_make_int(env, receivedString.receiveInt);
+    }
+
+    return enif_make_atom(env, "Finished decode NIF not as expected");
+}  
 
 
 static ErlNifFunc nif_funcs[] =
@@ -137,7 +258,9 @@ static ErlNifFunc nif_funcs[] =
     {"trainn_nif", 5 , trainn_nif},
     {"predict_nif", 2 , predict_nif},
     {"get_weights_nif",1, get_weights_nif},
-    {"set_weights_nif",2, set_weights_nif}
+    {"set_weights_nif",2, set_weights_nif},
+    {"encode",2, encode_nif},
+    {"decode",2, decode_nif}
 };
 
 
