@@ -5,6 +5,7 @@
 
 -export([init/0,create_nif/6,train_nif/5,trainn_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
+-export([encode/2, encode1/2, decode/2, decode1/2]).
 
 -define(DEBUG,false). % set here if it is debug or release  TODO change to read from hrl auto generated file
 -if(DEBUG).
@@ -17,7 +18,7 @@
 -on_load(init/0).
 
 init() ->
-       %io:format("loading niff init()~n",[]),
+       io:format("loading niff init()~n",[]),
        {_,CWD} = file:get_cwd(), 
        %io:format("CWD~p~n",[CWD]),
        CWD_UPPER_DIR = re:replace(CWD,"/"++?THIS_FILE_PATH_RELATIVE_TO_PROJECT_ROOT,"",[{return,list}]),
@@ -31,8 +32,8 @@ init() ->
 
 
    % TODO TODO return to relative parh brfor commit to master. 
-      FULL_PATH = "../../../build/"++?BUILD_TYPE++"/libnerlnet",
-      % io:format("~p~n",[CWD_UPPER_DIR]),
+      FULL_PATH = "../../../NErlNet/build/"++?BUILD_TYPE++"/libnerlnet",
+      io:format("Full path: ~p~n",[FULL_PATH]),
       RES = erlang:load_nif(FULL_PATH, 0),
       io:format("load nif results: ~p",[RES]),
       ok.
@@ -127,3 +128,23 @@ set_weights_nif(ModelID, Weights) ->
 
 printTensor(List,Type) when is_list(List) -> 
       exit(nif_library_not_loaded).
+
+
+% Num - number to convert to string
+% NumType (Number of bytes): For 64-bit UNIX and Linux applications:
+% char - 1, short - 2, int - 4, long - 8 (4 for Windows 64-bit and unix/linux 32 bit), float - 4, double - 8, 
+% long double - 16 (8 for Windows 64-bit and 32 bit AIX® and Linux PPC), float16 - 2, float32 - 4
+encode1(Num, NumOfBytesForType) ->
+      Result = encode(Num, NumOfBytesForType),
+      io:format("~w~n", [Result]).
+
+encode(_Num, _NumOfBytesForType) ->
+      exit(nif_library_not_loaded).
+
+decode1(String, NumOfBytesForType) ->
+      Result = decode(String, NumOfBytesForType),
+      io:format("~w~n", [Result]).
+
+decode(_String, _NumOfBytesForType) ->
+      exit(nif_library_not_loaded).
+
