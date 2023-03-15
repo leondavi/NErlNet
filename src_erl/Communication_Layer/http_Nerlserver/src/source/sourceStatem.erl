@@ -99,7 +99,9 @@ idle(cast, {csvList,Workers,CSVData}, State = #source_statem_state{chunkSize = C
 idle(cast, {startCasting,Body}, State = #source_statem_state{myName = MyName, lengthOfSample = LengthOfSample, sendingMethod = Method, frequency = Frequency, chunkSize = ChunkSize, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, nerlnetGraph = NerlnetGraph, msgCounter = Counter, csvName = CSVName, csvList =CSVlist}) ->
     [_Source,NumOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
     NumBatches = list_to_integer(NumOfBatchesToSend),
-
+  %% Reminder:
+  %% CSVlist holds the data yet to be transmitted, which was read from the data passed to source.
+  %% NumOfBatchesToSend is the NerlNet param that on startup defines the number of data lines passed in each message
   io:format("start casting to: ~p~n, number of batches to send: ~p~ntotal casting list length: ~p~n ",[CastingTo,NumOfBatchesToSend, length(CSVlist)]),
   NumToSend = if NumBatches < length(CSVlist) -> NumBatches; true -> length(CSVlist) end,
   Transmitter =  spawnTransmitter(CastingTo,CSVName,CSVlist,NerlnetGraph,MyName,WorkersMap,ChunkSize,LengthOfSample,Frequency,NumToSend,Method) ,
