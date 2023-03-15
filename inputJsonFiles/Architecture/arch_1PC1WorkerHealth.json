@@ -1,0 +1,90 @@
+{
+  "NerlNetSettings": [
+  {
+    "frequency": "5",
+    "batchSize": "10"
+  }
+  ],
+  "devices": [
+    {
+      "host": "192.168.0.108",
+      "entities": "mainServer,c1,s1,r1,nerlGUI"
+    }
+  ],
+  "serverAPI": [
+    {
+      "host": "192.168.0.108",
+      "port": "8095",
+      "args": ""
+    }
+  ],
+  "nerlGUI": [
+    {
+      "host": "192.168.0.108",
+      "port": "8096",
+      "args": ""
+    }
+  ],
+  "mainServer": [
+    {
+      "host": "192.168.0.108",
+      "port": "8080",
+      "args": ""
+    }
+  ],
+  "workers": [
+    {
+      "name": "w1",
+      "modelId": "0",
+      "modelType": "5",
+      "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
+      "scalingMethod": "0",
+      "_comment1": "NoScaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
+      "layerTypesList": "[0,0,0,0,0,0]",
+      "layersSizes": "[13,10,10,6,6,5,5]",
+      "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5 ,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
+      "layersActivationFunctions":"[5,9,5,9,5,11]",
+      "federatedMode": "0",
+      "countLimit": "10",
+      "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
+      "lossMethod": "2",
+      "_comment4": "SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
+      "learningRate": "0.01",
+      "_comment5": "TODOTODO explain learningRate",
+      "optimizer":"5",
+      "features": "128",
+      "labels": "1"
+    }
+  ],
+  "clients": [
+    {
+      "name": "c1",
+      "port": "8081",
+      "workers": "w1",
+      "federated": "f1"
+    }
+  ],
+  "federated": [
+    {
+      "name": "f1",
+      "port": "8083",
+      "workers": "w1",
+      "counterLimit": "1"
+    }
+  ],
+  "sources": [
+    {
+      "name": "s1",
+      "port": "8091",
+      "method": "1",
+      "COMMENTS": "method allowed: '1': sends each exapme to all clients listed, '2': round robin between all clients"
+    }
+  ],
+ "routers": [
+    {
+      "name": "r1",
+      "host": "127.0.0.1",
+      "port": "8084"
+    }
+  ]
+}
