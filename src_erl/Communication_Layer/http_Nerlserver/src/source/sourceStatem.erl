@@ -89,7 +89,7 @@ idle(cast, {csvList,Workers,CSVData}, State = #source_statem_state{chunkSize = C
   %%  CSVName = lists:last(re:split(CSVPath,"/",[{return,list}])),
   {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
   %%  send an ACK to mainserver that the CSV file is ready
-  io:format("source updated transmitting list, available batches to send: - ~p~n",[length(CSVlist)]),
+  logger:info("source updated transmitting list, available batches to send: - ~p~n",[length(CSVlist)]),
   io:format("source updated Workers - ~p~n",[Workers]),
   http_request(RouterHost,RouterPort,"csvReady",MyName),
   {next_state, idle, State#source_statem_state{lengthOfSample = LengthOfSample, castingTo = Workers, msgCounter = Counter+1,csvList =CSVlist}};

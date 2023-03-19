@@ -34,7 +34,8 @@ class ApiServer():
         print(
 """
 __________NERLNET CHECKLIST__________
-0. make sure data and jsons in correct places
+0. Make sure data and jsons in correct places
+1. Run Jupyter in virtual env: source <venv>/bin/activate
             
 ____________API COMMANDS_____________
         Setting experiment:
@@ -57,8 +58,8 @@ ____________API COMMANDS_____________
 -statistics():                      get specific statistics of experiment (lossFunc graph, accuracy, etc...)
 
 _____GLOBAL VARIABLES / CONSTANTS_____
-pendingAcks:                        makes sure API command reaches all relevant entities
-multiProcQueue:                     a queue for combining data after train / predict phases
+pendingAcks:                        makes sure API command reaches all relevant entities (wait for pending acks)
+multiProcQueue:                     a queue for combining and returning data to main thread after train / predict phases
 TRAINING_STR = "Training"
 PREDICTION_STR = "Prediction"
         """)
@@ -69,7 +70,7 @@ PREDICTION_STR = "Prediction"
         expData = self.json_dir_parser.json_from_path(experiment_flow_json)
         
         globe.experiment_flow_global.set_experiment_flow(expData)
-        globe.components = NetworkComponents(archData) # TODO components path should come from jsonDirParser
+        globe.components = NetworkComponents(archData)
         globe.components.printComponents()
         globe.experiment_flow_global.printExp()
 
@@ -92,7 +93,7 @@ PREDICTION_STR = "Prediction"
         if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
             print("Failed to initialize the receiver using the provided address.\n\
 Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
-            sys.exit()      
+            sys.exit()
 
         # Initalize an instance for the transmitter: 
         self.transmitter = Transmitter(self.mainServerAddress)
@@ -111,7 +112,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         #[JsonsPath, connPath] = connMapAddress.split("/NErlNet")
         #connMapAddress = "../../.."+connPath
 
-        data = archAddress + '#' + connMapAddress
+        #data = archAddress + '#' + connMapAddress
 
         for ip in globe.components.devicesIp:
             with open(archAddress, 'rb') as f1, open(connMapAddress, 'rb') as f2:
@@ -219,7 +220,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             print("No experiments were conducted yet.")
             return
 
-        print("\n---STATISTICS---\n")
+        print("\n---SAVED EXPERIMENTS---\n")
         print("List of saved experiments:")
         for i, exp in enumerate(self.experiments, start=1): 
             print(f"{i}) {exp.name}")
@@ -338,7 +339,6 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         labelsArr = np.sort(labelsArr) 
 
         predsDict = {} # A dictionary containing all the predictions
-        accDict = {} # For each sample: 1/0 if the prediction was right/wrong. 
 
         for csvNum in csvNumsList:
             csvResAcc = expForStats.predictionResList[csvNum-1]
@@ -364,46 +364,6 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
                         predsDict[sampleNum] = currentPrediction
 
-                        if (currentPrediction == labelsSeries.iloc[sampleNum]):
-                            accDict[sampleNum] = 1
-
-                        else:
-                            accDict[sampleNum] = 0
-
-        '''
-        powIdx = 1
-        while True:
-            size = powIdx**2
-            nextSize = ((powIdx+1)**2)
-
-            if (nextSize > len(accDict)):
-                break
-            
-            powIdx += 1
-
-        accDictPreds = list(accDict.values())
-        accDictPreds = np.array(accDictPreds)
-        accDictPreds = accDictPreds[:size]
-        accDictPreds = accDictPreds.reshape((powIdx,powIdx))
-
-        print(accDictPreds)
-        expTitle = (expForStats.name)
-
-        plt.figure(figsize = (8,8), dpi = 150)
-        plt.imshow(accDictPreds, cmap = 'OrRd')
-
-        plt.title(f"Prediction - Accuracy - {expTitle}", fontsize = 24)
-
-        for (i,j), _ in np.ndenumerate(accDictPreds):
-            txt = f'{(i * powIdx) + j + 1}'
-            plt.text(i, j, txt, ha='center', va='center', fontsize = 4, fontweight='bold')
-
-        plt.tick_params(left = False, right = False , labelleft = False , labelbottom = False, bottom = False)
-        plt.colorbar()
-
-        plt.show()
-        '''
-
         predsSeries = pd.Series(predsDict)
         SlicedLabelsSeries = labelsSeries.iloc[:predsSeries.size]
 
@@ -416,20 +376,24 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         confMat = confusion_matrix(SlicedLabelsSeriesStr, predsSeriesStr, labels = labelsArrStr)
         # Calculate the accuracy adn other stats:
         tp, tn, fp, fn = confMat.ravel()
-        accuracy = (tp + tn) / (tp + tn + fp + fn)
-        print(f"\nAccuracy acquired: {round(accuracy, 3)} ({round(accuracy*100, 3)}%).\n")
+        acc = (tp + tn) / (tp + tn + fp + fn)
         ppv = tp / (tp + fp)
-        print(f"\Positive Predictive Rate (Precision): {round(ppv, 3)} ({round(ppv*100, 3)}%).\n")
         tpr = tp / (tp + fn)
-        print(f"\True Positive Rate (Sensitivity / Hit Rate): {round(tpr, 3)} ({round(tpr*100, 3)}%).\n")
         tnr = tn / (tn + fp)
-        print(f"\True Negative Rate (Selectivity): {round(tnr, 3)} ({round(tnr*100, 3)}%).\n")
+        inf = tpr + tnr - 1
+        bacc = (tpr + tnr) / 2
+        print(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.\n")
+        print(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.\n")
+        print(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
+        print(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.\n")
+        print(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.\n")
+        print(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
 
         confMatDisp = ConfusionMatrixDisplay(confMat, display_labels = labelsArr)
         fig, ax = plt.subplots(figsize = (10,10), dpi = 150)
         plt.rcParams.update({'font.size': 14})
         expTitle = expForStats.name
-        ax.set_title(f"Prediction - Confusion Matrix - {expTitle}\nAccuracy: {round(accuracy, 3)} ({round(accuracy*100, 3)}%)", fontsize = 18)
+        ax.set_title(f"Prediction - Confusion Matrix - {expTitle}\nAccuracy: {round(acc, 3)} ({round(acc*100, 3)}%)", fontsize = 18)
         ax.set_xlabel('True Labels', fontsize = 16)
         ax.set_ylabel('Predicted Labels', fontsize = 16)
         confMatDisp.plot(ax = ax)
@@ -439,7 +403,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         confMatDisp.figure_.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.png')
         print(f'\n{fileName}.png Saved...')
 
-        return accuracy, confMat
+        return tp, tn, fp, fn
     
     def communication_stats(self):
         self.transmitter.statistics()
