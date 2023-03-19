@@ -339,18 +339,20 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
         predsDict = {} # A dictionary containing all the predictions
         accDict = {} # For each sample: 1/0 if the prediction was right/wrong. 
-        
+
         for csvNum in csvNumsList:
             csvResAcc = expForStats.predictionResList[csvNum-1]
 
             workersPredictions = csvResAcc.workersResList
+
+            ############## CURRENTLY ONLY SUPPORTING BOOLEAN PREDICTIONS (SINGLE BIT TRUE / FALSE)
 
             # Generate the samples' indexes from the results:
             for worker in workersPredictions:
                 for batch in worker.resList:
                     for offset, prediction in enumerate(batch.predictions):
                         sampleNum = batch.indexRange[0] + offset
-                        normsDict = {} #  The "distance" of the current prediction prediction from each of the labels. 
+                        normsDict = {} #  The "distance" of the current prediction from each of the labels. 
 
                         # The distances of the current prediction from each of the labels: 
                         for i, label in enumerate(labelsArr):
@@ -367,11 +369,6 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
                         else:
                             accDict[sampleNum] = 0
-        
-        # Calculate the accuracy:
-        correctPreds = sum(accDict.values())
-        accuracy = correctPreds / len(accDict)
-        print(f"\nAccuracy acquired: {round(accuracy, 3)} ({round(accuracy*100, 3)}%).")
 
         '''
         powIdx = 1
@@ -417,6 +414,17 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # Another option to solve this problem, is to numerize each classification group (group 1, group 2, ...), 
         # and add legened to show the true label value for each group.
         confMat = confusion_matrix(SlicedLabelsSeriesStr, predsSeriesStr, labels = labelsArrStr)
+        # Calculate the accuracy adn other stats:
+        tp, tn, fp, fn = confMat.ravel()
+        accuracy = (tp + tn) / (tp + tn + fp + fn)
+        print(f"\nAccuracy acquired: {round(accuracy, 3)} ({round(accuracy*100, 3)}%).\n")
+        ppv = tp / (tp + fp)
+        print(f"\Positive Predictive Rate (Precision): {round(ppv, 3)} ({round(ppv*100, 3)}%).\n")
+        tpr = tp / (tp + fn)
+        print(f"\True Positive Rate (Sensitivity / Hit Rate): {round(tpr, 3)} ({round(tpr*100, 3)}%).\n")
+        tnr = tn / (tn + fp)
+        print(f"\True Negative Rate (Selectivity): {round(tnr, 3)} ({round(tnr*100, 3)}%).\n")
+
         confMatDisp = ConfusionMatrixDisplay(confMat, display_labels = labelsArr)
         fig, ax = plt.subplots(figsize = (10,10), dpi = 150)
         plt.rcParams.update({'font.size': 14})
@@ -427,7 +435,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         confMatDisp.plot(ax = ax)
         plt.show()
 
-        fileName = csvResAcc.name.rsplit('/', 1)[0] # If the CSV name contains a path, then take everything to the right of the last '/'.
+        fileName = csvResAcc.name.rsplit('/', 1)[-1] # If the CSV name contains a path, then take everything to the right of the last '/'.
         confMatDisp.figure_.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.png')
         print(f'\n{fileName}.png Saved...')
 
