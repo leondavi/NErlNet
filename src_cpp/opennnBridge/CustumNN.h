@@ -17,8 +17,8 @@ public:
 
     
 
-    void setCustumNN(Tensor1DPtr neural_network_architecture , Tensor1DPtr layer_types, 
-                          Tensor1DPtr activations_functions ){
+    void setCustumNN(iTensor1DPtr neural_network_architecture , iTensor1DPtr layer_types, 
+                          iTensor1DPtr activations_functions ){
         
        std::cout << "start CustumNN" << std::endl; 
        std::cout << neural_network_architecture->size() << std::endl; 
