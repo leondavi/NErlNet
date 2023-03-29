@@ -18,8 +18,8 @@ class Autoencoder : public CustumNN
 
     }
 
-    void setAutoencoder(Tensor1DPtr neural_network_architecture , Tensor1DPtr layer_types, 
-                          Tensor1DPtr activations_functions)
+    void setAutoencoder(iTensor1DPtr neural_network_architecture , iTensor1DPtr layer_types, 
+                          iTensor1DPtr activations_functions)
     {
         this->setCustumNN(neural_network_architecture, layer_types, activations_functions);
     }
@@ -94,7 +94,7 @@ class AutoencoderClassifier : public Autoencoder
     }
 
     // train of AutoencoderClassifier 
-    float train(Tensor2DPtr autoencoder_data, Tensor2DPtr data)//, std::shared_ptr<OpenNN::NeuralNetwork> neural_network)
+    float train(fTensor2DPtr autoencoder_data, fTensor2DPtr data)//, std::shared_ptr<OpenNN::NeuralNetwork> neural_network)
     {
       
         bool eac_flag = true;
@@ -168,14 +168,14 @@ class AutoencoderClassifier : public Autoencoder
 //AEC Predict:
 //===================
 
-    Eigen::Tensor<int, 1> predict(Tensor2DPtr data)
+    iTensor1DPtr predict(fTensor2DPtr data)
     {
         OpenNN::NeuralNetwork *neural_network;
         neural_network = this;
        
         Eigen::Tensor<float, 2> predict_smaple(1,data->dimension(1)); 
 
-        Eigen::Tensor<int, 1> predictRetTensor(data->dimension(0)); 
+        iTensor1DPtr predictRetTensor = std::make_shared<iTensor1D>(data->dimension(0)); 
 
         int data_num_of_cols = data->dimension(1);
         double loss_val; //MSE error
@@ -202,7 +202,7 @@ class AutoencoderClassifier : public Autoencoder
            int RetVal = classification_function(loss_val);
            predRet[i]=RetVal;
            lossRet[i]=loss_val;
-           predictRetTensor(i) = RetVal;
+           (*predictRetTensor)[i] = RetVal;
  
         }
 
