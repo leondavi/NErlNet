@@ -8,7 +8,7 @@
 -define(NERLNET_LIB,"libnerlnet").
 -define(NERLNET_PATH,"/usr/local/lib/nerlnet-lib/NErlNet").
 -define(BUILD_TYPE_DEBUG,"debug").
--define(BUILD_TYPE_RELEASE,"release").
+-define(BUILD_TYPE_RELEASE,"/build/release").
 
 -define(THIS_FILE_PATH_RELATIVE_TO_PROJECT_ROOT,"src_erl"). % if this file moves to inner place than update this define
 -on_load(init/0).
