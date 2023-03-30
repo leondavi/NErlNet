@@ -1,0 +1,31 @@
+{
+     "CSV path": "health_comb",
+     "Batches per source": 
+     {
+        "Training": 50,
+        "Prediction": 50
+     },
+     "Training":  [
+         {
+            "source name": "s1",
+            "workers": "w1",
+            "CSV path": "health_comb_train"
+         }
+     ],
+    
+     "Prediction": [
+         {
+            "source name": "s1",
+            "workers": "w1",
+            "CSV path": "health_comb_predict"
+         }
+    ],
+    
+     "Statistics": [
+         {
+            "workers": "w1",
+            "routers": "r1"
+         }
+    ]
+}
+    

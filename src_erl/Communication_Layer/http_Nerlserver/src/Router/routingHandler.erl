@@ -10,7 +10,7 @@
 -author("kapelnik").
 -export([init/2,  start/2, stop/1]).
 -behaviour(application).
--define(DATA_LEN, 10*1000*1000). % default is 8MB, here set to 10MB
+-define(DATA_LEN, 15*1000*1000). % default is 8MB, here set to 15MB
 
 %%handler for routing all messages in the network.
 %%Action contains the information about the action performed, and Body contains the information needed for the action
