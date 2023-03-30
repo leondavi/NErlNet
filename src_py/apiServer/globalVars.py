@@ -15,6 +15,8 @@ from workerResult import *
 localHost = socket.gethostname()
 localIp = socket.gethostbyname(localHost)
 
+# for each server command, wait for appropriate number of acks from each entity to make sure job is finished
+# this may change according to command and which entities do the work
 pendingAcks = 0
 
 multiProcQueue = multiprocessing.Queue() # Create an instance of the queue

@@ -195,7 +195,7 @@ Triplets =getHostPort(WorkersNames,WorkersMap,NerlnetGraph,MyName,[]),
 sendSamples(ListOfSamples,_CSVPath,_ChunkSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,NumOfBatchesToSend,_Method) when NumOfBatchesToSend=<0->
   receive
   after Ms ->
-    gen_statem:cast(Pid,{finishedCasting,Counter,ListOfSamples}), io:format("sent all samples~n")   %, should exit(normal)?
+    gen_statem:cast(Pid,{finishedCasting,Counter,ListOfSamples}), io:format("sent all samples~n") % process finishes its job here and dies
   end;
 
 sendSamples([],_CSVPath,_ChunkSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,_NumOfBatchesToSend,_Method)->
