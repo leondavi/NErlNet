@@ -23,5 +23,14 @@ enum OptimizationMethod {E_OM_GRADIENT_DESCENT = 1, E_OM_CONJUGATE_GRADIENT = 2,
 
 enum LearningRateAlgorithm {E_LRA_GOLDEN_SECTION = 1 /* LRA -Learning Rate Algorithm */,E_LRA_BRENT_METHOD = 2}; 
 
-using Tensor1DPtr = std::shared_ptr<Tensor<Index,1>>;
-using Tensor2DPtr = std::shared_ptr<Tensor<float,2>>;
+using iTensor1D = Tensor<Eigen::Index,1>;
+using iTensor2D = Tensor<Eigen::Index,2>;
+
+using iTensor1DPtr = std::shared_ptr<iTensor1D>;
+using iTensor2DPtr = std::shared_ptr<iTensor2D>;
+
+using fTensor1D = Eigen::Tensor<float,1>;
+using fTensor2D = Eigen::Tensor<float,2>;
+
+using fTensor1DPtr = std::shared_ptr<fTensor1D>;
+using fTensor2DPtr = std::shared_ptr<fTensor2D>;

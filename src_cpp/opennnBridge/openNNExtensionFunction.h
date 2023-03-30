@@ -21,7 +21,7 @@ using namespace OpenNN;
 
 
 // openNNExtensionFunction.h
-void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neural_network , std::shared_ptr<nifpp::Tensor1D<Index>> activations_functions)
+void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neural_network , iTensor1DPtr activations_functions)
 {
    for(int i = 0; i < (int)((neural_network->get_trainable_layers_pointers()).size() ); i++){
           
