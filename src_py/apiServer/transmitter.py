@@ -118,7 +118,7 @@ class Transmitter:
         print("starting additional training")
 
         globe.pendingAcks += 1
-        if(phase.lower().startswith("t")):      # t for train / training
+        if(phase.lower().startswith("train")):      # accepts train / training / etc...
             self.clientsTraining()
             phase = globe.TRAINING_STR
         else:
