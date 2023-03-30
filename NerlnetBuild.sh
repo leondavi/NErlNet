@@ -1,6 +1,7 @@
 #!/bin/bash
 
-
+NERLNET_PREFIX="[NERLNET_SCRIPT]"
+INPUT_DATA_DIR="inputDataDir"
 SHORT_OPTIONS_LIST=p:,j:,c:,h
 LONG_OPTIONS_LIST=pull:,jobs:,clean:,help
 
@@ -19,9 +20,9 @@ help()
 
 gitOperations()
 {
-    echo "Warning! git checkout -f is about to be executed"
+    echo "$NERLNET_PREFIX Warning! git checkout -f is about to be executed"
     sleep 5
-    echo "Interrupt is possible in the next 10 seconds"
+    echo "$NERLNET_PREFIX Interrupt is possible in the next 10 seconds"
     sleep 10
     git checkout -f $1
     git pull origin $1
@@ -100,4 +101,12 @@ else
         echo "$NERLNET_BUILD_PREFIX $(tput setaf 1) Please run the following command from Nerlnet library root folder (or install rebar3 to usr/local/bin): $(tput sgr 0)"
         echo "$NERLNET_BUILD_PREFIX $(tput setaf 1) sudo ln -s `pwd`/src_erl/rebar3/rebar3 /usr/local/bin/rebar3 $(tput sgr 0)"
         echo "$NERLNET_BUILD_PREFIX "
+fi
+
+if [ -d "$INPUT_DATA_DIR" ]; then
+        echo "$NERLNET_BUILD_PREFIX Input data directory of nerlnet is: $INPUT_DATA_DIR"
+else
+        echo "$NERLNET_BUILD_PREFIX Generating $INPUT_DATA_DIR"
+        mkdir $INPUT_DATA_DIR
+        echo "$NERLNET_BUILD_PREFIX Add input data to $INPUT_DATA_DIR"
 fi
