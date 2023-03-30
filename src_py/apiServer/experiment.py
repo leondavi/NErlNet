@@ -40,6 +40,13 @@ class Experiment():
             for workerRes in csv.workersResList:
                 workerRes.remove0Tail()
 
+    def printExp(self):
+        print(f"""Experiment Data:
+        Data source:    {self.expFlow["CSV path"]}
+        Batches to send per phase:
+            Training:   {self.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.TRAINING_STR]}
+            Prediction: {self.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.PREDICTION_STR]}
+        """)
 
         # The prediction batches list is now NOT pre-allocated, cause batch size may differ.
         '''

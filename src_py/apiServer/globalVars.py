@@ -15,6 +15,8 @@ from workerResult import *
 localHost = socket.gethostname()
 localIp = socket.gethostbyname(localHost)
 
+# for each server command, wait for appropriate number of acks from each entity to make sure job is finished
+# this may change according to command and which entities do the work
 pendingAcks = 0
 
 multiProcQueue = multiprocessing.Queue() # Create an instance of the queue
@@ -26,7 +28,8 @@ GRAPH_INDEX = 5
 TRAINING_STR = "Training"
 PREDICTION_STR = "Prediction"
 BATHCHES_PER_SOURCE_STR = "Batches per source"
-
+# inputDataPath
+INPUT_DATA_PATH = "/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/"
 
 username = os.getlogin()
 #jsonPathLocation = '/home/{}/workspace/NErlNet/jsonPath'.format(username) # Use this if NerlnetInstall.sh does not work
@@ -53,8 +56,6 @@ else:
 components = None # will be initialized in ApiServer
 # Prepare to get results from the receiver:
 experiment_flow_global = Experiment()
-# inputDataPath
-INPUT_DATA_PATH = "/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/"
 
 # Addresses for future development:
 '''

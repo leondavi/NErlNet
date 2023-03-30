@@ -40,7 +40,7 @@ def processResult(resData, currentPhase):
             worker = resData[0]
             result = float(resData[1].replace(' ',''))
             #print(result)
-            if (int(result) == -1):
+            if (int(result) == -1):         # TODO what is this??
                 print(f"Received loss=-1 from worker {worker}. The NN's weights have been reset.")
             if (int(result) != -1 and int(result != 0)):
                 for csvRes in globe.experiment_flow_global.trainingResList:
