@@ -43,7 +43,7 @@ call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Wo
             Ret->
                   % io:format("Ret= ~p~n ",[Ret]),
                   %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
-                  gen_statem:cast(WorkerPid,{loss, Ret})
+                  gen_statem:cast(WorkerPid,{loss, Ret}) % TODO @Haran - please check what worker does with this Ret value 
             after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
                   io:format("///// woker miss train batch ~n "),
                   gen_statem:cast(WorkerPid,{loss, -1.0})
@@ -52,7 +52,7 @@ call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Wo
 call_to_predict(ModelID, Data, WorkerPid,CSVname, BatchID)->
       _RetVal = predict_nif(ModelID, Data),
       receive
-            Ret-> gen_statem:cast(WorkerPid,{predictRes,Ret,CSVname, BatchID})
+            Ret-> gen_statem:cast(WorkerPid,{predictRes,Ret,CSVname, BatchID}) % TODO @Haran - please check what worker does with this Ret value 
             after ?PREDICT_TIMEOUT -> 
                  % worker miss predict batch  TODO - inspect this code
                   gen_statem:cast(WorkerPid,{predictRes, nan, CSVname, BatchID})
