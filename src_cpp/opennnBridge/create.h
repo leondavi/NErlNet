@@ -171,12 +171,12 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         try{ 
          std::shared_ptr<OpenNN::NeuralNetwork> modelPtr(neural_network);
          // Create the singleton instance
-         opennnBridgeController *s = s->GetInstance();
+         opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
 
          // Put the model record to the map with modelId
          std::cout<< "your model ID is: " <<std::endl;
          std::cout<< modelId <<std::endl;
-         s->setData(modelPtr, modelId , modelType);  
+         onnBrCtrl.setData(modelPtr, modelId , modelType);  
         }
 
         catch(...){
