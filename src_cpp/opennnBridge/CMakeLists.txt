@@ -17,6 +17,12 @@ set(CMAKE_CXX_FLAGS "-fpic")
 include_directories(${EIGEN3_INCLUDE_DIR})
 message("-- [OPENNN_BRIDGE] Eigen Include Directory: ${EIGEN3_INCLUDE_DIR}")
 
+# Logger  
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../simple-cpp-logger/include)
+add_definitions( -D LOGGER_MAX_LOG_LEVEL_PRINTED=6 )
+add_definitions( -D LOGGER_PREFIX_LEVEL=2 )
+add_definitions( -D LOGGER_ENABLE_COLORS=1 )
+add_definitions( -D LOGGER_ENABLE_COLORS_ON_USER_HEADER=0 )
 
 #set(SRC_CODE 
 #	"ModelParams.cpp"

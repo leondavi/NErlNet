@@ -15,6 +15,7 @@
 
 using namespace std::chrono;
 
+#include <Logger.h>
 #include "../opennn/opennn/opennn.h"
 #include "bridgeController.h"
 #include "create.h"

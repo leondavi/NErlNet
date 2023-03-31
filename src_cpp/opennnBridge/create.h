@@ -15,7 +15,6 @@
  */
 //#include <iostream>
 #include <vector>
-#include "support.h"
 #include "ModelParams.h"
 #include "nifppEigenExtensions.h"
 #include "openNNExtensionFunction.h"

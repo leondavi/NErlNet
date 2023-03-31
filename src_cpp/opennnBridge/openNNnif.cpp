@@ -31,11 +31,12 @@ inline bool set_optimization_method(TrainingStrategy &training_strategy, shared_
         }
     else
     {
-        cout << NERLNIF_PREFIX << "TrainNNptr learning_rate: " << TrainNNptr->learning_rate <<endl; 
-        cout << NERLNIF_PREFIX << "TrainNNptr loss method: " << TrainNNptr->loss_method <<endl; 
-        cout << NERLNIF_PREFIX << "TrainNNptr optimization_method: " << TrainNNptr->optimization_method <<endl; 
-        cout << NERLNIF_PREFIX << "TrainNNptr tid: " << TrainNNptr->tid <<endl;
-        cout << NERLNIF_PREFIX << "optimization_method not choosen " <<std::endl; //TODO create logger
+        LogError << NERLNIF_PREFIX << "TrainNNptr learning_rate: " << TrainNNptr->learning_rate <<endl; 
+        LogError << NERLNIF_PREFIX << "TrainNNptr learning_rate: " << TrainNNptr->learning_rate <<endl; 
+        LogError << NERLNIF_PREFIX << "TrainNNptr loss method: " << TrainNNptr->loss_method <<endl; 
+        LogError << NERLNIF_PREFIX << "TrainNNptr optimization_method: " << TrainNNptr->optimization_method <<endl; 
+        LogError << NERLNIF_PREFIX << "TrainNNptr tid: " << TrainNNptr->tid <<endl;
+        LogError << NERLNIF_PREFIX << "optimization_method not choosen " <<std::endl; //TODO create logger
         return false;
     }
     return true;
@@ -131,9 +132,9 @@ void* trainFun(void* arg)
     }
     else 
     {
-        cout << NERLNIF_PREFIX << "loss val:" << loss_val<< endl;
-        cout << NERLNIF_PREFIX << " train_time:" <<  train_time<< endl;
-        printf("enif_send failed\n");
+        LogError << "enif_send failed " << endl;
+        LogError << NERLNIF_PREFIX << "loss val:" << loss_val<< endl;
+        LogError << NERLNIF_PREFIX << " train_time:" <<  train_time<< endl;
     }
 
     return 0;
