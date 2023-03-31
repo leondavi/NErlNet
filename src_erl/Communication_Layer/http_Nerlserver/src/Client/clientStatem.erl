@@ -65,7 +65,7 @@ init({MyName,Federated,Workers,NerlnetGraph}) ->
   io:format("Client ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
   start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
   io:format("loading niff~n",[]),
-  %niftest:init(),
+  %niftest:init(), niftest is depracated - use nerlNIF
   io:format(" niff loaded~n",[]),
 
   % WorkersPids = createWorkers(Workers,self(),[]),
@@ -73,7 +73,7 @@ init({MyName,Federated,Workers,NerlnetGraph}) ->
 %%  [{WorkerName,nerlNetStatem:start_link({self(), WorkerName, CppSANNArgs})}||{WorkerName,CppSANNArgs}<-maps:to_list(Workers)],
   {WorkersMap,TimingMap} = createWorkers(Workers,1,self(),#{},#{}),
   io:format("TimingMap~p~n",[maps:to_list(TimingMap)]),
-%  niftest:trainNifTest(10.0),
+%  niftest:trainNifTest(10.0), niftest is depracated - use nerlNIF
 
   {ok, idle, #client_statem_state{myName= MyName,timingMap = TimingMap, federatedServer = Federated, workersMap = WorkersMap, nerlnetGraph = NerlnetGraph, msgCounter = 1}}.
 

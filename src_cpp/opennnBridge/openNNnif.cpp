@@ -1,48 +1,14 @@
-#pragma once 
+#include "openNNnif.h"
 
-//#include <iostream>
-#include <vector>
-#include <string>
-#include "ModelParams.h"
-#include <map>
-#include "../opennn/opennn/opennn.h"
-
-#include "definitionsNN.h"
-
-#define TRAINING_STRATEGY_SET_DISPLAY_ON   1
-#define TRAINING_STRATEGY_SET_DISPLAY_OFF  0
-
-using namespace OpenNN;             
-
-struct TrainNN {
-    long int mid;
-    int optimization_method;
-    int lose_method;
-    double learning_rate;
-    std::shared_ptr<Eigen::Tensor<float,2>> data;
-    high_resolution_clock::time_point start_time;
-    double K_val;
-
-    ErlNifTid tid;
-    ErlNifPid pid;
-};
- 
-static void* trainFun(void* arg){ 
-
-         bool flag = true;
-         TrainNN* TrainNNptr;
-
-        //  try{
-        TrainNNptr = reinterpret_cast<TrainNN*>(arg);
+void* trainFun(void* arg){ 
+        bool flag = true;
+        std::shared_ptr<TrainNN>* pTrainNNptr = static_cast<shared_ptr<TrainNN>*>(arg);
+        std::shared_ptr<TrainNN> TrainNNptr = *pTrainNNptr;
+        delete pTrainNNptr;
         // cout << "TrainNNptr learning_rate: " << TrainNNptr->learning_rate <<endl; 
         // cout << "TrainNNptr lose_method: " << TrainNNptr->lose_method <<endl; 
         int optimization_method = TrainNNptr->optimization_method ;
         // cout << "TrainNNptr tid: " << TrainNNptr->tid <<endl; 
-
-        //  }
-        //  catch(...){
-        //    cout << "arg catch" <<std::endl; 
-        //  }
 
          double loss_val;
          ErlNifEnv *env = enif_alloc_env();    
@@ -179,7 +145,6 @@ static void* trainFun(void* arg){
     
          training_strategy.set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF);
          
-     
          // EAC train 
          if(modelType == E_AEC){
             *data_temp = *(TrainNNptr->data);
@@ -280,28 +245,37 @@ static void* trainFun(void* arg){
          return 0;
 }
 
+void* PredictFun(void* arg)
+{ 
+    std::shared_ptr<PredictNN>* pPredictNNptr = static_cast<shared_ptr<PredictNN>*>(arg);
+    std::shared_ptr<PredictNN> PredictNNptr = *pPredictNNptr;
+    delete pPredictNNptr;
 
+    ERL_NIF_TERM prediction;
+    int EAC_prediction; 
+    ErlNifEnv *env = enif_alloc_env();    
+    opennnBridgeController *s = s->GetInstance();
+    std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s-> getModelPtr(PredictNNptr->mid);
+        //   cout << "222222222222" << endl;
 
+    int modelType = s->getModelType(PredictNNptr->mid); 
+    std::shared_ptr<Eigen::Tensor<float,2>> calculate_res = std::make_shared<Eigen::Tensor<float,2>>();
+    *calculate_res = neural_network->calculate_outputs( *(PredictNNptr->data));
+    //   cout << "33333333333333" << endl;
 
-/*       FOR DIBUG
-         Index layer_num = neural_network->get_layers_number();
-         std::cout<< layer_num <<std::endl;
-         std::cout<< neural_network->get_layer_pointer(0)->get_type_string() <<std::endl;
-         std::cout<< neural_network->get_layer_pointer(0)->get_neurons_number()<<std::endl;
-         std::cout<< neural_network->get_layer_pointer(0)->get_inputs_number() <<std::endl;
-         std::cout<< neural_network->get_layer_pointer(1)->get_type_string()  <<std::endl;
-         std::cout<< neural_network->get_layer_pointer(1)->get_neurons_number() <<std::endl;
-         std::cout<< neural_network->get_layer_pointer(2)->get_type_string()  <<std::endl;
-         std::cout<< neural_network->get_layer_pointer(2)->get_neurons_number() <<std::endl;
-         std::cout<< neural_network->get_layer_pointer(3)->get_type_string()  <<std::endl;
-         std::cout<< neural_network->get_layer_pointer(3)->get_neurons_number() <<std::endl;
-         cout << "get_output_number " <<std::endl;
-         std::cout<< neural_network->get_layer_pointer(3)->get_neurons_number() <<std::endl;
-         int si = (neural_network->get_trainable_layers_pointers()).size() ;
-         std::cout<< si <<std::endl;
-         string type1 = (neural_network->get_trainable_layers_pointers()(1))->get_type_string();
-         std::cout<<  type1 <<std::endl;
-*/
-
-
-
+    if(modelType == E_AEC){
+        
+        std::shared_ptr<AutoencoderClassifier> Autoencoder_Classifier = std::static_pointer_cast<AutoencoderClassifier>(neural_network);
+        iTensor1DPtr predictRes  = Autoencoder_Classifier->predict(PredictNNptr->data);
+        prediction = nifpp::makeTensor1D(env, (*predictRes));
+    }
+    else
+        prediction = nifpp::makeTensor2D(env, *calculate_res);
+        
+            // cout << "44444444444" << endl;
+    if(enif_send(NULL,&(PredictNNptr->pid), env, prediction)){
+    // printf("enif_send succeed prediction\n");
+    }
+    else printf("enif_send failed\n");
+    return 0;
+}

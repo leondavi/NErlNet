@@ -56,7 +56,7 @@ init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,La
   io:fwrite("WorkerName: ~p ,ModelId: ~p , ModelType: ~p , ScalingMethod: ~p ,LayerTypesList: ~p ,LayersSizes: ~p ,LayersActivationFunctions: ~p ,FederatedMode: ~p ,CountLimit: ~p ,Optimizer: ~p , Features: ~p , Labels: ~p , ClientPID: ~p~n"
     ,[WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,FederatedMode,CountLimit,Optimizer, Features, Labels, ClientPID]),
 %%^^^^^^^^^^^^^^^^^^^^^^^^^^
-        Res=niftest:create_nif(ModelId, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
+        Res=nerlNIF:create_nif(ModelId, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
     io:fwrite("Res = ~p ~n",[Res]),
 
   {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = WorkerName,
@@ -137,7 +137,7 @@ idle(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId=
   % _Result_set_weights = niftest:set_weights_nif(WeightsList, BiasList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
   % _Result_set_weights2 = niftest:set_weights_nif(WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list, ModelId),
  %io:format("####sending new weights to workers####~n"),
-  %niftest:call_to_set_weights(ModelId, Ret_weights_list),
+  %niftest:call_to_set_weights(ModelId, Ret_weights_list), niftest is depracated - use nerlNIF instead
   io:format("####end set weights idle####~n"),
 
   {next_state, idle, State};
@@ -189,7 +189,7 @@ wait(cast, {loss, {LOSS_FUNC,Time_NIF}}, State = #nerlNetStatem_state{clientPid 
   % {LOSS_FUNC,_TimeCpp} = LossAndTime,
   if Count == CountLimit ->
       % Get weights
-      Ret_weights = niftest:call_to_get_weights(Mid),
+      Ret_weights = nerlNIF:call_to_get_weights(Mid),
       % Ret_weights_tuple = niftest:call_to_get_weights(Mid),
       % {Wheights,Bias,Biases_sizes_list,Wheights_sizes_list} = Ret_weights_tuple,
 
@@ -294,14 +294,14 @@ train(cast, {sample, []}, State = #nerlNetStatem_state{modelId = ModelId, featur
 train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels, optimizer = Optimizer, lossMethod = LossMethod, learningRate = LearningRate}) ->
     % io:format("SampleListTrain ~p~n",[SampleListTrain]),
     MyPid=self(),
-    _Pid = spawn(fun()-> niftest:call_to_train(ModelId, Optimizer , LossMethod , LearningRate , SampleListTrain ,MyPid) end),
+    _Pid = spawn(fun()-> nerlNIF:call_to_train(ModelId, Optimizer , LossMethod , LearningRate , SampleListTrain ,MyPid) end),
     {next_state, wait, State#nerlNetStatem_state{nextState = train}};
   
 
   train(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId = ModelId, nextState = NextState}) ->
   %% Set weights
   %io:format("####sending new weights to workers####~n"),
-  niftest:call_to_set_weights(ModelId, Ret_weights_list),
+  nerlNIF:call_to_set_weights(ModelId, Ret_weights_list),
   io:format("####end set weights train####~n"),
   {next_state, train, State};
 
@@ -329,7 +329,7 @@ predict(cast, {sample,_CSVname, _BatchID, []}, State = #nerlNetStatem_state{}) -
 % send predict sample to worker
 predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStatem_state{ modelId = ModelId}) ->
     CurrPID = self(),
-    _Pid = spawn(fun()-> niftest:call_to_predict(ModelId,SampleListPredict,CurrPID,CSVname, BatchID) end),
+    _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId,SampleListPredict,CurrPID,CSVname, BatchID) end),
     {next_state, wait, State#nerlNetStatem_state{nextState = predict}};
   
 predict(cast, {idle}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid}) ->

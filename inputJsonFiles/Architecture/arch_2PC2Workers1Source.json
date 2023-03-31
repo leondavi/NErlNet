@@ -12,19 +12,19 @@
     },
     {
       "host": "192.168.0.103",
-      "entities": "c2,r2"
+      "entities": "c2"
     }
   ],
   "serverAPI": [
     {
-      "host": "192.168.0.100",
+      "host": "192.168.0.108",
       "port": "8095",
       "args": ""
     }
   ],
   "mainServer": [
     {
-      "host": "192.168.0.102",
+      "host": "192.168.0.108",
       "port": "8080",
       "args": ""
     }
@@ -46,7 +46,7 @@
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
       "lossMethod": "2",
       "_comment4": "TODOTODO explain methods",
-      "learningRate": "1",
+      "learningRate": "0.01",
       "_comment5": "TODOTODO explain learningRate",
       "optimizer":"6",
       "features": "128",
@@ -68,7 +68,7 @@
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
       "lossMethod": "2",
       "_comment4": "TODOTODO explain methods",
-      "learningRate": "1",
+      "learningRate": "0.01",
       "_comment5": "TODOTODO explain learningRate",
       "optimizer":"6",
       "features": "128",
@@ -108,13 +108,8 @@
  "routers": [
   {
     "name": "r1",
-    "host": "192.168.0.102",
+    "host": "192.168.0.108",
     "port": "8084"
-  },
-  {
-    "name": "r2",
-    "host": "192.168.0.113",
-    "port": "8085"
   }
   ]
 }

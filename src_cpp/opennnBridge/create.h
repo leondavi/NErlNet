@@ -30,18 +30,6 @@
 
 using namespace OpenNN;
 
-/*
-struct CreateNN {
-
-    unsigned long modelId;
-    int modelType;
-    int scaling_method;
-    nifpp::Tensor1D<Index> layer_types;
-    nifpp::Tensor1D<Index> neural_network_architecture;
-    nifpp::Tensor1D<Index> activations_functions;
-};
-*/
-
 static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     
@@ -50,9 +38,9 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     int modelType;
     int scaling_method;
     //int optimization_method;
-    std::shared_ptr<nifpp::Tensor1D<Index>> layer_types;
-    std::shared_ptr<nifpp::Tensor1D<Index>> neural_network_architecture;
-    std::shared_ptr<nifpp::Tensor1D<Index>> activations_functions;
+    iTensor1DPtr layer_types;
+    iTensor1DPtr neural_network_architecture;
+    iTensor1DPtr activations_functions;
     
    
 
@@ -167,11 +155,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
         catch(...){
            return enif_make_string(env, "catch - choose scaling method", ERL_NIF_LATIN1);
-        } 
-         
-       
-
-
+        }
          
         // set activation functions for trainable layers -------------------------------------------------------------------
         try{ 
@@ -182,9 +166,6 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
            return enif_make_string(env, "catch - choose activation functions", ERL_NIF_LATIN1);
         } 
          //---------------------------------------------------------------------------------------------------------------
-         
-
-         
          
         // singelton part ----------------------------------------------------------------------------------------------
         try{ 
@@ -206,18 +187,3 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          //-------------------------------------------------------------------------------------------------------------   
                                                               
 }  // end creat mode 
-
-
-
-
-
-
-
-//-------------------------------------------------------------------------------------------------------------
-    
-         /*
-         //std::cout<< neural_network_architecture(3) <<std::endl;
-         int si = (neural_network->get_trainable_layers_pointers()).size() ;
------------------------------------------------------------------
-         */
-  
