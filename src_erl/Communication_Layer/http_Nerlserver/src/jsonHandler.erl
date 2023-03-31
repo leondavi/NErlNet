@@ -28,11 +28,11 @@ init(Req0, [ApplicationPid]) ->
   ApplicationPid ! {jsonAddress,{fileReady,fileReady}},
   Reply = io_lib:format("nerlnet starting", []),
 
-  Req = cowboy_req:reply(200,
+  Req2 = cowboy_req:reply(200,
     #{<<"content-type">> => <<"text/plain">>},
     Reply,
     Req0),
-  {ok, Req, ApplicationPid}.
+  {ok, Req2, ApplicationPid}.
 
 
   % returns {FullReq, Data} / {FullReq, [fileReady]}
