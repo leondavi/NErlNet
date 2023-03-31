@@ -13,6 +13,10 @@
 -define(THIS_FILE_PATH_RELATIVE_TO_PROJECT_ROOT,"src_erl"). % if this file moves to inner place than update this define
 -on_load(init/0).
 
+-define(PREDICT_TIMEOUT,10000). % 10 seconds limit for prediction results
+-define(TRAIN_TIMEOUT,20000). % 20 seconds limit for prediction results
+
+
 init() ->
     io:format("loading niff init()~n",[]),
     NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
@@ -27,38 +31,30 @@ init() ->
 create_nif(_ModelID, _ModelType , _ScalingMethod , _LayerTypesList , _LayersSizes , _LayersActivationFunctions) ->
       exit(nif_library_not_loaded).
 
-train_nif(Integer,Integer,Integer,Integer, []) ->
+train_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor) -> %TODO change to trainn_nif
       exit(nif_library_not_loaded).
 
 call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, WorkerPid)->
       % io:format("berfor train  ~n "),
        %io:format("DataTensor= ~p~n ",[DataTensor]),
-      _RetVal=trainn_nif(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor),
+      _RetVal=train_nif(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor),
       %io:format("Train Time= ~p~n ",[RetVal]),
       receive
             Ret->
                   % io:format("Ret= ~p~n ",[Ret]),
                   %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
                   gen_statem:cast(WorkerPid,{loss, Ret})
-            after 1000 ->  
+            after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
                   io:format("///// woker miss train batch ~n "),
                   gen_statem:cast(WorkerPid,{loss, -1.0})
       end.
 
-trainn_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor) -> %TODO change to trainn_nif
-      exit(nif_library_not_loaded).
-
 call_to_predict(ModelID, Data, WorkerPid,CSVname, BatchID)->
-     
       _RetVal = predict_nif(ModelID, Data),
       receive
-            Ret->
-           % io:format("Ret= ~p~n ",[Ret]),      
-      
-            gen_statem:cast(WorkerPid,{predictRes,Ret,CSVname, BatchID}) 
-     
-            after 1000 -> 
-                 % io:format("///// woker miss predict batch ~n "), 
+            Ret-> gen_statem:cast(WorkerPid,{predictRes,Ret,CSVname, BatchID})
+            after ?PREDICT_TIMEOUT -> 
+                 % worker miss predict batch  TODO - inspect this code
                   gen_statem:cast(WorkerPid,{predictRes, nan, CSVname, BatchID})
       end.
 
@@ -76,11 +72,6 @@ call_to_get_weights(ModelID)->
 
 call_to_set_weights(ModelID,Weights)->
       _RetVal = set_weights_nif(ModelID, Weights).
-     % io:format("RetVal= ~p~n ",[RetVal]).
-      %receive
-      %      Ret->Ret
-            % io:format("Ret= ~p~n ",[Ret])
-      %end.
 
 predict_nif(_ModelID, _Data) ->
       exit(nif_library_not_loaded).
