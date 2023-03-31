@@ -4,6 +4,6 @@
 [submodule "src_erl/rebar3"]
 	path = src_erl/rebar3
 	url = https://github.com/erlang/rebar3.git
-[submodule "inputDataDir"]
-	path = inputDataDir
-	url = https://github.com/leondavi/NerlnetDataRepo.git
+[submodule "simple-cpp-logger"]
+	path = src_cpp/simple-cpp-logger
+	url = https://github.com/nadrino/simple-cpp-logger
