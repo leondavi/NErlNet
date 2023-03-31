@@ -151,25 +151,14 @@ void* PredictFun(void* arg)
     ErlNifEnv *env = enif_alloc_env();    
     opennnBridgeController &s = opennnBridgeController::GetInstance();
     std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s.getModelPtr(PredictNNptr->mid);
-        //   cout << "222222222222" << endl;
 
     int modelType = s.getModelType(PredictNNptr->mid); 
     std::shared_ptr<Eigen::Tensor<float,2>> calculate_res = std::make_shared<Eigen::Tensor<float,2>>();
     *calculate_res = neural_network->calculate_outputs( *(PredictNNptr->data));
-    //   cout << "33333333333333" << endl;
-
-    if(modelType == E_AEC){
-        
-        std::shared_ptr<AutoencoderClassifier> Autoencoder_Classifier = std::static_pointer_cast<AutoencoderClassifier>(neural_network);
-        iTensor1DPtr predictRes  = Autoencoder_Classifier->predict(PredictNNptr->data);
-        prediction = nifpp::makeTensor1D(env, (*predictRes));
-    }
-    else
-        prediction = nifpp::makeTensor2D(env, *calculate_res);
-        
-            // cout << "44444444444" << endl;
+    prediction = nifpp::makeTensor2D(env, *calculate_res);
+    
     if(enif_send(NULL,&(PredictNNptr->pid), env, prediction)){
-    // printf("enif_send succeed prediction\n");
+        // printf("enif_send succeed prediction\n");
     }
     else printf("enif_send failed\n");
     return 0;

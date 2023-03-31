@@ -79,7 +79,15 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
     int modelType = onnBrCtrl.getModelType(PredictNNptr->mid);
 
-    int res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFun, (void*) pPredictNNptr, 0);
+    int res;
+    if (modelType == E_AE || modelType == E_AEC) //TODO examine AE AEC impelmentatio
+    {
+        res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFunAE, (void*) pPredictNNptr, 0);
+    }
+    else
+    {
+        res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFun, (void*) pPredictNNptr, 0);
+    }
     return enif_make_string(env, "end PREDICT mode", ERL_NIF_LATIN1);
 
 }  //end PREDICT mode
@@ -118,7 +126,7 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
         opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
         int modelType = onnBrCtrl.getModelType(TrainNNptr->mid);
         int res;
-        if (modelType == E_AE || modelType == E_AEC)
+        if (modelType == E_AE || modelType == E_AEC) //TODO examine AE AEC impelmentation
         {
             res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFunAE, (void*) pTrainNNptr, 0);
         }
