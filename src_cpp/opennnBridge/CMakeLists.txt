@@ -31,14 +31,13 @@ set(SRC_CODE
 	"nifppEigenExtensions.h"
 	"bridgeController.h"
 	"definitionsNN.h"
-	"train.h"
 	"CustumNN.h"
 	"openNNnif.h"
     "ModelParams.h"	
 	"Autoencoder.h"
 	"ModelParams.cpp"
-	"definitionsNN.h"
-	"tmp.cpp")
+	"openNNnif.cpp"
+	"definitionsNN.h")
 add_library(${PROJECT_NAME} STATIC ${SRC_CODE})
 
 set(OPENNN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../opennn/opennn/")

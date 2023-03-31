@@ -1,58 +1,25 @@
-% This file will be depracated
--module(niftest).
+-module(nerlNIF).
 
 -export([init/0,create_nif/6,train_nif/5,trainn_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
 -export([encode/2, encode1/2, decode/2, decode1/2]).
 
--define(DEBUG,false). % set here if it is debug or release  TODO change to read from hrl auto generated file
--if(DEBUG).
--define(BUILD_TYPE,"debug").
--else.
--define(BUILD_TYPE,"release").
--endif. 
+-define(FILE_IDENTIFIER,"[NERLNIF] ").
+-define(NERLNET_LIB,"libnerlnet").
+-define(NERLNET_PATH,"/usr/local/lib/nerlnet-lib/NErlNet").
+-define(BUILD_TYPE_DEBUG,"debug").
+-define(BUILD_TYPE_RELEASE,"/build/release").
 
 -define(THIS_FILE_PATH_RELATIVE_TO_PROJECT_ROOT,"src_erl"). % if this file moves to inner place than update this define
 -on_load(init/0).
 
 init() ->
-       io:format("loading niff init()~n",[]),
-       {_,CWD} = file:get_cwd(), 
-       %io:format("CWD~p~n",[CWD]),
-       CWD_UPPER_DIR = re:replace(CWD,"/"++?THIS_FILE_PATH_RELATIVE_TO_PROJECT_ROOT,"",[{return,list}]),
-       %io:format("CWD_UPPER_DIR~p~n",[CWD_UPPER_DIR]),
-      
-   
-       %%FULL_PATH = CWD_UPPER_DIR++"/build/"++?BUILD_TYPE++"/libnerlnet",
-
-   %  Full path
-      %  FULL_PATH = "/home/evgeny/work_test/NErlNet/build/release/libnerlnet",
-
-
-   % TODO TODO return to relative parh brfor commit to master. 
-      FULL_PATH = "../../../NErlNet/build/"++?BUILD_TYPE++"/libnerlnet",
-      io:format("Full path: ~p~n",[FULL_PATH]),
-      RES = erlang:load_nif(FULL_PATH, 0),
-      io:format("load nif results: ~p",[RES]),
-      ok.
-      % io:format("hello"),
-      %hello("hello").
-      %erlang:hello().
-      % erlang:nif_error("NIF library not loaded").
-
-%hello(Integer ) when is_integer(Integer) ->
-%      exit(nif_library_not_loaded).
-
-%
-%
-
-
-generateNormalDistributionList(Mean,Variance,SampleLength) ->
-      NewNormalDistributionList = [rand:normal(Mean,Variance) || _X <- lists:seq(1,round(SampleLength))], NewNormalDistributionList. 
-
-generateNormalDistributionSamples(0,_Mean,_Variance,_SampleLength,_ListOfSamples) -> _ListOfSamples;
-generateNormalDistributionSamples(N,Mean,Variance,SampleLength,ListOfSamples) -> generateNormalDistributionSamples(N-1,Mean,Variance,SampleLength,ListOfSamples ++ generateNormalDistributionList(Mean,Variance,SampleLength)).
-
+    io:format("loading niff init()~n",[]),
+    NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
+    io:format(?FILE_IDENTIFIER++"compiled nerlnet library path: ~p~n",[NELNET_LIB_PATH]),
+    RES = erlang:load_nif(NELNET_LIB_PATH, 0),
+    io:format("load nerlnet library NIF result: ~p",[RES]),
+    ok.
 
 
 % ModelID - Unique ID of the neural network model 
@@ -115,16 +82,16 @@ call_to_set_weights(ModelID,Weights)->
             % io:format("Ret= ~p~n ",[Ret])
       %end.
 
-predict_nif(ModelID, Data) ->
+predict_nif(_ModelID, _Data) ->
       exit(nif_library_not_loaded).
 
-get_weights_nif(ModelID) ->
+get_weights_nif(_ModelID) ->
       exit(nif_library_not_loaded).
 
-set_weights_nif(ModelID, Weights) ->
+set_weights_nif(_ModelID, _Weights) ->
       exit(nif_library_not_loaded).
 
-printTensor(List,Type) when is_list(List) -> 
+printTensor(List,_Type) when is_list(List) -> 
       exit(nif_library_not_loaded).
 
 

@@ -382,6 +382,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         tnr = tn / (tn + fp)
         inf = tpr + tnr - 1
         bacc = (tpr + tnr) / 2
+        print("\n")
         print(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.\n")
         print(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.\n")
         print(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
