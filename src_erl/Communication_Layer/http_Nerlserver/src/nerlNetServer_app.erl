@@ -18,6 +18,7 @@
 -module(nerlNetServer_app).
 
 -behaviour(application).
+-include_lib("kernel/include/logger.hrl").
 
 -export([start/2, stop/1, getdeviceIP/0]).
 
@@ -46,17 +47,18 @@
 
 
 start(_StartType, _StartArgs) ->
-     HostName = getdeviceIP(),
-     %HostName = "127.0.0.1",        %TODO: update jsons with real ips
-     logger:notice("This device IP: ~p~n", [HostName]),
-
+    logger:set_module_level(nerlNetServer_app, all),
+    
+    HostName = getdeviceIP(),
+    %HostName = "127.0.0.1",        %TODO: update jsons with real ips
+    ?LOG_INFO("This device IP: ~p~n", [HostName]),
     %Create a listener that waits for a message from python about the adresses of the wanted json
     createNerlnetInitiator(HostName),
     {ArchitectureAdderess,CommunicationMapAdderess} = waitForInit(),
 
     %Parse json and start nerlnet:
      
-     io:format("ArchitectureAdderess: ~p~n CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
+    ?LOG_INFO("ArchitectureAdderess: ~p~n CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
 
     parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess),
     nerlNetServer_sup:start_link().
@@ -64,7 +66,7 @@ start(_StartType, _StartArgs) ->
 waitForInit() ->
     receive 
         {jsonAddress,MSG} -> {ArchitectureAdderess,CommunicationMapAdderess} = MSG;
-        Other -> io:format("Got bad message: ~p,~ncontinue listening for init Json~n",[Other]), waitForInit()
+        Other -> ?LOG_WARNING("Got bad message: ~p,~ncontinue listening for init Json~n",[Other]), waitForInit()
         after ?PYTHON_SERVER_WAITING_TIMEOUT_MS -> waitForInit()
     end.
 

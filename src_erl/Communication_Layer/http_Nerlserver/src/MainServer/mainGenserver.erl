@@ -10,6 +10,7 @@
 -author("kapelnik").
 
 -behaviour(gen_server).
+-include_lib("kernel/include/logger.hrl").
 
 %% API
 -export([start_link/1]).

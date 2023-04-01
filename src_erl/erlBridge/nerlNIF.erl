@@ -1,4 +1,5 @@
 -module(nerlNIF).
+-include_lib("kernel/include/logger.hrl").
 
 -export([init/0,create_nif/6,train_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
@@ -18,12 +19,12 @@
 
 
 init() ->
-    io:format("loading niff init()~n",[]),
-    NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
-    io:format(?FILE_IDENTIFIER++"compiled nerlnet library path: ~p~n",[NELNET_LIB_PATH]),
-    RES = erlang:load_nif(NELNET_LIB_PATH, 0),
-    io:format("load nerlnet library NIF result: ~p",[RES]),
-    ok.
+      logger:notice("loading niff init()~n",[]),
+      NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
+      logger:notice(?FILE_IDENTIFIER++"compiled nerlnet library path: ~p~n",[NELNET_LIB_PATH]),
+      RES = erlang:load_nif(NELNET_LIB_PATH, 0),
+      logger:notice("load nerlnet library NIF result: ~p",[RES]),
+      ok.
 
 
 % ModelID - Unique ID of the neural network model 
@@ -45,7 +46,7 @@ call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Wo
                   %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
                   gen_statem:cast(WorkerPid,{loss, Ret}) % TODO @Haran - please check what worker does with this Ret value 
             after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
-                  io:format("///// woker miss train batch ~n "),
+                  logger:error("Worker train timeout reached! ~n "),
                   gen_statem:cast(WorkerPid,{loss, -1.0})
       end.
 
@@ -55,6 +56,7 @@ call_to_predict(ModelID, Data, WorkerPid,CSVname, BatchID)->
             Ret-> gen_statem:cast(WorkerPid,{predictRes,Ret,CSVname, BatchID}) % TODO @Haran - please check what worker does with this Ret value 
             after ?PREDICT_TIMEOUT -> 
                  % worker miss predict batch  TODO - inspect this code
+                  logger:error("Worker prediction timeout reached! ~n "),
                   gen_statem:cast(WorkerPid,{predictRes, nan, CSVname, BatchID})
       end.
 
@@ -66,7 +68,7 @@ call_to_get_weights(ModelID)->
                   Ret->Ret
                   % io:format("Ret= ~p~n ",[Ret])
             end
-      catch Err:E -> io:format("Couldnt get weights from worker~n~p~n",{Err,E}),
+      catch Err:E -> logger:error("Couldnt get weights from worker~n~p~n",{Err,E}),
             []
       end.
 
