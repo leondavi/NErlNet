@@ -1,6 +1,6 @@
 # NErlNet
+![version](https://img.shields.io/github/v/release/leondavi/NErlNet)
 
-[![Join the chat at https://gitter.im/NErlNet/community](https://badges.gitter.im/NErlNet/community.svg)](https://gitter.im/NErlNet/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 <p align="center">
   <img src="Nerlnet_logo.jpg" width="350" title="NerlNet">
