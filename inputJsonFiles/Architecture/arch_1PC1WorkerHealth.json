@@ -40,10 +40,10 @@
       "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
       "scalingMethod": "0",
       "_comment1": "NoScaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
-      "layerTypesList": "[7,1,1,1,1,1,1,1,1,1]",
-      "layersSizes": "[5,1,1,14,10,6,5,1]",
+      "layerTypesList":             "[6,1,1,1,1,1,1,1,1]",
+      "layersSizes":                "[4,1,1,13,10,6,5]",
       "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5 ,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
-      "layersActivationFunctions":"[7,1,1,5,9,5,9,5,11,5]",
+      "layersActivationFunctions":  "[6,1,1,5,9,5,9,5,11]",
       "federatedMode": "0",
       "countLimit": "10",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
@@ -52,7 +52,7 @@
       "learningRate": "0.01",
       "_comment5": "TODOTODO explain learningRate",
       "optimizer":"5",
-      "features": "128",
+      "features": "13",
       "labels": "1"
     }
   ],
