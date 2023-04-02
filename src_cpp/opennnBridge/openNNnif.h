@@ -109,8 +109,8 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     int i=0;
     nifpp::get_throws(env, argv[i++],TrainNNptr->mid); // model id
     nifpp::get_throws(env, argv[i++],TrainNNptr->optimization_method);
-        nifpp::get_throws(env, argv[i++],TrainNNptr->loss_method);
-        nifpp::get_throws(env, argv[i++],TrainNNptr->learning_rate);
+    nifpp::get_throws(env, argv[i++],TrainNNptr->loss_method);
+    nifpp::get_throws(env, argv[i++],TrainNNptr->learning_rate);
     TrainNNptr->epoch = 1; //TODO get epoch from erlang
     nifpp::getTensor2D(env,argv[i++],TrainNNptr->data);
 
