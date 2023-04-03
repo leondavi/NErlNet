@@ -94,10 +94,10 @@ nodeString([Node |NodeList]) -> nodeString(NodeList, Node).
 nodeString([], Str) -> Str;
 nodeString([Node |NodeList], Str)-> nodeString(NodeList, Node++Str).
 
-edgeString([Edge |EdgesList])-> {ID, V1, V2, Label} = Edge, edgeString(EdgesList, V1++"-"++V2).
+edgeString([Edge |EdgesList])-> {_ID, V1, V2, _Label} = Edge, edgeString(EdgesList, V1++"-"++V2).
 edgeString([], Str)-> Str;
 edgeString([Edge |EdgesList], Str)->
-  {ID, V1, V2, Label} = Edge,
+  {_ID, V1, V2, _Label} = Edge,
   edgeString(EdgesList, V1++"-"++V2++","++Str).
 
 %% @private
@@ -198,7 +198,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
 %%  {noreply, State#main_genserver_state{state = predict, clientsWaitingList = ListOfClients}};
 
 
-handle_cast({sourceDone,Body}, State = #main_genserver_state{nerlnetGraph = NerlnetGraph, sourcesCastingList = CastingList,msgCounter = MsgCounter}) ->
+handle_cast({sourceDone,Body}, State = #main_genserver_state{sourcesCastingList = CastingList,msgCounter = MsgCounter}) ->
   io:format("~p done sending data ~n",[list_to_atom(binary_to_list(Body))]),
   NewCastingList = CastingList--[list_to_atom(binary_to_list(Body))],
   io:format("new Waiting List: ~p ~n",[NewCastingList]),
@@ -224,7 +224,7 @@ handle_cast({sourceAck,Body}, State = #main_genserver_state{nerlnetGraph = Nerln
   {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList,msgCounter = MsgCounter+1}};
 
 
-handle_cast({clientAck,Body}, State = #main_genserver_state{ state = CurrState, clientsWaitingList = WaitingList,msgCounter = MsgCounter,nerlnetGraph = NerlnetGraph}) ->
+handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList,msgCounter = MsgCounter,nerlnetGraph = NerlnetGraph}) ->
   NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
   if length(NewWaitingList) == 0 ->
         ack(NerlnetGraph);
@@ -317,9 +317,9 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
 
   {WorkerName,InputName,BatchID,Result}=binary_to_term(Body),
   if (Result==[]) ->
-        ListOfResults = ["error"||_<-lists:seq(1,BatchSize)];
+        _ListOfResults = ["error"||_<-lists:seq(1,BatchSize)];
       true ->
-       ListOfResults = re:split(Result, ",", [{return, list}])
+       _ListOfResults = re:split(Result, ",", [{return, list}])
   end,
 
   %%  io:format("predictRes- length(ListOfResults): ~p~n{InputName,BatchID,Result} ~p ~n",[length(ListOfResults),{InputName,BatchID,Result}]),
@@ -474,14 +474,14 @@ getNewStatisticsMap([],StatisticsMap) ->StatisticsMap;
 getNewStatisticsMap([{ServerName,{_Host, _Port}}|Tail],StatisticsMap) ->
   getNewStatisticsMap(Tail,maps:put(ServerName, 0, StatisticsMap)).
 
-encodeDoubleVectorToString(ListOfFloats)->
-  LL = lists:flatten(io_lib:format("~p",[ListOfFloats])),",",[{return,list}],
-  lists:sublist(LL,2,length(LL)).
+% encodeDoubleVectorToString(ListOfFloats)->
+%   LL = lists:flatten(io_lib:format("~p",[ListOfFloats])),",",[{return,list}],
+%   lists:sublist(LL,2,length(LL)).
 
-decode(L)->
-%%  LL=lists:sublist(L,2,length(L)-2),
-  LL=re:split(L,",",[{return,list}]),
-  [list_to_float(X)||X<-LL].
+% decode(L)->
+% %%  LL=lists:sublist(L,2,length(L)-2),
+%   LL=re:split(L,",",[{return,list}]),
+%   [list_to_float(X)||X<-LL].
 
 
 

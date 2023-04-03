@@ -24,7 +24,7 @@ init(Req0, [Main_genServer_Pid]) ->
   {_,Body,_} = cowboy_req:read_body(Req0, #{length => ?DATA_LEN}),  %read up to 10MB (default was 8MB)
   Decoded_body = binary_to_list(Body),
   %Decoded_body = read_all_data(Req0),
-  [SourceName, _WorkersStr, Data] = string:split(Decoded_body, "#", all),
+  [SourceName, _WorkersStr, _Data] = string:split(Decoded_body, "#", all),
   %WorkersList = string:split(WorkersStr, ",", all),
   gen_server:cast(Main_genServer_Pid,{initCSV, SourceName, Body}),
   %[Source|WorkersAndInput] = re:split(binary_to_list(Body), "#", [{return, list}]),
@@ -38,20 +38,21 @@ init(Req0, [Main_genServer_Pid]) ->
     Req0),
   {ok, Req, Main_genServer_Pid}.
 
-getWorkerInput([Input],Workers)->{Workers,Input};
-getWorkerInput([Worker|WorkersAndInput],Workers) ->getWorkerInput(WorkersAndInput,Workers++[Worker]).
+% getWorkerInput([Input],Workers)->{Workers,Input};
+% getWorkerInput([Worker|WorkersAndInput],Workers) ->getWorkerInput(WorkersAndInput,Workers++[Worker]).
 
-read_all_data(Req0) -> read_all_data(Req0, []).
-read_all_data(Req0, Got) ->
-  io:format("length of read data so far: ~p~n",[length(Got)]),
-  case cowboy_req:read_body(Req0) of
-      {ok, Data, Req} ->
-          Decoded = binary_to_list(Data),
-          Got++Decoded;
-      {more, Data, Req} ->
-          Decoded = binary_to_list(Data),
-          read_all_data(Req, Got++Decoded)
-  end.
+%%% for reading a multipart message
+% read_all_data(Req0) -> read_all_data(Req0, []).
+% read_all_data(Req0, Got) ->
+%   io:format("length of read data so far: ~p~n",[length(Got)]),
+%   case cowboy_req:read_body(Req0) of
+%       {ok, Data, _Req} ->
+%           Decoded = binary_to_list(Data),
+%           Got++Decoded;
+%       {more, Data, Req} ->
+%           Decoded = binary_to_list(Data),
+%           read_all_data(Req, Got++Decoded)
+%   end.
 
 start(_StartType, _StartArgs) ->
   erlang:error(not_implemented).

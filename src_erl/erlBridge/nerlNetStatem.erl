@@ -124,7 +124,7 @@ idle(cast, {predict}, State = #nerlNetStatem_state{myName = MyName,clientPid = C
   gen_statem:cast(ClientPid,{stateChange,MyName}),
   {next_state, predict, State#nerlNetStatem_state{nextState = predict}};
 
-idle(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId=ModelId}) ->
+idle(cast, {set_weights,_Ret_weights_list}, State = #nerlNetStatem_state{modelId=_ModelId}) ->
 
   io:fwrite("Set weights in wait state: \n"),
   
@@ -142,7 +142,7 @@ idle(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId=
 
   {next_state, idle, State};
 
-idle(cast, Param, State) ->
+idle(cast, _Param, State) ->
   % io:fwrite("Same state idle, command: ~p\n",[Param]),
   {next_state, idle, State}.
 
@@ -227,7 +227,7 @@ wait(cast, {loss, LossAndTime}, State = #nerlNetStatem_state{ federatedMode = Fe
 
   {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
 
-wait(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{nextState = NextState, modelId=ModelId,myName = MyName,clientPid = ClientPid,ackClient = AckClient}) ->
+wait(cast, {set_weights,_Ret_weights_list}, State = #nerlNetStatem_state{nextState = _NextState, modelId=_ModelId,clientPid = _ClientPid,ackClient = _AckClient}) ->
   io:fwrite("Set weights in wait state: \n"),
 
   % %% Set weights
@@ -271,12 +271,12 @@ wait(cast, {predict}, State) ->
   io:fwrite("Waiting, next state - predict: \n"),
   {next_state, wait, State#nerlNetStatem_state{nextState = predict,ackClient=1}};
 
-wait(cast, {sample, _SampleListTrain}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = MissedTrainSamples}) ->
+wait(cast, {sample, _SampleListTrain}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = _MissedTrainSamples}) ->
   io:fwrite("Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
   % Miss = MissedTrainSamples++SampleListTrain,
   {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1}};
 
-wait(cast, {sample,_CSVname, _BatchID, _SampleListPredict}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = MissedTrainSamples}) ->
+wait(cast, {sample,_CSVname, _BatchID, _SampleListPredict}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = _MissedTrainSamples}) ->
   io:fwrite("Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
   % Miss = MissedTrainSamples++SampleListTrain,
   {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1}};
@@ -287,18 +287,18 @@ wait(cast, Param, State) ->
 
 
 %% State train
-train(cast, {sample, []}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels, optimizer = Optimizer, lossMethod = LossMethod, learningRate = LearningRate}) ->
+train(cast, {sample, []}, State ) ->
   {next_state, train, State#nerlNetStatem_state{nextState = train}};
   
 
-train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, features = Features, labels = Labels, optimizer = Optimizer, lossMethod = LossMethod, learningRate = LearningRate}) ->
+train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, optimizer = Optimizer, lossMethod = LossMethod, learningRate = LearningRate}) ->
     % io:format("SampleListTrain ~p~n",[SampleListTrain]),
     MyPid=self(),
     _Pid = spawn(fun()-> nerlNIF:call_to_train(ModelId, Optimizer , LossMethod , LearningRate , SampleListTrain ,MyPid) end),
     {next_state, wait, State#nerlNetStatem_state{nextState = train}};
   
 
-  train(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId = ModelId, nextState = NextState}) ->
+  train(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId = ModelId}) ->
   %% Set weights
   %io:format("####sending new weights to workers####~n"),
   nerlNIF:call_to_set_weights(ModelId, Ret_weights_list),
@@ -317,7 +317,7 @@ train(cast, {predict}, State = #nerlNetStatem_state{myName = MyName, clientPid =
 
   {next_state, predict, State};
 
-train(cast, Param, State) ->
+train(cast, _Param, State) ->
   % io:fwrite("Same state train, not supposed to be, command: ~p\n",[Param]),
   {next_state, train, State}.
 
@@ -348,5 +348,5 @@ predict(cast, Param, State) ->
   io:fwrite("Same state Predict, command: ~p\n",[Param]),
   {next_state, predict, State}.
 
-  checkAndAck(MyName,ClientPid,0) ->ok_no_need;
-  checkAndAck(MyName,ClientPid,1) ->  gen_statem:cast(ClientPid,{stateChange,MyName}).
+  checkAndAck(_MyName,_ClientPid,0) ->ok_no_need;
+  checkAndAck(MyName, ClientPid, 1) ->  gen_statem:cast(ClientPid,{stateChange,MyName}).

@@ -65,7 +65,7 @@ start(_StartType, _StartArgs) ->
 
 waitForInit() ->
     receive 
-        {jsonAddress,MSG} -> {ArchitectureAdderess,CommunicationMapAdderess} = MSG;
+        {jsonAddress,MSG} -> {_ArchitectureAdderess,_CommunicationMapAdderess} = MSG;
         Other -> ?LOG_WARNING("Got bad message: ~p,~ncontinue listening for init Json~n",[Other]), waitForInit()
         after ?PYTHON_SERVER_WAITING_TIMEOUT_MS -> waitForInit()
     end.
@@ -313,7 +313,7 @@ getdeviceIP() ->
 getdeviceIP([], SubnetsList) ->
     logger:error("No supported interface was found. Current supported interfaces list is: ~p.~nEdit NerlNet_subnets_config file to include your network",[SubnetsList]);
 getdeviceIP([IF|IFList], SubnetsList) ->
-    {IF_name, Params} = IF,
+    {_IF_name, Params} = IF,
     try
         {addr, IF_addr} = lists:keyfind(addr, 1, Params),   % address format: {num, num, num, num}
         DeviceIP = isAddrInSubnets(IF_addr, SubnetsList),
@@ -321,7 +321,7 @@ getdeviceIP([IF|IFList], SubnetsList) ->
             notFound -> getdeviceIP(IFList, SubnetsList);
             IP -> IP
         end
-    catch error:E -> getdeviceIP(IFList, SubnetsList)
+    catch error:_E -> getdeviceIP(IFList, SubnetsList)
     end.
 
 getNerlSubnets() ->
@@ -330,7 +330,7 @@ getNerlSubnets() ->
     Subnets = [Subnet || Subnet <- Lines, hd(Subnet) /= $#],
     lists:sort(Subnets).
 
-isAddrInSubnets(IF_addr, []) -> notFound;
+isAddrInSubnets(_IF_addr, []) -> notFound;
 isAddrInSubnets(IF_addr, [Subnet|SubnetsList]) ->
     %convert IF_addr to IP string
     IP_LIST = tuple_to_list(IF_addr),
