@@ -128,7 +128,7 @@ handle_cast({clientsTraining, _Body}, State = #main_genserver_state{myName = MyN
 %%  io:format("binary_to_list(Body):~p~n",[binary_to_list(Body)]),
 %%  io:format("Splitted-(Body):~p~n",[re:split(binary_to_list(Body), ",", [{return, list}])]),
 %%  TODO find the router that can send this request to Sources**
-  [{setClientState(clientTraining,ClientName, NerlnetGraph,MyName)}|| ClientName<- ListOfClients],
+  [{setClientState(clientTraining,ClientName, NerlnetGraph,MyName)}|| ClientName <- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
 handle_cast({clientsPredict,_Body}, State = #main_genserver_state{state = casting, clients = ListOfClients,msgCounter = MsgCounter}) ->
