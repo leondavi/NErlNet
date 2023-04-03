@@ -114,7 +114,7 @@ idle(cast, {stopCasting}, State = #source_statem_state{msgCounter = Counter}) ->
   io:format("already idle~n",[]),
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1}};
 
-idle(cast, {statistics}, State = #source_statem_state{myName =  MyName, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, nerlnetGraph = NerlnetGraph, msgCounter = Counter, csvName = CSVName, csvList =CSVlist}) ->
+idle(cast, {statistics}, State = #source_statem_state{myName =  MyName, sourcePid = [], nerlnetGraph = NerlnetGraph, msgCounter = Counter}) ->
   {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
   http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(Counter))),
 %%  io:format("sending statistics casting to: ~p~n",[CastingTo]),
@@ -250,7 +250,7 @@ roundRobin(ListOfSamples,CSVPath,LengthOfSample,Counter,[{ClientName,WorkerName,
 
 
 
-sendToAll([],_CSVPath,_ChunkSize,LengthOfSample,_Hz,_Pid,_Triplets,Counter)->
+sendToAll([],_CSVPath,_ChunkSize,_LengthOfSample,_Hz,_Pid,_Triplets,Counter)->
   {[], Counter};
 
 sendToAll([Head|ListOfSamples],CSVPath,ChunkSize,LengthOfSample,Hz,Pid,Triplets,Counter)->

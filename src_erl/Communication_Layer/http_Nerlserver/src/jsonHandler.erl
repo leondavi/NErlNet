@@ -22,9 +22,9 @@
 init(Req0, [ApplicationPid]) ->
   deleteOldJson("arch.json"),
   deleteOldJson("conn.json"),
-  {Req, Data} = multipart(Req0, []),  % gets
+  %{Req, Data} = multipart(Req0, []),  % gets
   %io:format("got Req: ~p~nData: ~p~n",[Req, Data]),
-  {ok,Body,_} = cowboy_req:read_body(Req0),
+  %{ok,Body,_} = cowboy_req:read_body(Req0),
   ApplicationPid ! {jsonAddress,{fileReady,fileReady}},
   Reply = io_lib:format("nerlnet starting", []),
 

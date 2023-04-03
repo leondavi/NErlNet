@@ -19,7 +19,7 @@ init() ->
        io:format("loading niff init()~n",[]),
        {_,CWD} = file:get_cwd(), 
        %io:format("CWD~p~n",[CWD]),
-       CWD_UPPER_DIR = re:replace(CWD,"/"++?THIS_FILE_PATH_RELATIVE_TO_PROJECT_ROOT,"",[{return,list}]),
+       _CWD_UPPER_DIR = re:replace(CWD,"/"++?THIS_FILE_PATH_RELATIVE_TO_PROJECT_ROOT,"",[{return,list}]),
        %io:format("CWD_UPPER_DIR~p~n",[CWD_UPPER_DIR]),
       
    
@@ -43,15 +43,12 @@ init() ->
 %hello(Integer ) when is_integer(Integer) ->
 %      exit(nif_library_not_loaded).
 
-%
-%
 
+% generateNormalDistributionList(Mean,Variance,SampleLength) ->
+%       NewNormalDistributionList = [rand:normal(Mean,Variance) || _X <- lists:seq(1,round(SampleLength))], NewNormalDistributionList. 
 
-generateNormalDistributionList(Mean,Variance,SampleLength) ->
-      NewNormalDistributionList = [rand:normal(Mean,Variance) || _X <- lists:seq(1,round(SampleLength))], NewNormalDistributionList. 
-
-generateNormalDistributionSamples(0,_Mean,_Variance,_SampleLength,_ListOfSamples) -> _ListOfSamples;
-generateNormalDistributionSamples(N,Mean,Variance,SampleLength,ListOfSamples) -> generateNormalDistributionSamples(N-1,Mean,Variance,SampleLength,ListOfSamples ++ generateNormalDistributionList(Mean,Variance,SampleLength)).
+% generateNormalDistributionSamples(0,_Mean,_Variance,_SampleLength,_ListOfSamples) -> _ListOfSamples;
+% generateNormalDistributionSamples(N,Mean,Variance,SampleLength,ListOfSamples) -> generateNormalDistributionSamples(N-1,Mean,Variance,SampleLength,ListOfSamples ++ generateNormalDistributionList(Mean,Variance,SampleLength)).
 
 
 
@@ -115,16 +112,16 @@ call_to_set_weights(ModelID,Weights)->
             % io:format("Ret= ~p~n ",[Ret])
       %end.
 
-predict_nif(ModelID, Data) ->
+predict_nif(_ModelID, _Data) ->
       exit(nif_library_not_loaded).
 
-get_weights_nif(ModelID) ->
+get_weights_nif(_ModelID) ->
       exit(nif_library_not_loaded).
 
-set_weights_nif(ModelID, Weights) ->
+set_weights_nif(_ModelID, _Weights) ->
       exit(nif_library_not_loaded).
 
-printTensor(List,Type) when is_list(List) -> 
+printTensor(List,_Type) when is_list(List) -> 
       exit(nif_library_not_loaded).
 
 

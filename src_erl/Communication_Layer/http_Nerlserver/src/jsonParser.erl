@@ -12,7 +12,7 @@
 -define(ARCH_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/src_erl/Communication_Layer/http_Nerlserver/arch.json").
 -define(COMM_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/src_erl/Communication_Layer/http_Nerlserver/conn.json").
 
-getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
+getDeviceEntities(_ArchitectureAdderess,_CommunicationMapAdderess, HostName)->
 
   {ok, ArchitectureAdderessData} = file:read_file(?ARCH_ADDR),
   {ok, CommunicationMapAdderessData} = file:read_file(?COMM_ADDR),
@@ -22,7 +22,7 @@ getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess, HostName)->
 
   %%Decode Json to architecute map and Connection map:
   ArchitectureMap = jsx:decode(ArchitectureAdderessData,[]),
-  CommunicationMap= jsx:decode(CommunicationMapAdderessData,[]),
+  _CommunicationMap= jsx:decode(CommunicationMapAdderessData,[]),
 
 % Get NerlNetSettings, batch size, frequency etc..
   NerlNetSettings = maps:get(<<"NerlNetSettings">>,ArchitectureMap),
@@ -93,8 +93,8 @@ getOnDeviceEntities([Device|Tail],HostName) ->
   end.
 
 %%getSources findes all sources needed to be opened on this device. returns [{sourceArgsMap,SourceConnectionMap},...]
-getFederated([],_OnDeviceSources,[],_ArchMap,G) ->none;
-getFederated([],_OnDeviceSources,Return,_ArchMap,G) ->Return;
+getFederated([],_OnDeviceSources,[],_ArchMap,_G) ->none;
+getFederated([],_OnDeviceSources,Return,_ArchMap,_G) ->Return;
 getFederated([Federated|Federateds],OnDeviceFederated,Return,ArchMap,G) ->
 
   FederatedName = maps:get(<<"name">>,Federated),
@@ -106,8 +106,8 @@ getFederated([Federated|Federateds],OnDeviceFederated,Return,ArchMap,G) ->
       getFederated(Federateds,OnDeviceFederated,Return++[{Federated,G}],ArchMap,G)
   end.
 
-getSources([],_OnDeviceSources,[],_ArchMap,G) ->none;
-getSources([],_OnDeviceSources,Return,_ArchMap,G) ->Return;
+getSources([],_OnDeviceSources,[],_ArchMap,_G) ->none;
+getSources([],_OnDeviceSources,Return,_ArchMap,_G) ->Return;
 getSources([Source|Sources],OnDeviceSources,Return,ArchMap,G) ->
 
   SourceName = maps:get(<<"name">>,Source),
@@ -161,61 +161,16 @@ getWorkers([Worker|Tail],ClientsWorkers,Workers) ->
       getWorkers(Tail,ClientsWorkers,Workers++[Worker])
   end.
 
-%%Builds a connnection map for the Router on this device to intreduce it later with all connected entities
-% getRouterConnectionMap(RouterName,ArchMap,CommunicationMap) ->
-%   ConnectionsList = maps:to_list(maps:get(RouterName,maps:get(<<"connectionsMap">>,CommunicationMap))),
-%   buildRouterConnectionMap(RouterName,ConnectionsList,ArchMap, #{}).
+% getHost([DeviceMap|Devices],EntityName) ->
+%   Entities = maps:get(<<"entities">>, DeviceMap),
+%   OnDeviceEntities =re:split(binary_to_list(Entities),",",[{return,list}]),
 
-
-% buildRouterConnectionMap(_MyRouterName,[],_ArchMap, ConnectionMap) -> ConnectionMap;
-% buildRouterConnectionMap(MyRouterName,[{EntityName,MyRouterName}|Entities],ArchMap, ConnectionMap) ->
-%   EntityHost = getHost(maps:get(<<"devices">>,ArchMap),EntityName),
-%   EntityPort = getPortUnknown(ArchMap,EntityName),
-%   buildRouterConnectionMap(MyRouterName,Entities,ArchMap, ConnectionMap#{list_to_atom(binary_to_list(EntityName)) => {EntityHost,EntityPort}});
-
-% buildRouterConnectionMap(MyRouterName,[{EntityName,RouterName}|Entities],ArchMap, ConnectionMap) ->
-%   EntityHost = getHost(maps:get(<<"devices">>,ArchMap),RouterName),
-%   EntityPort = getPort(maps:get(<<"routers">>,ArchMap),RouterName),
-%   buildRouterConnectionMap(MyRouterName,Entities,ArchMap, ConnectionMap#{list_to_atom(binary_to_list(EntityName)) => {EntityHost,EntityPort}}).
-
-% getConnectionMap(Name,ArchMap,CommunicationMap) ->
-%   ConnectionsList = maps:to_list(maps:get(Name,maps:get(<<"connectionsMap">>,CommunicationMap))),
-% %%  io:format("~p connection Map from json: ~p~n",[Name,ConnectionsList]),
-%   buildConnectionMap(Name,ConnectionsList,ArchMap, #{}).
-
-% buildConnectionMap(_Name,[],_ArchMap, ConnectionMap) -> ConnectionMap;
-
-% buildConnectionMap(Name,[{<<"serverAPI">>,_Name}|Entities],ArchMap, ConnectionMap) ->
-%   [ServerAPIMap] = maps:get(<<"serverAPI">>,ArchMap),
-%   io:format("ServerAPIMap ~p~n",[ServerAPIMap]),
-%   EntityHost = binary_to_list(maps:get(<<"host">>,ServerAPIMap)),
-%   EntityPort = list_to_integer(binary_to_list(maps:get(<<"port">>, ServerAPIMap))),
-%   buildConnectionMap(Name,Entities,ArchMap, ConnectionMap#{serverAPI => {EntityHost,EntityPort}});
-
-
-% buildConnectionMap(Name,[{EntityName,Name}|Entities],ArchMap, ConnectionMap) ->
-%   EntityHost = getHost(maps:get(<<"devices">>,ArchMap),EntityName),
-%   EntityPort = getPortUnknown(ArchMap,EntityName),%%  EntityHost = getHost(maps:get(<<"devices">>,ArchMap),RouterName),
-% %%  EntityPort = getPort(maps:get(<<"routers">>,ArchMap),RouterName),
-% %%  io:format("@#@#Name- ~p, hostport - ~p~n",[EntityName,{EntityHost,EntityPort}]),
-%   buildConnectionMap(Name,Entities,ArchMap, ConnectionMap#{list_to_atom(binary_to_list(EntityName)) => {EntityHost,EntityPort}});
-
-% buildConnectionMap(Name,[{EntityName,RouterName}|Entities],ArchMap, ConnectionMap) ->
-%   EntityHost = getHost(maps:get(<<"devices">>,ArchMap),RouterName),
-%   EntityPort = getPort(maps:get(<<"routers">>,ArchMap),RouterName),
-% %%  io:format("@#@#Name- ~p, hostport - ~p~n",[EntityName,{EntityHost,EntityPort}]),
-%   buildConnectionMap(Name,Entities,ArchMap, ConnectionMap#{list_to_atom(binary_to_list(EntityName)) => {EntityHost,EntityPort}}).
-
-getHost([DeviceMap|Devices],EntityName) ->
-  Entities = maps:get(<<"entities">>, DeviceMap),
-  OnDeviceEntities =re:split(binary_to_list(Entities),",",[{return,list}]),
-
-  OnDevice = lists:member(binary_to_list(EntityName),OnDeviceEntities),
-  if  OnDevice == false->
-    getHost(Devices,EntityName);
-    true ->
-      binary_to_list(maps:get(<<"host">>,DeviceMap))
-  end.
+%   OnDevice = lists:member(binary_to_list(EntityName),OnDeviceEntities),
+%   if  OnDevice == false->
+%     getHost(Devices,EntityName);
+%     true ->
+%       binary_to_list(maps:get(<<"host">>,DeviceMap))
+%   end.
 
 getPort([],_EntityName) -> false;
 getPort([EntityMap|Entities],EntityName) ->
@@ -343,7 +298,7 @@ getAllHosts(ArchitectureMap) ->
 
 
 %%connects all the routers in the network by the json configuration received in CommunicationMapAdderess
-connectRouters(G,ArchitectureMap,CommunicationMap) -> 
+connectRouters(G,_ArchitectureMap,CommunicationMap) -> 
 
     ConnectionsMap = maps:to_list(maps:get(<<"connectionsMap">>,CommunicationMap)),
     [[addEdges(G,binary_to_list(Router),binary_to_list(Component))||Component<-Components]||{Router,Components}<-ConnectionsMap].
@@ -352,7 +307,7 @@ connectRouters(G,ArchitectureMap,CommunicationMap) ->
 	
 addEdges(G,V1,V2) ->
   Edges = [digraph:edge(G,E) || E <- digraph:edges(G)],
-  DupEdges = [E || {E, Vin, Vout, Label} <- Edges, Vin == V1, Vout == V2],
+  DupEdges = [E || {E, Vin, Vout, _Label} <- Edges, Vin == V1, Vout == V2],
   %io:format("DupEdges are: ~p~n",[DupEdges]),
   if length(DupEdges) /= 0 -> skip;
     true ->
@@ -367,6 +322,6 @@ addtograph(G,ArchitectureMap,Entitie,HostName) ->
     digraph:add_vertex(G,Entitie,{HostName,getPortUnknown(ArchitectureMap,list_to_binary(Entitie))}).
     % addEdges(G,Entitie,MyRouter).
 	
-getMyRouter(Routers,OnDeviceEntities) -> 
-    [Common] = [X || X <- Routers, Y <- OnDeviceEntities, X == Y],
-    Common.
+% getMyRouter(Routers,OnDeviceEntities) -> 
+%     [Common] = [X || X <- Routers, Y <- OnDeviceEntities, X == Y],
+%     Common.
