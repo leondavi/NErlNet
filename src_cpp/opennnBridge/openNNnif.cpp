@@ -82,6 +82,7 @@ void* trainFun(void* arg)
 
     double loss_val;
     ErlNifEnv *env = enif_alloc_env();    
+    DataSet data_set;
 
     // Get the singleton instance and get the model ID
     opennnBridgeController &onnBrCtrl = opennnBridgeController::GetInstance();
@@ -90,18 +91,17 @@ void* trainFun(void* arg)
     int data_cols = TrainNNptr->data->dimension(1);
     int num_of_features = neural_network->get_inputs_number();
 
-    DataSet data_set;
     int num_of_output_neurons = neural_network->get_outputs_number();
     // cout << "Features: " << num_of_features <<std::endl;
     // cout << "Outputs: " << num_of_output_neurons <<std::endl;
     // cout << "NN has: " << data_cols <<std::endl;
     bool data_set_condition = (num_of_features + num_of_output_neurons) == TrainNNptr->data->dimension(1);
     assert(("issue with data input/output dimensions", data_set_condition));
-    data_set.set(TrainNNptr->data->dimension(0), num_of_features, num_of_output_neurons);
-    cout << "Configed size"<<std::endl;
     data_set.set_data(*(TrainNNptr->data));
     cout << "Data is set"<<std::endl;
-    cout << "Data is: " << *(TrainNNptr->data) <<std::endl;
+    data_set.set(TrainNNptr->data->dimension(0), num_of_features, num_of_output_neurons);
+    cout << "Configed size"<<std::endl;
+    //cout << "Data is: " << *(TrainNNptr->data) <<std::endl;
 
     TrainingStrategy training_strategy;
     training_strategy.set_neural_network_pointer(neural_network.get()); // The order of these two lines is important
@@ -110,8 +110,9 @@ void* trainFun(void* arg)
     assert((set_optimization_method(training_strategy, TrainNNptr), "Issue with set optimization method"));
     assert((set_loss_method(training_strategy, TrainNNptr), "Issue with set loss method"));
 
-    training_strategy.set_maximum_epochs_number(TrainNNptr->epoch);
-    //training_strategy.set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); // remove opennn prints
+    //training_strategy.set_maximum_epochs_number(TrainNNptr->epoch);
+    training_strategy.set_maximum_epochs_number(1);
+    training_strategy.set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); // remove opennn prints
 
     TrainingResults res = training_strategy.perform_training();
     loss_val = res.get_training_error();
