@@ -116,7 +116,7 @@ handle_cast({federatedWeightsVector,Body}, State = #router_genserver_state{myNam
 
 handle_cast({federatedWeights,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
 %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
-    {ClientName,WorkerName,BinaryWeights} = binary_to_term(Body),
+    {ClientName,_WorkerName,_BinaryWeights} = binary_to_term(Body),
     {Host,Port} = getShortPath(MyName,ClientName,NerlnetGraph),
     %{Host,Port} =maps:get(ClientName,NerlnetGraph),
     http_request(Host,Port,"federatedWeights",Body),
@@ -146,7 +146,7 @@ handle_cast({clientPredict, Body}, State = #router_genserver_state{myName = MyNa
     http_request(Host,Port,"clientPredict",Body),
     {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
-handle_cast({updateCSV,Source,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
+handle_cast({updateCSV,Source,Body}, State = #router_genserver_state{myName = MyName, nerlnetGraph = NerlnetGraph}) ->
 %%  Body contrains list of sources to send the request, and input name
     %io:format("router to Source - ~p  sending Body - ~p~n",[Source,Body]),
     {Host,Port} = getShortPath(MyName,list_to_atom(Source),NerlnetGraph),
@@ -198,8 +198,8 @@ handle_cast({stopCasting,Body}, State = #router_genserver_state{myName = MyName,
 
 
 %%%%%%%GUI ACTIONS
-handle_cast({getStats,Body}, State  = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
-    {Name, {Host,Port}} = digraph:vertex(NerlnetGraph, "nerlGUI"),
+handle_cast({getStats,_Body}, State  = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
+    {_Name, {Host,Port}} = digraph:vertex(NerlnetGraph, "nerlGUI"),
     Connected = [ V++", " || V <- digraph:out_neighbours(NerlnetGraph, MyName)],
     %io:format("Conn list is: ~p~n",[Connected]),
     Mes = "routerScreen@"++MyName++",messStats="++integer_to_list(MsgCounter)++";connList="++lists:concat(Connected),

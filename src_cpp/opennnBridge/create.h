@@ -15,7 +15,6 @@
  */
 //#include <iostream>
 #include <vector>
-#include "support.h"
 #include "ModelParams.h"
 #include "nifppEigenExtensions.h"
 #include "openNNExtensionFunction.h"
@@ -169,18 +168,18 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          
         // singelton part ----------------------------------------------------------------------------------------------
         try{ 
-         std::shared_ptr<OpenNN::NeuralNetwork> modelPtr(neural_network);
-         // Create the singleton instance
-         opennnBridgeController *s = s->GetInstance();
+            std::shared_ptr<OpenNN::NeuralNetwork> modelPtr(neural_network);
+            // Create the singleton instance
+            opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
 
-         // Put the model record to the map with modelId
-         std::cout<< "your model ID is: " <<std::endl;
-         std::cout<< modelId <<std::endl;
-         s->setData(modelPtr, modelId , modelType);  
+            // Put the model record to the map with modelId
+            onnBrCtrl.setData(modelPtr, modelId , modelType);
+            LogInfo<< "New model is assigned - ID " << modelId << std::endl;
         }
 
         catch(...){
-           return enif_make_string(env, "catch - singelton part", ERL_NIF_LATIN1);
+            LogError << "[Bridge Controller] Issue with model creation and assigment" << std::endl;
+            return enif_make_string(env, "catch - singelton part", ERL_NIF_LATIN1);
         } 
  
          return enif_make_string(env, "end create mode", ERL_NIF_LATIN1);
