@@ -97,17 +97,24 @@ encodeFloatsList([<<>>|ListOfFloats],Ret)->
 encodeFloatsList([[]|ListOfFloats],Ret)->
   encodeFloatsList(ListOfFloats,Ret);
 encodeFloatsList([H|ListOfFloats],Ret)->
-    try list_to_float(H) of
+  %%%%%%%% possible bug in reading csv. numbers sometime appear as ".7" / "-.1" 
+  Num = case H of
+    [$-,$.|Rest]  -> "-0."++Rest;
+    [$.|Rest]     -> "0."++Rest;
+    List          -> List
+  end,
+
+  try list_to_float(Num) of
     Float->
       encodeFloatsList(ListOfFloats,<<Ret/binary,Float:64/float>>)
   catch
     error:_Error->
-      Integer = list_to_integer(H),
+      Integer = list_to_integer(Num),
       encodeFloatsList(ListOfFloats,<<Ret/binary,Integer:64/float>>)
 
   end.
 
-
+%% for each batch, make it a tensor by adding header: x,y,z,<<>>,data
 makeChunks(L,1,1,_,_,_SampleSize) ->L;
 makeChunks([],_Left,_ChunkSize,Acc,Ret,_SampleSize) ->
   Ret++[Acc];

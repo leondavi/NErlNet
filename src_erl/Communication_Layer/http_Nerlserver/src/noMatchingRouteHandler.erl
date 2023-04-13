@@ -14,11 +14,11 @@
 -export([init/2]).
 %%Whoops! something probebly went wrong when sending this URL request
 init(Req0, State) ->
-  Scheme = cowboy_req:scheme(Req0),
-  Host = cowboy_req:host(Req0),
-  Port = cowboy_req:port(Req0),
+  _Scheme = cowboy_req:scheme(Req0),
+  _Host = cowboy_req:host(Req0),
+  _Port = cowboy_req:port(Req0),
   Path = cowboy_req:path(Req0),
-  Qs = cowboy_req:qs(Req0),
+  _Qs = cowboy_req:qs(Req0),
   {ok,Body,_} = cowboy_req:read_body(Req0),
   Reply = io_lib:format("Somthing went wrong..Path attempted: ~p,~nBody: ~p~n", [Path,Body]),
 

@@ -111,7 +111,7 @@ waitforWorkers(cast, {stateChange,WorkerName}, State = #client_statem_state{myNa
     _->  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers, msgCounter = Counter+1}}
   end;
 
-waitforWorkers(cast, {NewState}, State = #client_statem_state{myName = MyName, workersMap = WorkersMap, nerlnetGraph = NerlnetGraph, msgCounter = Counter,waitforWorkers = WaitforWorkers,nextState = NextState}) ->
+waitforWorkers(cast, {NewState}, State = #client_statem_state{workersMap = WorkersMap, msgCounter = Counter}) ->
   io:format("client going to state ~p~n",[State]),
   Workers = maps:to_list(WorkersMap),
   [gen_statem:cast(WorkerPid,{NewState})|| {_WorkerName,WorkerPid}<-Workers],
@@ -125,7 +125,7 @@ waitforWorkers(cast, EventContent, State = #client_statem_state{msgCounter = Cou
   
 
 %%initiating nerlnet, given parameters in Body received by Cowboy init_handler
-idle(cast, {init,CONFIG}, State = #client_statem_state{msgCounter = Counter}) ->
+idle(cast, {init,_CONFIG}, State = #client_statem_state{msgCounter = Counter}) ->
   % io:format("initiating, CONFIG received:~p ~n",[CONFIG]),
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
@@ -135,7 +135,7 @@ idle(cast, {statistics}, State = #client_statem_state{ myName = MyName,timingMap
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
 
-idle(cast, {training}, State = #client_statem_state{workersMap = WorkersMap, myName = MyName,msgCounter = Counter,nerlnetGraph = NerlnetGraph}) ->
+idle(cast, {training}, State = #client_statem_state{workersMap = WorkersMap, msgCounter = Counter}) ->
   Workers = maps:to_list(WorkersMap),
   [gen_statem:cast(WorkerPid,{training})|| {_WorkerName,WorkerPid}<-Workers],
 %%  io:format("sending ACK   ~n",[]),
@@ -145,7 +145,7 @@ idle(cast, {training}, State = #client_statem_state{workersMap = WorkersMap, myN
   % ack(MyName,NerlnetGraph),
   {next_state, waitforWorkers, State#client_statem_state{nextState = training, msgCounter = Counter+1,waitforWorkers = MyWorkers}};
 
-idle(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,myName = MyName,msgCounter = Counter,nerlnetGraph = NerlnetGraph}) ->
+idle(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
   io:format("client going to state predict",[]),
   Workers = maps:to_list(WorkersMap),
   [gen_statem:cast(WorkerPid,{predict})|| {_WorkerName,WorkerPid}<-Workers],
@@ -196,7 +196,7 @@ training(cast, {loss,WorkerName,nan,_Time_NIF}, State = #client_statem_state{myN
 %%  http_request(RouterHost,RouterPort,"lossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,<<"nan">>])),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
-training(cast, {loss,WorkerName,LossFunction,Time_NIF}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter,timingMap = TimingMap}) ->
+training(cast, {loss,WorkerName,LossFunction,_Time_NIF}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter,timingMap = TimingMap}) ->
   % Start = maps:get(WorkerName,TimingMap),
   
       % io:format("AverageTrainingTime: ~p~n",[NewAverage])
@@ -208,7 +208,7 @@ training(cast, {loss,WorkerName,LossFunction,Time_NIF}, State = #client_statem_s
 
 
 %%Federated Mode:
-training(cast, {loss,federated_weights, Worker, LOSS_FUNC, Ret_weights}, State = #client_statem_state{federatedServer = Federated,myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter}) ->
+training(cast, {loss,federated_weights, _Worker, _LOSS_FUNC, Ret_weights}, State = #client_statem_state{federatedServer = Federated,myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter}) ->
 %%  io:format("Worker: ~p~n, LossFunction: ~p~n,  Ret_weights_tuple: ~p~n",[Worker, LOSS_FUNC, Ret_weights_tuple]),
   % {RouterHost,RouterPort} = maps:get(Federated,NerlnetGraph),
   {RouterHost,RouterPort} = getShortPath(MyName,Federated,NerlnetGraph),
@@ -218,10 +218,10 @@ training(cast, {loss,federated_weights, Worker, LOSS_FUNC, Ret_weights}, State =
   http_request(RouterHost,RouterPort,"federatedWeightsVector", term_to_binary({Federated,Ret_weights})),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
-training(cast, {loss, federated_weights, MyName, LOSS_FUNC}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter}) ->
+training(cast, {loss, federated_weights, MyName, _LOSS_FUNC}, State = #client_statem_state{myName = MyName, msgCounter = Counter}) ->
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
-training(cast, {federatedAverageWeights,Body}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,workersMap = WorkersMap, msgCounter = Counter}) ->
+training(cast, {federatedAverageWeights,Body}, State = #client_statem_state{workersMap = WorkersMap, msgCounter = Counter}) ->
 %% io:format("federatedAverageWeights Body!!!!: ~p~n",[Body]),
   {_ClientName,WorkerName,Weights} = binary_to_term(Body),
 

@@ -15,6 +15,7 @@
 
 using namespace std::chrono;
 
+#include <Logger.h>
 #include "../opennn/opennn/opennn.h"
 #include "bridgeController.h"
 #include "create.h"
@@ -39,9 +40,10 @@ class TrainNN
 public:
     long int mid;
     int optimization_method;
-    int lose_method;
+    int loss_method;
+    int epoch;
     double learning_rate;
-    std::shared_ptr<Eigen::Tensor<float,2>> data;
+    fTensor2DPtr data;
     std::chrono::high_resolution_clock::time_point start_time;
     double K_val;
 
@@ -59,64 +61,90 @@ public:
 };
 
 void* PredictFun(void* arg);
+void* PredictFunAE(void* arg);
 
 static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
 
-        std::shared_ptr<PredictNN>* pPredictNNptr = new std::shared_ptr<PredictNN>(std::make_shared<PredictNN>());
-        std::shared_ptr<PredictNN> PredictNNptr = *pPredictNNptr;
+    std::shared_ptr<PredictNN>* pPredictNNptr = new std::shared_ptr<PredictNN>(std::make_shared<PredictNN>());
+    std::shared_ptr<PredictNN> PredictNNptr = *pPredictNNptr;
 
-         ErlNifPid pid;
-         
-         enif_self(env, &pid);
-         PredictNNptr->pid = pid;
+    ErlNifPid pid;
 
-         nifpp::get_throws(env, argv[0], PredictNNptr->mid); // get model id
-         nifpp::getTensor2D(env,argv[1], PredictNNptr->data); // get data for prediction
- 
-         int res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFun, (void*) pPredictNNptr, 0);
-         return enif_make_string(env, "end PREDICT mode", ERL_NIF_LATIN1);
+    enif_self(env, &pid);
+    PredictNNptr->pid = pid;
+
+    nifpp::get_throws(env, argv[0], PredictNNptr->mid); // get model id
+    nifpp::getTensor2D(env,argv[1], PredictNNptr->data); // get data for prediction
+
+    opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
+    int modelType = onnBrCtrl.getModelType(PredictNNptr->mid);
+
+    int res;
+    if (modelType == E_AE || modelType == E_AEC) //TODO examine AE AEC impelmentatio
+    {
+        res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFunAE, (void*) pPredictNNptr, 0);
+    }
+    else
+    {
+        res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFun, (void*) pPredictNNptr, 0);
+    }
+    return enif_make_string(env, "end PREDICT mode", ERL_NIF_LATIN1);
 
 }  //end PREDICT mode
 
 void* trainFun(void* arg);
+void* trainFunAE(void* arg);
 
-static ERL_NIF_TERM trainn_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
+static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
            
-        ERL_NIF_TERM train_time;
-          // Start timer for the train
-        high_resolution_clock::time_point start = high_resolution_clock::now();
+    ERL_NIF_TERM train_time;
+        // Start timer for the train
+    high_resolution_clock::time_point start = high_resolution_clock::now();
+
+    std::shared_ptr<TrainNN>* pTrainNNptr = new std::shared_ptr<TrainNN>(std::make_shared<TrainNN>());
+    std::shared_ptr<TrainNN> TrainNNptr = *pTrainNNptr;
+    TrainNNptr->start_time = start;
         
-        std::shared_ptr<TrainNN>* pTrainNNptr = new std::shared_ptr<TrainNN>(std::make_shared<TrainNN>());
-        std::shared_ptr<TrainNN> TrainNNptr = *pTrainNNptr;
-        TrainNNptr->start_time = start;
-         
-        try{
-         nifpp::get_throws(env, argv[0],TrainNNptr->mid); // model id
-         nifpp::get_throws(env, argv[1],TrainNNptr->optimization_method);
-         nifpp::get_throws(env, argv[2],TrainNNptr->lose_method);
-         nifpp::get_throws(env, argv[3],TrainNNptr->learning_rate);
-         nifpp::getTensor2D(env,argv[4],TrainNNptr->data);
+    try{
+    int i=0;
+    nifpp::get_throws(env, argv[i++],TrainNNptr->mid); // model id
+    nifpp::get_throws(env, argv[i++],TrainNNptr->optimization_method);
+    nifpp::get_throws(env, argv[i++],TrainNNptr->loss_method);
+    nifpp::get_throws(env, argv[i++],TrainNNptr->learning_rate);
+    TrainNNptr->epoch = 1; //TODO get epoch from erlang
+    nifpp::getTensor2D(env,argv[i++],TrainNNptr->data);
 
-         ErlNifPid pid;
-         enif_self(env, &pid);
-         TrainNNptr->pid = pid;
+        ErlNifPid pid;
+        enif_self(env, &pid);
+        TrainNNptr->pid = pid;
+    }
+    catch(...){
+        return enif_make_string(env, "catch - get data from erlang", ERL_NIF_LATIN1);
+    }  
+
+    try{
+        opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
+        int modelType = onnBrCtrl.getModelType(TrainNNptr->mid);
+        int res;
+        if (modelType == E_AE || modelType == E_AEC) //TODO examine AE AEC impelmentation
+        {
+            res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFunAE, (void*) pTrainNNptr, 0);
         }
-        catch(...){
-           return enif_make_string(env, "catch - get data from erlang", ERL_NIF_LATIN1);
-        }  
+        else
+        {
+            res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, (void*) pTrainNNptr, 0);
+        }
 
-         try{
-         int res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, (void*) pTrainNNptr, 0);
-         }
-         catch(...){
-            cout << "catch in enif_thread_create " << endl;
-         }
+    }
+    catch(...){
+    cout << "catch in enif_thread_create " << endl;
+    }
 
-         return enif_make_string(env, "end comunication", ERL_NIF_LATIN1);
+        return enif_make_string(env, "end comunication", ERL_NIF_LATIN1);
 }  //end trainn_nif
 
 
-bool is_big_endian(void)
+inline bool is_big_endian(void)
 {
     union {
         uint32_t i;
@@ -244,7 +272,7 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 static ErlNifFunc nif_funcs[] =
 {
     {"create_nif", 6 , create_nif},
-    {"trainn_nif", 5 , trainn_nif},
+    {"train_nif", 5 , train_nif},
     {"predict_nif", 2 , predict_nif},
     {"get_weights_nif",1, get_weights_nif},
     {"set_weights_nif",2, set_weights_nif},

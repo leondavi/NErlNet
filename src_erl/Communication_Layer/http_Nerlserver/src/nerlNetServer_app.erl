@@ -18,6 +18,7 @@
 -module(nerlNetServer_app).
 
 -behaviour(application).
+-include_lib("kernel/include/logger.hrl").
 
 -export([start/2, stop/1, getdeviceIP/0]).
 
@@ -46,25 +47,26 @@
 
 
 start(_StartType, _StartArgs) ->
-     HostName = getdeviceIP(),
-     %HostName = "127.0.0.1",        %TODO: update jsons with real ips
-     logger:notice("This device IP: ~p~n", [HostName]),
-
+    logger:set_module_level(nerlNetServer_app, all),
+    
+    HostName = getdeviceIP(),
+    %HostName = "127.0.0.1",        %TODO: update jsons with real ips
+    ?LOG_INFO("This device IP: ~p~n", [HostName]),
     %Create a listener that waits for a message from python about the adresses of the wanted json
     createNerlnetInitiator(HostName),
     {ArchitectureAdderess,CommunicationMapAdderess} = waitForInit(),
 
     %Parse json and start nerlnet:
      
-     io:format("ArchitectureAdderess: ~p~n CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
+    ?LOG_INFO("ArchitectureAdderess: ~p~n CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
 
     parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess),
     nerlNetServer_sup:start_link().
 
 waitForInit() ->
     receive 
-        {jsonAddress,MSG} -> {ArchitectureAdderess,CommunicationMapAdderess} = MSG;
-        Other -> io:format("Got bad message: ~p,~ncontinue listening for init Json~n",[Other]), waitForInit()
+        {jsonAddress,MSG} -> {_ArchitectureAdderess,_CommunicationMapAdderess} = MSG;
+        Other -> ?LOG_WARNING("Got bad message: ~p,~ncontinue listening for init Json~n",[Other]), waitForInit()
         after ?PYTHON_SERVER_WAITING_TIMEOUT_MS -> waitForInit()
     end.
 
@@ -311,7 +313,7 @@ getdeviceIP() ->
 getdeviceIP([], SubnetsList) ->
     logger:error("No supported interface was found. Current supported interfaces list is: ~p.~nEdit NerlNet_subnets_config file to include your network",[SubnetsList]);
 getdeviceIP([IF|IFList], SubnetsList) ->
-    {IF_name, Params} = IF,
+    {_IF_name, Params} = IF,
     try
         {addr, IF_addr} = lists:keyfind(addr, 1, Params),   % address format: {num, num, num, num}
         DeviceIP = isAddrInSubnets(IF_addr, SubnetsList),
@@ -319,7 +321,7 @@ getdeviceIP([IF|IFList], SubnetsList) ->
             notFound -> getdeviceIP(IFList, SubnetsList);
             IP -> IP
         end
-    catch error:E -> getdeviceIP(IFList, SubnetsList)
+    catch error:_E -> getdeviceIP(IFList, SubnetsList)
     end.
 
 getNerlSubnets() ->
@@ -328,7 +330,7 @@ getNerlSubnets() ->
     Subnets = [Subnet || Subnet <- Lines, hd(Subnet) /= $#],
     lists:sort(Subnets).
 
-isAddrInSubnets(IF_addr, []) -> notFound;
+isAddrInSubnets(_IF_addr, []) -> notFound;
 isAddrInSubnets(IF_addr, [Subnet|SubnetsList]) ->
     %convert IF_addr to IP string
     IP_LIST = tuple_to_list(IF_addr),

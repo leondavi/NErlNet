@@ -17,7 +17,7 @@ std::mutex mutex_;
 class opennnBridgeController {
 
 private:
-    static opennnBridgeController *instance;
+    static opennnBridgeController instance;
 protected: // Enabling use of the clause only in other classes
     ~opennnBridgeController() {}
     std::unordered_map<unsigned long, std::shared_ptr<OpenNN::NeuralNetwork>> _MidNumModel; // <Mid,Model struct> Dictionary: choosing a model with  model id key
@@ -37,7 +37,11 @@ public:
 
    
 
-    static opennnBridgeController *GetInstance();
+    static opennnBridgeController& GetInstance()
+    {
+        static opennnBridgeController instance;
+        return instance;//return the newly created object
+    }
 
     std::shared_ptr<OpenNN::NeuralNetwork> getModelPtr(unsigned long mid){ //shared_ptr is able to point on data edited by number of files/comps.
         return this->_MidNumModel[mid]; //this=opennnBridgeController, go to the selected model's id.
@@ -58,43 +62,4 @@ public:
         this->_MidNumModel.erase(mid); // TODO: Check for memmory leaks
         this -> _MidNumModelType.erase(mid);
     }
-};
-
-/**
- * Static methods should be defined outside the class.
- */
-//Initialize pointer to zero so that it can be initialized in first call to getInstance
-opennnBridgeController* opennnBridgeController::instance{nullptr}; //First, create an empty object.
-//std::mutex opennnBridgeController::mutex_; MUTEX IS USED TO DEAL WITH RACE CONDITIONS.
-
-/**
- * The first time we call GetInstance we will lock the storage location
- *      and then we make sure again that the variable is null and then we
- *      set the value. RU:
- */
-opennnBridgeController *opennnBridgeController::GetInstance()
-{
-
-    if (instance == nullptr) //if we identify that the object is new (null pointer)
-    {
-        mutex_.lock(); //use mutex to lock this memory, to prevent race conditions.
-        //std::lock_guard<std::mutex> lock(mutex_);
-        if (instance == nullptr) //check agin, if the object is still empty, after the previous code line
-        {
-            instance = new opennnBridgeController(); //then initialize the object with bridgecontroller.
-        }
-        mutex_.unlock(); //after done, unlock the memory, to enable access to the newly created object.
-    }
-    return instance;//return the newly created object
-}
-
-// TODO: Delete it if not needed
-class GetopennnBridgeController {
-
-    opennnBridgeController *s; //create a pointer to a opennnBridgeController type.
-public:
-    GetopennnBridgeController() { //create a function for the class
-        s = s->GetInstance(); //return the bridgeController, with GetInstance (That was defined earlier)
-    }
-
 };
