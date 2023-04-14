@@ -7,30 +7,22 @@
 
 project(opennnBridge)
 
-set(EIGEN3_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../opennn/eigen")
-set(CMAKE_VERBOSE_MAKEFILE ON) #Cmake Debug On
-set(CMAKE_CXX_STANDARD 11)
+set(OPENNN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../opennn/opennn/")
+set(SIMPLE_LOGGER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../simple-cpp-logger/include")
+set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_CXX_FLAGS "-fpic")
-#set(CMAKE_CXX_FLAGS "g")
-#set(CMAKE_CXX_FLAGS "-ggdb")
 
-include_directories(${EIGEN3_INCLUDE_DIR})
-message("-- [OPENNN_BRIDGE] Eigen Include Directory: ${EIGEN3_INCLUDE_DIR}")
+include_directories(
+	${OPENN_PATH}
+	${SIMPLE_LOGGER_PATH})
 
-# Logger  
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../simple-cpp-logger/include)
+add_subdirectory(${OPENNN_PATH} [binary_dir]) 
+
+# cpp Simple logger options
 add_definitions( -D LOGGER_MAX_LOG_LEVEL_PRINTED=6 )
 add_definitions( -D LOGGER_PREFIX_LEVEL=2 )
 add_definitions( -D LOGGER_ENABLE_COLORS=1 )
 add_definitions( -D LOGGER_ENABLE_COLORS_ON_USER_HEADER=0 )
-
-#set(SRC_CODE 
-#	"ModelParams.cpp"
-#	"include/nifpp.h"
-#	"include/definitionsNN.h"
-#	"include/nifppEigenExtensions.h"
-#	"tmp.cpp")
-#add_library(${PROJECT_NAME} STATIC ${SRC_CODE})
 
 set(SRC_CODE 
 	"nifpp.h"
@@ -40,13 +32,9 @@ set(SRC_CODE
 	"CustumNN.h"
 	"openNNnif.h"
     "ModelParams.h"	
-	"Autoencoder.h"
-	"ModelParams.cpp"
 	"openNNnif.cpp"
 	"definitionsNN.h")
 add_library(${PROJECT_NAME} STATIC ${SRC_CODE})
 
-set(OPENNN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../opennn/opennn/")
-add_subdirectory(${OPENNN_PATH} [binary_dir]) 
 
-target_include_directories(${PROJECT_NAME} PUBLIC ${OPENNN_PATH} ${EIGEN3_INCLUDE_DIR})
+target_link_libraries(${PROJECT_NAME} PUBLIC opennn)

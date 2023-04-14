@@ -19,21 +19,18 @@ using namespace std::chrono;
 #include "../opennn/opennn/opennn.h"
 #include "bridgeController.h"
 #include "create.h"
-#include "Autoencoder.h"
 #include "get_set_weights.h"
 #include "ModelParams.h"
 #include "definitionsNN.h"
 
 #include "nifppEigenExtensions.h"
 
-using namespace OpenNN;
-
 #define DEBUG_CREATE_NIF 0
 
 #define TRAINING_STRATEGY_SET_DISPLAY_ON   1
 #define TRAINING_STRATEGY_SET_DISPLAY_OFF  0
 
-using namespace OpenNN;             
+using namespace opennn;             
 
 class TrainNN
 {
@@ -61,7 +58,6 @@ public:
 };
 
 void* PredictFun(void* arg);
-void* PredictFunAE(void* arg);
 
 static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
 
@@ -80,14 +76,7 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     int modelType = onnBrCtrl.getModelType(PredictNNptr->mid);
 
     int res;
-    if (modelType == E_AE || modelType == E_AEC) //TODO examine AE AEC impelmentatio
-    {
-        res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFunAE, (void*) pPredictNNptr, 0);
-    }
-    else
-    {
-        res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFun, (void*) pPredictNNptr, 0);
-    }
+    res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFun, (void*) pPredictNNptr, 0);
     return enif_make_string(env, "end PREDICT mode", ERL_NIF_LATIN1);
 
 }  //end PREDICT mode
@@ -126,15 +115,7 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
         opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
         int modelType = onnBrCtrl.getModelType(TrainNNptr->mid);
         int res;
-        if (modelType == E_AE || modelType == E_AEC) //TODO examine AE AEC impelmentation
-        {
-            res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFunAE, (void*) pTrainNNptr, 0);
-        }
-        else
-        {
-            res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, (void*) pTrainNNptr, 0);
-        }
-
+        res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, (void*) pTrainNNptr, 0);
     }
     catch(...){
     cout << "catch in enif_thread_create " << endl;
