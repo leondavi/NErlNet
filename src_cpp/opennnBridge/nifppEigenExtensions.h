@@ -9,7 +9,7 @@
 #pragma once 
 
 #include "nifpp.h"
-#include "unsupported/Eigen/CXX11/Tensor"
+#include "../opennn/opennn/opennn.h"
 
 
 #define MAX_SUPPORTED_DIMS 3

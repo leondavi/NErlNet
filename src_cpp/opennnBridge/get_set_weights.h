@@ -1,18 +1,11 @@
 #pragma once 
 
 
-#include <vector>
 #include <string>
 #include "ModelParams.h"
-#include <map>
-
-
-
-
-#include "../opennn/opennn/opennn.h"
 #include "nifpp.h"
 
-using namespace OpenNN;
+using namespace opennn;
 
 
 
@@ -29,7 +22,7 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
          nifpp::get_throws(env, argv[0], mid); 
 
          //get neural network from singelton           
-         std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s.getModelPtr(mid);
+         std::shared_ptr<opennn::NeuralNetwork> neural_network = s.getModelPtr(mid);
          
          //cout << neural_network->get_layers_number() <<std::endl;
          //Index num = neural_network->get_layers_number();
@@ -72,7 +65,7 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
          nifpp::getTensor1D(env,argv[1],parameters);
 
          //get neural network from singelton           
-         std::shared_ptr<OpenNN::NeuralNetwork> neural_network = s.getModelPtr(mid);
+         std::shared_ptr<opennn::NeuralNetwork> neural_network = s.getModelPtr(mid);
          int NN_parameters_number = neural_network->get_parameters_number();
          int new_parameters_number = parameters->size();
          //cout << neural_network->get_layers_number() <<std::endl;

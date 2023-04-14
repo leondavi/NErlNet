@@ -20,8 +20,8 @@ private:
     static opennnBridgeController instance;
 protected: // Enabling use of the clause only in other classes
     ~opennnBridgeController() {}
-    std::unordered_map<unsigned long, std::shared_ptr<OpenNN::NeuralNetwork>> _MidNumModel; // <Mid,Model struct> Dictionary: choosing a model with  model id key
-                                                                                  // SANN::Model to OpenNN::NeuralNetwork
+    std::unordered_map<unsigned long, std::shared_ptr<opennn::NeuralNetwork>> _MidNumModel; // <Mid,Model struct> Dictionary: choosing a model with  model id key
+                                                                                  // SANN::Model to opennn::NeuralNetwork
     std::unordered_map<unsigned long, int> _MidNumModelType;
     opennnBridgeController(){}
 
@@ -43,7 +43,7 @@ public:
         return instance;//return the newly created object
     }
 
-    std::shared_ptr<OpenNN::NeuralNetwork> getModelPtr(unsigned long mid){ //shared_ptr is able to point on data edited by number of files/comps.
+    std::shared_ptr<opennn::NeuralNetwork> getModelPtr(unsigned long mid){ //shared_ptr is able to point on data edited by number of files/comps.
         return this->_MidNumModel[mid]; //this=opennnBridgeController, go to the selected model's id.
     }
 
@@ -53,7 +53,7 @@ public:
     }
 
     // Insert new record to the MidNumModel map (new model ptr)
-    void setData(std::shared_ptr<OpenNN::NeuralNetwork> modelPtr, unsigned long modelId, int modelType = BRIDGE_CONTROL_OPENN_NEURAL_NETWORK_TYPE) {
+    void setData(std::shared_ptr<opennn::NeuralNetwork> modelPtr, unsigned long modelId, int modelType = BRIDGE_CONTROL_OPENN_NEURAL_NETWORK_TYPE) {
         this -> _MidNumModel.insert({ modelId, modelPtr }); //Initialize the new data, acording to the selected model id, and its pointer.
         this -> _MidNumModelType.insert({ modelId, modelType });
     }
