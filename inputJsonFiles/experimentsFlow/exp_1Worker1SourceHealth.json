@@ -2,8 +2,8 @@
      "CSV path": "health_comb",
      "Batches per source": 
      {
-        "Training": 50,
-        "Prediction": 50
+        "Training": 20,
+        "Prediction": 20
      },
      "Training":  [
          {
