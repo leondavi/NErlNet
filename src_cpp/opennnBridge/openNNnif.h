@@ -52,7 +52,7 @@ class PredictNN
 {
 public:
     long int mid;
-    std::shared_ptr<Eigen::Tensor<float,2>> data;
+    fTensor2DPtr data;
     ErlNifPid pid;
     ErlNifTid tid;
 };
@@ -71,6 +71,9 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
     nifpp::get_throws(env, argv[0], PredictNNptr->mid); // get model id
     nifpp::getTensor2D(env,argv[1], PredictNNptr->data); // get data for prediction
+
+    cout << "data size cols: " << PredictNNptr->data->dimension(0) <<std::endl;
+    cout << "data size rows: " << PredictNNptr->data->dimension(1) <<std::endl;
 
     opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
     int modelType = onnBrCtrl.getModelType(PredictNNptr->mid);

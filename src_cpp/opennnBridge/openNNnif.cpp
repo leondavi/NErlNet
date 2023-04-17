@@ -92,16 +92,16 @@ void* trainFun(void* arg)
     int num_of_features = neural_network->get_inputs_number();
 
     int num_of_output_neurons = neural_network->get_outputs_number();
-    // cout << "Features: " << num_of_features <<std::endl;
-    // cout << "Outputs: " << num_of_output_neurons <<std::endl;
-    // cout << "NN has: " << data_cols <<std::endl;
+    cout << "Features: " << num_of_features <<std::endl;
+    cout << "Outputs: " << num_of_output_neurons <<std::endl;
+    cout << "NN has: " << data_cols <<std::endl;
     bool data_set_condition = (num_of_features + num_of_output_neurons) == TrainNNptr->data->dimension(1);
     assert(("issue with data input/output dimensions", data_set_condition));
     data_set.set_data(*(TrainNNptr->data));
     cout << "Data is set"<<std::endl;
     data_set.set(TrainNNptr->data->dimension(0), num_of_features, num_of_output_neurons);
     cout << "Configed size"<<std::endl;
-    //cout << "Data is: " << *(TrainNNptr->data) <<std::endl;
+    cout << "Data is: " << *(TrainNNptr->data) <<std::endl;
 
     TrainingStrategy training_strategy;
     training_strategy.set_neural_network_pointer(neural_network.get()); // The order of these two lines is important
