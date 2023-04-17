@@ -24,7 +24,6 @@ using namespace opennn;
 
 static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    
     ModelParams modelParamsInst;
     unsigned long modelId;
     int modelType;
@@ -33,8 +32,6 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     iTensor1DPtr layer_types;
     iTensor1DPtr neural_network_architecture;
     iTensor1DPtr activations_functions;
-    
-   
 
     
          // get data from erlang ----------------------------------------------------------------------------------------
@@ -45,8 +42,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          nifpp::getTensor1D(env,argv[3],layer_types); 
          nifpp::getTensor1D(env,argv[4],neural_network_architecture);
          nifpp::getTensor1D(env,argv[5],activations_functions);
-        
-                  
+           
         }   
      
         catch(...){
@@ -56,8 +52,6 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         } 
                     
         //--------------------------------------------------------------------------------------------------------------
-         
-
          
          // creat neural network . typy + layers number and size. -------------------------------------------------------------
         
@@ -98,10 +92,11 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
            return enif_make_string(env, "catch - select model type", ERL_NIF_LATIN1);
         } 
 
-         
+         cout << "Done setting CustomNN" << std::endl;
         try{ 
          // set scaling method for scaling layer ---------------------------------------------------------------------------
          ScalingLayer* scaling_layer_pointer = neural_network->get_scaling_layer_pointer();
+         cout << "scaling method = " << scaling_method << std::endl;
          if(scaling_method == E_ScalingMethods_NoScaling)
         {
             scaling_layer_pointer->set_scalers(opennn::Scaler::NoScaling);
@@ -123,7 +118,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
            // scaling_layer_pointer->set_scaling_methods(opennn::Scaler::::Logarithm);   //Logarithm exists in opennn site but commpiler dont recognaize it. 
         }
         //------------------------------------------------------------------------------------------------------------------
-          
+          cout << "Done setting NN scalers" << std::endl;
         } //try
 
         catch(...){
@@ -150,6 +145,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
             onnBrCtrl.setData(modelPtr, modelId , modelType);
             LogInfo<< "New model is assigned - ID " << modelId << std::endl;
         }
+        
 
         catch(...){
             LogError << "[Bridge Controller] Issue with model creation and assigment" << std::endl;

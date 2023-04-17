@@ -520,8 +520,8 @@ writeSamplesToFile(ListOfSamples,HeadID,CSVName,SampleSize)->
   writeSamplesToFile(lists:sublist(ListOfSamples,SampleSize+1,length(ListOfSamples)),HeadID+1,CSVName,SampleSize).
 
 
-  mapToString([],Ret) -> Ret;
-  mapToString([{Name,Counter}|StatisticsList],[]) -> mapToString(StatisticsList,Name++"#"++Counter);
-  mapToString([{Name,Counter}|StatisticsList],Ret) -> 
-      % io:format("~p~n",[{Name,Counter,Ret}]),
-      mapToString(StatisticsList,Ret++"@"++Name++"#"++Counter).
+mapToString([],Ret) -> Ret;
+mapToString([{Name,Counter}|StatisticsList],[]) -> mapToString(StatisticsList,Name++"#"++Counter);
+mapToString([{Name,Counter}|StatisticsList],Ret) -> 
+    % io:format("~p~n",[{Name,Counter,Ret}]),
+    mapToString(StatisticsList,Ret++"@"++Name++"#"++Counter).
