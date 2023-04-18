@@ -1,0 +1,18 @@
+name: NerlnetInstall
+on:
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Install dependencies
+        run: sudo apt-get update
+      - name: Run NerlnetInstall.sh
+        run: |
+          sudo ./NerlnetInstall.sh --install
