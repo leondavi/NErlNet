@@ -13,12 +13,16 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS "-fpic")
 #set(CMAKE_CXX_FLAGS "g")
 #set(CMAKE_CXX_FLAGS "-ggdb")
+set(ERL_NIF_DEFAULT_LOCATION "/usr/local/lib/erlang/usr/include")
 
 include_directories(${EIGEN3_INCLUDE_DIR})
 message("-- [OPENNN_BRIDGE] Eigen Include Directory: ${EIGEN3_INCLUDE_DIR}")
 
-# Logger  
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../simple-cpp-logger/include)
+# Include NIF and Simple Cpp Logger
+include_directories(
+	${CMAKE_CURRENT_SOURCE_DIR}/../simple-cpp-logger/include
+	${ERL_NIF_DEFAULT_LOCATION})
+
 add_definitions( -D LOGGER_MAX_LOG_LEVEL_PRINTED=6 )
 add_definitions( -D LOGGER_PREFIX_LEVEL=2 )
 add_definitions( -D LOGGER_ENABLE_COLORS=1 )
