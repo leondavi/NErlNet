@@ -46,14 +46,15 @@ https://user-images.githubusercontent.com/18975070/145286597-340bbd31-0050-492f-
 ![Nerlnet Architecture](https://user-images.githubusercontent.com/18975070/141692829-f0cdca7d-96d1-43b0-920a-5821a14242f7.jpg)
 
 # Build and Run Nerlnet:
-Minimum cmake version 3.18 <br>
+Recommended cmake version 3.26 <br>
 Minimum erlang version otp 24 <br>
 
 On each machine that runs Nerlnet go through the following steps: 
 1. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo>```
 2. Change directory to NErlNet.
-3. Run ```sudo ./NerlnetInstall.sh``` (Erlang and CMake will be installed if are not installed).
-4. Configure json files and update jsonPath
+3. Run ```sudo ./NerlnetInstall.sh``` (With argument --i, script builds and installs Erlang (latest stable) and CMake).
+4. Create json files of architecture, connection map and experiment flow.<br>
+   json configuration files names must follow the convention of prefixes: arch\_\<any\>.json, conn\_\<any\>, exp\_\<any\>. 
 5. Run ```./NerlnetRun.sh``` to start Nerlnet
 
 After running the installation script, NErlNet directory can be accessed via the following path as well: 
