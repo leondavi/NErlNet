@@ -11,18 +11,24 @@ set(OPENNN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../opennn/opennn/")
 set(SIMPLE_LOGGER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../simple-cpp-logger/include")
 set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_CXX_FLAGS "-fpic")
+set(ERL_NIF_DEFAULT_LOCATION "/usr/local/lib/erlang/usr/include")
 
 include_directories(
 	${OPENN_PATH}
 	${SIMPLE_LOGGER_PATH})
 
-add_subdirectory(${OPENNN_PATH} [binary_dir]) 
+# Include NIF and Simple Cpp Logger
+include_directories(
+	${CMAKE_CURRENT_SOURCE_DIR}/../simple-cpp-logger/include
+	${ERL_NIF_DEFAULT_LOCATION})
 
 # cpp Simple logger options
 add_definitions( -D LOGGER_MAX_LOG_LEVEL_PRINTED=6 )
 add_definitions( -D LOGGER_PREFIX_LEVEL=2 )
 add_definitions( -D LOGGER_ENABLE_COLORS=1 )
 add_definitions( -D LOGGER_ENABLE_COLORS_ON_USER_HEADER=0 )
+
+add_subdirectory(${OPENNN_PATH} [binary_dir]) 
 
 set(SRC_CODE 
 	"nifpp.h"
