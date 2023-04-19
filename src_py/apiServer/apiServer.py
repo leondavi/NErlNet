@@ -374,7 +374,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # Another option to solve this problem, is to numerize each classification group (group 1, group 2, ...), 
         # and add legened to show the true label value for each group.
         confMat = confusion_matrix(SlicedLabelsSeriesStr, predsSeriesStr, labels = labelsArrStr)
-        # Calculate the accuracy adn other stats:
+        # Calculate the accuracy and other stats:
         tp, tn, fp, fn = confMat.ravel()
         acc = (tp + tn) / (tp + tn + fp + fn)
         ppv = tp / (tp + fp)

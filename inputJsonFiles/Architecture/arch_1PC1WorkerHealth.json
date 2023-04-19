@@ -54,7 +54,7 @@
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
       "optimizer":"5",
       "features": "13",
-      "labels": "1"       
+      "labels": "5"       
     }
   ],
   "clients": [

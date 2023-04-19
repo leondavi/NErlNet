@@ -30,7 +30,7 @@ public:
                     opennn::NeuralNetwork::add_layer(L);
                 }
         
-                if ((*layer_types)[i] == E_LAYER_TYPE_PERCEPTRON){
+                if ((*layer_types)[i] == E_LAYER_TYPE_PERCEPTRON || (*layer_types)[i] == E_LAYER_TYPE_DEFAULT){
                     opennn::PerceptronLayer *L = new opennn::PerceptronLayer((*neural_network_architecture)(i-1), (*neural_network_architecture)(i));
                     opennn::NeuralNetwork::add_layer(L);
                 }
