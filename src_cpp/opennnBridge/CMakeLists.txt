@@ -13,13 +13,10 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_CXX_FLAGS "-fpic")
 set(ERL_NIF_DEFAULT_LOCATION "/usr/local/lib/erlang/usr/include")
 
+# Include NIF, OpenNN and Simple Cpp Logger
 include_directories(
 	${OPENN_PATH}
-	${SIMPLE_LOGGER_PATH})
-
-# Include NIF and Simple Cpp Logger
-include_directories(
-	${CMAKE_CURRENT_SOURCE_DIR}/../simple-cpp-logger/include
+	${SIMPLE_LOGGER_PATH}
 	${ERL_NIF_DEFAULT_LOCATION})
 
 # cpp Simple logger options
