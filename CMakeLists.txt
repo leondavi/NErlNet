@@ -5,8 +5,8 @@
 # @copyright Copyright (c) 2021 Nerlnet
 # *****************************************************/ 
 
-project(nerlnet DESCRIPTION "Nerlnet Distributed Machine Learning Research Platform")
 cmake_minimum_required(VERSION 3.16.3 FATAL_ERROR)
+project(nerlnet DESCRIPTION "Nerlnet Distributed Machine Learning Research Platform")
 
 set(PROJECT_BINARY_DIR build)
 set (CMAKE_CXX_STANDARD 11)
