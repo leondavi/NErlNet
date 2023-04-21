@@ -32,11 +32,13 @@ set(SRC_CODE
 	"openNNnif.cpp"
 	"definitionsNN.h")
 
-add_library(${PROJECT_NAME} STATIC ${SRC_CODE})
+add_library(${PROJECT_NAME} SHARED ${SRC_CODE})
+
+target_link_libraries(${PROJECT_NAME} PUBLIC opennn)
 
 # Include NIF, OpenNN and Simple Cpp Logger
 target_include_directories(${PROJECT_NAME} PUBLIC
-	${NIFPP_PATH}
-	${OPENN_PATH}
-	${SIMPLE_LOGGER_PATH}
-	${ERL_NIF_DEFAULT_LOCATION})
+							${NIFPP_PATH}
+							${OPENN_PATH}
+							${SIMPLE_LOGGER_PATH}
+							${ERL_NIF_DEFAULT_LOCATION})

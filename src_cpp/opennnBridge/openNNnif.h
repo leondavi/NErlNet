@@ -203,8 +203,9 @@ static ERL_NIF_TERM encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 }  
 
 
-static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
 
+static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
+//TODO implement with get with std::string and move its content to std::vector or Eigen Tensor
     #if DEBUG_DECODE
         std::cout << "Start the decode_nif." << '\n';
     #endif
@@ -225,6 +226,23 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
     //char* buf = (char*) enif_alloc(NumOfBytes + 1);
     
+    // TODO Ziv
+    // This function should be used to get the string:
+    // inline int get(ErlNifEnv *env, ERL_NIF_TERM term, std::string &var)
+    //
+    // nifpp takes care to the part of copying the string from erlang we do not change it
+    // Example:
+    // 
+    // std::vector<char> v(s.length());
+    // std::copy(s.begin(), s.end(), v.begin());
+    //
+    // For any type: 
+    //
+    // std::vector<type> v(s.length() / sizeof(type));
+    // std::copy(s.begin(), s.end(), v.begin());
+    //
+    // we can then map the vector into a tensor
+
     if (!enif_get_string(env, argv[0], (char*)receivedString.arrayOfChars, NumOfBytes+1, ERL_NIF_LATIN1)) {
         enif_free(receivedString.arrayOfChars);
         return enif_make_badarg(env);

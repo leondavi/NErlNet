@@ -19,13 +19,9 @@
 
 
 init() ->
-      logger:set_module_level(nerlNIF, all),
-      logger:info("loading niff init()~n",[]),
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
-      logger:info(?FILE_IDENTIFIER++"compiled nerlnet library path: ~p~n",[NELNET_LIB_PATH]),
       RES = erlang:load_nif(NELNET_LIB_PATH, 0),
-      logger:info("load nerlnet library NIF result: ~p",[RES]),
-      ok.
+      RES.
 
 
 % ModelID - Unique ID of the neural network model 
