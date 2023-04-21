@@ -2,7 +2,7 @@
 import os
 import json
 
-JSON_DIRECTORY = '/usr/local/lib/nerlnet-lib/NErlNet/jsonDir'
+JSON_DIRECTORY = '/usr/local/lib/nerlnet-lib/NErlNet/config/jsonDir.nerlconfig'
 
 PREFIX_ARCH = 'arch_'
 PREFIX_CONNECTION_MAP = 'conn_'

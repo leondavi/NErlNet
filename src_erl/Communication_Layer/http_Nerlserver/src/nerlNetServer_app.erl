@@ -24,7 +24,7 @@
 
 -define(NERLNET_INIT_PORT,8484).
 -define(PYTHON_SERVER_WAITING_TIMEOUT_MS, 1000).
--define(SUBNETS_CONFIG_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/NerlNet_subnets_config").
+-define(SUBNETS_CONFIG_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/config/subnets.nerlconfig").
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
 %% ***  exit rebar3 shell: ctrl+g ->q
@@ -311,7 +311,7 @@ getdeviceIP() ->
     getdeviceIP(IFList, SubnetsList).
 
 getdeviceIP([], SubnetsList) ->
-    logger:error("No supported interface was found. Current supported interfaces list is: ~p.~nEdit NerlNet_subnets_config file to include your network",[SubnetsList]);
+    logger:error("No supported interface was found. Current supported interfaces list is: ~p.~nEdit subnets.nerlconfig file to include your network",[SubnetsList]);
 getdeviceIP([IF|IFList], SubnetsList) ->
     {_IF_name, Params} = IF,
     try

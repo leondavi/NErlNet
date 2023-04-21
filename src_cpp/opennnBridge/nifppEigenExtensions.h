@@ -8,7 +8,7 @@
 
 #pragma once 
 
-#include "nifpp.h"
+#include "../nifpp/nifpp.h"
 #include "../opennn/opennn/opennn.h"
 
 
