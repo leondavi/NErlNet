@@ -19,11 +19,12 @@
 
 
 init() ->
-      logger:notice("loading niff init()~n",[]),
+      logger:set_module_level(nerlNIF, all),
+      logger:info("loading niff init()~n",[]),
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
-      logger:notice(?FILE_IDENTIFIER++"compiled nerlnet library path: ~p~n",[NELNET_LIB_PATH]),
+      logger:info(?FILE_IDENTIFIER++"compiled nerlnet library path: ~p~n",[NELNET_LIB_PATH]),
       RES = erlang:load_nif(NELNET_LIB_PATH, 0),
-      logger:notice("load nerlnet library NIF result: ~p",[RES]),
+      logger:info("load nerlnet library NIF result: ~p",[RES]),
       ok.
 
 
