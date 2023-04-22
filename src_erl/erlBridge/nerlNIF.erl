@@ -1,5 +1,6 @@
 -module(nerlNIF).
 -include_lib("kernel/include/logger.hrl").
+-include("nerlTensor.hrl").
 
 -export([init/0,create_nif/6,train_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
@@ -102,4 +103,23 @@ decode1(String, NumOfBytesForType) ->
 
 decode(_String, _NumOfBytesForType) ->
       exit(nif_library_not_loaded).
+
+
+%---------- nerlTensor -----------%
+
+%-spec conversion(From :: nerlTensor, To :: nerlTensorType()) -> any().
+nerltensor_conversion({NerlTensorFrom, TypeFrom}, {NerlTensorTo, TypeTo}) -> ok.
+   %   case TypeFrom of:
+            % if TypeFrom is [float32 | double | int32 ]-> decode
+            % if TypeTo is [float32 | double | int32] -> encode
+
+%  float32 | double | int32.
+-spec nerltensor_create(X :: number(), Y :: number(), Z :: number(), List :: list(), To :: nerlTensorType()) -> list().
+nerltensor_create(X,Y,Z,List,Type) -> 
+      case Type of
+            erl_float -> {[X,Y,Z] ++ List, erl_float}; % Make sure list of float
+            erl_int -> {[X,Y,Z] ++ List, erl_int}; % make sure list of integers
+            _COMPRESSED_TYPE -> encode 
+      end.
+
 
