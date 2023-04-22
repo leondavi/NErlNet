@@ -208,6 +208,9 @@ static ERL_NIF_TERM encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 // from string to std::vector with vector initialization 
 // eigen Map from vetor to eigen Tensor
 
+// decode: nerltensor_str --> eigentensor
+//nerltensor_str: string (list of bytes) that represents the nerlTensor given a cpp type (float32, int32, double)
+
 // decode_nif from nerlTensor str to erl list with type
 // inefficient representation of NerlTensor as erlang list
 static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
@@ -239,6 +242,8 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     // nifpp takes care to the part of copying the string from erlang we do not change it
     // Example:
     // 
+    // string == array of chars  
+    //
     // std::vector<char> v(s.length());
     // std::copy(s.begin(), s.end(), v.begin());
     //
@@ -246,7 +251,11 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     //
     // std::vector<type> v(s.length() / sizeof(type));
     // std::copy(s.begin(), s.end(), v.begin());
-    //
+    
+    // Example:
+    // std::vector<uint32> v(s.length() / sizeof(uin32));
+    // std::copy(s.begin() + 3 *, s.end(), v.begin());
+
     // make list from vector and return to erlang
 
     if (!enif_get_string(env, argv[0], (char*)receivedString.arrayOfChars, NumOfBytes+1, ERL_NIF_LATIN1)) {
