@@ -202,8 +202,14 @@ static ERL_NIF_TERM encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
 }  
 
+// decode nerlTensor to EigenTensor --> efficient with DMA copies 
+// decode string to eigen - only within cpp 
+// get --> create std string from erlang 
+// from string to std::vector with vector initialization 
+// eigen Map from vetor to eigen Tensor
 
-
+// decode_nif from nerlTensor str to erl list with type
+// inefficient representation of NerlTensor as erlang list
 static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
 //TODO implement with get with std::string and move its content to std::vector or Eigen Tensor
     #if DEBUG_DECODE
@@ -220,7 +226,7 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     union {
         int receiveInt;
         double receivedDouble;
-        unsigned char arrayOfChars[sizeof(double)];
+        unsigned char arrayOfChars[sizeof(double)]; // Support both types double / int
         
     } receivedString;
 
@@ -241,7 +247,7 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     // std::vector<type> v(s.length() / sizeof(type));
     // std::copy(s.begin(), s.end(), v.begin());
     //
-    // we can then map the vector into a tensor
+    // make list from vector and return to erlang
 
     if (!enif_get_string(env, argv[0], (char*)receivedString.arrayOfChars, NumOfBytes+1, ERL_NIF_LATIN1)) {
         enif_free(receivedString.arrayOfChars);
@@ -260,11 +266,11 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
     if(NumOfBytes == 8)
     {
-        return enif_make_double(env, receivedString.receivedDouble);
+        return enif_make_double(env, receivedString.receivedDouble); // return erlang list of double
     }
     else if (NumOfBytes == 4)
     {
-        return enif_make_int(env, receivedString.receiveInt);
+        return enif_make_int(env, receivedString.receiveInt); // return list of int
     }
 
     return enif_make_atom(env, "Finished decode NIF not as expected");
