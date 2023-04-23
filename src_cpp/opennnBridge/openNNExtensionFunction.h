@@ -16,18 +16,18 @@
 #include "../opennn/opennn/opennn.h"
 #include "nifppEigenExtensions.h"
 
-using namespace OpenNN;
+using namespace opennn;
 
 
 
 // openNNExtensionFunction.h
-static void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neural_network , iTensor1DPtr activations_functions)
+static void chooseActivationFunction(std::shared_ptr<opennn::NeuralNetwork> neural_network , iTensor1DPtr activations_functions)
 {
    for(int i = 0; i < (int)((neural_network->get_trainable_layers_pointers()).size() ); i++){
           
      
          //Pooling
-         if( (neural_network->get_trainable_layers_pointers()(i))->get_type() == OpenNN::Layer::Type::Pooling ) //"Pooling"
+         if( (neural_network->get_trainable_layers_pointers()(i))->get_type() == opennn::Layer::Type::Pooling ) //"Pooling"
          {
             if((*activations_functions)(i) == E_Pooling_Method_NoPooling){
                   dynamic_cast<PoolingLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_pooling_method(PoolingLayer::PoolingMethod::NoPooling);
@@ -44,10 +44,10 @@ static void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neur
 
         
          //Perceptron + LongShortTermMemory + Recurrent + Convolutional
-         if( ((neural_network->get_trainable_layers_pointers()(i))->get_type() == OpenNN::Layer::Type::Perceptron) //"Perceptron"
-             || ((neural_network->get_trainable_layers_pointers()(i))->get_type() == OpenNN::Layer::Type::LongShortTermMemory) //"LongShortTermMemory"
-             || ((neural_network->get_trainable_layers_pointers()(i))->get_type() == OpenNN::Layer::Type::Recurrent ) //"Recurrent"
-             || ( (neural_network->get_trainable_layers_pointers()(i))->get_type() == OpenNN::Layer::Type::Convolutional )) //"Convolutional"
+         if( ((neural_network->get_trainable_layers_pointers()(i))->get_type() == opennn::Layer::Type::Perceptron) //"Perceptron"
+             || ((neural_network->get_trainable_layers_pointers()(i))->get_type() == opennn::Layer::Type::LongShortTermMemory) //"LongShortTermMemory"
+             || ((neural_network->get_trainable_layers_pointers()(i))->get_type() == opennn::Layer::Type::Recurrent ) //"Recurrent"
+             || ( (neural_network->get_trainable_layers_pointers()(i))->get_type() == opennn::Layer::Type::Convolutional )) //"Convolutional"
          {
             if((*activations_functions)(i) == E_AF_Threshold){
                   dynamic_cast<PerceptronLayer*>(neural_network->get_trainable_layers_pointers()(i))->set_activation_function(PerceptronLayer::ActivationFunction::Threshold);
@@ -97,7 +97,7 @@ static void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neur
       
          //Probabilistic
          int last_layar = neural_network->get_layers_pointers().size()-1;
-         if(neural_network->get_layer_pointer(last_layar)->get_type() == OpenNN::Layer::Type::Probabilistic) //"Probabilistic"
+         if(neural_network->get_layer_pointer(last_layar)->get_type() == opennn::Layer::Type::Probabilistic) //"Probabilistic"
          {
             if((*activations_functions)(last_layar) == PAF_Binary){
                   dynamic_cast<ProbabilisticLayer*>(neural_network->get_layer_pointer(last_layar))->set_activation_function(ProbabilisticLayer::ActivationFunction::Binary);
@@ -118,7 +118,7 @@ static void chooseActivationFunction(std::shared_ptr<OpenNN::NeuralNetwork> neur
          }
 
          int last_layar2 = neural_network->get_layers_pointers().size()-2;
-         if(neural_network->get_layer_pointer(last_layar)->get_type() == OpenNN::Layer::Type::Probabilistic) //"Probabilistic"
+         if(neural_network->get_layer_pointer(last_layar)->get_type() == opennn::Layer::Type::Probabilistic) //"Probabilistic"
          {
        
             if((*activations_functions)(last_layar2) == PAF_Binary){

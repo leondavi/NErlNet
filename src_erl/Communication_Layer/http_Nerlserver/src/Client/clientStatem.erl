@@ -64,9 +64,9 @@ init({MyName,Federated,Workers,NerlnetGraph}) ->
   inets:start(),
   io:format("Client ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
   start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
-  io:format("loading niff~n",[]),
+  %io:format("loading niff~n",[]),
   %niftest:init(), niftest is depracated - use nerlNIF
-  io:format(" niff loaded~n",[]),
+  %io:format(" niff loaded~n",[]),
 
   % WorkersPids = createWorkers(Workers,self(),[]),
 
@@ -314,14 +314,14 @@ code_change(_OldVsn, StateName, State = #client_statem_state{}, _Extra) ->
 %%%===================================================================
 start_connection([])->ok;
 start_connection([{_ServerName,{Host, Port}}|Tail]) ->
-httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-start_connection(Tail).
+  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  start_connection(Tail).
 
 http_request(Host, Port,Path, Body)->
 %%  io:format("sending body ~p to path ~p to hostport:~p~n",[Body,Path,{Host,Port}]),
-URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
-httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
+  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
+  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
 
 ack(MyName, NerlnetGraph) ->
   io:format("~p sending ACK   ~n",[MyName]),
@@ -335,17 +335,17 @@ getShortPath(From,To,NerlnetGraph) when is_atom(To)->
   {Host,Port};
 
 getShortPath(From,To,NerlnetGraph) -> 
-First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
-{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
-{Host,Port}.
+  First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
+  {_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
+  {Host,Port}.
 
 %%This encoder receives a lists of lists: [[1.0,1.1,11.2],[2.0,2.1,22.2]] and returns a binary
 encodeListOfLists(L)->encodeListOfLists(L,[]).
 encodeListOfLists([],Ret)->term_to_binary(Ret);
 encodeListOfLists([H|T],Ret)->encodeListOfLists(T,Ret++[encodeFloatsList(H)]).
 encodeFloatsList(ListOfFloats)->
-ListOfBinaries = [<<X:64/float>>||X<-ListOfFloats],
-list_to_binary(ListOfBinaries).
+  ListOfBinaries = [<<X:64/float>>||X<-ListOfFloats],
+  list_to_binary(ListOfBinaries).
 
 %%This decoder receives a binary <<131,108,0,0,0,2,106...>> and returns a lists of lists: [[1.0,1.1,11.2],[2.0,2.1,22.2]]
 decodeListOfLists(L)->decodeListOfLists(binary_to_term(L),[]).

@@ -205,7 +205,7 @@ sendSamples(ListOfSamples,CSVPath,ChunkSize,LengthOfSample, Ms,Pid,Triplets,Coun
           %%this http request will be splitted at client's state machine by the following order:
           %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
   if NumOfBatchesToSend rem 10 == 0 ->
-    logger:info("~p samples left to send~n", [NumOfBatchesToSend]); true -> skip end,
+    io:format("~p samples left to send~n", [NumOfBatchesToSend]); true -> skip end,
 
   if Method == ?SENDALL ->
         %%sending batch to all clients"

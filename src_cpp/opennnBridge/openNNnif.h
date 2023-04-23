@@ -19,21 +19,18 @@ using namespace std::chrono;
 #include "../opennn/opennn/opennn.h"
 #include "bridgeController.h"
 #include "create.h"
-#include "Autoencoder.h"
 #include "get_set_weights.h"
 #include "ModelParams.h"
 #include "definitionsNN.h"
 
 #include "nifppEigenExtensions.h"
 
-using namespace OpenNN;
-
 #define DEBUG_CREATE_NIF 0
 
 #define TRAINING_STRATEGY_SET_DISPLAY_ON   1
 #define TRAINING_STRATEGY_SET_DISPLAY_OFF  0
 
-using namespace OpenNN;             
+using namespace opennn;             
 
 class TrainNN
 {
@@ -55,13 +52,12 @@ class PredictNN
 {
 public:
     long int mid;
-    std::shared_ptr<Eigen::Tensor<float,2>> data;
+    fTensor2DPtr data;
     ErlNifPid pid;
     ErlNifTid tid;
 };
 
 void* PredictFun(void* arg);
-void* PredictFunAE(void* arg);
 
 static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
 
@@ -76,18 +72,14 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     nifpp::get_throws(env, argv[0], PredictNNptr->mid); // get model id
     nifpp::getTensor2D(env,argv[1], PredictNNptr->data); // get data for prediction
 
+    // cout << "data size cols: " << PredictNNptr->data->dimension(0) <<std::endl;
+    // cout << "data size rows: " << PredictNNptr->data->dimension(1) <<std::endl;
+
     opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
     int modelType = onnBrCtrl.getModelType(PredictNNptr->mid);
 
     int res;
-    if (modelType == E_AE || modelType == E_AEC) //TODO examine AE AEC impelmentatio
-    {
-        res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFunAE, (void*) pPredictNNptr, 0);
-    }
-    else
-    {
-        res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFun, (void*) pPredictNNptr, 0);
-    }
+    res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFun, (void*) pPredictNNptr, 0);
     return enif_make_string(env, "end PREDICT mode", ERL_NIF_LATIN1);
 
 }  //end PREDICT mode
@@ -126,15 +118,7 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
         opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
         int modelType = onnBrCtrl.getModelType(TrainNNptr->mid);
         int res;
-        if (modelType == E_AE || modelType == E_AEC) //TODO examine AE AEC impelmentation
-        {
-            res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFunAE, (void*) pTrainNNptr, 0);
-        }
-        else
-        {
-            res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, (void*) pTrainNNptr, 0);
-        }
-
+        res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, (void*) pTrainNNptr, 0);
     }
     catch(...){
     cout << "catch in enif_thread_create " << endl;
@@ -219,8 +203,9 @@ static ERL_NIF_TERM encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 }  
 
 
-static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
 
+static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
+//TODO implement with get with std::string and move its content to std::vector or Eigen Tensor
     #if DEBUG_DECODE
         std::cout << "Start the decode_nif." << '\n';
     #endif
@@ -241,6 +226,23 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
     //char* buf = (char*) enif_alloc(NumOfBytes + 1);
     
+    // TODO Ziv
+    // This function should be used to get the string:
+    // inline int get(ErlNifEnv *env, ERL_NIF_TERM term, std::string &var)
+    //
+    // nifpp takes care to the part of copying the string from erlang we do not change it
+    // Example:
+    // 
+    // std::vector<char> v(s.length());
+    // std::copy(s.begin(), s.end(), v.begin());
+    //
+    // For any type: 
+    //
+    // std::vector<type> v(s.length() / sizeof(type));
+    // std::copy(s.begin(), s.end(), v.begin());
+    //
+    // we can then map the vector into a tensor
+
     if (!enif_get_string(env, argv[0], (char*)receivedString.arrayOfChars, NumOfBytes+1, ERL_NIF_LATIN1)) {
         enif_free(receivedString.arrayOfChars);
         return enif_make_badarg(env);

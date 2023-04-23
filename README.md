@@ -3,7 +3,7 @@
 
 
 <p align="center">
-  <img src="Nerlnet_logo.jpg" width="350" title="NerlNet">
+  <img src="NerlnetLogo.png" width="200" title="NerlNet">
 </p>
 
 Nerlnet is an open-source library for research of distributed machine learning algorithms on IoT devices that gives full insights into both edge devices that run neural network models and network performance and statistics. Nerlnet can simulate distributed ML architectures and deploy them on various IoT devices. <br><br>
@@ -62,8 +62,9 @@ After running the installation script, NErlNet directory can be accessed via the
 ## Python API and Jupyter (For GUI Server): 
 Minimum Python version: 3.8
 
-1. Create and activate a virtual environment for Nerlnet https://docs.python.org/3/library/venv.html
-2. Install required modules ```pip install -r src_py/requirements.txt```
+1. Create and activate a virtual environment for Nerlnet: (https://docs.python.org/3/library/venv.html)  
+  ```python -m venv VENV_PATH/VENV_NAME  ==== then ===> source VENV/bin/acticvate``` 
+2. Install required modules while in venv ```pip install -r src_py/requirements.txt```
 3. Install Jupyter Notebook ```pip install jupyterlab```
 4. Call Jupyter environment creator script with an experiment directory ```./NerlnetJupyterEnvGenerator.sh --j <experiment_direcotry>```
 5. Run Jupyter notebook and import the ApiServer module to the notebook. 

@@ -7,3 +7,6 @@
 [submodule "simple-cpp-logger"]
 	path = src_cpp/simple-cpp-logger
 	url = https://github.com/nadrino/simple-cpp-logger
+[submodule "nifpp"]
+	path = src_cpp/nifpp
+	url = https://github.com/goertzenator/nifpp.git
