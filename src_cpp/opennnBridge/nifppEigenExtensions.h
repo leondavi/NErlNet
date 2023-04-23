@@ -18,6 +18,21 @@
 
 namespace nifpp
 {
+
+    template<typename Type>
+    inline int get_binary(ErlNifEnv *env, ERL_NIF_TERM term, std::vector<Type> &vec)
+    {
+        ErlNifBinary bin;
+        int ret = enif_inspect_binary(env, term, &bin);
+        if(!ret)
+        {
+            // a binary either, so fail.
+            return 0;
+        }
+        vec = std::vector<Type>(bin.data, bin.data + bin.size / sizeof(Type));
+        return ret;
+    }
+
     // Float number conversions
     inline int get(ErlNifEnv *env, ERL_NIF_TERM term, float &var)
     {
@@ -27,6 +42,18 @@ namespace nifpp
         return res;
     }
     inline TERM make(ErlNifEnv *env, const float var)
+    {
+        return TERM(enif_make_double(env, static_cast<double>(var)));
+    }
+
+    inline int get(ErlNifEnv *env, ERL_NIF_TERM term, float16_t &var)
+    {
+        double tmpVar;
+        int res = enif_get_double(env, term, &tmpVar);
+        var = static_cast<float16_t>(tmpVar);
+        return res;
+    }
+    inline TERM make(ErlNifEnv *env, const float16_t var)
     {
         return TERM(enif_make_double(env, static_cast<double>(var)));
     }
