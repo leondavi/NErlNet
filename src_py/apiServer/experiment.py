@@ -20,7 +20,7 @@ class Experiment():
     def syncTrainingWithFlow(self):
        for source in self.expFlow [globe.TRAINING_STR]:
            sourceWorkers = list(source["workers"].split(","))
-           newCsvRes = CsvResult(globe.TRAINING_STR, workedBySources = source, csvName = source["CSV path"], workers = sourceWorkers)
+           newCsvRes = CsvResult(globe.TRAINING_STR, workedBySources = source, csvName = source["CSV path"], workers = sourceWorkers)   # find better way to 
            newCsvRes.addWorkers()
            self.trainingResList.append(newCsvRes)
 

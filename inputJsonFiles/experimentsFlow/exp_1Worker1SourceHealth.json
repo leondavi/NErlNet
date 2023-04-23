@@ -1,10 +1,10 @@
 {
-   "Features:": 13,
-   "Labels": 5,
+   "Features": 13,
+   "Labels": [1, 2, 3, 4, 5],
    "CSV path": "health_comb",
    "Batches per source": 
    {
-      "Training": 20,
+      "Training": 50,
       "Prediction": 20
    },
    "Training":  [
