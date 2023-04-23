@@ -13,25 +13,17 @@
  * @copyright Copyright (c) 2021 Nerlnet
  * 
  */
-//#include <iostream>
-#include <vector>
+
 #include "ModelParams.h"
-#include "nifppEigenExtensions.h"
 #include "openNNExtensionFunction.h"
 #include "CustumNN.h"
-#include "Autoencoder.h"
-#include <map>
-#include "../opennn/opennn/opennn.h"
+#include "../simple-cpp-logger/include/Logger.h"
+#include "bridgeController.h"
 
-//All enum defintions are defined in defnitions.h
-#include "definitionsNN.h"
-
-
-using namespace OpenNN;
+using namespace opennn;
 
 static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    
     ModelParams modelParamsInst;
     unsigned long modelId;
     int modelType;
@@ -40,8 +32,6 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     iTensor1DPtr layer_types;
     iTensor1DPtr neural_network_architecture;
     iTensor1DPtr activations_functions;
-    
-   
 
     
          // get data from erlang ----------------------------------------------------------------------------------------
@@ -52,8 +42,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          nifpp::getTensor1D(env,argv[3],layer_types); 
          nifpp::getTensor1D(env,argv[4],neural_network_architecture);
          nifpp::getTensor1D(env,argv[5],activations_functions);
-        
-                  
+           
         }   
      
         catch(...){
@@ -64,11 +53,9 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
                     
         //--------------------------------------------------------------------------------------------------------------
          
-
-         
          // creat neural network . typy + layers number and size. -------------------------------------------------------------
         
-         std::shared_ptr<OpenNN::NeuralNetwork> neural_network = std::make_shared<OpenNN::NeuralNetwork>();
+         std::shared_ptr<opennn::NeuralNetwork> neural_network = std::make_shared<opennn::NeuralNetwork>();
          
         try{
              
@@ -97,26 +84,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
              neural_network = customNNPtr;
              customNNPtr->setCustumNN(neural_network_architecture, layer_types, activations_functions); 
              
-         } //CUSTOMNN
-
-         else if(modelType ==  E_AE)
-         { 
-
-             shared_ptr<Autoencoder> autoencoderPtr = std::make_shared<Autoencoder>();
-             neural_network = autoencoderPtr;
-             autoencoderPtr->setCustumNN(neural_network_architecture, layer_types, activations_functions); 
-             
-         } //Autoencoder
-
-          else if(modelType == E_AEC)
-         { 
-             double k = 1.6;
-             shared_ptr<AutoencoderClassifier> autoencoderClassifierPtr = std::make_shared<AutoencoderClassifier>(k);
-             neural_network = autoencoderClassifierPtr;
-             autoencoderClassifierPtr->setCustumNN(neural_network_architecture, layer_types, activations_functions); 
-             
-         } //AutoencoderClassifier
-       
+         } //CUSTOMNN       
        
         } //try
 
@@ -124,32 +92,33 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
            return enif_make_string(env, "catch - select model type", ERL_NIF_LATIN1);
         } 
 
-         
+         cout << "Done setting CustomNN" << std::endl;
         try{ 
          // set scaling method for scaling layer ---------------------------------------------------------------------------
          ScalingLayer* scaling_layer_pointer = neural_network->get_scaling_layer_pointer();
+         cout << "scaling method = " << scaling_method << std::endl;
          if(scaling_method == E_ScalingMethods_NoScaling)
         {
-            scaling_layer_pointer->set_scalers(OpenNN::Scaler::NoScaling);
+            scaling_layer_pointer->set_scalers(opennn::Scaler::NoScaling);
         }
         else if(scaling_method == E_ScalingMethods_MinimumMaximum)
         {
-            scaling_layer_pointer->set_scalers(OpenNN::Scaler::MinimumMaximum);
+            scaling_layer_pointer->set_scalers(opennn::Scaler::MinimumMaximum);
         }
         else if(scaling_method == E_ScalingMethods_MeanStandardDeviation)
         {
-            scaling_layer_pointer->set_scalers(OpenNN::Scaler::MeanStandardDeviation);
+            scaling_layer_pointer->set_scalers(opennn::Scaler::MeanStandardDeviation);
         }
         else if(scaling_method == E_ScalingMethods_StandardDeviation)
         {
-            scaling_layer_pointer->set_scalers(OpenNN::Scaler::StandardDeviation);
+            scaling_layer_pointer->set_scalers(opennn::Scaler::StandardDeviation);
         }
         else if(scaling_method == E_ScalingMethods_Logarithm)  
         {
-           // scaling_layer_pointer->set_scaling_methods(OpenNN::Scaler::::Logarithm);   //Logarithm exists in opennn site but commpiler dont recognaize it. 
+           // scaling_layer_pointer->set_scaling_methods(opennn::Scaler::::Logarithm);   //Logarithm exists in opennn site but commpiler dont recognaize it. 
         }
         //------------------------------------------------------------------------------------------------------------------
-          
+          cout << "Done setting NN scalers" << std::endl;
         } //try
 
         catch(...){
@@ -168,7 +137,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          
         // singelton part ----------------------------------------------------------------------------------------------
         try{ 
-            std::shared_ptr<OpenNN::NeuralNetwork> modelPtr(neural_network);
+            std::shared_ptr<opennn::NeuralNetwork> modelPtr(neural_network);
             // Create the singleton instance
             opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
 
@@ -176,6 +145,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
             onnBrCtrl.setData(modelPtr, modelId , modelType);
             LogInfo<< "New model is assigned - ID " << modelId << std::endl;
         }
+        
 
         catch(...){
             LogError << "[Bridge Controller] Issue with model creation and assigment" << std::endl;

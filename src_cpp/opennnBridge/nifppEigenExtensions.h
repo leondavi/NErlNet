@@ -9,7 +9,7 @@
 #pragma once 
 
 #include "nifpp.h"
-#include "unsupported/Eigen/CXX11/Tensor"
+#include "../opennn/opennn/opennn.h"
 
 
 #define MAX_SUPPORTED_DIMS 3
@@ -18,7 +18,18 @@
 
 namespace nifpp
 {
-    
+    // Float number conversions
+    inline int get(ErlNifEnv *env, ERL_NIF_TERM term, float &var)
+    {
+        double tmpVar;
+        int res = enif_get_double(env, term, &tmpVar);
+        var = static_cast<float>(tmpVar);
+        return res;
+    }
+    inline TERM make(ErlNifEnv *env, const float var)
+    {
+        return TERM(enif_make_double(env, static_cast<double>(var)));
+    }
     /**
      * @brief 
      * This class sets the max supported dims

@@ -71,6 +71,16 @@ done
 
 NERLNET_BUILD_PREFIX="[Nerlnet Build] "
 
+OPTION="add_compile_definitions(EIGEN_MAX_ALIGN_BYTES=8)"
+is_rasp="$(grep -c raspbian /etc/os-release)"
+if [ $is_rasp -gt "0" ]; then 
+        echo "$NERLNET_BUILD_PREFIX Detected raspberrypi => setting alignment to 8"
+        sed -i "s/^.*#\(${OPTION}\)/\1/" CMakeLists.txt
+else 
+        echo "$NERLNET_BUILD_PREFIX Using default alignment"
+        sed -i "s/^.*\(${OPTION}.*$\)/#\1/" CMakeLists.txt
+fi
+
 echo "$NERLNET_BUILD_PREFIX Building Nerlnet Library"
 echo "$NERLNET_BUILD_PREFIX Cmake command of Nerlnet NIFPP"
 cmake -S . -B build/release -DCMAKE_BUILD_TYPE=RELEASE

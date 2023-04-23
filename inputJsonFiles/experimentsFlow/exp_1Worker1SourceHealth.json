@@ -1,31 +1,33 @@
 {
-     "CSV path": "health_comb",
-     "Batches per source": 
-     {
-        "Training": 50,
-        "Prediction": 50
-     },
-     "Training":  [
-         {
-            "source name": "s1",
-            "workers": "w1",
-            "CSV path": "health_comb_train"
-         }
-     ],
-    
-     "Prediction": [
-         {
-            "source name": "s1",
-            "workers": "w1",
-            "CSV path": "health_comb_predict"
-         }
-    ],
-    
-     "Statistics": [
-         {
-            "workers": "w1",
-            "routers": "r1"
-         }
-    ]
+   "Features": 13,
+   "Labels": [1, 2, 3, 4, 5],
+   "CSV path": "health_comb",
+   "Batches per source": 
+   {
+      "Training": 50,
+      "Prediction": 20
+   },
+   "Training":  [
+      {
+         "source name": "s1",
+         "workers": "w1",
+         "CSV path": "health_comb_train"
+      }
+   ],
+   
+   "Prediction": [
+      {
+         "source name": "s1",
+         "workers": "w1",
+         "CSV path": "health_comb_predict"
+      }
+   ],
+   
+   "Statistics": [
+      {
+         "workers": "w1",
+         "routers": "r1"
+      }
+   ]
 }
     
