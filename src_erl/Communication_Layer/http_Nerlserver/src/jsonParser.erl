@@ -11,7 +11,7 @@
 -export([getDeviceEntities/3]).
 -define(ARCH_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/src_erl/Communication_Layer/http_Nerlserver/arch.json").
 -define(COMM_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/src_erl/Communication_Layer/http_Nerlserver/conn.json").
--define(FILE_IDENTIFIER,"[jsonParder] ").
+-define(FILE_IDENTIFIER,"[jsonParser] ").
 
 getDeviceEntities(_ArchitectureAdderess,_CommunicationMapAdderess, HostName)->
 
@@ -275,7 +275,7 @@ addDeviceToGraph(G,ArchitectureMap, HostName)->
 
     OnDeviceEntities1 = getOnDeviceEntities(maps:get(<<"devices">>,ArchitectureMap),HostName),
     OnDeviceEntities =re:split(binary_to_list(OnDeviceEntities1),",",[{return,list}]),
-    logger:notice(?FILE_IDENTIFIER++"OnDeviceEntities:~n~p~n",[OnDeviceEntities]),
+    logger:notice(?FILE_IDENTIFIER++"adding device ~p to graph~n",[OnDeviceEntities]),
 
     %%ADD THIS TO NERLNET:
 
