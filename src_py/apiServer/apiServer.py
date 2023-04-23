@@ -34,7 +34,8 @@ class ApiServer():
         print(
 """
 __________NERLNET CHECKLIST__________
-0. Make sure data and jsons in correct folder, and jsons include the correct paths
+0. Make sure data and jsons in correct folder, and jsons include the correct paths:
+    i) data saved as .csv, training file ends with "_Training.csv", prediction with "_Prediction.csv" (may change in future)
 1. Run Jupyter in virtual env: source <venv>/bin/activate
             
 ____________API COMMANDS_____________
