@@ -16,8 +16,8 @@ public:
     void setCustumNN(iTensor1DPtr neural_network_architecture , iTensor1DPtr layer_types, 
                           iTensor1DPtr activations_functions ){
         
-       std::cout << "start CustumNN" << std::endl; 
-       std::cout << neural_network_architecture->size() << std::endl; 
+       //std::cout << "start CustumNN" << std::endl; 
+       //std::cout << neural_network_architecture->size() << std::endl; 
     
        //std::shared_ptr<opennn::NeuralNetwork> neural_network = std::make_shared<opennn::NeuralNetwork>();    
 
@@ -47,7 +47,7 @@ public:
                 }
                 //E_LAYER_TYPE_UNSCALING
 
-                std::cout << "set layer " << i << "to be size " << (*neural_network_architecture)(i) << std::endl;
+                // std::cout << "set layer " << i << "to be size " << (*neural_network_architecture)(i) << std::endl;
                 // std::cout << "layer types" << std::endl;
                 // if((*layer_types)[i] != 1){
                 //     std::cout<< opennn::NeuralNetwork::get_layer_pointer(i)->get_type_string() <<std::endl;
@@ -55,7 +55,7 @@ public:
                 // }
             }
                  
-                std::cout << "layers number: "<< opennn::NeuralNetwork::get_layers_number() << std::endl; 
+                //std::cout << "layers number: "<< opennn::NeuralNetwork::get_layers_number() << std::endl; 
                 std::cout << "end CustumNN" << std::endl; 
 
 

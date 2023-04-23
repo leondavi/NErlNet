@@ -11,6 +11,7 @@
 -export([getDeviceEntities/3]).
 -define(ARCH_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/src_erl/Communication_Layer/http_Nerlserver/arch.json").
 -define(COMM_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/src_erl/Communication_Layer/http_Nerlserver/conn.json").
+-define(FILE_IDENTIFIER,"[jsonParder] ").
 
 getDeviceEntities(_ArchitectureAdderess,_CommunicationMapAdderess, HostName)->
 
@@ -18,7 +19,7 @@ getDeviceEntities(_ArchitectureAdderess,_CommunicationMapAdderess, HostName)->
   {ok, CommunicationMapAdderessData} = file:read_file(?COMM_ADDR),
 
 %%TODO ADD CHECK FOR VALID INPUT:  
-  io:format("~p~n",[jsx:is_json(ArchitectureAdderessData)]),
+logger:notice(?FILE_IDENTIFIER++"IS THIS A JSON? ~p~n",[jsx:is_json(ArchitectureAdderessData)]),
 
   %%Decode Json to architecute map and Connection map:
   ArchitectureMap = jsx:decode(ArchitectureAdderessData,[]),
@@ -274,7 +275,7 @@ addDeviceToGraph(G,ArchitectureMap, HostName)->
 
     OnDeviceEntities1 = getOnDeviceEntities(maps:get(<<"devices">>,ArchitectureMap),HostName),
     OnDeviceEntities =re:split(binary_to_list(OnDeviceEntities1),",",[{return,list}]),
-    io:format("OnDeviceEntities:~n~p~n",[OnDeviceEntities]),
+    logger:notice(?FILE_IDENTIFIER++"OnDeviceEntities:~n~p~n",[OnDeviceEntities]),
 
     %%ADD THIS TO NERLNET:
 

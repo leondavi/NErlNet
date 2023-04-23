@@ -31,15 +31,16 @@ class ApiServer():
 
     def help(self):
 
+    #i) data saved as .csv, training file ends with "_Training.csv", prediction with "_Prediction.csv" (may change in future)
         print(
 """
 __________NERLNET CHECKLIST__________
 0. Make sure data and jsons in correct folder, and jsons include the correct paths:
-    i) data saved as .csv, training file ends with "_Training.csv", prediction with "_Prediction.csv" (may change in future)
 1. Run Jupyter in virtual env: source <venv>/bin/activate
             
 ____________API COMMANDS_____________
 ==========Setting experiment========
+
 -showJsons():                       shows available arch / conn / exp layouts
 -selectJsons():                     get input from user for arch / conn / exp selection
 -setJsons(arch, conn, exp):         set layout in code
@@ -47,16 +48,18 @@ ____________API COMMANDS_____________
 -initialization(arch, conn, exp):   set up server for a NerlNet run
 -sendJsonsToDevices():              send each NerlNet device the arch / conn jsons to init entities on it
 -sendDataToSources(phase):          phase can be "training" / "prediction". send the experiment data to sources (currently happens in beggining of train/predict)
+
 ========Running experiment==========
 -train():                           start training phase
 -predict():                         start prediction phase
 -contPhase(phase):                  send another `Batch_size` of a phase (must be called after initial train/predict)
+
 ==========Experiment info===========
 -print_saved_experiments()          prints saved experiments and their number for statistics later
 -plot_loss(ExpNum)                  saves and shows the loss over time of the chosen experiment
 -accuracy_matrix(ExpNum)            shows a graphic for the confusion matrix. Also returns: [TruePos, TrueNeg, FalsePos, FalseNeg]
 -communication_stats()              prints the communication statistics of the current network.
--statistics():                      get specific statistics of experiment (lossFunc graph, accuracy, etc...) DEPRECATED
+-statistics():                      get specific statistics of experiment (lossFunc graph, accuracy, etc...) *DEPRECATED*
 
 _____GLOBAL VARIABLES / CONSTANTS_____
 pendingAcks:                        makes sure API command reaches all relevant entities (wait for pending acks)
