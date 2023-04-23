@@ -20,7 +20,8 @@ class Experiment():
     def syncTrainingWithFlow(self):
        for source in self.expFlow [globe.TRAINING_STR]:
            sourceWorkers = list(source["workers"].split(","))
-           newCsvRes = CsvResult(globe.TRAINING_STR, workedBySources = source, csvName = source["CSV path"], workers = sourceWorkers)   # find better way to 
+           # TODO: simplify experiment json with only 1 CSV path and add to it globe.TRAINING_STR => csvName = self.expFlow [DATA_NAME+"_"+globe.TRAINING_STR] ("health_Training")
+           newCsvRes = CsvResult(globe.TRAINING_STR, workedBySources = source, csvName = source["CSV path"], workers = sourceWorkers)
            newCsvRes.addWorkers()
            self.trainingResList.append(newCsvRes)
 
