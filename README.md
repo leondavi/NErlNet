@@ -3,7 +3,7 @@
 
 
 <p align="center">
-  <img src="Nerlnet_logo.jpg" width="350" title="NerlNet">
+  <img src="NerlnetLogo.png" width="200" title="NerlNet">
 </p>
 
 Nerlnet is an open-source library for research of distributed machine learning algorithms on IoT devices that gives full insights into both edge devices that run neural network models and network performance and statistics. Nerlnet can simulate distributed ML architectures and deploy them on various IoT devices. <br><br>
