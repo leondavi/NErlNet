@@ -1,6 +1,5 @@
--type nerlTensorType() :: erl_float | erl_int | float32 | double | int32.
--define (ERL_GROUP_NERLTENSOR_TYPE, [erl_float, erl_int]).
--define (CHAR_BYTES_GROUP_NERLTENSOR_TYPE, [float32,double,int32]).
+-define (LIST_GROUP_NERLTENSOR_TYPE, [erl_float, erl_int]).
+-define (BINARY_GROUP_NERLTENSOR_TYPE, [float16,float32,double,int32,int16]).
 
 % bytes_str: list of chars in Erlang and std::string in NIF
 % float32/double: list of floats in Erlang

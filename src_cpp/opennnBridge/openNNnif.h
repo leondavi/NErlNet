@@ -211,10 +211,60 @@ static ERL_NIF_TERM encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 // decode: nerltensor_str --> eigentensor
 //nerltensor_str: string (list of bytes) that represents the nerlTensor given a cpp type (float32, int32, double)
 
-// decode_nif from nerlTensor str to erl list with type
-// inefficient representation of NerlTensor as erlang list
+
+// Input: Binary and Binary Type (atom from the group ?BINARY_GROUP_NERLTENSOR_TYPE)
+// Output: {List, ListType} (ListType is an atom from the group ?LIST_GROUP_NERLTENSOR_TYPE)
 static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
-//TODO implement with get with std::string and move its content to std::vector or Eigen Tensor
+    enum {ARG_BINARY, ARG_TYPE , ARG_LIST = 0};
+
+    std::tuple<ERL_NIF_TERM, ERL_NIF_TERM> return_val;
+
+    nifpp::str_atom type_nerltensor;
+    nifpp::str_atom erl_float("erl_float");
+    nifpp::str_atom erl_int("erl_float");
+
+    nifpp::get_throws(env, argv[ARG_TYPE], type_nerltensor);
+    
+    if (type_nerltensor == "float16")
+    {
+        std::vector<float16_t> vecf16;
+        nifpp::get_binary(env,argv[ARG_BINARY], vecf16);
+        
+        std::vector<float> vecf(vecf16.size()); //only native is supported
+        for(int i=0; i < vecf.size(); i++)
+        {
+            vecf[i] = static_cast<float>(vecf16[i]);
+        }
+        return_val = { nifpp::make(env, vecf) , nifpp::make(env, erl_float) };
+    }
+    else if (type_nerltensor == "float32")
+    {
+        std::vector<float> vec;
+        nifpp::get_binary(env,argv[ARG_BINARY], vec);
+        return_val = { nifpp::make(env, vec) , nifpp::make(env, erl_float) };
+    }
+    else if (type_nerltensor == "double")
+    {
+        std::vector<double> vec;
+        nifpp::get_binary(env,argv[ARG_BINARY], vec);
+        return_val = { nifpp::make(env, vec) , nifpp::make(env, erl_float) };
+    }
+    else if (type_nerltensor == "int32")
+    {
+        std::vector<int32_t> vec;
+        nifpp::get_binary(env,argv[ARG_BINARY], vec);
+        return_val = { nifpp::make(env, vec) , nifpp::make(env, erl_int) };
+    }
+    else if (type_nerltensor == "int16")
+    {
+        std::vector<int16_t> vec;
+        nifpp::get_binary(env,argv[ARG_BINARY], vec);
+        return_val = { nifpp::make(env, vec) , nifpp::make(env, erl_int) };
+    }
+
+    return nifpp::make(env, return_val);
+
+
     #if DEBUG_DECODE
         std::cout << "Start the decode_nif." << '\n';
     #endif
@@ -232,57 +282,6 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         unsigned char arrayOfChars[sizeof(double)]; // Support both types double / int
         
     } receivedString;
-
-    //char* buf = (char*) enif_alloc(NumOfBytes + 1);
-    
-    // TODO Ziv
-    // This function should be used to get the string:
-    // inline int get(ErlNifEnv *env, ERL_NIF_TERM term, std::string &var)
-    //
-    // nifpp takes care to the part of copying the string from erlang we do not change it
-    // Example:
-    // 
-    // string == array of chars  
-    //
-    // std::vector<char> v(s.length());
-    // std::copy(s.begin(), s.end(), v.begin());
-    //
-    // For any type: 
-    //
-    // std::vector<type> v(s.length() / sizeof(type));
-    // std::copy(s.begin(), s.end(), v.begin());
-    
-    // Example:
-    // std::vector<uint32> v(s.length() / sizeof(uin32));
-    // std::copy(s.begin() + 3 *, s.end(), v.begin());
-
-    // make list from vector and return to erlang
-
-    if (!enif_get_string(env, argv[0], (char*)receivedString.arrayOfChars, NumOfBytes+1, ERL_NIF_LATIN1)) {
-        enif_free(receivedString.arrayOfChars);
-        return enif_make_badarg(env);
-    }
-
-    #if DEBUG_DECODE
-        std::cout << "Print array_of_chars:" << std::endl;
-        for(int k = 0; k < sizeof(receivedString.arrayOfChars); k++)
-        {
-            std::cout << (int)receivedString.arrayOfChars[k] << std::endl;
-        }
-        //std::cout << receivedString.receivedDouble << std::endl;
-        //std::cout << receivedString.receiveInt << std::endl;
-    #endif
-
-    if(NumOfBytes == 8)
-    {
-        return enif_make_double(env, receivedString.receivedDouble); // return erlang list of double
-    }
-    else if (NumOfBytes == 4)
-    {
-        return enif_make_int(env, receivedString.receiveInt); // return list of int
-    }
-
-    return enif_make_atom(env, "Finished decode NIF not as expected");
 }  
 
 
@@ -293,8 +292,8 @@ static ErlNifFunc nif_funcs[] =
     {"predict_nif", 2 , predict_nif},
     {"get_weights_nif",1, get_weights_nif},
     {"set_weights_nif",2, set_weights_nif},
-    {"encode",2, encode_nif},
-    {"decode",2, decode_nif}
+    {"encode_nif",2, encode_nif},
+    {"decode_nif",2, decode_nif}
 };
 
 

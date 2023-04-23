@@ -4,7 +4,8 @@
 
 -export([init/0,create_nif/6,train_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
--export([encode/2, encode1/2, decode/2, decode1/2]).
+-export([decode_nif/2, nerltensor_binary_decode/2]).
+-export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2]).
 
 -define(FILE_IDENTIFIER,"[NERLNIF] ").
 -define(NERLNET_LIB,"libnerlnet").
@@ -86,40 +87,42 @@ printTensor(List,_Type) when is_list(List) ->
       exit(nif_library_not_loaded).
 
 
-% Num - number to convert to string
-% NumType (Number of bytes): For 64-bit UNIX and Linux applications:
-% char - 1, short - 2, int - 4, long - 8 (4 for Windows 64-bit and unix/linux 32 bit), float - 4, double - 8, 
-% long double - 16 (8 for Windows 64-bit and 32 bit AIX® and Linux PPC), float16 - 2, float32 - 4
-encode1(Num, NumOfBytesForType) ->
-      Result = encode(Num, NumOfBytesForType),
-      io:format("~w~n", [Result]).
-
-encode(_Num, _NumOfBytesForType) ->
-      exit(nif_library_not_loaded).
-
-decode1(String, NumOfBytesForType) ->
-      Result = decode(String, NumOfBytesForType),
-      io:format("~w~n", [Result]).
-
-decode(_String, _NumOfBytesForType) ->
-      exit(nif_library_not_loaded).
-
-
-%---------- nerlTensor -----------%
-
-%-spec conversion(From :: nerlTensor, To :: nerlTensorType()) -> any().
-nerltensor_conversion({NerlTensorFrom, TypeFrom}, {NerlTensorTo, TypeTo}) -> ok.
-   %   case TypeFrom of:
-            % if TypeFrom is [float32 | double | int32 ]-> decode
-            % if TypeTo is [float32 | double | int32] -> encode
-
-%  float32 | double | int32.
--spec nerltensor_create(X :: number(), Y :: number(), Z :: number(), List :: list(), To :: nerlTensorType()) -> list().
-nerltensor_create(X,Y,Z,List,Type) -> 
+nerltensor_encode(X,Y,Z,List,Type) when is_number(X) and is_number(Y) and
+                                        is_number(Z) and is_list(List) and is_atom(Type)-> 
       case Type of
             erl_float -> {[X,Y,Z] ++ List, erl_float}; % Make sure list of float
             erl_int -> {[X,Y,Z] ++ List, erl_int}; % make sure list of integers
-            _COMPRESSED_TYPE -> encode 
+            _COMPRESSED_TYPE -> encode_nif([X,Y,Z] ++ List, Type) % returns {Binary, Type}
       end.
+
+% Input: List and the type of the encoded binary (atom from the group ?BINARY_GROUP_NERLTENSOR_TYPE)
+% Output: {Binary,BinaryType}
+encode_nif(_XYZ_LIST_FORM, _BinaryType)  when erlang:is_list(_XYZ_LIST_FORM) and erlang:is_atom(_BinaryType) ->
+      exit(nif_library_not_loaded). 
+
+% Input: Binary and Binary Type (atom from the group ?BINARY_GROUP_NERLTENSOR_TYPE)
+% Output: {List, ListType} (ListType is an atom from the group ?LIST_GROUP_NERLTENSOR_TYPE)
+decode_nif(_Binary, _BinaryType) when erlang:is_binary(_Binary) and erlang:is_atom(_BinaryType) ->
+      exit(nif_library_not_loaded). % returns {List,ListType}
+
+%---------- nerlTensor -----------%
+nerltensor_binary_decode(Binary, Type) when erlang:is_binary(Binary) and erlang:is_atom(Type) ->
+      NerlTensorListForm = decode_nif(Binary, Type),
+      io:format("~w~n", [NerlTensorListForm]),
+      NerlTensorListForm.
+
+% nerltensor_conversion:
+% ResType is Binary then: Binary (Compressed Form) --> Erlang List
+% ResType is list then: Erlang List --> Binary
+nerltensor_conversion({NerlTensor, Type}, ResType) -> 
+      BinaryGroup = lists:any(ResType, ?BINARY_GROUP_NERLTENSOR_TYPE), % compressed type
+      ListGroup = lists:any(ResType, ?LIST_GROUP_NERLTENSOR_TYPE), % non compressed, list type
+      case ResType of 
+            ResType when BinaryGroup -> encode_nif(NerlTensor,Type); % returns {Binary, Type}
+            ResType when ListGroup -> decode_nif(NerlTensor,Type); % returns {Binary, Type}
+            _ERROR -> error % TODO add log here
+      end.
+
+
 
 
