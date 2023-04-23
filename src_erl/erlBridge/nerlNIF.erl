@@ -43,7 +43,7 @@ call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Wo
                   %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
                   gen_statem:cast(WorkerPid,{loss, Ret}) % TODO @Haran - please check what worker does with this Ret value 
             after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
-                  logger:error("Worker train timeout reached! ~n "),
+                  logger:error(?FILE_IDENTIFIER++"Worker train timeout reached! ~n "),
                   gen_statem:cast(WorkerPid,{loss, -1.0})
       end.
 
@@ -53,7 +53,7 @@ call_to_predict(ModelID, Data, WorkerPid,CSVname, BatchID)->
             Ret-> gen_statem:cast(WorkerPid,{predictRes,Ret,CSVname, BatchID}) % TODO @Haran - please check what worker does with this Ret value 
             after ?PREDICT_TIMEOUT -> 
                  % worker miss predict batch  TODO - inspect this code
-                  logger:error("Worker prediction timeout reached! ~n "),
+                  logger:error(?FILE_IDENTIFIER++"Worker prediction timeout reached! ~n "),
                   gen_statem:cast(WorkerPid,{predictRes, nan, CSVname, BatchID})
       end.
 
@@ -65,7 +65,7 @@ call_to_get_weights(ModelID)->
                   Ret->Ret
                   % io:format("Ret= ~p~n ",[Ret])
             end
-      catch Err:E -> logger:error("Couldnt get weights from worker~n~p~n",{Err,E}),
+      catch Err:E -> logger:error(?FILE_IDENTIFIER++"Couldnt get weights from worker~n~p~n",{Err,E}),
             []
       end.
 
