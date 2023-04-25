@@ -63,7 +63,7 @@ After running the installation script, NErlNet directory can be accessed via the
 Minimum Python version: 3.8
 
 1. Create and activate a virtual environment for Nerlnet: (https://docs.python.org/3/library/venv.html)  
-  ```python -m venv VENV_PATH/VENV_NAME ```
+  ```python -m venv VENV_PATH/VENV_NAME ```  
   ```source VENV/bin/activate``` 
 2. Install required modules while in venv ```pip install -r src_py/requirements.txt```
 3. Install Jupyter Notebook ```pip install jupyterlab```
