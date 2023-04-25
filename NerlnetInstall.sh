@@ -4,7 +4,7 @@
 NERLNET_LIB_DIR="/usr/local/lib/nerlnet-lib"
 NERLNET_DIR=$NERLNET_LIB_DIR/NErlNet
 NERLNET_LOG_DIR="/usr/local/lib/nerlnet-lib/log"
-LOGGED_IN_USER=$(logname)
+LOGGED_IN_USER=$(whoani)
 NumJobs=4
 InstallAll=false
 REBAR3_FILE=src_erl/rebar3/rebar3

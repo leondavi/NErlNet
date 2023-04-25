@@ -15,4 +15,4 @@ jobs:
         run: sudo apt-get update
       - name: Run NerlnetInstall.sh
         run: |
-          sudo ./NerlnetInstall.sh --install
+          sudo ./NerlnetInstall.sh --install all
