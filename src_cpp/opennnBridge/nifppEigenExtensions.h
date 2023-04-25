@@ -41,19 +41,8 @@ namespace nifpp
         var = static_cast<float>(tmpVar);
         return res;
     }
-    inline TERM make(ErlNifEnv *env, const float var)
-    {
-        return TERM(enif_make_double(env, static_cast<double>(var)));
-    }
 
-    inline int get(ErlNifEnv *env, ERL_NIF_TERM term, float16_t &var)
-    {
-        double tmpVar;
-        int res = enif_get_double(env, term, &tmpVar);
-        var = static_cast<float16_t>(tmpVar);
-        return res;
-    }
-    inline TERM make(ErlNifEnv *env, const float16_t var)
+    inline TERM make(ErlNifEnv *env, const float var)
     {
         return TERM(enif_make_double(env, static_cast<double>(var)));
     }

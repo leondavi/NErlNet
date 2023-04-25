@@ -97,6 +97,7 @@ nerltensor_encode(X,Y,Z,List,Type) when is_number(X) and is_number(Y) and
 
 % Input: List and the type of the encoded binary (atom from the group ?BINARY_GROUP_NERLTENSOR_TYPE)
 % Output: {Binary,BinaryType}
+% Warning - if _XYZ_LIST_FORM type is double it can be cast to integer if binaryType is an integer
 encode_nif(_XYZ_LIST_FORM, _BinaryType)  when erlang:is_list(_XYZ_LIST_FORM) and erlang:is_atom(_BinaryType) ->
       exit(nif_library_not_loaded). 
 
