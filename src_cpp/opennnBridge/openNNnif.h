@@ -12,8 +12,8 @@
 #include <string>
 #include <map>
 #include <chrono>
-
-using namespace std::chrono;
+#include <cstdint>
+#include <climits>
 
 #include <Logger.h>
 #include "../opennn/opennn/opennn.h"
@@ -30,7 +30,9 @@ using namespace std::chrono;
 #define TRAINING_STRATEGY_SET_DISPLAY_ON   1
 #define TRAINING_STRATEGY_SET_DISPLAY_OFF  0
 
-using namespace opennn;             
+using namespace std;
+using namespace chrono;
+using namespace opennn;        
 
 class TrainNN
 {
@@ -138,68 +140,109 @@ inline bool is_big_endian(void)
     return bint.c[0] == 1;
 }
 
+template <typename T>
+T swap_endian(T u)
+{
+    static_assert (CHAR_BIT == 8, "CHAR_BIT != 8");
+
+    union
+    {
+        T u;
+        unsigned char u8[sizeof(T)];
+    } source, dest;
+
+    source.u = u;
+
+    for (size_t k = 0; k < sizeof(T); k++)
+        dest.u8[k] = source.u8[sizeof(T) - k - 1];
+
+    return dest.u;
+}
+
+
+
+static bool log_once = true;
+/** 
+*  Input: List and the type of the encoded binary (atom from the group ?BINARY_GROUP_NERLTENSOR_TYPE)
+*  Output: {Binary,BinaryType}
+*  Warning - if _XYZ_LIST_FORM type is double it can be cast to integer if binaryType is an integer
+**/
 static ERL_NIF_TERM encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
 
-    #if DEBUG_ENCODE
-        std::cout << "Start the encode_nif." << '\n';
-    #endif
+    enum {ARG_IN_LIST, ARG_IN_TYPE};
+    nifpp::str_atom enc_atom_type;
+    nifpp::get_throws(env, argv[ARG_IN_TYPE], enc_atom_type);
+    std::tuple<ERL_NIF_TERM, ERL_NIF_TERM> return_val;
 
-    bool isEndian = is_big_endian();
-    if (isEndian)
+
+    bool big_endian = is_big_endian();
+    if (big_endian)
     {
-        std::cout << "\nThe system is Big Endian: " << std::endl;
-    }
-    else
-    {
-        std::cout << "\nThe system is Little Endian: " << std::endl;
-    }
-    
-
-    int NumOfBytes{};
-
-    // Get NumOfBytes (int) from erlang term
-    if (!enif_get_int(env, argv[1], &NumOfBytes)) {
-        return enif_make_badarg(env);
-    }
-
-    union {
-        int receiveInt;
-        double receivedDouble;
-        char arrayOfChars[sizeof(double)];
-    } receivedNum;
-
-
-    if (enif_get_double(env, argv[0], &receivedNum.receivedDouble))
-    {
-        #if DEBUG_ENCODE
-            std::cout << "Its a double" << std::endl;
-        #endif
-
-        return enif_make_string_len(env, (char*)(&receivedNum.arrayOfChars),NumOfBytes, ERL_NIF_LATIN1);
-    } 
-    else if (enif_get_int(env, argv[0], &receivedNum.receiveInt)) 
-    {
-        #if DEBUG_ENCODE
-            std::cout << "Its an integer" << std::endl;
-        #endif
-
-        return enif_make_string_len(env, (char*)(&receivedNum.arrayOfChars),NumOfBytes, ERL_NIF_LATIN1);
-    } 
-    else
-    {
-        return enif_make_atom(env, "Not_a_number");
-    }
-
-    #if DEBUG_ENCODE
-        std::cout << "Print array_of_chars:" << std::endl;
-        for(int k = 0; k < sizeof(double); k++)
+        if(log_once)
         {
-            std::cout << (int)receivedNum.arrayOfChars[k] << std::endl;
+            LogError("big endian system! - make sure no little endian in the system!");
+            log_once = false;
         }
-    #endif
+    }
+    else
+    {
+        // Little Endian
+    }
 
-    return enif_make_atom(env, "Finished encode NIF not as expected");
-
+    if(enc_atom_type == "float")
+    {
+        //ineffient implementation
+        std::vector<double> in_list;
+        std::vector<float> flist;
+        nifpp::get_throws(env,argv[ARG_IN_LIST], in_list);
+        flist.resize(in_list.size());
+        for (int i=0; i<in_list.size(); i++)
+        {
+            flist[i] = static_cast<float>(in_list[i]);
+        }
+        size_t binary_size = flist.size() * sizeof(float);
+        nifpp::binary bin_term(binary_size);
+        unsigned char* in_vec_data_ptr = reinterpret_cast<unsigned char*>(flist.data());
+        std::memcpy(bin_term.data, in_vec_data_ptr, binary_size);
+        return_val = { nifpp::make(env, bin_term) , nifpp::make(env, enc_atom_type) };
+    }
+    else if (enc_atom_type == "double")
+    {
+        std::vector<double> in_list;
+        nifpp::get_throws(env,argv[ARG_IN_LIST], in_list);
+        size_t binary_size = in_list.size() * sizeof(double);
+        nifpp::binary bin_term(binary_size);
+        unsigned char* in_vec_data_ptr = reinterpret_cast<unsigned char*>(in_list.data());
+        std::memcpy(bin_term.data, in_vec_data_ptr, binary_size);
+        return_val = { nifpp::make(env, bin_term) , nifpp::make(env, enc_atom_type) };
+    }
+    else if (enc_atom_type == "int32")
+    {
+        std::vector<int> in_list;
+        nifpp::get_throws(env,argv[ARG_IN_LIST], in_list);
+        size_t binary_size = in_list.size() * sizeof(int);
+        nifpp::binary bin_term(binary_size);
+        unsigned char* in_vec_data_ptr = reinterpret_cast<unsigned char*>(in_list.data());
+        std::memcpy(bin_term.data, in_vec_data_ptr, binary_size);
+        return_val = { nifpp::make(env, bin_term ) , nifpp::make(env, enc_atom_type) };
+    }
+    else if (enc_atom_type == "int16")
+    {
+        std::vector<int> in_list;
+        std::vector<int16_t> ilist;
+        nifpp::get_throws(env,argv[ARG_IN_LIST], in_list);
+        ilist.resize(in_list.size());
+        for (int i=0; i<ilist.size(); i++)
+        {
+            ilist[i] = static_cast<int16_t>(in_list[i]);
+        }
+        size_t binary_size = in_list.size() * sizeof(int16_t);
+        nifpp::binary bin_term(binary_size);
+        unsigned char* in_vec_data_ptr = reinterpret_cast<unsigned char*>(in_list.data());
+        std::memcpy(bin_term.data, in_vec_data_ptr, binary_size);
+        return_val = { nifpp::make(env, bin_term) , nifpp::make(env, enc_atom_type) };
+    }
+    return nifpp::make(env, return_val); // make tuple
 }  
 
 // decode nerlTensor to EigenTensor --> efficient with DMA copies 
@@ -225,19 +268,7 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
     nifpp::get_throws(env, argv[ARG_TYPE], type_nerltensor);
     
-    if (type_nerltensor == "float16")
-    {
-        std::vector<float16_t> vecf16;
-        nifpp::get_binary(env,argv[ARG_BINARY], vecf16);
-        
-        std::vector<float> vecf(vecf16.size()); //only native is supported
-        for(int i=0; i < vecf.size(); i++)
-        {
-            vecf[i] = static_cast<float>(vecf16[i]);
-        }
-        return_val = { nifpp::make(env, vecf) , nifpp::make(env, erl_float) };
-    }
-    else if (type_nerltensor == "float32")
+    if (type_nerltensor == "float")
     {
         std::vector<float> vec;
         nifpp::get_binary(env,argv[ARG_BINARY], vec);
