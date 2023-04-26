@@ -9,38 +9,12 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: dolby360/nerlnet:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: Update
-        run: |
-          sudo apt-get update
-          sudo apt install -y make gcc libncurses-dev libssl-dev
-      - name: Compile and install erlang from source
-        run: |
-          sudo git clone https://github.com/erlang/otp.git
-          cd otp
-          sudo git checkout maint-25
-          sudo ./configure
-          sudo make -j
-          sudo make install -j
-          cd -
-          sudo rm -rf otp
-      - name: Install Cmake
-        run: |
-          sudo apt install -y make gcc g++
-          sudo mkdir -p cmake_install && cd cmake_install
-          sudo wget https://github.com/Kitware/CMake/releases/download/v3.26.3/cmake-3.26.3.tar.gz
-          sudo tar -zxvf cmake-3.26.3.tar.gz
-          cd cmake-3.26.3
-          sudo ./bootstrap
-          sudo make -j$NumJobs
-          sudo make install
-          cd -
-          sudo rm -rf cmake-3.26.3
-          sudo rm cmake-3.26.3.tar.gz
       - name: Run NerlnetInstall.sh
         run: |
-          sudo ./NerlnetInstall.sh
+          ./NerlnetInstall.sh
