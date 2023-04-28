@@ -34,7 +34,7 @@ class Experiment():
 
     def emptyExp(self):
         self.trainingResList = []
-        self.trainingResList = []
+        self.predictionResList = []
 
     def remove0Tails(self):
         for csv in self.trainingResList:

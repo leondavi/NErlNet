@@ -71,7 +71,7 @@ call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Wo
                   %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
                   gen_statem:cast(WorkerPid,{loss, Ret})
             after 1000 ->  
-                  io:format("///// woker miss train batch ~n "),
+                  io:format("///// worker miss train batch ~n "),
                   gen_statem:cast(WorkerPid,{loss, -1.0})
       end.
 
@@ -88,7 +88,7 @@ call_to_predict(ModelID, Data, WorkerPid,CSVname, BatchID)->
             gen_statem:cast(WorkerPid,{predictRes,Ret,CSVname, BatchID}) 
      
             after 1000 -> 
-                 % io:format("///// woker miss predict batch ~n "), 
+                 % io:format("///// worker miss predict batch ~n "), 
                   gen_statem:cast(WorkerPid,{predictRes, nan, CSVname, BatchID})
       end.
 

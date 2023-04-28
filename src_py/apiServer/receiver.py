@@ -36,21 +36,23 @@ def initReceiver(receiverHost, receiverPort, event):
 
 def processResult(resData, currentPhase):
         if (currentPhase == "Training"):
-            # Parse the Result:
+            # Parse the Result: [w#, float]
             worker = resData[0]
             result = float(resData[1].replace(' ',''))
             #print(result)
-            if (int(result) == -1):         # TODO what is this??
+            if (int(result) == -1):
                 print(f"Received loss=-1 from worker {worker}. The NN's weights have been reset.")
-            if (int(result) != -1 and int(result != 0)):
+            if (int(result) != -1 and int(result != 0)):    # weird condition
                 for csvRes in globe.experiment_flow_global.trainingResList:
-                    if worker in csvRes.workers:
+                    if worker in csvRes.workers:            # can remove this?
                         for workerRes in csvRes.workersResList:
                             if (workerRes.name == worker):
                                 workerRes.addResult(result)
 
         elif (currentPhase == "Prediction"):
             # Parsing is done by the PredictBatch class:
+            # experiment has reslist => of csvResult has workerResList => of WorkerResult has resList => of PredictBatch
+            # resData = [w#, batchID, csvName, batchSize]
             newPredictBatch = PredictBatch(resData) 
 
             for csvRes in globe.experiment_flow_global.predictionResList:
