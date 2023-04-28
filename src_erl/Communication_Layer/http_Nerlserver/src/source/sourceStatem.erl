@@ -138,8 +138,7 @@ castingData(cast, {leftOvers,Tail}, State = #source_statem_state{msgCounter = Co
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1,csvList = Tail}};
 
 castingData(cast, {finishedCasting,CounterReceived,ListOfSamples}, State = #source_statem_state{myName = MyName, msgCounter = Counter, nerlnetGraph = NerlnetGraph}) ->
-   io:format("source finished casting~n"),
-  %io:format("source finished casting- ~n sending to mainserver via: ~p~n",[lists:nth(2,digraph:get_short_path(NerlnetGraph,MyName,"mainServer"))]),
+   %io:format("source finished casting~n"),
   {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
 %%  send an ACK to mainserver that the CSV file is ready
   http_request(RouterHost,RouterPort,"sourceDone", MyName),

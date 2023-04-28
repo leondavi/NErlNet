@@ -166,10 +166,7 @@ handle_cast({csvReady,Body}, State = #router_genserver_state{myName = MyName, ms
 handle_cast({sourceDone,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
     %%  Body contrains list of sources to send the request, and input name
     {Host,Port} = getShortPath(MyName,"mainServer",NerlnetGraph),
-     %io:format("source finished casting- ~n sending to mainserver via: ~p~n",[lists:nth(2,digraph:get_short_path(NerlnetGraph,MyName,"mainServer"))]),
-
      %io:format("source finished casting- ~n sending to mainserver via: ~p~n",[{Host,Port}]),
-
     % {MainHost,MainPort} =maps:get(mainServer,NerlnetGraph),
     http_request(Host,Port,"sourceDone",Body),
     {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
