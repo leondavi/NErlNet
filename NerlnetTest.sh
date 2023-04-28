@@ -8,12 +8,13 @@ cd build/release
 make . 
 cd -
 
-set -x
-
-echo "Change directory to src_erl: $PWD"
+echo "Change directory to src_erl:"
 cd src_erl/erlBridge
+echo "$PWD"
 
-erl -noinput -s niftest run_tests -s init stop > test.log
-cat test.log
-
+COMPILE_NERLNIF="compile:file(\"nerlNIF.erl\")"
+COMPILE_NERLTEST="compile:file(\"nerlTests.erl\")"
+#c(niftest), c(nerlNIF), niftest:run_tests().
+erl -noshell -eval "NerlNIF = $COMPILE_NERLNIF, NerlTests = $COMPILE_NERLTEST, io:format(\"~p,~p~n\",[NerlNIF, NerlTests]), nerlTests:run_tests()." -s init stop > test.log
+cat test.log # improve log 
 cd -
