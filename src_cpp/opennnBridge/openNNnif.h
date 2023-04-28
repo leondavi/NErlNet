@@ -172,7 +172,8 @@ static ERL_NIF_TERM encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     enum {ARG_IN_LIST, ARG_IN_TYPE};
     nifpp::str_atom enc_atom_type;
     nifpp::get_throws(env, argv[ARG_IN_TYPE], enc_atom_type);
-    std::tuple<ERL_NIF_TERM, ERL_NIF_TERM> return_val;
+    std::cout<<std::endl<<enc_atom_type.c_str()<<std::endl;
+    std::tuple<nifpp::TERM, nifpp::TERM> return_val;
 
 
     bool big_endian = is_big_endian();
@@ -194,7 +195,7 @@ static ERL_NIF_TERM encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         //ineffient implementation
         std::vector<double> in_list;
         std::vector<float> flist;
-        nifpp::get_throws(env,argv[ARG_IN_LIST], in_list);
+        nifpp::get(env, argv[ARG_IN_LIST], in_list);
         flist.resize(in_list.size());
         for (int i=0; i<in_list.size(); i++)
         {
@@ -204,17 +205,28 @@ static ERL_NIF_TERM encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         nifpp::binary bin_term(binary_size);
         unsigned char* in_vec_data_ptr = reinterpret_cast<unsigned char*>(flist.data());
         std::memcpy(bin_term.data, in_vec_data_ptr, binary_size);
+        std::cout<<"\nwithin nif 3"<<std::endl;
         return_val = { nifpp::make(env, bin_term) , nifpp::make(env, enc_atom_type) };
     }
     else if (enc_atom_type == "double")
     {
+        std::cout<<"\ndouble"<<std::endl;
         std::vector<double> in_list;
-        nifpp::get_throws(env,argv[ARG_IN_LIST], in_list);
+        unsigned len;
+        enif_get_list_length(env, argv[ARG_IN_LIST], &len);
+        std::cout<<"\nlist length: "<<len<<std::endl;
+        nifpp::get_throws(env, argv[ARG_IN_LIST], in_list);
+
+        std::cout<<"\ndouble after"<<std::endl;
+
         size_t binary_size = in_list.size() * sizeof(double);
         nifpp::binary bin_term(binary_size);
         unsigned char* in_vec_data_ptr = reinterpret_cast<unsigned char*>(in_list.data());
         std::memcpy(bin_term.data, in_vec_data_ptr, binary_size);
-        return_val = { nifpp::make(env, bin_term) , nifpp::make(env, enc_atom_type) };
+        std::cout<<"\nwithin nif 2"<<std::endl;
+        return_val = { nifpp::make(env, bin_term), nifpp::make(env, enc_atom_type) };
+        std::cout<<"\nafter make"<<std::endl;
+
     }
     else if (enc_atom_type == "int32")
     {
@@ -240,6 +252,7 @@ static ERL_NIF_TERM encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         nifpp::binary bin_term(binary_size);
         unsigned char* in_vec_data_ptr = reinterpret_cast<unsigned char*>(in_list.data());
         std::memcpy(bin_term.data, in_vec_data_ptr, binary_size);
+        std::cout<<"\nwithin nif 1"<<std::endl;
         return_val = { nifpp::make(env, bin_term) , nifpp::make(env, enc_atom_type) };
     }
     return nifpp::make(env, return_val); // make tuple
@@ -260,7 +273,7 @@ static ERL_NIF_TERM encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
     enum {ARG_BINARY, ARG_TYPE , ARG_LIST = 0};
 
-    std::tuple<ERL_NIF_TERM, ERL_NIF_TERM> return_val;
+    std::tuple<nifpp::TERM, nifpp::TERM> return_val;
 
     nifpp::str_atom type_nerltensor;
     nifpp::str_atom erl_float("erl_float");
@@ -272,6 +285,7 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     {
         std::vector<float> vec;
         nifpp::get_binary(env,argv[ARG_BINARY], vec);
+        // TODO convert binary to list 
         return_val = { nifpp::make(env, vec) , nifpp::make(env, erl_float) };
     }
     else if (type_nerltensor == "double")
@@ -294,25 +308,6 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     }
 
     return nifpp::make(env, return_val);
-
-
-    #if DEBUG_DECODE
-        std::cout << "Start the decode_nif." << '\n';
-    #endif
-
-    int NumOfBytes{};
-
-    // Get NumOfBytes (int) from erlang term
-    if (!enif_get_int(env, argv[1], &NumOfBytes)) {
-        return enif_make_badarg(env);
-    }
-
-    union {
-        int receiveInt;
-        double receivedDouble;
-        unsigned char arrayOfChars[sizeof(double)]; // Support both types double / int
-        
-    } receivedString;
 }  
 
 
