@@ -21,19 +21,24 @@ random_pick_nerltensor_type()->
       lists:nth(RandomIndex, ?LIST_BINARY_GROUP_NERLTENSOR_TYPE).
 
 generate_nerltensor(Type)->
-      case Type of 
-            integer -> ok;
-            float ->    DimX = float(rand:uniform(?DIMX_RAND_MAX)),
-                        DimY = float(rand:uniform(?DIMY_RAND_MAX)),
-                        DimZ = 1.0,
-                        DataLength = round(DimX * DimY * DimZ),
+      DimX = rand:uniform(?DIMX_RAND_MAX),
+      DimY = rand:uniform(?DIMY_RAND_MAX),
+      DimZ = 1,
+      DataLength = DimX * DimY * DimZ,
+      if  
+            (Type == int32) or (Type == int16) -> Data = [rand:uniform(255) || _ <- lists:seq(1, DataLength)],
+                        [DimX,DimY,DimZ] ++ Data;
+            (Type == double) or (Type == float) -> DimXf = float(DimX),
+                        DimYf = float(DimY),
+                        DimZf = float(DimZ),
                         Data = [rand:uniform() * 10 || _ <- lists:seq(1, DataLength)],
-                        [DimX,DimY,DimZ] ++ Data
+                        [DimXf,DimYf,DimZf] ++ Data;
+            true -> wrong_type
       end.
 
 niftest_encode() ->
       EncodeType = random_pick_nerltensor_type(),
-      NerlTensor = generate_nerltensor(float),
+      NerlTensor = generate_nerltensor(EncodeType),
       io:format("~p ~p",[EncodeType,NerlTensor]),
       {EncodedNerlTensor, NerlTensorType} = nerlNIF:encode_nif(NerlTensor, EncodeType),
       io:format("Encoded: ~p t ~p~n",[EncodedNerlTensor, NerlTensorType]),

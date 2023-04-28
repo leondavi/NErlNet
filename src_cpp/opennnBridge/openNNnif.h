@@ -246,11 +246,11 @@ static ERL_NIF_TERM encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         ilist.resize(in_list.size());
         for (int i=0; i<ilist.size(); i++)
         {
-            ilist[i] = static_cast<int16_t>(in_list[i]);
+            ilist[i] = static_cast<short>(in_list[i]);
         }
         size_t binary_size = in_list.size() * sizeof(int16_t);
         nifpp::binary bin_term(binary_size);
-        unsigned char* in_vec_data_ptr = reinterpret_cast<unsigned char*>(in_list.data());
+        unsigned char* in_vec_data_ptr = reinterpret_cast<unsigned char*>(ilist.data());
         std::memcpy(bin_term.data, in_vec_data_ptr, binary_size);
         std::cout<<"\nwithin nif 1"<<std::endl;
         return_val = { nifpp::make(env, bin_term) , nifpp::make(env, enc_atom_type) };
@@ -280,30 +280,35 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     nifpp::str_atom erl_int("erl_int");
 
     nifpp::get_throws(env, argv[ARG_TYPE], type_nerltensor);
+    std::vector<char> bin_vec;
+    nifpp::get_binary(env,argv[ARG_BINARY], bin_vec);
     
     if (type_nerltensor == "float")
     {
         std::vector<float> vec;
-        nifpp::get_binary(env,argv[ARG_BINARY], vec);
-        // TODO convert binary to list 
+        vec.resize(bin_vec.size()/sizeof(float));
+        std::memcpy(vec.data(), bin_vec.data(), bin_vec.size());
         return_val = { nifpp::make(env, vec) , nifpp::make(env, erl_float) };
     }
     else if (type_nerltensor == "double")
     {
         std::vector<double> vec;
-        nifpp::get_binary(env,argv[ARG_BINARY], vec);
+        vec.resize(bin_vec.size()/sizeof(double));
+        std::memcpy(vec.data(), bin_vec.data(), bin_vec.size());
         return_val = { nifpp::make(env, vec) , nifpp::make(env, erl_float) };
     }
     else if (type_nerltensor == "int32")
     {
-        std::vector<int32_t> vec;
-        nifpp::get_binary(env,argv[ARG_BINARY], vec);
+        std::vector<int> vec;
+        vec.resize(bin_vec.size()/sizeof(int));
+        std::memcpy(vec.data(), bin_vec.data(), bin_vec.size());
         return_val = { nifpp::make(env, vec) , nifpp::make(env, erl_int) };
     }
     else if (type_nerltensor == "int16")
     {
         std::vector<int16_t> vec;
-        nifpp::get_binary(env,argv[ARG_BINARY], vec);
+        vec.resize(bin_vec.size()/sizeof(int16_t));
+        std::memcpy(vec.data(), bin_vec.data(), bin_vec.size());
         return_val = { nifpp::make(env, vec) , nifpp::make(env, erl_int) };
     }
 

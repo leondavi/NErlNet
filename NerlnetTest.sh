@@ -12,6 +12,8 @@ echo "Change directory to src_erl:"
 cd src_erl/erlBridge
 echo "$PWD"
 
+# TODO copy files to build/staging/tests directories and test it there to avoid beam files within sources!
+
 COMPILE_NERLNIF="compile:file(\"nerlNIF.erl\")"
 COMPILE_NERLTEST="compile:file(\"nerlTests.erl\")"
 #c(niftest), c(nerlNIF), niftest:run_tests().
