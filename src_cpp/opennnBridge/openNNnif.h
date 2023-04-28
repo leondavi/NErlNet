@@ -255,7 +255,7 @@ static ERL_NIF_TERM encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 //nerltensor_str: string (list of bytes) that represents the nerlTensor given a cpp type (float32, int32, double)
 
 
-// Input: Binary and Binary Type (atom from the group ?BINARY_GROUP_NERLTENSOR_TYPE)
+// Input: List, BinaryType  (atom from the group ?BINARY_GROUP_NERLTENSOR_TYPE)
 // Output: {List, ListType} (ListType is an atom from the group ?LIST_GROUP_NERLTENSOR_TYPE)
 static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
     enum {ARG_BINARY, ARG_TYPE , ARG_LIST = 0};
@@ -264,7 +264,7 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
     nifpp::str_atom type_nerltensor;
     nifpp::str_atom erl_float("erl_float");
-    nifpp::str_atom erl_int("erl_float");
+    nifpp::str_atom erl_int("erl_int");
 
     nifpp::get_throws(env, argv[ARG_TYPE], type_nerltensor);
     
