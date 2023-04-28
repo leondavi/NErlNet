@@ -116,7 +116,7 @@ nerltensor_binary_decode(Binary, Type) when erlang:is_binary(Binary) and erlang:
 % ResType is Binary then: Binary (Compressed Form) --> Erlang List
 % ResType is list then: Erlang List --> Binary
 nerltensor_conversion({NerlTensor, Type}, ResType) -> 
-      BinaryGroup = lists:any(ResType, ?BINARY_GROUP_NERLTENSOR_TYPE), % compressed type
+      BinaryGroup = lists:any(ResType, ?LIST_BINARY_GROUP_NERLTENSOR_TYPE), % compressed type
       ListGroup = lists:any(ResType, ?LIST_GROUP_NERLTENSOR_TYPE), % non compressed, list type
       case ResType of 
             ResType when BinaryGroup -> encode_nif(NerlTensor,Type); % returns {Binary, Type}
