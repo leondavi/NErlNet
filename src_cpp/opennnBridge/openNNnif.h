@@ -45,6 +45,7 @@ public:
     fTensor2DPtr data;
     std::chrono::high_resolution_clock::time_point start_time;
     double K_val;
+    nifpp::str_atom return_tensor_type; // holds the type of tensor should be returned
 
     ErlNifTid tid;
     ErlNifPid pid;
@@ -57,6 +58,7 @@ public:
     fTensor2DPtr data;
     ErlNifPid pid;
     ErlNifTid tid;
+    nifpp::str_atom return_tensor_type; // holds the type of tensor should be returned
 };
 
 void* PredictFun(void* arg);
@@ -158,8 +160,6 @@ T swap_endian(T u)
 
     return dest.u;
 }
-
-
 
 static bool log_once = true;
 /** 
