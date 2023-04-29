@@ -4,8 +4,8 @@
 
 -compile(nerlNIF).
 -export([run_tests/0]).
--define(DIMX_RAND_MAX, 5).
--define(DIMY_RAND_MAX, 5).
+-define(DIMX_RAND_MAX, 10).
+-define(DIMY_RAND_MAX, 10).
 
 -import(nerlNIF,[init/0,create_nif/6,train_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -import(nerlNIF,[call_to_get_weights/1,call_to_set_weights/2]).
@@ -16,7 +16,8 @@ string_format(Pattern, Values) ->
     lists:flatten(io_lib:format(Pattern, Values)).
 
 run_tests()->
-      logger:info("niftest encode ecode"),
+      logger:set_module_level(nerlTests, all),
+      logger:notice("niftest encode decode"),
       Res = niftest_encode_decode(10,[]),
       io:format("Res: ~p",[Res]).
 
@@ -49,7 +50,7 @@ niftest_encode_decode(0, Res) -> Error = lists:any(false, Res),
 niftest_encode_decode(N, Res) ->
       EncodeType = random_pick_nerltensor_type(),
       NerlTensor = generate_nerltensor(EncodeType),
-      io:format("~p ~p",[EncodeType,NerlTensor]),
+      %io:format("~p ~p",[EncodeType,NerlTensor]),
       {EncodedNerlTensor, NerlTensorType} = nerlNIF:encode_nif(NerlTensor, EncodeType),
       io:format("Encoded: ~p t ~p~n",[EncodedNerlTensor, NerlTensorType]),
       {DecodedTensor, DecodedType} = nerlNIF:decode_nif(EncodedNerlTensor, NerlTensorType),
@@ -57,6 +58,6 @@ niftest_encode_decode(N, Res) ->
       io:format("NerlTensorEncDec: ~p ~n",[{DecodedTensor, DecodedType}]),
       if 
             NerlTensor == DecodedTensor -> niftest_encode_decode(N-1, Res ++ []);
-            true -> throw(string_format("test failed - not equal ~n Orig: ~p ~n EncDec: ~p",[{NerlTensor, EncodeType},{DecodedTensor, DecodedType}]))
+            true -> throw(string_format("test failed - not equal ~n Origin: ~p ~n EncDec: ~p",[{NerlTensor, EncodeType},{DecodedTensor, DecodedType}]))
       end.
 
