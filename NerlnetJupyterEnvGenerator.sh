@@ -59,12 +59,8 @@ echo "generate symbloic link: src_py/experiment.py --> $jdir/experiment.py"
 ln -s `pwd`/src_py/apiServer/experiment.py $jdir/experiment.py
 echo "generate symbloic link: src_py/jsonDirParser.py --> $jdir/jsonDirParser.py"
 ln -s `pwd`/src_py/apiServer/jsonDirParser.py $jdir/jsonDirParser.py
-echo "generate symbloic link: src_py/csvResult.py --> $jdir/csvResult.py"
-ln -s `pwd`/src_py/apiServer/csvResult.py $jdir/csvResult.py
 echo "generate symbloic link: src_py/workerResult.py --> $jdir/workerResult.py"
 ln -s `pwd`/src_py/apiServer/workerResult.py $jdir/workerResult.py
-echo "generate symbloic link: src_py/predictBatch.py --> $jdir/predictBatch.py"
-ln -s `pwd`/src_py/apiServer/predictBatch.py $jdir/predictBatch.py
 echo "generate symbloic link: inputDataDir --> $jdir/inputDataDir"
 ln -s `pwd`/inputDataDir $jdir/inputDataDir
 echo "generate symbloic link: NErlNet Directory --> $jdir/NErlNet"

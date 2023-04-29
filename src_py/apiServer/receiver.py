@@ -9,7 +9,7 @@ from flask_restful import Api, Resource, reqparse
 from globalVars import *
 import globalVars as globe
 import logging
-from predictBatch import *
+from workerResult import *
 
 receiver = Flask(__name__)
 api = Api(receiver)

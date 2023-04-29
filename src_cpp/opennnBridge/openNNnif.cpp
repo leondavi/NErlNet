@@ -94,7 +94,7 @@ void* trainFun(void* arg)
     int num_of_output_neurons = neural_network->get_outputs_number();
     // cout << "Features: " << num_of_features <<std::endl;
     // cout << "Outputs: " << num_of_output_neurons <<std::endl;
-    // cout << "NN has: " << data_cols <<std::endl;
+    // cout << "NN got: " << data_cols <<std::endl;
     bool data_set_condition = (num_of_features + num_of_output_neurons) == TrainNNptr->data->dimension(1);
     assert(("issue with data input/output dimensions", data_set_condition));
     data_set.set_data(*(TrainNNptr->data));

@@ -6,32 +6,47 @@
 import numpy as np
 import globalVars as globe
 
+## this is what a worker returns / holds as data from network
+class PredictBatch():
+
+    def __init__(self, receivedPrediction):
+        # Parsing the prediction received from Erlang, to initialize the class:
+        self.worker = receivedPrediction[0] 
+        self.batchSize = int(receivedPrediction[-1])
+        self.csvName = receivedPrediction[-2]
+        self.batchId = int(receivedPrediction[-3])
+
+        # Extract predictions:
+        preds = receivedPrediction[1].split(",")
+        predsList = preds[3:]
+        self.predictions = [float(pred) for pred in predsList]
+        
+        self.indexRange = ((self.batchSize*self.batchId) + 1, (self.batchSize*self.batchId))
+
+
+## this keeps results per worker ordered
 class WorkerResult():
 
     def __init__(self, workerName, phase, sourceWorked = "Unknown", csvWorked = "Unknown"):
         self.name  = workerName
         self.sourceWorked = sourceWorked
         self.csvWorked = csvWorked
-        self.phase = phase
-
-        if (phase == globe.TRAINING_STR):
-            self.resList =  [None] * 100000 # Pre-allocate to improve efficiency.
-
-        elif (phase == globe.PREDICTION_STR):
-            self.resList = [] #Not pre-allocated, batch size may differ.
-
-        self.numOfResults = 0
+        self.resList = []
 
     def addResult(self, result):
-        if (self.phase == globe.TRAINING_STR):
-            self.resList[self.numOfResults] = result
-        
-        elif (self.phase == globe.PREDICTION_STR):
-            self.resList.append(result)
+        self.resList.append(result)
 
-        self.numOfResults += 1
+## Each source has its own CSV, this is what keeps results and workers ordered in data and experiment 
+class CsvResult():
 
-    # Remove excess list cells in the pre-allocated list for the Training phase:
-    def remove0Tail(self):
-        if (self.phase == globe.TRAINING_STR):
-            self.resList = self.resList[:self.numOfResults]
+    def __init__(self, phase, csvName, workers, workedBySources = "Unknown"):
+        self.name = csvName 
+        self.workers = workers
+        self.workedBySources = workedBySources
+        self.workersResList = [] 
+        self.phase = phase
+
+    def addWorkers(self):
+        for w in self.workers:
+            newWorkerRes = WorkerResult(w, self.phase, self.workedBySources, self.name)
+            self.workersResList.append(newWorkerRes)
