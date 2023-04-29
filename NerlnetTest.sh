@@ -7,7 +7,7 @@ function print()
 
 # Global Vars:
 NERLNET_PATH="/usr/local/lib/nerlnet-lib/NErlNet"
-NOW=$(date +"%Y-%m-%d")
+NOW=$(date +"%Y-%m-%d_%H_%M_%S")
 LOG_FILE="nerlnet_test-$NOW.log"
 TEST_LOG_PATH="/usr/local/lib/nerlnet-lib/log"
 TEST_LOG_FILE_PATH="$TEST_LOG_PATH/$LOG_FILE"

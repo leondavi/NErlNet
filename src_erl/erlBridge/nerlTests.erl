@@ -12,8 +12,13 @@
 -import(nerlNIF,[decode_nif/2, nerltensor_binary_decode/2]).
 -import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2]).
 
+string_format(Pattern, Values) ->
+    lists:flatten(io_lib:format(Pattern, Values)).
+
 run_tests()->
-      niftest_encode().
+      logger:info("niftest encode ecode"),
+      Res = niftest_encode_decode(10,[]),
+      io:format("Res: ~p",[Res]).
 
 
 random_pick_nerltensor_type()->
@@ -36,7 +41,12 @@ generate_nerltensor(Type)->
             true -> wrong_type
       end.
 
-niftest_encode() ->
+niftest_encode_decode(0, Res) -> Error = lists:any(false, Res),
+                                 if 
+                                    Error -> error;
+                                    true -> ok
+                                 end;
+niftest_encode_decode(N, Res) ->
       EncodeType = random_pick_nerltensor_type(),
       NerlTensor = generate_nerltensor(EncodeType),
       io:format("~p ~p",[EncodeType,NerlTensor]),
@@ -44,5 +54,9 @@ niftest_encode() ->
       io:format("Encoded: ~p t ~p~n",[EncodedNerlTensor, NerlTensorType]),
       {DecodedTensor, DecodedType} = nerlNIF:decode_nif(EncodedNerlTensor, NerlTensorType),
       io:format("NerlTensorOriginal: ~p ~n",[{NerlTensor, EncodeType}]),
-      io:format("NerlTensorEncDec: ~p ~n",[{DecodedTensor, DecodedType}]).
+      io:format("NerlTensorEncDec: ~p ~n",[{DecodedTensor, DecodedType}]),
+      if 
+            NerlTensor == DecodedTensor -> niftest_encode_decode(N-1, Res ++ []);
+            true -> throw(string_format("test failed - not equal ~n Orig: ~p ~n EncDec: ~p",[{NerlTensor, EncodeType},{DecodedTensor, DecodedType}]))
+      end.
 
