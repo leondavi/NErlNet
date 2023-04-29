@@ -109,7 +109,6 @@ decode_nif(_Binary, _BinaryType) when erlang:is_binary(_Binary) and erlang:is_at
 %---------- nerlTensor -----------%
 nerltensor_binary_decode(Binary, Type) when erlang:is_binary(Binary) and erlang:is_atom(Type) ->
       NerlTensorListForm = decode_nif(Binary, Type),
-      io:format("~w~n", [NerlTensorListForm]),
       NerlTensorListForm.
 
 % nerltensor_conversion:
