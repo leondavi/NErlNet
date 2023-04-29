@@ -7,6 +7,7 @@ import requests
 import globalVars as globe
 import time
 import sys
+import os
 from experiment import *
 
 class Transmitter:
@@ -39,8 +40,13 @@ class Transmitter:
     def updateCSV(self, currentPhase): # currentPhase is either "Training", "Prediction" or "Statistics". 
         print('Update CSV Phase')
 
-        #split data and send to mainServer:
-        csvfile = open(globe.INPUT_DATA_PATH+globe.experiment_flow_global.expFlow['CSV path']+"_"+currentPhase.lower()+".csv", 'r').readlines()
+        #split data by sources and send to mainServer:
+        for root, dirnames, filenames in os.walk(globe.INPUT_DATA_PATH):
+            for filename in filenames:
+                if filename == globe.experiment_flow_global.expFlow['CSV path']+"_"+currentPhase.lower()+".csv":
+                    csvfile = open(os.path.join(root, filename), 'r').readlines()
+                    break
+
         linesPerSource = int(len(csvfile)/len(globe.components.sources))
 
         SourceData = []
@@ -162,7 +168,7 @@ class Transmitter:
             time.sleep(0.005)
             pass 
         
-        globe.experiment_flow_global.remove0Tails()
+        # globe.experiment_flow_global.remove0Tails()
         globe.multiProcQueue.put(globe.experiment_flow_global)
 
     def statistics(self):

@@ -3,7 +3,7 @@
 # Nerlnet Copyright: © 2022
 # Date: 27/07/2022
 ###########################################################
-from csvResult import *
+from workerResult import *
 import numpy as np
 import globalVars as globe
 

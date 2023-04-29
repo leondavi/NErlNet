@@ -9,7 +9,6 @@ import os
 import json
 from IPython import get_ipython
 from experiment import *
-from csvResult import *
 from workerResult import *
 
 localHost = socket.gethostname()
