@@ -48,6 +48,7 @@ https://user-images.githubusercontent.com/18975070/145286597-340bbd31-0050-492f-
 # Build and Run Nerlnet:
 Recommended cmake version 3.26 <br>
 Minimum erlang version otp 24 <br>
+Minimum gcc/g++ version 8.4 <br>
 
 On each machine that runs Nerlnet go through the following steps:
 
