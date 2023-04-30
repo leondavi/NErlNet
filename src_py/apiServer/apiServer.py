@@ -3,7 +3,7 @@
 # Copyright: © 2022
 # Date: 27/07/2022
 ###########################################################
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, classification_report
 import time
 import requests
 import threading
@@ -35,8 +35,10 @@ class ApiServer():
         print(
 """
 __________NERLNET CHECKLIST__________
-0. Make sure data and jsons in correct folder, and jsons include the correct paths:
-1. Run Jupyter in virtual env: source <venv>/bin/activate
+0. Run this Jupyter in the folder of generated .py files!
+1. Make sure data and jsons in correct folder, and jsons include the correct paths
+    * Data includes: labeled prediction csv, training file, prediction file
+    * Prediction CSVs need to be ordered the same!
             
 ____________API COMMANDS_____________
 ==========Setting experiment========
@@ -230,7 +232,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             print(f"{i}) {exp.name}")
 
     def plot_loss(self, expNum):
-        expForStats = self.experiments[expNum-1] 
+        expForStats = self.experiments[expNum-1]
 
         # Create a new folder for to save an image of the plot:
         if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training'):
@@ -309,106 +311,100 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                     print("\nIllegal Input") 
                     continue       
 
-                if (all(csvNum > 0 and csvNum <= numOfCsvs for csvNum in csvNumsList)): # Check if all CSV indexes are in the correct range.
-                    break
-
-                else:
-                    print("\nInvalid Input") 
+                # Check if all CSV indexes are in the correct range.
+                if (all(csvNum > 0 and csvNum <= numOfCsvs for csvNum in csvNumsList)): break
+                else: print("\nInvalid Input") 
 
         print("\nPlease prepare the original labeled CSV, with the last column containing the samples' labels.")
 
         while True:
-            print("\nPlease enter the path for the NON-SPLITTED labels CSV (including .csv):", end = ' ') 
-            print("/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/", end = '')      
+            print("\nPlease enter the name of the FULL LABELED PREDICTION DATA (including .csv):", end = ' ') 
             labelsCsvPath = input()
-            labelsCsvPath = '/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/' + labelsCsvPath
+            for root, dirnames, filenames in os.walk(globe.INPUT_DATA_PATH):
+                for filename in filenames:
+                    if filename == labelsCsvPath:
+                        labelsCsvPath = os.path.join(root, filename)
+                        break
 
             try:
-                labelsCsvDf = pd.read_csv(labelsCsvPath)
+                labelsCsvDf = pd.read_csv(labelsCsvPath, header=None) #TODO: should expect header= None or 0?
                 break
 
-            except OSError:
-                print("\nInvalid path\n")
+            except OSError: print("\nInvalid path\n")
 
-        # Extract the labels (last) column from the CSV. Create a list of labels:
-        labelsSeries = labelsCsvDf.iloc[:,-1]
+        # Extract the labels columns from the CSV. Create a list of labels:
+        labelsLen = 1
+        try: labelsLen = len(expForStats.expFlow["Labels"])
+        finally: print(f"assuming {labelsLen} lables")
 
-        # If we are running an AEC - convert the 2 labels to 1's and 0's. (Majority (90%) label -> 1, Minority (10%) label -> 0).
-        if (globe.components.aec == 1):
-            labelsOccuranceSeries = labelsSeries.value_counts()
-            maxOccuranceLabel = labelsOccuranceSeries.idxmax()
-            labelsSeries = (labelsSeries == maxOccuranceLabel).astype(int)
-            
-        labelsArr = pd.unique(labelsSeries)
-        labelsArr = np.sort(labelsArr) 
+        labelsSeries = labelsCsvDf.iloc[:,-labelsLen:]  ## this is the full list of only labels
 
-        predsDict = {} # A dictionary containing all the predictions
+        labelNames = expForStats.expFlow["Labels"]
+        
+        ## create a different confusion matrix for each label
+        predlabels = [[] for i in range(labelsLen)]
+        trueLabels = [[] for i in range(labelsLen)]
 
         for csvNum in csvNumsList:
             csvResAcc = expForStats.predictionResList[csvNum-1]
-
             workersPredictions = csvResAcc.workersResList
-
-            ############## CURRENTLY ONLY SUPPORTING BOOLEAN PREDICTIONS (SINGLE BIT TRUE / FALSE)
 
             # Generate the samples' indexes from the results:
             for worker in workersPredictions:
                 for batch in worker.resList:
-                    for offset, prediction in enumerate(batch.predictions):
-                        sampleNum = batch.indexRange[0] + offset
-                        normsDict = {} #  The "distance" of the current prediction from each of the labels. 
+                    sampleNum = batch.indexRange[0]
+                    batchSize = batch.batchSize
+                    # print(f"pred batch #{sampleNum} is: {batch.predictions}")
+                    ## compare real label to the predicted one
 
-                        # The distances of the current prediction from each of the labels: 
-                        for i, label in enumerate(labelsArr):
-                            newNorm = abs(prediction - label)
-                            normsDict[label] = newNorm
+                    for i in range(batchSize):
+                        for j in range(labelsLen):
+                            trueLabels[j].append(str(labelsSeries.iloc[sampleNum+i,j]))
+                            predlabels[j].append(str(round(batch.predictions[i][j])))
 
-                        # If there is minimum distance from the correct label - 1. Otherwise - 0:
-                        currentPrediction = min(normsDict, key=normsDict.get)
+                            # print(f"{worker.name} for sample #{sampleNum} predicted {batch.predictions[i][j]}, real is {labelsSeries.iloc[sampleNum+i,j]}")
 
-                        predsDict[sampleNum] = currentPrediction
-
-        predsSeries = pd.Series(predsDict)
-        SlicedLabelsSeries = labelsSeries.iloc[:predsSeries.size]
-
-        # Create a confusion matrix based on the results:
-        SlicedLabelsSeriesStr = SlicedLabelsSeries.astype(str)  # Convert floats to string, because confusion cannot handle "continous" values
-        predsSeriesStr = predsSeries.astype(str)                # Convert floats to string, because confusion cannot handle "continous" values
-        labelsArrStr = labelsArr.astype(str)                    # Convert floats to string, because confusion cannot handle "continous" values
+        # # Create a confusion matrix based on the results:
         # Another option to solve this problem, is to numerize each classification group (group 1, group 2, ...), 
         # and add legened to show the true label value for each group.
-        confMat = confusion_matrix(SlicedLabelsSeriesStr, predsSeriesStr, labels = labelsArrStr)
-        # Calculate the accuracy and other stats:
-        tp, tn, fp, fn = confMat.ravel()
-        acc = (tp + tn) / (tp + tn + fp + fn)
-        ppv = tp / (tp + fp)
-        tpr = tp / (tp + fn)
-        tnr = tn / (tn + fp)
-        inf = tpr + tnr - 1
-        bacc = (tpr + tnr) / 2
-        print("\n")
-        print(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.\n")
-        print(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.\n")
-        print(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
-        print(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.\n")
-        print(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.\n")
-        print(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
 
-        confMatDisp = ConfusionMatrixDisplay(confMat, display_labels = labelsArr)
-        fig, ax = plt.subplots(figsize = (10,10), dpi = 150)
-        plt.rcParams.update({'font.size': 14})
-        expTitle = expForStats.name
-        ax.set_title(f"Prediction - Confusion Matrix - {expTitle}\nAccuracy: {round(acc, 3)} ({round(acc*100, 3)}%)", fontsize = 18)
-        ax.set_xlabel('True Labels', fontsize = 16)
-        ax.set_ylabel('Predicted Labels', fontsize = 16)
-        confMatDisp.plot(ax = ax)
-        plt.show()
+        confMatList = []
+        for i in range(labelsLen):
+            confMatList.append(confusion_matrix(trueLabels[i], predlabels[i]))
+            # Calculate the accuracy and other stats:
+            tp, tn, fp, fn = confMatList[i].ravel()
+            acc = accuracy_score(trueLabels[i], predlabels[i])
+            # acc = (tp + tn) / (tp + tn + fp + fn)
+            ppv = tp / (tp + fp)
+            tpr = tp / (tp + fn)
+            tnr = tn / (tn + fp)
+            inf = tpr + tnr - 1
+            bacc = (tpr + tnr) / 2
+            print("\n")
+            print(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.\n")
+            print(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.\n")
+            print(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
+            print(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.\n")
+            print(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.\n")
+            print(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
+            print(classification_report(trueLabels[i], predlabels[i]))
 
-        fileName = csvResAcc.name.rsplit('/', 1)[-1] # If the CSV name contains a path, then take everything to the right of the last '/'.
-        confMatDisp.figure_.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.png')
-        print(f'\n{fileName}.png Saved...')
+            confMatDisp = ConfusionMatrixDisplay(confMatList[i], display_labels = ["0", "1"])
+            fig, ax = plt.subplots(figsize = (10,10), dpi = 150)
+            plt.rcParams.update({'font.size': 14})
+            expTitle = expForStats.name+"_"+labelNames[i]
+            ax.set_title(f"Prediction - Confusion Matrix - {expTitle}\nAccuracy: {round(acc, 3)} ({round(acc*100, 3)}%)", fontsize = 18)
+            ax.set_xlabel('True Labels', fontsize = 16)
+            ax.set_ylabel('Predicted Labels', fontsize = 16)
+            confMatDisp.plot(ax = ax)
+            plt.figure(i)
+            plt.show()
 
-        return tp, tn, fp, fn
+            fileName = csvResAcc.name.rsplit('/', 1)[-1]+"_"+str(i) # If the CSV name contains a path, then take everything to the right of the last '/'.
+            confMatDisp.figure_.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.png')
+            print(f'\n{fileName}.png Saved...')
+        return confMatList
+        # return tp, tn, fp, fn
     
     def communication_stats(self):
         self.transmitter.statistics()
