@@ -100,8 +100,10 @@ idle(cast, {startCasting,Body}, State = #source_statem_state{myName = MyName, le
     [_Source,NumOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
 
   io:format("start casting to: ~p~n, number of batches to send: ~p~ntotal casting list length: ~p~n ",[CastingTo,NumOfBatchesToSend, length(CSVlist)]),
+    NumOfBatches = list_to_integer(NumOfBatchesToSend),
+  BatchesToSend = if length(CSVlist) < NumOfBatches -> length(CSVlist); true -> list_to_integer(NumOfBatchesToSend) end,
 
-  Transmitter =  spawnTransmitter(CastingTo,CSVName,CSVlist,NerlnetGraph,MyName,WorkersMap,ChunkSize,LengthOfSample,Frequency,list_to_integer(NumOfBatchesToSend),Method) ,
+  Transmitter =  spawnTransmitter(CastingTo,CSVName,CSVlist,NerlnetGraph,MyName,WorkersMap,ChunkSize,LengthOfSample,Frequency,BatchesToSend,Method) ,
   {next_state, castingData, State#source_statem_state{msgCounter = Counter+1, sourcePid = Transmitter}};
 
 idle(cast, {startCasting}, State = #source_statem_state{msgCounter = Counter}) ->
@@ -188,7 +190,7 @@ Triplets =getHostPort(WorkersNames,WorkersMap,NerlnetGraph,MyName,[]),
   spawn(?MODULE,sendSamples,[CSVlist,CSVPath,ChunkSize,LengthOfSample,Ms,self(),Triplets,0,NumOfBatchesToSend,Method]).
 
 
-sendSamples(ListOfSamples,_CSVPath,_ChunkSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,NumOfBatchesToSend,_Method) when NumOfBatchesToSend=<0->
+sendSamples(ListOfSamples,_CSVPath,_ChunkSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,NumOfBatchesToSend,_Method) when NumOfBatchesToSend=<0 ->
   receive
   after Ms ->
     gen_statem:cast(Pid,{finishedCasting,Counter,ListOfSamples}), io:format("sent all samples~n")
