@@ -4,8 +4,6 @@
 
 -compile(nerlNIF).
 -export([run_tests/0]).
--define(DIMX_RAND_MAX, 10).
--define(DIMY_RAND_MAX, 10).
 
 -import(nerlNIF,[init/0,create_nif/6,train_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -import(nerlNIF,[call_to_get_weights/1,call_to_set_weights/2]).
@@ -18,7 +16,10 @@
 nerltest_print(String) ->
       logger:notice(?NERLTEST_PRINT_STR++String).
 
--define(ENCODE_DECODE_ROUNDS, 100).
+% encode_decode test macros
+-define(ENCODE_DECODE_ROUNDS, 200).
+-define(DIMX_RAND_MAX, 30).
+-define(DIMY_RAND_MAX, 30).
 
 run_tests()->
       nerl:logger_settings(nerlTests),
@@ -56,9 +57,9 @@ niftest_encode_decode(N, Res) ->
       NerlTensor = generate_nerltensor(EncodeType),
       {EncodedNerlTensor, NerlTensorType} = nerlNIF:encode_nif(NerlTensor, EncodeType),
       {DecodedTensor, DecodedType} = nerlNIF:decode_nif(EncodedNerlTensor, NerlTensorType),
-      % io:format("Encoded: ~p t ~p~n",[EncodedNerlTensor, NerlTensorType]),
-      % io:format("NerlTensorOriginal: ~p ~n",[{NerlTensor, EncodeType}]),
-      % io:format("NerlTensorEncDec: ~p ~n",[{DecodedTensor, DecodedType}]),
+      %io:format("Encoded: ~p t ~p~n",[EncodedNerlTensor, NerlTensorType]),
+      %io:format("NerlTensorOriginal: ~p ~n",[{NerlTensor, EncodeType}]),
+      %io:format("NerlTensorEncDec: ~p ~n",[{DecodedTensor, DecodedType}]),
       FloatCase = EncodeType == float,
       CompareFloats = nerl:compare_floats_L(NerlTensor, DecodedTensor, 6),
       if
