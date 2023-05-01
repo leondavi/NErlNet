@@ -59,9 +59,9 @@ ____________API COMMANDS_____________
 ==========Experiment info===========
 -print_saved_experiments()          prints saved experiments and their number for statistics later
 -plot_loss(ExpNum)                  saves and shows the loss over time of the chosen experiment
--accuracy_matrix(ExpNum)            shows a graphic for the confusion matrix. Also returns: [TruePos, TrueNeg, FalsePos, FalseNeg]
+-accuracy_matrix(ExpNum)            shows a graphic for the confusion matrix. Also returns all ConfMat[worker][nueron]
 -communication_stats()              prints the communication statistics of the current network.
--statistics():                      get specific statistics of experiment (lossFunc graph, accuracy, etc...) *DEPRECATED*
+-statistics():                      *DEPRECATED* get specific statistics of experiment (lossFunc graph, accuracy, etc...)
 
 _____GLOBAL VARIABLES / CONSTANTS_____
 pendingAcks:                        makes sure API command reaches all relevant entities (wait for pending acks)
@@ -357,7 +357,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                     # print(f"pred batch #{sampleNum} is: {batch.predictions}")
                     ## compare real label to the predicted one
 
-                    for i in range(batchSize):
+                    for i in range(batchSize):  # TODO: make this 2D to support neuron per worker
                         for j in range(labelsLen):
                             trueLabels[j].append(str(labelsSeries.iloc[sampleNum+i,j]))
                             predlabels[j].append(str(round(batch.predictions[i][j])))
@@ -368,43 +368,78 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # Another option to solve this problem, is to numerize each classification group (group 1, group 2, ...), 
         # and add legened to show the true label value for each group.
 
-        confMatList = []
-        for i in range(labelsLen):
-            confMatList.append(confusion_matrix(trueLabels[i], predlabels[i]))
-            # Calculate the accuracy and other stats:
-            tp, tn, fp, fn = confMatList[i].ravel()
-            acc = accuracy_score(trueLabels[i], predlabels[i])
-            # acc = (tp + tn) / (tp + tn + fp + fn)
-            ppv = tp / (tp + fp)
-            tpr = tp / (tp + fn)
-            tnr = tn / (tn + fp)
-            inf = tpr + tnr - 1
-            bacc = (tpr + tnr) / 2
-            print("\n")
-            print(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.\n")
-            print(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.\n")
-            print(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
-            print(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.\n")
-            print(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.\n")
-            print(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
+        workerNum = 0
+        for csvRes in expForStats.predictionResList[csvNum-1]:
+            workerNum += len(csvRes.workers)
+        confMatList = [[] for i in range(workerNum)]
+                    ################## THIS IS *NOT* FOR MULTICLASS DATA
+        f, axes = plt.subplots(workerNum, labelsLen, figsize=(5*labelsLen, 5*workerNum))
+        axes = axes.ravel()
+        for j in range(workerNum):
+            for i in range(labelsLen):
+                confMatList[j].append(confusion_matrix(trueLabels[i], predlabels[i]))
+
+                tp, tn, fp, fn = confMatList[j][i].ravel()
+                tpr = tp / (tp + fn)
+                tnr = tn / (tn + fp)
+                inf = tpr + tnr - 1
+
+                disp = ConfusionMatrixDisplay(confMatList[j][i],
+                    display_labels=[0, labelNames[i]])
+                disp.plot(ax=axes[i], values_format='.4g')
+                disp.ax_.set_title(f'worker {j}, class {labelNames[i]}\nInformedness: {round(inf, 3)}')
+                # if i<10:
+                #     disp.ax_.set_xlabel('')
+                # if i%5!=0:
+                #     disp.ax_.set_ylabel('')
+                disp.im_.colorbar.remove()  #remove individual colorbars
+
             print(classification_report(trueLabels[i], predlabels[i]))
 
-            confMatDisp = ConfusionMatrixDisplay(confMatList[i], display_labels = ["0", "1"])
-            fig, ax = plt.subplots(figsize = (10,10), dpi = 150)
-            plt.rcParams.update({'font.size': 14})
-            expTitle = expForStats.name+"_"+labelNames[i]
-            ax.set_title(f"Prediction - Confusion Matrix - {expTitle}\nAccuracy: {round(acc, 3)} ({round(acc*100, 3)}%)", fontsize = 18)
-            ax.set_xlabel('True Labels', fontsize = 16)
-            ax.set_ylabel('Predicted Labels', fontsize = 16)
-            confMatDisp.plot(ax = ax)
-            plt.figure(i)
-            plt.show()
+        plt.subplots_adjust(wspace=0.10, hspace=0.1)
+        f.colorbar(disp.im_, ax=axes)
+        plt.show()
 
-            fileName = csvResAcc.name.rsplit('/', 1)[-1]+"_"+str(i) # If the CSV name contains a path, then take everything to the right of the last '/'.
-            confMatDisp.figure_.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.png')
-            print(f'\n{fileName}.png Saved...')
+        fileName = csvResAcc.name.rsplit('/', 1)[-1]+"_"+str(i) # If the CSV name contains a path, then take everything to the right of the last '/'.
+        disp.figure_.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.png')
+        print(f'\n{fileName}.png Saved...')
+
+        # for i in range(labelsLen):
+        #     confMatList.append(confusion_matrix(trueLabels[i], predlabels[i]))
+        #     # # Calculate the accuracy and other stats:
+        #     # tp, tn, fp, fn = confMatList[i].ravel()
+        #     # acc = accuracy_score(trueLabels[i], predlabels[i])
+        #     # # acc = (tp + tn) / (tp + tn + fp + fn)
+        #     # ppv = tp / (tp + fp)
+        #     # tpr = tp / (tp + fn)
+        #     # tnr = tn / (tn + fp)
+        #     # inf = tpr + tnr - 1
+        #     # bacc = (tpr + tnr) / 2
+        #     # print("\n")
+        #     # print(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.\n")
+        #     # print(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.\n")
+        #     # print(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
+        #     # print(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.\n")
+        #     # print(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.\n")
+        #     # print(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
+        #     # print(classification_report(trueLabels[i], predlabels[i]))
+
+        #     fig, ax = plt.subplots(  figsize = (10,10))
+        #     confMatDisp = ConfusionMatrixDisplay(confMatList[i], display_labels = ["0", "1"])
+        #     plt.rcParams.update({'font.size': 14})
+        #     expTitle = expForStats.name+"_"+labelNames[i]
+        #     ax.set_title(f"Prediction - Confusion Matrix - {expTitle}\nAccuracy: {round(acc, 3)} ({round(acc*100, 3)}%)", fontsize = 18)
+        #     ax.set_xlabel('True Labels', fontsize = 16)
+        #     ax.set_ylabel('Predicted Labels', fontsize = 16)
+        #     confMatDisp.plot(ax = ax)
+        #     plt.figure(i)
+        #     plt.show()
+
+        #     fileName = csvResAcc.name.rsplit('/', 1)[-1]+"_"+str(i) # If the CSV name contains a path, then take everything to the right of the last '/'.
+        #     confMatDisp.figure_.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.png')
+        #     print(f'\n{fileName}.png Saved...')
+
         return confMatList
-        # return tp, tn, fp, fn
     
     def communication_stats(self):
         self.transmitter.statistics()
@@ -452,24 +487,12 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 print("\nIllegal Input") 
         
         if (option == 1):
-
-
-            return
+            plot_loss(expNum)
 
         if (option == 2):
-            if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction'):
-                os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction')
-
-            
+            accuracy_matrix(expNum)
 
         if (option == 3):
-            # Create a new folder for the train results:
-            if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training'):
-                os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training')
-
-             # Create a new folder for the prediction results:
-            if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction'):
-                os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction')
 
             numOfTrainingCsvs = len(expForStats.trainingResList)
             numOfPredicitionCsvs = len(expForStats.predictionResList)
@@ -516,7 +539,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 return
 
         if (option == 4):
-            self.transmitter.statistics()
+            communication_stats()
 
                 
 if __name__ == "__main__":
