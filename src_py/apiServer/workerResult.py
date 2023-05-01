@@ -50,8 +50,12 @@ class CsvResult():
         self.workedBySources = workedBySources
         self.workersResList = [] 
         self.phase = phase
+        self.indexRange = (0,0)
+        # TODO: add index for what part of csv this worker is taking (important for prediction test)
 
     def addWorkers(self):
         for w in self.workers:
             newWorkerRes = WorkerResult(w, self.phase, self.workedBySources, self.name)
             self.workersResList.append(newWorkerRes)
+
+    # TODO: define function to create worker confMatrix

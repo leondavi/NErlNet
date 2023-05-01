@@ -70,9 +70,12 @@ class Transmitter:
         if globe.jupyterFlag == False:
             print(response.ok, response.status_code)
 
-    def startCasting(self, phase): # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
+        return linesPerSource
+
+    def startCasting(self, phase):
         print('\nStart Casting Phase')
 
+        # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
         if (phase==globe.TRAINING_STR):
             batchesPerSource = globe.experiment_flow_global.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.TRAINING_STR]
         elif (phase==globe.PREDICTION_STR):
