@@ -32,6 +32,7 @@ fi
 
 cp src_erl/erlBridge/nerlTests.erl $NERLNET_TEST_DIR/nerlTests.erl
 cp src_erl/erlBridge/nerlNIF.erl $NERLNET_TEST_DIR/nerlNIF.erl
+cp src_erl/erlBridge/nerl.erl $NERLNET_TEST_DIR/nerl.erl
 cp src_erl/erlBridge/nerlTensor.hrl $NERLNET_TEST_DIR/nerlTensor.hrl
 
 print "Starting compilation: "
@@ -46,5 +47,9 @@ cd $NERLNET_TEST_DIR
 print "Running nerlTests.erl"
 COMPILE_NERLNIF="compile:file(\"nerlNIF.erl\")"
 COMPILE_NERLTEST="compile:file(\"nerlTests.erl\")"
-erl -noshell -eval "NerlNIF = $COMPILE_NERLNIF, NerlTests = $COMPILE_NERLTEST, io:format(\"~p,~p~n\",[NerlNIF, NerlTests]), nerlTests:run_tests()." -s init stop > "$NERLNET_TEST_DIR/$LOG_FILE"
+COMPILE_NERL="compile:file(\"nerl.erl\")"
+
+COMPILE_FILES="$COMPILE_NERL,$COMPILE_NERLNIF,$COMPILE_NERLTEST"
+
+erl -noshell -eval "$COMPILE_FILES, nerlTests:run_tests()." -s init stop > "$NERLNET_TEST_DIR/$LOG_FILE"
 cd -
