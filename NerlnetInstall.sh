@@ -122,6 +122,8 @@ function build_rebar3()
 	else
 	   ln -s `pwd`/$REBAR3_FILE $REBAR3_SYMLINK
 	fi
+
+  print "$($REBAR3_SYMLINK --version)"
 }
 
 ARCH_TYPE=`uname -m`
