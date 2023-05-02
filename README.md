@@ -54,22 +54,22 @@ On each machine that runs Nerlnet go through the following steps:
 2. Change directory to NErlNet.
 3. Run ```sudo ./NerlnetInstall.sh``` (Erlang and CMake will be installed if are not installed).
 4. Configure json files and update jsonPath
-5. Run ```./NerlnetRun.sh``` to start Nerlnet
+Optional: Run ```./NerlnetGetData.sh``` to create or get default inputDataDir
+5. Run ```./NerlnetRun.sh``` on each device to start Nerlnet
 
 After running the installation script, NErlNet directory can be accessed via the following path as well: 
 ```/usr/local/lib/nerlnet-lib```
 
-## Python API and Jupyter (For GUI Server): 
+## Python API and Jupyter (For UI Server): 
 Minimum Python version: 3.8
 
 1. Create and activate a virtual environment for Nerlnet: (https://docs.python.org/3/library/venv.html)  
   ```python -m venv VENV_PATH/VENV_NAME ```  
   ```source VENV/bin/activate``` 
 2. Install required modules while in venv ```pip install -r src_py/requirements.txt```
-3. Install Jupyter Notebook ```pip install jupyterlab```
-4. Call Jupyter environment creator script with an experiment directory ```./NerlnetJupyterEnvGenerator.sh --j <experiment_direcotry>```
-5. Run Jupyter notebook and import the ApiServer module to the notebook. 
-6. Follow the example: https://github.com/leondavi/NErlNet/blob/master/src_py/Deprecated/flow_example.ipynb 
+3. Call Jupyter environment creator script with an experiment directory ```./NerlnetJupyterEnvGenerator.sh --j <experiment_direcotry>```
+4. Run Jupyter notebook and import the ApiServer module to the notebook. 
+5. Follow the example: https://github.com/leondavi/NErlNet/blob/master/examples/example_run.ipynb 
 
 Contact Email: nerlnet@outlook.com 
 NerlnetJupyterEnvGenerator.sh

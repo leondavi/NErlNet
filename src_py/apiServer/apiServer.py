@@ -369,38 +369,40 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # and add legened to show the true label value for each group.
 
         workerNum = 0
-        for csvRes in expForStats.predictionResList[csvNum-1]:
+        for csvRes in expForStats.predictionResList:
             workerNum += len(csvRes.workers)
         confMatList = [[] for i in range(workerNum)]
                     ################## THIS IS *NOT* FOR MULTICLASS DATA
         f, axes = plt.subplots(workerNum, labelsLen, figsize=(5*labelsLen, 5*workerNum))
         axes = axes.ravel()
-        for j in range(workerNum):
-            for i in range(labelsLen):
-                confMatList[j].append(confusion_matrix(trueLabels[i], predlabels[i]))
+        for i in range(workerNum):
+            for j in range(labelsLen):
+                confMatList[i].append(confusion_matrix(trueLabels[j], predlabels[j]))
 
-                tp, tn, fp, fn = confMatList[j][i].ravel()
+                tp, tn, fp, fn = confMatList[i][j].ravel()
+                acc = (tp + tn) / (tp + tn + fp + fn)
                 tpr = tp / (tp + fn)
                 tnr = tn / (tn + fp)
                 inf = tpr + tnr - 1
 
-                disp = ConfusionMatrixDisplay(confMatList[j][i],
-                    display_labels=[0, labelNames[i]])
-                disp.plot(ax=axes[i], values_format='.4g')
-                disp.ax_.set_title(f'worker {j}, class {labelNames[i]}\nInformedness: {round(inf, 3)}')
-                # if i<10:
-                #     disp.ax_.set_xlabel('')
-                # if i%5!=0:
-                #     disp.ax_.set_ylabel('')
+                disp = ConfusionMatrixDisplay(confMatList[i][j],
+                    display_labels=[0, labelNames[j]])
+                disp.plot(ax=axes[i*labelsLen+j], values_format='.4g')
+                disp.ax_.set_title(f'W #{i}, class #{j}\nAccuracy={round(acc, 3)}')
+                if i < workerNum - 1:
+                    disp.ax_.set_xlabel('')
+                if  j != 0:
+                    disp.ax_.set_ylabel('')
                 disp.im_.colorbar.remove()  #remove individual colorbars
 
-            print(classification_report(trueLabels[i], predlabels[i]))
+            print(f"Worker #{i} report:")
+            print(classification_report(trueLabels[j], predlabels[j]))
 
-        plt.subplots_adjust(wspace=0.10, hspace=0.1)
+        plt.subplots_adjust(wspace=0.8, hspace=0.2)
         f.colorbar(disp.im_, ax=axes)
         plt.show()
 
-        fileName = csvResAcc.name.rsplit('/', 1)[-1]+"_"+str(i) # If the CSV name contains a path, then take everything to the right of the last '/'.
+        fileName = csvResAcc.name.rsplit('/', 1)[-1] # If the CSV name contains a path, then take everything to the right of the last '/'.
         disp.figure_.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.png')
         print(f'\n{fileName}.png Saved...')
 
