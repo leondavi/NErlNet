@@ -91,18 +91,20 @@ PREDICTION_STR = "Prediction"
         print("Using the address from the architecture JSON file for the receiver.")
         print(f"(http://{globe.components.receiverHost}:{globe.components.receiverPort})\n")
 
-        self.receiverProblem = threading.Event()
-        self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
-        self.receiverThread.start()   
-        self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
+        if not hasattr(self, 'receiverThread'):
+            self.receiverProblem = threading.Event()
+            self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
+            self.receiverThread.start()   
+            self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
 
-        if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
+        elif (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
             print("Failed to initialize the receiver using the provided address.\n\
 Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
             sys.exit()
 
-        # Initalize an instance for the transmitter: 
-        self.transmitter = Transmitter(self.mainServerAddress)
+        # Initalize an instance for the transmitter:
+        if not hasattr(self, 'transmitter'):
+            self.transmitter = Transmitter(self.mainServerAddress)
 
         print("\n***Please remember to execute NerlnetRun.sh on each device before continuing.")
 
@@ -295,25 +297,25 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # Choose the matching (to the original labeled CSV) CSV from the prediction results list:
         numOfCsvs = len(expForStats.predictionResList)
 
-        print(f"\nThe prediction phase contains {numOfCsvs} CSVs:")
+        print(f"\nThe prediction phase contains {numOfCsvs} CSVs:")     ## these are source unlabeled CSVs that need to be compared to test labeled CSVs
         for i, csvRes in enumerate(expForStats.predictionResList, start=1):
-            print(f"{i}) {csvRes.name}")
+            print(f"{i}) {csvRes.name}: samples starting at {csvRes.indexOffset}")
 
-            while True:
-                print("\nPlease choose a CSV number for accuracy calculation and confusion matrix (for multiple CSVs, seperate their numbers with ', '):", end = ' ')       
-                csvNumsStr = input()
+        # while True:
+        #     print("\nPlease choose a CSV number for accuracy calculation and confusion matrix (for multiple CSVs, seperate their numbers with ', '):", end = ' ')       
+        #     csvNumsStr = input()
 
-                try:
-                    csvNumsList = csvNumsStr.split(', ')
-                    csvNumsList = [int(csvNum) for csvNum in csvNumsList]
+        #     try:
+        #         csvNumsList = csvNumsStr.split(', ')
+        #         csvNumsList = [int(csvNum) for csvNum in csvNumsList]
 
-                except ValueError:
-                    print("\nIllegal Input") 
-                    continue       
+        #     except ValueError:
+        #         print("\nIllegal Input") 
+        #         continue       
 
-                # Check if all CSV indexes are in the correct range.
-                if (all(csvNum > 0 and csvNum <= numOfCsvs for csvNum in csvNumsList)): break
-                else: print("\nInvalid Input") 
+        #     # Check if all CSV indexes are in the correct range.
+        #     if (all(csvNum > 0 and csvNum <= numOfCsvs for csvNum in csvNumsList)): break
+        #     else: print("\nInvalid Input") 
 
         print("\nPlease prepare the original labeled CSV, with the last column containing the samples' labels.")
 
@@ -339,28 +341,48 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
         labelsSeries = labelsCsvDf.iloc[:,-labelsLen:]  ## this is the full list of only labels
 
-        labelNames = expForStats.expFlow["Labels"]
+        try: labelNames = expForStats.expFlow["Labels"]      ## get label names from experimnet JSON
+        except: labelNames = [str(i) for i in range(labelsLen)] #if no labels, set to 1,2,3....
         
+        workerNum = 0
+        for csvRes in expForStats.predictionResList:
+            workerNum += len(csvRes.workers)
+
         ## create a different confusion matrix for each label
         predlabels = [[] for i in range(labelsLen)]
         trueLabels = [[] for i in range(labelsLen)]
+        onWorker = 0
+        workerNeuronRes = [[] for i in range(workerNum)]    # each worker creates its own [predL, trueL] lists
 
-        for csvNum in csvNumsList:
-            csvResAcc = expForStats.predictionResList[csvNum-1]
-            workersPredictions = csvResAcc.workersResList
+        for sourceCSV in expForStats.predictionResList:         #### TODO: match specific batch number of predict vector to test.csv of labels
+            workersList = sourceCSV.workersResList 
 
             # Generate the samples' indexes from the results:
-            for worker in workersPredictions:
-                for batch in worker.resList:
-                    sampleNum = batch.indexRange[0]
-                    batchSize = batch.batchSize
-                    # print(f"pred batch #{sampleNum} is: {batch.predictions}")
-                    ## compare real label to the predicted one
+            for worker in workersList:
+                for batchRes in worker.resList:
+                    samples = batchRes.indexRange   # (startSampNum, endSampNum)
+                    
+                    for ind, sample in enumerate(range(samples[0], samples[1])):
+                        for label in range(labelsLen):
+                            trueLabels[label].append(str(labelsSeries.iloc[sample,label]))
+                            predlabels[label].append(str(round(batchRes.predictions[ind][label])))
+                
+                workerNeuronRes[onWorker] = (trueLabels, predlabels)
 
-                    for i in range(batchSize):  # TODO: make this 2D to support neuron per worker
-                        for j in range(labelsLen):
-                            trueLabels[j].append(str(labelsSeries.iloc[sampleNum+i,j]))
-                            predlabels[j].append(str(round(batch.predictions[i][j])))
+                predlabels = [[] for i in range(labelsLen)]
+                trueLabels = [[] for i in range(labelsLen)]
+                onWorker += 1
+                    
+
+                    # sampleNum = batchRes.indexRange[0]
+                    # batchSize = batchRes.batchSize
+                    # # print(f"pred batch #{sampleNum} is: {batch.predictions}")
+                    # ## compare real label to the predicted one
+
+                    # for i in range(batchSize):
+                    #     for j in range(labelsLen):
+                    #         trueLabels[j].append(str(labelsSeries.iloc[sampleNum+i,j]))
+                    #         predlabels[j].append(str(round(batchRes.predictions[i][j])))
 
                             # print(f"{worker.name} for sample #{sampleNum} predicted {batch.predictions[i][j]}, real is {labelsSeries.iloc[sampleNum+i,j]}")
 
@@ -368,16 +390,14 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # Another option to solve this problem, is to numerize each classification group (group 1, group 2, ...), 
         # and add legened to show the true label value for each group.
 
-        workerNum = 0
-        for csvRes in expForStats.predictionResList:
-            workerNum += len(csvRes.workers)
         confMatList = [[] for i in range(workerNum)]
                     ################## THIS IS *NOT* FOR MULTICLASS DATA
         f, axes = plt.subplots(workerNum, labelsLen, figsize=(5*labelsLen, 5*workerNum))
         axes = axes.ravel()
         for i in range(workerNum):
             for j in range(labelsLen):
-                confMatList[i].append(confusion_matrix(trueLabels[j], predlabels[j]))
+                # confMatList[i].append(confusion_matrix(trueLabels[j], predlabels[j]))
+                confMatList[i].append(confusion_matrix(workerNeuronRes[i][0][j], workerNeuronRes[i][1][j]))
 
                 tp, tn, fp, fn = confMatList[i][j].ravel()
                 acc = (tp + tn) / (tp + tn + fp + fn)
@@ -385,24 +405,24 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 tnr = tn / (tn + fp)
                 inf = tpr + tnr - 1
 
-                disp = ConfusionMatrixDisplay(confMatList[i][j],
-                    display_labels=[0, labelNames[j]])
+                disp = ConfusionMatrixDisplay(confMatList[i][j], display_labels=[0, labelNames[j]])
                 disp.plot(ax=axes[i*labelsLen+j], values_format='.4g')
                 disp.ax_.set_title(f'W #{i}, class #{j}\nAccuracy={round(acc, 3)}')
                 if i < workerNum - 1:
-                    disp.ax_.set_xlabel('')
+                    disp.ax_.set_xlabel('') #remove "predicted label"
                 if  j != 0:
-                    disp.ax_.set_ylabel('')
+                    disp.ax_.set_ylabel('') #remove "true label"
                 disp.im_.colorbar.remove()  #remove individual colorbars
 
             print(f"Worker #{i} report:")
-            print(classification_report(trueLabels[j], predlabels[j]))
+            print(f"Overall informedness of prediction: {round(inf, 3)}")
+            # print(classification_report(trueLabels[j], predlabels[j]))
 
         plt.subplots_adjust(wspace=0.8, hspace=0.2)
         f.colorbar(disp.im_, ax=axes)
         plt.show()
 
-        fileName = csvResAcc.name.rsplit('/', 1)[-1] # If the CSV name contains a path, then take everything to the right of the last '/'.
+        fileName = sourceCSV.name.rsplit('/', 1)[-1] # If the CSV name contains a path, then take everything to the right of the last '/'.
         disp.figure_.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.png')
         print(f'\n{fileName}.png Saved...')
 
@@ -489,10 +509,10 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 print("\nIllegal Input") 
         
         if (option == 1):
-            plot_loss(expNum)
+            self.plot_loss(expNum)
 
         if (option == 2):
-            accuracy_matrix(expNum)
+            self.accuracy_matrix(expNum)
 
         if (option == 3):
 
@@ -541,7 +561,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 return
 
         if (option == 4):
-            communication_stats()
+            self.communication_stats()
 
                 
 if __name__ == "__main__":

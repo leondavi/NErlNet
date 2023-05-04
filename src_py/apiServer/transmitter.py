@@ -70,7 +70,7 @@ class Transmitter:
         if globe.jupyterFlag == False:
             print(response.ok, response.status_code)
 
-        return linesPerSource
+        globe.sourceCSVIndex=linesPerSource
 
     def startCasting(self, phase):
         print('\nStart Casting Phase')
