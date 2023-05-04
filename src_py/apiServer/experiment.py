@@ -26,9 +26,9 @@ class Experiment():
            self.trainingResList.append(newCsvRes)
 
     def syncPredicitionWithFlow(self):
-       for source in self.expFlow[globe.PREDICTION_STR]:
+       for i, source in enumerate(self.expFlow[globe.PREDICTION_STR]):
            sourceWorkers = list(source["workers"].split(","))
-           newCsvRes = CsvResult(globe.PREDICTION_STR, workedBySources = source, csvName = source["CSV path"], workers = sourceWorkers)
+           newCsvRes = CsvResult(globe.PREDICTION_STR, workedBySources = source, csvName = source["CSV path"], workers = sourceWorkers, sourceNum=i)    #sourceNum used to devide test.csv to matching sample
            newCsvRes.addWorkers()
            self.predictionResList.append(newCsvRes)
 

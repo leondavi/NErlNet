@@ -28,11 +28,15 @@ class PredictBatch():
 
         self.indexRange = ((self.batchSize*self.batchId), (self.batchSize*(self.batchId+1)-1))
 
+    def fixOffset(self, offset):
+        self.indexRange = (self.indexRange[0]+offset, self.indexRange[1]+offset)
+
 
 ## this keeps results per worker ordered
 class WorkerResult():
-
-    def __init__(self, workerName, phase, sourceWorked = "Unknown", csvWorked = "Unknown"):
+    # csvWorked is name of csv, DEPRACATED.
+    # 
+    def __init__(self, workerName, phase, offset, sourceWorked = "Unknown", csvWorked = "Unknown"):
         self.name  = workerName
         self.sourceWorked = sourceWorked
         self.csvWorked = csvWorked
@@ -44,18 +48,17 @@ class WorkerResult():
 ## Each source has its own CSV, this is what keeps results and workers ordered in data and experiment 
 class CsvResult():
 
-    def __init__(self, phase, csvName, workers, workedBySources = "Unknown"):
+    def __init__(self, phase, csvName, workers, workedBySources = "Unknown", sourceNum = 0):
         self.name = csvName 
         self.workers = workers
         self.workedBySources = workedBySources
         self.workersResList = [] 
         self.phase = phase
-        self.indexRange = (0,0)
-        # TODO: add index for what part of csv this worker is taking (important for prediction test)
+        self.indexOffset = sourceNum * globe.sourceCSVIndex
 
     def addWorkers(self):
         for w in self.workers:
-            newWorkerRes = WorkerResult(w, self.phase, self.workedBySources, self.name)
+            newWorkerRes = WorkerResult(w, self.phase, self.indexOffset, self.workedBySources, self.name)
             self.workersResList.append(newWorkerRes)
 
     # TODO: define function to create worker confMatrix

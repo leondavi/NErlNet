@@ -59,6 +59,7 @@ def processResult(resData, currentPhase):
                 if newPredictBatch.worker in csvRes.workers:
                     for workerRes in csvRes.workersResList:
                         if (workerRes.name == newPredictBatch.worker):
+                            newPredictBatch.fixOffset(csvRes.indexOffset)
                             workerRes.addResult(newPredictBatch)
 
 class shutdown(Resource):
