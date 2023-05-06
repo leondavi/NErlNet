@@ -5,7 +5,8 @@
 -export([init/0,create_nif/6,train_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
--export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2]).
+-export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0]).
+-export([nerltensor_sum_nif/3]).
 
 -define(FILE_IDENTIFIER,"[NERLNIF] ").
 -define(NERLNET_LIB,"libnerlnet").
@@ -106,20 +107,27 @@ encode_nif(_XYZ_LIST_FORM, _BinaryType)  when erlang:is_list(_XYZ_LIST_FORM) and
 decode_nif(_Binary, _BinaryType) when erlang:is_binary(_Binary) and erlang:is_atom(_BinaryType) ->
       exit(nif_library_not_loaded). % returns {List,ListType}
 
+% Only float/double types are supported
+nerltensor_sum_nif(_BinaryA, _BinaryB, _Mutual_Binary_Type) -> 
+      exit(nif_library_not_loaded). % returns {Binary, Type}
+
 %---------- nerlTensor -----------%
 nerltensor_binary_decode(Binary, Type) when erlang:is_binary(Binary) and erlang:is_atom(Type) ->
       NerlTensorListForm = decode_nif(Binary, Type),
       NerlTensorListForm.
 
+% return the merged list of all supported binary types
+get_all_binary_types() -> ?LIST_BINARY_FLOAT_NERLTENSOR_TYPE ++ ?LIST_BINARY_INT_NERLTENSOR_TYPE.
+
 % nerltensor_conversion:
-% ResType is Binary then: Binary (Compressed Form) --> Erlang List
-% ResType is list then: Erlang List --> Binary
+% Type is Binary then: Binary (Compressed Form) --> Erlang List
+% Type is list then: Erlang List --> Binary
 nerltensor_conversion({NerlTensor, Type}, ResType) -> 
-      BinaryGroup = lists:any(ResType, ?LIST_BINARY_GROUP_NERLTENSOR_TYPE), % compressed type
-      ListGroup = lists:any(ResType, ?LIST_GROUP_NERLTENSOR_TYPE), % non compressed, list type
+      BinaryGroup = lists:member(Type, get_all_binary_types()), % compressed type
+      ListGroup = lists:member(Type, ?LIST_GROUP_NERLTENSOR_TYPE), % non compressed, list type
       case ResType of 
-            ResType when BinaryGroup -> encode_nif(NerlTensor,Type); % returns {Binary, Type}
-            ResType when ListGroup -> decode_nif(NerlTensor,Type); % returns {Binary, Type}
+            ResType when BinaryGroup ->  decode_nif(NerlTensor,Type); % returns {Binary, Type}
+            ResType when ListGroup -> encode_nif(NerlTensor,Type); % returns {Binary, Type}
             _ERROR -> error % TODO add log here
       end.
 

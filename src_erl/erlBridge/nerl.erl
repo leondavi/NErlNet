@@ -23,7 +23,7 @@ compare_floats_L([] , [] , _ , _) -> true;
 compare_floats_L([H1|T1] , [H2|T2] , Epsilon , Index) ->
     case abs(H1 - H2) < Epsilon of
         true -> compare_floats_L(T1 , T2 , Epsilon , Index + 1);
-        false -> io:format("Precision failed at index ~p~n" , [Index])
+        false -> false %io:format("Precision failed at index ~p~n" , [Index])
     end.
 
 tic() -> erlang:timestamp().
