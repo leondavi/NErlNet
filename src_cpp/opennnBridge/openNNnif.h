@@ -326,77 +326,52 @@ template<typename EigenTypePtr> inline EigenTypePtr sum_eigen(EigenTypePtr A, Ei
     return C;
 }
 
-template<typename BasicType>  inline void  generate_nerltensor_tuple(ErlNifEnv* env, nifpp::TERM &term, unsigned char* dims_bytes_ptr, unsigned char* data_bytes_ptr , const std::vector<int> &tensor_dims, nifpp::str_atom nerltensor_atom_type)
-{
-    enum {TENSOR_DIMS = 3};
-    int tensor_total_size = 1;
-    for (int i=0; i < tensor_dims.size(); i++)
-    {
-        tensor_total_size *= tensor_dims[i];
-    }
-    size_t dim_size = TENSOR_DIMS *  sizeof(BasicType);
-    size_t data_size = tensor_total_size * sizeof(BasicType);
-    nifpp::binary bin_term(dim_size + data_size);
-    std::memcpy(bin_term.data, dims_bytes_ptr, dim_size);
-    std::memcpy(bin_term.data + dim_size, data_bytes_ptr, data_size);
-
-    std::tuple<nifpp::TERM, nifpp::TERM> return_tuple =  { nifpp::make(env, bin_term) , nifpp::make(env, nerltensor_atom_type) };
-    term = nifpp::make(env, return_tuple);
-
-}
 
 static ERL_NIF_TERM nerltensor_sum_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    nifpp::TERM term;
+    std::tuple<nifpp::TERM, nifpp::TERM> return_tuple;
 
     enum {ARG_BINARY_A, ARG_BINARY_B, ARG_TYPE};
     enum {TUPLE_NERLTENSOR_DATA, TUPLE_NERLTENSOR_ATOM_TYPE};
 
     nifpp::str_atom nerltensors_type;
     nifpp::get_throws(env, argv[ARG_TYPE], nerltensors_type);
-
-    std::vector<int> tensor_dims;
+    
+    int dims;
     int enc_type_num = atom_str_to_enum(nerltensors_type);
+
+    nifpp::TERM nerltensor_bin;
 
     switch (enc_type_num)
     {
         case ATOM_FLOAT:
         {
-            std::vector<float> tensor_data;
-            std::vector<float> tensor_dims_orig;
-            nifpp::get_tensor_data<float>(env, argv[ARG_BINARY_A], tensor_data, tensor_dims_orig, tensor_dims );
             fTensor2DPtr eigen_tensor_a;
-            nifpp::get_binary_as_tensor_2D<float,fTensor2D>(tensor_data, tensor_dims, eigen_tensor_a);
-
-            nifpp::get_tensor_data<float>(env, argv[ARG_BINARY_B], tensor_data, tensor_dims_orig, tensor_dims );
+            dims = nifpp::get_tensor<float,fTensor2D>(env, argv[ARG_BINARY_A], eigen_tensor_a);
             fTensor2DPtr eigen_tensor_b;
-            nifpp::get_binary_as_tensor_2D<float,fTensor2D>(tensor_data, tensor_dims, eigen_tensor_b);
+            nifpp::get_tensor<float,fTensor2D>(env, argv[ARG_BINARY_B], eigen_tensor_b);
             
-            fTensor2DPtr eigen_tensor_c = make_shared<fTensor2D>(tensor_dims[nifpp::DIMS_X_IDX], tensor_dims[nifpp::DIMS_Y_IDX] * tensor_dims[nifpp::DIMS_Z_IDX]);
+            fTensor2DPtr eigen_tensor_c = make_shared<fTensor2D>(eigen_tensor_a->dimension(0), eigen_tensor_a->dimension(1));
             eigen_tensor_c = sum_eigen<fTensor2DPtr>(eigen_tensor_a, eigen_tensor_b, eigen_tensor_c);
             
-            nifpp::colmajor_to_rowjmajor_2d<float,fTensor2D>(eigen_tensor_c, tensor_data, tensor_dims);
-
-            generate_nerltensor_tuple<float>(env, term, reinterpret_cast<unsigned char*> (tensor_dims_orig.data()), reinterpret_cast<unsigned char*> (tensor_data.data()), tensor_dims, nerltensors_type);
+            nifpp::make_tensor(eigen_tensor_c, nerltensor_bin, dims);
+            
+            return_tuple =  { nerltensor_bin , nifpp::make(env, nerltensors_type) };
             break;
         }
         case ATOM_DOUBLE:
         {
-            std::vector<double> tensor_data;
-            std::vector<double> tensor_dims_orig;
-            nifpp::get_tensor_data<double>(env, argv[ARG_BINARY_A], tensor_data, tensor_dims_orig, tensor_dims );
             dTensor2DPtr eigen_tensor_a;
-            nifpp::get_binary_as_tensor_2D<double,dTensor2D>(tensor_data, tensor_dims, eigen_tensor_a);
-            nifpp::get_tensor_data<double>(env, argv[ARG_BINARY_B], tensor_data, tensor_dims_orig, tensor_dims );
+            dims = nifpp::get_tensor<double,dTensor2D>(enc, argv[ARG_BINARY_A], eigen_tensor_a);
             dTensor2DPtr eigen_tensor_b;
-            nifpp::get_binary_as_tensor_2D<double,dTensor2D>(tensor_data, tensor_dims, eigen_tensor_b);
+            nifpp::get_tensor<double,dTensor2D>(env, argv[ARG_BINARY_B], eigen_tensor_b);
             
-            dTensor2DPtr eigen_tensor_c = make_shared<dTensor2D>(tensor_dims[nifpp::DIMS_X_IDX], tensor_dims[nifpp::DIMS_Y_IDX] * tensor_dims[nifpp::DIMS_Z_IDX]);
-            eigen_tensor_c = sum_eigen<dTensor2DPtr>(eigen_tensor_a, eigen_tensor_b, eigen_tensor_c); 
+            dTensor2DPtr eigen_tensor_c = make_shared<dTensor2D>(eigen_tensor_a->dimension(0), eigen_tensor_a->dimension(1));
+            eigen_tensor_c = sum_eigen<dTensor2D>(eigen_tensor_a, eigen_tensor_b, eigen_tensor_c);
             
-            nifpp::colmajor_to_rowjmajor_2d<double,dTensor2D>(eigen_tensor_c, tensor_data, tensor_dims);
-
-            generate_nerltensor_tuple<double>(env, term, reinterpret_cast<unsigned char*> (tensor_dims_orig.data()), reinterpret_cast<unsigned char*> (tensor_data.data()), tensor_dims, nerltensors_type);
+            nifpp::make_tensor(eigen_tensor_c, nerltensor_bin, dims);
+            
+            return_tuple =  { nerltensor_bin , nifpp::make(env, nerltensors_type) };
             break;
         }
         case ATOM_INT32:
@@ -412,7 +387,7 @@ static ERL_NIF_TERM nerltensor_sum_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 
     }
 
-    return term;
+    return nifpp::make(env, return_tuple);;
 }
 
 
