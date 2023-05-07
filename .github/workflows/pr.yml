@@ -9,7 +9,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: dolby360/nerlnet:latest
+    container: leondavi/nerlnet:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
