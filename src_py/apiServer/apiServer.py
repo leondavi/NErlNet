@@ -114,28 +114,22 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
         # Jsons found in NErlNet/inputJsonFiles/{JSON_TYPE}/files.... for entities in src_erl/Comm_layer/http_nerl/src to reach them, they must go up 3 dirs
         archAddress , connMapAddress, exp_flow_json = self.getUserJsons()
-        #[JsonsPath, archPath] = archAddress.split("/NErlNet")
-        #archAddress = "../../.."+archPath
-
-        #[JsonsPath, connPath] = connMapAddress.split("/NErlNet")
-        #connMapAddress = "../../.."+connPath
-
-        #data = archAddress + '#' + connMapAddress
 
         for ip in globe.components.devicesIp:
             with open(archAddress, 'rb') as f1, open(connMapAddress, 'rb') as f2:
                 files = [('arch.json', f1), ('conn.json', f2)]
                 address = f'http://{ip}:8484/updateJsonPath' # f for format
-                response = requests.post(address, files=files)
+
+                try: response = requests.post(address, files=files, timeout=8)
+                except requests.exceptions.Timeout:
+                    print(f'ERROR: TIMEOUT, COULDN\'T INIT DEVICES!!\nMake sure IPs are correct in {archAddress}')
+                    break
 
             # response = requests.post(address, data, timeout = 10)
             if globe.jupyterFlag == False:
               print(response.ok, response.status_code)
 
-        #split experiment data and send to individual sources:
-
-        time.sleep(1)
-        print("JSON paths sent to devices")
+        print("Init JSONs sent to devices")
 
     def showJsons(self):
         self.json_dir_parser.print_lists()
@@ -240,11 +234,12 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training'):
             os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training')
 
-        numOfCsvs = len(expForStats.trainingResList)
-
-        print(f"\nThe training phase contains {numOfCsvs} source CSVs:")
 
         ####### THIS IS TO PICK ONLY A SPECIFIC SOURCE FOR PLOT:
+
+        # numOfCsvs = len(expForStats.trainingResList)
+        # print(f"\nThe training phase contains {numOfCsvs} source CSVs:")
+
         # for i, csvRes in enumerate(expForStats.trainingResList, start=1):
         #     print(f"{i}) {csvRes.name}")
 
@@ -261,9 +256,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             
         #     if (all(csvNum > 0 and csvNum <= numOfCsvs for csvNum in csvNumsList)): # Check if all CSV indexes are in the correct range.
         #         break
-
-        #     else:
-        #         print("\nInvalid Input") 
+        #     else: print("\nInvalid Input") 
 
         # Draw the plot using Matplotlib:
         plt.figure(figsize = (30,15), dpi = 150)
