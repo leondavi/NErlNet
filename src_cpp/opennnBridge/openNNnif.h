@@ -320,10 +320,9 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     return nifpp::make(env, return_val);
 } 
 
-template<typename EigenTypePtr> inline EigenTypePtr sum_eigen(EigenTypePtr A, EigenTypePtr B, EigenTypePtr &C)
+template<typename EigenTypePtr> inline void sum_eigen(EigenTypePtr A, EigenTypePtr B, EigenTypePtr &C)
 {
     (*C) = (*A) + (*B);
-    return C;
 }
 
 
@@ -346,15 +345,15 @@ static ERL_NIF_TERM nerltensor_sum_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
     {
         case ATOM_FLOAT:
         {
-            fTensor2DPtr eigen_tensor_a;
-            dims = nifpp::get_tensor<float,fTensor2D>(env, argv[ARG_BINARY_A], eigen_tensor_a);
+             std::shared_ptr<fTensor2D> eigen_tensor_a;
+
+            dims = nifpp::get_tensor_2d<float,fTensor2DPtr, fTensor2D>(env, argv[ARG_BINARY_A], eigen_tensor_a); // TODO - try use the 3d
             fTensor2DPtr eigen_tensor_b;
-            nifpp::get_tensor<float,fTensor2D>(env, argv[ARG_BINARY_B], eigen_tensor_b);
+            nifpp::get_tensor_2d<float,fTensor2DPtr, fTensor2D>(env, argv[ARG_BINARY_B], eigen_tensor_b);
             
             fTensor2DPtr eigen_tensor_c = make_shared<fTensor2D>(eigen_tensor_a->dimension(0), eigen_tensor_a->dimension(1));
-            eigen_tensor_c = sum_eigen<fTensor2DPtr>(eigen_tensor_a, eigen_tensor_b, eigen_tensor_c);
-            
-            nifpp::make_tensor(eigen_tensor_c, nerltensor_bin, dims);
+            sum_eigen<fTensor2DPtr>(eigen_tensor_a, eigen_tensor_b, eigen_tensor_c);
+            nifpp::make_tensor<float, fTensor2D>(env, nerltensor_bin, dims, eigen_tensor_c);
             
             return_tuple =  { nerltensor_bin , nifpp::make(env, nerltensors_type) };
             break;
@@ -362,14 +361,14 @@ static ERL_NIF_TERM nerltensor_sum_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
         case ATOM_DOUBLE:
         {
             dTensor2DPtr eigen_tensor_a;
-            dims = nifpp::get_tensor<double,dTensor2D>(enc, argv[ARG_BINARY_A], eigen_tensor_a);
+            dims = nifpp::get_tensor_2d<double,dTensor2DPtr,dTensor2D>(env, argv[ARG_BINARY_A], eigen_tensor_a); //TODO try use the 3d 
             dTensor2DPtr eigen_tensor_b;
-            nifpp::get_tensor<double,dTensor2D>(env, argv[ARG_BINARY_B], eigen_tensor_b);
+            nifpp::get_tensor_2d<double,dTensor2DPtr,dTensor2D>(env, argv[ARG_BINARY_B], eigen_tensor_b);
             
             dTensor2DPtr eigen_tensor_c = make_shared<dTensor2D>(eigen_tensor_a->dimension(0), eigen_tensor_a->dimension(1));
-            eigen_tensor_c = sum_eigen<dTensor2D>(eigen_tensor_a, eigen_tensor_b, eigen_tensor_c);
+            sum_eigen<dTensor2DPtr>(eigen_tensor_a, eigen_tensor_b, eigen_tensor_c);
             
-            nifpp::make_tensor(eigen_tensor_c, nerltensor_bin, dims);
+            nifpp::make_tensor<double, dTensor2D>(env, nerltensor_bin, dims, eigen_tensor_c);
             
             return_tuple =  { nerltensor_bin , nifpp::make(env, nerltensors_type) };
             break;
@@ -387,7 +386,7 @@ static ERL_NIF_TERM nerltensor_sum_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 
     }
 
-    return nifpp::make(env, return_tuple);;
+    return nifpp::make(env, return_tuple);
 }
 
 

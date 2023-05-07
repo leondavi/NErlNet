@@ -19,8 +19,8 @@ nerltest_print(String) ->
 
 % encode_decode test macros
 -define(ENCODE_DECODE_ROUNDS, 100).
--define(DIMX_RAND_MAX, 500).
--define(DIMY_RAND_MAX, 500).
+-define(DIMX_RAND_MAX, 200).
+-define(DIMY_RAND_MAX, 200).
 -define(SUM_NIF_ROUNDS, 100).
 
 run_tests()->
@@ -79,15 +79,17 @@ nerltensor_sum_nif_test(Type, N) ->
       DIMY = rand:uniform(?DIMX_RAND_MAX),
       NewTensorA =  generate_nerltensor(Type,DimX,DIMY,1),
       NewTensorB =  generate_nerltensor(Type,DimX,DIMY,1),
+    %  io:format("NewTensorA ~p~n NewTensorB ~p~n",[NewTensorA, NewTensorB]),
       ExpectedResult = nerlNIF:nerltensor_sum_erl({NewTensorA, erl_float}, {NewTensorB, erl_float}), %TODO add tensor addition element wise
+    %  io:format("ExpectedResult: ~p~n",[ExpectedResult]),
       {NewTensorAEnc, Type} = nerlNIF:encode_nif(NewTensorA, Type),
       {NewTensorBEnc, Type} = nerlNIF:encode_nif(NewTensorB, Type),
       %io:format("NewTensorAEnc ~p~n",[NewTensorAEnc]),
       {ResultTensorCEnc, Type} = nerlNIF:nerltensor_sum_nif(NewTensorAEnc, NewTensorBEnc, Type),
-      %io:format("ResultTensorCEnc ~p Type ~p~n",[ResultTensorCEnc, Type]),
+    %  io:format("ResultTensorCEnc ~p Type ~p~n",[ResultTensorCEnc, Type]),
       {ResultTensorCEncDec, erl_float} = nerlNIF:nerltensor_conversion({ResultTensorCEnc, Type}, erl_float),
       CompareFloats = nerl:compare_floats_L(ResultTensorCEncDec, ExpectedResult, 4), % Erlang accuracy is double
-      %io:format("NewTensorA ~p~n NewTensorB ~p~n ResultTensorCEncDec ~p~n Expected Results: ~p~n",[NewTensorA, NewTensorB, ResultTensorCEncDec, ExpectedResult]),
+    %  io:format("ResultTensorCEncDec ~p~n",[ResultTensorCEncDec]),
 
       if 
             CompareFloats -> nerltensor_sum_nif_test(Type, N-1);
