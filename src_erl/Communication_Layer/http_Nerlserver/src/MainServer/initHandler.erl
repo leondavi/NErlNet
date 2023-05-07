@@ -12,6 +12,7 @@
 -behaviour(application).
 
 -define(DATA_LEN, 15*1000*1000). % default is 8MB, here set to 15MB
+-define(DATA_TIME, infinity).
 
 %%setter handler for editing weights in CSV file, can also send a reply to sender
 init(Req0, [Main_genServer_Pid]) ->
@@ -21,9 +22,10 @@ init(Req0, [Main_genServer_Pid]) ->
 %%  can go to CSV file and edit weight
 
   %Bindings also can be accessed as once, giving a map of all bindings of Req0:
-  {_,Body,_} = cowboy_req:read_body(Req0, #{length => ?DATA_LEN}),  %read up to 10MB (default was 8MB)
+  {_,Body,_} = cowboy_req:read_body(Req0, #{length => ?DATA_LEN}),  %read up to X MB (default was 8MB)
   Decoded_body = binary_to_list(Body),
   %Decoded_body = read_all_data(Req0),
+  % io:format("GOT DATA: ~p~n",[Decoded_body]),
   [SourceName, _WorkersStr, _Data] = string:split(Decoded_body, "#", all),
   %WorkersList = string:split(WorkersStr, ",", all),
   gen_server:cast(Main_genServer_Pid,{initCSV, SourceName, Body}),
@@ -41,7 +43,7 @@ init(Req0, [Main_genServer_Pid]) ->
 % getWorkerInput([Input],Workers)->{Workers,Input};
 % getWorkerInput([Worker|WorkersAndInput],Workers) ->getWorkerInput(WorkersAndInput,Workers++[Worker]).
 
-%%% for reading a multipart message
+%% for reading a multipart message
 % read_all_data(Req0) -> read_all_data(Req0, []).
 % read_all_data(Req0, Got) ->
 %   io:format("length of read data so far: ~p~n",[length(Got)]),
