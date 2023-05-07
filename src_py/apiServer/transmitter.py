@@ -61,8 +61,8 @@ class Transmitter:
             SourceStr = ""
             for Line in SourceData[i]:
                 SourceStr += Line
-            #dataStr = f'{sourceName},{workersUnderSource},{csvPathForSource}'
             dataStr = f'{sourceName}#{workersUnderSource}#{SourceStr}'
+
             response = requests.post(self.updateCSVAddress, data=dataStr)
             i+=1
 
@@ -101,7 +101,7 @@ class Transmitter:
 
         globe.experiment_flow_global.syncTrainingWithFlow()
 
-        # 1 Ack for clientsTraining(), <num of sources> Acks for updateCSV():
+        # 1 Ack for clientsTraining()
         globe.pendingAcks += 1
 
         self.clientsTraining()
