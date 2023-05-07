@@ -18,10 +18,10 @@ nerltest_print(String) ->
       logger:notice(?NERLTEST_PRINT_STR++String).
 
 % encode_decode test macros
--define(ENCODE_DECODE_ROUNDS, 50).
--define(DIMX_RAND_MAX, 1000).
--define(DIMY_RAND_MAX, 1000).
--define(SUM_NIF_ROUNDS, 50).
+-define(ENCODE_DECODE_ROUNDS, 100).
+-define(DIMX_RAND_MAX, 500).
+-define(DIMY_RAND_MAX, 500).
+-define(SUM_NIF_ROUNDS, 100).
 
 run_tests()->
       nerl:logger_settings(nerlTests),
@@ -77,21 +77,21 @@ nerltensor_sum_nif_test(_Type,0) -> ok;
 nerltensor_sum_nif_test(Type, N) ->
       DimX = rand:uniform(?DIMX_RAND_MAX),
       DIMY = rand:uniform(?DIMX_RAND_MAX),
-      NewTensorA = generate_nerltensor(Type,DimX,DIMY,1),
-      NewTensorB = generate_nerltensor(Type,DimX,DIMY,1),
-      ResultTensorC = [float(X) || X <-[3,3,1,10,10,10,10,10,10,10,10,10]], %TODO add tensor addition element wise
+      NewTensorA =  generate_nerltensor(Type,DimX,DIMY,1),
+      NewTensorB =  generate_nerltensor(Type,DimX,DIMY,1),
+      ExpectedResult = nerlNIF:nerltensor_sum_erl({NewTensorA, erl_float}, {NewTensorB, erl_float}), %TODO add tensor addition element wise
       {NewTensorAEnc, Type} = nerlNIF:encode_nif(NewTensorA, Type),
       {NewTensorBEnc, Type} = nerlNIF:encode_nif(NewTensorB, Type),
- %     io:format("NewTensorAEnc ~p~n",[NewTensorAEnc]),
+      %io:format("NewTensorAEnc ~p~n",[NewTensorAEnc]),
       {ResultTensorCEnc, Type} = nerlNIF:nerltensor_sum_nif(NewTensorAEnc, NewTensorBEnc, Type),
-  %    io:format("ResultTensorCEnc ~p Type ~p~n",[ResultTensorCEnc, Type]),
+      %io:format("ResultTensorCEnc ~p Type ~p~n",[ResultTensorCEnc, Type]),
       {ResultTensorCEncDec, erl_float} = nerlNIF:nerltensor_conversion({ResultTensorCEnc, Type}, erl_float),
-      CompareFloats = nerl:compare_floats_L(ResultTensorCEncDec, ResultTensorC, 6),
-   %   io:format("ResultTensorCEncDec ~p Type ~p~n",[ResultTensorCEncDec, Type]),
+      CompareFloats = nerl:compare_floats_L(ResultTensorCEncDec, ExpectedResult, 4), % Erlang accuracy is double
+      %io:format("NewTensorA ~p~n NewTensorB ~p~n ResultTensorCEncDec ~p~n Expected Results: ~p~n",[NewTensorA, NewTensorB, ResultTensorCEncDec, ExpectedResult]),
 
       if 
             CompareFloats -> nerltensor_sum_nif_test(Type, N-1);
-            true -> nerltensor_sum_nif_test(Type, N-1) % throw(ner:string_format("test failed - not equal ~n ResultTensorC: ~p ~n ResultTensorCEncDec: ~p",[ResultTensorC, ResultTensorCEncDec]))
+            true -> throw(ner:string_format("test failed - not equal ~n ExpectedResult: ~p ~n ResultTensorCEncDec: ~p",[ExpectedResult, ResultTensorCEncDec]))
       end.
 
 

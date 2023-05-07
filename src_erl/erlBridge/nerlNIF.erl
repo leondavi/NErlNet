@@ -1,12 +1,12 @@
 -module(nerlNIF).
 -include_lib("kernel/include/logger.hrl").
--include("nerlTensor.hrl").
+
+-import(nerl,[tic/0, toc/1]).
 
 -export([init/0,create_nif/6,train_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
 -export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0]).
--export([nerltensor_sum_nif/3]).
 
 -define(FILE_IDENTIFIER,"[NERLNIF] ").
 -define(NERLNET_LIB,"libnerlnet").
@@ -20,6 +20,12 @@
 -define(PREDICT_TIMEOUT,10000). % 10 seconds limit for prediction results
 -define(TRAIN_TIMEOUT,20000). % 20 seconds limit for prediction results
 
+%nerltensor
+-define(NUMOF_DIMS,3).
+-include("nerlTensor.hrl").
+
+-export([nerltensor_sum_nif/3]).
+-export([nerltensor_sum_erl/2]).
 
 init() ->
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
@@ -131,6 +137,18 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
             _ERROR -> error % TODO add log here
       end.
 
+nerltensor_sum_erl({NerlTensorErlA, Type}, {NerlTensorErlB, Type}) ->
+      ListGroup = lists:member(Type, ?LIST_GROUP_NERLTENSOR_TYPE),
+      if ListGroup ->
+            DIMS = lists:sublist(NerlTensorErlA, 1, ?NUMOF_DIMS),
+            NerlTensorErlA_NODIMS = lists:sublist(NerlTensorErlA, ?NUMOF_DIMS + 1, length(NerlTensorErlA) - ?NUMOF_DIMS),
+            %io:format("nerltensorA nodims: ~p~n", [NerlTensorErlA_NODIMS]),
+            NerlTensorErlB_NODIMS = lists:sublist(NerlTensorErlB, ?NUMOF_DIMS + 1, length(NerlTensorErlB) - ?NUMOF_DIMS),
+           % io:format("nerltensorB nodims: ~p~n", [NerlTensorErlB_NODIMS]),
+      
+            DIMS ++ lists:zipwith(fun(X,Y) -> X + Y end, NerlTensorErlA_NODIMS, NerlTensorErlB_NODIMS);
+         true -> throw("Bad Type")
+      end.
 
 
 

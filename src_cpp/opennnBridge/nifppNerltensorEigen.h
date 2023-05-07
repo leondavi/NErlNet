@@ -12,22 +12,7 @@ namespace nifpp
     int get_actual_dim(std::vector<int> &dims);
 
     template<typename BasicType> void get_tensor_data(ErlNifEnv *env , nifpp::TERM binary_term, std::vector<BasicType> &data, std::vector<int> &dims);
-    template<typename BasicType, typename EigenType3D> void get_binary_as_tensor_3D(std::vector<BasicType> &data, std::vector<int> &dims, std::shared_ptr<EigenType3D> tensor_ptr);
-    template<typename BasicType, typename EigenType2D> void get_binary_as_tensor_3D(std::vector<BasicType> &data, std::vector<int> &dims, std::shared_ptr<EigenType2D> tensor_ptr);
-    template<typename BasicType, typename EigenType1D> void get_binary_as_tensor_3D(std::vector<BasicType> &data, std::vector<int> &dims, std::shared_ptr<EigenType1D> tensor_ptr);
-
-    void get_binary_as_dtensor_3D(std::vector<double> &data, std::vector<int> &dims, dTensor3DPtr tensor_ptr);
-    void get_binary_as_ftensor_3D(std::vector<float> &data, std::vector<int> &dims, fTensor3DPtr tensor_ptr);
-    void get_binary_as_itensor_3D(std::vector<int> &data, std::vector<int> &dims, iTensor3DPtr tensor_ptr);
-
-    void get_binary_as_dtensor_2D(std::vector<double> &data, std::vector<int> &dims, dTensor2DPtr tensor_ptr);
-    void get_binary_as_ftensor_2D(std::vector<float> &data, std::vector<int> &dims, fTensor2DPtr tensor_ptr);
-    void get_binary_as_itensor_2D(std::vector<int> &data, std::vector<int> &dims, iTensor2DPtr tensor_ptr);
-
-    void get_binary_as_dtensor_1D(std::vector<double> &data, std::vector<int> &dims, dTensor1DPtr tensor_ptr);
-    void get_binary_as_ftensor_1D(std::vector<float> &data, std::vector<int> &dims, fTensor1DPtr tensor_ptr);
-    void get_binary_as_itensor_1D(std::vector<int> &data, std::vector<int> &dims, iTensor1DPtr tensor_ptr);
-    
+  
     template<typename Type>
     int get_binary(ErlNifEnv *env, ERL_NIF_TERM bin_term, std::vector<Type> &vec)
     {
@@ -104,30 +89,34 @@ namespace nifpp
 
     template<typename BasicType, typename EigenType3D> inline void get_binary_as_tensor_3D(std::vector<BasicType> &data, std::vector<int> &dims, std::shared_ptr<EigenType3D> tensor_ptr)
     {
-        
+          
               
 
     }
 
-    template<typename T> struct reinterprated_mat {
-    T* data;
-    DenseIndex rows, cols;
-    Matrix<T, Dynamic, Dynamic, ColMajor>& asMatrix() {
-        return reinterpret_cast<Matrix<T, Dynamic, Dynamic, ColMajor>&>(*this);
-    }
-    };
-
-    template<typename BasicType, typename EigenType2D> inline void get_binary_as_tensor_2D(std::vector<BasicType> &data, std::vector<int> &dims, std::shared_ptr<EigenType2D> tensor_ptr)
+    template<typename BasicType, typename EigenType3D> void inline colmajor_to_rowjmajor_3d(std::shared_ptr<EigenType3D> &tensor_ptr_col_major, std::vector<BasicType> &data, std::vector<int> &dims)
     {
-        // inefficient implementation still better than old fashion method
-      //  tensor_ptr = make_shared<EigenType2D>(dims[DIMS_X_IDX], dims[DIMS_Y_IDX] * dims[DIMS_Z_IDX]);
-        Eigen::Matrix<BasicType,  Eigen::Dynamic , Eigen::Dynamic> mat(dims[DIMS_X_IDX], dims[DIMS_Y_IDX] * dims[DIMS_Z_IDX]);
-        Eigen::Matrix<BasicType,  Eigen::Dynamic , Eigen::Dynamic> mat_tr;
-        memcpy(mat.data(), data.data(), data.size() * sizeof(BasicType));
-        mat_tr = mat.transpose();
-        //auto mapped = Eigen::TensorMap<Eigen::Tensor<BasicType, 2, Eigen::RowMajor>>(mat_tr.data(),dims[DIMS_X_IDX], dims[DIMS_Y_IDX] * dims[DIMS_Z_IDX]);
-        memcpy(tensor_ptr->data(),mat_tr.data(), data.size() * sizeof(BasicType));// Eigen::TensorLayoutSwapOp<Eigen::Tensor<BasicType, 2, Eigen::RowMajor>>(mapped);
-        //std::cout<<"tensor ptr "<<*tensor_ptr<<std::endl;
+        data.resize(dims[DIMS_X_IDX] * dims[DIMS_Y_IDX] * dims[DIMS_Z_IDX]);
+        Eigen::TensorMap<Tensor<BasicType, 3, RowMajor> > row_major(tensor_ptr_col_major->data(),dims[DIMS_X_IDX] , dims[DIMS_Y_IDX] , dims[DIMS_Z_IDX] );        
+        memcpy(data.data(), row_major.data(), data.size() * sizeof(BasicType));
+    }
+
+    template<typename BasicType, typename EigenType2D> void inline colmajor_to_rowjmajor_2d(std::shared_ptr<EigenType2D> &tensor_ptr_col_major, std::vector<BasicType> &data, std::vector<int> &dims)
+    {
+        data.resize(dims[DIMS_X_IDX] * dims[DIMS_Y_IDX] * dims[DIMS_Z_IDX]);
+        Eigen::TensorMap<Tensor<BasicType, 2, RowMajor> > row_major(tensor_ptr_col_major->data(),dims[DIMS_X_IDX] , dims[DIMS_Y_IDX] * dims[DIMS_Z_IDX] );        
+        memcpy(data.data(), row_major.data(), data.size() * sizeof(BasicType));
+    }
+
+    template<typename BasicType, typename EigenType2D> void inline get_binary_as_tensor_2D(std::vector<BasicType> &data, std::vector<int> &dims, std::shared_ptr<EigenType2D> &tensor_ptr)
+    {
+        tensor_ptr = std::make_shared<EigenType2D>(dims[DIMS_X_IDX], dims[DIMS_Y_IDX] * dims[DIMS_Z_IDX]);       
+        Eigen::Tensor<BasicType, 2, Eigen::RowMajor> row_maj_tensor(dims[DIMS_X_IDX], dims[DIMS_Y_IDX] * dims[DIMS_Z_IDX]); 
+        memcpy(row_maj_tensor.data(),data.data(), data.size() * sizeof(BasicType));
+
+        *tensor_ptr = row_maj_tensor.swap_layout();
+        //std::cout<<"RowMajor: "<<row_maj_tensor<<std::endl<<std::endl;
+        //std::cout<<"TensorPTR: "<<*tensor_ptr<<std::endl<<std::endl;
     }
 
     template<typename BasicType, typename EigenType1D> inline void get_binary_as_tensor_1D(std::vector<BasicType> &data, std::vector<int> &dims, std::shared_ptr<EigenType1D> tensor_ptr)
@@ -135,44 +124,4 @@ namespace nifpp
         tensor_ptr = make_shared<EigenType1D>(dims[DIMS_X_IDX] * dims[DIMS_Y_IDX] * dims[DIMS_Z_IDX]);
         memcpy(tensor_ptr->data(), data.data(),  data.size() * sizeof(BasicType));
     }
-
-    void get_binary_as_dtensor_3D(std::vector<double> &data, std::vector<int> &dims, dTensor3DPtr tensor_ptr)
-    {
-        get_binary_as_tensor_3D<double,dTensor3D>(data,dims,tensor_ptr);
-    }
-    void get_binary_as_ftensor_3D(std::vector<float> &data, std::vector<int> &dims, fTensor3DPtr tensor_ptr)
-    {
-        get_binary_as_tensor_3D<float,fTensor3D>(data,dims,tensor_ptr);
-    }
-    void get_binary_as_itensor_3D(std::vector<int> &data, std::vector<int> &dims, iTensor3DPtr tensor_ptr)
-    {
-      //  get_binary_as_tensor_3D<int,iTensor3D>(data,dims,tensor_ptr);
-    }
-
-    void get_binary_as_dtensor_2D(std::vector<double> &data, std::vector<int> &dims, dTensor2DPtr tensor_ptr)
-    {
-        get_binary_as_tensor_2D<double,dTensor2D>(data,dims,tensor_ptr);
-    }
-    void get_binary_as_ftensor_2D(std::vector<float> &data, std::vector<int> &dims, fTensor2DPtr tensor_ptr)
-    {
-        get_binary_as_tensor_2D<float,fTensor2D>(data,dims,tensor_ptr);
-    }
-    void get_binary_as_itensor_2D(std::vector<int> &data, std::vector<int> &dims, iTensor2DPtr tensor_ptr)
-    {
-       // get_binary_as_tensor_2D<int,iTensor2D>(data,dims,tensor_ptr);
-    }
-
-    void get_binary_as_dtensor_1D(std::vector<double> &data, std::vector<int> &dims, dTensor1DPtr tensor_ptr)
-    {
-        get_binary_as_tensor_1D<double,dTensor1D>(data,dims,tensor_ptr);
-    }
-    void get_binary_as_ftensor_1D(std::vector<float> &data, std::vector<int> &dims, fTensor1DPtr tensor_ptr)
-    {
-        get_binary_as_tensor_1D<float,fTensor1D>(data,dims,tensor_ptr);
-    }
-    void get_binary_as_itensor_1D(std::vector<int> &data, std::vector<int> &dims, iTensor1DPtr tensor_ptr)
-    {
-       // get_binary_as_tensor_1D<int,iTensor1D>(data,dims,tensor_ptr);
-    }
-
 }
