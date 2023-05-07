@@ -242,34 +242,35 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
         numOfCsvs = len(expForStats.trainingResList)
 
-        print(f"\nThe training phase contains {numOfCsvs} CSVs:")
-        for i, csvRes in enumerate(expForStats.trainingResList, start=1):
-            print(f"{i}) {csvRes.name}")
+        print(f"\nThe training phase contains {numOfCsvs} source CSVs:")
 
-        while True:
-            print("\nPlease choose a CSV number for the plot (for multiple CSVs, seperate their numbers with ', '):", end = ' ')       
-            csvNumsStr = input()
+        ####### THIS IS TO PICK ONLY A SPECIFIC SOURCE FOR PLOT:
+        # for i, csvRes in enumerate(expForStats.trainingResList, start=1):
+        #     print(f"{i}) {csvRes.name}")
 
-            try:
-                csvNumsList = csvNumsStr.split(', ')
-                csvNumsList = [int(csvNum) for csvNum in csvNumsList]
-            except ValueError:
-                print("\nIllegal Input") 
-                continue
+        # while True:
+        #     print("\nPlease choose a CSV number for the plot (for multiple CSVs, seperate their numbers with ', '):", end = ' ')       
+        #     csvNumsStr = input()
+
+        #     try:
+        #         csvNumsList = csvNumsStr.strip().split(',')
+        #         csvNumsList = [int(csvNum) for csvNum in csvNumsList]
+        #     except ValueError:
+        #         print("\nIllegal Input") 
+        #         continue
             
-            if (all(csvNum > 0 and csvNum <= numOfCsvs for csvNum in csvNumsList)): # Check if all CSV indexes are in the correct range.
-                break
+        #     if (all(csvNum > 0 and csvNum <= numOfCsvs for csvNum in csvNumsList)): # Check if all CSV indexes are in the correct range.
+        #         break
 
-            else:
-                print("\nInvalid Input") 
+        #     else:
+        #         print("\nInvalid Input") 
 
         # Draw the plot using Matplotlib:
         plt.figure(figsize = (30,15), dpi = 150)
         plt.rcParams.update({'font.size': 22})
 
-        for csvNum in csvNumsList:
-            csvResPlot = expForStats.trainingResList[csvNum-1]
-            for workerRes in csvResPlot.workersResList:
+        for csvRes in expForStats.trainingResList:
+            for workerRes in csvRes.workersResList:
                 data = workerRes.resList
                 plt.plot(data, linewidth = 3)
 
@@ -279,17 +280,15 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             plt.ylabel('Loss (MSE)', fontsize = 30)
             plt.xlim(left=0)
             plt.ylim(bottom=0)
-            plt.legend(csvResPlot.workers)
+            plt.legend(csvRes.workers)
             plt.grid(visible=True, which='major', linestyle='-')
             plt.minorticks_on()
             plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
 
-            #fileName = csvResPlot.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
-            fileName = globe.experiment_flow_global.name
-            plt.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.png')
-            print(f'\n{fileName}.png was Saved...')
-
         plt.show()
+        fileName = globe.experiment_flow_global.name
+        plt.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.png')
+        print(f'\n{fileName}.png was Saved...')
 
     def accuracy_matrix(self, expNum):
         expForStats = self.experiments[expNum-1] 
@@ -316,8 +315,6 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         #     # Check if all CSV indexes are in the correct range.
         #     if (all(csvNum > 0 and csvNum <= numOfCsvs for csvNum in csvNumsList)): break
         #     else: print("\nInvalid Input") 
-
-        print("\nPlease prepare the original labeled CSV, with the last column containing the samples' labels.")
 
         while True:
             print("\nPlease enter the name of the FULL LABELED PREDICTION DATA (including .csv):", end = ' ') 
@@ -355,10 +352,9 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         workerNeuronRes = [[] for i in range(workerNum)]    # each worker creates its own [predL, trueL] lists
 
         for sourceCSV in expForStats.predictionResList:         #### TODO: match specific batch number of predict vector to test.csv of labels
-            workersList = sourceCSV.workersResList 
 
             # Generate the samples' indexes from the results:
-            for worker in workersList:
+            for worker in sourceCSV.workersResList:
                 for batchRes in worker.resList:
                     samples = batchRes.indexRange   # (startSampNum, endSampNum)
                     
@@ -418,7 +414,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             print(f"Overall informedness of prediction: {round(inf, 3)}")
             # print(classification_report(trueLabels[j], predlabels[j]))
 
-        plt.subplots_adjust(wspace=0.8, hspace=0.2)
+        plt.subplots_adjust(wspace=0.8, hspace=0.15)
         f.colorbar(disp.im_, ax=axes)
         plt.show()
 
