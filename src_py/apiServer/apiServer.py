@@ -380,7 +380,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # and add legened to show the true label value for each group.
 
         confMatList = [[] for i in range(workerNum)]
-                    ################## THIS IS *NOT* FOR MULTICLASS DATA
+                    ################## THIS IS *NOT* FOR MULTICLASS DATA, but for multi-label data
         f, axes = plt.subplots(workerNum, labelsLen, figsize=(5*labelsLen, 5*workerNum))
         axes = axes.ravel()
         for i in range(workerNum):
@@ -388,23 +388,15 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 # confMatList[i].append(confusion_matrix(trueLabels[j], predlabels[j]))
                 confMatList[i].append(confusion_matrix(workerNeuronRes[i][0][j], workerNeuronRes[i][1][j]))
 
-                tp, tn, fp, fn = confMatList[i][j].ravel()
-                acc = (tp + tn) / (tp + tn + fp + fn)
-                tpr = tp / (tp + fn)
-                tnr = tn / (tn + fp)
-                inf = tpr + tnr - 1
-
                 disp = ConfusionMatrixDisplay(confMatList[i][j], display_labels=[0, labelNames[j]])
                 disp.plot(ax=axes[i*labelsLen+j], values_format='.4g')
-                disp.ax_.set_title(f'W #{i}, class #{j}\nAccuracy={round(acc, 3)}')
+                disp.ax_.set_title(f'W #{i}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[i][0][j], workerNeuronRes[i][1][j]), 3)}')
                 if i < workerNum - 1:
                     disp.ax_.set_xlabel('') #remove "predicted label"
                 if  j != 0:
                     disp.ax_.set_ylabel('') #remove "true label"
                 disp.im_.colorbar.remove()  #remove individual colorbars
 
-            print(f"Worker #{i} report:")
-            print(f"Overall informedness of prediction: {round(inf, 3)}")
             # print(classification_report(trueLabels[j], predlabels[j]))
 
         plt.subplots_adjust(wspace=0.8, hspace=0.15)
@@ -415,42 +407,28 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         disp.figure_.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.png')
         print(f'\n{fileName}.png Saved...')
 
-        # for i in range(labelsLen):
-        #     confMatList.append(confusion_matrix(trueLabels[i], predlabels[i]))
-        #     # # Calculate the accuracy and other stats:
-        #     # tp, tn, fp, fn = confMatList[i].ravel()
-        #     # acc = accuracy_score(trueLabels[i], predlabels[i])
-        #     # # acc = (tp + tn) / (tp + tn + fp + fn)
-        #     # ppv = tp / (tp + fp)
-        #     # tpr = tp / (tp + fn)
-        #     # tnr = tn / (tn + fp)
-        #     # inf = tpr + tnr - 1
-        #     # bacc = (tpr + tnr) / 2
-        #     # print("\n")
-        #     # print(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.\n")
-        #     # print(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.\n")
-        #     # print(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
-        #     # print(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.\n")
-        #     # print(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.\n")
-        #     # print(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
-        #     # print(classification_report(trueLabels[i], predlabels[i]))
-
-        #     fig, ax = plt.subplots(  figsize = (10,10))
-        #     confMatDisp = ConfusionMatrixDisplay(confMatList[i], display_labels = ["0", "1"])
-        #     plt.rcParams.update({'font.size': 14})
-        #     expTitle = expForStats.name+"_"+labelNames[i]
-        #     ax.set_title(f"Prediction - Confusion Matrix - {expTitle}\nAccuracy: {round(acc, 3)} ({round(acc*100, 3)}%)", fontsize = 18)
-        #     ax.set_xlabel('True Labels', fontsize = 16)
-        #     ax.set_ylabel('Predicted Labels', fontsize = 16)
-        #     confMatDisp.plot(ax = ax)
-        #     plt.figure(i)
-        #     plt.show()
-
-        #     fileName = csvResAcc.name.rsplit('/', 1)[-1]+"_"+str(i) # If the CSV name contains a path, then take everything to the right of the last '/'.
-        #     confMatDisp.figure_.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.png')
-        #     print(f'\n{fileName}.png Saved...')
-
         return confMatList
+    
+    def confusion_stats(self, confList):
+        for i, worker in enumerate(confList):
+            for j, label in enumerate(worker):
+                # Calculate the accuracy and other stats:
+                tp, tn, fp, fn = label.ravel()
+                acc = (tp + tn) / (tp + tn + fp + fn)
+                ppv = tp / (tp + fp)
+                tpr = tp / (tp + fn)
+                tnr = tn / (tn + fp)
+                bacc = (tpr + tnr) / 2
+                inf = tpr + tnr - 1
+
+                print(f"Worker #{i}, class #{j}:")
+                print("\n")
+                print(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.\n")
+                print(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.\n")
+                print(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
+                print(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.\n")
+                print(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.\n")
+                print(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
     
     def communication_stats(self):
         self.transmitter.statistics()
