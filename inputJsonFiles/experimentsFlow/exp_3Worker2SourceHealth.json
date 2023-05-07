@@ -24,7 +24,7 @@
    "Prediction": [
       {
          "source name": "s1",
-         "workers": "w1,w2,w3",
+         "workers": "w1,w2",
          "CSV path": "health_comb_predict"
       },
       {
