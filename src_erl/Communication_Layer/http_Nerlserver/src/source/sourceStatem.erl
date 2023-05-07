@@ -83,7 +83,7 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 idle(cast, {csvList,Workers,CSVData}, State = #source_statem_state{chunkSize = ChunkSize, myName = MyName, msgCounter = Counter, nerlnetGraph = NerlnetGraph}) ->
   %io:format("CSVData - ~p~n",[CSVData]),
   io:format("ChunkSize - ~p~n",[ChunkSize]),
-  CSVlist = parser:parseCSV(ChunkSize,CSVData),
+  CSVlist = parser:parseCSV(MyName,ChunkSize,CSVData),
   [Head|_] = CSVlist,
   LengthOfSample = byte_size(Head),
   %%  CSVName = lists:last(re:split(CSVPath,"/",[{return,list}])),
