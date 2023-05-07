@@ -11,6 +11,7 @@
 %logger
 -export([logger_settings/1]).
 
+
 % applies default nerlnet logger settings
 logger_settings(Module) -> 
       logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
@@ -25,6 +26,7 @@ compare_floats_L([H1|T1] , [H2|T2] , Epsilon , Index) ->
         true -> compare_floats_L(T1 , T2 , Epsilon , Index + 1);
         false -> false %io:format("Precision failed at index ~p~n" , [Index])
     end.
+
 
 tic() -> erlang:timestamp().
 toc(Tic) -> End = erlang:timestamp(), Diff = timer:now_diff(End , Tic) / 1000, {Diff, ms}.
