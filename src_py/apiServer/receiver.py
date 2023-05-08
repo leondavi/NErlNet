@@ -11,6 +11,8 @@ import globalVars as globe
 import logging
 from workerResult import *
 
+WORKER_NON_RESULT = -1
+
 receiver = Flask(__name__)
 api = Api(receiver)
 
@@ -42,7 +44,10 @@ def processResult(resData, currentPhase):
             #print(result)
             if (int(result) == -1):
                 print(f"Received loss=-1 from worker {worker}. The NN's weights have been reset.")
-            if (int(result) != -1 and int(result != 0)):    # weird condition
+
+            ## result is set by worker to be -1 when it had a problem working on the data
+            ## second condition will be tested but respected for now
+            if (int(result) != WORKER_NON_RESULT and int(result != 0)): 
                 for csvRes in globe.experiment_flow_global.trainingResList:
                     if worker in csvRes.workers:
                         for workerRes in csvRes.workersResList:
