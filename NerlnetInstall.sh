@@ -4,11 +4,18 @@
 NERLNET_LIB_DIR="/usr/local/lib/nerlnet-lib"
 NERLNET_DIR=$NERLNET_LIB_DIR/NErlNet
 NERLNET_LOG_DIR="/usr/local/lib/nerlnet-lib/log"
-LOGGED_IN_USER=$(logname)
 NumJobs=4
 InstallAll=false
 REBAR3_FILE=src_erl/rebar3/rebar3
 REBAR3_SYMLINK=/usr/local/bin/rebar3
+
+if [[ "$RUNNING_IN_DOCKER" = true ]]; then
+  # Not running inside a docker container
+  LOGGED_IN_USER=$(logname)
+else
+  # Running inside a docker container
+  LOGGED_IN_USER="$(whoami)" # Probably root
+fi
 
 # Arguments handling
 
@@ -168,9 +175,13 @@ WantedBy=default.target" > /etc/systemd/system/nerlnet.service
 
 chmod 744 $NERLNET_DIR/NerlnetRun.sh
 chmod 664 /etc/systemd/system/nerlnet.service
-chown -R $LOGGED_IN_USER $NERLNET_LOG_DIR
-chown -R $LOGGED_IN_USER $NERLNET_DIR
-chown -R $LOGGED_IN_USER $NERLNET_DIR/build
+
+if [[ -z "$RUNNING_IN_DOCKER" ]]; then
+  # Not running in docker
+  chown -R $LOGGED_IN_USER $NERLNET_LOG_DIR
+  chown -R $LOGGED_IN_USER $NERLNET_DIR
+  chown -R $LOGGED_IN_USER $NERLNET_DIR/build
+fi
 
 echo "enable and start nerlnet.service"
 systemctl enable nerlnet.service

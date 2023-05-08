@@ -46,8 +46,23 @@ https://user-images.githubusercontent.com/18975070/145286597-340bbd31-0050-492f-
 ![Nerlnet Architecture](https://user-images.githubusercontent.com/18975070/141692829-f0cdca7d-96d1-43b0-920a-5821a14242f7.jpg)
 
 # Build and Run Nerlnet:
-Minimum cmake version 3.18 <br>
+Recommended cmake version 3.26 <br>
 Minimum erlang version otp 24 <br>
+Minimum gcc/g++ version 8.4 <br>
+
+On each machine that runs Nerlnet go through the following steps:
+
+1. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo> NErlNet```
+2. Run ```sudo ./NerlnetInstall.sh```
+<br>    2.1  With argument -i script builds and installs Erlang, latest stable, and CMake.
+<br>    2.2  After running NerlnetInstall.sh, NErlNet directory can be accessed
+<br>&ensp;&ensp;&ensp;&nbsp;via the following path: ```/usr/local/lib/nerlnet-lib```
+3. Create json files of architecture, connection map and experiment flow.<br>
+   json configuration files names must follow the convention of prefixes:<br>
+   arch\_\<any\>.json, conn\_\<any\>, exp\_\<any\>. 
+4. Run ```./NerlnetRun.sh``` to start Nerlnet
+
+
 
 On each machine that runs Nerlnet go through the following steps:
 
@@ -62,8 +77,6 @@ arch_<any>.json, conn_<any>.json, exp_<any>.json.
 Optional: Run ```./NerlnetGetData.sh``` to create or get default inputDataDir  
 4. Run ```./NerlnetRun.sh``` to start Nerlnet  
 
-After running the installation script, NErlNet directory can be accessed via the following path as well: 
-```/usr/local/lib/nerlnet-lib```
 
 ## Python API and Jupyter (For UI Server): 
 Minimum Python version: 3.8
