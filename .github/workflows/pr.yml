@@ -1,0 +1,23 @@
+name: NerlnetInstall
+on:
+  pull_request:
+    branches: [ master ]
+
+env:
+  RUNNING_IN_DOCKER: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: leondavi/nerlnet:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Install
+        run: |
+          ./NerlnetInstall.sh
+      - name: build
+        run: |
+          ./NerlnetBuild.sh
