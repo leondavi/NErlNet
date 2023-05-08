@@ -115,11 +115,6 @@ parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess)
     createRouters(Routers,HostName),
     createSources(Sources,WorkersMap, ChunkSize, Frequency, HostName),
     createFederatedServer(Federateds,WorkersMap, HostName).
-%%    Worker1Args = {[3,2,1],0.01,[0,2,0],6,0,3,1,ChunkSize},
-%%    Worker1Args = {[561,280,140,70,35,17,8,4,2,1],0.01,[0,2,2,2,2,2,2,2,2,0],6,0,561,1,ChunkSize},
-%%    Worker2Args = {[3,2,1],0.01,[0,2,0],6,1,3,1,ChunkSize},
-%%    Worker2Args = {[561,280,140,70,35,17,8,4,2,1],0.01,[0,2,2,2,2,2,2,2,2,0],6,1,561,1,ChunkSize},
-
 
 
 %% internal functions

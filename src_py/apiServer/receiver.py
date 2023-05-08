@@ -9,7 +9,9 @@ from flask_restful import Api, Resource, reqparse
 from globalVars import *
 import globalVars as globe
 import logging
-from predictBatch import *
+from workerResult import *
+
+WORKER_NON_RESULT = -1
 
 receiver = Flask(__name__)
 api = Api(receiver)
@@ -36,13 +38,16 @@ def initReceiver(receiverHost, receiverPort, event):
 
 def processResult(resData, currentPhase):
         if (currentPhase == "Training"):
-            # Parse the Result:
+            # Parse the Result: [w#, float]
             worker = resData[0]
             result = float(resData[1].replace(' ',''))
             #print(result)
-            if (int(result) == -1):         # TODO what is this??
+            if (int(result) == -1):
                 print(f"Received loss=-1 from worker {worker}. The NN's weights have been reset.")
-            if (int(result) != -1 and int(result != 0)):
+
+            ## result is set by worker to be -1 when it had a problem working on the data
+            ## second condition will be tested but respected for now
+            if (int(result) != WORKER_NON_RESULT and int(result != 0)): 
                 for csvRes in globe.experiment_flow_global.trainingResList:
                     if worker in csvRes.workers:
                         for workerRes in csvRes.workersResList:
@@ -51,12 +56,15 @@ def processResult(resData, currentPhase):
 
         elif (currentPhase == "Prediction"):
             # Parsing is done by the PredictBatch class:
+            # experiment has reslist => of csvResult has workerResList => of WorkerResult has resList => of PredictBatch
+            # resData = [w#, batchID, csvName, batchSize]
             newPredictBatch = PredictBatch(resData) 
 
             for csvRes in globe.experiment_flow_global.predictionResList:
                 if newPredictBatch.worker in csvRes.workers:
                     for workerRes in csvRes.workersResList:
                         if (workerRes.name == newPredictBatch.worker):
+                            newPredictBatch.fixOffset(csvRes.indexOffset)
                             workerRes.addResult(newPredictBatch)
 
 class shutdown(Resource):

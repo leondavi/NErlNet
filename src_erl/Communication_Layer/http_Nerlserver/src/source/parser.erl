@@ -11,23 +11,27 @@
 
 %% API
 -define(TMP_DATA_ADDR, "tmpData.csv").
--export([parse/2, parseCSV/2, deleteTMPData/0]).
+-export([parse/2, parseCSV/3, deleteTMPData/1]).
 
-parseCSV(ChunkSize, CSVData)->
+parseCSV(SourceName, ChunkSize, CSVData)->
   %io:format("curr dir: ~p~n",[file:get_cwd()]),
-  deleteTMPData(),    % ideally do this when getting a fresh CSV (finished train -> start predict)
+  deleteTMPData(SourceName),    % ideally do this when getting a fresh CSV (finished train -> start predict)
 
+  FileName = SourceName++?TMP_DATA_ADDR,
   try
-    file:write_file(?TMP_DATA_ADDR, CSVData),
-    logger:notice("created tmpData.csv"), parse_file(ChunkSize, ?TMP_DATA_ADDR)
+    file:write_file(FileName, CSVData),
+    logger:notice("created tmpData.csv"), parse_file(ChunkSize, FileName)
   catch
-    {error,Er} -> logger:error("couldn't write file ~p, beacuse ~p",[?TMP_DATA_ADDR, Er])
+    {error,Er} -> logger:error("couldn't write file ~p, beacuse ~p",[FileName, Er])
   end.
 
-deleteTMPData() ->
-  try file:delete(?TMP_DATA_ADDR) 
+deleteTMPData(SourceName) ->
+  {ok, Dir} = file:get_cwd(),
+  {ok, Files} = file:list_dir(Dir),
+  DataFiles = [File || File <- Files, string:find(File, ".csv") /= nomatch, string:prefix(File, SourceName) /= nomatch],
+  try [file:delete(File) || File <- DataFiles]
   catch
-    {error, E} -> logger:notice("couldn't delete file ~p, beacuse ~p",[?TMP_DATA_ADDR, E])
+    {error, E} -> logger:notice("couldn't delete file ~p, ~p",[DataFiles, E])
   end.
 
 

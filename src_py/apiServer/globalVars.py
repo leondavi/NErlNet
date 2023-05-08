@@ -9,7 +9,6 @@ import os
 import json
 from IPython import get_ipython
 from experiment import *
-from csvResult import *
 from workerResult import *
 
 localHost = socket.gethostname()
@@ -32,23 +31,16 @@ BATHCHES_PER_SOURCE_STR = "Batches per source"
 INPUT_DATA_PATH = "/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/"
 
 username = os.getlogin()
-#jsonPathLocation = '/home/{}/workspace/NErlNet/jsonPath'.format(username) # Use this if NerlnetInstall.sh does not work
-# jsonPathLocation = '/usr/local/lib/nerlnet-lib/NErlNet/jsonPath'
-# jsonPath = open(jsonPathLocation)
-# content = jsonPath.readlines()
-# # Get the components of the current system:
-# componentsPath = content[ARCHITECTURE_INDEX][:-1]
-# Get the flow of the current experiment:
 
 # Dict with {worker : csv}:
 workerCsv = {}
+sourceCSVIndex = 0
 
 # Check if we are running on Jupyter Notebook, to disable logging prompts:
 ipythonPlatform = str(type(get_ipython()))
 
 if 'zmqshell' in ipythonPlatform: # Check if runnnig on Jupyter Notebook.
     jupyterFlag =  True 
-
 else: 
     jupyterFlag = False
 

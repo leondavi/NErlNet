@@ -110,7 +110,7 @@ edgeString([Edge |EdgesList], Str)->
 
 handle_cast({initCSV, Source,SourceData}, State = #main_genserver_state{state = idle, myName = MyName, sourcesWaitingList = SourcesWaitingList,nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
-%%  TODO find the router that can send this request to Sources**
+
   findroutAndsend(MyName, Source,SourceData,NerlnetGraph),
   io:format("WaitingList = ~p~n",[SourcesWaitingList++[list_to_atom(Source)]]),
   {noreply, State#main_genserver_state{sourcesWaitingList = SourcesWaitingList++[list_to_atom(Source)],msgCounter = MsgCounter+1}};
@@ -123,7 +123,7 @@ handle_cast({clientsTraining,Body}, State = #main_genserver_state{state = castin
 
 handle_cast({clientsTraining, _Body}, State = #main_genserver_state{myName = MyName, clients = ListOfClients, nerlnetGraph = NerlnetGraph, msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
-  io:format("main server: setting all clients on training state: ~p~n",[ListOfClients]),
+  % io:format("main server: setting all clients on training state: ~p~n",[ListOfClients]),
 %%  io:format("Body:~p~n",[Body]),
 %%  io:format("binary_to_list(Body):~p~n",[binary_to_list(Body)]),
 %%  io:format("Splitted-(Body):~p~n",[re:split(binary_to_list(Body), ",", [{return, list}])]),
@@ -138,14 +138,14 @@ handle_cast({clientsPredict,_Body}, State = #main_genserver_state{state = castin
 
 handle_cast({clientsPredict,_Body}, State = #main_genserver_state{myName = MyName,clients = ListOfClients, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
-  io:format("main server: setting all clients on clientsPredict state: ~p~n",[ListOfClients]),
+  % io:format("main server: setting all clients on clientsPredict state: ~p~n",[ListOfClients]),
 %%  TODO find the router that can send this request to Sources**
   [{setClientState(clientPredict,ClientName, NerlnetGraph,MyName)}|| ClientName<- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
 handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = MyName, clients = ListOfClients, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
-  io:format("main server: setting all clients on Idle state: ~p~n",[ListOfClients]),
+  % io:format("main server: setting all clients on Idle state: ~p~n",[ListOfClients]),
 %%  TODO find the router that can send this request to Sources**
   [{setClientState(clientIdle,ClientName, NerlnetGraph, MyName)}|| ClientName<- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
@@ -199,7 +199,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
 
 
 handle_cast({sourceDone,Body}, State = #main_genserver_state{sourcesCastingList = CastingList,msgCounter = MsgCounter}) ->
-  io:format("~p done sending data ~n",[list_to_atom(binary_to_list(Body))]),
+  % io:format("~p done sending data ~n",[list_to_atom(binary_to_list(Body))]),
   NewCastingList = CastingList--[list_to_atom(binary_to_list(Body))],
   io:format("new Waiting List: ~p ~n",[NewCastingList]),
 
@@ -312,15 +312,15 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, 
 
 handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSize, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
   try
-  {RouterHost,RouterPort} = getShortPath("mainServer","serverAPI",NerlnetGraph),
-  % io:format("sending predictRes to serverAPI {RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
+    {RouterHost,RouterPort} = getShortPath("mainServer","serverAPI",NerlnetGraph),
+    % io:format("sending predictRes to serverAPI {RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
 
-  {WorkerName,InputName,BatchID,Result}=binary_to_term(Body),
-  if (Result==[]) ->
-        _ListOfResults = ["error"||_<-lists:seq(1,BatchSize)];
-      true ->
-       _ListOfResults = re:split(Result, ",", [{return, list}])
-  end,
+    {WorkerName,InputName,BatchID,Result}=binary_to_term(Body),
+    if (Result==[]) ->
+          _ListOfResults = ["error"||_<-lists:seq(1,BatchSize)];
+        true ->
+        _ListOfResults = re:split(Result, ",", [{return, list}])
+    end,
 
   %%  io:format("predictRes- length(ListOfResults): ~p~n{InputName,BatchID,Result} ~p ~n",[length(ListOfResults),{InputName,BatchID,Result}]),
 %%      io:format("predictResID- ~p~n",[BatchID]),
@@ -335,7 +335,7 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
       %FloatsString = [float_to_list(Float)++","||Float<-ListOfResults],
       ToSend=WorkerName++"#"++Result++"#"++integer_to_list(BatchID)++"#"++InputName++"#"++integer_to_list(BatchSize),
     %  io:format("predictResID- ~p~n",[ToSend]),
-      http_request(RouterHost,RouterPort,"predRes",ToSend)
+    http_request(RouterHost,RouterPort,"predRes",ToSend)
   catch Err:E ->
           io:format("Error receiving predict result ~p~n",[{Err,E}])
   end,

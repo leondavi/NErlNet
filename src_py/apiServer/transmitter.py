@@ -7,6 +7,7 @@ import requests
 import globalVars as globe
 import time
 import sys
+import os
 from experiment import *
 
 class Transmitter:
@@ -39,8 +40,13 @@ class Transmitter:
     def updateCSV(self, currentPhase): # currentPhase is either "Training", "Prediction" or "Statistics". 
         print('Update CSV Phase')
 
-        #split data and send to mainServer:
-        csvfile = open(globe.INPUT_DATA_PATH+globe.experiment_flow_global.expFlow['CSV path']+"_"+currentPhase.lower()+".csv", 'r').readlines()
+        #split data by sources and send to mainServer:
+        for root, dirnames, filenames in os.walk(globe.INPUT_DATA_PATH):
+            for filename in filenames:
+                if filename == f"{globe.experiment_flow_global.expFlow['CSV path']}_{currentPhase.lower()}.csv":
+                    csvfile = open(os.path.join(root, filename), 'r').readlines()
+                    break
+
         linesPerSource = int(len(csvfile)/len(globe.components.sources))
 
         SourceData = []
@@ -55,8 +61,8 @@ class Transmitter:
             SourceStr = ""
             for Line in SourceData[i]:
                 SourceStr += Line
-            #dataStr = f'{sourceName},{workersUnderSource},{csvPathForSource}'
             dataStr = f'{sourceName}#{workersUnderSource}#{SourceStr}'
+
             response = requests.post(self.updateCSVAddress, data=dataStr)
             i+=1
 
@@ -64,9 +70,12 @@ class Transmitter:
         if globe.jupyterFlag == False:
             print(response.ok, response.status_code)
 
-    def startCasting(self, phase): # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
+        globe.sourceCSVIndex=linesPerSource
+
+    def startCasting(self, phase):
         print('\nStart Casting Phase')
 
+        # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
         if (phase==globe.TRAINING_STR):
             batchesPerSource = globe.experiment_flow_global.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.TRAINING_STR]
         elif (phase==globe.PREDICTION_STR):
@@ -92,7 +101,7 @@ class Transmitter:
 
         globe.experiment_flow_global.syncTrainingWithFlow()
 
-        # 1 Ack for clientsTraining(), <num of sources> Acks for updateCSV():
+        # 1 Ack for clientsTraining()
         globe.pendingAcks += 1
 
         self.clientsTraining()
@@ -162,7 +171,7 @@ class Transmitter:
             time.sleep(0.005)
             pass 
         
-        globe.experiment_flow_global.remove0Tails()
+        # globe.experiment_flow_global.remove0Tails()
         globe.multiProcQueue.put(globe.experiment_flow_global)
 
     def statistics(self):

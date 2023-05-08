@@ -3,7 +3,7 @@
 # Nerlnet Copyright: © 2022
 # Date: 27/07/2022
 ###########################################################
-from csvResult import *
+from workerResult import *
 import numpy as np
 import globalVars as globe
 
@@ -26,15 +26,15 @@ class Experiment():
            self.trainingResList.append(newCsvRes)
 
     def syncPredicitionWithFlow(self):
-       for source in self.expFlow[globe.PREDICTION_STR]:
+       for i, source in enumerate(self.expFlow[globe.PREDICTION_STR]):
            sourceWorkers = list(source["workers"].split(","))
-           newCsvRes = CsvResult(globe.PREDICTION_STR, workedBySources = source, csvName = source["CSV path"], workers = sourceWorkers)
+           newCsvRes = CsvResult(globe.PREDICTION_STR, workedBySources = source, csvName = source["CSV path"], workers = sourceWorkers, sourceNum=i)    #sourceNum used to devide test.csv to matching sample
            newCsvRes.addWorkers()
            self.predictionResList.append(newCsvRes)
 
     def emptyExp(self):
         self.trainingResList = []
-        self.trainingResList = []
+        self.predictionResList = []
 
     def remove0Tails(self):
         for csv in self.trainingResList:
