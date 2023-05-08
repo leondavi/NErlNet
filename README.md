@@ -52,29 +52,42 @@ Minimum gcc/g++ version 8.4 <br>
 
 On each machine that runs Nerlnet go through the following steps:
 
-1. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo> NErlNet```
-2. Run ```sudo ./NerlnetInstall.sh```
-<br>    2.1  With argument -i script builds and installs Erlang, latest stable, and CMake.
-<br>    2.2  After running NerlnetInstall.sh, NErlNet directory can be accessed
-<br>&ensp;&ensp;&ensp;&nbsp;via the following path: ```/usr/local/lib/nerlnet-lib```
-3. Create json files of architecture, connection map and experiment flow.<br>
-   json configuration files names must follow the convention of prefixes:<br>
-   arch\_\<any\>.json, conn\_\<any\>, exp\_\<any\>. 
-4. Run ```./NerlnetRun.sh``` to start Nerlnet
+1. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo> NErlNet```  
+2. Run ```sudo ./NerlnetInstall.sh```  
+<br>  2.1 With argument -i script builds and installs Erlang, latest stable, and CMake.  
+<br>  2.2 After running NerlnetInstall.sh, NErlNet directory can be accessed  
+<br>&ensp;&ensp;&ensp;&nbsp;via the following path: ```/usr/local/lib/nerlnet-lib```  
+3. Create json files of architecture, connection map and experiment flow.  
+  json configuration files names must follow the convention of prefixes:  
+  arch\_\<any\>.json, conn\_\<any\>, exp\_\<any\>.  
+Optional: Run ```./NerlnetGetData.sh``` to create or get default inputDataDir  
+4. Run ```./NerlnetRun.sh``` to start Nerlnet  
 
 
+On each machine that runs Nerlnet go through the following steps:
+
+1. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo> NErlNet```  
+2. Run ```sudo ./NerlnetInstall.sh```  
+  2.1 With argument -i script builds and installs Erlang, latest stable, and CMake.  
+  2.2 After running NerlnetInstall.sh, NErlNet directory can be accessed  
+    via the following path: ```/usr/local/lib/nerlnet-lib```  
+3. Create json files of architecture, connection map and experiment flow.  
+json configuration files names must follow the convention of prefixes:  
+arch_<any>.json, conn_<any>.json, exp_<any>.json.  
+Optional: Run ```./NerlnetGetData.sh``` to create or get default inputDataDir  
+4. Run ```./NerlnetRun.sh``` to start Nerlnet  
 
 
-## Python API and Jupyter (For GUI Server): 
+## Python API and Jupyter (For UI Server): 
 Minimum Python version: 3.8
 
 1. Create and activate a virtual environment for Nerlnet: (https://docs.python.org/3/library/venv.html)  
-  ```python -m venv VENV_PATH/VENV_NAME  ==== then ===> source VENV/bin/acticvate``` 
+  ```python -m venv VENV_PATH/VENV_NAME ```  
+  ```source VENV/bin/activate``` 
 2. Install required modules while in venv ```pip install -r src_py/requirements.txt```
-3. Install Jupyter Notebook ```pip install jupyterlab```
-4. Call Jupyter environment creator script with an experiment directory ```./NerlnetJupyterEnvGenerator.sh --j <experiment_direcotry>```
-5. Run Jupyter notebook and import the ApiServer module to the notebook. 
-6. Follow the example: https://github.com/leondavi/NErlNet/blob/master/src_py/Deprecated/flow_example.ipynb 
+3. Call Jupyter environment creator script with an experiment directory ```./NerlnetJupyterEnvGenerator.sh --j <experiment_direcotry>```
+4. Run Jupyter notebook and import the ApiServer module to the notebook. 
+5. Follow the example: https://github.com/leondavi/NErlNet/blob/master/examples/example_run.ipynb 
 
 Contact Email: nerlnet@outlook.com 
 NerlnetJupyterEnvGenerator.sh

@@ -3,7 +3,7 @@
 # Copyright: © 2022
 # Date: 27/07/2022
 ###########################################################
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, classification_report
 import time
 import requests
 import threading
@@ -35,8 +35,10 @@ class ApiServer():
         print(
 """
 __________NERLNET CHECKLIST__________
-0. Make sure data and jsons in correct folder, and jsons include the correct paths:
-1. Run Jupyter in virtual env: source <venv>/bin/activate
+0. Run this Jupyter in the folder of generated .py files!
+1. Make sure data and jsons in correct folder, and jsons include the correct paths
+    * Data includes: labeled prediction csv, training file, prediction file
+    * Prediction CSVs need to be ordered the same!
             
 ____________API COMMANDS_____________
 ==========Setting experiment========
@@ -57,9 +59,9 @@ ____________API COMMANDS_____________
 ==========Experiment info===========
 -print_saved_experiments()          prints saved experiments and their number for statistics later
 -plot_loss(ExpNum)                  saves and shows the loss over time of the chosen experiment
--accuracy_matrix(ExpNum)            shows a graphic for the confusion matrix. Also returns: [TruePos, TrueNeg, FalsePos, FalseNeg]
+-accuracy_matrix(ExpNum)            shows a graphic for the confusion matrix. Also returns all ConfMat[worker][nueron]
 -communication_stats()              prints the communication statistics of the current network.
--statistics():                      get specific statistics of experiment (lossFunc graph, accuracy, etc...) *DEPRECATED*
+-statistics():                      *DEPRECATED* get specific statistics of experiment (lossFunc graph, accuracy, etc...)
 
 _____GLOBAL VARIABLES / CONSTANTS_____
 pendingAcks:                        makes sure API command reaches all relevant entities (wait for pending acks)
@@ -89,18 +91,20 @@ PREDICTION_STR = "Prediction"
         print("Using the address from the architecture JSON file for the receiver.")
         print(f"(http://{globe.components.receiverHost}:{globe.components.receiverPort})\n")
 
-        self.receiverProblem = threading.Event()
-        self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
-        self.receiverThread.start()   
-        self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
+        if not hasattr(self, 'receiverThread'):
+            self.receiverProblem = threading.Event()
+            self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
+            self.receiverThread.start()   
+            self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
 
-        if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
+        elif (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
             print("Failed to initialize the receiver using the provided address.\n\
 Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
             sys.exit()
 
-        # Initalize an instance for the transmitter: 
-        self.transmitter = Transmitter(self.mainServerAddress)
+        # Initalize an instance for the transmitter:
+        if not hasattr(self, 'transmitter'):
+            self.transmitter = Transmitter(self.mainServerAddress)
 
         print("\n***Please remember to execute NerlnetRun.sh on each device before continuing.")
 
@@ -110,28 +114,22 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
         # Jsons found in NErlNet/inputJsonFiles/{JSON_TYPE}/files.... for entities in src_erl/Comm_layer/http_nerl/src to reach them, they must go up 3 dirs
         archAddress , connMapAddress, exp_flow_json = self.getUserJsons()
-        #[JsonsPath, archPath] = archAddress.split("/NErlNet")
-        #archAddress = "../../.."+archPath
 
-        #[JsonsPath, connPath] = connMapAddress.split("/NErlNet")
-        #connMapAddress = "../../.."+connPath
-
-        #data = archAddress + '#' + connMapAddress
-
-        for ip in globe.components.devicesIp:
-            with open(archAddress, 'rb') as f1, open(connMapAddress, 'rb') as f2:
+        with open(archAddress, 'rb') as f1, open(connMapAddress, 'rb') as f2:
+            for ip in globe.components.devicesIp:
                 files = [('arch.json', f1), ('conn.json', f2)]
-                address = f'http://{ip}:8484/updateJsonPath' # f for format
-                response = requests.post(address, files=files)
+                address = f'http://{ip}:8484/updateJsonPath'
+
+                try: response = requests.post(address, files=files, timeout=8)
+                except requests.exceptions.Timeout:
+                    print(f'ERROR: TIMEOUT, COULDN\'T INIT DEVICES!!\nMake sure IPs are correct in {archAddress}')
+                    return False
 
             # response = requests.post(address, data, timeout = 10)
             if globe.jupyterFlag == False:
               print(response.ok, response.status_code)
-
-        #split experiment data and send to individual sources:
-
-        time.sleep(1)
-        print("JSON paths sent to devices")
+        time.sleep(1)       # wait for connection to close
+        print("Init JSONs sent to devices")
 
     def showJsons(self):
         self.json_dir_parser.print_lists()
@@ -230,42 +228,42 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             print(f"{i}) {exp.name}")
 
     def plot_loss(self, expNum):
-        expForStats = self.experiments[expNum-1] 
+        expForStats = self.experiments[expNum-1]
 
         # Create a new folder for to save an image of the plot:
         if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training'):
             os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training')
 
-        numOfCsvs = len(expForStats.trainingResList)
 
-        print(f"\nThe training phase contains {numOfCsvs} CSVs:")
-        for i, csvRes in enumerate(expForStats.trainingResList, start=1):
-            print(f"{i}) {csvRes.name}")
+        ####### THIS IS TO PICK ONLY A SPECIFIC SOURCE FOR PLOT:
 
-        while True:
-            print("\nPlease choose a CSV number for the plot (for multiple CSVs, seperate their numbers with ', '):", end = ' ')       
-            csvNumsStr = input()
+        # numOfCsvs = len(expForStats.trainingResList)
+        # print(f"\nThe training phase contains {numOfCsvs} source CSVs:")
 
-            try:
-                csvNumsList = csvNumsStr.split(', ')
-                csvNumsList = [int(csvNum) for csvNum in csvNumsList]
-            except ValueError:
-                print("\nIllegal Input") 
-                continue
+        # for i, csvRes in enumerate(expForStats.trainingResList, start=1):
+        #     print(f"{i}) {csvRes.name}")
+
+        # while True:
+        #     print("\nPlease choose a CSV number for the plot (for multiple CSVs, seperate their numbers with ', '):", end = ' ')       
+        #     csvNumsStr = input()
+
+        #     try:
+        #         csvNumsList = csvNumsStr.strip().split(',')
+        #         csvNumsList = [int(csvNum) for csvNum in csvNumsList]
+        #     except ValueError:
+        #         print("\nIllegal Input") 
+        #         continue
             
-            if (all(csvNum > 0 and csvNum <= numOfCsvs for csvNum in csvNumsList)): # Check if all CSV indexes are in the correct range.
-                break
-
-            else:
-                print("\nInvalid Input") 
+        #     if (all(csvNum > 0 and csvNum <= numOfCsvs for csvNum in csvNumsList)): # Check if all CSV indexes are in the correct range.
+        #         break
+        #     else: print("\nInvalid Input") 
 
         # Draw the plot using Matplotlib:
         plt.figure(figsize = (30,15), dpi = 150)
         plt.rcParams.update({'font.size': 22})
 
-        for csvNum in csvNumsList:
-            csvResPlot = expForStats.trainingResList[csvNum-1]
-            for workerRes in csvResPlot.workersResList:
+        for csvRes in expForStats.trainingResList:
+            for workerRes in csvRes.workersResList:
                 data = workerRes.resList
                 plt.plot(data, linewidth = 3)
 
@@ -275,17 +273,15 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             plt.ylabel('Loss (MSE)', fontsize = 30)
             plt.xlim(left=0)
             plt.ylim(bottom=0)
-            plt.legend(csvResPlot.workers)
+            plt.legend(csvRes.workers)
             plt.grid(visible=True, which='major', linestyle='-')
             plt.minorticks_on()
             plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
 
-            #fileName = csvResPlot.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
-            fileName = globe.experiment_flow_global.name
-            plt.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.png')
-            print(f'\n{fileName}.png was Saved...')
-
         plt.show()
+        fileName = globe.experiment_flow_global.name
+        plt.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.png')
+        print(f'\n{fileName}.png was Saved...')
 
     def accuracy_matrix(self, expNum):
         expForStats = self.experiments[expNum-1] 
@@ -293,122 +289,146 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # Choose the matching (to the original labeled CSV) CSV from the prediction results list:
         numOfCsvs = len(expForStats.predictionResList)
 
-        print(f"\nThe prediction phase contains {numOfCsvs} CSVs:")
+        print(f"\nThe prediction phase contains {numOfCsvs} CSVs:")     ## these are source unlabeled CSVs that need to be compared to test labeled CSVs
         for i, csvRes in enumerate(expForStats.predictionResList, start=1):
-            print(f"{i}) {csvRes.name}")
+            print(f"{i}) {csvRes.name}: samples starting at {csvRes.indexOffset}")
 
-            while True:
-                print("\nPlease choose a CSV number for accuracy calculation and confusion matrix (for multiple CSVs, seperate their numbers with ', '):", end = ' ')       
-                csvNumsStr = input()
+        # while True:
+        #     print("\nPlease choose a CSV number for accuracy calculation and confusion matrix (for multiple CSVs, seperate their numbers with ', '):", end = ' ')       
+        #     csvNumsStr = input()
 
-                try:
-                    csvNumsList = csvNumsStr.split(', ')
-                    csvNumsList = [int(csvNum) for csvNum in csvNumsList]
+        #     try:
+        #         csvNumsList = csvNumsStr.split(', ')
+        #         csvNumsList = [int(csvNum) for csvNum in csvNumsList]
 
-                except ValueError:
-                    print("\nIllegal Input") 
-                    continue       
+        #     except ValueError:
+        #         print("\nIllegal Input") 
+        #         continue       
 
-                if (all(csvNum > 0 and csvNum <= numOfCsvs for csvNum in csvNumsList)): # Check if all CSV indexes are in the correct range.
-                    break
-
-                else:
-                    print("\nInvalid Input") 
-
-        print("\nPlease prepare the original labeled CSV, with the last column containing the samples' labels.")
+        #     # Check if all CSV indexes are in the correct range.
+        #     if (all(csvNum > 0 and csvNum <= numOfCsvs for csvNum in csvNumsList)): break
+        #     else: print("\nInvalid Input") 
 
         while True:
-            print("\nPlease enter the path for the NON-SPLITTED labels CSV (including .csv):", end = ' ') 
-            print("/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/", end = '')      
+            print("\nPlease enter the name of the FULL LABELED PREDICTION DATA (including .csv):", end = ' ') 
             labelsCsvPath = input()
-            labelsCsvPath = '/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/' + labelsCsvPath
+            for root, dirnames, filenames in os.walk(globe.INPUT_DATA_PATH):
+                for filename in filenames:
+                    if filename == labelsCsvPath:
+                        labelsCsvPath = os.path.join(root, filename)
+                        break
 
             try:
-                labelsCsvDf = pd.read_csv(labelsCsvPath)
+                labelsCsvDf = pd.read_csv(labelsCsvPath, header=None) #TODO: should expect header= None or 0?
                 break
 
-            except OSError:
-                print("\nInvalid path\n")
+            except OSError: print("\nInvalid path\n")
 
-        # Extract the labels (last) column from the CSV. Create a list of labels:
-        labelsSeries = labelsCsvDf.iloc[:,-1]
+        # Extract the labels columns from the CSV. Create a list of labels:
+        labelsLen = 1
+        try: labelsLen = len(expForStats.expFlow["Labels"])
+        finally: print(f"assuming {labelsLen} lables")
 
-        # If we are running an AEC - convert the 2 labels to 1's and 0's. (Majority (90%) label -> 1, Minority (10%) label -> 0).
-        if (globe.components.aec == 1):
-            labelsOccuranceSeries = labelsSeries.value_counts()
-            maxOccuranceLabel = labelsOccuranceSeries.idxmax()
-            labelsSeries = (labelsSeries == maxOccuranceLabel).astype(int)
-            
-        labelsArr = pd.unique(labelsSeries)
-        labelsArr = np.sort(labelsArr) 
+        labelsSeries = labelsCsvDf.iloc[:,-labelsLen:]  ## this is the full list of only labels
 
-        predsDict = {} # A dictionary containing all the predictions
+        try: labelNames = expForStats.expFlow["Labels"]      ## get label names from experimnet JSON
+        except: labelNames = [str(i) for i in range(labelsLen)] #if no labels, set to 1,2,3....
+        
+        workerNum = 0
+        for csvRes in expForStats.predictionResList:
+            workerNum += len(csvRes.workers)
 
-        for csvNum in csvNumsList:
-            csvResAcc = expForStats.predictionResList[csvNum-1]
+        ## create a different confusion matrix for each label
+        predlabels = [[] for i in range(labelsLen)]
+        trueLabels = [[] for i in range(labelsLen)]
+        onWorker = 0
+        workerNeuronRes = [[] for i in range(workerNum)]    # each worker creates its own [predL, trueL] lists
 
-            workersPredictions = csvResAcc.workersResList
-
-            ############## CURRENTLY ONLY SUPPORTING BOOLEAN PREDICTIONS (SINGLE BIT TRUE / FALSE)
+        for sourceCSV in expForStats.predictionResList:         #### TODO: match specific batch number of predict vector to test.csv of labels
 
             # Generate the samples' indexes from the results:
-            for worker in workersPredictions:
-                for batch in worker.resList:
-                    for offset, prediction in enumerate(batch.predictions):
-                        sampleNum = batch.indexRange[0] + offset
-                        normsDict = {} #  The "distance" of the current prediction from each of the labels. 
+            for worker in sourceCSV.workersResList:
+                for batchRes in worker.resList:
+                    samples = batchRes.indexRange   # (startSampNum, endSampNum)
+                    
+                    for ind, sample in enumerate(range(samples[0], samples[1])):
+                        for label in range(labelsLen):
+                            trueLabels[label].append(str(labelsSeries.iloc[sample,label]))
+                            predlabels[label].append(str(round(batchRes.predictions[ind][label])))
+                
+                workerNeuronRes[onWorker] = (trueLabels, predlabels)
 
-                        # The distances of the current prediction from each of the labels: 
-                        for i, label in enumerate(labelsArr):
-                            newNorm = abs(prediction - label)
-                            normsDict[label] = newNorm
+                predlabels = [[] for i in range(labelsLen)]
+                trueLabels = [[] for i in range(labelsLen)]
+                onWorker += 1
+                    
 
-                        # If there is minimum distance from the correct label - 1. Otherwise - 0:
-                        currentPrediction = min(normsDict, key=normsDict.get)
+                    # sampleNum = batchRes.indexRange[0]
+                    # batchSize = batchRes.batchSize
+                    # # print(f"pred batch #{sampleNum} is: {batch.predictions}")
+                    # ## compare real label to the predicted one
 
-                        predsDict[sampleNum] = currentPrediction
+                    # for i in range(batchSize):
+                    #     for j in range(labelsLen):
+                    #         trueLabels[j].append(str(labelsSeries.iloc[sampleNum+i,j]))
+                    #         predlabels[j].append(str(round(batchRes.predictions[i][j])))
 
-        predsSeries = pd.Series(predsDict)
-        SlicedLabelsSeries = labelsSeries.iloc[:predsSeries.size]
+                            # print(f"{worker.name} for sample #{sampleNum} predicted {batch.predictions[i][j]}, real is {labelsSeries.iloc[sampleNum+i,j]}")
 
-        # Create a confusion matrix based on the results:
-        SlicedLabelsSeriesStr = SlicedLabelsSeries.astype(str)  # Convert floats to string, because confusion cannot handle "continous" values
-        predsSeriesStr = predsSeries.astype(str)                # Convert floats to string, because confusion cannot handle "continous" values
-        labelsArrStr = labelsArr.astype(str)                    # Convert floats to string, because confusion cannot handle "continous" values
+        # # Create a confusion matrix based on the results:
         # Another option to solve this problem, is to numerize each classification group (group 1, group 2, ...), 
         # and add legened to show the true label value for each group.
-        confMat = confusion_matrix(SlicedLabelsSeriesStr, predsSeriesStr, labels = labelsArrStr)
-        # Calculate the accuracy and other stats:
-        tp, tn, fp, fn = confMat.ravel()
-        acc = (tp + tn) / (tp + tn + fp + fn)
-        ppv = tp / (tp + fp)
-        tpr = tp / (tp + fn)
-        tnr = tn / (tn + fp)
-        inf = tpr + tnr - 1
-        bacc = (tpr + tnr) / 2
-        print("\n")
-        print(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.\n")
-        print(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.\n")
-        print(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
-        print(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.\n")
-        print(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.\n")
-        print(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
 
-        confMatDisp = ConfusionMatrixDisplay(confMat, display_labels = labelsArr)
-        fig, ax = plt.subplots(figsize = (10,10), dpi = 150)
-        plt.rcParams.update({'font.size': 14})
-        expTitle = expForStats.name
-        ax.set_title(f"Prediction - Confusion Matrix - {expTitle}\nAccuracy: {round(acc, 3)} ({round(acc*100, 3)}%)", fontsize = 18)
-        ax.set_xlabel('True Labels', fontsize = 16)
-        ax.set_ylabel('Predicted Labels', fontsize = 16)
-        confMatDisp.plot(ax = ax)
+        confMatList = [[] for i in range(workerNum)]
+                    ################## THIS IS *NOT* FOR MULTICLASS DATA, but for multi-label data
+        f, axes = plt.subplots(workerNum, labelsLen, figsize=(5*labelsLen, 5*workerNum))
+        axes = axes.ravel()
+        for i in range(workerNum):
+            for j in range(labelsLen):
+                # confMatList[i].append(confusion_matrix(trueLabels[j], predlabels[j]))
+                confMatList[i].append(confusion_matrix(workerNeuronRes[i][0][j], workerNeuronRes[i][1][j]))
+
+                disp = ConfusionMatrixDisplay(confMatList[i][j], display_labels=[0, labelNames[j]])
+                disp.plot(ax=axes[i*labelsLen+j], values_format='.4g')
+                disp.ax_.set_title(f'W #{i}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[i][0][j], workerNeuronRes[i][1][j]), 3)}')
+                if i < workerNum - 1:
+                    disp.ax_.set_xlabel('') #remove "predicted label"
+                if  j != 0:
+                    disp.ax_.set_ylabel('') #remove "true label"
+                disp.im_.colorbar.remove()  #remove individual colorbars
+
+            # print(classification_report(trueLabels[j], predlabels[j]))
+
+        plt.subplots_adjust(wspace=0.8, hspace=0.15)
+        f.colorbar(disp.im_, ax=axes)
         plt.show()
 
-        fileName = csvResAcc.name.rsplit('/', 1)[-1] # If the CSV name contains a path, then take everything to the right of the last '/'.
-        confMatDisp.figure_.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.png')
+        fileName = sourceCSV.name.rsplit('/', 1)[-1] # If the CSV name contains a path, then take everything to the right of the last '/'.
+        disp.figure_.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.png')
         print(f'\n{fileName}.png Saved...')
 
-        return tp, tn, fp, fn
+        return confMatList
+    
+    def confusion_stats(self, confList):
+        for i, worker in enumerate(confList):
+            for j, label in enumerate(worker):
+                # Calculate the accuracy and other stats:
+                tp, tn, fp, fn = label.ravel()
+                acc = (tp + tn) / (tp + tn + fp + fn)
+                ppv = tp / (tp + fp)
+                tpr = tp / (tp + fn)
+                tnr = tn / (tn + fp)
+                bacc = (tpr + tnr) / 2
+                inf = tpr + tnr - 1
+
+                print(f"Worker #{i}, class #{j}:")
+                print("\n")
+                print(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.\n")
+                print(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.\n")
+                print(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
+                print(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.\n")
+                print(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.\n")
+                print(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
     
     def communication_stats(self):
         self.transmitter.statistics()
@@ -456,24 +476,12 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 print("\nIllegal Input") 
         
         if (option == 1):
-
-
-            return
+            self.plot_loss(expNum)
 
         if (option == 2):
-            if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction'):
-                os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction')
-
-            
+            self.accuracy_matrix(expNum)
 
         if (option == 3):
-            # Create a new folder for the train results:
-            if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training'):
-                os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training')
-
-             # Create a new folder for the prediction results:
-            if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction'):
-                os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction')
 
             numOfTrainingCsvs = len(expForStats.trainingResList)
             numOfPredicitionCsvs = len(expForStats.predictionResList)
@@ -520,7 +528,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 return
 
         if (option == 4):
-            self.transmitter.statistics()
+            self.communication_stats()
 
                 
 if __name__ == "__main__":

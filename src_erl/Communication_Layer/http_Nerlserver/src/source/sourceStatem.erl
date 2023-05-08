@@ -83,7 +83,7 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 idle(cast, {csvList,Workers,CSVData}, State = #source_statem_state{chunkSize = ChunkSize, myName = MyName, msgCounter = Counter, nerlnetGraph = NerlnetGraph}) ->
   %io:format("CSVData - ~p~n",[CSVData]),
   io:format("ChunkSize - ~p~n",[ChunkSize]),
-  CSVlist = parser:parseCSV(ChunkSize,CSVData),
+  CSVlist = parser:parseCSV(MyName,ChunkSize,CSVData),
   [Head|_] = CSVlist,
   LengthOfSample = byte_size(Head),
   %%  CSVName = lists:last(re:split(CSVPath,"/",[{return,list}])),
@@ -99,9 +99,11 @@ idle(cast, {csvList,Workers,CSVData}, State = #source_statem_state{chunkSize = C
 idle(cast, {startCasting,Body}, State = #source_statem_state{myName = MyName, lengthOfSample = LengthOfSample, sendingMethod = Method, frequency = Frequency, chunkSize = ChunkSize, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, nerlnetGraph = NerlnetGraph, msgCounter = Counter, csvName = CSVName, csvList =CSVlist}) ->
     [_Source,NumOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
 
-  io:format("start casting to: ~p~n, number of batches to send: ~p~ntotal casting list length: ~p~n ",[CastingTo,NumOfBatchesToSend, length(CSVlist)]),
+  logger:notice("start casting to: ~p~nnumber of batches to send: ~p~ntotal casting list length: ~p~n ",[CastingTo,NumOfBatchesToSend, length(CSVlist)]),
+  NumOfBatches = list_to_integer(NumOfBatchesToSend),
+  BatchesToSend = if length(CSVlist) < NumOfBatches -> length(CSVlist); true -> list_to_integer(NumOfBatchesToSend) end,
 
-  Transmitter =  spawnTransmitter(CastingTo,CSVName,CSVlist,NerlnetGraph,MyName,WorkersMap,ChunkSize,LengthOfSample,Frequency,list_to_integer(NumOfBatchesToSend),Method) ,
+  Transmitter =  spawnTransmitter(CastingTo,CSVName,CSVlist,NerlnetGraph,MyName,WorkersMap,ChunkSize,LengthOfSample,Frequency,BatchesToSend,Method) ,
   {next_state, castingData, State#source_statem_state{msgCounter = Counter+1, sourcePid = Transmitter}};
 
 idle(cast, {startCasting}, State = #source_statem_state{msgCounter = Counter}) ->
@@ -138,8 +140,7 @@ castingData(cast, {leftOvers,Tail}, State = #source_statem_state{msgCounter = Co
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1,csvList = Tail}};
 
 castingData(cast, {finishedCasting,CounterReceived,ListOfSamples}, State = #source_statem_state{myName = MyName, msgCounter = Counter, nerlnetGraph = NerlnetGraph}) ->
-   io:format("source finished casting~n"),
-  %io:format("source finished casting- ~n sending to mainserver via: ~p~n",[lists:nth(2,digraph:get_short_path(NerlnetGraph,MyName,"mainServer"))]),
+   %io:format("source finished casting~n"),
   {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
 %%  send an ACK to mainserver that the CSV file is ready
   http_request(RouterHost,RouterPort,"sourceDone", MyName),
@@ -189,7 +190,7 @@ Triplets =getHostPort(WorkersNames,WorkersMap,NerlnetGraph,MyName,[]),
   spawn(?MODULE,sendSamples,[CSVlist,CSVPath,ChunkSize,LengthOfSample,Ms,self(),Triplets,0,NumOfBatchesToSend,Method]).
 
 
-sendSamples(ListOfSamples,_CSVPath,_ChunkSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,NumOfBatchesToSend,_Method) when NumOfBatchesToSend=<0->
+sendSamples(ListOfSamples,_CSVPath,_ChunkSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,NumOfBatchesToSend,_Method) when NumOfBatchesToSend=<0 ->
   receive
   after Ms ->
     gen_statem:cast(Pid,{finishedCasting,Counter,ListOfSamples}), io:format("sent all samples~n")

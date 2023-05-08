@@ -1,0 +1,44 @@
+{
+   "Features": 13,
+   "description": "diagnosis of heart disease (angiographic disease status)",
+   "Labels": ["No HD", "HD1", "HD2", "HD3", "HD4"],
+   "CSV path": "health_comb",
+   "Batches per source": 
+   {
+      "Training": 100,
+      "Prediction": 100
+   },
+   "Training":  [
+      {
+         "source name": "s1",
+         "workers": "w1,w2",
+         "CSV path": "health_comb_train"
+      },
+      {
+         "source name": "s2",
+         "workers": "w3",
+         "CSV path": "health_comb_train"
+      }
+   ],
+   
+   "Prediction": [
+      {
+         "source name": "s1",
+         "workers": "w1,w2",
+         "CSV path": "health_comb_predict"
+      },
+      {
+         "source name": "s2",
+         "workers": "w3",
+         "CSV path": "health_comb_predict"
+      }
+   ],
+   
+   "Statistics": [
+      {
+         "workers": "w1,w2,w3",
+         "routers": "r1"
+      }
+   ]
+}
+    

@@ -1,6 +1,7 @@
 {
    "Features": 13,
-   "Labels": ["Head", "Shoulder", "Stomach", "Knees", "Toes"],
+   "description": "diagnosis of heart disease (angiographic disease status)",
+   "Labels": ["No HD", "HD1", "HD2", "HD3", "HD4"],
    "CSV path": "health_comb",
    "Batches per source": 
    {
@@ -10,7 +11,7 @@
    "Training":  [
       {
          "source name": "s1",
-         "workers": "w1",
+         "workers": "w1,w2",
          "CSV path": "health_comb_train"
       }
    ],
@@ -18,14 +19,14 @@
    "Prediction": [
       {
          "source name": "s1",
-         "workers": "w1",
+         "workers": "w1,w2",
          "CSV path": "health_comb_predict"
       }
    ],
    
    "Statistics": [
       {
-         "workers": "w1",
+         "workers": "w1,w2",
          "routers": "r1"
       }
    ]
