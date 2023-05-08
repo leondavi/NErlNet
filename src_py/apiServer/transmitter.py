@@ -43,7 +43,7 @@ class Transmitter:
         #split data by sources and send to mainServer:
         for root, dirnames, filenames in os.walk(globe.INPUT_DATA_PATH):
             for filename in filenames:
-                if filename == globe.experiment_flow_global.expFlow['CSV path']+"_"+currentPhase.lower()+".csv":
+                if filename == f"{globe.experiment_flow_global.expFlow['CSV path']}_{currentPhase.lower()}.csv":
                     csvfile = open(os.path.join(root, filename), 'r').readlines()
                     break
 
