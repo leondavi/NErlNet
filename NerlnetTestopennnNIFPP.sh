@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# Depracated
 echo "Current working directory: $PWD"
 
 echo "Compilation of NIF shared library: "
