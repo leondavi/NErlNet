@@ -18,6 +18,9 @@ jobs:
       - name: Install
         run: |
           ./NerlnetInstall.sh
-      - name: build
+      - name: Build
         run: |
           ./NerlnetBuild.sh
+      - name: Run unitests
+        run: |
+          ./NerlnetTest.sh
