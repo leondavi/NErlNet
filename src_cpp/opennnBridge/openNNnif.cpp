@@ -176,6 +176,9 @@ void* PredictFun(void* arg)
     if(enif_send(NULL,&(PredictNNptr->pid), env, prediction)){
         // printf("enif_send succeed prediction\n");
     }
-    else printf("enif_send failed\n");
+    else
+    {
+        LogError << "enif_send failed " << endl;
+    }
     return 0;
 }

@@ -12,8 +12,8 @@
 #include <string>
 #include <map>
 #include <chrono>
-
-using namespace std::chrono;
+#include <cstdint>
+#include <climits>
 
 #include <Logger.h>
 #include "../opennn/opennn/opennn.h"
@@ -21,16 +21,17 @@ using namespace std::chrono;
 #include "create.h"
 #include "get_set_weights.h"
 #include "ModelParams.h"
-#include "definitionsNN.h"
 
-#include "nifppEigenExtensions.h"
+#include "nifppNerltensorEigen.h"
 
 #define DEBUG_CREATE_NIF 0
 
 #define TRAINING_STRATEGY_SET_DISPLAY_ON   1
 #define TRAINING_STRATEGY_SET_DISPLAY_OFF  0
 
-using namespace opennn;             
+using namespace std;
+using namespace chrono;
+using namespace opennn;        
 
 class TrainNN
 {
@@ -43,6 +44,7 @@ public:
     fTensor2DPtr data;
     std::chrono::high_resolution_clock::time_point start_time;
     double K_val;
+    nifpp::str_atom return_tensor_type; // holds the type of tensor should be returned
 
     ErlNifTid tid;
     ErlNifPid pid;
@@ -55,6 +57,7 @@ public:
     fTensor2DPtr data;
     ErlNifPid pid;
     ErlNifTid tid;
+    nifpp::str_atom return_tensor_type; // holds the type of tensor should be returned
 };
 
 void* PredictFun(void* arg);
@@ -138,137 +141,253 @@ inline bool is_big_endian(void)
     return bint.c[0] == 1;
 }
 
+template <typename T>
+T swap_endian(T u)
+{
+    static_assert (CHAR_BIT == 8, "CHAR_BIT != 8");
+
+    union
+    {
+        T u;
+        unsigned char u8[sizeof(T)];
+    } source, dest;
+
+    source.u = u;
+
+    for (size_t k = 0; k < sizeof(T); k++)
+        dest.u8[k] = source.u8[sizeof(T) - k - 1];
+
+    return dest.u;
+}
+
+static bool log_once = true;
+/** 
+*  Input: List and the type of the encoded binary (atom from the group ?BINARY_GROUP_NERLTENSOR_TYPE)
+*  Output: {Binary,BinaryType}
+*  Warning - if _XYZ_LIST_FORM type is double it can be cast to integer if binaryType is an integer
+**/
 static ERL_NIF_TERM encode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
 
-    #if DEBUG_ENCODE
-        std::cout << "Start the encode_nif." << '\n';
-    #endif
+    enum {ARG_IN_LIST, ARG_IN_TYPE};
+    nifpp::str_atom enc_atom_type;
+    nifpp::get_throws(env, argv[ARG_IN_TYPE], enc_atom_type);
+    std::tuple<nifpp::TERM, nifpp::TERM> return_val;
 
-    bool isEndian = is_big_endian();
-    if (isEndian)
+
+    bool big_endian = is_big_endian();
+    if (big_endian)
     {
-        std::cout << "\nThe system is Big Endian: " << std::endl;
-    }
-    else
-    {
-        std::cout << "\nThe system is Little Endian: " << std::endl;
-    }
-    
-
-    int NumOfBytes{};
-
-    // Get NumOfBytes (int) from erlang term
-    if (!enif_get_int(env, argv[1], &NumOfBytes)) {
-        return enif_make_badarg(env);
-    }
-
-    union {
-        int receiveInt;
-        double receivedDouble;
-        char arrayOfChars[sizeof(double)];
-    } receivedNum;
-
-
-    if (enif_get_double(env, argv[0], &receivedNum.receivedDouble))
-    {
-        #if DEBUG_ENCODE
-            std::cout << "Its a double" << std::endl;
-        #endif
-
-        return enif_make_string_len(env, (char*)(&receivedNum.arrayOfChars),NumOfBytes, ERL_NIF_LATIN1);
-    } 
-    else if (enif_get_int(env, argv[0], &receivedNum.receiveInt)) 
-    {
-        #if DEBUG_ENCODE
-            std::cout << "Its an integer" << std::endl;
-        #endif
-
-        return enif_make_string_len(env, (char*)(&receivedNum.arrayOfChars),NumOfBytes, ERL_NIF_LATIN1);
-    } 
-    else
-    {
-        return enif_make_atom(env, "Not_a_number");
-    }
-
-    #if DEBUG_ENCODE
-        std::cout << "Print array_of_chars:" << std::endl;
-        for(int k = 0; k < sizeof(double); k++)
+        if(log_once)
         {
-            std::cout << (int)receivedNum.arrayOfChars[k] << std::endl;
+            LogError("big endian system! - make sure no little endian in the system!");
+            log_once = false;
         }
-    #endif
+    }
+    else
+    {
+        // Little Endian
+    }
 
-    return enif_make_atom(env, "Finished encode NIF not as expected");
+    int enc_type_num = atom_str_to_enum(enc_atom_type);
 
+    switch (enc_type_num)
+    {
+        case ATOM_FLOAT:
+        {
+            //ineffient implementation
+            std::vector<double> in_list;
+            std::vector<float> flist;
+            nifpp::get(env, argv[ARG_IN_LIST], in_list);
+            flist.resize(in_list.size());
+            for (int i=0; i<in_list.size(); i++)
+            {
+                flist[i] = static_cast<float>(in_list[i]);
+            }
+            size_t binary_size = flist.size() * sizeof(float);
+            nifpp::binary bin_term(binary_size);
+            unsigned char* in_vec_data_ptr = reinterpret_cast<unsigned char*>(flist.data());
+            std::memcpy(bin_term.data, in_vec_data_ptr, binary_size);
+            return_val = { nifpp::make(env, bin_term) , nifpp::make(env, enc_atom_type) };
+            break;
+        }
+        case ATOM_DOUBLE:
+        {
+            std::vector<double> in_list;
+            unsigned len;
+            enif_get_list_length(env, argv[ARG_IN_LIST], &len);
+            nifpp::get_throws(env, argv[ARG_IN_LIST], in_list);
+
+            size_t binary_size = in_list.size() * sizeof(double);
+            nifpp::binary bin_term(binary_size);
+            unsigned char* in_vec_data_ptr = reinterpret_cast<unsigned char*>(in_list.data());
+            std::memcpy(bin_term.data, in_vec_data_ptr, binary_size);
+            return_val = { nifpp::make(env, bin_term), nifpp::make(env, enc_atom_type) };
+            break;
+        }
+        case ATOM_INT32:
+        {
+            std::vector<int> in_list;
+            nifpp::get_throws(env,argv[ARG_IN_LIST], in_list);
+            size_t binary_size = in_list.size() * sizeof(int);
+            nifpp::binary bin_term(binary_size);
+            unsigned char* in_vec_data_ptr = reinterpret_cast<unsigned char*>(in_list.data());
+            std::memcpy(bin_term.data, in_vec_data_ptr, binary_size);
+            return_val = { nifpp::make(env, bin_term ) , nifpp::make(env, enc_atom_type) };
+            break;
+        }
+        case ATOM_INT16:
+        {
+            std::vector<int> in_list;
+            std::vector<int16_t> ilist;
+            nifpp::get_throws(env,argv[ARG_IN_LIST], in_list);
+            ilist.resize(in_list.size());
+            for (int i=0; i<ilist.size(); i++)
+            {
+                ilist[i] = static_cast<short>(in_list[i]);
+            }
+            size_t binary_size = in_list.size() * sizeof(int16_t);
+            nifpp::binary bin_term(binary_size);
+            unsigned char* in_vec_data_ptr = reinterpret_cast<unsigned char*>(ilist.data());
+            std::memcpy(bin_term.data, in_vec_data_ptr, binary_size);
+            return_val = { nifpp::make(env, bin_term) , nifpp::make(env, enc_atom_type) };
+            break;
+        }
+    }
+    return nifpp::make(env, return_val); // make tuple
 }  
 
+// decode nerlTensor to EigenTensor --> efficient with DMA copies 
+// decode string to eigen - only within cpp 
+// get --> create std string from erlang 
+// from string to std::vector with vector initialization 
+// eigen Map from vetor to eigen Tensor
 
+// decode: nerltensor_str --> eigentensor
+//nerltensor_str: string (list of bytes) that represents the nerlTensor given a cpp type (float32, int32, double)
 
+// Input: List, BinaryType  (atom from the group ?BINARY_GROUP_NERLTENSOR_TYPE)
+// Output: {List, ListType} (ListType is an atom from the group ?LIST_GROUP_NERLTENSOR_TYPE)
 static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
-//TODO implement with get with std::string and move its content to std::vector or Eigen Tensor
-    #if DEBUG_DECODE
-        std::cout << "Start the decode_nif." << '\n';
-    #endif
+    enum {ARG_BINARY, ARG_TYPE , ARG_LIST = 0};
 
-    int NumOfBytes{};
+    std::tuple<nifpp::TERM, nifpp::TERM> return_val;
 
-    // Get NumOfBytes (int) from erlang term
-    if (!enif_get_int(env, argv[1], &NumOfBytes)) {
-        return enif_make_badarg(env);
-    }
+    nifpp::str_atom type_nerltensor;
+    nifpp::str_atom erl_float("erl_float");
+    nifpp::str_atom erl_int("erl_int");
 
-    union {
-        int receiveInt;
-        double receivedDouble;
-        unsigned char arrayOfChars[sizeof(double)];
-        
-    } receivedString;
+    nifpp::get_throws(env, argv[ARG_TYPE], type_nerltensor);
+    std::vector<char> bin_vec;
+    nifpp::get_binary(env, argv[ARG_BINARY], bin_vec);
 
-    //char* buf = (char*) enif_alloc(NumOfBytes + 1);
-    
-    // TODO Ziv
-    // This function should be used to get the string:
-    // inline int get(ErlNifEnv *env, ERL_NIF_TERM term, std::string &var)
-    //
-    // nifpp takes care to the part of copying the string from erlang we do not change it
-    // Example:
-    // 
-    // std::vector<char> v(s.length());
-    // std::copy(s.begin(), s.end(), v.begin());
-    //
-    // For any type: 
-    //
-    // std::vector<type> v(s.length() / sizeof(type));
-    // std::copy(s.begin(), s.end(), v.begin());
-    //
-    // we can then map the vector into a tensor
+    int enc_type_num = atom_str_to_enum(type_nerltensor);
 
-    if (!enif_get_string(env, argv[0], (char*)receivedString.arrayOfChars, NumOfBytes+1, ERL_NIF_LATIN1)) {
-        enif_free(receivedString.arrayOfChars);
-        return enif_make_badarg(env);
-    }
-
-    #if DEBUG_DECODE
-        std::cout << "Print array_of_chars:" << std::endl;
-        for(int k = 0; k < sizeof(receivedString.arrayOfChars); k++)
+    switch (enc_type_num)
+    {
+        case ATOM_FLOAT:
         {
-            std::cout << (int)receivedString.arrayOfChars[k] << std::endl;
+            std::vector<float> vec;
+            vec.resize(bin_vec.size()/sizeof(float));
+            std::memcpy(vec.data(), bin_vec.data(), bin_vec.size());
+            return_val = { nifpp::make(env, vec) , nifpp::make(env, erl_float) };
+            break;
         }
-        //std::cout << receivedString.receivedDouble << std::endl;
-        //std::cout << receivedString.receiveInt << std::endl;
-    #endif
-
-    if(NumOfBytes == 8)
-    {
-        return enif_make_double(env, receivedString.receivedDouble);
+        case ATOM_DOUBLE:
+        {
+            std::vector<double> vec;
+            vec.resize(bin_vec.size()/sizeof(double));
+            std::memcpy(vec.data(), bin_vec.data(), bin_vec.size());
+            return_val = { nifpp::make(env, vec) , nifpp::make(env, erl_float) };
+            break;
+        }
+        case ATOM_INT32:
+        {
+            std::vector<int> vec;
+            vec.resize(bin_vec.size()/sizeof(int));
+            std::memcpy(vec.data(), bin_vec.data(), bin_vec.size());
+            return_val = { nifpp::make(env, vec) , nifpp::make(env, erl_int) };
+            break;
+        }
+        case ATOM_INT16:
+        {
+            std::vector<int16_t> vec;
+            vec.resize(bin_vec.size()/sizeof(int16_t));
+            std::memcpy(vec.data(), bin_vec.data(), bin_vec.size());
+            return_val = { nifpp::make(env, vec) , nifpp::make(env, erl_int) };
+            break;
+        }
     }
-    else if (NumOfBytes == 4)
+    return nifpp::make(env, return_val);
+} 
+
+template<typename EigenTypePtr> inline void sum_eigen(EigenTypePtr A, EigenTypePtr B, EigenTypePtr &C)
+{
+    (*C) = (*A) + (*B);
+}
+
+
+static ERL_NIF_TERM nerltensor_sum_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    std::tuple<nifpp::TERM, nifpp::TERM> return_tuple;
+
+    enum {ARG_BINARY_A, ARG_BINARY_B, ARG_TYPE};
+    enum {TUPLE_NERLTENSOR_DATA, TUPLE_NERLTENSOR_ATOM_TYPE};
+
+    nifpp::str_atom nerltensors_type;
+    nifpp::get_throws(env, argv[ARG_TYPE], nerltensors_type);
+    
+    int dims;
+    int enc_type_num = atom_str_to_enum(nerltensors_type);
+
+    nifpp::TERM nerltensor_bin;
+
+    switch (enc_type_num)
     {
-        return enif_make_int(env, receivedString.receiveInt);
+        case ATOM_FLOAT:
+        {
+             std::shared_ptr<fTensor2D> eigen_tensor_a;
+
+            dims = nifpp::get_tensor_2d<float,fTensor2DPtr, fTensor2D>(env, argv[ARG_BINARY_A], eigen_tensor_a); // TODO - try use the 3d
+            fTensor2DPtr eigen_tensor_b;
+            nifpp::get_tensor_2d<float,fTensor2DPtr, fTensor2D>(env, argv[ARG_BINARY_B], eigen_tensor_b);
+            
+            fTensor2DPtr eigen_tensor_c = make_shared<fTensor2D>(eigen_tensor_a->dimension(0), eigen_tensor_a->dimension(1));
+            sum_eigen<fTensor2DPtr>(eigen_tensor_a, eigen_tensor_b, eigen_tensor_c);
+            nifpp::make_tensor<float, fTensor2D>(env, nerltensor_bin, dims, eigen_tensor_c);
+            
+            return_tuple =  { nerltensor_bin , nifpp::make(env, nerltensors_type) };
+            break;
+        }
+        case ATOM_DOUBLE:
+        {
+            dTensor2DPtr eigen_tensor_a;
+            dims = nifpp::get_tensor_2d<double,dTensor2DPtr,dTensor2D>(env, argv[ARG_BINARY_A], eigen_tensor_a); //TODO try use the 3d 
+            dTensor2DPtr eigen_tensor_b;
+            nifpp::get_tensor_2d<double,dTensor2DPtr,dTensor2D>(env, argv[ARG_BINARY_B], eigen_tensor_b);
+            
+            dTensor2DPtr eigen_tensor_c = make_shared<dTensor2D>(eigen_tensor_a->dimension(0), eigen_tensor_a->dimension(1));
+            sum_eigen<dTensor2DPtr>(eigen_tensor_a, eigen_tensor_b, eigen_tensor_c);
+            
+            nifpp::make_tensor<double, dTensor2D>(env, nerltensor_bin, dims, eigen_tensor_c);
+            
+            return_tuple =  { nerltensor_bin , nifpp::make(env, nerltensors_type) };
+            break;
+        }
+        case ATOM_INT32:
+        {
+            throw("unsuported type");
+            break;
+        }
+        case ATOM_INT16:
+        {
+            throw("unsuported type");
+            break;
+        }
+
     }
 
-    return enif_make_atom(env, "Finished decode NIF not as expected");
-}  
+    return nifpp::make(env, return_tuple);
+}
 
 
 static ErlNifFunc nif_funcs[] =
@@ -278,8 +397,9 @@ static ErlNifFunc nif_funcs[] =
     {"predict_nif", 2 , predict_nif},
     {"get_weights_nif",1, get_weights_nif},
     {"set_weights_nif",2, set_weights_nif},
-    {"encode",2, encode_nif},
-    {"decode",2, decode_nif}
+    {"encode_nif",2, encode_nif},
+    {"decode_nif",2, decode_nif},
+    {"nerltensor_sum_nif",3, nerltensor_sum_nif}
 };
 
 

@@ -16,8 +16,12 @@
 
 #define EXCEPTION_STR_INVALID_ERL_TENSOR "Invalid Erlang Tensor (List)"
 
+
+
 namespace nifpp
 {
+    enum {DIMS_X_IDX,DIMS_Y_IDX,DIMS_Z_IDX,DIMS_TOTAL};
+
     // Float number conversions
     inline int get(ErlNifEnv *env, ERL_NIF_TERM term, float &var)
     {
@@ -26,6 +30,7 @@ namespace nifpp
         var = static_cast<float>(tmpVar);
         return res;
     }
+
     inline TERM make(ErlNifEnv *env, const float var)
     {
         return TERM(enif_make_double(env, static_cast<double>(var)));
@@ -46,7 +51,6 @@ namespace nifpp
         template<typename Type>
         dims(const std::vector<Type> &dimsVec)
         {
-            enum {DIMS_X_IDX,DIMS_Y_IDX,DIMS_Z_IDX,DIMS_TOTAL};
             if(dimsVec.size() == DIMS_TOTAL)
             {
                 x = static_cast<int>(dimsVec[DIMS_X_IDX]);
@@ -70,6 +74,7 @@ namespace nifpp
     template<typename Type> int getTensor2D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor2D<Type>> & tensor); //
     template<typename Type> int getTensor1D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor1D<Type>> & tensor); //
     template<typename Type> TERM makeTensor(ErlNifEnv *env, const Tensor3D<Type> &tensor);
+
 
 
     /**

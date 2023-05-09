@@ -1,9 +1,12 @@
 -module(nerlNIF).
 -include_lib("kernel/include/logger.hrl").
 
+-import(nerl,[tic/0, toc/1]).
+
 -export([init/0,create_nif/6,train_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
--export([encode/2, encode1/2, decode/2, decode1/2]).
+-export([decode_nif/2, nerltensor_binary_decode/2]).
+-export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0]).
 
 -define(FILE_IDENTIFIER,"[NERLNIF] ").
 -define(NERLNET_LIB,"libnerlnet").
@@ -17,6 +20,12 @@
 -define(PREDICT_TIMEOUT,10000). % 10 seconds limit for prediction results
 -define(TRAIN_TIMEOUT,20000). % 20 seconds limit for prediction results
 
+%nerltensor
+-define(NUMOF_DIMS,3).
+-include("nerlTensor.hrl").
+
+-export([nerltensor_sum_nif/3]).
+-export([nerltensor_sum_erl/2]).
 
 init() ->
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
@@ -85,21 +94,61 @@ printTensor(List,_Type) when is_list(List) ->
       exit(nif_library_not_loaded).
 
 
-% Num - number to convert to string
-% NumType (Number of bytes): For 64-bit UNIX and Linux applications:
-% char - 1, short - 2, int - 4, long - 8 (4 for Windows 64-bit and unix/linux 32 bit), float - 4, double - 8, 
-% long double - 16 (8 for Windows 64-bit and 32 bit AIX® and Linux PPC), float16 - 2, float32 - 4
-encode1(Num, NumOfBytesForType) ->
-      Result = encode(Num, NumOfBytesForType),
-      io:format("~w~n", [Result]).
+nerltensor_encode(X,Y,Z,List,Type) when is_number(X) and is_number(Y) and
+                                        is_number(Z) and is_list(List) and is_atom(Type)-> 
+      case Type of
+            erl_float -> {[X,Y,Z] ++ List, erl_float}; % Make sure list of float
+            erl_int -> {[X,Y,Z] ++ List, erl_int}; % make sure list of integers
+            _COMPRESSED_TYPE -> encode_nif([X,Y,Z] ++ List, Type) % returns {Binary, Type}
+      end.
 
-encode(_Num, _NumOfBytesForType) ->
-      exit(nif_library_not_loaded).
+% Input: List and the type of the encoded binary (atom from the group ?BINARY_GROUP_NERLTENSOR_TYPE)
+% Output: {Binary,BinaryType}
+% Warning - if _XYZ_LIST_FORM type is double it can be cast to integer if binaryType is an integer
+encode_nif(_XYZ_LIST_FORM, _BinaryType)  when erlang:is_list(_XYZ_LIST_FORM) and erlang:is_atom(_BinaryType) ->
+      exit(nif_library_not_loaded). 
 
-decode1(String, NumOfBytesForType) ->
-      Result = decode(String, NumOfBytesForType),
-      io:format("~w~n", [Result]).
+% Input: Binary and Binary Type (atom from the group ?BINARY_GROUP_NERLTENSOR_TYPE)
+% Output: {List, ListType} (ListType is an atom from the group ?LIST_GROUP_NERLTENSOR_TYPE)
+decode_nif(_Binary, _BinaryType) when erlang:is_binary(_Binary) and erlang:is_atom(_BinaryType) ->
+      exit(nif_library_not_loaded). % returns {List,ListType}
 
-decode(_String, _NumOfBytesForType) ->
-      exit(nif_library_not_loaded).
+% Only float/double types are supported
+nerltensor_sum_nif(_BinaryA, _BinaryB, _Mutual_Binary_Type) -> 
+      exit(nif_library_not_loaded). % returns {Binary, Type}
+
+%---------- nerlTensor -----------%
+nerltensor_binary_decode(Binary, Type) when erlang:is_binary(Binary) and erlang:is_atom(Type) ->
+      NerlTensorListForm = decode_nif(Binary, Type),
+      NerlTensorListForm.
+
+% return the merged list of all supported binary types
+get_all_binary_types() -> ?LIST_BINARY_FLOAT_NERLTENSOR_TYPE ++ ?LIST_BINARY_INT_NERLTENSOR_TYPE.
+
+% nerltensor_conversion:
+% Type is Binary then: Binary (Compressed Form) --> Erlang List
+% Type is list then: Erlang List --> Binary
+nerltensor_conversion({NerlTensor, Type}, ResType) -> 
+      BinaryGroup = lists:member(Type, get_all_binary_types()), % compressed type
+      ListGroup = lists:member(Type, ?LIST_GROUP_NERLTENSOR_TYPE), % non compressed, list type
+      case ResType of 
+            ResType when BinaryGroup ->  decode_nif(NerlTensor,Type); % returns {Binary, Type}
+            ResType when ListGroup -> encode_nif(NerlTensor,Type); % returns {Binary, Type}
+            _ERROR -> error % TODO add log here
+      end.
+
+nerltensor_sum_erl({NerlTensorErlA, Type}, {NerlTensorErlB, Type}) ->
+      ListGroup = lists:member(Type, ?LIST_GROUP_NERLTENSOR_TYPE),
+      if ListGroup ->
+            DIMS = lists:sublist(NerlTensorErlA, 1, ?NUMOF_DIMS),
+            NerlTensorErlA_NODIMS = lists:sublist(NerlTensorErlA, ?NUMOF_DIMS + 1, length(NerlTensorErlA) - ?NUMOF_DIMS),
+            %io:format("nerltensorA nodims: ~p~n", [NerlTensorErlA_NODIMS]),
+            NerlTensorErlB_NODIMS = lists:sublist(NerlTensorErlB, ?NUMOF_DIMS + 1, length(NerlTensorErlB) - ?NUMOF_DIMS),
+           % io:format("nerltensorB nodims: ~p~n", [NerlTensorErlB_NODIMS]),
+      
+            DIMS ++ lists:zipwith(fun(X,Y) -> X + Y end, NerlTensorErlA_NODIMS, NerlTensorErlB_NODIMS);
+         true -> throw("Bad Type")
+      end.
+
+
 

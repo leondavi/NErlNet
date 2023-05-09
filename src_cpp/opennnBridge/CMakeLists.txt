@@ -24,6 +24,7 @@ add_subdirectory(${OPENNN_PATH} [binary_dir])
 
 set(SRC_CODE
 	"nifppEigenExtensions.h"
+	"nifppNerltensorEigen.h"
 	"bridgeController.h"
 	"definitionsNN.h"
 	"CustumNN.h"
