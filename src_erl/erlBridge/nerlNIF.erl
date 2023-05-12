@@ -139,7 +139,7 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
       end.
 
 erl_type_conversion(BinType) ->
-      maps:get(?NERL_TYPES, BinType).
+      maps:get(BinType, ?NERL_TYPES).
 
 
 nerltensor_sum_erl({NerlTensorErlA, Type}, {NerlTensorErlB, Type}) ->

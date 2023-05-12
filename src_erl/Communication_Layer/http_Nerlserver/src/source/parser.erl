@@ -78,12 +78,12 @@ parse_file(BatchSize,File_Address) ->
   ListOfGroupedBatches = generateListOfBatches(ListsOfListsOfData, BatchSize),
   UserType = float,   %% TODO: support given type from json 
   DimZ = 1,
-  ErlType = nerlNIF:get_type_conversion(UserType),
+  ErlType = nerlNIF:erl_type_conversion(UserType),
   ListOfTensors = 
     case ErlType of 
           erl_float -> encodeListOfListsNerlTensor(ListOfGroupedBatches, UserType, float(BatchSize),float(SampleSize),float(DimZ));
           erl_int -> encodeListOfListsNerlTensor(ListOfGroupedBatches, UserType, BatchSize,SampleSize,DimZ);
-          _Other -> throw("wrong ErlType")
+          _Other -> io:format("wrong ErlType")
     end,
   {ListOfTensors, UserType}.
 
@@ -92,9 +92,10 @@ generateListOfBatches(ListOfList, BatchSize) ->
   generateListOfBatches(ListOfList, BatchSize, []).
 
 generateListOfBatches([], _BatchSize, Ret) -> Ret;
+generateListOfBatches(ListOfList, BatchSize, Ret) when BatchSize >= length(ListOfList) -> Ret++[lists:flatten(ListOfList)];
 generateListOfBatches(ListOfList, BatchSize, Ret) ->
-  Sublist = lists:sublist(ListOfList, BatchSize),
-  generateListOfBatches(ListOfList -- Sublist,Ret++[lists:flatten(Sublist)]).
+  {NewBatch, Rest} = lists:split(BatchSize, ListOfList),
+  generateListOfBatches(Rest, Ret++[lists:flatten(NewBatch)]).
 
 decodeListOfLists(L)->decodeListOfLists(L,[]).
 decodeListOfLists([],Ret)-> Ret;
@@ -104,13 +105,15 @@ decodeListOfLists([Head|Tail],Ret)->
   decodeListOfLists(Tail,Ret++[decodeFloatsList(Head)]).
 
 encodeListOfListsNerlTensor(L, TargetBinaryType, XDim, YDim, ZDim)->
-  {_Num, Type} = is_numeric(hd(hd(hd(L)))),
+  io:format("converting using type of ~p~n",[hd(hd(L))]),
+
+  {_Num, Type} = list_to_numeric(hd(hd(L))),
   
   ErlType =
   case Type of 
       float -> erl_float;
       integer -> erl_int;
-      _Other -> throw("bad type in conversion") end,
+      _Other -> io:format("bad type in conversion") end,
   encodeListOfListsNerlTensor(L, ErlType, TargetBinaryType, [], XDim, YDim, ZDim).
 
 encodeListOfListsNerlTensor([], _ErlType, _TargetBinaryType, Ret, _XDim, _YDim, _ZDim)-> Ret;
@@ -134,7 +137,7 @@ decodeEncodeFloatsListBin([H|ListOfFloats],Ret, XDim, YDim, ZDim)->
     [$.|Rest]     -> "0."++Rest;
     List          -> List
   end,
-  {NumToAdd, _Type} = is_numeric(Num),
+  {NumToAdd, _Type} = list_to_numeric(Num),
 
     
   decodeEncodeFloatsListBin(ListOfFloats,<<Ret/binary,NumToAdd:64/float>>, XDim, YDim, ZDim).
@@ -153,13 +156,18 @@ decodeFloatsList([H|ListOfFloats],Ret)->
     [$.|Rest]     -> "0."++Rest;
     List          -> List
   end,
-  {NumToAdd, _Type} = is_numeric(Num),
+  {NumToAdd, _Type} = list_to_numeric(Num),
     
   decodeFloatsList(ListOfFloats,Ret++[NumToAdd]).
 
-is_numeric(L) ->
+
+list_to_numeric(Num) when is_float(Num) -> {Num, float};
+list_to_numeric(Num) when is_integer(Num) -> {Num, integer};
+list_to_numeric(L) when is_list(L) ->
   Float = (catch erlang:list_to_float(L)),
   Int = (catch erlang:list_to_integer(L)),
   if is_number(Float) -> {Float, float};
     is_number(Int) -> {Int, integer};
-    true -> throw("invalid type") end.
+    true -> io:format("couldnt_convert "++L) end;
+
+list_to_numeric(Num) -> {Num, else}.
