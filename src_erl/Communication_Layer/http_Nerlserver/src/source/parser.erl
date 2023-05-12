@@ -15,8 +15,7 @@
 
 %% API
 -define(TMP_DATA_ADDR, "tmpData.csv").
--export([parse/2, parseCSV/3, deleteTMPData/1]).
-
+-export([parseCSV/3, deleteTMPData/1]).
 %% unused functions
 -export([decodeEncodeFloatsListBin/4]).
 
@@ -44,40 +43,20 @@ deleteTMPData(SourceName) ->
 
 %%this parser takes a CSV folder containing chunked data, parsing into a list of binary.
 %%each record in the line is a batch of samples
-parse(BatchSize,FolderName)->
-  io:format("curr dir: ~p~n",[file:get_cwd()]),
-%%  FolderName="./input/shuffled-input1_splitted/",
-  parse_all(BatchSize,FolderName,1,[]).
-
-
-parse_all(BatchSize,FolderName,Counter,Ret)->
-  Name = lists:last(re:split(FolderName,"/",[{return,list}])),
-
-  try   parse_file(BatchSize,"../../../inputDataDir/"++FolderName++"_splitted/"++Name++"_splitted"++integer_to_list(Counter)++".csv") of
-
-    L ->
-      parse_all(BatchSize,FolderName,Counter+1,Ret++L)
-  catch error: E->
-    if length(Ret) == 0  ->
-        io:format("#####Error at Parser: ~n~p~n",[E]);
-    true -> Ret
-  end
-  end.
-
-%%parsing a given CSV file
 parse_file(BatchSize,File_Address) ->
-
-  io:format("File_Address:~p~n~n",[File_Address]),
+  io:format("File_Address: ~p~n~n",[File_Address]),
 
   {ok, Data} = file:read_file(File_Address),
   Lines = re:split(Data, "\r|\n|\r\n", [{return,binary}] ),
 
   SampleSize = length(re:split(binary_to_list(hd(Lines)), ",", [{return,list}])),
-%%  get binary lines
-  ListsOfListsOfData = decodeListOfLists(Lines),
-  ListOfGroupedBatches = generateListOfBatches(ListsOfListsOfData, BatchSize),
   UserType = float,   %% TODO: support given type from json 
   DimZ = 1,
+
+  ListOfLinesOfData = decodeListOfLists(Lines),
+  % io:format("read Data to list: ~p~n",[ListOfLinesOfData]),
+  ListOfGroupedBatches = generateListOfBatches(ListOfLinesOfData, BatchSize),
+  % io:format("size of grouped as batches: ~p~n",[length(ListOfGroupedBatches)]),
   ErlType = nerlNIF:erl_type_conversion(UserType),
   ListOfTensors = 
     case ErlType of 
@@ -85,23 +64,23 @@ parse_file(BatchSize,File_Address) ->
           erl_int -> encodeListOfListsNerlTensor(ListOfGroupedBatches, UserType, BatchSize,SampleSize,DimZ);
           _Other -> io:format("wrong ErlType")
     end,
+  % io:format("generated list of tensors: ~p~n",[ListOfTensors]),
   {ListOfTensors, UserType, SampleSize}.
 
 
-generateListOfBatches(ListOfList, BatchSize) ->
-  generateListOfBatches(ListOfList, BatchSize, []).
+generateListOfBatches(ListOfList, BatchSize) -> generateListOfBatches(ListOfList, BatchSize, []).
 
 generateListOfBatches([], _BatchSize, Ret) -> Ret;
 generateListOfBatches(ListOfList, BatchSize, Ret) when BatchSize >= length(ListOfList) -> Ret++[lists:flatten(ListOfList)];
 generateListOfBatches(ListOfList, BatchSize, Ret) ->
   {NewBatch, Rest} = lists:split(BatchSize, ListOfList),
-  generateListOfBatches(Rest, Ret++[lists:flatten(NewBatch)]).
+  generateListOfBatches(Rest, BatchSize, Ret ++ [lists:flatten(NewBatch)]).
 
-decodeListOfLists(L)->decodeListOfLists(L,[]).
-decodeListOfLists([],Ret)-> Ret;
-decodeListOfLists([[<<>>]|Tail],Ret)->
-  decodeListOfLists(Tail,Ret);
-decodeListOfLists([Head|Tail],Ret)->
+decodeListOfLists(L) -> decodeListOfLists(L,[]).
+
+decodeListOfLists([],Ret) -> Ret;
+decodeListOfLists([[<<>>]|Tail],Ret) -> decodeListOfLists(Tail,Ret);
+decodeListOfLists([Head|Tail],Ret) ->
   decodeListOfLists(Tail,Ret++[decodeFloatsList(Head)]).
 
 encodeListOfListsNerlTensor(L, TargetBinaryType, XDim, YDim, ZDim)->
@@ -141,6 +120,7 @@ decodeEncodeFloatsListBin([H|ListOfFloats],Ret, XDim, YDim, ZDim)->
   decodeEncodeFloatsListBin(ListOfFloats,<<Ret/binary,NumToAdd:64/float>>, XDim, YDim, ZDim).
 
 %%return a binary representing a list of floats: List-> <<binaryofthisList>>
+%%%%%%% this function is for FLOATS, converts int => float
 decodeFloatsList(L)->
   Splitted = re:split(binary_to_list(L), ",", [{return,list}]),
   decodeFloatsList(Splitted,[]).
@@ -156,7 +136,7 @@ decodeFloatsList([H|ListOfFloats],Ret)->
   end,
   {NumToAdd, _Type} = list_to_numeric(Num),
     
-  decodeFloatsList(ListOfFloats,Ret++[NumToAdd]).
+  decodeFloatsList(ListOfFloats,Ret++[float(NumToAdd)]).     %% remove float() to keep data type
 
 
 list_to_numeric(Num) when is_float(Num) -> {Num, float};

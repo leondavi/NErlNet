@@ -1,6 +1,6 @@
 -module(nerl_tools).
 
--export([start_connection/1, http_request/4, getHostPort/5, getShortPath/3]).
+-export([start_connection/1, http_request/4, getHostPort/5, getShortPath/3, string_to_list_int/1]).
 
 start_connection([])->ok;
 start_connection([{_ServerName,{Host, Port}}|Tail]) ->
@@ -26,3 +26,10 @@ getShortPath(From,To,NerlnetGraph) ->
 	{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
   {Host,Port}.
 	
+
+%%return list of integer from string of lists of strings - "[2,2,2]" -> [2,2,2]
+string_to_list_int(Binary) ->
+  String = binary_to_list(Binary),
+  NoParenthesis = lists:sublist(String,2,length(String)-2),
+  Splitted = re:split(NoParenthesis,",",[{return,list}]),
+  [list_to_integer(X)||X<-Splitted].
