@@ -487,17 +487,17 @@ getCSVName(InputName) ->
 
 
 %%this function takes a batch of samples, calculate the samples id and writes them to a file
-writeToFile(ListOfSamples,BatchID,CSVName,BatchSize)->
-  StartID = BatchID*BatchSize,
-  SampleSize = round(length(ListOfSamples)/BatchSize),
-  writeSamplesToFile(ListOfSamples,StartID,CSVName,SampleSize).
+% writeToFile(ListOfSamples,BatchID,CSVName,BatchSize)->
+%   StartID = BatchID*BatchSize,
+%   SampleSize = round(length(ListOfSamples)/BatchSize),
+%   writeSamplesToFile(ListOfSamples,StartID,CSVName,SampleSize).
 
-writeSamplesToFile([],_HeadID,_CSVName,_SampleSize)->ok;
-writeSamplesToFile(ListOfSamples,HeadID,CSVName,SampleSize)->
-  Head = lists:sublist(ListOfSamples,SampleSize),
-  file:write_file("./output/"++"predict"++CSVName, integer_to_list(HeadID)++" " ++Head++"\n", [append]),
-%%  io:format("./output/predict~p   ~p~p~n", [CSVName,integer_to_list(HeadID),Head]),
-  writeSamplesToFile(lists:sublist(ListOfSamples,SampleSize+1,length(ListOfSamples)),HeadID+1,CSVName,SampleSize).
+% writeSamplesToFile([],_HeadID,_CSVName,_SampleSize)->ok;
+% writeSamplesToFile(ListOfSamples,HeadID,CSVName,SampleSize)->
+%   Head = lists:sublist(ListOfSamples,SampleSize),
+%   file:write_file("./output/"++"predict"++CSVName, integer_to_list(HeadID)++" " ++Head++"\n", [append]),
+% %%  io:format("./output/predict~p   ~p~p~n", [CSVName,integer_to_list(HeadID),Head]),
+%   writeSamplesToFile(lists:sublist(ListOfSamples,SampleSize+1,length(ListOfSamples)),HeadID+1,CSVName,SampleSize).
 
 
 mapToString([],Ret) -> Ret;
