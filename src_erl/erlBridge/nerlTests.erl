@@ -18,8 +18,8 @@ nerltest_print(String) ->
       logger:notice(?NERLTEST_PRINT_STR++String).
 
 % encode_decode test macros
--define(DIMX_RAND_MAX, 2).
--define(DIMY_RAND_MAX, 2).
+-define(DIMX_RAND_MAX, 200).
+-define(DIMY_RAND_MAX, 200).
 -define(SUM_NIF_ROUNDS, 100).
 -define(ENCODE_DECODE_ROUNDS, 100).
 -define(NERLTENSOR_CONVERSION_ROUNDS, 50).
