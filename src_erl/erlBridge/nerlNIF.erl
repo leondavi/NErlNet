@@ -117,6 +117,10 @@ decode_nif(_Binary, _BinaryType) when erlang:is_binary(_Binary) and erlang:is_at
 nerltensor_sum_nif(_BinaryA, _BinaryB, _Mutual_Binary_Type) -> 
       exit(nif_library_not_loaded). % returns {Binary, Type}
 
+% Only float/double types are supported
+nerltensor_scalar_multiplication_nif(_NerlTensorBinary, _BinaryType, _ScalarValue) -> 
+      exit(nif_library_not_loaded). % returns {Binary, Type}
+
 %---------- nerlTensor -----------%
 nerltensor_binary_decode(Binary, Type) when erlang:is_binary(Binary) and erlang:is_atom(Type) ->
       NerlTensorListForm = decode_nif(Binary, Type),
