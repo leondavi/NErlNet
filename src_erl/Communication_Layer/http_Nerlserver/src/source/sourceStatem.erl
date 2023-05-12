@@ -50,7 +50,7 @@ start_link(NerlnetGraph) ->
 init({MyName,WorkersMap, NerlnetGraph, Method, BatchSize,Frequency}) ->
   inets:start(),
     io:format("Source ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
-  start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
+  nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
 
   {ok, idle, #source_statem_state{sendingMethod = Method, frequency = Frequency, batchSize = BatchSize,myName = MyName, workersMap = WorkersMap, nerlnetGraph = NerlnetGraph, msgCounter = 1, castingTo = []}}.
 
@@ -82,16 +82,14 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 idle(cast, {csvList,Workers,CSVData}, State = #source_statem_state{batchSize = BatchSize, myName = MyName, msgCounter = Counter, nerlnetGraph = NerlnetGraph}) ->
   %io:format("CSVData - ~p~n",[CSVData]),
   io:format("BatchSize - ~p~n",[BatchSize]),
-  {NerlTensorList, NerlTensorType} = parser:parseCSV(MyName,BatchSize,CSVData),
-  [Head|_] = NerlTensorList,
-  LengthOfSample = byte_size(Head),
+  {NerlTensorList, NerlTensorType, SampleSize} = parser:parseCSV(MyName,BatchSize,CSVData),
   %%  CSVName = lists:last(re:split(CSVPath,"/",[{return,list}])),
-  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
   %%  send an ACK to mainserver that the CSV file is ready
   io:format("source updated transmitting list, total batches to send: ~p~n",[length(NerlTensorList)]),
   io:format("source updated Workers - ~p~n",[Workers]),
-  http_request(RouterHost,RouterPort,"csvReady",MyName),
-  {next_state, idle, State#source_statem_state{lengthOfSample = LengthOfSample, castingTo = Workers, msgCounter = Counter+1,csvList =NerlTensorList, nerlTensorType = NerlTensorType}};
+  nerl_tools:http_request(RouterHost,RouterPort,"csvReady",MyName),
+  {next_state, idle, State#source_statem_state{lengthOfSample = SampleSize, castingTo = Workers, msgCounter = Counter+1,csvList =NerlTensorList, nerlTensorType = NerlTensorType}};
 
 
 %%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
@@ -116,8 +114,8 @@ idle(cast, {stopCasting}, State = #source_statem_state{msgCounter = Counter}) ->
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1}};
 
 idle(cast, {statistics}, State = #source_statem_state{myName =  MyName, sourcePid = [], nerlnetGraph = NerlnetGraph, msgCounter = Counter}) ->
-  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
-  http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(Counter))),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+  nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(Counter))),
 %%  io:format("sending statistics casting to: ~p~n",[CastingTo]),
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1}};
 
@@ -140,9 +138,9 @@ castingData(cast, {leftOvers,Tail}, State = #source_statem_state{msgCounter = Co
 
 castingData(cast, {finishedCasting,CounterReceived,ListOfSamples}, State = #source_statem_state{myName = MyName, msgCounter = Counter, nerlnetGraph = NerlnetGraph}) ->
    %io:format("source finished casting~n"),
-  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
 %%  send an ACK to mainserver that the CSV file is ready
-  http_request(RouterHost,RouterPort,"sourceDone", MyName),
+nerl_tools:http_request(RouterHost,RouterPort,"sourceDone", MyName),
   {next_state, idle, State#source_statem_state{msgCounter = Counter+CounterReceived+1,csvList = ListOfSamples, sourcePid = []}};
 
 castingData(cast, EventContent, State = #source_statem_state{msgCounter = Counter}) ->
@@ -182,7 +180,7 @@ code_change(_OldVsn, StateName, State = #source_statem_state{}, _Extra) ->
 
 spawnTransmitter(WorkersNames,CSVPath,CSVlist,NerlnetGraph, MyName,WorkersMap,BatchSize,LengthOfSample, Frequency,NumOfBatchesToSend,Method)->
 %%  ListOfWorkers = re:split(WorkersNames,",", [{return, list}]),
-Triplets =getHostPort(WorkersNames,WorkersMap,NerlnetGraph,MyName,[]),
+Triplets = nerl_tools:getHostPort(WorkersNames,WorkersMap,NerlnetGraph,MyName,[]),
 %%  io:format("~p~n",[Triplets]),
   %%[list of binarys from CSV file, Size of batch, 1/Hz (in milisecond), statem pid]
   Ms = round(1000/Frequency),
@@ -265,45 +263,13 @@ sendToAll([Head|ListOfSamples],CSVPath,BatchSize,LengthOfSample,Hz,Pid,Triplets,
   end.
 
 %%Sends one batch of samples to a client
-sendSample(Sample,CSVPath,LengthOfSample, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
+sendSample(Sample,CSVPath,_LengthOfSample, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
   % when two workers(or more) are on the same device, they need a few miliseconds apart TODO remove this and manage on client
   % timer:sleep(5),
   
-  case byte_size(Sample) of
-    LengthOfSample ->
+  case Sample of
+    {<<>>, _Type} -> done;    % no tensor to send
+    {_Tensor, _Type} ->
         ToSend = term_to_binary({ClientName, WorkerName, CSVPath, BatchID, Sample}),
-        http_request(RouterHost, RouterPort,"weightsVector",ToSend);
-        _ -> ok
+        nerl_tools:http_request(RouterHost, RouterPort,"weightsVector",ToSend)
     end.
-
-
-
-start_connection([])->ok;
-start_connection([{_ServerName,{Host, Port}}|Tail]) ->
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  start_connection(Tail).
-
-
-http_request(Host, Port,Path, Body)->
-  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
-
-getHostPort([],_WorkersMap,_NerlnetGraph,_MyName,Ret)-> Ret;
-getHostPort([WorkerName|WorkersNames],WorkersMap,NerlnetGraph,MyName,Ret)->
-  ClientName = maps:get(list_to_atom(WorkerName),WorkersMap),
-  {RouterHost,RouterPort} = getShortPath(MyName,ClientName,NerlnetGraph),
-  %{RouterHost,RouterPort} = maps:get(ClientName,PortMap),
-  getHostPort(WorkersNames,WorkersMap, NerlnetGraph,MyName,Ret++[{ClientName,WorkerName,RouterHost,RouterPort}]).
-
-getShortPath(From,To,NerlnetGraph) when is_atom(To)-> 
-  	First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,atom_to_list(To))),
-
-	{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
-  {Host,Port};
-
-getShortPath(From,To,NerlnetGraph) -> 
-	First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
-	{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
-  {Host,Port}.
-	

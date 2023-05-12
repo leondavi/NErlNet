@@ -295,8 +295,8 @@ train(cast, {sample, []}, State ) ->
 %% Change SampleListTrain to NerlTensor
 train(cast, {sample, {SampleListTrain, Type}}, State = #nerlNetStatem_state{modelId = ModelId, optimizer = Optimizer, lossMethod = LossMethod, learningRate = LearningRate}) ->
     ErlTensor = nerlNIF:nerltensor_conversion({SampleListTrain, Type}, erl_float),  %% for debug
-    io:format("ErlTensor: ~p~n",[ErlTensor]),
-    MyPid=self(),
+    io:format("Got ErlTensor: ~p~n",[ErlTensor]),
+    MyPid = self(),
     _Pid = spawn(fun()-> nerlNIF:call_to_train(ModelId, Optimizer , LossMethod , LearningRate , SampleListTrain ,MyPid) end),
     {next_state, wait, State#nerlNetStatem_state{nextState = train}};
   

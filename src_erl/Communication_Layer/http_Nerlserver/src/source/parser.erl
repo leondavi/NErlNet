@@ -85,7 +85,7 @@ parse_file(BatchSize,File_Address) ->
           erl_int -> encodeListOfListsNerlTensor(ListOfGroupedBatches, UserType, BatchSize,SampleSize,DimZ);
           _Other -> io:format("wrong ErlType")
     end,
-  {ListOfTensors, UserType}.
+  {ListOfTensors, UserType, SampleSize}.
 
 
 generateListOfBatches(ListOfList, BatchSize) ->
@@ -105,8 +105,6 @@ decodeListOfLists([Head|Tail],Ret)->
   decodeListOfLists(Tail,Ret++[decodeFloatsList(Head)]).
 
 encodeListOfListsNerlTensor(L, TargetBinaryType, XDim, YDim, ZDim)->
-  io:format("converting using type of ~p~n",[hd(hd(L))]),
-
   {_Num, Type} = list_to_numeric(hd(hd(L))),
   
   ErlType =
@@ -118,7 +116,7 @@ encodeListOfListsNerlTensor(L, TargetBinaryType, XDim, YDim, ZDim)->
 
 encodeListOfListsNerlTensor([], _ErlType, _TargetBinaryType, Ret, _XDim, _YDim, _ZDim)-> Ret;
 encodeListOfListsNerlTensor([Head|Tail], ErlType, TargetBinaryType, Ret, XDim, YDim, ZDim)->
-  encodeListOfListsNerlTensor(Tail,Ret++[nerlNIF:nerltensor_conversion({[XDim, YDim, ZDim | Head], ErlType}, TargetBinaryType)], XDim, YDim, ZDim).
+  encodeListOfListsNerlTensor(Tail,ErlType,TargetBinaryType,Ret++[nerlNIF:nerltensor_conversion({[XDim, YDim, ZDim | Head], ErlType}, TargetBinaryType)], XDim, YDim, ZDim).
 
 
 %%return a binary representing a list of floats: List-> <<binaryofthisList>>
