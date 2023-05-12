@@ -8,6 +8,7 @@
 -export([call_to_get_weights/1,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
 -export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
+-export([erl_type_conversion/1]).
 
 -define(FILE_IDENTIFIER,"[NERLNIF] ").
 -define(NERLNET_LIB,"libnerlnet").
@@ -154,6 +155,10 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
             decode -> decode_nif(NerlTensor, BinType);
             _ -> throw("wrong operation")
       end.
+
+erl_type_conversion(BinType) ->
+      maps:get(?NERL_TYPES, BinType).
+
 
 nerltensor_sum_erl({NerlTensorErlA, Type}, {NerlTensorErlB, Type}) ->
       ListGroup = lists:member(Type, get_all_nerltensor_list_types()),

@@ -186,11 +186,14 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         print("\nData ready in sources")
 
 
-    def train(self):
+    def train(self, name = ""):
         # Choose a nem for the current experiment:
-        print("\nPlease choose a name for the current experiment:", end = ' ')
-        globe.experiment_flow_global.name = input()
-
+        if not name:
+            print("\nPlease choose a name for the current experiment:", end = ' ')
+            globe.experiment_flow_global.name = input()
+        else: 
+            globe.experiment_flow_global.name = name
+            
         # Create a new folder for the CSVs of the chosen experiment:
         if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{globe.experiment_flow_global.name}'):
             os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{globe.experiment_flow_global.name}')

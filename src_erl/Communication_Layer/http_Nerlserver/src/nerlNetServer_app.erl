@@ -95,9 +95,9 @@ parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess)
 
 %  io:format("My NerlNetSettings: ~p~n",[NerlNetSettings]),
 
-    ChunkSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))),
+    BatchSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))),
     Frequency = list_to_integer(binary_to_list(maps:get(<<"frequency">>,NerlNetSettings))),
-    %  io:format("My ChunkSize: ~p~n",[ChunkSize]),
+    %  io:format("My BatchSize: ~p~n",[BatchSize]),
     %  io:format("My Frequency: ~p~n",[Frequency]),
 
 %%    Creating a Dispatcher for each Server from JSONs architecture - this dispatchers will rout http requests to the right handler.
@@ -111,9 +111,9 @@ parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess)
     %%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
 
     createClientsAndWorkers(ClientsAndWorkers, HostName),
-    createMainServer(MainServer,ChunkSize,HostName),
+    createMainServer(MainServer,BatchSize,HostName),
     createRouters(Routers,HostName),
-    createSources(Sources,WorkersMap, ChunkSize, Frequency, HostName),
+    createSources(Sources,WorkersMap, BatchSize, Frequency, HostName),
     createFederatedServer(Federateds,WorkersMap, HostName).
 
 
@@ -180,15 +180,15 @@ createFederatedServer([{FederateArgs,ConnectionsGraph}|Federated],WorkersMap,Hos
     createFederatedServer(Federated,WorkersMap,HostName).
 
 
-createSources(none,_WorkersMap,_ChunkSize,_Frequency,_HostName) -> none;
-createSources([],_WorkersMap,_ChunkSize,_Frequency,_HostName) -> okdone;
-createSources([{SourceArgs,ConnectionsGraph}|Sources],WorkersMap,ChunkSize,Frequency,HostName) ->
+createSources(none,_WorkersMap,_BatchSize,_Frequency,_HostName) -> none;
+createSources([],_WorkersMap,_BatchSize,_Frequency,_HostName) -> okdone;
+createSources([{SourceArgs,ConnectionsGraph}|Sources],WorkersMap,BatchSize,Frequency,HostName) ->
     SourceName = binary_to_list(maps:get(<<"name">>,SourceArgs)),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,SourceArgs))),
     Method = list_to_integer(binary_to_list(maps:get(<<"method">>,SourceArgs))),
     %%Create a gen_StateM machine for maintaining Database for Source.
     %% all http requests will be handled by Cowboy which updates source_statem if necessary.
-    SourceStatemArgs= {SourceName, WorkersMap, ConnectionsGraph, Method, ChunkSize, Frequency},        %%TODO  make this a list of Sources
+    SourceStatemArgs= {SourceName, WorkersMap, ConnectionsGraph, Method, BatchSize, Frequency},        %%TODO  make this a list of Sources
     SourceStatemPid = sourceStatem:start_link(SourceStatemArgs),
 
 
@@ -205,7 +205,7 @@ createSources([{SourceArgs,ConnectionsGraph}|Sources],WorkersMap,ChunkSize,Frequ
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
     init_cowboy_start_clear(SourceName, {HostName,Port},SourceDispatch),
-    createSources(Sources,WorkersMap,ChunkSize,Frequency,HostName).
+    createSources(Sources,WorkersMap,BatchSize,Frequency,HostName).
 
 
 
@@ -253,14 +253,14 @@ createRouters([{RouterArgs,ConnectionsGraph}|Routers],HostName) ->
 
 
 
-createMainServer(none,_ChunkSize,_HostName) -> none;
-createMainServer({[MainServerArgsMap],ConnectionsGraph,WorkersMap,ClientsNames},ChunkSize,HostName) ->
+createMainServer(none,_BatchSize,_HostName) -> none;
+createMainServer({[MainServerArgsMap],ConnectionsGraph,WorkersMap,ClientsNames},BatchSize,HostName) ->
     MainName = "mainServer",
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,MainServerArgsMap))),
 
     %%Create a gen_Server for maintaining Database for Main Server.
     %% all http requests will be handled by Cowboy which updates main_genserver if necessary.
-    MainGenServer_Args= {MainName,ClientsNames,ChunkSize,WorkersMap,ConnectionsGraph},        %%TODO change from mainserverport to routerport . also make this a list of client
+    MainGenServer_Args= {MainName,ClientsNames,BatchSize,WorkersMap,ConnectionsGraph},        %%TODO change from mainserverport to routerport . also make this a list of client
     MainGenServerPid = mainGenserver:start_link(MainGenServer_Args),
 
     MainServerDispatcher = cowboy_router:compile([

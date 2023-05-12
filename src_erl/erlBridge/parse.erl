@@ -17,9 +17,9 @@
 %% Train_predict_ratio - A number between 0-1 represents the percentage of train samples to predict samples. The total
 %% amount of train lines is trunced: 5.5->5.
 %% For example: 0.8 means: 80% of trainning samples and 20% of prediction samples
-%% ChunkSize - Number of samples per chunk that we send to train/predict module. If the chunk is larger than the amount
+%% BatchSize - Number of samples per chunk that we send to train/predict module. If the chunk is larger than the amount
 %% of samples, than we send all the samples in one chunk.
-readfile(File, Train_predict_ratio,ChunkSize, Cols, _Labels, _ModelId) ->
+readfile(File, Train_predict_ratio,BatchSize, Cols, _Labels, _ModelId) ->
   {ok, F} = file:open(File, [read, {encoding, utf8}]),
   FileLinesNumber=readNumOfLines(F,0),
   io:format("Total lines number: ~p~n", [FileLinesNumber]),
@@ -29,39 +29,39 @@ readfile(File, Train_predict_ratio,ChunkSize, Cols, _Labels, _ModelId) ->
   io:format("Total predict lines number: ~p~n", [PredictLines]),
   {ok, Fi} = file:open(File, [read, {encoding, utf8}]),
 
-  %SampleListTrain=sendToTrainPredict(Fi,Train_Lines,ChunkSize,train, Cols, Labels, ModelId),
-  %SampleListPredict=sendToTrainPredict(Fi,Train_Lines,ChunkSize,predict, Cols, Labels, ModelId),
-  SampleListTrain=readLines(Fi,Train_Lines,ChunkSize,[],train,Cols),
-  SampleListPredict=readLines(Fi,Train_Lines,ChunkSize,[],predict,Cols),
+  %SampleListTrain=sendToTrainPredict(Fi,Train_Lines,BatchSize,train, Cols, Labels, ModelId),
+  %SampleListPredict=sendToTrainPredict(Fi,Train_Lines,BatchSize,predict, Cols, Labels, ModelId),
+  SampleListTrain=readLines(Fi,Train_Lines,BatchSize,[],train,Cols),
+  SampleListPredict=readLines(Fi,Train_Lines,BatchSize,[],predict,Cols),
   {FileLinesNumber,Train_Lines,PredictLines,SampleListTrain,SampleListPredict}.
 
   %% Send samples to train
-  %sendToTrainPredict(Fi,Train_Lines,ChunkSize,train, Cols, Labels, ModelId).
+  %sendToTrainPredict(Fi,Train_Lines,BatchSize,train, Cols, Labels, ModelId).
 
   %% Send samples to predict
-  %sendToTrainPredict(Fi,PredictLines,ChunkSize,predict, Cols, Labels, ModelId).
+  %sendToTrainPredict(Fi,PredictLines,BatchSize,predict, Cols, Labels, ModelId).
 
 
 %% Send samples to train/predict depends on the Mode
-sendToTrainPredict(F,Train_predict_Lines,ChunkSize, NumOfChunks, Mode, Cols, Labels, ModelId)->
-  SampleList = readLines(F,Train_predict_Lines,ChunkSize,[],Mode,Cols),
+sendToTrainPredict(F,Train_predict_Lines,BatchSize, NumOfChunks, Mode, Cols, Labels, ModelId)->
+  SampleList = readLines(F,Train_predict_Lines,BatchSize,[],Mode,Cols),
   case Mode of
     train ->
       %io:format("Train chunk list: ~w~n", [SampleList]),
-      LossVal=erlModule:train2double(ChunkSize, Cols, Labels, SampleList, ModelId); % Send to train
+      LossVal=erlModule:train2double(BatchSize, Cols, Labels, SampleList, ModelId); % Send to train
       % io:fwrite("LossVal: ~p\n",[LossVal]);
       %timer:sleep(1000);
     predict ->
       %io:format("Predict chunk list: ~w~n", [SampleList]),
-      Result=erlModule:predict2double(SampleList, ChunkSize, Cols, ModelId) % Send to predict
+      Result=erlModule:predict2double(SampleList, BatchSize, Cols, ModelId) % Send to predict
       % io:fwrite("Result: ~p\n",[Result])
   end,
   if
-    Train_predict_Lines >= ChunkSize ->
+    Train_predict_Lines >= BatchSize ->
       if
         NumOfChunks > 1 ->
           %% Continue to another chunk
-          sendToTrainPredict(F,Train_predict_Lines-ChunkSize,ChunkSize,NumOfChunks-1, Mode, Cols, Labels, ModelId);
+          sendToTrainPredict(F,Train_predict_Lines-BatchSize,BatchSize,NumOfChunks-1, Mode, Cols, Labels, ModelId);
         true -> finishRead
       end;
     true -> finishRead
@@ -80,10 +80,10 @@ readNumOfLines(F,LinesNumber)->
 
 %% Read the samples line by line and return list that contains all the samples in the current chunk
 %% End of all samples in the current train/predict
-readLines(_F,0,_ChunkSize,ListOfSamples,_Mode,_Features) -> ListOfSamples;
+readLines(_F,0,_BatchSize,ListOfSamples,_Mode,_Features) -> ListOfSamples;
 %% End of chunk
 readLines(_F,_LinesNumber,0,ListOfSamples,_Mode,_Features) -> ListOfSamples;
-readLines(F,LinesNumber,ChunkSize,ListOfSamples,Mode,Features)->
+readLines(F,LinesNumber,BatchSize,ListOfSamples,Mode,Features)->
 case file:read_line(F) of
   eof ->
     ListOfSamples;
@@ -94,8 +94,8 @@ case file:read_line(F) of
     case Mode of
       predict ->
         {Data,_Labels}=lists:split(Features, SampleList),
-        readLines(F,LinesNumber-1,ChunkSize-1,ListOfSamples ++ Data,Mode,Features);
+        readLines(F,LinesNumber-1,BatchSize-1,ListOfSamples ++ Data,Mode,Features);
       train ->
-        readLines(F,LinesNumber-1,ChunkSize-1,ListOfSamples ++ SampleList,Mode,Features)
+        readLines(F,LinesNumber-1,BatchSize-1,ListOfSamples ++ SampleList,Mode,Features)
     end
 end.
