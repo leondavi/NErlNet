@@ -7,6 +7,7 @@ start_connection([{_ServerName,{Host, Port}}|Tail]) ->
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
   start_connection(Tail).
 
+%% send message between entities
 http_request(Host, Port,Path, Body)->
   URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
@@ -20,7 +21,6 @@ getHostPort([WorkerName|WorkersNames],WorkersMap,NerlnetGraph,MyName,Ret)->
   getHostPort(WorkersNames,WorkersMap, NerlnetGraph,MyName,Ret++[{ClientName,WorkerName,RouterHost,RouterPort}]).
 
 getShortPath(From,To,NerlnetGraph) when is_atom(To)->  getShortPath(From,atom_to_list(To),NerlnetGraph);
-
 getShortPath(From,To,NerlnetGraph) -> 
 	First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
 	{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),

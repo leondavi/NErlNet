@@ -2,8 +2,6 @@
 -include_lib("kernel/include/logger.hrl").
 -include("nerlTensor.hrl").
 
--import(nerl,[tic/0, toc/1]).
-
 -export([init/0,create_nif/6,train_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
@@ -157,7 +155,8 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
       end.
 
 erl_type_conversion(BinType) ->
-      maps:get(BinType, ?NERL_TYPES).
+      {_, ErlType} = lists:keyfind(BinType, 1, ?NERL_TYPES),
+      ErlType.
 
 
 nerltensor_sum_erl({NerlTensorErlA, Type}, {NerlTensorErlB, Type}) ->
