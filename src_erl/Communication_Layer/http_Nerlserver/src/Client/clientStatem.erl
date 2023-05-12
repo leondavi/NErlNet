@@ -130,7 +130,7 @@ idle(cast, {init,_CONFIG}, State = #client_statem_state{msgCounter = Counter}) -
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
 idle(cast, {statistics}, State = #client_statem_state{ myName = MyName,timingMap = TimingMap, msgCounter = Counter,nerlnetGraph = NerlnetGraph}) ->
-  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
   sendStatistics(RouterHost,RouterPort,MyName,Counter,TimingMap),
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
@@ -189,7 +189,7 @@ training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap, 
 
 training(cast, {loss,WorkerName,nan,_Time_NIF}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter}) ->
 %%   io:format("LossFunction1: ~p   ~n",[LossFunction]),
-  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
   nerl_tools:http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,"nan"})),
 %%  http_request(RouterHost,RouterPort,"lossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,<<"nan">>])),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
@@ -200,7 +200,7 @@ training(cast, {loss,WorkerName,LossFunction,_Time_NIF}, State = #client_statem_
       % io:format("AverageTrainingTime: ~p~n",[NewAverage])
   NewTimingMap = updateTimingMap(WorkerName,TimingMap),
   
-  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
   nerl_tools:http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,LossFunction})),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1,timingMap = NewTimingMap}};
 
@@ -209,7 +209,7 @@ training(cast, {loss,WorkerName,LossFunction,_Time_NIF}, State = #client_statem_
 training(cast, {loss,federated_weights, _Worker, _LOSS_FUNC, Ret_weights}, State = #client_statem_state{federatedServer = Federated,myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter}) ->
 %%  io:format("Worker: ~p~n, LossFunction: ~p~n,  Ret_weights_tuple: ~p~n",[Worker, LOSS_FUNC, Ret_weights_tuple]),
   % {RouterHost,RouterPort} = maps:get(Federated,NerlnetGraph),
-  {RouterHost,RouterPort} = getShortPath(MyName,Federated,NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,Federated,NerlnetGraph),
 
   % ToSend = term_to_binary({Federated,decodeListOfLists(Ret_weights)}),
 
@@ -252,14 +252,14 @@ predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,w
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1,timingMap = NewTimingMap}};
 
 predict(cast, {predictRes,WorkerName,InputName,ResultID,[]}, State = #client_statem_state{myName = MyName, msgCounter = Counter,nerlnetGraph = NerlnetGraph}) ->
-  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
   nerl_tools:http_request(RouterHost,RouterPort,"predictRes", term_to_binary({atom_to_list(WorkerName),InputName,ResultID,""})),
   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
 
 predict(cast, {predictRes,WorkerName,InputName,ResultID,Result}, State = #client_statem_state{myName = MyName, msgCounter = Counter,nerlnetGraph = NerlnetGraph,timingMap = TimingMap}) ->
     NewTimingMap = updateTimingMap(WorkerName,TimingMap),
 
-    {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+    {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
     Result2 = lists:flatten(io_lib:format("~w",[Result])),",",[{return,list}],
     Result3 = lists:sublist(Result2,2,length(Result2)-2),
     %io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
@@ -317,19 +317,9 @@ start_connection([{_ServerName,{Host, Port}}|Tail]) ->
 
 ack(MyName, NerlnetGraph) ->
   io:format("~p sending ACK   ~n",[MyName]),
-  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
   %%  send an ACK to mainserver that the CSV file is ready
   nerl_tools:http_request(RouterHost,RouterPort,"clientReady",MyName).
-
-getShortPath(From,To,NerlnetGraph) when is_atom(To)-> 
-  First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,atom_to_list(To))),
-  {_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
-  {Host,Port};
-
-getShortPath(From,To,NerlnetGraph) -> 
-  First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
-  {_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
-  {Host,Port}.
 
 % %%This encoder receives a lists of lists: [[1.0,1.1,11.2],[2.0,2.1,22.2]] and returns a binary
 % encodeListOfLists(L)->encodeListOfLists(L,[]).
