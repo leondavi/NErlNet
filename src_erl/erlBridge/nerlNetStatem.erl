@@ -7,8 +7,10 @@
 %%% Created : 07. Oct 2020 21:58
 %%%-------------------------------------------------------------------
 -module(nerlNetStatem).
--author("ziv").
--include("cppSANNStatemModes.hrl").
+
+-import(nerlNIF,[decode_nif/2, nerltensor_binary_decode/2]).
+-import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0]).
+-import(nerlNIF,[erl_type_conversion/1]).
 
 -behaviour(gen_statem).
 
@@ -290,9 +292,10 @@ wait(cast, Param, State) ->
 train(cast, {sample, []}, State ) ->
   {next_state, train, State#nerlNetStatem_state{nextState = train}};
   
-
-train(cast, {sample, SampleListTrain}, State = #nerlNetStatem_state{modelId = ModelId, optimizer = Optimizer, lossMethod = LossMethod, learningRate = LearningRate}) ->
-    % io:format("SampleListTrain ~p~n",[SampleListTrain]),
+%% Change SampleListTrain to NerlTensor
+train(cast, {sample, {SampleListTrain, Type}}, State = #nerlNetStatem_state{modelId = ModelId, optimizer = Optimizer, lossMethod = LossMethod, learningRate = LearningRate}) ->
+    ErlTensor = nerlNIF:nerltensor_conversion({SampleListTrain, Type}, erl_float),  %% for debug
+    io:format("ErlTensor: ~p~n",[ErlTensor]),
     MyPid=self(),
     _Pid = spawn(fun()-> nerlNIF:call_to_train(ModelId, Optimizer , LossMethod , LearningRate , SampleListTrain ,MyPid) end),
     {next_state, wait, State#nerlNetStatem_state{nextState = train}};

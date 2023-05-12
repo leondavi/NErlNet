@@ -225,7 +225,7 @@ average(cast, {average, WeightsList}, State= #fedServ_state{msgCounter = MsgCoun
   Triplets =getHostPort(Workers,WorkersMap, MyName, NerlnetGraph,[]),
   % ListsofWeights = getCells(Cells,WeightsList),
 
-  % ToSend = encodeListOfLists(ListsofWeights++Last2),
+  % ToSend = decodeListOfLists(ListsofWeights++Last2),
   _Pid = spawn(fun()-> broadcastWeights(WeightsList,Triplets) end),  %% Send the results to the clients through the main server
 %%  gen_statem:cast(FedServPID,{averageResult, MyName, WeightsTuple}),TODO add broadcast
   {next_state, receives, State#fedServ_state{msgCounter = MsgCounter+1}};
@@ -278,10 +278,10 @@ getCells(Cells,lists:sublist(WeightsList,Cell+1,length(WeightsList)),Ret++[lists
 
 
 %%This encoder receives a lists of lists: [[1.0,1.1,11.2],[2.0,2.1,22.2]] and returns a binary
-encodeListOfLists(L)->encodeListOfLists(L,[]).
-encodeListOfLists([],Ret)->term_to_binary(Ret);
-encodeListOfLists([H|T],Ret)->encodeListOfLists(T,Ret++[encodeFloatsList(H)]).
-encodeFloatsList(ListOfFloats)->
+decodeListOfLists(L)->decodeListOfLists(L,[]).
+decodeListOfLists([],Ret)->term_to_binary(Ret);
+decodeListOfLists([H|T],Ret)->decodeListOfLists(T,Ret++[decodeFloatsList(H)]).
+decodeFloatsList(ListOfFloats)->
   ListOfBinaries = [<<X:64/float>>||X<-ListOfFloats],
   list_to_binary(ListOfBinaries).
 

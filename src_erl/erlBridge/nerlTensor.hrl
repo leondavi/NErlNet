@@ -8,3 +8,5 @@
 
 -define(nerlTensorAsList(_nerlTensor), [#_nerlTensor.x,#_nerlTensor.y,#_nerlTensor.z]++#_nerlTensor.data).
 
+-define(NERL_TYPES, #{float => erl_float, double => erl_float, int16 => erl_int, int32 => erl_int}). %% TODO: make automated with func
+
