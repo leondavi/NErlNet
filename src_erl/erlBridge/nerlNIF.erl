@@ -24,8 +24,8 @@
 %nerltensor
 -define(NUMOF_DIMS,3).
 
--export([nerltensor_sum_nif/3]).
--export([nerltensor_sum_erl/2]).
+-export([nerltensor_sum_nif/3, nerltensor_sum_erl/2]).
+-export([nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
 
 init() ->
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
@@ -162,15 +162,23 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
 nerltensor_sum_erl({NerlTensorErlA, Type}, {NerlTensorErlB, Type}) ->
       ListGroup = lists:member(Type, get_all_nerltensor_list_types()),
       if ListGroup ->
-            DIMS = lists:sublist(NerlTensorErlA, 1, ?NUMOF_DIMS),
+            Dims = lists:sublist(NerlTensorErlA, 1, ?NUMOF_DIMS),
             NerlTensorErlA_NODIMS = lists:sublist(NerlTensorErlA, ?NUMOF_DIMS + 1, length(NerlTensorErlA) - ?NUMOF_DIMS),
             %io:format("nerltensorA nodims: ~p~n", [NerlTensorErlA_NODIMS]),
             NerlTensorErlB_NODIMS = lists:sublist(NerlTensorErlB, ?NUMOF_DIMS + 1, length(NerlTensorErlB) - ?NUMOF_DIMS),
            % io:format("nerltensorB nodims: ~p~n", [NerlTensorErlB_NODIMS]),
       
-            DIMS ++ lists:zipwith(fun(X,Y) -> X + Y end, NerlTensorErlA_NODIMS, NerlTensorErlB_NODIMS);
+            Dims ++ lists:zipwith(fun(X,Y) -> X + Y end, NerlTensorErlA_NODIMS, NerlTensorErlB_NODIMS);
          true -> throw("Bad Type")
       end.
 
-
+nerltensor_scalar_multiplication_erl({NerlTensorErl, Type}, ScalarValue) -> 
+      ListGroup = lists:member(Type, get_all_nerltensor_list_types()),
+      if 
+            ListGroup ->
+                  Dims = lists:sublist(NerlTensorErl, 1, ?NUMOF_DIMS),
+                  NerlTensorErl_NODIMS = lists:sublist(NerlTensorErl, ?NUMOF_DIMS + 1, length(NerlTensorErl) - ?NUMOF_DIMS),
+                  Dims ++ lists:map(fun(X) -> X * ScalarValue end, NerlTensorErl_NODIMS);
+            true -> throw("Bad Type")
+      end.
 
