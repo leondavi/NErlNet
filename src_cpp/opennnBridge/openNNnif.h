@@ -318,7 +318,68 @@ static ERL_NIF_TERM decode_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         }
     }
     return nifpp::make(env, return_val);
-} 
+}
+
+/**
+ * Multiply a tensor by scalar
+ * Args: nerltensor binary, type, scalar (regular erl_float)
+*/
+static ERL_NIF_TERM  nerltensor_scalar_multiplication_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    std::tuple<nifpp::TERM, nifpp::TERM> return_tuple;
+    enum {ARG_BINARY, ARG_TYPE, ARG_SCALAR};
+    double scalard;
+    nifpp::str_atom nerltensors_type;
+
+    nifpp::get_throws(env, argv[ARG_SCALAR], scalard);
+    nifpp::get_throws(env, argv[ARG_TYPE], nerltensors_type);
+    int enc_type_num = atom_str_to_enum(nerltensors_type);
+    int dims;
+    nifpp::TERM nerltensor_bin;
+
+    switch (enc_type_num)
+    {
+        case ATOM_FLOAT:
+        {
+            std::shared_ptr<fTensor2D> eigen_tensor;
+            dims = nifpp::get_tensor_2d<float,fTensor2DPtr, fTensor2D>(env, argv[ARG_BINARY], eigen_tensor); // TODO - upgrade to 3d
+                        
+            fTensor2DPtr eigen_tensor_res = make_shared<fTensor2D>(eigen_tensor->dimension(0), eigen_tensor->dimension(1));
+            float scalarf = static_cast<float>(scalard);
+            (*eigen_tensor_res) = (*eigen_tensor) * scalarf;
+
+            nifpp::make_tensor<float, fTensor2D>(env, nerltensor_bin, dims, eigen_tensor_res);
+            
+            return_tuple =  { nerltensor_bin , nifpp::make(env, nerltensors_type) };
+            break;
+        }
+        case ATOM_DOUBLE:
+        {
+            std::shared_ptr<dTensor2D> eigen_tensor;
+            dims = nifpp::get_tensor_2d<double,dTensor2DPtr, dTensor2D>(env, argv[ARG_BINARY], eigen_tensor); // TODO - upgrade to 3d
+                        
+            dTensor2DPtr eigen_tensor_res = make_shared<dTensor2D>(eigen_tensor->dimension(0), eigen_tensor->dimension(1));
+            (*eigen_tensor_res) = (*eigen_tensor) * scalard;
+
+            nifpp::make_tensor<double, dTensor2D>(env, nerltensor_bin, dims, eigen_tensor_res);
+            
+            return_tuple =  { nerltensor_bin , nifpp::make(env, nerltensors_type) };
+            break;
+        }
+        case ATOM_INT32:
+        {
+            throw("unsuported type");
+            break;
+        }
+        case ATOM_INT16:
+        {
+            throw("unsuported type");
+            break;
+        }
+    }
+    return nifpp::make(env, return_tuple);
+}
+
 
 template<typename EigenTypePtr> inline void sum_eigen(EigenTypePtr A, EigenTypePtr B, EigenTypePtr &C)
 {
@@ -399,7 +460,8 @@ static ErlNifFunc nif_funcs[] =
     {"set_weights_nif",2, set_weights_nif},
     {"encode_nif",2, encode_nif},
     {"decode_nif",2, decode_nif},
-    {"nerltensor_sum_nif",3, nerltensor_sum_nif}
+    {"nerltensor_sum_nif",3, nerltensor_sum_nif},
+    {"nerltensor_scalar_multiplication_nif",3,nerltensor_scalar_multiplication_nif}
 };
 
 
