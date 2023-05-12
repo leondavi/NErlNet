@@ -63,7 +63,7 @@ start_link(Args) ->
 init({MyName,Federated,Workers,NerlnetGraph}) ->
   inets:start(),
   io:format("Client ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
-  start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
+  nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
   %io:format("loading niff~n",[]),
   %niftest:init(), niftest is depracated - use nerlNIF
   %io:format(" niff loaded~n",[]),
@@ -310,10 +310,6 @@ code_change(_OldVsn, StateName, State = #client_statem_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-start_connection([])->ok;
-start_connection([{_ServerName,{Host, Port}}|Tail]) ->
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  start_connection(Tail).
 
 ack(MyName, NerlnetGraph) ->
   io:format("~p sending ACK   ~n",[MyName]),
