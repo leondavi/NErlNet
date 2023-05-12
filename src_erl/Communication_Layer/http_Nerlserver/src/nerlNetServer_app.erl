@@ -97,8 +97,8 @@ parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess)
 
     BatchSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))),
     Frequency = list_to_integer(binary_to_list(maps:get(<<"frequency">>,NerlNetSettings))),
-    %  io:format("My BatchSize: ~p~n",[BatchSize]),
-    %  io:format("My Frequency: ~p~n",[Frequency]),
+    % io:format("My BatchSize: ~p~n",[BatchSize]),
+    % io:format("My Frequency: ~p~n",[Frequency]),
 
 %%    Creating a Dispatcher for each Server from JSONs architecture - this dispatchers will rout http requests to the right handler.
 %%    Each dispatcher will be listening to a different PORT
