@@ -345,9 +345,9 @@ createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,Timin
   ModelType = list_to_integer(binary_to_list(maps:get(<<"modelType">>,Worker))),
   ScalingMethod = list_to_integer(binary_to_list(maps:get(<<"scalingMethod">>,Worker))),
 
-  LayerTypesList = string_to_list_int(maps:get(<<"layerTypesList">>,Worker)),
-  LayersSizes = string_to_list_int(maps:get(<<"layersSizes">>,Worker)),
-  LayersActivationFunctions = string_to_list_int(maps:get(<<"layersActivationFunctions">>,Worker)),
+  LayerTypesList = nerl_tools:string_to_list_int(maps:get(<<"layerTypesList">>,Worker)),
+  LayersSizes = nerl_tools:string_to_list_int(maps:get(<<"layersSizes">>,Worker)),
+  LayersActivationFunctions = nerl_tools:string_to_list_int(maps:get(<<"layersActivationFunctions">>,Worker)),
 
   FederatedMode = list_to_integer(binary_to_list(maps:get(<<"federatedMode">>,Worker))),
   CountLimit = list_to_integer(binary_to_list(maps:get(<<"countLimit">>,Worker))),
@@ -365,13 +365,6 @@ createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,Timin
   WorkerPid = nerlNetStatem:start_link(WorkerArgs),
   % timingMap = #{{WorkerName1=>{LastBatchReceivedTime,totalBatches,AverageTrainingime},{Worker2,..}, ...}
   createWorkers(Workers,WorkerModelID+1,ClientPid,maps:put(WorkerName, WorkerPid,WorkersNamesPidsMap),maps:put(WorkerName,{0,0,0.0},TimingMap)).
-
-%%return list of integer from string of lists of strings - "[2,2,2]" -> [2,2,2]
-string_to_list_int(Binary) ->
-  String = binary_to_list(Binary),
-  NoParenthesis = lists:sublist(String,2,length(String)-2),
-  Splitted = re:split(NoParenthesis,",",[{return,list}]),
-  [list_to_integer(X)||X<-Splitted].
 
 % calculates the avarage training time
 updateTimingMap(WorkerName,TimingMap)->

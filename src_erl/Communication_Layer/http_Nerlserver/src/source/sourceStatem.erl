@@ -180,8 +180,7 @@ code_change(_OldVsn, StateName, State = #source_statem_state{}, _Extra) ->
 
 spawnTransmitter(WorkersNames,CSVPath,CSVlist,NerlnetGraph, MyName,WorkersMap,BatchSize,LengthOfSample, Frequency,NumOfBatchesToSend,Method)->
 %%  ListOfWorkers = re:split(WorkersNames,",", [{return, list}]),
-Triplets = nerl_tools:getHostPort(WorkersNames,WorkersMap,NerlnetGraph,MyName,[]),
-%%  io:format("~p~n",[Triplets]),
+  Triplets = nerl_tools:getHostPort(WorkersNames,WorkersMap,NerlnetGraph,MyName,[]),
   %%[list of binarys from CSV file, Size of batch, 1/Hz (in milisecond), statem pid]
   Ms = round(1000/Frequency),
   spawn(?MODULE,sendSamples,[CSVlist,CSVPath,BatchSize,LengthOfSample,Ms,self(),Triplets,0,NumOfBatchesToSend,Method]).
@@ -266,7 +265,7 @@ sendToAll([Head|ListOfSamples],CSVPath,BatchSize,LengthOfSample,Hz,Pid,Triplets,
 sendSample(Sample,CSVPath,_LengthOfSample, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
   % when two workers(or more) are on the same device, they need a few miliseconds apart TODO remove this and manage on client
   % timer:sleep(5),
-  
+  % io:format("Source sending to Worker ~p: ~p~n",[WorkerName, Sample]),
   case Sample of
     {<<>>, _Type} -> done;    % no tensor to send
     {_Tensor, _Type} ->

@@ -39,7 +39,7 @@ init() ->
 create_nif(_ModelID, _ModelType , _ScalingMethod , _LayerTypesList , _LayersSizes , _LayersActivationFunctions) ->
       exit(nif_library_not_loaded).
 
-train_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor) -> %TODO change to trainn_nif
+train_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor) ->
       exit(nif_library_not_loaded).
 
 call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, WorkerPid)->
