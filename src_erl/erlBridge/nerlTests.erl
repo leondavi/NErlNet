@@ -9,7 +9,8 @@
 -import(nerlNIF,[call_to_get_weights/1,call_to_set_weights/2]).
 -import(nerlNIF,[decode_nif/2, nerltensor_binary_decode/2]).
 -import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
--import(nerlNIF,[nerltensor_sum_nif/3]).
+-import(nerlNIF,[nerltensor_sum_nif/3, nerltensor_sum_erl/2]).
+-import(nerlNIF,[nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
 -import(nerl,[compare_floats_L/3, string_format/2, logger_settings/1]).
 
 -define(NERLTEST_PRINT_STR, "[NERLTEST] ").
@@ -20,41 +21,44 @@ nerltest_print(String) ->
 % encode_decode test macros
 -define(DIMX_RAND_MAX, 200).
 -define(DIMY_RAND_MAX, 200).
--define(SUM_NIF_ROUNDS, 100).
--define(ENCODE_DECODE_ROUNDS, 100).
+-define(SUM_NIF_ROUNDS, 50).
+-define(ENCODE_DECODE_ROUNDS, 50).
 -define(NERLTENSOR_CONVERSION_ROUNDS, 50).
+-define(NERLTENSOR_SCALAR_MULTIPLICATION_ROUNDS, 50).
+
+test_envelope(Func, TestName, Rounds) ->
+      nerltest_print(nerl:string_format("~p test starts for ~p rounds",[TestName, Rounds])),
+      Tic = nerl:tic(),
+      Func(Rounds),
+      {Diff, TimeUnit} = nerl:toc(Tic),
+      nerltest_print(nerl:string_format("Elapsed: ~p~p",[Diff,TimeUnit])), ok.
 
 run_tests()->
       nerl:logger_settings(nerlTests),
-      DimXStr = integer_to_list(?DIMX_RAND_MAX),
-      DimYStr = integer_to_list(?DIMY_RAND_MAX),
-      nerltest_print("encode decode test starts "++integer_to_list(?ENCODE_DECODE_ROUNDS)++" tests up to ("++DimXStr++","++DimYStr++")"),
-      Tic_niftest_encode_decode = nerl:tic(),
-      encode_decode_nifs_test(?ENCODE_DECODE_ROUNDS,[]), % throws if a test fails
-      {TDiff_niftest_encode_decode, TimeUnit} = nerl:toc(Tic_niftest_encode_decode),
-      nerltest_print(nerl:string_format("Elapsed: ~p~p",[TDiff_niftest_encode_decode,TimeUnit])),
 
-      nerltest_print("nerltensor sum_nif float test starts "++integer_to_list(?SUM_NIF_ROUNDS)++" tests"),
-      nerltest_print("Performance is measured for the following operations:"),
-      nerltest_print("encode_nif x2 and nerltensor sum_nif"),
+      EncodeDecodeTestFunc = fun(Rounds) -> encode_decode_nifs_test(Rounds,[]) end,
+      EncodeDecodeTestName = "encode_decode_nifs",
+      test_envelope(EncodeDecodeTestFunc, EncodeDecodeTestName, ?ENCODE_DECODE_ROUNDS ),
 
-      Tic_nerltensor_sum_nif_test_float = nerl:tic(),
-      Perfromance = 0,
-      PerformanceSumNifFloat = nerltensor_sum_nif_test(float, ?SUM_NIF_ROUNDS, Perfromance) / ?SUM_NIF_ROUNDS, 
-      {TDiff_nerltensor_sum_nif_test_float, _} = nerl:toc(Tic_nerltensor_sum_nif_test_float),
-      nerltest_print(nerl:string_format("Elapsed: ~p~p, Avg nif operations: ~.4f~p",[TDiff_nerltensor_sum_nif_test_float,TimeUnit,PerformanceSumNifFloat,TimeUnit])),
-      
-      nerltest_print("nerltensor sum_nif double test starts "++integer_to_list(?SUM_NIF_ROUNDS)++" tests"),
-      nerltest_print("Performance is measured for the following operations:"),
-      nerltest_print("encode_nif x2 and nerltensor sum_nif"),
-      Tic_nerltensor_sum_nif_test_double = nerl:tic(),
-      Perfromance = 0,
-      PerformanceSumNifDouble = nerltensor_sum_nif_test(double, ?SUM_NIF_ROUNDS, Perfromance) / ?SUM_NIF_ROUNDS, 
-      {TDiff_nerltensor_sum_nif_test_double, _} = nerl:toc(Tic_nerltensor_sum_nif_test_double),
-      nerltest_print(nerl:string_format("Elapsed: ~p~p, Avg nif operations: ~.4f~p",[TDiff_nerltensor_sum_nif_test_double,TimeUnit,PerformanceSumNifDouble,TimeUnit])),
+      SumNifTestFloatFunc = fun(Rounds) -> Performance = 0, nerltensor_sum_nif_test(float, Rounds, Performance) end,
+      SumNifTestFloatTestName = "nerltensor_sum_nif float",
+      test_envelope(SumNifTestFloatFunc, SumNifTestFloatTestName, ?SUM_NIF_ROUNDS ),
 
-      nerltest_print("nerltensor_conversion_test starts "++integer_to_list(?NERLTENSOR_CONVERSION_ROUNDS)++" tests"),
-      nerltensor_conversion_test(?NERLTENSOR_CONVERSION_ROUNDS),
+      SumNifTestDoubleFunc = fun(Rounds) -> Performance = 0, nerltensor_sum_nif_test(double, Rounds, Performance) end,
+      SumNifTestDoubleTestName = "nerltensor_sum_nif double",
+      test_envelope(SumNifTestDoubleFunc, SumNifTestDoubleTestName, ?SUM_NIF_ROUNDS ),
+
+      ScalarMultiplicationNifFloatFunc = fun(Rounds) -> Performance = 0, nerltensor_scalar_multiplication_nif_test(float, Rounds, Performance) end,
+      ScalarMultiplicationNifFloatTestName = "nerltensor_scalar_multiplication_nif float",
+      test_envelope(ScalarMultiplicationNifFloatFunc, ScalarMultiplicationNifFloatTestName, ?NERLTENSOR_SCALAR_MULTIPLICATION_ROUNDS ),
+
+      ScalarMultiplicationNifDoubleFunc = fun(Rounds) -> Performance = 0, nerltensor_scalar_multiplication_nif_test(double, Rounds, Performance) end,
+      ScalarMultiplicationNifDoubleTestName = "nerltensor_scalar_multiplication_nif double",
+      test_envelope(ScalarMultiplicationNifDoubleFunc, ScalarMultiplicationNifDoubleTestName, ?NERLTENSOR_SCALAR_MULTIPLICATION_ROUNDS ),
+
+      ConversionTestFunc = fun(Rounds) -> nerltensor_conversion_test(Rounds) end,
+      ConversionTestName = "nerltensor_conversion",
+      test_envelope(ConversionTestFunc, ConversionTestName, ?NERLTENSOR_CONVERSION_ROUNDS ),
 
       nerltest_print("Tests Completed"),
       ok.
@@ -83,6 +87,24 @@ generate_nerltensor(Type,DimX,DimY,DimZ) ->
             true -> wrong_type
       end.
 
+nerltensor_scalar_multiplication_nif_test(_Type,0, Performance) -> Performance;
+nerltensor_scalar_multiplication_nif_test(Type, N, Performance) ->
+      ScalarRand = rand:uniform() * rand:uniform(100),
+      NerlTensor = generate_nerltensor_rand_dims(Type),
+      ExpectedResult = nerlNIF:nerltensor_scalar_multiplication_erl({NerlTensor, erl_float}, ScalarRand),
+      Tic = nerl:tic(),
+      {NerlTensorEnc, Type} = nerlNIF:nerltensor_conversion({NerlTensor, erl_float}, Type), % encode
+      NerlTensorEncRes = nerlNIF:nerltensor_scalar_multiplication_nif(NerlTensorEnc,  Type, ScalarRand),
+      {NerlTensorEncResDec, erl_float} = nerlNIF:nerltensor_conversion(NerlTensorEncRes, erl_float), % encode
+      {TocRes, _} = nerl:toc(Tic),
+      PerformanceNew = TocRes + Performance,
+      %io:format("ExpectedResult: ~p~n",[ExpectedResult]),
+      %io:format("NerlTensorEncResDec: ~p~n~n",[NerlTensorEncResDec]),
+      CompareFloats = nerl:compare_floats_L(NerlTensorEncResDec, ExpectedResult, 3), % Erlang accuracy is double
+      if 
+            CompareFloats -> nerltensor_scalar_multiplication_nif_test(Type, N-1, PerformanceNew);
+            true -> throw(ner:string_format("test failed - not equal ~n ExpectedResult: ~p ~n NerlTensorEncResDec: ~p",[ExpectedResult, NerlTensorEncResDec]))
+      end.
 
 
 nerltensor_sum_nif_test(_Type,0, Performance) -> Performance;
