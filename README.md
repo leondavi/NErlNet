@@ -89,5 +89,4 @@ Minimum Python version: 3.8
 4. Run Jupyter notebook and import the ApiServer module to the notebook. 
 5. Follow the example: https://github.com/leondavi/NErlNet/blob/master/examples/example_run.ipynb 
 
-Contact Email: nerlnet@outlook.com 
-NerlnetJupyterEnvGenerator.sh
+Contact Email: nerlnet@outlook.com
