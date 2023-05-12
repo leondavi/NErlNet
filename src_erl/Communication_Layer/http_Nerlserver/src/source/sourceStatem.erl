@@ -49,7 +49,7 @@ start_link(NerlnetGraph) ->
 %%initialize and go to state - idle
 init({MyName,WorkersMap, NerlnetGraph, Method, BatchSize,Frequency}) ->
   inets:start(),
-    io:format("Source ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
+  io:format("Source ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
   nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
 
   {ok, idle, #source_statem_state{sendingMethod = Method, frequency = Frequency, batchSize = BatchSize,myName = MyName, workersMap = WorkersMap, nerlnetGraph = NerlnetGraph, msgCounter = 1, castingTo = []}}.
@@ -218,19 +218,14 @@ sendSamples(ListOfSamples,CSVPath,BatchSize,LengthOfSample, Ms,Pid,Triplets,Coun
       [Head|ListOfSamplesRest]=ListOfSamples,
       {_ListOfSamplesRest,NewCounter2} = sendToAll([Head],CSVPath,BatchSize,LengthOfSample,Ms,Pid,Triplets,Counter)
   end,
-%%        [http_request(RouterHost, RouterPort,"weightsVector",
-%%                    list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>,list_to_binary(CSVPath),<<"#">>,list_to_binary(integer_to_list(Counter)),<<"#">>]),list_to_binary(Head)]))
-%%                  || {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
   receive
       %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
     {stopCasting}  ->
       io:format("source stop casting",[]),
       gen_statem:cast(Pid,{leftOvers,ListOfSamplesRest})
    after Ms->
-    if length(ListOfSamplesRest)==0 ->
-      gen_statem:cast(Pid,{finishedCasting,NewCounter2,[]});
-      true ->
-        sendSamples(ListOfSamplesRest,CSVPath,BatchSize,LengthOfSample,Ms,Pid,Triplets,NewCounter2,NumOfBatchesToSend-(NewCounter2-Counter),Method)
+    if length(ListOfSamplesRest) == 0 -> gen_statem:cast(Pid,{finishedCasting,NewCounter2,[]});
+      true -> sendSamples(ListOfSamplesRest,CSVPath,BatchSize,LengthOfSample,Ms,Pid,Triplets,NewCounter2,NumOfBatchesToSend-(NewCounter2-Counter),Method)
     end
   end.
 
@@ -239,11 +234,11 @@ roundRobin(ListOfSamples,_CSVPath,_LengthOfSample,Counter,[])-> {ListOfSamples, 
 roundRobin(ListOfSamples,CSVPath,LengthOfSample,Counter,[{ClientName,WorkerName,RouterHost,RouterPort}|Triplets])->
   [Head|Rest]=ListOfSamples,
   if(Head ==<<>>)->
-    roundRobin(Rest,CSVPath,LengthOfSample,Counter,[{ClientName,WorkerName,RouterHost,RouterPort}|Triplets]);
+      roundRobin(Rest,CSVPath,LengthOfSample,Counter,[{ClientName,WorkerName,RouterHost,RouterPort}|Triplets]);
     true ->
-      sendSample(Head,CSVPath,LengthOfSample,Counter,ClientName,WorkerName,RouterHost,RouterPort),
+      sendBatch(Head,CSVPath,LengthOfSample,Counter,ClientName,WorkerName,RouterHost,RouterPort),
       roundRobin(Rest,CSVPath,LengthOfSample,Counter+1,Triplets)
-      end.
+  end.
 
 
 
@@ -252,7 +247,7 @@ sendToAll([],_CSVPath,_BatchSize,_LengthOfSample,_Hz,_Pid,_Triplets,Counter)->
 
 sendToAll([Head|ListOfSamples],CSVPath,BatchSize,LengthOfSample,Hz,Pid,Triplets,Counter)->
   %%this http request will be splitted at client's state machine by the following order:
-  [sendSample(Head,CSVPath,LengthOfSample,Counter,ClientName,WorkerName,RouterHost,RouterPort)|| {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
+  [sendBatch(Head,CSVPath,LengthOfSample,Counter,ClientName,WorkerName,RouterHost,RouterPort)|| {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
   receive
   %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
     {stopCasting}  ->
@@ -262,7 +257,7 @@ sendToAll([Head|ListOfSamples],CSVPath,BatchSize,LengthOfSample,Hz,Pid,Triplets,
   end.
 
 %%Sends one batch of samples to a client
-sendSample(Sample,CSVPath,_LengthOfSample, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
+sendBatch(Sample,CSVPath,_LengthOfSample, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
   % when two workers(or more) are on the same device, they need a few miliseconds apart TODO remove this and manage on client
   % timer:sleep(5),
   % io:format("Source sending to Worker ~p: ~p~n",[WorkerName, Sample]),
