@@ -138,10 +138,8 @@ idle(cast, {statistics}, State = #client_statem_state{ myName = MyName,timingMap
 idle(cast, {training}, State = #client_statem_state{workersMap = WorkersMap, msgCounter = Counter}) ->
   Workers = maps:to_list(WorkersMap),
   [gen_statem:cast(WorkerPid,{training})|| {_WorkerName,WorkerPid}<-Workers],
-%%  io:format("sending ACK   ~n",[]),
-%%  {RouterHost,RouterPort} =   {_,{RouterHost,RouterPort}} = digraph:vertex("mainServer",NerlnetGraph),
+MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
 %%  send an ACK to mainserver that the CSV file is ready
-  MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
   % ack(MyName,NerlnetGraph),
   {next_state, waitforWorkers, State#client_statem_state{nextState = training, msgCounter = Counter+1,waitforWorkers = MyWorkers}};
 
@@ -213,7 +211,7 @@ training(cast, {loss,federated_weights, _Worker, _LOSS_FUNC, Ret_weights}, State
   % {RouterHost,RouterPort} = maps:get(Federated,NerlnetGraph),
   {RouterHost,RouterPort} = getShortPath(MyName,Federated,NerlnetGraph),
 
-  % ToSend = term_to_binary({Federated,encodeListOfLists(Ret_weights)}),
+  % ToSend = term_to_binary({Federated,decodeListOfLists(Ret_weights)}),
 
   http_request(RouterHost,RouterPort,"federatedWeightsVector", term_to_binary({Federated,Ret_weights})),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
