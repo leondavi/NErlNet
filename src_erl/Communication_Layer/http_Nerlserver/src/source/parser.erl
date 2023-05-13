@@ -120,7 +120,7 @@ decodeEncodeFloatsListBin([H|ListOfFloats],Ret, XDim, YDim, ZDim)->
   decodeEncodeFloatsListBin(ListOfFloats,<<Ret/binary,NumToAdd:64/float>>, XDim, YDim, ZDim).
 
 %%return a binary representing a list of floats: List-> <<binaryofthisList>>
-%%%%%%% this function is for FLOATS, converts int => float
+%%%%%%% this function is for FLOATS, converts int data to float
 decodeFloatsList(L)->
   Splitted = re:split(binary_to_list(L), ",", [{return,list}]),
   decodeFloatsList(Splitted,[]).
@@ -136,7 +136,7 @@ decodeFloatsList([H|ListOfFloats],Ret)->
   end,
   {NumToAdd, _Type} = list_to_numeric(Num),
     
-  decodeFloatsList(ListOfFloats,Ret++[float(NumToAdd)]).     %% remove float() to keep data type
+  decodeFloatsList(ListOfFloats,Ret++[float(NumToAdd)]).     %% remove float() to keep mixed data type
 
 
 list_to_numeric(Num) when is_float(Num) -> {Num, float};
