@@ -55,6 +55,7 @@ case cowboy_req:read_part(Req0) of
         {Req, Data}
 end.
 
+%% writes the input stream to file
 stream_file(Req0, File) ->
     case cowboy_req:read_part_body(Req0) of
         {ok, LastBodyChunk, Req} ->
