@@ -8,10 +8,8 @@
 %%%-------------------------------------------------------------------
 -module(jsonParser).
 -author("kapelnik").
+-include("../nerl_tools.hrl").
 -export([getDeviceEntities/3]).
-
--include("nerl_tools.hrl").
--define(FILE_IDENTIFIER,"[jsonParser] ").
 
 getDeviceEntities(_ArchitectureAdderess,_CommunicationMapAdderess, HostName)->
   nerl_tools:setup_logger(?MODULE),
@@ -20,7 +18,7 @@ getDeviceEntities(_ArchitectureAdderess,_CommunicationMapAdderess, HostName)->
   {ok, CommunicationMapAdderessData} = file:read_file(?JSON_ADDR++?COMM_FILE_NAME),
 
     %%TODO: ADD CHECK FOR VALID INPUT:  
-  ?LOG_NOTICE(?FILE_IDENTIFIER++"IS THIS A JSON? ~p~n",[jsx:is_json(ArchitectureAdderessData)]),
+  % ?LOG_NOTICE("IS THIS A JSON? ~p~n",[jsx:is_json(ArchitectureAdderessData)]),
 
   %%Decode Json to architecute map and Connection map:
   ArchitectureMap = jsx:decode(ArchitectureAdderessData,[]),
@@ -196,13 +194,13 @@ getPort([EntityMap|Entities],EntityName) ->
 %   end.
 
 getPortUnknown(ArchMap,<<"mainServer">>)->
-  [MainServer] = maps:get(<<"mainServer">>,ArchMap),
+  MainServer = maps:get(<<"mainServer">>,ArchMap),
   list_to_integer(binary_to_list(maps:get(<<"port">>, MainServer)));
 getPortUnknown(ArchMap,<<"serverAPI">>)->
-  [ServerAPI] = maps:get(<<"serverAPI">>,ArchMap),
+  ServerAPI = maps:get(<<"serverAPI">>,ArchMap),
   list_to_integer(binary_to_list(maps:get(<<"port">>, ServerAPI)));
 getPortUnknown(ArchMap,<<"nerlGUI">>)->
-  [NerlGUI] = maps:get(<<"nerlGUI">>,ArchMap),
+  NerlGUI = maps:get(<<"nerlGUI">>,ArchMap),
   list_to_integer(binary_to_list(maps:get(<<"port">>, NerlGUI)));
 getPortUnknown(ArchMap,EntityName)->
   FoundRouter = getPort(maps:get(<<"routers">>,ArchMap),EntityName),
@@ -252,7 +250,7 @@ getAllClientsNames([Client|Tail],ClientsNames) ->
     connectRouters(G,ArchitectureMap,CommunicationMap),
 
     %%connect serverAPI to Main Server
-    [ServerAPI] = maps:get(<<"serverAPI">>,ArchitectureMap),
+    ServerAPI = maps:get(<<"serverAPI">>,ArchitectureMap),
     ServerAPIHost = binary_to_list(maps:get(<<"host">>,ServerAPI)),
     ServerAPIPort = list_to_integer(binary_to_list(maps:get(<<"port">>,ServerAPI))),
     digraph:add_vertex(G,"serverAPI", {ServerAPIHost,ServerAPIPort}),
@@ -265,7 +263,7 @@ addDeviceToGraph(G,ArchitectureMap, HostName)->
 
     OnDeviceEntities1 = getOnDeviceEntities(maps:get(<<"devices">>,ArchitectureMap),HostName),
     OnDeviceEntities =re:split(binary_to_list(OnDeviceEntities1),",",[{return,list}]),
-    ?LOG_NOTICE(?FILE_IDENTIFIER++"adding device ~p to graph~n",[OnDeviceEntities]),
+    ?LOG_NOTICE(?LOG_HEADER++"adding device ~p to graph~n",[OnDeviceEntities]),
 
     %%ADD THIS TO NERLNET:
 

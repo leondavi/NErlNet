@@ -1,4 +1,6 @@
+%% erl logger
 -include_lib("kernel/include/logger.hrl").
+-define(LOG_HEADER, lists:flatten(io_lib:format("~p", [maps:get(mfa, ?LOCATION)])) ++ "@" ++ integer_to_list(maps:get(line, ?LOCATION)) ++ ": " ).
 
 %% init process defines
 -define(NERLNET_INIT_PORT,8484).
@@ -10,10 +12,12 @@
 -define(ARCH_FILE_NAME, "arch.json").
 -define(COMM_FILE_NAME, "conn.json").
 
-%% source defines
+%% sorce tmpData name
+-define(TMP_DATA_ADDR, "tmpData.csv").
+%% sourceFSM defines
 -define(SENDALL, 1).
 -define(ROUNDROBIN, 2).
 
-%% worker defines
+%% workerFSM defines
 -define(MODE_REGULAR, 0).
 -define(MODE_FEDERATED, 1).

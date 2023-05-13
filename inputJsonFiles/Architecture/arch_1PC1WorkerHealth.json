@@ -1,37 +1,37 @@
 {
-  "NerlNetSettings": [
+  "NerlNetSettings": 
   {
     "frequency": "5",
     "batchSize": "10"
   }
-  ],
+  ,
   "devices": [
     {
       "host": "192.168.0.108",
       "entities": "mainServer,c1,s1,r1,nerlGUI"
     }
   ],
-  "serverAPI": [
+  "serverAPI": 
     {
       "host": "192.168.0.108",
       "port": "8095",
       "args": ""
     }
-  ],
-  "nerlGUI": [
+  ,
+  "nerlGUI": 
     {
       "host": "192.168.0.108",
       "port": "8096",
       "args": ""
     }
-  ],
-  "mainServer": [
+  ,
+  "mainServer": 
     {
       "host": "192.168.0.108",
       "port": "8080",
       "args": ""
     }
-  ],
+  ,
   "workers": [
     {
       "name": "w1",

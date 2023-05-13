@@ -6,7 +6,7 @@
 -export([multipart/2]).
 
 setup_logger(Module) ->
-  logger:set_handler_config(default, formatter, {logger_formatter, #{}}),  
+  logger:add_handler(Module, Module, #{}), 
   logger:set_module_level(Module, all).
 
 start_connection([])->ok;

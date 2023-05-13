@@ -14,7 +14,6 @@
 -import(nerlNIF,[erl_type_conversion/1]).
 
 %% API
--define(TMP_DATA_ADDR, "tmpData.csv").
 -export([parseCSV/3, deleteTMPData/1]).
 %% unused functions
 -export([decodeEncodeFloatsListBin/4]).
@@ -39,7 +38,7 @@ deleteTMPData(SourceName) ->
   DataFiles = [File || File <- Files, string:find(File, ".csv") /= nomatch, string:prefix(File, SourceName) /= nomatch],
   try [file:delete(File) || File <- DataFiles]
   catch
-    {error, E} -> logger:notice("couldn't delete file ~p, ~p",[DataFiles, E])
+    {error, E} -> logger:notice("couldn't delete files ~p, ~p",[DataFiles, E])
   end.
 
 %%this parser takes a CSV folder containing chunked data, parsing into a list of binary.
@@ -88,10 +87,11 @@ encodeListOfListsNerlTensor(L, TargetBinaryType, XDim, YDim, ZDim)->
   {_Num, Type} = list_to_numeric(hd(hd(L))),
   
   ErlType =
-  case Type of 
-      float -> erl_float;
-      integer -> erl_int;
-      _Other -> io:format("bad type in conversion") end,
+    case Type of 
+        float -> erl_float;
+        integer -> erl_int;
+        _Other -> io:format("bad type in conversion")
+    end,
   encodeListOfListsNerlTensor(L, ErlType, TargetBinaryType, [], XDim, YDim, ZDim).
 
 encodeListOfListsNerlTensor([], _ErlType, _TargetBinaryType, Ret, _XDim, _YDim, _ZDim)-> Ret;
@@ -142,11 +142,10 @@ decodeFloatsList([H|ListOfFloats],Ret)->
 
 list_to_numeric(Num) when is_float(Num) -> {Num, float};
 list_to_numeric(Num) when is_integer(Num) -> {Num, integer};
-list_to_numeric(L) when is_list(L) ->
+list_to_numeric(L) ->
   Float = (catch erlang:list_to_float(L)),
   Int = (catch erlang:list_to_integer(L)),
   if is_number(Float) -> {Float, float};
     is_number(Int) -> {Int, integer};
-    true -> io:format("couldnt_convert "++L) end;
-
-list_to_numeric(Num) -> {Num, else}.
+    true -> io:format("couldnt_convert "++L)
+  end.

@@ -270,12 +270,12 @@ wait(cast, {predict}, State) ->
   {next_state, wait, State#nerlNetStatem_state{nextState = predict,ackClient=1}};
 
 wait(cast, {sample, _SampleListTrain}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = _MissedTrainSamples}) ->
-  ?LOG_NOTICE("Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
+  ?LOG_NOTICE(?LOG_HEADER++"Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
   % Miss = MissedTrainSamples++SampleListTrain,
   {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1}};
 
 wait(cast, {sample,_CSVname, _BatchID, _SampleListPredict}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = _MissedTrainSamples}) ->
-  ?LOG_NOTICE("Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
+  ?LOG_NOTICE(?LOG_HEADER++"Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
   % Miss = MissedTrainSamples++SampleListTrain,
   {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1}};
 

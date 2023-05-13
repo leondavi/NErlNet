@@ -49,14 +49,14 @@ start(_StartType, _StartArgs) ->
     
     HostName = getdeviceIP(),
     %HostName = "127.0.0.1",        %TODO: update jsons with real ips
-    ?LOG_INFO("This device IP: ~p~n", [HostName]),
+    ?LOG_INFO(?LOG_HEADER++"This device IP: ~p~n", [HostName]),
     %Create a listener that waits for a message from python about the adresses of the wanted json
     createNerlnetInitiator(HostName),
     {ArchitectureAdderess,CommunicationMapAdderess} = waitForInit(),
 
     %Parse json and start nerlnet:
      
-    ?LOG_INFO("ArchitectureAdderess: ~p~n CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
+    ?LOG_INFO(?LOG_HEADER++"ArchitectureAdderess: ~p~n CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
 
     parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess),
     nerlNetServer_sup:start_link().
@@ -64,7 +64,7 @@ start(_StartType, _StartArgs) ->
 waitForInit() ->
     receive 
         {jsonAddress,MSG} -> {_ArchitectureAdderess,_CommunicationMapAdderess} = MSG;
-        Other -> ?LOG_WARNING("Got bad message: ~p,~ncontinue listening for init Json~n",[Other]), waitForInit()
+        Other -> ?LOG_WARNING(?LOG_HEADER++"Got bad message: ~p,~ncontinue listening for init Json~n",[Other]), waitForInit()
         after ?PYTHON_SERVER_WAITING_TIMEOUT_MS -> waitForInit()
     end.
 
@@ -84,7 +84,7 @@ createNerlnetInitiator(HostName) ->
 
 parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess) ->
     %% Entities to open on device from reading arch.json: 
-    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings],_GUI} = jsonParser:getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)),
+    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},NerlNetSettings,_GUI} = jsonParser:getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)),
 
     BatchSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))),
     Frequency = list_to_integer(binary_to_list(maps:get(<<"frequency">>,NerlNetSettings))),
@@ -243,7 +243,7 @@ createRouters([{RouterArgs,ConnectionsGraph}|Routers],HostName) ->
 
 
 createMainServer(none,_BatchSize,_HostName) -> none;
-createMainServer({[MainServerArgsMap],ConnectionsGraph,WorkersMap,ClientsNames},BatchSize,HostName) ->
+createMainServer({MainServerArgsMap,ConnectionsGraph,WorkersMap,ClientsNames},BatchSize,HostName) ->
     MainName = "mainServer",
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,MainServerArgsMap))),
 
@@ -295,7 +295,7 @@ getdeviceIP() ->
     getdeviceIP(IFList, SubnetsList).
 
 getdeviceIP([], SubnetsList) ->
-    ?LOG_ERROR("No supported interface was found. Current supported interfaces list is: ~p.~nEdit subnets.nerlconfig file to include your network",[SubnetsList]);
+    ?LOG_ERROR(?LOG_HEADER++"No supported interface was found. Current supported interfaces list is: ~p.~nEdit subnets.nerlconfig file to include your network",[SubnetsList]);
 getdeviceIP([IF|IFList], SubnetsList) ->
     {_IF_name, Params} = IF,
     try
