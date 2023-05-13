@@ -5,7 +5,9 @@
 -export([string_to_list_int/1, deleteOldJson/1]).
 -export([multipart/2]).
 
-setup_logger(Module)-> logger:set_module_level(Module, all).
+setup_logger(Module) ->
+  logger:set_handler_config(default, formatter, {logger_formatter, #{}}),  
+  logger:set_module_level(Module, all).
 
 start_connection([])->ok;
 start_connection([{_ServerName,{Host, Port}}|Tail]) ->

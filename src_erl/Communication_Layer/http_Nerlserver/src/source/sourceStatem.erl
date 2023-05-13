@@ -13,14 +13,10 @@
 
 %% API
 -export([start_link/1]).
-
+-include("../nerl_tools.hrl").
 %% gen_statem callbacks
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,
   code_change/4, callback_mode/0, idle/3, castingData/3, sendSamples/10]).
-
--define(SERVER, ?MODULE).
--define(SENDALL, 1).
--define(ROUNDROBIN, 2).
 
 -record(source_statem_state, {sendingMethod, frequency, batchSize, lengthOfSample, castingTo=[], myName,workersMap,nerlnetGraph, msgCounter=0, sourcePid=[],csvName="", csvList="", nerlTensorType}).
 
@@ -96,7 +92,7 @@ idle(cast, {csvList,Workers,CSVData}, State = #source_statem_state{batchSize = B
 idle(cast, {startCasting,Body}, State = #source_statem_state{myName = MyName, lengthOfSample = LengthOfSample, sendingMethod = Method, frequency = Frequency, batchSize = BatchSize, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, nerlnetGraph = NerlnetGraph, msgCounter = Counter, csvName = CSVName, csvList =CSVlist}) ->
     [_Source,NumOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
 
-  logger:notice("start casting to: ~p~nnumber of batches to send: ~p~ntotal casting list length: ~p~n ",[CastingTo,NumOfBatchesToSend, length(CSVlist)]),
+  ?LOG_NOTICE("start casting to: ~p~nnumber of batches to send: ~p~ntotal casting list length: ~p~n ",[CastingTo,NumOfBatchesToSend, length(CSVlist)]),
   NumOfBatches = list_to_integer(NumOfBatchesToSend),
   BatchesToSend = if length(CSVlist) < NumOfBatches -> length(CSVlist); true -> list_to_integer(NumOfBatchesToSend) end,
 

@@ -16,17 +16,13 @@
 
 %% API
 -export([start_link/1]).
-
+-include("../Communication_Layer/http_Nerlserver/src/nerl_tools.hrl").
 %% gen_statem callbacks
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,
   code_change/4, callback_mode/0]).
 %% States functions
 -export([idle/3, train/3, predict/3, wait/3]).
 
--define(FILE_IDENTIFIER,"[nerlNetStatem] ").
--define(SERVER, ?MODULE).
--define(MODE_REGULAR, 0).
--define(MODE_FEDERATED, 1).
 
 %% federatedMode = 0 - Not federated, 1 - Federated get and send weights, 2 - Federated set weights
 %% countLimit - Number of samples to count before sending the weights for averaging. Predifined in the json file.
@@ -55,11 +51,11 @@ start_link(ARGS) ->
 %% process to initialize.
 
 init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,FederatedMode,CountLimit,Optimizer, Features, Labels, LossMethod, LearningRate, ClientPID}) ->
-  logger:notice(?FILE_IDENTIFIER++"Creating: WorkerName: ~p ,ModelId: ~p , ModelType: ~p , ScalingMethod: ~p ,LayerTypesList: ~p ,LayersSizes: ~p ,LayersActivationFunctions: ~p ,FederatedMode: ~p ,CountLimit: ~p ,Optimizer: ~p , Features: ~p , Labels: ~p , ClientPID: ~p~n"
+  ?LOG_NOTICE("Creating: WorkerName: ~p ,ModelId: ~p , ModelType: ~p , ScalingMethod: ~p ,LayerTypesList: ~p ,LayersSizes: ~p ,LayersActivationFunctions: ~p ,FederatedMode: ~p ,CountLimit: ~p ,Optimizer: ~p , Features: ~p , Labels: ~p , ClientPID: ~p~n"
     ,[WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,FederatedMode,CountLimit,Optimizer, Features, Labels, ClientPID]),
 %%^^^^^^^^^^^^^^^^^^^^^^^^^^
         Res=nerlNIF:create_nif(ModelId, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
-        logger:notice(?FILE_IDENTIFIER++"Res = ~p ~n",[Res]),
+        ?LOG_NOTICE("Res = ~p ~n",[Res]),
 
   {ok, idle, #nerlNetStatem_state{clientPid = ClientPID, features = Features, labels = Labels, myName = WorkerName,
                                  modelId = ModelId, federatedMode = FederatedMode,optimizer = Optimizer,  countLimit = CountLimit,learningRate = LearningRate, lossMethod = LossMethod}}.
@@ -117,18 +113,18 @@ code_change(_OldVsn, StateName, State = #nerlNetStatem_state{}, _Extra) ->
 
 %% State idle
 idle(cast, {training}, State = #nerlNetStatem_state{myName = MyName,clientPid = ClientPid}) ->
-  logger:notice(?FILE_IDENTIFIER++"Go from idle to train!\n"),
+  ?LOG_NOTICE("Go from idle to train!\n"),
   gen_statem:cast(ClientPid,{stateChange,MyName}),
   {next_state, train, State};
 
 idle(cast, {predict}, State = #nerlNetStatem_state{myName = MyName,clientPid = ClientPid}) ->
-  logger:notice(?FILE_IDENTIFIER++"Go from idle to predict\n"),
+  ?LOG_NOTICE("Go from idle to predict\n"),
   gen_statem:cast(ClientPid,{stateChange,MyName}),
   {next_state, predict, State#nerlNetStatem_state{nextState = predict}};
 
 idle(cast, {set_weights,_Ret_weights_list}, State = #nerlNetStatem_state{modelId=_ModelId}) ->
 
-logger:notice(?FILE_IDENTIFIER++"Set weights in wait state: \n"),
+  ?LOG_NOTICE("Set weights in wait state: \n"),
   
   % %% Set weights TODO maybe send the results of the update
   % [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
@@ -140,7 +136,7 @@ logger:notice(?FILE_IDENTIFIER++"Set weights in wait state: \n"),
   % _Result_set_weights2 = niftest:set_weights_nif(WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list, ModelId),
  %io:format("####sending new weights to workers####~n"),
   %niftest:call_to_set_weights(ModelId, Ret_weights_list), niftest is depracated - use nerlNIF instead
-  logger:notice(?FILE_IDENTIFIER++"####end set weights idle####~n"),
+  ?LOG_NOTICE("####end set weights idle####~n"),
 
   {next_state, idle, State};
 
@@ -160,7 +156,7 @@ idle(cast, _Param, State) ->
 %% Waiting for receiving results or loss function
 %% Got nan or inf from loss function - Error, loss function too big for double
 wait(cast, {loss,nan,Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState,ackClient = AckClient}) ->
-  logger:error(?FILE_IDENTIFIER++"Loss func in wait: nan (Loss function too big for double)\n"),
+  ?LOG_NOTICE("Loss func in wait: nan (Loss function too big for double)\n"),
   gen_statem:cast(ClientPid,{loss, MyName, nan,Time_NIF}), %% TODO send to tal stop casting request with error desc
   checkAndAck(MyName,ClientPid,AckClient),
 
@@ -222,7 +218,7 @@ wait(cast, {loss, {LOSS_FUNC,Time_NIF}}, State = #nerlNetStatem_state{clientPid 
 
 % Not supposed to be here - for future additions
 wait(cast, {loss, LossAndTime}, State = #nerlNetStatem_state{ federatedMode = _FederatedMode, nextState = NextState,myName = MyName,clientPid = ClientPid,ackClient = AckClient}) ->
-  logger:error(?FILE_IDENTIFIER++"Error at worker, loss fun-: ~p~n",[LossAndTime]),
+  ?LOG_NOTICE("Error at worker, loss fun-: ~p~n",[LossAndTime]),
   % io:fwrite("FederatedMode-: ~p~n",[FederatedMode]),
   
   checkAndAck(MyName,ClientPid,AckClient),
@@ -230,7 +226,7 @@ wait(cast, {loss, LossAndTime}, State = #nerlNetStatem_state{ federatedMode = _F
   {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
 
 wait(cast, {set_weights,_Ret_weights_list}, State = #nerlNetStatem_state{nextState = _NextState, modelId=_ModelId,clientPid = _ClientPid,ackClient = _AckClient}) ->
-  logger:notice(?FILE_IDENTIFIER++"Set weights in wait state"),
+  ?LOG_NOTICE("Set weights in wait state"),
 
   % %% Set weights
   % [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
@@ -261,30 +257,30 @@ wait(cast, {predictRes,CSVname, BatchID, {RESULTS,_TimeCpp},_Time_NIF}, State = 
   {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
 
 wait(cast, {idle}, State) ->
-  logger:notice(?FILE_IDENTIFIER++"Waiting, next state - idle"),
+  %logger:notice(?FILE_IDENTIFIER++"Waiting, next state - idle"),
   {next_state, wait, State#nerlNetStatem_state{nextState = idle,ackClient=1}};
 
 wait(cast, {training}, State) ->
-  logger:notice(?FILE_IDENTIFIER++"Waiting, next state - train"),
+  %logger:notice(?FILE_IDENTIFIER++"Waiting, next state - train"),
   % gen_statem:cast(ClientPid,{stateChange,WorkerName}),
   {next_state, wait, State#nerlNetStatem_state{nextState = train,ackClient=1}};
 
 wait(cast, {predict}, State) ->
-  logger:notice(?FILE_IDENTIFIER++"Waiting, next state - predict"),
+  %logger:notice(?FILE_IDENTIFIER++"Waiting, next state - predict"),
   {next_state, wait, State#nerlNetStatem_state{nextState = predict,ackClient=1}};
 
 wait(cast, {sample, _SampleListTrain}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = _MissedTrainSamples}) ->
-  logger:notice(?FILE_IDENTIFIER++"Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
+  ?LOG_NOTICE("Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
   % Miss = MissedTrainSamples++SampleListTrain,
   {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1}};
 
 wait(cast, {sample,_CSVname, _BatchID, _SampleListPredict}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = _MissedTrainSamples}) ->
-  logger:notice(?FILE_IDENTIFIER++"Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
+  ?LOG_NOTICE("Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
   % Miss = MissedTrainSamples++SampleListTrain,
   {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1}};
 
-wait(cast, Param, State) ->
-  logger:notice(?FILE_IDENTIFIER++"worker Not supposed to be. Got: ~p\n",[Param]),
+wait(cast, _Param, State) ->
+  %logger:notice(?FILE_IDENTIFIER++"worker Not supposed to be. Got: ~p\n",[Param]),
   {next_state, wait, State}.
 
 
@@ -305,17 +301,17 @@ train(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId
   %% Set weights
   %io:format("####sending new weights to workers####~n"),
   nerlNIF:call_to_set_weights(ModelId, Ret_weights_list),
-  logger:notice(?FILE_IDENTIFIER++"####end set weights train####~n"),
+  %logger:notice(?FILE_IDENTIFIER++"####end set weights train####~n"),
   {next_state, train, State};
 
 
 train(cast, {idle}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid}) ->
-  logger:notice(?FILE_IDENTIFIER++"Go from train to idle\n"),
+  %logger:notice(?FILE_IDENTIFIER++"Go from train to idle\n"),
   gen_statem:cast(ClientPid,{stateChange,MyName}),
   {next_state, idle, State};
 
 train(cast, {predict}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid}) ->
-  logger:notice(?FILE_IDENTIFIER++"Go from train to predict\n"),
+  %logger:notice(?FILE_IDENTIFIER++"Go from train to predict\n"),
   gen_statem:cast(ClientPid,{stateChange,MyName}),
 
   {next_state, predict, State};
@@ -336,19 +332,19 @@ predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStat
     {next_state, wait, State#nerlNetStatem_state{nextState = predict}};
   
 predict(cast, {idle}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid}) ->
-  logger:notice(?FILE_IDENTIFIER++"Go from predict to idle\n"),
+  %logger:notice(?FILE_IDENTIFIER++"Go from predict to idle\n"),
   gen_statem:cast(ClientPid,{stateChange,MyName}),
 
   {next_state, idle, State};
 
 predict(cast, {training}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid}) ->
-  logger:notice(?FILE_IDENTIFIER++"Go from predict to train\n"),
+  %logger:notice(?FILE_IDENTIFIER++"Go from predict to train\n"),
   gen_statem:cast(ClientPid,{stateChange,MyName}),
 
   {next_state, train, State};
 
-predict(cast, Param, State) ->
-  logger:notice(?FILE_IDENTIFIER++"Same state Predict, command: ~p\n",[Param]),
+predict(cast, _Param, State) ->
+  %logger:notice(?FILE_IDENTIFIER++"Same state Predict, command: ~p\n",[Param]),
   {next_state, predict, State}.
 
   checkAndAck(_MyName,_ClientPid,0) ->ok_no_need;
