@@ -163,6 +163,11 @@ erl_type_conversion(BinType) ->
       ErlType.
 
 
+erl_type_conversion(BinType) ->
+      {_, ErlType} = lists:keyfind(BinType, 1, ?NERL_TYPES),
+      ErlType.
+
+
 nerltensor_sum_erl({NerlTensorErlA, Type}, {NerlTensorErlB, Type}) ->
       ListGroup = lists:member(Type, get_all_nerltensor_list_types()),
       if ListGroup ->
