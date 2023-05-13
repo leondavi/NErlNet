@@ -301,7 +301,7 @@ train(cast, {sample, {SampleListTrain, Type}}, State = #nerlNetStatem_state{mode
     {next_state, wait, State#nerlNetStatem_state{nextState = train}};
   
 
-  train(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId = ModelId}) ->
+train(cast, {set_weights,Ret_weights_list}, State = #nerlNetStatem_state{modelId = ModelId}) ->
   %% Set weights
   %io:format("####sending new weights to workers####~n"),
   nerlNIF:call_to_set_weights(ModelId, Ret_weights_list),

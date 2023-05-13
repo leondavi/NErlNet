@@ -28,10 +28,8 @@ nerltest_print(String) ->
 
 test_envelope(Func, TestName, Rounds) ->
       nerltest_print(nerl:string_format("~p test starts for ~p rounds",[TestName, Rounds])),
-      Tic = nerl:tic(),
-      Func(Rounds),
-      {Diff, TimeUnit} = nerl:toc(Tic),
-      nerltest_print(nerl:string_format("Elapsed: ~p~p",[Diff,TimeUnit])), ok.
+      {TimeTookMicro, _RetVal} = timer:tc(?MODULE, Func, [Rounds]),
+      nerltest_print(nerl:string_format("Elapsed: ~p~p",[TimeTookMicro / 1000, ms])), ok.
 
 run_tests()->
       nerl:logger_settings(nerlTests),
