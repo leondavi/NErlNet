@@ -1,6 +1,11 @@
 -module(nerl_tools).
 
--export([start_connection/1, http_request/4, getHostPort/5, getShortPath/3, string_to_list_int/1]).
+-export([setup_logger/1]).
+-export([start_connection/1, http_request/4, getHostPort/5, getShortPath/3]).
+-export([string_to_list_int/1, deleteOldJson/1]).
+-export([multipart/2]).
+
+setup_logger(Module)-> logger:set_module_level(Module, all).
 
 start_connection([])->ok;
 start_connection([{_ServerName,{Host, Port}}|Tail]) ->
@@ -33,3 +38,41 @@ string_to_list_int(Binary) ->
   NoParenthesis = lists:sublist(String,2,length(String)-2),
   Splitted = re:split(NoParenthesis,",",[{return,list}]),
   [list_to_integer(X)||X<-Splitted].
+
+
+% returns {FullReq, Data} / {FullReq, [fileReady]}
+multipart(Req0, Data) ->
+case cowboy_req:read_part(Req0) of
+    {ok, Headers, Req1} ->
+        {Req, BodyData} = case cow_multipart:form_data(Headers) of
+            %% The multipart message contains normal/basic data
+            {data, _FieldName} ->
+                {ok, Body, Req2} = cowboy_req:read_part_body(Req1),
+                {Req2, Body};
+            %% The message contains a file
+            {file, FieldName, _Filename, _CType} ->
+                {ok, File} = file:open(FieldName, [append]),
+                Req2 = stream_file(Req1, File),
+                {Req2, [FieldName]}
+        end,
+        multipart(Req, Data++BodyData);
+    {done, Req} ->
+        {Req, Data}
+end.
+
+%% writes the input stream to file
+stream_file(Req0, File) ->
+    case cowboy_req:read_part_body(Req0) of
+        {ok, LastBodyChunk, Req} ->
+            file:write(File, LastBodyChunk),
+            file:close(File),
+            Req;
+        {more, BodyChunk, Req} ->
+            file:write(File, BodyChunk),
+            stream_file(Req, File)
+    end.
+
+deleteOldJson(FilePath) ->
+  try   file:delete(FilePath)
+  catch {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[FilePath, E])
+  end.

@@ -8,7 +8,7 @@
 %%%-------------------------------------------------------------------
 -module(parser).
 -author("kapelnik").
-
+-include("../nerl_tools.hrl").
 -import(nerlNIF,[decode_nif/2, nerltensor_binary_decode/2]).
 -import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0]).
 -import(nerlNIF,[erl_type_conversion/1]).
@@ -21,13 +21,14 @@
 
 
 parseCSV(SourceName, BatchSize, CSVData)->
+  nerl_tools:setup_logger(?MODULE),
   %io:format("curr dir: ~p~n",[file:get_cwd()]),
   deleteTMPData(SourceName),    % ideally do this when getting a fresh CSV (finished train -> start predict)
 
   FileName = SourceName++?TMP_DATA_ADDR,
   try
     file:write_file(FileName, CSVData),
-    logger:notice("created tmpData.csv"), parse_file(BatchSize, FileName)
+    ?LOG_NOTICE("created tmpData.csv"), parse_file(BatchSize, FileName)
   catch
     {error,Er} -> logger:error("couldn't write file ~p, beacuse ~p",[FileName, Er])
   end.

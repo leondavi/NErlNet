@@ -9,21 +9,22 @@
 -module(jsonParser).
 -author("kapelnik").
 -export([getDeviceEntities/3]).
--define(ARCH_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/src_erl/Communication_Layer/http_Nerlserver/arch.json").
--define(COMM_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/src_erl/Communication_Layer/http_Nerlserver/conn.json").
+
+-include("nerl_tools.hrl").
 -define(FILE_IDENTIFIER,"[jsonParser] ").
 
 getDeviceEntities(_ArchitectureAdderess,_CommunicationMapAdderess, HostName)->
+  nerl_tools:setup_logger(?MODULE),
 
-  {ok, ArchitectureAdderessData} = file:read_file(?ARCH_ADDR),
-  {ok, CommunicationMapAdderessData} = file:read_file(?COMM_ADDR),
+  {ok, ArchitectureAdderessData} = file:read_file(?JSON_ADDR++?ARCH_FILE_NAME),
+  {ok, CommunicationMapAdderessData} = file:read_file(?JSON_ADDR++?COMM_FILE_NAME),
 
-%%TODO ADD CHECK FOR VALID INPUT:  
-logger:notice(?FILE_IDENTIFIER++"IS THIS A JSON? ~p~n",[jsx:is_json(ArchitectureAdderessData)]),
+    %%TODO: ADD CHECK FOR VALID INPUT:  
+  ?LOG_NOTICE(?FILE_IDENTIFIER++"IS THIS A JSON? ~p~n",[jsx:is_json(ArchitectureAdderessData)]),
 
   %%Decode Json to architecute map and Connection map:
   ArchitectureMap = jsx:decode(ArchitectureAdderessData,[]),
-  _CommunicationMap= jsx:decode(CommunicationMapAdderessData,[]),
+  CommunicationMap= jsx:decode(CommunicationMapAdderessData,[]),
 
 % Get NerlNetSettings, batch size, frequency etc..
   NerlNetSettings = maps:get(<<"NerlNetSettings">>,ArchitectureMap),
@@ -37,7 +38,7 @@ logger:notice(?FILE_IDENTIFIER++"IS THIS A JSON? ~p~n",[jsx:is_json(Architecture
   %%  io:format("OnDeviceEntities:~n~p~n",[OnDeviceEntities]),
 
   %%This function returns a graph G, represents all the connections in nerlnet. each entitie should have a copy of it.
-  G = buildCommunicationGraph(?ARCH_ADDR,?COMM_ADDR),
+  G = buildCommunicationGraph(ArchitectureMap,CommunicationMap),
 
   %%  retrive THIS device Clients And Workers, returns a list of tuples:[{ClientArgumentsMap,WorkersMap,ConnectionMap},..]
   ClientsAndWorkers = getClients(maps:get(<<"clients">>,ArchitectureMap),OnDeviceEntities , [],maps:get(<<"workers">>,ArchitectureMap),ArchitectureMap,G),
@@ -243,17 +244,7 @@ getAllClientsNames([Client|Tail],ClientsNames) ->
 
 	%% This graph represents the connections withing NerlNet. edge=connection between two entities in the net, vertices = etities.
 	%The vaule of each of the vertices contains the tuple {Host,Port} with the host and port of the cowboy server connected to the entitie.
-	buildCommunicationGraph(ArchitectureAdderess,CommunicationMapAdderess)->
-    
-    %%Read and decode json files:
-    {ok, ArchitectureAdderessData} = file:read_file(ArchitectureAdderess),
-    ArchitectureMap = jsx:decode(ArchitectureAdderessData,[]),
-    {ok, CommunicationMapAdderessData} = file:read_file(CommunicationMapAdderess),
-    CommunicationMap= jsx:decode(CommunicationMapAdderessData,[]),
-
-    %io:format("ArchitectureMap:~n~p~n",[ArchitectureMap]),
-    %io:format("CommunicationMap:~n~p~n",[CommunicationMap]),
-
+	buildCommunicationGraph(ArchitectureMap,CommunicationMap)->
     %Start building the graph one device at a time, than connect all routers with communicationMap json.
     G = digraph:new(),
     ListOfHosts = getAllHosts(ArchitectureMap),
@@ -267,7 +258,6 @@ getAllClientsNames([Client|Tail],ClientsNames) ->
     digraph:add_vertex(G,"serverAPI", {ServerAPIHost,ServerAPIPort}),
     addEdges(G,"serverAPI","mainServer"),
     
-    %%return G
     G .
 
 addDeviceToGraph(G,ArchitectureMap, HostName)->
@@ -275,7 +265,7 @@ addDeviceToGraph(G,ArchitectureMap, HostName)->
 
     OnDeviceEntities1 = getOnDeviceEntities(maps:get(<<"devices">>,ArchitectureMap),HostName),
     OnDeviceEntities =re:split(binary_to_list(OnDeviceEntities1),",",[{return,list}]),
-    logger:notice(?FILE_IDENTIFIER++"adding device ~p to graph~n",[OnDeviceEntities]),
+    ?LOG_NOTICE(?FILE_IDENTIFIER++"adding device ~p to graph~n",[OnDeviceEntities]),
 
     %%ADD THIS TO NERLNET:
 

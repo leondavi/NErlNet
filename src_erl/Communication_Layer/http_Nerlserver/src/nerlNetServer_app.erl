@@ -18,13 +18,10 @@
 -module(nerlNetServer_app).
 
 -behaviour(application).
--include_lib("kernel/include/logger.hrl").
+-include("nerl_tools.hrl").
 
 -export([start/2, stop/1, getdeviceIP/0]).
 
--define(NERLNET_INIT_PORT,8484).
--define(PYTHON_SERVER_WAITING_TIMEOUT_MS, 1000).
--define(SUBNETS_CONFIG_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/config/subnets.nerlconfig").
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
 %% ***  exit rebar3 shell: ctrl+g ->q
@@ -47,7 +44,8 @@
 
 
 start(_StartType, _StartArgs) ->
-    logger:set_module_level(nerlNetServer_app, all),
+    %% setup the erlang logger for this module 
+    nerl_tools:setup_logger(?MODULE),
     
     HostName = getdeviceIP(),
     %HostName = "127.0.0.1",        %TODO: update jsons with real ips
@@ -85,29 +83,20 @@ createNerlnetInitiator(HostName) ->
 
 
 parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess) ->
-    %%Server that should be established on this machine from JSON architecture:
-    % {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities("./input/jsonArch1PC2Workers.json",list_to_binary(HostName)),
-    %%    get json path from jsonPath file in main NErlNet directory
-    
-
-    %%Server that should be established on this machine from JSON architecture:
+    %% Entities to open on device from reading arch.json: 
     {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings],_GUI} = jsonParser:getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)),
-
-%  io:format("My NerlNetSettings: ~p~n",[NerlNetSettings]),
 
     BatchSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))),
     Frequency = list_to_integer(binary_to_list(maps:get(<<"frequency">>,NerlNetSettings))),
-    % io:format("My BatchSize: ~p~n",[BatchSize]),
-    % io:format("My Frequency: ~p~n",[Frequency]),
 
 %%    Creating a Dispatcher for each Server from JSONs architecture - this dispatchers will rout http requests to the right handler.
 %%    Each dispatcher will be listening to a different PORT
 %%    Handling http requests will be managed by *Handler.erl and additional information given inside.
-    %%these are the handler for any kind of request.
+    %% these are the handler for any kind of request.
     %% {HostMatch, list({PathMatch, Handler, InitialState})}
-    %The last arg becomes the State
-    %arg in the *Handler's init() method.
-    %%{"/req_name/:arg1/:arg2",[{arg1,constrains}, {arg2,int}], addHandler,[]}
+    %% The last arg becomes the State
+    %% arg in the *Handler's init() method.
+    %% {"/req_name/:arg1/:arg2",[{arg1,constrains}, {arg2,int}], addHandler,[]}
     %%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
 
     createClientsAndWorkers(ClientsAndWorkers, HostName),
@@ -299,14 +288,14 @@ init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
 stop(_State) ->
     ok.
 
-% get this host ip
+% get this host ip 
 getdeviceIP() ->
     {ok, IFList} = inet:getifaddrs(),    % IFList format: [{IF_name, [{field, param},{},...]},...]
     SubnetsList = getNerlSubnets(),
     getdeviceIP(IFList, SubnetsList).
 
 getdeviceIP([], SubnetsList) ->
-    logger:error("No supported interface was found. Current supported interfaces list is: ~p.~nEdit subnets.nerlconfig file to include your network",[SubnetsList]);
+    ?LOG_ERROR("No supported interface was found. Current supported interfaces list is: ~p.~nEdit subnets.nerlconfig file to include your network",[SubnetsList]);
 getdeviceIP([IF|IFList], SubnetsList) ->
     {_IF_name, Params} = IF,
     try
