@@ -3,7 +3,7 @@
 -export([setup_logger/1]).
 -export([start_connection/1, http_request/4, getHostPort/5, getShortPath/3]).
 -export([string_to_list_int/1, deleteOldJson/1]).
--export([multipart/2]).
+-export([multipart/2, read_all_data/2]).
 
 setup_logger(Module) ->
   logger:add_handler(Module, Module, #{}), 
@@ -46,23 +46,21 @@ string_to_list_int(Binary) ->
 multipart(Req0, Data) ->
 case cowboy_req:read_part(Req0) of
     {ok, Headers, Req1} ->
-        {Req, BodyData} = case cow_multipart:form_data(Headers) of
-            %% The multipart message contains normal/basic data
-            {data, _FieldName} ->
-                {ok, Body, Req2} = cowboy_req:read_part_body(Req1),
-                {Req2, Body};
-            %% The message contains a file
-            {file, FieldName, _Filename, _CType} ->
-                {ok, File} = file:open(FieldName, [append]),
-                Req2 = stream_file(Req1, File),
-                {Req2, [FieldName]}
-        end,
+        {Req, BodyData} =
+            case cow_multipart:form_data(Headers) of
+                %% The multipart message contains normal/basic data
+                {data, _FieldName} -> {_Req2, Data} = read_all_data(Req1,<<>>);
+                %% The message contains a file, write it to "FieldName"
+                {file, FieldName, _Filename, _CType} ->
+                    {ok, File} = file:open(FieldName, [append]),
+                    Req2 = stream_file(Req1, File),
+                    {Req2, [FieldName]}
+            end,
         multipart(Req, Data++BodyData);
-    {done, Req} ->
-        {Req, Data}
+    {done, Req} -> {Req, Data}
 end.
 
-%% writes the input stream to file
+%% writes the input stream to file, File needs to be opened with append option
 stream_file(Req0, File) ->
     case cowboy_req:read_part_body(Req0) of
         {ok, LastBodyChunk, Req} ->
@@ -73,6 +71,14 @@ stream_file(Req0, File) ->
             file:write(File, BodyChunk),
             stream_file(Req, File)
     end.
+
+%% gets multipart data and combines it
+read_all_data(Req0, Got) ->
+  %io:format("length of read data so far: ~p~n",[length(Got)]),
+  case cowboy_req:read_body(Req0) of
+      {more, Data, Req} -> read_all_data(Req, Got++Data);
+      {ok, Data, Req} -> {Req, Got++Data}
+  end.
 
 deleteOldJson(FilePath) ->
   try   file:delete(FilePath)

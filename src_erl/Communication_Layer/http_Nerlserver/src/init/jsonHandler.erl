@@ -7,7 +7,7 @@
 %%% Created : 01. Jan 2021 4:58 AM
 %%%-------------------------------------------------------------------
 -module(jsonHandler).
--include("nerl_tools.hrl").
+-include("../nerl_tools.hrl").
 
 %% API
 -export([init/2]).
@@ -27,8 +27,8 @@ init(Req0, [ApplicationPid]) ->
         {_Req, Data} = nerl_tools:multipart(Req0, []),       %% Data = [FileName1, FileName2]
         ApplicationPid ! {jsonAddress,{lists:nth(1, Data),lists:nth(2, Data)}};
     _Other -> 
-        {ok,Body,_} = cowboy_req:read_body(Req0),
-        io:format("got Req: ~p~nData: ~p~n",[Req0, Body])
+        {ok,Body,_} = cowboy_req:read_body(Req0)
+        % io:format("got Req: ~p~nData: ~p~n",[Req0, Body])
   end,
 
   Reply = io_lib:format("nerlnet starting", []),

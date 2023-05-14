@@ -1,6 +1,7 @@
 %% erl logger
 -include_lib("kernel/include/logger.hrl").
--define(LOG_HEADER, lists:flatten(io_lib:format("~p", [maps:get(mfa, ?LOCATION)])) ++ "@" ++ integer_to_list(maps:get(line, ?LOCATION)) ++ ": " ).
+%% HEADER format example: "nerlNetServer_app/start@52: MES"
+-define(LOG_HEADER, atom_to_list(?MODULE) ++ "/" ++ atom_to_list(?FUNCTION_NAME) ++ "@" ++ integer_to_list(?LINE) ++ ": " ).
 
 %% init process defines
 -define(NERLNET_INIT_PORT,8484).
@@ -21,3 +22,14 @@
 %% workerFSM defines
 -define(MODE_REGULAR, 0).
 -define(MODE_FEDERATED, 1).
+
+%% nerlNIF defines
+-define(NERLNET_LIB,"libnerlnet").
+-define(NERLNET_PATH,"/usr/local/lib/nerlnet-lib/NErlNet").
+-define(BUILD_TYPE_DEBUG,"debug").
+-define(BUILD_TYPE_RELEASE,"/build/release").
+% nif return timeouts
+-define(PREDICT_TIMEOUT,10000). % 10 seconds limit for prediction results
+-define(TRAIN_TIMEOUT,20000). % 20 seconds limit for prediction results
+% nerltensor
+-define(NUMOF_DIMS,3).

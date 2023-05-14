@@ -1,6 +1,7 @@
 -module(nerlNIF).
 -include_lib("kernel/include/logger.hrl").
 -include("nerlTensor.hrl").
+-include("../Communication_Layer/http_Nerlserver/src/nerl_tools.hrl").
 
 -export([init/0,create_nif/6,train_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
@@ -8,20 +9,7 @@
 -export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
 -export([erl_type_conversion/1]).
 
--define(FILE_IDENTIFIER,"[NERLNIF] ").
--define(NERLNET_LIB,"libnerlnet").
--define(NERLNET_PATH,"/usr/local/lib/nerlnet-lib/NErlNet").
--define(BUILD_TYPE_DEBUG,"debug").
--define(BUILD_TYPE_RELEASE,"/build/release").
-
--define(THIS_FILE_PATH_RELATIVE_TO_PROJECT_ROOT,"src_erl"). % if this file moves to inner place than update this define
 -on_load(init/0).
-
--define(PREDICT_TIMEOUT,10000). % 10 seconds limit for prediction results
--define(TRAIN_TIMEOUT,20000). % 20 seconds limit for prediction results
-
-%nerltensor
--define(NUMOF_DIMS,3).
 
 -export([nerltensor_sum_nif/3, nerltensor_sum_erl/2]).
 -export([nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
@@ -51,7 +39,7 @@ call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Wo
                   %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
                   gen_statem:cast(WorkerPid,{loss, Ret}) % TODO @Haran - please check what worker does with this Ret value 
             after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
-                  logger:error(?FILE_IDENTIFIER++"Worker train timeout reached! ~n "),
+                  ?LOG_ERROR(?LOG_HEADER++"Worker train timeout reached! setting loss = -1~n "),
                   gen_statem:cast(WorkerPid,{loss, -1.0})
       end.
 
@@ -61,7 +49,7 @@ call_to_predict(ModelID, Data, WorkerPid,CSVname, BatchID)->
             Ret-> gen_statem:cast(WorkerPid,{predictRes,Ret,CSVname, BatchID}) % TODO @Haran - please check what worker does with this Ret value 
             after ?PREDICT_TIMEOUT -> 
                  % worker miss predict batch  TODO - inspect this code
-                  logger:error(?FILE_IDENTIFIER++"Worker prediction timeout reached! ~n "),
+                  ?LOG_ERROR(?LOG_HEADER++"Worker prediction timeout reached! ~n "),
                   gen_statem:cast(WorkerPid,{predictRes, nan, CSVname, BatchID})
       end.
 
@@ -73,7 +61,7 @@ call_to_get_weights(ModelID)->
                   Ret->Ret
                   % io:format("Ret= ~p~n ",[Ret])
             end
-      catch Err:E -> logger:error(?FILE_IDENTIFIER++"Couldnt get weights from worker~n~p~n",{Err,E}),
+      catch Err:E -> ?LOG_ERROR(?LOG_HEADER++"Couldnt get weights from worker~n~p~n",{Err,E}),
             []
       end.
 
