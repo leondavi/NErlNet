@@ -482,9 +482,8 @@ ack(NerlnetGraph) ->
 %%  send an ACK to mainserver that the CSV file is ready
   nerl_tools:http_request(Host, Port,"ackP","ack").
 
-getCSVName(InputName) ->
-  lists:last(re:split(InputName, "/", [{return, list}])--[[]]).
-
+% getCSVName(InputName) ->
+%   lists:last(re:split(InputName, "/", [{return, list}])--[[]]).
 
 %%this function takes a batch of samples, calculate the samples id and writes them to a file
 % writeToFile(ListOfSamples,BatchID,CSVName,BatchSize)->

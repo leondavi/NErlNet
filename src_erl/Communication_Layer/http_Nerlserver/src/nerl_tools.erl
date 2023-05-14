@@ -1,9 +1,12 @@
 -module(nerl_tools).
 
+-include("nerl_tools.hrl").
+
 -export([setup_logger/1]).
 -export([start_connection/1, http_request/4, getHostPort/5, getShortPath/3]).
 -export([string_to_list_int/1, deleteOldJson/1]).
 -export([multipart/2, read_all_data/2]).
+-export([getdeviceIP/0]).
 
 setup_logger(Module) ->
   logger:add_handler(Module, Module, #{}), 
@@ -49,7 +52,7 @@ case cowboy_req:read_part(Req0) of
         {Req, BodyData} =
             case cow_multipart:form_data(Headers) of
                 %% The multipart message contains normal/basic data
-                {data, _FieldName} -> {_Req2, Data} = read_all_data(Req1,<<>>);
+                {data, _FieldName} -> {_Req2, Data} = read_all_data(Req1,[]);
                 %% The message contains a file, write it to "FieldName"
                 {file, FieldName, _Filename, _CType} ->
                     {ok, File} = file:open(FieldName, [append]),
@@ -60,7 +63,7 @@ case cowboy_req:read_part(Req0) of
     {done, Req} -> {Req, Data}
 end.
 
-%% writes the input stream to file, File needs to be opened with append option
+%% writes the input stream to file, "File" needs to be opened with 'append' option
 stream_file(Req0, File) ->
     case cowboy_req:read_part_body(Req0) of
         {ok, LastBodyChunk, Req} ->
@@ -84,3 +87,43 @@ deleteOldJson(FilePath) ->
   try   file:delete(FilePath)
   catch {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[FilePath, E])
   end.
+
+% get this host ip 
+getdeviceIP() ->
+    {ok, IFList} = inet:getifaddrs(),    % IFList format: [{IF_name, [{field, param},{},...]},...]
+    SubnetsList = getNerlSubnets(),
+    getdeviceIP(IFList, SubnetsList).
+
+getdeviceIP([], SubnetsList) ->
+    ?LOG_ERROR(?LOG_HEADER++"No supported interface was found. Current supported interfaces list is: ~p.~nEdit subnets.nerlconfig file to include your network",[SubnetsList]);
+getdeviceIP([IF|IFList], SubnetsList) ->
+    {_IF_name, Params} = IF,
+    try
+        {addr, IF_addr} = lists:keyfind(addr, 1, Params),   % address format: {num, num, num, num}
+        DeviceIP = isAddrInSubnets(IF_addr, SubnetsList),
+        case DeviceIP of
+            notFound -> getdeviceIP(IFList, SubnetsList);
+            IP -> IP
+        end
+    catch error:_E -> getdeviceIP(IFList, SubnetsList)
+    end.
+
+getNerlSubnets() ->
+    {ok, Data} = file:read_file(?SUBNETS_CONFIG_ADDR),
+    Lines = string:split(binary_to_list(Data), "\n", all),
+    Subnets = [Subnet || Subnet <- Lines, hd(Subnet) /= $#],
+    lists:sort(Subnets).
+
+isAddrInSubnets(_IF_addr, []) -> notFound;
+isAddrInSubnets(IF_addr, [Subnet|SubnetsList]) ->
+    %convert IF_addr to IP string
+    IP_LIST = tuple_to_list(IF_addr),
+    A = lists:flatten(io_lib:format("~p", [IP_LIST])),
+    Subbed = lists:sublist(A,2,length(A)-2),
+    IPString = lists:flatten(string:replace(Subbed,",",".",all)),
+    % io:format("comparing ~p=~p~n",[IPString, Subnet]),
+    IPMatch = lists:prefix(Subnet, IPString),
+    case IPMatch of
+        false -> isAddrInSubnets(IF_addr, SubnetsList);
+        true -> IPString
+    end.

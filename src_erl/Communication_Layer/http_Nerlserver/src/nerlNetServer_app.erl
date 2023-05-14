@@ -20,7 +20,7 @@
 -behaviour(application).
 -include("nerl_tools.hrl").
 
--export([start/2, stop/1, getdeviceIP/0]).
+-export([start/2, stop/1]).
 
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
@@ -47,7 +47,7 @@ start(_StartType, _StartArgs) ->
     %% setup the erlang logger for this module 
     nerl_tools:setup_logger(?MODULE),
     
-    HostName = getdeviceIP(),
+    HostName = nerl_tools:getdeviceIP(),
     %HostName = "127.0.0.1",        %TODO: update jsons with real ips
     ?LOG_INFO(?LOG_HEADER++"This device IP: ~p~n", [HostName]),
     %Create a listener that waits for a message from python about the adresses of the wanted json
@@ -287,43 +287,3 @@ init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
 
 stop(_State) ->
     ok.
-
-% get this host ip 
-getdeviceIP() ->
-    {ok, IFList} = inet:getifaddrs(),    % IFList format: [{IF_name, [{field, param},{},...]},...]
-    SubnetsList = getNerlSubnets(),
-    getdeviceIP(IFList, SubnetsList).
-
-getdeviceIP([], SubnetsList) ->
-    ?LOG_ERROR(?LOG_HEADER++"No supported interface was found. Current supported interfaces list is: ~p.~nEdit subnets.nerlconfig file to include your network",[SubnetsList]);
-getdeviceIP([IF|IFList], SubnetsList) ->
-    {_IF_name, Params} = IF,
-    try
-        {addr, IF_addr} = lists:keyfind(addr, 1, Params),   % address format: {num, num, num, num}
-        DeviceIP = isAddrInSubnets(IF_addr, SubnetsList),
-        case DeviceIP of
-            notFound -> getdeviceIP(IFList, SubnetsList);
-            IP -> IP
-        end
-    catch error:_E -> getdeviceIP(IFList, SubnetsList)
-    end.
-
-getNerlSubnets() ->
-    {ok, Data} = file:read_file(?SUBNETS_CONFIG_ADDR),
-    Lines = string:split(binary_to_list(Data), "\n", all),
-    Subnets = [Subnet || Subnet <- Lines, hd(Subnet) /= $#],
-    lists:sort(Subnets).
-
-isAddrInSubnets(_IF_addr, []) -> notFound;
-isAddrInSubnets(IF_addr, [Subnet|SubnetsList]) ->
-    %convert IF_addr to IP string
-    IP_LIST = tuple_to_list(IF_addr),
-    A = lists:flatten(io_lib:format("~p", [IP_LIST])),
-    Subbed = lists:sublist(A,2,length(A)-2),
-    IPString = lists:flatten(string:replace(Subbed,",",".",all)),
-    % io:format("comparing ~p=~p~n",[IPString, Subnet]),
-    IPMatch = lists:prefix(Subnet, IPString),
-    case IPMatch of
-        false -> isAddrInSubnets(IF_addr, SubnetsList);
-        true -> IPString
-    end.

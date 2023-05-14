@@ -28,7 +28,7 @@ init(Req0, [ApplicationPid]) ->
   io:format("Body at iot Handler: ~p,~n", [Body]),
   %Notify the application that python is ready and send the addreses received in this http request:
   
-  Reply = io_lib:format("nerlnet_available#host_name#~p", [nerlNetServer_app:getdeviceIP()]),
+  Reply = io_lib:format("nerlnet_available#host_name#~p", [nerl_tools:getdeviceIP()]),
   io:format("reply: ~p~n", [Reply]),
 
   Req = cowboy_req:reply(200,
