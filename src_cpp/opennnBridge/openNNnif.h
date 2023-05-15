@@ -343,12 +343,11 @@ static ERL_NIF_TERM  nerltensor_scalar_multiplication_nif(ErlNifEnv* env, int ar
         {
             std::shared_ptr<fTensor2D> eigen_tensor;
             dims = nifpp::get_tensor_2d<float,fTensor2DPtr, fTensor2D>(env, argv[ARG_BINARY], eigen_tensor); // TODO - upgrade to 3d
-                        
             fTensor2DPtr eigen_tensor_res = make_shared<fTensor2D>(eigen_tensor->dimension(0), eigen_tensor->dimension(1));
             float scalarf = static_cast<float>(scalard);
             (*eigen_tensor_res) = (*eigen_tensor) * scalarf;
 
-            nifpp::make_tensor<float, fTensor2D>(env, nerltensor_bin, dims, eigen_tensor_res);
+            nifpp::make_tensor_2d<float, fTensor2D>(env, nerltensor_bin, dims, eigen_tensor_res);
             
             return_tuple =  { nerltensor_bin , nifpp::make(env, nerltensors_type) };
             break;
@@ -361,7 +360,7 @@ static ERL_NIF_TERM  nerltensor_scalar_multiplication_nif(ErlNifEnv* env, int ar
             dTensor2DPtr eigen_tensor_res = make_shared<dTensor2D>(eigen_tensor->dimension(0), eigen_tensor->dimension(1));
             (*eigen_tensor_res) = (*eigen_tensor) * scalard;
 
-            nifpp::make_tensor<double, dTensor2D>(env, nerltensor_bin, dims, eigen_tensor_res);
+            nifpp::make_tensor_2d<double, dTensor2D>(env, nerltensor_bin, dims, eigen_tensor_res);
             
             return_tuple =  { nerltensor_bin , nifpp::make(env, nerltensors_type) };
             break;
@@ -414,7 +413,7 @@ static ERL_NIF_TERM nerltensor_sum_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
             
             fTensor2DPtr eigen_tensor_c = make_shared<fTensor2D>(eigen_tensor_a->dimension(0), eigen_tensor_a->dimension(1));
             sum_eigen<fTensor2DPtr>(eigen_tensor_a, eigen_tensor_b, eigen_tensor_c);
-            nifpp::make_tensor<float, fTensor2D>(env, nerltensor_bin, dims, eigen_tensor_c);
+            nifpp::make_tensor_2d<float, fTensor2D>(env, nerltensor_bin, dims, eigen_tensor_c);
             
             return_tuple =  { nerltensor_bin , nifpp::make(env, nerltensors_type) };
             break;
@@ -429,7 +428,7 @@ static ERL_NIF_TERM nerltensor_sum_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
             dTensor2DPtr eigen_tensor_c = make_shared<dTensor2D>(eigen_tensor_a->dimension(0), eigen_tensor_a->dimension(1));
             sum_eigen<dTensor2DPtr>(eigen_tensor_a, eigen_tensor_b, eigen_tensor_c);
             
-            nifpp::make_tensor<double, dTensor2D>(env, nerltensor_bin, dims, eigen_tensor_c);
+            nifpp::make_tensor_2d<double, dTensor2D>(env, nerltensor_bin, dims, eigen_tensor_c);
             
             return_tuple =  { nerltensor_bin , nifpp::make(env, nerltensors_type) };
             break;
