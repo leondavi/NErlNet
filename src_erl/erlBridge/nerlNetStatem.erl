@@ -242,19 +242,19 @@ wait(cast, {set_weights,_Ret_weights_list}, State = #nerlNetStatem_state{nextSta
 
   {next_state, wait, State#nerlNetStatem_state{}};
 
-wait(cast, {predictRes,Res,CSVname,BatchID}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid, nextState = NextState,ackClient = AckClient}) ->
+wait(cast, {predictRes,NerlTensor, Type, TimeTook, CSVname,BatchID}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid, nextState = NextState,ackClient = AckClient}) ->
    % io:fwrite("~nworker got predict result ~p~n",[{predictRes,Res,CSVname,BatchID}]),
 
-  gen_statem:cast(ClientPid,{predictRes,MyName, CSVname,BatchID, Res}), %% TODO TODO change csv name and batch id(1)
+  gen_statem:cast(ClientPid,{predictRes,MyName, CSVname,BatchID, NerlTensor, Type, TimeTook}), %% TODO TODO change csv name and batch id(1)
   checkAndAck(MyName,ClientPid,AckClient),
-
+  % io:format("In Wait, done with predictRes, going to ~p",[NextState]),
   {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
 
-wait(cast, {predictRes,CSVname, BatchID, {RESULTS,_TimeCpp},_Time_NIF}, State = #nerlNetStatem_state{myName = MyName,ackClient = AckClient, clientPid = ClientPid, nextState = NextState}) ->
-  gen_statem:cast(ClientPid,{predictRes,MyName, CSVname, BatchID, RESULTS}), %% TODO Add Time and Time_NIF to the cast
-  checkAndAck(MyName,ClientPid,AckClient),
+% wait(cast, {predictRes,CSVname, BatchID, {RESULTS,_TimeCpp},_Time_NIF}, State = #nerlNetStatem_state{myName = MyName,ackClient = AckClient, clientPid = ClientPid, nextState = NextState}) ->
+%   gen_statem:cast(ClientPid,{predictRes,MyName, CSVname, BatchID, RESULTS}), %% TODO Add Time and Time_NIF to the cast
+%   checkAndAck(MyName,ClientPid,AckClient),
 
-  {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
+%   {next_state, NextState, State#nerlNetStatem_state{ackClient = 0}};
 
 wait(cast, {idle}, State) ->
   %logger:notice(?FILE_IDENTIFIER++"Waiting, next state - idle"),
@@ -275,7 +275,10 @@ wait(cast, {sample, _SampleListTrain}, State = #nerlNetStatem_state{missedSample
   {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1}};
 
 wait(cast, {sample,_CSVname, _BatchID, _SampleListPredict}, State = #nerlNetStatem_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = _MissedTrainSamples}) ->
+  % throw("got sample while calculating"),
   ?LOG_NOTICE(?LOG_HEADER++"Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
+  % ?LOG_NOTICE(?LOG_HEADER++"Missed in pid: ~p, Missed Samples: ~p\n",[self(), SampleListPredict]),
+  
   % Miss = MissedTrainSamples++SampleListTrain,
   {next_state, wait, State#nerlNetStatem_state{missedSamplesCount = MissedSamplesCount+1}};
 
@@ -290,10 +293,10 @@ train(cast, {sample, []}, State ) ->
   
 %% Change SampleListTrain to NerlTensor
 train(cast, {sample, {SampleListTrain, Type}}, State = #nerlNetStatem_state{modelId = ModelId, optimizer = Optimizer, lossMethod = LossMethod, learningRate = LearningRate}) ->
-    ErlTensor = nerlNIF:nerltensor_conversion({SampleListTrain, Type}, erl_float),  %% for debug
-    io:format("Got ErlTensor: ~p~n",[ErlTensor]),
+    % ErlTensor = nerlNIF:nerltensor_conversion({SampleListTrain, Type}, erl_float),  %% for debug
+    % io:format("Got ErlTensor: ~p~n",[ErlTensor]),
     MyPid = self(),
-    _Pid = spawn(fun()-> nerlNIF:call_to_train(ModelId, Optimizer , LossMethod , LearningRate , SampleListTrain ,MyPid) end),
+    _Pid = spawn(fun()-> nerlNIF:call_to_train(ModelId, Optimizer , LossMethod , LearningRate , {SampleListTrain, Type} ,MyPid) end),
     {next_state, wait, State#nerlNetStatem_state{nextState = train}};
   
 
@@ -326,9 +329,9 @@ predict(cast, {sample,_CSVname, _BatchID, []}, State = #nerlNetStatem_state{}) -
   {next_state, predict, State#nerlNetStatem_state{nextState = predict}};
 
 % send predict sample to worker
-predict(cast, {sample,CSVname, BatchID, SampleListPredict}, State = #nerlNetStatem_state{ modelId = ModelId}) ->
+predict(cast, {sample,CSVname, BatchID, {PredictBatchTensor, Type}}, State = #nerlNetStatem_state{ modelId = ModelId}) ->
     CurrPID = self(),
-    _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId,SampleListPredict,CurrPID,CSVname, BatchID) end),
+    _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId,PredictBatchTensor, Type,CurrPID,CSVname, BatchID) end),
     {next_state, wait, State#nerlNetStatem_state{nextState = predict}};
   
 predict(cast, {idle}, State = #nerlNetStatem_state{myName = MyName, clientPid = ClientPid}) ->
