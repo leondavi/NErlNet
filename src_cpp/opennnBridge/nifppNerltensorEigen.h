@@ -5,34 +5,56 @@
 
 namespace nifpp
 {
+    enum {NERL_TENSOR_DIMS = 3, CASE_1D = 1, CASE_2D =2, CASE_3D = 3};
+
     int atom_str_to_enum(str_atom in_str);
     template<typename BasicType> int get_actual_dim(std::vector<BasicType> &dims);
-    template<typename BasicType, typename EigenType> void make_tensor(ErlNifEnv *env , nifpp::TERM &ret_bin_term, int dims, std::shared_ptr<EigenType> &tensor_ptr, bool convert_to_rowmajor = true);
     template<typename BasicType, typename EigenTypePtr, typename EigenType> int get_tensor_1d(ErlNifEnv *env , ERL_NIF_TERM bin_term, EigenTypePtr &tensor_ptr);
     template<typename BasicType, typename EigenTypePtr, typename EigenType> int get_tensor_2d(ErlNifEnv *env , ERL_NIF_TERM bin_term, EigenTypePtr &tensor_ptr);
     template<typename BasicType, typename EigenTypePtr, typename EigenType> int get_tensor_3d(ErlNifEnv *env , ERL_NIF_TERM bin_term, EigenTypePtr &tensor_ptr);
 
-    template<typename BasicType, typename EigenType3D> void colmajor_to_rowjmajor_3d(std::shared_ptr<EigenType3D> &tensor_ptr_col_major, std::shared_ptr<Tensor<BasicType, 3, Eigen::RowMajor>> &tensor_ptr_row_major);
-    template<typename BasicType, typename EigenType2D> void colmajor_to_rowjmajor_2d(std::shared_ptr<EigenType2D> &tensor_ptr_col_major, std::shared_ptr<Tensor<BasicType, 2, Eigen::RowMajor>> &tensor_ptr_row_major);
-    
+    template<typename BasicType, typename EigenType3D> void colmajor_to_rowmajor_3d(std::shared_ptr<EigenType3D> &tensor_ptr_col_major, std::shared_ptr<Tensor<BasicType, 3, Eigen::RowMajor>> &tensor_ptr_row_major);
+    template<typename BasicType, typename EigenType2D> void colmajor_to_rowmajor_2d(std::shared_ptr<EigenType2D> &tensor_ptr_col_major, std::shared_ptr<Tensor<BasicType, 2, Eigen::RowMajor>> &tensor_ptr_row_major);
+    template<typename BasicType, typename EigenType3D> void rowmajor_to_colmajor_3d(std::shared_ptr<Tensor<BasicType, 3, Eigen::RowMajor>> &tensor_ptr_row_major, std::shared_ptr<EigenType3D> &tensor_ptr_col_major);
+    template<typename BasicType, typename EigenType2D> void rowmajor_to_colmajor_2d(std::shared_ptr<Tensor<BasicType, 2, Eigen::RowMajor>> &tensor_ptr_row_major, std::shared_ptr<EigenType2D> &tensor_ptr_col_major);
+
+    template<typename BasicType, typename EigenType> void make_tensor_3d(ErlNifEnv *env , nifpp::TERM &ret_bin_term, int dims, std::shared_ptr<EigenType> &tensor_ptr, bool convert_to_rowmajor = true);
+    template<typename BasicType, typename EigenType> void make_tensor_2d(ErlNifEnv *env , nifpp::TERM &ret_bin_term, int dims, std::shared_ptr<EigenType> &tensor_ptr, bool convert_to_rowmajor = true);
+    template<typename BasicType, typename EigenType> void make_tensor_1d(ErlNifEnv *env , nifpp::TERM &ret_bin_term, int dims, std::shared_ptr<EigenType> &tensor_ptr);
+
  
-    template<typename BasicType, typename EigenType3D> void colmajor_to_rowjmajor_3d(std::shared_ptr<EigenType3D> &tensor_ptr_col_major, std::shared_ptr<Tensor<BasicType, 3, Eigen::RowMajor>> &tensor_ptr_row_major)
+    template<typename BasicType, typename EigenType3D> void colmajor_to_rowmajor_3d(std::shared_ptr<EigenType3D> &tensor_ptr_col_major, std::shared_ptr<Tensor<BasicType, 3, Eigen::RowMajor>> &tensor_ptr_row_major)
     {
        int dimx = static_cast<int>(tensor_ptr_col_major->dimension(0));
        int dimy = static_cast<int>(tensor_ptr_col_major->dimension(1));
        int dimz = static_cast<int>(tensor_ptr_col_major->dimension(2));
-       Eigen::TensorMap<Tensor<BasicType, 3, Eigen::RowMajor> > row_major(tensor_ptr_col_major->data(), dimy, dimx, dimz );        
-       tensor_ptr_row_major = std::make_shared<Tensor<BasicType,3, Eigen::RowMajor>>(dimy , dimx , dimz);
-       *tensor_ptr_row_major = row_major;
+       tensor_ptr_row_major = std::make_shared<Tensor<BasicType, 3, Eigen::RowMajor>>(dimx , dimy, dimz);
+       *tensor_ptr_row_major = tensor_ptr_col_major->swap_layout().shuffle(Eigen::make_index_list(2, 1, 0));
     }
 
-    template<typename BasicType, typename EigenType2D> void colmajor_to_rowjmajor_2d(std::shared_ptr<EigenType2D> &tensor_ptr_col_major, std::shared_ptr<Tensor<BasicType, 2, Eigen::RowMajor>> &tensor_ptr_row_major)
+    template<typename BasicType, typename EigenType2D> void colmajor_to_rowmajor_2d(std::shared_ptr<EigenType2D> &tensor_ptr_col_major, std::shared_ptr<Tensor<BasicType, 2, Eigen::RowMajor>> &tensor_ptr_row_major)
     {
        int dimx = static_cast<int>(tensor_ptr_col_major->dimension(0));
        int dimy = static_cast<int>(tensor_ptr_col_major->dimension(1));
-       Eigen::TensorMap<Tensor<BasicType, 2, Eigen::RowMajor> > row_major(tensor_ptr_col_major->data(),dimy, dimx);        
-       tensor_ptr_row_major = std::make_shared<Tensor<BasicType, 2, Eigen::RowMajor>>(dimy , dimx);
-       *tensor_ptr_row_major = row_major;
+       tensor_ptr_row_major = std::make_shared<Tensor<BasicType, 2, Eigen::RowMajor>>(dimx , dimy);
+       *tensor_ptr_row_major = tensor_ptr_col_major->swap_layout().shuffle(Eigen::make_index_list(1, 0));
+    }
+
+    template<typename BasicType, typename EigenType3D> void rowmajor_to_colmajor_3d(std::shared_ptr<Tensor<BasicType, 3, Eigen::RowMajor>> &tensor_ptr_row_major, std::shared_ptr<EigenType3D> &tensor_ptr_col_major)
+    {
+       int dimx = static_cast<int>(tensor_ptr_row_major->dimension(0));
+       int dimy = static_cast<int>(tensor_ptr_row_major->dimension(1));
+       int dimz = static_cast<int>(tensor_ptr_row_major->dimension(2));
+       tensor_ptr_col_major = std::make_shared<EigenType3D>(dimx , dimy, dimz);
+       *tensor_ptr_col_major = tensor_ptr_row_major->swap_layout().shuffle(Eigen::make_index_list(2, 1, 0));
+    }
+
+    template<typename BasicType, typename EigenType2D> void rowmajor_to_colmajor_2d(std::shared_ptr<Tensor<BasicType, 2, Eigen::RowMajor>> &tensor_ptr_row_major, std::shared_ptr<EigenType2D> &tensor_ptr_col_major)
+    {
+       int dimx = static_cast<int>(tensor_ptr_row_major->dimension(0));
+       int dimy = static_cast<int>(tensor_ptr_row_major->dimension(1));
+       tensor_ptr_col_major = std::make_shared<EigenType2D>(dimx , dimy);
+       *tensor_ptr_col_major = tensor_ptr_row_major->swap_layout().shuffle(Eigen::make_index_list(1, 0));
     }
 
     template<typename BasicType> int get_actual_dim(std::vector<BasicType> &dims)
@@ -49,7 +71,6 @@ namespace nifpp
     
     template<typename BasicType, typename TensorPtr> void dims_vec_from_tensor(TensorPtr &tensor_ptr, std::vector<BasicType> &dims_vec, int dims, int &tensor_total_size)
     {
-        enum {NERL_TENSOR_DIMS = 3};
         dims_vec.resize(NERL_TENSOR_DIMS);
         tensor_total_size = 1;
 
@@ -67,14 +88,10 @@ namespace nifpp
         }
     }
 
-    template<typename BasicType, typename EigenType> void make_tensor(ErlNifEnv *env , nifpp::TERM &ret_bin_term, int dims, std::shared_ptr<EigenType> &tensor_ptr, bool convert_to_rowmajor)
+    template<typename BasicType, typename EigenType> void make_tensor_3d(ErlNifEnv *env , nifpp::TERM &ret_bin_term, int dims, std::shared_ptr<EigenType> &tensor_ptr, bool convert_to_rowmajor)
     {
-        enum {WRONG_DIM_ERR = -1, CASE_1D = 1, CASE_2D = 2, CASE_3D = 3};
-        enum {NERL_TENSOR_DIMS = 3};
-
         std::vector<BasicType> dims_vec;
         int tensor_total_size;
-
         dims_vec_from_tensor<BasicType,std::shared_ptr<EigenType>>(tensor_ptr, dims_vec, dims, tensor_total_size);
         
         size_t dim_size = NERL_TENSOR_DIMS * sizeof(BasicType);
@@ -84,43 +101,58 @@ namespace nifpp
 
         if (convert_to_rowmajor)
         {
-            switch (dims)
-            {
-                case CASE_1D:
-                {
-                    break; // same order of values for both cases
-                }
-                case CASE_2D:
-                {
-                    std::shared_ptr<Eigen::Tensor<BasicType,CASE_2D,Eigen::RowMajor>>  tensor_ptr_rowmaj;
-                    colmajor_to_rowjmajor_2d<BasicType, EigenType>(tensor_ptr, tensor_ptr_rowmaj);
-                    dims_vec_from_tensor<BasicType,std::shared_ptr<Eigen::Tensor<BasicType,CASE_2D,Eigen::RowMajor>>>(tensor_ptr_rowmaj, dims_vec, dims, tensor_total_size);
-                    data_bytes_ptr = tensor_ptr_rowmaj->data();
-                    // copy data
-                    std::memcpy(nifpp_bin.data, dims_vec.data(), dim_size);
-                    std::memcpy(nifpp_bin.data + dim_size, data_bytes_ptr, data_size);
-                    break;
-                }
-                case CASE_3D:
-                {
-                    std::shared_ptr<Eigen::Tensor<BasicType,CASE_3D,Eigen::RowMajor>>  tensor_ptr_rowmaj;
-                    colmajor_to_rowjmajor_3d<BasicType, EigenType>(tensor_ptr, tensor_ptr_rowmaj);
-                    dims_vec_from_tensor<BasicType,std::shared_ptr<Eigen::Tensor<BasicType,CASE_3D,Eigen::RowMajor>>>(tensor_ptr_rowmaj, dims_vec, dims, tensor_total_size);
-                    data_bytes_ptr = tensor_ptr_rowmaj->data();
-                     // copy data
-                    std::memcpy(nifpp_bin.data, dims_vec.data(), dim_size);
-                    std::memcpy(nifpp_bin.data + dim_size, data_bytes_ptr, data_size);
-                    break;
-                }
-                case WRONG_DIM_ERR:
-                {
-                    throw("Wrong dimension!");
-                    break;
-                }
-            }
+            std::shared_ptr<Eigen::Tensor<BasicType,CASE_3D,Eigen::RowMajor>>  tensor_ptr_rowmaj;
+            colmajor_to_rowmajor_3d<BasicType, Eigen::Tensor<BasicType,CASE_3D>>(tensor_ptr, tensor_ptr_rowmaj);
+            dims_vec_from_tensor<BasicType,std::shared_ptr<Eigen::Tensor<BasicType,CASE_3D,Eigen::RowMajor>>>(tensor_ptr_rowmaj, dims_vec, dims, tensor_total_size);
+            data_bytes_ptr = tensor_ptr_rowmaj->data();
+            // copy data
+            std::memcpy(nifpp_bin.data, dims_vec.data(), dim_size);
+            std::memcpy(nifpp_bin.data + dim_size, data_bytes_ptr, data_size);
         }
 
+        ret_bin_term = nifpp::make(env, nifpp_bin);
+    }
+
+
+    template<typename BasicType, typename EigenType> void make_tensor_2d(ErlNifEnv *env , nifpp::TERM &ret_bin_term, int dims, std::shared_ptr<EigenType> &tensor_ptr, bool convert_to_rowmajor)
+    {
+        std::vector<BasicType> dims_vec;
+        int tensor_total_size;
+        dims_vec_from_tensor<BasicType,std::shared_ptr<EigenType>>(tensor_ptr, dims_vec, dims, tensor_total_size);
+        
+        size_t dim_size = NERL_TENSOR_DIMS * sizeof(BasicType);
+        size_t data_size = tensor_total_size * sizeof(BasicType);
+        nifpp::binary nifpp_bin(dim_size + data_size);
+        void* data_bytes_ptr = tensor_ptr->data();
+        if (convert_to_rowmajor)
+        {
+            std::shared_ptr<Eigen::Tensor<BasicType,CASE_2D,Eigen::RowMajor>>  tensor_ptr_rowmaj;
+            colmajor_to_rowmajor_2d<BasicType, Eigen::Tensor<BasicType,CASE_2D>>(tensor_ptr, tensor_ptr_rowmaj);
+            dims_vec_from_tensor<BasicType,std::shared_ptr<Eigen::Tensor<BasicType,CASE_2D>>>(tensor_ptr, dims_vec, dims, tensor_total_size);
+            data_bytes_ptr = tensor_ptr_rowmaj->data();
+            
+            // copy data
+            std::memcpy(nifpp_bin.data, dims_vec.data(), dim_size);
+            std::memcpy(nifpp_bin.data + dim_size, data_bytes_ptr, data_size);
+        }
+
+        ret_bin_term = nifpp::make(env, nifpp_bin);
+    }
+
+    template<typename BasicType, typename EigenType> void make_tensor_1d(ErlNifEnv *env , nifpp::TERM &ret_bin_term, int dims, std::shared_ptr<EigenType> &tensor_ptr)
+    {
+        std::vector<BasicType> dims_vec;
+        int tensor_total_size;
+        dims_vec_from_tensor<BasicType,std::shared_ptr<EigenType>>(tensor_ptr, dims_vec, dims, tensor_total_size);
+        
+        size_t dim_size = NERL_TENSOR_DIMS * sizeof(BasicType);
+        size_t data_size = tensor_total_size * sizeof(BasicType);
+        nifpp::binary nifpp_bin(dim_size + data_size);
+        void* data_bytes_ptr = tensor_ptr->data();
+
         // copy data
+        std::memcpy(nifpp_bin.data, dims_vec.data(), dim_size);
+        std::memcpy(nifpp_bin.data + dim_size, data_bytes_ptr, data_size);
         ret_bin_term = nifpp::make(env, nifpp_bin);
     }
 
@@ -182,9 +214,9 @@ namespace nifpp
         int dimx = static_cast<int>(dims[DIMS_X_IDX]);
         int dimy = static_cast<int>(dims[DIMS_Y_IDX] * dims[DIMS_Z_IDX]);
         tensor_ptr = std::make_shared<Eigen::Tensor<BasicType, CASE_2D>>(dimx,dimy);  
-        Eigen::Tensor<BasicType, CASE_2D, Eigen::RowMajor> row_maj_tensor(dimx, dimy); 
-        memcpy(row_maj_tensor.data(), bin.data +  (DIMS_TOTAL * sizeof(BasicType)) , total_data_size * sizeof(BasicType));
-        *tensor_ptr = row_maj_tensor.swap_layout();
+        std::shared_ptr<Eigen::Tensor<BasicType, CASE_2D, Eigen::RowMajor>> row_maj_tensor = std::make_shared<Eigen::Tensor<BasicType, CASE_2D, Eigen::RowMajor>>(dimx, dimy); 
+        memcpy(row_maj_tensor->data(), bin.data +  (DIMS_TOTAL * sizeof(BasicType)) , total_data_size * sizeof(BasicType));
+        rowmajor_to_colmajor_2d<BasicType,Eigen::Tensor<BasicType, CASE_2D>>(row_maj_tensor, tensor_ptr);
         return CASE_2D;
     } 
 
@@ -212,10 +244,11 @@ namespace nifpp
         int dimx = static_cast<int>(dims[DIMS_X_IDX]);
         int dimy = static_cast<int>(dims[DIMS_Y_IDX]);
         int dimz = static_cast<int>(dims[DIMS_Z_IDX]);
-        tensor_ptr = std::make_shared<Eigen::Tensor<BasicType, CASE_3D>>(dimx,dimy,dimz);   
-        Eigen::Tensor<BasicType, CASE_3D, Eigen::RowMajor> row_maj_tensor(dimx, dimy, dimz); 
-        memcpy(row_maj_tensor.data(), bin.data +  (DIMS_TOTAL * sizeof(BasicType)) , total_data_size * sizeof(BasicType));
-        *tensor_ptr = row_maj_tensor.swap_layout();
+        tensor_ptr = std::make_shared<Eigen::Tensor<BasicType, CASE_3D>>(dimx,dimy,dimz);
+
+        std::shared_ptr<Eigen::Tensor<BasicType, CASE_3D, Eigen::RowMajor>> row_maj_tensor = std::make_shared<Eigen::Tensor<BasicType, CASE_3D, Eigen::RowMajor>>(dimx, dimy); 
+        memcpy(row_maj_tensor->data(), bin.data +  (DIMS_TOTAL * sizeof(BasicType)) , total_data_size * sizeof(BasicType));
+        rowmajor_to_colmajor_3d<BasicType,Eigen::Tensor<BasicType, CASE_2D>>(row_maj_tensor, tensor_ptr);
         return CASE_3D;
     } 
 
