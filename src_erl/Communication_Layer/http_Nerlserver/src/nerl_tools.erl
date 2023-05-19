@@ -7,6 +7,7 @@
 -export([string_to_list_int/1, deleteOldJson/1]).
 -export([multipart/2, read_all_data/2]).
 -export([getdeviceIP/0]).
+-export([string_format/2]).
 
 setup_logger(Module) ->
   logger:add_handler(Module, Module, #{}), 
@@ -127,3 +128,10 @@ isAddrInSubnets(IF_addr, [Subnet|SubnetsList]) ->
         false -> isAddrInSubnets(IF_addr, SubnetsList);
         true -> IPString
     end.
+
+string_format(Pattern, Values) ->
+    lists:flatten(io_lib:format(Pattern, Values)).
+
+%% TODO: add another timing map for NIF of each worker action
+
+%% TODO: create create_body func for standard message passing

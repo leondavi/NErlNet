@@ -1,9 +1,8 @@
 -module(nerlNIF).
 -include_lib("kernel/include/logger.hrl").
 -include("nerlTensor.hrl").
--include("../Communication_Layer/http_Nerlserver/src/nerl_tools.hrl").
 
--export([init/0,create_nif/6,train_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
+-export([init/0,create_nif/6,train_nif/6,call_to_train/6,predict_nif/3,call_to_predict/6,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
 -export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
@@ -25,13 +24,14 @@ init() ->
 create_nif(_ModelID, _ModelType , _ScalingMethod , _LayerTypesList , _LayersSizes , _LayersActivationFunctions) ->
       exit(nif_library_not_loaded).
 
-train_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor) ->
+train_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor,_Type) ->
       exit(nif_library_not_loaded).
 
-call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, WorkerPid)->
+call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, {DataTensor, Type}, WorkerPid)->
       % io:format("berfor train  ~n "),
        %io:format("DataTensor= ~p~n ",[DataTensor]),
-      _RetVal=train_nif(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor),
+       %{FakeTensor, Type} = nerltensor_conversion({[2.0,4.0,1.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0], erl_float}, float),
+      _RetVal=train_nif(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Type),
       %io:format("Train Time= ~p~n ",[RetVal]),
       receive
             Ret->
@@ -43,10 +43,19 @@ call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Wo
                   gen_statem:cast(WorkerPid,{loss, -1.0})
       end.
 
-call_to_predict(ModelID, Data, WorkerPid,CSVname, BatchID)->
-      _RetVal = predict_nif(ModelID, Data),
+call_to_predict(ModelID, BatchTensor, Type, WorkerPid,CSVname, BatchID)->
+      % io:format("satrting pred_nif~n"),
+      _RetVal = predict_nif(ModelID, BatchTensor, Type),
       receive
-            Ret-> gen_statem:cast(WorkerPid,{predictRes,Ret,CSVname, BatchID}) % TODO @Haran - please check what worker does with this Ret value 
+            
+            [PredNerlTensor, NewType, TimeTook]->
+                  % io:format("pred_nif done~n"),
+                  % {PredTen, _NewType} = nerltensor_conversion({PredNerlTensor, NewType}, erl_float),
+                  % io:format("Pred returned: ~p~n", [PredNerlTensor]),
+                  gen_statem:cast(WorkerPid,{predictRes,PredNerlTensor, NewType, TimeTook,CSVname, BatchID});
+            Error ->
+                  ?LOG_ERROR(?LOG_HEADER++"received wrong prediction_nif format:"++Error),
+                  throw("received wrong prediction_nif format")
             after ?PREDICT_TIMEOUT -> 
                  % worker miss predict batch  TODO - inspect this code
                   ?LOG_ERROR(?LOG_HEADER++"Worker prediction timeout reached! ~n "),
@@ -68,7 +77,7 @@ call_to_get_weights(ModelID)->
 call_to_set_weights(ModelID,Weights)->
       _RetVal = set_weights_nif(ModelID, Weights).
 
-predict_nif(_ModelID, _Data) ->
+predict_nif(_ModelID, _BatchTensor, _Type) ->
       exit(nif_library_not_loaded).
 
 get_weights_nif(_ModelID) ->

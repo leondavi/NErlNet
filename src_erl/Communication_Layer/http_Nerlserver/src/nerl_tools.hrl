@@ -28,8 +28,3 @@
 -define(NERLNET_PATH,"/usr/local/lib/nerlnet-lib/NErlNet").
 -define(BUILD_TYPE_DEBUG,"debug").
 -define(BUILD_TYPE_RELEASE,"/build/release").
-% nif return timeouts
--define(PREDICT_TIMEOUT,10000). % 10 seconds limit for prediction results
--define(TRAIN_TIMEOUT,20000). % 20 seconds limit for prediction results
-% nerltensor
--define(NUMOF_DIMS,3).

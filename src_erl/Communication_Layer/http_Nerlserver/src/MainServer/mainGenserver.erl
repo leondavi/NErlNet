@@ -10,7 +10,7 @@
 -author("kapelnik").
 
 -behaviour(gen_server).
--include_lib("kernel/include/logger.hrl").
+-include("../nerl_tools.hrl").
 
 %% API
 -export([start_link/1]).
@@ -287,61 +287,29 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, 
   end,
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
-% handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSize, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
-%    io:format("predict result : ~n~p~n",[Body]),
-
-%   {InputName,BatchID,Result}=binary_to_term(Body),
-%   if (Result==[]) ->
-%         ListOfResults = ["error"||_<-lists:seq(1,BatchSize)];
-%       true ->
-%        ListOfResults = re:split(Result, ",", [{return, list}])
-%   end,
-
-%   %%  io:format("predictRes- length(ListOfResults): ~p~n{InputName,BatchID,Result} ~p ~n",[length(ListOfResults),{InputName,BatchID,Result}]),
-% %%      io:format("predictResID- ~p~n",[BatchID]),
-
-%       % io:format("Main Server got predictRes:InputName- ~p ResultID: ~p Result: ~p~n",[InputName,ResultID,Result]),
-%       CSVName = getCSVName(InputName),
-%       %%  file:write_file("./output/"++"predict"++CSVName, ResultID++" " ++Result++"\n", [append]),
-%       io:format("writeToFile- ~p~n",[{ListOfResults,BatchID,CSVName,BatchSize}]),
-
-%       writeToFile(ListOfResults,BatchID,CSVName,BatchSize),
-
-
-%   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
 handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSize, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
-  try
+  try 
     {RouterHost,RouterPort} = nerl_tools:getShortPath("mainServer","serverAPI",NerlnetGraph),
     % io:format("sending predictRes to serverAPI {RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
 
-    {WorkerName,InputName,BatchID,Result}=binary_to_term(Body),
-    if (Result==[]) ->
-          _ListOfResults = ["error"||_<-lists:seq(1,BatchSize)];
-        true ->
-        _ListOfResults = re:split(Result, ",", [{return, list}])
-    end,
+    {WorkerName, InputName, BatchID, {NerlTensor, Type}} = binary_to_term(Body),   %% TODO: add convention with client
 
-  %%  io:format("predictRes- length(ListOfResults): ~p~n{InputName,BatchID,Result} ~p ~n",[length(ListOfResults),{InputName,BatchID,Result}]),
-%%      io:format("predictResID- ~p~n",[BatchID]),
+    {DecodedNerlTensor, _Type} =
+      if (NerlTensor==<<>>) -> ?LOG_ERROR(?LOG_HEADER++"Got empty tensor"), empty_nerltensor_err;
+          true -> 
+            nerlNIF:nerltensor_conversion({NerlTensor, Type}, nerlNIF:erl_type_conversion(Type))
+           end,
+      %% IDX_WORKER = 0,IDX_BATCH_SIZE = 1,IDX_BATCHID = 2,IDX_CSVNAME = 3,IDX_PREDS = 4
+      ListToSend = [WorkerName, integer_to_list(BatchID), integer_to_list(BatchSize), InputName, nerl_tools:string_format("~p",[DecodedNerlTensor])],
 
-      % io:format("Main Server got predictRes:InputName- ~p ResultID: ~p Result: ~p~n",[InputName,ResultID,Result]),
-      % CSVName = getCSVName(InputName),
-      %%  file:write_file("./output/"++"predict"++CSVName, ResultID++" " ++Result++"\n", [append]),
-      % writeToFile(ListOfResults,BatchID,CSVName,BatchSize),
+      ToSend = tl(lists:flatten(["#"++Item || Item <- ListToSend])),
 
-      %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-      %%  send an ACK to mainserver that the CSV file is ready
-      %FloatsString = [float_to_list(Float)++","||Float<-ListOfResults],
-      ToSend=WorkerName++"#"++Result++"#"++integer_to_list(BatchID)++"#"++InputName++"#"++integer_to_list(BatchSize),
     %  io:format("predictResID- ~p~n",[ToSend]),
     nerl_tools:http_request(RouterHost,RouterPort,"predRes",ToSend)
-  catch Err:E ->
-          io:format("Error receiving predict result ~p~n",[{Err,E}])
+  catch Err:E ->  ?LOG_ERROR(?LOG_HEADER++"Error receiving predict result ~p~n",[{Err,E}])
   end,
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
-
-
 
 
 handle_cast(Request, State = #main_genserver_state{}) ->

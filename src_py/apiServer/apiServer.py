@@ -12,6 +12,7 @@ import pandas as pd
 import sys
 import numpy as np
 import os
+import subprocess
 
 from jsonDirParser import JsonDirParser
 from transmitter import Transmitter
@@ -91,13 +92,16 @@ PREDICTION_STR = "Prediction"
         print("Using the address from the architecture JSON file for the receiver.")
         print(f"(http://{globe.components.receiverHost}:{globe.components.receiverPort})\n")
 
-        if not hasattr(self, 'receiverThread'):
-            self.receiverProblem = threading.Event()
-            self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
-            self.receiverThread.start()   
-            self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
 
-        elif (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
+        receiverAlive = subprocess.run(["lsof", f"-i -P -n | grep -wc {globe.components.receiverPort}"], stdout=subprocess.PIPE)
+        assert not receiverAlive.stdout, f"Reciever port {globe.components.receiverPort} is already being used"
+
+        self.receiverProblem = threading.Event()
+        self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
+        self.receiverThread.start()   
+        self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
+
+        if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
             print("Failed to initialize the receiver using the provided address.\n\
 Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
             sys.exit()
@@ -176,7 +180,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         print("\nSending data to sources")
         # <num of sources> Acks for updateCSV():
         globe.pendingAcks += len(globe.components.sources) 
-
+        print(f"waiting for {globe.pendingAcks} acks from {len(globe.components.sources)} sources")
         self.transmitter.updateCSV(phase)
 
         while globe.pendingAcks > 0:
@@ -352,10 +356,11 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             # Generate the samples' indexes from the results:
             for worker in sourceCSV.workersResList:
                 for batchRes in worker.resList:
-                    samples = batchRes.indexRange   # (startSampNum, endSampNum)
+                    batchRanges = batchRes.indexRange   # (startSampNum, endSampNum)
                     
-                    for ind, sample in enumerate(range(samples[0], samples[1])):
+                    for ind, sample in enumerate(range(batchRanges[0], batchRanges[1])):
                         for label in range(labelsLen):
+                            print(f"ind={ind}, label={label}")
                             trueLabels[label].append(str(labelsSeries.iloc[sample,label]))
                             predlabels[label].append(str(round(batchRes.predictions[ind][label])))
                 
