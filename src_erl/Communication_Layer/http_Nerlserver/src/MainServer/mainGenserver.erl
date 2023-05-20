@@ -290,23 +290,26 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, 
 
 handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSize, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
   try 
-    {RouterHost,RouterPort} = nerl_tools:getShortPath("mainServer","serverAPI",NerlnetGraph),
-    % io:format("sending predictRes to serverAPI {RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
+      {RouterHost,RouterPort} = nerl_tools:getShortPath("mainServer","serverAPI",NerlnetGraph),
+      % io:format("sending predictRes to serverAPI {RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
 
-    {WorkerName, InputName, BatchID, {NerlTensor, Type}} = binary_to_term(Body),   %% TODO: add convention with client
+      {WorkerName, InputName, BatchID, {NerlTensor, Type}} = binary_to_term(Body),   %% TODO: add convention with client
+      
+      % io:format("Got Tensor: {~p, ~p}~n",[NerlTensor, Type]),
 
-    {DecodedNerlTensor, _Type} =
+      {DecodedNerlTensor, _Type} =
       if (NerlTensor==<<>>) -> ?LOG_ERROR(?LOG_HEADER++"Got empty tensor"), empty_nerltensor_err;
-          true -> 
-            nerlNIF:nerltensor_conversion({NerlTensor, Type}, nerlNIF:erl_type_conversion(Type))
-           end,
+          true ->  nerlNIF:nerltensor_conversion({NerlTensor, Type}, nerlNIF:erl_type_conversion(Type)) end,
+
+      % io:format("Decoded NerlTensor: ~p~n",[DecodedNerlTensor]),    
+      XDim = integer_to_list(round(hd(DecodedNerlTensor))), %% returns XDim of this tensor
       %% IDX_WORKER = 0,IDX_BATCH_SIZE = 1,IDX_BATCHID = 2,IDX_CSVNAME = 3,IDX_PREDS = 4
-      ListToSend = [WorkerName, integer_to_list(BatchID), integer_to_list(BatchSize), InputName, nerl_tools:string_format("~p",[DecodedNerlTensor])],
+      ListToSend = [WorkerName, integer_to_list(BatchID), XDim, InputName, nerl_tools:string_format("~p",[DecodedNerlTensor])],
 
       ToSend = tl(lists:flatten(["#"++Item || Item <- ListToSend])),
 
-    %  io:format("predictResID- ~p~n",[ToSend]),
-    nerl_tools:http_request(RouterHost,RouterPort,"predRes",ToSend)
+      % io:format("predictResID- ~p~n",[ToSend]),
+      nerl_tools:http_request(RouterHost,RouterPort,"predRes",ToSend)
   catch Err:E ->  ?LOG_ERROR(?LOG_HEADER++"Error receiving predict result ~p~n",[{Err,E}])
   end,
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};

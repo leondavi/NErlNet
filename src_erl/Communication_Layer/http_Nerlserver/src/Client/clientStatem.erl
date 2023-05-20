@@ -156,9 +156,7 @@ idle(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
 
 
 training(cast, {sample,[]}, State = #client_statem_state{msgCounter = Counter}) ->
-
   io:format("client got empty Vector~n",[]),
-
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
 training(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap,timingMap = TimingMap}) ->

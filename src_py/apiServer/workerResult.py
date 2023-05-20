@@ -31,7 +31,7 @@ class PredictBatch():
             for j in range(y):
                 self.predictions[i].append(float(preds[i*y+j]))
 
-        self.indexRange = ((self.batchSize*self.batchId), (self.batchSize*(self.batchId)+x*y*z))
+        self.indexRange = ((self.batchSize*self.batchId), (self.batchSize*(self.batchId)+x)-1)
 
     def fixOffset(self, offset):
         self.indexRange = (self.indexRange[0]+offset, self.indexRange[1]+offset)

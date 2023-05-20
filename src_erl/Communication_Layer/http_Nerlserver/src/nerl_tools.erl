@@ -2,12 +2,12 @@
 
 -include("nerl_tools.hrl").
 
--export([setup_logger/1]).
+-export([setup_logger/1, string_format/2]).
 -export([start_connection/1, http_request/4, getHostPort/5, getShortPath/3]).
 -export([string_to_list_int/1, deleteOldJson/1]).
 -export([multipart/2, read_all_data/2]).
 -export([getdeviceIP/0]).
--export([string_format/2]).
+-export([list_to_numeric/1]).
 
 setup_logger(Module) ->
   logger:add_handler(Module, Module, #{}), 
@@ -131,6 +131,16 @@ isAddrInSubnets(IF_addr, [Subnet|SubnetsList]) ->
 
 string_format(Pattern, Values) ->
     lists:flatten(io_lib:format(Pattern, Values)).
+
+list_to_numeric(Num) when is_float(Num) -> {Num, float};
+list_to_numeric(Num) when is_integer(Num) -> {Num, integer};
+list_to_numeric(L) ->
+  Float = (catch erlang:list_to_float(L)),
+  Int = (catch erlang:list_to_integer(L)),
+  if is_number(Float) -> {Float, float};
+    is_number(Int) -> {Int, integer};
+    true -> throw("couldnt_convert "++L)
+  end.
 
 %% TODO: add another timing map for NIF of each worker action
 

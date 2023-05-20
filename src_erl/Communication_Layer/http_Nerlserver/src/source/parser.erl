@@ -84,7 +84,7 @@ decodeListOfLists([Head|Tail],Ret) ->
   decodeListOfLists(Tail,Ret++[decodeFloatsList(Head)]).
 
 encodeListOfListsNerlTensor(L, TargetBinaryType, XDim, YDim, ZDim)->
-  {_Num, Type} = list_to_numeric(hd(hd(L))),
+  {_Num, Type} = nerl_tools:list_to_numeric(hd(hd(L))),
   
   ErlType =
     case Type of 
@@ -95,8 +95,13 @@ encodeListOfListsNerlTensor(L, TargetBinaryType, XDim, YDim, ZDim)->
   encodeListOfListsNerlTensor(L, ErlType, TargetBinaryType, [], XDim, YDim, ZDim).
 
 encodeListOfListsNerlTensor([], _ErlType, _TargetBinaryType, Ret, _XDim, _YDim, _ZDim)-> Ret;
-encodeListOfListsNerlTensor([Head|Tail], ErlType, TargetBinaryType, Ret, XDim, YDim, ZDim)->
-  encodeListOfListsNerlTensor(Tail,ErlType,TargetBinaryType,Ret++[nerlNIF:nerltensor_conversion({[XDim, YDim, ZDim | Head], ErlType}, TargetBinaryType)], XDim, YDim, ZDim).
+encodeListOfListsNerlTensor([Head|Tail], ErlType, TargetBinaryType, Ret, _XDim, YDim, ZDim)->
+  XDim = length(Head)/YDim,  %% XDim is the number of samples in batch
+  if XDim == 0 -> encodeListOfListsNerlTensor(Tail,ErlType,TargetBinaryType,Ret, XDim, YDim, ZDim);   %% skip empty tensor
+  true ->
+    NewTensor = nerlNIF:nerltensor_conversion({[XDim, YDim, ZDim | Head], ErlType}, TargetBinaryType),%% create new tensor
+    encodeListOfListsNerlTensor(Tail,ErlType,TargetBinaryType,Ret++[NewTensor], XDim, YDim, ZDim)
+  end.
 
 
 %% UNUSED: return a binary representing a list of floats: List-> <<binaryofthisList>>
@@ -115,7 +120,7 @@ decodeEncodeFloatsListBin([H|ListOfFloats],Ret, XDim, YDim, ZDim)->
     [$.|Rest]     -> "0."++Rest;
     List          -> List
   end,
-  {NumToAdd, _Type} = list_to_numeric(Num),
+  {NumToAdd, _Type} = nerl_tools:list_to_numeric(Num),
 
     
   decodeEncodeFloatsListBin(ListOfFloats,<<Ret/binary,NumToAdd:64/float>>, XDim, YDim, ZDim).
@@ -135,17 +140,6 @@ decodeFloatsList([H|ListOfFloats],Ret)->
     [$.|Rest]     -> "0."++Rest;
     List          -> List
   end,
-  {NumToAdd, _Type} = list_to_numeric(Num),
+  {NumToAdd, _Type} = nerl_tools:list_to_numeric(Num),
     
   decodeFloatsList(ListOfFloats,Ret++[float(NumToAdd)]).     %% remove float() to keep mixed data type
-
-
-list_to_numeric(Num) when is_float(Num) -> {Num, float};
-list_to_numeric(Num) when is_integer(Num) -> {Num, integer};
-list_to_numeric(L) ->
-  Float = (catch erlang:list_to_float(L)),
-  Int = (catch erlang:list_to_integer(L)),
-  if is_number(Float) -> {Float, float};
-    is_number(Int) -> {Int, integer};
-    true -> throw("couldnt_convert "++L)
-  end.

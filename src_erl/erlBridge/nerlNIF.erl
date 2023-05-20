@@ -28,7 +28,7 @@ train_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor,_T
       exit(nif_library_not_loaded).
 
 call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, {DataTensor, Type}, WorkerPid)->
-      % io:format("berfor train  ~n "),
+      % io:format("before train  ~n "),
        %io:format("DataTensor= ~p~n ",[DataTensor]),
        %{FakeTensor, Type} = nerltensor_conversion({[2.0,4.0,1.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0], erl_float}, float),
       _RetVal=train_nif(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Type),
@@ -155,6 +155,7 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
             _ -> throw("wrong operation")
       end.
 
+%% get BinType (float, double...) -> ErlType (erl_float / erl_int)
 erl_type_conversion(BinType) ->
       {_, ErlType} = lists:keyfind(BinType, 1, ?NERL_TYPES),
       ErlType.
