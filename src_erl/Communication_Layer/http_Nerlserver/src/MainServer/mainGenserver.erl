@@ -300,11 +300,11 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
       {DecodedNerlTensor, _Type} =
       if (NerlTensor==<<>>) -> ?LOG_ERROR(?LOG_HEADER++"Got empty tensor"), empty_nerltensor_err;
           true ->  nerlNIF:nerltensor_conversion({NerlTensor, Type}, nerlNIF:erl_type_conversion(Type)) end,
-
       % io:format("Decoded NerlTensor: ~p~n",[DecodedNerlTensor]),    
-      XDim = integer_to_list(round(hd(DecodedNerlTensor))), %% returns XDim of this tensor
+
+      % XDim = integer_to_list(round(hd(DecodedNerlTensor))), %% returns XDim of this tensor
       %% IDX_WORKER = 0,IDX_BATCH_SIZE = 1,IDX_BATCHID = 2,IDX_CSVNAME = 3,IDX_PREDS = 4
-      ListToSend = [WorkerName, integer_to_list(BatchID), XDim, InputName, nerl_tools:string_format("~p",[DecodedNerlTensor])],
+      ListToSend = [WorkerName, integer_to_list(BatchID), integer_to_list(BatchSize), InputName, nerl_tools:string_format("~p",[DecodedNerlTensor])],
 
       ToSend = tl(lists:flatten(["#"++Item || Item <- ListToSend])),
 

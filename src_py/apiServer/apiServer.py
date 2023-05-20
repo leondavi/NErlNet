@@ -358,7 +358,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             for worker in sourceCSV.workersResList:
                 for batchRes in worker.resList:
                     batchRanges = batchRes.indexRange   # (startSampNum, endSampNum)
-
+                    # print(f"testing sample ranges: {batchRanges}")
                     for ind, sample in enumerate(range(batchRanges[0], batchRanges[1])):
                         for label in range(labelsLen):
                             trueLabels[label].append(str(labelsSeries.iloc[sample,label]))
@@ -418,8 +418,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 bacc = (tpr + tnr) / 2
                 inf = tpr + tnr - 1
 
-                print(f"{worker}, class #{j}:")
-                print("\n")
+                print(f"\n{worker}, class #{j}:")
                 print(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.\n")
                 print(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.\n")
                 print(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")

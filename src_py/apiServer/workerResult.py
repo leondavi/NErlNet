@@ -23,6 +23,7 @@ class PredictBatch():
         preds = receivedPrediction[IDX_PREDS].replace("[", "").replace("]", "").split(",")
 
         # Extract predictions from tensor:
+        ## X = # of sample, Y = number of labels
         x,y,z = preds[:3]
         x, y, z = int(float(x)), int(float(y)), int(float(z))
         preds = preds[3:]
@@ -31,7 +32,7 @@ class PredictBatch():
             for j in range(y):
                 self.predictions[i].append(float(preds[i*y+j]))
 
-        self.indexRange = ((self.batchSize*self.batchId), (self.batchSize*(self.batchId)+x)-1)
+        self.indexRange = ((self.batchSize*self.batchId), (self.batchSize*(self.batchId)+x)-1) 
 
     def fixOffset(self, offset):
         self.indexRange = (self.indexRange[0]+offset, self.indexRange[1]+offset)
