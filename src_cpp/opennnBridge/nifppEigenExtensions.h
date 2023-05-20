@@ -70,9 +70,9 @@ namespace nifpp
     template<typename Type> //
     using Tensor1D = Eigen::Tensor<Type,1>; //
 
-    template<typename Type> int getTensor3D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor3D<Type>> & tensor);
-    template<typename Type> int getTensor2D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor2D<Type>> & tensor); //
-    template<typename Type> int getTensor1D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor1D<Type>> & tensor); //
+    template<typename Type> int get_tensor_3d_from_erl_list(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor3D<Type>> & tensor);
+    template<typename Type> int get_tensor_2d_from_erl_list(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor2D<Type>> & tensor); //
+    template<typename Type> int get_tensor_1d_from_erl_list(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor1D<Type>> & tensor); //
     template<typename Type> TERM makeTensor(ErlNifEnv *env, const Tensor3D<Type> &tensor);
 
 
@@ -251,7 +251,7 @@ namespace nifpp
 
 
 
-template<typename Type> int getTensor1D(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor1D<Type>> & tensor) ///1D
+template<typename Type> int get_tensor_1d_from_erl_list(ErlNifEnv *env, ERL_NIF_TERM term, std::shared_ptr<Tensor1D<Type>> & tensor) ///1D
     {
         unsigned len;
         Type var;
@@ -320,7 +320,7 @@ template<typename Type> int getTensor1D(ErlNifEnv *env, ERL_NIF_TERM term, std::
 
 
 //TODO check this function
-    template<typename Type> nifpp::TERM makeTensor(ErlNifEnv *env, const Tensor3D<Type> &tensor)
+    template<typename Type> nifpp::TERM make_tensor_3d_as_erl_list(ErlNifEnv *env, const Tensor3D<Type> &tensor)
     {
         const auto& d = tensor.dimensions();
         std::vector<Type> listRepresentation(&d[0], d.data() + MAX_SUPPORTED_DIMS);
@@ -332,7 +332,7 @@ template<typename Type> int getTensor1D(ErlNifEnv *env, ERL_NIF_TERM term, std::
         return make(env,listRepresentation);
     }
 
-    template<typename Type> nifpp::TERM makeTensor2D(ErlNifEnv *env, const Tensor2D<Type> &tensor)
+    template<typename Type> nifpp::TERM make_tensor_2d_as_erl_list(ErlNifEnv *env, const Tensor2D<Type> &tensor)
     {
         int x,y;
         const auto& d = tensor.dimensions();
@@ -349,7 +349,7 @@ template<typename Type> int getTensor1D(ErlNifEnv *env, ERL_NIF_TERM term, std::
         return make(env,listRepresentation);
     }
 
-    template<typename Type> nifpp::TERM makeTensor1D(ErlNifEnv *env, const Tensor1D<Type> &tensor)
+    template<typename Type> nifpp::TERM make_tensor_1d_as_erl_list(ErlNifEnv *env, const Tensor1D<Type> &tensor)
     {
         int x;
         const auto& d = tensor.dimensions();

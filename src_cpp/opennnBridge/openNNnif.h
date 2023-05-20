@@ -85,21 +85,24 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     PredictNNptr->return_tensor_type = tensor_type;
 
     nifpp::get_throws(env, argv[ARG_ModelID], PredictNNptr->mid); // get model id
-    // nifpp::getTensor2D(env,argv[1], PredictNNptr->data); // get data for prediction
     
     nifpp::get_tensor_2d<float,fTensor2DPtr,fTensor2D>(env,argv[ARG_BatchTensor],PredictNNptr->data);
-    // std::cout << "Tensor decoded" << std::endl;
-    // std::cout << *(PredictNNptr->data) << std::endl;
-
-    // cout << "data size cols: " << PredictNNptr->data->dimension(0) <<std::endl;
-    // cout << "data size rows: " << PredictNNptr->data->dimension(1) <<std::endl;
 
     opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
     int modelType = onnBrCtrl.getModelType(PredictNNptr->mid);
 
     int res;
-    res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFun, (void*) pPredictNNptr, 0);
-    return enif_make_string(env, "end PREDICT mode", ERL_NIF_LATIN1);
+    res = enif_thread_create((char*)"predict_nif_proc", &(PredictNNptr->tid), PredictFun, (void*) pPredictNNptr, 0);
+    
+    if (res)
+    {
+        LogError("failed to call enif_thread_create with PredictFun");
+        nifpp::str_atom ret_status("predict_error");
+        return nifpp::make(env, ret_status);
+    }
+
+    nifpp::str_atom ret_status("predict_starts");
+    return nifpp::make(env, ret_status);
 
 }  //end PREDICT mode
 
@@ -114,7 +117,6 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     
     nifpp::str_atom tensor_type;
 
-    try{
     enum{ARG_ModelID,ARG_OptimizationMethod,ARG_LossMethod, ARG_LearningRate,ARG_DataTensor,ARG_Type};
     nifpp::get_throws(env, argv[ARG_ModelID],TrainNNptr->mid); // model id
     nifpp::get_throws(env, argv[ARG_OptimizationMethod],TrainNNptr->optimization_method);
@@ -130,25 +132,24 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     // std::cout << "Tensor decoded" << std::endl;
     // std::cout << *(TrainNNptr->data) << std::endl;
 
-        ErlNifPid pid;
-        enif_self(env, &pid);
-        TrainNNptr->pid = pid;
-    }
-    catch(...){
-        return enif_make_string(env, "catch - get data from erlang", ERL_NIF_LATIN1);
-    }  
+    ErlNifPid pid;
+    enif_self(env, &pid);
+    TrainNNptr->pid = pid;
 
-    try{
-        opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
-        int modelType = onnBrCtrl.getModelType(TrainNNptr->mid);
-        int res;
-        res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, (void*) pTrainNNptr, 0);
-    }
-    catch(...){
-    cout << "catch in enif_thread_create " << endl;
+    opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
+    int modelType = onnBrCtrl.getModelType(TrainNNptr->mid);
+    int res;
+    res = enif_thread_create((char*)"train_nif_proc", &(TrainNNptr->tid), trainFun, (void*) pTrainNNptr, 0);
+
+    if (res)
+    {
+        LogError("failed to call enif_thread_create with trainFun");
+        nifpp::str_atom ret_status("train_error");
+        return nifpp::make(env, ret_status);
     }
 
-        return enif_make_string(env, "end comunication", ERL_NIF_LATIN1);
+    nifpp::str_atom ret_status("train_starts");
+    return nifpp::make(env, ret_status);
 }  //end trainn_nif
 
 
