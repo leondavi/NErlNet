@@ -166,7 +166,7 @@ namespace nifpp
         enum {WRONG_DIM_ERR = -1, CASE_1D = 1, CASE_2D = 2, CASE_3D = 3};
         ErlNifBinary bin;
         int ret = enif_inspect_binary(env, bin_term, &bin);
-        assert(ret != 0);
+        assert((ret != 0, "not a binary"));
 
         std::vector<BasicType> dims;
         // extract dims and data size

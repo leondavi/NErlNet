@@ -17,23 +17,24 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     long int mid;
     ErlNifPid pid;
     nifpp::TERM nerltensor_parameters_bin;
-    fTensor1DPtr parameters;
+    fTensor1D parameters;
+    fTensor1DPtr parameters_ptr;
     nifpp::str_atom nerltensor_type = "float";
     std::tuple<nifpp::TERM, nifpp::TERM> message_tuple; // returned nerltensor of parameters
 
-
     enif_self(env, &pid);
-
-    opennnBridgeController& onn_bridge_control = opennnBridgeController::GetInstance();
 
     //get model id
     nifpp::get_throws(env, argv[0], mid); 
 
     //get neural network parameters which are weights and biases valuse as a 1D vector         
+    opennnBridgeController &onn_bridge_control = opennnBridgeController::GetInstance();
     std::shared_ptr<opennn::NeuralNetwork> neural_network = onn_bridge_control.getModelPtr(mid);
-    *parameters = neural_network->get_parameters();
 
-    nifpp::make_tensor_1d<float, fTensor1D>(env, nerltensor_parameters_bin, parameters); //binary tensor
+    parameters = neural_network->get_parameters();
+    parameters_ptr = std::make_shared<fTensor1D>(parameters);
+
+    nifpp::make_tensor_1d<float, fTensor1D>(env, nerltensor_parameters_bin, parameters_ptr); //binary tensor
     
     // create returned tuple
     message_tuple = { nerltensor_parameters_bin , nifpp::make(env, nerltensor_type) };
@@ -55,6 +56,8 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 
 static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
     // return enif_make_string(env, "end set_weights_nif ", ERL_NIF_LATIN1);
+    enum{ARG_ModelID, ARG_Weights, ARG_Type};
+    
     long int mid;
     ErlNifPid pid;
     
@@ -64,8 +67,9 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     opennnBridgeController& s = opennnBridgeController::GetInstance();
 
     //get model id
-    nifpp::get_throws(env, argv[0], mid); 
-    nifpp::get_tensor_1d<float,fTensor1DPtr, fTensor1D>(env,argv[1], parameters);
+    nifpp::get_throws(env, argv[ARG_ModelID], mid); 
+    //nifpp::get_throws(env, argv[ARG_Type], mid); // TODO: Add this
+    nifpp::get_tensor_1d<float,fTensor1DPtr, fTensor1D>(env,argv[ARG_Weights], parameters);
 
     //get neural network from singelton           
     std::shared_ptr<opennn::NeuralNetwork> neural_network = s.getModelPtr(mid);

@@ -14,8 +14,8 @@
 getDeviceEntities(_ArchitectureAdderess,_CommunicationMapAdderess, HostName)->
   nerl_tools:setup_logger(?MODULE),
 
-  {ok, ArchitectureAdderessData} = file:read_file(?JSON_ADDR++?ARCH_FILE_NAME),
-  {ok, CommunicationMapAdderessData} = file:read_file(?JSON_ADDR++?COMM_FILE_NAME),
+  {ok, ArchitectureAdderessData} = file:read_file(?JSON_ADDR++?LOCAL_ARCH_FILE_NAME),
+  {ok, CommunicationMapAdderessData} = file:read_file(?JSON_ADDR++?LOCAL_COMM_FILE_NAME),
 
     %%TODO: ADD CHECK FOR VALID INPUT:  
   % ?LOG_NOTICE("IS THIS A JSON? ~p~n",[jsx:is_json(ArchitectureAdderessData)]),

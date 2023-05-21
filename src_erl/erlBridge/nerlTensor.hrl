@@ -14,7 +14,7 @@
 -define(BUILD_TYPE_RELEASE,"/build/release").
 
 
--define(LOG_HEADER, atom_to_list(?MODULE) ++ "/" ++ atom_to_list(?FUNCTION_NAME) ++ "@" ++ integer_to_list(?LINE) ++ ": " ).
+% -define(LOG_HEADER, atom_to_list(?MODULE) ++ "/" ++ atom_to_list(?FUNCTION_NAME) ++ "@" ++ integer_to_list(?LINE) ++ ": " ).
 
 % bytes_str: list of chars in Erlang and std::string in NIF
 % float32/double: list of floats in Erlang

@@ -12,6 +12,7 @@
 -import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0]).
 -import(nerlNIF,[erl_type_conversion/1]).
 -include("../Communication_Layer/http_Nerlserver/src/nerl_tools.hrl").
+-include("nerlTensor.hrl").
 
 -behaviour(gen_statem).
 
@@ -51,6 +52,8 @@ start_link(ARGS) ->
 %% process to initialize.
 
 init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,FederatedMode,CountLimit,Optimizer, Features, Labels, LossMethod, LearningRate, ClientPID}) ->
+  nerl_tools:setup_logger(?MODULE),
+
   ?LOG_NOTICE("Creating: WorkerName: ~p ,ModelId: ~p , ModelType: ~p , ScalingMethod: ~p ,LayerTypesList: ~p ,LayersSizes: ~p ,LayersActivationFunctions: ~p ,FederatedMode: ~p ,CountLimit: ~p ,Optimizer: ~p , Features: ~p , Labels: ~p , ClientPID: ~p~n"
     ,[WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,FederatedMode,CountLimit,Optimizer, Features, Labels, ClientPID]),
 %%^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -164,9 +167,16 @@ wait(cast, {loss,nan,Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientP
 
 
 %% Regular mode (Not federated)
-wait(cast, {loss, {LossVal,Time}}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState, federatedMode = ?MODE_REGULAR,ackClient = AckClient}) ->
+wait(cast, {loss, {LossVal,Time}}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState, modelId=ModelID, federatedMode = ?MODE_REGULAR,ackClient = AckClient}) ->
+  io:fwrite("loss, {LossVal,Time}: ~p~n",[{loss, {LossVal,Time}}]),
+  WeightsNerlTensor = nerlNIF:call_to_get_weights(self(), ModelID),
+  % receive
+  %   {myWeights, Weights} -> ?LOG_INFO(?LOG_HEADER++"~p weights = ~p",[MyName, Weights])
+  % after ?TRAIN_TIMEOUT -> ?LOG_INFO(?LOG_HEADER++"~p Didnt get weights",[MyName]) end,
+  ?LOG_INFO(?LOG_HEADER++"~p weights = ~p",[MyName, WeightsNerlTensor]),
 
-% io:fwrite("loss, {LossVal,Time}: ~p~n",[{loss, {LossVal,Time}}]),
+
+  nerlNIF:call_to_set_weights(self(), ModelID, WeightsNerlTensor),
 
   gen_statem:cast(ClientPid,{loss, MyName, LossVal,Time/1000}), %% TODO Add Time and Time_NIF to the cast
   checkAndAck(MyName,ClientPid,AckClient),
@@ -218,6 +228,7 @@ wait(cast, {loss, {LOSS_FUNC,Time_NIF}}, State = #nerlNetStatem_state{clientPid 
 
 % Not supposed to be here - for future additions
 wait(cast, {loss, LossAndTime}, State = #nerlNetStatem_state{ federatedMode = _FederatedMode, nextState = NextState,myName = MyName,clientPid = ClientPid,ackClient = AckClient}) ->
+  
   ?LOG_NOTICE("Error at worker, loss fun-: ~p~n",[LossAndTime]),
   % io:fwrite("FederatedMode-: ~p~n",[FederatedMode]),
   

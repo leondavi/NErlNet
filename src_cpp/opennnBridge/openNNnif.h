@@ -478,7 +478,7 @@ static ErlNifFunc nif_funcs[] =
     {"train_nif", 6 , train_nif},
     {"predict_nif", 3 , predict_nif},
     {"get_weights_nif",1, get_weights_nif},
-    {"set_weights_nif",2, set_weights_nif},
+    {"set_weights_nif",3, set_weights_nif},
     {"encode_nif",2, encode_nif},
     {"decode_nif",2, decode_nif},
     {"nerltensor_sum_nif",3, nerltensor_sum_nif},

@@ -3,7 +3,7 @@
 -include("nerlTensor.hrl").
 
 -export([init/0,create_nif/6,train_nif/6,call_to_train/6,predict_nif/3,call_to_predict/6,get_weights_nif/1,printTensor/2]).
--export([call_to_get_weights/1,call_to_set_weights/2]).
+-export([call_to_get_weights/2,call_to_set_weights/3]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
 -export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
 -export([erl_type_conversion/1]).
@@ -39,7 +39,7 @@ call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, {DataTensor, T
                   %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
                   gen_statem:cast(WorkerPid,{loss, Ret}) % TODO @Haran - please check what worker does with this Ret value 
             after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
-                  ?LOG_ERROR(?LOG_HEADER++"Worker train timeout reached! setting loss = -1~n "),
+                  ?LOG_ERROR("Worker train timeout reached! setting loss = -1~n "),
                   gen_statem:cast(WorkerPid,{loss, -1.0})
       end.
 
@@ -54,28 +54,29 @@ call_to_predict(ModelID, BatchTensor, Type, WorkerPid,CSVname, BatchID)->
                   % io:format("Pred returned: ~p~n", [PredNerlTensor]),
                   gen_statem:cast(WorkerPid,{predictRes,PredNerlTensor, NewType, TimeTook,CSVname, BatchID});
             Error ->
-                  ?LOG_ERROR(?LOG_HEADER++"received wrong prediction_nif format:"++Error),
+                  ?LOG_ERROR("received wrong prediction_nif format:"++Error),
                   throw("received wrong prediction_nif format")
             after ?PREDICT_TIMEOUT -> 
                  % worker miss predict batch  TODO - inspect this code
-                  ?LOG_ERROR(?LOG_HEADER++"Worker prediction timeout reached! ~n "),
+                  ?LOG_ERROR("Worker prediction timeout reached! ~n "),
                   gen_statem:cast(WorkerPid,{predictRes, nan, CSVname, BatchID})
       end.
 
-call_to_get_weights(ModelID)->
+call_to_get_weights(_WorkerPID, ModelID)->
       try
             _RetVal = get_weights_nif(ModelID),
-            % io:format("RetVal= ~p~n ",[RetVal]),
             receive
-                  Ret->Ret
-                  % io:format("Ret= ~p~n ",[Ret])
+                  NerlTensorWeights -> %% NerlTensor is tuple: {Tensor, Type}
+                        io:format("Got Weights= ~p~n",[NerlTensorWeights]),
+                        % WorkerPID ! {myWeights, Weights}
+                        NerlTensorWeights
             end
-      catch Err:E -> ?LOG_ERROR(?LOG_HEADER++"Couldnt get weights from worker~n~p~n",{Err,E}),
+      catch Err:E -> ?LOG_ERROR("Couldnt get weights from worker~n~p~n",{Err,E}),
             []
       end.
 
-call_to_set_weights(ModelID,Weights)->
-      _RetVal = set_weights_nif(ModelID, Weights).
+call_to_set_weights(_WorkerPID, ModelID,{WeightsNerlTensor, Type})->
+      _RetVal = set_weights_nif(ModelID, WeightsNerlTensor, Type).
 
 predict_nif(_ModelID, _BatchTensor, _Type) ->
       exit(nif_library_not_loaded).
@@ -83,7 +84,7 @@ predict_nif(_ModelID, _BatchTensor, _Type) ->
 get_weights_nif(_ModelID) ->
       exit(nif_library_not_loaded).
 
-set_weights_nif(_ModelID, _Weights) ->
+set_weights_nif(_ModelID, _Weights, _Type) ->
       exit(nif_library_not_loaded).
 
 printTensor(List,_Type) when is_list(List) -> 

@@ -24,7 +24,6 @@
 -record(main_genserver_state, {statisticsCounter = 0, myName, state, workersMap, clients, nerlnetGraph, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [], statisticsMap, msgCounter = 0, batchSize}).
 
 %%%===============================================================
-
 %%% API
 %%%===================================================================
 

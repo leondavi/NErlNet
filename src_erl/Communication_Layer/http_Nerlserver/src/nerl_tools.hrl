@@ -10,8 +10,8 @@
 
 %% init JSON defines
 -define(JSON_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/src_erl/Communication_Layer/http_Nerlserver/").
--define(ARCH_FILE_NAME, "arch.json").
--define(COMM_FILE_NAME, "conn.json").
+-define(LOCAL_ARCH_FILE_NAME, "arch.json").
+-define(LOCAL_COMM_FILE_NAME, "conn.json").
 
 %% sorce tmpData name
 -define(TMP_DATA_ADDR, "tmpData.csv").
@@ -23,8 +23,8 @@
 -define(MODE_REGULAR, 0).
 -define(MODE_FEDERATED, 1).
 
-%% nerlNIF defines
--define(NERLNET_LIB,"libnerlnet").
--define(NERLNET_PATH,"/usr/local/lib/nerlnet-lib/NErlNet").
--define(BUILD_TYPE_DEBUG,"debug").
--define(BUILD_TYPE_RELEASE,"/build/release").
+% %% nerlNIF defines
+% -define(NERLNET_LIB,"libnerlnet").
+% -define(NERLNET_PATH,"/usr/local/lib/nerlnet-lib/NErlNet").
+% -define(BUILD_TYPE_DEBUG,"debug").
+% -define(BUILD_TYPE_RELEASE,"/build/release").
