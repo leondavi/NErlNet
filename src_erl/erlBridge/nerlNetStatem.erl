@@ -173,7 +173,7 @@ wait(cast, {loss, {LossVal,Time}}, State = #nerlNetStatem_state{clientPid = Clie
   % receive
   %   {myWeights, Weights} -> ?LOG_INFO(?LOG_HEADER++"~p weights = ~p",[MyName, Weights])
   % after ?TRAIN_TIMEOUT -> ?LOG_INFO(?LOG_HEADER++"~p Didnt get weights",[MyName]) end,
-  ?LOG_INFO(?LOG_HEADER++"~p weights = ~p",[MyName, WeightsNerlTensor]),
+  % ?LOG_INFO(?LOG_HEADER++"~p weights = ~p",[MyName, WeightsNerlTensor]),
 
 
   nerlNIF:call_to_set_weights(self(), ModelID, WeightsNerlTensor),
