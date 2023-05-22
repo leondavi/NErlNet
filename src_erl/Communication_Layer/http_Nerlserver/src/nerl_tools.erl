@@ -48,7 +48,7 @@ string_to_list_int(Binary) ->
 
 % returns {FullReq, Data} / {FullReq, [fileReady]}
 multipart(Req0, Data) ->
-case cowboy_req:read_part(Req0) of
+case cowboy_req:read_body(Req0) of
     {ok, Headers, Req1} ->
         {Req, BodyData} =
             case cow_multipart:form_data(Headers) of
