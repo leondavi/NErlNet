@@ -66,7 +66,7 @@ end.
 
 %% writes the input stream to file, "File" needs to be opened with 'append' option
 stream_file(Req0, File) ->
-    case cowboy_req:read_part_body(Req0) of
+    case cowboy_req:read_body(Req0) of
         {ok, LastBodyChunk, Req} ->
             file:write(File, LastBodyChunk),
             file:close(File),

@@ -56,7 +56,7 @@ start(_StartType, _StartArgs) ->
 
     %Parse json and start nerlnet:
      
-    ?LOG_INFO(?LOG_HEADER++"ArchitectureAdderess: ~p~n CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
+    ?LOG_INFO(?LOG_HEADER++"ArchitectureAdderess: ~p, CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
 
     parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess),
     nerlNetServer_sup:start_link().
