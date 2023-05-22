@@ -119,8 +119,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # Jsons found in NErlNet/inputJsonFiles/{JSON_TYPE}/files.... for entities in src_erl/Comm_layer/http_nerl/src to reach them, they must go up 3 dirs
         archAddress , connMapAddress, exp_flow_json = self.getUserJsons()
 
-        with open(archAddress, 'rb') as f1, open(connMapAddress, 'rb') as f2:
-            for ip in globe.components.devicesIp:
+        for ip in globe.components.devicesIp:
+            with open(archAddress, 'rb') as f1, open(connMapAddress, 'rb') as f2:
                 files = [('arch.json', f1), ('conn.json', f2)]
                 address = f'http://{ip}:8484/updateJsonPath'
 

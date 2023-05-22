@@ -168,7 +168,7 @@ wait(cast, {loss,nan,Time_NIF}, State = #nerlNetStatem_state{clientPid = ClientP
 
 %% Regular mode (Not federated)
 wait(cast, {loss, {LossVal,Time}}, State = #nerlNetStatem_state{clientPid = ClientPid, myName = MyName, nextState = NextState, modelId=ModelID, federatedMode = ?MODE_REGULAR,ackClient = AckClient}) ->
-  io:fwrite("loss, {LossVal,Time}: ~p~n",[{loss, {LossVal,Time}}]),
+  % io:fwrite("loss, {LossVal,Time}: ~p~n",[{loss, {LossVal,Time}}]),
   WeightsNerlTensor = nerlNIF:call_to_get_weights(self(), ModelID),
   % receive
   %   {myWeights, Weights} -> ?LOG_INFO(?LOG_HEADER++"~p weights = ~p",[MyName, Weights])
