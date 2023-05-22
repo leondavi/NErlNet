@@ -67,7 +67,7 @@ call_to_get_weights(_WorkerPID, ModelID)->
             _RetVal = get_weights_nif(ModelID),
             receive
                   NerlTensorWeights -> %% NerlTensor is tuple: {Tensor, Type}
-                        io:format("Got Weights= ~p~n",[NerlTensorWeights]),
+                        % io:format("Got Weights= ~p~n",[NerlTensorWeights]),
                         % WorkerPID ! {myWeights, Weights}
                         NerlTensorWeights
             end

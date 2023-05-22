@@ -53,7 +53,7 @@ multipart(Req0, Data) ->
           {Req, BodyData} =
               case cow_multipart:form_data(Headers) of
                   %% The multipart message contains normal/basic data
-                  {data, _FieldName} -> {_Req2, Data} = read_all_parts(Req1,[]);
+                  {data, _FieldName} -> {_Req2, _BodyData} = read_all_parts(Req1,[]);
                   %% The message contains a file, write it to "FieldName"
                   {file, FieldName, _Filename, _CType} ->
                       {ok, File} = file:open(FieldName, [append]),
@@ -68,10 +68,12 @@ multipart(Req0, Data) ->
 stream_file(Req0, File) ->
     case cowboy_req:read_part_body(Req0) of
         {ok, LastBodyChunk, Req} ->
+            io:format("wrting to file: ~p~n",[LastBodyChunk]),
             file:write(File, LastBodyChunk),
             file:close(File),
             Req;
         {more, BodyChunk, Req} ->
+            io:format("wrting to file: ~p~n",[BodyChunk]),
             file:write(File, BodyChunk),
             stream_file(Req, File)
     end.
