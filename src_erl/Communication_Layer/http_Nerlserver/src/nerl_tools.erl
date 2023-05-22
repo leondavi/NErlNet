@@ -48,25 +48,25 @@ string_to_list_int(Binary) ->
 
 % returns {FullReq, Data} / {FullReq, [fileReady]}
 multipart(Req0, Data) ->
-case cowboy_req:read_body(Req0) of
-    {ok, Headers, Req1} ->
-        {Req, BodyData} =
-            case cow_multipart:form_data(Headers) of
-                %% The multipart message contains normal/basic data
-                {data, _FieldName} -> {_Req2, Data} = read_all_data(Req1,[]);
-                %% The message contains a file, write it to "FieldName"
-                {file, FieldName, _Filename, _CType} ->
-                    {ok, File} = file:open(FieldName, [append]),
-                    Req2 = stream_file(Req1, File),
-                    {Req2, [FieldName]}
-            end,
-        multipart(Req, Data++BodyData);
-    {done, Req} -> {Req, Data}
-end.
+  case cowboy_req:read_part(Req0) of
+      {ok, Headers, Req1} ->
+          {Req, BodyData} =
+              case cow_multipart:form_data(Headers) of
+                  %% The multipart message contains normal/basic data
+                  {data, _FieldName} -> {_Req2, Data} = read_all_data(Req1,[]);
+                  %% The message contains a file, write it to "FieldName"
+                  {file, FieldName, _Filename, _CType} ->
+                      {ok, File} = file:open(FieldName, [append]),
+                      Req2 = stream_file(Req1, File),
+                      {Req2, [FieldName]}
+              end,
+          multipart(Req, Data++BodyData);
+      {done, Req} -> {Req, Data}
+  end.
 
 %% writes the input stream to file, "File" needs to be opened with 'append' option
 stream_file(Req0, File) ->
-    case cowboy_req:read_body(Req0) of
+    case cowboy_req:read_part_body(Req0) of
         {ok, LastBodyChunk, Req} ->
             file:write(File, LastBodyChunk),
             file:close(File),
@@ -79,7 +79,7 @@ stream_file(Req0, File) ->
 %% gets multipart data and combines it
 read_all_data(Req0, Got) ->
   %io:format("length of read data so far: ~p~n",[length(Got)]),
-  case cowboy_req:read_body(Req0) of
+  case cowboy_req:read_part_body(Req0) of
       {more, Data, Req} -> read_all_data(Req, Got++Data);
       {ok, Data, Req} -> {Req, Got++Data}
   end.
