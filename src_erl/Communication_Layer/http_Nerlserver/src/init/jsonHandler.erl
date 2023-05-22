@@ -24,7 +24,7 @@ init(Req0, [ApplicationPid]) ->
         nerl_tools:deleteOldJson(?JSON_ADDR++?LOCAL_ARCH_FILE_NAME),
         nerl_tools:deleteOldJson(?JSON_ADDR++?LOCAL_COMM_FILE_NAME),
         %% get files from Req
-        io:format("parsing json of req with body: ~p~n",[cowboy_req:read_body(Req0)]),
+        % io:format("parsing json of req with body: ~p~n",[cowboy_req:read_body(Req0)]),
         {_Req, Data} = nerl_tools:multipart(Req0, []),       %% Data = [FileName1, FileName2]
         ApplicationPid ! {jsonAddress,{lists:nth(1, Data),lists:nth(2, Data)}};
     _Other -> 
