@@ -28,17 +28,13 @@ nerltest_print(String) ->
 
 test_envelope(Func, TestName, Rounds) ->
       nerltest_print(nerl:string_format("~p test starts for ~p rounds",[TestName, Rounds])),
-      Tic = nerl:tic(),
-      Func(Rounds),
-      {Diff, TimeUnit} = nerl:toc(Tic),
-      nerltest_print(nerl:string_format("Elapsed: ~p~p",[Diff,TimeUnit])), ok.
+      {TimeTookMicro, _RetVal} = timer:tc(Func, [Rounds]),
+      nerltest_print(nerl:string_format("Elapsed: ~p~p",[TimeTookMicro / 1000, ms])), ok.
 
 test_envelope_nif_performance(Func, TestName, Rounds) ->
       nerltest_print(nerl:string_format("~p test starts for ~p rounds",[TestName, Rounds])),
-      Tic = nerl:tic(),
-      AvgPerformance = Func(Rounds)/Rounds,
-      {Diff, TimeUnit} = nerl:toc(Tic),
-      nerltest_print(nerl:string_format("Elapsed: ~p~p Average nif performance: ~.3f~p",[Diff,TimeUnit, AvgPerformance, TimeUnit])), ok.
+      {TimeTookMicro, AvgPerformance} = timer:tc(Func, [Rounds]),
+      nerltest_print(nerl:string_format("Elapsed: ~p~p Average nif performance: ~.3f~p",[TimeTookMicro/1000,ms, AvgPerformance/Rounds, ms])), ok.
 
 run_tests()->
       nerl:logger_settings(nerlTests),

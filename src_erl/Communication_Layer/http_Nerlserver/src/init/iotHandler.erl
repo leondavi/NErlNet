@@ -11,7 +11,7 @@
 
 
 %% API
--export([init/2, http_request/4]).
+-export([init/2]).
 %this handler lets the python gui the option to make a broadcast http request and get all the nerlnet devices available on the subnet
 % This handler waits for an http request from python. the syntax should be as follow:
 %From python:
@@ -28,17 +28,11 @@ init(Req0, [ApplicationPid]) ->
   io:format("Body at iot Handler: ~p,~n", [Body]),
   %Notify the application that python is ready and send the addreses received in this http request:
   
-  io:format("reply:~nnerlnet_available#host_name#~p", [nerlNetServer_app:getdeviceIP()]),
-  Reply = io_lib:format("nerlnet_available#host_name#~p", [nerlNetServer_app:getdeviceIP()]),
+  Reply = io_lib:format("nerlnet_available#host_name#~p", [nerl_tools:getdeviceIP()]),
+  io:format("reply: ~p~n", [Reply]),
 
   Req = cowboy_req:reply(200,
     #{<<"content-type">> => <<"text/plain">>},
     Reply,
     Req0),
   {ok, Req, ApplicationPid}.
-
-  http_request(Host, Port,Path, Body)->
-    %%  io:format("sending body ~p to path ~p to hostport:~p~n",[Body,Path,{Host,Port}]),
-    URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
-    httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-    httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).

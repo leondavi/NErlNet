@@ -19,9 +19,8 @@ init(Req0, [Action,FederatedStateM_Pid]) ->
 %%  Decoded_body = binary_to_list(Body),
 
   case Action of
-
     federatedWeightsVector -> gen_statem:cast(FederatedStateM_Pid,{federatedWeightsVector,Body});
-    statistics ->gen_statem:cast(FederatedStateM_Pid,{statistics})
+    statistics -> gen_statem:cast(FederatedStateM_Pid,{statistics})
   end,
 
 

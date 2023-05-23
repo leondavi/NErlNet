@@ -12,6 +12,7 @@ import pandas as pd
 import sys
 import numpy as np
 import os
+import subprocess
 
 from jsonDirParser import JsonDirParser
 from transmitter import Transmitter
@@ -91,13 +92,16 @@ PREDICTION_STR = "Prediction"
         print("Using the address from the architecture JSON file for the receiver.")
         print(f"(http://{globe.components.receiverHost}:{globe.components.receiverPort})\n")
 
-        if not hasattr(self, 'receiverThread'):
-            self.receiverProblem = threading.Event()
-            self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
-            self.receiverThread.start()   
-            self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
 
-        elif (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
+        receiverAlive = subprocess.run(["lsof", f"-i -P -n | grep -wc {globe.components.receiverPort}"], stdout=subprocess.PIPE)
+        assert not receiverAlive.stdout, f"Reciever port {globe.components.receiverPort} is already being used"
+
+        self.receiverProblem = threading.Event()
+        self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
+        self.receiverThread.start()   
+        self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
+
+        if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
             print("Failed to initialize the receiver using the provided address.\n\
 Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
             sys.exit()
@@ -115,8 +119,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # Jsons found in NErlNet/inputJsonFiles/{JSON_TYPE}/files.... for entities in src_erl/Comm_layer/http_nerl/src to reach them, they must go up 3 dirs
         archAddress , connMapAddress, exp_flow_json = self.getUserJsons()
 
-        with open(archAddress, 'rb') as f1, open(connMapAddress, 'rb') as f2:
-            for ip in globe.components.devicesIp:
+        for ip in globe.components.devicesIp:
+            with open(archAddress, 'rb') as f1, open(connMapAddress, 'rb') as f2:
                 files = [('arch.json', f1), ('conn.json', f2)]
                 address = f'http://{ip}:8484/updateJsonPath'
 
@@ -176,7 +180,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         print("\nSending data to sources")
         # <num of sources> Acks for updateCSV():
         globe.pendingAcks += len(globe.components.sources) 
-
+        print(f"waiting for {globe.pendingAcks} acks from {len(globe.components.sources)} sources")
         self.transmitter.updateCSV(phase)
 
         while globe.pendingAcks > 0:
@@ -186,11 +190,14 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         print("\nData ready in sources")
 
 
-    def train(self):
+    def train(self, name = ""):
         # Choose a nem for the current experiment:
-        print("\nPlease choose a name for the current experiment:", end = ' ')
-        globe.experiment_flow_global.name = input()
-
+        if not name:
+            print("\nPlease choose a name for the current experiment:", end = ' ')
+            globe.experiment_flow_global.name = input()
+        else: 
+            globe.experiment_flow_global.name = name
+            
         # Create a new folder for the CSVs of the chosen experiment:
         if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{globe.experiment_flow_global.name}'):
             os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{globe.experiment_flow_global.name}')
@@ -334,64 +341,54 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         try: labelNames = expForStats.expFlow["Labels"]      ## get label names from experimnet JSON
         except: labelNames = [str(i) for i in range(labelsLen)] #if no labels, set to 1,2,3....
         
-        workerNum = 0
+        workersList = []
+        workerNeuronRes = {}
         for csvRes in expForStats.predictionResList:
-            workerNum += len(csvRes.workers)
+            for worker in csvRes.workers:
+                workerNeuronRes[worker] = None      # each worker creates its own [predL, trueL] lists
+                workersList.append(worker)
 
         ## create a different confusion matrix for each label
         predlabels = [[] for i in range(labelsLen)]
-        trueLabels = [[] for i in range(labelsLen)]
-        onWorker = 0
-        workerNeuronRes = [[] for i in range(workerNum)]    # each worker creates its own [predL, trueL] lists
+        trueLabels = [[] for i in range(labelsLen)]  
 
         for sourceCSV in expForStats.predictionResList:         #### TODO: match specific batch number of predict vector to test.csv of labels
 
             # Generate the samples' indexes from the results:
             for worker in sourceCSV.workersResList:
                 for batchRes in worker.resList:
-                    samples = batchRes.indexRange   # (startSampNum, endSampNum)
-                    
-                    for ind, sample in enumerate(range(samples[0], samples[1])):
+                    batchRanges = batchRes.indexRange   # (startSampNum, endSampNum)
+                    # print(f"testing sample ranges: {batchRanges}")
+                    for ind, sample in enumerate(range(batchRanges[0], batchRanges[1])):
                         for label in range(labelsLen):
                             trueLabels[label].append(str(labelsSeries.iloc[sample,label]))
                             predlabels[label].append(str(round(batchRes.predictions[ind][label])))
                 
-                workerNeuronRes[onWorker] = (trueLabels, predlabels)
+                workerNeuronRes[worker.name] = (trueLabels, predlabels)
 
                 predlabels = [[] for i in range(labelsLen)]
                 trueLabels = [[] for i in range(labelsLen)]
-                onWorker += 1
                     
-
-                    # sampleNum = batchRes.indexRange[0]
-                    # batchSize = batchRes.batchSize
-                    # # print(f"pred batch #{sampleNum} is: {batch.predictions}")
-                    # ## compare real label to the predicted one
-
-                    # for i in range(batchSize):
-                    #     for j in range(labelsLen):
-                    #         trueLabels[j].append(str(labelsSeries.iloc[sampleNum+i,j]))
-                    #         predlabels[j].append(str(round(batchRes.predictions[i][j])))
-
                             # print(f"{worker.name} for sample #{sampleNum} predicted {batch.predictions[i][j]}, real is {labelsSeries.iloc[sampleNum+i,j]}")
 
         # # Create a confusion matrix based on the results:
         # Another option to solve this problem, is to numerize each classification group (group 1, group 2, ...), 
         # and add legened to show the true label value for each group.
-
-        confMatList = [[] for i in range(workerNum)]
+        
                     ################## THIS IS *NOT* FOR MULTICLASS DATA, but for multi-label data
-        f, axes = plt.subplots(workerNum, labelsLen, figsize=(5*labelsLen, 5*workerNum))
+        confMatList = {}
+        f, axes = plt.subplots(len(workersList), labelsLen, figsize=(5*labelsLen, 5*len(workersList)))
         axes = axes.ravel()
-        for i in range(workerNum):
-            for j in range(labelsLen):
-                # confMatList[i].append(confusion_matrix(trueLabels[j], predlabels[j]))
-                confMatList[i].append(confusion_matrix(workerNeuronRes[i][0][j], workerNeuronRes[i][1][j]))
+        for i, worker in enumerate(workersList):
+            confMatList[worker] = []
 
-                disp = ConfusionMatrixDisplay(confMatList[i][j], display_labels=[0, labelNames[j]])
+            for j in range(labelsLen):
+                confMatList[worker].append(confusion_matrix(workerNeuronRes[worker][0][j], workerNeuronRes[worker][1][j]))
+
+                disp = ConfusionMatrixDisplay(confMatList[worker][j], display_labels=[0, labelNames[j]])
                 disp.plot(ax=axes[i*labelsLen+j], values_format='.4g')
-                disp.ax_.set_title(f'W #{i}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[i][0][j], workerNeuronRes[i][1][j]), 3)}')
-                if i < workerNum - 1:
+                disp.ax_.set_title(f'{worker}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[worker][0][j], workerNeuronRes[worker][1][j]), 3)}')
+                if i < len(workersList) - 1:
                     disp.ax_.set_xlabel('') #remove "predicted label"
                 if  j != 0:
                     disp.ax_.set_ylabel('') #remove "true label"
@@ -410,8 +407,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         return confMatList
     
     def confusion_stats(self, confList):
-        for i, worker in enumerate(confList):
-            for j, label in enumerate(worker):
+        for worker in confList:
+            for j, label in enumerate(confList[worker]):
                 # Calculate the accuracy and other stats:
                 tp, tn, fp, fn = label.ravel()
                 acc = (tp + tn) / (tp + tn + fp + fn)
@@ -421,8 +418,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 bacc = (tpr + tnr) / 2
                 inf = tpr + tnr - 1
 
-                print(f"Worker #{i}, class #{j}:")
-                print("\n")
+                print(f"\n{worker}, class #{j}:")
                 print(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.\n")
                 print(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.\n")
                 print(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
