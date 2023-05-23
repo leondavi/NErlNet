@@ -154,7 +154,7 @@ void* PredictFun(void* arg)
     std::shared_ptr<PredictNN> PredictNNptr = *pPredictNNptr;
     delete pPredictNNptr;
 
-    ERL_NIF_TERM prediction;
+    nifpp::TERM prediction;
     int EAC_prediction; 
     ErlNifEnv *env = enif_alloc_env();    
     opennnBridgeController &s = opennnBridgeController::GetInstance();
@@ -165,15 +165,21 @@ void* PredictFun(void* arg)
     Index num_of_samples = PredictNNptr->data->dimension(0);
     Index inputs_number = neural_network->get_inputs_number();
 
-    std::shared_ptr<Eigen::Tensor<float,2>> calculate_res = std::make_shared<Eigen::Tensor<float,2>>(num_of_samples, neural_network->get_outputs_number());
+    fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
     Tensor<Index, 1> inputs_dimensions(2);
 
     inputs_dimensions.setValues({num_of_samples, inputs_number});
 
     *calculate_res = neural_network->calculate_outputs(PredictNNptr->data->data(), inputs_dimensions);
-    prediction = nifpp::makeTensor2D(env, *calculate_res);
+    nifpp::make_tensor_2d<float,fTensor2D>(env, prediction, calculate_res);
     
-    if(enif_send(NULL,&(PredictNNptr->pid), env, prediction)){
+    // Stop the timer and calculate the time took for training
+    high_resolution_clock::time_point  stop = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(stop - PredictNNptr->start_time);
+    nifpp::TERM train_time = nifpp::make(env, duration.count());
+    std::vector<nifpp::TERM> return_list = {prediction , nifpp::make(env, PredictNNptr->return_tensor_type),train_time};
+
+    if(enif_send(NULL,&(PredictNNptr->pid), env, nifpp::make(env, return_list))){
         // printf("enif_send succeed prediction\n");
     }
     else

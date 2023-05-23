@@ -13,17 +13,17 @@ class NetworkComponents():
         self.jsonData = arch_json
 
         # Getting the desired batch size:
-        self.batchSize = int(self.jsonData['NerlNetSettings'][0]['batchSize'])
-        self.frequency = int(self.jsonData['NerlNetSettings'][0]['frequency'])
+        self.batchSize = int(self.jsonData['NerlNetSettings']['batchSize'])
+        self.frequency = int(self.jsonData['NerlNetSettings']['frequency'])
 
         # Getting the address of the main server:
-        mainServerJson = self.jsonData['mainServer'][0]
+        mainServerJson = self.jsonData['mainServer']
         self.mainServerIp = mainServerJson['host']
         self.mainServerPort = mainServerJson['port']
 
         # Getting the address for the receiver:
-        self.receiverHost = self.jsonData['serverAPI'][0]['host']
-        self.receiverPort = self.jsonData['serverAPI'][0]['port']
+        self.receiverHost = self.jsonData['serverAPI']['host']
+        self.receiverPort = self.jsonData['serverAPI']['port']
 
         # Initializing lists for all the relevant components:
         self.devicesIp = []

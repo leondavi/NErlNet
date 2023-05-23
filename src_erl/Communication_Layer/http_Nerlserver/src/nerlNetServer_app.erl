@@ -18,13 +18,10 @@
 -module(nerlNetServer_app).
 
 -behaviour(application).
--include_lib("kernel/include/logger.hrl").
+-include("nerl_tools.hrl").
 
--export([start/2, stop/1, getdeviceIP/0]).
+-export([start/2, stop/1]).
 
--define(NERLNET_INIT_PORT,8484).
--define(PYTHON_SERVER_WAITING_TIMEOUT_MS, 1000).
--define(SUBNETS_CONFIG_ADDR, "/usr/local/lib/nerlnet-lib/NErlNet/config/subnets.nerlconfig").
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
 %% ***  exit rebar3 shell: ctrl+g ->q
@@ -47,18 +44,19 @@
 
 
 start(_StartType, _StartArgs) ->
-    logger:set_module_level(nerlNetServer_app, all),
+    %% setup the erlang logger for this module 
+    nerl_tools:setup_logger(?MODULE),
     
-    HostName = getdeviceIP(),
+    HostName = nerl_tools:getdeviceIP(),
     %HostName = "127.0.0.1",        %TODO: update jsons with real ips
-    ?LOG_INFO("This device IP: ~p~n", [HostName]),
+    ?LOG_INFO(?LOG_HEADER++"This device IP: ~p~n", [HostName]),
     %Create a listener that waits for a message from python about the adresses of the wanted json
     createNerlnetInitiator(HostName),
     {ArchitectureAdderess,CommunicationMapAdderess} = waitForInit(),
 
     %Parse json and start nerlnet:
      
-    ?LOG_INFO("ArchitectureAdderess: ~p~n CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
+    ?LOG_INFO(?LOG_HEADER++"ArchitectureAdderess: ~p, CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
 
     parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess),
     nerlNetServer_sup:start_link().
@@ -66,7 +64,7 @@ start(_StartType, _StartArgs) ->
 waitForInit() ->
     receive 
         {jsonAddress,MSG} -> {_ArchitectureAdderess,_CommunicationMapAdderess} = MSG;
-        Other -> ?LOG_WARNING("Got bad message: ~p,~ncontinue listening for init Json~n",[Other]), waitForInit()
+        Other -> ?LOG_WARNING(?LOG_HEADER++"Got bad message: ~p,~ncontinue listening for init Json~n",[Other]), waitForInit()
         after ?PYTHON_SERVER_WAITING_TIMEOUT_MS -> waitForInit()
     end.
 
@@ -85,35 +83,26 @@ createNerlnetInitiator(HostName) ->
 
 
 parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess) ->
-    %%Server that should be established on this machine from JSON architecture:
-    % {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings]} = jsonParser:getDeviceEntities("./input/jsonArch1PC2Workers.json",list_to_binary(HostName)),
-    %%    get json path from jsonPath file in main NErlNet directory
-    
+    %% Entities to open on device from reading arch.json: 
+    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},NerlNetSettings,_GUI} = jsonParser:getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)),
 
-    %%Server that should be established on this machine from JSON architecture:
-    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},[NerlNetSettings],_GUI} = jsonParser:getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)),
-
-%  io:format("My NerlNetSettings: ~p~n",[NerlNetSettings]),
-
-    ChunkSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))),
+    BatchSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))),
     Frequency = list_to_integer(binary_to_list(maps:get(<<"frequency">>,NerlNetSettings))),
-    %  io:format("My ChunkSize: ~p~n",[ChunkSize]),
-    %  io:format("My Frequency: ~p~n",[Frequency]),
 
 %%    Creating a Dispatcher for each Server from JSONs architecture - this dispatchers will rout http requests to the right handler.
 %%    Each dispatcher will be listening to a different PORT
 %%    Handling http requests will be managed by *Handler.erl and additional information given inside.
-    %%these are the handler for any kind of request.
+    %% these are the handler for any kind of request.
     %% {HostMatch, list({PathMatch, Handler, InitialState})}
-    %The last arg becomes the State
-    %arg in the *Handler's init() method.
-    %%{"/req_name/:arg1/:arg2",[{arg1,constrains}, {arg2,int}], addHandler,[]}
+    %% The last arg becomes the State
+    %% arg in the *Handler's init() method.
+    %% {"/req_name/:arg1/:arg2",[{arg1,constrains}, {arg2,int}], addHandler,[]}
     %%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
 
     createClientsAndWorkers(ClientsAndWorkers, HostName),
-    createMainServer(MainServer,ChunkSize,HostName),
+    createMainServer(MainServer,BatchSize,HostName),
     createRouters(Routers,HostName),
-    createSources(Sources,WorkersMap, ChunkSize, Frequency, HostName),
+    createSources(Sources,WorkersMap, BatchSize, Frequency, HostName),
     createFederatedServer(Federateds,WorkersMap, HostName).
 
 
@@ -180,15 +169,15 @@ createFederatedServer([{FederateArgs,ConnectionsGraph}|Federated],WorkersMap,Hos
     createFederatedServer(Federated,WorkersMap,HostName).
 
 
-createSources(none,_WorkersMap,_ChunkSize,_Frequency,_HostName) -> none;
-createSources([],_WorkersMap,_ChunkSize,_Frequency,_HostName) -> okdone;
-createSources([{SourceArgs,ConnectionsGraph}|Sources],WorkersMap,ChunkSize,Frequency,HostName) ->
+createSources(none,_WorkersMap,_BatchSize,_Frequency,_HostName) -> none;
+createSources([],_WorkersMap,_BatchSize,_Frequency,_HostName) -> okdone;
+createSources([{SourceArgs,ConnectionsGraph}|Sources],WorkersMap,BatchSize,Frequency,HostName) ->
     SourceName = binary_to_list(maps:get(<<"name">>,SourceArgs)),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,SourceArgs))),
     Method = list_to_integer(binary_to_list(maps:get(<<"method">>,SourceArgs))),
     %%Create a gen_StateM machine for maintaining Database for Source.
     %% all http requests will be handled by Cowboy which updates source_statem if necessary.
-    SourceStatemArgs= {SourceName, WorkersMap, ConnectionsGraph, Method, ChunkSize, Frequency},        %%TODO  make this a list of Sources
+    SourceStatemArgs= {SourceName, WorkersMap, ConnectionsGraph, Method, BatchSize, Frequency},        %%TODO  make this a list of Sources
     SourceStatemPid = sourceStatem:start_link(SourceStatemArgs),
 
 
@@ -205,7 +194,7 @@ createSources([{SourceArgs,ConnectionsGraph}|Sources],WorkersMap,ChunkSize,Frequ
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
     init_cowboy_start_clear(SourceName, {HostName,Port},SourceDispatch),
-    createSources(Sources,WorkersMap,ChunkSize,Frequency,HostName).
+    createSources(Sources,WorkersMap,BatchSize,Frequency,HostName).
 
 
 
@@ -253,14 +242,14 @@ createRouters([{RouterArgs,ConnectionsGraph}|Routers],HostName) ->
 
 
 
-createMainServer(none,_ChunkSize,_HostName) -> none;
-createMainServer({[MainServerArgsMap],ConnectionsGraph,WorkersMap,ClientsNames},ChunkSize,HostName) ->
+createMainServer(none,_BatchSize,_HostName) -> none;
+createMainServer({MainServerArgsMap,ConnectionsGraph,WorkersMap,ClientsNames},BatchSize,HostName) ->
     MainName = "mainServer",
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,MainServerArgsMap))),
 
     %%Create a gen_Server for maintaining Database for Main Server.
     %% all http requests will be handled by Cowboy which updates main_genserver if necessary.
-    MainGenServer_Args= {MainName,ClientsNames,ChunkSize,WorkersMap,ConnectionsGraph},        %%TODO change from mainserverport to routerport . also make this a list of client
+    MainGenServer_Args= {MainName,ClientsNames,BatchSize,WorkersMap,ConnectionsGraph},        %%TODO change from mainserverport to routerport . also make this a list of client
     MainGenServerPid = mainGenserver:start_link(MainGenServer_Args),
 
     MainServerDispatcher = cowboy_router:compile([
@@ -298,43 +287,3 @@ init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
 
 stop(_State) ->
     ok.
-
-% get this host ip
-getdeviceIP() ->
-    {ok, IFList} = inet:getifaddrs(),    % IFList format: [{IF_name, [{field, param},{},...]},...]
-    SubnetsList = getNerlSubnets(),
-    getdeviceIP(IFList, SubnetsList).
-
-getdeviceIP([], SubnetsList) ->
-    logger:error("No supported interface was found. Current supported interfaces list is: ~p.~nEdit subnets.nerlconfig file to include your network",[SubnetsList]);
-getdeviceIP([IF|IFList], SubnetsList) ->
-    {_IF_name, Params} = IF,
-    try
-        {addr, IF_addr} = lists:keyfind(addr, 1, Params),   % address format: {num, num, num, num}
-        DeviceIP = isAddrInSubnets(IF_addr, SubnetsList),
-        case DeviceIP of
-            notFound -> getdeviceIP(IFList, SubnetsList);
-            IP -> IP
-        end
-    catch error:_E -> getdeviceIP(IFList, SubnetsList)
-    end.
-
-getNerlSubnets() ->
-    {ok, Data} = file:read_file(?SUBNETS_CONFIG_ADDR),
-    Lines = string:split(binary_to_list(Data), "\n", all),
-    Subnets = [Subnet || Subnet <- Lines, hd(Subnet) /= $#],
-    lists:sort(Subnets).
-
-isAddrInSubnets(_IF_addr, []) -> notFound;
-isAddrInSubnets(IF_addr, [Subnet|SubnetsList]) ->
-    %convert IF_addr to IP string
-    IP_LIST = tuple_to_list(IF_addr),
-    A = lists:flatten(io_lib:format("~p", [IP_LIST])),
-    Subbed = lists:sublist(A,2,length(A)-2),
-    IPString = lists:flatten(string:replace(Subbed,",",".",all)),
-    % io:format("comparing ~p=~p~n",[IPString, Subnet]),
-    IPMatch = lists:prefix(Subnet, IPString),
-    case IPMatch of
-        false -> isAddrInSubnets(IF_addr, SubnetsList);
-        true -> IPString
-    end.

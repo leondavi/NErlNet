@@ -39,9 +39,9 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          nifpp::get_throws(env,argv[0],modelId);
          nifpp::get_throws(env,argv[1],modelType);
          nifpp::get_throws(env,argv[2],scaling_method); 
-         nifpp::getTensor1D(env,argv[3],layer_types); 
-         nifpp::getTensor1D(env,argv[4],neural_network_architecture);
-         nifpp::getTensor1D(env,argv[5],activations_functions);
+         nifpp::get_tensor_1d_from_erl_list(env,argv[3],layer_types); 
+         nifpp::get_tensor_1d_from_erl_list(env,argv[4],neural_network_architecture);
+         nifpp::get_tensor_1d_from_erl_list(env,argv[5],activations_functions);
            
         }   
      

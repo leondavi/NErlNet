@@ -41,6 +41,7 @@ public:
     int loss_method;
     int epoch;
     double learning_rate;
+
     fTensor2DPtr data;
     std::chrono::high_resolution_clock::time_point start_time;
     double K_val;
@@ -57,6 +58,9 @@ public:
     fTensor2DPtr data;
     ErlNifPid pid;
     ErlNifTid tid;
+
+    std::chrono::high_resolution_clock::time_point start_time;
+
     nifpp::str_atom return_tensor_type; // holds the type of tensor should be returned
 };
 
@@ -67,23 +71,38 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     std::shared_ptr<PredictNN>* pPredictNNptr = new std::shared_ptr<PredictNN>(std::make_shared<PredictNN>());
     std::shared_ptr<PredictNN> PredictNNptr = *pPredictNNptr;
 
-    ErlNifPid pid;
+    PredictNNptr->start_time = high_resolution_clock::now();
 
+    enum{ARG_ModelID, ARG_BatchTensor, ARG_Type};
+
+    ErlNifPid pid;
     enif_self(env, &pid);
     PredictNNptr->pid = pid;
 
-    nifpp::get_throws(env, argv[0], PredictNNptr->mid); // get model id
-    nifpp::getTensor2D(env,argv[1], PredictNNptr->data); // get data for prediction
+    nifpp::str_atom tensor_type;
+    nifpp::get_throws(env, argv[ARG_Type],tensor_type);
+    assert(tensor_type == "float");
+    PredictNNptr->return_tensor_type = tensor_type;
 
-    // cout << "data size cols: " << PredictNNptr->data->dimension(0) <<std::endl;
-    // cout << "data size rows: " << PredictNNptr->data->dimension(1) <<std::endl;
+    nifpp::get_throws(env, argv[ARG_ModelID], PredictNNptr->mid); // get model id
+    
+    nifpp::get_tensor_2d<float,fTensor2DPtr,fTensor2D>(env,argv[ARG_BatchTensor],PredictNNptr->data);
 
     opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
     int modelType = onnBrCtrl.getModelType(PredictNNptr->mid);
 
     int res;
-    res = enif_thread_create((char*)"trainModule", &(PredictNNptr->tid), PredictFun, (void*) pPredictNNptr, 0);
-    return enif_make_string(env, "end PREDICT mode", ERL_NIF_LATIN1);
+    res = enif_thread_create((char*)"predict_nif_proc", &(PredictNNptr->tid), PredictFun, (void*) pPredictNNptr, 0);
+    
+    if (res)
+    {
+        LogError("failed to call enif_thread_create with PredictFun");
+        nifpp::str_atom ret_status("predict_error");
+        return nifpp::make(env, ret_status);
+    }
+
+    nifpp::str_atom ret_status("predict_starts");
+    return nifpp::make(env, ret_status);
 
 }  //end PREDICT mode
 
@@ -91,43 +110,46 @@ void* trainFun(void* arg);
 void* trainFunAE(void* arg);
 
 static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
-           
-    ERL_NIF_TERM train_time;
-        // Start timer for the train
-    high_resolution_clock::time_point start = high_resolution_clock::now();
 
     std::shared_ptr<TrainNN>* pTrainNNptr = new std::shared_ptr<TrainNN>(std::make_shared<TrainNN>());
     std::shared_ptr<TrainNN> TrainNNptr = *pTrainNNptr;
-    TrainNNptr->start_time = start;
-        
-    try{
-    int i=0;
-    nifpp::get_throws(env, argv[i++],TrainNNptr->mid); // model id
-    nifpp::get_throws(env, argv[i++],TrainNNptr->optimization_method);
-    nifpp::get_throws(env, argv[i++],TrainNNptr->loss_method);
-    nifpp::get_throws(env, argv[i++],TrainNNptr->learning_rate);
+    TrainNNptr->start_time = high_resolution_clock::now();
+    
+    nifpp::str_atom tensor_type;
+
+    enum{ARG_ModelID,ARG_OptimizationMethod,ARG_LossMethod, ARG_LearningRate,ARG_DataTensor,ARG_Type};
+    nifpp::get_throws(env, argv[ARG_ModelID],TrainNNptr->mid); // model id
+    nifpp::get_throws(env, argv[ARG_OptimizationMethod],TrainNNptr->optimization_method);
+    nifpp::get_throws(env, argv[ARG_LossMethod],TrainNNptr->loss_method);
+    nifpp::get_throws(env, argv[ARG_LearningRate],TrainNNptr->learning_rate);
+    nifpp::get_throws(env, argv[ARG_Type],tensor_type);
     TrainNNptr->epoch = 1; //TODO get epoch from erlang
-    nifpp::getTensor2D(env,argv[i++],TrainNNptr->data);
+    assert(tensor_type == "float");
+    TrainNNptr->return_tensor_type = tensor_type;
+    
+    // nifpp::getTensor2D(env,argv[i++],TrainNNptr->data); TODO: remove
+    nifpp::get_tensor_2d<float,fTensor2DPtr,fTensor2D>(env,argv[ARG_DataTensor],TrainNNptr->data);
+    // std::cout << "Tensor decoded" << std::endl;
+    // std::cout << *(TrainNNptr->data) << std::endl;
 
-        ErlNifPid pid;
-        enif_self(env, &pid);
-        TrainNNptr->pid = pid;
-    }
-    catch(...){
-        return enif_make_string(env, "catch - get data from erlang", ERL_NIF_LATIN1);
-    }  
+    ErlNifPid pid;
+    enif_self(env, &pid);
+    TrainNNptr->pid = pid;
 
-    try{
-        opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
-        int modelType = onnBrCtrl.getModelType(TrainNNptr->mid);
-        int res;
-        res = enif_thread_create((char*)"trainModule", &(TrainNNptr->tid), trainFun, (void*) pTrainNNptr, 0);
-    }
-    catch(...){
-    cout << "catch in enif_thread_create " << endl;
+    opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
+    int modelType = onnBrCtrl.getModelType(TrainNNptr->mid);
+    int res;
+    res = enif_thread_create((char*)"train_nif_proc", &(TrainNNptr->tid), trainFun, (void*) pTrainNNptr, 0);
+
+    if (res)
+    {
+        LogError("failed to call enif_thread_create with trainFun");
+        nifpp::str_atom ret_status("train_error");
+        return nifpp::make(env, ret_status);
     }
 
-        return enif_make_string(env, "end comunication", ERL_NIF_LATIN1);
+    nifpp::str_atom ret_status("train_starts");
+    return nifpp::make(env, ret_status);
 }  //end trainn_nif
 
 
@@ -347,7 +369,7 @@ static ERL_NIF_TERM  nerltensor_scalar_multiplication_nif(ErlNifEnv* env, int ar
             float scalarf = static_cast<float>(scalard);
             (*eigen_tensor_res) = (*eigen_tensor) * scalarf;
 
-            nifpp::make_tensor_2d<float, fTensor2D>(env, nerltensor_bin, dims, eigen_tensor_res);
+            nifpp::make_tensor_2d<float, fTensor2D>(env, nerltensor_bin, eigen_tensor_res);
             
             return_tuple =  { nerltensor_bin , nifpp::make(env, nerltensors_type) };
             break;
@@ -360,7 +382,7 @@ static ERL_NIF_TERM  nerltensor_scalar_multiplication_nif(ErlNifEnv* env, int ar
             dTensor2DPtr eigen_tensor_res = make_shared<dTensor2D>(eigen_tensor->dimension(0), eigen_tensor->dimension(1));
             (*eigen_tensor_res) = (*eigen_tensor) * scalard;
 
-            nifpp::make_tensor_2d<double, dTensor2D>(env, nerltensor_bin, dims, eigen_tensor_res);
+            nifpp::make_tensor_2d<double, dTensor2D>(env, nerltensor_bin, eigen_tensor_res);
             
             return_tuple =  { nerltensor_bin , nifpp::make(env, nerltensors_type) };
             break;
@@ -413,7 +435,7 @@ static ERL_NIF_TERM nerltensor_sum_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
             
             fTensor2DPtr eigen_tensor_c = make_shared<fTensor2D>(eigen_tensor_a->dimension(0), eigen_tensor_a->dimension(1));
             sum_eigen<fTensor2DPtr>(eigen_tensor_a, eigen_tensor_b, eigen_tensor_c);
-            nifpp::make_tensor_2d<float, fTensor2D>(env, nerltensor_bin, dims, eigen_tensor_c);
+            nifpp::make_tensor_2d<float, fTensor2D>(env, nerltensor_bin, eigen_tensor_c);
             
             return_tuple =  { nerltensor_bin , nifpp::make(env, nerltensors_type) };
             break;
@@ -428,7 +450,7 @@ static ERL_NIF_TERM nerltensor_sum_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
             dTensor2DPtr eigen_tensor_c = make_shared<dTensor2D>(eigen_tensor_a->dimension(0), eigen_tensor_a->dimension(1));
             sum_eigen<dTensor2DPtr>(eigen_tensor_a, eigen_tensor_b, eigen_tensor_c);
             
-            nifpp::make_tensor_2d<double, dTensor2D>(env, nerltensor_bin, dims, eigen_tensor_c);
+            nifpp::make_tensor_2d<double, dTensor2D>(env, nerltensor_bin, eigen_tensor_c);
             
             return_tuple =  { nerltensor_bin , nifpp::make(env, nerltensors_type) };
             break;
@@ -453,10 +475,10 @@ static ERL_NIF_TERM nerltensor_sum_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 static ErlNifFunc nif_funcs[] =
 {
     {"create_nif", 6 , create_nif},
-    {"train_nif", 5 , train_nif},
-    {"predict_nif", 2 , predict_nif},
+    {"train_nif", 6 , train_nif},
+    {"predict_nif", 3 , predict_nif},
     {"get_weights_nif",1, get_weights_nif},
-    {"set_weights_nif",2, set_weights_nif},
+    {"set_weights_nif",3, set_weights_nif},
     {"encode_nif",2, encode_nif},
     {"decode_nif",2, decode_nif},
     {"nerltensor_sum_nif",3, nerltensor_sum_nif},

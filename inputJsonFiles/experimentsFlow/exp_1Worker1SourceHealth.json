@@ -1,6 +1,6 @@
 {
    "Features": 13,
-   "Labels": ["Head", "Shoulder", "Stomach", "Knees", "Toes"],
+   "Labels": ["no HA", "HA1", "HA2", "HA3", "HA4"],
    "CSV path": "health_comb",
    "Batches per source": 
    {
