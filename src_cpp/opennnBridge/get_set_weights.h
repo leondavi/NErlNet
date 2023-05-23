@@ -3,93 +3,82 @@
 
 #include <string>
 #include "ModelParams.h"
-#include "nifpp.h"
+#include "nifppNerltensorEigen.h"
 
 using namespace opennn;
 
 
 
-static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
-         
-         long int mid;
-         ErlNifPid pid;
+static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{ 
+    std::tuple<nifpp::TERM, nifpp::TERM> return_tuple;
 
-         enif_self(env, &pid);
+    nifpp::str_atom res;
+    long int mid;
+    ErlNifPid pid;
+    nifpp::TERM nerltensor_parameters_bin;
+    fTensor1D parameters;
+    fTensor1DPtr parameters_ptr;
+    nifpp::str_atom nerltensor_type = "float";
+    std::tuple<nifpp::TERM, nifpp::TERM> message_tuple; // returned nerltensor of parameters
 
-         opennnBridgeController& s = opennnBridgeController::GetInstance();
+    enif_self(env, &pid);
 
-         //get model id
-         nifpp::get_throws(env, argv[0], mid); 
+    //get model id
+    nifpp::get_throws(env, argv[0], mid); 
 
-         //get neural network from singelton           
-         std::shared_ptr<opennn::NeuralNetwork> neural_network = s.getModelPtr(mid);
-         
-         //cout << neural_network->get_layers_number() <<std::endl;
-         //Index num = neural_network->get_layers_number();
+    //get neural network parameters which are weights and biases valuse as a 1D vector         
+    opennnBridgeController &onn_bridge_control = opennnBridgeController::GetInstance();
+    std::shared_ptr<opennn::NeuralNetwork> neural_network = onn_bridge_control.getModelPtr(mid);
 
-         Tensor< float, 1 > parameters = neural_network->get_parameters();
-        //  Tensor<Tensor<type, 1>, 1> parameters2 = get_trainable_layers_parameters(parameters);
- 
-         ERL_NIF_TERM erl_parameters = nifpp::makeTensor1D(env, parameters);
-         
-       // cout << "sending parameters with size of:" ;
-       // cout << parameters.size() <<std::endl;
-        // cout << parameters <<std::endl;
+    parameters = neural_network->get_parameters();
+    parameters_ptr = std::make_shared<fTensor1D>(parameters);
+
+    nifpp::make_tensor_1d<float, fTensor1D>(env, nerltensor_parameters_bin, parameters_ptr); //binary tensor
     
+    // create returned tuple
+    message_tuple = { nerltensor_parameters_bin , nifpp::make(env, nerltensor_type) };
+    nifpp::TERM message = nifpp::make(env, message_tuple);
 
-         if(enif_send(NULL,&(pid), env,erl_parameters)){
-             //printf("enif_send succeed\n");
-         }
-         else printf("enif_send failed\n");
-
-         return enif_make_string(env, "end get_weights_nif ", ERL_NIF_LATIN1);
-
-     //return enif_make_int(env,0);
+    if(enif_send(NULL,&(pid), env, message)) //TODO check this value in Erlang!
+    {
+        res = "ok";
+        return nifpp::make(env, res);
+    }
+  
+    LogError("enif_send failed\n");
+    res = "nif_error";
+    return nifpp::make(env, res);
 
 }  //end get_weights_nif 
 
 
 
 static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){ 
-         // return enif_make_string(env, "end set_weights_nif ", ERL_NIF_LATIN1);
-         long int mid;
-         ErlNifPid pid;
-         
-         std::shared_ptr<Eigen::Tensor<float,1>> parameters;
-        
-         enif_self(env, &pid);
-         opennnBridgeController& s = opennnBridgeController::GetInstance();
+    // return enif_make_string(env, "end set_weights_nif ", ERL_NIF_LATIN1);
+    enum{ARG_ModelID, ARG_Weights, ARG_Type};
+    
+    long int mid;
+    ErlNifPid pid;
+    
+    fTensor1DPtr parameters;
+    
+    enif_self(env, &pid);
+    opennnBridgeController& s = opennnBridgeController::GetInstance();
 
-         //get model id
-         nifpp::get_throws(env, argv[0], mid); 
-         nifpp::getTensor1D(env,argv[1],parameters);
+    //get model id
+    nifpp::get_throws(env, argv[ARG_ModelID], mid); 
+    //nifpp::get_throws(env, argv[ARG_Type], mid); // TODO: Add this
+    nifpp::get_tensor_1d<float,fTensor1DPtr, fTensor1D>(env,argv[ARG_Weights], parameters);
 
-         //get neural network from singelton           
-         std::shared_ptr<opennn::NeuralNetwork> neural_network = s.getModelPtr(mid);
-         int NN_parameters_number = neural_network->get_parameters_number();
-         int new_parameters_number = parameters->size();
-         //cout << neural_network->get_layers_number() <<std::endl;
-         //Index num = neural_network->get_layers_number();
-         if(NN_parameters_number == new_parameters_number){
-     
-         neural_network->set_parameters(*parameters);
-      
-         }
-         else{
-            cout << "error update NN parameters" <<  std::endl;
-            cout << "NN_parameters_number: " << NN_parameters_number << std::endl;
-            cout << "new_parameters_number: " << new_parameters_number << std::endl;
-         }
-         return enif_make_string(env, "end set_weights_nif ", ERL_NIF_LATIN1);
-       
-     //return enif_make_int(env,0);
+    //get neural network from singelton           
+    std::shared_ptr<opennn::NeuralNetwork> neural_network = s.getModelPtr(mid);
+    int nn_parameters_number = neural_network->get_parameters_number();
+    int new_parameters_number = parameters->size();
+   
+    assert(nn_parameters_number == new_parameters_number);
+    neural_network->set_parameters(*parameters);
 
+    nifpp::str_atom ret_val("ok");
+    return nifpp::make(env, ret_val);
 }  //end set_weights_nif 
-
- /*
-         //get weitghts test
-         std::cout << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl; 
-         std::cout << parameters2 << std::endl;
-         std::cout << "bbbb" << std::endl; 
-         //end 
-         */

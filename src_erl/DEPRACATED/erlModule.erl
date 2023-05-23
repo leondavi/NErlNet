@@ -150,25 +150,25 @@ average_weights(_Matrix_biases, _Size) ->
 
 %% ------------------------ TEST ----------------------------
 
-train(0,_ChunkSize, _Cols, _Labels, _SampleListTrain,_ModelId,_Pid,LOSS)->LOSS;
-train(ProcNumTrain,ChunkSize, Cols, Labels, SampleListTrain,ModelId,Pid,_LOSS)->
+train(0,_BatchSize, _Cols, _Labels, _SampleListTrain,_ModelId,_Pid,LOSS)->LOSS;
+train(ProcNumTrain,BatchSize, Cols, Labels, SampleListTrain,ModelId,Pid,_LOSS)->
 	Curr_pid=self(),
-	erlModule:train2double(ChunkSize, Cols, Labels, SampleListTrain,ModelId,Curr_pid),
+	erlModule:train2double(BatchSize, Cols, Labels, SampleListTrain,ModelId,Curr_pid),
 	receive
 		LOSS_FUNC->
-			train(ProcNumTrain-1,ChunkSize, Cols, Labels, SampleListTrain,ModelId,Pid,LOSS_FUNC)
+			train(ProcNumTrain-1,BatchSize, Cols, Labels, SampleListTrain,ModelId,Pid,LOSS_FUNC)
 	end.
 
 
-startTest(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId, ActivationList, Learning_rate, Layers_sizes, Optimizer, ProcNumTrain)->
+startTest(File, Train_predict_ratio,BatchSize, Cols, Labels, ModelId, ActivationList, Learning_rate, Layers_sizes, Optimizer, ProcNumTrain)->
 
 	{_FileLinesNumber,_Train_Lines,_PredictLines,_SampleListTrain,_SampleListPredict}=
-		parse:readfile(File, Train_predict_ratio,ChunkSize, Cols, Labels, ModelId),
+		parse:readfile(File, Train_predict_ratio,BatchSize, Cols, Labels, ModelId),
 
 	module_create(Layers_sizes, Learning_rate, ActivationList, Optimizer, ModelId),
 	Start_Time = os:system_time(microsecond),
 	get_weights(0),
-	io:fwrite("ChunkSize: ~p Cols: ~p, Labels: ~p, ModelId: ~p, pid: ~p \n",[ChunkSize,Cols,Labels, ModelId,self()]),
+	io:fwrite("BatchSize: ~p Cols: ~p, Labels: ~p, ModelId: ~p, pid: ~p \n",[BatchSize,Cols,Labels, ModelId,self()]),
 
 	Finish_Time = os:system_time(microsecond),
 	Time_elapsed=(Finish_Time-Start_Time)/ProcNumTrain,

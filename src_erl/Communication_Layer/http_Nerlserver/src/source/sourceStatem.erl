@@ -11,18 +11,15 @@
 
 -behaviour(gen_statem).
 
+-include("../nerl_tools.hrl").
 %% API
 -export([start_link/1]).
-
 %% gen_statem callbacks
--export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,
-  code_change/4, callback_mode/0, idle/3, castingData/3, sendSamples/10]).
+-export([format_status/2, state_name/3, handle_event/4, terminate/3, code_change/4, callback_mode/0]).
+%% states and misc
+-export([init/1,  idle/3, castingData/3, sendSamples/10]).
 
--define(SERVER, ?MODULE).
--define(SENDALL, 1).
--define(ROUNDROBIN, 2).
-
--record(source_statem_state, {sendingMethod, frequency, chunkSize, lengthOfSample, castingTo=[], myName,workersMap,nerlnetGraph, msgCounter=0, sourcePid=[],csvName="", csvList="", num_of_features, num_of_labels}).
+-record(source_statem_state, {sendingMethod, frequency, batchSize, lengthOfSample, castingTo=[], myName,workersMap,nerlnetGraph, msgCounter=0, sourcePid=[],csvName="", batchList, nerlTensorType}).
 
 %%%===================================================================
 %%% API
@@ -47,13 +44,13 @@ start_link(NerlnetGraph) ->
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
 %%initialize and go to state - idle
-init({MyName,WorkersMap, NerlnetGraph, Method, ChunkSize,Frequency}) ->
+init({MyName,WorkersMap, NerlnetGraph, Method, BatchSize,Frequency}) ->
+  nerl_tools:setup_logger(?MODULE),
   inets:start(),
-    io:format("Source ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
-  start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
+  io:format("Source ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
+  nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
 
-
-  {ok, idle, #source_statem_state{sendingMethod = Method, frequency = Frequency, chunkSize = ChunkSize,myName = MyName, workersMap = WorkersMap, nerlnetGraph = NerlnetGraph, msgCounter = 1, castingTo = []}}.
+  {ok, idle, #source_statem_state{sendingMethod = Method, frequency = Frequency, batchSize = BatchSize,myName = MyName, workersMap = WorkersMap, nerlnetGraph = NerlnetGraph, msgCounter = 1, castingTo = []}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -79,46 +76,43 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
   {next_state, NextStateName, State}.
 
 
-%%This cast receive a list of samples to load to the records csvList
-idle(cast, {csvList,Workers,CSVData}, State = #source_statem_state{chunkSize = ChunkSize, myName = MyName, msgCounter = Counter, nerlnetGraph = NerlnetGraph}) ->
+%%This cast receive a list of samples to load to the records batchList
+idle(cast, {batchList,Workers,CSVData}, State = #source_statem_state{batchSize = BatchSize, myName = MyName, msgCounter = Counter, nerlnetGraph = NerlnetGraph}) ->
   %io:format("CSVData - ~p~n",[CSVData]),
-  io:format("ChunkSize - ~p~n",[ChunkSize]),
-  CSVlist = parser:parseCSV(MyName,ChunkSize,CSVData),
-  [Head|_] = CSVlist,
-  LengthOfSample = byte_size(Head),
+  ?LOG_INFO("Arch BatchSize = ~p~nWorkers under source = ~p~n",[BatchSize, Workers]),
+  {NerlTensorList, NerlTensorType, SampleSize} = parser:parseCSV(MyName,BatchSize,CSVData),
   %%  CSVName = lists:last(re:split(CSVPath,"/",[{return,list}])),
-  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
   %%  send an ACK to mainserver that the CSV file is ready
-  io:format("source updated transmitting list, total batches to send: - ~p~n",[length(CSVlist)]),
-  io:format("source updated Workers - ~p~n",[Workers]),
-  http_request(RouterHost,RouterPort,"csvReady",MyName),
-  {next_state, idle, State#source_statem_state{lengthOfSample = LengthOfSample, castingTo = Workers, msgCounter = Counter+1,csvList =CSVlist}};
+  ?LOG_INFO("source updated transmition list, total avilable batches to send: ~p~n",[length(NerlTensorList)]),
+  nerl_tools:http_request(RouterHost,RouterPort,"csvReady",MyName),
+  {next_state, idle, State#source_statem_state{lengthOfSample = SampleSize, castingTo = Workers, msgCounter = Counter+1,batchList = NerlTensorList, nerlTensorType = NerlTensorType}};
 
 
 %%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
-idle(cast, {startCasting,Body}, State = #source_statem_state{myName = MyName, lengthOfSample = LengthOfSample, sendingMethod = Method, frequency = Frequency, chunkSize = ChunkSize, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, nerlnetGraph = NerlnetGraph, msgCounter = Counter, csvName = CSVName, csvList =CSVlist}) ->
+idle(cast, {startCasting,Body}, State = #source_statem_state{myName = MyName, lengthOfSample = LengthOfSample, sendingMethod = Method, frequency = Frequency, batchSize = BatchSize, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, nerlnetGraph = NerlnetGraph, msgCounter = Counter, csvName = CSVName, batchList =CSVlist}) ->
     [_Source,NumOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
 
-  logger:notice("start casting to: ~p~nnumber of batches to send: ~p~ntotal casting list length: ~p~n ",[CastingTo,NumOfBatchesToSend, length(CSVlist)]),
+  ?LOG_NOTICE("start casting to: ~p~nnumber of batches to send: ~p~ntotal casting list length: ~p~n ",[CastingTo,NumOfBatchesToSend, length(CSVlist)]),
   NumOfBatches = list_to_integer(NumOfBatchesToSend),
   BatchesToSend = if length(CSVlist) < NumOfBatches -> length(CSVlist); true -> list_to_integer(NumOfBatchesToSend) end,
 
-  Transmitter =  spawnTransmitter(CastingTo,CSVName,CSVlist,NerlnetGraph,MyName,WorkersMap,ChunkSize,LengthOfSample,Frequency,BatchesToSend,Method) ,
+  Transmitter =  spawnTransmitter(CastingTo,CSVName,CSVlist,NerlnetGraph,MyName,WorkersMap,BatchSize,LengthOfSample,Frequency,BatchesToSend,Method) ,
   {next_state, castingData, State#source_statem_state{msgCounter = Counter+1, sourcePid = Transmitter}};
 
 idle(cast, {startCasting}, State = #source_statem_state{msgCounter = Counter}) ->
-  io:format("im not suppose to be here"),
+  % io:format("im not suppose to be here"),
   {next_state, castingData, State#source_statem_state{msgCounter = Counter+1}};
 
 
 
 idle(cast, {stopCasting}, State = #source_statem_state{msgCounter = Counter}) ->
-  io:format("already idle~n",[]),
+  % io:format("already idle~n",[]),
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1}};
 
 idle(cast, {statistics}, State = #source_statem_state{myName =  MyName, sourcePid = [], nerlnetGraph = NerlnetGraph, msgCounter = Counter}) ->
-  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
-  http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(Counter))),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+  nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(Counter))),
 %%  io:format("sending statistics casting to: ~p~n",[CastingTo]),
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1}};
 
@@ -132,19 +126,19 @@ castingData(cast, {stopCasting}, State = #source_statem_state{msgCounter = Count
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1,sourcePid = []}};
 
 castingData(cast, {startCasting}, State = #source_statem_state{msgCounter = Counter}) ->
-  io:format("already casting~n",[]),
+  % io:format("already casting~n",[]),
   {next_state, castingData, State#source_statem_state{msgCounter = Counter+1}};
 
 castingData(cast, {leftOvers,Tail}, State = #source_statem_state{msgCounter = Counter}) ->
 %%  io:format("received leftovers- ~p~n",[Tail]),
-  {next_state, idle, State#source_statem_state{msgCounter = Counter+1,csvList = Tail}};
+  {next_state, idle, State#source_statem_state{msgCounter = Counter+1,batchList = Tail}};
 
 castingData(cast, {finishedCasting,CounterReceived,ListOfSamples}, State = #source_statem_state{myName = MyName, msgCounter = Counter, nerlnetGraph = NerlnetGraph}) ->
    %io:format("source finished casting~n"),
-  {RouterHost,RouterPort} = getShortPath(MyName,"mainServer",NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
 %%  send an ACK to mainserver that the CSV file is ready
-  http_request(RouterHost,RouterPort,"sourceDone", MyName),
-  {next_state, idle, State#source_statem_state{msgCounter = Counter+CounterReceived+1,csvList = ListOfSamples, sourcePid = []}};
+  nerl_tools:http_request(RouterHost,RouterPort,"sourceDone", MyName),
+  {next_state, idle, State#source_statem_state{msgCounter = Counter+CounterReceived+1,batchList = ListOfSamples, sourcePid = []}};
 
 castingData(cast, EventContent, State = #source_statem_state{msgCounter = Counter}) ->
   io:format("ignored: ~p~nstate - casting data",[EventContent]),
@@ -176,65 +170,59 @@ code_change(_OldVsn, StateName, State = #source_statem_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-
-
 %%send samples receive a batch size and casts the client with data. data received as a string containing floats and integers.
 %%CLIENT NEED TO PROCESS DATA BEFORE FEEDING THE DNN
 
-spawnTransmitter(WorkersNames,CSVPath,CSVlist,NerlnetGraph, MyName,WorkersMap,ChunkSize,LengthOfSample, Frequency,NumOfBatchesToSend,Method)->
+spawnTransmitter(WorkersNames,CSVPath,CSVlist,NerlnetGraph, MyName,WorkersMap,BatchSize,LengthOfSample, Frequency,NumOfBatchesToSend,Method)->
 %%  ListOfWorkers = re:split(WorkersNames,",", [{return, list}]),
-Triplets =getHostPort(WorkersNames,WorkersMap,NerlnetGraph,MyName,[]),
-%%  io:format("~p~n",[Triplets]),
+  Triplets = nerl_tools:getHostPort(WorkersNames,WorkersMap,NerlnetGraph,MyName,[]),
   %%[list of binarys from CSV file, Size of batch, 1/Hz (in milisecond), statem pid]
   Ms = round(1000/Frequency),
-  spawn(?MODULE,sendSamples,[CSVlist,CSVPath,ChunkSize,LengthOfSample,Ms,self(),Triplets,0,NumOfBatchesToSend,Method]).
+  spawn(?MODULE,sendSamples,[CSVlist,CSVPath,BatchSize,LengthOfSample,Ms,self(),Triplets,0,NumOfBatchesToSend,Method]).
 
 
-sendSamples(ListOfSamples,_CSVPath,_ChunkSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,NumOfBatchesToSend,_Method) when NumOfBatchesToSend=<0 ->
+sendSamples(ListOfSamples,_CSVPath,_BatchSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,NumOfBatchesToSend,_Method) when NumOfBatchesToSend=<0 ->
   receive
   after Ms ->
-    gen_statem:cast(Pid,{finishedCasting,Counter,ListOfSamples}), io:format("sent all samples~n")
+    gen_statem:cast(Pid,{finishedCasting,Counter,ListOfSamples}), ?LOG_INFO("sent all samples~n")
   end;
 
-sendSamples([],_CSVPath,_ChunkSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,_NumOfBatchesToSend,_Method)->
+sendSamples([],_CSVPath,_BatchSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,_NumOfBatchesToSend,_Method)->
   receive
   after Ms ->
     gen_statem:cast(Pid,{finishedCasting,Counter,[]})
   end;
 
-sendSamples(ListOfSamples,CSVPath,ChunkSize,LengthOfSample, Ms,Pid,Triplets,Counter,NumOfBatchesToSend,Method)->
+sendSamples(ListOfSamples,CSVPath,BatchSize,LengthOfSample, Ms,Pid,Triplets,Counter,NumOfBatchesToSend,Method)->
           %%this http request will be splitted at client's state machine by the following order:
           %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
   if NumOfBatchesToSend rem 10 == 0 ->
-    io:format("~p samples left to send~n", [NumOfBatchesToSend]); true -> skip end,
-
-  if Method == ?SENDALL ->
-        %%sending batch to all clients"
-        [Head|ListOfSamplesRest]=ListOfSamples,
-        {_ListOfSamplesRest,NewCounter2} = sendToAll([Head],CSVPath,ChunkSize,LengthOfSample, Ms,Pid,Triplets,Counter);
-    Method == ?ROUNDROBIN ->
-      %%sending batch to all clients with round robin"
-
-      {ListOfSamplesRest,NewCounter2} = roundRobin(ListOfSamples,CSVPath,LengthOfSample,Counter,Triplets);
-    true ->%% default method is send to all
-      %%"default method is send to all
-
+    ?LOG_INFO("~p samples left to send~n", [NumOfBatchesToSend]); true -> skip end,
+  
+  case Method of
+    ?SENDALL ->
+      %%sending batch to all clients"
       [Head|ListOfSamplesRest]=ListOfSamples,
-      {_ListOfSamplesRest,NewCounter2} = sendToAll([Head],CSVPath,ChunkSize,LengthOfSample,Ms,Pid,Triplets,Counter)
+      {_ListOfSamplesRest,NewCounter2} = sendToAll([Head],CSVPath,BatchSize,LengthOfSample, Ms,Pid,Triplets,Counter);
+
+    ?ROUNDROBIN -> 
+      %%sending batch to all clients with round robin"
+      {ListOfSamplesRest,NewCounter2} = roundRobin(ListOfSamples,CSVPath,LengthOfSample,Counter,Triplets);
+      
+    %% default method is send to all
+    _Default ->
+      [Head|ListOfSamplesRest]=ListOfSamples,
+      {_ListOfSamplesRest,NewCounter2} = sendToAll([Head],CSVPath,BatchSize,LengthOfSample,Ms,Pid,Triplets,Counter)
   end,
-%%        [http_request(RouterHost, RouterPort,"weightsVector",
-%%                    list_to_binary([list_to_binary([list_to_binary(atom_to_list(ClientName)),<<"#">>,list_to_binary(WorkerName),<<"#">>,list_to_binary(CSVPath),<<"#">>,list_to_binary(integer_to_list(Counter)),<<"#">>]),list_to_binary(Head)]))
-%%                  || {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
+
+  %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
   receive
-      %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
     {stopCasting}  ->
       io:format("source stop casting",[]),
       gen_statem:cast(Pid,{leftOvers,ListOfSamplesRest})
    after Ms->
-    if length(ListOfSamplesRest)==0 ->
-      gen_statem:cast(Pid,{finishedCasting,NewCounter2,[]});
-      true ->
-        sendSamples(ListOfSamplesRest,CSVPath,ChunkSize,LengthOfSample,Ms,Pid,Triplets,NewCounter2,NumOfBatchesToSend-(NewCounter2-Counter),Method)
+    if length(ListOfSamplesRest) == 0 -> gen_statem:cast(Pid,{finishedCasting,NewCounter2,[]});
+      true -> sendSamples(ListOfSamplesRest,CSVPath,BatchSize,LengthOfSample,Ms,Pid,Triplets,NewCounter2,NumOfBatchesToSend-(NewCounter2-Counter),Method)
     end
   end.
 
@@ -243,68 +231,36 @@ roundRobin(ListOfSamples,_CSVPath,_LengthOfSample,Counter,[])-> {ListOfSamples, 
 roundRobin(ListOfSamples,CSVPath,LengthOfSample,Counter,[{ClientName,WorkerName,RouterHost,RouterPort}|Triplets])->
   [Head|Rest]=ListOfSamples,
   if(Head ==<<>>)->
-    roundRobin(Rest,CSVPath,LengthOfSample,Counter,[{ClientName,WorkerName,RouterHost,RouterPort}|Triplets]);
+      roundRobin(Rest,CSVPath,LengthOfSample,Counter,[{ClientName,WorkerName,RouterHost,RouterPort}|Triplets]);
     true ->
-      sendSample(Head,CSVPath,LengthOfSample,Counter,ClientName,WorkerName,RouterHost,RouterPort),
+      sendBatch(Head,CSVPath,LengthOfSample,Counter,ClientName,WorkerName,RouterHost,RouterPort),
       roundRobin(Rest,CSVPath,LengthOfSample,Counter+1,Triplets)
-      end.
+  end.
 
 
 
-sendToAll([],_CSVPath,_ChunkSize,_LengthOfSample,_Hz,_Pid,_Triplets,Counter)->
+sendToAll([],_CSVPath,_BatchSize,_LengthOfSample,_Hz,_Pid,_Triplets,Counter)->
   {[], Counter};
 
-sendToAll([Head|ListOfSamples],CSVPath,ChunkSize,LengthOfSample,Hz,Pid,Triplets,Counter)->
+sendToAll([Head|ListOfSamples],CSVPath,BatchSize,LengthOfSample,Hz,Pid,Triplets,Counter)->
   %%this http request will be splitted at client's state machine by the following order:
-  [sendSample(Head,CSVPath,LengthOfSample,Counter,ClientName,WorkerName,RouterHost,RouterPort)|| {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
+  [sendBatch(Head,CSVPath,LengthOfSample,Counter,ClientName,WorkerName,RouterHost,RouterPort)|| {ClientName,WorkerName,RouterHost,RouterPort}<-Triplets],
   receive
   %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
     {stopCasting}  ->
       io:format("source stop casting",[]),
       gen_statem:cast(Pid,{leftOvers,ListOfSamples})
-  after Hz-> sendToAll(ListOfSamples,CSVPath,ChunkSize,LengthOfSample,Hz,Pid,Triplets,Counter+1)
+  after Hz-> sendToAll(ListOfSamples,CSVPath,BatchSize,LengthOfSample,Hz,Pid,Triplets,Counter+1)
   end.
 
 %%Sends one batch of samples to a client
-sendSample(Sample,CSVPath,LengthOfSample, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
+sendBatch(Sample,CSVPath,_LengthOfSample, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
   % when two workers(or more) are on the same device, they need a few miliseconds apart TODO remove this and manage on client
-  timer:sleep(5),
-  
-  case byte_size(Sample) of
-    LengthOfSample ->
+  % timer:sleep(5),
+  % io:format("Source sending to Worker ~p: ~p~n",[WorkerName, Sample]),
+  case Sample of
+    {<<>>, _Type} -> done;    % no tensor to send
+    {_Tensor, _Type} ->
         ToSend = term_to_binary({ClientName, WorkerName, CSVPath, BatchID, Sample}),
-        http_request(RouterHost, RouterPort,"weightsVector",ToSend);
-        _ -> ok
+        nerl_tools:http_request(RouterHost, RouterPort,"weightsVector",ToSend)
     end.
-
-
-
-start_connection([])->ok;
-start_connection([{_ServerName,{Host, Port}}|Tail]) ->
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  start_connection(Tail).
-
-
-http_request(Host, Port,Path, Body)->
-  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
-
-getHostPort([],_WorkersMap,_NerlnetGraph,_MyName,Ret)-> Ret;
-getHostPort([WorkerName|WorkersNames],WorkersMap,NerlnetGraph,MyName,Ret)->
-  ClientName = maps:get(list_to_atom(WorkerName),WorkersMap),
-  {RouterHost,RouterPort} = getShortPath(MyName,ClientName,NerlnetGraph),
-  %{RouterHost,RouterPort} = maps:get(ClientName,PortMap),
-  getHostPort(WorkersNames,WorkersMap, NerlnetGraph,MyName,Ret++[{ClientName,WorkerName,RouterHost,RouterPort}]).
-
-getShortPath(From,To,NerlnetGraph) when is_atom(To)-> 
-  	First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,atom_to_list(To))),
-
-	{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
-  {Host,Port};
-
-getShortPath(From,To,NerlnetGraph) -> 
-	First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
-	{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
-  {Host,Port}.
-	

@@ -54,8 +54,8 @@ On each machine that runs Nerlnet go through the following steps:
 
 1. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo> NErlNet```  
 2. Run ```sudo ./NerlnetInstall.sh```  
-<br>  2.1 With argument -i script builds and installs Erlang, latest stable, and CMake.  
-<br>  2.2 After running NerlnetInstall.sh, NErlNet directory can be accessed  
+    2.1 With argument -i script builds and installs Erlang, latest stable, and CMake.  
+    2.2 After running NerlnetInstall.sh, NErlNet directory can be accessed  
 <br>&ensp;&ensp;&ensp;&nbsp;via the following path: ```/usr/local/lib/nerlnet-lib```  
 3. Create json files of architecture, connection map and experiment flow.  
   json configuration files names must follow the convention of prefixes:  
@@ -86,7 +86,7 @@ Minimum Python version: 3.8
   ```source VENV/bin/activate``` 
 2. Install required modules while in venv ```pip install -r src_py/requirements.txt```
 3. Call Jupyter environment creator script with an experiment directory ```./NerlnetJupyterEnvGenerator.sh --j <experiment_direcotry>```
-4. Run Jupyter notebook and import the ApiServer module to the notebook. 
+4. Run Jupyter notebook with ```jupyter-notebook``` and create a new notebook in the created dir from 4. 
 5. Follow the example: https://github.com/leondavi/NErlNet/blob/master/examples/example_run.ipynb 
 
 Contact Email: nerlnet@outlook.com
