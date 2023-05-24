@@ -28,3 +28,7 @@
 % -define(NERLNET_PATH,"/usr/local/lib/nerlnet-lib/NErlNet").
 % -define(BUILD_TYPE_DEBUG,"debug").
 % -define(BUILD_TYPE_RELEASE,"/build/release").
+
+%% auto generated defintions:
+%% TODO: implement this in python
+-define()
