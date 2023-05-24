@@ -11,9 +11,6 @@
 
 -behaviour(gen_statem).
 
-%%-import('nerlNetStatem', []).
-%%-import('../../erlBridge/nerlNetStatem', []).
-
 %% API
 -export([start_link/1, predict/3]).
 
@@ -344,8 +341,13 @@ createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,Timin
   LayersSizes = nerl_tools:string_to_list_int(maps:get(<<"layersSizes">>,Worker)),
   LayersActivationFunctions = nerl_tools:string_to_list_int(maps:get(<<"layersActivationFunctions">>,Worker)),
 
-  FederatedMode = list_to_integer(binary_to_list(maps:get(<<"federatedMode">>,Worker))),
-  CountLimit = list_to_integer(binary_to_list(maps:get(<<"countLimit">>,Worker))),
+  if ModelType == 8 or ModelType == 9 ->  %% magic numbers are from defintionsNN.h, TODO: autamation of definition
+    FederatedMode = list_to_integer(binary_to_list(maps:get(<<"federatedMode">>,Worker))),
+    CountLimit = list_to_integer(binary_to_list(maps:get(<<"countLimit">>,Worker)));
+  true -> 
+    FederatedMode = none,
+    CountLimit = none
+  end,
   Optimizer = list_to_integer(binary_to_list(maps:get(<<"optimizer">>,Worker))),
   Features = list_to_integer(binary_to_list(maps:get(<<"features">>,Worker))),
   Labels = list_to_integer(binary_to_list(maps:get(<<"labels">>,Worker))),
@@ -355,9 +357,10 @@ createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,Timin
 
   WorkerArgs = {WorkerName,ModelId,ModelType,ScalingMethod
                 , LayerTypesList, LayersSizes
-                , LayersActivationFunctions, FederatedMode
-                , CountLimit, Optimizer, Features, Labels, LossMethod, LearningRate,  self() },
-  WorkerPid = nerlNetStatem:start_link(WorkerArgs),
+                , LayersActivationFunctions, Optimizer, Features, Labels, LossMethod, LearningRate,  self() },
+  case FederatedMode of
+    8 -> 
+  WorkerPid = workerNN:start_link(WorkerArgs),
   % timingMap = #{{WorkerName1=>{LastBatchReceivedTime,totalBatches,AverageTrainingime},{Worker2,..}, ...}
   createWorkers(Workers,WorkerModelID+1,ClientPid,maps:put(WorkerName, WorkerPid,WorkersNamesPidsMap),maps:put(WorkerName,{0,0,0.0},TimingMap)).
 
