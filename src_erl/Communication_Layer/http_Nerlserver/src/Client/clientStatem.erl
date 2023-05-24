@@ -28,7 +28,6 @@
 %   timingMap - gather Timing statistics: timingMap = #{{WorkerName1=>{LastBatchReceivedTime,totalBatches,AverageTrainingime},{Worker2,..}, ...}
 -record(client_statem_state, {myName, federatedServer,workersMap, nerlnetGraph, msgCounter,timingMap,nextState,waitforWorkers=[]}).
 
-
 %%%===================================================================
 %%% API
 %%%===================================================================
@@ -341,13 +340,15 @@ createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,Timin
   LayersSizes = nerl_tools:string_to_list_int(maps:get(<<"layersSizes">>,Worker)),
   LayersActivationFunctions = nerl_tools:string_to_list_int(maps:get(<<"layersActivationFunctions">>,Worker)),
 
-  if ModelType == 8 or ModelType == 9 ->  %% magic numbers are from defintionsNN.h, TODO: autamation of definition
-    FederatedMode = list_to_integer(binary_to_list(maps:get(<<"federatedMode">>,Worker))),
-    CountLimit = list_to_integer(binary_to_list(maps:get(<<"countLimit">>,Worker)));
-  true -> 
-    FederatedMode = none,
-    CountLimit = none
-  end,
+  % if ModelType == 8 or ModelType == 9 ->  %% magic numbers are from defintionsNN.h, TODO: autamation of definition
+  %   FederatedMode = list_to_integer(binary_to_list(maps:get(<<"federatedMode">>,Worker))),
+  %   SyncCount = list_to_integer(binary_to_list(maps:get(<<"syncCount">>,Worker)));
+  % true -> 
+  %   FederatedMode = none,
+  %   SyncCount = none
+  % end,
+
+
   Optimizer = list_to_integer(binary_to_list(maps:get(<<"optimizer">>,Worker))),
   Features = list_to_integer(binary_to_list(maps:get(<<"features">>,Worker))),
   Labels = list_to_integer(binary_to_list(maps:get(<<"labels">>,Worker))),
@@ -355,12 +356,25 @@ createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,Timin
   LearningRate = list_to_float(binary_to_list(maps:get(<<"learningRate">>,Worker))),
   %LearningRate = list_to_float(binary_to_list(maps:get(<<"learningRate">>,Worker))),
 
-  WorkerArgs = {WorkerName,ModelId,ModelType,ScalingMethod
-                , LayerTypesList, LayersSizes
-                , LayersActivationFunctions, Optimizer, Features, Labels, LossMethod, LearningRate,  self() },
-  case FederatedMode of
-    8 -> 
-  WorkerPid = workerNN:start_link(WorkerArgs),
+  case modelType of
+    E_CUSTOMNN ->
+      CustomFunc = fun workerNN:controller/0,
+      SyncCount = list_to_integer(binary_to_list(maps:get(<<"syncCount">>,Worker))),
+      WorkerData = none;
+    E_FEDERATED_CLIENT ->
+      CustomFunc = fun workerFederatedClient:controller/0,
+      FedServer = binary_to_list(maps:get(<<"federatedServer">>,Worker)),
+      SyncCount = list_to_integer(binary_to_list(maps:get(<<"syncCount">>,Worker))),
+      WorkerData = #workerFederatedClient{syncCount = SyncCount, serverAddr = FedServer};
+    E_FEDERATED_SERVER ->
+      CustomFunc = fun workerFederatedServer:controller/0,
+      SyncCount = list_to_integer(binary_to_list(maps:get(<<"syncCount">>,Worker))),
+      WorkerData = none
+    end,
+  WorkerArgs = {WorkerName,ModelId,ModelType,ScalingMethod, LayerTypesList, LayersSizes,
+    LayersActivationFunctions, Optimizer, Features, Labels, LossMethod, LearningRate, self(), CustomFunc, WorkerData},
+
+  WorkerPid = workerGeneric:start_link(WorkerArgs),
   % timingMap = #{{WorkerName1=>{LastBatchReceivedTime,totalBatches,AverageTrainingime},{Worker2,..}, ...}
   createWorkers(Workers,WorkerModelID+1,ClientPid,maps:put(WorkerName, WorkerPid,WorkersNamesPidsMap),maps:put(WorkerName,{0,0,0.0},TimingMap)).
 

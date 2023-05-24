@@ -29,6 +29,11 @@
 % -define(BUILD_TYPE_DEBUG,"debug").
 % -define(BUILD_TYPE_RELEASE,"/build/release").
 
+-record(workerFederatedClient, {syncCount, serverAddr}).
+-record(workerFederatedServer, {syncCount, workersAddrList}).
+
 %% auto generated defintions:
 %% TODO: implement this in python
--define()
+-define(E_CUSTOMNN, 5).
+-define(E_FEDERATED_CLIENT, 8).
+-define(E_FEDERATED_SERVER, 9).
