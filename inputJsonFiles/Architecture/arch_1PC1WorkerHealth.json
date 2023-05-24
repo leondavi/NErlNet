@@ -7,27 +7,27 @@
   ,
   "devices": [
     {
-      "host": "192.168.0.108",
+      "host": "10.0.2.15",
       "entities": "mainServer,c1,s1,r1,nerlGUI"
     }
   ],
   "serverAPI": 
     {
-      "host": "192.168.0.108",
+      "host": "10.0.2.15",
       "port": "8095",
       "args": ""
     }
   ,
   "nerlGUI": 
     {
-      "host": "192.168.0.108",
+      "host": "10.0.2.15",
       "port": "8096",
       "args": ""
     }
   ,
   "mainServer": 
     {
-      "host": "192.168.0.108",
+      "host": "10.0.2.15",
       "port": "8080",
       "args": ""
     }
@@ -35,7 +35,6 @@
   "workers": [
     {
       "name": "w1",
-      "modelId": "1",
       "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
       "modelType": "5",
       "scalingType_comment1": "Non-Scaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",

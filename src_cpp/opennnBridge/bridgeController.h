@@ -54,8 +54,13 @@ public:
 
     // Insert new record to the MidNumModel map (new model ptr)
     void setData(std::shared_ptr<opennn::NeuralNetwork> modelPtr, unsigned long modelId, int modelType = BRIDGE_CONTROL_OPENN_NEURAL_NETWORK_TYPE) {
-        this -> _MidNumModel.insert({ modelId, modelPtr }); //Initialize the new data, acording to the selected model id, and its pointer.
-        this -> _MidNumModelType.insert({ modelId, modelType });
+        if ( !this->_MidNumModel.insert( std::make_pair( modelId, modelPtr ) ).second ) {
+            throw("ModelID already exists!");
+        } //Initialize the new data, acording to the selected model id, and its pointer.
+        
+        if ( !this->_MidNumModelType.insert( std::make_pair( modelId, modelType ) ).second ) {
+            throw("ModelID already exists!");
+        }
     }
 
     void deleteModel(unsigned long mid){
