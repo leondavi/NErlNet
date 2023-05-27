@@ -30,6 +30,6 @@ The only way to merge changes to master is through a process called pull reqeust
 ## Coding convention
 - cpp please follow [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html)<br>
 - Erlang please follow [erlang guidlines](https://github.com/inaka/erlang_guidelines#variable-names)<br>
-- Python please follow [PEP8](https://peps.python.org/pep-0008/)
-Violation of coding convention cab hold your PR if found. Moreover, the community benefits from well organized code.
-Please document your code. Do not save in words when it comes to documentation.
+- Python please follow [PEP8](https://peps.python.org/pep-0008/)<br>
+Violation of coding convention is a reason to put a PR on hold until it's fixed.<br>
+Moreover, the community benefits from well organized code. Please document your code. Do not save in words when it comes to documentation.
