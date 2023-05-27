@@ -1,6 +1,6 @@
 # Wellcome to Nerlnet contribution guide
 Thank you for investing your time and choosing to join Nerlnet community. Your contribution is valuable to our project.<br>
-Please read our code of conduct to keep our community approachable and respectable.
+Please read our [code of conduct](https://github.com/leondavi/NErlNet/blob/master/docs/CODE_OF_CONDUCT.md) to keep our community approachable and respectable.
 
 ## New contributor guide
 
