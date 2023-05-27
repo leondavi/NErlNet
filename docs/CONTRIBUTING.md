@@ -26,3 +26,10 @@ The only way to merge changes to master is through a process called pull reqeust
 6. Each conversation that requires code change should be marked as resolved.
 7. If you run into merge issue and conflicts please be advised by senior collaborator.
 8. When you merge PR all commits will be squashed. Therefore, split commits to different PRs if they are important.
+
+## Coding convention
+- cpp please follow [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html)<br>
+- Erlang please follow [erlang guidlines](https://github.com/inaka/erlang_guidelines#variable-names)<br>
+- Python please follow [PEP8](https://peps.python.org/pep-0008/)
+Violation of coding convention cab hold your PR if found. Moreover, the community benefits from well organized code.
+Please document your code. Do not save in words when it comes to documentation.
