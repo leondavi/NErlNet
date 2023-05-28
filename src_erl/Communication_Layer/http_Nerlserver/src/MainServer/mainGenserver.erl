@@ -48,7 +48,7 @@ start_link(Args) ->
 init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
   inets:start(),
     io:format("Main Server ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
-    nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
+    % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
   
   NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--["serverAPI", "nerlGUI", "mainServer"]]),
   io:format("New StatisticsMap = ~p~n",[NewStatisticsMap]),
@@ -171,7 +171,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
           if StatisticsCounter == 1 ->  %% got stats from all workers
               Statistics = maps:to_list(NewStatisticsMap),
               S = mapToString(Statistics,[]) ,
-              % io:format("S: ~p~n",[S]),
+              ?LOG_NOTICE("Sending stats: ~p~n",[S]),
               {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"serverAPI",NerlnetGraph),
 
               %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),

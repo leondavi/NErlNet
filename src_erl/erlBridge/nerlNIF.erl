@@ -3,7 +3,7 @@
 -include("nerlTensor.hrl").
 
 -export([init/0,create_nif/6,train_nif/6,call_to_train/6,predict_nif/3,call_to_predict/6,get_weights_nif/1,printTensor/2]).
--export([call_to_get_weights/2,call_to_set_weights/3]).
+-export([call_to_get_weights/1,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
 -export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
 -export([erl_type_conversion/1]).
@@ -62,7 +62,7 @@ call_to_predict(ModelID, BatchTensor, Type, WorkerPid,CSVname, BatchID)->
                   gen_statem:cast(WorkerPid,{predictRes, nan, CSVname, BatchID})
       end.
 
-call_to_get_weights(_WorkerPID, ModelID)->
+call_to_get_weights(ModelID)->
       try
             _RetVal = get_weights_nif(ModelID),
             receive
@@ -75,7 +75,7 @@ call_to_get_weights(_WorkerPID, ModelID)->
             []
       end.
 
-call_to_set_weights(_WorkerPID, ModelID,{WeightsNerlTensor, Type})->
+call_to_set_weights(ModelID,{WeightsNerlTensor, Type})->
       _RetVal = set_weights_nif(ModelID, WeightsNerlTensor, Type).
 
 predict_nif(_ModelID, _BatchTensor, _Type) ->
