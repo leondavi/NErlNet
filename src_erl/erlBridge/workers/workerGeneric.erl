@@ -9,7 +9,6 @@
 -import(nerlNIF,[decode_nif/2, nerltensor_binary_decode/2]).
 -import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0]).
 -import(nerlNIF,[erl_type_conversion/1]).
-%-define(NERLNET_ROOT_DIR,"/usr/local/lib/nerlnet-lib/NErlNet").
 -include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/Communication_Layer/http_Nerlserver/src/nerl_tools.hrl").
 -include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/erlBridge/nerlTensor.hrl").
 
@@ -156,7 +155,7 @@ wait(cast, {loss,nan,Time_NIF}, State = #workerGeneric_state{clientPid = ClientP
   {next_state, NextState, State#workerGeneric_state{ackClient = 0}};
 
 
-wait(cast, {loss, {LossVal,Time}}, State = #workerGeneric_state{clientPid = ClientPid, myName = MyName, nextState = NextState, modelId=ModelID,ackClient = AckClient, CustomFunc = CustomFunc, workerData = WorkerData}) ->
+wait(cast, {loss, {LossVal,Time}}, State = #workerGeneric_state{clientPid = ClientPid, myName = MyName, nextState = NextState, modelId=ModelID,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
   gen_statem:cast(ClientPid,{loss, MyName, LossVal,Time/1000}), %% TODO Add Time and Time_NIF to the cast
   CustomFunc(post_train, WorkerData),
   checkAndAck(MyName,ClientPid,AckClient),
@@ -202,12 +201,12 @@ wait(cast, Param, State) ->
 
 
 %% State train
-train(cast, {sample, {<<>>, Type}}, State ) ->
+train(cast, {sample, {<<>>, _Type}}, State ) ->
   ?LOG_ERROR("Empty sample received"),
   {next_state, train, State#workerGeneric_state{nextState = train}};
   
 %% Change SampleListTrain to NerlTensor
-train(cast, {sample, {NerlTensorOfSamples, Type}}, State = #workerGeneric_state{modelId = ModelId, optimizer = Optimizer, lossMethod = LossMethod, learningRate = LearningRate, CustomFunc = CustomFunc, workerData = WorkerData}) ->
+train(cast, {sample, {NerlTensorOfSamples, Type}}, State = #workerGeneric_state{modelId = ModelId, optimizer = Optimizer, lossMethod = LossMethod, learningRate = LearningRate, customFunc = CustomFunc, workerData = WorkerData}) ->
     % io:format("Got Tensor: {~p, ~p}~n",[NerlTensorOfSamples, Type]),
     % NerlTensor = nerltensor_conversion({NerlTensorOfSamples, Type}, erl_float),
     % io:format("Got NerlTensor: ~p~n",[NerlTensor]),
@@ -240,14 +239,14 @@ train(cast, _Param, State) ->
   {next_state, train, State}.
 
 %% State predict
-predict(cast, {sample,_CSVname, _BatchID, {<<>>, Type}}, State = #workerGeneric_state{}) ->
+predict(cast, {sample,_CSVname, _BatchID, {<<>>, _Type}}, State) ->
   ?LOG_ERROR("Received empty tensor"),
   {next_state, predict, State#workerGeneric_state{nextState = predict}};
 
 % send predict sample to worker
-predict(cast, {sample,CSVname, BatchID, {PredictBatchTensor, Type}}, State = #workerGeneric_state{ modelId = ModelId}, customFunc = CustomFunc, workerData = WorkerData) ->
+predict(cast, {sample,CSVname, BatchID, {PredictBatchTensor, Type}}, State = #workerGeneric_state{ modelId = ModelId, customFunc = CustomFunc, workerData = WorkerData}) ->
     CurrPID = self(),
-    CustomFunc(pre_predic, WorkerData),
+    CustomFunc(pre_predict, WorkerData),
     _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId,PredictBatchTensor, Type,CurrPID,CSVname, BatchID) end),
     {next_state, wait, State#workerGeneric_state{nextState = predict}};
   
@@ -268,5 +267,5 @@ predict(cast, _Param, State) ->
   {next_state, predict, State}.
 
 %% Updates the client that worker is available
-checkAndAck(_MyName,_ClientPid,0) ->ok_no_need;
-checkAndAck(MyName, ClientPid, 1) ->  gen_statem:cast(ClientPid,{stateChange,MyName}).
+checkAndAck(_MyName,_ClientPid,0) -> ok_no_need;
+checkAndAck(MyName, ClientPid, 1) -> gen_statem:cast(ClientPid,{stateChange,MyName}).

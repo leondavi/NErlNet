@@ -89,12 +89,9 @@ PREDICTION_STR = "Prediction"
         print("Initializing the receiver thread...\n")
 
         # Initializing the receiver (a Flask HTTP server that receives results from the Main Server):
-        print("Using the address from the architecture JSON file for the receiver.")
-        print(f"(http://{globe.components.receiverHost}:{globe.components.receiverPort})\n")
-
-
-        receiverAlive = subprocess.run(["lsof", f"-i -P -n | grep -wc {globe.components.receiverPort}"], stdout=subprocess.PIPE)
-        assert not receiverAlive.stdout, f"Reciever port {globe.components.receiverPort} is already being used"
+        if hasattr(self, 'receiverThread'):
+            print(f"==================Reciever at: {globe.components.receiverHost}:{globe.components.receiverPort} is already being used, close it and restart==================")
+            sys.exit()
 
         self.receiverProblem = threading.Event()
         self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
@@ -102,7 +99,8 @@ PREDICTION_STR = "Prediction"
         self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
 
         if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
-            print("Failed to initialize the receiver using the provided address.\n\
+            print(f"===================Failed to initialize the receiver using the provided address:==========================\n\
+            (http://{globe.components.receiverHost}:{globe.components.receiverPort})\n\
 Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
             sys.exit()
 

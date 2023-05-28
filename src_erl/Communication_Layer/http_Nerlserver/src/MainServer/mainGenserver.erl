@@ -151,34 +151,35 @@ handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = 
 
 %%%get Statistics from all Entities in the network
 handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, statisticsCounter = StatisticsCounter, nerlnetGraph = NerlnetGraph,statisticsMap = StatisticsMap,msgCounter = MsgCounter}) ->
-    if Body == <<"getStatistics">> ->
+
+    if Body == <<"getStatistics">> ->   %% initial message from APIServer, get stats from entities
+
           NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--["serverAPI", "nerlGUI", "mainServer"]]),
           [findroutAndsendStatistics(MyName, Name,NerlnetGraph)||{Name,_Counter}<-maps:to_list(StatisticsMap)],
           NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap, statisticsCounter = length(maps:to_list(StatisticsMap))};
-       Body == <<>> ->  io:format("in Statistcs, State has: StatsCount=~p, MsgCount=~p~n", [StatisticsCounter, MsgCounter]), NewState = State;
+
+      Body == <<>> ->  io:format("in Statistcs, State has: StatsCount=~p, MsgCount=~p~n", [StatisticsCounter, MsgCounter]), NewState = State;
+
       true ->
           %%      statistics arrived from Entity
-          [From|[NewCounter]] = re:split(binary_to_list(Body), "#", [{return, list}]),
+          [From|[NewCounter]] = re:split(binary_to_list(Body), ":", [{return, list}]),
 
           NewStatisticsMap = maps:put(From,NewCounter,StatisticsMap),
 
           NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap,statisticsCounter = StatisticsCounter-1},
 
-          if StatisticsCounter == 1 ->
+          if StatisticsCounter == 1 ->  %% got stats from all workers
               Statistics = maps:to_list(NewStatisticsMap),
-              StatisticsList = lists:flatten(io_lib:format("~w",[Statistics])),",",[{return,list}],
-              io:format("new Statistics Map:~n~p~n",[StatisticsList]),
               S = mapToString(Statistics,[]) ,
-              io:format("S: ~p~n",[S]),
+              % io:format("S: ~p~n",[S]),
               {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"serverAPI",NerlnetGraph),
 
               %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-              nerl_tools:http_request(RouterHost,RouterPort,"statistics", "statistics#" ++ S ++ "@mainServer#" ++integer_to_list(MsgCounter));
+              nerl_tools:http_request(RouterHost,RouterPort,"statistics", S ++ "|mainServer:" ++integer_to_list(MsgCounter));
               %ack(NerlnetGraph);
 
-          true ->
-              ok
-          end
+          %% wait for more stats
+          true -> pass end
       end,
     {noreply, NewState};
 
@@ -424,16 +425,6 @@ getNewStatisticsMap([],StatisticsMap) ->StatisticsMap;
 getNewStatisticsMap([{ServerName,{_Host, _Port}}|Tail],StatisticsMap) ->
   getNewStatisticsMap(Tail,maps:put(ServerName, 0, StatisticsMap)).
 
-% encodeDoubleVectorToString(ListOfFloats)->
-%   LL = lists:flatten(io_lib:format("~p",[ListOfFloats])),",",[{return,list}],
-%   lists:sublist(LL,2,length(LL)).
-
-% decode(L)->
-% %%  LL=lists:sublist(L,2,length(L)-2),
-%   LL=re:split(L,",",[{return,list}]),
-%   [list_to_float(X)||X<-LL].
-
-
 
 startCasting([],_NumOfSampleToSend,_MyName, _NerlnetGraph)->done;
 startCasting([SourceName|SourceNames],NumOfSampleToSend, MyName, NerlnetGraph)->
@@ -468,9 +459,10 @@ ack(NerlnetGraph) ->
 % %%  io:format("./output/predict~p   ~p~p~n", [CSVName,integer_to_list(HeadID),Head]),
 %   writeSamplesToFile(lists:sublist(ListOfSamples,SampleSize+1,length(ListOfSamples)),HeadID+1,CSVName,SampleSize).
 
-
+%% encodes stats to string:
+%% "Entity1:Stats,...|Entity2:Stats,...|....."
 mapToString([],Ret) -> Ret;
-mapToString([{Name,Counter}|StatisticsList],[]) -> mapToString(StatisticsList,Name++"#"++Counter);
+mapToString([{Name,Counter}|StatisticsList],[]) -> mapToString(StatisticsList,Name++":"++Counter);
 mapToString([{Name,Counter}|StatisticsList],Ret) -> 
     % io:format("~p~n",[{Name,Counter,Ret}]),
-    mapToString(StatisticsList,Ret++"@"++Name++"#"++Counter).
+    mapToString(StatisticsList,Ret++"|"++Name++":"++Counter).

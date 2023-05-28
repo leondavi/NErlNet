@@ -112,7 +112,7 @@ idle(cast, {stopCasting}, State = #source_statem_state{msgCounter = Counter}) ->
 
 idle(cast, {statistics}, State = #source_statem_state{myName =  MyName, sourcePid = [], nerlnetGraph = NerlnetGraph, msgCounter = Counter}) ->
   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
-  nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(Counter))),
+  nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++":"++integer_to_list(Counter))),
 %%  io:format("sending statistics casting to: ~p~n",[CastingTo]),
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1}};
 

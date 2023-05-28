@@ -8,6 +8,7 @@
 %%%-------------------------------------------------------------------
 -module(clientStatem).
 -author("kapelnik").
+-include("../nerl_tools.hrl").
 
 -behaviour(gen_statem).
 
@@ -354,23 +355,22 @@ createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,Timin
   Labels = list_to_integer(binary_to_list(maps:get(<<"labels">>,Worker))),
   LossMethod = list_to_integer(binary_to_list(maps:get(<<"lossMethod">>,Worker))),
   LearningRate = list_to_float(binary_to_list(maps:get(<<"learningRate">>,Worker))),
-  %LearningRate = list_to_float(binary_to_list(maps:get(<<"learningRate">>,Worker))),
 
-  case modelType of
-    E_CUSTOMNN ->
-      CustomFunc = fun workerNN:controller/0,
-      SyncCount = list_to_integer(binary_to_list(maps:get(<<"syncCount">>,Worker))),
+  case ModelType of
+    ?E_CUSTOMNN ->
+      CustomFunc = fun workerNN:controller/2,
       WorkerData = none;
-    E_FEDERATED_CLIENT ->
-      CustomFunc = fun workerFederatedClient:controller/0,
+    ?E_FEDERATED_CLIENT ->
+      CustomFunc = fun workerFederatedClient:controller/2,
       FedServer = binary_to_list(maps:get(<<"federatedServer">>,Worker)),
       SyncCount = list_to_integer(binary_to_list(maps:get(<<"syncCount">>,Worker))),
       WorkerData = #workerFederatedClient{syncCount = SyncCount, serverAddr = FedServer};
-    E_FEDERATED_SERVER ->
-      CustomFunc = fun workerFederatedServer:controller/0,
+    ?E_FEDERATED_SERVER ->
+      CustomFunc = fun workerFederatedServer:controller/2,
       SyncCount = list_to_integer(binary_to_list(maps:get(<<"syncCount">>,Worker))),
-      WorkerData = none
+      WorkerData = #workerFederatedServer{syncCount = SyncCount, workersAddrList = []}
     end,
+
   WorkerArgs = {WorkerName,ModelId,ModelType,ScalingMethod, LayerTypesList, LayersSizes,
     LayersActivationFunctions, Optimizer, Features, Labels, LossMethod, LearningRate, self(), CustomFunc, WorkerData},
 
@@ -391,8 +391,7 @@ updateTimingMap(WorkerName,TimingMap)->
   maps:put(WorkerName,{Start,TotalBatches,TotalTrainingTime+TotalTime},TimingMap).
 
 
-sendStatistics(RouterHost,RouterPort,MyName,Counter,TimingMap)->
-  % io:format("~p Timing map: ~p~n",[MyName, maps:to_list(TimingMap)]),
-  S = lists:flatten([atom_to_list(WorkerName)++"&"++float_to_list(TotalTime/TotalBatches,[{decimals, 2}])++"@"||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-maps:to_list(TimingMap)]),
+sendStatistics(RouterHost,RouterPort,MyName,_MsgCount,TimingMap)->
+  S = lists:flatten([atom_to_list(WorkerName)++"="++float_to_list(TotalTime/TotalBatches,[{decimals, 3}])++","||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-maps:to_list(TimingMap)]),
   % io:format("client Timing map: ~p~n ",[S]),
-  nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++"#"++integer_to_list(Counter)++"@"++lists:sublist(S,length(S)-1))).
+  nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++":"++lists:droplast(S))).

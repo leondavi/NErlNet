@@ -68,12 +68,10 @@ multipart(Req0, Data) ->
 stream_file(Req0, File) ->
     case cowboy_req:read_part_body(Req0) of
         {ok, LastBodyChunk, Req} ->
-            io:format("wrting to file: ~p~n",[LastBodyChunk]),
             file:write(File, LastBodyChunk),
             file:close(File),
             Req;
         {more, BodyChunk, Req} ->
-            io:format("wrting to file: ~p~n",[BodyChunk]),
             file:write(File, BodyChunk),
             stream_file(Req, File)
     end.
