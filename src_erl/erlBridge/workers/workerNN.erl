@@ -1,5 +1,6 @@
 -module(workerNN).
 
+-export([controller/2]).
 
 controller(FuncName, Data) -> 
   case FuncName of
@@ -10,13 +11,13 @@ controller(FuncName, Data) ->
     post_predict -> post_predict(Data)
   end.
 
-init() -> ok.
+init(Data) -> Data.
 
-pre_train() -> ok.
+pre_train(Data) -> Data.
 
-post_train() -> ok.
+post_train(Data) -> Data.
 
-pre_predic() -> ok.
+pre_predict(Data) -> Data.
 
-post_predic() -> ok.
+post_predict(Data) -> Data.
 
