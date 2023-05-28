@@ -60,17 +60,10 @@ start_link(Args) ->
 init({MyName,Federated,Workers,NerlnetGraph}) ->
   inets:start(),
   io:format("Client ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
-  nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
-  %io:format("loading niff~n",[]),
-  %niftest:init(), niftest is depracated - use nerlNIF
-  %io:format(" niff loaded~n",[]),
+  % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
 
-  % WorkersPids = createWorkers(Workers,self(),[]),
-
-%%  [{WorkerName,nerlNetStatem:start_link({self(), WorkerName, CppSANNArgs})}||{WorkerName,CppSANNArgs}<-maps:to_list(Workers)],
   {WorkersMap,TimingMap} = createWorkers(Workers,1,self(),#{},#{}),
   io:format("TimingMap~p~n",[maps:to_list(TimingMap)]),
-%  niftest:trainNifTest(10.0), niftest is depracated - use nerlNIF
 
   {ok, idle, #client_statem_state{myName= MyName,timingMap = TimingMap, federatedServer = Federated, workersMap = WorkersMap, nerlnetGraph = NerlnetGraph, msgCounter = 1}}.
 
@@ -100,7 +93,6 @@ state_name(_EventType, _EventContent, State = #client_statem_state{}) ->
 
 waitforWorkers(cast, {stateChange,WorkerName}, State = #client_statem_state{myName = MyName, nerlnetGraph = NerlnetGraph, msgCounter = Counter,waitforWorkers = WaitforWorkers,nextState = NextState}) ->
   NewWaitforWorkers = WaitforWorkers--[WorkerName],
-  % io:format("NewWaitforWorkers:  ~p ~n",[NewWaitforWorkers]),
 
   case NewWaitforWorkers of
     [] ->   ack(MyName,NerlnetGraph),
@@ -121,8 +113,17 @@ waitforWorkers(cast, EventContent, State = #client_statem_state{msgCounter = Cou
   {next_state, waitforWorkers, State#client_statem_state{msgCounter = Counter+1}}.
   
 
-%%initiating nerlnet, given parameters in Body received by Cowboy init_handler
-idle(cast, {init,_CONFIG}, State = #client_statem_state{msgCounter = Counter}) ->
+%%initiating workers when they include federated workers. init stage == handshake between federated worker client and server
+idle(cast, {init, From, To}, State = #client_statem_state{msgCounter = Counter, workersMap = WorkersMap, myName = MyName, nerlnetGraph = NerlnetGraph}) ->
+  WorkerHere = maps:is_key(To, WorkersMap),
+  if WorkerHere -> 
+    {ok,WorkerFedServerPID} = maps:find(To, WorkersMap),
+    gen_statem:cast(WorkerFedServerPID,{init,From});
+  true ->
+    %% send to FedServer that worker From is connecting to it
+    {Host,Port} = nerl_tools:getShortPath(MyName,To,NerlnetGraph),
+    nerl_tools:http_request(Host,Port, "init", From ++"#"++ To)
+  end,
   % io:format("initiating, CONFIG received:~p ~n",[CONFIG]),
   {next_state, idle, State#client_statem_state{msgCounter = Counter+1}};
 
@@ -143,8 +144,8 @@ MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
 idle(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
   io:format("client going to state predict",[]),
   Workers = maps:to_list(WorkersMap),
-  [gen_statem:cast(WorkerPid,{predict})|| {_WorkerName,WorkerPid}<-Workers],
-  MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+  [gen_statem:cast(WorkerPid,{predict})|| {_WorkerName,WorkerPid} <- Workers],
+  MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid} <- Workers],
   {next_state, waitforWorkers, State#client_statem_state{nextState = predict, waitforWorkers = MyWorkers, msgCounter = Counter+1}};
 
 idle(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
@@ -205,9 +206,7 @@ training(cast, {loss,federated_weights, _Worker, _LOSS_FUNC, Ret_weights}, State
 %%  io:format("Worker: ~p~n, LossFunction: ~p~n,  Ret_weights_tuple: ~p~n",[Worker, LOSS_FUNC, Ret_weights_tuple]),
   % {RouterHost,RouterPort} = maps:get(Federated,NerlnetGraph),
   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,Federated,NerlnetGraph),
-
   % ToSend = term_to_binary({Federated,decodeListOfLists(Ret_weights)}),
-
   nerl_tools:http_request(RouterHost,RouterPort,"federatedWeightsVector", term_to_binary({Federated,Ret_weights})),
   {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
 
@@ -313,26 +312,11 @@ ack(MyName, NerlnetGraph) ->
   %%  send an ACK to mainserver that the CSV file is ready
   nerl_tools:http_request(RouterHost,RouterPort,"clientReady",MyName).
 
-% %%This encoder receives a lists of lists: [[1.0,1.1,11.2],[2.0,2.1,22.2]] and returns a binary
-% encodeListOfLists(L)->encodeListOfLists(L,[]).
-% encodeListOfLists([],Ret)->term_to_binary(Ret);
-% encodeListOfLists([H|T],Ret)->encodeListOfLists(T,Ret++[encodeFloatsList(H)]).
-% encodeFloatsList(ListOfFloats)->
-%   ListOfBinaries = [<<X:64/float>>||X<-ListOfFloats],
-%   list_to_binary(ListOfBinaries).
-
-% %%This decoder receives a binary <<131,108,0,0,0,2,106...>> and returns a lists of lists: [[1.0,1.1,11.2],[2.0,2.1,22.2]]
-% decodeListOfLists(L)->decodeListOfLists(binary_to_term(L),[]).
-% decodeListOfLists([],Ret)->Ret;
-% decodeListOfLists([H|T],Ret)->decodeListOfLists(T,Ret++[decodeList(H)]).
-% decodeList(Binary)->  decodeList(Binary,[]).
-% decodeList(<<>>,L) -> L;
-% decodeList(<<A:64/float,Rest/binary>>,L) -> decodeList(Rest,L++[A]).
 
 createWorkers([],_WorkerModelID,_ClientPid,WorkersNamesPidsMap,TimingMap) ->{WorkersNamesPidsMap,TimingMap};
 createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,TimingMap) ->
-  %  FederatedMode="1", CountLimit="10",
-    WorkerName = list_to_atom(binary_to_list(maps:get(<<"name">>,Worker))),
+
+  WorkerName = list_to_atom(binary_to_list(maps:get(<<"name">>,Worker))),
   ModelId = WorkerModelID,
   ModelType = list_to_integer(binary_to_list(maps:get(<<"modelType">>,Worker))),
   ScalingMethod = list_to_integer(binary_to_list(maps:get(<<"scalingMethod">>,Worker))),
@@ -340,15 +324,6 @@ createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,Timin
   LayerTypesList = nerl_tools:string_to_list_int(maps:get(<<"layerTypesList">>,Worker)),
   LayersSizes = nerl_tools:string_to_list_int(maps:get(<<"layersSizes">>,Worker)),
   LayersActivationFunctions = nerl_tools:string_to_list_int(maps:get(<<"layersActivationFunctions">>,Worker)),
-
-  % if ModelType == 8 or ModelType == 9 ->  %% magic numbers are from defintionsNN.h, TODO: autamation of definition
-  %   FederatedMode = list_to_integer(binary_to_list(maps:get(<<"federatedMode">>,Worker))),
-  %   SyncCount = list_to_integer(binary_to_list(maps:get(<<"syncCount">>,Worker)));
-  % true -> 
-  %   FederatedMode = none,
-  %   SyncCount = none
-  % end,
-
 
   Optimizer = list_to_integer(binary_to_list(maps:get(<<"optimizer">>,Worker))),
   Features = list_to_integer(binary_to_list(maps:get(<<"features">>,Worker))),
@@ -362,13 +337,13 @@ createWorkers([Worker|Workers],WorkerModelID,ClientPid,WorkersNamesPidsMap,Timin
       WorkerData = none;
     ?E_FEDERATED_CLIENT ->
       CustomFunc = fun workerFederatedClient:controller/2,
-      FedServer = binary_to_list(maps:get(<<"federatedServer">>,Worker)),
+      FedServer = list_to_atom(binary_to_list(maps:get(<<"federatedServer">>,Worker))),
       SyncCount = list_to_integer(binary_to_list(maps:get(<<"syncCount">>,Worker))),
-      WorkerData = #workerFederatedClient{syncCount = SyncCount, serverAddr = FedServer};
+      WorkerData = #workerFederatedClient{syncMaxCount = SyncCount, syncCount = 0, myName = WorkerName, clientPID = self(), serverName = FedServer};
     ?E_FEDERATED_SERVER ->
       CustomFunc = fun workerFederatedServer:controller/2,
       SyncCount = list_to_integer(binary_to_list(maps:get(<<"syncCount">>,Worker))),
-      WorkerData = #workerFederatedServer{syncCount = SyncCount, workersAddrList = []}
+      WorkerData = #workerFederatedServer{syncMaxCount = SyncCount, syncCount = 0, myName = WorkerName, clientPID = self(), workersNamesList = []}
     end,
 
   WorkerArgs = {WorkerName,ModelId,ModelType,ScalingMethod, LayerTypesList, LayersSizes,

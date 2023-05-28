@@ -61,8 +61,7 @@ ____________API COMMANDS_____________
 -print_saved_experiments()          prints saved experiments and their number for statistics later
 -plot_loss(ExpNum)                  saves and shows the loss over time of the chosen experiment
 -accuracy_matrix(ExpNum)            shows a graphic for the confusion matrix. Also returns all ConfMat[worker][nueron]
--communication_stats()              prints the communication statistics of the current network.
--statistics():                      *DEPRECATED* get specific statistics of experiment (lossFunc graph, accuracy, etc...)
+-communication_stats()              prints the communication statistics of the current network. integer => message count, float => avg calc time (ms)
 
 _____GLOBAL VARIABLES / CONSTANTS_____
 pendingAcks:                        makes sure API command reaches all relevant entities (wait for pending acks)
@@ -89,9 +88,6 @@ PREDICTION_STR = "Prediction"
         print("Initializing the receiver thread...\n")
 
         # Initializing the receiver (a Flask HTTP server that receives results from the Main Server):
-        if hasattr(self, 'receiverThread'):
-            print(f"==================Reciever at: {globe.components.receiverHost}:{globe.components.receiverPort} is already being used, close it and restart==================")
-            sys.exit()
 
         self.receiverProblem = threading.Event()
         self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)

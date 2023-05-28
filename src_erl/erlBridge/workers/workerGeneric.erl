@@ -22,11 +22,8 @@
 %% States functions
 -export([idle/3, train/3, predict/3, wait/3]).
 
-
-%% federatedMode = 0 - Not federated, 1 - Federated get and send weights, 2 - Federated set weights
 %% countLimit - Number of samples to count before sending the weights for averaging. Predifined in the json file.
 %% count - Number of samples recieved for training after the last weights sended.
--record(workerGeneric_state, {clientPid, features, labels, myName, modelId, nextState, currentBatchID=0,ackClient=0,  missedSamplesCount = 0, missedTrainSamples= [],optimizer, lossMethod, learningRate, customFunc, workerData}).
 
 %%%===================================================================
 %%% API
@@ -51,12 +48,11 @@ start_link(ARGS) ->
 
 init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,Optimizer, Features, Labels, LossMethod, LearningRate, ClientPID, Func, WorkerData}) ->
   nerl_tools:setup_logger(?MODULE),
-  ?LOG_NOTICE("Creating: WorkerName: ~p ,ModelId: ~p , ModelType: ~p , ScalingMethod: ~p ,LayerTypesList: ~p ,LayersSizes: ~p ,LayersActivationFunctions: ~p ,Optimizer: ~p , Features: ~p , Labels: ~p , ClientPID: ~p~n"
-    ,[WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,Optimizer, Features, Labels, ClientPID]),
-%%^^^^^^^^^^^^^^^^^^^^^^^^^^
-        Res=nerlNIF:create_nif(ModelId, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
-        ?LOG_NOTICE("Res = ~p ~n",[Res]),
-        Func(init, WorkerData),
+  % ?LOG_NOTICE("Creating: WorkerName: ~p ,ModelId: ~p , ModelType: ~p , ScalingMethod: ~p ,LayerTypesList: ~p ,LayersSizes: ~p ,LayersActivationFunctions: ~p ,Optimizer: ~p , Features: ~p , Labels: ~p , ClientPID: ~p~n"
+  %   ,[WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,Optimizer, Features, Labels, ClientPID]),
+  Res=nerlNIF:create_nif(ModelId, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
+  ?LOG_NOTICE("Res = ~p ~n",[Res]),
+  Func(init, WorkerData),
 
   {ok, idle, #workerGeneric_state{clientPid = ClientPID, features = Features, labels = Labels, myName = WorkerName,
                                  modelId = ModelId,optimizer = Optimizer,learningRate = LearningRate, lossMethod = LossMethod, customFunc = Func, workerData = WorkerData}}.
@@ -109,10 +105,16 @@ code_change(_OldVsn, StateName, State = #workerGeneric_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-
-%% Define states
-
 %% State idle
+
+%% got init from FedWorker, add it to workersList
+idle(cast, {init, From}, State = #workerGeneric_state{workerData = WorkerData}) ->
+  if is_record(WorkerData, workerFederatedServer) ->
+    io:format("========adding ~p to fed workers============~n",[From]),
+    NewWorkerData = WorkerData#workerFederatedServer{workersNamesList = WorkerData#workerFederatedServer.workersNamesList ++ [From]},
+    {next_state, idle, State#workerGeneric_state{workerData = NewWorkerData}};
+  true -> {next_state, idle, State} end;
+
 idle(cast, {training}, State = #workerGeneric_state{myName = MyName,clientPid = ClientPid}) ->
   ?LOG_NOTICE("Go from idle to train!\n"),
   gen_statem:cast(ClientPid,{stateChange,MyName}),
@@ -123,9 +125,10 @@ idle(cast, {predict}, State = #workerGeneric_state{myName = MyName,clientPid = C
   gen_statem:cast(ClientPid,{stateChange,MyName}),
   {next_state, predict, State#workerGeneric_state{nextState = predict}};
 
-idle(cast, {set_weights,_Ret_weights_list}, State = #workerGeneric_state{modelId=_ModelId}) ->
+idle(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelId=_ModelId}) ->
 
   ?LOG_NOTICE("Set weights in wait state: \n"),
+  nerlNIF:call_to_set_weights(_ModelId, Ret_weights_list),
   
   % %% Set weights TODO maybe send the results of the update
   % [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
@@ -155,7 +158,7 @@ wait(cast, {loss,nan,Time_NIF}, State = #workerGeneric_state{clientPid = ClientP
   {next_state, NextState, State#workerGeneric_state{ackClient = 0}};
 
 
-wait(cast, {loss, {LossVal,Time}}, State = #workerGeneric_state{clientPid = ClientPid, myName = MyName, nextState = NextState, modelId=ModelID,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
+wait(cast, {loss, {LossVal,Time}}, State = #workerGeneric_state{clientPid = ClientPid, myName = MyName, nextState = NextState, modelId=_ModelID,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
   gen_statem:cast(ClientPid,{loss, MyName, LossVal,Time/1000}), %% TODO Add Time and Time_NIF to the cast
   CustomFunc(post_train, WorkerData),
   checkAndAck(MyName,ClientPid,AckClient),
@@ -211,9 +214,9 @@ train(cast, {sample, {NerlTensorOfSamples, Type}}, State = #workerGeneric_state{
     % NerlTensor = nerltensor_conversion({NerlTensorOfSamples, Type}, erl_float),
     % io:format("Got NerlTensor: ~p~n",[NerlTensor]),
     MyPid = self(),
-    CustomFunc(pre_train, WorkerData),
+    NewWorkerData = CustomFunc(pre_train, WorkerData),
     _Pid = spawn(fun()-> nerlNIF:call_to_train(ModelId, Optimizer , LossMethod , LearningRate , {NerlTensorOfSamples, Type} ,MyPid) end),
-    {next_state, wait, State#workerGeneric_state{nextState = train}};
+    {next_state, wait, State#workerGeneric_state{nextState = train, workerData = NewWorkerData}};
   
 %% TODO: implement send model and weights by demand (Tensor / XML)
 train(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelId = ModelId}) ->
