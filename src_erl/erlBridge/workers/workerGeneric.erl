@@ -143,7 +143,7 @@ idle(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelId=
   ?LOG_NOTICE("####end set weights idle####~n"),
 
   {next_state, idle, State};
-
+ 
 idle(cast, _Param, State) ->
   % io:fwrite("Same state idle, command: ~p\n",[Param]),
   {next_state, idle, State}.

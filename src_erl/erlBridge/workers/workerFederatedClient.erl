@@ -46,7 +46,7 @@ init(Data) ->
     ServerName = Data#workerFederatedClient.serverName,
     ClientPID = Data#workerFederatedClient.clientPID,
     MyName = Data#workerFederatedClient.myName,
-    gen_statem:cast(ClientPID,{init,MyName, ServerName}).   %% send to client that this worker is part of the federated workers
+    gen_statem:cast(ClientPID,{custom_worker_message,{MyName, ServerName}}).   %% send to client that this worker is part of the federated workers
 
 %% every countLimit batches, get updated model
 pre_train(Data) -> 

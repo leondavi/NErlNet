@@ -84,7 +84,19 @@ createNerlnetInitiator(HostName) ->
 
 parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess) ->
     %% Entities to open on device from reading arch.json: 
-    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},NerlNetSettings,_GUI} = jsonParser:getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)),
+    {ok, ArchitectureAdderessData} = file:read_file(?JSON_ADDR++?LOCAL_ARCH_FILE_NAME),
+    {ok, CommunicationMapAdderessData} = file:read_file(?JSON_ADDR++?LOCAL_COMM_FILE_NAME),
+
+    %%TODO: ADD CHECK FOR VALID INPUT:  
+    % ?LOG_NOTICE("IS THIS A JSON? ~p~n",[jsx:is_json(ArchitectureAdderessData)]),
+
+    %%Decode Json to architecute map and Connection map:
+    ArchitectureMap = jsx:decode(ArchitectureAdderessData,[]),
+    CommunicationMap= jsx:decode(CommunicationMapAdderessData,[]),
+
+    jsonParser:json_to_ets(HostName, ArchitectureMap, CommunicationMap),
+
+    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,NerlNetSettings,_GUI} = jsonParser:getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)),
 
     BatchSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))),
     Frequency = list_to_integer(binary_to_list(maps:get(<<"frequency">>,NerlNetSettings))),
@@ -102,8 +114,8 @@ parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess)
     createClientsAndWorkers(ClientsAndWorkers, HostName),
     createMainServer(MainServer,BatchSize,HostName),
     createRouters(Routers,HostName),
-    createSources(Sources,WorkersMap, BatchSize, Frequency, HostName),
-    createFederatedServer(Federateds,WorkersMap, HostName).
+    createSources(Sources,WorkersMap, BatchSize, Frequency, HostName).
+    % createFederatedServer(Federateds,WorkersMap, HostName).
 
 
 %% internal functions
@@ -113,12 +125,12 @@ createClientsAndWorkers([], _HostName) -> okdone;
 createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsGraph}|ClientsAndWorkers],HostName) ->
     ClientName = binary_to_list(maps:get(<<"name">>,ClientArgs)),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>,ClientArgs))),
-    Federated = list_to_atom(binary_to_list(maps:get(<<"federated">>,ClientArgs))),
+    % Federated = list_to_atom(binary_to_list(maps:get(<<"federated">>,ClientArgs))),
 
     %%Create a gen_StateM machine for maintaining Database for Client.
     %% all http requests will be handled by Cowboy which updates client_statem if necessary.
 %%    WorkersArgsMap = #{Worker1Name => Worker1Args, Worker2Name => Worker2Args},
-    ClientStatemArgs= {ClientName,Federated,WorkersArgs,ClientConnectionsGraph},        %%make this a list of client
+    ClientStatemArgs= {ClientName,WorkersArgs,ClientConnectionsGraph},        %%make this a list of client
     ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
 
 

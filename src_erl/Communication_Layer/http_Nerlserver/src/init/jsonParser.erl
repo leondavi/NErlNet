@@ -9,7 +9,94 @@
 -module(jsonParser).
 -author("kapelnik").
 -include("../nerl_tools.hrl").
--export([getDeviceEntities/3]).
+-export([getDeviceEntities/3, json_to_ets/3]).
+
+%%getEntities findes the right device from devices map and returns it's entities
+getOnDeviceEntities([],_HostName) -> none;
+getOnDeviceEntities([Device|Tail],HostName) ->
+  DevHost = maps:get(<<"host">>,Device),
+  if HostName == DevHost -> maps:get(<<"entities">>,Device);
+    true -> getOnDeviceEntities(Tail,HostName)
+  end.
+
+%% returns true if entity is of this host
+hostEntityFilter(Entity) -> lists:member(Entity, ets:lookup(arch_data, hostEntities)).
+
+
+getHostClientsWorkersList(NamedEts) ->
+  ClientsMaps = ets:lookup(NamedEts, clients),
+  Clients = maps:keys(ClientsMaps),
+  [ {ClientName, maps:get(ClientName, ClientsMaps)} || ClientName <- Clients, hostEntityFilter(ClientName) ].   %% Tuple of {ClientName, ListOfWorkers}
+
+json_to_ets(HostName, JSONArchMap, JSONCommMap) ->
+
+  ets:new(arch_data,[named_table, set]),
+
+  ets:insert(arch_data, {hostname, HostName}),
+
+  % Get NerlNetSettings, batch size, frequency etc..
+  NerlNetSettings = maps:get(<<"NerlNetSettings">>,JSONArchMap),
+  BatchSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))),
+  Frequency = list_to_integer(binary_to_list(maps:get(<<"frequency">>,NerlNetSettings))),
+  
+  ets:insert(arch_data, {frequency, Frequency}),
+  ets:insert(arch_data, {batchSize, BatchSize}),
+
+  JsonClients = maps:get(<<"clients">>,JSONArchMap),
+  MapOfClients = getClientsMap(JsonClients, #{}),
+  ets:insert(arch_data, {clients, MapOfClients}),
+
+  %%  get workers to clients map
+  MapOfWorkers = getWorkersMap(JsonClients, #{}),
+  ets:insert(arch_data, {workers, MapOfWorkers}),
+
+  %%  retrive THIS device entities
+  OnDeviceEntitiesTmp = getOnDeviceEntities(maps:get(<<"devices">>,JSONArchMap),HostName),
+  OnDeviceEntities = re:split(binary_to_list(OnDeviceEntitiesTmp),",",[{return,list}]),
+
+  ets:insert(arch_data, {hostEntities, OnDeviceEntities}),
+
+  %%This function returns a graph G, represents all the connections in nerlnet. each entitie should have a copy of it.
+  G = buildCommunicationGraph(JSONArchMap,JSONCommMap),
+  ets:insert(arch_data, {communicationGraph, G}),
+
+  %%  retrive THIS device Clients And Workers
+  ets:insert(arch_data, {hostClientsAndWorkers, getHostClientsWorkersList(arch_data)}),
+
+
+  %%  retrive THIS device Sources, returns a list of tuples:[{SourceArgumentsMap, ConnectionMap},..]
+  Sources = {getSources(maps:get(<<"sources">>, ArchitectureMap), OnDeviceEntities, [], ArchitectureMap,G),WorkersMap},
+
+  %%  retrive THIS device Routers, returns a list of tuples:[{RoutersArgumentsMap, ConnectionMap},..]
+  Routers = getRouters(maps:get(<<"routers">>,ArchitectureMap),OnDeviceEntities , [],ArchitectureMap,G),
+
+  GUI_on_dev = lists:member("nerlGUI",OnDeviceEntities),
+  GUI = if GUI_on_dev -> maps:get(<<"nerlGUI">>,ArchitectureMap); true -> none end,
+
+  %%  retrive THIS device MainServer, returns a map of arguments
+
+%%  check if a mainServer needed to be opened on this device, retrive arguments for main server or return none atom
+  OnDevice = lists:member("mainServer",OnDeviceEntities),
+  if
+    OnDevice == false -> MainServer = none;
+    true -> MainServerArgs = maps:get(<<"mainServer">>,ArchitectureMap),
+      ClientsNames = getAllClientsNames(maps:get(<<"clients">>,ArchitectureMap),[]),
+      % MainServerConnectionsMap=getConnectionMap(<<"mainServer">>,ArchitectureMap,G),
+      % add GUI connection to MainServer, if it exists
+      if GUI /= none -> addEdges(G, "mainServer", "nerlGUI");
+        true -> none end,
+      MainServer = {MainServerArgs,G,WorkersMap,ClientsNames}
+  end,
+
+
+
+  %%  retrive  a map of arguments of the API Server
+  ServerAPI = maps:get(<<"serverAPI">>,ArchitectureMap)
+  %io:format("All Edges In Nerlnet Graph:~n~p~n",[[digraph:edge(G,E) || E <- digraph:edges(G)]]),
+  %io:format("path:~n~p~n",[digraph:get_short_path(G,"serverAPI","c1")]),
+
+.
+
 
 getDeviceEntities(_ArchitectureAdderess,_CommunicationMapAdderess, HostName)->
   nerl_tools:setup_logger(?MODULE),
@@ -23,6 +110,8 @@ getDeviceEntities(_ArchitectureAdderess,_CommunicationMapAdderess, HostName)->
   %%Decode Json to architecute map and Connection map:
   ArchitectureMap = jsx:decode(ArchitectureAdderessData,[]),
   CommunicationMap= jsx:decode(CommunicationMapAdderessData,[]),
+
+  io:format("ARCH MAP= ~p~n",[ArchitectureMap]),
 
 % Get NerlNetSettings, batch size, frequency etc..
   NerlNetSettings = maps:get(<<"NerlNetSettings">>,ArchitectureMap),
@@ -46,8 +135,6 @@ getDeviceEntities(_ArchitectureAdderess,_CommunicationMapAdderess, HostName)->
 
   %%  retrive THIS device Routers, returns a list of tuples:[{RoutersArgumentsMap, ConnectionMap},..]
   Routers = getRouters(maps:get(<<"routers">>,ArchitectureMap),OnDeviceEntities , [],ArchitectureMap,G),
-
-  Federateds = {getFederated(maps:get(<<"federated">>,ArchitectureMap),OnDeviceEntities , [],ArchitectureMap,G),WorkersMap},
 
   GUI_on_dev = lists:member("nerlGUI",OnDeviceEntities),
   GUI = if GUI_on_dev -> maps:get(<<"nerlGUI">>,ArchitectureMap); true -> none end,
@@ -79,18 +166,10 @@ getDeviceEntities(_ArchitectureAdderess,_CommunicationMapAdderess, HostName)->
   %                                    [MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds]),
 
   
-  {MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,Federateds,NerlNetSettings,GUI}.
+  {MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,NerlNetSettings,GUI}.
 
 
 
-%%getEntities findes the right device from devices map and returns it's entities
-getOnDeviceEntities([],_HostName) -> none;
-getOnDeviceEntities([Device|Tail],HostName) ->
-  DevHost = maps:get(<<"host">>,Device),
-  if HostName == DevHost ->
-    maps:get(<<"entities">>,Device);
-    true -> getOnDeviceEntities(Tail,HostName)
-  end.
 
 %%getSources findes all sources needed to be opened on this device. returns [{sourceArgsMap,SourceConnectionMap},...]
 getFederated([],_OnDeviceSources,[],_ArchMap,_G) ->none;
@@ -155,8 +234,8 @@ getWorkers([],_ClientsWorkers,Workers) -> Workers;
 getWorkers([Worker|Tail],ClientsWorkers,Workers) ->
   WorkerName = maps:get(<<"name">>,Worker),
   InClient = lists:member(binary_to_list(WorkerName),ClientsWorkers),
-  if  InClient == false->
-    getWorkers(Tail,ClientsWorkers,Workers);
+  if InClient == false->
+      getWorkers(Tail,ClientsWorkers,Workers);
     true ->
       getWorkers(Tail,ClientsWorkers,Workers++[Worker])
   end.
@@ -192,7 +271,7 @@ getPort([EntityMap|Entities],EntityName) ->
 %       case getPort(maps:get(<<"routers">>,ArchMap),EntityName) of
 
 %   end.
-
+%% TODO: organize
 getPortUnknown(ArchMap,<<"mainServer">>)->
   MainServer = maps:get(<<"mainServer">>,ArchMap),
   list_to_integer(binary_to_list(maps:get(<<"port">>, MainServer)));
@@ -218,6 +297,14 @@ getPortUnknown(ArchMap,EntityName)->
     end;
   true -> FoundRouter
   end.
+
+getClientsMap([],ClientsMap)->ClientsMap;
+getClientsMap([Client|Clients],ClientsMap)->
+  ClientName = list_to_atom(binary_to_list(maps:get(<<"name">>,Client))),
+  Workers = re:split(binary_to_list(maps:get(<<"workers">>,Client)),",",[{return,list}]),
+  NewMap = maps:put(ClientName, Workers, ClientsMap),
+  getClientsMap(Clients,NewMap).
+  
 
 %%returns a map of all workers  - key workerName, Value ClientName
 getWorkersMap([],WorkersMap)->WorkersMap;
@@ -309,8 +396,3 @@ addEdges(G,V1,V2) ->
 addtograph(G,ArchitectureMap,Entitie,HostName) -> 
     io:format("~p~n",[{Entitie,HostName,getPortUnknown(ArchitectureMap,list_to_binary(Entitie))}]),
     digraph:add_vertex(G,Entitie,{HostName,getPortUnknown(ArchitectureMap,list_to_binary(Entitie))}).
-    % addEdges(G,Entitie,MyRouter).
-	
-% getMyRouter(Routers,OnDeviceEntities) -> 
-%     [Common] = [X || X <- Routers, Y <- OnDeviceEntities, X == Y],
-%     Common.
