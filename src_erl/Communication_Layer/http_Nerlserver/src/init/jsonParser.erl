@@ -19,49 +19,83 @@ getOnDeviceEntities([Device|Tail],HostName) ->
     true -> getOnDeviceEntities(Tail,HostName)
   end.
 
-%% returns true if entity is of this host
-hostEntityFilter(Entity) -> lists:member(Entity, ets:lookup(arch_data, hostEntities)).
+is_special_entity(EntityName) ->
+    case EntityName of
+      "mainServer" -> true;
+      "serverAPI" -> true;
+      "nerlGUI" -> true;
+      _ELSE -> false
+    end.
 
+get_special_entity_args(ArchMap, SpecialEntity)->
+  SpecialEntity = is_special_entity(SpecialEntity),
+  if SpecialEntity ->
+  EntityBin = list_to_binary(SpecialEntity),
+  [EntityMap] = maps:get(EntityBin,ArchMap),binary_to_list(maps:get(<<"args">>, EntityMap));
+  true -> failed
+  end.
+
+get_special_entity_port(ArchMap, SpecialEntity)->
+  SpecialEntity = is_special_entity(SpecialEntity),
+  if SpecialEntity ->
+  EntityBin = list_to_binary(SpecialEntity),
+  [EntityMap] = maps:get(EntityBin,ArchMap),binary_to_list(maps:get(<<"port">>, EntityMap));
+  true -> failed
+  end.
+
+%% ------------------- Functions that uses ETS nerlnet_data -----------------
+%% SHOULD BE CALLED AFTER json_to_ets !!!
+
+%% returns true if entity is of this host
+hostEntityFilter(Entity) -> lists:member(Entity, ets:lookup(nerlnet_data, hostEntities)).
 
 getHostClientsWorkersList(NamedEts) ->
   ClientsMaps = ets:lookup(NamedEts, clients),
   Clients = maps:keys(ClientsMaps),
-  [ {ClientName, maps:get(ClientName, ClientsMaps)} || ClientName <- Clients, hostEntityFilter(ClientName) ].   %% Tuple of {ClientName, ListOfWorkers}
+  WORKERS_TUPLE_IDX = 1, % numbering from 1
+  [ {ClientName, maps:get(ClientName, element(WORKERS_TUPLE_IDX,ClientsMaps))} || ClientName <- Clients, hostEntityFilter(ClientName) ].   %% Tuple of {ClientName, ListOfWorkers}
 
+%% ------------------- nerlnet data ets creation -----------------
+%% Stores json files data into ets table called nerlnet_data
+%% --------------------------------------------------------------
 json_to_ets(HostName, JSONArchMap, JSONCommMap) ->
+  ets:new(nerlnet_data,[named_table, set]),
 
-  ets:new(arch_data,[named_table, set]),
-
-  ets:insert(arch_data, {hostname, HostName}),
+  % update hostname
+  ets:insert(nerlnet_data, {hostname, HostName}),
 
   % Get NerlNetSettings, batch size, frequency etc..
   NerlNetSettings = maps:get(<<"NerlNetSettings">>,JSONArchMap),
   BatchSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))),
   Frequency = list_to_integer(binary_to_list(maps:get(<<"frequency">>,NerlNetSettings))),
   
-  ets:insert(arch_data, {frequency, Frequency}),
-  ets:insert(arch_data, {batchSize, BatchSize}),
+  ets:insert(nerlnet_data, {frequency, Frequency}),
+  ets:insert(nerlnet_data, {batchSize, BatchSize}),
 
   JsonClients = maps:get(<<"clients">>,JSONArchMap),
-  MapOfClients = getClientsMap(JsonClients, #{}),
-  ets:insert(arch_data, {clients, MapOfClients}),
+  MapOfClients = getClientsMap(JsonClients, #{}), % each client has {WorkersList, Port}
+  ets:insert(nerlnet_data, {clients, MapOfClients}),
 
   %%  get workers to clients map
   MapOfWorkers = getWorkersMap(JsonClients, #{}),
-  ets:insert(arch_data, {workers, MapOfWorkers}),
+  ets:insert(nerlnet_data, {workers, MapOfWorkers}),
 
-  %%  retrive THIS device entities
+  %%  retrive this device entities
   OnDeviceEntitiesTmp = getOnDeviceEntities(maps:get(<<"devices">>,JSONArchMap),HostName),
   OnDeviceEntities = re:split(binary_to_list(OnDeviceEntitiesTmp),",",[{return,list}]),
+  OnDeviceSpecialEntities = [  EntityName ||  EntityName <- OnDeviceEntities, is_special_entity(EntityName)],
+  ets:insert(nerlnet_data, {hostEntities, OnDeviceEntities}),
+  ets:insert(nerlnet_data, {hostSpecialEntities, OnDeviceSpecialEntities}),
 
-  ets:insert(arch_data, {hostEntities, OnDeviceEntities}),
+  SpecialEntityAttributeFunc = fun(SpecialEntity) -> ets:insert(nerlnet_data, {SpecialEntity,get_special_entity_port(JSONArchMap, SpecialEntity), get_special_entity_args(JSONArchMap, SpecialEntity)}) end,
+  lists:foreach(SpecialEntityAttributeFunc, OnDeviceSpecialEntities),
 
   %%This function returns a graph G, represents all the connections in nerlnet. each entitie should have a copy of it.
   G = buildCommunicationGraph(JSONArchMap,JSONCommMap),
-  ets:insert(arch_data, {communicationGraph, G}),
+  ets:insert(nerlnet_data, {communicationGraph, G}),
 
   %%  retrive THIS device Clients And Workers
-  ets:insert(arch_data, {hostClientsAndWorkers, getHostClientsWorkersList(arch_data)}),
+  ets:insert(nerlnet_data, {hostClientsAndWorkers, getHostClientsWorkersList(nerlnet_data)}),
 
 
   %%  retrive THIS device Sources, returns a list of tuples:[{SourceArgumentsMap, ConnectionMap},..]
@@ -260,18 +294,20 @@ getPort([EntityMap|Entities],EntityName) ->
       getPort(Entities,EntityName)
   end.
 
+  
 
-%%% TODO: make new port search func
-% getPortUnknown(ArchMap, Name)->
-%   case Name of
-%     <<"mainServer">> -> [MainServer] = maps:get(<<"mainServer">>,ArchMap),list_to_integer(binary_to_list(maps:get(<<"port">>, MainServer)));
-%     <<"serverAPI">> ->  [ServerAPI] = maps:get(<<"serverAPI">>,ArchMap),list_to_integer(binary_to_list(maps:get(<<"port">>, ServerAPI)));
-%     <<"nerlGUI">> ->    [NerlGUI] = maps:get(<<"nerlGUI">>,ArchMap),list_to_integer(binary_to_list(maps:get(<<"port">>, NerlGUI)));
-%     Other ->
-%       case getPort(maps:get(<<"routers">>,ArchMap),EntityName) of
+  % get_special_entityport(ArchMap, SpecialEntity)->
+  % EntityBin = list_to_binary(Entity),
+  % maps:get(<<"mainServer">>,ArchMap),
+  % case EntityBin of
+  %    <<"mainServer">> -> [MainServer] = maps:get(<<"mainServer">>,ArchMap),list_to_integer(binary_to_list(maps:get(<<"port">>, MainServer)));
+  %    <<"serverAPI">> ->  [ServerAPI] = maps:get(<<"serverAPI">>,ArchMap),list_to_integer(binary_to_list(maps:get(<<"port">>, ServerAPI)));
+  %    <<"nerlGUI">> ->    [NerlGUI] = maps:get(<<"nerlGUI">>,ArchMap),list_to_integer(binary_to_list(maps:get(<<"port">>, NerlGUI)));
+  %    Other ->
+  %      case getPort(maps:get(<<"routers">>,ArchMap),EntityName) of
+  % end.
 
-%   end.
-%% TODO: organize
+%% TODO: remove after ets is completed
 getPortUnknown(ArchMap,<<"mainServer">>)->
   MainServer = maps:get(<<"mainServer">>,ArchMap),
   list_to_integer(binary_to_list(maps:get(<<"port">>, MainServer)));
@@ -302,7 +338,8 @@ getClientsMap([],ClientsMap)->ClientsMap;
 getClientsMap([Client|Clients],ClientsMap)->
   ClientName = list_to_atom(binary_to_list(maps:get(<<"name">>,Client))),
   Workers = re:split(binary_to_list(maps:get(<<"workers">>,Client)),",",[{return,list}]),
-  NewMap = maps:put(ClientName, Workers, ClientsMap),
+  Port =  list_to_integer(binary_to_list(maps:get(<<"port">>, Client))),
+  NewMap = maps:put(ClientName, {Workers, Port}, ClientsMap),
   getClientsMap(Clients,NewMap).
   
 
