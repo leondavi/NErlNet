@@ -43,6 +43,17 @@ get_special_entity_port(ArchMap, SpecialEntity)->
   true -> failed
   end.
 
+get_sources(ArchMap) ->
+  Sources = maps:get(<<"sources">>, ArchMap),
+  HostSources = [S || S <- Sources, hostEntityFilter(S) ],
+  Func = fun(SourceName) -> 
+    SourceName = maps:get(<<"name">>,Source),
+    SourcePort = list_to_integer(binary_to_list(maps:get(<<"port">>, Source))),
+    SourceMethod = list_to_integer(binary_to_list(maps:get(<<"method">>, Source))),
+    {SourceName,SourcePort,SourceMethod}
+  end,
+  [Func(S) || S <- HostSources]. % list of tuples: {SourceName,SourcePort,SourceMethod}
+
 %% ------------------- Functions that uses ETS nerlnet_data -----------------
 %% SHOULD BE CALLED AFTER json_to_ets !!!
 
@@ -99,7 +110,8 @@ json_to_ets(HostName, JSONArchMap, JSONCommMap) ->
 
 
   %%  retrive THIS device Sources, returns a list of tuples:[{SourceArgumentsMap, ConnectionMap},..]
-  Sources = {getSources(maps:get(<<"sources">>, ArchitectureMap), OnDeviceEntities, [], ArchitectureMap,G),WorkersMap},
+  Sources = get_sources(JSONArchMap),
+  % TODO add each source by its name to map in ets (key sources)
 
   %%  retrive THIS device Routers, returns a list of tuples:[{RoutersArgumentsMap, ConnectionMap},..]
   Routers = getRouters(maps:get(<<"routers">>,ArchitectureMap),OnDeviceEntities , [],ArchitectureMap,G),
@@ -164,6 +176,8 @@ getDeviceEntities(_ArchitectureAdderess,_CommunicationMapAdderess, HostName)->
   %%  retrive THIS device Clients And Workers, returns a list of tuples:[{ClientArgumentsMap,WorkersMap,ConnectionMap},..]
   ClientsAndWorkers = getClients(maps:get(<<"clients">>,ArchitectureMap),OnDeviceEntities , [],maps:get(<<"workers">>,ArchitectureMap),ArchitectureMap,G),
 
+  
+
   %%  retrive THIS device Sources, returns a list of tuples:[{SourceArgumentsMap, ConnectionMap},..]
   Sources = {getSources(maps:get(<<"sources">>, ArchitectureMap), OnDeviceEntities, [], ArchitectureMap,G),WorkersMap},
 
@@ -203,34 +217,6 @@ getDeviceEntities(_ArchitectureAdderess,_CommunicationMapAdderess, HostName)->
   {MainServer,ServerAPI,ClientsAndWorkers,Sources,Routers,NerlNetSettings,GUI}.
 
 
-
-
-%%getSources findes all sources needed to be opened on this device. returns [{sourceArgsMap,SourceConnectionMap},...]
-getFederated([],_OnDeviceSources,[],_ArchMap,_G) ->none;
-getFederated([],_OnDeviceSources,Return,_ArchMap,_G) ->Return;
-getFederated([Federated|Federateds],OnDeviceFederated,Return,ArchMap,G) ->
-
-  FederatedName = maps:get(<<"name">>,Federated),
-  OnDevice = lists:member(binary_to_list(FederatedName),OnDeviceFederated),
-  if  OnDevice == false->
-    getFederated(Federateds,OnDeviceFederated,Return,ArchMap,G);
-    true ->
-      %ConnectionsMap = getConnectionMap(maps:get(<<"name">>,Federated),ArchMap,G),
-      getFederated(Federateds,OnDeviceFederated,Return++[{Federated,G}],ArchMap,G)
-  end.
-
-getSources([],_OnDeviceSources,[],_ArchMap,_G) ->none;
-getSources([],_OnDeviceSources,Return,_ArchMap,_G) ->Return;
-getSources([Source|Sources],OnDeviceSources,Return,ArchMap,G) ->
-
-  SourceName = maps:get(<<"name">>,Source),
-  OnDevice = lists:member(binary_to_list(SourceName),OnDeviceSources),
-  if  OnDevice == false->
-    getSources(Sources,OnDeviceSources,Return,ArchMap,G);
-    true ->
-      %ConnectionsMap = getConnectionMap(maps:get(<<"name">>,Source),ArchMap,CommunicationMap),
-      getSources(Sources,OnDeviceSources,Return++[{Source,G}],ArchMap,G)
-  end.
 
 %%getRouters findes all Routers needed to be opened on this device. returns [{RouterArgsMap,RoutersConnectionMap},...]
 getRouters([],_OnDeviceRouters,[],_ArchMap,_G) ->none;
