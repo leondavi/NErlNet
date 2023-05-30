@@ -39,7 +39,7 @@ get_special_entity_port(ArchMap, SpecialEntity)->
   SpecialEntity = is_special_entity(SpecialEntity),
   if SpecialEntity ->
   EntityBin = list_to_binary(SpecialEntity),
-  [EntityMap] = maps:get(EntityBin,ArchMap),binary_to_list(maps:get(<<"port">>, EntityMap));
+  [EntityMap] = maps:get(EntityBin,ArchMap),list_to_integer(binary_to_list(maps:get(<<"port">>, EntityMap)));
   true -> failed
   end.
 
