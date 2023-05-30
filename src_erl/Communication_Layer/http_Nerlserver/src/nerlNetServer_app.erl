@@ -96,10 +96,10 @@ parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess)
 
     jsonParser:json_to_ets(HostName, ArchitectureMap, CommunicationMap),
 
-    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,NerlNetSettings,_GUI} = jsonParser:getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)),
+    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,NerlNetSettings,_GUI} = jsonParser:getHostEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)), % we use nerlnet ETS from this point
 
-    BatchSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))),
-    Frequency = list_to_integer(binary_to_list(maps:get(<<"frequency">>,NerlNetSettings))),
+    BatchSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))), % TODO change to lookup of ETS
+    Frequency = list_to_integer(binary_to_list(maps:get(<<"frequency">>,NerlNetSettings))), % TODO change to lookup of ETS
 
 %%    Creating a Dispatcher for each Server from JSONs architecture - this dispatchers will rout http requests to the right handler.
 %%    Each dispatcher will be listening to a different PORT
@@ -111,10 +111,10 @@ parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess)
     %% {"/req_name/:arg1/:arg2",[{arg1,constrains}, {arg2,int}], addHandler,[]}
     %%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
 
-    createClientsAndWorkers(ClientsAndWorkers, HostName),
-    createMainServer(MainServer,BatchSize,HostName),
-    createRouters(Routers,HostName),
-    createSources(Sources,WorkersMap, BatchSize, Frequency, HostName).
+    createClientsAndWorkers(ClientsAndWorkers, HostName), % TODO extract all of this args from ETS
+    createMainServer(MainServer,BatchSize,HostName), % TODO extract all of this args from ETS
+    createRouters(Routers,HostName), % TODO extract all of this args from ETS
+    createSources(Sources,WorkersMap, BatchSize, Frequency, HostName). % TODO extract all of this args from ETS
     % createFederatedServer(Federateds,WorkersMap, HostName).
 
 
