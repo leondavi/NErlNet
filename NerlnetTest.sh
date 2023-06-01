@@ -51,6 +51,9 @@ COMPILE_NERL="compile:file(\"nerl.erl\")"
 
 COMPILE_FILES="$COMPILE_NERL,$COMPILE_NERLNIF,$COMPILE_NERLTEST"
 
-erl -noshell -eval "$COMPILE_FILES, nerlTests:run_tests()." -s init stop > "$NERLNET_TEST_DIR/$LOG_FILE"
+erl -noshell -eval "$COMPILE_FILES, nerlTests:run_tests()." -s init stop > "$NERLNET_TEST_DIR/$LOG_FILE" #TODO fix 
+rc=$(echo $?)
 cat "$NERLNET_TEST_DIR/$LOG_FILE"
 cd -
+
+exit $rc
