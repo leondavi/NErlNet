@@ -94,9 +94,13 @@ parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess)
     ArchitectureMap = jsx:decode(ArchitectureAdderessData,[]),
     CommunicationMap= jsx:decode(CommunicationMapAdderessData,[]),
 
-    jsonParser:json_to_ets(HostName, ArchitectureMap, CommunicationMap),
+    jsonParser:json_to_ets(HostName, ArchitectureMap),
 
-    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,NerlNetSettings,_GUI} = jsonParser:getHostEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)), % we use nerlnet ETS from this point
+    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,NerlNetSettings,_GUI} = 
+    EtsName = jsonParser:getHostEntities(ArchitectureMap,CommunicationMap,list_to_binary(HostName)), % we use nerlnet ETS from this point
+
+    MainServer = ets:lookup(EtsName, "mainServer"),
+    ClientsAndWorkers = ets:lookup(EtsName, "mainServer"),
 
     BatchSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))), % TODO change to lookup of ETS
     Frequency = list_to_integer(binary_to_list(maps:get(<<"frequency">>,NerlNetSettings))), % TODO change to lookup of ETS

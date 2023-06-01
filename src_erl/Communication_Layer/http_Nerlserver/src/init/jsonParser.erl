@@ -8,7 +8,7 @@
 %%%-------------------------------------------------------------------
 -module(jsonParser).
 -include("../nerl_tools.hrl").
--export([getHostEntities/3, json_to_ets/3]).
+-export([getHostEntities/3, json_to_ets/2]).
 
 -define(SERVER_API_STR, "serverAPI").
 -define(MAIN_SERVER_STR, "mainServer").
@@ -21,10 +21,10 @@ is_special_entity(EntityName) ->  lists:member(EntityName, [?MAIN_SERVER_STR, ?S
 get_special_entities(ArchMap, HostEntities)->
   SpecialEntities = [ Entity || Entity <- HostEntities, is_special_entity(Entity)],
   Func = fun(SpecialEntityName) ->
-    Name = SpecialEntityName,
-    Port = list_to_integer(binary_to_list(maps:get(<<"port">>, ArchMap))),
-    Args = binary_to_list(maps:get(<<"args">>, ArchMap)),
-    {Name, {Port, Args}}
+    EntityMap = maps:get(list_to_binary(SpecialEntityName), ArchMap),
+    Port = list_to_integer(binary_to_list(maps:get(<<"port">>, EntityMap))),
+    Args = binary_to_list(maps:get(<<"args">>, EntityMap)),
+    {SpecialEntityName, {Port, Args}}
   end,
   [Func(E) || E <- SpecialEntities].
 
@@ -98,7 +98,8 @@ get_host_routers(ArchMap, HostEntities) ->
   [Func(R) || R <- HostRouters]. % list of tuples: [{RouterName,{RouterPort,RouterRouting,RouterFiltering}}]
 
 getHostClientsWorkersList(NamedEts, HostEntities) ->
-  ClientsMaps = ets:lookup(NamedEts, clients),
+  [{clients, ClientsMaps}] = ets:lookup(NamedEts, clients),    %% = [{clients, #{c1 => {["w1"],8081}},....}]
+  % io:format("Client map = ~p~n",[ClientsMaps]),
   Clients = maps:keys(ClientsMaps),
   WORKERS_TUPLE_IDX = 1, % numbering from 1
   [ {ClientName, maps:get(ClientName, element(WORKERS_TUPLE_IDX,ClientsMaps))} || ClientName <- Clients, lists:member(ClientName, HostEntities) ].   %% Tuple of {ClientName, ListOfWorkers}
@@ -113,7 +114,7 @@ json_to_ets(HostName, JSONArchMap) ->
   ets:new(nerlnet_data,[named_table, set]),
 
   % update hostname
-  ets:insert(nerlnet_data, {hostname, HostName}),
+  ets:insert(nerlnet_data, {hostname, list_to_binary(HostName)}),
 
   % Get NerlNetSettings, batch size, frequency etc..
   NerlNetSettings = maps:get(<<"NerlNetSettings">>,JSONArchMap),
@@ -132,9 +133,9 @@ json_to_ets(HostName, JSONArchMap) ->
   ets:insert(nerlnet_data, {workers, MapOfWorkers}),
 
   Hosts = get_devices(JSONArchMap), % get all hosts 
-  ets:insert(nerlnet_data, hosts,maps:from_list(Hosts)),
+  ets:insert(nerlnet_data, {hosts,maps:from_list(Hosts)}),
   %%  retrive this device entities
-  HostEntities = maps:get(HostName, ets:lookup_element(nerlnet_data, hosts, ?ETS_DATA_IDX)), % List of host entities
+  HostEntities = maps:get(list_to_binary(HostName), ets:lookup_element(nerlnet_data, hosts, ?ETS_DATA_IDX)), % List of host entities
   ets:insert(nerlnet_data, {hostEntities, HostEntities}),
 
   HostSpecialEntities = get_special_entities(JSONArchMap, HostEntities),
@@ -155,24 +156,18 @@ json_to_ets(HostName, JSONArchMap) ->
   nerlnet_data. % returns the ets name
 
 
-  getHostEntities(_ArchitectureAdderess,_CommunicationMapAdderess, HostName)->
+getHostEntities(ArchitectureMap,CommunicationMap, HostName)->
   nerl_tools:setup_logger(?MODULE),
 
-  {ok, ArchitectureAdderessData} = file:read_file(?JSON_ADDR++?LOCAL_ARCH_FILE_NAME),
-  {ok, CommunicationMapAdderessData} = file:read_file(?JSON_ADDR++?LOCAL_COMM_FILE_NAME),
-
-  %% Decode Json to architecute map and Connection map:
-  ArchitectureMap = jsx:decode(ArchitectureAdderessData,[]),
-  CommunicationMap = jsx:decode(CommunicationMapAdderessData,[]),
-
   % ets name is nerlnet_data
-  json_to_ets(HostName, ArchitectureMap),
+  % json_to_ets(HostName, ArchitectureMap),
   
   % use the nerlnet_data ets from this point
   %%This function returns a graph G, represents all the connections in nerlnet. each entitie should have a copy of it.
   NerlnetGraph = buildCommunicationGraph(ArchitectureMap, CommunicationMap),
   % add graph to ets
-  ets:insert(nerlnet_data, {communicationGraph, NerlnetGraph}).
+  ets:insert(nerlnet_data, {communicationGraph, NerlnetGraph}),
+  nerlnet_data.
 
   %TODO add GUI edge to main server in the appropriate place addEdges(G, "mainServer", "nerlGUI");
 
@@ -213,7 +208,7 @@ add_host_vertices(NerlnetGraph, ArchitectureMap, HostName, HostEntities)->
   HostAllEntitiesMap = maps:from_list(HostRouters ++ HostSources ++ HostClients ++ HostSpecials),
 
   AddEntityToGraph = fun(EntityName, EntityData) -> 
-      EntityPort = element(EntityData, ?PORT_IDX),
+      EntityPort = element(?PORT_IDX, EntityData),
       ?LOG_NOTICE(?LOG_HEADER++"HostName: ~p Entity: ~p Port: ~p ~n",[HostName,HostName,EntityPort]),
       digraph:add_vertex(NerlnetGraph, EntityName,{HostName, EntityPort, list_to_binary(EntityName)})
       end,
