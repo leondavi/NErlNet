@@ -59,7 +59,7 @@ start_link(Args) ->
 
 %%NerlClientsArgs=[{MyName,Workers,ConnectionsMap},...], Workers = list of maps of name and args
 %%  init nerlClient with given workers and parameters, and build a map :#{workerName=>WorkerPid,...}
-init({MyName,Workers,NerlnetGraph}) ->
+init({MyName,NerlnetGraph}) ->
   inets:start(),
   io:format("Client ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
   % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
@@ -67,7 +67,7 @@ init({MyName,Workers,NerlnetGraph}) ->
   ets:insert(client_data, {nerlnetGraph, NerlnetGraph}),
   ets:insert(client_data, {msgCounter, 1}),
 
-  createWorkers(),
+  createWorkers(EtsRef),
 
   {ok, idle, #client_statem_state{myName= MyName, etsRef = EtsRef}}.
 
@@ -110,11 +110,7 @@ waitforWorkers(cast, {NewState}, State = #client_statem_state{etsRef = EtsRef}) 
   io:format("client going to state ~p~n",[State]),
 
   Workers = ets:lookup_element(EtsRef, workersNames, 2),    %% TODO: macro this 2
-  Func = fun(WorkerKey) -> 
-    WorkerPid = ets:lookup_element(EtsRef, WorkerKey, ?WORKER_PID_IDX),
-    gen_statem:cast(WorkerPid,{NewState})
-  end,
-  lists:foreach(Func, Workers),
+  cast_message_to_workers(EtsRef, {NewState}),
   {next_state, waitforWorkers, State#client_statem_state{nextState = NewState, waitforWorkers = Workers}};
 
   
@@ -151,152 +147,143 @@ idle(cast, {statistics}, State = #client_statem_state{ myName = MyName, etsRef =
   {next_state, idle, State};
 
 
-idle(cast, {training}, State = #client_statem_state{workersMap = WorkersMap, msgCounter = Counter}) ->
-  Workers = maps:to_list(WorkersMap),
-  [gen_statem:cast(WorkerPid,{training})|| {_WorkerName,WorkerPid}<-Workers],
-MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+
+idle(cast, {training}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
+  MessageToCast = {training},
+  cast_message_to_workers(EtsRef, MessageToCast),
 %%  send an ACK to mainserver that the CSV file is ready
   % ack(MyName,NerlnetGraph),
-  {next_state, waitforWorkers, State#client_statem_state{nextState = training, msgCounter = Counter+1,waitforWorkers = MyWorkers}};
+  {next_state, waitforWorkers, State#client_statem_state{nextState = training}};
 
-idle(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
+idle(cast, {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
   io:format("client going to state predict",[]),
-  Workers = maps:to_list(WorkersMap),
-  [gen_statem:cast(WorkerPid,{predict})|| {_WorkerName,WorkerPid} <- Workers],
-  MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid} <- Workers],
-  {next_state, waitforWorkers, State#client_statem_state{nextState = predict, waitforWorkers = MyWorkers, msgCounter = Counter+1}};
+  ets:update_counter(EtsRef, msgCounter, 1),
+  MessageToCast = {predict},
+  cast_message_to_workers(EtsRef, MessageToCast),
+  {next_state, waitforWorkers, State#client_statem_state{nextState = predict}};
 
-idle(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
+idle(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
   io:format("client idle ignored!!!:  ~p ~n",[EventContent]),
-  {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
+  {next_state, training, State#client_statem_state{etsRef = EtsRef}}.
 
 
-training(cast, {sample,[]}, State = #client_statem_state{msgCounter = Counter}) ->
+% TODO Validate this state - sample and empty list 
+training(cast, {sample,[]}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
   io:format("client got empty Vector~n",[]),
-  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+  {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
-training(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap,timingMap = TimingMap}) ->
+training(cast, {sample,Body}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
   %%    Body:   {ClientName,WorkerName,CSVName,BatchNumber,BatchOfSamples}
-  {_ClientName, WorkerName, _CSVName, _BatchNumber, BatchOfSamples} = binary_to_term(Body),
-  % ToSend =  decodeList(BatchOfSamples),
+  {ClientName, WorkerNameStr, _CSVName, _BatchNumber, BatchOfSamples} = binary_to_term(Body),
+  WorkerName = list_to_atom(WorkerNameStr),
   Start = os:timestamp(),
-  {_LastBatchReceivedTime,TotalBatches,TotalTime} = maps:get(list_to_atom(WorkerName),TimingMap),
-  NewTimingMap = maps:put(list_to_atom(WorkerName),{Start,TotalBatches+1,TotalTime},TimingMap),
-  WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
-  gen_statem:cast(WorkerPid, {sample,BatchOfSamples}),
-  {next_state, training, State#client_statem_state{msgCounter = Counter+1,timingMap = NewTimingMap}};
+  WorkerOfThisClient = ets:member(EtsRef, WorkerName),
+  if 
+    WorkerOfThisClient ->
+    TimingTuple = ets:lookup_element(EtsRef, WorkerName, ?WORKER_TIMING_IDX), %todo refactor timing map
+    {_LastBatchReceivedTime,TotalBatches,TotalTime} = TimingTuple,
+    NewTimingTuple = {Start,TotalBatches+1,TotalTime},
+    ets:update_element(EtsRef, WorkerName,[{?WORKER_TIMING_IDX,NewTimingTuple}]);
+    true -> ?LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName])
+  end,
+  WorkerPid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
+  gen_statem:cast(WorkerPid, {sample, BatchOfSamples}),
+  {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
-training(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
+training(cast, {idle}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
   io:format("client going to state idle~n",[]),
-  Workers = maps:to_list(WorkersMap),
-  [gen_statem:cast(WorkerPid,{idle})|| {_WorkerName,WorkerPid}<-Workers],
-  MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
-  io:format("setting workers at idle: ~p~n",[MyWorkers]),
-  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = MyWorkers, nextState = idle, msgCounter = Counter+1}};
+  MessageToCast = {idle},
+  cast_message_to_workers(EtsRef, MessageToCast),
+  Workers = ets:lookup_element(EtsRef, workersNames, 2),
+  io:format("setting workers at idle: ~p~n",[ets:lookup_element(EtsRef, workersNames, 2)]),
+  {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers}};
 
-training(cast, {predict}, State = #client_statem_state{workersMap = WorkersMap, msgCounter = Counter}) ->
+training(cast, {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
   io:format("client going to state predict",[]),
-  Workers = maps:to_list(WorkersMap),
-  [gen_statem:cast(WorkerPid,{predict})|| {_WorkerName,WorkerPid}<-Workers],
-  MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
-  {next_state, waitforWorkers, State#client_statem_state{nextState = predict, waitforWorkers = MyWorkers, msgCounter = Counter+1}};
+  MessageToCast = {predict},
+  cast_message_to_workers(EtsRef,MessageToCast),
+  Workers = ets:lookup_element(EtsRef, workersNames, 2),
+  {next_state, waitforWorkers, State#client_statem_state{nextState = predict,  waitforWorkers = Workers, etsRef = EtsRef}};
 
-training(cast, {loss,WorkerName,nan,_Time_NIF}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter}) ->
-%%   io:format("LossFunction1: ~p   ~n",[LossFunction]),
+
+% training get path to main server
+training(cast, {loss,WorkerName,nan,_Time_NIF}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
+  NerlnetGraph = ets:lookup_element(EtsRef, nerlnetGraph, 2),
   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
   nerl_tools:http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,"nan"})),
-%%  http_request(RouterHost,RouterPort,"lossFunction", list_to_binary([list_to_binary(atom_to_list(WorkerName)),<<"#">>,<<"nan">>])),
-  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
+  {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
-training(cast, {loss,WorkerName,LossFunction,_Time_NIF}, State = #client_statem_state{myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter,timingMap = TimingMap}) ->
-  % Start = maps:get(WorkerName,TimingMap),
-  
-      % io:format("AverageTrainingTime: ~p~n",[NewAverage])
-  NewTimingMap = updateTimingMap(WorkerName,TimingMap),
-  
+training(cast, {loss,WorkerName,LossFunction,_Time_NIF}, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
+  NerlnetGraph = ets:lookup_element(EtsRef, nerlnetGraph, 2),
+  updateTimingMap(EtsRef, WorkerName),
   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
   nerl_tools:http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,LossFunction})),
-  {next_state, training, State#client_statem_state{msgCounter = Counter+1,timingMap = NewTimingMap}};
+  {next_state, training, State#client_statem_state{myName = MyName,etsRef = EtsRef}};
 
+training(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
+  ?LOG_WARNING("client training ignored!!!:  ~p ~n!!!",[EventContent]),
+  {next_state, training, State#client_statem_state{etsRef = EtsRef}}.
 
-%%Federated Mode:
-training(cast, {loss,federated_weights, _Worker, _LOSS_FUNC, Ret_weights}, State = #client_statem_state{federatedServer = Federated,myName = MyName,nerlnetGraph = NerlnetGraph,  msgCounter = Counter}) ->
-%%  io:format("Worker: ~p~n, LossFunction: ~p~n,  Ret_weights_tuple: ~p~n",[Worker, LOSS_FUNC, Ret_weights_tuple]),
-  % {RouterHost,RouterPort} = maps:get(Federated,NerlnetGraph),
-  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,Federated,NerlnetGraph),
-  % ToSend = term_to_binary({Federated,decodeListOfLists(Ret_weights)}),
-  nerl_tools:http_request(RouterHost,RouterPort,"federatedWeightsVector", term_to_binary({Federated,Ret_weights})),
-  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
-
-training(cast, {loss, federated_weights, MyName, _LOSS_FUNC}, State = #client_statem_state{myName = MyName, msgCounter = Counter}) ->
-  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
-
-training(cast, {federatedAverageWeights,Body}, State = #client_statem_state{workersMap = WorkersMap, msgCounter = Counter}) ->
-%% io:format("federatedAverageWeights Body!!!!: ~p~n",[Body]),
-  {_ClientName,WorkerName,Weights} = binary_to_term(Body),
-
-%%  [_ClientName,WorkerName,Weights] = re:split(binary_to_list(Body),"#",[{return,list}]),
-  WorkerPid = maps:get(WorkerName,WorkersMap),
-  % io:format("client decoding weights!!!:   ~n!!!",[]),
-
-  % DecodedWeights = decodeListOfLists(BinaryWeights),
-  % io:format("client finished decoding weights!!!:   ~n!!!",[]),
-  gen_statem:cast(WorkerPid, {set_weights,  Weights}),
-  {next_state, training, State#client_statem_state{msgCounter = Counter+1}};
-
-training(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
-  io:format("client training ignored!!!:  ~p ~n!!!",[EventContent]),
-  {next_state, training, State#client_statem_state{msgCounter = Counter+1}}.
-
-
-predict(cast, {sample,Body}, State = #client_statem_state{msgCounter = Counter,workersMap = WorkersMap, timingMap = TimingMap}) ->
+predict(cast, {sample,Body}, State = #client_statem_state{etsRef = EtsRef}) ->
   %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
-  {_ClientName, WorkerName, CSVName, BatchNumber, BatchOfSamples} = binary_to_term(Body),
-  % ToSend =  decodeList(BatchOfSamples),
+  ets:update_counter(EtsRef, msgCounter, 1),
+  {ClientName, WorkerNameStr, CSVName, BatchNumber, BatchOfSamples} = binary_to_term(Body),
+  WorkerName = list_to_atom(WorkerNameStr),
+
   Start = os:timestamp(),
-  {_LastBatchReceivedTime,TotalBatches,TotalTime} = maps:get(list_to_atom(WorkerName),TimingMap),
-  NewTimingMap = maps:put(list_to_atom(WorkerName),{Start,TotalBatches+1,TotalTime},TimingMap),
-%%  io:format("CSVName: ~p, BatchNumber: ~p~n",[CSVName,BatchNumber]),
-%%  io:format("Vector: ~p~n",[ToSend]),
-  WorkerPid = maps:get(list_to_atom(WorkerName),WorkersMap),
-  gen_statem:cast(WorkerPid, {sample,CSVName, BatchNumber,BatchOfSamples}),
-%%  gen_statem:cast(WorkerPid, {sample,ToSend}),
-  {next_state, predict, State#client_statem_state{msgCounter = Counter+1,timingMap = NewTimingMap}};
+  WorkerOfThisClient = ets:member(EtsRef, WorkerName),
+  if 
+    WorkerOfThisClient ->
+    TimingTuple = ets:lookup_element(EtsRef, WorkerName, ?WORKER_TIMING_IDX), %todo refactor timing map
+    {_LastBatchReceivedTime,TotalBatches,TotalTime} = TimingTuple,
+    NewTimingTuple = {Start,TotalBatches+1,TotalTime},
+    ets:update_element(EtsRef, WorkerName,[{?WORKER_TIMING_IDX,NewTimingTuple}]);
+    true -> ?LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName])
+  end,
 
-% predict(cast, {predictRes,WorkerName,InputName,ResultID,[]}, State = #client_statem_state{myName = MyName, msgCounter = Counter,nerlnetGraph = NerlnetGraph}) ->
-%   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
-%   nerl_tools:http_request(RouterHost,RouterPort,"predictRes", term_to_binary({atom_to_list(WorkerName),InputName,ResultID,""})),
-%   {next_state, predict, State#client_statem_state{msgCounter = Counter+1}};
-
+  WorkerPid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
+  gen_statem:cast(WorkerPid, {sample, CSVName, BatchNumber, BatchOfSamples}),
+  {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
 
 %% TODO: add nif timing statistics
-predict(cast, {predictRes,WorkerName,InputName,ResultID,PredictNerlTensor, Type, _TimeTook}, State = #client_statem_state{myName = MyName, msgCounter = Counter,nerlnetGraph = NerlnetGraph,timingMap = TimingMap}) ->
-    NewTimingMap = updateTimingMap(WorkerName,TimingMap),
+predict(cast, {predictRes,WorkerName,InputName,ResultID,PredictNerlTensor, Type, _TimeTook}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
+  NerlnetGraph = ets:lookup_element(EtsRef, nerlnetGraph, 2),
+  updateTimingMap(EtsRef, WorkerName),    
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
 
-    {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+  nerl_tools:http_request(RouterHost,RouterPort,"predictRes", term_to_binary({atom_to_list(WorkerName), InputName, ResultID, {PredictNerlTensor, Type}})),
+  {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
 
-    %io:format("Client got result from predict-~nInputName: ~p,ResultID: ~p, ~nResult:~p~n",[InputName,ResultID,Result]),
-    nerl_tools:http_request(RouterHost,RouterPort,"predictRes", term_to_binary({atom_to_list(WorkerName),InputName,ResultID,{PredictNerlTensor, Type}})),
-    {next_state, predict, State#client_statem_state{timingMap =NewTimingMap, msgCounter = Counter+1}};
-
-predict(cast, {training}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
-    Workers = maps:to_list(WorkersMap),
-    [gen_statem:cast(WorkerPid,{training})|| {_WorkerName,WorkerPid}<-Workers],
-    MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
-    {next_state, waitforWorkers, State#client_statem_state{nextState = training,  waitforWorkers = MyWorkers, msgCounter = Counter+1}};
+% TODO from predict directly to training?!?!?
+predict(cast, {training}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
+  MsgToCast =  {training},
+  cast_message_to_workers(EtsRef, MsgToCast),
+  Workers = ets:lookup_element(EtsRef, workersNames, 2),    %% TODO: macro this 2
+  {next_state, waitforWorkers, State#client_statem_state{nextState = training, etsRef = EtsRef,  waitforWorkers = Workers}};
 
 
-predict(cast, {idle}, State = #client_statem_state{workersMap = WorkersMap,msgCounter = Counter}) ->
-    Workers = maps:to_list(WorkersMap),
-    [gen_statem:cast(WorkerPid,{idle})|| {_WorkerName,WorkerPid}<-Workers],
-    io:format("client going to state idle~n",[]),
-    MyWorkers =  [WorkerName|| {WorkerName,_WorkerPid}<-Workers],
+predict(cast, {idle}, State = #client_statem_state{etsRef = EtsRef}) ->
+  MsgToCast = {idle},
+  ets:update_counter(EtsRef, msgCounter, 1),
+  cast_message_to_workers(EtsRef, MsgToCast),
+  ?LOG_INFO("client going to state idle"),
+  Workers = ets:lookup_element(EtsRef, workersNames, 2),    %% TODO: macro this 2
+  {next_state, waitforWorkers, State#client_statem_state{nextState = idle, waitforWorkers = Workers, etsRef = EtsRef}};
 
-    {next_state, waitforWorkers, State#client_statem_state{nextState = idle,  waitforWorkers = MyWorkers,msgCounter = Counter+1}};
-
-predict(cast, EventContent, State = #client_statem_state{msgCounter = Counter}) ->
-    io:format("client predict ignored:  ~p ~n",[EventContent]),
-    {next_state, predict, State#client_statem_state{msgCounter = Counter+1}}.
+predict(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
+  ?LOG_WARNING("client predict ignored:  ~p ~n",[EventContent]),
+  {next_state, predict, State#client_statem_state{etsRef = EtsRef}}.
 
 
 %% @private
@@ -332,24 +319,23 @@ ack(MyName, NerlnetGraph) ->
 
 createWorkers(EtsRef) ->
   DATA_IDX = 3,
-
   ClientWorkersMaps = ets:lookup(nerlnet_data, hostClients, DATA_IDX),
 
   Func = fun(ModelId, WorkerMap) -> 
     %%  TODO: move to json parser
-    WorkerName = list_to_atom(binary_to_list(maps:get(<<"name">>,Worker))),
-    ModelType = list_to_integer(binary_to_list(maps:get(<<"modelType">>,Worker))),
-    ScalingMethod = list_to_integer(binary_to_list(maps:get(<<"scalingMethod">>,Worker))),
+    WorkerName = list_to_atom(binary_to_list(maps:get(<<"name">>,WorkerMap))),
+    ModelType = list_to_integer(binary_to_list(maps:get(<<"modelType">>,WorkerMap))),
+    ScalingMethod = list_to_integer(binary_to_list(maps:get(<<"scalingMethod">>,WorkerMap))),
 
-    LayerTypesList = nerl_tools:string_to_list_int(maps:get(<<"layerTypesList">>,Worker)),
-    LayersSizes = nerl_tools:string_to_list_int(maps:get(<<"layersSizes">>,Worker)),
-    LayersActivationFunctions = nerl_tools:string_to_list_int(maps:get(<<"layersActivationFunctions">>,Worker)),
+    LayerTypesList = nerl_tools:string_to_list_int(maps:get(<<"layerTypesList">>,WorkerMap)),
+    LayersSizes = nerl_tools:string_to_list_int(maps:get(<<"layersSizes">>,WorkerMap)),
+    LayersActivationFunctions = nerl_tools:string_to_list_int(maps:get(<<"layersActivationFunctions">>,WorkerMap)),
 
-    Optimizer = list_to_integer(binary_to_list(maps:get(<<"optimizer">>,Worker))),
-    Features = list_to_integer(binary_to_list(maps:get(<<"features">>,Worker))),
-    Labels = list_to_integer(binary_to_list(maps:get(<<"labels">>,Worker))),
-    LossMethod = list_to_integer(binary_to_list(maps:get(<<"lossMethod">>,Worker))),
-    LearningRate = list_to_float(binary_to_list(maps:get(<<"learningRate">>,Worker))),
+    Optimizer = list_to_integer(binary_to_list(maps:get(<<"optimizer">>,WorkerMap))),
+    Features = list_to_integer(binary_to_list(maps:get(<<"features">>,WorkerMap))),
+    Labels = list_to_integer(binary_to_list(maps:get(<<"labels">>,WorkerMap))),
+    LossMethod = list_to_integer(binary_to_list(maps:get(<<"lossMethod">>,WorkerMap))),
+    LearningRate = list_to_float(binary_to_list(maps:get(<<"learningRate">>,WorkerMap))),
 
 
     case ModelType of
@@ -358,12 +344,12 @@ createWorkers(EtsRef) ->
         WorkerData = none;
       ?E_FEDERATED_CLIENT ->
         CustomFunc = fun workerFederatedClient:controller/2,
-        FedServer = list_to_atom(binary_to_list(maps:get(<<"federatedServer">>,Worker))),
-        SyncCount = list_to_integer(binary_to_list(maps:get(<<"syncCount">>,Worker))),
+        FedServer = list_to_atom(binary_to_list(maps:get(<<"federatedServer">>,WorkerMap))),
+        SyncCount = list_to_integer(binary_to_list(maps:get(<<"syncCount">>,WorkerMap))),
         WorkerData = #workerFederatedClient{syncMaxCount = SyncCount, syncCount = 0, myName = WorkerName, clientPID = self(), serverName = FedServer};
       ?E_FEDERATED_SERVER ->
         CustomFunc = fun workerFederatedServer:controller/2,
-        SyncCount = list_to_integer(binary_to_list(maps:get(<<"syncCount">>,Worker))),
+        SyncCount = list_to_integer(binary_to_list(maps:get(<<"syncCount">>,WorkerMap))),
         WorkerData = #workerFederatedServer{syncMaxCount = SyncCount, syncCount = 0, myName = WorkerName, clientPID = self(), workersNamesList = []}
       end,
 
@@ -380,19 +366,25 @@ createWorkers(EtsRef) ->
   ets:insert(EtsRef, {workersNames, WorkersNames}).   %% TODO: collect forbidden names (keys of ets:insert)
 
 % calculates the avarage training time
-updateTimingMap(WorkerName,TimingMap)->
-
-  {Start,TotalBatches,TotalTime} = maps:get(WorkerName,TimingMap),
+updateTimingMap(EtsRef, WorkerName) when is_atom(WorkerName) ->
+  {Start,TotalBatches,TotalTime} = ets:lookup_element(EtsRef, WorkerName, ?WORKER_TIMING_IDX), % retrieving old value
   Finish = os:timestamp(),
   TotalTrainingTime = (timer:now_diff(Finish, Start) / 1000),
-  % NewAverage = ((AverageTrainingTime*(TotalBatches))+TotalTrainingTime)/TotalBatches,
-  % io:format("{Start,TotalBatches,AverageTrainingTime}:  ~p  ~n",[{Start,TotalBatches,AverageTrainingTime}]),
-  % io:format("WorkerName: ~p ,  total time: ~p  ~n",[WorkerName, TotalTrainingTime]),
 
-  maps:put(WorkerName,{Start,TotalBatches,TotalTrainingTime+TotalTime},TimingMap).
+  NewTimingTuple = {Start,TotalBatches,TotalTrainingTime+TotalTime},
+  ets:update_element(EtsRef, WorkerName,[{?WORKER_TIMING_IDX,NewTimingTuple}]).
 
 
 sendStatistics(RouterHost,RouterPort,MyName,_MsgCount,TimingMap)->
   S = lists:flatten([atom_to_list(WorkerName)++"="++float_to_list(TotalTime/TotalBatches,[{decimals, 3}])++","||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-maps:to_list(TimingMap)]),
   % io:format("client Timing map: ~p~n ",[S]),
   nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++":"++lists:droplast(S))).
+
+
+cast_message_to_workers(EtsRef, Msg) ->
+  Workers = ets:lookup_element(EtsRef, workersNames, 2),    %% TODO: macro this 2
+  Func = fun(WorkerKey) -> 
+    WorkerPid = ets:lookup_element(EtsRef, WorkerKey, ?WORKER_PID_IDX),
+    gen_statem:cast(WorkerPid, Msg)
+  end,
+  lists:foreach(Func, Workers).
