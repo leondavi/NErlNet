@@ -57,7 +57,7 @@ start_link(Args) ->
 
 %%NerlClientsArgs=[{MyName,Workers,ConnectionsMap},...], Workers = list of maps of name and args
 %%  init nerlClient with given workers and parameters, and build a map :#{workerName=>WorkerPid,...}
-init({MyName,Federated,Workers,NerlnetGraph}) ->
+init({MyName,Workers,NerlnetGraph}) ->
   inets:start(),
   io:format("Client ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
   % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
@@ -65,7 +65,7 @@ init({MyName,Federated,Workers,NerlnetGraph}) ->
   {WorkersMap,TimingMap} = createWorkers(Workers,1,self(),#{},#{}),
   io:format("TimingMap~p~n",[maps:to_list(TimingMap)]),
 
-  {ok, idle, #client_statem_state{myName= MyName,timingMap = TimingMap, federatedServer = Federated, workersMap = WorkersMap, nerlnetGraph = NerlnetGraph, msgCounter = 1}}.
+  {ok, idle, #client_statem_state{myName= MyName,timingMap = TimingMap, workersMap = WorkersMap, nerlnetGraph = NerlnetGraph, msgCounter = 1}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -114,11 +114,11 @@ waitforWorkers(cast, EventContent, State = #client_statem_state{msgCounter = Cou
   
 
 %%initiating workers when they include federated workers. init stage == handshake between federated worker client and server
-idle(cast, {init, From, To}, State = #client_statem_state{msgCounter = Counter, workersMap = WorkersMap, myName = MyName, nerlnetGraph = NerlnetGraph}) ->
+idle(cast, {custom_worker_message, {From, To}}, State = #client_statem_state{msgCounter = Counter, workersMap = WorkersMap, myName = MyName, nerlnetGraph = NerlnetGraph}) ->
   WorkerHere = maps:is_key(To, WorkersMap),
   if WorkerHere -> 
-    {ok,WorkerFedServerPID} = maps:find(To, WorkersMap),
-    gen_statem:cast(WorkerFedServerPID,{init,From});
+    {ok,TargetWorkerPID} = maps:find(To, WorkersMap),
+    gen_statem:cast(TargetWorkerPID,{init,From});
   true ->
     %% send to FedServer that worker From is connecting to it
     {Host,Port} = nerl_tools:getShortPath(MyName,To,NerlnetGraph),

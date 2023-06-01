@@ -48,10 +48,10 @@ class NetworkComponents():
             # Add every sub-worker of this client, to the general workers list:
             self.workers.extend(subWorkers)
 
-        # Getting the names of all the federated components:
-        federatedsJsons = self.jsonData['federated']
-        for federated in federatedsJsons:
-            self.federateds.append(federated['name'])
+        # # Getting the names of all the federated components:
+        # federatedsJsons = self.jsonData['federated']
+        # for federated in federatedsJsons:
+        #     self.federateds.append(federated['name'])
 
         # Getting the names of all the sources:
         sourcesJsons = self.jsonData['sources']
