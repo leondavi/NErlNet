@@ -10,7 +10,7 @@
 -import(nerlNIF,[decode_nif/2, nerltensor_binary_decode/2]).
 -import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
 -import(nerlNIF,[nerltensor_sum_nif/3, nerltensor_sum_erl/2]).
--import(nerlNIF,[nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
+-import(nerlNIF,[nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2, sum_nerltensors_lists/2]).
 -import(nerl,[compare_floats_L/3, string_format/2, logger_settings/1]).
 
 -define(NERLTEST_PRINT_STR, "[NERLTEST] ").
@@ -25,6 +25,8 @@ nerltest_print(String) ->
 -define(ENCODE_DECODE_ROUNDS, 50).
 -define(NERLTENSOR_CONVERSION_ROUNDS, 50).
 -define(NERLTENSOR_SCALAR_MULTIPLICATION_ROUNDS, 50).
+-define(NERLTENSORS_SUM_LIST_MAX_SIZE, 50).
+-define(NERLTESNORS_SUM_LIST_ROUNDS, 30).
 
 test_envelope(Func, TestName, Rounds) ->
       nerltest_print(nerl:string_format("~p test starts for ~p rounds",[TestName, Rounds])),
@@ -62,6 +64,14 @@ run_tests()->
       ConversionTestFunc = fun(Rounds) -> nerltensor_conversion_test(Rounds) end,
       ConversionTestName = "nerltensor_conversion",
       test_envelope(ConversionTestFunc, ConversionTestName, ?NERLTENSOR_CONVERSION_ROUNDS ),
+
+      SumNerlTensorsListFloatFunc = fun(Rounds) ->  Performance = 0, sum_nerltensors_lists_test(float, Rounds, Performance) end,
+      SumNerlTensorsListFloatName = "sum_nerltensors_lists float",
+      test_envelope_nif_performance(SumNerlTensorsListFloatFunc, SumNerlTensorsListFloatName, ?NERLTESNORS_SUM_LIST_ROUNDS ),
+
+      SumNerlTensorsListDoubleFunc = fun(Rounds) ->  Performance = 0, sum_nerltensors_lists_test(double, Rounds, Performance) end,
+      SumNerlTensorsListDoubleName = "sum_nerltensors_lists double",
+      test_envelope_nif_performance(SumNerlTensorsListDoubleFunc, SumNerlTensorsListDoubleName, ?NERLTESNORS_SUM_LIST_ROUNDS ),
 
       nerltest_print("Tests Completed"),
       ok.
@@ -135,6 +145,32 @@ nerltensor_sum_nif_test(Type, N, Performance) ->
             CompareFloats -> nerltensor_sum_nif_test(Type, N-1, PerformanceNew);
             true -> throw(ner:string_format("test failed - not equal ~n ExpectedResult: ~p ~n ResultTensorCEncDec: ~p",[ExpectedResult, ResultTensorCEncDec]))
       end.
+
+% only erl_float types are supported
+sum_nerltensors_lists_test(_Type, 0, Performance) -> Performance;
+sum_nerltensors_lists_test(Type, N, Performance) -> 
+      DimX = rand:uniform(?DIMX_RAND_MAX),
+      DIMY = rand:uniform(?DIMX_RAND_MAX),
+      Elements = rand:uniform(?NERLTENSORS_SUM_LIST_MAX_SIZE),
+      NerlTensors =  [generate_nerltensor(Type,DimX,DIMY,1) || _X <- lists:seq(1, Elements)],
+     % io:format("NerlTensors ~p~n", [NerlTensors]),
+      NerlTensorsEencoded = [element(1, nerlNIF:encode_nif(NerlTensor, Type)) || NerlTensor <- NerlTensors],
+      [ExpectedSumResult] = nerlNIF:sum_nerltensors_lists_erl(NerlTensors, erl_float),
+      %io:format("NerlTensorsEencoded ~p~n",[NerlTensorsEencoded]),
+      %io:format("ExpectedSumResult ~p~n",[ExpectedSumResult]),
+      Tic = nerl:tic(),
+      [ResultSumEncoded] = nerlNIF:sum_nerltensors_lists(NerlTensorsEencoded, Type),
+      {TocRes, _} = nerl:toc(Tic),
+      PerformanceNew = TocRes + Performance,
+      %io:format("ResultSumEncoded ~p~n",[ResultSumEncoded]),
+      {ResultSumEncodedDecoded, erl_float} = nerlNIF:nerltensor_conversion({ResultSumEncoded, Type}, erl_float),
+     % io:format("ResultSumEncodedDecoded ~p~n",[ResultSumEncodedDecoded]),
+      CompareFloats = nerl:compare_floats_L(ResultSumEncodedDecoded, ExpectedSumResult, 4), % Erlang accuracy is double
+      if 
+            CompareFloats -> sum_nerltensors_lists_test(Type, N-1, PerformanceNew);
+            true -> throw(ner:string_format("test failed - not equal ~n ExpectedResult: ~p ~n ResultTensorCEncDec: ~p",[ExpectedSumResult, ResultSumEncodedDecoded]))
+      end.
+
 
 
 encode_decode_nifs_test(0, _Res, Performance) -> Performance ;

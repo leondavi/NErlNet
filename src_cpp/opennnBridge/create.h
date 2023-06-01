@@ -59,6 +59,11 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          
         try{
              
+        if(modelType == E_FEDERATED_CLIENT || modelType == E_FEDERATED_SERVER)
+        {
+            modelType = E_CUSTOMNN;
+        }
+
          if (modelType == E_APPROXIMATION){     
              neural_network->set(NeuralNetwork::ProjectType::Approximation,*neural_network_architecture);     
                    

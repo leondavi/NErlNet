@@ -49,7 +49,7 @@ start_link({MyName,NerlnetGraph}) ->
 init({MyName,NerlnetGraph}) ->
   inets:start(),
     io:format("Router ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
-    nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
+    % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
 
   {ok, #router_genserver_state{msgCounter = 1, myName = MyName, nerlnetGraph = NerlnetGraph}}.
 
@@ -73,14 +73,13 @@ handle_cast({rout,Body}, State = #router_genserver_state{myName = MyName, msgCou
 
 handle_cast({statistics,Body}, State = #router_genserver_state{myName = MyName,msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
 %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'.
-%%  MyBinaryName = list_to_binary(atom_to_list(MyName)),
 %%  if Body = my name, its for me, if the body contains #, its for main server, else its for someone else
   BodyString = binary_to_list(Body),
   if BodyString == MyName ->
           {Host,Port} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
-          nerl_tools:http_request(Host,Port,"statistics",list_to_binary(MyName++"#"++integer_to_list(MsgCounter)));
+          nerl_tools:http_request(Host,Port,"statistics",list_to_binary(MyName++":"++integer_to_list(MsgCounter)));
     true ->
-        Splitted =  re:split(Body, "#", [{return, binary}]),
+        Splitted =  re:split(Body, ":", [{return, binary}]),
         if length(Splitted) ==1 ->
             {Host,Port} = nerl_tools:getShortPath(MyName,list_to_atom(binary_to_list(Body)),NerlnetGraph),
 

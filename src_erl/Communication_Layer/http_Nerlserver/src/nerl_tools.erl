@@ -3,20 +3,20 @@
 -include("nerl_tools.hrl").
 
 -export([setup_logger/1, string_format/2]).
--export([start_connection/1, http_request/4, getHostPort/5, getShortPath/3]).
+-export([http_request/4, getHostPort/5, getShortPath/3]).
 -export([string_to_list_int/1, deleteOldJson/1]).
 -export([multipart/2, read_all_data/2]).
 -export([getdeviceIP/0]).
 -export([list_to_numeric/1]).
 
 setup_logger(Module) ->
-  logger:add_handler(Module, Module, #{}), 
+  logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
   logger:set_module_level(Module, all).
 
-start_connection([])->ok;
-start_connection([{_ServerName,{Host, Port}}|Tail]) ->
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  start_connection(Tail).
+% start_connection([])->ok;
+% start_connection([{_ServerName,{Host, Port}}|Tail]) ->
+%   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+%   start_connection(Tail).
 
 %% send message between entities
 http_request(Host, Port,Path, Body)->
@@ -31,7 +31,8 @@ getHostPort([WorkerName|WorkersNames],WorkersMap,NerlnetGraph,MyName,Ret)->
   %{RouterHost,RouterPort} = maps:get(ClientName,PortMap),
   getHostPort(WorkersNames,WorkersMap, NerlnetGraph,MyName,Ret++[{ClientName,WorkerName,RouterHost,RouterPort}]).
 
-getShortPath(From,To,NerlnetGraph) when is_atom(To)->  getShortPath(From,atom_to_list(To),NerlnetGraph);
+getShortPath(From,To,NerlnetGraph) when is_list(To)->  getShortPath(From,list_to_atom(To),NerlnetGraph);
+getShortPath(From,To,NerlnetGraph) when is_list(From)->  getShortPath(list_to_atom(From),To,NerlnetGraph);
 getShortPath(From,To,NerlnetGraph) -> 
 	First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
 	{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
@@ -68,12 +69,10 @@ multipart(Req0, Data) ->
 stream_file(Req0, File) ->
     case cowboy_req:read_part_body(Req0) of
         {ok, LastBodyChunk, Req} ->
-            io:format("wrting to file: ~p~n",[LastBodyChunk]),
             file:write(File, LastBodyChunk),
             file:close(File),
             Req;
         {more, BodyChunk, Req} ->
-            io:format("wrting to file: ~p~n",[BodyChunk]),
             file:write(File, BodyChunk),
             stream_file(Req, File)
     end.
