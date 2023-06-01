@@ -10,7 +10,7 @@
 -export([list_to_numeric/1]).
 
 setup_logger(Module) ->
-  logger:add_handler(Module, Module, #{}), 
+  logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
   logger:set_module_level(Module, all).
 
 % start_connection([])->ok;
