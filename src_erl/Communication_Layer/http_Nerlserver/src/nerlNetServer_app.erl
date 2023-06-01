@@ -96,14 +96,19 @@ parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess)
 
     jsonParser:json_to_ets(HostName, ArchitectureMap),
 
-    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,NerlNetSettings,_GUI} = 
-    EtsName = jsonParser:getHostEntities(ArchitectureMap,CommunicationMap,list_to_binary(HostName)), % we use nerlnet ETS from this point
+    % {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,_GUI} = 
+    jsonParser:getHostEntities(ArchitectureMap,CommunicationMap,list_to_binary(HostName)), % we use nerlnet ETS from this point
 
-    MainServer = ets:lookup(EtsName, "mainServer"),
-    ClientsAndWorkers = ets:lookup(EtsName, "mainServer"),
+    DATA_IDX = 2,
 
-    BatchSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))), % TODO change to lookup of ETS
-    Frequency = list_to_integer(binary_to_list(maps:get(<<"frequency">>,NerlNetSettings))), % TODO change to lookup of ETS
+    MainServer = ets:lookup_element(nerlnet_data, mainServer, DATA_IDX),
+    ClientsAndWorkers = ets:lookup_element(nerlnet_data, clients, DATA_IDX),
+    Routers = ets:lookup_element(nerlnet_data, routers, DATA_IDX),
+    Sources = ets:lookup_element(nerlnet_data, sources, DATA_IDX),
+    WorkersMap = ets:lookup_element(nerlnet_data, workers, DATA_IDX),
+
+    BatchSize = ets:lookup_element(nerlnet_data, batchSize, DATA_IDX),
+    Frequency = ets:lookup_element(nerlnet_data, frequency, DATA_IDX),
 
 %%    Creating a Dispatcher for each Server from JSONs architecture - this dispatchers will rout http requests to the right handler.
 %%    Each dispatcher will be listening to a different PORT
@@ -115,7 +120,7 @@ parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess)
     %% {"/req_name/:arg1/:arg2",[{arg1,constrains}, {arg2,int}], addHandler,[]}
     %%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
 
-    createClientsAndWorkers(ClientsAndWorkers, HostName), % TODO extract all of this args from ETS
+    createClientsAndWorkers(), % TODO extract all of this args from ETS
     createMainServer(MainServer,BatchSize,HostName), % TODO extract all of this args from ETS
     createRouters(Routers,HostName), % TODO extract all of this args from ETS
     createSources(Sources,WorkersMap, BatchSize, Frequency, HostName). % TODO extract all of this args from ETS
@@ -124,39 +129,38 @@ parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess)
 
 %% internal functions
 
-createClientsAndWorkers(none,_HostName) -> none;
-createClientsAndWorkers([], _HostName) -> okdone;
-createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsGraph}|ClientsAndWorkers],HostName) ->
-    ClientName = binary_to_list(maps:get(<<"name">>,ClientArgs)),
-    Port = list_to_integer(binary_to_list(maps:get(<<"port">>,ClientArgs))),
-    % Federated = list_to_atom(binary_to_list(maps:get(<<"federated">>,ClientArgs))),
+createClientsAndWorkers() ->
+    DATA_IDX = 2,
+    ClientsAndWorkers = ets:lookup(nerlnet_data, hostClients),
+    HostName = ets:lookup_element(nerlnet_data, hostname, DATA_IDX),
+    io:format("CLIENTS AND WORKERS=~p~n",[ClientsAndWorkers]),
+    NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, DATA_IDX),
 
-    %%Create a gen_StateM machine for maintaining Database for Client.
-    %% all http requests will be handled by Cowboy which updates client_statem if necessary.
-%%    WorkersArgsMap = #{Worker1Name => Worker1Args, Worker2Name => Worker2Args},
-    ClientStatemArgs= {ClientName,WorkersArgs,ClientConnectionsGraph},        %%make this a list of client
-    ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
+    Func = fun({Client, ListOfWorkers}) -> 
+        ClientStatemArgs = {Client, ListOfWorkers, NerlnetGraph},
+        ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
+        %%Nerl Client
+        %%Dispatcher for cowboy to rout each given http_request for the matching handler
+        NerlClientDispatch = cowboy_router:compile([
+            {'_', [
+                %%first http request from main server should be about starting parameters, find more info inside initHandler
+                {"/init",clientStateHandler, [init,ClientStatemPid]},
+                {"/statistics",clientStateHandler, [statistics,ClientStatemPid]},
+                {"/clientTraining",clientStateHandler, [training,ClientStatemPid]},
+                {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
+                {"/clientPredict",clientStateHandler, [predict,ClientStatemPid]},
+                {"/weightsVector",vectorHandler, [ClientStatemPid]},
+                {"/federatedWeights",federatedHandler, [ClientStatemPid]}
+            ]}
+        ]),
+        init_cowboy_start_clear(Client, {HostName,Port = 5},NerlClientDispatch)
+    end,
 
+    lists:foreach(Func, ClientsAndWorkers).
 
-    %%Nerl Client
-    %%Dispatcher for cowboy to rout each given http_request for the matching handler
-    NerlClientDispatch = cowboy_router:compile([
-        {'_', [
-            %%first http request from main server should be about starting parameters, find more info inside initHandler
-            {"/init",clientStateHandler, [init,ClientStatemPid]},
-            {"/statistics",clientStateHandler, [statistics,ClientStatemPid]},
-            {"/clientTraining",clientStateHandler, [training,ClientStatemPid]},
-            {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
-            {"/clientPredict",clientStateHandler, [predict,ClientStatemPid]},
-            {"/weightsVector",vectorHandler, [ClientStatemPid]},
-            {"/federatedWeights",federatedHandler, [ClientStatemPid]}
-        ]}
-    ]),
 
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
-    init_cowboy_start_clear(ClientName, {HostName,Port},NerlClientDispatch),
-    createClientsAndWorkers(ClientsAndWorkers,HostName).
 
 
 createFederatedServer(none,_WorkersMap,_HostName) -> none;

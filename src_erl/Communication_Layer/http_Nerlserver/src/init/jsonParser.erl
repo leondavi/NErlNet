@@ -10,18 +10,19 @@
 -include("../nerl_tools.hrl").
 -export([getHostEntities/3, json_to_ets/2]).
 
--define(SERVER_API_STR, "serverAPI").
--define(MAIN_SERVER_STR, "mainServer").
--define(NERL_GUI_STR, "nerlGUI").
+-define(SERVER_API_ATOM, serverAPI).
+-define(MAIN_SERVER_ATOM, mainServer).
+-define(NERL_GUI_ATOM, nerlGUI).
 -define(ETS_DATA_IDX, 2).
 -define(PORT_IDX, 1). % port is always at the first index of any entity that has a port!
+-define(NERLNET_DATA_ETS_LOG_DST, "/usr/local/lib/nerlnet-lib/log/nerlnet_data_ets.log").
 
-is_special_entity(EntityName) ->  lists:member(EntityName, [?MAIN_SERVER_STR, ?SERVER_API_STR, ?NERL_GUI_STR]).
+is_special_entity(EntityName) ->  lists:member(EntityName, [?MAIN_SERVER_ATOM, ?SERVER_API_ATOM, ?NERL_GUI_ATOM]).
 
 get_special_entities(ArchMap, HostEntities)->
   SpecialEntities = [ Entity || Entity <- HostEntities, is_special_entity(Entity)],
   Func = fun(SpecialEntityName) ->
-    EntityMap = maps:get(list_to_binary(SpecialEntityName), ArchMap),
+    EntityMap = maps:get(atom_to_binary(SpecialEntityName), ArchMap),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>, EntityMap))),
     Args = binary_to_list(maps:get(<<"args">>, EntityMap)),
     {SpecialEntityName, {Port, Args}}
@@ -30,8 +31,8 @@ get_special_entities(ArchMap, HostEntities)->
 
 get_clients_map([],ClientsMap) -> ClientsMap;
 get_clients_map([Client|Clients],ClientsMap)->
-  ClientName = list_to_atom(binary_to_list(maps:get(<<"name">>,Client))),
-  Workers = re:split(binary_to_list(maps:get(<<"workers">>,Client)),",",[{return,list}]),
+  ClientName = binary_to_atom(maps:get(<<"name">>,Client)),
+  Workers = [ list_to_atom(WorkerStr) || WorkerStr <- re:split(binary_to_list(maps:get(<<"workers">>,Client)),",",[{return,list}])],
   Port =  list_to_integer(binary_to_list(maps:get(<<"port">>, Client))),
   NewMap = maps:put(ClientName, {Workers, Port}, ClientsMap),
   get_clients_map(Clients,NewMap).
@@ -40,43 +41,42 @@ get_devices(ArchMap) ->
   Devices = maps:get(<<"devices">>,ArchMap),
   Func = fun(DeviceMap) ->
     HostName = maps:get(<<"host">>,DeviceMap),
-    EntitiesBin = maps:get(<<"entities">>,DeviceMap),
-    Entities = re:split(binary_to_list(EntitiesBin),",",[{return,list}]),
+    Entities = [ list_to_atom(EntityStr) || EntityStr <- re:split(binary_to_list(maps:get(<<"entities">>,DeviceMap)),",",[{return,list}])],
     {HostName, Entities}
   end,
   [Func(D) || D <- Devices].
 
 
 get_host_clients(ArchMap, HostEntities) ->
-  Clients = maps:get(<<"clients">>,ArchMap),
-  HostClients = [C || C <- Clients, lists:member(C,HostEntities) ],
+  HostClients = [ ClientMap || ClientMap <- maps:get(<<"clients">>,ArchMap), lists:member(binary_to_atom(maps:get(<<"name">>, ClientMap)), HostEntities) ],
+  io:format("HOST CLIENTS = ~p~n",[HostClients]),
   Func = fun(ClientMap) -> 
-    Name = maps:get(<<"name">>,ClientMap),
+    Name = binary_to_atom(maps:get(<<"name">>,ClientMap)),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>, ClientMap))),
-    Workers = re:split(binary_to_list(maps:get(<<"workers">>,ClientMap)),",",[{return,list}]),
-    WorkersMap = generate_workers_map(Workers,#{},Name),
-    {Name,{Port,WorkersMap}}
+    ClientWorkers = [ list_to_atom(WorkerStr) || WorkerStr <- re:split(binary_to_list(maps:get(<<"workers">>,ClientMap)),",",[{return,list}])],
+    WorkersMaps = maps:get(<<"workers">>, ArchMap),    %% workers arguments from level 1 of arch json
+    ClientWorkersMaps = [ WorkerMap || WorkerMap <- WorkersMaps, lists:member(binary_to_atom(maps:get(<<"name">>, WorkerMap)), ClientWorkers) ],
+    {Name,{Port,ClientWorkers,ClientWorkersMaps}}
   end,
   [Func(S) || S <- HostClients]. % list of tuples: [Name,{Port,WorkersMap}]
 
 generate_workers_map([],WorkersMap,_ClientName)->WorkersMap;
 generate_workers_map([Worker|Workers],WorkersMap,ClientName)->
-  generate_workers_map(Workers,maps:put(list_to_atom(Worker),ClientName,WorkersMap),ClientName).
+  generate_workers_map(Workers,maps:put(Worker, ClientName,WorkersMap),ClientName).
   
 
 %%returns a map of all workers  - key workerName, Value ClientName
 get_workers_map([],WorkersMap)->WorkersMap;
 get_workers_map([Client|Clients],WorkersMap)->
   ClientName = list_to_atom(binary_to_list(maps:get(<<"name">>,Client))),
-  Workers = re:split(binary_to_list(maps:get(<<"workers">>,Client)),",",[{return,list}]),
+  Workers = [ list_to_atom(WorkerStr) || WorkerStr <- re:split(binary_to_list(maps:get(<<"workers">>,Client)),",",[{return,list}])],    %% TODO: implement as function
   NewMap = generate_workers_map(Workers,WorkersMap,ClientName),
   get_workers_map(Clients,NewMap).
 
 get_host_sources(ArchMap, HostEntities) ->
-  Sources = maps:get(<<"sources">>, ArchMap),
-  HostSources = [S || S <- Sources, lists:member(S,HostEntities) ],
+  HostSources = [ SourceMap || SourceMap <- maps:get(<<"sources">>,ArchMap), lists:member(binary_to_atom(maps:get(<<"name">>, SourceMap)), HostEntities) ],
   Func = fun(SourceMap) -> 
-    SourceName = maps:get(<<"name">>,SourceMap),
+    SourceName = binary_to_atom(maps:get(<<"name">>,SourceMap)),
     SourcePort = list_to_integer(binary_to_list(maps:get(<<"port">>, SourceMap))),
     SourceMethod = list_to_integer(binary_to_list(maps:get(<<"method">>, SourceMap))),
     {SourceName,{SourcePort,SourceMethod}}
@@ -85,24 +85,26 @@ get_host_sources(ArchMap, HostEntities) ->
 
 get_host_routers(ArchMap, HostEntities) ->
   Routers = maps:get(<<"routers">>, ArchMap),
-  HostRouters = [R || R <- Routers, lists:member(R,HostEntities) ],
-  Func = fun(SourceMap) -> 
-    RouterName = maps:get(<<"name">>,SourceMap),
-    RouterPort = list_to_integer(binary_to_list(maps:get(<<"port">>, SourceMap))),
+  HostRouters = [ RouterMap || RouterMap <- maps:get(<<"routers">>,ArchMap), lists:member(binary_to_atom(maps:get(<<"name">>, RouterMap)), HostEntities) ],
+  Func = fun(RouterMap) -> 
+    RouterName = binary_to_atom(maps:get(<<"name">>,RouterMap)),
+    RouterPort = list_to_integer(binary_to_list(maps:get(<<"port">>, RouterMap))),
     RouterRouting = "", % TODO
     RouterFiltering = "", % TODO
-    %RouterRouting = list_to_integer(binary_to_list(maps:get(<<"routing">>, SourceMap))),
-    %RouterFiltering = list_to_integer(binary_to_list(maps:get(<<"filtering">>, SourceMap))),
+    %RouterRouting = list_to_integer(binary_to_list(maps:get(<<"routing">>, RouterMap))),
+    %RouterFiltering = list_to_integer(binary_to_list(maps:get(<<"filtering">>, RouterMap))),
     {RouterName,{RouterPort,RouterRouting,RouterFiltering}}
   end,
   [Func(R) || R <- HostRouters]. % list of tuples: [{RouterName,{RouterPort,RouterRouting,RouterFiltering}}]
 
 getHostClientsWorkersList(NamedEts, HostEntities) ->
-  [{clients, ClientsMaps}] = ets:lookup(NamedEts, clients),    %% = [{clients, #{c1 => {["w1"],8081}},....}]
-  % io:format("Client map = ~p~n",[ClientsMaps]),
+  ClientsMaps = ets:lookup_element(NamedEts, clients, 2),    %% = [{clients, #{c1 => {["w1"],8081}},....}]
+  io:format("Client map = ~p~n",[ClientsMaps]),
   Clients = maps:keys(ClientsMaps),
   WORKERS_TUPLE_IDX = 1, % numbering from 1
-  [ {ClientName, maps:get(ClientName, element(WORKERS_TUPLE_IDX,ClientsMaps))} || ClientName <- Clients, lists:member(ClientName, HostEntities) ].   %% Tuple of {ClientName, ListOfWorkers}
+  Res = [ {ClientName, element(WORKERS_TUPLE_IDX, maps:get(ClientName, ClientsMaps))} || ClientName <- Clients, lists:member(ClientName, HostEntities) ],   %% Tuple of {ClientName, ListOfWorkers}
+  io:format("Res Clients map = ~p~n",[Res]),
+  Res.
 
 
 %% ------------------- nerlnet data ets creation -----------------
@@ -115,6 +117,7 @@ json_to_ets(HostName, JSONArchMap) ->
 
   % update hostname
   ets:insert(nerlnet_data, {hostname, list_to_binary(HostName)}),
+  io:format("HOSTNAME=~p~n",[list_to_binary(HostName)]),
 
   % Get NerlNetSettings, batch size, frequency etc..
   NerlNetSettings = maps:get(<<"NerlNetSettings">>,JSONArchMap),
@@ -141,9 +144,10 @@ json_to_ets(HostName, JSONArchMap) ->
   HostSpecialEntities = get_special_entities(JSONArchMap, HostEntities),
   SpecialEntityAttributeFunc = fun(SpecialEntity) -> ets:insert(nerlnet_data,SpecialEntity) end,
   lists:foreach(SpecialEntityAttributeFunc, HostSpecialEntities),
-
+  io:format("HOST = ~p~n",[HostName]),
+  io:format("HOST ENTITIES : ~p~n",[HostEntities]),
   %%  retrive THIS device Clients And Workers
-  ets:insert(nerlnet_data, {hostClientsAndWorkers, getHostClientsWorkersList(nerlnet_data, HostEntities)}),
+  ets:insert(nerlnet_data, {hostClients, get_host_clients(JSONArchMap, HostEntities)}),
 
   %%  retrive this device of sources, [{SourceName, {Port, Method}}]
   Sources = get_host_sources(JSONArchMap, HostEntities),
@@ -153,7 +157,7 @@ json_to_ets(HostName, JSONArchMap) ->
   Routers = get_host_routers(JSONArchMap, HostEntities),
   ets:insert(nerlnet_data, {routers, maps:from_list(Routers)}), % Stores list of Routers in ets as {RouterName, {Port,Routing,Filtering}}
 
-  nerlnet_data. % returns the ets name
+  ets:tab2file(nerlnet_data, ?NERLNET_DATA_ETS_LOG_DST).
 
 
 getHostEntities(ArchitectureMap,CommunicationMap, HostName)->
@@ -190,7 +194,7 @@ buildCommunicationGraph(ArchitectureMap, CommunicationMap)->
   connectRouters(NerlnetGraph,ArchitectureMap,CommunicationMap),
 
   %%connect serverAPI to Main Server
-  addEdges(NerlnetGraph,?SERVER_API_STR, ?MAIN_SERVER_STR),
+  addEdges(NerlnetGraph,?SERVER_API_ATOM, ?MAIN_SERVER_ATOM),
   
   %% TODO check if NerlGUI appears in list of vertices , if it appears a connection edge of NerlGUI to the main server here
   NerlnetGraph.
@@ -210,7 +214,7 @@ add_host_vertices(NerlnetGraph, ArchitectureMap, HostName, HostEntities)->
   AddEntityToGraph = fun(EntityName, EntityData) -> 
       EntityPort = element(?PORT_IDX, EntityData),
       ?LOG_NOTICE(?LOG_HEADER++"HostName: ~p Entity: ~p Port: ~p ~n",[HostName,HostName,EntityPort]),
-      digraph:add_vertex(NerlnetGraph, EntityName,{HostName, EntityPort, list_to_binary(EntityName)})
+      digraph:add_vertex(NerlnetGraph, EntityName,{HostName, EntityPort})   %% TODO: atom_to_binary(EntityName)
       end,
 
   maps:foreach(AddEntityToGraph , HostAllEntitiesMap),
