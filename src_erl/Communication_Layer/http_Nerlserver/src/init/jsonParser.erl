@@ -40,9 +40,9 @@ get_clients_map([Client|Clients],ClientsMap)->
 get_devices(ArchMap) -> 
   Devices = maps:get(<<"devices">>,ArchMap),
   Func = fun(DeviceMap) ->
-    HostName = maps:get(<<"host">>,DeviceMap),
+    HostIP = maps:get(<<"host">>,DeviceMap),
     Entities = [ list_to_atom(EntityStr) || EntityStr <- re:split(binary_to_list(maps:get(<<"entities">>,DeviceMap)),",",[{return,list}])],
-    {HostName, Entities}
+    {HostIP, Entities}
   end,
   [Func(D) || D <- Devices].
 
@@ -65,7 +65,7 @@ generate_workers_map([Worker|Workers],WorkersMap,ClientName)->
   generate_workers_map(Workers,maps:put(Worker, ClientName,WorkersMap),ClientName).
   
 
-%%returns a map of all workers  - key workerName, Value ClientName
+%%returns a map of all workers  - key workerName, Value ClientName WorkersMap
 get_workers_map([],WorkersMap)->WorkersMap;
 get_workers_map([Client|Clients],WorkersMap)->
   ClientName = list_to_atom(binary_to_list(maps:get(<<"name">>,Client))),
@@ -84,7 +84,6 @@ get_host_sources(ArchMap, HostEntities) ->
   [Func(S) || S <- HostSources]. % list of tuples: [{SourceName,SourcePort,SourceMethod}]
 
 get_host_routers(ArchMap, HostEntities) ->
-  Routers = maps:get(<<"routers">>, ArchMap),
   HostRouters = [ RouterMap || RouterMap <- maps:get(<<"routers">>,ArchMap), lists:member(binary_to_atom(maps:get(<<"name">>, RouterMap)), HostEntities) ],
   Func = fun(RouterMap) -> 
     RouterName = binary_to_atom(maps:get(<<"name">>,RouterMap)),
@@ -97,23 +96,11 @@ get_host_routers(ArchMap, HostEntities) ->
   end,
   [Func(R) || R <- HostRouters]. % list of tuples: [{RouterName,{RouterPort,RouterRouting,RouterFiltering}}]
 
-getHostClientsWorkersList(NamedEts, HostEntities) ->
-  ClientsMaps = ets:lookup_element(NamedEts, clients, 2),    %% = [{clients, #{c1 => {["w1"],8081}},....}]
-  io:format("Client map = ~p~n",[ClientsMaps]),
-  Clients = maps:keys(ClientsMaps),
-  WORKERS_TUPLE_IDX = 1, % numbering from 1
-  Res = [ {ClientName, element(WORKERS_TUPLE_IDX, maps:get(ClientName, ClientsMaps))} || ClientName <- Clients, lists:member(ClientName, HostEntities) ],   %% Tuple of {ClientName, ListOfWorkers}
-  io:format("Res Clients map = ~p~n",[Res]),
-  Res.
-
-
 %% ------------------- nerlnet data ets creation -----------------
 %% Stores json files data into ets table called nerlnet_data
 %% return the ets name
 %% --------------------------------------------------------------
 json_to_ets(HostName, JSONArchMap) ->
-
-  ets:new(nerlnet_data,[named_table, set]),
 
   % update hostname
   ets:insert(nerlnet_data, {hostname, list_to_binary(HostName)}),
@@ -155,26 +142,25 @@ json_to_ets(HostName, JSONArchMap) ->
 
   %%  retrive THIS device Routers, returns a list of tuples:[{RoutersArgumentsMap, ConnectionMap},..]
   Routers = get_host_routers(JSONArchMap, HostEntities),
-  ets:insert(nerlnet_data, {routers, maps:from_list(Routers)}), % Stores list of Routers in ets as {RouterName, {Port,Routing,Filtering}}
-
-  ets:tab2file(nerlnet_data, ?NERLNET_DATA_ETS_LOG_DST).
+  ets:insert(nerlnet_data, {routers, maps:from_list(Routers)}). % Stores list of Routers in ets as {RouterName, {Port,Routing,Filtering}}
 
 
+%% all data of host is stored to an ets named table: nerlnet_data
 getHostEntities(ArchitectureMap,CommunicationMap, HostName)->
   nerl_tools:setup_logger(?MODULE),
+  % create nerlnet_data ets
+  ets:new(nerlnet_data,[named_table, set]),
 
   % ets name is nerlnet_data
-  % json_to_ets(HostName, ArchitectureMap),
+  json_to_ets(HostName, ArchitectureMap),
   
   % use the nerlnet_data ets from this point
   %%This function returns a graph G, represents all the connections in nerlnet. each entitie should have a copy of it.
   NerlnetGraph = buildCommunicationGraph(ArchitectureMap, CommunicationMap),
   % add graph to ets
   ets:insert(nerlnet_data, {communicationGraph, NerlnetGraph}),
-  nerlnet_data.
-
-  %TODO add GUI edge to main server in the appropriate place addEdges(G, "mainServer", "nerlGUI");
-
+  % save log of data extracted from json
+  ets:tab2file(nerlnet_data, ?NERLNET_DATA_ETS_LOG_DST). % TODO consider adding a timestamp
 
 %%---------------------------- Graph part ---------------------------------%%
 
