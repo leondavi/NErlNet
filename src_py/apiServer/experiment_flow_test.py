@@ -1,16 +1,19 @@
 
 from apiServer import *
 
+print("Experiment Flow Test")
+
 api_server_instance = ApiServer()
+api_server_instance.help()
 
 api_server_instance.showJsons()
-api_server_instance.setJsons(0,0,2)
+api_server_instance.setJsons(3,9,2)
 
 arch_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
-
 api_server_instance.initialization(arch_json , connmap_json, exp_flow_json)
 api_server_instance.sendJsonsToDevices()
+raise "hey"
 api_server_instance.sendDataToSources("Training")
 
 api_server_instance.train()

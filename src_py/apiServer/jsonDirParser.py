@@ -56,6 +56,7 @@ class JsonDirParser():
     def extract_lists(self, jsonDirPath):
         for dirpath, dirnames, filenames in os.walk(jsonDirPath):
             for filename in filenames:
+                print(f"filename {filename}")
                 if filename.startswith(PREFIX_ARCH) and filename.endswith('json'): 
                     self.arch_list.append(NerlFile(filename, dirpath))
 

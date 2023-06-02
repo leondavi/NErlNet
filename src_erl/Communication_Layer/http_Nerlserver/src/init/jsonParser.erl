@@ -49,14 +49,14 @@ get_devices(ArchMap) ->
 
 get_host_clients(ArchMap, HostEntities) ->
   HostClients = [ ClientMap || ClientMap <- maps:get(<<"clients">>,ArchMap), lists:member(binary_to_atom(maps:get(<<"name">>, ClientMap)), HostEntities) ],
-  io:format("HOST CLIENTS = ~p~n",[HostClients]),
   Func = fun(ClientMap) -> 
     Name = binary_to_atom(maps:get(<<"name">>,ClientMap)),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>, ClientMap))),
     ClientWorkers = [ list_to_atom(WorkerStr) || WorkerStr <- re:split(binary_to_list(maps:get(<<"workers">>,ClientMap)),",",[{return,list}])],
     WorkersMaps = maps:get(<<"workers">>, ArchMap),    %% workers arguments from level 1 of arch json
     ClientWorkersMaps = [ WorkerMap || WorkerMap <- WorkersMaps, lists:member(binary_to_atom(maps:get(<<"name">>, WorkerMap)), ClientWorkers) ],
-    {Name,{Port,ClientWorkers,ClientWorkersMaps}}
+    ?LOG_NOTICE("Host Client ~p",[{Name,{Port,ClientWorkers}}]),
+    ReturnVal = {Name,{Port,ClientWorkers,ClientWorkersMaps}}
   end,
   [Func(S) || S <- HostClients]. % list of tuples: [Name,{Port,WorkersMap}]
 
@@ -65,7 +65,7 @@ generate_workers_map([Worker|Workers],WorkersMap,ClientName)->
   generate_workers_map(Workers,maps:put(Worker, ClientName,WorkersMap),ClientName).
   
 
-%%returns a map of all workers  - key workerName, Value ClientName WorkersMap
+%%returns a map of all workers  - key workerName, Value ClientName
 get_workers_map([],WorkersMap)->WorkersMap;
 get_workers_map([Client|Clients],WorkersMap)->
   ClientName = list_to_atom(binary_to_list(maps:get(<<"name">>,Client))),
@@ -103,8 +103,9 @@ get_host_routers(ArchMap, HostEntities) ->
 json_to_ets(HostName, JSONArchMap) ->
 
   % update hostname
-  ets:insert(nerlnet_data, {hostname, list_to_binary(HostName)}),
-  io:format("HOSTNAME=~p~n",[list_to_binary(HostName)]),
+  ets:insert(nerlnet_data, {hostname, HostName}),
+  ets:insert(nerlnet_data, {hostname_bin, list_to_binary(HostName)}),
+  ?LOG_NOTICE("Host IP=~p~n",[HostName]),
 
   % Get NerlNetSettings, batch size, frequency etc..
   NerlNetSettings = maps:get(<<"NerlNetSettings">>,JSONArchMap),
@@ -146,10 +147,12 @@ json_to_ets(HostName, JSONArchMap) ->
 
 
 %% all data of host is stored to an ets named table: nerlnet_data
-getHostEntities(ArchitectureMap,CommunicationMap, HostName)->
+getHostEntities(ArchitectureMap,CommunicationMap, HostNameBin)->
   nerl_tools:setup_logger(?MODULE),
   % create nerlnet_data ets
   ets:new(nerlnet_data,[named_table, set]),
+  
+  HostName = binary_to_list(HostNameBin), % the string form of hostname
 
   % ets name is nerlnet_data
   json_to_ets(HostName, ArchitectureMap),
@@ -188,7 +191,6 @@ buildCommunicationGraph(ArchitectureMap, CommunicationMap)->
 
 add_host_vertices(NerlnetGraph, ArchitectureMap, HostName, HostEntities)->
   HostNameStr = binary_to_list(HostName),
-  ?LOG_NOTICE(?LOG_HEADER++"host ~p adds its entities: ~p to Nerlnet graph~n",[HostNameStr, HostEntities]),
   
   HostRouters = get_host_routers(ArchitectureMap, HostEntities),
   HostSources = get_host_sources(ArchitectureMap, HostEntities),
@@ -196,10 +198,12 @@ add_host_vertices(NerlnetGraph, ArchitectureMap, HostName, HostEntities)->
   HostSpecials = get_special_entities(ArchitectureMap, HostEntities),
 
   HostAllEntitiesMap = maps:from_list(HostRouters ++ HostSources ++ HostClients ++ HostSpecials),
+  
+  ?LOG_NOTICE("Adding host ~p vertices to graph",[HostNameStr]),
 
   AddEntityToGraph = fun(EntityName, EntityData) -> 
       EntityPort = element(?PORT_IDX, EntityData),
-      ?LOG_NOTICE(?LOG_HEADER++"HostName: ~p Entity: ~p Port: ~p ~n",[HostName,HostName,EntityPort]),
+      ?LOG_NOTICE("Entity: ~p Port: ~p ~n",[EntityName,EntityPort]),
       digraph:add_vertex(NerlnetGraph, EntityName,{HostName, EntityPort})   %% TODO: atom_to_binary(EntityName)
       end,
 
@@ -212,7 +216,7 @@ add_host_vertices(NerlnetGraph, ArchitectureMap, HostName, HostEntities)->
 connectRouters(G,_ArchitectureMap,CommunicationMap) -> 
 
     ConnectionsMap = maps:to_list(maps:get(<<"connectionsMap">>,CommunicationMap)),
-    [[addEdges(G,binary_to_list(Router),binary_to_list(Component))||Component<-Components]||{Router,Components}<-ConnectionsMap].
+    [[addEdges(G,binary_to_atom(Router),binary_to_atom(Component))||Component<-Components]||{Router,Components}<-ConnectionsMap].
     % [[addEdges(G,binary_to_list(Router),binary_to_list(ListOfRouters))||ListOfRouters <- ListOfRouters]||{Router,ListOfRouters}<-ConnectionsMap].
     %io:format("ConnectionsMap:~n~p~n",[ConnectionsMap]).
 

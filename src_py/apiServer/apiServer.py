@@ -31,7 +31,6 @@ class ApiServer():
         pass
 
     def help(self):
-
     #i) data saved as .csv, training file ends with "_Training.csv", prediction with "_Prediction.csv" (may change in future)
         print(
 """

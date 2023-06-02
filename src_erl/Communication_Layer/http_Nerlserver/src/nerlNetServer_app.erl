@@ -42,8 +42,48 @@
 %%httpc:request(post,{URL,Headers,content type,Body),HTTPOptions, Profile)
 %%httpc:request(post,{"http://localhost:8080/weights_vector/update", [],"application/x-www-form-urlencoded","[33.20.2,120,2.<<23.2>>]"}, [], []).
 
+wellcome_print() -> 
+    io:format(
+"
+
+__       __            __  __                                              
+/  |  _  /  |          /  |/  |                                             
+$$ | / \\ $$ |  ______  $$ |$$ |  _______   ______   _____  ____    ______   
+$$ |/$  \\$$ | /      \\ $$ |$$ | /       | /      \\ /     \\/    \\  /      \\  
+$$ /$$$  $$ |/$$$$$$  |$$ |$$ |/$$$$$$$/ /$$$$$$  |$$$$$$ $$$$  |/$$$$$$  | 
+$$ $$/$$ $$ |$$    $$ |$$ |$$ |$$ |      $$ |  $$ |$$ | $$ | $$ |$$    $$ | 
+$$$$/  $$$$ |$$$$$$$$/ $$ |$$ |$$ \\_____ $$ \\__$$ |$$ | $$ | $$ |$$$$$$$$/  
+$$$/    $$$ |$$       |$$ |$$ |$$       |$$    $$/ $$ | $$ | $$ |$$       | 
+$$/      $$/  $$$$$$$/ $$/ $$/  $$$$$$$/  $$$$$$/  $$/  $$/  $$/  $$$$$$$/  
+                                                                            
+                                                                            
+                                                                            
+                                                         __                 
+                                                        /  |                
+                                                       _$$ |_     ______    
+                                                      / $$   |   /      \\   
+                                                      $$$$$$/   /$$$$$$  |  
+                                                        $$ | __ $$ |  $$ |  
+                                                        $$ |/  |$$ \\__$$ |  
+                                                        $$  $$/ $$    $$/   
+                                                         $$$$/   $$$$$$/    
+                                                                            
+                                                                            
+                                                                            
+             __    __  ________            __  __    __              __     
+            /  \\  /  |/        |          /  |/  \\  /  |            /  |    
+            $$  \\ $$ |$$$$$$$$/   ______  $$ |$$  \\ $$ |  ______   _$$ |_   
+            $$$  \\$$ |$$ |__     /      \\ $$ |$$$  \\$$ | /      \\ / $$   |  
+            $$$$  $$ |$$    |   /$$$$$$  |$$ |$$$$  $$ |/$$$$$$  |$$$$$$/   
+            $$ $$ $$ |$$$$$/    $$ |  $$/ $$ |$$ $$ $$ |$$    $$ |  $$ | __ 
+            $$ |$$$$ |$$ |_____ $$ |      $$ |$$ |$$$$ |$$$$$$$$/   $$ |/  |
+            $$ | $$$ |$$       |$$ |      $$ |$$ | $$$ |$$       |  $$  $$/ 
+            $$/   $$/ $$$$$$$$/ $$/       $$/ $$/   $$/  $$$$$$$/    $$$$/  
+                                                                                                                                                
+~n~n").
 
 start(_StartType, _StartArgs) ->
+    wellcome_print(),
     %% setup the erlang logger for this module 
     nerl_tools:setup_logger(?MODULE),
     
@@ -226,7 +266,7 @@ createMainServer(true,BatchSize,HostName) ->
     Name = mainServer,
     DATA_IDX = 2,
     {Port, _Args} = ets:lookup_element(nerlnet_data, mainServer, DATA_IDX),
-    Clients = ets:lookup_element(nerlnet_data, clients),  % format of maps: {ClientName => {Workers, Port}, ClientsMap}
+    Clients = ets:lookup_element(nerlnet_data, clients, DATA_IDX),  % format of maps: {ClientName => {Workers, Port}, ClientsMap}
     ClientsNames = maps:keys(Clients),
     WorkersMap = ets:lookup_element(nerlnet_data, workers, DATA_IDX),
     NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, DATA_IDX),

@@ -180,7 +180,6 @@ if [[ -z "$RUNNING_IN_DOCKER" ]]; then
   # Not running in docker
   chown -R $LOGGED_IN_USER $NERLNET_LOG_DIR
   chown -R $LOGGED_IN_USER $NERLNET_DIR
-  chown -R $LOGGED_IN_USER $NERLNET_DIR/build
 fi
 
 echo "enable and start nerlnet.service"
