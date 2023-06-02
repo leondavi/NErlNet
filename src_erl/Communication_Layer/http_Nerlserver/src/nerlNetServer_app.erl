@@ -106,7 +106,6 @@ parseJsonAndStartNerlnet(HostName) ->
     %%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
     DATA_IDX = 2,
     Routers = ets:lookup_element(nerlnet_data, routers, DATA_IDX), % router map format: {RouterName => RouterPort,RouterRouting,RouterFiltering}
-    Sources = ets:lookup_element(nerlnet_data, sources, DATA_IDX),
     BatchSize = ets:lookup_element(nerlnet_data, batchSize, DATA_IDX),
     Frequency = ets:lookup_element(nerlnet_data, frequency, DATA_IDX),
 
@@ -115,7 +114,7 @@ parseJsonAndStartNerlnet(HostName) ->
     
     createClientsAndWorkers(), % TODO extract all of this args from ETS
     createRouters(Routers,HostName), % TODO extract all of this args from ETS
-    createSources(Sources, BatchSize, Frequency, HostName). % TODO extract all of this args from ETS
+    createSources(BatchSize, Frequency, HostName). % TODO extract all of this args from ETS
 
 %% internal functions
 
@@ -152,7 +151,7 @@ createClientsAndWorkers() ->
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
 
-createSources(SoucesMap , BatchSize, Frequency, HostName) ->
+createSources(BatchSize, Frequency, HostName) ->
     DATA_IDX = 2,
     NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, DATA_IDX),
     WorkersMap = ets:lookup_element(nerlnet_data, workers, DATA_IDX),
@@ -180,13 +179,6 @@ createSources(SoucesMap , BatchSize, Frequency, HostName) ->
         init_cowboy_start_clear(SourceName, {HostName,SourcePort},SourceDispatch)
     end,
     maps:map(Func, SourcesMap).
-   
-    
-    
-
-
-    
-  
 
 
 createRouters(MapOfRouters, HostName) ->
@@ -266,7 +258,7 @@ createMainServer(true,BatchSize,HostName) ->
         ]),
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
-    init_cowboy_start_clear(MainName, {HostName,Port},MainServerDispatcher).
+    init_cowboy_start_clear(Name, {HostName,Port}, MainServerDispatcher).
 
 
 %% cowboy:init_cowboy_start_clear  start_clear(Name, TransOpts, ProtoOpts) - an http_listener
