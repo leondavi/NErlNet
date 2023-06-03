@@ -78,7 +78,7 @@ handle_cast({statistics,Body}, State = #router_genserver_state{myName = MyName,m
 %%  if Body = my name, its for me, if the body contains #, its for main server, else its for someone else
   BodyString = binary_to_list(Body),
   if BodyString == MyName ->
-          {Host,Port} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+          {Host,Port} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
           nerl_tools:http_request(Host,Port,"statistics",list_to_binary(MyName++":"++integer_to_list(MsgCounter)));
     true ->
         Splitted =  re:split(Body, ":", [{return, binary}]),
@@ -88,7 +88,7 @@ handle_cast({statistics,Body}, State = #router_genserver_state{myName = MyName,m
             %{Host,Port} =maps:get(list_to_atom(binary_to_list(Body)),NerlnetGraph),
             nerl_tools:http_request(Host,Port,"statistics",Body);
           true ->
-              {Host,Port} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+              {Host,Port} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
               nerl_tools:http_request(Host,Port,"statistics",Body)
             end
     end,
@@ -96,14 +96,14 @@ handle_cast({statistics,Body}, State = #router_genserver_state{myName = MyName,m
 
 handle_cast({lossFunction,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
 %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
-    {Host,Port} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+    {Host,Port} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
     % io:format("at router: lossFucntion: ~p~n",[Body]),
     nerl_tools:http_request(Host,Port,"lossFunction",Body),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
 handle_cast({predictRes,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
 %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
-    {Host,Port} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+    {Host,Port} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
     nerl_tools:http_request(Host,Port,"predictRes",Body),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
@@ -159,14 +159,14 @@ handle_cast({updateCSV,Source,Body}, State = #router_genserver_state{myName = My
 
 handle_cast({csvReady,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
     %%  Body contrains list of sources to send the request, and input name
-    {Host,Port} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+    {Host,Port} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
     %{MainHost,MainPort} =maps:get(mainServer,NerlnetGraph),
     nerl_tools:http_request(Host,Port,"csvReady",Body),
     {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
 handle_cast({sourceDone,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
     %%  Body contrains list of sources to send the request, and input name
-    {Host,Port} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+    {Host,Port} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
      %io:format("source finished casting- ~n sending to mainserver via: ~p~n",[{Host,Port}]),
     % {MainHost,MainPort} =maps:get(mainServer,NerlnetGraph),
     nerl_tools:http_request(Host,Port,"sourceDone",Body),
@@ -174,7 +174,7 @@ handle_cast({sourceDone,Body}, State = #router_genserver_state{myName = MyName, 
 
 handle_cast({clientReady,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
     %%  Body contrains list of sources to send the request, and input name
-    {Host,Port} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+    {Host,Port} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
     %{MainHost,MainPort} =maps:get(mainServer,NerlnetGraph),
     nerl_tools:http_request(Host,Port,"clientReady",Body),
     {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};

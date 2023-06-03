@@ -45,6 +45,7 @@ start_link(NerlnetGraph) ->
 %% process to initialize.
 %%initialize and go to state - idle
 init({MyName,WorkersMap, NerlnetGraph, Method, BatchSize,Frequency}) ->
+  io:format("~n~n MyName ~p~n",[is_atom(MyName)]),
   nerl_tools:setup_logger(?MODULE),
   inets:start(),
   ?LOG_NOTICE("Source ~p is connected to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
@@ -82,7 +83,7 @@ idle(cast, {batchList,Workers,CSVData}, State = #source_statem_state{batchSize =
   ?LOG_INFO("Arch BatchSize = ~p~nWorkers under source = ~p~n",[BatchSize, Workers]),
   {NerlTensorList, NerlTensorType, SampleSize} = parser:parseCSV(MyName,BatchSize,CSVData),
   %%  CSVName = lists:last(re:split(CSVPath,"/",[{return,list}])),
-  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
   %%  send an ACK to mainserver that the CSV file is ready
   ?LOG_INFO("source updated transmition list, total avilable batches to send: ~p~n",[length(NerlTensorList)]),
   nerl_tools:http_request(RouterHost,RouterPort,"csvReady",MyName),
@@ -111,7 +112,7 @@ idle(cast, {stopCasting}, State = #source_statem_state{msgCounter = Counter}) ->
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1}};
 
 idle(cast, {statistics}, State = #source_statem_state{myName =  MyName, sourcePid = [], nerlnetGraph = NerlnetGraph, msgCounter = Counter}) ->
-  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
   nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++":"++integer_to_list(Counter))),
 %%  io:format("sending statistics casting to: ~p~n",[CastingTo]),
   {next_state, idle, State#source_statem_state{msgCounter = Counter+1}};

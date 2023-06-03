@@ -270,7 +270,7 @@ handle_cast({lossFunction,<<>>}, State = #main_genserver_state{msgCounter = MsgC
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
   try
-    {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"serverAPI",NerlnetGraph),
+    {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?API_SERVER_ATOM,NerlnetGraph),
     % io:format("sending loss to serverAPI {RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
     case   binary_to_term(Body) of
       {WorkerName,{LossFunction,_Time}} ->
@@ -295,7 +295,7 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, 
 
 handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSize, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
   try 
-      {RouterHost,RouterPort} = nerl_tools:getShortPath("mainServer","serverAPI",NerlnetGraph),
+      {RouterHost,RouterPort} = nerl_tools:getShortPath(?MAIN_SERVER_ATOM,?API_SERVER_ATOM,NerlnetGraph),
       % io:format("sending predictRes to serverAPI {RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
 
       {WorkerName, InputName, BatchID, {NerlTensor, Type}} = binary_to_term(Body),   %% TODO: add convention with client

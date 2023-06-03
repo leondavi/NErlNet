@@ -140,7 +140,7 @@ idle(cast, {custom_worker_message, {From, To}}, State = #client_statem_state{ets
 
 idle(cast, {statistics}, State = #client_statem_state{ myName = MyName, etsRef = EtsRef}) ->
   NerlnetGraph = ets:lookup_element(EtsRef, nerlnetGraph, ?ETF_KV_VAL_IDX),
-  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETF_KV_VAL_IDX),    %% TODO: macro this 2
   TimingMap = [ets:lookup_element(EtsRef, WorkerKey, ?WORKER_TIMING_IDX) || WorkerKey <- Workers],
   Counter = ets:lookup_element(EtsRef, msgCounter, ?ETF_KV_VAL_IDX),
@@ -214,7 +214,7 @@ training(cast, {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
 training(cast, {loss,WorkerName,nan,_Time_NIF}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
   NerlnetGraph = ets:lookup_element(EtsRef, nerlnetGraph, ?ETF_KV_VAL_IDX),
-  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
   nerl_tools:http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,"nan"})),
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
@@ -222,7 +222,7 @@ training(cast, {loss,WorkerName,LossFunction,_Time_NIF}, State = #client_statem_
   ets:update_counter(EtsRef, msgCounter, 1),
   NerlnetGraph = ets:lookup_element(EtsRef, nerlnetGraph, ?ETF_KV_VAL_IDX),
   updateTimingMap(EtsRef, WorkerName),
-  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
   nerl_tools:http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,LossFunction})),
   {next_state, training, State#client_statem_state{myName = MyName,etsRef = EtsRef}};
 
@@ -256,7 +256,7 @@ predict(cast, {predictRes,WorkerName,InputName,ResultID,PredictNerlTensor, Type,
   ets:update_counter(EtsRef, msgCounter, 1),
   NerlnetGraph = ets:lookup_element(EtsRef, nerlnetGraph, ?ETF_KV_VAL_IDX),
   updateTimingMap(EtsRef, WorkerName),    
-  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
 
   nerl_tools:http_request(RouterHost,RouterPort,"predictRes", term_to_binary({atom_to_list(WorkerName), InputName, ResultID, {PredictNerlTensor, Type}})),
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
@@ -311,7 +311,7 @@ code_change(_OldVsn, StateName, State = #client_statem_state{}, _Extra) ->
 
 ack(MyName, NerlnetGraph) ->
   ?LOG_INFO("~p sending ACK   ~n",[MyName]),
-  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"mainServer",NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
   %%  send an ACK to mainserver that the client is ready
   nerl_tools:http_request(RouterHost,RouterPort,"clientReady",MyName).
 

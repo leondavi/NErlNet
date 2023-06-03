@@ -1,7 +1,7 @@
 {
     "connectionsMap":
     {
-        "r1":["mainServer", "c1", "r2", "s1"],
+        "r1":["mainServer", "c1", "r2"],
         "r2":["c2", "s1"]
     }
 }

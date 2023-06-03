@@ -20,22 +20,23 @@
 
 
 parseCSV(SourceName, BatchSize, CSVData)->
+  SourceNameStr = atom_to_list(SourceName),
   nerl_tools:setup_logger(?MODULE),
   %io:format("curr dir: ~p~n",[file:get_cwd()]),
   deleteTMPData(SourceName),    % ideally do this when getting a fresh CSV (finished train -> start predict)
-
-  FileName = SourceName++?TMP_DATA_ADDR,
+  FileName = SourceNameStr++?TMP_DATA_ADDR,
   try
     file:write_file(FileName, CSVData),
-    ?LOG_NOTICE("created tmpData.csv"), parse_file(BatchSize, FileName)
+    ?LOG_NOTICE("created tmpData.csv"), parse_file(BatchSize, FileName) % TODO Haran, there is an issue with path here
   catch
     {error,Er} -> logger:error("couldn't write file ~p, beacuse ~p",[FileName, Er])
   end.
 
 deleteTMPData(SourceName) ->
+  SourceNameStr = atom_to_list(SourceName),
   {ok, Dir} = file:get_cwd(),
   {ok, Files} = file:list_dir(Dir),
-  DataFiles = [File || File <- Files, string:find(File, ".csv") /= nomatch, string:prefix(File, SourceName) /= nomatch],
+  DataFiles = [File || File <- Files, string:find(File, ".csv") /= nomatch, string:prefix(File, SourceNameStr) /= nomatch],
   try [file:delete(File) || File <- DataFiles]
   catch
     {error, E} -> logger:notice("couldn't delete files ~p, ~p",[DataFiles, E])
@@ -44,18 +45,21 @@ deleteTMPData(SourceName) ->
 %%this parser takes a CSV folder containing chunked data, parsing into a list of binary.
 %%each record in the line is a batch of samples
 parse_file(BatchSize,File_Address) ->
-  io:format("File_Address: ~p~n~n",[File_Address]),
-
+  ?LOG_NOTICE("File_Address: ~p",[File_Address]),
   {ok, Data} = file:read_file(File_Address),
   Lines = re:split(Data, "\r|\n|\r\n", [{return,binary}] ),
+  io:format("0000 BatchSize ~p~n~n",[is_number(BatchSize)]),
 
   SampleSize = length(re:split(binary_to_list(hd(Lines)), ",", [{return,list}])),
-  UserType = float,   %% TODO: support given type from json 
+  UserType = float,   %% TODO: support given type from json  --- JsonParser should be updated too
   DimZ = 1,
-
+  io:format("1111 BatchSize ~p~n~n",[is_number(BatchSize)]),
   ListOfLinesOfData = decodeListOfLists(Lines),
   % io:format("read Data to list: ~p~n",[ListOfLinesOfData]),
+  io:format("22222 BatchSize ~p~n~n",[is_number(BatchSize)]),
+
   ListOfGroupedBatches = generateListOfBatches(ListOfLinesOfData, BatchSize),
+
   % io:format("size of grouped as batches: ~p~n",[length(ListOfGroupedBatches)]),
   ErlType = nerlNIF:erl_type_conversion(UserType),
   ListOfTensors = 
@@ -65,6 +69,7 @@ parse_file(BatchSize,File_Address) ->
           _Other -> throw("wrong ErlType")
     end,
   % io:format("generated list of tensors: ~p~n",[ListOfTensors]),
+  ?LOG_NOTICE("Generated list of NerlTensors: ~p",[File_Address]),
   {ListOfTensors, UserType, SampleSize}.
 
 
