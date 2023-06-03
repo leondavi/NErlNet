@@ -36,7 +36,7 @@ deleteTMPData(SourceName) ->
   SourceNameStr = atom_to_list(SourceName),
   {ok, Dir} = file:get_cwd(),
   {ok, Files} = file:list_dir(Dir),
-  DataFiles = [File || File <- Files, string:find(File, ".csv") /= nomatch, string:prefix(File, SourceNameStr) /= nomatch],
+  DataFiles = [File || File <- Files, string:find(File, ".csv") /= nomatch, string:prefix(File, SourceNameStr) /= nomatch], % TODO Haran - it's a very very dangerous function if you wannt to delete a specific file - then delete it
   try [file:delete(File) || File <- DataFiles]
   catch
     {error, E} -> logger:notice("couldn't delete files ~p, ~p",[DataFiles, E])
@@ -48,7 +48,7 @@ parse_file(BatchSize,File_Address) ->
   ?LOG_NOTICE("File_Address: ~p",[File_Address]),
   {ok, Data} = file:read_file(File_Address),
   Lines = re:split(Data, "\r|\n|\r\n", [{return,binary}] ),
-  io:format("0000 BatchSize ~p~n~n",[is_number(BatchSize)]),
+  io:format("0000 BatchSize ~p File_Address ~p~n~n",[is_number(BatchSize), File_Address]),
 
   SampleSize = length(re:split(binary_to_list(hd(Lines)), ",", [{return,list}])),
   UserType = float,   %% TODO: support given type from json  --- JsonParser should be updated too
