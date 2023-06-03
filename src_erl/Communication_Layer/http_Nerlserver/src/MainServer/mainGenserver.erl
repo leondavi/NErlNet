@@ -21,6 +21,7 @@
 
 -define(SERVER, ?MODULE).
 
+
 -record(main_genserver_state, {statisticsCounter = 0, myName, state, workersMap, clients, nerlnetGraph, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [], statisticsMap, msgCounter = 0, batchSize}).
 
 %%%===============================================================
@@ -47,12 +48,16 @@ start_link(Args) ->
 
 init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
   inets:start(),
-    io:format("Main Server ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
+  MyNameStr = atom_to_list(MyName),
+  ?MAIN_SERVER_ATOM = MyName, % must be identical
+  ?LOG_NOTICE("Main Server starts"),
+  ConnectedEntities = [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,?MAIN_SERVER_ATOM)],
+  ?LOG_NOTICE("Main Server is connected to: ~p~n",[ConnectedEntities]),
     % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
   
-  NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--["serverAPI", "nerlGUI", "mainServer"]]),
+  NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--?LIST_OF_SPECIAL_SERVERS]),
   io:format("New StatisticsMap = ~p~n",[NewStatisticsMap]),
-  {ok, #main_genserver_state{myName = MyName, workersMap = WorkersMap, batchSize = BatchSize, state=idle, clients = Clients, nerlnetGraph = NerlnetGraph, msgCounter = 1,statisticsMap = NewStatisticsMap}}.
+  {ok, #main_genserver_state{myName = MyNameStr, workersMap = WorkersMap, batchSize = BatchSize, state=idle, clients = Clients, nerlnetGraph = NerlnetGraph, msgCounter = 1,statisticsMap = NewStatisticsMap}}.
 
 %% @private
 %% @doc Handling call messages
@@ -82,7 +87,7 @@ handle_call(getGraph, _From, State) ->
 handle_call(getStats, _From, State) ->
   Mode = State#main_genserver_state.state,
   RecvCounter = State#main_genserver_state.msgCounter,
-  Conn = digraph:out_degree(State#main_genserver_state.nerlnetGraph, "mainServer"),
+  Conn = digraph:out_degree(State#main_genserver_state.nerlnetGraph, ?MAIN_SERVER_ATOM),
   %io:format("returning stats: ~p~n", [{Mode, RecvCounter}]),
   Mes = "mode="++atom_to_list(Mode)++",stats="++integer_to_list(RecvCounter)++",conn="++integer_to_list(Conn),
 
@@ -154,7 +159,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
 
     if Body == <<"getStatistics">> ->   %% initial message from APIServer, get stats from entities
 
-          NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--["serverAPI", "nerlGUI", "mainServer"]]),
+          NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--?LIST_OF_SPECIAL_SERVERS]),
           [findroutAndsendStatistics(MyName, Name,NerlnetGraph)||{Name,_Counter}<-maps:to_list(StatisticsMap)],
           NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap, statisticsCounter = length(maps:to_list(StatisticsMap))};
 
@@ -172,7 +177,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
               Statistics = maps:to_list(NewStatisticsMap),
               S = mapToString(Statistics,[]) ,
               ?LOG_NOTICE("Sending stats: ~p~n",[S]),
-              {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"serverAPI",NerlnetGraph),
+              {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?API_SERVER_ATOM,NerlnetGraph),
 
               %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
               nerl_tools:http_request(RouterHost,RouterPort,"statistics", S ++ "|mainServer:" ++integer_to_list(MsgCounter));

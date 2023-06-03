@@ -31,9 +31,8 @@ getHostPort([WorkerName|WorkersNames],WorkersMap,NerlnetGraph,MyName,Ret)->
   %{RouterHost,RouterPort} = maps:get(ClientName,PortMap),
   getHostPort(WorkersNames,WorkersMap, NerlnetGraph,MyName,Ret++[{ClientName,WorkerName,RouterHost,RouterPort}]).
 
-getShortPath(From,To,NerlnetGraph) when is_list(To)->  getShortPath(From,list_to_atom(To),NerlnetGraph);
-getShortPath(From,To,NerlnetGraph) when is_list(From)->  getShortPath(list_to_atom(From),To,NerlnetGraph);
-getShortPath(From,To,NerlnetGraph) -> 
+
+getShortPath(From,To,NerlnetGraph) when is_atom(To) and is_atom(From) -> 
 	First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
 	{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
   {Host,Port}.

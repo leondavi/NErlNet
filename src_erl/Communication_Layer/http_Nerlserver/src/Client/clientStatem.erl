@@ -63,13 +63,13 @@ start_link(Args) ->
 %%  init nerlClient with given workers and parameters, and build a map :#{workerName=>WorkerPid,...}
 init({MyName,NerlnetGraph}) ->
   inets:start(),
-  io:format("Client ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
+  io:format("Client ~p is connected to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
   % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
   EtsRef = ets:new(client_data, [set]),
-  ets:insert(client_data, {nerlnetGraph, NerlnetGraph}),
-  ets:insert(client_data, {msgCounter, 1}),
+  ets:insert(EtsRef, {nerlnetGraph, NerlnetGraph}),
+  ets:insert(EtsRef, {msgCounter, 1}),
 
-  createWorkers(EtsRef),
+  createWorkers(MyName,EtsRef),
 
   {ok, idle, #client_statem_state{myName= MyName, etsRef = EtsRef}}.
 
@@ -315,11 +315,12 @@ ack(MyName, NerlnetGraph) ->
   %%  send an ACK to mainserver that the client is ready
   nerl_tools:http_request(RouterHost,RouterPort,"clientReady",MyName).
 
-createWorkers(EtsRef) ->
-  DATA_IDX = 3,
-  ClientWorkersMaps = ets:lookup(nerlnet_data, hostClients, DATA_IDX),
-
-  Func = fun(ModelId, WorkerMap) -> 
+createWorkers(ClientName, EtsRef) ->
+  CLIENT_WORKES_MAPS_TUPLE_IDX = 3,
+  MapOfHostClients = maps:from_list(ets:lookup_element(nerlnet_data, hostClients, ?DATA_IDX)), % This is the format of hostClients {Name,{Port,ClientWorkers,ClientWorkersMaps}}
+  ClientWorkersMaps = element(CLIENT_WORKES_MAPS_TUPLE_IDX,maps:get(ClientName, MapOfHostClients)),
+  Func = fun(WorkerMap) -> 
+    ModelId = erlang:unique_integer([positive]),
     %%  TODO: move to json parser
     WorkerName = list_to_atom(binary_to_list(maps:get(<<"name">>,WorkerMap))),
     ModelType = list_to_integer(binary_to_list(maps:get(<<"modelType">>,WorkerMap))),
@@ -360,7 +361,7 @@ createWorkers(EtsRef) ->
     WorkerName
   end,
 
-  WorkersNames = lists:zipwith(Func, lists:seq(1, length(ClientWorkersMaps), ClientWorkersMaps)),
+  WorkersNames = lists:map(Func, ClientWorkersMaps),
   ets:insert(EtsRef, {workersNames, WorkersNames}).   %% TODO: collect forbidden names (keys of ets:insert)
 
 % calculates the avarage training time

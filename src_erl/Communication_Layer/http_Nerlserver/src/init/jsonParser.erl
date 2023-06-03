@@ -10,14 +10,11 @@
 -include("../nerl_tools.hrl").
 -export([getHostEntities/3, json_to_ets/2]).
 
--define(SERVER_API_ATOM, serverAPI).
--define(MAIN_SERVER_ATOM, mainServer).
--define(NERL_GUI_ATOM, nerlGUI).
 -define(ETS_DATA_IDX, 2).
 -define(PORT_IDX, 1). % port is always at the first index of any entity that has a port!
 -define(NERLNET_DATA_ETS_LOG_DST, "/usr/local/lib/nerlnet-lib/log/nerlnet_data_ets.log").
 
-is_special_entity(EntityName) ->  lists:member(EntityName, [?MAIN_SERVER_ATOM, ?SERVER_API_ATOM, ?NERL_GUI_ATOM]).
+is_special_entity(EntityName) ->  lists:member(EntityName, ?LIST_OF_SPECIAL_SERVERS).
 
 get_special_entities(ArchMap, HostEntities)->
   SpecialEntities = [ Entity || Entity <- HostEntities, is_special_entity(Entity)],
@@ -56,7 +53,7 @@ get_host_clients(ArchMap, HostEntities) ->
     WorkersMaps = maps:get(<<"workers">>, ArchMap),    %% workers arguments from level 1 of arch json
     ClientWorkersMaps = [ WorkerMap || WorkerMap <- WorkersMaps, lists:member(binary_to_atom(maps:get(<<"name">>, WorkerMap)), ClientWorkers) ],
     ?LOG_NOTICE("Host Client ~p",[{Name,{Port,ClientWorkers}}]),
-    ReturnVal = {Name,{Port,ClientWorkers,ClientWorkersMaps}}
+    {Name,{Port,ClientWorkers,ClientWorkersMaps}}
   end,
   [Func(S) || S <- HostClients]. % list of tuples: [Name,{Port,WorkersMap}]
 
@@ -132,9 +129,8 @@ json_to_ets(HostName, JSONArchMap) ->
   HostSpecialEntities = get_special_entities(JSONArchMap, HostEntities),
   SpecialEntityAttributeFunc = fun(SpecialEntity) -> ets:insert(nerlnet_data,SpecialEntity) end,
   lists:foreach(SpecialEntityAttributeFunc, HostSpecialEntities),
-  io:format("HOST = ~p~n",[HostName]),
-  io:format("HOST ENTITIES : ~p~n",[HostEntities]),
   %%  retrive THIS device Clients And Workers
+  ?LOG_NOTICE("Adding Host Entities:"),
   ets:insert(nerlnet_data, {hostClients, get_host_clients(JSONArchMap, HostEntities)}),
 
   %%  retrive this device of sources, [{SourceName, {Port, Method}}]
@@ -159,9 +155,11 @@ getHostEntities(ArchitectureMap,CommunicationMap, HostNameBin)->
   
   % use the nerlnet_data ets from this point
   %%This function returns a graph G, represents all the connections in nerlnet. each entitie should have a copy of it.
+  NerlnetGraph = digraph:new(),
+  ets:insert(nerlnet_data, {communicationGraph, NerlnetGraph}),
+
   NerlnetGraph = buildCommunicationGraph(ArchitectureMap, CommunicationMap),
   % add graph to ets
-  ets:insert(nerlnet_data, {communicationGraph, NerlnetGraph}),
   % save log of data extracted from json
   ets:tab2file(nerlnet_data, ?NERLNET_DATA_ETS_LOG_DST). % TODO consider adding a timestamp
 
@@ -172,9 +170,8 @@ getHostEntities(ArchitectureMap,CommunicationMap, HostNameBin)->
 %TODO extract graph properties and info (longest path, vertices etc.)
 buildCommunicationGraph(ArchitectureMap, CommunicationMap)->
   %Start building the graph one device at a time, than connect all routers with communicationMap json.
-  NerlnetGraph = digraph:new(),
   HostsMap = ets:lookup_element(nerlnet_data, hosts, ?ETS_DATA_IDX), % Map of all hosts with their entities in ETS_DATA_IDX
-  
+  NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?ETS_DATA_IDX),
   % adding vertices to graph
   Func = fun(HostName, HostEntities) -> 
       add_host_vertices(NerlnetGraph, ArchitectureMap, HostName, HostEntities) end, % add all entities vertices include mainServer and serverAPI
@@ -183,8 +180,9 @@ buildCommunicationGraph(ArchitectureMap, CommunicationMap)->
   connectRouters(NerlnetGraph,ArchitectureMap,CommunicationMap),
 
   %%connect serverAPI to Main Server
-  addEdges(NerlnetGraph,?SERVER_API_ATOM, ?MAIN_SERVER_ATOM),
+  add_edges(NerlnetGraph,?API_SERVER_ATOM, ?MAIN_SERVER_ATOM),
   
+  ConnectedEntities = [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,?MAIN_SERVER_ATOM)],
   %% TODO check if NerlGUI appears in list of vertices , if it appears a connection edge of NerlGUI to the main server here
   NerlnetGraph.
 
@@ -204,7 +202,7 @@ add_host_vertices(NerlnetGraph, ArchitectureMap, HostName, HostEntities)->
   AddEntityToGraph = fun(EntityName, EntityData) -> 
       EntityPort = element(?PORT_IDX, EntityData),
       ?LOG_NOTICE("Entity: ~p Port: ~p ~n",[EntityName,EntityPort]),
-      digraph:add_vertex(NerlnetGraph, EntityName,{HostName, EntityPort})   %% TODO: atom_to_binary(EntityName)
+      digraph:add_vertex(NerlnetGraph,EntityName, {HostName, EntityPort})   %% TODO: atom_to_binary(EntityName)
       end,
 
   maps:foreach(AddEntityToGraph , HostAllEntitiesMap),
@@ -213,20 +211,36 @@ add_host_vertices(NerlnetGraph, ArchitectureMap, HostName, HostEntities)->
 
 
 %%connects all the routers in the network by the json configuration received in CommunicationMapAdderess
-connectRouters(G,_ArchitectureMap,CommunicationMap) -> 
+connectRouters(Graph,_ArchitectureMap,CommunicationMap) -> 
 
-    ConnectionsMap = maps:to_list(maps:get(<<"connectionsMap">>,CommunicationMap)),
-    [[addEdges(G,binary_to_atom(Router),binary_to_atom(Component))||Component<-Components]||{Router,Components}<-ConnectionsMap].
-    % [[addEdges(G,binary_to_list(Router),binary_to_list(ListOfRouters))||ListOfRouters <- ListOfRouters]||{Router,ListOfRouters}<-ConnectionsMap].
-    %io:format("ConnectionsMap:~n~p~n",[ConnectionsMap]).
+    ConnectionsMapList = maps:to_list(maps:get(<<"connectionsMap">>,CommunicationMap)),
+    TranslateJsonNamesToAtoms = fun({NameBin, EntitiesBin}) -> 
+      Name = binary_to_atom(NameBin),
+      [ {Name, binary_to_atom(EntityBin)} || EntityBin <- EntitiesBin]
+    end,
+    RoutersEdges = lists:flatten(lists:map(TranslateJsonNamesToAtoms, ConnectionsMapList)),
+    ?LOG_INFO("RoutersEdges:~p~n",[RoutersEdges]),
+    AddEdgesFunc = fun({Router,Entity}) -> add_edges(Graph,Router,Entity)  end,
+    lists:foreach(AddEdgesFunc, RoutersEdges),
+    StrongComponents = lists:flatten(digraph_utils:strong_components(Graph)),
+    ?LOG_INFO("Graph update - strong components: ~p",[StrongComponents]).
+
+% returns true if edge appears in graph or false if not
+edge_in_graph(Graph, Vertex1, Vertex2) when is_atom(Vertex1) and is_atom(Vertex2) ->  
+  digraph:add_edge(Graph,Vertex1,Vertex2),
+  EdgesTmp = [ digraph:edge(Graph, Edge) || Edge <- digraph:edges(Graph, Vertex1)],
+  Edges = lists:map(fun({_, V1, V2, _}) -> {V1, V2} end, EdgesTmp),
+  lists:member({Vertex1, Vertex2},Edges).
 
 
-addEdges(G,V1,V2) ->
-  Edges = [digraph:edge(G,E) || E <- digraph:edges(G)],
-  DupEdges = [E || {E, Vin, Vout, _Label} <- Edges, Vin == V1, Vout == V2],
-  %io:format("DupEdges are: ~p~n",[DupEdges]),
-  if length(DupEdges) /= 0 -> skip;
-    true ->
-      digraph:add_edge(G,V1,V2),
-      digraph:add_edge(G,V2,V1)
+add_edges(Graph, Vertex1, Vertex2) ->
+  EdgeA = edge_in_graph(Graph,Vertex1,Vertex2),
+  EdgeB = edge_in_graph(Graph,Vertex2,Vertex1),
+  if 
+    EdgeA -> skip; % appears in graph then don't add 
+    true -> digraph:add_edge(Graph,Vertex1,Vertex2)
+  end,
+  if 
+    EdgeB -> skip; % appears in graph then don't add 
+    true -> digraph:add_edge(Graph,Vertex2,Vertex1)
   end.

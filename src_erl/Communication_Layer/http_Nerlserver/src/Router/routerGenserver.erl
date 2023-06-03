@@ -11,6 +11,8 @@
 
 -behaviour(gen_server).
 
+-include("../nerl_tools.hrl").
+
 %% API
 -export([start_link/1]).
 
@@ -32,8 +34,7 @@
   {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 
 start_link({MyName,NerlnetGraph}) ->
-
-  {ok,Pid} = gen_server:start_link({local, list_to_atom(MyName)}, ?MODULE, {MyName,NerlnetGraph}, []),
+  {ok,Pid} = gen_server:start_link({local, MyName}, ?MODULE, {MyName,NerlnetGraph}, []),
   Pid.
 
 %%%===================================================================
@@ -47,8 +48,9 @@ start_link({MyName,NerlnetGraph}) ->
   {stop, Reason :: term()} | ignore).
 
 init({MyName,NerlnetGraph}) ->
+  nerl_tools:setup_logger(?MODULE),
   inets:start(),
-    io:format("Router ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
+  ?LOG_NOTICE("Router ~p is connected to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
     % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
 
   {ok, #router_genserver_state{msgCounter = 1, myName = MyName, nerlnetGraph = NerlnetGraph}}.

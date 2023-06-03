@@ -144,14 +144,12 @@ parseJsonAndStartNerlnet(HostName) ->
     %%    arg in the *Handler's init() method.
     %%    {"/req_name/:arg1/:arg2",[{arg1,constrains}, {arg2,int}], addHandler,[]}
     %%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
-    DATA_IDX = 2,
-    Routers = ets:lookup_element(nerlnet_data, routers, DATA_IDX), % router map format: {RouterName => RouterPort,RouterRouting,RouterFiltering}
-    BatchSize = ets:lookup_element(nerlnet_data, batchSize, DATA_IDX),
-    Frequency = ets:lookup_element(nerlnet_data, frequency, DATA_IDX),
+    Routers = ets:lookup_element(nerlnet_data, routers, ?DATA_IDX), % router map format: {RouterName => RouterPort,RouterRouting,RouterFiltering}
+    BatchSize = ets:lookup_element(nerlnet_data, batchSize,?DATA_IDX),
+    Frequency = ets:lookup_element(nerlnet_data, frequency, ?DATA_IDX),
 
     HostOfMainServer = ets:member(nerlnet_data, mainServer),
     createMainServer(HostOfMainServer,BatchSize,HostName), 
-    
     createClientsAndWorkers(), % TODO extract all of this args from ETS
     createRouters(Routers,HostName), % TODO extract all of this args from ETS
     createSources(BatchSize, Frequency, HostName). % TODO extract all of this args from ETS
@@ -159,14 +157,13 @@ parseJsonAndStartNerlnet(HostName) ->
 %% internal functions
 
 createClientsAndWorkers() ->
-    DATA_IDX = 2,
-    ClientsAndWorkers = ets:lookup(nerlnet_data, hostClients), % Each element is  {Name,{Port,ClientWorkers,ClientWorkersMaps}}
-    HostName = ets:lookup_element(nerlnet_data, hostname, DATA_IDX),
-    io:format("CLIENTS AND WORKERS=~p~n",[ClientsAndWorkers]),
-    NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, DATA_IDX),
+    ClientsAndWorkers = ets:lookup_element(nerlnet_data, hostClients, ?DATA_IDX), % Each element is  {Name,{Port,ClientWorkers,ClientWorkersMaps}}
+    HostName = ets:lookup_element(nerlnet_data, hostname, ?DATA_IDX),
+    NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
 
-    Func = fun({Client,{Port,ClientWorkers,_ClientWorkersMaps}}) -> 
-        ClientStatemArgs = {Client, ClientWorkers, NerlnetGraph},
+    Func = 
+        fun({Client,{Port,ClientWorkers,_ClientWorkersMaps}}) -> 
+        ClientStatemArgs = {Client, NerlnetGraph},
         ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
         %%Nerl Client
         %%Dispatcher for cowboy to rout each given http_request for the matching handler
@@ -184,7 +181,6 @@ createClientsAndWorkers() ->
         ]),
         init_cowboy_start_clear(Client, {HostName, Port},NerlClientDispatch)
     end,
-
     lists:foreach(Func, ClientsAndWorkers).
 
 
@@ -222,9 +218,7 @@ createSources(BatchSize, Frequency, HostName) ->
 
 
 createRouters(MapOfRouters, HostName) ->
-    DATA_IDX = 2,
-    NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, DATA_IDX),
-
+    NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
     Func = 
     fun(RouterName, {Port, _RouterRouting, _RouterFiltering}) -> 
         %%Create a gen_Server for maintaining Database for Router.
@@ -233,6 +227,7 @@ createRouters(MapOfRouters, HostName) ->
         %%    name_atom of machine => {Host,Port} OR an atom router_name, indicating there is no direct http connection, and should pass request via router_name
         RouterGenServerArgs= {RouterName, NerlnetGraph},        %%TODO  make this a list of Routers
         RouterGenServerPid = routerGenserver:start_link(RouterGenServerArgs),
+
         RouterDispatch = cowboy_router:compile([
             {'_', [
                 {"/clientIdle",routingHandler, [clientIdle,RouterGenServerPid]},
@@ -259,20 +254,19 @@ createRouters(MapOfRouters, HostName) ->
         %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
         init_cowboy_start_clear(RouterName, {HostName,Port},RouterDispatch)
     end,
-    maps:map(Func, MapOfRouters). % iterates as key/values
+    maps:foreach(Func, MapOfRouters). % iterates as key/values
 
 createMainServer(false,_BatchSize,_HostName) -> none;
 createMainServer(true,BatchSize,HostName) ->
     Name = mainServer,
-    DATA_IDX = 2,
-    {Port, _Args} = ets:lookup_element(nerlnet_data, mainServer, DATA_IDX),
-    Clients = ets:lookup_element(nerlnet_data, clients, DATA_IDX),  % format of maps: {ClientName => {Workers, Port}, ClientsMap}
+    {Port, _Args} = ets:lookup_element(nerlnet_data, mainServer, ?DATA_IDX),
+    Clients = ets:lookup_element(nerlnet_data, clients, ?DATA_IDX),  % format of maps: {ClientName => {Workers, Port}, ClientsMap}
     ClientsNames = maps:keys(Clients),
-    WorkersMap = ets:lookup_element(nerlnet_data, workers, DATA_IDX),
-    NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, DATA_IDX),
+    WorkersMap = ets:lookup_element(nerlnet_data, workers, ?DATA_IDX),
+    NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
     %%Create a gen_Server for maintaining Database for Main Server.
     %% all http requests will be handled by Cowboy which updates main_genserver if necessary.
-    MainGenServer_Args= {atom_to_list(Name),ClientsNames,BatchSize,WorkersMap,NerlnetGraph},        %%TODO change from mainserverport to routerport . also make this a list of client
+    MainGenServer_Args= {Name,ClientsNames,BatchSize,WorkersMap,NerlnetGraph},        %%TODO change from mainserverport to routerport . also make this a list of client
     MainGenServerPid = mainGenserver:start_link(MainGenServer_Args),
 
     MainServerDispatcher = cowboy_router:compile([
