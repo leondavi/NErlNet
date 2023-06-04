@@ -170,10 +170,9 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
           [From|[NewCounter]] = re:split(binary_to_list(Body), ":", [{return, list}]),
 
           NewStatisticsMap = maps:put(From,NewCounter,StatisticsMap),
-
           NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap,statisticsCounter = StatisticsCounter-1},
 
-          if StatisticsCounter == 1 ->  %% got stats from all workers
+          if StatisticsCounter == 1 ->  %% got stats from all entities
               Statistics = maps:to_list(NewStatisticsMap),
               S = mapToString(Statistics,[]) ,
               ?LOG_NOTICE("Sending stats: ~p~n",[S]),
@@ -427,8 +426,8 @@ findroutAndsendStatistics(MyName,Entitie,NerlnetGraph) ->
 	
 getNewStatisticsMap(ConnectionList) -> getNewStatisticsMap(ConnectionList,#{}).
 getNewStatisticsMap([],StatisticsMap) ->StatisticsMap;
-getNewStatisticsMap([{ServerName,{_Host, _Port}}|Tail],StatisticsMap) ->
-  getNewStatisticsMap(Tail,maps:put(ServerName, 0, StatisticsMap)).
+getNewStatisticsMap([{Name,{_Host, _Port}}|Tail],StatisticsMap) ->
+  getNewStatisticsMap(Tail,maps:put(atom_to_list(Name), 0, StatisticsMap)).
 
 
 startCasting([],_NumOfSampleToSend,_MyName, _NerlnetGraph)->done;
@@ -467,7 +466,5 @@ ack(NerlnetGraph) ->
 %% encodes stats to string:
 %% "Entity1:Stats,...|Entity2:Stats,...|....."
 mapToString([],Ret) -> Ret;
-mapToString([{Name,Counter}|StatisticsList],[]) -> mapToString(StatisticsList,Name++":"++Counter);
-mapToString([{Name,Counter}|StatisticsList],Ret) -> 
-    % io:format("~p~n",[{Name,Counter,Ret}]),
-    mapToString(StatisticsList,Ret++"|"++Name++":"++Counter).
+mapToString([{Name,Data}|StatisticsList],[]) -> mapToString(StatisticsList,Name++":"++Data);
+mapToString([{Name,Data}|StatisticsList],Ret) -> mapToString(StatisticsList,Ret++"|"++Name++":"++Data).

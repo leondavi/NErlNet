@@ -56,7 +56,7 @@ start_link(Args) ->
 %% @doc Whenever a gen_statem is started using gen_statem:start/[3,4] or
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
-%%initialize and go to state - idle
+%% initialize and go to state - idle
 
 
 %%NerlClientsArgs=[{MyName,Workers,ConnectionsMap},...], Workers = list of maps of name and args
@@ -142,7 +142,7 @@ idle(cast, {statistics}, State = #client_statem_state{ myName = MyName, etsRef =
   NerlnetGraph = ets:lookup_element(EtsRef, nerlnetGraph, ?ETF_KV_VAL_IDX),
   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETF_KV_VAL_IDX),    %% TODO: macro this 2
-  TimingMap = [ets:lookup_element(EtsRef, WorkerKey, ?WORKER_TIMING_IDX) || WorkerKey <- Workers],
+  TimingMap = [{WorkerKey,ets:lookup_element(EtsRef, WorkerKey, ?WORKER_TIMING_IDX)} || WorkerKey <- Workers],
   Counter = ets:lookup_element(EtsRef, msgCounter, ?ETF_KV_VAL_IDX),
   sendStatistics(RouterHost,RouterPort,MyName,Counter,TimingMap),
   ets:update_counter(EtsRef, msgCounter, 1), % last param is increment value
@@ -178,18 +178,16 @@ training(cast, {sample,Body}, State = #client_statem_state{etsRef = EtsRef}) ->
   %%    Body:   {ClientName,WorkerName,CSVName,BatchNumber,BatchOfSamples}
   {ClientName, WorkerNameStr, _CSVName, _BatchNumber, BatchOfSamples} = binary_to_term(Body),
   WorkerName = list_to_atom(WorkerNameStr),
-  Start = os:timestamp(),
   WorkerOfThisClient = ets:member(EtsRef, WorkerName),
-  if 
-    WorkerOfThisClient ->
-    TimingTuple = ets:lookup_element(EtsRef, WorkerName, ?WORKER_TIMING_IDX), %todo refactor timing map
-    {_LastBatchReceivedTime,TotalBatches,TotalTime} = TimingTuple,
-    NewTimingTuple = {Start,TotalBatches+1,TotalTime},
-    ets:update_element(EtsRef, WorkerName,[{?WORKER_TIMING_IDX,NewTimingTuple}]);
-    true -> ?LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName])
-  end,
-  WorkerPid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
-  gen_statem:cast(WorkerPid, {sample, BatchOfSamples}),
+  if WorkerOfThisClient ->
+      WorkerPid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
+      TimingTuple = ets:lookup_element(EtsRef, WorkerName, ?WORKER_TIMING_IDX), %todo refactor timing map
+      {_LastBatchReceivedTime,TotalBatches,TotalTime} = TimingTuple,
+      Start = os:timestamp(),
+      NewTimingTuple = {Start,TotalBatches+1,TotalTime},
+      ets:update_element(EtsRef, WorkerName,[{?WORKER_PID_IDX, WorkerPid},{?WORKER_TIMING_IDX,NewTimingTuple}]),
+      gen_statem:cast(WorkerPid, {sample, BatchOfSamples});
+  true -> ?LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName]) end,
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
 training(cast, {idle}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -198,7 +196,7 @@ training(cast, {idle}, State = #client_statem_state{etsRef = EtsRef}) ->
   MessageToCast = {idle},
   cast_message_to_workers(EtsRef, MessageToCast),
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETF_KV_VAL_IDX),
-  io:format("setting workers at idle: ~p~n",[ets:lookup_element(EtsRef, workersNames, 2)]),
+  io:format("setting workers at idle: ~p~n",[ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
   {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers}};
 
 training(cast, {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -357,7 +355,7 @@ createWorkers(ClientName, EtsRef) ->
 
     WorkerPid = workerGeneric:start_link(WorkerArgs),
 
-    ets:insert(EtsRef, {WorkerName, WorkerPid, WorkerArgs, #{WorkerName => {0,0,0.0}}}),
+    ets:insert(EtsRef, {WorkerName, WorkerPid, WorkerArgs, {0,0,0.0}}),
     WorkerName
   end,
 
@@ -369,15 +367,13 @@ updateTimingMap(EtsRef, WorkerName) when is_atom(WorkerName) ->
   {Start,TotalBatches,TotalTime} = ets:lookup_element(EtsRef, WorkerName, ?WORKER_TIMING_IDX), % retrieving old value
   Finish = os:timestamp(),
   TotalTrainingTime = (timer:now_diff(Finish, Start) / 1000),
-
   NewTimingTuple = {Start,TotalBatches,TotalTrainingTime+TotalTime},
   ets:update_element(EtsRef, WorkerName,[{?WORKER_TIMING_IDX,NewTimingTuple}]).
 
 
-sendStatistics(RouterHost,RouterPort,MyName,_MsgCount,TimingMap)->
-  Statistics = lists:flatten([atom_to_list(WorkerName)++"="++float_to_list(TotalTime/TotalBatches,[{decimals, 3}])++","||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-maps:to_list(TimingMap)]),
-  nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(MyName++":"++lists:droplast(Statistics))).
-
+sendStatistics(RouterHost,RouterPort,MyName,_MsgCount,TimingTuples)->
+  Statistics = lists:flatten([atom_to_list(WorkerName)++"="++float_to_list(TotalTime/TotalBatches,[{decimals, 3}])++","||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-TimingTuples]),
+  nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++":"++lists:droplast(Statistics))).
 
 cast_message_to_workers(EtsRef, Msg) ->
   Workers = ets:lookup_element(EtsRef, workersNames, 2),    %% TODO: macro this 2

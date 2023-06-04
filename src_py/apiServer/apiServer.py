@@ -403,7 +403,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         for worker in confList:
             for j, label in enumerate(confList[worker]):
                 # Calculate the accuracy and other stats:
-                tp, tn, fp, fn = label.ravel()
+                tn, fp, fn, tp = label.ravel()
                 acc = (tp + tn) / (tp + tn + fp + fn)
                 ppv = tp / (tp + fp)
                 tpr = tp / (tp + fn)

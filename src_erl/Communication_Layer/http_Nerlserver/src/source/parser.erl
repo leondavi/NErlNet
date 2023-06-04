@@ -27,8 +27,7 @@ parseCSV(SourceName, BatchSize, CSVData)->
   FileName = ?TMP_DIRECTORY++SourceNameStr++?TMP_DATA_ADDR,
   try
     file:write_file(FileName, CSVData),
-    ?LOG_NOTICE("created tmpData.csv"),
-    parse_file(SourceName, BatchSize, FileName) % TODO Haran, there is an issue with path here
+    parse_file(SourceName, BatchSize, FileName) %% change so read data only when sending (currently loading all data)
   catch
     {error,Er} -> logger:error("couldn't write file ~p, beacuse ~p",[FileName, Er])
   end.

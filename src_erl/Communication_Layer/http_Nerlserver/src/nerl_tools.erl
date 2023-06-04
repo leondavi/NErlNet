@@ -13,11 +13,6 @@ setup_logger(Module) ->
   logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
   logger:set_module_level(Module, all).
 
-% start_connection([])->ok;
-% start_connection([{_ServerName,{Host, Port}}|Tail]) ->
-%   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-%   start_connection(Tail).
-
 %% send message between entities
 http_request(Host, Port,Path, Body) when is_atom(Body) -> http_request(Host, Port,Path, atom_to_list(Body));
 http_request(Host, Port,Path, Body) when is_binary(Host) -> http_request(binary_to_list(Host), Port,Path, Body);
@@ -48,7 +43,8 @@ string_to_list_int(Binary) ->
   Splitted = re:split(NoParenthesis,",",[{return,list}]),
   [list_to_integer(X)||X<-Splitted].
 
-% TODO - Haran - this code needs more documentation
+%%% This gets a Cowboy HTTP Request object and reads the multipart (type of form) data from it
+%% automatically streams to file if its a file
 % returns {FullReq, Data} / {FullReq, [fileReady]}
 multipart(Req0, Data) ->
   case cowboy_req:read_part(Req0) of
