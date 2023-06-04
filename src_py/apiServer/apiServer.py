@@ -31,7 +31,6 @@ class ApiServer():
         pass
 
     def help(self):
-
     #i) data saved as .csv, training file ends with "_Training.csv", prediction with "_Prediction.csv" (may change in future)
         print(
 """
@@ -61,8 +60,7 @@ ____________API COMMANDS_____________
 -print_saved_experiments()          prints saved experiments and their number for statistics later
 -plot_loss(ExpNum)                  saves and shows the loss over time of the chosen experiment
 -accuracy_matrix(ExpNum)            shows a graphic for the confusion matrix. Also returns all ConfMat[worker][nueron]
--communication_stats()              prints the communication statistics of the current network.
--statistics():                      *DEPRECATED* get specific statistics of experiment (lossFunc graph, accuracy, etc...)
+-communication_stats()              prints the communication statistics of the current network. integer => message count, float => avg calc time (ms)
 
 _____GLOBAL VARIABLES / CONSTANTS_____
 pendingAcks:                        makes sure API command reaches all relevant entities (wait for pending acks)
@@ -89,12 +87,6 @@ PREDICTION_STR = "Prediction"
         print("Initializing the receiver thread...\n")
 
         # Initializing the receiver (a Flask HTTP server that receives results from the Main Server):
-        print("Using the address from the architecture JSON file for the receiver.")
-        print(f"(http://{globe.components.receiverHost}:{globe.components.receiverPort})\n")
-
-
-        receiverAlive = subprocess.run(["lsof", f"-i -P -n | grep -wc {globe.components.receiverPort}"], stdout=subprocess.PIPE)
-        assert not receiverAlive.stdout, f"Reciever port {globe.components.receiverPort} is already being used"
 
         self.receiverProblem = threading.Event()
         self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
@@ -102,7 +94,8 @@ PREDICTION_STR = "Prediction"
         self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
 
         if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
-            print("Failed to initialize the receiver using the provided address.\n\
+            print(f"===================Failed to initialize the receiver using the provided address:==========================\n\
+            (http://{globe.components.receiverHost}:{globe.components.receiverPort})\n\
 Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
             sys.exit()
 
@@ -300,7 +293,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         for i, csvRes in enumerate(expForStats.predictionResList, start=1):
             print(f"{i}) {csvRes.name}: samples starting at {csvRes.indexOffset}")
 
-        # while True:
+        # while True:           ####### FOR MULTIPLE CSVs
         #     print("\nPlease choose a CSV number for accuracy calculation and confusion matrix (for multiple CSVs, seperate their numbers with ', '):", end = ' ')       
         #     csvNumsStr = input()
 
@@ -376,18 +369,21 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # and add legened to show the true label value for each group.
         
                     ################## THIS IS *NOT* FOR MULTICLASS DATA, but for multi-label data
+        MATRIX_DISP_SCALING = 5
+        TRUE_LEABEL_IND = 0
+        PRED_LEABEL_IND = 1
         confMatList = {}
-        f, axes = plt.subplots(len(workersList), labelsLen, figsize=(5*labelsLen, 5*len(workersList)))
+        f, axes = plt.subplots(len(workersList), labelsLen, figsize=(MATRIX_DISP_SCALING*labelsLen, MATRIX_DISP_SCALING*len(workersList)))
         axes = axes.ravel()
         for i, worker in enumerate(workersList):
             confMatList[worker] = []
 
             for j in range(labelsLen):
-                confMatList[worker].append(confusion_matrix(workerNeuronRes[worker][0][j], workerNeuronRes[worker][1][j]))
+                confMatList[worker].append(confusion_matrix(workerNeuronRes[worker][TRUE_LEABEL_IND][j], workerNeuronRes[worker][PRED_LEABEL_IND][j]))
 
                 disp = ConfusionMatrixDisplay(confMatList[worker][j], display_labels=[0, labelNames[j]])
                 disp.plot(ax=axes[i*labelsLen+j], values_format='.4g')
-                disp.ax_.set_title(f'{worker}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[worker][0][j], workerNeuronRes[worker][1][j]), 3)}')
+                disp.ax_.set_title(f'{worker}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[worker][TRUE_LEABEL_IND][j], workerNeuronRes[worker][PRED_LEABEL_IND][j]), 3)}')
                 if i < len(workersList) - 1:
                     disp.ax_.set_xlabel('') #remove "predicted label"
                 if  j != 0:
@@ -396,7 +392,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
             # print(classification_report(trueLabels[j], predlabels[j]))
 
-        plt.subplots_adjust(wspace=0.8, hspace=0.15)
+        plt.subplots_adjust(wspace=0.8, hspace=0.15)        ## adjust for spacing between matrix
         f.colorbar(disp.im_, ax=axes)
         plt.show()
 
@@ -410,7 +406,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         for worker in confList:
             for j, label in enumerate(confList[worker]):
                 # Calculate the accuracy and other stats:
-                tp, tn, fp, fn = label.ravel()
+                tn, fp, fn, tp = label.ravel()
                 acc = (tp + tn) / (tp + tn + fp + fn)
                 ppv = tp / (tp + fp)
                 tpr = tp / (tp + fn)
@@ -428,6 +424,51 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
     
     def communication_stats(self):
         self.transmitter.statistics()
+
+    def export_results(self, expNum):
+        expForStats = self.experiments[expNum-1]
+
+        numOfTrainingCsvs = len(expForStats.trainingResList)
+        numOfPredicitionCsvs = len(expForStats.predictionResList)
+
+        print(f"\nCreating training results files for the following {numOfTrainingCsvs} CSVs:")
+        for i, csvTrainRes in enumerate(expForStats.trainingResList, start=1):
+            print(f"{i}) {csvTrainRes.name}")
+        print('\n')
+
+        for csvTrainRes in expForStats.trainingResList:
+            workersTrainResCsv = csvTrainRes.workersResList.copy() # Craete a copy of the results list for the current CSV.
+
+            for i in range(len(workersTrainResCsv)):
+                workersTrainResCsv[i] = pd.Series(workersTrainResCsv[i].resList, name = workersTrainResCsv[i].name, index = None)
+                
+            newlabelsCsvDf = pd.concat(workersTrainResCsv, axis=1)
+
+            fileName = csvTrainRes.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
+            newlabelsCsvDf.to_csv(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.csv', header = True, index = False)
+            print(f'{fileName}.csv Saved...')
+        
+        print(f"\nCreating prediction results files for the following {numOfPredicitionCsvs} CSVs:")
+        for i, csvPredictionRes in enumerate(expForStats.predictionResList, start=1):
+            print(f"{i}) {csvPredictionRes.name}")
+        print('\n')
+
+        for csvPredictRes in expForStats.predictionResList:
+            csvPredictResDict = {} # Dictionary of sampleIndex : [worker, batchId]
+
+            # Add the results to the dictionary
+            for worker in csvPredictRes.workersResList:
+                for batch in worker.resList:
+                    for offset, prediction in enumerate(batch.predictions):
+                        sampleNum = batch.indexRange[0] + offset
+                        csvPredictResDict[sampleNum] = [prediction, batch.worker, batch.batchId]
+
+            csvPredictResDf = pd.DataFrame.from_dict(csvPredictResDict, orient='index', columns = ['Prediction', 'Handled By Worker', 'Batch ID'])
+            csvPredictResDf.index.name = 'Sample Index'
+
+            fileName = csvPredictRes.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
+            csvPredictResDf.to_csv(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.csv', header = True, index = True)
+            print(f'{fileName}.csv Saved...')
 
     def statistics(self):
         while True:
@@ -478,50 +519,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             self.accuracy_matrix(expNum)
 
         if (option == 3):
-
-            numOfTrainingCsvs = len(expForStats.trainingResList)
-            numOfPredicitionCsvs = len(expForStats.predictionResList)
-
-            print(f"\nCreating training results files for the following {numOfTrainingCsvs} CSVs:")
-            for i, csvTrainRes in enumerate(expForStats.trainingResList, start=1):
-                print(f"{i}) {csvTrainRes.name}")
-            print('\n')
-
-            for csvTrainRes in expForStats.trainingResList:
-                workersTrainResCsv = csvTrainRes.workersResList.copy() # Craete a copy of the results list for the current CSV.
-
-                for i in range(len(workersTrainResCsv)):
-                    workersTrainResCsv[i] = pd.Series(workersTrainResCsv[i].resList, name = workersTrainResCsv[i].name, index = None)
-                    
-                newlabelsCsvDf = pd.concat(workersTrainResCsv, axis=1)
-
-                fileName = csvTrainRes.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
-                newlabelsCsvDf.to_csv(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.csv', header = True, index = False)
-                print(f'{fileName}.csv Saved...')
-            
-            print(f"\nCreating prediction results files for the following {numOfPredicitionCsvs} CSVs:")
-            for i, csvPredictionRes in enumerate(expForStats.predictionResList, start=1):
-                print(f"{i}) {csvPredictionRes.name}")
-            print('\n')
-
-            for csvPredictRes in expForStats.predictionResList:
-                csvPredictResDict = {} # Dictionary of sampleIndex : [worker, batchId]
-
-                # Add the results to the dictionary
-                for worker in csvPredictRes.workersResList:
-                    for batch in worker.resList:
-                        for offset, prediction in enumerate(batch.predictions):
-                            sampleNum = batch.indexRange[0] + offset
-                            csvPredictResDict[sampleNum] = [prediction, batch.worker, batch.batchId]
-
-                csvPredictResDf = pd.DataFrame.from_dict(csvPredictResDict, orient='index', columns = ['Prediction', 'Handled By Worker', 'Batch ID'])
-                csvPredictResDf.index.name = 'Sample Index'
-
-                fileName = csvPredictRes.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
-                csvPredictResDf.to_csv(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.csv', header = True, index = True)
-                print(f'{fileName}.csv Saved...')
-
-                return
+            self.export_results(expNum)
 
         if (option == 4):
             self.communication_stats()

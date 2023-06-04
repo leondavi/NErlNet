@@ -42,8 +42,48 @@
 %%httpc:request(post,{URL,Headers,content type,Body),HTTPOptions, Profile)
 %%httpc:request(post,{"http://localhost:8080/weights_vector/update", [],"application/x-www-form-urlencoded","[33.20.2,120,2.<<23.2>>]"}, [], []).
 
+wellcome_print() -> 
+    io:format(
+"
+
+__       __            __  __                                              
+/  |  _  /  |          /  |/  |                                             
+$$ | / \\ $$ |  ______  $$ |$$ |  _______   ______   _____  ____    ______   
+$$ |/$  \\$$ | /      \\ $$ |$$ | /       | /      \\ /     \\/    \\  /      \\  
+$$ /$$$  $$ |/$$$$$$  |$$ |$$ |/$$$$$$$/ /$$$$$$  |$$$$$$ $$$$  |/$$$$$$  | 
+$$ $$/$$ $$ |$$    $$ |$$ |$$ |$$ |      $$ |  $$ |$$ | $$ | $$ |$$    $$ | 
+$$$$/  $$$$ |$$$$$$$$/ $$ |$$ |$$ \\_____ $$ \\__$$ |$$ | $$ | $$ |$$$$$$$$/  
+$$$/    $$$ |$$       |$$ |$$ |$$       |$$    $$/ $$ | $$ | $$ |$$       | 
+$$/      $$/  $$$$$$$/ $$/ $$/  $$$$$$$/  $$$$$$/  $$/  $$/  $$/  $$$$$$$/  
+                                                                            
+                                                                            
+                                                                            
+                                                         __                 
+                                                        /  |                
+                                                       _$$ |_     ______    
+                                                      / $$   |   /      \\   
+                                                      $$$$$$/   /$$$$$$  |  
+                                                        $$ | __ $$ |  $$ |  
+                                                        $$ |/  |$$ \\__$$ |  
+                                                        $$  $$/ $$    $$/   
+                                                         $$$$/   $$$$$$/    
+                                                                            
+                                                                            
+                                                                            
+             __    __  ________            __  __    __              __     
+            /  \\  /  |/        |          /  |/  \\  /  |            /  |    
+            $$  \\ $$ |$$$$$$$$/   ______  $$ |$$  \\ $$ |  ______   _$$ |_   
+            $$$  \\$$ |$$ |__     /      \\ $$ |$$$  \\$$ | /      \\ / $$   |  
+            $$$$  $$ |$$    |   /$$$$$$  |$$ |$$$$  $$ |/$$$$$$  |$$$$$$/   
+            $$ $$ $$ |$$$$$/    $$ |  $$/ $$ |$$ $$ $$ |$$    $$ |  $$ | __ 
+            $$ |$$$$ |$$ |_____ $$ |      $$ |$$ |$$$$ |$$$$$$$$/   $$ |/  |
+            $$ | $$$ |$$       |$$ |      $$ |$$ | $$$ |$$       |  $$  $$/ 
+            $$/   $$/ $$$$$$$$/ $$/       $$/ $$/   $$/  $$$$$$$/    $$$$/  
+                                                                                                                                                
+~n~n").
 
 start(_StartType, _StartArgs) ->
+    wellcome_print(),
     %% setup the erlang logger for this module 
     nerl_tools:setup_logger(?MODULE),
     
@@ -52,18 +92,17 @@ start(_StartType, _StartArgs) ->
     ?LOG_INFO(?LOG_HEADER++"This device IP: ~p~n", [HostName]),
     %Create a listener that waits for a message from python about the adresses of the wanted json
     createNerlnetInitiator(HostName),
-    {ArchitectureAdderess,CommunicationMapAdderess} = waitForInit(),
+    {ArchitectureAdderess,CommunicationMapAdderess} = waitForInit(), % why do we need it? TODO remove if not necessary 
 
     %Parse json and start nerlnet:
-     
     ?LOG_INFO(?LOG_HEADER++"ArchitectureAdderess: ~p, CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
 
-    parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess),
+    parseJsonAndStartNerlnet(HostName),
     nerlNetServer_sup:start_link().
 
 waitForInit() ->
     receive 
-        {jsonAddress,MSG} -> {_ArchitectureAdderess,_CommunicationMapAdderess} = MSG;
+        {jsonAddress, MSG} -> {_ArchitectureAdderess,_CommunicationMapAdderess} = MSG;
         Other -> ?LOG_WARNING(?LOG_HEADER++"Got bad message: ~p,~ncontinue listening for init Json~n",[Other]), waitForInit()
         after ?PYTHON_SERVER_WAITING_TIMEOUT_MS -> waitForInit()
     end.
@@ -78,111 +117,90 @@ createNerlnetInitiator(HostName) ->
         ]}
     ]),
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
-    %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
+    %% An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
     init_cowboy_start_clear(nerlnetInitiator, {HostName,Port},NerlnetInitiatorDispatch).
 
 
-parseJsonAndStartNerlnet(HostName,ArchitectureAdderess,CommunicationMapAdderess) ->
+parseJsonAndStartNerlnet(HostName) ->
     %% Entities to open on device from reading arch.json: 
-    {MainServer,_ServerAPI,ClientsAndWorkers, {Sources,WorkersMap},Routers,{Federateds,WorkersMap},NerlNetSettings,_GUI} = jsonParser:getDeviceEntities(ArchitectureAdderess,CommunicationMapAdderess,list_to_binary(HostName)),
+    {ok, ArchitectureAdderessData} = file:read_file(?JSON_ADDR++?LOCAL_ARCH_FILE_NAME),
+    {ok, CommunicationMapAdderessData} = file:read_file(?JSON_ADDR++?LOCAL_COMM_FILE_NAME),
 
-    BatchSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))),
-    Frequency = list_to_integer(binary_to_list(maps:get(<<"frequency">>,NerlNetSettings))),
+    %%TODO: ADD CHECK FOR VALID INPUT:  
+    % ?LOG_NOTICE("IS THIS A JSON? ~p~n",[jsx:is_json(ArchitectureAdderessData)]),
 
-%%    Creating a Dispatcher for each Server from JSONs architecture - this dispatchers will rout http requests to the right handler.
-%%    Each dispatcher will be listening to a different PORT
-%%    Handling http requests will be managed by *Handler.erl and additional information given inside.
-    %% these are the handler for any kind of request.
-    %% {HostMatch, list({PathMatch, Handler, InitialState})}
-    %% The last arg becomes the State
-    %% arg in the *Handler's init() method.
-    %% {"/req_name/:arg1/:arg2",[{arg1,constrains}, {arg2,int}], addHandler,[]}
+    %%Decode Json to architecute map and Connection map:
+    ArchitectureMap = jsx:decode(ArchitectureAdderessData,[]),
+    CommunicationMap= jsx:decode(CommunicationMapAdderessData,[]),
+
+    jsonParser:getHostEntities(ArchitectureMap,CommunicationMap,list_to_binary(HostName)), % we use nerlnet_data ETS from this point
+
+    %%    Creating a Dispatcher for each Server from JSONs architecture - this dispatchers will rout http requests to the right handler.
+    %%    Each dispatcher will be listening to a different PORT
+    %%    Handling http requests will be managed by *Handler.erl and additional information given inside.
+    %%    these are the handler for any kind of request.
+    %%    {HostMatch, list({PathMatch, Handler, InitialState})}
+    %%    The last arg becomes the State
+    %%    arg in the *Handler's init() method.
+    %%    {"/req_name/:arg1/:arg2",[{arg1,constrains}, {arg2,int}], addHandler,[]}
     %%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
+    Routers = ets:lookup_element(nerlnet_data, routers, ?DATA_IDX), % router map format: {RouterName => RouterPort,RouterRouting,RouterFiltering}
+    BatchSize = ets:lookup_element(nerlnet_data, batchSize,?DATA_IDX),
+    Frequency = ets:lookup_element(nerlnet_data, frequency, ?DATA_IDX),
 
-    createClientsAndWorkers(ClientsAndWorkers, HostName),
-    createMainServer(MainServer,BatchSize,HostName),
-    createRouters(Routers,HostName),
-    createSources(Sources,WorkersMap, BatchSize, Frequency, HostName),
-    createFederatedServer(Federateds,WorkersMap, HostName).
-
+    HostOfMainServer = ets:member(nerlnet_data, mainServer),
+    createMainServer(HostOfMainServer,BatchSize,HostName), 
+    createClientsAndWorkers(), % TODO extract all of this args from ETS
+    createRouters(Routers,HostName), % TODO extract all of this args from ETS
+    createSources(BatchSize, Frequency, HostName). % TODO extract all of this args from ETS
 
 %% internal functions
 
-createClientsAndWorkers(none,_HostName) -> none;
-createClientsAndWorkers([], _HostName) -> okdone;
-createClientsAndWorkers([{ClientArgs,WorkersArgs,ClientConnectionsGraph}|ClientsAndWorkers],HostName) ->
-    ClientName = binary_to_list(maps:get(<<"name">>,ClientArgs)),
-    Port = list_to_integer(binary_to_list(maps:get(<<"port">>,ClientArgs))),
-    Federated = list_to_atom(binary_to_list(maps:get(<<"federated">>,ClientArgs))),
+createClientsAndWorkers() ->
+    ClientsAndWorkers = ets:lookup_element(nerlnet_data, hostClients, ?DATA_IDX), % Each element is  {Name,{Port,ClientWorkers,ClientWorkersMaps}}
+    HostName = ets:lookup_element(nerlnet_data, hostname, ?DATA_IDX),
+    NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
 
-    %%Create a gen_StateM machine for maintaining Database for Client.
-    %% all http requests will be handled by Cowboy which updates client_statem if necessary.
-%%    WorkersArgsMap = #{Worker1Name => Worker1Args, Worker2Name => Worker2Args},
-    ClientStatemArgs= {ClientName,Federated,WorkersArgs,ClientConnectionsGraph},        %%make this a list of client
-    ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
+    Func = 
+        fun({Client,{Port,ClientWorkers,_ClientWorkersMaps}}) -> 
+        ClientStatemArgs = {Client, NerlnetGraph},
+        ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
+        %%Nerl Client
+        %%Dispatcher for cowboy to rout each given http_request for the matching handler
+        NerlClientDispatch = cowboy_router:compile([
+            {'_', [
+                %%first http request from main server should be about starting parameters, find more info inside initHandler
+                {"/init",clientStateHandler, [init,ClientStatemPid]},
+                {"/statistics",clientStateHandler, [statistics,ClientStatemPid]},
+                {"/clientTraining",clientStateHandler, [training,ClientStatemPid]},
+                {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
+                {"/clientPredict",clientStateHandler, [predict,ClientStatemPid]},
+                {"/weightsVector",vectorHandler, [ClientStatemPid]},
+                {"/federatedWeights",federatedHandler, [ClientStatemPid]}
+            ]}
+        ]),
+        init_cowboy_start_clear(Client, {HostName, Port},NerlClientDispatch)
+    end,
+    lists:foreach(Func, ClientsAndWorkers).
 
-
-    %%Nerl Client
-    %%Dispatcher for cowboy to rout each given http_request for the matching handler
-    NerlClientDispatch = cowboy_router:compile([
-        {'_', [
-            %%first http request from main server should be about starting parameters, find more info inside initHandler
-            {"/init",clientStateHandler, [init,ClientStatemPid]},
-            {"/statistics",clientStateHandler, [statistics,ClientStatemPid]},
-            {"/clientTraining",clientStateHandler, [training,ClientStatemPid]},
-            {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
-            {"/clientPredict",clientStateHandler, [predict,ClientStatemPid]},
-            {"/weightsVector",vectorHandler, [ClientStatemPid]},
-            {"/federatedWeights",federatedHandler, [ClientStatemPid]}
-        ]}
-    ]),
 
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
-    init_cowboy_start_clear(ClientName, {HostName,Port},NerlClientDispatch),
-    createClientsAndWorkers(ClientsAndWorkers,HostName).
 
+createSources(BatchSize, Frequency, HostName) ->
+    DATA_IDX = 2,
+    NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, DATA_IDX),
+    WorkersMap = ets:lookup_element(nerlnet_data, workers, DATA_IDX),
+    SourcesMap = ets:lookup_element(nerlnet_data, sources, DATA_IDX),
+    Func = 
+    fun(SourceName,{SourcePort,SourceMethod}) -> 
+        SourceStatemArgs= {SourceName, WorkersMap, NerlnetGraph, SourceMethod, BatchSize, Frequency},        %%TODO  make this a list of Sources
+        SourceStatemPid = sourceStatem:start_link(SourceStatemArgs),
+        %%Create a gen_StateM machine for maintaining Database for Source.
+        %% all http requests will be handled by Cowboy which updates source_statem if necessary.
 
-createFederatedServer(none,_WorkersMap,_HostName) -> none;
-createFederatedServer([],_WorkersMap,_HostName) -> okdone;
-createFederatedServer([{FederateArgs,ConnectionsGraph}|Federated],WorkersMap,HostName) ->
-    FederatedName = binary_to_list(maps:get(<<"name">>,FederateArgs)),
-    Port = list_to_integer(binary_to_list(maps:get(<<"port">>,FederateArgs))),
-    CounterLimit = list_to_integer(binary_to_list(maps:get(<<"counterLimit">>,FederateArgs))),
-    %%Create a gen_StateM machine for maintaining Database for Federated Server.
-    %% all http requests will be handled by Cowboy which updates source_statem if necessary.
-    FederatedStatemArgs= {FederatedName,CounterLimit,WorkersMap,ConnectionsGraph},        %%TODO  make this a list of Sources
-    FederatedStatemPid = cppSANNFedServStateM:start_link(FederatedStatemArgs),
-
-
-    %%    Source server
-    FederatedDispatch = cowboy_router:compile([
-        {'_', [
-            {"/federatedWeightsVector",weightsHandler, [federatedWeightsVector,FederatedStatemPid]},
-            {"/statistics",weightsHandler, [statistics,FederatedStatemPid]}
-
-        ]}
-    ]),
-    %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
-    %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
-    init_cowboy_start_clear(FederatedName, {HostName,Port},FederatedDispatch),
-    createFederatedServer(Federated,WorkersMap,HostName).
-
-
-createSources(none,_WorkersMap,_BatchSize,_Frequency,_HostName) -> none;
-createSources([],_WorkersMap,_BatchSize,_Frequency,_HostName) -> okdone;
-createSources([{SourceArgs,ConnectionsGraph}|Sources],WorkersMap,BatchSize,Frequency,HostName) ->
-    SourceName = binary_to_list(maps:get(<<"name">>,SourceArgs)),
-    Port = list_to_integer(binary_to_list(maps:get(<<"port">>,SourceArgs))),
-    Method = list_to_integer(binary_to_list(maps:get(<<"method">>,SourceArgs))),
-    %%Create a gen_StateM machine for maintaining Database for Source.
-    %% all http requests will be handled by Cowboy which updates source_statem if necessary.
-    SourceStatemArgs= {SourceName, WorkersMap, ConnectionsGraph, Method, BatchSize, Frequency},        %%TODO  make this a list of Sources
-    SourceStatemPid = sourceStatem:start_link(SourceStatemArgs),
-
-
-    %%    Source server
-    SourceDispatch = cowboy_router:compile([
+        %%    Source server
+        SourceDispatch = cowboy_router:compile([
         {'_', [
 
             {"/updateCSV",csvHandler, [SourceStatemPid]},
@@ -190,66 +208,65 @@ createSources([{SourceArgs,ConnectionsGraph}|Sources],WorkersMap,BatchSize,Frequ
             {"/stopCasting",castingHandler, [stopCasting,SourceStatemPid]},
             {"/statistics",castingHandler, [statistics,SourceStatemPid]}
         ]}
-    ]),
-    %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
-    %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
-    init_cowboy_start_clear(SourceName, {HostName,Port},SourceDispatch),
-    createSources(Sources,WorkersMap,BatchSize,Frequency,HostName).
+        ]),
+
+        %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
+        %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
+        init_cowboy_start_clear(SourceName, {HostName,SourcePort},SourceDispatch)
+    end,
+    maps:map(Func, SourcesMap).
 
 
+createRouters(MapOfRouters, HostName) ->
+    NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
+    Func = 
+    fun(RouterName, {Port, _RouterRouting, _RouterFiltering}) -> 
+        %%Create a gen_Server for maintaining Database for Router.
+        %% all http requests will be handled by Cowboy which updates router_genserver if necessary.
+        %%    connectivity map will be as follow:
+        %%    name_atom of machine => {Host,Port} OR an atom router_name, indicating there is no direct http connection, and should pass request via router_name
+        RouterGenServerArgs= {RouterName, NerlnetGraph},        %%TODO  make this a list of Routers
+        RouterGenServerPid = routerGenserver:start_link(RouterGenServerArgs),
 
-createRouters(none,_HostName) -> none;
-createRouters([],_HostName) -> okdone;
-createRouters([{RouterArgs,ConnectionsGraph}|Routers],HostName) ->
-    RouterName = binary_to_list(maps:get(<<"name">>,RouterArgs)),
-    Port =list_to_integer(binary_to_list( maps:get(<<"port">>,RouterArgs))),
+        RouterDispatch = cowboy_router:compile([
+            {'_', [
+                {"/clientIdle",routingHandler, [clientIdle,RouterGenServerPid]},
+                {"/lossFunction",routingHandler, [lossFunction,RouterGenServerPid]},
+                {"/predictRes",routingHandler, [predictRes,RouterGenServerPid]},
+                {"/statistics",routingHandler, [statistics,RouterGenServerPid]},
+                {"/clientTraining",routingHandler, [clientTraining,RouterGenServerPid]},
+                {"/clientPredict",routingHandler, [clientPredict,RouterGenServerPid]},
+                {"/updateCSV",routingHandler, [updateCSV,RouterGenServerPid]},
+                {"/csvReady",routingHandler, [csvReady,RouterGenServerPid]},
+                {"/sourceDone",routingHandler, [sourceDone,RouterGenServerPid]},
+                {"/clientReady",routingHandler, [clientReady,RouterGenServerPid]},
+                {"/weightsVector",routingHandler, [rout,RouterGenServerPid]},
+                {"/startCasting",routingHandler, [startCasting,RouterGenServerPid]},
+                {"/stopCasting",routingHandler, [stopCasting,RouterGenServerPid]},
+                {"/federatedWeightsVector",routingHandler, [federatedWeightsVector,RouterGenServerPid]},
+                {"/federatedWeights",routingHandler, [federatedWeights,RouterGenServerPid]},
 
-    %%Create a gen_Server for maintaining Database for Router.
-    %% all http requests will be handled by Cowboy which updates router_genserver if necessary.
-    %%    connectivity map will be as follow:
-    %%    name_atom of machine => {Host,Port} OR an atom router_name, indicating there is no direct http connection, and should pass request via router_name
+                %%GUI actions
+                {"/getStats",routingHandler, [getStats,RouterGenServerPid]}
+            ]}
+        ]),
+        %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
+        %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
+        init_cowboy_start_clear(RouterName, {HostName,Port},RouterDispatch)
+    end,
+    maps:foreach(Func, MapOfRouters). % iterates as key/values
 
-    RouterGenServerArgs= {RouterName,ConnectionsGraph},        %%TODO  make this a list of Routers
-    RouterGenServerPid = routerGenserver:start_link(RouterGenServerArgs),
-
-
-    RouterDispatch = cowboy_router:compile([
-        {'_', [
-            {"/clientIdle",routingHandler, [clientIdle,RouterGenServerPid]},
-            {"/lossFunction",routingHandler, [lossFunction,RouterGenServerPid]},
-            {"/predictRes",routingHandler, [predictRes,RouterGenServerPid]},
-            {"/statistics",routingHandler, [statistics,RouterGenServerPid]},
-            {"/clientTraining",routingHandler, [clientTraining,RouterGenServerPid]},
-            {"/clientPredict",routingHandler, [clientPredict,RouterGenServerPid]},
-            {"/updateCSV",routingHandler, [updateCSV,RouterGenServerPid]},
-            {"/csvReady",routingHandler, [csvReady,RouterGenServerPid]},
-            {"/sourceDone",routingHandler, [sourceDone,RouterGenServerPid]},
-            {"/clientReady",routingHandler, [clientReady,RouterGenServerPid]},
-            {"/weightsVector",routingHandler, [rout,RouterGenServerPid]},
-            {"/startCasting",routingHandler, [startCasting,RouterGenServerPid]},
-            {"/stopCasting",routingHandler, [stopCasting,RouterGenServerPid]},
-            {"/federatedWeightsVector",routingHandler, [federatedWeightsVector,RouterGenServerPid]},
-            {"/federatedWeights",routingHandler, [federatedWeights,RouterGenServerPid]},
-
-            %%GUI actions
-            {"/getStats",routingHandler, [getStats,RouterGenServerPid]}
-        ]}
-    ]),
-    %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
-    %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
-   init_cowboy_start_clear(RouterName, {HostName,Port},RouterDispatch),
-    createRouters(Routers,HostName).
-
-
-
-createMainServer(none,_BatchSize,_HostName) -> none;
-createMainServer({MainServerArgsMap,ConnectionsGraph,WorkersMap,ClientsNames},BatchSize,HostName) ->
-    MainName = "mainServer",
-    Port = list_to_integer(binary_to_list(maps:get(<<"port">>,MainServerArgsMap))),
-
+createMainServer(false,_BatchSize,_HostName) -> none;
+createMainServer(true,BatchSize,HostName) ->
+    Name = mainServer,
+    {Port, _Args} = ets:lookup_element(nerlnet_data, mainServer, ?DATA_IDX),
+    Clients = ets:lookup_element(nerlnet_data, clients, ?DATA_IDX),  % format of maps: {ClientName => {Workers, Port}, ClientsMap}
+    ClientsNames = maps:keys(Clients),
+    WorkersMap = ets:lookup_element(nerlnet_data, workers, ?DATA_IDX),
+    NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
     %%Create a gen_Server for maintaining Database for Main Server.
     %% all http requests will be handled by Cowboy which updates main_genserver if necessary.
-    MainGenServer_Args= {MainName,ClientsNames,BatchSize,WorkersMap,ConnectionsGraph},        %%TODO change from mainserverport to routerport . also make this a list of client
+    MainGenServer_Args= {Name,ClientsNames,BatchSize,WorkersMap,NerlnetGraph},        %%TODO change from mainserverport to routerport . also make this a list of client
     MainGenServerPid = mainGenserver:start_link(MainGenServer_Args),
 
     MainServerDispatcher = cowboy_router:compile([
@@ -275,10 +292,11 @@ createMainServer({MainServerArgsMap,ConnectionsGraph,WorkersMap,ClientsNames},Ba
         ]),
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
-    init_cowboy_start_clear(MainName, {HostName,Port},MainServerDispatcher).
+    init_cowboy_start_clear(Name, {HostName,Port}, MainServerDispatcher).
 
 
-
+%% cowboy:init_cowboy_start_clear  start_clear(Name, TransOpts, ProtoOpts) - an http_listener
+%% An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
 init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
 %%    TODO check how to catch ! messages in listenerPid
     {ok, _listenerPid} = cowboy:start_clear(ListenerName,

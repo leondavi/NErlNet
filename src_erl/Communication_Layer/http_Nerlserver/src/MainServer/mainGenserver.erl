@@ -21,6 +21,7 @@
 
 -define(SERVER, ?MODULE).
 
+
 -record(main_genserver_state, {statisticsCounter = 0, myName, state, workersMap, clients, nerlnetGraph, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [], statisticsMap, msgCounter = 0, batchSize}).
 
 %%%===============================================================
@@ -47,12 +48,16 @@ start_link(Args) ->
 
 init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
   inets:start(),
-    io:format("Main Server ~p Connecting to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
-    nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
+  MyNameStr = atom_to_list(MyName),
+  ?MAIN_SERVER_ATOM = MyName, % must be identical
+  ?LOG_NOTICE("Main Server starts"),
+  ConnectedEntities = [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,?MAIN_SERVER_ATOM)],
+  ?LOG_NOTICE("Main Server is connected to: ~p~n",[ConnectedEntities]),
+    % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
   
-  NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--["serverAPI", "nerlGUI", "mainServer"]]),
+  NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--?LIST_OF_SPECIAL_SERVERS]),
   io:format("New StatisticsMap = ~p~n",[NewStatisticsMap]),
-  {ok, #main_genserver_state{myName = MyName, workersMap = WorkersMap, batchSize = BatchSize, state=idle, clients = Clients, nerlnetGraph = NerlnetGraph, msgCounter = 1,statisticsMap = NewStatisticsMap}}.
+  {ok, #main_genserver_state{myName = MyNameStr, workersMap = WorkersMap, batchSize = BatchSize, state=idle, clients = Clients, nerlnetGraph = NerlnetGraph, msgCounter = 1,statisticsMap = NewStatisticsMap}}.
 
 %% @private
 %% @doc Handling call messages
@@ -82,7 +87,7 @@ handle_call(getGraph, _From, State) ->
 handle_call(getStats, _From, State) ->
   Mode = State#main_genserver_state.state,
   RecvCounter = State#main_genserver_state.msgCounter,
-  Conn = digraph:out_degree(State#main_genserver_state.nerlnetGraph, "mainServer"),
+  Conn = digraph:out_degree(State#main_genserver_state.nerlnetGraph, ?MAIN_SERVER_ATOM),
   %io:format("returning stats: ~p~n", [{Mode, RecvCounter}]),
   Mes = "mode="++atom_to_list(Mode)++",stats="++integer_to_list(RecvCounter)++",conn="++integer_to_list(Conn),
 
@@ -151,34 +156,34 @@ handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = 
 
 %%%get Statistics from all Entities in the network
 handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, statisticsCounter = StatisticsCounter, nerlnetGraph = NerlnetGraph,statisticsMap = StatisticsMap,msgCounter = MsgCounter}) ->
-    if Body == <<"getStatistics">> ->
-          NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--["serverAPI", "nerlGUI", "mainServer"]]),
+
+    if Body == <<"getStatistics">> ->   %% initial message from APIServer, get stats from entities
+
+          NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--?LIST_OF_SPECIAL_SERVERS]),
           [findroutAndsendStatistics(MyName, Name,NerlnetGraph)||{Name,_Counter}<-maps:to_list(StatisticsMap)],
           NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap, statisticsCounter = length(maps:to_list(StatisticsMap))};
-       Body == <<>> ->  io:format("in Statistcs, State has: StatsCount=~p, MsgCount=~p~n", [StatisticsCounter, MsgCounter]), NewState = State;
+
+      Body == <<>> ->  io:format("in Statistcs, State has: StatsCount=~p, MsgCount=~p~n", [StatisticsCounter, MsgCounter]), NewState = State;
+
       true ->
           %%      statistics arrived from Entity
-          [From|[NewCounter]] = re:split(binary_to_list(Body), "#", [{return, list}]),
+          [From|[NewCounter]] = re:split(binary_to_list(Body), ":", [{return, list}]),
 
           NewStatisticsMap = maps:put(From,NewCounter,StatisticsMap),
-
           NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap,statisticsCounter = StatisticsCounter-1},
 
-          if StatisticsCounter == 1 ->
+          if StatisticsCounter == 1 ->  %% got stats from all entities
               Statistics = maps:to_list(NewStatisticsMap),
-              StatisticsList = lists:flatten(io_lib:format("~w",[Statistics])),",",[{return,list}],
-              io:format("new Statistics Map:~n~p~n",[StatisticsList]),
               S = mapToString(Statistics,[]) ,
-              io:format("S: ~p~n",[S]),
-              {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"serverAPI",NerlnetGraph),
+              ?LOG_NOTICE("Sending stats: ~p~n",[S]),
+              {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?API_SERVER_ATOM,NerlnetGraph),
 
               %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-              nerl_tools:http_request(RouterHost,RouterPort,"statistics", "statistics#" ++ S ++ "@mainServer#" ++integer_to_list(MsgCounter));
+              nerl_tools:http_request(RouterHost,RouterPort,"statistics", S ++ "|mainServer:" ++integer_to_list(MsgCounter));
               %ack(NerlnetGraph);
 
-          true ->
-              ok
-          end
+          %% wait for more stats
+          true -> pass end
       end,
     {noreply, NewState};
 
@@ -264,7 +269,7 @@ handle_cast({lossFunction,<<>>}, State = #main_genserver_state{msgCounter = MsgC
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
   try
-    {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,"serverAPI",NerlnetGraph),
+    {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?API_SERVER_ATOM,NerlnetGraph),
     % io:format("sending loss to serverAPI {RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
     case   binary_to_term(Body) of
       {WorkerName,{LossFunction,_Time}} ->
@@ -289,7 +294,7 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, 
 
 handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSize, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
   try 
-      {RouterHost,RouterPort} = nerl_tools:getShortPath("mainServer","serverAPI",NerlnetGraph),
+      {RouterHost,RouterPort} = nerl_tools:getShortPath(?MAIN_SERVER_ATOM,?API_SERVER_ATOM,NerlnetGraph),
       % io:format("sending predictRes to serverAPI {RouterHost,RouterPort}:- ~p~n",[{RouterHost,RouterPort}]),
 
       {WorkerName, InputName, BatchID, {NerlTensor, Type}} = binary_to_term(Body),   %% TODO: add convention with client
@@ -421,18 +426,8 @@ findroutAndsendStatistics(MyName,Entitie,NerlnetGraph) ->
 	
 getNewStatisticsMap(ConnectionList) -> getNewStatisticsMap(ConnectionList,#{}).
 getNewStatisticsMap([],StatisticsMap) ->StatisticsMap;
-getNewStatisticsMap([{ServerName,{_Host, _Port}}|Tail],StatisticsMap) ->
-  getNewStatisticsMap(Tail,maps:put(ServerName, 0, StatisticsMap)).
-
-% encodeDoubleVectorToString(ListOfFloats)->
-%   LL = lists:flatten(io_lib:format("~p",[ListOfFloats])),",",[{return,list}],
-%   lists:sublist(LL,2,length(LL)).
-
-% decode(L)->
-% %%  LL=lists:sublist(L,2,length(L)-2),
-%   LL=re:split(L,",",[{return,list}]),
-%   [list_to_float(X)||X<-LL].
-
+getNewStatisticsMap([{Name,{_Host, _Port}}|Tail],StatisticsMap) ->
+  getNewStatisticsMap(Tail,maps:put(atom_to_list(Name), 0, StatisticsMap)).
 
 
 startCasting([],_NumOfSampleToSend,_MyName, _NerlnetGraph)->done;
@@ -448,7 +443,7 @@ startCasting([SourceName|SourceNames],NumOfSampleToSend, MyName, NerlnetGraph)->
 
 ack(NerlnetGraph) ->
   io:format("sending ACK to serverAPI~n"),
-  {_,{Host, Port}} = digraph:vertex(NerlnetGraph,"serverAPI"),
+  {_,{Host, Port}} = digraph:vertex(NerlnetGraph,?API_SERVER_ATOM),
 %%  send an ACK to mainserver that the CSV file is ready
   nerl_tools:http_request(Host, Port,"ackP","ack").
 
@@ -468,9 +463,8 @@ ack(NerlnetGraph) ->
 % %%  io:format("./output/predict~p   ~p~p~n", [CSVName,integer_to_list(HeadID),Head]),
 %   writeSamplesToFile(lists:sublist(ListOfSamples,SampleSize+1,length(ListOfSamples)),HeadID+1,CSVName,SampleSize).
 
-
+%% encodes stats to string:
+%% "Entity1:Stats,...|Entity2:Stats,...|....."
 mapToString([],Ret) -> Ret;
-mapToString([{Name,Counter}|StatisticsList],[]) -> mapToString(StatisticsList,Name++"#"++Counter);
-mapToString([{Name,Counter}|StatisticsList],Ret) -> 
-    % io:format("~p~n",[{Name,Counter,Ret}]),
-    mapToString(StatisticsList,Ret++"@"++Name++"#"++Counter).
+mapToString([{Name,Data}|StatisticsList],[]) -> mapToString(StatisticsList,Name++":"++Data);
+mapToString([{Name,Data}|StatisticsList],Ret) -> mapToString(StatisticsList,Ret++"|"++Name++":"++Data).

@@ -117,9 +117,18 @@ class predictRes(Resource):
 
 class statistics(Resource):
     def post(self):
-        print(request)
-        resData = request.form
-        print(resData)
+        resData = request.get_data()
+        # print(resData)
+        statDict = {"workers": {}}
+        for items in str(resData).split('|'):
+            key, val = items.split(':')
+            if '=' in val:      # workers stats
+                for worker in val.split(','):
+                    workerName, time = worker.split('=')
+                    statDict["workers"][workerName] = time
+            else:               # other entity
+                statDict[key] = val
+        print(statDict)
 
 #Listener Server list of resources: 
 api.add_resource(test, "/test")

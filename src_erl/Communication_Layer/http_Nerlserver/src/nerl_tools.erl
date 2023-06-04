@@ -3,22 +3,19 @@
 -include("nerl_tools.hrl").
 
 -export([setup_logger/1, string_format/2]).
--export([start_connection/1, http_request/4, getHostPort/5, getShortPath/3]).
+-export([http_request/4, getHostPort/5, getShortPath/3]).
 -export([string_to_list_int/1, deleteOldJson/1]).
 -export([multipart/2, read_all_data/2]).
 -export([getdeviceIP/0]).
 -export([list_to_numeric/1]).
 
 setup_logger(Module) ->
-  logger:add_handler(Module, Module, #{}), 
+  logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
   logger:set_module_level(Module, all).
 
-start_connection([])->ok;
-start_connection([{_ServerName,{Host, Port}}|Tail]) ->
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  start_connection(Tail).
-
 %% send message between entities
+http_request(Host, Port,Path, Body) when is_atom(Body) -> http_request(Host, Port,Path, atom_to_list(Body));
+http_request(Host, Port,Path, Body) when is_binary(Host) -> http_request(binary_to_list(Host), Port,Path, Body);
 http_request(Host, Port,Path, Body)->
   URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
@@ -31,9 +28,10 @@ getHostPort([WorkerName|WorkersNames],WorkersMap,NerlnetGraph,MyName,Ret)->
   %{RouterHost,RouterPort} = maps:get(ClientName,PortMap),
   getHostPort(WorkersNames,WorkersMap, NerlnetGraph,MyName,Ret++[{ClientName,WorkerName,RouterHost,RouterPort}]).
 
-getShortPath(From,To,NerlnetGraph) when is_atom(To)->  getShortPath(From,atom_to_list(To),NerlnetGraph);
-getShortPath(From,To,NerlnetGraph) -> 
-	First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
+getShortPath(From,To,NerlnetGraph) when is_list(To) -> getShortPath(From,list_to_atom(To),NerlnetGraph);
+getShortPath(From,To,NerlnetGraph) when is_list(From) -> getShortPath(list_to_atom(From),To,NerlnetGraph);
+getShortPath(From,To,NerlnetGraph) when is_atom(To) and is_atom(From) ->  % TODO use only atoms list conversions should be removed in the future!
+  First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
 	{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
   {Host,Port}.
 	
@@ -45,7 +43,8 @@ string_to_list_int(Binary) ->
   Splitted = re:split(NoParenthesis,",",[{return,list}]),
   [list_to_integer(X)||X<-Splitted].
 
-
+%%% This gets a Cowboy HTTP Request object and reads the multipart (type of form) data from it
+%% automatically streams to file if its a file
 % returns {FullReq, Data} / {FullReq, [fileReady]}
 multipart(Req0, Data) ->
   case cowboy_req:read_part(Req0) of
@@ -68,12 +67,10 @@ multipart(Req0, Data) ->
 stream_file(Req0, File) ->
     case cowboy_req:read_part_body(Req0) of
         {ok, LastBodyChunk, Req} ->
-            io:format("wrting to file: ~p~n",[LastBodyChunk]),
             file:write(File, LastBodyChunk),
             file:close(File),
             Req;
         {more, BodyChunk, Req} ->
-            io:format("wrting to file: ~p~n",[BodyChunk]),
             file:write(File, BodyChunk),
             stream_file(Req, File)
     end.
@@ -149,7 +146,8 @@ list_to_numeric(L) ->
   Int = (catch erlang:list_to_integer(L)),
   if is_number(Float) -> {Float, float};
     is_number(Int) -> {Int, integer};
-    true -> throw("couldnt_convert "++L)
+    true -> ErrorMessage = "couldnt convert - given input string is not a numeric value: ",
+            ?LOG_ERROR(ErrorMessage), throw(ErrorMessage++L)
   end.
 
 %% TODO: add another timing map for NIF of each worker action
