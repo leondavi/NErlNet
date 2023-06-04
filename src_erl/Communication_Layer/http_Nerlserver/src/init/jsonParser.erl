@@ -227,7 +227,6 @@ connectRouters(Graph,_ArchitectureMap,CommunicationMap) ->
 
 % returns true if edge appears in graph or false if not
 edge_in_graph(Graph, Vertex1, Vertex2) when is_atom(Vertex1) and is_atom(Vertex2) ->  
-  digraph:add_edge(Graph,Vertex1,Vertex2),
   EdgesTmp = [ digraph:edge(Graph, Edge) || Edge <- digraph:edges(Graph, Vertex1)],
   Edges = lists:map(fun({_, V1, V2, _}) -> {V1, V2} end, EdgesTmp),
   lists:member({Vertex1, Vertex2},Edges).

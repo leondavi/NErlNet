@@ -35,7 +35,6 @@ getHostPort([WorkerName|WorkersNames],WorkersMap,NerlnetGraph,MyName,Ret)->
 getShortPath(From,To,NerlnetGraph) when is_list(To) -> getShortPath(From,list_to_atom(To),NerlnetGraph);
 getShortPath(From,To,NerlnetGraph) when is_list(From) -> getShortPath(list_to_atom(From),To,NerlnetGraph);
 getShortPath(From,To,NerlnetGraph) when is_atom(To) and is_atom(From) ->  % TODO use only atoms list conversions should be removed in the future!
-	io:format("getShortPath From ~p To ~p ~n~n",[From, To]),
   First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
 	{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
   {Host,Port}.
