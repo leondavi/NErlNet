@@ -444,7 +444,7 @@ startCasting([SourceName|SourceNames],NumOfSampleToSend, MyName, NerlnetGraph)->
 
 ack(NerlnetGraph) ->
   io:format("sending ACK to serverAPI~n"),
-  {_,{Host, Port}} = digraph:vertex(NerlnetGraph,"serverAPI"),
+  {_,{Host, Port}} = digraph:vertex(NerlnetGraph,?API_SERVER_ATOM),
 %%  send an ACK to mainserver that the CSV file is ready
   nerl_tools:http_request(Host, Port,"ackP","ack").
 

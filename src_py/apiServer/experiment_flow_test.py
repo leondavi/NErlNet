@@ -15,8 +15,8 @@ api_server_instance.initialization(arch_json , connmap_json, exp_flow_json)
 api_server_instance.sendJsonsToDevices()
 
 api_server_instance.sendDataToSources("Training")
+api_server_instance.train("test")
 raise "hey"
-api_server_instance.train()
 
 api_server_instance.sendDataToSources("Prediction")
 api_server_instance.predict()

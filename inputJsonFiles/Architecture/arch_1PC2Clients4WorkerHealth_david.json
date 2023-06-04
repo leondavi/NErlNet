@@ -8,28 +8,31 @@
   "devices": [
     {
       "host": "192.168.0.210",
-      "entities": "mainServer,c1,c2,s1,r1,r2,nerlGUI"
+      "entities": "mainServer,c1,c2,s1,r1,r2,nerlGUI,apiServer"
     }
   ],
-  "serverAPI": 
+  "apiServer": 
     {
       "host": "192.168.0.210",
       "port": "8095",
-      "args": ""
+      "args": "",
+      "_comment": "Special entity"
     }
   ,
   "nerlGUI": 
     {
       "host": "192.168.0.210",
       "port": "8096",
-      "args": ""
+      "args": "",
+      "_comment": "Special entity"
     }
   ,
   "mainServer": 
     {
       "host": "192.168.0.210",
       "port": "8080",
-      "args": ""
+      "args": "",
+      "_comment": "Special entity"
     }
   ,
   "workers": [
@@ -150,12 +153,12 @@
     {
       "name": "r1",
       "host": "192.168.0.210",
-      "port": "8088"
+      "port": "18088"
     },
     {
       "name": "r2",
       "host": "192.168.0.210",
-      "port": "8084"
+      "port": "18084"
     }
   ]
 }

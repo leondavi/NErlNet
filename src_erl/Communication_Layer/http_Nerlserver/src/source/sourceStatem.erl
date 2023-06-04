@@ -79,10 +79,9 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 
 %%This cast receive a list of samples to load to the records batchList
 idle(cast, {batchList,Workers,CSVData}, State = #source_statem_state{batchSize = BatchSize, myName = MyName, msgCounter = Counter, nerlnetGraph = NerlnetGraph}) ->
-  %io:format("CSVData - ~p~n",[CSVData]),
-  ?LOG_INFO("Arch BatchSize = ~p~nWorkers under source = ~p~n",[BatchSize, Workers]),
+  ?LOG_INFO("Arch BatchSize: ~p",[BatchSize]),
+  ?LOG_NOTICE("Workers under source: ~p", [Workers]),
   {NerlTensorList, NerlTensorType, SampleSize} = parser:parseCSV(MyName,BatchSize,CSVData),
-  %%  CSVName = lists:last(re:split(CSVPath,"/",[{return,list}])),
   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
   %%  send an ACK to mainserver that the CSV file is ready
   ?LOG_INFO("source updated transmition list, total avilable batches to send: ~p~n",[length(NerlTensorList)]),

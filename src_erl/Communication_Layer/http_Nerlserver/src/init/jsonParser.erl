@@ -43,8 +43,8 @@ get_devices(ArchMap) ->
   end,
   [Func(D) || D <- Devices].
 
-
-get_host_clients(ArchMap, HostEntities) ->
+get_host_clients(ArchMap, HostEntities) -> get_host_clients(ArchMap, HostEntities, false).
+get_host_clients(ArchMap, HostEntities, PrintLog) ->
   HostClients = [ ClientMap || ClientMap <- maps:get(<<"clients">>,ArchMap), lists:member(binary_to_atom(maps:get(<<"name">>, ClientMap)), HostEntities) ],
   Func = fun(ClientMap) -> 
     Name = binary_to_atom(maps:get(<<"name">>,ClientMap)),
@@ -52,7 +52,10 @@ get_host_clients(ArchMap, HostEntities) ->
     ClientWorkers = [ list_to_atom(WorkerStr) || WorkerStr <- re:split(binary_to_list(maps:get(<<"workers">>,ClientMap)),",",[{return,list}])],
     WorkersMaps = maps:get(<<"workers">>, ArchMap),    %% workers arguments from level 1 of arch json
     ClientWorkersMaps = [ WorkerMap || WorkerMap <- WorkersMaps, lists:member(binary_to_atom(maps:get(<<"name">>, WorkerMap)), ClientWorkers) ],
-    ?LOG_NOTICE("Host Client ~p",[{Name,{Port,ClientWorkers}}]),
+    if PrintLog ->
+      ?LOG_NOTICE("Host Client Name: ~p Port: ~p Client Workers ~p",[Name,Port,ClientWorkers]);
+      true -> skip
+    end,
     {Name,{Port,ClientWorkers,ClientWorkersMaps}}
   end,
   [Func(S) || S <- HostClients]. % list of tuples: [Name,{Port,WorkersMap}]
@@ -129,9 +132,10 @@ json_to_ets(HostName, JSONArchMap) ->
   HostSpecialEntities = get_special_entities(JSONArchMap, HostEntities),
   SpecialEntityAttributeFunc = fun(SpecialEntity) -> ets:insert(nerlnet_data,SpecialEntity) end,
   lists:foreach(SpecialEntityAttributeFunc, HostSpecialEntities),
+  ?LOG_NOTICE("Host special entities: ~p", [HostSpecialEntities]),
   %%  retrive THIS device Clients And Workers
   ?LOG_NOTICE("Adding Host Entities:"),
-  ets:insert(nerlnet_data, {hostClients, get_host_clients(JSONArchMap, HostEntities)}),
+  ets:insert(nerlnet_data, {hostClients, get_host_clients(JSONArchMap, HostEntities, true)}),
 
   %%  retrive this device of sources, [{SourceName, {Port, Method}}]
   Sources = get_host_sources(JSONArchMap, HostEntities),

@@ -30,7 +30,7 @@ init(Req0, State = [Action,Router_genserver_Pid]) ->
       gen_server:cast(Router_genserver_Pid, {updateCSV,Source,Body});
 
     %%sends an cast for genserver to make an http request for updating CSV lists at all sensors found in Body.
-    csvReady ->  gen_server:cast(Router_genserver_Pid, {csvReady, Body});
+    csvReady ->   io:format("ROUTERR ~n"), gen_server:cast(Router_genserver_Pid, {csvReady, Body});
 
     sourceDone ->  gen_server:cast(Router_genserver_Pid, {sourceDone, Body});
 

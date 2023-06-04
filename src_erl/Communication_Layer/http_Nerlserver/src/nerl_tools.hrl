@@ -25,6 +25,7 @@
 -define(LOCAL_COMM_FILE_NAME, "conn.json").
 
 %% sorce tmpData name
+-define(TMP_DIRECTORY,"/tmp/nerlnet/").
 -define(TMP_DATA_ADDR, "tmpData.csv").
 %% sourceFSM defines
 -define(SENDALL, 1).

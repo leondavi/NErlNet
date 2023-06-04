@@ -5,6 +5,8 @@
 ###########################################################
 import json
 #import globalVars as globe
+API_SERVER_STR = "apiServer"
+MAIN_SERVER_STR = "mainServer"
 
 class NetworkComponents():
 
@@ -17,13 +19,13 @@ class NetworkComponents():
         self.frequency = int(self.jsonData['NerlNetSettings']['frequency'])
 
         # Getting the address of the main server:
-        mainServerJson = self.jsonData['mainServer']
+        mainServerJson = self.jsonData[MAIN_SERVER_STR]
         self.mainServerIp = mainServerJson['host']
         self.mainServerPort = mainServerJson['port']
 
         # Getting the address for the receiver:
-        self.receiverHost = self.jsonData['serverAPI']['host']
-        self.receiverPort = self.jsonData['serverAPI']['port']
+        self.receiverHost = self.jsonData[API_SERVER_STR]['host']
+        self.receiverPort = self.jsonData[API_SERVER_STR]['port']
 
         # Initializing lists for all the relevant components:
         self.devicesIp = []

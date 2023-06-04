@@ -19,6 +19,7 @@ setup_logger(Module) ->
 %   start_connection(Tail).
 
 %% send message between entities
+http_request(Host, Port,Path, Body) when is_atom(Body) -> http_request(Host, Port,Path, atom_to_list(Body));
 http_request(Host, Port,Path, Body) when is_binary(Host) -> http_request(binary_to_list(Host), Port,Path, Body);
 http_request(Host, Port,Path, Body)->
   URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
@@ -149,7 +150,8 @@ list_to_numeric(L) ->
   Int = (catch erlang:list_to_integer(L)),
   if is_number(Float) -> {Float, float};
     is_number(Int) -> {Int, integer};
-    true -> throw("couldnt_convert "++L)
+    true -> ErrorMessage = "couldnt convert - given input string is not a numeric value: ",
+            ?LOG_ERROR(ErrorMessage), throw(ErrorMessage++L)
   end.
 
 %% TODO: add another timing map for NIF of each worker action
