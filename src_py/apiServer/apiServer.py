@@ -369,18 +369,21 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # and add legened to show the true label value for each group.
         
                     ################## THIS IS *NOT* FOR MULTICLASS DATA, but for multi-label data
+        MATRIX_DISP_SCALING = 5
+        TRUE_LEABEL_IND = 0
+        PRED_LEABEL_IND = 1
         confMatList = {}
-        f, axes = plt.subplots(len(workersList), labelsLen, figsize=(5*labelsLen, 5*len(workersList)))
+        f, axes = plt.subplots(len(workersList), labelsLen, figsize=(MATRIX_DISP_SCALING*labelsLen, MATRIX_DISP_SCALING*len(workersList)))
         axes = axes.ravel()
         for i, worker in enumerate(workersList):
             confMatList[worker] = []
 
             for j in range(labelsLen):
-                confMatList[worker].append(confusion_matrix(workerNeuronRes[worker][0][j], workerNeuronRes[worker][1][j]))
+                confMatList[worker].append(confusion_matrix(workerNeuronRes[worker][TRUE_LEABEL_IND][j], workerNeuronRes[worker][PRED_LEABEL_IND][j]))
 
                 disp = ConfusionMatrixDisplay(confMatList[worker][j], display_labels=[0, labelNames[j]])
                 disp.plot(ax=axes[i*labelsLen+j], values_format='.4g')
-                disp.ax_.set_title(f'{worker}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[worker][0][j], workerNeuronRes[worker][1][j]), 3)}')
+                disp.ax_.set_title(f'{worker}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[worker][TRUE_LEABEL_IND][j], workerNeuronRes[worker][PRED_LEABEL_IND][j]), 3)}')
                 if i < len(workersList) - 1:
                     disp.ax_.set_xlabel('') #remove "predicted label"
                 if  j != 0:
@@ -389,7 +392,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
             # print(classification_report(trueLabels[j], predlabels[j]))
 
-        plt.subplots_adjust(wspace=0.8, hspace=0.15)
+        plt.subplots_adjust(wspace=0.8, hspace=0.15)        ## adjust for spacing between matrix
         f.colorbar(disp.im_, ax=axes)
         plt.show()
 
