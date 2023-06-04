@@ -14,10 +14,6 @@
 
 -behaviour(gen_statem).
 
--record(workerGeneric_state, {clientPid, features, labels, myName, modelId, nextState, currentBatchID=0,ackClient=0,  missedSamplesCount = 0, missedTrainSamples= [],optimizer, lossMethod, learningRate, customFunc, workerData}).
--record(workerFederatedClient, {syncCount, syncMaxCount, clientPID, myName, serverName}).
--record(workerFederatedServer, {syncCount, syncMaxCount, clientPID, myName, workersNamesList}).
-
 %% API
 -export([start_link/1]).
 %% gen_statem callbacks
@@ -56,7 +52,7 @@ init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,La
   %   ,[WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,Optimizer, Features, Labels, ClientPID]),
   Res=nerlNIF:create_nif(ModelId, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
   ?LOG_NOTICE("Res = ~p ~n",[Res]),
-  
+
   Func(init, WorkerData),
 
   {ok, idle, #workerGeneric_state{clientPid = ClientPID, features = Features, labels = Labels, myName = WorkerName,
