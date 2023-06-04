@@ -4,6 +4,7 @@ NERLNET_PREFIX="[NERLNET_RUN]"
 INPUT_DATA_DIR="inputDataDir"
 BUILD_DIRECTORY="build/release"
 buildNerlnetLibrary=0
+TMP_DIRECTORY=/tmp/nerlnet
 
 #--------------------------------------------#
 JobsNum=4
@@ -25,6 +26,16 @@ if [ -d "$BUILD_DIRECTORY" ]; then
 else
 	echo "$NERLNET_PREFIX Build Directory is missing - first time library build is on"
 	buildNerlnetLibrary=1
+fi
+
+if [ -d "$TMP_DIRECTORY" ]; then
+	echo "$NERLNET_PREFIX Delete temp directory content"
+    cd $TMP_DIRECTORY
+    rm -rf *
+    cd -
+else
+	echo "$NERLNET_PREFIX Create temp directory"
+	mkdir -p $TMP_DIRECTORY
 fi
 
 while getopts "b" flag; do

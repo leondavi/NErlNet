@@ -1,7 +1,18 @@
 %% erl logger
 -include_lib("kernel/include/logger.hrl").
+
+-define(MAIN_SERVER_ATOM, mainServer).
+-define(API_SERVER_ATOM, apiServer).
+-define(NERLGUI_SERVER_ATOM, nerlGUI).
+-define(LIST_OF_SPECIAL_SERVERS,[?API_SERVER_ATOM, ?NERLGUI_SERVER_ATOM, ?MAIN_SERVER_ATOM]).
 %% HEADER format example: "nerlNetServer_app/start@52: MES"
 -define(LOG_HEADER, atom_to_list(?MODULE) ++ "/" ++ atom_to_list(?FUNCTION_NAME) ++ "@" ++ integer_to_list(?LINE) ++ ": " ).
+
+%% ETS definitions 
+
+% 2 elements ETS:
+-define(KEY_IDX, 1).
+-define(DATA_IDX, 2).
 
 %% init process defines
 -define(NERLNET_INIT_PORT,8484).
@@ -14,6 +25,7 @@
 -define(LOCAL_COMM_FILE_NAME, "conn.json").
 
 %% sorce tmpData name
+-define(TMP_DIRECTORY,"/tmp/nerlnet/").
 -define(TMP_DATA_ADDR, "tmpData.csv").
 %% sourceFSM defines
 -define(SENDALL, 1).
@@ -28,3 +40,13 @@
 % -define(NERLNET_PATH,"/usr/local/lib/nerlnet-lib/NErlNet").
 % -define(BUILD_TYPE_DEBUG,"debug").
 % -define(BUILD_TYPE_RELEASE,"/build/release").
+
+-record(workerGeneric_state, {clientPid, features, labels, myName, modelId, nextState, currentBatchID=0,ackClient=0,  missedSamplesCount = 0, missedTrainSamples= [],optimizer, lossMethod, learningRate, customFunc, workerData}).
+-record(workerFederatedClient, {syncCount, syncMaxCount, clientPID, myName, serverName}).
+-record(workerFederatedServer, {syncCount, syncMaxCount, clientPID, myName, workersNamesList}).
+
+%% auto generated defintions:
+%% TODO: implement this in python
+-define(E_CUSTOMNN, 5).
+-define(E_FEDERATED_CLIENT, 8).
+-define(E_FEDERATED_SERVER, 9).

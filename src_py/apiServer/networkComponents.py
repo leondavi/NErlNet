@@ -5,6 +5,8 @@
 ###########################################################
 import json
 #import globalVars as globe
+API_SERVER_STR = "apiServer"
+MAIN_SERVER_STR = "mainServer"
 
 class NetworkComponents():
 
@@ -17,13 +19,13 @@ class NetworkComponents():
         self.frequency = int(self.jsonData['NerlNetSettings']['frequency'])
 
         # Getting the address of the main server:
-        mainServerJson = self.jsonData['mainServer']
+        mainServerJson = self.jsonData[MAIN_SERVER_STR]
         self.mainServerIp = mainServerJson['host']
         self.mainServerPort = mainServerJson['port']
 
         # Getting the address for the receiver:
-        self.receiverHost = self.jsonData['serverAPI']['host']
-        self.receiverPort = self.jsonData['serverAPI']['port']
+        self.receiverHost = self.jsonData[API_SERVER_STR]['host']
+        self.receiverPort = self.jsonData[API_SERVER_STR]['port']
 
         # Initializing lists for all the relevant components:
         self.devicesIp = []
@@ -48,10 +50,10 @@ class NetworkComponents():
             # Add every sub-worker of this client, to the general workers list:
             self.workers.extend(subWorkers)
 
-        # Getting the names of all the federated components:
-        federatedsJsons = self.jsonData['federated']
-        for federated in federatedsJsons:
-            self.federateds.append(federated['name'])
+        # # Getting the names of all the federated components:
+        # federatedsJsons = self.jsonData['federated']
+        # for federated in federatedsJsons:
+        #     self.federateds.append(federated['name'])
 
         # Getting the names of all the sources:
         sourcesJsons = self.jsonData['sources']

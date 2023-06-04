@@ -14,49 +14,45 @@
 -import(nerlNIF,[erl_type_conversion/1]).
 
 %% API
--export([parseCSV/3, deleteTMPData/1]).
+-export([parseCSV/3]).
 %% unused functions
 -export([decodeEncodeFloatsListBin/4]).
 
 
 parseCSV(SourceName, BatchSize, CSVData)->
+  SourceNameStr = atom_to_list(SourceName),
   nerl_tools:setup_logger(?MODULE),
   %io:format("curr dir: ~p~n",[file:get_cwd()]),
-  deleteTMPData(SourceName),    % ideally do this when getting a fresh CSV (finished train -> start predict)
-
-  FileName = SourceName++?TMP_DATA_ADDR,
+  %deleteTMPData(SourceName),    % ideally do this when getting a fresh CSV (finished train -> start predict)
+  FileName = ?TMP_DIRECTORY++SourceNameStr++?TMP_DATA_ADDR,
   try
     file:write_file(FileName, CSVData),
-    ?LOG_NOTICE("created tmpData.csv"), parse_file(BatchSize, FileName)
+    parse_file(SourceName, BatchSize, FileName) %% change so read data only when sending (currently loading all data)
   catch
     {error,Er} -> logger:error("couldn't write file ~p, beacuse ~p",[FileName, Er])
   end.
 
-deleteTMPData(SourceName) ->
-  {ok, Dir} = file:get_cwd(),
-  {ok, Files} = file:list_dir(Dir),
-  DataFiles = [File || File <- Files, string:find(File, ".csv") /= nomatch, string:prefix(File, SourceName) /= nomatch],
-  try [file:delete(File) || File <- DataFiles]
-  catch
-    {error, E} -> logger:notice("couldn't delete files ~p, ~p",[DataFiles, E])
-  end.
+% deleteTMPData(SourceName) ->
+%   SourceNameStr = atom_to_list(SourceName),
+%   {ok, Dir} = file:get_cwd(),
+%   {ok, Files} = file:list_dir(Dir),
+%   DataFiles = [File || File <- Files, string:find(File, ".csv") /= nomatch, string:prefix(File, SourceNameStr) /= nomatch], % TODO Haran - it's a very very dangerous function if you wannt to delete a specific file - then delete it
+%   try [file:delete(File) || File <- DataFiles]
+%   catch
+%     {error, E} -> logger:notice("couldn't delete files ~p, ~p",[DataFiles, E])
+%   end.
 
 %%this parser takes a CSV folder containing chunked data, parsing into a list of binary.
 %%each record in the line is a batch of samples
-parse_file(BatchSize,File_Address) ->
-  io:format("File_Address: ~p~n~n",[File_Address]),
-
+parse_file(SourceName, BatchSize,File_Address) ->
   {ok, Data} = file:read_file(File_Address),
   Lines = re:split(Data, "\r|\n|\r\n", [{return,binary}] ),
 
   SampleSize = length(re:split(binary_to_list(hd(Lines)), ",", [{return,list}])),
-  UserType = float,   %% TODO: support given type from json 
+  UserType = float,   %% TODO: support given type from json  --- JsonParser should be updated too
   DimZ = 1,
-
   ListOfLinesOfData = decodeListOfLists(Lines),
-  % io:format("read Data to list: ~p~n",[ListOfLinesOfData]),
   ListOfGroupedBatches = generateListOfBatches(ListOfLinesOfData, BatchSize),
-  % io:format("size of grouped as batches: ~p~n",[length(ListOfGroupedBatches)]),
   ErlType = nerlNIF:erl_type_conversion(UserType),
   ListOfTensors = 
     case ErlType of 
@@ -64,7 +60,7 @@ parse_file(BatchSize,File_Address) ->
           erl_int -> encodeListOfListsNerlTensor(ListOfGroupedBatches, UserType, BatchSize,SampleSize,DimZ);
           _Other -> throw("wrong ErlType")
     end,
-  % io:format("generated list of tensors: ~p~n",[ListOfTensors]),
+  ?LOG_NOTICE("Source ~p generated list of NerlTensors from file: ~p",[SourceName, File_Address]),
   {ListOfTensors, UserType, SampleSize}.
 
 
@@ -138,7 +134,7 @@ decodeFloatsList([H|ListOfFloats],Ret)->
   Num = case H of
     [$-,$.|Rest]  -> "-0."++Rest;
     [$.|Rest]     -> "0."++Rest;
-    List          -> List
+    List -> List
   end,
   {NumToAdd, _Type} = nerl_tools:list_to_numeric(Num),
     
