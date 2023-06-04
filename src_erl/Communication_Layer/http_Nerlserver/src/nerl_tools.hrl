@@ -41,10 +41,6 @@
 % -define(BUILD_TYPE_DEBUG,"debug").
 % -define(BUILD_TYPE_RELEASE,"/build/release").
 
--record(workerGeneric_state, {clientPid, features, labels, myName, modelId, nextState, currentBatchID=0,ackClient=0,  missedSamplesCount = 0, missedTrainSamples= [],optimizer, lossMethod, learningRate, customFunc, workerData}).
--record(workerFederatedClient, {syncCount, syncMaxCount, clientPID, myName, serverName}).
--record(workerFederatedServer, {syncCount, syncMaxCount, clientPID, myName, workersNamesList}).
-
 %% auto generated defintions:
 %% TODO: implement this in python
 -define(E_CUSTOMNN, 5).

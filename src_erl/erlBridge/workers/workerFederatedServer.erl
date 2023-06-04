@@ -24,7 +24,7 @@ init(Data) -> Data,
   Type = float, % update from data
   ets:new(federated_server,[named_table, set]), ets:insert(federated_server,{nerltensor_type, Type}).%TODO insert workers by their name {WID, worker, WeightsAndBiasNerlTensor}
 
-%% every countLimit batches, get updated model (NOTHING FOR SERVER)
+%% every countLimit batches, get updated model (NOTHING FOR SERVER) ??? maybe he needs to go to state receive from other workers?
 pre_train(Data) -> Data.
 
 %% every countLimit batches, send updated weights
