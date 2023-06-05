@@ -47,6 +47,7 @@ start_link(Args) ->
 {stop, Reason :: term()} | ignore).
 
 init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
+  nerl_tools:setup_logger(?MODULE),
   inets:start(),
   MyNameStr = atom_to_list(MyName),
   ?MAIN_SERVER_ATOM = MyName, % must be identical
@@ -392,7 +393,7 @@ getNewStatisticsMap([{Name,{_Host, _Port}}|Tail],StatisticsMap) ->
 startCasting([],_NumOfSampleToSend,_MyName, _NerlnetGraph)->done;
 startCasting([SourceName|SourceNames],NumOfSampleToSend, MyName, NerlnetGraph)->
     {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,SourceName,NerlnetGraph),
-  ?Logger("~p sending start casting command to: ~p",[MyName, SourceName]),
+  ?LOG_NOTICE("~p sending start casting command to: ~p",[MyName, SourceName]),
   nerl_tools:http_request(RouterHost,RouterPort,"startCasting", SourceName++[","]++NumOfSampleToSend),
   startCasting(SourceNames,NumOfSampleToSend, MyName, NerlnetGraph).
 

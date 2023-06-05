@@ -1,4 +1,5 @@
 -module(workerGeneric).
+-include("workerDefinitions.hrl").
 %%%-------------------------------------------------------------------
 %%% @copyright (C) 2023, Nerlnet
 %%% @doc
@@ -48,14 +49,19 @@ start_link(ARGS) ->
 
 init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,Optimizer, Features, Labels, LossMethod, LearningRate, ClientPID, Func, WorkerData}) ->
   nerl_tools:setup_logger(?MODULE),
+  GenWorkerEts = ets:new(generic_worker,[set]),
+  ets:insert(GenWorkerEts, {model_id, ModelId}),
+  ets:insert(GenWorkerEts,{model_type, ModelType}),
+  ets:insert(GenWorkerEts,{layer_types_list, LayerTypesList}),
+  ets:insert(GenWorkerEts,{layers_sizes, LayersSizes}),
+  ets:insert(GenWorkerEts,{layers_activation_functions, LayersActivationFunction}),
   % ?LOG_NOTICE("Creating: WorkerName: ~p ,ModelId: ~p , ModelType: ~p , ScalingMethod: ~p ,LayerTypesList: ~p ,LayersSizes: ~p ,LayersActivationFunctions: ~p ,Optimizer: ~p , Features: ~p , Labels: ~p , ClientPID: ~p~n"
   %   ,[WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,Optimizer, Features, Labels, ClientPID]),
   Res=nerlNIF:create_nif(ModelId, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
   ?LOG_NOTICE("Res = ~p ~n",[Res]),
 
-  Func(init, WorkerData),
-
-  {ok, idle, #workerGeneric_state{clientPid = ClientPID, features = Features, labels = Labels, myName = WorkerName,
+  Func(init, {GenWorkerEts, WorkerData}),
+  {ok, idle, #workerGeneric_state{genWorkerEtsRef = GenWorkerEts, clientPid = ClientPID, features = Features, labels = Labels, myName = WorkerName,
                                  modelId = ModelId,optimizer = Optimizer,learningRate = LearningRate, lossMethod = LossMethod, customFunc = Func, workerData = WorkerData}}.
 
 %% @private
@@ -109,8 +115,11 @@ code_change(_OldVsn, StateName, State = #workerGeneric_state{}, _Extra) ->
 %% State idle
 
 %% got init from FedWorker, add it to workersList
-idle(cast, {init, From}, State = #workerGeneric_state{workerData = WorkerData}) ->
+idle(cast, {init, From}, State = #workerGeneric_state{customFunc = CustomFunc}) ->
+  Func(pre_idle, WorkerEtsRef),
+
   if is_record(WorkerData, workerFederatedServer) ->
+    
     io:format("========adding ~p to fed workers============~n",[From]),
     NewWorkerData = WorkerData#workerFederatedServer{workersNamesList = WorkerData#workerFederatedServer.workersNamesList ++ [From]},
     {next_state, idle, State#workerGeneric_state{workerData = NewWorkerData}};
