@@ -16,11 +16,10 @@ api_server_instance.sendJsonsToDevices()
 
 api_server_instance.sendDataToSources("Training")
 api_server_instance.train("test")
-raise "hey"
 
 api_server_instance.sendDataToSources("Prediction")
 api_server_instance.predict()
 
-api_server_instance.plot_loss(1)
-api_server_instance.accuracy_matrix(1)
+#api_server_instance.plot_loss(1)
+#api_server_instance.accuracy_matrix(1)
 #api_server_instance.statistics()

@@ -382,47 +382,6 @@ findroutAndsendStatistics(MyName,Entitie,NerlnetGraph) ->
       true -> nerl_tools:http_request(RouterHost, RouterPort,"statistics", list_to_binary(atom_to_list(Entitie)));
       _    -> nerl_tools:http_request(RouterHost, RouterPort,"statistics", list_to_binary(Entitie))
   end.
-
-%%sending Body as an http request to {Host, Port} to path Path (=String)
-%%Example:  http_request(RouterHost,RouterPort,"start_training", <<"client1,client2">>),
-% http_request(Host, Port,Path, Body)->
-%   URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
-%   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-% %%  io:format("sending:  ~p~nto HostPo: ~p~n",[Body,{Host, Port}]),
-%   R = httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []),
-%   {ok,Res} = R,
-%   Approve = element(2,element(1,Res)),
-%   case Approve of
-%     404 ->
-%       %  io:format("sending:  ~p~nto HostPo: ~p~n Res: ~p",[Body,{Host, Port},R]),
-%       %  io:format("Trying again in 0.01 second~n"),
-%         timer:sleep(10),
-%         spawn(fun() ->http_request(Host, Port,Path, Body) end);
-%       _ -> ok
-%   end,
-%  % if py
-%   Ans = lists:sublist(element(3,Res),8),
-%   case Ans of
-%     "Somthing" ->
-%        % io:format("sending:  ~p~nto HostPo: ~p~nRes: ~p",[Body,{Host, Port},R]),
-%        % io:format("Trying again in 0.01 second~n"),
-%         timer:sleep(10),
-%         spawn(fun() ->http_request(Host, Port,Path, Body) end);
-%       _ -> ok
-%   end.
- % if python cant receive the request it turns back like this:
-  % request:{{ok,{{"HTTP/1.1",200,"OK"},
-  %             [{"date","Mon, 25 Jul 2022 15:47:41 GMT"},
-  %              {"server","Cowboy"},
-  %              {"content-length","96"},
-  %              {"content-type","text/plain"}],
-  %             "Somthing went wrong..Path attempted: <<\"/lossFunc\">>,\nBody: <<\"w2#1.01000000000000000888e+00\">>\n"}},
-  %        "127.0.0.1",8095,"lossFunc","w2#1.01000000000000000888e+00"}
-
-
-
-  % io:format("request:~p~n",[{R, Host, Port,Path, Body}]).
-
 	
 getNewStatisticsMap(ConnectionList) -> getNewStatisticsMap(ConnectionList,#{}).
 getNewStatisticsMap([],StatisticsMap) ->StatisticsMap;
@@ -433,35 +392,19 @@ getNewStatisticsMap([{Name,{_Host, _Port}}|Tail],StatisticsMap) ->
 startCasting([],_NumOfSampleToSend,_MyName, _NerlnetGraph)->done;
 startCasting([SourceName|SourceNames],NumOfSampleToSend, MyName, NerlnetGraph)->
     {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,SourceName,NerlnetGraph),
-
-  %{RouterHost,RouterPort} = maps:get(list_to_atom(SourceName),ConnectionMap),
-  io:format("sending StartCasting to: ~p~n",[{SourceName++[","]++NumOfSampleToSend}]),
-
+  ?Logger("~p sending start casting command to: ~p",[MyName, SourceName]),
   nerl_tools:http_request(RouterHost,RouterPort,"startCasting", SourceName++[","]++NumOfSampleToSend),
   startCasting(SourceNames,NumOfSampleToSend, MyName, NerlnetGraph).
 
 
 ack(NerlnetGraph) ->
-  io:format("sending ACK to serverAPI~n"),
+  % io:format("sending ACK to serverAPI~n"),
   {_,{Host, Port}} = digraph:vertex(NerlnetGraph,?API_SERVER_ATOM),
 %%  send an ACK to mainserver that the CSV file is ready
   nerl_tools:http_request(Host, Port,"ackP","ack").
 
 % getCSVName(InputName) ->
 %   lists:last(re:split(InputName, "/", [{return, list}])--[[]]).
-
-%%this function takes a batch of samples, calculate the samples id and writes them to a file
-% writeToFile(ListOfSamples,BatchID,CSVName,BatchSize)->
-%   StartID = BatchID*BatchSize,
-%   SampleSize = round(length(ListOfSamples)/BatchSize),
-%   writeSamplesToFile(ListOfSamples,StartID,CSVName,SampleSize).
-
-% writeSamplesToFile([],_HeadID,_CSVName,_SampleSize)->ok;
-% writeSamplesToFile(ListOfSamples,HeadID,CSVName,SampleSize)->
-%   Head = lists:sublist(ListOfSamples,SampleSize),
-%   file:write_file("./output/"++"predict"++CSVName, integer_to_list(HeadID)++" " ++Head++"\n", [append]),
-% %%  io:format("./output/predict~p   ~p~p~n", [CSVName,integer_to_list(HeadID),Head]),
-%   writeSamplesToFile(lists:sublist(ListOfSamples,SampleSize+1,length(ListOfSamples)),HeadID+1,CSVName,SampleSize).
 
 %% encodes stats to string:
 %% "Entity1:Stats,...|Entity2:Stats,...|....."

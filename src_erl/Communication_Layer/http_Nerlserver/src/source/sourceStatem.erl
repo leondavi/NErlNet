@@ -91,9 +91,10 @@ idle(cast, {batchList,Workers,CSVData}, State = #source_statem_state{batchSize =
 
 %%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
 idle(cast, {startCasting,Body}, State = #source_statem_state{myName = MyName, lengthOfSample = LengthOfSample, sendingMethod = Method, frequency = Frequency, batchSize = BatchSize, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, nerlnetGraph = NerlnetGraph, msgCounter = Counter, csvName = CSVName, batchList =CSVlist}) ->
-    [_Source,NumOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
-
-  ?LOG_NOTICE("start casting to: ~p~nnumber of batches to send: ~p~ntotal casting list length: ~p~n ",[CastingTo,NumOfBatchesToSend, length(CSVlist)]),
+  [_Source,NumOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
+  ?LOG_NOTICE("~p - starts casting to: ~p",[MyName, CastingTo]),
+  ?LOG_NOTICE("number of batches to send: ~p",[NumOfBatchesToSend]),
+  ?LOG_NOTICE("total casting list length: ~p",[length(CSVlist)]),
   NumOfBatches = list_to_integer(NumOfBatchesToSend),
   BatchesToSend = if length(CSVlist) < NumOfBatches -> length(CSVlist); true -> list_to_integer(NumOfBatchesToSend) end,
 
