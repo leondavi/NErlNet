@@ -122,11 +122,12 @@ waitforWorkers(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}
   {next_state, waitforWorkers, State}.
   
 
-%%initiating workers when they include federated workers. init stage == handshake between federated worker client and server
+%% initiating workers when they include federated workers. init stage == handshake between federated worker client and server
+%% TODO: make custom_worker_message in all states to send messages from workers to entities (not just client)
 idle(cast, {custom_worker_message, {From, To}}, State = #client_statem_state{etsRef = EtsRef, myName = MyName}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
-  WorkerHere = ets:member(EtsRef, To),
-  if WorkerHere -> 
+  WorkerOfThisClient = ets:member(EtsRef, To),
+  if WorkerOfThisClient -> 
     TargetWorkerPID = ets:lookup_element(EtsRef, To, ?WORKER_PID_IDX),
     gen_statem:cast(TargetWorkerPID,{init,From});
   true ->
@@ -136,7 +137,7 @@ idle(cast, {custom_worker_message, {From, To}}, State = #client_statem_state{ets
     nerl_tools:http_request(Host,Port, "init", From ++"#"++ To)
   end,
   % io:format("initiating, CONFIG received:~p ~n",[CONFIG]),
-  {next_state, idle, State};
+  {keep_state, State};
 
 idle(cast, {statistics}, State = #client_statem_state{ myName = MyName, etsRef = EtsRef}) ->
   NerlnetGraph = ets:lookup_element(EtsRef, nerlnetGraph, ?ETF_KV_VAL_IDX),
@@ -335,19 +336,20 @@ createWorkers(ClientName, EtsRef) ->
     LearningRate = list_to_float(binary_to_list(maps:get(<<"learningRate">>,WorkerMap))),
 
     % TODO add documentation about this case of 
+    % move this case to module called client_controller
     case ModelType of
       ?E_CUSTOMNN ->
         CustomFunc = fun workerNN:controller/2,
         WorkerData = none;
       ?E_FEDERATED_CLIENT ->
         CustomFunc = fun workerFederatedClient:controller/2,
-        FedServer = list_to_atom(binary_to_list(maps:get(<<"federatedServer">>,WorkerMap))),
+        FedServerName = list_to_atom(binary_to_list(maps:get(<<"federatedServer">>,WorkerMap))),
         SyncCount = list_to_integer(binary_to_list(maps:get(<<"syncCount">>,WorkerMap))),
-        WorkerData = #workerFederatedClient{syncMaxCount = SyncCount, syncCount = 0, myName = WorkerName, clientPID = self(), serverName = FedServer};
+        WorkerData = {_SyncMaxCount = SyncCount, _SyncCounter = 0, _MyName = WorkerName, _ServerName = FedServerName};
       ?E_FEDERATED_SERVER ->
         CustomFunc = fun workerFederatedServer:controller/2,
         SyncCount = list_to_integer(binary_to_list(maps:get(<<"syncCount">>,WorkerMap))),
-        WorkerData = #workerFederatedServer{syncMaxCount = SyncCount, syncCount = 0, myName = WorkerName, clientPID = self(), workersNamesList = []}
+        WorkerData = {_SyncMaxCount = SyncCount, _SyncCounter = 0, _MyName = WorkerName, _WorkersNamesList = []}
       end,
 
     WorkerArgs = {WorkerName,ModelId,ModelType,ScalingMethod, LayerTypesList, LayersSizes,

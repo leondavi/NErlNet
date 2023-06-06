@@ -15,21 +15,34 @@
 controller(FuncName, {GenWorkerEts, WorkerData}) -> 
   case FuncName of
     init -> init({GenWorkerEts, WorkerData});
+    pre_idle -> pre_idle({GenWorkerEts, WorkerData});
+    post_idle -> post_idle({GenWorkerEts, WorkerData});
     pre_train -> pre_train({GenWorkerEts, WorkerData});
     post_train -> post_train({GenWorkerEts, WorkerData});
     pre_predict -> pre_predict({GenWorkerEts, WorkerData});
     post_predict -> post_predict({GenWorkerEts, WorkerData});
-    pre_idle -> pre_idle({GenWorkerEts, WorkerData});
-    post_idle -> post_idle({GenWorkerEts, WorkerData});
+    update -> update({GenWorkerEts, WorkerData})
   end.
 
-%% handshake with workers / server (DONE IN GENERIC)
+get_this_client_ets(GenWorkerEts) -> 
+  ets:lookup_element(GenWorkerEts, federated_client_ets, ?ETS_KEYVAL_VAL_IDX).
+  
+%% handshake with workers / server
 init({GenWorkerEts, WorkerData}) -> ok,
   Type = float, % update from data
-  #workerFederatedServer{clientPID = ClientPid, myName= MyName, workersNamesList = WorkersNamesList} = WorkerData,
+  % {SyncMaxCount, SyncCounter = 0, MyName, WorkersNamesList = []} = WorkerData,
+  % #workerFederatedServer{clientPID = ClientPid, workersNamesList = WorkersNamesList} = WorkerData,
   FederatedServerEts = ets:new(federated_server,[set]),
-  insert(GenWorkerEts, federated_server_ets, FederatedServerEts),
-   ets:insert(FederatedServerEts,{nerltensor_type, Type}).%TODO insert workers by their name {WID, worker, WeightsAndBiasNerlTensor}
+  ets:insert(GenWorkerEts, federated_server_ets, FederatedServerEts),
+  ets:insert(FederatedServerEts,workers, []),%% this is a list of tuples: {WID, worker, WeightsAndBiasNerlTensor}
+  ets:insert(FederatedServerEts,{nerltensor_type, Type}).
+
+pre_idle({GenWorkerEts, WorkerName}) when is_atom(WorkerName) -> 
+  ThisEts = get_this_client_ets(GenWorkerEts),
+  ?LOG_NOTICE("adding worker ~p to fed workers",[WorkerName]),
+  add_worker(ThisEts, WorkerName).
+
+post_idle({_GenWorkerEts, _WorkerData}) -> ok.
 
 %% every countLimit batches, get updated model (NOTHING FOR SERVER) ??? maybe he needs to go to state receive from other workers?
 pre_train({GenWorkerEts, WorkerData}) -> ok.
@@ -51,3 +64,6 @@ generate_avg_weights() ->
   FinalSumNerlTensor = nerlNIF:sum_nerltensors_lists(ListOfWorkersNerlTensors, BinaryType),
   nerltensor_scalar_multiplication_nif(FinalSumNerlTensor, BinaryType, 1.0/NerlTensors).
 
+add_worker(ThisEts, WorkerData) ->
+  Workers = ets:lookup_element(ThisEts, workers, ?ETS_KEYVAL_VAL_IDX),
+  ets:insert(ThisEts, workers, Workers++WorkerData).

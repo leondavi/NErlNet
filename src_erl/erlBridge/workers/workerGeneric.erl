@@ -21,7 +21,7 @@
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,
   code_change/4, callback_mode/0]).
 %% States functions
--export([idle/3, train/3, predict/3, wait/3]).
+-export([idle/3, train/3, predict/3, wait/3, update/3]).
 
 %% countLimit - Number of samples to count before sending the weights for averaging. Predifined in the json file.
 %% count - Number of samples recieved for training after the last weights sended.
@@ -49,18 +49,21 @@ start_link(ARGS) ->
 
 init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,Optimizer, Features, Labels, LossMethod, LearningRate, ClientPID, Func, WorkerData}) ->
   nerl_tools:setup_logger(?MODULE),
+
   GenWorkerEts = ets:new(generic_worker,[set]),
-  ets:insert(GenWorkerEts, {model_id, ModelId}),
+  ets:insert(GenWorkerEts,{clientPID, ClientPID}),
+  ets:insert(GenWorkerEts,{model_id, ModelId}),
   ets:insert(GenWorkerEts,{model_type, ModelType}),
   ets:insert(GenWorkerEts,{layer_types_list, LayerTypesList}),
   ets:insert(GenWorkerEts,{layers_sizes, LayersSizes}),
-  ets:insert(GenWorkerEts,{layers_activation_functions, LayersActivationFunction}),
+  ets:insert(GenWorkerEts,{layers_activation_functions, LayersActivationFunctions}),
+  Func(init,{GenWorkerEts, WorkerData}),
+
   % ?LOG_NOTICE("Creating: WorkerName: ~p ,ModelId: ~p , ModelType: ~p , ScalingMethod: ~p ,LayerTypesList: ~p ,LayersSizes: ~p ,LayersActivationFunctions: ~p ,Optimizer: ~p , Features: ~p , Labels: ~p , ClientPID: ~p~n"
   %   ,[WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,LayersActivationFunctions,Optimizer, Features, Labels, ClientPID]),
   Res=nerlNIF:create_nif(ModelId, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
   ?LOG_NOTICE("Res = ~p ~n",[Res]),
 
-  Func(init, {GenWorkerEts, WorkerData}),
   {ok, idle, #workerGeneric_state{genWorkerEtsRef = GenWorkerEts, clientPid = ClientPID, features = Features, labels = Labels, myName = WorkerName,
                                  modelId = ModelId,optimizer = Optimizer,learningRate = LearningRate, lossMethod = LossMethod, customFunc = Func, workerData = WorkerData}}.
 
@@ -115,15 +118,9 @@ code_change(_OldVsn, StateName, State = #workerGeneric_state{}, _Extra) ->
 %% State idle
 
 %% got init from FedWorker, add it to workersList
-idle(cast, {init, From}, State = #workerGeneric_state{customFunc = CustomFunc}) ->
-  Func(pre_idle, WorkerEtsRef),
-
-  if is_record(WorkerData, workerFederatedServer) ->
-    
-    io:format("========adding ~p to fed workers============~n",[From]),
-    NewWorkerData = WorkerData#workerFederatedServer{workersNamesList = WorkerData#workerFederatedServer.workersNamesList ++ [From]},
-    {next_state, idle, State#workerGeneric_state{workerData = NewWorkerData}};
-  true -> {next_state, idle, State} end;
+idle(cast, {init, From}, State = #workerGeneric_state{genWorkerEtsRef = WorkerEtsRef, customFunc = Func}) ->
+  Func(pre_idle, {WorkerEtsRef, From}),
+  {next_state, idle, State};
 
 idle(cast, {training}, State = #workerGeneric_state{myName = MyName,clientPid = ClientPid}) ->
   ?LOG_NOTICE("Go from idle to train!\n"),
@@ -170,11 +167,13 @@ wait(cast, {loss,nan,Time_NIF}, State = #workerGeneric_state{clientPid = ClientP
 
 wait(cast, {loss, {LossVal,Time}}, State = #workerGeneric_state{clientPid = ClientPid, myName = MyName, nextState = NextState, modelId=_ModelID,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
   gen_statem:cast(ClientPid,{loss, MyName, LossVal,Time/1000}), %% TODO Add Time and Time_NIF to the cast
-  CustomFunc(post_train, WorkerData),
+  Update = CustomFunc(post_train, WorkerData),
   checkAndAck(MyName,ClientPid,AckClient),
-
-  {next_state, NextState, State#workerGeneric_state{ackClient = 0}};
-
+  if Update -> 
+    {next_state, update, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
+  true ->
+    {next_state, NextState, State#workerGeneric_state{ackClient = 0}}
+  end;
 
 wait(cast, {predictRes,NerlTensor, Type, TimeTook, CSVname,BatchID}, State = #workerGeneric_state{myName = MyName, clientPid = ClientPid, nextState = NextState,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
   gen_statem:cast(ClientPid,{predictRes,MyName, CSVname,BatchID, NerlTensor, Type, TimeTook}), %% TODO TODO change csv name and batch id(1)
@@ -212,6 +211,9 @@ wait(cast, Param, State) ->
   logger:notice("worker Not supposed to be. Got: ~p\n",[Param]),
   {next_state, wait, State}.
 
+update(cast, Data, State#workerGeneric_state{modelId = ModelId, customFunc = CustomFunc, nextState = NextState}) ->
+  CustomFunc(update, Data),
+{next_state, NextState, State}.
 
 %% State train
 train(cast, {sample, {<<>>, _Type}}, State ) ->

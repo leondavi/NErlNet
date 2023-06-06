@@ -43,8 +43,8 @@ string_to_list_int(Binary) ->
   Splitted = re:split(NoParenthesis,",",[{return,list}]),
   [list_to_integer(X)||X<-Splitted].
 
-%%% This gets a Cowboy HTTP Request object and reads the multipart (type of form) data from it
-%% automatically streams to file if its a file
+%% This gets a Cowboy HTTP Request object and reads the multipart (type of form) data from it
+%% automatically streams to file data is file
 % returns {FullReq, Data} / {FullReq, [fileReady]}
 multipart(Req0, Data) ->
   case cowboy_req:read_part(Req0) of
