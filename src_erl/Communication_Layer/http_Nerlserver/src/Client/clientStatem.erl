@@ -324,14 +324,10 @@ createWorkers(ClientName, EtsRef) ->
     WorkerName = list_to_atom(binary_to_list(maps:get(<<"name">>,WorkerMap))),
     ModelType = list_to_integer(binary_to_list(maps:get(<<"modelType">>,WorkerMap))),
     ScalingMethod = list_to_integer(binary_to_list(maps:get(<<"scalingMethod">>,WorkerMap))),
-
     LayerTypesList = nerl_tools:string_to_list_int(maps:get(<<"layerTypesList">>,WorkerMap)),
     LayersSizes = nerl_tools:string_to_list_int(maps:get(<<"layersSizes">>,WorkerMap)),
     LayersActivationFunctions = nerl_tools:string_to_list_int(maps:get(<<"layersActivationFunctions">>,WorkerMap)),
-
     Optimizer = list_to_integer(binary_to_list(maps:get(<<"optimizer">>,WorkerMap))),
-    Features = list_to_integer(binary_to_list(maps:get(<<"features">>,WorkerMap))),
-    Labels = list_to_integer(binary_to_list(maps:get(<<"labels">>,WorkerMap))),
     LossMethod = list_to_integer(binary_to_list(maps:get(<<"lossMethod">>,WorkerMap))),
     LearningRate = list_to_float(binary_to_list(maps:get(<<"learningRate">>,WorkerMap))),
 
@@ -353,7 +349,7 @@ createWorkers(ClientName, EtsRef) ->
       end,
 
     WorkerArgs = {WorkerName,ModelId,ModelType,ScalingMethod, LayerTypesList, LayersSizes,
-      LayersActivationFunctions, Optimizer, Features, Labels, LossMethod, LearningRate, self(), CustomFunc, WorkerData},
+      LayersActivationFunctions, Optimizer, LossMethod, LearningRate, self(), CustomFunc, WorkerData},
 
     WorkerPid = workerGeneric:start_link(WorkerArgs),
 

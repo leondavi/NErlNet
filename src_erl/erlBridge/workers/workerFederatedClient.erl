@@ -61,10 +61,12 @@ init({GenWorkerEts, WorkerData}) ->
   ets:insert(GenWorkerEts, {fedrated_client_ets, FedratedClientEts}),
   {SyncMaxCount, MyName, ServerName} = WorkerData,
   % create fields in this ets
-  ets:insert(FedratedClientEts, my_name, MyName),
-  ets:insert(FedratedClientEts, server_name, ServerName),
-  ets:insert(FedratedClientEts, sync_max_count, SyncMaxCount),
-  ets:insert(FedratedClientEts, sync_count, SyncMaxCount),
+  ets:insert(FedratedClientEts, {my_name, MyName}),
+  ets:insert(FedratedClientEts, {server_name, ServerName}),
+  ets:insert(FedratedClientEts, {sync_max_count, SyncMaxCount}),
+  ets:insert(FedratedClientEts, {sync_count, SyncMaxCount}),
+  ets:insert(FedratedClientEts, {server_update, false}),
+  ets:insert(FedratedClientEts, {workerUpdateData, none}),
 
   %% create the event handler
   EventTunnelPID = ets:lookup_element(GenWorkerEts, workerTunnelPID, ?ETS_KEYVAL_VAL_IDX),
@@ -80,27 +82,29 @@ post_idle({_GenWorkerEts, _WorkerData}) -> ok.
 %% every countLimit batches, get updated model
 pre_train({GenWorkerEts, WorkerData}) -> 
   ThisEts = get_this_client_ets(GenWorkerEts),
-  SyncCount = ets:lookup_element(ThisEts, sync_count ?ETS_KEYVAL_VAL_IDX),
+  ToUpdate = ets:lookup_element(ThisEts, server_update, ?ETS_KEYVAL_VAL_IDX),
+
+  if ToUpdate ->
+    ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
+    Weights = ets:lookup_element(ThisEts, workerUpdateData, ?ETS_KEYVAL_VAL_IDX),
+    nerlNIF:call_to_set_weights(ModelID, Weights),
+  true -> nothing
+  end.
+
+%% every countLimit batches, send updated weights
+post_train({GenWorkerEts, _WorkerData}) -> 
+  ThisEts = get_this_client_ets(GenWorkerEts),
+  SyncCount = ets:lookup_element(ThisEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
   if SyncCount == 0 ->
     ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-    Weights = worker_event_polling(60000),  %TODO define
-    nerlNIF:call_to_set_weights(ModelID, Weights),
+    Weights = nerlNIF:call_to_get_weights(ModelID),
+    ClientPID = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
+    MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+    gen_statem:cast(ClientPID, {update, {MyName, Weights}}),
     MaxSyncCount = ets:lookup_element(ThisEts, sync_max_count, ?ETS_KEYVAL_VAL_IDX),
     ets:update_counter(ThisEts, sync_count, MaxSyncCount);
   true -> ets:update_counter(ThisEts, sync_count, -1)
   end.
-
-%% every countLimit batches, send updated weights
-post_train({GenWorkerEts, WorkerData}) -> 
-  ThisEts = get_this_client_ets(GenWorkerEts),
-  SyncCount = ets:lookup_element(ThisEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
-  if WorkerData == {<<>>, Type} ->
-  
-  true ->
-  end.
-  if SyncCount == 0 ->
-      send_my_weights;
-  true -> cont end.
 
 %% nothing?
 pre_predict({GenWorkerEts, WorkerData}) -> WorkerData.
@@ -108,9 +112,15 @@ pre_predict({GenWorkerEts, WorkerData}) -> WorkerData.
 %% nothing?
 post_predict(Data) -> Data.
 
+%% gets weights from federated server
+update({GenWorkerEts, NerlTensorWeights}) ->
+  ThisEts = get_this_client_ets(GenWorkerEts),
+  ets:update_element(ThisEts, server_update, {?ETS_KEYVAL_VAL_IDX, true}),
+  ets:update_element(ThisEts, workerUpdateData, {?ETS_KEYVAL_VAL_IDX, NerlTensorWeights}).
+
+%%------------------------------------------
 worker_event_polling(0) -> ?LOG_ERROR("worker event polling takes too long!");
 worker_event_polling(T) ->
-  Weights = ets:lookup_element(GenWorkerEts, workerEventDataList, ?ETS_KEYVAL_VAL_IDX),
   if length(Weights) == 1 -> Weights;
     length(Weights) > 1 -> ?LOG_ERROR("more than 1 messages pending!");
     true -> %% wait for info to update
