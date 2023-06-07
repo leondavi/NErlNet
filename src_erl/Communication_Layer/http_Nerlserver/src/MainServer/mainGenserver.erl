@@ -57,7 +57,7 @@ init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
     % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
   
   NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--?LIST_OF_SPECIAL_SERVERS]),
-  io:format("New StatisticsMap = ~p~n",[NewStatisticsMap]),
+  % io:format("New StatisticsMap = ~p~n",[NewStatisticsMap]),
   {ok, #main_genserver_state{myName = MyNameStr, workersMap = WorkersMap, batchSize = BatchSize, state=idle, clients = Clients, nerlnetGraph = NerlnetGraph, msgCounter = 1,statisticsMap = NewStatisticsMap}}.
 
 %% @private
@@ -133,6 +133,7 @@ handle_cast({clientsTraining, _Body}, State = #main_genserver_state{myName = MyN
 %%  io:format("binary_to_list(Body):~p~n",[binary_to_list(Body)]),
 %%  io:format("Splitted-(Body):~p~n",[re:split(binary_to_list(Body), ",", [{return, list}])]),
 %%  TODO find the router that can send this request to Sources**
+  io:format("setting clients ~p to training~n",[ListOfClients]),
   [{setClientState(clientTraining,ClientName, NerlnetGraph,MyName)}|| ClientName <- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 

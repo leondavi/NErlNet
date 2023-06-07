@@ -39,17 +39,14 @@
 controller(FuncName, {GenWorkerEts, WorkerData}) -> 
   case FuncName of
     init -> init({GenWorkerEts, WorkerData});
-    pre_idle -> pre_idle({GenWorkerEts, WorkerData});
-    post_idle -> post_idle({GenWorkerEts, WorkerData});
-    pre_train -> pre_train({GenWorkerEts, WorkerData});
-    post_train -> post_train({GenWorkerEts, WorkerData});
+    pre_idle    -> pre_idle({GenWorkerEts, WorkerData});
+    post_idle   -> post_idle({GenWorkerEts, WorkerData});
+    pre_train   -> pre_train({GenWorkerEts, WorkerData});
+    post_train  -> post_train({GenWorkerEts, WorkerData});
     pre_predict -> pre_predict({GenWorkerEts, WorkerData});
-    post_predict -> post_predict({GenWorkerEts, WorkerData});
-    update -> update({GenWorkerEts, WorkerData})
+    post_predict-> post_predict({GenWorkerEts, WorkerData});
+    update      -> update({GenWorkerEts, WorkerData})
   end.
-
-federated_server_event_handler(NewNerlTensorWeights, State) ->
-  implement.
 
 get_this_client_ets(GenWorkerEts) -> 
   ets:lookup_element(GenWorkerEts, federated_client_ets, ?ETS_KEYVAL_VAL_IDX).
@@ -58,7 +55,7 @@ get_this_client_ets(GenWorkerEts) ->
 init({GenWorkerEts, WorkerData}) ->
   % create an ets for this client and save it to generic worker ets
   FedratedClientEts = ets:new(federated_client,[set]),
-  ets:insert(GenWorkerEts, {fedrated_client_ets, FedratedClientEts}),
+  ets:insert(GenWorkerEts, {federated_client_ets, FedratedClientEts}),
   {SyncMaxCount, MyName, ServerName} = WorkerData,
   % create fields in this ets
   ets:insert(FedratedClientEts, {my_name, MyName}),
@@ -67,29 +64,29 @@ init({GenWorkerEts, WorkerData}) ->
   ets:insert(FedratedClientEts, {sync_count, SyncMaxCount}),
   ets:insert(FedratedClientEts, {server_update, false}),
   ets:insert(FedratedClientEts, {workerUpdateData, none}),
+  io:format("finished init in ~p~n",[MyName]).
 
-  %% create the event handler
-  EventTunnelPID = ets:lookup_element(GenWorkerEts, workerTunnelPID, ?ETS_KEYVAL_VAL_IDX),
-
-  ClientPID = ets:lookup_element(GenWorkerEts, clientPID, ?ETS_KEYVAL_VAL_IDX),
-  gen_statem:cast(ClientPID,{custom_worker_message,{MyName, ServerName}}).   %% send to server that this worker is part of the federated workers
-
-
-pre_idle({_GenWorkerEts, _WorkerData}) -> ok.
+pre_idle({GenWorkerEts, _WorkerData}) ->
+    ThisEts = get_this_client_ets(GenWorkerEts),
+    %% send to server that this worker is part of the federated workers
+    ClientPID = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
+    MyName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
+    ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX),
+    gen_statem:cast(ClientPID,{custom_worker_message,{MyName, ServerName}}),
+    io:format("sent ~p init message: ~p~n",[ServerName, {MyName, ServerName}]).
 
 post_idle({_GenWorkerEts, _WorkerData}) -> ok.
 
-%% every countLimit batches, get updated model
-pre_train({GenWorkerEts, WorkerData}) -> 
-  ThisEts = get_this_client_ets(GenWorkerEts),
-  ToUpdate = ets:lookup_element(ThisEts, server_update, ?ETS_KEYVAL_VAL_IDX),
-
-  if ToUpdate ->
-    ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-    Weights = ets:lookup_element(ThisEts, workerUpdateData, ?ETS_KEYVAL_VAL_IDX),
-    nerlNIF:call_to_set_weights(ModelID, Weights),
-  true -> nothing
-  end.
+%% set weights from fedserver
+pre_train({GenWorkerEts, WorkerData}) -> ok.
+  % ThisEts = get_this_client_ets(GenWorkerEts),
+  % ToUpdate = ets:lookup_element(ThisEts, server_update, ?ETS_KEYVAL_VAL_IDX),
+  % if ToUpdate ->
+  %   ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
+  %   Weights = ets:lookup_element(ThisEts, workerUpdateData, ?ETS_KEYVAL_VAL_IDX),
+  %   nerlNIF:call_to_set_weights(ModelID, Weights);
+  % true -> nothing
+  % end.
 
 %% every countLimit batches, send updated weights
 post_train({GenWorkerEts, _WorkerData}) -> 
@@ -99,11 +96,15 @@ post_train({GenWorkerEts, _WorkerData}) ->
     ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
     Weights = nerlNIF:call_to_get_weights(ModelID),
     ClientPID = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
+    ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX),
     MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
-    gen_statem:cast(ClientPID, {update, {MyName, Weights}}),
+    gen_statem:cast(ClientPID, {update, {MyName, ServerName, Weights}}),
     MaxSyncCount = ets:lookup_element(ThisEts, sync_max_count, ?ETS_KEYVAL_VAL_IDX),
-    ets:update_counter(ThisEts, sync_count, MaxSyncCount);
-  true -> ets:update_counter(ThisEts, sync_count, -1)
+    ets:update_counter(ThisEts, sync_count, MaxSyncCount),
+    ToUpdate = true;
+  true ->
+    ets:update_counter(ThisEts, sync_count, -1),
+    ToUpdate = false
   end.
 
 %% nothing?
@@ -115,16 +116,17 @@ post_predict(Data) -> Data.
 %% gets weights from federated server
 update({GenWorkerEts, NerlTensorWeights}) ->
   ThisEts = get_this_client_ets(GenWorkerEts),
-  ets:update_element(ThisEts, server_update, {?ETS_KEYVAL_VAL_IDX, true}),
-  ets:update_element(ThisEts, workerUpdateData, {?ETS_KEYVAL_VAL_IDX, NerlTensorWeights}).
+  ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
+  Weights = ets:lookup_element(ThisEts, workerUpdateData, ?ETS_KEYVAL_VAL_IDX),
+  nerlNIF:call_to_set_weights(ModelID, Weights).
 
 %%------------------------------------------
-worker_event_polling(0) -> ?LOG_ERROR("worker event polling takes too long!");
-worker_event_polling(T) ->
-  if length(Weights) == 1 -> Weights;
-    length(Weights) > 1 -> ?LOG_ERROR("more than 1 messages pending!");
-    true -> %% wait for info to update
-      receive _ -> non   
-      after 1 -> worker_event_polling(T-1)
-      end
-  end.
+% worker_event_polling(0) -> ?LOG_ERROR("worker event polling takes too long!");
+% worker_event_polling(Weights) ->
+%   if length(Weights) == 1 -> Weights;
+%     length(Weights) > 1 -> ?LOG_ERROR("more than 1 messages pending!");
+%     true -> %% wait for info to update
+%       receive _ -> non   
+%       after 1 -> worker_event_polling(T-1)
+%       end
+%   end.

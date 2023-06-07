@@ -30,28 +30,48 @@ get_this_server_ets(GenWorkerEts) ->
 %% handshake with workers / server
 init({GenWorkerEts, WorkerData}) -> ok,
   Type = float, % update from data
-  % {SyncMaxCount, SyncCounter = 0, MyName, WorkersNamesList = []} = WorkerData,
+  {SyncMaxCount, MyName, WorkersNamesList} = WorkerData,
   % #workerFederatedServer{clientPID = ClientPid, workersNamesList = WorkersNamesList} = WorkerData,
   FederatedServerEts = ets:new(federated_server,[set]),
-  ets:insert(GenWorkerEts, federated_server_ets, FederatedServerEts),
-
+  ets:insert(GenWorkerEts, {federated_server_ets, FederatedServerEts}),
+  ets:insert(FederatedServerEts, {workers, WorkersNamesList}),
+  ets:insert(FederatedServerEts, {sync_max_count, SyncMaxCount}),
+  ets:insert(FederatedServerEts, {sync_count, SyncMaxCount}),
+  ets:insert(FederatedServerEts, {my_name, MyName}),
   ets:insert(FederatedServerEts,{nerltensor_type, Type}).
 
-pre_idle({GenWorkerEts, WorkerName}) when is_atom(WorkerName) -> 
+pre_idle({GenWorkerEts, WorkerName}) -> ok.
+
+post_idle({GenWorkerEts, WorkerName}) -> 
   ThisEts = get_this_server_ets(GenWorkerEts),
-  ?LOG_NOTICE("adding worker ~p to fed workers",[WorkerName]),
-  add_worker(ThisEts, WorkerName).
+  io:format("adding worker ~p to fed workers~n",[WorkerName]),
+  Workers = ets:lookup_element(ThisEts, workers, ?ETS_KEYVAL_VAL_IDX),
+  ets:insert(ThisEts, {workers, Workers++WorkerName}).
 
-post_idle({_GenWorkerEts, _WorkerData}) -> ok.
-
-%% every countLimit batches, get updated model (NOTHING FOR SERVER) ??? maybe he needs to go to state receive from other workers?
+%% Send updated weights if set
 pre_train({GenWorkerEts, WorkerData}) -> ok.
 
-%% every countLimit batches, send updated weights
-post_train({GenWorkerEts, WorkerData}) -> ok,
-    Weights = generate_avg_weights(),
+%% calculate avg of weights when set
+post_train({GenWorkerEts, WorkerData}) -> 
+  ThisEts = get_this_server_ets(GenWorkerEts),
+  SyncCount = ets:lookup_element(ThisEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
+  if SyncCount == 0 ->
+    ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
+    Weights = nerlNIF:call_to_get_weights(ModelID),
+    ClientPID = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
+    MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+    gen_statem:cast(ClientPID, {update, {MyName, MyName, Weights}}),
+    MaxSyncCount = ets:lookup_element(ThisEts, sync_max_count, ?ETS_KEYVAL_VAL_IDX),
+    ets:update_counter(ThisEts, sync_count, MaxSyncCount),
+    ToUpdate = true;
+  true ->
+    ets:update_counter(ThisEts, sync_count, -1),
+    ToUpdate = false
+  end.
+  % ThisEts = get_this_server_ets(GenWorkerEts),
+  % Weights = generate_avg_weights(ThisEts),
 
-    gen_statem:cast({update, Weights}). %TODO complete send to all workers in lists:foreach
+  % gen_statem:cast({update, Weights}). %TODO complete send to all workers in lists:foreach
 
 %% nothing?
 pre_predict({GenWorkerEts, WorkerData}) -> ok.
@@ -59,26 +79,30 @@ pre_predict({GenWorkerEts, WorkerData}) -> ok.
 %% nothing?
 post_predict({GenWorkerEts, WorkerData}) -> ok.
 
+%%  FedServer keeps an ets list of tuples: {WorkerName, worker, WeightsAndBiasNerlTensor}
+%%  in update get weights of clients, if got from all => avg and send back
 update({GenWorkerEts, WorkerData}) ->
-  {WorkerName, Weights} = WorkerData,
+  {WorkerName, Me, NerlTensorWeights} = WorkerData,
   ThisEts = get_this_server_ets(GenWorkerEts),
-  ets:update_element(ThisEts, server_update, {?ETS_KEYVAL_VAL_IDX, true}),
-    %% this is an ets list of tuples: {WorkerName, worker, WeightsAndBiasNerlTensor}
+  %% update weights in ets
   WorkerExists = ets:member(ThisEts, WorkerName),
-  if WorkerExists ->
-    ets:update_element(ThisEts, WorkerName, [ {?ETS_TYPE_IDX, worker}, {?ETS_KEYVAL_VAL_IDX, NerlTensorWeights}]);    %% TODO: validate WorkerName is atom
-  true ->
-    ets:insert(ThisEts, {WorkerName, worker, empty_nerltensor})
-  end.
+  if WorkerExists -> ets:update_element(ThisEts, WorkerName, [ {?ETS_TYPE_IDX, worker}, {?ETS_KEYVAL_VAL_IDX, NerlTensorWeights}]);    %% TODO: validate WorkerName is atom
+  true -> ets:insert(ThisEts, {WorkerName, worker, empty_nerltensor})
+  end,
+  %% check if got all  
+  WorkersList = ets:lookup_element(ThisEts, workers, ?ETS_KEYVAL_VAL_IDX),
+  GotAll = length(WorkersList) == length([ element(?ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, Attr) || Attr <- ets:tab2list(ThisEts), element(?ETS_TYPE_IDX, Attr) == worker]),
+  if GotAll ->
+      AvgWeightsNerlTensor = generate_avg_weights(ThisEts),
+      io:format("AvgWeights = ~p~n",[AvgWeightsNerlTensor]),
+      ClientPID = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
+      gen_statem:cast(ClientPID, {custom_worker_message, WorkersList, AvgWeightsNerlTensor});
+  true -> pass end.
 
 
-generate_avg_weights() ->
-  BinaryType = ets:lookup_element(federated_server, nerltensor_type, ?ETS_NERLTENSOR_TYPE_IDX),
-  ListOfWorkersNerlTensors = [ element(?ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, Attr) || Attr <- ets:tab2list(federated_server), element(?ETS_TYPE_IDX, Attr) == worker],
+generate_avg_weights(FedEts) ->
+  BinaryType = ets:lookup_element(FedEts, nerltensor_type, ?ETS_NERLTENSOR_TYPE_IDX),
+  ListOfWorkersNerlTensors = [ element(?ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, Attr) || Attr <- ets:tab2list(FedEts), element(?ETS_TYPE_IDX, Attr) == worker],
   NerlTensors = length(ListOfWorkersNerlTensors),
   FinalSumNerlTensor = nerlNIF:sum_nerltensors_lists(ListOfWorkersNerlTensors, BinaryType),
   nerlNIF:nerltensor_scalar_multiplication_nif(FinalSumNerlTensor, BinaryType, 1.0/NerlTensors).
-
-add_worker(ThisEts, WorkerData) ->
-  Workers = ets:lookup_element(ThisEts, workers, ?ETS_KEYVAL_VAL_IDX),
-  ets:insert(ThisEts, workers, Workers++WorkerData).

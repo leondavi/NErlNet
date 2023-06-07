@@ -63,6 +63,13 @@ init({MyName,NerlnetGraph}) ->
   {noreply, NewState :: #router_genserver_state{}, timeout() | hibernate} |
   {stop, Reason :: term(), NewState :: #router_genserver_state{}}).
 
+%% data passing format: {To, Action, Data}
+handle_cast({pass,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
+  {To, Action, Data} = binary_to_term(Body),
+  {Host,Port} = nerl_tools:getShortPath(MyName,To,NerlnetGraph),
+  nerl_tools:http_request(Host,Port,Action,Body),
+{noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
+
 handle_cast({rout,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->
 %%  Body contains list of sources to send the request, and input name list of clients should be before  '@'
 %%  ToSend = term_to_binary({ClientName, WorkerName, CSVPath, Counter, Head}),
