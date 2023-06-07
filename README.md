@@ -33,7 +33,7 @@ References and libraries:
 - [Rebar3](https://github.com/erlang/rebar3), an Erlang tool that makes it easy to create, develop, and release Erlang libraries, applications, and systems in a repeatable manner.
 - [Simple Cpp Logger](https://github.com/nadrino/simple-cpp-logger), simple cpp logger headers-only implementation.
 
-Nerlnet is developed by David Leon and Dr. Yehuda Ben-Shimol's lab from the School of Computer and Electrical Engineering in Ben Gurion University. <br>
+Nerlnet is developed by David Leon and Dr. Yehuda Ben-Shimol. <br>
 
 ### Introducing Nerlnet
 
