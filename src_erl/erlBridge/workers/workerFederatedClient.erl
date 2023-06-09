@@ -63,7 +63,6 @@ init({GenWorkerEts, WorkerData}) ->
   ets:insert(FedratedClientEts, {sync_max_count, SyncMaxCount}),
   ets:insert(FedratedClientEts, {sync_count, SyncMaxCount}),
   ets:insert(FedratedClientEts, {server_update, false}),
-  ets:insert(FedratedClientEts, {workerUpdateData, none}),
   io:format("finished init in ~p~n",[MyName]).
 
 pre_idle({GenWorkerEts, _WorkerData}) ->
@@ -83,7 +82,6 @@ pre_train({GenWorkerEts, WorkerData}) -> ok.
   % ToUpdate = ets:lookup_element(ThisEts, server_update, ?ETS_KEYVAL_VAL_IDX),
   % if ToUpdate ->
   %   ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-  %   Weights = ets:lookup_element(ThisEts, workerUpdateData, ?ETS_KEYVAL_VAL_IDX),
   %   nerlNIF:call_to_set_weights(ModelID, Weights);
   % true -> nothing
   % end.
@@ -117,8 +115,8 @@ post_predict(Data) -> Data.
 update({GenWorkerEts, NerlTensorWeights}) ->
   ThisEts = get_this_client_ets(GenWorkerEts),
   ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-  Weights = ets:lookup_element(ThisEts, workerUpdateData, ?ETS_KEYVAL_VAL_IDX),
-  nerlNIF:call_to_set_weights(ModelID, Weights).
+  nerlNIF:call_to_set_weights(ModelID, NerlTensorWeights),
+  io:format("updated weights in ~p~n",[ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX)]).
 
 %%------------------------------------------
 % worker_event_polling(0) -> ?LOG_ERROR("worker event polling takes too long!");

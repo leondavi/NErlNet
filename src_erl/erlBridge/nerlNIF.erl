@@ -188,7 +188,7 @@ nerltensor_scalar_multiplication_erl({NerlTensorErl, Type}, ScalarValue) ->
       end.
 
 sum_nerltensors_lists_erl([], _ErlType) ->  throw("Zero length given to sum_nerltensors_even_lists");
-sum_nerltensors_lists_erl(NerltensorList, _ErlType) when length(NerltensorList) == 1 ->  NerltensorList;
+sum_nerltensors_lists_erl(NerltensorList, _ErlType) when length(NerltensorList) == 1 ->  hd(NerltensorList);
 sum_nerltensors_lists_erl(NerltensorList, ErlType)  -> 
       OddLength = nerl:odd(length(NerltensorList)),
       {OddFirstElement, EvenNerltensorList} =  
@@ -211,7 +211,7 @@ sum_nerltensors_lists_erl(NerltensorList, ErlType)  ->
       sum_nerltensors_lists_erl(SumResultTwoHalfsWithOddFirst, ErlType).
 
 sum_nerltensors_lists([], _BinaryType) ->  throw("Zero length given to sum_nerltensors_even_lists");
-sum_nerltensors_lists(NerltensorList, _BinaryType) when length(NerltensorList) == 1 ->  NerltensorList;
+sum_nerltensors_lists(NerltensorList, _BinaryType) when length(NerltensorList) == 1 ->  hd(NerltensorList);
 sum_nerltensors_lists(NerltensorList, BinaryType) -> 
       OddLength = nerl:odd(length(NerltensorList)),
       {OddFirstElement, EvenNerltensorList} =  
@@ -225,7 +225,7 @@ sum_nerltensors_lists(NerltensorList, BinaryType) ->
       NerlTensorsHalfListB = lists:sublist(EvenNerltensorList, HalfSize + 1, HalfSize),
 
       % sum high and low lists
-      SumResultOfTwoHalfs = lists:zipwith(fun(NerlTensorA,NerlTensorB) -> element(1,nerltensor_sum_nif(NerlTensorA, NerlTensorB, BinaryType)) end, NerlTensorsHalfListA, NerlTensorsHalfListB),
+      SumResultOfTwoHalfs = lists:zipwith(fun({NerlTensorA,Type},{NerlTensorB,Type}) -> element(1,nerltensor_sum_nif(NerlTensorA, NerlTensorB, BinaryType)) end, NerlTensorsHalfListA, NerlTensorsHalfListB),
 
       % take care to the first element in case of odd length
       SumResultTwoHalfsWithOddFirst = 

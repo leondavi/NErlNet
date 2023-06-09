@@ -34,11 +34,11 @@ init({GenWorkerEts, WorkerData}) -> ok,
   % #workerFederatedServer{clientPID = ClientPid, workersNamesList = WorkersNamesList} = WorkerData,
   FederatedServerEts = ets:new(federated_server,[set]),
   ets:insert(GenWorkerEts, {federated_server_ets, FederatedServerEts}),
-  ets:insert(FederatedServerEts, {workers, WorkersNamesList}),
+  ets:insert(FederatedServerEts, {workers, [MyName]}),    %% start with only self in list, get others in network thru handshake
   ets:insert(FederatedServerEts, {sync_max_count, SyncMaxCount}),
   ets:insert(FederatedServerEts, {sync_count, SyncMaxCount}),
   ets:insert(FederatedServerEts, {my_name, MyName}),
-  ets:insert(FederatedServerEts,{nerltensor_type, Type}).
+  ets:insert(FederatedServerEts, {nerltensor_type, Type}).
 
 pre_idle({GenWorkerEts, WorkerName}) -> ok.
 
@@ -46,7 +46,7 @@ post_idle({GenWorkerEts, WorkerName}) ->
   ThisEts = get_this_server_ets(GenWorkerEts),
   io:format("adding worker ~p to fed workers~n",[WorkerName]),
   Workers = ets:lookup_element(ThisEts, workers, ?ETS_KEYVAL_VAL_IDX),
-  ets:insert(ThisEts, {workers, Workers++WorkerName}).
+  ets:insert(ThisEts, {workers, Workers++[WorkerName]}).
 
 %% Send updated weights if set
 pre_train({GenWorkerEts, WorkerData}) -> ok.
@@ -85,24 +85,33 @@ update({GenWorkerEts, WorkerData}) ->
   {WorkerName, Me, NerlTensorWeights} = WorkerData,
   ThisEts = get_this_server_ets(GenWorkerEts),
   %% update weights in ets
-  WorkerExists = ets:member(ThisEts, WorkerName),
-  if WorkerExists -> ets:update_element(ThisEts, WorkerName, [ {?ETS_TYPE_IDX, worker}, {?ETS_KEYVAL_VAL_IDX, NerlTensorWeights}]);    %% TODO: validate WorkerName is atom
-  true -> ets:insert(ThisEts, {WorkerName, worker, empty_nerltensor})
-  end,
-  %% check if got all  
+  ets:insert(ThisEts, {WorkerName, worker, NerlTensorWeights}),
+
+  %% check if there are queued messages, and treat them accordingly
+  Q = ets:lookup_element(GenWorkerEts, message_q, ?ETS_KEYVAL_VAL_IDX),
+  [ets:insert(ThisEts, {WorkerName, worker, NerlTensorWeights}) || {Action, WorkerName, To, NerlTensorWeights} <- Q, Action == update],
+
+  %% check if got all weights of workers
   WorkersList = ets:lookup_element(ThisEts, workers, ?ETS_KEYVAL_VAL_IDX),
-  GotAll = length(WorkersList) == length([ element(?ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, Attr) || Attr <- ets:tab2list(ThisEts), element(?ETS_TYPE_IDX, Attr) == worker]),
+  GotAll = length(WorkersList) == 
+    length([ element(?ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, Attr) || Attr <- ets:tab2list(ThisEts), element(?ETS_TYPE_IDX, Attr) == worker]),
   if GotAll ->
       AvgWeightsNerlTensor = generate_avg_weights(ThisEts),
       io:format("AvgWeights = ~p~n",[AvgWeightsNerlTensor]),
+      ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
+      nerlNIF:call_to_set_weights(ModelID, AvgWeightsNerlTensor),     %% update self weights to new model
+      [ets:delete(ThisEts, WorkerName) || WorkerName <- WorkersList ],%% delete old tensors for next aggregation phase
       ClientPID = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
-      gen_statem:cast(ClientPID, {custom_worker_message, WorkersList, AvgWeightsNerlTensor});
-  true -> pass end.
+      gen_statem:cast(ClientPID, {custom_worker_message, WorkersList, AvgWeightsNerlTensor}),
+      false;
+  true -> true end.
 
 
 generate_avg_weights(FedEts) ->
   BinaryType = ets:lookup_element(FedEts, nerltensor_type, ?ETS_NERLTENSOR_TYPE_IDX),
   ListOfWorkersNerlTensors = [ element(?ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, Attr) || Attr <- ets:tab2list(FedEts), element(?ETS_TYPE_IDX, Attr) == worker],
+  io:format("Tensors to sum = ~p~n",[ListOfWorkersNerlTensors]),
   NerlTensors = length(ListOfWorkersNerlTensors),
   FinalSumNerlTensor = nerlNIF:sum_nerltensors_lists(ListOfWorkersNerlTensors, BinaryType),
+  io:format("Summed = ~p~n",[FinalSumNerlTensor]),
   nerlNIF:nerltensor_scalar_multiplication_nif(FinalSumNerlTensor, BinaryType, 1.0/NerlTensors).

@@ -353,8 +353,8 @@ static ERL_NIF_TERM  nerltensor_scalar_multiplication_nif(ErlNifEnv* env, int ar
     double scalard;
     nifpp::str_atom nerltensors_type;
 
-    nifpp::get_throws(env, argv[ARG_SCALAR], scalard);
     nifpp::get_throws(env, argv[ARG_TYPE], nerltensors_type);
+    nifpp::get_throws(env, argv[ARG_SCALAR], scalard);
     int enc_type_num = atom_str_to_enum(nerltensors_type);
     int dims;
     nifpp::TERM nerltensor_bin;

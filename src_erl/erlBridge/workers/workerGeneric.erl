@@ -23,8 +23,7 @@
 %% States functions
 -export([idle/3, train/3, predict/3, wait/3, update/3]).
 
-%% countLimit - Number of samples to count before sending the weights for averaging. Predifined in the json file.
-%% count - Number of samples recieved for training after the last weights sended.
+%% ackClient :: need to tell mainserver that worker is safe and going to new state after wait state 
 
 %%%===================================================================
 %%% API
@@ -49,6 +48,8 @@ init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,La
   nerl_tools:setup_logger(?MODULE),
 
   GenWorkerEts = ets:new(generic_worker,[set]),
+  put(generic_worker_ets, GenWorkerEts),
+  put(client_pid, ClientPID),
   ets:insert(GenWorkerEts,{worker_name, WorkerName}),
   ets:insert(GenWorkerEts,{client_pid, ClientPID}),
   ets:insert(GenWorkerEts,{model_id, ModelId}),
@@ -56,8 +57,7 @@ init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,La
   ets:insert(GenWorkerEts,{layer_types_list, LayerTypesList}),
   ets:insert(GenWorkerEts,{layers_sizes, LayersSizes}),
   ets:insert(GenWorkerEts,{layers_activation_functions, LayersActivationFunctions}),
-  put(generic_worker_ets, GenWorkerEts),
-  put(client_pid, ClientPID),
+  ets:insert(get(generic_worker_ets), {message_q, []}), %% empty Queue
 
   Res=nerlNIF:create_nif(ModelId, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
   Func(init,{GenWorkerEts, WorkerData}),
@@ -166,18 +166,14 @@ wait(cast, {loss,nan,Time_NIF}, State = #workerGeneric_state{clientPid = ClientP
   ?LOG_NOTICE("Loss func in wait: nan (Loss function too big for double)\n"),
   gen_statem:cast(get(client_pid),{loss, MyName, nan,Time_NIF}), %% TODO send to tal stop casting request with error desc
   checkAndAck(MyName,get(client_pid),AckClient),
-
   {next_state, NextState, State#workerGeneric_state{ackClient = 0}};
-
 
 wait(cast, {loss, {LossVal,Time}}, State = #workerGeneric_state{clientPid = ClientPid, myName = MyName, nextState = NextState, modelId=_ModelID,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
   gen_statem:cast(get(client_pid),{loss, MyName, LossVal,Time/1000}), %% TODO Add Time and Time_NIF to the cast
   Update = CustomFunc(post_train, {get(generic_worker_ets),WorkerData}),
   checkAndAck(MyName,get(client_pid),AckClient),
-  if Update -> 
-    {next_state, update, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
-  true ->
-    {next_state, NextState, State#workerGeneric_state{ackClient = 0}}
+  if  Update -> {next_state, update, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
+      true ->   {next_state, NextState, State#workerGeneric_state{ackClient = 0}}
   end;
 
 wait(cast, {predictRes,NerlTensor, Type, TimeTook, CSVname,BatchID}, State = #workerGeneric_state{myName = MyName, clientPid = ClientPid, nextState = NextState,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
@@ -216,13 +212,35 @@ wait(cast, {sample,_CSVname, _BatchID, _SampleListPredict}, State = #workerGener
   % Miss = MissedTrainSamples++SampleListTrain,
   {next_state, wait, State#workerGeneric_state{missedSamplesCount = MissedSamplesCount+1}};
 
-wait(cast, Param, State) ->
-  logger:notice("worker Not supposed to be. Got: ~p\n",[Param]),
-  {next_state, wait, State}.
+wait(cast, Data, State) ->
+  logger:notice("worker in wait cant treat message: ~p\n",[Data]),
+  OldQ = ets:lookup_element(get(generic_worker_ets), message_q, ?ETS_KEYVAL_VAL_IDX),
+  ets:insert(get(generic_worker_ets), {message_q, OldQ++[Data]}),
+  {keep_state, State}.
 
+update(cast, {update, From, NerltensorWeights}, State = #workerGeneric_state{modelId = ModelId, customFunc = CustomFunc, nextState = NextState}) ->
+  CustomFunc(update, {get(generic_worker_ets), NerltensorWeights}),
+  {next_state, NextState, State};
+    
 update(cast, Data, State = #workerGeneric_state{modelId = ModelId, customFunc = CustomFunc, nextState = NextState}) ->
-  CustomFunc(update, {get(generic_worker_ets), Data}),
-{next_state, NextState, State}.
+  % io:format("worker ~p got ~p~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
+  case Data of
+    %% FedClient update avg weights
+    {update, "server", Me, NerltensorWeights} -> 
+      CustomFunc(update, {get(generic_worker_ets), NerltensorWeights}),
+      io:format("worker ~p updated model and going to ~p state~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), NextState]),
+      {next_state, NextState, State};
+    %% FedServer get weights from clients
+    {update, WorkerName, Me, NerlTensorWeights} ->
+      StillUpdate = CustomFunc(update, {get(generic_worker_ets), {WorkerName, Me, NerlTensorWeights}}),
+      if StillUpdate -> 
+        {keep_state, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
+      true ->
+        {next_state, NextState, State#workerGeneric_state{ackClient = 0}}
+      end;
+    %% got sample from source. discard TODO: add to Q
+    {sample, Tensor} -> {keep_state, State}
+  end.
 
 %% State train
 train(cast, {sample, {<<>>, _Type}}, State ) ->
