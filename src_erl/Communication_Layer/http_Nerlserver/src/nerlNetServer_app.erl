@@ -143,6 +143,7 @@ parseJsonAndStartNerlnet(HostName) ->
     %%    arg in the *Handler's init() method.
     %%    {"/req_name/:arg1/:arg2",[{arg1,constrains}, {arg2,int}], addHandler,[]}
     %%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
+
     Routers = ets:lookup_element(nerlnet_data, routers, ?DATA_IDX), % router map format: {RouterName => RouterPort,RouterRouting,RouterFiltering}
     BatchSize = ets:lookup_element(nerlnet_data, batchSize,?DATA_IDX),
     Frequency = ets:lookup_element(nerlnet_data, frequency, ?DATA_IDX),

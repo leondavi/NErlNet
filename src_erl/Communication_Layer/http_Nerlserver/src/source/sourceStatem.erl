@@ -198,7 +198,8 @@ sendSamples(ListOfSamples,CSVPath,BatchSize,LengthOfSample, Ms,Pid,Triplets,Coun
           %%this http request will be splitted at client's state machine by the following order:
           %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
   if NumOfBatchesToSend rem 10 == 0 ->
-    ?LOG_INFO("~p samples left to send~n", [NumOfBatchesToSend]); true -> skip end,
+    ?LOG_INFO("~p samples left to send~n", [NumOfBatchesToSend]);
+  true -> skip end,
   
   case Method of
     ?SENDALL ->

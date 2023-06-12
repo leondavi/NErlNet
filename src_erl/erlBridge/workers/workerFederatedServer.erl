@@ -55,7 +55,7 @@ pre_train({GenWorkerEts, WorkerData}) -> ok.
 post_train({GenWorkerEts, WorkerData}) -> 
   ThisEts = get_this_server_ets(GenWorkerEts),
   SyncCount = ets:lookup_element(ThisEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
-  if SyncCount == 0 ->
+  if SyncCount == 0 -> 
     ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
     Weights = nerlNIF:call_to_get_weights(ModelID),
     ClientPID = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
@@ -97,7 +97,7 @@ update({GenWorkerEts, WorkerData}) ->
     length([ element(?ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, Attr) || Attr <- ets:tab2list(ThisEts), element(?ETS_TYPE_IDX, Attr) == worker]),
   if GotAll ->
       AvgWeightsNerlTensor = generate_avg_weights(ThisEts),
-      io:format("AvgWeights = ~p~n",[AvgWeightsNerlTensor]),
+      % io:format("AvgWeights = ~p~n",[AvgWeightsNerlTensor]),
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
       nerlNIF:call_to_set_weights(ModelID, AvgWeightsNerlTensor),     %% update self weights to new model
       [ets:delete(ThisEts, WorkerName) || WorkerName <- WorkersList ],%% delete old tensors for next aggregation phase
@@ -110,8 +110,8 @@ update({GenWorkerEts, WorkerData}) ->
 generate_avg_weights(FedEts) ->
   BinaryType = ets:lookup_element(FedEts, nerltensor_type, ?ETS_NERLTENSOR_TYPE_IDX),
   ListOfWorkersNerlTensors = [ element(?ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, Attr) || Attr <- ets:tab2list(FedEts), element(?ETS_TYPE_IDX, Attr) == worker],
-  io:format("Tensors to sum = ~p~n",[ListOfWorkersNerlTensors]),
+  % io:format("Tensors to sum = ~p~n",[ListOfWorkersNerlTensors]),
   NerlTensors = length(ListOfWorkersNerlTensors),
   FinalSumNerlTensor = nerlNIF:sum_nerltensors_lists(ListOfWorkersNerlTensors, BinaryType),
-  io:format("Summed = ~p~n",[FinalSumNerlTensor]),
+  % io:format("Summed = ~p~n",[FinalSumNerlTensor]),
   nerlNIF:nerltensor_scalar_multiplication_nif(FinalSumNerlTensor, BinaryType, 1.0/NerlTensors).
