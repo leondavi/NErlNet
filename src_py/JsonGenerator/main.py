@@ -1,6 +1,7 @@
 import PySimpleGUI as sg
 from Routines import *
 from Definitions import *
+from WinWorkerDialog import WinWorkerDialog
 
 sg.theme('LightGray4') 
 
@@ -55,7 +56,7 @@ workersFields = [
                  [sg.Text("name:   "), sg.InputText(size=10)],
                  [sg.Text("path to file of type *.wo/*.xml")],
                  [sg.InputText(size=22), sg.Button("Browse",size=(6))],
-                 [sg.Button("Create a new worker .wo",size=(40))],
+                 [sg.Button("Create a new worker .wo",size=(40),enable_events=True,key=WIN_WORKER_DIALOG_EVENT_KEY)],
                 ]
 
 workersFieldsFrame = sg.Frame("",workersFields, expand_x=True)
@@ -115,5 +116,7 @@ while True:
         break
     if event == JSON_CONTROL_LOAD_FILE_BROWSE_EVENT_KEY:
         update_current_json_file_path(values[JSON_CONTROL_LOAD_FILE_BROWSE_EVENT_KEY])
+    if event == WIN_WORKER_DIALOG_EVENT_KEY:
+        WinWorkerDialog()
 
 main_window.close()
