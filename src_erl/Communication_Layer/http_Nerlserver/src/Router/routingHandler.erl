@@ -14,13 +14,25 @@
 
 %%handler for routing all messages in the network.
 %%Action contains the information about the action performed, and Body contains the information needed for the action
-init(Req0, State = [Action,Router_genserver_Pid]) ->
+
+%%State = [Action, RouterPID, Graph, RouterName]
+init(Req0, State) ->
+  Action = lists:nth(1, State),
+  Router_genserver_Pid = lists:nth(2, State),
+
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {_,Body,_} = cowboy_req:read_body(Req0, #{length => ?DATA_LEN}),
   %Decoded_body = binary_to_list(Body),
 %  io:format("router got action ~p body:~p~n",[Action,Body]),
   case Action of
 %%     router was meant to rout no?
+    pass ->
+      {To, PassingAction, Data} = binary_to_term(Body),
+      Graph = lists:nth(3, State),
+      MyName = lists:nth(4, State),
+      {Host,Port} = nerl_tools:getShortPath(MyName,To,Graph),
+      nerl_tools:http_request(Host,Port, "custom_worker_message", Body);
+
     rout ->
       gen_server:cast(Router_genserver_Pid, {rout,Body});
 

@@ -1,0 +1,25 @@
+{
+   "Features": 5,
+   "Labels": ["Norm(0,1)", "Norm(4,1)", "Norm(10,3)"],
+   "CSV path": "synthetic",
+   "Batches per source": 
+   {
+      "Training": 100,
+      "Prediction": 100
+   },
+   "Training":  [
+      {
+         "source name": "s1",
+         "workers": "w1",
+         "CSV path": "health_comb_train"
+      }
+   ],
+   "Prediction": [
+      {
+         "source name": "s1",
+         "workers": "w1",
+         "CSV path": "synthetic_prediction"
+      }
+   ]
+}
+    
