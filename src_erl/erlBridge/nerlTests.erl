@@ -2,7 +2,7 @@
 -author("David Leon").
 -include("nerlTensor.hrl").
 
-% -compile(nerlNIF).
+-compile(nerlNIF).
 -export([run_tests/0]).
 
 -import(nerlNIF,[init/0,create_nif/6,train_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
