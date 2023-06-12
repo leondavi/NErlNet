@@ -36,7 +36,7 @@ call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, {DataTensor, T
        %io:format("DataTensor= ~p~n ",[DataTensor]),
        %{FakeTensor, Type} = nerltensor_conversion({[2.0,4.0,1.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0], erl_float}, float),
       _RetVal=train_nif(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Type),
-      %io:format("Train Time= ~p~n ",[RetVal]),
+      % io:format("nif status= ~p~n ",[RetVal]),
       receive
             Ret->
                   % io:format("Ret= ~p~n ",[Ret]),
