@@ -19,7 +19,13 @@ init(Req0, [Action,Client_StateM_Pid]) ->
   {ok,Body,_} = cowboy_req:read_body(Req0),
 %%  io:format("client state_handler got body:~p~n",[Body]),
   case Action of
-    init ->   gen_statem:cast(Client_StateM_Pid,{init,Body});
+    custom_worker_message -> 
+              case binary_to_term(Body) of
+                    {To, custom_worker_message, Data} ->    %% handshake
+                        gen_statem:cast(Client_StateM_Pid,{custom_worker_message,Data});
+                    {From, update, Data} ->         %% updating weights
+                      gen_statem:cast(Client_StateM_Pid,{update,Data})
+              end;    
     idle -> gen_statem:cast(Client_StateM_Pid,{idle});
     training -> gen_statem:cast(Client_StateM_Pid,{training});
     predict -> gen_statem:cast(Client_StateM_Pid,{predict});

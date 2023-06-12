@@ -45,7 +45,8 @@ get_devices(ArchMap) ->
 
 get_host_clients(ArchMap, HostEntities) -> get_host_clients(ArchMap, HostEntities, false).
 get_host_clients(ArchMap, HostEntities, PrintLog) ->
-  HostClients = [ ClientMap || ClientMap <- maps:get(<<"clients">>,ArchMap), lists:member(binary_to_atom(maps:get(<<"name">>, ClientMap)), HostEntities) ],
+  AllClients = [ ClientMap || ClientMap <- maps:get(<<"clients">>,ArchMap) ],
+  HostClients = [ ClientMap || ClientMap <- AllClients, lists:member(binary_to_atom(maps:get(<<"name">>, ClientMap)), HostEntities) ],
   Func = fun(ClientMap) -> 
     Name = binary_to_atom(maps:get(<<"name">>,ClientMap)),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>, ClientMap))),
@@ -56,20 +57,19 @@ get_host_clients(ArchMap, HostEntities, PrintLog) ->
       ?LOG_NOTICE("Host Client Name: ~p Port: ~p Client Workers ~p",[Name,Port,ClientWorkers]);
       true -> skip
     end,
-    {Name,{Port,ClientWorkers,ClientWorkersMaps}}
+    {Name,{Port,ClientWorkers,ClientWorkersMaps,get_workers_map(AllClients, #{})}}
   end,
   [Func(S) || S <- HostClients]. % list of tuples: [Name,{Port,WorkersMap}]
 
 generate_workers_map([],WorkersMap,_ClientName)->WorkersMap;
 generate_workers_map([Worker|Workers],WorkersMap,ClientName)->
   generate_workers_map(Workers,maps:put(Worker, ClientName,WorkersMap),ClientName).
-  
 
-%%returns a map of all workers  - key workerName, Value ClientName
+%%returns a map for all workers  - key workerName, Value ClientName
 get_workers_map([],WorkersMap)->WorkersMap;
-get_workers_map([Client|Clients],WorkersMap)->
-  ClientName = list_to_atom(binary_to_list(maps:get(<<"name">>,Client))),
-  Workers = [ list_to_atom(WorkerStr) || WorkerStr <- re:split(binary_to_list(maps:get(<<"workers">>,Client)),",",[{return,list}])],    %% TODO: implement as function
+get_workers_map([ClientMap|Clients],WorkersMap)->
+  ClientName = list_to_atom(binary_to_list(maps:get(<<"name">>,ClientMap))),
+  Workers = [ list_to_atom(WorkerStr) || WorkerStr <- re:split(binary_to_list(maps:get(<<"workers">>,ClientMap)),",",[{return,list}])],    %% TODO: implement as function
   NewMap = generate_workers_map(Workers,WorkersMap,ClientName),
   get_workers_map(Clients,NewMap).
 

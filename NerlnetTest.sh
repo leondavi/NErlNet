@@ -1,8 +1,4 @@
 #!/bin/bash
-# set -e # TODO remove
-# cd src_py/apiServer
-# python3 experiment_flow_test.py
-# cd -
 
 function print()
 {

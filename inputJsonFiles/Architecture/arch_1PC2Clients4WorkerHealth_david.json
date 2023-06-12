@@ -1,7 +1,7 @@
 {
   "NerlNetSettings": 
   {
-    "frequency": "5",
+    "frequency": "100",
     "batchSize": "10"
   }
   ,
@@ -55,9 +55,7 @@
       "_comment5": "TODOTODO explain learningRate",
       "learningRate": "0.01",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"6",
-      "features": "13",
-      "labels": "5"       
+      "optimizer":"6"     
     },
     {
       "name": "w2",

@@ -88,11 +88,10 @@ start(_StartType, _StartArgs) ->
     nerl_tools:setup_logger(?MODULE),
     
     HostName = nerl_tools:getdeviceIP(),
-    %HostName = "127.0.0.1",        %TODO: update jsons with real ips
     ?LOG_INFO(?LOG_HEADER++"This device IP: ~p~n", [HostName]),
     %Create a listener that waits for a message from python about the adresses of the wanted json
     createNerlnetInitiator(HostName),
-    {ArchitectureAdderess,CommunicationMapAdderess} = waitForInit(), % why do we need it? TODO remove if not necessary 
+    {ArchitectureAdderess,CommunicationMapAdderess} = waitForInit(),
 
     %Parse json and start nerlnet:
     ?LOG_INFO(?LOG_HEADER++"ArchitectureAdderess: ~p, CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
@@ -144,33 +143,37 @@ parseJsonAndStartNerlnet(HostName) ->
     %%    arg in the *Handler's init() method.
     %%    {"/req_name/:arg1/:arg2",[{arg1,constrains}, {arg2,int}], addHandler,[]}
     %%    each server gets the port map he will need inorder to make http requests. all requests are delivered via the router only
+
     Routers = ets:lookup_element(nerlnet_data, routers, ?DATA_IDX), % router map format: {RouterName => RouterPort,RouterRouting,RouterFiltering}
     BatchSize = ets:lookup_element(nerlnet_data, batchSize,?DATA_IDX),
     Frequency = ets:lookup_element(nerlnet_data, frequency, ?DATA_IDX),
 
-    HostOfMainServer = ets:member(nerlnet_data, mainServer),
-    createMainServer(HostOfMainServer,BatchSize,HostName), 
     createClientsAndWorkers(), % TODO extract all of this args from ETS
     createRouters(Routers,HostName), % TODO extract all of this args from ETS
-    createSources(BatchSize, Frequency, HostName). % TODO extract all of this args from ETS
+    createSources(BatchSize, Frequency, HostName), % TODO extract all of this args from ETS
+
+    HostOfMainServer = ets:member(nerlnet_data, mainServer),
+    createMainServer(HostOfMainServer,BatchSize,HostName).
 
 %% internal functions
 
 createClientsAndWorkers() ->
     ClientsAndWorkers = ets:lookup_element(nerlnet_data, hostClients, ?DATA_IDX), % Each element is  {Name,{Port,ClientWorkers,ClientWorkersMaps}}
+    WorkerToClientMap = ets:lookup_element(nerlnet_data, workers, ?DATA_IDX),
+    % io:format("Starting clients and workers locally with: ~p~n",[ClientsAndWorkers]),
     HostName = ets:lookup_element(nerlnet_data, hostname, ?DATA_IDX),
     NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
 
     Func = 
-        fun({Client,{Port,ClientWorkers,_ClientWorkersMaps}}) -> 
-        ClientStatemArgs = {Client, NerlnetGraph},
+        fun({Client,{Port,_ClientWorkers,_ClientWorkersMaps, WorkerToClientMap}}) -> 
+        ClientStatemArgs = {Client, NerlnetGraph, WorkerToClientMap},
         ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
         %%Nerl Client
         %%Dispatcher for cowboy to rout each given http_request for the matching handler
         NerlClientDispatch = cowboy_router:compile([
             {'_', [
                 %%first http request from main server should be about starting parameters, find more info inside initHandler
-                {"/init",clientStateHandler, [init,ClientStatemPid]},
+                {"/custom_worker_message",clientStateHandler, [custom_worker_message,ClientStatemPid]},
                 {"/statistics",clientStateHandler, [statistics,ClientStatemPid]},
                 {"/clientTraining",clientStateHandler, [training,ClientStatemPid]},
                 {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
@@ -230,6 +233,8 @@ createRouters(MapOfRouters, HostName) ->
 
         RouterDispatch = cowboy_router:compile([
             {'_', [
+                {"/pass",routingHandler, [pass,RouterGenServerPid,NerlnetGraph,RouterName]},
+
                 {"/clientIdle",routingHandler, [clientIdle,RouterGenServerPid]},
                 {"/lossFunction",routingHandler, [lossFunction,RouterGenServerPid]},
                 {"/predictRes",routingHandler, [predictRes,RouterGenServerPid]},

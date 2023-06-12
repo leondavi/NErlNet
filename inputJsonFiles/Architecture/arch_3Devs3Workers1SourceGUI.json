@@ -1,17 +1,17 @@
 {
-  "NerlNetSettings": [
+  "NerlNetSettings": 
   {
     "frequency": "2",
     "batchSize": "5"
   }
-  ],
+  ,
   "devices": [
     {
       "host": "192.168.0.108",
-      "entities": "mainServer,c1,s1,r1,nerlGUI"
+      "entities": "mainServer,c1,s1,r1,nerlGUI,apiServer"
     },
     {
-      "host": "192.168.0.102",
+      "host": "192.168.0.100",
       "entities": "c2"
     },
     {
@@ -26,20 +26,20 @@
       "args": ""
     }
   ],
-  "serverAPI": [
+  "apiServer": 
     {
-      "host": "127.0.0.1",
+      "host": "192.168.0.108",
       "port": "8095",
       "args": ""
     }
-  ],
-  "mainServer": [
+  ,
+  "mainServer": 
     {
       "host": "192.168.0.108",
       "port": "8080",
       "args": ""
     }
-  ],
+  ,
   "workers": [
     {
       "name": "w1",
@@ -127,9 +127,6 @@
       "workers": "w3",
       "federated": "f1"
     }
-  ],
-  "federated": [
-    
   ],
   "sources": [
     {
