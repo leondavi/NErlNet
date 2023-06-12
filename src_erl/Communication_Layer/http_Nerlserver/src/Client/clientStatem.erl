@@ -191,7 +191,7 @@ training(cast, {custom_worker_message, WorkersList, WeightsTensor}, State = #cli
     DestClient = maps:get(WorkerName, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
     {Host,Port} = nerl_tools:getShortPath(MyName,DestClient,NerlnetGraph),
     Body = {DestClient, update, {FedServer = "server", WorkerName, WeightsTensor}},
-    io:format("client ~p passing ~p~n",[MyName, Body]),
+    % io:format("client ~p passing ~p~n",[MyName, Body]),
     nerl_tools:http_request(Host,Port, "pass", term_to_binary(Body))
   end,
   lists:foreach(Func, WorkersList),
