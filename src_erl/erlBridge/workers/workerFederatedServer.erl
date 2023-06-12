@@ -109,9 +109,9 @@ update({GenWorkerEts, WorkerData}) ->
 
 generate_avg_weights(FedEts) ->
   BinaryType = ets:lookup_element(FedEts, nerltensor_type, ?ETS_NERLTENSOR_TYPE_IDX),
-  ListOfWorkersNerlTensors = [ element(?ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, Attr) || Attr <- ets:tab2list(FedEts), element(?ETS_TYPE_IDX, Attr) == worker],
+  ListOfWorkersNerlTensors = [ element(?TENSOR_DATA_IDX, element(?ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, Attr)) || Attr <- ets:tab2list(FedEts), element(?ETS_TYPE_IDX, Attr) == worker],
   % io:format("Tensors to sum = ~p~n",[ListOfWorkersNerlTensors]),
   NerlTensors = length(ListOfWorkersNerlTensors),
-  FinalSumNerlTensor = nerlNIF:sum_nerltensors_lists(ListOfWorkersNerlTensors, BinaryType),
+  [FinalSumNerlTensor] = nerlNIF:sum_nerltensors_lists(ListOfWorkersNerlTensors, BinaryType),
   % io:format("Summed = ~p~n",[FinalSumNerlTensor]),
   nerlNIF:nerltensor_scalar_multiplication_nif(FinalSumNerlTensor, BinaryType, 1.0/NerlTensors).
