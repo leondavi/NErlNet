@@ -1,7 +1,5 @@
 /.idea
 /src_cpp/.sconsign.dblite
-/src_erl/*.beam
-/lib/*.so
 *.o
 *.beam
 *.pyc
@@ -13,21 +11,12 @@
 /out
 src_erl/.idea
 src_cpp/.idea
-src_cpp/*.so
 *.dump
 /*.iml
 /src_erl/Communication_Layer/http_Nerlserver/input/
 /src_erl/Communication_Layer/http_Nerlserver/_build/
 /src_erl/Communication_Layer/http_Nerlserver/rebar.lock
-/src_erl/erlBridge/erlModule.beam
-/src_erl/erlBridge/handler.beam
-/src_erl/erlBridge/nerlNetStatem.beam
-/src_erl/erlBridge/parse.beam
-/src_erl/erlBridge/startMod.beam
 /src_py/__pycache__
-/src_py/.ipynb_checkpoints
-/src_py/NerlnetPyAPI/__pycache__
-/src_py/NerlnetPyAPI/.ipynb_checkpoints
 /.vscode
 *.bin
 *.cmake
@@ -45,3 +34,6 @@ src_cpp/*.so
 src_erl/NerlGUI/_build/*
 examples/.ipynb_checkpoints/simple_run-checkpoint.ipynb
 /Results
+arch.json
+conn.json
+/inputDataDir

@@ -8,8 +8,7 @@
 %%%-------------------------------------------------------------------
 -module(routingHandler).
 -author("kapelnik").
--export([init/2,  start/2, stop/1]).
--behaviour(application).
+-export([init/2]).
 -define(DATA_LEN, 15*1000*1000). % default is 8MB, here set to 15MB
 
 %%handler for routing all messages in the network.
@@ -26,6 +25,12 @@ init(Req0, State) ->
 %  io:format("router got action ~p body:~p~n",[Action,Body]),
   case Action of
 %%     router was meant to rout no?
+    custom_worker_message->
+      {To, PassingAction, Data} = binary_to_term(Body),
+      Graph = lists:nth(3, State),
+      MyName = lists:nth(4, State),
+      {Host,Port} = nerl_tools:getShortPath(MyName,To,Graph),
+      nerl_tools:http_request(Host,Port, "custom_worker_message", Body);
     pass ->
       {To, PassingAction, Data} = binary_to_term(Body),
       Graph = lists:nth(3, State),
@@ -79,10 +84,3 @@ init(Req0, State) ->
     Reply,
     Req0),
   {ok, Req, State}.
-
-
-start(_StartType, _StartArgs) ->
-  erlang:error(not_implemented).
-
-stop(_State) ->
-  erlang:error(not_implemented).

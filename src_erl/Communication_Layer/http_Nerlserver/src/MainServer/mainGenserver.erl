@@ -54,6 +54,7 @@ init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
   ?LOG_NOTICE("Main Server starts"),
   ConnectedEntities = [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,?MAIN_SERVER_ATOM)],
   ?LOG_NOTICE("Main Server is connected to: ~p~n",[ConnectedEntities]),
+  put(nerlnetGraph, NerlnetGraph),
     % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
   
   NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--?LIST_OF_SPECIAL_SERVERS]),
@@ -374,16 +375,12 @@ findroutAndsend(MyName,SourceName,Body,NerlnetGraph) ->
   %{RouterHost,RouterPort} =maps:get(list_to_atom(SourceName),ConnectionsMap),
   nerl_tools:http_request(RouterHost, RouterPort,"updateCSV", Body).
 
-findroutAndsendStatistics(_MyName, serverAPI,_ConnectionsMap) ->io:format("");
 
-findroutAndsendStatistics(MyName,Entitie,NerlnetGraph) ->
-%%  io:format("WaitingList = ~p~n~n",[Workers]),
-  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,Entitie,NerlnetGraph),
-% {RouterHost,RouterPort} =maps:get(Entitie,ConnectionsMap),
- case is_atom(Entitie) of
-      true -> nerl_tools:http_request(RouterHost, RouterPort,"statistics", list_to_binary(atom_to_list(Entitie)));
-      _    -> nerl_tools:http_request(RouterHost, RouterPort,"statistics", list_to_binary(Entitie))
-  end.
+findroutAndsendStatistics(_MyName, serverAPI,_ConnectionsMap) ->io:format("");
+findroutAndsendStatistics(MyName,Entity,NerlnetGraph) ->
+  nerl_tools:sendHTTP(MyName, Entity, "statistics", Entity).
+  % {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,Entity,NerlnetGraph),
+  % nerl_tools:http_request(RouterHost, RouterPort,"statistics", Entity).
 	
 getNewStatisticsMap(ConnectionList) -> getNewStatisticsMap(ConnectionList,#{}).
 getNewStatisticsMap([],StatisticsMap) ->StatisticsMap;
