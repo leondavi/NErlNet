@@ -130,7 +130,7 @@ idle(cast, {custom_worker_message, {From, To}}, State = #client_statem_state{ets
     {Host,Port} = nerl_tools:getShortPath(MyName,DestClient,NerlnetGraph),
     Body = {DestClient, custom_worker_message, {From, To}},
     io:format("client ~p passing ~p~n",[MyName, Body]),
-    nerl_tools:http_request(Host,Port, "pass", term_to_binary(Body))
+    nerl_tools:http_request(Host,Port, "custom_worker_message", term_to_binary(Body))
   end,
   % io:format("initiating, CONFIG received:~p ~n",[CONFIG]),
   {keep_state, State};
@@ -192,7 +192,7 @@ training(cast, {custom_worker_message, WorkersList, WeightsTensor}, State = #cli
     {Host,Port} = nerl_tools:getShortPath(MyName,DestClient,NerlnetGraph),
     Body = {DestClient, update, {FedServer = "server", WorkerName, WeightsTensor}},
     % io:format("client ~p passing ~p~n",[MyName, Body]),
-    nerl_tools:http_request(Host,Port, "pass", term_to_binary(Body))
+    nerl_tools:http_request(Host,Port, "custom_worker_message", term_to_binary(Body))
   end,
   lists:foreach(Func, WorkersList),
   {keep_state, State};
@@ -398,7 +398,7 @@ updateTimingMap(EtsRef, WorkerName) when is_atom(WorkerName) ->
   NewTimingTuple = {Start,TotalBatches,TotalTrainingTime+TotalTime},
   ets:update_element(EtsRef, WorkerName,[{?WORKER_TIMING_IDX,NewTimingTuple}]).
 
-
+%% sattistics format: clientName:workerName=avgTime,...
 sendStatistics(RouterHost,RouterPort,MyName,_MsgCount,TimingTuples)->
   Statistics = lists:flatten([atom_to_list(WorkerName)++"="++float_to_list(TotalTime/TotalBatches,[{decimals, 3}])++","||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-TimingTuples]),
   nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++":"++lists:droplast(Statistics))).

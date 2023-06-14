@@ -185,7 +185,7 @@ spawnTransmitter(WorkersNames,CSVPath,CSVlist,NerlnetGraph, MyName,WorkersMap,Ba
 sendSamples(ListOfSamples,_CSVPath,_BatchSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,NumOfBatchesToSend,_Method) when NumOfBatchesToSend=<0 ->
   receive
   after Ms ->
-    gen_statem:cast(Pid,{finishedCasting,Counter,ListOfSamples}), ?LOG_INFO("sent all samples~n")
+    gen_statem:cast(Pid,{finishedCasting,Counter,ListOfSamples}), ?LOG_INFO("sent all samples")
   end;
 
 sendSamples([],_CSVPath,_BatchSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,_NumOfBatchesToSend,_Method)->
