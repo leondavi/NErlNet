@@ -10,6 +10,8 @@
 
 -import(nerl,[even/1, odd/1]).
 
+-on_load(init/0).
+
 % math of nerltensors
 -export([nerltensor_sum_nif/3, nerltensor_sum_erl/2]).
 -export([nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
@@ -20,6 +22,7 @@ init() ->
       RES = erlang:load_nif(NELNET_LIB_PATH, 0),
       RES.
 
+testnif() ->
 % ModelID - Unique ID of the neural network model 
 % ModelType - E.g. Regression, Classification 
 create_nif(_ModelID, _ModelType , _ScalingMethod , _LayerTypesList , _LayersSizes , _LayersActivationFunctions) ->
