@@ -234,7 +234,8 @@ createRouters(MapOfRouters, HostName) ->
         RouterDispatch = cowboy_router:compile([
             {'_', [
                 {"/pass",routingHandler, [pass,RouterGenServerPid,NerlnetGraph,RouterName]},
-
+            
+                {"/custom_worker_message",routingHandler, [custom_worker_message,RouterGenServerPid, NerlnetGraph,RouterName]},
                 {"/clientIdle",routingHandler, [clientIdle,RouterGenServerPid]},
                 {"/lossFunction",routingHandler, [lossFunction,RouterGenServerPid]},
                 {"/predictRes",routingHandler, [predictRes,RouterGenServerPid]},

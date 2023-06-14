@@ -3,7 +3,7 @@
 -include("nerl_tools.hrl").
 
 -export([setup_logger/1, string_format/2]).
--export([http_request/4, getHostPort/5, getShortPath/3]).
+-export([http_request/4, sendHTTP/4, getHostPort/5, getShortPath/3]).
 -export([string_to_list_int/1, deleteOldJson/1]).
 -export([multipart/2, read_all_data/2]).
 -export([getdeviceIP/0]).
@@ -31,9 +31,21 @@ getHostPort([WorkerName|WorkersNames],WorkersMap,NerlnetGraph,MyName,Ret)->
 getShortPath(From,To,NerlnetGraph) when is_list(To) -> getShortPath(From,list_to_atom(To),NerlnetGraph);
 getShortPath(From,To,NerlnetGraph) when is_list(From) -> getShortPath(list_to_atom(From),To,NerlnetGraph);
 getShortPath(From,To,NerlnetGraph) when is_atom(To) and is_atom(From) ->  % TODO use only atoms list conversions should be removed in the future!
-  First = lists:nth(2,digraph:get_short_path(NerlnetGraph,From,To)),
-	{_First,{Host,Port}} = digraph:vertex(NerlnetGraph,First),
-  {Host,Port}.
+  ShortPath = digraph:get_short_path(NerlnetGraph,From,To),
+  case ShortPath of
+    false -> false;
+    ShortPath ->
+      NextHop = lists:nth(2,ShortPath),
+      {_Name,{Host,Port}} = digraph:vertex(NerlnetGraph,NextHop),
+      {Host,Port}
+  end.
+  
+
+sendHTTP(From, To, Action, Body) ->
+  case nerl_tools:getShortPath(From,To,get(nerlnetGraph)) of
+    false -> ?LOG_WARNING("No path to entity ~p!",[To]);
+    {RouterHost,RouterPort} -> nerl_tools:http_request(RouterHost, RouterPort,Action, Body)
+  end.
 	
 
 %%return list of integer from string of lists of strings - "[2,2,2]" -> [2,2,2]
