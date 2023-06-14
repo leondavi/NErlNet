@@ -173,7 +173,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         print("\nSending data to sources")
         # <num of sources> Acks for updateCSV():
         globe.pendingAcks += len(globe.components.sources) 
-        print(f"waiting for {globe.pendingAcks} acks from {len(globe.components.sources)} sources")
+        # print(f"waiting for {globe.pendingAcks} acks from {len(globe.components.sources)} sources")
         self.transmitter.updateCSV(phase)
 
         while globe.pendingAcks > 0:
@@ -392,19 +392,20 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
             # print(classification_report(trueLabels[j], predlabels[j]))
 
-        plt.subplots_adjust(wspace=0.8, hspace=0.15)        ## adjust for spacing between matrix
+        plt.subplots_adjust(wspace=1, hspace=0.15)        ## adjust for spacing between matrix
         f.colorbar(disp.im_, ax=axes)
         plt.show()
 
         fileName = sourceCSV.name.rsplit('/', 1)[-1] # If the CSV name contains a path, then take everything to the right of the last '/'.
         disp.figure_.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.png')
         print(f'\n{fileName}.png Saved...')
-
-        return confMatList
-    
-    def confusion_stats(self, confList):
-        for worker in confList:
-            for j, label in enumerate(confList[worker]):
+        
+        ## print and save prediction stats
+        statFile = f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/stats.txt'
+        if os.path.exists(statFile): os.remove(statFile)
+        f = open(statFile, "a")
+        for worker in confMatList:
+            for j, label in enumerate(confMatList[worker]):
                 # Calculate the accuracy and other stats:
                 tn, fp, fn, tp = label.ravel()
                 acc = (tp + tn) / (tp + tn + fp + fn)
@@ -413,14 +414,23 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 tnr = tn / (tn + fp)
                 bacc = (tpr + tnr) / 2
                 inf = tpr + tnr - 1
-
+                
                 print(f"\n{worker}, class #{j}:")
-                print(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.\n")
-                print(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.\n")
-                print(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
-                print(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.\n")
-                print(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.\n")
+                print(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.")
+                print(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.")
+                print(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.")
+                print(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.")
+                print(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.")
                 print(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
+                
+                f.write(f"\n{worker}, class #{j}:")
+                f.write(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.")
+                f.write(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.")
+                f.write(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.")
+                f.write(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.")
+                f.write(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.")
+                f.write(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
+        f.close()
     
     def communication_stats(self):
         self.transmitter.statistics()

@@ -22,7 +22,6 @@ init() ->
       RES = erlang:load_nif(NELNET_LIB_PATH, 0),
       RES.
 
-
 % ModelID - Unique ID of the neural network model 
 % ModelType - E.g. Regression, Classification 
 create_nif(_ModelID, _ModelType , _ScalingMethod , _LayerTypesList , _LayersSizes , _LayersActivationFunctions) ->
