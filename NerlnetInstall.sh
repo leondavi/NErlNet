@@ -7,10 +7,6 @@ NERLNET_LOG_DIR="/usr/local/lib/nerlnet-lib/log"
 REBAR3_FILE=src_erl/rebar3/rebar3
 REBAR3_SYMLINK=/usr/local/bin/rebar3
 
-# args defaults
-InstallAll=false
-NumJobs=4
-
 if [[ "$RUNNING_IN_DOCKER" = true ]]; then
   # Not running inside a docker container
   LOGGED_IN_USER=$(logname)
@@ -18,6 +14,13 @@ else
   # Running inside a docker container
   LOGGED_IN_USER="$(whoami)" # Probably root
 fi
+
+# arguments parsing 
+# Implemented by https://github.com/matejak/argbash
+
+# args defaults
+InstallAll=false
+NumJobs=4
 
 help()
 {
