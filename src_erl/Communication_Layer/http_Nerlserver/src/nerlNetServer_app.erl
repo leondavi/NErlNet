@@ -42,7 +42,7 @@
 %%httpc:request(post,{URL,Headers,content type,Body),HTTPOptions, Profile)
 %%httpc:request(post,{"http://localhost:8080/weights_vector/update", [],"application/x-www-form-urlencoded","[33.20.2,120,2.<<23.2>>]"}, [], []).
 
-wellcome_print() -> 
+welcome_print() -> 
     io:format(
 "
 
@@ -83,10 +83,11 @@ $$/      $$/  $$$$$$$/ $$/ $$/  $$$$$$$/  $$$$$$/  $$/  $$/  $$/  $$$$$$$/
 ~n~n").
 
 start(_StartType, _StartArgs) ->
-    wellcome_print(),
+    welcome_print(),
     %% setup the erlang logger for this module 
     nerl_tools:setup_logger(?MODULE),
-    
+    %% make sure nif can be loaded:
+    nerlNIF:init(),
     HostName = nerl_tools:getdeviceIP(),
     ?LOG_INFO(?LOG_HEADER++"This device IP: ~p~n", [HostName]),
     %Create a listener that waits for a message from python about the adresses of the wanted json
