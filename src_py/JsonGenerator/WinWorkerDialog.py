@@ -58,9 +58,8 @@ def pretty_print_dict(d):#define d
     return pretty_dict#return result
 
 def combo_list_editable_handler(window, event, values, map, editable_list, selection_key, codes_key, add_butt_key, clear_butt_key):
-    if  event == add_butt_key:
-        if values[codes_key]:
-            editable_list = values[codes_key]
+    editable_list = values[codes_key]
+    if  event == add_butt_key:   
         editable_list = editable_list + "," if editable_list else editable_list
         if values[selection_key]:
             editable_list += str(map[values[selection_key]])
@@ -74,11 +73,11 @@ def WinWorkerDialog():
     
     WorkerDefinitionsLayout = [[sg.Text("Model Type: "), sg.Combo(list(ModelTypeMapping.keys()),enable_events=True, key='-MODEL-TYPE-LIST-BOX-')],
                                [sg.Text("Layers Sizes: Comma separated list, # of neurons in a layer, E.g, 100,80,40,5,1")],
-                               [sg.InputText(key="-LAYERS-SIZES-INPUT-"), sg.Text("(0)",key="-NUM-OF-LAYERS-SIZES-")],
+                               [sg.InputText(key="-LAYERS-SIZES-INPUT-",enable_events=True), sg.Text("(0)",key="-NUM-OF-LAYERS-SIZES-")],
                                [sg.Text("List of layers types:"), sg.Combo(list(LayerTypeMap.keys()),key='-LAYER-TYPE-SELECTION-'), sg.Button("Add",key="-LAYER-TYPE-SELECTION-ADD-"), sg.Button("Help",key="-LAYER-TYPE-HELP-"),sg.Button("Clear",key="-LAYER-TYPE-SELECTION-CLEAR-")],
-                               [sg.InputText(key="-LAYER-TYPE-CODES-INPUT-"), sg.Text("(0)",key="-NUM-OF-LAYERS-TYPES-",enable_events=True)],
+                               [sg.InputText(key="-LAYER-TYPE-CODES-INPUT-",enable_events=True), sg.Text("(0)",key="-NUM-OF-LAYERS-TYPES-",enable_events=True)],
                                [sg.Text("Activation functions:"), sg.Combo(list(ActivationFunctionsMap.keys()),key='-ACTIVATION-LAYER-SELECTION-'), sg.Button("Add",key="-ACTIVATION-LAYER-SELECTION-ADD-"), sg.Button("Help",key="-ACTIVATION-LAYER-HELP-"), sg.Button("Clear",key="-ACTIVATION-LAYER-SELECTION-CLEAR-")],
-                               [sg.InputText(key="-ACTIVATION-CODES-INPUT-"), sg.Text("(0)",key="-NUM-OF-LAYERS-ACTIVATIONS-",enable_events=True)]]
+                               [sg.InputText(key="-ACTIVATION-CODES-INPUT-",enable_events=True), sg.Text("(0)",key="-NUM-OF-LAYERS-ACTIVATIONS-",enable_events=True)]]
     WorkerDefinitionsFrame = sg.Frame("Model Definitions",layout=WorkerDefinitionsLayout)
 
     WorkerFileLayout = [[sg.Text("Select xo file output directory"),sg.In(enable_events=True ,key="-XO-FILE-CHOSEN-DIRECTORY", expand_x=True), sg.FolderBrowse()],
@@ -101,9 +100,9 @@ def WinWorkerDialog():
         
 
         # Layers Sizes List
-        if event == "LAYERS-SIZES-INPUT":
+        if event == "-LAYERS-SIZES-INPUT-":
             LayersSizesList = values[event]
-            WorkerWindow["-LAYERS-SIZES-INPUT-"].update(f'({str(count_str_list_elements(LayersSizesList))})')
+            WorkerWindow["-NUM-OF-LAYERS-SIZES-"].update(f'({str(count_str_list_elements(LayersSizesList))})')
 
         #TODO layers sizes
 
