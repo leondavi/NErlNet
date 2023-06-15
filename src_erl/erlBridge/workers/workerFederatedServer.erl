@@ -88,8 +88,8 @@ update({GenWorkerEts, WorkerData}) ->
   ets:insert(ThisEts, {WorkerName, worker, NerlTensorWeights}),
 
   %% check if there are queued messages, and treat them accordingly
-  Q = ets:lookup_element(GenWorkerEts, message_q, ?ETS_KEYVAL_VAL_IDX),
-  [ets:insert(ThisEts, {WorkerName, worker, NerlTensorWeights}) || {Action, WorkerName, To, NerlTensorWeights} <- Q, Action == update],
+  MessageQueue = ets:lookup_element(GenWorkerEts, message_q, ?ETS_KEYVAL_VAL_IDX),
+  [ets:insert(ThisEts, {WorkerName, worker, NerlTensorWeights}) || {Action, WorkerName, To, NerlTensorWeights} <- MessageQueue, Action == update],
 
   %% check if got all weights of workers
   WorkersList = ets:lookup_element(ThisEts, workers, ?ETS_KEYVAL_VAL_IDX),

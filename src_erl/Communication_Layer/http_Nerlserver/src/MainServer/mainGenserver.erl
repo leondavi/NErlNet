@@ -361,9 +361,10 @@ code_change(_OldVsn, State = #main_genserver_state{}, _Extra) ->
 
 
 setClientState(StateAtom,ClientName, NerlnetGraph,MyName) ->
-    {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,ClientName,NerlnetGraph),
-  %{RouterHost,RouterPort} =maps:get(ClientName, ConnectionMap),
-  nerl_tools:http_request(RouterHost,RouterPort,atom_to_list(StateAtom), atom_to_list(ClientName)).
+  nerl_tools:sendHTTP(MyName, ClientName, atom_to_list(StateAtom), ClientName).
+  %   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,ClientName,NerlnetGraph),
+  % %{RouterHost,RouterPort} =maps:get(ClientName, ConnectionMap),
+  % nerl_tools:http_request(RouterHost,RouterPort,atom_to_list(StateAtom), atom_to_list(ClientName)).
 
 %%find Router and send message: finds the path for the named machine from connection map and send to the right router to forword.
 %%findroutAndsend([],_,_,WaitingList)->WaitingList;
