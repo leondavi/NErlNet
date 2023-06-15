@@ -161,6 +161,12 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
     def getTransmitter(self):
         return self.transmitter
 
+    def tic(self):
+        return time.time()
+    
+    def toc(self, start):
+        return time.time() - start
+
     def stopServer(self):
         receiver.stop()
         return True
