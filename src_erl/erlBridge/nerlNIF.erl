@@ -22,6 +22,7 @@ init() ->
       RES = erlang:load_nif(NELNET_LIB_PATH, 0),
       RES.
 
+%% make sure nif can be loaded (activates on_load)
 nif_preload() -> done.
 
 % ModelID - Unique ID of the neural network model 

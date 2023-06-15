@@ -100,7 +100,7 @@ update({GenWorkerEts, WorkerData}) ->
       % io:format("AvgWeights = ~p~n",[AvgWeightsNerlTensor]),
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
       nerlNIF:call_to_set_weights(ModelID, AvgWeightsNerlTensor),     %% update self weights to new model
-      [ets:delete(ThisEts, WorkerName) || WorkerName <- WorkersList ],%% delete old tensors for next aggregation phase
+      [ets:delete(ThisEts, OldWorkerName) || OldWorkerName <- WorkersList ],%% delete old tensors for next aggregation phase
       ClientPID = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
       gen_statem:cast(ClientPID, {custom_worker_message, WorkersList, AvgWeightsNerlTensor}),
       false;
