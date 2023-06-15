@@ -225,7 +225,8 @@ update(cast, {update, From, NerltensorWeights}, State = #workerGeneric_state{mod
   {next_state, NextState, State};
 
 update(cast, {idle}, State = #workerGeneric_state{modelId = ModelId, customFunc = CustomFunc, nextState = NextState}) ->
-  {keep_state, State#workerGeneric_state{nextState = idle, ackClient=1}};
+  gen_statem:cast(get(client_pid),{stateChange,MyName}),
+  {next_state, idle, State#workerGeneric_state{nextState = idle}};
     
 update(cast, Data, State = #workerGeneric_state{modelId = ModelId, customFunc = CustomFunc, nextState = NextState}) ->
   % io:format("worker ~p got ~p~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),

@@ -78,6 +78,7 @@ PREDICTION_STR = "Prediction"
         globe.experiment_flow_global.set_experiment_flow(expData)
         globe.components = NetworkComponents(archData)
         globe.components.printComponents()
+        print(f"Connections:\n\t\t{connData['connectionsMap']}")
         globe.experiment_flow_global.printExp()
 
         mainServerIP = globe.components.mainServerIp
