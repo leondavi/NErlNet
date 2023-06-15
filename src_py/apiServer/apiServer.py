@@ -439,6 +439,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 f.write(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.")
                 f.write(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
         f.close()
+        print(f'\nstats file saved...')
     
     def communication_stats(self):
         self.transmitter.statistics()

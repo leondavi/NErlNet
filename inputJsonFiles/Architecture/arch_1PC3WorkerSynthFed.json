@@ -1,7 +1,7 @@
 {
   "NerlNetSettings": 
   {
-    "frequency": "5",
+    "frequency": "100",
     "batchSize": "50"
   }
   ,
@@ -41,7 +41,7 @@
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
       "layerTypesList":             "[3,1,1,1,0,0]",
-      "layersSizes":                "[3,1,1,5,2,3]",
+      "layersSizes":                "[3,1,1,5,4,3]",
       "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
       "layersActivationFunctions":  "[3,1,1,6,11,11]",
       "federatedMode": "0",
@@ -64,7 +64,7 @@
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
       "layerTypesList":             "[3,1,1,1,0,0]",
-      "layersSizes":                "[3,1,1,5,2,3]",
+      "layersSizes":                "[3,1,1,5,4,3]",
       "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
       "layersActivationFunctions":  "[3,1,1,6,11,11]",
       "federatedMode": "0",
@@ -87,7 +87,7 @@
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
       "layerTypesList":             "[3,1,1,1,0,0]",
-      "layersSizes":                "[3,1,1,5,2,3]",
+      "layersSizes":                "[3,1,1,5,4,3]",
       "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
       "layersActivationFunctions":  "[3,1,1,6,11,11]",
       "federatedMode": "0",
@@ -119,7 +119,7 @@
     {
       "name": "s1",
       "port": "8091",
-      "method": "1",
+      "method": "2",
       "COMMENTS": "method allowed: '1': sends each exapme to all clients listed, '2': round robin between all clients"
     }
   ],
