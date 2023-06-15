@@ -10,8 +10,8 @@ project(nerlnet DESCRIPTION "Nerlnet Distributed Machine Learning Research Platf
 
 set(PROJECT_BINARY_DIR build)
 set(CMAKE_CXX_STANDARD 11)
-# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -latomic")
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -latomic")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -latomic")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -latomic")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 #add_compile_definitions(EIGEN_MAX_ALIGN_BYTES=8) #Open this line for RASPI
