@@ -199,21 +199,23 @@ wait(cast, {predict}, State) ->
   %logger:notice("Waiting, next state - predict"),
   {next_state, wait, State#workerGeneric_state{nextState = predict,ackClient=1}};
 
-wait(cast, {sample, _SampleListTrain}, State = #workerGeneric_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = _MissedTrainSamples}) ->
-  ?LOG_NOTICE(?LOG_HEADER++"Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
+wait(cast, {sample, _SampleListTrain}, State = #workerGeneric_state{missedBatchesCount = MissedCount, missedTrainBatches = _MissedTrainSamples}) ->
+  NewMissedCount = MissedCount + 1,
+  ?LOG_NOTICE(?LOG_HEADER++"Missed sample in worker ~p count: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), NewMissedCount]),
   % Miss = MissedTrainSamples++SampleListTrain,
-  {next_state, wait, State#workerGeneric_state{missedSamplesCount = MissedSamplesCount+1}};
+  {next_state, wait, State#workerGeneric_state{missedBatchesCount = NewMissedCount}};
 
-wait(cast, {sample,_CSVname, _BatchID, _SampleListPredict}, State = #workerGeneric_state{missedSamplesCount = MissedSamplesCount, missedTrainSamples = _MissedTrainSamples}) ->
-  % throw("got sample while calculating"),
-  ?LOG_NOTICE(?LOG_HEADER++"Missed in pid: ~p, Missed batches count: ~p\n",[self(), MissedSamplesCount]),
-  % ?LOG_NOTICE(?LOG_HEADER++"Missed in pid: ~p, Missed Samples: ~p\n",[self(), SampleListPredict]),
+% wait(cast, {sample,_CSVname, _BatchID, _SampleListPredict}, State = #workerGeneric_state{missedBatchesCount = MissedCount, missedTrainBatches = _MissedTrainSamples}) ->
+%   % throw("got sample while calculating"),
+%   NewMissedCount = MissedCount + 1,
+%   ?LOG_NOTICE(?LOG_HEADER++"Missed in pid: ~p, Missed batches count: ~p\n",[self(), NewMissedCount]),
+%   % ?LOG_NOTICE(?LOG_HEADER++"Missed in pid: ~p, Missed Samples: ~p\n",[self(), SampleListPredict]),
   
-  % Miss = MissedTrainSamples++SampleListTrain,
-  {next_state, wait, State#workerGeneric_state{missedSamplesCount = MissedSamplesCount+1}};
+%   % Miss = MissedTrainSamples++SampleListTrain,
+%   {next_state, wait, State#workerGeneric_state{missedBatchesCount = NewMissedCount}};
 
 wait(cast, Data, State) ->
-  logger:notice("worker in wait cant treat message: ~p\n",[Data]),
+  logger:notice("worker ~p in wait cant treat message: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
   OldQ = ets:lookup_element(get(generic_worker_ets), message_q, ?ETS_KEYVAL_VAL_IDX),
   ets:insert(get(generic_worker_ets), {message_q, OldQ++[Data]}),
   {keep_state, State}.
@@ -221,6 +223,10 @@ wait(cast, Data, State) ->
 update(cast, {update, From, NerltensorWeights}, State = #workerGeneric_state{modelId = ModelId, customFunc = CustomFunc, nextState = NextState}) ->
   CustomFunc(update, {get(generic_worker_ets), NerltensorWeights}),
   {next_state, NextState, State};
+
+update(cast, {idle}, State = #workerGeneric_state{myName = MyName, modelId = ModelId, customFunc = CustomFunc, nextState = NextState}) ->
+  gen_statem:cast(get(client_pid),{stateChange,MyName}),
+  {next_state, idle, State#workerGeneric_state{nextState = idle}};
     
 update(cast, Data, State = #workerGeneric_state{modelId = ModelId, customFunc = CustomFunc, nextState = NextState}) ->
   % io:format("worker ~p got ~p~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
@@ -241,6 +247,7 @@ update(cast, Data, State = #workerGeneric_state{modelId = ModelId, customFunc = 
     %% got sample from source. discard TODO: add to Q
     {sample, Tensor} -> {keep_state, State}
   end.
+
 
 %% State train
 train(cast, {sample, {<<>>, _Type}}, State ) ->

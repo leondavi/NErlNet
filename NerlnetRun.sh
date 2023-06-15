@@ -49,6 +49,11 @@ if [[ "$buildNerlnetLibrary" -eq 1 ]] ; then
     ./NerlnetBuild.sh -j $JobsNum
 fi
 
+# only for raspberry
+is_rasp="$(grep -c raspbian /etc/os-release)"
+if [ $is_rasp -gt "0" ]; then 
+    export LD_PRELOAD=/usr/lib/arm-linux-gnueabihf/libatomic.so.1.2.0 
+fi
 
 cd src_erl/Communication_Layer/http_Nerlserver
 echo "$NERLNET_PREFIX Script CWD: $PWD"

@@ -1,8 +1,13 @@
 
 import os
 import json
+import globalVars
 
 JSON_DIRECTORY = '/usr/local/lib/nerlnet-lib/NErlNet/config/jsonDir.nerlconfig'
+
+ARCH_IDX = 0
+CONN_MAP_IDX = 1
+EXPERIMENT_IDX = 2
 
 PREFIX_ARCH = 'arch_'
 PREFIX_CONNECTION_MAP = 'conn_'
@@ -94,9 +99,6 @@ class JsonDirParser():
 
     def get_user_selection_files(self):
         if self.user_selection_tuple:
-            ARCH_IDX = 0
-            CONN_MAP_IDX = 1
-            EXPERIMENT_IDX = 2
             try:
                 selectedArch = self.arch_list[self.user_selection_tuple[ARCH_IDX]].get_full_path()
                 selectedConn = self.conn_map_list[self.user_selection_tuple[CONN_MAP_IDX]].get_full_path()
@@ -110,10 +112,6 @@ class JsonDirParser():
 
     def get_user_selection_jsons(self):
         if self.user_selection_tuple:
-            ARCH_IDX = 0
-            CONN_MAP_IDX = 1
-            EXPERIMENT_IDX = 2
-
             try:
                 selectedArch = self.arch_list[self.user_selection_tuple[ARCH_IDX]].get_json()
                 selectedConn = self.conn_map_list[self.user_selection_tuple[CONN_MAP_IDX]].get_json()

@@ -87,7 +87,7 @@ start(_StartType, _StartArgs) ->
     %% setup the erlang logger for this module 
     nerl_tools:setup_logger(?MODULE),
     %% make sure nif can be loaded:
-    nerlNIF:init(),
+    nerlNIF:nif_preload(),
     HostName = nerl_tools:getdeviceIP(),
     ?LOG_INFO(?LOG_HEADER++"This device IP: ~p~n", [HostName]),
     %Create a listener that waits for a message from python about the adresses of the wanted json
