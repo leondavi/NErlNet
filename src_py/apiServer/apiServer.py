@@ -44,6 +44,7 @@ ____________API COMMANDS_____________
 ==========Setting experiment========
 
 -showJsons():                       shows available arch / conn / exp layouts
+-printArchParams(Num)               print description of selected arch file
 -selectJsons():                     get input from user for arch / conn / exp selection
 -setJsons(arch, conn, exp):         set layout in code
 -getUserJsons():                    returns the selected arch / conn / exp
@@ -131,6 +132,13 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
     def showJsons(self):
         self.json_dir_parser.print_lists()
     
+    def printArchParams(self, arch = ""):
+        if not arch:
+            print("\n Enter arch file number:", end = ' ')
+            arch = input()
+        selectedArch = self.json_dir_parser.arch_list[int(arch)].get_full_path()
+        NetworkComponents(self.json_dir_parser.json_from_path(selectedArch)).printComponents()
+
     def selectJsons(self):
         self.json_dir_parser.select_arch_connmap_experiment()
 
@@ -422,7 +430,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 print(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.")
                 print(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.")
                 print(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
-                
+
                 f.write(f"\n{worker}, class #{j}:")
                 f.write(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.")
                 f.write(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.")
