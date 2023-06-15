@@ -224,7 +224,7 @@ update(cast, {update, From, NerltensorWeights}, State = #workerGeneric_state{mod
   CustomFunc(update, {get(generic_worker_ets), NerltensorWeights}),
   {next_state, NextState, State};
 
-update(cast, {idle}, State = #workerGeneric_state{modelId = ModelId, customFunc = CustomFunc, nextState = NextState}) ->
+update(cast, {idle}, State = #workerGeneric_state{myName = MyName, modelId = ModelId, customFunc = CustomFunc, nextState = NextState}) ->
   gen_statem:cast(get(client_pid),{stateChange,MyName}),
   {next_state, idle, State#workerGeneric_state{nextState = idle}};
     
