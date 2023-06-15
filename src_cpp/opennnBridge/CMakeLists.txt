@@ -11,8 +11,6 @@ set(NIFPP_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../nifpp/")
 set(OPENNN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../opennn/opennn/")
 set(SIMPLE_LOGGER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../simple-cpp-logger/include")
 set(CMAKE_VERBOSE_MAKEFILE ON)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -latomic")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -latomic")
 set(CMAKE_CXX_FLAGS "-fpic")
 set(ERL_NIF_DEFAULT_LOCATION "/usr/local/lib/erlang/usr/include")
 
