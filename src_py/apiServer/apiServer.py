@@ -424,21 +424,21 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 bacc = (tpr + tnr) / 2
                 inf = tpr + tnr - 1
                 
-                print(f"\n{worker}, class #{j}:")
+                print(f"{worker}, class #{j}:")
                 print(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.")
                 print(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.")
                 print(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.")
                 print(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.")
                 print(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.")
-                print(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
+                print(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n\n")
 
-                f.write(f"\n{worker}, class #{j}:")
-                f.write(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.")
-                f.write(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.")
-                f.write(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.")
-                f.write(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.")
-                f.write(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.")
-                f.write(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
+                f.write(f"{worker}, class #{j}:\n")
+                f.write(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.\n")
+                f.write(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.\n")
+                f.write(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
+                f.write(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.\n")
+                f.write(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.\n")
+                f.write(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n\n")
         f.close()
         print(f'\nstats file saved...')
     
