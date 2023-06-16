@@ -95,6 +95,7 @@ waitforWorkers(cast, {stateChange,WorkerName}, State = #client_statem_state{myNa
   ets:update_counter(EtsRef, msgCounter, 1), % last is increment value
   case NewWaitforWorkers of
     [] ->   ack(MyName,ets:lookup_element(EtsRef, nerlnetGraph, 2)),
+            ?LOG_INFO("client going to state ~p~n",[NextState]),
             {next_state, NextState, State#client_statem_state{waitforWorkers = []}};
     _->  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers}}
   end;
