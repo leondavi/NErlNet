@@ -198,7 +198,7 @@ createSources(BatchSize, DefaultFrequency, HostName) ->
     SourcesMap = ets:lookup_element(nerlnet_data, sources, DATA_IDX),
     Func = 
     fun(SourceName,{SourcePort,SourceMethod, CustomFrequency}) -> 
-        SourceStatemArgs = {SourceName, WorkersMap, NerlnetGraph, SourceMethod, BatchSize},        %%TODO  make this a list of Sources
+        % SourceStatemArgs = {SourceName, WorkersMap, NerlnetGraph, SourceMethod, BatchSize},        %%TODO  make this a list of Sources
         SourceStatemArgs = 
             case CustomFrequency of 
                 none -> {SourceName, WorkersMap, NerlnetGraph, SourceMethod, BatchSize, DefaultFrequency};
