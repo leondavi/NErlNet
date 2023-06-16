@@ -377,7 +377,7 @@ findroutAndsend(MyName,SourceName,Body,NerlnetGraph) ->
   nerl_tools:http_request(RouterHost, RouterPort,"updateCSV", Body).
 
 
-findroutAndsendStatistics(_MyName, serverAPI,_ConnectionsMap) ->io:format("");
+findroutAndsendStatistics(_MyName, serverAPI,_ConnectionsMap) -> skip;
 findroutAndsendStatistics(MyName,Entity,NerlnetGraph) ->
   nerl_tools:sendHTTP(MyName, Entity, "statistics", Entity).
   % {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,Entity,NerlnetGraph),
@@ -398,10 +398,11 @@ startCasting([SourceName|SourceNames],NumOfSampleToSend, MyName, NerlnetGraph)->
 
 
 ack(NerlnetGraph) ->
-  % io:format("sending ACK to serverAPI~n"),
-  {_,{Host, Port}} = digraph:vertex(NerlnetGraph,?API_SERVER_ATOM),
-%%  send an ACK to mainserver that the CSV file is ready
-  nerl_tools:http_request(Host, Port,"ackP","ack").
+  nerl_tools:sendHTTP(?MAIN_SERVER_ATOM, ?API_SERVER_ATOM, "ackP", "ack").
+%   % io:format("sending ACK to serverAPI~n"),
+%   {_,{Host, Port}} = digraph:vertex(NerlnetGraph,?API_SERVER_ATOM),
+% %%  send an ACK to mainserver that the CSV file is ready
+%   nerl_tools:http_request(Host, Port,"ackP","ack").
 
 % getCSVName(InputName) ->
 %   lists:last(re:split(InputName, "/", [{return, list}])--[[]]).
