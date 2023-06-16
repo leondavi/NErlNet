@@ -419,6 +419,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         statFile = f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/stats.txt'
         if os.path.exists(statFile): os.remove(statFile)
         f = open(statFile, "a")
+
         for worker in confMatList:
             for j, label in enumerate(confMatList[worker]):
                 # Calculate the accuracy and other stats:
@@ -444,7 +445,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 f.write(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
                 f.write(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.\n")
                 f.write(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.\n")
-                f.write(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n\n")
+                f.write(f"Informedness (of making decision):          {round(inf*100, 3)}%.")
+            print("=========================================================\n")
         f.close()
         print(f'\nstats file saved...')
     
