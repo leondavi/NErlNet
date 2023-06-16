@@ -48,6 +48,16 @@ ModelTypeMapping = {
     "fed-server": 9
 }
 
+OptimizerTypeMapping = {
+    "none" : 0,
+    "SGD" : 1,
+    "Mini-Batch" : 2,
+    "Momentum" : 3,
+    "NAG" : 4,
+    "Adagrad" : 5,
+    "ADAM" : 6
+}
+
 def count_str_list_elements(list_str : str):
     return len(list_str.split(',')) if list_str else 0
 
@@ -58,15 +68,16 @@ def pretty_print_dict(d):#define d
     return pretty_dict#return result
 
 def combo_list_editable_handler(window, event, values, map, editable_list, selection_key, codes_key, add_butt_key, clear_butt_key):
-    editable_list = values[codes_key]
-    if  event == add_butt_key:   
-        editable_list = editable_list + "," if editable_list else editable_list
-        if values[selection_key]:
-            editable_list += str(map[values[selection_key]])
+    if values:
+        editable_list = values[codes_key]
+        if  event == add_butt_key:   
+            editable_list = editable_list + "," if editable_list else editable_list
+            if values[selection_key]:
+                editable_list += str(map[values[selection_key]])
+                window[codes_key].update(editable_list)
+        elif event == clear_butt_key:
+            editable_list = ""
             window[codes_key].update(editable_list)
-    elif event == clear_butt_key:
-        editable_list = ""
-        window[codes_key].update(editable_list)
     return editable_list
 
 def WinWorkerDialog():
@@ -80,15 +91,22 @@ def WinWorkerDialog():
                                [sg.InputText(key="-ACTIVATION-CODES-INPUT-",enable_events=True), sg.Text("(0)",key="-NUM-OF-LAYERS-ACTIVATIONS-",enable_events=True)]]
     WorkerDefinitionsFrame = sg.Frame("Model Definitions",layout=WorkerDefinitionsLayout)
 
+    OptimizerDefinitionsLayout = [[sg.Text("Learning Rate: "), sg.InputText(key="-LEARNING-RATE-INPUT-", enable_events=True)],[sg.Text("Optimizer Type: "), sg.Combo(list(OptimizerTypeMapping.keys()),enable_events=True, key='-OPTIMIZER-TYPE-LIST-BOX-')]]
+    OptimizerDefinitionsFrame = sg.Frame("Optimizer Definitions", layout=OptimizerDefinitionsLayout)
+
     WorkerFileLayout = [[sg.Text("Select xo file output directory"),sg.In(enable_events=True ,key="-XO-FILE-CHOSEN-DIRECTORY", expand_x=True), sg.FolderBrowse()],
                         [sg.Text("*.xo file name"),sg.InputText(key="-XO-FILE-NAME-"),sg.Button("Generate")]]
     WorkerFileFrame = sg.Frame("File",WorkerFileLayout)
     
-    WorkerWindow  = sg.Window(title="Worker", layout=[[sg.Text(f'New Worker Generator')],[WorkerDefinitionsFrame],[WorkerFileFrame]],modal=True, keep_on_top=True)                                                  
+    WorkerWindow  = sg.Window(title="Worker", layout=[[sg.Text(f'New Worker Generator')],[WorkerDefinitionsFrame],[OptimizerDefinitionsFrame],[WorkerFileFrame]],modal=True, keep_on_top=True)                                                  
     choice = None
 
     LayersSizesList = ""
     ModelTypeStr = ""
+    ModelType = -1 # None
+    OptimizationTypeStr = ""
+    OptimizationType = -1 # None
+    LearningRate = 0
     ActivationLayersList = ""
     LayerTypesList = ""
     while True:
@@ -98,11 +116,20 @@ def WinWorkerDialog():
             ModelType = ModelTypeMapping[ModelTypeStr]
             print(f"Model Id: {ModelType} {ModelTypeStr}")
         
+        if event == "-OPTIMIZER-TYPE-LIST-BOX-":
+            OptimizationTypeStr = values[event]
+            OptimizationType = OptimizerTypeMapping[OptimizationTypeStr]
+            print(f"Optimzier Type Id: {OptimizationType} {OptimizationTypeStr}")
+
+        if event == "-LEARNING-RATE-INPUT-":
+            LearningRate = values[event]
+            print(f"Learning Rate {LearningRate}")
 
         # Layers Sizes List
         if event == "-LAYERS-SIZES-INPUT-":
             LayersSizesList = values[event]
             WorkerWindow["-NUM-OF-LAYERS-SIZES-"].update(f'({str(count_str_list_elements(LayersSizesList))})')
+
 
         #TODO layers sizes
 
