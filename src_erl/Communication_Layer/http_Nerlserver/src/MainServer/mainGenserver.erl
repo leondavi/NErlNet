@@ -235,7 +235,6 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList =
   NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
   if length(NewWaitingList) == 0 ->
         ack(NerlnetGraph);
-        % ack(NerlnetGraph);
     true->
         io:format("~p sent ACK~n new clientWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
     end,

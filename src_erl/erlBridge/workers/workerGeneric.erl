@@ -215,7 +215,7 @@ wait(cast, {sample, _SampleListTrain}, State = #workerGeneric_state{missedBatche
 %   {next_state, wait, State#workerGeneric_state{missedBatchesCount = NewMissedCount}};
 
 wait(cast, Data, State) ->
-  logger:notice("worker ~p in wait cant treat message: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
+  % logger:notice("worker ~p in wait cant treat message: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
   OldQ = ets:lookup_element(get(generic_worker_ets), message_q, ?ETS_KEYVAL_VAL_IDX),
   ets:insert(get(generic_worker_ets), {message_q, OldQ++[Data]}),
   {keep_state, State}.
