@@ -2,6 +2,7 @@ import PySimpleGUI as sg
 from Routines import *
 from Definitions import *
 from WinWorkerDialog import WinWorkerDialog
+import logging
 
 sg.theme('LightGray4') 
 
@@ -53,8 +54,8 @@ workersListFrame = sg.Frame("", workersListFields)
 workersFields = [
                  [sg.Button("Add", size=(10)), sg.Button("Load",size=(10))],
                  [sg.Button("Validate",size=(10)), sg.Button("Remove",size=(10))],
-                 [sg.Text("name:   "), sg.InputText(size=10)],
-                 [sg.Text("path to file of type *.wo/*.xml")],
+                 [sg.Text("name:   "), sg.InputText(size=10), sg.Button("Duplicate",size=(10)), sg.Text("Copied name:   "), sg.InputText(size=10),],
+                 [sg.Text("path to file of type *.json/*.xml")],
                  [sg.InputText(size=22), sg.Button("Browse",size=(6))],
                  [sg.Button("Create a new worker .wo",size=(40),enable_events=True,key=WIN_WORKER_DIALOG_EVENT_KEY)],
                 ]

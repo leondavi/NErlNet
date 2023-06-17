@@ -58,6 +58,15 @@ OptimizerTypeMapping = {
     "ADAM" : 6
 }
 
+LossMethodMapping = {
+    "SSE" : 1, # Sum squared Error
+    "MSE" : 2, # Mean Squared Error
+    "NSE" : 3, # Normalized Squared Error
+    "Minkowski-E" : 4, # Minkowski Error
+    "WSE" : 5, # Weighted Squared Error
+    "CEE" : 6, # Cross Entropy Error
+}
+
 def count_str_list_elements(list_str : str):
     return len(list_str.split(',')) if list_str else 0
 
@@ -81,7 +90,6 @@ def combo_list_editable_handler(window, event, values, map, editable_list, selec
     return editable_list
 
 def WinWorkerDialog():
-    
     WorkerDefinitionsLayout = [[sg.Text("Model Type: "), sg.Combo(list(ModelTypeMapping.keys()),enable_events=True, key='-MODEL-TYPE-LIST-BOX-')],
                                [sg.Text("Layers Sizes: Comma separated list, # of neurons in a layer, E.g, 100,80,40,5,1")],
                                [sg.InputText(key="-LAYERS-SIZES-INPUT-",enable_events=True), sg.Text("(0)",key="-NUM-OF-LAYERS-SIZES-")],
@@ -91,11 +99,13 @@ def WinWorkerDialog():
                                [sg.InputText(key="-ACTIVATION-CODES-INPUT-",enable_events=True), sg.Text("(0)",key="-NUM-OF-LAYERS-ACTIVATIONS-",enable_events=True)]]
     WorkerDefinitionsFrame = sg.Frame("Model Definitions",layout=WorkerDefinitionsLayout)
 
-    OptimizerDefinitionsLayout = [[sg.Text("Learning Rate: "), sg.InputText(key="-LEARNING-RATE-INPUT-", enable_events=True)],[sg.Text("Optimizer Type: "), sg.Combo(list(OptimizerTypeMapping.keys()),enable_events=True, key='-OPTIMIZER-TYPE-LIST-BOX-')]]
+    OptimizerDefinitionsLayout = [[sg.Text("Learning Rate: "), sg.InputText(key="-LEARNING-RATE-INPUT-", enable_events=True)],
+                                  [sg.Text("Optimizer Type: "), sg.Combo(list(OptimizerTypeMapping.keys()),enable_events=True, key='-OPTIMIZER-TYPE-LIST-BOX-')],
+                                  [sg.Text("Loss Method: "), sg.Combo(list(LossMethodMapping.keys()),enable_events=True, key='-LOSS-METHOD-LIST-BOX-')]]
     OptimizerDefinitionsFrame = sg.Frame("Optimizer Definitions", layout=OptimizerDefinitionsLayout)
 
-    WorkerFileLayout = [[sg.Text("Select xo file output directory"),sg.In(enable_events=True ,key="-XO-FILE-CHOSEN-DIRECTORY", expand_x=True), sg.FolderBrowse()],
-                        [sg.Text("*.xo file name"),sg.InputText(key="-XO-FILE-NAME-"),sg.Button("Generate")]]
+    WorkerFileLayout = [[sg.Text("Select json file output directory"),sg.In(enable_events=True ,key="-XO-FILE-CHOSEN-DIRECTORY", expand_x=True), sg.FolderBrowse()],
+                        [sg.Text("*.json file name"),sg.InputText(key="-JSON-FILE-NAME-"),sg.Button("Export")]]
     WorkerFileFrame = sg.Frame("File",WorkerFileLayout)
     
     WorkerWindow  = sg.Window(title="Worker", layout=[[sg.Text(f'New Worker Generator')],[WorkerDefinitionsFrame],[OptimizerDefinitionsFrame],[WorkerFileFrame]],modal=True, keep_on_top=True)                                                  
@@ -106,6 +116,8 @@ def WinWorkerDialog():
     ModelType = -1 # None
     OptimizationTypeStr = ""
     OptimizationType = -1 # None
+    LossMethodStr = ""
+    LossMethod = -1 # None
     LearningRate = 0
     ActivationLayersList = ""
     LayerTypesList = ""
@@ -116,15 +128,6 @@ def WinWorkerDialog():
             ModelType = ModelTypeMapping[ModelTypeStr]
             print(f"Model Id: {ModelType} {ModelTypeStr}")
         
-        if event == "-OPTIMIZER-TYPE-LIST-BOX-":
-            OptimizationTypeStr = values[event]
-            OptimizationType = OptimizerTypeMapping[OptimizationTypeStr]
-            print(f"Optimzier Type Id: {OptimizationType} {OptimizationTypeStr}")
-
-        if event == "-LEARNING-RATE-INPUT-":
-            LearningRate = values[event]
-            print(f"Learning Rate {LearningRate}")
-
         # Layers Sizes List
         if event == "-LAYERS-SIZES-INPUT-":
             LayersSizesList = values[event]
@@ -157,20 +160,28 @@ def WinWorkerDialog():
         if event == "-LAYER-TYPE-HELP-":
             sg.popup_ok(f"Layer type codes:\n{pretty_print_dict(LayerTypeMap)}", keep_on_top=True, title="Layer Type Codes")
 
-       
-        if event == "Exit" or event == sg.WIN_CLOSED:
+        if event == "-LEARNING-RATE-INPUT-":
+            LearningRate = values[event]
+            print(f"selected Learning Rate {LearningRate}")
+
+        if event == "-OPTIMIZER-TYPE-LIST-BOX-":
+            OptimizationTypeStr = values[event]
+            OptimizationType = OptimizerTypeMapping[OptimizationTypeStr]
+            print(f"selected Optimzier Type Id: {OptimizationType} {OptimizationTypeStr}")
+
+        if event == "-LOSS-METHOD-LIST-BOX-":
+            LossMethodStr = values[event]
+            LossMethod = LossMethodMapping[LossMethodStr]
+            print(f"selected Loss Method Type: {LossMethod} {LossMethodStr}")
+
+        if event == "Export":
+            newWorker = Worker("new", LayersSizesList, ModelTypeStr, ModelType, LossMethod, LearningRate, LossMethodStr, LossMethod, LearningRate, ActivationLayersList, LayerTypesList )
+            validation = newWorker.input_validation()
+            print(f"validation: {validation}")
+            sg.popup_auto_close("Successfully Created", keep_on_top=True)
             break
 
-        # Activation codes cases:
-        # elif event == "-ACTIVATION-LAYER-SELECTION-ADD-":
-        #     if values['-ACTIVATION-CODES-INPUT-']:
-        #         ActivationLayersList = values['-ACTIVATION-CODES-INPUT-']
-        #     ActivationLayersList = ActivationLayersList + "," if ActivationLayersList else ActivationLayersList
-        #     ActivationLayersList += str(ActivationFunctionsMap[values['-ACTIVATION-LAYER-SELECTION-']])
-        #     WorkerWindow['-ACTIVATION-CODES-INPUT-'].update(ActivationLayersList)
-        # elif event == "-ACTIVATION-LAYER-SELECTION-CLEAR-":
-        #     ActivationLayersList = ""
-        #     WorkerWindow['-ACTIVATION-CODES-INPUT-'].update(ActivationLayersList)
-        # 
+        if event == "Exit" or event == sg.WIN_CLOSED:
+            break
         
     WorkerWindow.close()
