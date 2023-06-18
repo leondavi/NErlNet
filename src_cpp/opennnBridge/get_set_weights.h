@@ -51,6 +51,8 @@ inline void* get_weights(void* arg)
     {
         LogError << "enif_send failed ";
     }
+
+    return 0;
 }
 
 
