@@ -28,7 +28,7 @@ get_this_server_ets(GenWorkerEts) ->
   ets:lookup_element(GenWorkerEts, federated_server_ets, ?ETS_KEYVAL_VAL_IDX).
   
 %% handshake with workers / server
-init({GenWorkerEts, WorkerData}) -> ok,
+init({GenWorkerEts, WorkerData}) -> 
   Type = float, % update from data
   {SyncMaxCount, MyName, WorkersNamesList} = WorkerData,
   % #workerFederatedServer{clientPID = ClientPid, workersNamesList = WorkersNamesList} = WorkerData,
