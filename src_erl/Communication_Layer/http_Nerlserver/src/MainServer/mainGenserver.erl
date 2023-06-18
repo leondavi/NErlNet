@@ -395,8 +395,14 @@ startCasting([SourceName|SourceNames],NumOfSampleToSend, MyName, NerlnetGraph)->
 
 ack() ->
   % io:format("mainserver sending ACK~n"),
-  Response = nerl_tools:sendHTTP(?MAIN_SERVER_ATOM, ?API_SERVER_ATOM, "ackP", "ack"),
-  io:format("ACK was ~p~n",[Response]).
+  {ok, Response} = nerl_tools:sendHTTP(?MAIN_SERVER_ATOM, ?API_SERVER_ATOM, "ackP", "ack"),
+  io:format("ACK was ~p~n",[Response]),
+  case Response of 
+    {{Protocol, Code = 404, Meaning}, Headers, Body} -> timer:sleep(10), ack();    %% Ack not received?
+    {{Protocol, Code = 200, Meaning}, Headers, Body} -> done;
+    Other -> bad_response
+  end.
+  
 %   % io:format("sending ACK to serverAPI~n"),
 %   {_,{Host, Port}} = digraph:vertex(NerlnetGraph,?API_SERVER_ATOM),
 % %%  send an ACK to mainserver that the CSV file is ready
