@@ -209,8 +209,8 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{sourcesCastingList 
 
   case NewCastingList of
     [] -> NextState = State#main_genserver_state{state = idle, sourcesCastingList = NewCastingList,msgCounter = MsgCounter},
-          gen_server:cast(self(),{clientsIdle});
-          % ack(NerlnetGraph);
+          gen_server:cast(self(),{clientsIdle}),
+          ack();
     _ -> NextState = State#main_genserver_state{state = casting, sourcesCastingList = NewCastingList,msgCounter = MsgCounter+1}
   end,
   {noreply, NextState};
@@ -220,7 +220,7 @@ handle_cast({sourceAck,Body}, State = #main_genserver_state{nerlnetGraph = Nerln
 %%  io:format("new Waiting List: ~p ~n",[WaitingList--[list_to_atom(binary_to_list(Body))]]),
     NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
     if length(NewWaitingList) == 0 ->
-        ack(NerlnetGraph);
+        ack();
       true->
         io:format("~p sent ACK~n new sourceWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
     end,
@@ -229,9 +229,9 @@ handle_cast({sourceAck,Body}, State = #main_genserver_state{nerlnetGraph = Nerln
 
 handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList,msgCounter = MsgCounter,nerlnetGraph = NerlnetGraph}) ->
   NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
-  % io:format("new Waiting List: ~p ~n",[NewWaitingList]),
+  io:format("new Waiting List: ~p ~n",[NewWaitingList]),
   if length(NewWaitingList) == 0 ->
-        ack(NerlnetGraph);
+        ack();
     true->
         io:format("~p sent ACK~n new clientWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
     end,
@@ -393,9 +393,10 @@ startCasting([SourceName|SourceNames],NumOfSampleToSend, MyName, NerlnetGraph)->
   startCasting(SourceNames,NumOfSampleToSend, MyName, NerlnetGraph).
 
 
-ack(NerlnetGraph) ->
+ack() ->
   % io:format("mainserver sending ACK~n"),
-  nerl_tools:sendHTTP(?MAIN_SERVER_ATOM, ?API_SERVER_ATOM, "ackP", "ack").
+  Response = nerl_tools:sendHTTP(?MAIN_SERVER_ATOM, ?API_SERVER_ATOM, "ackP", "ack"),
+  io:format("ACK was ~p~n",[Response]).
 %   % io:format("sending ACK to serverAPI~n"),
 %   {_,{Host, Port}} = digraph:vertex(NerlnetGraph,?API_SERVER_ATOM),
 % %%  send an ACK to mainserver that the CSV file is ready
