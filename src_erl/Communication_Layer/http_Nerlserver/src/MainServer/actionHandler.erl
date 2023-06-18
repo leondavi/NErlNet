@@ -17,7 +17,7 @@
 init(Req0, [Action, Main_genserver_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {_,Body,_} = cowboy_req:read_body(Req0),
-  io:format("mainserver got ACTION: ~p~n",[Body]),
+  % io:format("mainserver got ACTION: ~p~n",[Body]),
   case Action of
     clientsTraining ->  gen_statem:cast(Main_genserver_Pid, {clientsTraining,Body});
     clientsPredict ->  gen_statem:cast(Main_genserver_Pid, {clientsPredict,Body});
