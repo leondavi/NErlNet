@@ -180,10 +180,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
               S = mapToString(Statistics,[]) ,
               ?LOG_NOTICE("Sending stats: ~p~n",[S]),
               {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?API_SERVER_ATOM,NerlnetGraph),
-
-              %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
               nerl_tools:http_request(RouterHost,RouterPort,"statistics", S ++ "|mainServer:" ++integer_to_list(MsgCounter));
-              %ack(NerlnetGraph);
 
           %% wait for more stats
           true -> pass end
@@ -225,7 +222,6 @@ handle_cast({sourceAck,Body}, State = #main_genserver_state{nerlnetGraph = Nerln
     if length(NewWaitingList) == 0 ->
         ack(NerlnetGraph);
       true->
-        ack(NerlnetGraph),
         io:format("~p sent ACK~n new sourceWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
     end,
   {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList,msgCounter = MsgCounter+1}};
@@ -233,6 +229,7 @@ handle_cast({sourceAck,Body}, State = #main_genserver_state{nerlnetGraph = Nerln
 
 handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList,msgCounter = MsgCounter,nerlnetGraph = NerlnetGraph}) ->
   NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
+  % io:format("new Waiting List: ~p ~n",[NewWaitingList]),
   if length(NewWaitingList) == 0 ->
         ack(NerlnetGraph);
     true->
@@ -397,6 +394,7 @@ startCasting([SourceName|SourceNames],NumOfSampleToSend, MyName, NerlnetGraph)->
 
 
 ack(NerlnetGraph) ->
+  % io:format("mainserver sending ACK~n"),
   nerl_tools:sendHTTP(?MAIN_SERVER_ATOM, ?API_SERVER_ATOM, "ackP", "ack").
 %   % io:format("sending ACK to serverAPI~n"),
 %   {_,{Host, Port}} = digraph:vertex(NerlnetGraph,?API_SERVER_ATOM),

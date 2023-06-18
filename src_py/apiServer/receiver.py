@@ -84,6 +84,8 @@ class test(Resource):
 class ack(Resource):
     def post(self):
         globe.pendingAcks -= 1
+        print(f'Ack Received! {globe.pendingAcks} more pending')
+        print(globe.pendingAcks)
         if globe.jupyterFlag == False:
             resData = request.form['ack']
             print(resData + 'Ack Received!')

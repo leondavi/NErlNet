@@ -102,7 +102,7 @@ class Transmitter:
         globe.experiment_flow_global.syncTrainingWithFlow()
 
         # 1 Ack for clientsTraining()
-        globe.pendingAcks += 1
+        globe.pendingAcks = 1
 
         self.clientsTraining()
         
@@ -111,7 +111,7 @@ class Transmitter:
             pass 
         
         # 1 Ack for startCasting():
-        globe.pendingAcks += 1
+        globe.pendingAcks = 1
 
         self.startCasting(globe.TRAINING_STR) 
 
@@ -126,7 +126,7 @@ class Transmitter:
     def contPhase(self, phase):     # phase can be train/training no matter capitals, otherwise predict
         print("starting additional training")
 
-        globe.pendingAcks += 1
+        globe.pendingAcks = 1
         if(phase.lower().startswith("train")):      # accepts train / training / etc...
             self.clientsTraining()
             phase = globe.TRAINING_STR
@@ -138,7 +138,7 @@ class Transmitter:
             time.sleep(0.05)
             pass 
 
-        globe.pendingAcks += 1
+        globe.pendingAcks = 1
 
         self.startCasting(phase) 
 
@@ -154,7 +154,7 @@ class Transmitter:
         globe.experiment_flow_global.syncPredicitionWithFlow()
 
         # 1 Ack for clientsPredict(), <num of sources> Acks for updateCSV():
-        globe.pendingAcks += 1
+        globe.pendingAcks = 1
 
         self.clientsPredict()
 
@@ -163,7 +163,7 @@ class Transmitter:
             pass 
 
         # 1 Ack for startCasting():
-        globe.pendingAcks += 1
+        globe.pendingAcks = 1
 
         self.startCasting(globe.PREDICTION_STR)
 
