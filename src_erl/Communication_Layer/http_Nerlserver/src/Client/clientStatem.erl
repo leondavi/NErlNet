@@ -403,7 +403,7 @@ updateTimingMap(EtsRef, WorkerName) when is_atom(WorkerName) ->
 %% adding client c1=MsgNum,w1=...
 sendStatistics(RouterHost,RouterPort,MyName,MsgCount,TimingTuples)->
   Statistics = lists:flatten([atom_to_list(WorkerName)++"="++float_to_list(TotalTime/TotalBatches,[{decimals, 3}])++","||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-TimingTuples]),
-  MyStats = atom_to_list(MyName)++"="++MsgCount++",",
+  MyStats = atom_to_list(MyName)++"="++integer_to_list(MsgCount)++",",
   nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++":"++MyStats++lists:droplast(Statistics))).
 
 cast_message_to_workers(EtsRef, Msg) ->
