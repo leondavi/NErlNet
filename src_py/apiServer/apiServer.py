@@ -187,7 +187,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
     def sendDataToSources(self, phase):
         print("\nSending data to sources")
         # <num of sources> Acks for updateCSV():
-        globe.pendingAcks += len(globe.components.sources) 
+        globe.pendingAcks = len(globe.components.sources) 
         # print(f"waiting for {globe.pendingAcks} acks from {len(globe.components.sources)} sources")
         self.transmitter.updateCSV(phase)
 
@@ -234,7 +234,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
     def print_saved_experiments(self):
         if (len(self.experiments) == 0):
-            print("No experiments were conducted yet.")
+            print("No experiments conducted yet.")
             return
 
         print("\n---SAVED EXPERIMENTS---\n")
