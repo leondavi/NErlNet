@@ -95,16 +95,15 @@ waitforWorkers(cast, {stateChange,WorkerName}, State = #client_statem_state{myNa
   ets:update_counter(EtsRef, msgCounter, 1), % last is increment value
   case NewWaitforWorkers of
     [] ->   ack(MyName,ets:lookup_element(EtsRef, nerlnetGraph, 2)),
-            ?LOG_INFO("client going to state ~p~n",[NextState]),
+            ?LOG_INFO("~p going to state ~p~n",[MyName, NextState]),
             {next_state, NextState, State#client_statem_state{waitforWorkers = []}};
     _->  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers}}
   end;
 
-waitforWorkers(cast, {NewState}, State = #client_statem_state{etsRef = EtsRef}) ->
+waitforWorkers(cast, {NewState}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
-  ?LOG_INFO("client going to state ~p~n",[State]),
-
-  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),    %% TODO: macro this 2
+  ?LOG_INFO("~p in waiting going to state ~p~n",[MyName, State]),
+  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
   cast_message_to_workers(EtsRef, {NewState}),
   {next_state, waitforWorkers, State#client_statem_state{nextState = NewState, waitforWorkers = Workers}};
 
@@ -153,7 +152,7 @@ idle(cast, {training}, State = #client_statem_state{etsRef = EtsRef}) ->
   {next_state, waitforWorkers, State#client_statem_state{nextState = training}};
 
 idle(cast, {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
-  io:format("client going to state predict",[]),
+  io:format("client going to state predict~n",[]),
   ets:update_counter(EtsRef, msgCounter, 1),
   MessageToCast = {predict},
   cast_message_to_workers(EtsRef, MessageToCast),
@@ -222,18 +221,18 @@ training(cast, {sample,Body}, State = #client_statem_state{etsRef = EtsRef}) ->
   true -> ?LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName]) end,
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
-training(cast, {idle}, State = #client_statem_state{etsRef = EtsRef}) ->
+training(cast, {idle}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
-  io:format("client going to state idle~n",[]),
+  io:format("~p going to state idle~n",[MyName]),
   MessageToCast = {idle},
   cast_message_to_workers(EtsRef, MessageToCast),
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
   io:format("setting workers at idle: ~p~n",[ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
   {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers}};
 
-training(cast, {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
+training(cast, {predict}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
-  io:format("client going to state predict",[]),
+  io:format("~p going to state predict~n",[MyName]),
   MessageToCast = {predict},
   cast_message_to_workers(EtsRef,MessageToCast),
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
