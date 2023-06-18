@@ -399,10 +399,12 @@ updateTimingMap(EtsRef, WorkerName) when is_atom(WorkerName) ->
   NewTimingTuple = {Start,TotalBatches,TotalTrainingTime+TotalTime},
   ets:update_element(EtsRef, WorkerName,[{?WORKER_TIMING_IDX,NewTimingTuple}]).
 
-%% sattistics format: clientName:workerName=avgTime,...
-sendStatistics(RouterHost,RouterPort,MyName,_MsgCount,TimingTuples)->
+%% statistics format: clientName:workerName=avgTime,...
+%% adding client c1=MsgNum,w1=...
+sendStatistics(RouterHost,RouterPort,MyName,MsgCount,TimingTuples)->
   Statistics = lists:flatten([atom_to_list(WorkerName)++"="++float_to_list(TotalTime/TotalBatches,[{decimals, 3}])++","||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-TimingTuples]),
-  nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++":"++lists:droplast(Statistics))).
+  MyStats = atom_to_list(MyName)++"="++MsgCount++",",
+  nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++":"++MyStats++lists:droplast(Statistics))).
 
 cast_message_to_workers(EtsRef, Msg) ->
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
