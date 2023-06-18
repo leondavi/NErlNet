@@ -45,7 +45,7 @@ start_link(NerlnetGraph) ->
 %% process to initialize.
 %%initialize and go to state - idle
 init({MyName,WorkersMap, NerlnetGraph, Method, BatchSize,Frequency}) ->
-  io:format("~n~n MyName ~p~n",[is_atom(MyName)]),
+  % io:format("~n~n MyName ~p~n",[is_atom(MyName)]),
   nerl_tools:setup_logger(?MODULE),
   inets:start(),
   ?LOG_NOTICE("Source ~p is connected to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
