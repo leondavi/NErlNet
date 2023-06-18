@@ -205,7 +205,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
 handle_cast({sourceDone,Body}, State = #main_genserver_state{sourcesCastingList = CastingList,msgCounter = MsgCounter}) ->
   % io:format("~p done sending data ~n",[list_to_atom(binary_to_list(Body))]),
   NewCastingList = CastingList--[list_to_atom(binary_to_list(Body))],
-  io:format("new Waiting List: ~p ~n",[NewCastingList]),
+  % io:format("new Waiting List: ~p ~n",[NewCastingList]),
 
   case NewCastingList of
     [] -> NextState = State#main_genserver_state{state = idle, sourcesCastingList = NewCastingList,msgCounter = MsgCounter},
@@ -216,24 +216,23 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{sourcesCastingList 
   {noreply, NextState};
 
 handle_cast({sourceAck,Body}, State = #main_genserver_state{nerlnetGraph = NerlnetGraph, sourcesWaitingList = WaitingList,msgCounter = MsgCounter}) ->
-    io:format("~n~p sent ACK ~n",[list_to_atom(binary_to_list(Body))]),
-%%  io:format("new Waiting List: ~p ~n",[WaitingList--[list_to_atom(binary_to_list(Body))]]),
+    % io:format("~n~p sent ACK ~n",[list_to_atom(binary_to_list(Body))]),
     NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
     if length(NewWaitingList) == 0 ->
         ack();
-      true->
-        io:format("~p sent ACK~n new sourceWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
+      true-> ok
+        % io:format("~p sent ACK~n new sourceWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
     end,
   {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList,msgCounter = MsgCounter+1}};
 
 
 handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList,msgCounter = MsgCounter,nerlnetGraph = NerlnetGraph}) ->
   NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
-  io:format("new Waiting List: ~p ~n",[NewWaitingList]),
+  % io:format("new Waiting List: ~p ~n",[NewWaitingList]),
   if length(NewWaitingList) == 0 ->
         ack();
-    true->
-        io:format("~p sent ACK~n new clientWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
+    true-> ok
+        % io:format("~p sent ACK~n new clientWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
     end,
   {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList, msgCounter = MsgCounter+1}};
 
@@ -244,7 +243,7 @@ handle_cast({startCasting,Source_Names}, State = #main_genserver_state{state = i
   Sources = lists:sublist(Splitted,length(Splitted)-1),
   startCasting(Sources,NumOfSampleToSend,MyName, NerlnetGraph),
   SourcesAtoms = [list_to_atom(Source_Name)||Source_Name<-Sources],
-  io:format("new Casting list: ~p~n",[SourcesAtoms]),
+  % io:format("new Casting list: ~p~n",[SourcesAtoms]),
   {noreply, State#main_genserver_state{sourcesCastingList = CastingList++SourcesAtoms, state = casting,msgCounter = MsgCounter+1}};
 
 
@@ -319,7 +318,6 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
 
 
 handle_cast(Request, State = #main_genserver_state{}) ->
-
   io:format("main server cast ignored: ~p~n",[Request]),
   {noreply, State}.
 
@@ -396,9 +394,9 @@ startCasting([SourceName|SourceNames],NumOfSampleToSend, MyName, NerlnetGraph)->
 ack() ->
   % io:format("mainserver sending ACK~n"),
   {ok, Response} = nerl_tools:sendHTTP(?MAIN_SERVER_ATOM, ?API_SERVER_ATOM, "ackP", "ack"),
-  io:format("ACK was ~p~n",[Response]),
+  % io:format("ACK was ~p~n",[Response]),
   case Response of 
-    {{Protocol, Code = 404, Meaning}, Headers, Body} -> timer:sleep(10), ack();    %% Ack not received?
+    {{Protocol, Code = 404, Meaning}, Headers, Body} -> timer:sleep(10), ack();    %% Ack not received, retry
     {{Protocol, Code = 200, Meaning}, Headers, Body} -> done;
     Other -> bad_response
   end.
