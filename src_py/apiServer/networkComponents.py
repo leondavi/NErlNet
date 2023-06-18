@@ -33,6 +33,7 @@ class NetworkComponents():
         self.workers = []
         self.federateds = []
         self.sources = []
+        self.sourceMethods = []
         self.routers = []
 
         # Getting the names of all the devices:
@@ -59,6 +60,7 @@ class NetworkComponents():
         sourcesJsons = self.jsonData['sources']
         for source in sourcesJsons:
             self.sources.append(source['name'])
+            self.sourceMethods.append(source['method'])
 
         # Getting the names of all the routers:
         routersJsons = self.jsonData['routers']
@@ -78,7 +80,7 @@ class NetworkComponents():
                 Clients: {self.clients}\n \
                 Workers: {self.workers}\n \
                 Federated networks: {self.federateds}\n \
-                Sources: {self.sources}\n \
+                Sources: {self.sources}({self.sourceMethods})\n \
                 Routers: {self.routers}")
 
     def checkIdenticalAdresses(self):
