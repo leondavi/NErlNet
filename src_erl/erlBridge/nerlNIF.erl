@@ -214,7 +214,6 @@ sum_nerltensors_lists_erl(NerltensorList, ErlType)  ->
 
       
 sum_nerltensors_lists([], _BinaryType) ->  throw("Zero length given to sum_nerltensors_even_lists");
-sum_nerltensors_lists(NerltensorList, _BinaryType) ->  [hd(NerltensorList)];
 sum_nerltensors_lists(NerltensorList, _BinaryType) when length(NerltensorList) == 1 ->  NerltensorList;
 sum_nerltensors_lists(NerltensorList, BinaryType) -> 
       OddLength = nerl:odd(length(NerltensorList)),
