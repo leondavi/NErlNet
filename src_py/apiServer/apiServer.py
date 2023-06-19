@@ -187,7 +187,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
     def sendDataToSources(self, phase):
         print("\nSending data to sources")
         # <num of sources> Acks for updateCSV():
-        globe.pendingAcks += len(globe.components.sources) 
+        globe.pendingAcks = len(globe.components.sources) 
         # print(f"waiting for {globe.pendingAcks} acks from {len(globe.components.sources)} sources")
         self.transmitter.updateCSV(phase)
 
@@ -234,7 +234,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
     def print_saved_experiments(self):
         if (len(self.experiments) == 0):
-            print("No experiments were conducted yet.")
+            print("No experiments conducted yet.")
             return
 
         print("\n---SAVED EXPERIMENTS---\n")
@@ -419,6 +419,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         statFile = f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/stats.txt'
         if os.path.exists(statFile): os.remove(statFile)
         f = open(statFile, "a")
+
         for worker in confMatList:
             for j, label in enumerate(confMatList[worker]):
                 # Calculate the accuracy and other stats:
@@ -444,7 +445,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 f.write(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
                 f.write(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.\n")
                 f.write(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.\n")
-                f.write(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n\n")
+                f.write(f"Informedness (of making decision):          {round(inf*100, 3)}%.")
+            print("=========================================================\n")
         f.close()
         print(f'\nstats file saved...')
     
