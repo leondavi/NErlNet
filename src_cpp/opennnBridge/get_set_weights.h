@@ -23,7 +23,7 @@ inline void* get_weights(void* arg)
     delete pGetWeigthsParamsPtr; // This is owned by the former thread
 
     ErlNifEnv *env = enif_alloc_env();    
-
+    
     nifpp::TERM nerltensor_parameters_bin;
     fTensor1D parameters;
     fTensor1DPtr parameters_ptr;
@@ -61,15 +61,15 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     std::shared_ptr<GetWeightsParams>* pWeightsParamsPtr = new std::shared_ptr<GetWeightsParams>(std::make_shared<GetWeightsParams>());
     std::shared_ptr<GetWeightsParams> weightsParamsPtr = *pWeightsParamsPtr;
 
-    std::tuple<nifpp::TERM, nifpp::TERM> return_tuple;
-
     long int mid;
     ErlNifPid pid;
-    
+
     //get process id
     enif_self(env, &pid);
+    weightsParamsPtr->pid = pid;
     //get model id
     nifpp::get_throws(env, argv[0], mid); 
+    weightsParamsPtr->mid = mid;
 
     int res = enif_thread_create((char*)"get_weights_proc", &(weightsParamsPtr->tid), get_weights, (void*) pWeightsParamsPtr, 0);
     
