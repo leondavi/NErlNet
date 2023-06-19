@@ -116,7 +116,7 @@ nerltensor_scalar_multiplication_nif_test(Type, N, Performance) ->
       CompareFloats = nerl:compare_floats_L(NerlTensorEncResDec, ExpectedResult, 3), % Erlang accuracy is double
       if 
             CompareFloats -> nerltensor_scalar_multiplication_nif_test(Type, N-1, PerformanceNew);
-            true -> throw(ner:string_format("test failed - not equal ~n ExpectedResult: ~p ~n NerlTensorEncResDec: ~p",[ExpectedResult, NerlTensorEncResDec]))
+            true -> throw(nerl:string_format("test failed - not equal ~n ExpectedResult: ~p ~n NerlTensorEncResDec: ~p",[ExpectedResult, NerlTensorEncResDec]))
       end.
 
 
@@ -143,7 +143,7 @@ nerltensor_sum_nif_test(Type, N, Performance) ->
       %  io:format("ResultTensorCEncDec ~p~n",[ResultTensorCEncDec]),
       if 
             CompareFloats -> nerltensor_sum_nif_test(Type, N-1, PerformanceNew);
-            true -> throw(ner:string_format("test failed - not equal ~n ExpectedResult: ~p ~n ResultTensorCEncDec: ~p",[ExpectedResult, ResultTensorCEncDec]))
+            true -> throw(nerl:string_format("test failed - not equal ~n ExpectedResult: ~p ~n ResultTensorCEncDec: ~p",[ExpectedResult, ResultTensorCEncDec]))
       end.
 
 % only erl_float types are supported
@@ -168,7 +168,7 @@ sum_nerltensors_lists_test(Type, N, Performance) ->
       CompareFloats = nerl:compare_floats_L(ResultSumEncodedDecoded, ExpectedSumResult, 4), % Erlang accuracy is double
       if 
             CompareFloats -> sum_nerltensors_lists_test(Type, N-1, PerformanceNew);
-            true -> throw(ner:string_format("test failed - not equal ~n ExpectedResult: ~p ~n ResultTensorCEncDec: ~p",[ExpectedSumResult, ResultSumEncodedDecoded]))
+            true -> throw(nerl:string_format("test failed - not equal ~n ExpectedResult: ~p ~n ResultTensorCEncDec: ~p",[ExpectedSumResult, ResultSumEncodedDecoded]))
       end.
 
 
