@@ -69,7 +69,8 @@ call_to_predict(ModelID, BatchTensor, Type, WorkerPid,CSVname, BatchID)->
       end.
 
 call_to_get_weights(ModelID)->
-      try
+      try   
+            ?LOG_INFO("Calling get weights in model ~p~n",{ModelID}),
             _RetVal = get_weights_nif(ModelID),
             receive
                   NerlTensorWeights -> %% NerlTensor is tuple: {Tensor, Type}
@@ -212,6 +213,7 @@ sum_nerltensors_lists_erl(NerltensorList, ErlType)  ->
       end,
       sum_nerltensors_lists_erl(SumResultTwoHalfsWithOddFirst, ErlType).
 
+      
 sum_nerltensors_lists([], _BinaryType) ->  throw("Zero length given to sum_nerltensors_even_lists");
 sum_nerltensors_lists(NerltensorList, _BinaryType) when length(NerltensorList) == 1 ->  NerltensorList;
 sum_nerltensors_lists(NerltensorList, BinaryType) -> 

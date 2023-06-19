@@ -10,6 +10,10 @@ import sys
 import os
 from experiment import *
 
+def waitForAck():
+    while globe.pendingAcks > 0:
+        time.sleep(0.005)
+
 class Transmitter:
 
     def __init__(self, mainServerAddress):
@@ -32,6 +36,8 @@ class Transmitter:
         return(response.ok, response.status_code, response.json())
 
     def clientsTraining(self):
+        # 1 Ack for clientsTraining()
+        globe.pendingAcks = 1
         print('Clients Training Phase')
         response = requests.post(self.clientsTrainingAddress, data='')
         if globe.jupyterFlag == False:
@@ -75,6 +81,9 @@ class Transmitter:
     def startCasting(self, phase):
         print('\nStart Casting Phase')
 
+        # 1 Ack for startCasting():
+        globe.pendingAcks = len(globe.components.toString('s'))
+
         # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
         if (phase==globe.TRAINING_STR):
             batchesPerSource = globe.experiment_flow_global.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.TRAINING_STR]
@@ -91,6 +100,7 @@ class Transmitter:
             print(response.ok, response.status_code)
 
     def clientsPredict(self):
+        globe.pendingAcks = 1
         print('Clients Predict Phase')
         response = requests.post(self.clientsPredictAddress, data='')
         if globe.jupyterFlag == False:
@@ -101,23 +111,13 @@ class Transmitter:
 
         globe.experiment_flow_global.syncTrainingWithFlow()
 
-        # 1 Ack for clientsTraining()
-        globe.pendingAcks += 1
-
         self.clientsTraining()
         
-        while globe.pendingAcks > 0:
-            time.sleep(0.005)
-            pass 
-        
-        # 1 Ack for startCasting():
-        globe.pendingAcks += 1
+        waitForAck()
 
         self.startCasting(globe.TRAINING_STR) 
 
-        while globe.pendingAcks > 0:
-            time.sleep(0.05)
-            pass 
+        waitForAck()
 
         #globe.experiment_flow_global.remove0Tails()
         globe.multiProcQueue.put(globe.experiment_flow_global)
@@ -126,7 +126,6 @@ class Transmitter:
     def contPhase(self, phase):     # phase can be train/training no matter capitals, otherwise predict
         print("starting additional training")
 
-        globe.pendingAcks += 1
         if(phase.lower().startswith("train")):      # accepts train / training / etc...
             self.clientsTraining()
             phase = globe.TRAINING_STR
@@ -134,17 +133,11 @@ class Transmitter:
             self.clientsPredict()
             phase = globe.PREDICTION_STR
 
-        while globe.pendingAcks > 0:
-            time.sleep(0.05)
-            pass 
-
-        globe.pendingAcks += 1
+        waitForAck()
 
         self.startCasting(phase) 
 
-        while globe.pendingAcks > 0:
-            time.sleep(0.05)
-            pass 
+        waitForAck()
 
         globe.multiProcQueue.put(globe.experiment_flow_global)
 
@@ -153,23 +146,13 @@ class Transmitter:
 
         globe.experiment_flow_global.syncPredicitionWithFlow()
 
-        # 1 Ack for clientsPredict(), <num of sources> Acks for updateCSV():
-        globe.pendingAcks += 1
-
         self.clientsPredict()
 
-        while globe.pendingAcks > 0:
-            time.sleep(0.005)
-            pass 
-
-        # 1 Ack for startCasting():
-        globe.pendingAcks += 1
+        waitForAck()
 
         self.startCasting(globe.PREDICTION_STR)
 
-        while globe.pendingAcks > 0:
-            time.sleep(0.005)
-            pass 
+        waitForAck()
         
         # globe.experiment_flow_global.remove0Tails()
         globe.multiProcQueue.put(globe.experiment_flow_global)
@@ -177,9 +160,6 @@ class Transmitter:
     def statistics(self):
         requests.post(self.statisticsAddress, data='getStatistics')
     
-if __name__ == "__main__":
-    trans = Transmitter()
-    trans.clientsTraining()
 
     '''
     def checkIfCsvInResults(self, resList, csv):
