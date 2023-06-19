@@ -69,7 +69,8 @@ call_to_predict(ModelID, BatchTensor, Type, WorkerPid,CSVname, BatchID)->
       end.
 
 call_to_get_weights(ModelID)->
-      try
+      try   
+            ?LOG_INFO("Calling get weights in model ~p~n",{ModelID}),
             _RetVal = get_weights_nif(ModelID),
             receive
                   NerlTensorWeights -> %% NerlTensor is tuple: {Tensor, Type}
