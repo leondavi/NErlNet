@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <mutex>
 #include <memory>
+#include <stdexcept>
 #include "../../opennn/opennn/opennn.h" // adding the api of opennn for creating a model
 
 #ifndef BUILDSCRIPT_PY_BRIDGECONTROLLER_H
@@ -64,7 +65,11 @@ public:
     }
 
     void deleteModel(unsigned long mid){
+        if (this->_MidNumModel.find(mid) == m.end())
+        {
+            throw(std::invalid_argument("model id is not exist in this erlang node!"));
+        }
         this->_MidNumModel.erase(mid); // TODO: Check for memmory leaks
-        this -> _MidNumModelType.erase(mid);
+        this->_MidNumModelType.erase(mid);
     }
 };
