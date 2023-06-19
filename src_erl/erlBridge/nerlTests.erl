@@ -190,7 +190,7 @@ encode_decode_nifs_test(N, Res, Performance) ->
       if
             FloatCase and CompareFloats-> encode_decode_nifs_test(N-1, Res ++ [], PerformanceNew);
             NerlTensor == DecodedTensor -> encode_decode_nifs_test(N-1, Res ++ [], PerformanceNew);
-            true -> throw(ner:string_format("test failed - not equal ~n Origin: ~p ~n EncDec: ~p",[{NerlTensor, EncodeType},{DecodedTensor, DecodedType}]))
+            true -> throw(nerl:string_format("test failed - not equal ~n Origin: ~p ~n EncDec: ~p",[{NerlTensor, EncodeType},{DecodedTensor, DecodedType}]))
       end.
 
 nerltensor_conversion_test(0) -> ok;
