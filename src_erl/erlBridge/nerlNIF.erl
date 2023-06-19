@@ -2,7 +2,7 @@
 -include_lib("kernel/include/logger.hrl").
 -include("nerlTensor.hrl").
 
--export([init/0,nif_preload/0,create_nif/6,train_nif/6,call_to_train/6,predict_nif/3,call_to_predict/6,get_weights_nif/1,printTensor/2]).
+-export([init/0,nif_preload/0,create_nif/6, destroy_nif/1, train_nif/6,call_to_train/6,predict_nif/3,call_to_predict/6,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
 -export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
@@ -28,6 +28,13 @@ nif_preload() -> done.
 % ModelID - Unique ID of the neural network model 
 % ModelType - E.g. Regression, Classification 
 create_nif(_ModelID, _ModelType , _ScalingMethod , _LayerTypesList , _LayersSizes , _LayersActivationFunctions) ->
+      exit(nif_library_not_loaded).
+
+% Input:
+% ModelId - a valid model id (of an already created model) - otherwise nif exception is raised!
+% Return
+% ok - if model destroyed
+destroy_nif(_ModelID) ->
       exit(nif_library_not_loaded).
 
 train_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor,_Type) ->
