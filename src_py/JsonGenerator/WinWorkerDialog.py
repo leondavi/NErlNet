@@ -90,6 +90,11 @@ def combo_list_editable_handler(window, event, values, map, editable_list, selec
     return editable_list
 
 def WinWorkerDialog():
+    WorkerFileLayout = [[sg.Text("Load json"),sg.In(enable_events=True ,key="-JSON_LOAD_FILE_BROWSE_EVENT_KEY-", expand_x=True), sg.FileBrowse(file_types=(("Json File", "*.json"),)),sg.Button("Load", key="-JSON_LOAD_BUTTON_EVENT_KEY-")],
+                        [sg.Text("Select json file output directory"),sg.In(enable_events=True ,key="-XO-FILE-CHOSEN-DIRECTORY", expand_x=True), sg.FolderBrowse()],
+                        [sg.Text("*.json file name"),sg.InputText(key="-JSON-FILE-NAME-"),sg.Button("Export")]]
+    WorkerFileFrame = sg.Frame("File",WorkerFileLayout)
+
     WorkerDefinitionsLayout = [[sg.Text("Model Type: "), sg.Combo(list(ModelTypeMapping.keys()),enable_events=True, key='-MODEL-TYPE-LIST-BOX-')],
                                [sg.Text("Layers Sizes: Comma separated list, # of neurons in a layer, E.g, 100,80,40,5,1")],
                                [sg.InputText(key="-LAYERS-SIZES-INPUT-",enable_events=True), sg.Text("(0)",key="-NUM-OF-LAYERS-SIZES-")],
@@ -104,11 +109,9 @@ def WinWorkerDialog():
                                   [sg.Text("Loss Method: "), sg.Combo(list(LossMethodMapping.keys()),enable_events=True, key='-LOSS-METHOD-LIST-BOX-')]]
     OptimizerDefinitionsFrame = sg.Frame("Optimizer Definitions", layout=OptimizerDefinitionsLayout)
 
-    WorkerFileLayout = [[sg.Text("Select json file output directory"),sg.In(enable_events=True ,key="-XO-FILE-CHOSEN-DIRECTORY", expand_x=True), sg.FolderBrowse()],
-                        [sg.Text("*.json file name"),sg.InputText(key="-JSON-FILE-NAME-"),sg.Button("Export")]]
-    WorkerFileFrame = sg.Frame("File",WorkerFileLayout)
+ 
     
-    WorkerWindow  = sg.Window(title="Worker", layout=[[sg.Text(f'New Worker Generator')],[WorkerDefinitionsFrame],[OptimizerDefinitionsFrame],[WorkerFileFrame]],modal=True, keep_on_top=True)                                                  
+    WorkerWindow  = sg.Window(title="Worker", layout=[[sg.Text(f'New Worker Generator')],[WorkerFileFrame],[WorkerDefinitionsFrame],[OptimizerDefinitionsFrame]],modal=True, keep_on_top=True)                                                  
     choice = None
 
     LayersSizesList = ""
@@ -178,6 +181,7 @@ def WinWorkerDialog():
             newWorker = Worker("new", LayersSizesList, ModelTypeStr, ModelType, LossMethod, LearningRate, LossMethodStr, LossMethod, LearningRate, ActivationLayersList, LayerTypesList )
             validation = newWorker.input_validation()
             print(f"validation: {validation}")
+            print(f"Worker: {newWorker}")
             sg.popup_auto_close("Successfully Created", keep_on_top=True)
             break
 

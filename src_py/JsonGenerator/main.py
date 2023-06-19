@@ -52,12 +52,11 @@ workersListFields = [[sg.Text("Workers List")],
                      [sg.Listbox(workersNamesList, size=(40,10) )]]
 workersListFrame = sg.Frame("", workersListFields)
 workersFields = [
-                 [sg.Button("Add", size=(10)), sg.Button("Load",size=(10))],
-                 [sg.Button("Validate",size=(10)), sg.Button("Remove",size=(10))],
+                 [sg.Button("Add", size=(10)), sg.Button("Validate",size=(10)), sg.Button("Remove",size=(10))],
                  [sg.Text("name:   "), sg.InputText(size=10), sg.Button("Duplicate",size=(10)), sg.Text("Copied name:   "), sg.InputText(size=10),],
                  [sg.Text("path to file of type *.json/*.xml")],
                  [sg.InputText(size=22), sg.Button("Browse",size=(6))],
-                 [sg.Button("Create a new worker .wo",size=(40),enable_events=True,key=WIN_WORKER_DIALOG_EVENT_KEY)],
+                 [sg.Button("Create/Edit worker .json",size=(40),enable_events=True,key=WIN_WORKER_DIALOG_EVENT_KEY)],
                 ]
 
 workersFieldsFrame = sg.Frame("",workersFields, expand_x=True)
