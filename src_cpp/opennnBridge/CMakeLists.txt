@@ -23,14 +23,15 @@ add_definitions( -D LOGGER_ENABLE_COLORS_ON_USER_HEADER=0 )
 add_subdirectory(${OPENNN_PATH} [binary_dir]) 
 
 set(SRC_CODE
+	"openNNmodelNif.h"
 	"nifppEigenExtensions.h"
 	"nifppNerltensorEigen.h"
 	"bridgeController.h"
 	"definitionsNN.h"
 	"CustumNN.h"
 	"openNNnif.h"
-    "ModelParams.h"	
 	"openNNnif.cpp"
+    "ModelParams.h"
 	"definitionsNN.h")
 
 add_library(${PROJECT_NAME} SHARED ${SRC_CODE})
