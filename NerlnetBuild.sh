@@ -5,6 +5,8 @@ INPUT_DATA_DIR="inputDataDir"
 SHORT_OPTIONS_LIST=p:,j:,c:,h
 LONG_OPTIONS_LIST=pull:,jobs:,clean:,help
 
+# arguments parsing 
+# Thanks to https://github.com/matejak/argbash
 Branch="master"
 JobsNum=4
 
@@ -14,7 +16,7 @@ help()
     echo "Usage:"
     echo "--p or --pull Warning! this uses checkout -f! and branch name checkout to branch $Branch and pull the latest"
     echo "--j or --jobs number of jobs to cmake build"
-    echo "--c or --clean with any value remove build directory"
+    echo "--c or --clean remove build directory"
     exit 2
 }
 
@@ -24,50 +26,103 @@ gitOperations()
     sleep 5
     echo "$NERLNET_PREFIX Interrupt is possible in the next 10 seconds"
     sleep 10
-    git checkout -f $1
-    git pull origin $1
+    git checkout -f $Branch
+    git pull origin $Branch
     git submodule update --init --recursive
 }
 
-OPTS=$(getopt -a -n jupyterEnv --options $SHORT_OPTIONS_LIST --longoptions $LONG_OPTIONS_LIST -- "$@")
-#echo $OPTS
+die()
+{
+	local _ret="${2:-1}"
+	test "${_PRINT_HELP:-no}" = yes && print_help >&2
+	echo "$1" >&2
+	exit "${_ret}"
+}
 
-eval set -- "$OPTS"
 
-while :
-do
-  case "$1" in
-    -p | --pull )
-      Branch="$2"
-      gitOperations $Branch
-      shift 2
-      ;;
-     -j | --jobs )
-      JobsNum="$2"
-      shift 2
-      ;;
-      -c | --clean )
-      echo "Are you sure that you want to remove build directory?"
-      sleep 1
-      echo "Intterupt this process is possible with ctrl+c"
-      echo "Remove build directory in 10 seconds"
-      sleep 10
-      rm -rf build
-      shift 2
-      ;;
-    -h | --help)
-      help
-      ;;
-    --)
-      shift;
-      break
-      ;;
-    *)
-      echo "Unexpected option: $1"
-      help
-      ;;
-  esac
-done
+begins_with_short_option()
+{
+	local first_option all_short_options='hjp'
+	first_option="${1:0:1}"
+	test "$all_short_options" = "${all_short_options/$first_option/}" && return 1 || return 0
+}
+
+# THE DEFAULTS INITIALIZATION - OPTIONALS
+clean_build_directory()
+{
+        echo "Are you sure that you want to remove build directory?"
+        sleep 1
+        echo "Intterupt this process is possible with ctrl+c"
+        echo "Remove build directory in 10 seconds"
+        sleep 10
+        rm -rf build   
+}
+
+print_help()
+{
+	printf 'Usage: %s [-h|--help] [-c|--clean] [-j|--jobs <arg>] [-p|--pull <arg>]\n' "$0"
+	printf '\t%s\n' "-j, --jobs: number of jobs (default: '4')"
+	printf '\t%s\n' "-p, --pull: pull from branch (default: '4')"
+}
+
+
+parse_commandline()
+{
+	while test $# -gt 0
+	do
+		_key="$1"
+		case "$_key" in
+			-h|--help)
+				help
+				exit 0
+				;;
+			-h*)
+				help
+				exit 0
+				;;
+		        -c|--clean)
+				clean_build_directory
+				exit 0
+				;;
+			-c*)
+				clean_build_directory
+				exit 0
+				;;
+			-j|--jobs)
+				test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
+				JobsNum="$2"
+				shift
+				;;
+			--jobs=*)
+				JobsNum="${_key##--jobs=}"
+				;;
+			-j*)
+				JobsNum="${_key##-j}"
+				;;
+			-p|--pull)
+				test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
+				Branch="$2"
+                                gitOperations
+				shift
+				;;
+			--pull=*)
+				Branch="${_key##--pull=}"
+                                gitOperations
+				;;
+			-p*)
+				Branch="${_key##-p}"
+                                gitOperations
+				;;
+			*)
+				_PRINT_HELP=yes die "FATAL ERROR: Got an unexpected argument '$1'" 1
+				;;
+		esac
+		shift
+	done
+}
+
+parse_commandline "$@"
+# end of args parsing
 
 NERLNET_BUILD_PREFIX="[Nerlnet Build] "
 

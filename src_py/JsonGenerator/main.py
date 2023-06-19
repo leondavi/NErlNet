@@ -111,12 +111,13 @@ main_window  = sg.Window(title=WINDOW_TITLE, layout=[[sg.Image(NERLNET_LOGO_PATH
                                                      [EntitiesFrame]])
 
 while True:
-    event, values = main_window.read()
+    event, values = main_window.read(timeout=50)
     if event == sg.WIN_CLOSED or event == 'Cancel': # if user closes window or clicks cancel
         break
     if event == JSON_CONTROL_LOAD_FILE_BROWSE_EVENT_KEY:
         update_current_json_file_path(values[JSON_CONTROL_LOAD_FILE_BROWSE_EVENT_KEY])
     if event == WIN_WORKER_DIALOG_EVENT_KEY:
         WinWorkerDialog()
+    
 
 main_window.close()

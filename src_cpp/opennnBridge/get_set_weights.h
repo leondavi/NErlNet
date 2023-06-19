@@ -7,29 +7,32 @@
 
 using namespace opennn;
 
-
-
-static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{ 
-    std::tuple<nifpp::TERM, nifpp::TERM> return_tuple;
-
-    nifpp::str_atom res;
+class GetWeightsParams 
+{
+public:
     long int mid;
     ErlNifPid pid;
+    ErlNifTid tid;
+};
+
+
+inline void* get_weights(void* arg)
+{
+    std::shared_ptr<GetWeightsParams>* pGetWeigthsParamsPtr= static_cast<shared_ptr<GetWeightsParams>*>(arg);
+    std::shared_ptr<GetWeightsParams> getWeigthsParamsPtr = *pGetWeigthsParamsPtr;
+    delete pGetWeigthsParamsPtr; // This is owned by the former thread
+
+    ErlNifEnv *env = enif_alloc_env();    
+
     nifpp::TERM nerltensor_parameters_bin;
     fTensor1D parameters;
     fTensor1DPtr parameters_ptr;
     nifpp::str_atom nerltensor_type = "float";
     std::tuple<nifpp::TERM, nifpp::TERM> message_tuple; // returned nerltensor of parameters
-
-    enif_self(env, &pid);
-
-    //get model id
-    nifpp::get_throws(env, argv[0], mid); 
-
+    
     //get neural network parameters which are weights and biases valuse as a 1D vector         
     opennnBridgeController &onn_bridge_control = opennnBridgeController::GetInstance();
-    std::shared_ptr<opennn::NeuralNetwork> neural_network = onn_bridge_control.getModelPtr(mid);
+    std::shared_ptr<opennn::NeuralNetwork> neural_network = onn_bridge_control.getModelPtr(getWeigthsParamsPtr->mid);
 
     parameters = neural_network->get_parameters();
     parameters_ptr = std::make_shared<fTensor1D>(parameters);
@@ -40,14 +43,43 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     message_tuple = { nerltensor_parameters_bin , nifpp::make(env, nerltensor_type) };
     nifpp::TERM message = nifpp::make(env, message_tuple);
 
-    if(enif_send(NULL,&(pid), env, message)) //TODO check this value in Erlang!
+    if(enif_send(NULL,&(getWeigthsParamsPtr->pid), env, message)) //TODO check this value in Erlang!
     {
-        res = "ok";
-        return nifpp::make(env, res);
+
     }
-  
-    LogError("enif_send failed\n");
-    res = "nif_error";
+    else
+    {
+        LogError << "enif_send failed ";
+    }
+
+    return 0;
+}
+
+
+static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    std::shared_ptr<GetWeightsParams>* pWeightsParamsPtr = new std::shared_ptr<GetWeightsParams>(std::make_shared<GetWeightsParams>());
+    std::shared_ptr<GetWeightsParams> weightsParamsPtr = *pWeightsParamsPtr;
+
+    std::tuple<nifpp::TERM, nifpp::TERM> return_tuple;
+
+    long int mid;
+    ErlNifPid pid;
+    
+    //get process id
+    enif_self(env, &pid);
+    //get model id
+    nifpp::get_throws(env, argv[0], mid); 
+
+    int res = enif_thread_create((char*)"get_weights_proc", &(weightsParamsPtr->tid), get_weights, (void*) pWeightsParamsPtr, 0);
+    
+    if (res)
+    {
+        LogError("failed to call enif_thread_create with get_weights");
+        nifpp::str_atom ret_status("get_weights_error");
+        return nifpp::make(env, ret_status);
+    }
+    nifpp::str_atom ret_status("ok");
     return nifpp::make(env, res);
 
 }  //end get_weights_nif 

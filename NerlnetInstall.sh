@@ -4,8 +4,6 @@
 NERLNET_LIB_DIR="/usr/local/lib/nerlnet-lib"
 NERLNET_DIR=$NERLNET_LIB_DIR/NErlNet
 NERLNET_LOG_DIR="/usr/local/lib/nerlnet-lib/log"
-NumJobs=4
-InstallAll=false
 REBAR3_FILE=src_erl/rebar3/rebar3
 REBAR3_SYMLINK=/usr/local/bin/rebar3
 
@@ -17,10 +15,12 @@ else
   LOGGED_IN_USER="$(whoami)" # Probably root
 fi
 
-# Arguments handling
+# arguments parsing 
+# Implemented by https://github.com/matejak/argbash
 
-SHORT_OPTIONS_LIST=i:,j:,h
-LONG_OPTIONS_LIST=install:,jobs:,help
+# args defaults
+InstallAll=false
+NumJobs=4
 
 help()
 {
@@ -32,37 +32,72 @@ help()
     exit 2
 }
 
+die()
+{
+	local _ret="${2:-1}"
+	test "${_PRINT_HELP:-no}" = yes && print_help >&2
+	echo "$1" >&2
+	exit "${_ret}"
+}
 
-OPTS=$(getopt -a -n jupyterEnv --options $SHORT_OPTIONS_LIST --longoptions $LONG_OPTIONS_LIST -- "$@")
-#echo $OPTS
 
-eval set -- "$OPTS"
+begins_with_short_option()
+{
+	local first_option all_short_options='ihj'
+	first_option="${1:0:1}"
+	test "$all_short_options" = "${all_short_options/$first_option/}" && return 1 || return 0
+}
 
-while :
-do
-  case "$1" in
-    -i | --install )
-      InstallAll=true
-      gitOperations $Branch
-      shift 2
-      ;;
-     -j | --jobs )
-      NumJobs="$2"
-      shift 2
-      ;;
-    -h | --help)
-      help
-      ;;
-    --)
-      shift;
-      break
-      ;;
-    *)
-      echo "Unexpected option: $1"
-      help
-      ;;
-  esac
-done
+# THE DEFAULTS INITIALIZATION - OPTIONALS
+
+print_help()
+{
+	printf 'Usage: %s [-i|--install] [-h|--help] [-j|--jobs <arg>]\n' "$0"
+	printf '\t%s\n' "-i, --install: install erlang and cmake from source"
+	printf '\t%s\n' "-j, --jobs: number of jobs (default: '4')"
+}
+
+
+parse_commandline()
+{
+	while test $# -gt 0
+	do
+		_key="$1"
+		case "$_key" in
+			-i|--install)
+				InstallAll=true
+				;;
+			-i*)
+				InstallAll=true
+				;;
+			-h|--help)
+				help
+				exit 0
+				;;
+			-h*)
+				help
+				exit 0
+				;;
+			-j|--jobs)
+				test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
+				NumJobs="$2"
+				shift
+				;;
+			--jobs=*)
+				NumJobs="${_key##--jobs=}"
+				;;
+			-j*)
+				NumJobs="${_key##-j}"
+				;;
+			*)
+				_PRINT_HELP=yes die "FATAL ERROR: Got an unexpected argument '$1'" 1
+				;;
+		esac
+		shift
+	done
+}
+
+parse_commandline "$@"
 
 # Script startds here
 
@@ -73,17 +108,20 @@ function print()
 
 function install_erlang()
 {
-    print "Compile and install erlang from source"
-    apt update
-    apt install -y make gcc libncurses-dev libssl-dev
-    git clone https://github.com/erlang/otp.git
-    cd otp
-    git checkout maint-25
-    ./configure
-    make -j$NumJobs
-    make install
-    cd -
-    rm -rf otp
+  print "Warning - Erlang otp is about to be installed from source"
+  print "Warning - please make sure that former erlang/OTP versions are purged"
+  sleep 5
+  print "Compile and install erlang from source"
+  apt update
+  apt install -y make gcc libncurses-dev libssl-dev
+  git clone https://github.com/erlang/otp.git
+  cd otp
+  git checkout maint-25
+  ./configure
+  make -j$NumJobs
+  make install
+  cd -
+  rm -rf otp
 }
 
 function install_cmake()
