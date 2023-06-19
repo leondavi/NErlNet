@@ -117,7 +117,7 @@ waitforWorkers(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}
 %% initiating workers when they include federated workers. init stage == handshake between federated worker client and server
 %% TODO: make custom_worker_message in all states to send messages from workers to entities (not just client)
 idle(cast, {custom_worker_message, {From, To}}, State = #client_statem_state{etsRef = EtsRef, myName = MyName}) ->
-  io:format("client ~p got ~p~n",[MyName, {From, To}]),
+  % io:format("client ~p got ~p~n",[MyName, {From, To}]),
   ets:update_counter(EtsRef, msgCounter, 1),
   WorkerOfThisClient = ets:member(EtsRef, To),
   if WorkerOfThisClient -> 
@@ -129,7 +129,7 @@ idle(cast, {custom_worker_message, {From, To}}, State = #client_statem_state{ets
     DestClient = maps:get(To, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
     {Host,Port} = nerl_tools:getShortPath(MyName,DestClient,NerlnetGraph),
     Body = {DestClient, custom_worker_message, {From, To}},
-    io:format("client ~p passing ~p~n",[MyName, Body]),
+    % io:format("client ~p passing ~p~n",[MyName, Body]),
     nerl_tools:http_request(Host,Port, "custom_worker_message", term_to_binary(Body))
   end,
   % io:format("initiating, CONFIG received:~p ~n",[CONFIG]),
@@ -165,7 +165,7 @@ idle(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
 
 %% passing vector from FedClient to FedServer
 training(cast, {update, {From, To, Data}}, State = #client_statem_state{etsRef = EtsRef, myName = MyName}) ->
-  io:format("client ~p got ~p~n",[MyName, {update, From, To, nerlTensor}]),
+  % io:format("client ~p got ~p~n",[MyName, {update, From, To, nerlTensor}]),
   ets:update_counter(EtsRef, msgCounter, 1),
   WorkerOfThisClient = ets:member(EtsRef, To),
   if WorkerOfThisClient -> 
@@ -177,7 +177,7 @@ training(cast, {update, {From, To, Data}}, State = #client_statem_state{etsRef =
     DestClient = maps:get(To, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
     {Host,Port} = nerl_tools:getShortPath(MyName,DestClient,NerlnetGraph),
     Body = {DestClient, update, {From, To, Data}},
-    io:format("client ~p passing ~p~n",[MyName, {update, From, To, nerlTensor}]),
+    % io:format("client ~p passing ~p~n",[MyName, {update, From, To, nerlTensor}]),
     nerl_tools:http_request(Host,Port, "pass", term_to_binary(Body))
   end,
   % io:format("initiating, CONFIG received:~p ~n",[CONFIG]),
@@ -185,13 +185,13 @@ training(cast, {update, {From, To, Data}}, State = #client_statem_state{etsRef =
 
 %% federated server sends AvgWeights to workers
 training(cast, {custom_worker_message, WorkersList, WeightsTensor}, State = #client_statem_state{etsRef = EtsRef, myName = MyName}) ->
-  io:format("client ~p got ~p~n",[MyName, {custom_worker_message, WorkersList, nerlTensor}]),
+  % io:format("client ~p got ~p~n",[MyName, {custom_worker_message, WorkersList, nerlTensor}]),
   NerlnetGraph = ets:lookup_element(EtsRef, nerlnetGraph, ?ETS_KV_VAL_IDX),
   Func = fun(WorkerName) ->
     DestClient = maps:get(WorkerName, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
     {Host,Port} = nerl_tools:getShortPath(MyName,DestClient,NerlnetGraph),
     Body = {DestClient, update, {FedServer = "server", WorkerName, WeightsTensor}},
-    io:format("client ~p passing ~p~n",[MyName, Body]),
+    % io:format("client ~p passing ~p~n",[MyName, Body]),
     nerl_tools:http_request(Host,Port, "custom_worker_message", term_to_binary(Body))
   end,
   lists:foreach(Func, WorkersList),
