@@ -135,7 +135,7 @@ class statistics(Resource):
 api.add_resource(test, "/test")
 api.add_resource(ack, "/ackP")
 api.add_resource(shutdown, "/shutdown")
-api.add_resource(trainRes, "/lossFunc") # TODO: Change to "/trainRes", both here and in erl
+api.add_resource(trainRes, "/trainRes")
 api.add_resource(predictRes, "/predRes")
 api.add_resource(statistics, "/statistics")
 
