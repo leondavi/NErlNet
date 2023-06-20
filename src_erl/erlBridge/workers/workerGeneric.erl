@@ -51,7 +51,6 @@ init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,La
   put(generic_worker_ets, GenWorkerEts),
   put(client_pid, ClientPID),
   ets:insert(GenWorkerEts,{worker_name, WorkerName}),
-  ets:insert(GenWorkerEts,{client_pid, ClientPID}),
   ets:insert(GenWorkerEts,{model_id, ModelId}),
   ets:insert(GenWorkerEts,{model_type, ModelType}),
   ets:insert(GenWorkerEts,{layer_types_list, LayerTypesList}),
@@ -127,14 +126,14 @@ idle(cast, {post_idle, From}, State = #workerGeneric_state{myName = MyName,custo
   Func(post_idle, {get(generic_worker_ets), From}),
   {next_state, idle, State};
 
-idle(cast, {training}, State = #workerGeneric_state{myName = MyName,clientPid = ClientPid}) ->
+idle(cast, {training}, State = #workerGeneric_state{myName = MyName}) ->
   ?LOG_NOTICE("~p Go from idle to train!\n",[MyName]),
-  gen_statem:cast(get(client_pid),{stateChange,MyName}),
+  gen_statem:cast(get(client_pid),{stateChange,MyName,0}),
   {next_state, train, State};
 
-idle(cast, {predict}, State = #workerGeneric_state{myName = MyName,clientPid = ClientPid}) ->
+idle(cast, {predict}, State = #workerGeneric_state{myName = MyName}) ->
   ?LOG_NOTICE("Go from idle to predict\n"),
-  gen_statem:cast(get(client_pid),{stateChange,MyName}),
+  gen_statem:cast(get(client_pid),{stateChange,MyName,0}),
   {next_state, predict, State#workerGeneric_state{nextState = predict}};
 
 idle(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelId=_ModelId}) ->
@@ -162,24 +161,24 @@ idle(cast, _Param, State) ->
 
 %% Waiting for receiving results or loss function
 %% Got nan or inf from loss function - Error, loss function too big for double
-wait(cast, {loss,nan,Time_NIF}, State = #workerGeneric_state{clientPid = ClientPid, myName = MyName, nextState = NextState,ackClient = AckClient}) ->
+wait(cast, {loss,nan,Time_NIF}, State = #workerGeneric_state{myName = MyName, nextState = NextState,ackClient = AckClient}) ->
   ?LOG_NOTICE("Loss func in wait: nan (Loss function too big for double)\n"),
   gen_statem:cast(get(client_pid),{loss, MyName, nan,Time_NIF}), %% TODO send to tal stop casting request with error desc
-  checkAndAck(MyName,get(client_pid),AckClient),
+  checkAndAck(MyName,AckClient),
   {next_state, NextState, State#workerGeneric_state{ackClient = 0}};
 
-wait(cast, {loss, {LossVal,Time}}, State = #workerGeneric_state{clientPid = ClientPid, myName = MyName, nextState = NextState, modelId=_ModelID,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
+wait(cast, {loss, {LossVal,Time}}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelId=_ModelID,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
   gen_statem:cast(get(client_pid),{loss, MyName, LossVal,Time/1000}), %% TODO Add Time and Time_NIF to the cast
   Update = CustomFunc(post_train, {get(generic_worker_ets),WorkerData}),
-  checkAndAck(MyName,get(client_pid),AckClient),
+  checkAndAck(MyName,AckClient),
   if  Update -> {next_state, update, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
       true ->   {next_state, NextState, State#workerGeneric_state{ackClient = 0}}
   end;
 
-wait(cast, {predictRes,NerlTensor, Type, TimeTook, CSVname,BatchID}, State = #workerGeneric_state{myName = MyName, clientPid = ClientPid, nextState = NextState,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
+wait(cast, {predictRes,NerlTensor, Type, TimeTook, CSVname,BatchID}, State = #workerGeneric_state{myName = MyName, nextState = NextState,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
   gen_statem:cast(get(client_pid),{predictRes,MyName, CSVname,BatchID, NerlTensor, Type, TimeTook}), %% TODO TODO change csv name and batch id(1)
   Update = CustomFunc(post_predict, {get(generic_worker_ets),WorkerData}),
-  checkAndAck(MyName,get(client_pid),AckClient),
+  checkAndAck(MyName,AckClient),
   if Update -> 
     {next_state, update, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
   true ->
@@ -220,19 +219,19 @@ wait(cast, Data, State) ->
   ets:insert(get(generic_worker_ets), {message_q, OldQ++[Data]}),
   {keep_state, State}.
 
-update(cast, {update, From, NerltensorWeights}, State = #workerGeneric_state{modelId = ModelId, customFunc = CustomFunc, nextState = NextState}) ->
+update(cast, {update, _From, NerltensorWeights}, State = #workerGeneric_state{customFunc = CustomFunc, nextState = NextState}) ->
   CustomFunc(update, {get(generic_worker_ets), NerltensorWeights}),
   {next_state, NextState, State};
 
-update(cast, {idle}, State = #workerGeneric_state{myName = MyName, modelId = ModelId, customFunc = CustomFunc, nextState = NextState}) ->
-  gen_statem:cast(get(client_pid),{stateChange,MyName}),
+update(cast, {idle}, State = #workerGeneric_state{myName = MyName, missedBatchesCount = MissedBatchesCount}) ->
+  gen_statem:cast(get(client_pid),{stateChange,MyName,MissedBatchesCount}),
   {next_state, idle, State#workerGeneric_state{nextState = idle}};
     
-update(cast, Data, State = #workerGeneric_state{modelId = ModelId, customFunc = CustomFunc, nextState = NextState}) ->
+update(cast, Data, State = #workerGeneric_state{customFunc = CustomFunc, nextState = NextState}) ->
   % io:format("worker ~p got ~p~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
   case Data of
     %% FedClient update avg weights
-    {update, "server", Me, NerltensorWeights} -> 
+    {update, "server", _Me, NerltensorWeights} -> 
       CustomFunc(update, {get(generic_worker_ets), NerltensorWeights}),
       io:format("worker ~p updated model and going to ~p state~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), NextState]),
       {next_state, NextState, State};
@@ -245,7 +244,7 @@ update(cast, Data, State = #workerGeneric_state{modelId = ModelId, customFunc = 
         {next_state, NextState, State#workerGeneric_state{ackClient = 0}}
       end;
     %% got sample from source. discard TODO: add to Q
-    {sample, Tensor} -> {keep_state, State}
+    {sample, _Tensor} -> {keep_state, State}
   end.
 
 
@@ -273,14 +272,14 @@ train(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelId
   {next_state, train, State};
 
 
-train(cast, {idle}, State = #workerGeneric_state{myName = MyName, clientPid = ClientPid}) ->
+train(cast, {idle}, State = #workerGeneric_state{myName = MyName, missedBatchesCount = MissedCount}) ->
   %logger:notice("Go from train to idle\n"),
-  gen_statem:cast(get(client_pid),{stateChange,MyName}),
+  gen_statem:cast(get(client_pid),{stateChange,MyName,MissedCount}),
   {next_state, idle, State};
 
-train(cast, {predict}, State = #workerGeneric_state{myName = MyName, clientPid = ClientPid}) ->
+train(cast, {predict}, State = #workerGeneric_state{myName = MyName, missedBatchesCount = MissedCount}) ->
   %logger:notice("Go from train to predict\n"),
-  gen_statem:cast(get(client_pid),{stateChange,MyName}),
+  gen_statem:cast(get(client_pid),{stateChange,MyName, MissedCount}),
   {next_state, predict, State};
 
 train(cast, _Param, State) ->
@@ -299,15 +298,15 @@ predict(cast, {sample,CSVname, BatchID, {PredictBatchTensor, Type}}, State = #wo
     _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId,PredictBatchTensor, Type,CurrPID,CSVname, BatchID) end),
     {next_state, wait, State#workerGeneric_state{nextState = predict}};
   
-predict(cast, {idle}, State = #workerGeneric_state{myName = MyName, clientPid = ClientPid}) ->
+predict(cast, {idle}, State = #workerGeneric_state{myName = MyName, missedBatchesCount = MissedCount}) ->
   %logger:notice("Go from predict to idle\n"),
-  gen_statem:cast(get(client_pid),{stateChange,MyName}),
+  gen_statem:cast(get(client_pid),{stateChange,MyName, MissedCount}),
 
   {next_state, idle, State};
 
-predict(cast, {training}, State = #workerGeneric_state{myName = MyName, clientPid = ClientPid}) ->
+predict(cast, {training}, State = #workerGeneric_state{myName = MyName, missedBatchesCount = MissedCount}) ->
   %logger:notice("Go from predict to train\n"),
-  gen_statem:cast(get(client_pid),{stateChange,MyName}),
+  gen_statem:cast(get(client_pid),{stateChange,MyName, MissedCount}),
 
   {next_state, train, State};
 
@@ -316,5 +315,5 @@ predict(cast, _Param, State) ->
   {next_state, predict, State}.
 
 %% Updates the client that worker is available
-checkAndAck(_MyName,_ClientPid,0) -> ok_no_need;
-checkAndAck(MyName, ClientPid, 1) -> gen_statem:cast(get(client_pid),{stateChange,MyName}).
+checkAndAck(_MyName,0) -> ok_no_need;
+checkAndAck(MyName, 1) -> gen_statem:cast(get(client_pid),{stateChange,MyName}).
