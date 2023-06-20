@@ -127,7 +127,7 @@ handle_cast({clientsTraining,Body}, State = #main_genserver_state{state = castin
   io:format("Body:~p~n",[Body]),
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
-handle_cast({clientsTraining, _Body}, State = #main_genserver_state{myName = MyName, clients = ListOfClients, nerlnetGraph = NerlnetGraph, msgCounter = MsgCounter}) ->
+handle_cast({clientsTraining, _Body}, State = #main_genserver_state{myName = MyName, clients = ListOfClients, msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
   % io:format("main server: setting all clients on training state: ~p~n",[ListOfClients]),
 %%  io:format("Body:~p~n",[Body]),
@@ -135,7 +135,7 @@ handle_cast({clientsTraining, _Body}, State = #main_genserver_state{myName = MyN
 %%  io:format("Splitted-(Body):~p~n",[re:split(binary_to_list(Body), ",", [{return, list}])]),
 %%  TODO find the router that can send this request to Sources**
   io:format("setting clients ~p to training~n",[ListOfClients]),
-  [{setClientState(clientTraining,ClientName, NerlnetGraph,MyName)}|| ClientName <- ListOfClients],
+  [{setClientState(clientTraining,ClientName,MyName)}|| ClientName <- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
 handle_cast({clientsPredict,_Body}, State = #main_genserver_state{state = casting, clients = ListOfClients,msgCounter = MsgCounter}) ->
@@ -143,18 +143,18 @@ handle_cast({clientsPredict,_Body}, State = #main_genserver_state{state = castin
   io:format("already casting~n",[]),
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
-handle_cast({clientsPredict,_Body}, State = #main_genserver_state{myName = MyName,clients = ListOfClients, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
+handle_cast({clientsPredict,_Body}, State = #main_genserver_state{myName = MyName,clients = ListOfClients,msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
   % io:format("main server: setting all clients on clientsPredict state: ~p~n",[ListOfClients]),
 %%  TODO find the router that can send this request to Sources**
-  [{setClientState(clientPredict,ClientName, NerlnetGraph,MyName)}|| ClientName<- ListOfClients],
+  [{setClientState(clientPredict,ClientName,MyName)}|| ClientName<- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
-handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = MyName, clients = ListOfClients, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
+handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = MyName, clients = ListOfClients,msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
   % io:format("main server: setting all clients on Idle state: ~p~n",[ListOfClients]),
 %%  TODO find the router that can send this request to Sources**
-  [{setClientState(clientIdle,ClientName, NerlnetGraph, MyName)}|| ClientName<- ListOfClients],
+  [{setClientState(clientIdle,ClientName, MyName)}|| ClientName<- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
 %%%get Statistics from all Entities in the network
@@ -163,7 +163,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
     if Body == <<"getStatistics">> ->   %% initial message from APIServer, get stats from entities
 
           NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--?LIST_OF_SPECIAL_SERVERS]),
-          [findroutAndsendStatistics(MyName, Name,NerlnetGraph)||{Name,_Counter}<-maps:to_list(StatisticsMap)],
+          [findroutAndsendStatistics(MyName, Name)||{Name,_Counter}<-maps:to_list(StatisticsMap)],
           NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap, statisticsCounter = length(maps:to_list(StatisticsMap))};
 
       Body == <<>> ->  io:format("in Statistcs, State has: StatsCount=~p, MsgCount=~p~n", [StatisticsCounter, MsgCounter]), NewState = State;
@@ -215,7 +215,7 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{sourcesCastingList 
   end,
   {noreply, NextState};
 
-handle_cast({sourceAck,Body}, State = #main_genserver_state{nerlnetGraph = NerlnetGraph, sourcesWaitingList = WaitingList,msgCounter = MsgCounter}) ->
+handle_cast({sourceAck,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList,msgCounter = MsgCounter}) ->
     % io:format("~n~p sent ACK ~n",[list_to_atom(binary_to_list(Body))]),
     NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
     if length(NewWaitingList) == 0 ->
@@ -226,7 +226,7 @@ handle_cast({sourceAck,Body}, State = #main_genserver_state{nerlnetGraph = Nerln
   {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList,msgCounter = MsgCounter+1}};
 
 
-handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList,msgCounter = MsgCounter,nerlnetGraph = NerlnetGraph}) ->
+handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList,msgCounter = MsgCounter}) ->
   NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
   % io:format("new Waiting List: ~p ~n",[NewWaitingList]),
   if length(NewWaitingList) == 0 ->
@@ -273,13 +273,13 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName, 
       {WorkerName,{LossFunction,_Time}} ->
      % io:format("main server got loss function:- ~p~n",[binary_to_term(Body)]),
       %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-      % http_request(RouterHost,RouterPort,"lossFunc", atom_to_list(WorkerName)++"#"++float_to_list(1.01));
-      nerl_tools:http_request(RouterHost,RouterPort,"lossFunc", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction));
+      % http_request(RouterHost,RouterPort,"trainRes", atom_to_list(WorkerName)++"#"++float_to_list(1.01));
+      nerl_tools:http_request(RouterHost,RouterPort,"trainRes", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction));
       {WorkerName,LossFunction} ->
      % io:format("main server got loss function:- ~p~n",[binary_to_term(Body)]),
       %{RouterHost,RouterPort} = maps:get(serverAPI,ConnectionMap),
-      % http_request(RouterHost,RouterPort,"lossFunc", atom_to_list(WorkerName)++"#"++float_to_list(1.01))
-      nerl_tools:http_request(RouterHost,RouterPort,"lossFunc", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction))
+      % http_request(RouterHost,RouterPort,"trainRes", atom_to_list(WorkerName)++"#"++float_to_list(1.01))
+      nerl_tools:http_request(RouterHost,RouterPort,"trainRes", atom_to_list(WorkerName)++"#"++float_to_list(LossFunction))
       end
       %%  file:write_file("./output/"++WorkerName, LossFunction++"\n", [append]),
 
@@ -354,7 +354,7 @@ code_change(_OldVsn, State = #main_genserver_state{}, _Extra) ->
 %%%===================================================================
 
 
-setClientState(StateAtom,ClientName, NerlnetGraph,MyName) ->
+setClientState(StateAtom,ClientName,MyName) ->
   nerl_tools:sendHTTP(MyName, ClientName, atom_to_list(StateAtom), ClientName).
   %   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,ClientName,NerlnetGraph),
   % %{RouterHost,RouterPort} =maps:get(ClientName, ConnectionMap),
@@ -371,8 +371,8 @@ findroutAndsend(MyName,SourceName,Body,NerlnetGraph) ->
   nerl_tools:http_request(RouterHost, RouterPort,"updateCSV", Body).
 
 
-findroutAndsendStatistics(_MyName, serverAPI,_ConnectionsMap) -> skip;
-findroutAndsendStatistics(MyName,Entity,NerlnetGraph) ->
+findroutAndsendStatistics(_MyName, serverAPI) -> skip;
+findroutAndsendStatistics(MyName,Entity) ->
   nerl_tools:sendHTTP(MyName, Entity, "statistics", Entity).
   % {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,Entity,NerlnetGraph),
   % nerl_tools:http_request(RouterHost, RouterPort,"statistics", Entity).
@@ -396,9 +396,9 @@ ack() ->
   {ok, Response} = nerl_tools:sendHTTP(?MAIN_SERVER_ATOM, ?API_SERVER_ATOM, "ackP", "ack"),
   % io:format("ACK was ~p~n",[Response]),
   case Response of 
-    {{Protocol, Code = 404, Meaning}, Headers, Body} -> timer:sleep(10), ack();    %% Ack not received, retry
-    {{Protocol, Code = 200, Meaning}, Headers, Body} -> done;
-    Other -> bad_response
+    {{_Protocol, _Code = 404, _Meaning}, _Headers, _Body} -> timer:sleep(10), ack();    %% Ack not received, retry
+    {{_Protocol, _Code = 200, _Meaning}, _Headers, _Body} -> done;
+    _Other -> bad_response
   end.
   
 %   % io:format("sending ACK to serverAPI~n"),
