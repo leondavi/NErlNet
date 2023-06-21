@@ -239,7 +239,7 @@ class Worker(JsonElement):
         
         self.IntListOfLayersTypes = self.list_representation_conversion_int_elements(self.LayerTypesList)
         self.IntPoolingList = [ int(x) for x in self.PoolingList ]
-        self.IntScalingList =  [ int(x) for x in self.IntScalingList ]
+        self.IntScalingList =  [ int(x) for x in self.ScalingList ]
         self.IntLayersSizesList = self.list_representation_conversion_int_elements(self.LayersSizesList)
         self.IntActivationLayersList = self.list_representation_conversion_int_elements(self.ActivationLayersList)
 
@@ -249,15 +249,13 @@ class Worker(JsonElement):
         self.lengths_validation = all([x == list_of_lengths[0] for x in list_of_lengths])
 
     def __str__(self):
-        first_line =  f"Layers: {self.LayersSizesList}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}\n"
-        second_line = f"loss method: {self.LossMethodStr}"
-        return
+        return f"Layers: {self.LayersSizesList}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}, loss method: {self.LossMethodStr}"
     
     def error(self): 
         return not self.input_validation() # + more checks
 
     def input_validation(self):
-        layer_sizes_all_positive_integers = len([x for x in self.LayersSizesList if x > 0]) == len(self.LayersSizesList)
+        layer_sizes_all_positive_integers = len([x for x in self.IntLayersSizesList if x > 0]) == len(self.IntLayersSizesList)
         return self.lengths_validation and layer_sizes_all_positive_integers
     
     def json_list_representation_conversion(self, listStr : str) -> str:
