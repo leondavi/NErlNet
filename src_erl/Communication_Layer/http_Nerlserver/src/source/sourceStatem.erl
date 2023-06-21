@@ -178,7 +178,7 @@ spawnTransmitter(WorkersNames,CSVPath,CSVlist,NerlnetGraph, MyName,WorkersMap,Ba
 %%  ListOfWorkers = re:split(WorkersNames,",", [{return, list}]),
   Triplets = nerl_tools:getHostPort(WorkersNames,WorkersMap,NerlnetGraph,MyName,[]),
   %%[list of binarys from CSV file, Size of batch, 1/Hz (in milisecond), statem pid]
-  Ms = round(1000/Frequency),
+  Ms = round(1000/Frequency), % frequency to timeout duration in milliseconds
   spawn(?MODULE,sendSamples,[CSVlist,CSVPath,BatchSize,LengthOfSample,Ms,self(),Triplets,0,NumOfBatchesToSend,Method]).
 
 

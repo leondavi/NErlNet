@@ -79,7 +79,12 @@ get_host_sources(ArchMap, HostEntities) ->
     SourceName = binary_to_atom(maps:get(<<"name">>,SourceMap)),
     SourcePort = list_to_integer(binary_to_list(maps:get(<<"port">>, SourceMap))),
     SourceMethod = list_to_integer(binary_to_list(maps:get(<<"method">>, SourceMap))),
-    {SourceName,{SourcePort,SourceMethod}}
+    IsCustomFreq = maps:is_key(<<"frequency">>, SourceMap),
+    CustomFreq =
+    if IsCustomFreq -> list_to_integer(binary_to_list(maps:get(<<"frequency">>, SourceMap)));
+       true -> none
+    end,
+    {SourceName,{SourcePort,SourceMethod, CustomFreq}}
   end,
   [Func(S) || S <- HostSources]. % list of tuples: [{SourceName,SourcePort,SourceMethod}]
 

@@ -147,11 +147,11 @@ parseJsonAndStartNerlnet(HostName) ->
 
     Routers = ets:lookup_element(nerlnet_data, routers, ?DATA_IDX), % router map format: {RouterName => RouterPort,RouterRouting,RouterFiltering}
     BatchSize = ets:lookup_element(nerlnet_data, batchSize,?DATA_IDX),
-    Frequency = ets:lookup_element(nerlnet_data, frequency, ?DATA_IDX),
+    DefaultFrequency = ets:lookup_element(nerlnet_data, frequency, ?DATA_IDX),
 
     createClientsAndWorkers(), % TODO extract all of this args from ETS
     createRouters(Routers,HostName), % TODO extract all of this args from ETS
-    createSources(BatchSize, Frequency, HostName), % TODO extract all of this args from ETS
+    createSources(BatchSize, DefaultFrequency, HostName), % TODO extract all of this args from ETS
 
     HostOfMainServer = ets:member(nerlnet_data, mainServer),
     createMainServer(HostOfMainServer,BatchSize,HostName).
@@ -191,18 +191,22 @@ createClientsAndWorkers() ->
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
 
-createSources(BatchSize, Frequency, HostName) ->
+createSources(BatchSize, DefaultFrequency, HostName) ->
     DATA_IDX = 2,
     NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, DATA_IDX),
     WorkersMap = ets:lookup_element(nerlnet_data, workers, DATA_IDX),
     SourcesMap = ets:lookup_element(nerlnet_data, sources, DATA_IDX),
     Func = 
-    fun(SourceName,{SourcePort,SourceMethod}) -> 
-        SourceStatemArgs= {SourceName, WorkersMap, NerlnetGraph, SourceMethod, BatchSize, Frequency},        %%TODO  make this a list of Sources
-        SourceStatemPid = sourceStatem:start_link(SourceStatemArgs),
+    fun(SourceName,{SourcePort,SourceMethod, CustomFrequency}) -> 
+        % SourceStatemArgs = {SourceName, WorkersMap, NerlnetGraph, SourceMethod, BatchSize},        %%TODO  make this a list of Sources
+        SourceStatemArgs = 
+            case CustomFrequency of 
+                none -> {SourceName, WorkersMap, NerlnetGraph, SourceMethod, BatchSize, DefaultFrequency};
+                _ -> {SourceName, WorkersMap, NerlnetGraph, SourceMethod, BatchSize, CustomFrequency}
+            end,
         %%Create a gen_StateM machine for maintaining Database for Source.
         %% all http requests will be handled by Cowboy which updates source_statem if necessary.
-
+        SourceStatemPid = sourceStatem:start_link(SourceStatemArgs),
         %%    Source server
         SourceDispatch = cowboy_router:compile([
         {'_', [
