@@ -122,7 +122,9 @@ createNerlnetInitiator(HostName) ->
             %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
             %% An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
             init_cowboy_start_clear(nerlnetInitiator, {HostName,Port},NerlnetInitiatorDispatch);    
-    true -> ?LOG_ERROR("Port ~p is used (definition NERLNET_INIT_PORT in nerl_tools.hrl)", [Port])
+        true -> ?LOG_NOTICE("Nerlnet uses port ~p and it has to be unused before running Nerlnet server!", [Port]),
+                ?LOG_NOTICE("Find the process that uses port ~p using the command: lsof -i:~p",[Port, Port]),
+                ?LOG_ERROR("Port ~p is being used - can not start (definition NERLNET_INIT_PORT in nerl_tools.hrl)", [Port])
     end.
 
 
