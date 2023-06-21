@@ -50,6 +50,7 @@ init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,La
   GenWorkerEts = ets:new(generic_worker,[set]),
   put(generic_worker_ets, GenWorkerEts),
   put(client_pid, ClientPID),
+  ets:insert(GenWorkerEts,{client_pid, ClientPID}),
   ets:insert(GenWorkerEts,{worker_name, WorkerName}),
   ets:insert(GenWorkerEts,{model_id, ModelId}),
   ets:insert(GenWorkerEts,{model_type, ModelType}),
