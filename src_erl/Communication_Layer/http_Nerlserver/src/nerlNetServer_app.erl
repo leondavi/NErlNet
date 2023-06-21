@@ -109,16 +109,22 @@ waitForInit() ->
 
 createNerlnetInitiator(HostName) ->
     Port = ?NERLNET_INIT_PORT,
-    NerlnetInitiatorDispatch = cowboy_router:compile([
-        {'_', [
+    PortAvailable = nerl_tools:port_available(Port),
+    if
+        PortAvailable ->
+            NerlnetInitiatorDispatch = cowboy_router:compile([
+                {'_', [
 
-            {"/updateJsonPath",jsonHandler, [self()]},
-            {"/isNerlnetDevice",iotHandler, [self()]}
-        ]}
-    ]),
-    %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
-    %% An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
-    init_cowboy_start_clear(nerlnetInitiator, {HostName,Port},NerlnetInitiatorDispatch).
+                    {"/updateJsonPath",jsonHandler, [self()]},
+                    {"/isNerlnetDevice",iotHandler, [self()]}
+                ]}
+            ]),
+            %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
+            %% An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
+            init_cowboy_start_clear(nerlnetInitiator, {HostName,Port},NerlnetInitiatorDispatch);    
+    true -> ?LOG_ERROR("Port ~p is used")
+    end.
+
 
 
 parseJsonAndStartNerlnet(HostName) ->
