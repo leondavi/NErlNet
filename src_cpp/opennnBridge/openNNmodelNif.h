@@ -32,7 +32,7 @@ static ERL_NIF_TERM destroy_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
     // handle wrong id scenario
     nifpp::str_atom ret_status("ok");
-    return nifpp::make(env, res);
+    return nifpp::make(env, ret_status);
 
 }
 
