@@ -65,9 +65,13 @@ public:
     }
 
     void deleteModel(unsigned long mid){
-        if (this->_MidNumModel.find(mid) == m.end())
+        if (this->_MidNumModelType.find(mid) == _MidNumModelType.end())
         {
             throw(std::invalid_argument("model id is not exist in this erlang node!"));
+        }
+        if (this->_MidNumModel.find(mid) == _MidNumModel.end())
+        {
+            throw std::runtime_error("an unexpected bridge controller behavior - maps are not identical!");
         }
         this->_MidNumModel.erase(mid); // TODO: Check for memmory leaks
         this->_MidNumModelType.erase(mid);
