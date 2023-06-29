@@ -36,6 +36,15 @@ static ERL_NIF_TERM destroy_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 }
 
+static ERL_NIF_TERM get_active_models_ids_list_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    std::vector<unsigned long> mids_list;
+    opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
+    onnBrCtrl.get_models_ids_list(mids_list);
+
+    return nifpp::make(env, mids_list);
+}
+
 static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ModelParams modelParamsInst;
