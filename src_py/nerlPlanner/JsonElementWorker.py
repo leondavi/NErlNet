@@ -180,7 +180,8 @@ class Worker(JsonElement):
 
         self.key_val_pairs = [
             (KEY_MODEL_TYPE, self.ModelType),
-            (KEY_MODEL_TYPE_DOC, )
+            (KEY_MODEL_TYPE_DOC, VAL_MODEL_TYPE_DOC),
+            
         ]
         self.worker_dict = OrderedDict()
         self.worker_dict = {
