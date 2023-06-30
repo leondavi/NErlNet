@@ -1,6 +1,7 @@
 from JsonElements import JsonElement
 from JsonElementsDefinitions import *
 import json
+import re
 from collections import OrderedDict
 
 # Maps are based on src_cpp/opennnBridge/definitionsNN.h
@@ -92,6 +93,8 @@ KEY_LAYER_TYPES_LIST = "layerTypesList"
 KEY_LAYER_TYPES_DOC = "_doc_LayerTypes"
 KEY_SCALING_METHOD = "scalingMethod"
 KEY_SCALING_METHOD_DOC = "_doc_scalingMethod"
+KEY_POOLING_LAYER = "poolingMethod"
+KEY_POOLING_LAYER_DOC = "_doc_poolingMethod"
 KEY_LAYERS_ACTIVATION_FUNCTIONS = "layersActivationFunctions"
 KEY_LAYERS_ACTIVATION_FUNCTIONS_DOC = "_doc_layersActivationFunctions"
 KEY_LOSS_METHOD = "lossMethod"
@@ -111,6 +114,7 @@ VAL_MODEL_TYPE_DOC = f"{doc_print_dict(ModelTypeMapping)}"
 VAL_LAYER_SIZES_DOC = "List of postive integers [L0, L1, ..., LN]"
 VAL_LAYER_TYPES_DOC = f"{doc_print_dict(LayerTypeMap)}"
 VAL_SCALING_METHOD_DOC = f"{doc_print_dict(ScalingMethodMap)}"
+VAL_POOLING_METHOD_DOC = f"{doc_print_dict(PoolingMethodMap)}"
 VAL_LAYERS_ACTIVATION_FUNCTIONS_DOC = f"{doc_print_dict(ActivationFunctionsMap)}"
 VAL_LOSS_METHOD_DOC = f"{doc_print_dict(LossMethodMapping)}"
 VAL_LEARNING_RATE_DOC = "Positve float"
@@ -133,6 +137,8 @@ class Worker(JsonElement):
         self.LayerTypesList = LayerTypesList
 
         self.PoolingList, self.ScalingList = self.generate_pooling_and_scaling_lists()
+        self.PoolingListStr = ",".join([f"{x}" for x in self.PoolingList])
+        self.ScalingListStr = ",".join([f"{x}" for x in self.ScalingList])
         
         self.IntListOfLayersTypes = self.list_representation_conversion_int_elements(self.LayerTypesList)
         self.IntPoolingList = [ int(x) for x in self.PoolingList ]
@@ -162,7 +168,8 @@ class Worker(JsonElement):
         return listStr.split(",")
     
     def list_representation_conversion_int_elements(self, listStr : str) -> list:
-        return [int(x) for x in self.list_representation_conversion(listStr)]
+        pattern = r'^[1-9]*'
+        return [int(re.findall(pattern, x)[0]) for x in self.list_representation_conversion(listStr)]
     
     SCALING_LAYER_TYPE_IDX = "1"
     POOLING_LAYER_TYPE_IDX = "4"
@@ -182,10 +189,12 @@ class Worker(JsonElement):
             (KEY_MODEL_TYPE_DOC, VAL_MODEL_TYPE_DOC),
             (KEY_LAYER_SIZES_LIST, self.LayersSizesList),
             (KEY_LAYER_SIZES_DOC, VAL_LAYER_SIZES_DOC),
-            (KEY_LAYER_TYPES_LIST, self.LayerTypesList),
+            (KEY_LAYER_TYPES_LIST, self.IntListOfLayersTypes),
             (KEY_LAYER_TYPES_DOC, VAL_LAYER_TYPES_DOC),
-            (KEY_SCALING_METHOD, self.ScalingList),
+            (KEY_SCALING_METHOD, self.ScalingListStr),
             (KEY_SCALING_METHOD_DOC, VAL_SCALING_METHOD_DOC),
+            (KEY_POOLING_LAYER, self.PoolingListStr),
+            (KEY_POOLING_LAYER_DOC, VAL_POOLING_METHOD_DOC),
             (KEY_LAYERS_ACTIVATION_FUNCTIONS, self.ActivationLayersList),
             (KEY_LAYERS_ACTIVATION_FUNCTIONS_DOC, VAL_LAYERS_ACTIVATION_FUNCTIONS_DOC),
             (KEY_LOSS_METHOD, self.LossMethod),
@@ -203,4 +212,5 @@ class Worker(JsonElement):
 
 
     def save_as_json(self, out_file : str, documentation = True):
-        json.dump(self.get_as_dict(documentation), out_file)
+        with open(out_file) as fd_out:
+            json.dump(self.get_as_dict(documentation), fd_out)
