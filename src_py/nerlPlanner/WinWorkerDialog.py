@@ -1,6 +1,7 @@
 import PySimpleGUI as sg
-from JsonElements import *
+from JsonElementWorker import *
 from WinWorkerDialogDefnitions import *
+from JsonElementWorker import Worker
 
 def count_str_list_elements(list_str : str):
     return len(list_str.split(',')) if list_str else 0
