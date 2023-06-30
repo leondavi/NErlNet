@@ -249,7 +249,7 @@ class Worker(JsonElement):
         self.lengths_validation = all([x == list_of_lengths[0] for x in list_of_lengths])
 
     def __str__(self):
-        return f"Layers: {self.LayersSizesList}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}, loss method: {self.LossMethodStr}"
+        return f"LSizes: {self.LayersSizesList}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}"
     
     def error(self): 
         return not self.input_validation() # + more checks
