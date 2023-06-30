@@ -47,6 +47,24 @@ ModelTypeMapping = {
     "fed-server": 9
 }
 
+OptimizerTypeMapping = {
+    "none" : 0,
+    "SGD" : 1,
+    "Mini-Batch" : 2,
+    "Momentum" : 3,
+    "NAG" : 4,
+    "Adagrad" : 5,
+    "ADAM" : 6
+}
+
+LossMethodMapping = {
+    "SSE" : 1, # Sum squared Error
+    "MSE" : 2, # Mean Squared Error
+    "NSE" : 3, # Normalized Squared Error
+    "Minkowski-E" : 4, # Minkowski Error
+    "WSE" : 5, # Weighted Squared Error
+    "CEE" : 6, # Cross Entropy Error
+}
 
 # Action Keys
 
@@ -68,7 +86,14 @@ KEY_ACTIVATION_LAYER_SELECTION_CLEAR = '-ACTIVATION-LAYER-SELECTION-CLEAR-'
 KEY_ACTIVATION_CODES_INPUT = '-ACTIVATION-CODES-INPUT-'
 KEY_ACTIVATION_NUMOF_LAYERS = 'ACTIVATION-NUMOF-LAYERS'
 
-KEY_JSON_FILE_CHOSEN_DIR = '-JSON-FILE-CHOSEN-DIRECTORY'
-KEY_JSON_FILE_NAME = '-JSON-FILE-NAME-'
+# optimizer keys
+KEY_LEARNING_RATE_INPUT = '-LEARNING-RATE-INPUT-'
+KEY_OPTIMIZER_TYPE_LIST_BOX = '-OPTIMIZER-TYPE-LIST-BOX-'
+KEY_LOSS_METHOD_LIST_BOX = '-LOSS-METHOD-LIST-BOX-'
 
-KEY_GENERATE_WORKER = '-GENERATE-WORKER-'
+KEY_JSON_FILE_CHOSEN_DIR = '-JSON-FILE-CHOSEN-DIRECTORY'
+KEY_JSON_FILE_LOAD_BUTTON_EVENT = '-JSON-FILE-LOAD-BUTTON-EVENT-'
+KEY_JSON_FILE_NAME = '-JSON-FILE-NAME-'
+KEY_JSON_LOAD_FILE_BROWSE_EVENT = '-JSON_LOAD_FILE_BROWSE_EVENT-'
+
+KEY_BUTTON_EXPORT_WORKER = '-BUTTON-EXPORT-WORKER-'

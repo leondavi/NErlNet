@@ -23,29 +23,42 @@ def combo_list_editable_handler(window, event, values, map, editable_list, selec
             editable_list = ""
             window[codes_key].update(editable_list)
         return editable_list
-    return ""
+    return editable_list
 
 def WinWorkerDialog():
-    
+
+    WorkerFileLayout = [[sg.Text("Load json"),sg.In(enable_events=True ,key=KEY_JSON_LOAD_FILE_BROWSE_EVENT, expand_x=True), sg.FileBrowse(file_types=(("Json File", "*.json"),)),sg.Button("Load", key=KEY_JSON_FILE_LOAD_BUTTON_EVENT)],
+                        [sg.Text("Select json file output directory"),sg.In(enable_events=True ,key=KEY_JSON_FILE_CHOSEN_DIR, expand_x=True), sg.FolderBrowse()],
+                        [sg.Text("*.json file name"),sg.InputText(key=KEY_JSON_FILE_NAME),sg.Button("Export",key=KEY_BUTTON_EXPORT_WORKER)]]
+    WorkerFileFrame = sg.Frame("File",WorkerFileLayout)
+
     WorkerDefinitionsLayout = [[sg.Text("Model Type: "), sg.Combo(list(ModelTypeMapping.keys()),enable_events=True, key=KEY_MODEL_TYPE_LIST_BOX)],
                                [sg.Text("Layers Sizes: Comma separated list, # of neurons in a layer, E.g, 100,80,40,5,1")],
                                [sg.InputText(key=KEY_LAYER_SIZES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_NUM_OF_LAYERS_SIZES)],
                                [sg.Text("List of layers types:"), sg.Combo(list(LayerTypeMap.keys()),key=KEY_LAYER_TYPE_SELECTION), sg.Button("Add",key=KEY_LAYER_TYPE_SELECTION_ADD), sg.Button("Help",key=KEY_LAYER_TYPE_HELP),sg.Button("Clear",key=KEY_LAYER_TYPE_SELECTION_CLEAR)],
                                [sg.InputText(key=KEY_LAYER_TYPE_CODES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_NUM_OF_LAYERS_TYPES,enable_events=True)],
-                               [sg.Text("Activation functions:"), sg.Combo(list(ActivationFunctionsMap.keys()),key=KEY_ACTIVATION_LAYER_SELECTION), sg.Button("Add",key=KEY_ACTIVATION_LAYER_SELECTION_ADD), sg.Button("Help",key=KEY_ACTIVATION_LAYER_HELP), sg.Button("Clear",key=KEY_ACTIVATION_LAYER_SELECTION_CLEAR)],
+                               [sg.Text("Activation functions:"), sg.Combo(list(ActivationFunctionsMap.keys()),key=KEY_ACTIVATION_LAYER_SELECTION), sg.Button("Add",key=KEY_ACTIVATION_LAYER_SELECTION_ADD), sg.Button("Help",key="-ACTIVATION-LAYER-HELP-"), sg.Button("Clear",key=KEY_ACTIVATION_LAYER_SELECTION_CLEAR)],
                                [sg.InputText(key=KEY_ACTIVATION_CODES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_ACTIVATION_NUMOF_LAYERS,enable_events=True)]]
     WorkerDefinitionsFrame = sg.Frame("Model Definitions",layout=WorkerDefinitionsLayout)
 
-    WorkerFileLayout = [[sg.Text("Select output directory"),sg.In(enable_events=True ,key=KEY_JSON_FILE_CHOSEN_DIR, expand_x=True), sg.FolderBrowse()],
-                        [sg.Text("*.json file name"),sg.InputText(key=KEY_JSON_FILE_NAME),sg.Button("Generate",key=KEY_GENERATE_WORKER)]]
-    WorkerFileFrame = sg.Frame("File",WorkerFileLayout)
+    OptimizerDefinitionsLayout = [[sg.Text("Learning Rate: "), sg.InputText(key=KEY_LEARNING_RATE_INPUT, enable_events=True)],
+                                  [sg.Text("Optimizer Type: "), sg.Combo(list(OptimizerTypeMapping.keys()),enable_events=True, key=KEY_OPTIMIZER_TYPE_LIST_BOX)],
+                                  [sg.Text("Loss Method: "), sg.Combo(list(LossMethodMapping.keys()),enable_events=True, key=KEY_LOSS_METHOD_LIST_BOX)]]
+    OptimizerDefinitionsFrame = sg.Frame("Optimizer Definitions", layout=OptimizerDefinitionsLayout)
+
+ 
     
-    WorkerWindow  = sg.Window(title="Worker", layout=[[sg.Text(f'New Worker Generator')],[WorkerDefinitionsFrame],[WorkerFileFrame]],modal=True, keep_on_top=True)                                                  
+    WorkerWindow  = sg.Window(title="Worker", layout=[[sg.Text(f'New Worker Generator')],[WorkerFileFrame],[WorkerDefinitionsFrame],[OptimizerDefinitionsFrame]],modal=True, keep_on_top=True)                                                  
     choice = None
 
     LayersSizesList = ""
     ModelTypeStr = ""
-    ModelType = None
+    ModelType = None # None
+    OptimizationTypeStr = ""
+    OptimizationType = None # None
+    LossMethodStr = ""
+    LossMethod = None # None
+    LearningRate = None
     ActivationLayersList = ""
     LayerTypesList = ""
     while True:
@@ -55,17 +68,17 @@ def WinWorkerDialog():
             ModelType = ModelTypeMapping[ModelTypeStr]
             print(f"Model Id: {ModelType} {ModelTypeStr}")
         
-
         # Layers Sizes List
         if event == KEY_LAYER_SIZES_INPUT:
             LayersSizesList = values[event]
             WorkerWindow[KEY_NUM_OF_LAYERS_SIZES].update(f'({str(count_str_list_elements(LayersSizesList))})')
 
+
         #TODO layers sizes
 
          # Layers Types output list handling:
         selection_key = KEY_LAYER_TYPE_SELECTION
-        codes_key = KEY_LAYER_TYPE_CODES_INPUT
+        codes_key =  KEY_LAYER_TYPE_CODES_INPUT
         add_butt_key = KEY_LAYER_TYPE_SELECTION_ADD
         clear_butt_key = KEY_LAYER_TYPE_SELECTION_CLEAR
         LayerTypesList = combo_list_editable_handler(WorkerWindow, event, values, LayerTypeMap, LayerTypesList,
@@ -87,10 +100,32 @@ def WinWorkerDialog():
         if event == KEY_ACTIVATION_LAYER_HELP:
             sg.popup_ok(f"Layer type codes:\n{pretty_print_dict(LayerTypeMap)}", keep_on_top=True, title="Layer Type Codes")
 
-        if event == KEY_GENERATE_WORKER:
-            new_worker = Worker(LayersSizesList, ModelTypeStr, ModelType)
+        if event == KEY_LEARNING_RATE_INPUT:
+            LearningRate = values[event]
+            print(f"selected Learning Rate {LearningRate}")
 
-       
+        if event == KEY_OPTIMIZER_TYPE_LIST_BOX:
+            OptimizationTypeStr = values[event]
+            OptimizationType = OptimizerTypeMapping[OptimizationTypeStr]
+            print(f"selected Optimzier Type Id: {OptimizationType} {OptimizationTypeStr}")
+
+        if event == KEY_LOSS_METHOD_LIST_BOX:
+            LossMethodStr = values[event]
+            LossMethod = LossMethodMapping[LossMethodStr]
+            print(f"selected Loss Method Type: {LossMethod} {LossMethodStr}")
+
+        if event == KEY_BUTTON_EXPORT_WORKER:
+            if LayersSizesList and ModelTypeStr and ModelType and OptimizationTypeStr and OptimizationType and LossMethodStr and LossMethod and LearningRate and ActivationLayersList and LayersSizesList:
+                newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr, OptimizationType, LossMethodStr, LossMethod,
+                                    LearningRate, ActivationLayersList, LayerTypesList)
+                validation = newWorker.input_validation()
+                print(f"validation: {validation}")
+                print(f"Worker: {newWorker}")
+                sg.popup_auto_close("Successfully Created", keep_on_top=True)
+                break
+            else:
+                sg.popup_auto_close("Missing Parameters!", keep_on_top=True)
+
         if event == "Exit" or event == sg.WIN_CLOSED:
             break
         
