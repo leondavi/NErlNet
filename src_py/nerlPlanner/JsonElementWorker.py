@@ -174,36 +174,33 @@ class Worker(JsonElement):
         ScalingList = [x.split("-")[-1] if self.SCALING_LAYER_TYPE_IDX in x else self.NO_SCALING_TYPE_IDX for x in ListOfLayersTypes]
         return PoolingList, ScalingList
     
-    def get_as_dict(self):
-        #TODO
+    def get_as_dict(self, documentation = True):
+        
         assert not self.error()
-
         self.key_val_pairs = [
             (KEY_MODEL_TYPE, self.ModelType),
             (KEY_MODEL_TYPE_DOC, VAL_MODEL_TYPE_DOC),
-            
+            (KEY_LAYER_SIZES_LIST, self.LayersSizesList),
+            (KEY_LAYER_SIZES_DOC, VAL_LAYER_SIZES_DOC),
+            (KEY_LAYER_TYPES_LIST, self.LayerTypesList),
+            (KEY_LAYER_TYPES_DOC, VAL_LAYER_TYPES_DOC),
+            (KEY_SCALING_METHOD, self.ScalingList),
+            (KEY_SCALING_METHOD_DOC, VAL_SCALING_METHOD_DOC),
+            (KEY_LAYERS_ACTIVATION_FUNCTIONS, self.ActivationLayersList),
+            (KEY_LAYERS_ACTIVATION_FUNCTIONS_DOC, VAL_LAYERS_ACTIVATION_FUNCTIONS_DOC),
+            (KEY_LOSS_METHOD, self.LossMethod),
+            (KEY_LOSS_METHOD_DOC, VAL_LOSS_METHOD_DOC),
+            (KEY_LEARNING_RATE, self.LearningRate),
+            (KEY_LEARNING_RATE_DOC, VAL_LEARNING_RATE_DOC),
+            (KEY_OPTIMIZER_TYPE, self.OptimizationType),
+            (KEY_OPTIMIZER_TYPE_DOC, VAL_OPTIMIZER_TYPE_DOC)
         ]
-        self.worker_dict = OrderedDict()
-        self.worker_dict = {
-            
-        }
-        KEY_DOC_PREFIX = "_doc_"
-        KEY_MODEL_TYPE = "modelType"
-        KEY_MODEL_TYPE_DOC = "_doc_modelType"
-        KEY_LAYER_SIZES_LIST = "layersSizes"
-        KEY_LAYER_SIZES_DOC = "_doc_layersSizes"
-        KEY_LAYER_TYPES_LIST = "layerTypesList"
-        KEY_LAYER_TYPES_DOC = "_doc_LayerTypes"
-        KEY_SCALING_METHOD = "scalingMethod"
-        KEY_SCALING_METHOD_DOC = "_doc_scalingMethod"
-        KEY_LAYERS_ACTIVATION_FUNCTIONS = "layersActivationFunctions"
-        KEY_LAYERS_ACTIVATION_FUNCTIONS_DOC = "_doc_layersActivationFunctions"
-        KEY_LOSS_METHOD = "lossMethod"
-        KEY_LOSS_METHOD_DOC = "_doc_lossMethod"
-        KEY_LEARNING_RATE = "lr"
-        KEY_LEARNING_RATE_DOC = "_doc_lr"
-        KEY_OPTIMIZER_TYPE = "optimizer"
-        KEY_OPTIMIZER_TYPE_DOC = "_doc_optimizer"
+        if not documentation:
+            KEY_IDX = 0
+            self.key_val_pairs = [x for x in self.key_val_pairs if KEY_DOC_PREFIX not in x[KEY_IDX]] # remove documentation keys
+        self.key_val_pairs = self.dict_as_list_of_pairs_fixer(self.key_val_pairs)
+        return OrderedDict(self.key_val_pairs)
 
-    def save_as_json(self, out_file : str):
-        json.dump(self.out_file)
+
+    def save_as_json(self, out_file : str, documentation = True):
+        json.dump(self.get_as_dict(documentation), out_file)

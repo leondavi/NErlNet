@@ -1,20 +1,5 @@
 import re
-
-ARGS_TYPE = 0
-VALUE_TYPE = 1
-IP_TYPE = 2
-PORT_TYPE = 3
-POLICY_TYPE = 4
-DEVICE_TYPE = 5
-ROUTER_TYPE = 6
-CLIENT_TYPE = 7
-SOURCE_TYPE = 8
-WORKER_TYPE = 9
-MAIN_SERVER_TYPE = 10
-API_SERVER_TYPE = 11
-SPECIAL_ENTITY_TYPE = 12
-NONE_TYPE = -1
-
+from JsonElementsDefinitions import *
 
 class JsonElement():
     def __init__(self, name = "none", elem_type = NONE_TYPE):
@@ -48,6 +33,13 @@ class JsonElement():
 
     def help_str():
         raise "help is not implemented"
+    
+    def dict_as_list_of_pairs_fixer(self, input_list : list ) -> list:
+        new_list = []
+        for key, value in input_list:
+            new_tuple = (f'"{key}"',f'"{value}"')
+            new_list.append(new_tuple)
+        return new_list
 
 class Arguments(JsonElement):
     def __init__(self, args : str):
@@ -218,64 +210,6 @@ class Device(JsonElement):
                          self.ip.get_as_tuple(),
                          self.port.get_as_tuple()]
         return dict(elements_list)
-
-# TODO
-class Worker(JsonElement):
-    def __init__(self, name, LayersSizesList : str, ModelTypeStr : str, ModelType : int, OptimizationTypeStr : str, OptimizationType : int,
-                 LossMethodStr : str, LossMethod : int, LearningRate : str, ActivationLayersList : str, LayerTypesList : str):
-        super(Worker, self).__init__(name, WORKER_TYPE)
-        self.LayersSizesList = LayersSizesList
-        self.ModelTypeStr = ModelTypeStr
-        self.ModelType = ModelType # None
-        self.OptimizationTypeStr = OptimizationTypeStr
-        self.OptimizationType = OptimizationType # None
-        self.LossMethodStr = LossMethodStr
-        self.LossMethod = LossMethod # None
-        self.LearningRate = float(LearningRate)
-        self.ActivationLayersList = ActivationLayersList
-        self.LayerTypesList = LayerTypesList
-
-        self.PoolingList, self.ScalingList = self.generate_pooling_and_scaling_lists()
-        
-        self.IntListOfLayersTypes = self.list_representation_conversion_int_elements(self.LayerTypesList)
-        self.IntPoolingList = [ int(x) for x in self.PoolingList ]
-        self.IntScalingList =  [ int(x) for x in self.ScalingList ]
-        self.IntLayersSizesList = self.list_representation_conversion_int_elements(self.LayersSizesList)
-        self.IntActivationLayersList = self.list_representation_conversion_int_elements(self.ActivationLayersList)
-
-        # validate lists sizes 
-        lists_for_length = [self.IntListOfLayersTypes, self.IntPoolingList , self.IntScalingList , self.IntLayersSizesList, self.IntActivationLayersList ]
-        list_of_lengths = [len(x) for x in lists_for_length]
-        self.lengths_validation = all([x == list_of_lengths[0] for x in list_of_lengths])
-
-    def __str__(self):
-        return f"LSizes: {self.LayersSizesList}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}"
-    
-    def error(self): 
-        return not self.input_validation() # + more checks
-
-    def input_validation(self):
-        layer_sizes_all_positive_integers = len([x for x in self.IntLayersSizesList if x > 0]) == len(self.IntLayersSizesList)
-        return self.lengths_validation and layer_sizes_all_positive_integers
-    
-    def json_list_representation_conversion(self, listStr : str) -> str:
-        return str(self.list_representation_conversion(listStr))
-    
-    def list_representation_conversion(self, listStr : str) -> list:
-        return listStr.split(",")
-    
-    def list_representation_conversion_int_elements(self, listStr : str) -> list:
-        return [int(x) for x in self.list_representation_conversion(listStr)]
-    
-    SCALING_LAYER_TYPE_IDX = "1"
-    POOLING_LAYER_TYPE_IDX = "4"
-    NO_SCALING_TYPE_IDX = 1
-    NO_POOLING_TYPE_IDX = 1
-    def generate_pooling_and_scaling_lists(self):
-        ListOfLayersTypes = self.list_representation_conversion(self.LayerTypesList)
-        PoolingList = [x.split("-")[-1] if self.POOLING_LAYER_TYPE_IDX in x else self.NO_POOLING_TYPE_IDX for x in ListOfLayersTypes]
-        ScalingList = [x.split("-")[-1] if self.SCALING_LAYER_TYPE_IDX in x else self.NO_SCALING_TYPE_IDX for x in ListOfLayersTypes]
-        return PoolingList, ScalingList
 
 class Router(JsonElement):
     def __init__(self, name, ip_address : str, port, policy):
