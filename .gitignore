@@ -6,6 +6,7 @@
 /JupyterLabDir
 *.csv
 *.orig
+*.lock
 /src_py/.sconsign.dblite
 /cmake-build-debug
 /out
