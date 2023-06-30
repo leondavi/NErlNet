@@ -37,7 +37,7 @@ class JsonElement():
     def dict_as_list_of_pairs_fixer(self, input_list : list ) -> list:
         new_list = []
         for key, value in input_list:
-            new_tuple = (f'"{key}"',f'"{value}"')
+            new_tuple = (f'{key}',f'{value}')
             new_list.append(new_tuple)
         return new_list
 
