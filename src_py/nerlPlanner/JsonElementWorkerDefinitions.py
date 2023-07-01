@@ -1,5 +1,9 @@
 
 # Maps are based on src_cpp/opennnBridge/definitionsNN.h
+
+LAYER_SPECIAL_TYPE_IDX_SCALING = "1"
+LAYER_SPECIAL_TYPE_IDX_POOLING = "2"
+
 LayerTypeMap = {
     "Default" : "0",
     "Scaling none" : "1-1",
@@ -34,49 +38,52 @@ PoolingMethodMap = {
 }
 
 ActivationFunctionsMap = {
-    "Threshold" : 1,
-    "Sign" : 2,
-    "Logistic" : 3,
-    "Tanh" : 4,
-    "Linear" : 5,
-    "ReLU" : 6,
-    "eLU" : 7,
-    "SeLU" : 8,
-    "Soft-plus" : 9,
-    "Soft-sign" : 10,
-    "Hard-sigmoid" : 11,
+    "Threshold" : "1",
+    "Sign" : "2",
+    "Logistic" : "3",
+    "Tanh" : "4",
+    "Linear" : "5",
+    "ReLU" : "6",
+    "eLU" : "7",
+    "SeLU" : "8",
+    "Soft-plus" : "9",
+    "Soft-sign" : "10",
+    "Hard-sigmoid" : "11",
 }
 
 ModelTypeMapping = {
-    "approximation" : 1,
-    "classification" : 2,
-    "forecasting" : 3,
-    "encoder_decoder" : 4,
-    "nn" : 5,
-    "autoencoder" : 6,
-    "ae-classifier" : 7,
-    "fed-client": 8,
-    "fed-server": 9
+    "approximation" : "1",
+    "classification" : "2",
+    "forecasting" : "3",
+    "encoder_decoder" : "4",
+    "nn" : "5",
+    "autoencoder" : "6",
+    "ae-classifier" : "7",
+    "fed-client": "8",
+    "fed-server": "9"
 }
 
 OptimizerTypeMapping = {
-    "none" : 0,
-    "SGD" : 1,
-    "Mini-Batch" : 2,
-    "Momentum" : 3,
-    "NAG" : 4,
-    "Adagrad" : 5,
-    "ADAM" : 6
+    "none" : "0",
+    "SGD" : "1",
+    "Mini-Batch" : "2",
+    "Momentum" : "3",
+    "NAG" : "4",
+    "Adagrad" : "5",
+    "ADAM" : "6"
 }
 
 LossMethodMapping = {
-    "SSE" : 1, # Sum squared Error
-    "MSE" : 2, # Mean Squared Error
-    "NSE" : 3, # Normalized Squared Error
-    "Minkowski-E" : 4, # Minkowski Error
-    "WSE" : 5, # Weighted Squared Error
-    "CEE" : 6, # Cross Entropy Error
+    "SSE" : "1", # Sum squared Error
+    "MSE" : "2", # Mean Squared Error
+    "NSE" : "3", # Normalized Squared Error
+    "Minkowski-E" : "4", # Minkowski Error
+    "WSE" : "5", # Weighted Squared Error
+    "CEE" : "6", # Cross Entropy Error
 }
+
+def get_key_by_value(in_map : dict, value):
+    return list(in_map.keys())[list(in_map.values()).index(value)]
 
 def doc_print_dict(d):#define d
     pretty_dict = ''  #take empty string

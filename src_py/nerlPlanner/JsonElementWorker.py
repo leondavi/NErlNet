@@ -5,9 +5,9 @@ import json
 import re
 from collections import OrderedDict
 
-class Worker(JsonElement):
+class Worker(JsonElement):      
     def __init__(self, name, LayersSizesList : str, ModelTypeStr : str, ModelType : int, OptimizationTypeStr : str, OptimizationType : int,
-                 LossMethodStr : str, LossMethod : int, LearningRate : str, ActivationLayersList : str, LayerTypesList : str):
+                 LossMethodStr : str, LossMethod : int, LearningRate : str, ActivationLayersList : str, LayerTypesList : str, ScalingMethodList = '', PoolingMethodList = ''):
         super(Worker, self).__init__(name, WORKER_TYPE)
         self.LayersSizesList = LayersSizesList
         self.ModelTypeStr = ModelTypeStr
@@ -20,9 +20,13 @@ class Worker(JsonElement):
         self.ActivationLayersList = ActivationLayersList
         self.LayerTypesList = LayerTypesList
 
-        self.PoolingList, self.ScalingList = self.generate_pooling_and_scaling_lists()
-        self.PoolingListStr = ",".join([f"{x}" for x in self.PoolingList])
-        self.ScalingListStr = ",".join([f"{x}" for x in self.ScalingList])
+        if (not bool(ScalingMethodList)) and (not bool(PoolingMethodList)):
+            self.PoolingList, self.ScalingList = self.generate_pooling_and_scaling_lists()
+            self.PoolingListStr = ",".join([f"{x}" for x in self.PoolingList])
+            self.ScalingListStr = ",".join([f"{x}" for x in self.ScalingList])
+        else:
+            self.ScalingList = ScalingMethodList.split(",")
+            self.PoolingList = PoolingMethodList.split(",")
         
         self.IntListOfLayersTypes = self.list_representation_conversion_int_elements(self.LayerTypesList)
         self.IntListOfLayersTypesStr = ",".join([str(x) for x in self.IntListOfLayersTypes])
@@ -68,7 +72,6 @@ class Worker(JsonElement):
         return PoolingList, ScalingList
     
     def get_as_dict(self, documentation = True):
-        
         assert not self.error()
         self.key_val_pairs = [
             (KEY_MODEL_TYPE, self.ModelType),
@@ -100,3 +103,35 @@ class Worker(JsonElement):
     def save_as_json(self, out_file : str, documentation = True):
         with open(out_file,"w") as fd_out:
             json.dump(self.get_as_dict(documentation), fd_out, indent=4)
+
+    def load_from_dict(worker_dict : dict, name = ''):
+        required_keys = [KEY_LAYER_SIZES_LIST, KEY_MODEL_TYPE, KEY_OPTIMIZER_TYPE,
+                         KEY_LOSS_METHOD, KEY_LEARNING_RATE, KEY_LAYERS_ACTIVATION_FUNCTIONS,
+                         KEY_LAYER_TYPES_LIST, KEY_SCALING_METHOD, KEY_POOLING_LAYER]
+        
+        loaded_worker = None
+
+        all_keys_exist = all([key in worker_dict for key in required_keys])
+
+        if all_keys_exist:
+            LayersSizesList = worker_dict[KEY_LAYER_SIZES_LIST]
+            ModelType = int(worker_dict[KEY_MODEL_TYPE])
+            ModelTypeStr = get_key_by_value(ModelTypeMapping, worker_dict[KEY_MODEL_TYPE])
+            OptimizationType = int(worker_dict[KEY_OPTIMIZER_TYPE])
+            OptimizationTypeStr = get_key_by_value(OptimizerTypeMapping, worker_dict[KEY_OPTIMIZER_TYPE])
+            LossMethod = int(worker_dict[KEY_LOSS_METHOD])
+            LossMethodStr = get_key_by_value(LossMethodMapping, worker_dict[KEY_LOSS_METHOD])
+            LearningRate = float(worker_dict[KEY_LEARNING_RATE])
+            ActivationLayersList = worker_dict[KEY_LAYERS_ACTIVATION_FUNCTIONS]
+            LayerTypesList = worker_dict[KEY_LAYER_TYPES_LIST]
+            ScalingMethodList = worker_dict[KEY_SCALING_METHOD]
+            PoolingMethodList = worker_dict[KEY_POOLING_LAYER]
+            
+            loaded_worker = Worker(name, LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,
+                OptimizationType, LossMethodStr, LossMethod, LearningRate, ActivationLayersList, LayerTypesList,
+                ScalingMethodList, PoolingMethodList)
+            return loaded_worker, LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,\
+                OptimizationType, LossMethodStr, LossMethod, LearningRate, ActivationLayersList, LayerTypesList,\
+                ScalingMethodList, PoolingMethodList
+        
+        return None
