@@ -72,7 +72,6 @@ class Worker(JsonElement):
         return PoolingList, ScalingList
     
     def get_as_dict(self, documentation = True):
-        
         assert not self.error()
         self.key_val_pairs = [
             (KEY_MODEL_TYPE, self.ModelType),

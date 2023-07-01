@@ -149,9 +149,6 @@ def WinWorkerDialog():
             if worker_parameters_conditions and filepath_condition:
                 newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr, OptimizationType, LossMethodStr, LossMethod,
                                     LearningRate, ActivationLayersList, LayerTypesList)
-                validation = newWorker.input_validation()
-                print(f"validation: {validation}")
-                print(f"Worker: {newWorker}")
                 newWorker.save_as_json(FilePath.as_posix(), WithDocumentation)
                 sg.popup_auto_close("Successfully Created", keep_on_top=True)
                 break
@@ -171,7 +168,6 @@ def WinWorkerDialog():
                 loaded_worker_dict = {}
                 with open(FilePathLoad) as jsonFile:
                     loaded_worker_dict = json.load(jsonFile)
-                print(loaded_worker_dict)
                 ( _ , LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,
                 OptimizationType, LossMethodStr, LossMethod, LearningRate, ActivationLayersList, LayerTypesList,
                 ScalingMethodList, PoolingMethodList) = Worker.load_from_dict(loaded_worker_dict)
