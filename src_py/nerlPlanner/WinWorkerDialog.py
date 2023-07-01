@@ -53,8 +53,10 @@ def WinWorkerDialog():
     WorkerWindow  = sg.Window(title="Worker", layout=[[sg.Text(f'New Worker Generator')],[WorkerFileFrame],[WorkerDefinitionsFrame],[OptimizerDefinitionsFrame]],modal=True, keep_on_top=True)                                                  
 
     # File Attributes
-    filedir = ''
-    filename = ''
+    FileDirExport = ''
+    FileNameExport = ''
+    # Load File
+    FilePathLoad = ''
     # Worker Attributes
     LayersSizesList = ""
     ModelTypeStr = ""
@@ -70,10 +72,10 @@ def WinWorkerDialog():
     while True:
         event, values = WorkerWindow.read()
         if event == KEY_JSON_FILE_CHOSEN_DIR:
-            filedir = values[event]
+            FileDirExport = values[event]
         
         if event == KEY_JSON_FILE_NAME:
-            filename = values[event]
+            FileNameExport = values[event]
 
 
         if event == KEY_MODEL_TYPE_LIST_BOX:
@@ -127,8 +129,8 @@ def WinWorkerDialog():
             worker_parameters_conditions = bool(LayersSizesList) and bool(ModelTypeStr) and bool(ModelType) and bool(OptimizationTypeStr) and\
                                            bool(OptimizationType) and bool(LossMethodStr) and bool(LossMethod) and\
                                            bool(LearningRate) and bool(ActivationLayersList) and bool(LayersSizesList)
-            FilePath = Path(filedir) / Path(filename)
-            filepath_condition = FilePath.parent.is_dir() and bool(filename) and filename.endswith(".json")
+            FilePath = Path(FileDirExport) / Path(FileNameExport)
+            filepath_condition = FilePath.parent.is_dir() and bool(FileNameExport) and FileNameExport.endswith(".json")
             if worker_parameters_conditions and filepath_condition:
                 newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr, OptimizationType, LossMethodStr, LossMethod,
                                     LearningRate, ActivationLayersList, LayerTypesList)
@@ -142,6 +144,21 @@ def WinWorkerDialog():
                 sg.popup_auto_close("Missing Parameters!", keep_on_top=True)
             elif not filepath_condition:
                 sg.popup_auto_close("Issue with json path!", keep_on_top=True)
+
+        if event == KEY_JSON_LOAD_FILE_BROWSE_EVENT:
+            FilePathLoad = values[KEY_JSON_LOAD_FILE_BROWSE_EVENT]
+            print(f"{FilePathLoad}")
+        
+        if event == KEY_JSON_FILE_LOAD_BUTTON_EVENT:
+            load_conditions = bool(FilePathLoad) and FilePathLoad.endswith(".json")
+            if load_conditions:
+                # loading json
+                LoadedWorker = {}
+                with open(FilePathLoad) as jsonFile:
+                    LoadedWorker = json.load(jsonFile)
+                print(LoadedWorker)
+            else:
+                sg.popup_auto_close("Issue with selected json file", keep_on_top=True)
 
         if event == "Exit" or event == sg.WIN_CLOSED:
             break
