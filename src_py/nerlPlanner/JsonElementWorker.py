@@ -5,7 +5,7 @@ import json
 import re
 from collections import OrderedDict
 
-class Worker(JsonElement):
+class Worker(JsonElement):      
     def __init__(self, name, LayersSizesList : str, ModelTypeStr : str, ModelType : int, OptimizationTypeStr : str, OptimizationType : int,
                  LossMethodStr : str, LossMethod : int, LearningRate : str, ActivationLayersList : str, LayerTypesList : str):
         super(Worker, self).__init__(name, WORKER_TYPE)
@@ -100,3 +100,38 @@ class Worker(JsonElement):
     def save_as_json(self, out_file : str, documentation = True):
         with open(out_file,"w") as fd_out:
             json.dump(self.get_as_dict(documentation), fd_out, indent=4)
+
+    def load_from_dict(worker_dict : dict, name = ''):
+        required_keys = [KEY_LAYER_SIZES_LIST, KEY_MODEL_TYPE,
+                         KEY_OPTIMIZER_TYPE]
+# get_value_by_key
+#         LayersSizesList = worker_dict[KEY_LAYER_SIZES_LIST]
+#         ModelType = int(worker_dict[KEY_MODEL_TYPE])
+#         ModelTypeStr = 
+#         OptimizationTypeStr = worker_dict[KEY_OPTIMIZER_TYPE]
+#         OptimizationType = int(OptimizationTypeStr)
+#         LossMethodStr = worker_dict[KEY_LOSS_METHOD]
+#         LossMethod = int(LossMethodStr)
+#         LearningRate = 
+#         ActivationLayersList
+#         LayerTypesList
+#         Worker(name)
+
+#         return None
+
+# KEY_MODEL_TYPE = "modelType"
+# KEY_LAYER_SIZES_LIST = "layersSizes"
+# KEY_LAYER_TYPES_LIST = "layerTypesList"
+# KEY_LAYER_TYPES_DOC = "_doc_LayerTypes"
+# KEY_SCALING_METHOD = "scalingMethod"
+# KEY_SCALING_METHOD_DOC = "_doc_scalingMethod"
+# KEY_POOLING_LAYER = "poolingMethod"
+# KEY_POOLING_LAYER_DOC = "_doc_poolingMethod"
+# KEY_LAYERS_ACTIVATION_FUNCTIONS = "layersActivationFunctions"
+# KEY_LAYERS_ACTIVATION_FUNCTIONS_DOC = "_doc_layersActivationFunctions"
+# KEY_LOSS_METHOD = "lossMethod"
+# KEY_LOSS_METHOD_DOC = "_doc_lossMethod"
+# KEY_LEARNING_RATE = "lr"
+# KEY_LEARNING_RATE_DOC = "_doc_lr"
+# KEY_OPTIMIZER_TYPE = "optimizer"
+# KEY_OPTIMIZER_TYPE_DOC = "_doc_optimizer"
