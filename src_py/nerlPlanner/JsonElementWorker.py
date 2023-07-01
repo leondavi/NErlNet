@@ -136,20 +136,3 @@ class Worker(JsonElement):
                 ScalingMethodList, PoolingMethodList
         
         return None
-
-# KEY_MODEL_TYPE = "modelType"
-# KEY_LAYER_SIZES_LIST = "layersSizes"
-# KEY_LAYER_TYPES_LIST = "layerTypesList"
-# KEY_LAYER_TYPES_DOC = "_doc_LayerTypes"
-# KEY_SCALING_METHOD = "scalingMethod"
-# KEY_SCALING_METHOD_DOC = "_doc_scalingMethod"
-# KEY_POOLING_LAYER = "poolingMethod"
-# KEY_POOLING_LAYER_DOC = "_doc_poolingMethod"
-# KEY_LAYERS_ACTIVATION_FUNCTIONS = "layersActivationFunctions"
-# KEY_LAYERS_ACTIVATION_FUNCTIONS_DOC = "_doc_layersActivationFunctions"
-# KEY_LOSS_METHOD = "lossMethod"
-# KEY_LOSS_METHOD_DOC = "_doc_lossMethod"
-# KEY_LEARNING_RATE = "lr"
-# KEY_LEARNING_RATE_DOC = "_doc_lr"
-# KEY_OPTIMIZER_TYPE = "optimizer"
-# KEY_OPTIMIZER_TYPE_DOC = "_doc_optimizer"
