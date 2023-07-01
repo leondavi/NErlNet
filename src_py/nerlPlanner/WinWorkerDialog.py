@@ -29,7 +29,7 @@ def combo_list_editable_handler(window, event, values, map, editable_list, selec
 
 def WinWorkerDialog():
 
-    WorkerFileLayout = [[sg.Text("Load json"),sg.In(enable_events=True ,key=KEY_JSON_LOAD_FILE_BROWSE_EVENT, expand_x=True), sg.FileBrowse(file_types=(("Json File", "*.json"),)), sg.Button("Load", key=KEY_JSON_FILE_LOAD_BUTTON_EVENT, enable_events=True)],
+    WorkerFileLayout = [[sg.Text("Load json"),sg.In(enable_events=True ,key=KEY_JSON_LOAD_FILE_BROWSE_EVENT, expand_x=True), sg.FileBrowse(file_types=(("Json File", "*.json"),)), sg.Button("Load", key=KEY_JSON_LOAD_FILE_BUTTON_EVENT, enable_events=True)],
                         [sg.Text("Select json file output directory"),sg.In(enable_events=True ,key=KEY_JSON_FILE_CHOSEN_DIR, expand_x=True), sg.FolderBrowse()],
                         [sg.Text("*.json file name"),sg.InputText(key=KEY_JSON_FILE_NAME, enable_events=True),sg.Button("Export",key=KEY_BUTTON_EXPORT_WORKER), sg.Checkbox('with documentation', default=True, key=KEY_CHECKBOX_WORKER_WITH_DOCUMENTATION, enable_events=True)]]
     WorkerFileFrame = sg.Frame("File",WorkerFileLayout)
@@ -149,7 +149,7 @@ def WinWorkerDialog():
             FilePathLoad = values[KEY_JSON_LOAD_FILE_BROWSE_EVENT]
             print(f"{FilePathLoad}")
         
-        if event == KEY_JSON_FILE_LOAD_BUTTON_EVENT:
+        if event == KEY_JSON_LOAD_FILE_BUTTON_EVENT:
             load_conditions = bool(FilePathLoad) and FilePathLoad.endswith(".json")
             if load_conditions:
                 # loading json
