@@ -1,5 +1,9 @@
 
 # Maps are based on src_cpp/opennnBridge/definitionsNN.h
+
+LAYER_SPECIAL_TYPE_IDX_SCALING = "1"
+LAYER_SPECIAL_TYPE_IDX_POOLING = "2"
+
 LayerTypeMap = {
     "Default" : "0",
     "Scaling none" : "1-1",
@@ -78,7 +82,7 @@ LossMethodMapping = {
     "CEE" : "6", # Cross Entropy Error
 }
 
-def get_value_by_key(in_map : dict, value):
+def get_key_by_value(in_map : dict, value):
     return list(in_map.keys())[list(in_map.values()).index(value)]
 
 def doc_print_dict(d):#define d

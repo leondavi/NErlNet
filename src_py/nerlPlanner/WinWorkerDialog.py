@@ -69,6 +69,21 @@ def WinWorkerDialog():
     ActivationLayersList = ""
     LayerTypesList = ""
     WithDocumentation = True
+
+    def ui_update_all_values(WorkerWindow):
+        WorkerWindow[KEY_LAYER_SIZES_INPUT].update(LayersSizesList)
+        WorkerWindow[KEY_MODEL_TYPE_LIST_BOX].update(ModelTypeStr)
+        WorkerWindow[KEY_OPTIMIZER_TYPE_LIST_BOX].update(OptimizationTypeStr)
+        WorkerWindow[KEY_LOSS_METHOD_LIST_BOX].update(LossMethodStr)
+        WorkerWindow[KEY_LEARNING_RATE_INPUT].update(LearningRate)
+        WorkerWindow[KEY_ACTIVATION_CODES_INPUT].update(ActivationLayersList)
+        WorkerWindow[KEY_LAYER_TYPE_CODES_INPUT].update(LayerTypesList)
+        # update counters
+        WorkerWindow[KEY_NUM_OF_LAYERS_SIZES].update(f'({str(count_str_list_elements(LayersSizesList))})')
+        WorkerWindow[KEY_NUM_OF_LAYERS_TYPES].update(f'({str(count_str_list_elements(LayerTypesList))})')
+        WorkerWindow[KEY_ACTIVATION_NUMOF_LAYERS].update(f'({str(count_str_list_elements(ActivationLayersList))})')
+
+
     while True:
         event, values = WorkerWindow.read()
         if event == KEY_JSON_FILE_CHOSEN_DIR:
@@ -153,10 +168,27 @@ def WinWorkerDialog():
             load_conditions = bool(FilePathLoad) and FilePathLoad.endswith(".json")
             if load_conditions:
                 # loading json
-                LoadedWorker = {}
+                loaded_worker_dict = {}
                 with open(FilePathLoad) as jsonFile:
-                    LoadedWorker = json.load(jsonFile)
-                print(LoadedWorker)
+                    loaded_worker_dict = json.load(jsonFile)
+                print(loaded_worker_dict)
+                ( _ , LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,
+                OptimizationType, LossMethodStr, LossMethod, LearningRate, ActivationLayersList, LayerTypesList,
+                ScalingMethodList, PoolingMethodList) = Worker.load_from_dict(loaded_worker_dict)
+
+                ScalingMethodList = ScalingMethodList.split(",")
+                PoolingMethodList = PoolingMethodList.split(",")
+                LayerTypesListUnifiedStyle = []
+                for idx, layer in enumerate(LayerTypesList.split(",")):
+                    if layer == LAYER_SPECIAL_TYPE_IDX_SCALING:
+                        LayerTypesListUnifiedStyle.append(f"{layer}-{ScalingMethodList[idx]}")
+                    elif layer == LAYER_SPECIAL_TYPE_IDX_POOLING:
+                        LayerTypesListUnifiedStyle.append(f"{layer}-{PoolingMethodList[idx]}")
+                    else:
+                        LayerTypesListUnifiedStyle.append(layer)
+                LayerTypesList = ",".join(LayerTypesListUnifiedStyle)
+                ui_update_all_values(WorkerWindow)
+
             else:
                 sg.popup_auto_close("Issue with selected json file", keep_on_top=True)
 
