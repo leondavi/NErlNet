@@ -29,9 +29,9 @@ def combo_list_editable_handler(window, event, values, map, editable_list, selec
 
 def WinWorkerDialog():
 
-    WorkerFileLayout = [[sg.Text("Load json"),sg.In(enable_events=True ,key=KEY_JSON_LOAD_FILE_BROWSE_EVENT, expand_x=True), sg.FileBrowse(file_types=(("Json File", "*.json"),)),sg.Button("Load", key=KEY_JSON_FILE_LOAD_BUTTON_EVENT)],
+    WorkerFileLayout = [[sg.Text("Load json"),sg.In(enable_events=True ,key=KEY_JSON_LOAD_FILE_BROWSE_EVENT, expand_x=True), sg.FileBrowse(file_types=(("Json File", "*.json"),)), sg.Button("Load", key=KEY_JSON_FILE_LOAD_BUTTON_EVENT, enable_events=True)],
                         [sg.Text("Select json file output directory"),sg.In(enable_events=True ,key=KEY_JSON_FILE_CHOSEN_DIR, expand_x=True), sg.FolderBrowse()],
-                        [sg.Text("*.json file name"),sg.InputText(key=KEY_JSON_FILE_NAME, enable_events=True),sg.Button("Export",key=KEY_BUTTON_EXPORT_WORKER)]]
+                        [sg.Text("*.json file name"),sg.InputText(key=KEY_JSON_FILE_NAME, enable_events=True),sg.Button("Export",key=KEY_BUTTON_EXPORT_WORKER), sg.Checkbox('with documentation', default=True, key=KEY_CHECKBOX_WORKER_WITH_DOCUMENTATION, enable_events=True)]]
     WorkerFileFrame = sg.Frame("File",WorkerFileLayout)
 
     WorkerDefinitionsLayout = [[sg.Text("Model Type: "), sg.Combo(list(ModelTypeMapping.keys()),enable_events=True, key=KEY_MODEL_TYPE_LIST_BOX)],
@@ -51,7 +51,6 @@ def WinWorkerDialog():
  
     
     WorkerWindow  = sg.Window(title="Worker", layout=[[sg.Text(f'New Worker Generator')],[WorkerFileFrame],[WorkerDefinitionsFrame],[OptimizerDefinitionsFrame]],modal=True, keep_on_top=True)                                                  
-    choice = None
 
     # File Attributes
     filedir = ''
@@ -67,6 +66,7 @@ def WinWorkerDialog():
     LearningRate = None
     ActivationLayersList = ""
     LayerTypesList = ""
+    WithDocumentation = True
     while True:
         event, values = WorkerWindow.read()
         if event == KEY_JSON_FILE_CHOSEN_DIR:
@@ -79,7 +79,6 @@ def WinWorkerDialog():
         if event == KEY_MODEL_TYPE_LIST_BOX:
             ModelTypeStr = values[event]
             ModelType = ModelTypeMapping[ModelTypeStr]
-            print(f"Model Id: {ModelType} {ModelTypeStr}")
         
         # Layers Sizes List
         if event == KEY_LAYER_SIZES_INPUT:
@@ -112,17 +111,17 @@ def WinWorkerDialog():
 
         if event == KEY_LEARNING_RATE_INPUT:
             LearningRate = values[event]
-            print(f"selected Learning Rate {LearningRate}")
 
         if event == KEY_OPTIMIZER_TYPE_LIST_BOX:
             OptimizationTypeStr = values[event]
             OptimizationType = OptimizerTypeMapping[OptimizationTypeStr]
-            print(f"selected Optimzier Type Id: {OptimizationType} {OptimizationTypeStr}")
 
         if event == KEY_LOSS_METHOD_LIST_BOX:
             LossMethodStr = values[event]
             LossMethod = LossMethodMapping[LossMethodStr]
-            print(f"selected Loss Method Type: {LossMethod} {LossMethodStr}")
+
+        if event == KEY_CHECKBOX_WORKER_WITH_DOCUMENTATION:
+            WithDocumentation = values[KEY_CHECKBOX_WORKER_WITH_DOCUMENTATION]
 
         if event == KEY_BUTTON_EXPORT_WORKER:
             worker_parameters_conditions = bool(LayersSizesList) and bool(ModelTypeStr) and bool(ModelType) and bool(OptimizationTypeStr) and\
@@ -136,7 +135,7 @@ def WinWorkerDialog():
                 validation = newWorker.input_validation()
                 print(f"validation: {validation}")
                 print(f"Worker: {newWorker}")
-                newWorker.save_as_json(FilePath.as_posix())
+                newWorker.save_as_json(FilePath.as_posix(), WithDocumentation)
                 sg.popup_auto_close("Successfully Created", keep_on_top=True)
                 break
             elif not worker_parameters_conditions:
