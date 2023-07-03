@@ -18,7 +18,7 @@ class JsonArchitecture():
         self.main_dict = OrderedDict()
         self.ports_set = set()
         self.names_set = set()
-        self.reserved_names_set = set(MainServer.NAME, ApiServer.NAME, NerlGUI.NAME)
+        self.reserved_names_set = set([MainServer.NAME, ApiServer.NAME, NerlGUI.NAME])
     
     def init_dictionary(self):
         self.main_dict[KEY_NERLNET_SETTINGS] = ""

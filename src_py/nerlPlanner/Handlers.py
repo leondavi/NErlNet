@@ -11,6 +11,8 @@ main_server_inst = None
 api_server_inst = None
 nerl_gui_inst = None
 
+
+
 def reset_instances():
     json_architecture_instance = JsonArchitecture()
 
