@@ -8,15 +8,15 @@ import logging
 sg.theme('LightGray4') 
 
 # Specific Fields Frame 
-jsonFields = [  [sg.Text('Frequency '), sg.InputText(size=10), sg.Text('Default frequency for sensors')],
-                [sg.Text('Batch Size'), sg.InputText(size=10), sg.Text('# of samples in a message')],
+settingsFields = [  [sg.Text('Frequency '), sg.InputText(size=10, key=KEY_SETTINGS_FREQUENCY_INPUT, enable_events=True), sg.Text('Default frequency for sensors')],
+                [sg.Text('Batch Size'), sg.InputText(size=10, key=KEY_SETTINGS_BATCH_SIZE_INPUT, enable_events=True), sg.Text('# of samples in a message')],
                 [sg.Text("Special devices")],
                 [sg.Text('Main Server: '), sg.Text('ip'), sg.InputText(size=15), sg.Text('port'), sg.InputText(size=15)],
                 [sg.Text('API Server: '), sg.Text('ip'), sg.InputText(size=15), sg.Text('port'), sg.InputText(size=15)],
                 [sg.Text('NerlGUI (optional)'), sg.Text('ip'), sg.InputText(size=15), sg.Text('port'), sg.InputText(size=15)],
-                [sg.Button("Add", size=(10)), sg.Button("Clear",size=(10))],
+                [sg.Button("Add", size=(10), key=KEY_SETTINGS_ADD_BUTTON, enable_events=True), sg.Button("Clear",size=(10))],
             ]
-fieldsFrame = sg.Frame("",layout=jsonFields, expand_x=True)
+settingsFrame = sg.Frame("Settings",layout=settingsFields, expand_x=True)
 
 # Devices 
 DevicesNamesList = []
@@ -104,7 +104,7 @@ jsonCtrlFrame = sg.Frame("json Control",layout=JsonFileFields, expand_x=True)
 # Main Windows
 main_window  = sg.Window(title=WINDOW_TITLE, layout=[[sg.Image(NERLNET_LOGO_PATH, expand_x=True)],
                                                      [sg.Text(f'Nerlnet ".json" files generator version {VERSION}')],
-                                                    [fieldsFrame,EntitiesListFrame],
+                                                    [settingsFrame,EntitiesListFrame],
                                                     [devicesFrame, workersFrame],
                                                     [EntitiesFrame],
                                                     [jsonCtrlFrame]])
@@ -113,6 +113,7 @@ main_window  = sg.Window(title=WINDOW_TITLE, layout=[[sg.Image(NERLNET_LOGO_PATH
 
 while True:
     event, values = main_window.read(timeout=50)
+    settings_handler(event,values)
     if event == sg.WIN_CLOSED or event == 'Cancel': # if user closes window or clicks cancel
         break
     if event == JSON_CONTROL_LOAD_FILE_BROWSE_EVENT_KEY:
