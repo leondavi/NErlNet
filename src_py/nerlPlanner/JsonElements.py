@@ -1,4 +1,3 @@
-import re
 from JsonElementsDefinitions import *
 
 class JsonElement():
@@ -57,7 +56,7 @@ class Arguments(JsonElement):
 class Frequency(JsonElement):
     def __init__(self, value):
         super(Frequency, self).__init__("frequency", VALUE_TYPE)
-        self.value = int(value) if isinstance(value, str) else value
+        self.value = float(value) if isinstance(value, str) else value
 
     def error(self):
         return self.value < 0
@@ -65,15 +64,20 @@ class Frequency(JsonElement):
     def get_as_tuple(self):
         assert not self.error()
         return (self.get_name() , self.value)
+    
+    def get_str(self):
+        return f'{self.value}'
 
 
 class BatchSize(JsonElement):
     def __init__(self, value : int):
         super(BatchSize, self).__init__("batchSize", VALUE_TYPE)
         self.value = int(value) if isinstance(value, str) else value
+        self.int_valid = float(value).is_integer()
     
     def error(self):
-        return self.value < 1
+        error_conditions = (self.value < 1) and (not self.int_valid)
+        return error_conditions
     
     def get_as_tuple(self):
         assert not self.error()
@@ -254,6 +258,16 @@ class Client(JsonElement):
         super(Source, self).__init__(name, CLIENT_TYPE)  
         self.ip = Ipv4(ip_address)
         self.port = Port(port)
+        self.workers = []
+
+    def add_worker(self, worker_name):
+        if worker_name not in self.workers:
+            self.workers.append(worker_name)
+            return True
+        return False
+
+    def remove_worker(self, worker_name):
+        self.workers.remove(worker_name)
 
     def error(self):
         return self.ip.error() and self.port.error
