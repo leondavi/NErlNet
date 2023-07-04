@@ -18,7 +18,10 @@ class JsonArchitecture():
         self.main_dict = OrderedDict()
         self.ports_set = set()
         self.names_set = set()
-        self.reserved_names_set = set([MainServer.NAME, ApiServer.NAME, NerlGUI.NAME])
+        self.special_entities_list = [MainServer.NAME, ApiServer.NAME, NerlGUI.NAME]
+        self.reserved_names_set = set(self.special_entities_list)
+        self.init_dictionary()
+        self.entities = []
     
     def init_dictionary(self):
         self.main_dict[KEY_NERLNET_SETTINGS] = ""
@@ -30,7 +33,11 @@ class JsonArchitecture():
         self.main_dict[KEY_CLIENTS] = []
         self.main_dict[KEY_WORKERS] = []
 
+    def clear(self):
+        self.init_dictionary()
 
+    def get_entities(self):
+        self.entities += [x for x in [self.reserved_names_set] if self.main_dict[x]]
 
     def add_nerlnet_settings(self, Frequency, BatchSize):
         key, value = Frequency.get_name_as_tuple()

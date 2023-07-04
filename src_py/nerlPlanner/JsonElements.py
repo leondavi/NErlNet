@@ -258,6 +258,16 @@ class Client(JsonElement):
         super(Source, self).__init__(name, CLIENT_TYPE)  
         self.ip = Ipv4(ip_address)
         self.port = Port(port)
+        self.workers = []
+
+    def add_worker(self, worker_name):
+        if worker_name not in self.workers:
+            self.workers.append(worker_name)
+            return True
+        return False
+
+    def remove_worker(self, worker_name):
+        self.workers.remove(worker_name)
 
     def error(self):
         return self.ip.error() and self.port.error
