@@ -38,7 +38,8 @@ Nerlnet is developed by David Leon, Dr. Yehuda Ben-Shimol, and the community of 
 ### Introducing Nerlnet
 
 
-https://user-images.githubusercontent.com/18975070/145286597-340bbd31-0050-492f-8a27-e9a01eadd905.mp4
+https://github.com/leondavi/NErlNet/assets/18975070/15a3957a-3fd6-4fb2-a365-7e1578468298
+
 
 
 ### Nerlnet Architecture:
