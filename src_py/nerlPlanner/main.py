@@ -11,9 +11,15 @@ sg.theme('LightGray4')
 settingsFields = [  [sg.Text('Frequency '), sg.InputText(size=10, key=KEY_SETTINGS_FREQUENCY_INPUT, enable_events=True), sg.Text('Default frequency for sensors')],
                 [sg.Text('Batch Size'), sg.InputText(size=10, key=KEY_SETTINGS_BATCH_SIZE_INPUT, enable_events=True), sg.Text('# of samples in a message')],
                 [sg.Text("Special devices")],
-                [sg.Text('Main Server: '), sg.Text('ip'), sg.InputText(size=15, key=KEY_SETTINGS_MAINSERVER_IP_INPUT, enable_events=True), sg.Text('port'), sg.InputText(size=15, key=KEY_SETTINGS_MAINSERVER_PORT_INPUT, enable_events=True)],
-                [sg.Text('API Server: '), sg.Text('ip'), sg.InputText(size=15, key=KEY_SETTINGS_APISERVER_IP_INPUT, enable_events=True), sg.Text('port'), sg.InputText(size=15, key=KEY_SETTINGS_APISERVER_PORT_INPUT, enable_events=True)],
-                [sg.Text('NerlGUI (optional)'), sg.Text('ip'), sg.InputText(size=15, key=KEY_SETTINGS_NERLGUI_IP_INPUT, enable_events=True), sg.Text('port'), sg.InputText(size=15, key=KEY_SETTINGS_NERLGUI_PORT_INPUT, enable_events=True)],
+                [sg.Text('Main Server: '), sg.Text('ip'), sg.InputText(size=15, key=KEY_SETTINGS_MAINSERVER_IP_INPUT, enable_events=True), 
+                                           sg.Text('port'), sg.InputText(size=10, key=KEY_SETTINGS_MAINSERVER_PORT_INPUT, enable_events=True),
+                                           sg.Text('args'), sg.InputText(size=15, key=KEY_SETTINGS_MAINSERVER_ARGS_INPUT, enable_events=True)],
+                [sg.Text('API Server:  '), sg.Text('ip'), sg.InputText(size=15, key=KEY_SETTINGS_APISERVER_IP_INPUT, enable_events=True), 
+                                          sg.Text('port'), sg.InputText(size=10, key=KEY_SETTINGS_APISERVER_PORT_INPUT, enable_events=True),
+                                          sg.Text('args'), sg.InputText(size=15, key=KEY_SETTINGS_APISERVER_ARGS_INPUT, enable_events=True)],
+                [sg.Text('NerlGUI:      '), sg.Text('ip'), sg.InputText(size=15, key=KEY_SETTINGS_NERLGUI_IP_INPUT, enable_events=True),
+                                     sg.Text('port'), sg.InputText(size=10, key=KEY_SETTINGS_NERLGUI_PORT_INPUT, enable_events=True),
+                                     sg.Text('args'), sg.InputText(size=15, key=KEY_SETTINGS_NERLGUI_ARGS_INPUT, enable_events=True),sg.Checkbox("enable nerlGUI", default=False, key=KEY_CHECKBOX_ENABLE_NERLGUI, enable_events=True)],
                 [sg.Button("Add", size=(10), key=KEY_SETTINGS_ADD_BUTTON, enable_events=True), sg.Button("Clear",size=(10))],
             ]
 settingsFrame = sg.Frame("Settings",layout=settingsFields, expand_x=True)
