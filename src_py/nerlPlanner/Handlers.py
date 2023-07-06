@@ -1,4 +1,7 @@
+import json
+
 from JsonElements import *
+from JsonElementWorker import *
 from JsonArchitecture import JsonArchitecture
 from Definitions import *
 
@@ -10,6 +13,10 @@ batch_size = None
 main_server_inst = None
 api_server_inst = None
 nerl_gui_inst = None
+
+# workers
+workers_list = []
+load_worker_path = None
 
 def reset_instances():
     json_architecture_instance = JsonArchitecture()
@@ -57,6 +64,21 @@ def settings_handler(event, values):
         json_architecture_instance.add_main_server(main_server_inst)
         json_architecture_instance.add_api_server(api_server_inst)
 
+
+def workers_handler(event, values):
+    global load_worker_path
+    
+    if event == KEY_WORKERS_INPUT_LOAD_WORKER_PATH:
+        load_worker_path = values[KEY_WORKERS_INPUT_LOAD_WORKER_PATH]
+        print(load_worker_path)
+    
+    if (event == KEY_WORKERS_LOAD_WORKER_BUTTON) and load_worker_path:
+         # loading json
+        loaded_worker_dict = {}
+        with open(load_worker_path) as jsonFile:
+            loaded_worker_dict = json.load(jsonFile)
+        (new_worker , _, _, _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(loaded_worker_dict)
+        print("New worker: "+str(new_worker)) # TODO remove - just for debug
 
 
 def update_current_json_file_path(jsonPath):
