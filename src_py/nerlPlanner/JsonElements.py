@@ -30,6 +30,9 @@ class JsonElement():
     def get_type(self):
         assert(self.elem_type == NONE_TYPE)
 
+    def set_name(self, name):
+        self.name = name
+
     def help_str():
         raise "help is not implemented"
     

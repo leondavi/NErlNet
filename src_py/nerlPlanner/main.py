@@ -41,14 +41,16 @@ devicesFrame = sg.Frame("Devices",layout=[[davicesFieldsFrame],[devicesListFrame
 # Workers 
 workersNamesList = []
 workersListFields = [[sg.Text("Workers List")],
-                     [sg.Listbox(workersNamesList, size=(90,6) )]]
+                     [sg.Listbox(workersNamesList, size=(90,6), key=KEY_WORKERS_LIST_BOX, enable_events=True), sg.Button("Load", size=8, key=KEY_WORKERS_LOAD_FROM_LIST_WORKER_BUTTON, enable_events=True) ]]
 workersListFrame = sg.Frame("", workersListFields)
 workersFields = [
-                 [sg.Button("Add", size=(10)), sg.Button("Validate",size=(10)), sg.Button("Remove",size=(10))],
-                 [sg.Text("name:   "), sg.InputText(size=10)],
+                 [sg.Button("Add", size=(10),key=KEY_WORKERS_BUTTON_ADD,enable_events=True),
+                  sg.Button("View",size=(10),key=KEY_WORKERS_BUTTON_VIEW, enable_events=True), 
+                  sg.Button("Remove",size=(10),key=KEY_WORKERS_BUTTON_REMOVE,enable_events=True)],
+                 [sg.Text("name:   "), sg.InputText(size=10,key=KEY_WORKERS_NAME_INPUT, enable_events=True)],
                  [sg.Text("path to file of type *.json/*.xml")],
                  [sg.InputText(size=60, key=KEY_WORKERS_INPUT_LOAD_WORKER_PATH, enable_events=True), sg.FileBrowse(file_types=(("Worker-File", "*.json"),)),
-                  sg.Button("Load", size=8, key=KEY_WORKERS_LOAD_WORKER_BUTTON, enable_events=True),sg.Button("Show", key=KEY_WORKERS_SHOW_WORKER_BUTTON, enable_events=True)],
+                  sg.Button("Show", key=KEY_WORKERS_SHOW_WORKER_BUTTON, enable_events=True)],
                  [sg.Button("Create/Edit worker .json",size=(40),enable_events=True,key=WIN_WORKER_DIALOG_EVENT_KEY)],
                 ]
 
@@ -121,7 +123,7 @@ main_window  = sg.Window(title=WINDOW_TITLE, layout=[[sg.Image(NERLNET_LOGO_PATH
 while True:
     event, values = main_window.read(timeout=50)
     settings_handler(event,values)
-    workers_handler(event,values)
+    workers_handler(main_window,event,values)
     if event == sg.WIN_CLOSED or event == 'Cancel': # if user closes window or clicks cancel
         break
     if event == JSON_CONTROL_LOAD_FILE_BROWSE_EVENT_KEY:
