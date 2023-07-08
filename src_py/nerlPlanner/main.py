@@ -11,9 +11,15 @@ sg.theme('LightGray4')
 settingsFields = [  [sg.Text('Frequency '), sg.InputText(size=10, key=KEY_SETTINGS_FREQUENCY_INPUT, enable_events=True), sg.Text('Default frequency for sensors')],
                 [sg.Text('Batch Size'), sg.InputText(size=10, key=KEY_SETTINGS_BATCH_SIZE_INPUT, enable_events=True), sg.Text('# of samples in a message')],
                 [sg.Text("Special devices")],
-                [sg.Text('Main Server: '), sg.Text('ip'), sg.InputText(size=15, key=KEY_SETTINGS_MAINSERVER_IP_INPUT, enable_events=True), sg.Text('port'), sg.InputText(size=15, key=KEY_SETTINGS_MAINSERVER_PORT_INPUT, enable_events=True)],
-                [sg.Text('API Server: '), sg.Text('ip'), sg.InputText(size=15, key=KEY_SETTINGS_APISERVER_IP_INPUT, enable_events=True), sg.Text('port'), sg.InputText(size=15, key=KEY_SETTINGS_APISERVER_PORT_INPUT, enable_events=True)],
-                [sg.Text('NerlGUI (optional)'), sg.Text('ip'), sg.InputText(size=15, key=KEY_SETTINGS_NERLGUI_IP_INPUT, enable_events=True), sg.Text('port'), sg.InputText(size=15, key=KEY_SETTINGS_NERLGUI_PORT_INPUT, enable_events=True)],
+                [sg.Text('Main Server: '), sg.Text('ip'), sg.InputText(size=15, key=KEY_SETTINGS_MAINSERVER_IP_INPUT, enable_events=True), 
+                                           sg.Text('port'), sg.InputText(size=10, key=KEY_SETTINGS_MAINSERVER_PORT_INPUT, enable_events=True),
+                                           sg.Text('args'), sg.InputText(size=15, key=KEY_SETTINGS_MAINSERVER_ARGS_INPUT, enable_events=True)],
+                [sg.Text('API Server:  '), sg.Text('ip'), sg.InputText(size=15, key=KEY_SETTINGS_APISERVER_IP_INPUT, enable_events=True), 
+                                          sg.Text('port'), sg.InputText(size=10, key=KEY_SETTINGS_APISERVER_PORT_INPUT, enable_events=True),
+                                          sg.Text('args'), sg.InputText(size=15, key=KEY_SETTINGS_APISERVER_ARGS_INPUT, enable_events=True)],
+                [sg.Text('NerlGUI:      '), sg.Text('ip'), sg.InputText(size=15, key=KEY_SETTINGS_NERLGUI_IP_INPUT, enable_events=True),
+                                     sg.Text('port'), sg.InputText(size=10, key=KEY_SETTINGS_NERLGUI_PORT_INPUT, enable_events=True),
+                                     sg.Text('args'), sg.InputText(size=15, key=KEY_SETTINGS_NERLGUI_ARGS_INPUT, enable_events=True),sg.Checkbox("enable nerlGUI", default=False, key=KEY_CHECKBOX_ENABLE_NERLGUI, enable_events=True)],
                 [sg.Button("Add", size=(10), key=KEY_SETTINGS_ADD_BUTTON, enable_events=True), sg.Button("Clear",size=(10))],
             ]
 settingsFrame = sg.Frame("Settings",layout=settingsFields, expand_x=True)
@@ -35,13 +41,16 @@ devicesFrame = sg.Frame("Devices",layout=[[davicesFieldsFrame],[devicesListFrame
 # Workers 
 workersNamesList = []
 workersListFields = [[sg.Text("Workers List")],
-                     [sg.Listbox(workersNamesList, size=(30,6) )]]
+                     [sg.Listbox(workersNamesList, size=(90,6), key=KEY_WORKERS_LIST_BOX, enable_events=True), sg.Button("Load", size=8, key=KEY_WORKERS_LOAD_FROM_LIST_WORKER_BUTTON, enable_events=True) ]]
 workersListFrame = sg.Frame("", workersListFields)
 workersFields = [
-                 [sg.Button("Add", size=(10)), sg.Button("Validate",size=(10)), sg.Button("Remove",size=(10))],
-                 [sg.Text("name:   "), sg.InputText(size=10)],
+                 [sg.Button("Add", size=(10),key=KEY_WORKERS_BUTTON_ADD,enable_events=True),
+                  sg.Button("View",size=(10),key=KEY_WORKERS_BUTTON_VIEW, enable_events=True), 
+                  sg.Button("Remove",size=(10),key=KEY_WORKERS_BUTTON_REMOVE,enable_events=True)],
+                 [sg.Text("name:   "), sg.InputText(size=10,key=KEY_WORKERS_NAME_INPUT, enable_events=True)],
                  [sg.Text("path to file of type *.json/*.xml")],
-                 [sg.InputText(size=22), sg.Button("Browse",size=(6))],
+                 [sg.InputText(size=60, key=KEY_WORKERS_INPUT_LOAD_WORKER_PATH, enable_events=True), sg.FileBrowse(file_types=(("Worker-File", "*.json"),)),
+                  sg.Button("Show", key=KEY_WORKERS_SHOW_WORKER_BUTTON, enable_events=True)],
                  [sg.Button("Create/Edit worker .json",size=(40),enable_events=True,key=WIN_WORKER_DIALOG_EVENT_KEY)],
                 ]
 
@@ -51,7 +60,7 @@ workersFrame = sg.Frame("Workers",layout=[[workersFieldsFrame],[workersListFrame
 
 # Entities 
 EntitiesNamesList = []
-EntitiesListFields = [[sg.Text("Entities List")],[sg.Listbox(EntitiesNamesList, size=(25,10) )]
+EntitiesListFields = [[sg.Text("Entities List")],[sg.Listbox(EntitiesNamesList, size=(25,14) )]
                                      ]
 EntitiesListFrame = sg.Frame("", EntitiesListFields)
 
@@ -103,17 +112,18 @@ jsonCtrlFrame = sg.Frame("json Control",layout=JsonFileFields, expand_x=True)
 
 # Main Windows
 main_window  = sg.Window(title=WINDOW_TITLE, layout=[[sg.Image(NERLNET_LOGO_PATH, expand_x=True)],
-                                                     [sg.Text(f'Nerlnet ".json" files generator version {VERSION}')],
-                                                    [settingsFrame,EntitiesListFrame],
-                                                    [devicesFrame, workersFrame],
-                                                    [EntitiesFrame],
-                                                    [jsonCtrlFrame]])
+                                                     [sg.Text(f'Nerlnet Planner v-{VERSION}')],
+                                                    [settingsFrame, jsonCtrlFrame],
+                                                    [workersFrame, devicesFrame ],
+                                                    [EntitiesFrame, EntitiesListFrame
+                                                    ]])
 
 
 
 while True:
     event, values = main_window.read(timeout=50)
     settings_handler(event,values)
+    workers_handler(main_window,event,values)
     if event == sg.WIN_CLOSED or event == 'Cancel': # if user closes window or clicks cancel
         break
     if event == JSON_CONTROL_LOAD_FILE_BROWSE_EVENT_KEY:
