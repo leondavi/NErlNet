@@ -27,7 +27,7 @@ class JsonArchitecture():
         self.main_dict[KEY_NERLNET_SETTINGS] = ""
         self.main_dict[MainServer.NAME] = ""
         self.main_dict[ApiServer.NAME] = ""
-        self.main_dict[NerlGUI.NAME] = ""
+        self.main_dict[NerlGUI.NAME] = "" # TODO - in get as json remove this key if it's empty
         self.main_dict[KEY_ROUTERS] = []
         self.main_dict[KEY_SOURCES] = []
         self.main_dict[KEY_CLIENTS] = []
@@ -40,10 +40,8 @@ class JsonArchitecture():
         self.entities += [x for x in [self.reserved_names_set] if self.main_dict[x]]
 
     def add_nerlnet_settings(self, Frequency, BatchSize):
-        key, value = Frequency.get_name_as_tuple()
-        self.main_dict[KEY_NERLNET_SETTINGS][key][value]
-        key, value = BatchSize.get_name_as_tuple()
-        self.main_dict[KEY_NERLNET_SETTINGS][key][value]
+        settings_dict_content = [Frequency.get_as_tuple(), BatchSize.get_as_tuple()]
+        self.main_dict[KEY_NERLNET_SETTINGS] = OrderedDict(settings_dict_content)
 
     def add_main_server(self, main_server : MainServer):
         self.main_dict[MainServer.NAME] = main_server.get_as_dict()

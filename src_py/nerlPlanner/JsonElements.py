@@ -30,6 +30,9 @@ class JsonElement():
     def get_type(self):
         assert(self.elem_type == NONE_TYPE)
 
+    def set_name(self, name):
+        self.name = name
+
     def help_str():
         raise "help is not implemented"
     
@@ -42,7 +45,7 @@ class JsonElement():
 
 class Arguments(JsonElement):
     def __init__(self, args : str):
-        super(Frequency, self).__init__("args", ARGS_TYPE)
+        super(Arguments, self).__init__("args", ARGS_TYPE)
         self.args = args
 
     def error(self):
@@ -172,7 +175,7 @@ class ApiServer(JsonElement):
         self.args = Arguments(args)
 
     def error(self):
-        return self.ip.error() or self.port.error 
+        return self.ip.error() or self.port.error()
     
     def get_as_dict(self):
         assert not self.error()
@@ -190,7 +193,7 @@ class MainServer(JsonElement):
         self.args = Arguments(args)
 
     def error(self):
-        return self.ip.error() or self.port.error 
+        return self.ip.error() or self.port.error()
 
     def get_as_dict(self):
         assert not self.error()
@@ -206,7 +209,7 @@ class Device(JsonElement):
         self.port = Port(port)
 
     def error(self):
-        return self.ip.error() or self.port.error 
+        return self.ip.error() or self.port.error()
 
     def get_as_dict(self):
         assert not self.error()
