@@ -162,24 +162,24 @@ idle(cast, _Param, State) ->
 
 %% Waiting for receiving results or loss function
 %% Got nan or inf from loss function - Error, loss function too big for double
-wait(cast, {loss,nan,Time_NIF}, State = #workerGeneric_state{myName = MyName, nextState = NextState,ackClient = AckClient}) ->
+wait(cast, {loss,nan,Time_NIF}, State = #workerGeneric_state{myName = MyName, nextState = NextState,ackClient = AckClient,missedBatchesCount=MissedCount}) ->
   ?LOG_NOTICE("Loss func in wait: nan (Loss function too big for double)\n"),
   gen_statem:cast(get(client_pid),{loss, MyName, nan,Time_NIF}), %% TODO send to tal stop casting request with error desc
-  checkAndAck(MyName,AckClient),
+  checkAndAck(MyName,AckClient,MissedCount),
   {next_state, NextState, State#workerGeneric_state{ackClient = 0}};
 
-wait(cast, {loss, {LossVal,Time}}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelId=_ModelID,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
+wait(cast, {loss, {LossVal,Time}}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelId=_ModelID,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData, missedBatchesCount=MissedCount}) ->
   gen_statem:cast(get(client_pid),{loss, MyName, LossVal,Time/1000}), %% TODO Add Time and Time_NIF to the cast
   ToUpdate = CustomFunc(post_train, {get(generic_worker_ets),WorkerData}),
-  checkAndAck(MyName,AckClient),
+  checkAndAck(MyName,AckClient,MissedCount),
   if  ToUpdate -> {next_state, update, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
       true ->     {next_state, NextState, State#workerGeneric_state{ackClient = 0}}
   end;
 
-wait(cast, {predictRes,NerlTensor, Type, TimeTook, CSVname,BatchID}, State = #workerGeneric_state{myName = MyName, nextState = NextState,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
+wait(cast, {predictRes,NerlTensor, Type, TimeTook, CSVname,BatchID}, State = #workerGeneric_state{myName = MyName, nextState = NextState,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData,missedBatchesCount=MissedCount}) ->
   gen_statem:cast(get(client_pid),{predictRes,MyName, CSVname,BatchID, NerlTensor, Type, TimeTook}), %% TODO TODO change csv name and batch id(1)
   Update = CustomFunc(post_predict, {get(generic_worker_ets),WorkerData}),
-  checkAndAck(MyName,AckClient),
+  checkAndAck(MyName,AckClient,MissedCount),
   if Update -> 
     {next_state, update, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
   true ->
@@ -201,7 +201,7 @@ wait(cast, {predict}, State) ->
 
 wait(cast, {sample, _SampleListTrain}, State = #workerGeneric_state{missedBatchesCount = MissedCount, missedTrainBatches = _MissedTrainSamples}) ->
   NewMissedCount = MissedCount + 1,
-  ?LOG_NOTICE(?LOG_HEADER++"Missed sample in worker ~p count: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), NewMissedCount]),
+  % ?LOG_NOTICE(?LOG_HEADER++"Missed sample in worker ~p count: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), NewMissedCount]),
   % Miss = MissedTrainSamples++SampleListTrain,
   {next_state, wait, State#workerGeneric_state{missedBatchesCount = NewMissedCount}};
 
@@ -325,5 +325,5 @@ predict(cast, _Param, State) ->
   {next_state, predict, State}.
 
 %% Updates the client that worker is available
-checkAndAck(_MyName,0) -> ok_no_need;
-checkAndAck(MyName, 1) -> gen_statem:cast(get(client_pid),{stateChange,MyName}).
+checkAndAck(_MyName,0,_MissedCount) -> ok_no_need;
+checkAndAck(MyName, 1,MissedCount) -> gen_statem:cast(get(client_pid),{stateChange,MyName,MissedCount}).
