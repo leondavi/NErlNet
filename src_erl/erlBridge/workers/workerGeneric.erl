@@ -118,12 +118,12 @@ code_change(_OldVsn, StateName, State = #workerGeneric_state{}, _Extra) ->
 
 %% got init from FedWorker, add it to workersList
 idle(cast, {pre_idle}, State = #workerGeneric_state{myName = MyName,customFunc = Func}) ->
-  io:format("worker ~p got pre_idle signal~n",[MyName]),
+  % io:format("worker ~p got pre_idle signal~n",[MyName]),
   Func(pre_idle, {get(generic_worker_ets), empty}),
   {next_state, idle, State};
 
 idle(cast, {post_idle, From}, State = #workerGeneric_state{myName = MyName,customFunc = Func}) ->
-  io:format("worker ~p got post_idle signal~n",[MyName]),
+  % io:format("worker ~p got post_idle signal~n",[MyName]),
   Func(post_idle, {get(generic_worker_ets), From}),
   {next_state, idle, State};
 
@@ -170,10 +170,10 @@ wait(cast, {loss,nan,Time_NIF}, State = #workerGeneric_state{myName = MyName, ne
 
 wait(cast, {loss, {LossVal,Time}}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelId=_ModelID,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
   gen_statem:cast(get(client_pid),{loss, MyName, LossVal,Time/1000}), %% TODO Add Time and Time_NIF to the cast
-  Update = CustomFunc(post_train, {get(generic_worker_ets),WorkerData}),
+  ToUpdate = CustomFunc(post_train, {get(generic_worker_ets),WorkerData}),
   checkAndAck(MyName,AckClient),
-  if  Update -> {next_state, update, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
-      true ->   {next_state, NextState, State#workerGeneric_state{ackClient = 0}}
+  if  ToUpdate -> {next_state, update, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
+      true ->     {next_state, NextState, State#workerGeneric_state{ackClient = 0}}
   end;
 
 wait(cast, {predictRes,NerlTensor, Type, TimeTook, CSVname,BatchID}, State = #workerGeneric_state{myName = MyName, nextState = NextState,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
@@ -233,7 +233,7 @@ update(cast, {idle}, State = #workerGeneric_state{myName = MyName, missedBatches
   gen_statem:cast(get(client_pid),{stateChange,MyName,MissedBatchesCount}),
   {next_state, idle, State#workerGeneric_state{nextState = idle}};
     
-update(cast, Data, State = #workerGeneric_state{customFunc = CustomFunc, nextState = NextState}) ->
+update(cast, Data, State = #workerGeneric_state{customFunc = CustomFunc, nextState = NextState, missedBatchesCount = MissedBatchesCount}) ->
   % io:format("worker ~p got ~p~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
   case Data of
     %% FedClient update avg weights
@@ -245,12 +245,13 @@ update(cast, Data, State = #workerGeneric_state{customFunc = CustomFunc, nextSta
     {update, WorkerName, Me, NerlTensorWeights} ->
       StillUpdate = CustomFunc(update, {get(generic_worker_ets), {WorkerName, Me, NerlTensorWeights}}),
       if StillUpdate -> 
+        io:format("worker ~p in update waiting to go to ~p state~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), NextState]),
         {keep_state, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
       true ->
         {next_state, NextState, State#workerGeneric_state{ackClient = 0}}
       end;
     %% got sample from source. discard and add missed count TODO: add to Q
-    {sample, _Tensor} -> {keep_state, State}
+    {sample, _Tensor} -> {keep_state, State#workerGeneric_state{missedBatchesCount = MissedBatchesCount+1}}
   end.
 
 
@@ -288,9 +289,12 @@ train(cast, {predict}, State = #workerGeneric_state{myName = MyName, missedBatch
   gen_statem:cast(get(client_pid),{stateChange,MyName, MissedCount}),
   {next_state, predict, State};
 
-train(cast, _Param, State) ->
-  % io:fwrite("Same state train, not supposed to be, command: ~p\n",[Param]),
-  {next_state, train, State}.
+train(cast, Data, State) ->
+  logger:notice("undefined mes in train, adding to q"),
+  % logger:notice("worker ~p in wait cant treat message: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
+  OldQ = ets:lookup_element(get(generic_worker_ets), message_q, ?ETS_KEYVAL_VAL_IDX),
+  ets:insert(get(generic_worker_ets), {message_q, OldQ++[Data]}),
+  {keep_state, State}.
 
 %% State predict
 predict(cast, {sample,_CSVname, _BatchID, {<<>>, _Type}}, State) ->

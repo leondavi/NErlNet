@@ -45,7 +45,7 @@ controller(FuncName, {GenWorkerEts, WorkerData}) ->
     post_train  -> post_train({GenWorkerEts, WorkerData});
     pre_predict -> pre_predict({GenWorkerEts, WorkerData});
     post_predict-> post_predict({GenWorkerEts, WorkerData});
-    update      -> update({GenWorkerEts, WorkerData}),io:format("Worker doing ~p~n",[FuncName])
+    update      -> update({GenWorkerEts, WorkerData})
   end.
 
 get_this_client_ets(GenWorkerEts) -> 
@@ -96,9 +96,10 @@ post_train({GenWorkerEts, _WorkerData}) ->
     ClientPID = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
     ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX),
     MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
-    gen_statem:cast(ClientPID, {update, {MyName, ServerName, Weights}}),
     MaxSyncCount = ets:lookup_element(ThisEts, sync_max_count, ?ETS_KEYVAL_VAL_IDX),
     ets:update_counter(ThisEts, sync_count, MaxSyncCount),
+    % io:format("Worker ~p entering update~n",[MyName]),
+    gen_statem:cast(ClientPID, {update, {MyName, ServerName, Weights}}),
     ToUpdate = true;
   true ->
     ets:update_counter(ThisEts, sync_count, -1),
@@ -116,7 +117,7 @@ update({GenWorkerEts, NerlTensorWeights}) ->
   ThisEts = get_this_client_ets(GenWorkerEts),
   ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
   nerlNIF:call_to_set_weights(ModelID, NerlTensorWeights),
-  io:format("updated weights in fedServ ~p~n",[ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX)]).
+  io:format("updated weights in worker ~p~n",[ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX)]).
 
 %%------------------------------------------
 % worker_event_polling(0) -> ?LOG_ERROR("worker event polling takes too long!");
