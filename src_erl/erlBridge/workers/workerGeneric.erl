@@ -220,10 +220,10 @@ wait(cast, Data, State) ->
   ets:insert(get(generic_worker_ets), {message_q, OldQ++[Data]}),
   {keep_state, State}.
 
-% update(info, Data, State) ->
-%   ?LOG_NOTICE(?LOG_HEADER++"Worker ~p got data thru info: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
-%   ?LOG_INFO("Worker ets is: ~p",[ets:match_object(get(generic_worker_ets), {'$0', '$1'})]),
-%   {keep_state, State};
+update(info, Data, State) ->
+  ?LOG_NOTICE(?LOG_HEADER++"Worker ~p got data thru info: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
+  ?LOG_INFO("Worker ets is: ~p",[ets:match_object(get(generic_worker_ets), {'$0', '$1'})]),
+  {keep_state, State};
 
 update(cast, {update, _From, NerltensorWeights}, State = #workerGeneric_state{customFunc = CustomFunc, nextState = NextState}) ->
   CustomFunc(update, {get(generic_worker_ets), NerltensorWeights}),
