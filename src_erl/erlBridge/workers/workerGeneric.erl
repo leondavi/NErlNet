@@ -137,24 +137,24 @@ idle(cast, {predict}, State = #workerGeneric_state{myName = MyName}) ->
   gen_statem:cast(get(client_pid),{stateChange,MyName,0}),
   {next_state, predict, State#workerGeneric_state{nextState = predict}};
 
-idle(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelId=_ModelId}) ->
+% idle(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelId=_ModelId}) ->
 
-  ?LOG_NOTICE("Set weights in wait state: \n"),
-  nerlNIF:call_to_set_weights(_ModelId, Ret_weights_list),
+%   ?LOG_NOTICE("Set weights in wait state: \n"),
+%   nerlNIF:call_to_set_weights(_ModelId, Ret_weights_list),
   
-  % %% Set weights TODO maybe send the results of the update
-  % [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
+%   % %% Set weights TODO maybe send the results of the update
+%   % [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
 
-  % %% Make bias sizes and weights sizes as integer 
-  % NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
-  % NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
-  % _Result_set_weights = niftest:set_weights_nif(WeightsList, BiasList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
-  % _Result_set_weights2 = niftest:set_weights_nif(WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list, ModelId),
- %io:format("####sending new weights to workers####~n"),
-  %niftest:call_to_set_weights(ModelId, Ret_weights_list), niftest is depracated - use nerlNIF instead
-  ?LOG_NOTICE("####end set weights idle####~n"),
+%   % %% Make bias sizes and weights sizes as integer 
+%   % NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
+%   % NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
+%   % _Result_set_weights = niftest:set_weights_nif(WeightsList, BiasList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
+%   % _Result_set_weights2 = niftest:set_weights_nif(WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list, ModelId),
+%  %io:format("####sending new weights to workers####~n"),
+%   %niftest:call_to_set_weights(ModelId, Ret_weights_list), niftest is depracated - use nerlNIF instead
+%   ?LOG_NOTICE("####end set weights idle####~n"),
 
-  {next_state, idle, State};
+%   {next_state, idle, State};
  
 idle(cast, _Param, State) ->
   % io:fwrite("Same state idle, command: ~p\n",[Param]),
@@ -220,6 +220,11 @@ wait(cast, Data, State) ->
   ets:insert(get(generic_worker_ets), {message_q, OldQ++[Data]}),
   {keep_state, State}.
 
+% update(info, Data, State) ->
+%   ?LOG_NOTICE(?LOG_HEADER++"Worker ~p got data thru info: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
+%   ?LOG_INFO("Worker ets is: ~p",[ets:match_object(get(generic_worker_ets), {'$0', '$1'})]),
+%   {keep_state, State};
+
 update(cast, {update, _From, NerltensorWeights}, State = #workerGeneric_state{customFunc = CustomFunc, nextState = NextState}) ->
   CustomFunc(update, {get(generic_worker_ets), NerltensorWeights}),
   {next_state, NextState, State};
@@ -244,7 +249,7 @@ update(cast, Data, State = #workerGeneric_state{customFunc = CustomFunc, nextSta
       true ->
         {next_state, NextState, State#workerGeneric_state{ackClient = 0}}
       end;
-    %% got sample from source. discard TODO: add to Q
+    %% got sample from source. discard and add missed count TODO: add to Q
     {sample, _Tensor} -> {keep_state, State}
   end.
 
