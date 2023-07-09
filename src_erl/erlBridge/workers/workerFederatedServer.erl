@@ -21,7 +21,7 @@ controller(FuncName, {GenWorkerEts, WorkerData}) ->
     post_train -> post_train({GenWorkerEts, WorkerData});
     pre_predict -> pre_predict({GenWorkerEts, WorkerData});
     post_predict -> post_predict({GenWorkerEts, WorkerData});
-    update -> update({GenWorkerEts, WorkerData})
+    update -> update({GenWorkerEts, WorkerData}),io:format("Worker doing ~p~n",[FuncName])
   end.
 
 get_this_server_ets(GenWorkerEts) -> 
@@ -93,8 +93,10 @@ update({GenWorkerEts, WorkerData}) ->
 
   %% check if got all weights of workers
   WorkersList = ets:lookup_element(ThisEts, workers, ?ETS_KEYVAL_VAL_IDX),
-  GotAll = length(WorkersList) == 
-    length([ element(?ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, Attr) || Attr <- ets:tab2list(ThisEts), element(?ETS_TYPE_IDX, Attr) == worker]),
+  GotWorkers = [ element(?ETS_WID_IDX, Attr) || Attr <- ets:tab2list(ThisEts), element(?ETS_TYPE_IDX, Attr) == worker],
+  io:format("Have vectors from workers ~p",[GotWorkers]),
+  GotAll = length(WorkersList) == length(GotWorkers),
+    
   if GotAll ->
       AvgWeightsNerlTensor = generate_avg_weights(ThisEts),
       % io:format("AvgWeights = ~p~n",[AvgWeightsNerlTensor]),
@@ -104,7 +106,7 @@ update({GenWorkerEts, WorkerData}) ->
       ClientPID = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
       gen_statem:cast(ClientPID, {custom_worker_message, WorkersList, AvgWeightsNerlTensor}),
       false;
-  true -> true end.
+  true -> true end. %% return true to StillUpdate
 
 
 generate_avg_weights(FedEts) ->

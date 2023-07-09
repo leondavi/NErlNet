@@ -154,14 +154,14 @@ idle(cast, {training}, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
   MessageToCast = {training},
   cast_message_to_workers(EtsRef, MessageToCast),
-  {next_state, waitforWorkers, State#client_statem_state{nextState = training}};
+  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers= ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX), nextState = training}};
 
 idle(cast, {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
   io:format("client going to state predict~n",[]),
   ets:update_counter(EtsRef, msgCounter, 1),
   MessageToCast = {predict},
   cast_message_to_workers(EtsRef, MessageToCast),
-  {next_state, waitforWorkers, State#client_statem_state{nextState = predict}};
+  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers= ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),nextState = predict}};
 
 idle(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),

@@ -396,7 +396,7 @@ ack() ->
   {ok, Response} = nerl_tools:sendHTTP(?MAIN_SERVER_ATOM, ?API_SERVER_ATOM, "ackP", "ack"),
   % io:format("ACK was ~p~n",[Response]),
   case Response of 
-    {{_Protocol, _Code = 404, _Meaning}, _Headers, _Body} -> timer:sleep(10), ack();    %% Ack not received, retry
+    {{_Protocol, _Code = 404, _Meaning}, _Headers, _Body} -> timer:sleep(50), ack();    %% Ack not received, retry
     {{_Protocol, _Code = 200, _Meaning}, _Headers, _Body} -> done;
     _Other -> bad_response
   end.
