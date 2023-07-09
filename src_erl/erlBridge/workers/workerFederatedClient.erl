@@ -38,14 +38,14 @@
 
 controller(FuncName, {GenWorkerEts, WorkerData}) -> 
   case FuncName of
-    init -> init({GenWorkerEts, WorkerData});
+    init        -> init({GenWorkerEts, WorkerData});
     pre_idle    -> pre_idle({GenWorkerEts, WorkerData});
     post_idle   -> post_idle({GenWorkerEts, WorkerData});
     pre_train   -> pre_train({GenWorkerEts, WorkerData});
     post_train  -> post_train({GenWorkerEts, WorkerData});
     pre_predict -> pre_predict({GenWorkerEts, WorkerData});
     post_predict-> post_predict({GenWorkerEts, WorkerData});
-    update      -> update({GenWorkerEts, WorkerData})
+    update      -> update({GenWorkerEts, WorkerData}),io:format("Worker doing ~p~n",[FuncName])
   end.
 
 get_this_client_ets(GenWorkerEts) -> 
@@ -116,7 +116,7 @@ update({GenWorkerEts, NerlTensorWeights}) ->
   ThisEts = get_this_client_ets(GenWorkerEts),
   ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
   nerlNIF:call_to_set_weights(ModelID, NerlTensorWeights),
-  io:format("updated weights in ~p~n",[ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX)]).
+  io:format("updated weights in fedServ ~p~n",[ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX)]).
 
 %%------------------------------------------
 % worker_event_polling(0) -> ?LOG_ERROR("worker event polling takes too long!");

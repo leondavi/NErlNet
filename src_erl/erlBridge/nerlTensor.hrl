@@ -4,7 +4,7 @@
 
 -define(NUMOF_DIMS,3).
 % nif return timeouts
--define(PREDICT_TIMEOUT,10000). % 10 seconds limit for prediction results
+-define(PREDICT_TIMEOUT,20000). % 20 seconds limit for prediction results
 -define(TRAIN_TIMEOUT,20000). % 20 seconds limit for prediction results
 
 %% nerlNIF defines
