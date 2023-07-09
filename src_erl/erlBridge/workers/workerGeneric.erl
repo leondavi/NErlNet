@@ -290,7 +290,6 @@ train(cast, {predict}, State = #workerGeneric_state{myName = MyName, missedBatch
   {next_state, predict, State};
 
 train(cast, Data, State) ->
-  logger:notice("undefined mes in train, adding to q"),
   % logger:notice("worker ~p in wait cant treat message: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
   OldQ = ets:lookup_element(get(generic_worker_ets), message_q, ?ETS_KEYVAL_VAL_IDX),
   ets:insert(get(generic_worker_ets), {message_q, OldQ++[Data]}),

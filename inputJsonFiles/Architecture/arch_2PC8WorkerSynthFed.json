@@ -1,13 +1,13 @@
 {
   "NerlNetSettings": 
   {
-    "frequency": "100",
-    "batchSize": "50"
+    "frequency": "10",
+    "batchSize": "10"
   },
   "devices": [
     {
       "host": "192.168.0.108",
-      "entities": "mainServer,c1,s1,r1,apiServer"
+      "entities": "mainServer,c1,s1,s2,r1,apiServer"
     },
     {
       "host": "192.168.0.103",
@@ -58,7 +58,7 @@
       "optimizer":"6",
       "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
       "federatedServer": "w1",
-      "syncCount": "10"
+      "syncCount": "50"
     },
     {
       "name": "w2",
@@ -82,7 +82,7 @@
       "optimizer":"6",
       "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
       "federatedServer": "w1",
-      "syncCount": "10"
+      "syncCount": "50"
     },
     {
       "name": "w3",
@@ -106,7 +106,7 @@
       "optimizer":"6",
       "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
       "federatedServer": "w1",
-      "syncCount": "10"
+      "syncCount": "50"
     },
     {
       "name": "w4",
@@ -130,7 +130,7 @@
       "optimizer":"6",
       "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
       "federatedServer": "w1",
-      "syncCount": "10"
+      "syncCount": "50"
     },
     {
       "name": "w5",
@@ -154,7 +154,7 @@
       "optimizer":"6",
       "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
       "federatedServer": "w1",
-      "syncCount": "10"
+      "syncCount": "50"
     },
     {
       "name": "w6",
@@ -178,7 +178,7 @@
       "optimizer":"6",
       "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
       "federatedServer": "w1",
-      "syncCount": "10"
+      "syncCount": "50"
     },
     {
       "name": "w7",
@@ -202,7 +202,7 @@
       "optimizer":"6",
       "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
       "federatedServer": "w1",
-      "syncCount": "10"
+      "syncCount": "50"
     },
     {
       "name": "w8",
@@ -226,7 +226,7 @@
       "optimizer":"6",
       "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
       "federatedServer": "w1",
-      "syncCount": "10"
+      "syncCount": "50"
     }
   ],
   "clients": [
@@ -245,7 +245,13 @@
     {
       "name": "s1",
       "port": "8091",
-      "method": "1",
+      "method": "2",
+      "COMMENTS": "method allowed: '1': sends each exapme to all clients listed, '2': round robin between all clients"
+    },
+    {
+      "name": "s2",
+      "port": "8092",
+      "method": "2",
       "COMMENTS": "method allowed: '1': sends each exapme to all clients listed, '2': round robin between all clients"
     }
   ],

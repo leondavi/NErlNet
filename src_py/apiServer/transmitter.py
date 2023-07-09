@@ -52,7 +52,7 @@ class Transmitter:
                 if filename == f"{globe.experiment_flow_global.expFlow['CSV path']}_{currentPhase.lower()}.csv":
                     csvfile = open(os.path.join(root, filename), 'r').readlines()
                     break
-
+        ## TODO: add user interface to control range of samples per source
         linesPerSource = int(len(csvfile)/len(globe.components.sources))
 
         SourceData = []
