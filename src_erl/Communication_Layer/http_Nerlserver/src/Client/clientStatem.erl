@@ -20,6 +20,8 @@
   code_change/4, callback_mode/0, idle/3, training/3,waitforWorkers/3]).
 
 
+-import(nerlNIF,[validate_nerltensor_erl/1]).
+
 -define(ETS_KV_VAL_IDX, 2). % key value pairs --> value index is 2
 -define(WORKER_PID_IDX, 2).
 -define(WORKER_TIMING_IDX, 4).
@@ -368,6 +370,19 @@ createWorkers(ClientName, EtsRef) ->
     Optimizer = list_to_integer(binary_to_list(maps:get(<<"optimizer">>,WorkerMap))),
     LossMethod = list_to_integer(binary_to_list(maps:get(<<"lossMethod">>,WorkerMap))),
     LearningRate = list_to_float(binary_to_list(maps:get(<<"learningRate">>,WorkerMap))),
+
+    % validation of tensors:
+    TensorsValidation = lists:all(fun(X) -> X end, [
+      nerlNIF:validate_nerltensor_erl(LayerTypesList),
+      nerlNIF:validate_nerltensor_erl(LayersSizes),
+      nerlNIF:validate_nerltensor_erl(LayersActivationFunctions)
+    ]),
+
+    if
+      TensorsValidation -> ok;
+      true -> ?LOG_ERROR("Wrong NerlTensor dimensions declaration. XYZ != len(NerlTensor)"),
+              throw("Wrong NerlTensor dimensions declaration")
+    end,
 
     % TODO add documentation about this case of 
     % move this case to module called client_controller
