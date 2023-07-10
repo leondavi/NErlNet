@@ -129,12 +129,12 @@ idle(cast, {post_idle, From}, State = #workerGeneric_state{myName = MyName,custo
 
 idle(cast, {training}, State = #workerGeneric_state{myName = MyName}) ->
   ?LOG_NOTICE("~p Go from idle to train!\n",[MyName]),
-  gen_statem:cast(get(client_pid),{stateChange,MyName,0}),
+  checkAndAck(MyName, 1, 0),
   {next_state, train, State};
 
 idle(cast, {predict}, State = #workerGeneric_state{myName = MyName}) ->
   ?LOG_NOTICE("Go from idle to predict\n"),
-  gen_statem:cast(get(client_pid),{stateChange,MyName,0}),
+  checkAndAck(MyName, 1, 0),
   {next_state, predict, State#workerGeneric_state{nextState = predict}};
 
 % idle(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelId=_ModelId}) ->
@@ -229,8 +229,8 @@ update(cast, {update, _From, NerltensorWeights}, State = #workerGeneric_state{cu
   CustomFunc(update, {get(generic_worker_ets), NerltensorWeights}),
   {next_state, NextState, State};
 
-update(cast, {idle}, State = #workerGeneric_state{myName = MyName, missedBatchesCount = MissedBatchesCount}) ->
-  gen_statem:cast(get(client_pid),{stateChange,MyName,MissedBatchesCount}),
+update(cast, {idle}, State = #workerGeneric_state{myName = MyName, missedBatchesCount = MissedCount}) ->
+  checkAndAck(MyName, 1, MissedCount),
   {next_state, idle, State#workerGeneric_state{nextState = idle}};
     
 update(cast, Data, State = #workerGeneric_state{customFunc = CustomFunc, nextState = NextState, missedBatchesCount = MissedBatchesCount}) ->
@@ -281,12 +281,12 @@ train(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelId
 
 train(cast, {idle}, State = #workerGeneric_state{myName = MyName, missedBatchesCount = MissedCount}) ->
   %logger:notice("Go from train to idle\n"),
-  gen_statem:cast(get(client_pid),{stateChange,MyName,MissedCount}),
+  checkAndAck(MyName, 1, MissedCount),
   {next_state, idle, State};
 
 train(cast, {predict}, State = #workerGeneric_state{myName = MyName, missedBatchesCount = MissedCount}) ->
   %logger:notice("Go from train to predict\n"),
-  gen_statem:cast(get(client_pid),{stateChange,MyName, MissedCount}),
+  checkAndAck(MyName, 1, MissedCount),
   {next_state, predict, State};
 
 train(cast, Data, State) ->
@@ -315,7 +315,7 @@ predict(cast, {idle}, State = #workerGeneric_state{myName = MyName, missedBatche
 
 predict(cast, {training}, State = #workerGeneric_state{myName = MyName, missedBatchesCount = MissedCount}) ->
   %logger:notice("Go from predict to train\n"),
-  gen_statem:cast(get(client_pid),{stateChange,MyName, MissedCount}),
+  checkAndAck(MyName, 1, MissedCount),
 
   {next_state, train, State};
 

@@ -35,6 +35,8 @@ username = os.getlogin()
 # Dict with {worker : csv}:
 workerCsv = {}
 sourceCSVIndex = 0
+# splitMode for data in sources (1 = split file by sources, 2 = send whole to all)
+CSVsplit = None
 
 # Check if we are running on Jupyter Notebook, to disable logging prompts:
 ipythonPlatform = str(type(get_ipython()))

@@ -216,24 +216,18 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{sourcesCastingList 
   {noreply, NextState};
 
 handle_cast({sourceAck,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList,msgCounter = MsgCounter}) ->
-    % io:format("~n~p sent ACK ~n",[list_to_atom(binary_to_list(Body))]),
     NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
-    if length(NewWaitingList) == 0 ->
-        ack();
-      true-> ok
-        % io:format("~p sent ACK~n new sourceWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
-    end,
+    % io:format("waiting for source:~p~n",[NewWaitingList]),
+    if length(NewWaitingList) == 0 -> ack();
+    true-> ok end,
   {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList,msgCounter = MsgCounter+1}};
 
 
 handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList,msgCounter = MsgCounter}) ->
   NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
   % io:format("new Waiting List: ~p ~n",[NewWaitingList]),
-  if length(NewWaitingList) == 0 ->
-        ack();
-    true-> ok
-        % io:format("~p sent ACK~n new clientWaitinglist = ~p~n",[list_to_atom(binary_to_list(Body)),NewWaitingList])
-    end,
+  if length(NewWaitingList) == 0 -> ack();
+  true-> ok end,
   {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList, msgCounter = MsgCounter+1}};
 
 %%TODO change Client_Names to list of clients

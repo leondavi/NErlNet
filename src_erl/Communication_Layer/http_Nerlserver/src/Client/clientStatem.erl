@@ -23,7 +23,8 @@
 -define(ETS_KV_VAL_IDX, 2). % key value pairs --> value index is 2
 -define(WORKER_PID_IDX, 2).
 -define(WORKER_TIMING_IDX, 4).
--define(WORKER_MISSED_IDX, 5).
+-define(WORKER_TRAIN_MISSED_IDX, 5).
+-define(WORKER_PRED_MISSED_IDX, 6).
 -define(SERVER, ?MODULE).
 
 %% client ETS table: {WorkerName, WorkerPid, WorkerArgs, TimingTuple}
@@ -97,7 +98,7 @@ waitforWorkers(cast, {stateChange,WorkerName,MissedBatchesCount}, State = #clien
   NewWaitforWorkers = WaitforWorkers--[WorkerName],
   io:format("remaining workers = ~p~n",[NewWaitforWorkers]),
   ets:update_counter(EtsRef, msgCounter, 1), % last is increment value
-  ets:update_element(EtsRef, WorkerName,[{?WORKER_MISSED_IDX,MissedBatchesCount}]), %% update missed batches count
+  ets:update_element(EtsRef, WorkerName,[{?WORKER_TRAIN_MISSED_IDX,MissedBatchesCount}]), %% update missed batches count
   case NewWaitforWorkers of
     [] ->   ack(MyName,ets:lookup_element(EtsRef, nerlnetGraph, 2)),
             ?LOG_INFO("~p going to state ~p~n",[MyName, NextState]),
@@ -144,7 +145,7 @@ idle(cast, {statistics}, State = #client_statem_state{ myName = MyName, etsRef =
   NerlnetGraph = ets:lookup_element(EtsRef, nerlnetGraph, ?ETS_KV_VAL_IDX),
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
   TimingMap = [{WorkerKey,ets:lookup_element(EtsRef, WorkerKey, ?WORKER_TIMING_IDX)} || WorkerKey <- Workers],
-  MissedCounts = [{WorkerKey,ets:lookup_element(EtsRef, WorkerKey, ?WORKER_MISSED_IDX)} || WorkerKey <- Workers],
+  MissedCounts = [{WorkerKey,ets:lookup_element(EtsRef, WorkerKey, ?WORKER_TRAIN_MISSED_IDX)} || WorkerKey <- Workers],
   Counter = ets:lookup_element(EtsRef, msgCounter, ?ETS_KV_VAL_IDX),
   sendStatistics(NerlnetGraph,MyName,Counter,TimingMap,MissedCounts),
   ets:update_counter(EtsRef, msgCounter, 1), % last param is increment value
@@ -408,8 +409,8 @@ updateTimingMap(EtsRef, WorkerName) when is_atom(WorkerName) ->
 %% statistics format: clientName:workerName=avgTime,...
 %% adding client c1=MsgNum,w1=...
 sendStatistics(NerlnetGraph,MyName,MsgCount,TimingTuples,MissedCounts)->
-  TimingStats = lists:flatten([atom_to_list(WorkerName)++"="++float_to_list(TotalTime/TotalBatches,[{decimals, 3}])++","||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-TimingTuples]),
-  MissingStats = lists:flatten([atom_to_list(WorkerName)++"="++integer_to_list(MissCount)++","||{WorkerName,MissCount}<-MissedCounts]),
+  TimingStats = lists:flatten([atom_to_list(WorkerName)++"TrainAvgTime="++float_to_list(TotalTime/TotalBatches,[{decimals, 3}])++","||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-TimingTuples]),
+  MissingStats = lists:flatten([atom_to_list(WorkerName)++"TrainMiss="++integer_to_list(MissCount)++","||{WorkerName,MissCount}<-MissedCounts]),
   MyStats = atom_to_list(MyName)++"="++integer_to_list(MsgCount)++",",
   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName, ?MAIN_SERVER_ATOM, NerlnetGraph),
   nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++":"++MyStats++MissingStats++lists:droplast(TimingStats))).

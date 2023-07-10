@@ -132,6 +132,7 @@ class statistics(Resource):
             else:               # other entity
                 statDict[key] = val
         print(statDict)
+        globe.pendingAcks = 0
 
 #Listener Server list of resources: 
 api.add_resource(test, "/test")
