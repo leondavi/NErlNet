@@ -8,9 +8,12 @@
 -export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
 -export([erl_type_conversion/1]).
 
--import(nerl,[even/1, odd/1]).
+-import(nerl,[even/1, odd/1, string_format/2]).
 
 -on_load(init/0).
+
+% validation
+-export([validate_nerltensor_erl/1]).
 
 % math of nerltensors
 -export([nerltensor_sum_nif/3, nerltensor_sum_erl/2]).
@@ -98,8 +101,22 @@ printTensor(List,_Type) when is_list(List) ->
       exit(nif_library_not_loaded).
 
 
+validate_nerltensor_erl(NerlTensorErl) ->
+      {[X,Y,Z], NerlTensorRest} = lists:split(?NUMOF_DIMS, NerlTensorErl),
+      TensorExpectedLength = trunc(X*Y*Z),
+      if
+            TensorExpectedLength == length(NerlTensorRest) -> true;
+            true -> false
+      end.
+
 nerltensor_encode(X,Y,Z,List,Type) when is_number(X) and is_number(Y) and
-                                        is_number(Z) and is_list(List) and is_atom(Type)-> 
+                                        is_number(Z) and is_list(List) and is_atom(Type)->
+      TensorExpectedLength = trunc(X*Y*Z),
+      if
+            TensorExpectedLength /= length(List) ->
+                  throw(nerl:string_format("encode failure due to incorrect dimension declaring X*Y*Z not equal to tensor data length! ~p ",[{{X,Y,Z}, List}]));
+            true -> ok
+      end,
       case Type of
             erl_float -> {[X,Y,Z] ++ List, erl_float}; % Make sure list of float
             erl_int -> {[X,Y,Z] ++ List, erl_int}; % make sure list of integers
@@ -158,7 +175,11 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
       end,
       
       case Operation of 
-            encode -> encode_nif(NerlTensor, BinType);
+            encode -> Validated = validate_nerltensor_erl(NerlTensor),
+                      if
+                        Validated -> encode_nif(NerlTensor, BinType);
+                        true -> throw(nerl:string_format("encode failure due to incorrect dimension declaring X*Y*Z not equal to tensor data length! ~p ",[NerlTensor]))
+                      end;
             decode -> decode_nif(NerlTensor, BinType);
             _ -> throw("wrong operation")
       end.
