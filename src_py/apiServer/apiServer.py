@@ -93,6 +93,7 @@ PREDICTION_STR = "Prediction"
         self.receiverProblem = threading.Event()
         self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
         self.receiverThread.start()   
+        # time.sleep(2)
         self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
 
         if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.

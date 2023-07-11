@@ -305,7 +305,7 @@ predict(cast, {training}, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
   MsgToCast =  {training},
   cast_message_to_workers(EtsRef, MsgToCast),
-  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),    %% TODO: macro this 2
+  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
   {next_state, waitforWorkers, State#client_statem_state{nextState = training, etsRef = EtsRef,  waitforWorkers = Workers}};
 
 
@@ -314,7 +314,7 @@ predict(cast, {idle}, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
   cast_message_to_workers(EtsRef, MsgToCast),
   ?LOG_INFO("client going to state idle"),
-  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),    %% TODO: macro this 2
+  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
   {next_state, waitforWorkers, State#client_statem_state{nextState = idle, waitforWorkers = Workers, etsRef = EtsRef}};
 
 predict(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->

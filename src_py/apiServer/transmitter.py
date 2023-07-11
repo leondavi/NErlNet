@@ -42,6 +42,13 @@ class Transmitter:
         response = requests.post(self.clientsTrainingAddress, data='')
         if globe.jupyterFlag == False:
             print(response.ok, response.status_code)
+
+    def clientsPredict(self):
+        globe.pendingAcks = 1
+        print('Clients Predict Phase')
+        response = requests.post(self.clientsPredictAddress, data='')
+        if globe.jupyterFlag == False:
+            print(response.ok, response.status_code)
         
     def updateCSV(self, currentPhase): # currentPhase is either "Training", "Prediction" or "Statistics". 
         print('Update CSV Phase')
@@ -97,13 +104,6 @@ class Transmitter:
 
         response = requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
 
-        if globe.jupyterFlag == False:
-            print(response.ok, response.status_code)
-
-    def clientsPredict(self):
-        globe.pendingAcks = 1
-        print('Clients Predict Phase')
-        response = requests.post(self.clientsPredictAddress, data='')
         if globe.jupyterFlag == False:
             print(response.ok, response.status_code)
 
