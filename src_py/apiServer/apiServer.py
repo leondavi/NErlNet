@@ -278,22 +278,23 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # Draw the plot using Matplotlib:
         plt.figure(figsize = (30,15), dpi = 150)
         plt.rcParams.update({'font.size': 22})
-
+        workers = []
         for csvRes in expForStats.trainingResList:
+            workers.extend(csvRes.workers)
             for workerRes in csvRes.workersResList:
                 data = workerRes.resList
                 plt.plot(data, linewidth = 3)
 
-            expTitle = (expForStats.name)
-            plt.title(f"Training - Loss Function - {expTitle}", fontsize=38)
-            plt.xlabel('Batch No.', fontsize = 30)
-            plt.ylabel('Loss (MSE)', fontsize = 30)
-            plt.xlim(left=0)
-            plt.ylim(bottom=0)
-            plt.legend(csvRes.workers)
-            plt.grid(visible=True, which='major', linestyle='-')
-            plt.minorticks_on()
-            plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
+        expTitle = (expForStats.name)
+        plt.title(f"Training - Loss Function - {expTitle}", fontsize=38)
+        plt.xlabel('Batch No.', fontsize = 30)
+        plt.ylabel('Loss (MSE)', fontsize = 30)
+        plt.xlim(left=0)
+        plt.ylim(bottom=0)
+        plt.legend(workers)
+        plt.grid(visible=True, which='major', linestyle='-')
+        plt.minorticks_on()
+        plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
 
         plt.show()
         fileName = globe.experiment_flow_global.name
