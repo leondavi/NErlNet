@@ -93,6 +93,7 @@ PREDICTION_STR = "Prediction"
         self.receiverProblem = threading.Event()
         self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
         self.receiverThread.start()   
+        # time.sleep(2)
         self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
 
         if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
@@ -278,22 +279,23 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # Draw the plot using Matplotlib:
         plt.figure(figsize = (30,15), dpi = 150)
         plt.rcParams.update({'font.size': 22})
-
+        workers = []
         for csvRes in expForStats.trainingResList:
+            workers.extend(csvRes.workers)
             for workerRes in csvRes.workersResList:
                 data = workerRes.resList
                 plt.plot(data, linewidth = 3)
 
-            expTitle = (expForStats.name)
-            plt.title(f"Training - Loss Function - {expTitle}", fontsize=38)
-            plt.xlabel('Batch No.', fontsize = 30)
-            plt.ylabel('Loss (MSE)', fontsize = 30)
-            plt.xlim(left=0)
-            plt.ylim(bottom=0)
-            plt.legend(csvRes.workers)
-            plt.grid(visible=True, which='major', linestyle='-')
-            plt.minorticks_on()
-            plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
+        expTitle = (expForStats.name)
+        plt.title(f"Training - Loss Function - {expTitle}", fontsize=38)
+        plt.xlabel('Batch No.', fontsize = 30)
+        plt.ylabel('Loss (MSE)', fontsize = 30)
+        plt.xlim(left=0)
+        plt.ylim(bottom=0)
+        plt.legend(workers)
+        plt.grid(visible=True, which='major', linestyle='-')
+        plt.minorticks_on()
+        plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
 
         plt.show()
         fileName = globe.experiment_flow_global.name

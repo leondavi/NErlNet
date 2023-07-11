@@ -44,7 +44,7 @@ getShortPath(From,To,NerlnetGraph) when is_atom(To) and is_atom(From) ->  % TODO
 sendHTTP(From, To, Action, Body) ->
   case nerl_tools:getShortPath(From,To,get(nerlnetGraph)) of
     false -> ?LOG_WARNING("No path to entity ~p!",[To]);
-    {RouterHost,RouterPort} -> nerl_tools:http_request(RouterHost, RouterPort,Action, Body)
+    {RouterHost,RouterPort} -> nerl_tools:http_request(RouterHost, RouterPort, Action, Body)
   end.
 	
 

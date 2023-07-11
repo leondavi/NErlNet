@@ -75,14 +75,16 @@ call_to_get_weights(ModelID)->
       try   
             ?LOG_INFO("Calling get weights in model ~p~n",{ModelID}),
             _RetVal = get_weights_nif(ModelID),
-            receive
-                  NerlTensorWeights -> %% NerlTensor is tuple: {Tensor, Type}
-                        % io:format("Got Weights= ~p~n",[NerlTensorWeights]),
-                        % WorkerPID ! {myWeights, Weights}
-                        NerlTensorWeights
-            end
+            recv_call_loop()
       catch Err:E -> ?LOG_ERROR("Couldnt get weights from worker~n~p~n",{Err,E}),
             []
+      end.
+
+%% sometimes the receive loop gets OTP calls that its not supposed to in high freq. wait for nerktensor of weights
+recv_call_loop() ->
+      receive
+            {'$gen_cast', _Any} -> io:format("threw bad mes~n"),recv_call_loop();
+            NerlTensorWeights -> NerlTensorWeights
       end.
 
 call_to_set_weights(ModelID,{WeightsNerlTensor, Type})->
