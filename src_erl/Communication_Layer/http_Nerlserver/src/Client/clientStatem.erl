@@ -98,7 +98,7 @@ format_status(_Opt, [_PDict, _StateName, _State]) -> Status = some_term, Status.
 %% ==============STATES=================
 waitforWorkers(cast, {stateChange,WorkerName,MissedBatchesCount}, State = #client_statem_state{myName = MyName,waitforWorkers = WaitforWorkers,nextState = NextState, etsRef = EtsRef}) ->
   NewWaitforWorkers = WaitforWorkers--[WorkerName],
-  io:format("remaining workers = ~p~n",[NewWaitforWorkers]),
+  % io:format("remaining workers = ~p~n",[NewWaitforWorkers]),
   ets:update_counter(EtsRef, msgCounter, 1), % last is increment value
   ets:update_element(EtsRef, WorkerName,[{?WORKER_TRAIN_MISSED_IDX,MissedBatchesCount}]), %% update missed batches count
   case NewWaitforWorkers of
@@ -193,7 +193,7 @@ training(cast, {update, {From, To, Data}}, State = #client_statem_state{etsRef =
 
 %% federated server sends AvgWeights to workers
 training(cast, {custom_worker_message, WorkersList, WeightsTensor}, State = #client_statem_state{etsRef = EtsRef, myName = MyName}) ->
-  io:format("client ~p got ~p~n",[MyName, {custom_worker_message, WorkersList, nerlTensor}]),
+  % io:format("client ~p got ~p~n",[MyName, {custom_worker_message, WorkersList, nerlTensor}]),
   NerlnetGraph = ets:lookup_element(EtsRef, nerlnetGraph, ?ETS_KV_VAL_IDX),
   Func = fun(WorkerName) ->
     DestClient = maps:get(WorkerName, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
@@ -305,7 +305,7 @@ predict(cast, {training}, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
   MsgToCast =  {training},
   cast_message_to_workers(EtsRef, MsgToCast),
-  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),    %% TODO: macro this 2
+  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
   {next_state, waitforWorkers, State#client_statem_state{nextState = training, etsRef = EtsRef,  waitforWorkers = Workers}};
 
 
@@ -314,7 +314,7 @@ predict(cast, {idle}, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
   cast_message_to_workers(EtsRef, MsgToCast),
   ?LOG_INFO("client going to state idle"),
-  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),    %% TODO: macro this 2
+  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
   {next_state, waitforWorkers, State#client_statem_state{nextState = idle, waitforWorkers = Workers, etsRef = EtsRef}};
 
 predict(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->

@@ -202,14 +202,15 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
 %%  {noreply, State#main_genserver_state{state = predict, clientsWaitingList = ListOfClients}};
 
 
-handle_cast({sourceDone,Body}, State = #main_genserver_state{sourcesCastingList = CastingList,msgCounter = MsgCounter}) ->
+handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName,sourcesCastingList = CastingList, clients = ListOfClients, msgCounter = MsgCounter}) ->
   % io:format("~p done sending data ~n",[list_to_atom(binary_to_list(Body))]),
   NewCastingList = CastingList--[list_to_atom(binary_to_list(Body))],
   % io:format("new Waiting List: ~p ~n",[NewCastingList]),
 
   case NewCastingList of
-    [] -> NextState = State#main_genserver_state{state = idle, sourcesCastingList = NewCastingList,msgCounter = MsgCounter},
-          gen_server:cast(self(),{clientsIdle}),
+    [] -> NextState = State#main_genserver_state{state = idle, sourcesCastingList = NewCastingList,clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1},
+          [{setClientState(clientIdle,ClientName, MyName)}|| ClientName<- ListOfClients],
+          % gen_server:cast(self(),{clientsIdle}),
           ack();
     _ -> NextState = State#main_genserver_state{state = casting, sourcesCastingList = NewCastingList,msgCounter = MsgCounter+1}
   end,
@@ -390,7 +391,7 @@ ack() ->
   {ok, Response} = nerl_tools:sendHTTP(?MAIN_SERVER_ATOM, ?API_SERVER_ATOM, "ackP", "ack"),
   % io:format("ACK was ~p~n",[Response]),
   case Response of 
-    {{_Protocol, _Code = 404, _Meaning}, _Headers, _Body} -> timer:sleep(50), ack();    %% Ack not received, retry
+    {{_Protocol, _Code = 404, _Meaning}, _Headers, _Body} -> ack();    %% Ack not received, retry
     {{_Protocol, _Code = 200, _Meaning}, _Headers, _Body} -> done;
     _Other -> bad_response
   end.

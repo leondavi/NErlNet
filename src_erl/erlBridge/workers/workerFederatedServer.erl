@@ -98,7 +98,7 @@ update({GenWorkerEts, WorkerData}) ->
   %% check if got all weights of workers
   WorkersList = ets:lookup_element(ThisEts, workers, ?ETS_KEYVAL_VAL_IDX),
   GotWorkers = [ element(?ETS_WID_IDX, Attr) || Attr <- ets:tab2list(ThisEts), element(?ETS_TYPE_IDX, Attr) == worker],
-  io:format("My workers=~p, have vectors from=~p~n",[WorkersList,GotWorkers]),
+  % io:format("My workers=~p, have vectors from=~p~n",[WorkersList,GotWorkers]),
   WaitingFor = WorkersList -- GotWorkers,
     
   if WaitingFor == [] ->
