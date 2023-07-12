@@ -11,12 +11,13 @@
 -behaviour(application).
 
 init(Req0, State = [Source_StateM_Pid]) ->
+  % io:format("got Headers: ~p ~n",[cowboy_req:headers(Req0)]),
 
   case cowboy_req:parse_header(<<"content-type">>, Req0) of
     {<<"multipart">>, <<"form-data">>, _} ->
         {_Req, Decoded_body} = nerl_tools:multipart(Req0, []);
     _Other -> 
-        {_Req,Body} = nerl_tools:read_all_data(Req0, []),
+        {_Req,Body} = nerl_tools:read_all_data(Req0, <<>>),
         Decoded_body = binary_to_list(Body)
         %io:format("got Req: ~p~nData: ~p~n",[Req0, Body])
   end,

@@ -65,20 +65,31 @@ class Transmitter:
             linesPerSource = 0
             for source in globe.experiment_flow_global.expFlow[currentPhase]:       
                 SourceData.append(csvfile[:])
+            
+            for source in globe.experiment_flow_global.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
+                sourceName = source['source name']
+                workersUnderSource = source['workers']
+                SourceStr = ""
+                for Line in SourceData[0]:
+                    SourceStr += Line
+                dataStr = f'{sourceName}#{workersUnderSource}#{SourceStr}'
+
+                response = requests.post(self.updateCSVAddress, data=dataStr)
+
         else:                   ## split file and send to sources
             linesPerSource = int(len(csvfile)/len(globe.components.sources))
             for row in range(0,len(csvfile),linesPerSource):
                 SourceData.append(csvfile[row:row+linesPerSource])
 
-        for i,source in enumerate(globe.experiment_flow_global.expFlow[currentPhase]): # Itterate over sources in accordance to current phase
-            sourceName = source['source name']
-            workersUnderSource = source['workers']
-            SourceStr = ""
-            for Line in SourceData[i]:
-                SourceStr += Line
-            dataStr = f'{sourceName}#{workersUnderSource}#{SourceStr}'
+            for i,source in enumerate(globe.experiment_flow_global.expFlow[currentPhase]): # Itterate over sources in accordance to current phase
+                sourceName = source['source name']
+                workersUnderSource = source['workers']
+                SourceStr = ""
+                for Line in SourceData[i]:
+                    SourceStr += Line
+                dataStr = f'{sourceName}#{workersUnderSource}#{SourceStr}'
 
-            response = requests.post(self.updateCSVAddress, data=dataStr)
+                response = requests.post(self.updateCSVAddress, data=dataStr)
 
         print("Data sent to sources")
         if globe.jupyterFlag == False:
