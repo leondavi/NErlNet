@@ -389,8 +389,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         
                     ################## THIS IS *NOT* FOR MULTICLASS DATA, but for multi-label data 
         MATRIX_DISP_SCALING = 5
-        TRUE_LEABEL_IND = 0
-        PRED_LEABEL_IND = 1
+        TRUE_LABLE_IND = 0
+        PRED_LABLE_IND = 1
         confMatList = {}
         f, axes = plt.subplots(len(workersList), labelsLen, figsize=(MATRIX_DISP_SCALING*labelsLen, MATRIX_DISP_SCALING*len(workersList)))
         axes = axes.ravel()
@@ -398,11 +398,11 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             confMatList[worker] = []
 
             for j in range(labelsLen):
-                confMatList[worker].append(confusion_matrix(workerNeuronRes[worker][TRUE_LEABEL_IND][j], workerNeuronRes[worker][PRED_LEABEL_IND][j]))
+                confMatList[worker].append(confusion_matrix(workerNeuronRes[worker][TRUE_LABLE_IND][j], workerNeuronRes[worker][PRED_LABLE_IND][j]))
 
                 disp = ConfusionMatrixDisplay(confMatList[worker][j], display_labels=[0, labelNames[j]])
                 disp.plot(ax=axes[i*labelsLen+j])
-                disp.ax_.set_title(f'{worker}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[worker][TRUE_LEABEL_IND][j], workerNeuronRes[worker][PRED_LEABEL_IND][j]), 3)}')
+                disp.ax_.set_title(f'{worker}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[worker][TRUE_LABLE_IND][j], workerNeuronRes[worker][PRED_LABLE_IND][j]), 3)}')
                 if i < len(workersList) - 1:
                     disp.ax_.set_xlabel('') #remove "predicted label"
                 if  j != 0:
