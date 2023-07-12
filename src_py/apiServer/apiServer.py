@@ -78,7 +78,9 @@ PREDICTION_STR = "Prediction"
         globe.experiment_flow_global.set_experiment_flow(expData)
         globe.components = NetworkComponents(archData)
         globe.components.printComponents()
-        print(f"Connections:\n\t\t{connData['connectionsMap']}")
+        print("Connections:")
+        for key, val in connData['connectionsMap'].items():
+            print("\t\t", key, ' : ', val)
         globe.experiment_flow_global.printExp()
 
         mainServerIP = globe.components.mainServerIp
@@ -399,7 +401,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 confMatList[worker].append(confusion_matrix(workerNeuronRes[worker][TRUE_LEABEL_IND][j], workerNeuronRes[worker][PRED_LEABEL_IND][j]))
 
                 disp = ConfusionMatrixDisplay(confMatList[worker][j], display_labels=[0, labelNames[j]])
-                disp.plot(ax=axes[i*labelsLen+j], values_format='.4g')
+                disp.plot(ax=axes[i*labelsLen+j])
                 disp.ax_.set_title(f'{worker}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[worker][TRUE_LEABEL_IND][j], workerNeuronRes[worker][PRED_LEABEL_IND][j]), 3)}')
                 if i < len(workersList) - 1:
                     disp.ax_.set_xlabel('') #remove "predicted label"
