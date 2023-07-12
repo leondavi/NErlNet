@@ -76,6 +76,8 @@ init({MyName,NerlnetGraph, WorkersToClientsMap}) ->
   ets:insert(EtsRef, {workerToClient, WorkersToClientsMap}),
   ets:insert(EtsRef, {nerlnetGraph, NerlnetGraph}),
   ets:insert(EtsRef, {msgCounter, 1}),
+  ets:insert(EtsRef, {infoIn, 1}),
+  ets:insert(EtsRef, {myName, MyName}),
 
   createWorkers(MyName,EtsRef),
 
@@ -144,12 +146,7 @@ idle(cast, {custom_worker_message, {From, To}}, State = #client_statem_state{ets
   {keep_state, State};
 
 idle(cast, {statistics}, State = #client_statem_state{ myName = MyName, etsRef = EtsRef}) ->
-  NerlnetGraph = ets:lookup_element(EtsRef, nerlnetGraph, ?ETS_KV_VAL_IDX),
-  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
-  TimingMap = [{WorkerKey,ets:lookup_element(EtsRef, WorkerKey, ?WORKER_TIMING_IDX)} || WorkerKey <- Workers],
-  MissedCounts = [{WorkerKey,ets:lookup_element(EtsRef, WorkerKey, ?WORKER_TRAIN_MISSED_IDX)} || WorkerKey <- Workers],
-  Counter = ets:lookup_element(EtsRef, msgCounter, ?ETS_KV_VAL_IDX),
-  sendStatistics(NerlnetGraph,MyName,Counter,TimingMap,MissedCounts),
+  sendStatistics(EtsRef),
   ets:update_counter(EtsRef, msgCounter, 1), % last param is increment value
   {next_state, idle, State};
 
@@ -215,6 +212,7 @@ training(cast, {sample,[]}, State = #client_statem_state{etsRef = EtsRef}) ->
 
 training(cast, {sample,Body}, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
+  ets:update_counter(EtsRef, infoIn, erts_debug:flat_size(Body)),
   % io:format("client got sample ~p~n",[binary_to_term(Body)]),
   %%    Body:   {ClientName,WorkerName,CSVName,BatchNumber,BatchOfSamples}
   {ClientName, WorkerNameStr, _CSVName, _BatchNumber, BatchOfSamples} = binary_to_term(Body),
@@ -319,6 +317,7 @@ predict(cast, {idle}, State = #client_statem_state{etsRef = EtsRef}) ->
 
 predict(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
+  ets:update_counter(EtsRef, infoIn, erts_debug:flat_size(EventContent)),
   ?LOG_WARNING("client predict ignored:  ~p ~n",[EventContent]),
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}}.
 
@@ -423,10 +422,19 @@ updateTimingMap(EtsRef, WorkerName) when is_atom(WorkerName) ->
 
 %% statistics format: clientName:workerName=avgTime,...
 %% adding client c1=MsgNum,w1=...
-sendStatistics(NerlnetGraph,MyName,MsgCount,TimingTuples,MissedCounts)->
-  TimingStats = lists:flatten([atom_to_list(WorkerName)++"TrainAvgTime="++float_to_list(TotalTime/TotalBatches,[{decimals, 3}])++","||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-TimingTuples]),
+sendStatistics(EtsRef)->
+  NerlnetGraph = ets:lookup_element(EtsRef, nerlnetGraph, ?ETS_KV_VAL_IDX),
+  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
+  TimingMap = [{WorkerKey,ets:lookup_element(EtsRef, WorkerKey, ?WORKER_TIMING_IDX)} || WorkerKey <- Workers],
+  MissedCounts = [{WorkerKey,ets:lookup_element(EtsRef, WorkerKey, ?WORKER_TRAIN_MISSED_IDX)} || WorkerKey <- Workers],
+  Counter = ets:lookup_element(EtsRef, msgCounter, ?ETS_KV_VAL_IDX),
+  InfoSize = ets:lookup_element(EtsRef, infoIn, ?ETS_KV_VAL_IDX),
+  MyName = ets:lookup_element(EtsRef, myName, ?ETS_KV_VAL_IDX),
+
+  TimingStats = lists:flatten([atom_to_list(WorkerName)++"TrainAvgTime="++float_to_list(TotalTime/TotalBatches,[{decimals, 3}])++","||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-TimingMap]),
   MissingStats = lists:flatten([atom_to_list(WorkerName)++"TrainMiss="++integer_to_list(MissCount)++","||{WorkerName,MissCount}<-MissedCounts]),
-  MyStats = atom_to_list(MyName)++"="++integer_to_list(MsgCount)++",",
+  MyStats = atom_to_list(MyName)++"MsgCount="++integer_to_list(Counter)++","++atom_to_list(MyName)++"infoSize="++integer_to_list(InfoSize)++",",
+
   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName, ?MAIN_SERVER_ATOM, NerlnetGraph),
   nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++":"++MyStats++MissingStats++lists:droplast(TimingStats))).
 
