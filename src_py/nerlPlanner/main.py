@@ -41,7 +41,8 @@ devicesFrame = sg.Frame("Devices",layout=[[davicesFieldsFrame],[devicesListFrame
 # Workers 
 workersNamesList = []
 workersListFields = [[sg.Text("Workers List")],
-                     [sg.Listbox(workersNamesList, size=(90,6), key=KEY_WORKERS_LIST_BOX, enable_events=True), sg.Button("Load", size=8, key=KEY_WORKERS_LOAD_FROM_LIST_WORKER_BUTTON, enable_events=True) ]]
+                     [sg.Listbox(workersNamesList, size=(90,6), key=KEY_WORKERS_LIST_BOX, enable_events=True), sg.Button("Load", size=8, key=KEY_WORKERS_LOAD_FROM_LIST_WORKER_BUTTON, enable_events=True)],
+                     [sg.Text("",enable_events=True, key=KEY_WORKERS_INFO_BAR)]]
 workersListFrame = sg.Frame("", workersListFields)
 workersFields = [
                  [sg.Button("Add", size=(10),key=KEY_WORKERS_BUTTON_ADD,enable_events=True),
@@ -97,7 +98,7 @@ SourcesFieldsFrame = sg.Frame("Sources",SourcesFields, expand_x=True)
 
 # Entities Frame
 EntitiesFieldsFrame = sg.Frame("", layout=[[ClientsFieldsFrames, RoutersFieldsFrame],[SourcesFieldsFrame]], expand_x=True)
-EntitiesFrame = sg.Frame("Entities - HTTP instances",layout=[[EntitiesFieldsFrame]], expand_x=True)
+EntitiesFrame = sg.Frame("Entities - HTTP Cowboy instances",layout=[[EntitiesFieldsFrame]], expand_x=True)
 
 
 # Json File Control
