@@ -40,6 +40,19 @@ class Worker(JsonElement):
         list_of_lengths = [len(x) for x in lists_for_length]
         self.lengths_validation = all([x == list_of_lengths[0] for x in list_of_lengths])
 
+    def set_pooling_list(self, PoolingList):
+        self.PoolingList = PoolingList
+
+    def set_scaling_list(self, ScalingList):
+        self.ScalingList = ScalingList
+
+    def copy(self, name):
+        newWorker =  Worker(name, self.LayersSizesList, self.ModelTypeStr, self.ModelType , self.OptimizationTypeStr, self.OptimizationType,
+                 self.LossMethodStr, self.LossMethod, self.LearningRate, self.ActivationLayersList, self.LayerTypesList)
+        newWorker.set_pooling_list(self.PoolingList)
+        newWorker.set_scaling_list(self.ScalingList)
+        return newWorker
+
     def __str__(self):
         return f"LSizes: {self.LayersSizesList}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}"
     
