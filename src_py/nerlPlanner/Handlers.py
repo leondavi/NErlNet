@@ -1,5 +1,6 @@
 import json
 
+from collections import OrderedDict
 from JsonElements import *
 from JsonElementWorker import *
 from JsonArchitecture import JsonArchitecture
@@ -17,11 +18,12 @@ api_server_inst = None
 nerl_gui_inst = None
 
 # workers
-workers_list = []
+workers_dict = OrderedDict()
 workers_load_worker_path = None
 workers_new_worker = None
 workers_new_worker_name = None
 workers_new_worker_dict = None
+worker_name_selection = None
 
 def reset_instances():
     json_architecture_instance = JsonArchitecture()
@@ -78,35 +80,48 @@ def workers_handler(window, event, values):
     global workers_new_worker
     global workers_new_worker_name
     global workers_new_worker_dict
+    global worker_name_selection
 
     if event == KEY_WORKERS_INPUT_LOAD_WORKER_PATH:
         workers_load_worker_path = values[KEY_WORKERS_INPUT_LOAD_WORKER_PATH]
         with open(workers_load_worker_path) as jsonFile:
                 workers_new_worker_dict = json.load(jsonFile)
         (workers_new_worker , _, _, _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(workers_new_worker_dict)
-        print("New worker: "+str(workers_new_worker)) # TODO remove - just for debug
-        window[KEY_WORKERS_LIST_BOX].update(workers_list)
+        window[KEY_WORKERS_INFO_BAR].update(f'loaded from file: {workers_new_worker}')
+        window[KEY_WORKERS_LIST_BOX].update(workers_dict.keys())
     
     if event == KEY_WORKERS_NAME_INPUT:
-        workers_new_worker_name = values[KEY_WORKERS_NAME_INPUT] if values[KEY_WORKERS_NAME_INPUT] not in workers_list else None
+        workers_new_worker_name = values[KEY_WORKERS_NAME_INPUT] if values[KEY_WORKERS_NAME_INPUT] not in workers_dict else None
 
-    if workers_new_worker_name and (workers_new_worker is not None):
+    if workers_new_worker_name and (workers_new_worker_name not in workers_dict) and\
+       (workers_new_worker is not None):
         workers_new_worker.set_name(workers_new_worker_name)
         
-    if event == KEY_WORKERS_BUTTON_ADD and workers_load_worker_path and (workers_new_worker is not None):
+    if event == KEY_WORKERS_BUTTON_ADD and (workers_new_worker is not None):
         if not workers_new_worker.get_name():
             sg.popup_ok(f"Cannot add - Name is missing!", keep_on_top=True, title="Loading Issue")
         elif json_architecture_instance.add_worker(workers_new_worker):
-            workers_list.append(workers_new_worker_name)
-            window[KEY_WORKERS_LIST_BOX].update(workers_list)
+            workers_dict[workers_new_worker_name] = workers_new_worker
+            window[KEY_WORKERS_LIST_BOX].update(workers_dict.keys())
             # Clear fields after successful add
+            window[KEY_WORKERS_INFO_BAR].update(f'{workers_new_worker_name} added, {workers_new_worker}')
             workers_new_worker_name = ''
             window[KEY_WORKERS_NAME_INPUT].update(workers_new_worker_name)
             workers_load_worker_path = ''
             window[KEY_WORKERS_INPUT_LOAD_WORKER_PATH].update(workers_load_worker_path)
+            workers_new_worker = None
 
     if event == KEY_WORKERS_LIST_BOX:
-        print("List box")
+        worker_name_selection = values[KEY_WORKERS_LIST_BOX][0]
+        print(f"List box {worker_name_selection}")
+
+    if event == KEY_WORKERS_LOAD_FROM_LIST_WORKER_BUTTON:
+        if (worker_name_selection in workers_dict) and workers_new_worker_name:
+            workers_new_worker = workers_dict[worker_name_selection].copy(workers_new_worker_name)
+            window[KEY_WORKERS_INFO_BAR].update(f'{workers_new_worker_name} loaded, {workers_new_worker}')
+        else:
+            sg.popup_ok(f"selection or name issue", keep_on_top=True, title="Loading Issue")
+
 
 def update_current_json_file_path(jsonPath):
     print(jsonPath)
