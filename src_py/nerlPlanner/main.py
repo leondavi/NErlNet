@@ -73,13 +73,13 @@ workersFrame = sg.Frame("Workers",layout=[[workersFieldsFrame],[workersListFrame
 ClientsFields = [
                  [sg.Button("Add", size=(10)), sg.Button("Load", size=(10)), sg.Button("Remove", size=(10)) ],
                  [sg.Text("name:  "), sg.InputText(size=15)],
-                 [sg.Text("port:    "), sg.InputText(size=15)],
-                 [sg.Button("Add Worker", size=(15)) ,sg.Button("Remove Worker", size=(15))]
+                 [sg.Text("port:    "), sg.InputText(size=15)]
                 ]
 ClientsFieldsFrame = sg.Frame("",ClientsFields, expand_x=True)
 
 # Client's workers list in multiline
-ClientWorkersList = [[sg.Text("workers   "), sg.Listbox([],size=(20,6)), sg.Combo("workers", size=(15))]]
+ClientWorkersList = [[sg.Button("Add", size=(10)), sg.Button("Remove", size=(10)), sg.Combo("workers", size=(15), enable_events=True, key=KEY_CLIENTS_WORKERS_LIST_COMBO_BOX)],
+                     [sg.Text("workers "), sg.Listbox([],size=(20,6))]]
 ClientWorkersFrame = sg.Frame("",ClientWorkersList)
 
 ClientsFieldsFrames = sg.Frame("Clients",layout=[[ClientsFieldsFrame,ClientWorkersFrame]])
@@ -134,6 +134,7 @@ main_window  = sg.Window(title=WINDOW_TITLE, layout=[[sg.Image(NERLNET_LOGO_PATH
 while True:
     event, values = main_window.read(timeout=50)
     settings_handler(event,values)
+    clients_handler(main_window, event, values)
     workers_handler(main_window,event,values)
     online_scanner_handler(main_window, event, values, devices_online_hosts_list) # lan scan for online devices
 
