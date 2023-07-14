@@ -40,10 +40,10 @@ devicesEntitiesListFrame = sg.Frame("", devicesEntitiesList)
 devicesFields = [[sg.Button("Add", size=(10)), sg.Button("Load",size=(10)), sg.Button("Remove",size=(10))],
                  [sg.Button("Scan",size=(10), key=KEY_DEVICES_SCANNER_BUTTON, enable_events=True),sg.Text("lan: "),
                   sg.InputText('x.x.x.x/mask',size=20, enable_events=True, key=KEY_DEVICES_SCANNER_INPUT_LAN_MASK),
-                  sg.Combo(devices_online_hosts_list,enable_events=True, key=KEY_DEVICES_ONLINE_LIST_COMBO_BOX)],
+                  sg.Combo(devices_online_hosts_list, size=(15), enable_events=True, key=KEY_DEVICES_ONLINE_LIST_COMBO_BOX)],
                  [sg.Text("device name: "), sg.InputText(size=20, enable_events = True, key=KEY_DEVICES_NAME_INPUT)],
                  [sg.Text("ip address:   "), sg.InputText('x.x.x.x', size=20, enable_events=True, key=KEY_DEVICES_IP_INPUT)],
-                 [sg.InputText('selected entity', size=(15)), sg.Combo('entities', size=(15)), sg.Button("add", size=(15))]]
+                 [sg.Text('selected entity:', size=(15)), sg.Combo('entities', size=(15)), sg.Button("add", size=(15))]]
 
 davicesFieldsFrame = sg.Frame("",devicesFields, expand_x=True)
 devicesFrame = sg.Frame("Devices",layout=[[davicesFieldsFrame],[devicesListFrame, devicesEntitiesListFrame]], expand_x=True)
@@ -71,7 +71,9 @@ workersFrame = sg.Frame("Workers",layout=[[workersFieldsFrame],[workersListFrame
 
 # Clients
 ClientsFields = [
-                 [sg.Button("Add", size=(10)), sg.Button("Load", size=(10)), sg.Button("Remove", size=(10)) ],
+                 [sg.Button("Add", size=(10), enable_events=True, key=KEY_CLIENTS_BUTTON_ADD),
+                  sg.Button("Load", size=(10), enable_events=True, key=KEY_CLIENTS_BUTTON_LOAD),
+                  sg.Button("Remove", size=(10), enable_events=True, key=KEY_CLIENTS_BUTTON_REMOVE)],
                  [sg.Text("name:  "), sg.InputText(size=15, enable_events=True, key=KEY_CLIENTS_NAME_INPUT)],
                  [sg.Text("port:    "), sg.InputText(size=15, enable_events=True, key=KEY_CLIENTS_PORT_INPUT)]
                 ]

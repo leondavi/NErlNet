@@ -28,10 +28,10 @@ class JsonArchitecture():
         self.main_dict[MainServer.NAME] = ""
         self.main_dict[ApiServer.NAME] = ""
         self.main_dict[NerlGUI.NAME] = "" # TODO - in get as json remove this key if it's empty
-        self.main_dict[KEY_ROUTERS] = []
-        self.main_dict[KEY_SOURCES] = []
-        self.main_dict[KEY_CLIENTS] = []
-        self.main_dict[KEY_WORKERS] = []
+        self.main_dict[KEY_ROUTERS] = OrderedDict()
+        self.main_dict[KEY_SOURCES] = OrderedDict()
+        self.main_dict[KEY_CLIENTS] = OrderedDict()
+        self.main_dict[KEY_WORKERS] = OrderedDict()
 
     def clear(self):
         self.init_dictionary()
@@ -63,7 +63,8 @@ class JsonArchitecture():
         if client_name in self.reserved_names_set:
             raise "reserved name is being used with a client!"
         else:
-            self.main_dict[KEY_CLIENTS].append(client.get_as_dict())
+            self.main_dict[KEY_CLIENTS][client_name] = client
+            self.names_set.add(client_name)
         return True
 
     def add_router(self, router : Router): 
@@ -77,6 +78,7 @@ class JsonArchitecture():
             raise "reserved name is being used with a client!"
         else:
             self.main_dict[KEY_ROUTERS].append(router.get_as_dict())
+            self.names_set.add(router_name)
         return True
     
     def add_source(self, source : Source): 
@@ -89,7 +91,8 @@ class JsonArchitecture():
         if source_name in self.reserved_names_set:
             raise "reserved name is being used with this client!"
         else:
-            self.main_dict[KEY_SOURCES].append(source.get_as_dict())
+            self.main_dict[KEY_SOURCES][source_name] = source
+            self.names_set.add(source_name)
         return True
 
     def add_worker(self, worker : Worker):
@@ -97,9 +100,17 @@ class JsonArchitecture():
         if worker_name in self.names_set:
             return False
         if worker_name in self.reserved_names_set:
-            self.main_dict[KEY_WORKERS].append(worker.get_as_dict())
             raise "reserved name is being used with this worker!"
+        else: 
+            self.main_dict[KEY_WORKERS][worker_name] = worker
+            self.names_set.add(worker_name)
         return True
+    
+    def get_workers_dict(self):
+        return self.main_dict[KEY_WORKERS]
+
+    def get_workers_names_list(self):
+        return list(self.main_dict[KEY_WORKERS].keys())
 
     def reserved_name(self, name):
         return name in self.reserved_names_set
