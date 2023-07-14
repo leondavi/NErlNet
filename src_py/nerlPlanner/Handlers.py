@@ -92,7 +92,7 @@ def workers_handler(window, event, values):
                 workers_new_worker_dict = json.load(jsonFile)
         (workers_new_worker , _, _, _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(workers_new_worker_dict)
         window[KEY_WORKERS_INFO_BAR].update(f'loaded from file: {workers_new_worker}')
-        window[KEY_WORKERS_LIST_BOX].update(workers_dict.keys())
+        window[KEY_WORKERS_LIST_BOX].update(list(workers_dict.keys()))
     
     if event == KEY_WORKERS_NAME_INPUT:
         workers_new_worker_name = values[KEY_WORKERS_NAME_INPUT] if values[KEY_WORKERS_NAME_INPUT] not in workers_dict else None
@@ -106,7 +106,7 @@ def workers_handler(window, event, values):
             sg.popup_ok(f"Cannot add - Name is missing!", keep_on_top=True, title="Loading Issue")
         elif json_architecture_instance.add_worker(workers_new_worker):
             workers_dict[workers_new_worker_name] = workers_new_worker
-            window[KEY_WORKERS_LIST_BOX].update(workers_dict.keys())
+            window[KEY_WORKERS_LIST_BOX].update(list(workers_dict.keys()))
             # Clear fields after successful add
             window[KEY_WORKERS_INFO_BAR].update(f'{workers_new_worker_name} added, {workers_new_worker}')
             workers_new_worker_name = ''
@@ -131,6 +131,11 @@ def devices_handler(window, event, values):
     device_name = values[KEY_DEVICES_NAME_INPUT]
     device_ip = values[KEY_DEVICES_IP_INPUT]
 
+
+def clients_handler(window, event, values):
+    if list(workers_dict.keys()):
+            # update worker with list
+            window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update(values[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX],values=list(workers_dict.keys()))
 
 
 def update_current_json_file_path(jsonPath):

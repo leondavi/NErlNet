@@ -69,9 +69,15 @@ def online_devices_scanner_dialog(net_lan : str, devices_online_list : list):
                     [sg.Cancel()]]
     
     ScannerWindow = sg.Window(title="Worker", layout=[scanner_layout],modal=True, keep_on_top=True)                                                  
-    
-    # Create the network
-    ip_net = ipaddress.ip_network(net_lan)
+    ip_net = None
+
+    try:
+        # Create the network
+        ip_net = ipaddress.ip_network(net_lan)
+    except Exception:
+        sg.popup_ok(f"given ip error", keep_on_top=True, title="Wrong Input")
+        ScannerWindow.close()
+        return
 
     # Get all hosts on that network
     all_hosts = list(ip_net.hosts())
