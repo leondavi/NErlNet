@@ -72,14 +72,16 @@ workersFrame = sg.Frame("Workers",layout=[[workersFieldsFrame],[workersListFrame
 # Clients
 ClientsFields = [
                  [sg.Button("Add", size=(10)), sg.Button("Load", size=(10)), sg.Button("Remove", size=(10)) ],
-                 [sg.Text("name:  "), sg.InputText(size=15)],
-                 [sg.Text("port:    "), sg.InputText(size=15)]
+                 [sg.Text("name:  "), sg.InputText(size=15, enable_events=True, key=KEY_CLIENTS_NAME_INPUT)],
+                 [sg.Text("port:    "), sg.InputText(size=15, enable_events=True, key=KEY_CLIENTS_PORT_INPUT)]
                 ]
 ClientsFieldsFrame = sg.Frame("",ClientsFields, expand_x=True)
 
 # Client's workers list in multiline
-ClientWorkersList = [[sg.Button("Add", size=(10)), sg.Button("Remove", size=(10)), sg.Combo("workers", size=(15), enable_events=True, key=KEY_CLIENTS_WORKERS_LIST_COMBO_BOX)],
-                     [sg.Text("workers "), sg.Listbox([],size=(20,6))]]
+ClientWorkersList = [[sg.Button("Add", size=(10), enable_events=True, key=KEY_CLIENTS_WORKERS_LIST_ADD_WORKER),
+                      sg.Button("Remove", size=(10), enable_events=True, key=KEY_CLIENTS_WORKERS_LIST_REMOVE_WORKER),
+                      sg.Combo("none", size=(15), enable_events=True, key=KEY_CLIENTS_WORKERS_LIST_COMBO_BOX)],
+                     [sg.Text("workers "), sg.Listbox([],size=(20,6), enable_events=True, key=KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS)]]
 ClientWorkersFrame = sg.Frame("",ClientWorkersList)
 
 ClientsFieldsFrames = sg.Frame("Clients",layout=[[ClientsFieldsFrame,ClientWorkersFrame]])
@@ -133,10 +135,12 @@ main_window  = sg.Window(title=WINDOW_TITLE, layout=[[sg.Image(NERLNET_LOGO_PATH
 
 while True:
     event, values = main_window.read(timeout=50)
-    settings_handler(event,values)
-    clients_handler(main_window, event, values)
-    workers_handler(main_window,event,values)
-    online_scanner_handler(main_window, event, values, devices_online_hosts_list) # lan scan for online devices
+    
+    if event and values:
+        settings_handler(event,values)
+        clients_handler(main_window, event, values)
+        workers_handler(main_window,event,values)
+        online_scanner_handler(main_window, event, values, devices_online_hosts_list) # lan scan for online devices
 
     if event == sg.WIN_CLOSED or event == 'Cancel': # if user closes window or clicks cancel
         break
