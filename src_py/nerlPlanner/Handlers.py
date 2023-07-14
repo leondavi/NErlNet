@@ -18,7 +18,6 @@ api_server_inst = None
 nerl_gui_inst = None
 
 # workers
-workers_dict = OrderedDict()
 workers_load_worker_path = None
 workers_new_worker = None
 workers_new_worker_name = None
@@ -32,6 +31,7 @@ device_ip = None
 # clients
 clients_combo_box_worker_selection = None
 this_client_name = None
+this_client_port = None
 this_client = None
 
 def reset_instances():
@@ -97,12 +97,12 @@ def workers_handler(window, event, values):
                 workers_new_worker_dict = json.load(jsonFile)
         (workers_new_worker , _, _, _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(workers_new_worker_dict)
         window[KEY_WORKERS_INFO_BAR].update(f'loaded from file: {workers_new_worker}')
-        window[KEY_WORKERS_LIST_BOX].update(list(workers_dict.keys()))
+        window[KEY_WORKERS_LIST_BOX].update(json_architecture_instance.get_workers_names_list())
 
     if event == KEY_WORKERS_NAME_INPUT:
-        workers_new_worker_name = values[KEY_WORKERS_NAME_INPUT] if values[KEY_WORKERS_NAME_INPUT] not in workers_dict else None
+        workers_new_worker_name = values[KEY_WORKERS_NAME_INPUT] if values[KEY_WORKERS_NAME_INPUT] not in json_architecture_instance.get_workers_dict() else None
 
-    if workers_new_worker_name and (workers_new_worker_name not in workers_dict) and\
+    if workers_new_worker_name and (workers_new_worker_name not in json_architecture_instance.get_workers_dict()) and\
        (workers_new_worker is not None):
         workers_new_worker.set_name(workers_new_worker_name)
         
@@ -110,8 +110,7 @@ def workers_handler(window, event, values):
         if not workers_new_worker.get_name():
             sg.popup_ok(f"Cannot add - Name is missing!", keep_on_top=True, title="Loading Issue")
         elif json_architecture_instance.add_worker(workers_new_worker):
-            workers_dict[workers_new_worker_name] = workers_new_worker
-            window[KEY_WORKERS_LIST_BOX].update(list(workers_dict.keys()))
+            window[KEY_WORKERS_LIST_BOX].update(json_architecture_instance.get_workers_names_list())
             # Clear fields after successful add
             window[KEY_WORKERS_INFO_BAR].update(f'{workers_new_worker_name} added, {workers_new_worker}')
             workers_new_worker_name = ''
@@ -125,15 +124,15 @@ def workers_handler(window, event, values):
         window[KEY_WORKERS_INFO_BAR].update(f'{worker_name_selection} is selected')
 
     if event == KEY_WORKERS_LOAD_FROM_LIST_WORKER_BUTTON:
-        if (worker_name_selection in workers_dict) and workers_new_worker_name:
-            workers_new_worker = workers_dict[worker_name_selection].copy(workers_new_worker_name)
+        if (worker_name_selection in json_architecture_instance.get_workers_dict()) and workers_new_worker_name:
+            workers_new_worker = json_architecture_instance.get_workers_dict()[worker_name_selection].copy(workers_new_worker_name)
             window[KEY_WORKERS_INFO_BAR].update(f'{workers_new_worker_name} loaded, {workers_new_worker}')
         else:
             sg.popup_ok(f"selection or name issue", keep_on_top=True, title="Loading Issue")
 
     if event == KEY_WORKERS_SHOW_WORKER_BUTTON:
-        if (worker_name_selection in workers_dict):
-            workers_new_worker = workers_dict[worker_name_selection]
+        if (worker_name_selection in json_architecture_instance.get_workers_dict()):
+            workers_new_worker = json_architecture_instance.get_workers_dict()[worker_name_selection]
             sg.popup_ok(pretty_print_dict(workers_new_worker.get_as_dict(False)), keep_on_top=True, title="Worker Params")
 
 def devices_handler(window, event, values):
@@ -146,12 +145,14 @@ def clients_handler(window, event, values):
     global this_client_name
     global this_client
 
-    if list(workers_dict.keys()):
-        # update worker with list
-        window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update(values[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX],values=list(workers_dict.keys()))
+    # update worker with list
+    window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update(values[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX],values=list(json_architecture_instance.get_workers_names_list()))
 
     if event == KEY_CLIENTS_NAME_INPUT:
         this_client_name = values[KEY_CLIENTS_NAME_INPUT]
+
+    if event == KEY_CLIENTS_PORT_INPUT:
+        this_client_port = values[KEY_CLIENTS_NAME_INPUT]
 
     if event == KEY_CLIENTS_WORKERS_LIST_COMBO_BOX:
         clients_combo_box_worker_selection = values[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX]
