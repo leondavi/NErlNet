@@ -25,6 +25,10 @@ workers_new_worker_name = None
 workers_new_worker_dict = None
 worker_name_selection = None
 
+# devices
+device_name = None
+device_ip = None
+
 def reset_instances():
     json_architecture_instance = JsonArchitecture()
 
@@ -121,6 +125,12 @@ def workers_handler(window, event, values):
             window[KEY_WORKERS_INFO_BAR].update(f'{workers_new_worker_name} loaded, {workers_new_worker}')
         else:
             sg.popup_ok(f"selection or name issue", keep_on_top=True, title="Loading Issue")
+
+
+def devices_handler(window, event, values):
+    device_name = values[KEY_DEVICES_NAME_INPUT]
+    device_ip = values[KEY_DEVICES_IP_INPUT]
+    
 
 
 def update_current_json_file_path(jsonPath):
