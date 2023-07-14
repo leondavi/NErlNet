@@ -117,7 +117,7 @@ def workers_handler(window, event, values):
 
     if event == KEY_WORKERS_LIST_BOX:
         worker_name_selection = values[KEY_WORKERS_LIST_BOX][0]
-        print(f"List box {worker_name_selection}")
+        window[KEY_WORKERS_INFO_BAR].update(f'{worker_name_selection} is selected')
 
     if event == KEY_WORKERS_LOAD_FROM_LIST_WORKER_BUTTON:
         if (worker_name_selection in workers_dict) and workers_new_worker_name:
@@ -130,7 +130,7 @@ def workers_handler(window, event, values):
 def devices_handler(window, event, values):
     device_name = values[KEY_DEVICES_NAME_INPUT]
     device_ip = values[KEY_DEVICES_IP_INPUT]
-    
+
 
 
 def update_current_json_file_path(jsonPath):
