@@ -29,6 +29,11 @@ worker_name_selection = None
 device_name = None
 device_ip = None
 
+# clients
+clients_combo_box_worker_selection = None
+this_client_name = None
+this_client = None
+
 def reset_instances():
     json_architecture_instance = JsonArchitecture()
 
@@ -93,7 +98,7 @@ def workers_handler(window, event, values):
         (workers_new_worker , _, _, _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(workers_new_worker_dict)
         window[KEY_WORKERS_INFO_BAR].update(f'loaded from file: {workers_new_worker}')
         window[KEY_WORKERS_LIST_BOX].update(list(workers_dict.keys()))
-    
+
     if event == KEY_WORKERS_NAME_INPUT:
         workers_new_worker_name = values[KEY_WORKERS_NAME_INPUT] if values[KEY_WORKERS_NAME_INPUT] not in workers_dict else None
 
@@ -126,6 +131,10 @@ def workers_handler(window, event, values):
         else:
             sg.popup_ok(f"selection or name issue", keep_on_top=True, title="Loading Issue")
 
+    if event == KEY_WORKERS_SHOW_WORKER_BUTTON:
+        if (worker_name_selection in workers_dict):
+            workers_new_worker = workers_dict[worker_name_selection]
+            sg.popup_ok(pretty_print_dict(workers_new_worker.get_as_dict(False)), keep_on_top=True, title="Worker Params")
 
 def devices_handler(window, event, values):
     device_name = values[KEY_DEVICES_NAME_INPUT]
@@ -133,10 +142,22 @@ def devices_handler(window, event, values):
 
 
 def clients_handler(window, event, values):
-    if list(workers_dict.keys()):
-            # update worker with list
-            window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update(values[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX],values=list(workers_dict.keys()))
+    global clients_combo_box_worker_selection
+    global this_client_name
+    global this_client
 
+    if list(workers_dict.keys()):
+        # update worker with list
+        window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update(values[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX],values=list(workers_dict.keys()))
+
+    if event == KEY_CLIENTS_NAME_INPUT:
+        this_client_name = values[KEY_CLIENTS_NAME_INPUT]
+
+    if event == KEY_CLIENTS_WORKERS_LIST_COMBO_BOX:
+        clients_combo_box_worker_selection = values[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX]
+
+    if event == KEY_CLIENTS_WORKERS_LIST_ADD_WORKER:
+        pass
 
 def update_current_json_file_path(jsonPath):
     print(jsonPath)
