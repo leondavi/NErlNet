@@ -1,12 +1,13 @@
 import json
-
+import time
 from collections import OrderedDict
+import PySimpleGUI as sg
+
 from JsonElements import *
 from JsonElementWorker import *
 from JsonArchitecture import JsonArchitecture
 from Definitions import *
 
-import PySimpleGUI as sg
 
 # instances and lists of instances
 json_architecture_instance = JsonArchitecture()
@@ -163,7 +164,8 @@ def clients_handler(window, event, values):
         if clients_this_client is not None:
             worker_sha = json_architecture_instance.get_workers_dict()[clients_combo_box_worker_selection].get_sha()
             clients_this_client.add_worker(clients_combo_box_worker_selection, worker_sha)
-            window[KEY_CLIENTS_STATUS_BAR].update(f"worker {clients_combo_box_worker_selection} was added to client {clients_this_client.get_name()}")
+            window[KEY_CLIENTS_STATUS_BAR].update(f"Updated client {clients_this_client_name}: {clients_this_client}")
+            window[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS].update(clients_this_client.get_workers_names())
         else:
             sg.popup_ok(f"Add this client before adding workers", keep_on_top=True, title="Add workers issue")
 
@@ -184,8 +186,7 @@ def clients_handler(window, event, values):
             clients_this_client = Client(clients_this_client_name, clients_this_client_port)
             json_architecture_instance.add_client(clients_this_client)
             window[KEY_CLIENTS_STATUS_BAR].update(f"Added client {clients_this_client_name}: {clients_this_client}")
-    
-    if clients_this_client is not None:
+    elif (clients_this_client is not None) and (event == KEY_CLIENTS_NAME_INPUT or event == KEY_CLIENTS_PORT_INPUT):
         if (clients_this_client.get_name() != clients_this_client_name) or (clients_this_client.get_port() != clients_this_client_port):
             clients_this_client.set_name(clients_this_client_name)
             clients_this_client.set_port(clients_this_client_port)
