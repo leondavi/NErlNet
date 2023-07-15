@@ -30,9 +30,10 @@ device_ip = None
 
 # clients
 clients_combo_box_worker_selection = None
-this_client_name = None
-this_client_port = None
-this_client = None
+clients_this_client_name = None
+clients_this_client_port = None
+clients_this_client = None
+clients_this_client_workers_dict = OrderedDict()
 
 def reset_instances():
     json_architecture_instance = JsonArchitecture()
@@ -142,23 +143,53 @@ def devices_handler(window, event, values):
 
 def clients_handler(window, event, values):
     global clients_combo_box_worker_selection
-    global this_client_name
-    global this_client
+    global clients_this_client_name
+    global clients_this_client_port
+    global clients_this_client
 
     # update worker with list
     window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update(values[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX],values=list(json_architecture_instance.get_workers_names_list()))
 
     if event == KEY_CLIENTS_NAME_INPUT:
-        this_client_name = values[KEY_CLIENTS_NAME_INPUT]
+        clients_this_client_name = values[KEY_CLIENTS_NAME_INPUT]
 
     if event == KEY_CLIENTS_PORT_INPUT:
-        this_client_port = values[KEY_CLIENTS_NAME_INPUT]
+        clients_this_client_port = values[KEY_CLIENTS_PORT_INPUT]
 
     if event == KEY_CLIENTS_WORKERS_LIST_COMBO_BOX:
         clients_combo_box_worker_selection = values[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX]
 
-    if event == KEY_CLIENTS_WORKERS_LIST_ADD_WORKER:
-        pass
+    if (event == KEY_CLIENTS_WORKERS_LIST_ADD_WORKER) and clients_combo_box_worker_selection:
+        if clients_this_client is not None:
+            worker_sha = json_architecture_instance.get_workers_dict()[clients_combo_box_worker_selection].get_sha()
+            clients_this_client.add_worker(clients_combo_box_worker_selection, worker_sha)
+            window[KEY_CLIENTS_STATUS_BAR].update(f"worker {clients_combo_box_worker_selection} was added to client {clients_this_client.get_name()}")
+        else:
+            sg.popup_ok(f"Add this client before adding workers", keep_on_top=True, title="Add workers issue")
+
+
+    if event == KEY_CLIENTS_BUTTON_LOAD:
+        clients_this_client_name = values[KEY_ENTITIES_CLIENTS_LISTBOX][0]
+        clients_this_client = json_architecture_instance.get_client(clients_this_client_name)
+        window[KEY_CLIENTS_NAME_INPUT].update(clients_this_client.get_name())
+        window[KEY_CLIENTS_NAME_INPUT].update(clients_this_client.get_port())
+        window[KEY_CLIENTS_STATUS_BAR].update(f"client {clients_this_client.get_name()} is loaded: {clients_this_client}")
+
+    if event == KEY_CLIENTS_BUTTON_ADD:
+        if clients_this_client_name:
+            clients_this_client = json_architecture_instance.get_client(clients_this_client_name)
+        if clients_this_client is not None:
+            pass # update the client parameters
+        elif clients_this_client_port: # create a new client
+            clients_this_client = Client(clients_this_client_name, clients_this_client_port)
+            json_architecture_instance.add_client(clients_this_client)
+            window[KEY_CLIENTS_STATUS_BAR].update(f"Added client {clients_this_client_name}: {clients_this_client}")
+    
+    if clients_this_client is not None:
+        if (clients_this_client.get_name() != clients_this_client_name) or (clients_this_client.get_port() != clients_this_client_port):
+            clients_this_client.set_name(clients_this_client_name)
+            clients_this_client.set_port(clients_this_client_port)
+            window[KEY_CLIENTS_STATUS_BAR].update(f"Update client {clients_this_client_name}: {clients_this_client}")
 
 def update_current_json_file_path(jsonPath):
     print(jsonPath)

@@ -10,6 +10,7 @@ KEY_NERLNET_SETTINGS = "NerlNetSettings"
 KEY_DEVICES = "devices"
 KEY_CLIENTS = "clients"
 KEY_WORKERS = "workers"
+KEY_WORKERS_SHA = "workers_sha"
 KEY_SOURCES = "sources"
 KEY_ROUTERS = "routers"
 
@@ -32,6 +33,7 @@ class JsonArchitecture():
         self.main_dict[KEY_SOURCES] = OrderedDict()
         self.main_dict[KEY_CLIENTS] = OrderedDict()
         self.main_dict[KEY_WORKERS] = OrderedDict()
+        self.main_dict[KEY_WORKERS_SHA] = {}
 
     def clear(self):
         self.init_dictionary()
@@ -66,6 +68,9 @@ class JsonArchitecture():
             self.main_dict[KEY_CLIENTS][client_name] = client
             self.names_set.add(client_name)
         return True
+    
+    def get_client(self, client_name : str) -> Client: 
+        return self.main_dict[KEY_CLIENTS][client_name] if client_name in self.main_dict[KEY_CLIENTS] else None
 
     def add_router(self, router : Router): 
         '''
@@ -104,6 +109,9 @@ class JsonArchitecture():
         else: 
             self.main_dict[KEY_WORKERS][worker_name] = worker
             self.names_set.add(worker_name)
+            worker_sha = worker.get_sha()
+            if worker_sha not in self.main_dict[KEY_WORKERS_SHA]:
+                self.main_dict[KEY_WORKERS_SHA] = worker_sha
         return True
     
     def get_workers_dict(self):

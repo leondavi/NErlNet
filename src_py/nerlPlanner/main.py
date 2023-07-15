@@ -75,7 +75,8 @@ ClientsFields = [
                   sg.Button("Load", size=(10), enable_events=True, key=KEY_CLIENTS_BUTTON_LOAD),
                   sg.Button("Remove", size=(10), enable_events=True, key=KEY_CLIENTS_BUTTON_REMOVE)],
                  [sg.Text("name:  "), sg.InputText(size=15, enable_events=True, key=KEY_CLIENTS_NAME_INPUT)],
-                 [sg.Text("port:    "), sg.InputText(size=15, enable_events=True, key=KEY_CLIENTS_PORT_INPUT)]
+                 [sg.Text("port:    "), sg.InputText(size=15, enable_events=True, key=KEY_CLIENTS_PORT_INPUT)],
+                 [sg.Text("status bar", key=KEY_CLIENTS_STATUS_BAR, enable_events=True, expand_x=True)]
                 ]
 ClientsFieldsFrame = sg.Frame("",ClientsFields, expand_x=True)
 
@@ -107,7 +108,9 @@ SourcesFieldsFrame = sg.Frame("Sources",SourcesFields)
 # Entities Frame
 EntitiesNamesList = []
 EntitiesListFields = [[sg.Text("Clients", expand_x=True), sg.Text("Routers", expand_x=True), sg.Text("Sources", expand_x=True)],
-                      [sg.Listbox(EntitiesNamesList, size=(20,14) ), sg.Listbox(EntitiesNamesList, size=(20,14) ), sg.Listbox(EntitiesNamesList, size=(20,14) )]
+                      [sg.Listbox(EntitiesNamesList, enable_events=True, key=KEY_ENTITIES_CLIENTS_LISTBOX, size=(20,14)),
+                       sg.Listbox(EntitiesNamesList, enable_events=True, key=KEY_ENTITIES_ROUTERS_LISTBOX, size=(20,14)),
+                       sg.Listbox(EntitiesNamesList, enable_events=True, key=KEY_ENTITIES_SOURCES_LISTBOX, size=(20,14))]
                                      ]
 EntitiesFieldsFrame = sg.Frame("", layout=[[ClientsFieldsFrames],[SourcesFieldsFrame, RoutersFieldsFrame]])
 EntitiesListFrame = sg.Frame("", EntitiesListFields)
