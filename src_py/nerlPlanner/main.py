@@ -40,10 +40,10 @@ devicesEntitiesListFrame = sg.Frame("", devicesEntitiesList)
 devicesFields = [[sg.Button("Add", size=(10)), sg.Button("Load",size=(10)), sg.Button("Remove",size=(10))],
                  [sg.Button("Scan",size=(10), key=KEY_DEVICES_SCANNER_BUTTON, enable_events=True),sg.Text("lan: "),
                   sg.InputText('x.x.x.x/mask',size=20, enable_events=True, key=KEY_DEVICES_SCANNER_INPUT_LAN_MASK),
-                  sg.Combo(devices_online_hosts_list,enable_events=True, key=KEY_DEVICES_ONLINE_LIST_COMBO_BOX)],
+                  sg.Combo(devices_online_hosts_list, size=(15), enable_events=True, key=KEY_DEVICES_ONLINE_LIST_COMBO_BOX)],
                  [sg.Text("device name: "), sg.InputText(size=20, enable_events = True, key=KEY_DEVICES_NAME_INPUT)],
                  [sg.Text("ip address:   "), sg.InputText('x.x.x.x', size=20, enable_events=True, key=KEY_DEVICES_IP_INPUT)],
-                 [sg.InputText('selected entity', size=(15)), sg.Combo('entities', size=(15)), sg.Button("add", size=(15))]]
+                 [sg.Text('selected entity:', size=(15)), sg.Combo('entities', size=(15)), sg.Button("add", size=(15))]]
 
 davicesFieldsFrame = sg.Frame("",devicesFields, expand_x=True)
 devicesFrame = sg.Frame("Devices",layout=[[davicesFieldsFrame],[devicesListFrame, devicesEntitiesListFrame]], expand_x=True)
@@ -71,15 +71,20 @@ workersFrame = sg.Frame("Workers",layout=[[workersFieldsFrame],[workersListFrame
 
 # Clients
 ClientsFields = [
-                 [sg.Button("Add", size=(10)), sg.Button("Load", size=(10)), sg.Button("Remove", size=(10)) ],
-                 [sg.Text("name:  "), sg.InputText(size=15)],
-                 [sg.Text("port:    "), sg.InputText(size=15)],
-                 [sg.Button("Add Worker", size=(15)) ,sg.Button("Remove Worker", size=(15))]
+                 [sg.Button("Add", size=(10), enable_events=True, key=KEY_CLIENTS_BUTTON_ADD),
+                  sg.Button("Load", size=(10), enable_events=True, key=KEY_CLIENTS_BUTTON_LOAD),
+                  sg.Button("Remove", size=(10), enable_events=True, key=KEY_CLIENTS_BUTTON_REMOVE)],
+                 [sg.Text("name:  "), sg.InputText(size=15, enable_events=True, key=KEY_CLIENTS_NAME_INPUT)],
+                 [sg.Text("port:    "), sg.InputText(size=15, enable_events=True, key=KEY_CLIENTS_PORT_INPUT)],
+                 [sg.Text("status bar", key=KEY_CLIENTS_STATUS_BAR, enable_events=True, expand_x=True)]
                 ]
 ClientsFieldsFrame = sg.Frame("",ClientsFields, expand_x=True)
 
 # Client's workers list in multiline
-ClientWorkersList = [[sg.Text("workers   "), sg.Listbox([],size=(20,6)), sg.Combo("workers", size=(15))]]
+ClientWorkersList = [[sg.Button("Add", size=(10), enable_events=True, key=KEY_CLIENTS_WORKERS_LIST_ADD_WORKER),
+                      sg.Button("Remove", size=(10), enable_events=True, key=KEY_CLIENTS_WORKERS_LIST_REMOVE_WORKER),
+                      sg.Combo("none", size=(15), enable_events=True, key=KEY_CLIENTS_WORKERS_LIST_COMBO_BOX)],
+                     [sg.Text("workers "), sg.Listbox([],size=(20,6), enable_events=True, key=KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS)]]
 ClientWorkersFrame = sg.Frame("",ClientWorkersList)
 
 ClientsFieldsFrames = sg.Frame("Clients",layout=[[ClientsFieldsFrame,ClientWorkersFrame]])
@@ -103,7 +108,9 @@ SourcesFieldsFrame = sg.Frame("Sources",SourcesFields)
 # Entities Frame
 EntitiesNamesList = []
 EntitiesListFields = [[sg.Text("Clients", expand_x=True), sg.Text("Routers", expand_x=True), sg.Text("Sources", expand_x=True)],
-                      [sg.Listbox(EntitiesNamesList, size=(20,14) ), sg.Listbox(EntitiesNamesList, size=(20,14) ), sg.Listbox(EntitiesNamesList, size=(20,14) )]
+                      [sg.Listbox(EntitiesNamesList, enable_events=True, key=KEY_ENTITIES_CLIENTS_LISTBOX, size=(20,14)),
+                       sg.Listbox(EntitiesNamesList, enable_events=True, key=KEY_ENTITIES_ROUTERS_LISTBOX, size=(20,14)),
+                       sg.Listbox(EntitiesNamesList, enable_events=True, key=KEY_ENTITIES_SOURCES_LISTBOX, size=(20,14))]
                                      ]
 EntitiesFieldsFrame = sg.Frame("", layout=[[ClientsFieldsFrames],[SourcesFieldsFrame, RoutersFieldsFrame]])
 EntitiesListFrame = sg.Frame("", EntitiesListFields)
@@ -133,9 +140,14 @@ main_window  = sg.Window(title=WINDOW_TITLE, layout=[[sg.Image(NERLNET_LOGO_PATH
 
 while True:
     event, values = main_window.read(timeout=50)
-    settings_handler(event,values)
-    workers_handler(main_window,event,values)
-    online_scanner_handler(main_window, event, values, devices_online_hosts_list) # lan scan for online devices
+    
+    if event and values:
+        settings_handler(event,values)
+        workers_handler(main_window,event,values)
+        clients_handler(main_window, event, values)
+        entities_handler(main_window, event, values)
+        devices_handler(main_window, event, values)
+        online_scanner_handler(main_window, event, values, devices_online_hosts_list) # lan scan for online devices
 
     if event == sg.WIN_CLOSED or event == 'Cancel': # if user closes window or clicks cancel
         break

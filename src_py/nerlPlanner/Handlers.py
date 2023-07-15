@@ -1,12 +1,13 @@
 import json
-
+import time
 from collections import OrderedDict
+import PySimpleGUI as sg
+
 from JsonElements import *
 from JsonElementWorker import *
 from JsonArchitecture import JsonArchitecture
 from Definitions import *
 
-import PySimpleGUI as sg
 
 # instances and lists of instances
 json_architecture_instance = JsonArchitecture()
@@ -18,7 +19,6 @@ api_server_inst = None
 nerl_gui_inst = None
 
 # workers
-workers_dict = OrderedDict()
 workers_load_worker_path = None
 workers_new_worker = None
 workers_new_worker_name = None
@@ -28,6 +28,17 @@ worker_name_selection = None
 # devices
 device_name = None
 device_ip = None
+
+# clients
+clients_combo_box_worker_selection = None
+clients_this_client_name = None
+clients_this_client_port = None
+clients_this_client = None
+clients_this_client_workers_dict = OrderedDict()
+
+# entities
+entities_clients_names_list = []
+
 
 def reset_instances():
     json_architecture_instance = JsonArchitecture()
@@ -92,12 +103,12 @@ def workers_handler(window, event, values):
                 workers_new_worker_dict = json.load(jsonFile)
         (workers_new_worker , _, _, _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(workers_new_worker_dict)
         window[KEY_WORKERS_INFO_BAR].update(f'loaded from file: {workers_new_worker}')
-        window[KEY_WORKERS_LIST_BOX].update(workers_dict.keys())
-    
-    if event == KEY_WORKERS_NAME_INPUT:
-        workers_new_worker_name = values[KEY_WORKERS_NAME_INPUT] if values[KEY_WORKERS_NAME_INPUT] not in workers_dict else None
+        window[KEY_WORKERS_LIST_BOX].update(json_architecture_instance.get_workers_names_list())
 
-    if workers_new_worker_name and (workers_new_worker_name not in workers_dict) and\
+    if event == KEY_WORKERS_NAME_INPUT:
+        workers_new_worker_name = values[KEY_WORKERS_NAME_INPUT] if values[KEY_WORKERS_NAME_INPUT] not in json_architecture_instance.get_workers_dict() else None
+
+    if workers_new_worker_name and (workers_new_worker_name not in json_architecture_instance.get_workers_dict()) and\
        (workers_new_worker is not None):
         workers_new_worker.set_name(workers_new_worker_name)
         
@@ -105,8 +116,7 @@ def workers_handler(window, event, values):
         if not workers_new_worker.get_name():
             sg.popup_ok(f"Cannot add - Name is missing!", keep_on_top=True, title="Loading Issue")
         elif json_architecture_instance.add_worker(workers_new_worker):
-            workers_dict[workers_new_worker_name] = workers_new_worker
-            window[KEY_WORKERS_LIST_BOX].update(workers_dict.keys())
+            window[KEY_WORKERS_LIST_BOX].update(json_architecture_instance.get_workers_names_list())
             # Clear fields after successful add
             window[KEY_WORKERS_INFO_BAR].update(f'{workers_new_worker_name} added, {workers_new_worker}')
             workers_new_worker_name = ''
@@ -120,18 +130,87 @@ def workers_handler(window, event, values):
         window[KEY_WORKERS_INFO_BAR].update(f'{worker_name_selection} is selected')
 
     if event == KEY_WORKERS_LOAD_FROM_LIST_WORKER_BUTTON:
-        if (worker_name_selection in workers_dict) and workers_new_worker_name:
-            workers_new_worker = workers_dict[worker_name_selection].copy(workers_new_worker_name)
+        if (worker_name_selection in json_architecture_instance.get_workers_dict()) and workers_new_worker_name:
+            workers_new_worker = json_architecture_instance.get_workers_dict()[worker_name_selection].copy(workers_new_worker_name)
             window[KEY_WORKERS_INFO_BAR].update(f'{workers_new_worker_name} loaded, {workers_new_worker}')
         else:
             sg.popup_ok(f"selection or name issue", keep_on_top=True, title="Loading Issue")
 
+    if event == KEY_WORKERS_SHOW_WORKER_BUTTON:
+        if (worker_name_selection in json_architecture_instance.get_workers_dict()):
+            workers_new_worker = json_architecture_instance.get_workers_dict()[worker_name_selection]
+            sg.popup_ok(pretty_print_dict(workers_new_worker.get_as_dict(False)), keep_on_top=True, title="Worker Params")
 
 def devices_handler(window, event, values):
     device_name = values[KEY_DEVICES_NAME_INPUT]
     device_ip = values[KEY_DEVICES_IP_INPUT]
 
+def clients_handler(window, event, values):
+    global clients_combo_box_worker_selection
+    global clients_this_client_name
+    global clients_this_client_port
+    global clients_this_client
 
+    # update worker with list
+    window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update(values[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX],values=list(json_architecture_instance.get_workers_names_list()))
+
+    if event == KEY_CLIENTS_NAME_INPUT:
+        clients_this_client_name = values[KEY_CLIENTS_NAME_INPUT]
+
+    if event == KEY_CLIENTS_PORT_INPUT:
+        clients_this_client_port = values[KEY_CLIENTS_PORT_INPUT]
+
+    if event == KEY_CLIENTS_WORKERS_LIST_COMBO_BOX:
+        clients_combo_box_worker_selection = values[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX]
+
+    if (event == KEY_CLIENTS_WORKERS_LIST_ADD_WORKER) and clients_combo_box_worker_selection:
+        owned_workers_dict = json_architecture_instance.get_owned_workers_by_clients_dict()
+        if clients_combo_box_worker_selection in owned_workers_dict:
+            sg.popup_ok(f"worker {clients_combo_box_worker_selection} already belongs to client {owned_workers_dict[clients_combo_box_worker_selection]}", title='Adding a worker failed')
+        elif clients_this_client is not None:
+            worker_sha = json_architecture_instance.get_workers_dict()[clients_combo_box_worker_selection].get_sha()
+            clients_this_client.add_worker(clients_combo_box_worker_selection, worker_sha)
+            window[KEY_CLIENTS_STATUS_BAR].update(f"Updated client {clients_this_client_name}: {clients_this_client}")
+            window[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS].update(clients_this_client.get_workers_names())
+        else:
+            sg.popup_ok(f"Add this client before adding workers", keep_on_top=True, title="Add workers issue")
+
+
+    if event == KEY_CLIENTS_BUTTON_LOAD:
+        clients_this_client_name = values[KEY_ENTITIES_CLIENTS_LISTBOX][0]
+        clients_this_client = json_architecture_instance.get_client(clients_this_client_name)
+        window[KEY_CLIENTS_NAME_INPUT].update(clients_this_client.get_name())
+        window[KEY_CLIENTS_PORT_INPUT].update(f"{clients_this_client.get_port().get_value()}")
+        window[KEY_CLIENTS_STATUS_BAR].update(f"client {clients_this_client.get_name()} is loaded: {clients_this_client}")
+
+    if event == KEY_CLIENTS_BUTTON_ADD:
+        if clients_this_client_name:
+            clients_this_client = json_architecture_instance.get_client(clients_this_client_name)
+        if clients_this_client is not None:
+            pass # update the client parameters
+        elif clients_this_client_port: # create a new client
+            clients_this_client = Client(clients_this_client_name, clients_this_client_port)
+            json_architecture_instance.add_client(clients_this_client)
+            window[KEY_CLIENTS_STATUS_BAR].update(f"Added client {clients_this_client_name}: {clients_this_client}")
+            clients_this_client_name = ''
+            clients_this_client_port = ''
+            window[KEY_CLIENTS_NAME_INPUT].update(clients_this_client_name) 
+            window[KEY_CLIENTS_PORT_INPUT].update(clients_this_client_port) 
+    elif (clients_this_client is not None) and (event == KEY_CLIENTS_NAME_INPUT or event == KEY_CLIENTS_PORT_INPUT):
+        if clients_this_client_name and clients_this_client_port:
+            if (clients_this_client.get_name() != clients_this_client_name) or (clients_this_client.get_port() != clients_this_client_port):
+                clients_this_client.set_name(clients_this_client_name)
+                clients_this_client.set_port(clients_this_client_port)
+                window[KEY_CLIENTS_STATUS_BAR].update(f"Update client {clients_this_client_name}: {clients_this_client}")
+
+
+def entities_handler(window, event, values):
+    global entities_clients_names_list
+
+    # entities update lists
+    if json_architecture_instance.get_clients_names() != entities_clients_names_list:
+        entities_clients_names_list = json_architecture_instance.get_clients_names()
+        window[KEY_ENTITIES_CLIENTS_LISTBOX].update(entities_clients_names_list)
 
 def update_current_json_file_path(jsonPath):
     print(jsonPath)
