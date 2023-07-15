@@ -143,8 +143,10 @@ while True:
     
     if event and values:
         settings_handler(event,values)
-        clients_handler(main_window, event, values)
         workers_handler(main_window,event,values)
+        clients_handler(main_window, event, values)
+        entities_handler(main_window, event, values)
+        devices_handler(main_window, event, values)
         online_scanner_handler(main_window, event, values, devices_online_hosts_list) # lan scan for online devices
 
     if event == sg.WIN_CLOSED or event == 'Cancel': # if user closes window or clicks cancel
