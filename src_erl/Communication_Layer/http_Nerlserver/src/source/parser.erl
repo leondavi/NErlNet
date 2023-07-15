@@ -53,11 +53,12 @@ parse_file(SourceName, BatchSize,File_Address) ->
   DimZ = 1,
   ListOfLinesOfData = decodeListOfLists(Lines),
   ListOfGroupedBatches = generateListOfBatches(ListOfLinesOfData, BatchSize),
-  ErlType = nerlNIF:erl_type_conversion(UserType),
+  % ErlType = nerlNIF:erl_type_conversion(UserType),        
+  ErlType = erl_float,        %% TODO: delete so can accept int as well
   ListOfTensors = 
     case ErlType of 
           erl_float -> encodeListOfListsNerlTensor(ListOfGroupedBatches, UserType, float(BatchSize),float(SampleSize),float(DimZ));
-          erl_int -> encodeListOfListsNerlTensor(ListOfGroupedBatches, UserType, BatchSize,SampleSize,DimZ);
+          % erl_int -> encodeListOfListsNerlTensor(ListOfGroupedBatches, UserType, BatchSize,SampleSize,DimZ);
           _Other -> throw("wrong ErlType")
     end,
   ?LOG_NOTICE("Source ~p generated list of NerlTensors from file: ~p",[SourceName, File_Address]),
