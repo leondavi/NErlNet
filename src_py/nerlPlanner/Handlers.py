@@ -50,43 +50,43 @@ def settings_handler(event, values):
     if event == KEY_SETTINGS_ADD_BUTTON:
         frequency = values[KEY_SETTINGS_FREQUENCY_INPUT] if values[KEY_SETTINGS_FREQUENCY_INPUT] else None
         frequency_inst = Frequency(frequency) if frequency else None
-        error_list.append(frequency_inst.error())
+        error_list.append(frequency_inst.error()) if frequency else error_list.append(True)
         print(f"Frequency={frequency}") #TODO remove - jsut debug
 
         batch_size = values[KEY_SETTINGS_BATCH_SIZE_INPUT] if values[KEY_SETTINGS_BATCH_SIZE_INPUT] else None
         batch_size_inst = BatchSize(batch_size) if batch_size else None
-        error_list.append(batch_size_inst.error())
+        error_list.append(batch_size_inst.error()) if batch_size else error_list.append(True)
         print(f"batch_size={batch_size}") #TODO remove - jsut debug
 
         main_server_ip = values[KEY_SETTINGS_MAINSERVER_IP_INPUT] if values[KEY_SETTINGS_MAINSERVER_IP_INPUT] else None
         main_server_port = values[KEY_SETTINGS_MAINSERVER_PORT_INPUT] if values[KEY_SETTINGS_MAINSERVER_PORT_INPUT] else None
         main_server_args = values[KEY_SETTINGS_MAINSERVER_ARGS_INPUT] if values[KEY_SETTINGS_MAINSERVER_ARGS_INPUT] else None
         main_server_inst = MainServer(main_server_ip, main_server_port, main_server_args) if main_server_ip and main_server_port else None
-        error_list.append(main_server_inst.error())
+        error_list.append(main_server_inst.error()) if main_server_inst is not None else error_list.append(True)
 
         api_server_ip = values[KEY_SETTINGS_APISERVER_IP_INPUT] if values[KEY_SETTINGS_APISERVER_IP_INPUT] else None
         api_server_port = values[KEY_SETTINGS_APISERVER_PORT_INPUT] if values[KEY_SETTINGS_APISERVER_PORT_INPUT] else None
         api_server_args = values[KEY_SETTINGS_APISERVER_ARGS_INPUT] if values[KEY_SETTINGS_APISERVER_ARGS_INPUT] else None
         api_server_inst = ApiServer(api_server_ip, api_server_port, api_server_args) if api_server_ip and api_server_port else None
-        error_list.append(api_server_inst.error())
+        error_list.append(api_server_inst.error()) if api_server_inst is not None else error_list.append(True)
 
         nerlgui_server_inst = None
         if values[KEY_SETTINGS_NERLGUI_IP_INPUT] and values[KEY_SETTINGS_NERLGUI_PORT_INPUT] and values[KEY_CHECKBOX_ENABLE_NERLGUI]:
             nerlgui_server_ip = values[KEY_SETTINGS_NERLGUI_IP_INPUT] if values[KEY_SETTINGS_NERLGUI_IP_INPUT] else None
             nerlgui_server_port = values[KEY_SETTINGS_NERLGUI_PORT_INPUT] if values[KEY_SETTINGS_NERLGUI_PORT_INPUT] else None
             nerlgui_server_args = values[KEY_SETTINGS_NERLGUI_ARGS_INPUT] if values[KEY_SETTINGS_NERLGUI_ARGS_INPUT] else None
-            nerlgui_server_inst = NerlGUI(nerlgui_server_ip, nerlgui_server_port, nerlgui_server_args)
-            error_list.append(nerlgui_server_inst.error())
+            nerlgui_server_inst = NerlGUI(nerlgui_server_ip, nerlgui_server_port, nerlgui_server_args) if nerlgui_server_ip and nerlgui_server_port else None
+            error_list.append(nerlgui_server_inst.error()) if nerlgui_server_inst is not None else error_list.append(True)
         
         error = any(error_list)
         if error:
-            pass # pop up windows with issues
-
-        json_architecture_instance.add_nerlnet_settings(frequency_inst, batch_size_inst)
-        json_architecture_instance.add_main_server(main_server_inst)
-        json_architecture_instance.add_api_server(api_server_inst)
-        if nerlgui_server_inst is not None:
-            json_architecture_instance.add_nerlgui_server(nerlgui_server_inst)
+            sg.popup_ok(f"Cannot add - Wrong Fields!", keep_on_top=True, title="Input Issue")
+        else:
+            json_architecture_instance.add_nerlnet_settings(frequency_inst, batch_size_inst)
+            json_architecture_instance.add_main_server(main_server_inst)
+            json_architecture_instance.add_api_server(api_server_inst)
+            if nerlgui_server_inst is not None:
+                json_architecture_instance.add_nerlgui_server(nerlgui_server_inst)
 
 
 
