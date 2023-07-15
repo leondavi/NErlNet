@@ -50,7 +50,7 @@ ____________API COMMANDS_____________
 -getUserJsons():                    returns the selected arch / conn / exp
 -initialization(arch, conn, exp):   set up server for a NerlNet run
 -sendJsonsToDevices():              send each NerlNet device the arch / conn jsons to init entities on it
--sendDataToSources(phase(,split)):    phase := "training" | "prediction". split := 1 default (split) | 2 (whole file). send the experiment data to sources (currently happens in beggining of train/predict)
+-sendDataToSources(phase(,split)):  phase := "training" | "prediction". split := 1 default (split) | 2 (whole file). send the experiment data to sources (currently happens in beggining of train/predict)
 
 ========Running experiment==========
 -train():                           start training phase
@@ -387,7 +387,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
         # # Create a confusion matrix based on the results:
         
-                    ################## THIS IS *NOT* FOR MULTICLASS DATA, but for multi-label data 
+                    ################## THIS IS *NOT* FOR MULTICLASS DATA, but for multi-label data (output neurons are binary)
         MATRIX_DISP_SCALING = 5
         TRUE_LABLE_IND = 0
         PRED_LABLE_IND = 1
