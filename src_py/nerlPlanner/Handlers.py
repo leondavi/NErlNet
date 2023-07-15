@@ -36,6 +36,10 @@ clients_this_client_port = None
 clients_this_client = None
 clients_this_client_workers_dict = OrderedDict()
 
+# entities
+entities_clients_names_list = []
+
+
 def reset_instances():
     json_architecture_instance = JsonArchitecture()
 
@@ -141,7 +145,6 @@ def devices_handler(window, event, values):
     device_name = values[KEY_DEVICES_NAME_INPUT]
     device_ip = values[KEY_DEVICES_IP_INPUT]
 
-
 def clients_handler(window, event, values):
     global clients_combo_box_worker_selection
     global clients_this_client_name
@@ -161,7 +164,10 @@ def clients_handler(window, event, values):
         clients_combo_box_worker_selection = values[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX]
 
     if (event == KEY_CLIENTS_WORKERS_LIST_ADD_WORKER) and clients_combo_box_worker_selection:
-        if clients_this_client is not None:
+        owned_workers_dict = json_architecture_instance.get_owned_workers_by_clients_dict()
+        if clients_combo_box_worker_selection in owned_workers_dict:
+            sg.popup_ok(f"worker {clients_combo_box_worker_selection} already belongs to client {owned_workers_dict[clients_combo_box_worker_selection]}", title='Adding a worker failed')
+        elif clients_this_client is not None:
             worker_sha = json_architecture_instance.get_workers_dict()[clients_combo_box_worker_selection].get_sha()
             clients_this_client.add_worker(clients_combo_box_worker_selection, worker_sha)
             window[KEY_CLIENTS_STATUS_BAR].update(f"Updated client {clients_this_client_name}: {clients_this_client}")
@@ -174,7 +180,7 @@ def clients_handler(window, event, values):
         clients_this_client_name = values[KEY_ENTITIES_CLIENTS_LISTBOX][0]
         clients_this_client = json_architecture_instance.get_client(clients_this_client_name)
         window[KEY_CLIENTS_NAME_INPUT].update(clients_this_client.get_name())
-        window[KEY_CLIENTS_NAME_INPUT].update(clients_this_client.get_port())
+        window[KEY_CLIENTS_PORT_INPUT].update(f"{clients_this_client.get_port().get_value()}")
         window[KEY_CLIENTS_STATUS_BAR].update(f"client {clients_this_client.get_name()} is loaded: {clients_this_client}")
 
     if event == KEY_CLIENTS_BUTTON_ADD:
@@ -186,11 +192,25 @@ def clients_handler(window, event, values):
             clients_this_client = Client(clients_this_client_name, clients_this_client_port)
             json_architecture_instance.add_client(clients_this_client)
             window[KEY_CLIENTS_STATUS_BAR].update(f"Added client {clients_this_client_name}: {clients_this_client}")
+            clients_this_client_name = ''
+            clients_this_client_port = ''
+            window[KEY_CLIENTS_NAME_INPUT].update(clients_this_client_name) 
+            window[KEY_CLIENTS_PORT_INPUT].update(clients_this_client_port) 
     elif (clients_this_client is not None) and (event == KEY_CLIENTS_NAME_INPUT or event == KEY_CLIENTS_PORT_INPUT):
-        if (clients_this_client.get_name() != clients_this_client_name) or (clients_this_client.get_port() != clients_this_client_port):
-            clients_this_client.set_name(clients_this_client_name)
-            clients_this_client.set_port(clients_this_client_port)
-            window[KEY_CLIENTS_STATUS_BAR].update(f"Update client {clients_this_client_name}: {clients_this_client}")
+        if clients_this_client_name and clients_this_client_port:
+            if (clients_this_client.get_name() != clients_this_client_name) or (clients_this_client.get_port() != clients_this_client_port):
+                clients_this_client.set_name(clients_this_client_name)
+                clients_this_client.set_port(clients_this_client_port)
+                window[KEY_CLIENTS_STATUS_BAR].update(f"Update client {clients_this_client_name}: {clients_this_client}")
+
+
+def entities_handler(window, event, values):
+    global entities_clients_names_list
+
+    # entities update lists
+    if json_architecture_instance.get_clients_names() != entities_clients_names_list:
+        entities_clients_names_list = json_architecture_instance.get_clients_names()
+        window[KEY_ENTITIES_CLIENTS_LISTBOX].update(entities_clients_names_list)
 
 def update_current_json_file_path(jsonPath):
     print(jsonPath)

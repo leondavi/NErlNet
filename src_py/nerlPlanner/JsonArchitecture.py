@@ -69,6 +69,16 @@ class JsonArchitecture():
             self.names_set.add(client_name)
         return True
     
+    def get_clients_names(self):
+        return list(self.main_dict[KEY_CLIENTS].keys())
+    
+    def get_owned_workers_by_clients_dict(self) -> list:
+        owned_workers_dict = {}
+        for client_name , client in self.main_dict[KEY_CLIENTS].items():
+            for worker in client.get_workers_names():
+                owned_workers_dict[worker] = client_name
+        return owned_workers_dict
+
     def get_client(self, client_name : str) -> Client: 
         return self.main_dict[KEY_CLIENTS][client_name] if client_name in self.main_dict[KEY_CLIENTS] else None
 

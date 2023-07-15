@@ -142,6 +142,9 @@ class Port(JsonElement):
         super(Port, self).__init__("port", PORT_TYPE)
         self.value = int(value) if isinstance(value, str) else value
 
+    def get_value(self):
+        return self.value
+
     def __format__(self, __format_spec: str) -> str:
         return f"Port: {self.value}"
 
