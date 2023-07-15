@@ -1,4 +1,5 @@
 from JsonElementsDefinitions import *
+from collections import OrderedDict
 
 class JsonElement():
     def __init__(self, name = "none", elem_type = NONE_TYPE):
@@ -141,6 +142,9 @@ class Port(JsonElement):
         super(Port, self).__init__("port", PORT_TYPE)
         self.value = int(value) if isinstance(value, str) else value
 
+    def __format__(self, __format_spec: str) -> str:
+        return f"Port: {self.value}"
+
     def error(self):
         return self.value > 65535 or self.value < 1 # 0 is reserved
 
@@ -164,7 +168,7 @@ class NerlGUI(JsonElement):
         elements_list = [self.ip.get_as_tuple(),
                          self.port.get_as_tuple(),
                          self.args.get_as_tuple()]
-        return dict(elements_list)
+        return OrderedDict(elements_list)
 
 class ApiServer(JsonElement):
     NAME = "apiServer"
@@ -182,7 +186,7 @@ class ApiServer(JsonElement):
         elements_list = [self.ip.get_as_tuple(),
                          self.port.get_as_tuple(), 
                          self.args.get_as_tuple()]
-        return dict(elements_list)
+        return OrderedDict(elements_list)
 
 class MainServer(JsonElement):
     NAME = "mainServer"
@@ -200,7 +204,7 @@ class MainServer(JsonElement):
         elements_list = [ self.ip.get_as_tuple(),
                           self.port.get_as_tuple(),
                           self.args.get_as_tuple()]
-        return dict(elements_list)
+        return OrderedDict(elements_list)
 
 class Device(JsonElement):
     def __init__(self, ip_address : str, port, name = "none"):
@@ -216,7 +220,7 @@ class Device(JsonElement):
         elements_list = [self.get_name_as_tuple(), 
                          self.ip.get_as_tuple(),
                          self.port.get_as_tuple()]
-        return dict(elements_list)
+        return OrderedDict(elements_list)
 
 class Router(JsonElement):
     def __init__(self, name, ip_address : str, port, policy):
@@ -234,7 +238,7 @@ class Router(JsonElement):
                          self.ip.get_as_tuple(),
                          self.port.get_as_tuple(),
                          self.policy.get_as_tuple()]
-        return dict(elements_list)
+        return OrderedDict(elements_list)
 
 class Source(JsonElement):
     def __init__(self,name, ip_address, port, frequency, policy):
@@ -254,23 +258,37 @@ class Source(JsonElement):
                          self.port.get_as_tuple(),
                          self.frequency.get_as_tuple(),
                          self.policy.get_as_tuple()]
-        return dict(elements_list)
+        return OrderedDict(elements_list)
 
 class Client(JsonElement):
-    def __init__(self, name, ip_address, port):
-        super(Source, self).__init__(name, CLIENT_TYPE)  
-        self.ip = Ipv4(ip_address)
+    def __init__(self, name, port):
+        super(Client, self).__init__(name, CLIENT_TYPE)  
         self.port = Port(port)
-        self.workers = []
+        self.workers_dict = OrderedDict()
 
-    def add_worker(self, worker_name):
-        if worker_name not in self.workers:
-            self.workers.append(worker_name)
+    def __format__(self, __format_spec: str) -> str:
+        workers_dict_as_string = ",".join(list(self.workers_dict.keys()))
+        numof_workers = len(list(self.workers_dict.keys()))
+        return f"name {self.name} {self.port} {numof_workers} workers"
+
+    def get_port(self):
+        return self.port
+    
+    def set_port(self, port):
+        self.port = Port(port)
+    
+    def get_workers_names(self):
+        return list(self.workers_dict.keys())
+
+    def add_worker(self, worker_name, worker_sha):
+        if worker_name not in self.workers_dict:
+            self.workers_dict[worker_name] = worker_sha
             return True
         return False
 
     def remove_worker(self, worker_name):
-        self.workers.remove(worker_name)
+        if worker_name in self.workers_dict:
+            self.workers_dict.pop(worker_name)
 
     def error(self):
         return self.ip.error() and self.port.error
@@ -279,5 +297,6 @@ class Client(JsonElement):
         assert not self.error()
         elements_list = [self.get_name_as_tuple(), 
                          self.ip.get_as_tuple(),
-                         self.port.get_as_tuple()]
-        return dict(elements_list)
+                         self.port.get_as_tuple(),
+                         ('workers', self.workers_dict)]
+        return OrderedDict(elements_list)
