@@ -3,15 +3,10 @@ import PySimpleGUI as sg
 from JsonElementWorker import *
 from WinWorkerDialogDefnitions import *
 from JsonElementWorker import Worker
+from Definitions import *
 
 def count_str_list_elements(list_str : str):
     return len(list_str.split(',')) if list_str else 0
-
-def pretty_print_dict(d):#define d
-    pretty_dict = ''  #take empty string
-    for k, v in d.items():#get items for dict
-        pretty_dict += f'{k}: {str(v)}\n'
-    return pretty_dict#return result
 
 def combo_list_editable_handler(window, event, values, map, editable_list, selection_key, codes_key, add_butt_key, clear_butt_key):
     if values:

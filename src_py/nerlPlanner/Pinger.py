@@ -64,14 +64,20 @@ def online_scanner_handler(window, event, values, devices_online_hosts_list):
 def online_devices_scanner_dialog(net_lan : str, devices_online_list : list):
     host_idx = 0
     # layout the Window
-    scanner_layout = [[sg.Text('A custom progress meter')],
+    scanner_layout = [[sg.Text('Scanning the LAN for online devices IPs')],
                     [sg.ProgressBar(BAR_MAX, orientation='h', size=(20,20), key=KEY_DEV_SCAN_BAR)],
                     [sg.Cancel()]]
     
     ScannerWindow = sg.Window(title="Worker", layout=[scanner_layout],modal=True, keep_on_top=True)                                                  
-    
-    # Create the network
-    ip_net = ipaddress.ip_network(net_lan)
+    ip_net = None
+
+    try:
+        # Create the network
+        ip_net = ipaddress.ip_network(net_lan)
+    except Exception:
+        sg.popup_ok(f"given ip error", keep_on_top=True, title="Wrong Input")
+        ScannerWindow.close()
+        return
 
     # Get all hosts on that network
     all_hosts = list(ip_net.hosts())
