@@ -8,10 +8,11 @@ import logging
 
 sg.theme('LightGray4')
 
+sg.popup_animated(NERLNET_SPLASH_LOGO_PATH) # start splash
 DEFAULT_HOST_IP = get_this_host_ip()
 
 # globals
-devices_online_hosts_list = ['127.0.0.1']
+devices_online_hosts_list = [DEFAULT_HOST_IP]
 
 # Specific Fields Frame 
 settingsFields = [  [sg.Text('Frequency '), sg.InputText(size=10, key=KEY_SETTINGS_FREQUENCY_INPUT, enable_events=True), sg.Text('Default frequency for sensors')],
@@ -139,6 +140,9 @@ main_window  = sg.Window(title=WINDOW_TITLE, layout=[[sg.Image(NERLNET_LOGO_PATH
                                                     [EntitiesFrame],
                                                     [workersFrame, devicesFrame ]
                                                     ])
+
+time.sleep(2)
+sg.popup_animated(None) # end splash
 
 while True:
     event, values = main_window.read(timeout=50)
