@@ -45,13 +45,6 @@ get_active_models_ids_list() ->
 destroy_nif(_ModelID) ->
       exit(nif_library_not_loaded).
 
-% Input:
-% ModelId - a valid model id (of an already created model) - otherwise nif exception is raised!
-% Return
-% ok - if model destroyed
-destroy_nif(_ModelID) ->
-      exit(nif_library_not_loaded).
-
 train_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor,_Type) ->
       exit(nif_library_not_loaded).
 
