@@ -53,6 +53,15 @@ public:
         return this->_MidNumModelType[mid];
     }
 
+    void get_models_ids_list(std::vector<unsigned long> &output_vec)
+    {
+        std::unordered_map<unsigned long, std::shared_ptr<opennn::NeuralNetwork>>::iterator it;
+        for(it = this->_MidNumModel.begin(); it != this->_MidNumModel.end(); ++it)
+        {
+            output_vec.push_back(it->first);
+        }
+    }
+
     // Insert new record to the MidNumModel map (new model ptr)
     void setData(std::shared_ptr<opennn::NeuralNetwork> modelPtr, unsigned long modelId, int modelType = BRIDGE_CONTROL_OPENN_NEURAL_NETWORK_TYPE) {
         if ( !this->_MidNumModel.insert( std::make_pair( modelId, modelPtr ) ).second ) {
@@ -65,9 +74,13 @@ public:
     }
 
     void deleteModel(unsigned long mid){
-        if (this->_MidNumModel.find(mid) == m.end())
+        if (this->_MidNumModelType.find(mid) == _MidNumModelType.end())
         {
             throw(std::invalid_argument("model id is not exist in this erlang node!"));
+        }
+        if (this->_MidNumModel.find(mid) == _MidNumModel.end())
+        {
+            throw std::runtime_error("an unexpected bridge controller behavior - maps are not identical!");
         }
         this->_MidNumModel.erase(mid); // TODO: Check for memmory leaks
         this->_MidNumModelType.erase(mid);
