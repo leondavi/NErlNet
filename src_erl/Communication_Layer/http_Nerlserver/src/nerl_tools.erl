@@ -6,7 +6,7 @@
 -export([http_request/4, sendHTTP/4, getHostPort/5, getShortPath/3]).
 -export([string_to_list_int/1, deleteOldJson/1]).
 -export([multipart/2, read_all_data/2]).
--export([getdeviceIP/0]).
+-export([getdeviceIP/0, port_available/1]).
 -export([list_to_numeric/1]).
 
 setup_logger(Module) ->
@@ -44,7 +44,7 @@ getShortPath(From,To,NerlnetGraph) when is_atom(To) and is_atom(From) ->  % TODO
 sendHTTP(From, To, Action, Body) ->
   case nerl_tools:getShortPath(From,To,get(nerlnetGraph)) of
     false -> ?LOG_WARNING("No path to entity ~p!",[To]);
-    {RouterHost,RouterPort} -> nerl_tools:http_request(RouterHost, RouterPort,Action, Body)
+    {RouterHost,RouterPort} -> nerl_tools:http_request(RouterHost, RouterPort, Action, Body)
   end.
 	
 
@@ -161,6 +161,15 @@ list_to_numeric(L) ->
     true -> ErrorMessage = "couldnt convert - given input string is not a numeric value: ",
             ?LOG_ERROR(ErrorMessage), throw(ErrorMessage++L)
   end.
+
+port_available(Port) ->
+    case gen_tcp:listen(Port, []) of
+        {ok, Sock} ->
+            ok = gen_tcp:close(Sock),
+            true;
+        _ ->
+            false
+    end.
 
 %% TODO: add another timing map for NIF of each worker action
 

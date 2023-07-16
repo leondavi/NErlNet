@@ -2,8 +2,10 @@
 
 
 #include <string>
+#include "../simple-cpp-logger/include/Logger.h"
 #include "ModelParams.h"
 #include "nifppNerltensorEigen.h"
+#include "bridgeController.h"
 
 using namespace opennn;
 
@@ -49,7 +51,7 @@ inline void* get_weights(void* arg)
     }
     else
     {
-        LogError << "enif_send failed ";
+        LogError("enif_send failed ");
     }
 
     return 0;

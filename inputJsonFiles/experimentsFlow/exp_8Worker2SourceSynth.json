@@ -10,14 +10,24 @@
    "Training":  [
       {
          "source name": "s1",
-         "workers": "w1,w2,w3,w4,w5,w6,w7,w8",
+         "workers": "w1,w2,w3,w4",
+         "CSV path": "synthetic_training"
+      },
+      {
+         "source name": "s2",
+         "workers": "w5,w6,w7,w8",
          "CSV path": "synthetic_training"
       }
    ],
    "Prediction": [
       {
          "source name": "s1",
-         "workers": "w1,w2,w3,w4,w5,w6,w7,w8",
+         "workers": "w1,w2,w3,w4",
+         "CSV path": "synthetic_prediction"
+      },
+      {
+         "source name": "s2",
+         "workers": "w5,w6,w7,w8",
          "CSV path": "synthetic_prediction"
       }
    ]

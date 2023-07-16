@@ -50,7 +50,7 @@ ____________API COMMANDS_____________
 -getUserJsons():                    returns the selected arch / conn / exp
 -initialization(arch, conn, exp):   set up server for a NerlNet run
 -sendJsonsToDevices():              send each NerlNet device the arch / conn jsons to init entities on it
--sendDataToSources(phase):          phase can be "training" / "prediction". send the experiment data to sources (currently happens in beggining of train/predict)
+-sendDataToSources(phase(,split)):    phase := "training" | "prediction". split := 1 default (split) | 2 (whole file). send the experiment data to sources (currently happens in beggining of train/predict)
 
 ========Running experiment==========
 -train():                           start training phase
@@ -93,6 +93,7 @@ PREDICTION_STR = "Prediction"
         self.receiverProblem = threading.Event()
         self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
         self.receiverThread.start()   
+        # time.sleep(2)
         self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
 
         if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
@@ -124,7 +125,6 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                     print(f'ERROR: TIMEOUT, COULDN\'T INIT DEVICES!!\nMake sure IPs are correct in {archAddress}')
                     return False
 
-            # response = requests.post(address, data, timeout = 10)
             if globe.jupyterFlag == False:
               print(response.ok, response.status_code)
         time.sleep(1)       # wait for connection to close
@@ -184,10 +184,13 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
         return expResults
    
-    def sendDataToSources(self, phase):
+    def sendDataToSources(self, phase, splitMode = 1):
         print("\nSending data to sources")
-        # <num of sources> Acks for updateCSV():
-        globe.pendingAcks = len(globe.components.sources) 
+        if not globe.CSVsplit:
+            globe.CSVsplit = splitMode 
+
+        # 1 ack for mainserver, who waits for all sources
+        globe.pendingAcks = 1
         # print(f"waiting for {globe.pendingAcks} acks from {len(globe.components.sources)} sources")
         self.transmitter.updateCSV(phase)
 
@@ -276,22 +279,23 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # Draw the plot using Matplotlib:
         plt.figure(figsize = (30,15), dpi = 150)
         plt.rcParams.update({'font.size': 22})
-
+        workers = []
         for csvRes in expForStats.trainingResList:
+            workers.extend(csvRes.workers)
             for workerRes in csvRes.workersResList:
                 data = workerRes.resList
                 plt.plot(data, linewidth = 3)
 
-            expTitle = (expForStats.name)
-            plt.title(f"Training - Loss Function - {expTitle}", fontsize=38)
-            plt.xlabel('Batch No.', fontsize = 30)
-            plt.ylabel('Loss (MSE)', fontsize = 30)
-            plt.xlim(left=0)
-            plt.ylim(bottom=0)
-            plt.legend(csvRes.workers)
-            plt.grid(visible=True, which='major', linestyle='-')
-            plt.minorticks_on()
-            plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
+        expTitle = (expForStats.name)
+        plt.title(f"Training - Loss Function - {expTitle}", fontsize=38)
+        plt.xlabel('Batch No.', fontsize = 30)
+        plt.ylabel('Loss (MSE)', fontsize = 30)
+        plt.xlim(left=0)
+        plt.ylim(bottom=0)
+        plt.legend(workers)
+        plt.grid(visible=True, which='major', linestyle='-')
+        plt.minorticks_on()
+        plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
 
         plt.show()
         fileName = globe.experiment_flow_global.name
@@ -302,8 +306,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         expForStats = self.experiments[expNum-1] 
 
         # Choose the matching (to the original labeled CSV) CSV from the prediction results list:
-        numOfCsvs = len(expForStats.predictionResList)
 
+        numOfCsvs = len(expForStats.predictionResList)
         print(f"\nThe prediction phase contains {numOfCsvs} CSVs:")     ## these are source unlabeled CSVs that need to be compared to test labeled CSVs
         for i, csvRes in enumerate(expForStats.predictionResList, start=1):
             print(f"{i}) {csvRes.name}: samples starting at {csvRes.indexOffset}")
@@ -334,7 +338,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                         break
 
             try:
-                labelsCsvDf = pd.read_csv(labelsCsvPath, header=None) #TODO: should expect header= None or 0?
+                labelsCsvDf = pd.read_csv(labelsCsvPath, header=None)
                 break
 
             except OSError: print("\nInvalid path\n")
@@ -380,10 +384,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                             # print(f"{worker.name} for sample #{sampleNum} predicted {batch.predictions[i][j]}, real is {labelsSeries.iloc[sampleNum+i,j]}")
 
         # # Create a confusion matrix based on the results:
-        # Another option to solve this problem, is to numerize each classification group (group 1, group 2, ...), 
-        # and add legened to show the true label value for each group.
         
-                    ################## THIS IS *NOT* FOR MULTICLASS DATA, but for multi-label data
+                    ################## THIS IS *NOT* FOR MULTICLASS DATA, but for multi-label data 
         MATRIX_DISP_SCALING = 5
         TRUE_LEABEL_IND = 0
         PRED_LEABEL_IND = 1
@@ -445,8 +447,9 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 f.write(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
                 f.write(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.\n")
                 f.write(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.\n")
-                f.write(f"Informedness (of making decision):          {round(inf*100, 3)}%.")
+                f.write(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
             print("=========================================================\n")
+            f.write("=========================================================\n")
         f.close()
         print(f'\nstats file saved...')
     

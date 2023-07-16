@@ -89,13 +89,19 @@ update({GenWorkerEts, WorkerData}) ->
 
   %% check if there are queued messages, and treat them accordingly
   MessageQueue = ets:lookup_element(GenWorkerEts, message_q, ?ETS_KEYVAL_VAL_IDX),
+  % io:format("MessageQ=~p~n",[MessageQueue]),
   [ets:insert(ThisEts, {WorkerName, worker, NerlTensorWeights}) || {Action, WorkerName, To, NerlTensorWeights} <- MessageQueue, Action == update],
+  % reset q
+  ets:delete(GenWorkerEts, message_q),  
+  ets:insert(GenWorkerEts, {message_q, []}),
 
   %% check if got all weights of workers
   WorkersList = ets:lookup_element(ThisEts, workers, ?ETS_KEYVAL_VAL_IDX),
-  GotAll = length(WorkersList) == 
-    length([ element(?ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, Attr) || Attr <- ets:tab2list(ThisEts), element(?ETS_TYPE_IDX, Attr) == worker]),
-  if GotAll ->
+  GotWorkers = [ element(?ETS_WID_IDX, Attr) || Attr <- ets:tab2list(ThisEts), element(?ETS_TYPE_IDX, Attr) == worker],
+  % io:format("My workers=~p, have vectors from=~p~n",[WorkersList,GotWorkers]),
+  WaitingFor = WorkersList -- GotWorkers,
+    
+  if WaitingFor == [] ->
       AvgWeightsNerlTensor = generate_avg_weights(ThisEts),
       % io:format("AvgWeights = ~p~n",[AvgWeightsNerlTensor]),
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
@@ -104,7 +110,7 @@ update({GenWorkerEts, WorkerData}) ->
       ClientPID = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
       gen_statem:cast(ClientPID, {custom_worker_message, WorkersList, AvgWeightsNerlTensor}),
       false;
-  true -> true end.
+  true -> true end. %% return StillUpdate = true
 
 
 generate_avg_weights(FedEts) ->

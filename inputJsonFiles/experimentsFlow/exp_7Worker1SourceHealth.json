@@ -1,0 +1,25 @@
+{
+   "Features": 13,
+   "Labels": ["no HA", "HA1", "HA2", "HA3", "HA4"],
+   "CSV path": "health_comb",
+   "Batches per source": 
+   {
+      "Training": 100,
+      "Prediction": 100
+   },
+   "Training":  [
+      {
+         "source name": "s1",
+         "workers": "w11,w12,w21,w22,w31,w33,w4",
+         "CSV path": "health_comb_train"
+      }
+   ],
+   "Prediction": [
+      {
+         "source name": "s1",
+         "workers": "w11,w12,w21,w22,w31,w33,w4",
+         "CSV path": "health_comb_predict"
+      }
+   ]
+}
+    

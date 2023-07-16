@@ -151,7 +151,7 @@ sum_nerltensors_lists_test(_Type, 0, Performance) -> Performance;
 sum_nerltensors_lists_test(Type, N, Performance) -> 
       DimX = rand:uniform(?DIMX_RAND_MAX),
       DIMY = rand:uniform(?DIMX_RAND_MAX),
-      Elements = rand:uniform(?NERLTENSORS_SUM_LIST_MAX_SIZE),
+      Elements = rand:uniform(?NERLTENSORS_SUM_LIST_MAX_SIZE) + 1, % Min 2 elements
       NerlTensors =  [generate_nerltensor(Type,DimX,DIMY,1) || _X <- lists:seq(1, Elements)],
      % io:format("NerlTensors ~p~n", [NerlTensors]),
       NerlTensorsEencoded = [element(1, nerlNIF:encode_nif(NerlTensor, Type)) || NerlTensor <- NerlTensors],
@@ -161,7 +161,7 @@ sum_nerltensors_lists_test(Type, N, Performance) ->
       Tic = nerl:tic(),
       [ResultSumEncoded] = nerlNIF:sum_nerltensors_lists(NerlTensorsEencoded, Type),
       {TocRes, _} = nerl:toc(Tic),
-      PerformanceNew = TocRes + Performance,
+      PerformanceNew = (TocRes / (Elements - 1)) + Performance, % average sum nif performance (dividing by # of sum ops)
       %io:format("ResultSumEncoded ~p~n",[ResultSumEncoded]),
       {ResultSumEncodedDecoded, erl_float} = nerlNIF:nerltensor_conversion({ResultSumEncoded, Type}, erl_float),
      % io:format("ResultSumEncodedDecoded ~p~n",[ResultSumEncodedDecoded]),

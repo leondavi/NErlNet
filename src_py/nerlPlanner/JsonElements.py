@@ -1,20 +1,5 @@
-import re
-
-ARGS_TYPE = 0
-VALUE_TYPE = 1
-IP_TYPE = 2
-PORT_TYPE = 3
-POLICY_TYPE = 4
-DEVICE_TYPE = 5
-ROUTER_TYPE = 6
-CLIENT_TYPE = 7
-SOURCE_TYPE = 8
-WORKER_TYPE = 9
-MAIN_SERVER_TYPE = 10
-API_SERVER_TYPE = 11
-SPECIAL_ENTITY_TYPE = 12
-NONE_TYPE = -1
-
+from JsonElementsDefinitions import *
+from collections import OrderedDict
 
 class JsonElement():
     def __init__(self, name = "none", elem_type = NONE_TYPE):
@@ -46,12 +31,22 @@ class JsonElement():
     def get_type(self):
         assert(self.elem_type == NONE_TYPE)
 
+    def set_name(self, name):
+        self.name = name
+
     def help_str():
         raise "help is not implemented"
+    
+    def dict_as_list_of_pairs_fixer(self, input_list : list ) -> list:
+        new_list = []
+        for key, value in input_list:
+            new_tuple = (f'{key}',f'{value}')
+            new_list.append(new_tuple)
+        return new_list
 
 class Arguments(JsonElement):
     def __init__(self, args : str):
-        super(Frequency, self).__init__("args", ARGS_TYPE)
+        super(Arguments, self).__init__("args", ARGS_TYPE)
         self.args = args
 
     def error(self):
@@ -65,7 +60,7 @@ class Arguments(JsonElement):
 class Frequency(JsonElement):
     def __init__(self, value):
         super(Frequency, self).__init__("frequency", VALUE_TYPE)
-        self.value = int(value) if isinstance(value, str) else value
+        self.value = float(value) if isinstance(value, str) else value
 
     def error(self):
         return self.value < 0
@@ -73,15 +68,20 @@ class Frequency(JsonElement):
     def get_as_tuple(self):
         assert not self.error()
         return (self.get_name() , self.value)
+    
+    def get_str(self):
+        return f'{self.value}'
 
 
 class BatchSize(JsonElement):
     def __init__(self, value : int):
         super(BatchSize, self).__init__("batchSize", VALUE_TYPE)
         self.value = int(value) if isinstance(value, str) else value
+        self.int_valid = float(value).is_integer()
     
     def error(self):
-        return self.value < 1
+        error_conditions = (self.value < 1) and (not self.int_valid)
+        return error_conditions
     
     def get_as_tuple(self):
         assert not self.error()
@@ -142,6 +142,12 @@ class Port(JsonElement):
         super(Port, self).__init__("port", PORT_TYPE)
         self.value = int(value) if isinstance(value, str) else value
 
+    def get_value(self):
+        return self.value
+
+    def __format__(self, __format_spec: str) -> str:
+        return f"Port: {self.value}"
+
     def error(self):
         return self.value > 65535 or self.value < 1 # 0 is reserved
 
@@ -165,7 +171,7 @@ class NerlGUI(JsonElement):
         elements_list = [self.ip.get_as_tuple(),
                          self.port.get_as_tuple(),
                          self.args.get_as_tuple()]
-        return dict(elements_list)
+        return OrderedDict(elements_list)
 
 class ApiServer(JsonElement):
     NAME = "apiServer"
@@ -176,14 +182,14 @@ class ApiServer(JsonElement):
         self.args = Arguments(args)
 
     def error(self):
-        return self.ip.error() or self.port.error 
+        return self.ip.error() or self.port.error()
     
     def get_as_dict(self):
         assert not self.error()
         elements_list = [self.ip.get_as_tuple(),
                          self.port.get_as_tuple(), 
                          self.args.get_as_tuple()]
-        return dict(elements_list)
+        return OrderedDict(elements_list)
 
 class MainServer(JsonElement):
     NAME = "mainServer"
@@ -194,14 +200,14 @@ class MainServer(JsonElement):
         self.args = Arguments(args)
 
     def error(self):
-        return self.ip.error() or self.port.error 
+        return self.ip.error() or self.port.error()
 
     def get_as_dict(self):
         assert not self.error()
         elements_list = [ self.ip.get_as_tuple(),
                           self.port.get_as_tuple(),
                           self.args.get_as_tuple()]
-        return dict(elements_list)
+        return OrderedDict(elements_list)
 
 class Device(JsonElement):
     def __init__(self, ip_address : str, port, name = "none"):
@@ -210,74 +216,14 @@ class Device(JsonElement):
         self.port = Port(port)
 
     def error(self):
-        return self.ip.error() or self.port.error 
+        return self.ip.error() or self.port.error()
 
     def get_as_dict(self):
         assert not self.error()
         elements_list = [self.get_name_as_tuple(), 
                          self.ip.get_as_tuple(),
                          self.port.get_as_tuple()]
-        return dict(elements_list)
-
-# TODO
-class Worker(JsonElement):
-    def __init__(self, name, LayersSizesList : str, ModelTypeStr : str, ModelType : int, OptimizationTypeStr : str, OptimizationType : int,
-                 LossMethodStr : str, LossMethod : int, LearningRate : str, ActivationLayersList : str, LayerTypesList : str):
-        super(Worker, self).__init__(name, WORKER_TYPE)
-        self.LayersSizesList = LayersSizesList
-        self.ModelTypeStr = ModelTypeStr
-        self.ModelType = ModelType # None
-        self.OptimizationTypeStr = OptimizationTypeStr
-        self.OptimizationType = OptimizationType # None
-        self.LossMethodStr = LossMethodStr
-        self.LossMethod = LossMethod # None
-        self.LearningRate = float(LearningRate)
-        self.ActivationLayersList = ActivationLayersList
-        self.LayerTypesList = LayerTypesList
-
-        self.PoolingList, self.ScalingList = self.generate_pooling_and_scaling_lists()
-        
-        self.IntListOfLayersTypes = self.list_representation_conversion_int_elements(self.LayerTypesList)
-        self.IntPoolingList = [ int(x) for x in self.PoolingList ]
-        self.IntScalingList =  [ int(x) for x in self.IntScalingList ]
-        self.IntLayersSizesList = self.list_representation_conversion_int_elements(self.LayersSizesList)
-        self.IntActivationLayersList = self.list_representation_conversion_int_elements(self.ActivationLayersList)
-
-        # validate lists sizes 
-        lists_for_length = [self.IntListOfLayersTypes, self.IntPoolingList , self.IntScalingList , self.IntLayersSizesList, self.IntActivationLayersList ]
-        list_of_lengths = [len(x) for x in lists_for_length]
-        self.lengths_validation = all([x == list_of_lengths[0] for x in list_of_lengths])
-
-    def __str__(self):
-        first_line =  f"Layers: {self.LayersSizesList}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}\n"
-        second_line = f"loss method: {self.LossMethodStr}"
-        return
-    
-    def error(self): 
-        return not self.input_validation() # + more checks
-
-    def input_validation(self):
-        layer_sizes_all_positive_integers = len([x for x in self.LayersSizesList if x > 0]) == len(self.LayersSizesList)
-        return self.lengths_validation and layer_sizes_all_positive_integers
-    
-    def json_list_representation_conversion(self, listStr : str) -> str:
-        return str(self.list_representation_conversion(listStr))
-    
-    def list_representation_conversion(self, listStr : str) -> list:
-        return listStr.split(",")
-    
-    def list_representation_conversion_int_elements(self, listStr : str) -> list:
-        return [int(x) for x in self.list_representation_conversion(listStr)]
-    
-    SCALING_LAYER_TYPE_IDX = "1"
-    POOLING_LAYER_TYPE_IDX = "4"
-    NO_SCALING_TYPE_IDX = 1
-    NO_POOLING_TYPE_IDX = 1
-    def generate_pooling_and_scaling_lists(self):
-        ListOfLayersTypes = self.list_representation_conversion(self.LayerTypesList)
-        PoolingList = [x.split("-")[-1] if self.POOLING_LAYER_TYPE_IDX in x else self.NO_POOLING_TYPE_IDX for x in ListOfLayersTypes]
-        ScalingList = [x.split("-")[-1] if self.SCALING_LAYER_TYPE_IDX in x else self.NO_SCALING_TYPE_IDX for x in ListOfLayersTypes]
-        return PoolingList, ScalingList
+        return OrderedDict(elements_list)
 
 class Router(JsonElement):
     def __init__(self, name, ip_address : str, port, policy):
@@ -295,7 +241,7 @@ class Router(JsonElement):
                          self.ip.get_as_tuple(),
                          self.port.get_as_tuple(),
                          self.policy.get_as_tuple()]
-        return dict(elements_list)
+        return OrderedDict(elements_list)
 
 class Source(JsonElement):
     def __init__(self,name, ip_address, port, frequency, policy):
@@ -315,13 +261,37 @@ class Source(JsonElement):
                          self.port.get_as_tuple(),
                          self.frequency.get_as_tuple(),
                          self.policy.get_as_tuple()]
-        return dict(elements_list)
+        return OrderedDict(elements_list)
 
 class Client(JsonElement):
-    def __init__(self, name, ip_address, port):
-        super(Source, self).__init__(name, CLIENT_TYPE)  
-        self.ip = Ipv4(ip_address)
+    def __init__(self, name, port):
+        super(Client, self).__init__(name, CLIENT_TYPE)  
         self.port = Port(port)
+        self.workers_dict = OrderedDict()
+
+    def __format__(self, __format_spec: str) -> str:
+        workers_dict_as_string = ",".join(list(self.workers_dict.keys()))
+        numof_workers = len(list(self.workers_dict.keys()))
+        return f"name {self.name} {self.port} {numof_workers} workers"
+
+    def get_port(self):
+        return self.port
+    
+    def set_port(self, port):
+        self.port = Port(port)
+    
+    def get_workers_names(self):
+        return list(self.workers_dict.keys())
+
+    def add_worker(self, worker_name, worker_sha):
+        if worker_name not in self.workers_dict:
+            self.workers_dict[worker_name] = worker_sha
+            return True
+        return False
+
+    def remove_worker(self, worker_name):
+        if worker_name in self.workers_dict:
+            self.workers_dict.pop(worker_name)
 
     def error(self):
         return self.ip.error() and self.port.error
@@ -330,5 +300,6 @@ class Client(JsonElement):
         assert not self.error()
         elements_list = [self.get_name_as_tuple(), 
                          self.ip.get_as_tuple(),
-                         self.port.get_as_tuple()]
-        return dict(elements_list)
+                         self.port.get_as_tuple(),
+                         ('workers', self.workers_dict)]
+        return OrderedDict(elements_list)
