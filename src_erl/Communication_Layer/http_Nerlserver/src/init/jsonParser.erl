@@ -10,6 +10,7 @@
 -include("../nerl_tools.hrl").
 -export([getHostEntities/3, json_to_ets/2]).
 
+-define(SINGLE_STRONG_COMPONENT,2). %% apiServer alone + all network 
 -define(ETS_DATA_IDX, 2).
 -define(PORT_IDX, 1). % port is always at the first index of any entity that has a port!
 -define(NERLNET_DATA_ETS_LOG_DST, "/usr/local/lib/nerlnet-lib/log/nerlnet_data_ets.log").
@@ -79,7 +80,12 @@ get_host_sources(ArchMap, HostEntities) ->
     SourceName = binary_to_atom(maps:get(<<"name">>,SourceMap)),
     SourcePort = list_to_integer(binary_to_list(maps:get(<<"port">>, SourceMap))),
     SourceMethod = list_to_integer(binary_to_list(maps:get(<<"method">>, SourceMap))),
-    {SourceName,{SourcePort,SourceMethod}}
+    IsCustomFreq = maps:is_key(<<"frequency">>, SourceMap),
+    CustomFreq =
+    if IsCustomFreq -> list_to_integer(binary_to_list(maps:get(<<"frequency">>, SourceMap)));
+       true -> none
+    end,
+    {SourceName,{SourcePort,SourceMethod, CustomFreq}}
   end,
   [Func(S) || S <- HostSources]. % list of tuples: [{SourceName,SourcePort,SourceMethod}]
 
@@ -163,6 +169,15 @@ getHostEntities(ArchitectureMap,CommunicationMap, HostNameBin)->
   ets:insert(nerlnet_data, {communicationGraph, NerlnetGraph}),
 
   NerlnetGraph = buildCommunicationGraph(ArchitectureMap, CommunicationMap),
+
+  % Sources = ets:lookup_element(nerlnet_data, sources, ?ETS_DATA_IDX),
+  % VerticesNames = digraph:vertices(NerlnetGraph),
+  % SourcesInGraph = [S || S <- maps:keys(Sources), lists:member(S, VerticesNames)],
+
+  % AllCreated = length(maps:keys(Sources)) == length(SourcesInGraph),
+  % if AllCreated -> cont;
+  % true -> throw("not all sources connected!!") end,
+
   % add graph to ets
   % save log of data extracted from json
   ets:tab2file(nerlnet_data, ?NERLNET_DATA_ETS_LOG_DST). % TODO consider adding a timestamp
@@ -226,8 +241,12 @@ connectRouters(Graph,_ArchitectureMap,CommunicationMap) ->
     ?LOG_INFO("RoutersEdges:~p~n",[RoutersEdges]),
     AddEdgesFunc = fun({Router,Entity}) -> add_edges(Graph,Router,Entity)  end,
     lists:foreach(AddEdgesFunc, RoutersEdges),
-    StrongComponents = lists:flatten(digraph_utils:strong_components(Graph)),
-    ?LOG_INFO("Graph update - strong components: ~p",[StrongComponents]).
+    StrongComponents = digraph_utils:strong_components(Graph),
+    ?LOG_INFO("Graph update - strong components: ~p",[StrongComponents]),
+    case length(StrongComponents) of
+      ?SINGLE_STRONG_COMPONENT -> cont;
+      _ -> throw("not all entities connected! Change connection map!!")
+    end.
 
 % returns true if edge appears in graph or false if not
 edge_in_graph(Graph, Vertex1, Vertex2) when is_atom(Vertex1) and is_atom(Vertex2) ->  

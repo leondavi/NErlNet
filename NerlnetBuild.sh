@@ -126,6 +126,7 @@ parse_commandline "$@"
 
 NERLNET_BUILD_PREFIX="[Nerlnet Build] "
 
+
 OPTION="add_compile_definitions(EIGEN_MAX_ALIGN_BYTES=8)"
 is_rasp="$(grep -c raspbian /etc/os-release)"
 if [ $is_rasp -gt "0" ]; then 
@@ -138,6 +139,7 @@ fi
 
 echo "$NERLNET_BUILD_PREFIX Building Nerlnet Library"
 echo "$NERLNET_BUILD_PREFIX Cmake command of Nerlnet NIFPP"
+set -e
 cmake -S . -B build/release -DCMAKE_BUILD_TYPE=RELEASE
 cd build/release
 echo "$NERLNET_BUILD_PREFIX Script CWD: $PWD"
@@ -146,6 +148,7 @@ echo "Jobs Number: $JobsNum"
 make -j$JobsNum 
 cd ../../
 echo "$NERLNET_BUILD_PREFIX Script CWD: $PWD"
+set +e
 
 REBAR3_FILE=src_erl/rebar3/rebar3
 REBAR3_SYMLINK=/usr/local/bin/rebar3

@@ -178,7 +178,7 @@ spawnTransmitter(WorkersNames,CSVPath,CSVlist,NerlnetGraph, MyName,WorkersMap,Ba
 %%  ListOfWorkers = re:split(WorkersNames,",", [{return, list}]),
   Triplets = nerl_tools:getHostPort(WorkersNames,WorkersMap,NerlnetGraph,MyName,[]),
   %%[list of binarys from CSV file, Size of batch, 1/Hz (in milisecond), statem pid]
-  Ms = round(1000/Frequency),
+  Ms = round(1000/Frequency), % frequency to timeout duration in milliseconds
   spawn(?MODULE,sendSamples,[CSVlist,CSVPath,BatchSize,LengthOfSample,Ms,self(),Triplets,0,NumOfBatchesToSend,Method]).
 
 
@@ -198,7 +198,7 @@ sendSamples(ListOfSamples,CSVPath,BatchSize,LengthOfSample, Ms,Pid,Triplets,Coun
           %%this http request will be splitted at client's state machine by the following order:
           %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
   if NumOfBatchesToSend rem 10 == 0 ->
-    ?LOG_INFO("~p samples left to send~n", [NumOfBatchesToSend]);
+    ?LOG_INFO("~p batches left to send~n", [NumOfBatchesToSend]);
   true -> skip end,
   
   case Method of

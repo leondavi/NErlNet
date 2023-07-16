@@ -42,6 +42,13 @@ class Transmitter:
         response = requests.post(self.clientsTrainingAddress, data='')
         if globe.jupyterFlag == False:
             print(response.ok, response.status_code)
+
+    def clientsPredict(self):
+        globe.pendingAcks = 1
+        print('Clients Predict Phase')
+        response = requests.post(self.clientsPredictAddress, data='')
+        if globe.jupyterFlag == False:
+            print(response.ok, response.status_code)
         
     def updateCSV(self, currentPhase): # currentPhase is either "Training", "Prediction" or "Statistics". 
         print('Update CSV Phase')
@@ -53,24 +60,25 @@ class Transmitter:
                     csvfile = open(os.path.join(root, filename), 'r').readlines()
                     break
 
-        linesPerSource = int(len(csvfile)/len(globe.components.sources))
-
         SourceData = []
-        for row in range(0,len(csvfile),linesPerSource):
-            SourceData.append(csvfile[row:row+linesPerSource])
+        if globe.CSVsplit == 2:      ## send entire file to sources
+            linesPerSource = 0
+            for source in globe.experiment_flow_global.expFlow[currentPhase]:       
+                SourceData.append(csvfile[:])
+        else:                   ## split file and send to sources
+            linesPerSource = int(len(csvfile)/len(globe.components.sources))
+            for row in range(0,len(csvfile),linesPerSource):
+                SourceData.append(csvfile[row:row+linesPerSource])
 
-        i=0
-        for source in globe.experiment_flow_global.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
+        for i,source in enumerate(globe.experiment_flow_global.expFlow[currentPhase]): # Itterate over sources in accordance to current phase
             sourceName = source['source name']
             workersUnderSource = source['workers']
-            #csvPathForSource = source['CSV path']
             SourceStr = ""
             for Line in SourceData[i]:
                 SourceStr += Line
             dataStr = f'{sourceName}#{workersUnderSource}#{SourceStr}'
 
             response = requests.post(self.updateCSVAddress, data=dataStr)
-            i+=1
 
         print("Data sent to sources")
         if globe.jupyterFlag == False:
@@ -82,7 +90,7 @@ class Transmitter:
         print('\nStart Casting Phase')
 
         # 1 Ack for startCasting():
-        globe.pendingAcks = len(globe.components.toString('s'))
+        globe.pendingAcks = 1
 
         # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
         if (phase==globe.TRAINING_STR):
@@ -96,13 +104,6 @@ class Transmitter:
 
         response = requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
 
-        if globe.jupyterFlag == False:
-            print(response.ok, response.status_code)
-
-    def clientsPredict(self):
-        globe.pendingAcks = 1
-        print('Clients Predict Phase')
-        response = requests.post(self.clientsPredictAddress, data='')
         if globe.jupyterFlag == False:
             print(response.ok, response.status_code)
 
@@ -159,6 +160,8 @@ class Transmitter:
 
     def statistics(self):
         requests.post(self.statisticsAddress, data='getStatistics')
+        globe.pendingAcks = 1
+        waitForAck()
     
 
     '''

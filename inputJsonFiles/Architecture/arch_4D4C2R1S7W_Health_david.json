@@ -1,48 +1,55 @@
 {
   "NerlNetSettings": 
   {
-    "frequency": "10",
-    "batchSize": "50"
+    "frequency": "100",
+    "batchSize": "10"
   }
   ,
   "devices": [
     {
-      "host": "192.168.0.108",
-      "entities": "mainServer,c1,s1,r1,apiServer"
+      "host": "192.168.0.169",
+      "entities": "mainServer,c1,s1,apiServer"
     },
     {
-      "host": "192.168.0.100",
-      "entities": "c2,r2"
+      "host": "192.168.0.226",
+      "entities": "c2,c2,s1,r1"
     },
     {
-      "host": "192.168.0.103",
-      "entities": "c3"
+      "host": "192.168.0.228",
+      "entities": "c3,r2"
+    },
+    {
+      "host": "192.168.0.195",
+      "entities": "c4"
     }
   ],
   "apiServer": 
     {
-      "host": "192.168.0.108",
+      "host": "192.168.0.169",
       "port": "8095",
-      "args": ""
+      "args": "",
+      "_comment": "Special entity"
     }
   ,
   "nerlGUI": 
     {
-      "host": "192.168.0.108",
+      "host": "192.168.0.169",
       "port": "8096",
-      "args": ""
+      "args": "",
+      "_comment": "Special entity"
     }
   ,
   "mainServer": 
     {
-      "host": "192.168.0.108",
+      "host": "192.168.0.169",
       "port": "8080",
-      "args": ""
+      "args": "",
+      "_comment": "Special entity"
     }
   ,
   "workers": [
     {
-      "name": "w1",
+      "name": "w11",
       "modelId": "1",
       "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
       "modelType": "5",
@@ -50,7 +57,7 @@
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
       "layerTypesList":             "[4,1,1,1,0,0,0]",
-      "layersSizes":                "[4,1,1,5,10,5,3]",
+      "layersSizes":                "[4,1,1,13,10,6,5]",
       "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
       "layersActivationFunctions":  "[4,1,1,6,6,11,11]",
       "federatedMode": "0",
@@ -60,13 +67,10 @@
       "_comment5": "TODOTODO explain learningRate",
       "learningRate": "0.01",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"6",
-      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
-      "federatedServer": "w1",
-      "syncCount": "3"
+      "optimizer":"6"     
     },
     {
-      "name": "w2",
+      "name": "w12",
       "modelId": "1",
       "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
       "modelType": "5",
@@ -74,7 +78,7 @@
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
       "layerTypesList":             "[4,1,1,1,0,0,0]",
-      "layersSizes":                "[4,1,1,5,10,5,3]",
+      "layersSizes":                "[4,1,1,13,10,6,5]",
       "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
       "layersActivationFunctions":  "[4,1,1,6,6,11,11]",
       "federatedMode": "0",
@@ -85,12 +89,11 @@
       "learningRate": "0.01",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
       "optimizer":"6",
-      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
-      "federatedServer": "w1",
-      "syncCount": "3"
+      "features": "13",
+      "labels": "5"       
     },
     {
-      "name": "w3",
+      "name": "w21",
       "modelId": "1",
       "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
       "modelType": "5",
@@ -98,7 +101,7 @@
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
       "layerTypesList":             "[4,1,1,1,0,0,0]",
-      "layersSizes":                "[4,1,1,5,10,5,3]",
+      "layersSizes":                "[4,1,1,13,10,6,5]",
       "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
       "layersActivationFunctions":  "[4,1,1,6,6,11,11]",
       "federatedMode": "0",
@@ -109,9 +112,77 @@
       "learningRate": "0.01",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
       "optimizer":"6",
-      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
-      "federatedServer": "w1",
-      "syncCount": "3"
+      "features": "13",
+      "labels": "5"       
+    },
+    {
+      "name": "w22",
+      "modelId": "1",
+      "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
+      "modelType": "5",
+      "scalingType_comment1": "Non-Scaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
+      "scalingMethod": "1",
+      "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
+      "layerTypesList":             "[4,1,1,1,0,0,0]",
+      "layersSizes":                "[4,1,1,13,10,6,5]",
+      "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
+      "layersActivationFunctions":  "[4,1,1,6,6,11,11]",
+      "federatedMode": "0",
+      "countLimit": "10",
+      "_comment4": "LOSS: SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
+      "lossMethod": "2",
+      "_comment5": "TODOTODO explain learningRate",
+      "learningRate": "0.01",
+      "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
+      "optimizer":"6",
+      "features": "13",
+      "labels": "5"       
+    },
+    {
+      "name": "w31",
+      "modelId": "1",
+      "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
+      "modelType": "5",
+      "scalingType_comment1": "Non-Scaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
+      "scalingMethod": "1",
+      "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
+      "layerTypesList":             "[4,1,1,1,0,0,0]",
+      "layersSizes":                "[4,1,1,13,10,6,5]",
+      "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
+      "layersActivationFunctions":  "[4,1,1,6,6,11,11]",
+      "federatedMode": "0",
+      "countLimit": "10",
+      "_comment4": "LOSS: SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
+      "lossMethod": "2",
+      "_comment5": "TODOTODO explain learningRate",
+      "learningRate": "0.01",
+      "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
+      "optimizer":"6",
+      "features": "13",
+      "labels": "5"       
+    },
+    {
+      "name": "w32",
+      "modelId": "1",
+      "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
+      "modelType": "5",
+      "scalingType_comment1": "Non-Scaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
+      "scalingMethod": "1",
+      "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
+      "layerTypesList":             "[4,1,1,1,0,0,0]",
+      "layersSizes":                "[4,1,1,13,10,6,5]",
+      "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
+      "layersActivationFunctions":  "[4,1,1,6,6,11,11]",
+      "federatedMode": "0",
+      "countLimit": "10",
+      "_comment4": "LOSS: SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
+      "lossMethod": "2",
+      "_comment5": "TODOTODO explain learningRate",
+      "learningRate": "0.01",
+      "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
+      "optimizer":"6",
+      "features": "13",
+      "labels": "5"       
     },
     {
       "name": "w4",
@@ -122,7 +193,7 @@
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
       "layerTypesList":             "[4,1,1,1,0,0,0]",
-      "layersSizes":                "[4,1,1,5,10,5,3]",
+      "layersSizes":                "[4,1,1,13,10,6,5]",
       "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
       "layersActivationFunctions":  "[4,1,1,6,6,11,11]",
       "federatedMode": "0",
@@ -133,140 +204,48 @@
       "learningRate": "0.01",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
       "optimizer":"6",
-      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
-      "federatedServer": "w1",
-      "syncCount": "3"
-    },
-    {
-      "name": "w5",
-      "modelId": "1",
-      "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
-      "modelType": "5",
-      "scalingType_comment1": "Non-Scaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
-      "scalingMethod": "1",
-      "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
-      "layerTypesList":             "[4,1,1,1,0,0,0]",
-      "layersSizes":                "[4,1,1,5,10,5,3]",
-      "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
-      "layersActivationFunctions":  "[4,1,1,6,6,11,11]",
-      "federatedMode": "0",
-      "countLimit": "10",
-      "_comment4": "LOSS: SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
-      "lossMethod": "2",
-      "_comment5": "TODOTODO explain learningRate",
-      "learningRate": "0.01",
-      "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"6",
-      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
-      "federatedServer": "w1",
-      "syncCount": "3"
-    },
-    {
-      "name": "w6",
-      "modelId": "1",
-      "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
-      "modelType": "5",
-      "scalingType_comment1": "Non-Scaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
-      "scalingMethod": "1",
-      "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
-      "layerTypesList":             "[4,1,1,1,0,0,0]",
-      "layersSizes":                "[4,1,1,5,10,5,3]",
-      "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
-      "layersActivationFunctions":  "[4,1,1,6,6,11,11]",
-      "federatedMode": "0",
-      "countLimit": "10",
-      "_comment4": "LOSS: SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
-      "lossMethod": "2",
-      "_comment5": "TODOTODO explain learningRate",
-      "learningRate": "0.01",
-      "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"6",
-      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
-      "federatedServer": "w1",
-      "syncCount": "3"
-    },
-    {
-      "name": "w7",
-      "modelId": "1",
-      "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
-      "modelType": "5",
-      "scalingType_comment1": "Non-Scaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
-      "scalingMethod": "1",
-      "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
-      "layerTypesList":             "[4,1,1,1,0,0,0]",
-      "layersSizes":                "[4,1,1,5,10,5,3]",
-      "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
-      "layersActivationFunctions":  "[4,1,1,6,6,11,11]",
-      "federatedMode": "0",
-      "countLimit": "10",
-      "_comment4": "LOSS: SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
-      "lossMethod": "2",
-      "_comment5": "TODOTODO explain learningRate",
-      "learningRate": "0.01",
-      "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"6",
-      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
-      "federatedServer": "w1",
-      "syncCount": "3"
-    },
-    {
-      "name": "w8",
-      "modelId": "1",
-      "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
-      "modelType": "5",
-      "scalingType_comment1": "Non-Scaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
-      "scalingMethod": "1",
-      "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
-      "layerTypesList":             "[4,1,1,1,0,0,0]",
-      "layersSizes":                "[4,1,1,5,10,5,3]",
-      "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
-      "layersActivationFunctions":  "[4,1,1,6,6,11,11]",
-      "federatedMode": "0",
-      "countLimit": "10",
-      "_comment4": "LOSS: SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
-      "lossMethod": "2",
-      "_comment5": "TODOTODO explain learningRate",
-      "learningRate": "0.01",
-      "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"6",
-      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
-      "federatedServer": "w1",
-      "syncCount": "3"
+      "features": "13",
+      "labels": "5"       
     }
   ],
   "clients": [
     {
       "name": "c1",
-      "port": "8081",
-      "workers": "w1,w2,w3,w4,w5,w6"
+      "port": "8087",
+      "workers": "w11,w12"
     },
     {
       "name": "c2",
-      "port": "8082",
-      "workers": "w7"
+      "port": "8081",
+      "workers": "w21,w22"
     },
     {
       "name": "c3",
-      "port": "8082",
-      "workers": "w8"
+      "port": "8081",
+      "workers": "w31,32"
+    },
+    {
+      "name": "c4",
+      "port": "8081",
+      "workers": "w4"
     }
   ],
   "sources": [
     {
       "name": "s1",
       "port": "8091",
-      "method": "2",
+      "method": "1",
       "COMMENTS": "method allowed: '1': sends each exapme to all clients listed, '2': round robin between all clients"
     }
   ],
  "routers": [
     {
       "name": "r1",
-      "port": "8084"
+      "port": "18088"
     },
     {
       "name": "r2",
-      "port": "8085"
+      "port": "18084"
     }
   ]
 }
