@@ -67,13 +67,13 @@ init([Parent, Gen])->
         io:format("got body: ~p~n", [Body]),
 
         DevicesInfo = string:split(Body, "#", all),
-        Devices = [string:split(DeviceInfo, ",", all) || DeviceInfo <- DevicesInfo, DevicesInfo /=[[]]],
+        Devices = [string:split(DeviceInfo, ",", all) || DeviceInfo <- DevicesInfo, DevicesInfo /= [[]]],
         Edges = lists:droplast(lists:last(Devices)),
 
         io:format("got graph: ~p~n", [Devices]),
         DeviceList = lists:droplast(Devices),
 
-        {FileName, G} = gui_tools:makeGraphIMG(DeviceList, Edges),
+        {FileName, G} = gui_tools:makeGraphIMG(22),
 
         mainScreen:updateGraph(Gen, gui_tools:serialize(G)),
         mainScreen:addInfo(Gen, "updated graph"),
