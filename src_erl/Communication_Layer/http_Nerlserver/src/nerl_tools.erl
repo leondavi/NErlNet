@@ -44,7 +44,7 @@ getShortPath(From,To,NerlnetGraph) when is_atom(To) and is_atom(From) ->  % TODO
 sendHTTP(From, To, Action, Body) ->
   case nerl_tools:getShortPath(From,To,get(nerlnetGraph)) of
     false -> ?LOG_WARNING("No path to entity ~p!",[To]);
-    {RouterHost,RouterPort} -> nerl_tools:http_request(RouterHost, RouterPort,Action, Body)
+    {RouterHost,RouterPort} -> nerl_tools:http_request(RouterHost, RouterPort, Action, Body)
   end.
 	
 
@@ -97,10 +97,16 @@ read_all_parts(Req0, Got) ->
   %% gets multipart data and combines it
 
 read_all_data(Req0, Got) ->
-  %io:format("length of read data so far: ~p~n",[length(Got)]),
+  % io:format("length of read data so far: ~p~n",[length(Got)]),
   case cowboy_req:read_body(Req0) of
-      {more, Data, Req} -> read_all_data(Req, Got++Data);
-      {ok, Data, Req} -> {Req, Got++Data}
+      {more, Data, Req} -> 
+        if 
+          Got == <<>>     ->  read_all_data(Req, <<Data/binary>>);
+          is_binary(Data) ->  read_all_data(Req, <<Got/binary, Data/binary>>);
+          true            ->  read_all_data(Req, Got++Data) end;
+      {ok, Data, Req}   -> 
+        if is_binary(Data) -> {Req, <<Got/binary, Data/binary>>};
+        true ->               {Req, Got++Data} end
   end.
 
 deleteOldJson(FilePath) ->
