@@ -20,6 +20,12 @@ from networkComponents import NetworkComponents
 import globalVars as globe
 import receiver
 
+def is_port_in_use(port: int) -> bool:
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('localhost', port)) == 0
+
+
 class ApiServer():
     def __init__(self):       
         self.json_dir_parser = JsonDirParser()
@@ -89,6 +95,8 @@ PREDICTION_STR = "Prediction"
         print("Initializing the receiver thread...\n")
 
         # Initializing the receiver (a Flask HTTP server that receives results from the Main Server):
+        if is_port_in_use(globe.components.receiverPort):
+            self.stopServer()
 
         self.receiverProblem = threading.Event()
         self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
