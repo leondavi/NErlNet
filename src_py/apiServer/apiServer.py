@@ -56,7 +56,7 @@ ____________API COMMANDS_____________
 -getUserJsons():                    returns the selected arch / conn / exp
 -initialization(arch, conn, exp):   set up server for a NerlNet run
 -sendJsonsToDevices():              send each NerlNet device the arch / conn jsons to init entities on it
--sendDataToSources(phase(,split)):    phase := "training" | "prediction". split := 1 default (split) | 2 (whole file). send the experiment data to sources (currently happens in beggining of train/predict)
+-sendDataToSources(phase(,split)):  phase := "training" | "prediction". split := 1 default (split) | 2 (whole file). send the experiment data to sources (currently happens in beggining of train/predict)
 
 ========Running experiment==========
 -train():                           start training phase
@@ -84,7 +84,9 @@ PREDICTION_STR = "Prediction"
         globe.experiment_flow_global.set_experiment_flow(expData)
         globe.components = NetworkComponents(archData)
         globe.components.printComponents()
-        print(f"Connections:\n\t\t{connData['connectionsMap']}")
+        print("Connections:")
+        for key, val in connData['connectionsMap'].items():
+            print("\t\t", key, ' : ', val)
         globe.experiment_flow_global.printExp()
 
         mainServerIP = globe.components.mainServerIp
@@ -101,6 +103,7 @@ PREDICTION_STR = "Prediction"
         self.receiverProblem = threading.Event()
         self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
         self.receiverThread.start()   
+        # time.sleep(2)
         self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
 
         if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
@@ -286,22 +289,23 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         # Draw the plot using Matplotlib:
         plt.figure(figsize = (30,15), dpi = 150)
         plt.rcParams.update({'font.size': 22})
-
+        workers = []
         for csvRes in expForStats.trainingResList:
+            workers.extend(csvRes.workers)
             for workerRes in csvRes.workersResList:
                 data = workerRes.resList
                 plt.plot(data, linewidth = 3)
 
-            expTitle = (expForStats.name)
-            plt.title(f"Training - Loss Function - {expTitle}", fontsize=38)
-            plt.xlabel('Batch No.', fontsize = 30)
-            plt.ylabel('Loss (MSE)', fontsize = 30)
-            plt.xlim(left=0)
-            plt.ylim(bottom=0)
-            plt.legend(csvRes.workers)
-            plt.grid(visible=True, which='major', linestyle='-')
-            plt.minorticks_on()
-            plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
+        expTitle = (expForStats.name)
+        plt.title(f"Training - Loss Function - {expTitle}", fontsize=38)
+        plt.xlabel('Batch No.', fontsize = 30)
+        plt.ylabel('Loss (MSE)', fontsize = 30)
+        plt.xlim(left=0)
+        plt.ylim(bottom=0)
+        plt.legend(workers)
+        plt.grid(visible=True, which='major', linestyle='-')
+        plt.minorticks_on()
+        plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
 
         plt.show()
         fileName = globe.experiment_flow_global.name
@@ -391,10 +395,10 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
         # # Create a confusion matrix based on the results:
         
-                    ################## THIS IS *NOT* FOR MULTICLASS DATA, but for multi-label data 
+                    ################## THIS IS *NOT* FOR MULTICLASS DATA, but for multi-label data (output neurons are binary)
         MATRIX_DISP_SCALING = 5
-        TRUE_LEABEL_IND = 0
-        PRED_LEABEL_IND = 1
+        TRUE_LABLE_IND = 0
+        PRED_LABLE_IND = 1
         confMatList = {}
         f, axes = plt.subplots(len(workersList), labelsLen, figsize=(MATRIX_DISP_SCALING*labelsLen, MATRIX_DISP_SCALING*len(workersList)))
         axes = axes.ravel()
@@ -402,11 +406,11 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             confMatList[worker] = []
 
             for j in range(labelsLen):
-                confMatList[worker].append(confusion_matrix(workerNeuronRes[worker][TRUE_LEABEL_IND][j], workerNeuronRes[worker][PRED_LEABEL_IND][j]))
+                confMatList[worker].append(confusion_matrix(workerNeuronRes[worker][TRUE_LABLE_IND][j], workerNeuronRes[worker][PRED_LABLE_IND][j]))
 
                 disp = ConfusionMatrixDisplay(confMatList[worker][j], display_labels=[0, labelNames[j]])
-                disp.plot(ax=axes[i*labelsLen+j], values_format='.4g')
-                disp.ax_.set_title(f'{worker}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[worker][TRUE_LEABEL_IND][j], workerNeuronRes[worker][PRED_LEABEL_IND][j]), 3)}')
+                disp.plot(ax=axes[i*labelsLen+j])
+                disp.ax_.set_title(f'{worker}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[worker][TRUE_LABLE_IND][j], workerNeuronRes[worker][PRED_LABLE_IND][j]), 3)}')
                 if i < len(workersList) - 1:
                     disp.ax_.set_xlabel('') #remove "predicted label"
                 if  j != 0:

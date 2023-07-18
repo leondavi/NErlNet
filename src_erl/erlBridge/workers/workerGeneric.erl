@@ -239,13 +239,13 @@ update(cast, Data, State = #workerGeneric_state{customFunc = CustomFunc, nextSta
     %% FedClient update avg weights
     {update, "server", _Me, NerltensorWeights} -> 
       CustomFunc(update, {get(generic_worker_ets), NerltensorWeights}),
-      io:format("worker ~p updated model and going to ~p state~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), NextState]),
+      % io:format("worker ~p updated model and going to ~p state~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), NextState]),
       {next_state, NextState, State};
     %% FedServer get weights from clients
     {update, WorkerName, Me, NerlTensorWeights} ->
       StillUpdate = CustomFunc(update, {get(generic_worker_ets), {WorkerName, Me, NerlTensorWeights}}),
       if StillUpdate -> 
-        io:format("worker ~p in update waiting to go to ~p state~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), NextState]),
+        % io:format("worker ~p in update waiting to go to ~p state~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), NextState]),
         {keep_state, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
       true ->
         {next_state, NextState, State#workerGeneric_state{ackClient = 0}}

@@ -72,15 +72,15 @@ class NetworkComponents():
     def printComponents(self):
         print(f"Network components:\n \
                 Receiver's Address: http://{self.receiverHost}:{self.receiverPort}\n \
-                Batchsize: {self.batchSize}\n \
                 Frequency: {self.frequency}\n \
+                Batchsize: {self.batchSize}\n \
                 devicesIp: {self.devicesIp}\n \
                 mainServerIp: {self.mainServerIp}\n \
                 mainServerPort: {self.mainServerPort}\n \
                 Clients: {self.clients}\n \
                 Workers: {self.workers}\n \
                 Federated networks: {self.federateds}\n \
-                Sources: {self.sources}({self.sourceMethods})\n \
+                Sources: {self.sources} (mode={self.sourceMethods})\n \
                 Routers: {self.routers}")
 
     def checkIdenticalAdresses(self):

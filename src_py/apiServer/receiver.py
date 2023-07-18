@@ -131,7 +131,14 @@ class statistics(Resource):
                     statDict["workers"][workerName] = time
             else:               # other entity
                 statDict[key] = val
-        print(statDict)
+        # print(statDict)
+        for key, val in statDict.items():
+            if isinstance(val, dict):
+                print(key, '--')
+                for key2, val2 in val.items():
+                    print("\t", key2, ' : ', val2)
+            else:
+                print(key, ' : ', val)
         globe.pendingAcks = 0
 
 #Listener Server list of resources: 
