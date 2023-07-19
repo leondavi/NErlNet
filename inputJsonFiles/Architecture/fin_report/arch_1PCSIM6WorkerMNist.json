@@ -1,10 +1,9 @@
 {
   "NerlNetSettings": 
   {
-    "frequency": "100",
-    "batchSize": "1"
-  }
-  ,
+    "frequency": "10",
+    "batchSize": "10"
+  },
   "devices": [
     {
       "host": "192.168.0.108",
@@ -41,15 +40,15 @@
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
       "layerTypesList":             "[3,1,1,1,0,0]",
-      "layersSizes":                "[3,1,1,784,32,10]",
+      "layersSizes":                "[3,1,1,784,128,10]",
       "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
-      "layersActivationFunctions":  "[3,1,1,6,11,11]",
+      "layersActivationFunctions":  "[3,1,1,6,11,9]",
       "_comment4": "LOSS: SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
       "lossMethod": "2",
       "_comment5": "TODOTODO explain learningRate",
-      "learningRate": "0.01",
+      "learningRate": "0.0001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"6"   
+      "optimizer":"1"   
     },
     {
       "name": "w2",
@@ -59,15 +58,15 @@
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
       "layerTypesList":             "[3,1,1,1,0,0]",
-      "layersSizes":                "[3,1,1,784,32,10]",
+      "layersSizes":                "[3,1,1,784,128,10]",
       "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
-      "layersActivationFunctions":  "[3,1,1,6,11,11]",
+      "layersActivationFunctions":  "[3,1,1,6,11,9]",
       "_comment4": "LOSS: SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
       "lossMethod": "2",
       "_comment5": "TODOTODO explain learningRate",
-      "learningRate": "0.01",
+      "learningRate": "0.0001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"6"   
+      "optimizer":"1"   
     },
     {
       "name": "w3",
@@ -77,15 +76,15 @@
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
       "layerTypesList":             "[3,1,1,1,0,0]",
-      "layersSizes":                "[3,1,1,784,32,10]",
+      "layersSizes":                "[3,1,1,784,128,10]",
       "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
-      "layersActivationFunctions":  "[3,1,1,6,11,11]",
+      "layersActivationFunctions":  "[3,1,1,6,11,9]",
       "_comment4": "LOSS: SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
       "lossMethod": "2",
       "_comment5": "TODOTODO explain learningRate",
-      "learningRate": "0.01",
+      "learningRate": "0.0001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"6"   
+      "optimizer":"1"   
     },
     {
       "name": "w4",
@@ -95,15 +94,15 @@
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
       "layerTypesList":             "[3,1,1,1,0,0]",
-      "layersSizes":                "[3,1,1,784,32,10]",
+      "layersSizes":                "[3,1,1,784,128,10]",
       "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
-      "layersActivationFunctions":  "[3,1,1,6,11,11]",
+      "layersActivationFunctions":  "[3,1,1,6,11,9]",
       "_comment4": "LOSS: SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
       "lossMethod": "2",
       "_comment5": "TODOTODO explain learningRate",
-      "learningRate": "0.01",
+      "learningRate": "0.0001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"6"   
+      "optimizer":"1"   
     },
     {
       "name": "w5",
@@ -113,15 +112,15 @@
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
       "layerTypesList":             "[3,1,1,1,0,0]",
-      "layersSizes":                "[3,1,1,784,32,10]",
+      "layersSizes":                "[3,1,1,784,128,10]",
       "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
-      "layersActivationFunctions":  "[3,1,1,6,11,11]",
+      "layersActivationFunctions":  "[3,1,1,6,11,9]",
       "_comment4": "LOSS: SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
       "lossMethod": "2",
       "_comment5": "TODOTODO explain learningRate",
-      "learningRate": "0.01",
+      "learningRate": "0.0001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"6"   
+      "optimizer":"1"   
     },
     {
       "name": "w6",
@@ -131,15 +130,15 @@
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
       "layerTypesList":             "[3,1,1,1,0,0]",
-      "layersSizes":                "[3,1,1,784,32,10]",
+      "layersSizes":                "[3,1,1,784,128,10]",
       "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
-      "layersActivationFunctions":  "[3,1,1,6,11,11]",
+      "layersActivationFunctions":  "[3,1,1,6,11,9]",
       "_comment4": "LOSS: SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
       "lossMethod": "2",
       "_comment5": "TODOTODO explain learningRate",
-      "learningRate": "0.01",
+      "learningRate": "0.0001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"6"   
+      "optimizer":"1"   
     }
   ],
   "clients": [

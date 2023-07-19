@@ -105,19 +105,18 @@ waitforWorkers(cast, {stateChange,WorkerName,MissedBatchesCount}, State = #clien
   ets:update_element(EtsRef, WorkerName,[{?WORKER_TRAIN_MISSED_IDX,MissedBatchesCount}]), %% update missed batches count
   case NewWaitforWorkers of
     [] ->   ack(MyName,ets:lookup_element(EtsRef, nerlnetGraph, 2)),
-            ?LOG_INFO("~p going to state ~p~n",[MyName, NextState]),
+            % ?LOG_INFO("~p going to state ~p~n",[MyName, NextState]),
             {next_state, NextState, State#client_statem_state{waitforWorkers = []}};
     _->  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers}}
   end;
 
 waitforWorkers(cast, {NewState}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
-  ?LOG_INFO("~p in waiting going to state ~p~n",[MyName, State]),
+  % ?LOG_INFO("~p in waiting going to state ~p~n",[MyName, State]),
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
   cast_message_to_workers(EtsRef, {NewState}),
   {next_state, waitforWorkers, State#client_statem_state{nextState = NewState, waitforWorkers = Workers}};
 
-  
 waitforWorkers(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
   ?LOG_WARNING("client waitforWorkers ignored!!!:  ~p ~n",[EventContent]),
@@ -348,7 +347,7 @@ code_change(_OldVsn, StateName, State = #client_statem_state{}, _Extra) ->
 %%%===================================================================
 
 ack(MyName, NerlnetGraph) ->
-  ?LOG_INFO("~p sending ACK   ~n",[MyName]),
+  % ?LOG_INFO("~p sending ACK   ~n",[MyName]),
   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
   %%  send an ACK to mainserver that the client is ready
   nerl_tools:http_request(RouterHost,RouterPort,"clientReady",MyName).

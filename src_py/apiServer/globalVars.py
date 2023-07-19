@@ -35,6 +35,11 @@ username = os.getlogin()
 # Dict with {worker : csv}:
 workerCsv = {}
 sourceCSVIndex = 0
+# predictions const
+MATRIX_DISP_SCALING = 5
+TRUE_LABLE_IND = 0
+PRED_LABLE_IND = 1
+
 # splitMode for data in sources (1 = split file by sources, 2 = send whole to all)
 CSVsplit = None
 
