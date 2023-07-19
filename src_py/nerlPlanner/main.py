@@ -5,6 +5,7 @@ from WinWorkerDialog import WinWorkerDialog
 from JsonElements import *
 from Pinger import *
 import logging
+import time
 
 sg.theme('LightGray4')
 
