@@ -104,17 +104,17 @@ handle_cast({predictRes,Body}, State = #router_genserver_state{myName = MyName, 
   nerl_tools:sendHTTP(MyName, ?MAIN_SERVER_ATOM, "predictRes", Body),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
-handle_cast({federatedWeightsVector,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-%%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
-  {To,_Vector} = binary_to_term(Body),
-  nerl_tools:sendHTTP(MyName, To, "federatedWeightsVector", Body),  
-  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
+% handle_cast({federatedWeightsVector,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
+% %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
+%   {To,_Vector} = binary_to_term(Body),
+%   nerl_tools:sendHTTP(MyName, To, "federatedWeightsVector", Body),  
+%   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
-handle_cast({federatedWeights,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-%%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
-    {ClientName,_WorkerName,_BinaryWeights} = binary_to_term(Body),
-    nerl_tools:sendHTTP(MyName, ClientName, "federatedWeights", Body), 
-    {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
+% handle_cast({federatedWeights,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
+% %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
+%     {ClientName,_WorkerName,_BinaryWeights} = binary_to_term(Body),
+%     nerl_tools:sendHTTP(MyName, ClientName, "federatedWeights", Body), 
+%     {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
 
 handle_cast({clientIdle, Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->

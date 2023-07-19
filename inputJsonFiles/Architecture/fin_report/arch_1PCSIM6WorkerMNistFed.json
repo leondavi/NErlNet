@@ -35,7 +35,7 @@
     {
       "name": "w1",
       "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
-      "modelType": "5",
+      "modelType": "9",
       "scalingType_comment1": "Non-Scaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
@@ -48,12 +48,15 @@
       "_comment5": "TODOTODO explain learningRate",
       "learningRate": "0.001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"1"   
+      "optimizer":"1",
+      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
+      "federatedServer": "w1",
+      "syncCount": "10"
     },
     {
       "name": "w2",
       "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
-      "modelType": "5",
+      "modelType": "8",
       "scalingType_comment1": "Non-Scaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
@@ -66,12 +69,15 @@
       "_comment5": "TODOTODO explain learningRate",
       "learningRate": "0.001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"1"   
+      "optimizer":"1",
+      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
+      "federatedServer": "w1",
+      "syncCount": "10"   
     },
     {
       "name": "w3",
       "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
-      "modelType": "5",
+      "modelType": "8",
       "scalingType_comment1": "Non-Scaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
@@ -84,12 +90,15 @@
       "_comment5": "TODOTODO explain learningRate",
       "learningRate": "0.001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"1"   
+      "optimizer":"1",
+      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
+      "federatedServer": "w1",
+      "syncCount": "10"   
     },
     {
       "name": "w4",
       "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
-      "modelType": "5",
+      "modelType": "8",
       "scalingType_comment1": "Non-Scaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
@@ -102,12 +111,15 @@
       "_comment5": "TODOTODO explain learningRate",
       "learningRate": "0.001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"1"   
+      "optimizer":"1",
+      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
+      "federatedServer": "w1",
+      "syncCount": "10"   
     },
     {
       "name": "w5",
       "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
-      "modelType": "5",
+      "modelType": "8",
       "scalingType_comment1": "Non-Scaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
@@ -120,12 +132,15 @@
       "_comment5": "TODOTODO explain learningRate",
       "learningRate": "0.001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"1"   
+      "optimizer":"1",
+      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
+      "federatedServer": "w1",
+      "syncCount": "10"   
     },
     {
       "name": "w6",
       "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
-      "modelType": "5",
+      "modelType": "8",
       "scalingType_comment1": "Non-Scaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
       "scalingMethod": "1",
       "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
@@ -138,7 +153,10 @@
       "_comment5": "TODOTODO explain learningRate",
       "learningRate": "0.001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"1"   
+      "optimizer":"1",
+      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
+      "federatedServer": "w1",
+      "syncCount": "10"   
     }
   ],
   "clients": [
@@ -177,7 +195,7 @@
     {
       "name": "s1",
       "port": "8091",
-      "method": "2",
+      "method": "1",
       "COMMENTS": "method allowed: '1': sends each exapme to all clients listed, '2': round robin between all clients"
     }
   ],

@@ -187,8 +187,7 @@ createClientsAndWorkers() ->
                 {"/clientTraining",clientStateHandler, [training,ClientStatemPid]},
                 {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
                 {"/clientPredict",clientStateHandler, [predict,ClientStatemPid]},
-                {"/weightsVector",vectorHandler, [ClientStatemPid]},
-                {"/federatedWeights",federatedHandler, [ClientStatemPid]}
+                {"/weightsVector",clientStateHandler, [vector,ClientStatemPid]}
             ]}
         ]),
         init_cowboy_start_clear(Client, {HostName, Port},NerlClientDispatch)
@@ -219,7 +218,7 @@ createSources(BatchSize, DefaultFrequency, HostName) ->
         SourceDispatch = cowboy_router:compile([
         {'_', [
 
-            {"/updateCSV",csvHandler, [SourceStatemPid]},
+            {"/updateCSV",castingHandler, [csv,SourceStatemPid]},
             {"/startCasting",castingHandler, [startCasting,SourceStatemPid]},
             {"/stopCasting",castingHandler, [stopCasting,SourceStatemPid]},
             {"/statistics",castingHandler, [statistics,SourceStatemPid]}

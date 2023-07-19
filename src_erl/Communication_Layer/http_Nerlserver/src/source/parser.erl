@@ -16,7 +16,7 @@
 %% API
 -export([parseCSV/3]).
 %% unused functions
--export([decodeEncodeFloatsListBin/4]).
+% -export([decodeEncodeFloatsListBin/4]).
 
 
 parseCSV(SourceName, BatchSize, CSVData)->
@@ -101,35 +101,13 @@ encodeListOfListsNerlTensor([Head|Tail], ErlType, TargetBinaryType, Ret, _XDim, 
   end.
 
 
-%% UNUSED: return a binary representing a list of floats: List-> <<binaryofthisList>>
-decodeEncodeFloatsListBin(L, XDim, YDim, ZDim)->
-  Splitted = re:split(binary_to_list(L), ",", [{return,list}]),
-  decodeEncodeFloatsListBin(Splitted, <<>>, XDim, YDim, ZDim).
-decodeEncodeFloatsListBin([],Ret, XDim, YDim, ZDim) -> <<XDim:64/float, YDim:64/float, ZDim:64/float, Ret/binary>>;
-decodeEncodeFloatsListBin([<<>>|ListOfFloats],Ret, XDim, YDim, ZDim)->
-  decodeEncodeFloatsListBin(ListOfFloats,Ret, XDim, YDim, ZDim);
-decodeEncodeFloatsListBin([[]|ListOfFloats],Ret, XDim, YDim, ZDim)->
-  decodeEncodeFloatsListBin(ListOfFloats,Ret, XDim, YDim, ZDim);
-decodeEncodeFloatsListBin([H|ListOfFloats],Ret, XDim, YDim, ZDim)->
-  %% numbers sometime appear as ".7" / "-.1" 
-  Num = case H of
-    [$-,$.|Rest]  -> "-0."++Rest;
-    [$.|Rest]     -> "0."++Rest;
-    List          -> List
-  end,
-  {NumToAdd, _Type} = nerl_tools:list_to_numeric(Num),
-
-    
-  decodeEncodeFloatsListBin(ListOfFloats,<<Ret/binary,NumToAdd:64/float>>, XDim, YDim, ZDim).
-
 %%return a binary representing a list of floats: List-> <<binaryofthisList>>
 %%%%%%% this function is for FLOATS, converts int data to float
 decodeFloatsList(L)->
   Splitted = re:split(binary_to_list(L), ",", [{return,list}]),
   decodeFloatsList(Splitted,[]).
 decodeFloatsList([],Ret)->Ret;
-decodeFloatsList([[]|ListOfFloats],Ret)->
-  decodeFloatsList(ListOfFloats,Ret);
+decodeFloatsList([[]|ListOfFloats],Ret)-> decodeFloatsList(ListOfFloats,Ret);
 decodeFloatsList([H|ListOfFloats],Ret)->
   %% numbers sometime appear as ".7" / "-.1" 
   Num = case H of
@@ -140,3 +118,24 @@ decodeFloatsList([H|ListOfFloats],Ret)->
   {NumToAdd, _Type} = nerl_tools:list_to_numeric(Num),
     
   decodeFloatsList(ListOfFloats,Ret++[float(NumToAdd)]).     %% remove float() to keep mixed data type
+
+%% UNUSED: return a binary representing a list of floats: List-> <<binaryofthisList>>
+% decodeEncodeFloatsListBin(L, XDim, YDim, ZDim)->
+%   Splitted = re:split(binary_to_list(L), ",", [{return,list}]),
+%   decodeEncodeFloatsListBin(Splitted, <<>>, XDim, YDim, ZDim).
+% decodeEncodeFloatsListBin([],Ret, XDim, YDim, ZDim) -> <<XDim:64/float, YDim:64/float, ZDim:64/float, Ret/binary>>;
+% decodeEncodeFloatsListBin([<<>>|ListOfFloats],Ret, XDim, YDim, ZDim)->
+%   decodeEncodeFloatsListBin(ListOfFloats,Ret, XDim, YDim, ZDim);
+% decodeEncodeFloatsListBin([[]|ListOfFloats],Ret, XDim, YDim, ZDim)->
+%   decodeEncodeFloatsListBin(ListOfFloats,Ret, XDim, YDim, ZDim);
+% decodeEncodeFloatsListBin([H|ListOfFloats],Ret, XDim, YDim, ZDim)->
+%   %% numbers sometime appear as ".7" / "-.1" 
+%   Num = case H of
+%     [$-,$.|Rest]  -> "-0."++Rest;
+%     [$.|Rest]     -> "0."++Rest;
+%     List          -> List
+%   end,
+%   {NumToAdd, _Type} = nerl_tools:list_to_numeric(Num),
+
+    
+%   decodeEncodeFloatsListBin(ListOfFloats,<<Ret/binary,NumToAdd:64/float>>, XDim, YDim, ZDim).

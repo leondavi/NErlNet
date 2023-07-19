@@ -18,6 +18,17 @@ init(Req0, [Action,Client_StateM_Pid]) ->
   {_,Body,_} = cowboy_req:read_body(Req0),
 %%  io:format("casting handler got Body:~p~n",[Body]),
   case Action of
+    csv -> case cowboy_req:parse_header(<<"content-type">>, Req0) of 
+                {<<"multipart">>, <<"form-data">>, _} ->
+                    {_Req, Decoded_body} = nerl_tools:multipart(Req0, []);
+                _Other -> 
+                    {_Req,Body} = nerl_tools:read_all_data(Req0, <<>>),
+                    Decoded_body = binary_to_list(Body)
+                    %io:format("got Req: ~p~nData: ~p~n",[Req0, Body])
+              end,
+            [_SourceName, WorkersStr, CSVData] = string:split(Decoded_body, "#", all),
+            WorkersList = string:split(WorkersStr, ",", all),
+            gen_statem:cast(Source_StateM_Pid,{batchList,WorkersList,CSVData});
     startCasting ->  gen_statem:cast(Client_StateM_Pid, {startCasting,Body});
     statistics ->  gen_statem:cast(Client_StateM_Pid, {statistics});
     stopCasting ->   gen_statem:cast(Client_StateM_Pid, {stopCasting})

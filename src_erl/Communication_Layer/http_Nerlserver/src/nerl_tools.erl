@@ -8,6 +8,7 @@
 -export([multipart/2, read_all_data/2]).
 -export([getdeviceIP/0, port_available/1]).
 -export([list_to_numeric/1]).
+-export([calculate_size/1]).
 
 setup_logger(Module) ->
   logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
@@ -176,6 +177,9 @@ port_available(Port) ->
         _ ->
             false
     end.
+
+%% calculate the number of bytes of term
+calculate_size(Term) -> erts_debug:flat_size(Term).
 
 %% TODO: add another timing map for NIF of each worker action
 

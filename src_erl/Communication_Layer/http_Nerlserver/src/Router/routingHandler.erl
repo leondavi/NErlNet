@@ -69,10 +69,10 @@ init(Req0, State) ->
     stopCasting ->  gen_server:cast(Router_genserver_Pid, {stopCasting,Body});
     statistics  -> gen_server:cast(Router_genserver_Pid, {statistics,Body});
 
-    federatedWeightsVector  -> gen_server:cast(Router_genserver_Pid, {federatedWeightsVector,Body});
+    % federatedWeightsVector  -> gen_server:cast(Router_genserver_Pid, {federatedWeightsVector,Body});
 
-    federatedWeights -> % io:format("router got action ~p body:~p~n",[Action,Body]),
-      gen_server:cast(Router_genserver_Pid, {federatedWeights,Body});
+    % federatedWeights -> % io:format("router got action ~p body:~p~n",[Action,Body]),
+    %   gen_server:cast(Router_genserver_Pid, {federatedWeights,Body});
 
     %%%%%%%%%%%%%%GUI actions
     getStats -> gen_server:cast(Router_genserver_Pid, {getStats,Body})
