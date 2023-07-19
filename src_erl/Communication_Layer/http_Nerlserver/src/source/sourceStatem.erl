@@ -97,7 +97,7 @@ idle(cast, {startCasting,Body}, State = #source_statem_state{myName = MyName, le
   ?LOG_NOTICE("total casting list length: ~p",[length(CSVlist)]),
   ?LOG_NOTICE("sample size = ~p",[erts_debug:flat_size(hd(CSVlist))]),
   ?LOG_NOTICE("batch size = ~p",[erts_debug:flat_size(hd(CSVlist))*BatchSize]),
-  ?LOG_NOTICE("example sample: ~p",[hd(CSVlist)]),
+  % ?LOG_NOTICE("example batch: ~p",[hd(CSVlist)]),
   NumOfBatches = list_to_integer(NumOfBatchesToSend),
   BatchesToSend = if length(CSVlist) < NumOfBatches -> length(CSVlist); true -> list_to_integer(NumOfBatchesToSend) end,
 

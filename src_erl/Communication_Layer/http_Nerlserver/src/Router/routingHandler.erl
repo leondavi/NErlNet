@@ -9,7 +9,8 @@
 -module(routingHandler).
 -author("kapelnik").
 -export([init/2]).
--define(DATA_LEN, 15*1000*1000). % default is 8MB, here set to 15MB
+-define(DATA_LEN, 100*1000*1000). % default is 8MB, here set to 100MB
+% -define(DATA_LEN, infinity).
 
 %%handler for routing all messages in the network.
 %%Action contains the information about the action performed, and Body contains the information needed for the action
