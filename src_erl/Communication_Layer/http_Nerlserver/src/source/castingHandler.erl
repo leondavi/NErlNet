@@ -13,7 +13,7 @@
 
 
 %%setter handler for editing weights in CSV file, can also send a reply to sender
-init(Req0, [Action,Client_StateM_Pid]) ->
+init(Req0, [Action,Source_StateM_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
   {_,Body,_} = cowboy_req:read_body(Req0),
 %%  io:format("casting handler got Body:~p~n",[Body]),
@@ -29,9 +29,9 @@ init(Req0, [Action,Client_StateM_Pid]) ->
             [_SourceName, WorkersStr, CSVData] = string:split(Decoded_body, "#", all),
             WorkersList = string:split(WorkersStr, ",", all),
             gen_statem:cast(Source_StateM_Pid,{batchList,WorkersList,CSVData});
-    startCasting ->  gen_statem:cast(Client_StateM_Pid, {startCasting,Body});
-    statistics ->  gen_statem:cast(Client_StateM_Pid, {statistics});
-    stopCasting ->   gen_statem:cast(Client_StateM_Pid, {stopCasting})
+    startCasting ->  gen_statem:cast(Source_StateM_Pid, {startCasting,Body});
+    statistics ->  gen_statem:cast(Source_StateM_Pid, {statistics});
+    stopCasting ->   gen_statem:cast(Source_StateM_Pid, {stopCasting})
 
   end,
   Reply = io_lib:format("Body Received: ~p~n ", [Body]),
@@ -39,7 +39,7 @@ init(Req0, [Action,Client_StateM_Pid]) ->
     #{<<"content-type">> => <<"text/plain">>},
     Reply,
     Req0),
-  {ok, Req, Client_StateM_Pid}.
+  {ok, Req, Source_StateM_Pid}.
 
 
 start(_StartType, _StartArgs) ->
