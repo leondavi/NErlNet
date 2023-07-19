@@ -1,5 +1,4 @@
 import json
-import time
 from collections import OrderedDict
 import PySimpleGUI as sg
 
