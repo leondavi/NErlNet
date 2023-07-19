@@ -14,7 +14,7 @@
 -import(nerlNIF,[erl_type_conversion/1]).
 
 %% API
--export([parseCSV/3]).
+-export([parseCSV/3, get_batch/2]).
 %% unused functions
 % -export([decodeEncodeFloatsListBin/4]).
 
@@ -31,6 +31,41 @@ parseCSV(SourceName, BatchSize, CSVData)->
   catch
     {error,Er} -> logger:error("couldn't write file ~p, beacuse ~p",[FileName, Er])
   end.
+
+%% read batch from file, dont keep all in memory:
+get_batch(File, BatchSize) ->
+  Batch = get_N_lines(File, BatchSize),
+  DecodedBatch = decode(Batch, <<>>),
+  encode_tensor(DecodedBatch).
+
+get_N_lines(File, 0) -> [];
+get_N_lines(File, N) ->
+  case file:read_line(File) of
+      {ok, Data} -> [[Data] | get_N_lines(File, N - 1)];
+      eof        -> []
+  end.
+
+decode([], Ret) -> Ret;
+decode([H | Rest], Ret) ->
+  %% numbers sometime appear as ".7" / "-.1" 
+  Num = case H of
+    [$-,$.|Rest]  -> "-0."++Rest;
+    [$.|Rest]     -> "0."++Rest;
+    List -> List
+  end,
+  {NumToAdd, _Type} = nerl_tools:list_to_numeric(Num),
+  case Ret of
+    <<>>  -> decode(Rest,<<float(NumToAdd)>>);
+    _     -> decode(Rest,<<Ret/binary,NumToAdd:32/float>>)
+  end.
+
+encode_tensor(Batch) ->
+  XDim = length(hd(Batch)),
+  YDim = length(Batch),
+  ZDim = 1,
+  ErlType = erl_float,
+  TargetBinaryType = float,
+  nerlNIF:nerltensor_conversion({[XDim, YDim, ZDim | Head], ErlType}, TargetBinaryType)
 
 % deleteTMPData(SourceName) ->
 %   SourceNameStr = atom_to_list(SourceName),
