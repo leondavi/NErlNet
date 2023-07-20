@@ -1,3 +1,4 @@
+from collections import OrderedDict
 
 ARGS_TYPE = 0
 VALUE_TYPE = 1
@@ -13,3 +14,13 @@ MAIN_SERVER_TYPE = 10
 API_SERVER_TYPE = 11
 SPECIAL_ENTITY_TYPE = 12
 NONE_TYPE = -1
+
+RouterPolicyDict = {
+    "Shortest-Path":0,
+    "Routing-Table":1
+}
+
+SensorPolicyDict = {
+    "Casting":1,
+    "Round-Robin":2
+}
