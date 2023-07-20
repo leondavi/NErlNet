@@ -124,6 +124,11 @@ waitforWorkers(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(EventContent)),
   ?LOG_WARNING("client waitforWorkers ignored!!!:  ~p ~n",[EventContent]),
   {next_state, waitforWorkers, State}.
+
+waitforWorkers(info, EventContent, State) ->
+  case EventContent of
+    {'DOWN',Ref,process,Pid,Reason}->%tell main server
+
   
 
 %% initiating workers when they include federated workers. init stage == handshake between federated worker client and server
