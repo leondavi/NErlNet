@@ -183,53 +183,53 @@ code_change(_OldVsn, StateName, State = #source_statem_state{}, _Extra) ->
 %% new transmitter reads batch
 %% this needs to also include a parser that converts a list of samples (batch) to a nerltensor!!!!
 
-spawnTransmitter(SourcePID, FileAddr, Workers, Frequency, BatchSize, Method, NumOfBatchesToSend) ->
-  Delay = round(1000/Frequency),
-  {ok, File} = file:open(FileAddr, read),
-  spawn(sendSamples/9, [SourcePID, File, Delay, Workers, Frequency, BatchSize, Method, BatchID=0, NumOfBatchesToSend]).
+% spawnTransmitter(SourcePID, FileAddr, Workers, Frequency, BatchSize, Method, NumOfBatchesToSend) ->
+%   Delay = round(1000/Frequency),
+%   {ok, File} = file:open(FileAddr, read),
+%   spawn(sendSamples/9, [SourcePID, File, Delay, Workers, Frequency, BatchSize, Method, BatchID=0, NumOfBatchesToSend]).
 
-sendSamples(SourcePID, File, Delay, Workers, Frequency, BatchSize, Method, BatchID, NumOfBatchesToSend)->
-          %%this http request will be splitted at client's state machine by the following order:
-          %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
+% sendSamples(SourcePID, File, Delay, Workers, Frequency, BatchSize, Method, BatchID, NumOfBatchesToSend)->
+%           %%this http request will be splitted at client's state machine by the following order:
+%           %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
   
-  Batch = parser:get_batch(File, BatchSize),
+%   Batch = parser:get_batch(File, BatchSize),
 
-  if Batch == [] -> gen_statem:cast(SourcePID,{finishedCasting,BatchID,[]}), exit();    %% treat better
-    NumOfBatchesToSend =< 0 -> gen_statem:cast(SourcePID,{finishedCasting,BatchID,File}), ?LOG_INFO("sent all samples"), exit();
-    true -> continue
-  end,
+%   if Batch == [] -> gen_statem:cast(SourcePID,{finishedCasting,BatchID,[]}), exit();    %% treat better
+%     NumOfBatchesToSend =< 0 -> gen_statem:cast(SourcePID,{finishedCasting,BatchID,File}), ?LOG_INFO("sent all samples"), exit();
+%     true -> continue
+%   end,
   
-  if NumOfBatchesToSend rem 10 == 0 ->
-    ?LOG_INFO("~p batches left to send~n", [NumOfBatchesToSend]);
-  true -> skip end.
+%   if NumOfBatchesToSend rem 10 == 0 ->
+%     ?LOG_INFO("~p batches left to send~n", [NumOfBatchesToSend]);
+%   true -> skip end.
 
 %% >>>>>>>>>>>>>>> WORK ON THIS, DONT DELETE!!!
-  case Method of
-    ?SENDALL ->
-      %%sending batch to all clients"
-      {_ListOfSamplesRest,NewCounter2} = sendToAll(Batch,BatchSize,LengthOfSample, Delay,SourcePID,Triplets,BatchID);
+  % case Method of
+  %   ?SENDALL ->
+  %     %%sending batch to all clients"
+  %     {_ListOfSamplesRest,NewCounter2} = sendToAll(Batch,BatchSize,LengthOfSample, Delay,SourcePID,Triplets,BatchID);
 
-    ?ROUNDROBIN -> 
-      %%sending batch to all clients with round robin"
-      {ListOfSamplesRest,NewCounter2} = roundRobin(Batch,CSVPath,LengthOfSample,BatchID,Triplets);
+  %   ?ROUNDROBIN -> 
+  %     %%sending batch to all clients with round robin"
+  %     {ListOfSamplesRest,NewCounter2} = roundRobin(Batch,CSVPath,LengthOfSample,BatchID,Triplets);
       
-    %% default method is send to all
-    _Default ->
-      [Head|ListOfSamplesRest]=Batch,
-      {_ListOfSamplesRest,NewCounter2} = sendToAll([Head],CSVPath,BatchSize,LengthOfSample,Delay,SourcePID,Triplets,BatchID)
-  end,
+  %   %% default method is send to all
+  %   _Default ->
+  %     [Head|ListOfSamplesRest]=Batch,
+  %     {_ListOfSamplesRest,NewCounter2} = sendToAll([Head],CSVPath,BatchSize,LengthOfSample,Delay,SourcePID,Triplets,BatchID)
+  % end,
 
-  %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
-  receive
-    {stopCasting}  ->
-      io:format("source stop casting",[]),
-      gen_statem:cast(SourcePID,{leftOvers,ListOfSamplesRest})
-   after Delay->
-      sendSamples(SourcePID, File, Delay, Workers, Frequency, BatchSize, Method, BatchID, NumOfBatchesToSend)
-      % sendSamples(ListOfSamplesRest,CSVPath,BatchSize,LengthOfSample,Ms,Pid,Triplets,NewCounter2,NumOfBatchesToSend-(NewCounter2-Counter),Method)
-  end.
+  % %%main server might ask to stop casting,update source state with remaining lines. if no stop message received, continue casting after 1/Hz
+  % receive
+  %   {stopCasting}  ->
+  %     io:format("source stop casting",[]),
+  %     gen_statem:cast(SourcePID,{leftOvers,ListOfSamplesRest})
+  %  after Delay->
+  %     sendSamples(SourcePID, File, Delay, Workers, Frequency, BatchSize, Method, BatchID, NumOfBatchesToSend)
+  %     % sendSamples(ListOfSamplesRest,CSVPath,BatchSize,LengthOfSample,Ms,Pid,Triplets,NewCounter2,NumOfBatchesToSend-(NewCounter2-Counter),Method)
+  % end.
 
-sendToAll(Batch) -> 
+% sendToAll(Batch) -> 
 %% <<<<<<<<<<<<<<<<<<< 
 
 spawnTransmitter(WorkersNames,CSVPath,CSVlist,NerlnetGraph, MyName,WorkersMap,BatchSize,LengthOfSample, Frequency,NumOfBatchesToSend,Method)->
