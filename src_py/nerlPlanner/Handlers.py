@@ -35,6 +35,12 @@ clients_this_client_port = None
 clients_this_client = None
 clients_this_client_workers_dict = OrderedDict()
 
+# routers
+routers_this_router = None
+routers_this_router_name = None
+routers_this_router_port = None
+routers_this_router_policy = None
+
 # entities
 entities_clients_names_list = []
 
@@ -181,6 +187,7 @@ def clients_handler(window, event, values):
         window[KEY_CLIENTS_NAME_INPUT].update(clients_this_client.get_name())
         window[KEY_CLIENTS_PORT_INPUT].update(f"{clients_this_client.get_port().get_value()}")
         window[KEY_CLIENTS_STATUS_BAR].update(f"client {clients_this_client.get_name()} is loaded: {clients_this_client}")
+        window[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS].update(clients_this_client.get_workers_names())
 
     if event == KEY_CLIENTS_BUTTON_ADD:
         if clients_this_client_name:
@@ -202,6 +209,9 @@ def clients_handler(window, event, values):
                 clients_this_client.set_port(clients_this_client_port)
                 window[KEY_CLIENTS_STATUS_BAR].update(f"Update client {clients_this_client_name}: {clients_this_client}")
 
+
+def routers_handler(window,event,values):
+    pass
 
 def entities_handler(window, event, values):
     global entities_clients_names_list

@@ -96,8 +96,9 @@ ClientsFieldsFrames = sg.Frame("Clients",layout=[[ClientsFieldsFrame,ClientWorke
 # Routers
 RoutersFields = [
                  [sg.Button("Add", size=(10)), sg.Button("Load",size=(10)), sg.Button("Remove",size=(10))],
-                 [sg.Text("name:  "), sg.InputText(size=15), sg.Text("policy   "), sg.InputText(size=15)],
-                 [sg.Text("port:    "), sg.InputText(size=15)],
+                 [sg.Text("name:  "), sg.InputText(size=15, enable_events=True, key=KEY_ROUTERS_NAME_INPUT), 
+                  sg.Text("policy: "), sg.Combo("Shortest-Path",size=15, enable_events=True, key=KEY_ROUTERS_POLICY_COMBO_BOX)],
+                 [sg.Text("port:    "), sg.InputText(size=15, enable_events=True, key=KEY_ROUTERS_PORT_INPUT)],
                 ]
 RoutersFieldsFrame = sg.Frame("Routers",RoutersFields)
 
@@ -152,6 +153,7 @@ while True:
         settings_handler(event,values)
         workers_handler(main_window,event,values)
         clients_handler(main_window, event, values)
+        routers_handler(main_window, event, values)
         entities_handler(main_window, event, values)
         devices_handler(main_window, event, values)
         online_scanner_handler(main_window, event, values, devices_online_hosts_list) # lan scan for online devices
