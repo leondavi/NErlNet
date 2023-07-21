@@ -49,20 +49,9 @@ initInfoProc(Body)->
     DeviceList = lists:droplast(Devices),
     {DeviceList,Edges}. %need to send to gui for display
 
-functions()->
-    F1 = fun
-            F(EtsRef) -> 
-                WorkersNames = ets:lookup(EtsRef,workersNames),
-                WorkerPids = [element(2,ets:lookup(EtsRef,Name))|| Name<-WorkersNames],
 
-                lists:foreach(fun(Pid)->monitor(process , Pid)end , WorkerPids),
-                
-            F2 = fun
-                     FF(EtsRef) ->
-                        receive
-                            {'DOWN',_,process,DownPid,Reason}->
-                                
-        end.
+%functionalty of the tool, will create a list of tuples when each tuple is {entity that will run the func (atom),function itself {func)}
+functions()->ok.
     
 
 stop(_State) ->

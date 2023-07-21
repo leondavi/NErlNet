@@ -123,12 +123,22 @@ waitforWorkers(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}
   ets:update_counter(EtsRef, msgCounter, 1),
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(EventContent)),
   ?LOG_WARNING("client waitforWorkers ignored!!!:  ~p ~n",[EventContent]),
-  {next_state, waitforWorkers, State}.
+  {next_state, waitforWorkers, State};
 
-waitforWorkers(info, EventContent, State) ->
+%----------------------------------------------------------------
+waitforWorkers(info, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
   case EventContent of
-    {'DOWN',Ref,process,Pid,Reason}->%tell main server
+    {'DOWN',_Ref,process,Pid,_Reason}->                                     %worker down
+      [[Workername]] = ets:match(EtsRef,{'$1',Pid,'_','_','_'}),
+      %report worker down to main server
+      ets:delete(EtsRef,Workername),                                        %delete worker from ets so client will not wait for it in the future 
+      ok;
+    _Any->ok %recevied  unexpected messege, print to log/tell main server for debuging
+    end,
+  {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef}}.
 
+
+%-----------------------------------------------------------------
   
 
 %% initiating workers when they include federated workers. init stage == handshake between federated worker client and server
