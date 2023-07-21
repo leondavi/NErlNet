@@ -22,7 +22,7 @@
 -define(SERVER, ?MODULE).
 
 
--record(main_genserver_state, {statisticsCounter = 0, myName, state, workersMap, clients, nerlnetGraph, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [], statisticsMap, msgCounter = 0, batchSize}).
+-record(main_genserver_state, {statisticsCounter = 0, myName, state, workersMap, clients, nerlnetGraph, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [], statisticsMap, msgCounter = 0, batchSize , etsRef}).
 
 %%%===============================================================
 %%% API
@@ -56,10 +56,10 @@ init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
   ?LOG_NOTICE("Main Server is connected to: ~p~n",[ConnectedEntities]),
   put(nerlnetGraph, NerlnetGraph),
     % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
-  
+  EtsRef = ets:new() , %% ! In some point the whole record will replaced by ets
   NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--?LIST_OF_SPECIAL_SERVERS]),
   % io:format("New StatisticsMap = ~p~n",[NewStatisticsMap]),
-  {ok, #main_genserver_state{myName = MyNameStr, workersMap = WorkersMap, batchSize = BatchSize, state=idle, clients = Clients, nerlnetGraph = NerlnetGraph, msgCounter = 1,statisticsMap = NewStatisticsMap}}.
+  {ok, #main_genserver_state{myName = MyNameStr, workersMap = WorkersMap, batchSize = BatchSize, state=idle, clients = Clients, nerlnetGraph = NerlnetGraph, msgCounter = 1,statisticsMap = NewStatisticsMap , etsRef = EtsRef}}.
 
 %% @private
 %% @doc Handling call messages

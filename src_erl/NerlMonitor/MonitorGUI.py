@@ -54,8 +54,8 @@ def GUI():
              Show_Nerlnet_Graph()
         if not msg_queue.empty():
             msg = msg_queue.get_nowait()
-            if "Graph" in msg:
-                Show_Nerlnet_Graph(msg)
+            if msg[0] == 'graph':
+                Show_Nerlnet_Graph(msg[1])
             elif values['-LOG-'] != '':
                 existing_text = values['-LOG-']
                 updated_text = f'{existing_text}\n{formatted_time()}: {msg}'
@@ -74,7 +74,7 @@ def Show_Nerlnet_Graph(NerlGraph):
 
     Nodes = NerlGraph.split('#')[0:-1]
     Edges = NerlGraph.split('#')[-1].split(',')
-    EdgesSeperated = [(Edge.split('-')[0],Edge.split('-')[1]) for Edge in Edges if len(Edges) > 1]
+    EdgesSeperated = [(Edge.split('-')[0],Edge.split('-')[1]) for Edge in Edges if len(Edges) > 1] # ? What if no edges?
     NodesNames = [NodeTriplet.split(',')[0] for NodeTriplet in Nodes]
 
     graph = nx.Graph()

@@ -304,7 +304,7 @@ createMainServer(true,BatchSize,HostName) ->
         %GUI actions
         {"/getGraph",[],guiHandler, [getGraph, MainGenServerPid]},
         {"/getStats",[],guiHandler, [getStats, MainGenServerPid]},
-
+        {"/toolConnectionReq" , [] , utilities_handler , [MainGenServerPid]} , %% Added with NerlMonitor Project
         {"/[...]", [],noMatchingRouteHandler, [MainGenServerPid]}
         ]}
         ]),

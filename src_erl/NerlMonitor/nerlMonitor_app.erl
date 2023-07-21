@@ -12,6 +12,7 @@
 -define(UTILLNAME,nerlMonitor ).
 -define(PORT,8096 ).  %port place holder
 -define(MSADDRES,"ip:port" ). %place holder
+-define(GUI , {'PyrlangProcess' , 'py@127.0.0.1'}). % Erlang node should be long name to communicate with pyrlang node
 
 start(_StartType, _StartArgs) ->
     application:start(sasl),
@@ -25,29 +26,25 @@ start(_StartType, _StartArgs) ->
         ]}
     ]),
     {ok, _} = cowboy:start_clear(?UTILLNAME,[{port, ?PORT}],#{env => #{dispatch => Dispatch}}),
-    %GUI start
+    os:cmd('python3 MonitorGUI.py'), %% PyrlangNode: ('PyralngProcess' , 'py@127.0.0.1' , 'COOKIE') , sending message by: 'GUI ! HELLO.'
     URL = "http://" ++ ?MSADDRES ++ "/toolConnectionReq",
-    mainServerPing(URL,{?UTILLNAME,functions()}).
+    mainServerPing(URL,[?UTILLNAME,functions(),nerl_tools:getdeviceIP() , ?PORT]). %% TODO How to "import" nerl_tools
 
 
 %ping main server in 0.5 sec intervals with connection request. will stop when got valid response.
 mainServerPing(URL,Body)->      
-    Response=httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []),
+    Response = httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []),
     case Response of
         {error,_}->
             timer:sleep(500),
             mainServerPing(URL,Body);
-        {ok,{_ResCode, _Headers, Data}}->
+        {ok,{_ResCode, _Headers, Data}}-> 
             initInfoProc(Data)
     end.
 
 
-initInfoProc(Body)->
-    DevicesInfo = string:split(Body, "#", all),
-    Devices = [string:split(DeviceInfo, ",", all) || DeviceInfo <- DevicesInfo, DevicesInfo /=[[]]],
-    Edges = lists:droplast(lists:last(Devices)),
-    DeviceList = lists:droplast(Devices),
-    {DeviceList,Edges}. %need to send to gui for display
+initInfoProc(Body)-> %% MainServer replies with Nerlnet-Graph when nerlMonitor tool is used
+    ?GUI ! {graph , Body}.
 
 
 %functionalty of the tool, will create a list of tuples when each tuple is {entity that will run the func (atom),function itself {func)}
