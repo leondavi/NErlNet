@@ -210,8 +210,46 @@ def clients_handler(window, event, values):
                 window[KEY_CLIENTS_STATUS_BAR].update(f"Update client {clients_this_client_name}: {clients_this_client}")
 
 
+def routers_reset_inputs_ui(window):
+    window[KEY_ROUTERS_NAME_INPUT].update('')
+    window[KEY_ROUTERS_PORT_INPUT].update('')
+
 def routers_handler(window,event,values):
-    pass
+    global routers_this_router
+    global routers_this_router_name
+    global routers_this_router_port
+    global routers_this_router_policy
+
+    if event == KEY_ROUTERS_NAME_INPUT:
+        routers_this_router_name = values[KEY_ROUTERS_NAME_INPUT]
+
+    if event == KEY_ROUTERS_PORT_INPUT:
+        routers_this_router_port = values[KEY_ROUTERS_PORT_INPUT]
+
+    if event == KEY_ROUTERS_POLICY_COMBO_BOX:
+        routers_this_router_policy = RouterPolicyDict[values[KEY_ROUTERS_POLICY_COMBO_BOX]] if values[KEY_ROUTERS_POLICY_COMBO_BOX] in RouterPolicyDict else None
+
+
+    if event == KEY_ROUTERS_BUTTON_ADD and routers_this_router_name and routers_this_router_port and (routers_this_router_policy is not None):
+        routers_this_router = json_architecture_instance.get_router(routers_this_router_name)
+        if routers_this_router is None:
+            # there is no such router - create a new one
+            routers_this_router = Router(routers_this_router_name, routers_this_router_port, routers_this_router_policy)
+            if not routers_this_router.error():
+                json_architecture_instance.add_router(routers_this_router)
+                window[KEY_ENTITIES_ROUTERS_LISTBOX].update(json_architecture_instance.get_routers_names())
+                routers_this_router = None
+                routers_this_router_name = None
+                routers_this_router_port = None
+                routers_this_router_policy = None
+                routers_reset_inputs_ui(window)
+        else:
+            sg.popup_ok(f"Router {routers_this_router_name} already exists", title='Adding Client Failed')
+    
+    # TODO COMPLETE load and remove
+
+
+
 
 def entities_handler(window, event, values):
     global entities_clients_names_list

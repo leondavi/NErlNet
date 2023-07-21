@@ -95,9 +95,11 @@ ClientsFieldsFrames = sg.Frame("Clients",layout=[[ClientsFieldsFrame,ClientWorke
 
 # Routers
 RoutersFields = [
-                 [sg.Button("Add", size=(10)), sg.Button("Load",size=(10)), sg.Button("Remove",size=(10))],
+                 [sg.Button("Add", size=(10), key=KEY_ROUTERS_BUTTON_ADD, enable_events=True),
+                  sg.Button("Load",size=(10), key=KEY_ROUTERS_BUTTON_LOAD, enable_events=True),
+                  sg.Button("Remove",size=(10), key=KEY_CLIENTS_BUTTON_REMOVE, enable_events=True)],
                  [sg.Text("name:  "), sg.InputText(size=15, enable_events=True, key=KEY_ROUTERS_NAME_INPUT), 
-                  sg.Text("policy: "), sg.Combo("Shortest-Path",size=15, enable_events=True, key=KEY_ROUTERS_POLICY_COMBO_BOX)],
+                  sg.Text("policy: "), sg.Combo(list(RouterPolicyDict.keys()),size=15, enable_events=True, key=KEY_ROUTERS_POLICY_COMBO_BOX)],
                  [sg.Text("port:    "), sg.InputText(size=15, enable_events=True, key=KEY_ROUTERS_PORT_INPUT)],
                 ]
 RoutersFieldsFrame = sg.Frame("Routers",RoutersFields)

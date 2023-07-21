@@ -20,7 +20,15 @@ RouterPolicyDict = {
     "Routing-Table":1
 }
 
-SensorPolicyDict = {
+SourcePolicyDict = {
     "Casting":1,
     "Round-Robin":2
 }
+
+def get_inv_dict(in_dict):
+    Keys = list(in_dict.keys())
+    Values = list(in_dict.values())
+    newDict = []
+    for value, key in zip(Values,Keys):
+        newDict.append((value,key))
+    return dict(newDict)
