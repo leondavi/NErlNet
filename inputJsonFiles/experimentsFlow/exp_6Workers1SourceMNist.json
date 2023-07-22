@@ -4,8 +4,8 @@
    "CSV path": "mnist",
    "Batches per source": 
      {
-        "Training": 1000,
-        "Prediction": 1000
+        "Training": 10000,
+        "Prediction": 10000
      },
      "Training":  [
          {

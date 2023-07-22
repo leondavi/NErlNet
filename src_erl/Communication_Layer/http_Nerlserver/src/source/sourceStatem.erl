@@ -180,6 +180,7 @@ code_change(_OldVsn, StateName, State = #source_statem_state{}, _Extra) ->
 %%send samples receive a batch size and casts the client with data. data received as a string containing floats and integers.
 %%CLIENT NEED TO PROCESS DATA BEFORE FEEDING THE DNN
 
+%% >>>>>>>>>>>>>>> WORK ON THIS, DONT DELETE!!!
 %% new transmitter reads batch
 %% this needs to also include a parser that converts a list of samples (batch) to a nerltensor!!!!
 
@@ -203,7 +204,6 @@ code_change(_OldVsn, StateName, State = #source_statem_state{}, _Extra) ->
 %     ?LOG_INFO("~p batches left to send~n", [NumOfBatchesToSend]);
 %   true -> skip end.
 
-%% >>>>>>>>>>>>>>> WORK ON THIS, DONT DELETE!!!
   % case Method of
   %   ?SENDALL ->
   %     %%sending batch to all clients"
