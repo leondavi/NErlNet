@@ -1,21 +1,21 @@
 {
   "NerlNetSettings": 
   {
-    "frequency": "10",
-    "batchSize": "30"
+    "frequency": "100",
+    "batchSize": "50"
   },
   "devices": [
     {
       "host": "192.168.0.108",
-      "entities": "mainServer,c1,c2,s1,r1,r2,apiServer"
+      "entities": "mainServer,c1,c2,c3,c4,s1,r1,r2,r3,r4,apiServer"
     },
     {
       "host": "192.168.0.100",
-      "entities": "c3,c4,r3,r4"
+      "entities": "c5,r5"
     },
     {
       "host": "192.168.0.103",
-      "entities": "c5,c6,r5,r6"
+      "entities": "c6,r6"
     }
   ],
   "apiServer": 
