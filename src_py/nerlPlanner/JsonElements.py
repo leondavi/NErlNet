@@ -29,7 +29,8 @@ class JsonElement():
         return ("name", self.name)
 
     def get_type(self):
-        assert(self.elem_type == NONE_TYPE)
+        assert(self.elem_type != NONE_TYPE)
+        return self.elem_type
 
     def set_name(self, name):
         self.name = name
@@ -89,21 +90,19 @@ class BatchSize(JsonElement):
     
 class Policy(JsonElement):
     def __init__(self, value : int, entity_type):
-        super(BatchSize, self).__init__("policy", POLICY_TYPE)
+        super(Policy, self).__init__("policy", POLICY_TYPE)
         self.value = value
         self.entity_type = entity_type
     # TODO
     def error(self):
-        return not Policy.validate_policy()
+        return not self.validate_policy()
 
-    ROUTER_POLICIES = []
-    SOURCE_POLICIES = []
     # returns true if policy appears in entity policies list
     def validate_policy(self):
         if self.entity_type == ROUTER_TYPE:
-            return self.value in self.ROUTER_POLICIES
+            return self.value in get_inv_dict(RouterPolicyDict)
         elif self.entity_type == SOURCE_TYPE:
-            return self.value in self.SOURCE_POLICIES
+            return self.value in get_inv_dict(SourcePolicyDict)
         return False
 
     def get_as_tuple(self):
@@ -226,14 +225,13 @@ class Device(JsonElement):
         return OrderedDict(elements_list)
 
 class Router(JsonElement):
-    def __init__(self, name, ip_address : str, port, policy):
+    def __init__(self, name, port, policy):
         super(Router, self).__init__(name, ROUTER_TYPE)
-        self.ip = Ipv4(ip_address)
         self.port = Port(port)
         self.policy = Policy(policy, super().get_type())
-        
+
     def error(self):
-        return self.ip.error() or self.port.error
+        return self.port.error and self.policy.error()
 
     def get_as_dict(self):
         assert not self.error()
