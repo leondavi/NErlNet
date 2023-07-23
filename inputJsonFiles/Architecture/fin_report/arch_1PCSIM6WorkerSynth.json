@@ -1,10 +1,9 @@
 {
   "NerlNetSettings": 
   {
-    "frequency": "200",
+    "frequency": "100",
     "batchSize": "100"
-  }
-  ,
+  },
   "devices": [
     {
       "host": "192.168.0.108",
