@@ -139,13 +139,23 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     int modelType = onnBrCtrl.getModelType(TrainNNptr->mid);
     int res;
 
+    void** exit_code;
     res = enif_thread_create((char*)"train_nif_proc", &(TrainNNptr->tid), trainFun, (void*) pTrainNNptr, 0);
-
     if (res)
     {
         LogError("failed to call enif_thread_create with trainFun");
         nifpp::str_atom ret_status("train_error");
         return nifpp::make(env, ret_status);
+    }
+    else
+    {
+        res = enif_thread_join(TrainNNptr->tid, exit_code );
+        if (res)
+        {
+            LogError("failed to join with trainFun");
+            nifpp::str_atom ret_status("train_error");
+            return nifpp::make(env, ret_status);
+        }
     }
 
     nifpp::str_atom ret_status("train_starts");
