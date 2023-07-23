@@ -1,9 +1,11 @@
-from JsonElements import JsonElement
-from JsonElementsDefinitions import *
-from JsonElementWorkerDefinitions import *
+from hashlib import sha256
 import json
 import re
 from collections import OrderedDict
+
+from JsonElements import JsonElement
+from JsonElementsDefinitions import *
+from JsonElementWorkerDefinitions import *
 
 class Worker(JsonElement):      
     def __init__(self, name, LayersSizesList : str, ModelTypeStr : str, ModelType : int, OptimizationTypeStr : str, OptimizationType : int,
@@ -22,11 +24,12 @@ class Worker(JsonElement):
 
         if (not bool(ScalingMethodList)) and (not bool(PoolingMethodList)):
             self.PoolingList, self.ScalingList = self.generate_pooling_and_scaling_lists()
-            self.PoolingListStr = ",".join([f"{x}" for x in self.PoolingList])
-            self.ScalingListStr = ",".join([f"{x}" for x in self.ScalingList])
         else:
             self.ScalingList = ScalingMethodList.split(",")
             self.PoolingList = PoolingMethodList.split(",")
+        
+        self.PoolingListStr = ",".join([f"{x}" for x in self.PoolingList])
+        self.ScalingListStr = ",".join([f"{x}" for x in self.ScalingList])
         
         self.IntListOfLayersTypes = self.list_representation_conversion_int_elements(self.LayerTypesList)
         self.IntListOfLayersTypesStr = ",".join([str(x) for x in self.IntListOfLayersTypes])
@@ -39,6 +42,19 @@ class Worker(JsonElement):
         lists_for_length = [self.IntListOfLayersTypes, self.IntPoolingList , self.IntScalingList , self.IntLayersSizesList, self.IntActivationLayersList ]
         list_of_lengths = [len(x) for x in lists_for_length]
         self.lengths_validation = all([x == list_of_lengths[0] for x in list_of_lengths])
+
+    def set_pooling_list(self, PoolingList):
+        self.PoolingList = PoolingList
+
+    def set_scaling_list(self, ScalingList):
+        self.ScalingList = ScalingList
+
+    def copy(self, name):
+        newWorker =  Worker(name, self.LayersSizesList, self.ModelTypeStr, self.ModelType , self.OptimizationTypeStr, self.OptimizationType,
+                 self.LossMethodStr, self.LossMethod, self.LearningRate, self.ActivationLayersList, self.LayerTypesList)
+        newWorker.set_pooling_list(self.PoolingList)
+        newWorker.set_scaling_list(self.ScalingList)
+        return newWorker
 
     def __str__(self):
         return f"LSizes: {self.LayersSizesList}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}"
@@ -99,6 +115,10 @@ class Worker(JsonElement):
         self.key_val_pairs = self.dict_as_list_of_pairs_fixer(self.key_val_pairs)
         return OrderedDict(self.key_val_pairs)
 
+    def get_sha(self):
+        worker_as_str = f'{self.get_as_dict()}'
+        worker_sha = sha256(worker_as_str.encode('utf-8')).hexdigest()
+        return worker_sha
 
     def save_as_json(self, out_file : str, documentation = True):
         with open(out_file,"w") as fd_out:
