@@ -29,7 +29,7 @@ def WinWorkerDialog():
                         [sg.Text("*.json file name"),sg.InputText(key=KEY_JSON_FILE_NAME, enable_events=True),sg.Button("Export",key=KEY_BUTTON_EXPORT_WORKER), sg.Checkbox('with documentation', default=True, key=KEY_CHECKBOX_WORKER_WITH_DOCUMENTATION, enable_events=True)]]
     WorkerFileFrame = sg.Frame("File",WorkerFileLayout)
 
-    WorkerDefinitionsLayout = [[sg.Text("Model Type: "), sg.Combo(list(ModelTypeMapping.keys()),enable_events=True, key=KEY_MODEL_TYPE_LIST_BOX)],
+    WorkerDefinitionsLayout = [[sg.Text("Model Type: "), sg.Combo(list(ModelTypeMapping.keys()),enable_events=True, key=KEY_MODEL_TYPE_LIST_BOX), sg.Button("LSTM Opts",disabled=True), sg.Button("CNN Opts", disabled=True)],
                                [sg.Text("Layers Sizes: Comma separated list, # of neurons in a layer, E.g, 100,80,40,5,1")],
                                [sg.InputText(key=KEY_LAYER_SIZES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_NUM_OF_LAYERS_SIZES)],
                                [sg.Text("List of layers types:"), sg.Combo(list(LayerTypeMap.keys()),key=KEY_LAYER_TYPE_SELECTION), sg.Button("Add",key=KEY_LAYER_TYPE_SELECTION_ADD), sg.Button("Help",key=KEY_LAYER_TYPE_HELP),sg.Button("Clear",key=KEY_LAYER_TYPE_SELECTION_CLEAR)],

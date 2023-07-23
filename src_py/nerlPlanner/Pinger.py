@@ -1,4 +1,5 @@
 # Import modules
+import socket
 import subprocess
 import ipaddress
 import PySimpleGUI as sg
@@ -7,6 +8,20 @@ from JsonElements import *
 
 BAR_MAX = 100
 KEY_DEV_SCAN_BAR = '-KEY-DEV-SCAN-BAR-'
+
+def get_this_host_ip():
+    # Taken from https://stackoverflow.com/a/28950776/2698310
+    socket_inst = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    socket_inst.settimeout(0)
+    try:
+        # doesn't even have to be reachable
+        socket_inst.connect(('8.8.8.8', 1))
+        IP = socket_inst.getsockname()[0]
+    except Exception:
+        IP = '127.0.0.1'
+    finally:
+        socket_inst.close()
+    return IP
 
 def pinger(net_addr, devices_online_list, ScannerWindow, i):
     devices_online_list = []
