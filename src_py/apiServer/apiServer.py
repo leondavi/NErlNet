@@ -3,7 +3,7 @@
 # Copyright: © 2022
 # Date: 27/07/2022
 ###########################################################
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, classification_report
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, classification_report, multilabel_confusion_matrix
 import time
 import requests
 import threading
@@ -19,6 +19,12 @@ from transmitter import Transmitter
 from networkComponents import NetworkComponents
 import globalVars as globe
 import receiver
+
+def is_port_in_use(port: int) -> bool:
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('localhost', port)) == 0
+
 
 class ApiServer():
     def __init__(self):       
@@ -50,7 +56,7 @@ ____________API COMMANDS_____________
 -getUserJsons():                    returns the selected arch / conn / exp
 -initialization(arch, conn, exp):   set up server for a NerlNet run
 -sendJsonsToDevices():              send each NerlNet device the arch / conn jsons to init entities on it
--sendDataToSources(phase(,split)):    phase := "training" | "prediction". split := 1 default (split) | 2 (whole file). send the experiment data to sources (currently happens in beggining of train/predict)
+-sendDataToSources(phase(,split)):  phase := "training" | "prediction". split := 1 default (split) | 2 (whole file). send the experiment data to sources (currently happens in beggining of train/predict)
 
 ========Running experiment==========
 -train():                           start training phase
@@ -78,7 +84,9 @@ PREDICTION_STR = "Prediction"
         globe.experiment_flow_global.set_experiment_flow(expData)
         globe.components = NetworkComponents(archData)
         globe.components.printComponents()
-        print(f"Connections:\n\t\t{connData['connectionsMap']}")
+        print("Connections:")
+        for key, val in connData['connectionsMap'].items():
+            print("\t\t", key, ' : ', val)
         globe.experiment_flow_global.printExp()
 
         mainServerIP = globe.components.mainServerIp
@@ -89,6 +97,8 @@ PREDICTION_STR = "Prediction"
         print("Initializing the receiver thread...\n")
 
         # Initializing the receiver (a Flask HTTP server that receives results from the Main Server):
+        if is_port_in_use(int(globe.components.receiverPort)):
+            self.stopServer()
 
         self.receiverProblem = threading.Event()
         self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
@@ -184,6 +194,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
         return expResults
    
+        ## TODO: standartize the phase names / make them == .csv file
     def sendDataToSources(self, phase, splitMode = 1):
         print("\nSending data to sources")
         if not globe.CSVsplit:
@@ -348,11 +359,11 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         try: labelsLen = len(expForStats.expFlow["Labels"])
         finally: print(f"assuming {labelsLen} lables")
 
-        labelsSeries = labelsCsvDf.iloc[:,-labelsLen:]  ## this is the full list of only labels
-
         try: labelNames = expForStats.expFlow["Labels"]      ## get label names from experimnet JSON
         except: labelNames = [str(i) for i in range(labelsLen)] #if no labels, set to 1,2,3....
         
+        labelsSeries = labelsCsvDf.iloc[:,-labelsLen:]  ## this is the full list of only labels
+
         workersList = []
         workerNeuronRes = {}
         for csvRes in expForStats.predictionResList:
@@ -361,53 +372,50 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 workersList.append(worker)
 
         ## create a different confusion matrix for each label
-        predlabels = [[] for i in range(labelsLen)]
-        trueLabels = [[] for i in range(labelsLen)]  
 
         for sourceCSV in expForStats.predictionResList:         #### TODO: match specific batch number of predict vector to test.csv of labels
 
             # Generate the samples' indexes from the results:
             for worker in sourceCSV.workersResList:
+                predlabels = [[] for i in range(labelsLen)]
+                trueLabels = [[] for i in range(labelsLen)]  
+                
                 for batchRes in worker.resList:
                     batchRanges = batchRes.indexRange   # (startSampNum, endSampNum)
                     # print(f"testing sample ranges: {batchRanges}")
                     for ind, sample in enumerate(range(batchRanges[0], batchRanges[1])):
                         for label in range(labelsLen):
-                            trueLabels[label].append(str(labelsSeries.iloc[sample,label]))
-                            predlabels[label].append(str(round(batchRes.predictions[ind][label])))
-                
+                            truelabel = str(labelsSeries.iloc[sample,label])
+                            predlabel = str(round(batchRes.predictions[ind][label]))
+                            assert truelabel == '0' or truelabel == '1', f"true label at {sample},{label} is {truelabel}"
+                            trueLabels[label].append(truelabel)
+                            predlabels[label].append(predlabel)
+                # print(f"for worker {worker.name} have true={trueLabels}, pred={predlabels}")
                 workerNeuronRes[worker.name] = (trueLabels, predlabels)
-
-                predlabels = [[] for i in range(labelsLen)]
-                trueLabels = [[] for i in range(labelsLen)]
                     
                             # print(f"{worker.name} for sample #{sampleNum} predicted {batch.predictions[i][j]}, real is {labelsSeries.iloc[sampleNum+i,j]}")
 
         # # Create a confusion matrix based on the results:
         
-                    ################## THIS IS *NOT* FOR MULTICLASS DATA, but for multi-label data 
-        MATRIX_DISP_SCALING = 5
-        TRUE_LEABEL_IND = 0
-        PRED_LEABEL_IND = 1
+                    ################## THIS IS *NOT* FOR MULTICLASS DATA, but for multi-label data (output neurons are binary)
         confMatList = {}
-        f, axes = plt.subplots(len(workersList), labelsLen, figsize=(MATRIX_DISP_SCALING*labelsLen, MATRIX_DISP_SCALING*len(workersList)))
-        axes = axes.ravel()
+        f, axes = plt.subplots(len(workersList), labelsLen, figsize=(globe.MATRIX_DISP_SCALING*labelsLen, globe.MATRIX_DISP_SCALING*len(workersList)))
         for i, worker in enumerate(workersList):
-            confMatList[worker] = []
+            confMatList[worker] = [[] for i in range(labelsLen)]
 
             for j in range(labelsLen):
-                confMatList[worker].append(confusion_matrix(workerNeuronRes[worker][TRUE_LEABEL_IND][j], workerNeuronRes[worker][PRED_LEABEL_IND][j]))
-
-                disp = ConfusionMatrixDisplay(confMatList[worker][j], display_labels=[0, labelNames[j]])
-                disp.plot(ax=axes[i*labelsLen+j], values_format='.4g')
-                disp.ax_.set_title(f'{worker}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[worker][TRUE_LEABEL_IND][j], workerNeuronRes[worker][PRED_LEABEL_IND][j]), 3)}')
+                # print(f"worker {worker}, has {len(workerNeuronRes[worker][TRUE_LABLE_IND])} labels, with {len(workerNeuronRes[worker][TRUE_LABLE_IND][j])} samples")
+                # print(f"confusion {worker}:{j}, has is of {workerNeuronRes[worker][TRUE_LABLE_IND][j]}, {workerNeuronRes[worker][PRED_LABLE_IND][j]}")
+                confMatList[worker][j] = confusion_matrix(workerNeuronRes[worker][globe.TRUE_LABLE_IND][j], workerNeuronRes[worker][globe.PRED_LABLE_IND][j])
+                # print(confMatList[worker][j])
+                disp = ConfusionMatrixDisplay(confMatList[worker][j], display_labels=["X", labelNames[j]])
+                disp.plot(ax=axes[i, j], colorbar=False)
+                disp.ax_.set_title(f'{worker}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[worker][globe.TRUE_LABLE_IND][j], workerNeuronRes[worker][globe.PRED_LABLE_IND][j]), 3)}')
                 if i < len(workersList) - 1:
                     disp.ax_.set_xlabel('') #remove "predicted label"
                 if  j != 0:
                     disp.ax_.set_ylabel('') #remove "true label"
-                disp.im_.colorbar.remove()  #remove individual colorbars
-
-            # print(classification_report(trueLabels[j], predlabels[j]))
+                # disp.im_.colorbar.remove()  #remove individual colorbars
 
         plt.subplots_adjust(wspace=1, hspace=0.15)        ## adjust for spacing between matrix
         f.colorbar(disp.im_, ax=axes)
@@ -418,9 +426,9 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         print(f'\n{fileName}.png Saved...')
         
         ## print and save prediction stats
-        statFile = f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/stats.txt'
-        if os.path.exists(statFile): os.remove(statFile)
-        f = open(statFile, "a")
+        statFileName = f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/stats.txt'
+        if os.path.exists(statFileName): os.remove(statFileName)
+        statFile = open(statFileName, "a")
 
         for worker in confMatList:
             for j, label in enumerate(confMatList[worker]):
@@ -441,16 +449,16 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 print(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.")
                 print(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n\n")
 
-                f.write(f"{worker}, class #{j}:\n")
-                f.write(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.\n")
-                f.write(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.\n")
-                f.write(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
-                f.write(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.\n")
-                f.write(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.\n")
-                f.write(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
+                statFile.write(f"{worker}, class #{j}:\n")
+                statFile.write(f"Accuracy acquired (TP+TN / Tot):            {round(acc*100, 3)}%.\n")
+                statFile.write(f"Balanced Accuracy (TPR+TNR / 2):            {round(bacc*100, 3)}%.\n")
+                statFile.write(f"Positive Predictive Rate (Precision of P):  {round(ppv*100, 3)}%.\n")
+                statFile.write(f"True Pos Rate (Sensitivity / Hit Rate):     {round(tpr*100, 3)}%.\n")
+                statFile.write(f"True Neg Rate (Selectivity):                {round(tnr*100, 3)}%.\n")
+                statFile.write(f"Informedness (of making decision):          {round(inf*100, 3)}%.\n")
             print("=========================================================\n")
-            f.write("=========================================================\n")
-        f.close()
+            statFile.write("=========================================================\n")
+        statFile.close()
         print(f'\nstats file saved...')
     
     def communication_stats(self):

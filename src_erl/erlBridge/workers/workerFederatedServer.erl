@@ -57,7 +57,7 @@ post_train({GenWorkerEts, WorkerData}) ->
   SyncCount = ets:lookup_element(ThisEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
   if SyncCount == 0 -> 
     ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-    Weights = nerlNIF:call_to_get_weights(ModelID),
+    Weights = nerlNIF:call_to_get_weights(GenWorkerEts, ModelID),
     ClientPID = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
     MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
     gen_statem:cast(ClientPID, {update, {MyName, MyName, Weights}}),
