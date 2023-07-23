@@ -57,6 +57,7 @@ init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,La
   ets:insert(GenWorkerEts,{layer_types_list, LayerTypesList}),
   ets:insert(GenWorkerEts,{layers_sizes, LayersSizes}),
   ets:insert(GenWorkerEts,{layers_activation_functions, LayersActivationFunctions}),
+  ets:insert(GenWorkerEts,{missedBatches, 0}),
   ets:insert(get(generic_worker_ets), {message_q, []}), %% empty Queue
 
   Res=nerlNIF:create_nif(ModelId, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
@@ -136,25 +137,6 @@ idle(cast, {predict}, State = #workerGeneric_state{myName = MyName}) ->
   ?LOG_NOTICE("Go from idle to predict\n"),
   checkAndAck(MyName, 1, 0),
   {next_state, predict, State#workerGeneric_state{nextState = predict}};
-
-% idle(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelId=_ModelId}) ->
-
-%   ?LOG_NOTICE("Set weights in wait state: \n"),
-%   nerlNIF:call_to_set_weights(_ModelId, Ret_weights_list),
-  
-%   % %% Set weights TODO maybe send the results of the update
-%   % [WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list] = Ret_weights_list,
-
-%   % %% Make bias sizes and weights sizes as integer 
-%   % NewBiases_sizes_list = [round(X)||X<-Biases_sizes_list],
-%   % NewWheights_sizes_list = [round(X)||X<-Wheights_sizes_list],
-%   % _Result_set_weights = niftest:set_weights_nif(WeightsList, BiasList, NewBiases_sizes_list, NewWheights_sizes_list, ModelId),
-%   % _Result_set_weights2 = niftest:set_weights_nif(WeightsList, BiasList, Biases_sizes_list, Wheights_sizes_list, ModelId),
-%  %io:format("####sending new weights to workers####~n"),
-%   %niftest:call_to_set_weights(ModelId, Ret_weights_list), niftest is depracated - use nerlNIF instead
-%   ?LOG_NOTICE("####end set weights idle####~n"),
-
-%   {next_state, idle, State};
  
 idle(cast, _Param, State) ->
   % io:fwrite("Same state idle, command: ~p\n",[Param]),
@@ -162,24 +144,24 @@ idle(cast, _Param, State) ->
 
 %% Waiting for receiving results or loss function
 %% Got nan or inf from loss function - Error, loss function too big for double
-wait(cast, {loss,nan,Time_NIF}, State = #workerGeneric_state{myName = MyName, nextState = NextState,ackClient = AckClient,missedBatchesCount=MissedCount}) ->
+wait(cast, {loss,nan,Time_NIF}, State = #workerGeneric_state{myName = MyName, nextState = NextState,ackClient = AckClient}) ->
   ?LOG_NOTICE("Loss func in wait: nan (Loss function too big for double)\n"),
   gen_statem:cast(get(client_pid),{loss, MyName, nan,Time_NIF}), %% TODO send to tal stop casting request with error desc
-  checkAndAck(MyName,AckClient,MissedCount),
+  checkAndAck(MyName,AckClient,ets:lookup_element(get(generic_worker_ets), missedBatches, ?ETS_KEYVAL_VAL_IDX)),
   {next_state, NextState, State#workerGeneric_state{ackClient = 0}};
 
-wait(cast, {loss, {LossVal,Time}}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelId=_ModelID,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData, missedBatchesCount=MissedCount}) ->
+wait(cast, {loss, {LossVal,Time}}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelId=_ModelID,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
   gen_statem:cast(get(client_pid),{loss, MyName, LossVal,Time/1000}), %% TODO Add Time and Time_NIF to the cast
   ToUpdate = CustomFunc(post_train, {get(generic_worker_ets),WorkerData}),
-  checkAndAck(MyName,AckClient,MissedCount),
+  checkAndAck(MyName,AckClient,ets:lookup_element(get(generic_worker_ets), missedBatches, ?ETS_KEYVAL_VAL_IDX)),
   if  ToUpdate -> {next_state, update, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
       true ->     {next_state, NextState, State#workerGeneric_state{ackClient = 0}}
   end;
 
-wait(cast, {predictRes,NerlTensor, Type, TimeTook, CSVname,BatchID}, State = #workerGeneric_state{myName = MyName, nextState = NextState,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData,missedBatchesCount=MissedCount}) ->
+wait(cast, {predictRes,NerlTensor, Type, TimeTook, CSVname,BatchID}, State = #workerGeneric_state{myName = MyName, nextState = NextState,ackClient = AckClient, customFunc = CustomFunc, workerData = WorkerData}) ->
   gen_statem:cast(get(client_pid),{predictRes,MyName, CSVname,BatchID, NerlTensor, Type, TimeTook}), %% TODO TODO change csv name and batch id(1)
   Update = CustomFunc(post_predict, {get(generic_worker_ets),WorkerData}),
-  checkAndAck(MyName,AckClient,MissedCount),
+  checkAndAck(MyName,AckClient,ets:lookup_element(get(generic_worker_ets), missedBatches, ?ETS_KEYVAL_VAL_IDX)),
   if Update -> 
     {next_state, update, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
   true ->
@@ -199,20 +181,11 @@ wait(cast, {predict}, State) ->
   %logger:notice("Waiting, next state - predict"),
   {next_state, wait, State#workerGeneric_state{nextState = predict,ackClient=1}};
 
-wait(cast, {sample, _SampleListTrain}, State = #workerGeneric_state{missedBatchesCount = MissedCount, missedTrainBatches = _MissedTrainSamples}) ->
-  NewMissedCount = MissedCount + 1,
+wait(cast, {sample, _SampleListTrain}, State = #workerGeneric_state{missedTrainBatches = _MissedTrainSamples}) ->
+  ets:update_counter(get(generic_worker_ets), missedBatches, 1),
   % ?LOG_NOTICE(?LOG_HEADER++"Missed sample in worker ~p count: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), NewMissedCount]),
   % Miss = MissedTrainSamples++SampleListTrain,
-  {next_state, wait, State#workerGeneric_state{missedBatchesCount = NewMissedCount}};
-
-% wait(cast, {sample,_CSVname, _BatchID, _SampleListPredict}, State = #workerGeneric_state{missedBatchesCount = MissedCount, missedTrainBatches = _MissedTrainSamples}) ->
-%   % throw("got sample while calculating"),
-%   NewMissedCount = MissedCount + 1,
-%   ?LOG_NOTICE(?LOG_HEADER++"Missed in pid: ~p, Missed batches count: ~p\n",[self(), NewMissedCount]),
-%   % ?LOG_NOTICE(?LOG_HEADER++"Missed in pid: ~p, Missed Samples: ~p\n",[self(), SampleListPredict]),
-  
-%   % Miss = MissedTrainSamples++SampleListTrain,
-%   {next_state, wait, State#workerGeneric_state{missedBatchesCount = NewMissedCount}};
+  {next_state, wait, State#workerGeneric_state{}};
 
 wait(cast, Data, State) ->
   % logger:notice("worker ~p in wait cant treat message: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
@@ -220,17 +193,18 @@ wait(cast, Data, State) ->
   ets:insert(get(generic_worker_ets), {message_q, OldQ++[Data]}),
   {keep_state, State}.
 
-update(info, Data, State) ->
-  ?LOG_NOTICE(?LOG_HEADER++"Worker ~p got data thru info: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
-  ?LOG_INFO("Worker ets is: ~p",[ets:match_object(get(generic_worker_ets), {'$0', '$1'})]),
-  {keep_state, State};
+%% treated runaway message in nerlNIF:call_to_fet_weights
+% update(info, Data, State) ->
+%   ?LOG_NOTICE(?LOG_HEADER++"Worker ~p got data thru info: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
+%   ?LOG_INFO("Worker ets is: ~p",[ets:match_object(get(generic_worker_ets), {'$0', '$1'})]),
+%   {keep_state, State};
 
 update(cast, {update, _From, NerltensorWeights}, State = #workerGeneric_state{customFunc = CustomFunc, nextState = NextState}) ->
   CustomFunc(update, {get(generic_worker_ets), NerltensorWeights}),
   {next_state, NextState, State};
 
-update(cast, {idle}, State = #workerGeneric_state{myName = MyName, missedBatchesCount = MissedCount}) ->
-  checkAndAck(MyName, 1, MissedCount),
+update(cast, {idle}, State = #workerGeneric_state{myName = MyName}) ->
+  checkAndAck(MyName, 1, ets:lookup_element(get(generic_worker_ets), missedBatches, ?ETS_KEYVAL_VAL_IDX)),
   {next_state, idle, State#workerGeneric_state{nextState = idle}};
     
 update(cast, Data, State = #workerGeneric_state{customFunc = CustomFunc, nextState = NextState, missedBatchesCount = MissedBatchesCount}) ->
@@ -251,7 +225,9 @@ update(cast, Data, State = #workerGeneric_state{customFunc = CustomFunc, nextSta
         {next_state, NextState, State#workerGeneric_state{ackClient = 0}}
       end;
     %% got sample from source. discard and add missed count TODO: add to Q
-    {sample, _Tensor} -> {keep_state, State#workerGeneric_state{missedBatchesCount = MissedBatchesCount+1}}
+    {sample, _Tensor} ->  
+        ets:update_counter(get(generic_worker_ets), missedBatches, 1),
+        {keep_state, State}
   end.
 
 
@@ -279,14 +255,14 @@ train(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelId
   {next_state, train, State};
 
 
-train(cast, {idle}, State = #workerGeneric_state{myName = MyName, missedBatchesCount = MissedCount}) ->
+train(cast, {idle}, State = #workerGeneric_state{myName = MyName}) ->
   %logger:notice("Go from train to idle\n"),
-  checkAndAck(MyName, 1, MissedCount),
+  checkAndAck(MyName, 1, ets:lookup_element(get(generic_worker_ets), missedBatches, ?ETS_KEYVAL_VAL_IDX)),
   {next_state, idle, State};
 
-train(cast, {predict}, State = #workerGeneric_state{myName = MyName, missedBatchesCount = MissedCount}) ->
+train(cast, {predict}, State = #workerGeneric_state{myName = MyName}) ->
   %logger:notice("Go from train to predict\n"),
-  checkAndAck(MyName, 1, MissedCount),
+  checkAndAck(MyName, 1, ets:lookup_element(get(generic_worker_ets), missedBatches, ?ETS_KEYVAL_VAL_IDX)),
   {next_state, predict, State};
 
 train(cast, Data, State) ->
@@ -307,20 +283,20 @@ predict(cast, {sample,CSVname, BatchID, {PredictBatchTensor, Type}}, State = #wo
     _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId,PredictBatchTensor, Type,CurrPID,CSVname, BatchID) end),
     {next_state, wait, State#workerGeneric_state{nextState = predict}};
   
-predict(cast, {idle}, State = #workerGeneric_state{myName = MyName, missedBatchesCount = MissedCount}) ->
+predict(cast, {idle}, State = #workerGeneric_state{myName = MyName}) ->
   %logger:notice("Go from predict to idle\n"),
-  gen_statem:cast(get(client_pid),{stateChange,MyName, MissedCount}),
+  checkAndAck(MyName, 1, ets:lookup_element(get(generic_worker_ets), missedBatches, ?ETS_KEYVAL_VAL_IDX)),
 
   {next_state, idle, State};
 
-predict(cast, {training}, State = #workerGeneric_state{myName = MyName, missedBatchesCount = MissedCount}) ->
+predict(cast, {training}, State = #workerGeneric_state{myName = MyName}) ->
   %logger:notice("Go from predict to train\n"),
-  checkAndAck(MyName, 1, MissedCount),
+  checkAndAck(MyName, 1, ets:lookup_element(get(generic_worker_ets), missedBatches, ?ETS_KEYVAL_VAL_IDX)),
 
   {next_state, train, State};
 
-predict(cast, _Param, State) ->
-  %logger:notice("Same state Predict, command: ~p\n",[Param]),
+predict(cast, Param, State) ->
+  logger:notice("In Predict, got weird command: ~p\n",[Param]),
   {next_state, predict, State}.
 
 %% Updates the client that worker is available

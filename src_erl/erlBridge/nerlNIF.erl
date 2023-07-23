@@ -3,7 +3,7 @@
 -include("nerlTensor.hrl").
 
 -export([init/0,nif_preload/0,create_nif/6,train_nif/6,call_to_train/6,predict_nif/3,call_to_predict/6,get_weights_nif/1,printTensor/2]).
--export([call_to_get_weights/1,call_to_set_weights/2]).
+-export([call_to_get_weights/2,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
 -export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
 -export([erl_type_conversion/1]).
@@ -71,19 +71,21 @@ call_to_predict(ModelID, BatchTensor, Type, WorkerPid,CSVname, BatchID)->
                   gen_statem:cast(WorkerPid,{predictRes, nan, CSVname, BatchID})
       end.
 
-call_to_get_weights(ModelID)->
+call_to_get_weights(ThisEts, ModelID)->
       try   
             ?LOG_INFO("Calling get weights in model ~p~n",{ModelID}),
             _RetVal = get_weights_nif(ModelID),
-            recv_call_loop()
+            recv_call_loop(ThisEts)
       catch Err:E -> ?LOG_ERROR("Couldnt get weights from worker~n~p~n",{Err,E}),
             []
       end.
 
 %% sometimes the receive loop gets OTP calls that its not supposed to in high freq. wait for nerktensor of weights
-recv_call_loop() ->
+recv_call_loop(ThisEts) ->
       receive
-            {'$gen_cast', _Any} -> io:format("threw bad mes~n"),recv_call_loop();
+            {'$gen_cast', _Any} ->
+                  ets:update_counter(ThisEts, missedBatches, 1),
+                  recv_call_loop(ThisEts);
             NerlTensorWeights -> NerlTensorWeights
       end.
 
