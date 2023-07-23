@@ -1,3 +1,4 @@
+from collections import OrderedDict
 
 ARGS_TYPE = 0
 VALUE_TYPE = 1
@@ -13,3 +14,21 @@ MAIN_SERVER_TYPE = 10
 API_SERVER_TYPE = 11
 SPECIAL_ENTITY_TYPE = 12
 NONE_TYPE = -1
+
+RouterPolicyDict = {
+    "Shortest-Path":0,
+    "Routing-Table":1
+}
+
+SourcePolicyDict = {
+    "Casting":1,
+    "Round-Robin":2
+}
+
+def get_inv_dict(in_dict):
+    Keys = list(in_dict.keys())
+    Values = list(in_dict.values())
+    newDict = []
+    for value, key in zip(Values,Keys):
+        newDict.append((value,key))
+    return dict(newDict)

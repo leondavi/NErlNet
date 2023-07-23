@@ -5,23 +5,27 @@ from WinWorkerDialog import WinWorkerDialog
 from JsonElements import *
 from Pinger import *
 import logging
+import time
 
-sg.theme('LightGray4') 
+sg.theme('LightGray4')
+
+sg.popup_animated(NERLNET_SPLASH_LOGO_PATH) # start splash
+DEFAULT_HOST_IP = get_this_host_ip()
 
 # globals
-devices_online_hosts_list = ['127.0.0.1']
+devices_online_hosts_list = [DEFAULT_HOST_IP]
 
 # Specific Fields Frame 
 settingsFields = [  [sg.Text('Frequency '), sg.InputText(size=10, key=KEY_SETTINGS_FREQUENCY_INPUT, enable_events=True), sg.Text('Default frequency for sensors')],
                 [sg.Text('Batch Size'), sg.InputText(size=10, key=KEY_SETTINGS_BATCH_SIZE_INPUT, enable_events=True), sg.Text('# of samples in a message')],
                 [sg.Text("Special devices")],
-                [sg.Text('Main Server: '), sg.Text('ip'), sg.InputText(size=15, key=KEY_SETTINGS_MAINSERVER_IP_INPUT, enable_events=True), 
+                [sg.Text('Main Server: '), sg.Text('ip'), sg.InputText(DEFAULT_HOST_IP, size=15, key=KEY_SETTINGS_MAINSERVER_IP_INPUT, enable_events=True), 
                                            sg.Text('port'), sg.InputText(size=10, key=KEY_SETTINGS_MAINSERVER_PORT_INPUT, enable_events=True),
                                            sg.Text('args'), sg.InputText(size=15, key=KEY_SETTINGS_MAINSERVER_ARGS_INPUT, enable_events=True)],
-                [sg.Text('API Server:  '), sg.Text('ip'), sg.InputText(size=15, key=KEY_SETTINGS_APISERVER_IP_INPUT, enable_events=True), 
+                [sg.Text('API Server:  '), sg.Text('ip'), sg.InputText(DEFAULT_HOST_IP, size=15, key=KEY_SETTINGS_APISERVER_IP_INPUT, enable_events=True), 
                                           sg.Text('port'), sg.InputText(size=10, key=KEY_SETTINGS_APISERVER_PORT_INPUT, enable_events=True),
                                           sg.Text('args'), sg.InputText(size=15, key=KEY_SETTINGS_APISERVER_ARGS_INPUT, enable_events=True)],
-                [sg.Text('NerlGUI:      '), sg.Text('ip'), sg.InputText(size=15, key=KEY_SETTINGS_NERLGUI_IP_INPUT, enable_events=True),
+                [sg.Text('NerlGUI:      '), sg.Text('ip'), sg.InputText(DEFAULT_HOST_IP, size=15, key=KEY_SETTINGS_NERLGUI_IP_INPUT, enable_events=True),
                                      sg.Text('port'), sg.InputText(size=10, key=KEY_SETTINGS_NERLGUI_PORT_INPUT, enable_events=True),
                                      sg.Text('args'), sg.InputText(size=15, key=KEY_SETTINGS_NERLGUI_ARGS_INPUT, enable_events=True),sg.Checkbox("enable nerlGUI", default=False, key=KEY_CHECKBOX_ENABLE_NERLGUI, enable_events=True)],
                 [sg.Button("Add", size=(10), key=KEY_SETTINGS_ADD_BUTTON, enable_events=True), sg.Button("Clear",size=(10))],
@@ -91,9 +95,12 @@ ClientsFieldsFrames = sg.Frame("Clients",layout=[[ClientsFieldsFrame,ClientWorke
 
 # Routers
 RoutersFields = [
-                 [sg.Button("Add", size=(10)), sg.Button("Load",size=(10)), sg.Button("Remove",size=(10))],
-                 [sg.Text("name:  "), sg.InputText(size=15), sg.Text("policy   "), sg.InputText(size=15)],
-                 [sg.Text("port:    "), sg.InputText(size=15)],
+                 [sg.Button("Add", size=(10), key=KEY_ROUTERS_BUTTON_ADD, enable_events=True),
+                  sg.Button("Load",size=(10), key=KEY_ROUTERS_BUTTON_LOAD, enable_events=True),
+                  sg.Button("Remove",size=(10), key=KEY_CLIENTS_BUTTON_REMOVE, enable_events=True)],
+                 [sg.Text("name:  "), sg.InputText(size=15, enable_events=True, key=KEY_ROUTERS_NAME_INPUT), 
+                  sg.Text("policy: "), sg.Combo(list(RouterPolicyDict.keys()),size=15, enable_events=True, key=KEY_ROUTERS_POLICY_COMBO_BOX)],
+                 [sg.Text("port:    "), sg.InputText(size=15, enable_events=True, key=KEY_ROUTERS_PORT_INPUT)],
                 ]
 RoutersFieldsFrame = sg.Frame("Routers",RoutersFields)
 
@@ -138,6 +145,9 @@ main_window  = sg.Window(title=WINDOW_TITLE, layout=[[sg.Image(NERLNET_LOGO_PATH
                                                     [workersFrame, devicesFrame ]
                                                     ])
 
+time.sleep(2)
+sg.popup_animated(None) # end splash
+
 while True:
     event, values = main_window.read(timeout=50)
     
@@ -145,6 +155,7 @@ while True:
         settings_handler(event,values)
         workers_handler(main_window,event,values)
         clients_handler(main_window, event, values)
+        routers_handler(main_window, event, values)
         entities_handler(main_window, event, values)
         devices_handler(main_window, event, values)
         online_scanner_handler(main_window, event, values, devices_online_hosts_list) # lan scan for online devices

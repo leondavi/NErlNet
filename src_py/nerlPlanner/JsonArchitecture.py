@@ -79,8 +79,13 @@ class JsonArchitecture():
                 owned_workers_dict[worker] = client_name
         return owned_workers_dict
 
+    def get_entity(self, entity_name : str, entity_type):
+        if entity_type in [KEY_ROUTERS, KEY_CLIENTS, KEY_SOURCES]:
+            return self.main_dict[entity_type][entity_name] if entity_name in self.main_dict[entity_type] else None
+        raise f"bad entity type {entity_type} is not one of KEY_ROUTERS, KEY_CLIENTS, KEY_SOURCE"
+
     def get_client(self, client_name : str) -> Client: 
-        return self.main_dict[KEY_CLIENTS][client_name] if client_name in self.main_dict[KEY_CLIENTS] else None
+        return self.get_entity(client_name, KEY_CLIENTS)
 
     def add_router(self, router : Router): 
         '''
@@ -92,9 +97,15 @@ class JsonArchitecture():
         if router_name in self.reserved_names_set:
             raise "reserved name is being used with a client!"
         else:
-            self.main_dict[KEY_ROUTERS].append(router.get_as_dict())
+            self.main_dict[KEY_ROUTERS][router_name] = router
             self.names_set.add(router_name)
         return True
+    
+    def get_router(self, router_name : str) -> Router:
+        return self.get_entity(router_name, KEY_ROUTERS)
+    
+    def get_routers_names(self):
+        return list(self.main_dict[KEY_ROUTERS].keys())
     
     def add_source(self, source : Source): 
         '''
