@@ -92,9 +92,7 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     int modelType = onnBrCtrl.getModelType(PredictNNptr->mid);
 
     int res;
-    void** exit_code;
-    enif_thread_create((char*)"predict_nif_proc", &(PredictNNptr->tid), PredictFun, (void*) pPredictNNptr, 0);
-    res = enif_thread_join(PredictNNptr->tid, exit_code );
+    res = enif_thread_create((char*)"predict_nif_proc", &(PredictNNptr->tid), PredictFun, (void*) pPredictNNptr, 0);
     if (res)
     {
         LogError("failed to call enif_thread_create with PredictFun");
