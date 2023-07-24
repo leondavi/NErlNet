@@ -7,15 +7,15 @@
   "devices": [
     {
       "host": "192.168.0.108",
-      "entities": "mainServer,c1,c2,c3,c4,s1,r1,r2,r3,r4,r5,r6,apiServer"
+      "entities": "mainServer,c1,c2,c3,c4,s1,r1,r2,r3,r4,apiServer"
     },
     {
       "host": "192.168.0.100",
-      "entities": "c5"
+      "entities": "r5,c5"
     },
     {
       "host": "192.168.0.103",
-      "entities": "c6"
+      "entities": "r6,c6"
     }
   ],
   "apiServer": 
