@@ -7,7 +7,15 @@
   "devices": [
     {
       "host": "192.168.0.108",
-      "entities": "mainServer,c1,c2,c3,c4,c5,c6,s1,r1,r2,r3,r4,r5,r6,apiServer"
+      "entities": "mainServer,c1,c2,c3,c4,s1,r1,r2,r3,r4,apiServer"
+    },
+    {
+      "host": "192.168.0.100",
+      "entities": "c5,r5"
+    },
+    {
+      "host": "192.168.0.103",
+      "entities": "c6,r6"
     }
   ],
   "apiServer": 
@@ -48,7 +56,10 @@
       "_comment5": "TODOTODO explain learningRate",
       "learningRate": "0.001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"1"   
+      "optimizer":"1",
+      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
+      "federatedServer": "w1",
+      "syncCount": "25"
     },
     {
       "name": "w2",
@@ -66,7 +77,10 @@
       "_comment5": "TODOTODO explain learningRate",
       "learningRate": "0.001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"1"   
+      "optimizer":"1",
+      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
+      "federatedServer": "w1",
+      "syncCount": "25"   
     },
     {
       "name": "w3",
@@ -84,7 +98,10 @@
       "_comment5": "TODOTODO explain learningRate",
       "learningRate": "0.001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"1"   
+      "optimizer":"1",
+      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
+      "federatedServer": "w1",
+      "syncCount": "25"   
     },
     {
       "name": "w4",
@@ -102,7 +119,10 @@
       "_comment5": "TODOTODO explain learningRate",
       "learningRate": "0.001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"1"   
+      "optimizer":"1",
+      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
+      "federatedServer": "w1",
+      "syncCount": "25"   
     },
     {
       "name": "w5",
@@ -120,7 +140,10 @@
       "_comment5": "TODOTODO explain learningRate",
       "learningRate": "0.001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"1"   
+      "optimizer":"1",
+      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
+      "federatedServer": "w1",
+      "syncCount": "25"   
     },
     {
       "name": "w6",
@@ -138,7 +161,10 @@
       "_comment5": "TODOTODO explain learningRate",
       "learningRate": "0.001",
       "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
-      "optimizer":"1"   
+      "optimizer":"1",
+      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
+      "federatedServer": "w1",
+      "syncCount": "25"   
     }
   ],
   "clients": [
