@@ -13,6 +13,8 @@
 -import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0]).
 -import(nerlNIF,[erl_type_conversion/1]).
 
+-define(CORE_NUM, erlang:system_info(logical_processors_available)).
+
 %% API
 -export([parseCSV/3, batchesProcFunc/3]).
 %% unused functions
@@ -45,19 +47,6 @@ parseCSV(SourceName, BatchSize, CSVData)->
 %       eof        -> []
 %   end.
 
-% decode([], Ret) -> Ret;
-% decode([H | Rest], Ret) ->
-%   %% numbers sometime appear as ".7" / "-.1" 
-%   Num = case H of
-%     [$-,$.|Rest]  -> "-0."++Rest;
-%     [$.|Rest]     -> "0."++Rest;
-%     List -> List
-%   end,
-%   {NumToAdd, _Type} = nerl_tools:list_to_numeric(Num),
-%   case Ret of
-%     <<>>  -> decode(Rest,<<float(NumToAdd)>>);
-%     _     -> decode(Rest,<<Ret/binary,NumToAdd:32/float>>)
-%   end.
 
 % encode_tensor(Batch) ->
 %   XDim = length(hd(Batch)),
@@ -77,26 +66,47 @@ parseCSV(SourceName, BatchSize, CSVData)->
 %     {error, E} -> logger:notice("couldn't delete files ~p, ~p",[DataFiles, E])
 %   end.
 
+% splitLinesToBatches(Lines, BatchSize) ->
+%   Batches = divide(L, BatchSize),
+%   [ dataStrToNumericData(Batch) || Batch <- Batches].
+
+
+% divide([], _) -> [];
+% divide(L, N) ->
+%     try lists:split(N, L) of
+%         {H,T} -> [H|divide(T, N)]
+%     catch
+%         error:badarg -> [L]
+%     end.
+
+
+
 %%this parser takes a CSV folder containing chunked data, parsing into a list of binary.
 %%each record in the line is a batch of samples
 parse_file(SourceName, BatchSize,File_Address) ->
   {ok, Data} = file:read_file(File_Address),
   Lines = re:split(Data, "\r|\n|\r\n", [{return,binary}] ),
-  ListOfLinesOfData = dataStrToNumericData(Lines),
-
+  CleanLines = [Line || Line <- Lines, Line /= []],
+  ?LOG_INFO("split in data"),
+  %% TODO: create NIF that does dataStrToNumericData. In = ["1,2,3,4", "5,6,7,8", ....] => out = [[1,2,3,4],[5,6,7,8],....] (make sure to take type into account)
+  ListOfLinesOfData = dataStrToNumericData(CleanLines),
+  ?LOG_INFO("converted str to float"),
   SampleSize = length(hd(ListOfLinesOfData)),
   {_Num, DataType} = nerl_tools:list_to_numeric(hd(hd(ListOfLinesOfData))),
   ListOfBatches = generateListOfBatches(ListOfLinesOfData, BatchSize),
+  ?LOG_INFO("grouped batches"),
   % ErlType = nerlNIF:erl_type_conversion(UserType),        
   ErlType = erl_float,        %% TODO: delete so can accept int as well
   ListOfTensors = 
     case ErlType of 
           erl_float ->
             A = encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, ErlType, DataType, SampleSize),
+            ?LOG_INFO("converted to tensors"),
             TestTensor = nerlNIF:nerltensor_conversion(hd(tl(A)), erl_float),
             % B = encodeListOfListsNerlTensor(ListOfBatches, DataType, SampleSize, 1),
             % io:format("A = ~p~n~nB = ~p ~n", [A, B]),
-            io:format("Test Tensor = ~p ~n", [TestTensor]);
+            % io:format("Test Tensor = ~p ~n", [TestTensor]),
+            A;
           % erl_int -> encodeListOfListsNerlTensor(ListOfGroupedBatches, UserType, BatchSize,SampleSize,DimZ);
           _Other -> throw("wrong ErlType")
     end,
@@ -104,16 +114,17 @@ parse_file(SourceName, BatchSize,File_Address) ->
   {ListOfTensors, DataType, SampleSize}.
 
 dataStrToNumericData(ListOfLinesOfData)->
-  Func = fun(NumStr) ->
-    NumStrFixed =
-      case NumStr of
-      [$-,$.|Rest]  -> "-0."++Rest;
-      [$.|Rest]     -> "0."++Rest;
-      Str -> Str
+  Func =
+    fun(NumStr) ->
+      NumStrFixed =
+        case NumStr of
+        [$-,$.|Rest]  -> "-0."++Rest;
+        [$.|Rest]     -> "0."++Rest;
+        Str -> Str
+      end,
+      {Num, _Type} = nerl_tools:list_to_numeric(NumStrFixed),
+      float(Num)    %% TODO: change to case of Type
     end,
-    {Num, _Type} = nerl_tools:list_to_numeric(NumStrFixed),
-    float(Num)
-  end,
 
   [lists:map(Func, string:split(binary_to_list(LineOfData), ",", all)) || LineOfData <- ListOfLinesOfData].
 
@@ -168,7 +179,7 @@ encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, ErlType, TargetBinaryT
         XDim = float(NumOfSamples),
         YDim = float(SampleSize),
         ZDim = 1.0,
-        io:format("sending conversion: ~p ~p ~n ",[{[XDim, YDim, ZDim | Batch], ErlType}, TargetBinaryType]),
+        % io:format("sending conversion: ~p ~p ~n ",[{[XDim, YDim, ZDim | Batch], ErlType}, TargetBinaryType]),
         NewTensor = nerlNIF:nerltensor_conversion({[XDim, YDim, ZDim | Batch], ErlType}, TargetBinaryType)
       end
     end,
@@ -191,7 +202,7 @@ encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, ErlType, TargetBinaryT
   DownRes = ets:lookup_element(encodeListOfBatchesToNerlTensorsBinBatches, downBatchesRes, ?DATA_IDX),
 
   ets:delete(encodeListOfBatchesToNerlTensorsBinBatches),
-  [io:format("~p" ,[nerlNIF:nerltensor_conversion(Item, erl_float)]) || Item <- UpRes ++ DownRes],
+  % [io:format("~p" ,[nerlNIF:nerltensor_conversion(Item, erl_float)]) || Item <- UpRes ++ DownRes],
   UpRes ++ DownRes.
 
 %%return a binary representing a list of floats: List-> <<binaryofthisList>>
