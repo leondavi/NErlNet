@@ -2,7 +2,7 @@
   "NerlNetSettings": 
   {
     "frequency": "200",
-    "batchSize": "100"
+    "batchSize": "50"
   }
   ,
   "devices": [
@@ -214,7 +214,7 @@
     {
       "name": "s1",
       "port": "8091",
-      "method": "2",
+      "method": "1",
       "COMMENTS": "method allowed: '1': sends each exapme to all clients listed, '2': round robin between all clients"
     }
   ],
