@@ -17,6 +17,7 @@
 
 %% API
 -export([parseCSV/3, batchesProcFunc/3]).
+-export([dataStrToNumeric_NumHandler/1,dataStrToNumeric_lineHandler/4]).
 %% unused functions
 % -export([decodeEncodeFloatsListBin/4, get_batch/2]).
 
@@ -102,7 +103,7 @@ parse_file(SourceName, BatchSize,File_Address) ->
           erl_float ->
             A = encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, ErlType, DataType, SampleSize),
             ?LOG_INFO("converted to tensors"),
-            TestTensor = nerlNIF:nerltensor_conversion(hd(tl(A)), erl_float),
+            % TestTensor = nerlNIF:nerltensor_conversion(hd(tl(A)), erl_float),
             % B = encodeListOfListsNerlTensor(ListOfBatches, DataType, SampleSize, 1),
             % io:format("A = ~p~n~nB = ~p ~n", [A, B]),
             % io:format("Test Tensor = ~p ~n", [TestTensor]),
@@ -113,55 +114,92 @@ parse_file(SourceName, BatchSize,File_Address) ->
   ?LOG_NOTICE("Source ~p generated list of NerlTensors from file: ~p",[SourceName, File_Address]),
   {ListOfTensors, DataType, SampleSize}.
 
-dataStrToNumericData(ListOfLinesOfData)->
-  Func =
-    fun(NumStr) ->
-      NumStrFixed =
+dataStrToNumeric_NumHandler(NumStr) -> 
+  NumStrFixed =
         case NumStr of
         [$-,$.|Rest]  -> "-0."++Rest;
         [$.|Rest]     -> "0."++Rest;
         Str -> Str
       end,
       {Num, _Type} = nerl_tools:list_to_numeric(NumStrFixed),
-      float(Num)    %% TODO: change to case of Type
-    end,
+      float(Num).    %% TODO: change to case of Type
 
-  [lists:map(Func, string:split(binary_to_list(LineOfData), ",", all)) || LineOfData <- ListOfLinesOfData].
+dataStrToNumeric_lineHandler(PIPD, LineOfData, EtsTable, EtsKey) -> 
+  FloatDataList = lists:map(fun dataStrToNumeric_NumHandler/1, string:split(binary_to_list(LineOfData), ",", all)),
+  ets:insert(EtsTable, {EtsKey, FloatDataList}),
+  PIPD ! done.
+
+dataStrToNumeric_sync(0) -> ok;
+dataStrToNumeric_sync(PF) ->
+  receive 
+    done -> dataStrToNumeric_sync(PF-1);
+    _Other -> throw("unexpected message in source parse")
+  end.
+
+
+dataStrToNumericParallelLoop(_PF, _EtsTable, [], _LastKey) -> done;
+dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfData, LastKey) when length(ListOfLinesOfData) > PF -> % PF - Parallelization Factor
+  {ListOfLinesOfDataToBeProcessed, ListOfLinesOfDataRest} = lists:split(PF, ListOfLinesOfData),
+  IdxList = lists:seq(LastKey,LastKey+PF),
+  PIPD = self(),
+  lists:zipwith(fun(LineOfData, Idx) -> spawn_link(?MODULE,dataStrToNumeric_lineHandler,[PIPD, LineOfData, EtsTable, Idx]) end, ListOfLinesOfDataToBeProcessed, IdxList),
+  dataStrToNumeric_sync(PF),
+  dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfDataRest, LastKey+PF);
+
+
+dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfData, LastKey) ->
+  PIPD = self(),
+  CurrentKey = LastKey + 1,
+  dataStrToNumeric_lineHandler(PIPD, hd(ListOfLinesOfData), EtsTable, CurrentKey),
+  receive 
+    done -> dataStrToNumericParallelLoop(PF, EtsTable, tl(ListOfLinesOfData), CurrentKey);
+    _Other -> throw("unexpected message in source parse")
+  end.
+  
+
+dataStrToNumericData(ListOfLinesOfData)->
+  EtsTable = ets:new(data_str_to_numeric_data, [orederd_set, public]),
+  dataStrToNumericParallelLoop(?CORE_NUM, EtsTable, ListOfLinesOfData, 0),
+  [ element(?DATA_IDX, Attribute) || Attribute <- ets:tab2list(EtsTable)].
 
 generateListOfBatches(ListOfList, BatchSize) -> generateListOfBatches(ListOfList, BatchSize, []).
 
 generateListOfBatches([], _BatchSize, Ret) -> Ret;
-generateListOfBatches(ListOfList, BatchSize, Ret) when BatchSize >= length(ListOfList) -> Ret++[lists:flatten(ListOfList)];
+generateListOfBatches(ListOfList, BatchSize, Ret) when (BatchSize >= length(ListOfList))-> Ret++[lists:flatten(ListOfList)];
 generateListOfBatches(ListOfList, BatchSize, Ret) ->
   {NewBatch, Rest} = lists:split(BatchSize, ListOfList),
   generateListOfBatches(Rest, BatchSize, Ret ++ [lists:flatten(NewBatch)]).
 
-decodeListOfLists(L) -> decodeListOfLists(L,[]).
 
-decodeListOfLists([],Ret) -> Ret;
-decodeListOfLists([[<<>>]|Tail],Ret) -> decodeListOfLists(Tail,Ret);
-decodeListOfLists([Head|Tail],Ret) ->
-  decodeListOfLists(Tail,Ret++[dataStrToNumericData(Head)]).
+% DEPRACATED
+% decodeListOfLists(L) -> decodeListOfLists(L,[]).
 
-encodeListOfListsNerlTensor(L, TargetBinaryType, YDim, ZDim)->
-  {_Num, Type} = nerl_tools:list_to_numeric(hd(hd(L))),
+% decodeListOfLists([],Ret) -> Ret;
+% decodeListOfLists([[<<>>]|Tail],Ret) -> decodeListOfLists(Tail,Ret);
+% decodeListOfLists([Head|Tail],Ret) ->
+%   decodeListOfLists(Tail,Ret++[dataStrToNumericData(Head)]).
+
+
+%DEPRECATED
+% encodeListOfListsNerlTensor(L, TargetBinaryType, YDim, ZDim)->
+%   {_Num, Type} = nerl_tools:list_to_numeric(hd(hd(L))),
   
-  ErlType =
-    case Type of 
-        float -> erl_float;
-        integer -> erl_int;
-        _Other -> throw("bad type in conversion")
-    end,
-  encodeListOfListsNerlTensor(L, ErlType, TargetBinaryType, [], YDim, ZDim).
+%   ErlType =
+%     case Type of 
+%         float -> erl_float;
+%         integer -> erl_int;
+%         _Other -> throw("bad type in conversion")
+%     end,
+%   encodeListOfListsNerlTensor(L, ErlType, TargetBinaryType, [], YDim, ZDim).
 
-encodeListOfListsNerlTensor([], _ErlType, _TargetBinaryType, Ret, _YDim, _ZDim)-> Ret;
-encodeListOfListsNerlTensor([Head|Tail], ErlType, TargetBinaryType, Ret, YDim, ZDim)->
-  XDim = length(Head)/YDim,  %% XDim is the number of samples in batch
-  if XDim == 0 -> encodeListOfListsNerlTensor(Tail,ErlType,TargetBinaryType,Ret, YDim, ZDim);   %% skip empty tensor
-  true ->
-    NewTensor = nerlNIF:nerltensor_conversion({[XDim, YDim, ZDim | Head], ErlType}, TargetBinaryType),%% create new tensor
-    encodeListOfListsNerlTensor(Tail,ErlType,TargetBinaryType,Ret++[NewTensor], YDim, ZDim)
-  end.
+% encodeListOfListsNerlTensor([], _ErlType, _TargetBinaryType, Ret, _YDim, _ZDim)-> Ret;
+% encodeListOfListsNerlTensor([Head|Tail], ErlType, TargetBinaryType, Ret, YDim, ZDim)->
+%   XDim = length(Head)/YDim,  %% XDim is the number of samples in batch
+%   if XDim == 0 -> encodeListOfListsNerlTensor(Tail,ErlType,TargetBinaryType,Ret, YDim, ZDim);   %% skip empty tensor
+%   true ->
+%     NewTensor = nerlNIF:nerltensor_conversion({[XDim, YDim, ZDim | Head], ErlType}, TargetBinaryType),%% create new tensor
+%     encodeListOfListsNerlTensor(Tail,ErlType,TargetBinaryType,Ret++[NewTensor], YDim, ZDim)
+%   end.
 
 batchesProcFunc(PPID, BatchesKey,BatchFunc) ->
       Batches = ets:lookup_element(encodeListOfBatchesToNerlTensorsBinBatches, BatchesKey, ?DATA_IDX),
