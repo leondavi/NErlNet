@@ -165,7 +165,7 @@ list_to_numeric(L) ->
   Int = (catch erlang:list_to_integer(L)),
   if is_number(Float) -> {Float, float};
     is_number(Int) -> {Int, integer};
-    true -> ErrorMessage = "couldnt convert - given input string is not a numeric value: ",
+    true -> ErrorMessage = "couldnt convert - given input string is not a numeric value: ",   %% most common problem is L=[]
             ?LOG_ERROR(ErrorMessage), throw(ErrorMessage++L)
   end.
 
