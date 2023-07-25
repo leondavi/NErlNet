@@ -14,6 +14,7 @@
 -import(nerlNIF,[erl_type_conversion/1]).
 
 -define(CORE_NUM, erlang:system_info(logical_processors_available)).
+-define(PARALLELIZATION_FACTOR, 4).
 
 %% API
 -export([parseCSV/3, batchesProcFunc/3]).
@@ -162,7 +163,7 @@ dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfData, LastKey) ->
 dataStrToNumericData(ListOfLinesOfData)->
   EtsTable = ets:new(data_str_to_numeric_data, [ordered_set, public]),
   io:format("reached numeric translation!!!!!!!~n~n",[]),
-  dataStrToNumericParallelLoop(?CORE_NUM, EtsTable, ListOfLinesOfData, 0),
+  dataStrToNumericParallelLoop(?PARALLELIZATION_FACTOR, EtsTable, ListOfLinesOfData, 0),
   [ element(?DATA_IDX, Attribute) || Attribute <- ets:tab2list(EtsTable)].
 
 generateListOfBatches(ListOfList, BatchSize) -> generateListOfBatches(ListOfList, BatchSize, []).
