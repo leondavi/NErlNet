@@ -160,6 +160,7 @@ string_format(Pattern, Values) ->
 
 list_to_numeric(Num) when is_float(Num) -> {Num, float};
 list_to_numeric(Num) when is_integer(Num) -> {Num, integer};
+list_to_numeric([]) -> {[], empty};
 list_to_numeric(L) ->
   Float = (catch erlang:list_to_float(L)),
   Int = (catch erlang:list_to_integer(L)),

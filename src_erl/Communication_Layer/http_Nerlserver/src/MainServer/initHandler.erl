@@ -10,8 +10,7 @@
 -author("kapelnik").
 -export([init/2, start/2, stop/1]).
 -behaviour(application).
-
--define(DATA_LEN, 100*1000*1000). % default is 8MB, here set to 100MB
+-include("../nerl_tools.hrl").
 -define(DATA_TIME, infinity).
 
 %%setter handler for editing weights in CSV file, can also send a reply to sender
