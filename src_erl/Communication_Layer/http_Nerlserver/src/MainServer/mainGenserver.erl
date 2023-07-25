@@ -209,9 +209,9 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName,sou
 
   case NewCastingList of
     [] -> NextState = State#main_genserver_state{state = idle, sourcesCastingList = NewCastingList,clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1},
-          [{setClientState(clientIdle,ClientName, MyName)}|| ClientName<- ListOfClients],
+          [{setClientState(clientIdle,ClientName, MyName)}|| ClientName<- ListOfClients];
           % gen_server:cast(self(),{clientsIdle}),
-          ack();
+          % ack();
     _ -> NextState = State#main_genserver_state{state = casting, sourcesCastingList = NewCastingList,msgCounter = MsgCounter+1}
   end,
   {noreply, NextState};
