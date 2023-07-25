@@ -14,7 +14,6 @@
 -import(nerlNIF,[erl_type_conversion/1]).
 
 -define(CORE_NUM, erlang:system_info(logical_processors_available)).
--define(PARALLELIZATION_FACTOR, 4).
 
 %% API
 -export([parseCSV/3, batchesProcFunc/3]).
@@ -128,7 +127,7 @@ dataStrToNumeric_NumHandler(NumStr) ->
 
 dataStrToNumeric_lineHandler(PIPD, LineOfData, EtsTable, EtsKey) -> 
   FloatDataList = lists:map(fun dataStrToNumeric_NumHandler/1, string:split(binary_to_list(LineOfData), ",", all)),
-  io:format("FloatDataList ~p~n",[{FloatDataList,EtsKey}]),
+  % io:format("FloatDataList ~p~n",[{FloatDataList,EtsKey}]),
   ets:insert(EtsTable, {EtsKey, FloatDataList}),
   PIPD ! done.
 
@@ -143,9 +142,9 @@ dataStrToNumeric_sync(PF) ->
 dataStrToNumericParallelLoop(_PF, _EtsTable, [], _LastKey) -> done;
 dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfData, LastKey) when length(ListOfLinesOfData) > PF -> % PF - Parallelization Factor
   {ListOfLinesOfDataToBeProcessed, ListOfLinesOfDataRest} = lists:split(PF, ListOfLinesOfData),
-  IdxList = lists:seq(LastKey,LastKey+PF),
+  IdxList = lists:seq(LastKey,LastKey+PF-1),
   PIPD = self(),
-  lists:zipwith(fun(LineOfData, Idx) -> io:format("Before Spawn ~p~n",[{LineOfData, Idx}]), spawn_link(?MODULE,dataStrToNumeric_lineHandler,[PIPD, LineOfData, EtsTable, Idx]) end, ListOfLinesOfDataToBeProcessed, IdxList),
+  lists:zipwith(fun(LineOfData, Idx) -> spawn_link(?MODULE,dataStrToNumeric_lineHandler,[PIPD, LineOfData, EtsTable, Idx]) end, ListOfLinesOfDataToBeProcessed, IdxList),
   dataStrToNumeric_sync(PF),
   dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfDataRest, LastKey+PF);
 
@@ -163,9 +162,8 @@ dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfData, LastKey) ->
 dataStrToNumericData(ListOfLinesOfData)->
   EtsTable = ets:new(data_str_to_numeric_data, [ordered_set, public]),
   io:format("reached numeric translation!!!!!!!~n~n",[]),
-  dataStrToNumericParallelLoop(?PARALLELIZATION_FACTOR, EtsTable, ListOfLinesOfData, 0),
-  [ element(?DATA_IDX, Attribute) || Attribute <- ets:tab2list(EtsTable)],
-  throw("hey").
+  dataStrToNumericParallelLoop(?CORE_NUM, EtsTable, ListOfLinesOfData, 0),
+  [ element(?DATA_IDX, Attribute) || Attribute <- ets:tab2list(EtsTable)].
 
 generateListOfBatches(ListOfList, BatchSize) -> generateListOfBatches(ListOfList, BatchSize, []).
 
