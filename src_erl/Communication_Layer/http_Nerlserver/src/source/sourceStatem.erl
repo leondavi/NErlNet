@@ -94,6 +94,8 @@ idle(cast, {batchList,Workers,CSVData}, State = #source_statem_state{batchSize =
 idle(cast, {startCasting,Body}, State = #source_statem_state{myName = MyName, lengthOfSample = LengthOfSample, sendingMethod = Method, frequency = Frequency, batchSize = BatchSize, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, nerlnetGraph = NerlnetGraph, msgCounter = Counter, csvName = CSVName, batchList =CSVlist}) ->
   [_Source,NumOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
   ?LOG_NOTICE("~p - starts casting to: ~p",[MyName, CastingTo]),
+  ?LOG_NOTICE("Frequency: ~pHz [Batches/Second]",[Frequency]),
+  ?LOG_NOTICE("Batch size: ~p", [BatchSize]),
   ?LOG_NOTICE("number of batches to send: ~p",[NumOfBatchesToSend]),
   ?LOG_NOTICE("total casting list length: ~p",[length(CSVlist)]),
   ?LOG_NOTICE("sample size = ~p",[erts_debug:flat_size(hd(CSVlist))]),

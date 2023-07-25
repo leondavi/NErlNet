@@ -239,7 +239,7 @@ handle_cast({startCasting,Source_Names}, State = #main_genserver_state{state = i
   startCasting(Sources,NumOfSampleToSend,MyName, NerlnetGraph),
   SourcesAtoms = [list_to_atom(Source_Name)||Source_Name<-Sources],
   % io:format("new Casting list: ~p~n",[SourcesAtoms]),
-  {noreply, State#main_genserver_state{sourcesCastingList = CastingList++SourcesAtoms, state = casting,msgCounter = MsgCounter+1}};
+  {noreply, State#main_genserver_state{ state = casting, sourcesCastingList = CastingList++SourcesAtoms,msgCounter = MsgCounter+1}};
 
 
 handle_cast({startCasting,_Source_Names}, State = #main_genserver_state{sourcesWaitingList = SourcesWaiting, clientsWaitingList = ClientsWaiting}) ->
@@ -380,8 +380,8 @@ getNewStatisticsMap([{Name,{_Host, _Port}}|Tail],StatisticsMap) ->
 
 startCasting([],_NumOfSampleToSend,_MyName, _NerlnetGraph)->done;
 startCasting([SourceName|SourceNames],NumOfSampleToSend, MyName, NerlnetGraph)->
-    {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,SourceName,NerlnetGraph),
   ?LOG_NOTICE("~p sending start casting command to: ~p",[MyName, SourceName]),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,SourceName,NerlnetGraph),
   nerl_tools:http_request(RouterHost,RouterPort,"startCasting", SourceName++[","]++NumOfSampleToSend),
   startCasting(SourceNames,NumOfSampleToSend, MyName, NerlnetGraph).
 
