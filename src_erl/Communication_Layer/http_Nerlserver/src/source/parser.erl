@@ -24,7 +24,6 @@
 
 
 parseCSV(SourceName, BatchSize, CSVData)->
-  io:format("In parseVSV~n",[]),
   SourceNameStr = atom_to_list(SourceName),
   nerl_tools:setup_logger(?MODULE),
   %io:format("curr dir: ~p~n",[file:get_cwd()]),
@@ -162,7 +161,6 @@ dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfData, LastKey) ->
 
 dataStrToNumericData(ListOfLinesOfData)->
   EtsTable = ets:new(data_str_to_numeric_data, [ordered_set, public]),
-  io:format("reached numeric translation!!!!!!!~n~n",[]),
   dataStrToNumericParallelLoop(?PARALLELIZATION_FACTOR, EtsTable, ListOfLinesOfData, 0),
   [ element(?DATA_IDX, Attribute) || Attribute <- ets:tab2list(EtsTable)].
 
