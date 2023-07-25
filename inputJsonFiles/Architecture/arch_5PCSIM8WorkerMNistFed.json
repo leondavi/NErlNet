@@ -16,6 +16,14 @@
     {
       "host": "192.168.0.103",
       "entities": "c6,r6"
+    },
+    {
+      "host": "192.168.0.105",
+      "entities": "c7,r7"
+    },
+    {
+      "host": "192.168.0.106",
+      "entities": "c8,r8"
     }
   ],
   "apiServer": 
@@ -165,6 +173,48 @@
       "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
       "federatedServer": "w1",
       "syncCount": "25"   
+    },
+    {
+      "name": "w7",
+      "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
+      "modelType": "8",
+      "scalingType_comment1": "Non-Scaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
+      "scalingMethod": "1",
+      "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
+      "layerTypesList":             "[3,1,1,1,0,0]",
+      "layersSizes":                "[3,1,1,784,128,10]",
+      "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
+      "layersActivationFunctions":  "[3,1,1,6,11,9]",
+      "_comment4": "LOSS: SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
+      "lossMethod": "2",
+      "_comment5": "TODOTODO explain learningRate",
+      "learningRate": "0.001",
+      "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
+      "optimizer":"1",
+      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
+      "federatedServer": "w1",
+      "syncCount": "25"   
+    },
+    {
+      "name": "w8",
+      "_comment0": "E_APPROXIMATION = 1, E_CLASSIFICATION = 2, E_FORECASTING = 3 , E_NCODER_DECODER = 4, E_CUSTOMNN = 5, E_AE = 6, E_AEC = 7",
+      "modelType": "8",
+      "scalingType_comment1": "Non-Scaling = 1 , MinimumMaximum = 2 , MeanStandardDeviation = 3 , StandardDeviation = 4 , Logarithm = 5",
+      "scalingMethod": "1",
+      "_commnet_layer_type": "E_LAYER_TYPE_DEFAULT(perceptron) = 0, E_LAYER_TYPE_SCALING = 1, E_LAYER_TYPE_CONVOLUTIONAL = 2 , E_LAYER_TYPE_PERCEPTRON = 3 , E_LAYER_TYPE_POOLING = 4 , E_LAYER_TYPE_PROBABILISTIC = 5 , E_LAYER_TYPE_LSTM = 6 , E_LAYER_TYPE_RECURRENT = 7 , E_LAYER_TYPE_UNSCALING = 8 , E_LAYER_TYPE_BOUNDING = 9 ",
+      "layerTypesList":             "[3,1,1,1,0,0]",
+      "layersSizes":                "[3,1,1,784,128,10]",
+      "_comment2": "Activation functions explain: Threshold = 1, SymmetricThreshold = 2 ,Logistic = 3 ,HyperbolicTangent = 4 ,Linear = 5,RectifiedLinear = 6 ,ExponentialLinear = 7 ,ScaledExponentialLinear = 8 ,SoftPlus = 9 ,SoftSign = 10 ,HardSigmoid = 11",
+      "layersActivationFunctions":  "[3,1,1,6,11,9]",
+      "_comment4": "LOSS: SUM_SQUARED_ERROR = 1, MSE = 2 /* MSE - Mean Squared Error */, E_LOSS_METHOD_NSE = 3 /* NSE - Normalized Squared Error */, MINKOWSKI_ERROR = 4, WSE = 5 /* WSE - Weighted Squared Error */, CEE = 6 /* CEE - Cross Entropy Error */",
+      "lossMethod": "2",
+      "_comment5": "TODOTODO explain learningRate",
+      "learningRate": "0.001",
+      "_comment3": "OptimizerExplain: 0- NONE, 1- SGD, 2- MINI_BATCH_SGD, 3- MOMENTUM, 4- NAG, 5- ADAGRAD, 6- ADAM",
+      "optimizer":"1",
+      "_comment6": "Federated options: federatedServer = name of fedServerWorker, syncCount = after how many batches to sync/update weights",
+      "federatedServer": "w1",
+      "syncCount": "25"   
     }
   ],
   "clients": [
@@ -197,6 +247,16 @@
       "name": "c6",
       "port": "18096",
       "workers": "w6"
+    },
+    {
+      "name": "c7",
+      "port": "18096",
+      "workers": "w7"
+    },
+    {
+      "name": "c8",
+      "port": "18096",
+      "workers": "w8"
     }
   ],
   "sources": [
@@ -230,6 +290,14 @@
     },
     {
       "name": "r6",
+      "port": "18089"
+    },
+    {
+      "name": "r7",
+      "port": "18089"
+    },
+    {
+      "name": "r8",
       "port": "18089"
     }
   ]
