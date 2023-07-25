@@ -79,14 +79,13 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 
 
 %%This cast receive a list of samples to load to the records batchList
-idle(cast, {batchList,Workers,CSVData}, State = #source_statem_state{batchSize = BatchSize, myName = MyName, msgCounter = Counter, nerlnetGraph = NerlnetGraph}) ->
+idle(cast, {batchList,Workers,CSVData}, State = #source_statem_state{batchSize = BatchSize, myName = MyName, msgCounter = Counter}) ->
   ?LOG_INFO("Arch BatchSize: ~p",[BatchSize]),
   ?LOG_NOTICE("Workers under source: ~p", [Workers]),
   {NerlTensorList, NerlTensorType, SampleSize} = parser:parseCSV(MyName,BatchSize,CSVData),
-  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
-  %%  send an ACK to mainserver that the CSV file is ready
   ?LOG_INFO("source updated transmition list, total avilable batches to send: ~p~n",[length(NerlTensorList)]),
-  nerl_tools:http_request(RouterHost,RouterPort,"csvReady",MyName),
+  %%  send an ACK to mainserver that the CSV file is ready
+  nerl_tools:sendHTTP(MyName,?MAIN_SERVER_ATOM,"csvReady",MyName),
   {next_state, idle, State#source_statem_state{lengthOfSample = SampleSize, castingTo = Workers, msgCounter = Counter+1,batchList = NerlTensorList, nerlTensorType = NerlTensorType}};
 
 
@@ -103,7 +102,6 @@ idle(cast, {startCasting,Body}, State = #source_statem_state{myName = MyName, le
   % ?LOG_NOTICE("example batch: ~p",[hd(CSVlist)]),
   NumOfBatches = list_to_integer(NumOfBatchesToSend),
   BatchesToSend = if length(CSVlist) < NumOfBatches -> length(CSVlist); true -> list_to_integer(NumOfBatchesToSend) end,
-
 
 
   Transmitter =  spawnTransmitter(CastingTo,CSVName,CSVlist,NerlnetGraph,MyName,WorkersMap,BatchSize,LengthOfSample,Frequency,BatchesToSend,Method) ,
