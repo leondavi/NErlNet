@@ -83,7 +83,7 @@ call_to_get_weights(ThisEts, ModelID)->
 %% sometimes the receive loop gets OTP calls that its not supposed to in high freq. wait for nerktensor of weights
 recv_call_loop(ThisEts) ->
       receive
-            {'$gen_cast', _Any} ->
+            {'$gen_cast', _Any} -> ?LOG_WARNING("Missed batch in call of get_weigths"),
                   ets:update_counter(ThisEts, missedBatches, 1),
                   recv_call_loop(ThisEts);
             NerlTensorWeights -> NerlTensorWeights
