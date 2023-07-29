@@ -31,35 +31,34 @@ class Worker(JsonElement):
         self.lengths_validation = all([x == list_of_lengths[0] for x in list_of_lengths])
 
     def copy(self, name):
-        newWorker =  Worker(name, self.LayersSizesList, self.ModelTypeStr, self.ModelType , self.OptimizationTypeStr, self.OptimizationType,
-                 self.LossMethodStr, self.LossMethod, self.LearningRate, self.LayersFunctionsCodesList, self.LayerTypesList)
+        newWorker =  Worker(name, self.LayersSizesListStr, self.ModelTypeStr, self.ModelType , self.OptimizationTypeStr, self.OptimizationType,
+                 self.LossMethodStr, self.LossMethod, self.LearningRate, self.LayersFunctionsCodesListStr, self.LayerTypesListStr)
         return newWorker
 
     def __str__(self):
-        return f"LSizes: {self.LayersSizesList}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}"
+        return f"layers sizes: {self.LayersSizesListStr}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}"
     
     def error(self): 
         return not self.input_validation() # + more checks
 
     def input_validation(self):
         # TODO add more validation: e.g., numbers of keys appears in dictionaries
-        layer_sizes_all_positive_integers = len([x for x in self.IntLayersSizesList if x > 0]) == len(self.IntLayersSizesList)
-        return self.lengths_validation and layer_sizes_all_positive_integers
+        return self.lengths_validation
     
     def get_as_dict(self, documentation = True):
         assert not self.error()
         self.key_val_pairs = [
             (KEY_MODEL_TYPE, self.ModelType),
             (KEY_MODEL_TYPE_DOC, VAL_MODEL_TYPE_DOC),
-            (KEY_LAYER_SIZES_LIST, self.LayersSizesList),
+            (KEY_LAYER_SIZES_LIST, self.LayersSizesListStr),
             (KEY_LAYER_SIZES_DOC, VAL_LAYER_SIZES_DOC),
-            (KEY_LAYER_TYPES_LIST, self.LayerTypesList),
+            (KEY_LAYER_TYPES_LIST, self.LayerTypesListStr),
             (KEY_LAYER_TYPES_DOC, VAL_LAYER_TYPES_DOC),
-            (KEY_SCALING_METHOD_DOC, VAL_SCALING_METHOD_DOC),
-            (KEY_POOLING_LAYER_DOC, VAL_POOLING_METHOD_DOC),
-            (KEY_PROBABILISTIC_LAYER_DOC, VAL_PROBABILISTIC_LAYER_DOC),
-            (KEY_LAYERS_FUNCTIONS, self.LayersFunctionsCodesList),
-            (KEY_LAYERS_FUNCTIONS_DOC, VAL_LAYERS_ACTIVATION_FUNCTIONS_DOC),
+            (KEY_LAYERS_FUNCTIONS, self.LayersFunctionsCodesListStr),
+            (KEY_LAYERS_FUNCTIONS_ACTIVATION_DOC, VAL_LAYERS_FUNCTIONS_ACTIVATION_DOC),
+            (KEY_LAYERS_FUNCTIONS_POOLING_DOC, VAL_LAYERS_FUNCTIONS_POOLING_DOC),
+            (KEY_LAYERS_FUNCTIONS_PROBABILISTIC_DOC, VAL_LAYERS_FUNCTIONS_PROBABILISTIC_DOC),
+            (KEY_LAYERS_FUNCTIONS_SCALER_DOC, VAL_LAYERS_FUNCTIONS_SCALER_DOC),
             (KEY_LOSS_METHOD, self.LossMethod),
             (KEY_LOSS_METHOD_DOC, VAL_LOSS_METHOD_DOC),
             (KEY_LEARNING_RATE, self.LearningRate),

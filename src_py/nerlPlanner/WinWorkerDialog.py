@@ -37,8 +37,8 @@ def WinWorkerDialog():
                                [sg.InputText(key=KEY_LAYER_SIZES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_NUM_OF_LAYERS_SIZES)],
                                [sg.Text("List of layers types:"), sg.Combo(list(LayerTypeMap.keys()),key=KEY_LAYER_TYPE_SELECTION), sg.Button("Add",key=KEY_LAYER_TYPE_SELECTION_ADD), sg.Button("Help",key=KEY_LAYER_TYPE_HELP),sg.Button("Clear",key=KEY_LAYER_TYPE_SELECTION_CLEAR)],
                                [sg.InputText(key=KEY_LAYER_TYPE_CODES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_NUM_OF_LAYERS_TYPES,enable_events=True)],
-                               [sg.Button("Select Layer Method", enable_events=True, key=KEY_LAYER_METHODS_BUTTON_SELECT), sg.Text("",enable_events=True, key=KEY_LAYER_METHODS_TEXT_SELECTION), sg.Button("Help",key="-ACTIVATION-LAYER-HELP-"), sg.Button("Clear",key=KEY_LAYER_FUNCTIONS_SELECTION_CLEAR)],
-                               [sg.InputText(key=KEY_LAYER_FUNCTIONS_CODES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_LAYERS_FUNCTIONS_CODES,enable_events=True)]]
+                               [sg.Text("Layers Functionality-Codes"),sg.Button("Select Layer Method", enable_events=True, key=KEY_LAYER_METHODS_BUTTON_SELECT), sg.Button("Help",key="-ACTIVATION-LAYER-HELP-"), sg.Button("Clear",key=KEY_LAYER_FUNCTIONS_SELECTION_CLEAR)],
+                               [sg.InputText(key=KEY_LAYER_FUNCTIONS_CODES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_LAYERS_FUNCTIONS_CODES,enable_events=True), sg.Text("",enable_events=True, key=KEY_LAYER_METHODS_TEXT_SELECTION)]]
     WorkerDefinitionsFrame = sg.Frame("Model Definitions",layout=WorkerDefinitionsLayout)
 
     OptimizerDefinitionsLayout = [[sg.Text("Learning Rate: "), sg.InputText(key=KEY_LEARNING_RATE_INPUT, enable_events=True)],
@@ -124,7 +124,7 @@ def WinWorkerDialog():
         # Activation codes combo and output list handling:
         if event == KEY_LAYER_METHODS_BUTTON_SELECT:
             LayerMethodSelection()
-            LayersFunctionsList += ',' if not LayersFunctionsList.endswith(',') else ''
+            LayersFunctionsList += ',' if not LayersFunctionsList.endswith(',') and LayersFunctionsList else ''
             LayersFunctionsList += global_layer_method_selection_code
             WorkerWindow[KEY_LAYER_FUNCTIONS_CODES_INPUT].update(LayersFunctionsList)
             WorkerWindow[KEY_LAYERS_FUNCTIONS_CODES].update(f'({str(count_str_list_elements(LayersFunctionsList))})')
@@ -181,20 +181,7 @@ def WinWorkerDialog():
                 with open(FilePathLoad) as jsonFile:
                     loaded_worker_dict = json.load(jsonFile)
                 ( _ , LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,
-                OptimizationType, LossMethodStr, LossMethod, LearningRate, LayersFunctionsList, LayerTypesList,
-                ScalingMethodList, PoolingMethodList) = Worker.load_from_dict(loaded_worker_dict)
-
-                ScalingMethodList = ScalingMethodList.split(",")
-                PoolingMethodList = PoolingMethodList.split(",")
-                LayerTypesListUnifiedStyle = []
-                for idx, layer in enumerate(LayerTypesList.split(",")):
-                    if layer == LAYER_SPECIAL_TYPE_IDX_SCALING:
-                        LayerTypesListUnifiedStyle.append(f"{layer}-{ScalingMethodList[idx]}")
-                    elif layer == LAYER_SPECIAL_TYPE_IDX_POOLING:
-                        LayerTypesListUnifiedStyle.append(f"{layer}-{PoolingMethodList[idx]}")
-                    else:
-                        LayerTypesListUnifiedStyle.append(layer)
-                LayerTypesList = ",".join(LayerTypesListUnifiedStyle)
+                OptimizationType, LossMethodStr, LossMethod, LearningRate, LayersFunctionsList, LayerTypesList) = Worker.load_from_dict(loaded_worker_dict)
                 ui_update_all_values(WorkerWindow)
 
             else:
