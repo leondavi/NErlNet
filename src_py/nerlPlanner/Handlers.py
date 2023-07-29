@@ -106,7 +106,7 @@ def workers_handler(window, event, values):
         workers_load_worker_path = values[KEY_WORKERS_INPUT_LOAD_WORKER_PATH]
         with open(workers_load_worker_path) as jsonFile:
                 workers_new_worker_dict = json.load(jsonFile)
-        (workers_new_worker , _, _, _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(workers_new_worker_dict)
+        (workers_new_worker , _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(workers_new_worker_dict)
         window[KEY_WORKERS_INFO_BAR].update(f'loaded from file: {workers_new_worker}')
         window[KEY_WORKERS_LIST_BOX].update(json_architecture_instance.get_workers_names_list())
 
