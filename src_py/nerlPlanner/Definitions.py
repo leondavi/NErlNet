@@ -1,4 +1,6 @@
 VERSION = "0.0.1"
+NERLNET_TMP_PATH = "/tmp/nerlnet"
+NERLNET_GRAPHVIZ_OUTPUT_DIR = f"{NERLNET_TMP_PATH}/nerlplanner"
 NERLNET_GLBOAL_PATH = "/usr/local/lib/nerlnet-lib/NErlNet"
 NERL_PLANNER_PATH = NERLNET_GLBOAL_PATH+"/src_py/nerlPlanner"
 NERLNET_LOGO_PATH = NERL_PLANNER_PATH+"/NerlnetIcon.png"
