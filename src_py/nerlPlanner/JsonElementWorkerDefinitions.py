@@ -62,6 +62,19 @@ ActivationFunctionsMap = OrderedDict(
     ("Hard-sigmoid" , "11")]
 )
 
+# Maps from layer type to the functionality of layer mapping 
+LayerTypeToFunctionalMap = OrderedDict([
+    ("Scaling" , ScalingMethodMap),
+    ("CNN" , None),
+    ("Perceptron" , ActivationFunctionsMap),
+    ("Pooling" , PoolingMethodMap),
+    ("Probabilistic" , ProbabilisticActivationFunctionMap),
+    ("LSTM" , None),
+    ("Reccurrent" , None),
+    ("Unscaling" , UnScalingMethodMap),
+    ("Bounding" , None)]
+)
+
 ModelTypeMapping = {
     "approximation" : "1",
     "classification" : "2",

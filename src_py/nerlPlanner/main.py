@@ -5,6 +5,7 @@ from WinWorkerDialog import WinWorkerDialog
 from JsonElements import *
 from Pinger import *
 import logging
+import os
 import time
 
 sg.theme('LightGray4')
@@ -145,6 +146,8 @@ main_window  = sg.Window(title=WINDOW_TITLE, layout=[[sg.Image(NERLNET_LOGO_PATH
                                                     [EntitiesFrame],
                                                     [workersFrame, devicesFrame ]
                                                     ])
+
+os.makedirs(os.path.dirname(NERLNET_TMP_PATH), exist_ok=True)
 
 time.sleep(2)
 sg.popup_animated(None) # end splash
