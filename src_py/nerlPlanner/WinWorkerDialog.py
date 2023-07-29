@@ -15,7 +15,7 @@ def combo_list_editable_handler(window, event, values, map, editable_list, selec
         editable_list = values[codes_key]
         if  event == add_butt_key:   
             editable_list = editable_list + "," if editable_list else editable_list
-            if values[selection_key]:
+            if (selection_key in values) and (values[selection_key]):
                 editable_list += str(map[values[selection_key]])
                 window[codes_key].update(editable_list)
         elif event == clear_butt_key:
@@ -113,7 +113,7 @@ def WinWorkerDialog():
             sg.popup_ok(f"Layer type codes:\n{pretty_print_dict(LayerTypeMap)}", keep_on_top=True, title="Layer Type Codes")
 
 
-        selection_key = KEY_ACTIVATION_LAYER_SELECTION
+        selection_key = None
         codes_key = KEY_LAYER_FUNCTIONS_CODES_INPUT
         add_butt_key = None
         clear_butt_key = KEY_LAYER_FUNCTIONS_SELECTION_CLEAR

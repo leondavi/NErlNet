@@ -1,11 +1,13 @@
 from hashlib import sha256
+import graphviz as gviz
+import pydot
 import json
-import re
 from collections import OrderedDict
 
 from JsonElements import JsonElement
 from JsonElementsDefinitions import *
 from JsonElementWorkerDefinitions import *
+
 
 class Worker(JsonElement):      
     def __init__(self, name, LayersSizesListStr : str, ModelTypeStr : str, ModelType : int, OptimizationTypeStr : str, OptimizationType : int,
@@ -29,6 +31,44 @@ class Worker(JsonElement):
         lists_for_length = [self.LayersSizesList, self.LayersFunctionsCodesList, self.LayerTypesList]
         list_of_lengths = [len(x) for x in lists_for_length]
         self.lengths_validation = all([x == list_of_lengths[0] for x in list_of_lengths])
+
+    def generate_graphviz(self):
+        self.layers_graph = gviz.Digraph()   
+        self.layers_graph.graph_attr['fontname'] = "helvetica"
+        self.layers_graph.node_attr['fontname'] = "helvetica"
+        self.layers_graph.edge_attr['fontname'] = "helvetica"
+
+        # create nodes
+        for curr_layer_idx, curr_layer_size in enumerate(self.LayersSizesList):
+            curr_layer_type_num = self.LayerTypesList[curr_layer_idx]
+            curr_layer_function_num = self.LayersFunctionsCodesList[curr_layer_idx]
+            curr_layer_function_str = ""
+
+            get_layer_type_str = get_key_by_value(LayerTypeMap,curr_layer_type_num)
+            layer_type_dict = LayerTypeToFunctionalMap[get_layer_type_str]
+
+            if layer_type_dict:
+                curr_layer_function_str = get_key_by_value(layer_type_dict, curr_layer_function_num)
+
+            label = f'Type: {get_layer_type_str} Size: {curr_layer_size} Func: {curr_layer_function_str}'
+
+            self.layers_graph.node(str(curr_layer_idx),label=label, shape='Mrecord',fontsize=str(13), labelfontsize=str(13))
+        
+        for curr_layer_idx in range(0,len(self.LayersSizesList)-1):
+            self.layers_graph.edge(str(curr_layer_idx), str(curr_layer_idx+1))
+        
+        return self.layers_graph
+
+    def save_graphviz(self,path):
+        filename_dot = f"{path}/worker_graph_{self.get_sha()}.dot"
+        filename_png = f"{path}/worker_graph_{self.get_sha()}.png"
+
+        layers_graph = self.generate_graphviz()
+        layers_graph.save(filename_dot)
+
+        (graph,) = pydot.graph_from_dot_file(filename_dot)
+        graph.write_png(filename_png)
+        return filename_png
 
     def copy(self, name):
         newWorker =  Worker(name, self.LayersSizesListStr, self.ModelTypeStr, self.ModelType , self.OptimizationTypeStr, self.OptimizationType,
