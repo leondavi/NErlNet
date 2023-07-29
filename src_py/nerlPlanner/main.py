@@ -108,7 +108,7 @@ RoutersFieldsFrame = sg.Frame("Routers",RoutersFields)
 SourcesFields = [
                  [sg.Button("Add", size=(10)), sg.Button("Load",size=(10)), sg.Button("Remove",size=(10))],
                  [sg.Text("name:  "), sg.InputText(size=15), sg.Text("frequency:  "), sg.InputText(size=15)],
-                 [sg.Text("port:    "), sg.InputText(size=15)],
+                 [sg.Text("port:    "), sg.InputText(size=15), sg.Checkbox("default frequency")]
                 ]
 SourcesFieldsFrame = sg.Frame("Sources",SourcesFields)
 
@@ -117,7 +117,8 @@ EntitiesNamesList = []
 EntitiesListFields = [[sg.Text("Clients", expand_x=True), sg.Text("Routers", expand_x=True), sg.Text("Sources", expand_x=True)],
                       [sg.Listbox(EntitiesNamesList, enable_events=True, key=KEY_ENTITIES_CLIENTS_LISTBOX, size=(20,14)),
                        sg.Listbox(EntitiesNamesList, enable_events=True, key=KEY_ENTITIES_ROUTERS_LISTBOX, size=(20,14)),
-                       sg.Listbox(EntitiesNamesList, enable_events=True, key=KEY_ENTITIES_SOURCES_LISTBOX, size=(20,14))]
+                       sg.Listbox(EntitiesNamesList, enable_events=True, key=KEY_ENTITIES_SOURCES_LISTBOX, size=(20,14))],
+                       [sg.Button('Generate Nerlnet Graph', expand_x=True)] #TODO implemnet the graph generation
                                      ]
 EntitiesFieldsFrame = sg.Frame("", layout=[[ClientsFieldsFrames],[SourcesFieldsFrame, RoutersFieldsFrame]])
 EntitiesListFrame = sg.Frame("", EntitiesListFields)
