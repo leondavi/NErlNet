@@ -102,11 +102,19 @@ def workers_handler(window, event, values):
     global workers_new_worker_dict
     global worker_name_selection
 
+    if event == KEY_WORKERS_SHOW_WORKER_BUTTON:
+        if (worker_name_selection in json_architecture_instance.get_workers_dict()):
+            workers_new_worker = json_architecture_instance.get_workers_dict()[worker_name_selection]
+        if workers_new_worker is not None:
+            image_path = workers_new_worker.save_graphviz(NERLNET_GRAPHVIZ_OUTPUT_DIR)
+            sg.popup_ok(f"{workers_new_worker}", title="Worker graph", image=image_path, keep_on_top=True)
+
+
     if event == KEY_WORKERS_INPUT_LOAD_WORKER_PATH:
         workers_load_worker_path = values[KEY_WORKERS_INPUT_LOAD_WORKER_PATH]
         with open(workers_load_worker_path) as jsonFile:
                 workers_new_worker_dict = json.load(jsonFile)
-        (workers_new_worker , _, _, _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(workers_new_worker_dict)
+        (workers_new_worker , _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(workers_new_worker_dict)
         window[KEY_WORKERS_INFO_BAR].update(f'loaded from file: {workers_new_worker}')
         window[KEY_WORKERS_LIST_BOX].update(json_architecture_instance.get_workers_names_list())
 
@@ -140,11 +148,6 @@ def workers_handler(window, event, values):
             window[KEY_WORKERS_INFO_BAR].update(f'{workers_new_worker_name} loaded, {workers_new_worker}')
         else:
             sg.popup_ok(f"selection or name issue", keep_on_top=True, title="Loading Issue")
-
-    if event == KEY_WORKERS_SHOW_WORKER_BUTTON:
-        if (worker_name_selection in json_architecture_instance.get_workers_dict()):
-            workers_new_worker = json_architecture_instance.get_workers_dict()[worker_name_selection]
-            sg.popup_ok(pretty_print_dict(workers_new_worker.get_as_dict(False)), keep_on_top=True, title="Worker Params")
 
 def devices_handler(window, event, values):
     device_name = values[KEY_DEVICES_NAME_INPUT]

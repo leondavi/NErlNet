@@ -4,52 +4,76 @@
 LAYER_SPECIAL_TYPE_IDX_SCALING = "1"
 LAYER_SPECIAL_TYPE_IDX_POOLING = "2"
 
-LayerTypeMap = {
-    "Default" : "0",
-    "Scaling none" : "1-1",
-    "Scaling MinMax" : "1-2",
-    "Scaling MeanStd" : "1-3",
-    "Scaling STD" : "1-4",
-    "Scaling Log" : "1-5",
-    "CNN" : "2",
-    "Perceptron" : "3",
-    "Pooling none" : "4-1",
-    "Pooling max" : "4-2",
-    "Pooling avg" : "4-3",
-    "Probabilistic" : "5",
-    "LSTM" : "6",
-    "RNN" : "7",
-    "Unscaling" : "8",
-    "Bounding" : "9"
-}
+from collections import OrderedDict
 
-ScalingMethodMap = {
-    "none" : "1",
-    "MinMax" : "2",
-    "MeanStd" : "3",
-    "STD" : "4",
-    "Log" : "5",
-}
+LayerTypeMap = OrderedDict([
+    ("Default" , "0"),
+    ("Scaling" , "1"),
+    ("CNN" , "2"),
+    ("Perceptron" , "3"),
+    ("Pooling" , "4"),
+    ("Probabilistic" , "5"),
+    ("LSTM" , "6"),
+    ("Reccurrent" , "7"),
+    ("Unscaling" , "8"),
+    ("Bounding" , "9")]
+)
 
-PoolingMethodMap = {
-    "none" : "1",
-    "max" : "2",
-    "avg" : "3",
-}
+ProbabilisticActivationFunctionMap = OrderedDict(
+    [("Binary" , "1"),
+    ("Logistic" , "2"),
+    ("Competitive" , "3"),
+    ("Softmax" , "4")]
+)
 
-ActivationFunctionsMap = {
-    "Threshold" : "1",
-    "Sign" : "2",
-    "Logistic" : "3",
-    "Tanh" : "4",
-    "Linear" : "5",
-    "ReLU" : "6",
-    "eLU" : "7",
-    "SeLU" : "8",
-    "Soft-plus" : "9",
-    "Soft-sign" : "10",
-    "Hard-sigmoid" : "11",
-}
+ScalingMethodMap = OrderedDict(
+    [("none" , "1"),
+    ("MinMax" , "2"),
+    ("MeanStd" , "3"),
+    ("STD" , "4"),
+    ("Log" , "5")]
+)
+
+UnScalingMethodMap = OrderedDict(
+    [("none" , "1"),
+    ("MinMax" , "2"),
+    ("MeanStd" , "3"),
+    ("STD" , "4"),
+    ("Log" , "5")]
+)
+
+PoolingMethodMap = OrderedDict(
+    [("none" , "1"),
+    ("Max" , "2"),
+    ("Avg" , "3")]
+)
+
+ActivationFunctionsMap = OrderedDict(
+    [("Threshold" , "1"),
+    ("Sign" , "2"),
+    ("Logistic" , "3"),    
+    ("Tanh" , "4"),
+    ("Linear" , "5"),
+    ("ReLU" , "6"),
+    ("eLU" , "7"),
+    ("SeLU" , "8"),
+    ("Soft-plus" , "9"),
+    ("Soft-sign" , "10"),
+    ("Hard-sigmoid" , "11")]
+)
+
+# Maps from layer type to the functionality of layer mapping 
+LayerTypeToFunctionalMap = OrderedDict([
+    ("Scaling" , ScalingMethodMap),
+    ("CNN" , None),
+    ("Perceptron" , ActivationFunctionsMap),
+    ("Pooling" , PoolingMethodMap),
+    ("Probabilistic" , ProbabilisticActivationFunctionMap),
+    ("LSTM" , None),
+    ("Reccurrent" , None),
+    ("Unscaling" , UnScalingMethodMap),
+    ("Bounding" , None)]
+)
 
 ModelTypeMapping = {
     "approximation" : "1",
@@ -83,7 +107,8 @@ LossMethodMapping = {
 }
 
 def get_key_by_value(in_map : dict, value):
-    return list(in_map.keys())[list(in_map.values()).index(value)]
+    list_of_values = list(in_map.values())
+    return list(in_map.keys())[list_of_values.index(value)] if value in list_of_values else None
 
 def doc_print_dict(d):#define d
     pretty_dict = ''  #take empty string
@@ -99,12 +124,11 @@ KEY_LAYER_SIZES_LIST = "layersSizes"
 KEY_LAYER_SIZES_DOC = "_doc_layersSizes"
 KEY_LAYER_TYPES_LIST = "layerTypesList"
 KEY_LAYER_TYPES_DOC = "_doc_LayerTypes"
-KEY_SCALING_METHOD = "scalingMethod"
-KEY_SCALING_METHOD_DOC = "_doc_scalingMethod"
-KEY_POOLING_LAYER = "poolingMethod"
-KEY_POOLING_LAYER_DOC = "_doc_poolingMethod"
-KEY_LAYERS_ACTIVATION_FUNCTIONS = "layersActivationFunctions"
-KEY_LAYERS_ACTIVATION_FUNCTIONS_DOC = "_doc_layersActivationFunctions"
+KEY_LAYERS_FUNCTIONS = "layers_functions"
+KEY_LAYERS_FUNCTIONS_ACTIVATION_DOC = "_doc_layers_functions_activation"
+KEY_LAYERS_FUNCTIONS_SCALER_DOC = "_doc_layer_functions_scaler"
+KEY_LAYERS_FUNCTIONS_POOLING_DOC = "_doc_layer_functions_pooling"
+KEY_LAYERS_FUNCTIONS_PROBABILISTIC_DOC = "_doc_layer_functions_probabilistic"
 KEY_LOSS_METHOD = "lossMethod"
 KEY_LOSS_METHOD_DOC = "_doc_lossMethod"
 KEY_LEARNING_RATE = "lr"
@@ -115,9 +139,10 @@ KEY_OPTIMIZER_TYPE_DOC = "_doc_optimizer"
 VAL_MODEL_TYPE_DOC = f"{doc_print_dict(ModelTypeMapping)}"
 VAL_LAYER_SIZES_DOC = "List of postive integers [L0, L1, ..., LN]"
 VAL_LAYER_TYPES_DOC = f"{doc_print_dict(LayerTypeMap)}"
-VAL_SCALING_METHOD_DOC = f"{doc_print_dict(ScalingMethodMap)}"
-VAL_POOLING_METHOD_DOC = f"{doc_print_dict(PoolingMethodMap)}"
-VAL_LAYERS_ACTIVATION_FUNCTIONS_DOC = f"{doc_print_dict(ActivationFunctionsMap)}"
+VAL_LAYERS_FUNCTIONS_SCALER_DOC = f"{doc_print_dict(ScalingMethodMap)}"
+VAL_LAYERS_FUNCTIONS_POOLING_DOC = f"{doc_print_dict(PoolingMethodMap)}"
+VAL_LAYERS_FUNCTIONS_PROBABILISTIC_DOC = f"{doc_print_dict(ProbabilisticActivationFunctionMap)}"
+VAL_LAYERS_FUNCTIONS_ACTIVATION_DOC = f"{doc_print_dict(ActivationFunctionsMap)}"
 VAL_LOSS_METHOD_DOC = f"{doc_print_dict(LossMethodMapping)}"
 VAL_LEARNING_RATE_DOC = "Positve float"
 VAL_OPTIMIZER_TYPE_DOC = f"{doc_print_dict(OptimizerTypeMapping)}"
