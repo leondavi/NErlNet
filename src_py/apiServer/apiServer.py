@@ -339,20 +339,22 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         #     if (all(csvNum > 0 and csvNum <= numOfCsvs for csvNum in csvNumsList)): break
         #     else: print("\nInvalid Input") 
 
-        while True:
-            print("\nPlease enter the name of the FULL LABELED PREDICTION DATA (including .csv):", end = ' ') 
-            labelsCsvPath = input()
-            for root, dirnames, filenames in os.walk(globe.INPUT_DATA_PATH):
-                for filename in filenames:
-                    if filename == labelsCsvPath:
-                        labelsCsvPath = os.path.join(root, filename)
-                        break
+        ################### for single csv:
+        # while True:
+        # print("\nPlease enter the name of the FULL LABELED PREDICTION DATA (including .csv):", end = ' ') 
+        # labelsCsvPath = input()
+        labelsCsvPath = f"{expForStats.predictionResList[0].name}_test.csv"
+        for root, dirnames, filenames in os.walk(globe.INPUT_DATA_PATH):
+            for filename in filenames:
+                if filename == labelsCsvPath:
+                    labelsCsvPath = os.path.join(root, filename)
+                    try:
+                        labelsCsvDf = pd.read_csv(labelsCsvPath, header=None)
+                        # break
 
-            try:
-                labelsCsvDf = pd.read_csv(labelsCsvPath, header=None)
-                break
+                    except OSError: print("\nInvalid path\n")
+                    break
 
-            except OSError: print("\nInvalid path\n")
 
         # Extract the labels columns from the CSV. Create a list of labels:
         labelsLen = 1
@@ -386,8 +388,12 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                     for ind, sample in enumerate(range(batchRanges[0], batchRanges[1])):
                         for label in range(labelsLen):
                             truelabel = str(labelsSeries.iloc[sample,label])
-                            predlabel = str(round(batchRes.predictions[ind][label]))
                             assert truelabel == '0' or truelabel == '1', f"true label at {sample},{label} is {truelabel}"
+                            if batchRes.predictions[ind][label] > 0.5 :
+                                predlabel = '1'
+                            else:
+                                predlabel = '0'
+                            # predlabel = str(round(batchRes.predictions[ind][label]))
                             trueLabels[label].append(truelabel)
                             predlabels[label].append(predlabel)
                 # print(f"for worker {worker.name} have true={trueLabels}, pred={predlabels}")
