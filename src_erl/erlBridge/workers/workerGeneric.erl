@@ -63,7 +63,7 @@ init({WorkerName,ModelId, ModelType, ScalingMethod,LayerTypesList,LayersSizes,La
   Res=nerlNIF:create_nif(ModelId, ModelType , ScalingMethod , LayerTypesList , LayersSizes , LayersActivationFunctions),
   Func(init,{GenWorkerEts, WorkerData}),
 
-  ?LOG_NOTICE("Res = ~p ~n",[Res]),
+  ?LOG_NOTICE("Create = ~p ~n",[Res]),
 
   {ok, idle, #workerGeneric_state{myName = WorkerName, modelId = ModelId,optimizer = Optimizer,learningRate = LearningRate, lossMethod = LossMethod, customFunc = Func, workerData = WorkerData}}.
 
