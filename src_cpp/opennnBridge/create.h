@@ -22,7 +22,7 @@
 
 using namespace opennn;
 
-static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) // David
+static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ModelParams modelParamsInst;
     unsigned long modelId;
