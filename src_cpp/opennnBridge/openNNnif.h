@@ -18,7 +18,7 @@
 #include <Logger.h>
 #include "../opennn/opennn/opennn.h"
 #include "bridgeController.h"
-#include "create.h"
+#include "openNNmodelNif.h"
 #include "get_set_weights.h"
 #include "ModelParams.h"
 
@@ -494,6 +494,8 @@ static ERL_NIF_TERM nerltensor_sum_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 static ErlNifFunc nif_funcs[] =
 {
     {"create_nif", 6 , create_nif},
+    {"destroy_nif", 1, destroy_nif},
+    {"get_active_models_ids_list",0, get_active_models_ids_list_nif},
     {"train_nif", 6 , train_nif},
     {"predict_nif", 3 , predict_nif},
     {"get_weights_nif",1, get_weights_nif},

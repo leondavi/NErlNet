@@ -22,6 +22,29 @@
 
 using namespace opennn;
 
+static ERL_NIF_TERM destroy_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    unsigned long modelId;
+    nifpp::get_throws(env,argv[0],modelId);
+    
+    opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
+    onnBrCtrl.deleteModel(modelId);
+
+    // handle wrong id scenario
+    nifpp::str_atom ret_status("ok");
+    return nifpp::make(env, ret_status);
+
+}
+
+static ERL_NIF_TERM get_active_models_ids_list_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    std::vector<unsigned long> mids_list;
+    opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
+    onnBrCtrl.get_models_ids_list(mids_list);
+
+    return nifpp::make(env, mids_list);
+}
+
 static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ModelParams modelParamsInst;
