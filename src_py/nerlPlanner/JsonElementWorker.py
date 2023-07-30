@@ -1,17 +1,20 @@
 from hashlib import sha256
+import graphviz as gviz
+import pydot
 import json
-import re
 from collections import OrderedDict
 
 from JsonElements import JsonElement
 from JsonElementsDefinitions import *
 from JsonElementWorkerDefinitions import *
 
+
 class Worker(JsonElement):      
-    def __init__(self, name, LayersSizesList : str, ModelTypeStr : str, ModelType : int, OptimizationTypeStr : str, OptimizationType : int,
-                 LossMethodStr : str, LossMethod : int, LearningRate : str, ActivationLayersList : str, LayerTypesList : str, ScalingMethodList = '', PoolingMethodList = ''):
+    def __init__(self, name, LayersSizesListStr : str, ModelTypeStr : str, ModelType : int, OptimizationTypeStr : str, OptimizationType : int,
+                 LossMethodStr : str, LossMethod : int, LearningRate : str, LayersFunctionsCodesListStr : str, LayerTypesListStr : str):
         super(Worker, self).__init__(name, WORKER_TYPE)
-        self.LayersSizesList = LayersSizesList
+        self.LayersSizesListStr = LayersSizesListStr
+        self.LayersSizesList = LayersSizesListStr.split(',')
         self.ModelTypeStr = ModelTypeStr
         self.ModelType = ModelType # None
         self.OptimizationTypeStr = OptimizationTypeStr
@@ -19,89 +22,83 @@ class Worker(JsonElement):
         self.LossMethodStr = LossMethodStr
         self.LossMethod = LossMethod # None
         self.LearningRate = float(LearningRate)
-        self.ActivationLayersList = ActivationLayersList
-        self.LayerTypesList = LayerTypesList
-
-        if (not bool(ScalingMethodList)) and (not bool(PoolingMethodList)):
-            self.PoolingList, self.ScalingList = self.generate_pooling_and_scaling_lists()
-        else:
-            self.ScalingList = ScalingMethodList.split(",")
-            self.PoolingList = PoolingMethodList.split(",")
-        
-        self.PoolingListStr = ",".join([f"{x}" for x in self.PoolingList])
-        self.ScalingListStr = ",".join([f"{x}" for x in self.ScalingList])
-        
-        self.IntListOfLayersTypes = self.list_representation_conversion_int_elements(self.LayerTypesList)
-        self.IntListOfLayersTypesStr = ",".join([str(x) for x in self.IntListOfLayersTypes])
-        self.IntPoolingList = [ int(x) for x in self.PoolingList ]
-        self.IntScalingList =  [ int(x) for x in self.ScalingList ]
-        self.IntLayersSizesList = self.list_representation_conversion_int_elements(self.LayersSizesList)
-        self.IntActivationLayersList = self.list_representation_conversion_int_elements(self.ActivationLayersList)
+        self.LayersFunctionsCodesListStr = LayersFunctionsCodesListStr
+        self.LayersFunctionsCodesList = LayersFunctionsCodesListStr.split(',') #TODO validate
+        self.LayerTypesListStr = LayerTypesListStr
+        self.LayerTypesList = LayerTypesListStr.split(',') #TODO validate
 
         # validate lists sizes 
-        lists_for_length = [self.IntListOfLayersTypes, self.IntPoolingList , self.IntScalingList , self.IntLayersSizesList, self.IntActivationLayersList ]
+        lists_for_length = [self.LayersSizesList, self.LayersFunctionsCodesList, self.LayerTypesList]
         list_of_lengths = [len(x) for x in lists_for_length]
         self.lengths_validation = all([x == list_of_lengths[0] for x in list_of_lengths])
 
-    def set_pooling_list(self, PoolingList):
-        self.PoolingList = PoolingList
+    def generate_graphviz(self):
+        self.layers_graph = gviz.Digraph()   
+        self.layers_graph.graph_attr['fontname'] = "helvetica"
+        self.layers_graph.node_attr['fontname'] = "helvetica"
+        self.layers_graph.edge_attr['fontname'] = "helvetica"
 
-    def set_scaling_list(self, ScalingList):
-        self.ScalingList = ScalingList
+        # create nodes
+        for curr_layer_idx, curr_layer_size in enumerate(self.LayersSizesList):
+            curr_layer_type_num = self.LayerTypesList[curr_layer_idx]
+            curr_layer_function_num = self.LayersFunctionsCodesList[curr_layer_idx]
+            curr_layer_function_str = ""
+
+            get_layer_type_str = get_key_by_value(LayerTypeMap,curr_layer_type_num)
+            layer_type_dict = LayerTypeToFunctionalMap[get_layer_type_str]
+
+            if layer_type_dict:
+                curr_layer_function_str = get_key_by_value(layer_type_dict, curr_layer_function_num)
+
+            label = f'Type: {get_layer_type_str} Size: {curr_layer_size} Func: {curr_layer_function_str}'
+
+            self.layers_graph.node(str(curr_layer_idx),label=label, shape='Mrecord',fontsize=str(13), labelfontsize=str(13))
+        
+        for curr_layer_idx in range(0,len(self.LayersSizesList)-1):
+            self.layers_graph.edge(str(curr_layer_idx), str(curr_layer_idx+1))
+        
+        return self.layers_graph
+
+    def save_graphviz(self,path):
+        filename_dot = f"{path}/worker_graph_{self.get_sha()}.dot"
+        filename_png = f"{path}/worker_graph_{self.get_sha()}.png"
+
+        layers_graph = self.generate_graphviz()
+        layers_graph.save(filename_dot)
+
+        (graph,) = pydot.graph_from_dot_file(filename_dot)
+        graph.write_png(filename_png)
+        return filename_png
 
     def copy(self, name):
-        newWorker =  Worker(name, self.LayersSizesList, self.ModelTypeStr, self.ModelType , self.OptimizationTypeStr, self.OptimizationType,
-                 self.LossMethodStr, self.LossMethod, self.LearningRate, self.ActivationLayersList, self.LayerTypesList)
-        newWorker.set_pooling_list(self.PoolingList)
-        newWorker.set_scaling_list(self.ScalingList)
+        newWorker =  Worker(name, self.LayersSizesListStr, self.ModelTypeStr, self.ModelType , self.OptimizationTypeStr, self.OptimizationType,
+                 self.LossMethodStr, self.LossMethod, self.LearningRate, self.LayersFunctionsCodesListStr, self.LayerTypesListStr)
         return newWorker
 
     def __str__(self):
-        return f"LSizes: {self.LayersSizesList}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}"
+        return f"layers sizes: {self.LayersSizesListStr}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}"
     
     def error(self): 
         return not self.input_validation() # + more checks
 
     def input_validation(self):
         # TODO add more validation: e.g., numbers of keys appears in dictionaries
-        layer_sizes_all_positive_integers = len([x for x in self.IntLayersSizesList if x > 0]) == len(self.IntLayersSizesList)
-        return self.lengths_validation and layer_sizes_all_positive_integers
-    
-    def json_list_representation_conversion(self, listStr : str) -> str:
-        return str(self.list_representation_conversion(listStr))
-    
-    def list_representation_conversion(self, listStr : str) -> list:
-        return listStr.split(",")
-    
-    def list_representation_conversion_int_elements(self, listStr : str) -> list:
-        pattern = r'^[1-9]*'
-        return [int(re.findall(pattern, x)[0]) for x in self.list_representation_conversion(listStr)]
-    
-    SCALING_LAYER_TYPE_IDX = "1"
-    POOLING_LAYER_TYPE_IDX = "4"
-    NO_SCALING_TYPE_IDX = 1
-    NO_POOLING_TYPE_IDX = 1
-    def generate_pooling_and_scaling_lists(self):
-        ListOfLayersTypes = self.list_representation_conversion(self.LayerTypesList)
-        PoolingList = [x.split("-")[-1] if self.POOLING_LAYER_TYPE_IDX in x else self.NO_POOLING_TYPE_IDX for x in ListOfLayersTypes]
-        ScalingList = [x.split("-")[-1] if self.SCALING_LAYER_TYPE_IDX in x else self.NO_SCALING_TYPE_IDX for x in ListOfLayersTypes]
-        return PoolingList, ScalingList
+        return self.lengths_validation
     
     def get_as_dict(self, documentation = True):
         assert not self.error()
         self.key_val_pairs = [
             (KEY_MODEL_TYPE, self.ModelType),
             (KEY_MODEL_TYPE_DOC, VAL_MODEL_TYPE_DOC),
-            (KEY_LAYER_SIZES_LIST, self.LayersSizesList),
+            (KEY_LAYER_SIZES_LIST, self.LayersSizesListStr),
             (KEY_LAYER_SIZES_DOC, VAL_LAYER_SIZES_DOC),
-            (KEY_LAYER_TYPES_LIST, self.IntListOfLayersTypesStr),
+            (KEY_LAYER_TYPES_LIST, self.LayerTypesListStr),
             (KEY_LAYER_TYPES_DOC, VAL_LAYER_TYPES_DOC),
-            (KEY_SCALING_METHOD, self.ScalingListStr),
-            (KEY_SCALING_METHOD_DOC, VAL_SCALING_METHOD_DOC),
-            (KEY_POOLING_LAYER, self.PoolingListStr),
-            (KEY_POOLING_LAYER_DOC, VAL_POOLING_METHOD_DOC),
-            (KEY_LAYERS_ACTIVATION_FUNCTIONS, self.ActivationLayersList),
-            (KEY_LAYERS_ACTIVATION_FUNCTIONS_DOC, VAL_LAYERS_ACTIVATION_FUNCTIONS_DOC),
+            (KEY_LAYERS_FUNCTIONS, self.LayersFunctionsCodesListStr),
+            (KEY_LAYERS_FUNCTIONS_ACTIVATION_DOC, VAL_LAYERS_FUNCTIONS_ACTIVATION_DOC),
+            (KEY_LAYERS_FUNCTIONS_POOLING_DOC, VAL_LAYERS_FUNCTIONS_POOLING_DOC),
+            (KEY_LAYERS_FUNCTIONS_PROBABILISTIC_DOC, VAL_LAYERS_FUNCTIONS_PROBABILISTIC_DOC),
+            (KEY_LAYERS_FUNCTIONS_SCALER_DOC, VAL_LAYERS_FUNCTIONS_SCALER_DOC),
             (KEY_LOSS_METHOD, self.LossMethod),
             (KEY_LOSS_METHOD_DOC, VAL_LOSS_METHOD_DOC),
             (KEY_LEARNING_RATE, self.LearningRate),
@@ -126,8 +123,8 @@ class Worker(JsonElement):
 
     def load_from_dict(worker_dict : dict, name = ''):
         required_keys = [KEY_LAYER_SIZES_LIST, KEY_MODEL_TYPE, KEY_OPTIMIZER_TYPE,
-                         KEY_LOSS_METHOD, KEY_LEARNING_RATE, KEY_LAYERS_ACTIVATION_FUNCTIONS,
-                         KEY_LAYER_TYPES_LIST, KEY_SCALING_METHOD, KEY_POOLING_LAYER]
+                         KEY_LOSS_METHOD, KEY_LEARNING_RATE, KEY_LAYERS_FUNCTIONS,
+                         KEY_LAYER_TYPES_LIST]
         
         loaded_worker = None
 
@@ -142,16 +139,12 @@ class Worker(JsonElement):
             LossMethod = int(worker_dict[KEY_LOSS_METHOD])
             LossMethodStr = get_key_by_value(LossMethodMapping, worker_dict[KEY_LOSS_METHOD])
             LearningRate = float(worker_dict[KEY_LEARNING_RATE])
-            ActivationLayersList = worker_dict[KEY_LAYERS_ACTIVATION_FUNCTIONS]
+            ActivationLayersList = worker_dict[KEY_LAYERS_FUNCTIONS]
             LayerTypesList = worker_dict[KEY_LAYER_TYPES_LIST]
-            ScalingMethodList = worker_dict[KEY_SCALING_METHOD]
-            PoolingMethodList = worker_dict[KEY_POOLING_LAYER]
             
             loaded_worker = Worker(name, LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,
-                OptimizationType, LossMethodStr, LossMethod, LearningRate, ActivationLayersList, LayerTypesList,
-                ScalingMethodList, PoolingMethodList)
+                OptimizationType, LossMethodStr, LossMethod, LearningRate, ActivationLayersList, LayerTypesList)
             return loaded_worker, LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,\
-                OptimizationType, LossMethodStr, LossMethod, LearningRate, ActivationLayersList, LayerTypesList,\
-                ScalingMethodList, PoolingMethodList
+                OptimizationType, LossMethodStr, LossMethod, LearningRate, ActivationLayersList, LayerTypesList
         
         return None
