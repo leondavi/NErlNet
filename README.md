@@ -73,7 +73,7 @@ Minimum Python version: 3.8
   ```source VENV/bin/activate``` 
 2. Install required modules while in venv ```pip install -r src_py/requirements.txt```
 3. Call Jupyter environment creator script with an experiment directory ```./NerlnetJupyterEnvGenerator.sh --j <experiment_direcotry>```
-4. Run Jupyter notebook with ```jupyter-notebook``` and create a new notebook in the created dir from 4. 
+4. Run Jupyter notebook with ```jupyter-notebook``` and create a new notebook in the created dir from step 3. 
 5. Follow the example: https://github.com/leondavi/NErlNet/blob/master/examples/example_run.ipynb 
 
 Contact Email: nerlnet@outlook.com
