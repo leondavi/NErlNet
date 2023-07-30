@@ -5,6 +5,8 @@ from WinWorkerDialogDefnitions import *
 from JsonElementWorker import Worker
 from Definitions import *
 
+global_layer_method_selection_code = None
+
 def count_str_list_elements(list_str : str):
     return len(list_str.split(',')) if list_str else 0
 
@@ -13,7 +15,7 @@ def combo_list_editable_handler(window, event, values, map, editable_list, selec
         editable_list = values[codes_key]
         if  event == add_butt_key:   
             editable_list = editable_list + "," if editable_list else editable_list
-            if values[selection_key]:
+            if (selection_key in values) and (values[selection_key]):
                 editable_list += str(map[values[selection_key]])
                 window[codes_key].update(editable_list)
         elif event == clear_butt_key:
@@ -23,6 +25,7 @@ def combo_list_editable_handler(window, event, values, map, editable_list, selec
     return editable_list
 
 def WinWorkerDialog():
+    global global_layer_method_selection
 
     WorkerFileLayout = [[sg.Text("Load json"),sg.In(enable_events=True ,key=KEY_JSON_LOAD_FILE_BROWSE_EVENT, expand_x=True), sg.FileBrowse(file_types=(("Json File", "*.json"),)), sg.Button("Load", key=KEY_JSON_LOAD_FILE_BUTTON_EVENT, enable_events=True)],
                         [sg.Text("Select json file output directory"),sg.In(enable_events=True ,key=KEY_JSON_FILE_CHOSEN_DIR, expand_x=True), sg.FolderBrowse()],
@@ -34,8 +37,8 @@ def WinWorkerDialog():
                                [sg.InputText(key=KEY_LAYER_SIZES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_NUM_OF_LAYERS_SIZES)],
                                [sg.Text("List of layers types:"), sg.Combo(list(LayerTypeMap.keys()),key=KEY_LAYER_TYPE_SELECTION), sg.Button("Add",key=KEY_LAYER_TYPE_SELECTION_ADD), sg.Button("Help",key=KEY_LAYER_TYPE_HELP),sg.Button("Clear",key=KEY_LAYER_TYPE_SELECTION_CLEAR)],
                                [sg.InputText(key=KEY_LAYER_TYPE_CODES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_NUM_OF_LAYERS_TYPES,enable_events=True)],
-                               [sg.Text("Activation functions:"), sg.Combo(list(ActivationFunctionsMap.keys()),key=KEY_ACTIVATION_LAYER_SELECTION), sg.Button("Add",key=KEY_ACTIVATION_LAYER_SELECTION_ADD), sg.Button("Help",key="-ACTIVATION-LAYER-HELP-"), sg.Button("Clear",key=KEY_ACTIVATION_LAYER_SELECTION_CLEAR)],
-                               [sg.InputText(key=KEY_ACTIVATION_CODES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_ACTIVATION_NUMOF_LAYERS,enable_events=True)]]
+                               [sg.Text("Layers Functionality-Codes"),sg.Button("Select Layer Method", enable_events=True, key=KEY_LAYER_METHODS_BUTTON_SELECT), sg.Button("Help",key="-ACTIVATION-LAYER-HELP-"), sg.Button("Clear",key=KEY_LAYER_FUNCTIONS_SELECTION_CLEAR)],
+                               [sg.InputText(key=KEY_LAYER_FUNCTIONS_CODES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_LAYERS_FUNCTIONS_CODES,enable_events=True), sg.Text("",enable_events=True, key=KEY_LAYER_METHODS_TEXT_SELECTION)]]
     WorkerDefinitionsFrame = sg.Frame("Model Definitions",layout=WorkerDefinitionsLayout)
 
     OptimizerDefinitionsLayout = [[sg.Text("Learning Rate: "), sg.InputText(key=KEY_LEARNING_RATE_INPUT, enable_events=True)],
@@ -61,7 +64,7 @@ def WinWorkerDialog():
     LossMethodStr = ""
     LossMethod = None # None
     LearningRate = None
-    ActivationLayersList = ""
+    LayersFunctionsList = ""
     LayerTypesList = ""
     WithDocumentation = True
 
@@ -71,12 +74,12 @@ def WinWorkerDialog():
         WorkerWindow[KEY_OPTIMIZER_TYPE_LIST_BOX].update(OptimizationTypeStr)
         WorkerWindow[KEY_LOSS_METHOD_LIST_BOX].update(LossMethodStr)
         WorkerWindow[KEY_LEARNING_RATE_INPUT].update(LearningRate)
-        WorkerWindow[KEY_ACTIVATION_CODES_INPUT].update(ActivationLayersList)
+        WorkerWindow[KEY_LAYER_FUNCTIONS_CODES_INPUT].update(LayersFunctionsList)
         WorkerWindow[KEY_LAYER_TYPE_CODES_INPUT].update(LayerTypesList)
         # update counters
         WorkerWindow[KEY_NUM_OF_LAYERS_SIZES].update(f'({str(count_str_list_elements(LayersSizesList))})')
         WorkerWindow[KEY_NUM_OF_LAYERS_TYPES].update(f'({str(count_str_list_elements(LayerTypesList))})')
-        WorkerWindow[KEY_ACTIVATION_NUMOF_LAYERS].update(f'({str(count_str_list_elements(ActivationLayersList))})')
+        WorkerWindow[KEY_LAYERS_FUNCTIONS_CODES].update(f'({str(count_str_list_elements(LayersFunctionsList))})')
 
 
     while True:
@@ -110,16 +113,30 @@ def WinWorkerDialog():
             sg.popup_ok(f"Layer type codes:\n{pretty_print_dict(LayerTypeMap)}", keep_on_top=True, title="Layer Type Codes")
 
 
-        # Activation codes combo and output list handling:
-        selection_key = KEY_ACTIVATION_LAYER_SELECTION
-        codes_key = KEY_ACTIVATION_CODES_INPUT
-        add_butt_key = KEY_ACTIVATION_LAYER_SELECTION_ADD
-        clear_butt_key = KEY_ACTIVATION_LAYER_SELECTION_CLEAR
-        ActivationLayersList = combo_list_editable_handler(WorkerWindow, event, values, ActivationFunctionsMap, ActivationLayersList,
+        selection_key = None
+        codes_key = KEY_LAYER_FUNCTIONS_CODES_INPUT
+        add_butt_key = None
+        clear_butt_key = KEY_LAYER_FUNCTIONS_SELECTION_CLEAR
+        LayersFunctionsList = combo_list_editable_handler(WorkerWindow, event, values, ActivationFunctionsMap, LayersFunctionsList,
                                                             selection_key, codes_key, add_butt_key, clear_butt_key)
-        WorkerWindow[KEY_ACTIVATION_NUMOF_LAYERS].update(f'({str(count_str_list_elements(ActivationLayersList))})')
+        WorkerWindow[KEY_LAYERS_FUNCTIONS_CODES].update(f'({str(count_str_list_elements(LayersFunctionsList))})')
+
+        # Activation codes combo and output list handling:
+        if event == KEY_LAYER_METHODS_BUTTON_SELECT:
+            LayerMethodSelection()
+            LayersFunctionsList += ',' if not LayersFunctionsList.endswith(',') and LayersFunctionsList else ''
+            LayersFunctionsList += global_layer_method_selection_code
+            WorkerWindow[KEY_LAYER_FUNCTIONS_CODES_INPUT].update(LayersFunctionsList)
+            WorkerWindow[KEY_LAYERS_FUNCTIONS_CODES].update(f'({str(count_str_list_elements(LayersFunctionsList))})')
+
+
+
         if event == KEY_ACTIVATION_LAYER_HELP:
-            sg.popup_ok(f"Layer type codes:\n{pretty_print_dict(LayerTypeMap)}", keep_on_top=True, title="Layer Type Codes")
+            ActivationDictStr = f'Activation:\n{pretty_print_dict(ActivationFunctionsMap)}'
+            PoolingDictStr = f'Pooling:\n{pretty_print_dict(PoolingMethodMap)}'
+            ScalerDictStr = f'Scaler:\n{pretty_print_dict(ScalingMethodMap)}'
+            ProbabilisticDictStr = f'Probabilistic:\n{pretty_print_dict(ProbabilisticActivationFunctionMap)}'
+            sg.popup_ok(f"Layer Functions Codes:\n{ActivationDictStr}\n{PoolingDictStr}\n{ScalerDictStr}\n{ProbabilisticDictStr}", keep_on_top=True, title="Layer Type Codes")
 
         if event == KEY_LEARNING_RATE_INPUT:
             LearningRate = values[event]
@@ -138,12 +155,12 @@ def WinWorkerDialog():
         if event == KEY_BUTTON_EXPORT_WORKER:
             worker_parameters_conditions = bool(LayersSizesList) and bool(ModelTypeStr) and bool(ModelType) and bool(OptimizationTypeStr) and\
                                            bool(OptimizationType) and bool(LossMethodStr) and bool(LossMethod) and\
-                                           bool(LearningRate) and bool(ActivationLayersList) and bool(LayersSizesList)
+                                           bool(LearningRate) and bool(LayersFunctionsList) and bool(LayersSizesList)
             FilePath = Path(FileDirExport) / Path(FileNameExport)
             filepath_condition = FilePath.parent.is_dir() and bool(FileNameExport) and FileNameExport.endswith(".json")
             if worker_parameters_conditions and filepath_condition:
                 newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr, OptimizationType, LossMethodStr, LossMethod,
-                                    LearningRate, ActivationLayersList, LayerTypesList)
+                                    LearningRate, LayersFunctionsList, LayerTypesList)
                 newWorker.save_as_json(FilePath.as_posix(), WithDocumentation)
                 sg.popup_auto_close("Successfully Created", keep_on_top=True)
                 break
@@ -164,20 +181,7 @@ def WinWorkerDialog():
                 with open(FilePathLoad) as jsonFile:
                     loaded_worker_dict = json.load(jsonFile)
                 ( _ , LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,
-                OptimizationType, LossMethodStr, LossMethod, LearningRate, ActivationLayersList, LayerTypesList,
-                ScalingMethodList, PoolingMethodList) = Worker.load_from_dict(loaded_worker_dict)
-
-                ScalingMethodList = ScalingMethodList.split(",")
-                PoolingMethodList = PoolingMethodList.split(",")
-                LayerTypesListUnifiedStyle = []
-                for idx, layer in enumerate(LayerTypesList.split(",")):
-                    if layer == LAYER_SPECIAL_TYPE_IDX_SCALING:
-                        LayerTypesListUnifiedStyle.append(f"{layer}-{ScalingMethodList[idx]}")
-                    elif layer == LAYER_SPECIAL_TYPE_IDX_POOLING:
-                        LayerTypesListUnifiedStyle.append(f"{layer}-{PoolingMethodList[idx]}")
-                    else:
-                        LayerTypesListUnifiedStyle.append(layer)
-                LayerTypesList = ",".join(LayerTypesListUnifiedStyle)
+                OptimizationType, LossMethodStr, LossMethod, LearningRate, LayersFunctionsList, LayerTypesList) = Worker.load_from_dict(loaded_worker_dict)
                 ui_update_all_values(WorkerWindow)
 
             else:
@@ -187,3 +191,49 @@ def WinWorkerDialog():
             break
         
     WorkerWindow.close()
+
+
+def LayerMethodSelection():
+    global global_layer_method_selection_code
+
+    layout = [[sg.Text("Activation",expand_x=True), sg.Text('Pooling', expand_x=True), sg.Text('Scaler', expand_x=True), sg.Text('Probabilistic', expand_x=True)],
+                [sg.Listbox(list(ActivationFunctionsMap.keys()), size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_ACTIVATION),
+                 sg.Listbox(list(PoolingMethodMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_POOLING), 
+                 sg.Listbox(list(ScalingMethodMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_SCALER),
+                 sg.Listbox(list(ProbabilisticActivationFunctionMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_PROBABILISTIC)],
+                 [sg.Text('Selection', expand_x=True, enable_events=True, key=KEY_LAYER_METHOD_SELECTION_TEXT),sg.Button('Select', expand_x=True, key=KEY_LAYER_METHOD_SELECTION_BUTTON)]]
+    
+    layer_selection_win = sg.Window(title="Layer Method Selection", layout=layout, modal=True, keep_on_top=True)
+
+
+    while True: 
+        event, values = layer_selection_win.read(timeout=100)
+
+        if event == KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_ACTIVATION:
+            layer_method_selection = values[KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_ACTIVATION][0]
+            global_layer_method_selection_code = ActivationFunctionsMap[layer_method_selection]
+            layer_selection_win[KEY_LAYER_METHOD_SELECTION_TEXT].update(f'Selected {layer_method_selection} code: {global_layer_method_selection_code}')
+
+        if event == KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_POOLING:
+            layer_method_selection = values[KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_POOLING][0]
+            global_layer_method_selection_code = PoolingMethodMap[layer_method_selection]
+            layer_selection_win[KEY_LAYER_METHOD_SELECTION_TEXT].update(f'Selected {layer_method_selection} code: {global_layer_method_selection_code}')
+
+        if event == KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_SCALER:
+            layer_method_selection = values[KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_SCALER][0]
+            global_layer_method_selection_code = ScalingMethodMap[layer_method_selection]
+            layer_selection_win[KEY_LAYER_METHOD_SELECTION_TEXT].update(f'Selected {layer_method_selection} code: {global_layer_method_selection_code}')
+
+        if event == KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_PROBABILISTIC:
+            layer_method_selection = values[KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_PROBABILISTIC][0]
+            global_layer_method_selection_code = ProbabilisticActivationFunctionMap[layer_method_selection]
+            layer_selection_win[KEY_LAYER_METHOD_SELECTION_TEXT].update(f'Selected {layer_method_selection} code: {global_layer_method_selection_code}')
+
+        if event == KEY_LAYER_METHOD_SELECTION_BUTTON:
+            break
+        
+
+        if event == "Exit" or event == sg.WIN_CLOSED:
+            break
+    
+    layer_selection_win.close()
