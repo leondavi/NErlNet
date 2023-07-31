@@ -39,12 +39,14 @@ def WinWorkerDialog():
                                [sg.InputText(key=KEY_LAYER_TYPE_CODES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_NUM_OF_LAYERS_TYPES,enable_events=True)],
                                [sg.Text("Layers Functionality-Codes"),sg.Button("Select Layer Method", enable_events=True, key=KEY_LAYER_METHODS_BUTTON_SELECT), sg.Button("Help",key="-ACTIVATION-LAYER-HELP-"), sg.Button("Clear",key=KEY_LAYER_FUNCTIONS_SELECTION_CLEAR)],
                                [sg.InputText(key=KEY_LAYER_FUNCTIONS_CODES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_LAYERS_FUNCTIONS_CODES,enable_events=True), sg.Text("",enable_events=True, key=KEY_LAYER_METHODS_TEXT_SELECTION)]]
-    WorkerDefinitionsFrame = sg.Frame("Model Definitions",layout=WorkerDefinitionsLayout)
+    WorkerDefinitionsFrame = sg.Frame("Model Definitions",layout=WorkerDefinitionsLayout, expand_x=True)
 
-    OptimizerDefinitionsLayout = [[sg.Text("Learning Rate: "), sg.InputText(key=KEY_LEARNING_RATE_INPUT, enable_events=True)],
+    OptimizerDefinitionsLayout = [[sg.Text("Learning Rate: "), sg.InputText(key=KEY_LEARNING_RATE_INPUT, size=(15), enable_events=True)],
+                                  [sg.Text("Epochs:          "), sg.InputText("1", size=(15), key=KEY_EPOCHS_INPUT, enable_events=True)],
                                   [sg.Text("Optimizer Type: "), sg.Combo(list(OptimizerTypeMapping.keys()),enable_events=True, key=KEY_OPTIMIZER_TYPE_LIST_BOX)],
-                                  [sg.Text("Loss Method: "), sg.Combo(list(LossMethodMapping.keys()),enable_events=True, key=KEY_LOSS_METHOD_LIST_BOX)]]
-    OptimizerDefinitionsFrame = sg.Frame("Optimizer Definitions", layout=OptimizerDefinitionsLayout)
+                                  [sg.Text("Loss Method: "), sg.Combo(list(LossMethodMapping.keys()),enable_events=True, key=KEY_LOSS_METHOD_LIST_BOX)]
+                                  ]
+    OptimizerDefinitionsFrame = sg.Frame("Optimizer Definitions", layout=OptimizerDefinitionsLayout, expand_x=True)
 
  
     
@@ -64,6 +66,7 @@ def WinWorkerDialog():
     LossMethodStr = ""
     LossMethod = None # None
     LearningRate = None
+    Epochs = "1"
     LayersFunctionsList = ""
     LayerTypesList = ""
     WithDocumentation = True
@@ -74,6 +77,7 @@ def WinWorkerDialog():
         WorkerWindow[KEY_OPTIMIZER_TYPE_LIST_BOX].update(OptimizationTypeStr)
         WorkerWindow[KEY_LOSS_METHOD_LIST_BOX].update(LossMethodStr)
         WorkerWindow[KEY_LEARNING_RATE_INPUT].update(LearningRate)
+        WorkerWindow[KEY_EPOCHS_INPUT].update(Epochs)
         WorkerWindow[KEY_LAYER_FUNCTIONS_CODES_INPUT].update(LayersFunctionsList)
         WorkerWindow[KEY_LAYER_TYPE_CODES_INPUT].update(LayerTypesList)
         # update counters
@@ -125,7 +129,7 @@ def WinWorkerDialog():
         if event == KEY_LAYER_METHODS_BUTTON_SELECT:
             LayerMethodSelection()
             LayersFunctionsList += ',' if not LayersFunctionsList.endswith(',') and LayersFunctionsList else ''
-            LayersFunctionsList += global_layer_method_selection_code
+            LayersFunctionsList += global_layer_method_selection_code if global_layer_method_selection_code else ''
             WorkerWindow[KEY_LAYER_FUNCTIONS_CODES_INPUT].update(LayersFunctionsList)
             WorkerWindow[KEY_LAYERS_FUNCTIONS_CODES].update(f'({str(count_str_list_elements(LayersFunctionsList))})')
 
@@ -141,6 +145,9 @@ def WinWorkerDialog():
         if event == KEY_LEARNING_RATE_INPUT:
             LearningRate = values[event]
 
+        if event == KEY_EPOCHS_INPUT:
+            Epochs = values[event]
+
         if event == KEY_OPTIMIZER_TYPE_LIST_BOX:
             OptimizationTypeStr = values[event]
             OptimizationType = OptimizerTypeMapping[OptimizationTypeStr]
@@ -155,12 +162,12 @@ def WinWorkerDialog():
         if event == KEY_BUTTON_EXPORT_WORKER:
             worker_parameters_conditions = bool(LayersSizesList) and bool(ModelTypeStr) and bool(ModelType) and bool(OptimizationTypeStr) and\
                                            bool(OptimizationType) and bool(LossMethodStr) and bool(LossMethod) and\
-                                           bool(LearningRate) and bool(LayersFunctionsList) and bool(LayersSizesList)
+                                           bool(LearningRate) and bool(LayersFunctionsList) and bool(LayersSizesList) and bool(Epochs)
             FilePath = Path(FileDirExport) / Path(FileNameExport)
             filepath_condition = FilePath.parent.is_dir() and bool(FileNameExport) and FileNameExport.endswith(".json")
             if worker_parameters_conditions and filepath_condition:
                 newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr, OptimizationType, LossMethodStr, LossMethod,
-                                    LearningRate, LayersFunctionsList, LayerTypesList)
+                                    LearningRate, Epochs, LayersFunctionsList, LayerTypesList)
                 newWorker.save_as_json(FilePath.as_posix(), WithDocumentation)
                 sg.popup_auto_close("Successfully Created", keep_on_top=True)
                 break
@@ -181,7 +188,7 @@ def WinWorkerDialog():
                 with open(FilePathLoad) as jsonFile:
                     loaded_worker_dict = json.load(jsonFile)
                 ( _ , LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,
-                OptimizationType, LossMethodStr, LossMethod, LearningRate, LayersFunctionsList, LayerTypesList) = Worker.load_from_dict(loaded_worker_dict)
+                OptimizationType, LossMethodStr, LossMethod, LearningRate, Epochs, LayersFunctionsList, LayerTypesList) = Worker.load_from_dict(loaded_worker_dict)
                 ui_update_all_values(WorkerWindow)
 
             else:

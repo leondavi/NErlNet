@@ -5,27 +5,29 @@ import json
 from collections import OrderedDict
 
 from JsonElements import JsonElement
+from JsonElements import Epochs
 from JsonElementsDefinitions import *
 from JsonElementWorkerDefinitions import *
 
 
 class Worker(JsonElement):      
-    def __init__(self, name, LayersSizesListStr : str, ModelTypeStr : str, ModelType : int, OptimizationTypeStr : str, OptimizationType : int,
-                 LossMethodStr : str, LossMethod : int, LearningRate : str, LayersFunctionsCodesListStr : str, LayerTypesListStr : str):
+    def __init__(self, name, layers_sizes_list_str : str, model_type_str : str, model_type : int, optimization_type_str : str, optimization_type : int,
+                 loss_method_str : str, loss_method : int, learning_rate : str, epochs : str, layer_functions_codes_list_str : str, layer_types_list_str : str):
         super(Worker, self).__init__(name, WORKER_TYPE)
-        self.LayersSizesListStr = LayersSizesListStr
-        self.LayersSizesList = LayersSizesListStr.split(',')
-        self.ModelTypeStr = ModelTypeStr
-        self.ModelType = ModelType # None
-        self.OptimizationTypeStr = OptimizationTypeStr
-        self.OptimizationType = OptimizationType # None
-        self.LossMethodStr = LossMethodStr
-        self.LossMethod = LossMethod # None
-        self.LearningRate = float(LearningRate)
-        self.LayersFunctionsCodesListStr = LayersFunctionsCodesListStr
-        self.LayersFunctionsCodesList = LayersFunctionsCodesListStr.split(',') #TODO validate
-        self.LayerTypesListStr = LayerTypesListStr
-        self.LayerTypesList = LayerTypesListStr.split(',') #TODO validate
+        self.LayersSizesListStr = layers_sizes_list_str
+        self.LayersSizesList = layers_sizes_list_str.split(',')
+        self.ModelTypeStr = model_type_str
+        self.ModelType = model_type # None
+        self.OptimizationTypeStr = optimization_type_str
+        self.OptimizationType = optimization_type # None
+        self.LossMethodStr = loss_method_str
+        self.LossMethod = loss_method # None
+        self.LearningRate = float(learning_rate)
+        self.LayersFunctionsCodesListStr = layer_functions_codes_list_str
+        self.LayersFunctionsCodesList = layer_functions_codes_list_str.split(',') #TODO validate
+        self.LayerTypesListStr = layer_types_list_str
+        self.LayerTypesList = layer_types_list_str.split(',') #TODO validate
+        self.Epochs = Epochs(epochs)
 
         # validate lists sizes 
         lists_for_length = [self.LayersSizesList, self.LayersFunctionsCodesList, self.LayerTypesList]
@@ -72,18 +74,18 @@ class Worker(JsonElement):
 
     def copy(self, name):
         newWorker =  Worker(name, self.LayersSizesListStr, self.ModelTypeStr, self.ModelType , self.OptimizationTypeStr, self.OptimizationType,
-                 self.LossMethodStr, self.LossMethod, self.LearningRate, self.LayersFunctionsCodesListStr, self.LayerTypesListStr)
+                 self.LossMethodStr, self.LossMethod, self.LearningRate, self.Epochs.get_value_str(), self.LayersFunctionsCodesListStr, self.LayerTypesListStr)
         return newWorker
 
     def __str__(self):
-        return f"layers sizes: {self.LayersSizesListStr}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}"
+        return f"layers sizes: {self.LayersSizesListStr}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}, epochs: {self.Epochs}"
     
     def error(self): 
         return not self.input_validation() # + more checks
 
     def input_validation(self):
         # TODO add more validation: e.g., numbers of keys appears in dictionaries
-        return self.lengths_validation
+        return self.lengths_validation and (not self.Epochs.error())
     
     def get_as_dict(self, documentation = True):
         assert not self.error()
@@ -103,6 +105,8 @@ class Worker(JsonElement):
             (KEY_LOSS_METHOD_DOC, VAL_LOSS_METHOD_DOC),
             (KEY_LEARNING_RATE, self.LearningRate),
             (KEY_LEARNING_RATE_DOC, VAL_LEARNING_RATE_DOC),
+            (KEY_EPOCHS, self.Epochs.get_value_str()),
+            (KEY_EPOCHS_DOC, VAL_EPOCHS_DOC),
             (KEY_OPTIMIZER_TYPE, self.OptimizationType),
             (KEY_OPTIMIZER_TYPE_DOC, VAL_OPTIMIZER_TYPE_DOC)
         ]
@@ -123,7 +127,7 @@ class Worker(JsonElement):
 
     def load_from_dict(worker_dict : dict, name = ''):
         required_keys = [KEY_LAYER_SIZES_LIST, KEY_MODEL_TYPE, KEY_OPTIMIZER_TYPE,
-                         KEY_LOSS_METHOD, KEY_LEARNING_RATE, KEY_LAYERS_FUNCTIONS,
+                         KEY_LOSS_METHOD, KEY_LEARNING_RATE, KEY_EPOCHS, KEY_LAYERS_FUNCTIONS,
                          KEY_LAYER_TYPES_LIST]
         
         loaded_worker = None
@@ -141,10 +145,11 @@ class Worker(JsonElement):
             LearningRate = float(worker_dict[KEY_LEARNING_RATE])
             ActivationLayersList = worker_dict[KEY_LAYERS_FUNCTIONS]
             LayerTypesList = worker_dict[KEY_LAYER_TYPES_LIST]
+            EpochsStr = worker_dict[KEY_EPOCHS]
             
             loaded_worker = Worker(name, LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,
-                OptimizationType, LossMethodStr, LossMethod, LearningRate, ActivationLayersList, LayerTypesList)
+                OptimizationType, LossMethodStr, LossMethod, LearningRate, EpochsStr, ActivationLayersList, LayerTypesList)
             return loaded_worker, LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,\
-                OptimizationType, LossMethodStr, LossMethod, LearningRate, ActivationLayersList, LayerTypesList
+                OptimizationType, LossMethodStr, LossMethod, LearningRate, EpochsStr, ActivationLayersList, LayerTypesList
         
         return None
