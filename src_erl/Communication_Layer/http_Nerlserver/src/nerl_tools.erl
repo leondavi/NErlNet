@@ -160,12 +160,13 @@ string_format(Pattern, Values) ->
 
 list_to_numeric(Num) when is_float(Num) -> {Num, float};
 list_to_numeric(Num) when is_integer(Num) -> {Num, integer};
+list_to_numeric([]) -> {[], empty};
 list_to_numeric(L) ->
   Float = (catch erlang:list_to_float(L)),
   Int = (catch erlang:list_to_integer(L)),
   if is_number(Float) -> {Float, float};
     is_number(Int) -> {Int, integer};
-    true -> ErrorMessage = "couldnt convert - given input string is not a numeric value: ",   %% most common problem is L=[]
+    true -> ErrorMessage = "couldnt convert - given input string is not a numeric value: ",   %% most common problem is L=[] (if input csv data is empty line, delete it)
             ?LOG_ERROR(ErrorMessage), throw(ErrorMessage++L)
   end.
 
@@ -179,7 +180,11 @@ port_available(Port) ->
     end.
 
 %% calculate the number of bytes of term
-calculate_size(Term) -> erts_debug:flat_size(Term).
+
+calculate_size(Term) when is_tuple(Term) -> calculate_size(tuple_to_list(Term));
+calculate_size(List) when is_list(List) -> 
+  Sizes = lists:map(fun(Term) -> erts_debug:flat_size(Term) end, List),
+  lists:sum(Sizes).
 
 %% TODO: add another timing map for NIF of each worker action
 
