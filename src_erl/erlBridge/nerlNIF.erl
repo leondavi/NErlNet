@@ -183,7 +183,7 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
             encode -> Validated = validate_nerltensor_erl(NerlTensor),
                       if
                         Validated -> encode_nif(NerlTensor, BinType);
-                        true -> io:format("Bad tensor format!!~n"), {<<>>, BinType}
+                        true -> io:format("Wrong NerlTensor size!~n"), {<<>>, BinType}
                         % true -> throw(nerl:string_format("encode failure due to incorrect dimension declaring X*Y*Z not equal to tensor data length! ~p ",[NerlTensor]))
                       end;
             decode -> decode_nif(NerlTensor, BinType);

@@ -57,8 +57,8 @@ class Transmitter:
         for root, dirnames, filenames in os.walk(globe.INPUT_DATA_PATH):
             for filename in filenames:
                 if filename == f"{globe.experiment_flow_global.expFlow['CSV path']}_{currentPhase.lower()}.csv":
-                    with open(os.path.join(root, filename), 'r') as f:
-                        csvfile = f.read()
+                    with open(os.path.join(root, filename), 'r') as file:
+                        csvfile = file.read()
                     break
 
         SourceData = []
