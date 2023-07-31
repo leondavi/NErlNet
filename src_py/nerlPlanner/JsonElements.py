@@ -57,6 +57,30 @@ class Arguments(JsonElement):
         assert not self.error()
         return (self.get_name() , self.args)
 
+class Epochs(JsonElement):
+    '''
+    Definition: epoch is one complete pass through the training data
+    '''
+    def __init__(self, value):
+        super(Epochs, self).__init__("epochs", VALUE_TYPE)
+        self.value = int(value) if isinstance(value,str) else value
+
+    def get_value_str(self):
+        return str(self.value)
+
+    def error(self):
+        return self.value <= 0
+    
+    def get_as_tuple(self):
+        assert not self.error()
+        return (self.get_name(), self.value)
+    
+    def get_str(self):
+        return f'{self}'
+
+    def __format__(self, __format_spec: str) -> str:
+        return f"Epochs: {self.value}" 
+
 # Basic Units 
 class Frequency(JsonElement):
     def __init__(self, value):
@@ -242,15 +266,16 @@ class Router(JsonElement):
         return OrderedDict(elements_list)
 
 class Source(JsonElement):
-    def __init__(self,name, ip_address, port, frequency, policy):
+    def __init__(self,name, ip_address, port, frequency, policy, epochs):
         super(Source, self).__init__(name, SOURCE_TYPE)  
         self.ip = Ipv4(ip_address)
         self.port = Port(port)
         self.frequency = Frequency(frequency)
         self.policy = Policy(policy, super().get_type())
+        self.epochs = Epochs(epochs)
 
     def error(self):
-        return self.ip.error() or self.port.error() or self.policy.error() or self.frequency.error()
+        return self.ip.error() or self.port.error() or self.policy.error() or self.frequency.error() or self.epochs.error()
     
     def get_as_dict(self):
         assert not self.error()
