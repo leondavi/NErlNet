@@ -73,13 +73,23 @@ static ERL_NIF_TERM get_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     nifpp::get_throws(env, argv[0], mid); 
     weightsParamsPtr->mid = mid;
 
+    void** exit_code;
     int res = enif_thread_create((char*)"get_weights_proc", &(weightsParamsPtr->tid), get_weights, (void*) pWeightsParamsPtr, 0);
-    
     if (res)
     {
-        LogError("failed to call enif_thread_create with get_weights");
+        LogError("failed to call enif_thread_create with get_weights_proc");
         nifpp::str_atom ret_status("get_weights_error");
         return nifpp::make(env, ret_status);
+    }
+    else
+    {
+        res = enif_thread_join(weightsParamsPtr->tid, exit_code );
+        if (res)
+        {
+            LogError("failed to join with get_weights_proc");
+            nifpp::str_atom ret_status("get_weights_error");
+            return nifpp::make(env, ret_status);
+        }
     }
     nifpp::str_atom ret_status("ok");
     return nifpp::make(env, res);

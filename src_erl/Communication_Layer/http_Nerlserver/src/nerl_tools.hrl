@@ -27,6 +27,8 @@
 %% sorce tmpData name
 -define(TMP_DIRECTORY,"/tmp/nerlnet/").
 -define(TMP_DATA_ADDR, "tmpData.csv").
+%% max data length that cowboy server will accept (when passing big files)
+-define(DATA_LEN, 1000*1000*1000). % default is 8MB, here set to 1000MB
 %% sourceFSM defines
 -define(SENDALL, 1).
 -define(ROUNDROBIN, 2).

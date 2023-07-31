@@ -120,6 +120,7 @@ printTensor(List,_Type) when is_list(List) ->
 validate_nerltensor_erl(NerlTensorErl) ->
       {[X,Y,Z], NerlTensorRest} = lists:split(?NUMOF_DIMS, NerlTensorErl),
       TensorExpectedLength = trunc(X*Y*Z),
+      % io:format("{X,Y,Z} = ~p, TensorLen (X*Y*Z)= ~p~n",[{X,Y,Z}, length(NerlTensorRest)]),
       if
             TensorExpectedLength == length(NerlTensorRest) -> true;
             true -> false
@@ -194,7 +195,8 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
             encode -> Validated = validate_nerltensor_erl(NerlTensor),
                       if
                         Validated -> encode_nif(NerlTensor, BinType);
-                        true -> throw(nerl:string_format("encode failure due to incorrect dimension declaring X*Y*Z not equal to tensor data length! ~p ",[NerlTensor]))
+                        true -> io:format("Wrong NerlTensor size!~n"), {<<>>, BinType}
+                        % true -> throw(nerl:string_format("encode failure due to incorrect dimension declaring X*Y*Z not equal to tensor data length! ~p ",[NerlTensor]))
                       end;
             decode -> decode_nif(NerlTensor, BinType);
             _ -> throw("wrong operation")

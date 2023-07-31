@@ -57,24 +57,19 @@ class Transmitter:
         for root, dirnames, filenames in os.walk(globe.INPUT_DATA_PATH):
             for filename in filenames:
                 if filename == f"{globe.experiment_flow_global.expFlow['CSV path']}_{currentPhase.lower()}.csv":
-                    csvfile = open(os.path.join(root, filename), 'r').readlines()
+                    with open(os.path.join(root, filename), 'r') as file:
+                        csvfile = file.read()
                     break
 
         SourceData = []
         if globe.CSVsplit == 2:      ## send entire file to sources
             linesPerSource = 0
-            for source in globe.experiment_flow_global.expFlow[currentPhase]:       
-                SourceData.append(csvfile[:])
             
             for source in globe.experiment_flow_global.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
                 sourceName = source['source name']
                 workersUnderSource = source['workers']
-                SourceStr = ""
-                for Line in SourceData[0]:
-                    SourceStr += Line
-                dataStr = f'{sourceName}#{workersUnderSource}#{SourceStr}'
 
-                response = requests.post(self.updateCSVAddress, data=dataStr)
+                response = requests.post(self.updateCSVAddress, data=f'{sourceName}#{workersUnderSource}#{csvfile}')
 
         else:                   ## split file and send to sources
             linesPerSource = int(len(csvfile)/len(globe.components.sources))
@@ -101,7 +96,7 @@ class Transmitter:
         print('\nStart Casting Phase')
 
         # 1 Ack for startCasting():
-        globe.pendingAcks = 1
+        globe.pendingAcks = 1 
 
         # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
         if (phase==globe.TRAINING_STR):
