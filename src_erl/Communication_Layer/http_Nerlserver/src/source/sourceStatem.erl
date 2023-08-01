@@ -19,7 +19,7 @@
 %% states and misc
 -export([init/1,  idle/3, castingData/3, sendSamples/10]).
 
--record(source_statem_state, {sendingMethod, frequency, batchSize, lengthOfSample, castingTo=[], myName,workersMap,nerlnetGraph, msgCounter=0, sourcePid=[],csvName="", batchList, nerlTensorType}).
+-record(source_statem_state, {sendingMethod, frequency, epochs, batchSize, lengthOfSample, castingTo=[], myName,workersMap,nerlnetGraph, msgCounter=0, sourcePid=[],csvName="", batchList, nerlTensorType}).
 
 %%%===================================================================
 %%% API
@@ -329,4 +329,4 @@ sendBatch(Sample,CSVPath,_LengthOfSample, BatchID,ClientName,WorkerName,RouterHo
 
 duplicate_data(ListOfTensors, 0, Ret) -> Ret;
 duplicate_data(ListOfTensors, N, Ret) ->
-  duplicate_data(ListOfTensors, N-1, Ret ++ ListOfTensors)
+  duplicate_data(ListOfTensors, N-1, Ret ++ ListOfTensors).
