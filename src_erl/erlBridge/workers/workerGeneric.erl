@@ -118,12 +118,12 @@ code_change(_OldVsn, StateName, State = #workerGeneric_state{}, _Extra) ->
 %% State idle
 
 %% got init from FedWorker, add it to workersList
-idle(cast, {pre_idle}, State = #workerGeneric_state{myName = MyName,customFunc = Func}) ->
+idle(cast, {pre_idle}, State = #workerGeneric_state{myName = _MyName,customFunc = Func}) ->
   % io:format("worker ~p got pre_idle signal~n",[MyName]),
   Func(pre_idle, {get(generic_worker_ets), empty}),
   {next_state, idle, State};
 
-idle(cast, {post_idle, From}, State = #workerGeneric_state{myName = MyName,customFunc = Func}) ->
+idle(cast, {post_idle, From}, State = #workerGeneric_state{myName = _MyName,customFunc = Func}) ->
   % io:format("worker ~p got post_idle signal~n",[MyName]),
   Func(post_idle, {get(generic_worker_ets), From}),
   {next_state, idle, State};
@@ -207,7 +207,7 @@ update(cast, {idle}, State = #workerGeneric_state{myName = MyName}) ->
   checkAndAck(MyName, 1, ets:lookup_element(get(generic_worker_ets), missedBatches, ?ETS_KEYVAL_VAL_IDX)),
   {next_state, idle, State#workerGeneric_state{nextState = idle}};
     
-update(cast, Data, State = #workerGeneric_state{customFunc = CustomFunc, nextState = NextState, missedBatchesCount = MissedBatchesCount}) ->
+update(cast, Data, State = #workerGeneric_state{customFunc = CustomFunc, nextState = NextState, missedBatchesCount = _MissedBatchesCount}) ->
   % io:format("worker ~p got ~p~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
   case Data of
     %% FedClient update avg weights

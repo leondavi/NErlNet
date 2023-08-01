@@ -111,7 +111,7 @@ waitforWorkers(cast, In = {stateChange,WorkerName,MissedBatchesCount}, State = #
     _->  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers}}
   end;
 
-waitforWorkers(cast, In = {NewState}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
+waitforWorkers(cast, In = {NewState}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
   % ?LOG_INFO("~p in waiting going to state ~p~n",[MyName, State]),
@@ -148,7 +148,7 @@ idle(cast, In = {custom_worker_message, {From, To}}, State = #client_statem_stat
   % io:format("initiating, CONFIG received:~p ~n",[CONFIG]),
   {keep_state, State};
 
-idle(cast, In = {statistics}, State = #client_statem_state{ myName = MyName, etsRef = EtsRef}) ->
+idle(cast, In = {statistics}, State = #client_statem_state{ myName = _MyName, etsRef = EtsRef}) ->
   sendStatistics(EtsRef),
   ets:update_counter(EtsRef, msgCounter, 1), % last param is increment value
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),

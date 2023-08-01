@@ -220,7 +220,7 @@ encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, ErlType, TargetBinaryT
         YDim = float(SampleSize),
         ZDim = 1.0,
         % io:format("sending conversion: ~p ~p ~n ",[{[XDim, YDim, ZDim | Batch], ErlType}, TargetBinaryType]),
-        NewTensor = nerlNIF:nerltensor_conversion({[XDim, YDim, ZDim | Batch], ErlType}, TargetBinaryType)
+        _NewTensor = nerlNIF:nerltensor_conversion({[XDim, YDim, ZDim | Batch], ErlType}, TargetBinaryType)
       end
     end,
   {UpBatches, DownBatches} = lists:split(round(length(ListOfBatches)/2)-1, ListOfBatches),
@@ -236,7 +236,7 @@ encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, ErlType, TargetBinaryT
   end,
   receive 
     done -> cont;
-    Other -> throw("unexpected message in source parse")
+    _Other2 -> throw("unexpected message in source parse")
   end,
   UpRes = ets:lookup_element(encodeListOfBatchesToNerlTensorsBinBatches, upBatchesRes, ?DATA_IDX),
   DownRes = ets:lookup_element(encodeListOfBatchesToNerlTensorsBinBatches, downBatchesRes, ?DATA_IDX),
@@ -247,21 +247,21 @@ encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, ErlType, TargetBinaryT
 
 %%return a binary representing a list of floats: List-> <<binaryofthisList>>
 %%%%%%% this function is for FLOATS, converts int data to float
-decodeFloatsList(L)->
-  Splitted = re:split(binary_to_list(L), ",", [{return,list}]),
-  decodeFloatsList(Splitted,[]).
-decodeFloatsList([],Ret)->Ret;
-decodeFloatsList([[]|ListOfFloats],Ret)-> decodeFloatsList(ListOfFloats,Ret);
-decodeFloatsList([H|ListOfFloats],Ret)->
-  %% numbers sometime appear as ".7" / "-.1" 
-  Num = case H of
-    [$-,$.|Rest]  -> "-0."++Rest;
-    [$.|Rest]     -> "0."++Rest;
-    List -> List
-  end,
-  {NumToAdd, _Type} = nerl_tools:list_to_numeric(Num),
+% decodeFloatsList(L)->
+%   Splitted = re:split(binary_to_list(L), ",", [{return,list}]),
+%   decodeFloatsList(Splitted,[]).
+% decodeFloatsList([],Ret)->Ret;
+% decodeFloatsList([[]|ListOfFloats],Ret)-> decodeFloatsList(ListOfFloats,Ret);
+% decodeFloatsList([H|ListOfFloats],Ret)->
+%   %% numbers sometime appear as ".7" / "-.1" 
+%   Num = case H of
+%     [$-,$.|Rest]  -> "-0."++Rest;
+%     [$.|Rest]     -> "0."++Rest;
+%     List -> List
+%   end,
+%   {NumToAdd, _Type} = nerl_tools:list_to_numeric(Num),
     
-  decodeFloatsList(ListOfFloats,Ret++[float(NumToAdd)]).     %% remove float() to keep mixed data type
+%   decodeFloatsList(ListOfFloats,Ret++[float(NumToAdd)]).     %% remove float() to keep mixed data type
 
 %% UNUSED: return a binary representing a list of floats: List-> <<binaryofthisList>>
 % decodeEncodeFloatsListBin(L, XDim, YDim, ZDim)->

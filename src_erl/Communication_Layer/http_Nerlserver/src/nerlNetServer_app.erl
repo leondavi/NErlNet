@@ -168,7 +168,7 @@ parseJsonAndStartNerlnet(HostName) ->
 
 createClientsAndWorkers() ->
     ClientsAndWorkers = ets:lookup_element(nerlnet_data, hostClients, ?DATA_IDX), % Each element is  {Name,{Port,ClientWorkers,ClientWorkersMaps}}
-    WorkerToClientMap = ets:lookup_element(nerlnet_data, workers, ?DATA_IDX),
+    % WorkerToClientMap = ets:lookup_element(nerlnet_data, workers, ?DATA_IDX),
     % io:format("Starting clients and workers locally with: ~p~n",[ClientsAndWorkers]),
     HostName = ets:lookup_element(nerlnet_data, hostname, ?DATA_IDX),
     NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),

@@ -97,20 +97,18 @@ PREDICTION_STR = "Prediction"
         print("Initializing the receiver thread...\n")
 
         # Initializing the receiver (a Flask HTTP server that receives results from the Main Server):
-        if is_port_in_use(int(globe.components.receiverPort)):
-            self.stopServer()
+        if not is_port_in_use(int(globe.components.receiverPort)):
+            self.receiverProblem = threading.Event()
+            self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
+            self.receiverThread.start()   
+            # time.sleep(2)
+            self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
 
-        self.receiverProblem = threading.Event()
-        self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
-        self.receiverThread.start()   
-        # time.sleep(2)
-        self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
-
-        if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
-            print(f"===================Failed to initialize the receiver using the provided address:==========================\n\
-            (http://{globe.components.receiverHost}:{globe.components.receiverPort})\n\
-Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
-            sys.exit()
+            if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
+                print(f"===================Failed to initialize the receiver using the provided address:==========================\n\
+                (http://{globe.components.receiverHost}:{globe.components.receiverPort})\n\
+    Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
+                sys.exit()
 
         # Initalize an instance for the transmitter:
         if not hasattr(self, 'transmitter'):

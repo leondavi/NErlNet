@@ -65,7 +65,7 @@ init({MyName,NerlnetGraph}) ->
 
 %% data passing format: {To, Action, Data}
 handle_cast({pass,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-  {To, Action, Data} = binary_to_term(Body),
+  {To, Action, _Data} = binary_to_term(Body),
   nerl_tools:sendHTTP(MyName, To, Action, Body),
 {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
