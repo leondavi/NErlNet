@@ -201,7 +201,7 @@ buildCommunicationGraph(ArchitectureMap, CommunicationMap)->
   %%connect serverAPI to Main Server
   add_edges(NerlnetGraph,?API_SERVER_ATOM, ?MAIN_SERVER_ATOM),
   
-  ConnectedEntities = [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,?MAIN_SERVER_ATOM)],
+  _ConnectedEntities = [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,?MAIN_SERVER_ATOM)],
   %% TODO check if NerlGUI appears in list of vertices , if it appears a connection edge of NerlGUI to the main server here
   NerlnetGraph.
 

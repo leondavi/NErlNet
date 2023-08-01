@@ -135,7 +135,7 @@ handle_cast({clientsTraining, _Body}, State = #main_genserver_state{myName = MyN
 %%  io:format("Splitted-(Body):~p~n",[re:split(binary_to_list(Body), ",", [{return, list}])]),
 %%  TODO find the router that can send this request to Sources**
   io:format("setting clients ~p to training~n",[ListOfClients]),
-  [{setClientState(clientTraining,ClientName,MyName)}|| ClientName <- ListOfClients],
+  _SendAction = [{setClientState(clientTraining,ClientName,MyName)}|| ClientName <- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
 handle_cast({clientsPredict,_Body}, State = #main_genserver_state{state = casting, clients = ListOfClients,msgCounter = MsgCounter}) ->
@@ -147,14 +147,14 @@ handle_cast({clientsPredict,_Body}, State = #main_genserver_state{myName = MyNam
 %%  send router http request, to rout this message to all sensors
   % io:format("main server: setting all clients on clientsPredict state: ~p~n",[ListOfClients]),
 %%  TODO find the router that can send this request to Sources**
-  [{setClientState(clientPredict,ClientName,MyName)}|| ClientName<- ListOfClients],
+  _SendAction = [{setClientState(clientPredict,ClientName,MyName)}|| ClientName<- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
 handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = MyName, clients = ListOfClients,msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
   % io:format("main server: setting all clients on Idle state: ~p~n",[ListOfClients]),
 %%  TODO find the router that can send this request to Sources**
-  [{setClientState(clientIdle,ClientName, MyName)}|| ClientName<- ListOfClients],
+  _SendAction = [{setClientState(clientIdle,ClientName, MyName)}|| ClientName<- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
 %%%get Statistics from all Entities in the network
@@ -243,10 +243,6 @@ handle_cast({startCasting,Source_Names}, State = #main_genserver_state{state = i
 
 handle_cast({startCasting,_Source_Names}, State = #main_genserver_state{sourcesWaitingList = SourcesWaiting, clientsWaitingList = ClientsWaiting}) ->
   io:format("Waiting for ~p~n",[{SourcesWaiting, ClientsWaiting}]),
-  {noreply, State};
-
-handle_cast({startCasting,_Source_Names}, State = #main_genserver_state{state = State}) ->
-  io:format("not in training state. current state- ~p~n",[State]),
   {noreply, State};
 
 
