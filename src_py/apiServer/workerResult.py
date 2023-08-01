@@ -6,7 +6,7 @@
 import numpy as np
 import globalVars as globe
 
-## this is what a worker returns / holds as data from network
+## this is what a worker returns / holds as data from network in PREDICT stage
 class PredictBatch():
     def __init__(self, receivedPrediction):
         IDX_WORKER = 0
@@ -38,7 +38,7 @@ class PredictBatch():
         self.indexRange = (self.indexRange[0]+offset, self.indexRange[1]+offset)
 
 
-## this keeps results per worker ordered
+## this is what a worker returns / holds as data from network in TRAIN stage
 class WorkerResult():
     # csvWorked is name of csv, DEPRACATED.
     # 
