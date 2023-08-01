@@ -76,4 +76,4 @@ Minimum Python version: 3.8
 4. Run Jupyter notebook with ```jupyter-notebook``` and create a new notebook in the created dir from step 3. 
 5. Follow the example: https://github.com/leondavi/NErlNet/blob/master/examples/example_run.ipynb 
 
-Contact Email: nerlnet@outlook.com
+Contact Email: leondavi@post.bgu.ac.il
