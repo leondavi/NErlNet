@@ -9,7 +9,8 @@
 
 -export([start/2, stop/1]).
 
--define(UTILLNAME,nerlMonitor ).
+-define(UTILLNAME,nerlMonitor).
+-define(IP , nerl_tools:getdeviceIP()).
 -define(PORT,8096 ).  %port place holder
 -define(MSADDRES,"ip:port" ). %place holder
 -define(GUI , {'PyrlangProcess' , 'py@127.0.0.1'}). % Erlang node should be long name to communicate with pyrlang node
@@ -28,7 +29,7 @@ start(_StartType, _StartArgs) ->
     {ok, _} = cowboy:start_clear(?UTILLNAME,[{port, ?PORT}],#{env => #{dispatch => Dispatch}}),
     os:cmd('python3 MonitorGUI.py'), %% PyrlangNode: ('PyralngProcess' , 'py@127.0.0.1' , 'COOKIE') , sending message by: 'GUI ! HELLO.'
     URL = "http://" ++ ?MSADDRES ++ "/toolConnectionReq",
-    mainServerPing(URL,[?UTILLNAME,functions(),nerl_tools:getdeviceIP() , ?PORT]). %% TODO How to "import" nerl_tools
+    mainServerPing(URL,[?UTILLNAME,functions(), ?IP , ?PORT]). %% TODO How to "import" nerl_tools
 
 
 %ping main server in 0.5 sec intervals with connection request. will stop when got valid response.
@@ -48,7 +49,7 @@ initInfoProc(Body)-> %% MainServer replies with Nerlnet-Graph when nerlMonitor t
 
 
 %functionalty of the tool, will create a list of tuples when each tuple is {entity that will run the func (atom),function itself {func)}
-functions()->ok.
+functions()-> ok.
     
 
 stop(_State) ->

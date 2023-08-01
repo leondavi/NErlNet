@@ -113,6 +113,10 @@ edgeString([Edge |EdgesList], Str)->
 {noreply, NewState :: #main_genserver_state{}, timeout() | hibernate} |
 {stop, Reason :: term(), NewState :: #main_genserver_state{}}).
 
+handle_cast({saveUtility , Body} , State = #main_genserver_state{etsRef = EtsRef , msgCounter = MsgCounter}) ->
+  ets:insert(EtsRef , Body),
+  {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
+  
 
 handle_cast({initCSV, Source,SourceData}, State = #main_genserver_state{state = idle, myName = MyName, sourcesWaitingList = SourcesWaitingList,nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
