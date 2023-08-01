@@ -29,7 +29,7 @@ start(_StartType, _StartArgs) ->
     {ok, _} = cowboy:start_clear(?UTILLNAME,[{port, ?PORT}],#{env => #{dispatch => Dispatch}}),
     os:cmd('python3 MonitorGUI.py'), %% PyrlangNode: ('PyralngProcess' , 'py@127.0.0.1' , 'COOKIE') , sending message by: 'GUI ! HELLO.'
     URL = "http://" ++ ?MSADDRES ++ "/toolConnectionReq",
-    mainServerPing(URL,[?UTILLNAME,functions(), ?IP , ?PORT]). %% TODO How to "import" nerl_tools
+    mainServerPing(URL,[?UTILLNAME, functions() , ?IP , ?PORT]). %% TODO How to "import" nerl_tools
 
 
 %ping main server in 0.5 sec intervals with connection request. will stop when got valid response.
