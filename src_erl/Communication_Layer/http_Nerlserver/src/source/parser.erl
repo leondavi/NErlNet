@@ -49,15 +49,6 @@ parseCSV(SourceName, BatchSize, CSVData)->
 %       eof        -> []
 %   end.
 
-
-% encode_tensor(Batch) ->
-%   XDim = length(hd(Batch)),
-%   YDim = length(Batch),
-%   ZDim = 1,
-%   ErlType = erl_float,
-%   TargetBinaryType = float,
-%   nerlNIF:nerltensor_conversion({[XDim, YDim, ZDim | Head], ErlType}, TargetBinaryType)
-
 % deleteTMPData(SourceName) ->
 %   SourceNameStr = atom_to_list(SourceName),
 %   {ok, Dir} = file:get_cwd(),
@@ -67,20 +58,6 @@ parseCSV(SourceName, BatchSize, CSVData)->
 %   catch
 %     {error, E} -> logger:notice("couldn't delete files ~p, ~p",[DataFiles, E])
 %   end.
-
-% splitLinesToBatches(Lines, BatchSize) ->
-%   Batches = divide(L, BatchSize),
-%   [ dataStrToNumericData(Batch) || Batch <- Batches].
-
-
-% divide([], _) -> [];
-% divide(L, N) ->
-%     try lists:split(N, L) of
-%         {H,T} -> [H|divide(T, N)]
-%     catch
-%         error:badarg -> [L]
-%     end.
-
 
 
 %%this parser takes a CSV folder containing chunked data, parsing into a list of binary.
@@ -113,6 +90,7 @@ parse_file(SourceName, BatchSize,File_Address) ->
           _Other -> throw("wrong ErlType")
     end,
   ?LOG_NOTICE("Source ~p generated list of NerlTensors from file: ~p",[SourceName, File_Address]),
+  file:write_file("Decoded"++File_Address, term_to_binary(ListOfTensors)),    %% write decoded and grouped samples to file
   {ListOfTensors, DataType, SampleSize}.
 
 dataStrToNumeric_NumHandler(NumStr) -> 

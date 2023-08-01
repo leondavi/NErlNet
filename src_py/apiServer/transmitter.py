@@ -60,7 +60,8 @@ class Transmitter:
                     with open(os.path.join(root, filename), 'r') as file:
                         csvfile = file.read()
                     break
-
+                
+        epochs = 1 if currentPhase == "Prediction" else globe.experiment_flow_global.expFlow["epochs"]
         SourceData = []
         if globe.CSVsplit == 2:      ## send entire file to sources
             linesPerSource = 0
@@ -69,7 +70,7 @@ class Transmitter:
                 sourceName = source['source name']
                 workersUnderSource = source['workers']
 
-                response = requests.post(self.updateCSVAddress, data=f'{sourceName}#{workersUnderSource}#{csvfile}')
+                response = requests.post(self.updateCSVAddress, data=f'{sourceName}#{workersUnderSource}#{epochs}#{csvfile}')
 
         else:                   ## split file and send to sources
             linesPerSource = int(len(csvfile)/len(globe.components.sources))
@@ -82,7 +83,7 @@ class Transmitter:
                 SourceStr = ""
                 for Line in SourceData[i]:
                     SourceStr += Line
-                dataStr = f'{sourceName}#{workersUnderSource}#{SourceStr}'
+                dataStr = f'{sourceName}#{workersUnderSource}#{epochs}#{SourceStr}'
 
                 response = requests.post(self.updateCSVAddress, data=dataStr)
 

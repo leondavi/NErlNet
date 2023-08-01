@@ -79,32 +79,34 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 
 
 %%This cast receive a list of samples to load to the records batchList
-idle(cast, {batchList,Workers,CSVData}, State = #source_statem_state{batchSize = BatchSize, myName = MyName, msgCounter = Counter}) ->
+idle(cast, {batchList,Workers,Epochs, CSVData}, State = #source_statem_state{batchSize = BatchSize, myName = MyName, msgCounter = Counter}) ->
   ?LOG_INFO("Arch BatchSize: ~p",[BatchSize]),
   ?LOG_NOTICE("Workers under source: ~p", [Workers]),
   {NerlTensorList, NerlTensorType, SampleSize} = parser:parseCSV(MyName,BatchSize,CSVData),
   ?LOG_INFO("source updated transmition list, total avilable batches to send: ~p~n",[length(NerlTensorList)]),
   %%  send an ACK to mainserver that the CSV file is ready
   nerl_tools:sendHTTP(MyName,?MAIN_SERVER_ATOM,"csvReady",MyName),
-  {next_state, idle, State#source_statem_state{lengthOfSample = SampleSize, castingTo = Workers, msgCounter = Counter+1,batchList = NerlTensorList, nerlTensorType = NerlTensorType}};
+  {next_state, idle, State#source_statem_state{lengthOfSample = SampleSize, epochs = Epochs, castingTo = Workers, msgCounter = Counter+1,batchList = NerlTensorList, nerlTensorType = NerlTensorType}};
 
 
 %%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
-idle(cast, {startCasting,Body}, State = #source_statem_state{myName = MyName, lengthOfSample = LengthOfSample, sendingMethod = Method, frequency = Frequency, batchSize = BatchSize, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, nerlnetGraph = NerlnetGraph, msgCounter = Counter, csvName = CSVName, batchList =CSVlist}) ->
+idle(cast, {startCasting,Body}, State = #source_statem_state{myName = MyName, epochs = Epochs, lengthOfSample = LengthOfSample, sendingMethod = Method, frequency = Frequency, batchSize = BatchSize, sourcePid = [],workersMap = WorkersMap, castingTo = CastingTo, nerlnetGraph = NerlnetGraph, msgCounter = Counter, csvName = CSVName, batchList = Batchlist}) ->
   [_Source,NumOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
   ?LOG_NOTICE("~p - starts casting to: ~p",[MyName, CastingTo]),
   ?LOG_NOTICE("Frequency: ~pHz [Batches/Second]",[Frequency]),
   ?LOG_NOTICE("Batch size: ~p", [BatchSize]),
+  ?LOG_NOTICE("Rounds per data (epochs): ~p", [Epochs]),
   ?LOG_NOTICE("number of batches to send: ~p",[NumOfBatchesToSend]),
-  ?LOG_NOTICE("total casting list length: ~p",[length(CSVlist)]),
-  ?LOG_NOTICE("sample size = ~p",[erts_debug:flat_size(hd(CSVlist))]),
-  ?LOG_NOTICE("batch size = ~p",[erts_debug:flat_size(hd(CSVlist))*BatchSize]),
+  ?LOG_NOTICE("total casting list length: ~p",[length(Batchlist)]),
+  ?LOG_NOTICE("sample size = ~p",[erts_debug:flat_size(hd(Batchlist))]),
+  ?LOG_NOTICE("batch size = ~p",[erts_debug:flat_size(hd(Batchlist))*BatchSize]),
   % ?LOG_NOTICE("example batch: ~p",[hd(CSVlist)]),
+  NewBatchList = duplicate_data(Batchlist, Epochs, []),
   NumOfBatches = list_to_integer(NumOfBatchesToSend),
-  BatchesToSend = if length(CSVlist) < NumOfBatches -> length(CSVlist); true -> list_to_integer(NumOfBatchesToSend) end,
+  BatchesToSend = if length(NewBatchList) < NumOfBatches -> length(NewBatchList); true -> list_to_integer(NumOfBatchesToSend) end,
 
 
-  Transmitter =  spawnTransmitter(CastingTo,CSVName,CSVlist,NerlnetGraph,MyName,WorkersMap,BatchSize,LengthOfSample,Frequency,BatchesToSend,Method) ,
+  Transmitter =  spawnTransmitter(CastingTo,CSVName,NewBatchList,NerlnetGraph,MyName,WorkersMap,BatchSize,LengthOfSample,Frequency,BatchesToSend,Method) ,
   {next_state, castingData, State#source_statem_state{msgCounter = Counter+1, sourcePid = Transmitter}};
 
 idle(cast, {startCasting}, State = #source_statem_state{msgCounter = Counter}) ->
@@ -324,3 +326,7 @@ sendBatch(Sample,CSVPath,_LengthOfSample, BatchID,ClientName,WorkerName,RouterHo
         ToSend = term_to_binary({ClientName, WorkerName, CSVPath, BatchID, Sample}),
         nerl_tools:http_request(RouterHost, RouterPort,"weightsVector",ToSend)
     end.
+
+duplicate_data(ListOfTensors, 0, Ret) -> Ret;
+duplicate_data(ListOfTensors, N, Ret) ->
+  duplicate_data(ListOfTensors, N-1, Ret ++ ListOfTensors)
