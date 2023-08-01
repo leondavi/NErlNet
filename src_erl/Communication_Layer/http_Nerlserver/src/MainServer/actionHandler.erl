@@ -25,7 +25,9 @@ init(Req0, [Action, Main_genserver_Pid]) ->
     predictRes ->  gen_statem:cast(Main_genserver_Pid, {predictRes,Body});
     statistics ->  gen_statem:cast(Main_genserver_Pid, {statistics,Body});
     startCasting ->  gen_statem:cast(Main_genserver_Pid, {startCasting,Body});
-    stopCasting ->  gen_statem:cast(Main_genserver_Pid, {stopCasting,Body})
+    stopCasting ->  gen_statem:cast(Main_genserver_Pid, {stopCasting,Body});
+    %monitor
+    worker_down ->  gen_statem:cast(Main_genserver_Pid, {worker_down,Body})
   end,
   Reply = io_lib:format("Body Received: ~p ~n ", [Body]),
   Req = cowboy_req:reply(200,

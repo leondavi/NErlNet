@@ -126,13 +126,13 @@ waitforWorkers(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}
   {next_state, waitforWorkers, State};
 
 %----------------------------------------------------------------
-waitforWorkers(info, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
+waitforWorkers(info, EventContent, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
   case EventContent of
     {'DOWN',_Ref,process,Pid,_Reason}->                                     %worker down
-      [[Workername]] = ets:match(EtsRef,{'$1',Pid,'_','_','_'}),
+      [[WorkerName]] = ets:match(EtsRef,{'$1',Pid,'_','_','_'}),
       %report worker down to main server
-      ets:delete(EtsRef,Workername),                                        %delete worker from ets so client will not wait for it in the future 
-      ok;
+      delete_worker(EtsRef,MyName,WorkerName);                                     %delete worker from ets so client will not wait for it in the future 
+        
     _Any->ok %recevied  unexpected messege, print to log/tell main server for debuging
     end,
   {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef}}.
@@ -438,7 +438,7 @@ createWorkers(ClientName, EtsRef) ->
     WorkerArgs = {WorkerName,ModelId,ModelType,ScalingMethod, LayerTypesList, LayersSizes,
       LayersActivationFunctions, Optimizer, LossMethod, LearningRate, self(), CustomFunc, WorkerData},
 
-    WorkerPid = workerGeneric:start_link(WorkerArgs),
+    WorkerPid = workerGeneric:start_monitor(WorkerArgs),
 
     ets:insert(EtsRef, {WorkerName, WorkerPid, WorkerArgs, {0,0,0.0}, 0}),
     WorkerName
@@ -480,3 +480,12 @@ cast_message_to_workers(EtsRef, Msg) ->
     gen_statem:cast(WorkerPid, Msg)
   end,
   lists:foreach(Func, Workers).
+
+%activated if client detected that a worker stoped, will delete it from ets so as not to wait for responsed from it in the future.
+delete_worker(EtsRef,MyName,WorkerName)->
+  ets:delete(EtsRef,WorkerName),
+  NameList= ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
+  ets:delete(EtsRef,workersNames),
+  ets:insert(EtsRef, {workersNames, NameList--[WorkerName]}),
+  nerl_tools:sendHTTP(MyName, ?MAIN_SERVER_ATOM, "worker_down", term_to_binary({MyName,WorkerName})),
+  EtsRef.

@@ -314,6 +314,9 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
   end,
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
+handle_cast({worker_down,Body}, State = #main_genserver_state{}) ->
+  
+  {noreply, State};
 
 handle_cast(Request, State = #main_genserver_state{}) ->
   io:format("main server cast ignored: ~p~n",[Request]),

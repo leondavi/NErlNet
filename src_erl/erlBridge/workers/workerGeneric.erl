@@ -16,7 +16,7 @@
 -behaviour(gen_statem).
 
 %% API
--export([start_link/1]).
+-export([start_link/1,start_monitor/1]).
 %% gen_statem callbacks
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,
   code_change/4, callback_mode/0]).
@@ -35,6 +35,11 @@
 start_link(ARGS) ->
   %{ok,Pid} = gen_statem:start_link({local, element(1, ARGS)}, ?MODULE, ARGS, []),   %% name this machine by unique name
   {ok,Pid} = gen_statem:start_link(?MODULE, ARGS, []),
+  Pid.
+
+start_monitor(ARGS) ->
+  %{ok,Pid} = gen_statem:start_link({local, element(1, ARGS)}, ?MODULE, ARGS, []),   %% name this machine by unique name
+  {ok,{Pid,_Ref}} = gen_statem:start_monitor(?MODULE, ARGS, []),
   Pid.
 
 %%%===================================================================

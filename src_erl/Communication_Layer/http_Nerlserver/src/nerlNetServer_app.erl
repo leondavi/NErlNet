@@ -265,7 +265,9 @@ createRouters(MapOfRouters, HostName) ->
                 {"/federatedWeights",routingHandler, [federatedWeights,RouterGenServerPid]},
 
                 %%GUI actions
-                {"/getStats",routingHandler, [getStats,RouterGenServerPid]}
+                {"/getStats",routingHandler, [getStats,RouterGenServerPid]},
+                %monitor actions
+                {"/worker_down",routingHandler, [worker_down,RouterGenServerPid]}
             ]}
         ]),
         %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
@@ -305,7 +307,9 @@ createMainServer(true,BatchSize,HostName) ->
         {"/getGraph",[],guiHandler, [getGraph, MainGenServerPid]},
         {"/getStats",[],guiHandler, [getStats, MainGenServerPid]},
         {"/toolConnectionReq" , [] , utilities_handler , [MainGenServerPid]} , %% Added with NerlMonitor Project
-        {"/[...]", [],noMatchingRouteHandler, [MainGenServerPid]}
+        {"/[...]", [],noMatchingRouteHandler, [MainGenServerPid]},
+        %monitor actions
+        {"/worker_down",actionHandler, [worker_down,MainGenServerPid]}
         ]}
         ]),
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
