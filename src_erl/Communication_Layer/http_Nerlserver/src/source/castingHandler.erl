@@ -27,7 +27,7 @@ init(Req0, [Action,Source_StateM_Pid]) ->
               end,
             [_SourceName, WorkersStr, Epochs, CSVData] = string:split(Decoded_body, "#", all),
             WorkersList = string:split(WorkersStr, ",", all),
-            gen_statem:cast(Source_StateM_Pid,{batchList,WorkersList, Epochs, CSVData});
+            gen_statem:cast(Source_StateM_Pid,{batchList,WorkersList, list_to_integer(Epochs), CSVData});
     startCasting  ->  {_,Body,_} = cowboy_req:read_body(Req0),
                       gen_statem:cast(Source_StateM_Pid, {startCasting,Body});
     statistics    ->  gen_statem:cast(Source_StateM_Pid, {statistics});
