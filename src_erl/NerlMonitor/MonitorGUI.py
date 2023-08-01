@@ -60,7 +60,7 @@ def GUI(MainPid):
         if not msg_queue.empty():
             msg = msg_queue.get_nowait()
             if msg[0] == 'graph':
-                Show_Nerlnet_Graph(msg[1] , msg[2])
+                Show_Nerlnet_Graph(msg[1][0] , msg[1][1])
                 MainWindow['-PHOLD-'].update(visible=False)
                 MainWindow['-IMAGE-'].update(filename='NerlNetGraph.png' , visible=True , size=(410,310))
             elif values['-LOG-'] != '':
@@ -78,16 +78,24 @@ def GUI(MainPid):
 
 def Show_Nerlnet_Graph(NerlGraph , Workers):
     # Graph in string format: "Entity1Name,Entity1IP,Entity1Port#Entity2Name,Entity2IP,Entity2Port#Entity1Name-Entity2Name,Entity2Name-Entity1Name" etc.
-    # Workers in list format: [WorkerName , ClientName]
+    # Workers in string format: "Worker1-Client1,Worker2-Client1,Worker3-Client2" etc.
     # Node is defined by a triplet 'Name,IP,Port' seperated by '#'
     # Edge is defined by a string 'Entity1-Entity2' seperated by ','
+    #print(f'Graph: {NerlGraph} , Workers: {Workers}')
     WorkersNames = [Worker[0] for Worker in Workers]
+    #print(f'WorkersNames: {WorkersNames}')
     Nodes = NerlGraph.split('#')[0:-1] 
+    #print(f'Nodes: {Nodes}')
     Edges = NerlGraph.split('#')[-1].split(',')
+    #print(f'Edges: {Edges}')
     EdgesSeperated = [(Edge.split('-')[0],Edge.split('-')[1]) for Edge in Edges if len(Edges) > 1] # ? What if no edges?
+    #print(f'EdgesSeperated: {EdgesSeperated}')
     EdgesSeperated.append(Workers)
+    #print(f'EdgesSeperated+Workers: {EdgesSeperated}')
     NodesNames = [NodeTriplet.split(',')[0] for NodeTriplet in Nodes]
+    #print(f'NodesNames: {NodesNames}')
     NodesNames.append(WorkersNames)
+    #print(f'NodesNames+WorkersNames: {NodesNames}')
 
     graph = nx.Graph()
     graph.add_nodes_from(NodesNames)
