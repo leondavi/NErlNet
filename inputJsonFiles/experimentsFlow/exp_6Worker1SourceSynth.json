@@ -1,5 +1,5 @@
 {
-   "epochs": 5,
+   "epochs": 1,
    "Features": 5,
    "Labels": ["Norm(0,1)", "Norm(4,1)", "Norm(10,3)"],
    "CSV path": "synthetic",
