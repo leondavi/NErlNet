@@ -1,5 +1,4 @@
 from JsonElements import *
-from JsonValidator import *
 from collections import OrderedDict
 from JsonElementWorker import *
 
@@ -14,12 +13,12 @@ KEY_WORKERS_SHA = "workers_sha"
 KEY_SOURCES = "sources"
 KEY_ROUTERS = "routers"
 
-class JsonArchitecture():
+class JsonDistributedConfig():
     def __init__(self):
         self.main_dict = OrderedDict()
         self.ports_set = set()
         self.names_set = set()
-        self.special_entities_list = [MainServer.NAME, ApiServer.NAME, NerlGUI.NAME]
+        self.special_entities_list = [MainServer.NAME, ApiServer.NAME]
         self.reserved_names_set = set(self.special_entities_list)
         self.init_dictionary()
         self.entities = []
@@ -28,7 +27,7 @@ class JsonArchitecture():
         self.main_dict[KEY_NERLNET_SETTINGS] = ""
         self.main_dict[MainServer.NAME] = ""
         self.main_dict[ApiServer.NAME] = ""
-        self.main_dict[NerlGUI.NAME] = "" # TODO - in get as json remove this key if it's empty
+        self.main_dict[KEY_DEVICES] = OrderedDict()
         self.main_dict[KEY_ROUTERS] = OrderedDict()
         self.main_dict[KEY_SOURCES] = OrderedDict()
         self.main_dict[KEY_CLIENTS] = OrderedDict()
@@ -49,11 +48,7 @@ class JsonArchitecture():
         self.main_dict[MainServer.NAME] = main_server.get_as_dict()
 
     def add_api_server(self, api_server : ApiServer):
-        self.main_dict[ApiServer.NAME] = api_server.get_as_dict()   
-
-    # nerlgui is optional but requires former attributes to be added first!
-    def add_nerlgui_server(self, nerl_gui : NerlGUI):
-        self.main_dict[NerlGUI.NAME] = nerl_gui.get_as_dict()  
+        self.main_dict[ApiServer.NAME] = api_server.get_as_dict()    
 
     def add_client(self, client : Client): 
         '''

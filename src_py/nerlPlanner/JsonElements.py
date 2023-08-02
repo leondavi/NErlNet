@@ -121,6 +121,12 @@ class Policy(JsonElement):
     def error(self):
         return not self.validate_policy()
 
+    def get_policy_name(self):
+        if self.entity_type == ROUTER_TYPE:
+            return get_inv_dict(RouterPolicyDict)[self.value]
+        elif self.entity_type == SOURCE_TYPE:
+            return get_inv_dict(SourcePolicyDict)[self.value]
+
     # returns true if policy appears in entity policies list
     def validate_policy(self):
         if self.entity_type == ROUTER_TYPE:
@@ -177,24 +183,6 @@ class Port(JsonElement):
     def get_as_tuple(self):
         assert not self.error()
         return (self.get_name() , self.value)
-
-class NerlGUI(JsonElement):
-    NAME = "nerlGUI"
-    def __init__(self, ip_address : str, port, args : str):
-        super(NerlGUI, self).__init__(NerlGUI.NAME, SPECIAL_ENTITY_TYPE)
-        self.ip = Ipv4(ip_address)
-        self.port = Port(port)
-        self.args = Arguments(args)
-
-    def error(self):
-        return self.ip.error() or self.port.error
-    
-    def get_as_dict(self):
-        assert not self.error()
-        elements_list = [self.ip.get_as_tuple(),
-                         self.port.get_as_tuple(),
-                         self.args.get_as_tuple()]
-        return OrderedDict(elements_list)
 
 class ApiServer(JsonElement):
     NAME = "apiServer"
@@ -253,6 +241,12 @@ class Router(JsonElement):
         super(Router, self).__init__(name, ROUTER_TYPE)
         self.port = Port(port)
         self.policy = Policy(policy, super().get_type())
+
+    def get_port(self):
+        return self.port
+    
+    def get_policy(self):
+        return self.policy
 
     def error(self):
         return self.port.error and self.policy.error()
