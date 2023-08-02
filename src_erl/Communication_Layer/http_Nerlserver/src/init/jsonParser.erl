@@ -21,7 +21,7 @@ get_special_entities(ArchMap, HostEntities)->
   SpecialEntities = [ Entity || Entity <- HostEntities, is_special_entity(Entity)],
   Func = fun(SpecialEntityName) ->
     EntityMap = maps:get(atom_to_binary(SpecialEntityName), ArchMap),
-    HostIP = list_to_integer(binary_to_list(maps:get(<<"host">>, EntityMap))),
+    HostIP = binary_to_list(maps:get(<<"host">>, EntityMap)),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>, EntityMap))),
     Args = binary_to_list(maps:get(<<"args">>, EntityMap)),
     {SpecialEntityName, {Port, HostIP}}
