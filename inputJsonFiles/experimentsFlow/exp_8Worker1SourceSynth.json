@@ -1,8 +1,8 @@
 {
-   "epochs": 5,
+   "CSV path": "synthetic",
    "Features": 5,
    "Labels": ["Norm(0,1)", "Norm(4,1)", "Norm(10,3)"],
-   "CSV path": "synthetic",
+   "epochs": 5,
    "Batches per source": 
    {
       "Training": 1000,
