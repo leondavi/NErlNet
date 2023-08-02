@@ -314,9 +314,15 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
   end,
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
-handle_cast({worker_down,Body}, State = #main_genserver_state{}) ->
-  
-  {noreply, State};
+handle_cast({worker_down,Body}, State = #main_genserver_state{msgCounter = MsgCounter,etsRef=EtsRef}) ->
+  case ets:member(EtsRef,nerlMonitor) of
+    true->
+      [{nerlMonitor,Ip,Port}]=ets:lookup(EtsRef,nerlMonitor),
+      URL = "http://" ++ Ip ++ ":"++integer_to_list(Port) ++ "/utillInfo",
+      httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []);
+    false->ok
+  end, 
+  {noreply, State#main_genserver_state{msgCounter = MsgCounter+1,etsRef=EtsRef}};
 
 handle_cast(Request, State = #main_genserver_state{}) ->
   io:format("main server cast ignored: ~p~n",[Request]),
