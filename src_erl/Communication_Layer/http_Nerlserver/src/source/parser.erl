@@ -112,7 +112,7 @@ parse_file(SourceName, BatchSize,Data) ->
           % erl_int -> encodeListOfListsNerlTensor(ListOfGroupedBatches, UserType, BatchSize,SampleSize,DimZ);
           _Other -> throw("wrong ErlType")
     end,
-  ?LOG_NOTICE("Source ~p generated list of NerlTensors from file: ~p",[SourceName, File_Address]),
+  % ?LOG_NOTICE("Source ~p generated list of NerlTensors from file: ~p",[SourceName, File_Address]),
   {ListOfTensors, DataType, SampleSize}.
 
 dataStrToNumeric_NumHandler(NumStr) -> 
