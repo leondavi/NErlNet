@@ -13,7 +13,7 @@
 -include("../nerl_tools.hrl").
 -define(DATA_TIME, infinity).
 
-%%setter handler for editing weights in CSV file, can also send a reply to sender
+%%setter handler for editing weights in CSV file
 init(Req0, [Main_genServer_Pid]) ->
 %%  Weight = cowboy_req:binding(weight, Req0),
 %%  Id = cowboy_req:binding(id, Req0),
