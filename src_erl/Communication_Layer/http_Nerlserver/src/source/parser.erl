@@ -31,7 +31,7 @@ parseCSV(SourceName, BatchSize, CSVData)->
   FileName = ?TMP_DIRECTORY++SourceNameStr++?TMP_DATA_ADDR,
   try
     file:write_file(FileName, CSVData),
-    parse_file(SourceName, BatchSize, FileName) %% change so read data only when sending (currently loading all data)
+    parse_file(SourceName, BatchSize, CSVData) %% change so read data only when sending (currently loading all data)
   catch
     {error,Er} -> logger:error("couldn't write file ~p, beacuse ~p",[FileName, Er])
   end.
@@ -85,8 +85,8 @@ parseCSV(SourceName, BatchSize, CSVData)->
 
 %%this parser takes a CSV folder containing chunked data, parsing into a list of binary.
 %%each record in the line is a batch of samples
-parse_file(SourceName, BatchSize,File_Address) ->
-  {ok, Data} = file:read_file(File_Address),
+parse_file(SourceName, BatchSize,Data) ->
+  % {ok, Data} = file:read_file(File_Address),
   Lines = re:split(Data, "\r|\n|\r\n", [{return,binary}] ),
   CleanLines = [Line || Line <- Lines, Line /= []],
   ?LOG_INFO("split in data"),
