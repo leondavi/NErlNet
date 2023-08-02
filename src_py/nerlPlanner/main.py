@@ -17,7 +17,8 @@ DEFAULT_HOST_IP = get_this_host_ip()
 devices_online_hosts_list = [DEFAULT_HOST_IP]
 
 # Specific Fields Frame 
-settingsFields = [  [sg.Text('Frequency '), sg.InputText(size=10, key=KEY_SETTINGS_FREQUENCY_INPUT, enable_events=True), sg.Text('Default frequency for sensors')],
+settingsFields = [  
+                [sg.Text('Frequency '), sg.InputText(size=10, key=KEY_SETTINGS_FREQUENCY_INPUT, enable_events=True), sg.Text('Default frequency for sensors')],
                 [sg.Text('Batch Size'), sg.InputText(size=10, key=KEY_SETTINGS_BATCH_SIZE_INPUT, enable_events=True), sg.Text('# of samples in a message')],
                 [sg.Text("Special devices")],
                 [sg.Text('Main Server: '), sg.Text('IP'), sg.InputText(DEFAULT_HOST_IP, size=15, key=KEY_SETTINGS_MAINSERVER_IP_INPUT, enable_events=True), 
@@ -26,12 +27,10 @@ settingsFields = [  [sg.Text('Frequency '), sg.InputText(size=10, key=KEY_SETTIN
                 [sg.Text('API Server:  '), sg.Text('IP'), sg.InputText(DEFAULT_HOST_IP, size=15, key=KEY_SETTINGS_APISERVER_IP_INPUT, enable_events=True), 
                                           sg.Text('Port'), sg.InputText(size=10, key=KEY_SETTINGS_APISERVER_PORT_INPUT, enable_events=True),
                                           sg.Text('Args'), sg.InputText(size=15, key=KEY_SETTINGS_APISERVER_ARGS_INPUT, enable_events=True)],
-                [sg.Text('NerlGUI:      '), sg.Text('IP'), sg.InputText(DEFAULT_HOST_IP, size=15, key=KEY_SETTINGS_NERLGUI_IP_INPUT, enable_events=True),
-                                     sg.Text('Port'), sg.InputText(size=10, key=KEY_SETTINGS_NERLGUI_PORT_INPUT, enable_events=True),
-                                     sg.Text('Args'), sg.InputText(size=15, key=KEY_SETTINGS_NERLGUI_ARGS_INPUT, enable_events=True),sg.Checkbox("enable nerlGUI", default=False, key=KEY_CHECKBOX_ENABLE_NERLGUI, enable_events=True)],
-                [sg.Button("Add", size=(10), key=KEY_SETTINGS_ADD_BUTTON, enable_events=True), sg.Button("Clear",size=(10))],
+                                          [sg.Text('Status Bar')], # TODO complete status bar activity
+                [sg.Button("Save", size=(10), key=KEY_SETTINGS_SAVE_BUTTON, enable_events=True), sg.Button("Clear",size=(10))],
             ]
-settingsFrame = sg.Frame("Settings",layout=settingsFields, expand_x=True)
+settingsFrame = sg.Frame("Settings",layout=settingsFields, expand_x=True, expand_y=True)
 
 # Devices 
 DevicesNamesList = []
@@ -119,8 +118,7 @@ EntitiesListFields = [[sg.Text("Clients", expand_x=True), sg.Text("Routers", exp
                       [sg.Listbox(EntitiesNamesList, enable_events=True, key=KEY_ENTITIES_CLIENTS_LISTBOX, size=(20,14)),
                        sg.Listbox(EntitiesNamesList, enable_events=True, key=KEY_ENTITIES_ROUTERS_LISTBOX, size=(20,14)),
                        sg.Listbox(EntitiesNamesList, enable_events=True, key=KEY_ENTITIES_SOURCES_LISTBOX, size=(20,14))],
-                       [sg.Button('Generate Nerlnet Graph', expand_x=True)] #TODO implemnet the graph generation
-                                     ]
+                      ]
 EntitiesFieldsFrame = sg.Frame("", layout=[[ClientsFieldsFrames],[SourcesFieldsFrame, RoutersFieldsFrame]])
 EntitiesListFrame = sg.Frame("", EntitiesListFields)
 EntitiesFrame = sg.Frame("Entities - HTTP Cowboy instances",layout=[[EntitiesFieldsFrame, EntitiesListFrame]])
@@ -134,17 +132,24 @@ JsonFileFields = [  [sg.Text('Load from: ')],
                 [sg.In(enable_events=True ,key=JSON_CONTROL_LOAD_FILE_BROWSE_EVENT_KEY, expand_x=True), sg.FileBrowse(file_types=(("Json File", "*.json"),))],
                 [sg.Text('Export to: ')],
                 [sg.In(enable_events=True ,key=JSON_CONTROL_EXPORT_BROWSE_EVENT_KEY, expand_x=True), sg.FolderBrowse()],
-                [sg.Text('File Name: '), sg.InputText('arc_<name>.json'), sg.Button('Load',  expand_x=True)],
-                [sg.Button('Export',expand_x=True), sg.Button('Validate', expand_x=True), sg.Button('Load', expand_x=True), sg.Button('Clear', expand_x=True)],
-                [sg.Button('Create Experiment Flow', expand_x=True)] ]
-jsonCtrlFrame = sg.Frame("json Control",layout=JsonFileFields, expand_x=True)
+                [sg.Text('File Name: '), sg.InputText('dc_<name>.json'), sg.Button('Load',  expand_x=True)],
+                [sg.Button('Export',expand_x=True), sg.Button('Validate', expand_x=True), sg.Button('Load', expand_x=True), sg.Button('Clear', expand_x=True)]
+                ]
+jsonCtrlFrame = sg.Frame("Distributed Configurations Json",layout=JsonFileFields, expand_x=True)
+
+
+# Graph and Experimant generate buttons (open a new window for these jsons)
+grapAndExpFields = [[sg.Button('Generate Graph', expand_x=True), sg.Button('Generate Experiment', expand_x=True)]]
+grapAndExpFrame = sg.Frame("Graph and Experiment",layout=grapAndExpFields, expand_x=True)
+
 
 # Main Windows
 main_window  = sg.Window(title=WINDOW_TITLE, layout=[[sg.Image(NERLNET_LOGO_PATH, expand_x=True)],
                                                      [sg.Text(f'Nerlnet Planner v-{VERSION}')],
                                                     [settingsFrame, jsonCtrlFrame],
                                                     [EntitiesFrame],
-                                                    [workersFrame, devicesFrame ]
+                                                    [workersFrame, devicesFrame ],
+                                                    [grapAndExpFrame]
                                                     ])
 
 os.makedirs(os.path.dirname(NERLNET_TMP_PATH), exist_ok=True)
