@@ -56,7 +56,7 @@ init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
   ?LOG_NOTICE("Main Server is connected to: ~p~n",[ConnectedEntities]),
   put(nerlnetGraph, NerlnetGraph),
     % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
-  EtsRef = ets:new() , %% ! In some point the whole record will replaced by ets
+  EtsRef = ets:new(main_server_data , [set]) , %% ! In some point the whole record will replaced by ets
   NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--?LIST_OF_SPECIAL_SERVERS]),
   % io:format("New StatisticsMap = ~p~n",[NewStatisticsMap]),
   {ok, #main_genserver_state{myName = MyNameStr, workersMap = WorkersMap, batchSize = BatchSize, state=idle, clients = Clients, nerlnetGraph = NerlnetGraph, msgCounter = 1,statisticsMap = NewStatisticsMap , etsRef = EtsRef}}.
