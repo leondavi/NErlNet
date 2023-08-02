@@ -12,7 +12,7 @@
 -define(UTILLNAME,nerlMonitor).
 -define(IP , nerl_tools:getdeviceIP()).
 -define(PORT,8096 ).  %port place holder
--define(MSADDRES,"ip:port" ). %place holder
+-define(MSADDRES,"192.168.64.7:8080" ). %place holder
 -define(GUI , {'PyrlangProcess' , 'py@127.0.0.1'}). % Erlang node should be long name to communicate with pyrlang node
 
 start(_StartType, _StartArgs) ->

@@ -6,13 +6,13 @@
   },
   "devices": [
     {
-      "host": "192.168.0.108",
+      "host": "192.168.64.7",
       "entities": "mainServer,c1,c2,c3,c4,c5,c6,s1,r1,r2,r3,r4,r5,r6,apiServer"
     }
   ],
   "apiServer": 
     {
-      "host": "192.168.0.108",
+      "host": "192.168.64.7",
       "port": "8095",
       "args": ""
     }
@@ -26,7 +26,7 @@
   ,
   "mainServer": 
     {
-      "host": "192.168.0.108",
+      "host": "192.168.64.7",
       "port": "8080",
       "args": ""
     }
