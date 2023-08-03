@@ -22,6 +22,7 @@ class JsonDistributedConfig():
         self.reserved_names_set = set(self.special_entities_list)
         self.init_dictionary()
         self.entities = []
+        self.default_frequency = None
     
     def init_dictionary(self):
         self.main_dict[KEY_NERLNET_SETTINGS] = ""
@@ -40,9 +41,13 @@ class JsonDistributedConfig():
     def get_entities(self):
         self.entities += [x for x in [self.reserved_names_set] if self.main_dict[x]]
 
-    def add_nerlnet_settings(self, Frequency, BatchSize):
-        settings_dict_content = [Frequency.get_as_tuple(), BatchSize.get_as_tuple()]
+    def add_nerlnet_settings(self, frequency : Frequency, batchsize : BatchSize):
+        self.default_frequency = frequency
+        settings_dict_content = [frequency.get_as_tuple(), batchsize.get_as_tuple()]
         self.main_dict[KEY_NERLNET_SETTINGS] = OrderedDict(settings_dict_content)
+
+    def get_frequency(self):
+        return self.default_frequency # returns Frequency or None
 
     def add_main_server(self, main_server : MainServer):
         self.main_dict[MainServer.NAME] = main_server.get_as_dict()
@@ -115,6 +120,12 @@ class JsonDistributedConfig():
             self.main_dict[KEY_SOURCES][source_name] = source
             self.names_set.add(source_name)
         return True
+    
+    def get_source(self, source_name : str) -> Source:
+        return self.get_entity(source_name, KEY_SOURCES)
+    
+    def get_sources_names(self):
+        return list(self.main_dict[KEY_SOURCES].keys())
 
     def add_worker(self, worker : Worker):
         worker_name = worker.get_name()

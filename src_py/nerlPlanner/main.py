@@ -106,9 +106,15 @@ RoutersFieldsFrame = sg.Frame("Routers",RoutersFields)
 
 # Sources
 SourcesFields = [
-                 [sg.Button("Add", size=(10)), sg.Button("Load",size=(10)), sg.Button("Remove",size=(10))],
-                 [sg.Text("Name:  "), sg.InputText(size=15), sg.Text("Frequency:  "), sg.InputText(size=10), sg.Checkbox("Default")],
-                 [sg.Text("Port:     "), sg.InputText(size=15),sg.Text("Epochs:      "), sg.InputText(size=10) ]
+                 [sg.Button("Add", size=(10), key=KEY_SOURCES_BUTTON_ADD, enable_events=True),
+                  sg.Button("Load",size=(10), key=KEY_SOURCES_BUTTON_LOAD, enable_events=True),
+                  sg.Button("Remove",size=(10), key=KEY_SOURCES_BUTTON_REMOVE, enable_events=True)],
+                 [sg.Text("Name:  "), sg.InputText(size=15, key=KEY_SOURCES_NAME_INPUT, enable_events=True), 
+                  sg.Text("Frequency:  "), sg.InputText(size=10, key=KEY_SOURCES_FREQUENCY_INPUT, enable_events=True),
+                  sg.Checkbox("Default", key=KEY_SOURCES_FREQUENCY_DEFAULT_CHECKBOX, enable_events=True)],
+                 [sg.Text("Port:     "), sg.InputText(size=15, key=KEY_SOURCES_PORT_INPUT, enable_events=True),
+                  sg.Text("Epochs:      "), sg.InputText(size=10, key=KEY_SOURCES_EPOCHS_INPUT, enable_events=True) ],
+                  [sg.Text("Policy:  "), sg.Combo(list(SourcePolicyDict.keys()), size=15, key=KEY_SOURCES_POLICY_COMBO_BOX, enable_events=True) ]
                 ]
 SourcesFieldsFrame = sg.Frame("Sources",SourcesFields)
 
@@ -162,9 +168,10 @@ while True:
     
     if event and values:
         settings_handler(event,values)
-        workers_handler(main_window,event,values)
+        workers_handler(main_window, event,values)
         clients_handler(main_window, event, values)
         routers_handler(main_window, event, values)
+        sources_handler(main_window, event, values)
         entities_handler(main_window, event, values)
         devices_handler(main_window, event, values)
         online_scanner_handler(main_window, event, values, devices_online_hosts_list) # lan scan for online devices

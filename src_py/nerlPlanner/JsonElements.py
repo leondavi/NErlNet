@@ -260,9 +260,8 @@ class Router(JsonElement):
         return OrderedDict(elements_list)
 
 class Source(JsonElement):
-    def __init__(self,name, ip_address, port, frequency, policy, epochs):
+    def __init__(self,name, port, frequency, policy, epochs):
         super(Source, self).__init__(name, SOURCE_TYPE)  
-        self.ip = Ipv4(ip_address)
         self.port = Port(port)
         self.frequency = Frequency(frequency)
         self.policy = Policy(policy, super().get_type())

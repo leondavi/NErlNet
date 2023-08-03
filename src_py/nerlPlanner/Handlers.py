@@ -41,6 +41,14 @@ routers_this_router_name = None
 routers_this_router_port = None
 routers_this_router_policy = None
 
+# sources
+sources_this_source = None
+sources_this_source_name = None
+sources_this_source_port = None
+sources_this_source_frequency = None
+sources_this_source_epochs = None
+sources_this_source_policy = None
+
 # entities
 entities_clients_names_list = []
 entities_routers_names_list = []
@@ -246,7 +254,7 @@ def routers_handler(window,event,values):
                 routers_this_router_policy = None
                 routers_reset_inputs_ui(window)
         else:
-            sg.popup_ok(f"Router {routers_this_router_name} already exists", title='Adding Client Failed')
+            sg.popup_ok(f"Router {routers_this_router_name} is already exist", title='Adding Client Failed')
     
     if event == KEY_ROUTERS_BUTTON_LOAD:
         routers_this_router_name = values[KEY_ENTITIES_ROUTERS_LISTBOX][0]
@@ -257,6 +265,40 @@ def routers_handler(window,event,values):
 
 
     # TODO COMPLETE load and remove
+
+def sources_handler(window, event, values):
+    global sources_this_source
+    global sources_this_source_name
+    global sources_this_source_port
+    global sources_this_source_frequency
+    global sources_this_source_epochs
+    global sources_this_source_policy
+
+    if (event == KEY_SOURCES_BUTTON_ADD):
+        sources_this_source_name = values[KEY_SOURCES_NAME_INPUT]
+        sources_this_source = json_distribtued_config_inst.get_source(sources_this_source_name)
+        #frequency handling:
+        frequency = values[KEY_SOURCES_FREQUENCY_INPUT]
+        epochs = Epochs(values[KEY_SOURCES_EPOCHS_INPUT]) if values[KEY_SOURCES_EPOCHS_INPUT] else None
+        checkbox_val = values[KEY_SOURCES_FREQUENCY_DEFAULT_CHECKBOX]
+        if checkbox_val:
+            frequency = json_distribtued_config_inst.get_frequency()
+            if frequency is None:
+                sg.popup_ok(f"Default frequency was selected but never set!", title='Adding Source Failed')
+            else:
+                frequency = frequency.get_str()
+        if bool(sources_this_source_name) and bool(frequency) and (not epochs.error()):
+            # new source handling:
+            if (sources_this_source is None):
+                sources_this_source_frequency = frequency
+                sources_this_source_epochs = epochs.get_value_str()
+                sources_this_source_policy = values[KEY_SOURCES_POLICY_COMBO_BOX]
+                sources_this_source = Source(sources_this_source_name, sources_this_source_port, sources_this_source_frequency, sources_this_source_policy, sources_this_source_epochs)
+            else:
+                sg.popup_ok(f"Source {sources_this_source_name} is already exist", title='Adding Source Failed')
+        else:
+            sg.popup_ok(f"Missing or wrong fields!", title='Adding Source Failed')
+
 
 
 
