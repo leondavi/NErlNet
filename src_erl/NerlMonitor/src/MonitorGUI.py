@@ -8,6 +8,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from datetime import datetime
 import os
+import math
 
 def draw_gradient(canvas, start_color, end_color):
     for y in range(0, 200):  # Adjust the range to your desired height
@@ -25,9 +26,9 @@ layout = [
                     sg.Text("NerlNet Monitor" , key='-TEXT-' , size=(30,1) ,text_color='Black' , font=('SFPro' , 20) , background_color='#930707' , justification='center' , pad=(0,0))
                 ] ,
                 [   sg.Frame(title="Event Log:" , 
-                            layout=[[sg.Multiline('', size=(100, 20), key='-LOG-', autoscroll=True , font=('SFPro' , 12) , no_scrollbar=True)]],
-                            background_color=('#930707') , font=('SFPro' , 20) , size=(300,400) , title_color='Black' , element_justification='right') ,
-                    sg.Text("Waiting For\n NerlNet Graph..." , key='-PHOLD-', text_color='Black' , font=('SFPro' , 12) , size=(50,5) , background_color='#930707' , justification='center' , pad=(0,0)) ,
+                            layout=[[sg.Multiline('', size=(140, 60), key='-LOG-', autoscroll=True , font=('SFPro' , 12) , no_scrollbar=True)]],
+                            background_color=('#930707') , font=('SFPro' , 20) , size=(500,650) , title_color='Black' , element_justification='right') ,
+                    sg.Text("Waiting For\n NerlNet Graph..." , key='-PHOLD-', text_color='Black' , font=('SFPro' , 12) , size=(70,5) , background_color='#930707' , justification='center' , pad=(0,0)) ,
                     sg.Image(key='-IMAGE-' , visible=False) 
                     
                 ] ,
@@ -38,7 +39,7 @@ layout = [
                     
             ]
 
-MainWindow = sg.Window("NErlNet" , layout , margins=(5,5) , size=(800,500) , background_color='#930707' , finalize=True , resizable=True , element_justification='c')
+MainWindow = sg.Window("NErlNet" , layout , margins=(5,5) , size=(1400,800) , background_color='#930707' , finalize=True , resizable=True , element_justification='c')
 
 
 
@@ -60,9 +61,9 @@ def GUI(MainPid):
         if not msg_queue.empty():
             msg = msg_queue.get_nowait()
             if msg[0] == 'graph':
-                Show_Nerlnet_Graph(msg[1][0] , msg[1][1])
+                Show_Nerlnet_Graph(msg[1])
                 MainWindow['-PHOLD-'].update(visible=False)
-                MainWindow['-IMAGE-'].update(filename='NerlNetGraph.png' , visible=True , size=(410,310))
+                MainWindow['-IMAGE-'].update(filename='NerlNetGraph.png' , visible=True , size=(800,600))
             elif values['-LOG-'] != '':
                 existing_text = values['-LOG-']
                 updated_text = f'{existing_text}\n{formatted_time()}: {msg}'
@@ -76,34 +77,29 @@ def GUI(MainPid):
     MainWindow.close()
     
 
-def Show_Nerlnet_Graph(NerlGraph , Workers):
-    # Graph in string format: "Entity1Name,Entity1IP,Entity1Port#Entity2Name,Entity2IP,Entity2Port#Entity1Name-Entity2Name,Entity2Name-Entity1Name" etc.
+def Show_Nerlnet_Graph(NerlGraph):
+    # Graph in string format: "Entity1Name,Entity1IP,Entity1Port#Entity2Name,Entity2IP,Entity2Port#Entity1Name-Entity2Name,Entity2Name-Entity1Name#Worker1-Client1#Worker2-Client2" etc.
     # Workers in string format: "Worker1-Client1,Worker2-Client1,Worker3-Client2" etc.
     # Node is defined by a triplet 'Name,IP,Port' seperated by '#'
     # Edge is defined by a string 'Entity1-Entity2' seperated by ','
-    #print(f'Graph: {NerlGraph} , Workers: {Workers}')
-    WorkersNames = [Worker[0] for Worker in Workers]
-    #print(f'WorkersNames: {WorkersNames}')
     Nodes = NerlGraph.split('#')[0:-1] 
-    #print(f'Nodes: {Nodes}')
-    Edges = NerlGraph.split('#')[-1].split(',')
-    #print(f'Edges: {Edges}')
+    Edges = NerlGraph.split('#')[-1].split(',')[0:-1]
+    Workers = NerlGraph.split('#')[-1].split(',')[-1].split('!')[0:-1]
+    WorkersNames = [Worker.split('-')[0] for Worker in Workers]
+    Edges += Workers
     EdgesSeperated = [(Edge.split('-')[0],Edge.split('-')[1]) for Edge in Edges if len(Edges) > 1] # ? What if no edges?
-    #print(f'EdgesSeperated: {EdgesSeperated}')
-    EdgesSeperated.append(Workers)
-    #print(f'EdgesSeperated+Workers: {EdgesSeperated}')
     NodesNames = [NodeTriplet.split(',')[0] for NodeTriplet in Nodes]
-    #print(f'NodesNames: {NodesNames}')
-    NodesNames.append(WorkersNames)
-    #print(f'NodesNames+WorkersNames: {NodesNames}')
+    NodesNames += WorkersNames
 
     graph = nx.Graph()
     graph.add_nodes_from(NodesNames)
     graph.add_edges_from(EdgesSeperated)
-    #print(graph.nodes , graph.edges)
-    spring_pos = nx.spring_layout(graph)
-    nx.draw_networkx(graph, spring_pos, with_labels=True, node_color='lightblue', node_size=500, font_size=12, font_color='black')
-    plt.savefig('NerlNetGraph.png' ,bbox_inches='tight' , dpi=80)
+    pos = nx.spectral_layout(graph)
+    angle = 40
+    rotated_pos = {node: (x*math.cos(angle) -y*math.sin(angle), x*math.sin(angle) + y*math.cos(angle)) for node, (x, y) in pos.items()}
+    plt.figure(figsize=(8,6))
+    nx.draw_networkx(graph, rotated_pos, with_labels=True, node_color='skyblue', node_size=200, font_size=8, font_color='black' , edge_color='black' , width=1.5)
+    plt.savefig('NerlNetGraph.png' ,bbox_inches='tight' , dpi=125)
     plt.close()
 
 

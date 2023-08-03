@@ -76,10 +76,11 @@ init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
 handle_call(getGraph, _From, State) ->
   NerlGraph = State#main_genserver_state.nerlnetGraph,
   FullNodes = [digraph:vertex(NerlGraph,Vertex) || Vertex <- digraph:vertices(NerlGraph)],
-  %io:format("Full graph is: ~p~n", [FullNodes]),
-  NodesList = [Entity++","++IP++","++integer_to_list(Port)++"#"||{Entity, {IP, Port}} <- FullNodes],
+  %%io:format("Full graph is: ~p~n", [FullNodes]),
+  NodesList = [atom_to_list(Entity)++","++binary_to_list(IP)++","++integer_to_list(Port)++"#"||{Entity, {IP, Port}} <- FullNodes],
+  %%io:format("graph nodes are: ~p~n", [NodesList]),
   EdgesList = [digraph:edge(NerlGraph,Edge) || Edge <- digraph:edges(NerlGraph)],
-  %io:format("graph edges are: ~p~n", [EdgesList]),
+  %%io:format("graph edges are: ~p~n", [EdgesList]),
   Nodes = nodeString(NodesList),
   Edges = edgeString(EdgesList),
 
@@ -100,11 +101,11 @@ nodeString([Node |NodeList]) -> nodeString(NodeList, Node).
 nodeString([], Str) -> Str;
 nodeString([Node |NodeList], Str)-> nodeString(NodeList, Node++Str).
 
-edgeString([Edge |EdgesList])-> {_ID, V1, V2, _Label} = Edge, edgeString(EdgesList, V1++"-"++V2).
+edgeString([Edge |EdgesList])-> {_ID, V1, V2, _Label} = Edge, edgeString(EdgesList, atom_to_list(V1)++"-"++atom_to_list(V2)).
 edgeString([], Str)-> Str;
 edgeString([Edge |EdgesList], Str)->
   {_ID, V1, V2, _Label} = Edge,
-  edgeString(EdgesList, V1++"-"++V2++","++Str).
+  edgeString(EdgesList, atom_to_list(V1)++"-"++atom_to_list(V2)++","++Str).
 
 %% @private
 %% @doc Handling cast messages
