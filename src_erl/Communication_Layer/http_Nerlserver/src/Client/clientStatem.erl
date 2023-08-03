@@ -126,16 +126,19 @@ waitforWorkers(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}
   {next_state, waitforWorkers, State};
 
 %----------------------------------------------------------------
-waitforWorkers(info, EventContent, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
+waitforWorkers(info, EventContent, State = #client_statem_state{myName = MyName,waitforWorkers = WaitforWorkers ,etsRef = EtsRef}) ->
   case EventContent of
     {'DOWN',_Ref,process,Pid,_Reason}->                                     %worker down
       [[WorkerName]] = ets:match(EtsRef,{'$1',Pid,'_','_','_'}),
+      NewWaitforWorkers = WaitforWorkers--[WorkerName],
       %report worker down to main server
-      delete_worker(EtsRef,MyName,WorkerName);                                     %delete worker from ets so client will not wait for it in the future 
+      delete_worker(EtsRef,MyName,WorkerName),
+      {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers,etsRef = EtsRef}};                                     %delete worker from ets so client will not wait for it in the future 
         
-    _Any->ok %recevied  unexpected messege, print to log/tell main server for debuging
-    end,
-  {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef}}.
+    _Any->
+     %recevied  unexpected messege, print to log/tell main server for debuging
+     {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef}}
+    end.
 
 
 %-----------------------------------------------------------------
@@ -188,7 +191,20 @@ idle(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(EventContent)),
   io:format("client idle ignored!!!:  ~p ~n",[EventContent]),
-  {next_state, training, State#client_statem_state{etsRef = EtsRef}}.
+  {next_state, training, State#client_statem_state{etsRef = EtsRef}};
+
+
+idle(info, EventContent, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
+  case EventContent of
+    {'DOWN',_Ref,process,Pid,_Reason}->                                     %worker down
+      [[WorkerName]] = ets:match(EtsRef,{'$1',Pid,'_','_','_'}),
+      %report worker down to main server
+      delete_worker(EtsRef,MyName,WorkerName);                                     %delete worker from ets so client will not wait for it in the future 
+        
+    _Any->ok
+     %recevied  unexpected messege, print to log/tell main server for debuging
+    end,
+    {next_state, idle, State#client_statem_state{etsRef = EtsRef}}.
 
 %% passing vector from FedClient to FedServer
 training(cast, In = {update, {From, To, Data}}, State = #client_statem_state{etsRef = EtsRef, myName = MyName}) ->
@@ -296,7 +312,19 @@ training(cast, In = {loss,WorkerName,LossFunction,_Time_NIF}, State = #client_st
 training(cast, EventContent, State = #client_statem_state{etsRef = EtsRef, myName = MyName}) ->
   ?LOG_WARNING("client ~p training ignored!!!:  ~p ~n!!!",[MyName, EventContent]),
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(EventContent)),
-  {next_state, training, State#client_statem_state{etsRef = EtsRef}}.
+  {next_state, training, State#client_statem_state{etsRef = EtsRef}};
+
+training(info, EventContent, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
+  case EventContent of
+    {'DOWN',_Ref,process,Pid,_Reason}->                                     %worker down
+      [[WorkerName]] = ets:match(EtsRef,{'$1',Pid,'_','_','_'}),
+      %report worker down to main server
+      delete_worker(EtsRef,MyName,WorkerName);                                     %delete worker from ets so client will not wait for it in the future 
+        
+    _Any->ok
+     %recevied  unexpected messege, print to log/tell main server for debuging
+    end,
+    {next_state, training, State#client_statem_state{etsRef = EtsRef}}.
 
 predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}) ->
   %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
@@ -354,7 +382,19 @@ predict(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
   ets:update_counter(EtsRef, infoIn, erts_debug:flat_size(EventContent)),
   ?LOG_WARNING("client predict ignored:  ~p ~n",[EventContent]),
-  {next_state, predict, State#client_statem_state{etsRef = EtsRef}}.
+  {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
+
+predict(info, EventContent, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
+  case EventContent of
+    {'DOWN',_Ref,process,Pid,_Reason}->                                     %worker down
+      [[WorkerName]] = ets:match(EtsRef,{'$1',Pid,'_','_','_'}),
+      %report worker down to main server
+      delete_worker(EtsRef,MyName,WorkerName);                                     %delete worker from ets so client will not wait for it in the future 
+        
+    _Any->ok
+     %recevied  unexpected messege, print to log/tell main server for debuging
+    end,
+    {next_state, predict, State#client_statem_state{etsRef = EtsRef}}.
 
 
 %% @private
