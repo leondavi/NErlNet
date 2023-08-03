@@ -7,10 +7,12 @@
 
 -behaviour(application).
 
+-include("../../Communication_Layer/http_Nerlserver/src/nerl_tools.hrl").
+
 -export([start/2, stop/1]).
 
 -define(UTILLNAME,nerlMonitor).
--define(IP , nerl_tools:getdeviceIP()).
+-define(IP , "192.168.64.7").
 -define(PORT,8096 ).  %port place holder
 -define(MSADDRES,"192.168.64.7:8080" ). %place holder
 -define(GUI , {'PyrlangProcess' , 'py@127.0.0.1'}). % Erlang node should be long name to communicate with pyrlang node
@@ -33,7 +35,8 @@ start(_StartType, _StartArgs) ->
 
 
 %ping main server in 0.5 sec intervals with connection request. will stop when got valid response.
-mainServerPing(URL,Body)->      
+mainServerPing(URL,Body)->   
+    io:format("pinging main server~n"),   
     Response = httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []),
     case Response of
         {error,_}->
