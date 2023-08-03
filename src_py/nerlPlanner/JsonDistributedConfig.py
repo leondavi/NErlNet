@@ -21,7 +21,6 @@ class JsonDistributedConfig():
         self.special_entities_list = [MainServer.NAME, ApiServer.NAME]
         self.reserved_names_set = set(self.special_entities_list)
         self.init_dictionary()
-        self.entities = []
         self.default_frequency = None
     
     def init_dictionary(self):
@@ -39,7 +38,8 @@ class JsonDistributedConfig():
         self.init_dictionary()
 
     def get_entities(self):
-        self.entities += [x for x in [self.reserved_names_set] if self.main_dict[x]]
+        special_entities = [x for x in list(self.reserved_names_set) if x in self.main_dict]
+        return self.get_clients_names() + self.get_routers_names() + self.get_sources_names() + special_entities
 
     def add_nerlnet_settings(self, frequency : Frequency, batchsize : BatchSize):
         self.default_frequency = frequency

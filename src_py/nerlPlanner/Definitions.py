@@ -1,4 +1,5 @@
-VERSION = "0.0.1"
+VERSION = "1.0.0"
+NERLNET_VERSION_TESTED_WITH = "1.2.0"
 NERLNET_TMP_PATH = "/tmp/nerlnet"
 NERLNET_GRAPHVIZ_OUTPUT_DIR = f"{NERLNET_TMP_PATH}/nerlplanner"
 NERLNET_GLBOAL_PATH = "/usr/local/lib/nerlnet-lib/NErlNet"
@@ -72,9 +73,35 @@ KEY_ENTITIES_ROUTERS_LISTBOX = '-KEY-ENTITIES-ROUTERS-LISTBOX-'
 KEY_ENTITIES_SOURCES_LISTBOX = '-KEY-ENTITIES-SOURCES-LISTBOX-'
 KEY_CLIENTS_STATUS_BAR = '-KEY-CLIENTS-STATUS-BAR-'
 
+KEY_DEVICES_SELECTED_ENTITY_COMBO = '-KEY-DEVICES-SELECTED-ENTITY-COMBO-'
+
 
 def pretty_print_dict(d):#define d
     pretty_dict = ''  #take empty string
     for k, v in d.items():#get items for dict
         pretty_dict += f'{k}: {str(v)}\n'
     return pretty_dict#return result
+
+def print_banner():
+    print("\n d8b   db d88888b d8888b. db      d8b   db d88888b d888888b\n \
+888o  88 88'     88  `8D 88      888o  88 88'     `~~88~~'\n \
+88V8o 88 88ooooo 88oobY' 88      88V8o 88 88ooooo    88   \n \
+88 V8o88 88~~~~~ 88`8b   88      88 V8o88 88~~~~~    88   \n \
+88  V888 88.     88 `88. 88booo. 88  V888 88.        88   \n \
+VP   V8P Y88888P 88   YD Y88888P VP   V8P Y88888P    YP   \n \
+                                                          \n \
+                                                          \n \
+d8888b. db       .d8b.  d8b   db d8b   db d88888b d8888b. \n \
+88  `8D 88      d8' `8b 888o  88 888o  88 88'     88  `8D \n \
+88oodD' 88      88ooo88 88V8o 88 88V8o 88 88ooooo 88oobY' \n \
+88~~~   88      88~~~88 88 V8o88 88 V8o88 88~~~~~ 88`8b   \n \
+88      88booo. 88   88 88  V888 88  V888 88.     88 `88. \n \
+88      Y88888P YP   YP VP   V8P VP   V8P Y88888P 88   YD \n \
+                                                          \n \
+                                                          \n ")
+    print(f"Nerlnet Planner version {VERSION} is given without any warranty.")
+    print(f"There is no commitiment or responsibility for results, damage, loss that can be caused by using this tool.")
+    print(f"Please review the license of Nerlnet on Github repository:")
+    print(f"www.github.com/leondavi/NErlNet")
+    print(f"You must cite Nerlnet if you use any of its tools for academic/commercial/any purpose.")
+    print(f"Tested with Nerlnet version {NERLNET_VERSION_TESTED_WITH}")
