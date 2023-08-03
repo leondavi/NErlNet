@@ -10,6 +10,8 @@ import time
 
 sg.theme('LightGray4')
 
+print_banner()
+
 sg.popup_animated(NERLNET_SPLASH_LOGO_PATH) # start splash
 DEFAULT_HOST_IP = get_this_host_ip()
 
@@ -47,7 +49,8 @@ devicesFields = [[sg.Button("Add", size=(10)), sg.Button("Load",size=(10)), sg.B
                   sg.Combo(devices_online_hosts_list, size=(15), enable_events=True, key=KEY_DEVICES_ONLINE_LIST_COMBO_BOX)],
                  [sg.Text("Device Name: "), sg.InputText(size=20, enable_events = True, key=KEY_DEVICES_NAME_INPUT)],
                  [sg.Text("IP Address:   "), sg.InputText('x.x.x.x', size=20, enable_events=True, key=KEY_DEVICES_IP_INPUT)],
-                 [sg.Text('Selected Entity:', size=(15)), sg.Combo('entities', size=(15)), sg.Button("add", size=(15))]]
+                 [sg.Text('Selected Entity:', size=(15)), 
+                  sg.Combo('entities', size=(15), key=KEY_DEVICES_SELECTED_ENTITY_COMBO, enable_events=True), sg.Button("add", size=(15))]]
 
 davicesFieldsFrame = sg.Frame("",devicesFields, expand_x=True)
 devicesFrame = sg.Frame("Devices",layout=[[davicesFieldsFrame],[devicesListFrame, devicesEntitiesListFrame]], expand_x=True)

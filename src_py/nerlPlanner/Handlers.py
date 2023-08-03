@@ -6,53 +6,11 @@ from JsonElements import *
 from JsonElementWorker import *
 from JsonDistributedConfig import JsonDistributedConfig
 from Definitions import *
+from HandlersGlobals import *
 
 
 # instances and lists of instances
 json_distribtued_config_inst = JsonDistributedConfig()
-
-# instances
-batch_size = None
-main_server_inst = None
-api_server_inst = None
-nerl_gui_inst = None
-
-# workers
-workers_load_worker_path = None
-workers_new_worker = None
-workers_new_worker_name = None
-workers_new_worker_dict = None
-worker_name_selection = None
-
-# devices
-device_name = None
-device_ip = None
-
-# clients
-clients_combo_box_worker_selection = None
-clients_this_client_name = None
-clients_this_client_port = None
-clients_this_client = None
-clients_this_client_workers_dict = OrderedDict()
-
-# routers
-routers_this_router = None
-routers_this_router_name = None
-routers_this_router_port = None
-routers_this_router_policy = None
-
-# sources
-sources_this_source = None
-sources_this_source_name = None
-sources_this_source_port = None
-sources_this_source_frequency = None
-sources_this_source_epochs = None
-sources_this_source_policy = None
-
-# entities
-entities_clients_names_list = []
-entities_routers_names_list = []
-
 
 def reset_instances():
     json_architecture_instance = JsonDistributedConfig()
@@ -186,8 +144,9 @@ def clients_handler(window, event, values):
     if event == KEY_CLIENTS_BUTTON_LOAD:
         clients_this_client_name = values[KEY_ENTITIES_CLIENTS_LISTBOX][0]
         clients_this_client = json_distribtued_config_inst.get_client(clients_this_client_name)
+        clients_this_client_port = clients_this_client.get_port().get_value()
         window[KEY_CLIENTS_NAME_INPUT].update(clients_this_client.get_name())
-        window[KEY_CLIENTS_PORT_INPUT].update(f"{clients_this_client.get_port().get_value()}")
+        window[KEY_CLIENTS_PORT_INPUT].update(f"{clients_this_client_port}")
         window[KEY_CLIENTS_STATUS_BAR].update(f"client {clients_this_client.get_name()} is loaded: {clients_this_client}")
         window[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS].update(clients_this_client.get_workers_names())
 
@@ -294,6 +253,7 @@ def sources_handler(window, event, values):
                 sources_this_source_epochs = epochs.get_value_str()
                 sources_this_source_policy = values[KEY_SOURCES_POLICY_COMBO_BOX]
                 sources_this_source = Source(sources_this_source_name, sources_this_source_port, sources_this_source_frequency, sources_this_source_policy, sources_this_source_epochs)
+                json_distribtued_config_inst.add_source(sources_this_source)
             else:
                 sg.popup_ok(f"Source {sources_this_source_name} is already exist", title='Adding Source Failed')
         else:
@@ -306,6 +266,31 @@ def sources_handler(window, event, values):
 def entities_handler(window, event, values):
     global entities_clients_names_list
     global entities_routers_names_list
+    global entities_sources_names_list
+    global last_entities_list_state
+    global last_selected_entity
+
+    if event == KEY_DEVICES_SELECTED_ENTITY_COMBO:
+        last_selected_entity = values[KEY_ENTITIES_CLIENTS_LISTBOX][0] if values[KEY_ENTITIES_CLIENTS_LISTBOX] else None
+
+    if last_selected_entity in last_entities_list_state:
+        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state)
+
+    if last_entities_list_state != json_distribtued_config_inst.get_entities():
+        last_entities_list_state = json_distribtued_config_inst.get_entities()
+        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state)
+
+    if event == KEY_ENTITIES_CLIENTS_LISTBOX:
+        last_selected_entity = values[KEY_ENTITIES_CLIENTS_LISTBOX][0]
+        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity)
+
+    if event == KEY_ENTITIES_ROUTERS_LISTBOX:
+        last_selected_entity = values[KEY_ENTITIES_ROUTERS_LISTBOX][0]
+        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity)
+
+    if event == KEY_ENTITIES_SOURCES_LISTBOX:
+        last_selected_entity = values[KEY_ENTITIES_SOURCES_LISTBOX][0]
+        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity)
 
     # entities update lists
     if json_distribtued_config_inst.get_clients_names() != entities_clients_names_list:
@@ -315,6 +300,11 @@ def entities_handler(window, event, values):
     if json_distribtued_config_inst.get_routers_names() != entities_routers_names_list:
         entities_routers_names_list = json_distribtued_config_inst.get_routers_names()
         window[KEY_ENTITIES_ROUTERS_LISTBOX].update(entities_routers_names_list)
+
+    if json_distribtued_config_inst.get_sources_names() != entities_sources_names_list:
+        entities_sources_names_list = json_distribtued_config_inst.get_sources_names()
+        window[KEY_ENTITIES_SOURCES_LISTBOX].update(entities_sources_names_list)
+
 
 
 def update_current_json_file_path(jsonPath):
