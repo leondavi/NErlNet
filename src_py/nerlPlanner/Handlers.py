@@ -12,8 +12,9 @@ from HandlersGlobals import *
 # instances and lists of instances
 json_distribtued_config_inst = JsonDistributedConfig()
 
-def reset_instances():
-    json_architecture_instance = JsonDistributedConfig()
+def reset_json_distributed_configuration():
+    global json_distribtued_config_inst
+    json_distribtued_config_inst = JsonDistributedConfig()
 
 def settings_handler(event, values):
     frequency = None
