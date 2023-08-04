@@ -43,14 +43,16 @@ devicesEntitiesList = [[sg.Text("Device Entities")],
 devicesListFrame = sg.Frame("", devicesListFields)
 devicesEntitiesListFrame = sg.Frame("", devicesEntitiesList)
 
-devicesFields = [[sg.Button("Add", size=(10)), sg.Button("Load",size=(10)), sg.Button("Remove",size=(10))],
-                 [sg.Button("Scan",size=(10), key=KEY_DEVICES_SCANNER_BUTTON, enable_events=True),sg.Text("lan: "),
+devicesFields = [[sg.Button("Scan",size=(10), key=KEY_DEVICES_SCANNER_BUTTON, enable_events=True),sg.Text("lan: "),
                   sg.InputText('x.x.x.x/Mask-bits',size=20, enable_events=True, key=KEY_DEVICES_SCANNER_INPUT_LAN_MASK),
                   sg.Combo(devices_online_hosts_list, size=(15), enable_events=True, key=KEY_DEVICES_ONLINE_LIST_COMBO_BOX)],
+                 [sg.Button("Add", size=(10)), sg.Button("Update",size=(10)), sg.Button("Remove",size=(10))],
                  [sg.Text("Device Name: "), sg.InputText(size=20, enable_events = True, key=KEY_DEVICES_NAME_INPUT)],
                  [sg.Text("IP Address:   "), sg.InputText('x.x.x.x', size=20, enable_events=True, key=KEY_DEVICES_IP_INPUT)],
+                 [sg.Text('Selected Device: '), sg.Text('None',key=KEY_DEVICES_SELECTED_DEVICE_TEXT, enable_events=True)],
                  [sg.Text('Selected Entity:', size=(15)), 
-                  sg.Combo('entities', size=(15), key=KEY_DEVICES_SELECTED_ENTITY_COMBO, enable_events=True), sg.Button("add", size=(15))]]
+                  sg.Combo('entities', size=(15), key=KEY_DEVICES_SELECTED_ENTITY_COMBO, enable_events=True), sg.Button("Add Entity to Selected Device", size=(25))]
+                  ] #TODO status bar
 
 davicesFieldsFrame = sg.Frame("",devicesFields, expand_x=True)
 devicesFrame = sg.Frame("Devices",layout=[[davicesFieldsFrame],[devicesListFrame, devicesEntitiesListFrame]], expand_x=True)
@@ -94,7 +96,7 @@ ClientWorkersList = [[sg.Button("Add", size=(10), enable_events=True, key=KEY_CL
                      [sg.Text("Workers "), sg.Listbox([],size=(20,6), enable_events=True, key=KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS)]]
 ClientWorkersFrame = sg.Frame("",ClientWorkersList)
 
-ClientsFieldsFrames = sg.Frame("Clients",layout=[[ClientsFieldsFrame,ClientWorkersFrame]])
+ClientsFieldsFrames = sg.Frame("Clients",layout=[[ClientsFieldsFrame,ClientWorkersFrame]],expand_x=True)
 
 # Routers
 RoutersFields = [

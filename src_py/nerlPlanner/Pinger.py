@@ -9,6 +9,7 @@ from JsonElements import *
 BAR_MAX = 100
 KEY_DEV_SCAN_BAR = '-KEY-DEV-SCAN-BAR-'
 
+
 def get_this_host_ip():
     # Taken from https://stackoverflow.com/a/28950776/2698310
     socket_inst = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -23,36 +24,6 @@ def get_this_host_ip():
         socket_inst.close()
     return IP
 
-def pinger(net_addr, devices_online_list, ScannerWindow, i):
-    devices_online_list = []
-    # Prompt the user to input a network address
-    net_addr = '192.168.0.0/24'
-    # Create the network
-    ip_net = ipaddress.ip_network(net_addr)
-
-    # Get all hosts on that network
-    all_hosts = list(ip_net.hosts())
-
-
-    # For each IP address in the subnet, 
-    # run the ping command with subprocess.popen interface
-    for i in range(len(all_hosts)):
-        output = subprocess.Popen(['ping', '-c','1','-W','0.5', str(all_hosts[i])], stdout=subprocess.PIPE).communicate()[0]
-        
-        if "Destination host unreachable" in output.decode('utf-8'):
-            pass
-            #print(str(all_hosts[i]), "is Offline")
-        elif "Request timed out" in output.decode('utf-8'):
-            pass
-            #print(str(all_hosts[i]), "is Offline")
-        elif "0 received, 100% packet loss" in output.decode('utf-8'):
-            pass
-            #print(str(all_hosts[i]), "is Offline")
-        else:
-            #print(str(all_hosts[i]), "is Online")
-            devices_online_list.append(str(all_hosts[i]))
-        ScannerWindow[KEY_DEV_SCAN_BAR].update((i+1)/len(all_hosts))
-    return 
 
 devices_input_lan_mask = ''
 def online_scanner_handler(window, event, values, devices_online_hosts_list):
@@ -83,7 +54,7 @@ def online_devices_scanner_dialog(net_lan : str, devices_online_list : list):
                     [sg.ProgressBar(BAR_MAX, orientation='h', size=(20,20), key=KEY_DEV_SCAN_BAR)],
                     [sg.Cancel()]]
     
-    ScannerWindow = sg.Window(title="Worker", layout=[scanner_layout],modal=True, keep_on_top=True)                                                  
+    ScannerWindow = sg.Window(title="Online Devices Scanner", layout=[scanner_layout],modal=True, keep_on_top=True)                                                  
     ip_net = None
 
     try:
@@ -116,7 +87,9 @@ def online_devices_scanner_dialog(net_lan : str, devices_online_list : list):
                 #print(str(all_hosts[i]), "is Offline")
             else:
                 #print(str(all_hosts[i]), "is Online")
-                devices_online_list.append(str(all_hosts[host_idx]))
+                online_host = str(all_hosts[host_idx])
+                if online_host not in devices_online_list:
+                    devices_online_list.append(online_host)
             ScannerWindow[KEY_DEV_SCAN_BAR].update(100*(host_idx+1)/len(all_hosts))
             host_idx += 1
         else:

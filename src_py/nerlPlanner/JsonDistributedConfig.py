@@ -17,7 +17,6 @@ class JsonDistributedConfig():
     def __init__(self):
         self.main_dict = OrderedDict()
         self.ports_set = set()
-        self.names_set = set()
         self.special_entities_list = [MainServer.NAME, ApiServer.NAME]
         self.reserved_names_set = set(self.special_entities_list)
         self.init_dictionary()
@@ -60,13 +59,12 @@ class JsonDistributedConfig():
         return false if name is being used
         '''     
         client_name = client.get_name()
-        if client_name in self.names_set:
+        if client_name in self.get_entities():
             return False
         if client_name in self.reserved_names_set:
             raise "reserved name is being used with a client!"
         else:
             self.main_dict[KEY_CLIENTS][client_name] = client
-            self.names_set.add(client_name)
         return True
     
     def get_clients_names(self):
@@ -92,13 +90,12 @@ class JsonDistributedConfig():
         return false if name is being used
         '''      
         router_name = router.get_name()
-        if router_name in self.names_set:
+        if router_name in self.get_entities():
             return False
         if router_name in self.reserved_names_set:
             raise "reserved name is being used with a client!"
         else:
             self.main_dict[KEY_ROUTERS][router_name] = router
-            self.names_set.add(router_name)
         return True
     
     def get_router(self, router_name : str) -> Router:
@@ -112,13 +109,12 @@ class JsonDistributedConfig():
         return false if name is being used
         '''
         source_name = source.get_name()
-        if source_name in self.names_set:
+        if source_name in self.get_entities():
             return False
         if source_name in self.reserved_names_set:
             raise "reserved name is being used with this client!"
         else:
             self.main_dict[KEY_SOURCES][source_name] = source
-            self.names_set.add(source_name)
         return True
     
     def get_source(self, source_name : str) -> Source:
@@ -129,16 +125,20 @@ class JsonDistributedConfig():
 
     def add_worker(self, worker : Worker):
         worker_name = worker.get_name()
-        if worker_name in self.names_set:
+        workers_names_list = list(self.main_dict[KEY_WORKERS].keys())
+        if worker_name in self.get_entities():
+            return False
+        if worker_name in workers_names_list:
             return False
         if worker_name in self.reserved_names_set:
             raise "reserved name is being used with this worker!"
         else: 
-            self.main_dict[KEY_WORKERS][worker_name] = worker
-            self.names_set.add(worker_name)
-            worker_sha = worker.get_sha()
+            self.main_dict[KEY_WORKERS][worker_name] = worker # Save the woker instance into dictionary
+            worker_sha = worker.get_sha() # generate sha of worker
             if worker_sha not in self.main_dict[KEY_WORKERS_SHA]:
-                self.main_dict[KEY_WORKERS_SHA] = worker_sha
+                self.main_dict[KEY_WORKERS_SHA][worker_sha] = [worker_name]
+            else:
+                self.main_dict[KEY_WORKERS_SHA][worker_sha].append(worker_name)
         return True
     
     def get_workers_dict(self):
