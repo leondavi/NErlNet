@@ -73,7 +73,7 @@ def workers_handler(window, event, values):
         with open(workers_load_worker_path) as jsonFile:
                 workers_new_worker_dict = json.load(jsonFile)
         (workers_new_worker , _, _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(workers_new_worker_dict)
-        window[KEY_WORKERS_INFO_BAR].update(f'loaded from file: {workers_new_worker}')
+        window[KEY_WORKERS_INFO_BAR].update(f'Loaded from file: {workers_new_worker}')
         window[KEY_WORKERS_LIST_BOX].update(json_distribtued_config_inst.get_workers_names_list())
 
     if event == KEY_WORKERS_NAME_INPUT:
@@ -85,7 +85,7 @@ def workers_handler(window, event, values):
         
     if event == KEY_WORKERS_BUTTON_ADD and (workers_new_worker is not None):
         if not workers_new_worker.get_name():
-            sg.popup_ok(f"Cannot add - Name is missing!", keep_on_top=True, title="Loading Issue")
+            sg.popup_ok(f"Cannot add - Name is missing or exist!", keep_on_top=True, title="Adding New Worker Issue")
         elif json_distribtued_config_inst.add_worker(workers_new_worker):
             window[KEY_WORKERS_LIST_BOX].update(json_distribtued_config_inst.get_workers_names_list())
             # Clear fields after successful add
@@ -95,6 +95,9 @@ def workers_handler(window, event, values):
             workers_load_worker_path = ''
             window[KEY_WORKERS_INPUT_LOAD_WORKER_PATH].update(workers_load_worker_path)
             workers_new_worker = None
+        else:
+            sg.popup_ok(f"Cannot add - Parameters Issue!", keep_on_top=True, title="Adding New Worker Issue")
+
 
     if event == KEY_WORKERS_LIST_BOX:
         worker_name_selection = values[KEY_WORKERS_LIST_BOX][0]
