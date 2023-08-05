@@ -99,7 +99,14 @@ format_status(_Opt, [_PDict, _StateName, _State]) -> Status = some_term, Status.
 
 %% ==============STATES=================
 waitforWorkers(cast, In = {stateChange,WorkerName,MissedBatchesCount}, State = #client_statem_state{myName = MyName,waitforWorkers = WaitforWorkers,nextState = NextState, etsRef = EtsRef}) ->
-  NewWaitforWorkers = WaitforWorkers--[WorkerName],
+  NewWaitforWorkers = WaitforWorkers -- [WorkerName],
+  case WorkerName of 
+    w5 ->
+      Pid = ets:lookup_element(EtsRef, w5, ?WORKER_PID_IDX),
+      io:format("---------------------Killin w5-----------------------~n"),
+      exit(Pid,kill);
+    _ -> ok
+  end,
   % io:format("remaining workers = ~p~n",[NewWaitforWorkers]),
   ets:update_counter(EtsRef, msgCounter, 1), % last is increment value
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
@@ -114,7 +121,7 @@ waitforWorkers(cast, In = {stateChange,WorkerName,MissedBatchesCount}, State = #
 waitforWorkers(cast, In = {NewState}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
-  % ?LOG_INFO("~p in waiting going to state ~p~n",[MyName, State]),
+  %% ?LOG_INFO("~p in waiting going to state ~p~n",[MyName, State]),
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
   cast_message_to_workers(EtsRef, {NewState}),
   {next_state, waitforWorkers, State#client_statem_state{nextState = NewState, waitforWorkers = Workers}};
@@ -268,7 +275,8 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
       NewTimingTuple = {Start,TotalBatches+1,TotalTime},
       ets:update_element(EtsRef, WorkerName,[{?WORKER_PID_IDX, WorkerPid},{?WORKER_TIMING_IDX,NewTimingTuple}]),
       gen_statem:cast(WorkerPid, {sample, BatchOfSamples});
-  true -> ?LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName]) end,
+    true -> ok %%'?'LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName]) 
+  end,
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
 training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
@@ -316,7 +324,7 @@ training(cast, EventContent, State = #client_statem_state{etsRef = EtsRef, myNam
 
 training(info, EventContent, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
   case EventContent of
-    {'DOWN',_Ref,process,Pid,_Reason}->                                     %worker down
+    {'DOWN' , _Ref , process , Pid , _Reason}->                                     %worker down
       [[WorkerName]] = ets:match(EtsRef,{'$1',Pid,'_','_','_'}),
       %report worker down to main server
       delete_worker(EtsRef,MyName,WorkerName);                                     %delete worker from ets so client will not wait for it in the future 
@@ -340,12 +348,11 @@ predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef})
     TimingTuple = ets:lookup_element(EtsRef, WorkerName, ?WORKER_TIMING_IDX), %todo refactor timing map
     {_LastBatchReceivedTime,TotalBatches,TotalTime} = TimingTuple,
     NewTimingTuple = {Start,TotalBatches+1,TotalTime},
-    ets:update_element(EtsRef, WorkerName,[{?WORKER_TIMING_IDX,NewTimingTuple}]);
-    true -> ?LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName])
+    ets:update_element(EtsRef, WorkerName,[{?WORKER_TIMING_IDX,NewTimingTuple}]) , 
+    WorkerPid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
+    gen_statem:cast(WorkerPid, {sample, CSVName, BatchNumber, BatchOfSamples});
+    true -> ok %%'?'LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName])
   end,
-
-  WorkerPid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
-  gen_statem:cast(WorkerPid, {sample, CSVName, BatchNumber, BatchOfSamples}),
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
 
 %% TODO: add nif timing statistics
@@ -515,6 +522,11 @@ sendStatistics(EtsRef)->
 
 cast_message_to_workers(EtsRef, Msg) ->
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
+  case Workers of
+    [] -> io:format("No workers to send message to~n"),
+          gen_statem:cast(self(), {stateChange , [] , 0});
+    _ -> ok
+  end,
   Func = fun(WorkerKey) -> 
     WorkerPid = ets:lookup_element(EtsRef, WorkerKey, ?WORKER_PID_IDX),
     gen_statem:cast(WorkerPid, Msg)
@@ -523,9 +535,11 @@ cast_message_to_workers(EtsRef, Msg) ->
 
 %activated if client detected that a worker stoped, will delete it from ets so as not to wait for responsed from it in the future.
 delete_worker(EtsRef,MyName,WorkerName)->
-  ets:delete(EtsRef,WorkerName),
-  NameList= ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
+  ets:delete(EtsRef , WorkerName),
+  NameList = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
   ets:delete(EtsRef,workersNames),
-  ets:insert(EtsRef, {workersNames, NameList--[WorkerName]}),
-  nerl_tools:sendHTTP(MyName, ?MAIN_SERVER_ATOM, "worker_down", term_to_binary({MyName,WorkerName})),
+  ets:insert(EtsRef, {workersNames, NameList -- [WorkerName]}),
+  NerlGraph = ets:lookup_element(EtsRef, nerlnetGraph, ?ETS_KV_VAL_IDX),
+  {Host , Port} = nerl_tools:getShortPath(MyName, ?MAIN_SERVER_ATOM, NerlGraph),
+  nerl_tools:http_request(Host,Port,"worker_down",list_to_binary(atom_to_list(MyName) ++ "-" ++ atom_to_list(WorkerName))),
   EtsRef.

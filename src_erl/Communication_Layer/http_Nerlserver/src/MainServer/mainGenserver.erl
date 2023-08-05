@@ -315,13 +315,14 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
   end,
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
-handle_cast({worker_down,Body}, State = #main_genserver_state{msgCounter = MsgCounter,etsRef=EtsRef}) ->
+handle_cast({worker_down,Body}, State = #main_genserver_state{msgCounter = MsgCounter,etsRef = EtsRef}) ->
   case ets:member(EtsRef,nerlMonitor) of
     true->
-      [{nerlMonitor,Ip,Port}]=ets:lookup(EtsRef,nerlMonitor),
-      URL = "http://" ++ Ip ++ ":"++integer_to_list(Port) ++ "/utillInfo",
+      [{nerlMonitor , IP , Port}] = ets:lookup(EtsRef , nerlMonitor),
+
+      URL = "http://" ++ IP ++ ":" ++ Port ++ "/utilInfo",
       httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []);
-    false->ok
+    false -> ok
   end, 
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1,etsRef=EtsRef}};
 
@@ -391,7 +392,7 @@ getNewStatisticsMap([{Name,{_Host, _Port}}|Tail],StatisticsMap) ->
   getNewStatisticsMap(Tail,maps:put(atom_to_list(Name), 0, StatisticsMap)).
 
 
-startCasting([],_NumOfSampleToSend,_MyName, _NerlnetGraph)->done;
+startCasting([],_NumOfSampleToSend,_MyName, _NerlnetGraph) -> done;
 startCasting([SourceName|SourceNames],NumOfSampleToSend, MyName, NerlnetGraph)->
   ?LOG_NOTICE("~p sending start casting command to: ~p",[MyName, SourceName]),
   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,SourceName,NerlnetGraph),

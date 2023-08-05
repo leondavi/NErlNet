@@ -56,14 +56,36 @@ def GUI(MainPid):
             break
         if event == "Clear Log":
              MainWindow['-LOG-'].update('')
-        if event == "NerlNet Graph":
-             Show_Nerlnet_Graph()
         if not msg_queue.empty():
             msg = msg_queue.get_nowait()
             if msg[0] == 'graph':
-                Show_Nerlnet_Graph(msg[1])
+                Graph = Show_Nerlnet_Graph(msg[1])
                 MainWindow['-PHOLD-'].update(visible=False)
                 MainWindow['-IMAGE-'].update(filename='NerlNetGraph.png' , visible=True , size=(800,600))
+            elif msg[0] == 'update':
+                ClientName , WorkerName = msg[1].split('-')
+                default_color = 'skyblue'
+                node_colors = {node:default_color for node in Graph.nodes()}
+                node_colors[WorkerName] = 'red'
+                node_colors[ClientName] = 'yellow'
+                nx.set_node_attributes(Graph, node_colors, 'color')
+                colors = nx.get_node_attributes(Graph, 'color').values()
+                pos = nx.spectral_layout(Graph)
+                angle = 100
+                rotated_pos = {node: (x*math.cos(angle) -y*math.sin(angle), x*math.sin(angle) + y*math.cos(angle)) for node, (x, y) in pos.items()}
+
+                plt.figure(figsize=(8,6))
+                nx.draw_networkx(Graph, rotated_pos, with_labels=True, node_color=colors , node_size=200, font_size=8, font_color='black' , edge_color='black' , width=1.5)
+                plt.savefig('NerlNetGraph.png' ,bbox_inches='tight' , dpi=125)
+                plt.close()
+                MainWindow['-IMAGE-'].update(filename='NerlNetGraph.png' , visible=True , size=(800,600))
+                existing_text = values['-LOG-']
+                if existing_text == '':
+                    updated_text = f'{formatted_time()}: Worker {WorkerName} of Client {ClientName} is down.'
+                else:
+                    updated_text = f'{existing_text}\n{formatted_time()}: Worker {WorkerName} of Client {ClientName} is down.'
+                MainWindow['-LOG-'].update(updated_text)
+
             elif values['-LOG-'] != '':
                 existing_text = values['-LOG-']
                 updated_text = f'{existing_text}\n{formatted_time()}: {msg}'
@@ -91,16 +113,18 @@ def Show_Nerlnet_Graph(NerlGraph):
     NodesNames = [NodeTriplet.split(',')[0] for NodeTriplet in Nodes]
     NodesNames += WorkersNames
 
+    
     graph = nx.Graph()
     graph.add_nodes_from(NodesNames)
     graph.add_edges_from(EdgesSeperated)
     pos = nx.spectral_layout(graph)
-    angle = 40
+    angle = 100
     rotated_pos = {node: (x*math.cos(angle) -y*math.sin(angle), x*math.sin(angle) + y*math.cos(angle)) for node, (x, y) in pos.items()}
     plt.figure(figsize=(8,6))
-    nx.draw_networkx(graph, rotated_pos, with_labels=True, node_color='skyblue', node_size=200, font_size=8, font_color='black' , edge_color='black' , width=1.5)
+    nx.draw_networkx(graph, rotated_pos, with_labels=True, node_color='skyblue' , node_size=200, font_size=8, font_color='black' , edge_color='black' , width=1.5)
     plt.savefig('NerlNetGraph.png' ,bbox_inches='tight' , dpi=125)
     plt.close()
+    return graph
 
 
 class MyProcess(Process):

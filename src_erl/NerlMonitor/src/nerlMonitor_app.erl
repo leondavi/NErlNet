@@ -11,7 +11,7 @@
 
 -export([start/2, stop/1]).
 
--define(UTILLNAME,nerlMonitor).
+-define(UTILNAME,nerlMonitor).
 -define(IP , "192.168.64.7").
 -define(PORT, 8096).  %port place holder
 -define(MSADDRES,"192.168.64.7:8080" ). %place holder
@@ -24,15 +24,15 @@ start(_StartType, _StartArgs) ->
     
     Dispatch = cowboy_router:compile([
         {'_', [
-            {"/utillInfo",nerlMonitor_handler, []}
+            {"/utilInfo",nerlMonitor_handler, [utilInfo]}
         
         ]}
     ]),
-    {ok, _} = cowboy:start_clear(?UTILLNAME,[{port, ?PORT}],#{env => #{dispatch => Dispatch}}),
+    {ok, _} = cowboy:start_clear(?UTILNAME,[{port, ?PORT}],#{env => #{dispatch => Dispatch}}),
     io:format("nerlMonitor started , opening GUI...~n"),
     %%os:cmd('python3 src/MonitorGUI.py'), %% PyrlangNode: ('PyralngProcess' , 'py@127.0.0.1' , 'COOKIE') , sending message by: 'GUI ! HELLO.'
     URL = "http://" ++ ?MSADDRES ++ "/toolConnectionReq",
-    mainServerPing(URL,[list_to_binary(atom_to_list(?UTILLNAME) ++ "#") , list_to_binary(?IP ++ "#") , list_to_binary(integer_to_list(?PORT))]), %% TODO How to "import" nerl_tools
+    mainServerPing(URL,[list_to_binary(atom_to_list(?UTILNAME) ++ "#") , list_to_binary(?IP ++ "#") , list_to_binary(integer_to_list(?PORT))]), %% TODO How to "import" nerl_tools
     nerlMonitor_sup:start_link().
 
 

@@ -2,11 +2,15 @@
 
 -export([init/2]).
 
-init(Req0, State = [MainScreen]) ->
+-define(GUI , {'PyrlangProcess' , 'py@127.0.0.1'}).
+
+init(Req0, [Msg]) ->
     {_,Body,_} = cowboy_req:read_body(Req0),
     Data = binary_to_list(Body),
-    case Data of
-      worker_death_caught -> ok;%tell gui to change  graph display and write in event log
+    io:format("-------------------Data ~p--------------~n" , [Data]),
+    case Msg of
+      utilInfo -> io:format("Update graph with: worker_down ~p~n" , [Data]) , 
+                     ?GUI ! {update ,Data};
       _ ->
         ok % got unknown messge, ignore.
     end,
@@ -15,5 +19,5 @@ init(Req0, State = [MainScreen]) ->
         #{<<"content-type">> => <<"text/plain">>},
         <<"Got that">>,
         Req0),
-    {ok, Req, State}.
+    {ok, Req, Msg}.
 

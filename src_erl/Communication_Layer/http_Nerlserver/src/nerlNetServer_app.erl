@@ -307,9 +307,8 @@ createMainServer(true,BatchSize,HostName) ->
         {"/getGraph",[],guiHandler, [getGraph, MainGenServerPid]},
         {"/getStats",[],guiHandler, [getStats, MainGenServerPid]},
         {"/toolConnectionReq" , [] , utilities_handler , [MainGenServerPid]} , %% Added with NerlMonitor Project
-        {"/[...]", [],noMatchingRouteHandler, [MainGenServerPid]},
-        %monitor actions
-        {"/worker_down",actionHandler, [worker_down,MainGenServerPid]}
+        {"/worker_down",actionHandler, [worker_down,MainGenServerPid]},
+        {"/[...]", [],noMatchingRouteHandler, [MainGenServerPid]}
         ]}
         ]),
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener

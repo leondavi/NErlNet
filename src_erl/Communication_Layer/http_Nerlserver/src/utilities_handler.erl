@@ -11,16 +11,16 @@ init(Req0 , [MainServerPid]) ->
     [UtilityName , IP , Port] = [X || X <- re:split(Formatted , "#" , [{return , list}])],
     io:format("UtilityName: ~p , IP: ~p , Port: ~p~n" , [UtilityName , IP , Port]),
     case list_to_atom(UtilityName) of
-        nerlMonitor -> 
+        nerlMonitor ->  
            io:format("I'm HERE , args are: ~p , ~p , ~p~n" , [UtilityName , IP , Port]), 
            Graph = gen_server:call(MainServerPid , getGraph),
            io:format("Graph: ~p~n" , [Graph]),
            WorkersMap = ets:lookup_element(nerlnet_data , workers , ?DATA_IDX),
            WorkersClients = maps:to_list(WorkersMap),
            Workers = lists:flatten([atom_to_list(X)++"-"++atom_to_list(Y)++"!" || {X , Y} <- WorkersClients]),
-           Reply = Graph++","++Workers
+           Reply = Graph ++ "," ++ Workers
     end,
-    gen_server:cast(MainServerPid , {saveUtility , {UtilityName , IP , Port}}), %% TODO Add IP , Port to ets in main server record
+    gen_server:cast(MainServerPid , {saveUtility , {list_to_atom(UtilityName) , IP , Port}}), %% TODO Add IP , Port to ets in main server record
     Req = cowboy_req:reply(200,
                             #{<<"content-type">> => <<"text/plain">>},
                             Reply,
