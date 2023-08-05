@@ -46,7 +46,10 @@ devicesEntitiesListFrame = sg.Frame("", devicesEntitiesList)
 devicesFields = [[sg.Button("Scan",size=(10), key=KEY_DEVICES_SCANNER_BUTTON, enable_events=True),sg.Text("lan: "),
                   sg.InputText('x.x.x.x/Mask-bits',size=20, enable_events=True, key=KEY_DEVICES_SCANNER_INPUT_LAN_MASK),
                   sg.Combo(devices_online_hosts_list, size=(15), enable_events=True, key=KEY_DEVICES_ONLINE_LIST_COMBO_BOX)],
-                 [sg.Button("Add", size=(10)), sg.Button("Update",size=(10)), sg.Button("Remove",size=(10))],
+                 [sg.Button("Add", size=(10)),
+                  sg.Button("Load",size=(10)), 
+                  sg.Button("Save",size=(10)),
+                  sg.Button("Remove",size=(10))],
                  [sg.Text("Device Name: "), sg.InputText(size=20, enable_events = True, key=KEY_DEVICES_NAME_INPUT)],
                  [sg.Text("IP Address:   "), sg.InputText('x.x.x.x', size=20, enable_events=True, key=KEY_DEVICES_IP_INPUT)],
                  [sg.Text('Selected Device: '), sg.Text('None',key=KEY_DEVICES_SELECTED_DEVICE_TEXT, enable_events=True)],
@@ -80,9 +83,10 @@ workersFrame = sg.Frame("Workers",layout=[[workersFieldsFrame],[workersListFrame
 
 # Clients
 ClientsFields = [
-                 [sg.Button("Add", size=(10), enable_events=True, key=KEY_CLIENTS_BUTTON_ADD),
-                  sg.Button("Load", size=(10), enable_events=True, key=KEY_CLIENTS_BUTTON_LOAD),
-                  sg.Button("Remove", size=(10), enable_events=True, key=KEY_CLIENTS_BUTTON_REMOVE)],
+                 [sg.Button("Add", size=(9), enable_events=True, key=KEY_CLIENTS_BUTTON_ADD),
+                  sg.Button("Load", size=(9), enable_events=True, key=KEY_CLIENTS_BUTTON_LOAD),
+                  sg.Button("Save", size=(9), enable_events=True, key=KEY_CLIENTS_BUTTON_SAVE),
+                  sg.Button("Remove", size=(9), enable_events=True, key=KEY_CLIENTS_BUTTON_REMOVE)],
                  [sg.Text("Name:  "), sg.InputText(size=15, enable_events=True, key=KEY_CLIENTS_NAME_INPUT)],
                  [sg.Text("Port:    "), sg.InputText(size=15, enable_events=True, key=KEY_CLIENTS_PORT_INPUT)],
                  [sg.Text("Status Bar", key=KEY_CLIENTS_STATUS_BAR, enable_events=True, expand_x=True)]
@@ -100,9 +104,10 @@ ClientsFieldsFrames = sg.Frame("Clients",layout=[[ClientsFieldsFrame,ClientWorke
 
 # Routers
 RoutersFields = [
-                 [sg.Button("Add", size=(10), key=KEY_ROUTERS_BUTTON_ADD, enable_events=True),
-                  sg.Button("Load",size=(10), key=KEY_ROUTERS_BUTTON_LOAD, enable_events=True),
-                  sg.Button("Remove",size=(10), key=KEY_CLIENTS_BUTTON_REMOVE, enable_events=True)],
+                 [sg.Button("Add", size=(9), key=KEY_ROUTERS_BUTTON_ADD, enable_events=True),
+                  sg.Button("Load",size=(9), key=KEY_ROUTERS_BUTTON_LOAD, enable_events=True),
+                   sg.Button("Save",size=(9), key=KEY_ROUTERS_BUTTON_SAVE, enable_events=True),
+                  sg.Button("Remove",size=(9), key=KEY_CLIENTS_BUTTON_REMOVE, enable_events=True)],
                  [sg.Text("Name:  "), sg.InputText(size=15, enable_events=True, key=KEY_ROUTERS_NAME_INPUT), 
                   sg.Text("Policy: "), sg.Combo(list(RouterPolicyDict.keys()),size=15, enable_events=True, key=KEY_ROUTERS_POLICY_COMBO_BOX)],
                  [sg.Text("Port:    "), sg.InputText(size=15, enable_events=True, key=KEY_ROUTERS_PORT_INPUT)],
@@ -111,9 +116,10 @@ RoutersFieldsFrame = sg.Frame("Routers",RoutersFields)
 
 # Sources
 SourcesFields = [
-                 [sg.Button("Add", size=(10), key=KEY_SOURCES_BUTTON_ADD, enable_events=True),
-                  sg.Button("Load",size=(10), key=KEY_SOURCES_BUTTON_LOAD, enable_events=True),
-                  sg.Button("Remove",size=(10), key=KEY_SOURCES_BUTTON_REMOVE, enable_events=True)],
+                 [sg.Button("Add", size=(9), key=KEY_SOURCES_BUTTON_ADD, enable_events=True),
+                  sg.Button("Load",size=(9), key=KEY_SOURCES_BUTTON_LOAD, enable_events=True),
+                  sg.Button("Save",size=(9), key=KEY_SOURCES_BUTTON_SAVE, enable_events=True),
+                  sg.Button("Remove",size=(9), key=KEY_SOURCES_BUTTON_REMOVE, enable_events=True)],
                  [sg.Text("Name:  "), sg.InputText(size=15, key=KEY_SOURCES_NAME_INPUT, enable_events=True), 
                   sg.Text("Frequency:  "), sg.InputText(size=10, key=KEY_SOURCES_FREQUENCY_INPUT, enable_events=True),
                   sg.Checkbox("Default", key=KEY_SOURCES_FREQUENCY_DEFAULT_CHECKBOX, enable_events=True)],
