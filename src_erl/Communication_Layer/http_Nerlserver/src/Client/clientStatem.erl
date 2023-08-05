@@ -104,7 +104,7 @@ waitforWorkers(cast, In = {stateChange,WorkerName,MissedBatchesCount}, State = #
     w5 ->
       Pid = ets:lookup_element(EtsRef, w5, ?WORKER_PID_IDX),
       io:format("---------------------Killin w5-----------------------~n"),
-      exit(Pid,kill);
+      gen_statem:stop(Pid , shutdown , infinity);
     _ -> ok
   end,
   % io:format("remaining workers = ~p~n",[NewWaitforWorkers]),
@@ -142,7 +142,7 @@ waitforWorkers(info, EventContent, State = #client_statem_state{myName = MyName,
       delete_worker(EtsRef,MyName,WorkerName),
       {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers,etsRef = EtsRef}};                                     %delete worker from ets so client will not wait for it in the future 
         
-    _Any->
+    _Any-> ?LOG_INFO("client ~p got unexpected info: ~p~n",[MyName, EventContent]),
      %recevied  unexpected messege, print to log/tell main server for debuging
      {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef}}
     end.
@@ -208,7 +208,7 @@ idle(info, EventContent, State = #client_statem_state{myName = MyName,etsRef = E
       %report worker down to main server
       delete_worker(EtsRef,MyName,WorkerName);                                     %delete worker from ets so client will not wait for it in the future 
         
-    _Any->ok
+    _Any-> ?LOG_INFO("client ~p got unexpected info: ~p~n",[MyName, EventContent])
      %recevied  unexpected messege, print to log/tell main server for debuging
     end,
     {next_state, idle, State#client_statem_state{etsRef = EtsRef}}.
@@ -329,7 +329,7 @@ training(info, EventContent, State = #client_statem_state{myName = MyName,etsRef
       %report worker down to main server
       delete_worker(EtsRef,MyName,WorkerName);                                     %delete worker from ets so client will not wait for it in the future 
         
-    _Any->ok
+    _Any-> ?LOG_INFO("client ~p got unexpected info: ~p~n",[MyName, EventContent])
      %recevied  unexpected messege, print to log/tell main server for debuging
     end,
     {next_state, training, State#client_statem_state{etsRef = EtsRef}}.
@@ -398,7 +398,7 @@ predict(info, EventContent, State = #client_statem_state{myName = MyName,etsRef 
       %report worker down to main server
       delete_worker(EtsRef,MyName,WorkerName);                                     %delete worker from ets so client will not wait for it in the future 
         
-    _Any->ok
+    _Any-> ?LOG_INFO("client ~p got unexpected info: ~p~n",[MyName, EventContent])
      %recevied  unexpected messege, print to log/tell main server for debuging
     end,
     {next_state, predict, State#client_statem_state{etsRef = EtsRef}}.
@@ -542,4 +542,5 @@ delete_worker(EtsRef,MyName,WorkerName)->
   NerlGraph = ets:lookup_element(EtsRef, nerlnetGraph, ?ETS_KV_VAL_IDX),
   {Host , Port} = nerl_tools:getShortPath(MyName, ?MAIN_SERVER_ATOM, NerlGraph),
   nerl_tools:http_request(Host,Port,"worker_down",list_to_binary(atom_to_list(MyName) ++ "-" ++ atom_to_list(WorkerName))),
+  ?LOG_WARNING("Worker ~p is down, deleting it from client ~p~n",[WorkerName,MyName]),
   EtsRef.

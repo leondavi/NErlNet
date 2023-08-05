@@ -107,7 +107,7 @@ def Show_Nerlnet_Graph(NerlGraph):
     Nodes = NerlGraph.split('#')[0:-1] 
     Edges = NerlGraph.split('#')[-1].split(',')[0:-1]
     Workers = NerlGraph.split('#')[-1].split(',')[-1].split('!')[0:-1]
-    WorkersNames = [Worker.split('-')[0] for Worker in Workers]
+    WorkersNames = [Worker.split('-')[0] for Worker in Workers ]
     Edges += Workers
     EdgesSeperated = [(Edge.split('-')[0],Edge.split('-')[1]) for Edge in Edges if len(Edges) > 1] # ? What if no edges?
     NodesNames = [NodeTriplet.split(',')[0] for NodeTriplet in Nodes]
@@ -117,7 +117,9 @@ def Show_Nerlnet_Graph(NerlGraph):
     graph = nx.Graph()
     graph.add_nodes_from(NodesNames)
     graph.add_edges_from(EdgesSeperated)
-    pos = nx.spectral_layout(graph)
+    my_labels = {'mainServer': 'mS' , 'apiServer': 'aS'}
+    nx.relabel_nodes(graph, my_labels , copy=False)
+    pos = nx.nx_agraph.graphviz_layout(graph, prog='dot')
     angle = 100
     rotated_pos = {node: (x*math.cos(angle) -y*math.sin(angle), x*math.sin(angle) + y*math.cos(angle)) for node, (x, y) in pos.items()}
     plt.figure(figsize=(8,6))

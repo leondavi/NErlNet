@@ -109,7 +109,7 @@ handle_event(_EventType, _EventContent, _StateName, State = #workerGeneric_state
 %% necessary cleaning up. When it returns, the gen_statem terminates with
 %% Reason. The return value is ignored.
 terminate(_Reason, _StateName, _State) ->
-  ok.
+  nerlNIF:destroy_nif(ets:lookup_element(get(generic_worker_ets) , model_id , ?DATA_IDX)).
 
 %% @private
 %% @doc Convert process state when code is changed

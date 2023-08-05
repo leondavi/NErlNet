@@ -319,11 +319,11 @@ handle_cast({worker_down,Body}, State = #main_genserver_state{msgCounter = MsgCo
   case ets:member(EtsRef,nerlMonitor) of
     true->
       [{nerlMonitor , IP , Port}] = ets:lookup(EtsRef , nerlMonitor),
-
       URL = "http://" ++ IP ++ ":" ++ Port ++ "/utilInfo",
       httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []);
     false -> ok
   end, 
+  ?LOG_WARNING(?LOG_HEADER++"Worker down , ~p disconneted~n",[binary_to_list(Body)]),
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1,etsRef=EtsRef}};
 
 handle_cast(Request, State = #main_genserver_state{}) ->

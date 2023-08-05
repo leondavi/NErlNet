@@ -413,8 +413,11 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                 # print(f"worker {worker}, has {len(workerNeuronRes[worker][TRUE_LABLE_IND])} labels, with {len(workerNeuronRes[worker][TRUE_LABLE_IND][j])} samples")
                 # print(f"confusion {worker}:{j}, has is of {workerNeuronRes[worker][TRUE_LABLE_IND][j]}, {workerNeuronRes[worker][PRED_LABLE_IND][j]}")
                 confMatList[worker][j] = confusion_matrix(workerNeuronRes[worker][globe.TRUE_LABLE_IND][j], workerNeuronRes[worker][globe.PRED_LABLE_IND][j])
-                # print(confMatList[worker][j])
                 disp = ConfusionMatrixDisplay(confMatList[worker][j], display_labels=["X", labelNames[j]])
+                if confMatList[worker][j].shape == (0,0): # ! Worker is down
+                    disp = ConfusionMatrixDisplay(np.array([[0,0],[0,0]]), display_labels=["X", labelNames[j]])
+                    workerNeuronRes[worker][globe.TRUE_LABLE_IND][j] = [0,0]
+                    workerNeuronRes[worker][globe.PRED_LABLE_IND][j] = [1,1]
                 disp.plot(ax=axes[i, j], colorbar=False)
                 disp.ax_.set_title(f'{worker}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[worker][globe.TRUE_LABLE_IND][j], workerNeuronRes[worker][globe.PRED_LABLE_IND][j]), 3)}')
                 if i < len(workersList) - 1:
@@ -437,6 +440,8 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         statFile = open(statFileName, "a")
 
         for worker in confMatList:
+            if confMatList[worker][0].shape == (0,0): # ! Worker is down
+                continue
             for j, label in enumerate(confMatList[worker]):
                 # Calculate the accuracy and other stats:
                 tn, fp, fn, tp = label.ravel()
