@@ -60,8 +60,11 @@ class Transmitter:
                     with open(os.path.join(root, filename), 'r') as file:
                         csvfile = file.read()
                     break
-                
-        epochs = 1 if currentPhase == "Prediction" else globe.experiment_flow_global.expFlow["epochs"]      ## add "epochs" field in exp_.json
+
+        try:         
+            epochs = 1 if currentPhase == "Prediction" else globe.experiment_flow_global.expFlow["epochs"]      ## add "epochs" field in exp_.json
+        except:
+            epochs = 1
         SourceData = []
         if globe.CSVsplit == 2:      ## send entire file to sources
             linesPerSource = 0
