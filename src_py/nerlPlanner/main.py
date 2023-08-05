@@ -10,6 +10,8 @@ import time
 
 sg.theme('LightGray4')
 
+print_banner()
+
 sg.popup_animated(NERLNET_SPLASH_LOGO_PATH) # start splash
 DEFAULT_HOST_IP = get_this_host_ip()
 
@@ -17,7 +19,8 @@ DEFAULT_HOST_IP = get_this_host_ip()
 devices_online_hosts_list = [DEFAULT_HOST_IP]
 
 # Specific Fields Frame 
-settingsFields = [  [sg.Text('Frequency '), sg.InputText(size=10, key=KEY_SETTINGS_FREQUENCY_INPUT, enable_events=True), sg.Text('Default frequency for sensors')],
+settingsFields = [  
+                [sg.Text('Frequency '), sg.InputText(size=10, key=KEY_SETTINGS_FREQUENCY_INPUT, enable_events=True), sg.Text('Default frequency for sensors')],
                 [sg.Text('Batch Size'), sg.InputText(size=10, key=KEY_SETTINGS_BATCH_SIZE_INPUT, enable_events=True), sg.Text('# of samples in a message')],
                 [sg.Text("Special devices")],
                 [sg.Text('Main Server: '), sg.Text('IP'), sg.InputText(DEFAULT_HOST_IP, size=15, key=KEY_SETTINGS_MAINSERVER_IP_INPUT, enable_events=True), 
@@ -26,12 +29,10 @@ settingsFields = [  [sg.Text('Frequency '), sg.InputText(size=10, key=KEY_SETTIN
                 [sg.Text('API Server:  '), sg.Text('IP'), sg.InputText(DEFAULT_HOST_IP, size=15, key=KEY_SETTINGS_APISERVER_IP_INPUT, enable_events=True), 
                                           sg.Text('Port'), sg.InputText(size=10, key=KEY_SETTINGS_APISERVER_PORT_INPUT, enable_events=True),
                                           sg.Text('Args'), sg.InputText(size=15, key=KEY_SETTINGS_APISERVER_ARGS_INPUT, enable_events=True)],
-                [sg.Text('NerlGUI:      '), sg.Text('IP'), sg.InputText(DEFAULT_HOST_IP, size=15, key=KEY_SETTINGS_NERLGUI_IP_INPUT, enable_events=True),
-                                     sg.Text('Port'), sg.InputText(size=10, key=KEY_SETTINGS_NERLGUI_PORT_INPUT, enable_events=True),
-                                     sg.Text('Args'), sg.InputText(size=15, key=KEY_SETTINGS_NERLGUI_ARGS_INPUT, enable_events=True),sg.Checkbox("enable nerlGUI", default=False, key=KEY_CHECKBOX_ENABLE_NERLGUI, enable_events=True)],
-                [sg.Button("Add", size=(10), key=KEY_SETTINGS_ADD_BUTTON, enable_events=True), sg.Button("Clear",size=(10))],
+                                          [sg.Text('Status Bar')], # TODO complete status bar activity
+                [sg.Button("Save", size=(10), key=KEY_SETTINGS_SAVE_BUTTON, enable_events=True), sg.Button("Clear",size=(10))],
             ]
-settingsFrame = sg.Frame("Settings",layout=settingsFields, expand_x=True)
+settingsFrame = sg.Frame("Settings",layout=settingsFields, expand_x=True, expand_y=True)
 
 # Devices 
 DevicesNamesList = []
@@ -42,13 +43,19 @@ devicesEntitiesList = [[sg.Text("Device Entities")],
 devicesListFrame = sg.Frame("", devicesListFields)
 devicesEntitiesListFrame = sg.Frame("", devicesEntitiesList)
 
-devicesFields = [[sg.Button("Add", size=(10)), sg.Button("Load",size=(10)), sg.Button("Remove",size=(10))],
-                 [sg.Button("Scan",size=(10), key=KEY_DEVICES_SCANNER_BUTTON, enable_events=True),sg.Text("lan: "),
+devicesFields = [[sg.Button("Scan",size=(10), key=KEY_DEVICES_SCANNER_BUTTON, enable_events=True),sg.Text("lan: "),
                   sg.InputText('x.x.x.x/Mask-bits',size=20, enable_events=True, key=KEY_DEVICES_SCANNER_INPUT_LAN_MASK),
                   sg.Combo(devices_online_hosts_list, size=(15), enable_events=True, key=KEY_DEVICES_ONLINE_LIST_COMBO_BOX)],
+                 [sg.Button("Add", size=(10)),
+                  sg.Button("Load",size=(10)), 
+                  sg.Button("Save",size=(10)),
+                  sg.Button("Remove",size=(10))],
                  [sg.Text("Device Name: "), sg.InputText(size=20, enable_events = True, key=KEY_DEVICES_NAME_INPUT)],
                  [sg.Text("IP Address:   "), sg.InputText('x.x.x.x', size=20, enable_events=True, key=KEY_DEVICES_IP_INPUT)],
-                 [sg.Text('Selected Entity:', size=(15)), sg.Combo('entities', size=(15)), sg.Button("add", size=(15))]]
+                 [sg.Text('Selected Device: '), sg.Text('None',key=KEY_DEVICES_SELECTED_DEVICE_TEXT, enable_events=True)],
+                 [sg.Text('Selected Entity:', size=(15)), 
+                  sg.Combo('entities', size=(15), key=KEY_DEVICES_SELECTED_ENTITY_COMBO, enable_events=True), sg.Button("Add Entity to Selected Device", size=(25))]
+                  ] #TODO status bar
 
 davicesFieldsFrame = sg.Frame("",devicesFields, expand_x=True)
 devicesFrame = sg.Frame("Devices",layout=[[davicesFieldsFrame],[devicesListFrame, devicesEntitiesListFrame]], expand_x=True)
@@ -76,9 +83,10 @@ workersFrame = sg.Frame("Workers",layout=[[workersFieldsFrame],[workersListFrame
 
 # Clients
 ClientsFields = [
-                 [sg.Button("Add", size=(10), enable_events=True, key=KEY_CLIENTS_BUTTON_ADD),
-                  sg.Button("Load", size=(10), enable_events=True, key=KEY_CLIENTS_BUTTON_LOAD),
-                  sg.Button("Remove", size=(10), enable_events=True, key=KEY_CLIENTS_BUTTON_REMOVE)],
+                 [sg.Button("Add", size=(9), enable_events=True, key=KEY_CLIENTS_BUTTON_ADD),
+                  sg.Button("Load", size=(9), enable_events=True, key=KEY_CLIENTS_BUTTON_LOAD),
+                  sg.Button("Save", size=(9), enable_events=True, key=KEY_CLIENTS_BUTTON_SAVE),
+                  sg.Button("Remove", size=(9), enable_events=True, key=KEY_CLIENTS_BUTTON_REMOVE)],
                  [sg.Text("Name:  "), sg.InputText(size=15, enable_events=True, key=KEY_CLIENTS_NAME_INPUT)],
                  [sg.Text("Port:    "), sg.InputText(size=15, enable_events=True, key=KEY_CLIENTS_PORT_INPUT)],
                  [sg.Text("Status Bar", key=KEY_CLIENTS_STATUS_BAR, enable_events=True, expand_x=True)]
@@ -92,13 +100,14 @@ ClientWorkersList = [[sg.Button("Add", size=(10), enable_events=True, key=KEY_CL
                      [sg.Text("Workers "), sg.Listbox([],size=(20,6), enable_events=True, key=KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS)]]
 ClientWorkersFrame = sg.Frame("",ClientWorkersList)
 
-ClientsFieldsFrames = sg.Frame("Clients",layout=[[ClientsFieldsFrame,ClientWorkersFrame]])
+ClientsFieldsFrames = sg.Frame("Clients",layout=[[ClientsFieldsFrame,ClientWorkersFrame]],expand_x=True)
 
 # Routers
 RoutersFields = [
-                 [sg.Button("Add", size=(10), key=KEY_ROUTERS_BUTTON_ADD, enable_events=True),
-                  sg.Button("Load",size=(10), key=KEY_ROUTERS_BUTTON_LOAD, enable_events=True),
-                  sg.Button("Remove",size=(10), key=KEY_CLIENTS_BUTTON_REMOVE, enable_events=True)],
+                 [sg.Button("Add", size=(9), key=KEY_ROUTERS_BUTTON_ADD, enable_events=True),
+                  sg.Button("Load",size=(9), key=KEY_ROUTERS_BUTTON_LOAD, enable_events=True),
+                   sg.Button("Save",size=(9), key=KEY_ROUTERS_BUTTON_SAVE, enable_events=True),
+                  sg.Button("Remove",size=(9), key=KEY_CLIENTS_BUTTON_REMOVE, enable_events=True)],
                  [sg.Text("Name:  "), sg.InputText(size=15, enable_events=True, key=KEY_ROUTERS_NAME_INPUT), 
                   sg.Text("Policy: "), sg.Combo(list(RouterPolicyDict.keys()),size=15, enable_events=True, key=KEY_ROUTERS_POLICY_COMBO_BOX)],
                  [sg.Text("Port:    "), sg.InputText(size=15, enable_events=True, key=KEY_ROUTERS_PORT_INPUT)],
@@ -107,9 +116,16 @@ RoutersFieldsFrame = sg.Frame("Routers",RoutersFields)
 
 # Sources
 SourcesFields = [
-                 [sg.Button("Add", size=(10)), sg.Button("Load",size=(10)), sg.Button("Remove",size=(10))],
-                 [sg.Text("Name:  "), sg.InputText(size=15), sg.Text("Frequency:  "), sg.InputText(size=10), sg.Checkbox("Default")],
-                 [sg.Text("Port:     "), sg.InputText(size=15),sg.Text("Epochs:      "), sg.InputText(size=10) ]
+                 [sg.Button("Add", size=(9), key=KEY_SOURCES_BUTTON_ADD, enable_events=True),
+                  sg.Button("Load",size=(9), key=KEY_SOURCES_BUTTON_LOAD, enable_events=True),
+                  sg.Button("Save",size=(9), key=KEY_SOURCES_BUTTON_SAVE, enable_events=True),
+                  sg.Button("Remove",size=(9), key=KEY_SOURCES_BUTTON_REMOVE, enable_events=True)],
+                 [sg.Text("Name:  "), sg.InputText(size=15, key=KEY_SOURCES_NAME_INPUT, enable_events=True), 
+                  sg.Text("Frequency:  "), sg.InputText(size=10, key=KEY_SOURCES_FREQUENCY_INPUT, enable_events=True),
+                  sg.Checkbox("Default", key=KEY_SOURCES_FREQUENCY_DEFAULT_CHECKBOX, enable_events=True)],
+                 [sg.Text("Port:     "), sg.InputText(size=15, key=KEY_SOURCES_PORT_INPUT, enable_events=True),
+                  sg.Text("Epochs:      "), sg.InputText(size=10, key=KEY_SOURCES_EPOCHS_INPUT, enable_events=True) ],
+                  [sg.Text("Policy:  "), sg.Combo(list(SourcePolicyDict.keys()), size=15, key=KEY_SOURCES_POLICY_COMBO_BOX, enable_events=True) ]
                 ]
 SourcesFieldsFrame = sg.Frame("Sources",SourcesFields)
 
@@ -119,8 +135,7 @@ EntitiesListFields = [[sg.Text("Clients", expand_x=True), sg.Text("Routers", exp
                       [sg.Listbox(EntitiesNamesList, enable_events=True, key=KEY_ENTITIES_CLIENTS_LISTBOX, size=(20,14)),
                        sg.Listbox(EntitiesNamesList, enable_events=True, key=KEY_ENTITIES_ROUTERS_LISTBOX, size=(20,14)),
                        sg.Listbox(EntitiesNamesList, enable_events=True, key=KEY_ENTITIES_SOURCES_LISTBOX, size=(20,14))],
-                       [sg.Button('Generate Nerlnet Graph', expand_x=True)] #TODO implemnet the graph generation
-                                     ]
+                      ]
 EntitiesFieldsFrame = sg.Frame("", layout=[[ClientsFieldsFrames],[SourcesFieldsFrame, RoutersFieldsFrame]])
 EntitiesListFrame = sg.Frame("", EntitiesListFields)
 EntitiesFrame = sg.Frame("Entities - HTTP Cowboy instances",layout=[[EntitiesFieldsFrame, EntitiesListFrame]])
@@ -134,17 +149,24 @@ JsonFileFields = [  [sg.Text('Load from: ')],
                 [sg.In(enable_events=True ,key=JSON_CONTROL_LOAD_FILE_BROWSE_EVENT_KEY, expand_x=True), sg.FileBrowse(file_types=(("Json File", "*.json"),))],
                 [sg.Text('Export to: ')],
                 [sg.In(enable_events=True ,key=JSON_CONTROL_EXPORT_BROWSE_EVENT_KEY, expand_x=True), sg.FolderBrowse()],
-                [sg.Text('File Name: '), sg.InputText('arc_<name>.json'), sg.Button('Load',  expand_x=True)],
-                [sg.Button('Export',expand_x=True), sg.Button('Validate', expand_x=True), sg.Button('Load', expand_x=True), sg.Button('Clear', expand_x=True)],
-                [sg.Button('Create Experiment Flow', expand_x=True)] ]
-jsonCtrlFrame = sg.Frame("json Control",layout=JsonFileFields, expand_x=True)
+                [sg.Text('File Name: '), sg.InputText('dc_<name>.json'), sg.Button('Load',  expand_x=True)],
+                [sg.Button('Export',expand_x=True), sg.Button('Validate', expand_x=True), sg.Button('Load', expand_x=True), sg.Button('Clear', expand_x=True)]
+                ]
+jsonCtrlFrame = sg.Frame("Distributed Configurations Json",layout=JsonFileFields, expand_x=True)
+
+
+# Graph and Experimant generate buttons (open a new window for these jsons)
+grapAndExpFields = [[sg.Button('Generate Graph', expand_x=True), sg.Button('Generate Experiment', expand_x=True)]]
+grapAndExpFrame = sg.Frame("Graph and Experiment",layout=grapAndExpFields, expand_x=True)
+
 
 # Main Windows
 main_window  = sg.Window(title=WINDOW_TITLE, layout=[[sg.Image(NERLNET_LOGO_PATH, expand_x=True)],
                                                      [sg.Text(f'Nerlnet Planner v-{VERSION}')],
                                                     [settingsFrame, jsonCtrlFrame],
                                                     [EntitiesFrame],
-                                                    [workersFrame, devicesFrame ]
+                                                    [workersFrame, devicesFrame ],
+                                                    [grapAndExpFrame]
                                                     ])
 
 os.makedirs(os.path.dirname(NERLNET_TMP_PATH), exist_ok=True)
@@ -157,9 +179,10 @@ while True:
     
     if event and values:
         settings_handler(event,values)
-        workers_handler(main_window,event,values)
+        workers_handler(main_window, event,values)
         clients_handler(main_window, event, values)
         routers_handler(main_window, event, values)
+        sources_handler(main_window, event, values)
         entities_handler(main_window, event, values)
         devices_handler(main_window, event, values)
         online_scanner_handler(main_window, event, values, devices_online_hosts_list) # lan scan for online devices
