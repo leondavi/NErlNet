@@ -21,9 +21,10 @@ get_special_entities(ArchMap, HostEntities)->
   SpecialEntities = [ Entity || Entity <- HostEntities, is_special_entity(Entity)],
   Func = fun(SpecialEntityName) ->
     EntityMap = maps:get(atom_to_binary(SpecialEntityName), ArchMap),
+    HostIP = binary_to_list(maps:get(<<"host">>, EntityMap)),
     Port = list_to_integer(binary_to_list(maps:get(<<"port">>, EntityMap))),
     Args = binary_to_list(maps:get(<<"args">>, EntityMap)),
-    {SpecialEntityName, {Port, Args}}
+    {SpecialEntityName, {Port, HostIP}}
   end,
   [Func(E) || E <- SpecialEntities].
 
@@ -221,7 +222,10 @@ add_host_vertices(NerlnetGraph, ArchitectureMap, HostName, HostEntities)->
   AddEntityToGraph = fun(EntityName, EntityData) -> 
       EntityPort = element(?PORT_IDX, EntityData),
       ?LOG_NOTICE("Entity: ~p Port: ~p ~n",[EntityName,EntityPort]),
-      digraph:add_vertex(NerlnetGraph,EntityName, {HostName, EntityPort})   %% TODO: atom_to_binary(EntityName)
+        case EntityName of 
+          ?API_SERVER_ATOM ->   digraph:add_vertex(NerlnetGraph,EntityName, {element(?DATA_IDX, EntityData), EntityPort});
+          _Else ->              digraph:add_vertex(NerlnetGraph,EntityName, {HostName, EntityPort})   %% TODO: atom_to_binary(EntityName)
+        end
       end,
 
   maps:foreach(AddEntityToGraph , HostAllEntitiesMap),
