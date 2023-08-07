@@ -61,10 +61,11 @@ class Transmitter:
                         csvfile = file.read()
                     break
 
-        try:         
-            epochs = 1 if currentPhase == "Prediction" else globe.experiment_flow_global.expFlow["epochs"]      ## add "epochs" field in exp_.json
-        except:
-            epochs = 1
+                    
+        # try:         
+        #     epochs = 1 if currentPhase == "Prediction" else globe.experiment_flow_global.expFlow["epochs"]      ## add "epochs" field in exp_.json
+        # except:
+        #     epochs = 1
         SourceData = []
         if globe.CSVsplit == 2:      ## send entire file to sources
             linesPerSource = 0
@@ -72,7 +73,8 @@ class Transmitter:
             for source in globe.experiment_flow_global.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
                 sourceName = source['source name']
                 workersUnderSource = source['workers']
-
+                try:    epochs = 1 if currentPhase == "Prediction" else globe.components.sourceEpochs[sourceName]
+                except: epochs = 1
                 response = requests.post(self.updateCSVAddress, data=f'{sourceName}#{workersUnderSource}#{epochs}#{csvfile}')
 
         else:                   ## split file and send to sources
@@ -86,6 +88,10 @@ class Transmitter:
                 SourceStr = ""
                 for Line in SourceData[i]:
                     SourceStr += Line
+
+                try:    epochs = 1 if currentPhase == "Prediction" else globe.components.sourceEpochs[sourceName]
+                except: epochs = 1
+
                 dataStr = f'{sourceName}#{workersUnderSource}#{epochs}#{SourceStr}'
 
                 response = requests.post(self.updateCSVAddress, data=dataStr)
