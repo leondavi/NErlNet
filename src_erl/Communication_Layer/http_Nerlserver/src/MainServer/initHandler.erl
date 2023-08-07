@@ -11,7 +11,6 @@
 -export([init/2, start/2, stop/1]).
 -behaviour(application).
 -include("../nerl_tools.hrl").
--define(DATA_TIME, infinity).
 
 %%setter handler for editing weights in CSV file
 init(Req0, [Main_genServer_Pid]) ->
