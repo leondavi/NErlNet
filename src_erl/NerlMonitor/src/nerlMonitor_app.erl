@@ -9,7 +9,7 @@
 
 -include("../../Communication_Layer/http_Nerlserver/src/nerl_tools.hrl").
 
--export([start/2, stop/1]).
+-export([start/2, stop/1 , link_GUI/1]).
 
 -define(UTILNAME,nerlMonitor).
 -define(IP , "192.168.64.7").
@@ -30,7 +30,7 @@ start(_StartType, _StartArgs) ->
     ]),
     {ok, _} = cowboy:start_clear(?UTILNAME,[{port, ?PORT}],#{env => #{dispatch => Dispatch}}),
     io:format("nerlMonitor started , opening GUI...~n"),
-    %%os:cmd('python3 src/MonitorGUI.py'), %% PyrlangNode: ('PyralngProcess' , 'py@127.0.0.1' , 'COOKIE') , sending message by: 'GUI ! HELLO.'
+    GUI_PID = spawn_link(?MODULE , link_GUI , [self()]) , %% PyrlangNode: ('PyralngProcess' , 'py@127.0.0.1' , 'COOKIE') , sending message by: 'GUI ! HELLO.'
     URL = "http://" ++ ?MSADDRES ++ "/toolConnectionReq",
     mainServerPing(URL,[list_to_binary(atom_to_list(?UTILNAME) ++ "#") , list_to_binary(?IP ++ "#") , list_to_binary(integer_to_list(?PORT))]), %% TODO How to "import" nerl_tools
     nerlMonitor_sup:start_link().
@@ -43,7 +43,7 @@ mainServerPing(URL,Body)->
     Response = httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []),
     case Response of
         {error,_}->
-            timer:sleep(500),
+            timer:sleep(1000),
             mainServerPing(URL,Body);
         {ok,{_ResCode, _Headers, Data}}-> 
             io:format("got1 response from main server~n"),
@@ -64,5 +64,9 @@ functions()-> ok.
 
 stop(_State) ->
     ok.
+
+link_GUI(Pid) ->
+    os:cmd('python3 src/MonitorGUI.py'),
+    io:format("GUI Closed~n").
 
 

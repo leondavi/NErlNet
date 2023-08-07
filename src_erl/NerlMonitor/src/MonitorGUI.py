@@ -59,18 +59,18 @@ def GUI(MainPid):
         if not msg_queue.empty():
             msg = msg_queue.get_nowait()
             if msg[0] == 'graph':
-                Graph = Show_Nerlnet_Graph(msg[1])
+                Graph , node_colors = Show_Nerlnet_Graph(msg[1])
                 MainWindow['-PHOLD-'].update(visible=False)
                 MainWindow['-IMAGE-'].update(filename='NerlNetGraph.png' , visible=True , size=(800,600))
             elif msg[0] == 'update':
                 ClientName , WorkerName = msg[1].split('-')
-                default_color = 'skyblue'
-                node_colors = {node:default_color for node in Graph.nodes()}
+
                 node_colors[WorkerName] = 'red'
                 node_colors[ClientName] = 'yellow'
                 nx.set_node_attributes(Graph, node_colors, 'color')
                 colors = nx.get_node_attributes(Graph, 'color').values()
-                pos = nx.spectral_layout(Graph)
+
+                pos = nx.nx_agraph.graphviz_layout(Graph, prog='dot')
                 angle = 100
                 rotated_pos = {node: (x*math.cos(angle) -y*math.sin(angle), x*math.sin(angle) + y*math.cos(angle)) for node, (x, y) in pos.items()}
 
@@ -117,16 +117,22 @@ def Show_Nerlnet_Graph(NerlGraph):
     graph = nx.Graph()
     graph.add_nodes_from(NodesNames)
     graph.add_edges_from(EdgesSeperated)
+
     my_labels = {'mainServer': 'mS' , 'apiServer': 'aS'}
     nx.relabel_nodes(graph, my_labels , copy=False)
+    default_color = 'skyblue'
+    node_colors = {node:default_color for node in graph.nodes()}
+    nx.set_node_attributes(graph, node_colors, 'color')
+    colors = nx.get_node_attributes(graph, 'color').values()
+
     pos = nx.nx_agraph.graphviz_layout(graph, prog='dot')
     angle = 100
     rotated_pos = {node: (x*math.cos(angle) -y*math.sin(angle), x*math.sin(angle) + y*math.cos(angle)) for node, (x, y) in pos.items()}
     plt.figure(figsize=(8,6))
-    nx.draw_networkx(graph, rotated_pos, with_labels=True, node_color='skyblue' , node_size=200, font_size=8, font_color='black' , edge_color='black' , width=1.5)
+    nx.draw_networkx(graph, rotated_pos, with_labels=True, node_color=colors , node_size=200, font_size=8, font_color='black' , edge_color='black' , width=1.5)
     plt.savefig('NerlNetGraph.png' ,bbox_inches='tight' , dpi=125)
     plt.close()
-    return graph
+    return graph , node_colors
 
 
 class MyProcess(Process):

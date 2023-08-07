@@ -420,7 +420,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
                     workerNeuronRes[worker][globe.PRED_LABLE_IND][j] = [1,1]
                 disp.plot(ax=axes[i, j], colorbar=False)
                 disp.ax_.set_title(f'{worker}, class #{j}\nAccuracy={round(accuracy_score(workerNeuronRes[worker][globe.TRUE_LABLE_IND][j], workerNeuronRes[worker][globe.PRED_LABLE_IND][j]), 3)}')
-                if i < len(workersList) - 1:
+                if i < len(workersList) - 1: # ? Ask David why this is needed
                     disp.ax_.set_xlabel('') #remove "predicted label"
                 if  j != 0:
                     disp.ax_.set_ylabel('') #remove "true label"

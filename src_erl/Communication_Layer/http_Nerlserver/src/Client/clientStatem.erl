@@ -100,14 +100,41 @@ format_status(_Opt, [_PDict, _StateName, _State]) -> Status = some_term, Status.
 %% ==============STATES=================
 waitforWorkers(cast, In = {stateChange,WorkerName,MissedBatchesCount}, State = #client_statem_state{myName = MyName,waitforWorkers = WaitforWorkers,nextState = NextState, etsRef = EtsRef}) ->
   NewWaitforWorkers = WaitforWorkers -- [WorkerName],
-  case WorkerName of 
-    w5 ->
-      Pid = ets:lookup_element(EtsRef, w5, ?WORKER_PID_IDX),
-      io:format("---------------------Killin w5-----------------------~n"),
-      gen_statem:stop(Pid , shutdown , infinity);
+  % case WorkerName of 
+  %   w5 ->
+  %     Pid = ets:lookup_element(EtsRef, w5, ?WORKER_PID_IDX),
+  %     io:format("---------------------Killin w5-----------------------~n"),
+  %     gen_statem:stop(Pid , shutdown , infinity);
+  %   _ -> ok
+  % end,
+  % io:format("remaining workers = ~p~n",[NewWaitforWorkers]),
+  case NextState of
+    training ->
+            case WorkerName of 
+              w5 ->
+                case ets:member(EtsRef , w5) of
+                  true -> 
+                    Pid = ets:lookup_element(EtsRef, w5, ?WORKER_PID_IDX),
+                    io:format("---------------------Killin w5-----------------------~n"),
+                    gen_statem:stop(Pid , shutdown , infinity);
+                  _ -> ok
+                end;
+              _ -> ok
+            end;
+    predict ->
+            case WorkerName of 
+              w6 ->
+                case ets:member(EtsRef , w6) of
+                  true -> 
+                    Pid = ets:lookup_element(EtsRef, w6, ?WORKER_PID_IDX),
+                    io:format("---------------------Killin w6-----------------------~n"),
+                    gen_statem:stop(Pid , shutdown , infinity);
+                  _ -> ok
+                end;
+              _ -> ok
+            end;
     _ -> ok
   end,
-  % io:format("remaining workers = ~p~n",[NewWaitforWorkers]),
   ets:update_counter(EtsRef, msgCounter, 1), % last is increment value
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
   ets:update_element(EtsRef, WorkerName,[{?WORKER_TRAIN_MISSED_IDX,MissedBatchesCount}]), %% update missed batches count
@@ -340,7 +367,6 @@ predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef})
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
   {ClientName, WorkerNameStr, CSVName, BatchNumber, BatchOfSamples} = binary_to_term(Body),
   WorkerName = list_to_atom(WorkerNameStr),
-
   Start = os:timestamp(),
   WorkerOfThisClient = ets:member(EtsRef, WorkerName),
   if 
