@@ -61,11 +61,6 @@ class Transmitter:
                         csvfile = file.read()
                     break
 
-                    
-        # try:         
-        #     epochs = 1 if currentPhase == "Prediction" else globe.experiment_flow_global.expFlow["epochs"]      ## add "epochs" field in exp_.json
-        # except:
-        #     epochs = 1
         SourceData = []
         if globe.CSVsplit == 2:      ## send entire file to sources
             linesPerSource = 0
