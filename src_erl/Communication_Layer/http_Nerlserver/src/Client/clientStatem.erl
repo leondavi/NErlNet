@@ -108,33 +108,33 @@ waitforWorkers(cast, In = {stateChange,WorkerName,MissedBatchesCount}, State = #
   %   _ -> ok
   % end,
   % io:format("remaining workers = ~p~n",[NewWaitforWorkers]),
-  case NextState of
-    training ->
-            case WorkerName of 
-              w5 ->
-                case ets:member(EtsRef , w5) of
-                  true -> 
-                    Pid = ets:lookup_element(EtsRef, w5, ?WORKER_PID_IDX),
-                    io:format("---------------------Killin w5-----------------------~n"),
-                    gen_statem:stop(Pid , shutdown , infinity);
-                  _ -> ok
-                end;
-              _ -> ok
-            end;
-    predict ->
-            case WorkerName of 
-              w6 ->
-                case ets:member(EtsRef , w6) of
-                  true -> 
-                    Pid = ets:lookup_element(EtsRef, w6, ?WORKER_PID_IDX),
-                    io:format("---------------------Killin w6-----------------------~n"),
-                    gen_statem:stop(Pid , shutdown , infinity);
-                  _ -> ok
-                end;
-              _ -> ok
-            end;
-    _ -> ok
-  end,
+  % case NextState of
+  %   training ->
+  %           case WorkerName of 
+  %             w5 ->
+  %               case ets:member(EtsRef , w5) of
+  %                 true -> 
+  %                   Pid = ets:lookup_element(EtsRef, w5, ?WORKER_PID_IDX),
+  %                   io:format("---------------------Killin w5-----------------------~n"),
+  %                   gen_statem:stop(Pid , shutdown , infinity);
+  %                 _ -> ok
+  %               end;
+  %             _ -> ok
+  %           end;
+  %   predict ->
+  %           case WorkerName of 
+  %             w6 ->
+  %               case ets:member(EtsRef , w6) of
+  %                 true -> 
+  %                   Pid = ets:lookup_element(EtsRef, w6, ?WORKER_PID_IDX),
+  %                   io:format("---------------------Killin w6-----------------------~n"),
+  %                   gen_statem:stop(Pid , shutdown , infinity);
+  %                 _ -> ok
+  %               end;
+  %             _ -> ok
+  %           end;
+  %   _ -> ok
+  % end,
   ets:update_counter(EtsRef, msgCounter, 1), % last is increment value
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
   ets:update_element(EtsRef, WorkerName,[{?WORKER_TRAIN_MISSED_IDX,MissedBatchesCount}]), %% update missed batches count
@@ -559,7 +559,7 @@ cast_message_to_workers(EtsRef, Msg) ->
   end,
   lists:foreach(Func, Workers).
 
-%activated if client detected that a worker stoped, will delete it from ets so as not to wait for responsed from it in the future.
+%activated if client detected that a worker stopped, will delete it from ets so as not to wait for responsed from it in the future.
 delete_worker(EtsRef,MyName,WorkerName)->
   ets:delete(EtsRef , WorkerName),
   NameList = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
@@ -569,4 +569,5 @@ delete_worker(EtsRef,MyName,WorkerName)->
   {Host , Port} = nerl_tools:getShortPath(MyName, ?MAIN_SERVER_ATOM, NerlGraph),
   nerl_tools:http_request(Host,Port,"worker_down",list_to_binary(atom_to_list(MyName) ++ "-" ++ atom_to_list(WorkerName))),
   ?LOG_WARNING("Worker ~p is down, deleting it from client ~p~n",[WorkerName,MyName]),
+  %% TODO Verify NIF active_model_id list
   EtsRef.
