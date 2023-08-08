@@ -27,6 +27,7 @@ public:
                 if ((*layer_types)[i] == E_LAYER_TYPE_SCALING){
                     opennn::ScalingLayer *L = new opennn::ScalingLayer; // TODO: remove all news
                     L->set((*neural_network_architecture)(i));
+                    L->set_display(false); // remove scaling layer warning (when standard deviation = 0 ?)
                     opennn::NeuralNetwork::add_layer(L);
                 }
         
