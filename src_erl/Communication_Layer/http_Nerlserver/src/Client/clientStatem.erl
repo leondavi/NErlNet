@@ -20,7 +20,7 @@
   code_change/4, callback_mode/0, idle/3, training/3,waitforWorkers/3]).
 
 
--import(nerlNIF,[validate_nerltensor_erl/1]).
+-import(nerlNIF,[validate_nerltensor_erl/1 , get_active_models_ids_list/0]).
 
 -define(ETS_KV_VAL_IDX, 2). % key value pairs --> value index is 2
 -define(WORKER_PID_IDX, 2).
@@ -153,6 +153,14 @@ waitforWorkers(cast, In = {NewState}, State = #client_statem_state{myName = MyNa
   cast_message_to_workers(EtsRef, {NewState}),
   {next_state, waitforWorkers, State#client_statem_state{nextState = NewState, waitforWorkers = Workers}};
 
+waitforWorkers(cast, {worker_kill , Body}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
+  [_ , Target] = string:split(binary_to_list(Body), "-"),
+  WorkerName = list_to_atom(Target),
+  Pid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
+  gen_statem:stop(Pid, shutdown , infinity),
+  {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef}};
+
 waitforWorkers(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(EventContent)),
@@ -212,6 +220,14 @@ idle(cast, In = {training}, State = #client_statem_state{etsRef = EtsRef}) ->
   MessageToCast = {training},
   cast_message_to_workers(EtsRef, MessageToCast),
   {next_state, waitforWorkers, State#client_statem_state{waitforWorkers= ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX), nextState = training}};
+
+idle(cast, {worker_kill , Body}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
+  [_ , Target] = string:split(binary_to_list(Body), "-"),
+  WorkerName = list_to_atom(Target),
+  Pid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
+  gen_statem:stop(Pid, shutdown , infinity),
+  {next_state, idle, State#client_statem_state{etsRef = EtsRef}};
 
 idle(cast, In = {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
   io:format("client going to state predict~n",[]),
@@ -277,6 +293,14 @@ training(cast, In = {custom_worker_message, WorkersList, WeightsTensor}, State =
   end,
   lists:foreach(Func, WorkersList),
   {keep_state, State};
+
+training(cast, {worker_kill , Body}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
+  [_ , Target] = string:split(binary_to_list(Body), "-"),
+  WorkerName = list_to_atom(Target),
+  Pid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
+  gen_statem:stop(Pid, shutdown , infinity),
+  {next_state, training, State#client_statem_state{etsRef = EtsRef}};
   
   
 % TODO Validate this state - sample and empty list 
@@ -390,6 +414,14 @@ predict(cast, In = {predictRes,WorkerName,InputName,ResultID,PredictNerlTensor, 
   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
 
   nerl_tools:http_request(RouterHost,RouterPort,"predictRes", term_to_binary({atom_to_list(WorkerName), InputName, ResultID, {PredictNerlTensor, Type}})),
+  {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
+
+predict(cast, {worker_kill , Body}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
+  [_ , Target] = string:split(binary_to_list(Body), "-"),
+  WorkerName = list_to_atom(Target),
+  Pid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
+  gen_statem:stop(Pid, shutdown , infinity),
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
 
 % TODO from predict directly to training?!?!?

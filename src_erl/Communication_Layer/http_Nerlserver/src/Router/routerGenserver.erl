@@ -176,6 +176,11 @@ handle_cast({getStats,_Body}, State  = #router_genserver_state{myName = MyName, 
     nerl_tools:http_request(Host,Port,"routerStats",Mes),
     {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
+handle_cast({worker_kill , Body} , State = #router_genserver_state{msgCounter = MsgCounter, myName = MyName}) ->
+    [Target , _] = string:split(binary_to_list(Body) , "-"),
+    nerl_tools:sendHTTP(MyName, list_to_atom(Target), "worker_kill", Body),
+    {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
+
 
 %monitor
 handle_cast({worker_down,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter, nerlnetGraph = NerlnetGraph}) ->

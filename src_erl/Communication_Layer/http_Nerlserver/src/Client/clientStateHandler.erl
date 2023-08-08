@@ -30,7 +30,8 @@ init(Req0, [Action,Client_StateM_Pid]) ->
     idle        -> gen_statem:cast(Client_StateM_Pid,{idle});
     training    -> gen_statem:cast(Client_StateM_Pid,{training});
     predict     -> gen_statem:cast(Client_StateM_Pid,{predict});
-    statistics  -> gen_statem:cast(Client_StateM_Pid,{statistics})
+    statistics  -> gen_statem:cast(Client_StateM_Pid,{statistics});
+    worker_kill -> gen_statem:cast(Client_StateM_Pid,{worker_kill , Body})
   end,
 
   %% reply ACKnowledge to main server for initiating, later send finished initiating http_request from client_stateM

@@ -187,7 +187,8 @@ createClientsAndWorkers() ->
                 {"/clientTraining",clientStateHandler, [training,ClientStatemPid]},
                 {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
                 {"/clientPredict",clientStateHandler, [predict,ClientStatemPid]},
-                {"/weightsVector",clientStateHandler, [vector,ClientStatemPid]}
+                {"/weightsVector",clientStateHandler, [vector,ClientStatemPid]},
+                {"/worker_kill" , clientStateHandler , [worker_kill , ClientStatemPid]}
             ]}
         ]),
         init_cowboy_start_clear(Client, {HostName, Port},NerlClientDispatch)
@@ -267,7 +268,8 @@ createRouters(MapOfRouters, HostName) ->
                 %%GUI actions
                 {"/getStats",routingHandler, [getStats,RouterGenServerPid]},
                 %monitor actions
-                {"/worker_down",routingHandler, [worker_down,RouterGenServerPid]}
+                {"/worker_down",routingHandler, [worker_down,RouterGenServerPid]},
+                {"/worker_kill" , routingHandler , [worker_kill , RouterGenServerPid]}
             ]}
         ]),
         %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
@@ -307,6 +309,7 @@ createMainServer(true,BatchSize,HostName) ->
         {"/getGraph",[],guiHandler, [getGraph, MainGenServerPid]},
         {"/getStats",[],guiHandler, [getStats, MainGenServerPid]},
         {"/toolConnectionReq" , [] , utilities_handler , [MainGenServerPid]} , %% Added with NerlMonitor Project
+        {"/worker_kill" , [] , utilities_handler , [worker_kill , MainGenServerPid]},
         {"/worker_down",actionHandler, [worker_down,MainGenServerPid]},
         {"/[...]", [],noMatchingRouteHandler, [MainGenServerPid]}
         ]}

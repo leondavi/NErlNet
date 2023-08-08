@@ -326,6 +326,13 @@ handle_cast({worker_down,Body}, State = #main_genserver_state{msgCounter = MsgCo
   ?LOG_WARNING(?LOG_HEADER++"Worker down , ~p disconneted~n",[binary_to_list(Body)]),
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1,etsRef=EtsRef}};
 
+handle_cast({worker_kill , WorkerName} , State = #main_genserver_state{workersMap = WorkersMap , msgCounter = MsgCounter}) ->
+  ?LOG_WARNING(?LOG_HEADER++"Worker ~p killed~n",[WorkerName]),
+  ClientName = maps:get(WorkerName,WorkersMap), % ! Worker Name is binary?
+  Body = list_to_binary(atom_to_list(ClientName)) ++ "-" ++ WorkerName,
+  nerl_tools:sendHTTP(?MAIN_SERVER_ATOM , ClientName , atom_to_list(worker_kill) , Body),
+  {noreply, State#main_genserver_state{workersMap = WorkersMap , msgCounter = MsgCounter+1}};
+
 handle_cast(Request, State = #main_genserver_state{}) ->
   io:format("main server cast ignored: ~p~n",[Request]),
   {noreply, State}.

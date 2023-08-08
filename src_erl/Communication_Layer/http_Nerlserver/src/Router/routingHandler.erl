@@ -76,7 +76,8 @@ init(Req0, State) ->
     %%%%%%%%%%%%%%GUI actions
     getStats -> gen_server:cast(Router_genserver_Pid, {getStats,Body});
     %monitor
-    worker_down -> gen_server:cast(Router_genserver_Pid, {worker_down,Body})
+    worker_down -> gen_server:cast(Router_genserver_Pid, {worker_down,Body});
+    worker_kill -> gen_server:cast(Router_genserver_Pid, {worker_kill,Body})
 
   end,
   Reply = io_lib:format(" ", []),

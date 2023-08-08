@@ -39,7 +39,8 @@ start(_StartType, _StartArgs) ->
 
 %ping main server in 0.5 sec intervals with connection request. will stop when got valid response.
 mainServerPing(URL,Body)->   
-    io:format("pinging main server~n"),   
+    io:format("pinging main server~n"),  
+    io:format("Body: ~p~n" , [Body]),
     Response = httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []),
     case Response of
         {error,_}->
