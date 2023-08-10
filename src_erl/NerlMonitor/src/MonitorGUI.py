@@ -21,23 +21,37 @@ def draw_gradient(canvas, start_color, end_color):
 
 Msg_log = []
 
+DataColumn = [
+                [sg.Frame(title="Event Log:" , 
+                            layout=[[sg.Multiline('', size=(140, 60), key='-LOG-', autoscroll=True , font=('SFPro' , 12) , no_scrollbar=True)]],
+                            background_color=('#930707') , font=('SFPro' , 20) , size=(500,325) , title_color='Black' , element_justification='right')
+                ] ,
+                [sg.Frame(title="Statistics:" , 
+                            layout=[[sg.Multiline('', size=(140, 60), key='-STATS-', autoscroll=True , font=('SFPro' , 12) , no_scrollbar=True)]],
+                            background_color=('#930707') , font=('SFPro' , 20) , size=(500,325) , title_color='Black' , element_justification='right')
+                ]
+             ]
+
+GraphColumn = [
+                [   sg.Text("Waiting For\n NerlNet Graph..." , key='-PHOLD-', text_color='Black' , font=('SFPro' , 12) , size=(70,5) , background_color='#930707' , justification='center' , pad=(0,0)) ,
+                    sg.Image(key='-IMAGE-' , visible=False) 
+                ]
+              ]
+
 layout = [
                 [
                     sg.Text("NerlNet Monitor" , key='-TEXT-' , size=(30,1) ,text_color='Black' , font=('SFPro' , 20) , background_color='#930707' , justification='center' , pad=(0,0))
                 ] ,
-                [   sg.Frame(title="Event Log:" , 
-                            layout=[[sg.Multiline('', size=(140, 60), key='-LOG-', autoscroll=True , font=('SFPro' , 12) , no_scrollbar=True)]],
-                            background_color=('#930707') , font=('SFPro' , 20) , size=(500,650) , title_color='Black' , element_justification='right') ,
-                    sg.Text("Waiting For\n NerlNet Graph..." , key='-PHOLD-', text_color='Black' , font=('SFPro' , 12) , size=(70,5) , background_color='#930707' , justification='center' , pad=(0,0)) ,
-                    sg.Image(key='-IMAGE-' , visible=False) 
-                    
+                [   sg.Column(DataColumn , background_color='#930707') ,
+                    sg.VSeperator() ,
+                    sg.Column(GraphColumn , background_color='#930707')
                 ] ,
                 [
                     sg.Button(button_text="Close" , button_color=('#C30404' , '#000000') , font=('SFPro' , 12) , size=(5,2)),
                     sg.Button(button_text="Clear Log" , button_color=('#C30404' , '#000000') , font=('SFPro' , 12) , size=(5,2))
                 ]
                     
-            ]
+          ]
 
 MainWindow = sg.Window("NErlNet" , layout , margins=(5,5) , size=(1400,800) , background_color='#930707' , finalize=True , resizable=True , element_justification='c')
 
@@ -86,6 +100,27 @@ def GUI(MainPid):
                 else:
                     updated_text = f'{existing_text}\n{formatted_time()}: Worker {WorkerName} of Client {ClientName} is down.'
                 MainWindow['-LOG-'].update(updated_text)
+            
+            elif msg[0] == 'stats':
+                Data = msg[1]
+                statDict = {"workers": {}}
+                for items in str(Data).split('|'): 
+                    key, val = items.split(':') 
+                    if '=' in val:      
+                        for worker in val.split(','):
+                            workerName, time = worker.split('=')
+                            statDict["workers"][workerName] = time
+                    else:               
+                        statDict[key] = val
+                # print(statDict)
+                for key, val in statDict.items():
+                    if isinstance(val, dict):
+                        print(key, '--')
+                        for key2, val2 in val.items():
+                            print("\t", key2, ' : ', val2)
+                    else:
+                        print(key, ' : ', val)
+                
 
             elif values['-LOG-'] != '':
                 existing_text = values['-LOG-']

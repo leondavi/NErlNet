@@ -163,14 +163,13 @@ handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = 
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
 %%%get Statistics from all Entities in the network
-handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, statisticsCounter = StatisticsCounter, nerlnetGraph = NerlnetGraph,statisticsMap = StatisticsMap,msgCounter = MsgCounter}) ->
+handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, statisticsCounter = StatisticsCounter, nerlnetGraph = NerlnetGraph,statisticsMap = StatisticsMap,msgCounter = MsgCounter , etsRef = EtsRef}) ->
 
     if Body == <<"getStatistics">> ->   %% initial message from APIServer, get stats from entities
 
           NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--?LIST_OF_SPECIAL_SERVERS]),
           [findroutAndsendStatistics(MyName, Name)||{Name,_Counter}<-maps:to_list(StatisticsMap)],
           NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap, statisticsCounter = length(maps:to_list(StatisticsMap))};
-
       Body == <<>> ->  io:format("in Statistcs, State has: StatsCount=~p, MsgCount=~p~n", [StatisticsCounter, MsgCounter]), NewState = State;
 
       true ->
@@ -185,10 +184,18 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
               S = mapToString(Statistics,[]) ,
               ?LOG_NOTICE("Sending stats: ~p~n",[S]),
               {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?API_SERVER_ATOM,NerlnetGraph),
-              nerl_tools:http_request(RouterHost,RouterPort,"statistics", S ++ "|mainServer:" ++integer_to_list(MsgCounter));
+              nerl_tools:http_request(RouterHost,RouterPort,"statistics", S ++ "|mainServer:" ++integer_to_list(MsgCounter)),
+
+              case ets:member(EtsRef , nerlMonitor) of
+                true -> 
+                  [{_ , MonitorIP , MonitorPort}] = ets:lookup(EtsRef, nerlMonitor),
+                  nerl_tools:http_request(MonitorIP,list_to_integer(MonitorPort),"stats", S ++ "|mainServer:" ++integer_to_list(MsgCounter));
+                _ -> ok
+              end;
 
           %% wait for more stats
-          true -> pass end
+          true -> pass 
+        end
       end,
     {noreply, NewState};
 
@@ -228,10 +235,16 @@ handle_cast({sourceAck,Body}, State = #main_genserver_state{sourcesWaitingList =
   {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList,msgCounter = MsgCounter+1}};
 
 
-handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList,msgCounter = MsgCounter}) ->
-  NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
-  % io:format("new Waiting List: ~p ~n",[NewWaitingList]),
-  if length(NewWaitingList) == 0 -> ack();
+handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList,msgCounter = MsgCounter , etsRef = EtsRef}) ->
+  ClientName = list_to_atom(binary_to_list(Body)),
+  NewWaitingList = WaitingList--[ClientName],
+  if length(NewWaitingList) == 0 -> 
+                case ets:member(EtsRef , nerlMonitor) of
+                  true -> 
+                    gen_server:cast(self(),{statistics , list_to_binary("getStatistics")});
+                  _ -> ok
+                end,
+                ack();
   true-> ok end,
   {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList, msgCounter = MsgCounter+1}};
 

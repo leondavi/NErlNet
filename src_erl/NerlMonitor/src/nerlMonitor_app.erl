@@ -24,7 +24,8 @@ start(_StartType, _StartArgs) ->
     
     Dispatch = cowboy_router:compile([
         {'_', [
-            {"/utilInfo",nerlMonitor_handler, [utilInfo]}
+            {"/utilInfo",nerlMonitor_handler, [utilInfo]},
+            {"/stats" , nerlMonitor_handler , [stats]}
         
         ]}
     ]),

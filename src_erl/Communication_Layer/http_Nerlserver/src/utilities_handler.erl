@@ -5,9 +5,7 @@
 -export([init/2]).
 
 init(Req0 , [MainServerPid]) ->
-    io:format("Req is ~p~n" , [Req0]),
     {_,Body,_} = cowboy_req:read_body(Req0),
-    io:format("Body: ~p~n" , [Body]) , 
     Formatted = binary_to_list(Body),
     [UtilityName , IP , Port] = [X || X <- re:split(Formatted , "#" , [{return , list}])],
     io:format("UtilityName: ~p , IP: ~p , Port: ~p~n" , [UtilityName , IP , Port]),
