@@ -35,6 +35,11 @@ DataColumn = [
 GraphColumn = [
                 [   sg.Text("Waiting For\n NerlNet Graph..." , key='-PHOLD-', text_color='Black' , font=('SFPro' , 12) , size=(70,5) , background_color='#930707' , justification='center' , pad=(0,0)) ,
                     sg.Image(key='-IMAGE-' , visible=False) 
+                ],
+                [   
+                    sg.Text("Enter the name of the worker you wish to terminate:" ,key='-INTEXT-', size=(42,1) ,text_color='white' , font=('SFPro' , 12) , background_color='#930707' , justification='left' , pad=(0,0) , visible=False) , 
+                    sg.Input('',key='-INPUT-' , visible=False , justification='left' , size=(20,1) , font=('SFPro' , 12) , background_color='white' , text_color='black' , pad=(0,0) , enable_events=True),
+                    sg.Button(button_text="Terminate" , button_color=('#C30404' , '#000000') , font=('SFPro' , 12) , size=(10,1) , pad=(0,0) , visible=False, key='-TERM-', enable_events=True)
                 ]
               ]
 
@@ -63,13 +68,23 @@ def formatted_time():
 def GUI(MainPid):
     while True:
         event , values = MainWindow.read(timeout=100)
+        existing_text = values['-LOG-']
         updated_text = ''
         if event == "Close" or event == sg.WIN_CLOSED:
             os.kill(MainPid , 9)
             print("GUI Closed.")
             break
-        if event == "Clear Log":
-             MainWindow['-LOG-'].update('')
+        elif event == "Clear Log":
+            MainWindow['-LOG-'].update('')
+        elif event == "-TERM-":
+            Workers = [Graph.nodes[node]['label'] for node in Graph.nodes() if Graph.nodes[node]['label'][0] == 'w' or node_colors[node] == 'black']
+            if values['-INPUT-'] not in Workers:
+                updated_text = f'{existing_text}\n{formatted_time()}: Invalid Worker Name {values["-INPUT-"]}.'
+                MainWindow['-LOG-'].update(updated_text)
+            else:
+                updated_text = f'{existing_text}\n{formatted_time()}: Worker {values["-INPUT-"]} terminated.'
+                MainWindow['-LOG-'].update(updated_text)
+            MainWindow['-INPUT-'].update('')
         if not msg_queue.empty():
             msg = msg_queue.get_nowait()
             if msg[0] == 'graph':
@@ -77,6 +92,9 @@ def GUI(MainPid):
                 MainWindow['-PHOLD-'].update(visible=False)
                 MainWindow['-IMAGE-'].update(filename='NerlNetGraph.png' , visible=True , size=(800,600))
                 MainWindow['-LOG-'].update(f'{formatted_time()}: NerlNet Graph Received.')
+                MainWindow['-INTEXT-'].update(visible=True)
+                MainWindow['-INPUT-'].update(visible=True)
+                MainWindow['-TERM-'].update(visible=True)
             elif msg[0] == 'update':
                 ClientName , WorkerName = msg[1].split('-')
 
@@ -94,7 +112,6 @@ def GUI(MainPid):
                 plt.savefig('NerlNetGraph.png' ,bbox_inches='tight' , dpi=125)
                 plt.close()
                 MainWindow['-IMAGE-'].update(filename='NerlNetGraph.png' , visible=True , size=(800,600))
-                existing_text = values['-LOG-']
                 if existing_text == '':
                     updated_text = f'{formatted_time()}: Worker {WorkerName} of Client {ClientName} is down.'
                 else:
@@ -112,14 +129,13 @@ def GUI(MainPid):
                             statDict["workers"][workerName] = time
                     else:               
                         statDict[key] = val
-                # print(statDict)
                 for key, val in statDict.items():
                     if isinstance(val, dict):
-                        print(key, '--')
+                        MainWindow['-STATS-'].update(f'{formatted_time()}: {key}')
                         for key2, val2 in val.items():
-                            print("\t", key2, ' : ', val2)
+                            MainWindow['-STATS-'].update(f'{formatted_time()}: {key2} : {val2}')
                     else:
-                        print(key, ' : ', val)
+                        MainWindow['-STATS-'].update(f'{formatted_time()}: {key} : {val}')
                 
 
             elif values['-LOG-'] != '':
@@ -149,12 +165,13 @@ def Show_Nerlnet_Graph(NerlGraph):
     NodesNames = [NodeTriplet.split(',')[0] for NodeTriplet in Nodes]
     NodesNames += WorkersNames
 
-    
+    NodeWithLabels = [(NodeName , {'label' : NodeName}) for NodeName in NodesNames]
     graph = nx.Graph()
-    graph.add_nodes_from(NodesNames)
+    graph.add_nodes_from(NodeWithLabels)
     graph.add_edges_from(EdgesSeperated)
 
     my_labels = {'mainServer': 'mS' , 'apiServer': 'aS'}
+
     nx.relabel_nodes(graph, my_labels , copy=False)
     default_color = 'darkred'
     node_colors = {node:default_color for node in graph.nodes()}
