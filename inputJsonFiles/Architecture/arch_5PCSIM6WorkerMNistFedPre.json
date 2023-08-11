@@ -212,8 +212,8 @@
       "name": "s1",
       "port": "8091",
       "COMMENTS": "method allowed: '1': sends each exapme to all clients listed, '2': round robin between all clients",
-      "method": "1",
-      "epochs": "2"
+      "method": "2",
+      "epochs": "10"
     }
   ],
  "routers": [
