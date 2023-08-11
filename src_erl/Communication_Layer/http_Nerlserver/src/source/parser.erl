@@ -68,7 +68,7 @@ parse_file(SourceName, BatchSize,Data) ->
   % CleanLines = [Line || Line <- Lines, Line /= []],
   ?LOG_INFO("split in data"),
   %% TODO: create NIF that does dataStrToNumericData. In = ["1,2,3,4", "5,6,7,8", ....] => out = [[1,2,3,4],[5,6,7,8],....] (make sure to take type into account)
-  ListOfLinesOfData = dataStrToNumericData(lists:droplast(Lines)),
+  ListOfLinesOfData = dataStrToNumericData(lists:droplast(Lines)),    %% drop empty line in the end of all CSV files
   ?LOG_INFO("converted str to float"),
   SampleSize = length(hd(ListOfLinesOfData)),
   {_Num, DataType} = nerl_tools:list_to_numeric(hd(hd(ListOfLinesOfData))),

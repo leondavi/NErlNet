@@ -299,6 +299,7 @@ PREDICTION_STR = "Prediction"
         plt.title(f"Training - Loss Function - {expTitle}", fontsize=38)
         plt.xlabel('Batch No.', fontsize = 30)
         plt.ylabel('Loss (MSE)', fontsize = 30)
+        plt.yscale('log')
         plt.xlim(left=0)
         plt.ylim(bottom=0)
         plt.legend(workers)
@@ -410,7 +411,7 @@ PREDICTION_STR = "Prediction"
             for j in range(labelsLen):
                 # print(f"worker {worker}, has {len(workerNeuronRes[worker][TRUE_LABLE_IND])} labels, with {len(workerNeuronRes[worker][TRUE_LABLE_IND][j])} samples")
                 # print(f"confusion {worker}:{j}, has is of {workerNeuronRes[worker][TRUE_LABLE_IND][j]}, {workerNeuronRes[worker][PRED_LABLE_IND][j]}")
-                confMatList[worker][j] = confusion_matrix(workerNeuronRes[worker][globe.TRUE_LABLE_IND][j], workerNeuronRes[worker][globe.PRED_LABLE_IND][j])
+                confMatList[worker][j] = confusion_matrix(workerNeuronRes[worker][globe.TRUE_LABLE_IND][j], workerNeuronRes[worker][globe.PRED_LABLE_IND][j], normalize='all')
                 # print(confMatList[worker][j])
                 disp = ConfusionMatrixDisplay(confMatList[worker][j], display_labels=["X", labelNames[j]])
                 disp.plot(ax=axes[i, j], colorbar=False)
