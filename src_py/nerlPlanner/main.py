@@ -7,10 +7,17 @@ from Pinger import *
 import logging
 import os
 import time
+import sys
 
 sg.theme('LightGray4')
 
 print_banner()
+
+# Resolution Care
+screen_width, screen_height = get_screen_resolution()
+nerlplanner_print(f"Screen resolution: {screen_height}x{screen_width}")
+if int(screen_width) < WINDOW_FIXED_WIDTH:
+    sys.exit(f"ERROR - Minimum resolution width of {WINDOW_FIXED_WIDTH} is required!")
 
 sg.popup_animated(NERLNET_SPLASH_LOGO_PATH) # start splash
 DEFAULT_HOST_IP = get_this_host_ip()
@@ -160,14 +167,20 @@ grapAndExpFields = [[sg.Button('Generate Graph', expand_x=True), sg.Button('Gene
 grapAndExpFrame = sg.Frame("Graph and Experiment",layout=grapAndExpFields, expand_x=True)
 
 
-# Main Windows
-main_window  = sg.Window(title=WINDOW_TITLE, layout=[[sg.Image(NERLNET_LOGO_PATH, expand_x=True)],
+overall_layout = [[sg.Image(NERLNET_LOGO_PATH, expand_x=True)],
                                                      [sg.Text(f'Nerlnet Planner v-{VERSION}')],
                                                     [settingsFrame, jsonCtrlFrame],
                                                     [EntitiesFrame],
                                                     [workersFrame, devicesFrame ],
                                                     [grapAndExpFrame]
-                                                    ])
+                                                    ]
+
+scrollable_enable = False if WINDOW_MAX_SUPPORTED_HEIGHT < int(screen_height) else True
+height_size = min(int(int(screen_height) * WINDOW_HEIGHT_MULTIPLICATION_FACTOR), WINDOW_MAX_SUPPORTED_HEIGHT)
+overall_column = [[sg.Column(layout=overall_layout, scrollable=scrollable_enable, size = (WINDOW_FIXED_WIDTH,height_size), vertical_scroll_only=True, expand_x=True)]]
+
+# Main Windows
+main_window  = sg.Window(title=WINDOW_TITLE, layout=overall_column, size = (WINDOW_FIXED_WIDTH,height_size))
 
 os.makedirs(os.path.dirname(NERLNET_TMP_PATH), exist_ok=True)
 

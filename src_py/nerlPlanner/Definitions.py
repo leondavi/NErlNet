@@ -1,12 +1,17 @@
+import subprocess
+
 VERSION = "1.0.0"
 NERLNET_VERSION_TESTED_WITH = "1.2.0"
 NERLNET_TMP_PATH = "/tmp/nerlnet"
 NERLNET_GRAPHVIZ_OUTPUT_DIR = f"{NERLNET_TMP_PATH}/nerlplanner"
-NERLNET_GLBOAL_PATH = "/usr/local/lib/nerlnet-lib/NErlNet"
-NERL_PLANNER_PATH = NERLNET_GLBOAL_PATH+"/src_py/nerlPlanner"
+NERLNET_GLOBAL_PATH = "/usr/local/lib/nerlnet-lib/NErlNet"
+NERL_PLANNER_PATH = NERLNET_GLOBAL_PATH+"/src_py/nerlPlanner"
 NERLNET_LOGO_PATH = NERL_PLANNER_PATH+"/NerlnetIcon.png"
 NERLNET_SPLASH_LOGO_PATH = NERL_PLANNER_PATH+"/Nerlnet_splash_logo.png"
 WINDOW_TITLE = "NerlPlanner"
+WINDOW_FIXED_WIDTH = 1512
+WINDOW_MAX_SUPPORTED_HEIGHT = 1080
+WINDOW_HEIGHT_MULTIPLICATION_FACTOR =  5/6
 
 JSON_CONTROL_LOAD_FILE_BROWSE_EVENT_KEY = 'JSON_CONTROL_LOAD_FILE_BROWSE_EVENT_KEY'
 JSON_CONTROL_EXPORT_BROWSE_EVENT_KEY = 'JSON_CONTROL_EXPORT_BROWSE_EVENT_KEY'
@@ -85,6 +90,9 @@ def pretty_print_dict(d):#define d
         pretty_dict += f'{k}: {str(v)}\n'
     return pretty_dict#return result
 
+def nerlplanner_print(string : str):
+    print(f"[NerlPlanner] {string}")
+
 def print_banner():
     print("\n d8b   db d88888b d8888b. db      d8b   db d88888b d888888b\n \
 888o  88 88'     88  `8D 88      888o  88 88'     `~~88~~'\n \
@@ -108,3 +116,12 @@ d8888b. db       .d8b.  d8b   db d8b   db d88888b d8888b. \n \
     print(f"www.github.com/leondavi/NErlNet")
     print(f"You must cite Nerlnet if you use any of its tools for academic/commercial/any purpose.")
     print(f"Tested with Nerlnet version {NERLNET_VERSION_TESTED_WITH}")
+
+
+def get_screen_resolution():
+    cmd = ["xrandr | grep '*'"]
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+    resolution_string, junk = p.communicate()
+    resolution = resolution_string.split()[0].decode('utf-8')
+    width, height = resolution.split('x')
+    return width, height
