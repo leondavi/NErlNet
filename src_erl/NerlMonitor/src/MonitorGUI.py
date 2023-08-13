@@ -10,6 +10,20 @@ from datetime import datetime
 import os
 import math
 
+class MyProcess(Process):
+        def __init__(self , msg_queue) -> None:
+            Process.__init__(self)
+            self.get_node().register_name(self, Atom('PyrlangProcess'))  
+            self.msg_queue = msg_queue
+
+
+        def handle_one_inbox_message(self, msg):
+            print(f'From Pyrlang: {msg}')
+            self.msg_queue.put(msg)
+            if not self.msg_queue.empty():
+                 print(f'Queue is not Empty: {msg} added.')
+     
+
 def draw_gradient(canvas, start_color, end_color):
     for y in range(0, 200):  # Adjust the range to your desired height
         r = start_color[0] + (end_color[0] - start_color[0]) * y / 200
@@ -21,41 +35,83 @@ def draw_gradient(canvas, start_color, end_color):
 
 Msg_log = []
 
+DataColumn = [
+                [sg.Frame(title="Event Log:" , 
+                            layout=[[sg.Multiline('', size=(140, 60), key='-LOG-', autoscroll=True , font=('SFPro' , 12) , no_scrollbar=True)]],
+                            background_color=('#930707') , font=('SFPro' , 20) , size=(500,325) , title_color='Black' , element_justification='right')
+                ] ,
+                [sg.Frame(title="Statistics:" , 
+                            layout=[[sg.Multiline('', size=(140, 60), key='-STATS-', autoscroll=True , font=('SFPro' , 12) , no_scrollbar=True)]],
+                            background_color=('#930707') , font=('SFPro' , 20) , size=(500,325) , title_color='Black' , element_justification='right')
+                ]
+             ]
+
+GraphColumn = [
+                [   sg.Text("Waiting For\n NerlNet Graph..." , key='-PHOLD-', text_color='Black' , font=('SFPro' , 12) , size=(70,5) , background_color='#930707' , justification='center' , pad=(0,0)) ,
+                    sg.Image(key='-IMAGE-' , visible=False) 
+                ],
+                [   
+                    sg.Text("Enter the name of the worker you wish to terminate:" ,key='-INTEXT-', size=(42,1) ,text_color='white' , font=('SFPro' , 12) , background_color='#930707' , justification='left' , pad=(0,0) , visible=False) , 
+                    sg.Input('',key='-INPUT-' , visible=False , justification='left' , size=(20,1) , font=('SFPro' , 12) , background_color='white' , text_color='black' , pad=(0,0) , enable_events=True),
+                    sg.Button(button_text="Terminate" , button_color=('#C30404' , '#000000') , font=('SFPro' , 12) , size=(10,1) , pad=(0,0) , visible=False, key='-TERM-', enable_events=True)
+                ]
+              ]
+
 layout = [
                 [
                     sg.Text("NerlNet Monitor" , key='-TEXT-' , size=(30,1) ,text_color='Black' , font=('SFPro' , 20) , background_color='#930707' , justification='center' , pad=(0,0))
                 ] ,
-                [   sg.Frame(title="Event Log:" , 
-                            layout=[[sg.Multiline('', size=(140, 60), key='-LOG-', autoscroll=True , font=('SFPro' , 12) , no_scrollbar=True)]],
-                            background_color=('#930707') , font=('SFPro' , 20) , size=(500,650) , title_color='Black' , element_justification='right') ,
-                    sg.Text("Waiting For\n NerlNet Graph..." , key='-PHOLD-', text_color='Black' , font=('SFPro' , 12) , size=(70,5) , background_color='#930707' , justification='center' , pad=(0,0)) ,
-                    sg.Image(key='-IMAGE-' , visible=False) 
-                    
+                [   sg.Column(DataColumn , background_color='#930707') ,
+                    sg.VSeperator() ,
+                    sg.Column(GraphColumn , background_color='#930707')
                 ] ,
                 [
                     sg.Button(button_text="Close" , button_color=('#C30404' , '#000000') , font=('SFPro' , 12) , size=(5,2)),
                     sg.Button(button_text="Clear Log" , button_color=('#C30404' , '#000000') , font=('SFPro' , 12) , size=(5,2))
                 ]
                     
-            ]
+          ]
 
 MainWindow = sg.Window("NErlNet" , layout , margins=(5,5) , size=(1400,800) , background_color='#930707' , finalize=True , resizable=True , element_justification='c')
 
-
+def RemoteRecv():
+    return Atom('erl@127.0.0.1') , Atom("recvPyrlang")
 
 def formatted_time():
     return f'[{datetime.now().day}/{datetime.now().month}/{datetime.now().year}|{datetime.now().hour}:{datetime.now().minute}:{datetime.now().second}]'
 
-def GUI(MainPid):
+def GUI(MainPid , CommProc : MyProcess , PyNode : Node):
     while True:
         event , values = MainWindow.read(timeout=100)
+        existing_text = values['-LOG-']
         updated_text = ''
         if event == "Close" or event == sg.WIN_CLOSED:
             os.kill(MainPid , 9)
             print("GUI Closed.")
             break
-        if event == "Clear Log":
-             MainWindow['-LOG-'].update('')
+        elif event == "Clear Log":
+            MainWindow['-LOG-'].update('')
+        elif event == "-TERM-":
+            Workers = [Graph.nodes[node]['label'] for node in Graph.nodes() if Graph.nodes[node]['label'][0] == 'w' and node_colors[node] != 'gray']
+            if values['-INPUT-'] not in Workers:
+                updated_text = f'{existing_text}\n{formatted_time()}: Invalid Worker Name {values["-INPUT-"]} , Available Workers: {Workers}.'
+                MainWindow['-LOG-'].update(updated_text)
+            else:
+                Workers.remove(values['-INPUT-'])
+                node_colors[values['-INPUT-']] = 'gray'
+                nx.set_node_attributes(Graph, node_colors, 'color')
+                colors = nx.get_node_attributes(Graph, 'color').values()
+                pos = nx.nx_agraph.graphviz_layout(Graph, prog='dot')
+                plt.figure(figsize=(8,6))
+                nx.draw_networkx(Graph, pos, with_labels=True, node_color=colors , node_size=200, font_size=8, font_color='white' , edge_color='black' , width=1.5)
+                plt.savefig('NerlNetGraph.png' ,bbox_inches='tight' , dpi=125)
+                plt.close()
+                MainWindow['-IMAGE-'].update(filename='NerlNetGraph.png' , visible=True , size=(800,600))
+                
+                updated_text = f'{existing_text}\n{formatted_time()}: Worker {values["-INPUT-"]} terminated , Available Workers: {Workers}.'
+                PyNode.send_nowait(sender = CommProc.pid_ , receiver = ('erl@127.0.0.1' , 'recvPyrlang') , message = (Atom('terminate'),Atom(f'{values["-INPUT-"]}')))
+                MainWindow['-LOG-'].update(updated_text)
+            MainWindow['-INPUT-'].update('')
         if not msg_queue.empty():
             msg = msg_queue.get_nowait()
             if msg[0] == 'graph':
@@ -63,29 +119,51 @@ def GUI(MainPid):
                 MainWindow['-PHOLD-'].update(visible=False)
                 MainWindow['-IMAGE-'].update(filename='NerlNetGraph.png' , visible=True , size=(800,600))
                 MainWindow['-LOG-'].update(f'{formatted_time()}: NerlNet Graph Received.')
+                MainWindow['-INTEXT-'].update(visible=True)
+                MainWindow['-INPUT-'].update(visible=True)
+                MainWindow['-TERM-'].update(visible=True)
             elif msg[0] == 'update':
                 ClientName , WorkerName = msg[1].split('-')
 
-                node_colors[WorkerName] = 'black'
-                node_colors[ClientName] = 'gray'
+                node_colors[WorkerName] = 'gray'
+                #node_colors[ClientName] = 'gray'
                 nx.set_node_attributes(Graph, node_colors, 'color')
                 colors = nx.get_node_attributes(Graph, 'color').values()
 
                 pos = nx.nx_agraph.graphviz_layout(Graph, prog='dot')
                 angle = 100
-                rotated_pos = {node: (x*math.cos(angle) -y*math.sin(angle), x*math.sin(angle) + y*math.cos(angle)) for node, (x, y) in pos.items()}
+                #rotated_pos = {node: (x*math.cos(angle) -y*math.sin(angle), x*math.sin(angle) + y*math.cos(angle)) for node, (x, y) in pos.items()}
 
                 plt.figure(figsize=(8,6))
-                nx.draw_networkx(Graph, rotated_pos, with_labels=True, node_color=colors , node_size=200, font_size=8, font_color='white' , edge_color='black' , width=1.5)
+                nx.draw_networkx(Graph, pos, with_labels=True, node_color=colors , node_size=200, font_size=8, font_color='white' , edge_color='black' , width=1.5)
                 plt.savefig('NerlNetGraph.png' ,bbox_inches='tight' , dpi=125)
                 plt.close()
                 MainWindow['-IMAGE-'].update(filename='NerlNetGraph.png' , visible=True , size=(800,600))
-                existing_text = values['-LOG-']
                 if existing_text == '':
                     updated_text = f'{formatted_time()}: Worker {WorkerName} of Client {ClientName} is down.'
                 else:
                     updated_text = f'{existing_text}\n{formatted_time()}: Worker {WorkerName} of Client {ClientName} is down.'
                 MainWindow['-LOG-'].update(updated_text)
+            
+            elif msg[0] == 'stats':
+                Data = msg[1]
+                statDict = {"workers": {}}
+                for items in str(Data).split('|'): 
+                    key, val = items.split(':') 
+                    if '=' in val:      
+                        for worker in val.split(','):
+                            workerName, time = worker.split('=')
+                            statDict["workers"][workerName] = time
+                    else:               
+                        statDict[key] = val
+                for key, val in statDict.items():
+                    if isinstance(val, dict):
+                        MainWindow['-STATS-'].update(f'{formatted_time()}: {key}')
+                        for key2, val2 in val.items():
+                            MainWindow['-STATS-'].update(f'{formatted_time()}: {key2} : {val2}')
+                    else:
+                        MainWindow['-STATS-'].update(f'{formatted_time()}: {key} : {val}')
+                
 
             elif values['-LOG-'] != '':
                 existing_text = values['-LOG-']
@@ -114,52 +192,40 @@ def Show_Nerlnet_Graph(NerlGraph):
     NodesNames = [NodeTriplet.split(',')[0] for NodeTriplet in Nodes]
     NodesNames += WorkersNames
 
-    
+    NodeWithLabels = [(NodeName , {'label' : NodeName}) for NodeName in NodesNames]
     graph = nx.Graph()
-    graph.add_nodes_from(NodesNames)
+    graph.add_nodes_from(NodeWithLabels)
     graph.add_edges_from(EdgesSeperated)
 
     my_labels = {'mainServer': 'mS' , 'apiServer': 'aS'}
+
     nx.relabel_nodes(graph, my_labels , copy=False)
-    default_color = 'darkred'
-    node_colors = {node:default_color for node in graph.nodes()}
+    default_colors = {node:'darkred' for node in graph.nodes()}
+    node_colors = {node:default_colors[node] for node in graph.nodes()}
     nx.set_node_attributes(graph, node_colors, 'color')
     colors = nx.get_node_attributes(graph, 'color').values()
 
     pos = nx.nx_agraph.graphviz_layout(graph, prog='dot')
     angle = 100
-    rotated_pos = {node: (x*math.cos(angle) -y*math.sin(angle), x*math.sin(angle) + y*math.cos(angle)) for node, (x, y) in pos.items()}
+    #rotated_pos = {node: (x*math.cos(angle) -y*math.sin(angle), x*math.sin(angle) + y*math.cos(angle)) for node, (x, y) in pos.items()}
     plt.figure(figsize=(8,6))
-    nx.draw_networkx(graph, rotated_pos, with_labels=True, node_color=colors , node_size=200, font_size=8, font_color='white' , edge_color='black' , width=1.5)
+    nx.draw_networkx(graph, pos, with_labels=True, node_color=colors , node_size=200, font_size=8, font_color='white' , edge_color='black' , width=1.5)
     plt.savefig('NerlNetGraph.png' ,bbox_inches='tight' , dpi=125)
     plt.close()
     return graph , node_colors
 
-
-class MyProcess(Process):
-        def __init__(self , msg_queue) -> None:
-            Process.__init__(self)
-            self.get_node().register_name(self, Atom('PyrlangProcess'))  
-            self.msg_queue = msg_queue
-
-
-        def handle_one_inbox_message(self, msg):
-            print(f'From Pyrlang: {msg}')
-            self.msg_queue.put(msg)
-            if not self.msg_queue.empty():
-                 print(f'Queue is not Empty: {msg} added.')
-            
+       
 
 if __name__ == "__main__":
     msg_queue = multiprocessing.Queue()
-    
+    PyNode = Node(node_name="py@127.0.0.1" , cookie="COOKIE")
+    #event_loop = PyNode.get_loop()
     PyrlangPid = os.getpid()
-    GUI_Process = multiprocessing.Process(target=GUI , args=(PyrlangPid,))
+    CommProc = MyProcess(msg_queue)
+    GUI_Process = multiprocessing.Process(target=GUI , args=(PyrlangPid,CommProc,PyNode))
     GUI_Process.start()
 
     print("Starting a Pyrlang node...")
-    PyNode = Node(node_name="py@127.0.0.1" , cookie="COOKIE")
-    MyProcess(msg_queue)
     PyNode.run()
 
     

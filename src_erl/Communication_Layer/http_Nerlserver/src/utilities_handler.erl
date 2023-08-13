@@ -6,7 +6,7 @@
 
 init(Req0 , [MainServerPid]) ->
     {_,Body,_} = cowboy_req:read_body(Req0),
-    io:format("got kill-------------------messege: ~p~n",[Body]),
+    io:format("Body: ~p~n" , [Body]) , 
     Formatted = binary_to_list(Body),
     [UtilityName , IP , Port] = [X || X <- re:split(Formatted , "#" , [{return , list}])],
     case list_to_atom(UtilityName) of

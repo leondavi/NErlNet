@@ -208,9 +208,9 @@ idle(cast, In = {custom_worker_message, {From, To}}, State = #client_statem_stat
   {keep_state, State};
 
 idle(cast, In = {statistics}, State = #client_statem_state{ myName = MyName, etsRef = EtsRef}) ->
-  sendStatistics(EtsRef),
   ets:update_counter(EtsRef, msgCounter, 1), % last param is increment value
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
+  sendStatistics(EtsRef),
   {next_state, idle, State};
 
 idle(cast, In = {training}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -365,6 +365,13 @@ training(cast, In = {loss,WorkerName,LossFunction,_Time_NIF}, State = #client_st
   nerl_tools:http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,LossFunction})),
   {next_state, training, State#client_statem_state{myName = MyName,etsRef = EtsRef}};
 
+% training(cast, In = {statistics}, State = #client_statem_state{ myName = MyName, etsRef = EtsRef}) ->
+%   io:format("client ~p got statistics ~n",[MyName]),
+%   ets:update_counter(EtsRef, msgCounter, 1), % last param is increment value
+%   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
+%   sendStatistics(EtsRef),
+%   {next_state, training, State};
+
 training(cast, EventContent, State = #client_statem_state{etsRef = EtsRef, myName = MyName}) ->
   ?LOG_WARNING("client ~p training ignored!!!:  ~p ~n!!!",[MyName, EventContent]),
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(EventContent)),
@@ -438,6 +445,12 @@ predict(cast, In = {idle}, State = #client_statem_state{etsRef = EtsRef}) ->
   ?LOG_INFO("client going to state idle"),
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
   {next_state, waitforWorkers, State#client_statem_state{nextState = idle, waitforWorkers = Workers, etsRef = EtsRef}};
+
+% predict(cast, In = {statistics}, State = #client_statem_state{ myName = MyName, etsRef = EtsRef}) ->
+%   ets:update_counter(EtsRef, msgCounter, 1), % last param is increment value
+%   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
+%   sendStatistics(EtsRef),
+%   {next_state, predict, State};
 
 predict(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
