@@ -312,7 +312,7 @@ PREDICTION_STR = "Prediction"
         plt.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.png')
         print(f'\n{fileName}.png was Saved...')
 
-    def accuracy_matrix(self, expNum):
+    def accuracy_matrix(self, expNum, normalizeEnabled = 'false'):
         expForStats = self.experiments[expNum-1] 
 
         # Choose the matching (to the original labeled CSV) CSV from the prediction results list:
@@ -411,7 +411,7 @@ PREDICTION_STR = "Prediction"
             for j in range(labelsLen):
                 # print(f"worker {worker}, has {len(workerNeuronRes[worker][TRUE_LABLE_IND])} labels, with {len(workerNeuronRes[worker][TRUE_LABLE_IND][j])} samples")
                 # print(f"confusion {worker}:{j}, has is of {workerNeuronRes[worker][TRUE_LABLE_IND][j]}, {workerNeuronRes[worker][PRED_LABLE_IND][j]}")
-                confMatList[worker][j] = confusion_matrix(workerNeuronRes[worker][globe.TRUE_LABLE_IND][j], workerNeuronRes[worker][globe.PRED_LABLE_IND][j], normalize='all')
+                confMatList[worker][j] = confusion_matrix(workerNeuronRes[worker][globe.TRUE_LABLE_IND][j], workerNeuronRes[worker][globe.PRED_LABLE_IND][j], normalize=normalizeEnabled)
                 # print(confMatList[worker][j])
                 disp = ConfusionMatrixDisplay(confMatList[worker][j], display_labels=["X", labelNames[j]])
                 disp.plot(ax=axes[i, j], colorbar=False)
