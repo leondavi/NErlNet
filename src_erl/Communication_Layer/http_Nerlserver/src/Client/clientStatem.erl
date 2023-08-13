@@ -78,7 +78,7 @@ init({MyName,NerlnetGraph, WorkersToClientsMap}) ->
   ets:insert(EtsRef, {msgCounter, 1}),
   ets:insert(EtsRef, {infoIn, 0}),
   ets:insert(EtsRef, {myName, MyName}),
-
+  ets:insert(EtsRef , {deadWorkers , []}),
   createWorkers(MyName,EtsRef),
 
   %% send pre_idle signal to workers
@@ -573,7 +573,8 @@ updateTimingMap(EtsRef, WorkerName) when is_atom(WorkerName) ->
 %% adding client c1=MsgNum,w1=...
 sendStatistics(EtsRef)->
   NerlnetGraph = ets:lookup_element(EtsRef, nerlnetGraph, ?ETS_KV_VAL_IDX),
-  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
+  [{deadWorkers , DeadWorkers}] = ets:lookup(EtsRef, deadWorkers),
+  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX) ++ DeadWorkers,
   TimingMap = [{WorkerKey,ets:lookup_element(EtsRef, WorkerKey, ?WORKER_TIMING_IDX)} || WorkerKey <- Workers],
   MissedCounts = [{WorkerKey,ets:lookup_element(EtsRef, WorkerKey, ?WORKER_TRAIN_MISSED_IDX)} || WorkerKey <- Workers],
   Counter = ets:lookup_element(EtsRef, msgCounter, ?ETS_KV_VAL_IDX),
@@ -602,10 +603,13 @@ cast_message_to_workers(EtsRef, Msg) ->
 
 %activated if client detected that a worker stopped, will delete it from ets so as not to wait for responsed from it in the future.
 delete_worker(EtsRef,MyName,WorkerName)->
-  ets:delete(EtsRef , WorkerName),
-  NameList = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
+  %ets:delete(EtsRef , WorkerName),
+  AliveList = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
+  DeadList = ets:lookup_element(EtsRef, deadWorkers, ?ETS_KV_VAL_IDX),
   ets:delete(EtsRef,workersNames),
-  ets:insert(EtsRef, {workersNames, NameList -- [WorkerName]}),
+  ets:delete(EtsRef,deadWorkers),
+  ets:insert(EtsRef, {workersNames, AliveList -- [WorkerName]}),
+  ets:insert(EtsRef, {deadWorkers, DeadList ++ [WorkerName]}),
   NerlGraph = ets:lookup_element(EtsRef, nerlnetGraph, ?ETS_KV_VAL_IDX),
   {Host , Port} = nerl_tools:getShortPath(MyName, ?MAIN_SERVER_ATOM, NerlGraph),
   nerl_tools:http_request(Host,Port,"worker_down",list_to_binary(atom_to_list(MyName) ++ "-" ++ atom_to_list(WorkerName))),

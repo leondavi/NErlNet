@@ -178,23 +178,27 @@ async def GUI(msg_queue):
                 MainWindow['-LOG-'].update(updated_text)
             
             elif msg[0] == 'stats':
+                existing_text = values['-STATS-']
                 Data = msg[1]
-                statDict = {"workers": {}}
+                statDict = {"entities": {}}
                 for items in str(Data).split('|'): 
-                    key, val = items.split(':') 
+                    Entity, val = items.split(':') 
                     if '=' in val:      
-                        for worker in val.split(','):
-                            workerName, time = worker.split('=')
-                            statDict["workers"][workerName] = time
+                        for EntityStat in val.split(','):
+                            Stat, Result = EntityStat.split('=')
+                            statDict["entities"][Stat] = Result
                     else:               
-                        statDict[key] = val
-                for key, val in statDict.items():
+                        statDict[Entity] = val
+                for Entity, val in statDict.items():
+                    existing_text = values['-STATS-']
                     if isinstance(val, dict):
-                        MainWindow['-STATS-'].update(f'{formatted_time()}: {key}')
-                        for key2, val2 in val.items():
-                            MainWindow['-STATS-'].update(f'{formatted_time()}: {key2} : {val2}')
+                        MainWindow['-STATS-'].update(f'{existing_text}\n{formatted_time()}: {Entity} Stats:\n')
+                        for Stat, Res in val.items():
+                            existing_text = values['-STATS-']
+                            updated_text = f'{existing_text}\n{formatted_time()}: {Stat}: {Res}'
+                            MainWindow['-STATS-'].update(f'{existing_text}\n{formatted_time()}: {updated_text}')
                     else:
-                        MainWindow['-STATS-'].update(f'{formatted_time()}: {key} : {val}')
+                        MainWindow['-STATS-'].update(f'{existing_text}\n{formatted_time()}: {Entity} Received {val} Messages')
                 
 
             elif values['-LOG-'] != '':

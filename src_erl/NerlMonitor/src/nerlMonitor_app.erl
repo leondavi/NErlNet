@@ -34,7 +34,7 @@ start(_StartType, _StartArgs) ->
     erlang:register(recvPyrlang , self()),
     _GUI_PID = spawn_link(?MODULE , link_GUI , [self()]) , %% PyrlangNode: ('PyralngProcess' , 'py@127.0.0.1' , 'COOKIE') , sending message by: 'GUI ! HELLO.'
     URL = "http://" ++ ?MSADDRES ++ "/toolConnectionReq",
-    mainServerPing(URL,[list_to_binary(atom_to_list(?UTILNAME) ++ "#") , list_to_binary(?IP ++ "#") , list_to_binary(integer_to_list(?PORT))]), %% TODO How to "import" nerl_tools
+    mainServerPing(URL,term_to_binary([?UTILNAME , ?IP , integer_to_list(?PORT)])), %% TODO How to "import" nerl_tools
     nerlMonitor_sup:start_link().
 
 
