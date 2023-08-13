@@ -49,26 +49,24 @@ mainServerPing(URL,Body)->
             timer:sleep(1000),
             mainServerPing(URL,Body);
         {ok,{_ResCode, _Headers, Data}}-> 
-            io:format("got1 response from main server~n"),
-            initInfoProc(Data);
+            io:format("Sending graph to GUI , graph is ~p~n" , [Data]),
+            ?GUI ! {graph , Data} , 
+            recvLoop();
         {ok , _} -> 
             io:format("got2 response from main server~n")
     end.
 
 
-initInfoProc(Body)-> %% MainServer replies with Nerlnet-Graph when nerlMonitor tool is used
-    io:format("Sending graph to GUI , graph is ~p~n" , [Body]),
-    ?GUI ! {graph , Body},
+recvLoop()-> %% MainServer replies with Nerlnet-Graph when nerlMonitor tool is used
     receive 
-        {send , Msg} -> 
-            io:format("got message from GUI: ~p~n" , [Msg]);
+        {terminate , WorkerName} -> 
+            io:format("got termination for Worker ~p from GUI~n" , [WorkerName]),
+            URL = "http://" ++ ?MSADDRES ++ "/worker_kill",
+            Body = term_to_binary(WorkerName),
+            httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []);
         _ -> io:format("got unknown message from GUI~n")
     end,
-    io:format("initInfoProc finished~n").
-
-
-%functionalty of the tool, will create a list of tuples when each tuple is {entity that will run the func (atom),function itself {func)}
-functions()-> ok.
+    recvLoop().
     
 
 stop(_State) ->

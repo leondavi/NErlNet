@@ -9,6 +9,10 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import os
 import math
+import asyncio
+import nest_asyncio
+nest_asyncio.apply()
+
 
 class MyProcess(Process):
         def __init__(self , msg_queue) -> None:
@@ -22,14 +26,12 @@ class MyProcess(Process):
             if msg[0] == Atom('send'):
                 print(f'From ErlProcess: {msg[1]}')
             else:
-                self.msg_queue.put(msg)
+                self.msg_queue.put_nowait(msg)
             if not self.msg_queue.empty():
                  print(f'Queue is not Empty: {msg} added.')
      
 
-msg_queue = multiprocessing.Queue()
-PyNode = Node(node_name="py@127.0.0.1" , cookie="COOKIE")
-CommProc = MyProcess(msg_queue=msg_queue)
+
 
 def draw_gradient(canvas, start_color, end_color):
     for y in range(0, 200):  # Adjust the range to your desired height
@@ -102,23 +104,22 @@ def formatted_time():
 
 #     SendNode.run()
 
-def GUI(MainPid , CommProc : MyProcess , CommProcInbox):
-    async def task2():
-        print("Sending Hello World!")
-        PyNode.send_nowait(sender = CommProc.pid_ , receiver = RemoteRecv() , message = (Atom('send'),Atom('Hello World!')))
-        print("Sent Hello World!")
+async def GUI(msg_queue):
+    print("GUI task started...")
+    PyNode , CommProc = await msg_queue.get()
+    print("Got Message from queue")
+    print(msg_queue.empty())
+    print(f"Got PyNode and CommProc from Queue.")
     while True:
+        await asyncio.sleep(.1)
         event , values = MainWindow.read(timeout=100)
         existing_text = values['-LOG-']
         updated_text = ''
         if event == "Close" or event == sg.WIN_CLOSED:
-            os.kill(MainPid , 9)
+            os.kill(os.getpid() , 9)
             print("GUI Closed.")
             break
         elif event == "Clear Log":
-            #CommProcInbox.put_nowait((Atom('send'),Atom('Hello World!')))
-            PyNode.send_nowait(sender = CommProc.pid_ , receiver = RemoteRecv() , message = (Atom('send'),Atom('Hello World!')))
-            print("Trying to send hello world")
             MainWindow['-LOG-'].update('')
         elif event == "-TERM-":
             Workers = [Graph.nodes[node]['label'] for node in Graph.nodes() if Graph.nodes[node]['label'][0] == 'w' and node_colors[node] != 'gray']
@@ -138,10 +139,8 @@ def GUI(MainPid , CommProc : MyProcess , CommProcInbox):
                 MainWindow['-IMAGE-'].update(filename='NerlNetGraph.png' , visible=True , size=(800,600))
                 
                 updated_text = f'{existing_text}\n{formatted_time()}: Worker {values["-INPUT-"]} terminated , Available Workers: {Workers}.'
-                #PyNode.send_nowait(sender = CommProc.pid_ , receiver = RemoteRecv() , message = (Atom('terminate'),Atom(f'{values["-INPUT-"]}')))
+                PyNode.send_nowait(sender = CommProc.pid_ , receiver = RemoteRecv() , message = (Atom('terminate'),Atom(f'{values["-INPUT-"]}')))
 
-                event_loop = PyNode.get_loop()
-                event_loop.call_soon(task2)
 
                 MainWindow['-LOG-'].update(updated_text)
             MainWindow['-INPUT-'].update('')
@@ -247,29 +246,22 @@ def Show_Nerlnet_Graph(NerlGraph):
     plt.close()
     return graph , node_colors
 
-       
+
+
+async def Pyrlang(msg_queue):
+    print("Pyrlang task started...")
+    PyNode = Node(node_name="py@127.0.0.1" , cookie="COOKIE")
+    CommProc = MyProcess(msg_queue=msg_queue)
+    msg_queue.put_nowait((PyNode , CommProc))
+    print("Pyrlang task finished.")
+    PyNode.run()
+ 
+async def main_func():
+    msg_queue = asyncio.Queue()
+    await asyncio.gather(GUI(msg_queue) , Pyrlang(msg_queue))
 
 if __name__ == "__main__":
-    #msg_queue = multiprocessing.Queue()
-    #PyNode = Node(node_name="py@127.0.0.1" , cookie="COOKIE")
-    
-    #event_loop = PyNode.get_loop()
-
-    PyrlangPid = os.getpid()
-    #CommProc = MyProcess(msg_queue=msg_queue)
-
-    # def task():
-    #     Res = PyNode.send_nowait(sender = CommProc.pid_ , receiver = RemoteRecv() , message = (Atom('send'),Atom('Hello World!')))
-    #     print("Sent Hello World!")
-    #     print(Res)
-
-    # event_loop.call_soon(task)
-
-    GUI_Process = multiprocessing.Process(target=GUI , args=(PyrlangPid,CommProc,CommProc.inbox_))
-    GUI_Process.start()
-
-    print("Starting a Pyrlang node...")
-    PyNode.run()
+    asyncio.run(main_func())
 
     
 
