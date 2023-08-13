@@ -31,7 +31,8 @@ start(_StartType, _StartArgs) ->
     ]),
     {ok, _} = cowboy:start_clear(?UTILNAME,[{port, ?PORT}],#{env => #{dispatch => Dispatch}}),
     io:format("nerlMonitor started , opening GUI...~n"),
-    GUI_PID = spawn_link(?MODULE , link_GUI , [self()]) , %% PyrlangNode: ('PyralngProcess' , 'py@127.0.0.1' , 'COOKIE') , sending message by: 'GUI ! HELLO.'
+    erlang:register(recvPyrlang , self()),
+    _GUI_PID = spawn_link(?MODULE , link_GUI , [self()]) , %% PyrlangNode: ('PyralngProcess' , 'py@127.0.0.1' , 'COOKIE') , sending message by: 'GUI ! HELLO.'
     URL = "http://" ++ ?MSADDRES ++ "/toolConnectionReq",
     mainServerPing(URL,[list_to_binary(atom_to_list(?UTILNAME) ++ "#") , list_to_binary(?IP ++ "#") , list_to_binary(integer_to_list(?PORT))]), %% TODO How to "import" nerl_tools
     nerlMonitor_sup:start_link().
@@ -57,7 +58,13 @@ mainServerPing(URL,Body)->
 
 initInfoProc(Body)-> %% MainServer replies with Nerlnet-Graph when nerlMonitor tool is used
     io:format("Sending graph to GUI , graph is ~p~n" , [Body]),
-    ?GUI ! {graph , Body}.
+    ?GUI ! {graph , Body},
+    receive 
+        {send , Msg} -> 
+            io:format("got message from GUI: ~p~n" , [Msg]);
+        _ -> io:format("got unknown message from GUI~n")
+    end,
+    io:format("initInfoProc finished~n").
 
 
 %functionalty of the tool, will create a list of tuples when each tuple is {entity that will run the func (atom),function itself {func)}

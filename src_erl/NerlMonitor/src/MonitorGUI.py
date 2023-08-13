@@ -18,11 +18,18 @@ class MyProcess(Process):
 
 
         def handle_one_inbox_message(self, msg):
-            print(f'From Pyrlang: {msg}')
-            self.msg_queue.put(msg)
+            print(f'From ErlProcess: {msg}')
+            if msg[0] == Atom('send'):
+                print(f'From ErlProcess: {msg[1]}')
+            else:
+                self.msg_queue.put(msg)
             if not self.msg_queue.empty():
                  print(f'Queue is not Empty: {msg} added.')
      
+
+msg_queue = multiprocessing.Queue()
+PyNode = Node(node_name="py@127.0.0.1" , cookie="COOKIE")
+CommProc = MyProcess(msg_queue=msg_queue)
 
 def draw_gradient(canvas, start_color, end_color):
     for y in range(0, 200):  # Adjust the range to your desired height
@@ -80,7 +87,26 @@ def RemoteRecv():
 def formatted_time():
     return f'[{datetime.now().day}/{datetime.now().month}/{datetime.now().year}|{datetime.now().hour}:{datetime.now().minute}:{datetime.now().second}]'
 
-def GUI(MainPid , CommProc : MyProcess , PyNode : Node):
+# def SendMsg(Msg):
+#     SendNode  = Node(node_name='pysend@127.0.0.1' , cookie='COOKIE')
+#     SendProc = MyProcess()
+#     event_loop = SendNode.get_loop()
+
+#     print(SendNode.where_is(Atom('recvPyrlang')))
+
+#     def task():
+#         SendNode.send_nowait(sender = SendProc.pid_ , receiver = RemoteRecv() , message = (Atom('send'),Atom(Msg)))
+#         SendNode.destroy()
+    
+#     event_loop.call_soon(task)
+
+#     SendNode.run()
+
+def GUI(MainPid , CommProc : MyProcess , CommProcInbox):
+    async def task2():
+        print("Sending Hello World!")
+        PyNode.send_nowait(sender = CommProc.pid_ , receiver = RemoteRecv() , message = (Atom('send'),Atom('Hello World!')))
+        print("Sent Hello World!")
     while True:
         event , values = MainWindow.read(timeout=100)
         existing_text = values['-LOG-']
@@ -90,6 +116,9 @@ def GUI(MainPid , CommProc : MyProcess , PyNode : Node):
             print("GUI Closed.")
             break
         elif event == "Clear Log":
+            #CommProcInbox.put_nowait((Atom('send'),Atom('Hello World!')))
+            PyNode.send_nowait(sender = CommProc.pid_ , receiver = RemoteRecv() , message = (Atom('send'),Atom('Hello World!')))
+            print("Trying to send hello world")
             MainWindow['-LOG-'].update('')
         elif event == "-TERM-":
             Workers = [Graph.nodes[node]['label'] for node in Graph.nodes() if Graph.nodes[node]['label'][0] == 'w' and node_colors[node] != 'gray']
@@ -109,7 +138,11 @@ def GUI(MainPid , CommProc : MyProcess , PyNode : Node):
                 MainWindow['-IMAGE-'].update(filename='NerlNetGraph.png' , visible=True , size=(800,600))
                 
                 updated_text = f'{existing_text}\n{formatted_time()}: Worker {values["-INPUT-"]} terminated , Available Workers: {Workers}.'
-                PyNode.send_nowait(sender = CommProc.pid_ , receiver = ('erl@127.0.0.1' , 'recvPyrlang') , message = (Atom('terminate'),Atom(f'{values["-INPUT-"]}')))
+                #PyNode.send_nowait(sender = CommProc.pid_ , receiver = RemoteRecv() , message = (Atom('terminate'),Atom(f'{values["-INPUT-"]}')))
+
+                event_loop = PyNode.get_loop()
+                event_loop.call_soon(task2)
+
                 MainWindow['-LOG-'].update(updated_text)
             MainWindow['-INPUT-'].update('')
         if not msg_queue.empty():
@@ -217,12 +250,22 @@ def Show_Nerlnet_Graph(NerlGraph):
        
 
 if __name__ == "__main__":
-    msg_queue = multiprocessing.Queue()
-    PyNode = Node(node_name="py@127.0.0.1" , cookie="COOKIE")
+    #msg_queue = multiprocessing.Queue()
+    #PyNode = Node(node_name="py@127.0.0.1" , cookie="COOKIE")
+    
     #event_loop = PyNode.get_loop()
+
     PyrlangPid = os.getpid()
-    CommProc = MyProcess(msg_queue)
-    GUI_Process = multiprocessing.Process(target=GUI , args=(PyrlangPid,CommProc,PyNode))
+    #CommProc = MyProcess(msg_queue=msg_queue)
+
+    # def task():
+    #     Res = PyNode.send_nowait(sender = CommProc.pid_ , receiver = RemoteRecv() , message = (Atom('send'),Atom('Hello World!')))
+    #     print("Sent Hello World!")
+    #     print(Res)
+
+    # event_loop.call_soon(task)
+
+    GUI_Process = multiprocessing.Process(target=GUI , args=(PyrlangPid,CommProc,CommProc.inbox_))
     GUI_Process.start()
 
     print("Starting a Pyrlang node...")
