@@ -115,7 +115,7 @@ PREDICTION_STR = "Prediction"
             self.transmitter = Transmitter(self.mainServerAddress)
 
         print("\n***Please remember to execute NerlnetRun.sh on each device before continuing.")
-
+    
     def sendJsonsToDevices(self):
         # Send the content of jsonPath to each devices:
         print("\nSending JSON paths to devices...")
@@ -135,7 +135,7 @@ PREDICTION_STR = "Prediction"
 
             if globe.jupyterFlag == False:
               print(response.ok, response.status_code)
-        time.sleep(1)       # wait for connection to close
+        time.sleep(1)       # wait for connection to close ## TODO: check why
         print("Init JSONs sent to devices")
 
     def showJsons(self):
@@ -179,6 +179,7 @@ PREDICTION_STR = "Prediction"
         receiver.stop()
         return True
 
+    ## TODO: should be reviewed by Noa, Ohad and David
     # Wait for a result to arrive to the queue, and get results which arrived:
     def getQueueData(self):
         received = False
