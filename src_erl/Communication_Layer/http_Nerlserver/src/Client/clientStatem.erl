@@ -155,8 +155,7 @@ waitforWorkers(cast, In = {NewState}, State = #client_statem_state{myName = MyNa
 
 waitforWorkers(cast, {worker_kill , Body}, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
-  [_ , Target] = string:split(binary_to_list(Body), "-"),
-  WorkerName = list_to_atom(Target),
+  {_, WorkerName} = binary_to_term(Body),
   Pid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
   gen_statem:stop(Pid, shutdown , infinity),
   {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef}};
@@ -223,8 +222,7 @@ idle(cast, In = {training}, State = #client_statem_state{etsRef = EtsRef}) ->
 
 idle(cast, {worker_kill , Body}, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
-  [_ , Target] = string:split(binary_to_list(Body), "-"),
-  WorkerName = list_to_atom(Target),
+  {_, WorkerName} = binary_to_term(Body),
   Pid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
   gen_statem:stop(Pid, shutdown , infinity),
   {next_state, idle, State#client_statem_state{etsRef = EtsRef}};
@@ -296,8 +294,7 @@ training(cast, In = {custom_worker_message, WorkersList, WeightsTensor}, State =
 
 training(cast, {worker_kill , Body}, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
-  [_ , Target] = string:split(binary_to_list(Body), "-"),
-  WorkerName = list_to_atom(Target),
+  {_, WorkerName} = binary_to_term(Body),
   Pid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
   gen_statem:stop(Pid, shutdown , infinity),
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
@@ -418,8 +415,7 @@ predict(cast, In = {predictRes,WorkerName,InputName,ResultID,PredictNerlTensor, 
 
 predict(cast, {worker_kill , Body}, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
-  [_ , Target] = string:split(binary_to_list(Body), "-"),
-  WorkerName = list_to_atom(Target),
+  {_, WorkerName} = binary_to_term(Body),
   Pid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
   gen_statem:stop(Pid, shutdown , infinity),
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};

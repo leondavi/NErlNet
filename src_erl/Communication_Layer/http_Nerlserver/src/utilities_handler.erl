@@ -5,17 +5,13 @@
 -export([init/2]).
 
 init(Req0 , [MainServerPid]) ->
-    io:format("Req is ~p~n" , [Req0]),
     {_,Body,_} = cowboy_req:read_body(Req0),
-    io:format("Body: ~p~n" , [Body]) , 
+    io:format("got kill-------------------messege: ~p~n",[Body]),
     Formatted = binary_to_list(Body),
     [UtilityName , IP , Port] = [X || X <- re:split(Formatted , "#" , [{return , list}])],
-    io:format("UtilityName: ~p , IP: ~p , Port: ~p~n" , [UtilityName , IP , Port]),
     case list_to_atom(UtilityName) of
-        nerlMonitor ->  
-           io:format("I'm HERE , args are: ~p , ~p , ~p~n" , [UtilityName , IP , Port]), 
+        nerlMonitor ->   
            Graph = gen_server:call(MainServerPid , getGraph),
-           io:format("Graph: ~p~n" , [Graph]),
            WorkersMap = ets:lookup_element(nerlnet_data , workers , ?DATA_IDX),
            WorkersClients = maps:to_list(WorkersMap),
            Workers = lists:flatten([atom_to_list(X)++"-"++atom_to_list(Y)++"!" || {X , Y} <- WorkersClients]),
@@ -30,6 +26,7 @@ init(Req0 , [MainServerPid]) ->
 
 init(Req0 , [Action , MainServerPid]) -> 
     {_,Body,_} = cowboy_req:read_body(Req0),
+    io:format("got kill-------------------messege: ~p~n",[Body]),
     case Action of
         worker_kill ->
             gen_statem:cast(MainServerPid , {worker_kill , Body});

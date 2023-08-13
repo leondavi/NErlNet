@@ -328,8 +328,10 @@ handle_cast({worker_down,Body}, State = #main_genserver_state{msgCounter = MsgCo
 
 handle_cast({worker_kill , WorkerName} , State = #main_genserver_state{workersMap = WorkersMap , msgCounter = MsgCounter}) ->
   ?LOG_WARNING(?LOG_HEADER++"Worker ~p killed~n",[WorkerName]),
-  ClientName = maps:get(WorkerName,WorkersMap), % ! Worker Name is binary?
-  Body = list_to_binary(atom_to_list(ClientName)) ++ "-" ++ WorkerName,
+  WorkerNameAtom=binary_to_term(WorkerName),
+  ClientName = maps:get(WorkerNameAtom,WorkersMap), % ! Worker Name is binary?
+  Body = term_to_binary({ClientName, WorkerNameAtom}),
+  io:format("-------------worker kill got is: ~p sending:~p~n",[binary_to_term(WorkerName),binary_to_term(Body)]),
   nerl_tools:sendHTTP(?MAIN_SERVER_ATOM , ClientName , atom_to_list(worker_kill) , Body),
   {noreply, State#main_genserver_state{workersMap = WorkersMap , msgCounter = MsgCounter+1}};
 
