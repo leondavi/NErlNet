@@ -163,7 +163,7 @@ waitforWorkers(cast, {worker_kill , Body}, State = #client_statem_state{etsRef =
 waitforWorkers(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(EventContent)),
-  ?LOG_WARNING("client waitforWorkers ignored!!!:  ~p ~n",[EventContent]),
+  ?LOG_WARNING("client waitforWorkers ignored!!!:  ~p~n",[EventContent]),
   {next_state, waitforWorkers, State};
 
 %----------------------------------------------------------------
@@ -214,6 +214,7 @@ idle(cast, In = {statistics}, State = #client_statem_state{ myName = MyName, ets
   {next_state, idle, State};
 
 idle(cast, In = {training}, State = #client_statem_state{etsRef = EtsRef}) ->
+  io:format("client going to state training~n",[]),
   ets:update_counter(EtsRef, msgCounter, 1),
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
   MessageToCast = {training},
@@ -370,12 +371,19 @@ training(cast, In = {loss,WorkerName,LossFunction,_Time_NIF}, State = #client_st
 %   ets:update_counter(EtsRef, msgCounter, 1), % last param is increment value
 %   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
 %   sendStatistics(EtsRef),
-%   {next_state, training, State};
+%   {next_state, training , State};
 
 training(cast, EventContent, State = #client_statem_state{etsRef = EtsRef, myName = MyName}) ->
-  ?LOG_WARNING("client ~p training ignored!!!:  ~p ~n!!!",[MyName, EventContent]),
-  ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(EventContent)),
-  {next_state, training, State#client_statem_state{etsRef = EtsRef}};
+  case EventContent of % ! Not the best way to handle this
+    {statistics} ->
+      ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(EventContent)),
+      {next_state, training, State#client_statem_state{etsRef = EtsRef}};
+    _ ->
+      ?LOG_WARNING("client ~p training ignored!!!:  ~p ~n!!!",[MyName, EventContent]),
+      ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(EventContent)),
+      {next_state, training, State#client_statem_state{etsRef = EtsRef}}
+  end;
+  
 
 training(info, EventContent, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
   case EventContent of
@@ -446,11 +454,11 @@ predict(cast, In = {idle}, State = #client_statem_state{etsRef = EtsRef}) ->
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
   {next_state, waitforWorkers, State#client_statem_state{nextState = idle, waitforWorkers = Workers, etsRef = EtsRef}};
 
-% predict(cast, In = {statistics}, State = #client_statem_state{ myName = MyName, etsRef = EtsRef}) ->
-%   ets:update_counter(EtsRef, msgCounter, 1), % last param is increment value
-%   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
-%   sendStatistics(EtsRef),
-%   {next_state, predict, State};
+predict(cast, In = {statistics}, State = #client_statem_state{ myName = MyName, etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1), % last param is increment value
+  ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
+  sendStatistics(EtsRef),
+  {next_state, predict, State};
 
 predict(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
@@ -580,7 +588,7 @@ sendStatistics(EtsRef)->
   Counter = ets:lookup_element(EtsRef, msgCounter, ?ETS_KV_VAL_IDX),
   InfoSize = ets:lookup_element(EtsRef, infoIn, ?ETS_KV_VAL_IDX),
   MyName = ets:lookup_element(EtsRef, myName, ?ETS_KV_VAL_IDX),
-
+  % io:format("Timing Map is ~p~n",[TimingMap]),
   TimingStats = lists:flatten([atom_to_list(WorkerName)++"_Train_Avg_Time="++float_to_list(TotalTime/TotalBatches,[{decimals, 3}])++","||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-TimingMap]),
   MissingStats = lists:flatten([atom_to_list(WorkerName)++"_Train_Miss="++integer_to_list(MissCount)++","||{WorkerName,MissCount}<-MissedCounts]),
   MyStats = atom_to_list(MyName)++"_Msg_Count="++integer_to_list(Counter)++","++atom_to_list(MyName)++"_info_Size="++integer_to_list(InfoSize)++",",

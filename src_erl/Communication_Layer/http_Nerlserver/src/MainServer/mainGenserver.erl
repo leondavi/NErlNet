@@ -163,7 +163,7 @@ handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = 
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
 %%%get Statistics from all Entities in the network
-handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, statisticsCounter = StatisticsCounter, nerlnetGraph = NerlnetGraph,statisticsMap = StatisticsMap,msgCounter = MsgCounter , etsRef = EtsRef}) ->
+handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, statisticsCounter = StatisticsCounter, nerlnetGraph = NerlnetGraph,statisticsMap = StatisticsMap,msgCounter = MsgCounter , etsRef = EtsRef , state = CurrState}) ->
 
     if Body == <<"getStatistics">> ->   %% initial message from APIServer, get stats from entities
 
@@ -182,21 +182,26 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
           if StatisticsCounter == 1 ->  %% got stats from all entities
               Statistics = maps:to_list(NewStatisticsMap),
               S = mapToString(Statistics,[]) ,
-              ?LOG_NOTICE("Sending stats: ~p~n",[S]),
-              {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?API_SERVER_ATOM,NerlnetGraph),
-              nerl_tools:http_request(RouterHost,RouterPort,"statistics", S ++ "|mainServer:" ++integer_to_list(MsgCounter)),
-
-              case ets:member(EtsRef , nerlMonitor) of
-                true -> 
-                  [{_ , MonitorIP , MonitorPort}] = ets:lookup(EtsRef, nerlMonitor),
-                  nerl_tools:http_request(MonitorIP,list_to_integer(MonitorPort),"stats", S ++ "|mainServer:" ++integer_to_list(MsgCounter));
-                _ -> ok
+              %?LOG_NOTICE("Sending stats: ~p~n",[S]),
+              case CurrState of
+                idle ->
+                    case ets:member(EtsRef,nerlMonitor) of
+                      true->
+                        [{nerlMonitor , IP , Port}] = ets:lookup(EtsRef , nerlMonitor),
+                        nerl_tools:http_request(IP,list_to_integer(Port),"stats", S ++ "|mainServer:" ++integer_to_list(MsgCounter));
+                      false -> ok
+                    end,
+                    {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?API_SERVER_ATOM,NerlnetGraph),
+                    nerl_tools:http_request(RouterHost,RouterPort,"statistics", S ++ "|mainServer:" ++integer_to_list(MsgCounter));
+                casting ->
+                    [{_ , MonitorIP , MonitorPort}] = ets:lookup(EtsRef, nerlMonitor),
+                    nerl_tools:http_request(MonitorIP,list_to_integer(MonitorPort),"stats", S ++ "|mainServer:" ++integer_to_list(MsgCounter))
               end;
 
-          %% wait for more stats
-          true -> pass 
-        end
-      end,
+            %% wait for more stats
+            true -> pass 
+          end
+    end,
     {noreply, NewState};
 
 %%handle_cast({startPredicting}, State = #main_genserver_state{clients = ListOfClients, nerlnetGraph = NerlnetGraph}) ->
@@ -344,7 +349,6 @@ handle_cast({worker_kill , WorkerName} , State = #main_genserver_state{workersMa
   WorkerNameAtom=binary_to_term(WorkerName),
   ClientName = maps:get(WorkerNameAtom,WorkersMap), % ! Worker Name is binary?
   Body = term_to_binary({ClientName, WorkerNameAtom}),
-  io:format("-------------worker kill got is: ~p sending:~p~n",[binary_to_term(WorkerName),binary_to_term(Body)]),
   nerl_tools:sendHTTP(?MAIN_SERVER_ATOM , ClientName , atom_to_list(worker_kill) , Body),
   {noreply, State#main_genserver_state{workersMap = WorkersMap , msgCounter = MsgCounter+1}};
 
@@ -416,7 +420,7 @@ getNewStatisticsMap([{Name,{_Host, _Port}}|Tail],StatisticsMap) ->
 
 startCasting([],_NumOfSampleToSend,_MyName, _NerlnetGraph) -> done;
 startCasting([SourceName|SourceNames],NumOfSampleToSend, MyName, NerlnetGraph)->
-  ?LOG_NOTICE("~p sending start casting command to: ~p",[MyName, SourceName]),
+  ?LOG_NOTICE("~p sending start casting command to: ~p~n",[MyName, SourceName]),
   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,SourceName,NerlnetGraph),
   nerl_tools:http_request(RouterHost,RouterPort,"startCasting", SourceName++[","]++NumOfSampleToSend),
   startCasting(SourceNames,NumOfSampleToSend, MyName, NerlnetGraph).

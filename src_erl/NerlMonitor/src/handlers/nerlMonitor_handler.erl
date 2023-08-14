@@ -8,10 +8,8 @@ init(Req0, [Msg]) ->
     {_,Body,_} = cowboy_req:read_body(Req0),
     Data = binary_to_list(Body),
     case Msg of
-      utilInfo -> io:format("Update graph with: worker_down ~p~n" , [Data]) , 
-                     ?GUI ! {update ,Data};
-      stats -> io:format("Update graph with: stats ~p~n" , [Data]) , 
-                     ?GUI ! {stats ,Data};
+      utilInfo -> ?GUI ! {update ,Data};
+      stats -> ?GUI ! {stats ,Data};
       _ ->
         ok % got unknown messge, ignore.
     end,

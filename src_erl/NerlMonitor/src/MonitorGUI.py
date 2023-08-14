@@ -47,41 +47,41 @@ Msg_log = []
 DataColumn = [
                 [sg.Frame(title="Event Log:" , 
                             layout=[[sg.Multiline('', size=(140, 60), key='-LOG-', autoscroll=True , font=('SFPro' , 12) , no_scrollbar=True)]],
-                            background_color=('#930707') , font=('SFPro' , 20) , size=(500,325) , title_color='Black' , element_justification='right')
+                            background_color=('#A90433') , font=('SFPro' , 20) , size=(500,325) , title_color='White' , element_justification='right')
                 ] ,
                 [sg.Frame(title="Statistics:" , 
                             layout=[[sg.Multiline('', size=(140, 60), key='-STATS-', autoscroll=True , font=('SFPro' , 12) , no_scrollbar=True)]],
-                            background_color=('#930707') , font=('SFPro' , 20) , size=(500,325) , title_color='Black' , element_justification='right')
+                            background_color=('#A90433') , font=('SFPro' , 20) , size=(500,325) , title_color='White' , element_justification='right')
                 ]
              ]
 
 GraphColumn = [
-                [   sg.Text("Waiting For\n NerlNet Graph..." , key='-PHOLD-', text_color='Black' , font=('SFPro' , 12) , size=(70,5) , background_color='#930707' , justification='center' , pad=(0,0)) ,
+                [   sg.Text("Waiting For\n NerlNet Graph..." , key='-PHOLD-', text_color='White' , font=('SFPro' , 12) , size=(70,5) , background_color='#A90433' , justification='center' , pad=(0,0)) ,
                     sg.Image(key='-IMAGE-' , visible=False) 
                 ],
                 [   
-                    sg.Text("Enter the name of the worker you wish to terminate:" ,key='-INTEXT-', size=(42,1) ,text_color='white' , font=('SFPro' , 12) , background_color='#930707' , justification='left' , pad=(0,0) , visible=False) , 
+                    sg.Text("Enter the name of the worker you wish to terminate:" ,key='-INTEXT-', size=(42,1) ,text_color='white' , font=('SFPro' , 12) , background_color='#A90433' , justification='left' , pad=(0,0) , visible=False) , 
                     sg.Input('',key='-INPUT-' , visible=False , justification='left' , size=(20,1) , font=('SFPro' , 12) , background_color='white' , text_color='black' , pad=(0,0) , enable_events=True),
-                    sg.Button(button_text="Terminate" , button_color=('#C30404' , '#000000') , font=('SFPro' , 12) , size=(10,1) , pad=(0,0) , visible=False, key='-TERM-', enable_events=True)
+                    sg.Button(button_text="Terminate" , button_color=('#A90433' , '#FFFFFF') , font=('SFPro' , 12) , size=(10,1) , pad=(0,0) , visible=False, key='-TERM-', enable_events=True)
                 ]
               ]
 
 layout = [
                 [
-                    sg.Text("NerlNet Monitor" , key='-TEXT-' , size=(30,1) ,text_color='Black' , font=('SFPro' , 20) , background_color='#930707' , justification='center' , pad=(0,0))
+                    sg.Text("NerlNet Monitor" , key='-TEXT-' , size=(30,1) ,text_color='White' , font=('SFPro' , 20) , background_color='#A90433' , justification='center' , pad=(0,0))
                 ] ,
-                [   sg.Column(DataColumn , background_color='#930707') ,
+                [   sg.Column(DataColumn , background_color='#A90433') ,
                     sg.VSeperator() ,
-                    sg.Column(GraphColumn , background_color='#930707')
+                    sg.Column(GraphColumn , background_color='#A90433')
                 ] ,
                 [
-                    sg.Button(button_text="Close" , button_color=('#C30404' , '#000000') , font=('SFPro' , 12) , size=(5,2)),
-                    sg.Button(button_text="Clear Log" , button_color=('#C30404' , '#000000') , font=('SFPro' , 12) , size=(5,2))
+                    sg.Button(button_text="Close" , button_color=('#A90433' , '#FFFFFF') , font=('SFPro' , 12) , size=(5,2)),
+                    sg.Button(button_text="Clear Log" , button_color=('#A90433' , '#FFFFFF') , font=('SFPro' , 12) , size=(5,2))
                 ]
                     
           ]
 
-MainWindow = sg.Window("NErlNet" , layout , margins=(5,5) , size=(1400,800) , background_color='#930707' , finalize=True , resizable=True , element_justification='c')
+MainWindow = sg.Window("NErlNet" , layout , margins=(5,5) , size=(1400,800) , background_color='#A90433' , finalize=True , resizable=True , element_justification='c' , icon='../../../NerlnetLogo.ico')
 
 def RemoteRecv():
     return Atom('erl@127.0.0.1') , Atom("recvPyrlang")
@@ -110,16 +110,20 @@ async def GUI(msg_queue):
     print("Got Message from queue")
     print(msg_queue.empty())
     print(f"Got PyNode and CommProc from Queue.")
+    StatsInfo = {"workers": {} , "clients": {}}
     while True:
-        await asyncio.sleep(.1)
+        await asyncio.sleep(.01)
         event , values = MainWindow.read(timeout=100)
         existing_text = values['-LOG-']
         updated_text = ''
         if event == "Close" or event == sg.WIN_CLOSED:
+            PyNode.send_nowait(sender = CommProc.pid_ , receiver = RemoteRecv() , message = (Atom('close')))
+            await asyncio.sleep(.2)
             os.kill(os.getpid() , 9)
             print("GUI Closed.")
             break
         elif event == "Clear Log":
+            ShowStats(StatsInfo)
             MainWindow['-LOG-'].update('')
         elif event == "-TERM-":
             Workers = [Graph.nodes[node]['label'] for node in Graph.nodes() if Graph.nodes[node]['label'][0] == 'w' and node_colors[node] != 'gray']
@@ -138,7 +142,7 @@ async def GUI(msg_queue):
                 plt.close()
                 MainWindow['-IMAGE-'].update(filename='NerlNetGraph.png' , visible=True , size=(800,600))
                 
-                updated_text = f'{existing_text}\n{formatted_time()}: Worker {values["-INPUT-"]} terminated , Available Workers: {Workers}.'
+                updated_text = f'{existing_text}\n{formatted_time()}: Sending termination message for {values["-INPUT-"]} to Main Server.'
                 PyNode.send_nowait(sender = CommProc.pid_ , receiver = RemoteRecv() , message = (Atom('terminate'),Atom(f'{values["-INPUT-"]}')))
 
 
@@ -174,31 +178,35 @@ async def GUI(msg_queue):
                 if existing_text == '':
                     updated_text = f'{formatted_time()}: Worker {WorkerName} of Client {ClientName} is down.'
                 else:
-                    updated_text = f'{existing_text}\n{formatted_time()}: Worker {WorkerName} of Client {ClientName} is down.'
+                    Workers = [Graph.nodes[node]['label'] for node in Graph.nodes() if Graph.nodes[node]['label'][0] == 'w' and node_colors[node] != 'gray']
+                    updated_text = f'{existing_text}\n{formatted_time()}: Worker {WorkerName} of Client {ClientName} is down , Available workers: {Workers}'
                 MainWindow['-LOG-'].update(updated_text)
             
             elif msg[0] == 'stats':
-                existing_text = values['-STATS-']
-                Data = msg[1]
-                statDict = {"entities": {}}
-                for items in str(Data).split('|'): 
-                    Entity, val = items.split(':') 
-                    if '=' in val:      
-                        for EntityStat in val.split(','):
-                            Stat, Result = EntityStat.split('=')
-                            statDict["entities"][Stat] = Result
-                    else:               
-                        statDict[Entity] = val
-                for Entity, val in statDict.items():
-                    existing_text = values['-STATS-']
-                    if isinstance(val, dict):
-                        MainWindow['-STATS-'].update(f'{existing_text}\n{formatted_time()}: {Entity} Stats:\n')
-                        for Stat, Res in val.items():
-                            existing_text = values['-STATS-']
-                            updated_text = f'{existing_text}\n{formatted_time()}: {Stat}: {Res}'
-                            MainWindow['-STATS-'].update(f'{existing_text}\n{formatted_time()}: {updated_text}')
+                try:
+                    Data = msg[1]
+                    for items in str(Data).split('|'): 
+                        Entity, val = items.split(':') 
+                        if '=' in val:      
+                            for EntityStat in val.split(','):
+                                Stat, Result = EntityStat.split('=')
+                                if "Train" in Stat:
+                                    StatsInfo["workers"][Stat] = Result
+                                else:
+                                    StatsInfo["clients"][Stat] = Result
+                        else:               
+                            StatsInfo[Entity] = val # Messages for entities other than clients/workers
+                    CurrentStats = StatsInfo.copy() # copy the stats to a new variable
+                    StatsText = ShowStats(CurrentStats)
+                    existing_stats = values['-STATS-']
+                    if existing_stats != '':
+                        MainWindow['-STATS-'].update(f'{existing_stats}\n{StatsText}')
                     else:
-                        MainWindow['-STATS-'].update(f'{existing_text}\n{formatted_time()}: {Entity} Received {val} Messages')
+                        MainWindow['-STATS-'].update(StatsText)
+                    existing_text = values['-LOG-']
+                    MainWindow['-LOG-'].update(f'{existing_text}\n{formatted_time()}: Statistics Received.')
+                except Exception as err:
+                    MainWindow['-LOG-'].update(f"Error in Stats {err} , Got {StatsInfo}")
                 
 
             elif values['-LOG-'] != '':
@@ -213,6 +221,29 @@ async def GUI(msg_queue):
 
     MainWindow.close()
     
+
+def ShowStats(CurrentStats):
+    MainWindow['-LOG-'].update(f'{formatted_time()}: Printing Statistics...')
+    StatsText = ''
+    for key in CurrentStats:
+        if key == 'workers':
+            StatsText += f'Workers:\n'
+            for stat in CurrentStats[key]:
+                if "Time" in stat:
+                    StatsText += f'\t{stat.replace("_Train_" , " Working ")}: {CurrentStats[key][stat]} seconds\n'
+                else:
+                    StatsText += f'\t{stat.replace("_" , " ")}: {CurrentStats[key][stat]}\n'
+        elif key == 'clients':
+            StatsText += f'Clients:\n'
+            for stat in CurrentStats[key]:
+                if "info" in stat:
+                    StatsText += f'\t{stat.replace("_info_" , " Info ")}: {CurrentStats[key][stat]} bytes\n'
+                else:
+                    StatsText += f'\t{stat.replace("_Msg_" , " Message ")}: {CurrentStats[key][stat]}\n'
+        else:
+            StatsText += f'{key} Message Count: {CurrentStats[key]}\n'
+    return StatsText
+
 
 def Show_Nerlnet_Graph(NerlGraph):
     # Graph in string format: "Entity1Name,Entity1IP,Entity1Port#Entity2Name,Entity2IP,Entity2Port#Entity1Name-Entity2Name,Entity2Name-Entity1Name#Worker1-Client1#Worker2-Client2" etc.
@@ -236,7 +267,7 @@ def Show_Nerlnet_Graph(NerlGraph):
     my_labels = {'mainServer': 'mS' , 'apiServer': 'aS'}
 
     nx.relabel_nodes(graph, my_labels , copy=False)
-    default_colors = {node:'darkred' for node in graph.nodes()}
+    default_colors = {node:'#A90433' for node in graph.nodes()}
     node_colors = {node:default_colors[node] for node in graph.nodes()}
     nx.set_node_attributes(graph, node_colors, 'color')
     colors = nx.get_node_attributes(graph, 'color').values()

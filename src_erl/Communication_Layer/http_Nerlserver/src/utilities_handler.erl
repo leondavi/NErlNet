@@ -6,7 +6,6 @@
 
 init(Req0 , [MainServerPid]) ->
     {_,Body,_} = cowboy_req:read_body(Req0),
-    io:format("Body: ~p~n" , [Body]) , 
     [UtilityName , IP , Port] = binary_to_term(Body),
     case UtilityName of
         nerlMonitor ->   
@@ -25,7 +24,6 @@ init(Req0 , [MainServerPid]) ->
 
 init(Req0 , [Action , MainServerPid]) -> 
     {_,Body,_} = cowboy_req:read_body(Req0),
-    io:format("got kill-------------------messege: ~p~n",[Body]),
     case Action of
         worker_kill ->
             gen_statem:cast(MainServerPid , {worker_kill , Body});
