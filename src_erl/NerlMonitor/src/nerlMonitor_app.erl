@@ -13,8 +13,8 @@
 
 -define(UTILNAME,nerlMonitor).
 -define(IP , "192.168.64.7").
--define(PORT, 8096).  %port place holder
--define(MSADDRES,"192.168.64.7:8080" ). %place holder
+-define(PORT, 8096).
+-define(MSADDRES,"192.168.64.7:8080" ).
 -define(GUI , {'PyrlangProcess' , 'py@127.0.0.1'}). % Erlang node should be long name to communicate with pyrlang node
 
 start(_StartType, _StartArgs) ->
@@ -63,7 +63,7 @@ mainServerPing(URL,Body)->
     end.
 
 
-recvLoop()-> %% MainServer replies with Nerlnet-Graph when nerlMonitor tool is used
+recvLoop()-> %% MainServer replies with Nerlnet-Graph
     receive 
         {terminate , WorkerName} -> 
             io:format("Got termination message for Worker ~p from GUI~n" , [WorkerName]),

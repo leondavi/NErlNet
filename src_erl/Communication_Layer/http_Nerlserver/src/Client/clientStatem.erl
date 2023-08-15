@@ -100,41 +100,6 @@ format_status(_Opt, [_PDict, _StateName, _State]) -> Status = some_term, Status.
 %% ==============STATES=================
 waitforWorkers(cast, In = {stateChange,WorkerName,MissedBatchesCount}, State = #client_statem_state{myName = MyName,waitforWorkers = WaitforWorkers,nextState = NextState, etsRef = EtsRef}) ->
   NewWaitforWorkers = WaitforWorkers -- [WorkerName],
-  % case WorkerName of 
-  %   w5 ->
-  %     Pid = ets:lookup_element(EtsRef, w5, ?WORKER_PID_IDX),
-  %     io:format("---------------------Killin w5-----------------------~n"),
-  %     gen_statem:stop(Pid , shutdown , infinity);
-  %   _ -> ok
-  % end,
-  % io:format("remaining workers = ~p~n",[NewWaitforWorkers]),
-  % case NextState of
-  %   training ->
-  %           case WorkerName of 
-  %             w5 ->
-  %               case ets:member(EtsRef , w5) of
-  %                 true -> 
-  %                   Pid = ets:lookup_element(EtsRef, w5, ?WORKER_PID_IDX),
-  %                   io:format("---------------------Killin w5-----------------------~n"),
-  %                   gen_statem:stop(Pid , shutdown , infinity);
-  %                 _ -> ok
-  %               end;
-  %             _ -> ok
-  %           end;
-  %   predict ->
-  %           case WorkerName of 
-  %             w6 ->
-  %               case ets:member(EtsRef , w6) of
-  %                 true -> 
-  %                   Pid = ets:lookup_element(EtsRef, w6, ?WORKER_PID_IDX),
-  %                   io:format("---------------------Killin w6-----------------------~n"),
-  %                   gen_statem:stop(Pid , shutdown , infinity);
-  %                 _ -> ok
-  %               end;
-  %             _ -> ok
-  %           end;
-  %   _ -> ok
-  % end,
   ets:update_counter(EtsRef, msgCounter, 1), % last is increment value
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
   ets:update_element(EtsRef, WorkerName,[{?WORKER_TRAIN_MISSED_IDX,MissedBatchesCount}]), %% update missed batches count
@@ -153,12 +118,15 @@ waitforWorkers(cast, In = {NewState}, State = #client_statem_state{myName = MyNa
   cast_message_to_workers(EtsRef, {NewState}),
   {next_state, waitforWorkers, State#client_statem_state{nextState = NewState, waitforWorkers = Workers}};
 
-waitforWorkers(cast, {worker_kill , Body}, State = #client_statem_state{etsRef = EtsRef}) ->
+waitforWorkers(cast, In ={worker_kill , Body}, State = #client_statem_state{waitforWorkers = WaitforWorkers,etsRef = EtsRef}) ->
+  %got kill command for a worker, kiil and take off waitforWorkers list
   ets:update_counter(EtsRef, msgCounter, 1),
+  ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
   {_, WorkerName} = binary_to_term(Body),
   Pid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
   gen_statem:stop(Pid, shutdown , infinity),
-  {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef}};
+  NewWaitforWorkers = WaitforWorkers -- [WorkerName],
+  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers,etsRef = EtsRef}};
 
 waitforWorkers(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
@@ -166,23 +134,22 @@ waitforWorkers(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}
   ?LOG_WARNING("client waitforWorkers ignored!!!:  ~p~n",[EventContent]),
   {next_state, waitforWorkers, State};
 
-%----------------------------------------------------------------
 waitforWorkers(info, EventContent, State = #client_statem_state{myName = MyName,waitforWorkers = WaitforWorkers ,etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
+  ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(EventContent)),
   case EventContent of
     {'DOWN',_Ref,process,Pid,_Reason}->                                     %worker down
       [[WorkerName]] = ets:match(EtsRef,{'$1',Pid,'_','_','_'}),
       NewWaitforWorkers = WaitforWorkers--[WorkerName],
       %report worker down to main server
       delete_worker(EtsRef,MyName,WorkerName),
-      {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers,etsRef = EtsRef}};                                     %delete worker from ets so client will not wait for it in the future 
+      {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers,etsRef = EtsRef}};           %delete worker from ets so client will not wait for it in the future 
         
     _Any-> ?LOG_INFO("client ~p got unexpected info: ~p~n",[MyName, EventContent]),
      %recevied  unexpected messege, print to log/tell main server for debuging
      {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef}}
     end.
 
-
-%-----------------------------------------------------------------
   
 
 %% initiating workers when they include federated workers. init stage == handshake between federated worker client and server
@@ -221,8 +188,9 @@ idle(cast, In = {training}, State = #client_statem_state{etsRef = EtsRef}) ->
   cast_message_to_workers(EtsRef, MessageToCast),
   {next_state, waitforWorkers, State#client_statem_state{waitforWorkers= ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX), nextState = training}};
 
-idle(cast, {worker_kill , Body}, State = #client_statem_state{etsRef = EtsRef}) ->
+idle(cast, In={worker_kill , Body}, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
+  ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
   {_, WorkerName} = binary_to_term(Body),
   Pid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
   gen_statem:stop(Pid, shutdown , infinity),
@@ -244,6 +212,8 @@ idle(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
 
 
 idle(info, EventContent, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
+  ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(EventContent)),
   case EventContent of
     {'DOWN',_Ref,process,Pid,_Reason}->                                     %worker down
       [[WorkerName]] = ets:match(EtsRef,{'$1',Pid,'_','_','_'}),
@@ -292,13 +262,6 @@ training(cast, In = {custom_worker_message, WorkersList, WeightsTensor}, State =
   end,
   lists:foreach(Func, WorkersList),
   {keep_state, State};
-
-training(cast, {worker_kill , Body}, State = #client_statem_state{etsRef = EtsRef}) ->
-  ets:update_counter(EtsRef, msgCounter, 1),
-  {_, WorkerName} = binary_to_term(Body),
-  Pid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
-  gen_statem:stop(Pid, shutdown , infinity),
-  {next_state, training, State#client_statem_state{etsRef = EtsRef}};
   
   
 % TODO Validate this state - sample and empty list 
@@ -366,6 +329,15 @@ training(cast, In = {loss,WorkerName,LossFunction,_Time_NIF}, State = #client_st
   nerl_tools:http_request(RouterHost,RouterPort,"lossFunction", term_to_binary({WorkerName,LossFunction})),
   {next_state, training, State#client_statem_state{myName = MyName,etsRef = EtsRef}};
 
+
+training(cast, In={worker_kill , Body}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
+  ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
+  {_, WorkerName} = binary_to_term(Body),
+  Pid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
+  gen_statem:stop(Pid, shutdown , infinity),
+  {next_state, training, State#client_statem_state{etsRef = EtsRef}};
+
 % training(cast, In = {statistics}, State = #client_statem_state{ myName = MyName, etsRef = EtsRef}) ->
 %   io:format("client ~p got statistics ~n",[MyName]),
 %   ets:update_counter(EtsRef, msgCounter, 1), % last param is increment value
@@ -386,6 +358,8 @@ training(cast, EventContent, State = #client_statem_state{etsRef = EtsRef, myNam
   
 
 training(info, EventContent, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
+  ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(EventContent)),
   case EventContent of
     {'DOWN' , _Ref , process , Pid , _Reason}->                                     %worker down
       [[WorkerName]] = ets:match(EtsRef,{'$1',Pid,'_','_','_'}),
@@ -428,8 +402,9 @@ predict(cast, In = {predictRes,WorkerName,InputName,ResultID,PredictNerlTensor, 
   nerl_tools:http_request(RouterHost,RouterPort,"predictRes", term_to_binary({atom_to_list(WorkerName), InputName, ResultID, {PredictNerlTensor, Type}})),
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
 
-predict(cast, {worker_kill , Body}, State = #client_statem_state{etsRef = EtsRef}) ->
+predict(cast, In={worker_kill , Body}, State = #client_statem_state{etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
+  ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
   {_, WorkerName} = binary_to_term(Body),
   Pid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
   gen_statem:stop(Pid, shutdown , infinity),
@@ -467,6 +442,8 @@ predict(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
 
 predict(info, EventContent, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
+  ets:update_counter(EtsRef, msgCounter, 1),
+  ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(EventContent)),
   case EventContent of
     {'DOWN',_Ref,process,Pid,_Reason}->                                     %worker down
       [[WorkerName]] = ets:match(EtsRef,{'$1',Pid,'_','_','_'}),
@@ -594,7 +571,7 @@ sendStatistics(EtsRef)->
   MyStats = atom_to_list(MyName)++"_Msg_Count="++integer_to_list(Counter)++","++atom_to_list(MyName)++"_info_Size="++integer_to_list(InfoSize)++",",
 
   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName, ?MAIN_SERVER_ATOM, NerlnetGraph),
-  nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++":"++MyStats++MissingStats++lists:droplast(TimingStats))).
+  nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++":"++MyStats++MissingStats++lists:droplast(TimingStats)++"#"++DeadWorkers)).
 
 cast_message_to_workers(EtsRef, Msg) ->
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
@@ -609,9 +586,9 @@ cast_message_to_workers(EtsRef, Msg) ->
   end,
   lists:foreach(Func, Workers).
 
-%activated if client detected that a worker stopped, will delete it from ets so as not to wait for responsed from it in the future.
+
 delete_worker(EtsRef,MyName,WorkerName)->
-  %ets:delete(EtsRef , WorkerName),
+  %activated if client detected that a worker stopped, will delete it from workersNames and move to deadWorkers so as not to wait for responsed from it in the future.
   AliveList = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
   DeadList = ets:lookup_element(EtsRef, deadWorkers, ?ETS_KV_VAL_IDX),
   ets:delete(EtsRef,workersNames),

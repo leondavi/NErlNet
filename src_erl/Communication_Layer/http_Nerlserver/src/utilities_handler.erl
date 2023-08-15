@@ -5,6 +5,7 @@
 -export([init/2]).
 
 init(Req0 , [MainServerPid]) ->
+    %handler for a tool connection req
     {_,Body,_} = cowboy_req:read_body(Req0),
     [UtilityName , IP , Port] = binary_to_term(Body),
     case UtilityName of
@@ -15,14 +16,15 @@ init(Req0 , [MainServerPid]) ->
            Workers = lists:flatten([atom_to_list(X)++"-"++atom_to_list(Y)++"!" || {X , Y} <- WorkersClients]),
            Reply = Graph ++ "," ++ Workers
     end,
-    gen_server:cast(MainServerPid , {saveUtility , {UtilityName , IP , Port}}), %% TODO Add IP , Port to ets in main server record
+    gen_server:cast(MainServerPid , {saveUtility , {UtilityName , IP , Port}}), 
     Req = cowboy_req:reply(200,
                             #{<<"content-type">> => <<"text/plain">>},
                             Reply,
                             Req0),
     {ok, Req, MainServerPid};
 
-init(Req0 , [Action , MainServerPid]) -> 
+init(Req0 , [Action , MainServerPid]) ->
+    %handler for a tool's requested action (not connection) 
     {_,Body,_} = cowboy_req:read_body(Req0),
     case Action of
         worker_kill ->

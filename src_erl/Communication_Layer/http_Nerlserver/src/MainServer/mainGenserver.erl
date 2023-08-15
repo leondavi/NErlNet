@@ -114,7 +114,8 @@ edgeString([Edge |EdgesList], Str)->
 {noreply, NewState :: #main_genserver_state{}, timeout() | hibernate} |
 {stop, Reason :: term(), NewState :: #main_genserver_state{}}).
 
-handle_cast({saveUtility , Body} , State = #main_genserver_state{etsRef = EtsRef , msgCounter = MsgCounter}) ->
+handle_cast({saveUtility , Body} , State = #main_genserver_state{etsRef = EtsRef , msgCounter = MsgCounter}) -> 
+  %gets called after a tool tried to connect, saves its addres in the ets.
   ets:insert(EtsRef , Body),
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
   
@@ -174,16 +175,32 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
 
       true ->
           %%      statistics arrived from Entity
-          [From|[NewCounter]] = re:split(binary_to_list(Body), ":", [{return, list}]),
+          CheckForDead=re:split(binary_to_list(Body), "#", [{return, list}]),
+          case CheckForDead of
+            [_]-> 
+              Data=CheckForDead,
+              UpdateStatMap=StatisticsMap; %entity is not a client
+            [Data,[]]->
+              UpdateStatMap=StatisticsMap;%entity is client without dead workers
+            [Data,DeadWorkers]->                %client with dead workers
+              case maps:is_key("Dead workers") of
+                true->
+                  MapWithKey=StatisticsMap; %key was already put in
+                false->
+                  MapWithKey=maps:put("Dead workers","",StatisticsMap)
+                end,
+                UpdateStatMap=maps:put("Dead workers",maps:get("Dead workers",MapWithKey)++DeadWorkers,MapWithKey)
+          end,
+          [From|[NewCounter]] = re:split(Data, ":", [{return, list}]),
 
-          NewStatisticsMap = maps:put(From,NewCounter,StatisticsMap),
+          NewStatisticsMap = maps:put(From,NewCounter,UpdateStatMap),
           NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap,statisticsCounter = StatisticsCounter-1},
 
           if StatisticsCounter == 1 ->  %% got stats from all entities
               Statistics = maps:to_list(NewStatisticsMap),
               S = mapToString(Statistics,[]) ,
               %?LOG_NOTICE("Sending stats: ~p~n",[S]),
-              case CurrState of
+              case CurrState of %statistics gets called in idle state by api at the end of the experiment or nerlMonitorin casting at the start of predict
                 idle ->
                     case ets:member(EtsRef,nerlMonitor) of
                       true->
@@ -193,7 +210,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
                     end,
                     {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?API_SERVER_ATOM,NerlnetGraph),
                     nerl_tools:http_request(RouterHost,RouterPort,"statistics", S ++ "|mainServer:" ++integer_to_list(MsgCounter));
-                casting ->
+                casting ->    
                     [{_ , MonitorIP , MonitorPort}] = ets:lookup(EtsRef, nerlMonitor),
                     nerl_tools:http_request(MonitorIP,list_to_integer(MonitorPort),"stats", S ++ "|mainServer:" ++integer_to_list(MsgCounter))
               end;
@@ -244,7 +261,7 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList =
   ClientName = list_to_atom(binary_to_list(Body)),
   NewWaitingList = WaitingList--[ClientName],
   if length(NewWaitingList) == 0 -> 
-                case ets:member(EtsRef , nerlMonitor) of
+                case ets:member(EtsRef , nerlMonitor) of      %if NerlMonitor is up, initiate mid experiment statistics
                   true -> 
                     gen_server:cast(self(),{statistics , list_to_binary("getStatistics")});
                   _ -> ok
@@ -334,6 +351,7 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
 
 handle_cast({worker_down,Body}, State = #main_genserver_state{msgCounter = MsgCounter,etsRef = EtsRef}) ->
+  % some worker terminated, print to log and notify NerlMonitor if it is up
   case ets:member(EtsRef,nerlMonitor) of
     true->
       [{nerlMonitor , IP , Port}] = ets:lookup(EtsRef , nerlMonitor),
@@ -345,9 +363,10 @@ handle_cast({worker_down,Body}, State = #main_genserver_state{msgCounter = MsgCo
   {noreply, State#main_genserver_state{msgCounter = MsgCounter+1,etsRef=EtsRef}};
 
 handle_cast({worker_kill , WorkerName} , State = #main_genserver_state{workersMap = WorkersMap , msgCounter = MsgCounter}) ->
-  ?LOG_WARNING(?LOG_HEADER++"Worker ~p killed~n",[WorkerName]),
+  %got a user kill command for a worker from NerlMonitor
+  ?LOG_WARNING(?LOG_HEADER++"Killing worker ~p ~n",[WorkerName]),
   WorkerNameAtom=binary_to_term(WorkerName),
-  ClientName = maps:get(WorkerNameAtom,WorkersMap), % ! Worker Name is binary?
+  ClientName = maps:get(WorkerNameAtom,WorkersMap),
   Body = term_to_binary({ClientName, WorkerNameAtom}),
   nerl_tools:sendHTTP(?MAIN_SERVER_ATOM , ClientName , atom_to_list(worker_kill) , Body),
   {noreply, State#main_genserver_state{workersMap = WorkersMap , msgCounter = MsgCounter+1}};
