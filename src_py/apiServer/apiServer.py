@@ -97,27 +97,25 @@ PREDICTION_STR = "Prediction"
         print("Initializing the receiver thread...\n")
 
         # Initializing the receiver (a Flask HTTP server that receives results from the Main Server):
-        if is_port_in_use(int(globe.components.receiverPort)):
-            self.stopServer()
+        if not is_port_in_use(int(globe.components.receiverPort)):
+            self.receiverProblem = threading.Event()
+            self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
+            self.receiverThread.start()   
+            # time.sleep(2)
+            self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
 
-        self.receiverProblem = threading.Event()
-        self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
-        self.receiverThread.start()   
-        # time.sleep(2)
-        self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
-
-        if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
-            print(f"===================Failed to initialize the receiver using the provided address:==========================\n\
-            (http://{globe.components.receiverHost}:{globe.components.receiverPort})\n\
-Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
-            sys.exit()
+            if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
+                print(f"===================Failed to initialize the receiver using the provided address:==========================\n\
+                (http://{globe.components.receiverHost}:{globe.components.receiverPort})\n\
+    Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
+                sys.exit()
 
         # Initalize an instance for the transmitter:
         if not hasattr(self, 'transmitter'):
             self.transmitter = Transmitter(self.mainServerAddress)
 
         print("\n***Please remember to execute NerlnetRun.sh on each device before continuing.")
-
+    
     def sendJsonsToDevices(self):
         # Send the content of jsonPath to each devices:
         print("\nSending JSON paths to devices...")
@@ -137,7 +135,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
 
             if globe.jupyterFlag == False:
               print(response.ok, response.status_code)
-        time.sleep(1)       # wait for connection to close
+        time.sleep(1)       # wait for connection to close ## TODO: check why
         print("Init JSONs sent to devices")
 
     def showJsons(self):
@@ -181,6 +179,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         receiver.stop()
         return True
 
+    ## TODO: should be reviewed by Noa, Ohad and David
     # Wait for a result to arrive to the queue, and get results which arrived:
     def getQueueData(self):
         received = False
@@ -301,6 +300,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         plt.title(f"Training - Loss Function - {expTitle}", fontsize=38)
         plt.xlabel('Batch No.', fontsize = 30)
         plt.ylabel('Loss (MSE)', fontsize = 30)
+        plt.yscale('log')
         plt.xlim(left=0)
         plt.ylim(bottom=0)
         plt.legend(workers)
@@ -313,7 +313,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
         plt.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.png')
         print(f'\n{fileName}.png was Saved...')
 
-    def accuracy_matrix(self, expNum):
+    def accuracy_matrix(self, expNum, normalizeEnabled = 'false'):
         expForStats = self.experiments[expNum-1] 
 
         # Choose the matching (to the original labeled CSV) CSV from the prediction results list:
@@ -412,7 +412,7 @@ Please change the 'host' and 'port' values for the 'serverAPI' key in the archit
             for j in range(labelsLen):
                 # print(f"worker {worker}, has {len(workerNeuronRes[worker][TRUE_LABLE_IND])} labels, with {len(workerNeuronRes[worker][TRUE_LABLE_IND][j])} samples")
                 # print(f"confusion {worker}:{j}, has is of {workerNeuronRes[worker][TRUE_LABLE_IND][j]}, {workerNeuronRes[worker][PRED_LABLE_IND][j]}")
-                confMatList[worker][j] = confusion_matrix(workerNeuronRes[worker][globe.TRUE_LABLE_IND][j], workerNeuronRes[worker][globe.PRED_LABLE_IND][j])
+                confMatList[worker][j] = confusion_matrix(workerNeuronRes[worker][globe.TRUE_LABLE_IND][j], workerNeuronRes[worker][globe.PRED_LABLE_IND][j], normalize=normalizeEnabled)
                 # print(confMatList[worker][j])
                 disp = ConfusionMatrixDisplay(confMatList[worker][j], display_labels=["X", labelNames[j]])
                 disp.plot(ax=axes[i, j], colorbar=False)

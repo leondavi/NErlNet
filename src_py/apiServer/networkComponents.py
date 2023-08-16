@@ -34,6 +34,7 @@ class NetworkComponents():
         self.federateds = []
         self.sources = []
         self.sourceMethods = []
+        self.sourceEpochs = {}
         self.routers = []
 
         # Getting the names of all the devices:
@@ -61,6 +62,7 @@ class NetworkComponents():
         for source in sourcesJsons:
             self.sources.append(source['name'])
             self.sourceMethods.append(source['method'])
+            self.sourceEpochs[source['name']] = source['epochs']
 
         # Getting the names of all the routers:
         routersJsons = self.jsonData['routers']

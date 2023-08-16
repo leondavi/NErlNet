@@ -46,8 +46,7 @@ def processResult(resData, currentPhase):
                 print(f"Received loss=-1 from worker {worker}. The NN's weights have been reset.")
 
             ## result is set by worker to be -1 when it had a problem working on the data
-            ## second condition will be tested but respected for now
-            if (int(result) != WORKER_NON_RESULT and int(result != 0)): 
+            if (int(result) != WORKER_NON_RESULT): 
                 for csvRes in globe.experiment_flow_global.trainingResList:
                     if worker in csvRes.workers:
                         for workerRes in csvRes.workersResList:

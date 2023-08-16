@@ -11,9 +11,8 @@
 -export([init/2, start/2, stop/1]).
 -behaviour(application).
 -include("../nerl_tools.hrl").
--define(DATA_TIME, infinity).
 
-%%setter handler for editing weights in CSV file, can also send a reply to sender
+%%setter handler for editing weights in CSV file
 init(Req0, [Main_genServer_Pid]) ->
 %%  Weight = cowboy_req:binding(weight, Req0),
 %%  Id = cowboy_req:binding(id, Req0),
@@ -25,7 +24,7 @@ init(Req0, [Main_genServer_Pid]) ->
   Decoded_body = binary_to_list(Body),
   %Decoded_body = read_all_data(Req0),
   % io:format("GOT DATA: ~p~n",[Decoded_body]),
-  [SourceName, _WorkersStr, _Data] = string:split(Decoded_body, "#", all),
+  [SourceName, _WorkersStr, _Epochs, _Data] = string:split(Decoded_body, "#", all),
   %WorkersList = string:split(WorkersStr, ",", all),
   gen_server:cast(Main_genServer_Pid,{initCSV, SourceName, Body}),
   %[Source|WorkersAndInput] = re:split(binary_to_list(Body), "#", [{return, list}]),

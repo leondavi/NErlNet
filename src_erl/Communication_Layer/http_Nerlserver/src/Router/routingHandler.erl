@@ -26,13 +26,13 @@ init(Req0, State) ->
   case Action of
 %%     router was meant to rout no?
     custom_worker_message->
-      {To, PassingAction, Data} = binary_to_term(Body),
+      {To, _PassingAction, _Data} = binary_to_term(Body),
       Graph = lists:nth(3, State),
       MyName = lists:nth(4, State),
       {Host,Port} = nerl_tools:getShortPath(MyName,To,Graph),
       nerl_tools:http_request(Host,Port, "custom_worker_message", Body);
     pass ->
-      {To, PassingAction, Data} = binary_to_term(Body),
+      {To, _PassingAction, _Data} = binary_to_term(Body),
       Graph = lists:nth(3, State),
       MyName = lists:nth(4, State),
       {Host,Port} = nerl_tools:getShortPath(MyName,To,Graph),

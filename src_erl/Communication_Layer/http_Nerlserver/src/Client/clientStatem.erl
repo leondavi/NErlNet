@@ -111,7 +111,7 @@ waitforWorkers(cast, In = {stateChange,WorkerName,MissedBatchesCount}, State = #
     _->  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers}}
   end;
 
-waitforWorkers(cast, In = {NewState}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
+waitforWorkers(cast, In = {NewState}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
   % ?LOG_INFO("~p in waiting going to state ~p~n",[MyName, State]),
@@ -148,7 +148,7 @@ idle(cast, In = {custom_worker_message, {From, To}}, State = #client_statem_stat
   % io:format("initiating, CONFIG received:~p ~n",[CONFIG]),
   {keep_state, State};
 
-idle(cast, In = {statistics}, State = #client_statem_state{ myName = MyName, etsRef = EtsRef}) ->
+idle(cast, In = {statistics}, State = #client_statem_state{ myName = _MyName, etsRef = EtsRef}) ->
   sendStatistics(EtsRef),
   ets:update_counter(EtsRef, msgCounter, 1), % last param is increment value
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
@@ -243,11 +243,11 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
 training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
-  io:format("~p going to state idle~n",[MyName]),
+  % ?LOG_INFO("~p going to state idle~n",[MyName]),
   MessageToCast = {idle},
   cast_message_to_workers(EtsRef, MessageToCast),
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
-  io:format("setting workers at idle: ~p~n",[ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
+  ?LOG_INFO("setting workers at idle: ~p~n",[ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
   {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers}};
 
 training(cast, In = {predict}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
