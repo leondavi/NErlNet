@@ -569,9 +569,9 @@ sendStatistics(EtsRef)->
   TimingStats = lists:flatten([atom_to_list(WorkerName)++"_Train_Avg_Time="++float_to_list(TotalTime/TotalBatches,[{decimals, 3}])++","||{WorkerName,{_LastTime,TotalBatches,TotalTime}}<-TimingMap]),
   MissingStats = lists:flatten([atom_to_list(WorkerName)++"_Train_Miss="++integer_to_list(MissCount)++","||{WorkerName,MissCount}<-MissedCounts]),
   MyStats = atom_to_list(MyName)++"_Msg_Count="++integer_to_list(Counter)++","++atom_to_list(MyName)++"_info_Size="++integer_to_list(InfoSize)++",",
-
+  MyDeadWorkers=lists:flatten([" "++atom_to_list(WorkerName)||WorkerName<-DeadWorkers]),
   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName, ?MAIN_SERVER_ATOM, NerlnetGraph),
-  nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++":"++MyStats++MissingStats++lists:droplast(TimingStats)++"#"++DeadWorkers)).
+  nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++":"++MyStats++MissingStats++lists:droplast(TimingStats)++"#"++MyDeadWorkers)).
 
 cast_message_to_workers(EtsRef, Msg) ->
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),

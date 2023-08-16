@@ -167,10 +167,9 @@ handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = 
 handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, statisticsCounter = StatisticsCounter, nerlnetGraph = NerlnetGraph,statisticsMap = StatisticsMap,msgCounter = MsgCounter , etsRef = EtsRef , state = CurrState}) ->
 
     if Body == <<"getStatistics">> ->   %% initial message from APIServer, get stats from entities
-
           NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--?LIST_OF_SPECIAL_SERVERS]),
-          [findroutAndsendStatistics(MyName, Name)||{Name,_Counter}<-maps:to_list(StatisticsMap)],
-          NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap, statisticsCounter = length(maps:to_list(StatisticsMap))};
+          [findroutAndsendStatistics(MyName, Name)||{Name,_Counter}<-maps:to_list(NewStatisticsMap)],
+          NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap, statisticsCounter = length(maps:to_list(NewStatisticsMap))};
       Body == <<>> ->  io:format("in Statistcs, State has: StatsCount=~p, MsgCount=~p~n", [StatisticsCounter, MsgCounter]), NewState = State;
 
       true ->
@@ -183,13 +182,13 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, st
             [Data,[]]->
               UpdateStatMap=StatisticsMap;%entity is client without dead workers
             [Data,DeadWorkers]->                %client with dead workers
-              case maps:is_key("Dead workers") of
+              case maps:is_key("Dead workers",StatisticsMap) of
                 true->
                   MapWithKey=StatisticsMap; %key was already put in
                 false->
                   MapWithKey=maps:put("Dead workers","",StatisticsMap)
                 end,
-                UpdateStatMap=maps:put("Dead workers",maps:get("Dead workers",MapWithKey)++DeadWorkers,MapWithKey)
+                UpdateStatMap=maps:put("Dead workers",maps:get("Dead workers",MapWithKey)++DeadWorkers++" ",MapWithKey)
           end,
           [From|[NewCounter]] = re:split(Data, ":", [{return, list}]),
 
@@ -263,6 +262,7 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList =
   if length(NewWaitingList) == 0 -> 
                 case ets:member(EtsRef , nerlMonitor) of      %if NerlMonitor is up, initiate mid experiment statistics
                   true -> 
+                    ?LOG_INFO(?LOG_HEADER ++ "Sending statistics request"),
                     gen_server:cast(self(),{statistics , list_to_binary("getStatistics")});
                   _ -> ok
                 end,

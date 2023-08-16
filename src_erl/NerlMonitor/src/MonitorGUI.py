@@ -240,6 +240,8 @@ def ShowStats(CurrentStats):
                     StatsText += f'\t{stat.replace("_info_" , " Info ")}: {CurrentStats[key][stat]} bytes\n'
                 else:
                     StatsText += f'\t{stat.replace("_Msg_" , " Message ")}: {CurrentStats[key][stat]}\n'
+        elif key == 'Dead workers':
+            StatsText += f'Dead Workers are:{CurrentStats[key]}\n'
         else:
             StatsText += f'{key} Message Count: {CurrentStats[key]}\n'
     return StatsText
