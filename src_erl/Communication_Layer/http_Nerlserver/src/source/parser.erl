@@ -49,15 +49,6 @@ parseCSV(SourceName, BatchSize, CSVData)->
 %       eof        -> []
 %   end.
 
-
-% encode_tensor(Batch) ->
-%   XDim = length(hd(Batch)),
-%   YDim = length(Batch),
-%   ZDim = 1,
-%   ErlType = erl_float,
-%   TargetBinaryType = float,
-%   nerlNIF:nerltensor_conversion({[XDim, YDim, ZDim | Head], ErlType}, TargetBinaryType)
-
 % deleteTMPData(SourceName) ->
 %   SourceNameStr = atom_to_list(SourceName),
 %   {ok, Dir} = file:get_cwd(),
@@ -68,30 +59,16 @@ parseCSV(SourceName, BatchSize, CSVData)->
 %     {error, E} -> logger:notice("couldn't delete files ~p, ~p",[DataFiles, E])
 %   end.
 
-% splitLinesToBatches(Lines, BatchSize) ->
-%   Batches = divide(L, BatchSize),
-%   [ dataStrToNumericData(Batch) || Batch <- Batches].
-
-
-% divide([], _) -> [];
-% divide(L, N) ->
-%     try lists:split(N, L) of
-%         {H,T} -> [H|divide(T, N)]
-%     catch
-%         error:badarg -> [L]
-%     end.
-
-
 
 %%this parser takes a CSV folder containing chunked data, parsing into a list of binary.
 %%each record in the line is a batch of samples
 parse_file(SourceName, BatchSize,Data) ->
   % {ok, Data} = file:read_file(File_Address),
   Lines = re:split(Data, "\r|\n|\r\n", [{return,binary}] ),
-  CleanLines = [Line || Line <- Lines, Line /= []],
+  % CleanLines = [Line || Line <- Lines, Line /= []],
   ?LOG_INFO("split in data"),
   %% TODO: create NIF that does dataStrToNumericData. In = ["1,2,3,4", "5,6,7,8", ....] => out = [[1,2,3,4],[5,6,7,8],....] (make sure to take type into account)
-  ListOfLinesOfData = dataStrToNumericData(CleanLines),
+  ListOfLinesOfData = dataStrToNumericData(lists:droplast(Lines)),    %% drop empty line in the end of all CSV files
   ?LOG_INFO("converted str to float"),
   SampleSize = length(hd(ListOfLinesOfData)),
   {_Num, DataType} = nerl_tools:list_to_numeric(hd(hd(ListOfLinesOfData))),
@@ -220,7 +197,7 @@ encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, ErlType, TargetBinaryT
         YDim = float(SampleSize),
         ZDim = 1.0,
         % io:format("sending conversion: ~p ~p ~n ",[{[XDim, YDim, ZDim | Batch], ErlType}, TargetBinaryType]),
-        NewTensor = nerlNIF:nerltensor_conversion({[XDim, YDim, ZDim | Batch], ErlType}, TargetBinaryType)
+        _NewTensor = nerlNIF:nerltensor_conversion({[XDim, YDim, ZDim | Batch], ErlType}, TargetBinaryType)
       end
     end,
   {UpBatches, DownBatches} = lists:split(round(length(ListOfBatches)/2)-1, ListOfBatches),
@@ -236,7 +213,7 @@ encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, ErlType, TargetBinaryT
   end,
   receive 
     done -> cont;
-    Other -> throw("unexpected message in source parse")
+    _Other2 -> throw("unexpected message in source parse")
   end,
   UpRes = ets:lookup_element(encodeListOfBatchesToNerlTensorsBinBatches, upBatchesRes, ?DATA_IDX),
   DownRes = ets:lookup_element(encodeListOfBatchesToNerlTensorsBinBatches, downBatchesRes, ?DATA_IDX),
@@ -247,21 +224,21 @@ encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, ErlType, TargetBinaryT
 
 %%return a binary representing a list of floats: List-> <<binaryofthisList>>
 %%%%%%% this function is for FLOATS, converts int data to float
-decodeFloatsList(L)->
-  Splitted = re:split(binary_to_list(L), ",", [{return,list}]),
-  decodeFloatsList(Splitted,[]).
-decodeFloatsList([],Ret)->Ret;
-decodeFloatsList([[]|ListOfFloats],Ret)-> decodeFloatsList(ListOfFloats,Ret);
-decodeFloatsList([H|ListOfFloats],Ret)->
-  %% numbers sometime appear as ".7" / "-.1" 
-  Num = case H of
-    [$-,$.|Rest]  -> "-0."++Rest;
-    [$.|Rest]     -> "0."++Rest;
-    List -> List
-  end,
-  {NumToAdd, _Type} = nerl_tools:list_to_numeric(Num),
+% decodeFloatsList(L)->
+%   Splitted = re:split(binary_to_list(L), ",", [{return,list}]),
+%   decodeFloatsList(Splitted,[]).
+% decodeFloatsList([],Ret)->Ret;
+% decodeFloatsList([[]|ListOfFloats],Ret)-> decodeFloatsList(ListOfFloats,Ret);
+% decodeFloatsList([H|ListOfFloats],Ret)->
+%   %% numbers sometime appear as ".7" / "-.1" 
+%   Num = case H of
+%     [$-,$.|Rest]  -> "-0."++Rest;
+%     [$.|Rest]     -> "0."++Rest;
+%     List -> List
+%   end,
+%   {NumToAdd, _Type} = nerl_tools:list_to_numeric(Num),
     
-  decodeFloatsList(ListOfFloats,Ret++[float(NumToAdd)]).     %% remove float() to keep mixed data type
+%   decodeFloatsList(ListOfFloats,Ret++[float(NumToAdd)]).     %% remove float() to keep mixed data type
 
 %% UNUSED: return a binary representing a list of floats: List-> <<binaryofthisList>>
 % decodeEncodeFloatsListBin(L, XDim, YDim, ZDim)->

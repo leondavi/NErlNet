@@ -77,7 +77,7 @@ pre_idle({GenWorkerEts, _WorkerData}) ->
 post_idle({_GenWorkerEts, _WorkerData}) -> ok.
 
 %% set weights from fedserver
-pre_train({GenWorkerEts, WorkerData}) -> ok.
+pre_train({_GenWorkerEts, _WorkerData}) -> ok.
   % ThisEts = get_this_client_ets(GenWorkerEts),
   % ToUpdate = ets:lookup_element(ThisEts, server_update, ?ETS_KEYVAL_VAL_IDX),
   % if ToUpdate ->
@@ -101,21 +101,21 @@ post_train({GenWorkerEts, _WorkerData}) ->
     ets:update_counter(ThisEts, sync_count, MaxSyncCount),
     % io:format("Worker ~p entering update~n",[MyName]),
     gen_statem:cast(ClientPID, {update, {MyName, ServerName, Weights}}),
-    ToUpdate = true;
+    _ToUpdate = true;
   true ->
     ets:update_counter(ThisEts, sync_count, -1),
-    ToUpdate = false
+    _ToUpdate = false
   end.
 
 %% nothing?
-pre_predict({GenWorkerEts, WorkerData}) -> WorkerData.
+pre_predict({_GenWorkerEts, WorkerData}) -> WorkerData.
 
 %% nothing?
 post_predict(Data) -> Data.
 
 %% gets weights from federated server
 update({GenWorkerEts, NerlTensorWeights}) ->
-  ThisEts = get_this_client_ets(GenWorkerEts),
+  % ThisEts = get_this_client_ets(GenWorkerEts),
   ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
   nerlNIF:call_to_set_weights(ModelID, NerlTensorWeights).
   % io:format("updated weights in worker ~p~n",[ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX)]).
