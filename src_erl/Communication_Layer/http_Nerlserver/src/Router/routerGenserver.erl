@@ -177,6 +177,7 @@ handle_cast({getStats,_Body}, State  = #router_genserver_state{myName = MyName, 
     {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
 handle_cast({worker_kill , Body} , State = #router_genserver_state{msgCounter = MsgCounter, myName = MyName}) ->
+    io:format("Body is ~p~n",[binary_to_term(Body)]),
     {ClientName , _} = binary_to_term(Body),
     nerl_tools:sendHTTP(MyName, ClientName, "worker_kill", Body),
     {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
