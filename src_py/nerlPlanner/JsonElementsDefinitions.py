@@ -15,6 +15,13 @@ API_SERVER_TYPE = 11
 SPECIAL_ENTITY_TYPE = 12
 NONE_TYPE = -1
 
+def comm_entity_type(in_type) -> bool:
+    '''
+    returns true if the input type is a communication supported type
+    '''
+    comm_types_list = [ROUTER_TYPE, CLIENT_TYPE, SOURCE_TYPE, MAIN_SERVER_TYPE, API_SERVER_TYPE]
+    return True if in_type in comm_types_list else False
+
 RouterPolicyDict = {
     "Shortest-Path":0,
     "Routing-Table":1
