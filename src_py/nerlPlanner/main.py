@@ -43,20 +43,21 @@ settingsFrame = sg.Frame("Settings",layout=settingsFields, expand_x=True, expand
 
 # Devices 
 DevicesNamesList = []
+EntitiesNamesList = []
 devicesListFields = [[sg.Text("Devices List")],
-                     [sg.Listbox(DevicesNamesList, size=(30,6))]]
+                     [sg.Listbox(DevicesNamesList, size=(30,6), enable_events=True, key=KEY_DEVICES_LIST_BOX_DEVICES)]]
 devicesEntitiesList = [[sg.Text("Device Entities")],
-                     [sg.Listbox(DevicesNamesList, size=(30,6))]]
+                     [sg.Listbox(EntitiesNamesList, size=(30,6), enable_events=True, key=KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES)]]
 devicesListFrame = sg.Frame("", devicesListFields)
 devicesEntitiesListFrame = sg.Frame("", devicesEntitiesList)
 
 devicesFields = [[sg.Button("Scan",size=(10), key=KEY_DEVICES_SCANNER_BUTTON, enable_events=True),sg.Text("lan: "),
                   sg.InputText('x.x.x.x/Mask-bits',size=20, enable_events=True, key=KEY_DEVICES_SCANNER_INPUT_LAN_MASK),
                   sg.Combo(devices_online_hosts_list, size=(15), enable_events=True, key=KEY_DEVICES_ONLINE_LIST_COMBO_BOX)],
-                 [sg.Button("Add", size=(10)),
-                  sg.Button("Load",size=(10)), 
-                  sg.Button("Save",size=(10)),
-                  sg.Button("Remove",size=(10))],
+                 [sg.Button("Add", size=(10), enable_events=True, key=KEY_DEVICES_BUTTON_ADD),
+                  sg.Button("Load",size=(10), enable_events=True, key=KEY_DEVICES_BUTTON_LOAD), 
+                  sg.Button("Save",size=(10), enable_events=True, key=KEY_DEVICES_BUTTON_SAVE),
+                  sg.Button("Remove",size=(10), enable_events=True, key=KEY_DEVICES_BUTTON_REMOVE)],
                  [sg.Text("Device Name: "), sg.InputText(size=20, enable_events = True, key=KEY_DEVICES_NAME_INPUT)],
                  [sg.Text("IP Address:   "), sg.InputText('x.x.x.x', size=20, enable_events=True, key=KEY_DEVICES_IP_INPUT)],
                  [sg.Text('Selected Device: '), sg.Text('None',key=KEY_DEVICES_SELECTED_DEVICE_TEXT, enable_events=True)],
