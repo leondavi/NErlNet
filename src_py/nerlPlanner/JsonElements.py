@@ -1,5 +1,6 @@
 from JsonElementsDefinitions import *
 from collections import OrderedDict
+import random
 
 class JsonElement():
     def __init__(self, name = "none", elem_type = NONE_TYPE):
@@ -221,13 +222,49 @@ class MainServer(JsonElement):
         return OrderedDict(elements_list)
 
 class Device(JsonElement):
-    def __init__(self, ip_address : str, port, name = "none"):
+    def __init__(self, ip_address : str, name = "none"):
         super(Device, self).__init__(name, DEVICE_TYPE)
         self.ip = Ipv4(ip_address)
-        self.port = Port(port)
+        self.entities_dict = OrderedDict()
+
+    def add_entity(self, entity) -> bool:
+        if entity.get_name() not in self.entities_dict:
+            if self.get_type() in comm_entity_type(): # Only communication supported types can be added to device
+                self.entities_dict[entity.get_name()] = entity
+                return True
+        return False
+    
+    def duplicated_ports_validator(self):
+        '''
+        Checks if there is at least a single occurance of duplicated ports. 
+        If there is returns True
+        '''
+        ports_set = set()
+        for _ , entity in self.entities_dict.items():
+            port_val = entity.get_port().get_value()
+            if port_val in ports_set:
+                return True
+            ports_set.add(port_val)
+        return False
+
+    def generate_random_port(self):
+        return Port(random.sample(range(49152,65535),1)[0]) # safe range of ports to generate a new port
+
+
+    def ports_fixer(self):
+        ports_set = set()
+        for _ , entity in self.entities_dict.items():
+            pass #TODO
+
+
+    def remove_entity(self, entity_name) -> bool:
+        if entity_name in self.entities_dict:
+            del(self.entities_dict[entity_name])
+            return True
+        return False
 
     def error(self):
-        return self.ip.error() or self.port.error()
+        return self.ip.error()
 
     def get_as_dict(self):
         assert not self.error()
@@ -266,6 +303,9 @@ class Source(JsonElement):
         self.frequency = Frequency(frequency)
         self.policy = Policy(policy, super().get_type())
         self.epochs = Epochs(epochs)
+
+    def get_port(self):
+        return self.port
 
     def error(self):
         return self.ip.error() or self.port.error() or self.policy.error() or self.frequency.error() or self.epochs.error()
