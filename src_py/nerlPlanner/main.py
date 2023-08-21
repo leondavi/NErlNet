@@ -7,10 +7,17 @@ from Pinger import *
 import logging
 import os
 import time
+import sys
 
 sg.theme('LightGray4')
 
 print_banner()
+
+# Resolution Care
+screen_width, screen_height = get_screen_resolution()
+nerlplanner_print(f"Screen resolution: {screen_height}x{screen_width}")
+if int(screen_width) < WINDOW_FIXED_WIDTH:
+    sys.exit(f"ERROR - Minimum resolution width of {WINDOW_FIXED_WIDTH} is required!")
 
 sg.popup_animated(NERLNET_SPLASH_LOGO_PATH) # start splash
 DEFAULT_HOST_IP = get_this_host_ip()
@@ -36,20 +43,21 @@ settingsFrame = sg.Frame("Settings",layout=settingsFields, expand_x=True, expand
 
 # Devices 
 DevicesNamesList = []
+EntitiesNamesList = []
 devicesListFields = [[sg.Text("Devices List")],
-                     [sg.Listbox(DevicesNamesList, size=(30,6))]]
+                     [sg.Listbox(DevicesNamesList, size=(30,6), enable_events=True, key=KEY_DEVICES_LIST_BOX_DEVICES)]]
 devicesEntitiesList = [[sg.Text("Device Entities")],
-                     [sg.Listbox(DevicesNamesList, size=(30,6))]]
+                     [sg.Listbox(EntitiesNamesList, size=(30,6), enable_events=True, key=KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES)]]
 devicesListFrame = sg.Frame("", devicesListFields)
 devicesEntitiesListFrame = sg.Frame("", devicesEntitiesList)
 
 devicesFields = [[sg.Button("Scan",size=(10), key=KEY_DEVICES_SCANNER_BUTTON, enable_events=True),sg.Text("lan: "),
                   sg.InputText('x.x.x.x/Mask-bits',size=20, enable_events=True, key=KEY_DEVICES_SCANNER_INPUT_LAN_MASK),
                   sg.Combo(devices_online_hosts_list, size=(15), enable_events=True, key=KEY_DEVICES_ONLINE_LIST_COMBO_BOX)],
-                 [sg.Button("Add", size=(10)),
-                  sg.Button("Load",size=(10)), 
-                  sg.Button("Save",size=(10)),
-                  sg.Button("Remove",size=(10))],
+                 [sg.Button("Add", size=(10), enable_events=True, key=KEY_DEVICES_BUTTON_ADD),
+                  sg.Button("Load",size=(10), enable_events=True, key=KEY_DEVICES_BUTTON_LOAD), 
+                  sg.Button("Save",size=(10), enable_events=True, key=KEY_DEVICES_BUTTON_SAVE),
+                  sg.Button("Remove",size=(10), enable_events=True, key=KEY_DEVICES_BUTTON_REMOVE)],
                  [sg.Text("Device Name: "), sg.InputText(size=20, enable_events = True, key=KEY_DEVICES_NAME_INPUT)],
                  [sg.Text("IP Address:   "), sg.InputText('x.x.x.x', size=20, enable_events=True, key=KEY_DEVICES_IP_INPUT)],
                  [sg.Text('Selected Device: '), sg.Text('None',key=KEY_DEVICES_SELECTED_DEVICE_TEXT, enable_events=True)],
@@ -160,14 +168,20 @@ grapAndExpFields = [[sg.Button('Generate Graph', expand_x=True), sg.Button('Gene
 grapAndExpFrame = sg.Frame("Graph and Experiment",layout=grapAndExpFields, expand_x=True)
 
 
-# Main Windows
-main_window  = sg.Window(title=WINDOW_TITLE, layout=[[sg.Image(NERLNET_LOGO_PATH, expand_x=True)],
+overall_layout = [[sg.Image(NERLNET_LOGO_PATH, expand_x=True)],
                                                      [sg.Text(f'Nerlnet Planner v-{VERSION}')],
                                                     [settingsFrame, jsonCtrlFrame],
                                                     [EntitiesFrame],
                                                     [workersFrame, devicesFrame ],
                                                     [grapAndExpFrame]
-                                                    ])
+                                                    ]
+
+scrollable_enable = False if WINDOW_MAX_SUPPORTED_HEIGHT < int(screen_height) else True
+height_size = min(int(int(screen_height) * WINDOW_HEIGHT_MULTIPLICATION_FACTOR), WINDOW_MAX_SUPPORTED_HEIGHT)
+overall_column = [[sg.Column(layout=overall_layout, scrollable=scrollable_enable, size = (WINDOW_FIXED_WIDTH,height_size), vertical_scroll_only=True, expand_x=True)]]
+
+# Main Windows
+main_window  = sg.Window(title=WINDOW_TITLE, layout=overall_column, size = (WINDOW_FIXED_WIDTH,height_size))
 
 os.makedirs(os.path.dirname(NERLNET_TMP_PATH), exist_ok=True)
 

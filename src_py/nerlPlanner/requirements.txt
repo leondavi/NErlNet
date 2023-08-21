@@ -1,4 +1,4 @@
 graphviz==0.20.1
 pydotplus==2.0.2
 PySimpleGUI==4.60.5
-
+pydot==1.4.2
