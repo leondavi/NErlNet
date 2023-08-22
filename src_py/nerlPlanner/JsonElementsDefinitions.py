@@ -32,6 +32,12 @@ SourcePolicyDict = {
     "Round-Robin":2
 }
 
+SOURCE_TYPE_DICT_DEFAULT_SOURCE_TYPE = "csv"
+SourceTypeDict = {
+    "csv" : 0,
+    "cam-dummy" : 1
+}
+
 def get_inv_dict(in_dict):
     Keys = list(in_dict.keys())
     Values = list(in_dict.values())

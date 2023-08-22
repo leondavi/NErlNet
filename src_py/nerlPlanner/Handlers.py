@@ -114,6 +114,8 @@ def devices_handler(window, event, values):
     device_name = values[KEY_DEVICES_NAME_INPUT]
     device_ip = values[KEY_DEVICES_IP_INPUT]
 
+
+
 def clients_handler(window, event, values):
     global clients_combo_box_worker_selection
     global clients_this_client_name
@@ -236,6 +238,7 @@ def sources_handler(window, event, values):
     global sources_this_source_frequency
     global sources_this_source_epochs
     global sources_this_source_policy
+    global sources_this_source_type
 
     if (event == KEY_SOURCES_BUTTON_ADD):
         sources_this_source_name = values[KEY_SOURCES_NAME_INPUT]
@@ -256,12 +259,15 @@ def sources_handler(window, event, values):
                 sources_this_source_frequency = frequency
                 sources_this_source_epochs = epochs.get_value_str()
                 sources_this_source_policy = values[KEY_SOURCES_POLICY_COMBO_BOX]
-                sources_this_source = Source(sources_this_source_name, sources_this_source_port, sources_this_source_frequency, sources_this_source_policy, sources_this_source_epochs)
+                sources_this_source_type = values[KEY_SOURCES_TYPE_COMBO_BOX]
+                sources_this_source = Source(sources_this_source_name, sources_this_source_port, sources_this_source_frequency, sources_this_source_policy, sources_this_source_epochs, sources_this_source_type)
                 json_distribtued_config_inst.add_source(sources_this_source)
             else:
                 sg.popup_ok(f"Source {sources_this_source_name} is already exist", title='Adding Source Failed')
         else:
             sg.popup_ok(f"Missing or wrong fields!", title='Adding Source Failed')
+
+    #TODO implement load
 
 
 
