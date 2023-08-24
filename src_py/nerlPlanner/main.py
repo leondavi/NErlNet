@@ -133,7 +133,8 @@ SourcesFields = [
                   sg.Checkbox("Default", key=KEY_SOURCES_FREQUENCY_DEFAULT_CHECKBOX, enable_events=True)],
                  [sg.Text("Port:     "), sg.InputText(size=15, key=KEY_SOURCES_PORT_INPUT, enable_events=True),
                   sg.Text("Epochs:      "), sg.InputText(size=10, key=KEY_SOURCES_EPOCHS_INPUT, enable_events=True) ],
-                  [sg.Text("Policy:  "), sg.Combo(list(SourcePolicyDict.keys()), size=15, key=KEY_SOURCES_POLICY_COMBO_BOX, enable_events=True) ]
+                  [sg.Text("Policy:  "), sg.Combo(list(SourcePolicyDict.keys()), size=15, key=KEY_SOURCES_POLICY_COMBO_BOX, enable_events=True),
+                   sg.Text("Type:    "), sg.Combo(list(SourceTypeDict.keys()),SOURCE_TYPE_DICT_DEFAULT_SOURCE_TYPE,  size=15, key=KEY_SOURCES_TYPE_COMBO_BOX, enable_events=True)]
                 ]
 SourcesFieldsFrame = sg.Frame("Sources",SourcesFields)
 
