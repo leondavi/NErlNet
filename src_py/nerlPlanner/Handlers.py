@@ -111,8 +111,31 @@ def workers_handler(window, event, values):
             sg.popup_ok(f"selection or name issue", keep_on_top=True, title="Loading Issue")
 
 def devices_handler(window, event, values):
-    device_name = values[KEY_DEVICES_NAME_INPUT]
-    device_ip = values[KEY_DEVICES_IP_INPUT]
+    global devices_name 
+    global devices_ip_str
+    global devices_devices_list_box_selection
+    global last_selected_entity
+    
+    # inputs
+    if event == KEY_DEVICES_NAME_INPUT:
+        devices_name = values[KEY_DEVICES_NAME_INPUT]
+    if event == KEY_DEVICES_IP_INPUT:
+        devices_ip_str = values[KEY_DEVICES_IP_INPUT]
+    if event == KEY_DEVICES_LIST_BOX_DEVICES:
+        devices_devices_list_box_selection = values[KEY_DEVICES_LIST_BOX_DEVICES][0]
+    if event == KEY_DEVICES_SELECTED_ENTITY_COMBO:
+        last_selected_entity = values[KEY_DEVICES_SELECTED_ENTITY_COMBO]
+
+    if event == KEY_DEVICES_BUTTON_ADD:
+        if devices_name and devices_ip_str:
+            device_to_add = Device(devices_ip_str, devices_name)
+            if not device_to_add.error():
+                json_distribtued_config_inst.add_device(device_to_add)
+                window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_distribtued_config_inst.get_devices_names())
+            else:
+                sg.popup_ok("Ip or Name are wrong or exist!")
+
+
 
 
 
@@ -148,13 +171,14 @@ def clients_handler(window, event, values):
 
 
     if event == KEY_CLIENTS_BUTTON_LOAD:
-        clients_this_client_name = values[KEY_ENTITIES_CLIENTS_LISTBOX][0]
-        clients_this_client = json_distribtued_config_inst.get_client(clients_this_client_name)
-        clients_this_client_port = clients_this_client.get_port().get_value()
-        window[KEY_CLIENTS_NAME_INPUT].update(clients_this_client.get_name())
-        window[KEY_CLIENTS_PORT_INPUT].update(f"{clients_this_client_port}")
-        window[KEY_CLIENTS_STATUS_BAR].update(f"client {clients_this_client.get_name()} is loaded: {clients_this_client}")
-        window[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS].update(clients_this_client.get_workers_names())
+        clients_this_client_name = values[KEY_ENTITIES_CLIENTS_LISTBOX][0] if values[KEY_ENTITIES_CLIENTS_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
+        if clients_this_client_name:
+            clients_this_client = json_distribtued_config_inst.get_client(clients_this_client_name)
+            clients_this_client_port = clients_this_client.get_port().get_value()
+            window[KEY_CLIENTS_NAME_INPUT].update(clients_this_client.get_name())
+            window[KEY_CLIENTS_PORT_INPUT].update(f"{clients_this_client_port}")
+            window[KEY_CLIENTS_STATUS_BAR].update(f"client {clients_this_client.get_name()} is loaded: {clients_this_client}")
+            window[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS].update(clients_this_client.get_workers_names())
 
     if event == KEY_CLIENTS_BUTTON_ADD:
         if clients_this_client_name:
@@ -222,11 +246,12 @@ def routers_handler(window,event,values):
             sg.popup_ok(f"Router {routers_this_router_name} is already exist", title='Adding Client Failed')
     
     if event == KEY_ROUTERS_BUTTON_LOAD:
-        routers_this_router_name = values[KEY_ENTITIES_ROUTERS_LISTBOX][0]
-        routers_this_router = json_distribtued_config_inst.get_router(routers_this_router_name)
-        routers_this_router_port = routers_this_router.get_port().get_value()
-        routers_this_router_policy = routers_this_router.get_policy().get_policy_name()
-        routers_update_inputs_ui(window)
+        routers_this_router_name = values[KEY_ENTITIES_ROUTERS_LISTBOX][0] if values[KEY_ENTITIES_ROUTERS_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
+        if routers_this_router_name:
+            routers_this_router = json_distribtued_config_inst.get_router(routers_this_router_name)
+            routers_this_router_port = routers_this_router.get_port().get_value()
+            routers_this_router_policy = routers_this_router.get_policy().get_policy_name()
+            routers_update_inputs_ui(window)
 
 
     # TODO COMPLETE load and remove
