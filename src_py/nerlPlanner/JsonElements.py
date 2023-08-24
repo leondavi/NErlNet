@@ -297,18 +297,22 @@ class Router(JsonElement):
         return OrderedDict(elements_list)
 
 class Source(JsonElement):
-    def __init__(self,name, port, frequency, policy, epochs):
+    def __init__(self,name, port, frequency, policy, epochs, source_type):
         super(Source, self).__init__(name, SOURCE_TYPE)  
         self.port = Port(port)
         self.frequency = Frequency(frequency)
         self.policy = Policy(policy, super().get_type())
         self.epochs = Epochs(epochs)
+        self.source_type = source_type
+
+    def source_type_error(self):
+        return True if self.source_type not in get_inv_dict(SourceTypeDict) else False
 
     def get_port(self):
         return self.port
 
     def error(self):
-        return self.ip.error() or self.port.error() or self.policy.error() or self.frequency.error() or self.epochs.error()
+        return self.ip.error() or self.port.error() or self.policy.error() or self.frequency.error() or self.epochs.error() or self.source_type_error()
     
     def get_as_dict(self):
         assert not self.error()

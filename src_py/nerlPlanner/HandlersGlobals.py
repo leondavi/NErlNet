@@ -37,6 +37,7 @@ sources_this_source_port = None
 sources_this_source_frequency = None
 sources_this_source_epochs = None
 sources_this_source_policy = None
+sources_this_source_type = None
 
 # entities
 last_selected_entity = []
