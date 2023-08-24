@@ -39,6 +39,9 @@ class JsonElement():
     def help_str():
         raise "help is not implemented"
     
+    def communication_elem():
+        return False
+    
     def dict_as_list_of_pairs_fixer(self, input_list : list ) -> list:
         new_list = []
         for key, value in input_list:
@@ -145,6 +148,9 @@ class Ipv4(JsonElement):
         super(Ipv4, self).__init__("ipv4", IP_TYPE)
         self.address = address
 
+    def get_address(self):
+        return self.address
+
     def error(self):
         return (not Ipv4.validate_ip(self.address))
 
@@ -193,6 +199,9 @@ class ApiServer(JsonElement):
         self.port = Port(port)
         self.args = Arguments(args)
 
+    def communication_elem():
+        return True
+
     def error(self):
         return self.ip.error() or self.port.error()
     
@@ -211,6 +220,9 @@ class MainServer(JsonElement):
         self.port = Port(port)
         self.args = Arguments(args)
 
+    def communication_elem():
+        return True
+
     def error(self):
         return self.ip.error() or self.port.error()
 
@@ -227,13 +239,6 @@ class Device(JsonElement):
         self.ip = Ipv4(ip_address)
         self.entities_dict = OrderedDict()
 
-    def add_entity(self, entity) -> bool:
-        if entity.get_name() not in self.entities_dict:
-            if self.get_type() in comm_entity_type(): # Only communication supported types can be added to device
-                self.entities_dict[entity.get_name()] = entity
-                return True
-        return False
-    
     def duplicated_ports_validator(self):
         '''
         Checks if there is at least a single occurance of duplicated ports. 
@@ -247,17 +252,22 @@ class Device(JsonElement):
             ports_set.add(port_val)
         return False
 
+    def get_ip(self):
+        return self.ip
+
+    ADD_ENTITY_SUCCESS = 0
+    ADD_ENTITY_ISSUE_DUPLICATED_PORT = -1
+    ADD_ENTITY_ISSUE_NAME_EXISTS = -2
+    def add_entity(self, entity : JsonElement) -> bool:
+        if (entity.get_name() not in self.entities_dict) and entity.communication_elem(): 
+            self.entities_dict[entity.get_name()] = entity
+            return True
+        return False # TODO implement issues hadling
+    
     def generate_random_port(self):
         return Port(random.sample(range(49152,65535),1)[0]) # safe range of ports to generate a new port
 
-
-    def ports_fixer(self):
-        ports_set = set()
-        for _ , entity in self.entities_dict.items():
-            pass #TODO
-
-
-    def remove_entity(self, entity_name) -> bool:
+    def remove_entity(self, entity_name : str) -> bool:
         if entity_name in self.entities_dict:
             del(self.entities_dict[entity_name])
             return True
@@ -278,6 +288,9 @@ class Router(JsonElement):
         super(Router, self).__init__(name, ROUTER_TYPE)
         self.port = Port(port)
         self.policy = Policy(policy, super().get_type())
+
+    def communication_elem():
+        return True
 
     def get_port(self):
         return self.port
@@ -305,6 +318,9 @@ class Source(JsonElement):
         self.epochs = Epochs(epochs)
         self.source_type = source_type
 
+    def communication_elem():
+        return True
+
     def source_type_error(self):
         return True if self.source_type not in get_inv_dict(SourceTypeDict) else False
 
@@ -328,6 +344,9 @@ class Client(JsonElement):
         super(Client, self).__init__(name, CLIENT_TYPE)  
         self.port = Port(port)
         self.workers_dict = OrderedDict()
+
+    def communication_elem():
+        return True
 
     def __format__(self, __format_spec: str) -> str:
         workers_dict_as_string = ",".join(list(self.workers_dict.keys()))
