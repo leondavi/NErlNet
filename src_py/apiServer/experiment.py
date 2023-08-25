@@ -1,8 +1,7 @@
-###########################################################
-##### Author: Dor Yarchi
-# Nerlnet Copyright: © 2022
-# Date: 27/07/2022
-###########################################################
+################################################
+# Nerlnet - 2023 GPL-3.0 license
+# Authors: Haran Cohen, David Leon, Dor Yerchi #
+################################################
 from workerResult import *
 import numpy as np
 import globalVars as globe

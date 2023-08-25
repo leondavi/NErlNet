@@ -1,8 +1,7 @@
-###########################################################
-##### Author: Dor Yarchi
-# Copyright: © 2022
-# Date: 27/07/2022
-###########################################################
+################################################
+# Nerlnet - 2023
+# Authors: Haran Cohen, David Leon, Dor Yerchi
+################################################
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, classification_report, multilabel_confusion_matrix
 import time
 import requests
