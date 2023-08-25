@@ -14,8 +14,10 @@ workers_new_worker_dict = None
 worker_name_selection = None
 
 # devices
-device_name = None
-device_ip = None
+devices_name = None
+devices_ip_str = None
+devices_devices_list_box_selection = None # no mistake in name there is also an entities listbox
+devices_entity_selection = None
 
 # clients
 clients_combo_box_worker_selection = None

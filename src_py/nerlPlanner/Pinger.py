@@ -42,10 +42,8 @@ def online_scanner_handler(window, event, values, devices_online_hosts_list):
             window[KEY_DEVICES_ONLINE_LIST_COMBO_BOX].update(value = devices_online_hosts_list[0], values = devices_online_hosts_list)
         else:
             window[KEY_DEVICES_ONLINE_LIST_COMBO_BOX].update(value = 'not found')
-    
-    if event == KEY_DEVICES_ONLINE_LIST_COMBO_BOX:
-        window[KEY_DEVICES_IP_INPUT].update(values[KEY_DEVICES_ONLINE_LIST_COMBO_BOX])
 
+    # Important! event KEY_DEVICES_ONLINE_LIST_COMBO_BOX is handled in devices_handler
 
 def online_devices_scanner_dialog(net_lan : str, devices_online_list : list):
     host_idx = 0
