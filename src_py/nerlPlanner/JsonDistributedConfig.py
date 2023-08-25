@@ -23,9 +23,9 @@ class JsonDistributedConfig():
         self.default_frequency = None
     
     def init_dictionary(self):
-        self.main_dict[KEY_NERLNET_SETTINGS] = ""
-        self.main_dict[MainServer.NAME] = ""
-        self.main_dict[ApiServer.NAME] = ""
+        self.main_dict[KEY_NERLNET_SETTINGS] = None
+        self.main_dict[MainServer.NAME] = None
+        self.main_dict[ApiServer.NAME] = None
         self.main_dict[KEY_DEVICES] = OrderedDict()
         self.main_dict[KEY_ROUTERS] = OrderedDict()
         self.main_dict[KEY_SOURCES] = OrderedDict()
@@ -37,7 +37,7 @@ class JsonDistributedConfig():
         self.init_dictionary()
 
     def get_entities(self):
-        special_entities = [x for x in list(self.reserved_names_set) if x in self.main_dict]
+        special_entities = [x for x in list(self.reserved_names_set) if (x in self.main_dict) and self.main_dict [x]]
         return self.get_clients_names() + self.get_routers_names() + self.get_sources_names() + special_entities
 
     def add_nerlnet_settings(self, frequency : Frequency, batchsize : BatchSize):
@@ -49,10 +49,10 @@ class JsonDistributedConfig():
         return self.default_frequency # returns Frequency or None
 
     def add_main_server(self, main_server : MainServer):
-        self.main_dict[MainServer.NAME] = main_server.get_as_dict()
+        self.main_dict[MainServer.NAME] = main_server
 
     def add_api_server(self, api_server : ApiServer):
-        self.main_dict[ApiServer.NAME] = api_server.get_as_dict()
+        self.main_dict[ApiServer.NAME] = api_server
 
     def get_devices_names(self):
         return list(self.main_dict[KEY_DEVICES].keys())
@@ -62,6 +62,7 @@ class JsonDistributedConfig():
     
     def get_devices_ips(self):
         return list( dev.get_ip().get_address() for _ , dev in self.main_dict[KEY_DEVICES].items())
+    
 
     DEVICE_ADD_ISSUE_WITH_IP = -1
     DEVICE_ADD_ISSUE_WITH_NAME = -2
@@ -76,11 +77,20 @@ class JsonDistributedConfig():
         return self.DEVICE_ADD_SUCCESS
     
     def add_entity_to_device(self, device_name : str , entity_name : str):
+        '''
+        Input device and entity names that exists in json DC database
+        '''
         if (device_name in self.main_dict[KEY_DEVICES]) and (entity_name in self.get_entities()):
+            for dev_name in self.get_devices_names():
+                dev_inst = self.main_dict[KEY_DEVICES][dev_name]
+                if entity_name in dev_inst.get_entities_names():
+                    return False
             device_inst = self.get_device_by_name(device_name)
-            device_inst.add_entity()
+            entity_inst = self.get_entity(entity_name)
+            device_inst.add_entity(entity_inst)
         else:
-            raise "issue with given device or entity"
+            return False
+        return True
             
 
 
@@ -114,6 +124,8 @@ class JsonDistributedConfig():
         for entity_type in [KEY_ROUTERS, KEY_CLIENTS, KEY_SOURCES]:
             if entity_name in self.main_dict[entity_type]:
                 return self.main_dict[entity_type][entity_name]
+        if entity_name in self.special_entities_list:
+            return self.main_dict[entity_name]
         return None
 
     def get_entity_with_type(self, entity_name : str, entity_type):
