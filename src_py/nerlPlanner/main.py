@@ -15,7 +15,7 @@ print_banner()
 
 # Resolution Care
 screen_width, screen_height = get_screen_resolution()
-nerlplanner_print(f"Screen resolution: {screen_height}x{screen_width}")
+nerlplanner_print(f"Screen resolution: {screen_width}x{screen_height}")
 if int(screen_width) < WINDOW_FIXED_WIDTH:
     sys.exit(f"ERROR - Minimum resolution width of {WINDOW_FIXED_WIDTH} is required!")
 
@@ -25,21 +25,23 @@ DEFAULT_HOST_IP = get_this_host_ip()
 # globals
 devices_online_hosts_list = [DEFAULT_HOST_IP]
 
-# Specific Fields Frame 
+# Settings and Special entities frame
 settingsFields = [  
                 [sg.Text('Frequency '), sg.InputText(size=10, key=KEY_SETTINGS_FREQUENCY_INPUT, enable_events=True), sg.Text('Default frequency for sensors')],
                 [sg.Text('Batch Size'), sg.InputText(size=10, key=KEY_SETTINGS_BATCH_SIZE_INPUT, enable_events=True), sg.Text('# of samples in a message')],
-                [sg.Text("Special devices")],
-                [sg.Text('Main Server: '), sg.Text('IP'), sg.InputText(DEFAULT_HOST_IP, size=15, key=KEY_SETTINGS_MAINSERVER_IP_INPUT, enable_events=True), 
-                                           sg.Text('Port'), sg.InputText(size=10, key=KEY_SETTINGS_MAINSERVER_PORT_INPUT, enable_events=True),
-                                           sg.Text('Args'), sg.InputText(size=15, key=KEY_SETTINGS_MAINSERVER_ARGS_INPUT, enable_events=True)],
-                [sg.Text('API Server:  '), sg.Text('IP'), sg.InputText(DEFAULT_HOST_IP, size=15, key=KEY_SETTINGS_APISERVER_IP_INPUT, enable_events=True), 
+                [sg.Button("Save", size=(10), key=KEY_SETTINGS_SAVE_BUTTON, enable_events=True), sg.Button("Clear",size=(10))]]
+settingsFrame = sg.Frame("Settings",layout=settingsFields, expand_x=True, expand_y=True)
+
+specialEntitiesFields = [[sg.Text('Main Server: '), sg.Text('Port'), sg.InputText(size=10, key=KEY_SETTINGS_MAINSERVER_PORT_INPUT, enable_events=True),
+                                                   sg.Text('Args'), sg.InputText(size=15, key=KEY_SETTINGS_MAINSERVER_ARGS_INPUT, enable_events=True)],
+                        [sg.Text('API Server:  '), 
                                           sg.Text('Port'), sg.InputText(size=10, key=KEY_SETTINGS_APISERVER_PORT_INPUT, enable_events=True),
                                           sg.Text('Args'), sg.InputText(size=15, key=KEY_SETTINGS_APISERVER_ARGS_INPUT, enable_events=True)],
-                                          [sg.Text('Status Bar')], # TODO complete status bar activity
-                [sg.Button("Save", size=(10), key=KEY_SETTINGS_SAVE_BUTTON, enable_events=True), sg.Button("Clear",size=(10))],
-            ]
-settingsFrame = sg.Frame("Settings",layout=settingsFields, expand_x=True, expand_y=True)
+                        [sg.Button("Save", size=(10), key=KEY_SETTINGS_SPECIAL_ENTITIES_SAVE, enable_events=True), sg.Button("Clear",size=(10))],
+                        ] # TODO complete status bar activity]
+specialEntitiesFrame = sg.Frame("Special Entities",layout=specialEntitiesFields, expand_x=True, expand_y=True)
+
+jointSettingsAndSpecialEntities = sg.Frame("",layout=[[settingsFrame ,specialEntitiesFrame], [sg.Text(f'This Host IP: {DEFAULT_HOST_IP}', expand_x=True)], [sg.Text('Main Server Status',size=(100))], [sg.Text('Api Server Status',size=(100))]])
 
 # Devices 
 DevicesNamesList = []
@@ -71,18 +73,19 @@ devicesFrame = sg.Frame("Devices",layout=[[davicesFieldsFrame],[devicesListFrame
 
 # Workers 
 workersNamesList = []
-workersListFields = [[sg.Text("Workers List")],
-                     [sg.Listbox(workersNamesList, size=(90,6), key=KEY_WORKERS_LIST_BOX, enable_events=True), sg.Button("Load", size=8, key=KEY_WORKERS_LOAD_FROM_LIST_WORKER_BUTTON, enable_events=True)],
-                     [sg.Text("",enable_events=True, key=KEY_WORKERS_INFO_BAR)]]
+workersListFields = [[sg.Text("Workers List: ",expand_x=True)],
+                     [sg.Listbox(workersNamesList, size=(80,6), expand_x=True, key=KEY_WORKERS_LIST_BOX, enable_events=True),
+                      sg.Button("Show Worker\nModel", key=KEY_WORKERS_SHOW_WORKER_BUTTON, enable_events=True, expand_x=True, expand_y=True)],
+                     [sg.Text("",enable_events=True, key=KEY_WORKERS_INFO_BAR, size=(120))]]
 workersListFrame = sg.Frame("", workersListFields)
 workersFields = [
                  [sg.Button("Add", size=(10),key=KEY_WORKERS_BUTTON_ADD,enable_events=True),
+                  sg.Button("Load", size=8, key=KEY_WORKERS_LOAD_FROM_LIST_WORKER_BUTTON, enable_events=True),
                   sg.Button("View",size=(10),key=KEY_WORKERS_BUTTON_VIEW, enable_events=True), 
                   sg.Button("Remove",size=(10),key=KEY_WORKERS_BUTTON_REMOVE,enable_events=True)],
                  [sg.Text("Name:   "), sg.InputText(size=10,key=KEY_WORKERS_NAME_INPUT, enable_events=True)],
                  [sg.Text("Path to file of type *.json/*.xml")],
-                 [sg.InputText(size=60, key=KEY_WORKERS_INPUT_LOAD_WORKER_PATH, enable_events=True), sg.FileBrowse(file_types=(("Worker-File", "*.json"),)),
-                  sg.Button("Show", key=KEY_WORKERS_SHOW_WORKER_BUTTON, enable_events=True)],
+                 [sg.InputText(size=60, key=KEY_WORKERS_INPUT_LOAD_WORKER_PATH, enable_events=True), sg.FileBrowse(file_types=(("Worker-File", "*.json"),))],
                  [sg.Button("Create/Edit worker .json",size=(40),enable_events=True,key=WIN_WORKER_DIALOG_EVENT_KEY)],
                 ]
 
@@ -98,7 +101,7 @@ ClientsFields = [
                   sg.Button("Remove", size=(9), enable_events=True, key=KEY_CLIENTS_BUTTON_REMOVE)],
                  [sg.Text("Name:  "), sg.InputText(size=15, enable_events=True, key=KEY_CLIENTS_NAME_INPUT)],
                  [sg.Text("Port:    "), sg.InputText(size=15, enable_events=True, key=KEY_CLIENTS_PORT_INPUT)],
-                 [sg.Text("Status Bar", key=KEY_CLIENTS_STATUS_BAR, enable_events=True, expand_x=True)]
+                 [sg.Text("Status Bar", key=KEY_CLIENTS_STATUS_BAR, size=(60), enable_events=True, expand_x=True)]
                 ]
 ClientsFieldsFrame = sg.Frame("",ClientsFields, expand_x=True)
 
@@ -148,9 +151,7 @@ EntitiesListFields = [[sg.Text("Clients", expand_x=True), sg.Text("Routers", exp
                       ]
 EntitiesFieldsFrame = sg.Frame("", layout=[[ClientsFieldsFrames],[SourcesFieldsFrame, RoutersFieldsFrame]])
 EntitiesListFrame = sg.Frame("", EntitiesListFields)
-EntitiesFrame = sg.Frame("Entities - HTTP Cowboy instances",layout=[[EntitiesFieldsFrame, EntitiesListFrame]])
-
-
+EntitiesFrame = sg.Frame("Entities - HTTP Cowboy instances",layout=[[EntitiesFieldsFrame, EntitiesListFrame]], expand_x=True)
 
 
 
@@ -164,18 +165,17 @@ JsonFileFields = [  [sg.Text('Load from: ')],
                 ]
 jsonCtrlFrame = sg.Frame("Distributed Configurations Json",layout=JsonFileFields, expand_x=True)
 
-
 # Graph and Experimant generate buttons (open a new window for these jsons)
-grapAndExpFields = [[sg.Button('Generate Graph', expand_x=True), sg.Button('Generate Experiment', expand_x=True)]]
-grapAndExpFrame = sg.Frame("Graph and Experiment",layout=grapAndExpFields, expand_x=True)
+grapAndExpFields = [[sg.Button('Generate Graph', expand_x=True, expand_y=True)],[sg.Button('Generate Experiment', expand_x=True, expand_y=True)]]
+grapAndExpFrame = sg.Frame("Graph and Experiment",layout=grapAndExpFields, expand_x=True, expand_y=True)
 
+jsonCtrlFrameWithSettingsAndSpecialEntities = sg.Frame("",layout = [[jointSettingsAndSpecialEntities, jsonCtrlFrame, grapAndExpFrame]], expand_x = True)
 
 overall_layout = [[sg.Image(NERLNET_LOGO_PATH, expand_x=True)],
                                                      [sg.Text(f'Nerlnet Planner v-{VERSION}')],
-                                                    [settingsFrame, jsonCtrlFrame],
+                                                    [jsonCtrlFrameWithSettingsAndSpecialEntities],
                                                     [EntitiesFrame],
-                                                    [workersFrame, devicesFrame ],
-                                                    [grapAndExpFrame]
+                                                    [workersFrame, devicesFrame ]
                                                     ]
 
 scrollable_enable = False if WINDOW_MAX_SUPPORTED_HEIGHT < int(screen_height) else True
