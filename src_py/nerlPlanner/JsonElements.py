@@ -36,10 +36,10 @@ class JsonElement():
     def set_name(self, name):
         self.name = name
 
-    def help_str():
+    def help_str(self):
         raise "help is not implemented"
     
-    def communication_elem():
+    def communication_elem(self):
         return False
     
     def dict_as_list_of_pairs_fixer(self, input_list : list ) -> list:
@@ -199,7 +199,7 @@ class ApiServer(JsonElement):
         self.port = Port(port)
         self.args = Arguments(args)
 
-    def communication_elem():
+    def communication_elem(self):
         return True
 
     def error(self):
@@ -220,7 +220,7 @@ class MainServer(JsonElement):
         self.port = Port(port)
         self.args = Arguments(args)
 
-    def communication_elem():
+    def communication_elem(self):
         return True
 
     def error(self):
@@ -238,6 +238,9 @@ class Device(JsonElement):
         super(Device, self).__init__(name, DEVICE_TYPE)
         self.ip = Ipv4(ip_address)
         self.entities_dict = OrderedDict()
+
+    def get_entities_names(self):
+        return list(self.entities_dict.keys())
 
     def duplicated_ports_validator(self):
         '''
@@ -289,7 +292,7 @@ class Router(JsonElement):
         self.port = Port(port)
         self.policy = Policy(policy, super().get_type())
 
-    def communication_elem():
+    def communication_elem(self):
         return True
 
     def get_port(self):
@@ -318,7 +321,7 @@ class Source(JsonElement):
         self.epochs = Epochs(epochs)
         self.source_type = source_type
 
-    def communication_elem():
+    def communication_elem(self):
         return True
 
     def source_type_error(self):
@@ -345,7 +348,7 @@ class Client(JsonElement):
         self.port = Port(port)
         self.workers_dict = OrderedDict()
 
-    def communication_elem():
+    def communication_elem(self):
         return True
 
     def __format__(self, __format_spec: str) -> str:

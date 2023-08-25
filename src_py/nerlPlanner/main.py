@@ -62,7 +62,8 @@ devicesFields = [[sg.Button("Scan",size=(10), key=KEY_DEVICES_SCANNER_BUTTON, en
                  [sg.Text("IP Address:   "), sg.InputText('x.x.x.x', size=20, enable_events=True, key=KEY_DEVICES_IP_INPUT)],
                  [sg.Text('Selected Device: '), sg.Text('None',key=KEY_DEVICES_SELECTED_DEVICE_TEXT, enable_events=True)],
                  [sg.Text('Selected Entity:', size=(15)), 
-                  sg.Combo('entities', size=(15), key=KEY_DEVICES_SELECTED_ENTITY_COMBO, enable_events=True), sg.Button("Add Entity to Selected Device", size=(25))]
+                  sg.Combo('entities', size=(15), key=KEY_DEVICES_SELECTED_ENTITY_COMBO, enable_events=True),
+                  sg.Button("Add Entity to Selected Device", size=(25), key=KEY_DEVICES_ADD_ENTITY_TO_DEVICE, enable_events=True)]
                   ] #TODO status bar
 
 davicesFieldsFrame = sg.Frame("",devicesFields, expand_x=True)
