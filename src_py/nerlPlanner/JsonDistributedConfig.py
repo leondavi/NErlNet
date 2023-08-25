@@ -91,7 +91,14 @@ class JsonDistributedConfig():
         else:
             return False
         return True
-            
+
+    def remove_entity_from_device(self, entity_name : str):
+        for dev_name in self.get_devices_names():
+            dev_inst = self.main_dict[KEY_DEVICES][dev_name]
+            if entity_name in dev_inst.get_entities_names():
+                if dev_inst.remove_entity(entity_name):
+                    return True
+        return False
 
 
     def add_client(self, client : Client): 
@@ -106,6 +113,12 @@ class JsonDistributedConfig():
         else:
             self.main_dict[KEY_CLIENTS][client_name] = client
         return True
+    
+    def remove_client(self, client_name : str):
+        if client_name in self.main_dict[KEY_CLIENTS]:
+            del(self.main_dict[KEY_CLIENTS][client_name]) 
+        self.remove_entity_from_device(client_name)
+
     
     def get_clients_names(self):
         return list(self.main_dict[KEY_CLIENTS].keys())
@@ -191,6 +204,9 @@ class JsonDistributedConfig():
             else:
                 self.main_dict[KEY_WORKERS_SHA][worker_sha].append(worker_name)
         return True
+    
+    def get_worker(self, worker_name : str) -> Worker:
+        return self.main_dict[KEY_WORKERS][worker_name]
     
     def get_workers_dict(self):
         return self.main_dict[KEY_WORKERS]
