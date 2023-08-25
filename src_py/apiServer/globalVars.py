@@ -1,8 +1,7 @@
-###########################################################
-##### Author: Dor Yarchi
-# Copyright: © 2022
-# Date: 27/07/2022
-###########################################################
+################################################
+# Nerlnet - 2023 GPL-3.0 license
+# Authors: Haran Cohen, David Leon, Dor Yerchi #
+################################################
 import multiprocessing 
 import socket
 import os
