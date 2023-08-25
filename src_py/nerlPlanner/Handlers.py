@@ -24,30 +24,32 @@ def settings_handler(event, values):
         frequency = values[KEY_SETTINGS_FREQUENCY_INPUT] if values[KEY_SETTINGS_FREQUENCY_INPUT] else None
         frequency_inst = Frequency(frequency) if frequency else None
         error_list.append(frequency_inst.error()) if frequency else error_list.append(True)
-        print(f"Frequency={frequency}") #TODO remove - jsut debug
 
         batch_size = values[KEY_SETTINGS_BATCH_SIZE_INPUT] if values[KEY_SETTINGS_BATCH_SIZE_INPUT] else None
         batch_size_inst = BatchSize(batch_size) if batch_size else None
         error_list.append(batch_size_inst.error()) if batch_size else error_list.append(True)
-        print(f"batch_size={batch_size}") #TODO remove - jsut debug
 
-        main_server_ip = values[KEY_SETTINGS_MAINSERVER_IP_INPUT] if values[KEY_SETTINGS_MAINSERVER_IP_INPUT] else None
+        error = any(error_list)
+        if error:
+            sg.popup_ok(f"Wrong or missed input!", keep_on_top=True, title="Settings Input Issue")
+        else:
+            json_dc_inst.add_nerlnet_settings(frequency_inst, batch_size_inst)
+
+    if event == KEY_SETTINGS_SPECIAL_ENTITIES_SAVE:
         main_server_port = values[KEY_SETTINGS_MAINSERVER_PORT_INPUT] if values[KEY_SETTINGS_MAINSERVER_PORT_INPUT] else None
         main_server_args = values[KEY_SETTINGS_MAINSERVER_ARGS_INPUT] if values[KEY_SETTINGS_MAINSERVER_ARGS_INPUT] else None
-        main_server_inst = MainServer(main_server_ip, main_server_port, main_server_args) if main_server_ip and main_server_port else None
+        main_server_inst = MainServer(main_server_port, main_server_args) if main_server_port else None
         error_list.append(main_server_inst.error()) if main_server_inst is not None else error_list.append(True)
 
-        api_server_ip = values[KEY_SETTINGS_APISERVER_IP_INPUT] if values[KEY_SETTINGS_APISERVER_IP_INPUT] else None
         api_server_port = values[KEY_SETTINGS_APISERVER_PORT_INPUT] if values[KEY_SETTINGS_APISERVER_PORT_INPUT] else None
         api_server_args = values[KEY_SETTINGS_APISERVER_ARGS_INPUT] if values[KEY_SETTINGS_APISERVER_ARGS_INPUT] else None
-        api_server_inst = ApiServer(api_server_ip, api_server_port, api_server_args) if api_server_ip and api_server_port else None
+        api_server_inst = ApiServer(api_server_port, api_server_args) if api_server_port else None
         error_list.append(api_server_inst.error()) if api_server_inst is not None else error_list.append(True)
         
         error = any(error_list)
         if error:
-            sg.popup_ok(f"Cannot save - Wrong Fields!", keep_on_top=True, title="Input Issue")
+            sg.popup_ok(f"Wrong or missed input!", keep_on_top=True, title="Settings Input Issue")
         else:
-            json_dc_inst.add_nerlnet_settings(frequency_inst, batch_size_inst)
             json_dc_inst.add_main_server(main_server_inst)
             json_dc_inst.add_api_server(api_server_inst)
 
@@ -205,12 +207,27 @@ def clients_handler(window, event, values):
             clients_this_client_port = ''
             window[KEY_CLIENTS_NAME_INPUT].update(clients_this_client_name) 
             window[KEY_CLIENTS_PORT_INPUT].update(clients_this_client_port) 
-    elif (clients_this_client is not None) and (event == KEY_CLIENTS_NAME_INPUT or event == KEY_CLIENTS_PORT_INPUT):
-        if clients_this_client_name and clients_this_client_port:
-            if (clients_this_client.get_name() != clients_this_client_name) or (clients_this_client.get_port() != clients_this_client_port):
-                clients_this_client.set_name(clients_this_client_name)
-                clients_this_client.set_port(clients_this_client_port)
-                window[KEY_CLIENTS_STATUS_BAR].update(f"Update client {clients_this_client_name}: {clients_this_client}")
+
+    if event == KEY_CLIENTS_BUTTON_SAVE:    
+        if clients_this_client and (clients_this_client.get_name() in json_dc_inst.get_clients_names()):
+            clients_this_client_name = clients_this_client_name if clients_this_client_name else clients_this_client.get_name()
+            clients_this_client_port = clients_this_client_port if clients_this_client_port else clients_this_client.get_port()
+            client_to_remove = clients_this_client
+            client_to_remove_name = clients_this_client.get_name()
+            workers_names = client_to_remove.get_workers_names()
+            clients_without_remove_candidate = json_dc_inst.get_clients_names()
+            clients_without_remove_candidate.remove(clients_this_client.get_name())
+            if clients_this_client_name not in clients_without_remove_candidate: # if apperas in clients_without_remove_candidate then operation is forbidden
+                json_dc_inst.remove_client(client_to_remove_name)
+                new_client = Client(clients_this_client_name, clients_this_client_port)
+                json_dc_inst.add_client(new_client)
+                for worker_name in workers_names:
+                    worker_inst = json_dc_inst.get_worker(worker_name)
+                    new_client.add_worker(worker_name, worker_inst.get_sha())
+                window[KEY_CLIENTS_STATUS_BAR].update(f"Client {client_to_remove_name} replaced by Client: {new_client}")
+            else:
+                sg.popup_ok(f"Name {clients_this_client_name} already exists", keep_on_top=True, title="Chance client issue")
+
 
 
 def routers_reset_inputs_ui(window):

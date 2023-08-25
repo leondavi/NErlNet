@@ -193,9 +193,8 @@ class Port(JsonElement):
 
 class ApiServer(JsonElement):
     NAME = "apiServer"
-    def __init__(self, ip_address : str, port, args : str):
+    def __init__(self, port, args : str):
         super(ApiServer, self).__init__(ApiServer.NAME, API_SERVER_TYPE)
-        self.ip = Ipv4(ip_address)
         self.port = Port(port)
         self.args = Arguments(args)
 
@@ -203,7 +202,7 @@ class ApiServer(JsonElement):
         return True
 
     def error(self):
-        return self.ip.error() or self.port.error()
+        return self.port.error()
     
     def get_as_dict(self):
         assert not self.error()
@@ -214,9 +213,8 @@ class ApiServer(JsonElement):
 
 class MainServer(JsonElement):
     NAME = "mainServer"
-    def __init__(self, ip_address : str, port, args : str):
+    def __init__(self, port, args : str):
         super(MainServer, self).__init__(MainServer.NAME, MAIN_SERVER_TYPE)
-        self.ip = Ipv4(ip_address)
         self.port = Port(port)
         self.args = Arguments(args)
 
@@ -224,7 +222,7 @@ class MainServer(JsonElement):
         return True
 
     def error(self):
-        return self.ip.error() or self.port.error()
+        return self.port.error()
 
     def get_as_dict(self):
         assert not self.error()
