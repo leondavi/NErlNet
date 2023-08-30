@@ -224,8 +224,8 @@ handle_cast({sourceAck,Body}, State = #main_genserver_state{sourcesWaitingList =
 
 
 handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList,msgCounter = MsgCounter}) ->
-  NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
-  % io:format("new Waiting List: ~p ~n",[NewWaitingList]),
+  NewWaitingList = WaitingList--[binary_to_term(Body)],
+   io:format("new Waiting List: ~p ~n",[NewWaitingList]),
   if length(NewWaitingList) == 0 -> ack();
   true-> ok end,
   {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList, msgCounter = MsgCounter+1}};

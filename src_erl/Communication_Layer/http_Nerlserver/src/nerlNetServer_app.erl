@@ -263,6 +263,7 @@ createRouters(MapOfRouters, HostName) ->
                 {"/stopCasting",routingHandler, [stopCasting,RouterGenServerPid]},
                 {"/federatedWeightsVector",routingHandler, [federatedWeightsVector,RouterGenServerPid]},
                 {"/federatedWeights",routingHandler, [federatedWeights,RouterGenServerPid]},
+                {"/messagePass",routingHandler, [messagePass,RouterGenServerPid]},
 
                 %%GUI actions
                 {"/getStats",routingHandler, [getStats,RouterGenServerPid]}

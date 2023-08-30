@@ -74,7 +74,9 @@ init(Req0, State) ->
     %   gen_server:cast(Router_genserver_Pid, {federatedWeights,Body});
 
     %%%%%%%%%%%%%%GUI actions
-    getStats -> gen_server:cast(Router_genserver_Pid, {getStats,Body})
+    getStats -> gen_server:cast(Router_genserver_Pid, {getStats,Body});
+
+    messagePass ->gen_server:cast(Router_genserver_Pid, {messagePass,binary_to_term(Body)})
 
   end,
   Reply = io_lib:format(" ", []),

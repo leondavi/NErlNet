@@ -23,7 +23,7 @@
 -define(SERVER, ?MODULE).
 
 
--record(router_genserver_state, {myName, nerlnetGraph,msgCounter = 0}).
+-record(router_genserver_state, {myName, nerlnetGraph,msgCounter = 0,etsRef}).
 
 %%%===================================================================
 %%% API
@@ -53,7 +53,11 @@ init({MyName,NerlnetGraph}) ->
   ?LOG_NOTICE("Router ~p is connected to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
     % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
   put(nerlnetGraph, NerlnetGraph),
-  {ok, #router_genserver_state{msgCounter = 1, myName = MyName }}.
+  EtsRef = ets:new(rouint_table, [set]),
+  EntitiesList=digraph:vertices(NerlnetGraph),
+  Routing_table=nerl_tools:make_rouint_table(EtsRef,EntitiesList--[?API_SERVER_ATOM,MyName],MyName,NerlnetGraph),
+  %io:format("--------------------------router EntitiesList: ~p~n",[EntitiesList]),
+  {ok, #router_genserver_state{msgCounter = 1, myName = MyName, etsRef=Routing_table }}.
 
 
 %% @private
@@ -176,9 +180,26 @@ handle_cast({getStats,_Body}, State  = #router_genserver_state{myName = MyName, 
     nerl_tools:http_request(Host,Port,"routerStats",Mes),
     {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
+handle_cast({messagePass,{Dest,Body}}, State = #router_genserver_state{msgCounter = MsgCounter,etsRef=Routing_table }) ->
+  %io:format("-----------------got here!!!!!!!!!!~n"),
+  [{Dest,{Name,{Host,Port}}}]=ets:lookup(Routing_table,Dest),
+  case Dest of
+    Name->
+      %the destination is the next hop, send as regular messege
+      {Path,Data}=Body,
+      io:format("-----------------last hop sending{~p,~p} from body~p~n",[Path,Data,Body]),
+      io:format("-----------------ets entry is{~p,{~p,~p}}~n",[Name,Host,Port]);
+    _->
+      %next hop isnt the destination, continue as geneal router messege
+      Path="messagePass",
+      Data={Dest,Body}
+      %io:format("-----------------on the way~n")
+    end,
+  nerl_tools:http_request(Host, Port,Path, term_to_binary(Data)),
+  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1,etsRef=Routing_table }};
 
 handle_cast(_Request, State = #router_genserver_state{msgCounter = MsgCounter }) ->
-  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}}.
+  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}} .
 
 
 

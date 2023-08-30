@@ -9,6 +9,7 @@
 -export([getdeviceIP/0, port_available/1]).
 -export([list_to_numeric/1]).
 -export([calculate_size/1]).
+-export([make_rouint_table/4]).
 
 setup_logger(Module) ->
   logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
@@ -189,3 +190,17 @@ calculate_size(List) when is_list(List) ->
 %% TODO: add another timing map for NIF of each worker action
 
 %% TODO: create create_body func for standard message passing
+
+make_rouint_table(Ets,[],_MyName,_NerlnetGraph)->Ets;
+make_rouint_table(Ets,[Entity|EntitiesList],MyName,NerlnetGraph)->
+  case digraph:get_short_path(NerlnetGraph,MyName,Entity) of
+
+    false ->
+      ok;
+
+    ShortPath ->
+      NextHop = lists:nth(2,ShortPath),
+      {Name,{Host,Port}} = digraph:vertex(NerlnetGraph,NextHop),
+      ets:insert(Ets,{Entity,{Name,{Host,Port}}})
+  end,
+  make_rouint_table(Ets,EntitiesList,MyName,NerlnetGraph).
