@@ -2,6 +2,9 @@ from JsonElements import *
 from collections import OrderedDict
 from JsonElementWorker import *
 
+import json
+
+
 #   from collections import OrderedDict
 #values=json.loads(jsontext,object_pairs_hook=OrderedDict)
 
@@ -84,6 +87,12 @@ class JsonDistributedConfig():
     def get_devices_ips(self):
         return list( dev.get_ip().get_address() for _ , dev in self.main_dict[KEY_DEVICES].items())
     
+    def get_devices_entities(self):
+        entities_list = []
+        for _ , dev in self.main_dict[KEY_DEVICES].items():
+            entities_list += dev.get_entities_names()
+        return entities_list
+
 
     DEVICE_ADD_ISSUE_WITH_IP = -1
     DEVICE_ADD_ISSUE_WITH_NAME = -2
@@ -250,9 +259,29 @@ class JsonDistributedConfig():
         
         final_dc_dict = OrderedDict()
         final_dc_dict[KEY_NERLNET_SETTINGS] = self.main_dict[KEY_NERLNET_SETTINGS]
-        final_dc_dict[MainServer.NAME] = self.main_dict[MainServer.NAME]
-        final_dc_dict[ApiServer.NAME] = self.main_dict[ApiServer.NAME]
+        final_dc_dict[MainServer.NAME] = self.main_dict[MainServer.NAME].get_as_dict()
+        final_dc_dict[ApiServer.NAME] = self.main_dict[ApiServer.NAME].get_as_dict()
 
-        final_dc_dict[KEY_DEVICES] = OrderedDict()
-        for key, device in self.main_dict[KEY_DEVICES].items():
-            final_dc_dict[KEY_DEVICES][key] = device.get_as_dict()
+        final_dc_dict[KEY_DEVICES] = []
+        for _ , device in self.main_dict[KEY_DEVICES].items():
+            final_dc_dict[KEY_DEVICES].append(device.get_as_dict())
+
+        final_dc_dict[KEY_ROUTERS] = []
+        for _ , router in self.main_dict[KEY_ROUTERS].items():
+            final_dc_dict[KEY_ROUTERS].append(router.get_as_dict())
+
+        final_dc_dict[KEY_SOURCES] = []
+        for _ , source in self.main_dict[KEY_SOURCES].items():
+            final_dc_dict[KEY_SOURCES].append(source.get_as_dict())
+
+        final_dc_dict[KEY_CLIENTS] = []
+        for _ , client in self.main_dict[KEY_CLIENTS].items():
+            final_dc_dict[KEY_CLIENTS].append(client.get_as_dict())
+
+        json_obj = json.dumps(final_dc_dict, indent=4)
+
+        # Writing to sample.json
+        with open(file_path, "w") as outfile:
+            outfile.write(json_obj)
+
+        return self.EXPORT_DC_JSON_SUCCESS

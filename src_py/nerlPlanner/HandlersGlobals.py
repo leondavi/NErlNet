@@ -47,6 +47,7 @@ entities_clients_names_list = []
 entities_routers_names_list = []
 entities_sources_names_list = []
 last_entities_list_state = []
+last_entities_list_state_not_occupied = []
 
 # dc json
 dc_json_load_file = ''
