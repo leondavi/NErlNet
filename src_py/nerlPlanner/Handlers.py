@@ -144,7 +144,11 @@ def devices_handler(window, event, values):
         res = json_dc_inst.add_entity_to_device(devices_devices_list_box_selection, last_selected_entity)
         if not res:
             sg.popup_ok(f"Could not add {last_selected_entity} to dev: {devices_devices_list_box_selection}")
-    
+        else:
+            # TODO  remove occupied devices from combo
+            last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
+            window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state_not_occupied)
+
     if devices_devices_list_box_selection:
         device_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
         window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(device_inst.get_entities_names())
@@ -229,7 +233,6 @@ def clients_handler(window, event, values):
                 sg.popup_ok(f"Name {clients_this_client_name} already exists", keep_on_top=True, title="Chance client issue")
 
 
-
 def routers_reset_inputs_ui(window):
     global routers_this_router_name
     global routers_this_router_port
@@ -300,6 +303,7 @@ def sources_handler(window, event, values):
         #frequency handling:
         frequency = values[KEY_SOURCES_FREQUENCY_INPUT]
         epochs = Epochs(values[KEY_SOURCES_EPOCHS_INPUT]) if values[KEY_SOURCES_EPOCHS_INPUT] else None
+        port = Port(values[KEY_SOURCES_PORT_INPUT]) if values[KEY_SOURCES_PORT_INPUT] else None
         checkbox_val = values[KEY_SOURCES_FREQUENCY_DEFAULT_CHECKBOX]
         if checkbox_val:
             frequency = json_dc_inst.get_frequency()
@@ -312,8 +316,9 @@ def sources_handler(window, event, values):
             if (sources_this_source is None):
                 sources_this_source_frequency = frequency
                 sources_this_source_epochs = epochs.get_value_str()
-                sources_this_source_policy = values[KEY_SOURCES_POLICY_COMBO_BOX]
-                sources_this_source_type = values[KEY_SOURCES_TYPE_COMBO_BOX]
+                sources_this_source_port = port.get_value_str()
+                sources_this_source_policy = SourcePolicyDict[values[KEY_SOURCES_POLICY_COMBO_BOX]]
+                sources_this_source_type = SourceTypeDict[values[KEY_SOURCES_TYPE_COMBO_BOX]]
                 sources_this_source = Source(sources_this_source_name, sources_this_source_port, sources_this_source_frequency, sources_this_source_policy, sources_this_source_epochs, sources_this_source_type)
                 json_dc_inst.add_source(sources_this_source)
             else:
@@ -332,16 +337,18 @@ def entities_handler(window, event, values):
     global entities_routers_names_list
     global entities_sources_names_list
     global last_entities_list_state
+    global last_entities_list_state_not_occupied
     global last_selected_entity
+
+    if last_entities_list_state != json_dc_inst.get_entities():
+        last_entities_list_state = json_dc_inst.get_entities()
+        last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
+        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state_not_occupied)
 
     if event == KEY_DEVICES_SELECTED_ENTITY_COMBO:
         last_selected_entity = values[KEY_ENTITIES_CLIENTS_LISTBOX][0] if values[KEY_ENTITIES_CLIENTS_LISTBOX] else None
 
     if last_selected_entity in last_entities_list_state:
-        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state)
-
-    if last_entities_list_state != json_dc_inst.get_entities():
-        last_entities_list_state = json_dc_inst.get_entities()
         window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state)
 
     if event == KEY_ENTITIES_CLIENTS_LISTBOX:
@@ -369,7 +376,19 @@ def entities_handler(window, event, values):
         entities_sources_names_list = json_dc_inst.get_sources_names()
         window[KEY_ENTITIES_SOURCES_LISTBOX].update(entities_sources_names_list)
 
+def dc_json_handler(window, event, values):
+    global dc_json_load_file
+    global dc_json_export_file
 
+    if values[KEY_DC_JSON_EXPORT_TO_INPUT_DIR] and \
+       values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME] and \
+       '<' not in values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME] and \
+       '>' not in values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME]:
+        dc_json_load_file = values[KEY_DC_JSON_EXPORT_TO_INPUT_DIR] + values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME]
 
-def update_current_json_file_path(jsonPath):
-    print(jsonPath)
+    if event == KEY_DC_JSON_EXPORT_BUTTON and dc_json_load_file and dc_json_load_file.endswith(".json"):
+        result = json_dc_inst.export_dc_json(dc_json_load_file)
+        if result == json_dc_inst.EXPORT_DC_JSON_ISSUE_MAIN_SERVER_HAS_NO_DEVICE:
+            sg.popup_ok(f"MainServer hasn't been associated with device!", title='DC Json Export Issue')
+        if result == json_dc_inst.EXPORT_DC_JSON_ISSUE_NO_SPECIAL_ENTITIES_OR_SETTINGS:
+            sg.popup_ok(f"DC Json can't be generated due to missing\n special entities or settings!", title='DC Json Export Issue')
