@@ -28,8 +28,8 @@ RouterPolicyDict = {
 }
 
 SourcePolicyDict = {
-    "Casting":1,
-    "Round-Robin":2
+    "Casting":0,
+    "Round-Robin":1
 }
 
 SOURCE_TYPE_DICT_DEFAULT_SOURCE_TYPE = "csv"

@@ -1,6 +1,6 @@
 ################################################
-# Nerlnet - 2023
-# Authors: Haran Cohen, David Leon, Dor Yerchi
+# Nerlnet - 2023 GPL-3.0 license
+# Authors: Haran Cohen, David Leon, Dor Yerchi #
 ################################################
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, classification_report, multilabel_confusion_matrix
 import time
