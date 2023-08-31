@@ -73,7 +73,7 @@ init([Parent, Gen])->
         io:format("got graph: ~p~n", [Devices]),
         DeviceList = lists:droplast(Devices),
 
-        {FileName, G} = gui_tools:makeGraphIMG(22),
+        {FileName, G} = gui_tools:makeGraphIMG(DeviceList , Edges),
 
         mainScreen:updateGraph(Gen, gui_tools:serialize(G)),
         mainScreen:addInfo(Gen, "updated graph"),
