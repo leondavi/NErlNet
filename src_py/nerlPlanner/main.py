@@ -155,13 +155,15 @@ EntitiesFrame = sg.Frame("Entities - HTTP Cowboy instances",layout=[[EntitiesFie
 
 
 
-# Json File Control
-JsonFileFields = [  [sg.Text('Load from: ')],
-                [sg.In(enable_events=True ,key=JSON_CONTROL_LOAD_FILE_BROWSE_EVENT_KEY, expand_x=True), sg.FileBrowse(file_types=(("Json File", "*.json"),))],
-                [sg.Text('Export to: ')],
-                [sg.In(enable_events=True ,key=JSON_CONTROL_EXPORT_BROWSE_EVENT_KEY, expand_x=True), sg.FolderBrowse()],
-                [sg.Text('File Name: '), sg.InputText('dc_<name>.json'), sg.Button('Load',  expand_x=True)],
-                [sg.Button('Export',expand_x=True), sg.Button('Validate', expand_x=True), sg.Button('Load', expand_x=True), sg.Button('Clear', expand_x=True)]
+# Distributed Configuration (DC) Json File Section
+JsonFileFields = [  [sg.Text('Load From DC Json File: ')],
+                [sg.In(enable_events=True ,key=KEY_DC_JSON_LOAD_FROM_INPUT, expand_x=True), sg.FileBrowse(file_types=(("Json File", "*.json"),))],
+                [sg.Text('Export To DC Json File:')],
+                [sg.Text('Directory:'),sg.In(enable_events=True ,key=KEY_DC_JSON_EXPORT_TO_INPUT_DIR), sg.FolderBrowse()],
+                [sg.Text('File Name:'), sg.InputText('dc_<name>.json', enable_events=True, key=KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME)],
+                [sg.Button('Export',expand_x=True, enable_events=True, key=KEY_DC_JSON_EXPORT_BUTTON),
+                 sg.Button('Load', expand_x=True, enable_events=True, key=KEY_DC_JSON_EXPORT_BUTTON),
+                 sg.Button('Clear', expand_x=True, enable_events=True, key=KEY_DC_JSON_CLEAR_BUTTON)]
                 ]
 jsonCtrlFrame = sg.Frame("Distributed Configurations Json",layout=JsonFileFields, expand_x=True)
 
@@ -202,12 +204,11 @@ while True:
         entities_handler(main_window, event, values)
         devices_handler(main_window, event, values)
         online_scanner_handler(main_window, event, values, devices_online_hosts_list) # lan scan for online devices
+        dc_json_handler(main_window, event, values)
 
     if event == sg.WIN_CLOSED or event == 'Cancel': # if user closes window or clicks cancel
         break
 
-    if event == JSON_CONTROL_LOAD_FILE_BROWSE_EVENT_KEY:
-        update_current_json_file_path(values[JSON_CONTROL_LOAD_FILE_BROWSE_EVENT_KEY])
     if event == WIN_WORKER_DIALOG_EVENT_KEY:
         WinWorkerDialog()
     
