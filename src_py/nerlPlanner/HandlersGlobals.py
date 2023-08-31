@@ -47,3 +47,7 @@ entities_clients_names_list = []
 entities_routers_names_list = []
 entities_sources_names_list = []
 last_entities_list_state = []
+
+# dc json
+dc_json_load_file = ''
+dc_json_export_file = ''

@@ -229,7 +229,6 @@ def clients_handler(window, event, values):
                 sg.popup_ok(f"Name {clients_this_client_name} already exists", keep_on_top=True, title="Chance client issue")
 
 
-
 def routers_reset_inputs_ui(window):
     global routers_this_router_name
     global routers_this_router_port
@@ -369,7 +368,19 @@ def entities_handler(window, event, values):
         entities_sources_names_list = json_dc_inst.get_sources_names()
         window[KEY_ENTITIES_SOURCES_LISTBOX].update(entities_sources_names_list)
 
+def dc_json_handler(window, event, values):
+    global dc_json_load_file
+    global dc_json_export_file
 
+    if values[KEY_DC_JSON_EXPORT_TO_INPUT_DIR] and \
+       values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME] and \
+       '<' not in values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME] and \
+       '>' not in values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME]:
+        dc_json_load_file = values[KEY_DC_JSON_EXPORT_TO_INPUT_DIR] + values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME]
 
-def update_current_json_file_path(jsonPath):
-    print(jsonPath)
+    if event == KEY_DC_JSON_EXPORT_BUTTON and dc_json_load_file and dc_json_load_file.endswith(".json"):
+        result = json_dc_inst.export_dc_json(dc_json_load_file)
+        if result == json_dc_inst.EXPORT_DC_JSON_ISSUE_MAIN_SERVER_HAS_NO_DEVICE:
+            sg.popup_ok(f"MainServer hasn't been associated with device!", title='DC Json Export Issue')
+        if result == json_dc_inst.EXPORT_DC_JSON_ISSUE_NO_SPECIAL_ENTITIES_OR_SETTINGS:
+            sg.popup_ok(f"DC Json can't be generated due to missing\n special entities or settings!", title='DC Json Export Issue')
