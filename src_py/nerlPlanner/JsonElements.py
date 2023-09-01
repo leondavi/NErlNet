@@ -284,7 +284,7 @@ class Device(JsonElement):
         entities_str = ",".join(self.get_entities_names())
         elements_list = [self.get_name_as_tuple(), 
                          self.ip.get_as_tuple(),
-                         ('entities', entities_str)]
+                         (FIELD_NAME_ENTITIES, entities_str)]
         return OrderedDict(elements_list)
 
 class Router(JsonElement):
@@ -341,7 +341,7 @@ class Source(JsonElement):
                          self.frequency.get_as_tuple(),
                          self.policy.get_as_tuple(),
                          self.epochs.get_as_tuple(),
-                         ("type", source_type_str)]
+                         (FIELD_NAME_SOURCE_TYPE, source_type_str)]
         return OrderedDict(elements_list)
 
 class Client(JsonElement):
@@ -356,7 +356,7 @@ class Client(JsonElement):
     def __format__(self, __format_spec: str) -> str:
         # workers_dict_as_string = ",".join(list(self.workers_dict.keys()))
         numof_workers = len(list(self.workers_dict.keys()))
-        return f"name {self.name} {self.port} {numof_workers} workers"
+        return f"name {self.name} {self.port} workers: {numof_workers}"
 
     def get_port(self):
         return self.port
@@ -385,5 +385,24 @@ class Client(JsonElement):
         workers_list_str = ",".join(self.get_workers_names())
         elements_list = [self.get_name_as_tuple(), 
                          self.port.get_as_tuple(),
-                         ('workers', workers_list_str)]
+                         (FIELD_NAME_WORKERS, workers_list_str)]
         return OrderedDict(elements_list)
+    
+
+    def get_port_field_name():
+        return Port(0).get_name()
+    
+    def get_args_field_name():
+        return Arguments('').get_name()
+
+    def get_ipv4_field_name():
+        return Ipv4('0.0.0.0').get_name()
+    
+    def get_entities_field_name():
+        return FIELD_NAME_ENTITIES
+    
+    def get_workers_field_name():
+        return FIELD_NAME_WORKERS
+    
+    def get_source_type_field_name():
+        return FIELD_NAME_SOURCE_TYPE

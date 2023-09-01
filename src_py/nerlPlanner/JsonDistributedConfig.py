@@ -297,3 +297,24 @@ class JsonDistributedConfig():
             outfile.write(json_obj)
 
         return self.EXPORT_DC_JSON_SUCCESS
+
+
+    IMPORT_DC_JSON_SUCCESS  = 0
+    IMPORT_DC_JSON_ISSUE_LOAD = -1
+    IMPORT_DC_JSON_ISSUE_MAINSERVER = -2
+    IMPORT_DC_JSON_ISSUE_APISERVER = -3
+    def import_dc_json(self, json_file_path : str) :
+        loaded_dc_dict = None
+        with open(json_file_path, 'r') as dc_loaded:
+            loaded_dc_dict = json.loads(dc_loaded, object_pairs_hook=OrderedDict)
+        if not loaded_dc_dict:
+            return self.IMPORT_DC_JSON_ISSUE_LOAD
+        if MainServer.Name not in loaded_dc_dict:
+            return self.IMPORT_DC_JSON_ISSUE_MAINSERVER
+        if ApiServer.Name not in loaded_dc_dict:
+            return self.IMPORT_DC_JSON_ISSUE_APISERVER
+        #TODO add more checks
+        
+        #loaded_dc_dict[MainServer.NAME][]
+        #loaded_dc_dict[ApiServer.NAME][]
+        #self.add_main_server(MainServer())
