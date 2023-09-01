@@ -16,10 +16,11 @@ def reset_json_distributed_configuration():
     global json_dc_inst
     json_dc_inst = JsonDistributedConfig()
 
-def settings_handler(event, values):
+def settings_handler(window, event, values):
     frequency = None
     frequency_inst = None
     error_list = []
+
     if event == KEY_SETTINGS_SAVE_BUTTON:
         frequency = values[KEY_SETTINGS_FREQUENCY_INPUT] if values[KEY_SETTINGS_FREQUENCY_INPUT] else None
         frequency_inst = Frequency(frequency) if frequency else None
@@ -52,7 +53,6 @@ def settings_handler(event, values):
         else:
             json_dc_inst.add_main_server(main_server_inst)
             json_dc_inst.add_api_server(api_server_inst)
-
 
 
 def workers_handler(window, event, values):
@@ -376,9 +376,19 @@ def entities_handler(window, event, values):
         entities_sources_names_list = json_dc_inst.get_sources_names()
         window[KEY_ENTITIES_SOURCES_LISTBOX].update(entities_sources_names_list)
 
+def sync_fields_with_json_dc_inst(window, values):
+    global json_dc_inst
+
+    # settings
+    window[KEY_SETTINGS_FREQUENCY_INPUT].update(json_dc_inst.get_frequency().get_str()) if json_dc_inst.get_frequency() is not None else None
+    window[KEY_SETTINGS_BATCH_SIZE_INPUT].update(json_dc_inst.get_batch_size().get_str()) if json_dc_inst.get_batch_size() is not None else None
+    # workers
+    window[KEY_WORKERS_LIST_BOX].update(json_dc_inst.get_workers_names_list())
+
 def dc_json_handler(window, event, values):
     global dc_json_import_file
     global dc_json_export_file
+    global json_dc_inst
 
     if values[KEY_DC_JSON_EXPORT_TO_INPUT_DIR] and \
        values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME] and \
@@ -399,3 +409,5 @@ def dc_json_handler(window, event, values):
     if event == KEY_DC_JSON_IMPORT_BUTTON:
         json_dc_inst = JsonDistributedConfig()
         json_dc_inst.import_dc_json(dc_json_import_file)
+        sync_fields_with_json_dc_inst(window, values)
+
