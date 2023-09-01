@@ -16,6 +16,9 @@ KEY_MODEL_SHA = "model-sha"
 KEY_SOURCES = "sources"
 KEY_ROUTERS = "routers"
 
+WORKER_NAME_FIELD = "name"
+WORKER_MODEL_SHA_FIELD = "model-sha"
+
 class JsonDistributedConfig():
     def __init__(self):
         self.main_dict = OrderedDict()
@@ -285,7 +288,7 @@ class JsonDistributedConfig():
         for worker_name in workers_of_clients_list:
             worker = self.main_dict[KEY_WORKERS][worker_name]
             worker_sha = worker.get_sha()
-            worker_model_ptr = OrderedDict([("name", worker_name),("model-sha", worker_sha)])
+            worker_model_ptr = OrderedDict([(WORKER_NAME_FIELD, worker_name),(WORKER_MODEL_SHA_FIELD, worker_sha)])
             final_dc_dict[KEY_WORKERS].append(worker_model_ptr)
             if worker_sha not in final_dc_dict[KEY_MODEL_SHA]:
                 final_dc_dict[KEY_MODEL_SHA][worker_sha] = worker.get_as_dict()  
@@ -303,18 +306,48 @@ class JsonDistributedConfig():
     IMPORT_DC_JSON_ISSUE_LOAD = -1
     IMPORT_DC_JSON_ISSUE_MAINSERVER = -2
     IMPORT_DC_JSON_ISSUE_APISERVER = -3
+    IMPORT_DC_JSON_ISSUE_MISSING_MODEL = -4
     def import_dc_json(self, json_file_path : str) :
         loaded_dc_dict = None
         with open(json_file_path, 'r') as dc_loaded:
-            loaded_dc_dict = json.loads(dc_loaded, object_pairs_hook=OrderedDict)
+            loaded_dc_dict = json.load(dc_loaded, object_pairs_hook=OrderedDict)
         if not loaded_dc_dict:
             return self.IMPORT_DC_JSON_ISSUE_LOAD
-        if MainServer.Name not in loaded_dc_dict:
+        if MainServer.NAME not in loaded_dc_dict:
             return self.IMPORT_DC_JSON_ISSUE_MAINSERVER
-        if ApiServer.Name not in loaded_dc_dict:
+        if ApiServer.NAME not in loaded_dc_dict:
             return self.IMPORT_DC_JSON_ISSUE_APISERVER
         #TODO add more checks
+
+        # main server
+        port = loaded_dc_dict[MainServer.NAME][get_port_field_name()]
+        args = loaded_dc_dict[MainServer.NAME][get_args_field_name()]
+        self.add_main_server(MainServer(port, args))
+
+        # api server
+        port = loaded_dc_dict[ApiServer.NAME][get_port_field_name()]
+        args = loaded_dc_dict[ApiServer.NAME][get_args_field_name()]
+        self.add_api_server(ApiServer(port, args))
+
+        # settings
+        frequency = Frequency(loaded_dc_dict[KEY_NERLNET_SETTINGS][get_frequency_field_name()])
+        batch_size = BatchSize(loaded_dc_dict[KEY_NERLNET_SETTINGS][get_batch_size_field_name()])
+        self.add_nerlnet_settings(frequency, batch_size)
+
+        # workers
+        list_of_workers_mapping_names_to_sha = loaded_dc_dict[KEY_WORKERS]
+        dict_of_models_by_sha = loaded_dc_dict[KEY_MODEL_SHA]
+
+        for worker_dict in list_of_workers_mapping_names_to_sha:
+            worker_name = worker_dict[WORKER_NAME_FIELD]
+            worker_model_sha = worker_dict[WORKER_MODEL_SHA_FIELD]
+            if worker_model_sha not in dict_of_models_by_sha:
+                return self.IMPORT_DC_JSON_ISSUE_MISSING_MODEL
+            else:
+                model_dict = dict_of_models_by_sha[worker_model_sha]
+                (new_loaded_worker , _, _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(model_dict)
+                new_loaded_worker.set_name(worker_name)
+                self.add_worker(new_loaded_worker)
+
+        print("todo") #TODO
         
-        #loaded_dc_dict[MainServer.NAME][]
-        #loaded_dc_dict[ApiServer.NAME][]
-        #self.add_main_server(MainServer())
