@@ -56,8 +56,9 @@ On each machine that runs Nerlnet go through the following steps:
 2. Run ```sudo ./NerlnetInstall.sh```  
   2.1 With argument -i script builds and installs Erlang, latest stable, and CMake.  
   2.2 After running NerlnetInstall.sh, NErlNet directory can be accessed  
-    via the following path: ```/usr/local/lib/nerlnet-lib```  
-3. Create json files of architecture, connection map and experiment flow.  
+    via the following path: ```/usr/local/lib/nerlnet-lib```
+3. Run ```./NerlnetBuild.sh```  
+4. Create json files of architecture, connection map and experiment flow.  
 json configuration files names must follow the convention of prefixes:  
 arch_<any>.json, conn_<any>.json, exp_<any>.json.  
 
