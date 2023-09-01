@@ -377,18 +377,25 @@ def entities_handler(window, event, values):
         window[KEY_ENTITIES_SOURCES_LISTBOX].update(entities_sources_names_list)
 
 def dc_json_handler(window, event, values):
-    global dc_json_load_file
+    global dc_json_import_file
     global dc_json_export_file
 
     if values[KEY_DC_JSON_EXPORT_TO_INPUT_DIR] and \
        values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME] and \
        '<' not in values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME] and \
        '>' not in values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME]:
-        dc_json_load_file = values[KEY_DC_JSON_EXPORT_TO_INPUT_DIR] + values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME]
+        dc_json_export_file = values[KEY_DC_JSON_EXPORT_TO_INPUT_DIR] + "/" + values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME]
 
-    if event == KEY_DC_JSON_EXPORT_BUTTON and dc_json_load_file and dc_json_load_file.endswith(".json"):
-        result = json_dc_inst.export_dc_json(dc_json_load_file)
+    if event == KEY_DC_JSON_EXPORT_BUTTON and dc_json_export_file and dc_json_export_file.endswith(".json"):
+        result = json_dc_inst.export_dc_json(dc_json_export_file)
         if result == json_dc_inst.EXPORT_DC_JSON_ISSUE_MAIN_SERVER_HAS_NO_DEVICE:
             sg.popup_ok(f"MainServer hasn't been associated with device!", title='DC Json Export Issue')
         if result == json_dc_inst.EXPORT_DC_JSON_ISSUE_NO_SPECIAL_ENTITIES_OR_SETTINGS:
             sg.popup_ok(f"DC Json can't be generated due to missing\n special entities or settings!", title='DC Json Export Issue')
+    
+    if event == KEY_DC_JSON_IMPORT_INPUT:
+        dc_json_import_file = values[KEY_DC_JSON_IMPORT_INPUT]
+
+    if event == KEY_DC_JSON_IMPORT_BUTTON:
+        json_dc_inst = JsonDistributedConfig()
+        json_dc_inst.import_dc_json(dc_json_import_file)

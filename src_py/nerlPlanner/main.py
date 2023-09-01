@@ -156,13 +156,13 @@ EntitiesFrame = sg.Frame("Entities - HTTP Cowboy instances",layout=[[EntitiesFie
 
 
 # Distributed Configuration (DC) Json File Section
-JsonFileFields = [  [sg.Text('Load From DC Json File: ')],
-                [sg.In(enable_events=True ,key=KEY_DC_JSON_LOAD_FROM_INPUT, expand_x=True), sg.FileBrowse(file_types=(("Json File", "*.json"),))],
+JsonFileFields = [  [sg.Text('Import DC Json File: ')],
+                [sg.In(enable_events=True ,key=KEY_DC_JSON_IMPORT_INPUT, expand_x=True), sg.FileBrowse(file_types=(("Json File", "*.json"),))],
                 [sg.Text('Export To DC Json File:')],
                 [sg.Text('Directory:'),sg.In(enable_events=True ,key=KEY_DC_JSON_EXPORT_TO_INPUT_DIR), sg.FolderBrowse()],
                 [sg.Text('File Name:'), sg.InputText('dc_<name>.json', enable_events=True, key=KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME)],
                 [sg.Button('Export',expand_x=True, enable_events=True, key=KEY_DC_JSON_EXPORT_BUTTON),
-                 sg.Button('Load', expand_x=True, enable_events=True, key=KEY_DC_JSON_EXPORT_BUTTON),
+                 sg.Button('Import', expand_x=True, enable_events=True, key=KEY_DC_JSON_IMPORT_BUTTON),
                  sg.Button('Clear', expand_x=True, enable_events=True, key=KEY_DC_JSON_CLEAR_BUTTON)]
                 ]
 jsonCtrlFrame = sg.Frame("Distributed Configurations Json",layout=JsonFileFields, expand_x=True)

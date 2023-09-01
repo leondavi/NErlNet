@@ -45,3 +45,7 @@ def get_inv_dict(in_dict):
     for value, key in zip(Values,Keys):
         newDict.append((value,key))
     return dict(newDict)
+
+FIELD_NAME_SOURCE_TYPE = 'type'
+FIELD_NAME_ENTITIES = 'entities'
+FIELD_NAME_WORKERS = 'workers'
