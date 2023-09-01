@@ -142,7 +142,7 @@ class Policy(JsonElement):
 
     def get_as_tuple(self):
    #     assert not self.error()
-        return (self.get_name() , self.value)
+        return (self.get_name() , str(self.value))
 
 class Ipv4(JsonElement):
     def __init__(self, address : str):

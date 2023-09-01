@@ -12,7 +12,7 @@ KEY_NERLNET_SETTINGS = "NerlNetSettings"
 KEY_DEVICES = "devices"
 KEY_CLIENTS = "clients"
 KEY_WORKERS = "workers"
-KEY_WORKERS_SHA = "workers_sha"
+KEY_MODEL_SHA = "model-sha"
 KEY_SOURCES = "sources"
 KEY_ROUTERS = "routers"
 
@@ -34,7 +34,7 @@ class JsonDistributedConfig():
         self.main_dict[KEY_SOURCES] = OrderedDict()
         self.main_dict[KEY_CLIENTS] = OrderedDict()
         self.main_dict[KEY_WORKERS] = OrderedDict()
-        self.main_dict[KEY_WORKERS_SHA] = OrderedDict()
+        self.main_dict[KEY_MODEL_SHA] = OrderedDict()
 
     def clear(self):
         self.init_dictionary()
@@ -229,10 +229,10 @@ class JsonDistributedConfig():
         else: 
             self.main_dict[KEY_WORKERS][worker_name] = worker # Save the woker instance into dictionary
             worker_sha = worker.get_sha() # generate sha of worker
-            if worker_sha not in self.main_dict[KEY_WORKERS_SHA]:
-                self.main_dict[KEY_WORKERS_SHA][worker_sha] = [worker_name]
+            if worker_sha not in self.main_dict[KEY_MODEL_SHA]:
+                self.main_dict[KEY_MODEL_SHA][worker_sha] = [worker_name]
             else:
-                self.main_dict[KEY_WORKERS_SHA][worker_sha].append(worker_name)
+                self.main_dict[KEY_MODEL_SHA][worker_sha].append(worker_name)
         return True
     
     def get_worker(self, worker_name : str) -> Worker:
@@ -277,6 +277,18 @@ class JsonDistributedConfig():
         final_dc_dict[KEY_CLIENTS] = []
         for _ , client in self.main_dict[KEY_CLIENTS].items():
             final_dc_dict[KEY_CLIENTS].append(client.get_as_dict())
+
+        final_dc_dict[KEY_WORKERS] = []
+        final_dc_dict[KEY_MODEL_SHA] = {}
+
+        workers_of_clients_list = self.get_owned_workers_by_clients_dict().keys()
+        for worker_name in workers_of_clients_list:
+            worker = self.main_dict[KEY_WORKERS][worker_name]
+            worker_sha = worker.get_sha()
+            worker_model_ptr = OrderedDict([("name", worker_name),("model-sha", worker_sha)])
+            final_dc_dict[KEY_WORKERS].append(worker_model_ptr)
+            if worker_sha not in final_dc_dict[KEY_MODEL_SHA]:
+                final_dc_dict[KEY_MODEL_SHA][worker_sha] = worker.get_as_dict()  
 
         json_obj = json.dumps(final_dc_dict, indent=4)
 
