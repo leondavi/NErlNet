@@ -389,20 +389,26 @@ class Client(JsonElement):
         return OrderedDict(elements_list)
     
 
-    def get_port_field_name():
-        return Port(0).get_name()
-    
-    def get_args_field_name():
-        return Arguments('').get_name()
+def get_frequency_field_name():
+    return Frequency(0).get_name()
 
-    def get_ipv4_field_name():
-        return Ipv4('0.0.0.0').get_name()
-    
-    def get_entities_field_name():
-        return FIELD_NAME_ENTITIES
-    
-    def get_workers_field_name():
-        return FIELD_NAME_WORKERS
-    
-    def get_source_type_field_name():
-        return FIELD_NAME_SOURCE_TYPE
+def get_batch_size_field_name():
+    return BatchSize(0).get_name()
+
+def get_port_field_name():
+    return Port(0).get_name()
+
+def get_args_field_name():
+    return Arguments('').get_name()
+
+def get_ipv4_field_name():
+    return Ipv4('0.0.0.0').get_name()
+
+def get_entities_field_name():
+    return FIELD_NAME_ENTITIES
+
+def get_workers_field_name():
+    return FIELD_NAME_WORKERS
+
+def get_source_type_field_name():
+    return FIELD_NAME_SOURCE_TYPE
