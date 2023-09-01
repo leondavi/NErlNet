@@ -23,19 +23,19 @@ def comm_entity_type(in_type) -> bool:
     return True if in_type in comm_types_list else False
 
 RouterPolicyDict = {
-    "Shortest-Path":0,
-    "Routing-Table":1
+    "Shortest-Path": '0',
+    "Routing-Table": '1'
 }
 
 SourcePolicyDict = {
-    "Casting":0,
-    "Round-Robin":1
+    "Casting": '0',
+    "Round-Robin": '1'
 }
 
 SOURCE_TYPE_DICT_DEFAULT_SOURCE_TYPE = "csv"
 SourceTypeDict = {
-    "csv" : 0,
-    "cam-dummy" : 1
+    "csv" : '0',
+    "cam-dummy" : '1'
 }
 
 def get_inv_dict(in_dict):

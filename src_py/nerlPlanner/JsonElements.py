@@ -117,6 +117,9 @@ class BatchSize(JsonElement):
         assert not self.error()
         return (self.get_name() , str(self.value))
     
+    def get_str(self):
+        return f'{self.value}'
+    
 class Policy(JsonElement):
     def __init__(self, value : int, entity_type):
         super(Policy, self).__init__("policy", POLICY_TYPE)
@@ -404,6 +407,9 @@ def get_args_field_name():
 def get_ipv4_field_name():
     return Ipv4('0.0.0.0').get_name()
 
+def get_epochs_field_name():
+    return Epochs(0).get_name()
+
 def get_entities_field_name():
     return FIELD_NAME_ENTITIES
 
@@ -412,3 +418,6 @@ def get_workers_field_name():
 
 def get_source_type_field_name():
     return FIELD_NAME_SOURCE_TYPE
+
+def get_policy_field_name():
+    return Policy(0,0).get_name()

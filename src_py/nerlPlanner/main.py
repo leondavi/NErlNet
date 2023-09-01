@@ -196,7 +196,7 @@ while True:
     event, values = main_window.read(timeout=50)
     
     if event and values:
-        settings_handler(event,values)
+        settings_handler(main_window, event,values)
         workers_handler(main_window, event,values)
         clients_handler(main_window, event, values)
         routers_handler(main_window, event, values)
