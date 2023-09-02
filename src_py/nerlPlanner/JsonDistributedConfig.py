@@ -9,12 +9,17 @@ import json
 #values=json.loads(jsontext,object_pairs_hook=OrderedDict)
 
 KEY_NERLNET_SETTINGS = "NerlNetSettings"
+KEY_FREQUENCY = "frequency"
+KEY_BATCH_SIZE = "batchSize"
 KEY_DEVICES = "devices"
 KEY_CLIENTS = "clients"
 KEY_WORKERS = "workers"
 KEY_MODEL_SHA = "model-sha"
 KEY_SOURCES = "sources"
 KEY_ROUTERS = "routers"
+
+NAME_FIELD = "name"
+WORKER_MODEL_SHA_FIELD = "model-sha"
 
 class JsonDistributedConfig():
     def __init__(self):
@@ -66,11 +71,21 @@ class JsonDistributedConfig():
 
     def add_nerlnet_settings(self, frequency : Frequency, batchsize : BatchSize):
         self.default_frequency = frequency
-        settings_dict_content = [frequency.get_as_tuple(), batchsize.get_as_tuple()]
+        settings_dict_content = [(KEY_FREQUENCY,frequency), (KEY_BATCH_SIZE, batchsize)]
         self.main_dict[KEY_NERLNET_SETTINGS] = OrderedDict(settings_dict_content)
 
     def get_frequency(self):
-        return self.default_frequency # returns Frequency or None
+        return self.default_frequency if self.default_frequency else None # returns Frequency or None 
+    
+    def get_batch_size(self):
+        batch_size_field_name = get_batch_size_field_name()
+        return self.main_dict[KEY_NERLNET_SETTINGS][get_batch_size_field_name()] if batch_size_field_name in self.main_dict[KEY_NERLNET_SETTINGS] else None
+
+    def get_main_server(self):
+        return self.main_dict[MainServer.NAME]
+    
+    def get_api_server(self):
+        return self.main_dict[ApiServer.NAME]
 
     def add_main_server(self, main_server : MainServer):
         self.main_dict[MainServer.NAME] = main_server
@@ -258,7 +273,9 @@ class JsonDistributedConfig():
             return self.EXPORT_DC_JSON_ISSUE_MAIN_SERVER_HAS_NO_DEVICE
         
         final_dc_dict = OrderedDict()
-        final_dc_dict[KEY_NERLNET_SETTINGS] = self.main_dict[KEY_NERLNET_SETTINGS]
+        frequency_tuple = self.main_dict[KEY_NERLNET_SETTINGS][KEY_FREQUENCY].get_as_tuple()
+        batch_size_tuple = self.main_dict[KEY_NERLNET_SETTINGS][KEY_BATCH_SIZE].get_as_tuple()
+        final_dc_dict[KEY_NERLNET_SETTINGS] = OrderedDict([frequency_tuple, batch_size_tuple])
         final_dc_dict[MainServer.NAME] = self.main_dict[MainServer.NAME].get_as_dict()
         final_dc_dict[ApiServer.NAME] = self.main_dict[ApiServer.NAME].get_as_dict()
 
@@ -285,7 +302,7 @@ class JsonDistributedConfig():
         for worker_name in workers_of_clients_list:
             worker = self.main_dict[KEY_WORKERS][worker_name]
             worker_sha = worker.get_sha()
-            worker_model_ptr = OrderedDict([("name", worker_name),("model-sha", worker_sha)])
+            worker_model_ptr = OrderedDict([(NAME_FIELD, worker_name),(WORKER_MODEL_SHA_FIELD, worker_sha)])
             final_dc_dict[KEY_WORKERS].append(worker_model_ptr)
             if worker_sha not in final_dc_dict[KEY_MODEL_SHA]:
                 final_dc_dict[KEY_MODEL_SHA][worker_sha] = worker.get_as_dict()  
@@ -297,3 +314,104 @@ class JsonDistributedConfig():
             outfile.write(json_obj)
 
         return self.EXPORT_DC_JSON_SUCCESS
+
+    IMPORT_DC_JSON_SUCCESS  = (0, '')
+    IMPORT_DC_JSON_ISSUE_LOADING_FILE = (-1, 'loading file!')
+    IMPORT_DC_JSON_ISSUE_MAINSERVER = (-2, 'importing main server!')
+    IMPORT_DC_JSON_ISSUE_APISERVER = (-3, 'importing api server!')
+    IMPORT_DC_JSON_ISSUE_MISSING_MODEL = (-4, 'missing mode')
+    IMPORT_DC_JSON_ISSUE_CLIENT_WORKER_IS_MISSING = (-5, 'a client cannot import its worker')
+    IMPORT_DC_JSON_ISSUE_DEVICE_MISSING_AN_ENTITY = (-6, 'a device cannot import its entity')
+    def import_dc_json(self, json_file_path : str) :
+        loaded_dc_dict = None
+        with open(json_file_path, 'r') as dc_loaded:
+            loaded_dc_dict = json.load(dc_loaded, object_pairs_hook=OrderedDict)
+        if not loaded_dc_dict:
+            return self.IMPORT_DC_JSON_ISSUE_LOAD
+        if MainServer.NAME not in loaded_dc_dict:
+            return self.IMPORT_DC_JSON_ISSUE_MAINSERVER
+        if ApiServer.NAME not in loaded_dc_dict:
+            return self.IMPORT_DC_JSON_ISSUE_APISERVER
+        #TODO add more checks
+
+        # main server
+        port = loaded_dc_dict[MainServer.NAME][get_port_field_name()]
+        args = loaded_dc_dict[MainServer.NAME][get_args_field_name()]
+        self.add_main_server(MainServer(port, args))
+
+        # api server
+        port = loaded_dc_dict[ApiServer.NAME][get_port_field_name()]
+        args = loaded_dc_dict[ApiServer.NAME][get_args_field_name()]
+        self.add_api_server(ApiServer(port, args))
+
+        # settings
+        frequency = Frequency(loaded_dc_dict[KEY_NERLNET_SETTINGS][KEY_FREQUENCY])
+        batch_size = BatchSize(loaded_dc_dict[KEY_NERLNET_SETTINGS][KEY_BATCH_SIZE])
+        self.add_nerlnet_settings(frequency, batch_size)
+
+        # workers
+        list_of_workers_mapping_names_to_sha = loaded_dc_dict[KEY_WORKERS]
+        dict_of_models_by_sha = loaded_dc_dict[KEY_MODEL_SHA]
+
+        for worker_dict in list_of_workers_mapping_names_to_sha:
+            worker_name = worker_dict[NAME_FIELD]
+            worker_model_sha = worker_dict[WORKER_MODEL_SHA_FIELD]
+            if worker_model_sha not in dict_of_models_by_sha:
+                return self.IMPORT_DC_JSON_ISSUE_MISSING_MODEL
+            else:
+                model_dict = dict_of_models_by_sha[worker_model_sha]
+                (new_loaded_worker , _, _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(model_dict)
+                new_loaded_worker.set_name(worker_name)
+                self.add_worker(new_loaded_worker)
+
+        # clients
+        list_of_clients_dicts = loaded_dc_dict[KEY_CLIENTS]
+        for client_dict in list_of_clients_dicts:
+            client_name = client_dict[NAME_FIELD]
+            client_port = client_dict[get_port_field_name()]
+            client_workers_str = client_dict[get_workers_field_name()]
+            new_loaded_client = Client(client_name, client_port)
+            # add workers to new loaded client:
+            for worker_name in client_workers_str.split(","):
+                if worker_name not in self.main_dict[KEY_WORKERS]:
+                    return self.IMPORT_DC_JSON_ISSUE_CLIENT_WORKER_IS_MISSING
+                else:
+                    client_new_worker_sha = self.main_dict[KEY_WORKERS][worker_name].get_sha()
+                    new_loaded_client.add_worker(worker_name,client_new_worker_sha)
+            self.add_client(new_loaded_client) # add client to main_dict
+        
+        # routers
+        list_of_routers_dicts = loaded_dc_dict[KEY_ROUTERS]
+        for router_dict in list_of_routers_dicts:
+            router_name = router_dict[NAME_FIELD]
+            router_port = router_dict[get_port_field_name()]
+            router_policy = router_dict[get_policy_field_name()]
+            self.add_router(Router(router_name, router_port, router_policy))
+
+        # sources
+        list_of_sources_dicts = loaded_dc_dict[KEY_SOURCES]
+        for source_dict in list_of_sources_dicts:
+            source_name = source_dict[NAME_FIELD]
+            source_port = source_dict[get_port_field_name()]
+            source_frequency = source_dict[get_frequency_field_name()]
+            source_epochs = source_dict[get_epochs_field_name()]
+            source_policy = source_dict[get_policy_field_name()]
+            source_type = source_dict[get_source_type_field_name()]
+            self.add_source(Source(source_name, source_port, source_frequency, source_policy, source_epochs, source_type))
+
+        #devices
+        list_of_devices_dicts = loaded_dc_dict[KEY_DEVICES]
+        for device_dict in list_of_devices_dicts:
+            device_name = device_dict[NAME_FIELD]
+            device_ipv4 = device_dict[get_ipv4_field_name()]
+            entities = device_dict[get_entities_field_name()]
+            new_device_loaded = Device(device_ipv4, device_name)
+            for entity_name in entities.split(','):
+                entity_inst = self.get_entity(entity_name)
+                if entity_inst is None:
+                    return self.IMPORT_DC_JSON_ISSUE_DEVICE_MISSING_AN_ENTITY
+                new_device_loaded.add_entity(entity_inst)
+            self.add_device(new_device_loaded)
+
+        return self.IMPORT_DC_JSON_SUCCESS
+        
