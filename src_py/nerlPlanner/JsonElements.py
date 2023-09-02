@@ -54,6 +54,9 @@ class Arguments(JsonElement):
         super(Arguments, self).__init__("args", ARGS_TYPE)
         self.args = args
 
+    def get_value(self) -> str:
+        return self.args
+
     def error(self):
         return False # error not supported for args
 
@@ -99,7 +102,7 @@ class Frequency(JsonElement):
         assert not self.error()
         return (self.get_name() , str(self.value))
     
-    def get_str(self):
+    def get_value_str(self):
         return f'{self.value}'
 
 
@@ -117,7 +120,7 @@ class BatchSize(JsonElement):
         assert not self.error()
         return (self.get_name() , str(self.value))
     
-    def get_str(self):
+    def get_value_str(self):
         return f'{self.value}'
     
 class Policy(JsonElement):
@@ -205,6 +208,12 @@ class ApiServer(JsonElement):
         self.port = Port(port)
         self.args = Arguments(args)
 
+    def get_port(self):
+        return self.port
+    
+    def get_args(self) -> str:
+        return self.args
+
     def communication_elem(self):
         return True
 
@@ -223,6 +232,12 @@ class MainServer(JsonElement):
         super(MainServer, self).__init__(MainServer.NAME, MAIN_SERVER_TYPE)
         self.port = Port(port)
         self.args = Arguments(args)
+
+    def get_port(self):
+        return self.port
+    
+    def get_args(self):
+        return self.args
 
     def communication_elem(self):
         return True
@@ -338,13 +353,12 @@ class Source(JsonElement):
     
     def get_as_dict(self):
         assert not self.error()
-        source_type_str = get_inv_dict(SourceTypeDict)[self.source_type]
         elements_list = [self.get_name_as_tuple(), 
                          self.port.get_as_tuple(),
                          self.frequency.get_as_tuple(),
                          self.policy.get_as_tuple(),
                          self.epochs.get_as_tuple(),
-                         (FIELD_NAME_SOURCE_TYPE, source_type_str)]
+                         (FIELD_NAME_SOURCE_TYPE, self.source_type)]
         return OrderedDict(elements_list)
 
 class Client(JsonElement):
