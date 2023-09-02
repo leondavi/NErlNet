@@ -379,11 +379,19 @@ def entities_handler(window, event, values):
 def sync_fields_with_json_dc_inst(window, values):
     global json_dc_inst
 
+    # special entities
+    window[KEY_SETTINGS_MAINSERVER_PORT_INPUT].update(json_dc_inst.get_main_server().get_port().get_value_str())
+    window[KEY_SETTINGS_MAINSERVER_ARGS_INPUT].update(json_dc_inst.get_main_server().get_args().get_value())
+    window[KEY_SETTINGS_APISERVER_PORT_INPUT].update(json_dc_inst.get_api_server().get_port().get_value_str())
+    window[KEY_SETTINGS_APISERVER_ARGS_INPUT].update(json_dc_inst.get_main_server().get_args().get_value())
     # settings
-    window[KEY_SETTINGS_FREQUENCY_INPUT].update(json_dc_inst.get_frequency().get_str()) if json_dc_inst.get_frequency() is not None else None
-    window[KEY_SETTINGS_BATCH_SIZE_INPUT].update(json_dc_inst.get_batch_size().get_str()) if json_dc_inst.get_batch_size() is not None else None
+    window[KEY_SETTINGS_FREQUENCY_INPUT].update(json_dc_inst.get_frequency().get_value_str()) if json_dc_inst.get_frequency() is not None else None
+    window[KEY_SETTINGS_BATCH_SIZE_INPUT].update(json_dc_inst.get_batch_size().get_value_str()) if json_dc_inst.get_batch_size() is not None else None
     # workers
     window[KEY_WORKERS_LIST_BOX].update(json_dc_inst.get_workers_names_list())
+    # devices
+    window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
+
 
 def dc_json_handler(window, event, values):
     global dc_json_import_file
@@ -407,7 +415,11 @@ def dc_json_handler(window, event, values):
         dc_json_import_file = values[KEY_DC_JSON_IMPORT_INPUT]
 
     if event == KEY_DC_JSON_IMPORT_BUTTON:
-        json_dc_inst = JsonDistributedConfig()
-        json_dc_inst.import_dc_json(dc_json_import_file)
-        sync_fields_with_json_dc_inst(window, values)
+        json_dc_inst_tmp = JsonDistributedConfig()
+        res_code, error_str = json_dc_inst_tmp.import_dc_json(dc_json_import_file)
+        if (res_code, error_str) != json_dc_inst_tmp.IMPORT_DC_JSON_SUCCESS:
+            sg.popup_ok(f"Issue of {error_str}", keep_on_top=True, title="DC json Import Issue")
+        else:
+            json_dc_inst = json_dc_inst_tmp
+            sync_fields_with_json_dc_inst(window, values)
 

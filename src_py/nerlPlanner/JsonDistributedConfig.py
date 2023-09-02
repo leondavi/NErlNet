@@ -81,6 +81,12 @@ class JsonDistributedConfig():
         batch_size_field_name = get_batch_size_field_name()
         return self.main_dict[KEY_NERLNET_SETTINGS][get_batch_size_field_name()] if batch_size_field_name in self.main_dict[KEY_NERLNET_SETTINGS] else None
 
+    def get_main_server(self):
+        return self.main_dict[MainServer.NAME]
+    
+    def get_api_server(self):
+        return self.main_dict[ApiServer.NAME]
+
     def add_main_server(self, main_server : MainServer):
         self.main_dict[MainServer.NAME] = main_server
 
@@ -309,13 +315,13 @@ class JsonDistributedConfig():
 
         return self.EXPORT_DC_JSON_SUCCESS
 
-
-    IMPORT_DC_JSON_SUCCESS  = 0
-    IMPORT_DC_JSON_ISSUE_LOAD = -1
-    IMPORT_DC_JSON_ISSUE_MAINSERVER = -2
-    IMPORT_DC_JSON_ISSUE_APISERVER = -3
-    IMPORT_DC_JSON_ISSUE_MISSING_MODEL = -4
-    IMPORT_DC_JSON_ISSUE_CLIENT_WORKER_IS_MISSING = -5
+    IMPORT_DC_JSON_SUCCESS  = (0, '')
+    IMPORT_DC_JSON_ISSUE_LOADING_FILE = (-1, 'loading file!')
+    IMPORT_DC_JSON_ISSUE_MAINSERVER = (-2, 'importing main server!')
+    IMPORT_DC_JSON_ISSUE_APISERVER = (-3, 'importing api server!')
+    IMPORT_DC_JSON_ISSUE_MISSING_MODEL = (-4, 'missing mode')
+    IMPORT_DC_JSON_ISSUE_CLIENT_WORKER_IS_MISSING = (-5, 'a client cannot import its worker')
+    IMPORT_DC_JSON_ISSUE_DEVICE_MISSING_AN_ENTITY = (-6, 'a device cannot import its entity')
     def import_dc_json(self, json_file_path : str) :
         loaded_dc_dict = None
         with open(json_file_path, 'r') as dc_loaded:
@@ -393,5 +399,19 @@ class JsonDistributedConfig():
             source_type = source_dict[get_source_type_field_name()]
             self.add_source(Source(source_name, source_port, source_frequency, source_policy, source_epochs, source_type))
 
-        print("todo") #TODO
+        #devices
+        list_of_devices_dicts = loaded_dc_dict[KEY_DEVICES]
+        for device_dict in list_of_devices_dicts:
+            device_name = device_dict[NAME_FIELD]
+            device_ipv4 = device_dict[get_ipv4_field_name()]
+            entities = device_dict[get_entities_field_name()]
+            new_device_loaded = Device(device_ipv4, device_name)
+            for entity_name in entities.split(','):
+                entity_inst = self.get_entity(entity_name)
+                if entity_inst is None:
+                    return self.IMPORT_DC_JSON_ISSUE_DEVICE_MISSING_AN_ENTITY
+                new_device_loaded.add_entity(entity_inst)
+            self.add_device(new_device_loaded)
+
+        return self.IMPORT_DC_JSON_SUCCESS
         
