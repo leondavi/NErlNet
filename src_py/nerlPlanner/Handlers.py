@@ -16,10 +16,11 @@ def reset_json_distributed_configuration():
     global json_dc_inst
     json_dc_inst = JsonDistributedConfig()
 
-def settings_handler(event, values):
+def settings_handler(window, event, values):
     frequency = None
     frequency_inst = None
     error_list = []
+
     if event == KEY_SETTINGS_SAVE_BUTTON:
         frequency = values[KEY_SETTINGS_FREQUENCY_INPUT] if values[KEY_SETTINGS_FREQUENCY_INPUT] else None
         frequency_inst = Frequency(frequency) if frequency else None
@@ -52,7 +53,6 @@ def settings_handler(event, values):
         else:
             json_dc_inst.add_main_server(main_server_inst)
             json_dc_inst.add_api_server(api_server_inst)
-
 
 
 def workers_handler(window, event, values):
@@ -376,19 +376,50 @@ def entities_handler(window, event, values):
         entities_sources_names_list = json_dc_inst.get_sources_names()
         window[KEY_ENTITIES_SOURCES_LISTBOX].update(entities_sources_names_list)
 
+def sync_fields_with_json_dc_inst(window, values):
+    global json_dc_inst
+
+    # special entities
+    window[KEY_SETTINGS_MAINSERVER_PORT_INPUT].update(json_dc_inst.get_main_server().get_port().get_value_str())
+    window[KEY_SETTINGS_MAINSERVER_ARGS_INPUT].update(json_dc_inst.get_main_server().get_args().get_value())
+    window[KEY_SETTINGS_APISERVER_PORT_INPUT].update(json_dc_inst.get_api_server().get_port().get_value_str())
+    window[KEY_SETTINGS_APISERVER_ARGS_INPUT].update(json_dc_inst.get_main_server().get_args().get_value())
+    # settings
+    window[KEY_SETTINGS_FREQUENCY_INPUT].update(json_dc_inst.get_frequency().get_value_str()) if json_dc_inst.get_frequency() is not None else None
+    window[KEY_SETTINGS_BATCH_SIZE_INPUT].update(json_dc_inst.get_batch_size().get_value_str()) if json_dc_inst.get_batch_size() is not None else None
+    # workers
+    window[KEY_WORKERS_LIST_BOX].update(json_dc_inst.get_workers_names_list())
+    # devices
+    window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
+
+
 def dc_json_handler(window, event, values):
-    global dc_json_load_file
+    global dc_json_import_file
     global dc_json_export_file
+    global json_dc_inst
 
     if values[KEY_DC_JSON_EXPORT_TO_INPUT_DIR] and \
        values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME] and \
        '<' not in values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME] and \
        '>' not in values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME]:
-        dc_json_load_file = values[KEY_DC_JSON_EXPORT_TO_INPUT_DIR] + values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME]
+        dc_json_export_file = values[KEY_DC_JSON_EXPORT_TO_INPUT_DIR] + "/" + values[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME]
 
-    if event == KEY_DC_JSON_EXPORT_BUTTON and dc_json_load_file and dc_json_load_file.endswith(".json"):
-        result = json_dc_inst.export_dc_json(dc_json_load_file)
+    if event == KEY_DC_JSON_EXPORT_BUTTON and dc_json_export_file and dc_json_export_file.endswith(".json"):
+        result = json_dc_inst.export_dc_json(dc_json_export_file)
         if result == json_dc_inst.EXPORT_DC_JSON_ISSUE_MAIN_SERVER_HAS_NO_DEVICE:
             sg.popup_ok(f"MainServer hasn't been associated with device!", title='DC Json Export Issue')
         if result == json_dc_inst.EXPORT_DC_JSON_ISSUE_NO_SPECIAL_ENTITIES_OR_SETTINGS:
             sg.popup_ok(f"DC Json can't be generated due to missing\n special entities or settings!", title='DC Json Export Issue')
+    
+    if event == KEY_DC_JSON_IMPORT_INPUT:
+        dc_json_import_file = values[KEY_DC_JSON_IMPORT_INPUT]
+
+    if event == KEY_DC_JSON_IMPORT_BUTTON:
+        json_dc_inst_tmp = JsonDistributedConfig()
+        res_code, error_str = json_dc_inst_tmp.import_dc_json(dc_json_import_file)
+        if (res_code, error_str) != json_dc_inst_tmp.IMPORT_DC_JSON_SUCCESS:
+            sg.popup_ok(f"Issue of {error_str}", keep_on_top=True, title="DC json Import Issue")
+        else:
+            json_dc_inst = json_dc_inst_tmp
+            sync_fields_with_json_dc_inst(window, values)
+

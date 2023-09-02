@@ -54,6 +54,9 @@ class Arguments(JsonElement):
         super(Arguments, self).__init__("args", ARGS_TYPE)
         self.args = args
 
+    def get_value(self) -> str:
+        return self.args
+
     def error(self):
         return False # error not supported for args
 
@@ -99,7 +102,7 @@ class Frequency(JsonElement):
         assert not self.error()
         return (self.get_name() , str(self.value))
     
-    def get_str(self):
+    def get_value_str(self):
         return f'{self.value}'
 
 
@@ -116,6 +119,9 @@ class BatchSize(JsonElement):
     def get_as_tuple(self):
         assert not self.error()
         return (self.get_name() , str(self.value))
+    
+    def get_value_str(self):
+        return f'{self.value}'
     
 class Policy(JsonElement):
     def __init__(self, value : int, entity_type):
@@ -202,6 +208,12 @@ class ApiServer(JsonElement):
         self.port = Port(port)
         self.args = Arguments(args)
 
+    def get_port(self):
+        return self.port
+    
+    def get_args(self) -> str:
+        return self.args
+
     def communication_elem(self):
         return True
 
@@ -220,6 +232,12 @@ class MainServer(JsonElement):
         super(MainServer, self).__init__(MainServer.NAME, MAIN_SERVER_TYPE)
         self.port = Port(port)
         self.args = Arguments(args)
+
+    def get_port(self):
+        return self.port
+    
+    def get_args(self):
+        return self.args
 
     def communication_elem(self):
         return True
@@ -284,7 +302,7 @@ class Device(JsonElement):
         entities_str = ",".join(self.get_entities_names())
         elements_list = [self.get_name_as_tuple(), 
                          self.ip.get_as_tuple(),
-                         ('entities', entities_str)]
+                         (FIELD_NAME_ENTITIES, entities_str)]
         return OrderedDict(elements_list)
 
 class Router(JsonElement):
@@ -335,13 +353,12 @@ class Source(JsonElement):
     
     def get_as_dict(self):
         assert not self.error()
-        source_type_str = get_inv_dict(SourceTypeDict)[self.source_type]
         elements_list = [self.get_name_as_tuple(), 
                          self.port.get_as_tuple(),
                          self.frequency.get_as_tuple(),
                          self.policy.get_as_tuple(),
                          self.epochs.get_as_tuple(),
-                         ("type", source_type_str)]
+                         (FIELD_NAME_SOURCE_TYPE, self.source_type)]
         return OrderedDict(elements_list)
 
 class Client(JsonElement):
@@ -356,7 +373,7 @@ class Client(JsonElement):
     def __format__(self, __format_spec: str) -> str:
         # workers_dict_as_string = ",".join(list(self.workers_dict.keys()))
         numof_workers = len(list(self.workers_dict.keys()))
-        return f"name {self.name} {self.port} {numof_workers} workers"
+        return f"name {self.name} {self.port} workers: {numof_workers}"
 
     def get_port(self):
         return self.port
@@ -385,5 +402,36 @@ class Client(JsonElement):
         workers_list_str = ",".join(self.get_workers_names())
         elements_list = [self.get_name_as_tuple(), 
                          self.port.get_as_tuple(),
-                         ('workers', workers_list_str)]
+                         (FIELD_NAME_WORKERS, workers_list_str)]
         return OrderedDict(elements_list)
+    
+
+def get_frequency_field_name():
+    return Frequency(0).get_name()
+
+def get_batch_size_field_name():
+    return BatchSize(0).get_name()
+
+def get_port_field_name():
+    return Port(0).get_name()
+
+def get_args_field_name():
+    return Arguments('').get_name()
+
+def get_ipv4_field_name():
+    return Ipv4('0.0.0.0').get_name()
+
+def get_epochs_field_name():
+    return Epochs(0).get_name()
+
+def get_entities_field_name():
+    return FIELD_NAME_ENTITIES
+
+def get_workers_field_name():
+    return FIELD_NAME_WORKERS
+
+def get_source_type_field_name():
+    return FIELD_NAME_SOURCE_TYPE
+
+def get_policy_field_name():
+    return Policy(0,0).get_name()

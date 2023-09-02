@@ -50,5 +50,5 @@ last_entities_list_state = []
 last_entities_list_state_not_occupied = []
 
 # dc json
-dc_json_load_file = ''
+dc_json_import_file = ''
 dc_json_export_file = ''
