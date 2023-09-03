@@ -191,9 +191,9 @@ calculate_size(List) when is_list(List) ->
 
 %% TODO: create create_body func for standard message passing
 
-make_rouint_table(Ets,[],_MyName,_NerlnetGraph)->Ets;
-make_rouint_table(Ets,[Entity|EntitiesList],MyName,NerlnetGraph)->
-  case digraph:get_short_path(NerlnetGraph,MyName,Entity) of
+make_rouint_table(Ets,[],_Origin,_NerlnetGraph)->Ets;
+make_rouint_table(Ets,[Entity|EntitiesList],Origin,NerlnetGraph)->
+  case digraph:get_short_path(NerlnetGraph,Origin,Entity) of
 
     false ->
       ok;
@@ -201,6 +201,6 @@ make_rouint_table(Ets,[Entity|EntitiesList],MyName,NerlnetGraph)->
     ShortPath ->
       NextHop = lists:nth(2,ShortPath),
       {Name,{Host,Port}} = digraph:vertex(NerlnetGraph,NextHop),
-      ets:insert(Ets,{Entity,{Name,{Host,Port}}})
+      ets:insert(Ets,{Entity,{Name,Host,Port}})
   end,
-  make_rouint_table(Ets,EntitiesList,MyName,NerlnetGraph).
+  make_rouint_table(Ets,EntitiesList,Origin,NerlnetGraph).

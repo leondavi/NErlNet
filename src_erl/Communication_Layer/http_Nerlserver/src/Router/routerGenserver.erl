@@ -180,23 +180,61 @@ handle_cast({getStats,_Body}, State  = #router_genserver_state{myName = MyName, 
     nerl_tools:http_request(Host,Port,"routerStats",Mes),
     {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
-handle_cast({messagePass,{Dest,Body}}, State = #router_genserver_state{msgCounter = MsgCounter,etsRef=Routing_table }) ->
-  %io:format("-----------------got here!!!!!!!!!!~n"),
-  [{Dest,{Name,{Host,Port}}}]=ets:lookup(Routing_table,Dest),
+handle_cast({uniCast,{Dest,Body}}, State = #router_genserver_state{msgCounter = MsgCounter,etsRef=Routing_table }) ->
+
+  [{Dest,{Name,Host,Port}}]=ets:lookup(Routing_table,Dest),
   case Dest of
     Name->
-      %the destination is the next hop, send as regular messege
-      {Path,Data}=Body,
-      io:format("-----------------last hop sending{~p,~p} from body~p~n",[Path,Data,Body]),
-      io:format("-----------------ets entry is{~p,{~p,~p}}~n",[Name,Host,Port]);
+      %the destination is the next hop, send as regular message
+      {Path,Data}=Body;
     _->
-      %next hop isnt the destination, continue as geneal router messege
-      Path="messagePass",
+      %next hop isnt the destination, continue as geneal router message
+      Path="uniCast",
       Data={Dest,Body}
-      %io:format("-----------------on the way~n")
     end,
   nerl_tools:http_request(Host, Port,Path, term_to_binary(Data)),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1,etsRef=Routing_table }};
+
+handle_cast({broadCast,{DestList,Body}}, State = #router_genserver_state{msgCounter = MsgCounter,etsRef=Routing_table }) ->
+  MapFunc=fun(Dest,Acc)->
+    %make a map when keys are addreses to send a message to, and values are lists of destination of the message that go throu key addres
+    [{Dest,{Name,Host,Port}}]=ets:lookup(Routing_table,Dest),
+    case maps:is_key({Name,Host,Port},Acc) of
+      true->
+        %addres alread in, append Dest to exsisting value 
+        NewVal=maps:get({Name,Host,Port},Acc)++[Dest];
+      false->
+        %addres not in yet, create new value for it
+        NewVal=[Dest]
+    end,
+    maps:put({Name,Host,Port},NewVal,Acc)
+  end,
+
+  NextHopMap=lists:foldl(MapFunc,#{},DestList),
+
+  SendFunc=fun({Name,Host,Port},DestClientList)->
+    %iterate on the maps keys (addreses) and forword message according to 1 of 3 cases
+    case length(DestClientList) of
+      1->
+        %only 1 dest for the addres, switch to unicast or lose the general format if last hop
+        [Client]=DestClientList,
+        case Client of
+          Name->
+            {Path,Data}=Body;
+          _->
+            Path="uniCast",
+            Data={Client,Body}
+        end;
+      _->
+        %multipul destinations continue as broadcast message
+        Path="broadCast",
+        Data={DestClientList,Body}
+    end,
+    nerl_tools:http_request(Host, Port,Path, term_to_binary(Data))
+  end,
+  maps:foreach(SendFunc,NextHopMap),
+  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1,etsRef=Routing_table }};
+
 
 handle_cast(_Request, State = #router_genserver_state{msgCounter = MsgCounter }) ->
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}} .

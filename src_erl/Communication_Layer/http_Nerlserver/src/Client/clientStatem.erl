@@ -371,7 +371,7 @@ ack(MyName, NerlnetGraph) ->
   % ?LOG_INFO("~p sending ACK   ~n",[MyName]),
   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
   %%  send an ACK to mainserver that the client is ready
-  nerl_tools:http_request(RouterHost,RouterPort,"messagePass",term_to_binary({?MAIN_SERVER_ATOM,{"clientReady",MyName}})).
+  nerl_tools:http_request(RouterHost,RouterPort,"uniCast",term_to_binary({?MAIN_SERVER_ATOM,{"clientReady",MyName}})).
 
 createWorkers(ClientName, EtsRef) ->
   CLIENT_WORKES_MAPS_TUPLE_IDX = 3,
