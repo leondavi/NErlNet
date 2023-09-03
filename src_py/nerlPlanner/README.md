@@ -1,4 +1,30 @@
 # Nerlnet Planner
+Nerlplanner is a NErlNEt tool that assist users generating json files that of a distributed Nerlnet network.
+There are 3 kinds of json files: 
+- Distributed Configuration json file (DC json file with prefix dc e.g., dc_\<any name\>.json)
+- Communication network. (json file with prefix comm e.g., comm_\<any name|>.json)
+- Experiment. (json file with prefix exp e.g., exp_\<any name\>.json)
+A distributed nerlnet network consists of different entities and their connectivity.  
+### Entities
+Entities are Routers, Sources and Clients:  
+- Router allows the connection between entities (Router<->Router, Router<->Sources, Router<->Client).
+- Source streams data through Nerlnet network toward edge workers.
+- Client is a communication envelope that hosts workers.
+
+### Special Entities
+Main Server is a special entities that controls a Nerlnet cluster.
+It creates and initializes entities based on loaded json files.
+API Server is a controling API allow user to control the Nerlnet cluster through  
+a pythonic API. It communicates with the main server through HTTP protocol.  
+
+### Workers
+Workers are ML models FSM. FSM of worker has mainly train and predict states. 
+A worker has an ML model that perform train/predict according to its FSM state. 
+It receives data from sources through its client.
+
+### Devices
+A device hosts entities. Each device should have a unique ip address.  
+A single device can be defined and it can host alone all entities under its memory/cpu constraints.
 
 ## Installation steps:  
 
