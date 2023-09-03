@@ -62,6 +62,8 @@ On every device that is a part of Nerlnet cluster the following steps should be 
 5. Create json files of architecture, connection map and experiment flow.  
 json configuration files names must follow the convention of prefixes:  
 arch_\<name\>.json, conn_\<name\>.json, exp_\<name\>.json.  
+[Nerlplanner](https://github.com/leondavi/NErlNet/tree/master/src_py/nerlPlanner) is a tool for creating json files for Nerlnet.  
+To use NerlPlanner execute ```./NerlPlanner.sh``` (support starts from version 1.3.0)    
 4. Run ```./NerlnetRun.sh``` to start Nerlnet.
 
 Optional: Run ```./NerlnetGetData.sh``` to create or get default inputDataDir   
