@@ -7,7 +7,7 @@ api_server_instance = ApiServer()
 api_server_instance.help()
 
 api_server_instance.showJsons()
-api_server_instance.setJsons(3,9,2)
+api_server_instance.setJsons(0,0,0)
 
 arch_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
