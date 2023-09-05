@@ -34,6 +34,9 @@ class ApiServer():
 
         pass
 
+    def set_json_dir(self, custom_path : str):
+        self.json_dir_parser = JsonDirParser(custom_path)
+
     def help(self):
     #i) data saved as .csv, training file ends with "_Training.csv", prediction with "_Prediction.csv" (may change in future)
         print(
