@@ -1,15 +1,16 @@
 #!/bin/bash
 
-NERLNET_VENV_PATH="/tmp/nerlnet/venv"
+NERLNET_VENV_PATH="/tmp/nerlnet/virtualenv"
 
 function print()
 {
     echo "[NERLNET-TEST][SET-ENV] $1"
 }
 # set python environment to run Nerlnet Flow
-print("Starts")
+print "Starts"
 
-python3 -m $NERLNET_VENV_PATH
+pip3 install virtualenv
+python3 -m virtualenv $NERLNET_VENV_PATH
 
 cat src_py/requirements.txt
 
