@@ -25,4 +25,5 @@ jobs:
       - name: Run unit tests
         if: steps.build.outcome == 'success'
         run: |
+          ./Test/set_env.sh
           ./NerlnetTest.sh
