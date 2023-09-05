@@ -2,7 +2,7 @@
 
 function print()
 {
-    echo "[NERLNET-TEST] $1"
+    echo "[NERLNET-NIF-TEST] $1"
 }
 
 # Global Vars:
@@ -29,7 +29,7 @@ else
     mkdir -p $NERLNET_TEST_DIR
 fi
 
-
+cd $NERLNET_PATH
 cp src_erl/erlBridge/nerlTests.erl $NERLNET_TEST_DIR/nerlTests.erl
 cp src_erl/erlBridge/nerlNIF.erl $NERLNET_TEST_DIR/nerlNIF.erl
 cp src_erl/erlBridge/nerl.erl $NERLNET_TEST_DIR/nerl.erl
