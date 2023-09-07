@@ -76,8 +76,8 @@ init(Req0, State) ->
     %%%%%%%%%%%%%%GUI actions
     getStats -> gen_server:cast(Router_genserver_Pid, {getStats,Body});
 
-    uniCast ->gen_server:cast(Router_genserver_Pid, {uniCast,binary_to_term(Body)});
-    broadCast ->gen_server:cast(Router_genserver_Pid, {broadCast,binary_to_term(Body)})
+    unicast ->gen_server:cast(Router_genserver_Pid, {unicast,binary_to_term(Body)});
+    broadcast ->gen_server:cast(Router_genserver_Pid, {broadcast,binary_to_term(Body)})
 
   end,
   Reply = io_lib:format(" ", []),

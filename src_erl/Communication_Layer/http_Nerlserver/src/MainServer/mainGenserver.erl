@@ -137,7 +137,7 @@ handle_cast({clientsTraining, _Body}, State = #main_genserver_state{myName = MyN
   io:format("setting clients ~p to training~n",[ListOfClients]),
   [H|_]=ListOfClients,
   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,H,NerlnetGraph),
-  nerl_tools:http_request(RouterHost,RouterPort,"broadCast",term_to_binary({ListOfClients,{"clientTraining",MyName}})),
+  nerl_tools:http_request(RouterHost,RouterPort,"broadcast",term_to_binary({ListOfClients,{"clientTraining",MyName}})),
   %_SendAction = [{setClientState(clientTraining,ClientName,MyName)}|| ClientName <- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 

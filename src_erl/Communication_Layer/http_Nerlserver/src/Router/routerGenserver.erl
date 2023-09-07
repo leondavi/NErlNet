@@ -21,7 +21,7 @@
   code_change/3]).
 
 -define(SERVER, ?MODULE).
-
+-define(UNICAST_ACTION_ATOM, unicast).
 
 -record(router_genserver_state, {myName, nerlnetGraph,msgCounter = 0,etsRef}).
 
@@ -53,7 +53,7 @@ init({MyName,NerlnetGraph}) ->
   ?LOG_NOTICE("Router ~p is connected to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
     % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
   put(nerlnetGraph, NerlnetGraph),
-  EtsRef = ets:new(rouint_table, [set]),
+  EtsRef = ets:new(routint_table, [set]),
   EntitiesList=digraph:vertices(NerlnetGraph),
   Routing_table=nerl_tools:make_rouint_table(EtsRef,EntitiesList--[?API_SERVER_ATOM,MyName],MyName,NerlnetGraph),
   %io:format("--------------------------router EntitiesList: ~p~n",[EntitiesList]),
@@ -180,22 +180,22 @@ handle_cast({getStats,_Body}, State  = #router_genserver_state{myName = MyName, 
     nerl_tools:http_request(Host,Port,"routerStats",Mes),
     {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
-handle_cast({uniCast,{Dest,Body}}, State = #router_genserver_state{msgCounter = MsgCounter,etsRef=Routing_table }) ->
+handle_cast({unicast,{Dest,Body}}, State = #router_genserver_state{msgCounter = MsgCounter,etsRef=Routing_table }) ->
 
   [{Dest,{Name,Host,Port}}]=ets:lookup(Routing_table,Dest),
   case Dest of
     Name->
       %the destination is the next hop, send as regular message
-      {Path,Data}=Body;
+      {Action,Data}=Body;
     _->
       %next hop isnt the destination, continue as geneal router message
-      Path="uniCast",
+      Action=atom_to_list(?UNICAST_ACTION_ATOM),
       Data={Dest,Body}
     end,
-  nerl_tools:http_request(Host, Port,Path, term_to_binary(Data)),
+  nerl_tools:http_request(Host, Port,Action, term_to_binary(Data)),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1,etsRef=Routing_table }};
 
-handle_cast({broadCast,{DestList,Body}}, State = #router_genserver_state{msgCounter = MsgCounter,etsRef=Routing_table }) ->
+handle_cast({broadcast,{DestList,Body}}, State = #router_genserver_state{msgCounter = MsgCounter,etsRef=Routing_table }) ->
   MapFunc=fun(Dest,Acc)->
     %make a map when keys are addreses to send a message to, and values are lists of destination of the message that go throu key addres
     [{Dest,{Name,Host,Port}}]=ets:lookup(Routing_table,Dest),
@@ -212,25 +212,25 @@ handle_cast({broadCast,{DestList,Body}}, State = #router_genserver_state{msgCoun
 
   NextHopMap=lists:foldl(MapFunc,#{},DestList),
 
-  SendFunc=fun({Name,Host,Port},DestClientList)->
+  SendFunc=fun({Name,Host,Port},DestEntityList)->
     %iterate on the maps keys (addreses) and forword message according to 1 of 3 cases
-    case length(DestClientList) of
+    case length(DestEntityList) of
       1->
         %only 1 dest for the addres, switch to unicast or lose the general format if last hop
-        [Client]=DestClientList,
-        case Client of
+        [Entity]=DestEntityList,
+        case Entity of
           Name->
-            {Path,Data}=Body;
+            {Action,Data}=Body;
           _->
-            Path="uniCast",
-            Data={Client,Body}
+            Action=atom_to_list(?UNICAST_ACTION_ATOM),
+            Data={Entity,Body}
         end;
       _->
         %multipul destinations continue as broadcast message
-        Path="broadCast",
+        Action="broadcast",
         Data={DestClientList,Body}
     end,
-    nerl_tools:http_request(Host, Port,Path, term_to_binary(Data))
+    nerl_tools:http_request(Host, Port,Action, term_to_binary(Data))
   end,
   maps:foreach(SendFunc,NextHopMap),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1,etsRef=Routing_table }};
