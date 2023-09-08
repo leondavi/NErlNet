@@ -9,6 +9,8 @@ api_server_instance.help()
 api_server_instance.showJsons()
 api_server_instance.setJsons(0,0,0)
 
+raise "break exception"
+
 arch_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
 api_server_instance.initialization(arch_json , connmap_json, exp_flow_json)

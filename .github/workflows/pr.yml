@@ -30,4 +30,4 @@ jobs:
       - name: Run FullFlow test
         if: steps.nif.outcome == 'success'
         run: |
-          ./Tests/FullFlowTest.sh
+          ./Tests/NerlnetFullFlowTest.sh
