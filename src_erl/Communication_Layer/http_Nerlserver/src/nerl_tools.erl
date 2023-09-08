@@ -141,15 +141,19 @@ getNerlSubnets() ->
     Subnets = [Subnet || Subnet <- Lines, hd(Subnet) /= $#],
     lists:sort(Subnets).
 
+ip_list_to_str(IpList) ->
+  IpIntListAsStr = lists:flatten(io_lib:format("~p", [IpList])),
+  IpIntListAsStrRemovedParenthesis = lists:sublist(IpIntListAsStr,2,length(IpIntListAsStr)-2), % [IP] to IP
+  IpString = lists:flatten(string:replace(IpIntListAsStrRemovedParenthesis,",",".",all)), % x,x,x,x to x.x.x.x
+  IpString.
+
 isAddrInSubnets(_IF_addr, []) -> notFound;
 isAddrInSubnets(IF_addr, [Subnet|SubnetsList]) ->
     %convert IF_addr to IP string
-    IP_LIST = tuple_to_list(IF_addr),
-    A = lists:flatten(io_lib:format("~p", [IP_LIST])),
-    Subbed = lists:sublist(A,2,length(A)-2),
-    IPString = lists:flatten(string:replace(Subbed,",",".",all)),
-    % io:format("comparing ~p=~p~n",[IPString, Subnet]),
+    IpList = tuple_to_list(IF_addr),
+    IPString = ip_list_to_str(IpList),
     IPMatch = lists:prefix(Subnet, IPString),
+    % io:format("comparing ~p=~p   prefixMatch:~p~n",[IPString, Subnet, IPMatch]),
     case IPMatch of
         false -> isAddrInSubnets(IF_addr, SubnetsList);
         true -> IPString

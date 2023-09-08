@@ -1,10 +1,13 @@
 #!/bin/bash
 
 NERLNET_PATH="/usr/local/lib/nerlnet-lib/NErlNet"
+TESTS_PATH="$NERLNET_PATH/Tests"
+
 NERLNET_CONFIG_DIR=$NERLNET_PATH/config
 NERLNET_CONFIG_JSONS_DIR=$NERLNET_CONFIG_DIR/jsonsDir.nerlconfig
 NERLNET_CONFIG_JSONS_DIR_BACKUP=$NERLNET_CONFIG_DIR/jsonsDir.nerlconfig.bac
-TESTS_PATH="$NERLNET_PATH/Tests"
+NERLNET_CONFIG_SUBNETS_DIR=$NERLNET_CONFIG_DIR/subnets.nerlconfig
+NERLNET_CONFIG_SUBNETS_BACKUP=$NERLNET_CONFIG_DIR/subnets.nerlconfig.bac
 
 TEST_INPUT_JSONS_FILES_DIR="$TESTS_PATH/InputJsonsFiles"
 
@@ -25,9 +28,12 @@ function print()
     echo "[NERLNET-FULL-FLOW-TEST] $1"
 }
 
+# add this host ip to subnets and backup subnets.nerlconfig
+cp $NERLNET_CONFIG_SUBNETS_DIR $NERLNET_CONFIG_SUBNETS_BACKUP
 
 CURRENT_MACHINE_IPV4_ADD="$(ip r | grep -m 1 -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" | head -n 1)"
 print "This machine ipv4 is: $CURRENT_MACHINE_IPV4_ADD"
+echo "$CURRENT_MACHINE_IPV4_ADD" >> $NERLNET_CONFIG_SUBNETS_DIR
 
 replace_ip_in_json $TEST_ARCH_JSON_NOIP_0 $TEST_ARCH_JSON_0 $CURRENT_MACHINE_IPV4_ADD
 
@@ -47,8 +53,14 @@ python3 src_py/apiServer/experiment_flow_test.py
 
 
 rm $NERLNET_CONFIG_JSONS_DIR
+print "Restore backup of $NERLNET_CONFIG_JSONS_DIR"
 mv $NERLNET_CONFIG_JSONS_DIR_BACKUP $NERLNET_CONFIG_JSONS_DIR
-print "Restore backup of $NERLNET_CONFIG_JSONS_DIR" 
+rm $NERLNET_CONFIG_JSONS_DIR_BACKUP
+print "Restore backup of $NERLNET_CONFIG_SUBNETS_DIR"
+#cp $NERLNET_CONFIG_SUBNETS_BACKUP $NERLNET_CONFIG_SUBNETS_DIR
+#rm $NERLNET_CONFIG_SUBNETS_BACKUP
+
+#timeout Xsecs ./NerlnetRun.sh
 
 deactivate
 
