@@ -11,13 +11,13 @@ import pandas as pd
 import sys
 import numpy as np
 import os
-import subprocess
 
 from jsonDirParser import JsonDirParser
 from transmitter import Transmitter
 from networkComponents import NetworkComponents
 import globalVars as globe
 import receiver
+from definitions import *
 
 def is_port_in_use(port: int) -> bool:
     import socket
@@ -27,6 +27,7 @@ def is_port_in_use(port: int) -> bool:
 class ApiServer():
     def __init__(self):       
         self.json_dir_parser = JsonDirParser()
+        self.input_data_path = read_nerlconfig(NERLCONFIG_INPUT_DATA_DIR)
 
         # Create a new folder for the results:
         if not os.path.exists('/usr/local/lib/nerlnet-lib/NErlNet/Results'):
@@ -40,12 +41,15 @@ class ApiServer():
     def help(self):
     #i) data saved as .csv, training file ends with "_Training.csv", prediction with "_Prediction.csv" (may change in future)
         print(
-"""
+f"""
 __________NERLNET CHECKLIST__________
 0. Run this Jupyter in the folder of generated .py files!
-1. Make sure data and jsons in correct folder, and jsons include the correct paths
+1. Nerlnet configuration files are located at config directory
+   Make sure data and jsons in correct folder, and jsons include the correct paths
     * Data includes: labeled prediction csv, training file, prediction file
     * Prediction CSVs need to be ordered the same!
+    * jsonsDir is set to {self.json_dir_parser.get_json_dir_path()}
+    * inputDataDir is set to {self.input_data_path}
             
 ____________API COMMANDS_____________
 ==========Setting experiment========
@@ -345,7 +349,7 @@ PREDICTION_STR = "Prediction"
         # print("\nPlease enter the name of the FULL LABELED PREDICTION DATA (including .csv):", end = ' ') 
         # labelsCsvPath = input()
         labelsCsvPath = f"{expForStats.predictionResList[0].name}_test.csv"
-        for root, dirnames, filenames in os.walk(globe.INPUT_DATA_PATH):
+        for root, dirnames, filenames in os.walk(self.input_data_path):
             for filename in filenames:
                 if filename == labelsCsvPath:
                     labelsCsvPath = os.path.join(root, filename)

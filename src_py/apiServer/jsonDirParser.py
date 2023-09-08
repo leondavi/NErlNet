@@ -1,9 +1,8 @@
 
 import os
 import json
-import globalVars
 
-JSON_DIRECTORY = '/usr/local/lib/nerlnet-lib/NErlNet/config/jsonDir.nerlconfig'
+from definitions import *
 
 ARCH_IDX = 0
 CONN_MAP_IDX = 1
@@ -42,12 +41,8 @@ class NerlFile():
 
 class JsonDirParser():
 
-    def __init__(self, jsonDirPath: str = JSON_DIRECTORY):
-        self.jsonDirPathStr = ''
-        with open(jsonDirPath) as f:
-            lines = f.readlines()
-            if lines:
-                self.jsonDirPathStr = lines[0][:-1]
+    def __init__(self, jsonDirPath: str = NERLCONFIG_JSONS_DIR):
+        self.jsonDirPathStr = read_nerlconfig(jsonDirPath)
 
         self.arch_list = []
         self.conn_map_list = []
@@ -57,6 +52,8 @@ class JsonDirParser():
 
         self.extract_lists(self.jsonDirPathStr)
  
+    def get_json_dir_path(self):
+        return self.jsonDirPathStr
     
     def extract_lists(self, jsonDirPath):
         for dirpath, dirnames, filenames in os.walk(jsonDirPath):
