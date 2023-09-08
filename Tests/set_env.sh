@@ -12,7 +12,6 @@ print "Starts"
 pip3 install virtualenv
 python3 -m virtualenv $NERLNET_VENV_PATH
 
-cat src_py/requirements.txt
-
 source $NERLNET_VENV_PATH/bin/activate
-pip3 install -r src_py/requirements.txt
+print "pip3 runs in quiet mode"
+pip3 -q install -r src_py/requirements.txt

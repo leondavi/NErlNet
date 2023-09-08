@@ -21,5 +21,6 @@ def read_nerlconfig(nerlconfig_file_path : str):
                 if os.path.exists(first_line):
                     return first_line
                 else:
-                    raise f"bad nerlconfig directory is given: {first_line} at {nerlconfig_file_path}"
+                    print(f"bad nerlconfig directory is given: {first_line} at {nerlconfig_file_path}")
+                    raise "bad nerlconfig directory is given"
     return None
