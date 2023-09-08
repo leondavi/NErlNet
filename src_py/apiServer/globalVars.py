@@ -27,8 +27,6 @@ TRAINING_STR = "Training"
 PREDICTION_STR = "Prediction"
 BATHCHES_PER_SOURCE_STR = "Batches per source"
 
-username = os.getlogin()
-
 # Dict with {worker : csv}:
 workerCsv = {}
 sourceCSVIndex = 0
