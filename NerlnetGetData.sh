@@ -11,17 +11,21 @@ INPUT_DATA_DIR="$NERLNET_TMP/data"
 GITHUB_REPO_DEFAULT="https://github.com/leondavi/NerlnetData/archive/refs/heads/master.zip"
 NERLNET_DATA_UNZIP_DIRECTORY="/tmp/nerlnet/data/NerlnetData-master/nerlnet"
 
+mkdir -p $NERLNET_TMP
+
 if [ -d "$INPUT_DATA_DIR" ]; then
         echo "$NERLNET_PREFIX deleting old input data directory at $INPUT_DATA_DIR"
         rm -rf $INPUT_DATA_DIR
         echo "$NERLNET_PREFIX $INPUT_DATA_DIR is being generated and filled with default data"
-        wget $GITHUB_REPO_DEFAULT
+        echo "$NERLNET_PREFIX wget runs in quiet mode"
+        wget -q $GITHUB_REPO_DEFAULT
         unzip master.zip -d $INPUT_DATA_DIR
         rm master.zip
         echo "$NERLNET_PREFIX Add input data to $INPUT_DATA_DIR"
 else
         echo "$NERLNET_PREFIX $INPUT_DATA_DIR is being generated and filled with default data"
-        wget $GITHUB_REPO_DEFAULT
+        echo "$NERLNET_PREFIX wget runs in quiet mode"
+        wget -q $GITHUB_REPO_DEFAULT
         unzip master.zip -d $INPUT_DATA_DIR
         rm master.zip
         echo "$NERLNET_PREFIX Add input data to $INPUT_DATA_DIR"
