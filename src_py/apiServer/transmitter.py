@@ -15,8 +15,9 @@ def waitForAck():
 
 class Transmitter:
 
-    def __init__(self, mainServerAddress):
+    def __init__(self, mainServerAddress, input_data_path : str):
         # Addresses used throughout the module:
+        self.input_data_path = input_data_path
         self.mainServerAddress = mainServerAddress
         self.sourceInitAddr = self.mainServerAddress + '/sourceInit'
         self.clientsTrainingAddress = self.mainServerAddress + '/clientsTraining'
@@ -53,7 +54,7 @@ class Transmitter:
         print('Update CSV Phase')
 
         #split data by sources and send to mainServer:
-        for root, dirnames, filenames in os.walk(globe.INPUT_DATA_PATH):
+        for root, dirnames, filenames in os.walk(self.input_data_path):
             for filename in filenames:
                 if filename == f"{globe.experiment_flow_global.expFlow['CSV path']}_{currentPhase.lower()}.csv":
                     with open(os.path.join(root, filename), 'r') as file:

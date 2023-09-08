@@ -26,8 +26,6 @@ GRAPH_INDEX = 5
 TRAINING_STR = "Training"
 PREDICTION_STR = "Prediction"
 BATHCHES_PER_SOURCE_STR = "Batches per source"
-# inputDataPath
-INPUT_DATA_PATH = "/usr/local/lib/nerlnet-lib/NErlNet/inputDataDir/"
 
 username = os.getlogin()
 
