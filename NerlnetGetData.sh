@@ -10,6 +10,11 @@ INPUT_DATA_DIR="$NERLNET_TMP/data"
 #GITHUB_REPO_HARAN="https://github.com/halfway258/NerlnetData/archive/refs/heads/main.zip"
 GITHUB_REPO_DEFAULT="https://github.com/leondavi/NerlnetData/archive/refs/heads/master.zip"
 NERLNET_DATA_UNZIP_DIRECTORY="/tmp/nerlnet/data/NerlnetData-master/nerlnet"
+REPO_ZIP="master.zip"
+if [ -f "$REPO_ZIP" ]; then
+        echo "$NERLNET_PREFIX old $REPO_ZIP removed!"
+	rm $REPO_ZIP
+fi
 
 mkdir -p $NERLNET_TMP
 
