@@ -4,7 +4,6 @@ function print()
 {
     echo "[NERLNET-NIF-TEST] $1"
 }
-
 # Global Vars:
 NERLNET_PATH="/usr/local/lib/nerlnet-lib/NErlNet"
 NOW=$(date +"%Y-%m-%d_%H_%M_%S")
