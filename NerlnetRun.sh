@@ -58,4 +58,4 @@ fi
 cd src_erl/Communication_Layer/http_Nerlserver
 echo "$NERLNET_PREFIX Script CWD: $PWD"
 rebar3 shell 
-cd ../../../
+cd -

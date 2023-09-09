@@ -10,7 +10,7 @@ class RunCommand():
     def __init__(self, cmd : str, cwd = pathlib.Path.home()) -> None:
         self.cwd = cwd
         self.cmd = cmd
-        self.process = subprocess.Popen([cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.cwd)
+        self.process = subprocess.Popen("exec "+self.cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.cwd)
         self.pid = self.process.pid
 
     TIMEOUT_PROC_KILLED=-1
