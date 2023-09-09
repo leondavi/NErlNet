@@ -1,7 +1,8 @@
 #!/bin/bash
 
-NERLNET_PATH="/usr/local/lib/nerlnet-lib/NErlNet"
-TESTS_PATH="$NERLNET_PATH/Tests"
+export NERLNET_PATH="/usr/local/lib/nerlnet-lib/NErlNet"
+export TESTS_PATH="$NERLNET_PATH/Tests"
+export NERLNET_RUNNING_TIMEOUT_SEC="20"
 
 NERLNET_CONFIG_DIR=$NERLNET_PATH/config
 NERLNET_CONFIG_JSONS_DIR=$NERLNET_CONFIG_DIR/jsonsDir.nerlconfig
@@ -15,8 +16,6 @@ TEST_INPUT_JSONS_FILES_DIR="$TESTS_PATH/InputJsonsFiles"
 
 TEST_ARCH_JSON_NOIP_0=$TEST_INPUT_JSONS_FILES_DIR/arch_test_synt_d1_2c_1s_4r_4w.json.noip
 TEST_ARCH_JSON_0=$TEST_INPUT_JSONS_FILES_DIR/arch_test_synt_d1_2c_1s_4r_4w.json
-
-NERLNET_RUNNING_TIMEOUT_SEC="10s"
 
 function replace_ip_in_json()
 {
@@ -34,7 +33,7 @@ function print()
 
 # add this host ip to subnets and backup subnets.nerlconfig
 cp $NERLNET_CONFIG_SUBNETS_DIR $NERLNET_CONFIG_SUBNETS_BACKUP
-CURRENT_MACHINE_IPV4_ADD="$(ip r | grep -m 1 -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" | head -n 1)"
+CURRENT_MACHINE_IPV4_ADD="$(ip addr | grep -m 2 -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" | head -n 2 | grep -v "127.0.0.1")"
 print "This machine ipv4 is: $CURRENT_MACHINE_IPV4_ADD"
 sed -i '$a\' $NERLNET_CONFIG_SUBNETS_DIR
 echo "$CURRENT_MACHINE_IPV4_ADD" >> $NERLNET_CONFIG_SUBNETS_DIR
@@ -54,10 +53,7 @@ echo $TEST_INPUT_JSONS_FILES_DIR > $NERLNET_CONFIG_JSONS_DIR
 
 print "Execute NerlnetGetData.sh" 
 ./NerlnetGetData.sh
-print "Execute Nerlnet"
-cd $NERLNET_PATH
-$(bash -c "timeout $NERLNET_RUNNING_TIMEOUT_SEC ./NerlnetRun.sh") &
-cd -
+
 print "Execute Python - experiment_flow_test.py" 
 python3 src_py/apiServer/experiment_flow_test.py
 

@@ -153,7 +153,6 @@ isAddrInSubnets(IF_addr, [Subnet|SubnetsList]) ->
     IpList = tuple_to_list(IF_addr),
     IPString = ip_list_to_str(IpList),
     IPMatch = lists:prefix(Subnet, IPString),
-    % io:format("comparing ~p=~p   prefixMatch:~p~n",[IPString, Subnet, IPMatch]),
     case IPMatch of
         false -> isAddrInSubnets(IF_addr, SubnetsList);
         true -> IPString
