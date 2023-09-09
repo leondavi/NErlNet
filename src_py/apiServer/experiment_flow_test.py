@@ -23,7 +23,10 @@ api_server_instance.setJsons(0,0,0)
 
 stdout, stderr, rc = nerlnet_run_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
 print_test(rc)
-print_test(stdout)
+if stderr: 
+    print_test(stderr)
+else:
+    print_test(stdout)
 raise "break exception"
 
 arch_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
