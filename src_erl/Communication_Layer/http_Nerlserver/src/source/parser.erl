@@ -28,7 +28,7 @@ parseCSV(SourceName, BatchSize, CSVData)->
   nerl_tools:setup_logger(?MODULE),
   %io:format("curr dir: ~p~n",[file:get_cwd()]),
   %deleteTMPData(SourceName),    % ideally do this when getting a fresh CSV (finished train -> start predict)
-  FileName = ?TMP_DIRECTORY++SourceNameStr++?TMP_DATA_ADDR,
+  FileName = ?TMP_DIR_RUN++SourceNameStr++?TMP_DATA_ADDR,
   try
     file:write_file(FileName, CSVData),
     parse_file(SourceName, BatchSize, CSVData) %% change so read data only when sending (currently loading all data)

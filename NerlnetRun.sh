@@ -4,7 +4,7 @@ NERLNET_PREFIX="[NERLNET_RUN]"
 INPUT_DATA_DIR="inputDataDir"
 BUILD_DIRECTORY="build/release"
 buildNerlnetLibrary=0
-TMP_DIRECTORY=/tmp/nerlnet
+TMP_DIR_RUN=/tmp/nerlnet/run
 
 #--------------------------------------------#
 JobsNum=4
@@ -28,14 +28,14 @@ else
 	buildNerlnetLibrary=1
 fi
 
-if [ -d "$TMP_DIRECTORY" ]; then
+if [ -d "$TMP_DIR_RUN" ]; then
 	echo "$NERLNET_PREFIX Delete temp directory content"
-    cd $TMP_DIRECTORY
+    cd $TMP_DIR_RUN
     rm -rf *
     cd -
 else
 	echo "$NERLNET_PREFIX Create temp directory"
-	mkdir -p $TMP_DIRECTORY
+	mkdir -p $TMP_DIR_RUN
 fi
 
 while getopts "b" flag; do
