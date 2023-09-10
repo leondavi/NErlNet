@@ -93,6 +93,7 @@ start(_StartType, _StartArgs) ->
     HostName = nerl_tools:getdeviceIP(),
     ?LOG_INFO(?LOG_HEADER++"This device IP: ~p~n", [HostName]),
     %Create a listener that waits for a message from python about the adresses of the wanted json
+
     createNerlnetInitiator(HostName),
     {ArchitectureAdderess,CommunicationMapAdderess} = waitForInit(),
 

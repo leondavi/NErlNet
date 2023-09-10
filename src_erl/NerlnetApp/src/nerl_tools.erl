@@ -122,7 +122,7 @@ getdeviceIP() ->
     getdeviceIP(IFList, SubnetsList).
 
 getdeviceIP([], SubnetsList) ->
-    ?LOG_ERROR(?LOG_HEADER++"No supported interface was found. Current supported interfaces list is: ~p.~nEdit subnets.nerlconfig file to include your network",[SubnetsList]);
+    ?LOG_ERROR(?LOG_HEADER++"No supported interface was found. Current supported interfaces list is: ~p.~nEdit subnets.nerlconfig file to include your network",[SubnetsList]), no_device_ip_in_subnet;
 getdeviceIP([IF|IFList], SubnetsList) ->
     {_IF_name, Params} = IF,
     try
