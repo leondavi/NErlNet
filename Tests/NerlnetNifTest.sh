@@ -10,6 +10,7 @@ NOW=$(date +"%Y-%m-%d_%H_%M_%S")
 LOG_FILE="nerlnet_test-$NOW.log"
 TEST_LOG_PATH="/usr/local/lib/nerlnet-lib/log"
 TEST_LOG_FILE_PATH="$TEST_LOG_PATH/$LOG_FILE"
+ERL_BRIDGE_SOURCE_PATH="$NERLNET_PATH/src_erl/NerlnetApp/src/Bridge"
 
 NERLNET_BUILD_DIR="$NERLNET_PATH/build"
 NERLNET_TEST_DIR="$NERLNET_BUILD_DIR/test"
@@ -29,10 +30,10 @@ else
 fi
 
 cd $NERLNET_PATH
-cp src_erl/erlBridge/nerlTests.erl $NERLNET_TEST_DIR/nerlTests.erl
-cp src_erl/erlBridge/nerlNIF.erl $NERLNET_TEST_DIR/nerlNIF.erl
-cp src_erl/erlBridge/nerl.erl $NERLNET_TEST_DIR/nerl.erl
-cp src_erl/erlBridge/nerlTensor.hrl $NERLNET_TEST_DIR/nerlTensor.hrl
+cp $ERL_BRIDGE_SOURCE_PATH/nerlTests.erl $NERLNET_TEST_DIR/nerlTests.erl
+cp $ERL_BRIDGE_SOURCE_PATH/nerlNIF.erl $NERLNET_TEST_DIR/nerlNIF.erl
+cp $ERL_BRIDGE_SOURCE_PATH/nerl.erl $NERLNET_TEST_DIR/nerl.erl
+cp $ERL_BRIDGE_SOURCE_PATH/nerlTensor.hrl $NERLNET_TEST_DIR/nerlTensor.hrl
 
 print "Starting compilation: "
 # only for raspberry
