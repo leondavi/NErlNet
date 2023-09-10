@@ -1,5 +1,5 @@
 %%%-------------------------------------------------------------------
-%% @doc nerlNetServer public API
+%% @doc nerlnetApp public API
 %% @author Tal Kapelnik
 %% @end
 %%%-----------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -15,12 +15,14 @@
 %%%-----------------------------------------------------------------------------------------------------------------------------------------------------------
 %%%-----------------------------------------------------------------------------------------------------------------------------------------------------------
 
--module(nerlNetServer_app).
+-module(nerlnetApp_app).
 
 -behaviour(application).
 -include("nerl_tools.hrl").
 
 -export([start/2, stop/1]).
+
+-import(nerlNIF,[nif_preload/0]).
 
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
@@ -98,7 +100,7 @@ start(_StartType, _StartArgs) ->
     ?LOG_INFO(?LOG_HEADER++"ArchitectureAdderess: ~p, CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
 
     parseJsonAndStartNerlnet(HostName),
-    nerlNetServer_sup:start_link().
+    nerlnetApp_sup:start_link().
 
 waitForInit() ->
     receive 

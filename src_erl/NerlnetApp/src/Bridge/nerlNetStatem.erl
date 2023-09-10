@@ -11,7 +11,7 @@
 -import(nerlNIF,[decode_nif/2, nerltensor_binary_decode/2]).
 -import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0]).
 -import(nerlNIF,[erl_type_conversion/1]).
--include("../Communication_Layer/http_Nerlserver/src/nerl_tools.hrl").
+-include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/NerlnetApp/src/nerl_tools.hrl").
 -include("nerlTensor.hrl").
 
 -behaviour(gen_statem).

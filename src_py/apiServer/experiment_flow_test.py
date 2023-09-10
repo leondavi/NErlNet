@@ -2,15 +2,21 @@
 import os
 from apiServer import *
 from runCommand import RunCommand
+from logger import *
 
 def print_test(in_str : str):
     PREFIX = "[NERLNET-TEST] "
-    print(f"{PREFIX} {in_str}")
+    LOG_INFO(f"{PREFIX} {in_str}")
 
 NERLNET_PATH = os.getenv('NERLNET_PATH')
 TESTS_PATH = os.getenv('TESTS_PATH')
 NERLNET_RUN_SCRIPT = "./NerlnetRun.sh"
 NERLNET_RUNNING_TIMEOUT_SEC = int(os.getenv('NERLNET_RUNNING_TIMEOUT_SEC'))
+
+print_test(f"$NERLNET_PATH: {NERLNET_PATH}")
+print_test(f"$TESTS_PATH: {TESTS_PATH}")
+print_test(f"$NERLNET_RUN_SCRIPT: {NERLNET_RUN_SCRIPT}")
+print_test(f"$NERLNET_RUNNING_TIMEOUT_SEC: {NERLNET_RUNNING_TIMEOUT_SEC}")
 
 nerlnet_run_cmd = RunCommand(NERLNET_RUN_SCRIPT, NERLNET_PATH)
 
