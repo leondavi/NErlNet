@@ -2,7 +2,7 @@
 
 export NERLNET_PATH="/usr/local/lib/nerlnet-lib/NErlNet"
 export TESTS_PATH="$NERLNET_PATH/Tests"
-export NERLNET_RUNNING_TIMEOUT_SEC="10"
+export NERLNET_RUNNING_TIMEOUT_SEC="30"
 
 NERLNET_CONFIG_DIR=$NERLNET_PATH/config
 NERLNET_CONFIG_JSONS_DIR=$NERLNET_CONFIG_DIR/jsonsDir.nerlconfig
@@ -56,7 +56,7 @@ print "Execute NerlnetGetData.sh"
 
 print "Execute Python - experiment_flow_test.py" 
 python3 src_py/apiServer/experiment_flow_test.py
-
+rc=$(echo $?)
 
 rm $NERLNET_CONFIG_JSONS_DIR
 print "Restore backup of $NERLNET_CONFIG_JSONS_DIR"
@@ -71,4 +71,4 @@ rm $NERLNET_CONFIG_INPUT_DATA_DIR_BACKUP
 
 deactivate
 
-exit 0 #TODO change
+exit $rc
