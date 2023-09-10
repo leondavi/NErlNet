@@ -18,6 +18,7 @@ from networkComponents import NetworkComponents
 import globalVars as globe
 import receiver
 from definitions import *
+from logger import *
 
 def is_port_in_use(port: int) -> bool:
     import socket
@@ -117,7 +118,7 @@ PREDICTION_STR = "Prediction"
 
         # Initalize an instance for the transmitter:
         if not hasattr(self, 'transmitter'):
-            self.transmitter = Transmitter(self.mainServerAddress)
+            self.transmitter = Transmitter(self.mainServerAddress, self.input_data_path)
 
         print("\n***Please remember to execute NerlnetRun.sh on each device before continuing.")
     
@@ -128,10 +129,11 @@ PREDICTION_STR = "Prediction"
         # Jsons found in NErlNet/inputJsonFiles/{JSON_TYPE}/files.... for entities in src_erl/Comm_layer/http_nerl/src to reach them, they must go up 3 dirs
         archAddress , connMapAddress, exp_flow_json = self.getUserJsons()
 
+        # TODO - Wrong, communication bypasses main server. Need to send json files to main server and main server distributes files
         for ip in globe.components.devicesIp:
-            with open(archAddress, 'rb') as f1, open(connMapAddress, 'rb') as f2:
-                files = [('arch.json', f1), ('conn.json', f2)]
-                address = f'http://{ip}:8484/updateJsonPath'
+            with open(archAddress, 'rb') as arch_json_file, open(connMapAddress, 'rb') as conn_json_file:
+                files = [(JSON_FILE_ARCH_REMOTE_NAME, arch_json_file), (JSON_FILE_COMM_REMOTE_NAME, conn_json_file)]
+                address = f'http://{ip}:{JSON_INIT_HANDLER_ERL_PORT}/updateJsonPath'
 
                 try: response = requests.post(address, files=files, timeout=8)
                 except requests.exceptions.Timeout:

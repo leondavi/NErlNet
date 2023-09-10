@@ -17,19 +17,19 @@ class Experiment():
         self.expFlow = expFlow
 
     def syncTrainingWithFlow(self):
-       for source in self.expFlow [globe.TRAINING_STR]:
-           sourceWorkers = list(source["workers"].split(","))
-           # TODO: simplify experiment json with only 1 CSV path and add to it globe.TRAINING_STR => csvName = self.expFlow [DATA_NAME+"_"+globe.TRAINING_STR] ("health_Training")
-           newCsvRes = CsvResult(globe.TRAINING_STR, workedBySources = source, csvName = self.expFlow["CSV path"]+"_"+globe.TRAINING_STR.lower(), workers = sourceWorkers)
-           newCsvRes.addWorkers()
-           self.trainingResList.append(newCsvRes)
+        for source in self.expFlow[globe.TRAINING_STR]:
+            sourceWorkers = list(source["workers"].split(","))
+            # TODO: simplify experiment json with only 1 CSV path and add to it globe.TRAINING_STR => csvName = self.expFlow [DATA_NAME+"_"+globe.TRAINING_STR] ("health_Training")
+            newCsvRes = CsvResult(globe.TRAINING_STR, workedBySources = source, csvName = self.expFlow["CSV path"]+"_"+globe.TRAINING_STR.lower(), workers = sourceWorkers)
+            newCsvRes.addWorkers()
+            self.trainingResList.append(newCsvRes)
 
     def syncPredicitionWithFlow(self):
-       for i, source in enumerate(self.expFlow[globe.PREDICTION_STR]):
-           sourceWorkers = list(source["workers"].split(","))
-           newCsvRes = CsvResult(globe.PREDICTION_STR, workedBySources = source, csvName = self.expFlow["CSV path"]+"_"+globe.PREDICTION_STR.lower(), workers = sourceWorkers, sourceNum=i)    #sourceNum used to devide test.csv to matching sample
-           newCsvRes.addWorkers()
-           self.predictionResList.append(newCsvRes)
+        for i, source in enumerate(self.expFlow[globe.PREDICTION_STR]):
+            sourceWorkers = list(source["workers"].split(","))
+            newCsvRes = CsvResult(globe.PREDICTION_STR, workedBySources = source, csvName = self.expFlow["CSV path"]+"_"+globe.PREDICTION_STR.lower(), workers = sourceWorkers, sourceNum=i)    #sourceNum used to devide test.csv to matching sample
+            newCsvRes.addWorkers()
+            self.predictionResList.append(newCsvRes)
 
     def emptyExp(self):
         self.trainingResList = []

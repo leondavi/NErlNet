@@ -5,6 +5,7 @@ INPUT_DATA_DIR="inputDataDir"
 BUILD_DIRECTORY="build/release"
 buildNerlnetLibrary=0
 TMP_DIR_RUN=/tmp/nerlnet/run
+REMOTE_JSONS_DIR=/tmp/nerlnet/jsons
 
 #--------------------------------------------#
 JobsNum=4
@@ -36,6 +37,16 @@ if [ -d "$TMP_DIR_RUN" ]; then
 else
 	echo "$NERLNET_PREFIX Create temp directory"
 	mkdir -p $TMP_DIR_RUN
+fi
+
+if [ -d "$REMOTE_JSONS_DIR" ]; then
+	echo "$NERLNET_PREFIX Delete $REMOTE_JSONS_DIR directory content"
+    cd $REMOTE_JSONS_DIR
+    rm -rf *
+    cd -
+else
+	echo "$NERLNET_PREFIX Create $REMOTE_JSONS_DIR directory"
+	mkdir -p $REMOTE_JSONS_DIR
 fi
 
 while getopts "b" flag; do

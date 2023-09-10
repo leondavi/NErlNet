@@ -4,8 +4,8 @@
    "CSV path": "synthetic",
    "Batches per source": 
    {
-      "Training": 10000,
-      "Prediction": 10000
+      "Training": 2000,
+      "Prediction": 1000
    },
    "Training":  [
       {
