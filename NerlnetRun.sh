@@ -55,7 +55,7 @@ if [ $is_rasp -gt "0" ]; then
     export LD_PRELOAD=/usr/lib/arm-linux-gnueabihf/libatomic.so.1.2.0 
 fi
 
-cd src_erl/Communication_Layer/http_Nerlserver
+cd src_erl/NerlnetApp
 echo "$NERLNET_PREFIX Script CWD: $PWD"
 rebar3 shell 
 cd -
