@@ -13,6 +13,7 @@ TESTS_PATH = os.getenv('TESTS_PATH')
 NERLNET_RUN_SCRIPT = "./NerlnetRun.sh"
 NERLNET_RUNNING_TIMEOUT_SEC = int(os.getenv('NERLNET_RUNNING_TIMEOUT_SEC'))
 
+# TODO JUST FOR DEBUG
 print_test(f"$NERLNET_PATH: {NERLNET_PATH}")
 print_test(f"$TESTS_PATH: {TESTS_PATH}")
 print_test(f"$NERLNET_RUN_SCRIPT: {NERLNET_RUN_SCRIPT}")
@@ -45,6 +46,8 @@ api_server_instance.train("test")
 
 api_server_instance.sendDataToSources("Prediction")
 api_server_instance.predict()
+
+# TODO validation of statistics with baseline - margin up to 10%
 
 #api_server_instance.plot_loss(1)
 #api_server_instance.accuracy_matrix(1)
