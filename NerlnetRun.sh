@@ -81,6 +81,7 @@ rebar3 compile
 cd -
 
 NERLNET_TEST_DIR=/home/parallels/workspace/NErlNet/build/test #tmp
+mkdir -p $NERLNET_TEST_DIR
 LOG_FILE="log.txt" #tmp 
 
 REBAR3_COMPILED_EBIN_DIRS="jsx/ebin ranch/ebin cowlib/ebin cowboy/ebin nerlnetApp/ebin"
