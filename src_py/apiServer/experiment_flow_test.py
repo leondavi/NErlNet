@@ -30,9 +30,7 @@ api_server_instance.setJsons(0,0,0)
 
 arch_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
-api_server_instance.initialization(arch_json , connmap_json, exp_flow_json)
-api_server_instance.sendJsonsToDevices()
-
+# To see CI issue open this code:
 stdout, stderr, rc = nerlnet_run_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
 print_test(rc)
 if stderr: 
@@ -40,6 +38,18 @@ if stderr:
 else:
     print_test(stdout)
 raise "break exception"
+
+api_server_instance.initialization(arch_json , connmap_json, exp_flow_json)
+api_server_instance.sendJsonsToDevices()
+
+# Lines checked locally
+# stdout, stderr, rc = nerlnet_run_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
+# print_test(rc)
+# if stderr: 
+#     print_test(stderr)
+# else:
+#     print_test(stdout)
+# raise "break exception"
 
 api_server_instance.sendDataToSources("Training")
 api_server_instance.train("test")
