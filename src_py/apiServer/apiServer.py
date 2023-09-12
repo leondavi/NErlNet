@@ -125,12 +125,12 @@ PREDICTION_STR = "Prediction"
     
     def sendJsonsToDevices(self):
         # Send the content of jsonPath to each devices:
-        print("\nSending JSON paths to devices...")
+        LOG_INFO("Sending JSON paths to devices...")
 
         # Jsons found in NErlNet/inputJsonFiles/{JSON_TYPE}/files.... for entities in src_erl/Comm_layer/http_nerl/src to reach them, they must go up 3 dirs
         archAddress , connMapAddress, exp_flow_json = self.getUserJsons()
 
-        # TODO - Wrong, communication bypasses main server. Need to send json files to main server and main server distributes files
+        # TODO - Wrong, communication methods - directly with devices that bypasses main server!. Need to send json files to main server and main server distributes files
         for ip in globe.components.devicesIp:
             with open(archAddress, 'rb') as arch_json_file, open(connMapAddress, 'rb') as conn_json_file:
                 files = [(JSON_FILE_ARCH_REMOTE_NAME, arch_json_file), (JSON_FILE_COMM_REMOTE_NAME, conn_json_file)]
@@ -150,9 +150,9 @@ PREDICTION_STR = "Prediction"
                     return False
 
             if globe.jupyterFlag == False:
-              LOG_INFO(response.ok, response.status_code)
+              LOG_INFO(f'response: {response.ok} , status code: {response.status_code}')
         time.sleep(1)       # wait for connection to close ## TODO: check why
-        print("Init JSONs sent to devices")
+        LOG_INFO("completed")
 
     def showJsons(self):
         self.json_dir_parser.print_lists()
