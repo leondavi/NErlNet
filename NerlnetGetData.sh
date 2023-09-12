@@ -24,14 +24,14 @@ if [ -d "$INPUT_DATA_DIR" ]; then
         echo "$NERLNET_PREFIX $INPUT_DATA_DIR is being generated and filled with default data"
         echo "$NERLNET_PREFIX wget runs in quiet mode"
         wget -q $GITHUB_REPO_DEFAULT
-        unzip master.zip -d $INPUT_DATA_DIR
+        unzip -q master.zip -d $INPUT_DATA_DIR
         rm master.zip
         echo "$NERLNET_PREFIX Add input data to $INPUT_DATA_DIR"
 else
         echo "$NERLNET_PREFIX $INPUT_DATA_DIR is being generated and filled with default data"
         echo "$NERLNET_PREFIX wget runs in quiet mode"
         wget -q $GITHUB_REPO_DEFAULT
-        unzip master.zip -d $INPUT_DATA_DIR
+        unzip -q master.zip -d $INPUT_DATA_DIR
         rm master.zip
         echo "$NERLNET_PREFIX Add input data to $INPUT_DATA_DIR"
 fi

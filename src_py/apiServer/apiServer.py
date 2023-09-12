@@ -534,6 +534,7 @@ PREDICTION_STR = "Prediction"
             csvPredictResDf.to_csv(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.csv', header = True, index = True)
             print(f'{fileName}.csv Saved...')
 
+    # change statistics from input to API
     def statistics(self):
         while True:
             print("\nPlease choose an experiment number:", end = ' ')

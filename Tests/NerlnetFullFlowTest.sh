@@ -33,7 +33,7 @@ function print()
 
 # add this host ip to subnets and backup subnets.nerlconfig
 cp $NERLNET_CONFIG_SUBNETS_DIR $NERLNET_CONFIG_SUBNETS_BACKUP
-CURRENT_MACHINE_IPV4_ADD="127.0.0.1" #"$(ip addr | grep -m 2 -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" | head -n 2 | grep -v "127.0.0.1")"
+CURRENT_MACHINE_IPV4_ADD="$(ip addr | grep -m 2 -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" | head -n 2 | grep -v "127.0.0.1")"
 print "This machine ipv4 is: $CURRENT_MACHINE_IPV4_ADD"
 sed -i '$a\' $NERLNET_CONFIG_SUBNETS_DIR
 echo "$CURRENT_MACHINE_IPV4_ADD" >> $NERLNET_CONFIG_SUBNETS_DIR
@@ -68,6 +68,7 @@ rm $NERLNET_CONFIG_SUBNETS_BACKUP
 print "Restore backup of $NERLNET_CONFIG_INPUT_DATA_DIR"
 cp $NERLNET_CONFIG_INPUT_DATA_DIR_BACKUP $NERLNET_CONFIG_INPUT_DATA_DIR 
 rm $NERLNET_CONFIG_INPUT_DATA_DIR_BACKUP
+#rm $TEST_ARCH_JSON_0
 
 deactivate
 

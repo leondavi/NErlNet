@@ -24,7 +24,7 @@ print_test(f"$NERLNET_RUNNING_TIMEOUT_SEC: {NERLNET_RUNNING_TIMEOUT_SEC}")
 
 print_test("NerlnetApp Start")
 nerlnet_run_cmd = RunCommand(NERLNET_RUN_SCRIPT, NERLNET_PATH)
-time.sleep(WAIT_TIME_FOR_NERLNET_RUN_BOOT)
+time.sleep(WAIT_TIME_FOR_NERLNET_RUN_BOOT) # TODO replace with keep alive loop 
 
 api_server_instance = ApiServer()
 #api_server_instance.help()
@@ -35,6 +35,30 @@ arch_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
 api_server_instance.initialization(arch_json , connmap_json, exp_flow_json)
 api_server_instance.sendJsonsToDevices()
+
+
+
+# Lines checked locally
+# stdout, stderr, rc = nerlnet_run_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
+# print_test(rc)
+# if stderr: 
+#     print_test(stderr)
+# else:
+#     print_test(stdout)
+# raise "break exception"
+
+api_server_instance.sendDataToSources("Training")
+api_server_instance.train("test")
+
+api_server_instance.sendDataToSources("Prediction")
+api_server_instance.predict()
+
+#api_server_instance.statistics() TODO change statistics input requests to API!
+# TODO validation of statistics with baseline - margin up to 10%
+
+#api_server_instance.plot_loss(1)
+#api_server_instance.accuracy_matrix(1)
+#api_server_instance.statistics()
 
 
 nerlnet_stop_cmd = RunCommand(NERLNET_RUN_STOP_SCRIPT, NERLNET_PATH)
@@ -51,27 +75,4 @@ if stderr:
 else:
     print_test(stdout)
 
-raise "break exception"
-# Lines checked locally
-# stdout, stderr, rc = nerlnet_run_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
-# print_test(rc)
-# if stderr: 
-#     print_test(stderr)
-# else:
-#     print_test(stdout)
-# raise "break exception"
-
-api_server_instance.sendDataToSources("Training")
-api_server_instance.train("test")
-
-api_server_instance.sendDataToSources("Prediction")
-api_server_instance.predict()
-
-# TODO validation of statistics with baseline - margin up to 10%
-
-#api_server_instance.plot_loss(1)
-#api_server_instance.accuracy_matrix(1)
-#api_server_instance.statistics()
-
-# new apis:
-api_server_instance.stop()
+# api_server_instance.stop() # TODO implement

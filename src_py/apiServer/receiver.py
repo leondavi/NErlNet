@@ -20,9 +20,8 @@ api = Api(receiver)
 #lossArgs = reqparse.RequestParser()
 #lossArgs.add_argument('lossFunction', type='str', help='Receiver Error - Please send lossFunction')
 
-#If in Jupyter Notebook: Disable logging messages:
-if globe.jupyterFlag == True: 
-    logging.getLogger('werkzeug').disabled = True
+#Disable logging messages (Must be disabled in Jupyter):
+logging.getLogger('werkzeug').disabled = True
 
 # Prepare to get results from the receiver:
 experiment_flow_global = Experiment()
@@ -95,8 +94,9 @@ class trainRes(Resource):
         resData = request.form
         resData = list(resData)
         resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter
-        if globe.jupyterFlag == False:
-            print(resData)
+        # Consider what to do
+        # if globe.jupyterFlag == False:
+        #     print(resData)
 
         processResult(resData, "Training")
         
@@ -109,8 +109,10 @@ class predictRes(Resource):
         resData = request.form
         resData = list(resData)
         resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter:
-        if globe.jupyterFlag == False:
-            print(resData)
+        
+        # This prints every batch - Consider what to do with this part!
+        # if globe.jupyterFlag == False:
+        #     print(resData)
 
         processResult(resData, "Prediction")
 
