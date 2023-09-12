@@ -11,6 +11,7 @@ import pandas as pd
 import sys
 import numpy as np
 import os
+import traceback
 
 from jsonDirParser import JsonDirParser
 from transmitter import Transmitter
@@ -135,13 +136,21 @@ PREDICTION_STR = "Prediction"
                 files = [(JSON_FILE_ARCH_REMOTE_NAME, arch_json_file), (JSON_FILE_COMM_REMOTE_NAME, conn_json_file)]
                 address = f'http://{ip}:{JSON_INIT_HANDLER_ERL_PORT}/updateJsonPath'
 
-                try: response = requests.post(address, files=files, timeout=8)
-                except requests.exceptions.Timeout:
-                    print(f'ERROR: TIMEOUT, COULDN\'T INIT DEVICES!!\nMake sure IPs are correct in {archAddress}')
+                try:
+                    response = requests.post(address, files=files, timeout=8)
+                except requests.exceptions.Timeout as e:
+                    LOG_ERROR(f'timeout error, action address:{address} arch: {archAddress}')
+                    tb = traceback.format_exc()
+                    LOG_ERROR(f'{tb}') 
+                    return False
+                except requests.exceptions.ConnectionError as e:
+                    LOG_ERROR(f'connection error, action address:{address} arch: {archAddress}')
+                    tb =  traceback.format_exc()
+                    LOG_ERROR(f'{tb}') 
                     return False
 
             if globe.jupyterFlag == False:
-              print(response.ok, response.status_code)
+              LOG_INFO(response.ok, response.status_code)
         time.sleep(1)       # wait for connection to close ## TODO: check why
         print("Init JSONs sent to devices")
 

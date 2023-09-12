@@ -37,13 +37,13 @@ api_server_instance.sendJsonsToDevices()
 
 nerlnet_stop_cmd = RunCommand(NERLNET_RUN_STOP_SCRIPT, NERLNET_PATH)
 stdout, stderr, rc = nerlnet_run_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
-print_test(rc)
+print_test(f'rc: {rc}')
 if stderr: 
     print_test(stderr)
 else:
     print_test(stdout)
 stdout, stderr, rc = nerlnet_stop_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
-print_test(rc)
+print_test(f'rc stop: {rc}')
 if stderr: 
     print_test(stderr)
 else:
