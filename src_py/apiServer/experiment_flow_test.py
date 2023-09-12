@@ -32,7 +32,7 @@ api_server_instance.setJsons(0,0,0)
 arch_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
 api_server_instance.initialization(arch_json , connmap_json, exp_flow_json)
-#api_server_instance.sendJsonsToDevices()
+api_server_instance.sendJsonsToDevices()
 
 
 nerlnet_stop_cmd = RunCommand(NERLNET_RUN_STOP_SCRIPT, NERLNET_PATH)
