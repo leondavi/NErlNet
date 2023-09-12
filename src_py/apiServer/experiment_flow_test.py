@@ -14,19 +14,21 @@ NERLNET_RUN_SCRIPT = "./NerlnetRun.sh --run-mode release"
 NERLNET_RUN_STOP_SCRIPT = "./NerlnetRun.sh --run-mode stop"
 NERLNET_RUNNING_TIMEOUT_SEC = int(os.getenv('NERLNET_RUNNING_TIMEOUT_SEC'))
 
+WAIT_TIME_FOR_NERLNET_RUN_BOOT=10 # secs
+
 # TODO JUST FOR DEBUG
 print_test(f"$NERLNET_PATH: {NERLNET_PATH}")
 print_test(f"$TESTS_PATH: {TESTS_PATH}")
 print_test(f"$NERLNET_RUN_SCRIPT: {NERLNET_RUN_SCRIPT}")
 print_test(f"$NERLNET_RUNNING_TIMEOUT_SEC: {NERLNET_RUNNING_TIMEOUT_SEC}")
 
+print_test("NerlnetApp Start")
 nerlnet_run_cmd = RunCommand(NERLNET_RUN_SCRIPT, NERLNET_PATH)
-
+time.sleep(WAIT_TIME_FOR_NERLNET_RUN_BOOT)
 
 api_server_instance = ApiServer()
-api_server_instance.help()
-
-api_server_instance.showJsons()
+#api_server_instance.help()
+#api_server_instance.showJsons()
 api_server_instance.setJsons(0,0,0)
 
 arch_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
