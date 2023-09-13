@@ -122,7 +122,7 @@ class BatchSize(JsonElement):
     
     def get_value_str(self):
         return f'{self.value}'
-    
+
 class Policy(JsonElement):
     def __init__(self, value : int, entity_type):
         super(Policy, self).__init__("policy", POLICY_TYPE)
