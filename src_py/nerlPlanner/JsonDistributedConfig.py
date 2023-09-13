@@ -123,7 +123,7 @@ class JsonDistributedConfig():
     
     def add_entity_to_device(self, device_name : str , entity_name : str):
         '''
-        Input device and entity names that exists in json DC database
+        Input device and entity names that exist in json DC database
         '''
         if (device_name in self.main_dict[KEY_DEVICES]) and (entity_name in self.get_entities()):
             for dev_name in self.get_devices_names():
