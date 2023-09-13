@@ -207,9 +207,14 @@ class JsonDistributedConfig():
             self.main_dict[KEY_ROUTERS][router_name] = router
         return True
     
+    def remove_router(self, router_name : str):
+        self.remove_entity_from_device(router_name)
+        if router_name in self.get_routers_names():
+            del self.main_dict[KEY_ROUTERS][router_name]
+
     def get_router(self, router_name : str) -> Router:
         return self.get_entity_with_type(router_name, KEY_ROUTERS)
-    
+
     def get_routers_names(self):
         return list(self.main_dict[KEY_ROUTERS].keys())
     
@@ -271,7 +276,7 @@ class JsonDistributedConfig():
             return self.EXPORT_DC_JSON_ISSUE_NO_SPECIAL_ENTITIES_OR_SETTINGS
         if not self.main_server_device_validation():
             return self.EXPORT_DC_JSON_ISSUE_MAIN_SERVER_HAS_NO_DEVICE
-        
+
         final_dc_dict = OrderedDict()
         frequency_tuple = self.main_dict[KEY_NERLNET_SETTINGS][KEY_FREQUENCY].get_as_tuple()
         batch_size_tuple = self.main_dict[KEY_NERLNET_SETTINGS][KEY_BATCH_SIZE].get_as_tuple()
