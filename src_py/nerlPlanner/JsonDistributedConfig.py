@@ -75,7 +75,7 @@ class JsonDistributedConfig():
         self.main_dict[KEY_NERLNET_SETTINGS] = OrderedDict(settings_dict_content)
 
     def get_frequency(self):
-        return self.default_frequency if self.default_frequency else None # returns Frequency or None 
+        return self.default_frequency if self.default_frequency else None # returns Frequency or None
     
     def get_batch_size(self):
         batch_size_field_name = get_batch_size_field_name()
