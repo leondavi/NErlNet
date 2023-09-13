@@ -119,7 +119,7 @@ RoutersFields = [
                  [sg.Button("Add", size=(9), key=KEY_ROUTERS_BUTTON_ADD, enable_events=True),
                   sg.Button("Load",size=(9), key=KEY_ROUTERS_BUTTON_LOAD, enable_events=True),
                    sg.Button("Save",size=(9), key=KEY_ROUTERS_BUTTON_SAVE, enable_events=True),
-                  sg.Button("Remove",size=(9), key=KEY_CLIENTS_BUTTON_REMOVE, enable_events=True)],
+                  sg.Button("Remove",size=(9), key=KEY_ROUTERS_BUTTON_REMOVE, enable_events=True)],
                  [sg.Text("Name:  "), sg.InputText(size=15, enable_events=True, key=KEY_ROUTERS_NAME_INPUT), 
                   sg.Text("Policy: "), sg.Combo(list(RouterPolicyDict.keys()),size=15, enable_events=True, key=KEY_ROUTERS_POLICY_COMBO_BOX)],
                  [sg.Text("Port:    "), sg.InputText(size=15, enable_events=True, key=KEY_ROUTERS_PORT_INPUT)],
