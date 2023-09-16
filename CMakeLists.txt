@@ -14,9 +14,11 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -latomic")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -latomic")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
-#add_compile_definitions(EIGEN_MAX_ALIGN_BYTES=8) #Open this line for RASPI
-
+# Options
+option(NERLWOLF "Use Wolfram Engine workers extension" OFF)
 option(USE_OpenMP "Use-OpenMP" ON)
+
+#add_compile_definitions(EIGEN_MAX_ALIGN_BYTES=8) #Open this line for RASPI
 if(USE_OpenMP)
     find_package(OpenMP)
     if(OPENMP_FOUND)
@@ -30,5 +32,10 @@ endif()
 ###########################
 add_subdirectory(src_cpp) # actually adding opennnBridge
 
-add_library(${PROJECT_NAME} SHARED $<TARGET_OBJECTS:opennnBridge>)
-target_link_libraries(${PROJECT_NAME} PUBLIC opennnBridge)
+add_library(nerlnet_onn SHARED $<TARGET_OBJECTS:opennnBridge>)
+target_link_libraries(nerlnet_onn PUBLIC opennnBridge)
+
+if (NERLWOLF)
+    add_library(nerlnet_wolf SHARED $<TARGET_OBJECTS:wolframBridge>)
+    target_link_libraries(nerlnet_wolf PUBLIC wolframBridge)
+endif()
