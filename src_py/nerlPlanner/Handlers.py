@@ -333,6 +333,23 @@ def sources_handler(window, event, values):
             sg.popup_ok(f"Missing or wrong fields!", title='Adding Source Failed')
 
     #TODO implement load
+    if event == KEY_SOURCES_BUTTON_LOAD:
+        sources_this_source_name = values[KEY_ENTITIES_SOURCES_LISTBOX][0] if values[KEY_ENTITIES_SOURCES_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
+        if sources_this_source_name:
+            sources_this_source = json_dc_inst.get_source(sources_this_source_name)
+            sources_this_source_frequency = sources_this_source.get_frequency().get_value()
+            sources_this_source_epochs = sources_this_source.get_epochs().get_value()
+            sources_this_source_port = sources_this_source.get_port().get_value()
+            sources_this_source_policy = sources_this_source.get_policy().get_policy_name()
+            sources_this_source_type = sources_this_source.get_source_type()
+            window[KEY_SOURCES_NAME_INPUT].update(sources_this_source.get_name())
+            window[KEY_SOURCES_FREQUENCY_INPUT].update(f"{sources_this_source_frequency}")
+            window[KEY_SOURCES_EPOCHS_INPUT].update(f"{sources_this_source_epochs}")
+            window[KEY_SOURCES_PORT_INPUT].update(f"{sources_this_source_port}")
+            window[KEY_SOURCES_POLICY_COMBO_BOX].update(value = sources_this_source_policy)
+            window[KEY_SOURCES_TYPE_COMBO_BOX].update(value = sources_this_source_type)
+
+            
 
 
 
