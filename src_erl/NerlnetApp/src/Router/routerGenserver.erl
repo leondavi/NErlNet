@@ -52,11 +52,11 @@ init({MyName,NerlnetGraph}) ->
   ?LOG_NOTICE("Router ~p is connected to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
     % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
   put(nerlnetGraph, NerlnetGraph),
-  EtsRef = ets:new(routint_table, [set]),
+  RoutingTableEtsRef = ets:new(routing_table, [set]),
   EntitiesList=digraph:vertices(NerlnetGraph),
-  Routing_table=nerl_tools:make_routint_table(EtsRef,EntitiesList--[?API_SERVER_ATOM,MyName],MyName,NerlnetGraph),
+  nerl_tools:make_routing_table(RoutingTableEtsRef,EntitiesList--[?API_SERVER_ATOM,MyName],MyName,NerlnetGraph),
   %io:format("--------------------------router EntitiesList: ~p~n",[EntitiesList]),
-  {ok, #router_genserver_state{msgCounter = 1, myName = MyName, etsRef=Routing_table }}.
+  {ok, #router_genserver_state{msgCounter = 1, myName = MyName, etsRef=RoutingTableEtsRef}}.
 
 
 %% @private

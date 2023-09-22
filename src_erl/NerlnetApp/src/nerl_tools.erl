@@ -9,7 +9,7 @@
 -export([getdeviceIP/0, port_available/1]).
 -export([list_to_numeric/1]).
 -export([calculate_size/1]).
--export([make_routint_table/4]).
+-export([make_routing_table/4]).
 
 setup_logger(Module) ->
   logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
@@ -194,17 +194,13 @@ calculate_size(List) when is_list(List) ->
 
 %% TODO: create create_body func for standard message passing
 
-make_routint_table(Ets,[],_Origin,_NerlnetGraph)->Ets;
-
-make_routint_table(Ets,[Entity|EntitiesList],Origin,NerlnetGraph)->
+make_routing_table(Ets,EntitiesList,Origin,NerlnetGraph)->
+  GenerateTablesFunc = fun(Entity) -> 
   case digraph:get_short_path(NerlnetGraph,Origin,Entity) of
-
-    false ->
-      ok;
-
-    ShortPath ->
-      NextHop = lists:nth(2,ShortPath),
-      {Name,{Host,Port}} = digraph:vertex(NerlnetGraph,NextHop),
-      ets:insert(Ets,{Entity,{Name,Host,Port}})
-  end,
-  make_routint_table(Ets,EntitiesList,Origin,NerlnetGraph).
+    false -> ok;
+    ShortPath -> NextHop = lists:nth(2,ShortPath),
+                 {Name,{Host,Port}} = digraph:vertex(NerlnetGraph,NextHop),
+                 ets:insert(Ets,{Entity,{Name,Host,Port}})
+  end % case end
+  end, % fun end
+  lists:foreach(GenerateTablesFunc, EntitiesList).
