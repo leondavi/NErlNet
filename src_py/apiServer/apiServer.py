@@ -82,7 +82,6 @@ ____________API COMMANDS_____________
 
 _____GLOBAL VARIABLES / CONSTANTS_____
 pendingAcks:                        makes sure API command reaches all relevant entities (wait for pending acks)
-multiProcQueue:                     a queue for combining and returning data to main thread after train / predict phases
 TRAINING_STR = "Training"
 PREDICTION_STR = "Prediction"
         """)
@@ -211,20 +210,6 @@ PREDICTION_STR = "Prediction"
     def stopServer(self):
         receiver.stop()
         return True
-
-    ## TODO: should be reviewed by Noa, Ohad and David
-    # Wait for a result to arrive to the queue, and get results which arrived:
-    def getQueueData(self):
-        received = False
-        
-        while not received:
-            if not globe.multiProcQueue.empty():
-                print("~New result has been created successfully~")
-                expResults = globe.multiProcQueue.get() # Get the new result out of the queue
-                received = True
-            time.sleep(0.1)
-
-        return expResults
    
         ## TODO: standartize the phase names / make them == .csv file
     def sendDataToSources(self, phase, splitMode = 1):
@@ -245,24 +230,22 @@ PREDICTION_STR = "Prediction"
 
 
     def train(self):
-        self.transmitter.train()
-        #expResults = self.getQueueData()
-        print('Training - Finished\n')
-#        return expResults
+        '''
+        Send train command to main server and results are gathered in experiment instance
+        '''
+        experiment_name = self.transmitter.train()
+        LOG_INFO(f'Training Phase of {experiment_name} completed')
+        return True
 
-    def contPhase(self, phase):
-        self.transmitter.contPhase(phase)
-        expResults = self.getQueueData()
-        print('Training - Finished\n')
-        return expResults
+    def contPhase(self, phase): # TODO remove safely, Redundant - a second call of train can be done - 
+        experiment_name = self.transmitter.contPhase(phase)
+        LOG_INFO(f'Training Phase of {experiment_name} completed')
+        return True
 
     def predict(self):
-        self.transmitter.predict()
-        #expResults = self.getQueueData()
-        print('Prediction - Finished\n')
-      #  self.experiments.append(expResults) # Assuming a cycle of training -> prediction, saving only now.
-        print("Experiment saved")
-       # return expResults
+        experiment_name = self.transmitter.predict()
+        LOG_INFO(f'Prediction Phase of {experiment_name} completed')
+        return True
 
     def print_saved_experiments(self):
         if (len(self.experiments) == 0):

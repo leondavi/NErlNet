@@ -2,10 +2,7 @@
 # Nerlnet - 2023 GPL-3.0 license
 # Authors: Haran Cohen, David Leon, Dor Yerchi #
 ################################################
-import multiprocessing 
 import socket
-import os
-import json
 from IPython import get_ipython
 from experiment import *
 from workerResult import *
@@ -15,12 +12,11 @@ localIp = socket.gethostbyname(localHost)
 
 # A single experiment that API server is focused on get/send data
 experiment_focused_on = None
+components = None # TODO - get rid of this as a global 
 
 # for each server command, wait for appropriate number of acks from each entity to make sure job is finished
 # this may change according to command and which entities do the work
 pendingAcks = 0
-
-multiProcQueue = multiprocessing.Queue() # Create an instance of the queue
 
 # Get the components of the current system:
 ARCHITECTURE_INDEX = 4
@@ -50,13 +46,3 @@ else:
     jupyterFlag = False
 
 # Global variables
-components = None # will be initialized in ApiServer
-
-
-# Addresses for future development:
-'''
-trainingListReq = [('http://127.0.0.1:8080/updateCSV', "s1,w1,RunOrWalkTrain_splitted"),
-                ('http://127.0.0.1:8080/clientsTraining', "")]
-
-CastingListReq = [('http://127.0.0.1:8080/startCasting', "s1")]
-'''

@@ -126,10 +126,7 @@ class Transmitter:
         waitForAck()
         self.startCasting(globe.TRAINING_STR) 
         waitForAck()
-
-        #globe.experiment_flow_global.remove0Tails()
-        globe.multiProcQueue.put(globe.experiment_focused_on)
-
+        return self.experiment.name
 
     def contPhase(self, phase):     # phase can be train/training no matter capitals, otherwise predict
         print("starting additional training")
@@ -142,12 +139,8 @@ class Transmitter:
             phase = globe.PREDICTION_STR
 
         waitForAck()
-
         self.startCasting(phase) 
-
         waitForAck()
-
-        globe.multiProcQueue.put(globe.experiment_focused_on)
 
     def predict(self):
         self.experiment.syncPredicitionWithFlow()
@@ -155,8 +148,7 @@ class Transmitter:
         waitForAck()
         self.startCasting(globe.PREDICTION_STR)
         waitForAck()
-        # globe.experiment_flow_global.remove0Tails()
-        globe.multiProcQueue.put(globe.experiment_focused_on)
+        return self.experiment.name
 
     def statistics(self):
         requests.post(self.statisticsAddress, data='getStatistics')
