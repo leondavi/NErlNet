@@ -23,9 +23,6 @@ api = Api(receiver)
 #Disable logging messages (Must be disabled in Jupyter):
 logging.getLogger('werkzeug').disabled = True
 
-# Prepare to get results from the receiver:
-experiment_flow_global = Experiment()
-
 def initReceiver(receiverHost, receiverPort, event):
         try:
             receiver.run(threaded = True, host = receiverHost, port = receiverPort) 
@@ -45,7 +42,7 @@ def processResult(resData, currentPhase):
 
             ## result is set by worker to be -1 when it had a problem working on the data
             if (int(result) != WORKER_NON_RESULT): 
-                for csvRes in globe.experiment_flow_global.trainingResList:
+                for csvRes in globe.experiment_focused_on.trainingResList:
                     if worker in csvRes.workers:
                         for workerRes in csvRes.workersResList:
                             if (workerRes.name == worker):
@@ -57,7 +54,7 @@ def processResult(resData, currentPhase):
             # resData = [w#, batchID, csvName, batchSize]
             newPredictBatch = PredictBatch(resData) 
 
-            for csvRes in globe.experiment_flow_global.predictionResList:
+            for csvRes in globe.experiment_focused_on.predictionResList:
                 if newPredictBatch.worker in csvRes.workers:
                     for workerRes in csvRes.workersResList:
                         if (workerRes.name == newPredictBatch.worker):

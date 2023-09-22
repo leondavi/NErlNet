@@ -18,6 +18,11 @@
 -export([format_status/2, state_name/3, handle_event/4, terminate/3, code_change/4, callback_mode/0]).
 %% states and misc
 -export([init/1,  idle/3, castingData/3, sendSamples/10]).
+%% utils
+-export([left_print/2]).
+
+%% defintions
+-define(BATCHES_LEFT_PRINT_EVERY_X_PERC, 0.2). % This is the percentage out of left samples that controls the frequency of printing how many batches are left
 
 -record(source_statem_state, {sendingMethod, frequency, epochs, batchSize, lengthOfSample, castingTo=[], myName,workersMap,nerlnetGraph, msgCounter=0, sourcePid=[],csvName="", batchList, nerlTensorType}).
 
@@ -95,12 +100,10 @@ idle(cast, {startCasting,Body}, State = #source_statem_state{myName = MyName, ep
   ?LOG_NOTICE("~p - starts casting to: ~p",[MyName, CastingTo]),
   ?LOG_NOTICE("Frequency: ~pHz [Batches/Second]",[Frequency]),
   ?LOG_NOTICE("Batch size: ~p", [BatchSize]),
+  ?LOG_NOTICE("Sample size = ~p",[LengthOfSample]),
   ?LOG_NOTICE("Rounds per data (epochs): ~p", [Epochs]),
-  ?LOG_NOTICE("number of batches to send: ~p",[NumOfBatchesToSend]),
-  ?LOG_NOTICE("total casting list length: ~p",[length(Batchlist)]),
-  ?LOG_NOTICE("sample size = ~p",[erts_debug:flat_size(hd(Batchlist))]),
-  ?LOG_NOTICE("batch size = ~p",[erts_debug:flat_size(hd(Batchlist))*BatchSize]),
-  % ?LOG_NOTICE("example batch: ~p",[hd(CSVlist)]),
+  ?LOG_NOTICE("Number of batches to send ~p out of ~p batches of the experiment",[NumOfBatchesToSend, length(Batchlist)]),
+  
   NewBatchList = duplicate_data(Batchlist, Epochs, []),
   NumOfBatches = list_to_integer(NumOfBatchesToSend),
   BatchesToSend = if length(NewBatchList) < NumOfBatches -> length(NewBatchList); true -> list_to_integer(NumOfBatchesToSend) end,
@@ -241,6 +244,11 @@ spawnTransmitter(WorkersNames,CSVPath,CSVlist,NerlnetGraph, MyName,WorkersMap,Ba
   Ms = round(1000/Frequency), % frequency to timeout duration in milliseconds
   spawn(?MODULE,sendSamples,[CSVlist,CSVPath,BatchSize,LengthOfSample,Ms,self(),Triplets,0,NumOfBatchesToSend,Method]).
 
+left_print(NumOfBatchesToSend, Counter) ->
+  PrintReminderCondition = round(max((NumOfBatchesToSend * ?BATCHES_LEFT_PRINT_EVERY_X_PERC),10)), % round to integer
+  if (Counter rem PrintReminderCondition == 0) -> ?LOG_INFO("~p batches left to send~n", [NumOfBatchesToSend]);
+      true -> skip
+  end.
 
 sendSamples(ListOfSamples,_CSVPath,_BatchSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,NumOfBatchesToSend,_Method) when NumOfBatchesToSend=<0 ->
   receive
@@ -257,10 +265,7 @@ sendSamples([],_CSVPath,_BatchSize,_LengthOfSample, Ms,Pid,_Triplets,Counter,_Nu
 sendSamples(ListOfSamples,CSVPath,BatchSize,LengthOfSample, Ms,Pid,Triplets,Counter,NumOfBatchesToSend,Method)->
           %%this http request will be splitted at client's state machine by the following order:
           %%    Body:   ClientName#WorkerName#CSVName#BatchNumber#BatchOfSamples
-  if NumOfBatchesToSend rem 10 == 0 ->
-    ?LOG_INFO("~p batches left to send~n", [NumOfBatchesToSend]);
-  true -> skip end,
-  
+  spawn(?MODULE,left_print,[NumOfBatchesToSend, Counter]), % avoid printing delay of sending process!
   case Method of
     ?SENDALL ->
       %%sending batch to all clients"

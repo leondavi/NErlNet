@@ -13,6 +13,9 @@ from workerResult import *
 localHost = socket.gethostname()
 localIp = socket.gethostbyname(localHost)
 
+# A single experiment that API server is focused on get/send data
+experiment_focused_on = None
+
 # for each server command, wait for appropriate number of acks from each entity to make sure job is finished
 # this may change according to command and which entities do the work
 pendingAcks = 0
@@ -48,8 +51,7 @@ else:
 
 # Global variables
 components = None # will be initialized in ApiServer
-# Prepare to get results from the receiver:
-experiment_flow_global = Experiment()
+
 
 # Addresses for future development:
 '''

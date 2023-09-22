@@ -1,8 +1,8 @@
 {
   "NerlNetSettings": 
   {
-    "frequency": "50",
-    "batchSize": "100"
+    "frequency": "60",
+    "batchSize": "50"
   },
   "devices": [
     {

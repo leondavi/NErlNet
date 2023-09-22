@@ -12,7 +12,9 @@ import sys
 import numpy as np
 import os
 import traceback
+from pathlib import Path
 
+from experiment import Experiment
 from jsonDirParser import JsonDirParser
 from transmitter import Transmitter
 from networkComponents import NetworkComponents
@@ -30,12 +32,14 @@ class ApiServer():
     def __init__(self):       
         self.json_dir_parser = JsonDirParser()
         self.input_data_path = read_nerlconfig(NERLCONFIG_INPUT_DATA_DIR)
+        self.experiments_dict = {}
+        self.current_exp = None
 
         # Create a new folder for the results:
-        if not os.path.exists('/usr/local/lib/nerlnet-lib/NErlNet/Results'):
-            os.mkdir('/usr/local/lib/nerlnet-lib/NErlNet/Results')
+        Path(EXPERIMENT_RESULTS_PATH).mkdir(parents=True, exist_ok=True)
 
-        pass
+    def get_experiment(self, exp_name : str) :
+        return self.experiments_dict[exp_name] if exp_name in self.experiments_dict else None
 
     def set_json_dir(self, custom_path : str):
         self.json_dir_parser = JsonDirParser(custom_path)
@@ -83,18 +87,31 @@ TRAINING_STR = "Training"
 PREDICTION_STR = "Prediction"
         """)
     
-    def initialization(self, arch_json: str, conn_map_json, experiment_flow_json):
+    def __new_experiment(self, experiment_name : str):
+        assert experiment_name not in self.experiments_dict, "experiment name exists!"
+        self.experiments_dict[experiment_name] = Experiment(experiment_name)
+
+    def experiment_focused_on(self, experiment_name):
+        assert experiment_name in self.experiments_dict, "cannot focus on experiment that has never been created!"
+        globe.experiment_focused_on = self.get_experiment(experiment_name)
+        self.current_exp = globe.experiment_focused_on # TODO the objective is to get rid of this global definitions
+    
+    def initialization(self, experiment_name : str, arch_json: str, conn_map_json, experiment_flow_json):
         archData = self.json_dir_parser.json_from_path(arch_json)
         connData = self.json_dir_parser.json_from_path(conn_map_json)
         expData = self.json_dir_parser.json_from_path(experiment_flow_json)
-        
-        globe.experiment_flow_global.set_experiment_flow(expData)
-        globe.components = NetworkComponents(archData)
+
+        self.__new_experiment(experiment_name)
+        self.experiment_focused_on(experiment_name)
+
+        self.current_exp.set_experiment_flow(expData)
+
+        globe.components = NetworkComponents(archData) # move network component into experiment class
         globe.components.printComponents()
-        print("Connections:")
+        LOG_INFO("Connections:")
         for key, val in connData['connectionsMap'].items():
-            print("\t\t", key, ' : ', val)
-        globe.experiment_flow_global.printExp()
+            LOG_INFO(f"\t\t {key} : {val}")
+        globe.experiment_focused_on.printExp()
 
         mainServerIP = globe.components.mainServerIp
         mainServerPort = globe.components.mainServerPort
@@ -119,7 +136,7 @@ PREDICTION_STR = "Prediction"
 
         # Initalize an instance for the transmitter:
         if not hasattr(self, 'transmitter'):
-            self.transmitter = Transmitter(self.mainServerAddress, self.input_data_path)
+            self.transmitter = Transmitter(self.current_exp, self.mainServerAddress, self.input_data_path)
 
         print("\n***Please remember to execute NerlnetRun.sh on each device before continuing.")
     
@@ -211,13 +228,13 @@ PREDICTION_STR = "Prediction"
    
         ## TODO: standartize the phase names / make them == .csv file
     def sendDataToSources(self, phase, splitMode = 1):
-        print("\nSending data to sources")
-        if not globe.CSVsplit:
+        if not globe.CSVsplit: # what is this? TODO ask haran
             globe.CSVsplit = splitMode 
 
         # 1 ack for mainserver, who waits for all sources
         globe.pendingAcks = 1
         # print(f"waiting for {globe.pendingAcks} acks from {len(globe.components.sources)} sources")
+        LOG_INFO("Sending data to sources")
         self.transmitter.updateCSV(phase)
 
         while globe.pendingAcks > 0:
@@ -227,25 +244,11 @@ PREDICTION_STR = "Prediction"
         print("\nData ready in sources")
 
 
-    def train(self, name = ""):
-        # Choose a nem for the current experiment:
-        if not name:
-            print("\nPlease choose a name for the current experiment:", end = ' ')
-            globe.experiment_flow_global.name = input()
-        else: 
-            globe.experiment_flow_global.name = name
-            
-        # Create a new folder for the CSVs of the chosen experiment:
-        if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{globe.experiment_flow_global.name}'):
-            os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{globe.experiment_flow_global.name}')
-            os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{globe.experiment_flow_global.name}/Training')
-            os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{globe.experiment_flow_global.name}/Prediction')
-
-        globe.experiment_flow_global.emptyExp() # Start a new empty experiment
+    def train(self):
         self.transmitter.train()
-        expResults = self.getQueueData()
+        #expResults = self.getQueueData()
         print('Training - Finished\n')
-        return expResults
+#        return expResults
 
     def contPhase(self, phase):
         self.transmitter.contPhase(phase)
@@ -255,11 +258,11 @@ PREDICTION_STR = "Prediction"
 
     def predict(self):
         self.transmitter.predict()
-        expResults = self.getQueueData()
+        #expResults = self.getQueueData()
         print('Prediction - Finished\n')
-        self.experiments.append(expResults) # Assuming a cycle of training -> prediction, saving only now.
+      #  self.experiments.append(expResults) # Assuming a cycle of training -> prediction, saving only now.
         print("Experiment saved")
-        return expResults
+       # return expResults
 
     def print_saved_experiments(self):
         if (len(self.experiments) == 0):
@@ -271,12 +274,14 @@ PREDICTION_STR = "Prediction"
         for i, exp in enumerate(self.experiments, start=1): 
             print(f"{i}) {exp.name}")
 
+    
+
     def plot_loss(self, expNum):
         expForStats = self.experiments[expNum-1]
 
         # Create a new folder for to save an image of the plot:
-        if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training'):
-            os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training')
+        if not os.path.exists(f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Training'):
+            os.mkdir(f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Training')
 
 
         ####### THIS IS TO PICK ONLY A SPECIFIC SOURCE FOR PLOT:
@@ -325,8 +330,8 @@ PREDICTION_STR = "Prediction"
         plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
 
         plt.show()
-        fileName = globe.experiment_flow_global.name
-        plt.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.png')
+        fileName = globe.experiment_focused_on.name
+        plt.savefig(f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Training/{fileName}.png')
         print(f'\n{fileName}.png was Saved...')
 
     def accuracy_matrix(self, expNum, normalizeEnabled = False):
@@ -447,11 +452,11 @@ PREDICTION_STR = "Prediction"
         plt.show()
 
         fileName = sourceCSV.name.rsplit('/', 1)[-1] # If the CSV name contains a path, then take everything to the right of the last '/'.
-        disp.figure_.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.png')
+        disp.figure_.savefig(f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Prediction/{fileName}.png')
         print(f'\n{fileName}.png Saved...')
         
         ## print and save prediction stats
-        statFileName = f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/stats.txt'
+        statFileName = f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Prediction/stats.txt'
         if os.path.exists(statFileName): os.remove(statFileName)
         statFile = open(statFileName, "a")
 
@@ -509,7 +514,7 @@ PREDICTION_STR = "Prediction"
             newlabelsCsvDf = pd.concat(workersTrainResCsv, axis=1)
 
             fileName = csvTrainRes.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
-            newlabelsCsvDf.to_csv(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.csv', header = True, index = False)
+            newlabelsCsvDf.to_csv(f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Training/{fileName}.csv', header = True, index = False)
             print(f'{fileName}.csv Saved...')
         
         print(f"\nCreating prediction results files for the following {numOfPredicitionCsvs} CSVs:")
@@ -531,7 +536,7 @@ PREDICTION_STR = "Prediction"
             csvPredictResDf.index.name = 'Sample Index'
 
             fileName = csvPredictRes.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
-            csvPredictResDf.to_csv(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.csv', header = True, index = True)
+            csvPredictResDf.to_csv(f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Prediction/{fileName}.csv', header = True, index = True)
             print(f'{fileName}.csv Saved...')
 
     # change statistics from input to API
