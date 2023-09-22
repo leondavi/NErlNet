@@ -72,7 +72,7 @@ class shutdown(Resource):
 
 class test(Resource):
     def post(self):
-        multiProcQueue.put("new message @@@")
+        #multiProcQueue.put("new message @@@")
         return {'Test' : 'Passed!'} #Returns the response in JSON format
 
 class ack(Resource):
