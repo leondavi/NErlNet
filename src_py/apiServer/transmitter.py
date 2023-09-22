@@ -7,7 +7,9 @@ import globalVars as globe
 import time
 import sys
 import os
+from definitions import *
 from experiment import *
+from logger import *
 
 def waitForAck():
     while globe.pendingAcks > 0:
@@ -15,8 +17,9 @@ def waitForAck():
 
 class Transmitter:
 
-    def __init__(self, mainServerAddress, input_data_path : str):
+    def __init__(self, experiment : Experiment, mainServerAddress, input_data_path : str):
         # Addresses used throughout the module:
+        self.experiment = experiment
         self.input_data_path = input_data_path
         self.mainServerAddress = mainServerAddress
         self.sourceInitAddr = self.mainServerAddress + '/sourceInit'
@@ -38,25 +41,26 @@ class Transmitter:
     def clientsTraining(self):
         # 1 Ack for clientsTraining()
         globe.pendingAcks = 1
-        print('Clients Training Phase')
+        LOG_INFO('Training Phase requested from Main Server')
         response = requests.post(self.clientsTrainingAddress, data='')
-        if globe.jupyterFlag == False:
-            print(response.ok, response.status_code)
+        if not response.ok:
+            LOG_ERROR('Training Phase Request issue!')
 
     def clientsPredict(self):
         globe.pendingAcks = 1
-        print('Clients Predict Phase')
+        LOG_INFO('Prediction Phase requested from Main Server')
         response = requests.post(self.clientsPredictAddress, data='')
-        if globe.jupyterFlag == False:
-            print(response.ok, response.status_code)
-        
-    def updateCSV(self, currentPhase): # currentPhase is either "Training", "Prediction" or "Statistics". 
-        print('Update CSV Phase')
+        if not response.ok:
+            LOG_ERROR('Prediction Phase Request issue!')
 
+    def updateCSV(self, phase): # currentPhase is either "Training", "Prediction" or "Statistics". 
+        csvfile = None
+        currentPhase = PHASE_STR_DICT[phase]
         #split data by sources and send to mainServer:
         for root, dirnames, filenames in os.walk(self.input_data_path):
             for filename in filenames:
-                if filename == f"{globe.experiment_flow_global.expFlow['CSV path']}_{currentPhase.lower()}.csv":
+                if filename == f"{globe.experiment_focused_on.expFlow['CSV path']}_{currentPhase.lower()}.csv":
+                    LOG_INFO(f"Reading csv file: {root}/{filename} for phase {currentPhase}")
                     with open(os.path.join(root, filename), 'r') as file:
                         csvfile = file.read()
                     break
@@ -65,7 +69,7 @@ class Transmitter:
         if globe.CSVsplit == 2:      ## send entire file to sources
             linesPerSource = 0
             
-            for source in globe.experiment_flow_global.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
+            for source in globe.experiment_focused_on.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
                 sourceName = source['source name']
                 workersUnderSource = source['workers']
                 try:    epochs = 1 if currentPhase == "Prediction" else globe.components.sourceEpochs[sourceName]
@@ -77,7 +81,7 @@ class Transmitter:
             for row in range(0,len(csvfile),linesPerSource):
                 SourceData.append(csvfile[row:row+linesPerSource])
 
-            for i,source in enumerate(globe.experiment_flow_global.expFlow[currentPhase]): # Itterate over sources in accordance to current phase
+            for i,source in enumerate(globe.experiment_focused_on.expFlow[currentPhase]): # Itterate over sources in accordance to current phase
                 sourceName = source['source name']
                 workersUnderSource = source['workers']
                 SourceStr = ""
@@ -91,11 +95,9 @@ class Transmitter:
 
                 response = requests.post(self.updateCSVAddress, data=dataStr)
 
-        print("Data sent to sources")
-        if globe.jupyterFlag == False:
-            print(response.ok, response.status_code)
+        LOG_INFO("Data sent to sources")
 
-        globe.sourceCSVIndex=linesPerSource
+        globe.sourceCSVIndex=linesPerSource # TODO find what is the purpose of this line? and where using it
 
     def startCasting(self, phase):
         print('\nStart Casting Phase')
@@ -105,9 +107,9 @@ class Transmitter:
 
         # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
         if (phase==globe.TRAINING_STR):
-            batchesPerSource = globe.experiment_flow_global.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.TRAINING_STR]
+            batchesPerSource = globe.experiment_focused_on.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.TRAINING_STR]
         elif (phase==globe.PREDICTION_STR):
-            batchesPerSource = globe.experiment_flow_global.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.PREDICTION_STR]
+            batchesPerSource = globe.experiment_focused_on.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.PREDICTION_STR]
         else:
             batchesPerSource = sys.maxsize
 
@@ -119,20 +121,14 @@ class Transmitter:
             print(response.ok, response.status_code)
 
     def train(self):
-        print('\nTraining - Starting...')
-
-        globe.experiment_flow_global.syncTrainingWithFlow()
-
+        self.experiment.syncTrainingWithFlow()
         self.clientsTraining()
-        
         waitForAck()
-
         self.startCasting(globe.TRAINING_STR) 
-
         waitForAck()
 
         #globe.experiment_flow_global.remove0Tails()
-        globe.multiProcQueue.put(globe.experiment_flow_global)
+        globe.multiProcQueue.put(globe.experiment_focused_on)
 
 
     def contPhase(self, phase):     # phase can be train/training no matter capitals, otherwise predict
@@ -151,23 +147,16 @@ class Transmitter:
 
         waitForAck()
 
-        globe.multiProcQueue.put(globe.experiment_flow_global)
+        globe.multiProcQueue.put(globe.experiment_focused_on)
 
     def predict(self):
-        print('Prediction - Starting...')
-
-        globe.experiment_flow_global.syncPredicitionWithFlow()
-
+        self.experiment.syncPredicitionWithFlow()
         self.clientsPredict()
-
         waitForAck()
-
         self.startCasting(globe.PREDICTION_STR)
-
         waitForAck()
-        
         # globe.experiment_flow_global.remove0Tails()
-        globe.multiProcQueue.put(globe.experiment_flow_global)
+        globe.multiProcQueue.put(globe.experiment_focused_on)
 
     def statistics(self):
         requests.post(self.statisticsAddress, data='getStatistics')

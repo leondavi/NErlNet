@@ -12,6 +12,18 @@ JSON_FILE_COMM_REMOTE_NAME = '/tmp/nerlnet/jsons/conn.json'
 
 JSON_INIT_HANDLER_ERL_PORT = 8484 #TODO fix main server bypassing
 
+EXPERIMENT_RESULTS_PATH = '/tmp/nerlnet/results'
+
+PHASE_TRAINING = 1
+PHASE_PREDICTION = 2
+PHASE_STATS = 3 # TODO maybe redundant
+
+PHASE_STR_DICT = {
+    PHASE_TRAINING : "Training",
+    PHASE_PREDICTION : "Prediction",
+    PHASE_STATS : "Statistics" # TODO remove if redundant
+}
+
 def read_nerlconfig(nerlconfig_file_path : str):
     if not nerlconfig_file_path.endswith(NERLCONFIG_SUFFIX):
         raise "wrong filename suffix"

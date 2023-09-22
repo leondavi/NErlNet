@@ -3,6 +3,7 @@ import os
 from apiServer import *
 from runCommand import RunCommand
 from logger import *
+from stats import Stats
 
 def print_test(in_str : str):
     PREFIX = "[NERLNET-TEST] "
@@ -33,33 +34,27 @@ api_server_instance.setJsons(0,0,0)
 
 arch_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
-api_server_instance.initialization(arch_json , connmap_json, exp_flow_json)
+experiment_name = "test_exp"
+api_server_instance.initialization(experiment_name, arch_json , connmap_json, exp_flow_json)
 api_server_instance.sendJsonsToDevices()
 
+api_server_instance.sendDataToSources(PHASE_TRAINING)
+api_server_instance.train()
 
-
-# Lines checked locally
-# stdout, stderr, rc = nerlnet_run_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
-# print_test(rc)
-# if stderr: 
-#     print_test(stderr)
-# else:
-#     print_test(stdout)
-# raise "break exception"
-
-api_server_instance.sendDataToSources("Training")
-api_server_instance.train("test")
-
-api_server_instance.sendDataToSources("Prediction")
+api_server_instance.sendDataToSources(PHASE_PREDICTION)
 api_server_instance.predict()
 
+experiment_inst = api_server_instance.get_experiment(experiment_name)
+exp_stats = Stats(experiment_inst)
+data = exp_stats.get_loss_min()
+print("min loss of each worker")
+print(data)
 #api_server_instance.statistics() TODO change statistics input requests to API!
 # TODO validation of statistics with baseline - margin up to 10%
 
 #api_server_instance.plot_loss(1)
 #api_server_instance.accuracy_matrix(1)
 #api_server_instance.statistics()
-
 
 nerlnet_stop_cmd = RunCommand(NERLNET_RUN_STOP_SCRIPT, NERLNET_PATH)
 stdout, stderr, rc = nerlnet_run_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)

@@ -5,11 +5,12 @@
 from workerResult import *
 import numpy as np
 import globalVars as globe
+from networkComponents import NetworkComponents
 
 class Experiment():
 
-    def __init__(self ,expName = "Untitled"):
-        self.name = expName
+    def __init__(self ,experiment_name = "Untitled"):
+        self.name = experiment_name
         self.trainingResList = []
         self.predictionResList = []
     
