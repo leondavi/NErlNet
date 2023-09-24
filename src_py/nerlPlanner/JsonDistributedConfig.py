@@ -231,6 +231,11 @@ class JsonDistributedConfig():
             self.main_dict[KEY_SOURCES][source_name] = source
         return True
     
+    def remove_source(self, source_name : str):
+        self.remove_entity_from_device(source_name)
+        if source_name in self.get_sources_names():
+            del self.main_dict[KEY_SOURCES][source_name]
+ 
     def get_source(self, source_name : str) -> Source:
         return self.get_entity_with_type(source_name, KEY_SOURCES)
     

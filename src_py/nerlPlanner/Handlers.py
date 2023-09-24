@@ -154,9 +154,6 @@ def devices_handler(window, event, values):
         window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(device_inst.get_entities_names())
 
 
-
-
-
 def clients_handler(window, event, values):
     global clients_combo_box_worker_selection
     global clients_this_client_name
@@ -289,10 +286,20 @@ def routers_handler(window,event,values):
         routers_this_router_name = values[KEY_ENTITIES_ROUTERS_LISTBOX][0] if values[KEY_ENTITIES_ROUTERS_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
         if routers_this_router_name:
             json_dc_inst.remove_router(routers_this_router_name)
+            routers_reset_inputs_ui(window)
 
+def sources_reset_inputs_ui(window):
+    global sources_this_source_name
+    global sources_this_source_frequency
+    global sources_this_source_epochs
+    global sources_this_source_port
+    global sources_this_source_type
+    window[KEY_SOURCES_NAME_INPUT].update('')
+    window[KEY_SOURCES_FREQUENCY_INPUT].update('')
+    window[KEY_SOURCES_PORT_INPUT].update('')
+    window[KEY_SOURCES_EPOCHS_INPUT].update('')
+    window[KEY_SOURCES_TYPE_COMBO_BOX].update(value = sources_this_source_type)
 
-
-    # TODO COMPLETE load and remove
 
 def sources_handler(window, event, values):
     global sources_this_source
@@ -327,12 +334,20 @@ def sources_handler(window, event, values):
                 sources_this_source_type = SourceTypeDict[values[KEY_SOURCES_TYPE_COMBO_BOX]]
                 sources_this_source = Source(sources_this_source_name, sources_this_source_port, sources_this_source_frequency, sources_this_source_policy, sources_this_source_epochs, sources_this_source_type)
                 json_dc_inst.add_source(sources_this_source)
+                # clear input TextBox
+                sources_this_source = None
+                sources_this_source_name = None
+                sources_this_source_frequency = None
+                sources_this_source_epochs = None
+                sources_this_source_port = None
+                sources_this_source_policy = None
+                sources_this_source_type = SOURCE_TYPE_DICT_DEFAULT_SOURCE_TYPE
+                sources_reset_inputs_ui(window)
             else:
                 sg.popup_ok(f"Source {sources_this_source_name} is already exist", title='Adding Source Failed')
         else:
             sg.popup_ok(f"Missing or wrong fields!", title='Adding Source Failed')
 
-    #TODO implement load
     if event == KEY_SOURCES_BUTTON_LOAD:
         sources_this_source_name = values[KEY_ENTITIES_SOURCES_LISTBOX][0] if values[KEY_ENTITIES_SOURCES_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
         if sources_this_source_name:
@@ -349,11 +364,11 @@ def sources_handler(window, event, values):
             window[KEY_SOURCES_POLICY_COMBO_BOX].update(value = sources_this_source_policy)
             window[KEY_SOURCES_TYPE_COMBO_BOX].update(value = sources_this_source_type)
 
-            
-
-
-
-
+    if event == KEY_SOURCES_BUTTON_REMOVE:
+        sources_this_source_name = values[KEY_ENTITIES_SOURCES_LISTBOX][0] if values[KEY_ENTITIES_SOURCES_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
+        if sources_this_source_name:
+            json_dc_inst.remove_source(sources_this_source_name)
+            sources_reset_inputs_ui(window)
 
 def entities_handler(window, event, values):
     global entities_clients_names_list
