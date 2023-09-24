@@ -102,7 +102,7 @@ idle(cast, {startCasting,Body}, State = #source_statem_state{myName = MyName, ep
   ?LOG_NOTICE("Batch size: ~p", [BatchSize]),
   ?LOG_NOTICE("Sample size = ~p",[LengthOfSample]),
   ?LOG_NOTICE("Rounds per data (epochs): ~p", [Epochs]),
-  ?LOG_NOTICE("Number of batches to send ~p out of ~p batches of the experiment",[NumOfBatchesToSend, length(Batchlist)]),
+  ?LOG_NOTICE("Number of batches to send ~p out of ~p batches of the experiment",[length(Batchlist), list_to_integer(NumOfBatchesToSend)]),
   
   NewBatchList = duplicate_data(Batchlist, Epochs, []),
   NumOfBatches = list_to_integer(NumOfBatchesToSend),

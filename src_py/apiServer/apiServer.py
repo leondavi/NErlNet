@@ -23,11 +23,6 @@ import receiver
 from definitions import *
 from logger import *
 
-def is_port_in_use(port: int) -> bool:
-    import socket
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        return s.connect_ex(('localhost', port)) == 0
-
 class ApiServer():
     def __init__(self):       
         self.json_dir_parser = JsonDirParser()
@@ -120,7 +115,7 @@ PREDICTION_STR = "Prediction"
         print("Initializing the receiver thread...\n")
 
         # Initializing the receiver (a Flask HTTP server that receives results from the Main Server):
-        if not is_port_in_use(int(globe.components.receiverPort)):
+        if is_port_free(int(globe.components.receiverPort)):
             self.receiverProblem = threading.Event()
             self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
             self.receiverThread.start()   
