@@ -40,3 +40,8 @@ def read_nerlconfig(nerlconfig_file_path : str):
                     print(f"bad nerlconfig directory is given: {first_line} at {nerlconfig_file_path}")
                     raise "bad nerlconfig directory is given"
     return None
+
+def is_port_free(port: int) -> bool:
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('localhost', port)) != 0
