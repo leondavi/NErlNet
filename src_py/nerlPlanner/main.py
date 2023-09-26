@@ -29,7 +29,8 @@ devices_online_hosts_list = [DEFAULT_HOST_IP]
 settingsFields = [  
                 [sg.Text('Frequency '), sg.InputText(size=10, key=KEY_SETTINGS_FREQUENCY_INPUT, enable_events=True), sg.Text('Default frequency for sensors')],
                 [sg.Text('Batch Size'), sg.InputText(size=10, key=KEY_SETTINGS_BATCH_SIZE_INPUT, enable_events=True), sg.Text('# of samples in a message')],
-                [sg.Button("Save", size=(10), key=KEY_SETTINGS_SAVE_BUTTON, enable_events=True), sg.Button("Clear",size=(10))]]
+                [sg.Button("Save", size=(10), key=KEY_SETTINGS_SAVE_BUTTON, enable_events=True),
+                 sg.Button("Clear",size=(10), key=KEY_SETTINGS_CLEAR_BUTTON, enable_events=True)]]
 settingsFrame = sg.Frame("Settings",layout=settingsFields, expand_x=True, expand_y=True)
 
 specialEntitiesFields = [[sg.Text('Main Server: '), sg.Text('Port'), sg.InputText(size=10, key=KEY_SETTINGS_MAINSERVER_PORT_INPUT, enable_events=True),
