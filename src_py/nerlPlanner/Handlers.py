@@ -16,6 +16,10 @@ def reset_json_distributed_configuration():
     global json_dc_inst
     json_dc_inst = JsonDistributedConfig()
 
+def settings_reset_inputs_ui(window):
+    window[KEY_SETTINGS_FREQUENCY_INPUT].update('')
+    window[KEY_SETTINGS_BATCH_SIZE_INPUT].update('')
+
 def settings_handler(window, event, values):
     frequency = None
     frequency_inst = None
@@ -35,7 +39,14 @@ def settings_handler(window, event, values):
             sg.popup_ok(f"Wrong or missed input!", keep_on_top=True, title="Settings Input Issue")
         else:
             json_dc_inst.add_nerlnet_settings(frequency_inst, batch_size_inst)
-
+            
+    if event == KEY_SETTINGS_CLEAR_BUTTON:
+        frequency = values[KEY_SETTINGS_FREQUENCY_INPUT] if values[KEY_SETTINGS_FREQUENCY_INPUT] else None
+        batch_size = values[KEY_SETTINGS_BATCH_SIZE_INPUT] if values[KEY_SETTINGS_BATCH_SIZE_INPUT] else None
+        if frequency and batch_size:
+            json_dc_inst.clear_nerlnet_settings()
+        settings_reset_inputs_ui(window)
+    
     if event == KEY_SETTINGS_SPECIAL_ENTITIES_SAVE:
         main_server_port = values[KEY_SETTINGS_MAINSERVER_PORT_INPUT] if values[KEY_SETTINGS_MAINSERVER_PORT_INPUT] else None
         main_server_args = values[KEY_SETTINGS_MAINSERVER_ARGS_INPUT] if values[KEY_SETTINGS_MAINSERVER_ARGS_INPUT] else None
