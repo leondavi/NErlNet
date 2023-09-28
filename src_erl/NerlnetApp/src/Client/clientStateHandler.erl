@@ -26,7 +26,7 @@ init(Req0, [Action,Client_StateM_Pid]) ->
                     {From, update, Data} ->         %% updating weights
                       gen_statem:cast(Client_StateM_Pid,{update,Data})
               end;    
-    vector      -> gen_statem:cast(Client_StateM_Pid,{sample,Body});
+    batch      -> gen_statem:cast(Client_StateM_Pid,{sample,Body});
     idle        -> gen_statem:cast(Client_StateM_Pid,{idle});
     training    -> gen_statem:cast(Client_StateM_Pid,{training});
     predict     -> gen_statem:cast(Client_StateM_Pid,{predict});

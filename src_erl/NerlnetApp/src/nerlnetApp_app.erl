@@ -190,7 +190,7 @@ createClientsAndWorkers() ->
                 {"/clientTraining",clientStateHandler, [training,ClientStatemPid]},
                 {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
                 {"/clientPredict",clientStateHandler, [predict,ClientStatemPid]},
-                {"/weightsVector",clientStateHandler, [vector,ClientStatemPid]}
+                {"/batch",clientStateHandler, [batch,ClientStatemPid]}
             ]}
         ]),
         init_cowboy_start_clear(Client, {HostName, Port},NerlClientDispatch)
@@ -261,7 +261,7 @@ createRouters(MapOfRouters, HostName) ->
                 {"/csvReady",routingHandler, [csvReady,RouterGenServerPid]},
                 {"/sourceDone",routingHandler, [sourceDone,RouterGenServerPid]},
                 {"/clientReady",routingHandler, [clientReady,RouterGenServerPid]},
-                {"/weightsVector",routingHandler, [rout,RouterGenServerPid]},
+                {"/batch",routingHandler, [rout,RouterGenServerPid]},
                 {"/startCasting",routingHandler, [startCasting,RouterGenServerPid]},
                 {"/stopCasting",routingHandler, [stopCasting,RouterGenServerPid]},
                 {"/federatedWeightsVector",routingHandler, [federatedWeightsVector,RouterGenServerPid]},

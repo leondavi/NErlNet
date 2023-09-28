@@ -72,6 +72,9 @@ init({MyName,WorkersMap, NerlnetGraph, Method, BatchSize,Frequency}) ->
   ets:insert(EtsRef, {workers_list, []}),
   ets:insert(EtsRef, {csv_name, ""}), % not in use
 
+  put(nerlnetGraph, NerlnetGraph), % %TODO get rid of this put (it is used by nerl_tools:sendHTTP)
+
+
   {ok, idle, #source_statem_state{ets_ref = EtsRef, castingTo = []}}.
 
 %% @private
@@ -109,8 +112,10 @@ idle(cast, {batchList,WorkersList,Epochs, CSVData}, State = #source_statem_state
   ?LOG_NOTICE("Source ~p, workers are: ~p", [MyName, WorkersList]),
   ?LOG_NOTICE("Source ~p, sample size: ~p", [MyName, SampleSize]),
   ets:update_element(EtsRef, sample_size, [{?DATA_IDX, SampleSize}]),
-  ?LOG_INFO("source updated transmition list, total avilable batches to send: ~p~n",[length(NerlTensorList)]),
+  ?LOG_INFO("source updated transmition list, total avilable batches to send: ~p~n",[length(NerlTensorBatchesList)]),
   %%  send an ACK to mainserver that the CSV file is ready
+
+  %% TODO fix exception here
   nerl_tools:sendHTTP(MyName,?MAIN_SERVER_ATOM,"csvReady",MyName),
   {next_state, idle, State#source_statem_state{batchesList = NerlTensorBatchesList, nerlTensorType = NerlTensorType}};
 
