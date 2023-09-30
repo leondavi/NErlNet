@@ -42,7 +42,10 @@ specialEntitiesFields = [[sg.Text('Main Server: '), sg.Text('Port'), sg.InputTex
                         ] # TODO complete status bar activity]
 specialEntitiesFrame = sg.Frame("Special Entities",layout=specialEntitiesFields, expand_x=True, expand_y=True)
 
-jointSettingsAndSpecialEntities = sg.Frame("",layout=[[settingsFrame ,specialEntitiesFrame], [sg.Text(f'This Host IP: {DEFAULT_HOST_IP}', expand_x=True)], [sg.Text('Main Server Status',size=(100))], [sg.Text('Api Server Status',size=(100))]])
+jointSettingsAndSpecialEntities = sg.Frame("",layout=[[settingsFrame ,specialEntitiesFrame], 
+                                                      [sg.Text(f'This Host IP: {DEFAULT_HOST_IP}', expand_x=True)], 
+                                                      [sg.Text('Main Server Status', key=KEY_SETTINGS_MAIN_SERVER_STATUS_BAR, enable_events=True, size=(100), expand_x=True)], 
+                                                      [sg.Text('Api Server Status', key=KEY_SETTINGS_API_SERVER_STATUS_BAR, enable_events=True, size=(100), expand_x=True)]])
 
 # Devices 
 DevicesNamesList = []

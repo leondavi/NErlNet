@@ -64,6 +64,8 @@ def settings_handler(window, event, values):
         else:
             json_dc_inst.add_main_server(main_server_inst)
             json_dc_inst.add_api_server(api_server_inst)
+            device_by_main_server = json_dc_inst.get_device_by_entity("mainServer")
+            window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_by_main_server}")
 
 
 def workers_handler(window, event, values):
@@ -159,6 +161,9 @@ def devices_handler(window, event, values):
             # TODO  remove occupied devices from combo
             last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
             window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state_not_occupied)
+            #TODO set this line to this event:
+            # window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_by_main_server}")
+
 
     if devices_devices_list_box_selection:
         device_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
