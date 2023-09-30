@@ -104,7 +104,13 @@ class JsonDistributedConfig():
     
     def get_device_by_name(self, name : str) -> Device:
         return self.main_dict[KEY_DEVICES][name] if name in self.main_dict[KEY_DEVICES] else None
-    
+
+    def get_device_by_entity(self, entity_name : str) -> Device:
+        for device in self.main_dict[KEY_DEVICES]:
+            device_inst = self.get_device_by_name(device)
+            if entity_name in device_inst.get_entities_names():
+                return device_inst
+
     def get_devices_ips(self):
         return list( dev.get_ip().get_address() for _ , dev in self.main_dict[KEY_DEVICES].items())
     

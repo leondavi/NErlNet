@@ -239,6 +239,9 @@ class MainServer(JsonElement):
         self.port = Port(port)
         self.args = Arguments(args)
 
+    def __format__(self, __format_spec: str) -> str:
+        return f"{self.port}"
+    
     def get_port(self):
         return self.port
     
@@ -263,6 +266,9 @@ class Device(JsonElement):
         self.ip = Ipv4(ip_address)
         self.entities_dict = OrderedDict()
 
+    def __format__(self, __format_spec: str) -> str:
+        return f"Device: {self.name}"
+    
     def get_entities_names(self):
         return list(self.entities_dict.keys())
 
