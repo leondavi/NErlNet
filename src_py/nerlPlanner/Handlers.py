@@ -64,8 +64,10 @@ def settings_handler(window, event, values):
         else:
             json_dc_inst.add_main_server(main_server_inst)
             json_dc_inst.add_api_server(api_server_inst)
-            device_by_main_server = json_dc_inst.get_device_by_entity("mainServer")
-            window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_by_main_server}")
+            device_by_main_server = json_dc_inst.get_device_by_entity(main_server_inst.NAME)
+            device_by_api_server = json_dc_inst.get_device_by_entity(api_server_inst.NAME)
+            window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_by_main_server}")   
+            window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {device_by_main_server}")
 
 
 def workers_handler(window, event, values):
@@ -161,8 +163,14 @@ def devices_handler(window, event, values):
             # TODO  remove occupied devices from combo
             last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
             window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state_not_occupied)
-            #TODO set this line to this event:
-            # window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_by_main_server}")
+            # Update Settings status bar
+            main_server_inst = json_dc_inst.get_main_server()
+            api_server_inst = json_dc_inst.get_api_server()
+            device_selected_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
+            if last_selected_entity == main_server_inst.NAME:
+                window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_selected_inst}")
+            elif last_selected_entity == api_server_inst.NAME:
+                window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {device_selected_inst}")
 
 
     if devices_devices_list_box_selection:
