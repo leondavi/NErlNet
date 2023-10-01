@@ -127,6 +127,11 @@ def workers_handler(window, event, values):
         else:
             sg.popup_ok(f"selection or name issue", keep_on_top=True, title="Loading Issue")
 
+
+def devices_reset_inputs_ui(window):
+    window[KEY_DEVICES_NAME_INPUT].update('')
+    window[KEY_DEVICES_IP_INPUT].update('x.x.x.x')
+    
 def devices_handler(window, event, values):
     global devices_name 
     global devices_ip_str
@@ -154,6 +159,23 @@ def devices_handler(window, event, values):
                 window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
             else:
                 sg.popup_ok("Ip or Name are wrong or exist!")
+                
+    if event == KEY_DEVICES_BUTTON_REMOVE and devices_devices_list_box_selection:
+        # Update settings status bar
+        device_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
+        main_server_inst = json_dc_inst.get_main_server()
+        api_server_inst = json_dc_inst.get_api_server()
+        if main_server_inst and main_server_inst.NAME in device_inst.get_entities_names():
+             window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, None")
+        if api_server_inst and api_server_inst.NAME in device_inst.get_entities_names():
+             window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, None")
+        
+        # Remove device and update GUI      
+        json_dc_inst.remove_device(devices_devices_list_box_selection)
+        devices_devices_list_box_selection = ""
+        window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update("")
+        window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
+        devices_reset_inputs_ui(window)
 
     if event == KEY_DEVICES_ADD_ENTITY_TO_DEVICE and last_selected_entity and devices_devices_list_box_selection:
         res = json_dc_inst.add_entity_to_device(devices_devices_list_box_selection, last_selected_entity)
@@ -167,11 +189,10 @@ def devices_handler(window, event, values):
             main_server_inst = json_dc_inst.get_main_server()
             api_server_inst = json_dc_inst.get_api_server()
             device_selected_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
-            if last_selected_entity == main_server_inst.NAME:
+            if main_server_inst and last_selected_entity == main_server_inst.NAME:
                 window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_selected_inst}")
-            elif last_selected_entity == api_server_inst.NAME:
+            elif api_server_inst and last_selected_entity == api_server_inst.NAME:
                 window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {device_selected_inst}")
-
 
     if devices_devices_list_box_selection:
         device_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
@@ -392,6 +413,7 @@ def sources_handler(window, event, values):
         sources_this_source_name = values[KEY_ENTITIES_SOURCES_LISTBOX][0] if values[KEY_ENTITIES_SOURCES_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
         if sources_this_source_name:
             json_dc_inst.remove_source(sources_this_source_name)
+            sources_this_source_name = ""
             sources_reset_inputs_ui(window)
 
 def entities_handler(window, event, values):
