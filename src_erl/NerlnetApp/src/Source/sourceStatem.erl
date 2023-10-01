@@ -17,12 +17,13 @@
 %% gen_statem callbacks
 -export([format_status/2, state_name/3, handle_event/4, terminate/3, code_change/4, callback_mode/0]).
 %% states and misc
--export([init/1,  idle/3, castingData/3, transmitter/7]).
+-export([init/1,  idle/3, castingData/3, transmitter/6]).
 %% utils
--export([left_print/2]).
+
 
 %% defintions
--define(BATCHES_LEFT_PRINT_EVERY_X_PERC, 0.2). % This is the percentage out of left samples that controls the frequency of printing how many batches are left
+-define(SENDING_FREQUENCY_OVERHEAD_FIX_FACTOR_PERC, 1.2).
+
 
 -record(source_statem_state, {ets_ref, batchesList = [], castingTo=[], myName, source_pid, transmitter_pid = none,csvName="", nerlTensorType}).
 
@@ -66,7 +67,7 @@ init({MyName,WorkersMap, NerlnetGraph, Method, BatchSize,Frequency}) ->
   ets:insert(EtsRef, {frequency, Frequency}),
   ets:insert(EtsRef, {time_interval_ms, round(1000/Frequency)}), % time of delay before transmitter sends a batch
   ets:insert(EtsRef, {batch_size, BatchSize}),
-  ets:insert(EtsRef, {sending_method, Method}),
+  ets:insert(EtsRef, {method, Method}),
   ets:insert(EtsRef, {epochs, none}),
   ets:insert(EtsRef, {sample_size, none}),
   ets:insert(EtsRef, {workers_list, []}),
@@ -120,7 +121,7 @@ idle(cast, {batchList,WorkersList,Epochs, CSVData}, State = #source_statem_state
   {next_state, idle, State#source_statem_state{batchesList = NerlTensorBatchesList, nerlTensorType = NerlTensorType}};
 
 
-%%This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
+%% This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
 idle(cast, {startCasting,Body}, State = #source_statem_state{ets_ref = EtsRef, batchesList = BatchesList}) ->
   [_Source,UserLimitNumberOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
  
@@ -135,7 +136,10 @@ idle(cast, {startCasting,Body}, State = #source_statem_state{ets_ref = EtsRef, b
   WorkersList = ets:lookup_element(EtsRef, workers_list, ?DATA_IDX),
 
   UserLimitNumberOfBatchesToSendInt = list_to_integer(UserLimitNumberOfBatchesToSend),
-  BatchesToSend = if length(BatchesList) < UserLimitNumberOfBatchesToSendInt -> length(BatchesList); true -> UserLimitNumberOfBatchesToSendInt end,
+  BatchesToSend = min(length(BatchesList), UserLimitNumberOfBatchesToSendInt),
+  BatchesListFinal = lists:sublist(BatchesList, BatchesToSend), % Batches list with respect of constraint UserLimitNumberOfBatchesToSendInt
+
+  % TODO consider add offset value from API
 
   ?LOG_NOTICE("~p - starts casting to workers: ~p",[MyName, WorkersList]),
   ?LOG_NOTICE("Frequency: ~pHz [Batches/Second]",[Frequency]),
@@ -145,7 +149,7 @@ idle(cast, {startCasting,Body}, State = #source_statem_state{ets_ref = EtsRef, b
   ?LOG_NOTICE("Limit max # of batches by API is set to ~p ",[UserLimitNumberOfBatchesToSendInt]),
   ?LOG_NOTICE("# of batches to send is ~p ",[BatchesToSend]),
 
-  TransmitterPID =  spawnTransmitter(EtsRef, WorkersList, BatchesList, BatchesToSend),
+  TransmitterPID =  spawnTransmitter(EtsRef, WorkersList, BatchesListFinal),
   {next_state, castingData, State#source_statem_state{transmitter_pid = TransmitterPID}};
 
 idle(cast, {startCasting}, State = #source_statem_state{ets_ref = EtsRef}) ->
@@ -240,7 +244,7 @@ code_change(_OldVsn, StateName, State = #source_statem_state{}, _Extra) ->
 
 %%% spawnTransmitter - creates a transmitter process to send batches
 %%% Flow: transmitter -> transmit_func -> send_method_<method> -> prepare_send -> sendBatch
-spawnTransmitter(SourceEtsRef, WorkersListOfNames, ListOfBatches, BatchesToSend)->
+spawnTransmitter(SourceEtsRef, WorkersListOfNames, BatchesListToSend)->
   MyName = ets:lookup_element(SourceEtsRef, my_name, ?DATA_IDX),
   NerlnetGraph = ets:lookup_element(SourceEtsRef, nerlnet_graph, ?DATA_IDX),
   WorkersMap = ets:lookup_element(SourceEtsRef, workers_map, ?DATA_IDX),
@@ -248,45 +252,40 @@ spawnTransmitter(SourceEtsRef, WorkersListOfNames, ListOfBatches, BatchesToSend)
   TimeInterval_ms = ets:lookup_element(SourceEtsRef, time_interval_ms, ?DATA_IDX), % frequency to time interval duration in milliseconds between each send
   Triplets = nerl_tools:getHostPort(WorkersListOfNames,WorkersMap,NerlnetGraph,MyName,[]),
   SourcePid = self(),
-  spawn(?MODULE,transmitter,[TimeInterval_ms,SourceEtsRef, SourcePid ,Triplets, ListOfBatches, BatchesToSend, Method]).
+  spawn_link(?MODULE,transmitter,[TimeInterval_ms,SourceEtsRef, SourcePid ,Triplets, BatchesListToSend, Method]).
 
 %% Sends batch of samples to a client
-sendBatch(Batch,CSVPath, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
-  case Batch of
-    {<<>>, _Type} -> done;    % no tensor to send
-    {_Tensor, _Type} ->
-        ToSend = term_to_binary({ClientName, WorkerName, CSVPath, BatchID, Batch}),
-        nerl_tools:http_request(RouterHost, RouterPort,"batch",ToSend) % TODO add macro
-        %nerl_tools:http_request(RouterHost, RouterPort,"weightsVector",ToSend)
-  end.
+% A batch is always {NerlTensor, Type}
+sendBatch({NerlTensor, Type},CSVPath, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
+        ToSend = term_to_binary({ClientName, WorkerName, CSVPath, BatchID, {NerlTensor, Type}}),
+        nerl_tools:http_request(RouterHost, RouterPort,"batch",ToSend). % TODO add macro
 
-prepare_and_send(TimeInterval_ms,Tic, TransmitterEts, Batch, Triplet) ->
+prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, Triplet) ->
+  Tic = erlang:timestamp(), % frequency relates to each send
   if
     Batch == <<>> ->
+      skip_batch;
+    true ->
       BatchID = ets:lookup_element(TransmitterEts, current_batch_id, ?DATA_IDX),
-      {ClientName,WorkerName,RouterHost,RouterPort} = Triplet,
+      {ClientName,WorkerName,RouterHost,RouterPort} = Triplet,% TODO Gal is about to perform refactor here with casting support
       CSVPath = "",
       % sending batch
       sendBatch(Batch,CSVPath, BatchID, ClientName,WorkerName,RouterHost,RouterPort),
       % update counters
-      ets:update_counter(TransmitterEts, current_batch_id, 1),
       ets:update_counter(TransmitterEts, batches_sent, 1),
       % timing handling
-      Toc_microsec = round(timer:now_diff(Tic, erlang:timestamp()) / 1000),
-      SleepDuration = erlang:max(0, TimeInterval_ms - Toc_microsec),
+      Toc_millisec = timer:now_diff(Tic, erlang:timestamp()) * 0.001, % out of diff is micro
+      SleepDuration = erlang:max(0,  round(TimeInterval_ms - ?SENDING_FREQUENCY_OVERHEAD_FIX_FACTOR_PERC*Toc_millisec)),
       timer:sleep(SleepDuration),
-      ok;
-    true ->
-      skip_batch
+      ok
   end.
 
 
-send_method_casting(TransmitterEts, TimeInterval_ms, Triplets, BatchesToSend) ->
+send_method_casting(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend) ->
   % Sends the same batch to all
   BatchFunc = fun(Batch) ->
     CastingFunc = fun(Triplet) -> 
-      Tic = erlang:timestamp(), % frequency relates to each send
-      Result = prepare_and_send(TransmitterEts, TimeInterval_ms, Tic, Batch, Triplet), % improve by allowing casting messages
+      Result = prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, Triplet), % improve by allowing casting messages
       case Result of
         skip_batch -> 
           MyName = ets:lookup_element(TransmitterEts, my_name, ?DATA_IDX),
@@ -294,16 +293,17 @@ send_method_casting(TransmitterEts, TimeInterval_ms, Triplets, BatchesToSend) ->
         _ELSE -> ok
       end
     end,
-    lists:foreach(CastingFunc, Triplets)
+    lists:foreach(CastingFunc, Triplets), % TODO Gal - with casting no need for outer loop here
+    ets:update_counter(TransmitterEts, current_batch_id, 1)
   end,
-  lists:foreach(BatchFunc, BatchesToSend).
+  lists:foreach(BatchFunc, BatchesListToSend).
 
-send_method_round_robin(TransmitterEts, TimeInterval_ms, Triplets, BatchesToSend) ->
+send_method_round_robin(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend) ->
   % Sends a batch per each
   BatchFunc = fun(Batch, TripletPos) ->
     Triplet = lists:nth(TripletPos),
-    Tic = erlang:timestamp(), % frequency relates to each send
-    Result = prepare_and_send(TransmitterEts, TimeInterval_ms, Tic, Batch, Triplet), % improve by allowing casting messages
+    Result = prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, Triplet), % improve by allowing casting messages
+    ets:update_counter(TransmitterEts, current_batch_id, 1),
     case Result of
       skip_batch -> 
         MyName = ets:lookup_element(TransmitterEts, my_name, ?DATA_IDX),
@@ -311,38 +311,28 @@ send_method_round_robin(TransmitterEts, TimeInterval_ms, Triplets, BatchesToSend
       _ELSE -> ok
     end
   end,
-  TripletPos = [(X rem length(Triplets)) + 1 || X <- lists:seq(0, length(BatchesToSend)-1)],
-  lists:zipwith(BatchFunc, BatchesToSend, TripletPos).
+  TripletPos = [(X rem length(Triplets)) + 1 || X <- lists:seq(0, length(BatchesListToSend)-1)],
+  lists:zipwith(BatchFunc, BatchesListToSend, TripletPos).
 
 
-transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,Triplets, ListOfBatches, BatchesToSend, Method) ->
+transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,Triplets, BatchesListToSend, Method) ->
   MyName = ets:lookup_element(SourceEtsRef, my_name, ?DATA_IDX),
   ?LOG_INFO("Source ~p Transmitter Starts", [MyName]),
   TransmitterEts = ets:new(transmitter_ets, [set]), % allow transmitter process to edit
-  TransmissionStart = erlang:timestamp(),
   ets:insert(TransmitterEts, {my_name, MyName}),
   ets:insert(TransmitterEts, {batches_sent, 0}),
-  ets:insert(TransmitterEts, {numof_batches_max_limit, BatchesToSend}),
   ets:insert(TransmitterEts, {current_batch_id, 0}),
-
+  TransmissionStart = erlang:timestamp(),
   case Method of
-    ?CASTING -> send_method_casting(TransmitterEts, TimeInterval_ms, Triplets, BatchesToSend);
-    ?ROUNDROBIN -> send_method_round_robin(TransmitterEts, TimeInterval_ms, Triplets, BatchesToSend);
-    _Default -> send_method_casting(TransmitterEts, TimeInterval_ms, Triplets, BatchesToSend)
+    ?CASTING -> send_method_casting(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend);
+    ?ROUNDROBIN -> send_method_round_robin(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend);
+    _Default -> send_method_casting(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend)
   end,
-
+  TransmissionTimeTook_sec = timer:now_diff(erlang:timestamp(), TransmissionStart) / 1000000,
   BatchesSent = ets:lookup_element(TransmitterEts, batches_sent, ?DATA_IDX),
 
-  gen_statem:cast(SourcePid,{finishedCasting,BatchesSent,[]}),
-  TransmissionTimeTook_sec = timer:now_diff(TransmissionStart, erlang:timestamp()) * 1000000,
+  gen_statem:cast(SourcePid,{finishedCasting,BatchesSent}),
   ActualFrequency = 1/(TransmissionTimeTook_sec/BatchesSent),
   ?LOG_INFO("Source ~p Transmitter Finished", [MyName]),
   ?LOG_INFO("Source ~p Actual Frequency: ~p [B/Sec]",[MyName, ActualFrequency]),
   ets:delete(TransmitterEts).
-
-
-left_print(NumOfBatchesToSend, Counter) ->
-  PrintReminderCondition = round(max((NumOfBatchesToSend * ?BATCHES_LEFT_PRINT_EVERY_X_PERC),10)), % round to integer
-  if (Counter rem PrintReminderCondition == 0) -> ?LOG_INFO("~p batches left to send~n", [NumOfBatchesToSend]);
-      true -> skip
-  end.
