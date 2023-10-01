@@ -110,6 +110,7 @@ class JsonDistributedConfig():
             device_inst = self.get_device_by_name(device)
             if entity_name in device_inst.get_entities_names():
                 return device_inst
+        return None
 
     def get_devices_ips(self):
         return list( dev.get_ip().get_address() for _ , dev in self.main_dict[KEY_DEVICES].items())
@@ -132,6 +133,12 @@ class JsonDistributedConfig():
         
         self.main_dict[KEY_DEVICES][device.get_name()] = device
         return self.DEVICE_ADD_SUCCESS
+    
+    def remove_device(self, device_name : str):
+        # device_inst = self.main_dict[KEY_DEVICES][device_name]
+        # device_inst.entities_dict = None
+        del(self.main_dict[KEY_DEVICES][device_name]) 
+
     
     def add_entity_to_device(self, device_name : str , entity_name : str):
         '''
