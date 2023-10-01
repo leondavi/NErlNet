@@ -260,50 +260,59 @@ sendBatch({NerlTensor, Type},CSVPath, BatchID,ClientName,WorkerName,RouterHost,R
         ToSend = term_to_binary({ClientName, WorkerName, CSVPath, BatchID, {NerlTensor, Type}}),
         nerl_tools:http_request(RouterHost, RouterPort,"batch",ToSend). % TODO add macro
 
-prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, Triplet) ->
+prepare_and_send(TimeInterval_ms, Batch, BatchIdx, Triplet) ->
   Tic = erlang:timestamp(), % frequency relates to each send
-  if
-    Batch == <<>> ->
-      skip_batch;
-    true ->
-      BatchID = ets:lookup_element(TransmitterEts, current_batch_id, ?DATA_IDX),
+  case Batch of
+    {NerlTensor, Type} ->
       {ClientName,WorkerName,RouterHost,RouterPort} = Triplet,% TODO Gal is about to perform refactor here with casting support
       CSVPath = "",
       % sending batch
-      sendBatch(Batch,CSVPath, BatchID, ClientName,WorkerName,RouterHost,RouterPort),
-      % update counters
-      ets:update_counter(TransmitterEts, batches_sent, 1),
+      sendBatch(Batch,CSVPath, BatchIdx, ClientName,WorkerName,RouterHost,RouterPort),
       % timing handling
       Toc_millisec = timer:now_diff(Tic, erlang:timestamp()) * 0.001, % out of diff is micro
       SleepDuration = erlang:max(0,  round(TimeInterval_ms - ?SENDING_FREQUENCY_OVERHEAD_FIX_FACTOR_PERC*Toc_millisec)),
       timer:sleep(SleepDuration),
-      ok
+      ok;
+    <<>> ->
+      skip_batch;
+    _ISSUE ->
+      issue
   end.
 
 
 send_method_casting(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend) ->
   % Sends the same batch to all
-  BatchFunc = fun(Batch) ->
+  BatchFunc = fun(BatchIdx) ->
     CastingFunc = fun(Triplet) -> 
-      Result = prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, Triplet), % improve by allowing casting messages
+      Batch = lists:nth(BatchIdx+1, BatchesListToSend),
+      Result = prepare_and_send(TimeInterval_ms, Batch, BatchIdx, Triplet), % improve by allowing casting messages
       case Result of
         skip_batch -> 
           MyName = ets:lookup_element(TransmitterEts, my_name, ?DATA_IDX),
+          ets:update_counter(TransmitterEts, batches_skipped, 1),
           ?LOG_WARNING("Source ~p Skipped Batch", [MyName]);
+        issue -> 
+          MyName = ets:lookup_element(TransmitterEts, my_name, ?DATA_IDX),
+          ets:update_counter(TransmitterEts, batches_skipped, 1),
+          ?LOG_ERROR("Source ~p Unsupported Batch", [MyName]);
         _ELSE -> ok
       end
     end,
-    lists:foreach(CastingFunc, Triplets), % TODO Gal - with casting no need for outer loop here
-    ets:update_counter(TransmitterEts, current_batch_id, 1)
+    lists:foreach(CastingFunc, Triplets) % TODO Gal - with casting no need for outer loop here
   end,
-  lists:foreach(BatchFunc, BatchesListToSend).
+  BatchesIndexes = lists:seq(0, length(BatchesListToSend)-1),
+  lists:foreach(BatchFunc, BatchesIndexes),
+  % update counter
+  BatchesSkipped = ets:lookup_element(TransmitterEts, batches_skipped, ?DATA_IDX),
+  ets:update_counter(TransmitterEts, batches_sent, length(Triplets) * length(BatchesListToSend) - BatchesSkipped).
 
 send_method_round_robin(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend) ->
   % Sends a batch per each
-  BatchFunc = fun(Batch, TripletPos) ->
-    Triplet = lists:nth(TripletPos),
-    Result = prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, Triplet), % improve by allowing casting messages
-    ets:update_counter(TransmitterEts, current_batch_id, 1),
+  BatchFunc = fun(BatchIdx) ->
+    TripletIdx = (BatchIdx rem length(Triplets)) + 1,
+    Triplet = lists:nth(TripletIdx, Triplets),
+    Batch =  lists:nth(BatchIdx+1, BatchesListToSend),
+    Result = prepare_and_send(TimeInterval_ms, Batch, BatchIdx, Triplet), % improve by allowing casting messages
     case Result of
       skip_batch -> 
         MyName = ets:lookup_element(TransmitterEts, my_name, ?DATA_IDX),
@@ -311,8 +320,8 @@ send_method_round_robin(TransmitterEts, TimeInterval_ms, Triplets, BatchesListTo
       _ELSE -> ok
     end
   end,
-  TripletPos = [(X rem length(Triplets)) + 1 || X <- lists:seq(0, length(BatchesListToSend)-1)],
-  lists:zipwith(BatchFunc, BatchesListToSend, TripletPos).
+  BatchesIndexes = lists:seq(0, length(BatchesListToSend)-1),
+  lists:foreach(BatchFunc, BatchesIndexes).
 
 
 transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,Triplets, BatchesListToSend, Method) ->
@@ -321,6 +330,7 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,Triplets, BatchesListToSen
   TransmitterEts = ets:new(transmitter_ets, [set]), % allow transmitter process to edit
   ets:insert(TransmitterEts, {my_name, MyName}),
   ets:insert(TransmitterEts, {batches_sent, 0}),
+  ets:insert(TransmitterEts, {batches_skipped, 0}),
   ets:insert(TransmitterEts, {current_batch_id, 0}),
   TransmissionStart = erlang:timestamp(),
   case Method of
