@@ -8,4 +8,8 @@
 project(src_cpp)
 
 add_subdirectory(opennnBridge)
-add_library(${PROJECT_NAME} SHARED $<TARGET_OBJECTS:opennnBridge>)
+
+if(NERLWOLF)
+    message("[NERLNET] Wolfram Engine nif extension is enabled")
+    add_subdirectory(wolframBridge)
+endif()

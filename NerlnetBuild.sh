@@ -2,20 +2,20 @@
 
 NERLNET_PREFIX="[NERLNET_SCRIPT]"
 INPUT_DATA_DIR="inputDataDir"
-SHORT_OPTIONS_LIST=p:,j:,c:,h
-LONG_OPTIONS_LIST=pull:,jobs:,clean:,help
 
 # arguments parsing 
 # Thanks to https://github.com/matejak/argbash
 Branch="master"
 JobsNum=4
+NerlWolf=OFF
 
 help()
 {
     echo "-------------------------------------" && echo "Nerlnet Build" && echo "-------------------------------------"
     echo "Usage:"
     echo "--p or --pull Warning! this uses checkout -f! and branch name checkout to branch $Branch and pull the latest"
-    echo "--j or --jobs number of jobs to cmake build"
+    echo "--w or --wolf wolfram engine workers extension (nerlwolf)"
+	echo "--j or --jobs number of jobs to cmake build"
     echo "--c or --clean remove build directory"
     exit 2
 }
@@ -63,6 +63,8 @@ print_help()
 	printf 'Usage: %s [-h|--help] [-c|--clean] [-j|--jobs <arg>] [-p|--pull <arg>]\n' "$0"
 	printf '\t%s\n' "-j, --jobs: number of jobs (default: '4')"
 	printf '\t%s\n' "-p, --pull: pull from branch (default: '4')"
+	printf '\t%s\n' "-w, --wolf: wolfram engine extension build (default: 'off')"
+
 }
 
 
@@ -87,6 +89,17 @@ parse_commandline()
 			-c*)
 				clean_build_directory
 				exit 0
+				;;
+			-w|--wolf)
+				test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
+				NerlWolf="$2"
+				shift
+				;;
+			--wolf=*)
+				NerlWolf="${_key##--jobs=}"
+				;;
+			-w*)
+				NerlWolf="${_key##-j}"
 				;;
 			-j|--jobs)
 				test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
@@ -140,7 +153,7 @@ fi
 echo "$NERLNET_BUILD_PREFIX Building Nerlnet Library"
 echo "$NERLNET_BUILD_PREFIX Cmake command of Nerlnet NIFPP"
 set -e
-cmake -S . -B build/release -DCMAKE_BUILD_TYPE=RELEASE
+cmake -S . -B build/release -DNERLWOLF=$NerlWolf -DCMAKE_BUILD_TYPE=RELEASE
 cd build/release
 echo "$NERLNET_BUILD_PREFIX Script CWD: $PWD"
 echo "$NERLNET_BUILD_PREFIX Build Nerlnet"
