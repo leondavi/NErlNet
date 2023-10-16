@@ -47,6 +47,9 @@ class WorkerResult():
         self.csvWorked = csvWorked
         self.resList = []
 
+    def get_name(self):
+        return self.name
+
     def addResult(self, result):
         self.resList.append(result)
 

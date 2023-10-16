@@ -22,7 +22,12 @@ jobs:
         id: build
         run: |
           ./NerlnetBuild.sh
-      - name: Run unit tests
+      - name: Run NIF unit tests
+        id: nif
         if: steps.build.outcome == 'success'
         run: |
-          ./NerlnetTest.sh
+          ./Tests/NerlnetNifTest.sh
+      - name: Run FullFlow test
+        if: steps.nif.outcome == 'success'
+        run: |
+          ./Tests/NerlnetFullFlowTest.sh
