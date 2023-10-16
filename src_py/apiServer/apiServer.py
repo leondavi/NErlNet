@@ -11,38 +11,46 @@ import pandas as pd
 import sys
 import numpy as np
 import os
-import subprocess
+import traceback
+from pathlib import Path
 
+from experiment import Experiment
 from jsonDirParser import JsonDirParser
 from transmitter import Transmitter
 from networkComponents import NetworkComponents
 import globalVars as globe
 import receiver
-
-def is_port_in_use(port: int) -> bool:
-    import socket
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        return s.connect_ex(('localhost', port)) == 0
+from definitions import *
+from logger import *
 
 class ApiServer():
     def __init__(self):       
         self.json_dir_parser = JsonDirParser()
+        self.input_data_path = read_nerlconfig(NERLCONFIG_INPUT_DATA_DIR)
+        self.experiments_dict = {}
+        self.current_exp = None
 
         # Create a new folder for the results:
-        if not os.path.exists('/usr/local/lib/nerlnet-lib/NErlNet/Results'):
-            os.mkdir('/usr/local/lib/nerlnet-lib/NErlNet/Results')
+        Path(EXPERIMENT_RESULTS_PATH).mkdir(parents=True, exist_ok=True)
 
-        pass
+    def get_experiment(self, exp_name : str) :
+        return self.experiments_dict[exp_name] if exp_name in self.experiments_dict else None
+
+    def set_json_dir(self, custom_path : str):
+        self.json_dir_parser = JsonDirParser(custom_path)
 
     def help(self):
     #i) data saved as .csv, training file ends with "_Training.csv", prediction with "_Prediction.csv" (may change in future)
         print(
-"""
+f"""
 __________NERLNET CHECKLIST__________
 0. Run this Jupyter in the folder of generated .py files!
-1. Make sure data and jsons in correct folder, and jsons include the correct paths
+1. Nerlnet configuration files are located at config directory
+   Make sure data and jsons in correct folder, and jsons include the correct paths
     * Data includes: labeled prediction csv, training file, prediction file
     * Prediction CSVs need to be ordered the same!
+    * jsonsDir is set to {self.json_dir_parser.get_json_dir_path()}
+    * inputDataDir is set to {self.input_data_path}
             
 ____________API COMMANDS_____________
 ==========Setting experiment========
@@ -69,23 +77,35 @@ ____________API COMMANDS_____________
 
 _____GLOBAL VARIABLES / CONSTANTS_____
 pendingAcks:                        makes sure API command reaches all relevant entities (wait for pending acks)
-multiProcQueue:                     a queue for combining and returning data to main thread after train / predict phases
 TRAINING_STR = "Training"
 PREDICTION_STR = "Prediction"
         """)
     
-    def initialization(self, arch_json: str, conn_map_json, experiment_flow_json):
+    def __new_experiment(self, experiment_name : str):
+        assert experiment_name not in self.experiments_dict, "experiment name exists!"
+        self.experiments_dict[experiment_name] = Experiment(experiment_name)
+
+    def experiment_focused_on(self, experiment_name):
+        assert experiment_name in self.experiments_dict, "cannot focus on experiment that has never been created!"
+        globe.experiment_focused_on = self.get_experiment(experiment_name)
+        self.current_exp = globe.experiment_focused_on # TODO the objective is to get rid of this global definitions
+    
+    def initialization(self, experiment_name : str, arch_json: str, conn_map_json, experiment_flow_json):
         archData = self.json_dir_parser.json_from_path(arch_json)
         connData = self.json_dir_parser.json_from_path(conn_map_json)
         expData = self.json_dir_parser.json_from_path(experiment_flow_json)
-        
-        globe.experiment_flow_global.set_experiment_flow(expData)
-        globe.components = NetworkComponents(archData)
+
+        self.__new_experiment(experiment_name)
+        self.experiment_focused_on(experiment_name)
+
+        self.current_exp.set_experiment_flow(expData)
+
+        globe.components = NetworkComponents(archData) # move network component into experiment class
         globe.components.printComponents()
-        print("Connections:")
+        LOG_INFO("Connections:")
         for key, val in connData['connectionsMap'].items():
-            print("\t\t", key, ' : ', val)
-        globe.experiment_flow_global.printExp()
+            LOG_INFO(f"\t\t {key} : {val}")
+        globe.experiment_focused_on.printExp()
 
         mainServerIP = globe.components.mainServerIp
         mainServerPort = globe.components.mainServerPort
@@ -95,7 +115,7 @@ PREDICTION_STR = "Prediction"
         print("Initializing the receiver thread...\n")
 
         # Initializing the receiver (a Flask HTTP server that receives results from the Main Server):
-        if not is_port_in_use(int(globe.components.receiverPort)):
+        if is_port_free(int(globe.components.receiverPort)):
             self.receiverProblem = threading.Event()
             self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
             self.receiverThread.start()   
@@ -105,36 +125,45 @@ PREDICTION_STR = "Prediction"
             if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
                 print(f"===================Failed to initialize the receiver using the provided address:==========================\n\
                 (http://{globe.components.receiverHost}:{globe.components.receiverPort})\n\
-    Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
+                Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
                 sys.exit()
 
         # Initalize an instance for the transmitter:
         if not hasattr(self, 'transmitter'):
-            self.transmitter = Transmitter(self.mainServerAddress)
+            self.transmitter = Transmitter(self.current_exp, self.mainServerAddress, self.input_data_path)
 
         print("\n***Please remember to execute NerlnetRun.sh on each device before continuing.")
     
     def sendJsonsToDevices(self):
         # Send the content of jsonPath to each devices:
-        print("\nSending JSON paths to devices...")
+        LOG_INFO("Sending JSON paths to devices...")
 
         # Jsons found in NErlNet/inputJsonFiles/{JSON_TYPE}/files.... for entities in src_erl/Comm_layer/http_nerl/src to reach them, they must go up 3 dirs
         archAddress , connMapAddress, exp_flow_json = self.getUserJsons()
 
+        # TODO - Wrong, communication methods - directly with devices that bypasses main server!. Need to send json files to main server and main server distributes files
         for ip in globe.components.devicesIp:
-            with open(archAddress, 'rb') as f1, open(connMapAddress, 'rb') as f2:
-                files = [('arch.json', f1), ('conn.json', f2)]
-                address = f'http://{ip}:8484/updateJsonPath'
+            with open(archAddress, 'rb') as arch_json_file, open(connMapAddress, 'rb') as conn_json_file:
+                files = [(JSON_FILE_ARCH_REMOTE_NAME, arch_json_file), (JSON_FILE_COMM_REMOTE_NAME, conn_json_file)]
+                address = f'http://{ip}:{JSON_INIT_HANDLER_ERL_PORT}/updateJsonPath'
 
-                try: response = requests.post(address, files=files, timeout=8)
-                except requests.exceptions.Timeout:
-                    print(f'ERROR: TIMEOUT, COULDN\'T INIT DEVICES!!\nMake sure IPs are correct in {archAddress}')
+                try:
+                    response = requests.post(address, files=files, timeout=8)
+                except requests.exceptions.Timeout as e:
+                    LOG_ERROR(f'timeout error, action address:{address} arch: {archAddress}')
+                    tb = traceback.format_exc()
+                    LOG_ERROR(f'{tb}') 
+                    return False
+                except requests.exceptions.ConnectionError as e:
+                    LOG_ERROR(f'connection error, action address:{address} arch: {archAddress}')
+                    tb =  traceback.format_exc()
+                    LOG_ERROR(f'{tb}') 
                     return False
 
             if globe.jupyterFlag == False:
-              print(response.ok, response.status_code)
+              LOG_INFO(f'response: {response.ok} , status code: {response.status_code}')
         time.sleep(1)       # wait for connection to close ## TODO: check why
-        print("Init JSONs sent to devices")
+        LOG_INFO("completed")
 
     def showJsons(self):
         self.json_dir_parser.print_lists()
@@ -176,30 +205,16 @@ PREDICTION_STR = "Prediction"
     def stopServer(self):
         receiver.stop()
         return True
-
-    ## TODO: should be reviewed by Noa, Ohad and David
-    # Wait for a result to arrive to the queue, and get results which arrived:
-    def getQueueData(self):
-        received = False
-        
-        while not received:
-            if not globe.multiProcQueue.empty():
-                print("~New result has been created successfully~")
-                expResults = globe.multiProcQueue.get() # Get the new result out of the queue
-                received = True
-            time.sleep(0.1)
-
-        return expResults
    
         ## TODO: standartize the phase names / make them == .csv file
     def sendDataToSources(self, phase, splitMode = 1):
-        print("\nSending data to sources")
-        if not globe.CSVsplit:
+        if not globe.CSVsplit: # what is this? TODO ask haran
             globe.CSVsplit = splitMode 
 
         # 1 ack for mainserver, who waits for all sources
         globe.pendingAcks = 1
         # print(f"waiting for {globe.pendingAcks} acks from {len(globe.components.sources)} sources")
+        LOG_INFO("Sending data to sources")
         self.transmitter.updateCSV(phase)
 
         while globe.pendingAcks > 0:
@@ -209,39 +224,23 @@ PREDICTION_STR = "Prediction"
         print("\nData ready in sources")
 
 
-    def train(self, name = ""):
-        # Choose a nem for the current experiment:
-        if not name:
-            print("\nPlease choose a name for the current experiment:", end = ' ')
-            globe.experiment_flow_global.name = input()
-        else: 
-            globe.experiment_flow_global.name = name
-            
-        # Create a new folder for the CSVs of the chosen experiment:
-        if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{globe.experiment_flow_global.name}'):
-            os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{globe.experiment_flow_global.name}')
-            os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{globe.experiment_flow_global.name}/Training')
-            os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{globe.experiment_flow_global.name}/Prediction')
+    def train(self):
+        '''
+        Send train command to main server and results are gathered in experiment instance
+        '''
+        experiment_name = self.transmitter.train()
+        LOG_INFO(f'Training Phase of {experiment_name} completed')
+        return True
 
-        globe.experiment_flow_global.emptyExp() # Start a new empty experiment
-        self.transmitter.train()
-        expResults = self.getQueueData()
-        print('Training - Finished\n')
-        return expResults
-
-    def contPhase(self, phase):
-        self.transmitter.contPhase(phase)
-        expResults = self.getQueueData()
-        print('Training - Finished\n')
-        return expResults
+    def contPhase(self, phase): # TODO remove safely, Redundant - a second call of train can be done - 
+        experiment_name = self.transmitter.contPhase(phase)
+        LOG_INFO(f'Training Phase of {experiment_name} completed')
+        return True
 
     def predict(self):
-        self.transmitter.predict()
-        expResults = self.getQueueData()
-        print('Prediction - Finished\n')
-        self.experiments.append(expResults) # Assuming a cycle of training -> prediction, saving only now.
-        print("Experiment saved")
-        return expResults
+        experiment_name = self.transmitter.predict()
+        LOG_INFO(f'Prediction Phase of {experiment_name} completed')
+        return True
 
     def print_saved_experiments(self):
         if (len(self.experiments) == 0):
@@ -253,12 +252,14 @@ PREDICTION_STR = "Prediction"
         for i, exp in enumerate(self.experiments, start=1): 
             print(f"{i}) {exp.name}")
 
+    
+
     def plot_loss(self, expNum):
         expForStats = self.experiments[expNum-1]
 
         # Create a new folder for to save an image of the plot:
-        if not os.path.exists(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training'):
-            os.mkdir(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training')
+        if not os.path.exists(f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Training'):
+            os.mkdir(f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Training')
 
 
         ####### THIS IS TO PICK ONLY A SPECIFIC SOURCE FOR PLOT:
@@ -307,12 +308,12 @@ PREDICTION_STR = "Prediction"
         plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
 
         plt.show()
-        fileName = globe.experiment_flow_global.name
-        plt.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.png')
+        fileName = globe.experiment_focused_on.name
+        plt.savefig(f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Training/{fileName}.png')
         print(f'\n{fileName}.png was Saved...')
 
-    def accuracy_matrix(self, expNum, normalizeEnabled = False):
-        expForStats = self.experiments[expNum-1] 
+    def accuracy_matrix(self, normalizeEnabled = False):
+        expForStats = globe.experiment_focused_on
 
         # Choose the matching (to the original labeled CSV) CSV from the prediction results list:
 
@@ -342,7 +343,7 @@ PREDICTION_STR = "Prediction"
         # print("\nPlease enter the name of the FULL LABELED PREDICTION DATA (including .csv):", end = ' ') 
         # labelsCsvPath = input()
         labelsCsvPath = f"{expForStats.predictionResList[0].name}_test.csv"
-        for root, dirnames, filenames in os.walk(globe.INPUT_DATA_PATH):
+        for root, _ , filenames in os.walk(self.input_data_path):
             for filename in filenames:
                 if filename == labelsCsvPath:
                     labelsCsvPath = os.path.join(root, filename)
@@ -429,11 +430,11 @@ PREDICTION_STR = "Prediction"
         plt.show()
 
         fileName = sourceCSV.name.rsplit('/', 1)[-1] # If the CSV name contains a path, then take everything to the right of the last '/'.
-        disp.figure_.savefig(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.png')
+        disp.figure_.savefig(f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Prediction/{fileName}.png')
         print(f'\n{fileName}.png Saved...')
         
         ## print and save prediction stats
-        statFileName = f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/stats.txt'
+        statFileName = f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Prediction/stats.txt'
         if os.path.exists(statFileName): os.remove(statFileName)
         statFile = open(statFileName, "a")
 
@@ -491,7 +492,7 @@ PREDICTION_STR = "Prediction"
             newlabelsCsvDf = pd.concat(workersTrainResCsv, axis=1)
 
             fileName = csvTrainRes.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
-            newlabelsCsvDf.to_csv(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Training/{fileName}.csv', header = True, index = False)
+            newlabelsCsvDf.to_csv(f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Training/{fileName}.csv', header = True, index = False)
             print(f'{fileName}.csv Saved...')
         
         print(f"\nCreating prediction results files for the following {numOfPredicitionCsvs} CSVs:")
@@ -513,9 +514,10 @@ PREDICTION_STR = "Prediction"
             csvPredictResDf.index.name = 'Sample Index'
 
             fileName = csvPredictRes.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
-            csvPredictResDf.to_csv(f'/usr/local/lib/nerlnet-lib/NErlNet/Results/{expForStats.name}/Prediction/{fileName}.csv', header = True, index = True)
+            csvPredictResDf.to_csv(f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Prediction/{fileName}.csv', header = True, index = True)
             print(f'{fileName}.csv Saved...')
 
+    # change statistics from input to API
     def statistics(self):
         while True:
             print("\nPlease choose an experiment number:", end = ' ')

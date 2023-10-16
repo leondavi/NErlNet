@@ -20,12 +20,8 @@ api = Api(receiver)
 #lossArgs = reqparse.RequestParser()
 #lossArgs.add_argument('lossFunction', type='str', help='Receiver Error - Please send lossFunction')
 
-#If in Jupyter Notebook: Disable logging messages:
-if globe.jupyterFlag == True: 
-    logging.getLogger('werkzeug').disabled = True
-
-# Prepare to get results from the receiver:
-experiment_flow_global = Experiment()
+#Disable logging messages (Must be disabled in Jupyter):
+logging.getLogger('werkzeug').disabled = True
 
 def initReceiver(receiverHost, receiverPort, event):
         try:
@@ -46,7 +42,7 @@ def processResult(resData, currentPhase):
 
             ## result is set by worker to be -1 when it had a problem working on the data
             if (int(result) != WORKER_NON_RESULT): 
-                for csvRes in globe.experiment_flow_global.trainingResList:
+                for csvRes in globe.experiment_focused_on.trainingResList:
                     if worker in csvRes.workers:
                         for workerRes in csvRes.workersResList:
                             if (workerRes.name == worker):
@@ -58,7 +54,7 @@ def processResult(resData, currentPhase):
             # resData = [w#, batchID, csvName, batchSize]
             newPredictBatch = PredictBatch(resData) 
 
-            for csvRes in globe.experiment_flow_global.predictionResList:
+            for csvRes in globe.experiment_focused_on.predictionResList:
                 if newPredictBatch.worker in csvRes.workers:
                     for workerRes in csvRes.workersResList:
                         if (workerRes.name == newPredictBatch.worker):
@@ -76,7 +72,7 @@ class shutdown(Resource):
 
 class test(Resource):
     def post(self):
-        multiProcQueue.put("new message @@@")
+        #multiProcQueue.put("new message @@@")
         return {'Test' : 'Passed!'} #Returns the response in JSON format
 
 class ack(Resource):
@@ -95,8 +91,9 @@ class trainRes(Resource):
         resData = request.form
         resData = list(resData)
         resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter
-        if globe.jupyterFlag == False:
-            print(resData)
+        # Consider what to do
+        # if globe.jupyterFlag == False:
+        #     print(resData)
 
         processResult(resData, "Training")
         
@@ -109,8 +106,10 @@ class predictRes(Resource):
         resData = request.form
         resData = list(resData)
         resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter:
-        if globe.jupyterFlag == False:
-            print(resData)
+        
+        # This prints every batch - Consider what to do with this part!
+        # if globe.jupyterFlag == False:
+        #     print(resData)
 
         processResult(resData, "Prediction")
 
