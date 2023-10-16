@@ -6,27 +6,27 @@
   },
   "devices": [
     {
-      "host": "192.168.0.108",
+      "host": "10.211.55.3",
       "entities": "mainServer,c1,c2,c3,c4,c5,c6,s1,r1,r2,r3,r4,r5,r6,apiServer"
     }
   ],
   "apiServer": 
     {
-      "host": "192.168.0.108",
+      "host": "10.211.55.3",
       "port": "8095",
       "args": ""
     }
   ,
   "nerlGUI": 
     {
-      "host": "192.168.0.108",
+      "host": "10.211.55.3",
       "port": "8096",
       "args": ""
     }
   ,
   "mainServer": 
     {
-      "host": "192.168.0.108",
+      "host": "10.211.55.3",
       "port": "8080",
       "args": ""
     }

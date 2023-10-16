@@ -45,3 +45,10 @@ def is_port_free(port: int) -> bool:
     import socket
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(('localhost', port)) != 0
+    
+
+def search_file(filename : str , rootdir : str) -> str:
+    for root, _, files in os.walk(rootdir):
+        if filename in files:
+            return os.path.join(root, filename)
+    return None

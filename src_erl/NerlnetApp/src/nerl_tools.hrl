@@ -2,7 +2,9 @@
 -include_lib("kernel/include/logger.hrl").
 
 -define(MAIN_SERVER_ATOM, mainServer).
+-define(MAIN_SERVER_STR, "mainServer").
 -define(API_SERVER_ATOM, apiServer).
+-define(API_SERVER_STR, "apiServer").
 -define(NERLGUI_SERVER_ATOM, nerlGUI).
 -define(LIST_OF_SPECIAL_SERVERS,[?API_SERVER_ATOM, ?NERLGUI_SERVER_ATOM, ?MAIN_SERVER_ATOM]).
 %% HEADER format example: "nerlNetServer_app/start@52: MES"
@@ -31,7 +33,7 @@
 -define(DATA_LEN, 1000*1000*1000). % default is 8MB, here set to 1000MB
 % -define(DATA_LEN, infinity).
 %% sourceFSM defines
--define(SENDALL, 1).
+-define(CASTING, 1).
 -define(ROUNDROBIN, 2).
 
 %% workerFSM defines
