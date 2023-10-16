@@ -127,7 +127,7 @@ handle_cast({clientsTraining,Body}, State = #main_genserver_state{state = castin
   io:format("Body:~p~n",[Body]),
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
-handle_cast({clientsTraining, _Body}, State = #main_genserver_state{myName = MyName, clients = ListOfClients, msgCounter = MsgCounter}) ->
+handle_cast({clientsTraining, _Body}, State = #main_genserver_state{myName = MyName, clients = ListOfClients,nerlnetGraph=NerlnetGraph, msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
   % io:format("main server: setting all clients on training state: ~p~n",[ListOfClients]),
 %%  io:format("Body:~p~n",[Body]),
@@ -135,7 +135,10 @@ handle_cast({clientsTraining, _Body}, State = #main_genserver_state{myName = MyN
 %%  io:format("Splitted-(Body):~p~n",[re:split(binary_to_list(Body), ",", [{return, list}])]),
 %%  TODO find the router that can send this request to Sources**
   io:format("setting clients ~p to training~n",[ListOfClients]),
-  _SendAction = [{setClientState(clientTraining,ClientName,MyName)}|| ClientName <- ListOfClients],
+  [H|_]=ListOfClients,  %temp, once fully implemented, sending should be to a connected router
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,H,NerlnetGraph),
+  nerl_tools:http_request(RouterHost,RouterPort,"broadcast",term_to_binary({ListOfClients,{"clientTraining",MyName}})),
+  %_SendAction = [{setClientState(clientTraining,ClientName,MyName)}|| ClientName <- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
 handle_cast({clientsPredict,_Body}, State = #main_genserver_state{state = casting, clients = ListOfClients,msgCounter = MsgCounter}) ->
@@ -224,8 +227,8 @@ handle_cast({sourceAck,Body}, State = #main_genserver_state{sourcesWaitingList =
 
 
 handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList,msgCounter = MsgCounter}) ->
-  NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
-  % io:format("new Waiting List: ~p ~n",[NewWaitingList]),
+  NewWaitingList = WaitingList--[binary_to_term(Body)],
+  %io:format("new Waiting List: ~p ~n",[NewWaitingList]),
   if length(NewWaitingList) == 0 -> ack();
   true-> ok end,
   {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList, msgCounter = MsgCounter+1}};
