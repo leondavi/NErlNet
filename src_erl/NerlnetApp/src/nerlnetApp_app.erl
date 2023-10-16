@@ -91,6 +91,7 @@ start(_StartType, _StartArgs) ->
     %% make sure nif can be loaded:
     nerlNIF:nif_preload(),
     HostName = nerl_tools:getdeviceIP(),
+    ?LOG_INFO("Installed Erlang OTP: ~s (Supported from 25)",[erlang:system_info(otp_release)]),
     ?LOG_INFO(?LOG_HEADER++"This device IP: ~p~n", [HostName]),
     %Create a listener that waits for a message from python about the adresses of the wanted json
 
@@ -190,7 +191,7 @@ createClientsAndWorkers() ->
                 {"/clientTraining",clientStateHandler, [training,ClientStatemPid]},
                 {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
                 {"/clientPredict",clientStateHandler, [predict,ClientStatemPid]},
-                {"/weightsVector",clientStateHandler, [vector,ClientStatemPid]}
+                {"/batch",clientStateHandler, [batch,ClientStatemPid]}
             ]}
         ]),
         init_cowboy_start_clear(Client, {HostName, Port},NerlClientDispatch)
@@ -261,7 +262,7 @@ createRouters(MapOfRouters, HostName) ->
                 {"/csvReady",routingHandler, [csvReady,RouterGenServerPid]},
                 {"/sourceDone",routingHandler, [sourceDone,RouterGenServerPid]},
                 {"/clientReady",routingHandler, [clientReady,RouterGenServerPid]},
-                {"/weightsVector",routingHandler, [rout,RouterGenServerPid]},
+                {"/batch",routingHandler, [rout,RouterGenServerPid]},
                 {"/startCasting",routingHandler, [startCasting,RouterGenServerPid]},
                 {"/stopCasting",routingHandler, [stopCasting,RouterGenServerPid]},
                 {"/federatedWeightsVector",routingHandler, [federatedWeightsVector,RouterGenServerPid]},

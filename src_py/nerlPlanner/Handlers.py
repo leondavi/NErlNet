@@ -285,6 +285,12 @@ def routers_handler(window,event,values):
             routers_this_router_policy = routers_this_router.get_policy().get_policy_name()
             routers_update_inputs_ui(window)
 
+    if event == KEY_ROUTERS_BUTTON_REMOVE:
+        routers_this_router_name = values[KEY_ENTITIES_ROUTERS_LISTBOX][0] if values[KEY_ENTITIES_ROUTERS_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
+        if routers_this_router_name:
+            json_dc_inst.remove_router(routers_this_router_name)
+
+
 
     # TODO COMPLETE load and remove
 
@@ -310,7 +316,7 @@ def sources_handler(window, event, values):
             if frequency is None:
                 sg.popup_ok(f"Default frequency was selected but never set!", title='Adding Source Failed')
             else:
-                frequency = frequency.get_str()
+                frequency = frequency.get_value_str()
         if bool(sources_this_source_name) and bool(frequency) and (not epochs.error()):
             # new source handling:
             if (sources_this_source is None):

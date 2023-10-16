@@ -125,7 +125,7 @@ PREDICTION_STR = "Prediction"
             if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
                 print(f"===================Failed to initialize the receiver using the provided address:==========================\n\
                 (http://{globe.components.receiverHost}:{globe.components.receiverPort})\n\
-    Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
+                Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
                 sys.exit()
 
         # Initalize an instance for the transmitter:
@@ -312,8 +312,8 @@ PREDICTION_STR = "Prediction"
         plt.savefig(f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Training/{fileName}.png')
         print(f'\n{fileName}.png was Saved...')
 
-    def accuracy_matrix(self, expNum, normalizeEnabled = False):
-        expForStats = self.experiments[expNum-1] 
+    def accuracy_matrix(self, normalizeEnabled = False):
+        expForStats = globe.experiment_focused_on
 
         # Choose the matching (to the original labeled CSV) CSV from the prediction results list:
 
@@ -343,7 +343,7 @@ PREDICTION_STR = "Prediction"
         # print("\nPlease enter the name of the FULL LABELED PREDICTION DATA (including .csv):", end = ' ') 
         # labelsCsvPath = input()
         labelsCsvPath = f"{expForStats.predictionResList[0].name}_test.csv"
-        for root, dirnames, filenames in os.walk(self.input_data_path):
+        for root, _ , filenames in os.walk(self.input_data_path):
             for filename in filenames:
                 if filename == labelsCsvPath:
                     labelsCsvPath = os.path.join(root, filename)
