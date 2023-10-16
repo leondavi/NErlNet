@@ -112,8 +112,8 @@ waitForInit() ->
     end.
 
 createNerlnetInitiator(HostName) ->
-    Port = ?NERLNET_INIT_PORT,
-    PortAvailable = nerl_tools:port_available(Port),
+    DefaultPort = ?NERLNET_INIT_PORT,
+    PortAvailable = nerl_tools:port_available(DefaultPort),
     if
         PortAvailable ->
             NerlnetInitiatorDispatch = cowboy_router:compile([
@@ -125,10 +125,10 @@ createNerlnetInitiator(HostName) ->
             ]),
             %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
             %% An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
-            init_cowboy_start_clear(nerlnetInitiator, {HostName,Port},NerlnetInitiatorDispatch);    
-        true -> ?LOG_NOTICE("Nerlnet uses port ~p and it has to be unused before running Nerlnet server!", [Port]),
-                ?LOG_NOTICE("Find the process that uses port ~p using the command: lsof -i:~p",[Port, Port]),
-                ?LOG_ERROR("Port ~p is being used - can not start (definition NERLNET_INIT_PORT in nerl_tools.hrl)", [Port])
+            init_cowboy_start_clear(nerlnetInitiator, {HostName,DefaultPort},NerlnetInitiatorDispatch);
+        true -> ?LOG_NOTICE("Nerlnet uses port ~p and it has to be unused before running Nerlnet server!", [DefaultPort]),
+                ?LOG_NOTICE("Find the process that uses port ~p using the command: lsof -i:~p",[DefaultPort, DefaultPort]),
+                ?LOG_ERROR("Port ~p is being used - can not start (definition NERLNET_INIT_PORT in nerl_tools.hrl)", [DefaultPort])
     end.
 
 
@@ -169,6 +169,16 @@ parseJsonAndStartNerlnet(HostName) ->
     createMainServer(HostOfMainServer,BatchSize,HostName).
 
 %% internal functions
+port_validator(Port, EntityName) ->
+    PortAvailable = nerl_tools:port_available(Port),
+    if PortAvailable ->
+        ok;
+        true -> ?LOG_ERROR("Nerlnet entity: ~p uses port ~p and it must be free", [EntityName, Port]),
+                ?LOG_ERROR("You can take the following steps:",[]),
+                ?LOG_ERROR("1. Change port in DC file to free port",[]),
+                ?LOG_ERROR("2. Find the process that uses port ~p using the command: lsof -i:~p and terminate it (Risky approach)",[Port, Port]),
+                erlang:error("Port ~p is being used - cannot start")
+    end.
 
 createClientsAndWorkers() ->
     ClientsAndWorkers = ets:lookup_element(nerlnet_data, hostClients, ?DATA_IDX), % Each element is  {Name,{Port,ClientWorkers,ClientWorkersMaps}}
@@ -178,7 +188,8 @@ createClientsAndWorkers() ->
     NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
 
     Func = 
-        fun({Client,{Port,_ClientWorkers,_ClientWorkersMaps, WorkerToClientMap}}) -> 
+        fun({Client,{Port,_ClientWorkers,_ClientWorkersMaps, WorkerToClientMap}}) ->
+        port_validator(Port, Client),
         ClientStatemArgs = {Client, NerlnetGraph, WorkerToClientMap},
         ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
         %%Nerl Client
@@ -210,6 +221,7 @@ createSources(BatchSize, DefaultFrequency, HostName) ->
     Func = 
     fun(SourceName,{SourcePort,SourceMethod, CustomFrequency}) -> 
         % SourceStatemArgs = {SourceName, WorkersMap, NerlnetGraph, SourceMethod, BatchSize},        %%TODO  make this a list of Sources
+        port_validator(SourcePort, SourceName),
         SourceStatemArgs = 
             case CustomFrequency of 
                 none -> {SourceName, WorkersMap, NerlnetGraph, SourceMethod, BatchSize, DefaultFrequency};
@@ -244,6 +256,7 @@ createRouters(MapOfRouters, HostName) ->
         %% all http requests will be handled by Cowboy which updates router_genserver if necessary.
         %%    connectivity map will be as follow:
         %%    name_atom of machine => {Host,Port} OR an atom router_name, indicating there is no direct http connection, and should pass request via router_name
+        port_validator(Port, RouterName),
         RouterGenServerArgs= {RouterName, NerlnetGraph},        %%TODO  make this a list of Routers
         RouterGenServerPid = routerGenserver:start_link(RouterGenServerArgs),
 
@@ -267,6 +280,8 @@ createRouters(MapOfRouters, HostName) ->
                 {"/stopCasting",routingHandler, [stopCasting,RouterGenServerPid]},
                 {"/federatedWeightsVector",routingHandler, [federatedWeightsVector,RouterGenServerPid]},
                 {"/federatedWeights",routingHandler, [federatedWeights,RouterGenServerPid]},
+                {"/unicast",routingHandler, [unicast,RouterGenServerPid]},
+                {"/broadcast",routingHandler, [broadcast,RouterGenServerPid]},
 
                 %%GUI actions
                 {"/getStats",routingHandler, [getStats,RouterGenServerPid]}
@@ -282,6 +297,8 @@ createMainServer(false,_BatchSize,_HostName) -> none;
 createMainServer(true,BatchSize,HostName) ->
     Name = mainServer,
     {Port, _Args} = ets:lookup_element(nerlnet_data, mainServer, ?DATA_IDX),
+    port_validator(Port, Name),
+        
     Clients = ets:lookup_element(nerlnet_data, clients, ?DATA_IDX),  % format of maps: {ClientName => {Workers, Port}, ClientsMap}
     ClientsNames = maps:keys(Clients),
     WorkersMap = ets:lookup_element(nerlnet_data, workers, ?DATA_IDX),
