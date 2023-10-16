@@ -76,7 +76,7 @@ handle_cast({rout,Body}, State = #router_genserver_state{myName = MyName, msgCou
 %%  Body contains list of sources to send the request, and input name list of clients should be before  '@'
 %%  ToSend = term_to_binary({ClientName, WorkerName, CSVPath, Counter, Head}),
   {To, _WorkerName, _CSVPath, _Counter, _Head} = binary_to_term(Body),
-  nerl_tools:sendHTTP(MyName, To, "weightsVector", Body),
+  nerl_tools:sendHTTP(MyName, To, "batch", Body),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
 
 
