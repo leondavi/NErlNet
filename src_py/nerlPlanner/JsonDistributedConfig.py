@@ -80,6 +80,10 @@ class JsonDistributedConfig():
             del(self.main_dict[KEY_NERLNET_SETTINGS][KEY_FREQUENCY]) 
             del(self.main_dict[KEY_NERLNET_SETTINGS][KEY_BATCH_SIZE])
     
+    def clear_nerlnet_special_entities_settings(self):
+         del (self.main_dict[MainServer.NAME])
+         del (self.main_dict[ApiServer.NAME])
+
     def get_frequency(self):
         return self.default_frequency if self.default_frequency else None # returns Frequency or None
     

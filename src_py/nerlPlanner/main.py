@@ -38,8 +38,8 @@ specialEntitiesFields = [[sg.Text('Main Server: '), sg.Text('Port'), sg.InputTex
                         [sg.Text('API Server:  '), 
                                           sg.Text('Port'), sg.InputText(size=10, key=KEY_SETTINGS_APISERVER_PORT_INPUT, enable_events=True),
                                           sg.Text('Args'), sg.InputText(size=15, key=KEY_SETTINGS_APISERVER_ARGS_INPUT, enable_events=True)],
-                        [sg.Button("Save", size=(10), key=KEY_SETTINGS_SPECIAL_ENTITIES_SAVE, enable_events=True), sg.Button("Clear",size=(10))],
-                        ] # TODO complete status bar activity]
+                        [sg.Button("Save", size=(10), key=KEY_SETTINGS_SPECIAL_ENTITIES_SAVE, enable_events=True),
+                        sg.Button("Clear",size=(10), key=KEY_SETTINGS_SPECIAL_ENTITIES_CLEAR, enable_events=True)]] 
 specialEntitiesFrame = sg.Frame("Special Entities",layout=specialEntitiesFields, expand_x=True, expand_y=True)
 
 jointSettingsAndSpecialEntities = sg.Frame("",layout=[[settingsFrame ,specialEntitiesFrame], 
