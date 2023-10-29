@@ -19,6 +19,12 @@ def reset_json_distributed_configuration():
 def settings_reset_inputs_ui(window):
     window[KEY_SETTINGS_FREQUENCY_INPUT].update('')
     window[KEY_SETTINGS_BATCH_SIZE_INPUT].update('')
+    
+def settings_special_entities_reset_inputs_ui(window):
+    window[KEY_SETTINGS_MAINSERVER_PORT_INPUT].update('')
+    window[KEY_SETTINGS_MAINSERVER_ARGS_INPUT].update('')
+    window[KEY_SETTINGS_APISERVER_PORT_INPUT].update('')
+    window[KEY_SETTINGS_APISERVER_ARGS_INPUT].update('')
 
 def settings_handler(window, event, values):
     frequency = None
@@ -69,7 +75,15 @@ def settings_handler(window, event, values):
             window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_by_main_server}")   
             window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {device_by_main_server}")
 
-
+    if event == KEY_SETTINGS_SPECIAL_ENTITIES_CLEAR:
+        main_server_port = values[KEY_SETTINGS_MAINSERVER_PORT_INPUT] if values[KEY_SETTINGS_MAINSERVER_PORT_INPUT] else None
+        main_server_args = values[KEY_SETTINGS_MAINSERVER_ARGS_INPUT] if values[KEY_SETTINGS_MAINSERVER_ARGS_INPUT] else None
+        api_server_port = values[KEY_SETTINGS_APISERVER_PORT_INPUT] if values[KEY_SETTINGS_APISERVER_PORT_INPUT] else None
+        api_server_args = values[KEY_SETTINGS_APISERVER_ARGS_INPUT] if values[KEY_SETTINGS_APISERVER_ARGS_INPUT] else None
+        if main_server_port and main_server_args and api_server_port and api_server_args:
+            json_dc_inst.clear_nerlnet_special_entities_settings()
+        settings_special_entities_reset_inputs_ui(window)
+        
 def workers_handler(window, event, values):
     global workers_load_worker_path
     global workers_new_worker
