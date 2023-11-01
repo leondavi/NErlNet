@@ -74,13 +74,23 @@ class JsonDistributedConfig():
         settings_dict_content = [(KEY_FREQUENCY,frequency), (KEY_BATCH_SIZE, batchsize)]
         self.main_dict[KEY_NERLNET_SETTINGS] = OrderedDict(settings_dict_content)
 
+    def clear_nerlnet_settings(self):
+        self.default_frequency = None
+        if self.main_dict[KEY_NERLNET_SETTINGS]:
+            del(self.main_dict[KEY_NERLNET_SETTINGS][KEY_FREQUENCY]) 
+            del(self.main_dict[KEY_NERLNET_SETTINGS][KEY_BATCH_SIZE])
+    
+    def clear_nerlnet_special_entities_settings(self):
+         del (self.main_dict[MainServer.NAME])
+         del (self.main_dict[ApiServer.NAME])
+
     def get_frequency(self):
         return self.default_frequency if self.default_frequency else None # returns Frequency or None
     
     def get_batch_size(self):
         batch_size_field_name = get_batch_size_field_name()
         return self.main_dict[KEY_NERLNET_SETTINGS][get_batch_size_field_name()] if batch_size_field_name in self.main_dict[KEY_NERLNET_SETTINGS] else None
-
+        
     def get_main_server(self):
         return self.main_dict[MainServer.NAME]
     
@@ -98,7 +108,14 @@ class JsonDistributedConfig():
     
     def get_device_by_name(self, name : str) -> Device:
         return self.main_dict[KEY_DEVICES][name] if name in self.main_dict[KEY_DEVICES] else None
-    
+
+    def get_device_by_entity(self, entity_name : str) -> Device:
+        for device in self.main_dict[KEY_DEVICES]:
+            device_inst = self.get_device_by_name(device)
+            if entity_name in device_inst.get_entities_names():
+                return device_inst
+        return None
+
     def get_devices_ips(self):
         return list( dev.get_ip().get_address() for _ , dev in self.main_dict[KEY_DEVICES].items())
     
@@ -120,6 +137,12 @@ class JsonDistributedConfig():
         
         self.main_dict[KEY_DEVICES][device.get_name()] = device
         return self.DEVICE_ADD_SUCCESS
+    
+    def remove_device(self, device_name : str):
+        # device_inst = self.main_dict[KEY_DEVICES][device_name]
+        # device_inst.entities_dict = None
+        del(self.main_dict[KEY_DEVICES][device_name]) 
+
     
     def add_entity_to_device(self, device_name : str , entity_name : str):
         '''
@@ -231,6 +254,11 @@ class JsonDistributedConfig():
             self.main_dict[KEY_SOURCES][source_name] = source
         return True
     
+    def remove_source(self, source_name : str):
+        self.remove_entity_from_device(source_name)
+        if source_name in self.get_sources_names():
+            del self.main_dict[KEY_SOURCES][source_name]
+ 
     def get_source(self, source_name : str) -> Source:
         return self.get_entity_with_type(source_name, KEY_SOURCES)
     

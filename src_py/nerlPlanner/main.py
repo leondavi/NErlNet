@@ -29,7 +29,8 @@ devices_online_hosts_list = [DEFAULT_HOST_IP]
 settingsFields = [  
                 [sg.Text('Frequency '), sg.InputText(size=10, key=KEY_SETTINGS_FREQUENCY_INPUT, enable_events=True), sg.Text('Default frequency for sensors')],
                 [sg.Text('Batch Size'), sg.InputText(size=10, key=KEY_SETTINGS_BATCH_SIZE_INPUT, enable_events=True), sg.Text('# of samples in a message')],
-                [sg.Button("Save", size=(10), key=KEY_SETTINGS_SAVE_BUTTON, enable_events=True), sg.Button("Clear",size=(10))]]
+                [sg.Button("Save", size=(10), key=KEY_SETTINGS_SAVE_BUTTON, enable_events=True),
+                 sg.Button("Clear",size=(10), key=KEY_SETTINGS_CLEAR_BUTTON, enable_events=True)]]
 settingsFrame = sg.Frame("Settings",layout=settingsFields, expand_x=True, expand_y=True)
 
 specialEntitiesFields = [[sg.Text('Main Server: '), sg.Text('Port'), sg.InputText(size=10, key=KEY_SETTINGS_MAINSERVER_PORT_INPUT, enable_events=True),
@@ -37,11 +38,14 @@ specialEntitiesFields = [[sg.Text('Main Server: '), sg.Text('Port'), sg.InputTex
                         [sg.Text('API Server:  '), 
                                           sg.Text('Port'), sg.InputText(size=10, key=KEY_SETTINGS_APISERVER_PORT_INPUT, enable_events=True),
                                           sg.Text('Args'), sg.InputText(size=15, key=KEY_SETTINGS_APISERVER_ARGS_INPUT, enable_events=True)],
-                        [sg.Button("Save", size=(10), key=KEY_SETTINGS_SPECIAL_ENTITIES_SAVE, enable_events=True), sg.Button("Clear",size=(10))],
-                        ] # TODO complete status bar activity]
+                        [sg.Button("Save", size=(10), key=KEY_SETTINGS_SPECIAL_ENTITIES_SAVE, enable_events=True),
+                        sg.Button("Clear",size=(10), key=KEY_SETTINGS_SPECIAL_ENTITIES_CLEAR, enable_events=True)]] 
 specialEntitiesFrame = sg.Frame("Special Entities",layout=specialEntitiesFields, expand_x=True, expand_y=True)
 
-jointSettingsAndSpecialEntities = sg.Frame("",layout=[[settingsFrame ,specialEntitiesFrame], [sg.Text(f'This Host IP: {DEFAULT_HOST_IP}', expand_x=True)], [sg.Text('Main Server Status',size=(100))], [sg.Text('Api Server Status',size=(100))]])
+jointSettingsAndSpecialEntities = sg.Frame("",layout=[[settingsFrame ,specialEntitiesFrame], 
+                                                      [sg.Text(f'This Host IP: {DEFAULT_HOST_IP}', expand_x=True)], 
+                                                      [sg.Text('Main Server Status', key=KEY_SETTINGS_MAIN_SERVER_STATUS_BAR, enable_events=True, size=(100), expand_x=True)], 
+                                                      [sg.Text('Api Server Status', key=KEY_SETTINGS_API_SERVER_STATUS_BAR, enable_events=True, size=(100), expand_x=True)]])
 
 # Devices 
 DevicesNamesList = []
@@ -138,7 +142,7 @@ SourcesFields = [
                  [sg.Text("Port:     "), sg.InputText(size=15, key=KEY_SOURCES_PORT_INPUT, enable_events=True),
                   sg.Text("Epochs:      "), sg.InputText(size=10, key=KEY_SOURCES_EPOCHS_INPUT, enable_events=True) ],
                   [sg.Text("Policy:  "), sg.Combo(list(SourcePolicyDict.keys()), size=15, key=KEY_SOURCES_POLICY_COMBO_BOX, enable_events=True),
-                   sg.Text("Type:    "), sg.Combo(list(SourceTypeDict.keys()),SOURCE_TYPE_DICT_DEFAULT_SOURCE_TYPE,  size=15, key=KEY_SOURCES_TYPE_COMBO_BOX, enable_events=True)]
+                   sg.Text("Type:    "), sg.Combo(list(SourceTypeDict.keys()), default_value=SOURCE_TYPE_DICT_DEFAULT_SOURCE_TYPE, size=15, key=KEY_SOURCES_TYPE_COMBO_BOX, enable_events=True)]
                 ]
 SourcesFieldsFrame = sg.Frame("Sources",SourcesFields)
 

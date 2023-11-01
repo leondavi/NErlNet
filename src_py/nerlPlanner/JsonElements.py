@@ -76,13 +76,16 @@ class Epochs(JsonElement):
     def get_value_str(self):
         return str(self.value)
 
+    def get_value(self):
+        return self.value
+
     def error(self):
         return self.value <= 0
-    
+
     def get_as_tuple(self):
         assert not self.error()
         return (self.get_name(), str(self.value))
-    
+
     def get_str(self):
         return f'{self}'
 
@@ -101,9 +104,12 @@ class Frequency(JsonElement):
     def get_as_tuple(self):
         assert not self.error()
         return (self.get_name() , str(self.value))
-    
+
     def get_value_str(self):
         return f'{self.value}'
+
+    def get_value(self):
+        return self.value
 
 
 class BatchSize(JsonElement):
@@ -208,6 +214,9 @@ class ApiServer(JsonElement):
         self.port = Port(port)
         self.args = Arguments(args)
 
+    def __format__(self, __format_spec: str) -> str:
+        return f"{self.port}"
+    
     def get_port(self):
         return self.port
     
@@ -233,6 +242,9 @@ class MainServer(JsonElement):
         self.port = Port(port)
         self.args = Arguments(args)
 
+    def __format__(self, __format_spec: str) -> str:
+        return f"{self.port}"
+    
     def get_port(self):
         return self.port
     
@@ -257,6 +269,9 @@ class Device(JsonElement):
         self.ip = Ipv4(ip_address)
         self.entities_dict = OrderedDict()
 
+    def __format__(self, __format_spec: str) -> str:
+        return f"Device: {self.name}"
+    
     def get_entities_names(self):
         return list(self.entities_dict.keys())
 
@@ -348,9 +363,21 @@ class Source(JsonElement):
     def get_port(self):
         return self.port
 
+    def get_frequency(self):
+        return self.frequency
+
+    def get_epochs(self):
+        return self.epochs
+
+    def get_policy(self):
+        return self.policy
+
+    def get_source_type(self):
+        return get_inv_dict(SourceTypeDict)[self.source_type]
+
     def error(self):
         return self.port.error() or self.policy.error() or self.frequency.error() or self.epochs.error() or self.source_type_error()
-    
+
     def get_as_dict(self):
         assert not self.error()
         elements_list = [self.get_name_as_tuple(), 

@@ -16,6 +16,16 @@ def reset_json_distributed_configuration():
     global json_dc_inst
     json_dc_inst = JsonDistributedConfig()
 
+def settings_reset_inputs_ui(window):
+    window[KEY_SETTINGS_FREQUENCY_INPUT].update('')
+    window[KEY_SETTINGS_BATCH_SIZE_INPUT].update('')
+    
+def settings_special_entities_reset_inputs_ui(window):
+    window[KEY_SETTINGS_MAINSERVER_PORT_INPUT].update('')
+    window[KEY_SETTINGS_MAINSERVER_ARGS_INPUT].update('')
+    window[KEY_SETTINGS_APISERVER_PORT_INPUT].update('')
+    window[KEY_SETTINGS_APISERVER_ARGS_INPUT].update('')
+
 def settings_handler(window, event, values):
     frequency = None
     frequency_inst = None
@@ -35,7 +45,14 @@ def settings_handler(window, event, values):
             sg.popup_ok(f"Wrong or missed input!", keep_on_top=True, title="Settings Input Issue")
         else:
             json_dc_inst.add_nerlnet_settings(frequency_inst, batch_size_inst)
-
+            
+    if event == KEY_SETTINGS_CLEAR_BUTTON:
+        frequency = values[KEY_SETTINGS_FREQUENCY_INPUT] if values[KEY_SETTINGS_FREQUENCY_INPUT] else None
+        batch_size = values[KEY_SETTINGS_BATCH_SIZE_INPUT] if values[KEY_SETTINGS_BATCH_SIZE_INPUT] else None
+        if frequency and batch_size:
+            json_dc_inst.clear_nerlnet_settings()
+        settings_reset_inputs_ui(window)
+    
     if event == KEY_SETTINGS_SPECIAL_ENTITIES_SAVE:
         main_server_port = values[KEY_SETTINGS_MAINSERVER_PORT_INPUT] if values[KEY_SETTINGS_MAINSERVER_PORT_INPUT] else None
         main_server_args = values[KEY_SETTINGS_MAINSERVER_ARGS_INPUT] if values[KEY_SETTINGS_MAINSERVER_ARGS_INPUT] else None
@@ -53,8 +70,20 @@ def settings_handler(window, event, values):
         else:
             json_dc_inst.add_main_server(main_server_inst)
             json_dc_inst.add_api_server(api_server_inst)
+            device_by_main_server = json_dc_inst.get_device_by_entity(main_server_inst.NAME)
+            device_by_api_server = json_dc_inst.get_device_by_entity(api_server_inst.NAME)
+            window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_by_main_server}")   
+            window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {device_by_main_server}")
 
-
+    if event == KEY_SETTINGS_SPECIAL_ENTITIES_CLEAR:
+        main_server_port = values[KEY_SETTINGS_MAINSERVER_PORT_INPUT] if values[KEY_SETTINGS_MAINSERVER_PORT_INPUT] else None
+        main_server_args = values[KEY_SETTINGS_MAINSERVER_ARGS_INPUT] if values[KEY_SETTINGS_MAINSERVER_ARGS_INPUT] else None
+        api_server_port = values[KEY_SETTINGS_APISERVER_PORT_INPUT] if values[KEY_SETTINGS_APISERVER_PORT_INPUT] else None
+        api_server_args = values[KEY_SETTINGS_APISERVER_ARGS_INPUT] if values[KEY_SETTINGS_APISERVER_ARGS_INPUT] else None
+        if main_server_port and main_server_args and api_server_port and api_server_args:
+            json_dc_inst.clear_nerlnet_special_entities_settings()
+        settings_special_entities_reset_inputs_ui(window)
+        
 def workers_handler(window, event, values):
     global workers_load_worker_path
     global workers_new_worker
@@ -112,6 +141,11 @@ def workers_handler(window, event, values):
         else:
             sg.popup_ok(f"selection or name issue", keep_on_top=True, title="Loading Issue")
 
+
+def devices_reset_inputs_ui(window):
+    window[KEY_DEVICES_NAME_INPUT].update('')
+    window[KEY_DEVICES_IP_INPUT].update('x.x.x.x')
+    
 def devices_handler(window, event, values):
     global devices_name 
     global devices_ip_str
@@ -139,6 +173,23 @@ def devices_handler(window, event, values):
                 window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
             else:
                 sg.popup_ok("Ip or Name are wrong or exist!")
+                
+    if event == KEY_DEVICES_BUTTON_REMOVE and devices_devices_list_box_selection:
+        # Update settings status bar
+        device_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
+        main_server_inst = json_dc_inst.get_main_server()
+        api_server_inst = json_dc_inst.get_api_server()
+        if main_server_inst and main_server_inst.NAME in device_inst.get_entities_names():
+             window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, None")
+        if api_server_inst and api_server_inst.NAME in device_inst.get_entities_names():
+             window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, None")
+        
+        # Remove device and update GUI      
+        json_dc_inst.remove_device(devices_devices_list_box_selection)
+        devices_devices_list_box_selection = ""
+        window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update("")
+        window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
+        devices_reset_inputs_ui(window)
 
     if event == KEY_DEVICES_ADD_ENTITY_TO_DEVICE and last_selected_entity and devices_devices_list_box_selection:
         res = json_dc_inst.add_entity_to_device(devices_devices_list_box_selection, last_selected_entity)
@@ -148,13 +199,18 @@ def devices_handler(window, event, values):
             # TODO  remove occupied devices from combo
             last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
             window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state_not_occupied)
+            # Update Settings status bar
+            main_server_inst = json_dc_inst.get_main_server()
+            api_server_inst = json_dc_inst.get_api_server()
+            device_selected_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
+            if main_server_inst and last_selected_entity == main_server_inst.NAME:
+                window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_selected_inst}")
+            elif api_server_inst and last_selected_entity == api_server_inst.NAME:
+                window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {device_selected_inst}")
 
     if devices_devices_list_box_selection:
         device_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
         window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(device_inst.get_entities_names())
-
-
-
 
 
 def clients_handler(window, event, values):
@@ -289,10 +345,20 @@ def routers_handler(window,event,values):
         routers_this_router_name = values[KEY_ENTITIES_ROUTERS_LISTBOX][0] if values[KEY_ENTITIES_ROUTERS_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
         if routers_this_router_name:
             json_dc_inst.remove_router(routers_this_router_name)
+            routers_reset_inputs_ui(window)
 
+def sources_reset_inputs_ui(window):
+    global sources_this_source_name
+    global sources_this_source_frequency
+    global sources_this_source_epochs
+    global sources_this_source_port
+    global sources_this_source_type
+    window[KEY_SOURCES_NAME_INPUT].update('')
+    window[KEY_SOURCES_FREQUENCY_INPUT].update('')
+    window[KEY_SOURCES_PORT_INPUT].update('')
+    window[KEY_SOURCES_EPOCHS_INPUT].update('')
+    window[KEY_SOURCES_TYPE_COMBO_BOX].update(value = sources_this_source_type)
 
-
-    # TODO COMPLETE load and remove
 
 def sources_handler(window, event, values):
     global sources_this_source
@@ -327,16 +393,42 @@ def sources_handler(window, event, values):
                 sources_this_source_type = SourceTypeDict[values[KEY_SOURCES_TYPE_COMBO_BOX]]
                 sources_this_source = Source(sources_this_source_name, sources_this_source_port, sources_this_source_frequency, sources_this_source_policy, sources_this_source_epochs, sources_this_source_type)
                 json_dc_inst.add_source(sources_this_source)
+                # clear input TextBox
+                sources_this_source = None
+                sources_this_source_name = None
+                sources_this_source_frequency = None
+                sources_this_source_epochs = None
+                sources_this_source_port = None
+                sources_this_source_policy = None
+                sources_this_source_type = SOURCE_TYPE_DICT_DEFAULT_SOURCE_TYPE
+                sources_reset_inputs_ui(window)
             else:
                 sg.popup_ok(f"Source {sources_this_source_name} is already exist", title='Adding Source Failed')
         else:
             sg.popup_ok(f"Missing or wrong fields!", title='Adding Source Failed')
 
-    #TODO implement load
+    if event == KEY_SOURCES_BUTTON_LOAD:
+        sources_this_source_name = values[KEY_ENTITIES_SOURCES_LISTBOX][0] if values[KEY_ENTITIES_SOURCES_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
+        if sources_this_source_name:
+            sources_this_source = json_dc_inst.get_source(sources_this_source_name)
+            sources_this_source_frequency = sources_this_source.get_frequency().get_value()
+            sources_this_source_epochs = sources_this_source.get_epochs().get_value()
+            sources_this_source_port = sources_this_source.get_port().get_value()
+            sources_this_source_policy = sources_this_source.get_policy().get_policy_name()
+            sources_this_source_type = sources_this_source.get_source_type()
+            window[KEY_SOURCES_NAME_INPUT].update(sources_this_source.get_name())
+            window[KEY_SOURCES_FREQUENCY_INPUT].update(f"{sources_this_source_frequency}")
+            window[KEY_SOURCES_EPOCHS_INPUT].update(f"{sources_this_source_epochs}")
+            window[KEY_SOURCES_PORT_INPUT].update(f"{sources_this_source_port}")
+            window[KEY_SOURCES_POLICY_COMBO_BOX].update(value = sources_this_source_policy)
+            window[KEY_SOURCES_TYPE_COMBO_BOX].update(value = sources_this_source_type)
 
-
-
-
+    if event == KEY_SOURCES_BUTTON_REMOVE:
+        sources_this_source_name = values[KEY_ENTITIES_SOURCES_LISTBOX][0] if values[KEY_ENTITIES_SOURCES_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
+        if sources_this_source_name:
+            json_dc_inst.remove_source(sources_this_source_name)
+            sources_this_source_name = ""
+            sources_reset_inputs_ui(window)
 
 def entities_handler(window, event, values):
     global entities_clients_names_list
