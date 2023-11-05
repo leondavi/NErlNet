@@ -518,7 +518,7 @@ PREDICTION_STR = "Prediction"
             print(f'{fileName}.csv Saved...')
 
     # change statistics from input to API
-    def statistics(self):
+    def statistics(self): # Deprecated?
         while True:
             print("\nPlease choose an experiment number:", end = ' ')
             expNum = input()
