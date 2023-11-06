@@ -296,7 +296,7 @@ def clients_handler(window, event, values):
         else:
             sg.popup_ok(f"Add this client before adding workers", keep_on_top=True, title="Add workers issue")
 
-    if (event == KEY_CLIENTS_WORKERS_LIST_REMOVE_WORKER):
+    if event == KEY_CLIENTS_WORKERS_LIST_REMOVE_WORKER:
         clients_this_client_name = values[KEY_ENTITIES_CLIENTS_LISTBOX][0] if values[KEY_ENTITIES_CLIENTS_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
         worker_name = values[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS][0] if values[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS] else None
         if clients_this_client_name and worker_name:
