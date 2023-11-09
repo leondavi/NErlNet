@@ -46,6 +46,11 @@ api_server_instance.predict()
 
 experiment_inst = api_server_instance.get_experiment(experiment_name)
 exp_stats = Stats(experiment_inst)
+conf = exp_stats.get_confusion_matrices()
+acc_stats = exp_stats.get_accuracy_stats(conf , show=True , saveToFile=True)
+for worker in acc_stats.keys():
+    for j in acc_stats[worker].keys():
+        print(f'{worker} class {j} F1 Score: {acc_stats[worker][j]["F1"]}')
 data = exp_stats.get_loss_min()
 print("min loss of each worker")
 print(data)

@@ -1,5 +1,6 @@
 import os
-
+import json
+from pathlib import Path
 # nerlconfig files
 NERLCONFIG_INPUT_DATA_DIR = "/usr/local/lib/nerlnet-lib/NErlNet/config/inputDataDir.nerlconfig"
 NERLCONFIG_JSONS_DIR = '/usr/local/lib/nerlnet-lib/NErlNet/config/jsonsDir.nerlconfig'
@@ -52,3 +53,15 @@ def search_file(filename : str , rootdir : str) -> str:
         if filename in files:
             return os.path.join(root, filename)
     return None
+
+def export_dict(filepath : str , dict):
+    Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+    json_obj = json.dumps(dict, indent=4)
+
+    # Writing to sample.json
+    with open(filepath, "w") as outfile:
+        outfile.write(json_obj)
+        
+def import_dict(filepath : str):
+    with open(filepath, "r") as infile:
+        return json.load(infile)
