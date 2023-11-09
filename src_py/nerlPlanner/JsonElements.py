@@ -193,7 +193,7 @@ class Port(JsonElement):
 
     def get_value(self):
         return self.value
-    
+
     def get_value_str(self):
         return str(self.value)
 
@@ -219,7 +219,10 @@ class ApiServer(JsonElement):
     
     def get_port(self):
         return self.port
-    
+
+    def set_port(self, new_port : Port):
+        self.port = new_port
+
     def get_args(self) -> str:
         return self.args
 
@@ -248,6 +251,9 @@ class MainServer(JsonElement):
     def get_port(self):
         return self.port
     
+    def set_port(self, new_port : Port):
+        self.port = new_port
+
     def get_args(self):
         return self.args
 
@@ -275,12 +281,13 @@ class Device(JsonElement):
     def get_entities_names(self):
         return list(self.entities_dict.keys())
 
-    def duplicated_ports_validator(self):
+    def duplicated_ports_validator(self, new_entity_port : Port):
         '''
         Checks if there is at least a single occurance of duplicated ports. 
-        If there is returns True
+        If there is returns True = duplicate
         '''
         ports_set = set()
+        ports_set.add(new_entity_port.get_value())
         for _ , entity in self.entities_dict.items():
             port_val = entity.get_port().get_value()
             if port_val in ports_set:
@@ -332,6 +339,9 @@ class Router(JsonElement):
     def get_port(self):
         return self.port
     
+    def set_port(self, new_port : Port):
+        self.port = new_port
+
     def get_policy(self):
         return self.policy
 
@@ -362,6 +372,9 @@ class Source(JsonElement):
 
     def get_port(self):
         return self.port
+
+    def set_port(self, new_port : Port):
+        self.port = new_port
 
     def get_frequency(self):
         return self.frequency
@@ -404,10 +417,10 @@ class Client(JsonElement):
 
     def get_port(self):
         return self.port
-    
-    def set_port(self, port):
-        self.port = Port(port)
-    
+
+    def set_port(self, new_port : Port):
+        self.port = new_port
+
     def get_workers_names(self):
         return list(self.workers_dict.keys())
 
