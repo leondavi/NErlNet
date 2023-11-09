@@ -73,7 +73,7 @@ def settings_handler(window, event, values):
             device_by_main_server = json_dc_inst.get_device_by_entity(main_server_inst.NAME)
             device_by_api_server = json_dc_inst.get_device_by_entity(api_server_inst.NAME)
             window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_by_main_server}")   
-            window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {device_by_main_server}")
+            window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {device_by_api_server}")
 
     if event == KEY_SETTINGS_SPECIAL_ENTITIES_CLEAR:
         main_server_port = values[KEY_SETTINGS_MAINSERVER_PORT_INPUT] if values[KEY_SETTINGS_MAINSERVER_PORT_INPUT] else None
@@ -147,46 +147,93 @@ def devices_reset_inputs_ui(window):
     window[KEY_DEVICES_IP_INPUT].update('x.x.x.x')
     
 def devices_handler(window, event, values):
-    global devices_name 
-    global devices_ip_str
+    global devices_this_device_name 
     global devices_devices_list_box_selection
     global last_selected_entity
+    global devices_this_device
+    global devices_this_device_ip_str
     
     # inputs
     if event == KEY_DEVICES_NAME_INPUT:
-        devices_name = values[KEY_DEVICES_NAME_INPUT]
+        devices_this_device_name = values[KEY_DEVICES_NAME_INPUT]
     if event == KEY_DEVICES_IP_INPUT:
-        devices_ip_str = values[KEY_DEVICES_IP_INPUT]
+        devices_this_device_ip_str = values[KEY_DEVICES_IP_INPUT]
     if event == KEY_DEVICES_LIST_BOX_DEVICES:
         devices_devices_list_box_selection = values[KEY_DEVICES_LIST_BOX_DEVICES][0]
     if event == KEY_DEVICES_SELECTED_ENTITY_COMBO:
         last_selected_entity = values[KEY_DEVICES_SELECTED_ENTITY_COMBO]
     if event == KEY_DEVICES_ONLINE_LIST_COMBO_BOX:
         window[KEY_DEVICES_IP_INPUT].update(values[KEY_DEVICES_ONLINE_LIST_COMBO_BOX])
-        devices_ip_str = values[KEY_DEVICES_ONLINE_LIST_COMBO_BOX]
+        devices_this_device_ip_str = values[KEY_DEVICES_ONLINE_LIST_COMBO_BOX]
 
     if event == KEY_DEVICES_BUTTON_ADD:
-        if devices_name and devices_ip_str:
-            device_to_add = Device(devices_ip_str, devices_name)
-            if not device_to_add.error():
-                json_dc_inst.add_device(device_to_add)
+        if devices_this_device_name and devices_this_device_ip_str:
+            devices_this_device = Device(devices_this_device_ip_str, devices_this_device_name)
+            if not devices_this_device.error():
+                json_dc_inst.add_device(devices_this_device)
                 window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
             else:
                 sg.popup_ok("Ip or Name are wrong or exist!")
                 
+    if event == KEY_DEVICES_BUTTON_LOAD:
+        devices_this_device_name = values[KEY_DEVICES_LIST_BOX_DEVICES][0] if values[KEY_DEVICES_LIST_BOX_DEVICES] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
+        if devices_this_device_name:
+            devices_this_device = json_dc_inst.get_device_by_name(devices_this_device_name)
+            devices_this_device_ip_str = devices_this_device.get_ip().get_address()
+            window[KEY_DEVICES_NAME_INPUT].update(devices_this_device_name)
+            window[KEY_DEVICES_IP_INPUT].update(devices_this_device_ip_str)
+            
+    if event == KEY_DEVICES_BUTTON_SAVE:    
+        if devices_this_device and (devices_this_device.get_name() in json_dc_inst.get_devices_names()):
+            devices_this_device_name = devices_this_device_name if devices_this_device_name else devices_this_device.get_name()
+            devices_this_device_ip_str = devices_this_device_ip_str if devices_this_device_ip_str else devices_this_device.get_ip()
+            device_to_remove = devices_this_device
+            device_to_remove_name = device_to_remove.get_name()
+            entities_names = device_to_remove.get_entities_names()
+            devices_without_remove_candidate = json_dc_inst.get_devices_names()
+            devices_without_remove_candidate.remove(devices_this_device.get_name())
+            if devices_this_device_name not in devices_without_remove_candidate: # if apperas in devices_without_remove_candidate then operation is forbidden
+                json_dc_inst.remove_device(device_to_remove_name)
+                new_device = Device(devices_this_device_ip_str, devices_this_device_name)
+                if not new_device.error():
+                    json_dc_inst.add_device(new_device)
+                    window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
+                else:
+                    sg.popup_ok("Ip or Name are wrong or exist!")
+                # declare on varibales
+                main_server_inst = json_dc_inst.get_main_server() if json_dc_inst.get_main_server() else None
+                api_server_inst = json_dc_inst.get_api_server() if json_dc_inst.get_api_server() else None
+                main_server_name = main_server_inst.get_name() if main_server_inst else None
+                api_server_name = api_server_inst.get_name() if api_server_inst else None
+                # build device entity list
+                for entity_name in entities_names:
+                    entity_inst = json_dc_inst.get_entity(entity_name)
+                    new_device.add_entity(entity_inst)
+                # update special entities status bar
+                if main_server_name in new_device.get_entities_names():
+                    window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {new_device}")   
+                if api_server_name in new_device.get_entities_names():
+                    window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {new_device}")
+                window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(new_device.get_entities_names())
+                devices_devices_list_box_selection = "" # prevent update entites box for a device that doesn't exist 
+            else:
+                sg.popup_ok(f"Name {devices_this_device_name} already exists", keep_on_top=True, title="Chance device issue")
+                
     if event == KEY_DEVICES_BUTTON_REMOVE and devices_devices_list_box_selection:
         # Update settings status bar
-        device_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
+        devices_this_device = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
         main_server_inst = json_dc_inst.get_main_server()
         api_server_inst = json_dc_inst.get_api_server()
-        if main_server_inst and main_server_inst.NAME in device_inst.get_entities_names():
+        if main_server_inst and main_server_inst.NAME in devices_this_device.get_entities_names():
              window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, None")
-        if api_server_inst and api_server_inst.NAME in device_inst.get_entities_names():
+        if api_server_inst and api_server_inst.NAME in devices_this_device.get_entities_names():
              window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, None")
         
         # Remove device and update GUI      
         json_dc_inst.remove_device(devices_devices_list_box_selection)
         devices_devices_list_box_selection = ""
+        last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
+        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state_not_occupied)
         window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update("")
         window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
         devices_reset_inputs_ui(window)
@@ -209,9 +256,15 @@ def devices_handler(window, event, values):
                 window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {device_selected_inst}")
 
     if devices_devices_list_box_selection:
-        device_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
-        window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(device_inst.get_entities_names())
+        devices_this_device = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
+        window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(devices_this_device.get_entities_names())
 
+def clients_reset_inputs_ui(window):
+    global clients_this_client_name
+    global clients_this_client_port
+    window[KEY_CLIENTS_NAME_INPUT].update('')
+    window[KEY_CLIENTS_PORT_INPUT].update('')
+    window[KEY_CLIENTS_STATUS_BAR].update('')
 
 def clients_handler(window, event, values):
     global clients_combo_box_worker_selection
@@ -243,6 +296,14 @@ def clients_handler(window, event, values):
         else:
             sg.popup_ok(f"Add this client before adding workers", keep_on_top=True, title="Add workers issue")
 
+    if event == KEY_CLIENTS_WORKERS_LIST_REMOVE_WORKER:
+        clients_this_client_name = values[KEY_ENTITIES_CLIENTS_LISTBOX][0] if values[KEY_ENTITIES_CLIENTS_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
+        worker_name = values[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS][0] if values[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS] else None
+        if clients_this_client_name and worker_name:
+            clients_this_client = json_dc_inst.get_client(clients_this_client_name)
+            clients_this_client.remove_worker(worker_name)
+            window[KEY_CLIENTS_STATUS_BAR].update(f"Updated client {clients_this_client_name}: {clients_this_client}")
+            window[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS].update(clients_this_client.get_workers_names())
 
     if event == KEY_CLIENTS_BUTTON_LOAD:
         clients_this_client_name = values[KEY_ENTITIES_CLIENTS_LISTBOX][0] if values[KEY_ENTITIES_CLIENTS_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
@@ -287,6 +348,12 @@ def clients_handler(window, event, values):
                 window[KEY_CLIENTS_STATUS_BAR].update(f"Client {client_to_remove_name} replaced by Client: {new_client}")
             else:
                 sg.popup_ok(f"Name {clients_this_client_name} already exists", keep_on_top=True, title="Chance client issue")
+                
+    if event == KEY_CLIENTS_BUTTON_REMOVE: 
+        clients_this_client_name = values[KEY_ENTITIES_CLIENTS_LISTBOX][0] if values[KEY_ENTITIES_CLIENTS_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
+        if clients_this_client_name:
+            json_dc_inst.remove_client(clients_this_client_name)
+            clients_reset_inputs_ui(window)
 
 
 def routers_reset_inputs_ui(window):
@@ -482,6 +549,13 @@ def sync_fields_with_json_dc_inst(window, values):
     window[KEY_SETTINGS_MAINSERVER_ARGS_INPUT].update(json_dc_inst.get_main_server().get_args().get_value())
     window[KEY_SETTINGS_APISERVER_PORT_INPUT].update(json_dc_inst.get_api_server().get_port().get_value_str())
     window[KEY_SETTINGS_APISERVER_ARGS_INPUT].update(json_dc_inst.get_main_server().get_args().get_value())
+    # special entities status bar
+    main_server_inst = json_dc_inst.get_main_server()
+    api_server_inst = json_dc_inst.get_api_server()
+    device_by_main_server = json_dc_inst.get_device_by_entity(main_server_inst.NAME)
+    device_by_api_server = json_dc_inst.get_device_by_entity(api_server_inst.NAME)
+    window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_by_main_server}")   
+    window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {device_by_api_server}")
     # settings
     window[KEY_SETTINGS_FREQUENCY_INPUT].update(json_dc_inst.get_frequency().get_value_str()) if json_dc_inst.get_frequency() is not None else None
     window[KEY_SETTINGS_BATCH_SIZE_INPUT].update(json_dc_inst.get_batch_size().get_value_str()) if json_dc_inst.get_batch_size() is not None else None
