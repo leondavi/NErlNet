@@ -1,6 +1,7 @@
 import os
 import json
 from pathlib import Path
+from collections import OrderedDict
 # nerlconfig files
 NERLCONFIG_INPUT_DATA_DIR = "/usr/local/lib/nerlnet-lib/NErlNet/config/inputDataDir.nerlconfig"
 NERLCONFIG_JSONS_DIR = '/usr/local/lib/nerlnet-lib/NErlNet/config/jsonsDir.nerlconfig'
@@ -54,7 +55,7 @@ def search_file(filename : str , rootdir : str) -> str:
             return os.path.join(root, filename)
     return None
 
-def export_dict(filepath : str , dict):
+def export_dict_json(filepath : str , dict : OrderedDict):
     Path(filepath).parent.mkdir(parents=True, exist_ok=True)
     json_obj = json.dumps(dict, indent=4)
 
@@ -62,6 +63,6 @@ def export_dict(filepath : str , dict):
     with open(filepath, "w") as outfile:
         outfile.write(json_obj)
         
-def import_dict(filepath : str):
+def import_dict_json(filepath : str):
     with open(filepath, "r") as infile:
-        return json.load(infile)
+        return json.load(infile , object_pairs_hook=OrderedDict)
