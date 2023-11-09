@@ -66,7 +66,7 @@ print("min loss of each worker")
 print(data)
 
 conf = exp_stats.get_confusion_matrices()
-acc_stats = exp_stats.get_accuracy_stats(conf , show=True , saveToFile=True)
+acc_stats = exp_stats.get_accuracy_stats(conf)
 baseline_acc_stats = import_dict_json(TESTS_BASELINE)
 diff_from_baseline = []
 for worker in acc_stats.keys():
