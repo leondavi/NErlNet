@@ -42,6 +42,13 @@ acc_stats = exp_stats.get_accuracy_stats(conf , show=True , saveToFile=True)
 for worker in acc_stats.keys():
     for j in acc_stats[worker].keys():
         print(f'{worker} class {j} F1 Score: {acc_stats[worker][j]["F1"]}')
+baseline_acc_stats = import_dict_json('/home/guyperets/Desktop/NErlNet/Tests/inputJsonsFiles/accuracy_stats_synt_1d_2c_4r_4w.json')
+diff_from_baseline = []
+for worker in acc_stats.keys():
+    for j in acc_stats[worker].keys():
+        diff = abs(acc_stats[worker][j]["F1"] - baseline_acc_stats[worker][str(j)]["F1"])
+        diff_from_baseline.append(diff/baseline_acc_stats[worker][str(j)]["F1"])
+        
 #print(f'Loss Dict: {loss}')
 #print(f'Loss Min Dict: {loss_min}')
 #print(f'Confusion Matrices: {conf}')

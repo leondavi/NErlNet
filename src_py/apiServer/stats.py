@@ -151,7 +151,7 @@ class Stats():
                     print(f"{workers_accuracy[worker][j]}\n")
         
         if saveToFile:
-            export_dict(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/accuracy_stats.json', workers_accuracy)
+            export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/accuracy_stats.json', workers_accuracy)
             
         return workers_accuracy
 
