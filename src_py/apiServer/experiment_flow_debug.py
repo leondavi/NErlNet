@@ -38,7 +38,17 @@ exp_stats = Stats(experiment_inst)
 loss = exp_stats.get_loss()
 loss_min = exp_stats.get_loss_min()
 conf = exp_stats.get_confusion_matrices()
-stats = exp_stats.get_accuracy_stats(conf)
+acc_stats = exp_stats.get_accuracy_stats(conf , show=True , saveToFile=True)
+for worker in acc_stats.keys():
+    for j in acc_stats[worker].keys():
+        print(f'{worker} class {j} F1 Score: {acc_stats[worker][j]["F1"]}')
+baseline_acc_stats = import_dict_json('/home/guyperets/Desktop/NErlNet/Tests/inputJsonsFiles/accuracy_stats_synt_1d_2c_4r_4w.json')
+diff_from_baseline = []
+for worker in acc_stats.keys():
+    for j in acc_stats[worker].keys():
+        diff = abs(acc_stats[worker][j]["F1"] - baseline_acc_stats[worker][str(j)]["F1"])
+        diff_from_baseline.append(diff/baseline_acc_stats[worker][str(j)]["F1"])
+        
 #print(f'Loss Dict: {loss}')
 #print(f'Loss Min Dict: {loss_min}')
 #print(f'Confusion Matrices: {conf}')
@@ -49,18 +59,11 @@ stats = exp_stats.get_accuracy_stats(conf)
 #api_server_instance.accuracy_matrix(1)
 #api_server_instance.statistics()
 
-nerlnet_stop_cmd = RunCommand(NERLNET_RUN_STOP_SCRIPT, NERLNET_PATH)
 # stdout, stderr, rc = nerlnet_run_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
 # print_test(f'rc: {rc}')
 # if stderr: 
 #     print_test(stderr)
 # else:
 #     print_test(stdout)
-stdout, stderr, rc = nerlnet_stop_cmd.sync(0)
-print_test(f'rc stop: {rc}')
-if stderr: 
-    print_test(stderr)
-else:
-    print_test(stdout)
 
 # api_server_instance.stop() # TODO implement

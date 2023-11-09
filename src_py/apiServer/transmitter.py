@@ -66,34 +66,20 @@ class Transmitter:
                     break
 
         SourceData = []
-        if globe.CSVsplit == 2:      ## send entire file to sources
-            linesPerSource = 0
-            
-            for source in globe.experiment_focused_on.expFlow[currentPhase]: # Itterate over sources in accordance to current phase
-                sourceName = source['source name']
-                workersUnderSource = source['workers']
-                try:    epochs = 1 if currentPhase == "Prediction" else globe.components.sourceEpochs[sourceName]
-                except: epochs = 1
-                response = requests.post(self.updateCSVAddress, data=f'{sourceName}#{workersUnderSource}#{epochs}#{csvfile}')
+        linesPerSource = int(len(csvfile)/len(globe.components.sources))
+        for row in range(0,len(csvfile),linesPerSource):
+            SourceData.append(csvfile[row:row+linesPerSource])
 
-        else:                   ## split file and send to sources
-            linesPerSource = int(len(csvfile)/len(globe.components.sources))
-            for row in range(0,len(csvfile),linesPerSource):
-                SourceData.append(csvfile[row:row+linesPerSource])
+        for i,source in enumerate(globe.experiment_focused_on.expFlow[currentPhase]): # Itterate over sources in accordance to current phase
+            sourceName = source['source name']
+            workersUnderSource = source['workers']
 
-            for i,source in enumerate(globe.experiment_focused_on.expFlow[currentPhase]): # Itterate over sources in accordance to current phase
-                sourceName = source['source name']
-                workersUnderSource = source['workers']
-                SourceStr = ""
-                for Line in SourceData[i]:
-                    SourceStr += Line
+            try:    epochs = 1 if currentPhase == "Prediction" else globe.components.sourceEpochs[sourceName]
+            except: epochs = 1
 
-                try:    epochs = 1 if currentPhase == "Prediction" else globe.components.sourceEpochs[sourceName]
-                except: epochs = 1
+            dataStr = f'{sourceName}#{workersUnderSource}#{epochs}#{SourceData[i]}'
 
-                dataStr = f'{sourceName}#{workersUnderSource}#{epochs}#{SourceStr}'
-
-                response = requests.post(self.updateCSVAddress, data=dataStr)
+            response = requests.post(self.updateCSVAddress, data=dataStr)
 
         LOG_INFO("Data sent to sources")
 
