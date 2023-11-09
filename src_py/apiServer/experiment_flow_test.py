@@ -11,6 +11,7 @@ def print_test(in_str : str):
 
 NERLNET_PATH = os.getenv('NERLNET_PATH')
 TESTS_PATH = os.getenv('TESTS_PATH')
+TESTS_BASELINE = os.getenv('TESTS_BASELINE')
 NERLNET_RUN_SCRIPT = "./NerlnetRun.sh --run-mode release"
 NERLNET_RUN_STOP_SCRIPT = "./NerlnetRun.sh --run-mode stop"
 NERLNET_RUNNING_TIMEOUT_SEC = int(os.getenv('NERLNET_RUNNING_TIMEOUT_SEC'))
@@ -45,17 +46,6 @@ api_server_instance.sendDataToSources(PHASE_PREDICTION)
 api_server_instance.predict()
 
 experiment_inst = api_server_instance.get_experiment(experiment_name)
-exp_stats = Stats(experiment_inst)
-data = exp_stats.get_loss_min()
-print("min loss of each worker")
-print(data)
-#api_server_instance.statistics() TODO change statistics input requests to API!
-# TODO validation of statistics with baseline - margin up to 10%
-
-#api_server_instance.plot_loss(1)
-#api_server_instance.accuracy_matrix(1)
-#api_server_instance.statistics()
-
 nerlnet_stop_cmd = RunCommand(NERLNET_RUN_STOP_SCRIPT, NERLNET_PATH)
 stdout, stderr, rc = nerlnet_run_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
 print_test(f'rc: {rc}')
@@ -70,4 +60,20 @@ if stderr:
 else:
     print_test(stdout)
 
-# api_server_instance.stop() # TODO implement
+exp_stats = Stats(experiment_inst)
+data = exp_stats.get_loss_min()
+print("min loss of each worker")
+print(data)
+
+conf = exp_stats.get_confusion_matrices()
+acc_stats = exp_stats.get_accuracy_stats(conf)
+baseline_acc_stats = import_dict_json(TESTS_BASELINE)
+diff_from_baseline = []
+for worker in acc_stats.keys():
+    for j in acc_stats[worker].keys():
+        diff = abs(acc_stats[worker][j]["F1"] - baseline_acc_stats[worker][str(j)]["F1"])
+        diff_from_baseline.append(diff/baseline_acc_stats[worker][str(j)]["F1"])
+anomaly_detected = not all([x < 0.01 for x in diff_from_baseline])
+if anomaly_detected:
+    exit(1)
+
