@@ -112,7 +112,8 @@ def doc_print_dict(d):#define d
         pretty_dict += f' {k}:{str(v)} |'
     return pretty_dict#return result
 
-
+# DC fields of worker must be suitable with erlang atoms convention! (lower case first letter)
+# Please run ./NerlnetBuild.sh to test any changes of this file!
 KEY_DOC_PREFIX = "_doc_"
 KEY_MODEL_TYPE = "modelType"
 KEY_MODEL_TYPE_DOC = "_doc_modelType"
