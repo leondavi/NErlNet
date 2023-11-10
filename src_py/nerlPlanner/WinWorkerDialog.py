@@ -32,13 +32,13 @@ def WinWorkerDialog():
                         [sg.Text("*.json file name"),sg.InputText(key=KEY_JSON_FILE_NAME, enable_events=True),sg.Button("Export",key=KEY_BUTTON_EXPORT_WORKER), sg.Checkbox('with documentation', default=True, key=KEY_CHECKBOX_WORKER_WITH_DOCUMENTATION, enable_events=True)]]
     WorkerFileFrame = sg.Frame("File",WorkerFileLayout)
 
-    WorkerDefinitionsLayout = [[sg.Text("Model Type: "), sg.Combo(list(ModelTypeMapping.keys()),enable_events=True, key=KEY_MODEL_TYPE_LIST_BOX), sg.Button("LSTM Opts",disabled=True), sg.Button("CNN Opts", disabled=True)],
+    WorkerDefinitionsLayout = [[sg.Text("Model Type: "), sg.Combo(list(ModelTypeMapping.keys()),enable_events=True, key=KEY_MODEL_TYPE_LIST_BOX), sg.Button("LSTM Opts",disabled=True), sg.Button("CNN Opts", enable_events=True, key=KEY_LAYER_CNN_OPT_HELP_BUTTON )],
                                [sg.Text("Layers Sizes: Comma separated list, # of neurons in a layer, E.g, 100,80,40,5,1")],
-                               [sg.InputText(key=KEY_LAYER_SIZES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_NUM_OF_LAYERS_SIZES)],
+                               [sg.InputText(key=KEY_LAYER_SIZES_INPUT,enable_events=True, expand_x=True), sg.Text("(0)",key=KEY_NUM_OF_LAYERS_SIZES)],
                                [sg.Text("List of layers types:"), sg.Combo(list(LayerTypeMap.keys()),key=KEY_LAYER_TYPE_SELECTION), sg.Button("Add",key=KEY_LAYER_TYPE_SELECTION_ADD), sg.Button("Help",key=KEY_LAYER_TYPE_HELP),sg.Button("Clear",key=KEY_LAYER_TYPE_SELECTION_CLEAR)],
-                               [sg.InputText(key=KEY_LAYER_TYPE_CODES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_NUM_OF_LAYERS_TYPES,enable_events=True)],
+                               [sg.InputText(key=KEY_LAYER_TYPE_CODES_INPUT,enable_events=True, expand_x=True), sg.Text("(0)",key=KEY_NUM_OF_LAYERS_TYPES,enable_events=True)],
                                [sg.Text("Layers Functionality-Codes"),sg.Button("Select Layer Method", enable_events=True, key=KEY_LAYER_METHODS_BUTTON_SELECT), sg.Button("Help",key="-ACTIVATION-LAYER-HELP-"), sg.Button("Clear",key=KEY_LAYER_FUNCTIONS_SELECTION_CLEAR)],
-                               [sg.InputText(key=KEY_LAYER_FUNCTIONS_CODES_INPUT,enable_events=True), sg.Text("(0)",key=KEY_LAYERS_FUNCTIONS_CODES,enable_events=True), sg.Text("",enable_events=True, key=KEY_LAYER_METHODS_TEXT_SELECTION)]]
+                               [sg.InputText(key=KEY_LAYER_FUNCTIONS_CODES_INPUT,enable_events=True, expand_x=True), sg.Text("(0)",key=KEY_LAYERS_FUNCTIONS_CODES,enable_events=True)]]
     WorkerDefinitionsFrame = sg.Frame("Model Definitions",layout=WorkerDefinitionsLayout, expand_x=True)
 
     OptimizerDefinitionsLayout = [[sg.Text("Learning Rate: "), sg.InputText(key=KEY_LEARNING_RATE_INPUT, size=(15), enable_events=True)],
@@ -99,6 +99,10 @@ def WinWorkerDialog():
             ModelTypeStr = values[event]
             ModelType = ModelTypeMapping[ModelTypeStr]
         
+        if event == KEY_LAYER_CNN_OPT_HELP_BUTTON:
+            sg.popup_ok(f"{LAYER_CNN_OPTS_HELP_POPUP_STR}", keep_on_top=True, title="CNN Options Help")
+
+
         # Layers Sizes List
         if event == KEY_LAYER_SIZES_INPUT:
             LayersSizesList = values[event]
