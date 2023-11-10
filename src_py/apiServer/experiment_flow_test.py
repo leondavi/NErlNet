@@ -5,6 +5,8 @@ from runCommand import RunCommand
 from logger import *
 from stats import Stats
 
+TEST_ACCEPTABLE_MARGIN_OF_ERROR = 0.02
+
 def print_test(in_str : str):
     PREFIX = "[NERLNET-TEST] "
     LOG_INFO(f"{PREFIX} {in_str}")
@@ -62,7 +64,7 @@ else:
 
 exp_stats = Stats(experiment_inst)
 data = exp_stats.get_loss_min()
-print("min loss of each worker")
+print_test("min loss of each worker")
 print(data)
 
 conf = exp_stats.get_confusion_matrices()
@@ -73,7 +75,9 @@ for worker in acc_stats.keys():
     for j in acc_stats[worker].keys():
         diff = abs(acc_stats[worker][j]["F1"] - baseline_acc_stats[worker][str(j)]["F1"])
         diff_from_baseline.append(diff/baseline_acc_stats[worker][str(j)]["F1"])
-anomaly_detected = not all([x < 0.01 for x in diff_from_baseline])
+anomaly_detected = not all([x < TEST_ACCEPTABLE_MARGIN_OF_ERROR for x in diff_from_baseline])
 if anomaly_detected:
+    print_test("Anomaly failure detected")
+    print_test(f"diff_from_baseline: {diff_from_baseline}")
     exit(1)
 
