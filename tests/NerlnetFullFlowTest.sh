@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export NERLNET_PATH="/usr/local/lib/nerlnet-lib/NErlNet"
-export TESTS_PATH="$NERLNET_PATH/Tests"
+export TESTS_PATH="$NERLNET_PATH/tests"
 export NERLNET_RUNNING_TIMEOUT_SEC="30"
 
 NERLNET_CONFIG_DIR=$NERLNET_PATH/config
