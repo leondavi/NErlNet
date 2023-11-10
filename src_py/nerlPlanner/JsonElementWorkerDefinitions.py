@@ -1,9 +1,5 @@
 
 # Maps are based on src_cpp/opennnBridge/definitionsNN.h
-
-LAYER_SPECIAL_TYPE_IDX_SCALING = "1"
-LAYER_SPECIAL_TYPE_IDX_POOLING = "2"
-
 from collections import OrderedDict
 
 LayerTypeMap = OrderedDict([
@@ -75,36 +71,36 @@ LayerTypeToFunctionalMap = OrderedDict([
     ("Bounding" , None)]
 )
 
-ModelTypeMapping = {
-    "approximation" : "1",
-    "classification" : "2",
-    "forecasting" : "3",
-    "encoder_decoder" : "4",
-    "nn" : "5",
-    "autoencoder" : "6",
-    "ae-classifier" : "7",
-    "fed-client": "8",
-    "fed-server": "9"
-}
+ModelTypeMapping = OrderedDict([
+    ("approximation" , "1"),
+    ("classification" , "2"),
+    ("forecasting" , "3"),
+    ("encoder_decoder" , "4"),
+    ("nn" , "5"),
+    ("autoencoder" , "6"),
+    ("ae-classifier" , "7"),
+    ("fed-client", "8"),
+    ("fed-server", "9")
+])
 
-OptimizerTypeMapping = {
-    "none" : "0",
-    "SGD" : "1",
-    "Mini-Batch" : "2",
-    "Momentum" : "3",
-    "NAG" : "4",
-    "Adagrad" : "5",
-    "ADAM" : "6"
-}
+OptimizerTypeMapping = OrderedDict([
+    ("none" , "0"),
+    ("SGD" , "1"),
+    ("Mini-Batch" , "2"),
+    ("Momentum" , "3"),
+    ("NAG" , "4"),
+    ("Adagrad" , "5"),
+    ("ADAM" , "6")
+])
 
-LossMethodMapping = {
-    "SSE" : "1", # Sum squared Error
-    "MSE" : "2", # Mean Squared Error
-    "NSE" : "3", # Normalized Squared Error
-    "Minkowski-E" : "4", # Minkowski Error
-    "WSE" : "5", # Weighted Squared Error
-    "CEE" : "6", # Cross Entropy Error
-}
+LossMethodMapping = OrderedDict([
+    ("SSE" , "1"), # Sum squared Error
+    ("MSE" , "2"), # Mean Squared Error
+    ("NSE" , "3"), # Normalized Squared Error
+    ("MinkowskiE" , "4"), # Minkowski Error
+    ("WSE" , "5"), # Weighted Squared Error
+    ("CEE" , "6"), # Cross Entropy Error
+])
 
 def get_key_by_value(in_map : dict, value):
     list_of_values = list(in_map.values())
