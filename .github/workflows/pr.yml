@@ -26,8 +26,8 @@ jobs:
         id: nif
         if: steps.build.outcome == 'success'
         run: |
-          ./Tests/NerlnetNifTest.sh
+          ./tests/NerlnetNifTest.sh
       - name: Run FullFlow test
         if: steps.nif.outcome == 'success'
         run: |
-          ./Tests/NerlnetFullFlowTest.sh
+          ./tests/NerlnetFullFlowTest.sh
