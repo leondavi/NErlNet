@@ -1,5 +1,5 @@
 {
-    "NerlNetSettings": {
+    "nerlnetSettings": {
         "frequency": "60",
         "batchSize": "50"
     },
@@ -65,22 +65,22 @@
     "workers": [
         {
             "name": "w1",
-            "model-sha": "5396cc8dbd1407c408021a16bb4e014e780de95cdf62680c19cac81139ad791c"
+            "model_sha": "5396cc8dbd1407c408021a16bb4e014e780de95cdf62680c19cac81139ad791c"
         },
         {
             "name": "w2",
-            "model-sha": "5396cc8dbd1407c408021a16bb4e014e780de95cdf62680c19cac81139ad791c"
+            "model_sha": "5396cc8dbd1407c408021a16bb4e014e780de95cdf62680c19cac81139ad791c"
         },
         {
             "name": "w3",
-            "model-sha": "5396cc8dbd1407c408021a16bb4e014e780de95cdf62680c19cac81139ad791c"
+            "model_sha": "5396cc8dbd1407c408021a16bb4e014e780de95cdf62680c19cac81139ad791c"
         },
         {
             "name": "w4",
-            "model-sha": "5396cc8dbd1407c408021a16bb4e014e780de95cdf62680c19cac81139ad791c"
+            "model_sha": "5396cc8dbd1407c408021a16bb4e014e780de95cdf62680c19cac81139ad791c"
         }
     ],
-    "model-sha": {
+    "model_sha": {
         "5396cc8dbd1407c408021a16bb4e014e780de95cdf62680c19cac81139ad791c": {
             "modelType": "5",
             "_doc_modelType": " approximation:1 | classification:2 | forecasting:3 | encoder_decoder:4 | nn:5 | autoencoder:6 | ae-classifier:7 | fed-client:8 | fed-server:9 |",
