@@ -2,25 +2,13 @@ import PySimpleGUI as sg
 from JsonElements import *
 from collections import OrderedDict
 from JsonElementWorker import *
+from JsonDistributedConfigDefs import *
 
 import json
 
 
 #   from collections import OrderedDict
 #values=json.loads(jsontext,object_pairs_hook=OrderedDict)
-
-KEY_NERLNET_SETTINGS = "NerlNetSettings"
-KEY_FREQUENCY = "frequency"
-KEY_BATCH_SIZE = "batchSize"
-KEY_DEVICES = "devices"
-KEY_CLIENTS = "clients"
-KEY_WORKERS = "workers"
-KEY_MODEL_SHA = "model-sha"
-KEY_SOURCES = "sources"
-KEY_ROUTERS = "routers"
-
-NAME_FIELD = "name"
-WORKER_MODEL_SHA_FIELD = "model-sha"
 
 class JsonDistributedConfig():
     def __init__(self):
