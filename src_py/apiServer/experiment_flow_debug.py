@@ -38,17 +38,17 @@ exp_stats = Stats(experiment_inst)
 exp_stats.get_loss_min(saveToFile=True)
 loss = exp_stats.get_loss()
 loss_min = exp_stats.get_loss_min()
-conf = exp_stats.get_confusion_matrices()
-acc_stats = exp_stats.get_accuracy_stats(conf , show=True , saveToFile=True)
-for worker in acc_stats.keys():
-    for j in acc_stats[worker].keys():
-        print(f'{worker} class {j} F1 Score: {acc_stats[worker][j]["F1"]}')
-baseline_acc_stats = import_dict_json('/home/guyperets/Desktop/NErlNet/Tests/inputJsonsFiles/accuracy_stats_synt_1d_2c_4r_4w.json')
+conf_mats = exp_stats.get_confusion_matrices()
+model_stats = exp_stats.get_model_performence_stats(conf_mats , show=True , saveToFile=True)
+for worker in model_stats.keys():
+    for j in model_stats[worker].keys():
+        print(f'{worker} class {j} F1 Score: {model_stats[worker][j]["F1"]}')
+baseline_model_stats = import_dict_json('/home/guyperets/Desktop/NErlNet/Tests/inputJsonsFiles/accuracy_stats_synt_1d_2c_4r_4w.json')
 diff_from_baseline = []
-for worker in acc_stats.keys():
-    for j in acc_stats[worker].keys():
-        diff = abs(acc_stats[worker][j]["F1"] - baseline_acc_stats[worker][str(j)]["F1"])
-        diff_from_baseline.append(diff/baseline_acc_stats[worker][str(j)]["F1"])
+for worker in model_stats.keys():
+    for j in model_stats[worker].keys():
+        diff = abs(model_stats[worker][j]["F1"] - baseline_model_stats[worker][str(j)]["F1"])
+        diff_from_baseline.append(diff/baseline_model_stats[worker][str(j)]["F1"])
         
 #print(f'Loss Dict: {loss}')
 #print(f'Loss Min Dict: {loss_min}')
