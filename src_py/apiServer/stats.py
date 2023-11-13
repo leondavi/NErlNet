@@ -79,7 +79,7 @@ class Stats():
 
     def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):
         """
-        Returns a dictionary of {worker : confusion matrix} for each worker in the experiment.
+        Returns a dictionary of {worker : {class : confusion matrix}} for each worker in the experiment.
         use plot=True to plot the confusion matrix.
         """
         workers_confusion_matrices = {}
@@ -121,9 +121,10 @@ class Stats():
             export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/confusion_matrices.json', workers_confusion_matrices)
         return workers_confusion_matrices
     
-    def get_accuracy_stats(self , confMatDict , show : bool = False , saveToFile : bool = False) -> dict:
+    def get_model_performence_stats(self , confMatDict , show : bool = False , saveToFile : bool = False) -> dict:
         """
-        Returns a dictionary of {worker : accuracy} for each worker in the experiment.
+        Returns a dictionary of {worker : {class: {Performence_Stat : VALUE}}} for each worker and class in the experiment.
+        Performence Statistics Available are: TN, FP, FN, TP, Accuracy, Balanced Accuracy, Precision, Recall, True Negative Rate, Informedness, F1
         """
         workers_accuracy = OrderedDict()
         for worker in confMatDict.keys():
