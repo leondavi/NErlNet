@@ -13,7 +13,7 @@ def print_test(in_str : str):
 
 NERLNET_PATH = os.getenv('NERLNET_PATH')
 TESTS_PATH = os.getenv('TESTS_PATH')
-TESTS_BASELINE_ACC_STATS = os.getenv('TEST_BASELINE_ACC_STATS')
+TESTS_BASELINE_MODEL_STATS = os.getenv('TEST_BASELINE_MODEL_STATS')
 TESTS_BASELINE_LOSS_MIN = os.getenv('TEST_BASELINE_LOSS_MIN')
 NERLNET_RUN_SCRIPT = "./NerlnetRun.sh --run-mode release"
 NERLNET_RUN_STOP_SCRIPT = "./NerlnetRun.sh --run-mode stop"
@@ -81,12 +81,12 @@ for worker in loss_min.keys():
         
 
 
-conf = exp_stats.get_confusion_matrices()
-acc_stats = exp_stats.get_accuracy_stats(conf)
-baseline_acc_stats = import_dict_json(TESTS_BASELINE_ACC_STATS)
-for worker in acc_stats.keys():
-    for j in acc_stats[worker].keys():
-        diff = abs(acc_stats[worker][j]["F1"] - baseline_acc_stats[worker][str(j)]["F1"])
+conf_mats = exp_stats.get_confusion_matrices()
+performence_stats = exp_stats.get_model_performence_stats(conf_mats)
+baseline_acc_stats = import_dict_json(TESTS_BASELINE_MODEL_STATS)
+for worker in performence_stats.keys():
+    for j in performence_stats[worker].keys():
+        diff = abs(performence_stats[worker][j]["F1"] - baseline_acc_stats[worker][str(j)]["F1"])
         error = diff/baseline_acc_stats[worker][str(j)]["F1"]
         if error > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
             print_test("Anomaly failure detected")
