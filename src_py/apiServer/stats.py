@@ -44,6 +44,9 @@ class Stats():
             plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
             plt.show()
             plt.savefig(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}/Training/Loss_graph.png')
+        
+        if saveToFile:
+            export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/loss.json', loss_dict)
         return loss_dict
     
     def get_loss_min(self , plot : bool = False , saveToFile : bool = False):
@@ -69,6 +72,9 @@ class Stats():
             plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
             plt.show()
             plt.savefig(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}/Training/Min_loss_graph.png')
+            
+        if saveToFile:
+            export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/min_loss.json', min_loss_dict)
         return min_loss_dict
 
     def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):
@@ -110,6 +116,9 @@ class Stats():
             plt.subplots_adjust(wspace=1, hspace=0.15) 
             f.colorbar(disp.im_, ax=axes)
             plt.show()
+            
+        if saveToFile:
+            export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/confusion_matrices.json', workers_confusion_matrices)
         return workers_confusion_matrices
     
     def get_accuracy_stats(self , confMatDict , show : bool = False , saveToFile : bool = False) -> dict:
