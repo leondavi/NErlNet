@@ -35,6 +35,7 @@ api_server_instance.predict()
 
 experiment_inst = api_server_instance.get_experiment(experiment_name)
 exp_stats = Stats(experiment_inst)
+exp_stats.get_loss_min(saveToFile=True)
 loss = exp_stats.get_loss()
 loss_min = exp_stats.get_loss_min()
 conf = exp_stats.get_confusion_matrices()

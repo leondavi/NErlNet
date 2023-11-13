@@ -13,7 +13,8 @@ def print_test(in_str : str):
 
 NERLNET_PATH = os.getenv('NERLNET_PATH')
 TESTS_PATH = os.getenv('TESTS_PATH')
-TESTS_BASELINE = os.getenv('TESTS_BASELINE')
+TESTS_BASELINE_ACC_STATS = os.getenv('TEST_BASELINE_ACC_STATS')
+TESTS_BASELINE_LOSS_MIN = os.getenv('TEST_BASELINE_LOSS_MIN')
 NERLNET_RUN_SCRIPT = "./NerlnetRun.sh --run-mode release"
 NERLNET_RUN_STOP_SCRIPT = "./NerlnetRun.sh --run-mode stop"
 NERLNET_RUNNING_TIMEOUT_SEC = int(os.getenv('NERLNET_RUNNING_TIMEOUT_SEC'))
@@ -63,21 +64,31 @@ else:
     print_test(stdout)
 
 exp_stats = Stats(experiment_inst)
-data = exp_stats.get_loss_min()
+loss_min = exp_stats.get_loss_min(saveToFile=True)
 print_test("min loss of each worker")
-print(data)
+baseline_loss_min = import_dict_json(TESTS_BASELINE_LOSS_MIN)
+for worker in loss_min.keys():
+    diff = abs(loss_min[worker] - baseline_loss_min[worker])
+    if baseline_loss_min[worker] == 0:
+        error = diff
+    else:
+        error = diff/baseline_loss_min[worker]
+    print_test(f"worker: {worker}, diff: {diff} , error: {error}")
+    if error > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
+        print(f"Anomaly failure detected")
+        print(f"Error: {error} , Acceptable error: {TEST_ACCEPTABLE_MARGIN_OF_ERROR}")
+        exit(1)
+        
+
 
 conf = exp_stats.get_confusion_matrices()
 acc_stats = exp_stats.get_accuracy_stats(conf)
-baseline_acc_stats = import_dict_json(TESTS_BASELINE)
-diff_from_baseline = []
+baseline_acc_stats = import_dict_json(TESTS_BASELINE_ACC_STATS)
 for worker in acc_stats.keys():
     for j in acc_stats[worker].keys():
         diff = abs(acc_stats[worker][j]["F1"] - baseline_acc_stats[worker][str(j)]["F1"])
-        diff_from_baseline.append(diff/baseline_acc_stats[worker][str(j)]["F1"])
-anomaly_detected = not all([x < TEST_ACCEPTABLE_MARGIN_OF_ERROR for x in diff_from_baseline])
-if anomaly_detected:
-    print_test("Anomaly failure detected")
-    print_test(f"diff_from_baseline: {diff_from_baseline}")
-    exit(1)
-
+        error = diff/baseline_acc_stats[worker][str(j)]["F1"]
+        if error > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
+            print_test("Anomaly failure detected")
+            print_test(f"diff_from_baseline: {diff}")
+            exit(1)
