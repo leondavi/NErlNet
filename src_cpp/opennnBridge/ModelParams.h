@@ -107,52 +107,6 @@ private:
 
 
 
-class TrainParams {
-public:
-
-
-    TrainParams(int rows, int col, int labels, unsigned long mid, std::shared_ptr<std::vector<double>> data_label_mat, 
-                ErlNifTid tid, ErlNifPid pid) :
-    _rows(rows),
-    _col(col),
-    _labels(labels),
-    _mid(mid),
-    _data_label_mat(data_label_mat),
-    _tid(tid),
-    _pid(pid)
-
-    {
-
-    };
-    TrainParams() {};
-
-    int GetRows() { return _rows; };
-    int GetCol() { return _col; };
-    int GetLabels() { return _labels; };
-    unsigned long GetOptimizer() { return _mid; };
-    ErlNifTid GetTid() { return _tid; };
-    ErlNifPid GetPid() { return _pid; };
-    std::shared_ptr<std::vector<double>> GetDataLabelMat() { return _data_label_mat; };
-    
-    void setRows(int x){this->_rows = x; };
-    void setCol(int x){this->_col = x; };
-    void setLabels(unsigned long x){this->_labels = x; };
-    void setTid(ErlNifTid x){this->_tid = x; };
-    void setPid(ErlNifPid x){this->_pid = x; };
-    void setPid(std::shared_ptr<std::vector<double>> x){this->_data_label_mat = x; };
-
-    int _rows, _col, _labels;
-    unsigned long _mid; 
-    ErlNifTid _tid;
-    ErlNifPid _pid;
-    std::shared_ptr<std::vector<double>> _data_label_mat;
-private:
-
-};
-
-
-
-
 
 
 

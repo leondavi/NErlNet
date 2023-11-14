@@ -1,5 +1,6 @@
 #pragma once 
 
+#include "eigenTensorTypes.h"
 #include "definitionsNN.h"
 #include "nifppEigenExtensions.h"
 

@@ -14,7 +14,7 @@
     "devices": [
         {
             "name": "pc",
-            "ipv4": "10.211.55.3",
+            "ipv4": "x.x.x.x",
             "entities": "mainServer,apiServer"
         }
     ],
