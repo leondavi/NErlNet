@@ -2,9 +2,9 @@
 
 #include "../opennn/opennn/opennn.h"
 
-using iTensor1D = Tensor<Eigen::Index,1>;
-using iTensor2D = Tensor<Eigen::Index,2>;
-using iTensor3D = Tensor<Eigen::Index,3>;
+using iTensor1D = Eigen::Tensor<Eigen::Index,1>;
+using iTensor2D = Eigen::Tensor<Eigen::Index,2>;
+using iTensor3D = Eigen::Tensor<Eigen::Index,3>;
 
 using iTensor1DPtr = std::shared_ptr<iTensor1D>;
 using iTensor2DPtr = std::shared_ptr<iTensor2D>;
