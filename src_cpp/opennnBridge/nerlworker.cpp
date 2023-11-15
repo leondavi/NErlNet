@@ -32,6 +32,20 @@ namespace nerlnet
         generate_opennn_neural_network();
     }
 
+    NerlWorkerOpenNN::~NerlWorkerOpenNN()
+    {
+    }
+
+    void NerlWorkerOpenNN::get_opennn_neural_network_ptr(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
+    {
+        neural_network_ptr = _neural_network;
+    }
+
+    void NerlWorkerOpenNN::generate_opennn_neural_network()
+    {
+        // TODO - Ori and Nadav
+    }
+
     // TODO - Ori and Nadav - Implement translation functions
     int translate_layer_type(int layer_type)
     {
