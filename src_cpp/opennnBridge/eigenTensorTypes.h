@@ -2,6 +2,9 @@
 
 #include "../opennn/opennn/opennn.h"
 
+namespace nerlnet
+{
+
 using iTensor1D = Eigen::Tensor<Eigen::Index,1>;
 using iTensor2D = Eigen::Tensor<Eigen::Index,2>;
 using iTensor3D = Eigen::Tensor<Eigen::Index,3>;
@@ -25,3 +28,5 @@ using dTensor3D = Eigen::Tensor<double,3>;
 using dTensor1DPtr = std::shared_ptr<dTensor1D>;
 using dTensor2DPtr = std::shared_ptr<dTensor2D>;
 using dTensor3DPtr = std::shared_ptr<dTensor3D>;
+
+}
