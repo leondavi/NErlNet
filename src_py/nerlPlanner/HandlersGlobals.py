@@ -12,6 +12,8 @@ workers_new_worker = None
 workers_new_worker_name = None
 workers_new_worker_dict = None
 worker_name_selection = None
+last_workers_list_state = []
+last_workers_list_state_not_occupied = []
 
 # devices
 devices_name = None
