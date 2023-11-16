@@ -9,10 +9,25 @@ from JsonElements import Epochs
 from JsonElementsDefinitions import *
 from JsonElementWorkerDefinitions import *
 
+class Infra(JsonElement):
+    def __init__(self, in_type_str : str):
+        super(Infra, self).__init__("infra", INFRA_TYPE)
+        self.in_type_str = in_type_str
+        self.infra_val = InfraTypeMapping[in_type_str] if self.in_type_str in InfraTypeMapping else None
+        
+    
+    def error(self):
+        return not self.infra_val
 
+    def get_as_tuple(self):
+        return (self.get_name(), self.infra_val)
+    
+    def __str__(self):
+        return get_inv_dict(InfraTypeMapping)[self.in_type_str]
+    
 class Worker(JsonElement):      
     def __init__(self, name, layers_sizes_list_str : str, model_type_str : str, model_type : int, optimization_type_str : str, optimization_type : int,
-                 loss_method_str : str, loss_method : int, learning_rate : str, epochs : str, layer_functions_codes_list_str : str, layer_types_list_str : str):
+                 loss_method_str : str, loss_method : int, learning_rate : str, epochs : str, layer_functions_codes_list_str : str, layer_types_list_str : str, infra : str):
         super(Worker, self).__init__(name, WORKER_TYPE)
         self.LayersSizesListStr = layers_sizes_list_str
         self.LayersSizesList = layers_sizes_list_str.split(',')
@@ -28,6 +43,7 @@ class Worker(JsonElement):
         self.LayerTypesListStr = layer_types_list_str
         self.LayerTypesList = layer_types_list_str.split(',') #TODO validate
         self.Epochs = Epochs(epochs)
+        self.Infra = Infra(infra)
 
         # validate lists sizes 
         lists_for_length = [self.LayersSizesList, self.LayersFunctionsCodesList, self.LayerTypesList]
@@ -78,7 +94,7 @@ class Worker(JsonElement):
         return newWorker
 
     def __str__(self):
-        return f"layers sizes: {self.LayersSizesListStr}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}, epochs: {self.Epochs}"
+        return f"layers sizes: {self.LayersSizesListStr}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}, epochs: {self.Epochs}, infra {self.Infra}"
     
     def error(self): 
         return not self.input_validation() # + more checks
@@ -108,7 +124,9 @@ class Worker(JsonElement):
             (KEY_EPOCHS, self.Epochs.get_value_str()),
             (KEY_EPOCHS_DOC, VAL_EPOCHS_DOC),
             (KEY_OPTIMIZER_TYPE, self.OptimizationType),
-            (KEY_OPTIMIZER_TYPE_DOC, VAL_OPTIMIZER_TYPE_DOC)
+            (KEY_OPTIMIZER_TYPE_DOC, VAL_OPTIMIZER_TYPE_DOC),
+            (KEY_INFRA_TYPE, self.Infra.infra_val),
+            (KEY_INFRA_TYPE_DOC, VAL_INFRA_TYPE_DOC)
         ]
         if not documentation:
             KEY_IDX = 0
@@ -128,7 +146,7 @@ class Worker(JsonElement):
     def load_from_dict(worker_dict : dict, name = ''):
         required_keys = [KEY_LAYER_SIZES_LIST, KEY_MODEL_TYPE, KEY_OPTIMIZER_TYPE,
                          KEY_LOSS_METHOD, KEY_LEARNING_RATE, KEY_EPOCHS, KEY_LAYERS_FUNCTIONS,
-                         KEY_LAYER_TYPES_LIST]
+                         KEY_LAYER_TYPES_LIST, KEY_EPOCHS, KEY_INFRA_TYPE]
         
         loaded_worker = None
 
@@ -146,10 +164,11 @@ class Worker(JsonElement):
             ActivationLayersList = worker_dict[KEY_LAYERS_FUNCTIONS]
             LayerTypesList = worker_dict[KEY_LAYER_TYPES_LIST]
             EpochsStr = worker_dict[KEY_EPOCHS]
+            InfraType = worker_dict[KEY_INFRA_TYPE]
             
             loaded_worker = Worker(name, LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,
-                OptimizationType, LossMethodStr, LossMethod, LearningRate, EpochsStr, ActivationLayersList, LayerTypesList)
+                OptimizationType, LossMethodStr, LossMethod, LearningRate, EpochsStr, ActivationLayersList, LayerTypesList, InfraType)
             return loaded_worker, LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,\
-                OptimizationType, LossMethodStr, LossMethod, LearningRate, EpochsStr, ActivationLayersList, LayerTypesList
+                OptimizationType, LossMethodStr, LossMethod, LearningRate, EpochsStr, ActivationLayersList, LayerTypesList, InfraType
         
         return None
