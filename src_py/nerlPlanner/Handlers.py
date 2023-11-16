@@ -90,6 +90,14 @@ def workers_handler(window, event, values):
     global workers_new_worker_name
     global workers_new_worker_dict
     global worker_name_selection
+    global last_workers_list_state
+    global last_workers_list_state_not_occupied
+    global clients_combo_box_worker_selection
+    
+    if last_workers_list_state != json_dc_inst.get_workers_names_list():
+        last_workers_list_state = json_dc_inst.get_workers_names_list()
+        last_workers_list_state_not_occupied = [x for x in last_workers_list_state if x not in json_dc_inst.get_clients_workers()]
+        window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update("", last_workers_list_state_not_occupied)
 
     if event == KEY_WORKERS_SHOW_WORKER_BUTTON:
         if (worker_name_selection in json_dc_inst.get_workers_dict()):
@@ -272,9 +280,6 @@ def clients_handler(window, event, values):
     global clients_this_client_port
     global clients_this_client
 
-    # update worker with list
-    window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update(values[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX],values=list(json_dc_inst.get_workers_names_list()))
-
     if event == KEY_CLIENTS_NAME_INPUT:
         clients_this_client_name = values[KEY_CLIENTS_NAME_INPUT]
 
@@ -293,6 +298,9 @@ def clients_handler(window, event, values):
             clients_this_client.add_worker(clients_combo_box_worker_selection, worker_sha)
             window[KEY_CLIENTS_STATUS_BAR].update(f"Updated client {clients_this_client_name}: {clients_this_client}")
             window[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS].update(clients_this_client.get_workers_names())
+            last_workers_list_state_not_occupied = [x for x in last_workers_list_state if x not in json_dc_inst.get_clients_workers()]
+            window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update("", last_workers_list_state_not_occupied)
+            clients_combo_box_worker_selection = None 
         else:
             sg.popup_ok(f"Add this client before adding workers", keep_on_top=True, title="Add workers issue")
 
@@ -302,6 +310,8 @@ def clients_handler(window, event, values):
         if clients_this_client_name and worker_name:
             clients_this_client = json_dc_inst.get_client(clients_this_client_name)
             clients_this_client.remove_worker(worker_name)
+            last_workers_list_state_not_occupied = [x for x in last_workers_list_state if x not in json_dc_inst.get_clients_workers()]
+            window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update("", last_workers_list_state_not_occupied)
             window[KEY_CLIENTS_STATUS_BAR].update(f"Updated client {clients_this_client_name}: {clients_this_client}")
             window[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS].update(clients_this_client.get_workers_names())
 
@@ -314,6 +324,8 @@ def clients_handler(window, event, values):
             window[KEY_CLIENTS_PORT_INPUT].update(f"{clients_this_client_port}")
             window[KEY_CLIENTS_STATUS_BAR].update(f"client {clients_this_client.get_name()} is loaded: {clients_this_client}")
             window[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS].update(clients_this_client.get_workers_names())
+            last_workers_list_state_not_occupied = [x for x in last_workers_list_state if x not in json_dc_inst.get_clients_workers()]
+            window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update("", last_workers_list_state_not_occupied)
 
     if event == KEY_CLIENTS_BUTTON_ADD:
         if clients_this_client_name:
@@ -353,6 +365,8 @@ def clients_handler(window, event, values):
         clients_this_client_name = values[KEY_ENTITIES_CLIENTS_LISTBOX][0] if values[KEY_ENTITIES_CLIENTS_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
         if clients_this_client_name:
             json_dc_inst.remove_client(clients_this_client_name)
+            last_workers_list_state_not_occupied = [x for x in last_workers_list_state if x not in json_dc_inst.get_clients_workers()]
+            window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update("", last_workers_list_state_not_occupied)
             clients_reset_inputs_ui(window)
 
 
@@ -543,6 +557,12 @@ def entities_handler(window, event, values):
 
 def sync_fields_with_json_dc_inst(window, values):
     global json_dc_inst
+    global clients_combo_box_worker_selection
+    global last_workers_list_state_not_occupied
+    global last_workers_list_state
+    global last_entities_list_state_not_occupied
+    global last_entities_list_state
+    global last_selected_entity
 
     # special entities
     window[KEY_SETTINGS_MAINSERVER_PORT_INPUT].update(json_dc_inst.get_main_server().get_port().get_value_str())
@@ -563,6 +583,12 @@ def sync_fields_with_json_dc_inst(window, values):
     window[KEY_WORKERS_LIST_BOX].update(json_dc_inst.get_workers_names_list())
     # devices
     window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
+    # devices - entities
+    last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
+    window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update("", last_entities_list_state_not_occupied)
+    # clients - workers
+    last_workers_list_state_not_occupied = [x for x in last_workers_list_state if x not in json_dc_inst.get_clients_workers()]
+    window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update("", last_workers_list_state_not_occupied)
 
 
 def dc_json_handler(window, event, values):
