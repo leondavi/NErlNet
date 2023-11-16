@@ -39,6 +39,8 @@ def gen_header_worker_parameters_definitions(header_path : str, debug : bool = F
     gen_header_exporter_logger(optimizer_enums.generate_code())
     loss_method_enums = EnumType('LossMethodEnum', LossMethodMapping, True, 'LOSS_METHOD')
     gen_header_exporter_logger(loss_method_enums.generate_code())
+    inra_types_enums = EnumType('InfraTypeEnum', InfraTypeMapping, True, 'INFRA_TYPE')
+    gen_header_exporter_logger(inra_types_enums.generate_code())
 
     if os.path.dirname(header_path):
         os.makedirs(os.path.dirname(header_path), exist_ok=True)
@@ -58,6 +60,7 @@ def gen_header_worker_parameters_definitions(header_path : str, debug : bool = F
         f.write(model_type_enums.generate_code())
         f.write(optimizer_enums.generate_code())
         f.write(loss_method_enums.generate_code())
+        f.write(inra_types_enums.generate_code())
 
 
 

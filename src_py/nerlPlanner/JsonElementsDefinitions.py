@@ -13,6 +13,7 @@ WORKER_TYPE = 9
 MAIN_SERVER_TYPE = 10
 API_SERVER_TYPE = 11
 SPECIAL_ENTITY_TYPE = 12
+INFRA_TYPE = 13
 NONE_TYPE = -1
 
 def comm_entity_type(in_type) -> bool:

@@ -102,6 +102,11 @@ LossMethodMapping = OrderedDict([
     ("CEE" , "6"), # Cross Entropy Error
 ])
 
+InfraTypeMapping = OrderedDict([
+    ("opennn" , "0"),
+    ("wolfengine" , "1"),
+])    
+
 def get_key_by_value(in_map : dict, value):
     list_of_values = list(in_map.values())
     return list(in_map.keys())[list_of_values.index(value)] if value in list_of_values else None
@@ -134,6 +139,8 @@ KEY_LEARNING_RATE = "lr"
 KEY_LEARNING_RATE_DOC = "_doc_lr"
 KEY_OPTIMIZER_TYPE = "optimizer"
 KEY_OPTIMIZER_TYPE_DOC = "_doc_optimizer"
+KEY_INFRA_TYPE = "infraType"
+KEY_INFRA_TYPE_DOC = "_doc_infraType"
 
 VAL_MODEL_TYPE_DOC = f"{doc_print_dict(ModelTypeMapping)}"
 VAL_LAYER_SIZES_DOC = "List of postive integers [L0, L1, ..., LN]"
@@ -146,3 +153,4 @@ VAL_LOSS_METHOD_DOC = f"{doc_print_dict(LossMethodMapping)}"
 VAL_EPOCHS_DOC = "Positve Integer"
 VAL_LEARNING_RATE_DOC = "Positve float"
 VAL_OPTIMIZER_TYPE_DOC = f"{doc_print_dict(OptimizerTypeMapping)}"
+VAL_INFRA_TYPE_DOC = f"{doc_print_dict(InfraTypeMapping)}"
