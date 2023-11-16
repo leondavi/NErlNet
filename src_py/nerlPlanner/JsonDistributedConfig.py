@@ -217,6 +217,12 @@ class JsonDistributedConfig():
 
     def get_client(self, client_name : str) -> Client: 
         return self.get_entity_with_type(client_name, KEY_CLIENTS)
+    
+    def get_clients_workers(self):
+        workers_list = []
+        for _ , client in self.main_dict[KEY_CLIENTS].items():
+            workers_list += client.get_workers_names()
+        return workers_list
 
     def add_router(self, router : Router): 
         '''
