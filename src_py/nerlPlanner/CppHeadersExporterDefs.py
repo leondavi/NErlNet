@@ -30,9 +30,9 @@ class EnumType:
 
     def generate_code(self):
         code = f'enum {self.enum_name}'+'{'
+        last_key = list(self.ordered_dict.keys())[-1].upper() if self.all_caps else list(self.ordered_dict.keys())[-1]
         for key, value in self.ordered_dict.items():
             key = key.upper() if self.all_caps else key
-            last_key = list(self.ordered_dict.keys())[-1].upper() if self.all_caps else list(self.ordered_dict.keys())[-1]
             code += f'{self.prefix}_{key}={value}'
             code += ',' if last_key != key else ''
         return code.replace('-','_') + '};\n'

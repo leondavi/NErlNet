@@ -48,9 +48,10 @@ def WinWorkerDialog():
                                   ]
     OptimizerDefinitionsFrame = sg.Frame("Optimizer Definitions", layout=OptimizerDefinitionsLayout, expand_x=True)
 
- 
+    InfraTypeLayout = [[ sg.Text("Infra Type: "), sg.Combo(list(InfraTypeMapping.keys()),default_value=list(InfraTypeMapping.keys())[0], enable_events=True, key=KEY_INFRA_TYPE_LIST_BOX)]]
+    InfraTypeFrame = sg.Frame("Worker Infrastrcutre Type", layout=InfraTypeLayout, expand_x=True)
     
-    WorkerWindow  = sg.Window(title="Worker", layout=[[sg.Text(f'New Worker Generator')],[WorkerFileFrame],[WorkerDefinitionsFrame],[OptimizerDefinitionsFrame]],modal=True, keep_on_top=True)                                                  
+    WorkerWindow  = sg.Window(title="Worker", layout=[[sg.Text(f'New Worker Generator')],[WorkerFileFrame],[WorkerDefinitionsFrame],[OptimizerDefinitionsFrame], [InfraTypeFrame]],modal=True, keep_on_top=True)                                                  
 
     # File Attributes
     FileDirExport = ''
@@ -70,11 +71,13 @@ def WinWorkerDialog():
     LayersFunctionsList = ""
     LayerTypesList = ""
     WithDocumentation = True
+    InfraType = ""
 
     def ui_update_all_values(WorkerWindow):
         WorkerWindow[KEY_LAYER_SIZES_INPUT].update(LayersSizesList)
         WorkerWindow[KEY_MODEL_TYPE_LIST_BOX].update(ModelTypeStr)
         WorkerWindow[KEY_OPTIMIZER_TYPE_LIST_BOX].update(OptimizationTypeStr)
+        WorkerWindow[KEY_INFRA_TYPE_LIST_BOX].update(InfraType)
         WorkerWindow[KEY_LOSS_METHOD_LIST_BOX].update(LossMethodStr)
         WorkerWindow[KEY_LEARNING_RATE_INPUT].update(LearningRate)
         WorkerWindow[KEY_EPOCHS_INPUT].update(Epochs)
@@ -155,6 +158,9 @@ def WinWorkerDialog():
         if event == KEY_OPTIMIZER_TYPE_LIST_BOX:
             OptimizationTypeStr = values[event]
             OptimizationType = OptimizerTypeMapping[OptimizationTypeStr]
+        
+        if event == KEY_INFRA_TYPE_LIST_BOX:
+            InfraType = values[event]
 
         if event == KEY_LOSS_METHOD_LIST_BOX:
             LossMethodStr = values[event]
@@ -166,12 +172,12 @@ def WinWorkerDialog():
         if event == KEY_BUTTON_EXPORT_WORKER:
             worker_parameters_conditions = bool(LayersSizesList) and bool(ModelTypeStr) and bool(ModelType) and bool(OptimizationTypeStr) and\
                                            bool(OptimizationType) and bool(LossMethodStr) and bool(LossMethod) and\
-                                           bool(LearningRate) and bool(LayersFunctionsList) and bool(LayersSizesList) and bool(Epochs)
+                                           bool(LearningRate) and bool(LayersFunctionsList) and bool(LayersSizesList) and bool(Epochs) and bool(InfraType)
             FilePath = Path(FileDirExport) / Path(FileNameExport)
             filepath_condition = FilePath.parent.is_dir() and bool(FileNameExport) and FileNameExport.endswith(".json")
             if worker_parameters_conditions and filepath_condition:
                 newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr, OptimizationType, LossMethodStr, LossMethod,
-                                    LearningRate, Epochs, LayersFunctionsList, LayerTypesList)
+                                    LearningRate, Epochs, LayersFunctionsList, LayerTypesList, InfraType)
                 newWorker.save_as_json(FilePath.as_posix(), WithDocumentation)
                 sg.popup_auto_close("Successfully Created", keep_on_top=True)
                 break
@@ -192,7 +198,7 @@ def WinWorkerDialog():
                 with open(FilePathLoad) as jsonFile:
                     loaded_worker_dict = json.load(jsonFile)
                 ( _ , LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,
-                OptimizationType, LossMethodStr, LossMethod, LearningRate, Epochs, LayersFunctionsList, LayerTypesList) = Worker.load_from_dict(loaded_worker_dict)
+                OptimizationType, LossMethodStr, LossMethod, LearningRate, Epochs, LayersFunctionsList, LayerTypesList, InfraType) = Worker.load_from_dict(loaded_worker_dict)
                 ui_update_all_values(WorkerWindow)
 
             else:
