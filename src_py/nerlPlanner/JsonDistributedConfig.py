@@ -394,7 +394,7 @@ class JsonDistributedConfig():
                 return self.IMPORT_DC_JSON_ISSUE_MISSING_MODEL
             else:
                 model_dict = dict_of_models_by_sha[worker_model_sha]
-                (new_loaded_worker , _, _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(model_dict)
+                (new_loaded_worker , _, _, _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(model_dict)
                 new_loaded_worker.set_name(worker_name)
                 self.add_worker(new_loaded_worker)
 
