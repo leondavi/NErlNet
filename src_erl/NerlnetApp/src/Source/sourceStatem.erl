@@ -22,7 +22,8 @@
 
 
 %% defintions
--define(SENDING_FREQUENCY_OVERHEAD_FIX_FACTOR_PERC, 1.2).
+-define(SENDING_FREQUENCY_OVERHEAD_FIX_FACTOR_PERC, 0.85).
+-define(MICRO_TO_MILLI_FACTOR, 0.001).
 
 
 -record(source_statem_state, {ets_ref, batchesList = [], castingTo=[], myName, source_pid, transmitter_pid = none,csvName="", nerlTensorType}).
@@ -252,7 +253,8 @@ spawnTransmitter(SourceEtsRef, WorkersListOfNames, BatchesListToSend)->
   TimeInterval_ms = ets:lookup_element(SourceEtsRef, time_interval_ms, ?DATA_IDX), % frequency to time interval duration in milliseconds between each send
   Triplets = nerl_tools:getHostPort(WorkersListOfNames,WorkersMap,NerlnetGraph,MyName,[]),
   SourcePid = self(),
-  spawn_link(?MODULE,transmitter,[TimeInterval_ms,SourceEtsRef, SourcePid ,Triplets, BatchesListToSend, Method]).
+  TimeIntervalWithOverheadFactor = TimeInterval_ms * ?SENDING_FREQUENCY_OVERHEAD_FIX_FACTOR_PERC,
+  spawn_link(?MODULE,transmitter,[TimeIntervalWithOverheadFactor,SourceEtsRef, SourcePid ,Triplets, BatchesListToSend, Method]).
 
 %% Sends batch of samples to a client
 % A batch is always {NerlTensor, Type}
@@ -270,8 +272,8 @@ prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [Triplet | Ta
       % sending batch
       sendBatch({NerlTensor, Type},CSVPath, BatchIdx, ClientName,WorkerName,RouterHost,RouterPort),
       % timing handling
-      Toc_millisec = timer:now_diff(Tic, erlang:timestamp()) * 0.001, % out of diff is micro
-      SleepDuration = erlang:max(0,  round(TimeInterval_ms - ?SENDING_FREQUENCY_OVERHEAD_FIX_FACTOR_PERC*Toc_millisec)),
+      Toc_millisec = timer:now_diff(Tic, erlang:timestamp()) * ?MICRO_TO_MILLI_FACTOR,
+      SleepDuration = erlang:max(0,  round(TimeInterval_ms - Toc_millisec)),
       timer:sleep(SleepDuration);
     <<>> ->
       ets:update_counter(TransmitterEts, batches_skipped, 1);
