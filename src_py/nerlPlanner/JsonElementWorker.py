@@ -19,6 +19,9 @@ class Infra(JsonElement):
     def error(self):
         return not self.infra_val
 
+    def get_val_str(self):
+        return self.in_type_str
+
     def get_as_tuple(self):
         return (self.get_name(), self.infra_val)
     
@@ -90,7 +93,7 @@ class Worker(JsonElement):
 
     def copy(self, name):
         newWorker =  Worker(name, self.LayersSizesListStr, self.ModelTypeStr, self.ModelType , self.OptimizationTypeStr, self.OptimizationType,
-                 self.LossMethodStr, self.LossMethod, self.LearningRate, self.Epochs.get_value_str(), self.LayersFunctionsCodesListStr, self.LayerTypesListStr)
+                 self.LossMethodStr, self.LossMethod, self.LearningRate, self.Epochs.get_value_str(), self.LayersFunctionsCodesListStr, self.LayerTypesListStr, self.Infra.get_val_str())
         return newWorker
 
     def __str__(self):
