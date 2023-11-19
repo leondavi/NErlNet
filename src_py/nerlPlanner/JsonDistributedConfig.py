@@ -77,8 +77,8 @@ class JsonDistributedConfig():
         return self.default_frequency if self.default_frequency else None # returns Frequency or None
     
     def get_batch_size(self):
-        batch_size_field_name = get_batch_size_field_name()
-        return self.main_dict[KEY_NERLNET_SETTINGS][get_batch_size_field_name()] if batch_size_field_name in self.main_dict[KEY_NERLNET_SETTINGS] else None
+        batch_size_field_name = GetFields.get_batch_size_field_name()
+        return self.main_dict[KEY_NERLNET_SETTINGS][GetFields.get_batch_size_field_name()] if batch_size_field_name in self.main_dict[KEY_NERLNET_SETTINGS] else None
         
     def get_main_server(self):
         return self.main_dict[MainServer.NAME]
@@ -375,13 +375,13 @@ class JsonDistributedConfig():
         #TODO add more checks
 
         # main server
-        port = loaded_dc_dict[MainServer.NAME][get_port_field_name()]
-        args = loaded_dc_dict[MainServer.NAME][get_args_field_name()]
+        port = loaded_dc_dict[MainServer.NAME][GetFields.get_port_field_name()]
+        args = loaded_dc_dict[MainServer.NAME][GetFields.get_args_field_name()]
         self.add_main_server(MainServer(port, args))
 
         # api server
-        port = loaded_dc_dict[ApiServer.NAME][get_port_field_name()]
-        args = loaded_dc_dict[ApiServer.NAME][get_args_field_name()]
+        port = loaded_dc_dict[ApiServer.NAME][GetFields.get_port_field_name()]
+        args = loaded_dc_dict[ApiServer.NAME][GetFields.get_args_field_name()]
         self.add_api_server(ApiServer(port, args))
 
         # settings
@@ -408,8 +408,8 @@ class JsonDistributedConfig():
         list_of_clients_dicts = loaded_dc_dict[KEY_CLIENTS]
         for client_dict in list_of_clients_dicts:
             client_name = client_dict[NAME_FIELD]
-            client_port = client_dict[get_port_field_name()]
-            client_workers_str = client_dict[get_workers_field_name()]
+            client_port = client_dict[GetFields.get_port_field_name()]
+            client_workers_str = client_dict[GetFields.get_workers_field_name()]
             new_loaded_client = Client(client_name, client_port)
             # add workers to new loaded client:
             for worker_name in client_workers_str.split(","):
@@ -424,27 +424,27 @@ class JsonDistributedConfig():
         list_of_routers_dicts = loaded_dc_dict[KEY_ROUTERS]
         for router_dict in list_of_routers_dicts:
             router_name = router_dict[NAME_FIELD]
-            router_port = router_dict[get_port_field_name()]
-            router_policy = router_dict[get_policy_field_name()]
+            router_port = router_dict[GetFields.get_port_field_name()]
+            router_policy = router_dict[GetFields.get_policy_field_name()]
             self.add_router(Router(router_name, router_port, router_policy))
 
         # sources
         list_of_sources_dicts = loaded_dc_dict[KEY_SOURCES]
         for source_dict in list_of_sources_dicts:
             source_name = source_dict[NAME_FIELD]
-            source_port = source_dict[get_port_field_name()]
-            source_frequency = source_dict[get_frequency_field_name()]
-            source_epochs = source_dict[get_epochs_field_name()]
-            source_policy = source_dict[get_policy_field_name()]
-            source_type = source_dict[get_source_type_field_name()]
+            source_port = source_dict[GetFields.get_port_field_name()]
+            source_frequency = source_dict[GetFields.get_frequency_field_name()]
+            source_epochs = source_dict[GetFields.get_epochs_field_name()]
+            source_policy = source_dict[GetFields.get_policy_field_name()]
+            source_type = source_dict[GetFields.get_source_type_field_name()]
             self.add_source(Source(source_name, source_port, source_frequency, source_policy, source_epochs, source_type))
 
         #devices
         list_of_devices_dicts = loaded_dc_dict[KEY_DEVICES]
         for device_dict in list_of_devices_dicts:
             device_name = device_dict[NAME_FIELD]
-            device_ipv4 = device_dict[get_ipv4_field_name()]
-            entities = device_dict[get_entities_field_name()]
+            device_ipv4 = device_dict[GetFields.get_ipv4_field_name()]
+            entities = device_dict[GetFields.get_entities_field_name()]
             new_device_loaded = Device(device_ipv4, device_name)
             for entity_name in entities.split(','):
                 entity_inst = self.get_entity(entity_name)

@@ -73,12 +73,17 @@ def gen_dc_fields_hrl(header_path : str, debug : bool = False):
                         'WORKERS_FIELD']
     fields_list_strs_atom = [f'DC_{x}_ATOM' for x in fields_list_strs]
     fields_list_strs_string = [f'DC_{x}_STR' for x in fields_list_strs]
+    fields_list_strs_bin = [f'DC_{x}_STR_BIN' for x in fields_list_strs]
+
 
     fields_list_defs_atoms = [ Definition(fields_list_strs_atom[idx], f'{fields_list_vals_atoms[idx]}') for idx in range(len(fields_list_strs))]
     [gen_erlang_exporter_logger(x.generate_code()) for x in fields_list_defs_atoms]
 
     fields_list_defs_strings = [ Definition(fields_list_strs_string[idx], f'{fields_list_vals_strs[idx]}') for idx in range(len(fields_list_strs))]
     [gen_erlang_exporter_logger(x.generate_code()) for x in fields_list_defs_strings]
+
+    fields_list_defs_str_bins = [ Definition(fields_list_strs_bin[idx], f'<<{fields_list_vals_strs[idx]}>>') for idx in range(len(fields_list_strs))]
+    [gen_erlang_exporter_logger(x.generate_code()) for x in fields_list_defs_str_bins]
 
     path_validator(header_path)
 
@@ -89,6 +94,8 @@ def gen_dc_fields_hrl(header_path : str, debug : bool = False):
         [f.write(x.generate_code()) for x in fields_list_defs_atoms]
         f.write(EMPTY_LINE)
         [f.write(x.generate_code()) for x in fields_list_defs_strings]
+        f.write(EMPTY_LINE)
+        [f.write(x.generate_code()) for x in fields_list_defs_str_bins]
 
 def main():
     parser = argparse.ArgumentParser(description='Generate C++ header file for nerlPlanner')
