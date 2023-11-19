@@ -2,28 +2,34 @@
 # Nerlnet - 2023 GPL-3.0 license
 # Authors: Haran Cohen, David Leon, Dor Yerchi #
 ################################################
-import json
+
+import sys
+from definitions import *
+
+sys.path.insert(0, NERLNET_SRC_PY_PATH)
+from nerlPlanner.JsonDistributedConfigDefs import *
+from nerlPlanner.JsonElements import GetFields
+
 #import globalVars as globe
-API_SERVER_STR = "apiServer"
-MAIN_SERVER_STR = "mainServer"
+API_SERVER_STR = GetFields.get_api_server_field_name()
+MAIN_SERVER_STR = GetFields.get_main_server_field_name()
 
 class NetworkComponents():
 
-    def __init__(self, arch_json):
+    def __init__(self, dc_json):
         # Loading the data in JSON format:
-        self.jsonData = arch_json
+        self.jsonData = dc_json
 
         # Getting the desired batch size:
-        self.batchSize = int(self.jsonData['NerlNetSettings']['batchSize'])
-        self.frequency = int(self.jsonData['NerlNetSettings']['frequency'])
+        self.batchSize = int(self.jsonData[KEY_NERLNET_SETTINGS][KEY_BATCH_SIZE])
+        self.frequency = int(self.jsonData[KEY_NERLNET_SETTINGS][KEY_FREQUENCY])
 
         # Getting the address of the main server:
-        mainServerJson = self.jsonData[MAIN_SERVER_STR]
-        self.mainServerIp = mainServerJson['host']
-        self.mainServerPort = mainServerJson['port']
+        self.mainServerIp, self.mainServerPort = self.get_api_server_ip_port() #TODO
+        self.apiServerIp, self.apiServerPort = self.get_api_server_ip_port() #TODO
 
         # Getting the address for the receiver:
-        self.receiverHost = self.jsonData[API_SERVER_STR]['host']
+        self.receiverHost = self.jsonData[API_SERVER_STR]['host'] # TODO - find host from device of APISERVER
         self.receiverPort = self.jsonData[API_SERVER_STR]['port']
 
         # Initializing lists for all the relevant components:
@@ -40,7 +46,7 @@ class NetworkComponents():
         devicesJsons = self.jsonData["devices"]
 
         for device in devicesJsons:
-            self.devicesIp.append(device["host"])
+            self.devicesIp.append(device[GetFields.get_ipv4_field_name()]) #TODO Guy - this is how you can get fields names of nerlplanner
 
         # Getting the names of all the clients and workers:
         clientsJsons = self.jsonData['clients']
@@ -68,6 +74,13 @@ class NetworkComponents():
         for router in routersJsons:
             self.routers.append(router['name'])
 
+
+    def get_main_server_ip_port(self):
+        mainServerJson = self.jsonData[MAIN_SERVER_STR]
+        return "", 0
+    
+    def get_api_server_ip_port(self):
+        return "", 0
 
 
     def printComponents(self):
