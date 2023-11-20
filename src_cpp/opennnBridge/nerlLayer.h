@@ -12,11 +12,18 @@ class NerlLayer
     NerlLayer(int layer_type, iTensor1DPtr &layer_size, int layer_functionality);
     ~NerlLayer();
 
+    void get_next_layer_ptr( std::shared_ptr<NerlLayer> &next_layer_ptr) {}; //TODO
+    void get_prev_layer_ptr( std::shared_ptr<NerlLayer> &prev_layer_ptr) {}; //TODO
+
     private:
+    std::shared_ptr<NerlLayer> _next_layer;
+    std::shared_ptr<NerlLayer> _prev_layer;
+
     int _layer_type;
     iTensor1DPtr _layer_size;
     int _layer_functionality;
 };
+
 
 class NerlLayerCNN : public NerlLayer
 {

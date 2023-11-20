@@ -1,5 +1,7 @@
 #include "nerlWorker.h"
 
+using namespace opennn;
+
 namespace nerlnet
 {
 
@@ -49,6 +51,19 @@ namespace nerlnet
     // TODO - Ori and Nadav - Implement translation functions
     int translate_layer_type(int layer_type)
     {
+        switch (layer_type)
+        {
+            case LAYER_TYPE_DEFAULT: opennn::Layer::Type::Perceptron; break;
+            case LAYER_TYPE_SCALING: opennn::Layer::Type::Scaling; break;
+            case LAYER_TYPE_CNN: opennn::Layer::Type::Convolutional; break;
+            case LAYER_TYPE_PERCEPTRON: opennn::Layer::Type::Perceptron; break;
+            case LAYER_TYPE_POOLING: opennn::Layer::Type::Pooling; break;
+            case LAYER_TYPE_PROBABILISTIC: opennn::Layer::Type::Probabilistic; break;
+            case LAYER_TYPE_LSTM: opennn::Layer::Type::LongShortTermMemory; break;
+            case LAYER_TYPE_RECCURRENT: opennn::Layer::Type::Recurrent; break;
+
+
+        }
         return 0;
     }
 

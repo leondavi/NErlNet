@@ -20,7 +20,7 @@ class NerlWorker
     ~NerlWorker();
     std::shared_ptr<NerlLayer> get_layer(std::shared_ptr<NerlLayer> next_layer);
 
-    void parse_layers_input(std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality);
+    virtual void parse_layers_input(std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality) = 0; // TODO - Ori and Nadav - Should be overided by NerlWorkerOpenNN
 
     float get_learning_rate() { return _learning_rate; };
     int get_epochs() { return _epochs; };
@@ -47,6 +47,8 @@ class NerlWorkerOpenNN : public NerlWorker
 
     void get_opennn_neural_network_ptr(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);
     void generate_opennn_neural_network();
+
+    virtual void parse_layers_input(std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality) override;
 
     private:
     std::shared_ptr<opennn::NeuralNetwork> _neural_network;
