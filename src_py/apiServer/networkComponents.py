@@ -6,7 +6,9 @@
 import sys
 from definitions import *
 
-sys.path.insert(0, NERLNET_SRC_PY_PATH)
+sys.path.insert(0, f'{NERLNET_SRC_PY_PATH}/nerlPlanner')
+sys.path.insert(0, f'{NERLNET_SRC_PY_PATH}') # keep both paths for vscode intelisense
+
 from nerlPlanner.JsonDistributedConfigDefs import *
 from nerlPlanner.JsonElements import GetFields
 
@@ -20,18 +22,6 @@ class NetworkComponents():
         # Loading the data in JSON format:
         self.jsonData = dc_json
 
-        # Getting the desired batch size:
-        self.batchSize = int(self.jsonData[KEY_NERLNET_SETTINGS][KEY_BATCH_SIZE])
-        self.frequency = int(self.jsonData[KEY_NERLNET_SETTINGS][KEY_FREQUENCY])
-
-        # Getting the address of the main server:
-        self.mainServerIp, self.mainServerPort = self.get_api_server_ip_port() #TODO
-        self.apiServerIp, self.apiServerPort = self.get_api_server_ip_port() #TODO
-
-        # Getting the address for the receiver:
-        self.receiverHost = self.jsonData[API_SERVER_STR]['host'] # TODO - find host from device of APISERVER
-        self.receiverPort = self.jsonData[API_SERVER_STR]['port']
-
         # Initializing lists for all the relevant components:
         self.devicesIp = []
         self.clients = []
@@ -42,18 +32,37 @@ class NetworkComponents():
         self.sourceEpochs = {}
         self.routers = []
 
+        # Initializing maps
+        self.map_entity_to_device = {}
+        self.map_device_to_ip = {}
+
+        # Getting the desired batch size:
+        self.batchSize = int(self.jsonData[KEY_NERLNET_SETTINGS][KEY_BATCH_SIZE])
+        self.frequency = int(self.jsonData[KEY_NERLNET_SETTINGS][KEY_FREQUENCY])
+
         # Getting the names of all the devices:
         devicesJsons = self.jsonData["devices"]
 
         for device in devicesJsons:
-            self.devicesIp.append(device[GetFields.get_ipv4_field_name()]) #TODO Guy - this is how you can get fields names of nerlplanner
+            self.devicesIp.append(device[GetFields.get_ipv4_field_name()])
+            for entity_name in device[GetFields.get_entities_field_name()].split(','):
+                self.map_entity_to_device[entity_name] = device[GetFields.get_name_field_name()]
+                self.map_device_to_ip[device[GetFields.get_name_field_name()]] = device[GetFields.get_ipv4_field_name()]
+
+        # Getting the address of the main server:
+        self.mainServerIp, self.mainServerPort = self.get_main_server_ip_port()
+        self.apiServerIp, self.apiServerPort = self.get_api_server_ip_port()
+
+        # Getting the address for the receiver:
+        self.receiverHost = self.apiServerIp
+        self.receiverPort =  self.apiServerPort
 
         # Getting the names of all the clients and workers:
-        clientsJsons = self.jsonData['clients']
+        clientsJsons = self.jsonData[GetFields.get_clients_field_name()]
 
         for client in clientsJsons:
-            self.clients.append(client['name'])
-            subWorkers = client['workers'].split(',')
+            self.clients.append(client[GetFields.get_name_field_name()])
+            subWorkers = client[GetFields.get_workers_field_name()].split(',')
             # Add every sub-worker of this client, to the general workers list:
             self.workers.extend(subWorkers)
 
@@ -76,11 +85,14 @@ class NetworkComponents():
 
 
     def get_main_server_ip_port(self):
-        mainServerJson = self.jsonData[MAIN_SERVER_STR]
-        return "", 0
+        main_server_port = self.jsonData[MAIN_SERVER_STR][GetFields.get_port_field_name()]
+        main_server_ip = self.map_device_to_ip[self.map_entity_to_device[MAIN_SERVER_STR]]
+        return main_server_ip, main_server_port
     
     def get_api_server_ip_port(self):
-        return "", 0
+        api_server_port = self.jsonData[API_SERVER_STR][GetFields.get_port_field_name()]
+        api_server_ip = self.map_device_to_ip[self.map_entity_to_device[API_SERVER_STR]]
+        return api_server_ip, api_server_port
 
 
     def printComponents(self):
