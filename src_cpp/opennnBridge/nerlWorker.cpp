@@ -1,4 +1,4 @@
-#include "nerlworker.h"
+#include "nerlWorker.h"
 
 namespace nerlnet
 {

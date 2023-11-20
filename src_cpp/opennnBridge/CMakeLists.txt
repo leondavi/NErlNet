@@ -35,10 +35,11 @@ set(SRC_CODE
 	"openNNnif.cpp"
     "ModelParams.h"
 	"definitionsNN.h"
-	"nerlworker.cpp"
-	"nerlworker.h"
+	"nerlWorker.cpp"
+	"nerlWorker.h"
 	"nerlLayer.cpp"
 	"nerlLayer.h"
+	"nerlWorkerNIF.h"
 	)
 
 add_library(${PROJECT_NAME} SHARED ${SRC_CODE})
