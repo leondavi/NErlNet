@@ -9,7 +9,7 @@
 -import(nerlNIF,[call_to_get_weights/2,call_to_set_weights/2]).
 -import(nerlNIF,[decode_nif/2, nerltensor_binary_decode/2]).
 -import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
--import(nerlNIF,[nerltensor_sum_nif/3]).
+-import(nerlNIF,[nerltensor_sum_nif/3, test_worker_nif/0]).
 -import(nerlTensor,[nerltensor_sum_erl/2, sum_nerltensors_lists/2]).
 -import(nerlNIF,[nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
 -import(nerl,[compare_floats_L/3, string_format/2, logger_settings/1]).
@@ -28,6 +28,7 @@ nerltest_print(String) ->
 -define(NERLTENSOR_SCALAR_MULTIPLICATION_ROUNDS, 50).
 -define(NERLTENSORS_SUM_LIST_MAX_SIZE, 50).
 -define(NERLTESNORS_SUM_LIST_ROUNDS, 30).
+-define(NERLWORKER_TEST_ROUNDS, 1).
 
 test_envelope(Func, TestName, Rounds) ->
       nerltest_print(nerl:string_format("~p test starts for ~p rounds",[TestName, Rounds])),
@@ -36,8 +37,9 @@ test_envelope(Func, TestName, Rounds) ->
 
 test_envelope_nif_performance(Func, TestName, Rounds) ->
       nerltest_print(nerl:string_format("~p test starts for ~p rounds",[TestName, Rounds])),
-      {TimeTookMicro, AvgPerformance} = timer:tc(Func, [Rounds]),
-      nerltest_print(nerl:string_format("Elapsed: ~p~p Average nif performance: ~.3f~p",[TimeTookMicro/1000,ms, AvgPerformance/Rounds, ms])), ok.
+      {TimeTookMicro, AccPerfromance} = timer:tc(Func, [Rounds]),
+      AveragedPerformance = AccPerfromance/Rounds,
+      nerltest_print(nerl:string_format("Elapsed: ~p~p Average nif performance: ~.3f~p",[TimeTookMicro/1000,ms, AveragedPerformance, ms])), ok.
 
 run_tests()->
       nerl:logger_settings(nerlTests),
@@ -73,6 +75,10 @@ run_tests()->
       SumNerlTensorsListDoubleFunc = fun(Rounds) ->  Performance = 0, sum_nerltensors_lists_test(double, Rounds, Performance) end,
       SumNerlTensorsListDoubleName = "sum_nerltensors_lists double",
       test_envelope_nif_performance(SumNerlTensorsListDoubleFunc, SumNerlTensorsListDoubleName, ?NERLTESNORS_SUM_LIST_ROUNDS ),
+
+      NerlworkerTestFunc = fun(Rounds) ->  Performance = 0, nerlworker_test(Rounds, Performance) end,
+      NerlworkerTestName = "nerlworker_test",
+      test_envelope_nif_performance(NerlworkerTestFunc, NerlworkerTestName, ?NERLWORKER_TEST_ROUNDS ),
 
       nerltest_print("Tests Completed"),
       ok.
@@ -219,3 +225,8 @@ nerltensor_conversion_test(Rounds) ->
                                  _ -> throw(nerl:string_format("unknown nerltensor conversion exception Reason: ~p",[Reason]))
                             end 
       end.
+
+nerlworker_test(0, _Performance) -> ok;
+nerlworker_test(Rounds, Performance) ->
+      nerlNIF:test_worker_nif(),
+      nerlworker_test(Rounds - 1, Performance).
