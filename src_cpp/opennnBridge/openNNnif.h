@@ -23,6 +23,7 @@
 #include "ModelParams.h"
 
 #include "nifppNerltensorEigen.h"
+#include "nerlWorkerNIF.h"
 
 #define DEBUG_CREATE_NIF 0
 
@@ -503,7 +504,11 @@ static ErlNifFunc nif_funcs[] =
     {"encode_nif",2, encode_nif},
     {"decode_nif",2, decode_nif},
     {"nerltensor_sum_nif",3, nerltensor_sum_nif},
-    {"nerltensor_scalar_multiplication_nif",3,nerltensor_scalar_multiplication_nif}
+    {"nerltensor_scalar_multiplication_nif",3,nerltensor_scalar_multiplication_nif},
+    // nerlworker functions
+    {"new_worker_nif", 0, new_worker_nif},
+    {"test_worker_nif", 0, test_worker_nif},
+    {"remove_worker_nif", 0, remove_worker_nif}
 };
 
 

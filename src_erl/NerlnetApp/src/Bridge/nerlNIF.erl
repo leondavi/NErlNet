@@ -20,6 +20,9 @@
 -export([nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
 -export([sum_nerltensors_lists/2, sum_nerltensors_lists_erl/2]).
 
+% worker nif methods
+-export([new_worker_nif/0, remove_worker_nif/0, test_worker_nif/0]).
+
 init() ->
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
       RES = erlang:load_nif(NELNET_LIB_PATH, 0),
@@ -252,7 +255,10 @@ sum_nerltensors_lists_erl(NerltensorList, ErlType)  ->
       end,
       sum_nerltensors_lists_erl(SumResultTwoHalfsWithOddFirst, ErlType).
 
-      
+% sum_nerltensors_lists:
+% sums list of nerltensors: NT1 + NT2 + NT3 + ... + NTn
+% NerltensorList - list of nerltensors (NT1, NT2, NT3, ..., NTn)
+% BinaryType should be the same for all NerlTesnors
 sum_nerltensors_lists([], _BinaryType) ->  throw("Zero length given to sum_nerltensors_even_lists");
 sum_nerltensors_lists(NerltensorList, _BinaryType) when length(NerltensorList) == 1 ->  NerltensorList;
 sum_nerltensors_lists(NerltensorList, BinaryType) -> 
@@ -276,3 +282,14 @@ sum_nerltensors_lists(NerltensorList, BinaryType) ->
       true -> SumResultOfTwoHalfs % nothing to do with first element in case of even list
       end,
       sum_nerltensors_lists(SumResultTwoHalfsWithOddFirst, BinaryType).
+
+%%%%%% NerlWorker NIF Methods %%%%%%
+
+new_worker_nif() ->
+      exit(nif_library_not_loaded).
+
+remove_worker_nif() ->
+      exit(nif_library_not_loaded).
+
+test_worker_nif() ->
+      exit(nif_library_not_loaded).
