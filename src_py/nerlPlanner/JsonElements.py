@@ -493,12 +493,15 @@ class GetFields():
 
     def get_policy_field_name():
         return Policy(0,0).get_name()
-    
+
     def get_clients_field_name():
         return KEY_CLIENTS
-    
+
     def get_routers_field_name():
         return KEY_ROUTERS
-    
+
     def get_sources_field_name():
         return KEY_SOURCES
+
+    def get_devices_field_name():
+        return KEY_DEVICES
