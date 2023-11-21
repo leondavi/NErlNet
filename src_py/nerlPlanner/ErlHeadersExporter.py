@@ -29,11 +29,13 @@ def gen_worker_fields_hrl(header_path : str, debug : bool = False):
     fields_list_vals = [KEY_MODEL_TYPE, KEY_LAYER_SIZES_LIST,
                    KEY_LAYER_TYPES_LIST, KEY_LAYERS_FUNCTIONS,
                    KEY_LOSS_METHOD, KEY_LEARNING_RATE,
-                   KEY_EPOCHS, KEY_OPTIMIZER_TYPE, KEY_INFRA_TYPE]
+                   KEY_EPOCHS, KEY_OPTIMIZER_TYPE, KEY_INFRA_TYPE,
+                   KEY_DISTRIBUTED_SYSTEM_TYPE, KEY_DISTRIBUTED_SYSTEM_TOKEN]
     fields_list_strs = ['KEY_MODEL_TYPE', 'KEY_LAYER_SIZES_LIST',
                    'KEY_LAYER_TYPES_LIST', 'KEY_LAYERS_FUNCTIONS',
                    'KEY_LOSS_METHOD', 'KEY_LEARNING_RATE',
-                   'KEY_EPOCHS', 'KEY_OPTIMIZER_TYPE', 'KEY_INFRA_TYPE']
+                   'KEY_EPOCHS', 'KEY_OPTIMIZER_TYPE', 'KEY_INFRA_TYPE',
+                   'KEY_DISTRIBUTED_SYSTEM_TYPE', 'KEY_DISTRIBUTED_SYSTEM_TOKEN']
     fields_list_strs = [f'WORKER_{x}' for x in fields_list_strs]
 
     fields_list_defs = [ Definition(fields_list_strs[idx], f'{Definition.assert_not_atom(fields_list_vals[idx])}') for idx in range(len(fields_list_vals))]

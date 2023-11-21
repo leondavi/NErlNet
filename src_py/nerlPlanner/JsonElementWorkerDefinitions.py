@@ -78,9 +78,7 @@ ModelTypeMapping = OrderedDict([
     ("encoder_decoder" , "4"),
     ("nn" , "5"),
     ("autoencoder" , "6"),
-    ("ae-classifier" , "7"),
-    ("fed-client", "8"),
-    ("fed-server", "9")
+    ("ae-classifier" , "7")
 ])
 
 OptimizerTypeMapping = OrderedDict([
@@ -100,6 +98,12 @@ LossMethodMapping = OrderedDict([
     ("MinkowskiE" , "4"), # Minkowski Error
     ("WSE" , "5"), # Weighted Squared Error
     ("CEE" , "6"), # Cross Entropy Error
+])
+
+DistributedSystemTypeMapping = OrderedDict([
+    ("none" , "0"),
+    ("fedClientAvg" , "1"),
+    ("fedServerAvg" , "2")
 ])
 
 InfraTypeMapping = OrderedDict([
@@ -141,6 +145,10 @@ KEY_OPTIMIZER_TYPE = "optimizer"
 KEY_OPTIMIZER_TYPE_DOC = "_doc_optimizer"
 KEY_INFRA_TYPE = "infraType"
 KEY_INFRA_TYPE_DOC = "_doc_infraType"
+KEY_DISTRIBUTED_SYSTEM_TYPE = "distributedSystemType"
+KEY_DISTRIBUTED_SYSTEM_TYPE_DOC = "_doc_distributedSystemType"
+KEY_DISTRIBUTED_SYSTEM_TOKEN = "distributedSystemToken"
+KEY_DISTRIBUTED_SYSTEM_TOKEN_DOC = "_doc_distributedSystemToken"
 
 VAL_MODEL_TYPE_DOC = f"{doc_print_dict(ModelTypeMapping)}"
 VAL_LAYER_SIZES_DOC = "List of postive integers [L0, L1, ..., LN]"
@@ -154,3 +162,5 @@ VAL_EPOCHS_DOC = "Positve Integer"
 VAL_LEARNING_RATE_DOC = "Positve float"
 VAL_OPTIMIZER_TYPE_DOC = f"{doc_print_dict(OptimizerTypeMapping)}"
 VAL_INFRA_TYPE_DOC = f"{doc_print_dict(InfraTypeMapping)}"
+VAL_DISTRIBUTED_SYSTEM_TYPE_DOC = f"{doc_print_dict(DistributedSystemTypeMapping)}"
+VAL_DISTRIBUTED_SYSTEM_TOKEN_DOC = "Token that associates distributed group of workers and parameter-server"

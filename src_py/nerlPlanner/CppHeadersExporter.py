@@ -41,6 +41,8 @@ def gen_header_worker_parameters_definitions(header_path : str, debug : bool = F
     gen_header_exporter_logger(loss_method_enums.generate_code())
     inra_types_enums = EnumType('InfraTypeEnum', InfraTypeMapping, True, 'INFRA_TYPE')
     gen_header_exporter_logger(inra_types_enums.generate_code())
+    worker_distributed_system_types_enums = EnumType('WorkerDistributedSystemTypeEnum', DistributedSystemTypeMapping, True, 'WORKER_DISTRIBUTED_SYSTEM_TYPE')
+    gen_header_exporter_logger(worker_distributed_system_types_enums.generate_code())
 
     if os.path.dirname(header_path):
         os.makedirs(os.path.dirname(header_path), exist_ok=True)
@@ -61,6 +63,7 @@ def gen_header_worker_parameters_definitions(header_path : str, debug : bool = F
         f.write(optimizer_enums.generate_code())
         f.write(loss_method_enums.generate_code())
         f.write(inra_types_enums.generate_code())
+        f.write(worker_distributed_system_types_enums.generate_code())
 
 
 

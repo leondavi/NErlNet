@@ -10,3 +10,5 @@
 -define(WORKER_KEY_EPOCHS,epochs).
 -define(WORKER_KEY_OPTIMIZER_TYPE,optimizer).
 -define(WORKER_KEY_INFRA_TYPE,infraType).
+-define(WORKER_KEY_DISTRIBUTED_SYSTEM_TYPE,distributedSystemType).
+-define(WORKER_KEY_DISTRIBUTED_SYSTEM_TOKEN,distributedSystemToken).
