@@ -40,6 +40,8 @@ def settings_handler(window, event, values):
         batch_size_inst = BatchSize(batch_size) if batch_size else None
         error_list.append(batch_size_inst.error()) if batch_size else error_list.append(True)
 
+        window[KEY_SETTINGS_STATUS_BAR].update(settings_freq_batch_str(frequency_inst.get_value_str(),batch_size_inst.get_value_str()))
+
         error = any(error_list)
         if error:
             sg.popup_ok(f"Wrong or missed input!", keep_on_top=True, title="Settings Input Issue")
@@ -569,6 +571,10 @@ def sync_fields_with_json_dc_inst(window, values):
     window[KEY_SETTINGS_MAINSERVER_ARGS_INPUT].update(json_dc_inst.get_main_server().get_args().get_value())
     window[KEY_SETTINGS_APISERVER_PORT_INPUT].update(json_dc_inst.get_api_server().get_port().get_value_str())
     window[KEY_SETTINGS_APISERVER_ARGS_INPUT].update(json_dc_inst.get_main_server().get_args().get_value())
+    # settings status bar
+    frequency_inst = json_dc_inst.get_frequency()
+    batch_size_inst = json_dc_inst.get_batch_size()
+    window[KEY_SETTINGS_STATUS_BAR].update(settings_freq_batch_str(frequency_inst.get_value_str(),batch_size_inst.get_value_str()))
     # special entities status bar
     main_server_inst = json_dc_inst.get_main_server()
     api_server_inst = json_dc_inst.get_api_server()

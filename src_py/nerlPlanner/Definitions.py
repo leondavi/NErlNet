@@ -1,4 +1,5 @@
 import subprocess
+from logger import *
 
 VERSION = "1.0.0"
 NERLNET_VERSION_TESTED_WITH = "1.2.0"
@@ -24,6 +25,7 @@ KEY_SETTINGS_APISERVER_PORT_INPUT = '-KEY-SETTINGS-APISERVER-PORT-INPUT-'
 KEY_SETTINGS_APISERVER_ARGS_INPUT = '-KEY-SETTINGS-APISERVER-ARGS-INPUT-' 
 KEY_SETTINGS_SAVE_BUTTON = '-KEY-SETTINGS-SAVE-BUTTON-'
 KEY_SETTINGS_CLEAR_BUTTON = '-KEY-SETTINGS-CLEAR-BUTTON-'
+KEY_SETTINGS_STATUS_BAR = '-KEY-SETTINGS-STATUS-BAR-'
 KEY_SETTINGS_MAIN_SERVER_STATUS_BAR = '-KEY-SETTINGS-MAIN-SERVER-STATUS-BAR-'
 KEY_SETTINGS_API_SERVER_STATUS_BAR = '-KEY-SETTINGS-API-SERVER-STATUS-BAR-'
 
@@ -102,15 +104,14 @@ KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME = '-KEY-DC-JSON-EXPORT-TO-INPUT-FILENAME-'
 KEY_DC_JSON_EXPORT_BUTTON= '-KEY-DC-JSON-EXPORT-BUTTON-'
 KEY_DC_JSON_CLEAR_BUTTON= '-KEY-DC-JSON-CLEAR-BUTTON-'
 
+def settings_freq_batch_str(freq : str = 'xxx', batch : str = 'xxx'):
+    return f"{freq}Hz {batch} Samples"
 
 def pretty_print_dict(d):#define d
     pretty_dict = ''  #take empty string
     for k, v in d.items():#get items for dict
         pretty_dict += f'{k}: {str(v)}\n'
     return pretty_dict#return result
-
-def nerlplanner_print(string : str):
-    print(f"[NerlPlanner] {string}")
 
 def print_banner():
     print("\n d8b   db d88888b d8888b. db      d8b   db d88888b d888888b\n \
@@ -129,12 +130,12 @@ d8888b. db       .d8b.  d8b   db d8b   db d88888b d8888b. \n \
 88      Y88888P YP   YP VP   V8P VP   V8P Y88888P 88   YD \n \
                                                           \n \
                                                           \n ")
-    print(f"Nerlnet Planner version {VERSION} is given without any warranty.")
-    print(f"There is no commitiment or responsibility for results, damage, loss that can be caused by using this tool.")
-    print(f"Please review the license of Nerlnet on Github repository:")
-    print(f"www.github.com/leondavi/NErlNet")
-    print(f"You must cite Nerlnet if you use any of its tools for academic/commercial/any purpose.")
-    print(f"Tested with Nerlnet version {NERLNET_VERSION_TESTED_WITH}")
+    LOG_INFO(f"Nerlnet Planner version {VERSION} is given without any warranty.")
+    LOG_INFO(f"There is no commitiment or responsibility for results, damage, loss that can be caused by using this tool.")
+    LOG_INFO(f"Please review the license of Nerlnet on Github repository:")
+    LOG_INFO(f"www.github.com/leondavi/NErlNet")
+    LOG_INFO(f"You must cite Nerlnet if you use any of its tools for academic/commercial/any purpose.")
+    LOG_INFO(f"Tested with Nerlnet version {NERLNET_VERSION_TESTED_WITH}")
 
 
 def get_screen_resolution():
