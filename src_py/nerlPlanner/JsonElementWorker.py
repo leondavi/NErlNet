@@ -26,7 +26,7 @@ class Infra(JsonElement):
         return (self.get_name(), self.infra_val)
     
     def __str__(self):
-        return get_inv_dict(InfraTypeMapping)[self.in_type_str]
+        return self.in_type_str
     
     def get_key_from_value(value):
         return get_key_by_value(InfraTypeMapping, value)
@@ -77,6 +77,7 @@ class Worker(JsonElement):
                  loss_method_str : str, loss_method : int, learning_rate : str, epochs : str, layer_functions_codes_list_str : str,
                  layer_types_list_str : str, infra : str, distributed_system_type : str, distributed_system_token : str):
         super(Worker, self).__init__(name, WORKER_TYPE)
+        # Update here when adding new fields to the worker
         self.LayersSizesListStr = layers_sizes_list_str
         self.LayersSizesList = layers_sizes_list_str.split(',')
         self.ModelTypeStr = model_type_str
@@ -139,8 +140,10 @@ class Worker(JsonElement):
         return filename_png
 
     def copy(self, name):
+        # Update here when adding new fields to the worker
         newWorker =  Worker(name, self.LayersSizesListStr, self.ModelTypeStr, self.ModelType , self.OptimizationTypeStr, self.OptimizationType,
-                 self.LossMethodStr, self.LossMethod, self.LearningRate, self.Epochs.get_value_str(), self.LayersFunctionsCodesListStr, self.LayerTypesListStr, self.Infra.get_val_str())
+                 self.LossMethodStr, self.LossMethod, self.LearningRate, self.Epochs.get_value_str(), self.LayersFunctionsCodesListStr, self.LayerTypesListStr, self.Infra.get_val_str(),
+                 self.distributedSystemType.get_val_str(), self.distributedSystemToken.get_val_str())
         return newWorker
 
     def __str__(self):
@@ -154,6 +157,7 @@ class Worker(JsonElement):
         return self.lengths_validation and (not self.Epochs.error())
     
     def get_as_dict(self, documentation = True):
+        # Update here when adding new fields to the worker
         assert not self.error()
         self.key_val_pairs = [
             (KEY_MODEL_TYPE, self.ModelType),
@@ -198,6 +202,7 @@ class Worker(JsonElement):
             json.dump(self.get_as_dict(documentation), fd_out, indent=4)
 
     def load_from_dict(worker_dict : dict, name = '', get_params = False):
+        # Update here when adding new fields to the worker
         required_keys = [KEY_LAYER_SIZES_LIST, KEY_MODEL_TYPE, KEY_OPTIMIZER_TYPE,
                          KEY_LOSS_METHOD, KEY_LEARNING_RATE, KEY_EPOCHS, KEY_LAYERS_FUNCTIONS,
                          KEY_LAYER_TYPES_LIST, KEY_EPOCHS, KEY_INFRA_TYPE, KEY_DISTRIBUTED_SYSTEM_TYPE, KEY_DISTRIBUTED_SYSTEM_TOKEN]
@@ -205,6 +210,7 @@ class Worker(JsonElement):
         all_keys_exist = all([key in worker_dict for key in required_keys])
 
         if all_keys_exist:
+            # Update here when adding new fields to the worker
             LayersSizesList = worker_dict[KEY_LAYER_SIZES_LIST]
             ModelType = int(worker_dict[KEY_MODEL_TYPE])
             ModelTypeStr = get_key_by_value(ModelTypeMapping, worker_dict[KEY_MODEL_TYPE])
@@ -221,15 +227,14 @@ class Worker(JsonElement):
             DistributedSystemTokenInst = worker_dict[KEY_DISTRIBUTED_SYSTEM_TOKEN]
             
             if get_params:
+                # Update here when adding new fields to the worker
                 return (LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr, OptimizationType, LossMethodStr, LossMethod,
                         LearningRate, EpochsStr, ActivationLayersList, LayerTypesList, InfraType,
                         DistributedSystemTypeInst, DistributedSystemTokenInst)
 
+            # Update here when adding new fields to the worker
             return Worker(name, LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,
                 OptimizationType, LossMethodStr, LossMethod, LearningRate, EpochsStr, ActivationLayersList, LayerTypesList, InfraType,
                  DistributedSystemTypeInst, DistributedSystemTokenInst)
-        
-
-
                     
         return None
