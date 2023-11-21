@@ -28,6 +28,9 @@ class Infra(JsonElement):
     def __str__(self):
         return get_inv_dict(InfraTypeMapping)[self.in_type_str]
     
+    def get_key_from_value(value):
+        return get_key_by_value(InfraTypeMapping, value)
+    
 class DistributedSystemType(JsonElement):
     def __init__(self, in_type_str : str):
         super(DistributedSystemType, self).__init__("distributedSystemType", DISTRIBUTED_SYSTEM_TYPE)
@@ -39,12 +42,18 @@ class DistributedSystemType(JsonElement):
 
     def get_val_str(self):
         return self.in_type_str
+    
+    def get_val(self):
+        return self.distributed_system_type_val
 
     def get_as_tuple(self):
         return (self.get_name(), self.distributed_system_type_val)
     
     def __str__(self):
         return get_inv_dict(DistributedSystemTypeMapping)[self.in_type_str]
+    
+    def get_key_from_value(value):
+        return get_key_by_value(DistributedSystemTypeMapping, value)
 
 class DistributedSystemToken(JsonElement):
     def __init__(self, in_token_str : str):
@@ -83,8 +92,8 @@ class Worker(JsonElement):
         self.LayerTypesList = layer_types_list_str.split(',') #TODO validate
         self.Epochs = Epochs(epochs)
         self.Infra = Infra(infra)
-        self.DistributedSystemType = DistributedSystemType(distributed_system_type)
-        self.DistributedSystemToken = DistributedSystemToken(distributed_system_token)
+        self.distributedSystemType = DistributedSystemType(distributed_system_type)
+        self.distributedSystemToken = DistributedSystemToken(distributed_system_token)
 
         # validate lists sizes 
         lists_for_length = [self.LayersSizesList, self.LayersFunctionsCodesList, self.LayerTypesList]
@@ -168,9 +177,9 @@ class Worker(JsonElement):
             (KEY_OPTIMIZER_TYPE_DOC, VAL_OPTIMIZER_TYPE_DOC),
             (KEY_INFRA_TYPE, self.Infra.infra_val),
             (KEY_INFRA_TYPE_DOC, VAL_INFRA_TYPE_DOC),
-            (KEY_DISTRIBUTED_SYSTEM_TYPE, self.DistributedSystemType.get_val_str()),
+            (KEY_DISTRIBUTED_SYSTEM_TYPE, self.distributedSystemType.get_val()),
             (KEY_DISTRIBUTED_SYSTEM_TYPE_DOC, VAL_DISTRIBUTED_SYSTEM_TYPE_DOC),
-            (KEY_DISTRIBUTED_SYSTEM_TOKEN, self.DistributedSystemToken.get_val_str()),
+            (KEY_DISTRIBUTED_SYSTEM_TOKEN, self.distributedSystemToken.get_val_str()),
             (KEY_DISTRIBUTED_SYSTEM_TOKEN_DOC, VAL_DISTRIBUTED_SYSTEM_TOKEN_DOC),
         ]
         if not documentation:
@@ -207,18 +216,18 @@ class Worker(JsonElement):
             ActivationLayersList = worker_dict[KEY_LAYERS_FUNCTIONS]
             LayerTypesList = worker_dict[KEY_LAYER_TYPES_LIST]
             EpochsStr = worker_dict[KEY_EPOCHS]
-            InfraType = worker_dict[KEY_INFRA_TYPE]
-            DistributedSystemType = worker_dict[KEY_DISTRIBUTED_SYSTEM_TYPE]
-            DistributedSystemToken = worker_dict[KEY_DISTRIBUTED_SYSTEM_TOKEN]
+            InfraType = Infra.get_key_from_value(worker_dict[KEY_INFRA_TYPE])
+            DistributedSystemTypeInst = DistributedSystemType.get_key_from_value(worker_dict[KEY_DISTRIBUTED_SYSTEM_TYPE])
+            DistributedSystemTokenInst = worker_dict[KEY_DISTRIBUTED_SYSTEM_TOKEN]
             
             if get_params:
                 return (LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr, OptimizationType, LossMethodStr, LossMethod,
                         LearningRate, EpochsStr, ActivationLayersList, LayerTypesList, InfraType,
-                        DistributedSystemType, DistributedSystemToken)
+                        DistributedSystemTypeInst, DistributedSystemTokenInst)
 
             return Worker(name, LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,
                 OptimizationType, LossMethodStr, LossMethod, LearningRate, EpochsStr, ActivationLayersList, LayerTypesList, InfraType,
-                 DistributedSystemType, DistributedSystemToken)
+                 DistributedSystemTypeInst, DistributedSystemTokenInst)
         
 
 
