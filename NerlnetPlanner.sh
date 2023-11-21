@@ -19,7 +19,7 @@ print "Checking for $DOT_PACKAGE"
 if [ "" = "$DOT_EXIST" ]; then
   print "Please run: sudo apt-get install $DOT_PACKAGE"
 else
-  print "installed"
+  print "$DOT_PACKAGE installed"
 fi
 
 
@@ -29,7 +29,16 @@ print "Checking for $GRAPHVIZ_PACKAGE"
 if [ "" = "$GRAPHVIZ_EXIST" ]; then
   print "Please run: sudo apt-get install $GRAPHVIZ_PACKAGE"
 else
-  print "installed"
+  print "$GRAPHVIZ_PACKAGE installed"
+fi
+
+TKINTER_PACKAGE="python3-tk"
+TKINTER_EXIST=$(dpkg-query -W --showformat='${Status}\n' $TKINTER_PACKAGE|grep "install ok installed")
+print "Checking for $TKINTER_PACKAGE"
+if [ "" = "$TKINTER_EXIST" ]; then
+  print "Please run: sudo apt-get install $TKINTER_PACKAGE"
+else
+  print "$TKINTER_PACKAGE installed"
 fi
 
 # set python environment to run Nerlnet Flow
