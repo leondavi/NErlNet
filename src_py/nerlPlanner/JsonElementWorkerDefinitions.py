@@ -126,6 +126,7 @@ def doc_print_dict(d):#define d
 
 # DC fields of worker must be suitable with erlang atoms convention! (lower case first letter)
 # Please run ./NerlnetBuild.sh to test any changes of this file!
+# Update here when adding new fields to the worker
 KEY_DOC_PREFIX = "_doc_"
 KEY_MODEL_TYPE = "modelType"
 KEY_MODEL_TYPE_DOC = "_doc_modelType"
@@ -155,6 +156,7 @@ KEY_DISTRIBUTED_SYSTEM_TYPE_DOC = "_doc_distributedSystemType"
 KEY_DISTRIBUTED_SYSTEM_TOKEN = "distributedSystemToken"
 KEY_DISTRIBUTED_SYSTEM_TOKEN_DOC = "_doc_distributedSystemToken"
 
+# Update here when adding new fields to the worker
 VAL_MODEL_TYPE_DOC = f"{doc_print_dict(ModelTypeMapping)}"
 VAL_LAYER_SIZES_DOC = "List of postive integers [L0, L1, ..., LN]"
 VAL_LAYER_TYPES_DOC = f"{doc_print_dict(LayerTypeMap)}"
