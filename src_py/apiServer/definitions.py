@@ -2,6 +2,7 @@ import os
 import json
 from pathlib import Path
 from collections import OrderedDict
+from logger import *
 # nerlconfig files
 
 NERLNET_PATH = "/usr/local/lib/nerlnet-lib/NErlNet"
@@ -42,7 +43,9 @@ def read_nerlconfig(nerlconfig_file_path : str):
                 if os.path.exists(first_line):
                     return first_line
                 else:
-                    print(f"bad nerlconfig directory is given: {first_line} at {nerlconfig_file_path}")
+                    if (INPUT_DATA_DIR_CONF in nerlconfig_file_path):
+                        LOG_ERROR("data directory does not exist in given path , consider running ./NerlnetGetData.sh")
+                    LOG_ERROR(f"bad nerlconfig directory is given: {first_line} at {nerlconfig_file_path}")
                     raise "bad nerlconfig directory is given"
     return None
 

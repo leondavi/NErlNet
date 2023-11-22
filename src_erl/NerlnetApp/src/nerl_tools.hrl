@@ -5,8 +5,7 @@
 -define(MAIN_SERVER_STR, "mainServer").
 -define(API_SERVER_ATOM, apiServer).
 -define(API_SERVER_STR, "apiServer").
--define(NERLGUI_SERVER_ATOM, nerlGUI).
--define(LIST_OF_SPECIAL_SERVERS,[?API_SERVER_ATOM, ?NERLGUI_SERVER_ATOM, ?MAIN_SERVER_ATOM]).
+-define(LIST_OF_SPECIAL_SERVERS,[?API_SERVER_ATOM, ?MAIN_SERVER_ATOM]).
 %% HEADER format example: "nerlNetServer_app/start@52: MES"
 -define(LOG_HEADER, atom_to_list(?MODULE) ++ "/" ++ atom_to_list(?FUNCTION_NAME) ++ "@" ++ integer_to_list(?LINE) ++ ": " ).
 
