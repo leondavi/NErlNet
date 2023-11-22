@@ -4,6 +4,8 @@ from JsonElementWorker import *
 from WinWorkerDialogDefnitions import *
 from JsonElementWorker import Worker
 from Definitions import *
+import random 
+import string
 
 global_layer_method_selection_code = None
 
@@ -146,8 +148,6 @@ def WinWorkerDialog():
             WorkerWindow[KEY_LAYER_FUNCTIONS_CODES_INPUT].update(LayersFunctionsList)
             WorkerWindow[KEY_LAYERS_FUNCTIONS_CODES].update(f'({str(count_str_list_elements(LayersFunctionsList))})')
 
-
-
         if event == KEY_ACTIVATION_LAYER_HELP:
             ActivationDictStr = f'Activation:\n{pretty_print_dict(ActivationFunctionsMap)}'
             PoolingDictStr = f'Pooling:\n{pretty_print_dict(PoolingMethodMap)}'
@@ -171,6 +171,17 @@ def WinWorkerDialog():
         if event == KEY_DISTRIBUTED_SYSTEM_TYPE_LIST_BOX:
             DistributedSystemType = values[event]
 
+        if event == KEY_DISTRIBUTED_SYSTEM_TOKEN_INPUT:
+            DistributedSystemToken = values[event]
+
+        if event == KEY_DISTRIBUTED_SYSTEM_TOKEN_AUTOGENERATE_BUTTON:
+            # Generate 4 random digits
+            digits = ''.join(random.choices(string.digits, k=4))
+            # Generate 1 random letter
+            letter = random.choice(string.ascii_letters)
+            DistributedSystemToken = digits + letter
+            ui_update_all_values(WorkerWindow)
+            
         if event == KEY_LOSS_METHOD_LIST_BOX:
             LossMethodStr = values[event]
             LossMethod = LossMethodMapping[LossMethodStr]
