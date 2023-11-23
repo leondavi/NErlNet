@@ -90,18 +90,18 @@ start(_StartType, _StartArgs) ->
     nerl_tools:setup_logger(?MODULE),
     %% make sure nif can be loaded:
     nerlNIF:nif_preload(),
-    HostName = nerl_tools:getdeviceIP(),
+    ThisDeviceIP = nerl_tools:getdeviceIP(),
     ?LOG_INFO("Installed Erlang OTP: ~s (Supported from 25)",[erlang:system_info(otp_release)]),
-    ?LOG_INFO(?LOG_HEADER++"This device IP: ~p~n", [HostName]),
+    ?LOG_INFO(?LOG_HEADER++"This device IP: ~p~n", [ThisDeviceIP]),
     %Create a listener that waits for a message from python about the adresses of the wanted json
 
-    createNerlnetInitiator(HostName),
+    createNerlnetInitiator(ThisDeviceIP),
     {ArchitectureAdderess,CommunicationMapAdderess} = waitForInit(),
 
     %Parse json and start nerlnet:
     ?LOG_INFO(?LOG_HEADER++"ArchitectureAdderess: ~p, CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
 
-    parseJsonAndStartNerlnet(HostName),
+    parseJsonAndStartNerlnet(ThisDeviceIP),
     nerlnetApp_sup:start_link().
 
 waitForInit() ->
@@ -133,19 +133,19 @@ createNerlnetInitiator(HostName) ->
 
 
 
-parseJsonAndStartNerlnet(HostName) ->
+parseJsonAndStartNerlnet(ThisDeviceIP) ->
     %% Entities to open on device from reading arch.json: 
-    {ok, ArchitectureAdderessData} = file:read_file(?JSON_ADDR++?LOCAL_ARCH_FILE_NAME),
-    {ok, CommunicationMapAdderessData} = file:read_file(?JSON_ADDR++?LOCAL_COMM_FILE_NAME),
+    {ok, DCJsonPath} = file:read_file(?JSON_ADDR++?LOCAL_ARCH_FILE_NAME),
+    {ok, CommunicationMapPath} = file:read_file(?JSON_ADDR++?LOCAL_COMM_FILE_NAME),
 
     %%TODO: ADD CHECK FOR VALID INPUT:  
     % ?LOG_NOTICE("IS THIS A JSON? ~p~n",[jsx:is_json(ArchitectureAdderessData)]),
 
     %%Decode Json to architecute map and Connection map:
-    ArchitectureMap = jsx:decode(ArchitectureAdderessData,[]),
-    CommunicationMap= jsx:decode(CommunicationMapAdderessData,[]),
+    DCMap = jsx:decode(DCJsonPath,[]),
+    CommunicationMap = jsx:decode(CommunicationMapPath,[]),
 
-    jsonParser:getHostEntities(ArchitectureMap,CommunicationMap,list_to_binary(HostName)), % we use nerlnet_data ETS from this point
+    jsonParser:parseJsons(DCMap,CommunicationMap,ThisDeviceIP), % we use nerlnet_data ETS from this point
 
     %%    Creating a Dispatcher for each Server from JSONs architecture - this dispatchers will rout http requests to the right handler.
     %%    Each dispatcher will be listening to a different PORT
