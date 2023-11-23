@@ -121,7 +121,7 @@ class JsonDistributedConfig():
     def add_device(self, device : Device) -> int:
         if device.get_name() in self.get_devices_names():
             return self.DEVICE_ADD_ISSUE_WITH_NAME
-        if device.get_ip() in self.get_devices_ips():
+        if device.get_ip().get_address() in self.get_devices_ips():
             return self.DEVICE_ADD_ISSUE_WITH_IP
         
         self.main_dict[KEY_DEVICES][device.get_name()] = device

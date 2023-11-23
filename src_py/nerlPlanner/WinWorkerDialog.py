@@ -105,14 +105,12 @@ def WinWorkerDialog():
         if event == KEY_JSON_FILE_NAME:
             FileNameExport = values[event]
 
-
         if event == KEY_MODEL_TYPE_LIST_BOX:
             ModelTypeStr = values[event]
             ModelType = ModelTypeMapping[ModelTypeStr]
         
         if event == KEY_LAYER_CNN_OPT_HELP_BUTTON:
             sg.popup_ok(f"{LAYER_CNN_OPTS_HELP_POPUP_STR}", keep_on_top=True, title="CNN Options Help")
-
 
         # Layers Sizes List
         if event == KEY_LAYER_SIZES_INPUT:
