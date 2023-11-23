@@ -402,7 +402,7 @@ class Source(JsonElement):
                          self.frequency.get_as_tuple(),
                          self.policy.get_as_tuple(),
                          self.epochs.get_as_tuple(),
-                         (KEY_SOURCES, self.source_type)]
+                         (GetFields.get_source_type_field_name(), self.source_type)]
         return OrderedDict(elements_list)
 
 class Client(JsonElement):
