@@ -614,6 +614,8 @@ def dc_json_handler(window, event, values):
             sg.popup_ok(f"MainServer hasn't been associated with device!", title='DC Json Export Issue')
         if result == json_dc_inst.EXPORT_DC_JSON_ISSUE_NO_SPECIAL_ENTITIES_OR_SETTINGS:
             sg.popup_ok(f"DC Json can't be generated due to missing\n special entities or settings!", title='DC Json Export Issue')
+        if result == json_dc_inst.EXPORT_DC_JSON_SUCCESS:
+            sg.popup_auto_close("Successfully Created", keep_on_top=True)
     
     if event == KEY_DC_JSON_IMPORT_INPUT:
         dc_json_import_file = values[KEY_DC_JSON_IMPORT_INPUT]
