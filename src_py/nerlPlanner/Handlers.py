@@ -180,8 +180,13 @@ def devices_handler(window, event, values):
         if devices_this_device_name and devices_this_device_ip_str:
             devices_this_device = Device(devices_this_device_ip_str, devices_this_device_name)
             if not devices_this_device.error():
-                json_dc_inst.add_device(devices_this_device)
-                window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
+                if  json_dc_inst.add_device(devices_this_device) == json_dc_inst.DEVICE_ADD_SUCCESS:
+                    window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
+                elif json_dc_inst.add_device(devices_this_device) == json_dc_inst.DEVICE_ADD_ISSUE_WITH_IP:
+                        sg.popup_ok("The address is taken, please change the address to another one")
+                elif json_dc_inst.add_device(devices_this_device) == json_dc_inst.DEVICE_ADD_ISSUE_WITH_NAME:
+                        sg.popup_ok("The device's name is taken, please change the name to another one")
+                    
             else:
                 sg.popup_ok("Ip or Name are wrong or exist!")
                 
@@ -293,7 +298,7 @@ def clients_handler(window, event, values):
 
     if (event == KEY_CLIENTS_WORKERS_LIST_ADD_WORKER) and clients_combo_box_worker_selection:
         owned_workers_dict = json_dc_inst.get_owned_workers_by_clients_dict()
-        if clients_combo_box_worker_selection in owned_workers_dict:
+        if clients_combo_box_worker_selection in owned_workers_dict:  #Todo check this if
             sg.popup_ok(f"worker {clients_combo_box_worker_selection} already belongs to client {owned_workers_dict[clients_combo_box_worker_selection]}", title='Adding a worker failed')
         elif clients_this_client is not None:
             worker_sha = json_dc_inst.get_workers_dict()[clients_combo_box_worker_selection].get_sha()
