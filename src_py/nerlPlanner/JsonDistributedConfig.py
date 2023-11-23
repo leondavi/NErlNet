@@ -1,4 +1,3 @@
-import PySimpleGUI as sg
 from JsonElements import *
 from collections import OrderedDict
 from JsonElementWorker import *
@@ -133,7 +132,11 @@ class JsonDistributedConfig():
         del(self.main_dict[KEY_DEVICES][device_name]) 
 
     
-    def add_entity_to_device(self, device_name : str , entity_name : str):
+    ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_PORT = -1
+    ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_OTHER_DEVICE = -2
+    ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_NAME = -3
+    ENTITIY_TO_DEVICE_ADD_SUCCESS = 0
+    def add_entity_to_device(self, device_name : str , entity_name : str) -> int:
         '''
         Input device and entity names that exist in json DC database
         '''
@@ -141,25 +144,15 @@ class JsonDistributedConfig():
             for dev_name in self.get_devices_names(): # check if the entities is used
                 dev_inst = self.main_dict[KEY_DEVICES][dev_name]
                 if entity_name in dev_inst.get_entities_names():
-                    return False
+                    return self.ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_OTHER_DEVICE
             device_inst = self.get_device_by_name(device_name)
             entity_inst = self.get_entity(entity_name)
-            if device_inst.duplicated_ports_validator(entity_inst.get_port()):  # check if the port is used by device 
-                if not self.suggest_alternative_port(entity_inst, device_inst):
-                    return False # don't switch the port
+            if device_inst.duplicated_ports_validator(entity_inst.get_port()):  # check if the port is used by other device 
+                return self.ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_PORT
             device_inst.add_entity(entity_inst)
         else:
-            return False
-        return True
-
-    def suggest_alternative_port(self, entity_inst, device_inst : Device):
-        ch = sg.popup_yes_no("The port of the entity you selected is in use, would you like to change it to a random port?",  title="suggest alternative port")
-        if ch == "Yes":
-            new_port = device_inst.generate_random_port()
-            entity_inst.set_port(new_port) 
-            return True
-        else:
-            return False
+            return self.ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_NAME
+        return self.ENTITIY_TO_DEVICE_ADD_SUCCESS
 
     def remove_entity_from_device(self, entity_name : str):
         for dev_name in self.get_devices_names():
