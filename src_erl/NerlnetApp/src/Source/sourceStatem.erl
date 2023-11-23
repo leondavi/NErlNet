@@ -1,10 +1,8 @@
 %%%-------------------------------------------------------------------
-%%% @author kapelnik
-%%% @copyright (C) 2021, Nerlnet
-%%% @doc
-%%%
-%%% @end
-%%% Created : 14. Apr 2021 9:57 AM
+%%% @authors Guy Perts, Tal Kapelnik, David Leon
+%%% 
+%%% Nerlnet - Source Entity FSM
+%%% License: https://github.com/leondavi/NErlNet/blob/master/LICENSE
 %%%-------------------------------------------------------------------
 -module(sourceStatem).
 -author("kapelnik").
@@ -12,6 +10,8 @@
 -behaviour(gen_statem).
 
 -include("../nerl_tools.hrl").
+-include("../source_definitions_ag.hrl").
+
 %% API
 -export([start_link/1]).
 %% gen_statem callbacks
@@ -316,6 +316,26 @@ send_method_round_robin(TransmitterEts, TimeInterval_ms, Triplets, BatchesListTo
   SkippedBatches = ets:lookup_element(TransmitterEts, batches_skipped, ?DATA_IDX),
   ets:update_counter(TransmitterEts, batches_sent, length(BatchesListToSend) - SkippedBatches).
 
+send_method_random(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend) ->
+  % Sends a batch per each
+  TripletsIndexes = lists:seq(0, length(Triplets)-1),
+  TripletsWithIndexes = lists:zip(TripletsIndexes, Triplets), % Tuple {Idx, Triplet}
+  TripletsMap = maps:from_list(TripletsWithIndexes),
+  
+  BatchFunc = fun({BatchIdx, Batch}) ->
+    TripletIdx = rand:uniform(length(Triplets)),
+    Triplet = maps:get(TripletIdx, TripletsMap),
+    prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [Triplet]) % improve by allowing casting messages
+  end, % end of BatchFunc
+
+  BatchesIndexes = lists:seq(0, length(BatchesListToSend)-1),
+  BatchesWithIndexes = lists:zip(BatchesIndexes, BatchesListToSend),
+  lists:foreach(BatchFunc, BatchesWithIndexes),
+
+  % update batches sent
+  SkippedBatches = ets:lookup_element(TransmitterEts, batches_skipped, ?DATA_IDX),
+  ets:update_counter(TransmitterEts, batches_sent, length(BatchesListToSend) - SkippedBatches).
+
 transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,Triplets, BatchesListToSend, Method) ->
   MyName = ets:lookup_element(SourceEtsRef, my_name, ?DATA_IDX),
   ?LOG_INFO("Source ~p Transmitter Starts", [MyName]),
@@ -327,8 +347,9 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,Triplets, BatchesListToSen
   ets:insert(TransmitterEts, {current_batch_id, 0}),
   TransmissionStart = erlang:timestamp(),
   case Method of
-    ?CASTING -> send_method_casting(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend);
-    ?ROUNDROBIN -> send_method_round_robin(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend);
+    ?SOURCE_POLICY_CASTING_ATOM -> send_method_casting(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend);
+    ?SOURCE_POLICY_ROUNDROBIN_ATOM -> send_method_round_robin(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend);
+    ?SOURCE_POLICY_RANDOM_ATOM -> send_method_random(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend);
     _Default -> send_method_casting(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend)
   end,
   TransmissionTimeTook_sec = timer:now_diff(erlang:timestamp(), TransmissionStart) / 1000000,

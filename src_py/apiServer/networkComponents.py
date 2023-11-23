@@ -54,7 +54,7 @@ class NetworkComponents():
         self.apiServerIp, self.apiServerPort = self.get_api_server_ip_port()
 
         # Getting the address for the receiver:
-        self.receiverHost = self.apiServerIp
+        self.receiverIp = self.apiServerIp
         self.receiverPort =  self.apiServerPort
 
         # Getting the names of all the clients and workers:
@@ -92,7 +92,7 @@ class NetworkComponents():
 
     def printComponents(self):
         LOG_INFO(f"\nNetwork components:\n \
-                Receiver's Address: http://{self.receiverHost}:{self.receiverPort}\n \
+                Receiver's Address: http://{self.receiverIp}:{self.receiverPort}\n \
                 Frequency: {self.frequency} [batches/sec]\n \
                 Batchsize: {self.batchSize} [samples]\n \
                 devicesIp: {self.devicesIp}\n \
