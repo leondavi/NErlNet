@@ -53,7 +53,8 @@ def WinWorkerDialog():
 
     InfraTypeLayout = [[ sg.Text("Infra Type: "), sg.Combo(list(InfraTypeMapping.keys()),default_value=list(InfraTypeMapping.keys())[0], enable_events=True, key=KEY_INFRA_TYPE_LIST_BOX)],
                        [ sg.Text("Distributed System Type:"), sg.Combo(list(DistributedSystemTypeMapping.keys()),default_value=list(DistributedSystemTypeMapping.keys())[0], enable_events=True, key=KEY_DISTRIBUTED_SYSTEM_TYPE_LIST_BOX)],
-                       [ sg.Text("Distributed System Token:"), sg.InputText(key=KEY_DISTRIBUTED_SYSTEM_TOKEN_INPUT, enable_events=True, expand_x=True), sg.Button("AutoGenerate", key=KEY_DISTRIBUTED_SYSTEM_TOKEN_AUTOGENERATE_BUTTON), sg.Button("Help", key=KEY_DISTRIBUTED_SYSTEM_TOKEN_HELP_BUTTON)]]
+                       [ sg.Text("Distributed System Token:"), sg.InputText(key=KEY_DISTRIBUTED_SYSTEM_TOKEN_INPUT, enable_events=True, expand_x=True), sg.Button("AutoGenerate", key=KEY_DISTRIBUTED_SYSTEM_TOKEN_AUTOGENERATE_BUTTON), sg.Button("Help", key=KEY_DISTRIBUTED_SYSTEM_TOKEN_HELP_BUTTON)],
+                       [sg.Text("Distributed System Args:"), sg.InputText(key=KEY_DISTRIBUTED_SYSTEM_ARGS_INPUT, enable_events=True, expand_x=True)]]
     InfraTypeFrame = sg.Frame("Worker Distributed System", layout=InfraTypeLayout, expand_x=True)
     
     WorkerWindow  = sg.Window(title="Worker", layout=[[sg.Text(f'New Worker Generator')],[WorkerFileFrame],[WorkerDefinitionsFrame],[OptimizerDefinitionsFrame], [InfraTypeFrame]],modal=True, keep_on_top=True)                                                  
