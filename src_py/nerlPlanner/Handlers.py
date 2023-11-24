@@ -156,6 +156,15 @@ def devices_reset_inputs_ui(window):
     window[KEY_DEVICES_NAME_INPUT].update('')
     window[KEY_DEVICES_IP_INPUT].update('x.x.x.x')
     
+def devices_update_settings_status_bar(window, device_selected_inst: Device):
+    # Update Settings status bar
+    main_server_inst = json_dc_inst.get_main_server()
+    api_server_inst = json_dc_inst.get_api_server()
+    if main_server_inst and last_selected_entity == main_server_inst.NAME:
+        window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_selected_inst}")
+    elif api_server_inst and last_selected_entity == api_server_inst.NAME:
+        window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {device_selected_inst}")
+    
 def devices_handler(window, event, values):
     global devices_this_device_name 
     global devices_devices_list_box_selection
@@ -180,8 +189,12 @@ def devices_handler(window, event, values):
         if devices_this_device_name and devices_this_device_ip_str:
             devices_this_device = Device(devices_this_device_ip_str, devices_this_device_name)
             if not devices_this_device.error():
-                json_dc_inst.add_device(devices_this_device)
-                window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
+                if  json_dc_inst.add_device(devices_this_device) == json_dc_inst.DEVICE_ADD_SUCCESS:
+                    window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
+                elif json_dc_inst.add_device(devices_this_device) == json_dc_inst.DEVICE_ADD_ISSUE_WITH_IP:
+                    sg.popup_ok("The address is taken, please change the address to another one")
+                elif json_dc_inst.add_device(devices_this_device) == json_dc_inst.DEVICE_ADD_ISSUE_WITH_NAME:
+                    sg.popup_ok("The device's name is taken, please change the name to another one")       
             else:
                 sg.popup_ok("Ip or Name are wrong or exist!")
                 
@@ -250,20 +263,24 @@ def devices_handler(window, event, values):
 
     if event == KEY_DEVICES_ADD_ENTITY_TO_DEVICE and last_selected_entity and devices_devices_list_box_selection:
         res = json_dc_inst.add_entity_to_device(devices_devices_list_box_selection, last_selected_entity)
-        if not res:
-            sg.popup_ok(f"Could not add {last_selected_entity} to dev: {devices_devices_list_box_selection}")
-        else:
-            # TODO  remove occupied devices from combo
+        if res == json_dc_inst.ENTITIY_TO_DEVICE_ADD_SUCCESS:
             last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
             window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state_not_occupied)
-            # Update Settings status bar
-            main_server_inst = json_dc_inst.get_main_server()
-            api_server_inst = json_dc_inst.get_api_server()
             device_selected_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
-            if main_server_inst and last_selected_entity == main_server_inst.NAME:
-                window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_selected_inst}")
-            elif api_server_inst and last_selected_entity == api_server_inst.NAME:
-                window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {device_selected_inst}")
+            devices_update_settings_status_bar(window, device_selected_inst)
+        elif res == json_dc_inst.ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_PORT:
+            ch = sg.popup_yes_no("The port of the entity you selected is in use, would you like to change it to a random port?",  title="suggest alternative port")
+            if ch == "Yes":
+                device_selected_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
+                entity_selected_inst = json_dc_inst.get_entity(last_selected_entity)
+                new_port = device_selected_inst.generate_random_port()
+                entity_selected_inst.set_port(new_port) 
+                device_selected_inst.add_entity(entity_selected_inst)
+                last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
+                window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state_not_occupied)
+                devices_update_settings_status_bar(window, device_selected_inst)
+        else:
+            sg.popup_ok(f"Could not add {last_selected_entity} to dev: {devices_devices_list_box_selection}")
 
     if devices_devices_list_box_selection:
         devices_this_device = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
@@ -293,7 +310,7 @@ def clients_handler(window, event, values):
 
     if (event == KEY_CLIENTS_WORKERS_LIST_ADD_WORKER) and clients_combo_box_worker_selection:
         owned_workers_dict = json_dc_inst.get_owned_workers_by_clients_dict()
-        if clients_combo_box_worker_selection in owned_workers_dict:
+        if clients_combo_box_worker_selection in owned_workers_dict:  #Todo check this if
             sg.popup_ok(f"worker {clients_combo_box_worker_selection} already belongs to client {owned_workers_dict[clients_combo_box_worker_selection]}", title='Adding a worker failed')
         elif clients_this_client is not None:
             worker_sha = json_dc_inst.get_workers_dict()[clients_combo_box_worker_selection].get_sha()
@@ -614,6 +631,8 @@ def dc_json_handler(window, event, values):
             sg.popup_ok(f"MainServer hasn't been associated with device!", title='DC Json Export Issue')
         if result == json_dc_inst.EXPORT_DC_JSON_ISSUE_NO_SPECIAL_ENTITIES_OR_SETTINGS:
             sg.popup_ok(f"DC Json can't be generated due to missing\n special entities or settings!", title='DC Json Export Issue')
+        if result == json_dc_inst.EXPORT_DC_JSON_SUCCESS:
+            sg.popup_auto_close("Successfully Created", keep_on_top=True)
     
     if event == KEY_DC_JSON_IMPORT_INPUT:
         dc_json_import_file = values[KEY_DC_JSON_IMPORT_INPUT]
