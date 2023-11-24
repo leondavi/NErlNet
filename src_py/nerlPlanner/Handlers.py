@@ -184,7 +184,7 @@ def devices_handler(window, event, values):
     if event == KEY_DEVICES_ONLINE_LIST_COMBO_BOX:
         window[KEY_DEVICES_IP_INPUT].update(values[KEY_DEVICES_ONLINE_LIST_COMBO_BOX])
         devices_this_device_ip_str = values[KEY_DEVICES_ONLINE_LIST_COMBO_BOX]
-
+    
     if event == KEY_DEVICES_BUTTON_ADD:
         if devices_this_device_name and devices_this_device_ip_str:
             devices_this_device = Device(devices_this_device_ip_str, devices_this_device_name)
@@ -238,7 +238,7 @@ def devices_handler(window, event, values):
                 if api_server_name in new_device.get_entities_names():
                     window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {new_device}")
                 window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(new_device.get_entities_names())
-                devices_devices_list_box_selection = "" # prevent update entites box for a device that doesn't exist 
+                devices_devices_list_box_selection = "" # prevent update entites box for a device that doesn't exist anymore
             else:
                 sg.popup_ok(f"Name {devices_this_device_name} already exists", keep_on_top=True, title="Chance device issue")
                 
@@ -285,6 +285,7 @@ def devices_handler(window, event, values):
     if devices_devices_list_box_selection:
         devices_this_device = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
         window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(devices_this_device.get_entities_names())
+    
 
 def clients_reset_inputs_ui(window):
     global clients_this_client_name
