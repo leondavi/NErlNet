@@ -45,7 +45,8 @@ def WinWorkerDialog():
 
     OptimizerDefinitionsLayout = [[sg.Text("Learning Rate: "), sg.InputText(key=KEY_LEARNING_RATE_INPUT, size=(15), enable_events=True)],
                                   [sg.Text("Epochs:          "), sg.InputText("1", size=(15), key=KEY_EPOCHS_INPUT, enable_events=True)],
-                                  [sg.Text("Optimizer Type: "), sg.Combo(list(OptimizerTypeMapping.keys()),enable_events=True, key=KEY_OPTIMIZER_TYPE_LIST_BOX)],
+                                  [sg.Text("Optimizer Type: "), sg.Combo(list(OptimizerTypeMapping.keys()),enable_events=True, key=KEY_OPTIMIZER_TYPE_LIST_BOX),
+                                   sg.Text("   Optimizer Args:"), sg.InputText(key=KEY_OPTIMIZER_ARGS_INPUT, size=(15), enable_events=True, expand_x=True)],
                                   [sg.Text("Loss Method: "), sg.Combo(list(LossMethodMapping.keys()),enable_events=True, key=KEY_LOSS_METHOD_LIST_BOX)]
                                   ]
     OptimizerDefinitionsFrame = sg.Frame("Optimizer Definitions", layout=OptimizerDefinitionsLayout, expand_x=True)
