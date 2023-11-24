@@ -282,7 +282,6 @@ prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [Triplet | Ta
   end,
   prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, Tail).
 
-
 send_method_casting(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend) ->
   % Sends the same batch to all
   BatchFunc = fun({BatchIdx, Batch}) ->
@@ -318,7 +317,7 @@ send_method_round_robin(TransmitterEts, TimeInterval_ms, Triplets, BatchesListTo
 
 send_method_random(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend) ->
   % Sends a batch per each
-  TripletsIndexes = lists:seq(0, length(Triplets)-1),
+  TripletsIndexes = lists:seq(1, length(Triplets)),
   TripletsWithIndexes = lists:zip(TripletsIndexes, Triplets), % Tuple {Idx, Triplet}
   TripletsMap = maps:from_list(TripletsWithIndexes),
   
