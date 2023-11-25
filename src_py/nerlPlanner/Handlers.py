@@ -265,10 +265,11 @@ def devices_handler(window, event, values):
         res = json_dc_inst.add_entity_to_device(devices_devices_list_box_selection, last_selected_entity)
         if res == json_dc_inst.ENTITIY_TO_DEVICE_ADD_SUCCESS:
             last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
-            window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state_not_occupied)
+            window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update("", last_entities_list_state_not_occupied)
             device_selected_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
             devices_update_settings_status_bar(window, device_selected_inst)
-        elif res == json_dc_inst.ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_PORT:
+        # mange duplicate port 
+        elif res == json_dc_inst.ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_PORT: 
             ch = sg.popup_yes_no("The port of the entity you selected is in use, would you like to change it to a random port?",  title="suggest alternative port")
             if ch == "Yes":
                 device_selected_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
@@ -542,13 +543,10 @@ def entities_handler(window, event, values):
     if last_entities_list_state != json_dc_inst.get_entities():
         last_entities_list_state = json_dc_inst.get_entities()
         last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
-        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state_not_occupied)
+        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update("", last_entities_list_state_not_occupied)
 
     if event == KEY_DEVICES_SELECTED_ENTITY_COMBO:
         last_selected_entity = values[KEY_ENTITIES_CLIENTS_LISTBOX][0] if values[KEY_ENTITIES_CLIENTS_LISTBOX] else None
-
-    if last_selected_entity in last_entities_list_state:
-        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state)
 
     if event == KEY_ENTITIES_CLIENTS_LISTBOX:
         last_selected_entity = values[KEY_ENTITIES_CLIENTS_LISTBOX][0]
