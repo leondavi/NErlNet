@@ -94,6 +94,7 @@ def WinWorkerDialog():
         WorkerWindow[KEY_LAYER_FUNCTIONS_CODES_INPUT].update(LayersFunctionsList)
         WorkerWindow[KEY_LAYER_TYPE_CODES_INPUT].update(LayerTypesList)
         WorkerWindow[KEY_DISTRIBUTED_SYSTEM_TYPE_LIST_BOX].update(DistributedSystemType)
+        WorkerWindow[KEY_DISTRIBUTED_SYSTEM_ARGS_INPUT].update(DistributedSystemArgs)
         WorkerWindow[KEY_DISTRIBUTED_SYSTEM_TOKEN_INPUT].update(DistributedSystemToken)
         # update counters
         WorkerWindow[KEY_NUM_OF_LAYERS_SIZES].update(f'({str(count_str_list_elements(LayersSizesList))})')
@@ -174,6 +175,9 @@ def WinWorkerDialog():
 
         if event == KEY_DISTRIBUTED_SYSTEM_TYPE_LIST_BOX:
             DistributedSystemType = values[event]
+            
+        if event == KEY_DISTRIBUTED_SYSTEM_ARGS_INPUT:
+            DistributedSystemArgs = values[event]
 
         if event == KEY_DISTRIBUTED_SYSTEM_TOKEN_INPUT:
             DistributedSystemToken = values[event]
@@ -196,16 +200,17 @@ def WinWorkerDialog():
         if event == KEY_BUTTON_EXPORT_WORKER:
             if DistributedSystemType == "none":
                 DistributedSystemToken = "none"
+            # Update here when adding new fields to the worker 
             worker_parameters_conditions = bool(LayersSizesList) and bool(ModelTypeStr) and bool(ModelType) and bool(OptimizationArgs) and\
                                            bool(OptimizationType) and bool(LossMethodStr) and bool(LossMethod) and\
                                            bool(LearningRate) and bool(LayersFunctionsList) and bool(LayersSizesList) and bool(Epochs) and bool(InfraType) and\
-                                           bool(DistributedSystemType) and bool(DistributedSystemToken)
+                                           bool(DistributedSystemType) and bool(DistributedSystemArgs) and bool(DistributedSystemToken)
             FilePath = Path(FileDirExport) / Path(FileNameExport)
             filepath_condition = FilePath.parent.is_dir() and bool(FileNameExport) and FileNameExport.endswith(".json")
             if worker_parameters_conditions and filepath_condition:
                 # Update here when adding new fields to the worker 
                 newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, OptimizationType, OptimizationArgs , LossMethodStr, LossMethod,
-                                    LearningRate, Epochs, LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemToken)
+                                    LearningRate, Epochs, LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken)
                 newWorker.save_as_json(FilePath.as_posix(), WithDocumentation)
                 sg.popup_auto_close("Successfully Created", keep_on_top=True)
                 break
@@ -227,7 +232,7 @@ def WinWorkerDialog():
                 with open(FilePathLoad) as jsonFile:
                     loaded_worker_dict = json.load(jsonFile)
                 (LayersSizesList, ModelTypeStr, ModelType,OptimizationType, OptimizationArgs ,LossMethodStr, LossMethod, LearningRate, Epochs,
-                LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemToken) = Worker.load_from_dict(loaded_worker_dict, get_params=True)
+                LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemArgs ,DistributedSystemToken) = Worker.load_from_dict(loaded_worker_dict, get_params=True)
                 ui_update_all_values(WorkerWindow)
 
             else:
