@@ -68,8 +68,8 @@ def WinWorkerDialog():
     LayersSizesList = ""
     ModelTypeStr = ""
     ModelType = None # None
-    OptimizationTypeStr = ""
-    OptimizationType = None # None
+    OptimizationType = list(OptimizerTypeMapping.keys())[0]
+    OptimizationArgs = ""
     LossMethodStr = ""
     LossMethod = None # None
     LearningRate = None
@@ -79,12 +79,14 @@ def WinWorkerDialog():
     WithDocumentation = True
     InfraType = list(InfraTypeMapping.keys())[0]
     DistributedSystemType = list(DistributedSystemTypeMapping.keys())[0]
+    DistributedSystemArgs = ""
     DistributedSystemToken = "none"
 
     def ui_update_all_values(WorkerWindow):
         WorkerWindow[KEY_LAYER_SIZES_INPUT].update(LayersSizesList)
         WorkerWindow[KEY_MODEL_TYPE_LIST_BOX].update(ModelTypeStr)
-        WorkerWindow[KEY_OPTIMIZER_TYPE_LIST_BOX].update(OptimizationTypeStr)
+        WorkerWindow[KEY_OPTIMIZER_TYPE_LIST_BOX].update(OptimizationType)
+        WorkerWindow[KEY_OPTIMIZER_ARGS_INPUT].update(OptimizationArgs)
         WorkerWindow[KEY_INFRA_TYPE_LIST_BOX].update(InfraType)
         WorkerWindow[KEY_LOSS_METHOD_LIST_BOX].update(LossMethodStr)
         WorkerWindow[KEY_LEARNING_RATE_INPUT].update(LearningRate)
@@ -162,8 +164,10 @@ def WinWorkerDialog():
             Epochs = values[event]
 
         if event == KEY_OPTIMIZER_TYPE_LIST_BOX:
-            OptimizationTypeStr = values[event]
-            OptimizationType = OptimizerTypeMapping[OptimizationTypeStr]
+            OptimizationType = values[event]
+        
+        if event == KEY_OPTIMIZER_ARGS_INPUT:
+            OptimizationArgs = values[event]
         
         if event == KEY_INFRA_TYPE_LIST_BOX:
             InfraType = values[event]
@@ -192,14 +196,15 @@ def WinWorkerDialog():
         if event == KEY_BUTTON_EXPORT_WORKER:
             if DistributedSystemType == "none":
                 DistributedSystemToken = "none"
-            worker_parameters_conditions = bool(LayersSizesList) and bool(ModelTypeStr) and bool(ModelType) and bool(OptimizationTypeStr) and\
+            worker_parameters_conditions = bool(LayersSizesList) and bool(ModelTypeStr) and bool(ModelType) and bool(OptimizationArgs) and\
                                            bool(OptimizationType) and bool(LossMethodStr) and bool(LossMethod) and\
                                            bool(LearningRate) and bool(LayersFunctionsList) and bool(LayersSizesList) and bool(Epochs) and bool(InfraType) and\
                                            bool(DistributedSystemType) and bool(DistributedSystemToken)
             FilePath = Path(FileDirExport) / Path(FileNameExport)
             filepath_condition = FilePath.parent.is_dir() and bool(FileNameExport) and FileNameExport.endswith(".json")
             if worker_parameters_conditions and filepath_condition:
-                newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr, OptimizationType, LossMethodStr, LossMethod,
+                # Update here when adding new fields to the worker 
+                newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, OptimizationType, OptimizationArgs , LossMethodStr, LossMethod,
                                     LearningRate, Epochs, LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemToken)
                 newWorker.save_as_json(FilePath.as_posix(), WithDocumentation)
                 sg.popup_auto_close("Successfully Created", keep_on_top=True)
@@ -214,14 +219,14 @@ def WinWorkerDialog():
             print(f"{FilePathLoad}")
         
         if event == KEY_JSON_LOAD_FILE_BUTTON_EVENT:
+            # Update here when adding new fields to the worker
             load_conditions = bool(FilePathLoad) and FilePathLoad.endswith(".json")
             if load_conditions:
                 # loading json
                 loaded_worker_dict = {}
                 with open(FilePathLoad) as jsonFile:
                     loaded_worker_dict = json.load(jsonFile)
-                (LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,
-                OptimizationType, LossMethodStr, LossMethod, LearningRate, Epochs,
+                (LayersSizesList, ModelTypeStr, ModelType,OptimizationType, OptimizationArgs ,LossMethodStr, LossMethod, LearningRate, Epochs,
                 LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemToken) = Worker.load_from_dict(loaded_worker_dict, get_params=True)
                 ui_update_all_values(WorkerWindow)
 
