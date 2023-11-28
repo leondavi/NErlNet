@@ -45,14 +45,16 @@ def WinWorkerDialog():
 
     OptimizerDefinitionsLayout = [[sg.Text("Learning Rate: "), sg.InputText(key=KEY_LEARNING_RATE_INPUT, size=(15), enable_events=True)],
                                   [sg.Text("Epochs:          "), sg.InputText("1", size=(15), key=KEY_EPOCHS_INPUT, enable_events=True)],
-                                  [sg.Text("Optimizer Type: "), sg.Combo(list(OptimizerTypeMapping.keys()),enable_events=True, key=KEY_OPTIMIZER_TYPE_LIST_BOX)],
+                                  [sg.Text("Optimizer Type: "), sg.Combo(list(OptimizerTypeMapping.keys()),enable_events=True, key=KEY_OPTIMIZER_TYPE_LIST_BOX),
+                                   sg.Text("   Optimizer Args:"), sg.InputText(key=KEY_OPTIMIZER_ARGS_INPUT, size=(15), enable_events=True, expand_x=True)],
                                   [sg.Text("Loss Method: "), sg.Combo(list(LossMethodMapping.keys()),enable_events=True, key=KEY_LOSS_METHOD_LIST_BOX)]
                                   ]
     OptimizerDefinitionsFrame = sg.Frame("Optimizer Definitions", layout=OptimizerDefinitionsLayout, expand_x=True)
 
     InfraTypeLayout = [[ sg.Text("Infra Type: "), sg.Combo(list(InfraTypeMapping.keys()),default_value=list(InfraTypeMapping.keys())[0], enable_events=True, key=KEY_INFRA_TYPE_LIST_BOX)],
                        [ sg.Text("Distributed System Type:"), sg.Combo(list(DistributedSystemTypeMapping.keys()),default_value=list(DistributedSystemTypeMapping.keys())[0], enable_events=True, key=KEY_DISTRIBUTED_SYSTEM_TYPE_LIST_BOX)],
-                       [ sg.Text("Distributed System Token:"), sg.InputText(key=KEY_DISTRIBUTED_SYSTEM_TOKEN_INPUT, enable_events=True, expand_x=True), sg.Button("AutoGenerate", key=KEY_DISTRIBUTED_SYSTEM_TOKEN_AUTOGENERATE_BUTTON), sg.Button("Help", key=KEY_DISTRIBUTED_SYSTEM_TOKEN_HELP_BUTTON)]]
+                       [ sg.Text("Distributed System Token:"), sg.InputText(key=KEY_DISTRIBUTED_SYSTEM_TOKEN_INPUT, enable_events=True, expand_x=True), sg.Button("AutoGenerate", key=KEY_DISTRIBUTED_SYSTEM_TOKEN_AUTOGENERATE_BUTTON), sg.Button("Help", key=KEY_DISTRIBUTED_SYSTEM_TOKEN_HELP_BUTTON)],
+                       [sg.Text("Distributed System Args:"), sg.InputText(key=KEY_DISTRIBUTED_SYSTEM_ARGS_INPUT, enable_events=True, expand_x=True)]]
     InfraTypeFrame = sg.Frame("Worker Distributed System", layout=InfraTypeLayout, expand_x=True)
     
     WorkerWindow  = sg.Window(title="Worker", layout=[[sg.Text(f'New Worker Generator')],[WorkerFileFrame],[WorkerDefinitionsFrame],[OptimizerDefinitionsFrame], [InfraTypeFrame]],modal=True, keep_on_top=True)                                                  
@@ -66,8 +68,8 @@ def WinWorkerDialog():
     LayersSizesList = ""
     ModelTypeStr = ""
     ModelType = None # None
-    OptimizationTypeStr = ""
-    OptimizationType = None # None
+    OptimizationType = list(OptimizerTypeMapping.keys())[0]
+    OptimizationArgs = ""
     LossMethodStr = ""
     LossMethod = None # None
     LearningRate = None
@@ -77,12 +79,14 @@ def WinWorkerDialog():
     WithDocumentation = True
     InfraType = list(InfraTypeMapping.keys())[0]
     DistributedSystemType = list(DistributedSystemTypeMapping.keys())[0]
+    DistributedSystemArgs = ""
     DistributedSystemToken = "none"
 
     def ui_update_all_values(WorkerWindow):
         WorkerWindow[KEY_LAYER_SIZES_INPUT].update(LayersSizesList)
         WorkerWindow[KEY_MODEL_TYPE_LIST_BOX].update(ModelTypeStr)
-        WorkerWindow[KEY_OPTIMIZER_TYPE_LIST_BOX].update(OptimizationTypeStr)
+        WorkerWindow[KEY_OPTIMIZER_TYPE_LIST_BOX].update(OptimizationType)
+        WorkerWindow[KEY_OPTIMIZER_ARGS_INPUT].update(OptimizationArgs)
         WorkerWindow[KEY_INFRA_TYPE_LIST_BOX].update(InfraType)
         WorkerWindow[KEY_LOSS_METHOD_LIST_BOX].update(LossMethodStr)
         WorkerWindow[KEY_LEARNING_RATE_INPUT].update(LearningRate)
@@ -90,6 +94,7 @@ def WinWorkerDialog():
         WorkerWindow[KEY_LAYER_FUNCTIONS_CODES_INPUT].update(LayersFunctionsList)
         WorkerWindow[KEY_LAYER_TYPE_CODES_INPUT].update(LayerTypesList)
         WorkerWindow[KEY_DISTRIBUTED_SYSTEM_TYPE_LIST_BOX].update(DistributedSystemType)
+        WorkerWindow[KEY_DISTRIBUTED_SYSTEM_ARGS_INPUT].update(DistributedSystemArgs)
         WorkerWindow[KEY_DISTRIBUTED_SYSTEM_TOKEN_INPUT].update(DistributedSystemToken)
         # update counters
         WorkerWindow[KEY_NUM_OF_LAYERS_SIZES].update(f'({str(count_str_list_elements(LayersSizesList))})')
@@ -160,14 +165,19 @@ def WinWorkerDialog():
             Epochs = values[event]
 
         if event == KEY_OPTIMIZER_TYPE_LIST_BOX:
-            OptimizationTypeStr = values[event]
-            OptimizationType = OptimizerTypeMapping[OptimizationTypeStr]
+            OptimizationType = values[event]
+        
+        if event == KEY_OPTIMIZER_ARGS_INPUT:
+            OptimizationArgs = values[event]
         
         if event == KEY_INFRA_TYPE_LIST_BOX:
             InfraType = values[event]
 
         if event == KEY_DISTRIBUTED_SYSTEM_TYPE_LIST_BOX:
             DistributedSystemType = values[event]
+            
+        if event == KEY_DISTRIBUTED_SYSTEM_ARGS_INPUT:
+            DistributedSystemArgs = values[event]
 
         if event == KEY_DISTRIBUTED_SYSTEM_TOKEN_INPUT:
             DistributedSystemToken = values[event]
@@ -190,15 +200,17 @@ def WinWorkerDialog():
         if event == KEY_BUTTON_EXPORT_WORKER:
             if DistributedSystemType == "none":
                 DistributedSystemToken = "none"
-            worker_parameters_conditions = bool(LayersSizesList) and bool(ModelTypeStr) and bool(ModelType) and bool(OptimizationTypeStr) and\
+            # Update here when adding new fields to the worker 
+            worker_parameters_conditions = bool(LayersSizesList) and bool(ModelTypeStr) and bool(ModelType) and bool(OptimizationArgs) and\
                                            bool(OptimizationType) and bool(LossMethodStr) and bool(LossMethod) and\
                                            bool(LearningRate) and bool(LayersFunctionsList) and bool(LayersSizesList) and bool(Epochs) and bool(InfraType) and\
-                                           bool(DistributedSystemType) and bool(DistributedSystemToken)
+                                           bool(DistributedSystemType) and bool(DistributedSystemArgs) and bool(DistributedSystemToken)
             FilePath = Path(FileDirExport) / Path(FileNameExport)
             filepath_condition = FilePath.parent.is_dir() and bool(FileNameExport) and FileNameExport.endswith(".json")
             if worker_parameters_conditions and filepath_condition:
-                newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr, OptimizationType, LossMethodStr, LossMethod,
-                                    LearningRate, Epochs, LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemToken)
+                # Update here when adding new fields to the worker 
+                newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, OptimizationType, OptimizationArgs , LossMethodStr, LossMethod,
+                                    LearningRate, Epochs, LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken)
                 newWorker.save_as_json(FilePath.as_posix(), WithDocumentation)
                 sg.popup_auto_close("Successfully Created", keep_on_top=True)
                 break
@@ -212,15 +224,15 @@ def WinWorkerDialog():
             print(f"{FilePathLoad}")
         
         if event == KEY_JSON_LOAD_FILE_BUTTON_EVENT:
+            # Update here when adding new fields to the worker
             load_conditions = bool(FilePathLoad) and FilePathLoad.endswith(".json")
             if load_conditions:
                 # loading json
                 loaded_worker_dict = {}
                 with open(FilePathLoad) as jsonFile:
                     loaded_worker_dict = json.load(jsonFile)
-                (LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,
-                OptimizationType, LossMethodStr, LossMethod, LearningRate, Epochs,
-                LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemToken) = Worker.load_from_dict(loaded_worker_dict, get_params=True)
+                (LayersSizesList, ModelTypeStr, ModelType,OptimizationType, OptimizationArgs ,LossMethodStr, LossMethod, LearningRate, Epochs,
+                LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemArgs ,DistributedSystemToken) = Worker.load_from_dict(loaded_worker_dict, get_params=True)
                 ui_update_all_values(WorkerWindow)
 
             else:
