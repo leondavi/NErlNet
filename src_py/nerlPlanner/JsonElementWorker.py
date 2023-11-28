@@ -6,8 +6,38 @@ from collections import OrderedDict
 
 from JsonElements import JsonElement
 from JsonElements import Epochs
+from JsonElements import Arguments
 from JsonElementsDefinitions import *
 from JsonElementWorkerDefinitions import *
+
+class Optimizer(JsonElement):
+    NAME = "optimizer"
+    def __init__(self, in_type_str : str, args : str):
+        super().__init__(Optimizer.NAME, OPTIMIZER_TYPE)
+        self.in_type_str = in_type_str
+        self.args = Arguments(args)
+        self.optimizer_val = OptimizerTypeMapping[in_type_str] if self.in_type_str in OptimizerTypeMapping else None
+    
+    def error(self):
+        return not self.optimizer_val
+    
+    def get_val(self):
+        return self.optimizer_val
+
+    def get_as_tuple(self):
+        return (self.get_name(), self.optimizer_val)
+  
+    def get_val_str(self):
+        return self.in_type_str
+        
+    def get_args(self) -> str:
+        return self.args
+    
+    def __str__(self):
+        return self.in_type_str
+    
+    def get_key_from_value(value):
+        return get_key_by_value(OptimizerTypeMapping, value)
 
 class Infra(JsonElement):
     def __init__(self, in_type_str : str):
@@ -15,7 +45,6 @@ class Infra(JsonElement):
         self.in_type_str = in_type_str
         self.infra_val = InfraTypeMapping[in_type_str] if self.in_type_str in InfraTypeMapping else None
         
-    
     def error(self):
         return not self.infra_val
 
@@ -32,10 +61,11 @@ class Infra(JsonElement):
         return get_key_by_value(InfraTypeMapping, value)
     
 class DistributedSystemType(JsonElement):
-    def __init__(self, in_type_str : str):
+    def __init__(self, in_type_str : str, args: str):
         super(DistributedSystemType, self).__init__("distributedSystemType", DISTRIBUTED_SYSTEM_TYPE)
         self.in_type_str = in_type_str
         self.distributed_system_type_val = DistributedSystemTypeMapping[in_type_str] if self.in_type_str in DistributedSystemTypeMapping else None
+        self.args = Arguments(args)
 
     def error(self):
         return not self.distributed_system_type_val
@@ -45,6 +75,9 @@ class DistributedSystemType(JsonElement):
     
     def get_val(self):
         return self.distributed_system_type_val
+    
+    def get_args(self) -> str:
+         return self.args
 
     def get_as_tuple(self):
         return (self.get_name(), self.distributed_system_type_val)
@@ -73,17 +106,16 @@ class DistributedSystemToken(JsonElement):
         return self.value
     
 class Worker(JsonElement):      
-    def __init__(self, name, layers_sizes_list_str : str, model_type_str : str, model_type : int, optimization_type_str : str, optimization_type : int,
-                 loss_method_str : str, loss_method : int, learning_rate : str, epochs : str, layer_functions_codes_list_str : str,
-                 layer_types_list_str : str, infra : str, distributed_system_type : str, distributed_system_token : str):
+    def __init__(self, name, layers_sizes_list_str : str, model_type_str : str, model_type : int, optimization_type : str,
+                 optimizer_args : str,loss_method_str : str, loss_method : int, learning_rate : str, epochs : str, layer_functions_codes_list_str : str,
+                 layer_types_list_str : str, infra : str, distributed_system_type : str, distributed_args : str, distributed_system_token : str):
         super(Worker, self).__init__(name, WORKER_TYPE)
         # Update here when adding new fields to the worker
         self.LayersSizesListStr = layers_sizes_list_str
         self.LayersSizesList = layers_sizes_list_str.split(',')
         self.ModelTypeStr = model_type_str
         self.ModelType = model_type # None
-        self.OptimizationTypeStr = optimization_type_str
-        self.OptimizationType = optimization_type # None
+        self.optimizer = Optimizer(optimization_type, optimizer_args)
         self.LossMethodStr = loss_method_str
         self.LossMethod = loss_method # None
         self.LearningRate = float(learning_rate)
@@ -93,7 +125,7 @@ class Worker(JsonElement):
         self.LayerTypesList = layer_types_list_str.split(',') #TODO validate
         self.Epochs = Epochs(epochs)
         self.Infra = Infra(infra)
-        self.distributedSystemType = DistributedSystemType(distributed_system_type)
+        self.distributedSystemType = DistributedSystemType(distributed_system_type, distributed_args)
         self.distributedSystemToken = DistributedSystemToken(distributed_system_token)
 
         # validate lists sizes 
@@ -141,13 +173,13 @@ class Worker(JsonElement):
 
     def copy(self, name):
         # Update here when adding new fields to the worker
-        newWorker =  Worker(name, self.LayersSizesListStr, self.ModelTypeStr, self.ModelType , self.OptimizationTypeStr, self.OptimizationType,
+        newWorker =  Worker(name, self.LayersSizesListStr, self.ModelTypeStr, self.ModelType , self.Optimizer.get_val_str(), self.Optimizer.get_args(),
                  self.LossMethodStr, self.LossMethod, self.LearningRate, self.Epochs.get_value_str(), self.LayersFunctionsCodesListStr, self.LayerTypesListStr, self.Infra.get_val_str(),
-                 self.distributedSystemType.get_val_str(), self.distributedSystemToken.get_val_str())
+                 self.distributedSystemType.get_val_str(), self.distributedSystemType.get_args(), self.distributedSystemToken.get_val_str())
         return newWorker
 
     def __str__(self):
-        return f"layers sizes: {self.LayersSizesListStr}, model {self.ModelTypeStr}, using optimizer {self.OptimizationTypeStr}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}, epochs: {self.Epochs}, infra {self.Infra}"
+        return f"layers sizes: {self.LayersSizesListStr}, model {self.ModelTypeStr}, using optimizer {self.optimizer}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}, epochs: {self.Epochs}, infra {self.Infra}"
     
     def error(self): 
         return not self.input_validation() # + more checks
@@ -177,12 +209,16 @@ class Worker(JsonElement):
             (KEY_LEARNING_RATE_DOC, VAL_LEARNING_RATE_DOC),
             (KEY_EPOCHS, self.Epochs.get_value_str()),
             (KEY_EPOCHS_DOC, VAL_EPOCHS_DOC),
-            (KEY_OPTIMIZER_TYPE, self.OptimizationType),
+            (KEY_OPTIMIZER_TYPE, self.optimizer.get_val()),
             (KEY_OPTIMIZER_TYPE_DOC, VAL_OPTIMIZER_TYPE_DOC),
+            (KEY_OPTIMIZER_ARGS, self.optimizer.get_args()),
+            (KEY_OPTIMIZER_ARGS_DOC, VAL_OPTIMIZER_ARGS_DOC),
             (KEY_INFRA_TYPE, self.Infra.infra_val),
             (KEY_INFRA_TYPE_DOC, VAL_INFRA_TYPE_DOC),
             (KEY_DISTRIBUTED_SYSTEM_TYPE, self.distributedSystemType.get_val()),
             (KEY_DISTRIBUTED_SYSTEM_TYPE_DOC, VAL_DISTRIBUTED_SYSTEM_TYPE_DOC),
+            (KEY_DISTRIBUTED_SYSTEM_ARGS, self.distributedSystemType.get_args()),
+            (KEY_DISTRIBUTED_SYSTEM_ARGS_DOC, VAL_DISTRIBUTED_SYSTEM_ARGS_DOC),
             (KEY_DISTRIBUTED_SYSTEM_TOKEN, self.distributedSystemToken.get_val_str()),
             (KEY_DISTRIBUTED_SYSTEM_TOKEN_DOC, VAL_DISTRIBUTED_SYSTEM_TOKEN_DOC),
         ]
@@ -203,9 +239,9 @@ class Worker(JsonElement):
 
     def load_from_dict(worker_dict : dict, name = '', get_params = False):
         # Update here when adding new fields to the worker
-        required_keys = [KEY_LAYER_SIZES_LIST, KEY_MODEL_TYPE, KEY_OPTIMIZER_TYPE,
+        required_keys = [KEY_LAYER_SIZES_LIST, KEY_MODEL_TYPE, KEY_OPTIMIZER_TYPE, KEY_OPTIMIZER_ARGS,
                          KEY_LOSS_METHOD, KEY_LEARNING_RATE, KEY_EPOCHS, KEY_LAYERS_FUNCTIONS,
-                         KEY_LAYER_TYPES_LIST, KEY_EPOCHS, KEY_INFRA_TYPE, KEY_DISTRIBUTED_SYSTEM_TYPE, KEY_DISTRIBUTED_SYSTEM_TOKEN]
+                         KEY_LAYER_TYPES_LIST, KEY_EPOCHS, KEY_INFRA_TYPE, KEY_DISTRIBUTED_SYSTEM_TYPE, KEY_DISTRIBUTED_SYSTEM_ARGS, KEY_DISTRIBUTED_SYSTEM_TOKEN]
 
         all_keys_exist = all([key in worker_dict for key in required_keys])
 
@@ -214,8 +250,8 @@ class Worker(JsonElement):
             LayersSizesList = worker_dict[KEY_LAYER_SIZES_LIST]
             ModelType = int(worker_dict[KEY_MODEL_TYPE])
             ModelTypeStr = get_key_by_value(ModelTypeMapping, worker_dict[KEY_MODEL_TYPE])
-            OptimizationType = int(worker_dict[KEY_OPTIMIZER_TYPE])
-            OptimizationTypeStr = get_key_by_value(OptimizerTypeMapping, worker_dict[KEY_OPTIMIZER_TYPE])
+            OptimizationType = Optimizer.get_key_from_value(worker_dict[KEY_OPTIMIZER_TYPE])
+            Optimizer_args = worker_dict[KEY_OPTIMIZER_ARGS]
             LossMethod = int(worker_dict[KEY_LOSS_METHOD])
             LossMethodStr = get_key_by_value(LossMethodMapping, worker_dict[KEY_LOSS_METHOD])
             LearningRate = float(worker_dict[KEY_LEARNING_RATE])
@@ -224,17 +260,17 @@ class Worker(JsonElement):
             EpochsStr = worker_dict[KEY_EPOCHS]
             InfraType = Infra.get_key_from_value(worker_dict[KEY_INFRA_TYPE])
             DistributedSystemTypeInst = DistributedSystemType.get_key_from_value(worker_dict[KEY_DISTRIBUTED_SYSTEM_TYPE])
+            DistributedSystem_args = worker_dict[KEY_DISTRIBUTED_SYSTEM_ARGS]
             DistributedSystemTokenInst = worker_dict[KEY_DISTRIBUTED_SYSTEM_TOKEN]
             
             if get_params:
                 # Update here when adding new fields to the worker
-                return (LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr, OptimizationType, LossMethodStr, LossMethod,
+                return (LayersSizesList, ModelTypeStr, ModelType, OptimizationType, Optimizer_args, LossMethodStr, LossMethod,
                         LearningRate, EpochsStr, ActivationLayersList, LayerTypesList, InfraType,
-                        DistributedSystemTypeInst, DistributedSystemTokenInst)
+                        DistributedSystemTypeInst, DistributedSystem_args, DistributedSystemTokenInst)
 
             # Update here when adding new fields to the worker
-            return Worker(name, LayersSizesList, ModelTypeStr, ModelType, OptimizationTypeStr,
-                OptimizationType, LossMethodStr, LossMethod, LearningRate, EpochsStr, ActivationLayersList, LayerTypesList, InfraType,
-                 DistributedSystemTypeInst, DistributedSystemTokenInst)
+            return Worker(name, LayersSizesList, ModelTypeStr, ModelType, OptimizationType, Optimizer_args, LossMethodStr, LossMethod, LearningRate, EpochsStr, ActivationLayersList, LayerTypesList, InfraType,
+                 DistributedSystemTypeInst, DistributedSystem_args, DistributedSystemTokenInst)
                     
         return None

@@ -184,7 +184,7 @@ def devices_handler(window, event, values):
     if event == KEY_DEVICES_ONLINE_LIST_COMBO_BOX:
         window[KEY_DEVICES_IP_INPUT].update(values[KEY_DEVICES_ONLINE_LIST_COMBO_BOX])
         devices_this_device_ip_str = values[KEY_DEVICES_ONLINE_LIST_COMBO_BOX]
-
+    
     if event == KEY_DEVICES_BUTTON_ADD:
         if devices_this_device_name and devices_this_device_ip_str:
             devices_this_device = Device(devices_this_device_ip_str, devices_this_device_name)
@@ -238,7 +238,7 @@ def devices_handler(window, event, values):
                 if api_server_name in new_device.get_entities_names():
                     window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {new_device}")
                 window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(new_device.get_entities_names())
-                devices_devices_list_box_selection = "" # prevent update entites box for a device that doesn't exist 
+                devices_devices_list_box_selection = "" # prevent update entites box for a device that doesn't exist anymore
             else:
                 sg.popup_ok(f"Name {devices_this_device_name} already exists", keep_on_top=True, title="Chance device issue")
                 
@@ -265,10 +265,11 @@ def devices_handler(window, event, values):
         res = json_dc_inst.add_entity_to_device(devices_devices_list_box_selection, last_selected_entity)
         if res == json_dc_inst.ENTITIY_TO_DEVICE_ADD_SUCCESS:
             last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
-            window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state_not_occupied)
+            window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update("", last_entities_list_state_not_occupied)
             device_selected_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
             devices_update_settings_status_bar(window, device_selected_inst)
-        elif res == json_dc_inst.ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_PORT:
+        # mange duplicate port 
+        elif res == json_dc_inst.ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_PORT: 
             ch = sg.popup_yes_no("The port of the entity you selected is in use, would you like to change it to a random port?",  title="suggest alternative port")
             if ch == "Yes":
                 device_selected_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
@@ -285,6 +286,7 @@ def devices_handler(window, event, values):
     if devices_devices_list_box_selection:
         devices_this_device = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
         window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(devices_this_device.get_entities_names())
+    
 
 def clients_reset_inputs_ui(window):
     global clients_this_client_name
@@ -541,13 +543,10 @@ def entities_handler(window, event, values):
     if last_entities_list_state != json_dc_inst.get_entities():
         last_entities_list_state = json_dc_inst.get_entities()
         last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
-        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state_not_occupied)
+        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update("", last_entities_list_state_not_occupied)
 
     if event == KEY_DEVICES_SELECTED_ENTITY_COMBO:
         last_selected_entity = values[KEY_ENTITIES_CLIENTS_LISTBOX][0] if values[KEY_ENTITIES_CLIENTS_LISTBOX] else None
-
-    if last_selected_entity in last_entities_list_state:
-        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state)
 
     if event == KEY_ENTITIES_CLIENTS_LISTBOX:
         last_selected_entity = values[KEY_ENTITIES_CLIENTS_LISTBOX][0]
