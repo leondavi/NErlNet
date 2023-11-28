@@ -63,6 +63,9 @@ def gen_source_fields_hrl(header_path : str, debug : bool = False):
 
     source_policy_definitions_indexes = []
     source_policy_definitions_atoms = []
+    
+    source_type_definitions_indexes = []
+    source_type_definitions_atoms = []
 
     for key, val in SourcePolicyDict.items():
         source_policy_definition = Definition(f'SOURCE_POLICY_{key.upper()}_IDX', f'"{val}"')
@@ -70,6 +73,13 @@ def gen_source_fields_hrl(header_path : str, debug : bool = False):
         source_policy_definitions_indexes.append(source_policy_definition)
         source_policy_definition = Definition(f'SOURCE_POLICY_{key.upper()}_ATOM', f'{Definition.force_atom_value(key)}')
         source_policy_definitions_atoms.append(source_policy_definition)
+        
+    for key , val in SourceTypeDict.items():
+        source_type_definition = Definition(f'SOURCE_TYPE_{key.upper()}_IDX', f'"{val}"')
+        gen_erlang_exporter_logger(source_type_definition.generate_code())
+        source_type_definitions_indexes.append(source_type_definition)
+        source_type_definition = Definition(f'SOURCE_TYPE_{key.upper()}_ATOM', f'{Definition.force_atom_value(key)}')
+        source_type_definitions_atoms.append(source_type_definition)
     
     path_validator(header_path)
 
@@ -80,6 +90,10 @@ def gen_source_fields_hrl(header_path : str, debug : bool = False):
         [f.write(x.generate_code()) for x in source_policy_definitions_indexes]
         f.write(EMPTY_LINE)
         [f.write(x.generate_code()) for x in source_policy_definitions_atoms]
+        f.write(EMPTY_LINE)
+        [f.write(x.generate_code()) for x in source_type_definitions_indexes]
+        f.write(EMPTY_LINE)
+        [f.write(x.generate_code()) for x in source_type_definitions_atoms]
 
 def gen_router_fields_hrl(header_path : str, debug : bool = False):
     global DEBUG

@@ -162,11 +162,11 @@ parseJsonAndStartNerlnet(ThisDeviceIP) ->
     DefaultFrequency = ets:lookup_element(nerlnet_data, frequency, ?DATA_IDX),
 
     createClientsAndWorkers(), % TODO extract all of this args from ETS
-    createRouters(Routers,HostName), % TODO extract all of this args from ETS
-    createSources(BatchSize, DefaultFrequency, HostName), % TODO extract all of this args from ETS
+    createRouters(Routers,ThisDeviceIP), % TODO extract all of this args from ETS
+    createSources(BatchSize, DefaultFrequency, ThisDeviceIP), % TODO extract all of this args from ETS
 
     HostOfMainServer = ets:member(nerlnet_data, mainServer),
-    createMainServer(HostOfMainServer,BatchSize,HostName).
+    createMainServer(HostOfMainServer,BatchSize,ThisDeviceIP).
 
 %% internal functions
 port_validator(Port, EntityName) ->
@@ -181,10 +181,10 @@ port_validator(Port, EntityName) ->
     end.
 
 createClientsAndWorkers() ->
-    ClientsAndWorkers = ets:lookup_element(nerlnet_data, hostClients, ?DATA_IDX), % Each element is  {Name,{Port,ClientWorkers,ClientWorkersMaps}}
+    ClientsAndWorkers = ets:lookup_element(nerlnet_data, deviceClients, ?DATA_IDX), % Each element is  {Name,{Port,ClientWorkers,ClientWorkersMaps}}
     % WorkerToClientMap = ets:lookup_element(nerlnet_data, workers, ?DATA_IDX),
     % io:format("Starting clients and workers locally with: ~p~n",[ClientsAndWorkers]),
-    HostName = ets:lookup_element(nerlnet_data, hostname, ?DATA_IDX),
+    DeviceName = ets:lookup_element(nerlnet_data, device_name, ?DATA_IDX),
     NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
 
     Func = 
@@ -205,7 +205,7 @@ createClientsAndWorkers() ->
                 {"/batch",clientStateHandler, [batch,ClientStatemPid]}
             ]}
         ]),
-        init_cowboy_start_clear(Client, {HostName, Port},NerlClientDispatch)
+        init_cowboy_start_clear(Client, {DeviceName, Port},NerlClientDispatch)
     end,
     lists:foreach(Func, ClientsAndWorkers).
 
