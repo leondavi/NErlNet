@@ -40,3 +40,5 @@
 -define(E_CUSTOMNN, 5).
 -define(E_FEDERATED_CLIENT, 8).
 -define(E_FEDERATED_SERVER, 9).
+
+-define(CONN_MAP_FIELD_BIN , <<"connectionsMap">>).

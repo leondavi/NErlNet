@@ -47,7 +47,7 @@
             "frequency": "60",
             "policy": "0",
             "epochs": "1",
-            "sources": "0"
+            "type": "0"
         }
     ],
     "clients": [
