@@ -90,8 +90,8 @@ PREDICTION_STR = "Prediction"
         globe.experiment_focused_on = self.get_experiment(experiment_name)
         self.current_exp = globe.experiment_focused_on # TODO the objective is to get rid of this global definitions
     
-    def initialization(self, experiment_name : str, arch_json: str, conn_map_json, experiment_flow_json):
-        archData = self.json_dir_parser.json_from_path(arch_json)
+    def initialization(self, experiment_name : str, dc_json: str, conn_map_json, experiment_flow_json):
+        dcData = self.json_dir_parser.json_from_path(dc_json)
         connData = self.json_dir_parser.json_from_path(conn_map_json)
         expData = self.json_dir_parser.json_from_path(experiment_flow_json)
 
@@ -100,7 +100,7 @@ PREDICTION_STR = "Prediction"
 
         self.current_exp.set_experiment_flow(expData)
 
-        globe.components = NetworkComponents(archData) # move network component into experiment class
+        globe.components = NetworkComponents(dcData) # move network component into experiment class
         globe.components.printComponents()
         LOG_INFO("Connections:")
         for key, val in connData['connectionsMap'].items():
@@ -117,14 +117,14 @@ PREDICTION_STR = "Prediction"
         # Initializing the receiver (a Flask HTTP server that receives results from the Main Server):
         if is_port_free(int(globe.components.receiverPort)):
             self.receiverProblem = threading.Event()
-            self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverHost, globe.components.receiverPort, self.receiverProblem), daemon = True)
+            self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverIp, globe.components.receiverPort, self.receiverProblem), daemon = True)
             self.receiverThread.start()   
             # time.sleep(2)
             self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
 
             if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
                 print(f"===================Failed to initialize the receiver using the provided address:==========================\n\
-                (http://{globe.components.receiverHost}:{globe.components.receiverPort})\n\
+                (http://{globe.components.receiverIp}:{globe.components.receiverPort})\n\
                 Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
                 sys.exit()
 
@@ -143,8 +143,8 @@ PREDICTION_STR = "Prediction"
 
         # TODO - Wrong, communication methods - directly with devices that bypasses main server!. Need to send json files to main server and main server distributes files
         for ip in globe.components.devicesIp:
-            with open(archAddress, 'rb') as arch_json_file, open(connMapAddress, 'rb') as conn_json_file:
-                files = [(JSON_FILE_ARCH_REMOTE_NAME, arch_json_file), (JSON_FILE_COMM_REMOTE_NAME, conn_json_file)]
+            with open(archAddress, 'rb') as dc_json_file, open(connMapAddress, 'rb') as conn_json_file:
+                files = [(DC_FILE_ARCH_REMOTE_NAME, dc_json_file), (JSON_FILE_COMM_REMOTE_NAME, conn_json_file)]
                 address = f'http://{ip}:{JSON_INIT_HANDLER_ERL_PORT}/updateJsonPath'
 
                 try:
@@ -172,26 +172,14 @@ PREDICTION_STR = "Prediction"
         if not arch:
             print("\n Enter arch file number:", end = ' ')
             arch = input()
-        selectedArch = self.json_dir_parser.arch_list[int(arch)].get_full_path()
+        selectedArch = self.json_dir_parser.dc_list[int(arch)].get_full_path()
         NetworkComponents(self.json_dir_parser.json_from_path(selectedArch)).printComponents()
 
-    def selectJsons(self):
-        self.json_dir_parser.select_arch_connmap_experiment()
-
-    def setJsons(self, arch, conn, exp):
-        self.json_dir_parser.set_arch_connmap_experiment(arch, conn, exp)
+    def setJsons(self, dc_num : int, conn_num : int, exp_num : int):
+        self.json_dir_parser.set_dc_connmap_experiment(dc_num, conn_num, exp_num)
     
     def getUserJsons(self):
         return self.json_dir_parser.get_user_selection_files()
-
-    def getWorkersList(self):
-        return globe.components.toString('w')
-    
-    def getRoutersList(self):
-        return globe.components.toString('r')
-    
-    def getSourcesList(self):
-        return globe.components.toString('s')
         
     def getTransmitter(self):
         return self.transmitter

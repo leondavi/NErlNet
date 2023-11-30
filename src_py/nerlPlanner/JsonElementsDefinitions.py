@@ -14,6 +14,9 @@ MAIN_SERVER_TYPE = 10
 API_SERVER_TYPE = 11
 SPECIAL_ENTITY_TYPE = 12
 INFRA_TYPE = 13
+DISTRIBUTED_SYSTEM_TYPE = 14
+DISTRIBUTED_SYSTEM_TOKEN_TYPE = 15
+OPTIMIZER_TYPE = 16
 NONE_TYPE = -1
 
 def comm_entity_type(in_type) -> bool:
@@ -24,19 +27,19 @@ def comm_entity_type(in_type) -> bool:
     return True if in_type in comm_types_list else False
 
 RouterPolicyDict = {
-    "Shortest-Path": '0',
-    "Routing-Table": '1'
+    "routingTable": '0'
 }
 
 SourcePolicyDict = {
-    "Casting": '0',
-    "Round-Robin": '1'
+    "casting": '0',
+    "roundRobin": '1',
+    "random": '2'
 }
 
 SOURCE_TYPE_DICT_DEFAULT_SOURCE_TYPE = "csv"
 SourceTypeDict = {
     "csv" : '0',
-    "cam-dummy" : '1'
+    "camDummy" : '1'
 }
 
 def get_inv_dict(in_dict):
@@ -47,6 +50,3 @@ def get_inv_dict(in_dict):
         newDict.append((value,key))
     return dict(newDict)
 
-FIELD_NAME_SOURCE_TYPE = 'type'
-FIELD_NAME_ENTITIES = 'entities'
-FIELD_NAME_WORKERS = 'workers'
