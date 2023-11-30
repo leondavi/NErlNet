@@ -40,6 +40,8 @@ def settings_handler(window, event, values):
         batch_size_inst = BatchSize(batch_size) if batch_size else None
         error_list.append(batch_size_inst.error()) if batch_size else error_list.append(True)
 
+        window[KEY_SETTINGS_STATUS_BAR].update(settings_freq_batch_str(frequency_inst.get_value_str(),batch_size_inst.get_value_str()))
+
         error = any(error_list)
         if error:
             sg.popup_ok(f"Wrong or missed input!", keep_on_top=True, title="Settings Input Issue")
@@ -90,6 +92,14 @@ def workers_handler(window, event, values):
     global workers_new_worker_name
     global workers_new_worker_dict
     global worker_name_selection
+    global last_workers_list_state
+    global last_workers_list_state_not_occupied
+    global clients_combo_box_worker_selection
+    
+    if last_workers_list_state != json_dc_inst.get_workers_names_list():
+        last_workers_list_state = json_dc_inst.get_workers_names_list()
+        last_workers_list_state_not_occupied = [x for x in last_workers_list_state if x not in json_dc_inst.get_clients_workers()]
+        window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update("", last_workers_list_state_not_occupied)
 
     if event == KEY_WORKERS_SHOW_WORKER_BUTTON:
         if (worker_name_selection in json_dc_inst.get_workers_dict()):
@@ -98,12 +108,11 @@ def workers_handler(window, event, values):
             image_path = workers_new_worker.save_graphviz(NERLNET_GRAPHVIZ_OUTPUT_DIR)
             sg.popup_ok(f"{workers_new_worker}", title="Worker graph", image=image_path, keep_on_top=True)
 
-
     if event == KEY_WORKERS_INPUT_LOAD_WORKER_PATH:
         workers_load_worker_path = values[KEY_WORKERS_INPUT_LOAD_WORKER_PATH]
         with open(workers_load_worker_path) as jsonFile:
                 workers_new_worker_dict = json.load(jsonFile)
-        (workers_new_worker , _, _, _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(workers_new_worker_dict)
+        workers_new_worker = Worker.load_from_dict(workers_new_worker_dict)
         window[KEY_WORKERS_INFO_BAR].update(f'Loaded from file: {workers_new_worker}')
         window[KEY_WORKERS_LIST_BOX].update(json_dc_inst.get_workers_names_list())
 
@@ -115,7 +124,9 @@ def workers_handler(window, event, values):
         workers_new_worker.set_name(workers_new_worker_name)
         
     if event == KEY_WORKERS_BUTTON_ADD and (workers_new_worker is not None):
-        if not workers_new_worker.get_name():
+        if workers_new_worker.get_name() and workers_new_worker.get_name()[0].isupper():
+            sg.popup_ok(f"Worker name must start with lower case letter", title='Adding Worker Failed')
+        elif not workers_new_worker.get_name():
             sg.popup_ok(f"Cannot add - Name is missing or exist!", keep_on_top=True, title="Adding New Worker Issue")
         elif json_dc_inst.add_worker(workers_new_worker):
             window[KEY_WORKERS_LIST_BOX].update(json_dc_inst.get_workers_names_list())
@@ -146,6 +157,15 @@ def devices_reset_inputs_ui(window):
     window[KEY_DEVICES_NAME_INPUT].update('')
     window[KEY_DEVICES_IP_INPUT].update('x.x.x.x')
     
+def devices_update_settings_status_bar(window, device_selected_inst: Device):
+    # Update Settings status bar
+    main_server_inst = json_dc_inst.get_main_server()
+    api_server_inst = json_dc_inst.get_api_server()
+    if main_server_inst and last_selected_entity == main_server_inst.NAME:
+        window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_selected_inst}")
+    elif api_server_inst and last_selected_entity == api_server_inst.NAME:
+        window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {device_selected_inst}")
+    
 def devices_handler(window, event, values):
     global devices_this_device_name 
     global devices_devices_list_box_selection
@@ -165,13 +185,19 @@ def devices_handler(window, event, values):
     if event == KEY_DEVICES_ONLINE_LIST_COMBO_BOX:
         window[KEY_DEVICES_IP_INPUT].update(values[KEY_DEVICES_ONLINE_LIST_COMBO_BOX])
         devices_this_device_ip_str = values[KEY_DEVICES_ONLINE_LIST_COMBO_BOX]
-
+    
     if event == KEY_DEVICES_BUTTON_ADD:
-        if devices_this_device_name and devices_this_device_ip_str:
+        if devices_this_device_name and devices_this_device_name[0].isupper():
+            sg.popup_ok(f"Device name must start with lower case letter", title='Adding Device Failed')
+        elif devices_this_device_name and devices_this_device_ip_str:
             devices_this_device = Device(devices_this_device_ip_str, devices_this_device_name)
             if not devices_this_device.error():
-                json_dc_inst.add_device(devices_this_device)
-                window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
+                if  json_dc_inst.add_device(devices_this_device) == json_dc_inst.DEVICE_ADD_SUCCESS:
+                    window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
+                elif json_dc_inst.add_device(devices_this_device) == json_dc_inst.DEVICE_ADD_ISSUE_WITH_IP:
+                    sg.popup_ok("The address is taken, please change the address to another one")
+                elif json_dc_inst.add_device(devices_this_device) == json_dc_inst.DEVICE_ADD_ISSUE_WITH_NAME:
+                    sg.popup_ok("The device's name is taken, please change the name to another one")       
             else:
                 sg.popup_ok("Ip or Name are wrong or exist!")
                 
@@ -184,7 +210,9 @@ def devices_handler(window, event, values):
             window[KEY_DEVICES_IP_INPUT].update(devices_this_device_ip_str)
             
     if event == KEY_DEVICES_BUTTON_SAVE:    
-        if devices_this_device and (devices_this_device.get_name() in json_dc_inst.get_devices_names()):
+        if devices_this_device_name and devices_this_device_name[0].isupper():
+            sg.popup_ok(f"Device name must start with lower case letter", title='Adding Device Failed')
+        elif devices_this_device and (devices_this_device.get_name() in json_dc_inst.get_devices_names()):
             devices_this_device_name = devices_this_device_name if devices_this_device_name else devices_this_device.get_name()
             devices_this_device_ip_str = devices_this_device_ip_str if devices_this_device_ip_str else devices_this_device.get_ip()
             device_to_remove = devices_this_device
@@ -215,7 +243,7 @@ def devices_handler(window, event, values):
                 if api_server_name in new_device.get_entities_names():
                     window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {new_device}")
                 window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(new_device.get_entities_names())
-                devices_devices_list_box_selection = "" # prevent update entites box for a device that doesn't exist 
+                devices_devices_list_box_selection = "" # prevent update entites box for a device that doesn't exist anymore
             else:
                 sg.popup_ok(f"Name {devices_this_device_name} already exists", keep_on_top=True, title="Chance device issue")
                 
@@ -240,24 +268,30 @@ def devices_handler(window, event, values):
 
     if event == KEY_DEVICES_ADD_ENTITY_TO_DEVICE and last_selected_entity and devices_devices_list_box_selection:
         res = json_dc_inst.add_entity_to_device(devices_devices_list_box_selection, last_selected_entity)
-        if not res:
-            sg.popup_ok(f"Could not add {last_selected_entity} to dev: {devices_devices_list_box_selection}")
-        else:
-            # TODO  remove occupied devices from combo
+        if res == json_dc_inst.ENTITIY_TO_DEVICE_ADD_SUCCESS:
             last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
-            window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state_not_occupied)
-            # Update Settings status bar
-            main_server_inst = json_dc_inst.get_main_server()
-            api_server_inst = json_dc_inst.get_api_server()
+            window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update("", last_entities_list_state_not_occupied)
             device_selected_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
-            if main_server_inst and last_selected_entity == main_server_inst.NAME:
-                window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_selected_inst}")
-            elif api_server_inst and last_selected_entity == api_server_inst.NAME:
-                window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {device_selected_inst}")
+            devices_update_settings_status_bar(window, device_selected_inst)
+        # mange duplicate port 
+        elif res == json_dc_inst.ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_PORT: 
+            ch = sg.popup_yes_no("The port of the entity you selected is in use, would you like to change it to a random port?",  title="suggest alternative port")
+            if ch == "Yes":
+                device_selected_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
+                entity_selected_inst = json_dc_inst.get_entity(last_selected_entity)
+                new_port = device_selected_inst.generate_random_port()
+                entity_selected_inst.set_port(new_port) 
+                device_selected_inst.add_entity(entity_selected_inst)
+                last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
+                window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state_not_occupied)
+                devices_update_settings_status_bar(window, device_selected_inst)
+        else:
+            sg.popup_ok(f"Could not add {last_selected_entity} to dev: {devices_devices_list_box_selection}")
 
     if devices_devices_list_box_selection:
         devices_this_device = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
         window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(devices_this_device.get_entities_names())
+    
 
 def clients_reset_inputs_ui(window):
     global clients_this_client_name
@@ -272,9 +306,6 @@ def clients_handler(window, event, values):
     global clients_this_client_port
     global clients_this_client
 
-    # update worker with list
-    window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update(values[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX],values=list(json_dc_inst.get_workers_names_list()))
-
     if event == KEY_CLIENTS_NAME_INPUT:
         clients_this_client_name = values[KEY_CLIENTS_NAME_INPUT]
 
@@ -286,13 +317,16 @@ def clients_handler(window, event, values):
 
     if (event == KEY_CLIENTS_WORKERS_LIST_ADD_WORKER) and clients_combo_box_worker_selection:
         owned_workers_dict = json_dc_inst.get_owned_workers_by_clients_dict()
-        if clients_combo_box_worker_selection in owned_workers_dict:
+        if clients_combo_box_worker_selection in owned_workers_dict:  #Todo check this if
             sg.popup_ok(f"worker {clients_combo_box_worker_selection} already belongs to client {owned_workers_dict[clients_combo_box_worker_selection]}", title='Adding a worker failed')
         elif clients_this_client is not None:
             worker_sha = json_dc_inst.get_workers_dict()[clients_combo_box_worker_selection].get_sha()
             clients_this_client.add_worker(clients_combo_box_worker_selection, worker_sha)
             window[KEY_CLIENTS_STATUS_BAR].update(f"Updated client {clients_this_client_name}: {clients_this_client}")
             window[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS].update(clients_this_client.get_workers_names())
+            last_workers_list_state_not_occupied = [x for x in last_workers_list_state if x not in json_dc_inst.get_clients_workers()]
+            window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update("", last_workers_list_state_not_occupied)
+            clients_combo_box_worker_selection = None 
         else:
             sg.popup_ok(f"Add this client before adding workers", keep_on_top=True, title="Add workers issue")
 
@@ -302,6 +336,8 @@ def clients_handler(window, event, values):
         if clients_this_client_name and worker_name:
             clients_this_client = json_dc_inst.get_client(clients_this_client_name)
             clients_this_client.remove_worker(worker_name)
+            last_workers_list_state_not_occupied = [x for x in last_workers_list_state if x not in json_dc_inst.get_clients_workers()]
+            window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update("", last_workers_list_state_not_occupied)
             window[KEY_CLIENTS_STATUS_BAR].update(f"Updated client {clients_this_client_name}: {clients_this_client}")
             window[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS].update(clients_this_client.get_workers_names())
 
@@ -314,23 +350,27 @@ def clients_handler(window, event, values):
             window[KEY_CLIENTS_PORT_INPUT].update(f"{clients_this_client_port}")
             window[KEY_CLIENTS_STATUS_BAR].update(f"client {clients_this_client.get_name()} is loaded: {clients_this_client}")
             window[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS].update(clients_this_client.get_workers_names())
+            last_workers_list_state_not_occupied = [x for x in last_workers_list_state if x not in json_dc_inst.get_clients_workers()]
+            window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update("", last_workers_list_state_not_occupied)
 
     if event == KEY_CLIENTS_BUTTON_ADD:
-        if clients_this_client_name:
+        if clients_this_client_name and clients_this_client_name[0].isupper():
+            sg.popup_ok(f"Client name must start with lower case letter", title='Adding Client Failed')
+        elif clients_this_client_name:       
             clients_this_client = json_dc_inst.get_client(clients_this_client_name)
-        if clients_this_client is not None:
-            pass # update the client parameters
-        elif clients_this_client_port: # create a new client
-            clients_this_client = Client(clients_this_client_name, clients_this_client_port)
-            json_dc_inst.add_client(clients_this_client)
-            window[KEY_CLIENTS_STATUS_BAR].update(f"Added client {clients_this_client_name}: {clients_this_client}")
-            clients_this_client_name = ''
-            clients_this_client_port = ''
-            window[KEY_CLIENTS_NAME_INPUT].update(clients_this_client_name) 
-            window[KEY_CLIENTS_PORT_INPUT].update(clients_this_client_port) 
+            if clients_this_client is None and clients_this_client_port: # create a new client
+                clients_this_client = Client(clients_this_client_name, clients_this_client_port)
+                json_dc_inst.add_client(clients_this_client)
+                window[KEY_CLIENTS_STATUS_BAR].update(f"Added client {clients_this_client_name}: {clients_this_client}")
+                clients_this_client_name = ''
+                clients_this_client_port = ''
+                window[KEY_CLIENTS_NAME_INPUT].update(clients_this_client_name) 
+                window[KEY_CLIENTS_PORT_INPUT].update(clients_this_client_port) 
 
-    if event == KEY_CLIENTS_BUTTON_SAVE:    
-        if clients_this_client and (clients_this_client.get_name() in json_dc_inst.get_clients_names()):
+    if event == KEY_CLIENTS_BUTTON_SAVE: 
+        if clients_this_client_name and clients_this_client_name[0].isupper():
+            sg.popup_ok(f"Client name must start with lower case letter", title='Adding Client Failed')   
+        elif clients_this_client and (clients_this_client.get_name() in json_dc_inst.get_clients_names()):
             clients_this_client_name = clients_this_client_name if clients_this_client_name else clients_this_client.get_name()
             clients_this_client_port = clients_this_client_port if clients_this_client_port else clients_this_client.get_port()
             client_to_remove = clients_this_client
@@ -353,6 +393,8 @@ def clients_handler(window, event, values):
         clients_this_client_name = values[KEY_ENTITIES_CLIENTS_LISTBOX][0] if values[KEY_ENTITIES_CLIENTS_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
         if clients_this_client_name:
             json_dc_inst.remove_client(clients_this_client_name)
+            last_workers_list_state_not_occupied = [x for x in last_workers_list_state if x not in json_dc_inst.get_clients_workers()]
+            window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update("", last_workers_list_state_not_occupied)
             clients_reset_inputs_ui(window)
 
 
@@ -386,19 +428,22 @@ def routers_handler(window,event,values):
 
 
     if event == KEY_ROUTERS_BUTTON_ADD and routers_this_router_name and routers_this_router_port and (routers_this_router_policy is not None):
-        routers_this_router = json_dc_inst.get_router(routers_this_router_name)
-        if routers_this_router is None:
-            # there is no such router - create a new one
-            routers_this_router = Router(routers_this_router_name, routers_this_router_port, routers_this_router_policy)
-            if not routers_this_router.error():
-                json_dc_inst.add_router(routers_this_router)
-                routers_this_router = None
-                routers_this_router_name = None
-                routers_this_router_port = None
-                routers_this_router_policy = None
-                routers_reset_inputs_ui(window)
-        else:
-            sg.popup_ok(f"Router {routers_this_router_name} is already exist", title='Adding Client Failed')
+        if routers_this_router_name and routers_this_router_name[0].isupper():
+            sg.popup_ok(f"Router name must start with lower case letter", title='Adding Router Failed')
+        elif routers_this_router_name:
+            routers_this_router = json_dc_inst.get_router(routers_this_router_name)
+            if routers_this_router is None:
+                # there is no such router - create a new one
+                routers_this_router = Router(routers_this_router_name, routers_this_router_port, routers_this_router_policy)
+                if not routers_this_router.error():
+                    json_dc_inst.add_router(routers_this_router)
+                    routers_this_router = None
+                    routers_this_router_name = None
+                    routers_this_router_port = None
+                    routers_this_router_policy = None
+                    routers_reset_inputs_ui(window)
+            else:
+                sg.popup_ok(f"Router {routers_this_router_name} is already exist", title='Adding Client Failed')
     
     if event == KEY_ROUTERS_BUTTON_LOAD:
         routers_this_router_name = values[KEY_ENTITIES_ROUTERS_LISTBOX][0] if values[KEY_ENTITIES_ROUTERS_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
@@ -438,41 +483,44 @@ def sources_handler(window, event, values):
 
     if (event == KEY_SOURCES_BUTTON_ADD):
         sources_this_source_name = values[KEY_SOURCES_NAME_INPUT]
-        sources_this_source = json_dc_inst.get_source(sources_this_source_name)
-        #frequency handling:
-        frequency = values[KEY_SOURCES_FREQUENCY_INPUT]
-        epochs = Epochs(values[KEY_SOURCES_EPOCHS_INPUT]) if values[KEY_SOURCES_EPOCHS_INPUT] else None
-        port = Port(values[KEY_SOURCES_PORT_INPUT]) if values[KEY_SOURCES_PORT_INPUT] else None
-        checkbox_val = values[KEY_SOURCES_FREQUENCY_DEFAULT_CHECKBOX]
-        if checkbox_val:
-            frequency = json_dc_inst.get_frequency()
-            if frequency is None:
-                sg.popup_ok(f"Default frequency was selected but never set!", title='Adding Source Failed')
+        if sources_this_source_name and sources_this_source_name[0].isupper():
+            sg.popup_ok(f"Source name must start with lower case letter", title='Adding Source Failed')
+        elif sources_this_source_name:
+            sources_this_source = json_dc_inst.get_source(sources_this_source_name)
+            #frequency handling:
+            frequency = values[KEY_SOURCES_FREQUENCY_INPUT]
+            epochs = Epochs(values[KEY_SOURCES_EPOCHS_INPUT]) if values[KEY_SOURCES_EPOCHS_INPUT] else None
+            port = Port(values[KEY_SOURCES_PORT_INPUT]) if values[KEY_SOURCES_PORT_INPUT] else None
+            checkbox_val = values[KEY_SOURCES_FREQUENCY_DEFAULT_CHECKBOX]
+            if checkbox_val:
+                frequency = json_dc_inst.get_frequency()
+                if frequency is None:
+                    sg.popup_ok(f"Default frequency was selected but never set!", title='Adding Source Failed')
+                else:
+                    frequency = frequency.get_value_str()
+            if bool(sources_this_source_name) and bool(frequency) and (not epochs.error()):
+                # new source handling:
+                if (sources_this_source is None):
+                    sources_this_source_frequency = frequency
+                    sources_this_source_epochs = epochs.get_value_str()
+                    sources_this_source_port = port.get_value_str()
+                    sources_this_source_policy = SourcePolicyDict[values[KEY_SOURCES_POLICY_COMBO_BOX]]
+                    sources_this_source_type = SourceTypeDict[values[KEY_SOURCES_TYPE_COMBO_BOX]]
+                    sources_this_source = Source(sources_this_source_name, sources_this_source_port, sources_this_source_frequency, sources_this_source_policy, sources_this_source_epochs, sources_this_source_type)
+                    json_dc_inst.add_source(sources_this_source)
+                    # clear input TextBox
+                    sources_this_source = None
+                    sources_this_source_name = None
+                    sources_this_source_frequency = None
+                    sources_this_source_epochs = None
+                    sources_this_source_port = None
+                    sources_this_source_policy = None
+                    sources_this_source_type = SOURCE_TYPE_DICT_DEFAULT_SOURCE_TYPE
+                    sources_reset_inputs_ui(window)
+                else:
+                    sg.popup_ok(f"Source {sources_this_source_name} is already exist", title='Adding Source Failed')
             else:
-                frequency = frequency.get_value_str()
-        if bool(sources_this_source_name) and bool(frequency) and (not epochs.error()):
-            # new source handling:
-            if (sources_this_source is None):
-                sources_this_source_frequency = frequency
-                sources_this_source_epochs = epochs.get_value_str()
-                sources_this_source_port = port.get_value_str()
-                sources_this_source_policy = SourcePolicyDict[values[KEY_SOURCES_POLICY_COMBO_BOX]]
-                sources_this_source_type = SourceTypeDict[values[KEY_SOURCES_TYPE_COMBO_BOX]]
-                sources_this_source = Source(sources_this_source_name, sources_this_source_port, sources_this_source_frequency, sources_this_source_policy, sources_this_source_epochs, sources_this_source_type)
-                json_dc_inst.add_source(sources_this_source)
-                # clear input TextBox
-                sources_this_source = None
-                sources_this_source_name = None
-                sources_this_source_frequency = None
-                sources_this_source_epochs = None
-                sources_this_source_port = None
-                sources_this_source_policy = None
-                sources_this_source_type = SOURCE_TYPE_DICT_DEFAULT_SOURCE_TYPE
-                sources_reset_inputs_ui(window)
-            else:
-                sg.popup_ok(f"Source {sources_this_source_name} is already exist", title='Adding Source Failed')
-        else:
-            sg.popup_ok(f"Missing or wrong fields!", title='Adding Source Failed')
+                sg.popup_ok(f"Missing or wrong fields!", title='Adding Source Failed')
 
     if event == KEY_SOURCES_BUTTON_LOAD:
         sources_this_source_name = values[KEY_ENTITIES_SOURCES_LISTBOX][0] if values[KEY_ENTITIES_SOURCES_LISTBOX] else None  # protects from bypassing load with selection from KEY_DEVICES_SELECTED_ENTITY_COMBO
@@ -508,13 +556,10 @@ def entities_handler(window, event, values):
     if last_entities_list_state != json_dc_inst.get_entities():
         last_entities_list_state = json_dc_inst.get_entities()
         last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
-        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state_not_occupied)
+        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update("", last_entities_list_state_not_occupied)
 
     if event == KEY_DEVICES_SELECTED_ENTITY_COMBO:
         last_selected_entity = values[KEY_ENTITIES_CLIENTS_LISTBOX][0] if values[KEY_ENTITIES_CLIENTS_LISTBOX] else None
-
-    if last_selected_entity in last_entities_list_state:
-        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity, last_entities_list_state)
 
     if event == KEY_ENTITIES_CLIENTS_LISTBOX:
         last_selected_entity = values[KEY_ENTITIES_CLIENTS_LISTBOX][0]
@@ -543,12 +588,22 @@ def entities_handler(window, event, values):
 
 def sync_fields_with_json_dc_inst(window, values):
     global json_dc_inst
+    global clients_combo_box_worker_selection
+    global last_workers_list_state_not_occupied
+    global last_workers_list_state
+    global last_entities_list_state_not_occupied
+    global last_entities_list_state
+    global last_selected_entity
 
     # special entities
     window[KEY_SETTINGS_MAINSERVER_PORT_INPUT].update(json_dc_inst.get_main_server().get_port().get_value_str())
     window[KEY_SETTINGS_MAINSERVER_ARGS_INPUT].update(json_dc_inst.get_main_server().get_args().get_value())
     window[KEY_SETTINGS_APISERVER_PORT_INPUT].update(json_dc_inst.get_api_server().get_port().get_value_str())
     window[KEY_SETTINGS_APISERVER_ARGS_INPUT].update(json_dc_inst.get_main_server().get_args().get_value())
+    # settings status bar
+    frequency_inst = json_dc_inst.get_frequency()
+    batch_size_inst = json_dc_inst.get_batch_size()
+    window[KEY_SETTINGS_STATUS_BAR].update(settings_freq_batch_str(frequency_inst.get_value_str(),batch_size_inst.get_value_str()))
     # special entities status bar
     main_server_inst = json_dc_inst.get_main_server()
     api_server_inst = json_dc_inst.get_api_server()
@@ -563,6 +618,12 @@ def sync_fields_with_json_dc_inst(window, values):
     window[KEY_WORKERS_LIST_BOX].update(json_dc_inst.get_workers_names_list())
     # devices
     window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
+    # devices - entities
+    last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
+    window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update("", last_entities_list_state_not_occupied)
+    # clients - workers
+    last_workers_list_state_not_occupied = [x for x in last_workers_list_state if x not in json_dc_inst.get_clients_workers()]
+    window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update("", last_workers_list_state_not_occupied)
 
 
 def dc_json_handler(window, event, values):
@@ -582,6 +643,8 @@ def dc_json_handler(window, event, values):
             sg.popup_ok(f"MainServer hasn't been associated with device!", title='DC Json Export Issue')
         if result == json_dc_inst.EXPORT_DC_JSON_ISSUE_NO_SPECIAL_ENTITIES_OR_SETTINGS:
             sg.popup_ok(f"DC Json can't be generated due to missing\n special entities or settings!", title='DC Json Export Issue')
+        if result == json_dc_inst.EXPORT_DC_JSON_SUCCESS:
+            sg.popup_auto_close("Successfully Created", keep_on_top=True)
     
     if event == KEY_DC_JSON_IMPORT_INPUT:
         dc_json_import_file = values[KEY_DC_JSON_IMPORT_INPUT]

@@ -14,7 +14,7 @@
     "devices": [
         {
             "name": "pc",
-            "ipv4": "x.x.x.x",
+            "ipv4": "192.168.64.14",
             "entities": "mainServer,apiServer,c1,c2,s1,r1,r2,r3,r4"
         }
     ],
@@ -47,7 +47,7 @@
             "frequency": "60",
             "policy": "0",
             "epochs": "1",
-            "sources": "0"
+            "type": "0"
         }
     ],
     "clients": [
@@ -100,11 +100,15 @@
             "epochs": "1",
             "_doc_epochs": "Positve Integer",
             "optimizer": "6",
-            "_doc_optimizer": " none:0 | SGD:1 | Mini-Batch:2 | Momentum:3 | NAG:4 | Adagrad:5 | ADAM:6 |",
+    	    "_doc_optimizer": " none:0 | SGD:1 | Mini-Batch:2 | Momentum:3 | NAG:4 | Adagrad:5 | ADAM:6 |",
+            "optimizerArgs": "",
+            "_doc_optimizerArgs": "String",
             "infraType": "0",
             "_doc_infraType": " opennn:0 | wolfengine:1 |",
             "distributedSystemType": "0",
             "_doc_distributedSystemType": " none:0 | fedClientAvg:1 | fedServerAvg:2 |",
+            "distributedSystemArgs" : "",
+            "_doc_distributedSystemArgs": "String",
             "distributedSystemToken": "none",
             "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"
         }
