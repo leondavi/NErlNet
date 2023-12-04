@@ -7,9 +7,9 @@ namespace nerlnet
 
 // ----- NerlWorker -----
     NerlWorker::NerlWorker(int model_type, std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
-                           float learning_rate, int epochs, int optimizer_type, int loss_method)
+                     float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
+                     int loss_method, int distributed_system_type, std::string &distributed_system_args_str)
     {
-        parse_layers_input(layer_sizes_str, layer_types_list, layers_functionality);
         _learning_rate = learning_rate;
         _epochs = epochs;
         _optimizer_type = optimizer_type;
@@ -20,18 +20,22 @@ namespace nerlnet
     {
     }
 
-    void NerlWorker::parse_layers_input(std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality)
-    {
-        // TODO - Ori and Nadav
-    }
-
 // ----- NerlWorkerOpenNN -----
 
     NerlWorkerOpenNN::NerlWorkerOpenNN(int model_type, std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
-                                       float learning_rate, int epochs, int optimizer_type, int loss_method) : NerlWorker(model_type, layer_sizes_str, layer_types_list, layers_functionality,
-                                                                                                                        learning_rate, epochs, optimizer_type, loss_method)
+                     float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
+                     int loss_method, int distributed_system_type, std::string &distributed_system_args_str) : NerlWorker(model_type, layer_sizes_str, layer_types_list, layers_functionality,
+                                                                                                                      learning_rate, epochs, optimizer_type, optimizer_args_str,
+                                                                                                                      loss_method, distributed_system_type, distributed_system_args_str)
     {
         generate_opennn_neural_network();
+    }
+
+    std::shared_ptr<NerlLayer> NerlWorkerOpenNN::parse_layers_input(std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality)
+    {
+        std::shared_ptr<iTensor1D> layer_sizes = std::make_shared<iTensor1D>(1);
+        return std::make_shared<NerlLayer>(0, layer_sizes, 1);
+        // TODO - Ori and Nadav
     }
 
     NerlWorkerOpenNN::~NerlWorkerOpenNN()
@@ -47,6 +51,24 @@ namespace nerlnet
     {
         // TODO - Ori and Nadav
     }
+
+    int NerlWorkerOpenNN::layer_functionality(int layer_functionality, int layer_type)
+    {
+        int res;
+        switch (layer_type)
+        {
+            // case LAYER_TYPE_DEFAULT:      { res =          break;}
+            // case LAYER_TYPE_SCALING:      { res =           break;}
+            case LAYER_TYPE_CNN:          { res = translate_activation_function(layer_functionality); break;}
+            case LAYER_TYPE_PERCEPTRON:   { res = translate_activation_function(layer_functionality); break;}
+            // case LAYER_TYPE_POOLING:      { res =          break;}
+            // case LAYER_TYPE_PROBABILISTIC:{ res =      break;}
+            // case LAYER_TYPE_LSTM:         { res =  break;}
+            // case LAYER_TYPE_RECCURRENT:   { res =           break;}
+        }
+       return res;
+    }
+
 
     // TODO - Ori and Nadav - Implement translation functions
     int translate_layer_type(int layer_type)
@@ -66,12 +88,7 @@ namespace nerlnet
        return res;
     }
 
-    int translate_layer_functionality(int layer_functionality)
-    {
-        return 0;
-    }
-
-    int translate_activation_function(int activation_function)
+    int NerlWorkerOpenNN::translate_activation_function(int activation_function)
     {
        int res;
        switch (activation_function)
@@ -88,10 +105,10 @@ namespace nerlnet
        case ACTIVATION_SOFT_SIGN:    { res = (int)opennn::PerceptronLayer::ActivationFunction::SoftSign;                 break;}
        case ACTIVATION_HARD_SIGMOID: { res = (int)opennn::PerceptronLayer::ActivationFunction::HardSigmoid;              break;}
        }
-        return res;
+       return res;
     }
 
-    int translate_loss_method(int loss_method)
+    int NerlWorkerOpenNN::translate_loss_method(int loss_method)
     {
         int res;
         switch (loss_method)
@@ -105,7 +122,7 @@ namespace nerlnet
         }
         return res;
     }
-    int translate_optimizer_type(int optimizer_type)
+    int NerlWorkerOpenNN::translate_optimizer_type(int optimizer_type)
     {   
         int res;
         switch (optimizer_type)
@@ -120,7 +137,7 @@ namespace nerlnet
         return res;
     }
 
-    int translate_scaling_method(int scaling_method)
+    int NerlWorkerOpenNN::translate_scaling_method(int scaling_method)
     {
         int res;
         switch (scaling_method)
@@ -134,7 +151,7 @@ namespace nerlnet
         return res;
     }
 
-    int translate_model_type(int model_type)
+    int NerlWorkerOpenNN::translate_model_type(int model_type)
     {
         int res;
         switch (model_type)
