@@ -113,7 +113,7 @@ namespace nerlnet
         case OPTIMIZER_GD:          { res = (int)opennn::TrainingStrategy::OptimizationMethod::GRADIENT_DESCENT;              break;}
         case OPTIMIZER_SGD:         { res = (int)opennn::TrainingStrategy::OptimizationMethod::STOCHASTIC_GRADIENT_DESCENT;   break;}
         case OPTIMIZER_CGD:         { res = (int)opennn::TrainingStrategy::OptimizationMethod::GRADIENT_DESCENT;              break;}
-        case OPTIMIZER_QUASINEUTON: { res = (int) opennn::TrainingStrategy::OptimizationMethod::QUASI_NEWTON_METHOD;          break;}
+        case OPTIMIZER_QUASINEUTON: { res = (int)opennn::TrainingStrategy::OptimizationMethod::QUASI_NEWTON_METHOD;           break;}
         case OPTIMIZER_LVM:         { res = (int)opennn::TrainingStrategy::OptimizationMethod::LEVENBERG_MARQUARDT_ALGORITHM; break;}
         case OPTIMIZER_ADAM:        { res = (int)opennn::TrainingStrategy::OptimizationMethod::ADAPTIVE_MOMENT_ESTIMATION;    break;}
         }
@@ -122,19 +122,21 @@ namespace nerlnet
 
     int translate_scaling_method(int scaling_method)
     {
+        int res;
         switch (scaling_method)
         {
-        case SCALING_NONE: opennn::Scaler::NoScaling; break;
-        case SCALING_MINMAX: opennn::Scaler::MinimumMaximum; break;
-        case SCALING_MEANSTD: opennn::Scaler::MeanStandardDeviation;break;
-        case SCALING_STD: opennn::Scaler::StandardDeviation; break;
-        case SCALING_LOG: opennn::Scaler::Logarithm; break;
+        case SCALING_NONE:    { res = (int)opennn::Scaler::NoScaling;             break;}
+        case SCALING_MINMAX:  { res = (int)opennn::Scaler::MinimumMaximum;        break;}
+        case SCALING_MEANSTD: { res = (int)opennn::Scaler::MeanStandardDeviation; break;}
+        case SCALING_STD:     { res = (int)opennn::Scaler::StandardDeviation;     break;}
+        case SCALING_LOG:     { res = (int)opennn::Scaler::Logarithm;             break;}
         }
-        return 0;
+        return res;
     }
 
     int translate_model_type(int model_type)
     {
+        int res;
         switch (model_type)
         {
         case MODEL_TYPE_APPROXIMATION: break;
@@ -144,8 +146,6 @@ namespace nerlnet
         case MODEL_TYPE_NN: break;
         case MODEL_TYPE_AUTOENCODER: break;
         case MODEL_TYPE_AE_CLASSIFIER: break;
-      //  case MODEL_TYPE_FED_CLIENT: break;
-       // case MODEL_TYPE_FED_SERVER: break;
         }
         return 0;
     }
