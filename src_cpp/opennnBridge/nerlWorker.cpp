@@ -156,15 +156,15 @@ namespace nerlnet
         int res;
         switch (model_type)
         {
-        case MODEL_TYPE_APPROXIMATION: break;
-        case MODEL_TYPE_CLASSIFICATION: break;
-        case MODEL_TYPE_FORECASTING: break;
-        case MODEL_TYPE_ENCODER_DECODER: break;
-        case MODEL_TYPE_NN: break;
-        case MODEL_TYPE_AUTOENCODER: break;
-        case MODEL_TYPE_AE_CLASSIFIER: break;
+        case MODEL_TYPE_APPROXIMATION:   {res = (int)NeuralNetwork::ProjectType::Approximation;       break;}
+        case MODEL_TYPE_CLASSIFICATION:  {res = (int)NeuralNetwork::ProjectType::Classification;      break;}
+        case MODEL_TYPE_FORECASTING:     {res = (int)NeuralNetwork::ProjectType::Forecasting;         break;}
+      //  case MODEL_TYPE_IMG_CLASS:       {res = (int)NeuralNetwork::ProjectType::ImageClassification; break;} 
+      //  case MODEL_TYPE_TXT_CLASS:       {res = (int)NeuralNetwork::ProjectType::TextClassification;  break;}
+      //  case MODEL_TYPE_TXT_GEN:         {res = (int)NeuralNetwork::ProjectType::TextGeneration;      break;}
+     //   case MODEL_TYPE_AUTOASSOCIATION: {res = (int)NeuralNetwork::ProjectType::AutoAssociation;     break;}
         }
-        return 0;
+        return res;
     }
 
 } // namespace nerlnet
