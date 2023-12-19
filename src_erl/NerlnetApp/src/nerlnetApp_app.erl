@@ -144,7 +144,7 @@ parseJsonAndStartNerlnet(ThisDeviceIP) ->
     %%Decode Json to architecute map and Connection map:
     DCMap = jsx:decode(DCJsonPath,[]),
     CommunicationMap = jsx:decode(CommunicationMapPath,[]),
-
+    
     jsonParser:parseJsons(DCMap,CommunicationMap,ThisDeviceIP), % we use nerlnet_data ETS from this point
 
     %%    Creating a Dispatcher for each Server from JSONs architecture - this dispatchers will rout http requests to the right handler.
@@ -182,17 +182,15 @@ port_validator(Port, EntityName) ->
 
 createClientsAndWorkers() ->
     ClientsAndWorkers = ets:lookup_element(nerlnet_data, deviceClients, ?DATA_IDX), % Each element is  {Name,{Port,ClientWorkers,ClientWorkersMaps}}
-    io:format("ClientsAndWorkers: ~p~n",[ClientsAndWorkers]),
     % WorkerToClientMap = ets:lookup_element(nerlnet_data, workers, ?DATA_IDX),
     % io:format("Starting clients and workers locally with: ~p~n",[ClientsAndWorkers]),
     DeviceName = ets:lookup_element(nerlnet_data, device_name, ?DATA_IDX),
     NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
-
+    ShaToModelArgsMap = ets:lookup_element(nerlnet_data, shaToModelArgsMap, ?DATA_IDX),
     Func = 
-        fun({Client,{Port,_ClientWorkers,WorkerSHAMap, WorkerToClientMap}}) ->
+        fun({Client,{Port,ClientWorkers,WorkerShaMap, WorkerToClientMap}}) ->
         port_validator(Port, Client),
-        ClientStatemArgs = {Client, NerlnetGraph, WorkerToClientMap , WorkerSHAMap},
-        io:format("ClientStatemArgs: ~p~n",[ClientStatemArgs]),
+        ClientStatemArgs = {Client, NerlnetGraph, ClientWorkers , WorkerShaMap, WorkerToClientMap , ShaToModelArgsMap},
         ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
         %%Nerl Client
         %%Dispatcher for cowboy to rout each given http_request for the matching handler
