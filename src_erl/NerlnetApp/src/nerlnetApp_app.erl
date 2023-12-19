@@ -182,15 +182,17 @@ port_validator(Port, EntityName) ->
 
 createClientsAndWorkers() ->
     ClientsAndWorkers = ets:lookup_element(nerlnet_data, deviceClients, ?DATA_IDX), % Each element is  {Name,{Port,ClientWorkers,ClientWorkersMaps}}
+    io:format("ClientsAndWorkers: ~p~n",[ClientsAndWorkers]),
     % WorkerToClientMap = ets:lookup_element(nerlnet_data, workers, ?DATA_IDX),
     % io:format("Starting clients and workers locally with: ~p~n",[ClientsAndWorkers]),
     DeviceName = ets:lookup_element(nerlnet_data, device_name, ?DATA_IDX),
     NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
 
     Func = 
-        fun({Client,{Port,_ClientWorkers,_ClientWorkersMaps, WorkerToClientMap}}) ->
+        fun({Client,{Port,_ClientWorkers,WorkerSHAMap, WorkerToClientMap}}) ->
         port_validator(Port, Client),
-        ClientStatemArgs = {Client, NerlnetGraph, WorkerToClientMap},
+        ClientStatemArgs = {Client, NerlnetGraph, WorkerToClientMap , WorkerSHAMap},
+        io:format("ClientStatemArgs: ~p~n",[ClientStatemArgs]),
         ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
         %%Nerl Client
         %%Dispatcher for cowboy to rout each given http_request for the matching handler
