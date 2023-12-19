@@ -31,7 +31,7 @@ class Optimizer(JsonElement):
         return self.in_type_str
         
     def get_args(self) -> str:
-        return self.args
+        return self.args.get_value()
     
     def __str__(self):
         return self.in_type_str
@@ -77,7 +77,7 @@ class DistributedSystemType(JsonElement):
         return self.distributed_system_type_val
     
     def get_args(self) -> str:
-         return self.args
+         return self.args.get_value()
 
     def get_as_tuple(self):
         return (self.get_name(), self.distributed_system_type_val)

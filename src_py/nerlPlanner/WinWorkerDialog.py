@@ -69,7 +69,7 @@ def WinWorkerDialog():
     ModelTypeStr = ""
     ModelType = None # None
     OptimizationType = list(OptimizerTypeMapping.keys())[0]
-    OptimizationArgs = ""
+    OptimizationArgs = "none"
     LossMethodStr = ""
     LossMethod = None # None
     LearningRate = None
@@ -79,7 +79,7 @@ def WinWorkerDialog():
     WithDocumentation = True
     InfraType = list(InfraTypeMapping.keys())[0]
     DistributedSystemType = list(DistributedSystemTypeMapping.keys())[0]
-    DistributedSystemArgs = ""
+    DistributedSystemArgs = "none"
     DistributedSystemToken = "none"
 
     def ui_update_all_values(WorkerWindow):
@@ -201,10 +201,10 @@ def WinWorkerDialog():
             if DistributedSystemType == "none":
                 DistributedSystemToken = "none"
             # Update here when adding new fields to the worker 
-            worker_parameters_conditions = bool(LayersSizesList) and bool(ModelTypeStr) and bool(ModelType) and bool(OptimizationArgs) and\
+            worker_parameters_conditions = bool(LayersSizesList) and bool(ModelTypeStr) and bool(ModelType) and\
                                            bool(OptimizationType) and bool(LossMethodStr) and bool(LossMethod) and\
                                            bool(LearningRate) and bool(LayersFunctionsList) and bool(LayersSizesList) and bool(Epochs) and bool(InfraType) and\
-                                           bool(DistributedSystemType) and bool(DistributedSystemArgs) and bool(DistributedSystemToken)
+                                           bool(DistributedSystemType) and bool(DistributedSystemToken)
             FilePath = Path(FileDirExport) / Path(FileNameExport)
             filepath_condition = FilePath.parent.is_dir() and bool(FileNameExport) and FileNameExport.endswith(".json")
             if worker_parameters_conditions and filepath_condition:
