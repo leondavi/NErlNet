@@ -9,6 +9,7 @@
 -module(jsonParser).
 -include("../nerl_tools.hrl").
 -include("../dc_definitions_ag.hrl").
+-include("../worker_definitions_ag.hrl").
 -export([parseJsons/3, json_to_ets/2]).
 
 -define(SINGLE_STRONG_COMPONENT,1). %% apiServer alone + all network 
@@ -70,12 +71,30 @@ get_device_clients(DCMap, DeviceEntities, PrintLog) ->
   end,
   [Func(S) || S <- DeviceClients]. % list of tuples: [Name,{Port,WorkersMap}]
 
+get_models(ShaToModelMaps) ->
+  Func = fun(_SHA,ModelArgs) ->
+    ModelType = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_MODEL_TYPE), ModelArgs)),
+    LayersSizes = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_LAYER_SIZES_LIST), ModelArgs)),
+    LayersTypes = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_LAYER_TYPES_LIST), ModelArgs)),
+    LayersFunctions = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_LAYERS_FUNCTIONS), ModelArgs)),
+    LossMethod = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_LOSS_METHOD), ModelArgs)),
+    LearningRate = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_LEARNING_RATE), ModelArgs)),
+    Epochs = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_EPOCHS), ModelArgs)),
+    Optimizer = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_OPTIMIZER_TYPE), ModelArgs)),
+    OptimizerArgs = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_OPTIMIZER_ARGS), ModelArgs)),
+    InfraType = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_INFRA_TYPE), ModelArgs)),
+    DistributedSystemType = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_DISTRIBUTED_SYSTEM_TYPE), ModelArgs)),
+    DistributedSystemArgs = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_DISTRIBUTED_SYSTEM_ARGS), ModelArgs)),
+    DistributedSystemToken = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_DISTRIBUTED_SYSTEM_TOKEN), ModelArgs)),
+    ModelTuple = {ModelType, LayersSizes, LayersTypes, LayersFunctions, LossMethod, LearningRate, Epochs, Optimizer, OptimizerArgs, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken},
+    io:format("Model Tuple: ~p~n", [ModelTuple]),
+    ModelTuple
+  end,
+  maps:map(Func , ShaToModelMaps).
+
 generate_workers_map([],WorkersMap,_ClientName)->WorkersMap;
 generate_workers_map([Worker|Workers],WorkersMap,ClientName)->
   generate_workers_map(Workers,maps:put(Worker, ClientName,WorkersMap),ClientName). 
-
-% TODO Map of workerName -> SHA
-generate_workername_to_sha_map() -> [].
 
 %%returns a map for all workers  - key workerName, Value ClientName
 get_workers_map([],WorkersMap)->WorkersMap;
@@ -135,6 +154,10 @@ json_to_ets(IPv4, JsonDCMap) ->
   %%  get workers to clients map
   MapOfWorkers = get_workers_map(JsonClients, #{}),
   ets:insert(nerlnet_data, {?DC_KEY_WORKERS_ATOM, MapOfWorkers}),
+
+  MapSHAToModelArgs = maps:get(?DC_KEY_MODEL_SHA_STR_BIN, JsonDCMap), % Map of MapShaToModel to ModelArgs
+  SHAToModelArgsMap = get_models(MapSHAToModelArgs),
+  io:format("ModelArgsMap: ~p~n", [SHAToModelArgsMap]),
 
   {IPv4ToDeviceNameMap, DeviceNameToIPv4EntitiesMap} = get_devices(JsonDCMap), % get all hosts 
   ets:insert(nerlnet_data, {ipv4_to_devices,IPv4ToDeviceNameMap}),
@@ -275,3 +298,4 @@ add_edges(Graph, Vertex1, Vertex2) ->
     EdgeB -> skip; % appears in graph then don't add 
     true -> digraph:add_edge(Graph,Vertex2,Vertex1)
   end.
+
