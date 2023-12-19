@@ -61,36 +61,42 @@ get_device_clients(DCMap, DeviceEntities, PrintLog) ->
     Name = binary_to_atom(maps:get(?DC_NAME_FIELD_STR_BIN,ClientMap)),
     Port = list_to_integer(binary_to_list(maps:get(?DC_PORT_FIELD_STR_BIN, ClientMap))),
     ClientWorkers = [ list_to_atom(WorkerStr) || WorkerStr <- re:split(binary_to_list(maps:get(?DC_WORKERS_FIELD_STR_BIN,ClientMap)),",",[{return,list}])],
-    WorkersMaps = maps:get(?DC_WORKERS_FIELD_STR_BIN, DCMap),    %% workers arguments from level 1 of arch json
-    ClientWorkersMaps = [ WorkerMap || WorkerMap <- WorkersMaps, lists:member(binary_to_atom(maps:get(?DC_NAME_FIELD_STR_BIN, WorkerMap)), ClientWorkers) ],
+    WorkersMaps = maps:get(?DC_WORKERS_FIELD_STR_BIN, DCMap), 
+    WorkerShaList = lists:map(fun(WorkerMap) -> % Returns a list of tuples [{WorkerName, SHA},...]
+                              { maps:get(?DC_NAME_FIELD_STR_BIN, WorkerMap) , 
+                                maps:get(?DC_WORKER_MODEL_SHA_FIELD_STR_BIN , WorkerMap)} 
+                                end, 
+                              WorkersMaps),
+    WorkerShaMap = maps:from_list(lists:map(fun({WorkerName, SHA}) -> {binary_to_atom(WorkerName), binary_to_list(SHA)} end, WorkerShaList)),
     if PrintLog ->
       ?LOG_NOTICE("Client Name: ~p Port: ~p Client Workers ~p",[Name,Port,ClientWorkers]);
       true -> skip
     end,
-    {Name,{Port,ClientWorkers,ClientWorkersMaps,get_workers_map(AllClients, #{})}}
+    {Name,{Port,ClientWorkers,WorkerShaMap,get_workers_map(AllClients, #{})}}
   end,
   [Func(S) || S <- DeviceClients]. % list of tuples: [Name,{Port,WorkersMap}]
 
 get_models(ShaToModelMaps) ->
   Func = fun(_SHA,ModelArgs) ->
-    ModelType = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_MODEL_TYPE), ModelArgs)),
-    LayersSizes = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_LAYER_SIZES_LIST), ModelArgs)),
-    LayersTypes = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_LAYER_TYPES_LIST), ModelArgs)),
-    LayersFunctions = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_LAYERS_FUNCTIONS), ModelArgs)),
-    LossMethod = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_LOSS_METHOD), ModelArgs)),
-    LearningRate = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_LEARNING_RATE), ModelArgs)),
-    Epochs = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_EPOCHS), ModelArgs)),
-    Optimizer = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_OPTIMIZER_TYPE), ModelArgs)),
-    OptimizerArgs = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_OPTIMIZER_ARGS), ModelArgs)),
-    InfraType = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_INFRA_TYPE), ModelArgs)),
-    DistributedSystemType = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_DISTRIBUTED_SYSTEM_TYPE), ModelArgs)),
-    DistributedSystemArgs = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_DISTRIBUTED_SYSTEM_ARGS), ModelArgs)),
-    DistributedSystemToken = binary_to_list(maps:get(atom_to_list(?WORKER_KEY_DISTRIBUTED_SYSTEM_TOKEN), ModelArgs)),
+    ModelType = binary_to_list(maps:get(?WORKER_FIELD_KEY_MODEL_TYPE_BIN,ModelArgs)),
+    LayersSizes = binary_to_list(maps:get(?WORKER_FIELD_KEY_LAYER_SIZES_LIST_BIN,ModelArgs)),
+    LayersTypes = binary_to_list(maps:get(?WORKER_FIELD_KEY_LAYER_TYPES_LIST_BIN,ModelArgs)),
+    LayersFunctions = binary_to_list(maps:get(?WORKER_FIELD_KEY_LAYERS_FUNCTIONS_BIN,ModelArgs)),
+    LossMethod = binary_to_list(maps:get(?WORKER_FIELD_KEY_LOSS_METHOD_BIN,ModelArgs)),
+    LearningRate = binary_to_list(maps:get(?WORKER_FIELD_KEY_LEARNING_RATE_BIN,ModelArgs)),
+    Epochs = binary_to_list(maps:get(?WORKER_FIELD_KEY_EPOCHS_BIN,ModelArgs)),
+    Optimizer = binary_to_list(maps:get(?WORKER_FIELD_KEY_OPTIMIZER_TYPE_BIN,ModelArgs)),
+    OptimizerArgs = binary_to_list(maps:get(?WORKER_FIELD_KEY_OPTIMIZER_ARGS_BIN,ModelArgs)),
+    InfraType = binary_to_list(maps:get(?WORKER_FIELD_KEY_INFRA_TYPE_BIN,ModelArgs)),
+    DistributedSystemType = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_TYPE_BIN,ModelArgs)),
+    DistributedSystemArgs = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_ARGS_BIN,ModelArgs)),
+    DistributedSystemToken = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_TOKEN_BIN,ModelArgs)),
     ModelTuple = {ModelType, LayersSizes, LayersTypes, LayersFunctions, LossMethod, LearningRate, Epochs, Optimizer, OptimizerArgs, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken},
     io:format("Model Tuple: ~p~n", [ModelTuple]),
     ModelTuple
   end,
-  maps:map(Func , ShaToModelMaps).
+  ShaToModelArgsList = [{binary_to_list(ShaBin) , ModelArgs} || {ShaBin , ModelArgs} <- maps:to_list(maps:map(Func , ShaToModelMaps))],
+  maps:from_list(ShaToModelArgsList).
 
 generate_workers_map([],WorkersMap,_ClientName)->WorkersMap;
 generate_workers_map([Worker|Workers],WorkersMap,ClientName)->
@@ -156,8 +162,9 @@ json_to_ets(IPv4, JsonDCMap) ->
   ets:insert(nerlnet_data, {?DC_KEY_WORKERS_ATOM, MapOfWorkers}),
 
   MapSHAToModelArgs = maps:get(?DC_KEY_MODEL_SHA_STR_BIN, JsonDCMap), % Map of MapShaToModel to ModelArgs
-  SHAToModelArgsMap = get_models(MapSHAToModelArgs),
-  io:format("ModelArgsMap: ~p~n", [SHAToModelArgsMap]),
+  SHAToModelArgsMap = get_models(MapSHAToModelArgs), 
+  io:format("SHAToModelArgsMap: ~p~n", [SHAToModelArgsMap]),
+  ets:insert(nerlnet_data, {sha_to_models_map, SHAToModelArgsMap}),
 
   {IPv4ToDeviceNameMap, DeviceNameToIPv4EntitiesMap} = get_devices(JsonDCMap), % get all hosts 
   ets:insert(nerlnet_data, {ipv4_to_devices,IPv4ToDeviceNameMap}),

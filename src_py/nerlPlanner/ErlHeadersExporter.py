@@ -37,10 +37,13 @@ def gen_worker_fields_hrl(header_path : str, debug : bool = False):
                    'KEY_LOSS_METHOD', 'KEY_LEARNING_RATE',
                    'KEY_EPOCHS', 'KEY_OPTIMIZER_TYPE', 'KEY_OPTIMIZER_ARGS', 'KEY_INFRA_TYPE',
                    'KEY_DISTRIBUTED_SYSTEM_TYPE', 'KEY_DISTRIBUTED_SYSTEM_TOKEN', 'KEY_DISTRIBUTED_SYSTEM_ARGS']
-    fields_list_strs = [f'WORKER_{x}' for x in fields_list_strs]
+    fields_list_strs = [f'WORKER_FIELD_{x}' for x in fields_list_strs]
 
     fields_list_defs = [ Definition(fields_list_strs[idx], f'{Definition.assert_not_atom(fields_list_vals[idx])}') for idx in range(len(fields_list_vals))]
     [gen_erlang_exporter_logger(x.generate_code()) for x in fields_list_defs]
+
+    fields_list_defs_str_bins = [ Definition(f'{fields_list_strs[idx]}_BIN', f'<<"{fields_list_vals[idx]}">>') for idx in range(len(fields_list_strs))]
+    [gen_erlang_exporter_logger(x.generate_code()) for x in fields_list_defs_str_bins]
     
 
     distributed_system_type_definition_key_atom_list = []
@@ -76,22 +79,24 @@ def gen_worker_fields_hrl(header_path : str, debug : bool = False):
     path_validator(header_path)
 
     with open(header_path, 'w') as f:
-       f.write(auto_generated_header.generate_code())
-       f.write(nerlplanner_version.generate_code())
-       f.write(EMPTY_LINE)
-       [f.write(x.generate_code()) for x in fields_list_defs]
-       f.write(EMPTY_LINE)
-       [f.write(x.generate_code()) for x in distributed_system_type_definition_key_atom_list]
-       f.write(EMPTY_LINE)
-       [f.write(x.generate_code()) for x in distributed_system_type_definition_idx_str_list]
-       f.write(EMPTY_LINE)
-       [f.write(x.generate_code()) for x in distributed_system_type_definition_idx_list]
-       f.write(EMPTY_LINE)
-       [f.write(x.generate_code()) for x in infra_type_definition_key_atom_list]
-       f.write(EMPTY_LINE)
-       [f.write(x.generate_code()) for x in infra_type_definition_idx_str_list]
-       f.write(EMPTY_LINE)
-       [f.write(x.generate_code()) for x in infra_type_definition_idx_list]
+        f.write(auto_generated_header.generate_code())
+        f.write(nerlplanner_version.generate_code())
+        f.write(EMPTY_LINE)
+        [f.write(x.generate_code()) for x in fields_list_defs]
+        f.write(EMPTY_LINE)
+        [f.write(x.generate_code()) for x in fields_list_defs_str_bins]
+        f.write(EMPTY_LINE)
+        [f.write(x.generate_code()) for x in distributed_system_type_definition_key_atom_list]
+        f.write(EMPTY_LINE)
+        [f.write(x.generate_code()) for x in distributed_system_type_definition_idx_str_list]
+        f.write(EMPTY_LINE)
+        [f.write(x.generate_code()) for x in distributed_system_type_definition_idx_list]
+        f.write(EMPTY_LINE)
+        [f.write(x.generate_code()) for x in infra_type_definition_key_atom_list]
+        f.write(EMPTY_LINE)
+        [f.write(x.generate_code()) for x in infra_type_definition_idx_str_list]
+        f.write(EMPTY_LINE)
+        [f.write(x.generate_code()) for x in infra_type_definition_idx_list]
 
 
 def gen_source_fields_hrl(header_path : str, debug : bool = False):

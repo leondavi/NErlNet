@@ -53,7 +53,6 @@
 %%Client_StateM_Args= {self(),RouterPort},
 start_link(Args) ->
   nerl_tools:setup_logger(?MODULE),
-  io:format("Args: ~p~n",[Args]),
   {ok,Pid} = gen_statem:start_link(?MODULE, Args, []),
   Pid.
 
@@ -70,21 +69,20 @@ start_link(Args) ->
 
 %%  NerlClientsArgs=[{MyName,Workers,ConnectionsMap},...], Workers = list of maps of name and args
 %%  init nerlClient with given workers and parameters, and build a map :#{workerName=>WorkerPid,...}
-init({MyName,NerlnetGraph, WorkersToClientsMap , WorkersSHAMap}) ->
+init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , ShaToModelArgsMap}) ->
   inets:start(),
   io:format("Client ~p is connected to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
-  io:format("ClientName , WorkersToClientsMap: ~p, ~p~n",[MyName, WorkersToClientsMap]),
   % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
   EtsRef = ets:new(client_data, [set]),
-  ets:insert(EtsRef, {workerToClient, WorkersToClientsMap}),
+  ets:insert(EtsRef, {workerToClient, WorkerToClientMap}),
   ets:insert(EtsRef, {nerlnetGraph, NerlnetGraph}),
   ets:insert(EtsRef, {msgCounter, 1}),
   ets:insert(EtsRef, {infoIn, 0}),
   ets:insert(EtsRef, {myName, MyName}),
-  ets:insert(EtsRef, {workersSHA, WorkersSHAMap}),
-  io:format("WorkersSHAMaps: ~p~n", [WorkersSHAMap]),
+  MyWorkersToShaMap = maps:filter(fun(Worker , _SHA) -> lists:member(Worker , ClientWorkers) end , WorkerShaMap),
+  ets:insert(EtsRef, {workers_to_sha_map, MyWorkersToShaMap}),
 
-  clientWorkersFunctions:createWorkers(MyName,EtsRef),
+  clientWorkersFunctions:createWorkers(MyName , EtsRef , ShaToModelArgsMap),
 
   %% send pre_idle signal to workers
   [gen_statem:cast(ets:lookup_element(EtsRef, WorkerPID, ?WORKER_PID_IDX), {pre_idle}) || WorkerPID <- ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX)],
