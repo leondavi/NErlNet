@@ -30,18 +30,49 @@ def gen_worker_fields_hrl(header_path : str, debug : bool = False):
     fields_list_vals = [KEY_MODEL_TYPE, KEY_LAYER_SIZES_LIST,
                    KEY_LAYER_TYPES_LIST, KEY_LAYERS_FUNCTIONS,
                    KEY_LOSS_METHOD, KEY_LEARNING_RATE,
-                   KEY_EPOCHS, KEY_OPTIMIZER_TYPE, KEY_INFRA_TYPE,
-                   KEY_DISTRIBUTED_SYSTEM_TYPE, KEY_DISTRIBUTED_SYSTEM_TOKEN]
+                   KEY_EPOCHS, KEY_OPTIMIZER_TYPE, KEY_OPTIMIZER_ARGS, KEY_INFRA_TYPE,
+                   KEY_DISTRIBUTED_SYSTEM_TYPE, KEY_DISTRIBUTED_SYSTEM_TOKEN, KEY_DISTRIBUTED_SYSTEM_ARGS]
     fields_list_strs = ['KEY_MODEL_TYPE', 'KEY_LAYER_SIZES_LIST',
                    'KEY_LAYER_TYPES_LIST', 'KEY_LAYERS_FUNCTIONS',
                    'KEY_LOSS_METHOD', 'KEY_LEARNING_RATE',
-                   'KEY_EPOCHS', 'KEY_OPTIMIZER_TYPE', 'KEY_INFRA_TYPE',
-                   'KEY_DISTRIBUTED_SYSTEM_TYPE', 'KEY_DISTRIBUTED_SYSTEM_TOKEN']
+                   'KEY_EPOCHS', 'KEY_OPTIMIZER_TYPE', 'KEY_OPTIMIZER_ARGS', 'KEY_INFRA_TYPE',
+                   'KEY_DISTRIBUTED_SYSTEM_TYPE', 'KEY_DISTRIBUTED_SYSTEM_TOKEN', 'KEY_DISTRIBUTED_SYSTEM_ARGS']
     fields_list_strs = [f'WORKER_{x}' for x in fields_list_strs]
 
     fields_list_defs = [ Definition(fields_list_strs[idx], f'{Definition.assert_not_atom(fields_list_vals[idx])}') for idx in range(len(fields_list_vals))]
     [gen_erlang_exporter_logger(x.generate_code()) for x in fields_list_defs]
     
+
+    distributed_system_type_definition_key_atom_list = []
+    distributed_system_type_definition_idx_str_list = []
+    distributed_system_type_definition_idx_list = []
+
+    for key, val in DistributedSystemTypeMapping.items():
+        distributed_system_type_definition_idx_str = Definition(f'DC_DISTRIBUTED_SYSTEM_TYPE_{key.upper()}_IDX_STR', f'"{val}"')
+        gen_erlang_exporter_logger(distributed_system_type_definition_idx_str.generate_code())
+        distributed_system_type_definition_key_atom = Definition(f'DC_DISTRIBUTED_SYSTEM_TYPE_{key.upper()}_KEY_ATOM', f'{Definition.force_atom_value(key)}')
+        gen_erlang_exporter_logger(distributed_system_type_definition_key_atom.generate_code())
+        distributed_system_type_definition_idx = Definition(f'DC_DISTRIBUTED_SYSTEM_TYPE_{key.upper()}_IDX', f'{val}')
+        gen_erlang_exporter_logger(distributed_system_type_definition_idx.generate_code())
+        distributed_system_type_definition_idx_str_list.append(distributed_system_type_definition_idx_str)
+        distributed_system_type_definition_key_atom_list.append(distributed_system_type_definition_key_atom)
+        distributed_system_type_definition_idx_list.append(distributed_system_type_definition_idx)
+
+    infra_type_definition_key_atom_list = []
+    infra_type_definition_idx_str_list = []
+    infra_type_definition_idx_list = []
+
+    for key, val in InfraTypeMapping.items():
+        infra_type_definition_idx_str = Definition(f'DC_INFRA_TYPE_{key.upper()}_IDX_STR', f'"{val}"')
+        gen_erlang_exporter_logger(infra_type_definition_idx_str.generate_code())
+        infra_type_definition_key_atom = Definition(f'DC_INFRA_TYPE_{key.upper()}_KEY_ATOM', f'{Definition.force_atom_value(key)}')
+        gen_erlang_exporter_logger(infra_type_definition_key_atom.generate_code())
+        infra_type_definition_idx = Definition(f'DC_INFRA_TYPE_{key.upper()}_IDX', f'{val}')
+        gen_erlang_exporter_logger(infra_type_definition_idx.generate_code())
+        infra_type_definition_idx_str_list.append(infra_type_definition_idx_str)
+        infra_type_definition_key_atom_list.append(infra_type_definition_key_atom)
+        infra_type_definition_idx_list.append(infra_type_definition_idx)
+
     path_validator(header_path)
 
     with open(header_path, 'w') as f:
@@ -49,6 +80,18 @@ def gen_worker_fields_hrl(header_path : str, debug : bool = False):
        f.write(nerlplanner_version.generate_code())
        f.write(EMPTY_LINE)
        [f.write(x.generate_code()) for x in fields_list_defs]
+       f.write(EMPTY_LINE)
+       [f.write(x.generate_code()) for x in distributed_system_type_definition_key_atom_list]
+       f.write(EMPTY_LINE)
+       [f.write(x.generate_code()) for x in distributed_system_type_definition_idx_str_list]
+       f.write(EMPTY_LINE)
+       [f.write(x.generate_code()) for x in distributed_system_type_definition_idx_list]
+       f.write(EMPTY_LINE)
+       [f.write(x.generate_code()) for x in infra_type_definition_key_atom_list]
+       f.write(EMPTY_LINE)
+       [f.write(x.generate_code()) for x in infra_type_definition_idx_str_list]
+       f.write(EMPTY_LINE)
+       [f.write(x.generate_code()) for x in infra_type_definition_idx_list]
 
 
 def gen_source_fields_hrl(header_path : str, debug : bool = False):
@@ -154,7 +197,6 @@ def gen_dc_fields_hrl(header_path : str, debug : bool = False):
     fields_list_strs_string = [f'DC_{x}_STR' for x in fields_list_strs]
     fields_list_strs_bin = [f'DC_{x}_STR_BIN' for x in fields_list_strs]
 
-
     fields_list_defs_atoms = [ Definition(fields_list_strs_atom[idx], f'{fields_list_vals_atoms[idx]}') for idx in range(len(fields_list_strs))]
     [gen_erlang_exporter_logger(x.generate_code()) for x in fields_list_defs_atoms]
 
@@ -175,6 +217,7 @@ def gen_dc_fields_hrl(header_path : str, debug : bool = False):
         [f.write(x.generate_code()) for x in fields_list_defs_strings]
         f.write(EMPTY_LINE)
         [f.write(x.generate_code()) for x in fields_list_defs_str_bins]
+
 
 def main():
     parser = argparse.ArgumentParser(description='Generate C++ header file for nerlPlanner')
