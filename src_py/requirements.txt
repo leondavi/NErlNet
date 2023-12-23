@@ -1,8 +1,8 @@
-Flask==2.3.2
-Flask_RESTful==0.3.10
-ipython==8.13.2
-matplotlib==3.7.1
-numpy==1.24.3
-pandas==2.0.2
-Requests==2.31.0
-scikit_learn==1.2.2
+Flask>=2.3.2
+Flask_RESTful>=0.3.10
+ipython>=8.13.2
+matplotlib>=3.7.1
+numpy>=1.24.3
+pandas>=2.0.2
+Requests>=2.31.0
+scikit_learn>=1.2.2
