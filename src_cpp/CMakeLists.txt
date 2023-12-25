@@ -7,6 +7,7 @@
 
 project(src_cpp)
 
+add_subdirectory(common)
 add_subdirectory(opennnBridge)
 
 if(NERLWOLF)
