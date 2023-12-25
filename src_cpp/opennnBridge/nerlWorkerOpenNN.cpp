@@ -1,25 +1,9 @@
-#include "nerlWorker.h"
+#include "nerlWorkerOpenNN.h"
 
 using namespace opennn;
 
 namespace nerlnet
 {
-
-// ----- NerlWorker -----
-    NerlWorker::NerlWorker(int model_type, std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
-                     float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
-                     int loss_method, int distributed_system_type, std::string &distributed_system_args_str)
-    {
-        _learning_rate = learning_rate;
-        _epochs = epochs;
-        _optimizer_type = optimizer_type;
-        _loss_method = loss_method;
-    }
-
-    NerlWorker::~NerlWorker()
-    {
-    }
-
 // ----- NerlWorkerOpenNN -----
 
     NerlWorkerOpenNN::NerlWorkerOpenNN(int model_type, std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
@@ -28,14 +12,8 @@ namespace nerlnet
                                                                                                                       learning_rate, epochs, optimizer_type, optimizer_args_str,
                                                                                                                       loss_method, distributed_system_type, distributed_system_args_str)
     {
+        _nerllayers_linked_list = parse_layers_input(layer_sizes_str, layer_types_list, layers_functionality);
         generate_opennn_neural_network();
-    }
-
-    std::shared_ptr<NerlLayer> NerlWorkerOpenNN::parse_layers_input(std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality)
-    {
-        std::shared_ptr<iTensor1D> layer_sizes = std::make_shared<iTensor1D>(1);
-        return std::make_shared<NerlLayer>(0, layer_sizes, 1);
-        // TODO - Ori and Nadav
     }
 
     NerlWorkerOpenNN::~NerlWorkerOpenNN()

@@ -2,7 +2,7 @@
 
 #include <Logger.h>
 #include "nifppNerltensorEigen.h"
-#include "nerlWorker.h"
+#include "nerlWorkerOpenNN.h"
 
 using namespace nerlnet;
 
