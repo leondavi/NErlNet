@@ -55,4 +55,4 @@ KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_PROBABILISTIC = '-LAYER-METHOD-SELECTI
 KEY_LAYER_METHOD_SELECTION_TEXT = '-LAYER-METHOD-SELECTION-TEXT-'
 KEY_LAYER_METHOD_SELECTION_BUTTON = '-LAYER-METHOD-SELECTION-BUTTON-'
 
-LAYER_CNN_OPTS_HELP_POPUP_STR = 'CNN Layer definition: <W>x<H>k<K>s<S>p<P>\n\nShould be defined only with CNN layer type code\nW - Width\nH - Height\nK - Kernel size <K>x<K>\nS - Stride\nP - Padding\n\nExample:\n128x128k3s2p1 represents a CNN layer\ninput size is 128x128\nkernel size 3x3 and stride of 2 with padding 1'
+LAYER_CNN_OPTS_HELP_POPUP_STR =  'CNN Layer definition: <W>x<H>k<K>s<S>p<P><T>\n\nShould be defined only with CNN layer type code\nW - Width\nH - Height\nK - Kernel size <K>x<K>\nS - Stride\nP - Padding\nT - Convolution Type (v-valid, s-same)\n\nExample:\n128x128k3s2p1v represents a CNN layer\ninput size is 128x128\nkernel size 3x3 and stride of 2 with padding 1\nconvolution type is valid'
