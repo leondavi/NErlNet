@@ -85,13 +85,12 @@ ModelTypeMapping = OrderedDict([
 ])
 
 OptimizerTypeMapping = OrderedDict([
-    ("none" , "0"),
-    ("SGD" , "1"),
-    ("Mini-Batch" , "2"),
-    ("Momentum" , "3"),
-    ("NAG" , "4"),
-    ("Adagrad" , "5"),
-    ("ADAM" , "6")
+    ("GD" , "0"), # Gradient Descent
+    ("CGD" , "1"), # Conjugate Gradient Descent
+    ("SGD" , "2"), # Stochastic Gradient Descent
+    ("QuasiNeuton" , "3"), # Quasi-Neuton Method
+    ("LVM" , "4"), # Levenberg-Marquardt Algorithm
+    ("ADAM" , "5") # Adaptive Moment Estimation
 ])
 
 LossMethodMapping = OrderedDict([
