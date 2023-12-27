@@ -14,7 +14,7 @@ namespace nerlnet
                      int loss_method, int distributed_system_type, std::string &distributed_system_args_str);
     ~NerlWorker();
 
-    std::shared_ptr<NerlLayer> parse_layers_input(std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality); // TODO - Ori and Nadav - Should be overided by NerlWorkerOpenNN
+    std::shared_ptr<NerlLayer> parse_layers_input(std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality);
 
     float get_learning_rate() { return _learning_rate; };
     int get_epochs() { return _epochs; };
@@ -23,11 +23,14 @@ namespace nerlnet
 
     protected:
 
-    std::shared_ptr<NerlLayer> _nerllayers_linked_list;
+    std::shared_ptr<NerlLayer> _nerl_layers_linked_list;
+    int _model_type;
+    int _distributed_system_type;
     float _learning_rate;
     int _epochs;
     int _optimizer_type;
     int _loss_method;
+    std::string _distributed_system_args_str;
 
     private:
 

@@ -12,7 +12,6 @@ namespace nerlnet
                                                                                                                       learning_rate, epochs, optimizer_type, optimizer_args_str,
                                                                                                                       loss_method, distributed_system_type, distributed_system_args_str)
     {
-        _nerllayers_linked_list = parse_layers_input(layer_sizes_str, layer_types_list, layers_functionality);
         generate_opennn_neural_network();
     }
 
@@ -27,7 +26,137 @@ namespace nerlnet
 
     void NerlWorkerOpenNN::generate_opennn_neural_network()
     {
-        // TODO - Ori and Nadav
+        int nerlnet_custom_model; // defines if this is a nerlnet custom project or an opennn project
+        int model_type_tr = translate_model_type(_model_type, nerlnet_custom_model);
+
+        switch(nerlnet_custom_model)
+        {
+            case false:
+            {
+                generate_opennn_project(_neural_network);
+                break;
+            }
+            case true:
+            {
+                switch(model_type_tr)
+                {
+                    case MODEL_TYPE_NN:
+                    {
+                        generate_custom_model_nn(_neural_network);
+                        break;
+                    }
+                    case MODEL_TYPE_AUTOENCODER: //TODO
+                    {
+                        generate_custom_model_ae(_neural_network);
+                        break;
+                    }
+                    case MODEL_TYPE_AE_CLASSIFIER: //TODO
+                    {
+                        generate_custom_model_aec(_neural_network);
+                        break;
+                    }
+                    // case MODEL_TYPE_LSTM:
+                    // {
+                    //     generate_custom_model_lstm(_neural_network);
+                    //     break;
+                    // }
+                    // case MODEL_TYPE_RECURRENT:
+                    // {
+                    //     generate_custom_model_recurrent(_neural_network);
+                    //     break;
+                    // }
+                }
+                break;
+            }
+        }
+    }
+
+    void NerlWorkerOpenNN::generate_opennn_project(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
+    {
+        // TODO Ori and Nadav - implement
+    }
+
+    void NerlWorkerOpenNN::generate_custom_model_nn(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
+    {
+        neural_network_ptr = make_shared<opennn::NeuralNetwork>();
+        
+//   for(Index i = 0; i < size-1; i++)
+//         {
+//             PerceptronLayer* perceptron_layer_pointer = new PerceptronLayer(architecture[i], architecture[i+1]);
+//             perceptron_layer_pointer->set_name("perceptron_layer_" + to_string(i+1));
+
+//             this->add_layer(perceptron_layer_pointer);
+
+//             if(i == size-2) perceptron_layer_pointer->set_activation_function(PerceptronLayer::ActivationFunction::Linear);
+//         }
+
+        shared_ptr<NerlLayer> curr_layer = _nerl_layers_linked_list;
+
+        while(!(curr_layer->is_last()))
+        {
+            int layer_type = curr_layer->get_layer_type();
+            switch(layer_type)
+            {
+                case LAYER_TYPE_CNN: 
+                {
+                    break;
+                }
+                case LAYER_TYPE_LSTM:
+                {
+                    break;
+                }
+                case LAYER_TYPE_RECCURRENT:
+                {
+                    break;
+                }
+                case LAYER_TYPE_DEFAULT:
+                {
+                    // continue to perceptron case
+                }
+                case LAYER_TYPE_PERCEPTRON:
+                {
+                    if (curr_layer->is_last())
+                    {
+                       // TODO Ori and Nadav - throw exception
+                    }
+                    std::shared_ptr<NerlLayer> next_layer = curr_layer->get_next_layer_ptr();
+                    int next_layer_size = next_layer->get_layer_size()->get_dim_size(DIM_X_IDX);
+                    PerceptronLayer* newLayer =  opennn::PerceptronLayer(layer_size_curr, layer_size_next);
+                    neural_network_ptr->add_layer(newLayer);
+                }
+                case LAYER_TYPE_SCALING:
+                {
+                    std::shared_ptr<NerlLayer> next_layer = curr_layer->get_next_layer_ptr();
+                    std::vector<int> layer_dims_vec;
+                    curr_layer->get_layer_size(layer_dims_vec);
+                    iTensor1D layer_size_curr = 1dTensor1D(layer_dims_vec.data());
+                }
+                // TODO UNSCALING
+                // TODO Probabilistic
+            }  
+            
+            curr_layer = curr_layer->get_next_layer_ptr();
+        }
+    }
+
+    void NerlWorkerOpenNN::generate_custom_model_aec(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
+    {
+        // TODO Guy - implement
+    }
+
+    void NerlWorkerOpenNN::generate_custom_model_ae(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
+    {
+        // TODO Guy - implement
+    }
+
+    void NerlWorkerOpenNN::generate_custom_model_lstm(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
+    {
+        // TODO Ori and Nadav - implement
+    }
+
+    void NerlWorkerOpenNN::generate_custom_model_recurrent(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
+    {
+        // TODO Ori and Nadav - implement
     }
 
     int NerlWorkerOpenNN::layer_functionality(int layer_functionality, int layer_type)
@@ -35,21 +164,20 @@ namespace nerlnet
         int res;
         switch (layer_type)
         {
-            case LAYER_TYPE_DEFAULT:      { res = translate_activation_function(layer_functionality); break;}
-            case LAYER_TYPE_SCALING:      { res = translate_activation_function(layer_functionality); break;}
+            case LAYER_TYPE_DEFAULT:      { res = translate_activation_function(layer_functionality); break;} // PERCEPTRON
+            case LAYER_TYPE_SCALING:      { res = translate_scaling_method(layer_functionality);      break;}
             case LAYER_TYPE_CNN:          { res = translate_activation_function(layer_functionality); break;}
             case LAYER_TYPE_PERCEPTRON:   { res = translate_activation_function(layer_functionality); break;}
-            case LAYER_TYPE_POOLING:      { res = translate_activation_function(layer_functionality); break;}
+            case LAYER_TYPE_POOLING:      { res = translate_pooling_method(layer_functionality);      break;}
             case LAYER_TYPE_PROBABILISTIC:{ res = translate_activation_function(layer_functionality); break;}
             case LAYER_TYPE_LSTM:         { res = translate_activation_function(layer_functionality); break;}
             case LAYER_TYPE_RECCURRENT:   { res = translate_activation_function(layer_functionality); break;}
+            case LAYER_TYPE_UNSCALING:    { res = translate_unscaling_method(layer_functionality);    break;}
         }
        return res;
     }
 
-
-    // TODO - Ori and Nadav - Implement translation functions
-    int translate_layer_type(int layer_type)
+    int NerlWorkerOpenNN::translate_layer_type(int layer_type)
     {
         int res;
         switch (layer_type)
@@ -129,18 +257,45 @@ namespace nerlnet
         return res;
     }
 
-    int NerlWorkerOpenNN::translate_model_type(int model_type)
+    int NerlWorkerOpenNN::translate_unscaling_method(int unscaling_method) 
+    {   // openNN uses the Scaler enum for both scaling and unscaling
+        int res; 
+        switch (unscaling_method)
+        {
+        case UNSCALING_NONE:    { res = (int)opennn::Scaler::NoScaling;             break;}
+        case UNSCALING_MINMAX:  { res = (int)opennn::Scaler::MinimumMaximum;        break;}
+        case UNSCALING_MEANSTD: { res = (int)opennn::Scaler::MeanStandardDeviation; break;}
+        case UNSCALING_STD:     { res = (int)opennn::Scaler::StandardDeviation;     break;}
+        case UNSCALING_LOG:     { res = (int)opennn::Scaler::Logarithm;             break;}
+        }
+        return res;
+    }
+
+    int NerlWorkerOpenNN::translate_pooling_method(int pooling_method) 
+    {   
+        int res; 
+        switch (pooling_method)
+        {
+        case POOLING_NONE: { res = (int)opennn::PoolingLayer::PoolingMethod::NoPooling;      break;}
+        case POOLING_MAX:  { res = (int)opennn::PoolingLayer::PoolingMethod::MaxPooling;     break;}
+        case POOLING_AVG:  { res = (int)opennn::PoolingLayer::PoolingMethod::AveragePooling; break;}
+        }
+        return res;
+    }
+
+    int NerlWorkerOpenNN::translate_model_type(int model_type, int &custom_model)
     {
-        int res;
+        int res = model_type;
+        custom_model = false;
+
         switch (model_type)
         {
         case MODEL_TYPE_APPROXIMATION:   {res = (int)NeuralNetwork::ProjectType::Approximation;       break;}
         case MODEL_TYPE_CLASSIFICATION:  {res = (int)NeuralNetwork::ProjectType::Classification;      break;}
         case MODEL_TYPE_FORECASTING:     {res = (int)NeuralNetwork::ProjectType::Forecasting;         break;}
-      //  case MODEL_TYPE_IMG_CLASS:       {res = (int)NeuralNetwork::ProjectType::ImageClassification; break;} 
-      //  case MODEL_TYPE_TXT_CLASS:       {res = (int)NeuralNetwork::ProjectType::TextClassification;  break;}
-      //  case MODEL_TYPE_TXT_GEN:         {res = (int)NeuralNetwork::ProjectType::TextGeneration;      break;}
-     //   case MODEL_TYPE_AUTOASSOCIATION: {res = (int)NeuralNetwork::ProjectType::AutoAssociation;     break;}
+        case MODEL_TYPE_NN:              {custom_model = true; break;}
+        case MODEL_TYPE_AUTOENCODER:     {custom_model = true; break;} // TODO Guy consider Autoassociation type
+        case MODEL_TYPE_AE_CLASSIFIER:   {custom_model = true; break;}
         }
         return res;
     }

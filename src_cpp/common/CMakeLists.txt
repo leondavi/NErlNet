@@ -1,6 +1,7 @@
 project(common)
 
 set(SRC_CODE
+    "common_definitions.h"
     "nerlLayer.cpp"
     "nerlLayer.h"
     "nerlWorker.cpp"
@@ -8,6 +9,7 @@ set(SRC_CODE
     "utilities.cpp"
     "utilities.h"
     "nerlWorkerFunc.h"
+    "worker_definitions_ag.h"
     )
 
 add_library(common SHARED ${SRC_CODE})
