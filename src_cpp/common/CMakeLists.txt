@@ -7,6 +7,7 @@ set(SRC_CODE
     "nerlWorker.h"
     "utilities.cpp"
     "utilities.h"
+    "nerlWorkerFunc.h"
     )
 
 add_library(common SHARED ${SRC_CODE})

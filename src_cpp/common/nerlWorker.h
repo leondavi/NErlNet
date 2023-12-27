@@ -5,7 +5,7 @@
 
 namespace nerlnet
 {
-    class NerlWorker
+    class NerlWorker  // every child class of NerlWorker must implement the same constrctor signature 
 {
     public:
 
