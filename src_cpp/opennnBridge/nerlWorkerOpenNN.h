@@ -21,8 +21,18 @@ class NerlWorkerOpenNN : public NerlWorker
     void generate_opennn_neural_network();
 
     private:
-    //std::shared_ptr<nerlnet::NerlLayer> _first_layer; // linked list of all layers
+
     std::shared_ptr<opennn::NeuralNetwork> _neural_network;
+
+
+    // neural network generator functions
+    void generate_opennn_project(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);
+    void generate_custom_model_nn(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);
+    void generate_custom_model_aec(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);
+    void generate_custom_model_ae(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);
+    void generate_custom_model_lstm(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);
+    void generate_custom_model_recurrent(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);
+
 
     // translation functions
     int layer_functionality(int layer_functionality, int layer_type);
@@ -31,7 +41,9 @@ class NerlWorkerOpenNN : public NerlWorker
     int translate_loss_method(int loss_method);
     int translate_optimizer_type(int optimizer_type);
     int translate_scaling_method(int scaling_method);
-    int translate_model_type(int model_type);
+    int translate_unscaling_method(int unscaling_method);
+    int translate_pooling_method(int pooling_method);
+    int translate_model_type(int model_type, int &custom_model);
 };
 
 } // namespace nerlnet

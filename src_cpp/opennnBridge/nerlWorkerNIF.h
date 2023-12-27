@@ -3,7 +3,7 @@
 #include <Logger.h>
 #include <memory>
 #include "nifppNerltensorEigen.h"
-//#include "nerlWorkerOpenNN.h"
+#include "nerlWorkerOpenNN.h"
 #include "nerlWorkerFunc.h"
 
 

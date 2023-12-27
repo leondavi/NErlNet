@@ -6,10 +6,14 @@ NerlWorker::NerlWorker(int model_type, std::string &layer_sizes_str, std::string
                     float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
                     int loss_method, int distributed_system_type, std::string &distributed_system_args_str)
 {
+    _model_type = model_type;
     _learning_rate = learning_rate;
     _epochs = epochs;
     _optimizer_type = optimizer_type;
     _loss_method = loss_method;
+    _distributed_system_type = distributed_system_type;
+    _distributed_system_args_str = distributed_system_args_str;
+    _nerl_layers_linked_list = parse_layers_input(layer_sizes_str,layer_types_list,layers_functionality);
 }
 
 NerlWorker::~NerlWorker()
@@ -39,16 +43,33 @@ std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_siz
 
     for (int i = 0; i < layer_sizes_strs_vec.size(); i++)
     {
+        std::shared_ptr<NerlLayer> next_layer;
         int layer_type = std::stoi(layer_types_strs_vec[i]);
         // TODO Ori and Nadav add CNN extension
         int layer_size = std::stoi(layer_sizes_strs_vec[i]);
         int layer_functionality = std::stoi(layers_functionality_strs_vec[i]);
 
+        switch(layer_type)
+        {
+            case LAYER_TYPE_POOLING:
+            {
+                break; //TODO Ori and Nadav add pooling layer
+            }
+            case LAYER_TYPE_CNN:
+            {
+                break; //TODO Ori and Nadav add CNN layer
+            }
+            default:
+            {
+                next_layer = std::make_shared<NerlLayer>(layer_type, layer_dims, layer_functionality);
+                break;
+            }
+        }
+
         std::cout<<"layer_type: "<<layer_type<<std::endl;
         std::cout<<"layer_size: "<<layer_size<<std::endl;
         std::cout<<"layer_functionality: "<<layer_functionality<<std::endl;
 
-        std::shared_ptr<NerlLayer> next_layer = std::make_shared<NerlLayer>(layer_size, layer_type, layer_functionality);
 
         if (i == 0)
         {

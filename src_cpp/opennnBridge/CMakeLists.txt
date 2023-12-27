@@ -25,7 +25,6 @@ add_definitions( -D LOGGER_ENABLE_COLORS_ON_USER_HEADER=0 )
 add_subdirectory(${OPENNN_PATH} [binary_dir])
 
 set(SRC_CODE
-	"worker_definitions_ag.h"
 	"eigenTensorTypes.h"
 	"openNNmodelNif.h"
 	"nifppEigenExtensions.h"
