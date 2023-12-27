@@ -146,9 +146,11 @@ def workers_handler(window, event, values):
         window[KEY_WORKERS_INFO_BAR].update(f'{worker_name_selection} is selected')
 
     if event == KEY_WORKERS_LOAD_FROM_LIST_WORKER_BUTTON:
-        if (worker_name_selection in json_dc_inst.get_workers_dict()) and workers_new_worker_name:
-            workers_new_worker = json_dc_inst.get_workers_dict()[worker_name_selection].copy(workers_new_worker_name)
+        if (worker_name_selection in json_dc_inst.get_workers_dict()):
+            workers_new_worker = json_dc_inst.get_workers_dict()[worker_name_selection]
+            workers_new_worker_name = workers_new_worker.get_name()
             window[KEY_WORKERS_INFO_BAR].update(f'{workers_new_worker_name} loaded, {workers_new_worker}')
+            window[KEY_WORKERS_NAME_INPUT].update(workers_new_worker_name)
         else:
             sg.popup_ok(f"selection or name issue", keep_on_top=True, title="Loading Issue")
 
