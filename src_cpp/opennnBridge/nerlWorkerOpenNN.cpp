@@ -35,14 +35,14 @@ namespace nerlnet
         int res;
         switch (layer_type)
         {
-            // case LAYER_TYPE_DEFAULT:      { res =          break;}
-            // case LAYER_TYPE_SCALING:      { res =           break;}
+            case LAYER_TYPE_DEFAULT:      { res = translate_activation_function(layer_functionality); break;}
+            case LAYER_TYPE_SCALING:      { res = translate_activation_function(layer_functionality); break;}
             case LAYER_TYPE_CNN:          { res = translate_activation_function(layer_functionality); break;}
             case LAYER_TYPE_PERCEPTRON:   { res = translate_activation_function(layer_functionality); break;}
-            // case LAYER_TYPE_POOLING:      { res =          break;}
-            // case LAYER_TYPE_PROBABILISTIC:{ res =      break;}
-            // case LAYER_TYPE_LSTM:         { res =  break;}
-            // case LAYER_TYPE_RECCURRENT:   { res =           break;}
+            case LAYER_TYPE_POOLING:      { res = translate_activation_function(layer_functionality); break;}
+            case LAYER_TYPE_PROBABILISTIC:{ res = translate_activation_function(layer_functionality); break;}
+            case LAYER_TYPE_LSTM:         { res = translate_activation_function(layer_functionality); break;}
+            case LAYER_TYPE_RECCURRENT:   { res = translate_activation_function(layer_functionality); break;}
         }
        return res;
     }

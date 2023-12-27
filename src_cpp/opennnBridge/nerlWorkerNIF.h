@@ -1,8 +1,11 @@
 #pragma once
 
 #include <Logger.h>
+#include <memory>
 #include "nifppNerltensorEigen.h"
-#include "nerlWorkerOpenNN.h"
+//#include "nerlWorkerOpenNN.h"
+#include "nerlWorkerFunc.h"
+
 
 using namespace nerlnet;
 
@@ -41,7 +44,7 @@ static ERL_NIF_TERM test_worker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     nifpp::get_throws(env, argv[ARG_LOSS_METHOD], loss_method_str);
     nifpp::get_throws(env, argv[ARG_DISTRIBUTED_SYSTEM_TYPE], distributed_system_type_str);
     nifpp::get_throws(env, argv[ARG_DISTRIBUTED_SYSTEM_ARGS], distributed_system_args_str);
-
+/*
     int model_type = std::stoi(model_type_str);
     float learning_rate = std::stof(learning_rate_str);
     int epochs = std::stoi(epochs_str);
@@ -61,10 +64,10 @@ static ERL_NIF_TERM test_worker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     LogInfo << "loss_method: " << loss_method << std::endl;
     LogInfo << "distributed_system_type: " << distributed_system_type << std::endl;
     LogInfo << "distributed_system_args_str: " << distributed_system_args_str << std::endl;
-    
+  */  
 
-    NerlWorkerOpenNN new_worker = NerlWorkerOpenNN(model_type, layer_sizes_str, layer_types_str, layers_functionality_str,
-                                                   learning_rate, epochs, optimizer_type, optimizer_args_str, loss_method, distributed_system_type, distributed_system_args_str );
+    std::shared_ptr<NerlWorkerOpenNN> new_worker = parse_model_params<NerlWorkerOpenNN>(model_type_str,learning_rate_str,epochs_str,optimizer_type_str,loss_method_str,distributed_system_type_str,layer_sizes_str,
+    layer_types_str,layers_functionality_str,optimizer_args_str,distributed_system_args_str);
     
     nifpp::str_atom ret_atom = "ok";
 

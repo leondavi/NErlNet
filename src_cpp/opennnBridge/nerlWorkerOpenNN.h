@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../opennn/opennn/opennn.h"
-#include "nerlWorker.h"
+#include "../common/nerlWorker.h"
 #include "eigenTensorTypes.h"
 #include "worker_definitions_ag.h"
 
