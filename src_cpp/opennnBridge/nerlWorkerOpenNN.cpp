@@ -120,8 +120,9 @@ namespace nerlnet
                        // TODO Ori and Nadav - throw exception
                     }
                     std::shared_ptr<NerlLayer> next_layer = curr_layer->get_next_layer_ptr();
-                    int next_layer_size = next_layer->get_layer_size()->get_dim_size(DIM_X_IDX);
-                    PerceptronLayer* newLayer =  opennn::PerceptronLayer(layer_size_curr, layer_size_next);
+                    int next_layer_size = next_layer->get_dim_size(DIM_X_IDX);
+                    int layer_size_curr = curr_layer->get_dim_size(DIM_X_IDX);
+                    PerceptronLayer* newLayer =  new opennn::PerceptronLayer(layer_size_curr, next_layer_size);
                     neural_network_ptr->add_layer(newLayer);
                 }
                 case LAYER_TYPE_SCALING:
@@ -129,7 +130,7 @@ namespace nerlnet
                     std::shared_ptr<NerlLayer> next_layer = curr_layer->get_next_layer_ptr();
                     std::vector<int> layer_dims_vec;
                     curr_layer->get_layer_size(layer_dims_vec);
-                    iTensor1D layer_size_curr = 1dTensor1D(layer_dims_vec.data());
+                    //iTensor1D layer_size_curr = iTensor1D(layer_dims_vec.data()); // convert std::vector to tensor 1D
                 }
                 // TODO UNSCALING
                 // TODO Probabilistic

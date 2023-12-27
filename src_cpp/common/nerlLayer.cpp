@@ -12,11 +12,6 @@ NerlLayer::NerlLayer(int layer_type, std::vector<int> &layers_dims, int layer_fu
     _layer_functionality = layer_functionality;
 }
 
-void NerlLayer::parse_layer_dims(std::string &layer_sizes_str)
-{
-
-}
-
 NerlLayer::~NerlLayer()
 {
 }

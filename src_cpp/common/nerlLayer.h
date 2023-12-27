@@ -47,8 +47,6 @@ class NerlLayerPooling : public NerlLayer
     NerlLayerPooling(int layer_type, std::vector<int> &layers_dims, int layer_functionality, std::vector<int> &pooling_dims);
     ~NerlLayerPooling();
 
-    void parse_layer_dims(std::string layer_sizes_str) override;
-
     void get_pooling_dims(std::vector<int> &pooling_dims) {pooling_dims = this->pooling_dims;};
 
     private:
@@ -64,8 +62,6 @@ class NerlLayerCNN : public NerlLayer
     NerlLayerCNN(int layer_type, std::vector<int> &layers_dims, int layer_functionality,
                  std::vector<int> kernel_size, std::vector<int> &stride_dims, std::vector<int> padding_size);
     ~NerlLayerCNN();
-
-    void parse_layer_dims(std::string layer_sizes_str) override;
 
     private:
     std::vector<int> _kernel_size;

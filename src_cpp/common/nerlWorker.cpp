@@ -49,6 +49,8 @@ std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_siz
         int layer_size = std::stoi(layer_sizes_strs_vec[i]);
         int layer_functionality = std::stoi(layers_functionality_strs_vec[i]);
 
+        std::vector<int> layer_dims; //TODO
+
         switch(layer_type)
         {
             case LAYER_TYPE_POOLING:
