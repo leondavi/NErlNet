@@ -33,6 +33,16 @@ static ERL_NIF_TERM test_worker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     std::string distributed_system_type_str;
     std::string distributed_system_args_str;
 
+    std::vector<int> stam = {1,2,3,4,5};
+    std::shared_ptr<intTensor1D> stam_tensor_int;
+    std::shared_ptr<iTensor1D> stam_tensor_index;
+    vector_to_tensor_1d(stam, stam_tensor_int);
+    convert_tensor_int_to_tensor_index(stam_tensor_int, stam_tensor_index);
+
+    std::cout<<"stam tensor index:"<<std::endl;
+    std::cout<<*stam_tensor_index<<std::endl;
+    
+
     nifpp::get_throws(env, argv[ARG_MODEL_TYPE], model_type_str);
     nifpp::get_throws(env, argv[ARG_LAYERS_SIZES], layer_sizes_str);
     nifpp::get_throws(env, argv[ARG_LAYERS_TYPES], layer_types_str);

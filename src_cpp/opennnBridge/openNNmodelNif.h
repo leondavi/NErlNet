@@ -155,7 +155,7 @@ static ERL_NIF_TERM create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
          
         // set activation functions for trainable layers -------------------------------------------------------------------
         try{ 
-             chooseActivationFunction(neural_network , activations_functions); //TODO move to custom NN
+           //  chooseActivationFunction(neural_network , activations_functions); //TODO move to custom NN
         }
 
         catch(...){
