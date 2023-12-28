@@ -1,7 +1,9 @@
 #pragma once 
 
-#include "../opennn/opennn/opennn.h"
 #include "definitionsNN.h"
+#include "eigenTensorTypes.h"
+
+using namespace nerlnet;
 
 class CustumNN : public opennn::NeuralNetwork
 {
