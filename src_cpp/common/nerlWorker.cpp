@@ -31,22 +31,33 @@ NerlWorker::~NerlWorker()
 */
 std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality)
 {
-    std::vector<std::string> layer_sizes_strs_vec = nerlnet_utilities::split_strings_by_comma(layer_sizes_str);
+ //   std::vector<std::string> layer_sizes_strs_vec = nerlnet_utilities::split_strings_by_comma(layer_sizes_str);
     std::vector<std::string> layer_types_strs_vec = nerlnet_utilities::split_strings_by_comma(layer_types_list);
     std::vector<std::string> layers_functionality_strs_vec = nerlnet_utilities::split_strings_by_comma(layers_functionality);
+    
+    std::vector<int> layer_types_vec;
+    layer_types_vec.resize(layer_types_strs_vec.size());
+    for (size_t i = 0; i < layer_types_vec.size(); i++)
+    {
+        layer_types_vec[i] = std::stoi(layer_types_strs_vec[i]);
+    }
+    
+    std::vector<LayerSizingParams_t> layer_sizes_params;
+
+    parse_layer_sizes_str(layer_sizes_str, layer_types_vec, layer_sizes_params);
 
     std::shared_ptr<NerlLayer> first_layer;
     std::shared_ptr<NerlLayer> prev_layer;
 
-    assert(layer_sizes_strs_vec.size() == layer_types_strs_vec.size());
-    assert(layer_sizes_strs_vec.size() == layers_functionality_strs_vec.size());
+   // assert(layer_sizes_strs_vec.size() == layer_types_strs_vec.size());
+    //assert(layer_sizes_strs_vec.size() == layers_functionality_strs_vec.size());
 
-    for (int i = 0; i < layer_sizes_strs_vec.size(); i++)
+    for (int i = 0; i < layer_sizes_params.size(); i++)
     {
         std::shared_ptr<NerlLayer> next_layer;
         int layer_type = std::stoi(layer_types_strs_vec[i]);
         // TODO Ori and Nadav add CNN extension
-        int layer_size = std::stoi(layer_sizes_strs_vec[i]);
+        int layer_size = layer_sizes_params[i].dimx;
         int layer_functionality = std::stoi(layers_functionality_strs_vec[i]);
 
         std::vector<int> layer_dims; //TODO
