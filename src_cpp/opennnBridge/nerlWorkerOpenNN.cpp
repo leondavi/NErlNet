@@ -12,6 +12,7 @@ namespace nerlnet
                                                                                                                       learning_rate, epochs, optimizer_type, optimizer_args_str,
                                                                                                                       loss_method, distributed_system_type, distributed_system_args_str)
     {
+        
         generate_opennn_neural_network();
     }
 

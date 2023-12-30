@@ -1,6 +1,6 @@
 #pragma once
 
-#include "utilities.h"
+#include "nerlWorkerFunc.h"
 #include "nerlLayer.h"
 
 namespace nerlnet
