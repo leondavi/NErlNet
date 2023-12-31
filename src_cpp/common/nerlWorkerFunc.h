@@ -60,7 +60,7 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
 
     std::vector<std::string> layer_sizes_strs_vec = nerlnet_utilities::split_strings_by_comma(layer_sizes_str);
     out_layer_sizes_params.resize(layer_sizes_strs_vec.size());
-    //TODO add assert to make sure  layer_sizes_strs_vec.size() == out_layer_sizes_params.size
+    assert(layer_sizes_strs_vec.size() == out_layer_sizes_params.size());
     for (size_t i = 0; i < layer_sizes_strs_vec.size(); i++) //TODO
     {
         switch (layers_types_vec[i])

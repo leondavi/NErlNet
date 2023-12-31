@@ -49,9 +49,6 @@ std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_siz
     std::shared_ptr<NerlLayer> first_layer;
     std::shared_ptr<NerlLayer> prev_layer;
 
-   // assert(layer_sizes_strs_vec.size() == layer_types_strs_vec.size());
-    //assert(layer_sizes_strs_vec.size() == layers_functionality_strs_vec.size());
-
     for (int i = 0; i < layer_sizes_params.size(); i++)
     {
         std::shared_ptr<NerlLayer> next_layer;

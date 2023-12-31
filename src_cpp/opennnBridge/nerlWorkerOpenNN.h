@@ -37,12 +37,16 @@ class NerlWorkerOpenNN : public NerlWorker
     // translation functions
     int layer_functionality(int layer_functionality, int layer_type);
     int translate_layer_type(int layer_type);
-    int translate_activation_function(int activation_function);
+    opennn::PerceptronLayer::ActivationFunction translate_activation_function(int activation_function);
+    int translate_activation_function_int(int activation_function);
     int translate_loss_method(int loss_method);
     int translate_optimizer_type(int optimizer_type);
-    int translate_scaling_method(int scaling_method);
-    int translate_unscaling_method(int unscaling_method);
-    int translate_pooling_method(int pooling_method);
+    int translate_scaling_method_int(int scaling_method);
+    opennn::Scaler translate_scaling_method(int scaling_method);
+    int translate_unscaling_method_int(int unscaling_method);
+    opennn::Scaler translate_unscaling_method(int scaling_method);
+    opennn::PoolingLayer::PoolingMethod translate_pooling_method(int pooling_method);
+    int translate_pooling_method_int(int pooling_method);
     int translate_model_type(int model_type, int &custom_model);
 };
 
