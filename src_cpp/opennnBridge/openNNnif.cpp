@@ -84,9 +84,12 @@ void* trainFun(void* arg)
     ErlNifEnv *env = enif_alloc_env();    
     DataSet data_set;
 
-    // Get the singleton instance and get the model ID
-    BridgeController &onnBrCtrl = BridgeController::GetInstance();
-    std::shared_ptr<opennn::NeuralNetwork> neural_network = onnBrCtrl.getModelPtr(TrainNNptr->mid);
+    //get nerlworker from bridge controller
+    BridgeController &bridge_controller = BridgeController::GetInstance();
+    std::shared_ptr<NerlWorker> nerlworker = bridge_controller.getModelPtr(TrainNNptr->mid);
+    std::shared_ptr<NerlWorkerOpenNN> nerlworker_opennn = std::static_pointer_cast<NerlWorkerOpenNN>(nerlworker);
+    //get neural network from nerlworker
+    std::shared_ptr<opennn::NeuralNetwork> neural_network = nerlworker_opennn->get_neural_network_ptr();
 
     int data_cols = TrainNNptr->data->dimension(1);
     int num_of_features = neural_network->get_inputs_number();
@@ -157,10 +160,12 @@ void* PredictFun(void* arg)
     nifpp::TERM prediction;
     int EAC_prediction; 
     ErlNifEnv *env = enif_alloc_env();    
-    BridgeController &s = BridgeController::GetInstance();
-    std::shared_ptr<opennn::NeuralNetwork> neural_network = s.getModelPtr(PredictNNptr->mid);
-
-    int modelType = s.getModelType(PredictNNptr->mid); 
+    //get nerlworker from bridge controller
+    BridgeController &bridge_controller = BridgeController::GetInstance();
+    std::shared_ptr<NerlWorker> nerlworker = bridge_controller.getModelPtr(PredictNNptr->mid);
+    std::shared_ptr<NerlWorkerOpenNN> nerlworker_opennn = std::static_pointer_cast<NerlWorkerOpenNN>(nerlworker);
+    //get neural network from nerlworker
+    std::shared_ptr<opennn::NeuralNetwork> neural_network = nerlworker_opennn->get_neural_network_ptr();
 
     Index num_of_samples = PredictNNptr->data->dimension(0);
     Index inputs_number = neural_network->get_inputs_number();

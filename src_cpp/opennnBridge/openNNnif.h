@@ -487,8 +487,6 @@ static ERL_NIF_TERM nerltensor_sum_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 
 static ErlNifFunc nif_funcs[] =
 {
-    {"nerlworker_create_nif", 6 , nerlworker_create_nif},
-    {"destroy_model_nif", 1, bc_destroy_model_nif},
     {"get_active_models_ids_list",0, get_active_models_ids_list_nif},
     {"train_nif", 6 , train_nif},
     {"predict_nif", 3 , predict_nif},
@@ -499,9 +497,9 @@ static ErlNifFunc nif_funcs[] =
     {"nerltensor_sum_nif",3, nerltensor_sum_nif},
     {"nerltensor_scalar_multiplication_nif",3,nerltensor_scalar_multiplication_nif},
     // nerlworker functions
-    {"new_worker_nif", 11, new_worker_nif},
-    {"test_worker_nif", 11, test_worker_nif},
-    {"remove_worker_nif", 0, remove_worker_nif}
+    {"new_worker_nif", 12, new_worker_nif},
+    {"test_worker_nif", 12, test_worker_nif},
+    {"remove_worker_nif", 1, remove_worker_nif}
 };
 
 

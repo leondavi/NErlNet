@@ -99,9 +99,10 @@ static ERL_NIF_TERM test_worker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     nifpp::get_throws(env, argv[ARG_LOSS_METHOD], loss_method_str);
     nifpp::get_throws(env, argv[ARG_DISTRIBUTED_SYSTEM_TYPE], distributed_system_type_str);
     nifpp::get_throws(env, argv[ARG_DISTRIBUTED_SYSTEM_ARGS], distributed_system_args_str);
-
+    LogInfo << "before create_nerlworker" << endl;
     create_nerlworker(model_type_str,learning_rate_str,epochs_str,optimizer_type_str,loss_method_str,distributed_system_type_str,layer_sizes_str,
     layer_types_str,layers_functionality_str,optimizer_args_str,distributed_system_args_str);
+    LogInfo << "after create_nerlworker" << endl;
     
     nifpp::str_atom ret_atom = "ok";
 
@@ -111,8 +112,18 @@ static ERL_NIF_TERM test_worker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 
 static ERL_NIF_TERM remove_worker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    nifpp::str_atom ret_atom = "ok";
+    enum{ARG_MODEL_ID};
+    unsigned long modelId;
 
+    LogInfo << "remove_worker_nif" << endl;
+    nifpp::get_throws(env,argv[ARG_MODEL_ID],modelId);
+
+    BridgeController& onnBrCtrl = BridgeController::GetInstance();
+    onnBrCtrl.deleteModel(modelId);
+    LogInfo << "remove_worker_nif" << endl;
+
+
+    nifpp::str_atom ret_atom = "ok";
     return nifpp::make(env, ret_atom);
 
-}
+}                          

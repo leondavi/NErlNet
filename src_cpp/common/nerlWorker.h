@@ -20,6 +20,7 @@ namespace nerlnet
     int get_epochs() { return _epochs; };
     int get_optimizer_type() { return _optimizer_type; };
     int get_loss_method() { return _loss_method; };
+    int get_distributed_system_type() { return _distributed_system_type; };
 
     protected:
 

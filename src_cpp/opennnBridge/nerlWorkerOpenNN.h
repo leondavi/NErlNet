@@ -17,12 +17,13 @@ class NerlWorkerOpenNN : public NerlWorker
                      int loss_method, int distributed_system_type, std::string &distributed_system_args_str);
     ~NerlWorkerOpenNN();
 
-    void get_opennn_neural_network_ptr(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);
     void generate_opennn_neural_network();
+    std::shared_ptr<opennn::NeuralNetwork> get_neural_network_ptr() { return _neural_network; };
 
     private:
 
     std::shared_ptr<opennn::NeuralNetwork> _neural_network;
+    std::shared_ptr<opennn::TrainingStrategy> _training_strategy;
 
 
     // neural network generator functions

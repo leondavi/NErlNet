@@ -14,15 +14,11 @@ namespace nerlnet
     {
         
         generate_opennn_neural_network();
+        //TODO Ori and Nadav - implement training strategy (loss method, optimizer type, epochs, learning rate only sgd and adam)
     }
 
     NerlWorkerOpenNN::~NerlWorkerOpenNN()
     {
-    }
-
-    void NerlWorkerOpenNN::get_opennn_neural_network_ptr(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
-    {
-        neural_network_ptr = _neural_network;
     }
 
     void NerlWorkerOpenNN::generate_opennn_neural_network()
@@ -81,16 +77,6 @@ namespace nerlnet
     {
         neural_network_ptr = make_shared<opennn::NeuralNetwork>();
         
-//   for(Index i = 0; i < size-1; i++)
-//         {
-//             PerceptronLayer* perceptron_layer_pointer = new PerceptronLayer(architecture[i], architecture[i+1]);
-//             perceptron_layer_pointer->set_name("perceptron_layer_" + to_string(i+1));
-
-//             this->add_layer(perceptron_layer_pointer);
-
-//             if(i == size-2) perceptron_layer_pointer->set_activation_function(PerceptronLayer::ActivationFunction::Linear);
-//         }
-
         shared_ptr<NerlLayer> curr_layer = _nerl_layers_linked_list;
 
         while(!(curr_layer->is_last()))
