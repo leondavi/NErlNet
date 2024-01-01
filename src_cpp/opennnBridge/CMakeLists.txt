@@ -26,16 +26,12 @@ add_subdirectory(${OPENNN_PATH} [binary_dir])
 
 set(SRC_CODE
 	"eigenTensorTypes.h"
-	"openNNmodelNif.h"
 	"nifppEigenExtensions.h"
 	"nifppNerltensorEigen.h"
-	"bridgeController.h"
 	"definitionsNN.h"
-	"CustumNN.h"
 	"openNNnif.h"
 	"openNNnif.cpp"
     "ModelParams.h"
-	"definitionsNN.h"
 	"nerlWorkerOpenNN.h"
 	"nerlWorkerOpenNN.cpp"
 	"nerlWorkerNIF.h"

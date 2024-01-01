@@ -33,7 +33,7 @@ inline void* get_weights(void* arg)
     std::tuple<nifpp::TERM, nifpp::TERM> message_tuple; // returned nerltensor of parameters
     
     //get neural network parameters which are weights and biases valuse as a 1D vector         
-    opennnBridgeController &onn_bridge_control = opennnBridgeController::GetInstance();
+    BridgeController &onn_bridge_control = BridgeController::GetInstance();
     std::shared_ptr<opennn::NeuralNetwork> neural_network = onn_bridge_control.getModelPtr(getWeigthsParamsPtr->mid);
 
     parameters = neural_network->get_parameters();
@@ -108,7 +108,7 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     fTensor1DPtr parameters;
     
     enif_self(env, &pid);
-    opennnBridgeController& s = opennnBridgeController::GetInstance();
+    BridgeController& s = BridgeController::GetInstance();
 
     //get model id
     nifpp::get_throws(env, argv[ARG_ModelID], mid); 

@@ -18,7 +18,6 @@
 #include <Logger.h>
 #include "../opennn/opennn/opennn.h"
 #include "bridgeController.h"
-#include "openNNmodelNif.h"
 #include "get_set_weights.h"
 #include "ModelParams.h"
 
@@ -89,9 +88,6 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     
     nifpp::get_tensor_2d<float,fTensor2DPtr,fTensor2D>(env,argv[ARG_BatchTensor],PredictNNptr->data);
 
-    opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
-    int modelType = onnBrCtrl.getModelType(PredictNNptr->mid);
-
     int res;
     void** exit_code;
     res = enif_thread_create((char*)"predict_nif_proc", &(PredictNNptr->tid), PredictFun, (void*) pPredictNNptr, 0);
@@ -144,9 +140,6 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     ErlNifPid pid;
     enif_self(env, &pid);
     TrainNNptr->pid = pid;
-
-    opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
-    int modelType = onnBrCtrl.getModelType(TrainNNptr->mid);
     int res;
 
     void** exit_code;
@@ -494,8 +487,8 @@ static ERL_NIF_TERM nerltensor_sum_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 
 static ErlNifFunc nif_funcs[] =
 {
-    {"create_nif", 6 , create_nif},
-    {"destroy_nif", 1, destroy_nif},
+    {"nerlworker_create_nif", 6 , nerlworker_create_nif},
+    {"destroy_model_nif", 1, bc_destroy_model_nif},
     {"get_active_models_ids_list",0, get_active_models_ids_list_nif},
     {"train_nif", 6 , train_nif},
     {"predict_nif", 3 , predict_nif},

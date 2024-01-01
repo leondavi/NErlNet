@@ -10,6 +10,7 @@ set(SRC_CODE
     "utilities.h"
     "nerlWorkerFunc.h"
     "worker_definitions_ag.h"
+    "bridgeController.h"
     )
 
 add_library(common SHARED ${SRC_CODE})

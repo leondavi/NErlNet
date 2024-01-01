@@ -159,9 +159,17 @@ namespace nerlnet
                 {
                     std::shared_ptr<NerlLayer> next_layer = curr_layer->get_next_layer_ptr();
                     std::vector<int> layer_dims_vec;
-                    curr_layer->get_layer_size(layer_dims_vec);
-                    int next_layer_size = next_layer->get_dim_size(DIM_X_IDX);
+                    curr_layer->get_layer_size(layer_dims_vec); //TODO remove from all layers
+                    int next_layer_size;
                     int layer_size_curr = curr_layer->get_dim_size(DIM_X_IDX);
+                     if (!(curr_layer->is_last()))
+                    {
+                       next_layer_size = next_layer->get_dim_size(DIM_X_IDX);
+                    }
+                    else
+                    {
+                       next_layer_size = layer_size_curr;
+                    }
                     int get_layer_functionality = curr_layer->get_layer_functionality();
                     ProbabilisticLayer* newLayer =  new opennn::ProbabilisticLayer(layer_size_curr, next_layer_size);
                     newLayer->set_activation_function((opennn::ProbabilisticLayer::ActivationFunction)translate_activation_function(get_layer_functionality));
