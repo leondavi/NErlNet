@@ -85,7 +85,7 @@ void* trainFun(void* arg)
     DataSet data_set;
 
     // Get the singleton instance and get the model ID
-    opennnBridgeController &onnBrCtrl = opennnBridgeController::GetInstance();
+    BridgeController &onnBrCtrl = BridgeController::GetInstance();
     std::shared_ptr<opennn::NeuralNetwork> neural_network = onnBrCtrl.getModelPtr(TrainNNptr->mid);
 
     int data_cols = TrainNNptr->data->dimension(1);
@@ -157,7 +157,7 @@ void* PredictFun(void* arg)
     nifpp::TERM prediction;
     int EAC_prediction; 
     ErlNifEnv *env = enif_alloc_env();    
-    opennnBridgeController &s = opennnBridgeController::GetInstance();
+    BridgeController &s = BridgeController::GetInstance();
     std::shared_ptr<opennn::NeuralNetwork> neural_network = s.getModelPtr(PredictNNptr->mid);
 
     int modelType = s.getModelType(PredictNNptr->mid); 

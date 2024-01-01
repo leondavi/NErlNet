@@ -9,7 +9,7 @@
 -import(nerlNIF,[call_to_get_weights/2,call_to_set_weights/2]).
 -import(nerlNIF,[decode_nif/2, nerltensor_binary_decode/2]).
 -import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
--import(nerlNIF,[nerltensor_sum_nif/3, test_worker_nif/11]).
+-import(nerlNIF,[nerltensor_sum_nif/3, test_worker_nif/12]).
 -import(nerlTensor,[nerltensor_sum_erl/2, sum_nerltensors_lists/2]).
 -import(nerlNIF,[nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
 -import(nerl,[compare_floats_L/3, string_format/2, logger_settings/1]).
@@ -228,6 +228,7 @@ nerltensor_conversion_test(Rounds) ->
 
 nerlworker_test(0, _Performance) -> _Performance;
 nerlworker_test(Rounds, Performance) ->
+      ModelId  = erlang:unique_integer([positive]),
       ModelType = "5",
       LayersTypes = "1,3,3,3",
       LayersSizes = "64,32,4,1",
@@ -239,5 +240,5 @@ nerlworker_test(Rounds, Performance) ->
       LossMethod = "2",
       DistributedSystemType = "0",
       DistributedSystemArg = "",
-      nerlNIF:test_worker_nif(ModelType, LayersTypes, LayersSizes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
+      nerlNIF:test_worker_nif(ModelId,ModelType, LayersTypes, LayersSizes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
       nerlworker_test(Rounds - 1, Performance).

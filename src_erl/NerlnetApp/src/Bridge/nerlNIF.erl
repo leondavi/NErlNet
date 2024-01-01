@@ -20,7 +20,7 @@
 -export([nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
 
 % worker nif methods
--export([new_worker_nif/11, remove_worker_nif/0, test_worker_nif/11]).
+-export([new_worker_nif/12, remove_worker_nif/0, test_worker_nif/12]).
 
 init() ->
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
@@ -223,14 +223,14 @@ nerltensor_scalar_multiplication_erl({NerlTensorErl, Type}, ScalarValue) ->
 
 %%%%%% NerlWorker NIF Methods %%%%%%
 
-new_worker_nif(_ModelType, _LayersSizes, _LayersTypes, _LayersFunctionalityCodes, _LearningRate, _Epochs, _OptimizerType,
+new_worker_nif(_ModelId,_ModelType, _LayersSizes, _LayersTypes, _LayersFunctionalityCodes, _LearningRate, _Epochs, _OptimizerType,
 _OptimizerArgs, _LossMethod, _DistributedSystemType, _DistributedSystemArgs) ->
       exit(nif_library_not_loaded).
 
 remove_worker_nif() ->
       exit(nif_library_not_loaded).
 
-%% All of inputs must be binary strings!
-test_worker_nif(_ModelType, _LayersSizes, _LayersTypes, _LayersFunctionalityCodes, _LearningRate, _Epochs, _OptimizerType,
+%% All of inputs must be binary strings! except for _ModelId which is an integer
+test_worker_nif(_ModelId,_ModelType, _LayersSizes, _LayersTypes, _LayersFunctionalityCodes, _LearningRate, _Epochs, _OptimizerType,
                 _OptimizerArgs, _LossMethod, _DistributedSystemType, _DistributedSystemArgs) ->
       exit(nif_library_not_loaded).
