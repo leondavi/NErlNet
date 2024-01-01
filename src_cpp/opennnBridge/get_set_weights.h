@@ -6,8 +6,10 @@
 #include "ModelParams.h"
 #include "nifppNerltensorEigen.h"
 #include "bridgeController.h"
+#include "nerlWorkerOpenNN.h"
 
 using namespace opennn;
+using namespace nerlnet;
 
 class GetWeightsParams 
 {
@@ -33,8 +35,10 @@ inline void* get_weights(void* arg)
     std::tuple<nifpp::TERM, nifpp::TERM> message_tuple; // returned nerltensor of parameters
     
     //get neural network parameters which are weights and biases valuse as a 1D vector         
-    BridgeController &onn_bridge_control = BridgeController::GetInstance();
-    std::shared_ptr<opennn::NeuralNetwork> neural_network = onn_bridge_control.getModelPtr(getWeigthsParamsPtr->mid);
+    BridgeController &bridge_controller = BridgeController::GetInstance();
+    std::shared_ptr<NerlWorker> nerlworker = bridge_controller.getModelPtr(getWeigthsParamsPtr->mid);
+    std::shared_ptr<NerlWorkerOpenNN> nerlworker_opennn = std::static_pointer_cast<NerlWorkerOpenNN>(nerlworker);
+    std::shared_ptr<opennn::NeuralNetwork> neural_network = nerlworker_opennn->get_neural_network_ptr();
 
     parameters = neural_network->get_parameters();
     parameters_ptr = std::make_shared<fTensor1D>(parameters);
@@ -108,15 +112,17 @@ static ERL_NIF_TERM set_weights_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     fTensor1DPtr parameters;
     
     enif_self(env, &pid);
-    BridgeController& s = BridgeController::GetInstance();
-
     //get model id
     nifpp::get_throws(env, argv[ARG_ModelID], mid); 
-    //nifpp::get_throws(env, argv[ARG_Type], mid); // TODO: Add this
+    //get nerlworker from bridge controller
+    BridgeController &bridge_controller = BridgeController::GetInstance();
+    std::shared_ptr<NerlWorker> nerlworker = bridge_controller.getModelPtr(mid);
+    std::shared_ptr<NerlWorkerOpenNN> nerlworker_opennn = std::static_pointer_cast<NerlWorkerOpenNN>(nerlworker);
+    //get neural network from nerlworker
+    std::shared_ptr<opennn::NeuralNetwork> neural_network = nerlworker_opennn->get_neural_network_ptr();
+
     nifpp::get_tensor_1d<float,fTensor1DPtr, fTensor1D>(env,argv[ARG_Weights], parameters);
 
-    //get neural network from singelton           
-    std::shared_ptr<opennn::NeuralNetwork> neural_network = s.getModelPtr(mid);
     int nn_parameters_number = neural_network->get_parameters_number();
     int new_parameters_number = parameters->size();
    

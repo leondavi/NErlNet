@@ -1,5 +1,7 @@
 project(common)
 
+set(NIFPP_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../nifpp/")
+
 set(SRC_CODE
     "common_definitions.h"
     "nerlLayer.cpp"
@@ -15,4 +17,6 @@ set(SRC_CODE
 
 add_library(common SHARED ${SRC_CODE})
 
-target_include_directories(common PUBLIC .)
+target_include_directories(common PUBLIC .
+    ${NIFPP_PATH}
+)

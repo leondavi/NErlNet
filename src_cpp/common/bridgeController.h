@@ -1,12 +1,13 @@
 #pragma once 
 
 #include <unordered_map>
-#include <mutex>
 #include <memory>
 #include <stdexcept>
+#include "nifpp.h"
 #include "nerlWorker.h" // adding the api of opennn for creating a model
 
-std::mutex mutex_;
+
+
 // Neural network manager singleton
 namespace nerlnet{
 class BridgeController {
@@ -64,21 +65,10 @@ public:
 };
 } // namespace nerlnet
 
-static ERL_NIF_TERM bc_destroy_model_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    unsigned long modelId;
-    nifpp::get_throws(env,argv[0],modelId);
-    
-    BridgeController& onnBrCtrl = BridgeController::GetInstance();
-    onnBrCtrl.deleteModel(modelId);
-
-    // handle wrong id scenario
-    nifpp::str_atom ret_status("ok");
-    return nifpp::make(env, ret_status);
-}
 
 static ERL_NIF_TERM get_active_models_ids_list_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    using namespace nerlnet;
     std::vector<unsigned long> mids_list;
     BridgeController& onnBrCtrl = BridgeController::GetInstance();
     onnBrCtrl.get_models_ids_list(mids_list);
