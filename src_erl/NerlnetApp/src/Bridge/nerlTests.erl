@@ -230,9 +230,9 @@ nerlworker_test(0, _Performance) -> _Performance;
 nerlworker_test(Rounds, Performance) ->
       ModelId  = erlang:unique_integer([positive]),
       ModelType = "5",
+      LayersSizes = "5,10,5,3",
       LayersTypes = "1,3,3,3",
-      LayersSizes = "64,32,4,1",
-      LayersFunctionalityCodes = "2,6,6,6", % change scaler functionality to 6 to check exception handling
+      LayersFunctionalityCodes = "1,6,11,11", % change scaler functionality to 6 to check exception handling
       LearningRate = "0.01",
       Epochs = "1",
       OptimizerType = "2",
@@ -240,6 +240,6 @@ nerlworker_test(Rounds, Performance) ->
       LossMethod = "2",
       DistributedSystemType = "0",
       DistributedSystemArg = "",
-      nerlNIF:test_worker_nif(ModelId,ModelType, LayersTypes, LayersSizes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
+      nerlNIF:test_worker_nif(ModelId,ModelType,LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
       nerlNIF:remove_worker_nif(ModelId),
       nerlworker_test(Rounds - 1, Performance).

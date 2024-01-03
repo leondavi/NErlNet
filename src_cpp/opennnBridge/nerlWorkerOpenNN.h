@@ -1,9 +1,15 @@
 #pragma once
 
+#include <cassert>
+#include <Logger.h>
+
 #include "../opennn/opennn/opennn.h"
 #include "../common/nerlWorker.h"
 #include "eigenTensorTypes.h"
 #include "worker_definitions_ag.h"
+
+#define TRAINING_STRATEGY_SET_DISPLAY_ON   1
+#define TRAINING_STRATEGY_SET_DISPLAY_OFF  0
 
 namespace nerlnet
 {
@@ -18,13 +24,20 @@ class NerlWorkerOpenNN : public NerlWorker
     ~NerlWorkerOpenNN();
 
     void generate_opennn_neural_network();
-    std::shared_ptr<opennn::NeuralNetwork> get_neural_network_ptr() { return _neural_network; };
+    void generate_training_strategy();
+
+    std::shared_ptr<opennn::NeuralNetwork> get_neural_network_ptr() { return _neural_network_ptr; };
+    std::shared_ptr<opennn::TrainingStrategy> get_training_strategy_ptr() { return _training_strategy_ptr; };
+    void set_optimization_method(int optimizer_type ,int learning_rate);
+    void set_loss_method(int loss_method);
+    void set_learning_rate(float learning_rate);
+    void set_epochs(int epochs);
 
     private:
 
-    std::shared_ptr<opennn::NeuralNetwork> _neural_network;
-    std::shared_ptr<opennn::TrainingStrategy> _training_strategy;
-
+    std::shared_ptr<opennn::NeuralNetwork> _neural_network_ptr;
+    std::shared_ptr<opennn::TrainingStrategy> _training_strategy_ptr;
+    
 
     // neural network generator functions
     void generate_opennn_project(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);
@@ -40,8 +53,10 @@ class NerlWorkerOpenNN : public NerlWorker
     int translate_layer_type(int layer_type);
     opennn::PerceptronLayer::ActivationFunction translate_activation_function(int activation_function);
     int translate_activation_function_int(int activation_function);
-    int translate_loss_method(int loss_method);
-    int translate_optimizer_type(int optimizer_type);
+    opennn::TrainingStrategy::LossMethod translate_loss_method(int loss_method);
+    int translate_loss_method_int(int loss_method);
+    opennn::TrainingStrategy::OptimizationMethod translate_optimizer_type(int optimizer_type);
+    int translate_optimizer_type_int(int optimizer_type);
     int translate_scaling_method_int(int scaling_method);
     opennn::Scaler translate_scaling_method(int scaling_method);
     int translate_unscaling_method_int(int unscaling_method);

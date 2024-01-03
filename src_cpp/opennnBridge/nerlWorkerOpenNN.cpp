@@ -12,25 +12,80 @@ namespace nerlnet
                                                                                                                       learning_rate, epochs, optimizer_type, optimizer_args_str,
                                                                                                                       loss_method, distributed_system_type, distributed_system_args_str)
     {
-        
         generate_opennn_neural_network();
-        //TODO Ori and Nadav - implement training strategy (loss method, optimizer type, epochs, learning rate only sgd and adam)
+        generate_training_strategy();
+        //TODO Ori and Nadav - implement training strategy (loss method, optimizer type, epochs, only sgd and adam)
     }
 
     NerlWorkerOpenNN::~NerlWorkerOpenNN()
     {
+
+    }
+
+    /**
+     * @brief generate the training strategy for the opennn neural network
+     * this function doesn't set the data pointer of the training strategy and doesn't call to the train function
+    **/
+    void NerlWorkerOpenNN::generate_training_strategy()
+    {
+      _training_strategy_ptr = std::make_shared<opennn::TrainingStrategy>();
+      _training_strategy_ptr->set_neural_network_pointer(_neural_network_ptr.get()); // The order of these two lines is important
+       //TODO Ori and Nadav - explain why use get instead of *
+     assert((set_optimization_method(_optimizer_type,_learning_rate), "Issue with set optimization method"));
+     assert((set_loss_method(_loss_method), "Issue with set loss method")); 
+     _training_strategy_ptr->set_maximum_epochs_number(_epochs); 
+     _training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); // remove opennn training strategy prints
+    }
+
+    void NerlWorkerOpenNN::set_optimization_method(int optimizer_type,int learning_rate){
+        assert((_training_strategy_ptr->has_neural_network(), "NerlWorkerOpenNN::set_optimization_method - neural network pointer is null"));
+        _optimizer_type = optimizer_type;
+        _training_strategy_ptr->set_optimization_method(translate_optimizer_type(optimizer_type));
+        switch(_optimizer_type){
+            case OPTIMIZER_GD:
+            {
+                break; //No implementation for learning rate in GD
+            }
+            case OPTIMIZER_SGD:
+            {
+                _training_strategy_ptr->get_stochastic_gradient_descent_pointer()->set_initial_learning_rate(learning_rate);
+                break;
+            }
+            case OPTIMIZER_CGD:
+            {
+                break; // No learning rate for CGD
+            }
+            case OPTIMIZER_QUASINEUTON:
+            {
+                break; //No learning rate for Quasi Newton
+            }
+            case OPTIMIZER_LVM:
+            {
+                break; //No learning rate for LVM
+            }
+            case OPTIMIZER_ADAM:
+            {
+                _training_strategy_ptr->get_adaptive_moment_estimation_pointer()->set_initial_learning_rate(learning_rate);
+                break;
+            }
+        }
+    }
+
+    void NerlWorkerOpenNN::set_loss_method(int loss_method){
+        assert((_training_strategy_ptr->has_neural_network(), "NerlWorkerOpenNN::set_loss_method - neural network pointer is null"));
+        _loss_method = loss_method;
+        _training_strategy_ptr->set_loss_method(translate_loss_method(loss_method));
     }
 
     void NerlWorkerOpenNN::generate_opennn_neural_network()
     {
         int nerlnet_custom_model; // defines if this is a nerlnet custom project or an opennn project
         int model_type_tr = translate_model_type(_model_type, nerlnet_custom_model);
-
         switch(nerlnet_custom_model)
         {
             case false:
             {
-                generate_opennn_project(_neural_network);
+                generate_opennn_project(_neural_network_ptr);
                 break;
             }
             case true:
@@ -39,27 +94,27 @@ namespace nerlnet
                 {
                     case MODEL_TYPE_NN:
                     {
-                        generate_custom_model_nn(_neural_network);
+                        generate_custom_model_nn(_neural_network_ptr);
                         break;
                     }
                     case MODEL_TYPE_AUTOENCODER: //TODO
                     {
-                        generate_custom_model_ae(_neural_network);
+                        generate_custom_model_ae(_neural_network_ptr);
                         break;
                     }
                     case MODEL_TYPE_AE_CLASSIFIER: //TODO
                     {
-                        generate_custom_model_aec(_neural_network);
+                        generate_custom_model_aec(_neural_network_ptr);
                         break;
                     }
                     // case MODEL_TYPE_LSTM:
                     // {
-                    //     generate_custom_model_lstm(_neural_network);
+                    //     generate_custom_model_lstm(_neural_network_ptr);
                     //     break;
                     // }
                     // case MODEL_TYPE_RECURRENT:
                     // {
-                    //     generate_custom_model_recurrent(_neural_network);
+                    //     generate_custom_model_recurrent(_neural_network_ptr);
                     //     break;
                     // }
                 }
@@ -78,8 +133,7 @@ namespace nerlnet
         neural_network_ptr = make_shared<opennn::NeuralNetwork>();
         
         shared_ptr<NerlLayer> curr_layer = _nerl_layers_linked_list;
-
-        while(!(curr_layer->is_last()))
+        while(curr_layer)
         {
             int layer_type = curr_layer->get_layer_type();
             switch(layer_type)
@@ -102,24 +156,24 @@ namespace nerlnet
                 }
                 case LAYER_TYPE_PERCEPTRON:
                 {
-                    if (curr_layer->is_last())
+                    if (curr_layer->is_first())
                     {
-                       throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - PERCEPTRON cannot be last layer");
+                       LogError("NerlWorkerOpenNN::generate_custom_model_nn - PERCEPTRON cannot be first layer");
+                       throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - PERCEPTRON cannot be first layer");
                     }
-                    std::shared_ptr<NerlLayer> next_layer = curr_layer->get_next_layer_ptr();
-                    int next_layer_size = next_layer->get_dim_size(DIM_X_IDX);
+                    std::shared_ptr<NerlLayer> prev_layer = curr_layer->get_prev_layer_ptr();
+                    int prev_layer_size = prev_layer->get_dim_size(DIM_X_IDX);
                     int layer_size_curr = curr_layer->get_dim_size(DIM_X_IDX);
                     int get_layer_functionality = curr_layer->get_layer_functionality();
-                    PerceptronLayer* newLayer =  new opennn::PerceptronLayer(layer_size_curr, next_layer_size);
+                    PerceptronLayer* newLayer =  new opennn::PerceptronLayer(prev_layer_size, layer_size_curr);
                     newLayer->set_activation_function(translate_activation_function(get_layer_functionality));
                     neural_network_ptr->add_layer(newLayer);
                     break;
                 }
                 case LAYER_TYPE_SCALING:
                 {
-                    std::shared_ptr<NerlLayer> next_layer = curr_layer->get_next_layer_ptr();
-                    std::vector<int> layer_dims_vec;
-                    curr_layer->get_layer_size(layer_dims_vec);
+               //     std::vector<int> layer_dims_vec;
+                 //   curr_layer->get_layer_size(layer_dims_vec);
                     int layer_size_curr = curr_layer->get_dim_size(DIM_X_IDX);
                     int get_layer_functionality = curr_layer->get_layer_functionality();
                     ScalingLayer* newLayer = new opennn::ScalingLayer(layer_size_curr);
@@ -130,7 +184,6 @@ namespace nerlnet
                 }
                   case LAYER_TYPE_UNSCALING:
                 {
-                    std::shared_ptr<NerlLayer> next_layer = curr_layer->get_next_layer_ptr();
                     std::vector<int> layer_dims_vec;
                     curr_layer->get_layer_size(layer_dims_vec);
                     int layer_size_curr = curr_layer->get_dim_size(DIM_X_IDX);
@@ -143,21 +196,18 @@ namespace nerlnet
                 }
                   case LAYER_TYPE_PROBABILISTIC:
                 {
-                    std::shared_ptr<NerlLayer> next_layer = curr_layer->get_next_layer_ptr();
-                    std::vector<int> layer_dims_vec;
-                    curr_layer->get_layer_size(layer_dims_vec); //TODO remove from all layers
-                    int next_layer_size;
+                      if (curr_layer->is_first())
+                    {
+                       LogError("NerlWorkerOpenNN::generate_custom_model_nn - PROBABILISTIC cannot be first layer");
+                       throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - PROBABILISTIC cannot be first layer");
+                    }
+                    std::shared_ptr<NerlLayer> prev_layer = curr_layer->get_prev_layer_ptr();
+                    int prev_layer_size = prev_layer->get_dim_size(DIM_X_IDX);
                     int layer_size_curr = curr_layer->get_dim_size(DIM_X_IDX);
-                     if (!(curr_layer->is_last()))
-                    {
-                       next_layer_size = next_layer->get_dim_size(DIM_X_IDX);
-                    }
-                    else
-                    {
-                       next_layer_size = layer_size_curr;
-                    }
+                    std::vector<int> layer_dims_vec;
+                    curr_layer->get_layer_size(layer_dims_vec); //TODO remove from all layers                 
                     int get_layer_functionality = curr_layer->get_layer_functionality();
-                    ProbabilisticLayer* newLayer =  new opennn::ProbabilisticLayer(layer_size_curr, next_layer_size);
+                    ProbabilisticLayer* newLayer =  new opennn::ProbabilisticLayer(prev_layer_size, layer_size_curr);
                     newLayer->set_activation_function((opennn::ProbabilisticLayer::ActivationFunction)translate_activation_function(get_layer_functionality));
                     neural_network_ptr->add_layer(newLayer);
                     break;
@@ -263,7 +313,7 @@ namespace nerlnet
        return res;
     }
 
-    int NerlWorkerOpenNN::translate_loss_method(int loss_method)
+    int NerlWorkerOpenNN::translate_loss_method_int(int loss_method)
     {
         int res;
         switch (loss_method)
@@ -277,17 +327,47 @@ namespace nerlnet
         }
         return res;
     }
-    int NerlWorkerOpenNN::translate_optimizer_type(int optimizer_type)
+
+    opennn::TrainingStrategy::LossMethod NerlWorkerOpenNN::translate_loss_method(int loss_method){
+        opennn::TrainingStrategy::LossMethod res;
+        switch (loss_method)
+        {
+        case LOSS_METHOD_SSE:        { res = opennn::TrainingStrategy::LossMethod::SUM_SQUARED_ERROR;        break;}
+        case LOSS_METHOD_MSE:        { res = opennn::TrainingStrategy::LossMethod::MEAN_SQUARED_ERROR;       break;}
+        case LOSS_METHOD_NSE:        { res = opennn::TrainingStrategy::LossMethod::NORMALIZED_SQUARED_ERROR; break;}
+        case LOSS_METHOD_MINKOWSKIE: { res = opennn::TrainingStrategy::LossMethod::MINKOWSKI_ERROR;          break;}
+        case LOSS_METHOD_WSE:        { res = opennn::TrainingStrategy::LossMethod::WEIGHTED_SQUARED_ERROR;   break;}
+        case LOSS_METHOD_CEE:        { res = opennn::TrainingStrategy::LossMethod::CROSS_ENTROPY_ERROR;      break;}
+        }
+        return res;
+    }
+  
+
+    int NerlWorkerOpenNN::translate_optimizer_type_int(int optimizer_type)
     {   
         int res;
         switch (optimizer_type)
         { 
         case OPTIMIZER_GD:          { res = (int)opennn::TrainingStrategy::OptimizationMethod::GRADIENT_DESCENT;              break;}
         case OPTIMIZER_SGD:         { res = (int)opennn::TrainingStrategy::OptimizationMethod::STOCHASTIC_GRADIENT_DESCENT;   break;}
-        case OPTIMIZER_CGD:         { res = (int)opennn::TrainingStrategy::OptimizationMethod::GRADIENT_DESCENT;              break;}
+        case OPTIMIZER_CGD:         { res = (int)opennn::TrainingStrategy::OptimizationMethod::CONJUGATE_GRADIENT;            break;}
         case OPTIMIZER_QUASINEUTON: { res = (int)opennn::TrainingStrategy::OptimizationMethod::QUASI_NEWTON_METHOD;           break;}
         case OPTIMIZER_LVM:         { res = (int)opennn::TrainingStrategy::OptimizationMethod::LEVENBERG_MARQUARDT_ALGORITHM; break;}
         case OPTIMIZER_ADAM:        { res = (int)opennn::TrainingStrategy::OptimizationMethod::ADAPTIVE_MOMENT_ESTIMATION;    break;}
+        }
+        return res;
+    }
+
+    opennn::TrainingStrategy::OptimizationMethod NerlWorkerOpenNN::translate_optimizer_type(int optimizer_type){
+        opennn::TrainingStrategy::OptimizationMethod res;
+        switch (optimizer_type)
+        { 
+        case OPTIMIZER_GD:          { res = opennn::TrainingStrategy::OptimizationMethod::GRADIENT_DESCENT;              break;}
+        case OPTIMIZER_SGD:         { res = opennn::TrainingStrategy::OptimizationMethod::STOCHASTIC_GRADIENT_DESCENT;   break;}
+        case OPTIMIZER_CGD:         { res = opennn::TrainingStrategy::OptimizationMethod::CONJUGATE_GRADIENT;            break;}
+        case OPTIMIZER_QUASINEUTON: { res = opennn::TrainingStrategy::OptimizationMethod::QUASI_NEWTON_METHOD;           break;}
+        case OPTIMIZER_LVM:         { res = opennn::TrainingStrategy::OptimizationMethod::LEVENBERG_MARQUARDT_ALGORITHM; break;}
+        case OPTIMIZER_ADAM:        { res = opennn::TrainingStrategy::OptimizationMethod::ADAPTIVE_MOMENT_ESTIMATION;    break;}
         }
         return res;
     }
