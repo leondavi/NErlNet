@@ -34,30 +34,26 @@ std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_siz
  //   std::vector<std::string> layer_sizes_strs_vec = nerlnet_utilities::split_strings_by_comma(layer_sizes_str);
     std::vector<std::string> layer_types_strs_vec = nerlnet_utilities::split_strings_by_comma(layer_types_list);
     std::vector<std::string> layers_functionality_strs_vec = nerlnet_utilities::split_strings_by_comma(layers_functionality);
-    
     std::vector<int> layer_types_vec;
     layer_types_vec.resize(layer_types_strs_vec.size());
     for (size_t i = 0; i < layer_types_vec.size(); i++)
     {
         layer_types_vec[i] = std::stoi(layer_types_strs_vec[i]);
     }
-    
     std::vector<LayerSizingParams_t> layer_sizes_params;
 
     parse_layer_sizes_str(layer_sizes_str, layer_types_vec, layer_sizes_params);
 
-    std::shared_ptr<NerlLayer> first_layer;
-    std::shared_ptr<NerlLayer> prev_layer;
-
+    std::vector<std::shared_ptr<NerlLayer>> nerl_layers_vec;
+    nerl_layers_vec.resize(layer_sizes_params.size());
     for (int i = 0; i < layer_sizes_params.size(); i++)
     {
-        std::shared_ptr<NerlLayer> next_layer;
         int layer_type = std::stoi(layer_types_strs_vec[i]);
         // TODO Ori and Nadav add CNN extension
         int layer_size = layer_sizes_params[i].dimx;
         int layer_functionality = std::stoi(layers_functionality_strs_vec[i]);
 
-        std::vector<int> layer_dims; //TODO
+        std::vector<int> layer_dims = {layer_size}; //TODO
 
         switch(layer_type)
         {
@@ -71,26 +67,19 @@ std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_siz
             }
             default:
             {
-                next_layer = std::make_shared<NerlLayer>(layer_type, layer_dims, layer_functionality);
+                nerl_layers_vec[i] = std::make_shared<NerlLayer>(layer_type, layer_dims, layer_functionality);
                 break;
             }
         }
-
-        std::cout<<"layer_type: "<<layer_type<<std::endl;
-        std::cout<<"layer_size: "<<layer_size<<std::endl;
-        std::cout<<"layer_functionality: "<<layer_functionality<<std::endl;
-
-
-        if (i == 0)
-        {
-            first_layer = next_layer;
-        }
-        else if (i > 0)
-        {
-            next_layer->set_prev_layer(prev_layer);
-        }
-        prev_layer = next_layer;
     }
 
-    return first_layer;
+    for (size_t i = 1; i < nerl_layers_vec.size(); i++)
+    {
+       nerl_layers_vec[i-1]->set_next_layer(nerl_layers_vec[i]);
+       nerl_layers_vec[i]->set_prev_layer(nerl_layers_vec[i-1]);
+    }
+    
+   return nerl_layers_vec.front();
 }
+
+

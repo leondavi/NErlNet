@@ -2,8 +2,10 @@
 
 #include <memory>
 
+
 #include "utilities.h"
 #include "worker_definitions_ag.h"
+
 
 #define SIMPLE_PARSING -1
 #define COMPLEX_PARSING -2
@@ -63,7 +65,7 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
     assert(layer_sizes_strs_vec.size() == out_layer_sizes_params.size());
     for (size_t i = 0; i < layer_sizes_strs_vec.size(); i++) //TODO
     {
-        switch (layers_types_vec[i])
+        switch (layers_types_vec[i]) //TODO Ori and Nadav change to switch case only between simple and complex (if there is chars in type)
         {
         case LAYER_TYPE_PERCEPTRON:
         case LAYER_TYPE_DEFAULT:
