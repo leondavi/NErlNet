@@ -2,7 +2,7 @@
 -include_lib("kernel/include/logger.hrl").
 -include("nerlTensor.hrl").
 
--export([init/0,nif_preload/0,create_nif/6, destroy_nif/1, get_active_models_ids_list/0, train_nif/6,call_to_train/6,predict_nif/3,call_to_predict/6,get_weights_nif/1,printTensor/2]).
+-export([init/0,nif_preload/0,get_active_models_ids_list/0, train_nif/3,update_nerlworker_train_params_nif/6,call_to_train/3,predict_nif/3,call_to_predict/6,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/2,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
 -export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
@@ -19,8 +19,8 @@
 -export([nerltensor_sum_nif/3]).
 -export([nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
 
-% worker nif methods
--export([new_worker_nif/12, remove_worker_nif/1, test_worker_nif/12]).
+% nerlworker nif methods
+-export([new_nerlworker_nif/12, remove_nerlworker_nif/1, test_nerlworker_nif/12]).
 
 init() ->
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
@@ -29,11 +29,6 @@ init() ->
 
 %% make sure nif can be loaded (activates on_load)
 nif_preload() -> done.
-
-% ModelID - Unique ID of the neural network model 
-% ModelType - E.g. Regression, Classification 
-create_nif(_ModelID, _ModelType , _ScalingMethod , _LayerTypesList , _LayersSizes , _LayersActivationFunctions) ->
-      exit(nif_library_not_loaded).
 
 
 %% Returns a list of active models ids
@@ -44,17 +39,18 @@ get_active_models_ids_list() ->
 % ModelId - a valid model id (of an already created model) - otherwise nif exception is raised!
 % Return
 % ok - if model destroyed
-destroy_nif(_ModelID) ->
+
+train_nif(_ModelID,_DataTensor,_Type) ->
       exit(nif_library_not_loaded).
 
-train_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor,_Type) ->
+update_nerlworker_train_params_nif(_ModelID,_LearningRate,_Epochs,_OptimizerType,_OptimizerArgs,_LossMethod) ->
       exit(nif_library_not_loaded).
 
-call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, {DataTensor, Type}, WorkerPid)->
+call_to_train(ModelID, {DataTensor, Type}, WorkerPid)->
       % io:format("before train  ~n "),
        %io:format("DataTensor= ~p~n ",[DataTensor]),
        %{FakeTensor, Type} = nerltensor_conversion({[2.0,4.0,1.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0], erl_float}, float),
-      _RetVal=train_nif(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Type),
+      _RetVal=train_nif(ModelID, DataTensor, Type),
       %io:format("Train Time= ~p~n ",[RetVal]),
       receive
             Ret->
@@ -223,14 +219,14 @@ nerltensor_scalar_multiplication_erl({NerlTensorErl, Type}, ScalarValue) ->
 
 %%%%%% NerlWorker NIF Methods %%%%%%
 
-new_worker_nif(_ModelId,_ModelType, _LayersSizes, _LayersTypes, _LayersFunctionalityCodes, _LearningRate, _Epochs, _OptimizerType,
+new_nerlworker_nif(_ModelId,_ModelType, _LayersSizes, _LayersTypes, _LayersFunctionalityCodes, _LearningRate, _Epochs, _OptimizerType,
 _OptimizerArgs, _LossMethod, _DistributedSystemType, _DistributedSystemArgs) ->
       exit(nif_library_not_loaded).
 
-remove_worker_nif(_ModelId) ->
+remove_nerlworker_nif(_ModelId) ->
       exit(nif_library_not_loaded).
 
 %% All of inputs must be binary strings! except for _ModelId which is an integer
-test_worker_nif(_ModelId,_ModelType, _LayersSizes, _LayersTypes, _LayersFunctionalityCodes, _LearningRate, _Epochs, _OptimizerType,
+test_nerlworker_nif(_ModelId,_ModelType, _LayersSizes, _LayersTypes, _LayersFunctionalityCodes, _LearningRate, _Epochs, _OptimizerType,
                 _OptimizerArgs, _LossMethod, _DistributedSystemType, _DistributedSystemArgs) ->
       exit(nif_library_not_loaded).

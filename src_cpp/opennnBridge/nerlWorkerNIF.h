@@ -17,13 +17,12 @@ std::string optimizer_args_str,std::string distributed_system_args_str)
     layer_types_str,layers_functionality_str,optimizer_args_str,distributed_system_args_str);
     return new_worker;
 }
-static ERL_NIF_TERM new_worker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM new_nerlworker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     enum{ARG_MODEL_ID,ARG_MODEL_TYPE, ARG_LAYERS_SIZES, ARG_LAYERS_TYPES, ARG_LAYERS_FUNCTIONALITY_CODES, ARG_LEARNING_RATE, ARG_EPOCHS, ARG_OPTIMIZER_TYPE,
          ARG_OPTIMIZER_ARGS, ARG_LOSS_METHOD, ARG_DISTRIBUTED_SYSTEM_TYPE, ARG_DISTRIBUTED_SYSTEM_ARGS};
   
     unsigned long modelId;
-
     std::string model_type_str;
     std::string layer_sizes_str;
     std::string layer_types_str;
@@ -60,7 +59,7 @@ static ERL_NIF_TERM new_worker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     return nifpp::make(env, ret_atom);
 }
 
-static ERL_NIF_TERM test_worker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM test_nerlworker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     enum{ARG_MODEL_ID,ARG_MODEL_TYPE, ARG_LAYERS_SIZES, ARG_LAYERS_TYPES, ARG_LAYERS_FUNCTIONALITY_CODES, ARG_LEARNING_RATE, ARG_EPOCHS, ARG_OPTIMIZER_TYPE,
          ARG_OPTIMIZER_ARGS, ARG_LOSS_METHOD, ARG_DISTRIBUTED_SYSTEM_TYPE, ARG_DISTRIBUTED_SYSTEM_ARGS};
@@ -112,19 +111,23 @@ static ERL_NIF_TERM test_worker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     return nifpp::make(env, ret_atom);
 }
 
+static ERL_NIF_TERM update_nerlworker_train_params_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+      enum{_ModelID,_LearningRate,_Epochs,_OptimizerType,_OptimizerArgs,_LossMethod}; //DO ALL IN CAPS
+      nifpp::str_atom ret_atom = "ok";
+      return nifpp::make(env, ret_atom);
+}
 
-static ERL_NIF_TERM remove_worker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+
+static ERL_NIF_TERM remove_nerlworker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     enum{ARG_MODEL_ID};
     unsigned long modelId;
 
-    LogInfo << "remove_worker_nif" << endl;
     nifpp::get_throws(env,argv[ARG_MODEL_ID],modelId);
-
     BridgeController& onnBrCtrl = BridgeController::GetInstance();
     onnBrCtrl.deleteModel(modelId);
     LogInfo << "remove_worker_nif" << endl;
-
 
     nifpp::str_atom ret_atom = "ok";
     return nifpp::make(env, ret_atom);
