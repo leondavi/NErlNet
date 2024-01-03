@@ -37,10 +37,6 @@ class TrainNN
 {
 public:
     long int mid;
-    int optimization_method;
-    int loss_method;
-    int epoch;
-    double learning_rate;
 
     fTensor2DPtr data;
     std::chrono::high_resolution_clock::time_point start_time;
@@ -124,13 +120,9 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     
     nifpp::str_atom tensor_type;
 
-    enum{ARG_ModelID,ARG_OptimizationMethod,ARG_LossMethod, ARG_LearningRate,ARG_DataTensor,ARG_Type};
+    enum{ARG_ModelID,ARG_DataTensor,ARG_Type};
     nifpp::get_throws(env, argv[ARG_ModelID],TrainNNptr->mid); // model id
-    nifpp::get_throws(env, argv[ARG_OptimizationMethod],TrainNNptr->optimization_method);
-    nifpp::get_throws(env, argv[ARG_LossMethod],TrainNNptr->loss_method);
-    nifpp::get_throws(env, argv[ARG_LearningRate],TrainNNptr->learning_rate);
     nifpp::get_throws(env, argv[ARG_Type],tensor_type);
-    TrainNNptr->epoch = 1; //TODO get epoch from erlang
     assert(tensor_type == "float");
     TrainNNptr->return_tensor_type = tensor_type;
     
@@ -488,7 +480,7 @@ static ERL_NIF_TERM nerltensor_sum_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 static ErlNifFunc nif_funcs[] =
 {
     {"get_active_models_ids_list",0, get_active_models_ids_list_nif},
-    {"train_nif", 6 , train_nif},
+    {"train_nif", 3 , train_nif},
     {"predict_nif", 3 , predict_nif},
     {"get_weights_nif",1, get_weights_nif},
     {"set_weights_nif",3, set_weights_nif},
@@ -497,9 +489,10 @@ static ErlNifFunc nif_funcs[] =
     {"nerltensor_sum_nif",3, nerltensor_sum_nif},
     {"nerltensor_scalar_multiplication_nif",3,nerltensor_scalar_multiplication_nif},
     // nerlworker functions
-    {"new_worker_nif", 12, new_worker_nif},
-    {"test_worker_nif", 12, test_worker_nif},
-    {"remove_worker_nif", 1, remove_worker_nif}
+    {"new_nerlworker_nif", 12, new_nerlworker_nif},
+    {"test_nerlworker_nif", 12, test_nerlworker_nif},
+    {"update_nerlworker_train_params_nif", 6, update_nerlworker_train_params_nif},
+    {"remove_nerlworker_nif", 1, remove_nerlworker_nif}
 };
 
 
