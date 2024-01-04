@@ -58,16 +58,16 @@ On every device that is a part of Nerlnet cluster the following steps should be 
       (validate that erlang is not installed before executing installation from source)
   2.2 On successful installation, NErlNet directory is accessible  
       via the following path: ```/usr/local/lib/nerlnet-lib```
-4. Run ```./NerlnetBuild.sh```  
-5. Create json files of architecture, connection map and experiment flow.  
-json configuration files names must follow the convention of prefixes:  
-arch_\<name\>.json, conn_\<name\>.json, exp_\<name\>.json.  
-[Nerlplanner](https://github.com/leondavi/NErlNet/tree/master/src_py/nerlPlanner) is a tool for creating json files for Nerlnet.  
-To use NerlPlanner execute ```./NerlPlanner.sh``` (support starts from version 1.3.0)    
-4. Run ```./NerlnetRun.sh``` to start Nerlnet.
-
-Optional: Run ```./NerlnetGetData.sh``` to create or get default inputDataDir   
-
+3. Run ```./NerlnetBuild.sh```
+4. Test Nerlnet by running: ```./tests/NerlnetFullFlowTest.sh```
+5. [Nerlplanner](https://github.com/leondavi/NErlNet/tree/master/src_py/nerlPlanner) is a Nerlnet tool to generate required jsons files to setup a distributed system of Nerlnet.  
+To use NerlPlanner execute ```./NerlPlanner.sh``` (support starts from version 1.3.0).  
+Create json files of distributed configurations, connection map and experiment flow as follows:
+dc_\<any name\>.json  
+conn_\<any name\>.json  
+exp_\<any name\>.json       
+6. Run ```./NerlnetRun.sh``` to start Nerlnet.
+7. Use API-Server to load generated jsons (step 4) and execute Nerlnet experiment.
 
 ## Python API and Jupyter (For UI Server): 
 Minimum Python version: 3.8
