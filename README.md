@@ -84,7 +84,7 @@ Contact Email: leondavi@post.bgu.ac.il
 
 
 ## Gratitude
-**Microsoft** for a grant of Azure credits as part of Microsoft’s Azure credits for open source projects program 2024.  
+**Microsoft** for a grant of Azure credits as part of Microsoft’s Azure credits for open source projects program (2024).  
 <p align="center">
 <img src="https://github.com/leondavi/NErlNet/assets/18975070/d3255b30-ae3b-46fd-a87f-6c1ec7ae231b" width="50" title="Microsoft Azure Sponsorship">
 </p>
