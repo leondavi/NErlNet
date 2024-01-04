@@ -75,13 +75,16 @@ LayerTypeToFunctionalMap = OrderedDict([
 )
 
 ModelTypeMapping = OrderedDict([
+    ("nn" , "0"),
     ("approximation" , "1"),
     ("classification" , "2"),
     ("forecasting" , "3"),
-    ("encoder_decoder" , "4"),
-    ("nn" , "5"),
-    ("autoencoder" , "6"),
-    ("ae-classifier" , "7")
+    ("image-classification" , "4"),
+    ("text-classification" , "5"),
+    ("text-generation" , "6"),
+    ("auto-association" , "7"),
+    ("autoencoder" , "8"),
+    ("ae-classifier" , "9")
 ])
 
 OptimizerTypeMapping = OrderedDict([
