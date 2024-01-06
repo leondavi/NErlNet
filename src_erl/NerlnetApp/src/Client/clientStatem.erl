@@ -80,7 +80,9 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   ets:insert(EtsRef, {infoIn, 0}),
   ets:insert(EtsRef, {myName, MyName}),
   MyWorkersToShaMap = maps:filter(fun(Worker , _SHA) -> lists:member(Worker , ClientWorkers) end , WorkerShaMap),
+  io:format("client ~p workers to sha map: ~p~n",[MyName, MyWorkersToShaMap]),
   ets:insert(EtsRef, {workers_to_sha_map, MyWorkersToShaMap}),
+  ets:insert(EtsRef, {sha_to_models_map , ShaToModelArgsMap}),
 
   clientWorkersFunctions:createWorkers(MyName , EtsRef , ShaToModelArgsMap),
 
