@@ -186,7 +186,7 @@ createClientsAndWorkers() ->
     % io:format("Starting clients and workers locally with: ~p~n",[ClientsAndWorkers]),
     DeviceName = ets:lookup_element(nerlnet_data, device_name, ?DATA_IDX),
     NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
-    ShaToModelArgsMap = ets:lookup_element(nerlnet_data, shaToModelArgsMap, ?DATA_IDX),
+    ShaToModelArgsMap = ets:lookup_element(nerlnet_data, sha_to_models_map, ?DATA_IDX),
     Func = 
         fun({Client,{Port,ClientWorkers,WorkerShaMap, WorkerToClientMap}}) ->
         port_validator(Port, Client),
