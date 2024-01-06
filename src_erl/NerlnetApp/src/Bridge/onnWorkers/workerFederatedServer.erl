@@ -4,7 +4,8 @@
 
 -include("workerDefinitions.hrl").
 
--import(nerlNIF,[sum_nerltensors_lists/2, nerltensor_scalar_multiplication_nif/3]).
+-import(nerlNIF,[nerltensor_scalar_multiplication_nif/3]).
+-import(nerlTensor,[sum_nerltensors_lists/2]).
 
 -define(ETS_WID_IDX, 1).
 -define(ETS_TYPE_IDX, 2).
@@ -118,6 +119,6 @@ generate_avg_weights(FedEts) ->
   ListOfWorkersNerlTensors = [ element(?TENSOR_DATA_IDX, element(?ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, Attr)) || Attr <- ets:tab2list(FedEts), element(?ETS_TYPE_IDX, Attr) == worker],
   % io:format("Tensors to sum = ~p~n",[ListOfWorkersNerlTensors]),
   NerlTensors = length(ListOfWorkersNerlTensors),
-  [FinalSumNerlTensor] = nerlNIF:sum_nerltensors_lists(ListOfWorkersNerlTensors, BinaryType),
+  [FinalSumNerlTensor] = nerlTensor:sum_nerltensors_lists(ListOfWorkersNerlTensors, BinaryType),
   % io:format("Summed = ~p~n",[FinalSumNerlTensor]),
   nerlNIF:nerltensor_scalar_multiplication_nif(FinalSumNerlTensor, BinaryType, 1.0/NerlTensors).

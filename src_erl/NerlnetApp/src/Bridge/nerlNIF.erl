@@ -2,7 +2,7 @@
 -include_lib("kernel/include/logger.hrl").
 -include("nerlTensor.hrl").
 
--export([init/0,nif_preload/0,create_nif/6, destroy_nif/1, get_active_models_ids_list/0, train_nif/6,call_to_train/6,predict_nif/3,call_to_predict/6,get_weights_nif/1,printTensor/2]).
+-export([init/0,nif_preload/0,get_active_models_ids_list/0, train_nif/3,update_nerlworker_train_params_nif/6,call_to_train/3,predict_nif/3,call_to_predict/6,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/2,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
 -export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
@@ -16,9 +16,11 @@
 -export([validate_nerltensor_erl/1]).
 
 % math of nerltensors
--export([nerltensor_sum_nif/3, nerltensor_sum_erl/2]).
+-export([nerltensor_sum_nif/3]).
 -export([nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
--export([sum_nerltensors_lists/2, sum_nerltensors_lists_erl/2]).
+
+% nerlworker nif methods
+-export([new_nerlworker_nif/12, remove_nerlworker_nif/1, test_nerlworker_nif/12]).
 
 init() ->
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
@@ -27,11 +29,6 @@ init() ->
 
 %% make sure nif can be loaded (activates on_load)
 nif_preload() -> done.
-
-% ModelID - Unique ID of the neural network model 
-% ModelType - E.g. Regression, Classification 
-create_nif(_ModelID, _ModelType , _ScalingMethod , _LayerTypesList , _LayersSizes , _LayersActivationFunctions) ->
-      exit(nif_library_not_loaded).
 
 
 %% Returns a list of active models ids
@@ -42,17 +39,18 @@ get_active_models_ids_list() ->
 % ModelId - a valid model id (of an already created model) - otherwise nif exception is raised!
 % Return
 % ok - if model destroyed
-destroy_nif(_ModelID) ->
+
+train_nif(_ModelID,_DataTensor,_Type) ->
       exit(nif_library_not_loaded).
 
-train_nif(_ModelID,_OptimizationMethod,_LossMethod, _LearningRate,_DataTensor,_Type) ->
+update_nerlworker_train_params_nif(_ModelID,_LearningRate,_Epochs,_OptimizerType,_OptimizerArgs,_LossMethod) ->
       exit(nif_library_not_loaded).
 
-call_to_train(ModelID,OptimizationMethod,LossMethod,LearningRate, {DataTensor, Type}, WorkerPid)->
+call_to_train(ModelID, {DataTensor, Type}, WorkerPid)->
       % io:format("before train  ~n "),
        %io:format("DataTensor= ~p~n ",[DataTensor]),
        %{FakeTensor, Type} = nerltensor_conversion({[2.0,4.0,1.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0], erl_float}, float),
-      _RetVal=train_nif(ModelID,OptimizationMethod,LossMethod,LearningRate, DataTensor, Type),
+      _RetVal=train_nif(ModelID, DataTensor, Type),
       %io:format("Train Time= ~p~n ",[RetVal]),
       receive
             Ret->
@@ -207,18 +205,6 @@ erl_type_conversion(BinType) ->
       {_, ErlType} = lists:keyfind(BinType, 1, ?NERL_TYPES),
       ErlType.
 
-nerltensor_sum_erl({NerlTensorErlA, Type}, {NerlTensorErlB, Type}) ->
-      ListGroup = lists:member(Type, get_all_nerltensor_list_types()),
-      if ListGroup ->
-            Dims = lists:sublist(NerlTensorErlA, 1, ?NUMOF_DIMS),
-            NerlTensorErlA_NODIMS = lists:sublist(NerlTensorErlA, ?NUMOF_DIMS + 1, length(NerlTensorErlA) - ?NUMOF_DIMS),
-            %io:format("nerltensorA nodims: ~p~n", [NerlTensorErlA_NODIMS]),
-            NerlTensorErlB_NODIMS = lists:sublist(NerlTensorErlB, ?NUMOF_DIMS + 1, length(NerlTensorErlB) - ?NUMOF_DIMS),
-           % io:format("nerltensorB nodims: ~p~n", [NerlTensorErlB_NODIMS]),
-            Dims ++ lists:zipwith(fun(X,Y) -> X + Y end, NerlTensorErlA_NODIMS, NerlTensorErlB_NODIMS);
-         true -> throw("Bad Type")
-      end.
-
 nerltensor_scalar_multiplication_erl({NerlTensorErl, Type}, ScalarValue) -> 
       ListGroup = lists:member(Type, get_all_nerltensor_list_types()),
       if 
@@ -229,50 +215,18 @@ nerltensor_scalar_multiplication_erl({NerlTensorErl, Type}, ScalarValue) ->
             true -> throw("Bad Type")
       end.
 
-sum_nerltensors_lists_erl([], _ErlType) ->  throw("Zero length given to sum_nerltensors_even_lists");
-sum_nerltensors_lists_erl(NerltensorList, _ErlType) when length(NerltensorList) == 1 ->  NerltensorList;
-sum_nerltensors_lists_erl(NerltensorList, ErlType)  -> 
-      OddLength = nerl:odd(length(NerltensorList)),
-      {OddFirstElement, EvenNerltensorList} =  
-      if OddLength -> {hd(NerltensorList), tl(NerltensorList)};
-         true -> {[], NerltensorList}
-      end,
 
-      HalfSize = round(length(EvenNerltensorList)/2),
-      % Split to high and low lists
-      NerlTensorsHalfListA = lists:sublist(EvenNerltensorList, HalfSize),
-      NerlTensorsHalfListB = lists:sublist(EvenNerltensorList, HalfSize + 1, HalfSize),
 
-      % sum high and low lists
-      SumResultOfTwoHalfs = lists:zipwith(fun(NerlTensorA,NerlTensorB) -> nerltensor_sum_erl({NerlTensorA, ErlType}, {NerlTensorB, ErlType}) end, NerlTensorsHalfListA, NerlTensorsHalfListB),
-      % take care to the first element in case of odd length
-      SumResultTwoHalfsWithOddFirst = 
-      if OddLength -> [nerltensor_sum_erl({OddFirstElement, ErlType}, {hd(SumResultOfTwoHalfs), ErlType})];
-      true -> SumResultOfTwoHalfs % nothing to do with first element in case of even list
-      end,
-      sum_nerltensors_lists_erl(SumResultTwoHalfsWithOddFirst, ErlType).
+%%%%%% NerlWorker NIF Methods %%%%%%
 
-      
-sum_nerltensors_lists([], _BinaryType) ->  throw("Zero length given to sum_nerltensors_even_lists");
-sum_nerltensors_lists(NerltensorList, _BinaryType) when length(NerltensorList) == 1 ->  NerltensorList;
-sum_nerltensors_lists(NerltensorList, BinaryType) -> 
-      OddLength = nerl:odd(length(NerltensorList)),
-      {OddFirstElement, EvenNerltensorList} =  
-      if OddLength -> {hd(NerltensorList), tl(NerltensorList)};
-      true -> {[], NerltensorList}
-      end,
+new_nerlworker_nif(_ModelId,_ModelType, _LayersSizes, _LayersTypes, _LayersFunctionalityCodes, _LearningRate, _Epochs, _OptimizerType,
+_OptimizerArgs, _LossMethod, _DistributedSystemType, _DistributedSystemArgs) ->
+      exit(nif_library_not_loaded).
 
-      HalfSize = round(length(EvenNerltensorList)/2),
-      % Split to high and low lists
-      NerlTensorsHalfListA = lists:sublist(EvenNerltensorList, HalfSize),
-      NerlTensorsHalfListB = lists:sublist(EvenNerltensorList, HalfSize + 1, HalfSize),
+remove_nerlworker_nif(_ModelId) ->
+      exit(nif_library_not_loaded).
 
-      % sum high and low lists
-      SumResultOfTwoHalfs = lists:zipwith(fun(NerlTensorA,NerlTensorB) -> element(1,nerltensor_sum_nif(NerlTensorA, NerlTensorB, BinaryType)) end, NerlTensorsHalfListA, NerlTensorsHalfListB),
-
-      % take care to the first element in case of odd length
-      SumResultTwoHalfsWithOddFirst = 
-      if OddLength -> [element(1,nerltensor_sum_nif(OddFirstElement, hd(SumResultOfTwoHalfs), BinaryType))];
-      true -> SumResultOfTwoHalfs % nothing to do with first element in case of even list
-      end,
-      sum_nerltensors_lists(SumResultTwoHalfsWithOddFirst, BinaryType).
+%% All of inputs must be binary strings! except for _ModelId which is an integer
+test_nerlworker_nif(_ModelId,_ModelType, _LayersSizes, _LayersTypes, _LayersFunctionalityCodes, _LearningRate, _Epochs, _OptimizerType,
+                _OptimizerArgs, _LossMethod, _DistributedSystemType, _DistributedSystemArgs) ->
+      exit(nif_library_not_loaded).
