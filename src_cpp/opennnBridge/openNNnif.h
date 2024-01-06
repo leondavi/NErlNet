@@ -104,13 +104,12 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         }
     }
 
-    nifpp::str_atom ret_status("predict_starts");
+    nifpp::str_atom ret_status("ok");
     return nifpp::make(env, ret_status);
 
 }  //end PREDICT mode
 
 void* trainFun(void* arg);
-void* trainFunAE(void* arg);
 
 static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
 
@@ -153,7 +152,7 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
         }
     }
 
-    nifpp::str_atom ret_status("train_starts");
+    nifpp::str_atom ret_status("ok");
     return nifpp::make(env, ret_status);
 }  //end trainn_nif
 
