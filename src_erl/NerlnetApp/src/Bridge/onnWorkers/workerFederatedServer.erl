@@ -32,7 +32,6 @@ get_this_server_ets(GenWorkerEts) ->
 init({GenWorkerEts, WorkerData}) -> 
   Type = float, % update from data
   {SyncMaxCount, MyName, WorkersNamesList} = WorkerData,
-  % #workerFederatedServer{clientPID = ClientPid, workersNamesList = WorkersNamesList} = WorkerData,
   FederatedServerEts = ets:new(federated_server,[set]),
   ets:insert(GenWorkerEts, {federated_server_ets, FederatedServerEts}),
   ets:insert(FederatedServerEts, {workers, [MyName]}),    %% start with only self in list, get others in network thru handshake

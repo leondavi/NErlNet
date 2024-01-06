@@ -46,28 +46,28 @@ train_nif(_ModelID,_DataTensor,_Type) ->
 update_nerlworker_train_params_nif(_ModelID,_LearningRate,_Epochs,_OptimizerType,_OptimizerArgs,_LossMethod) ->
       exit(nif_library_not_loaded).
 
-call_to_train(ModelID, {DataTensor, Type}, WorkerPid)->
+call_to_train(ModelID, {DataTensor, Type}, WorkerPid)-> 
       % io:format("before train  ~n "),
        %io:format("DataTensor= ~p~n ",[DataTensor]),
        %{FakeTensor, Type} = nerltensor_conversion({[2.0,4.0,1.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0], erl_float}, float),
-      _RetVal=train_nif(ModelID, DataTensor, Type),
+      ok = train_nif(ModelID, DataTensor, Type),
       %io:format("Train Time= ~p~n ",[RetVal]),
       receive
-            Ret->
+            {nerlnif , LossValue , TrainTime}->
                   % io:format("Ret= ~p~n ",[Ret]),
                   %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
-                  gen_statem:cast(WorkerPid,{loss, Ret}) % TODO @Haran - please check what worker does with this Ret value 
+                  gen_statem:cast(WorkerPid,{loss, LossValue , TrainTime}) % TODO @Haran - please check what worker does with this Ret value 
             after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
                   ?LOG_ERROR("Worker train timeout reached! setting loss = -1~n "),
-                  gen_statem:cast(WorkerPid,{loss, -1.0})
+                  gen_statem:cast(WorkerPid,{loss, timeout}) %% Define train timeout state 
       end.
 
 call_to_predict(ModelID, BatchTensor, Type, WorkerPid,CSVname, BatchID)->
       % io:format("satrting pred_nif~n"),
-      _RetVal = predict_nif(ModelID, BatchTensor, Type),
+      ok = predict_nif(ModelID, BatchTensor, Type),
       receive
             
-            [PredNerlTensor, NewType, TimeTook]->
+            {nerlnif , [PredNerlTensor, NewType, TimeTook]}-> %% nerlnif atom means a message from the nif implementation
                   % io:format("pred_nif done~n"),
                   % {PredTen, _NewType} = nerltensor_conversion({PredNerlTensor, NewType}, erl_float),
                   % io:format("Pred returned: ~p~n", [PredNerlTensor]),

@@ -84,7 +84,7 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   ets:insert(EtsRef, {workers_to_sha_map, MyWorkersToShaMap}),
   ets:insert(EtsRef, {sha_to_models_map , ShaToModelArgsMap}),
 
-  clientWorkersFunctions:createWorkers(MyName , EtsRef , ShaToModelArgsMap),
+  clientWorkersFunctions:create_workers(MyName , EtsRef , ShaToModelArgsMap),
 
   %% send pre_idle signal to workers
   [gen_statem:cast(ets:lookup_element(EtsRef, WorkerPID, ?WORKER_PID_IDX), {pre_idle}) || WorkerPID <- ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX)],
@@ -103,12 +103,11 @@ callback_mode() -> state_functions.
 format_status(_Opt, [_PDict, _StateName, _State]) -> Status = some_term, Status.
 
 %% ==============STATES=================
-waitforWorkers(cast, In = {stateChange,WorkerName,MissedBatchesCount}, State = #client_statem_state{myName = MyName,waitforWorkers = WaitforWorkers,nextState = NextState, etsRef = EtsRef}) ->
+waitforWorkers(cast, In = {stateChange,WorkerName}, State = #client_statem_state{myName = MyName,waitforWorkers = WaitforWorkers,nextState = NextState, etsRef = EtsRef}) ->
   NewWaitforWorkers = WaitforWorkers--[WorkerName],
   % io:format("remaining workers = ~p~n",[NewWaitforWorkers]),
   ets:update_counter(EtsRef, msgCounter, 1), % last is increment value
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
-  ets:update_element(EtsRef, WorkerName,[{?WORKER_TRAIN_MISSED_IDX,MissedBatchesCount}]), %% update missed batches count
   case NewWaitforWorkers of
     [] ->   ack(MyName,ets:lookup_element(EtsRef, nerlnetGraph, 2)),
             % ?LOG_INFO("~p going to state ~p~n",[MyName, NextState]),
@@ -245,7 +244,7 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
   true -> ?LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName]) end,
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
-training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
+training(cast, In = {idle}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ets:update_counter(EtsRef, msgCounter, 1),
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
   % ?LOG_INFO("~p going to state idle~n",[MyName]),
@@ -384,7 +383,7 @@ updateTimingMap(EtsRef, WorkerName) when is_atom(WorkerName) ->
   Finish = os:timestamp(),
   TotalTrainingTime = (timer:now_diff(Finish, Start) / 1000),
   NewTimingTuple = {Start,TotalBatches,TotalTrainingTime+TotalTime},
-  ets:update_element(EtsRef, WorkerName,[{?WORKER_TIMING_IDX,NewTimingTuple}]).
+  ets:update_element(EtsRef, WorkerName,[{?WORKER_TIMING_IDX,NewTimingTuple}]). %% TODO update WorkerStatsETS
 
 %% statistics format: clientName:workerName=avgTime,...
 %% adding client c1=MsgNum,w1=...
