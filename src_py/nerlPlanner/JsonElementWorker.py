@@ -179,7 +179,7 @@ class Worker(JsonElement):
         return newWorker
 
     def __str__(self):
-        return f"layers sizes: {self.LayersSizesListStr}, model {self.ModelTypeStr}, using optimizer {self.optimizer}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}, epochs: {self.Epochs}, infra {self.Infra}"
+        return f"layers sizes: {self.LayersSizesListStr}, model: {self.ModelTypeStr}, using optimizer: {self.optimizer.get_val_str()}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}, epochs: {self.Epochs.get_value_str()}, infra: {self.Infra.get_val_str()}, distributed system type: {self.distributedSystemType.get_val_str()}, distributed system token: {self.distributedSystemToken.get_val_str()}"
     
     def error(self): 
         return not self.input_validation() # + more checks
