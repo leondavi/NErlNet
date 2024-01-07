@@ -230,7 +230,7 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
   ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(In)),
   % io:format("client got sample ~p~n",[binary_to_term(Body)]),
   %%    Body:   {ClientName,WorkerName,CSVName,BatchNumber,BatchOfSamples}
-  {ClientName, WorkerNameStr, _CSVName, _BatchNumber, BatchOfSamples} = binary_to_term(Body),
+  {ClientName, WorkerNameStr, _CSVName, BatchID, BatchOfSamples} = binary_to_term(Body),
   WorkerName = list_to_atom(WorkerNameStr),
   WorkerOfThisClient = ets:member(EtsRef, WorkerName),
   if WorkerOfThisClient ->
@@ -240,7 +240,7 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
       Start = os:timestamp(),
       NewTimingTuple = {Start,TotalBatches+1,TotalTime},
       ets:update_element(EtsRef, WorkerName,[{?WORKER_PID_IDX, WorkerPid},{?WORKER_TIMING_IDX,NewTimingTuple}]),
-      gen_statem:cast(WorkerPid, {sample, BatchOfSamples});
+      gen_statem:cast(WorkerPid, {sample, BatchID ,BatchOfSamples});
   true -> ?LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName]) end,
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 

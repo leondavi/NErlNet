@@ -32,6 +32,7 @@ create_workers(ClientName, EtsRef , ShaToModelArgsMap) ->
   WorkersETS = ets:new(workers_ets,[set]),
   io:format("WorkerToSHAMap: ~p~n" , [ets:lookup_element(EtsRef, workers_to_sha_map, ?DATA_IDX)]),
 
+
   Func = fun(WorkerName) -> 
     ModelID = erlang:unique_integer([positive]),
     WorkerStatsETS = ets:new(worker_stats_ets,[set]),
@@ -45,8 +46,26 @@ create_workers(ClientName, EtsRef , ShaToModelArgsMap) ->
     % move this case to module called client_controller
     {DistributedBehaviorFunc , DistributedWorkerData} = get_distributed_worker_behavior(DistributedSystemType , WorkerName , DistributedSystemArgs , DistributedSystemToken),
     io:format("DistributedWorkerData: ~p~n", [DistributedWorkerData]),
-    WorkerArgs = {ModelID , ModelType , LayersSizes, LayersTypes, LayersFunctions, LossMethod, 
-                  LearningRate, Epochs, Optimizer, OptimizerArgs , DistributedSystemArgs , DistributedSystemToken},
+
+% nerlworker_test(Rounds, Performance) ->
+%       ModelId  = erlang:unique_integer([positive]),
+%       ModelType = "5",
+%       LayersSizes = "5,10,5,3",
+%       LayersTypes = "1,3,3,3",
+%       LayersFunctionalityCodes = "1,6,11,11", % change scaler functionality to 6 to check exception handling
+%       LearningRate = "0.01",
+%       Epochs = "1",
+%       OptimizerType = "2",
+%       OptimizerArgs = "",
+%       LossMethod = "2",
+%       DistributedSystemType = "0",
+%       DistributedSystemArg = "",
+%       nerlNIF:test_nerlworker_nif(ModelId,ModelType,LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
+%       nerlNIF:remove_nerlworker_nif(ModelId),
+%       nerlworker_test(Rounds - 1, Performance).
+
+    WorkerArgs = {ModelID , ModelType , LayersSizes, LayersTypes, LayersFunctions, LearningRate , Epochs, 
+                  Optimizer, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs},
     io:format("WorkerArgs: ~p~n", [WorkerArgs]),
     WorkerPid = workerGeneric:start_link({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , _ClientPid = self()}),
 

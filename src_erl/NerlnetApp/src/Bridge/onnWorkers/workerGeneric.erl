@@ -47,8 +47,8 @@ start_link(ARGS) ->
 %% distributedBehaviorFunc is the special behavior of the worker regrading the distributed system e.g. federated client/server
 init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , ClientPid}) -> 
   nerl_tools:setup_logger(?MODULE),
-  {ModelID , ModelType , LayersSizes, LayersTypes, LayersFunctionalityCodes, LossMethod, 
-  LearningRate, Epochs, OptimizerType, OptimizerArgs , DistributedSystemArgs , DistributedSystemToken} = WorkerArgs,
+  {ModelID , ModelType , LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate , Epochs, 
+   OptimizerType, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs} = WorkerArgs,
   GenWorkerEts = ets:new(generic_worker,[set]),
   put(generic_worker_ets, GenWorkerEts),
   put(client_pid, ClientPid),
@@ -64,14 +64,17 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{optimizer, OptimizerType}),
   ets:insert(GenWorkerEts,{optimizer_args, OptimizerArgs}),
   ets:insert(GenWorkerEts,{distributed_system_args, DistributedSystemArgs}),
-  ets:insert(GenWorkerEts,{distributed_system_token, DistributedSystemToken}),
+  ets:insert(GenWorkerEts,{distributed_system_type, DistributedSystemType}),
   ets:insert(GenWorkerEts,{missed_train_batches, 0}),
   ets:insert(GenWorkerEts,{missed_predict_batches, 0}),
+  ets:insert(GenWorkerEts,{bad_messages , 0}),
   ets:insert(GenWorkerEts,{exploded_loss_batches , []}),
-  ets:insert(GenWorkerEts,{message_q, []}), %% empty Queue
+  ets:insert(GenWorkerEts,{controller_message_q, []}), %% empty Queue
+
+
 
   Res=nerlNIF:new_nerlworker_nif(ModelID , ModelType, LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType,
-                                OptimizerArgs, LossMethod , DistributedSystemArgs , DistributedSystemToken),
+                                OptimizerArgs, LossMethod , DistributedSystemType , DistributedSystemArgs),
   DistributedBehaviorFunc(init,{GenWorkerEts, DistributedWorkerData}),
 
   ?LOG_NOTICE("Create = ~p ~n",[Res]),
@@ -129,79 +132,86 @@ code_change(_OldVsn, StateName, State = #workerGeneric_state{}, _Extra) ->
 %% State idle
 
 %% got init from FedWorker, add it to workersList
-idle(cast, {pre_idle}, State = #workerGeneric_state{myName = _MyName,distributedBehaviorFunc = Func}) ->
+idle(cast, {pre_idle}, State = #workerGeneric_state{myName = _MyName,distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   % io:format("worker ~p got pre_idle signal~n",[MyName]),
-  Func(pre_idle, {get(generic_worker_ets), empty}),
+  DistributedBehaviorFunc(pre_idle, {get(generic_worker_ets), empty}),
   {next_state, idle, State};
 
-idle(cast, {post_idle, From}, State = #workerGeneric_state{myName = _MyName,distributedBehaviorFunc = Func}) ->
+idle(cast, {post_idle, From}, State = #workerGeneric_state{myName = _MyName,distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   % io:format("worker ~p got post_idle signal~n",[MyName]),
-  Func(post_idle, {get(generic_worker_ets), From}),
+  DistributedBehaviorFunc(post_idle, {get(generic_worker_ets), From}),
   {next_state, idle, State};
 
 idle(cast, {training}, State = #workerGeneric_state{myName = MyName}) ->
+  worker_controller_empty_message_queue(),
   ?LOG_NOTICE("~p Go from idle to train!\n",[MyName]),
-  checkAndAck(MyName, 1, 0),
-  {next_state, train, State};
+  update_client_avilable_worker(MyName),
+  {next_state, train, State#workerGeneric_state{lastPhase = train}};
 
 idle(cast, {predict}, State = #workerGeneric_state{myName = MyName}) ->
+  worker_controller_empty_message_queue(),
   ?LOG_NOTICE("Go from idle to predict\n"),
-  checkAndAck(MyName, 1, 0),
-  {next_state, predict, State#workerGeneric_state{nextState = predict}};
- 
+  update_client_avilable_worker(MyName),
+  {next_state, predict, State#workerGeneric_state{lastPhase = predict}};
+
 idle(cast, _Param, State) ->
   % io:fwrite("Same state idle, command: ~p\n",[Param]),
   {next_state, idle, State}.
 
 %% Waiting for receiving results or loss function
 %% Got nan or inf from loss function - Error, loss function too big for double
-wait(cast, {loss , nan , Time_NIF}, State = #workerGeneric_state{myName = MyName, nextState = NextState}) ->
+wait(cast, {loss , nan , TimeNIF}, State = #workerGeneric_state{myName = MyName, nextState = NextState , currentBatchID = BatchID}) ->
   ?LOG_WARNING("Loss func in wait: nan (Loss function too big for double)\n"),
-  gen_statem:cast(get(client_pid),{loss, MyName, nan,Time_NIF}), %% TODO send to tal stop casting request with error desc
+  PrevExplodedBatchesList = ets:lookup_element(get(generic_worker_ets), explodedLossBatches, ?ETS_KEYVAL_VAL_IDX),
+  ets:update_element(get(generic_worker_ets), explodedLossBatches, {?ETS_KEYVAL_VAL_IDX , PrevExplodedBatchesList ++ [BatchID]}),
+  gen_statem:cast(get(client_pid),{loss, MyName, nan , TimeNIF}), %% TODO send to tal stop casting request with error desc
   update_client_avilable_worker(MyName),
-  {next_state, NextState, State#workerGeneric_state{}};
+  {next_state, NextState, State};
 
-wait(cast, {loss, LossVal , Time}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID,ackClient = AckClient, distributedBehaviorFunc = distributedBehaviorFunc, workerData = WorkerData}) ->
-  gen_statem:cast(get(client_pid),{loss, MyName, LossVal,Time/1000}), %% TODO Add Time and Time_NIF to the cast
-  ToUpdate = distributedBehaviorFunc(post_train, {get(generic_worker_ets),WorkerData}),
-  checkAndAck(MyName,AckClient,ets:lookup_element(get(generic_worker_ets), missedBatches, ?ETS_KEYVAL_VAL_IDX)),
-  if  ToUpdate -> {next_state, update, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
-      true ->     {next_state, NextState, State#workerGeneric_state{ackClient = 0}}
+wait(cast, {loss, LossVal , TimeNIF}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
+  gen_statem:cast(get(client_pid),{loss, MyName, LossVal , TimeNIF}), %% TODO Add Time and Time_NIF to the cast
+  ToUpdate = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),DistributedWorkerData}),
+  update_client_avilable_worker(MyName),
+  if  ToUpdate -> {next_state, update, State#workerGeneric_state{nextState=NextState}};
+      true ->     {next_state, NextState, State}
   end;
 
-wait(cast, {predictRes,NerlTensor, Type, TimeTook, CSVname,BatchID}, State = #workerGeneric_state{myName = MyName, nextState = NextState,ackClient = AckClient, distributedBehaviorFunc = distributedBehaviorFunc, workerData = WorkerData}) ->
-  gen_statem:cast(get(client_pid),{predictRes,MyName, CSVname,BatchID, NerlTensor, Type, TimeTook}), %% TODO TODO change csv name and batch id(1)
-  Update = distributedBehaviorFunc(post_predict, {get(generic_worker_ets),WorkerData}),
-  checkAndAck(MyName,AckClient,ets:lookup_element(get(generic_worker_ets), missedBatches, ?ETS_KEYVAL_VAL_IDX)),
+wait(cast, {predictRes,NerlTensor, Type, TimeNIF, CSVname,BatchID}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
+  gen_statem:cast(get(client_pid),{predictRes,MyName, CSVname,BatchID, NerlTensor, Type, TimeNIF}), %% TODO TODO change csv name and batch id(1)
+  Update = DistributedBehaviorFunc(post_predict, {get(generic_worker_ets),DistributedWorkerData}),
+  update_client_avilable_worker(MyName),
   if Update -> 
-    {next_state, update, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
+    {next_state, update, State#workerGeneric_state{nextState=NextState}};
   true ->
-    {next_state, NextState, State#workerGeneric_state{ackClient = 0}}
+    {next_state, NextState, State}
   end;
 
 wait(cast, {idle}, State) ->
   %logger:notice("Waiting, next state - idle"),
-  {next_state, wait, State#workerGeneric_state{nextState = idle,ackClient=1}};
+  {next_state, wait, State#workerGeneric_state{nextState = idle}};
 
 wait(cast, {training}, State) ->
   %logger:notice("Waiting, next state - train"),
   % gen_statem:cast(ClientPid,{stateChange,WorkerName}),
-  {next_state, wait, State#workerGeneric_state{nextState = train,ackClient=1}};
+  {next_state, wait, State#workerGeneric_state{nextState = train}};
 
 wait(cast, {predict}, State) ->
   %logger:notice("Waiting, next state - predict"),
-  {next_state, wait, State#workerGeneric_state{nextState = predict,ackClient=1}};
+  {next_state, wait, State#workerGeneric_state{nextState = predict}};
 
-wait(cast, {sample, _SampleListTrain}, State = #workerGeneric_state{missedTrainBatches = _MissedTrainSamples}) ->
-  ets:update_counter(get(generic_worker_ets), missedBatches, 1),
-  % ?LOG_NOTICE(?LOG_HEADER++"Missed sample in worker ~p count: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), NewMissedCount]),
-  % Miss = MissedTrainSamples++SampleListTrain,
-  {next_state, wait, State#workerGeneric_state{}};
+%% Worker in wait can't treat incoming message 
+wait(cast, _BatchData , State = #workerGeneric_state{lastPhase = LastPhase}) ->
+  case LastPhase of
+    train -> 
+      ets:update_counter(get(generic_worker_ets), missed_train_batches , 1);
+    predict -> 
+      ets:update_counter(get(generic_worker_ets), missed_predict_batches , 1)
+  end,
+  {next_state, wait, State};
 
 wait(cast, Data, State) ->
   % logger:notice("worker ~p in wait cant treat message: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
-  OldQ = ets:lookup_element(get(generic_worker_ets), message_q, ?ETS_KEYVAL_VAL_IDX),
-  ets:insert(get(generic_worker_ets), {message_q, OldQ++[Data]}),
+  worker_controller_message_queue(Data),
   {keep_state, State}.
 
 %% treated runaway message in nerlNIF:call_to_fet_weights
@@ -210,30 +220,31 @@ wait(cast, Data, State) ->
 %   ?LOG_INFO("Worker ets is: ~p",[ets:match_object(get(generic_worker_ets), {'$0', '$1'})]),
 %   {keep_state, State};
 
-update(cast, {update, _From, NerltensorWeights}, State = #workerGeneric_state{distributedBehaviorFunc = distributedBehaviorFunc, nextState = NextState}) ->
-  distributedBehaviorFunc(update, {get(generic_worker_ets), NerltensorWeights}),
+update(cast, {update, _From, NerltensorWeights}, State = #workerGeneric_state{distributedBehaviorFunc = DistributedBehaviorFunc, nextState = NextState}) ->
+  ?LOG_WARNING("************* Unrecognized update method , next state: ~p **************" , [NextState]),
+  DistributedBehaviorFunc(update, {get(generic_worker_ets), NerltensorWeights}),
   {next_state, NextState, State};
 
 update(cast, {idle}, State = #workerGeneric_state{myName = MyName}) ->
-  checkAndAck(MyName, 1, ets:lookup_element(get(generic_worker_ets), missedBatches, ?ETS_KEYVAL_VAL_IDX)),
+  update_client_avilable_worker(MyName),
   {next_state, idle, State#workerGeneric_state{nextState = idle}};
     
-update(cast, Data, State = #workerGeneric_state{distributedBehaviorFunc = distributedBehaviorFunc, nextState = NextState, missedBatchesCount = _MissedBatchesCount}) ->
+update(cast, Data, State = #workerGeneric_state{distributedBehaviorFunc = DistributedBehaviorFunc, nextState = NextState}) ->
   % io:format("worker ~p got ~p~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
   case Data of
     %% FedClient update avg weights
     {update, "server", _Me, NerltensorWeights} -> 
-      distributedBehaviorFunc(update, {get(generic_worker_ets), NerltensorWeights}),
+      DistributedBehaviorFunc(update, {get(generic_worker_ets), NerltensorWeights}),
       % io:format("worker ~p updated model and going to ~p state~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), NextState]),
       {next_state, NextState, State};
     %% FedServer get weights from clients
     {update, WorkerName, Me, NerlTensorWeights} ->
-      StillUpdate = distributedBehaviorFunc(update, {get(generic_worker_ets), {WorkerName, Me, NerlTensorWeights}}),
+      StillUpdate = DistributedBehaviorFunc(update, {get(generic_worker_ets), {WorkerName, Me, NerlTensorWeights}}),
       if StillUpdate -> 
         % io:format("worker ~p in update waiting to go to ~p state~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), NextState]),
-        {keep_state, State#workerGeneric_state{ackClient = 0, nextState=NextState}};
+        {keep_state, State#workerGeneric_state{nextState=NextState}};
       true ->
-        {next_state, NextState, State#workerGeneric_state{ackClient = 0}}
+        {next_state, NextState, State#workerGeneric_state{}}
       end;
     %% got sample from source. discard and add missed count TODO: add to Q
     {sample, _Tensor} ->  
@@ -243,22 +254,23 @@ update(cast, Data, State = #workerGeneric_state{distributedBehaviorFunc = distri
 
 
 %% State train
-train(cast, {sample, {<<>>, _Type}}, State ) ->
-  ?LOG_ERROR("Empty sample received"),
-  {next_state, train, State#workerGeneric_state{nextState = train}};
+train(cast, {sample, BatchID ,{<<>>, _Type}}, State ) ->
+  ?LOG_WARNING("Empty sample received , batch id: ~p",[BatchID]),
+  ets:update_counter(get(generic_worker_ets), bad_messages, 1),
+  {next_state, train, State#workerGeneric_state{nextState = train , currentBatchID = BatchID}};
   
 %% Change SampleListTrain to NerlTensor
-train(cast, {sample, {NerlTensorOfSamples, NerlTensorType}}, State = #workerGeneric_state{modelId = ModelId, optimizer = Optimizer, lossMethod = LossMethod, learningRate = LearningRate, distributedBehaviorFunc = distributedBehaviorFunc, workerData = WorkerData}) ->
+train(cast, {sample, BatchID ,{NerlTensorOfSamples, NerlTensorType}}, State = #workerGeneric_state{modelID = ModelId, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
     % io:format("Got Tensor: {~p, ~p}~n",[NerlTensorOfSamples, Type]),
     % NerlTensor = nerltensor_conversion({NerlTensorOfSamples, Type}, erl_float),
     % io:format("Got NerlTensor: ~p~n",[NerlTensor]),
     MyPid = self(),
-    NewWorkerData = distributedBehaviorFunc(pre_train, {get(generic_worker_ets),WorkerData}),
+    NewWorkerData = DistributedBehaviorFunc(pre_train, {get(generic_worker_ets),DistributedWorkerData}),
     _Pid = spawn(fun()-> nerlNIF:call_to_train(ModelId , {NerlTensorOfSamples, NerlTensorType} ,MyPid) end),
-    {next_state, wait, State#workerGeneric_state{nextState = train, workerData = NewWorkerData}};
+    {next_state, wait, State#workerGeneric_state{nextState = train, distributedWorkerData = NewWorkerData , currentBatchID = BatchID}};
   
 %% TODO: implement send model and weights by demand (Tensor / XML)
-train(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelId = ModelId}) ->
+train(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelID = ModelId}) ->
   %% Set weights
   %io:format("####sending new weights to workers####~n"),
   nerlNIF:call_to_set_weights(ModelId, Ret_weights_list),
@@ -268,47 +280,42 @@ train(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelId
 
 train(cast, {idle}, State = #workerGeneric_state{myName = MyName}) ->
   %logger:notice("Go from train to idle\n"),
-  checkAndAck(MyName, 1, ets:lookup_element(get(generic_worker_ets), missedBatches, ?ETS_KEYVAL_VAL_IDX)),
+  update_client_avilable_worker(MyName),
   {next_state, idle, State};
-
-train(cast, {predict}, State = #workerGeneric_state{myName = MyName}) ->
-  %logger:notice("Go from train to predict\n"),
-  checkAndAck(MyName, 1, ets:lookup_element(get(generic_worker_ets), missedBatches, ?ETS_KEYVAL_VAL_IDX)),
-  {next_state, predict, State};
 
 train(cast, Data, State) ->
   % logger:notice("worker ~p in wait cant treat message: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
-  OldQ = ets:lookup_element(get(generic_worker_ets), message_q, ?ETS_KEYVAL_VAL_IDX),
-  ets:insert(get(generic_worker_ets), {message_q, OldQ++[Data]}),
+  worker_controller_message_queue(Data),
   {keep_state, State}.
 
 %% State predict
-predict(cast, {sample,_CSVname, _BatchID, {<<>>, _Type}}, State) ->
-  ?LOG_ERROR("Received empty tensor"),
-  {next_state, predict, State#workerGeneric_state{nextState = predict}};
+predict(cast, {sample,_CSVname, BatchID, {<<>>, _Type}}, State) ->
+  ?LOG_WARNING("Received empty tensor , batch id: ~p",[BatchID]),
+  ets:update_counter(get(generic_worker_ets), bad_messages, 1),
+  {next_state, predict, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}};
 
 % send predict sample to worker
-predict(cast, {sample,CSVname, BatchID, {PredictBatchTensor, Type}}, State = #workerGeneric_state{ modelId = ModelId, distributedBehaviorFunc = distributedBehaviorFunc, workerData = WorkerData}) ->
+predict(cast, {sample,CSVname, BatchID, {PredictBatchTensor, Type}}, State = #workerGeneric_state{ modelID = ModelId, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
     CurrPID = self(),
-    distributedBehaviorFunc(pre_predict, {get(generic_worker_ets),WorkerData}),
+    DistributedBehaviorFunc(pre_predict, {get(generic_worker_ets),DistributedWorkerData}),
     _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId,PredictBatchTensor, Type,CurrPID,CSVname, BatchID) end),
-    {next_state, wait, State#workerGeneric_state{nextState = predict}};
+    {next_state, wait, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}};
   
 predict(cast, {idle}, State = #workerGeneric_state{myName = MyName}) ->
   %logger:notice("Go from predict to idle\n"),
-  checkAndAck(MyName, 1, ets:lookup_element(get(generic_worker_ets), missedBatches, ?ETS_KEYVAL_VAL_IDX)),
-
+  update_client_avilable_worker(MyName),
   {next_state, idle, State};
 
-predict(cast, {training}, State = #workerGeneric_state{myName = MyName}) ->
-  %logger:notice("Go from predict to train\n"),
-  checkAndAck(MyName, 1, ets:lookup_element(get(generic_worker_ets), missedBatches, ?ETS_KEYVAL_VAL_IDX)),
-
-  {next_state, train, State};
-
-predict(cast, Param, State) ->
-  logger:notice("In Predict, got weird command: ~p\n",[Param]),
+predict(cast, Data, State) ->
+  worker_controller_message_queue(Data),
   {next_state, predict, State}.
 
 %% Updates the client that worker is available
 update_client_avilable_worker(MyName) -> gen_statem:cast(get(client_pid),{stateChange,MyName}).
+
+worker_controller_message_queue(ReceiveData) ->
+    Queue = ets:lookup_element(get(generic_worker_ets), controller_message_q, ?ETS_KEYVAL_VAL_IDX),
+    ets:update_element(get(generic_worker_ets), controller_message_q, {?ETS_KEYVAL_VAL_IDX , Queue++[ReceiveData]}).
+
+worker_controller_empty_message_queue() ->
+    ets:update_element(get(generic_worker_ets), controller_message_q, {?ETS_KEYVAL_VAL_IDX , []}).
