@@ -14,8 +14,7 @@ LayerTypeMap = OrderedDict([
     ("Probabilistic" , "5"),
     ("LSTM" , "6"),
     ("Reccurrent" , "7"),
-    ("Unscaling" , "8"),
-    ("Bounding" , "9")]
+    ("Unscaling" , "8")]
 )
 
 ProbabilisticActivationFunctionMap = OrderedDict(
@@ -70,8 +69,7 @@ LayerTypeToFunctionalMap = OrderedDict([
     ("Probabilistic" , ProbabilisticActivationFunctionMap),
     ("LSTM" , None),
     ("Reccurrent" , None),
-    ("Unscaling" , UnScalingMethodMap),
-    ("Bounding" , None)]
+    ("Unscaling" , UnScalingMethodMap)]
 )
 
 ModelTypeMapping = OrderedDict([
