@@ -34,7 +34,7 @@ def WinWorkerDialog():
                         [sg.Text("*.json file name"),sg.InputText(key=KEY_JSON_FILE_NAME, enable_events=True),sg.Button("Export",key=KEY_BUTTON_EXPORT_WORKER), sg.Checkbox('with documentation', default=True, key=KEY_CHECKBOX_WORKER_WITH_DOCUMENTATION, enable_events=True)]]
     WorkerFileFrame = sg.Frame("File",WorkerFileLayout)
 
-    WorkerDefinitionsLayout = [[sg.Text("Model Type: "), sg.Combo(list(ModelTypeMapping.keys()),enable_events=True, key=KEY_MODEL_TYPE_LIST_BOX), sg.Button("LSTM Opts",disabled=True), sg.Button("CNN Opts", enable_events=True, key=KEY_LAYER_CNN_OPT_HELP_BUTTON )],
+    WorkerDefinitionsLayout = [[sg.Text("Model Type: "), sg.Combo(list(ModelTypeMapping.keys()),enable_events=True, key=KEY_MODEL_TYPE_LIST_BOX), sg.Button("LSTM Opts",disabled=True), sg.Button("Layers Sizes Help", enable_events=True, key=KEY_LAYER_SIZES_HELP_BUTTON)],
                                [sg.Text("Layers Sizes: Comma separated list, # of neurons in a layer, E.g, 100,80,40,5,1")],
                                [sg.InputText(key=KEY_LAYER_SIZES_INPUT,enable_events=True, expand_x=True), sg.Text("(0)",key=KEY_NUM_OF_LAYERS_SIZES)],
                                [sg.Text("List of layers types:"), sg.Combo(list(LayerTypeMap.keys()),key=KEY_LAYER_TYPE_SELECTION), sg.Button("Add",key=KEY_LAYER_TYPE_SELECTION_ADD), sg.Button("Help",key=KEY_LAYER_TYPE_HELP),sg.Button("Clear",key=KEY_LAYER_TYPE_SELECTION_CLEAR)],
@@ -114,8 +114,8 @@ def WinWorkerDialog():
             ModelTypeStr = values[event]
             ModelType = ModelTypeMapping[ModelTypeStr]
         
-        if event == KEY_LAYER_CNN_OPT_HELP_BUTTON:
-            sg.popup_ok(f"{LAYER_CNN_OPTS_HELP_POPUP_STR}", keep_on_top=True, title="CNN Options Help")
+        if event == KEY_LAYER_SIZES_HELP_BUTTON:
+            sg.popup_ok(f"{LAYER_SIZES_HELP_POPUP_STR}", keep_on_top=True, title="Layer Sizes Help")
 
         # Layers Sizes List
         if event == KEY_LAYER_SIZES_INPUT:
@@ -207,7 +207,8 @@ def WinWorkerDialog():
                                            bool(DistributedSystemType) and bool(DistributedSystemToken)
             FilePath = Path(FileDirExport) / Path(FileNameExport)
             filepath_condition = FilePath.parent.is_dir() and bool(FileNameExport) and FileNameExport.endswith(".json")
-            if worker_parameters_conditions and filepath_condition:
+            first_element_condition = bool(LayerTypesList[0] != "3")
+            if worker_parameters_conditions and filepath_condition and first_element_condition:
                 # Update here when adding new fields to the worker 
                 newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, OptimizationType, OptimizationArgs , LossMethodStr, LossMethod,
                                     LearningRate, Epochs, LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken)
@@ -218,6 +219,8 @@ def WinWorkerDialog():
                 sg.popup_auto_close("Missing Parameters!", keep_on_top=True)
             elif not filepath_condition:
                 sg.popup_auto_close("Issue with json path!", keep_on_top=True)
+            elif not first_element_condition:
+                sg.popup_auto_close("Perceptron can't be the first layer, please change it", keep_on_top=True)
 
         if event == KEY_JSON_LOAD_FILE_BROWSE_EVENT:
             FilePathLoad = values[KEY_JSON_LOAD_FILE_BROWSE_EVENT]
