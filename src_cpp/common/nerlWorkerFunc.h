@@ -2,7 +2,7 @@
 
 #include <memory>
 
-
+#include <Logger.h>
 #include "utilities.h"
 #include "worker_definitions_ag.h"
 
@@ -65,22 +65,22 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
     assert(layer_sizes_strs_vec.size() == out_layer_sizes_params.size());
     for (size_t i = 0; i < layer_sizes_strs_vec.size(); i++) //TODO
     {
-        switch (layers_types_vec[i]) //TODO Ori and Nadav change to switch case only between simple and complex (if there is chars in type)
+        int layer_str_type = nerlnet_utilities::is_integer_number(layer_sizes_strs_vec[i]) ? SIMPLE_PARSING : COMPLEX_PARSING;
+
+        switch (layer_str_type)
         {
-        case LAYER_TYPE_PERCEPTRON:
-        case LAYER_TYPE_DEFAULT:
-        case LAYER_TYPE_SCALING:
-        case LAYER_TYPE_UNSCALING:
-        case SIMPLE_PARSING:{
-            out_layer_sizes_params[i].dimx = std::stoi(layer_sizes_strs_vec[i]); 
-            break;
-        }
-        case COMPLEX_PARSING:{
-            //TODO CNN 
-            break;
-        }
-        default:
-            break;
+            case SIMPLE_PARSING:{
+                out_layer_sizes_params[i].dimx = std::stoi(layer_sizes_strs_vec[i]); 
+                break;
+            }
+            case COMPLEX_PARSING:{
+                LogInfo("Complex parsing"); //TODO remove
+                // Complex parsing is any layer_sizes_str that includes string that are not a single integer
+                // E.g. : 5x5k4x4p3 etc. 
+                break;
+            }
+            default:
+                break;
         }
     }
     
