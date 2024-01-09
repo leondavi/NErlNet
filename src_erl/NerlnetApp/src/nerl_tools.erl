@@ -38,7 +38,7 @@ getShortPath(From,To,NerlnetGraph) when is_atom(To) and is_atom(From) ->  % TODO
     false -> false;
     ShortPath ->
       NextHop = lists:nth(2,ShortPath),
-      {_Name,{Host,Port}} = digraph:vertex(NerlnetGraph,NextHop),
+      {_Name,{Host,Port,_DeviceName}} = digraph:vertex(NerlnetGraph,NextHop),
       {Host,Port}
   end.
   
@@ -199,7 +199,7 @@ make_routing_table(Ets,EntitiesList,Origin,NerlnetGraph)->
   case digraph:get_short_path(NerlnetGraph,Origin,Entity) of
     false -> ok;
     ShortPath -> NextHop = lists:nth(2,ShortPath),
-                 {Name,{Host,Port}} = digraph:vertex(NerlnetGraph,NextHop),
+                 {Name , {Host , Port , _DeviceName}} = digraph:vertex(NerlnetGraph,NextHop),
                  ets:insert(Ets,{Entity,{Name,Host,Port}})
   end % case end
   end, % fun end

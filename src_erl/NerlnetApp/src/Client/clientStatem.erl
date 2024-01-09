@@ -75,6 +75,7 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
   EtsRef = ets:new(client_data, [set]),
   ets:insert(EtsRef, {workerToClient, WorkerToClientMap}),
+  ets:insert(EtsRef, {workersNames, ClientWorkers}),
   ets:insert(EtsRef, {nerlnetGraph, NerlnetGraph}),
   ets:insert(EtsRef, {msgCounter, 1}),
   ets:insert(EtsRef, {infoIn, 0}),
@@ -83,12 +84,15 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   io:format("client ~p workers to sha map: ~p~n",[MyName, MyWorkersToShaMap]),
   ets:insert(EtsRef, {workers_to_sha_map, MyWorkersToShaMap}),
   ets:insert(EtsRef, {sha_to_models_map , ShaToModelArgsMap}),
+  io:format("*****************HERE ~p*****************~n",[MyName]),
 
   clientWorkersFunctions:create_workers(MyName , EtsRef , ShaToModelArgsMap),
-
+  io:format("*****************HERE AFTER CREATE WORKERS ~p*****************~n",[MyName]),
   %% send pre_idle signal to workers
-  [gen_statem:cast(ets:lookup_element(EtsRef, WorkerPID, ?WORKER_PID_IDX), {pre_idle}) || WorkerPID <- ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX)],
-  io:format("client ~p sent pre_idle signal to ~p",[MyName, ets:lookup_element(EtsRef, workersNames, ?WORKER_PID_IDX)]),
+  WorkersNames = clientWorkersFunctions:get_workers_names(EtsRef),
+  io:format("Workers Names: ~p~n" , [WorkersNames]),
+  [gen_statem:cast(clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName), {pre_idle}) || WorkerName <- clientWorkersFunctions:get_workers_names(EtsRef)],
+  io:format("*****************HERE AFTER WORKERS CAST ~p*****************~n",[MyName]),
 
   {ok, idle, #client_statem_state{myName= MyName, etsRef = EtsRef}}.
 

@@ -32,8 +32,8 @@
 -spec(start_link(args) ->
   {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 
-start_link({MyName,NerlnetGraph}) ->
-  {ok,Pid} = gen_server:start_link({local, MyName}, ?MODULE, {MyName,NerlnetGraph}, []),
+start_link({MyName, Policy ,NerlnetGraph}) ->
+  {ok,Pid} = gen_server:start_link({local, MyName}, ?MODULE, {MyName, Policy ,NerlnetGraph}, []),
   Pid.
 
 %%%===================================================================
@@ -46,7 +46,7 @@ start_link({MyName,NerlnetGraph}) ->
   {ok, State :: #router_genserver_state{}} | {ok, State :: #router_genserver_state{}, timeout() | hibernate} |
   {stop, Reason :: term()} | ignore).
 
-init({MyName,NerlnetGraph}) ->
+init({MyName , _Policy , NerlnetGraph}) -> %% TODO : Add policy to router
   nerl_tools:setup_logger(?MODULE),
   inets:start(),
   ?LOG_NOTICE("Router ~p is connected to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
