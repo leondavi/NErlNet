@@ -11,6 +11,8 @@
 
 -behaviour(gen_server).
 -include("../nerl_tools.hrl").
+-include("../stats.hrl").
+
 
 %% API
 -export([start_link/1]).
@@ -46,7 +48,7 @@ start_link(Args) ->
 {ok, State :: #main_genserver_state{}} | {ok, State :: #main_genserver_state{}, timeout() | hibernate} |
 {stop, Reason :: term()} | ignore).
 
-init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
+init({MyName,ClientsNames,BatchSize,WorkersMap,NerlnetGraph}) ->
   nerl_tools:setup_logger(?MODULE),
   inets:start(),
   MyNameStr = atom_to_list(MyName),
@@ -54,64 +56,18 @@ init({MyName,Clients,BatchSize,WorkersMap,NerlnetGraph}) ->
   ?LOG_NOTICE("Main Server starts"),
   ConnectedEntities = [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,?MAIN_SERVER_ATOM)],
   ?LOG_NOTICE("Main Server is connected to: ~p~n",[ConnectedEntities]),
-  put(nerlnetGraph, NerlnetGraph),
-    % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
-  
-  NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--?LIST_OF_SPECIAL_SERVERS]),
-  % io:format("New StatisticsMap = ~p~n",[NewStatisticsMap]),
-  {ok, #main_genserver_state{myName = MyNameStr, workersMap = WorkersMap, batchSize = BatchSize, state=idle, clients = Clients, nerlnetGraph = NerlnetGraph, msgCounter = 1,statisticsMap = NewStatisticsMap}}.
-
-%% @private
-%% @doc Handling call messages
--spec(handle_call(Request :: term(), From :: {pid(), Tag :: term()},
-    State :: #main_genserver_state{}) ->
-{reply, Reply :: term(), NewState :: #main_genserver_state{}} |
-{reply, Reply :: term(), NewState :: #main_genserver_state{}, timeout() | hibernate} |
-{noreply, NewState :: #main_genserver_state{}} |
-{noreply, NewState :: #main_genserver_state{}, timeout() | hibernate} |
-{stop, Reason :: term(), Reply :: term(), NewState :: #main_genserver_state{}} |
-{stop, Reason :: term(), NewState :: #main_genserver_state{}}).
-
-%% respond to GUI req
-handle_call(getGraph, _From, State) ->
-  NerlGraph = State#main_genserver_state.nerlnetGraph,
-  FullNodes = [digraph:vertex(NerlGraph,Vertex) || Vertex <- digraph:vertices(NerlGraph)],
-  %io:format("Full graph is: ~p~n", [FullNodes]),
-  NodesList = [Entity++","++IP++","++integer_to_list(Port)++"#"||{Entity, {IP, Port}} <- FullNodes],
-  EdgesList = [digraph:edge(NerlGraph,Edge) || Edge <- digraph:edges(NerlGraph)],
-  %io:format("graph edges are: ~p~n", [EdgesList]),
-  Nodes = nodeString(NodesList),
-  Edges = edgeString(EdgesList),
-
-  MsgCounter = State#main_genserver_state.msgCounter,
-  {reply, Nodes++Edges, State#main_genserver_state{msgCounter = MsgCounter+1}};
-
-handle_call(getStats, _From, State) ->
-  Mode = State#main_genserver_state.state,
-  RecvCounter = State#main_genserver_state.msgCounter,
-  Conn = digraph:out_degree(State#main_genserver_state.nerlnetGraph, ?MAIN_SERVER_ATOM),
-  %io:format("returning stats: ~p~n", [{Mode, RecvCounter}]),
-  Mes = "mode="++atom_to_list(Mode)++",stats="++integer_to_list(RecvCounter)++",conn="++integer_to_list(Conn),
-
-  MsgCounter = State#main_genserver_state.msgCounter,
-  {reply, Mes, State#main_genserver_state{msgCounter = MsgCounter+1}}.
-
-nodeString([Node |NodeList]) -> nodeString(NodeList, Node).
-nodeString([], Str) -> Str;
-nodeString([Node |NodeList], Str)-> nodeString(NodeList, Node++Str).
-
-edgeString([Edge |EdgesList])-> {_ID, V1, V2, _Label} = Edge, edgeString(EdgesList, V1++"-"++V2).
-edgeString([], Str)-> Str;
-edgeString([Edge |EdgesList], Str)->
-  {_ID, V1, V2, _Label} = Edge,
-  edgeString(EdgesList, V1++"-"++V2++","++Str).
-
-%% @private
-%% @doc Handling cast messages
--spec(handle_cast(Request :: term(), State :: #main_genserver_state{}) ->
-{noreply, NewState :: #main_genserver_state{}} |
-{noreply, NewState :: #main_genserver_state{}, timeout() | hibernate} |
-{stop, Reason :: term(), NewState :: #main_genserver_state{}}).
+  MainServerEts = ets:new(main_server_ets , [set]),
+  put(main_server_ets, MainServerEts),
+  put(nerlnet_graph, NerlnetGraph),
+  EtsStats = ets:new(stats , [set]),
+  put(etsStats, EtsStats), %% All entities including mainServer ets tables statistics
+  Entities = [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--[?API_SERVER_ATOM]]
+  generate_stats_ets_tables(Entities),
+  ets:insert(MainServerEts , {entities_names_list , Entities -- [?MAIN_SERVER_ATOM]}),
+  ets:insert(MainServerEts , {batch_size , BatchSize}),
+  ets:insert(MainServerEts , {workers_map , WorkersMap}),
+  ets:insert(MainServerEts , {clients_names_list , ClientsNames}),
+  {ok, #main_genserver_state{myName = MyNameStr , state=idle}}.
 
 
 handle_cast({initCSV, Source,SourceData}, State = #main_genserver_state{state = idle, myName = MyName, sourcesWaitingList = SourcesWaitingList,nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
@@ -127,17 +83,16 @@ handle_cast({clientsTraining,Body}, State = #main_genserver_state{state = castin
   io:format("Body:~p~n",[Body]),
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
-handle_cast({clientsTraining, _Body}, State = #main_genserver_state{myName = MyName, clients = ListOfClients,nerlnetGraph=NerlnetGraph, msgCounter = MsgCounter}) ->
+handle_cast({clientsTraining, _Body}, State = #main_genserver_state{myName = MyName, msgCounter = MsgCounter}) ->
 %%  send router http request, to rout this message to all sensors
-  % io:format("main server: setting all clients on training state: ~p~n",[ListOfClients]),
-%%  io:format("Body:~p~n",[Body]),
-%%  io:format("binary_to_list(Body):~p~n",[binary_to_list(Body)]),
-%%  io:format("Splitted-(Body):~p~n",[re:split(binary_to_list(Body), ",", [{return, list}])]),
 %%  TODO find the router that can send this request to Sources**
   io:format("setting clients ~p to training~n",[ListOfClients]),
+  StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
+  stats:increment_messages_received(StatsEts),
   [H|_]=ListOfClients,  %temp, once fully implemented, sending should be to a connected router
-  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,H,NerlnetGraph),
+  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,H,get(nerlnet_graph)),
   nerl_tools:http_request(RouterHost,RouterPort,"broadcast",term_to_binary({ListOfClients,{"clientTraining",MyName}})),
+  stats:increment_messages_sent(StatsEts),
   %_SendAction = [{setClientState(clientTraining,ClientName,MyName)}|| ClientName <- ListOfClients],
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
@@ -161,15 +116,15 @@ handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = 
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients,msgCounter = MsgCounter+1}};
 
 %%%get Statistics from all Entities in the network
-handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName, statisticsCounter = StatisticsCounter, nerlnetGraph = NerlnetGraph,statisticsMap = StatisticsMap,msgCounter = MsgCounter}) ->
-
+handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) ->
+    StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
+    stats:increment_messages_received(StatsEts),
     if Body == <<"getStatistics">> ->   %% initial message from APIServer, get stats from entities
+          ListToSend = get_entities_names() -- [?MAIN_SERVER_ATOM],
+          lists:foreach(fun(EntityName) -> findroutAndsendStatistics(MyName,EntityName) end, ListToSend),
+          stats:increment_messages_sent(StatsEts , length(ListToSend));
 
-          NewStatisticsMap = getNewStatisticsMap([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--?LIST_OF_SPECIAL_SERVERS]),
-          [findroutAndsendStatistics(MyName, Name)||{Name,_Counter}<-maps:to_list(StatisticsMap)],
-          NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap, statisticsCounter = length(maps:to_list(StatisticsMap))};
-
-      Body == <<>> ->  io:format("in Statistcs, State has: StatsCount=~p, MsgCount=~p~n", [StatisticsCounter, MsgCounter]), NewState = State;
+      Body == <<>> ->  ?LOG_ERROR("~p: Wrong statistics message",[MyName]);
 
       true ->
           %%      statistics arrived from Entity
@@ -349,9 +304,6 @@ code_change(_OldVsn, State = #main_genserver_state{}, _Extra) ->
 
 setClientState(StateAtom,ClientName,MyName) ->
   nerl_tools:sendHTTP(MyName, ClientName, atom_to_list(StateAtom), ClientName).
-  %   {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,ClientName,NerlnetGraph),
-  % %{RouterHost,RouterPort} =maps:get(ClientName, ConnectionMap),
-  % nerl_tools:http_request(RouterHost,RouterPort,atom_to_list(StateAtom), atom_to_list(ClientName)).
 
 %%find Router and send message: finds the path for the named machine from connection map and send to the right router to forword.
 %%findroutAndsend([],_,_,WaitingList)->WaitingList;
@@ -370,10 +322,22 @@ findroutAndsendStatistics(MyName,Entity) ->
   % {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,Entity,NerlnetGraph),
   % nerl_tools:http_request(RouterHost, RouterPort,"statistics", Entity).
 	
-getNewStatisticsMap(ConnectionList) -> getNewStatisticsMap(ConnectionList,#{}).
-getNewStatisticsMap([],StatisticsMap) ->StatisticsMap;
-getNewStatisticsMap([{Name,{_Host, _Port}}|Tail],StatisticsMap) ->
-  getNewStatisticsMap(Tail,maps:put(atom_to_list(Name), 0, StatisticsMap)).
+generate_stats_ets_tables(VerticesList) ->
+  MainServerEtsStats = get(etsStats),
+  Func = 
+    fun({Name, {_Host, _Port, _DeviceName}}) ->
+        EntityStatsEts = stats:generate_stats_ets(),
+        ets:insert(MainServerEtsStats, {Name, EntityStatsEts})
+    end,
+  lists:foreach(Func, VerticesList).
+
+get_entity_stats_ets(EntityName) ->
+  MainServerEtsStats = get(etsStats),
+  ets:lookup_element(MainServerEtsStats, EntityName , ?DATA_IDX).
+
+get_entities_names() ->
+  MainServerEtsStats = get(etsStats),
+  [EntityName || {EntityName , _Val} <- ets:tab2list(MainServerEtsStats)].
 
 
 startCasting([],_NumOfSampleToSend,_MyName, _NerlnetGraph)->done;

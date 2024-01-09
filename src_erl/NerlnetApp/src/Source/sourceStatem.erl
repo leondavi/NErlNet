@@ -38,8 +38,8 @@
 
 %%Arguments from Cowboy Server
 %%return Pid to Cowboy Server
-start_link(NerlnetGraph) ->
-    {ok,Pid} = gen_statem:start_link(?MODULE, NerlnetGraph, []),
+start_link(SourceStatemArgs) ->
+    {ok,Pid} = gen_statem:start_link(?MODULE, SourceStatemArgs, []),
     Pid.
 
 %%%===================================================================
@@ -51,7 +51,7 @@ start_link(NerlnetGraph) ->
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
 %%initialize and go to state - idle
-init({MyName,WorkersMap, NerlnetGraph, Method, BatchSize,Frequency}) ->
+init({MyName, WorkersMap, NerlnetGraph, Policy, BatchSize, Frequency , Epochs, Type}) ->
 
   nerl_tools:setup_logger(?MODULE),
   inets:start(),
@@ -68,8 +68,9 @@ init({MyName,WorkersMap, NerlnetGraph, Method, BatchSize,Frequency}) ->
   ets:insert(EtsRef, {frequency, Frequency}),
   ets:insert(EtsRef, {time_interval_ms, round(1000/Frequency)}), % time of delay before transmitter sends a batch
   ets:insert(EtsRef, {batch_size, BatchSize}),
-  ets:insert(EtsRef, {method, Method}),
-  ets:insert(EtsRef, {epochs, none}),
+  ets:insert(EtsRef, {method, Policy}),
+  ets:insert(EtsRef, {epochs, Epochs}),
+  ets:insert(EtsRef, {type, Type}), %% CSV/Camera
   ets:insert(EtsRef, {sample_size, none}),
   ets:insert(EtsRef, {workers_list, []}),
   ets:insert(EtsRef, {csv_name, ""}), % not in use
@@ -107,7 +108,7 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 idle(cast, {batchList,WorkersList,Epochs, CSVData}, State = #source_statem_state{ets_ref = EtsRef}) ->
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   BatchSize = ets:lookup_element(EtsRef, batch_size, ?DATA_IDX),
-  {NerlTensorBatchesList, NerlTensorType, SampleSize} = parser:parseCSV(MyName,BatchSize,CSVData), % TODO this is slow and heavy method! pre parse in ETS a possible solution
+  {NerlTensorBatchesList, NerlTensorType, SampleSize} = parser:parseCSV(MyName,BatchSize,CSVData), % TODO this is slow and heavy policy! pre parse in ETS a possible solution
   ets:update_element(EtsRef, workers_list, [{?DATA_IDX, WorkersList}]),
   ets:update_element(EtsRef, epochs, [{?DATA_IDX, Epochs}]),
   ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
@@ -244,12 +245,12 @@ code_change(_OldVsn, StateName, State = #source_statem_state{}, _Extra) ->
 %%%===================================================================
 
 %%% spawnTransmitter - creates a transmitter process to send batches
-%%% Flow: transmitter -> transmit_func -> send_method_<method> -> prepare_send -> sendBatch
+%%% Flow: transmitter -> transmit_func -> send_policy_<policy> -> prepare_send -> sendBatch
 spawnTransmitter(SourceEtsRef, WorkersListOfNames, BatchesListToSend)->
   MyName = ets:lookup_element(SourceEtsRef, my_name, ?DATA_IDX),
   NerlnetGraph = ets:lookup_element(SourceEtsRef, nerlnet_graph, ?DATA_IDX),
   WorkersMap = ets:lookup_element(SourceEtsRef, workers_map, ?DATA_IDX),
-  Method = ets:lookup_element(SourceEtsRef, method, ?DATA_IDX),
+  Method = ets:lookup_element(SourceEtsRef, method , ?DATA_IDX),
   TimeInterval_ms = ets:lookup_element(SourceEtsRef, time_interval_ms, ?DATA_IDX), % frequency to time interval duration in milliseconds between each send
   Triplets = nerl_tools:getHostPort(WorkersListOfNames,WorkersMap,NerlnetGraph,MyName,[]),
   SourcePid = self(),

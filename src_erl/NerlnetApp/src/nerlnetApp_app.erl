@@ -219,14 +219,10 @@ createSources(BatchSize, DefaultFrequency, HostName) ->
     WorkersMap = ets:lookup_element(nerlnet_data, workers, DATA_IDX),
     SourcesMap = ets:lookup_element(nerlnet_data, sources, DATA_IDX),
     Func = 
-    fun(SourceName,{SourcePort,SourceMethod, CustomFrequency}) -> 
+    fun(SourceName,{SourcePort,SourcePolicy,SourceFrequency,SourceEpochs,SourceType}) -> 
         % SourceStatemArgs = {SourceName, WorkersMap, NerlnetGraph, SourceMethod, BatchSize},        %%TODO  make this a list of Sources
         port_validator(SourcePort, SourceName),
-        SourceStatemArgs = 
-            case CustomFrequency of 
-                none -> {SourceName, WorkersMap, NerlnetGraph, SourceMethod, BatchSize, DefaultFrequency};
-                _ -> {SourceName, WorkersMap, NerlnetGraph, SourceMethod, BatchSize, CustomFrequency}
-            end,
+        SourceStatemArgs = {SourceName, WorkersMap, NerlnetGraph, SourcePolicy, BatchSize, SourceFrequency , SourceEpochs, SourceType},        %%TODO  make this a list of Sources
         %%Create a gen_StateM machine for maintaining Database for Source.
         %% all http requests will be handled by Cowboy which updates source_statem if necessary.
         SourceStatemPid = sourceStatem:start_link(SourceStatemArgs),
@@ -251,13 +247,13 @@ createSources(BatchSize, DefaultFrequency, HostName) ->
 createRouters(MapOfRouters, HostName) ->
     NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
     Func = 
-    fun(RouterName, {Port, _RouterRouting, _RouterFiltering}) -> 
+    fun(RouterName, {Port, Policy}) -> 
         %%Create a gen_Server for maintaining Database for Router.
         %% all http requests will be handled by Cowboy which updates router_genserver if necessary.
         %%    connectivity map will be as follow:
         %%    name_atom of machine => {Host,Port} OR an atom router_name, indicating there is no direct http connection, and should pass request via router_name
         port_validator(Port, RouterName),
-        RouterGenServerArgs= {RouterName, NerlnetGraph},        %%TODO  make this a list of Routers
+        RouterGenServerArgs= {RouterName , Policy , NerlnetGraph},        %%TODO  make this a list of Routers
         RouterGenServerPid = routerGenserver:start_link(RouterGenServerArgs),
 
         RouterDispatch = cowboy_router:compile([
