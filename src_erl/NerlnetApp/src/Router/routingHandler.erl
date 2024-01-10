@@ -25,7 +25,8 @@ init(Req0, State) ->
 %  io:format("router got action ~p body:~p~n",[Action,Body]),
   case Action of
     unicast ->gen_server:cast(Router_genserver_Pid, {unicast,binary_to_term(Body)});
-    broadcast ->gen_server:cast(Router_genserver_Pid, {broadcast,binary_to_term(Body)})
+    broadcast ->gen_server:cast(Router_genserver_Pid, {broadcast,binary_to_term(Body)});
+    statistics -> gen_server:cast(Router_genserver_Pid, {statistics,binary_to_term(Body)})
   end,
   Reply = io_lib:format(" ", []),
 %%  Reply = io_lib:format("Body Received: ~p, Decoded Body = ~p ~n Client_StateM_Pid:~p, Handler's Pid: ~p~n ", [Body,Decoded_body,  Router_genserver_Pid,self()]),

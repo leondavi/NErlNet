@@ -81,7 +81,7 @@ init({MyName, WorkersMap, NerlnetGraph, Policy, BatchSize, Frequency , Epochs, T
   % Updating dictionary
   put(nerlnetGraph, NerlnetGraph),
   put(source_ets, EtsRef),
-  put(stats_ets, EtsStatsRef),
+  put(source_stats_ets, EtsStatsRef),
   {ok, idle, #source_statem_state{ets_ref = EtsRef, castingTo = []}}.
 
 %% @private
@@ -111,12 +111,13 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 %% This cast receive a list of samples to load to the records batchList
 idle(cast, {batchList,WorkersList,Epochs, CSVData}, State) ->
   EtsRef = get(source_ets),
+  StatsEtsRef = get(source_stats_ets),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   BatchSize = ets:lookup_element(EtsRef, batch_size, ?DATA_IDX),
   {NerlTensorBatchesList, NerlTensorType, SampleSize} = parser:parseCSV(MyName,BatchSize,CSVData), % TODO this is slow and heavy policy! pre parse in ETS a possible solution
   ets:update_element(EtsRef, workers_list, [{?DATA_IDX, WorkersList}]),
   ets:update_element(EtsRef, epochs, [{?DATA_IDX, Epochs}]),
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
+  stats:increment_messages_received(StatsEtsRef),
   ?LOG_NOTICE("Source ~p, workers are: ~p", [MyName, WorkersList]),
   ?LOG_NOTICE("Source ~p, sample size: ~p", [MyName, SampleSize]),
   ets:update_element(EtsRef, sample_size, [{?DATA_IDX, SampleSize}]),
@@ -125,6 +126,7 @@ idle(cast, {batchList,WorkersList,Epochs, CSVData}, State) ->
   %%  send an ACK to mainserver that the CSV file is ready
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   nerltools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(csvReady), MyName),
+  stats:increment_messages_sent(StatsEtsRef),
   {next_state, idle, State#source_statem_state{batchesList = NerlTensorBatchesList, nerlTensorType = NerlTensorType}};
 
 
@@ -132,8 +134,8 @@ idle(cast, {batchList,WorkersList,Epochs, CSVData}, State) ->
 idle(cast, {startCasting,Body}, State = #source_statem_state{batchesList = BatchesList}) ->
   EtsRef = get(source_ets),
   [_Source,UserLimitNumberOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
- 
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
 
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   Frequency = ets:lookup_element(EtsRef, frequency, ?DATA_IDX),
@@ -161,74 +163,81 @@ idle(cast, {startCasting,Body}, State = #source_statem_state{batchesList = Batch
 
 idle(cast, {startCasting}, State) ->
   EtsRef = get(source_ets),
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
   % io:format("im not suppose to be here"),
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
+
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   ?LOG_WARNING("Source ~p receives message during casting!",[MyName]),
   {next_state, castingData, State};
 
 
 idle(cast, {stopCasting}, State) ->
-  EtsRef = get(source_ets),
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
   {next_state, idle, State};
 
 idle(cast, {statistics}, State) ->
   EtsRef = get(source_ets),
-  _StatsEts = get(stats_ets), % TODO use this stats
-  MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
-  TotalMessagesCounter = ets:lookup_element(EtsRef, total_messages_ctr, ?DATA_IDX),
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
 
-  % TODO Guy - new statistics stats.erl
-  % encode stats ets
-  StatisticsBody = list_to_binary(atom_to_list(MyName)++":"++integer_to_list(TotalMessagesCounter)), % old data
+  MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
+  StatsEtsStr = stats:encode_ets_to_http_bin_str(StatsEtsRef),
+  StatisticsBody = {term_to_binary(MyName) , list_to_binary(StatsEtsStr)}, % old data
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   nerltools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
+  stats:increment_messages_sent(StatsEtsRef),
   {next_state, idle, State#source_statem_state{}};
 
 idle(cast, _EventContent, State) ->
   EtsRef = get(source_ets),
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   ?LOG_WARNING("Source ~p receives an unexpected cast event in idle state!",[MyName]),
   {next_state, idle, State#source_statem_state{}}.
 
 %%waiting for ether data list of sample been sent to finish OR stop message from main server.
 castingData(cast, {stopCasting}, State = #source_statem_state{transmitter_pid = TransmitterPID}) ->
-  EtsRef = get(source_ets),
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
   ?LOG_ERROR("Unsupported yet"),
   TransmitterPID ! {stopCasting}, % TODO - kill transmitter on stop casting
   {next_state, idle, State#source_statem_state{transmitter_pid = none}};
 
 castingData(cast, {startCasting}, State) ->
   EtsRef = get(source_ets),
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   ?LOG_WARNING("~p is already casting, but received a startCasting message",[MyName]),
   {next_state, castingData, State};
 
 castingData(cast, {leftOvers,_Tail}, State) ->
   EtsRef = get(source_ets),
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
   ?LOG_ERROR("Source ~p got leftOvers unhandled case of castingData state - Currently Deprecated!",[MyName]),
   {next_state, idle, State};
 
 castingData(cast, {finishedCasting, BatchesSent}, State) ->
   EtsRef = get(source_ets),
-   %% source finished casting %%
-   ets:update_counter(EtsRef, total_messages_ctr, BatchesSent), % last is increment value
-   ets:update_counter(EtsRef, batches_sent_ctr, BatchesSent),
-   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
+  %% source finished casting %%
+  stats:increment_by_value(StatsEtsRef, batches_sent, BatchesSent),
+  MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   %%  send an ACK to mainserver that the CSV file is ready
   nerltools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(sourceDone), MyName),
+  stats:increment_messages_sent(StatsEtsRef),
   {next_state, idle, State#source_statem_state{transmitter_pid = none}};
 
 castingData(cast, _EventContent, State = #source_statem_state{ets_ref = EtsRef}) ->
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_bad_messages(StatsEtsRef),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   ?LOG_WARNING("Source ~p Received cast event during castingData state",[MyName]),
   {next_state, castingData, State#source_statem_state{}}.

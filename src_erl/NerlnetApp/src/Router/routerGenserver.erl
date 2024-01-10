@@ -45,14 +45,30 @@ init({MyName , _Policy , NerlnetGraph}) -> %% TODO : Add policy to router
   inets:start(),
   ?LOG_NOTICE("Router ~p is connected to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
   put(nerlnetGraph, NerlnetGraph),
+  put(myName, MyName),
   RoutingTableEtsRef = ets:new(routing_table, [set]),
+  RouterStatsEts = stats:generate_stats_ets(),
+  put(router_stats_ets, RouterStatsEts),
   EntitiesList=digraph:vertices(NerlnetGraph),
   nerl_tools:make_routing_table(RoutingTableEtsRef,EntitiesList--[?API_SERVER_ATOM,MyName],MyName,NerlnetGraph),
   {ok, #router_genserver_state{msgCounter = 1, myName = MyName, etsRef=RoutingTableEtsRef}}.
 
+handle_cast({statistics , _Body} , State=#router_genserver_state{etsRef = Routing_table}) ->
+
+  RouterStatsEts = get(router_stats_ets),
+  stats:increment_messages_received(RouterStatsEts),
+
+  MyName = get(myName),
+  StatsEtsStr = stats:encode_ets_to_http_bin_str(RouterStatsEts),
+  StatisticsBody = {term_to_binary(MyName) , list_to_binary(StatsEtsStr)}, % old data
+  [{_Dest,{_Name , RouterHost , RouterPort}}] = ets:lookup(Routing_table , ?MAIN_SERVER_ATOM),
+  nerltools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
+  stats:increment_messages_sent(RouterStatsEts),
+  {noreply , State};
 
 handle_cast({unicast,{Dest,Body}}, State = #router_genserver_state{msgCounter = MsgCounter,etsRef=Routing_table }) ->
-
+  RouterStatsEts = get(router_stats_ets),
+  stats:increment_messages_received(RouterStatsEts),
   [{Dest,{Name,Host,Port}}]=ets:lookup(Routing_table,Dest),
   case Dest of
     Name->
@@ -64,9 +80,12 @@ handle_cast({unicast,{Dest,Body}}, State = #router_genserver_state{msgCounter = 
       Data={Dest,Body}
     end,
   nerl_tools:http_request(Host, Port,Action, term_to_binary(Data)),
+  stats:increment_messages_sent(RouterStatsEts),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1,etsRef=Routing_table }};
 
-handle_cast({broadcast,{DestList,Body}}, State = #router_genserver_state{msgCounter = MsgCounter,etsRef=Routing_table }) ->
+handle_cast({broadcast,{DestList,Body}}, State = #router_genserver_state{etsRef=Routing_table }) ->
+  RouterStatsEts = get(router_stats_ets),
+  stats:increment_messages_received(RouterStatsEts),
   MapFunc=fun(Dest,Acc)->
     %make a map when keys are addreses to send a message to, and values are lists of destination of the message that go throu key addres
     [{Dest,{Name,Host,Port}}]=ets:lookup(Routing_table,Dest),
@@ -100,15 +119,17 @@ handle_cast({broadcast,{DestList,Body}}, State = #router_genserver_state{msgCoun
         Action="broadcast",
         Data={DestEntityList,Body}
     end,
-    nerl_tools:http_request(Host, Port,Action, term_to_binary(Data))
+    nerl_tools:http_request(Host, Port,Action, term_to_binary(Data)),
+    stats:increment_messages_sent(RouterStatsEts)
   end,
   maps:foreach(SendFunc,NextHopMap),
-  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1,etsRef=Routing_table }};
+  {noreply, State#router_genserver_state{etsRef=Routing_table }};
 
 
-handle_cast(_Request, State = #router_genserver_state{msgCounter = MsgCounter }) ->
+handle_cast(_Request, State) ->
   ?LOG_ERROR("Unrecognized handle cast message! only unicast/broadcast types are allowed"),
-  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}}.
+  stats:increment_bad_messages(get(router_stats_ets)),
+  {noreply, State}.
 
 
 

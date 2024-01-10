@@ -11,4 +11,8 @@
 -define(STATS_KEYVAL_KEY_IDX, 1).
 -define(STATS_KEYVAL_VAL_IDX, 2).
 
--define(SEPERATOR , "@:@").
+-define(SEPERATOR_TRIPLETS , "#").
+-define(SEPERATOR_WITHIN_TRIPLET , ":").
+
+-define(API_SERVER_ENTITY_SEPERATOR , "|").
+-define(API_SERVER_WITHIN_ENTITY_SEPERATOR , "&").

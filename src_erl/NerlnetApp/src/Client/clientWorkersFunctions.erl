@@ -5,7 +5,7 @@
 -include("../nerl_tools.hrl").
 -include("../worker_definitions_ag.hrl").
 
--export([create_workers/3]).
+-export([create_workers/4]).
 -export([get_worker_pid/2 , get_worker_stats_ets/2 , get_workers_names/1]).
 
 get_distributed_worker_behavior(DistributedSystemType , WorkerName , DistributedSystemArgs , DistributedSystemToken) ->
@@ -26,7 +26,7 @@ case DistributedSystemType of
 %% Create workers for clients
 %% 
 %% ets tree structure: ClientETS -> WorkersETS -> {WorkerName, {WorkerStatsETS , WorkerPid, WorkerArgs}}
-create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap) ->
+create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap , EtsStats) ->
   CLIENT_WORKES_MAPS_TUPLE_IDX = 2,
   ClientsMap = maps:from_list(ets:lookup_element(nerlnet_data, deviceClients, ?DATA_IDX)), % This is the format of hostClients {Name,{Port,ClientWorkers,ClientWorkersMaps}}
   io:format("ClientWorkersMaps: ~p~n", [ClientsMap]),
@@ -38,7 +38,7 @@ create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap) ->
 
   Func = fun(WorkerName) -> 
     ModelID = erlang:unique_integer([positive]),
-    WorkerStatsETS = ets:new(worker_stats_ets,[set]),
+    WorkerStatsETS = stats:generate_workers_stats_ets(),
     {ok , SHA} = maps:find(WorkerName , ets:lookup_element(ClientEtsRef, workers_to_sha_map, ?DATA_IDX)),
     {ModelType, LayersSizes, LayersTypes, LayersFunctions, LossMethod, 
     LearningRate, Epochs, Optimizer, OptimizerArgs, _InfraType, DistributedSystemType, 
@@ -53,9 +53,10 @@ create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap) ->
     WorkerArgs = {ModelID , ModelType , LayersSizes, LayersTypes, LayersFunctions, LearningRate , Epochs, 
                   Optimizer, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs},
     io:format("WorkerArgs: ~p~n", [WorkerArgs]),
-    WorkerPid = workerGeneric:start_link({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , _ClientPid = self()}),
+    WorkerPid = workerGeneric:start_link({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , _ClientPid = self() , WorkerStatsETS}),
 
-    ets:insert(WorkersETS, {WorkerName, {WorkerStatsETS , WorkerPid, WorkerArgs}}), 
+    ets:insert(WorkersETS, {WorkerName, {WorkerPid, WorkerArgs}}), 
+    ets:insert(EtsStats, {WorkerName, WorkerStatsETS}),
 
     WorkerName
   end,
@@ -72,12 +73,13 @@ get_worker_stats_ets(ClientEtsRef , WorkerName) ->
 
 get_worker_pid(ClientEtsRef , WorkerName) ->
   WorkersETS = ets:lookup_element(ClientEtsRef, workers_ets, ?DATA_IDX),
-  {_WorkerStatsETS , WorkerPid , _WorkerArgs} = ets:lookup_element(WorkersETS, WorkerName, ?DATA_IDX),
+  {WorkerPid , _WorkerArgs} = ets:lookup_element(WorkersETS, WorkerName, ?DATA_IDX),
   WorkerPid.
 
 get_workers_names(ClientEtsRef) ->
   WorkersETS = ets:lookup_element(ClientEtsRef, workers_ets, ?DATA_IDX),
-  WorkersNames = [WorkerName || {WorkerName, _Val} <- ets:tab2list(WorkersETS)].
+  _WorkersNames = [WorkerName || {WorkerName, _Val} <- ets:tab2list(WorkersETS)].
+
   
 
 
