@@ -45,13 +45,14 @@ start_link(ARGS) ->
 %% @doc Whenever a gen_statem is started using gen_statem:start/[3,4] or
 %% gen_statem:start_link/[3,4], this function is called by the new process to initialize.
 %% distributedBehaviorFunc is the special behavior of the worker regrading the distributed system e.g. federated client/server
-init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , ClientPid}) -> 
+init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , ClientPid , WorkerStatsEts}) -> 
   nerl_tools:setup_logger(?MODULE),
   {ModelID , ModelType , LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate , Epochs, 
    OptimizerType, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs} = WorkerArgs,
   GenWorkerEts = ets:new(generic_worker,[set]),
   put(generic_worker_ets, GenWorkerEts),
   put(client_pid, ClientPid),
+  put(worker_stats_ets , WorkerStatsEts),
   ets:insert(GenWorkerEts,{worker_name, WorkerName}),
   ets:insert(GenWorkerEts,{model_id, ModelID}),
   ets:insert(GenWorkerEts,{model_type, ModelType}),

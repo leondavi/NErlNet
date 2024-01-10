@@ -259,7 +259,8 @@ createRouters(MapOfRouters, HostName) ->
         RouterDispatch = cowboy_router:compile([
             {'_', [
                 {"/unicast",routingHandler, [unicast,RouterGenServerPid]},
-                {"/broadcast",routingHandler, [broadcast,RouterGenServerPid]}
+                {"/broadcast",routingHandler, [broadcast,RouterGenServerPid]},
+                {"/statistics",routingHandler, [statistics,RouterGenServerPid]}
             ]}
         ]),
         %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener

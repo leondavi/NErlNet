@@ -150,28 +150,34 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
           %% TODO - Guy here you should get the the encoded statistics from entities and decode it use it the function you should implement
           %%      statistics arrived from Entity
           {From, StatsEtsEncStr} = Body,
-          EntityName = binary_to_atom(From),
-          EntityStatsEts = get_entity_stats_ets(EntityName),
-          stats:decode_http_bin_str_to_ets(StatsEtsEncStr, EntityStatsEts, overwrite), %TODO Guy
+          EntityName = binary_to_atom(From), %TODO Guy
+          set_entity_stats_ets_str(EntityName, StatsEtsEncStr),
           % TODO increase counter_received_stats ets by 1
-
+          ets:update_counter(StatsEts, counter_received_stats, 1),
           % [From|[NewCounter]] = re:split(binary_to_list(Body), ":", [{return, list}]),
 
           % NewStatisticsMap = maps:put(From,NewCounter,StatisticsMap),
           % NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap,statisticsCounter = StatisticsCounter-1},
 
           ReceivedCounterStatsValue = ets:lookup_element(get(main_server_ets), counter_received_stats, ?DATA_IDX),
-          TotalNumOfEntities = length(ets:lookup_element(get(main_server_ets), entities_names_list, ?DATA_IDX)), % without MainServer!
+          EntitiesNamesList = ets:lookup_element(get(main_server_ets), entities_names_list, ?DATA_IDX),
+          TotalNumOfEntities = length(EntitiesNamesList), % without MainServer!
 
           if ReceivedCounterStatsValue == TotalNumOfEntities ->  %% got stats from all entities
-              % TODO Guy Here we send all stats to Api Server - We need to define the new scheme and Noa and Ohad should implement it
-              % Statistics = maps:to_list(NewStatisticsMap),
-              % S = mapToString(Statistics,[]) ,
-              % ?LOG_NOTICE("Sending stats: ~p~n",[S]),
-              % {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?API_SERVER_ATOM,NerlnetGraph),
-              % nerl_tools:http_request(RouterHost,RouterPort,"statistics", S ++ "|mainServer:" ++integer_to_list(MsgCounter));
-            todo;
-          true -> wait_for_more_stats end
+            Func = fun(Entity) ->
+              EntityStatsEncStr = get_entity_stats_ets_str(EntityName),
+              Entity ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ EntityStatsEncStr ++ ?API_SERVER_ENTITY_SEPERATOR
+            end,
+            MainServerEncStatsEts = stats:encode_ets_to_http_bin_str(get_entity_stats_ets_str(?MAIN_SERVER_ATOM)),
+            MainServerStr = atom_to_list(?MAIN_SERVER_ATOM) ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ MainServerEncStatsEts ++ ?API_SERVER_ENTITY_SEPERATOR,
+            StatsToSend = lists:flatten([Func(Entity) || Entity <- EntitiesNamesList] ++ MainServerStr), % add main server to the list
+            {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
+            ActionStr = atom_to_list(statistics),
+            nerltools:http_router_request(RouterHost,RouterPort, [?API_SERVER_ATOM], ActionStr, list_to_binary(StatsToSend)), % update the source with its data
+            ets:update_element(StatsEts, counter_received_stats, {?STATS_KEYVAL_VAL_IDX, 0});
+            
+          true -> wait_for_more_stats 
+        end
       end,
     {noreply, State#main_genserver_state{}};
 
@@ -351,6 +357,14 @@ generate_stats_ets_tables(VerticesList) ->
 get_entity_stats_ets(EntityName) ->
   MainServerEtsStats = get(etsStats),
   ets:lookup_element(MainServerEtsStats, EntityName , ?DATA_IDX).
+
+get_entity_stats_ets_str(EntityName) ->
+  MainServerEtsStats = get(etsStats),
+  ets:lookup_element(MainServerEtsStats, EntityName , ?DATA_IDX).
+
+set_entity_stats_ets_str(EntityName , StatsEncStr) ->
+  MainServerEtsStats = get(etsStats),
+  ets:insert(MainServerEtsStats, {EntityName, StatsEncStr}).
 
 
 sources_start_casting([],_NumOfSampleToSend)->done;
