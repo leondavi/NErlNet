@@ -8,8 +8,10 @@
 -export([get_messages_dropped/1, increment_messages_dropped/1, increment_messages_dropped/2]).
 -export([get_bytes_received/1, increment_bytes_received/2]).
 
-encode_ets_to_http_bin_str(StatsEts) -> ok. %% Takes value from ets and converts it to "<EntitiyName>SEPERATOR<Value>" string.
-decode_http_bin_str_to_ets(HTTPBinStr , StatsEts , OptsAtom) -> ok. %% Takes "<EntitiyName>SEPERATOR<Value>" string and updates ets value. OptsAtom = increment/overwrite.
+-export([encode_ets_to_http_bin_str/1, decode_http_bin_str_to_ets/3]).
+
+encode_ets_to_http_bin_str(_StatsEts) -> ok. %% Takes value from ets and converts it to "<EntitiyName>SEPERATOR<Value>" string.
+decode_http_bin_str_to_ets(_HTTPBinStr , _StatsEts , _OptsAtom) -> ok. %% Takes "<EntitiyName>SEPERATOR<Value>" string and updates ets value. OptsAtom = increment/overwrite.
 
 generate_stats_ets() ->
     StatsEts = ets:new(stats_ets , [set]),
