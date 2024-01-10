@@ -9,6 +9,7 @@ from globalVars import *
 import globalVars as globe
 import logging
 from workerResult import *
+from decoderHttpMainServer import decode_main_server_ets_str
 
 WORKER_NON_RESULT = -1
 
@@ -116,6 +117,9 @@ class predictRes(Resource):
 class statistics(Resource):
     def post(self):
         resData = request.get_data()
+
+        # TODO 
+        decode_main_server_ets_str(resData)
         # print(resData)
         # format: entity:stats,...|entity:stats,....
         # input is: "c1:c1=1903,w1=5,w2=2,w3=4,w4=4,w5=5,w6=1,w1=0.878,w2=0.953,w3=0.899,w4=0.269,w5=0.667,w6=0.945|c2:c2=638,w7=0,w8=2,w7=1.403,w8=1.192|r1:2507|r2:632|s1:207"
