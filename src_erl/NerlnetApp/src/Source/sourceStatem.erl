@@ -185,7 +185,8 @@ idle(cast, _EventContent, State = #source_statem_state{ets_ref = EtsRef}) ->
 %%waiting for ether data list of sample been sent to finish OR stop message from main server.
 castingData(cast, {stopCasting}, State = #source_statem_state{ets_ref = EtsRef, transmitter_pid = TransmitterPID}) ->
   ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
-  TransmitterPID ! {stopCasting},
+  ?LOG_ERROR("Unsupported yet"),
+  TransmitterPID ! {stopCasting}, % TODO - kill transmitter on stop casting
   {next_state, idle, State#source_statem_state{transmitter_pid = none}};
 
 castingData(cast, {startCasting}, State = #source_statem_state{ets_ref = EtsRef}) ->

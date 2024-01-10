@@ -10,10 +10,26 @@
 -export([list_to_numeric/1]).
 -export([calculate_size/1]).
 -export([make_routing_table/4]).
+-export([http_router_request/5]).
 
 setup_logger(Module) ->
   logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
   logger:set_module_level(Module, all).
+
+
+http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, Body) ->
+  if 
+    length(DestinationsList) == 1 -> % unicast
+        Dest = hd(DestinationsList),
+        nerl_tools:http_request(RouterHost,RouterPort,"unicast",term_to_binary({Dest,{ActionStr, Body}}));
+    length(DestinationsList) > 1 -> % Broadcast
+        nerl_tools:http_request(RouterHost,RouterPort,"broadcast",term_to_binary({DestinationsList,{ActionStr , Body}}));
+    true ->
+        ?LOG_ERROR("Empty DestinationsList is given!"),
+        throw("Empty DestinationsList is given!")
+  end.
+
+
 
 %% send message between entities
 http_request(Host, Port,Path, Body) when is_atom(Body) -> http_request(Host, Port,Path, atom_to_list(Body));

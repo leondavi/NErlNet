@@ -258,29 +258,8 @@ createRouters(MapOfRouters, HostName) ->
 
         RouterDispatch = cowboy_router:compile([
             {'_', [
-                {"/pass",routingHandler, [pass,RouterGenServerPid,NerlnetGraph,RouterName]},
-            
-                {"/custom_worker_message",routingHandler, [custom_worker_message,RouterGenServerPid, NerlnetGraph,RouterName]},
-                {"/clientIdle",routingHandler, [clientIdle,RouterGenServerPid]},
-                {"/lossFunction",routingHandler, [lossFunction,RouterGenServerPid]},
-                {"/predictRes",routingHandler, [predictRes,RouterGenServerPid]},
-                {"/statistics",routingHandler, [statistics,RouterGenServerPid]},
-                {"/clientTraining",routingHandler, [clientTraining,RouterGenServerPid]},
-                {"/clientPredict",routingHandler, [clientPredict,RouterGenServerPid]},
-                {"/updateCSV",routingHandler, [updateCSV,RouterGenServerPid]},
-                {"/csvReady",routingHandler, [csvReady,RouterGenServerPid]},
-                {"/sourceDone",routingHandler, [sourceDone,RouterGenServerPid]},
-                {"/clientReady",routingHandler, [clientReady,RouterGenServerPid]},
-                {"/batch",routingHandler, [rout,RouterGenServerPid]},
-                {"/startCasting",routingHandler, [startCasting,RouterGenServerPid]},
-                {"/stopCasting",routingHandler, [stopCasting,RouterGenServerPid]},
-                {"/federatedWeightsVector",routingHandler, [federatedWeightsVector,RouterGenServerPid]},
-                {"/federatedWeights",routingHandler, [federatedWeights,RouterGenServerPid]},
                 {"/unicast",routingHandler, [unicast,RouterGenServerPid]},
-                {"/broadcast",routingHandler, [broadcast,RouterGenServerPid]},
-
-                %%GUI actions
-                {"/getStats",routingHandler, [getStats,RouterGenServerPid]}
+                {"/broadcast",routingHandler, [broadcast,RouterGenServerPid]}
             ]}
         ]),
         %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
@@ -318,9 +297,6 @@ createMainServer(true,BatchSize,HostName) ->
         {"/clientsPredict",[],actionHandler,[clientsPredict,MainGenServerPid]},
         {"/startCasting",[],actionHandler, [startCasting, MainGenServerPid]},
         {"/stopCasting",[],actionHandler, [stopCasting, MainGenServerPid]},
-        %GUI actions
-        {"/getGraph",[],guiHandler, [getGraph, MainGenServerPid]},
-        {"/getStats",[],guiHandler, [getStats, MainGenServerPid]},
 
         {"/[...]", [],noMatchingRouteHandler, [MainGenServerPid]}
         ]}
