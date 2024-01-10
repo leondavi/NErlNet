@@ -227,7 +227,7 @@ handle_cast({startCasting,_SourceNames}, State = #main_genserver_state{sourcesWa
   {noreply, State};
 
 
-handle_cast({stopCasting, SourceName}, State = #main_genserver_state{state = casting, myName = MyName, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
+handle_cast({stopCasting, SourceName}, State = #main_genserver_state{state = casting}) ->
     StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
     stats:increment_messages_received(StatsEts),
   
@@ -266,7 +266,7 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName})
   {noreply, State#main_genserver_state{}};
 
 
-handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSize, nerlnetGraph = NerlnetGraph,msgCounter = MsgCounter}) ->
+handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSize}) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
   try 
@@ -284,7 +284,7 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
   catch Err:E ->  
     ?LOG_ERROR(?LOG_HEADER++"Error receiving predict result ~p~n",[{Err,E}])
   end,
-  {noreply, State#main_genserver_state{msgCounter = MsgCounter+1}};
+  {noreply, State#main_genserver_state{}};
 
 
 handle_cast(Request, State = #main_genserver_state{}) ->
