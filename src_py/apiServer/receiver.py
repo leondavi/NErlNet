@@ -140,7 +140,7 @@ class statistics(Resource):
 
 #Listener Server list of resources: 
 api.add_resource(test, "/test")
-api.add_resource(ack, "/ackP")
+api.add_resource(ack, "/ackPy")
 api.add_resource(shutdown, "/shutdown")
 api.add_resource(trainRes, "/trainRes")
 api.add_resource(predictRes, "/predRes")
