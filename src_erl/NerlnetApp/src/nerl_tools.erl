@@ -3,7 +3,7 @@
 -include("nerl_tools.hrl").
 
 -export([setup_logger/1, string_format/2]).
--export([http_request/4, sendHTTP/4, getHostPort/5, getShortPath/3]).
+-export([http_request/4, sendHTTP/4, get_client_worker_pairs/3, getShortPath/3]).
 -export([string_to_list_int/1, deleteOldJson/1]).
 -export([multipart/2, read_all_data/2]).
 -export([getdeviceIP/0, port_available/1]).
@@ -39,12 +39,10 @@ http_request(Host, Port,Path, Body)->
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
   httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
 
-getHostPort([],_WorkersMap,_NerlnetGraph,_MyName,Ret)-> Ret;
-getHostPort([WorkerName|WorkersNames],WorkersMap,NerlnetGraph,MyName,Ret)->
+get_client_worker_pairs([],_WorkersMap,Ret)-> Ret;
+get_client_worker_pairs([WorkerName|WorkersNames],WorkersMap,Ret)->
   ClientName = maps:get(list_to_atom(WorkerName),WorkersMap),
-  {RouterHost,RouterPort} = getShortPath(MyName,ClientName,NerlnetGraph),
-  %{RouterHost,RouterPort} = maps:get(ClientName,PortMap),
-  getHostPort(WorkersNames,WorkersMap, NerlnetGraph,MyName,Ret++[{ClientName,WorkerName,RouterHost,RouterPort}]).
+  get_client_worker_pairs(WorkersNames,WorkersMap, Ret++[{ClientName,WorkerName}]).
 
 getShortPath(From,To,NerlnetGraph) when is_list(To) -> getShortPath(From,list_to_atom(To),NerlnetGraph);
 getShortPath(From,To,NerlnetGraph) when is_list(From) -> getShortPath(list_to_atom(From),To,NerlnetGraph);
