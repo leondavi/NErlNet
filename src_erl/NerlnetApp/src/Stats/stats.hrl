@@ -4,6 +4,9 @@
 -define(STATS_ATOM_BYTES_RECV, bytes_received).
 -define(STATS_ATOM_BYTES_SENT, bytes_sent).
 -define(STATS_ATOM_BAD_MSG, bad_messages).
+-define(STATS_ATOM_BATCHES_RECEIVED, batches_received).
+-define(STATS_ATOM_BATCHES_DROPPED, batches_dropped).
+-define(STATS_ATOM_BATCHES_SENT, batches_sent).
 
 -define(STATS_KEYVAL_KEY_IDX, 1).
 -define(STATS_KEYVAL_VAL_IDX, 2).
