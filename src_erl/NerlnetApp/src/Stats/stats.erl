@@ -7,6 +7,8 @@
 -export([get_messages_sent/1, increment_messages_sent/1, increment_messages_sent/2]).
 -export([get_messages_dropped/1, increment_messages_dropped/1, increment_messages_dropped/2]).
 -export([get_bytes_received/1, increment_bytes_received/2]).
+-export([get_bytes_sent/1, increment_bytes_sent/2]).
+-export([get_bad_messages/1, increment_bad_messages/1]).
 
 -export([encode_ets_to_http_bin_str/1, decode_http_bin_str_to_ets/3]).
 
@@ -27,7 +29,7 @@ get_messages_received(StatsEts) ->
     ets:lookup_element(StatsEts, ?STATS_ATOM_MSG_RECV , ?STATS_KEYVAL_VAL_IDX).
 
 increment_messages_received(StatsEts) ->
-    ets:update_counter(StatsEts, ?STATS_ATOM_MSG_RECV, 1);
+    ets:update_counter(StatsEts, ?STATS_ATOM_MSG_RECV, 1).
 
 increment_messages_received(StatsEts , Value) ->
     ets:update_counter(StatsEts, ?STATS_ATOM_MSG_RECV, Value).
@@ -36,7 +38,7 @@ get_messages_sent(StatsEts) ->
     ets:lookup_element(StatsEts, ?STATS_ATOM_MSG_SENT , ?STATS_KEYVAL_VAL_IDX).
 
 increment_messages_sent(StatsEts) ->
-    ets:update_counter(StatsEts, ?STATS_ATOM_MSG_SENT, 1);
+    ets:update_counter(StatsEts, ?STATS_ATOM_MSG_SENT, 1).
 
 increment_messages_sent(StatsEts , Value) ->
     ets:update_counter(StatsEts, ?STATS_ATOM_MSG_SENT, Value).
@@ -45,7 +47,7 @@ get_messages_dropped(StatsEts) ->
     ets:lookup_element(StatsEts, ?STATS_ATOM_MSG_DROP , ?STATS_KEYVAL_VAL_IDX).
 
 increment_messages_dropped(StatsEts) ->
-    ets:update_counter(StatsEts, ?STATS_ATOM_MSG_DROP, 1);
+    ets:update_counter(StatsEts, ?STATS_ATOM_MSG_DROP, 1).
 
 increment_messages_dropped(StatsEts , Value) ->
     ets:update_counter(StatsEts, ?STATS_ATOM_MSG_DROP, Value).
