@@ -276,7 +276,7 @@ connectRouters(Graph,_DCMap,CommunicationMap) ->
     ?LOG_INFO("RoutersEdges:~p~n",[RoutersEdges]),
     AddEdgesFunc = fun({Router,Entity}) -> 
                       case Entity of 
-                        ?MAIN_SERVER_ATOM -> add_edges(Graph , ?MAIN_SERVER_ATOM , ?API_SERVER_ATOM); %% TODO Communication should be through router
+                        ?MAIN_SERVER_ATOM -> add_edges(Graph , Router , ?API_SERVER_ATOM);
                         _ -> skip end, 
                       add_edges(Graph,Router,Entity)  end,
     lists:foreach(AddEdgesFunc, RoutersEdges),

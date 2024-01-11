@@ -198,21 +198,22 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName, so
   {noreply, NextState};
 
 handle_cast({sourceAck,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList,msgCounter = MsgCounter}) ->
-    io:format("WAITING: ~p~n",[WaitingList]),
-    io:format("BODY: ~p~n",[binary_to_list(Body)]),
-    NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
-    % io:format("waiting for source:~p~n",[NewWaitingList]),
+    StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
+    stats:increment_messages_received(StatsEts),
+    SourceName = binary_to_term(Body),
+    NewWaitingList = WaitingList--[SourceName],
     if length(NewWaitingList) == 0 -> ack();
     true-> ok end,
-  {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList,msgCounter = MsgCounter+1}};
+  {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList}};
 
 
-handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList,msgCounter = MsgCounter}) ->
+handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList}) ->
+  StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
+  stats:increment_messages_received(StatsEts),
   NewWaitingList = WaitingList--[binary_to_term(Body)],
-  %io:format("new Waiting List: ~p ~n",[NewWaitingList]),
   if length(NewWaitingList) == 0 -> ack();
   true-> ok end,
-  {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList, msgCounter = MsgCounter+1}};
+  {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList}};
 
 %%TODO change Client_Names to list of clients
 handle_cast({startCasting,SourcesNames}, State = #main_genserver_state{state = idle, sourcesCastingList=CastingList, sourcesWaitingList = [], clientsWaitingList = []}) ->
@@ -382,8 +383,9 @@ ack() ->
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
   % io:format("mainserver sending ACK~n"),
   Body = "ack",
-  {ok, Response} = nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(ackP), Body),
-
+  {ok, Response} = nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], ?API_SERVER_ACTION_ACK, Body),
+  StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
+  stats:increment_messages_sent(StatsEts),
   case Response of 
     {{_Protocol, _Code = 404, _Meaning}, _Headers, _Body} -> 
           ?LOG_WARNING("Main Server retries again ack send"), ack();    %% Ack not received, retry again

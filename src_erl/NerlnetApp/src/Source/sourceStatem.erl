@@ -126,7 +126,7 @@ idle(cast, {batchList,WorkersList,Epochs, CSVData}, State) ->
   io:format("MyName: ~p~n", [MyName]),
   %%  send an ACK to mainserver that the CSV file is ready
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(csvReady), term_to_binary(MyName)),
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(csvReady), MyName),
   stats:increment_messages_sent(StatsEtsRef),
   {next_state, idle, State#source_statem_state{batchesList = NerlTensorBatchesList, nerlTensorType = NerlTensorType}};
 
