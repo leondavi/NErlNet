@@ -77,6 +77,7 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   ets:insert(EtsStats, {MyName, ClientStatsEts}),
   put(ets_stats, EtsStats),
   ets:insert(EtsRef, {workerToClient, WorkerToClientMap}),
+  io:format("!!!!! ClientWorkers: ~p~n",[ClientWorkers]),
   ets:insert(EtsRef, {workersNames, ClientWorkers}),
   ets:insert(EtsRef, {nerlnetGraph, NerlnetGraph}),
   ets:insert(EtsRef, {myName, MyName}),
@@ -180,7 +181,8 @@ idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, et
   stats:increment_messages_sent(ClientStatsEts),
   {next_state, idle, State};
 
-idle(cast, In = {training}, State = #client_statem_state{etsRef = EtsRef}) ->
+idle(cast, In = {training}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
+  io:format("client going to state training ~p~n",[MyName]),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),  MessageToCast = {training},
@@ -281,7 +283,7 @@ training(cast, _In = {predict}, State = #client_statem_state{myName = MyName, et
 
 % training get path to main server
 training(cast, In = {loss,WorkerName,nan,_Time_NIF}, State) ->
-  EtsRef = get(client_ets),
+  EtsRef = get(client_data),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
@@ -391,7 +393,7 @@ code_change(_OldVsn, StateName, State = #client_statem_state{}, _Extra) ->
 
 % Sends to main server that client is ready
 send_client_is_ready(MyName) ->
-  EtsRef = get(client_ets),
+  EtsRef = get(client_data),
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   %%  send an ACK to mainserver that the client is ready
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(clientReady), MyName).
@@ -399,8 +401,9 @@ send_client_is_ready(MyName) ->
 cast_message_to_workers(EtsRef, Msg) ->
   ClientStatsEts = get(client_stats_ets),
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
-  Func = fun(WorkerKey) -> 
-    WorkerPid = ets:lookup_element(EtsRef, WorkerKey, ?WORKER_PID_IDX),
+  Func = fun(WorkerKey) ->
+    WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef, WorkerKey), % WorkerKey is the worker name
+    io:format("Casting message: ~p",[{WorkerPid, Msg}]),
     gen_statem:cast(WorkerPid, Msg),
     stats:increment_messages_sent(ClientStatsEts)
   end,

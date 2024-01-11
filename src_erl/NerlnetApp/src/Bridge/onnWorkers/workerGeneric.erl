@@ -144,6 +144,7 @@ idle(cast, {post_idle, From}, State = #workerGeneric_state{myName = _MyName,dist
   {next_state, idle, State};
 
 idle(cast, {training}, State = #workerGeneric_state{myName = MyName}) ->
+  io:format("Training worker ~p~n",[MyName]),
   worker_controller_empty_message_queue(),
   ?LOG_NOTICE("~p Go from idle to train!\n",[MyName]),
   update_client_avilable_worker(MyName),

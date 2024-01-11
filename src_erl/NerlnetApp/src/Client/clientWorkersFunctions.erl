@@ -54,7 +54,7 @@ create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap , EtsStats) ->
                   Optimizer, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs},
     io:format("WorkerArgs: ~p~n", [WorkerArgs]),
     WorkerPid = workerGeneric:start_link({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , _ClientPid = self() , WorkerStatsETS}),
-
+    io:format("WorkerPid: ~p~n", [WorkerPid]),
     ets:insert(WorkersETS, {WorkerName, {WorkerPid, WorkerArgs}}), 
     ets:insert(EtsStats, {WorkerName, WorkerStatsETS}),
 

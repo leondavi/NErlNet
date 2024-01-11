@@ -101,7 +101,8 @@ handle_cast({clientsTraining, _Body}, State = #main_genserver_state{myName = MyN
   ?LOG_INFO("Casts the training phase message to all clients"),
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
-  update_clients_phase(clientsTraining, MyName), % update all clients with clientsTraining phase
+  ClientTrainingAction = clientTraining, % client! not clients!
+  update_clients_phase(ClientTrainingAction, MyName), % update all clients with clientsTraining phase
   stats:increment_messages_sent(StatsEts),
   {noreply, State#main_genserver_state{}};
 
@@ -333,6 +334,7 @@ code_change(_OldVsn, State = #main_genserver_state{}, _Extra) ->
 
 update_clients_phase(PhaseAtom, MessageBody) when is_atom(PhaseAtom) ->
   ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
+  io:format("ListOfClients: ~p~n",[ListOfClients]),
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
   ActionStr = atom_to_list(PhaseAtom),
   DestinationsList = ListOfClients,

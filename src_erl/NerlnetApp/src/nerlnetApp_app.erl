@@ -127,7 +127,7 @@ createNerlnetInitiator(HostName) ->
             %% An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
             init_cowboy_start_clear(nerlnetInitiator, {HostName,DefaultPort},NerlnetInitiatorDispatch);
         true -> ?LOG_NOTICE("Nerlnet uses port ~p and it has to be unused before running Nerlnet server!", [DefaultPort]),
-                ?LOG_NOTICE("Find the process that uses port ~p using the command: lsof -i:~p",[DefaultPort, DefaultPort]),
+                ?LOG_NOTICE("Find the process that uses port ~p using the command: sudo fuser -k ~p/tcp",[DefaultPort, DefaultPort]),
                 ?LOG_ERROR("Port ~p is being used - can not start (definition NERLNET_INIT_PORT in nerl_tools.hrl)", [DefaultPort])
     end.
 
@@ -176,7 +176,8 @@ port_validator(Port, EntityName) ->
         true -> ?LOG_ERROR("Nerlnet entity: ~p uses port ~p and it must be free", [EntityName, Port]),
                 ?LOG_ERROR("You can take the following steps:",[]),
                 ?LOG_ERROR("1. Change port in DC file to free port",[]),
-                ?LOG_ERROR("2. Find the process that uses port ~p using the command: lsof -i:~p and terminate it (Risky approach)",[Port, Port]),
+                ?LOG_ERROR("2. Find the process that uses port ~p using the command: sudo fuser -k ~p/tcp and terminate it (Risky approach)",[Port, Port]),
+                ?LOG_ERROR("3. Kill Erlang beam instances on this machine: sudo pkill beam"),
                 erlang:error("Port ~p is being used - cannot start")
     end.
 
