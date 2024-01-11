@@ -18,8 +18,8 @@ api_server_instance = ApiServer()
 #api_server_instance.help()
 api_server_instance.showJsons()
 dc = 0
-conn = 15
-flow = 10
+conn = 19
+flow = 17
 api_server_instance.setJsons(dc, conn, flow)
 dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 

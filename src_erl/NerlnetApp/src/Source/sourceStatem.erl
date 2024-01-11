@@ -134,6 +134,7 @@ idle(cast, {batchList,WorkersList,Epochs, CSVData}, State) ->
 %% This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
 idle(cast, {startCasting,Body}, State = #source_statem_state{batchesList = BatchesList}) ->
   EtsRef = get(source_ets),
+  io:format("Source Body: ~p~n", [binary_to_term(Body)]),
   [_Source,UserLimitNumberOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
   StatsEtsRef = get(source_stats_ets),
   stats:increment_messages_received(StatsEtsRef),
@@ -282,7 +283,7 @@ spawnTransmitter(SourceEtsRef, WorkersListOfNames, BatchesListToSend)->
 %% Sends batch of samples to a client
 % A batch is always {NerlTensor, Type}
 sendBatch({NerlTensor, Type},CSVPath, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
-        ToSend = term_to_binary({ClientName, WorkerName, CSVPath, BatchID, {NerlTensor, Type}}),
+        ToSend = {ClientName, WorkerName, CSVPath, BatchID, {NerlTensor, Type}},
         nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(batch), ToSend).
 
 prepare_and_send(_TransmitterEts, _TimeInterval_ms, _Batch, _BatchIdx, []) -> ok;

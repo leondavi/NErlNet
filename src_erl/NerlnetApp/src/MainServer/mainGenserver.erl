@@ -220,7 +220,6 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList =
 handle_cast({startCasting,SourcesNames}, State = #main_genserver_state{state = idle, sourcesCastingList=CastingList, sourcesWaitingList = [], clientsWaitingList = []}) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
-  
   Splitted = re:split(binary_to_list(SourcesNames), ",", [{return, list}]), % SourceNames holds also num of samples to send at the end of it!
   NumOfSampleToSend = lists:last(Splitted),
   Sources = lists:sublist(Splitted,length(Splitted)-1),
@@ -376,7 +375,7 @@ sources_start_casting([SourceName|SourceNames],NumOfSamplesToSend) ->
   ?LOG_NOTICE("Sending start casting command to: ~p",[SourceName]),
   ActionStr = atom_to_list(startCasting),
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
-  MessageBody = SourceName++[","]++NumOfSamplesToSend,
+  MessageBody = SourceName ++ "," ++ NumOfSamplesToSend,
   nerl_tools:http_router_request(RouterHost, RouterPort, [SourceName], ActionStr, MessageBody),
   sources_start_casting(SourceNames, NumOfSamplesToSend).
 
