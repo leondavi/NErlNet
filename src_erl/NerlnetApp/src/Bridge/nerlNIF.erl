@@ -67,13 +67,13 @@ call_to_predict(ModelID, BatchTensor, Type, WorkerPid,CSVname, BatchID)->
       ok = predict_nif(ModelID, BatchTensor, Type),
       receive
             
-            {nerlnif , [PredNerlTensor, NewType, TimeTook]}-> %% nerlnif atom means a message from the nif implementation
+            {nerlnif , PredNerlTensor, NewType, TimeTook}-> %% nerlnif atom means a message from the nif implementation
                   % io:format("pred_nif done~n"),
                   % {PredTen, _NewType} = nerltensor_conversion({PredNerlTensor, NewType}, erl_float),
                   % io:format("Pred returned: ~p~n", [PredNerlTensor]),
                   gen_statem:cast(WorkerPid,{predictRes,PredNerlTensor, NewType, TimeTook,CSVname, BatchID});
             Error ->
-                  ?LOG_ERROR("received wrong prediction_nif format:"++Error),
+                  ?LOG_ERROR("received wrong prediction_nif format: ~p" ,[Error]),
                   throw("received wrong prediction_nif format")
             after ?PREDICT_TIMEOUT -> 
                  % worker miss predict batch  TODO - inspect this code

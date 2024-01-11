@@ -168,7 +168,7 @@ wait(cast, {loss, LossVal , TimeNIF}, State = #workerGeneric_state{myName = MyNa
   end;
 
 wait(cast, {predictRes,NerlTensor, Type, TimeNIF, CSVname,BatchID}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
-  gen_statem:cast(get(client_pid),{predictRes,MyName, CSVname,BatchID, NerlTensor, Type, TimeNIF}), %% TODO TODO change csv name and batch id(1)
+  gen_statem:cast(get(client_pid),{predictRes,MyName, CSVname,BatchID, NerlTensor, Type}), %% TODO TODO change csv name and batch id(1)
   Update = DistributedBehaviorFunc(post_predict, {get(generic_worker_ets),DistributedWorkerData}),
   if Update -> 
     {next_state, update, State#workerGeneric_state{nextState=NextState}};
@@ -290,12 +290,13 @@ predict(cast, {sample,_CSVname, BatchID, {<<>>, _Type}}, State) ->
   {next_state, predict, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}};
 
 % send predict sample to worker
-predict(cast, {sample,CSVname, BatchID, {PredictBatchTensor, Type}}, State = #workerGeneric_state{ modelID = ModelId, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
+predict(cast, {sample,CSVname, BatchID, {PredictBatchTensor, Type}}, State = #workerGeneric_state{modelID = ModelId, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
     CurrPID = self(),
     DistributedBehaviorFunc(pre_predict, {get(generic_worker_ets),DistributedWorkerData}),
     WorkersStatsEts = get(worker_stats_ets),
     stats:increment_by_value(WorkersStatsEts , batches_received_predict , 1),
-    _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId,PredictBatchTensor, Type,CurrPID,CSVname, BatchID) end),
+    io:format("Params: ~p ~p ~p ~p ~p ~p~n",[ModelId , PredictBatchTensor , Type , CurrPID , CSVname, BatchID]),
+    _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId , PredictBatchTensor , Type , CurrPID , CSVname, BatchID) end),
     {next_state, wait, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}};
   
 predict(cast, {idle}, State = #workerGeneric_state{myName = MyName}) ->
@@ -307,7 +308,9 @@ predict(cast, Data, State) ->
   {next_state, predict, State}.
 
 %% Updates the client that worker is available
-update_client_avilable_worker(MyName) -> gen_statem:cast(get(client_pid),{stateChange,MyName}).
+update_client_avilable_worker(MyName) -> 
+  io:format("@Workers: Worker ~p is available!~n" ,[MyName]),
+  gen_statem:cast(get(client_pid),{stateChange,MyName}).
 
 worker_controller_message_queue(ReceiveData) ->
     Queue = ets:lookup_element(get(generic_worker_ets), controller_message_q, ?ETS_KEYVAL_VAL_IDX),

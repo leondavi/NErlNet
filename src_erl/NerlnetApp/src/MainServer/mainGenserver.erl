@@ -186,8 +186,9 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
 handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName, sourcesCastingList = SourcesCastingList}) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
-  SourceName = list_to_atom(binary_to_list(Body)),
+  SourceName = binary_to_term(Body),
   UpdatedSourcesCastingList = SourcesCastingList--[SourceName],
+  io:format("UpdatedSourcesCastingList: ~p , SourceName: ~p~n",[UpdatedSourcesCastingList , SourceName]),
   case UpdatedSourcesCastingList of
     [] -> % the list is empty - all sources were done casting their batches
       PhaseAtom = clientIdle,
@@ -198,7 +199,7 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName, so
   end,
   {noreply, NextState};
 
-handle_cast({sourceAck,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList,msgCounter = MsgCounter}) ->
+handle_cast({sourceAck,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList}) ->
     StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
     stats:increment_messages_received(StatsEts),
     SourceName = binary_to_term(Body),
@@ -258,12 +259,12 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName})
   stats:increment_messages_received(StatsEts),
   try
     {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX), % get main_server's router,
-    case   binary_to_term(Body) of
+    case binary_to_term(Body) of
       {WorkerName,{LossFunction,_Time}} -> % average time should be gathered
-        nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(stopCasting), atom_to_list(WorkerName)++"#"++float_to_list(LossFunction)),
+        nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(trainRes), atom_to_list(WorkerName)++"#"++float_to_list(LossFunction)),
         stats:increment_messages_sent(StatsEts);
       {WorkerName,LossFunction} ->
-        nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(stopCasting), atom_to_list(WorkerName)++"#"++float_to_list(LossFunction)),
+        nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(trainRes), atom_to_list(WorkerName)++"#"++float_to_list(LossFunction)),
         stats:increment_messages_sent(StatsEts);
       _ELSE ->
         ?LOG_ERROR("~p Wrong loss function pattern received from client and its worker ~p", [MyName, Body])
@@ -280,6 +281,7 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
   try 
       {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX), % get main_server's router,
       {WorkerName, InputName, BatchID, {NerlTensor, Type}} = binary_to_term(Body),   %% TODO: add convention with client
+      io:format("WorkerName: ~p, InputName: ~p, BatchID: ~p, NerlTensor: ~p, Type: ~p~n",[WorkerName, InputName, BatchID, NerlTensor, Type]),
       {DecodedNerlTensor, _Type} =
       if 
         (NerlTensor==<<>>) -> ?LOG_ERROR(?LOG_HEADER++"Got empty tensor"), empty_nerltensor_err;

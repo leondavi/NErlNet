@@ -55,6 +55,7 @@ class Stats():
         use plot=True to plot the min loss of each worker.
         """
         min_loss_dict = OrderedDict()
+        print(f'@Stats.py: {min_loss_dict}')
         for key, loss_list in self.get_loss().items():
             min_loss_dict[key] = min(loss_list)
         if plot: # Plot in dots the min loss of each worker

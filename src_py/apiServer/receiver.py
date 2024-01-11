@@ -102,6 +102,7 @@ class trainRes(Resource):
 #http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++BatchID++"#"++CSVName++"#"++BatchSize)
 class predictRes(Resource):
     def post(self):
+        print(f'HERE!')
         # Result preprocessing:
         # Receiving from Erlang: Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize)
         resData = request.form

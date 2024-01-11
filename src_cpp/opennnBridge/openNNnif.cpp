@@ -103,12 +103,12 @@ void* PredictFun(void* arg)
     high_resolution_clock::time_point  stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - PredictNNptr->start_time);
     nifpp::TERM predict_time = nifpp::make(env, duration.count());
-    std::vector<nifpp::TERM> return_list = {prediction , nifpp::make(env, PredictNNptr->return_tensor_type) , predict_time};
-    ERL_NIF_TERM nerlnif_atom = enif_make_atom(env, NERLNIF_ATOM_STR);
-    ERL_NIF_TERM predict_res_and_time = enif_make_tuple(env, 2 , nerlnif_atom , nifpp::make(env, return_list));
+    nifpp::str_atom nerlnif_atom_str(NERLNIF_ATOM_STR);
+    nifpp::TERM nerlnif_atom = nifpp::make(env , nerlnif_atom_str);
+    ERL_NIF_TERM predict_res_and_time = enif_make_tuple(env, 4 , nerlnif_atom , prediction , nifpp::make(env, PredictNNptr->return_tensor_type) , predict_time);
 
 
-    if(enif_send(NULL,&(PredictNNptr->pid), env, nifpp::make(env, predict_res_and_time))){
+    if(enif_send(NULL,&(PredictNNptr->pid), env, predict_res_and_time)){
         // printf("enif_send succeed prediction\n");
     }
     else
