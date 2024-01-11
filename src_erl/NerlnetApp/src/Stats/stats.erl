@@ -52,9 +52,9 @@ decode_http_bin_str_to_ets(EncodedStr) ->
 
 generate_stats_ets() ->
     StatsEts = ets:new(stats_ets , [set]),
-    ets:insert(StatsEts, {message_received , 0}),
-    ets:insert(StatsEts, {message_sent , 0}),
-    ets:insert(StatsEts, {message_dropped , 0}),
+    ets:insert(StatsEts, {messages_received , 0}),
+    ets:insert(StatsEts, {messages_sent , 0}),
+    ets:insert(StatsEts, {messages_dropped , 0}),
     ets:insert(StatsEts, {bytes_received , 0}),
     ets:insert(StatsEts, {bytes_sent , 0}),
     ets:insert(StatsEts, {bad_messages , 0}),

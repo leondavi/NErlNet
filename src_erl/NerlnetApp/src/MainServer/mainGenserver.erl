@@ -14,7 +14,6 @@
 -include("../Stats/stats.hrl").
 -include("mainServerDefs.hrl").
 
-
 %% API
 -export([start_link/1]).
 
@@ -80,7 +79,7 @@ init({MyName,ClientsNames,BatchSize,WorkersMap,NerlnetGraph}) ->
 handle_cast({initCSV, SourceName ,SourceData}, State = #main_genserver_state{state = idle, sourcesWaitingList = SourcesWaitingList}) ->
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
   ActionStr = atom_to_list(updateCSV),
-  nerltools:http_router_request(RouterHost,RouterPort, [SourceName], ActionStr, SourceData), % update the source with its data
+  nerl_tools:http_router_request(RouterHost,RouterPort, [SourceName], ActionStr, SourceData), % update the source with its data
   UpdatedSourceWaitingList = SourcesWaitingList++[list_to_atom(SourceName)],
   {noreply, State#main_genserver_state{sourcesWaitingList = UpdatedSourceWaitingList}};
 
@@ -173,7 +172,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
             StatsToSend = lists:flatten([Func(Entity) || Entity <- EntitiesNamesList] ++ MainServerStr), % add main server to the list
             {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
             ActionStr = atom_to_list(statistics),
-            nerltools:http_router_request(RouterHost,RouterPort, [?API_SERVER_ATOM], ActionStr, list_to_binary(StatsToSend)), % update the source with its data
+            nerl_tools:http_router_request(RouterHost,RouterPort, [?API_SERVER_ATOM], ActionStr, list_to_binary(StatsToSend)), % update the source with its data
             ets:update_element(StatsEts, counter_received_stats, {?STATS_KEYVAL_VAL_IDX, 0});
             
           true -> wait_for_more_stats 
@@ -199,6 +198,8 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName, so
   {noreply, NextState};
 
 handle_cast({sourceAck,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList,msgCounter = MsgCounter}) ->
+    io:format("WAITING: ~p~n",[WaitingList]),
+    io:format("BODY: ~p~n",[binary_to_list(Body)]),
     NewWaitingList = WaitingList--[list_to_atom(binary_to_list(Body))],
     % io:format("waiting for source:~p~n",[NewWaitingList]),
     if length(NewWaitingList) == 0 -> ack();
@@ -334,7 +335,7 @@ update_clients_phase(PhaseAtom, MessageBody) when is_atom(PhaseAtom) ->
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
   ActionStr = atom_to_list(PhaseAtom),
   DestinationsList = ListOfClients,
-  nerltools:http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, MessageBody).
+  nerl_tools:http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, MessageBody).
 
 % Sends requests for statisics from all entities excludes main server
 statistics_requests_to_entities() ->
@@ -343,7 +344,7 @@ statistics_requests_to_entities() ->
   ActionStr = atom_to_list(statistics),
   DestinationsList = ListOfEntities,
   MessageBody = "", % there is no need for body in statistics request
-  nerltools:http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, MessageBody).
+  nerl_tools:http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, MessageBody).
 
 generate_stats_ets_tables(VerticesList) ->
   MainServerEtsStats = get(etsStats),
@@ -373,7 +374,7 @@ sources_start_casting([SourceName|SourceNames],NumOfSamplesToSend) ->
   ActionStr = atom_to_list(startCasting),
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
   MessageBody = SourceName++[","]++NumOfSamplesToSend,
-  nerltools:http_router_request(RouterHost, RouterPort, [SourceName], ActionStr, MessageBody),
+  nerl_tools:http_router_request(RouterHost, RouterPort, [SourceName], ActionStr, MessageBody),
   sources_start_casting(SourceNames, NumOfSamplesToSend).
 
 
