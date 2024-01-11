@@ -68,11 +68,18 @@ generate_workers_stats_ets() ->
     ets:insert(WorkersStatsEts, {bytes_received , 0}),
     ets:insert(WorkersStatsEts, {bytes_sent , 0}),
     ets:insert(WorkersStatsEts, {bad_messages , 0}),
-    ets:insert(WorkersStatsEts, {batches_received , 0}), % related with client only
-    ets:insert(WorkersStatsEts, {batches_dropped , 0}), % related with client only
-    ets:insert(WorkersStatsEts, {batches_sent , 0}), % related with source
+    ets:insert(WorkersStatsEts, {batches_received_train , 0}), % related with client only
+    ets:insert(WorkersStatsEts, {batches_received_predict , 0}), % related with client only
+    ets:insert(WorkersStatsEts, {batches_dropped_train , 0}), % related with client only
+    ets:insert(WorkersStatsEts, {batches_dropped_predict , 0}), % related with client only
+    ets:insert(WorkersStatsEts, {batches_sent_train , 0}), % related with source
+    ets:insert(WorkersStatsEts, {empty_batches , 0}), % related with source
+    ets:insert(WorkersStatsEts, {batches_sent_predict , 0}), % related with source
     ets:insert(WorkersStatsEts, {average_time_training , 0}),
     ets:insert(WorkersStatsEts, {average_time_prediction , 0}),
+    ets:insert(WorkersStatsEts, {acc_time_training , 0}),
+    ets:insert(WorkersStatsEts, {acc_time_prediction , 0}),
+    ets:insert(WorkersStatsEts, {nan_loss_count , 0}),
     WorkersStatsEts.
 
 %% ---- Workers Stats ETS Methods ----%%

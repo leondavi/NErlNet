@@ -98,6 +98,8 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   io:format("*****************HERE AFTER WORKERS CAST ~p*****************~n",[MyName]),
 
   % update dictionary
+  WorkersEts = ets:lookup_element(EtsRef , workers_ets , ?DATA_IDX),
+  put(workers_ets, WorkersEts),
   put(nerlnetGraph, NerlnetGraph),
   put(client_data, EtsRef),
   put(ets_stats, EtsStats),
@@ -117,6 +119,7 @@ format_status(_Opt, [_PDict, _StateName, _State]) -> Status = some_term, Status.
 
 %% ==============STATES=================
 waitforWorkers(cast, In = {stateChange,WorkerName}, State = #client_statem_state{myName = MyName,waitforWorkers = WaitforWorkers,nextState = NextState, etsRef = _EtsRef}) ->
+  io:format("@WaitForWorkers: WorkerName = ~p , State = ~p~n" , [WorkerName , NextState]),
   NewWaitforWorkers = WaitforWorkers--[WorkerName],
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -130,6 +133,7 @@ waitforWorkers(cast, In = {stateChange,WorkerName}, State = #client_statem_state
 
 waitforWorkers(cast, In = {NewState}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
+  io:format("@WaitForWorkers: New State = ~p~n" , [NewState]),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   % ?LOG_INFO("~p in waiting going to state ~p~n",[MyName, State]),
@@ -258,9 +262,10 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   {ClientName, WorkerNameStr, _CSVName, BatchID, BatchOfSamples} = binary_to_term(Body),
   WorkerName = list_to_atom(WorkerNameStr),
-  WorkerOfThisClient = ets:member(EtsRef, WorkerName),
+  WorkersEts = get(workers_ets),
+  WorkerOfThisClient = ets:member(WorkersEts , WorkerName),
   if WorkerOfThisClient ->
-      WorkerPid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
+      WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
       gen_statem:cast(WorkerPid, {sample, BatchID ,BatchOfSamples}),
       stats:increment_messages_sent(ClientStatsEts),
       stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(BatchOfSamples));
@@ -268,6 +273,7 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
 training(cast, In = {idle}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
+  io:format("@Training: to wait for workers~n",[]),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
@@ -282,7 +288,7 @@ training(cast, _In = {predict}, State = #client_statem_state{myName = MyName, et
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
 % training get path to main server
-training(cast, In = {loss,WorkerName,nan,_Time_NIF}, State) ->
+training(cast, In = {loss,WorkerName,nan}, State) ->
   EtsRef = get(client_data),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -294,12 +300,12 @@ training(cast, In = {loss,WorkerName,nan,_Time_NIF}, State) ->
   stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
-training(cast, In = {loss,WorkerName,LossFunction,_Time_NIF}, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
+training(cast, In = {loss,WorkerName,LossFunction}, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  MessageBody = term_to_binary({WorkerName,LossFunction}),
+  MessageBody = {WorkerName,LossFunction},
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(lossFunction), MessageBody),
   stats:increment_messages_sent(ClientStatsEts),
   stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
@@ -307,7 +313,9 @@ training(cast, In = {loss,WorkerName,LossFunction,_Time_NIF}, State = #client_st
 
 training(cast, EventContent, State = #client_statem_state{etsRef = EtsRef, myName = MyName}) ->
   ?LOG_WARNING("client ~p training ignored!!!:  ~p ~n!!!",[MyName, EventContent]),
-  ets:update_counter(EtsRef, infoIn, nerl_tools:calculate_size(EventContent)),
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_bad_messages(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(EventContent)),
   {next_state, training, State#client_statem_state{etsRef = EtsRef}}.
 
 predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}) ->

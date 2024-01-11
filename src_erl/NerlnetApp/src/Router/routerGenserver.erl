@@ -67,7 +67,6 @@ handle_cast({statistics , _Body} , State=#router_genserver_state{etsRef = Routin
   {noreply , State};
 
 handle_cast({unicast,{Dest,Body}}, State = #router_genserver_state{msgCounter = MsgCounter,etsRef=Routing_table }) ->
-  io:format("Unicasting to ~p~n",[Dest]),
   RouterStatsEts = get(router_stats_ets),
   stats:increment_messages_received(RouterStatsEts),
   DestAtom = if is_list(Dest)-> list_to_atom(Dest);
@@ -84,14 +83,11 @@ handle_cast({unicast,{Dest,Body}}, State = #router_genserver_state{msgCounter = 
       Action=atom_to_list(?UNICAST_ACTION_ATOM),
       Data={Dest,Body}
     end,
-  io:format("1 Sent to Host ~p Port ~p Action ~p ~n",[Host,Port,Action]),
   nerl_tools:http_request(Host, Port,Action, term_to_binary(Data)),
-  io:format("2 Sent to Host ~p Port ~p Action ~p ~n",[Host,Port,Action]),
   stats:increment_messages_sent(RouterStatsEts),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1,etsRef=Routing_table }};
 
 handle_cast({broadcast,{DestList,Body}}, State = #router_genserver_state{etsRef=Routing_table }) ->
-  io:format("Broadcasting to ~p~n",[DestList]),
   RouterStatsEts = get(router_stats_ets),
   stats:increment_messages_received(RouterStatsEts),
   MapFunc=fun(Dest,Acc)->

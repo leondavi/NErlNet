@@ -99,6 +99,7 @@ class Transmitter:
         else:
             batchesPerSource = sys.maxsize
 
+        # TODO - sources don't always start with 's'
         dataStr = f"{globe.components.toString('s')},{batchesPerSource}" #sources, batches
 
         response = requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources

@@ -29,11 +29,8 @@ case DistributedSystemType of
 create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap , EtsStats) ->
   CLIENT_WORKES_MAPS_TUPLE_IDX = 2,
   ClientsMap = maps:from_list(ets:lookup_element(nerlnet_data, deviceClients, ?DATA_IDX)), % This is the format of hostClients {Name,{Port,ClientWorkers,ClientWorkersMaps}}
-  io:format("ClientWorkersMaps: ~p~n", [ClientsMap]),
   ClientWorkers = element(CLIENT_WORKES_MAPS_TUPLE_IDX,maps:get(ClientName, ClientsMap)), 
-  io:format("ClientWorkers: ~p~n", [ClientWorkers]),
   WorkersETS = ets:new(workers_ets,[set]),
-  io:format("WorkerToSHAMap: ~p~n" , [ets:lookup_element(ClientEtsRef, workers_to_sha_map, ?DATA_IDX)]),
 
 
   Func = fun(WorkerName) -> 
@@ -44,27 +41,20 @@ create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap , EtsStats) ->
     LearningRate, Epochs, Optimizer, OptimizerArgs, _InfraType, DistributedSystemType, 
     DistributedSystemArgs, DistributedSystemToken} = maps:get(SHA, ShaToModelArgsMap),
     MyClientPid = self(),
-    io:format("MyClientPid: ~p~n", [MyClientPid]),
     % TODO add documentation about this case of 
     % move this case to module called client_controller
     {DistributedBehaviorFunc , DistributedWorkerData} = get_distributed_worker_behavior(DistributedSystemType , WorkerName , DistributedSystemArgs , DistributedSystemToken),
-    io:format("DistributedWorkerData: ~p~n", [DistributedWorkerData]),
 
     WorkerArgs = {ModelID , ModelType , LayersSizes, LayersTypes, LayersFunctions, LearningRate , Epochs, 
                   Optimizer, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs},
-    io:format("WorkerArgs: ~p~n", [WorkerArgs]),
     WorkerPid = workerGeneric:start_link({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , _ClientPid = self() , WorkerStatsETS}),
-    io:format("WorkerPid: ~p~n", [WorkerPid]),
     ets:insert(WorkersETS, {WorkerName, {WorkerPid, WorkerArgs}}), 
     ets:insert(EtsStats, {WorkerName, WorkerStatsETS}),
 
     WorkerName
   end,
-  io:format("*************HERE_CREATE_WORKERS1*************~n"),
   lists:foreach(Func, ClientWorkers),   %% TODO: collect forbidden names (keys of ets:insert)
-  io:format("*************HERE_CREATE_WORKERS2*************~n"),
-  ets:insert(ClientEtsRef, {workers_ets, WorkersETS}),
-  io:format("*************HERE_CREATE_WORKERS3*************~n").
+  ets:insert(ClientEtsRef, {workers_ets, WorkersETS}).
 
 get_worker_stats_ets(ClientEtsRef , WorkerName) ->
   WorkersETS = ets:lookup_element(ClientEtsRef, workers_ets, ?DATA_IDX),
