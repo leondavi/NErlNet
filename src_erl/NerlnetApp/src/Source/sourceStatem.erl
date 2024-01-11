@@ -121,11 +121,12 @@ idle(cast, {batchList,WorkersList,Epochs, CSVData}, State) ->
   ?LOG_NOTICE("Source ~p, workers are: ~p", [MyName, WorkersList]),
   ?LOG_NOTICE("Source ~p, sample size: ~p", [MyName, SampleSize]),
   ets:update_element(EtsRef, sample_size, [{?DATA_IDX, SampleSize}]),
-  ?LOG_INFO("Source ~p updated transmition list, total avilable batches to send: ~p~n",[MyName, length(NerlTensorBatchesList)]),
+  ?LOG_INFO("Source ~p updated transmission list, total avilable batches to send: ~p~n",[MyName, length(NerlTensorBatchesList)]),
   
+  io:format("MyName: ~p~n", [MyName]),
   %%  send an ACK to mainserver that the CSV file is ready
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  nerltools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(csvReady), MyName),
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(csvReady), term_to_binary(MyName)),
   stats:increment_messages_sent(StatsEtsRef),
   {next_state, idle, State#source_statem_state{batchesList = NerlTensorBatchesList, nerlTensorType = NerlTensorType}};
 
@@ -186,7 +187,7 @@ idle(cast, {statistics}, State) ->
   StatsEtsStr = stats:encode_ets_to_http_bin_str(StatsEtsRef),
   StatisticsBody = {term_to_binary(MyName) , list_to_binary(StatsEtsStr)}, % old data
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  nerltools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
   stats:increment_messages_sent(StatsEtsRef),
   {next_state, idle, State#source_statem_state{}};
 
@@ -231,7 +232,7 @@ castingData(cast, {finishedCasting, BatchesSent}, State) ->
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   %%  send an ACK to mainserver that the CSV file is ready
-  nerltools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(sourceDone), MyName),
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(sourceDone), MyName),
   stats:increment_messages_sent(StatsEtsRef),
   {next_state, idle, State#source_statem_state{transmitter_pid = none}};
 
@@ -282,7 +283,7 @@ spawnTransmitter(SourceEtsRef, WorkersListOfNames, BatchesListToSend)->
 % A batch is always {NerlTensor, Type}
 sendBatch({NerlTensor, Type},CSVPath, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
         ToSend = term_to_binary({ClientName, WorkerName, CSVPath, BatchID, {NerlTensor, Type}}),
-        nerltools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(batch), ToSend).
+        nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(batch), ToSend).
 
 prepare_and_send(_TransmitterEts, _TimeInterval_ms, _Batch, _BatchIdx, []) -> ok;
 prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [ClientWorkerPair | ClientWorkerPairsTail]) ->

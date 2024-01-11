@@ -160,7 +160,7 @@ idle(cast, In = {custom_worker_message, {From, To}}, State = #client_statem_stat
     DestClient = maps:get(To, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
     MessageBody = {DestClient, custom_worker_message, {From, To}},
     {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-    nerltools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(custom_worker_message), term_to_binary(MessageBody)),
+    nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(custom_worker_message), term_to_binary(MessageBody)),
     stats:increment_messages_sent(ClientStatsEts),
     stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody))
   end,
@@ -176,7 +176,7 @@ idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, et
   WorkersStatsEncStr = create_encoded_stats_str(ListStatsEts),
   StatsBody = {MyName , ClientStatsToSend ++ WorkersStatsEncStr},
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  nerltools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatsBody),
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatsBody),
   stats:increment_messages_sent(ClientStatsEts),
   {next_state, idle, State};
 
@@ -217,7 +217,7 @@ training(cast, MessageIn = {update, {From, To, Data}}, State = #client_statem_st
     DestClient = maps:get(To, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
     MessageBody = term_to_binary({DestClient, update, {From, To, Data}}),
     {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-    nerltools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(pass), MessageBody),
+    nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(pass), MessageBody),
     stats:increment_messages_sent(ClientStatsEts),
     stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody))
   end,
@@ -236,7 +236,7 @@ training(cast, InMessage = {custom_worker_message, WorkersList, WeightsTensor}, 
     MessageBody = term_to_binary({DestClient, update, {_FedServer = "server", WorkerName, WeightsTensor}}), % TODO - fix client should not be aware of the data of custom worker message
 
     {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-    nerltools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(custom_worker_message), MessageBody),
+    nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(custom_worker_message), MessageBody),
     stats:increment_messages_sent(ClientStatsEts),
     stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody))
   end,
@@ -287,7 +287,7 @@ training(cast, In = {loss,WorkerName,nan,_Time_NIF}, State) ->
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   MessageBody = term_to_binary({WorkerName,"nan"}),
-  nerltools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(lossFunction), MessageBody),
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(lossFunction), MessageBody),
   stats:increment_messages_sent(ClientStatsEts),
   stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
@@ -298,7 +298,7 @@ training(cast, In = {loss,WorkerName,LossFunction,_Time_NIF}, State = #client_st
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   MessageBody = term_to_binary({WorkerName,LossFunction}),
-  nerltools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(lossFunction), MessageBody),
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(lossFunction), MessageBody),
   stats:increment_messages_sent(ClientStatsEts),
   stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
   {next_state, training, State#client_statem_state{myName = MyName,etsRef = EtsRef}};
@@ -332,7 +332,7 @@ predict(cast, In = {predictRes,WorkerName,InputName,ResultID,PredictNerlTensor, 
  
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   MessageBody =  term_to_binary({atom_to_list(WorkerName), InputName, ResultID, {PredictNerlTensor, Type}}),
-  nerltools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(predictRes), MessageBody),
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(predictRes), MessageBody),
   stats:increment_messages_sent(ClientStatsEts),
   stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
@@ -394,7 +394,7 @@ send_client_is_ready(MyName) ->
   EtsRef = get(client_ets),
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   %%  send an ACK to mainserver that the client is ready
-  nerltools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(clientReady), MyName).
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(clientReady), MyName).
 
 cast_message_to_workers(EtsRef, Msg) ->
   ClientStatsEts = get(client_stats_ets),

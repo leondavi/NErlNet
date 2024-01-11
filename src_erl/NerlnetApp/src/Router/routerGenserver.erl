@@ -62,15 +62,19 @@ handle_cast({statistics , _Body} , State=#router_genserver_state{etsRef = Routin
   StatsEtsStr = stats:encode_ets_to_http_bin_str(RouterStatsEts),
   StatisticsBody = {term_to_binary(MyName) , list_to_binary(StatsEtsStr)}, % old data
   [{_Dest,{_Name , RouterHost , RouterPort}}] = ets:lookup(Routing_table , ?MAIN_SERVER_ATOM),
-  nerltools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
   stats:increment_messages_sent(RouterStatsEts),
   {noreply , State};
 
 handle_cast({unicast,{Dest,Body}}, State = #router_genserver_state{msgCounter = MsgCounter,etsRef=Routing_table }) ->
   RouterStatsEts = get(router_stats_ets),
   stats:increment_messages_received(RouterStatsEts),
-  [{Dest,{Name,Host,Port}}]=ets:lookup(Routing_table,Dest),
-  case Dest of
+  DestAtom = if is_list(Dest)-> list_to_atom(Dest);
+                is_binary(Dest)-> binary_to_atom(Dest);
+                true -> Dest
+            end,
+  [{DestAtom,{Name,Host,Port}}]=  ets:lookup(Routing_table, DestAtom),
+  case DestAtom of
     Name->
       %the destination is the next hop, send as regular message
       {Action,Data}=Body;
