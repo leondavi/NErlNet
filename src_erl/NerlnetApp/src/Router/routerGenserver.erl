@@ -50,7 +50,7 @@ init({MyName , _Policy , NerlnetGraph}) -> %% TODO : Add policy to router
   RouterStatsEts = stats:generate_stats_ets(),
   put(router_stats_ets, RouterStatsEts),
   EntitiesList=digraph:vertices(NerlnetGraph),
-  nerl_tools:make_routing_table(RoutingTableEtsRef,EntitiesList--[?API_SERVER_ATOM,MyName],MyName,NerlnetGraph),
+  nerl_tools:make_routing_table(RoutingTableEtsRef,EntitiesList--[MyName],MyName,NerlnetGraph),
   {ok, #router_genserver_state{msgCounter = 1, myName = MyName, etsRef=RoutingTableEtsRef}}.
 
 handle_cast({statistics , _Body} , State=#router_genserver_state{etsRef = Routing_table}) ->
@@ -73,7 +73,7 @@ handle_cast({unicast,{Dest,Body}}, State = #router_genserver_state{msgCounter = 
                 is_binary(Dest)-> binary_to_atom(Dest);
                 true -> Dest
             end,
-  [{DestAtom,{Name,Host,Port}}]=  ets:lookup(Routing_table, DestAtom),
+  [{DestAtom,{Name,Host,Port}}] =  ets:lookup(Routing_table, DestAtom),
   case DestAtom of
     Name->
       %the destination is the next hop, send as regular message
