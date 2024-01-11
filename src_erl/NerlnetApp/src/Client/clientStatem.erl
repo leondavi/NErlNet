@@ -281,7 +281,7 @@ training(cast, In = {idle}, State = #client_statem_state{myName = _MyName, etsRe
   cast_message_to_workers(EtsRef, MessageToCast),
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
   ?LOG_INFO("setting workers at idle: ~p~n",[ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
-  {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers}};
+  {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
 
 training(cast, _In = {predict}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
   ?LOG_ERROR("Wrong request , client ~p can't go from training to predict directly", [MyName]),
@@ -324,10 +324,11 @@ predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef})
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   {ClientName, WorkerNameStr, CSVName, BatchNumber, BatchOfSamples} = binary_to_term(Body),
   WorkerName = list_to_atom(WorkerNameStr),
-  WorkerOfThisClient = ets:member(EtsRef, WorkerName),
+  WorkersEts = get(workers_ets),
+  WorkerOfThisClient = ets:member(WorkersEts, WorkerName),
   if 
     WorkerOfThisClient -> 
-      WorkerPid = ets:lookup_element(EtsRef, WorkerName, ?WORKER_PID_IDX),
+      WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
       gen_statem:cast(WorkerPid, {sample, CSVName, BatchNumber, BatchOfSamples}),
       stats:increment_messages_sent(ClientStatsEts),
       stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(BatchOfSamples));
@@ -341,7 +342,7 @@ predict(cast, In = {predictRes,WorkerName,InputName,ResultID,PredictNerlTensor, 
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
  
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  MessageBody =  term_to_binary({atom_to_list(WorkerName), InputName, ResultID, {PredictNerlTensor, Type}}),
+  MessageBody = {atom_to_list(WorkerName), InputName, ResultID, {PredictNerlTensor, Type}},
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(predictRes), MessageBody),
   stats:increment_messages_sent(ClientStatsEts),
   stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
@@ -357,6 +358,7 @@ predict(cast,_In = {training}, State = #client_statem_state{myName = MyName}) ->
 %% The source sends message to main server that it has finished
 %% The main server updates its' clients to move to state 'idle'
 predict(cast, In = {idle}, State = #client_statem_state{etsRef = EtsRef , myName = MyName}) ->
+
   MsgToCast = {idle},
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -411,7 +413,6 @@ cast_message_to_workers(EtsRef, Msg) ->
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
   Func = fun(WorkerKey) ->
     WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef, WorkerKey), % WorkerKey is the worker name
-    io:format("Casting message: ~p",[{WorkerPid, Msg}]),
     gen_statem:cast(WorkerPid, Msg),
     stats:increment_messages_sent(ClientStatsEts)
   end,
