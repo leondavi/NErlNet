@@ -9,7 +9,6 @@ import threading
 import matplotlib.pyplot as plt
 import pandas as pd
 import sys
-import numpy as np
 import os
 import traceback
 from pathlib import Path
@@ -200,16 +199,13 @@ PREDICTION_STR = "Prediction"
             globe.CSVsplit = splitMode 
 
         # 1 ack for mainserver, who waits for all sources
-        globe.pendingAcks = 1
-        # print(f"waiting for {globe.pendingAcks} acks from {len(globe.components.sources)} sources")
+        globe.set_receiver_wait_for_ack()
+        globe.ack_debug_print()
         LOG_INFO("Sending data to sources")
         self.transmitter.updateCSV(phase)
-
-        while globe.pendingAcks > 0:
-            time.sleep(0.005)
-            pass 
-
-        print("\nData ready in sources")
+        globe.waitForAck()
+        globe.ack_debug_print()
+        LOG_INFO("Data ready in sources")
 
 
     def train(self):

@@ -6,6 +6,8 @@ import socket
 from IPython import get_ipython
 from experiment import *
 from workerResult import *
+from time import sleep
+from logger import *
 
 localHost = socket.gethostname()
 localIp = socket.gethostbyname(localHost)
@@ -46,3 +48,22 @@ else:
     jupyterFlag = False
 
 # Global variables
+
+
+# Global functions
+
+def set_receiver_wait_for_ack():
+    global pendingAcks
+    pendingAcks += 1
+    return pendingAcks
+
+def waitForAck():
+    global pendingAcks
+
+    while pendingAcks > 0:
+        sleep(0.005)
+
+def ack_debug_print(debug = True):
+    global pendingAcks
+    if debug:
+        LOG_DEBUG(f"debug pending acks: {pendingAcks}")

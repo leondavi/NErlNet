@@ -83,7 +83,11 @@ handle_cast({unicast,{Dest,Body}}, State = #router_genserver_state{msgCounter = 
       Action=atom_to_list(?UNICAST_ACTION_ATOM),
       Data={Dest,Body}
     end,
-  nerl_tools:http_request(Host, Port,Action, term_to_binary(Data)),
+  DataToSend = 
+    if ?API_SERVER_ATOM =:= DestAtom -> Data;
+    true -> term_to_binary(Data)
+  end,
+  nerl_tools:http_request(Host, Port, Action, term_to_binary(Data)),
   stats:increment_messages_sent(RouterStatsEts),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1,etsRef=Routing_table }};
 

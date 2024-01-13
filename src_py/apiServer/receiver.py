@@ -11,6 +11,10 @@ import logging
 from workerResult import *
 from decoderHttpMainServer import decode_main_server_ets_str
 
+import logging # To debug flask
+logging.basicConfig(level=logging.DEBUG) # to debug flask
+# debug flask with receiver.logger.info("message") instead of print("message
+
 WORKER_NON_RESULT = -1
 
 receiver = Flask(__name__)
@@ -78,6 +82,7 @@ class test(Resource):
 
 class ack(Resource):
     def post(self):
+        receiver.logger.info("Ack received")
         globe.pendingAcks -= 1
         # print(f'Ack Received! {globe.pendingAcks} more pending')
         if globe.jupyterFlag == False:
@@ -95,14 +100,12 @@ class trainRes(Resource):
         # Consider what to do
         # if globe.jupyterFlag == False:
         #     print(resData)
-
         processResult(resData, "Training")
         
         
 #http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++BatchID++"#"++CSVName++"#"++BatchSize)
 class predictRes(Resource):
     def post(self):
-        print(f'HERE!')
         # Result preprocessing:
         # Receiving from Erlang: Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize)
         resData = request.form
