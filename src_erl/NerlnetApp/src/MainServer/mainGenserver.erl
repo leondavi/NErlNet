@@ -104,7 +104,8 @@ handle_cast({clientsTraining, _Body}, State = #main_genserver_state{myName = MyN
   ClientTrainingAction = clientTraining, % client! not clients!
   update_clients_phase(ClientTrainingAction, MyName), % update all clients with clientsTraining phase
   stats:increment_messages_sent(StatsEts),
-  {noreply, State#main_genserver_state{}};
+  ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
+  {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
 
 handle_cast({clientsPredict, Body}, State = #main_genserver_state{state = casting}) ->
   ?LOG_WARNING("Received prediction request during casting phase",[]),
@@ -123,7 +124,9 @@ handle_cast({clientsPredict,_Body}, State = #main_genserver_state{myName = MyNam
   PhaseAtom = clientPredict,
   update_clients_phase(PhaseAtom, MyName),
   stats:increment_messages_sent(StatsEts),
-  {noreply, State#main_genserver_state{}};
+  ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
+
+  {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
 
 
 handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = MyName}) ->
@@ -212,7 +215,7 @@ handle_cast({sourceAck,Body}, State = #main_genserver_state{sourcesWaitingList =
 handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList}) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
-  NewWaitingList = WaitingList--[binary_to_term(Body)],
+  NewWaitingList = WaitingList--[binary_to_term(Body)], % waitingList is initialized in clientsTraining or clientsPredict handl cast calls
   if length(NewWaitingList) == 0 -> ack();
   true-> ok end,
   {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList}};

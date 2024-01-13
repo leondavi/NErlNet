@@ -4,16 +4,11 @@
 ################################################
 import requests
 import globalVars as globe
-import time
 import sys
 import os
 from definitions import *
 from experiment import *
 from logger import *
-
-def waitForAck():
-    while globe.pendingAcks > 0:
-        time.sleep(0.005)
 
 class Transmitter:
 
@@ -39,8 +34,7 @@ class Transmitter:
         return(response.ok, response.status_code, response.json())
 
     def clientsTraining(self):
-        # 1 Ack for clientsTraining()
-        globe.pendingAcks = 1
+        globe.set_receiver_wait_for_ack()
         LOG_INFO('Training Phase requested from Main Server')
         response = requests.post(self.clientsTrainingAddress, data='')
         if not response.ok:
@@ -88,9 +82,6 @@ class Transmitter:
     def startCasting(self, phase):
         print('\nStart Casting Phase')
 
-        # 1 Ack for startCasting():
-        globe.pendingAcks = 1 
-
         # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
         if (phase==globe.TRAINING_STR):
             batchesPerSource = globe.experiment_focused_on.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.TRAINING_STR]
@@ -102,17 +93,21 @@ class Transmitter:
         # TODO - sources don't always start with 's'
         dataStr = f"{globe.components.toString('s')},{batchesPerSource}" #sources, batches
 
-        response = requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
-
-        if globe.jupyterFlag == False:
-            print(response.ok, response.status_code)
+        globe.set_receiver_wait_for_ack()
+        globe.ack_debug_print()
+        requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
 
     def train(self):
         self.experiment.syncTrainingWithFlow()
-        self.clientsTraining()
-        waitForAck()
-        self.startCasting(globe.TRAINING_STR) 
-        waitForAck()
+        self.clientsTraining() # set receiver wait for ack
+        globe.ack_debug_print()
+        globe.waitForAck()
+        globe.ack_debug_print()
+        self.startCasting(globe.TRAINING_STR) # set receiver wait for ack
+        globe.ack_debug_print()
+        globe.waitForAck()
+        globe.ack_debug_print()
+        raise "end of train"
         return self.experiment.name
 
     def contPhase(self, phase):     # phase can be train/training no matter capitals, otherwise predict

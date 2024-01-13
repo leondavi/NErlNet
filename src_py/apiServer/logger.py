@@ -1,6 +1,6 @@
 import logging
 
-logging.basicConfig(format='[%(levelname)s][%(asctime)s] %(message)s', level=logging.INFO)
+logging.basicConfig(format='[%(levelname)s][%(asctime)s] %(message)s', level=logging.DEBUG)
 
 LOG_DEBUG = logging.debug
 LOG_INFO = logging.info
