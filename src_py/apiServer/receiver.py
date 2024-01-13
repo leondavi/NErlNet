@@ -97,7 +97,6 @@ class trainRes(Resource):
         # Receiving from Erlang: "worker#loss"
         resData = request.form
         resData = list(resData)
-        receiver.logger.info(f"{resData}")
         resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter
         # Consider what to do
         # if globe.jupyterFlag == False:
