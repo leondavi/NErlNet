@@ -12,7 +12,7 @@ from workerResult import *
 from decoderHttpMainServer import decode_main_server_ets_str
 
 import logging # To debug flask
-logging.basicConfig(level=logging.DEBUG) # to debug flask
+logging.basicConfig(level=logging.INFO) # to debug flask
 # debug flask with receiver.logger.info("message") instead of print("message
 
 WORKER_NON_RESULT = -1
@@ -92,10 +92,12 @@ class ack(Resource):
 
 class trainRes(Resource):
     def post(self):
+        # receiver.logger.info("Training result received")
         # Result preprocessing:
         # Receiving from Erlang: "worker#loss"
         resData = request.form
         resData = list(resData)
+        receiver.logger.info(f"{resData}")
         resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter
         # Consider what to do
         # if globe.jupyterFlag == False:

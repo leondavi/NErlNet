@@ -107,7 +107,6 @@ class Transmitter:
         globe.ack_debug_print()
         globe.waitForAck()
         globe.ack_debug_print()
-        raise "end of train"
         return self.experiment.name
 
     def contPhase(self, phase):     # phase can be train/training no matter capitals, otherwise predict
@@ -120,22 +119,22 @@ class Transmitter:
             self.clientsPredict()
             phase = globe.PREDICTION_STR
 
-        waitForAck()
+        globe.waitForAck()
         self.startCasting(phase) 
-        waitForAck()
+        globe.waitForAck()
 
     def predict(self):
         self.experiment.syncPredicitionWithFlow()
         self.clientsPredict()
-        waitForAck()
+        globe.waitForAck()
         self.startCasting(globe.PREDICTION_STR)
-        waitForAck()
+        globe.waitForAck()
         return self.experiment.name
 
     def statistics(self):
         requests.post(self.statisticsAddress, data='getStatistics')
         globe.pendingAcks = 1
-        waitForAck()
+        globe.waitForAck()
     
 
     '''
