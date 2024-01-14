@@ -80,7 +80,7 @@ for worker in loss_min.keys():
         exit(1)
         
 
-DIFF_MEASURE_METHOD = "Precision"
+DIFF_MEASURE_METHOD = "F1"
 conf_mats = exp_stats.get_confusion_matrices()
 performence_stats = exp_stats.get_model_performence_stats(conf_mats, saveToFile=True, printStats=True)
 baseline_acc_stats = import_dict_json(TESTS_BASELINE_MODEL_STATS)

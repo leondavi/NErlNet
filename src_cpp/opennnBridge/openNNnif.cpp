@@ -3,7 +3,6 @@
 
 void* trainFun(void* arg)
 {
-    std::cout << "trainFun" << std::endl;
     std::shared_ptr<TrainNN>* pTrainNNptr = static_cast<shared_ptr<TrainNN>*>(arg);
     std::shared_ptr<TrainNN> TrainNNptr = *pTrainNNptr;
     delete pTrainNNptr;
@@ -11,6 +10,7 @@ void* trainFun(void* arg)
     double loss_val;
     ErlNifEnv *env = enif_alloc_env();    
     DataSet data_set;
+    data_set.set_data(*(TrainNNptr->data));
 
     //get nerlworker from bridge controller
     BridgeController &bridge_controller = BridgeController::GetInstance();
@@ -22,13 +22,16 @@ void* trainFun(void* arg)
     int data_cols = TrainNNptr->data->dimension(1);
     int num_of_features = neural_network_ptr->get_inputs_number();
     int num_of_output_neurons = neural_network_ptr->get_outputs_number();
+
+    // Data set definitions
     bool data_set_condition = (num_of_features + num_of_output_neurons) == TrainNNptr->data->dimension(1);
     assert(("issue with data input/output dimensions", data_set_condition));
-    
-    TrainingStrategy training_strategy_inst;
-    nerlworker_opennn->get_training_strategy_inst(training_strategy_inst);
-    training_strategy_inst.set_data_set_pointer(&data_set);
-    TrainingResults res = training_strategy_inst.perform_training();
+    data_set.set_data(*(TrainNNptr->data));
+    data_set.set(TrainNNptr->data->dimension(0), num_of_features, num_of_output_neurons);
+
+    std::shared_ptr<TrainingStrategy> training_strategy_ptr = nerlworker_opennn->get_training_strategy_ptr();
+    training_strategy_ptr->set_data_set_pointer(&data_set);
+    TrainingResults res = training_strategy_ptr->perform_training();
     loss_val = res.get_training_error(); // learn about "get_training_error" of opennn
 
     // Stop the timer and calculate the time took for training
