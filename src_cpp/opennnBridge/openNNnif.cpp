@@ -3,6 +3,7 @@
 
 void* trainFun(void* arg)
 {
+    std::cout << "trainFun" << std::endl;
     std::shared_ptr<TrainNN>* pTrainNNptr = static_cast<shared_ptr<TrainNN>*>(arg);
     std::shared_ptr<TrainNN> TrainNNptr = *pTrainNNptr;
     delete pTrainNNptr;
@@ -20,26 +21,15 @@ void* trainFun(void* arg)
 
     int data_cols = TrainNNptr->data->dimension(1);
     int num_of_features = neural_network_ptr->get_inputs_number();
-
     int num_of_output_neurons = neural_network_ptr->get_outputs_number();
-    // cout << "Features: " << num_of_features <<std::endl;
-    // cout << "Outputs: " << num_of_output_neurons <<std::endl;
-    // cout << "NN got: " << data_cols <<std::endl;
     bool data_set_condition = (num_of_features + num_of_output_neurons) == TrainNNptr->data->dimension(1);
     assert(("issue with data input/output dimensions", data_set_condition));
-    data_set.set_data(*(TrainNNptr->data));
-    // cout << "Data is set"<<std::endl;
-    data_set.set(TrainNNptr->data->dimension(0), num_of_features, num_of_output_neurons);
-    // cout << "Configed size"<<std::endl;
-    // cout << "Data is: " << *(TrainNNptr->data) <<std::endl;
-
-    std::shared_ptr<TrainingStrategy> training_strategy_ptr = nerlworker_opennn->get_training_strategy_ptr();
-    training_strategy_ptr->set_data_set_pointer(&data_set);
-
-    TrainingResults res = training_strategy_ptr->perform_training();
+    
+    TrainingStrategy training_strategy_inst;
+    nerlworker_opennn->get_training_strategy_inst(training_strategy_inst);
+    training_strategy_inst.set_data_set_pointer(&data_set);
+    TrainingResults res = training_strategy_inst.perform_training();
     loss_val = res.get_training_error(); // learn about "get_training_error" of opennn
-
-    //cout << "training done"<<std::endl;
 
     // Stop the timer and calculate the time took for training
     high_resolution_clock::time_point  stop = high_resolution_clock::now();
