@@ -28,6 +28,8 @@ class NerlWorkerOpenNN : public NerlWorker
 
     std::shared_ptr<opennn::NeuralNetwork> get_neural_network_ptr() { return _neural_network_ptr; };
     std::shared_ptr<opennn::TrainingStrategy> get_training_strategy_ptr() { return _training_strategy_ptr; };
+    
+    void get_training_strategy_inst(opennn::TrainingStrategy  &training_strategy_inst);
     void set_optimization_method(int optimizer_type ,int learning_rate);
     void set_loss_method(int loss_method);
     void set_learning_rate(float learning_rate);
