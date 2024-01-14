@@ -27,7 +27,7 @@ api = Api(receiver)
 #lossArgs.add_argument('lossFunction', type='str', help='Receiver Error - Please send lossFunction')
 
 #Disable logging messages (Must be disabled in Jupyter):
-logging.getLogger('werkzeug').disabled = False
+logging.getLogger('werkzeug').disabled = True
 
 def initReceiver(receiverHost, receiverPort, event):
         try:
