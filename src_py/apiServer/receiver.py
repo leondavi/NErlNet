@@ -7,7 +7,6 @@ from flask import Flask, request, jsonify
 from flask_restful import Api, Resource, reqparse
 from globalVars import *
 import globalVars as globe
-import logging
 from workerResult import *
 from decoderHttpMainServer import decode_main_server_ets_str
 

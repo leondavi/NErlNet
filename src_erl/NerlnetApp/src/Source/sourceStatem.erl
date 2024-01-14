@@ -122,8 +122,6 @@ idle(cast, {batchList,WorkersList,Epochs, CSVData}, State) ->
   ?LOG_NOTICE("Source ~p, sample size: ~p", [MyName, SampleSize]),
   ets:update_element(EtsRef, sample_size, [{?DATA_IDX, SampleSize}]),
   ?LOG_INFO("Source ~p updated transmission list, total avilable batches to send: ~p~n",[MyName, length(NerlTensorBatchesList)]),
-  
-  io:format("MyName: ~p~n", [MyName]),
   %%  send an ACK to mainserver that the CSV file is ready
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(dataReady), MyName),
@@ -134,7 +132,6 @@ idle(cast, {batchList,WorkersList,Epochs, CSVData}, State) ->
 %% This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
 idle(cast, {startCasting,Body}, State = #source_statem_state{batchesList = BatchesList}) ->
   EtsRef = get(source_ets),
-  io:format("Source Body: ~p~n", [binary_to_term(Body)]),
   [_Source,UserLimitNumberOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
   StatsEtsRef = get(source_stats_ets),
   stats:increment_messages_received(StatsEtsRef),

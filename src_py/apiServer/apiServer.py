@@ -134,9 +134,6 @@ PREDICTION_STR = "Prediction"
         print("\n***Please remember to execute NerlnetRun.sh on each device before continuing.")
     
     def sendJsonsToDevices(self):
-        # Send the content of jsonPath to each devices:
-        LOG_INFO("Sending JSON paths to devices...")
-
         # Jsons found in NErlNet/inputJsonFiles/{JSON_TYPE}/files.... for entities in src_erl/Comm_layer/http_nerl/src to reach them, they must go up 3 dirs
         archAddress , connMapAddress, exp_flow_json = self.getUserJsons()
 
@@ -162,7 +159,7 @@ PREDICTION_STR = "Prediction"
             if globe.jupyterFlag == False:
               LOG_INFO(f'response: {response.ok} , status code: {response.status_code}')
         time.sleep(1)       # wait for connection to close ## TODO: check why
-        LOG_INFO("completed")
+        LOG_INFO("Sending distributed configurations to devices is completed")
 
     def showJsons(self):
         self.json_dir_parser.print_lists()
