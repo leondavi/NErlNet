@@ -86,8 +86,6 @@ class Transmitter:
         globe.sourceCSVIndex=linesPerSource # TODO find what is the purpose of this line? and where using it
 
     def startCasting(self, phase):
-        print('\nStart Casting Phase')
-
         # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
         if (phase==globe.TRAINING_STR):
             batchesPerSource = globe.experiment_focused_on.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.TRAINING_STR]
@@ -132,7 +130,7 @@ class Transmitter:
         globe.waitForAck()
 
     def predict(self):
-        print("Predict beginning")
+        LOG_INFO("Predict phase starts")
         globe.ack_debug_print()
         self.experiment.syncPredicitionWithFlow()
         self.clientsPredict() # set receiver wait for ack

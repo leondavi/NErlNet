@@ -140,12 +140,12 @@ class Stats():
                 fn = int(fn)
                 tp = int(tp)
                 acc = (tp + tn) / (tp + tn + fp + fn)
-                ppv = tp / (tp + fp) # Precision
-                tpr = tp / (tp + fn) # Recall 
-                tnr = tn / (tn + fp)
+                ppv = tp / (tp + fp) if tp > 0 else 0 # Precision
+                tpr = tp / (tp + fn) if tp > 0 else 0 # Recall 
+                tnr = tn / (tn + fp) if tn > 0 else 0
                 bacc = (tpr + tnr) / 2
                 inf = tpr + tnr - 1
-                f1 = 2 * (ppv * tpr) / (ppv + tpr) # F1-Score
+                f1 = 2 * (ppv * tpr) / (ppv + tpr) if (ppv + tpr) > 0 else 0 # F1-Score
 
                 workers_accuracy[worker][j]['TN'] = tn
                 workers_accuracy[worker][j]['FP'] = fp

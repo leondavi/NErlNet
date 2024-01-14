@@ -82,7 +82,7 @@ for worker in loss_min.keys():
 
 
 conf_mats = exp_stats.get_confusion_matrices()
-performence_stats = exp_stats.get_model_performence_stats(conf_mats, printStats=True)
+performence_stats = exp_stats.get_model_performence_stats(conf_mats, saveToFile=True, printStats=True)
 baseline_acc_stats = import_dict_json(TESTS_BASELINE_MODEL_STATS)
 for worker in performence_stats.keys():
     for j in performence_stats[worker].keys():
