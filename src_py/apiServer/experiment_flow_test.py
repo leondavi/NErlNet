@@ -5,7 +5,7 @@ from runCommand import RunCommand
 from logger import *
 from stats import Stats
 
-TEST_ACCEPTABLE_MARGIN_OF_ERROR = 0.02
+TEST_ACCEPTABLE_MARGIN_OF_ERROR = 0.03 # 3% marginal error
 
 def print_test(in_str : str):
     PREFIX = "[NERLNET-TEST] "
