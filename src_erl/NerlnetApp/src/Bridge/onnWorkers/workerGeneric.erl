@@ -68,11 +68,16 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{distributed_system_type, DistributedSystemType}),
   ets:insert(GenWorkerEts,{controller_message_q, []}), %% empty Queue
 
-  Res=nerlNIF:new_nerlworker_nif(ModelID , ModelType, LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType,
+  Res = nerlNIF:new_nerlworker_nif(ModelID , ModelType, LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType,
                                 OptimizerArgs, LossMethod , DistributedSystemType , DistributedSystemArgs),
   DistributedBehaviorFunc(init,{GenWorkerEts, DistributedWorkerData}),
 
-  ?LOG_NOTICE("Create = ~p ~n",[Res]),
+  if 
+    Res == ok -> nif_created_successfully;
+    true -> nif_failed_to_create,
+            ?LOG_ERROR("Failed to create worker ~p\n",[WorkerName]),
+            exit(nif_failed_to_create)
+  end,
 
   {ok, idle, #workerGeneric_state{myName = WorkerName , modelID = ModelID , distributedBehaviorFunc = DistributedBehaviorFunc , distributedWorkerData = DistributedWorkerData}}.
 
@@ -136,12 +141,13 @@ idle(cast, {post_idle, From}, State = #workerGeneric_state{myName = _MyName,dist
   DistributedBehaviorFunc(post_idle, {get(generic_worker_ets), From}),
   {next_state, idle, State};
 
+% Go from idle to train
 idle(cast, {training}, State = #workerGeneric_state{myName = MyName}) ->
   worker_controller_empty_message_queue(),
-  ?LOG_NOTICE("~p Go from idle to train!\n",[MyName]),
   update_client_avilable_worker(MyName),
   {next_state, train, State#workerGeneric_state{lastPhase = train}};
 
+% Go from idle to predict
 idle(cast, {predict}, State = #workerGeneric_state{myName = MyName}) ->
   worker_controller_empty_message_queue(),
   ?LOG_NOTICE("Go from idle to predict\n"),
@@ -216,13 +222,13 @@ update(cast, {update, _From, NerltensorWeights}, State = #workerGeneric_state{di
   DistributedBehaviorFunc(update, {get(generic_worker_ets), NerltensorWeights}),
   {next_state, NextState, State};
 
-%% Worker updates its' client that it is available
+%% Worker updates its' client that it is available (in idle state)
 update(cast, {idle}, State = #workerGeneric_state{myName = MyName}) ->
   update_client_avilable_worker(MyName),
   {next_state, idle, State#workerGeneric_state{nextState = idle}};
     
 
-%% TODO MOVE THIS FUNCTION TO CONTROLLER
+%% TODO Guy MOVE THIS FUNCTION TO CONTROLLER
 update(cast, Data, State = #workerGeneric_state{distributedBehaviorFunc = DistributedBehaviorFunc, nextState = NextState}) ->
   % io:format("worker ~p got ~p~n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
   case Data of

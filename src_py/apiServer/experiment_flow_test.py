@@ -80,14 +80,14 @@ for worker in loss_min.keys():
         exit(1)
         
 
-
+DIFF_MEASURE_METHOD = "Precision"
 conf_mats = exp_stats.get_confusion_matrices()
 performence_stats = exp_stats.get_model_performence_stats(conf_mats, saveToFile=True, printStats=True)
 baseline_acc_stats = import_dict_json(TESTS_BASELINE_MODEL_STATS)
 for worker in performence_stats.keys():
     for j in performence_stats[worker].keys():
-        diff = abs(performence_stats[worker][j]["F1"] - baseline_acc_stats[worker][str(j)]["F1"])
-        error = diff/baseline_acc_stats[worker][str(j)]["F1"]
+        diff = abs(performence_stats[worker][j][DIFF_MEASURE_METHOD] - baseline_acc_stats[worker][str(j)][DIFF_MEASURE_METHOD])
+        error = diff/baseline_acc_stats[worker][str(j)][DIFF_MEASURE_METHOD]
         if error > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
             print_test("Anomaly failure detected")
             print_test(f"diff_from_baseline: {diff}")

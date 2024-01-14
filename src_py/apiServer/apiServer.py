@@ -111,7 +111,7 @@ PREDICTION_STR = "Prediction"
         self.mainServerAddress = 'http://' + mainServerIP + ':' + mainServerPort
         self.experiments = []
         
-        print("Initializing the receiver thread...\n")
+        LOG_INFO("Initializing ApiServer receiver thread")
 
         # Initializing the receiver (a Flask HTTP server that receives results from the Main Server):
         if is_port_free(int(globe.components.receiverPort)):
@@ -131,7 +131,7 @@ PREDICTION_STR = "Prediction"
         if not hasattr(self, 'transmitter'):
             self.transmitter = Transmitter(self.current_exp, self.mainServerAddress, self.input_data_path)
 
-        print("\n***Please remember to execute NerlnetRun.sh on each device before continuing.")
+        LOG_INFO("*** Remember to execute NerlnetRun.sh on each device before running the experiment! ***")
     
     def sendJsonsToDevices(self):
         # Jsons found in NErlNet/inputJsonFiles/{JSON_TYPE}/files.... for entities in src_erl/Comm_layer/http_nerl/src to reach them, they must go up 3 dirs

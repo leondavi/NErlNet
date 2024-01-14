@@ -92,7 +92,6 @@ get_models(ShaToModelMaps) ->
     DistributedSystemArgs = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_ARGS_BIN,ModelArgs)),
     DistributedSystemToken = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_TOKEN_BIN,ModelArgs)),
     ModelTuple = {ModelType, LayersSizes, LayersTypes, LayersFunctions, LossMethod, LearningRate, Epochs, Optimizer, OptimizerArgs, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken},
-    io:format("Model Tuple: ~p~n", [ModelTuple]),
     ModelTuple
   end,
   ShaToModelArgsList = [{binary_to_list(ShaBin) , ModelArgs} || {ShaBin , ModelArgs} <- maps:to_list(maps:map(Func , ShaToModelMaps))],
@@ -163,7 +162,6 @@ json_to_ets(IPv4, JsonDCMap) ->
 
   MapSHAToModelArgs = maps:get(?DC_KEY_MODEL_SHA_STR_BIN, JsonDCMap), % Map of MapShaToModel to ModelArgs
   SHAToModelArgsMap = get_models(MapSHAToModelArgs), 
-  io:format("SHAToModelArgsMap: ~p~n", [SHAToModelArgsMap]),
   ets:insert(nerlnet_data, {sha_to_models_map, SHAToModelArgsMap}),
 
   {IPv4ToDeviceNameMap, DeviceNameToIPv4EntitiesMap} = get_devices(JsonDCMap), % get all hosts 
@@ -242,7 +240,7 @@ buildCommunicationGraph(DCMap, CommunicationMap)->
   
   NerlnetGraph.
 
-
+% add all entities vertices of given device include mainServer and serverAPI to NerlnetGraph
 add_device_vertices(NerlnetGraph, DCMap , DeviceName , IPv4 , DeviceEntities)->
   DeviceRouters = get_device_routers(DCMap, DeviceEntities),
   DeviceSources = get_device_sources(DCMap, DeviceEntities),
@@ -251,11 +249,8 @@ add_device_vertices(NerlnetGraph, DCMap , DeviceName , IPv4 , DeviceEntities)->
 
   DeviceEntitiesMap = maps:from_list(DeviceRouters ++ DeviceSources ++ DeviceClients ++ DeviceSpecialEntities),
   
-  ?LOG_NOTICE("Adding ~p vertices to graph",[DeviceName]),
-
   AddEntityToGraph = fun(EntityName, EntityData) -> 
       EntityPort = element(?PORT_IDX, EntityData),
-      ?LOG_NOTICE("Entity: ~p Port: ~p~n",[EntityName,EntityPort]),
       digraph:add_vertex(NerlnetGraph,EntityName, {IPv4, EntityPort , DeviceName})
       end,
 

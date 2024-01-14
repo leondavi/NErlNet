@@ -99,7 +99,8 @@ start(_StartType, _StartArgs) ->
     {ArchitectureAdderess,CommunicationMapAdderess} = waitForInit(),
 
     %Parse json and start nerlnet:
-    ?LOG_INFO(?LOG_HEADER++"ArchitectureAdderess: ~p, CommunicationMapAdderess : ~p~n",[ArchitectureAdderess,CommunicationMapAdderess]),
+    ?LOG_INFO(?LOG_HEADER++"DC file local path: ~p",[binary_to_list(ArchitectureAdderess)]),
+    ?LOG_INFO(?LOG_HEADER++"Communication map file local path: ~p",[binary_to_list(CommunicationMapAdderess)]),
 
     parseJsonAndStartNerlnet(ThisDeviceIP),
     nerlnetApp_sup:start_link().
