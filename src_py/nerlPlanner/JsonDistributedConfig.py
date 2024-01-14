@@ -1,4 +1,3 @@
-import PySimpleGUI as sg
 from JsonElements import *
 from collections import OrderedDict
 from JsonElementWorker import *
@@ -77,8 +76,8 @@ class JsonDistributedConfig():
         return self.default_frequency if self.default_frequency else None # returns Frequency or None
     
     def get_batch_size(self):
-        batch_size_field_name = get_batch_size_field_name()
-        return self.main_dict[KEY_NERLNET_SETTINGS][get_batch_size_field_name()] if batch_size_field_name in self.main_dict[KEY_NERLNET_SETTINGS] else None
+        batch_size_field_name = GetFields.get_batch_size_field_name()
+        return self.main_dict[KEY_NERLNET_SETTINGS][GetFields.get_batch_size_field_name()] if batch_size_field_name in self.main_dict[KEY_NERLNET_SETTINGS] else None
         
     def get_main_server(self):
         return self.main_dict[MainServer.NAME]
@@ -121,7 +120,7 @@ class JsonDistributedConfig():
     def add_device(self, device : Device) -> int:
         if device.get_name() in self.get_devices_names():
             return self.DEVICE_ADD_ISSUE_WITH_NAME
-        if device.get_ip() in self.get_devices_ips():
+        if device.get_ip().get_address() in self.get_devices_ips():
             return self.DEVICE_ADD_ISSUE_WITH_IP
         
         self.main_dict[KEY_DEVICES][device.get_name()] = device
@@ -133,7 +132,11 @@ class JsonDistributedConfig():
         del(self.main_dict[KEY_DEVICES][device_name]) 
 
     
-    def add_entity_to_device(self, device_name : str , entity_name : str):
+    ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_PORT = -1
+    ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_OTHER_DEVICE = -2
+    ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_NAME = -3
+    ENTITIY_TO_DEVICE_ADD_SUCCESS = 0
+    def add_entity_to_device(self, device_name : str , entity_name : str) -> int:
         '''
         Input device and entity names that exist in json DC database
         '''
@@ -141,25 +144,15 @@ class JsonDistributedConfig():
             for dev_name in self.get_devices_names(): # check if the entities is used
                 dev_inst = self.main_dict[KEY_DEVICES][dev_name]
                 if entity_name in dev_inst.get_entities_names():
-                    return False
+                    return self.ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_OTHER_DEVICE
             device_inst = self.get_device_by_name(device_name)
             entity_inst = self.get_entity(entity_name)
-            if device_inst.duplicated_ports_validator(entity_inst.get_port()):  # check if the port is used by device 
-                if not self.suggest_alternative_port(entity_inst, device_inst):
-                    return False # don't switch the port
+            if device_inst.duplicated_ports_validator(entity_inst.get_port()):  # check if the port is used by other device 
+                return self.ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_PORT
             device_inst.add_entity(entity_inst)
         else:
-            return False
-        return True
-
-    def suggest_alternative_port(self, entity_inst, device_inst : Device):
-        ch = sg.popup_yes_no("The port of the entity you selected is in use, would you like to change it to a random port?",  title="suggest alternative port")
-        if ch == "Yes":
-            new_port = device_inst.generate_random_port()
-            entity_inst.set_port(new_port) 
-            return True
-        else:
-            return False
+            return self.ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_NAME
+        return self.ENTITIY_TO_DEVICE_ADD_SUCCESS
 
     def remove_entity_from_device(self, entity_name : str):
         for dev_name in self.get_devices_names():
@@ -375,13 +368,13 @@ class JsonDistributedConfig():
         #TODO add more checks
 
         # main server
-        port = loaded_dc_dict[MainServer.NAME][get_port_field_name()]
-        args = loaded_dc_dict[MainServer.NAME][get_args_field_name()]
+        port = loaded_dc_dict[MainServer.NAME][GetFields.get_port_field_name()]
+        args = loaded_dc_dict[MainServer.NAME][GetFields.get_args_field_name()]
         self.add_main_server(MainServer(port, args))
 
         # api server
-        port = loaded_dc_dict[ApiServer.NAME][get_port_field_name()]
-        args = loaded_dc_dict[ApiServer.NAME][get_args_field_name()]
+        port = loaded_dc_dict[ApiServer.NAME][GetFields.get_port_field_name()]
+        args = loaded_dc_dict[ApiServer.NAME][GetFields.get_args_field_name()]
         self.add_api_server(ApiServer(port, args))
 
         # settings
@@ -400,7 +393,7 @@ class JsonDistributedConfig():
                 return self.IMPORT_DC_JSON_ISSUE_MISSING_MODEL
             else:
                 model_dict = dict_of_models_by_sha[worker_model_sha]
-                (new_loaded_worker , _, _, _, _, _, _, _, _, _, _, _, _) = Worker.load_from_dict(model_dict)
+                new_loaded_worker = Worker.load_from_dict(model_dict)
                 new_loaded_worker.set_name(worker_name)
                 self.add_worker(new_loaded_worker)
 
@@ -408,8 +401,8 @@ class JsonDistributedConfig():
         list_of_clients_dicts = loaded_dc_dict[KEY_CLIENTS]
         for client_dict in list_of_clients_dicts:
             client_name = client_dict[NAME_FIELD]
-            client_port = client_dict[get_port_field_name()]
-            client_workers_str = client_dict[get_workers_field_name()]
+            client_port = client_dict[GetFields.get_port_field_name()]
+            client_workers_str = client_dict[GetFields.get_workers_field_name()]
             new_loaded_client = Client(client_name, client_port)
             # add workers to new loaded client:
             for worker_name in client_workers_str.split(","):
@@ -424,27 +417,27 @@ class JsonDistributedConfig():
         list_of_routers_dicts = loaded_dc_dict[KEY_ROUTERS]
         for router_dict in list_of_routers_dicts:
             router_name = router_dict[NAME_FIELD]
-            router_port = router_dict[get_port_field_name()]
-            router_policy = router_dict[get_policy_field_name()]
+            router_port = router_dict[GetFields.get_port_field_name()]
+            router_policy = router_dict[GetFields.get_policy_field_name()]
             self.add_router(Router(router_name, router_port, router_policy))
 
         # sources
         list_of_sources_dicts = loaded_dc_dict[KEY_SOURCES]
         for source_dict in list_of_sources_dicts:
             source_name = source_dict[NAME_FIELD]
-            source_port = source_dict[get_port_field_name()]
-            source_frequency = source_dict[get_frequency_field_name()]
-            source_epochs = source_dict[get_epochs_field_name()]
-            source_policy = source_dict[get_policy_field_name()]
-            source_type = source_dict[get_source_type_field_name()]
+            source_port = source_dict[GetFields.get_port_field_name()]
+            source_frequency = source_dict[GetFields.get_frequency_field_name()]
+            source_epochs = source_dict[GetFields.get_epochs_field_name()]
+            source_policy = source_dict[GetFields.get_policy_field_name()]
+            source_type = source_dict[GetFields.get_source_type_field_name()]
             self.add_source(Source(source_name, source_port, source_frequency, source_policy, source_epochs, source_type))
 
         #devices
         list_of_devices_dicts = loaded_dc_dict[KEY_DEVICES]
         for device_dict in list_of_devices_dicts:
             device_name = device_dict[NAME_FIELD]
-            device_ipv4 = device_dict[get_ipv4_field_name()]
-            entities = device_dict[get_entities_field_name()]
+            device_ipv4 = device_dict[GetFields.get_ipv4_field_name()]
+            entities = device_dict[GetFields.get_entities_field_name()]
             new_device_loaded = Device(device_ipv4, device_name)
             for entity_name in entities.split(','):
                 entity_inst = self.get_entity(entity_name)

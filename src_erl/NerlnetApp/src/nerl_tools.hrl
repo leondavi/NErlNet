@@ -5,8 +5,7 @@
 -define(MAIN_SERVER_STR, "mainServer").
 -define(API_SERVER_ATOM, apiServer).
 -define(API_SERVER_STR, "apiServer").
--define(NERLGUI_SERVER_ATOM, nerlGUI).
--define(LIST_OF_SPECIAL_SERVERS,[?API_SERVER_ATOM, ?NERLGUI_SERVER_ATOM, ?MAIN_SERVER_ATOM]).
+-define(LIST_OF_SPECIAL_SERVERS,[?API_SERVER_ATOM, ?MAIN_SERVER_ATOM]).
 %% HEADER format example: "nerlNetServer_app/start@52: MES"
 -define(LOG_HEADER, atom_to_list(?MODULE) ++ "/" ++ atom_to_list(?FUNCTION_NAME) ++ "@" ++ integer_to_list(?LINE) ++ ": " ).
 
@@ -31,23 +30,15 @@
 -define(TMP_DATA_ADDR, "tmpData.csv").
 %% max data length that cowboy server will accept (when passing big files)
 -define(DATA_LEN, 1000*1000*1000). % default is 8MB, here set to 1000MB
-% -define(DATA_LEN, infinity).
-%% sourceFSM defines
--define(CASTING, 1).
--define(ROUNDROBIN, 2).
 
 %% workerFSM defines
 -define(MODE_REGULAR, 0).
 -define(MODE_FEDERATED, 1).
-
-% %% nerlNIF defines
-% -define(NERLNET_LIB,"libnerlnet").
-% -define(NERLNET_PATH,"/usr/local/lib/nerlnet-lib/NErlNet").
-% -define(BUILD_TYPE_DEBUG,"debug").
-% -define(BUILD_TYPE_RELEASE,"/build/release").
 
 %% auto generated defintions:
 %% TODO: implement this in python
 -define(E_CUSTOMNN, 5).
 -define(E_FEDERATED_CLIENT, 8).
 -define(E_FEDERATED_SERVER, 9).
+
+-define(CONN_MAP_FIELD_BIN , <<"connectionsMap">>).

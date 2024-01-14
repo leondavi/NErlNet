@@ -7,10 +7,15 @@ from flask import Flask, request, jsonify
 from flask_restful import Api, Resource, reqparse
 from globalVars import *
 import globalVars as globe
-import logging
 from workerResult import *
+from decoderHttpMainServer import decode_main_server_ets_str
+
+# import logging # To debug flask
+# logging.basicConfig(level=logging.ERROR) # to debug flask
+# debug flask with receiver.logger.info("message") instead of print("message
 
 WORKER_NON_RESULT = -1
+ACK_DEBUG = False
 
 receiver = Flask(__name__)
 api = Api(receiver)
@@ -77,15 +82,15 @@ class test(Resource):
 
 class ack(Resource):
     def post(self):
+        resData = request.form
         globe.pendingAcks -= 1
-        # print(f'Ack Received! {globe.pendingAcks} more pending')
-        if globe.jupyterFlag == False:
-            resData = request.form['ack']
-            print(resData + 'Ack Received!')
-            print(globe.pendingAcks)
+        if ACK_DEBUG:
+            receiver.logger.info(f"Ack received {resData} pending acks (after): {globe.pendingAcks}")
+        
 
 class trainRes(Resource):
     def post(self):
+        # receiver.logger.info("Training result received")
         # Result preprocessing:
         # Receiving from Erlang: "worker#loss"
         resData = request.form
@@ -94,7 +99,6 @@ class trainRes(Resource):
         # Consider what to do
         # if globe.jupyterFlag == False:
         #     print(resData)
-
         processResult(resData, "Training")
         
         
@@ -116,6 +120,9 @@ class predictRes(Resource):
 class statistics(Resource):
     def post(self):
         resData = request.get_data()
+
+        # TODO 
+        decode_main_server_ets_str(resData)
         # print(resData)
         # format: entity:stats,...|entity:stats,....
         # input is: "c1:c1=1903,w1=5,w2=2,w3=4,w4=4,w5=5,w6=1,w1=0.878,w2=0.953,w3=0.899,w4=0.269,w5=0.667,w6=0.945|c2:c2=638,w7=0,w8=2,w7=1.403,w8=1.192|r1:2507|r2:632|s1:207"
@@ -140,7 +147,7 @@ class statistics(Resource):
 
 #Listener Server list of resources: 
 api.add_resource(test, "/test")
-api.add_resource(ack, "/ackP")
+api.add_resource(ack, "/ackPy")
 api.add_resource(shutdown, "/shutdown")
 api.add_resource(trainRes, "/trainRes")
 api.add_resource(predictRes, "/predRes")

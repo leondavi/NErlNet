@@ -2,14 +2,18 @@ import os
 import json
 from pathlib import Path
 from collections import OrderedDict
+from logger import *
 # nerlconfig files
+
+NERLNET_PATH = "/usr/local/lib/nerlnet-lib/NErlNet"
+NERLNET_SRC_PY_PATH = f"{NERLNET_PATH}/src_py"
 NERLCONFIG_INPUT_DATA_DIR = "/usr/local/lib/nerlnet-lib/NErlNet/config/inputDataDir.nerlconfig"
 NERLCONFIG_JSONS_DIR = '/usr/local/lib/nerlnet-lib/NErlNet/config/jsonsDir.nerlconfig'
 
 NERLCONFIG_SUFFIX = ".nerlconfig"
 INPUT_DATA_DIR_CONF = "inputDataDir"
 JSONS_DIR = "jsonsDir"
-JSON_FILE_ARCH_REMOTE_NAME = '/tmp/nerlnet/jsons/arch.json' #TODO get back to this after taking care to multipart
+DC_FILE_ARCH_REMOTE_NAME = '/tmp/nerlnet/jsons/arch.json' #TODO get back to this after taking care to multipart
 JSON_FILE_COMM_REMOTE_NAME = '/tmp/nerlnet/jsons/conn.json'
 
 JSON_INIT_HANDLER_ERL_PORT = 8484 #TODO fix main server bypassing
@@ -39,7 +43,9 @@ def read_nerlconfig(nerlconfig_file_path : str):
                 if os.path.exists(first_line):
                     return first_line
                 else:
-                    print(f"bad nerlconfig directory is given: {first_line} at {nerlconfig_file_path}")
+                    if (INPUT_DATA_DIR_CONF in nerlconfig_file_path):
+                        LOG_ERROR("data directory does not exist in given path , consider running ./NerlnetGetData.sh")
+                    LOG_ERROR(f"bad nerlconfig directory is given: {first_line} at {nerlconfig_file_path}")
                     raise "bad nerlconfig directory is given"
     return None
 
