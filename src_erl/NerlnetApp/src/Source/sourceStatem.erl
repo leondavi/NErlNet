@@ -353,7 +353,6 @@ send_method_random(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesLi
 
 transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,ClientWorkerPairs, BatchesListToSend, Method) ->
   MyName = ets:lookup_element(SourceEtsRef, my_name, ?DATA_IDX),
-  ?LOG_INFO("Source ~p Transmitter Starts", [MyName]),
   TransmitterEts = ets:new(transmitter_ets, [set]), % allow transmitter process to edit
   {SourceRouterHost,SourceRouterPort} = ets:lookup_element(SourceEtsRef, my_router, ?DATA_IDX),
   ets:insert(TransmitterEts, {my_name, MyName}),
@@ -386,6 +385,5 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,ClientWorkerPairs, Batches
 
   gen_statem:cast(SourcePid,{finishedCasting,BatchesSent}),
   ActualFrequency = 1/(TransmissionTimeTook_sec/BatchesSent),
-  ?LOG_INFO("Source ~p Transmitter Finished", [MyName]),
   ?LOG_INFO("Source ~p Actual Frequency: ~p [B/Sec]",[MyName, ActualFrequency]),
   ets:delete(TransmitterEts).
