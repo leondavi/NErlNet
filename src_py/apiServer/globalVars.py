@@ -63,7 +63,7 @@ def waitForAck():
     while pendingAcks > 0:
         sleep(0.005)
 
-def ack_debug_print(debug = True):
+def ack_debug_print(debug = False):
     global pendingAcks
     if debug:
         LOG_DEBUG(f"debug pending acks: {pendingAcks}")

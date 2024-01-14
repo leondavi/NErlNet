@@ -291,7 +291,7 @@ createMainServer(true,BatchSize,HostName) ->
         {"/updateCSV",[],initHandler,[MainGenServerPid]},
         {"/lossFunction",[],actionHandler,[lossFunction,MainGenServerPid]},
         {"/predictRes",[],actionHandler,[predictRes,MainGenServerPid]},
-        {"/csvReady",[],ackHandler,[source,MainGenServerPid]},
+        {"/dataReady",[],ackHandler,[dataReady,MainGenServerPid]},
         {"/sourceDone",[],ackHandler,[sourceDone,MainGenServerPid]},
         {"/clientReady",[],ackHandler,[client,MainGenServerPid]},
         {"/clientsTraining",[],actionHandler,[clientsTraining,MainGenServerPid]},

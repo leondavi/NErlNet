@@ -27,8 +27,8 @@ experiment_name = "test_exp"
 api_server_instance.initialization(experiment_name, dc_json , connmap_json, exp_flow_json)
 api_server_instance.sendJsonsToDevices()
 
-api_server_instance.sendDataToSources(PHASE_TRAINING)
-api_server_instance.train()
+api_server_instance.sendDataToSources(PHASE_TRAINING) # sync on ack
+api_server_instance.train() # sync on ack
 
 api_server_instance.sendDataToSources(PHASE_PREDICTION)
 api_server_instance.predict()

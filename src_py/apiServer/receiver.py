@@ -11,11 +11,12 @@ import logging
 from workerResult import *
 from decoderHttpMainServer import decode_main_server_ets_str
 
-import logging # To debug flask
-logging.basicConfig(level=logging.INFO) # to debug flask
+# import logging # To debug flask
+# logging.basicConfig(level=logging.ERROR) # to debug flask
 # debug flask with receiver.logger.info("message") instead of print("message
 
 WORKER_NON_RESULT = -1
+ACK_DEBUG = False
 
 receiver = Flask(__name__)
 api = Api(receiver)
@@ -26,7 +27,7 @@ api = Api(receiver)
 #lossArgs.add_argument('lossFunction', type='str', help='Receiver Error - Please send lossFunction')
 
 #Disable logging messages (Must be disabled in Jupyter):
-logging.getLogger('werkzeug').disabled = True
+logging.getLogger('werkzeug').disabled = False
 
 def initReceiver(receiverHost, receiverPort, event):
         try:
@@ -82,13 +83,11 @@ class test(Resource):
 
 class ack(Resource):
     def post(self):
-        receiver.logger.info("Ack received")
+        resData = request.form
         globe.pendingAcks -= 1
-        # print(f'Ack Received! {globe.pendingAcks} more pending')
-        if globe.jupyterFlag == False:
-            resData = request.form['ack']
-            print(resData + 'Ack Received!')
-            print(globe.pendingAcks)
+        if ACK_DEBUG:
+            receiver.logger.info(f"Ack received {resData} pending acks (after): {globe.pendingAcks}")
+        
 
 class trainRes(Resource):
     def post(self):
