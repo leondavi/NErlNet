@@ -150,7 +150,6 @@ idle(cast, {training}, State = #workerGeneric_state{myName = MyName}) ->
 % Go from idle to predict
 idle(cast, {predict}, State = #workerGeneric_state{myName = MyName}) ->
   worker_controller_empty_message_queue(),
-  ?LOG_NOTICE("Go from idle to predict\n"),
   update_client_avilable_worker(MyName),
   {next_state, predict, State#workerGeneric_state{lastPhase = predict}};
 
@@ -160,20 +159,20 @@ idle(cast, _Param, State) ->
 
 %% Waiting for receiving results or loss function
 %% Got nan or inf from loss function - Error, loss function too big for double
-wait(cast, {loss , nan , TimeNIF}, State = #workerGeneric_state{myName = MyName, nextState = NextState , currentBatchID = BatchID}) ->
+wait(cast, {loss , nan , _TimeNIF}, State = #workerGeneric_state{myName = MyName, nextState = NextState}) ->
   ?LOG_WARNING("Loss func in wait: nan (Loss function too big for double)\n"),
   stats:increment_by_value(get(worker_stats_ets), nan_loss_count, 1),
   gen_statem:cast(get(client_pid),{loss, MyName, nan}), %% TODO send to tal stop casting request with error desc
   {next_state, NextState, State};
 
-wait(cast, {loss, LossVal , TimeNIF}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
+wait(cast, {loss, LossVal , _TimeNIF}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
   gen_statem:cast(get(client_pid),{loss, MyName, LossVal}), %% TODO Add Time and Time_NIF to the cast
   ToUpdate = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),DistributedWorkerData}),
   if  ToUpdate -> {next_state, update, State#workerGeneric_state{nextState=NextState}};
       true ->     {next_state, NextState, State}
   end;
 
-wait(cast, {predictRes,NerlTensor, Type, TimeNIF, CSVname, BatchID}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
+wait(cast, {predictRes,NerlTensor, Type, _TimeNIF, CSVname, BatchID}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
   gen_statem:cast(get(client_pid),{predictRes,MyName, CSVname,BatchID, NerlTensor, Type}), %% TODO TODO change csv name and batch id(1)
   Update = DistributedBehaviorFunc(post_predict, {get(generic_worker_ets),DistributedWorkerData}),
   if Update -> 
