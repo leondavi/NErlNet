@@ -4,16 +4,11 @@
 ################################################
 import requests
 import globalVars as globe
-import time
 import sys
 import os
 from definitions import *
 from experiment import *
 from logger import *
-
-def waitForAck():
-    while globe.pendingAcks > 0:
-        time.sleep(0.005)
 
 class Transmitter:
 
@@ -39,15 +34,14 @@ class Transmitter:
         return(response.ok, response.status_code, response.json())
 
     def clientsTraining(self):
-        # 1 Ack for clientsTraining()
-        globe.pendingAcks = 1
+        globe.set_receiver_wait_for_ack()
         LOG_INFO('Training Phase requested from Main Server')
         response = requests.post(self.clientsTrainingAddress, data='')
         if not response.ok:
             LOG_ERROR('Training Phase Request issue!')
 
     def clientsPredict(self):
-        globe.pendingAcks = 1
+        globe.set_receiver_wait_for_ack()
         LOG_INFO('Prediction Phase requested from Main Server')
         response = requests.post(self.clientsPredictAddress, data='')
         if not response.ok:
@@ -78,19 +72,20 @@ class Transmitter:
             except: epochs = 1
 
             dataStr = f'{sourceName}#{workersUnderSource}#{epochs}#{SourceData[i]}'
-
+        try:
             response = requests.post(self.updateCSVAddress, data=dataStr)
+        except ConnectionError:
+            LOG_ERROR(f"Connection Error: failed to connect to {self.updateCSVAddress}")
+            raise ConnectionError
+        except ConnectionRefusedError:
+            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.updateCSVAddress}")
+            raise ConnectionRefusedError
 
         LOG_INFO("Data sent to sources")
 
         globe.sourceCSVIndex=linesPerSource # TODO find what is the purpose of this line? and where using it
 
     def startCasting(self, phase):
-        print('\nStart Casting Phase')
-
-        # 1 Ack for startCasting():
-        globe.pendingAcks = 1 
-
         # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
         if (phase==globe.TRAINING_STR):
             batchesPerSource = globe.experiment_focused_on.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.TRAINING_STR]
@@ -99,19 +94,25 @@ class Transmitter:
         else:
             batchesPerSource = sys.maxsize
 
+        # TODO - sources don't always start with 's'
         dataStr = f"{globe.components.toString('s')},{batchesPerSource}" #sources, batches
 
-        response = requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
+        globe.set_receiver_wait_for_ack()
+        globe.ack_debug_print()
+        requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
+        globe.ack_debug_print()
 
-        if globe.jupyterFlag == False:
-            print(response.ok, response.status_code)
 
     def train(self):
         self.experiment.syncTrainingWithFlow()
-        self.clientsTraining()
-        waitForAck()
-        self.startCasting(globe.TRAINING_STR) 
-        waitForAck()
+        self.clientsTraining() # set receiver wait for ack
+        globe.ack_debug_print()
+        globe.waitForAck()
+        globe.ack_debug_print()
+        self.startCasting(globe.TRAINING_STR) # set receiver wait for ack
+        globe.ack_debug_print()
+        globe.waitForAck()
+        globe.ack_debug_print()
         return self.experiment.name
 
     def contPhase(self, phase):     # phase can be train/training no matter capitals, otherwise predict
@@ -124,22 +125,28 @@ class Transmitter:
             self.clientsPredict()
             phase = globe.PREDICTION_STR
 
-        waitForAck()
+        globe.waitForAck()
         self.startCasting(phase) 
-        waitForAck()
+        globe.waitForAck()
 
     def predict(self):
+        LOG_INFO("Predict phase starts")
+        globe.ack_debug_print()
         self.experiment.syncPredicitionWithFlow()
-        self.clientsPredict()
-        waitForAck()
+        self.clientsPredict() # set receiver wait for ack
+        globe.ack_debug_print()
+        globe.waitForAck()
+        globe.ack_debug_print()
         self.startCasting(globe.PREDICTION_STR)
-        waitForAck()
+        globe.ack_debug_print()
+        globe.waitForAck()
+        globe.ack_debug_print()
         return self.experiment.name
 
     def statistics(self):
         requests.post(self.statisticsAddress, data='getStatistics')
         globe.pendingAcks = 1
-        waitForAck()
+        globe.waitForAck()
     
 
     '''

@@ -3,17 +3,33 @@
 -include("nerl_tools.hrl").
 
 -export([setup_logger/1, string_format/2]).
--export([http_request/4, sendHTTP/4, getHostPort/5, getShortPath/3]).
+-export([http_request/4, sendHTTP/4, get_client_worker_pairs/3, getShortPath/3]).
 -export([string_to_list_int/1, deleteOldJson/1]).
 -export([multipart/2, read_all_data/2]).
 -export([getdeviceIP/0, port_available/1]).
 -export([list_to_numeric/1]).
 -export([calculate_size/1]).
 -export([make_routing_table/4]).
+-export([http_router_request/5]).
 
 setup_logger(Module) ->
   logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
   logger:set_module_level(Module, all).
+
+
+http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, Body) ->
+  if 
+    length(DestinationsList) == 1 -> % unicast
+        Dest = hd(DestinationsList),
+        nerl_tools:http_request(RouterHost,RouterPort,"unicast",term_to_binary({Dest,{ActionStr, Body}}));
+    length(DestinationsList) > 1 -> % Broadcast
+        nerl_tools:http_request(RouterHost,RouterPort,"broadcast",term_to_binary({DestinationsList,{ActionStr , Body}}));
+    true ->
+        ?LOG_ERROR("Empty DestinationsList is given!"),
+        throw("Empty DestinationsList is given!")
+  end.
+
+
 
 %% send message between entities
 http_request(Host, Port,Path, Body) when is_atom(Body) -> http_request(Host, Port,Path, atom_to_list(Body));
@@ -23,12 +39,10 @@ http_request(Host, Port,Path, Body)->
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
   httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
 
-getHostPort([],_WorkersMap,_NerlnetGraph,_MyName,Ret)-> Ret;
-getHostPort([WorkerName|WorkersNames],WorkersMap,NerlnetGraph,MyName,Ret)->
+get_client_worker_pairs([],_WorkersMap,Ret)-> Ret;
+get_client_worker_pairs([WorkerName|WorkersNames],WorkersMap,Ret)->
   ClientName = maps:get(list_to_atom(WorkerName),WorkersMap),
-  {RouterHost,RouterPort} = getShortPath(MyName,ClientName,NerlnetGraph),
-  %{RouterHost,RouterPort} = maps:get(ClientName,PortMap),
-  getHostPort(WorkersNames,WorkersMap, NerlnetGraph,MyName,Ret++[{ClientName,WorkerName,RouterHost,RouterPort}]).
+  get_client_worker_pairs(WorkersNames,WorkersMap, Ret++[{ClientName,WorkerName}]).
 
 getShortPath(From,To,NerlnetGraph) when is_list(To) -> getShortPath(From,list_to_atom(To),NerlnetGraph);
 getShortPath(From,To,NerlnetGraph) when is_list(From) -> getShortPath(list_to_atom(From),To,NerlnetGraph);
@@ -38,7 +52,7 @@ getShortPath(From,To,NerlnetGraph) when is_atom(To) and is_atom(From) ->  % TODO
     false -> false;
     ShortPath ->
       NextHop = lists:nth(2,ShortPath),
-      {_Name,{Host,Port}} = digraph:vertex(NerlnetGraph,NextHop),
+      {_Name,{Host,Port,_DeviceName}} = digraph:vertex(NerlnetGraph,NextHop),
       {Host,Port}
   end.
   
@@ -199,7 +213,7 @@ make_routing_table(Ets,EntitiesList,Origin,NerlnetGraph)->
   case digraph:get_short_path(NerlnetGraph,Origin,Entity) of
     false -> ok;
     ShortPath -> NextHop = lists:nth(2,ShortPath),
-                 {Name,{Host,Port}} = digraph:vertex(NerlnetGraph,NextHop),
+                 {Name , {Host , Port , _DeviceName}} = digraph:vertex(NerlnetGraph,NextHop),
                  ets:insert(Ets,{Entity,{Name,Host,Port}})
   end % case end
   end, % fun end
