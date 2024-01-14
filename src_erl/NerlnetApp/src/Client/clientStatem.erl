@@ -77,25 +77,19 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   ets:insert(EtsStats, {MyName, ClientStatsEts}),
   put(ets_stats, EtsStats),
   ets:insert(EtsRef, {workerToClient, WorkerToClientMap}),
-  io:format("!!!!! ClientWorkers: ~p~n",[ClientWorkers]),
   ets:insert(EtsRef, {workersNames, ClientWorkers}),
   ets:insert(EtsRef, {nerlnetGraph, NerlnetGraph}),
   ets:insert(EtsRef, {myName, MyName}),
   MyWorkersToShaMap = maps:filter(fun(Worker , _SHA) -> lists:member(Worker , ClientWorkers) end , WorkerShaMap),
-  io:format("client ~p workers to sha map: ~p~n",[MyName, MyWorkersToShaMap]),
   ets:insert(EtsRef, {workers_to_sha_map, MyWorkersToShaMap}),
   ets:insert(EtsRef, {sha_to_models_map , ShaToModelArgsMap}),
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM, NerlnetGraph),
   ets:insert(EtsRef, {my_router,{MyRouterHost,MyRouterPort}}),
-  io:format("*****************HERE ~p*****************~n",[MyName]),
 
   clientWorkersFunctions:create_workers(MyName , EtsRef , ShaToModelArgsMap , EtsStats),
-  io:format("*****************HERE AFTER CREATE WORKERS ~p*****************~n",[MyName]),
   %% send pre_idle signal to workers
   WorkersNames = clientWorkersFunctions:get_workers_names(EtsRef),
-  io:format("Workers Names: ~p~n" , [WorkersNames]),
   [gen_statem:cast(clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName), {pre_idle}) || WorkerName <- clientWorkersFunctions:get_workers_names(EtsRef)],
-  io:format("*****************HERE AFTER WORKERS CAST ~p*****************~n",[MyName]),
 
   % update dictionary
   WorkersEts = ets:lookup_element(EtsRef , workers_ets , ?DATA_IDX),
@@ -119,7 +113,6 @@ format_status(_Opt, [_PDict, _StateName, _State]) -> Status = some_term, Status.
 
 %% ==============STATES=================
 waitforWorkers(cast, In = {stateChange,WorkerName}, State = #client_statem_state{myName = MyName,waitforWorkers = WaitforWorkers,nextState = NextState, etsRef = _EtsRef}) ->
-  io:format("@WaitForWorkers: WorkerName = ~p , State = ~p~n" , [WorkerName , NextState]),
   NewWaitforWorkers = WaitforWorkers--[WorkerName],
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -133,19 +126,18 @@ waitforWorkers(cast, In = {stateChange,WorkerName}, State = #client_statem_state
 
 waitforWorkers(cast, In = {NewState}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
-  io:format("@WaitForWorkers: New State = ~p~n" , [NewState]),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   % ?LOG_INFO("~p in waiting going to state ~p~n",[MyName, State]),
-  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
+  Workers =  clientWorkersFunctions:get_workers_names(EtsRef),
   cast_message_to_workers(EtsRef, {NewState}), %% This function increments the number of sent messages in stats ets
   {next_state, waitforWorkers, State#client_statem_state{nextState = NewState, waitforWorkers = Workers}};
 
-waitforWorkers(cast, EventContent, State) ->
+waitforWorkers(cast, EventContent, State = #client_statem_state{myName = _MyName}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(EventContent)),
-  ?LOG_WARNING("client waitforWorkers ignored!!!:  ~p ~n",[EventContent]),
+  ?LOG_WARNING("client ~p waitforWorkers ignored!!!:  ~p ~n",[myName, EventContent]),
   {next_state, waitforWorkers, State}.
   
 
@@ -186,21 +178,19 @@ idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, et
   {next_state, idle, State};
 
 idle(cast, In = {training}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
-  io:format("client going to state training ~p~n",[MyName]),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),  MessageToCast = {training},
   cast_message_to_workers(EtsRef, MessageToCast),
-  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers= ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX), nextState = training}};
+  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers =  clientWorkersFunctions:get_workers_names(EtsRef), nextState = training}};
 
 idle(cast, In = {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
-  io:format("client going to state predict~n",[]),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   MessageToCast = {predict},
   cast_message_to_workers(EtsRef, MessageToCast),
-  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers= ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),nextState = predict}};
+  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = clientWorkersFunctions:get_workers_names(EtsRef),nextState = predict}};
 
 idle(cast, EventContent, State = #client_statem_state{etsRef = EtsRef , myName = MyName}) ->
   ClientStatsEts = get(client_stats_ets),
@@ -273,13 +263,12 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
 training(cast, In = {idle}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
-  io:format("@Training: to wait for workers~n",[]),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   MessageToCast = {idle},
   cast_message_to_workers(EtsRef, MessageToCast),
-  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
+  Workers =  clientWorkersFunctions:get_workers_names(EtsRef),
   ?LOG_INFO("setting workers at idle: ~p~n",[ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
   {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
 
@@ -336,13 +325,13 @@ predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef})
   end,
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
 
-predict(cast, In = {predictRes,WorkerName,InputName,ResultID,PredictNerlTensor, Type}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
+predict(cast, In = {predictRes,WorkerName, InputName, BatchID ,PredictNerlTensor, Type}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
  
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  MessageBody = {atom_to_list(WorkerName), InputName, ResultID, {PredictNerlTensor, Type}},
+  MessageBody = {atom_to_list(WorkerName), InputName, BatchID, {PredictNerlTensor, Type}},
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(predictRes), MessageBody),
   stats:increment_messages_sent(ClientStatsEts),
   stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
@@ -365,7 +354,7 @@ predict(cast, In = {idle}, State = #client_statem_state{etsRef = EtsRef , myName
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   cast_message_to_workers(EtsRef, MsgToCast),
   ?LOG_INFO("client ~p going to state idle" , [MyName]),
-  Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
+  Workers = clientWorkersFunctions:get_workers_names(EtsRef),
   {next_state, waitforWorkers, State#client_statem_state{nextState = idle, waitforWorkers = Workers, etsRef = EtsRef}};
 
 predict(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->

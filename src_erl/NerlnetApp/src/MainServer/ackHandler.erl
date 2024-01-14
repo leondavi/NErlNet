@@ -18,7 +18,7 @@ init(Req0, [Who,Main_genserver_Pid]) ->
   {_,Body,_} = cowboy_req:read_body(Req0),
   % io:format("mainserver got ACK: ~p~n",[Body]),
   case Who of
-    source -> gen_server:cast(Main_genserver_Pid, {sourceAck,Body});      %% when source data is ready
+    dataReady -> gen_server:cast(Main_genserver_Pid, {sourceAckDataReady,Body});      %% when source data is ready
     sourceDone -> gen_server:cast(Main_genserver_Pid, {sourceDone,Body}); %% when source finished casting
     client -> gen_server:cast(Main_genserver_Pid, {clientAck,Body})       %% when client received message (new state)
   end,

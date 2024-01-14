@@ -41,7 +41,7 @@ class Transmitter:
             LOG_ERROR('Training Phase Request issue!')
 
     def clientsPredict(self):
-        globe.pendingAcks = 1
+        globe.set_receiver_wait_for_ack()
         LOG_INFO('Prediction Phase requested from Main Server')
         response = requests.post(self.clientsPredictAddress, data='')
         if not response.ok:
@@ -72,8 +72,14 @@ class Transmitter:
             except: epochs = 1
 
             dataStr = f'{sourceName}#{workersUnderSource}#{epochs}#{SourceData[i]}'
-
+        try:
             response = requests.post(self.updateCSVAddress, data=dataStr)
+        except ConnectionError:
+            LOG_ERROR(f"Connection Error: failed to connect to {self.updateCSVAddress}")
+            raise ConnectionError
+        except ConnectionRefusedError:
+            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.updateCSVAddress}")
+            raise ConnectionRefusedError
 
         LOG_INFO("Data sent to sources")
 
@@ -96,6 +102,8 @@ class Transmitter:
         globe.set_receiver_wait_for_ack()
         globe.ack_debug_print()
         requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
+        globe.ack_debug_print()
+
 
     def train(self):
         self.experiment.syncTrainingWithFlow()
@@ -124,11 +132,17 @@ class Transmitter:
         globe.waitForAck()
 
     def predict(self):
+        print("Predict beginning")
+        globe.ack_debug_print()
         self.experiment.syncPredicitionWithFlow()
-        self.clientsPredict()
+        self.clientsPredict() # set receiver wait for ack
+        globe.ack_debug_print()
         globe.waitForAck()
+        globe.ack_debug_print()
         self.startCasting(globe.PREDICTION_STR)
+        globe.ack_debug_print()
         globe.waitForAck()
+        globe.ack_debug_print()
         return self.experiment.name
 
     def statistics(self):

@@ -23,7 +23,7 @@
 -define(SERVER, ?MODULE).
 
 
--record(main_genserver_state, {statisticsCounter = 0, myName, state, workersMap, clients, nerlnetGraph, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [], statisticsMap, msgCounter = 0, batchSize}).
+-record(main_genserver_state, {statisticsCounter = 0, myName, state, workersMap, clients, nerlnetGraph, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [], statisticsMap, msgCounter = 0}).
 
 %%%===============================================================
 %%% API
@@ -129,15 +129,16 @@ handle_cast({clientsPredict,_Body}, State = #main_genserver_state{myName = MyNam
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
 
 
-handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = MyName}) ->
-  %%  send router http request, to route this message to all sensors
-  ?LOG_INFO("Casts the idle phase message to all clients"),
-  StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
-  stats:increment_messages_received(StatsEts),
-  PhaseAtom = clientsIdle,
-  update_clients_phase(PhaseAtom, MyName),
-  stats:increment_messages_sent(StatsEts),
-  {noreply, State#main_genserver_state{}};
+% handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = MyName}) ->
+%   %%  send router http request, to route this message to all sensors
+%   ?LOG_INFO("Casts the idle phase message to all clients"),
+%   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
+%   stats:increment_messages_received(StatsEts),
+%   PhaseAtom = clientsIdle,
+%   update_clients_phase(PhaseAtom, MyName),
+%   stats:increment_messages_sent(StatsEts),
+%   ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
+%   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
 
 % TODO
 %%% get Statistics from all Entities in the network
@@ -191,23 +192,25 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName, so
   stats:increment_messages_received(StatsEts),
   SourceName = binary_to_term(Body),
   UpdatedSourcesCastingList = SourcesCastingList--[SourceName],
-  io:format("UpdatedSourcesCastingList: ~p , SourceName: ~p~n",[UpdatedSourcesCastingList , SourceName]),
   case UpdatedSourcesCastingList of
     [] -> % the list is empty - all sources were done casting their batches
       PhaseAtom = clientIdle,
       update_clients_phase(PhaseAtom, MyName),
+      ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
       stats:increment_messages_sent(StatsEts),
-      NextState = State#main_genserver_state{state = idle, sourcesCastingList = UpdatedSourcesCastingList};
+      NextState = State#main_genserver_state{state = idle, sourcesCastingList = UpdatedSourcesCastingList, clientsWaitingList = ListOfClients};
     _ -> NextState = State#main_genserver_state{state = casting, sourcesCastingList = UpdatedSourcesCastingList}
   end,
   {noreply, NextState};
 
-handle_cast({sourceAck,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList}) ->
+% Each update CSV process generates sourceAck that is sent to main server when all sources are ready
+handle_cast({sourceAckDataReady,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList}) ->
     StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
     stats:increment_messages_received(StatsEts),
     SourceName = binary_to_term(Body),
+    io:format("Source Ack ~p ~p~n",[SourceName, WaitingList]),
     NewWaitingList = WaitingList--[SourceName],
-    if length(NewWaitingList) == 0 -> ack();
+    if length(NewWaitingList) == 0 -> ack(atom_to_list(sourceAckDataReady));
     true-> ok end,
   {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList}};
 
@@ -216,7 +219,7 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList =
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
   NewWaitingList = WaitingList--[binary_to_term(Body)], % waitingList is initialized in clientsTraining or clientsPredict handl cast calls
-  if length(NewWaitingList) == 0 -> ack();
+  if length(NewWaitingList) == 0 -> ack(atom_to_list(clientAck));
   true-> ok end,
   {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList}};
 
@@ -278,13 +281,14 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName})
   {noreply, State#main_genserver_state{}};
 
 
-handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSize}) ->
+handle_cast({predictRes,Body}, State) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
+  BatchSize = ets:lookup_element(get(main_server_ets), batch_size, ?DATA_IDX),
   stats:increment_messages_received(StatsEts),
   try 
       {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX), % get main_server's router,
       {WorkerName, InputName, BatchID, {NerlTensor, Type}} = binary_to_term(Body),   %% TODO: add convention with client
-      io:format("WorkerName: ~p, InputName: ~p, BatchID: ~p, NerlTensor: ~p, Type: ~p~n",[WorkerName, InputName, BatchID, NerlTensor, Type]),
+      %io:format("WorkerName: ~p, InputName: ~p, BatchID: ~p,  Type: ~p~n",[WorkerName, InputName, BatchID, Type]),
       {DecodedNerlTensor, _Type} =
       if 
         (NerlTensor==<<>>) -> ?LOG_ERROR(?LOG_HEADER++"Got empty tensor"), empty_nerltensor_err;
@@ -295,13 +299,13 @@ handle_cast({predictRes,Body}, State = #main_genserver_state{batchSize = BatchSi
       nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(predRes), BodyToSend),
       stats:increment_messages_sent(StatsEts)
   catch Err:E ->  
-    ?LOG_ERROR(?LOG_HEADER++"Error receiving predict result ~p~n",[{Err,E}])
+    ?LOG_ERROR(?LOG_HEADER++"Error receiving predict result ~p",[{Err,E}])
   end,
-  {noreply, State#main_genserver_state{}};
+  {noreply, State};
 
 
 handle_cast(Request, State = #main_genserver_state{}) ->
-  ?LOG_WARNING("main server cast ignored request ~p",[Request]),
+  ?LOG_ERROR("main server cast ignored request ~p",[Request]),
   {noreply, State}.
 
 %% @private
@@ -385,16 +389,15 @@ sources_start_casting([SourceName|SourceNames],NumOfSamplesToSend) ->
   sources_start_casting(SourceNames, NumOfSamplesToSend).
 
 
-ack() ->
+ack(MsgStr) ->
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
-  % io:format("mainserver sending ACK~n"),
-  Body = "ack",
+  Body = MsgStr,
   {ok, Response} = nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], ?API_SERVER_ACTION_ACK, Body),
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_sent(StatsEts),
   case Response of 
     {{_Protocol, _Code = 404, _Meaning}, _Headers, _Body} -> 
-          ?LOG_WARNING("Main Server retries again ack send"), ack();    %% Ack not received, retry again
+          ?LOG_WARNING("Main Server retries again ack send"), ack(MsgStr);    %% Ack not received, retry again
     {{_Protocol, _Code = 200, _Meaning}, _Headers, _Body} -> done;
     _Other -> ?LOG_ERROR("Bad response from ApiServer"), bad_response
   end.
