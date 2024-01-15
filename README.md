@@ -71,10 +71,9 @@ exp_\<any name\>.json
 
 ## Python API and Jupyter-lab (For Api-Server): 
 Minimum Python version: 3.8
-
-1. Install required modules while in venv ```pip install -r src_py/requirements.txt```
-2. Open a jupyter lab environment using ```./NerlnetJupyterLaunch.sh -d <experiment_direcotry>```
-2.2   Use -h to see the help menu of NerlnetJupyterLaunch.sh script
+1. Open a jupyter lab environment using ```./NerlnetJupyterLaunch.sh -d <experiment_direcotry>```
+1.2   Use -h to see the help menu of NerlnetJupyterLaunch.sh script.
+1.3   If --no-venv option is selected then required modules can be read from ```src_py/requirements.txt```.
 3. Read the instructions of importing Api-Server within the generated readme.md file inside <experiment_directory> folder. 
 4. Follow the example: https://github.com/leondavi/NErlNet/blob/master/examples/example_run.ipynb 
 
