@@ -69,16 +69,14 @@ exp_\<any name\>.json
 6. Run ```./NerlnetRun.sh``` to start Nerlnet.
 7. Use API-Server to load generated jsons (step 4) and execute Nerlnet experiment.
 
-## Python API and Jupyter (For UI Server): 
+## Python API and Jupyter-lab (For Api-Server): 
 Minimum Python version: 3.8
 
-1. Create and activate a virtual environment for Nerlnet: (https://docs.python.org/3/library/venv.html)  
-  ```python -m venv VENV_PATH/VENV_NAME ```  
-  ```source VENV/bin/activate``` 
-2. Install required modules while in venv ```pip install -r src_py/requirements.txt```
-3. Call Jupyter environment creator script with an experiment directory ```./NerlnetJupyterEnvGenerator.sh --j <experiment_direcotry>```
-4. Run Jupyter notebook with ```jupyter-notebook``` and create a new notebook in the created dir from step 3. 
-5. Follow the example: https://github.com/leondavi/NErlNet/blob/master/examples/example_run.ipynb 
+1. Install required modules while in venv ```pip install -r src_py/requirements.txt```
+2. Open a jupyter lab environment using ```./NerlnetJupyterLaunch.sh -d <experiment_direcotry>```
+2.2   Use -h to see the help menu of NerlnetJupyterLaunch.sh script
+3. Read the instructions of importing Api-Server within the generated readme.md file inside <experiment_directory> folder. 
+4. Follow the example: https://github.com/leondavi/NErlNet/blob/master/examples/example_run.ipynb 
 
 Contact Email: leondavi@post.bgu.ac.il
 
