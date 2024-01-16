@@ -11,8 +11,8 @@ project(nerlnet DESCRIPTION "Nerlnet Distributed Machine Learning Research Platf
 set(PROJECT_BINARY_DIR build)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -latomic")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -latomic -g")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -latomic")
+set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 
 # Options
 option(NERLWOLF "Use Wolfram Engine workers extension" OFF)

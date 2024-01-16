@@ -12,7 +12,9 @@ namespace nerlnet
                                                                                                                       learning_rate, epochs, optimizer_type, optimizer_args_str,
                                                                                                                       loss_method, distributed_system_type, distributed_system_args_str)
     {
+        _neural_network_ptr = std::make_shared<opennn::NeuralNetwork>();
         generate_opennn_neural_network();
+        _training_strategy_ptr = std::make_shared<opennn::TrainingStrategy>();
         generate_training_strategy();
         //TODO Ori and Nadav - implement training strategy (loss method, optimizer type, epochs, only sgd and adam)
     }
@@ -28,11 +30,9 @@ namespace nerlnet
     **/
     void NerlWorkerOpenNN::generate_training_strategy()
     {
-      _training_strategy_ptr = std::make_shared<opennn::TrainingStrategy>();
-      _training_strategy_ptr->set_neural_network_pointer(_neural_network_ptr.get()); // The order of these two lines is important
-       //TODO Ori and Nadav - explain why use get instead of *
-     assert((set_optimization_method(_optimizer_type,_learning_rate), "Issue with set optimization method"));
-     assert((set_loss_method(_loss_method), "Issue with set loss method")); 
+     _training_strategy_ptr->set_neural_network_pointer(_neural_network_ptr.get()); // Neural network must be defined at this point
+    _training_strategy_ptr->set_optimization_method((opennn::TrainingStrategy::OptimizationMethod) translate_optimizer_type_int(_optimizer_type));
+     _training_strategy_ptr->set_loss_method((opennn::TrainingStrategy::LossMethod) translate_loss_method_int(_loss_method)); 
      _training_strategy_ptr->set_maximum_epochs_number(_epochs); 
      _training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); // remove opennn training strategy prints
     }
@@ -129,9 +129,7 @@ namespace nerlnet
     }
 
     void NerlWorkerOpenNN::generate_custom_model_nn(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
-    {
-        neural_network_ptr = make_shared<opennn::NeuralNetwork>();
-        
+    {        
         shared_ptr<NerlLayer> curr_layer = _nerl_layers_linked_list;
         while(curr_layer)
         {

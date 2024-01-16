@@ -18,8 +18,8 @@ api_server_instance = ApiServer()
 #api_server_instance.help()
 api_server_instance.showJsons()
 dc = 0
-conn = 15
-flow = 10
+conn = 19
+flow = 17
 api_server_instance.setJsons(dc, conn, flow)
 dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
@@ -27,8 +27,8 @@ experiment_name = "test_exp"
 api_server_instance.initialization(experiment_name, dc_json , connmap_json, exp_flow_json)
 api_server_instance.sendJsonsToDevices()
 
-api_server_instance.sendDataToSources(PHASE_TRAINING)
-api_server_instance.train()
+api_server_instance.sendDataToSources(PHASE_TRAINING) # sync on ack
+api_server_instance.train() # sync on ack
 
 api_server_instance.sendDataToSources(PHASE_PREDICTION)
 api_server_instance.predict()

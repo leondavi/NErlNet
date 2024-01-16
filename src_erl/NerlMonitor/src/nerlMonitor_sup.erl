@@ -1,9 +1,9 @@
 %%%-------------------------------------------------------------------
-%% @doc nerlGUI top level supervisor.
+%% @doc NerlMonitor top level supervisor.
 %% @end
 %%%-------------------------------------------------------------------
 
--module(nerlGUI_sup).
+-module(nerlMonitor_sup).
 
 -behaviour(supervisor).
 
