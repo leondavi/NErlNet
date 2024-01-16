@@ -98,6 +98,8 @@ class NetworkComponents():
                 devicesIp: {self.devicesIp}\n \
                 mainServerIp: {self.mainServerIp}\n \
                 mainServerPort: {self.mainServerPort}\n \
+                apiServerIp: {self.apiServerIp}\n \
+                apiServerPort: {self.apiServerPort}\n \
                 Clients: {self.clients}\n \
                 Workers: {self.workers}\n \
                 Sources: {self.sources}\n \

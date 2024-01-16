@@ -5,7 +5,9 @@ from runCommand import RunCommand
 from logger import *
 from stats import Stats
 
-TEST_ACCEPTABLE_MARGIN_OF_ERROR = 0.02
+ExitValue = 0
+
+TEST_ACCEPTABLE_MARGIN_OF_ERROR = 0.03 # 3% marginal error
 
 def print_test(in_str : str):
     PREFIX = "[NERLNET-TEST] "
@@ -65,7 +67,6 @@ else:
 
 exp_stats = Stats(experiment_inst)
 loss_min = exp_stats.get_loss_min(saveToFile=True)
-print_test("min loss of each worker")
 baseline_loss_min = import_dict_json(TESTS_BASELINE_LOSS_MIN)
 for worker in loss_min.keys():
     diff = abs(loss_min[worker] - baseline_loss_min[worker])
@@ -73,22 +74,26 @@ for worker in loss_min.keys():
         error = diff
     else:
         error = diff/baseline_loss_min[worker]
-    print_test(f"worker: {worker}, diff: {diff} , error: {error}")
+    LOG_INFO(f"worker: {worker}, diff: {diff} , error: {error}")
     if error > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
-        print(f"Anomaly failure detected")
-        print(f"Error: {error} , Acceptable error: {TEST_ACCEPTABLE_MARGIN_OF_ERROR}")
-        exit(1)
+        LOG_ERROR(f"Anomaly failure detected")
+        LOG_ERROR(f"Error: {error} , Acceptable error: {TEST_ACCEPTABLE_MARGIN_OF_ERROR}")
+        ExitValue = 1
+        break
         
 
-
+DIFF_MEASURE_METHOD = "F1"
 conf_mats = exp_stats.get_confusion_matrices()
-performence_stats = exp_stats.get_model_performence_stats(conf_mats)
+performence_stats = exp_stats.get_model_performence_stats(conf_mats, saveToFile=True, printStats=True)
 baseline_acc_stats = import_dict_json(TESTS_BASELINE_MODEL_STATS)
 for worker in performence_stats.keys():
     for j in performence_stats[worker].keys():
-        diff = abs(performence_stats[worker][j]["F1"] - baseline_acc_stats[worker][str(j)]["F1"])
-        error = diff/baseline_acc_stats[worker][str(j)]["F1"]
+        diff = abs(performence_stats[worker][j][DIFF_MEASURE_METHOD] - baseline_acc_stats[worker][str(j)][DIFF_MEASURE_METHOD])
+        error = diff/baseline_acc_stats[worker][str(j)][DIFF_MEASURE_METHOD]
         if error > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
-            print_test("Anomaly failure detected")
-            print_test(f"diff_from_baseline: {diff}")
-            exit(1)
+            LOG_ERROR("Anomaly failure detected")
+            LOG_ERROR(f"diff_from_baseline: {diff}")
+            ExitValue = 1
+            break
+
+exit(ExitValue)

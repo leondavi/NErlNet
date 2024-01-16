@@ -32,158 +32,49 @@
 -spec(start_link(args) ->
   {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 
-start_link({MyName,NerlnetGraph}) ->
-  {ok,Pid} = gen_server:start_link({local, MyName}, ?MODULE, {MyName,NerlnetGraph}, []),
+start_link({MyName, Policy ,NerlnetGraph}) ->
+  {ok,Pid} = gen_server:start_link({local, MyName}, ?MODULE, {MyName, Policy ,NerlnetGraph}, []),
   Pid.
 
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
 
-%% @private
-%% @doc Initializes the server
--spec(init(Args :: term()) ->
-  {ok, State :: #router_genserver_state{}} | {ok, State :: #router_genserver_state{}, timeout() | hibernate} |
-  {stop, Reason :: term()} | ignore).
-
-init({MyName,NerlnetGraph}) ->
+init({MyName , _Policy , NerlnetGraph}) -> %% TODO : Add policy to router
   nerl_tools:setup_logger(?MODULE),
   inets:start(),
   ?LOG_NOTICE("Router ~p is connected to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
-    % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
   put(nerlnetGraph, NerlnetGraph),
+  put(myName, MyName),
   RoutingTableEtsRef = ets:new(routing_table, [set]),
+  RouterStatsEts = stats:generate_stats_ets(),
+  put(router_stats_ets, RouterStatsEts),
   EntitiesList=digraph:vertices(NerlnetGraph),
-  nerl_tools:make_routing_table(RoutingTableEtsRef,EntitiesList--[?API_SERVER_ATOM,MyName],MyName,NerlnetGraph),
-  %io:format("--------------------------router EntitiesList: ~p~n",[EntitiesList]),
+  nerl_tools:make_routing_table(RoutingTableEtsRef,EntitiesList--[MyName],MyName,NerlnetGraph),
   {ok, #router_genserver_state{msgCounter = 1, myName = MyName, etsRef=RoutingTableEtsRef}}.
 
+handle_cast({statistics , _Body} , State=#router_genserver_state{etsRef = Routing_table}) ->
 
-%% @private
-%% @doc Handling cast messages
--spec(handle_cast(Request :: term(), State :: #router_genserver_state{}) ->
-  {noreply, NewState :: #router_genserver_state{}} |
-  {noreply, NewState :: #router_genserver_state{}, timeout() | hibernate} |
-  {stop, Reason :: term(), NewState :: #router_genserver_state{}}).
+  RouterStatsEts = get(router_stats_ets),
+  stats:increment_messages_received(RouterStatsEts),
 
-%% data passing format: {To, Action, Data}
-handle_cast({pass,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-  {To, Action, _Data} = binary_to_term(Body),
-  nerl_tools:sendHTTP(MyName, To, Action, Body),
-{noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
-
-handle_cast({rout,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-%%  Body contains list of sources to send the request, and input name list of clients should be before  '@'
-%%  ToSend = term_to_binary({ClientName, WorkerName, CSVPath, Counter, Head}),
-  {To, _WorkerName, _CSVPath, _Counter, _Head} = binary_to_term(Body),
-  nerl_tools:sendHTTP(MyName, To, "batch", Body),
-  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
-
-
-handle_cast({statistics,Body}, State = #router_genserver_state{myName = MyName,msgCounter = MsgCounter }) ->
-%%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'.
-%%  if Body = my name, its for me, if the body contains #, its for main server, else its for someone else
-  BodyString = binary_to_list(Body),
-  MyNameStr = atom_to_list(MyName),
-  if BodyString == MyNameStr ->
-          nerl_tools:sendHTTP(MyName, ?MAIN_SERVER_ATOM, "statistics", list_to_binary(MyNameStr++":"++integer_to_list(MsgCounter)));
-    true ->
-        Splitted =  re:split(Body, ":", [{return, binary}]),
-        if length(Splitted) ==1 ->  %% one entity to query
-            nerl_tools:sendHTTP(MyName, list_to_atom(binary_to_list(Body)), "statistics", Body);
-          true -> 
-            nerl_tools:sendHTTP(MyName, ?MAIN_SERVER_ATOM, "statistics", Body)
-        end
-    end,
-  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
-
-handle_cast({lossFunction,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-%%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
-  nerl_tools:sendHTTP(MyName, ?MAIN_SERVER_ATOM, "lossFunction", Body),
-  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
-
-handle_cast({predictRes,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-%%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
-  nerl_tools:sendHTTP(MyName, ?MAIN_SERVER_ATOM, "predictRes", Body),
-  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
-
-% handle_cast({federatedWeightsVector,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-% %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
-%   {To,_Vector} = binary_to_term(Body),
-%   nerl_tools:sendHTTP(MyName, To, "federatedWeightsVector", Body),  
-%   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
-
-% handle_cast({federatedWeights,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-% %%  Body contrains list of sources to send the request, and input name list of clients should be before  '@'
-%     {ClientName,_WorkerName,_BinaryWeights} = binary_to_term(Body),
-%     nerl_tools:sendHTTP(MyName, ClientName, "federatedWeights", Body), 
-%     {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
-
-
-handle_cast({clientIdle, Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-    %%  sending client "idle" request
-    nerl_tools:sendHTTP(MyName, list_to_atom(binary_to_list(Body)), "clientIdle", Body), 
-    {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
-
-handle_cast({clientTraining, Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-%%  sending client "training" request
-    nerl_tools:sendHTTP(MyName, list_to_atom(binary_to_list(Body)), "clientTraining", Body), 
-    {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
-
-handle_cast({clientPredict, Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-%%  sending client "predict" request
-%%  io:format("sending to client predict: ~p~n",[Body]),
-    nerl_tools:sendHTTP(MyName, list_to_atom(binary_to_list(Body)), "clientPredict", Body), 
-    {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
-
-handle_cast({updateCSV,Source,Body}, State = #router_genserver_state{myName = MyName }) ->
-%%  Body contrains list of sources to send the request, and input name
-    %io:format("router to Source - ~p  sending Body - ~p~n",[Source,Body]),
-    nerl_tools:sendHTTP(MyName, list_to_atom(Source), "updateCSV", Body), 
-%%findroutAndsend(splitbyTriplets(SourcesClientsPaths,[]),NerlnetGraph),TODO RETURN THIS!!!!
-{noreply, State};
-
-handle_cast({csvReady,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-    %%  Body contrains list of sources to send the request, and input name
-    nerl_tools:sendHTTP(MyName, ?MAIN_SERVER_ATOM, "csvReady", Body), 
-    {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
-
-handle_cast({sourceDone,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-    %%  Body contrains list of sources to send the request, and input name
-    nerl_tools:sendHTTP(MyName, ?MAIN_SERVER_ATOM, "sourceDone", Body), 
-    {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
-
-handle_cast({clientReady,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-    %%  Body contrains list of sources to send the request, and input name
-    nerl_tools:sendHTTP(MyName, ?MAIN_SERVER_ATOM, "clientReady", Body), 
-    {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
-
-handle_cast({startCasting,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-    %%  Body contrains list of sources to send the request, and input name
-    [Source|_] = re:split(binary_to_list(Body), ",", [{return, list}]),
-    nerl_tools:sendHTTP(MyName, list_to_atom(Source), "startCasting", Body), 
-    {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
-
-handle_cast({stopCasting,Body}, State = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-%%  Body contrains list of sources to send the request, and input name
-    nerl_tools:sendHTTP(MyName, list_to_atom(binary_to_list(Body)), "stopCasting", Body), 
-    {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
-
-
-%%%%%%%GUI ACTIONS
-handle_cast({getStats,_Body}, State  = #router_genserver_state{myName = MyName, msgCounter = MsgCounter }) ->
-    {_Name, {Host,Port}} = digraph:vertex(get(nerlnetGraph), "nerlGUI"),
-    Connected = [ V++", " || V <- digraph:out_neighbours(get(nerlnetGraph), MyName)],
-    %io:format("Conn list is: ~p~n",[Connected]),
-    Mes = "routerScreen@"++MyName++",messStats="++integer_to_list(MsgCounter)++";connList="++lists:concat(Connected),
-    nerl_tools:http_request(Host,Port,"routerStats",Mes),
-    {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}};
-
+  MyName = get(myName),
+  StatsEtsStr = stats:encode_ets_to_http_bin_str(RouterStatsEts),
+  StatisticsBody = {term_to_binary(MyName) , list_to_binary(StatsEtsStr)}, % old data
+  [{_Dest,{_Name , RouterHost , RouterPort}}] = ets:lookup(Routing_table , ?MAIN_SERVER_ATOM),
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
+  stats:increment_messages_sent(RouterStatsEts),
+  {noreply , State};
 
 handle_cast({unicast,{Dest,Body}}, State = #router_genserver_state{msgCounter = MsgCounter,etsRef=Routing_table }) ->
-
-  [{Dest,{Name,Host,Port}}]=ets:lookup(Routing_table,Dest),
-  case Dest of
+  RouterStatsEts = get(router_stats_ets),
+  stats:increment_messages_received(RouterStatsEts),
+  DestAtom = if is_list(Dest)-> list_to_atom(Dest);
+                is_binary(Dest)-> binary_to_atom(Dest);
+                true -> Dest
+            end,
+  [{DestAtom,{Name,Host,Port}}] =  ets:lookup(Routing_table, DestAtom),
+  case DestAtom of
     Name->
       %the destination is the next hop, send as regular message
       {Action,Data}=Body;
@@ -192,10 +83,17 @@ handle_cast({unicast,{Dest,Body}}, State = #router_genserver_state{msgCounter = 
       Action=atom_to_list(?UNICAST_ACTION_ATOM),
       Data={Dest,Body}
     end,
-  nerl_tools:http_request(Host, Port,Action, term_to_binary(Data)),
+  DataToSend = 
+    if ?API_SERVER_ATOM =:= DestAtom -> Data;
+    true -> term_to_binary(Data)
+  end,
+  nerl_tools:http_request(Host, Port, Action, DataToSend),
+  stats:increment_messages_sent(RouterStatsEts),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1,etsRef=Routing_table }};
 
-handle_cast({broadcast,{DestList,Body}}, State = #router_genserver_state{msgCounter = MsgCounter,etsRef=Routing_table }) ->
+handle_cast({broadcast,{DestList,Body}}, State = #router_genserver_state{etsRef=Routing_table }) ->
+  RouterStatsEts = get(router_stats_ets),
+  stats:increment_messages_received(RouterStatsEts),
   MapFunc=fun(Dest,Acc)->
     %make a map when keys are addreses to send a message to, and values are lists of destination of the message that go throu key addres
     [{Dest,{Name,Host,Port}}]=ets:lookup(Routing_table,Dest),
@@ -229,14 +127,17 @@ handle_cast({broadcast,{DestList,Body}}, State = #router_genserver_state{msgCoun
         Action="broadcast",
         Data={DestEntityList,Body}
     end,
-    nerl_tools:http_request(Host, Port,Action, term_to_binary(Data))
+    nerl_tools:http_request(Host, Port,Action, term_to_binary(Data)),
+    stats:increment_messages_sent(RouterStatsEts)
   end,
   maps:foreach(SendFunc,NextHopMap),
-  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1,etsRef=Routing_table }};
+  {noreply, State#router_genserver_state{etsRef=Routing_table }};
 
 
-handle_cast(_Request, State = #router_genserver_state{msgCounter = MsgCounter }) ->
-  {noreply, State#router_genserver_state{msgCounter = MsgCounter+1}}.
+handle_cast(_Request, State) ->
+  ?LOG_ERROR("Unrecognized handle cast message! only unicast/broadcast types are allowed"),
+  stats:increment_bad_messages(get(router_stats_ets)),
+  {noreply, State}.
 
 
 
@@ -251,6 +152,7 @@ handle_cast(_Request, State = #router_genserver_state{msgCounter = MsgCounter })
   {stop, Reason :: term(), Reply :: term(), NewState :: #router_genserver_state{ }} |
   {stop, Reason :: term(), NewState :: #router_genserver_state{ }}).
 handle_call(_Request, _From, State = #router_genserver_state{ }) ->
+  ?LOG_ERROR("Wrong handle call message was received!"),
   {reply, ok, State}.
 
 

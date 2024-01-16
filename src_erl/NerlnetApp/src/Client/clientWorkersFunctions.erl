@@ -5,8 +5,8 @@
 -include("../nerl_tools.hrl").
 -include("../worker_definitions_ag.hrl").
 
--export([create_workers/3]).
--export([get_worker_pid/2 , get_worker_stats_ets/2]).
+-export([create_workers/4]).
+-export([get_worker_pid/2 , get_worker_stats_ets/2 , get_workers_names/1]).
 
 get_distributed_worker_behavior(DistributedSystemType , WorkerName , DistributedSystemArgs , DistributedSystemToken) ->
 case DistributedSystemType of
@@ -23,60 +23,38 @@ case DistributedSystemType of
       end,
 {DistributedBehaviorFunc , DistributedWorkerData}.
 
-create_workers(ClientName, EtsRef , ShaToModelArgsMap) ->
+%% Create workers for clients
+%% 
+%% ets tree structure: ClientETS -> WorkersETS -> {WorkerName, {WorkerStatsETS , WorkerPid, WorkerArgs}}
+create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap , EtsStats) ->
   CLIENT_WORKES_MAPS_TUPLE_IDX = 2,
   ClientsMap = maps:from_list(ets:lookup_element(nerlnet_data, deviceClients, ?DATA_IDX)), % This is the format of hostClients {Name,{Port,ClientWorkers,ClientWorkersMaps}}
-  io:format("ClientWorkersMaps: ~p~n", [ClientsMap]),
   ClientWorkers = element(CLIENT_WORKES_MAPS_TUPLE_IDX,maps:get(ClientName, ClientsMap)), 
-  io:format("ClientWorkers: ~p~n", [ClientWorkers]),
   WorkersETS = ets:new(workers_ets,[set]),
-  io:format("WorkerToSHAMap: ~p~n" , [ets:lookup_element(EtsRef, workers_to_sha_map, ?DATA_IDX)]),
 
 
   Func = fun(WorkerName) -> 
     ModelID = erlang:unique_integer([positive]),
-    WorkerStatsETS = ets:new(worker_stats_ets,[set]),
-    {ok , SHA} = maps:find(WorkerName , ets:lookup_element(EtsRef, workers_to_sha_map, ?DATA_IDX)),
+    WorkerStatsETS = stats:generate_workers_stats_ets(),
+    {ok , SHA} = maps:find(WorkerName , ets:lookup_element(ClientEtsRef, workers_to_sha_map, ?DATA_IDX)),
     {ModelType, LayersSizes, LayersTypes, LayersFunctions, LossMethod, 
     LearningRate, Epochs, Optimizer, OptimizerArgs, _InfraType, DistributedSystemType, 
     DistributedSystemArgs, DistributedSystemToken} = maps:get(SHA, ShaToModelArgsMap),
     MyClientPid = self(),
-    io:format("MyClientPid: ~p~n", [MyClientPid]),
     % TODO add documentation about this case of 
     % move this case to module called client_controller
     {DistributedBehaviorFunc , DistributedWorkerData} = get_distributed_worker_behavior(DistributedSystemType , WorkerName , DistributedSystemArgs , DistributedSystemToken),
-    io:format("DistributedWorkerData: ~p~n", [DistributedWorkerData]),
-
-% nerlworker_test(Rounds, Performance) ->
-%       ModelId  = erlang:unique_integer([positive]),
-%       ModelType = "5",
-%       LayersSizes = "5,10,5,3",
-%       LayersTypes = "1,3,3,3",
-%       LayersFunctionalityCodes = "1,6,11,11", % change scaler functionality to 6 to check exception handling
-%       LearningRate = "0.01",
-%       Epochs = "1",
-%       OptimizerType = "2",
-%       OptimizerArgs = "",
-%       LossMethod = "2",
-%       DistributedSystemType = "0",
-%       DistributedSystemArg = "",
-%       nerlNIF:test_nerlworker_nif(ModelId,ModelType,LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
-%       nerlNIF:remove_nerlworker_nif(ModelId),
-%       nerlworker_test(Rounds - 1, Performance).
 
     WorkerArgs = {ModelID , ModelType , LayersSizes, LayersTypes, LayersFunctions, LearningRate , Epochs, 
                   Optimizer, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs},
-    io:format("WorkerArgs: ~p~n", [WorkerArgs]),
-    WorkerPid = workerGeneric:start_link({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , _ClientPid = self()}),
-
-    ets:insert(WorkersETS, {WorkerName, {WorkerStatsETS , WorkerPid, WorkerArgs}}), 
+    WorkerPid = workerGeneric:start_link({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , _ClientPid = self() , WorkerStatsETS}),
+    ets:insert(WorkersETS, {WorkerName, {WorkerPid, WorkerArgs}}), 
+    ets:insert(EtsStats, {WorkerName, WorkerStatsETS}),
 
     WorkerName
   end,
-
   lists:foreach(Func, ClientWorkers),   %% TODO: collect forbidden names (keys of ets:insert)
-
-  ets:insert(EtsRef, {workers_ets, WorkersETS}).  
+  ets:insert(ClientEtsRef, {workers_ets, WorkersETS}).
 
 get_worker_stats_ets(ClientEtsRef , WorkerName) ->
   WorkersETS = ets:lookup_element(ClientEtsRef, workers_ets, ?DATA_IDX),
@@ -85,7 +63,15 @@ get_worker_stats_ets(ClientEtsRef , WorkerName) ->
 
 get_worker_pid(ClientEtsRef , WorkerName) ->
   WorkersETS = ets:lookup_element(ClientEtsRef, workers_ets, ?DATA_IDX),
-  {_WorkerStatsETS , WorkerPid , _WorkerArgs} = ets:lookup_element(WorkersETS, WorkerName, ?DATA_IDX),
+  {WorkerPid , _WorkerArgs} = ets:lookup_element(WorkersETS, WorkerName, ?DATA_IDX),
   WorkerPid.
+
+get_workers_names(ClientEtsRef) ->
+  WorkersETS = ets:lookup_element(ClientEtsRef, workers_ets, ?DATA_IDX),
+  _WorkersNames = [WorkerName || {WorkerName, _Val} <- ets:tab2list(WorkersETS)].
+
+  
+
+
 
 

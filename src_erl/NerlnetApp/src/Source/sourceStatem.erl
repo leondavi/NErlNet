@@ -38,8 +38,8 @@
 
 %%Arguments from Cowboy Server
 %%return Pid to Cowboy Server
-start_link(NerlnetGraph) ->
-    {ok,Pid} = gen_statem:start_link(?MODULE, NerlnetGraph, []),
+start_link(SourceStatemArgs) ->
+    {ok,Pid} = gen_statem:start_link(?MODULE, SourceStatemArgs, []),
     Pid.
 
 %%%===================================================================
@@ -51,14 +51,15 @@ start_link(NerlnetGraph) ->
 %% gen_statem:start_link/[3,4], this function is called by the new
 %% process to initialize.
 %%initialize and go to state - idle
-init({MyName,WorkersMap, NerlnetGraph, Method, BatchSize,Frequency}) ->
-
+init({MyName, WorkersMap, NerlnetGraph, Policy, BatchSize, Frequency , Epochs, Type}) ->
   nerl_tools:setup_logger(?MODULE),
   inets:start(),
   ?LOG_INFO("Source ~p is connected to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
   ?LOG_INFO("BatchSize: ~p",[BatchSize]),
 
   EtsRef = ets:new(source_data, [set]),
+  EtsStatsRef = stats:generate_stats_ets(),
+
   ets:insert(EtsRef, {nerlnet_graph, NerlnetGraph}),
   ets:insert(EtsRef, {workers_map, WorkersMap}),
   ets:insert(EtsRef, {total_messages_ctr, 0}),
@@ -68,15 +69,19 @@ init({MyName,WorkersMap, NerlnetGraph, Method, BatchSize,Frequency}) ->
   ets:insert(EtsRef, {frequency, Frequency}),
   ets:insert(EtsRef, {time_interval_ms, round(1000/Frequency)}), % time of delay before transmitter sends a batch
   ets:insert(EtsRef, {batch_size, BatchSize}),
-  ets:insert(EtsRef, {method, Method}),
-  ets:insert(EtsRef, {epochs, none}),
+  ets:insert(EtsRef, {method, Policy}),
+  ets:insert(EtsRef, {epochs, Epochs}),
+  ets:insert(EtsRef, {type, Type}), %% CSV/Camera
   ets:insert(EtsRef, {sample_size, none}),
   ets:insert(EtsRef, {workers_list, []}),
   ets:insert(EtsRef, {csv_name, ""}), % not in use
+  {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM, NerlnetGraph),
+  ets:insert(EtsRef, {my_router,{MyRouterHost,MyRouterPort}}),
 
-  put(nerlnetGraph, NerlnetGraph), % %TODO get rid of this put (it is used by nerl_tools:sendHTTP)
-
-
+  % Updating dictionary
+  put(nerlnetGraph, NerlnetGraph),
+  put(source_ets, EtsRef),
+  put(source_stats_ets, EtsStatsRef),
   {ok, idle, #source_statem_state{ets_ref = EtsRef, castingTo = []}}.
 
 %% @private
@@ -104,29 +109,32 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 
 
 %% This cast receive a list of samples to load to the records batchList
-idle(cast, {batchList,WorkersList,Epochs, CSVData}, State = #source_statem_state{ets_ref = EtsRef}) ->
+idle(cast, {batchList,WorkersList,Epochs, CSVData}, State) ->
+  EtsRef = get(source_ets),
+  StatsEtsRef = get(source_stats_ets),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   BatchSize = ets:lookup_element(EtsRef, batch_size, ?DATA_IDX),
-  {NerlTensorBatchesList, NerlTensorType, SampleSize} = parser:parseCSV(MyName,BatchSize,CSVData), % TODO this is slow and heavy method! pre parse in ETS a possible solution
+  {NerlTensorBatchesList, NerlTensorType, SampleSize} = parser:parseCSV(MyName,BatchSize,CSVData), % TODO this is slow and heavy policy! pre parse in ETS a possible solution
   ets:update_element(EtsRef, workers_list, [{?DATA_IDX, WorkersList}]),
   ets:update_element(EtsRef, epochs, [{?DATA_IDX, Epochs}]),
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
+  stats:increment_messages_received(StatsEtsRef),
   ?LOG_NOTICE("Source ~p, workers are: ~p", [MyName, WorkersList]),
   ?LOG_NOTICE("Source ~p, sample size: ~p", [MyName, SampleSize]),
   ets:update_element(EtsRef, sample_size, [{?DATA_IDX, SampleSize}]),
-  ?LOG_INFO("source updated transmition list, total avilable batches to send: ~p~n",[length(NerlTensorBatchesList)]),
+  ?LOG_INFO("Source ~p updated transmission list, total avilable batches to send: ~p~n",[MyName, length(NerlTensorBatchesList)]),
   %%  send an ACK to mainserver that the CSV file is ready
-
-  %% TODO fix exception here
-  nerl_tools:sendHTTP(MyName,?MAIN_SERVER_ATOM,"csvReady",MyName),
+  {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(dataReady), MyName),
+  stats:increment_messages_sent(StatsEtsRef),
   {next_state, idle, State#source_statem_state{batchesList = NerlTensorBatchesList, nerlTensorType = NerlTensorType}};
 
 
 %% This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
-idle(cast, {startCasting,Body}, State = #source_statem_state{ets_ref = EtsRef, batchesList = BatchesList}) ->
+idle(cast, {startCasting,Body}, State = #source_statem_state{batchesList = BatchesList}) ->
+  EtsRef = get(source_ets),
   [_Source,UserLimitNumberOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
- 
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
 
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   Frequency = ets:lookup_element(EtsRef, frequency, ?DATA_IDX),
@@ -141,7 +149,6 @@ idle(cast, {startCasting,Body}, State = #source_statem_state{ets_ref = EtsRef, b
   BatchesListFinal = lists:sublist(BatchesList, BatchesToSend), % Batches list with respect of constraint UserLimitNumberOfBatchesToSendInt
 
   % TODO consider add offset value from API
-
   ?LOG_NOTICE("~p - starts casting to workers: ~p",[MyName, WorkersList]),
   ?LOG_NOTICE("Frequency: ~pHz [Batches/Second]",[Frequency]),
   ?LOG_NOTICE("Batch size: ~p", [BatchSize]),
@@ -153,70 +160,86 @@ idle(cast, {startCasting,Body}, State = #source_statem_state{ets_ref = EtsRef, b
   TransmitterPID =  spawnTransmitter(EtsRef, WorkersList, BatchesListFinal),
   {next_state, castingData, State#source_statem_state{transmitter_pid = TransmitterPID}};
 
-idle(cast, {startCasting}, State = #source_statem_state{ets_ref = EtsRef}) ->
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
+idle(cast, {startCasting}, State) ->
+  EtsRef = get(source_ets),
   % io:format("im not suppose to be here"),
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
+
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   ?LOG_WARNING("Source ~p receives message during casting!",[MyName]),
-  {next_state, castingData, State#source_statem_state{}};
+  {next_state, castingData, State};
 
 
-idle(cast, {stopCasting}, State = #source_statem_state{ets_ref = EtsRef}) ->
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
+idle(cast, {stopCasting}, State) ->
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
+  {next_state, idle, State};
+
+idle(cast, {statistics}, State) ->
+  EtsRef = get(source_ets),
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
+
+  MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
+  StatsEtsStr = stats:encode_ets_to_http_bin_str(StatsEtsRef),
+  StatisticsBody = {term_to_binary(MyName) , list_to_binary(StatsEtsStr)}, % old data
+  {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
+  stats:increment_messages_sent(StatsEtsRef),
   {next_state, idle, State#source_statem_state{}};
 
-idle(cast, {statistics}, State = #source_statem_state{ets_ref = EtsRef, myName =  MyName}) ->
-  NerlnetGraph = ets:lookup_element(EtsRef, nerlnet_graph, ?DATA_IDX),
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
-  TotalMessagesCounter = ets:lookup_element(EtsRef, total_messages_ctr, ?DATA_IDX),
-
-  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM,NerlnetGraph),
-  nerl_tools:http_request(RouterHost,RouterPort,"statistics", list_to_binary(atom_to_list(MyName)++":"++integer_to_list(TotalMessagesCounter))),
-%%  io:format("sending statistics casting to: ~p~n",[CastingTo]),
-  {next_state, idle, State#source_statem_state{}};
-
-idle(cast, _EventContent, State = #source_statem_state{ets_ref = EtsRef}) ->
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
+idle(cast, _EventContent, State) ->
+  EtsRef = get(source_ets),
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   ?LOG_WARNING("Source ~p receives an unexpected cast event in idle state!",[MyName]),
   {next_state, idle, State#source_statem_state{}}.
 
 %%waiting for ether data list of sample been sent to finish OR stop message from main server.
-castingData(cast, {stopCasting}, State = #source_statem_state{ets_ref = EtsRef, transmitter_pid = TransmitterPID}) ->
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
-  TransmitterPID ! {stopCasting},
+castingData(cast, {stopCasting}, State = #source_statem_state{transmitter_pid = TransmitterPID}) ->
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
+  ?LOG_ERROR("Unsupported yet"),
+  TransmitterPID ! {stopCasting}, % TODO - kill transmitter on stop casting
   {next_state, idle, State#source_statem_state{transmitter_pid = none}};
 
-castingData(cast, {startCasting}, State = #source_statem_state{ets_ref = EtsRef}) ->
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
+castingData(cast, {startCasting}, State) ->
+  EtsRef = get(source_ets),
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   ?LOG_WARNING("~p is already casting, but received a startCasting message",[MyName]),
-  {next_state, castingData, State#source_statem_state{}};
+  {next_state, castingData, State};
 
-castingData(cast, {leftOvers,_Tail}, State = #source_statem_state{ets_ref = EtsRef}) ->
+castingData(cast, {leftOvers,_Tail}, State) ->
+  EtsRef = get(source_ets),
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
   ?LOG_ERROR("Source ~p got leftOvers unhandled case of castingData state - Currently Deprecated!",[MyName]),
-  {next_state, idle, State#source_statem_state{}};
-  %{next_state, idle, State#source_statem_state{batchList = Tail}};
+  {next_state, idle, State};
 
-castingData(cast, {finishedCasting, BatchesSent}, State = #source_statem_state{ets_ref = EtsRef}) ->
-   %% source finished casting %%
-   ets:update_counter(EtsRef, total_messages_ctr, BatchesSent), % last is increment value
-   ets:update_counter(EtsRef, batches_sent_ctr, BatchesSent),
-   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
-   NerlnetGraph = ets:lookup_element(EtsRef, nerlnet_graph, ?DATA_IDX),
-  {RouterHost,RouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_STR,NerlnetGraph),
+castingData(cast, {finishedCasting, BatchesSent}, State) ->
+  EtsRef = get(source_ets),
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
+  %% source finished casting %%
+  stats:increment_by_value(StatsEtsRef, batches_sent, BatchesSent),
+  MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
+  {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   %%  send an ACK to mainserver that the CSV file is ready
-  nerl_tools:http_request(RouterHost,RouterPort,"sourceDone", MyName),
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(sourceDone), MyName),
+  stats:increment_messages_sent(StatsEtsRef),
   {next_state, idle, State#source_statem_state{transmitter_pid = none}};
 
 castingData(cast, _EventContent, State = #source_statem_state{ets_ref = EtsRef}) ->
-  ets:update_counter(EtsRef, total_messages_ctr, 1), % last is increment value
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_bad_messages(StatsEtsRef),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   ?LOG_WARNING("Source ~p Received cast event during castingData state",[MyName]),
   {next_state, castingData, State#source_statem_state{}}.
-
 
 %% @private
 %% @doc If callback_mode is handle_event_function, then whenever a
@@ -244,112 +267,106 @@ code_change(_OldVsn, StateName, State = #source_statem_state{}, _Extra) ->
 %%%===================================================================
 
 %%% spawnTransmitter - creates a transmitter process to send batches
-%%% Flow: transmitter -> transmit_func -> send_method_<method> -> prepare_send -> sendBatch
+%%% Flow: transmitter -> transmit_func -> send_policy_<policy> -> prepare_send -> sendBatch
 spawnTransmitter(SourceEtsRef, WorkersListOfNames, BatchesListToSend)->
-  MyName = ets:lookup_element(SourceEtsRef, my_name, ?DATA_IDX),
-  NerlnetGraph = ets:lookup_element(SourceEtsRef, nerlnet_graph, ?DATA_IDX),
   WorkersMap = ets:lookup_element(SourceEtsRef, workers_map, ?DATA_IDX),
-  Method = ets:lookup_element(SourceEtsRef, method, ?DATA_IDX),
+  Method = ets:lookup_element(SourceEtsRef, method , ?DATA_IDX),
   TimeInterval_ms = ets:lookup_element(SourceEtsRef, time_interval_ms, ?DATA_IDX), % frequency to time interval duration in milliseconds between each send
-  Triplets = nerl_tools:getHostPort(WorkersListOfNames,WorkersMap,NerlnetGraph,MyName,[]),
+  ClientWorkerPairs = nerl_tools:get_client_worker_pairs(WorkersListOfNames,WorkersMap,[]),
   SourcePid = self(),
   TimeIntervalWithOverheadFactor = TimeInterval_ms * ?SENDING_FREQUENCY_OVERHEAD_FIX_FACTOR_PERC,
-  spawn_link(?MODULE,transmitter,[TimeIntervalWithOverheadFactor,SourceEtsRef, SourcePid ,Triplets, BatchesListToSend, Method]).
+  spawn_link(?MODULE,transmitter,[TimeIntervalWithOverheadFactor,SourceEtsRef, SourcePid ,ClientWorkerPairs, BatchesListToSend, Method]).
 
 %% Sends batch of samples to a client
 % A batch is always {NerlTensor, Type}
 sendBatch({NerlTensor, Type},CSVPath, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
-        ToSend = term_to_binary({ClientName, WorkerName, CSVPath, BatchID, {NerlTensor, Type}}),
-        nerl_tools:http_request(RouterHost, RouterPort,"batch",ToSend). % TODO add macro
+        ToSend = {ClientName, WorkerName, CSVPath, BatchID, {NerlTensor, Type}},
+        nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(batch), ToSend).
 
 prepare_and_send(_TransmitterEts, _TimeInterval_ms, _Batch, _BatchIdx, []) -> ok;
-prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [Triplet | Tail]) ->
+prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [ClientWorkerPair | ClientWorkerPairsTail]) ->
   Tic = erlang:timestamp(), % frequency relates to each send
+  {RouterHost,RouterPort} = ets:lookup_element(TransmitterEts, my_router, ?DATA_IDX),
   case Batch of
-    {NerlTensor, Type} ->
-      {ClientName,WorkerName,RouterHost,RouterPort} = Triplet,% TODO Gal is about to perform refactor here with casting support
-      CSVPath = "",
-      % sending batch
-      sendBatch({NerlTensor, Type},CSVPath, BatchIdx, ClientName,WorkerName,RouterHost,RouterPort),
-      % timing handling
-      Toc_millisec = timer:now_diff(Tic, erlang:timestamp()) * ?MICRO_TO_MILLI_FACTOR,
-      SleepDuration = erlang:max(0,  round(TimeInterval_ms - Toc_millisec)),
-      timer:sleep(SleepDuration);
-    <<>> ->
-      ets:update_counter(TransmitterEts, batches_skipped, 1);
-    _ISSUE ->
-      ets:update_counter(TransmitterEts, batches_issue, 1)
+  {NerlTensor, Type} ->
+    {ClientName,WorkerName} = ClientWorkerPair,% TODO Gal is about to perform refactor here with casting support
+    CSVPath = "",
+    % sending batch
+    sendBatch({NerlTensor, Type},CSVPath, BatchIdx, ClientName,WorkerName,RouterHost,RouterPort),
+    % timing handling
+    Toc_millisec = timer:now_diff(Tic, erlang:timestamp()) * ?MICRO_TO_MILLI_FACTOR,
+    SleepDuration = erlang:max(0,  round(TimeInterval_ms - Toc_millisec)),
+    timer:sleep(SleepDuration);
+  <<>> ->
+    ets:update_counter(TransmitterEts, batches_skipped, 1);
+  _ISSUE ->
+    ets:update_counter(TransmitterEts, batches_issue, 1)
   end,
-  prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, Tail).
+  prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, ClientWorkerPairsTail).
 
-send_method_casting(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend) ->
+send_method_casting(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend) ->
   % Sends the same batch to all
   BatchFunc = fun({BatchIdx, Batch}) ->
-    prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, Triplets)
+    prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, ClientWorkerPairs)
   end, % end of BatchFunc
   BatchesIndexes = lists:seq(0, length(BatchesListToSend)-1),
   BatchesWithIndexes = lists:zip(BatchesIndexes, BatchesListToSend),
   lists:foreach(BatchFunc, BatchesWithIndexes),
-  
   % update batches sent
   SkippedBatches = ets:lookup_element(TransmitterEts, batches_skipped, ?DATA_IDX),
-  ets:update_counter(TransmitterEts, batches_sent, length(Triplets) * length(BatchesListToSend) - SkippedBatches).
+  ets:update_counter(TransmitterEts, batches_sent, length(ClientWorkerPairs) * length(BatchesListToSend) - SkippedBatches).
 
-send_method_round_robin(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend) ->
+send_method_round_robin(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend) ->
   % Sends a batch per each
-  TripletsIndexes = lists:seq(0, length(Triplets)-1),
-  TripletsWithIndexes = lists:zip(TripletsIndexes, Triplets), % Tuple {Idx, Triplet}
-  TripletsMap = maps:from_list(TripletsWithIndexes),
+  ClientWorkerPairsIndexes = lists:seq(0, length(ClientWorkerPairs)-1),
+  ClientWorkerPairsWithIndexes = lists:zip(ClientWorkerPairsIndexes, ClientWorkerPairs), % Tuple {Idx, Triplet}
+  ClientWorkerPairsMap = maps:from_list(ClientWorkerPairsWithIndexes),
   
   BatchFunc = fun({BatchIdx, Batch}) ->
-    TripletIdx = BatchIdx rem length(Triplets),
-    Triplet = maps:get(TripletIdx, TripletsMap),
-    prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [Triplet]) % improve by allowing casting messages
+    ClientWorkerPairIdx = BatchIdx rem length(ClientWorkerPairs),
+    ClientWorkerPair = maps:get(ClientWorkerPairIdx, ClientWorkerPairsMap),
+    prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [ClientWorkerPair]) % improve by allowing casting messages
   end, % end of BatchFunc
-
   BatchesIndexes = lists:seq(0, length(BatchesListToSend)-1),
   BatchesWithIndexes = lists:zip(BatchesIndexes, BatchesListToSend),
   lists:foreach(BatchFunc, BatchesWithIndexes),
-
   % update batches sent
   SkippedBatches = ets:lookup_element(TransmitterEts, batches_skipped, ?DATA_IDX),
   ets:update_counter(TransmitterEts, batches_sent, length(BatchesListToSend) - SkippedBatches).
 
-send_method_random(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend) ->
+send_method_random(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend) ->
   % Sends a batch per each
-  TripletsIndexes = lists:seq(1, length(Triplets)),
-  TripletsWithIndexes = lists:zip(TripletsIndexes, Triplets), % Tuple {Idx, Triplet}
-  TripletsMap = maps:from_list(TripletsWithIndexes),
-  
+  ClientWorkerPairsIndexes = lists:seq(1, length(ClientWorkerPairs)),
+  ClientWorkerPairsWithIndexes = lists:zip(ClientWorkerPairsIndexes, ClientWorkerPairs), % Tuple {Idx, Triplet}
+  ClientWorkerPairsMap = maps:from_list(ClientWorkerPairsWithIndexes),
   BatchFunc = fun({BatchIdx, Batch}) ->
-    TripletIdx = rand:uniform(length(Triplets)),
-    Triplet = maps:get(TripletIdx, TripletsMap),
-    prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [Triplet]) % improve by allowing casting messages
+    ClientWorkerPairIdx = rand:uniform(length(ClientWorkerPairs)),
+    ClientWorkerPair = maps:get(ClientWorkerPairIdx, ClientWorkerPairsMap),
+    prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [ClientWorkerPair]) % improve by allowing casting messages
   end, % end of BatchFunc
-
   BatchesIndexes = lists:seq(0, length(BatchesListToSend)-1),
   BatchesWithIndexes = lists:zip(BatchesIndexes, BatchesListToSend),
   lists:foreach(BatchFunc, BatchesWithIndexes),
-
   % update batches sent
   SkippedBatches = ets:lookup_element(TransmitterEts, batches_skipped, ?DATA_IDX),
   ets:update_counter(TransmitterEts, batches_sent, length(BatchesListToSend) - SkippedBatches).
 
-transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,Triplets, BatchesListToSend, Method) ->
+transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,ClientWorkerPairs, BatchesListToSend, Method) ->
   MyName = ets:lookup_element(SourceEtsRef, my_name, ?DATA_IDX),
-  ?LOG_INFO("Source ~p Transmitter Starts", [MyName]),
   TransmitterEts = ets:new(transmitter_ets, [set]), % allow transmitter process to edit
+  {SourceRouterHost,SourceRouterPort} = ets:lookup_element(SourceEtsRef, my_router, ?DATA_IDX),
   ets:insert(TransmitterEts, {my_name, MyName}),
+  ets:insert(TransmitterEts, {my_router, {SourceRouterHost,SourceRouterPort}}),
   ets:insert(TransmitterEts, {batches_sent, 0}),
   ets:insert(TransmitterEts, {batches_issue, 0}),
   ets:insert(TransmitterEts, {batches_skipped, 0}),
   ets:insert(TransmitterEts, {current_batch_id, 0}),
   TransmissionStart = erlang:timestamp(),
   case Method of
-    ?SOURCE_POLICY_CASTING_ATOM -> send_method_casting(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend);
-    ?SOURCE_POLICY_ROUNDROBIN_ATOM -> send_method_round_robin(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend);
-    ?SOURCE_POLICY_RANDOM_ATOM -> send_method_random(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend);
-    _Default -> send_method_casting(TransmitterEts, TimeInterval_ms, Triplets, BatchesListToSend)
+    ?SOURCE_POLICY_CASTING_ATOM -> send_method_casting(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
+    ?SOURCE_POLICY_ROUNDROBIN_ATOM -> send_method_round_robin(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
+    ?SOURCE_POLICY_RANDOM_ATOM -> send_method_random(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
+    _Default -> send_method_casting(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend)
   end,
   TransmissionTimeTook_sec = timer:now_diff(erlang:timestamp(), TransmissionStart) / 1000000,
   ErrorBatches = ets:lookup_element(TransmitterEts, batches_issue, ?DATA_IDX),
@@ -368,6 +385,5 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,Triplets, BatchesListToSen
 
   gen_statem:cast(SourcePid,{finishedCasting,BatchesSent}),
   ActualFrequency = 1/(TransmissionTimeTook_sec/BatchesSent),
-  ?LOG_INFO("Source ~p Transmitter Finished", [MyName]),
   ?LOG_INFO("Source ~p Actual Frequency: ~p [B/Sec]",[MyName, ActualFrequency]),
   ets:delete(TransmitterEts).

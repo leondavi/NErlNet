@@ -9,7 +9,6 @@ import threading
 import matplotlib.pyplot as plt
 import pandas as pd
 import sys
-import numpy as np
 import os
 import traceback
 from pathlib import Path
@@ -112,7 +111,7 @@ PREDICTION_STR = "Prediction"
         self.mainServerAddress = 'http://' + mainServerIP + ':' + mainServerPort
         self.experiments = []
         
-        print("Initializing the receiver thread...\n")
+        LOG_INFO("Initializing ApiServer receiver thread")
 
         # Initializing the receiver (a Flask HTTP server that receives results from the Main Server):
         if is_port_free(int(globe.components.receiverPort)):
@@ -132,12 +131,9 @@ PREDICTION_STR = "Prediction"
         if not hasattr(self, 'transmitter'):
             self.transmitter = Transmitter(self.current_exp, self.mainServerAddress, self.input_data_path)
 
-        print("\n***Please remember to execute NerlnetRun.sh on each device before continuing.")
+        LOG_INFO("*** Remember to execute NerlnetRun.sh on each device before running the experiment! ***")
     
     def sendJsonsToDevices(self):
-        # Send the content of jsonPath to each devices:
-        LOG_INFO("Sending JSON paths to devices...")
-
         # Jsons found in NErlNet/inputJsonFiles/{JSON_TYPE}/files.... for entities in src_erl/Comm_layer/http_nerl/src to reach them, they must go up 3 dirs
         archAddress , connMapAddress, exp_flow_json = self.getUserJsons()
 
@@ -163,7 +159,7 @@ PREDICTION_STR = "Prediction"
             if globe.jupyterFlag == False:
               LOG_INFO(f'response: {response.ok} , status code: {response.status_code}')
         time.sleep(1)       # wait for connection to close ## TODO: check why
-        LOG_INFO("completed")
+        LOG_INFO("Sending distributed configurations to devices is completed")
 
     def showJsons(self):
         self.json_dir_parser.print_lists()
@@ -200,16 +196,13 @@ PREDICTION_STR = "Prediction"
             globe.CSVsplit = splitMode 
 
         # 1 ack for mainserver, who waits for all sources
-        globe.pendingAcks = 1
-        # print(f"waiting for {globe.pendingAcks} acks from {len(globe.components.sources)} sources")
+        globe.set_receiver_wait_for_ack()
+        globe.ack_debug_print()
         LOG_INFO("Sending data to sources")
         self.transmitter.updateCSV(phase)
-
-        while globe.pendingAcks > 0:
-            time.sleep(0.005)
-            pass 
-
-        print("\nData ready in sources")
+        globe.waitForAck()
+        globe.ack_debug_print()
+        LOG_INFO("Data ready in sources")
 
 
     def train(self):

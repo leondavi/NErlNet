@@ -10,6 +10,7 @@ void* trainFun(void* arg)
     double loss_val;
     ErlNifEnv *env = enif_alloc_env();    
     DataSet data_set;
+    data_set.set_data(*(TrainNNptr->data));
 
     //get nerlworker from bridge controller
     BridgeController &bridge_controller = BridgeController::GetInstance();
@@ -20,26 +21,18 @@ void* trainFun(void* arg)
 
     int data_cols = TrainNNptr->data->dimension(1);
     int num_of_features = neural_network_ptr->get_inputs_number();
-
     int num_of_output_neurons = neural_network_ptr->get_outputs_number();
-    // cout << "Features: " << num_of_features <<std::endl;
-    // cout << "Outputs: " << num_of_output_neurons <<std::endl;
-    // cout << "NN got: " << data_cols <<std::endl;
+
+    // Data set definitions
     bool data_set_condition = (num_of_features + num_of_output_neurons) == TrainNNptr->data->dimension(1);
     assert(("issue with data input/output dimensions", data_set_condition));
     data_set.set_data(*(TrainNNptr->data));
-    // cout << "Data is set"<<std::endl;
     data_set.set(TrainNNptr->data->dimension(0), num_of_features, num_of_output_neurons);
-    // cout << "Configed size"<<std::endl;
-    // cout << "Data is: " << *(TrainNNptr->data) <<std::endl;
 
     std::shared_ptr<TrainingStrategy> training_strategy_ptr = nerlworker_opennn->get_training_strategy_ptr();
     training_strategy_ptr->set_data_set_pointer(&data_set);
-
     TrainingResults res = training_strategy_ptr->perform_training();
     loss_val = res.get_training_error(); // learn about "get_training_error" of opennn
-
-    //cout << "training done"<<std::endl;
 
     // Stop the timer and calculate the time took for training
     high_resolution_clock::time_point  stop = high_resolution_clock::now();
@@ -103,12 +96,12 @@ void* PredictFun(void* arg)
     high_resolution_clock::time_point  stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - PredictNNptr->start_time);
     nifpp::TERM predict_time = nifpp::make(env, duration.count());
-    std::vector<nifpp::TERM> return_list = {prediction , nifpp::make(env, PredictNNptr->return_tensor_type) , predict_time};
-    ERL_NIF_TERM nerlnif_atom = enif_make_atom(env, NERLNIF_ATOM_STR);
-    ERL_NIF_TERM predict_res_and_time = enif_make_tuple(env, 2 , nerlnif_atom , nifpp::make(env, return_list));
+    nifpp::str_atom nerlnif_atom_str(NERLNIF_ATOM_STR);
+    nifpp::TERM nerlnif_atom = nifpp::make(env , nerlnif_atom_str);
+    ERL_NIF_TERM predict_res_and_time = enif_make_tuple(env, 4 , nerlnif_atom , prediction , nifpp::make(env, PredictNNptr->return_tensor_type) , predict_time);
 
 
-    if(enif_send(NULL,&(PredictNNptr->pid), env, nifpp::make(env, predict_res_and_time))){
+    if(enif_send(NULL,&(PredictNNptr->pid), env, predict_res_and_time)){
         // printf("enif_send succeed prediction\n");
     }
     else

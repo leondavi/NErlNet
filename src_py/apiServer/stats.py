@@ -55,6 +55,7 @@ class Stats():
         use plot=True to plot the min loss of each worker.
         """
         min_loss_dict = OrderedDict()
+        print(f'@Stats.py: {min_loss_dict}')
         for key, loss_list in self.get_loss().items():
             min_loss_dict[key] = min(loss_list)
         if plot: # Plot in dots the min loss of each worker
@@ -121,7 +122,7 @@ class Stats():
             export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/confusion_matrices.json', workers_confusion_matrices)
         return workers_confusion_matrices
     
-    def get_model_performence_stats(self , confMatDict , show : bool = False , saveToFile : bool = False) -> dict:
+    def get_model_performence_stats(self , confMatDict , show : bool = False , saveToFile : bool = False, printStats = False) -> dict:
         """
         Returns a dictionary of {worker : {class: {Performence_Stat : VALUE}}} for each worker and class in the experiment.
         Performence Statistics Available are: TN, FP, FN, TP, Accuracy, Balanced Accuracy, Precision, Recall, True Negative Rate, Informedness, F1
@@ -132,17 +133,19 @@ class Stats():
             for j, label_stats in enumerate(confMatDict[worker]): # Multi-Class
                 workers_accuracy[worker][j] = OrderedDict()
                 tn, fp, fn, tp = label_stats.ravel()
+                if printStats:
+                    LOG_INFO(f"worker {worker} label: {j} tn: {tn}, fp: {fp}, fn: {fn}, tp: {tp}")
                 tn = int(tn)
                 fp = int(fp)
                 fn = int(fn)
                 tp = int(tp)
                 acc = (tp + tn) / (tp + tn + fp + fn)
-                ppv = tp / (tp + fp) # Precision
-                tpr = tp / (tp + fn) # Recall 
-                tnr = tn / (tn + fp)
+                ppv = tp / (tp + fp) if tp > 0 else 0 # Precision
+                tpr = tp / (tp + fn) if tp > 0 else 0 # Recall 
+                tnr = tn / (tn + fp) if tn > 0 else 0
                 bacc = (tpr + tnr) / 2
                 inf = tpr + tnr - 1
-                f1 = 2 * (ppv * tpr) / (ppv + tpr) # F1-Score
+                f1 = 2 * (ppv * tpr) / (ppv + tpr) if (ppv + tpr) > 0 else 0 # F1-Score
 
                 workers_accuracy[worker][j]['TN'] = tn
                 workers_accuracy[worker][j]['FP'] = fp

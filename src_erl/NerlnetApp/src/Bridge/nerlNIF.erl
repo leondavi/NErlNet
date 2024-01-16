@@ -48,7 +48,7 @@ update_nerlworker_train_params_nif(_ModelID,_LearningRate,_Epochs,_OptimizerType
 
 call_to_train(ModelID, {DataTensor, Type}, WorkerPid)-> 
       % io:format("before train  ~n "),
-       %io:format("DataTensor= ~p~n ",[DataTensor]),
+      % io:format("DataTensor= ~p~n ",[nerltensor_conversion({DataTensor, Type}, erl_float)]),
        %{FakeTensor, Type} = nerltensor_conversion({[2.0,4.0,1.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0], erl_float}, float),
       ok = train_nif(ModelID, DataTensor, Type),
       %io:format("Train Time= ~p~n ",[RetVal]),
@@ -67,13 +67,13 @@ call_to_predict(ModelID, BatchTensor, Type, WorkerPid,CSVname, BatchID)->
       ok = predict_nif(ModelID, BatchTensor, Type),
       receive
             
-            {nerlnif , [PredNerlTensor, NewType, TimeTook]}-> %% nerlnif atom means a message from the nif implementation
+            {nerlnif , PredNerlTensor, NewType, TimeTook}-> %% nerlnif atom means a message from the nif implementation
                   % io:format("pred_nif done~n"),
                   % {PredTen, _NewType} = nerltensor_conversion({PredNerlTensor, NewType}, erl_float),
                   % io:format("Pred returned: ~p~n", [PredNerlTensor]),
                   gen_statem:cast(WorkerPid,{predictRes,PredNerlTensor, NewType, TimeTook,CSVname, BatchID});
             Error ->
-                  ?LOG_ERROR("received wrong prediction_nif format:"++Error),
+                  ?LOG_ERROR("received wrong prediction_nif format: ~p" ,[Error]),
                   throw("received wrong prediction_nif format")
             after ?PREDICT_TIMEOUT -> 
                  % worker miss predict batch  TODO - inspect this code
