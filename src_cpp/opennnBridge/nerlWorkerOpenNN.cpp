@@ -126,6 +126,22 @@ namespace nerlnet
     void NerlWorkerOpenNN::generate_opennn_project(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
     {
         // TODO Ori and Nadav - implement
+
+        switch (_model_type)
+        {
+        case MODEL_TYPE_APPROXIMATION:
+           neural_network_ptr->set_project_type(opennn::NeuralNetwork::ProjectType::Approximation);
+            break;
+        case MODEL_TYPE_CLASSIFICATION:
+            neural_network_ptr->set_project_type(opennn::NeuralNetwork::ProjectType::Classification);
+            break;
+        case MODEL_TYPE_FORECASTING:
+            neural_network_ptr->set_project_type(opennn::NeuralNetwork::ProjectType::Forecasting);
+            break;
+        default:
+            break;
+        }
+
     }
 
     void NerlWorkerOpenNN::generate_custom_model_nn(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
