@@ -127,7 +127,7 @@ read_all_data(Req0, Got) ->
 
 deleteOldJson(FilePath) ->
   try   file:delete(FilePath)
-  catch {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[FilePath, E])
+  catch {error, E} -> ?LOG_ERROR("couldn't delete file ~p, beacuse ~p~n",[FilePath, E])
   end.
 
 % get this host ip 

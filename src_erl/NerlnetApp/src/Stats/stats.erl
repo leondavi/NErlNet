@@ -35,7 +35,6 @@ encode_ets_to_http_bin_str(StatsEts) ->
 decode_http_bin_str_to_ets(EncodedStr) -> 
     ReturnedEts = ets:new(ets_to_merge , [set]),
     KeyValTypeTokens = string:tokens(EncodedStr , ?SEPERATOR_TRIPLETS),
-    io:format("KeyValTypeTokens: ~p~n" , [KeyValTypeTokens]),
     Func = fun(Triplet) ->
                 [Key , ValueStr , Type] = string:tokens(Triplet , ?SEPERATOR_WITHIN_TRIPLET),
                 TypeAtom = list_to_atom(Type),

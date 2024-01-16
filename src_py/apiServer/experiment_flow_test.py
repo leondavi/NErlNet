@@ -9,9 +9,10 @@ ExitValue = 0
 
 TEST_ACCEPTABLE_MARGIN_OF_ERROR = 0.03 # 3% marginal error
 
-def print_test(in_str : str):
+def print_test(in_str : str , enable = True):
     PREFIX = "[NERLNET-TEST] "
-    LOG_INFO(f"{PREFIX} {in_str}")
+    if enable:
+        LOG_INFO(f"{PREFIX} {in_str}")
 
 NERLNET_PATH = os.getenv('NERLNET_PATH')
 TESTS_PATH = os.getenv('TESTS_PATH')
@@ -57,13 +58,13 @@ print_test(f'rc: {rc}')
 if stderr: 
     print_test(stderr)
 else:
-    print_test(stdout)
+    print_test(stdout, False)
 stdout, stderr, rc = nerlnet_stop_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
 print_test(f'rc stop: {rc}')
 if stderr: 
     print_test(stderr)
 else:
-    print_test(stdout)
+    print_test(stdout, False)
 
 exp_stats = Stats(experiment_inst)
 loss_min = exp_stats.get_loss_min(saveToFile=True)
