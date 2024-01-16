@@ -194,6 +194,7 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName, so
   UpdatedSourcesCastingList = SourcesCastingList--[SourceName],
   case UpdatedSourcesCastingList of
     [] -> % the list is empty - all sources were done casting their batches
+      ?LOG_NOTICE("[MAIN-Server] All sources finished casting"),
       PhaseAtom = clientIdle,
       update_clients_phase(PhaseAtom, MyName),
       ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),

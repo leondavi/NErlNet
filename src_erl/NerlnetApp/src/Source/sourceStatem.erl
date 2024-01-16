@@ -161,8 +161,8 @@ idle(cast, {startCasting,Body}, State = #source_statem_state{batchesList = Batch
   {next_state, castingData, State#source_statem_state{transmitter_pid = TransmitterPID}};
 
 idle(cast, {startCasting}, State) ->
+  ?LOG_ERROR("Should not get start casting in idle - start casting is only after setting the phase type"),
   EtsRef = get(source_ets),
-  % io:format("im not suppose to be here"),
   StatsEtsRef = get(source_stats_ets),
   stats:increment_messages_received(StatsEtsRef),
 
