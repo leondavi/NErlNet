@@ -18,7 +18,9 @@ JSON_FILE_COMM_REMOTE_NAME = '/tmp/nerlnet/jsons/conn.json'
 
 JSON_INIT_HANDLER_ERL_PORT = 8484 #TODO fix main server bypassing
 
-EXPERIMENT_RESULTS_PATH = '/tmp/nerlnet/results'
+NERLNET_TEMP_DIR = '/tmp/nerlnet'
+NERLNET_TEMP_DATA_DIR = f'{NERLNET_TEMP_DIR}/temp_data'
+EXPERIMENT_RESULTS_PATH = f'{NERLNET_TEMP_DIR}/results'
 
 PHASE_TRAINING = 1
 PHASE_PREDICTION = 2
