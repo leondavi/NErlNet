@@ -17,6 +17,14 @@ from nerlPlanner.JsonElements import GetFields
 API_SERVER_STR = GetFields.get_api_server_field_name()
 MAIN_SERVER_STR = GetFields.get_main_server_field_name()
 
+# types
+TYPE_CLIENT = "client"
+TYPE_WORKER = "worker"
+TYPE_SOURCE = "source"
+TYPE_ROUTER = "router"
+TYPE_WORKER = "worker"
+TYPE_MAIN_SERVER = "mainServer"
+
 class NetworkComponents():
 
     def __init__(self, dc_json):
@@ -35,6 +43,7 @@ class NetworkComponents():
         # Initializing maps
         self.map_entity_to_device = {}
         self.map_device_to_ip = {}
+        self.map_name_to_type = {}
 
         # Getting the desired batch size:
         self.batchSize = int(self.jsonData[KEY_NERLNET_SETTINGS][KEY_BATCH_SIZE])
@@ -65,6 +74,7 @@ class NetworkComponents():
             subWorkers = client[GetFields.get_workers_field_name()].split(',')
             # Add every sub-worker of this client, to the general workers list:
             self.workers.extend(subWorkers)
+            self.map_name_to_type[client[GetFields.get_name_field_name()]] = TYPE_CLIENT
 
         # Getting the names of all the sources:
         sourcesJsons = self.jsonData[GetFields.get_sources_field_name()]
@@ -72,11 +82,13 @@ class NetworkComponents():
             self.sources.append(source[GetFields.get_name_field_name()])
             self.sourcesPolicies.append(source[GetFields.get_policy_field_name()])
             self.sourceEpochs[source[GetFields.get_name_field_name()]] = source[GetFields.get_epochs_field_name()]
+            self.map_name_to_type[source[GetFields.get_name_field_name()]] = TYPE_SOURCE
 
         # Getting the names of all the routers:
         routersJsons = self.jsonData[GetFields.get_routers_field_name()]
         for router in routersJsons:
             self.routers.append(router[GetFields.get_name_field_name()])
+            self.map_name_to_type[router[GetFields.get_name_field_name()]] = TYPE_ROUTER
 
 
     def get_main_server_ip_port(self):

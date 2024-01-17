@@ -10,9 +10,10 @@ import globalVars as globe
 from workerResult import *
 from decoderHttpMainServer import decode_main_server_ets_str
 
+# debug flask with receiver.logger.info("message") instead of print("message
 # import logging # To debug flask
 # logging.basicConfig(level=logging.ERROR) # to debug flask
-# debug flask with receiver.logger.info("message") instead of print("message
+
 
 WORKER_NON_RESULT = -1
 ACK_DEBUG = False
@@ -122,7 +123,12 @@ class statistics(Resource):
         resData = request.get_data()
 
         # TODO 
-        decode_main_server_ets_str(resData)
+        # list_of_entities_names_dicts = decode_main_server_ets_str(resData)
+        # receiver.logger.info(f"Received statistics from main server: {res_dict}")
+        # entity_type = globe.components.map_name_to_type[entity_name] #
+        # for entity_name, entity_dict in list_of_entities_names_dicts:
+        #     if entity_type == TYPE_CLIENT:
+        #         nerlcom_db.update_client_stats(entity_name, entity_dict)
         # print(resData)
         # format: entity:stats,...|entity:stats,....
         # input is: "c1:c1=1903,w1=5,w2=2,w3=4,w4=4,w5=5,w6=1,w1=0.878,w2=0.953,w3=0.899,w4=0.269,w5=0.667,w6=0.945|c2:c2=638,w7=0,w8=2,w7=1.403,w8=1.192|r1:2507|r2:632|s1:207"
