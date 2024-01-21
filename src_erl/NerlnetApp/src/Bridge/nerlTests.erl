@@ -227,18 +227,40 @@ nerltensor_conversion_test(Rounds) ->
 
 nerlworker_test(0, _Performance) -> _Performance;
 nerlworker_test(Rounds, Performance) ->
-      ModelId  = erlang:unique_integer([positive]),
-      ModelType = "5",
-      LayersSizes = "5,10,5,3",
-      LayersTypes = "1,3,3,3",
-      LayersFunctionalityCodes = "1,6,11,11", % change scaler functionality to 6 to check exception handling
-      LearningRate = "0.01",
-      Epochs = "1",
-      OptimizerType = "2",
-      OptimizerArgs = "",
-      LossMethod = "2",
-      DistributedSystemType = "0",
-      DistributedSystemArg = "",
+     { ModelId,ModelType,LayersSizes, LayersTypes, LayersFunctionalityCodes,
+       LearningRate, Epochs, OptimizerType, OptimizerArgs,
+       LossMethod, DistributedSystemType, DistributedSystemArg} =
+    neural_network_sample_1(),
       nerlNIF:test_nerlworker_nif(ModelId,ModelType,LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
       nerlNIF:remove_nerlworker_nif(ModelId),
       nerlworker_test(Rounds - 1, Performance).
+
+neural_network_sample_1() ->
+{     _ModelId  = erlang:unique_integer([positive]),
+      _ModelType = "0",
+      _LayersSizes = "5,10,5,3",
+      _LayersTypes = "1,3,3,3",
+      _LayersFunctionalityCodes = "1,6,11,11", % change scaler functionality to 6 to check exception handling
+      _LearningRate = "0.01",
+      _Epochs = "1",
+      _OptimizerType = "2",
+      _OptimizerArgs = "",
+      _LossMethod = "2",
+      _DistributedSystemType = "0",
+      _DistributedSystemArg = ""}.
+
+% % neural_network_sample_1() ->
+% % {      ModelId  = erlang:unique_integer([positive]),
+%       ModelType = "0",
+%       LayersSizes = "128x128k3x3p1x1s2,64x64k3p1s2,1024,256,128,8,2",%"5,10,5,3",
+%       LayersTypes = "2,2,3,3,3,3,3",
+%       LayersFunctionalityCodes = "5,6,11,11,11,11,11", % change scaler functionality to 6 to check exception handling
+%       LearningRate = "0.01",
+%       Epochs = "1",
+%       OptimizerType = "2",
+%       OptimizerArgs = "",
+%       LossMethod = "2",
+%       DistributedSystemType = "0",
+%       DistributedSystemArg = "",
+ 
+
