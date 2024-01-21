@@ -18,8 +18,8 @@ typedef struct LayerSizingParams
  enum {KERNEL_SIZE = -1, PADDING_SIZE = -2, STRIDE_SIZE = -3, POOLING_SIZE= -4};
  int dimx = 1;
  int dimy = 1;
- int dimz = 1;
- std::vector<int> _ext_params;
+ int dimz = 1; //at the moment we support up to 3 dimensions
+ std::vector<int> _ext_params; 
 
  std::vector<int> get_ext_params(int param_type) {
   std::vector<int> res;
@@ -61,11 +61,11 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
 {
 
     std::vector<std::string> layer_sizes_strs_vec = nerlnet_utilities::split_strings_by_comma(layer_sizes_str);
-    out_layer_sizes_params.resize(layer_sizes_strs_vec.size());
+    out_layer_sizes_params.resize(layer_sizes_strs_vec.size()); 
     assert(layer_sizes_strs_vec.size() == out_layer_sizes_params.size());
     for (size_t i = 0; i < layer_sizes_strs_vec.size(); i++) //TODO
     {
-        int layer_str_type = nerlnet_utilities::is_integer_number(layer_sizes_strs_vec[i]) ? SIMPLE_PARSING : COMPLEX_PARSING;
+        int layer_str_type = nerlnet_utilities::is_integer_number(layer_sizes_strs_vec[i]) ? SIMPLE_PARSING : COMPLEX_PARSING; 
 
         switch (layer_str_type)
         {
@@ -73,19 +73,50 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
                 out_layer_sizes_params[i].dimx = std::stoi(layer_sizes_strs_vec[i]); 
                 break;
             }
-            case COMPLEX_PARSING:{
-                LogInfo("Complex parsing"); //TODO remove
-                // Complex parsing is any layer_sizes_str that includes string that are not a single integer
-                // E.g. : 5x5k4x4p3 etc. 
+           case COMPLEX_PARSING:{
+                LogInfo("Complex parsing"); 
+                //TODO: make sure to complete fill up the dimensions of Kernel and Padding even if they are not fully specified 
+                //TODO: make sure to validate that it makes sense with the definition of convolution
+                 std::regex rgx("(\\d+)x(\\d+)(x(\\d+))?k(\\d+)x(\\d+)p(\\d+)x(\\d+)s(\\d+)");
+                 std::smatch matches;
+
+                if (std::regex_search(layer_sizes_strs_vec[i], matches, rgx)) {
+                    enum {KERNEL_SIZE = -1, PADDING_SIZE = -2, STRIDE_SIZE = -3, POOLING_SIZE= -4}; //enums shouldn't be here but otherwise it doesn't recognize them
+
+                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[1])); // dimx
+                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[2])); // dimy
+
+                    if(matches[4].matched) { // if there is a third dimension
+                        out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[4])); // dimz
+                    }
+
+                    out_layer_sizes_params[i]._ext_params.push_back(KERNEL_SIZE);
+                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[5]));
+                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[6]));
+                    out_layer_sizes_params[i]._ext_params.push_back(PADDING_SIZE);
+                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[7]));
+                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[8]));
+                    out_layer_sizes_params[i]._ext_params.push_back(STRIDE_SIZE);
+                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[9]));
+                    
+                }
                 break;
-            }
+                }
             default:
-                break;
+                break;   
+    
         }
-    }
+    }   
+
+
+
+                
+  
+            
+  
     
 
-    // "5x5k2x2p1s1", 5,5,KERNEL_SIZE_IDX,2,2,PADDING_SIZE_IDX,1  | 
+    // "5x5k2x2p1x1s1", 5,5,KERNEL_SIZE_IDX,2,2,PADDING_SIZE_IDX,1,1,STRIDE_SIZE_IDX,1,1
     // "5k2p1", 5,KERNEL_SIZE_IDX,2,PADDING_SIZE_IDX,1  |
     // "8", 8
 
