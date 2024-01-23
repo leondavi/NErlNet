@@ -1,6 +1,12 @@
 
 from decoderHttpMainServerDefs import *
 
+# ? Example: "name:mainServer:string#bytes_sent:0.5:float#....|name:c1:string#bytes_sent:0.5:float#....#w1&average_time_training:10.5:float#...|w2&...|name:c2:string#...#w3&...|"
+# | seperates entities
+# & start worker stats under his client
+# # seperates stat_name-stat_value-type triplets
+# : seperates stat_name , stat_value and type
+
 def decode_main_server_ets_str(string_to_convert: str):
     result_list = [] # [(entity_name, ets_dict), ...)]
 

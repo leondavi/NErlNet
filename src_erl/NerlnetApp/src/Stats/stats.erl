@@ -28,6 +28,7 @@ encode_ets_to_http_bin_str(StatsEts) ->
                 KeyStr = lists:flatten(io_lib:format("~p" , [Key])),
                 ValueStr = lists:flatten(io_lib:format("~p" , [Value])),
                 TypeStr = lists:flatten(io_lib:format("~p" , [Type])),
+                %% StatsKey:StatsValue:StatsType#StatsKey:StatsValue:StatsType#...
                 KeyStr ++ ?SEPERATOR_WITHIN_TRIPLET ++ ValueStr ++ ?SEPERATOR_WITHIN_TRIPLET ++ TypeStr ++ ?SEPERATOR_TRIPLETS
         end,
     lists:flatten(lists:map(Func , StatsList)).
@@ -49,7 +50,7 @@ decode_http_bin_str_to_ets(EncodedStr) ->
     ReturnedEts.
     
 
-generate_stats_ets() ->
+generate_stats_ets() -> %% clients , routers , mainserver...
     StatsEts = ets:new(stats_ets , [set]),
     ets:insert(StatsEts, {messages_received , 0}),
     ets:insert(StatsEts, {messages_sent , 0}),
@@ -62,7 +63,7 @@ generate_stats_ets() ->
     ets:insert(StatsEts, {batches_sent , 0}), % related with source
     StatsEts.
 
-generate_workers_stats_ets() ->
+generate_workers_stats_ets() -> %% workers..
     WorkersStatsEts = ets:new(workers_ets , [set, public]),
     ets:insert(WorkersStatsEts, {bytes_received , 0}),
     ets:insert(WorkersStatsEts, {bytes_sent , 0}),
