@@ -169,7 +169,7 @@ idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, et
   ClientStatsEncStr = stats:encode_ets_to_http_bin_str(ClientStatsEts),
   ClientStatsToSend = atom_to_list(MyName) ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ ClientStatsEncStr ++ ?API_SERVER_ENTITY_SEPERATOR,
   stats:increment_messages_received(ClientStatsEts),
-  ListStatsEts = ets:tab2list(EtsStats) -- [{MyName , ClientStatsEts}],
+  ListStatsEts = ets:tab2list(EtsStats) -- [{MyName , ClientStatsEts}], 
   WorkersStatsEncStr = create_encoded_stats_str(ListStatsEts),
   StatsBody = {MyName , ClientStatsToSend ++ WorkersStatsEncStr},
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
@@ -409,6 +409,7 @@ cast_message_to_workers(EtsRef, Msg) ->
 create_encoded_stats_str(ListStatsEts) ->
   Func = fun({WorkerName , StatsEts}) ->
     WorkerEncStatsStr = stats:encode_ets_to_http_bin_str(StatsEts),
+    %% w1&bytes_sent:6.0:float#bad_messages:0:int....|
     WorkerName ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ WorkerEncStatsStr ++ ?API_SERVER_ENTITY_SEPERATOR
     end,
   lists:flatten(lists:map(Func , ListStatsEts)).
