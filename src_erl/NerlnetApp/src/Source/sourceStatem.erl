@@ -183,7 +183,7 @@ idle(cast, {statistics}, State) ->
 
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   StatsEtsStr = stats:encode_ets_to_http_bin_str(StatsEtsRef),
-  StatisticsBody = {term_to_binary(MyName) , list_to_binary(StatsEtsStr)}, % old data
+  StatisticsBody = {MyName , StatsEtsStr}, 
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
   stats:increment_messages_sent(StatsEtsRef),

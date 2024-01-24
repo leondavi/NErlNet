@@ -144,7 +144,7 @@ class Transmitter:
         return self.experiment.name
 
     def statistics(self):
-        requests.post(self.statisticsAddress, data='getStatistics')
+        requests.post(self.statisticsAddress, data='getStatistics') # ! Continue from here
         globe.pendingAcks = 1
         globe.waitForAck()
     

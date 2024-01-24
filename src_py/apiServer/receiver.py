@@ -121,7 +121,7 @@ class predictRes(Resource):
 class statistics(Resource):
     def post(self):
         resData = request.get_data()
-
+        print("Got statistics from main server")
         # TODO 
         entity_com_dicts = decode_main_server_ets_str(resData) # dict of dicts 
         print(f"entitiy coms dict: {entity_com_dicts}")
@@ -133,23 +133,7 @@ class statistics(Resource):
         # print(resData)
         # format: entity:stats,...|entity:stats,....
         # input is: "c1:c1=1903,w1=5,w2=2,w3=4,w4=4,w5=5,w6=1,w1=0.878,w2=0.953,w3=0.899,w4=0.269,w5=0.667,w6=0.945|c2:c2=638,w7=0,w8=2,w7=1.403,w8=1.192|r1:2507|r2:632|s1:207"
-        statDict = {"workers": {}}
-        for items in str(resData).split('|'):
-            key, val = items.split(':')
-            if '=' in val:      # workers stats
-                for worker in val.split(','):
-                    workerName, time = worker.split('=')
-                    statDict["workers"][workerName] = time
-            else:               # other entity
-                statDict[key] = val
-        # print(statDict)
-        for key, val in statDict.items():
-            if isinstance(val, dict):
-                print(key, '--')
-                for key2, val2 in val.items():
-                    print("\t", key2, ' : ', val2)
-            else:
-                print(key, ' : ', val)
+        
         globe.pendingAcks = 0
 
 #Listener Server list of resources: 

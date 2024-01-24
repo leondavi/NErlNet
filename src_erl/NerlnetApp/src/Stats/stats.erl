@@ -10,7 +10,7 @@
 -export([get_bytes_sent/1, increment_bytes_sent/2]).
 -export([get_bad_messages/1, increment_bad_messages/1]).
 -export([get_value/2, increment_by_value/3]).
--export([encode_ets_to_http_bin_str/1 , decode_http_bin_str_to_ets/1]).
+-export([encode_ets_to_http_bin_str/1 , decode_http_bin_str_to_ets/1 , encode_workers_ets_to_http_bin_str/1]).
 -export([update_workers_ets/4, increment_workers_ets/4 , generate_workers_stats_ets/0]).
 
 get_numeric_type(Value) ->

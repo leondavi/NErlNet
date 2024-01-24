@@ -410,6 +410,6 @@ create_encoded_stats_str(ListStatsEts) ->
   Func = fun({WorkerName , StatsEts}) ->
     WorkerEncStatsStr = stats:encode_workers_ets_to_http_bin_str(StatsEts),
     %% w1&bytes_sent:6.0:float#bad_messages:0:int....|
-    WorkerName ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ WorkerEncStatsStr
+    atom_to_list(WorkerName) ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ WorkerEncStatsStr
     end,
   lists:flatten(lists:map(Func , ListStatsEts)).
