@@ -153,11 +153,11 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
       true ->
           %% TODO - Guy here you should get the the encoded statistics from entities and decode it use it the function you should implement
           %%      statistics arrived from Entity
-          {From, StatsEtsEncStr} = Body,
-          EntityName = binary_to_atom(From), %TODO Guy
-          set_entity_stats_ets_str(EntityName, StatsEtsEncStr),
+          {From, StatsEtsEncStr} = binary_to_term(Body),
+          %% EntityName = binary_to_atom(From), %TODO Guy / NO NEED
+          set_entity_stats_ets_str(From, StatsEtsEncStr),
           % TODO increase counter_received_stats ets by 1
-          ets:update_counter(StatsEts, counter_received_stats, 1),
+          stats:increment_messages_received(StatsEts),
           % [From|[NewCounter]] = re:split(binary_to_list(Body), ":", [{return, list}]),
 
           % NewStatisticsMap = maps:put(From,NewCounter,StatisticsMap),
@@ -169,7 +169,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
 
           if ReceivedCounterStatsValue == TotalNumOfEntities ->  %% got stats from all entities
             Func = fun(Entity) ->
-              EntityStatsEncStr = get_entity_stats_ets_str(EntityName),
+              EntityStatsEncStr = get_entity_stats_ets_str(From),
               Entity ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ EntityStatsEncStr ++ ?API_SERVER_ENTITY_SEPERATOR
             end,
             MainServerEncStatsEts = stats:encode_ets_to_http_bin_str(get_entity_stats_ets_str(?MAIN_SERVER_ATOM)),
@@ -350,9 +350,11 @@ update_clients_phase(PhaseAtom, MessageBody) when is_atom(PhaseAtom) ->
 % Sends requests for statisics from all entities excludes main server
 statistics_requests_to_entities() ->
   ListOfEntities = ets:lookup_element(get(main_server_ets), entities_names_list, ?DATA_IDX),
+  % remove mainServer from the list
+  %DestinationsList = lists:map(fun({Entity , CommTuple}) when Entity =/= ?MAIN_SERVER_ATOM -> {Entity, CommTuple} end, ListOfEntities),
+  DestinationsList = [Entity || {Entity , _CommTuple} <- ListOfEntities, Entity =/= ?MAIN_SERVER_ATOM],
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
   ActionStr = atom_to_list(statistics),
-  DestinationsList = ListOfEntities,
   MessageBody = "", % there is no need for body in statistics request
   nerl_tools:http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, MessageBody).
 
