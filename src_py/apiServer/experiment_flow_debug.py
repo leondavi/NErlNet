@@ -32,6 +32,7 @@ api_server_instance.train() # sync on ack
 
 api_server_instance.sendDataToSources(PHASE_PREDICTION)
 api_server_instance.predict()
+api_server_instance.communication_stats()
 
 experiment_inst = api_server_instance.get_experiment(experiment_name)
 exp_stats = Stats(experiment_inst)

@@ -123,7 +123,8 @@ class statistics(Resource):
         resData = request.get_data()
 
         # TODO 
-        # list_of_entities_names_dicts = decode_main_server_ets_str(resData)
+        entity_com_dicts = decode_main_server_ets_str(resData) # dict of dicts 
+        print(f"entitiy coms dict: {entity_com_dicts}")
         # receiver.logger.info(f"Received statistics from main server: {res_dict}")
         # entity_type = globe.components.map_name_to_type[entity_name] #
         # for entity_name, entity_dict in list_of_entities_names_dicts:

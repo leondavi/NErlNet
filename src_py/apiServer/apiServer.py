@@ -21,6 +21,7 @@ import globalVars as globe
 import receiver
 from definitions import *
 from logger import *
+from NerlComDB import *
 
 class ApiServer():
     def __init__(self):       
@@ -100,6 +101,7 @@ PREDICTION_STR = "Prediction"
         self.current_exp.set_experiment_flow(expData)
 
         globe.components = NetworkComponents(dcData) # move network component into experiment class
+        comDB = NerlComDB(globe.components)
         globe.components.printComponents()
         LOG_INFO("Connections:")
         for key, val in connData['connectionsMap'].items():

@@ -7,8 +7,9 @@ from decoderHttpMainServerDefs import *
 # # seperates stat_name-stat_value-type triplets
 # : seperates stat_name , stat_value and type
 
+# Todo: fix all examples in the function
 def decode_main_server_ets_str(string_to_convert: str):
-    result_list = [] # [(entity_name, ets_dict), ...)]
+    result_dict = {} # {entity_name: ets_dict,...}
 
     # Split the input string into individual key-value pairs
     entity_stats_list = string_to_convert.split("|")[:-1]
@@ -20,7 +21,6 @@ def decode_main_server_ets_str(string_to_convert: str):
             entity_dict = {}
             entity_name = triplets[0].split(":")[1] # example: name:mainServer:string -> mainServer
             triplets = triplets[1:-1] # without entity_name 
-            print("triplets: " , triplets,"\n")
             # Example: triplets = [name:mainServer:string, ...]
             for triplet in triplets:
                 if "&" in triplet:
@@ -36,7 +36,7 @@ def decode_main_server_ets_str(string_to_convert: str):
                         else:
                             value = float(value) if value_type == 'float' else int(value)
                         worker_dict[key] = value  # Key is always a string
-                    result_list.append((worker_name, worker_dict))
+                    result_dict[worker_name] = worker_dict
                 else:
                     key, value, value_type = triplet.split(':')
                     if value_type == 'string':
@@ -44,9 +44,9 @@ def decode_main_server_ets_str(string_to_convert: str):
                     else:
                         value = float(value) if value_type == 'float' else int(value)
                     entity_dict[key] = value  # Key is always a string
-                    result_list.append((entity_name, entity_dict))
+                    result_dict[entity_name] = entity_dict
 
-    return result_list
+    return result_dict
 
 
 def test():

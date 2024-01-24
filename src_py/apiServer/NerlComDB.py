@@ -1,3 +1,4 @@
+from networkComponents import NetworkComponents
 
 class EntityDB:
     def __init__(self):
@@ -13,7 +14,7 @@ class RouterDB(EntityDB):
     def __init__(self):
         pass
 
-class WorkerStatsDB(): # WorkerDB is the ML stats - don't confuse!
+class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse!
     # based on stats erl
     def __init__(self):
         self.bytes_received = 0
@@ -74,10 +75,10 @@ class ClientDB(EntityDB):
         self.batches_received = 0
         self.batches_dropped = 0
 
-        self.workers_stats_dbs = {} # dictionary of worker_name -> WorkerStatsDB
+        self.workers_stats_dbs = {} # dictionary of worker_name -> WorkerComDB
     
     def add_worker(self, worker_name):
-        self.workers_dbs[worker_name] = WorkerStatsDB()
+        self.workers_dbs[worker_name] = WorkerComDB()
     
     def get_worker(self, worker_name):
         if worker_name not in self.workers_dbs:
@@ -90,16 +91,22 @@ class SourceDB(EntityDB):
 
 
 class NerlComDB():
-    def __init__(self):
+    def __init__(self, networks_components: NetworkComponents):
+        self.net_comps = networks_components
         self.routers = {}
         self.clients = {}
         self.sources = {}
+        self.workers = {}
+        self.build_dicts()
 
     def add_router(self, router_name):
         self.routers[router_name] = RouterDB()
     
     def add_client(self, client_name):
         self.clients[client_name] = ClientDB()
+    
+    def add_worker(self, worker_name):
+        self.workers[worker_name] = WorkerComDB()
     
     def add_source(self, source_name):
         self.sources[source_name] = SourceDB()
@@ -118,3 +125,13 @@ class NerlComDB():
         if source_name not in self.sources:
             return None
         return self.sources[source_name]
+    
+    def build_dicts(self):
+        for router_name in self.net_comps.routers:
+            self.add_router(router_name)
+        for client_name in self.net_comps.clients:
+            self.add_client(client_name)
+        for source_name in self.net_comps.sources:
+            self.add_source(source_name)
+        for worker_name in self.net_comps.workers:
+            self.add_worker(worker_name)
