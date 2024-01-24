@@ -33,6 +33,19 @@ encode_ets_to_http_bin_str(StatsEts) ->
         end,
     lists:flatten(lists:map(Func , StatsList)).
 
+encode_workers_ets_to_http_bin_str(StatsEts) -> 
+    %% Takes value from ets and converts it to "<EntitiyName1>SEPERATOR<Value1 <EntityName2>SEPERATOR<Value2>" string.
+    StatsList = ets:tab2list(StatsEts),
+    Func = fun({Key , Value}) ->
+                Type = get_numeric_type(Value),
+                KeyStr = lists:flatten(io_lib:format("~p" , [Key])),
+                ValueStr = lists:flatten(io_lib:format("~p" , [Value])),
+                TypeStr = lists:flatten(io_lib:format("~p" , [Type])),
+                %% StatsKey:StatsValue:StatsType#StatsKey:StatsValue:StatsType#...
+                KeyStr ++ ?WORKER_SEPERATOR_WITHIN_TRIPLET ++ ValueStr ++ ?WORKER_SEPERATOR_WITHIN_TRIPLET ++ TypeStr ++ ?WORKER_SEPERATOR_TRIPLETS
+        end,
+    lists:flatten(lists:map(Func , StatsList)).
+
 decode_http_bin_str_to_ets(EncodedStr) -> 
     ReturnedEts = ets:new(ets_to_merge , [set]),
     KeyValTypeTokens = string:tokens(EncodedStr , ?SEPERATOR_TRIPLETS),
