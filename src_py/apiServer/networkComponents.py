@@ -27,11 +27,11 @@ TYPE_MAIN_SERVER = "mainServer"
 
 class NetworkComponents():
 
-    def __init__(self, dc_json):
+    def __init__(self, dc_json: dict):
         # Loading the data in JSON format:
         self.jsonData = dc_json
 
-        # Initializing lists for all the relevant components:
+        # Initializing lists for all the relevant components names:
         self.devicesIp = []
         self.clients = []
         self.workers = []
@@ -39,8 +39,10 @@ class NetworkComponents():
         self.sourcesPolicies = []
         self.sourceEpochs = {}
         self.routers = []
+        
 
         # Initializing maps
+        self.map_worker_to_client = {}
         self.map_entity_to_device = {}
         self.map_device_to_ip = {}
         self.map_name_to_type = {}
@@ -69,12 +71,14 @@ class NetworkComponents():
         # Getting the names of all the clients and workers:
         clientsJsons = self.jsonData[GetFields.get_clients_field_name()]
 
-        for client in clientsJsons:
-            self.clients.append(client[GetFields.get_name_field_name()])
-            subWorkers = client[GetFields.get_workers_field_name()].split(',')
+        for client_dict in clientsJsons:
+            self.clients.append(client_dict[GetFields.get_name_field_name()])
+            subWorkers = client_dict[GetFields.get_workers_field_name()].split(',') # list
+            for worker_name in subWorkers:
+                self.map_worker_to_client[worker_name] = client_dict[GetFields.get_name_field_name()] # map worker name to client name
             # Add every sub-worker of this client, to the general workers list:
             self.workers.extend(subWorkers)
-            self.map_name_to_type[client[GetFields.get_name_field_name()]] = TYPE_CLIENT
+            self.map_name_to_type[client_dict[GetFields.get_name_field_name()]] = TYPE_CLIENT
 
         # Getting the names of all the sources:
         sourcesJsons = self.jsonData[GetFields.get_sources_field_name()]

@@ -96,6 +96,7 @@ handle_cast({broadcast,{DestList,Body}}, State = #router_genserver_state{etsRef=
   stats:increment_messages_received(RouterStatsEts),
   MapFunc=fun(Dest,Acc)->
     %make a map when keys are addreses to send a message to, and values are lists of destination of the message that go throu key addres
+    io:format("Dest: ~p~n",[Dest]),
     [{Dest,{Name,Host,Port}}]=ets:lookup(Routing_table,Dest),
     case maps:is_key({Name,Host,Port},Acc) of
       true->

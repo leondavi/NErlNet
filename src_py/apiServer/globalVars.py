@@ -16,7 +16,7 @@ localIp = socket.gethostbyname(localHost)
 # A single experiment that API server is focused on get/send data
 experiment_focused_on = None # TODO - get rid of this as a global
 components = None # TODO - get rid of this as a global 
-nerlcom_db = NerlComDB() # TODO - get rid of this as a global
+# nerlcom_db = NerlComDB() # TODO - get rid of this as a global
 
 # for each server command, wait for appropriate number of acks from each entity to make sure job is finished
 # this may change according to command and which entities do the work
