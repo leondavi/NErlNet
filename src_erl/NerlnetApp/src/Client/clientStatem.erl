@@ -89,7 +89,7 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   clientWorkersFunctions:create_workers(MyName , EtsRef , ShaToModelArgsMap , EtsStats),
   %% send pre_idle signal to workers
   WorkersNames = clientWorkersFunctions:get_workers_names(EtsRef),
-  [gen_statem:cast(clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName), {pre_idle}) || WorkerName <- clientWorkersFunctions:get_workers_names(EtsRef)],
+  [gen_statem:cast(clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName), {pre_idle}) || WorkerName <- WorkersNames],
 
   % update dictionary
   WorkersEts = ets:lookup_element(EtsRef , workers_ets , ?DATA_IDX),
@@ -133,11 +133,11 @@ waitforWorkers(cast, In = {NewState}, State = #client_statem_state{myName = _MyN
   cast_message_to_workers(EtsRef, {NewState}), %% This function increments the number of sent messages in stats ets
   {next_state, waitforWorkers, State#client_statem_state{nextState = NewState, waitforWorkers = Workers}};
 
-waitforWorkers(cast, EventContent, State = #client_statem_state{myName = _MyName}) ->
+waitforWorkers(cast, EventContent, State = #client_statem_state{myName = MyName}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(EventContent)),
-  ?LOG_WARNING("client ~p waitforWorkers ignored!!!:  ~p ~n",[myName, EventContent]),
+  ?LOG_WARNING("client ~p waitforWorkers ignored!!!:  ~p ~n",[MyName, EventContent]),
   {next_state, waitforWorkers, State}.
   
 
