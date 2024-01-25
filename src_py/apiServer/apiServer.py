@@ -87,7 +87,7 @@ PREDICTION_STR = "Prediction"
 
     def experiment_focused_on(self, experiment_name):
         assert experiment_name in self.experiments_dict, "cannot focus on experiment that has never been created!"
-        globe.experiment_focused_on = self.get_experiment(experiment_name)
+        globe.experiment_focused_on = self.get_experiment(experiment_name) # Get experiment instance from expirments dict
         self.current_exp = globe.experiment_focused_on # TODO the objective is to get rid of this global definitions
     
     def initialization(self, experiment_name : str, dc_json: str, conn_map_json, experiment_flow_json):
@@ -95,13 +95,14 @@ PREDICTION_STR = "Prediction"
         connData = self.json_dir_parser.json_from_path(conn_map_json)
         expData = self.json_dir_parser.json_from_path(experiment_flow_json)
 
+        globe.components = NetworkComponents(dcData) # move network component into experiment class
+        # comDB = NerlComDB(globe.components)
         self.__new_experiment(experiment_name)
         self.experiment_focused_on(experiment_name)
 
         self.current_exp.set_experiment_flow(expData)
 
-        globe.components = NetworkComponents(dcData) # move network component into experiment class
-        comDB = NerlComDB(globe.components)
+        
         globe.components.printComponents()
         LOG_INFO("Connections:")
         for key, val in connData['connectionsMap'].items():
