@@ -21,6 +21,16 @@ class MainServerDB(EntityDB):
         self.bytes_received = input_dict["bytes_received"]
         self.bytes_sent = input_dict["bytes_sent"]
         self.bad_messages = input_dict["bad_messages"]
+    
+    def get_as_dict(self):
+        return {
+            "messages_received": self.messages_received,
+            "messages_sent": self.messages_sent,
+            "messages_dropped": self.messages_dropped,
+            "bytes_received": self.bytes_received,
+            "bytes_sent": self.bytes_sent,
+            "bad_messages": self.bad_messages
+        }
         
 class RouterDB(EntityDB):
     def __init__(self):
@@ -33,6 +43,16 @@ class RouterDB(EntityDB):
         self.bytes_received = input_dict["bytes_received"]
         self.bytes_sent = input_dict["bytes_sent"]
         self.bad_messages = input_dict["bad_messages"]
+        
+    def get_as_dict(self):
+        return {
+            "messages_received": self.messages_received,
+            "messages_sent": self.messages_sent,
+            "messages_dropped": self.messages_dropped,
+            "bytes_received": self.bytes_received,
+            "bytes_sent": self.bytes_sent,
+            "bad_messages": self.bad_messages
+        }
 
 class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse!
     # based on stats erl
@@ -143,6 +163,17 @@ class SourceDB(EntityDB):
         self.bytes_sent = input_dict["bytes_sent"]
         self.bad_messages = input_dict["bad_messages"]
         self.batches_sent = input_dict["batches_sent"]
+        
+    def get_as_dict(self):
+        return {
+            "messages_received": self.messages_received,
+            "messages_sent": self.messages_sent,
+            "messages_dropped": self.messages_dropped,
+            "bytes_received": self.bytes_received,
+            "bytes_sent": self.bytes_sent,
+            "bad_messages": self.bad_messages,
+            "batches_sent": self.batches_sent
+        }
 
 class NerlComDB():
     def __init__(self, networks_components: NetworkComponents):
@@ -196,13 +227,17 @@ class NerlComDB():
             entity_stats_dict = entity_com_dicts[entity_name]
             if entity_name in self.routers:
                 self.routers[entity_name].read_from_dict(entity_stats_dict)
+                print("Router stats for check: ", self.routers[entity_name].get_as_dict())
             elif entity_name in self.clients:
                 self.clients[entity_name].read_from_dict(entity_stats_dict)
-                #print("Client stats for check: ", self.clients[entity_name].get_as_dict())
+                print("Client stats for check: ", self.clients[entity_name].get_as_dict())
             elif entity_name in self.sources:
                 self.sources[entity_name].read_from_dict(entity_stats_dict)
+                print("Source stats for check: ", self.sources[entity_name].get_as_dict())
             elif entity_name in self.workers:
                 self.workers[entity_name].read_from_dict(entity_stats_dict)
+                print("Worker stats for check: ", self.workers[entity_name].get_as_dict())
             elif entity_name == "mainServer":
                 self.main_server.read_from_dict(entity_stats_dict)
+                print("Main server stats for check: ", self.main_server.get_as_dict())
                 
