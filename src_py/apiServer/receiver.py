@@ -119,11 +119,13 @@ class predictRes(Resource):
         processResult(resData, "Prediction")
 
 class statistics(Resource):
-    def post(self):
-        resData = request.get_data()
+    def post(self) -> None:
+        resData = request.get_data().decode('utf-8')
         print("Got statistics from main server")
-        # TODO 
+        # TODO 1
+        print(f"Res data: {resData}")
         entity_com_dicts = decode_main_server_ets_str(resData) # dict of dicts 
+        print(f"Entity com dicts: {entity_com_dicts}")
         globe.experiment_focused_on.nerl_comm_db.update_entities_stats(entity_com_dicts)
         
         
