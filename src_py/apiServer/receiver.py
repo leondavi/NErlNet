@@ -8,7 +8,7 @@ from flask_restful import Api, Resource, reqparse
 from globalVars import *
 import globalVars as globe
 from workerResult import *
-from decoderHttpMainServer import decode_main_server_ets_str
+from decoderHttpMainServer import *
 
 # debug flask with receiver.logger.info("message") instead of print("message
 # import logging # To debug flask
@@ -124,7 +124,9 @@ class statistics(Resource):
         print("Got statistics from main server")
         # TODO 
         entity_com_dicts = decode_main_server_ets_str(resData) # dict of dicts 
-        print(f"entitiy coms dict: {entity_com_dicts}")
+        globe.experiment_focused_on.nerl_comm_db.update_entities_stats(entity_com_dicts)
+        
+        
         # receiver.logger.info(f"Received statistics from main server: {res_dict}")
         # entity_type = globe.components.map_name_to_type[entity_name] #
         # for entity_name, entity_dict in list_of_entities_names_dicts:
