@@ -171,13 +171,15 @@ idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, et
   stats:increment_messages_received(ClientStatsEts),
   ListStatsEts = ets:tab2list(EtsStats) -- [{MyName , ClientStatsEts}], 
   WorkersStatsEncStr = create_encoded_stats_str(ListStatsEts),
-  StatsBody = {MyName , ClientStatsToSend ++ WorkersStatsEncStr},
+  DataToSend = ClientStatsToSend ++ WorkersStatsEncStr,
+  io:format("DataToSend: ~p~n",[DataToSend]),
+  StatsBody = {MyName , DataToSend},
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatsBody),
   stats:increment_messages_sent(ClientStatsEts),
   {next_state, idle, State};
 
-idle(cast, In = {training}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
+idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),  MessageToCast = {training},
@@ -410,6 +412,6 @@ create_encoded_stats_str(ListStatsEts) ->
   Func = fun({WorkerName , StatsEts}) ->
     WorkerEncStatsStr = stats:encode_workers_ets_to_http_bin_str(StatsEts),
     %% w1&bytes_sent:6.0:float#bad_messages:0:int....|
-    atom_to_list(WorkerName) ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ WorkerEncStatsStr
+    atom_to_list(WorkerName) ++ ?WORKER_SEPERATOR ++ WorkerEncStatsStr
     end,
   lists:flatten(lists:map(Func , ListStatsEts)).

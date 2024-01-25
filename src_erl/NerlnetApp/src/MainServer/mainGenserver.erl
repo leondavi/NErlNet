@@ -155,7 +155,6 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
           %% TODO - Guy here you should get the the encoded statistics from entities and decode it use it the function you should implement
           %%      statistics arrived from Entity
           {From, StatsEtsEncStr} = binary_to_term(Body),
-          io:format("STATS FROM ~p: ~p~n",[From , StatsEtsEncStr]),
           %% EntityName = binary_to_atom(From), %TODO Guy / NO NEED
           set_entity_stats_ets_str(From, StatsEtsEncStr),
           % TODO increase counter_received_stats ets by 1
@@ -168,12 +167,10 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
 
           ReceivedCounterStatsValue = ets:lookup_element(get(main_server_ets), counter_received_stats, ?DATA_IDX),
           EntitiesNamesList = ets:lookup_element(get(main_server_ets), entities_names_list, ?DATA_IDX),
-          io:format("EntitiesNamesList: ~p~n",[EntitiesNamesList]),
           TotalNumOfEntities = length(EntitiesNamesList), % without MainServer!
-          io:format("ReceivedCounterStatsValue: ~p, TotalNumOfEntities: ~p , Got From ~p~n",[ReceivedCounterStatsValue, TotalNumOfEntities,From]),
           if ReceivedCounterStatsValue == TotalNumOfEntities ->  %% got stats from all entities
             Func = fun(Entity) ->
-              EntityStatsEncStr = get_entity_stats_ets_str(From),
+              EntityStatsEncStr = get_entity_stats_ets_str(Entity),
               atom_to_list(Entity) ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ EntityStatsEncStr ++ ?API_SERVER_ENTITY_SEPERATOR
             end,
             MainServerEncStatsEts = stats:encode_ets_to_http_bin_str(get_entity_stats_ets_str(?MAIN_SERVER_ATOM)),
