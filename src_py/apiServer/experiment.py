@@ -43,7 +43,7 @@ class Experiment():
         
         self.nerl_db = NerlDB()
         self.dataset_db = None # will be initialized by parse_experiment_flow_json()
-        # self.nerl_comm_db = NerlComDB()
+        self.nerl_comm_db = NerlComDB(globe.components)
 
     def parse_experiment_flow_json(self, json_path : str):
         # read json file
