@@ -64,8 +64,9 @@ init({MyName,ClientsNames,BatchSize,WorkersMap,NerlnetGraph}) ->
   EtsStats = ets:new(stats , [set]),
   put(etsStats, EtsStats), %% All entities including mainServer ets tables statistics
   Entities = [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--[?API_SERVER_ATOM]],
-  generate_stats_ets_tables(Entities),
-  ets:insert(MainServerEts , {entities_names_list , Entities -- [?MAIN_SERVER_ATOM]}),
+  EntitiesNames = [Name || {Name, _CommTuple} <- Entities],
+  generate_stats_ets_tables(EntitiesNames),
+  ets:insert(MainServerEts , {entities_names_list , EntitiesNames -- [?MAIN_SERVER_ATOM]}),
   ets:insert(MainServerEts , {batch_size , BatchSize}),
   ets:insert(MainServerEts , {workers_map , WorkersMap}),
   ets:insert(MainServerEts , {clients_names_list , ClientsNames}),
@@ -154,9 +155,11 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
           %% TODO - Guy here you should get the the encoded statistics from entities and decode it use it the function you should implement
           %%      statistics arrived from Entity
           {From, StatsEtsEncStr} = binary_to_term(Body),
+          io:format("STATS FROM ~p: ~p~n",[From , StatsEtsEncStr]),
           %% EntityName = binary_to_atom(From), %TODO Guy / NO NEED
           set_entity_stats_ets_str(From, StatsEtsEncStr),
           % TODO increase counter_received_stats ets by 1
+          ets:update_counter(get(main_server_ets), counter_received_stats, 1),
           stats:increment_messages_received(StatsEts),
           % [From|[NewCounter]] = re:split(binary_to_list(Body), ":", [{return, list}]),
 
@@ -165,18 +168,20 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
 
           ReceivedCounterStatsValue = ets:lookup_element(get(main_server_ets), counter_received_stats, ?DATA_IDX),
           EntitiesNamesList = ets:lookup_element(get(main_server_ets), entities_names_list, ?DATA_IDX),
+          io:format("EntitiesNamesList: ~p~n",[EntitiesNamesList]),
           TotalNumOfEntities = length(EntitiesNamesList), % without MainServer!
-
+          io:format("ReceivedCounterStatsValue: ~p, TotalNumOfEntities: ~p , Got From ~p~n",[ReceivedCounterStatsValue, TotalNumOfEntities,From]),
           if ReceivedCounterStatsValue == TotalNumOfEntities ->  %% got stats from all entities
             Func = fun(Entity) ->
               EntityStatsEncStr = get_entity_stats_ets_str(From),
-              Entity ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ EntityStatsEncStr ++ ?API_SERVER_ENTITY_SEPERATOR
+              atom_to_list(Entity) ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ EntityStatsEncStr ++ ?API_SERVER_ENTITY_SEPERATOR
             end,
             MainServerEncStatsEts = stats:encode_ets_to_http_bin_str(get_entity_stats_ets_str(?MAIN_SERVER_ATOM)),
             MainServerStr = atom_to_list(?MAIN_SERVER_ATOM) ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ MainServerEncStatsEts ++ ?API_SERVER_ENTITY_SEPERATOR,
             StatsToSend = lists:flatten([Func(Entity) || Entity <- EntitiesNamesList] ++ MainServerStr), % add main server to the list
             {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
             ActionStr = atom_to_list(statistics),
+            io:format("STATS TO SEND TO API SERVER: ~p~n",[StatsToSend]),
             nerl_tools:http_router_request(RouterHost,RouterPort, [?API_SERVER_ATOM], ActionStr, list_to_binary(StatsToSend)), % update the source with its data
             ets:update_element(StatsEts, counter_received_stats, {?STATS_KEYVAL_VAL_IDX, 0});
             
@@ -352,20 +357,19 @@ statistics_requests_to_entities() ->
   ListOfEntities = ets:lookup_element(get(main_server_ets), entities_names_list, ?DATA_IDX),
   % remove mainServer from the list
   %DestinationsList = lists:map(fun({Entity , CommTuple}) when Entity =/= ?MAIN_SERVER_ATOM -> {Entity, CommTuple} end, ListOfEntities),
-  DestinationsList = [Entity || {Entity , _CommTuple} <- ListOfEntities, Entity =/= ?MAIN_SERVER_ATOM],
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
   ActionStr = atom_to_list(statistics),
   MessageBody = "", % there is no need for body in statistics request
-  nerl_tools:http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, MessageBody).
+  nerl_tools:http_router_request(RouterHost, RouterPort, ListOfEntities, ActionStr, MessageBody).
 
-generate_stats_ets_tables(VerticesList) ->
+generate_stats_ets_tables(EntitiesNamesList) ->
   MainServerEtsStats = get(etsStats),
   Func = 
-    fun({Name, {_Host, _Port, _DeviceName}}) ->
+    fun(Name) ->
         EntityStatsEts = stats:generate_stats_ets(),
         ets:insert(MainServerEtsStats, {Name, EntityStatsEts})
     end,
-  lists:foreach(Func, VerticesList).
+  lists:foreach(Func, EntitiesNamesList).
 
 get_entity_stats_ets(EntityName) ->
   MainServerEtsStats = get(etsStats),
