@@ -13,7 +13,7 @@ class NerlLayer
 {
     public:
     NerlLayer(int layer_type, std::vector<int> &layers_dims, int layer_functionality);
-    ~NerlLayer();
+    virtual ~NerlLayer();
 
     std::shared_ptr<NerlLayer> get_next_layer_ptr() {return _next_layer;};
     std::shared_ptr<NerlLayer> get_prev_layer_ptr() {return _prev_layer;};
@@ -61,7 +61,9 @@ class NerlLayerCNN : public NerlLayer
 
     NerlLayerCNN(int layer_type, std::vector<int> &layers_dims, int layer_functionality,
                  std::vector<int> kernel_size, std::vector<int> &stride_dims, std::vector<int> padding_size);
-    ~NerlLayerCNN();
+    virtual ~NerlLayerCNN();
+
+    int get_dim_kernel_size(int dim_idx) {return _kernel_size[dim_idx];}; // index 0 is the first dim
 
     private:
     std::vector<int> _kernel_size;
