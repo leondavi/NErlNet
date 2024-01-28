@@ -154,7 +154,31 @@ namespace nerlnet
             {
                 case LAYER_TYPE_CNN: 
                 {
+                    std::shared_ptr<NerlLayer> prev_layer = curr_layer->get_prev_layer_ptr();
+                    int layer_rows_num     = curr_layer->get_dim_size(DIM_X_IDX);
+                    int layer_cols_num     = curr_layer->get_dim_size(DIM_Y_IDX);
+                    int layer_channels_num = curr_layer->get_dim_size(DIM_Z_IDX);
+
+                    std::shared_ptr<NerlLayerCNN> cnn_curr_layer = std::dynamic_pointer_cast<NerlLayerCNN>(curr_layer);
+                    Tensor<Index, 1> convolutional_layer_inputs_dimensions(4); 
+                    convolutional_layer_inputs_dimensions[0] = layer_rows_num;
+                    convolutional_layer_inputs_dimensions[1] = layer_cols_num;
+                    convolutional_layer_inputs_dimensions[2] = layer_channels_num; // each channel is diffrent value in the matrix (in rgb it is 3)
+                   // convolutional_layer_inputs_dimensions[3] = samples_number; //number of images/data ????
+                    int kernels_rows_number = cnn_curr_layer->get_dim_kernel_size(DIM_X_IDX);
+                    int kernels_columns_number = cnn_curr_layer->get_dim_kernel_size(DIM_Y_IDX);
+                    int kernels_number = cnn_curr_layer->get_dim_size(DIM_Z_IDX);
+
+                    Tensor<Index, 1> convolutional_layer_kernels_dimensions(4);
+                    convolutional_layer_kernels_dimensions(0) = kernels_rows_number;
+                    convolutional_layer_kernels_dimensions(1) = kernels_columns_number;
+                    convolutional_layer_kernels_dimensions(2) = layer_channels_num; //according the opennn example
+                    convolutional_layer_kernels_dimensions(3) = kernels_number; //according the opennn example
+                    ConvolutionalLayer* convolutional_layer = new ConvolutionalLayer(convolutional_layer_inputs_dimensions, convolutional_layer_kernels_dimensions);
+                    //need to see if to move it to the tests (dont know here what the number of samples)
+                    neural_network_ptr->add_layer(convolutional_layer);
                     break;
+
                 }
                 case LAYER_TYPE_LSTM:
                 {
