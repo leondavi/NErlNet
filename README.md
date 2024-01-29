@@ -80,7 +80,7 @@ Minimum Python version: 3.8
 Contact Email: leondavi@post.bgu.ac.il
 
 
-## Gratitude
+## Gratitudes
 <h3 align="center">Microsoft</h1>
 <p align="center"> <img src="https://github.com/leondavi/NErlNet/assets/18975070/d3255b30-ae3b-46fd-a87f-6c1ec7ae231b" width="50" title="Microsoft Azure Sponsorship"></p>  
 <p align="left"> A grant of Azure credits as part of Microsoft’s Azure credits for open source projects program (2024).</p>  
