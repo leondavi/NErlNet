@@ -93,7 +93,6 @@ handle_cast({unicast,{Dest,Body}}, State = #router_genserver_state{msgCounter = 
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1,etsRef=Routing_table }};
 
 handle_cast({broadcast,{DestList,Body}}, State = #router_genserver_state{etsRef=Routing_table , myName = _MyName}) ->
-  io:format("@ROUTER BOROADCAST  , Body: ~p~n" , [Body]),
   RouterStatsEts = get(router_stats_ets),
   %%Destinations = [Dest || Dest <- DestList, Dest =/= get(myName)],
   stats:increment_messages_received(RouterStatsEts),
