@@ -14,7 +14,7 @@ from decoderHttpMainServerDefs import *
 def decode_main_server_ets_str(string_to_convert: str):
     result_dict = {} # {entity_name: ets_dict,...}
 
-    entity_with_stats_list = string_to_convert.split(SEP_ENTITY_OR_STATS)[:-1] 
+    entity_with_stats_list = string_to_convert.split(SEP_ENTITY_OR_STATS)[:-1]
     for entity_with_stats in entity_with_stats_list:
         # Example: entity_with_stats = c2&bytes_sent:0:int#messages_sent:8015:int#bad_messages:0:int#batches_sent:0:int...
         if SEP_ENTITY_AND_STATS in entity_with_stats:

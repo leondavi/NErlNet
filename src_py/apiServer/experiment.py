@@ -41,8 +41,14 @@ class Experiment():
         self.exp_flow_json = None
         self.temp_data_path = temp_data_path
         
-        self.nerl_db = NerlDB()
-        self.dataset_db = None # will be initialized by parse_experiment_flow_json()
+        self.data_db = {} # example {"dog" : (NerlDB , NerlDatasetCsvDB , Phase)}
+        # ! For Ohad
+        # data_db_initialization() - need to create this function
+        # def data_db_initialization(self):
+        #     for user_data_input in data_inputs:
+        #         nerl_db = NerlDB()
+        #         nerl_dataset_db = NerlDatasetCsvDB()
+        #         self.data_db[user_data_input] = (nerl_db , nerl_dataset_db , "Training"/"Predict")
         self.nerl_comm_db = NerlComDB(globe.components)
 
     def parse_experiment_flow_json(self, json_path : str):

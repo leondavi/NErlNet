@@ -1,10 +1,11 @@
 
+from abc import ABC, abstractmethod
 import pandas as pd
 import math
 import hashlib
 
 
-class DataSetDB: # Abstract Class
+class DataSetDB(ABC): # Abstract Class
     PHASE_TRAINING = 0
     PHASE_PREDICTION = 1
 
@@ -14,7 +15,9 @@ class DataSetDB: # Abstract Class
 
     def numof_samples_to_batches(self, numof_samples : int):
         return math.floor(numof_samples / self.batch_size)
-
+# example csv_db = DatasetCsvDB() 
+# csv_db.sources_to_sources_db_dict['s1'] = DataSetSourceDB() from init
+# csv_db.sources_to_sources_db_dict['s1'].get_phase()
 class DataSetSourceDB(DataSetDB):
     def __init__(self, data_set_name, batch_size, numof_batches, phase):
         super().__init__(data_set_name, batch_size)
@@ -26,7 +29,7 @@ class DataSetSourceDB(DataSetDB):
 
         self.validate_batch_iterators()
 
-    def get_phase (self):
+    def get_phase(self):
         return self.phase
 
     def set_source(self, source_name):

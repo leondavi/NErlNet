@@ -108,4 +108,5 @@ class NerlDB:
             if not filter_by_client or (client_name in filter_by_client):
                 for worker_name, workerDB in clientDB.worerksDBs.items():
                     if not filter_by_worker or (worker_name in filter_by_worker):
-                        res.append(workerDB.get_as_sorted_by_batch_ids(phase))        
+                        res.append(workerDB.get_as_sorted_by_batch_ids(phase))     
+        return res   
