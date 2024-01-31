@@ -1,6 +1,6 @@
-from networkComponents import NetworkComponents
-
-class EntityDB:
+from networkComponents import MAIN_SERVER_STR , NetworkComponents
+from abc import ABC
+class EntityDB(ABC): # Abstract Class
     def __init__(self):
         # based on stats.erl
         self.messages_received = 0
@@ -14,7 +14,7 @@ class MainServerDB(EntityDB):
     def __init__(self):
         pass
     
-    def read_from_dict(self, input_dict):
+    def update_stats(self, input_dict):
         self.messages_received = input_dict["messages_received"]
         self.messages_sent = input_dict["messages_sent"]
         self.messages_dropped = input_dict["messages_dropped"]
@@ -36,7 +36,7 @@ class RouterDB(EntityDB):
     def __init__(self):
         pass
     
-    def read_from_dict(self, input_dict):
+    def update_stats(self, input_dict):
         self.messages_received = input_dict["messages_received"]
         self.messages_sent = input_dict["messages_sent"]
         self.messages_dropped = input_dict["messages_dropped"]
@@ -92,7 +92,7 @@ class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse
             "nan_loss_count": self.nan_loss_count
         }
 
-    def read_from_dict(self, input_dict):
+    def update_stats(self, input_dict):
         self.bytes_received = input_dict["bytes_received"]
         self.bytes_sent = input_dict["bytes_sent"]
         self.bad_messages = input_dict["bad_messages"]
@@ -118,14 +118,14 @@ class ClientDB(EntityDB):
         self.workers_stats_dbs = {} # dictionary of worker_name -> WorkerComDB
     
     def add_worker(self, worker_name):
-        self.workers_dbs[worker_name] = WorkerComDB()
+        self.workers_stats_dbs[worker_name] = WorkerComDB()
     
     def get_worker(self, worker_name):
-        if worker_name not in self.workers_dbs:
+        if worker_name not in self.workers_stats_dbs:
             return None
         return self.workers_stats_dbs[worker_name]
     
-    def read_from_dict(self, input_dict):
+    def update_stats(self, input_dict):
         self.messages_received = input_dict["messages_received"]
         self.messages_sent = input_dict["messages_sent"]
         self.messages_dropped = input_dict["messages_dropped"]
@@ -155,7 +155,7 @@ class SourceDB(EntityDB):
     def __init__(self):
         self.batches_sent = 0
 
-    def read_from_dict(self, input_dict):
+    def update_stats(self, input_dict):
         self.messages_received = input_dict["messages_received"]
         self.messages_sent = input_dict["messages_sent"]
         self.messages_dropped = input_dict["messages_dropped"]
@@ -220,24 +220,23 @@ class NerlComDB():
         for source_name in self.net_comps.sources:
             self.add_source(source_name)
         for worker_name in self.net_comps.workers:
-            self.add_worker(worker_name)
-            
+            this_worker_client_name = self.net_comps.map_worker_to_client[worker_name]
+            self.clients[this_worker_client_name].add_worker(worker_name)
+            this_worker_comm_db = self.clients[this_worker_client_name].get_worker(worker_name)
+            self.workers[worker_name] = this_worker_comm_db
+                        
     def update_entities_stats(self, entity_com_dicts: dict):
         for entity_name in entity_com_dicts:
             entity_stats_dict = entity_com_dicts[entity_name]
             if entity_name in self.routers:
-                self.routers[entity_name].read_from_dict(entity_stats_dict)
-                print("Router stats for check: ", self.routers[entity_name].get_as_dict())
+                self.routers[entity_name].update_stats(entity_stats_dict)
             elif entity_name in self.clients:
-                self.clients[entity_name].read_from_dict(entity_stats_dict)
-                print("Client stats for check: ", self.clients[entity_name].get_as_dict())
+                self.clients[entity_name].update_stats(entity_stats_dict)
             elif entity_name in self.sources:
-                self.sources[entity_name].read_from_dict(entity_stats_dict)
-                print("Source stats for check: ", self.sources[entity_name].get_as_dict())
+                self.sources[entity_name].update_stats(entity_stats_dict)
             elif entity_name in self.workers:
-                self.workers[entity_name].read_from_dict(entity_stats_dict)
-                print("Worker stats for check: ", self.workers[entity_name].get_as_dict())
-            elif entity_name == "mainServer":
-                self.main_server.read_from_dict(entity_stats_dict)
-                print("Main server stats for check: ", self.main_server.get_as_dict())
+                this_worker_client_name = self.net_comps.map_worker_to_client[entity_name]
+                self.clients[this_worker_client_name].get_worker(entity_name).update_stats(entity_stats_dict)
+            elif entity_name == MAIN_SERVER_STR:
+                self.main_server.update_stats(entity_stats_dict)
                 

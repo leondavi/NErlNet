@@ -93,10 +93,14 @@ class trainRes(Resource):
     def post(self):
         # receiver.logger.info("Training result received")
         # Result preprocessing:
-        # Receiving from Erlang: "worker#loss"
+        # Receiving from Erlang: "worker#loss" 
+        # TODO example "w1#loss|batch_id|..."
+        # TODO GUY - Add all attributes of nerl_db (batch_id etc.)
         resData = request.form
         resData = list(resData)
         resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter
+        # TODO OHAD - Keep parsing the received data with '|' seperator
+        # TODO OHAD - Add the parsed data to the nerl_db
         # Consider what to do
         # if globe.jupyterFlag == False:
         #     print(resData)
@@ -122,22 +126,8 @@ class statistics(Resource):
     def post(self) -> None:
         resData = request.get_data().decode('utf-8')
         print("Got statistics from main server")
-        # TODO 1
-        print(f"Res data: {resData}")
         entity_com_dicts = decode_main_server_ets_str(resData) # dict of dicts 
-        print(f"Entity com dicts: {entity_com_dicts}")
-        globe.experiment_focused_on.nerl_comm_db.update_entities_stats(entity_com_dicts)
-        
-        
-        # receiver.logger.info(f"Received statistics from main server: {res_dict}")
-        # entity_type = globe.components.map_name_to_type[entity_name] #
-        # for entity_name, entity_dict in list_of_entities_names_dicts:
-        #     if entity_type == TYPE_CLIENT:
-        #         nerlcom_db.update_client_stats(entity_name, entity_dict)
-        # print(resData)
-        # format: entity:stats,...|entity:stats,....
-        # input is: "c1:c1=1903,w1=5,w2=2,w3=4,w4=4,w5=5,w6=1,w1=0.878,w2=0.953,w3=0.899,w4=0.269,w5=0.667,w6=0.945|c2:c2=638,w7=0,w8=2,w7=1.403,w8=1.192|r1:2507|r2:632|s1:207"
-        
+        globe.experiment_focused_on.nerl_comm_db.update_entities_stats(entity_com_dicts)        
         globe.pendingAcks = 0
 
 #Listener Server list of resources: 

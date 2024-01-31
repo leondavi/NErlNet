@@ -291,13 +291,13 @@ training(cast, In = {loss,WorkerName,nan}, State) ->
   stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
-training(cast, In = {loss,WorkerName,LossFunction}, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
+training(cast, In = {loss,WorkerName,LossVal}, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  MessageBody = {WorkerName,LossFunction},
-  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(lossFunction), MessageBody),
+  MessageBody = {WorkerName,LossVal},
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(lossFunction), MessageBody), %% Change lossFunction atom to lossValue
   stats:increment_messages_sent(ClientStatsEts),
   stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
   {next_state, training, State#client_statem_state{myName = MyName,etsRef = EtsRef}};
@@ -411,7 +411,7 @@ cast_message_to_workers(EtsRef, Msg) ->
 create_encoded_stats_str(ListStatsEts) ->
   Func = fun({WorkerName , StatsEts}) ->
     WorkerEncStatsStr = stats:encode_workers_ets_to_http_bin_str(StatsEts),
-    %% w1&bytes_sent:6.0:float#bad_messages:0:int....|
-    atom_to_list(WorkerName) ++ ?WORKER_SEPERATOR ++ WorkerEncStatsStr
+    %% |w1&bytes_sent:6.0:float#bad_messages:0:int....|
+    ?API_SERVER_ENTITY_SEPERATOR ++ atom_to_list(WorkerName) ++ ?WORKER_SEPERATOR ++ WorkerEncStatsStr
     end,
   lists:flatten(lists:map(Func , ListStatsEts)).

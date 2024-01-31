@@ -384,6 +384,8 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,ClientWorkerPairs, Batches
   end,
 
   gen_statem:cast(SourcePid,{finishedCasting,BatchesSent}),
+  io:format("Transmission took ~p seconds~n",[TransmissionTimeTook_sec]),
+  io:format("Batches sent: ~p~n",[BatchesSent]),
   ActualFrequency = 1/(TransmissionTimeTook_sec/BatchesSent),
   ?LOG_INFO("Source ~p Actual Frequency: ~p [B/Sec]",[MyName, ActualFrequency]),
   ets:delete(TransmitterEts).

@@ -54,7 +54,6 @@ init({MyName , _Policy , NerlnetGraph}) -> %% TODO : Add policy to router
   {ok, #router_genserver_state{msgCounter = 1, myName = MyName, etsRef=RoutingTableEtsRef}}.
 
 handle_cast({statistics , _Body} , State=#router_genserver_state{etsRef = Routing_table}) ->
-  io:format("~p Got statistics request ~n" , [get(myName)]),
   RouterStatsEts = get(router_stats_ets),
   stats:increment_messages_received(RouterStatsEts),
 
@@ -62,7 +61,6 @@ handle_cast({statistics , _Body} , State=#router_genserver_state{etsRef = Routin
   StatsEtsStr = stats:encode_ets_to_http_bin_str(RouterStatsEts),
   StatisticsBody = {MyName , StatsEtsStr},
   [{_Dest,{_Name , MyRouterAddress , MyRouterPort}}] = ets:lookup(Routing_table , MyName), % Router is always owned by itself
-  io:format("~p is sending statistics~n" , [get(myName)]),
   nerl_tools:http_router_request(MyRouterAddress, MyRouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
   stats:increment_messages_sent(RouterStatsEts),
   {noreply , State};
