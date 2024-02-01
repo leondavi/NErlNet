@@ -49,7 +49,7 @@ std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_siz
     for (int i = 0; i < layer_sizes_params.size(); i++)
     {
         int layer_type = std::stoi(layer_types_strs_vec[i]);
-        // TODO Ori and Nadav add CNN extension
+        // TODO Ori and Nadav add CNN extension to NerlLayer
         int layer_size = layer_sizes_params[i].dimx;
         int layer_functionality = std::stoi(layers_functionality_strs_vec[i]);
 
