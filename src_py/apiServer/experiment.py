@@ -40,16 +40,17 @@ class Experiment():
         self.predictionResList : list = [] # depracated
         self.exp_flow_json = None
         self.temp_data_path = temp_data_path
-        
-        self.data_db = {} # example {"dog" : (NerlDB , NerlDatasetCsvDB , Phase)}
-        # ! For Ohad
-        # data_db_initialization() - need to create this function
-        # def data_db_initialization(self):
-        #     for user_data_input in data_inputs:
-        #         nerl_db = NerlDB()
-        #         nerl_dataset_db = NerlDatasetCsvDB()
-        #         self.data_db[user_data_input] = (nerl_db , nerl_dataset_db , "Training"/"Predict")
+        #NerlDatasetCsvDB
         self.nerl_comm_db = NerlComDB(globe.components)
+        
+        self.resList = [] #example [(Phase: training/prediction, {sourceName: DataSetSourceDB, ...},NerlDB), ...]
+       
+    def build_resList(self, resData : list, phase):
+        source_name = resData[0]
+        source_csv_dict = {}   # Todo need to think where to build this dict   {source_name: DataSetSourceDB,...}
+        nerl_DB = NerlDB()
+        triple = (phase, source_csv_dict, nerl_DB) 
+        self.resList.append(triple) 
 
     def parse_experiment_flow_json(self, json_path : str):
         # read json file

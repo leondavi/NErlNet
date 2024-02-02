@@ -5,7 +5,7 @@ class BatchTrainDB:
         self.worker_name = worker_name
         self.source_name = source_name
         self.batch_id = batch_id
-        self.batch_size = batch_size
+        #self.batch_size = batch_size
         self.loss_value = None
         self.duration = duration
 
@@ -23,9 +23,9 @@ class BatchPredictDB:
         self.source_name = source_name
         self.batch_id = batch_id
         self.duration = duration
-        self.label_dim = label_dim
+        #self.label_dim = label_dim
         self.source_name = None
-        self.labels = [ [ None ] * label_dim ] * batch_size
+        #self.labels = [ [ None ] * label_dim ] * batch_size
 
     def set_label_dim(self, dim):
         self.label_dim = dim

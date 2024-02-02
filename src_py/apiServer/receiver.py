@@ -39,7 +39,7 @@ def initReceiver(receiverHost, receiverPort, event):
 
 def processResult(resData, currentPhase):
         if (currentPhase == "Training"):
-            # Parse the Result: [w#, float]
+            # Parse the Result: [w#, float, float...]
             worker = resData[0]
             result = float(resData[1].replace(' ',''))
             #print(result)
@@ -94,17 +94,18 @@ class trainRes(Resource):
         # receiver.logger.info("Training result received")
         # Result preprocessing:
         # Receiving from Erlang: "worker#loss" 
-        # TODO example "w1#loss|batch_id|..."
+        # TODO example "s1$w1#source_name|batch_id|loss_value|duration"
         # TODO GUY - Add all attributes of nerl_db (batch_id etc.)
-        resData = request.form
-        resData = list(resData)
-        resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter
-        # TODO OHAD - Keep parsing the received data with '|' seperator
+        source_csv_dict = {}
+        resData = request.get_data().decode('utf-8')
+        resData = decode_main_server_str_train(resData) #list of strings
+        source_csv_dict[resData[0]] = 
+        globe.experiment_focused_on.
+        #TRAINING_STR
         # TODO OHAD - Add the parsed data to the nerl_db
         # Consider what to do
         # if globe.jupyterFlag == False:
-        #     print(resData)
-        processResult(resData, "Training")
+        #processResult(resData, "Training")
         
         
 #http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++BatchID++"#"++CSVName++"#"++BatchSize)
