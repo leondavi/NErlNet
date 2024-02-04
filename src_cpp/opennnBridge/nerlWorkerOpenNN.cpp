@@ -176,9 +176,9 @@ namespace nerlnet
                     convolutional_layer_kernels_dimensions(3) = kernels_number; //according the opennn example
                     ConvolutionalLayer* convolutional_layer = new ConvolutionalLayer(convolutional_layer_inputs_dimensions, convolutional_layer_kernels_dimensions);
                     //add set stride and padding
-                    neural_network_ptr->add_layer(convolutional_layer);
+                    neural_network_ptr->add_layer(convolutional_layer); // add layer to the neural network
                     if((curr_layer->get_next_layer_ptr())->get_layer_type() == LAYER_TYPE_PERCEPTRON){
-                        //add a flatten layer
+                        //add a flatten layer and an assert
                     }
                     break;
 
