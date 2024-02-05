@@ -10,13 +10,11 @@ class BatchTrainDB:
         self.duration = duration
 
     def get_as_triplet(self):
-        return self.worker_name, self.batch_id, self.loss_values
+        return self.worker_name, self.batch_id, self.loss_value
     
-    def update_loss_value(self , within_batch_index , value):
-        if within_batch_index >= self.batch_size:
-            raise Exception("within_batch_index is not as expected")
-        self.loss_value = value
-
+    def get_source_name(self):
+        return self.source_name
+    
 class BatchPredictDB:
     def __init__(self, worker_name, source_name, batch_id, batch_size, label_dim = 1, duration = None):
         self.worker_name = worker_name

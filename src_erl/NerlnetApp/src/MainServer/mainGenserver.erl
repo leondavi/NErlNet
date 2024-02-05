@@ -270,8 +270,9 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName})
       {WorkerName,{LossFunction,_Time}} -> % average time should be gathered
         nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(trainRes), atom_to_list(WorkerName)++"#"++float_to_list(LossFunction)),
         stats:increment_messages_sent(StatsEts);
-      {WorkerName,LossFunction} ->
-        nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(trainRes), atom_to_list(WorkerName)++"#"++float_to_list(LossFunction)),
+      {WorkerName , SourceName , LossValue , TimeNIF , BatchID} ->
+        ToSend = atom_to_list(WorkerName) ++ ?TRAIN_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ ?TRAIN_RES_VALUES_SEPERATOR ++ float_to_list(LossValue) ++ ?TRAIN_RES_VALUES_SEPERATOR ++ float_to_list(TimeNIF) ++ ?TRAIN_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID),
+        nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(trainRes), ToSend),
         stats:increment_messages_sent(StatsEts);
       _ELSE ->
         ?LOG_ERROR("~p Wrong loss function pattern received from client and its worker ~p", [MyName, Body])

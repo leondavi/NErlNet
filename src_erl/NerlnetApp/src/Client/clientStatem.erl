@@ -252,15 +252,16 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  {ClientName, WorkerNameStr, _CSVName, BatchID, BatchOfSamples} = binary_to_term(Body),
+  {SourceName , ClientName, WorkerNameStr, BatchID, BatchOfSamples} = binary_to_term(Body),
   WorkerName = list_to_atom(WorkerNameStr),
   WorkersEts = get(workers_ets),
   WorkerOfThisClient = ets:member(WorkersEts , WorkerName),
   if WorkerOfThisClient ->
       WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
-      gen_statem:cast(WorkerPid, {sample, BatchID ,BatchOfSamples}),
+      gen_statem:cast(WorkerPid, {sample, SourceName ,BatchID ,BatchOfSamples}),
       stats:increment_messages_sent(ClientStatsEts),
-      stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(BatchOfSamples));
+      BatchSize = nerl_tools:calculate_size(BatchOfSamples),
+      stats:increment_bytes_sent(ClientStatsEts , BatchSize);
   true -> ?LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName]) end,
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
@@ -278,25 +279,12 @@ training(cast, _In = {predict}, State = #client_statem_state{myName = MyName, et
   ?LOG_ERROR("Wrong request , client ~p can't go from training to predict directly", [MyName]),
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
-% training get path to main server
-training(cast, In = {loss,WorkerName,nan}, State) ->
-  EtsRef = get(client_data),
+training(cast, In = {loss , WorkerName , SourceName , LossVal , TimeNIF , BatchID}, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  MessageBody = term_to_binary({WorkerName,"nan"}),
-  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(lossFunction), MessageBody),
-  stats:increment_messages_sent(ClientStatsEts),
-  stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
-  {next_state, training, State#client_statem_state{etsRef = EtsRef}};
-
-training(cast, In = {loss,WorkerName,LossVal}, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
-  ClientStatsEts = get(client_stats_ets),
-  stats:increment_messages_received(ClientStatsEts),
-  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  MessageBody = {WorkerName,LossVal},
+  MessageBody = {WorkerName , SourceName , LossVal , TimeNIF , BatchID},
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(lossFunction), MessageBody), %% Change lossFunction atom to lossValue
   stats:increment_messages_sent(ClientStatsEts),
   stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
@@ -348,7 +336,7 @@ predict(cast,_In = {training}, State = #client_statem_state{myName = MyName}) ->
 
 %% The source sends message to main server that it has finished
 %% The main server updates its' clients to move to state 'idle'
-predict(cast, In = {idle}, State = #client_statem_state{etsRef = EtsRef , myName = MyName}) ->
+predict(cast, In = {idle}, State = #client_statem_state{etsRef = EtsRef , myName = _MyName}) ->
 
   MsgToCast = {idle},
   ClientStatsEts = get(client_stats_ets),

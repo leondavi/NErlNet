@@ -98,9 +98,11 @@ class trainRes(Resource):
         # TODO GUY - Add all attributes of nerl_db (batch_id etc.)
         source_csv_dict = {}
         resData = request.get_data().decode('utf-8')
+        print(f"Got {resData} from MainServer")
         resData = decode_main_server_str_train(resData) #list of strings
-        source_csv_dict[resData[0]] = 
-        globe.experiment_focused_on.
+        #source_csv_dict[resData[0]] = None #TODO Ohad&Noa Continue
+        print(f"Received training result {resData}")
+        #globe.experiment_focused_on. #TODO Ohad&Noa Continue
         #TRAINING_STR
         # TODO OHAD - Add the parsed data to the nerl_db
         # Consider what to do

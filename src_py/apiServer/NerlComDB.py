@@ -190,10 +190,7 @@ class NerlComDB():
     
     def add_client(self, client_name):
         self.clients[client_name] = ClientDB()
-    
-    def add_worker(self, worker_name):
-        self.workers[worker_name] = WorkerComDB()
-    
+        
     def add_source(self, source_name):
         self.sources[source_name] = SourceDB()
 
@@ -222,8 +219,6 @@ class NerlComDB():
         for worker_name in self.net_comps.workers:
             this_worker_client_name = self.net_comps.map_worker_to_client[worker_name]
             self.clients[this_worker_client_name].add_worker(worker_name)
-            this_worker_comm_db = self.clients[this_worker_client_name].get_worker(worker_name)
-            self.workers[worker_name] = this_worker_comm_db
                         
     def update_entities_stats(self, entity_com_dicts: dict):
         for entity_name in entity_com_dicts:
