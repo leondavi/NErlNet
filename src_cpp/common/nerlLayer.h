@@ -64,6 +64,7 @@ class NerlLayerCNN : public NerlLayer
     virtual ~NerlLayerCNN();
 
     int get_dim_kernel_size(int dim_idx) {return _kernel_size[dim_idx];}; // index 0 is the first dim
+    int get_stride(int dim_idx) {return _stride_dims[dim_idx];}; // index 0 is the first dim
 
     private:
     std::vector<int> _kernel_size;
