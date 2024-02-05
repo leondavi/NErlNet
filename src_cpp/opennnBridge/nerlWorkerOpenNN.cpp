@@ -31,8 +31,10 @@ namespace nerlnet
     void NerlWorkerOpenNN::generate_training_strategy()
     {
      _training_strategy_ptr->set_neural_network_pointer(_neural_network_ptr.get()); // Neural network must be defined at this point
-    _training_strategy_ptr->set_optimization_method((opennn::TrainingStrategy::OptimizationMethod) translate_optimizer_type_int(_optimizer_type));
-     _training_strategy_ptr->set_loss_method((opennn::TrainingStrategy::LossMethod) translate_loss_method_int(_loss_method)); 
+    // _training_strategy_ptr->set_optimization_method((opennn::TrainingStrategy::OptimizationMethod)translate_optimizer_type_int(_optimizer_type));
+     set_optimization_method(_optimizer_type,_learning_rate);
+     set_loss_method(_loss_method);
+     // _training_strategy_ptr->set_loss_method((opennn::TrainingStrategy::LossMethod)translate_loss_method_int(_loss_method)); 
      _training_strategy_ptr->set_maximum_epochs_number(_epochs); 
      _training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); // remove opennn training strategy prints
     }
@@ -167,18 +169,32 @@ namespace nerlnet
                     convolutional_layer_inputs_dimensions[3] = 1; //number of images/data 
                     int kernels_rows_number = cnn_curr_layer->get_dim_kernel_size(DIM_X_IDX);
                     int kernels_columns_number = cnn_curr_layer->get_dim_kernel_size(DIM_Y_IDX);
-                    int kernels_number = 1;
+                    int kernels_number = 1; 
 
                     Tensor<Index, 1> convolutional_layer_kernels_dimensions(4);
-                    convolutional_layer_kernels_dimensions(0) = kernels_rows_number;
-                    convolutional_layer_kernels_dimensions(1) = kernels_columns_number;
+                    convolutional_layer_kernels_dimensions(0) = kernels_rows_number; //according the opennn example
+                    convolutional_layer_kernels_dimensions(1) = kernels_columns_number; //according the opennn example
                     convolutional_layer_kernels_dimensions(2) = layer_channels_num; //according the opennn example
                     convolutional_layer_kernels_dimensions(3) = kernels_number; //according the opennn example
                     ConvolutionalLayer* convolutional_layer = new ConvolutionalLayer(convolutional_layer_inputs_dimensions, convolutional_layer_kernels_dimensions);
                     //add set stride and padding
+                    convolutional_layer->set_row_stride(cnn_curr_layer->get_stride(DIM_X_IDX)); // set_row_stride
+                    convolutional_layer->set_column_stride(cnn_curr_layer->get_stride(DIM_Y_IDX)); // set_column_stride
+                    //convolutional_layer->insert_padding
                     neural_network_ptr->add_layer(convolutional_layer); // add layer to the neural network
-                    if((curr_layer->get_next_layer_ptr())->get_layer_type() == LAYER_TYPE_PERCEPTRON){
-                        //add a flatten layer and an assert
+                    if((curr_layer->get_next_layer_ptr())->get_layer_type() == LAYER_TYPE_PERCEPTRON){ // if the next layer is perceptron
+                            Tensor<Index, 1> flatten_layer_inputs_dimensions(4);
+                            flatten_layer_inputs_dimensions(0) = layer_rows_num-kernels_rows_number+1; //according the opennn example
+                            flatten_layer_inputs_dimensions(1) = layer_cols_num-kernels_columns_number+1; //according the opennn example
+                            flatten_layer_inputs_dimensions(2) = kernels_number; //according the opennn example
+                            flatten_layer_inputs_dimensions(3) = 1;             //samples_number
+                            FlattenLayer* flatten_layer = new FlattenLayer(flatten_layer_inputs_dimensions); // create flatten layer
+                            if (flatten_layer->get_outputs_dimensions()[0] != curr_layer->get_next_layer_ptr()->get_dim_size(DIM_X_IDX)) // make sure the dims correct
+                            {
+                               LogError("NerlWorkerOpenNN::generate_custom_model_nn - wrong dimensions in CNN and Perceptron");
+                               throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - wrong dimensions in CNN  and Perceptron");
+                            }
+                            neural_network_ptr->add_layer(flatten_layer);
                     }
                     break;
 
