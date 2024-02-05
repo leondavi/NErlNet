@@ -1,4 +1,5 @@
 
+from numpy import source
 from decoderHttpMainServerDefs import *
 
 # | seperates entities
@@ -55,13 +56,18 @@ def decode_main_server_ets_str(string_to_convert: str):
 
 def decode_main_server_str_train(string_to_convert: str) -> list:
     result_list = []
-    source_name = string_to_convert.split(SEP_ENTITY_DOLLAR_STATS)[0]
+    worker_name = string_to_convert.split(SEP_ENTITY_HASH_STATS)[0]
+    result_list.append(worker_name)
+    train_result = string_to_convert.split(SEP_ENTITY_HASH_STATS)[1]
+    source_and_stats = train_result.split(SEP_ENTITY_OR_STATS)
+    source_name = source_and_stats[0]
     result_list.append(source_name)
-    string_to_convert = string_to_convert.split(SEP_ENTITY_DOLLAR_STATS)[1]
-    worker_and_stats = string_to_convert.split(SEP_ENTITY_HASH_STATS)
-    result_list.append = worker_and_stats[0]
-    train_stats = worker_and_stats[1]
-    result_list.extend(train_stats.split(SEP_ENTITY_OR_STATS))
+    loss_val = source_and_stats[1]
+    result_list.append(loss_val)
+    duration = source_and_stats[2]
+    result_list.append(duration)
+    batch_id = source_and_stats[3]
+    result_list.append(batch_id)
     return result_list
 
 def test():

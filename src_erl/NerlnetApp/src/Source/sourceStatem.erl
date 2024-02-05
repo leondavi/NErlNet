@@ -56,7 +56,7 @@ init({MyName, WorkersMap, NerlnetGraph, Policy, BatchSize, Frequency , Epochs, T
   inets:start(),
   ?LOG_INFO("Source ~p is connected to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
   ?LOG_INFO("BatchSize: ~p",[BatchSize]),
-
+  put(myName , MyName),
   EtsRef = ets:new(source_data, [set]),
   EtsStatsRef = stats:generate_stats_ets(),
 
@@ -75,6 +75,7 @@ init({MyName, WorkersMap, NerlnetGraph, Policy, BatchSize, Frequency , Epochs, T
   ets:insert(EtsRef, {sample_size, none}),
   ets:insert(EtsRef, {workers_list, []}),
   ets:insert(EtsRef, {csv_name, ""}), % not in use
+  
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM, NerlnetGraph),
   ets:insert(EtsRef, {my_router,{MyRouterHost,MyRouterPort}}),
 
@@ -279,8 +280,8 @@ spawnTransmitter(SourceEtsRef, WorkersListOfNames, BatchesListToSend)->
 
 %% Sends batch of samples to a client
 % A batch is always {NerlTensor, Type}
-sendBatch({NerlTensor, Type},CSVPath, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
-        ToSend = {ClientName, WorkerName, CSVPath, BatchID, {NerlTensor, Type}},
+sendBatch(MyName,{NerlTensor, Type}, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
+        ToSend = {MyName , ClientName, WorkerName, BatchID, {NerlTensor, Type}},
         nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(batch), ToSend).
 
 prepare_and_send(_TransmitterEts, _TimeInterval_ms, _Batch, _BatchIdx, []) -> ok;
@@ -290,9 +291,9 @@ prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [ClientWorker
   case Batch of
   {NerlTensor, Type} ->
     {ClientName,WorkerName} = ClientWorkerPair,% TODO Gal is about to perform refactor here with casting support
-    CSVPath = "",
+    MyName = ets:lookup_element(TransmitterEts, my_name, ?DATA_IDX),
     % sending batch
-    sendBatch({NerlTensor, Type},CSVPath, BatchIdx, ClientName,WorkerName,RouterHost,RouterPort),
+    sendBatch(MyName,{NerlTensor, Type}, BatchIdx, ClientName,WorkerName,RouterHost,RouterPort),
     % timing handling
     Toc_millisec = timer:now_diff(Tic, erlang:timestamp()) * ?MICRO_TO_MILLI_FACTOR,
     SleepDuration = erlang:max(0,  round(TimeInterval_ms - Toc_millisec)),
@@ -384,8 +385,6 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,ClientWorkerPairs, Batches
   end,
 
   gen_statem:cast(SourcePid,{finishedCasting,BatchesSent}),
-  io:format("Transmission took ~p seconds~n",[TransmissionTimeTook_sec]),
-  io:format("Batches sent: ~p~n",[BatchesSent]),
   ActualFrequency = 1/(TransmissionTimeTook_sec/BatchesSent),
   ?LOG_INFO("Source ~p Actual Frequency: ~p [B/Sec]",[MyName, ActualFrequency]),
   ets:delete(TransmitterEts).
