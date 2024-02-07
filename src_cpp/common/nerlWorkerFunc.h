@@ -77,11 +77,12 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
                 LogInfo("Complex parsing"); 
                 //TODO: make sure to complete fill up the dimensions of Kernel and Padding even if they are not fully specified 
                 //TODO: make sure to validate that it makes sense with the definition of convolution
-                 std::regex rgx("(\\d+)x(\\d+)(x(\\d+))?k(\\d+)x(\\d+)p(\\d+)x(\\d+)s(\\d+)");
-                std::smatch matches;
+                std::unordered_map<char, std::string> params;
+                std::regex rgx("(\\d+)x(\\d+)(x(\\d+))?");
+                std::smatch matches; //this matches variable is for the layer size
+               
 
                 if (std::regex_search(layer_sizes_strs_vec[i], matches, rgx)) {
-                    enum {KERNEL_SIZE = -1, PADDING_SIZE = -2, STRIDE_SIZE = -3, POOLING_SIZE= -4}; //TODO: enums declaration shouldn't be here
                     out_layer_sizes_params[i].dimx = std::stoi(matches[1]); // dimx
                     out_layer_sizes_params[i]._ext_params.push_back(out_layer_sizes_params[i].dimx);
 
@@ -92,16 +93,43 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
                         out_layer_sizes_params[i].dimz = std::stoi(matches[4]); // dimz
                         out_layer_sizes_params[i]._ext_params.push_back(out_layer_sizes_params[i].dimz);
                     }
-
-                    out_layer_sizes_params[i]._ext_params.push_back(KERNEL_SIZE);
-                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[5]));
-                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[6]));
-                    out_layer_sizes_params[i]._ext_params.push_back(PADDING_SIZE);
-                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[7]));
-                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[8]));
-                    out_layer_sizes_params[i]._ext_params.push_back(STRIDE_SIZE);
-                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[9]));
                 }
+
+                //now i want to crop the match of regex from the string
+                layer_sizes_strs_vec[i] = std::regex_replace(layer_sizes_strs_vec[i], rgx, "");
+
+                //now we deal with the rest of the string
+                std::smatch param_match; // this matches variable is for the rest of the string
+                std::regex rgx_rest("([ksp])(\\d+x\\d+(x\\d+)?)"); //search for k, s or p followed by a number and then x and then a number
+
+                std::string::const_iterator searchStart(layer_sizes_strs_vec[i].cbegin()); 
+                while (std::regex_search(searchStart, layer_sizes_strs_vec[i].cend(), param_match, rgx_rest))
+                    {
+                        char param = param_match[1].str()[0];
+                        std::string dimensions = param_match[2].str();
+
+                        // If the dimensions are 2D and we've seen a 3D dimension, expand to 3D
+                        if (params[param].size() < dimensions.size())
+                        {
+                            params[param] = dimensions;
+                        }
+
+                        searchStart = param_match.suffix().first;
+                    }
+
+                    // Expand 2D dimensions to 3D if necessary
+                    if (params['k'].size() > params['s'].size())
+                    {
+                        params['s'] += "x" + params['s'].substr(1, params['s'].size() - 1);
+                    }
+                    if (params['k'].size() > params['p'].size())
+                    {
+                        params['p'] += "x" + params['p'].substr(1, params['p'].size() - 1);
+                    }
+
+
+                
+
                 break;
                 }
             default:
