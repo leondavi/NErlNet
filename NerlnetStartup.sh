@@ -15,7 +15,7 @@ startupRunFlow()
         JobsNum=1
     fi
     /bin/bash NerlnetBuild.sh -p master -j $JobsNum 
-    /bin/bash NerlnetRun.sh
+    /bin/bash NerlnetRun.sh --run-mode release
 }
 
 if [ "$startupRun" = true ] ; then
