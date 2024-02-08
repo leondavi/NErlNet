@@ -94,7 +94,7 @@ class trainRes(Resource):
         # receiver.logger.info("Training result received")
         # Result preprocessing:
         # Receiving from Erlang: "worker#loss" 
-        # TODO example "s1$w1#source_name|batch_id|loss_value|duration"
+        # TODO example "w1#source_name|batch_id|loss_value|duration"
         # TODO GUY - Add all attributes of nerl_db (batch_id etc.)
         source_csv_dict = {}
         resData = request.get_data().decode('utf-8')
