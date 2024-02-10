@@ -162,25 +162,37 @@ namespace nerlnet
                     int layer_channels_num = curr_layer->get_dim_size(DIM_Z_IDX);
 
                     std::shared_ptr<NerlLayerCNN> cnn_curr_layer = std::dynamic_pointer_cast<NerlLayerCNN>(curr_layer);
-                    Tensor<Index, 1> convolutional_layer_inputs_dimensions(4); 
-                    convolutional_layer_inputs_dimensions[0] = layer_rows_num;
-                    convolutional_layer_inputs_dimensions[1] = layer_cols_num;
-                    convolutional_layer_inputs_dimensions[2] = layer_channels_num; // each channel is diffrent value in the matrix (in rgb it is 3)
-                    convolutional_layer_inputs_dimensions[3] = 1; //number of images/data 
+                    // set the number of inputs
+                    Tensor<Index, 1> cnn_layer_inputs_dimensions(4); 
+                    cnn_layer_inputs_dimensions[0] = layer_rows_num;
+                    cnn_layer_inputs_dimensions[1] = layer_cols_num;
+                    cnn_layer_inputs_dimensions[2] = layer_channels_num; // each channel is diffrent value in the matrix (in rgb it is 3)
+                    cnn_layer_inputs_dimensions[3] = 1; //number of images/data 
                     int kernels_rows_number = cnn_curr_layer->get_dim_kernel_size(DIM_X_IDX);
                     int kernels_columns_number = cnn_curr_layer->get_dim_kernel_size(DIM_Y_IDX);
                     int kernels_number = 1; 
-
-                    Tensor<Index, 1> convolutional_layer_kernels_dimensions(4);
-                    convolutional_layer_kernels_dimensions(0) = kernels_rows_number; //according the opennn example
-                    convolutional_layer_kernels_dimensions(1) = kernels_columns_number; //according the opennn example
-                    convolutional_layer_kernels_dimensions(2) = layer_channels_num; //according the opennn example
-                    convolutional_layer_kernels_dimensions(3) = kernels_number; //according the opennn example
-                    ConvolutionalLayer* convolutional_layer = new ConvolutionalLayer(convolutional_layer_inputs_dimensions, convolutional_layer_kernels_dimensions);
-                    //add set stride and padding
+                    // set the number of kernel
+                    Tensor<Index, 1> cnn_layer_kernels_dimensions(4);
+                    cnn_layer_kernels_dimensions(0) = kernels_rows_number; //according the opennn example
+                    cnn_layer_kernels_dimensions(1) = kernels_columns_number; //according the opennn example
+                    cnn_layer_kernels_dimensions(2) = layer_channels_num; //according the opennn example
+                    cnn_layer_kernels_dimensions(3) = kernels_number; //according the opennn example
+                    ConvolutionalLayer* convolutional_layer = new ConvolutionalLayer(cnn_layer_inputs_dimensions, cnn_layer_kernels_dimensions);
+                    //set stride
                     convolutional_layer->set_row_stride(cnn_curr_layer->get_stride(DIM_X_IDX)); // set_row_stride
                     convolutional_layer->set_column_stride(cnn_curr_layer->get_stride(DIM_Y_IDX)); // set_column_stride
-                    //convolutional_layer->insert_padding
+                    //set padding
+                    Tensor<Index, 1> cnn_layer_padding_dimensions(4);
+                    Tensor<type,4> cnn_layer_padding_outputs(layer_rows_num, layer_cols_num, layer_channels_num, 1);
+                    cnn_layer_padding_dimensions(0) =  cnn_curr_layer->get_padding_size(DIM_X_IDX); //according the opennn example
+                    cnn_layer_padding_dimensions(1) =  cnn_curr_layer->get_padding_size(DIM_Y_IDX); //according the opennn example
+                    // set convulution type
+                    convolutional_layer->set_convolution_type(opennn::ConvolutionalLayer::ConvolutionType::Same); // TODO : ask David
+                    // insert padding
+                    convolutional_layer->insert_padding(cnn_layer_padding_dimensions,cnn_layer_padding_outputs);
+                    // set activation function
+                    convolutional_layer->set_activation_function((opennn::ConvolutionalLayer::ActivationFunction)(cnn_curr_layer->get_layer_functionality())); // set activation function
+                    // add layer to the neural network
                     neural_network_ptr->add_layer(convolutional_layer); // add layer to the neural network
                     if((curr_layer->get_next_layer_ptr())->get_layer_type() == LAYER_TYPE_PERCEPTRON){ // if the next layer is perceptron
                             Tensor<Index, 1> flatten_layer_inputs_dimensions(4);
@@ -198,6 +210,18 @@ namespace nerlnet
                     }
                     break;
 
+                }
+                 case LAYER_TYPE_POOLING:
+                {
+                   int layer_rows_num     = curr_layer->get_dim_size(DIM_X_IDX);
+                   int layer_cols_num     = curr_layer->get_dim_size(DIM_Y_IDX);
+                   std::shared_ptr<NerlLayerPooling> pooling_curr_layer = std::dynamic_pointer_cast<NerlLayerPooling>(curr_layer);
+                   std::vector<int> pooling_dims;
+                   pooling_curr_layer->get_pooling_dims(pooling_dims);
+                   PoolingLayer* pooling_layer = new PoolingLayer(layer_rows_num, layer_cols_num);
+                   pooling_layer->set_pool_size(pooling_dims[0],pooling_dims[1]);
+                   pooling_layer->set_pooling_method(translate_pooling_method(pooling_curr_layer->get_layer_functionality()));
+                   neural_network_ptr->add_layer(pooling_layer); // add layer to the neural network
                 }
                 case LAYER_TYPE_LSTM:
                 {

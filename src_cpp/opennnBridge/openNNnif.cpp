@@ -21,7 +21,7 @@ void* trainFun(void* arg)
 
     int data_cols = TrainNNptr->data->dimension(1);
     int num_of_features = neural_network_ptr->get_inputs_number();
-    int num_of_output_neurons = neural_network_ptr->get_outputs_number();
+    int num_of_output_neurons = neural_network_ptr->get_outputs_number(); 
 
     // Data set definitions
     bool data_set_condition = (num_of_features + num_of_output_neurons) == TrainNNptr->data->dimension(1);
