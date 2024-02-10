@@ -77,11 +77,12 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
                 LogInfo("Complex parsing"); 
                 //TODO: make sure to complete fill up the dimensions of Kernel and Padding even if they are not fully specified 
                 //TODO: make sure to validate that it makes sense with the definition of convolution
+                //TODO: use unordered map
                  std::regex rgx("(\\d+)x(\\d+)(x(\\d+))?k(\\d+)x(\\d+)p(\\d+)x(\\d+)s(\\d+)");
                 std::smatch matches;
 
                 if (std::regex_search(layer_sizes_strs_vec[i], matches, rgx)) {
-                    enum {KERNEL_SIZE = -1, PADDING_SIZE = -2, STRIDE_SIZE = -3, POOLING_SIZE= -4}; //TODO: enums declaration shouldn't be here
+                    //parsing function should be called here to clean the parsing code
                     out_layer_sizes_params[i].dimx = std::stoi(matches[1]); // dimx
                     out_layer_sizes_params[i]._ext_params.push_back(out_layer_sizes_params[i].dimx);
 
@@ -93,13 +94,13 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
                         out_layer_sizes_params[i]._ext_params.push_back(out_layer_sizes_params[i].dimz);
                     }
 
-                    out_layer_sizes_params[i]._ext_params.push_back(KERNEL_SIZE);
+                    out_layer_sizes_params[i]._ext_params.push_back(LayerSizingParams::KERNEL_SIZE);
                     out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[5]));
                     out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[6]));
-                    out_layer_sizes_params[i]._ext_params.push_back(PADDING_SIZE);
+                    out_layer_sizes_params[i]._ext_params.push_back(LayerSizingParams::PADDING_SIZE);
                     out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[7]));
                     out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[8]));
-                    out_layer_sizes_params[i]._ext_params.push_back(STRIDE_SIZE);
+                    out_layer_sizes_params[i]._ext_params.push_back(LayerSizingParams::STRIDE_SIZE);
                     out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[9]));
                 }
                 break;
