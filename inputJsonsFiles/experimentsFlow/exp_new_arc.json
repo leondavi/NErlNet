@@ -1,0 +1,31 @@
+{
+    "Expiriment Name": "Test",
+    "Batch Size": 32,
+    "Epochs": 1, 
+    "CSV path": "synthetic",
+    "Num of Features": "5",
+    "Num of Labels": "3",
+    "Expiriment Phase": 
+    {
+        "Training":
+        {
+            "source piece DS": "synthetic_training",
+            "piece of data": "s1_data_train.csv",
+            "source name": "s1",
+            "workers": "w1,w2,w3,w4",
+            "starting sample": "0",
+            "batches": "20"
+        },
+
+        "Prediction":
+        {
+            "source piece DS": "synthetic_prediction",
+            "piece of data": "s1_data_predict.csv",
+            "source name": "s1",
+            "workers": "w1,w2,w3,w4",
+            "starting sample": "0",
+            "batches": "20"
+        }
+    }
+     
+}
