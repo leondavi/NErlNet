@@ -128,7 +128,6 @@ namespace nerlnet
     void NerlWorkerOpenNN::generate_opennn_project(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
     {
         // TODO Ori and Nadav - implement
-
         switch (_model_type)
         {
         case MODEL_TYPE_APPROXIMATION:
@@ -182,7 +181,7 @@ namespace nerlnet
                     convolutional_layer->set_row_stride(cnn_curr_layer->get_stride(DIM_X_IDX)); // set_row_stride
                     convolutional_layer->set_column_stride(cnn_curr_layer->get_stride(DIM_Y_IDX)); // set_column_stride
                     //set padding
-                    Tensor<Index, 1> cnn_layer_padding_dimensions(4);
+                    Tensor<type,4> cnn_layer_padding_dimensions;
                     Tensor<type,4> cnn_layer_padding_outputs(layer_rows_num, layer_cols_num, layer_channels_num, 1);
                     cnn_layer_padding_dimensions(0) =  cnn_curr_layer->get_padding_size(DIM_X_IDX); //according the opennn example
                     cnn_layer_padding_dimensions(1) =  cnn_curr_layer->get_padding_size(DIM_Y_IDX); //according the opennn example
@@ -213,14 +212,22 @@ namespace nerlnet
                 }
                  case LAYER_TYPE_POOLING:
                 {
+                   // layer type is pooling
                    int layer_rows_num     = curr_layer->get_dim_size(DIM_X_IDX);
                    int layer_cols_num     = curr_layer->get_dim_size(DIM_Y_IDX);
+                   //dynamic cast to NerlLayerPooling
                    std::shared_ptr<NerlLayerPooling> pooling_curr_layer = std::dynamic_pointer_cast<NerlLayerPooling>(curr_layer);
+                   //get pooling dims
                    std::vector<int> pooling_dims;
                    pooling_curr_layer->get_pooling_dims(pooling_dims);
+                   //create pooling layer
                    PoolingLayer* pooling_layer = new PoolingLayer(layer_rows_num, layer_cols_num);
+                   // set pooling layer parameters
                    pooling_layer->set_pool_size(pooling_dims[0],pooling_dims[1]);
+                   pooling_layer->set_row_stride(pooling_curr_layer->get_stride(DIM_X_IDX));
+                   pooling_layer->set_column_stride(pooling_curr_layer->get_stride(DIM_Y_IDX));
                    pooling_layer->set_pooling_method(translate_pooling_method(pooling_curr_layer->get_layer_functionality()));
+                   pooling_layer->set_padding_width(pooling_curr_layer->get_padding_size(DIM_X_IDX));
                    neural_network_ptr->add_layer(pooling_layer); // add layer to the neural network
                 }
                 case LAYER_TYPE_LSTM:
