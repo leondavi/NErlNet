@@ -1,6 +1,7 @@
 
-from numpy import source
+import numpy as np
 from decoderHttpMainServerDefs import *
+
 
 # | seperates entities
 # & start entities stats
@@ -54,7 +55,7 @@ def decode_main_server_ets_str(string_to_convert: str):
 
     return result_dict
 
-def decode_main_server_str_train(string_to_convert: str) -> list:
+def decode_main_server_str_train(string_to_convert: str) -> list:  #change to tuple of 5 elements
     result_list = []
     worker_name = string_to_convert.split(SEP_ENTITY_HASH_STATS)[0]
     result_list.append(worker_name)
@@ -63,7 +64,8 @@ def decode_main_server_str_train(string_to_convert: str) -> list:
     source_name = source_and_stats[0]
     result_list.append(source_name)
     loss_val = source_and_stats[1]
-    result_list.append(loss_val)
+    tensor_data = np.float32(loss_val)
+    result_list.append(tensor_data)
     duration = source_and_stats[2]
     result_list.append(duration)
     batch_id = source_and_stats[3]
