@@ -44,13 +44,17 @@ class NerlLayerPooling : public NerlLayer
 {
     public:
 
-    NerlLayerPooling(int layer_type, std::vector<int> &layers_dims, int layer_functionality, std::vector<int> &pooling_dims);
+    NerlLayerPooling(int layer_type, std::vector<int> &layers_dims, int layer_functionality, std::vector<int> &pooling_dims, std::vector<int> &stride_dims);
     ~NerlLayerPooling();
 
     void get_pooling_dims(std::vector<int> &pooling_dims) {pooling_dims = this->pooling_dims;};
+    int get_stride(int dim_idx) {return _stride_dims[dim_idx];}; // index 0 is the first dim
+    int get_padding_size(int dim_idx) {return _padding_dims[dim_idx];}; // index 0 is the first dim
 
     private:
     std::vector<int> pooling_dims; //TODO
+    std::vector<int> _stride_dims; //TODO
+    std::vector<int> _padding_dims; //TODO
 
 
 };
