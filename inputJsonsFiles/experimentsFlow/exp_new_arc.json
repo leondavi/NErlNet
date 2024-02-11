@@ -1,31 +1,64 @@
 {
-    "Expiriment Name": "Test",
-    "Batch Size": 32,
-    "Epochs": 1, 
-    "CSV path": "synthetic",
-    "Num of Features": "5",
-    "Num of Labels": "3",
-    "Expiriment Phase": 
-    {
-        "Training":
+    
+    "experimentName": "synthetic_3_gausians",
+    "batchSize": 50,
+    "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/synthetic/synthetic_full.csv",
+    "numOfFeatures": "5",
+    "numOfLabels": "3",
+    "headersNames": "Norm(0,1),Norm(4,1),Norm(10,3)",
+    "Phases": 
+    [
         {
-            "source piece DS": "synthetic_training",
-            "piece of data": "s1_data_train.csv",
-            "source name": "s1",
-            "workers": "w1,w2,w3,w4",
-            "starting sample": "0",
-            "batches": "20"
+            "phaseName": "training1",
+            "phaseType": "training",
+            "sourcePieces":
+            [
+                {
+                "sourceName": "s1",
+                "startingSample": "0",
+                "numOfBatches": "190",
+                "workers": "w1,w2,w3,w4"
+                },
+                {
+                "sourceName": "s2",
+                "startingSample": "0",
+                "numOfBatches": "190",
+                "workers": "w1,w2,w3,w4"
+                }
+            ]  
         },
-
-        "Prediction":
         {
-            "source piece DS": "synthetic_prediction",
-            "piece of data": "s1_data_predict.csv",
-            "source name": "s1",
-            "workers": "w1,w2,w3,w4",
-            "starting sample": "0",
-            "batches": "20"
+            "phaseName": "validation1",
+            "phaseType": "prediction",
+            "sourcePieces":
+            [
+                {
+                "sourceName": "s1",
+                "startingSample": "9500",
+                "numOfBatches": "10",
+                "workers": "w1,w2,w3,w4"
+                },
+                {
+                "sourceName": "s2",
+                "startingSample": "9500",
+                "numOfBatches": "10",
+                "workers": "w1,w2,w3,w4"
+                }
+            ] 
+        },
+        {
+            "phaseName": "prediction1",
+            "phaseType": "prediction",
+            "sourcePieces":
+            [
+                {
+                "sourceName": "s1",
+                "startingSample": "10000",
+                "numOfBatches": "200",
+                "workers": "w1,w2,w3,w4"
+                }
+            ]
+            
         }
-    }
-     
+    ]  
 }

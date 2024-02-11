@@ -33,6 +33,12 @@ class Transmitter:
         #Return the reponse in JSON format
         return(response.ok, response.status_code, response.json())
 
+    def clients_set_phase(self, phase): # Todo union clientsTraining and predict 
+       # Complete the missing before acks 
+        globe.waitForAck()
+        globe.ack_debug_print()
+
+
     def clientsTraining(self):
         globe.set_receiver_wait_for_ack()
         LOG_INFO('Training Phase requested from Main Server')
@@ -46,6 +52,26 @@ class Transmitter:
         response = requests.post(self.clientsPredictAddress, data='')
         if not response.ok:
             LOG_ERROR('Prediction Phase Request issue!')
+
+    def update_csv(self, csv_files: list, source_pieces: list):
+        assert len(csv_files) == len(source_pieces)
+        for index in range(len(csv_files)):
+            csv_file = csv_files[index]
+            source_piece = source_pieces[index]
+            source_name = source_piece.source_name
+            num_of_batches = source_piece.num_of_batches
+            assert source_name in csv_file
+            # Todo extract workers target from source_piece
+            dataStr = f'{sourceName}#{workersUnderSource}#{num_of_batches}#{SourceData[i]}'  # Todo Guy - support the new massage pattern
+            try:
+                response = requests.post(self.updateCSVAddress, data=dataStr)
+            except ConnectionError:
+                LOG_ERROR(f"Connection Error: failed to connect to {self.updateCSVAddress}")
+                raise ConnectionError
+            except ConnectionRefusedError:
+                LOG_ERROR(f"Connection Refused Error: failed to connect to {self.updateCSVAddress}")
+                raise ConnectionRefusedError
+
 
     def updateCSV(self, phase): # currentPhase is either "Training", "Prediction" or "Statistics". 
         csvfile = None
@@ -71,7 +97,7 @@ class Transmitter:
             try:    epochs = 1 if currentPhase == "Prediction" else globe.components.sourceEpochs[sourceName]
             except: epochs = 1
 
-            dataStr = f'{sourceName}#{workersUnderSource}#{epochs}#{SourceData[i]}'
+            dataStr = f'{sourceName}#{workersUnderSource}#{epochs}#{SourceData[i]}'  # Guy - remove epochs from here
         try:
             response = requests.post(self.updateCSVAddress, data=dataStr)
         except ConnectionError:
@@ -85,6 +111,13 @@ class Transmitter:
 
         globe.sourceCSVIndex=linesPerSource # TODO find what is the purpose of this line? and where using it
 
+    def start_casting(self, experiment_pase:ExperimentPhase):
+        dataStr = f"{experiment_pase.get_sources_str_list()}" # Todo Guy please support this pattern
+        globe.set_receiver_wait_for_ack()
+        globe.ack_debug_print()
+        requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
+        globe.ack_debug_print()
+
     def startCasting(self, phase):
         # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
         if (phase==globe.TRAINING_STR):
@@ -95,7 +128,7 @@ class Transmitter:
             batchesPerSource = sys.maxsize
 
         # TODO - sources don't always start with 's'
-        dataStr = f"{globe.components.toString('s')},{batchesPerSource}" #sources, batches
+        dataStr = f"{globe.components.toString('s')},{batchesPerSource}" # Todo check with Guy
 
         globe.set_receiver_wait_for_ack()
         globe.ack_debug_print()

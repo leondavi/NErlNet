@@ -11,6 +11,7 @@ import pandas as pd
 import sys
 import os
 import traceback
+from experiment_flow import *
 from pathlib import Path
 
 from experiment import Experiment
@@ -83,7 +84,7 @@ PREDICTION_STR = "Prediction"
     
     def __new_experiment(self, experiment_name : str):
         assert experiment_name not in self.experiments_dict, "experiment name exists!"
-        self.experiments_dict[experiment_name] = Experiment(experiment_name)
+        self.experiments_dict[experiment_name] = Experiment(experiment_name) # Todo change to exp flow
 
     def experiment_focused_on(self, experiment_name):
         assert experiment_name in self.experiments_dict, "cannot focus on experiment that has never been created!"
@@ -93,15 +94,15 @@ PREDICTION_STR = "Prediction"
     def initialization(self, experiment_name : str, dc_json: str, conn_map_json, experiment_flow_json):
         dcData = self.json_dir_parser.json_from_path(dc_json)
         connData = self.json_dir_parser.json_from_path(conn_map_json)
-        expData = self.json_dir_parser.json_from_path(experiment_flow_json)
+        expData = self.json_dir_parser.json_from_path(experiment_flow_json)  # Todo change to exp flow
 
         globe.components = NetworkComponents(dcData) # move network component into experiment class
         # comDB = NerlComDB(globe.components)
         self.__new_experiment(experiment_name)
         self.experiment_focused_on(experiment_name)
+        # Todo call to parss experiment flow json def in experiment flow
 
         self.current_exp.set_experiment_flow(expData)
-
         
         globe.components.printComponents()
         LOG_INFO("Connections:")
@@ -192,7 +193,27 @@ PREDICTION_STR = "Prediction"
     def stopServer(self):
         receiver.stop()
         return True
-   
+    
+    def send_data_to_sources(self, experiment_phase: ExperimentPhase): # Todo cheack acks
+        LOG_INFO("Sending data to sources")
+        sources_pieces_list = experiment_phase.get_sources_pieces()
+        globe.set_receiver_wait_for_ack()  # send ack according to state of ack
+        globe.ack_debug_print()
+        # genrate csvs for each source
+        # do fort on the list of sources pieces 
+        # use generate_source_pieceDs_csv_file
+        self.transmitter.update_csv()
+        globe.waitForAck()
+        globe.ack_debug_print()
+        LOG_INFO("Data ready in sources")
+
+    def run_current_experiment_phase(self):  #Todo union sendDataToSources and train and predict
+        current_exp_phase = self.current_exp.get_current_experiment_phase()
+        self.send_data_to_sources(current_exp_phase)
+        self.transmitter.clients_set_phase(current_exp_phase.get_phase())
+        self.transmitter.start_casting(current_exp_phase)
+        LOG_INFO(f"Phase of {current_exp_phase.get_name()} {current_exp_phase.get_phase_type()} completed") #Add def
+
         ## TODO: standartize the phase names / make them == .csv file
     def sendDataToSources(self, phase, splitMode = 1):
         if not globe.CSVsplit: # what is this? TODO ask haran

@@ -24,14 +24,24 @@ api_server_instance.setJsons(dc, conn, flow)
 dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
 experiment_name = "test_exp"
-api_server_instance.initialization(experiment_name, dc_json , connmap_json, exp_flow_json)
-api_server_instance.sendJsonsToDevices()
+api_server_instance.initialization(experiment_name, dc_json , connmap_json, exp_flow_json) # start to debug
+api_server_instance.run_current_experiment_phase() # blocking - deppended acks from mainserver
+api_server_instance.communication_stats()
+api_server_instance.next_experiment_phase()
+api_server_instance.run_current_experiment_phase()
+api_server_instance.communication_stats()
+api_server_instance.next_experiment_phase() 
+api_server_instance.run_current_experiment_phase()
+api_server_instance.communication_stats()
+api_server_instance.next_experiment_phase()  # expected error
 
-api_server_instance.sendDataToSources(PHASE_TRAINING) # sync on ack
-api_server_instance.train() # sync on ack
+# api_server_instance.sendJsonsToDevices()
 
-api_server_instance.sendDataToSources(PHASE_PREDICTION)
-api_server_instance.predict()
+# api_server_instance.sendDataToSources(PHASE_TRAINING) # sync on ack
+# api_server_instance.train() # sync on ack
+
+# api_server_instance.sendDataToSources(PHASE_PREDICTION)
+# api_server_instance.predict()
 api_server_instance.communication_stats()
 
 experiment_inst = api_server_instance.get_experiment(experiment_name)

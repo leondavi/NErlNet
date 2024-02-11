@@ -26,11 +26,9 @@ PHASE_TRAINING = 1
 PHASE_PREDICTION = 2
 PHASE_STATS = 3 # TODO maybe redundant
 
-PHASE_STR_DICT = {
-    PHASE_TRAINING : "Training",
-    PHASE_PREDICTION : "Prediction",
-    PHASE_STATS : "Statistics" # TODO remove if redundant
-}
+
+PHASE_TRAINING_STR = "training"
+PHASE_PREDICTION_STR = "prediction"
 
 def read_nerlconfig(nerlconfig_file_path : str):
     if not nerlconfig_file_path.endswith(NERLCONFIG_SUFFIX):

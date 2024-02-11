@@ -81,7 +81,7 @@ class test(Resource):
         #multiProcQueue.put("new message @@@")
         return {'Test' : 'Passed!'} #Returns the response in JSON format
 
-class ack(Resource):
+class ack(Resource):  # request from Guy state related message as ack
     def post(self):
         resData = request.form
         globe.pendingAcks -= 1
@@ -102,7 +102,7 @@ class trainRes(Resource):
         resData = decode_main_server_str_train(resData) #list of strings
         #source_csv_dict[resData[0]] = None #TODO Ohad&Noa Continue
         print(f"Received training result {resData}")
-        #globe.experiment_focused_on. #TODO Ohad&Noa Continue
+        globe.experiment_focused_on.get_current_experiment_phase() #TODO Ohad&Noa Continue
         #TRAINING_STR
         # TODO OHAD - Add the parsed data to the nerl_db
         # Consider what to do
