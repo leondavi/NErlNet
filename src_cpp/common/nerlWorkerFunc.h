@@ -5,10 +5,16 @@
 #include <Logger.h>
 #include "utilities.h"
 #include "worker_definitions_ag.h"
+#define NERLPLANNER_INPUT_KERNEL_CHAR ״k״
+#define NERLPLANNER_INPUT_STRIDE_CHAR ״s״
+#define NERLPLANNER_SIZE_DIMENSION_SEP “x”
+#define NERLPLANNER_INPUT_PADDING_CHAR ״p״
+
 
 
 #define SIMPLE_PARSING -1
 #define COMPLEX_PARSING -2
+
 
 namespace nerlnet
 {
@@ -18,7 +24,7 @@ typedef struct LayerSizingParams
  enum {KERNEL_SIZE = -1, PADDING_SIZE = -2, STRIDE_SIZE = -3, POOLING_SIZE= -4};
  int dimx = 1;
  int dimy = 1;
- int dimz = 1; //at the moment we support up to 3 dimensions
+ int dimz = 1; 
  std::vector<int> _ext_params; 
 
  std::vector<int> get_ext_params(int param_type) {
@@ -118,13 +124,13 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
                     }
 
                     // Expand 2D dimensions to 3D if necessary
-                    if (params['k'].size() > params['s'].size())
+                    if (params['NERLPLANNER_INPUT_KERNEL_CHAR'].size() > params['NERLPLANNER_INPUT_STRIDE_CHAR'].size())
                     {
-                        params['s'] += "x" + params['s'].substr(1, params['s'].size() - 1);
+                        params['NERLPLANNER_INPUT_STRIDE_CHAR'] += "NERLPLANNER_SIZE_DIMENSION_SEP" + params['NERLPLANNER_INPUT_STRIDE_CHAR'].substr(1, params['NERLPLANNER_INPUT_STRIDE_CHAR'].size() - 1);
                     }
-                    if (params['k'].size() > params['p'].size())
+                    if (params[' NERLPLANNER_INPUT_KERNEL_CHAR'].size() > params['NERLPLANNER_INPUT_PADDING_CHAR'].size())
                     {
-                        params['p'] += "x" + params['p'].substr(1, params['p'].size() - 1);
+                        params['NERLPLANNER_INPUT_PADDING_CHAR'] += "NERLPLANNER_SIZE_DIMENSION_SEP" + params['NERLPLANNER_INPUT_PADDING_CHAR'].substr(1, params['NERLPLANNER_INPUT_PADDING_CHAR'].size() - 1);
                     }
 
 
