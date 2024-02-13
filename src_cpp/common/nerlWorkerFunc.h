@@ -5,10 +5,16 @@
 #include <Logger.h>
 #include "utilities.h"
 #include "worker_definitions_ag.h"
+#define NERLPLANNER_INPUT_KERNEL_CHAR ״k״
+#define NERLPLANNER_INPUT_STRIDE_CHAR ״s״
+#define NERLPLANNER_SIZE_DIMENSION_SEP “x”
+#define NERLPLANNER_INPUT_PADDING_CHAR ״p״
+
 
 
 #define SIMPLE_PARSING -1
 #define COMPLEX_PARSING -2
+
 
 namespace nerlnet
 {
@@ -18,7 +24,7 @@ typedef struct LayerSizingParams
  enum {KERNEL_SIZE = -1, PADDING_SIZE = -2, STRIDE_SIZE = -3, POOLING_SIZE= -4};
  int dimx = 1;
  int dimy = 1;
- int dimz = 1; //at the moment we support up to 3 dimensions
+ int dimz = 1; 
  std::vector<int> _ext_params; 
 
  std::vector<int> get_ext_params(int param_type) {
@@ -77,12 +83,12 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
                 LogInfo("Complex parsing"); 
                 //TODO: make sure to complete fill up the dimensions of Kernel and Padding even if they are not fully specified 
                 //TODO: make sure to validate that it makes sense with the definition of convolution
-                //TODO: use unordered map
-                 std::regex rgx("(\\d+)x(\\d+)(x(\\d+))?k(\\d+)x(\\d+)p(\\d+)x(\\d+)s(\\d+)");
-                std::smatch matches;
+                std::unordered_map<char, std::string> params;
+                std::regex rgx("(\\d+)x(\\d+)(x(\\d+))?");
+                std::smatch matches; //this matches variable is for the layer size
+               
 
                 if (std::regex_search(layer_sizes_strs_vec[i], matches, rgx)) {
-                    //parsing function should be called here to clean the parsing code
                     out_layer_sizes_params[i].dimx = std::stoi(matches[1]); // dimx
                     out_layer_sizes_params[i]._ext_params.push_back(out_layer_sizes_params[i].dimx);
 
@@ -93,16 +99,43 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
                         out_layer_sizes_params[i].dimz = std::stoi(matches[4]); // dimz
                         out_layer_sizes_params[i]._ext_params.push_back(out_layer_sizes_params[i].dimz);
                     }
-
-                    out_layer_sizes_params[i]._ext_params.push_back(LayerSizingParams::KERNEL_SIZE);
-                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[5]));
-                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[6]));
-                    out_layer_sizes_params[i]._ext_params.push_back(LayerSizingParams::PADDING_SIZE);
-                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[7]));
-                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[8]));
-                    out_layer_sizes_params[i]._ext_params.push_back(LayerSizingParams::STRIDE_SIZE);
-                    out_layer_sizes_params[i]._ext_params.push_back(std::stoi(matches[9]));
                 }
+
+                //now i want to crop the match of regex from the string
+                layer_sizes_strs_vec[i] = std::regex_replace(layer_sizes_strs_vec[i], rgx, "");
+
+                //now we deal with the rest of the string
+                std::smatch param_match; // this matches variable is for the rest of the string
+                std::regex rgx_rest("([ksp])(\\d+x\\d+(x\\d+)?)"); //search for k, s or p followed by a number and then x and then a number
+
+                std::string::const_iterator searchStart(layer_sizes_strs_vec[i].cbegin()); 
+                while (std::regex_search(searchStart, layer_sizes_strs_vec[i].cend(), param_match, rgx_rest))
+                    {
+                        char param = param_match[1].str()[0];
+                        std::string dimensions = param_match[2].str();
+
+                        // If the dimensions are 2D and we've seen a 3D dimension, expand to 3D
+                        if (params[param].size() < dimensions.size())
+                        {
+                            params[param] = dimensions;
+                        }
+
+                        searchStart = param_match.suffix().first;
+                    }
+
+                    // Expand 2D dimensions to 3D if necessary
+                    if (params['NERLPLANNER_INPUT_KERNEL_CHAR'].size() > params['NERLPLANNER_INPUT_STRIDE_CHAR'].size())
+                    {
+                        params['NERLPLANNER_INPUT_STRIDE_CHAR'] += "NERLPLANNER_SIZE_DIMENSION_SEP" + params['NERLPLANNER_INPUT_STRIDE_CHAR'].substr(1, params['NERLPLANNER_INPUT_STRIDE_CHAR'].size() - 1);
+                    }
+                    if (params[' NERLPLANNER_INPUT_KERNEL_CHAR'].size() > params['NERLPLANNER_INPUT_PADDING_CHAR'].size())
+                    {
+                        params['NERLPLANNER_INPUT_PADDING_CHAR'] += "NERLPLANNER_SIZE_DIMENSION_SEP" + params['NERLPLANNER_INPUT_PADDING_CHAR'].substr(1, params['NERLPLANNER_INPUT_PADDING_CHAR'].size() - 1);
+                    }
+
+
+                
+
                 break;
                 }
             default:
