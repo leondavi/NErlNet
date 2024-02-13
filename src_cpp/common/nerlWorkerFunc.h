@@ -1,14 +1,15 @@
 #pragma once
 
 #include <memory>
-
+#include <unordered_map>
 #include <Logger.h>
 #include "utilities.h"
 #include "worker_definitions_ag.h"
-#define NERLPLANNER_INPUT_KERNEL_CHAR ״k״
-#define NERLPLANNER_INPUT_STRIDE_CHAR ״s״
-#define NERLPLANNER_SIZE_DIMENSION_SEP “x”
-#define NERLPLANNER_INPUT_PADDING_CHAR ״p״
+//TODO:i probably need to move NERLPLANNER_INPUT to utilities.h
+#define NERLPLANNER_INPUT_KERNEL_CHAR 'k'
+#define NERLPLANNER_INPUT_STRIDE_CHAR 's'
+#define NERLPLANNER_SIZE_DIMENSION_SEP "x"
+#define NERLPLANNER_INPUT_PADDING_CHAR 'p'
 
 
 
@@ -73,73 +74,57 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
     {
         int layer_str_type = nerlnet_utilities::is_integer_number(layer_sizes_strs_vec[i]) ? SIMPLE_PARSING : COMPLEX_PARSING; 
 
-        switch (layer_str_type)
-        {
-            case SIMPLE_PARSING:{
-                out_layer_sizes_params[i].dimx = std::stoi(layer_sizes_strs_vec[i]); 
-                break;
-            }
-           case COMPLEX_PARSING:{
-                LogInfo("Complex parsing"); 
-                //TODO: make sure to complete fill up the dimensions of Kernel and Padding even if they are not fully specified 
-                //TODO: make sure to validate that it makes sense with the definition of convolution
-                std::unordered_map<char, std::string> params;
-                std::regex rgx("(\\d+)x(\\d+)(x(\\d+))?");
-                std::smatch matches; //this matches variable is for the layer size
-               
+                                switch (layer_str_type)
+                                {
+                                    case SIMPLE_PARSING:
+                                    {
+                                        out_layer_sizes_params[i].dimx = std::stoi(layer_sizes_strs_vec[i]);
+                                        break;
+                                    }
+                                    case COMPLEX_PARSING:
+                                    {
+                                        LogInfo("Complex parsing");
+                                        //TODO: make sure to complete fill up the dimensions of Kernel and Padding even if they are not fully specified
+                                        std::unordered_map<char, std::string> params;
+                                        std::regex rgx("(\\d+)x(\\d+)(x(\\d+))?");
+                                        std::smatch matches; //this matches variable is for the layer size
 
-                if (std::regex_search(layer_sizes_strs_vec[i], matches, rgx)) {
-                    out_layer_sizes_params[i].dimx = std::stoi(matches[1]); // dimx
+                                        std::smatch param_match; // this matches variable is for the rest of the string
+                                        std::unordered_map<char, int> param_codes = {
+                                            {'k', -1},
+                                            {'p', -2},
+                                            {'s', -3}
+                                        };
+                                        std::regex rgx_rest("([ksp])(\\d+x\\d+(x\\d+)?)"); //search for k, s or p followed by a number and then x and then a number
 
-                    out_layer_sizes_params[i].dimy = std::stoi(matches[2]); // dimy
+                                        std::string::const_iterator searchStart(layer_sizes_strs_vec[i].cbegin());
+                                        while (std::regex_search(searchStart, layer_sizes_strs_vec[i].cend(), param_match, rgx))
+                                        {
+                                            char param_char = param_match[1].str()[0];
+                                            std::string dimensions_str = param_match[2].str();
 
-                    if(matches[4].matched) { // if there is a third dimension
-                        out_layer_sizes_params[i].dimz = std::stoi(matches[4]); // dimz
-                    }
-                }
+                                            // Convert the parameter and dimensions to the desired format and add them to _ext_params
+                                            out_layer_sizes_params[i]._ext_params.push_back(param_codes[param_char]);
+                                            std::istringstream dimensions_stream(dimensions_str);
+                                            std::string dimension;
+                                            while (std::getline(dimensions_stream, dimension, 'x'))
+                                            {
+                                                out_layer_sizes_params[i]._ext_params.push_back(std::stoi(dimension));
+                                            }
 
-                //now i want to crop the match of regex from the string
-                layer_sizes_strs_vec[i] = std::regex_replace(layer_sizes_strs_vec[i], rgx, "");
+                                            searchStart = param_match.suffix().first;
+                                        }
+                                        break;
+                                    }
 
-                //now we deal with the rest of the string
-                std::smatch param_match; // this matches variable is for the rest of the string
-                std::regex rgx_rest("([ksp])(\\d+x\\d+(x\\d+)?)"); //search for k, s or p followed by a number and then x and then a number
-
-                std::string::const_iterator searchStart(layer_sizes_strs_vec[i].cbegin()); 
-                while (std::regex_search(searchStart, layer_sizes_strs_vec[i].cend(), param_match, rgx_rest))
-                    {
-                        char param = param_match[1].str()[0];
-                        std::string dimensions = param_match[2].str();
-
-                        // If the dimensions are 2D and we've seen a 3D dimension, expand to 3D
-                        if (params[param].size() < dimensions.size())
-                        {
-                            params[param] = dimensions;
+                                    default:
+                                        LogError("Error parsing layer size string");
+                                        break;
+                                }
+                            }
                         }
-
-                        searchStart = param_match.suffix().first;
-                    }
-
-                    // Expand 2D dimensions to 3D if necessary
-                    if (params['NERLPLANNER_INPUT_KERNEL_CHAR'].size() > params['NERLPLANNER_INPUT_STRIDE_CHAR'].size())
-                    {
-                        params['NERLPLANNER_INPUT_STRIDE_CHAR'] += "NERLPLANNER_SIZE_DIMENSION_SEP" + params['NERLPLANNER_INPUT_STRIDE_CHAR'].substr(1, params['NERLPLANNER_INPUT_STRIDE_CHAR'].size() - 1);
-                    }
-                    if (params[' NERLPLANNER_INPUT_KERNEL_CHAR'].size() > params['NERLPLANNER_INPUT_PADDING_CHAR'].size())
-                    {
-                        params['NERLPLANNER_INPUT_PADDING_CHAR'] += "NERLPLANNER_SIZE_DIMENSION_SEP" + params['NERLPLANNER_INPUT_PADDING_CHAR'].substr(1, params['NERLPLANNER_INPUT_PADDING_CHAR'].size() - 1);
-                    }
-
-
-                
-
-                break;
-                }
-            default:
-                break;   
-    
-        }
-    }   
+                    } // Closing brace for namespace nerlnet
+                // Closing brace for namespace nerlnet
 
 
 
@@ -161,6 +146,4 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
     // 2. Represent in a 1D vector and using a second vector for layer start 
     // 3. Create class
 
-}
-
-}
+//
