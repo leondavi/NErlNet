@@ -36,8 +36,12 @@ std::vector<int> &pooling_dims, std::vector<int> &stride_dims,std::vector<int> &
 {
 
     _pooling_dims = pooling_dims; 
-     _stride_dims = stride_dims; 
+    _stride_dims = stride_dims; 
     _padding_dims = padding_dims;
 };
 
+
+NerlLayerPooling::~NerlLayerPooling()
+{
+}
 }
