@@ -53,20 +53,28 @@ std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_siz
         int layer_size = layer_sizes_params[i].dimx;
         int layer_functionality = std::stoi(layers_functionality_strs_vec[i]);
 
-        std::vector<int> layer_dims = {layer_size}; //TODO
+        std::vector<int> layer_dims = {layer_sizes_params[i].dimx,
+        layer_sizes_params[i].dimy,layer_sizes_params[i].dimz};
 
         switch(layer_type)
         {
             case LAYER_TYPE_POOLING:
             {
-                nerl_layers_vec[i] = std::make_shared<NerlLayerPooling>(layer_type,layers_dims,layer_functionality, 
+                LayerSizingParams_t params = layer_sizes_params[i];
+                std::vector<int>pooling_dims = params.get_ext_params(params.POOLING_SIZE);
+                std::vector<int>stride_dims  = params.get_ext_params(params.STRIDE_SIZE);
+                std::vector<int>padding_dims = params.get_ext_params(params.PADDING_SIZE);
+                nerl_layers_vec[i] = std::make_shared<NerlLayerPooling>(layer_type,layer_dims,layer_functionality, 
                 pooling_dims, stride_dims,padding_dims);
                 break; 
             }
             case LAYER_TYPE_CNN:
             {
-                 nerl_layers_vec[i] = std::make_shared<NerlLayerCNN>(layer_type, layers_dims,  layer_functionality,
-                 kernel_size, stride_dims, padding_size);
+                LayerSizingParams_t params = layer_sizes_params[i];
+                std::vector<int>kernel_dims = params.get_ext_params(params.KERNEL_SIZE);
+                std::vector<int>stride_dims = params.get_ext_params(params.STRIDE_SIZE);
+                std::vector<int>padding_dims = params.get_ext_params(params.PADDING_SIZE);
+                nerl_layers_vec[i] = std::make_shared<NerlLayerCNN>(layer_type, layer_dims, layer_functionality, kernel_dims, stride_dims, padding_dims);
                 break; 
             }
             default:
