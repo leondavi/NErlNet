@@ -9,10 +9,10 @@
 
 using namespace nerlnet;
 
-static std::shared_ptr<NerlWorkerOpenNN> create_nerlworker(const std::string &model_type_str,const std::string &learning_rate_str,
-const std::string &epochs_str,const std::string &optimizer_type_str,const std::string &loss_method_str,
-const std::string &distributed_system_type_str,const std::string &layer_sizes_str,const std:: string &layer_types_str,
-const std::string &layers_functionality_str,const std::string &optimizer_args_str,const std::string &distributed_system_args_str) //all should be const reference
+static std::shared_ptr<NerlWorkerOpenNN> create_nerlworker(std::string &model_type_str,std::string &learning_rate_str,
+ std::string &epochs_str,std::string &optimizer_type_str,std::string &loss_method_str,
+ std::string &distributed_system_type_str, std::string &layer_sizes_str,std:: string &layer_types_str,
+ std::string &layers_functionality_str, std::string &optimizer_args_str, std::string &distributed_system_args_str) //all should be const reference
 {
  std::shared_ptr<NerlWorkerOpenNN> new_worker = parse_model_params<NerlWorkerOpenNN>(model_type_str,learning_rate_str,epochs_str,optimizer_type_str,loss_method_str,distributed_system_type_str,layer_sizes_str,
     layer_types_str,layers_functionality_str,optimizer_args_str,distributed_system_args_str);
