@@ -90,14 +90,11 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
 
                 if (std::regex_search(layer_sizes_strs_vec[i], matches, rgx)) {
                     out_layer_sizes_params[i].dimx = std::stoi(matches[1]); // dimx
-                    out_layer_sizes_params[i]._ext_params.push_back(out_layer_sizes_params[i].dimx);
 
                     out_layer_sizes_params[i].dimy = std::stoi(matches[2]); // dimy
-                    out_layer_sizes_params[i]._ext_params.push_back(out_layer_sizes_params[i].dimy);
 
                     if(matches[4].matched) { // if there is a third dimension
                         out_layer_sizes_params[i].dimz = std::stoi(matches[4]); // dimz
-                        out_layer_sizes_params[i]._ext_params.push_back(out_layer_sizes_params[i].dimz);
                     }
                 }
 

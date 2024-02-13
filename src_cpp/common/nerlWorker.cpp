@@ -59,11 +59,15 @@ std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_siz
         {
             case LAYER_TYPE_POOLING:
             {
-                break; //TODO Ori and Nadav add pooling layer
+                nerl_layers_vec[i] = std::make_shared<NerlLayerPooling>(layer_type,layers_dims,layer_functionality, 
+                pooling_dims, stride_dims,padding_dims);
+                break; 
             }
             case LAYER_TYPE_CNN:
             {
-                break; //TODO Ori and Nadav add CNN layer
+                 nerl_layers_vec[i] = std::make_shared<NerlLayerCNN>(layer_type, layers_dims,  layer_functionality,
+                 kernel_size, stride_dims, padding_size);
+                break; 
             }
             default:
             {
