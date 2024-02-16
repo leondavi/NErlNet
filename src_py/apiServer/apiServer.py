@@ -200,7 +200,7 @@ PREDICTION_STR = "Prediction"
         globe.set_receiver_wait_for_ack()  # send ack according to state of ack
         globe.ack_debug_print()
         # genrate csvs for each source
-        # do fort on the list of sources pieces 
+        # do for on the list of sources pieces 
         # use generate_source_pieceDs_csv_file
         self.transmitter.update_csv()
         globe.waitForAck()
