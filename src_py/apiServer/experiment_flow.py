@@ -121,7 +121,7 @@ class ExperimentFlow():
                 workers = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_WORKERS_FIELD]   # Todo fix that
                 source_piece_inst =  self.csv_dataset.generate_source_piece_ds(source_name, self.batch_size, phase_type, starting_sample, num_of_batches)
                 source_piece_inst.build_workers_target(workers)
-                source_piece_csv_file = self.csv_dataset.generate_source_piece_ds_csv_file(self.csv_dataset.get_csv_path(), source_piece_inst)
+                source_piece_csv_file = self.csv_dataset.generate_source_piece_ds_csv_file(source_piece_inst)
                 source_piece_inst.set_pointer_to_sourcePiece_CsvDataSet(source_piece_csv_file)
                 source_pieces_inst_list.append(source_piece_inst)
                 

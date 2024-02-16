@@ -19,7 +19,7 @@ class EventSync():
         return self.done_actions_dict[event_done_str] 
 
     def set_event_wait(self, event):
-        assert event in self.done_actions_dict 
+        assert event in self.done_actions_dict.values() 
         assert event in self.tracking_dict
         if self.tracking_dict[event] == self.INIT:
             self.tracking_dict[event] = self.WAIT
@@ -27,13 +27,13 @@ class EventSync():
         return False
             
     def sync_on_event(self, event):
-        assert event in self.done_actions_dict
+        assert event in self.done_actions_dict.values()
         assert event in self.tracking_dict
         while(self.tracking_dict[event] == self.WAIT):
             sleep(0.005)
 
     def set_event_done(self,event):
-        assert event in self.done_actions_dict
+        assert event in self.done_actions_dict.values()
         assert event in self.tracking_dict
         assert self.tracking_dict[event] == self.WAIT
         self.tracking_dict[event] = self.DONE

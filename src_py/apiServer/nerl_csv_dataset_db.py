@@ -80,7 +80,7 @@ class CsvDataSet():
     def generate_source_piece_ds_csv_file(self, source_piece_ds_inst: SourcePieceDS):
         skip_rows = source_piece_ds_inst.get_starting_offset()
         number_of_samples = source_piece_ds_inst.get_num_of_batches() * source_piece_ds_inst.get_batch_size()
-        df = pd.df.read_csv(self.csv_path, skiprows = skip_rows, nrows = number_of_samples)
+        df = pd.read_csv(self.csv_path, skiprows = skip_rows, nrows = number_of_samples)
         #Todo filter columns according to feature and label indexs
         source_piece_file_path = f'{self.output_dir}/{source_piece_ds_inst.get_source_name()}_data.csv'
         df.to_csv(source_piece_file_path, index = False)
