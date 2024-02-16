@@ -33,20 +33,27 @@ class Transmitter:
         #Return the reponse in JSON format
         return(response.ok, response.status_code, response.json())
 
-    def clients_set_phase(self, phase): # Todo union clientsTraining and predict 
-       # Complete the missing before acks 
+    def clients_set_phase(self, phase: str): 
+        globe.set_receiver_wait_for_ack()
+        LOG_INFO(f'{phase} Phase requested from Main Server')
+        if phase == globe.TRAINING_STR:
+            response = requests.post(self.clientsTrainingAddress, data='')
+        elif phase == globe.PREDICTION_STR:
+            response = requests.post(self.clientsPredictAddress, data='')
+        if not response.ok:
+            LOG_ERROR(f'{phase} Phase Request issue!')
         globe.waitForAck()
         globe.ack_debug_print()
 
 
-    def clientsTraining(self):
+    def clientsTraining(self):   #deprecated
         globe.set_receiver_wait_for_ack()
         LOG_INFO('Training Phase requested from Main Server')
         response = requests.post(self.clientsTrainingAddress, data='')
         if not response.ok:
             LOG_ERROR('Training Phase Request issue!')
 
-    def clientsPredict(self):
+    def clientsPredict(self):    #deprecated
         globe.set_receiver_wait_for_ack()
         LOG_INFO('Prediction Phase requested from Main Server')
         response = requests.post(self.clientsPredictAddress, data='')
