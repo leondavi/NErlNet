@@ -7,8 +7,9 @@ import globalVars as globe
 import sys
 import os
 from definitions import *
-from experiment import *
+from experiment import * #deprecated
 from logger import *
+from experiment_flow import *
 
 class Transmitter:
 

@@ -8,8 +8,10 @@ from definitions import *
 from workerResult import *
 from collections import OrderedDict
 from NerlComDB import *
-from NerlModelDB import *
+from nerl_model_db import *
 from nerl_csv_dataSet_db import *
+from events_sync import *
+from networkComponents import *
 # Todo check imports and remove unused ones
 
 PARAM_CSV_DB_PATH = "csv_db_path"
@@ -17,17 +19,17 @@ PARAM_BATCH_SIZE = "batch_size"
 
 
 class ExperimentPhase():
-    def __init__(self, phase : str):
+    def __init__(self, phase : str, network_componenets: NetworkComponents):
         self.phase = phase # training/prediction
-        self.nerl_comm_db = NerlComDB(globe.components)  # Todo check if this is the right place to put it
-        self.nerl_model_db = NerlModelDB()  # Todo will change to NerlModelDB
+        self.nerl_comm_db = NerlComDB(network_componenets)  
+        self.nerl_model_db = NerlModelDB()
         self.source_pieces_dict = {}  # Dict of SourcePieceDS
 
     def get_phase(self):
         return self.phase
 
     def get_name(self):
-    pass
+        pass
 
     def get_sources_str_list(self):
         return ",".join(self.source_pieces_dict.keys())
@@ -49,13 +51,15 @@ class ExperimentFlow():
 
     DATA_SOURCE_TYPE_CSV = 0
     DATA_SOURCE_TYPE_CAMERA = 1
-    def __init__(self ,experiment_name = "Untitled", batch_size: int, temp_data_path = NERLNET_TEMP_DATA_DIR, data_source_type = DATA_SOURCE_TYPE_CSV):
+    def __init__(self ,experiment_name, batch_size: int, network_componenets: NetworkComponents, temp_data_path = NERLNET_TEMP_DATA_DIR, data_source_type = DATA_SOURCE_TYPE_CSV):
         self.exp_name = experiment_name
-        self.batch_size = 0
+        self.batch_size = batch_size
+        self.network_componenets = network_componenets
         self.csv_dataset = None
         self.exp_phase_list = []
         self.current_exp_phase_index = 0
         self.exp_flow_json = None
+        self.event_sync_inst = EventSync()
 
     def next_experiment_phase(self):
         self.current_exp_phase_index += 1
@@ -105,11 +109,20 @@ class ExperimentFlow():
                 
             self.add_phase(phase_name, phase_type, source_pieces_inst_list)
 
+
+    def generate_experiment_flow_skeleton(self):
+        # Todo implement this function 
+        # for user to fill in the details
+        experimentName = ""
+        batch_size = 0
+        csv_file_path = ""
+
+        pass
     def set_csv_dataset(self, csv_file_path : str,  num_of_features : int, num_of_labels : int, headers_row : bool):
         self.csv_dataset = CSVDataSet(csv_file_path, self.batch_size, num_of_features, num_of_labels, headers_row)  # Todo get num of features and labels from csv file
 
     def add_phase(self, phase_name : str, phase_type : str, source_pieces_inst_list : list):
-        exp_phase_inst = ExperimentPhase(phase_name)
+        exp_phase_inst = ExperimentPhase(phase_name, self.network_componenets)
         for source_piece_inst in source_pieces_inst_list:
             exp_phase_inst.add_source_piece(source_piece_inst)
         self.exp_phase_list.append(exp_phase_inst)

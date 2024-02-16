@@ -1,7 +1,7 @@
 
 from definitions import PHASE_TRAINING_STR, PHASE_PREDICTION_STR
 import pandas as pd
-import math.floor as floor
+from math import floor
 
 class SourcePieceDS():
     def __init__(self, source_name : str, batch_size, phase : str, starting_offset = 0, num_of_batches = 0):
@@ -60,16 +60,15 @@ class CsvDataSet():
     def get_total_num_of_batches(self):
         return floor(pd.read_csv(self.csv_path, header = self.headers_row).shape[0] / self.batch_size)
 
-    def generate_source_pieceDS(self, source_name : str, batch_size: int, phase : str, starting_offset = 0 : int, num_of_batches = 0 : int):
+    def generate_source_piece_ds(self, source_name : str, batch_size: int, phase : str, starting_offset: int, num_of_batches: int):
         assert batch_size > 0 
         assert num_of_batches >= 0 
-        assert offset >= 0
-        assert phase == PHASE_TRAINING_STR or phase == PHASE_PREDICTION_STR
         assert starting_offset >= 0
+        assert phase == PHASE_TRAINING_STR or phase == PHASE_PREDICTION_STR
         assert (starting_offset + num_of_batches * batch_size) <= self.get_total_num_of_batches()
         return SourcePieceDS(source_name, batch_size, phase, starting_offset, num_of_batches)
         
-    def generate_source_pieceDs_csv_file(self, csv_file_path : str, source_pieceDS_inst: SourcePieceDS):
+    def generate_source_piece_ds_csv_file(self, csv_file_path : str, source_pieceDS_inst: SourcePieceDS):
         # Todo Ohad&Noa
         # df_train = pd.df.read_csv(self.csv_dataset_path, skiprows=starting_offset_index_train, nrows=number_of_samples_train)
         #return path for source piece csv file
