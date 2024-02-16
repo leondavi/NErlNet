@@ -8,8 +8,8 @@ from definitions import *
 from workerResult import *
 from collections import OrderedDict
 from NerlComDB import *
-from NerlDB import *
-from NerlDatasetDB import *
+from NerlModelDB import *
+from nerl_csv_dataSet_db import *
 # Todo check imports and remove unused ones
 
 PARAM_CSV_DB_PATH = "csv_db_path"
@@ -26,8 +26,9 @@ class ExperimentPhase():
     def get_phase(self):
         return self.phase
 
-    def get_name    ():
+    def get_name(self):
     pass
+
     def get_sources_str_list(self):
         return ",".join(self.source_pieces_dict.keys())
 
@@ -38,10 +39,10 @@ class ExperimentPhase():
             LOG_ERROR(f"Source piece with name {source_piece.source_name} already exists in phase { self.phase}")
        
     def get_sources_pieces(self):
-        return list(self.source_pieces_dict)
+        return list(self.source_pieces_dict.values())
 
-    def remove_source_piece(self, source_name: str): # Todo Ohad and Noa
-        pass    
+    def remove_source_piece(self, source_name: str): 
+        self.source_pieces_dict.pop(source_name)    
 
 
 class ExperimentFlow():
@@ -70,12 +71,14 @@ class ExperimentFlow():
 
     def generate_stats(self, experiment_phase: ExperimentPhase):
         pass
+    # Todo implement this function : accuracy, confusion matrix, loss, etc.
 
     def parse_experiment_flow_json(self, json_path : str):
         # read json file from nerlPlanner output
         with open(json_path) as json_file:
              self.exp_flow_json = json.load(json_file)
         # parse json and create experiment phases
+        self.exp_name = self.exp_flow_json[EXPFLOW_EXPERIMENT_NAME_FIELD]
         self.batch_size = self.exp_flow_json[EXPFLOW_BATCH_SIZE_FIELD]
         csv_file_path = self.exp_flow_json[EXPFLOW_CSV_FILE_PATH_FIELD]
         headers_row = self.exp_flow_json[EXPFLOW_HEADERS_NAMES_FIELD]
@@ -83,17 +86,30 @@ class ExperimentFlow():
         num_of_labels = self.exp_flow_json[EXPFLOW_NUM_OF_LABELS_FIELD]
         self.set_csv_dataset(csv_file_path, num_of_features, num_of_labels, headers_row)
         phases_list = self.exp_flow_json[EXPFLOW_PHASES_FIELD]
-        # Todo complete phases loop 
+        for phase in phases_list:
+            phase_name = phase[EXPFLOW_PHASES_PHASE_NAME_FIELD]
+            phase_type = phase[EXPFLOW_PHASES_PHASE_TYPE_FIELD]
+            sourcePieces = phase[EXPFLOW_PHASES_PHASE_SOURCE_PIECES_FIELD]
+            source_pieces_inst_list = []
+            for source_piece in sourcePieces:
+                source_name = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_SOURCE_NAME_FIELD]
+                strating_sample = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_STRATING_SAMPLE_FIELD]
+                num_of_batches = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_NUM_OF_BATCHES_FIELD]
+                workers = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_WORKERS_FIELD]
+                source_piece_inst = SourcePieceDS(source_name, strating_sample, num_of_batches, workers)
+                source_pieces_inst_list.append(source_piece_inst)
+            self.add_phase(phase_name, phase_type, source_pieces_inst_list)
+
 
 
     def set_csv_dataset(self, csv_file_path : str,  num_of_features : int, num_of_labels : int, headers_row : bool):
         self.csv_dataset = CSVDataSet(csv_file_path, self.batch_size, num_of_features, num_of_labels, headers_row)  # Todo get num of features and labels from csv file
 
-    def add_phase(self, phase_name : str, phase_type : str, sourcePieces : list):
-        exp_phase = ExperimentPhase(phase_name)
-        for source_piece in sourcePieces:
-            exp_phase.add_source_piece(source_piece)
-        self.exp_phase_list.append(exp_phase)
+    def add_phase(self, phase_name : str, phase_type : str, source_pieces_inst_list : list):
+        exp_phase_inst = ExperimentPhase(phase_name)
+        for source_piece_inst in source_pieces_inst_list:
+            exp_phase_inst.add_source_piece(source_piece_inst)
+        self.exp_phase_list.append(exp_phase_inst)
         
   
 
