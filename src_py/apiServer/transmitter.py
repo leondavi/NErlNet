@@ -68,22 +68,20 @@ class Transmitter:
                 csvfile = file.read()
                 data_str = f'{source_name}#{target_workers}#{num_of_batches}#{csvfile}'
                 try:
-                    response = requests.post(self.updateCSVAddress, data=data_str)
+                    response = requests.post(self.updateCSVAddress, data = data_str)
                     if not response.ok:
                         LOG_ERROR(f"Failed to update {csv_file} to Main Server")
                 except ConnectionError:
                     LOG_ERROR(f"Connection Error: failed to connect to {self.updateCSVAddress}")
                     raise ConnectionError
-                except ConnectionRefusedError:
+                except ConnectionRefusedError: 
+                    # Todo - check if this is the right way to handle this
                     LOG_ERROR(f"Connection Refused Error: failed to connect to {self.updateCSVAddress}")
                     raise ConnectionRefusedError
 
     def start_casting(self, experiment_pase:ExperimentPhase):
         dataStr = f"{experiment_pase.get_sources_str_list()}" # Todo Guy please support this pattern
-        globe.set_receiver_wait_for_ack()
-        globe.ack_debug_print()
         requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
-        globe.ack_debug_print()
 
     def startCasting(self, phase):
         # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components

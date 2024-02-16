@@ -98,13 +98,11 @@ PREDICTION_STR = "Prediction"
         connData = self.json_dir_parser.json_from_path(conn_map_json)
         batch_size = int(dcData["nerlnetSettings"]["batchSize"])
 
-
         globe.components = NetworkComponents(dcData) # move network component into experiment class
         # comDB = NerlComDB(globe.components)
         self.__new_experiment(experiment_name, experiment_flow_json, batch_size, globe.components) # create new experiment
         self.experiment_focused_on(experiment_name)
 
-        
         globe.components.printComponents()
         LOG_INFO("Connections:")
         for key, val in connData['connectionsMap'].items():
@@ -198,12 +196,13 @@ PREDICTION_STR = "Prediction"
     def send_data_to_sources(self, csv_dataset: CsvDataSet, experiment_phase: ExperimentPhase, events_sync_inst: EventSync): # Todo cheack acks
         LOG_INFO("Sending data to sources")
         sources_pieces_list = experiment_phase.get_sources_pieces()
-        source_files_to_send = []
-        for source_piece in sources_pieces_list:
-            source_generated_csv_path = csv_dataset.generate_source_piece_ds_csv_file(source_piece)
+        source_files_to_send = []  # list of csv's paths to send to sources
+        for source_piece_inst in sources_pieces_list:
+            source_generated_csv_path = csv_dataset.generate_source_piece_ds_csv_file(source_piece_inst)
             source_files_to_send.append(source_generated_csv_path)
+
         events_sync_inst.set_event_wait(EventSync.UPDATE_CSV)
-        self.transmitter.update_csv()
+        self.transmitter.update_csv(source_files_to_send, sources_pieces_list)
         events_sync_inst.sync_on_event(EventSync.UPDATE_CSV)
         LOG_INFO("Data ready in sources")
 
@@ -214,7 +213,7 @@ PREDICTION_STR = "Prediction"
         self.send_data_to_sources(csv_dataset_inst, current_exp_phase, events_sync_inst)
 
         events_sync_inst.set_event_wait(EventSync.UPDATE_PHASE)
-        self.transmitter.clients_set_phase(current_exp_phase.get_phase())
+        self.transmitter.clients_set_phase(current_exp_phase.get_phase_type())
         events_sync_inst.sync_on_event(EventSync.UPDATE_PHASE)
 
         events_sync_inst.set_event_wait(EventSync.START_CASTING)
@@ -222,10 +221,10 @@ PREDICTION_STR = "Prediction"
         events_sync_inst.sync_on_event(EventSync.START_CASTING)
 
         events_sync_inst.reset() # preparing for next phase 
-        LOG_INFO(f"Phase of {current_exp_phase.get_name()} {current_exp_phase.get_phase_type()} completed") #Add def
+        LOG_INFO(f"Phase of {current_exp_phase.get_name()} {current_exp_phase.get_phase_type()} completed")
 
-        ## TODO: standartize the phase names / make them == .csv file
-    def sendDataToSources(self, phase, splitMode = 1):
+        
+    def sendDataToSources(self, phase, splitMode = 1):   #deprecated
         if not globe.CSVsplit: # what is this? TODO ask haran
             globe.CSVsplit = splitMode 
 
