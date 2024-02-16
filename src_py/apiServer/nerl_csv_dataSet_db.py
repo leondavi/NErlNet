@@ -10,8 +10,8 @@ class SourcePieceDS():
         self.phase = phase
         self.starting_offset = starting_offset  # given as index of csv rows
         self.num_of_batches = num_of_batches
-        self.workers_target = None
-        self.pointer_to_CsvDataSet = None # which csvDataSet
+        self.workers_target = [] # [worker_name1, worker_name2, ...]
+        self.pointer_to_sourcePiece_CsvDataSet= None # pointer to the csv file that contains the source piece data
 
     def get_source_name(self):
         return self.source_name
@@ -24,9 +24,19 @@ class SourcePieceDS():
 
     def get_starting_offset(self):
         return self.starting_offset 
+
+    def get_num_of_batches(self):
+        return self.num_of_batches
+
+    def get_workers_target(self):
+        return self.workers_target
     
+    def build_workers_target(self, workers_target: list):
+        self.workers_target = workers_target
 
-
+    def set_pointer_to_sourcePiece_CsvDataSet(self, pointer_to_sourcePiece_CsvDataSet):
+        self.pointer_to_sourcePiece_CsvDataSet = pointer_to_sourcePiece_CsvDataSet
+    
 class CsvDataSet():
     def __init__(self, csv_path, batch_size, num_of_features, num_of_labels, headers_row: bool):
         self.csv_path = csv_path
@@ -62,6 +72,7 @@ class CsvDataSet():
     def generate_source_pieceDs_csv_file(self, csv_file_path : str, source_pieceDS_inst: SourcePieceDS):
         # Todo Ohad&Noa
         # df_train = pd.df.read_csv(self.csv_dataset_path, skiprows=starting_offset_index_train, nrows=number_of_samples_train)
+        #return path for source piece csv file
         pass 
     
 
