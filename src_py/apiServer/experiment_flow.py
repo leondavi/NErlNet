@@ -92,15 +92,18 @@ class ExperimentFlow():
             sourcePieces = phase[EXPFLOW_PHASES_PHASE_SOURCE_PIECES_FIELD]
             source_pieces_inst_list = []
             for source_piece in sourcePieces:
+                # build source piece instant 
                 source_name = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_SOURCE_NAME_FIELD]
                 strating_sample = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_STRATING_SAMPLE_FIELD]
                 num_of_batches = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_NUM_OF_BATCHES_FIELD]
                 workers = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_WORKERS_FIELD]
-                source_piece_inst = SourcePieceDS(source_name, strating_sample, num_of_batches, workers)
+                source_piece_inst =  self.csv_dataset.generate_source_pieceDS(source_name, self.batch_size, phase_name, strating_sample, num_of_batches)
+                source_piece_inst.build_workers_target(workers)
+                source_piece_csv_file = self.csv_dataset.generate_source_pieceDs_csv_file(self.csv_dataset.get_csv_path(), source_piece_inst)
+                source_piece_inst.set_pointer_to_sourcePiece_CsvDataSet(source_piece_csv_file)
                 source_pieces_inst_list.append(source_piece_inst)
+                
             self.add_phase(phase_name, phase_type, source_pieces_inst_list)
-
-
 
     def set_csv_dataset(self, csv_file_path : str,  num_of_features : int, num_of_labels : int, headers_row : bool):
         self.csv_dataset = CSVDataSet(csv_file_path, self.batch_size, num_of_features, num_of_labels, headers_row)  # Todo get num of features and labels from csv file
