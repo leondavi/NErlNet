@@ -82,9 +82,10 @@ TRAINING_STR = "Training"
 PREDICTION_STR = "Prediction"
         """)
     
-    def __new_experiment(self, experiment_name : str):
+    def __new_experiment(self, experiment_name : str, json_path: str):
         assert experiment_name not in self.experiments_dict, "experiment name exists!"
-        self.experiments_dict[experiment_name] = Experiment(experiment_name) # Todo change to exp flow
+        self.experiments_dict[experiment_name] = ExperimentFlow(experiment_name)
+        self.experiments_dict[experiment_name].parse_experiment_flow_json(json_path)
 
     def experiment_focused_on(self, experiment_name):
         assert experiment_name in self.experiments_dict, "cannot focus on experiment that has never been created!"
@@ -94,15 +95,12 @@ PREDICTION_STR = "Prediction"
     def initialization(self, experiment_name : str, dc_json: str, conn_map_json, experiment_flow_json):
         dcData = self.json_dir_parser.json_from_path(dc_json)
         connData = self.json_dir_parser.json_from_path(conn_map_json)
-        expData = self.json_dir_parser.json_from_path(experiment_flow_json)  # Todo change to exp flow
 
         globe.components = NetworkComponents(dcData) # move network component into experiment class
         # comDB = NerlComDB(globe.components)
-        self.__new_experiment(experiment_name)
+        self.__new_experiment(experiment_name, experiment_flow_json)
         self.experiment_focused_on(experiment_name)
-        # Todo call to parss experiment flow json def in experiment flow
 
-        self.current_exp.set_experiment_flow(expData)
         
         globe.components.printComponents()
         LOG_INFO("Connections:")
