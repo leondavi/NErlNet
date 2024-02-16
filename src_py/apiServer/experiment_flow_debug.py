@@ -25,15 +25,16 @@ dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
 experiment_name = "test_exp"
 api_server_instance.initialization(experiment_name, dc_json , connmap_json, exp_flow_json) # start to debug
+next_expertiment_phase_exist = True 
 api_server_instance.run_current_experiment_phase() # blocking - deppended acks from mainserver
 api_server_instance.communication_stats()
-api_server_instance.next_experiment_phase()
+next_expertiment_phase_exist = api_server_instance.next_experiment_phase()
 api_server_instance.run_current_experiment_phase()
 api_server_instance.communication_stats()
-api_server_instance.next_experiment_phase() 
+next_expertiment_phase_exist = api_server_instance.next_experiment_phase() 
 api_server_instance.run_current_experiment_phase()
 api_server_instance.communication_stats()
-api_server_instance.next_experiment_phase()  # expected error
+next_expertiment_phase_exist = api_server_instance.next_experiment_phase()  # expected error
 
 # api_server_instance.sendJsonsToDevices()
 
