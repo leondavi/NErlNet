@@ -1,5 +1,5 @@
 
-
+from time import sleep
 
 class EventSync():
     UPDATE_CSV = 1
@@ -10,41 +10,45 @@ class EventSync():
     WAIT = 2
     INIT = 3
     def __init__(self):
-        self.ack_actions_dict = self.generate_ack_actions_dict()
+        self.done_actions_dict = self.generate_done_actions_dict()
         self.tracking_dict = self.generate_tracking_dict()
 
+
+    def get_event_done(self, event_done_str: str):
+        assert event_done_str in self.done_actions_dict
+        return self.done_actions_dict[event_done_str] 
+
     def set_event_wait(self, event):
-        assert event in self.ack_actions_dict 
+        assert event in self.done_actions_dict 
         assert event in self.tracking_dict
-        if tracking_dict[event] == self.INIT:
-            tracking_dict[event] = self.WAIT
+        if self.tracking_dict[event] == self.INIT:
+            self.tracking_dict[event] = self.WAIT
             return True
         return False
             
     def sync_on_event(self, event):
-        assert event in self.ack_actions_dict
+        assert event in self.done_actions_dict
         assert event in self.tracking_dict
-        if tracking_dict[event] == self.WAIT:
-            return True
-        return False
+        while(self.tracking_dict[event] == self.WAIT):
+            sleep(0.005)
 
     def set_event_done(self,event):
-        assert event in self.ack_actions_dict
+        assert event in self.done_actions_dict
         assert event in self.tracking_dict
-        assert tracking_dict[event] == self.WAIT
-        tracking_dict[event] = self.DONE
+        assert self.tracking_dict[event] == self.WAIT
+        self.tracking_dict[event] = self.DONE
 
     def reset(self):
-        self.ack_actions_dict = self.generate_ack_actions_dict()
+        self.done_actions_dict = self.generate_done_actions_dict()
         self.tracking_dict = self.generate_tracking_dict()
 
-    def generate_ack_actions_dict(self):
-        tracking_dict = {
-            self.UPDATE_CSV: ("update_csv", "update_csv_done"),
-            self.UPDATE_PHASE: ("update_phase", "update_phase_done"),
-            self.START_CASTING: ("start_casting", "start_casting_done")
+    def generate_done_actions_dict(self):
+        done_actions_dict = {
+            "update_csv_done" : self.UPDATE_CSV,
+            "update_phase_done" : self.UPDATE_PHASE,
+            "start_casting_done" : self.START_CASTING
         }
-        return tracking_dict
+        return done_actions_dict
 
     def generate_tracking_dict(self):
         tracking_dict = {

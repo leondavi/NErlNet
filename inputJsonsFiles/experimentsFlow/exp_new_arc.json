@@ -5,7 +5,7 @@
     "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/synthetic/synthetic_full.csv",
     "numOfFeatures": "5",
     "numOfLabels": "3",
-    "headersNames": "Norm(0,1),Norm(4,1),Norm(10,3)",
+    "headersNames": "Norm(0:1),Norm(4:1),Norm(10:3)",
     "Phases": 
     [
         {
@@ -16,13 +16,13 @@
                 {
                 "sourceName": "s1",
                 "startingSample": "0",
-                "numOfBatches": "190",
+                "numOfBatches": "10",
                 "workers": "w1,w2,w3,w4"
                 },
                 {
                 "sourceName": "s2",
-                "startingSample": "0",
-                "numOfBatches": "190",
+                "startingSample": "500",
+                "numOfBatches": "10",
                 "workers": "w1,w2,w3,w4"
                 }
             ]  
@@ -34,14 +34,14 @@
             [
                 {
                 "sourceName": "s1",
-                "startingSample": "9500",
-                "numOfBatches": "10",
+                "startingSample": "1000",
+                "numOfBatches": "5",
                 "workers": "w1,w2,w3,w4"
                 },
                 {
                 "sourceName": "s2",
-                "startingSample": "9500",
-                "numOfBatches": "10",
+                "startingSample": "1250",
+                "numOfBatches": "5",
                 "workers": "w1,w2,w3,w4"
                 }
             ] 
@@ -53,8 +53,8 @@
             [
                 {
                 "sourceName": "s1",
-                "startingSample": "10000",
-                "numOfBatches": "200",
+                "startingSample": "1500",
+                "numOfBatches": "5",
                 "workers": "w1,w2,w3,w4"
                 }
             ]

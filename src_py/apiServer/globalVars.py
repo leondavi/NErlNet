@@ -30,6 +30,9 @@ TRAINING_STR = "Training"
 PREDICTION_STR = "Prediction"
 BATHCHES_PER_SOURCE_STR = "Batches per source"
 
+PHASE_TRAINING_STR = "training"
+PHASE_PREDICTION_STR = "prediction"
+
 # Dict with {worker : csv}:
 workerCsv = {}
 sourceCSVIndex = 0
