@@ -84,10 +84,11 @@ class test(Resource):
 class ack(Resource):  # request from Guy state related message as ack
     def post(self):
         resData = request.form
-        globe.pendingAcks -= 1
-        if ACK_DEBUG:
-            receiver.logger.info(f"Ack received {resData} pending acks (after): {globe.pendingAcks}")
-        
+        #Todo get body of message from Guy in the resData 
+        events_sync_inst = globe.experiment_focused_on.get_events_sync()
+        body = "" 
+        event_done = events_sync_inst.get_event_done(body)
+        events_sync_inst.set_event_done(event_done)
 
 class trainRes(Resource):
     def post(self):

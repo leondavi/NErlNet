@@ -19,10 +19,11 @@ class Transmitter:
         self.input_data_path = input_data_path
         self.mainServerAddress = mainServerAddress
         self.sourceInitAddr = self.mainServerAddress + '/sourceInit'
-        self.clientsTrainingAddress = self.mainServerAddress + '/clientsTraining'
+        self.clientsTrainingAddress = self.mainServerAddress + '/clientsTraining'  #deprecated
+        self.clientsPhaseUpdateAddress = self.mainServerAddress + '/clientsPhaseUpdate'
         self.updateCSVAddress = self.mainServerAddress + '/updateCSV'
         self.startCastingAddress = self.mainServerAddress + '/startCasting'
-        self.clientsPredictAddress = self.mainServerAddress + '/clientsPredict'
+        self.clientsPredictAddress = self.mainServerAddress + '/clientsPredict' #deprecated
         self.statisticsAddress = self.mainServerAddress + '/statistics'
 
     def testPost(self, address, payloadNum):
@@ -35,17 +36,11 @@ class Transmitter:
         return(response.ok, response.status_code, response.json())
 
     def clients_set_phase(self, phase: str): 
-        globe.set_receiver_wait_for_ack()
-        LOG_INFO(f'{phase} Phase requested from Main Server')
-        if phase == globe.TRAINING_STR:
-            response = requests.post(self.clientsTrainingAddress, data='')
-        elif phase == globe.PREDICTION_STR:
-            response = requests.post(self.clientsPredictAddress, data='')
+        LOG_INFO(f'Phase {phase} requested from Main Server')
+        response = requests.post(self.clientsPhaseUpdateAddress, data = phase)
+        # Todo try / catch 
         if not response.ok:
-            LOG_ERROR(f'{phase} Phase Request issue!')
-        globe.waitForAck()
-        globe.ack_debug_print()
-
+            LOG_ERROR(f'Phase {phase} Request issue!')
 
     def clientsTraining(self):   #deprecated
         globe.set_receiver_wait_for_ack()
@@ -66,58 +61,22 @@ class Transmitter:
         for index in range(len(csv_files)):
             csv_file = csv_files[index]
             source_piece = source_pieces[index]
-            source_name = source_piece.source_name
-            num_of_batches = source_piece.num_of_batches
-            assert source_name in csv_file
-            # Todo extract workers target from source_piece
-            dataStr = f'{sourceName}#{workersUnderSource}#{num_of_batches}#{SourceData[i]}'  # Todo Guy - support the new massage pattern
-            try:
-                response = requests.post(self.updateCSVAddress, data=dataStr)
-            except ConnectionError:
-                LOG_ERROR(f"Connection Error: failed to connect to {self.updateCSVAddress}")
-                raise ConnectionError
-            except ConnectionRefusedError:
-                LOG_ERROR(f"Connection Refused Error: failed to connect to {self.updateCSVAddress}")
-                raise ConnectionRefusedError
-
-
-    def updateCSV(self, phase): # currentPhase is either "Training", "Prediction" or "Statistics". 
-        csvfile = None
-        currentPhase = PHASE_STR_DICT[phase]
-        #split data by sources and send to mainServer:
-        for root, dirnames, filenames in os.walk(self.input_data_path):
-            for filename in filenames:
-                if filename == f"{globe.experiment_focused_on.expFlow['CSV path']}_{currentPhase.lower()}.csv":
-                    LOG_INFO(f"Reading csv file: {root}/{filename} for phase {currentPhase}")
-                    with open(os.path.join(root, filename), 'r') as file:
-                        csvfile = file.read()
-                    break
-
-        SourceData = []
-        linesPerSource = int(len(csvfile)/len(globe.components.sources))
-        for row in range(0,len(csvfile),linesPerSource):
-            SourceData.append(csvfile[row:row+linesPerSource])
-
-        for i,source in enumerate(globe.experiment_focused_on.expFlow[currentPhase]): # Itterate over sources in accordance to current phase
-            sourceName = source['source name']
-            workersUnderSource = source['workers']
-
-            try:    epochs = 1 if currentPhase == "Prediction" else globe.components.sourceEpochs[sourceName]
-            except: epochs = 1
-
-            dataStr = f'{sourceName}#{workersUnderSource}#{epochs}#{SourceData[i]}'  # Guy - remove epochs from here
-        try:
-            response = requests.post(self.updateCSVAddress, data=dataStr)
-        except ConnectionError:
-            LOG_ERROR(f"Connection Error: failed to connect to {self.updateCSVAddress}")
-            raise ConnectionError
-        except ConnectionRefusedError:
-            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.updateCSVAddress}")
-            raise ConnectionRefusedError
-
-        LOG_INFO("Data sent to sources")
-
-        globe.sourceCSVIndex=linesPerSource # TODO find what is the purpose of this line? and where using it
+            source_name = source_piece.get_source_name()
+            target_workers = source_piece.get_target_workers()
+            num_of_batches = source_piece.get_num_of_batches()
+            with open(csv_file, 'r') as file:
+                csvfile = file.read()
+                data_str = f'{source_name}#{target_workers}#{num_of_batches}#{csvfile}'
+                try:
+                    response = requests.post(self.updateCSVAddress, data=data_str)
+                    if not response.ok:
+                        LOG_ERROR(f"Failed to update {csv_file} to Main Server")
+                except ConnectionError:
+                    LOG_ERROR(f"Connection Error: failed to connect to {self.updateCSVAddress}")
+                    raise ConnectionError
+                except ConnectionRefusedError:
+                    LOG_ERROR(f"Connection Refused Error: failed to connect to {self.updateCSVAddress}")
+                    raise ConnectionRefusedError
 
     def start_casting(self, experiment_pase:ExperimentPhase):
         dataStr = f"{experiment_pase.get_sources_str_list()}" # Todo Guy please support this pattern

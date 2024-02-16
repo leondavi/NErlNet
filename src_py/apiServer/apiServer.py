@@ -23,6 +23,7 @@ import receiver
 from definitions import *
 from logger import *
 from NerlComDB import *
+from events_sync import *
 
 class ApiServer():
     def __init__(self):       
@@ -82,9 +83,9 @@ TRAINING_STR = "Training"
 PREDICTION_STR = "Prediction"
         """)
     
-    def __new_experiment(self, experiment_name : str, json_path: str):
+    def __new_experiment(self, experiment_name : str, json_path: str, batch_size: int, network_componenets: NetworkComponents):
         assert experiment_name not in self.experiments_dict, "experiment name exists!"
-        self.experiments_dict[experiment_name] = ExperimentFlow(experiment_name)
+        self.experiments_dict[experiment_name] = ExperimentFlow(experiment_name, batch_size, network_componenets)
         self.experiments_dict[experiment_name].parse_experiment_flow_json(json_path)
 
     def experiment_focused_on(self, experiment_name):
@@ -95,10 +96,12 @@ PREDICTION_STR = "Prediction"
     def initialization(self, experiment_name : str, dc_json: str, conn_map_json, experiment_flow_json):
         dcData = self.json_dir_parser.json_from_path(dc_json)
         connData = self.json_dir_parser.json_from_path(conn_map_json)
+        batch_size = int(dcData["nerlnetSettings"]["batchSize"])
+
 
         globe.components = NetworkComponents(dcData) # move network component into experiment class
         # comDB = NerlComDB(globe.components)
-        self.__new_experiment(experiment_name, experiment_flow_json)
+        self.__new_experiment(experiment_name, experiment_flow_json, batch_size, globe.components) # create new experiment
         self.experiment_focused_on(experiment_name)
 
         
@@ -106,7 +109,7 @@ PREDICTION_STR = "Prediction"
         LOG_INFO("Connections:")
         for key, val in connData['connectionsMap'].items():
             LOG_INFO(f"\t\t {key} : {val}")
-        globe.experiment_focused_on.printExp()
+        globe.experiment_focused_on.print()
 
         mainServerIP = globe.components.mainServerIp
         mainServerPort = globe.components.mainServerPort
@@ -192,24 +195,33 @@ PREDICTION_STR = "Prediction"
         receiver.stop()
         return True
     
-    def send_data_to_sources(self, experiment_phase: ExperimentPhase): # Todo cheack acks
+    def send_data_to_sources(self, csv_dataset: CsvDataSet, experiment_phase: ExperimentPhase, events_sync_inst: EventSync): # Todo cheack acks
         LOG_INFO("Sending data to sources")
         sources_pieces_list = experiment_phase.get_sources_pieces()
-        globe.set_receiver_wait_for_ack()  # send ack according to state of ack
-        globe.ack_debug_print()
-        # genrate csvs for each source
-        # do for on the list of sources pieces 
-        # use generate_source_pieceDs_csv_file
+        source_files_to_send = []
+        for source_piece in sources_pieces_list:
+            source_generated_csv_path = csv_dataset.generate_source_piece_ds_csv_file(source_piece)
+            source_files_to_send.append(source_generated_csv_path)
+        events_sync_inst.set_event_wait(EventSync.UPDATE_CSV)
         self.transmitter.update_csv()
-        globe.waitForAck()
-        globe.ack_debug_print()
+        events_sync_inst.sync_on_event(EventSync.UPDATE_CSV)
         LOG_INFO("Data ready in sources")
 
     def run_current_experiment_phase(self):  #Todo union sendDataToSources and train and predict
         current_exp_phase = self.current_exp.get_current_experiment_phase()
-        self.send_data_to_sources(current_exp_phase)
+        csv_dataset_inst = self.current_exp.get_csv_dataset()
+        events_sync_inst = self.current_exp.get_events_sync()
+        self.send_data_to_sources(csv_dataset_inst, current_exp_phase, events_sync_inst)
+
+        events_sync_inst.set_event_wait(EventSync.UPDATE_PHASE)
         self.transmitter.clients_set_phase(current_exp_phase.get_phase())
+        events_sync_inst.sync_on_event(EventSync.UPDATE_PHASE)
+
+        events_sync_inst.set_event_wait(EventSync.START_CASTING)
         self.transmitter.start_casting(current_exp_phase)
+        events_sync_inst.sync_on_event(EventSync.START_CASTING)
+
+        events_sync_inst.reset() # preparing for next phase 
         LOG_INFO(f"Phase of {current_exp_phase.get_name()} {current_exp_phase.get_phase_type()} completed") #Add def
 
         ## TODO: standartize the phase names / make them == .csv file
