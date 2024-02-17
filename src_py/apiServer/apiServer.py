@@ -31,6 +31,7 @@ class ApiServer():
         self.input_data_path = read_nerlconfig(NERLCONFIG_INPUT_DATA_DIR)
         self.experiments_dict = {}
         self.current_exp = None
+        self.apiserver_event_sync = EventSync() # pay attention! there are two kinds of syncs one for experiment phase events and one for api-server events
 
         # Create a new folder for the results:
         Path(EXPERIMENT_RESULTS_PATH).mkdir(parents=True, exist_ok=True)
@@ -119,13 +120,13 @@ PREDICTION_STR = "Prediction"
         # Initializing the receiver (a Flask HTTP server that receives results from the Main Server):
         if is_port_free(int(globe.components.receiverPort)):
             self.receiverProblem = threading.Event()
-            self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverIp, globe.components.receiverPort, self.receiverProblem), daemon = True)
+            self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverIp, globe.components.receiverPort, self.receiverProblem, self.apiserver_event_sync), daemon = True)
             self.receiverThread.start()   
             # time.sleep(2)
             self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
 
             if (self.receiverProblem.is_set()): # If a problem has occured when trying to run the receiver.
-                print(f"===================Failed to initialize the receiver using the provided address:==========================\n\
+                LOG_ERROR(f"===================Failed to initialize the receiver using the provided address:==========================\n\
                 (http://{globe.components.receiverIp}:{globe.components.receiverPort})\n\
                 Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
                 sys.exit()
@@ -136,7 +137,16 @@ PREDICTION_STR = "Prediction"
 
         LOG_INFO("*** Remember to execute NerlnetRun.sh on each device before running the experiment! ***")
     
-    def sendJsonsToDevices(self):
+    def send_jsons_to_devices(self):
+        archAddress , connMapAddress, _ = self.getUserJsons()
+        with open(archAddress, 'rb') as dc_json_file, open(connMapAddress, 'rb') as conn_json_file:
+            files = [(DC_FILE_ARCH_REMOTE_NAME, dc_json_file), (JSON_FILE_COMM_REMOTE_NAME, conn_json_file)]
+            self.apiserver_event_sync.set_event_wait(EventSync.SEND_JSONS)
+            self.transmitter.send_jsons_to_devices(files)
+            self.apiserver_event_sync.sync_on_event(EventSync.SEND_JSONS)
+            LOG_INFO("Sending distributed configurations to devices is completed")
+
+    def sendJsonsToDevices(self): #TODO Guy should add support to main server - main server receives this json and spread it to all devices
         # Jsons found in NErlNet/inputJsonFiles/{JSON_TYPE}/files.... for entities in src_erl/Comm_layer/http_nerl/src to reach them, they must go up 3 dirs
         archAddress , connMapAddress, exp_flow_json = self.getUserJsons()
 
@@ -189,8 +199,10 @@ PREDICTION_STR = "Prediction"
     def toc(self, start):
         return time.time() - start
 
-    def stopServer(self):
-        receiver.stop()
+    def terminate(self):
+        self.apiserver_event_sync.set_event_wait(EventSync.TERMINATE)
+        self.transmitter.terminate()
+        self.apiserver_event_sync.sync_on_event(EventSync.TERMINATE)
         return True
     
     def send_data_to_sources(self, csv_dataset: CsvDataSet, experiment_phase: ExperimentPhase, events_sync_inst: EventSync): # Todo cheack acks
@@ -207,10 +219,17 @@ PREDICTION_STR = "Prediction"
         LOG_INFO("Data ready in sources")
 
     def run_current_experiment_phase(self):  #Todo union sendDataToSources and train and predict
+        LOG_INFO(f"Experiment phase: {current_exp_phase.get_name()} of type {current_exp_phase.get_phase_type()} starts running...")
         current_exp_phase = self.current_exp.get_current_experiment_phase()
         csv_dataset_inst = self.current_exp.get_csv_dataset()
         events_sync_inst = self.current_exp.get_events_sync()
+        
+        send_jsons_event = self.apiserver_event_sync.get_event_status(EventSync.SEND_JSONS)
+        assert send_jsons_event == EventSync.DONE, "Jsons not sent to devices yet"
+
+        LOG_INFO(f"Sending data to sources")
         self.send_data_to_sources(csv_dataset_inst, current_exp_phase, events_sync_inst)
+        LOG_INFO(f"Sources are ready for phase {current_exp_phase.get_name()}")
 
         events_sync_inst.set_event_wait(EventSync.UPDATE_PHASE)
         self.transmitter.clients_set_phase(current_exp_phase.get_phase_type())

@@ -2,9 +2,11 @@
 from time import sleep
 
 class EventSync():
+    SEND_JSONS = 0
     UPDATE_CSV = 1
     UPDATE_PHASE = 2
     START_CASTING = 3
+    TERMINATE = 4
 
     DONE = 1
     WAIT = 2
@@ -31,6 +33,10 @@ class EventSync():
         assert event in self.tracking_dict
         while(self.tracking_dict[event] == self.WAIT):
             sleep(0.005)
+    
+    def get_event_status(self, event):
+        assert event in self.tracking_dict
+        return self.tracking_dict[event]
 
     def set_event_done(self,event):
         assert event in self.done_actions_dict.values()
@@ -44,17 +50,21 @@ class EventSync():
 
     def generate_done_actions_dict(self):
         done_actions_dict = {
+            "send_jsons_done" : self.SEND_JSONS,
             "update_csv_done" : self.UPDATE_CSV,
             "update_phase_done" : self.UPDATE_PHASE,
-            "start_casting_done" : self.START_CASTING
+            "start_casting_done" : self.START_CASTING,
+            "terminate_done" : self.TERMINATE
         }
         return done_actions_dict
 
     def generate_tracking_dict(self):
         tracking_dict = {
+            self.SEND_JSONS: self.INIT,
             self.UPDATE_CSV: self.INIT,
             self.UPDATE_PHASE: self.INIT,
-            self.START_CASTING: self.INIT
+            self.START_CASTING: self.INIT,
+            self.TERMINATE: self.INIT
         }
         return tracking_dict
 
