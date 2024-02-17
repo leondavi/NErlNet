@@ -300,6 +300,7 @@ createMainServer(true,BatchSize,HostName) ->
         {"/clientsPredict",[],actionHandler,[clientsPredict,MainGenServerPid]},
         {"/startCasting",[],actionHandler, [startCasting, MainGenServerPid]},
         {"/stopCasting",[],actionHandler, [stopCasting, MainGenServerPid]},
+        {"/clientsPhaseUpdate",[],actionHandler,[clientsPhaseUpdate,MainGenServerPid]},
 
         {"/[...]", [],noMatchingRouteHandler, [MainGenServerPid]}
         ]}

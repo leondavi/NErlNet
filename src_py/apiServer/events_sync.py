@@ -7,6 +7,7 @@ class EventSync():
     UPDATE_PHASE = 2
     START_CASTING = 3
     TERMINATE = 4
+    CLIENT_ACK = 5
 
     DONE = 1
     WAIT = 2
@@ -63,6 +64,7 @@ class EventSync():
             self.SEND_JSONS: self.INIT,
             self.UPDATE_CSV: self.INIT,
             self.UPDATE_PHASE: self.INIT,
+            self.CLIENT_ACK: self.INIT,
             self.START_CASTING: self.INIT,
             self.TERMINATE: self.INIT
         }
