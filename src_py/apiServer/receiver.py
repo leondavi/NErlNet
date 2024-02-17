@@ -29,8 +29,9 @@ api = Api(receiver)
 #Disable logging messages (Must be disabled in Jupyter):
 logging.getLogger('werkzeug').disabled = True
 
-def initReceiver(receiverHost, receiverPort, event):
+def initReceiver(receiverHost, receiverPort, event, apiserver_event_sync):
         try:
+            receiver.config['API_SERVER_EVENT_SYNC'] = apiserver_event_sync #TODO Ohad&Noa check that this works otherwise use glboal
             receiver.run(threaded = True, host = receiverHost, port = receiverPort) 
 
         except:
@@ -67,14 +68,15 @@ def processResult(resData, currentPhase):
                             newPredictBatch.fixOffset(csvRes.indexOffset)
                             workerRes.addResult(newPredictBatch)
 
-class shutdown(Resource):
-    def get(self):
-        # https://stackoverflow.com/questions/15562446/how-to-stop-flask-application-without-using-ctrl-c
-        # https://stackoverflow.com/questions/37004983/what-exactly-is-werkzeug
-        shut = request.environ.get('werkzeug.server.shutdown')
-        if shut is None:
+class terminate(Resource):
+    def post(self):
+        resData = request.form
+        shutdown = request.environ.get('werkzeug.server.shutdown')
+        if shutdown is None:
             raise RuntimeError('Shudown error: not running with the Werkzeug Server')
-        shut()
+        api_server_event_sync_inst = receiver.config['API_SERVER_EVENT_SYNC']
+        api_server_event_sync_inst.set_event_done(api_server_event_sync_inst.TERMINATE)
+        shutdown()
 
 class test(Resource):
     def post(self):
@@ -126,6 +128,12 @@ class predictRes(Resource):
 
         processResult(resData, "Prediction")
 
+class jsons_sent(Resource): #TODO guy implement on erlang side
+    def post(self):
+        # pay attention that there are two kinds of syncs one for experiment phase events and one for api-server events
+        apiserver_events_sync_inst =  api_server_event_sync_inst = receiver.config['API_SERVER_EVENT_SYNC']
+        apiserver_events_sync_inst.set_event_done(apiserver_events_sync_inst.SEND_JSONS)
+
 class statistics(Resource):
     def post(self) -> None:
         resData = request.get_data().decode('utf-8')
@@ -137,63 +145,8 @@ class statistics(Resource):
 #Listener Server list of resources: 
 api.add_resource(test, "/test")
 api.add_resource(ack, "/ackPy")
-api.add_resource(shutdown, "/shutdown")
 api.add_resource(trainRes, "/trainRes")
 api.add_resource(predictRes, "/predRes")
 api.add_resource(statistics, "/statistics")
-
-"""
-def findDictForCsv(resList, csvWorked):
-    for idx, resDict in enumerate(resList):
-        if resDict['CSV path'] == csvWorked:
-            return idx
-    
-    raise RuntimeError(f"ERROR(Receiver): Dictionary for {csvWorked} was not created.")
-
-def processResult(resData, resList, currentPhase):
-    worker = resData[0]
-    result = float(resData[1].replace(' ',''))
-    csvWorked = globe.workerCsv[worker]
-
-    if currentPhase == "Training":
-        dictIdx = findDictForCsv(globe.trainResults, csvWorked)
-    elif currentPhase == "Predict":
-        dictIdx = findDictForCsv(globe.predictResults, csvWorked)
-
-    if not worker in resList[dictIdx]:
-        resList[dictIdx][worker] = [result]
-    else:
-        resList[dictIdx][worker].append(result)
-"""
-
-"""
-while True:
-                print("1) Use the default address (http://127.0.0.1:8095).")
-                print("2) Enter an address manually.")
-                print("\nPlease choose an option:", end = ' ')
-
-                option = input()
-
-                try:
-                    option = int(option)
-                except ValueError:
-                    print("\nIllegal Input") 
-                    continue
-
-                if (option > 0 and option <= 2):
-                    break
-
-                else:
-                    print("\nIllegal Input") 
-
-            if (option == 1):
-                print("\nUsing the default address to initialize the receiver.")
-                receiverHost = '127.0.0.1'
-                receiverPort = '8095'
-
-            elif (option == 2):
-                print("\nPlease enter the host IP for the receiver:", end = ' ')
-                receiverHost = input()
-                print("\nPlease enter the port for the receiver:", end = ' ')
-                receiverPort = input()       
-"""
+api.add_resource(terminate, "/terminate")
+api.add_resource(jsons_sent, "/jsonsSent") #TODO guy implement on erlang side

@@ -25,6 +25,8 @@ class Transmitter:
         self.startCastingAddress = self.mainServerAddress + '/startCasting'
         self.clientsPredictAddress = self.mainServerAddress + '/clientsPredict' #deprecated
         self.statisticsAddress = self.mainServerAddress + '/statistics'
+        self.terminate_address = self.mainServerAddress + '/terminate'
+        self.send_dc_json_address = self.mainServerAddress + '/sendDCJson' #TODO Guy - implement on erlang side
 
     def testPost(self, address, payloadNum):
         payload = {'test' : payloadNum}
@@ -55,6 +57,19 @@ class Transmitter:
         response = requests.post(self.clientsPredictAddress, data='')
         if not response.ok:
             LOG_ERROR('Prediction Phase Request issue!')
+    
+    def send_jsons_to_devices(self, files):
+        try:
+            response = requests.post(self.send_dc_json_address, data = files)
+            if not response.ok:
+                LOG_ERROR(f"Failed to send json files to Main Server")
+        except ConnectionError:
+            LOG_ERROR(f"Connection Error: failed to connect to {self.send_dc_json_address}")
+            raise ConnectionError
+        except ConnectionRefusedError:
+            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.send_dc_json_address}")
+            raise ConnectionRefusedError
+        
 
     def update_csv(self, csv_files: list, source_pieces: list):
         assert len(csv_files) == len(source_pieces)
@@ -79,11 +94,23 @@ class Transmitter:
                     LOG_ERROR(f"Connection Refused Error: failed to connect to {self.updateCSVAddress}")
                     raise ConnectionRefusedError
 
-    def start_casting(self, experiment_pase:ExperimentPhase):
-        dataStr = f"{experiment_pase.get_sources_str_list()}" # Todo Guy please support this pattern
-        requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
+    def start_casting(self, experiment_phase : ExperimentPhase):
+        dataStr = f"{experiment_phase.get_sources_str_list()}" # Todo Guy please support this pattern
+        try:
+            response = requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
+            if not response.ok:
+                LOG_ERROR(f"Failed to start casting to sources")
+        except ConnectionError:
+            LOG_ERROR(f"Connection Error: failed to connect to {self.startCastingAddress}")
+            raise ConnectionError
+        except ConnectionRefusedError:
+            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.startCastingAddress}")
+            raise ConnectionRefusedError
 
-    def startCasting(self, phase):
+    def terminate(self):
+        requests.post(self.terminate_address, data='terminate')
+
+    def startCasting(self, phase): #TODO Ohad and Noa deprecated
         # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
         if (phase==globe.TRAINING_STR):
             batchesPerSource = globe.experiment_focused_on.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.TRAINING_STR]
@@ -113,20 +140,6 @@ class Transmitter:
         globe.ack_debug_print()
         return self.experiment.name
 
-    def contPhase(self, phase):     # phase can be train/training no matter capitals, otherwise predict
-        print("starting additional training")
-
-        if(phase.lower().startswith("train")):      # accepts train / training / etc...
-            self.clientsTraining()
-            phase = globe.TRAINING_STR
-        else:
-            self.clientsPredict()
-            phase = globe.PREDICTION_STR
-
-        globe.waitForAck()
-        self.startCasting(phase) 
-        globe.waitForAck()
-
     def predict(self):
         LOG_INFO("Predict phase starts")
         globe.ack_debug_print()
@@ -146,33 +159,3 @@ class Transmitter:
         globe.pendingAcks = 1
         globe.waitForAck()
     
-
-    '''
-    def checkIfCsvInResults(self, resList, csv):
-        for resDict in resList:
-            if resDict['CSV path'] == csv:
-                return True
-        
-        return False
-    '''
-
-    '''
-    def ackTest(self):
-        globe.pendingAcks += 1
-        response = requests.get('http://127.0.0.1:8095' + '/testglobe')
-        print(int(response.content))
-    '''
-
-    '''
-    def testQueue(address):
-        for i in range(0, 10):
-            globe.q.put(testPost(address, i+1))
-
-        empty = globe.q.empty()
-    
-        return empty
-    
-    def wait():
-        while not globe.ackQueue.empty(): #While the queue is NOT empty
-            pass
-    '''
