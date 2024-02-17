@@ -88,6 +88,17 @@ handle_cast({initCSV, _SourceName ,_SourceData}, State) ->
   ?LOG_ERROR("initCSV is only applicalble when main server is in idle state!"),
   {noreply, State#main_genserver_state{}};
 
+handle_cast({clientsPhaseUpdate , Phase}, State = #main_genserver_state{myName = MyName}) ->
+  ?LOG_INFO("Received clientsPhaseUpdate message with phase ~p",[binary_to_list(Phase)]),
+  StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
+  stats:increment_messages_received(StatsEts),
+  stats:increment_bad_messages(StatsEts),
+  case binary_to_atom(Phase) of
+    training -> update_clients_phase(clientTraining, MyName);
+    predict -> update_clients_phase(clientPredict, MyName)
+  end,
+  ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
+  {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
 
 handle_cast({clientsTraining, Body}, State = #main_genserver_state{state = casting}) ->
   ?LOG_WARNING("Received training request during casting phase",[]),
@@ -211,7 +222,7 @@ handle_cast({sourceAckDataReady,Body}, State = #main_genserver_state{sourcesWait
     stats:increment_messages_received(StatsEts),
     SourceName = binary_to_term(Body),
     NewWaitingList = WaitingList--[SourceName],
-    if length(NewWaitingList) == 0 -> ack(atom_to_list(sourceAckDataReady));
+    if length(NewWaitingList) == 0 -> ack(atom_to_list(update_csv_done));
     true-> ok end,
   {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList}};
 
@@ -220,13 +231,14 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList =
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
   NewWaitingList = WaitingList--[binary_to_term(Body)], % waitingList is initialized in clientsTraining or clientsPredict handl cast calls
-  if length(NewWaitingList) == 0 -> ack(atom_to_list(clientAck));
+  if length(NewWaitingList) == 0 -> ack(atom_to_list(update_phase_done));
   true-> ok end,
   {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList}};
 
 %%TODO change Client_Names to list of clients
 handle_cast({startCasting,SourcesNames}, State = #main_genserver_state{state = idle, sourcesCastingList=CastingList, sourcesWaitingList = [], clientsWaitingList = []}) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
+  io:format("@MainServer startCasting Body ~p~n",[SourcesNames]),
   stats:increment_messages_received(StatsEts),
   Splitted = re:split(binary_to_list(SourcesNames), ",", [{return, list}]), % SourceNames holds also num of samples to send at the end of it!
   NumOfSampleToSend = lists:last(Splitted),

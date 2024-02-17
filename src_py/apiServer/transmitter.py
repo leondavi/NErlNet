@@ -39,10 +39,16 @@ class Transmitter:
 
     def clients_set_phase(self, phase: str): 
         LOG_INFO(f'Phase {phase} requested from Main Server')
-        response = requests.post(self.clientsPhaseUpdateAddress, data = phase)
-        # Todo try / catch 
-        if not response.ok:
-            LOG_ERROR(f'Phase {phase} Request issue!')
+        try:
+            response = requests.post(self.clientsPhaseUpdateAddress, data = phase)
+            if not response.ok:
+                LOG_ERROR(f"Failed to update phase")
+        except ConnectionRefusedError:
+            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.clientsPhaseUpdateAddress}")
+            raise ConnectionRefusedError
+        except ConnectionError:
+            LOG_ERROR(f"Connection Error: failed to connect to {self.clientsPhaseUpdateAddress}")
+            raise ConnectionError
 
     def clientsTraining(self):   #deprecated
         globe.set_receiver_wait_for_ack()
@@ -63,12 +69,12 @@ class Transmitter:
             response = requests.post(self.send_dc_json_address, data = files)
             if not response.ok:
                 LOG_ERROR(f"Failed to send json files to Main Server")
-        except ConnectionError:
-            LOG_ERROR(f"Connection Error: failed to connect to {self.send_dc_json_address}")
-            raise ConnectionError
         except ConnectionRefusedError:
             LOG_ERROR(f"Connection Refused Error: failed to connect to {self.send_dc_json_address}")
             raise ConnectionRefusedError
+        except ConnectionError:
+            LOG_ERROR(f"Connection Error: failed to connect to {self.send_dc_json_address}")
+            raise ConnectionError
         
 
     def update_csv(self, csv_files: list, source_pieces: list):
@@ -86,13 +92,12 @@ class Transmitter:
                     response = requests.post(self.updateCSVAddress, data = data_str)
                     if not response.ok:
                         LOG_ERROR(f"Failed to update {csv_file} to Main Server")
+                except ConnectionRefusedError: 
+                    LOG_ERROR(f"Connection Refused Error: failed to connect to {self.updateCSVAddress}")
+                    raise ConnectionRefusedError
                 except ConnectionError:
                     LOG_ERROR(f"Connection Error: failed to connect to {self.updateCSVAddress}")
                     raise ConnectionError
-                except ConnectionRefusedError: 
-                    # Todo - check if this is the right way to handle this
-                    LOG_ERROR(f"Connection Refused Error: failed to connect to {self.updateCSVAddress}")
-                    raise ConnectionRefusedError
 
     def start_casting(self, experiment_phase : ExperimentPhase):
         dataStr = f"{experiment_phase.get_sources_str_list()}" # Todo Guy please support this pattern
@@ -100,12 +105,12 @@ class Transmitter:
             response = requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
             if not response.ok:
                 LOG_ERROR(f"Failed to start casting to sources")
-        except ConnectionError:
-            LOG_ERROR(f"Connection Error: failed to connect to {self.startCastingAddress}")
-            raise ConnectionError
         except ConnectionRefusedError:
             LOG_ERROR(f"Connection Refused Error: failed to connect to {self.startCastingAddress}")
             raise ConnectionRefusedError
+        except ConnectionError:
+            LOG_ERROR(f"Connection Error: failed to connect to {self.startCastingAddress}")
+            raise ConnectionError
 
     def terminate(self):
         requests.post(self.terminate_address, data='terminate')

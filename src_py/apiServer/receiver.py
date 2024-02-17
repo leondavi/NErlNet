@@ -85,12 +85,15 @@ class test(Resource):
 
 class ack(Resource):  # request from Guy state related message as ack
     def post(self):
-        resData = request.form
-        #Todo get body of message from Guy in the resData 
-        events_sync_inst = globe.experiment_focused_on.get_events_sync()
-        body = "" 
-        event_done = events_sync_inst.get_event_done(body)
-        events_sync_inst.set_event_done(event_done)
+        body = request.get_data().decode('utf-8')
+        print(f"Got ack from Main Server: {body}")
+        if body == "clientAck": # TODO Ohad & Noa Check what to do with clientAck message
+            print("clientAck received")
+        else:
+            events_sync_inst = globe.experiment_focused_on.get_events_sync()
+            event_done = events_sync_inst.get_event_done(body)
+            events_sync_inst.set_event_wait(event_done)
+            events_sync_inst.set_event_done(event_done)
 
 class trainRes(Resource):
     def post(self):

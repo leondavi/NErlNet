@@ -219,13 +219,13 @@ PREDICTION_STR = "Prediction"
         LOG_INFO("Data ready in sources")
 
     def run_current_experiment_phase(self):  #Todo union sendDataToSources and train and predict
-        LOG_INFO(f"Experiment phase: {current_exp_phase.get_name()} of type {current_exp_phase.get_phase_type()} starts running...")
         current_exp_phase = self.current_exp.get_current_experiment_phase()
+        LOG_INFO(f"Experiment phase: {current_exp_phase.get_name()} of type {current_exp_phase.get_phase_type()} starts running...")
         csv_dataset_inst = self.current_exp.get_csv_dataset()
         events_sync_inst = self.current_exp.get_events_sync()
         
-        send_jsons_event = self.apiserver_event_sync.get_event_status(EventSync.SEND_JSONS)
-        assert send_jsons_event == EventSync.DONE, "Jsons not sent to devices yet"
+        # send_jsons_event = self.apiserver_event_sync.get_event_status(EventSync.SEND_JSONS)
+        # assert send_jsons_event == EventSync.DONE, "Jsons not sent to devices yet"
 
         LOG_INFO(f"Sending data to sources")
         self.send_data_to_sources(csv_dataset_inst, current_exp_phase, events_sync_inst)

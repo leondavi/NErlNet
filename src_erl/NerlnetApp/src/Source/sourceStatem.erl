@@ -71,6 +71,7 @@ init({MyName, WorkersMap, NerlnetGraph, Policy, BatchSize, Frequency , Epochs, T
   ets:insert(EtsRef, {batch_size, BatchSize}),
   ets:insert(EtsRef, {method, Policy}),
   ets:insert(EtsRef, {epochs, Epochs}),
+  ets:insert(EtsRef, {num_of_batches, 0}),
   ets:insert(EtsRef, {type, Type}), %% CSV/Camera
   ets:insert(EtsRef, {sample_size, none}),
   ets:insert(EtsRef, {workers_list, []}),
@@ -110,19 +111,19 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 
 
 %% This cast receive a list of samples to load to the records batchList
-idle(cast, {batchList,WorkersList,Epochs, CSVData}, State) ->
+idle(cast, {batchList,WorkersList,NumOfBatches, CSVData}, State) ->
   EtsRef = get(source_ets),
   StatsEtsRef = get(source_stats_ets),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   BatchSize = ets:lookup_element(EtsRef, batch_size, ?DATA_IDX),
   {NerlTensorBatchesList, NerlTensorType, SampleSize} = parser:parseCSV(MyName,BatchSize,CSVData), % TODO this is slow and heavy policy! pre parse in ETS a possible solution
   ets:update_element(EtsRef, workers_list, [{?DATA_IDX, WorkersList}]),
-  ets:update_element(EtsRef, epochs, [{?DATA_IDX, Epochs}]),
+  ets:update_element(EtsRef, num_of_batches, [{?DATA_IDX, NumOfBatches}]),
   stats:increment_messages_received(StatsEtsRef),
   ?LOG_NOTICE("Source ~p, workers are: ~p", [MyName, WorkersList]),
   ?LOG_NOTICE("Source ~p, sample size: ~p", [MyName, SampleSize]),
   ets:update_element(EtsRef, sample_size, [{?DATA_IDX, SampleSize}]),
-  ?LOG_INFO("Source ~p updated transmission list, total avilable batches to send: ~p~n",[MyName, length(NerlTensorBatchesList)]),
+  ?LOG_INFO("Source ~p updated transmission list, total avilable batches to send: ~p~n",[MyName, NumOfBatches]),
   %%  send an ACK to mainserver that the CSV file is ready
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(dataReady), MyName),
@@ -133,7 +134,7 @@ idle(cast, {batchList,WorkersList,Epochs, CSVData}, State) ->
 %% This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
 idle(cast, {startCasting,Body}, State = #source_statem_state{batchesList = BatchesList}) ->
   EtsRef = get(source_ets),
-  [_Source,UserLimitNumberOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
+  _SourceName = Body,
   StatsEtsRef = get(source_stats_ets),
   stats:increment_messages_received(StatsEtsRef),
 
@@ -145,8 +146,9 @@ idle(cast, {startCasting,Body}, State = #source_statem_state{batchesList = Batch
   BatchSize = ets:lookup_element(EtsRef, batch_size, ?DATA_IDX),
   WorkersList = ets:lookup_element(EtsRef, workers_list, ?DATA_IDX),
 
-  UserLimitNumberOfBatchesToSendInt = list_to_integer(UserLimitNumberOfBatchesToSend),
-  BatchesToSend = min(length(BatchesList), UserLimitNumberOfBatchesToSendInt),
+  %% UserLimitNumberOfBatchesToSendInt = list_to_integer(UserLimitNumberOfBatchesToSend),
+  %% BatchesToSend = min(length(BatchesList), UserLimitNumberOfBatchesToSendInt),
+  BatchesToSend = length(BatchesList),
   BatchesListFinal = lists:sublist(BatchesList, BatchesToSend), % Batches list with respect of constraint UserLimitNumberOfBatchesToSendInt
 
   % TODO consider add offset value from API
@@ -155,7 +157,7 @@ idle(cast, {startCasting,Body}, State = #source_statem_state{batchesList = Batch
   ?LOG_NOTICE("Batch size: ~p", [BatchSize]),
   ?LOG_NOTICE("Sample size = ~p",[SampleSize]),
   ?LOG_NOTICE("Rounds per data (epochs): ~p", [Epochs]),
-  ?LOG_NOTICE("Limit max # of batches by API is set to ~p ",[UserLimitNumberOfBatchesToSendInt]),
+  %% ?LOG_NOTICE("Limit max # of batches by API is set to ~p ",[UserLimitNumberOfBatchesToSendInt]),
   ?LOG_NOTICE("# of batches to send is ~p ",[BatchesToSend]),
 
   TransmitterPID =  spawnTransmitter(EtsRef, WorkersList, BatchesListFinal),

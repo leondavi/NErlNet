@@ -17,14 +17,16 @@ NERLNET_RUN_STOP_SCRIPT = "./NerlnetRun.sh --run-mode stop"
 api_server_instance = ApiServer()
 #api_server_instance.help()
 api_server_instance.showJsons()
-dc = 0
-conn = 19
+dc = 1
+conn = 20
 flow = 17
 api_server_instance.setJsons(dc, conn, flow)
 dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
 experiment_name = "test_exp"
 api_server_instance.initialization(experiment_name, dc_json , connmap_json, exp_flow_json) # start to debug
+api_server_instance.sendJsonsToDevices()
+
 next_expertiment_phase_exist = True 
 api_server_instance.run_current_experiment_phase() # blocking - deppended acks from mainserver
 api_server_instance.communication_stats()
@@ -36,7 +38,6 @@ api_server_instance.run_current_experiment_phase()
 api_server_instance.communication_stats()
 next_expertiment_phase_exist = api_server_instance.next_experiment_phase()  # expected error
 
-# api_server_instance.sendJsonsToDevices()
 
 # api_server_instance.sendDataToSources(PHASE_TRAINING) # sync on ack
 # api_server_instance.train() # sync on ack
