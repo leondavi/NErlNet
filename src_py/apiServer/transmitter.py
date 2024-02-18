@@ -26,7 +26,7 @@ class Transmitter:
         self.clientsPredictAddress = self.mainServerAddress + '/clientsPredict' #deprecated
         self.statisticsAddress = self.mainServerAddress + '/statistics'
         self.terminate_address = self.mainServerAddress + '/terminate'
-        self.send_dc_json_address = self.mainServerAddress + '/sendDCJson' #TODO Guy - implement on erlang side
+        self.send_jsons_address = self.mainServerAddress + '/sendJsons' #TODO Guy - implement on erlang side
 
     def testPost(self, address, payloadNum):
         payload = {'test' : payloadNum}
@@ -66,14 +66,14 @@ class Transmitter:
     
     def send_jsons_to_devices(self, files):
         try:
-            response = requests.post(self.send_dc_json_address, data = files)
+            response = requests.post(self.send_jsons_address, data = files)
             if not response.ok:
                 LOG_ERROR(f"Failed to send json files to Main Server")
         except ConnectionRefusedError:
-            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.send_dc_json_address}")
+            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.send_jsons_address}")
             raise ConnectionRefusedError
         except ConnectionError:
-            LOG_ERROR(f"Connection Error: failed to connect to {self.send_dc_json_address}")
+            LOG_ERROR(f"Connection Error: failed to connect to {self.send_jsons_address}")
             raise ConnectionError
         
 

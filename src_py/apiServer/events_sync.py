@@ -7,7 +7,6 @@ class EventSync():
     UPDATE_PHASE = 2
     START_CASTING = 3
     TERMINATE = 4
-    CLIENT_ACK = 5
 
     DONE = 1
     WAIT = 2
@@ -51,7 +50,8 @@ class EventSync():
 
     def generate_done_actions_dict(self):
         done_actions_dict = {
-            "send_jsons_done" : self.SEND_JSONS,
+            # recieve actions from main server
+            "received_jsons_done" : self.SEND_JSONS, # means devices setup is done
             "update_csv_done" : self.UPDATE_CSV,
             "update_phase_done" : self.UPDATE_PHASE,
             "start_casting_done" : self.START_CASTING,
