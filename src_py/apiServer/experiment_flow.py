@@ -37,7 +37,13 @@ class ExperimentPhase():
 
     def get_sources_str_list(self):
         return ",".join(self.source_pieces_dict.keys())
+    
+    def get_nerl_comm_db(self):
+        return self.nerl_comm_db
 
+    def get_nerl_model_db(self):
+        return self.nerl_model_db
+    
     def add_source_piece(self, source_piece : SourcePieceDS):
         if source_piece.source_name not in self.source_pieces_dict:
             self.source_pieces_dict[source_piece.source_name] = source_piece

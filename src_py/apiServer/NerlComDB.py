@@ -1,6 +1,6 @@
 from networkComponents import MAIN_SERVER_STR , NetworkComponents
 from abc import ABC
-class EntityDB(ABC): # Abstract Class
+class EntityComDB(ABC): # Abstract Class
     def __init__(self):
         # based on stats.erl
         self.messages_received = 0
@@ -9,10 +9,22 @@ class EntityDB(ABC): # Abstract Class
         self.bytes_received = 0
         self.bytes_sent = 0
         self.bad_messages = 0
+    
+    def __add__(self, other):
+        self.messages_received += other.messages_received
+        self.messages_sent += other.messages_sent
+        self.messages_dropped += other.messages_dropped
+        self.bytes_received += other.bytes_received
+        self.bytes_sent += other.bytes_sent
+        self.bad_messages += other.bad_messages
+        return self
 
-class MainServerDB(EntityDB):
+class MainServerComDB(EntityComDB):
     def __init__(self):
-        pass
+        super().__init__()
+
+    def __add__(self, other):
+        return super().__add__(other)
     
     def update_stats(self, input_dict):
         self.messages_received = input_dict["messages_received"]
@@ -32,9 +44,12 @@ class MainServerDB(EntityDB):
             "bad_messages": self.bad_messages
         }
         
-class RouterDB(EntityDB):
+class RouterComDB(EntityComDB):
     def __init__(self):
-        pass
+        super().__init__()
+    
+    def __add__(self, other):
+        return super().__add__(other)
     
     def update_stats(self, input_dict):
         self.messages_received = input_dict["messages_received"]
@@ -72,6 +87,25 @@ class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse
         self.acc_time_training = 0
         self.acc_time_prediction = 0
         self.nan_loss_count = 0
+
+    def __add__(self, other):
+        self.bytes_received += other.bytes_received
+        self.bytes_sent += other.bytes_sent
+        self.bad_messages += other.bad_messages
+        self.batches_received_train += other.batches_received_train
+        self.batches_received_predict += other.batches_received_predict
+        self.batches_dropped_train += other.batches_dropped_train
+        self.batches_dropped_predict += other.batches_dropped_predict
+        self.batches_sent_train += other.batches_sent_train
+        self.empty_batches += other.empty_batches
+        self.batches_sent_predict += other.batches_sent_predict
+        self.average_time_training += other.average_time_training
+        self.average_time_prediction += other.average_time_prediction
+        self.acc_time_training += other.acc_time_training
+        self.acc_time_prediction += other.acc_time_prediction
+        self.nan_loss_count += other.nan_loss_count
+        return self
+
     
     def get_as_dict(self):
         return {
@@ -110,13 +144,24 @@ class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse
         self.nan_loss_count = input_dict["nan_loss_count"]
 
 
-class ClientDB(EntityDB):
+class ClientComDB(EntityComDB):
     def __init__(self):
+        super().__init__()
         self.batches_received = 0
         self.batches_dropped = 0
 
         self.workers_stats_dbs = {} # dictionary of worker_name -> WorkerComDB
-    
+
+    def __add__(self, other):
+        self.batches_received += other.batches_received
+        self.batches_dropped += other.batches_dropped
+        for worker_name in other.workers_stats_dbs:
+            if worker_name not in self.workers_stats_dbs:
+                self.workers_stats_dbs[worker_name] = WorkerComDB()
+            self.workers_stats_dbs[worker_name] = self.workers_stats_dbs[worker_name] + other.workers_stats_dbs[worker_name]
+        super().__add__(other)
+        return self
+
     def add_worker(self, worker_name):
         self.workers_stats_dbs[worker_name] = WorkerComDB()
     
@@ -151,9 +196,15 @@ class ClientDB(EntityDB):
            # "workers_stats_dbs": self.workers_stats_dbs
         }
     
-class SourceDB(EntityDB):
+class SourceComDB(EntityComDB):
     def __init__(self):
+        super().__init__()
         self.batches_sent = 0
+
+    def __add__(self, other):  
+        self.batches_sent += other.batches_sent
+        super().__add__(other)
+        return self
 
     def update_stats(self, input_dict):
         self.messages_received = input_dict["messages_received"]
@@ -178,21 +229,41 @@ class SourceDB(EntityDB):
 class NerlComDB():
     def __init__(self, networks_components: NetworkComponents):
         self.net_comps = networks_components
-        self.main_server = MainServerDB()
+        self.main_server = MainServerComDB()
         self.routers = {}
         self.clients = {}
         self.sources = {}
         self.workers = {}
         self.build_dicts()
 
+    def __add__(self, other):   
+        self.main_server = self.main_server + other.main_server
+        for router_name in other.routers:
+            if router_name not in self.routers:
+                self.routers[router_name] = RouterComDB()
+            self.routers[router_name] = self.routers[router_name] + other.routers[router_name]
+        for client_name in other.clients:
+            if client_name not in self.clients:
+                self.clients[client_name] = ClientComDB()
+            self.clients[client_name] = self.clients[client_name] + other.clients[client_name]
+        for source_name in other.sources:
+            if source_name not in self.sources:
+                self.sources[source_name] = SourceComDB()
+            self.sources[source_name] = self.sources[source_name] + other.sources[source_name]
+        for worker_name in other.workers:
+            if worker_name not in self.workers:
+                self.workers[worker_name] = WorkerComDB()
+            self.workers[worker_name] = self.workers[worker_name] + other.workers[worker_name]   
+        return self
+
     def add_router(self, router_name):
-        self.routers[router_name] = RouterDB()
+        self.routers[router_name] = RouterComDB()
     
     def add_client(self, client_name):
-        self.clients[client_name] = ClientDB()
+        self.clients[client_name] = ClientComDB()
         
     def add_source(self, source_name):
-        self.sources[source_name] = SourceDB()
+        self.sources[source_name] = SourceComDB()
 
     def get_router(self, router_name):
         if router_name not in self.routers:
@@ -234,4 +305,5 @@ class NerlComDB():
                 self.clients[this_worker_client_name].get_worker(entity_name).update_stats(entity_stats_dict)
             elif entity_name == MAIN_SERVER_STR:
                 self.main_server.update_stats(entity_stats_dict)
-                
+
+
