@@ -2,11 +2,14 @@
 from time import sleep
 from logger import *
 class EventSync():
+    # api server events 
     SEND_JSONS = 0
+    TERMINATE = 4
+    # experiment flow events
     UPDATE_CSV = 1
     UPDATE_PHASE = 2
     START_CASTING = 3
-    TERMINATE = 4
+    # error events
     MAIN_SERVER_ERROR = 5
 
     DONE = 1

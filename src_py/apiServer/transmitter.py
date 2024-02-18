@@ -69,7 +69,7 @@ class Transmitter:
     
     def send_jsons_to_devices(self, files):
         try:
-            response = requests.post(self.send_jsons_address, data = files)
+            response = requests.post(self.send_jsons_address, files = files)
             if not response.ok:
                 LOG_ERROR(f"Failed to send json files to Main Server")
         except ConnectionRefusedError:
