@@ -50,7 +50,7 @@ handle_call(_Call, _From, State) ->
 {ok, State :: #main_genserver_state{}} | {ok, State :: #main_genserver_state{}, timeout() | hibernate} |
 {stop, Reason :: term()} | ignore).
 
-init({MyName,ClientsNames,BatchSize,WorkersMap,NerlnetGraph}) ->
+init({MyName,ClientsNames,BatchSize,WorkersMap,NerlnetGraph , DeviceName}) ->
   nerl_tools:setup_logger(?MODULE),
   inets:start(),
   MyNameStr = atom_to_list(MyName),
@@ -61,6 +61,7 @@ init({MyName,ClientsNames,BatchSize,WorkersMap,NerlnetGraph}) ->
   MainServerEts = ets:new(main_server_ets , [set]),
   put(main_server_ets, MainServerEts),
   put(nerlnet_graph, NerlnetGraph),
+  put(device_name, DeviceName),
   EtsStats = ets:new(stats , [set]),
   put(etsStats, EtsStats), %% All entities including mainServer ets tables statistics
   Entities = [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--[?API_SERVER_ATOM]],
@@ -71,6 +72,7 @@ init({MyName,ClientsNames,BatchSize,WorkersMap,NerlnetGraph}) ->
   ets:insert(MainServerEts , {workers_map , WorkersMap}),
   ets:insert(MainServerEts , {clients_names_list , ClientsNames}),
   ets:insert(MainServerEts , {counter_received_stats, 0}),
+  ets:insert(MainServerEts , {json_received_counter, 0}),
   % Getting the router that main server is connected with
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,hd(ClientsNames),get(nerlnet_graph)),
   ets:insert(MainServerEts, {my_router,{MyRouterHost,MyRouterPort}}),
@@ -86,6 +88,29 @@ handle_cast({initCSV, SourceName ,SourceData}, State = #main_genserver_state{sta
 
 handle_cast({initCSV, _SourceName ,_SourceData}, State) ->
   ?LOG_ERROR("initCSV is only applicalble when main server is in idle state!"),
+  {noreply, State#main_genserver_state{}};
+
+handle_cast({jsonReceived,Body}, State = #main_genserver_state{}) ->
+  StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
+  stats:increment_messages_received(StatsEts),
+  {DeviceName , TotalNumberOfDevices} = binary_to_term(Body),
+  case TotalNumberOfDevices of 
+    0 -> ack(atom_to_list(received_jsons_done)); %% if the exeperiment runs on a single device
+    _ -> ok
+  end,
+  MainServerDeviceName = get(device_name),
+  case DeviceName of
+    MainServerDeviceName -> ?LOG_NOTICE("Device ~p received the json files and is ready to start", [DeviceName]);
+    _OtherDevice ->
+      ?LOG_NOTICE("Device ~p received the json files and is ready to start", [DeviceName]),
+      ets:update_counter(get(main_server_ets), json_received_counter, 1),
+      NumOfDevicesReady = ets:lookup_element(get(main_server_ets), json_received_counter, ?DATA_IDX),
+      if NumOfDevicesReady == TotalNumberOfDevices -> 
+        ack(atom_to_list(received_jsons_done));
+        true -> ok
+      end
+  end,
+  stats:increment_messages_sent(StatsEts),
   {noreply, State#main_genserver_state{}};
 
 handle_cast({clientsPhaseUpdate , Phase}, State = #main_genserver_state{myName = MyName}) ->
