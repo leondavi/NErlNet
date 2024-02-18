@@ -146,7 +146,7 @@ PREDICTION_STR = "Prediction"
             self.apiserver_event_sync.sync_on_event(EventSync.SEND_JSONS)
             LOG_INFO("Sending distributed configurations to devices is completed")
 
-    def sendJsonsToDevices(self): #TODO Guy should add support to main server - main server receives this json and spread it to all devices
+    def sendJsonsToDevices(self): # deprecated
         # Jsons found in NErlNet/inputJsonFiles/{JSON_TYPE}/files.... for entities in src_erl/Comm_layer/http_nerl/src to reach them, they must go up 3 dirs
         archAddress , connMapAddress, exp_flow_json = self.getUserJsons()
 
@@ -205,7 +205,7 @@ PREDICTION_STR = "Prediction"
         self.apiserver_event_sync.sync_on_event(EventSync.TERMINATE)
         return True
     
-    def send_data_to_sources(self, csv_dataset: CsvDataSet, experiment_phase: ExperimentPhase, events_sync_inst: EventSync): # Todo cheack acks
+    def send_data_to_sources(self, csv_dataset: CsvDataSet, experiment_phase: ExperimentPhase, events_sync_inst: EventSync):
         LOG_INFO("Sending data to sources")
         sources_pieces_list = experiment_phase.get_sources_pieces()
         source_files_to_send = []  # list of csv's paths to send to sources
@@ -216,20 +216,18 @@ PREDICTION_STR = "Prediction"
         events_sync_inst.set_event_wait(EventSync.UPDATE_CSV)
         self.transmitter.update_csv(source_files_to_send, sources_pieces_list)
         events_sync_inst.sync_on_event(EventSync.UPDATE_CSV)
-        LOG_INFO("Data ready in sources")
+        LOG_INFO("Data is ready in sources")
 
-    def run_current_experiment_phase(self):  #Todo union sendDataToSources and train and predict
+    def run_current_experiment_phase(self):
         current_exp_phase = self.current_exp.get_current_experiment_phase()
         LOG_INFO(f"Experiment phase: {current_exp_phase.get_name()} of type {current_exp_phase.get_phase_type()} starts running...")
         csv_dataset_inst = self.current_exp.get_csv_dataset()
         events_sync_inst = self.current_exp.get_events_sync()
         
-        # send_jsons_event = self.apiserver_event_sync.get_event_status(EventSync.SEND_JSONS)
-        # assert send_jsons_event == EventSync.DONE, "Jsons not sent to devices yet"
+        send_jsons_event = self.apiserver_event_sync.get_event_status(EventSync.SEND_JSONS)
+        assert send_jsons_event == EventSync.DONE, "Jsons not sent to devices yet"
 
-        LOG_INFO(f"Sending data to sources")
         self.send_data_to_sources(csv_dataset_inst, current_exp_phase, events_sync_inst)
-        LOG_INFO(f"Sources are ready for phase {current_exp_phase.get_name()}")
 
         events_sync_inst.set_event_wait(EventSync.UPDATE_PHASE)
         self.transmitter.clients_set_phase(current_exp_phase.get_phase_type())

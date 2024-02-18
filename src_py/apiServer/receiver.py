@@ -101,22 +101,17 @@ class ack(Resource):  # request from Guy state related message as ack
 class trainRes(Resource):
     def post(self):
         # receiver.logger.info("Training result received")
-        # Result preprocessing:
-        # Receiving from Erlang: "worker#loss" 
-        # TODO example "w1#source_name|batch_id|loss_value|duration"
+        # example "w1#source_name|batch_id|loss_value|duration"
         # TODO GUY - Add all attributes of nerl_db (batch_id etc.)
-        source_csv_dict = {}
         resData = request.get_data().decode('utf-8')
-        print(f"Got {resData} from MainServer")
-        resData = decode_main_server_str_train(resData) #list of strings
-        #source_csv_dict[resData[0]] = None #TODO Ohad&Noa Continue
-        print(f"Received training result {resData}")
-        globe.experiment_focused_on.get_current_experiment_phase() #TODO Ohad&Noa Continue
-        #TRAINING_STR
-        # TODO OHAD - Add the parsed data to the nerl_db
-        # Consider what to do
-        # if globe.jupyterFlag == False:
-        #processResult(resData, "Training")
+        print(f"Got {resData} from MainServer")  # Todo remove print
+        source_name, tensor_data, duration, batch_id, worker_name = decode_main_server_str_train(resData) 
+        print(f"Received training result {resData}") # Todo remove print
+        current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase() #TODO Ohad&Noa Continue
+        model_db = current_experiment_phase.get_nerl_model_db()
+        client_name = globe.components.get_map_worker_to_client()  
+        model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, tensor_data, duration)
+        print(f"Created batch {batch_id} from worker {worker_name} with source {source_name} and duration {duration}") # Todo remove print
         
         
 #http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++BatchID++"#"++CSVName++"#"++BatchSize)
@@ -127,25 +122,20 @@ class predictRes(Resource):
         resData = request.form
         resData = list(resData)
         resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter:
-        
+        # Todo like trainres 
         # This prints every batch - Consider what to do with this part!
         # if globe.jupyterFlag == False:
         #     print(resData)
 
         processResult(resData, "Prediction")
 
-class jsons_sent(Resource): #TODO guy implement on erlang side
-    def post(self):
-        # pay attention that there are two kinds of syncs one for experiment phase events and one for api-server events
-        apiserver_events_sync_inst =  api_server_event_sync_inst = receiver.config['API_SERVER_EVENT_SYNC']
-        apiserver_events_sync_inst.set_event_done(apiserver_events_sync_inst.SEND_JSONS)
-
 class statistics(Resource):
     def post(self) -> None:
         resData = request.get_data().decode('utf-8')
         print("Got statistics from main server")
         entity_com_dicts = decode_main_server_ets_str(resData) # dict of dicts 
-        globe.experiment_focused_on.nerl_comm_db.update_entities_stats(entity_com_dicts)        
+        current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase()
+        current_experiment_phase.get_nerl_comm_db().update_entities_stats(entity_com_dicts)        
         globe.pendingAcks = 0
 
 #Listener Server list of resources: 
@@ -155,4 +145,4 @@ api.add_resource(trainRes, "/trainRes")
 api.add_resource(predictRes, "/predRes")
 api.add_resource(statistics, "/statistics")
 api.add_resource(terminate, "/terminate")
-api.add_resource(jsons_sent, "/jsonsSent") #TODO guy implement on erlang side
+

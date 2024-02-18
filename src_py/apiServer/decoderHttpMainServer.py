@@ -56,21 +56,15 @@ def decode_main_server_ets_str(string_to_convert: str):
     return result_dict
 
 def decode_main_server_str_train(string_to_convert: str) -> list:  #change to tuple of 5 elements
-    result_list = []
     worker_name = string_to_convert.split(SEP_ENTITY_HASH_STATS)[0]
-    result_list.append(worker_name)
     train_result = string_to_convert.split(SEP_ENTITY_HASH_STATS)[1]
     source_and_stats = train_result.split(SEP_ENTITY_OR_STATS)
     source_name = source_and_stats[0]
-    result_list.append(source_name)
     loss_val = source_and_stats[1]
     tensor_data = np.float32(loss_val)
-    result_list.append(tensor_data)
     duration = source_and_stats[2]
-    result_list.append(duration)
     batch_id = source_and_stats[3]
-    result_list.append(batch_id)
-    return result_list
+    return source_name, tensor_data, duration, batch_id, worker_name
 
 def test():
     string_to_convert = "c2&bytes_sent:54036:int#messages_sent:8016:int#bad_messages:0:int#batches_sent:0:int#messages_received:8016:int#batches_received:0:int#bytes_received:40022:int#batches_dropped:0:int#messages_dropped:0:int#|w4^bytes_sent$0$int@empty_batches$0$int@bad_messages$0$int@batches_dropped_predict$0$int@batches_sent_predict$0$int@nan_loss_count$0$int@batches_received_predict$1001$int@batches_dropped_train$0$int@acc_time_training$0$int@bytes_received$0$int@average_time_prediction$0$int@batches_received_train$1000$int@average_time_training$0$int@acc_time_prediction$0$int@batches_sent_train$0$int@w3^bytes_sent$0$int@empty_batches$0$int@bad_messages$0$int@batches_dropped_predict$0$int@batches_sent_predict$0$int@nan_loss_count$0$int@batches_received_predict$1001$int@batches_dropped_train$0$int@acc_time_training$0$int@bytes_received$0$int@average_time_prediction$0$int@batches_received_train$1000$int@average_time_training$0$int@acc_time_prediction$0$int@batches_sent_train$0$int@|s1&bytes_sent:0:int#messages_sent:4:int#bad_messages:0:int#batches_sent:8004:int#messages_received:7:int#batches_received:0:int#bytes_received:0:int#batches_dropped:0:int#messages_dropped:0:int#|c1&bytes_sent:54036:int#messages_sent:8016:int#bad_messages:0:int#batches_sent:0:int#messages_received:8016:int#batches_received:0:int#bytes_received:40022:int#batches_dropped:0:int#messages_dropped:0:int#|w2^bytes_sent$0$int@empty_batches$0$int@bad_messages$0$int@batches_dropped_predict$0$int@batches_sent_predict$0$int@nan_loss_count$0$int@batches_received_predict$1001$int@batches_dropped_train$0$int@acc_time_training$0$int@bytes_received$0$int@average_time_prediction$0$int@batches_received_train$1000$int@average_time_training$0$int@acc_time_prediction$0$int@batches_sent_train$0$int@w1^bytes_sent$0$int@empty_batches$0$int@bad_messages$0$int@batches_dropped_predict$0$int@batches_sent_predict$0$int@nan_loss_count$0$int@batches_received_predict$1001$int@batches_dropped_train$0$int@acc_time_training$0$int@bytes_received$0$int@average_time_prediction$0$int@batches_received_train$1000$int@average_time_training$0$int@acc_time_prediction$0$int@batches_sent_train$0$int@|r4&bytes_sent:0:int#messages_sent:8014:int#bad_messages:0:int#batches_sent:0:int#messages_received:8014:int#batches_received:0:int#bytes_received:0:int#batches_dropped:0:int#messages_dropped:0:int#|r3&bytes_sent:0:int#messages_sent:8015:int#bad_messages:0:int#batches_sent:0:int#messages_received:8015:int#batches_received:0:int#bytes_received:0:int#batches_dropped:0:int#messages_dropped:0:int#|r2&bytes_sent:0:int#messages_sent:12025:int#bad_messages:0:int#batches_sent:0:int#messages_received:12024:int#batches_received:0:int#bytes_received:0:int#batches_dropped:0:int#messages_dropped:0:int#|r1&bytes_sent:0:int#messages_sent:20043:int#bad_messages:0:int#batches_sent:0:int#messages_received:20038:int#batches_received:0:int#bytes_received:0:int#batches_dropped:0:int#messages_dropped:0:int#|mainServer&bytes_sent:0:int#messages_sent:8017:int#bad_messages:0:int#batches_sent:0:int#messages_received:8035:int#batches_received:0:int#bytes_received:0:int#batches_dropped:0:int#messages_dropped:0:int#|"

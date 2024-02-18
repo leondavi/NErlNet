@@ -3,20 +3,28 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_s
 import matplotlib.pyplot as plt
 from datetime import datetime
 from pathlib import Path
-from experiment import Experiment
+from experiment import Experiment # deprecated
+from experiment_flow import *
 import globalVars as globe
 from definitions import *
 
+
 class Stats():
-    def __init__(self, experiment : Experiment):
-        self.experiment = experiment
+    def __init__(self, experiment_flow: ExperimentFlow , experiment_phase : ExperimentPhase): # Todo change to experiment phase
+        self.experiment_flow = experiment_flow
+        self.experiment_phase = experiment_phase
         #self.labels = self.experiment.get_labels_df()
         Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}').mkdir(parents=True, exist_ok=True)
-        Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}/Training').mkdir(parents=True, exist_ok=True)
-        Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}/Prediction').mkdir(parents=True, exist_ok=True)
+        Path(f'{EXPERIMENT_RESULTS_PATH}/phase/{self.experiment.name}').mkdir(parents=True, exist_ok=True) #Todo change to get phase type 
+        Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}/Training').mkdir(parents=True, exist_ok=True)  #remove
+        Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}/Prediction').mkdir(parents=True, exist_ok=True) #remove
         self.exp_path = f'{self.experiment.name}_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}'
-    # TODO 
-    def get_loss(self , plot : bool = False , saveToFile : bool = False):
+     
+       # TODO 
+    def get_loss_foh_missing(self , plot : bool = False , saveToFile : bool = False): # foh = first orfer hold - do avg between the existing points
+        assert self.experiment_phase.get_phase_type() == globe.PHASE_TRAINING
+
+    def get_loss(self , plot : bool = False , saveToFile : bool = False): # Todo change it
         """
         Returns a dictionary of {worker : loss list} for each worker in the experiment.
         use plot=True to plot the loss function.
@@ -49,7 +57,7 @@ class Stats():
             export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/loss.json', loss_dict)
         return loss_dict
     
-    def get_loss_min(self , plot : bool = False , saveToFile : bool = False):
+    def get_loss_min(self , plot : bool = False , saveToFile : bool = False):  #Todo return get loss min and batch id
         """
         Returns a dictionary of {worker : min loss} for each worker in the experiment.
         use plot=True to plot the min loss of each worker.
@@ -166,5 +174,9 @@ class Stats():
             export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/accuracy_stats.json', workers_accuracy)
             
         return workers_accuracy
+    
+
+    def get_predict_regression_stats(self , plot : bool = False , saveToFile : bool = False):
+        pass
 
 
