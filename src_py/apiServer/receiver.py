@@ -85,12 +85,15 @@ class test(Resource):
 
 class ack(Resource):  # request from Guy state related message as ack
     def post(self):
-        body = request.get_data().decode('utf-8')
-        print(f"Got ack from Main Server: {body}")  #TOdo remove print
+        event_str = request.get_data().decode('utf-8')
+        # print(f"Got ack from Main Server: {event_str}")  #Todo remove print
+        api_server_events_sync_inst = receiver.config['API_SERVER_EVENT_SYNC']
+        enum_api_server_event_done = api_server_events_sync_inst.get_event_done(event_str)
+        api_server_events_sync_inst.get_event_status(enum_api_server_event_done)
+
         events_sync_inst = globe.experiment_focused_on.get_events_sync()
-        event_done = events_sync_inst.get_event_done(body)
-        events_sync_inst.set_event_wait(event_done)
-        events_sync_inst.set_event_done(event_done)
+        enum_event_done = events_sync_inst.get_event_done(event_str)
+        events_sync_inst.set_event_done(enum_event_done)
 
 class trainRes(Resource):
     def post(self):

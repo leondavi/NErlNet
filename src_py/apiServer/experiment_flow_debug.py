@@ -25,7 +25,7 @@ dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
 experiment_name = "test_exp"
 api_server_instance.initialization(experiment_name, dc_json , connmap_json, exp_flow_json) # start to debug
-api_server_instance.sendJsonsToDevices()
+api_server_instance.send_jsons_to_devices()
 
 next_expertiment_phase_exist = True 
 api_server_instance.run_current_experiment_phase() # blocking - deppended acks from mainserver

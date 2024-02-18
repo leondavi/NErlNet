@@ -26,7 +26,10 @@ class Transmitter:
         self.clientsPredictAddress = self.mainServerAddress + '/clientsPredict' #deprecated
         self.statisticsAddress = self.mainServerAddress + '/statistics'
         self.terminate_address = self.mainServerAddress + '/terminate'
-        self.send_jsons_address = self.mainServerAddress + '/sendJsons' #TODO Guy - implement on erlang side
+        main_server_http_with_init_port = f'{self.mainServerAddress.split(":")[0]}:{self.mainServerAddress.split(":")[1]}:{JSON_INIT_HANDLER_ERL_PORT}'
+        self.send_jsons_address = main_server_http_with_init_port + '/sendJsons' #TODO Guy - implement on erlang side
+        
+
 
     def testPost(self, address, payloadNum):
         payload = {'test' : payloadNum}
