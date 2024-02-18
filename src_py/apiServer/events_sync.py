@@ -1,6 +1,6 @@
 
 from time import sleep
-
+from logger import *
 class EventSync():
     SEND_JSONS = 0
     UPDATE_CSV = 1
@@ -15,7 +15,6 @@ class EventSync():
     def __init__(self):
         self.done_actions_dict = self.generate_done_actions_dict()
         self.tracking_dict = self.generate_tracking_dict()
-
 
     def get_event_done(self, event_done_str: str):
         assert event_done_str in self.done_actions_dict
@@ -33,11 +32,20 @@ class EventSync():
         assert event in self.done_actions_dict.values()
         assert event in self.tracking_dict
         while(self.tracking_dict[event] == self.WAIT):
+            assert not self.get_error_status()
             sleep(0.005)
     
     def get_event_status(self, event):
         assert event in self.tracking_dict
         return self.tracking_dict[event]
+
+    def get_error_status(self):
+        error_events = [self.MAIN_SERVER_ERROR]
+        for event in error_events:
+            if self.tracking_dict[event] == self.DONE:
+                LOG_ERROR(f"Main Server Error")
+                return True
+        return False
 
     def set_event_done(self,event):
         assert event in self.done_actions_dict.values()
@@ -66,9 +74,9 @@ class EventSync():
             self.SEND_JSONS: self.INIT,
             self.UPDATE_CSV: self.INIT,
             self.UPDATE_PHASE: self.INIT,
-            self.CLIENT_ACK: self.INIT,
             self.START_CASTING: self.INIT,
-            self.TERMINATE: self.INIT
+            self.TERMINATE: self.INIT,
+            self.MAIN_SERVER_ERROR: self.WAIT  # ERROR EVENTS ALWAYS START IN WAIT STATE
         }
         return tracking_dict
 
