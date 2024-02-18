@@ -19,6 +19,7 @@
 
 %%%%%% Getting files in multipart format.
 init(Req0, [ApplicationPid]) ->
+  io:format("@JsonHAndler: Got ~p~n" , [cowboy_req:parse_header(<<"content-type">>, Req0)]),
   case cowboy_req:parse_header(<<"content-type">>, Req0) of
     {<<"multipart">>, <<"form-data">>, _} ->
         nerl_tools:deleteOldJson(?JSON_ADDR++?LOCAL_DC_FILE_NAME),
@@ -26,6 +27,7 @@ init(Req0, [ApplicationPid]) ->
         %% get files from Req
         % io:format("parsing json of req with body: ~p~n",[cowboy_req:read_body(Req0)]),
         {_Req, Data} = nerl_tools:multipart(Req0, []), % multipart also save data to file      %% Data = [FileName1, FileName2]
+        io:format("@JsonHandler: got here~n"),
         ApplicationPid ! {jsonAddress,{lists:nth(1, Data),lists:nth(2, Data)}};
     _Other -> 
         {ok,Body,_} = cowboy_req:read_body(Req0),           %% shouldn't be here, files expected
