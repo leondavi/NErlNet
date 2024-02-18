@@ -7,6 +7,7 @@ class EventSync():
     UPDATE_PHASE = 2
     START_CASTING = 3
     TERMINATE = 4
+    MAIN_SERVER_ERROR = 5
 
     DONE = 1
     WAIT = 2
@@ -55,7 +56,8 @@ class EventSync():
             "update_csv_done" : self.UPDATE_CSV,
             "update_phase_done" : self.UPDATE_PHASE,
             "start_casting_done" : self.START_CASTING,
-            "terminate_done" : self.TERMINATE
+            "terminate_done" : self.TERMINATE,
+            "main_server_error" : self.MAIN_SERVER_ERROR
         }
         return done_actions_dict
 
