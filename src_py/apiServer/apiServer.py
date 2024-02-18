@@ -137,10 +137,10 @@ PREDICTION_STR = "Prediction"
 
         LOG_INFO("*** Remember to execute NerlnetRun.sh on each device before running the experiment! ***")
     
-    def send_jsons_to_devices(self):
+    def send_jsons_to_devices(self): #User Api
         archAddress , connMapAddress, _ = self.getUserJsons()
         with open(archAddress, 'rb') as dc_json_file, open(connMapAddress, 'rb') as conn_json_file:
-            files = [(DC_FILE_ARCH_REMOTE_NAME, dc_json_file), (JSON_FILE_COMM_REMOTE_NAME, conn_json_file)]
+            files = [(DC_FILE_ARCH_REMOTE_NAME, dc_json_file), (JSON_FILE_COMM_REMOTE_NAME, conn_json_file)] # files names should be identical to the ones defined as ?LOCAL_DC_FILE_NAME ?LOCAL_COMM_FILE_NAME
             self.apiserver_event_sync.set_event_wait(EventSync.SEND_JSONS)
             self.transmitter.send_jsons_to_devices(files)
             self.apiserver_event_sync.sync_on_event(EventSync.SEND_JSONS)

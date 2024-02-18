@@ -13,7 +13,8 @@ NERLCONFIG_JSONS_DIR = '/usr/local/lib/nerlnet-lib/NErlNet/config/jsonsDir.nerlc
 NERLCONFIG_SUFFIX = ".nerlconfig"
 INPUT_DATA_DIR_CONF = "inputDataDir"
 JSONS_DIR = "jsonsDir"
-DC_FILE_ARCH_REMOTE_NAME = '/tmp/nerlnet/jsons/arch.json' #TODO get back to this after taking care to multipart
+# Should be exatly as ?LOCAL_DC_FILE_NAME ?LOCAL_COMM_FILE_NAME
+DC_FILE_ARCH_REMOTE_NAME = '/tmp/nerlnet/jsons/dc.json' #TODO get back to this after taking care to multipart
 JSON_FILE_COMM_REMOTE_NAME = '/tmp/nerlnet/jsons/conn.json'
 
 JSON_INIT_HANDLER_ERL_PORT = 8484 #TODO fix main server bypassing

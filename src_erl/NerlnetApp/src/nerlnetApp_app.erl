@@ -107,7 +107,7 @@ start(_StartType, _StartArgs) ->
 
 waitForInit() ->
     receive 
-        {jsonAddress, MSG} -> {_ArchitectureAdderess,_CommunicationMapAdderess} = MSG;
+        {jsonAddress, MSG} -> {_ArchitectureAdderess,_CommunicationMapAdderess} = MSG; % TODO GUY this is the case for main server which spread the message using http direct requests to devices
         Other -> ?LOG_WARNING(?LOG_HEADER++"Got bad message: ~p,~ncontinue listening for init Json~n",[Other]), waitForInit()
         after ?PYTHON_SERVER_WAITING_TIMEOUT_MS -> waitForInit()
     end.
@@ -120,7 +120,7 @@ createNerlnetInitiator(HostName) ->
             NerlnetInitiatorDispatch = cowboy_router:compile([
                 {'_', [
 
-                    {"/updateJsonPath",jsonHandler, [self()]},
+                    {"/sendJsons",jsonHandler, [self()]}, % ApiServer triggers sendJsons action by sending a request to the main server device
                     {"/isNerlnetDevice",iotHandler, [self()]}
                 ]}
             ]),
@@ -136,15 +136,15 @@ createNerlnetInitiator(HostName) ->
 
 parseJsonAndStartNerlnet(ThisDeviceIP) ->
     %% Entities to open on device from reading arch.json: 
-    {ok, DCJsonPath} = file:read_file(?JSON_ADDR++?LOCAL_ARCH_FILE_NAME),
-    {ok, CommunicationMapPath} = file:read_file(?JSON_ADDR++?LOCAL_COMM_FILE_NAME),
+    {ok, DCJsonFileBytes} = file:read_file(?JSON_ADDR++?LOCAL_DC_FILE_NAME),
+    {ok, CommunicationMapFileBytes} = file:read_file(?JSON_ADDR++?LOCAL_COMM_FILE_NAME),
 
     %%TODO: ADD CHECK FOR VALID INPUT:  
     % ?LOG_NOTICE("IS THIS A JSON? ~p~n",[jsx:is_json(ArchitectureAdderessData)]),
 
     %%Decode Json to architecute map and Connection map:
-    DCMap = jsx:decode(DCJsonPath,[]),
-    CommunicationMap = jsx:decode(CommunicationMapPath,[]),
+    DCMap = jsx:decode(DCJsonFileBytes,[]),
+    CommunicationMap = jsx:decode(CommunicationMapFileBytes,[]),
     
     jsonParser:parseJsons(DCMap,CommunicationMap,ThisDeviceIP), % we use nerlnet_data ETS from this point
 
@@ -167,7 +167,15 @@ parseJsonAndStartNerlnet(ThisDeviceIP) ->
     createSources(BatchSize, DefaultFrequency, ThisDeviceIP), % TODO extract all of this args from ETS
 
     HostOfMainServer = ets:member(nerlnet_data, mainServer),
-    createMainServer(HostOfMainServer,BatchSize,ThisDeviceIP).
+    DevicesListWithoutMainServerDevice = [], % TODO extract this devices list
+    createMainServer(HostOfMainServer,BatchSize,ThisDeviceIP),
+    if 
+        HostOfMainServer -> send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, DevicesListWithoutMainServerDevice);
+        true -> skip % rest of devices should send ready to main server
+    end.
+
+send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, DevicesList) -> 
+    send_with_direct_http_cowboy_request_to_all_devices.
 
 %% internal functions
 port_validator(Port, EntityName) ->
@@ -294,7 +302,7 @@ createMainServer(true,BatchSize,HostName) ->
         {"/predictRes",[],actionHandler,[predictRes,MainGenServerPid]},
         {"/dataReady",[],ackHandler,[dataReady,MainGenServerPid]},
         {"/sourceDone",[],ackHandler,[sourceDone,MainGenServerPid]},
-        {"/clientReady",[],ackHandler,[client,MainGenServerPid]},
+        {"/clientReady",[],ackHandler,[clientAck,MainGenServerPid]}, % when client is ready for phase
         {"/clientsTraining",[],actionHandler,[clientsTraining,MainGenServerPid]},
         {"/statistics",[],actionHandler,[statistics,MainGenServerPid]},
         {"/clientsPredict",[],actionHandler,[clientsPredict,MainGenServerPid]},
