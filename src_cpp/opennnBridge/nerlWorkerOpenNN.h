@@ -33,13 +33,13 @@ class NerlWorkerOpenNN : public NerlWorker
     void set_loss_method(int loss_method);
     void set_learning_rate(float learning_rate);
     void set_epochs(int epochs);
-
+    void set_dataset(std::shared_ptr<opennn::DataSet> data_set);
     private:
 
     std::shared_ptr<opennn::NeuralNetwork> _neural_network_ptr;
     std::shared_ptr<opennn::TrainingStrategy> _training_strategy_ptr;
+    std::shared_ptr<opennn::DataSet> _data_set;
     
-
     // neural network generator functions
     void generate_opennn_project(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);
     void generate_custom_model_nn(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);
@@ -47,7 +47,7 @@ class NerlWorkerOpenNN : public NerlWorker
     void generate_custom_model_ae(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);
     void generate_custom_model_lstm(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);
     void generate_custom_model_recurrent(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);
-
+   
 
     // translation functions
     int layer_functionality(int layer_functionality, int layer_type);
