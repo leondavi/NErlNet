@@ -66,7 +66,7 @@ std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_siz
                 std::vector<int>padding_dims = params.get_ext_params(params.PADDING_SIZE);
                 nerl_layers_vec[i] = std::make_shared<NerlLayerPooling>(layer_type,layer_dims,layer_functionality, 
                 pooling_dims, stride_dims,padding_dims);
-                break; 
+                break;  
             }
             case LAYER_TYPE_CNN:
             {
