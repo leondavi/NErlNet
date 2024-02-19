@@ -22,13 +22,15 @@ namespace nerlnet
 
 typedef struct LayerSizingParams
 {
- enum {KERNEL_SIZE = -1, PADDING_SIZE = -2, STRIDE_SIZE = -3, POOLING_SIZE= -4};
+ enum {KERNEL_SIZE = -1, PADDING_SIZE = -2,PADDING_SIZE_VALID = -3, STRIDE_SIZE = -4, POOLING_SIZE= -5};
  int dimx = 1;
  int dimy = 1;
  int dimz = 1; 
  std::vector<int> _ext_params; 
 
- std::vector<int> get_ext_params(int param_type) {
+ int get_maxdim() { return (dimz > 1 ? 3 : dimy > 1 ? 2 : 1);} // return the maximum dimension of the param; 
+
+ std::vector<int> get_ext_params(int param_type) { 
   std::vector<int> res;
   int i = 0;
   int param_extracted = false;
@@ -83,10 +85,6 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
                                     }
                                     case COMPLEX_PARSING:
                                     {
-                                 
-
-                                        // ...
-
                                         LogInfo("Complex parsing");
                                         std::unordered_map<char, std::string> params;
                                         std::regex rgx("(\\d+)x(\\d+)(x(\\d+))?");
