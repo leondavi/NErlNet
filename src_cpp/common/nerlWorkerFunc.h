@@ -90,11 +90,9 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
                                         // ...
 
                                         LogInfo("Complex parsing");
-                                        //TODO: make sure to complete fill up the dimensions of Kernel and Padding even if they are not fully specified
                                         std::unordered_map<char, std::string> params;
                                         std::regex rgx("(\\d+)x(\\d+)(x(\\d+))?");
                                         std::smatch matches; //this matches variable is for the layer size
-
                                         std::smatch param_match; // this matches variable is for the rest of the string
                                         std::unordered_map<char, int> param_codes = {
                                             {'k', -1},
@@ -106,8 +104,8 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
                                         std::string::const_iterator searchStart(layer_sizes_strs_vec[i].cbegin());
                                         while (std::regex_search(searchStart, layer_sizes_strs_vec[i].cend(), param_match, rgx))
                                         {
-                                            char param_char = param_match[1].str()[0];
-                                            std::string dimensions_str = param_match[2].str();
+                                            char param_char = param_match[1].str()[0]; //the first character of the match
+                                            std::string dimensions_str = param_match[2].str();//the second part of the match (the dimensions)
 
                                             // Convert the parameter and dimensions to the desired format and add them to _ext_params
                                             out_layer_sizes_params[i]._ext_params.push_back(param_codes[param_char]);
