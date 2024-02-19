@@ -29,6 +29,8 @@ void* trainFun(void* arg)
     data_set.set_data(*(TrainNNptr->data));
     data_set.set(TrainNNptr->data->dimension(0), num_of_features, num_of_output_neurons);
 
+    // Check for Guy how to extract intermediate values of loss during training
+
     std::shared_ptr<TrainingStrategy> training_strategy_ptr = nerlworker_opennn->get_training_strategy_ptr();
     training_strategy_ptr->set_data_set_pointer(&data_set);
     TrainingResults res = training_strategy_ptr->perform_training();
@@ -91,7 +93,9 @@ void* PredictFun(void* arg)
 
     *calculate_res = neural_network->calculate_outputs(PredictNNptr->data->data(), inputs_dimensions);
     nifpp::make_tensor_2d<float,fTensor2D>(env, prediction, calculate_res);
-    
+
+    // only for AE and AEC calculate the distance between prediction labels and input data
+
     // Stop the timer and calculate the time took for training
     high_resolution_clock::time_point  stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - PredictNNptr->start_time);
