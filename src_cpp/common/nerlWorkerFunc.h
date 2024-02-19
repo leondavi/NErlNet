@@ -22,7 +22,8 @@ namespace nerlnet
 
 typedef struct LayerSizingParams
 {
- enum {KERNEL_SIZE = -1, PADDING_SIZE = -2,PADDING_SIZE_VALID = -3, STRIDE_SIZE = -4, POOLING_SIZE= -5};
+ //enum {KERNEL_SIZE = -1, PADDING_SIZE = -2,PADDING_SIZE_VALID = -3, STRIDE_SIZE = -4, POOLING_SIZE= -5};
+enum {KERNEL_SIZE = -1, PADDING_SIZE = -2,STRIDE_SIZE = -3 ,POOLING_SIZE= -4};
  int dimx = 1;
  int dimy = 1;
  int dimz = 1; 
