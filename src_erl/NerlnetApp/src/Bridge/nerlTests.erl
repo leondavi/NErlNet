@@ -1,6 +1,7 @@
 -module(nerlTests).
 -author("David Leon").
 -include("nerlTensor.hrl").
+-include("neural_networks_testing_models.hrl").
 
 -compile(nerlNIF).
 -export([run_tests/0]).
@@ -75,7 +76,7 @@ run_tests()->
       SumNerlTensorsListDoubleName = "sum_nerltensors_lists double",
       test_envelope_nif_performance(SumNerlTensorsListDoubleFunc, SumNerlTensorsListDoubleName, ?NERLTESNORS_SUM_LIST_ROUNDS ),
 
-      NerlworkerTestFunc = fun(Rounds) ->  Performance = 0, nerlworker_test(Rounds, Performance) end,
+      NerlworkerTestFunc = fun() ->  Performance = 0, nerlworker_test(?NEURAL_NETWORK_TESTING_MODELS_LIST, Performance) end,
       NerlworkerTestName = "nerlworker_test",
       test_envelope_nif_performance(NerlworkerTestFunc, NerlworkerTestName, ?NERLWORKER_TEST_ROUNDS ),
 
@@ -225,29 +226,38 @@ nerltensor_conversion_test(Rounds) ->
                             end 
       end.
 
-nerlworker_test(0, _Performance) -> _Performance;
-nerlworker_test(Rounds, Performance) ->
+
+nerlworker_test_generate_data(LayersSizes, LayerTypes, NumOfSamples) ->
+      % extract first and last sizes
+      % use module re to extract complex layer sizes
+      FirstLayerSize = hd(re:split(LayersSizes, ",")),
+      {DimX, DimY, DimZ} =
+      if
+            is_integer(FirstLayerSize) -> simple, {string:to_integer(FirstLayerSize), NumOfSamples, 1};
+            true -> complex, {1,1,1} %TODO check if DIMX = DIMX*DIMY*CHANNELS, SAMPLES, 1
+      end,
+      ErlDataTensor = generate_nerltensor(erl_float, DimX, DimY, DimZ),
+      {DataTensorEncoded, Type} = nerlNIF:encode_nif(ErlDataTensor, float), %TODO
+      ok.
+
+nerlworker_test([], _Performance) -> _Performance;
+nerlworker_test([CurrentModel | Tail], Performance) ->
      { ModelId,ModelType,LayersSizes, LayersTypes, LayersFunctionalityCodes,
        LearningRate, Epochs, OptimizerType, OptimizerArgs,
-       LossMethod, DistributedSystemType, DistributedSystemArg} =
-    neural_network_sample_1(),
-      nerlNIF:test_nerlworker_nif(ModelId,ModelType,LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
-      nerlNIF:remove_nerlworker_nif(ModelId),
-      nerlworker_test(Rounds - 1, Performance).
+       LossMethod, DistributedSystemType, DistributedSystemArg} = CurrentModel,
 
-neural_network_sample_1() ->
-{     _ModelId  = erlang:unique_integer([positive]),
-      _ModelType = "0",
-      _LayersSizes = "5,10,5,3",
-      _LayersTypes = "1,3,3,3",
-      _LayersFunctionalityCodes = "1,6,11,11", % change scaler functionality to 6 to check exception handling
-      _LearningRate = "0.01",
-      _Epochs = "1",
-      _OptimizerType = "2",
-      _OptimizerArgs = "",
-      _LossMethod = "2",
-      _DistributedSystemType = "0",
-      _DistributedSystemArg = ""}.
+      nerlNIF:test_nerlworker_nif(ModelId,ModelType,LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
+      
+      {DataTensorEncoded, Type} = nerlworker_test_generate_data(),
+
+      nerlNIF:train_nif(ModelID,DataTensor,Type), % ask Guy about receiver block
+      
+      % block receive to get loss values from worker
+
+      nerlNIF:remove_nerlworker_nif(ModelId),
+      nerlworker_test(Tail, Performance).
+
+
 
 % % neural_network_sample_1() ->
 % % {      ModelId  = erlang:unique_integer([positive]),
