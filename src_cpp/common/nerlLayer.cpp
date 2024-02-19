@@ -30,4 +30,18 @@ NerlLayerCNN::~NerlLayerCNN()
 {
 }
 
+NerlLayerPooling::NerlLayerPooling(int layer_type, std::vector<int> &layers_dims, int layer_functionality, 
+std::vector<int> &pooling_dims, std::vector<int> &stride_dims,std::vector<int> &padding_dims) :
+ NerlLayer(layer_type, layers_dims, layer_functionality)
+{
+
+    _pooling_dims = pooling_dims; 
+    _stride_dims = stride_dims; 
+    _padding_dims = padding_dims;
+};
+
+
+NerlLayerPooling::~NerlLayerPooling()
+{
+}
 }
