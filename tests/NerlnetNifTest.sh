@@ -35,6 +35,7 @@ cp $ERL_BRIDGE_SOURCE_PATH/nerlNIF.erl $NERLNET_TEST_DIR/nerlNIF.erl
 cp $ERL_BRIDGE_SOURCE_PATH/nerl.erl $NERLNET_TEST_DIR/nerl.erl
 cp $ERL_BRIDGE_SOURCE_PATH/nerlTensor.hrl $NERLNET_TEST_DIR/nerlTensor.hrl
 cp $ERL_BRIDGE_SOURCE_PATH/nerlTensor.erl $NERLNET_TEST_DIR/nerlTensor.erl
+cp $ERL_BRIDGE_SOURCE_PATH/neural_networks_testing_models.hrl $NERLNET_TEST_DIR/neural_networks_testing_models.hrl
 
 print "Starting compilation: "
 # only for raspberry
