@@ -35,6 +35,9 @@ add_subdirectory(src_cpp) # actually adding opennnBridge
 add_library(nerlnet_onn SHARED $<TARGET_OBJECTS:opennnBridge>)
 target_link_libraries(nerlnet_onn PUBLIC opennnBridge)
 
+add_library(nerlnet_source_drv SHARED $<TARGET_OBJECTS:sourceDriver>)
+target_link_libraries(nerlnet_source_drv PUBLIC sourceDriver)
+
 if (NERLWOLF)
     add_library(nerlnet_wolf SHARED $<TARGET_OBJECTS:wolframBridge>)
     target_link_libraries(nerlnet_wolf PUBLIC wolframBridge)
