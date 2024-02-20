@@ -38,7 +38,7 @@ def initReceiver(receiverHost, receiverPort, event, apiserver_event_sync):
             event.set()
             return
 
-def processResult(resData, currentPhase):
+def processResult(resData, currentPhase):   # deprecated
         if (currentPhase == "Training"):
             # Parse the Result: [w#, float, float...]
             worker = resData[0]
@@ -107,9 +107,9 @@ class trainRes(Resource):
         print(f"Got {resData} from MainServer")  # Todo remove print
         source_name, tensor_data, duration, batch_id, worker_name = decode_main_server_str_train(resData) 
         print(f"Received training result {resData}") # Todo remove print
-        current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase() #TODO Ohad&Noa Continue
+        current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase() 
         model_db = current_experiment_phase.get_nerl_model_db()
-        client_name = globe.components.get_map_worker_to_client()  
+        client_name = globe.components.get_client_name_by_worker_name(worker_name)
         model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, tensor_data, duration)
         print(f"Created batch {batch_id} from worker {worker_name} with source {source_name} and duration {duration}") # Todo remove print
         
@@ -119,15 +119,20 @@ class predictRes(Resource):
     def post(self):
         # Result preprocessing:
         # Receiving from Erlang: Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize)
-        resData = request.form
-        resData = list(resData)
-        resData = resData[0].split('#') # From a list with only one string -> to a string. split by delimiter:
-        # Todo like trainres 
+        resData = request.get_data().decode('utf-8')
+        print(f"Got {resData} from MainServer")   # Todo remove print
+        source_name, tensor_data, duration, batch_id, worker_name = decode_main_server_str_train(resData) 
+        print(f"Received prediction result {resData}") # Todo remove print
+        current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase()
+        model_db = current_experiment_phase.get_nerl_model_db()
+        client_name = globe.components.get_map_worker_to_client()
+        model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, tensor_data, duration)
+        print(f"Created batch {batch_id} from worker {worker_name} with source {source_name} and duration {duration}") # Todo remove print
         # This prints every batch - Consider what to do with this part!
         # if globe.jupyterFlag == False:
         #     print(resData)
 
-        processResult(resData, "Prediction")
+        #processResult(resData, "Prediction")
 
 class statistics(Resource):
     def post(self) -> None:

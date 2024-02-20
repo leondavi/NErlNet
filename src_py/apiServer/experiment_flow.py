@@ -134,14 +134,15 @@ class ExperimentFlow():
             self.add_phase(phase_name, phase_type, source_pieces_inst_list)
 
 
-    def generate_experiment_flow_skeleton(self):
-        # Todo implement this function 
+    def generate_experiment_flow_skeleton(self): 
+        # Todo check with david if we need this function
         # for user to fill in the details
         experimentName = ""
         batch_size = 0
         csv_file_path = ""
+        num_of_features = 0
+        num_of_labels = 0
 
-        pass
     def set_csv_dataset(self, csv_file_path : str,  num_of_features : int, num_of_labels : int, headers_row : bool):
         self.csv_dataset = CsvDataSet(csv_file_path, self.temp_data_path ,self.batch_size, num_of_features, num_of_labels, headers_row)  # Todo get num of features and labels from csv file
 
@@ -152,21 +153,24 @@ class ExperimentFlow():
         self.exp_phase_list.append(exp_phase_inst)
         
     def print(self):
-        #Todo change print to LOG_INFO
-        print(f"Experiment name: {self.exp_name}")
-        print(f"Batch size: {self.batch_size}")
-        # for phase in self.exp_phase_list:
-        #     print(f"Phase name: {phase.get_name()}")
-        #     print(f"Phase type: {phase.get_phase_type()}")
-        #     print(f"Sources: {phase.get_sources_str_list()}")
-        #     print("Source pieces:")
-        #     for source_piece in phase.get_sources_pieces():
-        #         print(f"Source name: {source_piece.get_source_name()}")
-        #         print(f"Batch size: {source_piece.get_batch_size()}")
-        #         print(f"Phase: {source_piece.get_phase()}")
-        #         print(f"Starting offset: {source_piece.get_starting_offset()}")
-        #         print(f"Number of batches: {source_piece.get_num_of_batches()}")
-        #         print(f"Workers target: {source_piece.get_workers_target()}")
-        #         print("")
-
-
+        
+        LOG_INFO(f"Experiment name: {self.exp_name}")
+        LOG_INFO(f"Batch size: {self.batch_size}")
+        #LOG_INFO(f"Temp data path: {self.temp_data_path}")
+        #LOG_INFO(f"CSV dataset: {self.csv_dataset.get_csv_file_path()}")
+        LOG_INFO(f"Number of features: {self.csv_dataset.get_num_of_features()}")
+        LOG_INFO(f"Number of labels: {self.csv_dataset.get_num_of_labels()}")
+        LOG_INFO("Phases:")
+        for phase in self.exp_phase_list:
+            LOG_INFO(f"Phase name: {phase.get_name()}")
+            LOG_INFO(f"Phase type: {phase.get_phase_type()}")
+            LOG_INFO(f"Sources: {phase.get_sources_str_list()}")
+            LOG_INFO("Source pieces:")
+            for source_piece in phase.get_sources_pieces():
+                LOG_INFO(f"Source name: {source_piece.get_source_name()}")
+                LOG_INFO(f"Batch size: {source_piece.get_batch_size()}")
+                LOG_INFO(f"Phase: {source_piece.get_phase()}")
+                LOG_INFO(f"Starting offset: {source_piece.get_starting_offset()}")
+                LOG_INFO(f"Number of batches: {source_piece.get_num_of_batches()}")
+                LOG_INFO(f"Workers target: {source_piece.get_workers_target()}")
+                LOG_INFO("")
