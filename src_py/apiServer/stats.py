@@ -10,15 +10,13 @@ from definitions import *
 
 
 class Stats():
-    def __init__(self, experiment_flow: ExperimentFlow , experiment_phase : ExperimentPhase): # Todo change to experiment phase
+    def __init__(self, experiment_flow: ExperimentFlow , experiment_phase : ExperimentPhase):
         self.experiment_flow = experiment_flow
         self.experiment_phase = experiment_phase
         #self.labels = self.experiment.get_labels_df()
-        Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}').mkdir(parents=True, exist_ok=True)
-        Path(f'{EXPERIMENT_RESULTS_PATH}/phase/{self.experiment.name}').mkdir(parents=True, exist_ok=True) #Todo change to get phase type 
-        Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}/Training').mkdir(parents=True, exist_ok=True)  #remove
-        Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}/Prediction').mkdir(parents=True, exist_ok=True) #remove
-        self.exp_path = f'{self.experiment.name}_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}'
+        Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_flow.get_exp_name()}').mkdir(parents=True, exist_ok=True)
+        Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_phase.get_phase_type()}/{self.experiment_flow.get_exp_name()}').mkdir(parents=True, exist_ok=True)
+        self.exp_path = f'{self.experiment_flow.get_exp_name()}_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}'
      
        # TODO 
     def get_loss_foh_missing(self , plot : bool = False , saveToFile : bool = False): # foh = first orfer hold - do avg between the existing points

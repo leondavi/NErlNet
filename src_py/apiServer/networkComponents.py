@@ -97,6 +97,9 @@ class NetworkComponents():
 
     def get_map_worker_to_client(self):
         return self.map_worker_to_client
+    
+    def get_client_name_by_worker_name(self, worker_name):
+        return self.map_worker_to_client[worker_name]
 
     def get_main_server_ip_port(self):
         main_server_port = self.jsonData[MAIN_SERVER_STR][GetFields.get_port_field_name()]
