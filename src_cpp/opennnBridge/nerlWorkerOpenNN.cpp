@@ -148,7 +148,17 @@ namespace nerlnet
         // if needed take the data set and change it (in cnn change,in ae duplicate)
         // in cnn , see the inputs of the user. if the user gave 3 dimensions so the data set will have 3 dimensions
         // the last dim will be the samples num and the second will be multiple channels and  columns .
-
+/*
+         if (modelType == E_AE || modelType == E_AEC){
+            Eigen::array<int, 2> bcast({1, 2});  
+            autoencoder_data = std::make_shared<Eigen::Tensor<float,2>>(TrainNNptr->data->broadcast(bcast));                 
+ 
+            if(modelType == E_AE){    
+              data_set.set_data(*autoencoder_data);
+              data_set.set(autoencoder_data->dimension(1),data_num_of_cols,data_num_of_cols);
+            }
+         }
+       */   
     }
 /*
                     Tensor<Index, 1> samples_indices = _data_set->get_training_samples_indices();
