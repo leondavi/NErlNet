@@ -124,7 +124,7 @@ class ExperimentFlow():
                 source_name = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_SOURCE_NAME_FIELD]
                 starting_sample = int(source_piece[EXPFLOW_PHASE_SOURCE_PIECES_STARTING_SAMPLE_FIELD])
                 num_of_batches = int(source_piece[EXPFLOW_PHASE_SOURCE_PIECES_NUM_OF_BATCHES_FIELD])
-                workers = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_WORKERS_FIELD].split(",")
+                workers = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_WORKERS_FIELD]
                 source_piece_inst =  self.csv_dataset.generate_source_piece_ds(source_name, self.batch_size, phase_type, starting_sample, num_of_batches)
                 source_piece_inst.update_target_workers(workers)
                 source_piece_csv_file = self.csv_dataset.generate_source_piece_ds_csv_file(source_piece_inst, phase_type)

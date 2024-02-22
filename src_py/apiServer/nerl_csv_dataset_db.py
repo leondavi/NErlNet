@@ -35,7 +35,7 @@ class SourcePieceDS():
     def get_filter_features_and_labels(self):
         return self.filter_features_and_labels
     
-    def update_target_workers(self, target_workers: list):
+    def update_target_workers(self, target_workers):
         self.target_workers = target_workers
     
     def set_filter_features_and_labels(self, filter_features_and_labels: list):
