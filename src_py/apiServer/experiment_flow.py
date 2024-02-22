@@ -75,11 +75,11 @@ class ExperimentFlow():
         self.exp_flow_json = None
         self.events_sync_inst = EventSync()
 
-    def next_experiment_phase(self):
-        self.current_exp_phase_index += 1
-        if self.current_exp_phase_index >= len(self.exp_phase_list) - 1:
-            return False
-        return True
+    # def next_experiment_phase(self):
+    #     self.current_exp_phase_index += 1
+    #     if self.current_exp_phase_index >= len(self.exp_phase_list) - 1:
+    #         return False
+    #     return True
 
     def get_current_experiment_phase(self):
         return self.exp_phase_list[self.current_exp_phase_index]
@@ -160,17 +160,17 @@ class ExperimentFlow():
         #LOG_INFO(f"CSV dataset: {self.csv_dataset.get_csv_file_path()}")
         LOG_INFO(f"Number of features: {self.csv_dataset.get_num_of_features()}")
         LOG_INFO(f"Number of labels: {self.csv_dataset.get_num_of_labels()}")
-        LOG_INFO("Phases:")
+        LOG_INFO("\nPhases:\n")
         for phase in self.exp_phase_list:
             LOG_INFO(f"Phase name: {phase.get_name()}")
             LOG_INFO(f"Phase type: {phase.get_phase_type()}")
             LOG_INFO(f"Sources: {phase.get_sources_str_list()}")
-            LOG_INFO("Source pieces:")
+            LOG_INFO("\nSource pieces:\n")
             for source_piece in phase.get_sources_pieces():
                 LOG_INFO(f"Source name: {source_piece.get_source_name()}")
                 LOG_INFO(f"Batch size: {source_piece.get_batch_size()}")
                 LOG_INFO(f"Phase: {source_piece.get_phase()}")
                 LOG_INFO(f"Starting offset: {source_piece.get_starting_offset()}")
                 LOG_INFO(f"Number of batches: {source_piece.get_num_of_batches()}")
-                LOG_INFO(f"Workers target: {source_piece.get_workers_target()}")
+                LOG_INFO(f"Workers target: {source_piece.get_target_workers()}")
                 LOG_INFO("")
