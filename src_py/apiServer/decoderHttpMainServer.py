@@ -55,7 +55,7 @@ def decode_main_server_ets_str(string_to_convert: str):
 
     return result_dict
 
-def decode_main_server_str_train(string_to_convert: str) -> list:  #change to tuple of 5 elements
+def decode_main_server_str_phase(string_to_convert: str) -> tuple:  #change to tuple of 5 elements
     worker_name = string_to_convert.split(SEP_ENTITY_HASH_STATS)[0]
     train_result = string_to_convert.split(SEP_ENTITY_HASH_STATS)[1]
     source_and_stats = train_result.split(SEP_ENTITY_OR_STATS)
