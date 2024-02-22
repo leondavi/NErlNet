@@ -2,7 +2,7 @@
 -include_lib("kernel/include/logger.hrl").
 -include("nerlTensor.hrl").
 
--export([init/0,nif_preload/0,get_active_models_ids_list/0, train_nif/3,update_nerlworker_train_params_nif/6,call_to_train/5,predict_nif/3,call_to_predict/7,get_weights_nif/1,printTensor/2]).
+-export([init/0,nif_preload/0,get_active_models_ids_list/0, train_nif/3,update_nerlworker_train_params_nif/6,call_to_train/5,predict_nif/3,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/2,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
 -export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
@@ -62,7 +62,7 @@ call_to_train(ModelID, {DataTensor, Type}, WorkerPid , BatchID , SourceName)->
                   gen_statem:cast(WorkerPid,{loss, timeout , SourceName}) %% Define train timeout state 
       end.
 
-call_to_predict(ModelID, BatchTensor, Type, WorkerPid,CSVname, BatchID , SourceName)->
+call_to_predict(ModelID, {BatchTensor, Type}, WorkerPid, BatchID , SourceName)->
       % io:format("satrting pred_nif~n"),
       ok = predict_nif(ModelID, BatchTensor, Type),
       receive
@@ -78,7 +78,7 @@ call_to_predict(ModelID, BatchTensor, Type, WorkerPid,CSVname, BatchID , SourceN
             after ?PREDICT_TIMEOUT -> 
                  % worker miss predict batch  TODO - inspect this code
                   ?LOG_ERROR("Worker prediction timeout reached! ~n "),
-                  gen_statem:cast(WorkerPid,{predictRes, nan, CSVname, BatchID , SourceName})
+                  gen_statem:cast(WorkerPid,{predictRes, nan, BatchID , SourceName})
       end.
 
 call_to_get_weights(ThisEts, ModelID)->
