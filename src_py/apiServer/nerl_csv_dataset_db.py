@@ -35,7 +35,7 @@ class SourcePieceDS():
     def get_filter_features_and_labels(self):
         return self.filter_features_and_labels
     
-    def build_workers_target(self, target_workers: str):  # Todo Remove this function
+    def update_target_workers(self, target_workers: list):
         self.target_workers = target_workers
     
     def set_filter_features_and_labels(self, filter_features_and_labels: list):
@@ -77,14 +77,19 @@ class CsvDataSet():
         assert (starting_offset + num_of_batches * batch_size) <= self.get_total_num_of_batches(), "starting_offset + num_of_batches * batch_size exceeds the total number of batches in the csv file"
         return SourcePieceDS(source_name, batch_size, phase, starting_offset, num_of_batches)
         
-    def generate_source_piece_ds_csv_file(self, source_piece_ds_inst: SourcePieceDS):
+    def generate_source_piece_ds_csv_file(self, source_piece_ds_inst: SourcePieceDS, phase : str):
         skip_rows = source_piece_ds_inst.get_starting_offset()
         number_of_samples = source_piece_ds_inst.get_num_of_batches() * source_piece_ds_inst.get_batch_size()
         df = pd.read_csv(self.csv_path, skiprows = skip_rows, nrows = number_of_samples)
-        #Todo filter columns according to feature and label indexs TRAINING & PREDICT HAS DIFFERENT NUMBER OF COLUMNS
+        df_features = df.iloc[:, :int(self.get_num_of_features())]  # from 0 column to num_of_features column (bun not including num_of_features column)  
+        df_labels = df.iloc[:, int(self.get_num_of_features()):] # from num_of_features column to the end of the dataframe
         source_piece_file_path = f'{self.output_dir}/{source_piece_ds_inst.get_source_name()}_data.csv'
-        df.to_csv(source_piece_file_path, index = False)
+        if phase == PHASE_TRAINING_STR:  
+            df.to_csv(source_piece_file_path, index = False)
+        if phase == PHASE_PREDICTION_STR:
+            df_features.to_csv(source_piece_file_path, index = False)
         return source_piece_file_path
+    
         
     
 
