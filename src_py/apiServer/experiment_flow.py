@@ -143,7 +143,7 @@ class ExperimentFlow():
         num_of_features = 0
         num_of_labels = 0
 
-    def set_csv_dataset(self, csv_file_path : str,  num_of_features : int, num_of_labels : int, headers_row : bool):
+    def set_csv_dataset(self, csv_file_path : str,  num_of_features : int, num_of_labels : int, headers_row : list):
         self.csv_dataset = CsvDataSet(csv_file_path, self.temp_data_path ,self.batch_size, num_of_features, num_of_labels, headers_row)  # Todo get num of features and labels from csv file
 
     def add_phase(self, name : str, phase_type : str, source_pieces_inst_list : list):
