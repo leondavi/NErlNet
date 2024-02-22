@@ -24,6 +24,7 @@
 
 -import(nerlNIF,[nif_preload/0]).
 
+
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
 %% ***  exit rebar3 shell: ctrl+g ->q
@@ -93,6 +94,7 @@ start(_StartType, _StartArgs) ->
     ThisDeviceIP = nerl_tools:getdeviceIP(),
     ?LOG_INFO("Installed Erlang OTP: ~s (Supported from 25)",[erlang:system_info(otp_release)]),
     ?LOG_INFO(?LOG_HEADER++"This device IP: ~p~n", [ThisDeviceIP]),
+    os:cmd("nohup sh -c 'sleep 5 && echo hey > /tmp/detached.txt' &"), %% ** FOR FUTURE RESET FUNCTIONALITY **
     %Create a listener that waits for a message from python about the adresses of the wanted json
 
     createNerlnetInitiator(ThisDeviceIP),
@@ -107,7 +109,7 @@ start(_StartType, _StartArgs) ->
 
 waitForInit() ->
     receive 
-        {jsonAddress, MSG} -> io:format("@NERLNET_APP got here~n"),{_ArchitectureAdderess,_CommunicationMapAdderess} = MSG; % TODO GUY this is the case for main server which spread the message using http direct requests to devices
+        {jsonAddress, MSG} -> {_ArchitectureAdderess,_CommunicationMapAdderess} = MSG; % TODO GUY this is the case for main server which spread the message using http direct requests to devices
         Other -> ?LOG_WARNING(?LOG_HEADER++"Got bad message: ~p,~ncontinue listening for init Json~n",[Other]), waitForInit()
         after ?PYTHON_SERVER_WAITING_TIMEOUT_MS -> waitForInit()
     end.

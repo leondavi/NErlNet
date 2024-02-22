@@ -174,8 +174,8 @@ wait(cast, {loss, LossVal , TimeNIF , BatchID , SourceName}, State = #workerGene
       true ->     {next_state, NextState, State}
   end;
 
-wait(cast, {predictRes,NerlTensor, Type, _TimeNIF, BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
-  gen_statem:cast(get(client_pid),{predictRes,MyName,BatchID, NerlTensor, Type , SourceName}), %% TODO TODO change csv name and batch id(1)
+wait(cast, {predictRes,PredNerlTensor, Type, TimeNIF, BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
+  gen_statem:cast(get(client_pid),{predictRes,MyName,SourceName, {PredNerlTensor, Type}, TimeNIF , BatchID}), %% TODO TODO change csv name and batch id(1)
   Update = DistributedBehaviorFunc(post_predict, {get(generic_worker_ets),DistributedWorkerData}),
   if Update -> 
     {next_state, update, State#workerGeneric_state{nextState=NextState}};
@@ -297,12 +297,13 @@ predict(cast, {sample,_CSVname, BatchID, {<<>>, _Type}}, State) ->
   {next_state, predict, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}};
 
 % send predict sample to worker
-predict(cast, {sample,CSVname, BatchID, {PredictBatchTensor, Type}}, State = #workerGeneric_state{modelID = ModelId, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
+predict(cast, {sample , SourceName , BatchID , {PredictBatchTensor, Type}}, State = #workerGeneric_state{modelID = ModelId, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
     CurrPID = self(),
     DistributedBehaviorFunc(pre_predict, {get(generic_worker_ets),DistributedWorkerData}),
     WorkersStatsEts = get(worker_stats_ets),
     stats:increment_by_value(WorkersStatsEts , batches_received_predict , 1),
-    _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId , PredictBatchTensor , Type , CurrPID , CSVname, BatchID) end),
+    io:format("Pred Tensor: ~p~n",[nerlNIF:nerltensor_conversion({PredictBatchTensor , Type} , nerlNIF:erl_type_conversion(Type))]),
+    _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId , {PredictBatchTensor, Type} , CurrPID , BatchID, SourceName) end),
     {next_state, wait, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}};
   
 predict(cast, {idle}, State = #workerGeneric_state{myName = MyName}) ->
