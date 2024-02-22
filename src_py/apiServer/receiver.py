@@ -105,14 +105,14 @@ class trainRes(Resource):
         # TODO GUY - Add all attributes of nerl_db (batch_id etc.)
         resData = request.get_data().decode('utf-8')
         print(f"Got {resData} from MainServer")  # Todo remove print
-        source_name, tensor_data, duration, batch_id, worker_name = decode_main_server_str_train(resData) 
+        source_name, tensor_data, duration, batch_id, worker_name = decode_main_server_str_phase(resData) 
         print(f"Received training result {resData}") # Todo remove print
         current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase() 
         model_db = current_experiment_phase.get_nerl_model_db()
         client_name = globe.components.get_client_name_by_worker_name(worker_name)
         model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, tensor_data, duration)
         print(f"Created batch {batch_id} from worker {worker_name} with source {source_name} and duration {duration}") # Todo remove print
-        
+
         
         
 #http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++BatchID++"#"++CSVName++"#"++BatchSize)
@@ -122,7 +122,7 @@ class predictRes(Resource):
         # Receiving from Erlang: Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize)
         resData = request.get_data().decode('utf-8')
         print(f"Got {resData} from MainServer")   # Todo remove print
-        source_name, tensor_data, duration, batch_id, worker_name = decode_main_server_str_train(resData) 
+        source_name, tensor_data, duration, batch_id, worker_name = decode_main_server_str_phase(resData) 
         print(f"Received prediction result {resData}") # Todo remove print
         current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase()
         model_db = current_experiment_phase.get_nerl_model_db()
