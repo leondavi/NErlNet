@@ -114,6 +114,7 @@ class trainRes(Resource):
         print(f"Created batch {batch_id} from worker {worker_name} with source {source_name} and duration {duration}") # Todo remove print
         
         
+        
 #http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++BatchID++"#"++CSVName++"#"++BatchSize)
 class predictRes(Resource):
     def post(self):

@@ -234,13 +234,19 @@ PREDICTION_STR = "Prediction"
         events_sync_inst.sync_on_event(EventSync.UPDATE_PHASE)
 
         events_sync_inst.set_event_wait(EventSync.START_CASTING)
-        self.transmitter.start_casting(current_exp_phase)
+        self.transmitter.start_casting(current_exp_phase) # Source start sending data to workers
         events_sync_inst.sync_on_event(EventSync.START_CASTING)
 
         events_sync_inst.reset() # preparing for next phase 
         LOG_INFO(f"Phase of {current_exp_phase.get_name()} {current_exp_phase.get_phase_type()} completed")
 
-        
+    def next_experiment_phase(self):
+        current_exp_flow = globe.experiment_focused_on
+        current_exp_flow.current_exp_phase_index += 1
+        if current_exp_flow.current_exp_phase_index >= len(current_exp_flow.exp_phase_list) - 1:
+            return False
+        return True
+    
     def sendDataToSources(self, phase, splitMode = 1):   #deprecated
         if not globe.CSVsplit: # what is this? TODO ask haran
             globe.CSVsplit = splitMode 
