@@ -86,7 +86,7 @@ class CsvDataSet():
         source_piece_file_path = f'{self.output_dir}/{source_piece_ds_inst.get_source_name()}_data.csv'
         if phase == PHASE_TRAINING_STR:  
             df.to_csv(source_piece_file_path, index = False)
-        if phase == PHASE_PREDICTION_STR:
+        elif phase == PHASE_PREDICTION_STR:
             df_features.to_csv(source_piece_file_path, index = False)
         return source_piece_file_path
     
