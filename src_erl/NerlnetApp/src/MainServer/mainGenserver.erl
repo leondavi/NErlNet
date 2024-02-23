@@ -335,8 +335,8 @@ handle_cast({predictRes,Body}, State) ->
         (NerlTensor==<<>>) -> ?LOG_ERROR(?LOG_HEADER++"Got empty tensor"), empty_nerltensor_err;
         true ->  nerlNIF:nerltensor_conversion({NerlTensor, Type}, nerlNIF:erl_type_conversion(Type)) % converting nerltensor from binary to erlang type using NerlNIF
       end,
-      io:format("Decoded NerlTensor: ~p~n",[DecodedNerlTensor]),
-      ToSend = atom_to_list(WorkerName) ++ ?PHASE_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ ?PHASE_RES_VALUES_SEPERATOR ++ DecodedNerlTensor ++ ?PHASE_RES_VALUES_SEPERATOR ++ float_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID),
+      ToSend = WorkerName ++ ?PHASE_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ ?PHASE_RES_VALUES_SEPERATOR ++ nerl_tools:string_format("~p",[DecodedNerlTensor]) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID),
+      %% io:format("ToSend: ~p~n",[ToSend]),
       nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(predRes), ToSend),
       stats:increment_messages_sent(StatsEts)
   catch Err:E ->  
