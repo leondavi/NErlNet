@@ -63,7 +63,6 @@ call_to_train(ModelID, {DataTensor, Type}, WorkerPid , BatchID , SourceName)->
       end.
 
 call_to_predict(ModelID, {BatchTensor, Type}, WorkerPid, BatchID , SourceName)->
-      % io:format("satrting pred_nif~n"),
       ok = predict_nif(ModelID, BatchTensor, Type),
       receive
             

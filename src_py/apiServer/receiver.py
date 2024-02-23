@@ -121,14 +121,14 @@ class predictRes(Resource):
         # Result preprocessing:
         # Receiving from Erlang: Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize)
         resData = request.get_data().decode('utf-8')
-        print(f"Got {resData} from MainServer")   # Todo remove print
-        source_name, tensor_data, duration, batch_id, worker_name = decode_main_server_str_phase(resData) 
+        # print(f"Got {resData} from MainServer")   # Todo remove print
+        # source_name, tensor_data, duration, batch_id, worker_name = decode_main_server_str_phase(resData) 
         print(f"Received prediction result {resData}") # Todo remove print
         current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase()
-        model_db = current_experiment_phase.get_nerl_model_db()
-        client_name = globe.components.get_map_worker_to_client()
-        model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, tensor_data, duration)
-        print(f"Created batch {batch_id} from worker {worker_name} with source {source_name} and duration {duration}") # Todo remove print
+        # model_db = current_experiment_phase.get_nerl_model_db()
+        # client_name = globe.components.get_map_worker_to_client()
+        # model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, tensor_data, duration)
+        # print(f"Created batch {batch_id} from worker {worker_name} with source {source_name} and duration {duration}") # Todo remove print
         # This prints every batch - Consider what to do with this part!
         # if globe.jupyterFlag == False:
         #     print(resData)

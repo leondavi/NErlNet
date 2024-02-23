@@ -302,7 +302,7 @@ predict(cast, {sample , SourceName , BatchID , {PredictBatchTensor, Type}}, Stat
     DistributedBehaviorFunc(pre_predict, {get(generic_worker_ets),DistributedWorkerData}),
     WorkersStatsEts = get(worker_stats_ets),
     stats:increment_by_value(WorkersStatsEts , batches_received_predict , 1),
-    io:format("Pred Tensor: ~p~n",[nerlNIF:nerltensor_conversion({PredictBatchTensor , Type} , nerlNIF:erl_type_conversion(Type))]),
+    %% io:format("Pred Tensor: ~p~n",[nerlNIF:nerltensor_conversion({PredictBatchTensor , Type} , nerlNIF:erl_type_conversion(Type))]),
     _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId , {PredictBatchTensor, Type} , CurrPID , BatchID, SourceName) end),
     {next_state, wait, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}};
   
