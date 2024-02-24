@@ -229,6 +229,7 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName, so
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
   SourceName = binary_to_term(Body),
+  io:format("Sources Casting List: ~p~n",[SourcesCastingList]),
   UpdatedSourcesCastingList = SourcesCastingList--[SourceName],
   case UpdatedSourcesCastingList of
     [] -> % the list is empty - all sources were done casting their batches
@@ -265,15 +266,16 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList =
 handle_cast({startCasting,SourcesNames}, State = #main_genserver_state{state = idle, sourcesCastingList=CastingList, sourcesWaitingList = [], clientsWaitingList = []}) ->
   put(curr_phase_ack , start_casting_done),
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
-  io:format("@MainServer startCasting Body ~p~n",[SourcesNames]),
+  io:format("@MainServer startCasting Body ~p~n",[binary_to_list(SourcesNames)]),
   stats:increment_messages_received(StatsEts),
-  Splitted = re:split(binary_to_list(SourcesNames), ",", [{return, list}]), % SourceNames holds also num of samples to send at the end of it!
-  NumOfSampleToSend = lists:last(Splitted),
-  Sources = lists:sublist(Splitted,length(Splitted)-1),
-  SourcesAtoms = [list_to_atom(Source_Name) || Source_Name <- Sources],
+  SourcesList = re:split(binary_to_list(SourcesNames), "," , [{return, list}]), 
+  %% NumOfSampleToSend = lists:last(Splitted),
+  %% Sources = lists:sublist(Splitted,length(Splitted)-1),
+  SourcesAtoms = [list_to_atom(Source_Name) || Source_Name <- SourcesList],
+  io:format("Sources: ~p~n",[SourcesList]),
   
-  sources_start_casting(Sources,NumOfSampleToSend), % each source gets a unicast message of start casting action
-  stats:increment_messages_sent(StatsEts, length(Sources)),
+  sources_start_casting(SourcesList), % each source gets a unicast message of start casting action
+  stats:increment_messages_sent(StatsEts, length(SourcesList)),
   {noreply, State#main_genserver_state{ state = casting, sourcesCastingList = CastingList++SourcesAtoms}};
 
 
@@ -420,14 +422,13 @@ set_entity_stats_ets_str(EntityName , StatsEncStr) ->
   ets:insert(MainServerEtsStats, {EntityName, StatsEncStr}).
 
 
-sources_start_casting([],_NumOfSampleToSend)->done;
-sources_start_casting([SourceName|SourceNames],NumOfSamplesToSend) ->
-  ?LOG_NOTICE("Sending start casting command to: ~p",[SourceName]),
+sources_start_casting([])->done;
+sources_start_casting([CurrSource|RemainingSources]) ->
+  ?LOG_NOTICE("Sending start casting command to: ~p",[CurrSource]),
   ActionStr = atom_to_list(startCasting),
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
-  MessageBody = SourceName ++ "," ++ NumOfSamplesToSend,
-  nerl_tools:http_router_request(RouterHost, RouterPort, [SourceName], ActionStr, MessageBody),
-  sources_start_casting(SourceNames, NumOfSamplesToSend).
+  nerl_tools:http_router_request(RouterHost, RouterPort, [CurrSource], ActionStr, []),
+  sources_start_casting(RemainingSources).
 
 
 ack(MsgStr) ->
