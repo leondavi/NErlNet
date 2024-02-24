@@ -132,9 +132,8 @@ idle(cast, {batchList,WorkersList,NumOfBatches, CSVData}, State) ->
 
 
 %% This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
-idle(cast, {startCasting,Body}, State = #source_statem_state{batchesList = BatchesList}) ->
+idle(cast, {startCasting,_Body}, State = #source_statem_state{batchesList = BatchesList}) ->
   EtsRef = get(source_ets),
-  _SourceName = Body,
   StatsEtsRef = get(source_stats_ets),
   stats:increment_messages_received(StatsEtsRef),
 
