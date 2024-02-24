@@ -315,13 +315,13 @@ predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef})
   end,
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
 
-predict(cast, In = {predictRes,WorkerName, SourceName ,{PredictNerlTensor, Type} , TimeTook , BatchID}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
+predict(cast, In = {predictRes,WorkerName, SourceName ,{PredictNerlTensor, Type} , TimeTook , BatchID , BatchTS}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
  
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  MessageBody = {atom_to_list(WorkerName), SourceName, BatchID, {PredictNerlTensor , Type} , TimeTook}, %% SHOULD INCLUDE TYPE?
+  MessageBody = {atom_to_list(WorkerName), SourceName, BatchID, {PredictNerlTensor , Type} , TimeTook , BatchTS}, %% SHOULD INCLUDE TYPE?
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(predictRes), MessageBody),
   stats:increment_messages_sent(ClientStatsEts),
   stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
