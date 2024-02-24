@@ -67,7 +67,7 @@ def decode_main_server_str_train(string_to_convert: str) -> tuple:  #change to t
     tensor_dim = list(map(int, map(float, tensor_dim))) # convert arguments to int
     tensor_data = np.float32(tensor_to_convert.split(SEP_ENTITY_COMMA_STATS)[3:])
     tensor_data = tensor_data.reshape(tensor_dim)
-    duration = source_and_stats[2]
+    duration = int(float(source_and_stats[2])) # micro seconds
     batch_id = source_and_stats[3]
     batch_timestamp = source_and_stats[4]
     return source_name, tensor_data, duration, batch_id, worker_name, batch_timestamp
@@ -86,7 +86,7 @@ def decode_main_server_str_predict(string_to_convert: str) -> tuple:
     tensor_dim = list(map(int, map(float, tensor_dim))) # convert arguments to int
     tensor_data = np.float32(tensor_to_convert.split(SEP_ENTITY_COMMA_STATS)[3:])
     tensor_data = tensor_data.reshape(tensor_dim)
-    duration = tensor_list[0]
+    duration = int(float(tensor_list[0])) 
     batch_id = tensor_list[1]
     batch_timestamp = tensor_list[2]
     return worker_name, source_name, tensor_data, duration, batch_id, batch_timestamp

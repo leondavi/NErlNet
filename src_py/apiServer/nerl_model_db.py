@@ -21,13 +21,13 @@ class WorkerModelDB():
     def create_batch(self, batch_id, source_name, tensor_data, duration, batch_timestamp):
         if batch_id in self.batches_dict:
             if not self.warn_override:
-                LOG_WARNING(f"Override batches from batch id: {batch_id} in worker {self.worker_name} in source {self.batches_dict[batch_id].get_source_name()}.")
+                LOG_WARNING(f"Override batches from batch id: {batch_id} in worker {self.worker_name} in source {source_name}.")
                 self.warn_override = True
-        self.batches_dict[batch_id] = BatchDB(batch_id, source_name, tensor_data, duration, batch_timestamp)
+        self.batches_dict[(source_name, batch_id)] = BatchDB(batch_id, source_name, tensor_data, duration, batch_timestamp)
 
-    def get_batch(self, batch_id):
+    def get_batch(self, source_name, batch_id):
         assert batch_id in self.batches_dict
-        return self.batches_dict[batch_id]
+        return self.batches_dict[(source_name, batch_id)]
 
 class ClientModelDB():
     def __init__(self):
