@@ -157,7 +157,6 @@ idle(cast, {startCasting,Body}, State = #source_statem_state{batchesList = Batch
   ?LOG_NOTICE("Batch size: ~p", [BatchSize]),
   ?LOG_NOTICE("Sample size = ~p",[SampleSize]),
   ?LOG_NOTICE("Rounds per data (epochs): ~p", [Epochs]),
-  %% ?LOG_NOTICE("Limit max # of batches by API is set to ~p ",[UserLimitNumberOfBatchesToSendInt]),
   ?LOG_NOTICE("# of batches to send is ~p ",[BatchesToSend]),
 
   TransmitterPID =  spawnTransmitter(EtsRef, WorkersList, BatchesListFinal),
