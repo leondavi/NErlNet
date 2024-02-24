@@ -1,4 +1,5 @@
 from logger import *
+import numpy as np
 
 class BatchDB():
     def __init__(self, batch_id, source_name, tensor_data, duration, batch_timestamp):
@@ -16,7 +17,7 @@ class WorkerModelDB():
     def create_batch(self, batch_id, source_name, tensor_data, duration, batch_timestamp):
         if batch_id in self.batches_dict:
             if not self.warn_override:
-                LOG_WARNING(f"Override batches from batch id: {batch_id} in worker {self.worker_name}")
+                LOG_WARNING(f"Override batches from batch id: {batch_id}")
                 self.warn_override = True
         self.batches_dict[batch_id] = BatchDB(batch_id, source_name, tensor_data, duration, batch_timestamp)
 
