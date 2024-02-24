@@ -126,7 +126,7 @@ class predictRes(Resource):
         model_db = current_experiment_phase.get_nerl_model_db()
         client_name = globe.components.get_client_name_by_worker_name(worker_name)
         model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, tensor_data, duration, batch_timestamp)
-        print(f"Created batch {batch_id} from worker {worker_name} with source {source_name} and duration {duration}") # Todo remove print
+        #print(f"Created batch {batch_id} from worker {worker_name} with source {source_name} and duration {duration}") # Todo remove print
 
 class statistics(Resource):
     def post(self) -> None:
