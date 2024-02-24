@@ -104,14 +104,14 @@ class trainRes(Resource):
         # example "w1#source_name|batch_id|loss_value|duration|batch_timestamp"
         # TODO GUY - Add all attributes of nerl_db (batch_id etc.)
         resData = request.get_data().decode('utf-8')
-        print(f"Got {resData} from MainServer")  # Todo remove print
+        #print(f"Got {resData} from MainServer")  # Todo remove print
         source_name, tensor_data, duration, batch_id, worker_name, batch_timestamp = decode_main_server_str_train(resData) 
-        print(f"Received training result {resData}") # Todo remove print
+        #print(f"Received training result {resData}") # Todo remove print
         current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase() 
         model_db = current_experiment_phase.get_nerl_model_db()
         client_name = globe.components.get_client_name_by_worker_name(worker_name)
         model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, tensor_data, duration, batch_timestamp)
-        print(f"Created batch {batch_id} from worker {worker_name} with source {source_name} and duration {duration}") # Todo remove print
+        #print(f"Created batch {batch_id} from worker {worker_name} with source {source_name} and duration {duration}") # Todo remove print
 
 #http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++BatchID++"#"++CSVName++"#"++BatchSize)
 class predictRes(Resource):
@@ -133,7 +133,8 @@ class statistics(Resource):
         resData = request.get_data().decode('utf-8')
         print("Got statistics from main server")
         entity_com_dicts = decode_main_server_ets_str(resData) # dict of dicts 
-        current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase()
+        current_experiment_flow = globe.experiment_focused_on
+        current_experiment_phase = current_experiment_flow.get_current_experiment_phase()
         current_experiment_phase.get_nerl_comm_db().update_entities_stats(entity_com_dicts)        
         globe.pendingAcks = 0
 
