@@ -27,7 +27,7 @@ class Transmitter:
         self.statisticsAddress = self.mainServerAddress + '/statistics'
         self.terminate_address = self.mainServerAddress + '/terminate'
         main_server_http_with_init_port = f'{self.mainServerAddress.split(":")[0]}:{self.mainServerAddress.split(":")[1]}:{JSON_INIT_HANDLER_ERL_PORT}'
-        self.send_jsons_address = main_server_http_with_init_port + '/sendJsons' #TODO Guy - implement on erlang side
+        self.send_jsons_address = main_server_http_with_init_port + '/sendJsons'
         
 
 
@@ -103,7 +103,7 @@ class Transmitter:
                     raise ConnectionError
 
     def start_casting(self, experiment_phase : ExperimentPhase):
-        dataStr = f"{experiment_phase.get_sources_str_list()}" # Todo Guy please support this pattern
+        dataStr = f"{experiment_phase.get_sources_str_list()}" 
         try:
             response = requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
             if not response.ok:
