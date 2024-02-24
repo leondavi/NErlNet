@@ -229,7 +229,6 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName, so
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
   SourceName = binary_to_term(Body),
-  io:format("Sources Casting List: ~p~n",[SourcesCastingList]),
   UpdatedSourcesCastingList = SourcesCastingList--[SourceName],
   case UpdatedSourcesCastingList of
     [] -> % the list is empty - all sources were done casting their batches
@@ -311,8 +310,9 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName})
       {WorkerName,{LossFunction,_Time}} -> % average time should be gathered
         nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(trainRes), atom_to_list(WorkerName)++"#"++float_to_list(LossFunction)),
         stats:increment_messages_sent(StatsEts);
-      {WorkerName , SourceName , LossValue , TimeNIF , BatchID , BatchTS} ->
-        ToSend = atom_to_list(WorkerName) ++ ?PHASE_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ ?PHASE_RES_VALUES_SEPERATOR ++ float_to_list(LossValue) ++ ?PHASE_RES_VALUES_SEPERATOR ++ float_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchTS),
+      {WorkerName , SourceName , {LossTensor , _Type} , TimeNIF , BatchID , BatchTS} ->
+        ToSend = atom_to_list(WorkerName) ++ ?PHASE_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ ?PHASE_RES_VALUES_SEPERATOR ++ nerl_tools:string_format("~p",[LossTensor]) ++ ?PHASE_RES_VALUES_SEPERATOR ++ float_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchTS),
+        io:format("ToSend: ~p~n",[ToSend]),
         nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(trainRes), ToSend),
         stats:increment_messages_sent(StatsEts);
       _ELSE ->

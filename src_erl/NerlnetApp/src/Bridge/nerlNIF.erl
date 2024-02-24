@@ -56,7 +56,8 @@ call_to_train(ModelID, {DataTensor, Type}, WorkerPid , BatchID , SourceName)->
             {nerlnif , LossValue , TrainTime}->
                   % io:format("Ret= ~p~n ",[Ret]),
                   %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
-                  gen_statem:cast(WorkerPid,{loss, LossValue , TrainTime , BatchID , SourceName}) % TODO @Haran - please check what worker does with this Ret value 
+                  LossTensor = nerltensor_encode(1.0,1.0,1.0,[LossValue], erl_float), %% ALWAYS {[1.0,1.0,1.0,LOSS_VALUE] , <TYPE>}
+                  gen_statem:cast(WorkerPid,{loss, LossTensor , TrainTime , BatchID , SourceName}) % TODO @Haran - please check what worker does with this Ret value 
             after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
                   ?LOG_ERROR("Worker train timeout reached! setting loss = -1~n "),
                   gen_statem:cast(WorkerPid,{loss, timeout , SourceName}) %% Define train timeout state 
