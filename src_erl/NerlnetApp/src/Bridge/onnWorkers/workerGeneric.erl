@@ -168,7 +168,8 @@ wait(cast, {loss , nan , TimeNIF , BatchID , SourceName}, State = #workerGeneric
   {next_state, NextState, State};
 
 wait(cast, {loss, LossVal , TimeNIF , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
-  gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,LossVal , TimeNIF , BatchID}), %% TODO Add Time and Time_NIF to the cast
+  BatchTimeStamp = erlang:system_time(nanosecond),
+  gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,LossVal , TimeNIF , BatchID , BatchTimeStamp}), %% TODO Add Time and Time_NIF to the cast
   ToUpdate = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),DistributedWorkerData}),
   if  ToUpdate -> {next_state, update, State#workerGeneric_state{nextState=NextState}};
       true ->     {next_state, NextState, State}
