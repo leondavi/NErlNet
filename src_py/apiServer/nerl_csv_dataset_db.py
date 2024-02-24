@@ -81,6 +81,7 @@ class CsvDataSet():
         skip_rows = source_piece_ds_inst.get_starting_offset()
         number_of_samples = source_piece_ds_inst.get_num_of_batches() * source_piece_ds_inst.get_batch_size()
         df = pd.read_csv(self.csv_path, skiprows = skip_rows, nrows = number_of_samples, header = None)
+        df = df.rename(columns=df.iloc[0]).drop(df.index[0]) # set the first row as the header, to prevent sending of the header row 
         df_features = df.iloc[:, :int(self.get_num_of_features())]  # from 0 column to num_of_features column (bun not including num_of_features column)  
         #print(f'df_features: {df_features}')
         df_labels = df.iloc[:, int(self.get_num_of_features()):] # from num_of_features column to the end of the dataframe
