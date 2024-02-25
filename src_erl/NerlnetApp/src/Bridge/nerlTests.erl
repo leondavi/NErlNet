@@ -2,6 +2,7 @@
 -author("David Leon").
 -include("nerlTensor.hrl").
 -include("neural_networks_testing_models.hrl").
+-include("layers_types_ag.hrl").
 
 -compile(nerlNIF).
 -export([run_tests/0]).
@@ -76,9 +77,10 @@ run_tests()->
       SumNerlTensorsListDoubleName = "sum_nerltensors_lists double",
       test_envelope_nif_performance(SumNerlTensorsListDoubleFunc, SumNerlTensorsListDoubleName, ?NERLTESNORS_SUM_LIST_ROUNDS ),
 
-      NerlworkerTestFunc = fun() ->  Performance = 0, nerlworker_test(?NEURAL_NETWORK_TESTING_MODELS_LIST, Performance) end,
+      NeuralNetworkTestingModelList = ?NEURAL_NETWORK_TESTING_MODELS_LIST,
+      NerlworkerTestFunc = fun(_Rounds) ->  Performance = 0, nerlworker_test(NeuralNetworkTestingModelList, Performance) end, 
       NerlworkerTestName = "nerlworker_test",
-      test_envelope_nif_performance(NerlworkerTestFunc, NerlworkerTestName, ?NERLWORKER_TEST_ROUNDS ),
+      test_envelope_nif_performance(NerlworkerTestFunc, NerlworkerTestName, length(NeuralNetworkTestingModelList) ),
 
       nerltest_print("Tests Completed"),
       ok.
@@ -94,12 +96,12 @@ generate_nerltensor_rand_dims(Type)->
       DimZ = 1,
       generate_nerltensor(Type,DimX,DimY,DimZ).
 
-generate_nerltensor(Type,DimX,DimY,DimZ) -> 
+generate_nerltensor(BinType,DimX,DimY,DimZ) -> 
       DataLength = DimX * DimY * DimZ,
       if  
-            (Type == int32) or (Type == int16) -> Data = [rand:uniform(255) || _ <- lists:seq(1, DataLength)],
+            (BinType == int32) or (BinType == int16) -> Data = [rand:uniform(255) || _ <- lists:seq(1, DataLength)],
                         [DimX,DimY,DimZ] ++ Data;
-            (Type == double) or (Type == float) -> DimXf = float(DimX),
+            (BinType == double) or (BinType == float) -> DimXf = float(DimX),
                         DimYf = float(DimY),
                         DimZf = float(DimZ),
                         Data = [rand:uniform() * 10 || _ <- lists:seq(1, DataLength)],
@@ -230,30 +232,52 @@ nerltensor_conversion_test(Rounds) ->
 nerlworker_test_generate_data(LayersSizes, LayerTypes, NumOfSamples) ->
       % extract first and last sizes
       % use module re to extract complex layer sizes
-      FirstLayerSize = hd(re:split(LayersSizes, ",")),
+      [FirstLayerSize | LayerSizesList] = re:split(LayersSizes,",",[{return,list}]),
+      [LastLayerSize|_] =  lists:reverse(LayerSizesList), 
+      [FirstLayerType| _] = re:split(LayerTypes,",",[{return,list}]),
+      nerltest_print(nerl:string_format("FirstLayerType : ~p",[FirstLayerType])),
+      nerltest_print(nerl:string_format("LastLayerSize : ~p",[LastLayerSize])),
+      nerltest_print(nerl:string_format("ResFirstLayerTypeult : ~p",[FirstLayerType])),
       {DimX, DimY, DimZ} =
-      if
-            is_integer(FirstLayerSize) -> simple, {string:to_integer(FirstLayerSize), NumOfSamples, 1};
-            true -> complex, {1,1,1} %TODO check if DIMX = DIMX*DIMY*CHANNELS, SAMPLES, 1
-      end,
-      ErlDataTensor = generate_nerltensor(erl_float, DimX, DimY, DimZ),
-      {DataTensorEncoded, Type} = nerlNIF:encode_nif(ErlDataTensor, float), %TODO
-      ok.
+            case FirstLayerType of
+                  ?LAYERS_TYPE_DEFAULT_IDX  -> {FirstLayerSizeInt,_} = string:to_integer(FirstLayerSize),
+                                               {LastLayerSizeInt,_} = string:to_integer(LastLayerSize), 
+                                               {NumOfSamples,LastLayerSizeInt+FirstLayerSizeInt, 1};
+                  ?LAYERS_TYPE_SCALING_IDX -> {FirstLayerSizeInt,_} = string:to_integer(FirstLayerSize),
+                                              {LastLayerSizeInt,_} = string:to_integer(LastLayerSize), 
+                                              {NumOfSamples,LastLayerSizeInt+FirstLayerSizeInt, 1};
+                  ?LAYERS_TYPE_CNN_IDX -> {1, 1, 1};
+                  ?LAYERS_TYPE_PERCEPTRON_IDX ->{FirstLayerSizeInt,_} = string:to_integer(FirstLayerSize),
+                                                {LastLayerSizeInt,_} = string:to_integer(LastLayerSize), 
+                                                {NumOfSamples,LastLayerSizeInt+FirstLayerSizeInt, 1};
+                  ?LAYERS_TYPE_POOLING_IDX ->   {FirstLayerSizeInt,_} = string:to_integer(FirstLayerSize),
+                                                {LastLayerSizeInt,_} = string:to_integer(LastLayerSize), 
+                                                {NumOfSamples,LastLayerSizeInt+FirstLayerSizeInt, 1};
+                  ?LAYERS_TYPE_PROBABILISTIC_IDX -> {FirstLayerSizeInt,_} = string:to_integer(FirstLayerSize),
+                                                    {LastLayerSizeInt,_} = string:to_integer(LastLayerSize), 
+                                                    {NumOfSamples,LastLayerSizeInt+FirstLayerSizeInt, 1};
+                  ?LAYERS_TYPE_LSTM_IDX       -> {1, 1, 1};
+                  ?LAYERS_TYPE_RECCURRENT_IDX -> {1, 1, 1};
+                  ?LAYERS_TYPE_UNSCALING_IDX  -> {FirstLayerSizeInt,_} = string:to_integer(FirstLayerSize),
+                                                 {LastLayerSizeInt,_} = string:to_integer(LastLayerSize), 
+                                                 {NumOfSamples,LastLayerSizeInt+FirstLayerSizeInt, 1}
+            end,
+      ErlDataTensor = generate_nerltensor(float, DimX, DimY, DimZ),
+      nerlNIF:nerltensor_conversion({ErlDataTensor,erl_float},float).  %TODO
 
 nerlworker_test([], _Performance) -> _Performance;
-nerlworker_test([CurrentModel | Tail], Performance) ->
-     { ModelId,ModelType,LayersSizes, LayersTypes, LayersFunctionalityCodes,
-       LearningRate, Epochs, OptimizerType, OptimizerArgs,
-       LossMethod, DistributedSystemType, DistributedSystemArg} = CurrentModel,
-
-      nerlNIF:test_nerlworker_nif(ModelId,ModelType,LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
-      
-      {DataTensorEncoded, Type} = nerlworker_test_generate_data(),
-
-      nerlNIF:train_nif(ModelID,DataTensor,Type), % ask Guy about receiver block
-      
-      % block receive to get loss values from worker
-
+nerlworker_test([CurrentModel | Tail], Performance) -> 
+     {ModelId,ModelType,LayersSizes, LayersTypes, LayersFunctionalityCodes,
+      LearningRate, Epochs, OptimizerType, OptimizerArgs,
+      LossMethod, DistributedSystemType, DistributedSystemArg} = CurrentModel,
+      nerlNIF:test_nerlworker_nif(ModelId,ModelType,LayersSizes, LayersTypes, 
+      LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, 
+      OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
+      NumOfSamples = 3,
+      {DataTensorEncoded, Type} = nerlworker_test_generate_data(LayersSizes, LayersTypes, NumOfSamples),
+      nerltest_print(nerl:string_format("ModelId : ~p DataTensorEncoded: ~p Type: ~p  ",[ModelId,DataTensorEncoded,Type])),
+      nerlNIF:train_nif(ModelId,DataTensorEncoded,Type), % ask Guy about receiver block
+      %block receive to get loss values from worker
       nerlNIF:remove_nerlworker_nif(ModelId),
       nerlworker_test(Tail, Performance).
 

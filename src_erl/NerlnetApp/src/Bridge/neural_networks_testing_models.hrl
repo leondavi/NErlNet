@@ -1,6 +1,6 @@
 
 
--define(PERCEPTRON_TESTING_NN,{_ModelId  = erlang:unique_integer([positive]),
+-define(PERCEPTRON_TESTING_NN,{ _ModelId  = erlang:unique_integer([positive]),
                                 _ModelType = "0",
                                 _LayersSizes = "5,10,5,3",
                                 _LayersTypes = "1,3,3,3",
