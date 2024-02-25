@@ -144,6 +144,11 @@ namespace nerlnet
 
     void NerlWorkerOpenNN::set_dataset(std::shared_ptr<opennn::DataSet> data_set){
         _data_set = data_set;
+
+        /*
+         input_variables_dimensions.resize(3);
+         input_variables_dimensions.setValues({channels, paddingWidth, height});
+        */
         /// find the type of input layer (first layer) and neural network 
         // if needed take the data set and change it (in cnn change,in ae duplicate)
         // in cnn , see the inputs of the user. if the user gave 3 dimensions so the data set will have 3 dimensions
@@ -160,11 +165,7 @@ namespace nerlnet
          }
        */   
     }
-/*
-                    Tensor<Index, 1> samples_indices = _data_set->get_training_samples_indices();
-                    Index samples_number = samples_indices.size();
-                    Tensor<Index, 1> input_variables_dimensions = _data_set->get_input_variables_dimensions();
-*/
+
     void NerlWorkerOpenNN::generate_custom_model_nn(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
     {        
         shared_ptr<NerlLayer> curr_layer = _nerl_layers_linked_list;
