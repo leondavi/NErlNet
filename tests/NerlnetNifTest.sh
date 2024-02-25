@@ -11,7 +11,6 @@ LOG_FILE="nerlnet_test-$NOW.log"
 TEST_LOG_PATH="/usr/local/lib/nerlnet-lib/log"
 TEST_LOG_FILE_PATH="$TEST_LOG_PATH/$LOG_FILE"
 ERL_BRIDGE_SOURCE_PATH="$NERLNET_PATH/src_erl/NerlnetApp/src/Bridge"
-
 NERLNET_BUILD_DIR="$NERLNET_PATH/build"
 NERLNET_TEST_DIR="$NERLNET_BUILD_DIR/test"
 
@@ -36,6 +35,7 @@ cp $ERL_BRIDGE_SOURCE_PATH/nerl.erl $NERLNET_TEST_DIR/nerl.erl
 cp $ERL_BRIDGE_SOURCE_PATH/nerlTensor.hrl $NERLNET_TEST_DIR/nerlTensor.hrl
 cp $ERL_BRIDGE_SOURCE_PATH/nerlTensor.erl $NERLNET_TEST_DIR/nerlTensor.erl
 cp $ERL_BRIDGE_SOURCE_PATH/neural_networks_testing_models.hrl $NERLNET_TEST_DIR/neural_networks_testing_models.hrl
+cp $ERL_BRIDGE_SOURCE_PATH/layers_types_ag.hrl $NERLNET_TEST_DIR/layers_types_ag.hrl
 
 print "Starting compilation: "
 # only for raspberry

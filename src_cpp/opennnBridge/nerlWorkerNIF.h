@@ -14,7 +14,7 @@ static std::shared_ptr<NerlWorkerOpenNN> create_nerlworker(std::string &model_ty
  std::string &distributed_system_type_str, std::string &layer_sizes_str, std:: string &layer_types_str,
  std::string &layers_functionality_str, std::string &optimizer_args_str, std::string &distributed_system_args_str) //all should be const reference
 {
- std::shared_ptr<NerlWorkerOpenNN> new_worker = parse_model_params<NerlWorkerOpenNN>(model_type_str,learning_rate_str,epochs_str,optimizer_type_str,loss_method_str,distributed_system_type_str,layer_sizes_str,
+    std::shared_ptr<NerlWorkerOpenNN> new_worker = parse_model_params<NerlWorkerOpenNN>(model_type_str,learning_rate_str,epochs_str,optimizer_type_str,loss_method_str,distributed_system_type_str,layer_sizes_str,
     layer_types_str,layers_functionality_str,optimizer_args_str,distributed_system_args_str);
     return new_worker;
 }
@@ -77,7 +77,6 @@ static ERL_NIF_TERM test_nerlworker_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     std::string loss_method_str;
     std::string distributed_system_type_str;
     std::string distributed_system_args_str;
-
 /*  std::vector<int> stam = {1,2,3,4,5};
     std::shared_ptr<intTensor1D> stam_tensor_int;
     std::shared_ptr<iTensor1D> stam_tensor_index;
