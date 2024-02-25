@@ -7,15 +7,14 @@ import globalVars as globe
 import sys
 import os
 from definitions import *
-from experiment import * #deprecated
 from logger import *
 from experiment_flow import *
 
 class Transmitter:
 
-    def __init__(self, experiment : Experiment, mainServerAddress, input_data_path : str):
+    def __init__(self, experiment_flow : ExperimentFlow, mainServerAddress, input_data_path : str):
         # Addresses used throughout the module:
-        self.experiment = experiment
+        self.experiment_flow = experiment_flow
         self.input_data_path = input_data_path
         self.mainServerAddress = mainServerAddress
         self.sourceInitAddr = self.mainServerAddress + '/sourceInit'
