@@ -13,6 +13,7 @@ from nerl_csv_dataset_db import *
 from events_sync import *
 from networkComponents import *
 import os
+from stats import * 
 
 # Todo check imports and remove unused ones
 
@@ -96,9 +97,12 @@ class ExperimentFlow():
     def get_csv_dataset(self):
         return self.csv_dataset
 
-    def generate_stats(self, experiment_phase: ExperimentPhase):
+    def generate_stats(self, experiment_phase: ExperimentPhase) -> Stats:
         pass
     # Todo implement this function : accuracy, confusion matrix, loss, etc.
+
+    def merge_stats(self, stats_list: list) -> Stats:
+        pass
 
     def parse_experiment_flow_json(self, json_path : str):
         # read json file from nerlPlanner output
