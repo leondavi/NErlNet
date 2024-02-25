@@ -118,7 +118,6 @@ class Transmitter:
     def restart(self):
         requests.post(self.restart_address, data='restart')
 
-
     def statistics(self, event_sync_inst : EventSync):
         LOG_INFO("Statistics requested from Main Server")
         event_sync_inst.set_event_wait(event_sync_inst.COMMUNICATION_STATS)
@@ -134,4 +133,6 @@ class Transmitter:
             raise ConnectionError
         event_sync_inst.sync_on_event(event_sync_inst.COMMUNICATION_STATS)
         LOG_INFO("Statistics received from Main Server")
-    
+
+    def terminate_receiver(self, reciver_address : str, api_server_event_sync_inst : EventSync):
+        requests.post(self.mainServerAddress + '/terminate', data='terminate') # Todo change to Api server address
