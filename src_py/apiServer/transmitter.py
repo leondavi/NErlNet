@@ -25,7 +25,7 @@ class Transmitter:
         self.startCastingAddress = self.mainServerAddress + '/startCasting'
         self.clientsPredictAddress = self.mainServerAddress + '/clientsPredict' #deprecated
         self.statisticsAddress = self.mainServerAddress + '/statistics'
-        self.terminate_address = self.mainServerAddress + '/terminate'
+        self.restart_address = self.mainServerAddress + '/restart'
         main_server_http_with_init_port = f'{self.mainServerAddress.split(":")[0]}:{self.mainServerAddress.split(":")[1]}:{JSON_INIT_HANDLER_ERL_PORT}'
         self.send_jsons_address = main_server_http_with_init_port + '/sendJsons'
         
@@ -115,55 +115,23 @@ class Transmitter:
             LOG_ERROR(f"Connection Error: failed to connect to {self.startCastingAddress}")
             raise ConnectionError
 
-    def terminate(self):
-        requests.post(self.terminate_address, data='terminate')
-
-    def startCasting(self, phase): #TODO Ohad and Noa deprecated
-        # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
-        if (phase==globe.TRAINING_STR):
-            batchesPerSource = globe.experiment_focused_on.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.TRAINING_STR]
-        elif (phase==globe.PREDICTION_STR):
-            batchesPerSource = globe.experiment_focused_on.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.PREDICTION_STR]
-        else:
-            batchesPerSource = sys.maxsize
-
-        # TODO - sources don't always start with 's'
-        dataStr = f"{globe.components.toString('s')},{batchesPerSource}" # Todo check with Guy
-
-        globe.set_receiver_wait_for_ack()
-        globe.ack_debug_print()
-        requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
-        globe.ack_debug_print()
+    def restart(self):
+        requests.post(self.restart_address, data='restart')
 
 
-    def train(self):
-        self.experiment.syncTrainingWithFlow()
-        self.clientsTraining() # set receiver wait for ack
-        globe.ack_debug_print()
-        globe.waitForAck()
-        globe.ack_debug_print()
-        self.startCasting(globe.TRAINING_STR) # set receiver wait for ack
-        globe.ack_debug_print()
-        globe.waitForAck()
-        globe.ack_debug_print()
-        return self.experiment.name
-
-    def predict(self):
-        LOG_INFO("Predict phase starts")
-        globe.ack_debug_print()
-        self.experiment.syncPredicitionWithFlow()
-        self.clientsPredict() # set receiver wait for ack
-        globe.ack_debug_print()
-        globe.waitForAck()
-        globe.ack_debug_print()
-        self.startCasting(globe.PREDICTION_STR)
-        globe.ack_debug_print()
-        globe.waitForAck()
-        globe.ack_debug_print()
-        return self.experiment.name
-
-    def statistics(self):
-        requests.post(self.statisticsAddress, data='getStatistics') # ! Continue from here
-        globe.pendingAcks = 1
-        globe.waitForAck()
+    def statistics(self, event_sync_inst : EventSync):
+        LOG_INFO("Statistics requested from Main Server")
+        event_sync_inst.set_event_wait(event_sync_inst.COMMUNICATION_STATS)
+        try:
+            response = requests.post(self.statisticsAddress, data='getStatistics') 
+            if not response.ok:
+                LOG_ERROR(f"Failed to get statistics from Main Server")
+        except ConnectionRefusedError:
+            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.statisticsAddress}")
+            raise ConnectionRefusedError
+        except ConnectionError:
+            LOG_ERROR(f"Connection Error: failed to connect to {self.statisticsAddress}")
+            raise ConnectionError
+        event_sync_inst.sync_on_event(event_sync_inst.COMMUNICATION_STATS)
+        LOG_INFO("Statistics received from Main Server")
     

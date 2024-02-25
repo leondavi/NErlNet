@@ -4,11 +4,13 @@ from logger import *
 class EventSync():
     # api server events 
     SEND_JSONS = 0
-    TERMINATE = 4
+    RESTART = 4
     # experiment flow events
     UPDATE_CSV = 1
     UPDATE_PHASE = 2
     START_CASTING = 3
+    # communication stats
+    COMMUNICATION_STATS = 6
     # error events
     MAIN_SERVER_ERROR = 5
 
@@ -67,8 +69,10 @@ class EventSync():
             "update_csv_done" : self.UPDATE_CSV,
             "update_phase_done" : self.UPDATE_PHASE,
             "start_casting_done" : self.START_CASTING,
-            "terminate_done" : self.TERMINATE,
-            "main_server_error" : self.MAIN_SERVER_ERROR
+            "restart_done" : self.RESTART,  # Todo Guy please implement it
+            "communication_stats_done" : self.COMMUNICATION_STATS,
+            "main_server_error" : self.MAIN_SERVER_ERROR,
+
         }
         return done_actions_dict
 
@@ -78,8 +82,10 @@ class EventSync():
             self.UPDATE_CSV: self.INIT,
             self.UPDATE_PHASE: self.INIT,
             self.START_CASTING: self.INIT,
-            self.TERMINATE: self.INIT,
-            self.MAIN_SERVER_ERROR: self.WAIT  # ERROR EVENTS ALWAYS START IN WAIT STATE
+            self.RESTART: self.INIT,
+            self.COMMUNICATION_STATS: self.INIT,
+            self.MAIN_SERVER_ERROR: self.WAIT # ERROR EVENTS ALWAYS START IN WAIT STATE
+           
         }
         return tracking_dict
 
