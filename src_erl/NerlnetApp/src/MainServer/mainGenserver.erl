@@ -189,6 +189,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
       Body == <<>> ->  ?LOG_ERROR("~p: Wrong statistics message",[MyName]);
 
       true ->
+          
           %% TODO - Guy here you should get the the encoded statistics from entities and decode it use it the function you should implement
           %%      statistics arrived from Entity
           {From, StatsEtsEncStr} = binary_to_term(Body),
@@ -205,7 +206,8 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
           ReceivedCounterStatsValue = ets:lookup_element(get(main_server_ets), counter_received_stats, ?DATA_IDX),
           EntitiesNamesList = ets:lookup_element(get(main_server_ets), entities_names_list, ?DATA_IDX),
           TotalNumOfEntities = length(EntitiesNamesList), % without MainServer!
-          if ReceivedCounterStatsValue == TotalNumOfEntities ->  %% got stats from all entities
+          if ReceivedCounterStatsValue == TotalNumOfEntities ->  %% got stats from all entities  
+            ets:update_element(get(main_server_ets), counter_received_stats, {?STATS_KEYVAL_VAL_IDX, 0}),
             Func = fun(Entity) ->
               EntityStatsEncStr = get_entity_stats_ets_str(Entity),
               atom_to_list(Entity) ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ EntityStatsEncStr ++ ?API_SERVER_ENTITY_SEPERATOR
@@ -215,8 +217,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
             StatsToSend = lists:flatten([Func(Entity) || Entity <- EntitiesNamesList] ++ MainServerStr), % add main server to the list
             {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
             ActionStr = atom_to_list(statistics),
-            nerl_tools:http_router_request(RouterHost,RouterPort, [?API_SERVER_ATOM], ActionStr, list_to_binary(StatsToSend)), % update the source with its data
-            ets:update_element(StatsEts, counter_received_stats, {?STATS_KEYVAL_VAL_IDX, 0});
+            nerl_tools:http_router_request(RouterHost,RouterPort, [?API_SERVER_ATOM], ActionStr, list_to_binary(StatsToSend)); % update the source with its data
             
           true -> wait_for_more_stats 
         end

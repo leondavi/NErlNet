@@ -29,13 +29,13 @@ api_server_instance.send_jsons_to_devices()
 
 next_expertiment_phase_exist = True 
 api_server_instance.run_current_experiment_phase() # blocking - deppended acks from mainserver
-#api_server_instance.communication_stats()
+api_server_instance.communication_stats()
 next_expertiment_phase_exist = api_server_instance.next_experiment_phase()
 api_server_instance.run_current_experiment_phase()
-#api_server_instance.communication_stats()
+api_server_instance.communication_stats()
 next_expertiment_phase_exist = api_server_instance.next_experiment_phase() 
 api_server_instance.run_current_experiment_phase()
-#api_server_instance.communication_stats()
+api_server_instance.communication_stats()
 next_expertiment_phase_exist = api_server_instance.next_experiment_phase()  # expected error
 
 

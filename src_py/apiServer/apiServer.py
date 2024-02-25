@@ -237,13 +237,15 @@ PREDICTION_STR = "Prediction"
         self.transmitter.start_casting(current_exp_phase) # Source start sending data to workers
         events_sync_inst.sync_on_event(EventSync.START_CASTING)
 
-        events_sync_inst.reset() # preparing for next phase 
         LOG_INFO(f"Phase of {current_exp_phase.get_name()} {current_exp_phase.get_phase_type()} completed")
 
     def next_experiment_phase(self):
         current_exp_flow = globe.experiment_focused_on
+        events_sync_inst = current_exp_flow.get_events_sync()
+        events_sync_inst.reset() # preparing for next phase 
         current_exp_flow.current_exp_phase_index += 1
-        if current_exp_flow.current_exp_phase_index >= len(current_exp_flow.exp_phase_list) - 1:
+        if not self.next_experiment_phase_is_valid():
+            LOG_WARNING("No more phases to run")
             return False
         return True
     
@@ -290,8 +292,14 @@ PREDICTION_STR = "Prediction"
             print(f"{i}) {exp.name}")
 
     def communication_stats(self):
-        self.transmitter.statistics()
+        assert self.next_experiment_phase_is_valid(), "No valid experiment phase"
+        events_sync_inst = self.current_exp.get_events_sync()
+        self.transmitter.statistics(events_sync_inst)
 
+    def next_experiment_phase_is_valid(self):
+        current_exp_flow = globe.experiment_focused_on
+        return current_exp_flow.current_exp_phase_index < len(current_exp_flow.exp_phase_list)
+    
     def export_results(self, expNum):
         expForStats = self.experiments[expNum-1]
 
