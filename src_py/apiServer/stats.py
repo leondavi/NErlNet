@@ -39,12 +39,20 @@ class Stats():
         use plot=True to plot the loss function.
         """
         assert self.phase == PHASE_TRAINING_STR, "This function is only available for training phase"
+        loss_dict = {}
         workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
         workers_names = [worker_model_db.get_worker_name() for worker_model_db in workers_model_db_list]
         num_of_workers = len(workers_model_db_list)
         total_batches_list = [worker.get_total_batches() for worker in workers_model_db_list]
         max_batches = max(total_batches_list)
         batches_indexes = list(range(max_batches))
+        
+        for worker_db in workers_model_db_list:
+            loss_dict[worker_db] = []
+            for batch_timestamp in worker_db.batches_ts_dict.values().batch_timestamp:     #Todo Noa fix this line
+                tansor_loss_data = worker_db.batches_ts_dict[batch_timestamp].get_tensor_data()
+                loss_dict[worker_db][batch_timestamp] = tansor_loss_data
+
 
         data = np.zeros(shape=(len(batches_indexes),len(workers_model_db_list)))
         df = pd.DataFrame(data, columns = workers_names)
