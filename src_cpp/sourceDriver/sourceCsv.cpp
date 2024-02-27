@@ -1,4 +1,4 @@
-#include sourceCsv.h
+#include SourceCsv.h
 namespace nerlnet
 {
     SourceCsv::SourceCsv(int type, int batch_id, int duration, std::vector<std::string> targets, int policy, int batch_size,
@@ -19,7 +19,7 @@ namespace nerlnet
     {
         //load the csv file.
     }
-    virtual int SourceCsv::GetBatch() override
+    virtual int SourceCsv::get_batch() override
     {
         return _batch_size;
     }

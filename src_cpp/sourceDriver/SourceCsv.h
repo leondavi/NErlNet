@@ -3,7 +3,7 @@
 #include <vector>
 #include "common_definitions.h"
 #include "utilities.h"
-#include "sourceDriver.h"
+#include "SourceDriver.h"
 
 namespace nerlnet
 {
@@ -15,7 +15,7 @@ namespace nerlnet
                 int total_batches, std::string csv_path, bool no_dur_limit);
         ~SourceCSV();
         void load_csv(std::string &csv_path);
-        int GetBatch() override;
+        std::shared_ptr <char> get_batch() override;
 
         private:
 
@@ -25,11 +25,6 @@ namespace nerlnet
         std::string _csv_path;
         bool _no_dur_limit;
 
-
-
-
     }
 
-
-
-} // namespace nerlnet
+};// namespace nerlnet

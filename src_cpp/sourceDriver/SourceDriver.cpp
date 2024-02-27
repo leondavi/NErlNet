@@ -1,4 +1,4 @@
-#include "sourceDriver.h"
+#include "SourceDriver.h"
 using namespace nerlnet;
 
 
@@ -19,13 +19,5 @@ namespace nerlnet
     }
        SourceDriver::~SourceDriver()
     {
-    }
-    bool SourceDriver::isready()
-    {
-        return true; //how do i determine if it's ready?
-    }
-    int SourceDriver::GetBatch()
-    {
-        return _batch_size;
     }
 }
