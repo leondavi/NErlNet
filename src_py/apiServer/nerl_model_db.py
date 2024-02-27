@@ -12,6 +12,8 @@ class BatchDB():
     def get_source_name(self):
         return self.source_name
 
+    def get_tensor_data(self):
+        return self.tensor_data
 class WorkerModelDB():
     def __init__(self, worker_name):
         self.batches_dict = {}
