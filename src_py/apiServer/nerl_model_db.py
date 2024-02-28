@@ -40,6 +40,11 @@ class WorkerModelDB():
     def get_worker_name(self):
         return self.worker_name
 
+    def get_batches_ts_tansor_data_dict(self):
+        batches_ts_tansor_data_dict = {}
+        for batch_db in self.batches_ts_dict.values():
+            batches_ts_tansor_data_dict[batch_db.batch_timestamp] = batch_db.tensor_data
+        return batches_ts_tansor_data_dict
 class ClientModelDB():
     def __init__(self):
         self.workers_model_db_dict = {}
