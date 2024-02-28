@@ -17,6 +17,7 @@ class Stats():
         self.nerl_model_db = self.experiment_phase.get_nerl_model_db()
         self.phase = self.experiment_phase.get_phase_type()
         self.name = self.experiment_phase.get_name()
+        self.loss_ts_pd = None
 
         Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_phase.get_experiment_flow_name()}').mkdir(parents=True, exist_ok=True)
         Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_phase.get_phase_type()}/{self.experiment_phase.get_experiment_flow_name()}').mkdir(parents=True, exist_ok=True)
@@ -53,14 +54,25 @@ class Stats():
             sorted_batches_ts_tansor_data_dict = dict(sorted(batches_ts_tansor_data_dict.items()))
             loss_dict[worker_name] = [sorted_batches_ts_tansor_data_dict[key] for key in sorted(sorted_batches_ts_tansor_data_dict)]
             
-        # Convert NumPy arrays to floats in each list value
+        # Convert NumPy arrays to floats
         for worker_name in loss_dict:
             loss_dict[worker_name] = [float(arr) for sublist in loss_dict[worker_name] for arr in sublist]
             loss_dict[worker_name] += [None] * (max_batches - len(loss_dict[worker_name]))
 
         df = pd.DataFrame(loss_dict)
+        self.loss_ts_pd = df
         print(df)
-        pass
+        return df
+
+    def get_mean_loss_list(self , plot : bool = False , saveToFile : bool = False): # Todo change it
+        if self.loss_ts_pd is None:
+            loss_ts_pd = self.get_loss_ts()
+        else:
+            loss_ts_pd = self.loss_ts_pd
+        mean_loss_list = loss_ts_pd.mean(numeric_only=True)
+        print(mean_loss_list)
+        return mean_loss_list
+
 
         # if plot: 
         #     plt.figure(figsize = (30,15), dpi = 150)

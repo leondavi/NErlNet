@@ -32,6 +32,7 @@ api_server_instance.run_current_experiment_phase() # blocking - deppended acks f
 api_server_instance.communication_stats()
 stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
 stats.get_loss_ts()
+stats.get_mean_loss_list()
 exit(0)
 next_expertiment_phase_exist = api_server_instance.next_experiment_phase()
 api_server_instance.run_current_experiment_phase()
