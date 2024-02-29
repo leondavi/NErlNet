@@ -64,14 +64,14 @@ class Stats():
         print(df)
         return df
 
-    def get_mean_loss_list(self , plot : bool = False , saveToFile : bool = False): # Todo change it
+    def get_min_loss_list(self , plot : bool = False , saveToFile : bool = False): # Todo change it
         if self.loss_ts_pd is None:
             loss_ts_pd = self.get_loss_ts()
         else:
             loss_ts_pd = self.loss_ts_pd
-        mean_loss_list = loss_ts_pd.mean(numeric_only=True)
-        print(mean_loss_list)
-        return mean_loss_list
+        min_loss_list = loss_ts_pd.min(numeric_only=True)
+        print(min_loss_list)
+        return min_loss_list
 
 
         # if plot: 
