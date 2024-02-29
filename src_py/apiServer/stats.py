@@ -130,9 +130,10 @@ class Stats():
         for source_piece_inst in sources_pieces_list:
             sourcePiece_csv_labels_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet_labels()
             df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
-            fitting_labels = [df_actual_labels.columns[row.idxmax()] for _, row in df_actual_labels.iterrows()]
-            print(df_actual_labels)
-            print(fitting_labels)
+            #print(df_actual_labels)
+            actual_labels_list = df_actual_labels.idxmax(axis=1).tolist()
+            #print(fitting_labels)
+            #print(len(fitting_labels))
         pass
 
     def get_confusion_matrices1(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):
