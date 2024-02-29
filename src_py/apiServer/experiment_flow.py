@@ -93,9 +93,11 @@ class ExperimentFlow():
                 source_piece_inst.update_target_workers(workers)
                 source_piece_csv_file = self.csv_dataset.generate_source_piece_ds_csv_file(source_piece_inst, phase_type)
                 source_piece_inst.set_pointer_to_sourcePiece_CsvDataSet(source_piece_csv_file)
+                source_piece_csv_labels_file = self.csv_dataset.genrate_source_piece_ds_csv_file_labels(source_piece_inst, phase_type)
+                source_piece_inst.set_pointer_to_sourcePiece_CsvDataSet_labels(source_piece_csv_labels_file)
                 source_pieces_inst_list.append(source_piece_inst)
                 
-            self.add_phase(phase_name, phase_type, source_pieces_inst_list)
+            self.add_phase(phase_name, phase_type, source_pieces_inst_list, num_of_features)
 
 
     def generate_experiment_flow_skeleton(self): 
@@ -110,8 +112,8 @@ class ExperimentFlow():
     def set_csv_dataset(self, csv_file_path : str,  num_of_features : int, num_of_labels : int, headers_row : list):
         self.csv_dataset = CsvDataSet(csv_file_path, self.temp_data_path ,self.batch_size, num_of_features, num_of_labels, headers_row)  # Todo get num of features and labels from csv file
 
-    def add_phase(self, name : str, phase_type : str, source_pieces_inst_list : list):
-        exp_phase_inst = ExperimentPhase(self.exp_name, name, phase_type, self.network_componenets)
+    def add_phase(self, name : str, phase_type : str, source_pieces_inst_list : list, num_of_features : str):
+        exp_phase_inst = ExperimentPhase(self.exp_name, name, phase_type, self.network_componenets, num_of_features)
         for source_piece_inst in source_pieces_inst_list:
             exp_phase_inst.add_source_piece(source_piece_inst)
         self.exp_phase_list.append(exp_phase_inst)

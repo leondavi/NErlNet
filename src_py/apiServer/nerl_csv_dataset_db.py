@@ -12,6 +12,7 @@ class SourcePieceDS():
         self.num_of_batches = num_of_batches
         self.target_workers = None # [worker_name1, worker_name2, ...]
         self.pointer_to_sourcePiece_CsvDataSet = None # pointer to the csv file that contains the source piece data
+        self.pointer_to_sourcePiece_CsvDataSet_labels = None # pointer to the csv file that contains the source piece labels
         self.filter_features_and_labels = [] 
 
     def get_source_name(self):
@@ -35,6 +36,12 @@ class SourcePieceDS():
     def get_filter_features_and_labels(self):
         return self.filter_features_and_labels
     
+    def get_pointer_to_sourcePiece_CsvDataSet(self):
+        return self.pointer_to_sourcePiece_CsvDataSet
+    
+    def get_pointer_to_sourcePiece_CsvDataSet_labels(self):
+        return self.pointer_to_sourcePiece_CsvDataSet_labels
+    
     def update_target_workers(self, target_workers):
         self.target_workers = target_workers
     
@@ -44,6 +51,8 @@ class SourcePieceDS():
     def set_pointer_to_sourcePiece_CsvDataSet(self, pointer_to_sourcePiece_CsvDataSet):
         self.pointer_to_sourcePiece_CsvDataSet = pointer_to_sourcePiece_CsvDataSet
     
+    def set_pointer_to_sourcePiece_CsvDataSet_labels(self, pointer_to_sourcePiece_CsvDataSet_labels):
+        self.pointer_to_sourcePiece_CsvDataSet_labels = pointer_to_sourcePiece_CsvDataSet_labels
 class CsvDataSet():
     def __init__(self, csv_path, output_dir: str, batch_size, num_of_features, num_of_labels, headers_row: bool):
         self.csv_path = csv_path
@@ -93,7 +102,15 @@ class CsvDataSet():
             df_features.to_csv(source_piece_file_path, index = False)
         return source_piece_file_path
     
-    
-        
-    
+    def genrate_source_piece_ds_csv_file_labels(self, source_piece_ds_inst: SourcePieceDS, phase: str):
+        if phase == PHASE_PREDICTION_STR:  # only for prediction phase
+            skip_rows = source_piece_ds_inst.get_starting_offset()
+            number_of_samples = source_piece_ds_inst.get_num_of_batches() * source_piece_ds_inst.get_batch_size()
+            df = pd.read_csv(self.csv_path, skiprows = skip_rows, nrows = number_of_samples, header = None)
+            df_labels = df.iloc[:, int(self.get_num_of_features()):] # from num_of_features column to the end of the dataframe
+            df_labels.columns = self.headers_row
+            source_piece_file_path_labels = f'{self.output_dir}/{source_piece_ds_inst.get_source_name()}_data_labels.csv'
+            df_labels.to_csv(source_piece_file_path_labels, index = False)
+            return source_piece_file_path_labels
+        return None
 
