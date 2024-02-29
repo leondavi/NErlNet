@@ -71,6 +71,7 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
         case LAYER_TYPE_DEFAULT:
         case LAYER_TYPE_SCALING:
         case LAYER_TYPE_UNSCALING:
+        case LAYER_TYPE_PROBABILISTIC:
         case SIMPLE_PARSING:{
             out_layer_sizes_params[i].dimx = std::stoi(layer_sizes_strs_vec[i]); 
             break;
