@@ -61,7 +61,7 @@ class Stats():
 
         df = pd.DataFrame(loss_dict)
         self.loss_ts_pd = df
-        print(df)
+        #print(df)
         return df
 
     def get_min_loss_list(self , plot : bool = False , saveToFile : bool = False): # Todo change it
@@ -70,7 +70,7 @@ class Stats():
         else:
             loss_ts_pd = self.loss_ts_pd
         min_loss_list = loss_ts_pd.min(numeric_only=True)
-        print(min_loss_list)
+        #print(min_loss_list)
         return min_loss_list
 
 
@@ -123,8 +123,19 @@ class Stats():
         if saveToFile:
             export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/min_loss.json', min_loss_dict)
         return min_loss_dict
+    
 
-    def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):
+    def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):     
+        sources_pieces_list = self.experiment_phase.get_sources_pieces()
+        for source_piece_inst in sources_pieces_list:
+            sourcePiece_csv_labels_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet_labels()
+            df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
+            fitting_labels = [df_actual_labels.columns[row.idxmax()] for _, row in df_actual_labels.iterrows()]
+            print(df_actual_labels)
+            print(fitting_labels)
+        pass
+
+    def get_confusion_matrices1(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):
         """
         Returns a dictionary of {worker : {class : confusion matrix}} for each worker in the experiment.
         use plot=True to plot the confusion matrix.

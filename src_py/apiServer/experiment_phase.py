@@ -4,7 +4,7 @@ from definitions import *
 from nerl_csv_dataset_db import *
 
 class ExperimentPhase():
-    def __init__(self, experiment_flow_name : str, name : str, phase_type: str, network_componenets: NetworkComponents):
+    def __init__(self, experiment_flow_name : str, name : str, phase_type: str, network_componenets: NetworkComponents, num_of_features: str):
         self.experiment_flow_name = experiment_flow_name
         self.name = name 
         self.phase_type = phase_type # training/prediction
@@ -12,6 +12,7 @@ class ExperimentPhase():
         self.nerl_comm_db = NerlComDB(network_componenets)  
         self.nerl_model_db = NerlModelDB(self.phase_type)
         self.source_pieces_dict = {}  # Dict of SourcePieceDS
+        self.num_of_features = num_of_features
 
     def get_phase_type(self):
         return self.phase_type
@@ -30,6 +31,9 @@ class ExperimentPhase():
 
     def get_nerl_model_db(self):
         return self.nerl_model_db
+
+    def get_num_of_features(self):
+        return self.num_of_features
     
     def add_source_piece(self, source_piece : SourcePieceDS):
         if source_piece.source_name not in self.source_pieces_dict:
