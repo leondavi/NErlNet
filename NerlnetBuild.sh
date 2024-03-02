@@ -1,6 +1,9 @@
 #!/bin/bash
 
+NERLNET_LIB_DIR="/usr/local/lib/nerlnet-lib"
+NERLNET_DIR=$NERLNET_LIB_DIR/NErlNet
 NERLNET_PREFIX="[NERLNET_SCRIPT]"
+NERLNET_BUILD_PREFIX="[Nerlnet Build] "
 INPUT_DATA_DIR="inputDataDir"
 
 # arguments parsing 
@@ -67,6 +70,12 @@ print_help()
 
 }
 
+get_opennn_version_sha()
+{
+	cd $NERLNET_DIR/src_cpp/opennn
+	echo "$NERLNET_BUILD_PREFIX OpenNN Commit: $(git rev-parse --verify HEAD)"
+	cd -
+}
 
 parse_commandline()
 {
@@ -136,8 +145,7 @@ parse_commandline()
 
 parse_commandline "$@"
 # end of args parsing
-
-NERLNET_BUILD_PREFIX="[Nerlnet Build] "
+get_opennn_version_sha
 
 OPTION="add_compile_definitions(EIGEN_MAX_ALIGN_BYTES=8)"
 is_rasp="$(grep -c raspbian /etc/os-release)"
