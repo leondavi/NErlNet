@@ -125,15 +125,44 @@ class Stats():
         return min_loss_dict
     
 
-    def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):     
+    def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):  
+        assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"   
         sources_pieces_list = self.experiment_phase.get_sources_pieces()
+        workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
         for source_piece_inst in sources_pieces_list:
             sourcePiece_csv_labels_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet_labels()
             df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
             #print(df_actual_labels)
             actual_labels_list = df_actual_labels.idxmax(axis=1).tolist()
-            #print(fitting_labels)
-            #print(len(fitting_labels))
+            source_name = source_piece_inst.get_source_name()
+
+            # build confusion matrix for each worker
+            target_workers = source_piece_inst.get_target_workers()
+            for worker_db in workers_model_db_list:
+                if worker_db.get_worker_name() not in target_workers:
+                    continue
+                worker_prediction_list = []
+                total_batches_per_source = worker_db.get_total_batches_per_source(source_name)
+                for batch_id in range(total_batches_per_source):
+                    batch_db = worker_db.get_batch(source_name, str(batch_id))
+                    tensor_data = batch_db.get_tensor_data()
+                    #print(tensor_data)
+                    
+                    for sample in tensor_data: # take the max value index for each sample
+                        max = 0 
+                        max_index = 0
+                        for index, result in enumerate(sample):
+                            if result[0] > max:
+                                max = result[0]
+                                max_index = index
+
+                        worker_prediction_list.append(max_index)  # list of indexes (int) with max value per sample
+                    
+                print(worker_prediction_list)
+                    
+        
+      
+        
         pass
 
     def get_confusion_matrices1(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):

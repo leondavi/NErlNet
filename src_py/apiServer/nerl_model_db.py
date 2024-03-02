@@ -30,12 +30,15 @@ class WorkerModelDB():
         self.batches_ts_dict[batch_timestamp] = self.batches_dict[(source_name, batch_id)]
 
     def get_batch(self, source_name, batch_id):
-        assert batch_id in self.batches_dict
+        assert (source_name, batch_id) in self.batches_dict
         return self.batches_dict[(source_name, batch_id)]
     
     def get_total_batches(self):
         assert len(self.batches_dict) == len(self.batches_ts_dict)
         return len(self.batches_dict)
+    
+    def get_total_batches_per_source(self, source_name):
+        return len([batch_db for batch_db in self.batches_dict.values() if batch_db.source_name == source_name])
     
     def get_worker_name(self):
         return self.worker_name
@@ -45,6 +48,9 @@ class WorkerModelDB():
         for batch_db in self.batches_ts_dict.values():
             batches_ts_tansor_data_dict[batch_db.batch_timestamp] = batch_db.tensor_data
         return batches_ts_tansor_data_dict
+    
+    def get_batches_dict(self):
+        return self.batches_dict
 class ClientModelDB():
     def __init__(self):
         self.workers_model_db_dict = {}
