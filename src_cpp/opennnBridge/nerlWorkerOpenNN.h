@@ -33,7 +33,8 @@ class NerlWorkerOpenNN : public NerlWorker
     void set_loss_method(int loss_method);
     void set_learning_rate(float learning_rate);
     void set_epochs(int epochs);
-    void set_dataset(std::shared_ptr<opennn::DataSet> data_set);
+    void set_dataset(std::shared_ptr<opennn::DataSet> data_set,fTensor2DPtr TrainDataNNptr);
+    
     private:
 
     std::shared_ptr<opennn::NeuralNetwork> _neural_network_ptr;
@@ -63,6 +64,8 @@ class NerlWorkerOpenNN : public NerlWorker
     int translate_unscaling_method_int(int unscaling_method);
     opennn::Scaler translate_unscaling_method(int scaling_method);
     opennn::PoolingLayer::PoolingMethod translate_pooling_method(int pooling_method);
+    opennn::ProbabilisticLayer::ActivationFunction translate_probabilistic_activation_function(int activation_function);
+
     int translate_pooling_method_int(int pooling_method);
     int translate_model_type(int model_type, int &custom_model);
 };
