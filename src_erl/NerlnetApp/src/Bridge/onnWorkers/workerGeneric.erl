@@ -302,7 +302,7 @@ predict(cast, {sample,CSVname, BatchID, {PredictBatchTensor, Type}}, State = #wo
     stats:increment_by_value(WorkersStatsEts , batches_received_predict , 1),
     _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId , PredictBatchTensor , Type , CurrPID , CSVname, BatchID) end),
     {next_state, wait, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}};
-  
+
 predict(cast, {idle}, State = #workerGeneric_state{myName = MyName}) ->
   update_client_avilable_worker(MyName),
   {next_state, idle, State};
