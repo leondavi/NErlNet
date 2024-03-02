@@ -124,9 +124,7 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     nifpp::get_throws(env, argv[ARG_Type],tensor_type);
     assert(tensor_type == "float");
     TrainNNptr->return_tensor_type = tensor_type;
-    
     nifpp::get_tensor_2d<float,fTensor2DPtr,fTensor2D>(env,argv[ARG_DataTensor],TrainNNptr->data);
-
     ErlNifPid pid;
     enif_self(env, &pid);
     TrainNNptr->pid = pid;

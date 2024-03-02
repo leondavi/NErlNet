@@ -235,9 +235,7 @@ nerlworker_test_generate_data(LayersSizes, LayerTypes, NumOfSamples) ->
       [FirstLayerSize | LayerSizesList] = re:split(LayersSizes,",",[{return,list}]),
       [LastLayerSize|_] =  lists:reverse(LayerSizesList), 
       [FirstLayerType| _] = re:split(LayerTypes,",",[{return,list}]),
-      nerltest_print(nerl:string_format("FirstLayerType : ~p",[FirstLayerType])),
-      nerltest_print(nerl:string_format("LastLayerSize : ~p",[LastLayerSize])),
-      nerltest_print(nerl:string_format("ResFirstLayerTypeult : ~p",[FirstLayerType])),
+     %TODO simple layer types in inline function
       {DimX, DimY, DimZ} =
             case FirstLayerType of
                   ?LAYERS_TYPE_DEFAULT_IDX  -> {FirstLayerSizeInt,_} = string:to_integer(FirstLayerSize),
@@ -246,7 +244,12 @@ nerlworker_test_generate_data(LayersSizes, LayerTypes, NumOfSamples) ->
                   ?LAYERS_TYPE_SCALING_IDX -> {FirstLayerSizeInt,_} = string:to_integer(FirstLayerSize),
                                               {LastLayerSizeInt,_} = string:to_integer(LastLayerSize), 
                                               {NumOfSamples,LastLayerSizeInt+FirstLayerSizeInt, 1};
-                  ?LAYERS_TYPE_CNN_IDX -> {1, 1, 1};
+                  ?LAYERS_TYPE_CNN_IDX    ->  [DimXComplex, DimYComplex, DimZComplex | _] = re:split(FirstLayerSize,"x",[{return,list}]),
+                                              {DimXComplexInt,_} = string:to_integer(DimXComplex),
+                                              {DimYComplexInt,_} = string:to_integer(DimYComplex),
+                                              {DimZComplexInt,_} = string:to_integer(DimZComplex),
+                                              {LastLayerSizeInt,_} = string:to_integer(LastLayerSize),
+                                              {NumOfSamples, DimXComplexInt*DimYComplexInt*DimZComplexInt+LastLayerSizeInt, 1};
                   ?LAYERS_TYPE_PERCEPTRON_IDX ->{FirstLayerSizeInt,_} = string:to_integer(FirstLayerSize),
                                                 {LastLayerSizeInt,_} = string:to_integer(LastLayerSize), 
                                                 {NumOfSamples,LastLayerSizeInt+FirstLayerSizeInt, 1};
@@ -275,9 +278,12 @@ nerlworker_test([CurrentModel | Tail], Performance) ->
       OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
       NumOfSamples = 3,
       {DataTensorEncoded, Type} = nerlworker_test_generate_data(LayersSizes, LayersTypes, NumOfSamples),
-      nerltest_print(nerl:string_format("ModelId : ~p DataTensorEncoded: ~p Type: ~p  ",[ModelId,DataTensorEncoded,Type])),
+      DataTensorEncodedDecoded = nerlNIF:nerltensor_conversion({DataTensorEncoded, float}, erl_float),
+
+      nerltest_print(nerl:string_format("ModelId : ~p  Type: ~p DataTensorEncodedDecoded:~p ",[ModelId,Type,DataTensorEncodedDecoded])),
       nerlNIF:train_nif(ModelId,DataTensorEncoded,Type), % ask Guy about receiver block
       %block receive to get loss values from worker
+      nerltest_print("after train_nif"),
       nerlNIF:remove_nerlworker_nif(ModelId),
       nerlworker_test(Tail, Performance).
 

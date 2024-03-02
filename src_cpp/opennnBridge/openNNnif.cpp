@@ -9,31 +9,22 @@ void* trainFun(void* arg)
 
     double loss_val;
     ErlNifEnv *env = enif_alloc_env();    
-    DataSet data_set;
-    data_set.set_data(*(TrainNNptr->data));
+
+    cout << "TrainNNptr->data = " << *(TrainNNptr->data) << endl;
+   // data_set.set_data(*(TrainNNptr->data));
 
     //get nerlworker from bridge controller
     BridgeController &bridge_controller = BridgeController::GetInstance();
     std::shared_ptr<NerlWorker> nerlworker = bridge_controller.getModelPtr(TrainNNptr->mid);
     std::shared_ptr<NerlWorkerOpenNN> nerlworker_opennn = std::static_pointer_cast<NerlWorkerOpenNN>(nerlworker);
     //get neural network from nerlworker
+    std::shared_ptr<opennn::DataSet> data_set_ptr = std::make_shared<opennn::DataSet> ();
     std::shared_ptr<opennn::NeuralNetwork> neural_network_ptr = nerlworker_opennn->get_neural_network_ptr();
-
-    int data_cols = TrainNNptr->data->dimension(1);
-    int num_of_features = neural_network_ptr->get_inputs_number();
-    int num_of_output_neurons = neural_network_ptr->get_outputs_number(); 
-
-    // Data set definitions
-    bool data_set_condition = (num_of_features + num_of_output_neurons) == TrainNNptr->data->dimension(1);
-    assert(("issue with data input/output dimensions", data_set_condition));
-    data_set.set_data(*(TrainNNptr->data));
-    data_set.set(TrainNNptr->data->dimension(0), num_of_features, num_of_output_neurons);
-
-    // Check for Guy how to extract intermediate values of loss during training
-
+    nerlworker_opennn->set_dataset(data_set_ptr, TrainNNptr->data);
     std::shared_ptr<TrainingStrategy> training_strategy_ptr = nerlworker_opennn->get_training_strategy_ptr();
-    training_strategy_ptr->set_data_set_pointer(&data_set);
+    training_strategy_ptr->set_data_set_pointer(data_set_ptr.get());
     TrainingResults res = training_strategy_ptr->perform_training();
+    cout << "after perform_training"<< endl;
     loss_val = res.get_training_error(); // learn about "get_training_error" of opennn
 
     // Stop the timer and calculate the time took for training
