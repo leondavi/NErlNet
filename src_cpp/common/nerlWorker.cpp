@@ -43,7 +43,6 @@ std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_siz
     std::vector<LayerSizingParams_t> layer_sizes_params;
 
     parse_layer_sizes_str(layer_sizes_str, layer_types_vec, layer_sizes_params);
-
     std::vector<std::shared_ptr<NerlLayer>> nerl_layers_vec;
     nerl_layers_vec.resize(layer_sizes_params.size());
     for (int i = 0; i < layer_sizes_params.size(); i++)
@@ -83,13 +82,11 @@ std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_siz
             }
         }
     }
-
     for (size_t i = 1; i < nerl_layers_vec.size(); i++)
     {
        nerl_layers_vec[i-1]->set_next_layer(nerl_layers_vec[i]);
        nerl_layers_vec[i]->set_prev_layer(nerl_layers_vec[i-1]);
     }
-    
    return nerl_layers_vec.front();
 }
 
