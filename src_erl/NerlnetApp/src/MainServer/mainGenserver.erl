@@ -90,6 +90,12 @@ handle_cast({initCSV, _SourceName ,_SourceData}, State) ->
   ?LOG_ERROR("initCSV is only applicalble when main server is in idle state!"),
   {noreply, State#main_genserver_state{}};
 
+handle_cast({restart, _Body} , State = #main_genserver_state{}) ->
+  ?LOG_NOTICE("*************NERLNET RESTARTING*************"),
+  URL = "http://" ++ nerl_tools:getdeviceIP() ++ ":8484/restart",
+  {ok , _} = httpc:request(post, {URL, [],"application/x-www-form-urlencoded",[]}, [], []),
+  {noreply, State#main_genserver_state{}};
+
 handle_cast({jsonReceived,Body}, State = #main_genserver_state{}) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
