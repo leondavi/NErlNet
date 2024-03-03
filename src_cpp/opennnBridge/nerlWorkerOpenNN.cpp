@@ -23,6 +23,58 @@ namespace nerlnet
 
     }
 
+    void NerlWorkerOpenNN::post_training_process()
+    {
+        switch(_model_type){
+            case MODEL_TYPE_NN:
+            {
+                break;
+            }
+            case MODEL_TYPE_AUTOENCODER:
+            {
+                break;
+            }
+            case MODEL_TYPE_AE_CLASSIFIER:
+            {
+                break; // Get Loss Values , Add RED support - David's Thesis
+            }
+            // case MODEL_TYPE_LSTM:
+            // {
+            //     break;
+            // }
+            // case MODEL_TYPE_RECURRENT:
+            // {
+            //     break;
+            // }
+        } 
+    }
+
+    void NerlWorkerOpenNN::post_predict_process(fTensor2DPtr result_ptr){
+        switch(_model_type){
+            case MODEL_TYPE_NN:
+            {
+                break;
+            }
+            case MODEL_TYPE_AUTOENCODER:
+            {
+                break;
+            }
+            case MODEL_TYPE_AE_CLASSIFIER:
+            {
+                break; // Calculate MSE between result and input , then apply AE_RED
+            }
+            // case MODEL_TYPE_LSTM:
+            // {
+            //     break;
+            // }
+            // case MODEL_TYPE_RECURRENT:
+            // {
+            //     break;
+            // }
+        }
+    
+    }
+
     /**
      * @brief generate the training strategy for the opennn neural network
      * this function doesn't set the data pointer of the training strategy and doesn't call to the train function
@@ -150,13 +202,22 @@ namespace nerlnet
         // in cnn , see the inputs of the user. if the user gave 3 dimensions so the data set will have 3 dimensions
         // the last dim will be the samples num and the second will be multiple channels and  columns .
         std::shared_ptr<opennn::NeuralNetwork> neural_network_ptr = get_neural_network_ptr();
-         if (_model_type == MODEL_TYPE_AUTOENCODER ){
+         switch (_model_type) {
+            case MODEL_TYPE_AUTOENCODER:
+            {
+
+            }
+            case MODEL_TYPE_AE_CLASSIFIER:
+            {
             Eigen::array<int, 2> bcast({1, 2});  
             std::shared_ptr<Eigen::Tensor<float,2>> autoencoder_data = std::make_shared<Eigen::Tensor<float,2>>(TrainDataNNptr->broadcast(bcast));                 
             _data_set->set_data(*autoencoder_data);
-            int data_num_of_cols = autoencoder_data->dimension(1); /// chaeck again
+            int data_num_of_cols = autoencoder_data->dimension(1); // TODO Ori & Guy check again
             _data_set->set(autoencoder_data->dimension(1),data_num_of_cols,data_num_of_cols);
-         }else{
+            break;
+            }
+            default:
+            {
             int data_cols = TrainDataNNptr->dimension(1);
             int num_of_features = neural_network_ptr->get_inputs_number();
             int num_of_output_neurons = neural_network_ptr->get_outputs_number(); 
@@ -166,8 +227,8 @@ namespace nerlnet
              assert(("issue with data input/output dimensions", data_set_condition));
             _data_set->set_data(*(TrainDataNNptr));
             _data_set->set(TrainDataNNptr->dimension(0), num_of_features, num_of_output_neurons);
+            }
          }
-        
     }
 
     void NerlWorkerOpenNN::generate_custom_model_nn(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
