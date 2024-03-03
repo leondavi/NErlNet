@@ -1,62 +1,20 @@
 
-
+import os
 from experiment_flow_defs import *
 from logger import *
-import pandas as pd
-import globalVars as globe
 from definitions import *
-from workerResult import *
-from collections import OrderedDict
 from NerlComDB import *
 from nerl_model_db import *
 from nerl_csv_dataset_db import *
 from events_sync import *
 from networkComponents import *
-import os
 from stats import * 
+from experiment_phase import *
 
 # Todo check imports and remove unused ones
 
 PARAM_CSV_DB_PATH = "csv_db_path"
 PARAM_BATCH_SIZE = "batch_size"
-
-
-class ExperimentPhase():
-    def __init__(self, name : str, phase_type: str, network_componenets: NetworkComponents):
-        self.name = name 
-        self.phase_type = phase_type # training/prediction
-        assert self.phase_type in [PHASE_TRAINING_STR, PHASE_PREDICTION_STR]
-        self.nerl_comm_db = NerlComDB(network_componenets)  
-        self.nerl_model_db = NerlModelDB(self.phase_type)
-        self.source_pieces_dict = {}  # Dict of SourcePieceDS
-
-    def get_phase_type(self):
-        return self.phase_type
-
-    def get_name(self):
-        return self.name
-
-    def get_sources_str_list(self):
-        return ",".join(self.source_pieces_dict.keys())
-    
-    def get_nerl_comm_db(self):
-        return self.nerl_comm_db
-
-    def get_nerl_model_db(self):
-        return self.nerl_model_db
-    
-    def add_source_piece(self, source_piece : SourcePieceDS):
-        if source_piece.source_name not in self.source_pieces_dict:
-            self.source_pieces_dict[source_piece.source_name] = source_piece
-        else: 
-            LOG_ERROR(f"Source piece with name {source_piece.source_name} already exists in phase { self.phase}")
-       
-    def get_sources_pieces(self):
-        return list(self.source_pieces_dict.values())
-
-    def remove_source_piece(self, source_name: str): 
-        self.source_pieces_dict.pop(source_name)    
-
 
 class ExperimentFlow():
 
@@ -83,6 +41,7 @@ class ExperimentFlow():
     #     return True
 
     def get_current_experiment_phase(self):
+        assert self.current_exp_phase_index < len(self.exp_phase_list) , "current experiment phase index is out of range"
         return self.exp_phase_list[self.current_exp_phase_index]
 
     def get_exp_name(self):
@@ -97,9 +56,10 @@ class ExperimentFlow():
     def get_csv_dataset(self):
         return self.csv_dataset
 
-    def generate_stats(self, experiment_phase: ExperimentPhase) -> Stats:
-        pass
-    # Todo implement this function : accuracy, confusion matrix, loss, etc.
+    def generate_stats(self, experiment_phase = None) -> Stats:
+        if experiment_phase is None:
+            experiment_phase = self.get_current_experiment_phase() 
+        return Stats(experiment_phase)
 
     def merge_stats(self, stats_list: list) -> Stats:
         pass
@@ -133,9 +93,11 @@ class ExperimentFlow():
                 source_piece_inst.update_target_workers(workers)
                 source_piece_csv_file = self.csv_dataset.generate_source_piece_ds_csv_file(source_piece_inst, phase_type)
                 source_piece_inst.set_pointer_to_sourcePiece_CsvDataSet(source_piece_csv_file)
+                source_piece_csv_labels_file = self.csv_dataset.genrate_source_piece_ds_csv_file_labels(source_piece_inst, phase_type)
+                source_piece_inst.set_pointer_to_sourcePiece_CsvDataSet_labels(source_piece_csv_labels_file)
                 source_pieces_inst_list.append(source_piece_inst)
                 
-            self.add_phase(phase_name, phase_type, source_pieces_inst_list)
+            self.add_phase(phase_name, phase_type, source_pieces_inst_list, num_of_features)
 
 
     def generate_experiment_flow_skeleton(self): 
@@ -150,8 +112,8 @@ class ExperimentFlow():
     def set_csv_dataset(self, csv_file_path : str,  num_of_features : int, num_of_labels : int, headers_row : list):
         self.csv_dataset = CsvDataSet(csv_file_path, self.temp_data_path ,self.batch_size, num_of_features, num_of_labels, headers_row)  # Todo get num of features and labels from csv file
 
-    def add_phase(self, name : str, phase_type : str, source_pieces_inst_list : list):
-        exp_phase_inst = ExperimentPhase(name, phase_type, self.network_componenets)
+    def add_phase(self, name : str, phase_type : str, source_pieces_inst_list : list, num_of_features : str):
+        exp_phase_inst = ExperimentPhase(self.exp_name, name, phase_type, self.network_componenets, num_of_features)
         for source_piece_inst in source_pieces_inst_list:
             exp_phase_inst.add_source_piece(source_piece_inst)
         self.exp_phase_list.append(exp_phase_inst)

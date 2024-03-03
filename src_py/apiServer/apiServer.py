@@ -2,19 +2,11 @@
 # Nerlnet - 2023 GPL-3.0 license
 # Authors: Haran Cohen, David Leon, Dor Yerchi #
 ################################################
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, classification_report, multilabel_confusion_matrix
 import time
-import requests
 import threading
-import matplotlib.pyplot as plt
-import pandas as pd
 import sys
-import os
-import traceback
 from experiment_flow import *
 from pathlib import Path
-
-from experiment import Experiment
 from jsonDirParser import JsonDirParser
 from transmitter import Transmitter
 from networkComponents import NetworkComponents
@@ -36,7 +28,7 @@ class ApiServer():
         # Create a new folder for the results:
         Path(EXPERIMENT_RESULTS_PATH).mkdir(parents=True, exist_ok=True)
 
-    def get_experiment(self, exp_name : str) :
+    def get_experiment_flow(self, exp_name : str) :
         return self.experiments_dict[exp_name] if exp_name in self.experiments_dict else None
 
     def set_json_dir(self, custom_path : str):
@@ -94,9 +86,9 @@ PREDICTION_STR = "Prediction"
 
     def experiment_focused_on(self, experiment_name):
         assert experiment_name in self.experiments_dict, "cannot focus on experiment that has never been created!"
-        globe.experiment_focused_on = self.get_experiment(experiment_name) # Get experiment instance from expirments dict
+        globe.experiment_focused_on = self.get_experiment_flow(experiment_name) # Get experiment instance from expirments dict
         self.current_exp = globe.experiment_focused_on # TODO the objective is to get rid of this global definitions
-    
+
     def initialization(self, experiment_name : str, dc_json: str, conn_map_json, experiment_flow_json):
         dcData = self.json_dir_parser.json_from_path(dc_json)
         connData = self.json_dir_parser.json_from_path(conn_map_json)
@@ -149,33 +141,6 @@ PREDICTION_STR = "Prediction"
             self.apiserver_event_sync.sync_on_event(EventSync.SEND_JSONS)
             LOG_INFO("Sending distributed configurations to devices is completed")
 
-    def sendJsonsToDevices(self): # deprecated
-        # Jsons found in NErlNet/inputJsonFiles/{JSON_TYPE}/files.... for entities in src_erl/Comm_layer/http_nerl/src to reach them, they must go up 3 dirs
-        archAddress , connMapAddress, exp_flow_json = self.getUserJsons()
-
-        # TODO - Wrong, communication methods - directly with devices that bypasses main server!. Need to send json files to main server and main server distributes files
-        for ip in globe.components.devicesIp:
-            with open(archAddress, 'rb') as dc_json_file, open(connMapAddress, 'rb') as conn_json_file:
-                files = [(DC_FILE_ARCH_REMOTE_NAME, dc_json_file), (JSON_FILE_COMM_REMOTE_NAME, conn_json_file)]
-                address = f'http://{ip}:{JSON_INIT_HANDLER_ERL_PORT}/updateJsonPath'
-
-                try:
-                    response = requests.post(address, files=files, timeout=8)
-                except requests.exceptions.Timeout as e:
-                    LOG_ERROR(f'timeout error, action address:{address} arch: {archAddress}')
-                    tb = traceback.format_exc()
-                    LOG_ERROR(f'{tb}') 
-                    return False
-                except requests.exceptions.ConnectionError as e:
-                    LOG_ERROR(f'connection error, action address:{address} arch: {archAddress}')
-                    tb =  traceback.format_exc()
-                    LOG_ERROR(f'{tb}') 
-                    return False
-
-            if globe.jupyterFlag == False:
-              LOG_INFO(f'response: {response.ok} , status code: {response.status_code}')
-        time.sleep(1)       # wait for connection to close ## TODO: check why
-        LOG_INFO("Sending distributed configurations to devices is completed")
 
     def showJsons(self):
         self.json_dir_parser.print_lists()
@@ -251,20 +216,6 @@ PREDICTION_STR = "Prediction"
             LOG_WARNING("No more phases to run")
             return False
         return True
-    
-    def sendDataToSources(self, phase, splitMode = 1):   #deprecated
-        if not globe.CSVsplit: # what is this? TODO ask haran
-            globe.CSVsplit = splitMode 
-
-        # 1 ack for mainserver, who waits for all sources
-        globe.set_receiver_wait_for_ack()
-        globe.ack_debug_print()
-        LOG_INFO("Sending data to sources")
-        self.transmitter.updateCSV(phase)
-        globe.waitForAck()
-        globe.ack_debug_print()
-        LOG_INFO("Data ready in sources")
-
 
     def train(self):
         '''
@@ -302,51 +253,6 @@ PREDICTION_STR = "Prediction"
     def next_experiment_phase_is_valid(self):
         current_exp_flow = globe.experiment_focused_on
         return current_exp_flow.current_exp_phase_index < len(current_exp_flow.exp_phase_list)
-    
-    def export_results(self, expNum):
-        expForStats = self.experiments[expNum-1]
-
-        numOfTrainingCsvs = len(expForStats.trainingResList)
-        numOfPredicitionCsvs = len(expForStats.predictionResList)
-
-        print(f"\nCreating training results files for the following {numOfTrainingCsvs} CSVs:")
-        for i, csvTrainRes in enumerate(expForStats.trainingResList, start=1):
-            print(f"{i}) {csvTrainRes.name}")
-        print('\n')
-
-        for csvTrainRes in expForStats.trainingResList:
-            workersTrainResCsv = csvTrainRes.workersResList.copy() # Craete a copy of the results list for the current CSV.
-
-            for i in range(len(workersTrainResCsv)):
-                workersTrainResCsv[i] = pd.Series(workersTrainResCsv[i].resList, name = workersTrainResCsv[i].name, index = None)
-                
-            newlabelsCsvDf = pd.concat(workersTrainResCsv, axis=1)
-
-            fileName = csvTrainRes.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
-            newlabelsCsvDf.to_csv(f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Training/{fileName}.csv', header = True, index = False)
-            print(f'{fileName}.csv Saved...')
-        
-        print(f"\nCreating prediction results files for the following {numOfPredicitionCsvs} CSVs:")
-        for i, csvPredictionRes in enumerate(expForStats.predictionResList, start=1):
-            print(f"{i}) {csvPredictionRes.name}")
-        print('\n')
-
-        for csvPredictRes in expForStats.predictionResList:
-            csvPredictResDict = {} # Dictionary of sampleIndex : [worker, batchId]
-
-            # Add the results to the dictionary
-            for worker in csvPredictRes.workersResList:
-                for batch in worker.resList:
-                    for offset, prediction in enumerate(batch.predictions):
-                        sampleNum = batch.indexRange[0] + offset
-                        csvPredictResDict[sampleNum] = [prediction, batch.worker, batch.batchId]
-
-            csvPredictResDf = pd.DataFrame.from_dict(csvPredictResDict, orient='index', columns = ['Prediction', 'Handled By Worker', 'Batch ID'])
-            csvPredictResDf.index.name = 'Sample Index'
-
-            fileName = csvPredictRes.name.rsplit('/', 1)[1] # If th eCSV name contains a path, then take everything to the right of the last '/'.
-            csvPredictResDf.to_csv(f'{EXPERIMENT_RESULTS_PATH}/{expForStats.name}/Prediction/{fileName}.csv', header = True, index = True)
-            print(f'{fileName}.csv Saved...')
 
     # change statistics from input to API
     def statistics(self): # Deprecated?

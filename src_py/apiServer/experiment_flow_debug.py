@@ -30,13 +30,19 @@ api_server_instance.send_jsons_to_devices()
 next_expertiment_phase_exist = True 
 api_server_instance.run_current_experiment_phase() # blocking - deppended acks from mainserver
 api_server_instance.communication_stats()
+stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
+stats.get_loss_ts()
+stats.get_min_loss_list()
 next_expertiment_phase_exist = api_server_instance.next_experiment_phase()
 api_server_instance.run_current_experiment_phase()
 api_server_instance.communication_stats()
+stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
+stats.get_confusion_matrices()
+exit(0)
 next_expertiment_phase_exist = api_server_instance.next_experiment_phase() 
 api_server_instance.run_current_experiment_phase()
 api_server_instance.communication_stats()
-next_expertiment_phase_exist = api_server_instance.next_experiment_phase()  # expected error
+# next_expertiment_phase_exist = api_server_instance.next_experiment_phase()  # expected error
 
 
 # api_server_instance.sendDataToSources(PHASE_TRAINING) # sync on ack
@@ -46,8 +52,11 @@ next_expertiment_phase_exist = api_server_instance.next_experiment_phase()  # ex
 # api_server_instance.predict()
 api_server_instance.communication_stats()
 
-experiment_inst = api_server_instance.get_experiment(experiment_name)
-exp_stats = Stats(experiment_inst)
+experiment_flow_inst = api_server_instance.get_experiment(experiment_name)
+experiment_phase_inst = experiment_flow_inst.get_current_experiment_phase()
+exp_stats = Stats(experiment_phase_inst)
+exp_stats.get_loss_ts()
+exit(0)
 #exp_stats.get_loss_min(saveToFile=True)
 #loss = exp_stats.get_loss()
 #loss_min = exp_stats.get_loss_min()
