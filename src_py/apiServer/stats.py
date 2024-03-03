@@ -3,57 +3,98 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_s
 import matplotlib.pyplot as plt
 from datetime import datetime
 from pathlib import Path
-from experiment import Experiment # deprecated
-from experiment_flow import *
+from experiment_phase import *
 import globalVars as globe
 from definitions import *
+import pandas as pd
+import numpy as np
 
-
+MATRIX_DISP_SCALING = 5
 class Stats():
-    def __init__(self, experiment_flow: ExperimentFlow , experiment_phase : ExperimentPhase):
-        self.experiment_flow = experiment_flow
-        self.experiment_phase = experiment_phase
-        #self.labels = self.experiment.get_labels_df()
-        Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_flow.get_exp_name()}').mkdir(parents=True, exist_ok=True)
-        Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_phase.get_phase_type()}/{self.experiment_flow.get_exp_name()}').mkdir(parents=True, exist_ok=True)
-        self.exp_path = f'{self.experiment_flow.get_exp_name()}_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}'
-     
-       # TODO 
-    def get_loss_foh_missing(self , plot : bool = False , saveToFile : bool = False): # foh = first orfer hold - do avg between the existing points
-        assert self.experiment_phase.get_phase_type() == globe.PHASE_TRAINING
 
-    def get_loss(self , plot : bool = False , saveToFile : bool = False): # Todo change it
+    def __init__(self, experiment_phase: ExperimentPhase):
+        self.experiment_phase = experiment_phase
+        self.nerl_model_db = self.experiment_phase.get_nerl_model_db()
+        self.phase = self.experiment_phase.get_phase_type()
+        self.name = self.experiment_phase.get_name()
+        self.loss_ts_pd = None
+
+        Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_phase.get_experiment_flow_name()}').mkdir(parents=True, exist_ok=True)
+        Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_phase.get_phase_type()}/{self.experiment_phase.get_experiment_flow_name()}').mkdir(parents=True, exist_ok=True)
+        self.exp_path = f'{self.experiment_phase.get_experiment_flow_name()}_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}'
+
+    def get_phase(self):
+        return self.phase
+    
+    def get_name(self):
+        return self.name
+    
+       # TODO 
+    def get_loss_foh_missing(self , plot : bool = False , saveToFile : bool = False): # foh = first order hold - do avg between the existing points
+        assert self.phase == PHASE_TRAINING_STR, "This function is only available for training phase"
+        pass
+
+    def get_loss_ts(self , plot : bool = False , saveToFile : bool = False): # Todo change it
         """
         Returns a dictionary of {worker : loss list} for each worker in the experiment.
         use plot=True to plot the loss function.
         """
-        workers_res_dict = {}
-        for csvRes in self.experiment.trainingResList:
-            for workerRes in csvRes.workersResList:
-                worker_name = workerRes.get_name()
-                workers_res_dict[worker_name] = workerRes.resList
-        loss_dict = OrderedDict(sorted(workers_res_dict.items()))
-        if plot: 
-            plt.figure(figsize = (30,15), dpi = 150)
-            plt.rcParams.update({'font.size': 22})
-            for worker_name, loss_list in loss_dict.items():
-                plt.plot(loss_list, label=worker_name)
-            plt.legend(list(loss_dict.keys()))
-            plt.xlabel('Batch Number' , fontsize=30)
-            plt.ylabel('Loss (MSE)' , fontsize=30)
-            plt.yscale('log')
-            plt.xlim(left=0)
-            plt.ylim(bottom=0)
-            plt.title('Training Loss Function')
-            plt.grid(visible=True, which='major', linestyle='-')
-            plt.minorticks_on()
-            plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
-            plt.show()
-            plt.savefig(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}/Training/Loss_graph.png')
+        assert self.phase == PHASE_TRAINING_STR, "This function is only available for training phase"
+        loss_dict = {}
+        workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
+        workers_names = [worker_model_db.get_worker_name() for worker_model_db in workers_model_db_list]
+        num_of_workers = len(workers_model_db_list)
+        total_batches_list = [worker.get_total_batches() for worker in workers_model_db_list]
+        max_batches = max(total_batches_list)
         
-        if saveToFile:
-            export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/loss.json', loss_dict)
-        return loss_dict
+        for worker_db in workers_model_db_list:
+            worker_name = worker_db.get_worker_name()
+            loss_dict[worker_name] = []
+            batches_ts_tansor_data_dict =worker_db.get_batches_ts_tansor_data_dict()
+            sorted_batches_ts_tansor_data_dict = dict(sorted(batches_ts_tansor_data_dict.items()))
+            loss_dict[worker_name] = [sorted_batches_ts_tansor_data_dict[key] for key in sorted(sorted_batches_ts_tansor_data_dict)]
+            
+        # Convert NumPy arrays to floats
+        for worker_name in loss_dict:
+            loss_dict[worker_name] = [float(arr) for sublist in loss_dict[worker_name] for arr in sublist]
+            loss_dict[worker_name] += [None] * (max_batches - len(loss_dict[worker_name]))
+
+        df = pd.DataFrame(loss_dict)
+        self.loss_ts_pd = df
+        #print(df)
+        return df
+
+    def get_min_loss_list(self , plot : bool = False , saveToFile : bool = False): # Todo change it
+        if self.loss_ts_pd is None:
+            loss_ts_pd = self.get_loss_ts()
+        else:
+            loss_ts_pd = self.loss_ts_pd
+        min_loss_list = loss_ts_pd.min(numeric_only=True)
+        #print(min_loss_list)
+        return min_loss_list
+
+
+        # if plot: 
+        #     plt.figure(figsize = (30,15), dpi = 150)
+        #     plt.rcParams.update({'font.size': 22})
+        #     for worker_name, loss_list in loss_dict.items():
+        #         plt.plot(loss_list, label=worker_name)
+        #     plt.legend(list(loss_dict.keys()))
+        #     plt.xlabel('Batch Number' , fontsize=30)
+        #     plt.ylabel('Loss' , fontsize=30) 
+        #     plt.yscale('log')
+        #     plt.xlim(left=0)
+        #     plt.ylim(bottom=0)
+        #     plt.title('Training Loss Function')
+        #     plt.grid(visible=True, which='major', linestyle='-')
+        #     plt.minorticks_on()
+        #     plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
+        #     plt.show()
+        #     plt.savefig(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}/Training/Loss_graph.png')
+        
+        # if saveToFile:
+        #     export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/loss.json', loss_dict)
+        # return loss_dict
     
     def get_loss_min(self , plot : bool = False , saveToFile : bool = False):  #Todo return get loss min and batch id
         """
@@ -82,8 +123,49 @@ class Stats():
         if saveToFile:
             export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/min_loss.json', min_loss_dict)
         return min_loss_dict
+    
 
-    def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):
+    def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):  
+        assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"   
+        sources_pieces_list = self.experiment_phase.get_sources_pieces()
+        workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
+        for source_piece_inst in sources_pieces_list:
+            sourcePiece_csv_labels_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet_labels()
+            df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
+            #print(df_actual_labels)
+            actual_labels_list = df_actual_labels.idxmax(axis=1).tolist()
+            source_name = source_piece_inst.get_source_name()
+
+            # build confusion matrix for each worker
+            target_workers = source_piece_inst.get_target_workers()
+            for worker_db in workers_model_db_list:
+                if worker_db.get_worker_name() not in target_workers:
+                    continue
+                worker_prediction_list = []
+                total_batches_per_source = worker_db.get_total_batches_per_source(source_name)
+                for batch_id in range(total_batches_per_source):
+                    batch_db = worker_db.get_batch(source_name, str(batch_id))
+                    tensor_data = batch_db.get_tensor_data()
+                    #print(tensor_data)
+                    
+                    for sample in tensor_data: # take the max value index for each sample
+                        max = 0 
+                        max_index = 0
+                        for index, result in enumerate(sample):
+                            if result[0] > max:
+                                max = result[0]
+                                max_index = index
+
+                        worker_prediction_list.append(max_index)  # list of indexes (int) with max value per sample
+                    
+                print(worker_prediction_list)
+                    
+        
+      
+        
+        pass
+
+    def get_confusion_matrices1(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):
         """
         Returns a dictionary of {worker : {class : confusion matrix}} for each worker in the experiment.
         use plot=True to plot the confusion matrix.
