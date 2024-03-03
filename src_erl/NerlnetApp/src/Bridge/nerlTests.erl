@@ -266,7 +266,8 @@ nerlworker_test_generate_data(LayersSizes, LayerTypes, NumOfSamples) ->
                                                  {NumOfSamples,LastLayerSizeInt+FirstLayerSizeInt, 1}
             end,
       ErlDataTensor = generate_nerltensor(float, DimX, DimY, DimZ),
-      nerlNIF:nerltensor_conversion({ErlDataTensor,erl_float},float).  %TODO
+      %% TODO Call to split_erl_tensor(ErlNerlTensor , NumOfFeatures , NumOfLabels) in nerlTensor.erl to split labels from data
+      nerlNIF:nerltensor_conversion({ErlDataTensor,erl_float},float).  
 
 nerlworker_test([], _Performance) -> _Performance;
 nerlworker_test([CurrentModel | Tail], Performance) -> 
@@ -284,6 +285,8 @@ nerlworker_test([CurrentModel | Tail], Performance) ->
       nerlNIF:train_nif(ModelId,DataTensorEncoded,Type), % ask Guy about receiver block
       %block receive to get loss values from worker
       nerltest_print("after train_nif"),
+      % TODO remove labels from generated data
+      % TODO Ori - implement predict
       nerlNIF:remove_nerlworker_nif(ModelId),
       nerlworker_test(Tail, Performance).
 

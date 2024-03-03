@@ -25,6 +25,7 @@ void* trainFun(void* arg)
     training_strategy_ptr->set_data_set_pointer(data_set_ptr.get());
     TrainingResults res = training_strategy_ptr->perform_training();
     cout << "after perform_training"<< endl;
+    nerlworker_opennn->post_training_process();
     loss_val = res.get_training_error(); // learn about "get_training_error" of opennn
 
     // Stop the timer and calculate the time took for training
@@ -83,6 +84,8 @@ void* PredictFun(void* arg)
     inputs_dimensions.setValues({num_of_samples, inputs_number});
 
     *calculate_res = neural_network->calculate_outputs(PredictNNptr->data->data(), inputs_dimensions);
+    nerlworker_opennn->post_predict_process(calculate_res); 
+
     nifpp::make_tensor_2d<float,fTensor2D>(env, prediction, calculate_res);
 
     // only for AE and AEC calculate the distance between prediction labels and input data
