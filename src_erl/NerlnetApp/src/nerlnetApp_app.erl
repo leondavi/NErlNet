@@ -123,7 +123,8 @@ createNerlnetInitiator(HostName) ->
                 {'_', [
 
                     {"/sendJsons",jsonHandler, [self()]}, % ApiServer triggers sendJsons action by sending a request to the main server device
-                    {"/isNerlnetDevice",iotHandler, [self()]}
+                    {"/isNerlnetDevice",iotHandler, [isNerlnetDevice , self()]},
+                    {"/restart" , iotHandler,[restart , self()]}
                 ]}
             ]),
             %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
@@ -324,7 +325,7 @@ createMainServer(true,BatchSize,HostName,DeviceName) ->
         {"/startCasting",[],actionHandler, [startCasting, MainGenServerPid]},
         {"/stopCasting",[],actionHandler, [stopCasting, MainGenServerPid]},
         {"/clientsPhaseUpdate",[],actionHandler,[clientsPhaseUpdate,MainGenServerPid]},
-
+        {"/restart" ,[], actionHandler,[restart , MainGenServerPid]},
         {"/[...]", [],noMatchingRouteHandler, [MainGenServerPid]}
         ]}
         ]),
