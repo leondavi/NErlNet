@@ -10,6 +10,10 @@
 
 get_all_nerltensor_list_types() -> ?LIST_GROUP_NERLTENSOR_TYPE.
 
+split_erl_tensor(Tensor , NumOfFeatures , NumOfLabels) -> %% Test this function!!
+      {Features, Labels} = lists:split(NumOfFeatures, Tensor),
+      {lists:sublist(Features, 1, NumOfFeatures), lists:sublist(Labels, 1, NumOfLabels)}.
+
 nerltensor_sum_erl({NerlTensorErlA, Type}, {NerlTensorErlB, Type}) ->
       ListGroup = lists:member(Type, get_all_nerltensor_list_types()),
       if ListGroup ->

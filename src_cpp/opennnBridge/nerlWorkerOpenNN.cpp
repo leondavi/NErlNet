@@ -148,12 +148,12 @@ namespace nerlnet
                         generate_custom_model_nn(_neural_network_ptr);
                         break;
                     }
-                    case MODEL_TYPE_AUTOENCODER: //TODO
+                    case MODEL_TYPE_AUTOENCODER: // ! Ask David if AE/AEC should be created in "generate_custom_model_nn" (same building process)
                     {
-                        generate_custom_model_ae(_neural_network_ptr);
+                        generate_custom_model_nn(_neural_network_ptr); // TODO Change back to generate_custom_model_ae
                         break;
                     }
-                    case MODEL_TYPE_AE_CLASSIFIER: //TODO
+                    case MODEL_TYPE_AE_CLASSIFIER: // ! Ask David if AE/AEC should be created in "generate_custom_model_nn" (same building process)
                     {
                         generate_custom_model_aec(_neural_network_ptr);
                         break;
@@ -209,11 +209,11 @@ namespace nerlnet
             }
             case MODEL_TYPE_AE_CLASSIFIER:
             {
-            Eigen::array<int, 2> bcast({1, 2});  
-            std::shared_ptr<Eigen::Tensor<float,2>> autoencoder_data = std::make_shared<Eigen::Tensor<float,2>>(TrainDataNNptr->broadcast(bcast));                 
+            Eigen::array<int, 2> bcast({1, 2}); 
+            std::shared_ptr<Eigen::Tensor<float,2>> autoencoder_data = std::make_shared<Eigen::Tensor<float,2>>(TrainDataNNptr->broadcast(bcast)); // ! Crashes test!!               
             _data_set->set_data(*autoencoder_data);
             int data_num_of_cols = autoencoder_data->dimension(1); // TODO Ori & Guy check again
-            _data_set->set(autoencoder_data->dimension(1),data_num_of_cols,data_num_of_cols);
+            _data_set->set(autoencoder_data->dimension(0),data_num_of_cols,data_num_of_cols); // TODO CHECK
             break;
             }
             default:
@@ -659,7 +659,7 @@ namespace nerlnet
         case MODEL_TYPE_CLASSIFICATION:  {res = (int)NeuralNetwork::ProjectType::Classification;      break;}
         case MODEL_TYPE_FORECASTING:     {res = (int)NeuralNetwork::ProjectType::Forecasting;         break;}
         case MODEL_TYPE_NN:              {custom_model = true; break;}
-        case MODEL_TYPE_AUTOENCODER:     {custom_model = true; break;} // TODO Guy consider Autoassociation type
+        case MODEL_TYPE_AUTOENCODER:     {custom_model = true; break;}
         case MODEL_TYPE_AE_CLASSIFIER:   {custom_model = true; break;}
         }
         return res;

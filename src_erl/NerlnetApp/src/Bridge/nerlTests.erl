@@ -101,10 +101,11 @@ generate_nerltensor(BinType,DimX,DimY,DimZ) ->
       if  
             (BinType == int32) or (BinType == int16) -> Data = [rand:uniform(255) || _ <- lists:seq(1, DataLength)],
                         [DimX,DimY,DimZ] ++ Data;
-            (BinType == double) or (BinType == float) -> DimXf = float(DimX),
+            (BinType == double) or (BinType == float) -> 
+                        DimXf = float(DimX),
                         DimYf = float(DimY),
                         DimZf = float(DimZ),
-                        Data = [rand:uniform() * 10 || _ <- lists:seq(1, DataLength)],
+                        Data = [rand:uniform() * 10 || _ <- lists:seq(1, DataLength)], %% Where are the labels generated?
                         [DimXf,DimYf,DimZf] ++ Data;
             true -> wrong_type
       end.
@@ -266,8 +267,13 @@ nerlworker_test_generate_data(LayersSizes, LayerTypes, NumOfSamples) ->
                                                  {NumOfSamples,LastLayerSizeInt+FirstLayerSizeInt, 1}
             end,
       ErlDataTensor = generate_nerltensor(float, DimX, DimY, DimZ),
-      %% TODO Call to split_erl_tensor(ErlNerlTensor , NumOfFeatures , NumOfLabels) in nerlTensor.erl to split labels from data
+      {_NumOfFeatures ,_} = string:to_integer(FirstLayerSize),
+      {_NumOfLabels ,_} = string:to_integer(LastLayerSize),
+      io:format("ErlDataTensor of length ~p : ~p~n",[length(ErlDataTensor),ErlDataTensor]),
+      %% split_erl_tensor(ErlDataTensor , NumOfFeatures , NumOfLabels),
       nerlNIF:nerltensor_conversion({ErlDataTensor,erl_float},float).  
+
+
 
 nerlworker_test([], _Performance) -> _Performance;
 nerlworker_test([CurrentModel | Tail], Performance) -> 
@@ -285,7 +291,7 @@ nerlworker_test([CurrentModel | Tail], Performance) ->
       nerlNIF:train_nif(ModelId,DataTensorEncoded,Type), % ask Guy about receiver block
       %block receive to get loss values from worker
       nerltest_print("after train_nif"),
-      % TODO remove labels from generated data
+      % TODO remove labels from generated data - ask David if we need to change "generate_tensor"
       % TODO Ori - implement predict
       nerlNIF:remove_nerlworker_nif(ModelId),
       nerlworker_test(Tail, Performance).
