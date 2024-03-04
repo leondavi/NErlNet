@@ -4,7 +4,7 @@ import pandas as pd
 from math import floor
 
 class SourcePieceDS():
-    def __init__(self, source_name : str, batch_size, phase : str, starting_offset = 0, num_of_batches = 0):
+    def __init__(self, csv_dataset_parent, source_name : str, batch_size, phase : str, starting_offset = 0, num_of_batches = 0):
         self.source_name = source_name
         self.batch_size = batch_size
         self.phase = phase
@@ -14,6 +14,7 @@ class SourcePieceDS():
         self.pointer_to_sourcePiece_CsvDataSet = None # pointer to the csv file that contains the source piece data
         self.pointer_to_sourcePiece_CsvDataSet_labels = None # pointer to the csv file that contains the source piece labels
         self.filter_features_and_labels = [] 
+        self.csv_dataset_parent = csv_dataset_parent
 
     def get_source_name(self):
         return self.source_name
@@ -37,11 +38,16 @@ class SourcePieceDS():
         return self.filter_features_and_labels
     
     def get_pointer_to_sourcePiece_CsvDataSet(self):
+        assert self.pointer_to_sourcePiece_CsvDataSet is not None, "pointer_to_sourcePiece_CsvDataSet is None"
         return self.pointer_to_sourcePiece_CsvDataSet
     
     def get_pointer_to_sourcePiece_CsvDataSet_labels(self):
+        assert self.pointer_to_sourcePiece_CsvDataSet_labels is not None, "pointer_to_sourcePiece_CsvDataSet_labels is None"
         return self.pointer_to_sourcePiece_CsvDataSet_labels
-    
+
+    def get_csv_dataset_parent(self):
+        return self.csv_dataset_parent
+
     def update_target_workers(self, target_workers):
         self.target_workers = target_workers
     
@@ -54,7 +60,7 @@ class SourcePieceDS():
     def set_pointer_to_sourcePiece_CsvDataSet_labels(self, pointer_to_sourcePiece_CsvDataSet_labels):
         self.pointer_to_sourcePiece_CsvDataSet_labels = pointer_to_sourcePiece_CsvDataSet_labels
 class CsvDataSet():
-    def __init__(self, csv_path, output_dir: str, batch_size, num_of_features, num_of_labels, headers_row: bool):
+    def __init__(self, csv_path, output_dir: str, batch_size, num_of_features, num_of_labels, headers_row: list):
         self.csv_path = csv_path
         self.output_dir = output_dir
         #Todo throw exception if csv file does not exist and file path ends with .csv
@@ -74,6 +80,9 @@ class CsvDataSet():
 
     def get_num_of_labels(self):
         return self.num_of_labels
+    
+    def set_num_of_labels(self, num_of_labels):
+        self.num_of_labels = num_of_labels
 
     def get_total_num_of_batches(self):
         return floor(pd.read_csv(self.csv_path).shape[0] / self.batch_size)
@@ -84,7 +93,7 @@ class CsvDataSet():
         assert starting_offset >= 0
         assert phase == PHASE_TRAINING_STR or phase == PHASE_PREDICTION_STR
         assert (starting_offset + num_of_batches * batch_size) <= self.get_total_num_of_batches(), "starting_offset + num_of_batches * batch_size exceeds the total number of batches in the csv file"
-        return SourcePieceDS(source_name, batch_size, phase, starting_offset, num_of_batches)
+        return SourcePieceDS(self, source_name, batch_size, phase, starting_offset, num_of_batches)
         
     def generate_source_piece_ds_csv_file(self, source_piece_ds_inst: SourcePieceDS, phase : str):
         skip_rows = source_piece_ds_inst.get_starting_offset()
@@ -93,11 +102,12 @@ class CsvDataSet():
         df = df.rename(columns=df.iloc[0]).drop(df.index[0]) # set the first row as the header, to prevent sending of the header row 
         df_features = df.iloc[:, :int(self.get_num_of_features())]  # from 0 column to num_of_features column (bun not including num_of_features column)  
         #print(f'df_features: {df_features}')
-        df_labels = df.iloc[:, int(self.get_num_of_features()):] # from num_of_features column to the end of the dataframe
+        #df_labels = df.iloc[:, int(self.get_num_of_features()):] # from num_of_features column to the end of the dataframe
         #print(f'df_labels: {df_labels}')
         source_piece_file_path = f'{self.output_dir}/{source_piece_ds_inst.get_source_name()}_data.csv'
         if phase == PHASE_TRAINING_STR:  
-            df.to_csv(source_piece_file_path, index = False)
+            df_train = df.iloc[:, :int(self.get_num_of_features()) + int(self.get_num_of_labels())]  # from 0 column to num_of_features + num_of_labels column (bun not including num_of_features + num_of_labels column)
+            df_train.to_csv(source_piece_file_path, index = False)
         elif phase == PHASE_PREDICTION_STR:
             df_features.to_csv(source_piece_file_path, index = False)
         return source_piece_file_path
@@ -107,7 +117,7 @@ class CsvDataSet():
             skip_rows = source_piece_ds_inst.get_starting_offset()
             number_of_samples = source_piece_ds_inst.get_num_of_batches() * source_piece_ds_inst.get_batch_size()
             df = pd.read_csv(self.csv_path, skiprows = skip_rows, nrows = number_of_samples, header = None)
-            df_labels = df.iloc[:, int(self.get_num_of_features()):] # from num_of_features column to the end of the dataframe
+            df_labels = df.iloc[:, int(self.get_num_of_features()):int(self.get_num_of_features()) + int(self.get_num_of_labels())] # from num_of_features column to the end of the dataframe
             df_labels.columns = self.headers_row
             source_piece_file_path_labels = f'{self.output_dir}/{source_piece_ds_inst.get_source_name()}_data_labels.csv'
             df_labels.to_csv(source_piece_file_path_labels, index = False)

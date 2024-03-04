@@ -12,6 +12,9 @@ class BatchDB():
     def get_source_name(self):
         return self.source_name
 
+    def get_batch_id(self):
+        return self.batch_id
+    
     def get_tensor_data(self):
         return self.tensor_data
 class WorkerModelDB():
@@ -30,8 +33,9 @@ class WorkerModelDB():
         self.batches_ts_dict[batch_timestamp] = self.batches_dict[(source_name, batch_id)]
 
     def get_batch(self, source_name, batch_id):
-        assert (source_name, batch_id) in self.batches_dict
-        return self.batches_dict[(source_name, batch_id)]
+        if (source_name, batch_id) in self.batches_dict:
+            return self.batches_dict[(source_name, batch_id)]
+        return None
     
     def get_total_batches(self):
         assert len(self.batches_dict) == len(self.batches_ts_dict)
