@@ -140,6 +140,12 @@ class Transmitter:
         requests.post(self.statisticsAddress, data='getStatistics')
         globe.pendingAcks = 1
         waitForAck()
+        
+    def restart(self):
+        print("Sent restart request to Main Server!")
+        requests.post(self.restart_address, data='restart')
+        time.sleep(5)
+
     
 
     '''

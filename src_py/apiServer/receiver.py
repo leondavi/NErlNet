@@ -30,6 +30,8 @@ def initReceiver(receiverHost, receiverPort, event):
         except:
             event.set()
             return
+        
+
 
 def processResult(resData, currentPhase):
         if (currentPhase == "Training"):
@@ -69,6 +71,18 @@ class shutdown(Resource):
         if shut is None:
             raise RuntimeError('Shudown error: not running with the Werkzeug Server')
         shut()
+        
+class terminate(Resource):
+    def post(self):
+        # # resData = request.form
+        shutdown = request.environ.get('werkzeug.server.shutdown') # ! Doesn't work , always raises the runtime error
+        # if shutdown is None:
+        #     raise RuntimeError('Shutdown error: not running with the Werkzeug Server')
+        # # # api_server_event_sync_inst = receiver.config['API_SERVER_EVENT_SYNC']
+        # # # api_server_event_sync_inst.set_event_done(api_server_event_sync_inst.TERMINATE)
+        shutdown()
+        exit(0)
+
 
 class test(Resource):
     def post(self):

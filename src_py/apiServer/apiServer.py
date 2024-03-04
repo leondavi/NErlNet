@@ -80,7 +80,12 @@ pendingAcks:                        makes sure API command reaches all relevant 
 TRAINING_STR = "Training"
 PREDICTION_STR = "Prediction"
         """)
-    
+        
+    def reset(self):
+        self.transmitter.restart()
+        import sys
+        sys.exit(0)
+
     def __new_experiment(self, experiment_name : str):
         assert experiment_name not in self.experiments_dict, "experiment name exists!"
         self.experiments_dict[experiment_name] = Experiment(experiment_name)
