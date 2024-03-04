@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score
+from sklearn import metrics
 import matplotlib.pyplot as plt
 from datetime import datetime
 from pathlib import Path
@@ -18,6 +18,12 @@ class Stats():
         self.phase = self.experiment_phase.get_phase_type()
         self.name = self.experiment_phase.get_name()
         self.loss_ts_pd = None
+        self.missed_batches_warning_msg = False
+        if (self.phase == PHASE_PREDICTION_STR):
+            for source_piece_inst in self.experiment_phase.get_sources_pieces():
+                csv_dataset = source_piece_inst.get_csv_dataset_parent()
+                source_piece_csv_labels_file = csv_dataset.genrate_source_piece_ds_csv_file_labels(source_piece_inst, self.phase)
+                source_piece_inst.set_pointer_to_sourcePiece_CsvDataSet_labels(source_piece_csv_labels_file)
 
         Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_phase.get_experiment_flow_name()}').mkdir(parents=True, exist_ok=True)
         Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_phase.get_phase_type()}/{self.experiment_phase.get_experiment_flow_name()}').mkdir(parents=True, exist_ok=True)
@@ -124,6 +130,14 @@ class Stats():
             export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/min_loss.json', min_loss_dict)
         return min_loss_dict
     
+    def expend_labels_df(self, df):
+        assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"
+        temp_list = list(range(df.shape[1])) 
+        temp_list = [x + df.shape[1] for x in temp_list]
+        num_of_labels = df.shape[1]
+        df = df.reindex(columns = [*df.columns.tolist(), *temp_list], fill_value = 0)
+        assert df.shape[1] == 2 * num_of_labels, "Error in expend_labels_df function"
+        return df
 
     def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):  
         assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"   
@@ -132,34 +146,74 @@ class Stats():
         for source_piece_inst in sources_pieces_list:
             sourcePiece_csv_labels_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet_labels()
             df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
+            num_of_labels = df_actual_labels.shape[1]
+            header_list = range(num_of_labels) 
+            df_actual_labels.columns = header_list
+            df_actual_labels = self.expend_labels_df(df_actual_labels)
             #print(df_actual_labels)
-            actual_labels_list = df_actual_labels.idxmax(axis=1).tolist()
             source_name = source_piece_inst.get_source_name()
 
             # build confusion matrix for each worker
             target_workers = source_piece_inst.get_target_workers()
+            worker_missed_batches = {}
+            batch_size = source_piece_inst.get_batch_size()
             for worker_db in workers_model_db_list:
-                if worker_db.get_worker_name() not in target_workers:
+                worker_name = worker_db.get_worker_name()
+                if worker_name not in target_workers:
                     continue
-                worker_prediction_list = []
+                df_worker_labels = df_actual_labels.copy()
                 total_batches_per_source = worker_db.get_total_batches_per_source(source_name)
                 for batch_id in range(total_batches_per_source):
                     batch_db = worker_db.get_batch(source_name, str(batch_id))
-                    tensor_data = batch_db.get_tensor_data()
-                    #print(tensor_data)
-                    
-                    for sample in tensor_data: # take the max value index for each sample
-                        max = 0 
-                        max_index = 0
-                        for index, result in enumerate(sample):
-                            if result[0] > max:
-                                max = result[0]
-                                max_index = index
+                    if not batch_db: # if batch is missing
+                        if not self.missed_batches_warning_msg:
+                            LOG_WARNING(f"missed batches")
+                            self.missed_batches_warning_msg = True
+                        starting_offset = source_piece_inst.get_starting_offset()
+                        df_worker_labels.iloc[batch_id * batch_size: (batch_id + 1) * batch_size, num_of_labels:] = None # set the actual label to None for the predict labels in the df 
+                        worker_missed_batches[(worker_name, source_name, str(batch_id))] = (starting_offset + batch_id * batch_size, batch_size)  # save the missing batch
+                
+                df_worker_labels = df_worker_labels.dropna()
+                #print(df_worker_labels)
+                counter = 0
+                for batch_id in range(total_batches_per_source):
+                    batch_db = worker_db.get_batch(source_name, str(batch_id))
+                    if batch_db:
+                        # Todo check if need to use cycle or counter for pandas 
+                        # counter = according indexs of array 
+                        # cycle = according indexs of panadas (with jump)
+                        cycle = int(batch_db.get_batch_id())
+                        tensor_data = batch_db.get_tensor_data()
+                        tensor_data = tensor_data.reshape(batch_size, num_of_labels)
+                        #print(df_worker_labels)
+                        #print(tensor_data)
+                        start_index = cycle * batch_size
+                        end_index = (cycle + 1) * batch_size
+                        df_worker_labels.iloc[start_index:end_index, num_of_labels:] = tensor_data
+                        #print(df_worker_labels)
+                        counter += 1
 
-                        worker_prediction_list.append(max_index)  # list of indexes (int) with max value per sample
-                    
-                print(worker_prediction_list)
-                    
+                max_column_predict_index = df_worker_labels.iloc[:, num_of_labels:].idxmax(axis=1)
+                max_column_predict_index = max_column_predict_index.tolist()
+                max_column_predict_index = [int(predict_index) - num_of_labels for predict_index in max_column_predict_index] # fix the index to original labels index
+                max_column_labels_index = df_worker_labels.iloc[:, :num_of_labels].idxmax(axis=1)
+                max_column_labels_index = max_column_labels_index.tolist()
+                #print(f"max_column_predict_index: {max_column_predict_index}")
+                #print(f"max_column_labels_index: {max_column_labels_index}")
+
+                # building confusion matrix by sklearn
+                confusion_matrix = metrics.confusion_matrix(max_column_labels_index, max_column_predict_index)
+
+                plot = True
+                if plot:
+                    title = f"Confusion Matrix\nSource Piece: {source_name}\nWorker Name: {worker_name}"
+                    plt.imshow(confusion_matrix, interpolation='nearest', cmap=plt.cm.Blues)
+                    plt.title(title)
+                    plt.colorbar()
+                    plt.ylabel('Actual Label')
+                    plt.xlabel('Predicted Label')
+                    plt.show()
+                
         
       
         
