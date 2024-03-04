@@ -143,6 +143,8 @@ class Stats():
         assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"   
         sources_pieces_list = self.experiment_phase.get_sources_pieces()
         workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
+        confusion_matrix_source_dict = {}
+        confusion_matrix_worker_dict = {}
         for source_piece_inst in sources_pieces_list:
             sourcePiece_csv_labels_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet_labels()
             df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
@@ -190,9 +192,10 @@ class Stats():
                         start_index = cycle * batch_size
                         end_index = (cycle + 1) * batch_size
                         df_worker_labels.iloc[start_index:end_index, num_of_labels:] = tensor_data
-                        #print(df_worker_labels)
+                        print(df_worker_labels)
                         counter += 1
 
+                # Take 2 list from the df, one for the actual labels and one for the predict labels to build the confusion matrix
                 max_column_predict_index = df_worker_labels.iloc[:, num_of_labels:].idxmax(axis=1)
                 max_column_predict_index = max_column_predict_index.tolist()
                 max_column_predict_index = [int(predict_index) - num_of_labels for predict_index in max_column_predict_index] # fix the index to original labels index
@@ -203,8 +206,15 @@ class Stats():
 
                 # building confusion matrix by sklearn
                 confusion_matrix = metrics.confusion_matrix(max_column_labels_index, max_column_predict_index)
+                confusion_matrix_np = confusion_matrix.to_numpy()
+                # fix to per label confusion matrix
+                confusion_matrix_source_dict[(source_name, worker_name, label_name)] = confusion_matrix
+                if (worker_name, label_name) not in confusion_matrix_worker_dict:
+                    confusion_matrix_worker_dict[(worker_name, label_name)] = confusion_matrix_np
+                else:
+                    confusion_matrix_worker_dict[(worker_name, label_name)] += confusion_matrix_np
 
-                plot = True
+                #plot = True
                 if plot:
                     title = f"Confusion Matrix\nSource Piece: {source_name}\nWorker Name: {worker_name}"
                     plt.imshow(confusion_matrix, interpolation='nearest', cmap=plt.cm.Blues)
