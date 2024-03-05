@@ -131,18 +131,22 @@ PREDICTION_STR = "Prediction"
         if not hasattr(self, 'transmitter'):
             self.transmitter = Transmitter(self.current_exp, self.mainServerAddress, self.input_data_path)
 
-        # self.visualize_nerlnet_graph(connData['connectionsMap'] , globe.components) # No need to pass globe.__ as argument , but maybe will be deprecated in the future
+        self.visualize_nerlnet_graph(connData['connectionsMap'] , globe.components) # No need to pass globe.__ as argument , but maybe will be deprecated in the future
         LOG_INFO("*** Remember to execute NerlnetRun.sh on each device before running the experiment! ***")
         
     def visualize_nerlnet_graph(self , connections : dict , components): # connections is a dictionary with keys as routers and values as lists of their neighbors
+        print("Connections: " , list(connections.items()))
         routers = list(connections.keys())
+        print("Routers: " , routers)
         workers = list(components.map_worker_to_client.keys())
+        print("Workers: " , workers)
         graph = nx.Graph()
         nodes = routers + components.sources + components.clients + workers + [API_SERVER_STR , MAIN_SERVER_STR]
         edges = [] # list of tuples
-        for router , neighbors in connections:
+        for router , neighbors in list(connections.items()):
             for neighbor in neighbors:
-                if neighbor not in nodes:
+                if (router,neighbor) not in edges:
+                    print(f"Adding edge ({router} , {neighbor}) to graph")
                     edges.append((router , neighbor))
         edges.append((API_SERVER_STR , MAIN_SERVER_STR)) # Always connected
         for worker in workers:
