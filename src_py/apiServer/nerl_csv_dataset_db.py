@@ -87,6 +87,9 @@ class CsvDataSet():
     def get_total_num_of_batches(self):
         return floor(pd.read_csv(self.csv_path).shape[0] / self.batch_size)
 
+    def get_headers_row(self):
+        return self.headers_row
+    
     def generate_source_piece_ds(self, source_name : str, batch_size: int, phase : str, starting_offset: int, num_of_batches: int):
         assert batch_size > 0 
         assert num_of_batches >= 0 

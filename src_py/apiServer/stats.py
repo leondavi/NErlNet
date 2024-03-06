@@ -24,6 +24,7 @@ class Stats():
                 csv_dataset = source_piece_inst.get_csv_dataset_parent()
                 source_piece_csv_labels_file = csv_dataset.genrate_source_piece_ds_csv_file_labels(source_piece_inst, self.phase)
                 source_piece_inst.set_pointer_to_sourcePiece_CsvDataSet_labels(source_piece_csv_labels_file)
+            self.headers_list = csv_dataset.get_headers_row()
 
         Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_phase.get_experiment_flow_name()}').mkdir(parents=True, exist_ok=True)
         Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_phase.get_phase_type()}/{self.experiment_phase.get_experiment_flow_name()}').mkdir(parents=True, exist_ok=True)
@@ -192,7 +193,7 @@ class Stats():
                         start_index = cycle * batch_size
                         end_index = (cycle + 1) * batch_size
                         df_worker_labels.iloc[start_index:end_index, num_of_labels:] = tensor_data
-                        print(df_worker_labels)
+                        #print(df_worker_labels)
                         counter += 1
 
                 # Take 2 list from the df, one for the actual labels and one for the predict labels to build the confusion matrix
@@ -203,17 +204,19 @@ class Stats():
                 max_column_labels_index = max_column_labels_index.tolist()
                 #print(f"max_column_predict_index: {max_column_predict_index}")
                 #print(f"max_column_labels_index: {max_column_labels_index}")
-
-                # building confusion matrix by sklearn
-                confusion_matrix = metrics.confusion_matrix(max_column_labels_index, max_column_predict_index)
-                confusion_matrix_np = confusion_matrix.to_numpy()
-                # fix to per label confusion matrix
-                confusion_matrix_source_dict[(source_name, worker_name, label_name)] = confusion_matrix
-                if (worker_name, label_name) not in confusion_matrix_worker_dict:
-                    confusion_matrix_worker_dict[(worker_name, label_name)] = confusion_matrix_np
-                else:
-                    confusion_matrix_worker_dict[(worker_name, label_name)] += confusion_matrix_np
-
+                
+                # building confusion matrix for each class
+                for class_index, class_name in enumerate(self.headers_list):
+                    class_actual_list = [1 if label_num == class_index else 0 for label_num in max_column_labels_index]   # 1 if the label is belong to the class, 0 otherwise
+                    class_predict_list = [1 if label_num == class_index else 0 for label_num in max_column_predict_index]   # 1 if the label is belong to the class, 0 otherwise
+                    confusion_matrix = metrics.confusion_matrix(class_actual_list, class_predict_list)  
+                    #confusion_matrix_np = confusion_matrix.to_numpy()
+                    confusion_matrix_source_dict[(source_name, worker_name, class_name)] = confusion_matrix
+                    if (worker_name, class_name) not in confusion_matrix_worker_dict:
+                        confusion_matrix_worker_dict[(worker_name, class_name)] = confusion_matrix
+                    else:
+                        confusion_matrix_worker_dict[(worker_name, class_name)] += confusion_matrix
+                
                 #plot = True
                 if plot:
                     title = f"Confusion Matrix\nSource Piece: {source_name}\nWorker Name: {worker_name}"
@@ -223,11 +226,55 @@ class Stats():
                     plt.ylabel('Actual Label')
                     plt.xlabel('Predicted Label')
                     plt.show()
-                
+
+        return confusion_matrix_source_dict, confusion_matrix_worker_dict
+
+    def get_model_performence_stats(self , confusion_matrix_worker_dict , show : bool = False , saveToFile : bool = False, printStats = False) -> dict:
+        """
+        Returns a dictionary of {worker : {class: {Performence_Stat : VALUE}}} for each worker and class in the experiment.
+        Performence Statistics Available are: TN, FP, FN, TP, Accuracy, Balanced Accuracy, Precision, Recall, True Negative Rate, Informedness, F1
+        """
+        workers_performence = OrderedDict()
+        for (worker_name, class_name) in confusion_matrix_worker_dict.keys():
+            workers_performence[worker_name] = OrderedDict()
+            for j, label_stats in enumerate(confusion_matrix_worker_dict[(worker_name, class_name)]): # Multi-Class
+                workers_performence[worker_name][j] = OrderedDict()
+                tn, fp, fn, tp = label_stats.ravel()
+                if printStats:
+                    LOG_INFO(f"worker {worker_name} label: {j} tn: {tn}, fp: {fp}, fn: {fn}, tp: {tp}")
+                tn = int(tn)
+                fp = int(fp)
+                fn = int(fn)
+                tp = int(tp)
+                acc = (tp + tn) / (tp + tn + fp + fn)
+                ppv = tp / (tp + fp) if tp > 0 else 0 # Precision
+                tpr = tp / (tp + fn) if tp > 0 else 0 # Recall 
+                tnr = tn / (tn + fp) if tn > 0 else 0
+                bacc = (tpr + tnr) / 2
+                inf = tpr + tnr - 1
+                f1 = 2 * (ppv * tpr) / (ppv + tpr) if (ppv + tpr) > 0 else 0 # F1-Score
+
+                workers_performence[worker_name][j]['TN'] = tn
+                workers_performence[worker_name][j]['FP'] = fp
+                workers_performence[worker_name][j]['FN'] = fn
+                workers_performence[worker_name][j]['TP'] = tp
+                workers_performence[worker_name][j]['Accuracy'] = acc
+                workers_performence[worker_name][j]['Balanced Accuracy'] = bacc
+                workers_performence[worker_name][j]['Precision'] = ppv
+                workers_performence[worker_name][j]['Recall'] = tpr
+                workers_performence[worker_name][j]['True Negative Rate'] = tnr
+                workers_performence[worker_name][j]['Informedness'] = inf
+                workers_performence[worker_name][j]['F1'] = f1
+
+                if show:
+                    print(f"{worker_name}, class #{j}:")
+                    print(f"{workers_performence[worker_name][j]}\n")
         
-      
-        
-        pass
+        if saveToFile:
+            export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/accuracy_stats.json', workers_performence)
+            
+        return workers_performence
+
 
     def get_confusion_matrices1(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):
         """
@@ -273,7 +320,7 @@ class Stats():
             export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/confusion_matrices.json', workers_confusion_matrices)
         return workers_confusion_matrices
     
-    def get_model_performence_stats(self , confMatDict , show : bool = False , saveToFile : bool = False, printStats = False) -> dict:
+    def get_model_performence_stats1(self , confMatDict , show : bool = False , saveToFile : bool = False, printStats = False) -> dict:
         """
         Returns a dictionary of {worker : {class: {Performence_Stat : VALUE}}} for each worker and class in the experiment.
         Performence Statistics Available are: TN, FP, FN, TP, Accuracy, Balanced Accuracy, Precision, Recall, True Negative Rate, Informedness, F1
