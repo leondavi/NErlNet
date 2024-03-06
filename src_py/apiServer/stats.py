@@ -178,11 +178,9 @@ class Stats():
                 
                 df_worker_labels = df_worker_labels.dropna()
                 #print(df_worker_labels)
-                counter = 0
                 for batch_id in range(total_batches_per_source):
                     batch_db = worker_db.get_batch(source_name, str(batch_id))
                     if batch_db:
-                        # Todo check if need to use cycle or counter for pandas 
                         # counter = according indexs of array 
                         # cycle = according indexs of panadas (with jump)
                         cycle = int(batch_db.get_batch_id())
@@ -194,7 +192,7 @@ class Stats():
                         end_index = (cycle + 1) * batch_size
                         df_worker_labels.iloc[start_index:end_index, num_of_labels:] = tensor_data
                         #print(df_worker_labels)
-                        counter += 1
+
 
                 # Take 2 list from the df, one for the actual labels and one for the predict labels to build the confusion matrix
                 max_column_predict_index = df_worker_labels.iloc[:, num_of_labels:].idxmax(axis=1)
@@ -231,44 +229,42 @@ class Stats():
 
     def get_model_performence_stats(self , confusion_matrix_worker_dict , show : bool = False , saveToFile : bool = False, printStats = False) -> dict:
         """
-        Returns a dictionary of {worker : {class: {Performence_Stat : VALUE}}} for each worker and class in the experiment.
+        Returns a dictionary of {(worker, class): {Performence_Stat : VALUE}}} for each worker and class in the experiment.
         Performence Statistics Available are: TN, FP, FN, TP, Accuracy, Balanced Accuracy, Precision, Recall, True Negative Rate, Informedness, F1
         """
         workers_performence = OrderedDict()
         for (worker_name, class_name) in confusion_matrix_worker_dict.keys():
-            workers_performence[worker_name] = OrderedDict()
-            for j, label_stats in enumerate(confusion_matrix_worker_dict[(worker_name, class_name)]): # Multi-Class
-                workers_performence[worker_name][j] = OrderedDict()
-                tn, fp, fn, tp = label_stats.ravel()
-                if printStats:
-                    LOG_INFO(f"worker {worker_name} label: {j} tn: {tn}, fp: {fp}, fn: {fn}, tp: {tp}")
-                tn = int(tn)
-                fp = int(fp)
-                fn = int(fn)
-                tp = int(tp)
-                acc = (tp + tn) / (tp + tn + fp + fn)
-                ppv = tp / (tp + fp) if tp > 0 else 0 # Precision
-                tpr = tp / (tp + fn) if tp > 0 else 0 # Recall 
-                tnr = tn / (tn + fp) if tn > 0 else 0
-                bacc = (tpr + tnr) / 2
-                inf = tpr + tnr - 1
-                f1 = 2 * (ppv * tpr) / (ppv + tpr) if (ppv + tpr) > 0 else 0 # F1-Score
+            workers_performence[(worker_name, class_name)] = OrderedDict()
+            tn, fp, fn, tp = confusion_matrix_worker_dict[(worker_name, class_name)].ravel()
+            if printStats:
+                LOG_INFO(f"worker {worker_name} class: {class_name} tn: {tn}, fp: {fp}, fn: {fn}, tp: {tp}")
+            tn = int(tn)
+            fp = int(fp)
+            fn = int(fn)
+            tp = int(tp)
+            acc = (tp + tn) / (tp + tn + fp + fn)
+            ppv = tp / (tp + fp) if tp > 0 else 0 # Precision
+            tpr = tp / (tp + fn) if tp > 0 else 0 # Recall 
+            tnr = tn / (tn + fp) if tn > 0 else 0
+            bacc = (tpr + tnr) / 2
+            inf = tpr + tnr - 1
+            f1 = 2 * (ppv * tpr) / (ppv + tpr) if (ppv + tpr) > 0 else 0 # F1-Score
 
-                workers_performence[worker_name][j]['TN'] = tn
-                workers_performence[worker_name][j]['FP'] = fp
-                workers_performence[worker_name][j]['FN'] = fn
-                workers_performence[worker_name][j]['TP'] = tp
-                workers_performence[worker_name][j]['Accuracy'] = acc
-                workers_performence[worker_name][j]['Balanced Accuracy'] = bacc
-                workers_performence[worker_name][j]['Precision'] = ppv
-                workers_performence[worker_name][j]['Recall'] = tpr
-                workers_performence[worker_name][j]['True Negative Rate'] = tnr
-                workers_performence[worker_name][j]['Informedness'] = inf
-                workers_performence[worker_name][j]['F1'] = f1
+            workers_performence[(worker_name, class_name)]['TN'] = tn
+            workers_performence[(worker_name, class_name)]['FP'] = fp
+            workers_performence[(worker_name, class_name)]['FN'] = fn
+            workers_performence[(worker_name, class_name)]['TP'] = tp
+            workers_performence[(worker_name, class_name)]['Accuracy'] = acc
+            workers_performence[(worker_name, class_name)]['Balanced Accuracy'] = bacc
+            workers_performence[(worker_name, class_name)]['Precision'] = ppv
+            workers_performence[(worker_name, class_name)]['Recall'] = tpr
+            workers_performence[(worker_name, class_name)]['True Negative Rate'] = tnr
+            workers_performence[(worker_name, class_name)]['Informedness'] = inf
+            workers_performence[(worker_name, class_name)]['F1'] = f1
 
-                if show:
-                    print(f"{worker_name}, class #{j}:")
-                    print(f"{workers_performence[worker_name][j]}\n")
+            if show:
+                print(f"{worker_name}, class #{class_name}:")
+                print(f"{workers_performence[(worker_name,class_name)]}\n")
         
         if saveToFile:
             export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/accuracy_stats.json', workers_performence)
