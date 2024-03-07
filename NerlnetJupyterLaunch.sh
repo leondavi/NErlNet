@@ -139,5 +139,7 @@ cd $JUPDIR
 generate_set_jupyter_env
 generate_readme_md
 
+# TODO add networkx and pygraphviz installations! 
+
 jupyter-lab
 
