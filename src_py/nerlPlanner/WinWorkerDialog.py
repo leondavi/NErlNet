@@ -155,8 +155,9 @@ def WinWorkerDialog():
             ActivationDictStr = f'Activation:\n{pretty_print_dict(ActivationFunctionsMap)}'
             PoolingDictStr = f'Pooling:\n{pretty_print_dict(PoolingMethodMap)}'
             ScalerDictStr = f'Scaler:\n{pretty_print_dict(ScalingMethodMap)}'
+            BoundingDictStr = f'Bounding:\n{pretty_print_dict(BoundingMethodMap)}'
             ProbabilisticDictStr = f'Probabilistic:\n{pretty_print_dict(ProbabilisticActivationFunctionMap)}'
-            sg.popup_ok(f"Layer Functions Codes:\n{ActivationDictStr}\n{PoolingDictStr}\n{ScalerDictStr}\n{ProbabilisticDictStr}", keep_on_top=True, title="Layer Type Codes")
+            sg.popup_ok(f"Layer Functions Codes:\n{ActivationDictStr}\n{PoolingDictStr}\n{ScalerDictStr}\n{BoundingDictStr}\n{ProbabilisticDictStr}", keep_on_top=True, title="Layer Type Codes")
 
         if event == KEY_LEARNING_RATE_INPUT:
             LearningRate = values[event]
@@ -250,10 +251,11 @@ def WinWorkerDialog():
 def LayerMethodSelection():
     global global_layer_method_selection_code
 
-    layout = [[sg.Text("Activation",expand_x=True), sg.Text('Pooling', expand_x=True), sg.Text('Scaler', expand_x=True), sg.Text('Probabilistic', expand_x=True)],
+    layout = [[sg.Text("Activation",expand_x=True), sg.Text('Pooling', expand_x=True), sg.Text('Scaler', expand_x=True),sg.Text('Bounding' , expand_x=True), sg.Text('Probabilistic', expand_x=True)],
                 [sg.Listbox(list(ActivationFunctionsMap.keys()), size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_ACTIVATION),
                  sg.Listbox(list(PoolingMethodMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_POOLING), 
                  sg.Listbox(list(ScalingMethodMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_SCALER),
+                 sg.Listbox(list(BoundingMethodMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_BOUNDING),
                  sg.Listbox(list(ProbabilisticActivationFunctionMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_PROBABILISTIC)],
                  [sg.Text('Selection', expand_x=True, enable_events=True, key=KEY_LAYER_METHOD_SELECTION_TEXT),sg.Button('Select', expand_x=True, key=KEY_LAYER_METHOD_SELECTION_BUTTON)]]
     

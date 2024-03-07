@@ -32,7 +32,7 @@ namespace nerlnet
             }
             case MODEL_TYPE_AUTOENCODER:
             {
-                break;
+                break; // Get Loss Values by class LossIndexBackPropagationLM
             }
             case MODEL_TYPE_AE_CLASSIFIER:
             {
@@ -85,7 +85,7 @@ namespace nerlnet
      set_optimization_method(_optimizer_type,_learning_rate);
      set_loss_method(_loss_method);
      _training_strategy_ptr->set_maximum_epochs_number(_epochs); 
-     _training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); // remove opennn training strategy prints
+     //_training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); // remove opennn training strategy prints
     }
 
     void NerlWorkerOpenNN::set_optimization_method(int optimizer_type,int learning_rate){
@@ -209,11 +209,18 @@ namespace nerlnet
             }
             case MODEL_TYPE_AE_CLASSIFIER:
             {
+            cout << TrainDataNNptr->dimension(0) << "x" << TrainDataNNptr->dimension(1) << endl;
             Eigen::array<int, 2> bcast({1, 2}); 
-            std::shared_ptr<Eigen::Tensor<float,2>> autoencoder_data = std::make_shared<Eigen::Tensor<float,2>>(TrainDataNNptr->broadcast(bcast)); // ! Crashes test!!               
+            std::shared_ptr<Eigen::Tensor<float,2>> autoencoder_data = std::make_shared<Eigen::Tensor<float,2>>(TrainDataNNptr->broadcast(bcast));
+            int num_of_features = neural_network_ptr->get_inputs_number();
+            int num_of_output_neurons = neural_network_ptr->get_outputs_number(); 
+            bool data_set_condition = (num_of_features + num_of_output_neurons) == autoencoder_data->dimension(1);
+            assert(("issue with data input/output dimensions", data_set_condition));
             _data_set->set_data(*autoencoder_data);
-            int data_num_of_cols = autoencoder_data->dimension(1); // TODO Ori & Guy check again
-            _data_set->set(autoencoder_data->dimension(0),data_num_of_cols,data_num_of_cols); // TODO CHECK
+            _data_set->set(autoencoder_data->dimension(0) , num_of_features , num_of_output_neurons); // TODO CHECK
+
+            _data_set->print();
+            neural_network_ptr->print();
             break;
             }
             default:
@@ -353,7 +360,7 @@ namespace nerlnet
                     neural_network_ptr->add_layer(newLayer);
                     break;
                 }
-                case LAYER_TYPE_SCALING:
+                case LAYER_TYPE_SCALING: // TODO Check this layer implementation
                 {
                //     std::vector<int> layer_dims_vec;
                  //   curr_layer->get_layer_size(layer_dims_vec);
@@ -364,7 +371,7 @@ namespace nerlnet
                     neural_network_ptr->add_layer(newLayer);
                     break;
                 }
-                  case LAYER_TYPE_UNSCALING:
+                  case LAYER_TYPE_UNSCALING: // TODO Check this layer implementation
                 {
                     std::vector<int> layer_dims_vec;
                     curr_layer->get_layer_size(layer_dims_vec);
@@ -375,6 +382,9 @@ namespace nerlnet
                     neural_network_ptr->add_layer(newLayer);
                     break;
                 }
+
+                // TODO Add Boudning Layer!
+
                   case LAYER_TYPE_PROBABILISTIC:
                 {
                       if (curr_layer->is_first())
