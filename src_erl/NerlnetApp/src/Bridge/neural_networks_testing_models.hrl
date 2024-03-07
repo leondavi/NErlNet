@@ -2,12 +2,12 @@
 
 -define(PERCEPTRON_TESTING_NN,{ _ModelId  = erlang:unique_integer([positive]),
                                 _ModelType = "0",
-                                _LayersSizes = "5,10,5,3",
+                                _LayersSizes = "5,30,5,3",
                                 _LayersTypes = "1,3,3,3",
-                                _LayersFunctionalityCodes = "1,6,11,11", % change scaler functionality to 6 to check exception handling
+                                _LayersFunctionalityCodes = "1,6,6,6", % change scaler functionality to 6 to check exception handling
                                 _LearningRate = "0.01",
-                                _Epochs = "50",
-                                _OptimizerType = "2",
+                                _Epochs = "5000",
+                                _OptimizerType = "5",
                                 _OptimizerArgs = "",
                                 _LossMethod = "2",
                                 _DistributedSystemType = "0",
@@ -42,8 +42,8 @@
 -define(AE_TESTING_NN, {        _ModelIdAE  = erlang:unique_integer([positive]),
                                 _ModelTypeAE = "8",
                                 _LayersSizesAE = "32,16,8,4,8,16,32",
-                                _LayersTypesAE = "1,3,3,3,3,3,1",
-                                _LayersFunctionalityCodesAE = "1,11,11,11,11,11,1", 
+                                _LayersTypesAE = "1,3,3,3,3,3,3",
+                                _LayersFunctionalityCodesAE = "1,11,11,11,11,11,11", 
                                 _LearningRateAE = "0.01",
                                 _EpochsAE = "50",
                                 _OptimizerTypeAE = "5",

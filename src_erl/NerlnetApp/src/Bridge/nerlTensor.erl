@@ -6,13 +6,29 @@
 -import(nerlNIF,[nerltensor_sum_nif/3]).
 
 -export([nerltensor_sum_erl/2]).
--export([sum_nerltensors_lists/2, sum_nerltensors_lists_erl/2]).
+-export([sum_nerltensors_lists/2, sum_nerltensors_lists_erl/2 , split_cols_erl_tensor/3]).
 
 get_all_nerltensor_list_types() -> ?LIST_GROUP_NERLTENSOR_TYPE.
 
-split_erl_tensor(Tensor , NumOfFeatures , NumOfLabels) -> %% Test this function!!
-      {Features, Labels} = lists:split(NumOfFeatures, Tensor),
-      {lists:sublist(Features, 1, NumOfFeatures), lists:sublist(Labels, 1, NumOfLabels)}.
+split_cols_erl_tensor(Tensor , _DataType , SplitColumnIdx) -> %% DataType should determine the variable type for the dimensions and data
+      [DimX, DimY, DimZ | Data] = Tensor,
+      {FeaturesSamples , LabelsSamples} = split_data(Data , round(DimY) , SplitColumnIdx , [] , []),
+      {[DimX , float(SplitColumnIdx) , DimZ] ++ FeaturesSamples , [DimX , DimY - SplitColumnIdx , DimZ] ++ LabelsSamples}.
+
+split_data(Data , NumCols , ColumnIndex , Acc1 , Acc2) when is_list(Data) ->
+      %% io:format("Acc1: ~p~n", [Acc1]),
+      %% io:format("Acc2: ~p~n", [Acc2]),
+      if
+            length(Data) == 0 ->
+                  {Acc1 , Acc2};
+            true ->
+                  {RowPart1 , RestDataTemp} = lists:split(ColumnIndex , Data),
+                  {RowPart2 , RestData} = lists:split(NumCols - ColumnIndex , RestDataTemp), 
+                  Split1 = Acc1 ++ RowPart1,
+                  Split2 = Acc2 ++ RowPart2,
+                  split_data(RestData , NumCols , ColumnIndex , Split1 , Split2)
+      end.
+      
 
 nerltensor_sum_erl({NerlTensorErlA, Type}, {NerlTensorErlB, Type}) ->
       ListGroup = lists:member(Type, get_all_nerltensor_list_types()),
