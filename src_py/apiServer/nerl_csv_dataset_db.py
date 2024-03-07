@@ -1,7 +1,7 @@
 
 from definitions import PHASE_TRAINING_STR, PHASE_PREDICTION_STR
 import pandas as pd
-from math import floor
+from math import ceil
 
 class SourcePieceDS():
     def __init__(self, csv_dataset_parent, source_name : str, batch_size, phase : str, starting_offset = 0, num_of_batches = 0):
@@ -85,8 +85,11 @@ class CsvDataSet():
         self.num_of_labels = num_of_labels
 
     def get_total_num_of_batches(self):
-        return floor(pd.read_csv(self.csv_path).shape[0] / self.batch_size)
+        return ceil(pd.read_csv(self.csv_path).shape[0] / self.batch_size)
 
+    def get_total_num_of_samples(self):
+        return pd.read_csv(self.csv_path).shape[0]
+    
     def get_headers_row(self):
         return self.headers_row
     
@@ -95,7 +98,7 @@ class CsvDataSet():
         assert num_of_batches >= 0 
         assert starting_offset >= 0
         assert phase == PHASE_TRAINING_STR or phase == PHASE_PREDICTION_STR
-        assert (starting_offset + num_of_batches * batch_size) <= self.get_total_num_of_batches(), "starting_offset + num_of_batches * batch_size exceeds the total number of batches in the csv file"
+        assert (starting_offset + num_of_batches * batch_size) <= self.get_total_num_of_samples(), "starting_offset + num_of_batches * batch_size exceeds the total number of samples in the csv file"
         return SourcePieceDS(self, source_name, batch_size, phase, starting_offset, num_of_batches)
         
     def generate_source_piece_ds_csv_file(self, source_piece_ds_inst: SourcePieceDS, phase : str):
