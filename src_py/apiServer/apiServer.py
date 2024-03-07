@@ -29,7 +29,7 @@ class ApiServer():
         # Create a new folder for the results:
         Path(EXPERIMENT_RESULTS_PATH).mkdir(parents=True, exist_ok=True)
 
-    def get_experiment_flow(self, exp_name : str) :
+    def get_experiment_flow(self, exp_name : str) -> ExperimentFlow:
         return self.experiments_dict[exp_name] if exp_name in self.experiments_dict else None
 
     def set_json_dir(self, custom_path : str):

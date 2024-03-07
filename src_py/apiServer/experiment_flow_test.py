@@ -39,11 +39,26 @@ api_server_instance = ApiServer()
 #api_server_instance.showJsons()
 api_server_instance.setJsons(0,0,0)
 
-arch_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
+dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
+
+
+# next_expertiment_phase_exist = True 
+# api_server_instance.run_current_experiment_phase() # blocking - deppended acks from mainserver
+# api_server_instance.communication_stats()
+# stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
+# stats.get_loss_ts()
+# stats.get_min_loss_list()
+# next_expertiment_phase_exist = api_server_instance.next_experiment_phase()
+# api_server_instance.run_current_experiment_phase()
+# api_server_instance.communication_stats()
+# stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
+# confusion_matrix_source_dict, confusion_matrix_worker_dict = stats.get_confusion_matrices()
+# stats.get_model_performence_stats(confusion_matrix_worker_dict, True)
+
 
 experiment_name = "test_exp"
-api_server_instance.initialization(experiment_name, arch_json , connmap_json, exp_flow_json)
-api_server_instance.sendJsonsToDevices()
+api_server_instance.initialization(experiment_name, dc_json , connmap_json, exp_flow_json)
+api_server_instance.send_jsons_to_devices()
 
 api_server_instance.sendDataToSources(PHASE_TRAINING)
 api_server_instance.train()

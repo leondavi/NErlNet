@@ -2,7 +2,7 @@
 import os
 from apiServer import *
 from logger import *
-from stats import Stats
+from stats import *
 from runCommand import RunCommand
 from definitions import *
 
@@ -39,6 +39,7 @@ api_server_instance.communication_stats()
 stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
 confusion_matrix_source_dict, confusion_matrix_worker_dict = stats.get_confusion_matrices()
 stats.get_model_performence_stats(confusion_matrix_worker_dict, True)
+
 exit(0)
 next_expertiment_phase_exist = api_server_instance.next_experiment_phase() 
 api_server_instance.run_current_experiment_phase()
