@@ -71,15 +71,20 @@ class Stats():
         #print(df)
         return df
 
-    # TODO why list?
-    def get_min_loss_list(self , plot : bool = False , saveToFile : bool = False): # Todo change it
+    def get_min_loss(self , plot : bool = False , saveToFile : bool = False): # Todo change it
+        """
+        Returns a dictionary of {worker : min loss} for each worker in the experiment.
+        use plot=True to plot the min loss of each worker.
+        """
+        min_loss_dict = OrderedDict()
         if self.loss_ts_pd is None:
             loss_ts_pd = self.get_loss_ts()
         else:
             loss_ts_pd = self.loss_ts_pd
-        min_loss_list = loss_ts_pd.min(numeric_only=True)
-        #print(min_loss_list)
-        return min_loss_list
+        for worker_name in loss_ts_pd.columns:
+            min_loss = loss_ts_pd[worker_name].min(numeric_only=True)
+            min_loss_dict[worker_name] = min_loss
+        return min_loss_dict
 
 
         # if plot: 
@@ -106,7 +111,7 @@ class Stats():
     
 
     # TODO is it deprecated???
-    def get_loss_min(self , plot : bool = False , saveToFile : bool = False):  #Todo return get loss min and batch id
+    def get_loss_min1(self , plot : bool = False , saveToFile : bool = False):  #Todo return get loss min and batch id
         """
         Returns a dictionary of {worker : min loss} for each worker in the experiment.
         use plot=True to plot the min loss of each worker.
