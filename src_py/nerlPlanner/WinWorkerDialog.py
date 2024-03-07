@@ -259,7 +259,7 @@ def LayerMethodSelection():
                  sg.Listbox(list(ProbabilisticActivationFunctionMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_PROBABILISTIC)],
                  [sg.Text('Selection', expand_x=True, enable_events=True, key=KEY_LAYER_METHOD_SELECTION_TEXT),sg.Button('Select', expand_x=True, key=KEY_LAYER_METHOD_SELECTION_BUTTON)]]
     
-    layer_selection_win = sg.Window(title="Layer Method Selection", layout=layout, modal=True, keep_on_top=True)
+    layer_selection_win = sg.Window(title="Layer Method Selection", layout=layout, modal=True)
 
 
     while True: 
@@ -283,6 +283,11 @@ def LayerMethodSelection():
         if event == KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_PROBABILISTIC:
             layer_method_selection = values[KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_PROBABILISTIC][0]
             global_layer_method_selection_code = ProbabilisticActivationFunctionMap[layer_method_selection]
+            layer_selection_win[KEY_LAYER_METHOD_SELECTION_TEXT].update(f'Selected {layer_method_selection} code: {global_layer_method_selection_code}')
+
+        if event == KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_BOUNDING:
+            layer_method_selection = values[KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_BOUNDING][0]
+            global_layer_method_selection_code = BoundingMethodMap[layer_method_selection]
             layer_selection_win[KEY_LAYER_METHOD_SELECTION_TEXT].update(f'Selected {layer_method_selection} code: {global_layer_method_selection_code}')
 
         if event == KEY_LAYER_METHOD_SELECTION_BUTTON:
