@@ -8,7 +8,7 @@
    "Phases": 
    [
       {
-         "phaseName": "training1",
+         "phaseName": "training_phase",
          "phaseType": "training",
          "sourcePieces":
          [
@@ -21,7 +21,7 @@
          ]  
       },
       {
-         "phaseName": "prediction1",
+         "phaseName": "prediction_phase",
          "phaseType": "prediction",
          "sourcePieces":
          [

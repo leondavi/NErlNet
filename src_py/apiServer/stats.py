@@ -71,6 +71,7 @@ class Stats():
         #print(df)
         return df
 
+    # TODO why list?
     def get_min_loss_list(self , plot : bool = False , saveToFile : bool = False): # Todo change it
         if self.loss_ts_pd is None:
             loss_ts_pd = self.get_loss_ts()
@@ -103,6 +104,8 @@ class Stats():
         #     export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/loss.json', loss_dict)
         # return loss_dict
     
+
+    # TODO is it deprecated???
     def get_loss_min(self , plot : bool = False , saveToFile : bool = False):  #Todo return get loss min and batch id
         """
         Returns a dictionary of {worker : min loss} for each worker in the experiment.
