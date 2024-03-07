@@ -17,7 +17,7 @@ def print_test(in_str : str , enable = True):
 NERLNET_PATH = os.getenv('NERLNET_PATH')
 TESTS_PATH = os.getenv('TESTS_PATH')
 TESTS_BASELINE_MODEL_STATS = os.getenv('TEST_BASELINE_MODEL_STATS')
-TESTS_BASELINE_LOSS_MIN = os.getenv('TEST_BASELINE_LOSS_MIN')
+TEST_BASELINE_LOSS_MIN = os.getenv('TEST_BASELINE_LOSS_MIN')
 NERLNET_RUN_SCRIPT = "./NerlnetRun.sh --run-mode release"
 NERLNET_RUN_STOP_SCRIPT = "./NerlnetRun.sh --run-mode stop"
 NERLNET_RUNNING_TIMEOUT_SEC = int(os.getenv('NERLNET_RUNNING_TIMEOUT_SEC'))
@@ -73,54 +73,56 @@ api_server_instance.run_current_experiment_phase() # blocking until phase is com
 api_server_instance.communication_stats()
 stats_predict = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
 
-LOG_INFO("Experiment phases completed")
+print_test("Experiment phases completed")
 
-LOG_INFO("Stopping NerlnetApp")
+print_test("Stopping NerlnetApp")
 nerlnet_stop_cmd = RunCommand(NERLNET_RUN_STOP_SCRIPT, NERLNET_PATH)
 stdout, stderr, rc = nerlnet_run_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
-LOG_INFO(f'rc: {rc}')
+print_test(f'rc: {rc}')
 if stderr: 
     LOG_ERROR(stderr)
 else:
-    print_test(stdout, False)
+    print_test(stdout)
 stdout, stderr, rc = nerlnet_stop_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
-LOG_INFO(f'rc stop: {rc}')
+print_test(f'rc stop: {rc}')
 if stderr: 
     LOG_ERROR(stderr)
 else:
     print_test(stdout, False)
 
+generate_baseline_files = True
 
-# stats_train.get_min_loss_list(saveToFile=True)
+loss_min_dict = stats_train.get_min_loss(saveToFile=generate_baseline_files)
+_ , confusion_matrix_worker_dict = stats_predict.get_confusion_matrices()
+performence_stats = stats_predict.get_model_performence_stats(confusion_matrix_worker_dict, saveToFile=generate_baseline_files)
 
-# loss_min = exp_stats.get_loss_min(saveToFile=True)
-# baseline_loss_min = import_dict_json(TESTS_BASELINE_LOSS_MIN)
-# for worker in loss_min.keys():
-#     diff = abs(loss_min[worker] - baseline_loss_min[worker])
-#     if baseline_loss_min[worker] == 0:
-#         error = diff
-#     else:
-#         error = diff/baseline_loss_min[worker]
-#     LOG_INFO(f"worker: {worker}, diff: {diff} , error: {error}")
-#     if error > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
-#         LOG_ERROR(f"Anomaly failure detected")
-#         LOG_ERROR(f"Error: {error} , Acceptable error: {TEST_ACCEPTABLE_MARGIN_OF_ERROR}")
-#         ExitValue = 1
-#         break
+baseline_loss_min = import_dict_json(TEST_BASELINE_LOSS_MIN)
+baseline_performance_stats = import_dict_pickle(TESTS_BASELINE_MODEL_STATS)
+
+for worker in loss_min_dict.keys():
+    diff = abs(loss_min_dict[worker] - baseline_loss_min[worker])
+    if baseline_loss_min[worker] == 0:
+        error = diff
+    else:
+        error = diff/baseline_loss_min[worker]
+    LOG_INFO(f"worker: {worker}, diff: {diff} , error: {error}")
+    if error > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
+        LOG_ERROR(f"Anomaly failure detected")
+        LOG_ERROR(f"Error: {error} , Acceptable error: {TEST_ACCEPTABLE_MARGIN_OF_ERROR}")
+        ExitValue = 1
+        break
         
 
-# DIFF_MEASURE_METHOD = "F1"
-# conf_mats = exp_stats.get_confusion_matrices()
-# performence_stats = exp_stats.get_model_performence_stats(conf_mats, saveToFile=True, printStats=True)
-# baseline_acc_stats = import_dict_json(TESTS_BASELINE_MODEL_STATS)
-# for worker in performence_stats.keys():
-#     for j in performence_stats[worker].keys():
-#         diff = abs(performence_stats[worker][j][DIFF_MEASURE_METHOD] - baseline_acc_stats[worker][str(j)][DIFF_MEASURE_METHOD])
-#         error = diff/baseline_acc_stats[worker][str(j)][DIFF_MEASURE_METHOD]
-#         if error > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
-#             LOG_ERROR("Anomaly failure detected")
-#             LOG_ERROR(f"diff_from_baseline: {diff}")
-#             ExitValue = 1
-#             break
+DIFF_MEASURE_METHOD = "F1"
+
+for worker in performence_stats.keys():
+    for j in performence_stats[worker].keys():
+        diff = abs(performence_stats[worker][j][DIFF_MEASURE_METHOD] - baseline_performance_stats[worker][str(j)][DIFF_MEASURE_METHOD])
+        error = diff/baseline_performance_stats[worker][str(j)][DIFF_MEASURE_METHOD]
+        if error > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
+            LOG_ERROR("Anomaly failure detected")
+            LOG_ERROR(f"diff_from_baseline: {diff}")
+            ExitValue = 1
+            break
 
 exit(ExitValue)

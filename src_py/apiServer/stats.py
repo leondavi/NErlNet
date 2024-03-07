@@ -9,6 +9,9 @@ from definitions import *
 import pandas as pd
 import numpy as np
 
+MIN_LOSS_BASELINE_FILENAME = "min_loss_dict.json"
+MODEL_PERFORMANCE_FILENAME = "model_perf.pickle"
+
 MATRIX_DISP_SCALING = 5
 class Stats():
 
@@ -84,6 +87,10 @@ class Stats():
         for worker_name in loss_ts_pd.columns:
             min_loss = loss_ts_pd[worker_name].min(numeric_only=True)
             min_loss_dict[worker_name] = min_loss
+
+        if saveToFile:
+            LOG_INFO(f"Saving min loss dict to file: {EXPERIMENT_RESULTS_PATH}/{self.exp_path}/min_loss_dict.json")
+            export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/{MIN_LOSS_BASELINE_FILENAME}', min_loss_dict)
         return min_loss_dict
 
 
@@ -105,9 +112,7 @@ class Stats():
         #     plt.show()
         #     plt.savefig(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}/Training/Loss_graph.png')
         
-        # if saveToFile:
-        #     export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/loss.json', loss_dict)
-        # return loss_dict
+   
     
 
     # TODO is it deprecated???
@@ -198,6 +203,7 @@ class Stats():
                         #print(tensor_data)
                         start_index = cycle * batch_size
                         end_index = (cycle + 1) * batch_size
+                        df_worker_labels.iloc[start_index:end_index, num_of_labels:] = None # Fix an issue of pandas of incompatible dtype
                         df_worker_labels.iloc[start_index:end_index, num_of_labels:] = tensor_data
                         #print(df_worker_labels)
 
@@ -275,7 +281,8 @@ class Stats():
                 print(f"{workers_performence[(worker_name,class_name)]}\n")
         
         if saveToFile:
-            export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/accuracy_stats.json', workers_performence)
+            LOG_INFO(f"Saving model performence stats to pickle file: {EXPERIMENT_RESULTS_PATH}/{self.exp_path}/{MODEL_PERFORMANCE_FILENAME}")
+            export_dict_pickle(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/{MODEL_PERFORMANCE_FILENAME}', workers_performence)
             
         return workers_performence
 

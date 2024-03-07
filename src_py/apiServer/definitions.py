@@ -3,6 +3,9 @@ import json
 from pathlib import Path
 from collections import OrderedDict
 from logger import *
+from pathlib import Path
+import pickle
+
 # nerlconfig files
 
 NERLNET_PATH = "/usr/local/lib/nerlnet-lib/NErlNet"
@@ -62,6 +65,18 @@ def search_file(filename : str , rootdir : str) -> str:
             return os.path.join(root, filename)
     return None
 
+def export_dict_pickle(filepath : str , dict : OrderedDict):
+    Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+    with open(filepath, 'wb') as handle:
+        pickle.dump(dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+def import_dict_pickle(filepath : str):
+    if not os.path.isfile(filepath):
+        LOG_ERROR(f"File does not exist: {filepath}")
+        raise "File does not exist"
+    with open(filepath, 'rb') as handle:
+        return pickle.load(handle)
+
 def export_dict_json(filepath : str , dict : OrderedDict):
     Path(filepath).parent.mkdir(parents=True, exist_ok=True)
     json_obj = json.dumps(dict, indent=4)
@@ -69,7 +84,13 @@ def export_dict_json(filepath : str , dict : OrderedDict):
     # Writing to sample.json
     with open(filepath, "w") as outfile:
         outfile.write(json_obj)
+
+def is_file_exists(filepath : str) -> bool:
+    return os.path.isfile(filepath)
         
 def import_dict_json(filepath : str):
+    if not os.path.isfile(filepath):
+        LOG_ERROR(f"File does not exist: {filepath}")
+        raise "File does not exist"
     with open(filepath, "r") as infile:
         return json.load(infile , object_pairs_hook=OrderedDict)
