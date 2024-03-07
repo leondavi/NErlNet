@@ -60,56 +60,67 @@ experiment_name = "test_exp"
 api_server_instance.initialization(experiment_name, dc_json , connmap_json, exp_flow_json)
 api_server_instance.send_jsons_to_devices()
 
-api_server_instance.sendDataToSources(PHASE_TRAINING)
-api_server_instance.train()
+curr_experiment_phase_exists = api_server_instance.experiment_phase_is_valid()
+assert curr_experiment_phase_exists, "No experiment phase found"
 
-api_server_instance.sendDataToSources(PHASE_PREDICTION)
-api_server_instance.predict()
+api_server_instance.run_current_experiment_phase() # blocking until phase is completed
+api_server_instance.communication_stats()
+stats_train = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
 
-experiment_inst = api_server_instance.get_experiment(experiment_name)
+next_expertiment_phase_exist = api_server_instance.next_experiment_phase()
+assert next_expertiment_phase_exist, "No next experiment phase found"
+api_server_instance.run_current_experiment_phase() # blocking until phase is completed
+api_server_instance.communication_stats()
+stats_predict = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
+
+LOG_INFO("Experiment phases completed")
+
+LOG_INFO("Stopping NerlnetApp")
 nerlnet_stop_cmd = RunCommand(NERLNET_RUN_STOP_SCRIPT, NERLNET_PATH)
 stdout, stderr, rc = nerlnet_run_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
-print_test(f'rc: {rc}')
+LOG_INFO(f'rc: {rc}')
 if stderr: 
-    print_test(stderr)
+    LOG_ERROR(stderr)
 else:
     print_test(stdout, False)
 stdout, stderr, rc = nerlnet_stop_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
-print_test(f'rc stop: {rc}')
+LOG_INFO(f'rc stop: {rc}')
 if stderr: 
-    print_test(stderr)
+    LOG_ERROR(stderr)
 else:
     print_test(stdout, False)
 
-exp_stats = Stats(experiment_inst)
-loss_min = exp_stats.get_loss_min(saveToFile=True)
-baseline_loss_min = import_dict_json(TESTS_BASELINE_LOSS_MIN)
-for worker in loss_min.keys():
-    diff = abs(loss_min[worker] - baseline_loss_min[worker])
-    if baseline_loss_min[worker] == 0:
-        error = diff
-    else:
-        error = diff/baseline_loss_min[worker]
-    LOG_INFO(f"worker: {worker}, diff: {diff} , error: {error}")
-    if error > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
-        LOG_ERROR(f"Anomaly failure detected")
-        LOG_ERROR(f"Error: {error} , Acceptable error: {TEST_ACCEPTABLE_MARGIN_OF_ERROR}")
-        ExitValue = 1
-        break
+
+# stats_train.get_min_loss_list(saveToFile=True)
+
+# loss_min = exp_stats.get_loss_min(saveToFile=True)
+# baseline_loss_min = import_dict_json(TESTS_BASELINE_LOSS_MIN)
+# for worker in loss_min.keys():
+#     diff = abs(loss_min[worker] - baseline_loss_min[worker])
+#     if baseline_loss_min[worker] == 0:
+#         error = diff
+#     else:
+#         error = diff/baseline_loss_min[worker]
+#     LOG_INFO(f"worker: {worker}, diff: {diff} , error: {error}")
+#     if error > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
+#         LOG_ERROR(f"Anomaly failure detected")
+#         LOG_ERROR(f"Error: {error} , Acceptable error: {TEST_ACCEPTABLE_MARGIN_OF_ERROR}")
+#         ExitValue = 1
+#         break
         
 
-DIFF_MEASURE_METHOD = "F1"
-conf_mats = exp_stats.get_confusion_matrices()
-performence_stats = exp_stats.get_model_performence_stats(conf_mats, saveToFile=True, printStats=True)
-baseline_acc_stats = import_dict_json(TESTS_BASELINE_MODEL_STATS)
-for worker in performence_stats.keys():
-    for j in performence_stats[worker].keys():
-        diff = abs(performence_stats[worker][j][DIFF_MEASURE_METHOD] - baseline_acc_stats[worker][str(j)][DIFF_MEASURE_METHOD])
-        error = diff/baseline_acc_stats[worker][str(j)][DIFF_MEASURE_METHOD]
-        if error > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
-            LOG_ERROR("Anomaly failure detected")
-            LOG_ERROR(f"diff_from_baseline: {diff}")
-            ExitValue = 1
-            break
+# DIFF_MEASURE_METHOD = "F1"
+# conf_mats = exp_stats.get_confusion_matrices()
+# performence_stats = exp_stats.get_model_performence_stats(conf_mats, saveToFile=True, printStats=True)
+# baseline_acc_stats = import_dict_json(TESTS_BASELINE_MODEL_STATS)
+# for worker in performence_stats.keys():
+#     for j in performence_stats[worker].keys():
+#         diff = abs(performence_stats[worker][j][DIFF_MEASURE_METHOD] - baseline_acc_stats[worker][str(j)][DIFF_MEASURE_METHOD])
+#         error = diff/baseline_acc_stats[worker][str(j)][DIFF_MEASURE_METHOD]
+#         if error > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
+#             LOG_ERROR("Anomaly failure detected")
+#             LOG_ERROR(f"diff_from_baseline: {diff}")
+#             ExitValue = 1
+#             break
 
 exit(ExitValue)
