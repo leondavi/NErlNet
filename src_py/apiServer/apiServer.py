@@ -205,7 +205,8 @@ PREDICTION_STR = "Prediction"
         self.transmitter.start_casting(current_exp_phase) # Source start sending data to workers
         events_sync_inst.sync_on_event(EventSync.START_CASTING)
 
-        #self.communication_stats()
+        LOG_INFO(f"Start generating communication statistics for {current_exp_phase.get_name()} of type {current_exp_phase.get_phase_type()}")
+        self.communication_stats()
 
         LOG_INFO(f"Phase of {current_exp_phase.get_name()} {current_exp_phase.get_phase_type()} completed")
 
