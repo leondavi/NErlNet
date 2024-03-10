@@ -18,6 +18,7 @@ class Stats():
     def __init__(self, experiment_phase: ExperimentPhase):
         self.experiment_phase = experiment_phase
         self.nerl_model_db = self.experiment_phase.get_nerl_model_db()
+        self.nerl_comm_db = self.experiment_phase.get_nerl_comm_db()
         self.phase = self.experiment_phase.get_phase_type()
         self.name = self.experiment_phase.get_name()
         self.loss_ts_pd = None
@@ -244,23 +245,46 @@ class Stats():
 
     def get_communication_stats_workers(self):
         # return dictionary of {worker : {communication_stats}}
-        pass
+        communication_stats_workers_dict = OrderedDict()
+        workers_dict = self.nerl_comm_db.get_workers()
+        for worker_name in workers_dict:
+            communication_stats_workers_dict[worker_name] = workers_dict[worker_name].get_as_dict()
+        print(f"communication_stats_workers_dict: {communication_stats_workers_dict}")
+        return communication_stats_workers_dict
+    
 
     def get_communication_stats_sources(self):
         # return dictionary of {source : {communication_stats}}
-        pass
-
+        communication_stats_sources_dict = OrderedDict()
+        sources_dict = self.nerl_comm_db.get_sources()
+        for source_name in sources_dict:
+            communication_stats_sources_dict[source_name] = sources_dict[source_name].get_as_dict()
+        print(f"communication_stats_sources_dict: {communication_stats_sources_dict}")
+        return communication_stats_sources_dict
+    
     def get_communication_stats_clients(self):
         # return dictionary of {client : {communication_stats}}
-        pass
+        communication_stats_clients_dict = OrderedDict()
+        clients_dict = self.nerl_comm_db.get_clients()
+        for client_name in clients_dict:
+            communication_stats_clients_dict[client_name] = clients_dict[client_name].get_as_dict()
+        print(f"communication_stats_clients_dict: {communication_stats_clients_dict}")
+        return communication_stats_clients_dict
 
     def get_communication_stats_routers(self):
         # return dictionary of {router : {communication_stats}}
-        pass
+        communication_stats_routers_dict = OrderedDict()
+        routers_dict = self.nerl_comm_db.get_routers()
+        for router_name in routers_dict:
+            communication_stats_routers_dict[router_name] = routers_dict[router_name].get_as_dict()
+        print(f"communication_stats_routers_dict: {communication_stats_routers_dict}")
+        return communication_stats_routers_dict
 
     def get_communication_stats_main_server(self):
         # return dictionary of {main_server : {communication_stats}}
-        pass
+        main_server_communication_stats = self.nerl_comm_db.get_main_server().get_as_dict()
+        print(f"main_server_communication_stats: {main_server_communication_stats}")
+        return main_server_communication_stats
 
     def get_missed_batches_stats(self):
         # batch id, source name, worker name, phase name

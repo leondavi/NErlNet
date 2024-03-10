@@ -280,6 +280,24 @@ class NerlComDB():
             return None
         return self.sources[source_name]
     
+    def get_main_server(self):
+        return self.main_server
+    
+    def get_routers(self):
+        return self.routers
+    
+    def get_clients(self):
+        return self.clients
+    
+    def get_sources(self):
+        return self.sources
+    
+    def get_workers(self):
+        for client_name in self.clients:
+            for worker_name in self.clients[client_name].workers_stats_dbs:
+                self.workers[worker_name] = self.clients[client_name].workers_stats_dbs[worker_name]
+        return self.workers
+
     def build_dicts(self):
         for router_name in self.net_comps.routers:
             self.add_router(router_name)
