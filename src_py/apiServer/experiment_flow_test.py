@@ -7,7 +7,7 @@ from stats import Stats
 
 ExitValue = 0
 
-TEST_ACCEPTABLE_MARGIN_OF_ERROR = 0.03 # 3% marginal error
+TEST_ACCEPTABLE_MARGIN_OF_ERROR = 0.01 # distance from loss value to baseline loss value
 
 def print_test(in_str : str , enable = True):
     PREFIX = "[NERLNET-TEST] "
@@ -78,24 +78,20 @@ else:
 generate_baseline_files = True
 
 loss_min_dict = stats_train.get_min_loss(saveToFile=generate_baseline_files)
+print(loss_min_dict)
 _ , confusion_matrix_worker_dict = stats_predict.get_confusion_matrices()
 performence_stats = stats_predict.get_model_performence_stats(confusion_matrix_worker_dict, saveToFile=generate_baseline_files)
 
-print(TEST_BASELINE_LOSS_MIN)
 baseline_loss_min = import_dict_json(TEST_BASELINE_LOSS_MIN)
 baseline_performance_stats = import_dict_pickle(TESTS_BASELINE_MODEL_STATS)
 
+baseline_loss_min_avg = average_list(list(baseline_loss_min.values()))
+
 for worker in loss_min_dict.keys():
-    diff = abs(loss_min_dict[worker] - baseline_loss_min[worker])
-    print(f"worker: {worker}, loss: {loss_min_dict[worker]} loss baseline: {baseline_loss_min[worker]} diff: {diff}")
-    if baseline_loss_min[worker] == 0:
-        error = diff
-    else:
-        error = diff/baseline_loss_min[worker]
-    LOG_INFO(f"worker: {worker}, diff: {diff} , error: {error}")
-    if error > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
+    dist_from_avg_anomaly = abs(loss_min_dict[worker] - baseline_loss_min_avg)
+    LOG_INFO(f"Anomaly: {dist_from_avg_anomaly}, error: {loss_min_dict[worker]} , baseline mean: {baseline_loss_min_avg}, Acceptable error range: {TEST_ACCEPTABLE_MARGIN_OF_ERROR}")
+    if dist_from_avg_anomaly < TEST_ACCEPTABLE_MARGIN_OF_ERROR:
         LOG_ERROR(f"Anomaly failure detected")
-        LOG_ERROR(f"Error: {error} , Acceptable error: {TEST_ACCEPTABLE_MARGIN_OF_ERROR}")
         ExitValue = 1
         break
         
