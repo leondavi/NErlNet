@@ -88,7 +88,7 @@ class CsvDataSet():
         return ceil(pd.read_csv(self.csv_path).shape[0] / self.batch_size)
 
     def get_total_num_of_samples(self):
-        return pd.read_csv(self.csv_path).shape[0]
+        return pd.read_csv(self.csv_path).shape[0] + 1 # +1 for sample 0 which is the header row
     
     def get_headers_row(self):
         return self.headers_row
