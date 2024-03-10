@@ -49,13 +49,11 @@ curr_experiment_phase_exists = api_server_instance.experiment_phase_is_valid()
 assert curr_experiment_phase_exists, "No experiment phase found"
 
 api_server_instance.run_current_experiment_phase() # blocking until phase is completed
-api_server_instance.communication_stats()
 stats_train = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
 
 next_expertiment_phase_exist = api_server_instance.next_experiment_phase()
 assert next_expertiment_phase_exist, "No next experiment phase found"
 api_server_instance.run_current_experiment_phase() # blocking until phase is completed
-api_server_instance.communication_stats()
 stats_predict = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
 
 print_test("Experiment phases completed")
@@ -74,6 +72,28 @@ if stderr:
     LOG_ERROR(stderr)
 else:
     print_test(stdout, False)
+
+
+LOG_INFO("Communication stats training:")
+
+comm_stats_str = f"main server: {stats_train.get_communication_stats_main_server()}\
+workers: {stats_train.get_communication_stats_workers()}\
+sources: {stats_train.get_communication_stats_sources()}\
+clients: {stats_train.get_communication_stats_clients()}\
+routers: {stats_train.get_communication_stats_routers()}"
+
+LOG_INFO("Missed Batches training:")
+#LOG_INFO(stats_train.get_missed_batches())
+
+LOG_INFO("Communication stats prediction:")
+comm_stats_str = f"main server: {stats_predict.get_communication_stats_main_server()}\
+workers: {stats_predict.get_communication_stats_workers()}\
+sources: {stats_predict.get_communication_stats_sources()}\
+clients: {stats_predict.get_communication_stats_clients()}\
+routers: {stats_predict.get_communication_stats_routers()}"
+
+LOG_INFO("Missed Batches prediction:")
+#LOG_INFO(stats_predict.get_missed_batches())
 
 generate_baseline_files = True
 
