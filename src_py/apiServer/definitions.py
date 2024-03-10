@@ -94,3 +94,6 @@ def import_dict_json(filepath : str):
         raise "File does not exist"
     with open(filepath, "r") as infile:
         return json.load(infile , object_pairs_hook=OrderedDict)
+
+def average_list(list : list) -> float:
+    return sum(list) / len(list)
