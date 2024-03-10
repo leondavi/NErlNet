@@ -131,7 +131,6 @@ class predictRes(Resource):
 class statistics(Resource):
     def post(self) -> None:
         resData = request.get_data().decode('utf-8')
-        print("Got statistics from main server")  # Todo remove print
         entity_com_dicts = decode_main_server_ets_str(resData) # dict of dicts 
         current_experiment_flow = globe.experiment_focused_on
         event_sync_inst = current_experiment_flow.get_events_sync()

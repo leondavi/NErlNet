@@ -94,12 +94,15 @@ clients: {stats_predict.get_communication_stats_clients()}\
 routers: {stats_predict.get_communication_stats_routers()}"
 
 LOG_INFO("Missed Batches prediction:")
-LOG_INFO(stats_predict.get_missed_batches())
+
+missed_batches = stats_predict.get_missed_batches()
+if missed_batches:
+    LOG_INFO(missed_batches)
 
 generate_baseline_files = True
 
 loss_min_dict = stats_train.get_min_loss(saveToFile=generate_baseline_files)
-print(loss_min_dict)
+LOG_INFO(loss_min_dict)
 _ , confusion_matrix_worker_dict = stats_predict.get_confusion_matrices()
 performence_stats = stats_predict.get_model_performence_stats(confusion_matrix_worker_dict, saveToFile=generate_baseline_files)
 
@@ -110,11 +113,10 @@ baseline_loss_min_avg = average_list(list(baseline_loss_min.values()))
 
 for worker in loss_min_dict.keys():
     dist_from_avg_anomaly = abs(loss_min_dict[worker] - baseline_loss_min_avg)
-    LOG_INFO(f"Anomaly: {dist_from_avg_anomaly}, error: {loss_min_dict[worker]} , baseline mean: {baseline_loss_min_avg}, Acceptable error range: {TEST_ACCEPTABLE_MARGIN_OF_ERROR}")
-    if dist_from_avg_anomaly < TEST_ACCEPTABLE_MARGIN_OF_ERROR:
+    if dist_from_avg_anomaly > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
+        LOG_INFO(f"Anomaly: {dist_from_avg_anomaly}, error: {loss_min_dict[worker]} , baseline mean: {baseline_loss_min_avg}, Acceptable error range: {TEST_ACCEPTABLE_MARGIN_OF_ERROR}")
         LOG_ERROR(f"Anomaly failure detected")
         ExitValue = 1
-        break
         
 
 DIFF_MEASURE_METHOD = "F1"
@@ -122,11 +124,10 @@ DIFF_MEASURE_METHOD = "F1"
 for worker_and_class in performence_stats.keys():
     diff = abs(performence_stats[worker_and_class][DIFF_MEASURE_METHOD] - baseline_performance_stats[worker_and_class][DIFF_MEASURE_METHOD])
     error = diff/baseline_performance_stats[worker_and_class][DIFF_MEASURE_METHOD]
-    LOG_INFO(f"Anomaly: {error}, Diff: {diff}, F1: {performence_stats[worker_and_class][DIFF_MEASURE_METHOD]} , F1 baseline: {baseline_performance_stats[worker_and_class][DIFF_MEASURE_METHOD]}, Acceptable error range: {TEST_ACCEPTABLE_F1_DIFF}")
     if error > TEST_ACCEPTABLE_F1_DIFF:
+        LOG_INFO(f"Anomaly: {error}, Diff: {diff}, F1: {performence_stats[worker_and_class][DIFF_MEASURE_METHOD]} , F1 baseline: {baseline_performance_stats[worker_and_class][DIFF_MEASURE_METHOD]}, Acceptable error range: {TEST_ACCEPTABLE_F1_DIFF}")
         LOG_ERROR("Anomaly failure detected")
         LOG_ERROR(f"diff_from_baseline: {diff}")
-            #ExitValue = 1
-            #break
+        ExitValue = 1
 
 exit(ExitValue)

@@ -274,7 +274,7 @@ class Stats():
                             if  missed_batch_key_str not in missed_batches_dict:
                                 missed_batches_dict[missed_batch_key_str] = []
                             missed_batches_dict[missed_batch_key_str].append(batch_id)
-        print(f"missed_batches_dict: {missed_batches_dict}")
+        #print(f"missed_batches_dict: {missed_batches_dict}")
         return missed_batches_dict
 
     def get_communication_stats_workers(self):
