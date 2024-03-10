@@ -31,7 +31,7 @@ class Stats():
 
         Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_phase.get_experiment_flow_name()}').mkdir(parents=True, exist_ok=True)
         Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_phase.get_phase_type()}/{self.experiment_phase.get_experiment_flow_name()}').mkdir(parents=True, exist_ok=True)
-        self.exp_path = f'{self.experiment_phase.get_experiment_flow_name()}_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}'
+        self.exp_path = f'{self.experiment_phase.get_experiment_flow_name()}_{self.name}_{self.phase}_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}'
 
     def get_phase(self):
         return self.phase
@@ -240,6 +240,31 @@ class Stats():
                     plt.show()
 
         return confusion_matrix_source_dict, confusion_matrix_worker_dict
+    
+
+    def get_communication_stats_workers(self):
+        # return dictionary of {worker : {communication_stats}}
+        pass
+
+    def get_communication_stats_sources(self):
+        # return dictionary of {source : {communication_stats}}
+        pass
+
+    def get_communication_stats_clients(self):
+        # return dictionary of {client : {communication_stats}}
+        pass
+
+    def get_communication_stats_routers(self):
+        # return dictionary of {router : {communication_stats}}
+        pass
+
+    def get_communication_stats_main_server(self):
+        # return dictionary of {main_server : {communication_stats}}
+        pass
+
+    def get_missed_batches_stats(self):
+        # batch id, source name, worker name, phase name
+        pass
 
     def get_model_performence_stats(self , confusion_matrix_worker_dict , show : bool = False , saveToFile : bool = False, printStats = False) -> dict:
         """

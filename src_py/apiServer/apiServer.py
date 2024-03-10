@@ -108,7 +108,6 @@ PREDICTION_STR = "Prediction"
         mainServerIP = globe.components.mainServerIp
         mainServerPort = globe.components.mainServerPort
         self.mainServerAddress = 'http://' + mainServerIP + ':' + mainServerPort
-        self.experiments = []
         
         LOG_INFO("Initializing ApiServer receiver thread")
 
@@ -206,6 +205,8 @@ PREDICTION_STR = "Prediction"
         self.transmitter.start_casting(current_exp_phase) # Source start sending data to workers
         events_sync_inst.sync_on_event(EventSync.START_CASTING)
 
+        #self.communication_stats()
+
         LOG_INFO(f"Phase of {current_exp_phase.get_name()} {current_exp_phase.get_phase_type()} completed")
 
 
@@ -220,34 +221,6 @@ PREDICTION_STR = "Prediction"
             return False
         return True
 
-    def train(self):
-        '''
-        Send train command to main server and results are gathered in experiment instance
-        '''
-        experiment_name = self.transmitter.train()
-        LOG_INFO(f'Training Phase of {experiment_name} completed')
-        return True
-
-    def contPhase(self, phase): # TODO remove safely, Redundant - a second call of train can be done - 
-        experiment_name = self.transmitter.contPhase(phase)
-        LOG_INFO(f'Training Phase of {experiment_name} completed')
-        return True
-
-    def predict(self):
-        experiment_name = self.transmitter.predict()
-        LOG_INFO(f'Prediction Phase of {experiment_name} completed')
-        return True
-
-    def print_saved_experiments(self):
-        if (len(self.experiments) == 0):
-            print("No experiments conducted yet.")
-            return
-
-        print("\n---SAVED EXPERIMENTS---\n")
-        print("List of saved experiments:")
-        for i, exp in enumerate(self.experiments, start=1): 
-            print(f"{i}) {exp.name}")
-
     def communication_stats(self):
         assert self.experiment_phase_is_valid(), "No valid experiment phase"
         events_sync_inst = self.current_exp.get_events_sync()
@@ -256,91 +229,3 @@ PREDICTION_STR = "Prediction"
     def experiment_phase_is_valid(self):
         current_exp_flow = globe.experiment_focused_on
         return current_exp_flow.current_exp_phase_index < len(current_exp_flow.exp_phase_list)
-
-    # change statistics from input to API
-    def statistics(self): # Deprecated?
-        while True:
-            print("\nPlease choose an experiment number:", end = ' ')
-            expNum = input()
-
-            # Add exception for non-numeric inputs:
-            try:
-                expNum = int(expNum)
-            except ValueError:
-                print("\nIllegal Input") 
-                continue
-
-            if (expNum > 0 and expNum <= len(self.experiments)):
-                expForStats = self.experiments[expNum-1]
-                break
-            
-            # Continue with the loop if expNum is not in the list:
-            else:
-                print("\nIllegal Input")
-
-        print("\n---Statistics Menu---\n\
-1) Create plot for the training loss function.\n\
-2) Calculate accuracy and plot a confusion matrix.\n\
-3) Export results to CSV.\n\
-4) Display communication statistics.\n")
-
-        while True:
-            print("\nPlease choose an option:", end = ' ')
-            option = input()
-
-            try:
-                option = int(option)
-            except ValueError:
-                print("\nIllegal Input") 
-                continue
-
-            if (option > 0 and option <= 4):
-                break
-
-            else:
-                print("\nIllegal Input") 
-        
-        if (option == 1):
-            self.plot_loss(expNum)
-
-        if (option == 2):
-            self.accuracy_matrix(expNum)
-
-        if (option == 3):
-            self.export_results(expNum)
-
-        if (option == 4):
-            self.communication_stats()
-
-                
-if __name__ == "__main__":
-    apiServerInst = ApiServer()
-    apiServerInst.sendJsonsToDevices()
-    apiServerInst.train()
-    apiServerInst.predict()
-    apiServerInst.statistics()
-
-
-'''
- def exitHandler(self):
-        print("\nServer shutting down")
-        exitReq = requests.get(self.mainServerAddress + '/shutdown')
-        if exitReq.ok:
-            exit(0)
-        else:
-            print("Server shutdown failed")
-            exit(1)
-'''
-'''
-        #serverState = None
-
-        #while(serverState != SERVER_DONE):
-         #  if not serverState:
-          #    if it is integer: 
-           #         serverState = self.managerQueue.get()
-
-                #TODO add timeout mechanism (if mainServer falls kill after X seconds)
-            #sleep(5)
-        # wait on Queue
-        #return ack.json() 
-'''
