@@ -1,10 +1,5 @@
 #include "nerlWorkerOpenNN.h"
-#define NUMB_OF_TRAINING_DATA (700U)
-#define NUMB_OF_COLUMNS_PER_IMAGE (28U)
-#define NUMB_OF_ROWS_PER_IMAGE (28U)
-#define NUMB_OF_INPUT_VARIABLES (NUMB_OF_COLUMNS_PER_IMAGE*NUMB_OF_ROWS_PER_IMAGE)
-#define NUMB_OF_TESTING_DATA (0U)
-#define NUMB_OF_LABELS (10U)
+
 
 using namespace opennn;
 
@@ -346,7 +341,7 @@ namespace nerlnet
                     if(curr_layer->get_next_layer_ptr()->get_layer_type() == LAYER_TYPE_PERCEPTRON){ // if the next layer is perceptron       
                             FlattenLayer* flatten_layer = new FlattenLayer(convolutional_layer->get_outputs_dimensions()); // create flatten layer
                             // TODO :Talk with Noa and Ohad about the sizes - make sure the sizes are correct in NerlPlanner
-                            std::cout << "flatten_layer->get_outputs_dimensions() = " << flatten_layer->get_outputs_dimensions() << std::endl;
+                           //std::cout << "flatten_layer->get_outputs_dimensions() = " << flatten_layer->get_outputs_dimensions() << std::endl;
                             if (flatten_layer->get_outputs_dimensions()[1] != curr_layer->get_next_layer_ptr()->get_dim_size(DIM_X_IDX)) // make sure the dims correct
                             {
                              //  LogError("NerlWorkerOpenNN::generate_custom_model_nn - wrong dimensions in CNN and Perceptron");
