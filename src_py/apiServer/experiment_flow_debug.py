@@ -29,8 +29,13 @@ api_server_instance.send_jsons_to_devices()
 
 next_expertiment_phase_exist = True 
 api_server_instance.run_current_experiment_phase() # blocking - deppended acks from mainserver
-api_server_instance.communication_stats()
+#api_server_instance.communication_stats()
 stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
+stats.get_communication_stats_workers()
+stats.get_communication_stats_sources()
+stats.get_communication_stats_clients()
+stats.get_communication_stats_routers()
+stats.get_communication_stats_main_server()
 stats.get_loss_ts()
 stats.get_min_loss()
 next_expertiment_phase_exist = api_server_instance.next_experiment_phase()
