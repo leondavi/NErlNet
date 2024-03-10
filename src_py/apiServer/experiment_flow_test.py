@@ -41,21 +41,6 @@ api_server_instance.setJsons(0,0,0)
 
 dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
-
-# next_expertiment_phase_exist = True 
-# api_server_instance.run_current_experiment_phase() # blocking - deppended acks from mainserver
-# api_server_instance.communication_stats()
-# stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
-# stats.get_loss_ts()
-# stats.get_min_loss_list()
-# next_expertiment_phase_exist = api_server_instance.next_experiment_phase()
-# api_server_instance.run_current_experiment_phase()
-# api_server_instance.communication_stats()
-# stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
-# confusion_matrix_source_dict, confusion_matrix_worker_dict = stats.get_confusion_matrices()
-# stats.get_model_performence_stats(confusion_matrix_worker_dict, True)
-
-
 experiment_name = "test_exp"
 api_server_instance.initialization(experiment_name, dc_json , connmap_json, exp_flow_json)
 api_server_instance.send_jsons_to_devices()
@@ -96,11 +81,13 @@ loss_min_dict = stats_train.get_min_loss(saveToFile=generate_baseline_files)
 _ , confusion_matrix_worker_dict = stats_predict.get_confusion_matrices()
 performence_stats = stats_predict.get_model_performence_stats(confusion_matrix_worker_dict, saveToFile=generate_baseline_files)
 
+print(TEST_BASELINE_LOSS_MIN)
 baseline_loss_min = import_dict_json(TEST_BASELINE_LOSS_MIN)
 baseline_performance_stats = import_dict_pickle(TESTS_BASELINE_MODEL_STATS)
 
 for worker in loss_min_dict.keys():
     diff = abs(loss_min_dict[worker] - baseline_loss_min[worker])
+    print(f"worker: {worker}, loss: {loss_min_dict[worker]} loss baseline: {baseline_loss_min[worker]} diff: {diff}")
     if baseline_loss_min[worker] == 0:
         error = diff
     else:
