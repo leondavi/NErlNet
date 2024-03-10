@@ -1,4 +1,10 @@
 #include "nerlWorkerOpenNN.h"
+#define NUMB_OF_TRAINING_DATA (700U)
+#define NUMB_OF_COLUMNS_PER_IMAGE (28U)
+#define NUMB_OF_ROWS_PER_IMAGE (28U)
+#define NUMB_OF_INPUT_VARIABLES (NUMB_OF_COLUMNS_PER_IMAGE*NUMB_OF_ROWS_PER_IMAGE)
+#define NUMB_OF_TESTING_DATA (0U)
+#define NUMB_OF_LABELS (10U)
 
 using namespace opennn;
 
@@ -23,6 +29,58 @@ namespace nerlnet
 
     }
 
+    void NerlWorkerOpenNN::post_training_process()
+    {
+        switch(_model_type){
+            case MODEL_TYPE_NN:
+            {
+                break;
+            }
+            case MODEL_TYPE_AUTOENCODER:
+            {
+                break;
+            }
+            case MODEL_TYPE_AE_CLASSIFIER:
+            {
+                break; // Get Loss Values , Add RED support - David's Thesis
+            }
+            // case MODEL_TYPE_LSTM:
+            // {
+            //     break;
+            // }
+            // case MODEL_TYPE_RECURRENT:
+            // {
+            //     break;
+            // }
+        } 
+    }
+
+    void NerlWorkerOpenNN::post_predict_process(fTensor2DPtr result_ptr){
+        switch(_model_type){
+            case MODEL_TYPE_NN:
+            {
+                break;
+            }
+            case MODEL_TYPE_AUTOENCODER:
+            {
+                break;
+            }
+            case MODEL_TYPE_AE_CLASSIFIER:
+            {
+                break; // Calculate MSE between result and input , then apply AE_RED
+            }
+            // case MODEL_TYPE_LSTM:
+            // {
+            //     break;
+            // }
+            // case MODEL_TYPE_RECURRENT:
+            // {
+            //     break;
+            // }
+        }
+    
+    }
+
     /**
      * @brief generate the training strategy for the opennn neural network
      * this function doesn't set the data pointer of the training strategy and doesn't call to the train function
@@ -32,13 +90,15 @@ namespace nerlnet
      _training_strategy_ptr->set_neural_network_pointer(_neural_network_ptr.get()); // Neural network must be defined at this point
      set_optimization_method(_optimizer_type,_learning_rate);
      set_loss_method(_loss_method);
+     cout << "_epochs = " << _epochs << endl;
      _training_strategy_ptr->set_maximum_epochs_number(_epochs); 
-     _training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); // remove opennn training strategy prints
+ //   _training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); // remove opennn training strategy prints
     }
 
     void NerlWorkerOpenNN::set_optimization_method(int optimizer_type,int learning_rate){
         assert((_training_strategy_ptr->has_neural_network(), "NerlWorkerOpenNN::set_optimization_method - neural network pointer is null"));
         _optimizer_type = optimizer_type;
+        cout << "optimizer_type = " << optimizer_type << endl;
         _training_strategy_ptr->set_optimization_method(translate_optimizer_type(optimizer_type));
         switch(_optimizer_type){
             case OPTIMIZER_GD:
@@ -142,6 +202,9 @@ namespace nerlnet
 
     }
 
+ 
+
+
     void NerlWorkerOpenNN::set_dataset(std::shared_ptr<opennn::DataSet> data_set,fTensor2DPtr TrainDataNNptr){
         _data_set = data_set;
         int nerlnet_custom_model; // defines if this is a nerlnet custom project or an opennn project
@@ -150,24 +213,63 @@ namespace nerlnet
         // in cnn , see the inputs of the user. if the user gave 3 dimensions so the data set will have 3 dimensions
         // the last dim will be the samples num and the second will be multiple channels and  columns .
         std::shared_ptr<opennn::NeuralNetwork> neural_network_ptr = get_neural_network_ptr();
-         if (_model_type == MODEL_TYPE_AUTOENCODER ){
+         switch (_model_type) {
+            case MODEL_TYPE_AUTOENCODER:
+            {
+
+            }
+            case MODEL_TYPE_AE_CLASSIFIER:
+            {
             Eigen::array<int, 2> bcast({1, 2});  
             std::shared_ptr<Eigen::Tensor<float,2>> autoencoder_data = std::make_shared<Eigen::Tensor<float,2>>(TrainDataNNptr->broadcast(bcast));                 
             _data_set->set_data(*autoencoder_data);
-            int data_num_of_cols = autoencoder_data->dimension(1); /// chaeck again
+            int data_num_of_cols = autoencoder_data->dimension(1); // TODO Ori & Guy check again
             _data_set->set(autoencoder_data->dimension(1),data_num_of_cols,data_num_of_cols);
-         }else{
+            break;
+            }
+            default:
+            {  
             int data_cols = TrainDataNNptr->dimension(1);
             int num_of_features = neural_network_ptr->get_inputs_number();
             int num_of_output_neurons = neural_network_ptr->get_outputs_number(); 
-
+            _data_set->set_data(*(TrainDataNNptr));
              // Data set definitions
              bool data_set_condition = (num_of_features + num_of_output_neurons) == data_cols;
              assert(("issue with data input/output dimensions", data_set_condition));
-            _data_set->set_data(*(TrainDataNNptr));
-            _data_set->set(TrainDataNNptr->dimension(0), num_of_features, num_of_output_neurons);
+            if(neural_network_ptr->has_convolutional_layer()){
+                 Tensor<Index, 1> input_variable_dimension(3);
+                 input_variable_dimension.setValues({this->_nerl_layers_linked_list->get_dim_size(DIM_Z_IDX), this->_nerl_layers_linked_list->get_dim_size(DIM_Y_IDX), this->_nerl_layers_linked_list->get_dim_size(DIM_X_IDX)});
+                 _data_set->set_input_variables_dimensions(input_variable_dimension);
+                int samples_num =  _data_set->get_samples_number();
+                int input_variable = this->_nerl_layers_linked_list->get_dim_size(DIM_Y_IDX)* this->_nerl_layers_linked_list->get_dim_size(DIM_X_IDX);
+                //std::cout << "samples_num = " << samples_num << "num_of_output_neurons = " << num_of_output_neurons << std::endl;
+                for(Index sample_indx = 0; sample_indx < samples_num ; sample_indx++)
+                 {
+                   _data_set->set_sample_use(sample_indx, DataSet::SampleUse::Training);
+                 }
+                 /*
+                 for(Index sample_indx = static_cast<Index>(samples_num ); sample_indx < samples_num; sample_indx++)
+                  {
+                     _data_set->set_sample_use(sample_indx, DataSet::SampleUse::Selection);
+                  }
+                  */
+                for(Index column_indx = 0; column_indx <input_variable ; column_indx++)
+                {
+                  _data_set->set_column_use(column_indx, DataSet::VariableUse::Input);
+                  _data_set->set_column_type(column_indx, DataSet::ColumnType::Numeric);
+                 }
+                for(Index column_indx = input_variable; column_indx < input_variable + num_of_output_neurons; column_indx++)
+                 {
+                    _data_set->set_column_type(column_indx, DataSet::ColumnType::Binary);
+                    _data_set->set_column_use(column_indx, DataSet::VariableUse::Target);
+                 }
+                    _data_set->set_columns_scalers(Scaler::NoScaling);
+            }else{
+                    _data_set->set(TrainDataNNptr->dimension(0), num_of_features, num_of_output_neurons);
+            }
+              break;
+            }
          }
-        
     }
 
     void NerlWorkerOpenNN::generate_custom_model_nn(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
@@ -184,28 +286,42 @@ namespace nerlnet
                     int layer_rows_num     = curr_layer->get_dim_size(DIM_X_IDX);
                     int layer_cols_num     = curr_layer->get_dim_size(DIM_Y_IDX);
                     int layer_channels_num = curr_layer->get_dim_size(DIM_Z_IDX);
+                   
+                 //   int sample_num = curr_layer->get_dim_size(DIM_W_IDX);
+                 //   cout << "layer_rows_num Cnn= " << layer_rows_num << endl;
+                //    cout << "layer_cols_num Cnn= " << layer_cols_num << endl;
+                //    cout << "layer_channels_num Cnn= " << layer_channels_num << endl;
+
                     std::shared_ptr<NerlLayerCNN> cnn_curr_layer = std::dynamic_pointer_cast<NerlLayerCNN>(curr_layer);
                     // set the number of inputs
                     Tensor<Index, 1> cnn_layer_inputs_dimensions(4); 
-                    cnn_layer_inputs_dimensions[0] = layer_rows_num;
-                    cnn_layer_inputs_dimensions[1] = layer_cols_num;
-                    cnn_layer_inputs_dimensions[2] = layer_channels_num; // each channel is diffrent value in the matrix (in rgb it is 3)
-                    cnn_layer_inputs_dimensions[3] = 1; //number of images/data 
-                    int kernels_rows_number    = cnn_curr_layer->get_dim_kernel_size(DIM_X_IDX);
-                    int kernels_columns_number = cnn_curr_layer->get_dim_kernel_size(DIM_Y_IDX);
-                    int kernels_number = 1; 
+                   // const Index batch_samples = 10U;
+                    cnn_layer_inputs_dimensions[Convolutional4dDimensions::sample_index] = 1;
+                    cnn_layer_inputs_dimensions[Convolutional4dDimensions::row_index] = layer_rows_num;
+                    cnn_layer_inputs_dimensions[Convolutional4dDimensions::column_index] = layer_cols_num;
+                    cnn_layer_inputs_dimensions[Convolutional4dDimensions::channel_index] = layer_channels_num;
+                    int kernels_rows_number     = cnn_curr_layer->get_dim_kernel_size(DIM_X_IDX);
+                    int kernels_columns_number  = cnn_curr_layer->get_dim_kernel_size(DIM_Y_IDX);
+                    int kernels_number          = cnn_curr_layer->get_dim_kernel_size(DIM_W_IDX); 
+                    int kernels_channels_number = cnn_curr_layer->get_dim_kernel_size(DIM_Z_IDX); 
+
                     // set the number of kernel
                     Tensor<Index, 1> cnn_layer_kernels_dimensions(4);
-                    cnn_layer_kernels_dimensions(0) = kernels_rows_number; //according the opennn example
-                    cnn_layer_kernels_dimensions(1) = kernels_columns_number; //according the opennn example
-                    cnn_layer_kernels_dimensions(2) = layer_channels_num; //change to get_dim_kernel_size z
-                    cnn_layer_kernels_dimensions(3) = kernels_number; //according the opennn example
+                    cnn_layer_kernels_dimensions[Kernel4dDimensions::row_index]     = kernels_rows_number; //according the opennn example
+                    cnn_layer_kernels_dimensions[Kernel4dDimensions::column_index]  = kernels_columns_number; //according the opennn example
+                    cnn_layer_kernels_dimensions[Kernel4dDimensions::channel_index] = kernels_channels_number; //change to get_dim_kernel_size z
+                    cnn_layer_kernels_dimensions[Kernel4dDimensions::kernel_index]  = kernels_number;    //according the opennn example
+                   // std::cout << "cnn_layer_kernels_dimensions = " << cnn_layer_kernels_dimensions<< std::endl;
+                  //  std::cout << "cnn_layer_inputs_dimensions = " << cnn_layer_inputs_dimensions<< std::endl;
                     ConvolutionalLayer* convolutional_layer = new ConvolutionalLayer(cnn_layer_inputs_dimensions, cnn_layer_kernels_dimensions);
                     //set stride
-                    int stride_row = cnn_curr_layer->get_stride(DIM_X_IDX);
-                    int stride_col = cnn_curr_layer->get_stride(DIM_Y_IDX);
-                    convolutional_layer->set_row_stride(stride_row); // set_row_stride
+                    int stride_row  = cnn_curr_layer->get_stride(DIM_X_IDX);
+                    int stride_col  = cnn_curr_layer->get_stride(DIM_Y_IDX);
+                  //  std::cout << "stride_row = " << stride_row << std::endl;
+                  //  std::cout << "stride_col = " << stride_col << std::endl;
                     convolutional_layer->set_column_stride(stride_col); // set_column_stride
+                    convolutional_layer->set_row_stride(stride_row); // set_row_stride
+
                     //set padding add if to make sure we have padding
                  //   Tensor<type,4> cnn_layer_padding_dimensions(2);
                    // Tensor<type,4> cnn_layer_padding_outputs(layer_rows_num, layer_cols_num, layer_channels_num, 1);
@@ -214,10 +330,12 @@ namespace nerlnet
                     //cnn_layer_padding_dimensions(0) =  padding_row; //according the opennn example
                    // cnn_layer_padding_dimensions(1) =  padding_col; //according the opennn example
                     // set convulution type
-                    if(padding_row == 0 && padding_col == 0){
-                        convolutional_layer->set_convolution_type(opennn::ConvolutionalLayer::ConvolutionType::Valid); 
+                    if(cnn_curr_layer->get_type_conv()){
+                         convolutional_layer->set_convolution_type(opennn::ConvolutionalLayer::ConvolutionType::Same);
+                       //  std::cout << "same convolutional_layer" << std::endl;
                     }else{
-                        convolutional_layer->set_convolution_type(opennn::ConvolutionalLayer::ConvolutionType::Same); 
+                        convolutional_layer->set_convolution_type(opennn::ConvolutionalLayer::ConvolutionType::Valid); 
+                      //    std::cout << "valid convolutional_layer" << std::endl;
                     }
                     // insert padding
                     //convolutional_layer->insert_padding(cnn_layer_padding_dimensions,cnn_layer_padding_outputs);
@@ -225,22 +343,18 @@ namespace nerlnet
                     convolutional_layer->set_activation_function((opennn::ConvolutionalLayer::ActivationFunction)(cnn_curr_layer->get_layer_functionality())); // set activation function
                     // add layer to the neural network
                     neural_network_ptr->add_layer(convolutional_layer); // add layer to the neural network
-                    if(curr_layer->get_next_layer_ptr()->get_layer_type() == LAYER_TYPE_PERCEPTRON){ // if the next layer is perceptron
-                            Tensor<Index, 1> flatten_layer_inputs_dimensions(4);
-                            flatten_layer_inputs_dimensions(0) =  ((layer_rows_num - kernels_rows_number    + 2*padding_row*0) / stride_row) + 1; //according the opennn example
-                            flatten_layer_inputs_dimensions(1) =  ((layer_cols_num - kernels_columns_number + 2*padding_col*0) / stride_col) + 1; //according the opennn example
-                            flatten_layer_inputs_dimensions(2) =  kernels_number; //according the opennn example
-                            flatten_layer_inputs_dimensions(3) =  1;             //samples_number
-                            FlattenLayer* flatten_layer = new FlattenLayer(flatten_layer_inputs_dimensions); // create flatten layer
+                    if(curr_layer->get_next_layer_ptr()->get_layer_type() == LAYER_TYPE_PERCEPTRON){ // if the next layer is perceptron       
+                            FlattenLayer* flatten_layer = new FlattenLayer(convolutional_layer->get_outputs_dimensions()); // create flatten layer
                             // TODO :Talk with Noa and Ohad about the sizes - make sure the sizes are correct in NerlPlanner
-                            std::cout << "flatten_layer->get_outputs_dimensions()[0] = " << flatten_layer->get_outputs_dimensions()[0] << std::endl;
-                            if (flatten_layer->get_outputs_dimensions()[0] != curr_layer->get_next_layer_ptr()->get_dim_size(DIM_X_IDX)) // make sure the dims correct
+                            std::cout << "flatten_layer->get_outputs_dimensions() = " << flatten_layer->get_outputs_dimensions() << std::endl;
+                            if (flatten_layer->get_outputs_dimensions()[1] != curr_layer->get_next_layer_ptr()->get_dim_size(DIM_X_IDX)) // make sure the dims correct
                             {
-                               LogError("NerlWorkerOpenNN::generate_custom_model_nn - wrong dimensions in CNN and Perceptron");
-                               throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - wrong dimensions in CNN  and Perceptron");
+                             //  LogError("NerlWorkerOpenNN::generate_custom_model_nn - wrong dimensions in CNN and Perceptron");
+                            //   throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - wrong dimensions in CNN  and Perceptron");
                             }
                             neural_network_ptr->add_layer(flatten_layer);
                     }
+                    std::cout << "after add cnn" << std::endl;
                     break;
 
                 }
@@ -249,15 +363,27 @@ namespace nerlnet
                    // layer type is pooling
                    int layer_rows_num     = curr_layer->get_dim_size(DIM_X_IDX);
                    int layer_cols_num     = curr_layer->get_dim_size(DIM_Y_IDX);
+                   int layer_channels_num = curr_layer->get_dim_size(DIM_Z_IDX);
                    //dynamic cast to NerlLayerPooling
+                   //cout << "layer_rows_num POOLING = " << layer_rows_num << endl;
                    std::shared_ptr<NerlLayerPooling> pooling_curr_layer = std::dynamic_pointer_cast<NerlLayerPooling>(curr_layer);
                    //get pooling dims
-                   std::vector<int> pooling_dims;
-                   pooling_curr_layer->get_pooling_dims(pooling_dims);
+                   int pooling_row = pooling_curr_layer->get_dim_pooling_size(DIM_X_IDX);
+                   int pooling_col = pooling_curr_layer->get_dim_pooling_size(DIM_Y_IDX);
+                    Tensor<Index, 1> pooling_dimension(2);
+                    pooling_dimension.setValues({
+                       pooling_row,
+                       pooling_col
+                      });
                    //create pooling layer
-                   PoolingLayer* pooling_layer = new PoolingLayer(layer_rows_num, layer_cols_num);
+                    Tensor<Index, 1> input_dimensions(4);
+                    input_dimensions(Convolutional4dDimensions::channel_index) = layer_channels_num; // Number of kernels (Channels)
+                    input_dimensions(Convolutional4dDimensions::row_index)     = layer_rows_num; // Rows
+                    input_dimensions(Convolutional4dDimensions::column_index)  = layer_cols_num; // Cols
+            
+                   PoolingLayer* pooling_layer = new PoolingLayer(input_dimensions,pooling_dimension);
                    // set pooling layer parameters
-                   pooling_layer->set_pool_size(pooling_dims[0],pooling_dims[1]);
+                   //pooling_layer->set_pool_size(pooling_dims[0],pooling_dims[1]);
                    pooling_layer->set_row_stride(pooling_curr_layer->get_stride(DIM_X_IDX));
                    pooling_layer->set_column_stride(pooling_curr_layer->get_stride(DIM_Y_IDX));
                    pooling_layer->set_pooling_method(translate_pooling_method(pooling_curr_layer->get_layer_functionality()));
@@ -283,10 +409,21 @@ namespace nerlnet
                        LogError("NerlWorkerOpenNN::generate_custom_model_nn - PERCEPTRON cannot be first layer");
                        throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - PERCEPTRON cannot be first layer");
                     }
-                    std::shared_ptr<NerlLayer> prev_layer = curr_layer->get_prev_layer_ptr();
-                    int prev_layer_size = prev_layer->get_dim_size(DIM_X_IDX);
+                //    std::cout << "PERCEPTRON" << std::endl;
+                    int prev_layer_size;
+                //    std::cout << "neural_network_ptr->get_layer_pointer(-1)->get_type_string() = " << neural_network_ptr->get_layer_pointer(neural_network_ptr->get_layers_number()-1)->get_type_string() << std::endl;
+                    if(neural_network_ptr->get_layer_pointer(neural_network_ptr->get_layers_number()-1)->get_type_string() == "Flatten"){
+                          // std::cout << "Flatten" << std::endl;
+                           prev_layer_size = ((FlattenLayer*)(neural_network_ptr->get_layer_pointer(neural_network_ptr->get_layers_number()-1)))->get_outputs_dimensions()[1];
+                    }else{
+                          std::shared_ptr<NerlLayer> prev_layer = curr_layer->get_prev_layer_ptr();
+                          prev_layer_size = prev_layer->get_dim_size(DIM_X_IDX);
+                    }
                     int layer_size_curr = curr_layer->get_dim_size(DIM_X_IDX);
                     int get_layer_functionality = curr_layer->get_layer_functionality();
+                  //  std::cout << "prev_layer_size = " << prev_layer_size << std::endl;
+                  //  std::cout << "layer_size_curr = " << layer_size_curr << std::endl;  
+                  //  std::cout << "before newLayer "  << std::endl;
                     PerceptronLayer* newLayer =  new opennn::PerceptronLayer(prev_layer_size, layer_size_curr);
                     newLayer->set_activation_function(translate_activation_function(get_layer_functionality));
                     neural_network_ptr->add_layer(newLayer);
@@ -321,6 +458,7 @@ namespace nerlnet
                        LogError("NerlWorkerOpenNN::generate_custom_model_nn - PROBABILISTIC cannot be first layer");
                        throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - PROBABILISTIC cannot be first layer");
                     }
+                  //  cout << "PROBABILISTIC" << endl;
                     std::shared_ptr<NerlLayer> prev_layer = curr_layer->get_prev_layer_ptr();
                     int prev_layer_size = prev_layer->get_dim_size(DIM_X_IDX);
                     int layer_size_curr = curr_layer->get_dim_size(DIM_X_IDX);

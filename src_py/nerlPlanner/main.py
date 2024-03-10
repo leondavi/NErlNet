@@ -2,6 +2,8 @@ import PySimpleGUI as sg
 from Handlers import *
 from Definitions import *
 from WinWorkerDialog import WinWorkerDialog
+from WinExperimentFlowDialog import WinExperimentFlowDialog
+from WinCommunicationMapDialog import WinCommunicationMapDialog
 from JsonElements import *
 from Pinger import *
 from logger import *
@@ -173,7 +175,8 @@ JsonFileFields = [  [sg.Text('Import DC Json File: ')],
 jsonCtrlFrame = sg.Frame("Distributed Configurations Json",layout=JsonFileFields, expand_x=True)
 
 # Graph and Experimant generate buttons (open a new window for these jsons)
-grapAndExpFields = [[sg.Button('Generate Graph', expand_x=True, expand_y=True)],[sg.Button('Generate Experiment', expand_x=True, expand_y=True)]]
+grapAndExpFields = [[sg.Button('Generate\nCommunication Map', expand_x=True, expand_y=True, key=WIN_COMMUNICATION_MAP_DIALOG_EVENT_KEY)],
+                    [sg.Button('Generate\nExperiment Flow', expand_x=True, expand_y=True, key=WIN_EXPERIMENT_FLOW_DIALOG_EVENT_KEY)]]
 grapAndExpFrame = sg.Frame("Graph and Experiment",layout=grapAndExpFields, expand_x=True, expand_y=True)
 
 jsonCtrlFrameWithSettingsAndSpecialEntities = sg.Frame("",layout = [[jointSettingsAndSpecialEntities, jsonCtrlFrame, grapAndExpFrame]], expand_x = True)
@@ -217,5 +220,10 @@ while True:
     if event == WIN_WORKER_DIALOG_EVENT_KEY:
         WinWorkerDialog()
     
+    if event == WIN_EXPERIMENT_FLOW_DIALOG_EVENT_KEY:
+        WinExperimentFlowDialog()
+
+    if event == WIN_COMMUNICATION_MAP_DIALOG_EVENT_KEY:
+        WinCommunicationMapDialog()
 
 main_window.close()

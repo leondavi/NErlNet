@@ -10,7 +10,7 @@ void* trainFun(void* arg)
     double loss_val;
     ErlNifEnv *env = enif_alloc_env();    
 
-    cout << "TrainNNptr->data = " << *(TrainNNptr->data) << endl;
+    //cout << "TrainNNptr->data = " << *(TrainNNptr->data) << endl;
    // data_set.set_data(*(TrainNNptr->data));
 
     //get nerlworker from bridge controller
@@ -21,10 +21,13 @@ void* trainFun(void* arg)
     std::shared_ptr<opennn::DataSet> data_set_ptr = std::make_shared<opennn::DataSet> ();
     std::shared_ptr<opennn::NeuralNetwork> neural_network_ptr = nerlworker_opennn->get_neural_network_ptr();
     nerlworker_opennn->set_dataset(data_set_ptr, TrainNNptr->data);
+    data_set_ptr = nerlworker_opennn->get_data_set();
     std::shared_ptr<TrainingStrategy> training_strategy_ptr = nerlworker_opennn->get_training_strategy_ptr();
     training_strategy_ptr->set_data_set_pointer(data_set_ptr.get());
+    cout << "before perform_training"<< endl;
     TrainingResults res = training_strategy_ptr->perform_training();
     cout << "after perform_training"<< endl;
+    nerlworker_opennn->post_training_process();
     loss_val = res.get_training_error(); // learn about "get_training_error" of opennn
 
     // Stop the timer and calculate the time took for training
@@ -83,6 +86,8 @@ void* PredictFun(void* arg)
     inputs_dimensions.setValues({num_of_samples, inputs_number});
 
     *calculate_res = neural_network->calculate_outputs(PredictNNptr->data->data(), inputs_dimensions);
+    nerlworker_opennn->post_predict_process(calculate_res); 
+
     nifpp::make_tensor_2d<float,fTensor2D>(env, prediction, calculate_res);
 
     // only for AE and AEC calculate the distance between prediction labels and input data

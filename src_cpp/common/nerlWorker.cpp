@@ -14,6 +14,7 @@ NerlWorker::NerlWorker(int model_type, std::string &layer_sizes_str, std::string
     _distributed_system_type = distributed_system_type;
     _distributed_system_args_str = distributed_system_args_str;
     _nerl_layers_linked_list = parse_layers_input(layer_sizes_str,layer_types_list,layers_functionality);
+   // std::cout << "NerlWorker created" << std::endl;
 }
 
 NerlWorker::~NerlWorker()
@@ -59,7 +60,7 @@ std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_siz
             case LAYER_TYPE_POOLING:
             {
                 LayerSizingParams_t params = layer_sizes_params[i];
-                std::vector<int>pooling_dims = params.get_ext_params(params.POOLING_SIZE);
+                std::vector<int>pooling_dims = params.get_ext_params(params.KERNEL_SIZE);
                 std::vector<int>stride_dims  = params.get_ext_params(params.STRIDE_SIZE);
                 std::vector<int>padding_dims = params.get_ext_params(params.PADDING_SIZE);
                 nerl_layers_vec[i] = std::make_shared<NerlLayerPooling>(layer_type,layer_dims,layer_functionality, 
@@ -72,7 +73,10 @@ std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_siz
                 std::vector<int>kernel_dims = params.get_ext_params(params.KERNEL_SIZE);
                 std::vector<int>stride_dims = params.get_ext_params(params.STRIDE_SIZE);
                 std::vector<int>padding_dims = params.get_ext_params(params.PADDING_SIZE);
-                nerl_layers_vec[i] = std::make_shared<NerlLayerCNN>(layer_type, layer_dims, layer_functionality, kernel_dims, stride_dims, padding_dims);
+                std::vector<int>type_conv    = params.get_ext_params(params.IS_VALID);
+          //      std::cout << "type_conv 0: " << type_conv[0] << std::endl;
+             //   std::cout << "type_conv 1: " << type_conv[1] << std::endl;
+                nerl_layers_vec[i] = std::make_shared<NerlLayerCNN>(layer_type, layer_dims, layer_functionality, kernel_dims, stride_dims, padding_dims,type_conv);
                 break; 
             }
             default:
