@@ -59,7 +59,7 @@ namespace nerlnet
                 }
 
                 
-            }
+            
             // case MODEL_TYPE_LSTM:
             // {
             //     break;
@@ -70,6 +70,7 @@ namespace nerlnet
             // }
         } 
     }
+    
 
     void NerlWorkerOpenNN::post_predict_process(fTensor2DPtr result_ptr){
         switch(_model_type){
