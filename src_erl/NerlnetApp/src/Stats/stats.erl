@@ -10,7 +10,7 @@
 -export([get_bytes_sent/1, increment_bytes_sent/2]).
 -export([get_bad_messages/1, increment_bad_messages/1]).
 -export([get_value/2, increment_by_value/3]).
--export([encode_ets_to_http_bin_str/1 , decode_http_bin_str_to_ets/1]).
+-export([encode_ets_to_http_bin_str/1 , decode_http_bin_str_to_ets/1 , encode_workers_ets_to_http_bin_str/1]).
 -export([update_workers_ets/4, increment_workers_ets/4 , generate_workers_stats_ets/0]).
 
 get_numeric_type(Value) ->
@@ -28,14 +28,27 @@ encode_ets_to_http_bin_str(StatsEts) ->
                 KeyStr = lists:flatten(io_lib:format("~p" , [Key])),
                 ValueStr = lists:flatten(io_lib:format("~p" , [Value])),
                 TypeStr = lists:flatten(io_lib:format("~p" , [Type])),
+                %% StatsKey:StatsValue:StatsType#StatsKey:StatsValue:StatsType#...
                 KeyStr ++ ?SEPERATOR_WITHIN_TRIPLET ++ ValueStr ++ ?SEPERATOR_WITHIN_TRIPLET ++ TypeStr ++ ?SEPERATOR_TRIPLETS
+        end,
+    lists:flatten(lists:map(Func , StatsList)).
+
+encode_workers_ets_to_http_bin_str(StatsEts) -> 
+    %% Takes value from ets and converts it to "<EntitiyName1>SEPERATOR<Value1 <EntityName2>SEPERATOR<Value2>" string.
+    StatsList = ets:tab2list(StatsEts),
+    Func = fun({Key , Value}) ->
+                Type = get_numeric_type(Value),
+                KeyStr = lists:flatten(io_lib:format("~p" , [Key])),
+                ValueStr = lists:flatten(io_lib:format("~p" , [Value])),
+                TypeStr = lists:flatten(io_lib:format("~p" , [Type])),
+                %% StatsKey:StatsValue:StatsType#StatsKey:StatsValue:StatsType#...
+                KeyStr ++ ?WORKER_SEPERATOR_WITHIN_TRIPLET ++ ValueStr ++ ?WORKER_SEPERATOR_WITHIN_TRIPLET ++ TypeStr ++ ?WORKER_SEPERATOR_TRIPLETS
         end,
     lists:flatten(lists:map(Func , StatsList)).
 
 decode_http_bin_str_to_ets(EncodedStr) -> 
     ReturnedEts = ets:new(ets_to_merge , [set]),
     KeyValTypeTokens = string:tokens(EncodedStr , ?SEPERATOR_TRIPLETS),
-    io:format("KeyValTypeTokens: ~p~n" , [KeyValTypeTokens]),
     Func = fun(Triplet) ->
                 [Key , ValueStr , Type] = string:tokens(Triplet , ?SEPERATOR_WITHIN_TRIPLET),
                 TypeAtom = list_to_atom(Type),
@@ -50,7 +63,7 @@ decode_http_bin_str_to_ets(EncodedStr) ->
     ReturnedEts.
     
 
-generate_stats_ets() ->
+generate_stats_ets() -> %% clients , routers , mainserver...
     StatsEts = ets:new(stats_ets , [set]),
     ets:insert(StatsEts, {messages_received , 0}),
     ets:insert(StatsEts, {messages_sent , 0}),
@@ -63,7 +76,7 @@ generate_stats_ets() ->
     ets:insert(StatsEts, {batches_sent , 0}), % related with source
     StatsEts.
 
-generate_workers_stats_ets() ->
+generate_workers_stats_ets() -> %% workers..
     WorkersStatsEts = ets:new(workers_ets , [set, public]),
     ets:insert(WorkersStatsEts, {bytes_received , 0}),
     ets:insert(WorkersStatsEts, {bytes_sent , 0}),

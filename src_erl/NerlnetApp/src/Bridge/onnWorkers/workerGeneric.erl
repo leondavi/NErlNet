@@ -53,6 +53,8 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   put(generic_worker_ets, GenWorkerEts),
   put(client_pid, ClientPid),
   put(worker_stats_ets , WorkerStatsEts),
+  SourceBatchesEts = ets:new(source_batches,[set]),
+  put(source_batches_ets, SourceBatchesEts),
   ets:insert(GenWorkerEts,{worker_name, WorkerName}),
   ets:insert(GenWorkerEts,{model_id, ModelID}),
   ets:insert(GenWorkerEts,{model_type, ModelType}),
@@ -159,21 +161,23 @@ idle(cast, _Param, State) ->
 
 %% Waiting for receiving results or loss function
 %% Got nan or inf from loss function - Error, loss function too big for double
-wait(cast, {loss , nan , _TimeNIF}, State = #workerGeneric_state{myName = MyName, nextState = NextState}) ->
-  ?LOG_WARNING("Loss func in wait: nan (Loss function too big for double)\n"),
+wait(cast, {loss , nan , TimeNIF , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState}) ->
+  ?LOG_WARNING("~p , BatchID ~p training loss value in nan" , [MyName, BatchID]),
   stats:increment_by_value(get(worker_stats_ets), nan_loss_count, 1),
-  gen_statem:cast(get(client_pid),{loss, MyName, nan}), %% TODO send to tal stop casting request with error desc
+  gen_statem:cast(get(client_pid),{loss, MyName , SourceName ,nan , TimeNIF ,BatchID}), %% TODO send to tal stop casting request with error desc
   {next_state, NextState, State};
 
-wait(cast, {loss, LossVal , _TimeNIF}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
-  gen_statem:cast(get(client_pid),{loss, MyName, LossVal}), %% TODO Add Time and Time_NIF to the cast
+wait(cast, {loss, LossTensor , TimeNIF , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
+  BatchTimeStamp = erlang:system_time(nanosecond),
+  gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,LossTensor , TimeNIF , BatchID , BatchTimeStamp}), %% TODO Add Time and Time_NIF to the cast
   ToUpdate = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),DistributedWorkerData}),
   if  ToUpdate -> {next_state, update, State#workerGeneric_state{nextState=NextState}};
       true ->     {next_state, NextState, State}
   end;
 
-wait(cast, {predictRes,NerlTensor, Type, _TimeNIF, CSVname, BatchID}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
-  gen_statem:cast(get(client_pid),{predictRes,MyName, CSVname,BatchID, NerlTensor, Type}), %% TODO TODO change csv name and batch id(1)
+wait(cast, {predictRes,PredNerlTensor, Type, TimeNIF, BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
+  BatchTimeStamp = erlang:system_time(nanosecond),
+  gen_statem:cast(get(client_pid),{predictRes,MyName,SourceName, {PredNerlTensor, Type}, TimeNIF , BatchID , BatchTimeStamp}), %% TODO TODO change csv name and batch id(1)
   Update = DistributedBehaviorFunc(post_predict, {get(generic_worker_ets),DistributedWorkerData}),
   if Update -> 
     {next_state, update, State#workerGeneric_state{nextState=NextState}};
@@ -253,20 +257,20 @@ update(cast, Data, State = #workerGeneric_state{distributedBehaviorFunc = Distri
 
 
 %% State train
-train(cast, {sample, BatchID ,{<<>>, _Type}}, State ) ->
+train(cast, {sample, BatchID ,{<<>>, _Type}}, State) ->
   ?LOG_WARNING("Empty sample received , batch id: ~p",[BatchID]),
   WorkerStatsEts = get(worker_stats_ets),
   stats:increment_by_value(WorkerStatsEts , empty_batches , 1),
   {next_state, train, State#workerGeneric_state{nextState = train , currentBatchID = BatchID}};
   
 %% Change SampleListTrain to NerlTensor
-train(cast, {sample, BatchID ,{NerlTensorOfSamples, NerlTensorType}}, State = #workerGeneric_state{modelID = ModelId, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
+train(cast, {sample, SourceName ,BatchID ,{NerlTensorOfSamples, NerlTensorType}}, State = #workerGeneric_state{modelID = ModelId, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
     % NerlTensor = nerltensor_conversion({NerlTensorOfSamples, Type}, erl_float),
     MyPid = self(),
     NewWorkerData = DistributedBehaviorFunc(pre_train, {get(generic_worker_ets),DistributedWorkerData}),
     WorkersStatsEts = get(worker_stats_ets),
     stats:increment_by_value(WorkersStatsEts , batches_received_train , 1),
-    _Pid = spawn(fun()-> nerlNIF:call_to_train(ModelId , {NerlTensorOfSamples, NerlTensorType} ,MyPid) end),
+    _Pid = spawn(fun()-> nerlNIF:call_to_train(ModelId , {NerlTensorOfSamples, NerlTensorType} ,MyPid , BatchID , SourceName) end),
     {next_state, wait, State#workerGeneric_state{nextState = train, distributedWorkerData = NewWorkerData , currentBatchID = BatchID}};
   
 %% TODO: implement send model and weights by demand (Tensor / XML)
@@ -295,12 +299,13 @@ predict(cast, {sample,_CSVname, BatchID, {<<>>, _Type}}, State) ->
   {next_state, predict, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}};
 
 % send predict sample to worker
-predict(cast, {sample,CSVname, BatchID, {PredictBatchTensor, Type}}, State = #workerGeneric_state{modelID = ModelId, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
+predict(cast, {sample , SourceName , BatchID , {PredictBatchTensor, Type}}, State = #workerGeneric_state{modelID = ModelId, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
     CurrPID = self(),
     DistributedBehaviorFunc(pre_predict, {get(generic_worker_ets),DistributedWorkerData}),
     WorkersStatsEts = get(worker_stats_ets),
     stats:increment_by_value(WorkersStatsEts , batches_received_predict , 1),
-    _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId , PredictBatchTensor , Type , CurrPID , CSVname, BatchID) end),
+    %% io:format("Pred Tensor: ~p~n",[nerlNIF:nerltensor_conversion({PredictBatchTensor , Type} , nerlNIF:erl_type_conversion(Type))]),
+    _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId , {PredictBatchTensor, Type} , CurrPID , BatchID, SourceName) end),
     {next_state, wait, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}};
   
 predict(cast, {idle}, State = #workerGeneric_state{myName = MyName}) ->

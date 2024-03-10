@@ -115,5 +115,5 @@ class JsonDirParser():
                 return None, None, None
         return None, None, None
 
-    def json_from_path(self, json_path : str):
+    def json_from_path(self, json_path : str) -> dict:
         return json.load(open(json_path))

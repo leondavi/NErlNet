@@ -56,7 +56,7 @@ init({MyName, WorkersMap, NerlnetGraph, Policy, BatchSize, Frequency , Epochs, T
   inets:start(),
   ?LOG_INFO("Source ~p is connected to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
   ?LOG_INFO("BatchSize: ~p",[BatchSize]),
-
+  put(myName , MyName),
   EtsRef = ets:new(source_data, [set]),
   EtsStatsRef = stats:generate_stats_ets(),
 
@@ -71,10 +71,12 @@ init({MyName, WorkersMap, NerlnetGraph, Policy, BatchSize, Frequency , Epochs, T
   ets:insert(EtsRef, {batch_size, BatchSize}),
   ets:insert(EtsRef, {method, Policy}),
   ets:insert(EtsRef, {epochs, Epochs}),
+  ets:insert(EtsRef, {num_of_batches, 0}),
   ets:insert(EtsRef, {type, Type}), %% CSV/Camera
   ets:insert(EtsRef, {sample_size, none}),
   ets:insert(EtsRef, {workers_list, []}),
   ets:insert(EtsRef, {csv_name, ""}), % not in use
+  
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM, NerlnetGraph),
   ets:insert(EtsRef, {my_router,{MyRouterHost,MyRouterPort}}),
 
@@ -109,19 +111,19 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 
 
 %% This cast receive a list of samples to load to the records batchList
-idle(cast, {batchList,WorkersList,Epochs, CSVData}, State) ->
+idle(cast, {batchList,WorkersList,NumOfBatches, CSVData}, State) ->
   EtsRef = get(source_ets),
   StatsEtsRef = get(source_stats_ets),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   BatchSize = ets:lookup_element(EtsRef, batch_size, ?DATA_IDX),
   {NerlTensorBatchesList, NerlTensorType, SampleSize} = parser:parseCSV(MyName,BatchSize,CSVData), % TODO this is slow and heavy policy! pre parse in ETS a possible solution
   ets:update_element(EtsRef, workers_list, [{?DATA_IDX, WorkersList}]),
-  ets:update_element(EtsRef, epochs, [{?DATA_IDX, Epochs}]),
+  ets:update_element(EtsRef, num_of_batches, [{?DATA_IDX, NumOfBatches}]),
   stats:increment_messages_received(StatsEtsRef),
   ?LOG_NOTICE("Source ~p, workers are: ~p", [MyName, WorkersList]),
   ?LOG_NOTICE("Source ~p, sample size: ~p", [MyName, SampleSize]),
   ets:update_element(EtsRef, sample_size, [{?DATA_IDX, SampleSize}]),
-  ?LOG_INFO("Source ~p updated transmission list, total avilable batches to send: ~p~n",[MyName, length(NerlTensorBatchesList)]),
+  ?LOG_INFO("Source ~p updated transmission list, total avilable batches to send: ~p~n",[MyName, NumOfBatches]),
   %%  send an ACK to mainserver that the CSV file is ready
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(dataReady), MyName),
@@ -130,9 +132,8 @@ idle(cast, {batchList,WorkersList,Epochs, CSVData}, State) ->
 
 
 %% This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
-idle(cast, {startCasting,Body}, State = #source_statem_state{batchesList = BatchesList}) ->
+idle(cast, {startCasting,_Body}, State = #source_statem_state{batchesList = BatchesList}) ->
   EtsRef = get(source_ets),
-  [_Source,UserLimitNumberOfBatchesToSend] = re:split(binary_to_list(Body), ",", [{return, list}]),
   StatsEtsRef = get(source_stats_ets),
   stats:increment_messages_received(StatsEtsRef),
 
@@ -144,8 +145,9 @@ idle(cast, {startCasting,Body}, State = #source_statem_state{batchesList = Batch
   BatchSize = ets:lookup_element(EtsRef, batch_size, ?DATA_IDX),
   WorkersList = ets:lookup_element(EtsRef, workers_list, ?DATA_IDX),
 
-  UserLimitNumberOfBatchesToSendInt = list_to_integer(UserLimitNumberOfBatchesToSend),
-  BatchesToSend = min(length(BatchesList), UserLimitNumberOfBatchesToSendInt),
+  %% UserLimitNumberOfBatchesToSendInt = list_to_integer(UserLimitNumberOfBatchesToSend),
+  %% BatchesToSend = min(length(BatchesList), UserLimitNumberOfBatchesToSendInt),
+  BatchesToSend = length(BatchesList),
   BatchesListFinal = lists:sublist(BatchesList, BatchesToSend), % Batches list with respect of constraint UserLimitNumberOfBatchesToSendInt
 
   % TODO consider add offset value from API
@@ -154,15 +156,14 @@ idle(cast, {startCasting,Body}, State = #source_statem_state{batchesList = Batch
   ?LOG_NOTICE("Batch size: ~p", [BatchSize]),
   ?LOG_NOTICE("Sample size = ~p",[SampleSize]),
   ?LOG_NOTICE("Rounds per data (epochs): ~p", [Epochs]),
-  ?LOG_NOTICE("Limit max # of batches by API is set to ~p ",[UserLimitNumberOfBatchesToSendInt]),
   ?LOG_NOTICE("# of batches to send is ~p ",[BatchesToSend]),
 
   TransmitterPID =  spawnTransmitter(EtsRef, WorkersList, BatchesListFinal),
   {next_state, castingData, State#source_statem_state{transmitter_pid = TransmitterPID}};
 
 idle(cast, {startCasting}, State) ->
+  ?LOG_ERROR("Should not get start casting in idle - start casting is only after setting the phase type"),
   EtsRef = get(source_ets),
-  % io:format("im not suppose to be here"),
   StatsEtsRef = get(source_stats_ets),
   stats:increment_messages_received(StatsEtsRef),
 
@@ -183,7 +184,7 @@ idle(cast, {statistics}, State) ->
 
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   StatsEtsStr = stats:encode_ets_to_http_bin_str(StatsEtsRef),
-  StatisticsBody = {term_to_binary(MyName) , list_to_binary(StatsEtsStr)}, % old data
+  StatisticsBody = {MyName , StatsEtsStr}, 
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
   stats:increment_messages_sent(StatsEtsRef),
@@ -279,8 +280,8 @@ spawnTransmitter(SourceEtsRef, WorkersListOfNames, BatchesListToSend)->
 
 %% Sends batch of samples to a client
 % A batch is always {NerlTensor, Type}
-sendBatch({NerlTensor, Type},CSVPath, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
-        ToSend = {ClientName, WorkerName, CSVPath, BatchID, {NerlTensor, Type}},
+sendBatch(MyName,{NerlTensor, Type}, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
+        ToSend = {MyName , ClientName, WorkerName, BatchID, {NerlTensor, Type}},
         nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(batch), ToSend).
 
 prepare_and_send(_TransmitterEts, _TimeInterval_ms, _Batch, _BatchIdx, []) -> ok;
@@ -290,9 +291,9 @@ prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [ClientWorker
   case Batch of
   {NerlTensor, Type} ->
     {ClientName,WorkerName} = ClientWorkerPair,% TODO Gal is about to perform refactor here with casting support
-    CSVPath = "",
+    MyName = ets:lookup_element(TransmitterEts, my_name, ?DATA_IDX),
     % sending batch
-    sendBatch({NerlTensor, Type},CSVPath, BatchIdx, ClientName,WorkerName,RouterHost,RouterPort),
+    sendBatch(MyName,{NerlTensor, Type}, BatchIdx, ClientName,WorkerName,RouterHost,RouterPort),
     % timing handling
     Toc_millisec = timer:now_diff(Tic, erlang:timestamp()) * ?MICRO_TO_MILLI_FACTOR,
     SleepDuration = erlang:max(0,  round(TimeInterval_ms - Toc_millisec)),
