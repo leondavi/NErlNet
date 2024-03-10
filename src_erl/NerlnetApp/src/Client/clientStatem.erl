@@ -89,7 +89,7 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   clientWorkersFunctions:create_workers(MyName , EtsRef , ShaToModelArgsMap , EtsStats),
   %% send pre_idle signal to workers
   WorkersNames = clientWorkersFunctions:get_workers_names(EtsRef),
-  [gen_statem:cast(clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName), {pre_idle}) || WorkerName <- clientWorkersFunctions:get_workers_names(EtsRef)],
+  [gen_statem:cast(clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName), {pre_idle}) || WorkerName <- WorkersNames],
 
   % update dictionary
   WorkersEts = ets:lookup_element(EtsRef , workers_ets , ?DATA_IDX),
@@ -133,11 +133,11 @@ waitforWorkers(cast, In = {NewState}, State = #client_statem_state{myName = _MyN
   cast_message_to_workers(EtsRef, {NewState}), %% This function increments the number of sent messages in stats ets
   {next_state, waitforWorkers, State#client_statem_state{nextState = NewState, waitforWorkers = Workers}};
 
-waitforWorkers(cast, EventContent, State = #client_statem_state{myName = _MyName}) ->
+waitforWorkers(cast, EventContent, State = #client_statem_state{myName = MyName}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(EventContent)),
-  ?LOG_WARNING("client ~p waitforWorkers ignored!!!:  ~p ~n",[myName, EventContent]),
+  ?LOG_WARNING("client ~p waitforWorkers ignored!!!:  ~p ~n",[MyName, EventContent]),
   {next_state, waitforWorkers, State}.
   
 
@@ -167,17 +167,19 @@ idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, et
   EtsStats = get(ets_stats),
   ClientStatsEts = get(client_stats_ets),
   ClientStatsEncStr = stats:encode_ets_to_http_bin_str(ClientStatsEts),
-  ClientStatsToSend = atom_to_list(MyName) ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ ClientStatsEncStr ++ ?API_SERVER_ENTITY_SEPERATOR,
+  %ClientStatsToSend = atom_to_list(MyName) ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ ClientStatsEncStr ++ ?API_SERVER_ENTITY_SEPERATOR,
   stats:increment_messages_received(ClientStatsEts),
-  ListStatsEts = ets:tab2list(EtsStats) -- [{MyName , ClientStatsEts}],
+  ListStatsEts = ets:tab2list(EtsStats) -- [{MyName , ClientStatsEts}], 
   WorkersStatsEncStr = create_encoded_stats_str(ListStatsEts),
-  StatsBody = {MyName , ClientStatsToSend ++ WorkersStatsEncStr},
+  DataToSend = ClientStatsEncStr ++ WorkersStatsEncStr,
+  %% io:format("DataToSend: ~p~n",[DataToSend]),
+  StatsBody = {MyName , DataToSend},
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatsBody),
   stats:increment_messages_sent(ClientStatsEts),
   {next_state, idle, State};
 
-idle(cast, In = {training}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
+idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),  MessageToCast = {training},
@@ -250,15 +252,16 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  {ClientName, WorkerNameStr, _CSVName, BatchID, BatchOfSamples} = binary_to_term(Body),
+  {SourceName , ClientName, WorkerNameStr, BatchID, BatchOfSamples} = binary_to_term(Body),
   WorkerName = list_to_atom(WorkerNameStr),
   WorkersEts = get(workers_ets),
   WorkerOfThisClient = ets:member(WorkersEts , WorkerName),
   if WorkerOfThisClient ->
       WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
-      gen_statem:cast(WorkerPid, {sample, BatchID ,BatchOfSamples}),
+      gen_statem:cast(WorkerPid, {sample, SourceName ,BatchID ,BatchOfSamples}),
       stats:increment_messages_sent(ClientStatsEts),
-      stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(BatchOfSamples));
+      BatchSize = nerl_tools:calculate_size(BatchOfSamples),
+      stats:increment_bytes_sent(ClientStatsEts , BatchSize);
   true -> ?LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName]) end,
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
@@ -276,26 +279,13 @@ training(cast, _In = {predict}, State = #client_statem_state{myName = MyName, et
   ?LOG_ERROR("Wrong request , client ~p can't go from training to predict directly", [MyName]),
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
-% training get path to main server
-training(cast, In = {loss,WorkerName,nan}, State) ->
-  EtsRef = get(client_data),
+training(cast, In = {loss , WorkerName , SourceName , LossTensor , TimeNIF , BatchID , BatchTS}, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  MessageBody = term_to_binary({WorkerName,"nan"}),
-  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(lossFunction), MessageBody),
-  stats:increment_messages_sent(ClientStatsEts),
-  stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
-  {next_state, training, State#client_statem_state{etsRef = EtsRef}};
-
-training(cast, In = {loss,WorkerName,LossFunction}, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
-  ClientStatsEts = get(client_stats_ets),
-  stats:increment_messages_received(ClientStatsEts),
-  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  MessageBody = {WorkerName,LossFunction},
-  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(lossFunction), MessageBody),
+  MessageBody = {WorkerName , SourceName , LossTensor , TimeNIF , BatchID , BatchTS},
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(lossFunction), MessageBody), %% Change lossFunction atom to lossValue
   stats:increment_messages_sent(ClientStatsEts),
   stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
   {next_state, training, State#client_statem_state{myName = MyName,etsRef = EtsRef}};
@@ -311,27 +301,27 @@ predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef})
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  {ClientName, WorkerNameStr, CSVName, BatchNumber, BatchOfSamples} = binary_to_term(Body),
+  {SourceName , ClientName, WorkerNameStr, BatchID, BatchOfSamples} = binary_to_term(Body),
   WorkerName = list_to_atom(WorkerNameStr),
   WorkersEts = get(workers_ets),
   WorkerOfThisClient = ets:member(WorkersEts, WorkerName),
   if 
     WorkerOfThisClient -> 
       WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
-      gen_statem:cast(WorkerPid, {sample, CSVName, BatchNumber, BatchOfSamples}),
+      gen_statem:cast(WorkerPid, {sample, SourceName ,BatchID ,BatchOfSamples}),
       stats:increment_messages_sent(ClientStatsEts),
       stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(BatchOfSamples));
     true -> ?LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName])
   end,
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
 
-predict(cast, In = {predictRes,WorkerName, InputName, BatchID ,PredictNerlTensor, Type}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
+predict(cast, In = {predictRes,WorkerName, SourceName ,{PredictNerlTensor, Type} , TimeTook , BatchID , BatchTS}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
  
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  MessageBody = {atom_to_list(WorkerName), InputName, BatchID, {PredictNerlTensor, Type}},
+  MessageBody = {atom_to_list(WorkerName), SourceName, BatchID, {PredictNerlTensor , Type} , TimeTook , BatchTS}, %% SHOULD INCLUDE TYPE?
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(predictRes), MessageBody),
   stats:increment_messages_sent(ClientStatsEts),
   stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
@@ -346,7 +336,7 @@ predict(cast,_In = {training}, State = #client_statem_state{myName = MyName}) ->
 
 %% The source sends message to main server that it has finished
 %% The main server updates its' clients to move to state 'idle'
-predict(cast, In = {idle}, State = #client_statem_state{etsRef = EtsRef , myName = MyName}) ->
+predict(cast, In = {idle}, State = #client_statem_state{etsRef = EtsRef , myName = _MyName}) ->
 
   MsgToCast = {idle},
   ClientStatsEts = get(client_stats_ets),
@@ -408,7 +398,8 @@ cast_message_to_workers(EtsRef, Msg) ->
 
 create_encoded_stats_str(ListStatsEts) ->
   Func = fun({WorkerName , StatsEts}) ->
-    WorkerEncStatsStr = stats:encode_ets_to_http_bin_str(StatsEts),
-    WorkerName ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ WorkerEncStatsStr ++ ?API_SERVER_ENTITY_SEPERATOR
+    WorkerEncStatsStr = stats:encode_workers_ets_to_http_bin_str(StatsEts),
+    %% |w1&bytes_sent:6.0:float#bad_messages:0:int....|
+    ?API_SERVER_ENTITY_SEPERATOR ++ atom_to_list(WorkerName) ++ ?WORKER_SEPERATOR ++ WorkerEncStatsStr
     end,
   lists:flatten(lists:map(Func , ListStatsEts)).
