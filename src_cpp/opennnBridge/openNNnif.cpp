@@ -24,13 +24,9 @@ void* trainFun(void* arg)
     nerlworker_opennn->set_dataset(data_set_ptr, TrainNNptr->data);
     std::shared_ptr<TrainingStrategy> training_strategy_ptr = nerlworker_opennn->get_training_strategy_ptr();
     training_strategy_ptr->set_data_set_pointer(nerlworker_opennn->get_dataset_ptr().get());
-    nerlworker_opennn->get_dataset_ptr()->print();
     TrainingResults res = training_strategy_ptr->perform_training();
-    cout << "after perform_training"<< endl;
     nerlworker_opennn->post_training_process(); 
     loss_val = res.get_training_error(); // learn about "get_training_error" of opennn
-    cout << "LossVal: " << loss_val << endl;
-    neural_network_ptr->print();
 
     // Stop the timer and calculate the time took for training
     high_resolution_clock::time_point  stop = high_resolution_clock::now();
