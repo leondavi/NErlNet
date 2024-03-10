@@ -30,13 +30,35 @@ namespace nerlnet
             {
                 break;
             }
-            case MODEL_TYPE_AUTOENCODER:
+            case MODEL_TYPE_AUTOENCODER: // Get Loss Values by class LossIndexBackPropagationLM
             {
-                break; // Get Loss Values by class LossIndexBackPropagationLM
+                // std::shared_ptr<TrainingStrategy> training_strategy_ptr = get_training_strategy_ptr();
+                // OptimizationAlgorithm* optimizer = training_strategy_ptr->get_optimization_algorithm_pointer();
+                // LossIndex* loss_index = optimizer->get_loss_index_pointer();
+                // std::shared_ptr<NeuralNetwork> _neural_network_pointer = get_neural_network_ptr();
+                // Tensor<Layer*, 1> trainable_layers_pointers = _neural_network_pointer->get_trainable_layers_pointers();
+                // cout << "Gradient: " << trainable_layers_pointers[0] << endl;
+                // cout << "LossType: " << loss_index->get_error_type() << endl;
+
             }
-            case MODEL_TYPE_AE_CLASSIFIER:
+            case MODEL_TYPE_AE_CLASSIFIER: // Get Loss Values , Add RED support - David's Thesis
             {
-                break; // Get Loss Values , Add RED support - David's Thesis
+                std::shared_ptr<opennn::NeuralNetwork> neural_network = get_neural_network_ptr();
+                Index num_of_samples = _aec_data_set->dimension(0);
+                Index inputs_number = neural_network->get_inputs_number();
+                fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
+                Tensor<Index, 1> inputs_dimensions(2);
+                inputs_dimensions.setValues({num_of_samples, inputs_number});
+                *calculate_res = neural_network->calculate_outputs(*_aec_data_set);
+                fTensor2DPtr loss_values = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
+                *loss_values = (*calculate_res - *_aec_data_set).abs();
+                cout << "Loss Values: " << *loss_values << endl;
+                cout << "Dimensions of loss values tensor: " << loss_values->dimension(0) << "x" << loss_values->dimension(1) << endl; // ! Remove this prints later
+                _ae_red_ptr->update_batch(loss_values);
+                
+                }
+
+                
             }
             // case MODEL_TYPE_LSTM:
             // {
@@ -85,7 +107,7 @@ namespace nerlnet
      set_optimization_method(_optimizer_type,_learning_rate);
      set_loss_method(_loss_method);
      _training_strategy_ptr->set_maximum_epochs_number(_epochs); 
-     //_training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); // remove opennn training strategy prints
+     _training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); // remove opennn training strategy prints
     }
 
     void NerlWorkerOpenNN::set_optimization_method(int optimizer_type,int learning_rate){
@@ -150,12 +172,12 @@ namespace nerlnet
                     }
                     case MODEL_TYPE_AUTOENCODER: // ! Ask David if AE/AEC should be created in "generate_custom_model_nn" (same building process)
                     {
-                        generate_custom_model_nn(_neural_network_ptr); // TODO Change back to generate_custom_model_ae
+                        generate_custom_model_nn(_neural_network_ptr); 
                         break;
                     }
                     case MODEL_TYPE_AE_CLASSIFIER: // ! Ask David if AE/AEC should be created in "generate_custom_model_nn" (same building process)
                     {
-                        generate_custom_model_aec(_neural_network_ptr);
+                        generate_custom_model_nn(_neural_network_ptr);
                         break;
                     }
                     // case MODEL_TYPE_LSTM:
@@ -209,18 +231,15 @@ namespace nerlnet
             }
             case MODEL_TYPE_AE_CLASSIFIER:
             {
-            cout << TrainDataNNptr->dimension(0) << "x" << TrainDataNNptr->dimension(1) << endl;
+            _aec_data_set = TrainDataNNptr; 
             Eigen::array<int, 2> bcast({1, 2}); 
             std::shared_ptr<Eigen::Tensor<float,2>> autoencoder_data = std::make_shared<Eigen::Tensor<float,2>>(TrainDataNNptr->broadcast(bcast));
             int num_of_features = neural_network_ptr->get_inputs_number();
-            int num_of_output_neurons = neural_network_ptr->get_outputs_number(); 
+            int num_of_output_neurons = neural_network_ptr->get_outputs_number();
             bool data_set_condition = (num_of_features + num_of_output_neurons) == autoencoder_data->dimension(1);
             assert(("issue with data input/output dimensions", data_set_condition));
             _data_set->set_data(*autoencoder_data);
             _data_set->set(autoencoder_data->dimension(0) , num_of_features , num_of_output_neurons); // TODO CHECK
-
-            _data_set->print();
-            neural_network_ptr->print();
             break;
             }
             default:
@@ -383,14 +402,24 @@ namespace nerlnet
                     break;
                 }
 
-                // TODO Add Boudning Layer!
-
-                  case LAYER_TYPE_PROBABILISTIC:
+                case LAYER_TYPE_BOUNDING: // TODO Check this layer implementation
                 {
-                      if (curr_layer->is_first())
+                    std::vector<int> layer_dims_vec;
+                    curr_layer->get_layer_size(layer_dims_vec);
+                    int layer_size_curr = curr_layer->get_dim_size(DIM_X_IDX);
+                    int get_layer_functionality = curr_layer->get_layer_functionality();
+                    BoundingLayer* newLayer = new opennn::BoundingLayer(layer_size_curr);
+                    newLayer->set_bounding_method("Bounding"); // ! What this method should be?
+                    neural_network_ptr->add_layer(newLayer);
+                    break;
+                }
+
+                case LAYER_TYPE_PROBABILISTIC:
+                {
+                    if (curr_layer->is_first())
                     {
-                       LogError("NerlWorkerOpenNN::generate_custom_model_nn - PROBABILISTIC cannot be first layer");
-                       throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - PROBABILISTIC cannot be first layer");
+                        LogError("NerlWorkerOpenNN::generate_custom_model_nn - PROBABILISTIC cannot be first layer");
+                        throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - PROBABILISTIC cannot be first layer");
                     }
                     std::shared_ptr<NerlLayer> prev_layer = curr_layer->get_prev_layer_ptr();
                     int prev_layer_size = prev_layer->get_dim_size(DIM_X_IDX);
@@ -442,6 +471,7 @@ namespace nerlnet
             case LAYER_TYPE_LSTM:         { res = translate_activation_function_int(layer_functionality); break;}
             case LAYER_TYPE_RECCURRENT:   { res = translate_activation_function_int(layer_functionality); break;}
             case LAYER_TYPE_UNSCALING:    { res = translate_unscaling_method_int(layer_functionality);    break;}
+            case LAYER_TYPE_BOUNDING:     { res = translate_activation_function_int(layer_functionality); break;}
         }
        return res;
     }
@@ -459,6 +489,7 @@ namespace nerlnet
             case LAYER_TYPE_PROBABILISTIC:{ res = (int)opennn::Layer::Type::Probabilistic;       break;}
             case LAYER_TYPE_LSTM:         { res = (int)opennn::Layer::Type::LongShortTermMemory; break;}
             case LAYER_TYPE_RECCURRENT:   { res = (int)opennn::Layer::Type::Recurrent;           break;}
+            case LAYER_TYPE_BOUNDING:     { res = (int)opennn::Layer::Type::Bounding;            break;}
         }
        return res;
     }

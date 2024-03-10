@@ -7,6 +7,7 @@
 #include "../common/nerlWorker.h"
 #include "eigenTensorTypes.h"
 #include "worker_definitions_ag.h"
+#include "ae_red.h"
 
 #define TRAINING_STRATEGY_SET_DISPLAY_ON   1
 #define TRAINING_STRATEGY_SET_DISPLAY_OFF  0
@@ -44,6 +45,8 @@ class NerlWorkerOpenNN : public NerlWorker
     std::shared_ptr<opennn::NeuralNetwork> _neural_network_ptr;
     std::shared_ptr<opennn::TrainingStrategy> _training_strategy_ptr;
     std::shared_ptr<opennn::DataSet> _data_set;
+    fTensor2DPtr _aec_data_set;
+    std::shared_ptr<AeRed> _ae_red_ptr;
     
     // neural network generator functions
     void generate_opennn_project(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);
