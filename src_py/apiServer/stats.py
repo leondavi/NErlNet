@@ -45,6 +45,13 @@ class Stats():
         assert self.phase == PHASE_TRAINING_STR, "This function is only available for training phase"
         pass
 
+    #TODO Implement this function
+    def get_loss_by_source(self , plot : bool = False , saveToFile : bool = False): # Todo change i
+        """
+        Returns a dictionary of {source : DataFrame[BatchID,'w1','w2'...'wn']} for each source in the experiment.
+        """
+        pass
+
     def get_loss_ts(self , plot : bool = False , saveToFile : bool = False): # Todo change it
         """
         Returns a dictionary of {worker : loss list} for each worker in the experiment.
@@ -242,6 +249,33 @@ class Stats():
 
         return confusion_matrix_source_dict, confusion_matrix_worker_dict
     
+    def get_missed_batches(self):
+        """
+        Returns a list of missed batches in the experiment phase.
+        {(source_name, worker_name): [batch_id,...]}
+        """
+        def missed_batches_key(phase_name, source_name, worker_name):
+            return f"phase:{phase_name},{source_name}->{worker_name}"
+        
+        if self.phase == PHASE_PREDICTION_STR:
+            phase_name = self.experiment_phase.get_name()
+            missed_batches_dict = {}
+            sources_pieces_list = self.experiment_phase.get_sources_pieces()
+            workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
+            for source_piece_inst in sources_pieces_list:
+                source_name = source_piece_inst.get_source_name()
+                for worker_db in workers_model_db_list:
+                    worker_name = worker_db.get_worker_name()
+                    total_batches_per_source = worker_db.get_total_batches_per_source(source_name)
+                    for batch_id in range(total_batches_per_source):
+                        batch_db = worker_db.get_batch(source_name, str(batch_id))
+                        if not batch_db:  # if batch is missing
+                            missed_batch_key_str = missed_batches_key(phase_name, source_name, worker_name)
+                            if  missed_batch_key_str not in missed_batches_dict:
+                                missed_batches_dict[missed_batch_key_str] = []
+                            missed_batches_dict[missed_batch_key_str].append(batch_id)
+        print(f"missed_batches_dict: {missed_batches_dict}")
+        return missed_batches_dict
 
     def get_communication_stats_workers(self):
         # return dictionary of {worker : {communication_stats}}
@@ -285,10 +319,6 @@ class Stats():
         main_server_communication_stats = self.nerl_comm_db.get_main_server().get_as_dict()
         print(f"main_server_communication_stats: {main_server_communication_stats}")
         return main_server_communication_stats
-
-    def get_missed_batches_stats(self):
-        # batch id, source name, worker name, phase name
-        pass
 
     def get_model_performence_stats(self , confusion_matrix_worker_dict , show : bool = False , saveToFile : bool = False, printStats = False) -> dict:
         """

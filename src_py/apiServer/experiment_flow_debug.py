@@ -19,7 +19,7 @@ api_server_instance = ApiServer()
 api_server_instance.showJsons()
 dc = 1
 conn = 20
-flow = 17
+flow = 18
 api_server_instance.setJsons(dc, conn, flow)
 dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
@@ -29,7 +29,6 @@ api_server_instance.send_jsons_to_devices()
 
 next_expertiment_phase_exist = True 
 api_server_instance.run_current_experiment_phase() # blocking - deppended acks from mainserver
-#api_server_instance.communication_stats()
 stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
 stats.get_communication_stats_workers()
 stats.get_communication_stats_sources()
@@ -40,10 +39,10 @@ stats.get_loss_ts()
 stats.get_min_loss()
 next_expertiment_phase_exist = api_server_instance.next_experiment_phase()
 api_server_instance.run_current_experiment_phase()
-api_server_instance.communication_stats()
 stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
 confusion_matrix_source_dict, confusion_matrix_worker_dict = stats.get_confusion_matrices()
-stats.get_model_performence_stats(confusion_matrix_worker_dict, True)
+performence_stats = stats.get_model_performence_stats(confusion_matrix_worker_dict, True)
+stats.get_missed_batches()
 
 exit(0)
 next_expertiment_phase_exist = api_server_instance.next_experiment_phase() 
