@@ -266,24 +266,28 @@ nerlworker_test_generate_data(LayersSizes, LayerTypes, NumOfSamples) ->
                                                  {NumOfSamples,LastLayerSizeInt+FirstLayerSizeInt, 1}
             end,
       ErlDataTensor = generate_nerltensor(float, DimX, DimY, DimZ),
-      nerlNIF:nerltensor_conversion({ErlDataTensor,erl_float},float).  %TODO
+      %% TODO Call to split_erl_tensor(ErlNerlTensor , NumOfFeatures , NumOfLabels) in nerlTensor.erl to split labels from data
+      nerlNIF:nerltensor_conversion({ErlDataTensor,erl_float},float).  
 
 nerlworker_test([], _Performance) -> _Performance;
 nerlworker_test([CurrentModel | Tail], Performance) -> 
      {ModelId,ModelType,LayersSizes, LayersTypes, LayersFunctionalityCodes,
       LearningRate, Epochs, OptimizerType, OptimizerArgs,
       LossMethod, DistributedSystemType, DistributedSystemArg} = CurrentModel,
+      nerltest_print("before test_nerlworker_nif"),
       nerlNIF:test_nerlworker_nif(ModelId,ModelType,LayersSizes, LayersTypes, 
       LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, 
       OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
-      NumOfSamples = 3,
+      NumOfSamples = 7000,
+      nerltest_print("before generate_nerltensor"),
       {DataTensorEncoded, Type} = nerlworker_test_generate_data(LayersSizes, LayersTypes, NumOfSamples),
       DataTensorEncodedDecoded = nerlNIF:nerltensor_conversion({DataTensorEncoded, float}, erl_float),
-
-      nerltest_print(nerl:string_format("ModelId : ~p  Type: ~p DataTensorEncodedDecoded:~p ",[ModelId,Type,DataTensorEncodedDecoded])),
+     % nerltest_print(nerl:string_format("ModelId : ~p  Type: ~p DataTensorEncodedDecoded:~p ",[ModelId,Type,DataTensorEncodedDecoded])),
       nerlNIF:train_nif(ModelId,DataTensorEncoded,Type), % ask Guy about receiver block
       %block receive to get loss values from worker
       nerltest_print("after train_nif"),
+      % TODO remove labels from generated data
+      % TODO Ori - implement predict
       nerlNIF:remove_nerlworker_nif(ModelId),
       nerlworker_test(Tail, Performance).
 

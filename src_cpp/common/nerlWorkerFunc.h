@@ -23,8 +23,7 @@ namespace nerlnet
 
 typedef struct LayerSizingParams
 {
-//enum {KERNEL_SIZE = -1, PADDING_SIZE = -2,PADDING_SIZE_VALID = -3, STRIDE_SIZE = -4, POOLING_SIZE= -5};
-enum {KERNEL_SIZE = -1, PADDING_SIZE = -2,STRIDE_SIZE = -3 ,POOLING_SIZE= -4};
+enum {KERNEL_SIZE = -1, PADDING_SIZE = -2,STRIDE_SIZE = -3 ,POOLING_SIZE= -4 , IS_VALID = -5};
  int dimx = 1;
  int dimy = 1;
  int dimz = 1; 
@@ -90,14 +89,15 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
                     case COMPLEX_PARSING:
                         {
                             std::unordered_map<char, std::string> params;
-                            std::regex rgx_dim("[0-9][^kspx]*");
+                            std::regex rgx_dim("[0-9][^kstpx]*");
                             std::smatch matches; //this matches variable is for the layer size
                             std::smatch param_match; // this matches variable is for the rest of the string
                             std::smatch dim_match; // this matches variable is for the dimensions
                             std::unordered_map<char, int> param_codes = {
                                 {'k', -1},
                                 {'p', -2},
-                                {'s', -3}
+                                {'s', -3},
+                                {'t',-5}
                             };
                             std::string::const_iterator searchStartDim(layer_sizes_strs_vec[i].cbegin());
                             for (size_t k = 0; k < 3; k++){
@@ -111,22 +111,25 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
                                     }
                                  searchStartDim = dim_match.suffix().first;
                             }
-
-                            std::regex rgx_rest("[ksp]([0-9]*x?[0-9]*)"); //search for k, s or p followed by a number and then x and then a number
+                            std::regex rgx_rest("[kspt]([0-9]*x?[0-9]*)*"); //search for k, s or p followed by a number and then x and then a number
                             std::string::const_iterator searchStart(layer_sizes_strs_vec[i].cbegin());
                             while (std::regex_search(searchStart, layer_sizes_strs_vec[i].cend(), param_match, rgx_rest))
                                 {
                                     char param_char = param_match[0].str()[0]; //the first character of the match
-                                    std::string dimensions_str = param_match[1].str();//the second part of the match (the dimensions)
+                                    std::string dimensions_str = param_match.str();//the second part of the match (the dimensions)
+                                    std::string dimensions_str_sub = dimensions_str.substr(1,-1);
                                     // Convert the parameter and dimensions to the desired format and add them to _ext_params
                                     out_layer_sizes_params[i]._ext_params.push_back(param_codes[param_char]);
-                                    std::istringstream dimensions_stream(dimensions_str);
+                                    std::istringstream dimensions_stream(dimensions_str_sub);
                                     std::string dimension;
                                     while (std::getline(dimensions_stream, dimension, 'x'))
                                     {
+                                      //  std::cout << "param_char: " << param_char << std::endl;
+                                       // std::cout << "dimension: " << dimension << std::endl;
+                                      //  std::cout << "std::stoi(dimension): " << std::stoi(dimension) << std::endl;
                                         out_layer_sizes_params[i]._ext_params.push_back(std::stoi(dimension));
                                     }
-                                    if(dimensions_str.length() == 1) out_layer_sizes_params[i]._ext_params.push_back(std::stoi(dimension));
+                                    if(dimensions_str_sub.length() == 1 && param_char!='t') out_layer_sizes_params[i]._ext_params.push_back(std::stoi(dimension));
                                     searchStart = param_match.suffix().first;
                                 }
                                      break;

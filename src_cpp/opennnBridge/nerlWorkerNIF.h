@@ -10,8 +10,8 @@
 using namespace nerlnet;
 
 static std::shared_ptr<NerlWorkerOpenNN> create_nerlworker(std::string &model_type_str,std::string &learning_rate_str,
- std::string &epochs_str,std::string &optimizer_type_str,std::string &loss_method_str,
- std::string &distributed_system_type_str, std::string &layer_sizes_str,std:: string &layer_types_str,
+ std::string &epochs_str, std::string &optimizer_type_str, std::string &loss_method_str,
+ std::string &distributed_system_type_str, std::string &layer_sizes_str, std:: string &layer_types_str,
  std::string &layers_functionality_str, std::string &optimizer_args_str, std::string &distributed_system_args_str) //all should be const reference
 {
     std::shared_ptr<NerlWorkerOpenNN> new_worker = parse_model_params<NerlWorkerOpenNN>(model_type_str,learning_rate_str,epochs_str,optimizer_type_str,loss_method_str,distributed_system_type_str,layer_sizes_str,
@@ -101,7 +101,7 @@ static ERL_NIF_TERM test_nerlworker_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     nifpp::get_throws(env, argv[ARG_DISTRIBUTED_SYSTEM_ARGS], distributed_system_args_str);
     std::shared_ptr<NerlWorkerOpenNN> new_nerl_worker_ptr = create_nerlworker(model_type_str,learning_rate_str,epochs_str,optimizer_type_str,loss_method_str,distributed_system_type_str,layer_sizes_str,
     layer_types_str,layers_functionality_str,optimizer_args_str,distributed_system_args_str);
-   
+   std::cout<<"test_nerlworker_nif after"<<std::endl;
      // Create the singleton instance
     BridgeController& onnBrCtrl = BridgeController::GetInstance();
     // Put the model record to the map with modelId
