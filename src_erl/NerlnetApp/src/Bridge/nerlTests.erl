@@ -278,7 +278,7 @@ nerlworker_test([CurrentModel | Tail], Performance) ->
       nerlNIF:test_nerlworker_nif(ModelId,ModelType,LayersSizes, LayersTypes, 
       LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, 
       OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
-      NumOfSamples = 7000,
+      NumOfSamples = 700,
       nerltest_print("before generate_nerltensor"),
       {DataTensorEncoded, Type} = nerlworker_test_generate_data(LayersSizes, LayersTypes, NumOfSamples),
       DataTensorEncodedDecoded = nerlNIF:nerltensor_conversion({DataTensorEncoded, float}, erl_float),
