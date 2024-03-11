@@ -225,7 +225,7 @@ def WinWorkerDialog():
 
         if event == KEY_JSON_LOAD_FILE_BROWSE_EVENT:
             FilePathLoad = values[KEY_JSON_LOAD_FILE_BROWSE_EVENT]
-            print(f"{FilePathLoad}")
+            # print(f"{FilePathLoad}")
         
         if event == KEY_JSON_LOAD_FILE_BUTTON_EVENT:
             # Update here when adding new fields to the worker

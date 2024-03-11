@@ -1,1 +1,4 @@
 -define(API_SERVER_ACTION_ACK, "ackPy").
+
+-define(PHASE_RES_WORKER_NAME_SEPERATOR, "#").
+-define(PHASE_RES_VALUES_SEPERATOR, "|").
