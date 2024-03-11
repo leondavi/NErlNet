@@ -170,6 +170,9 @@ class ClientComDB(EntityComDB):
             return None
         return self.workers_stats_dbs[worker_name]
     
+    def get_workers_stats_dbs_dict(self):
+        return self.workers_stats_dbs
+
     def update_stats(self, input_dict):
         self.messages_received = input_dict["messages_received"]
         self.messages_sent = input_dict["messages_sent"]
@@ -293,9 +296,6 @@ class NerlComDB():
         return self.sources
     
     def get_workers(self):
-        for client_name in self.clients:
-            for worker_name in self.clients[client_name].workers_stats_dbs:
-                self.workers[worker_name] = self.clients[client_name].workers_stats_dbs[worker_name]
         return self.workers
 
     def build_dicts(self):
@@ -306,8 +306,10 @@ class NerlComDB():
         for source_name in self.net_comps.sources:
             self.add_source(source_name)
         for worker_name in self.net_comps.workers:
-            this_worker_client_name = self.net_comps.map_worker_to_client[worker_name]
-            self.clients[this_worker_client_name].add_worker(worker_name)
+            this_worker_client_name = self.net_comps.get_client_name_by_worker_name(worker_name)
+            if this_worker_client_name:
+                self.clients[this_worker_client_name].add_worker(worker_name)
+                self.workers[worker_name] = self.clients[this_worker_client_name].get_worker(worker_name)
                         
     def update_entities_stats(self, entity_com_dicts: dict):
         for entity_name in entity_com_dicts:
