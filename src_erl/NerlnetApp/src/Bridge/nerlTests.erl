@@ -286,11 +286,10 @@ nerlworker_test([CurrentModel | Tail], Performance) ->
      {ModelId,ModelType,LayersSizes, LayersTypes, LayersFunctionalityCodes,
       LearningRate, Epochs, OptimizerType, OptimizerArgs,
       LossMethod, DistributedSystemType, DistributedSystemArg} = CurrentModel,
-      nerltest_print("before test_nerlworker_nif"),
       nerlNIF:test_nerlworker_nif(ModelId,ModelType,LayersSizes, LayersTypes, 
       LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, 
       OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
-      NumOfSamples = 700,
+      NumOfSamples = 500,
       {NerlTensorDataBin , NerlTensorDataBinType , NerlTensorDataErl , NerlTensorDataErlType , NumOfFeatures , _NumOfLabels} = nerlworker_test_generate_data(LayersSizes, LayersTypes, NumOfSamples),
       if 
             (ModelType == ?MODEL_TYPE_AUTOENCODER_IDX) or (ModelType == ?MODEL_TYPE_AE_CLASSIFIER_IDX) -> %% AE or AEC
@@ -299,24 +298,31 @@ nerlworker_test([CurrentModel | Tail], Performance) ->
                   NerlTensorDataBinPredict = NerlTensorDataBinTrain;
       true -> 
             NerlTensorDataBinTrain = NerlTensorDataBin,
-            {DataTensorErlPredictFeatures , DataTensorErlPredictLabels} = nerlTensor:split_cols_erl_tensor(NerlTensorDataErl , NerlTensorDataErlType , NumOfFeatures), 
-            {NerlTensorDataBinPredict , _Type} = nerlNIF:nerltensor_conversion({DataTensorErlPredictFeatures, erl_float}, float),
-            io:format("@true: GOT HERE~n")
+            {DataTensorErlPredictFeatures , _DataTensorErlPredictLabels} = nerlTensor:split_cols_erl_tensor(NerlTensorDataErl , NerlTensorDataErlType , NumOfFeatures), 
+            {NerlTensorDataBinPredict , _Type} = nerlNIF:nerltensor_conversion({DataTensorErlPredictFeatures, erl_float}, float)
       end,
-
+      TicNIF = nerl:tic(),
       nerlNIF:train_nif(ModelId , NerlTensorDataBinTrain , NerlTensorDataBinType), % ask Guy about receiver block
+
       receive 
-            {nerlnif , LossValue , _TrainTime} ->
-                  io:format("Got LossValue ~p~n", [LossValue])
+            {nerlnif , _LossValue , _TrainTime} ->
+                  io:format("Got LossValue~n")
       after 100000 -> throw("timeout")
       end,
       %block receive to get loss values from worker
-      nerltest_print("after train_nif"),
       nerlNIF:predict_nif(ModelId , NerlTensorDataBinPredict , NerlTensorDataBinType),
+      receive 
+            {nerlnif , _PredNerlTensor, _NewType, _TimeTook} ->
+                  io:format("Got Pred~n")
+      after 100000 -> throw("timeout")
+      end,
       % TODO remove labels from generated data - ask David if we need to change "generate_tensor"
       % TODO Ori - implement predict
       nerlNIF:remove_nerlworker_nif(ModelId),
-      nerlworker_test(Tail, Performance).
+      {TocNIF, _} = nerl:toc(TicNIF),
+      PerformanceNIF = TocNIF + Performance,
+
+      nerlworker_test(Tail, PerformanceNIF).
 
 
 

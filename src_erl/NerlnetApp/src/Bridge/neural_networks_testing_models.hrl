@@ -33,7 +33,7 @@
                                 _LayersTypesAEC = "1,3,3,3,3,3,3,9",
                                 _LayersFunctionalityCodesAEC = "1,11,11,11,11,11,11,1", 
                                 _LearningRateAEC = "0.01",
-                                _EpochsAEC = "50",
+                                _EpochsAEC = "100",
                                 _OptimizerTypeAEC = "5",
                                 _OptimizerArgsAEC = "",
                                 _LossMethodAEC = "2",
@@ -53,4 +53,4 @@
                                 _DistributedSystemTypeAE = "0",
                                 _DistributedSystemArgAE = ""} ).
 
--define(NEURAL_NETWORK_TESTING_MODELS_LIST, [?PERCEPTRON_TESTING_NN ,?CNN_TESTING_NN]).
+-define(NEURAL_NETWORK_TESTING_MODELS_LIST, [?PERCEPTRON_TESTING_NN ,?AEC_TESTING_NN , ?CNN_TESTING_NN]).

@@ -1,5 +1,5 @@
 #include "nerlWorkerOpenNN.h"
-
+#include "ae_red.h" 
 
 using namespace opennn;
 
@@ -17,6 +17,7 @@ namespace nerlnet
         generate_opennn_neural_network();
         _training_strategy_ptr = std::make_shared<opennn::TrainingStrategy>();
         generate_training_strategy();
+        _ae_red_ptr = std::make_shared<AeRed>();
     }
 
     NerlWorkerOpenNN::~NerlWorkerOpenNN()
@@ -50,19 +51,15 @@ namespace nerlnet
                 fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
                 Tensor<Index, 1> inputs_dimensions(2);
                 inputs_dimensions.setValues({num_of_samples, inputs_number});
-                // cout << "pred[0]: " << *calculate_res << endl; // ! Problem with values here
-                // cout << "************************************" << endl;
-                // cout << "data[0]: " << *_aec_data_set << endl;
+                // SAV 
                 fTensor2D absoluteDifferences = (*calculate_res - *_aec_data_set).abs();
-                fTensor1D loss_values = absoluteDifferences.sum(Eigen::array<int, 1>({1}));
-                // cout << "************************************" << endl;
-                // cout << "abs: " << absoluteDifferences << endl;
-                // cout << "************************************" << endl;
-                // cout << "sum: " << sumOfAbsoluteDifferences << endl;
-
-                cout << "Loss Values:" << endl << loss_values << endl;
-                fTensor1DPtr res = _ae_red_ptr->update_batch(loss_values);
-                cout << "AE_RED RESULT VECTOR:" << endl << res->data() << endl;
+                fTensor1D loss_values_sav = absoluteDifferences.sum(Eigen::array<int, 1>({1}));
+                // MSE
+                fTensor1D loss_values_mse = (float)1/_aec_data_set->dimension(0) * (*calculate_res - *_aec_data_set).pow(2).sum(Eigen::array<int, 1>({1}));
+                //cout << "Loss Values (MSE):" << endl << loss_values_mse << endl;
+                fTensor1DPtr res_sav = _ae_red_ptr->update_batch(loss_values_sav);
+                fTensor1DPtr res_mse = _ae_red_ptr->update_batch(loss_values_mse);
+                //cout << "AE_RED RESULT VECTOR:" << endl << *res_mse << endl;
             }
 
                 
@@ -91,7 +88,17 @@ namespace nerlnet
             }
             case MODEL_TYPE_AE_CLASSIFIER:
             {
-                break; // Calculate MSE between result and input , then apply AE_RED
+                std::shared_ptr<opennn::NeuralNetwork> neural_network = get_neural_network_ptr();
+                Index num_of_samples = _aec_data_set->dimension(0);
+                Index inputs_number = neural_network->get_inputs_number();
+                fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
+                Tensor<Index, 1> inputs_dimensions(2);
+                inputs_dimensions.setValues({num_of_samples, inputs_number});
+                fTensor2D absoluteDifferences = (*calculate_res - *_aec_data_set).abs();
+                fTensor1D loss_values = absoluteDifferences.sum(Eigen::array<int, 1>({1}));
+                //cout << "Loss Values:" << endl << loss_values << endl;
+                fTensor1DPtr res = _ae_red_ptr->update_batch(loss_values);
+                //cout << "AE_RED RESULT VECTOR:" << endl << *res << endl;
             }
             // case MODEL_TYPE_LSTM:
             // {
@@ -114,7 +121,7 @@ namespace nerlnet
      _training_strategy_ptr->set_neural_network_pointer(_neural_network_ptr.get()); // Neural network must be defined at this point
      set_optimization_method(_optimizer_type,_learning_rate);
      set_loss_method(_loss_method);
-     cout << "_epochs = " << _epochs << endl;
+     //cout << "_epochs = " << _epochs << endl;
      _training_strategy_ptr->set_maximum_epochs_number(_epochs); 
      _training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); // remove opennn training strategy prints
     }
@@ -122,7 +129,7 @@ namespace nerlnet
     void NerlWorkerOpenNN::set_optimization_method(int optimizer_type,int learning_rate){
         assert((_training_strategy_ptr->has_neural_network(), "NerlWorkerOpenNN::set_optimization_method - neural network pointer is null"));
         _optimizer_type = optimizer_type;
-        cout << "optimizer_type = " << optimizer_type << endl;
+        //cout << "optimizer_type = " << optimizer_type << endl;
         _training_strategy_ptr->set_optimization_method(translate_optimizer_type(optimizer_type));
         switch(_optimizer_type){
             case OPTIMIZER_GD:

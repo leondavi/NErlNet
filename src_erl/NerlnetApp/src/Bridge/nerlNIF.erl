@@ -24,7 +24,8 @@
 
 init() ->
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
-      RES = erlang:load_nif(NELNET_LIB_PATH, 0),
+      io:format("PATH: ~p~n",[NELNET_LIB_PATH]),
+      RES = erlang:load_nif(NELNET_LIB_PATH, 0), %% CRASHES HERE
       RES.
 
 %% make sure nif can be loaded (activates on_load)
