@@ -3,6 +3,7 @@
 -include("nerlTensor.hrl").
 -include("neural_networks_testing_models.hrl").
 -include("layers_types_ag.hrl").
+-include("models_types_ag.hrl").
 
 -compile(nerlNIF).
 -export([run_tests/0]).
@@ -101,10 +102,11 @@ generate_nerltensor(BinType,DimX,DimY,DimZ) ->
       if  
             (BinType == int32) or (BinType == int16) -> Data = [rand:uniform(255) || _ <- lists:seq(1, DataLength)],
                         [DimX,DimY,DimZ] ++ Data;
-            (BinType == double) or (BinType == float) -> DimXf = float(DimX),
+            (BinType == double) or (BinType == float) -> 
+                        DimXf = float(DimX),
                         DimYf = float(DimY),
                         DimZf = float(DimZ),
-                        Data = [rand:uniform() * 10 || _ <- lists:seq(1, DataLength)],
+                        Data = [rand:uniform() * 10 || _ <- lists:seq(1, DataLength)], %% Where are the labels generated?
                         [DimXf,DimYf,DimZf] ++ Data;
             true -> wrong_type
       end.
@@ -229,7 +231,7 @@ nerltensor_conversion_test(Rounds) ->
       end.
 
 
-nerlworker_test_generate_data(LayersSizes, LayerTypes, NumOfSamples) ->
+nerlworker_test_generate_data(LayersSizes, LayerTypes, NumOfSamples) -> %% Ask David about where to split and if a 'if' statement is needed
       % extract first and last sizes
       % use module re to extract complex layer sizes
       [FirstLayerSize | LayerSizesList] = re:split(LayersSizes,",",[{return,list}]),
@@ -266,8 +268,18 @@ nerlworker_test_generate_data(LayersSizes, LayerTypes, NumOfSamples) ->
                                                  {NumOfSamples,LastLayerSizeInt+FirstLayerSizeInt, 1}
             end,
       ErlDataTensor = generate_nerltensor(float, DimX, DimY, DimZ),
-      %% TODO Call to split_erl_tensor(ErlNerlTensor , NumOfFeatures , NumOfLabels) in nerlTensor.erl to split labels from data
-      nerlNIF:nerltensor_conversion({ErlDataTensor,erl_float},float).  
+      %{NumOfFeatures ,_} = string:to_integer(FirstLayerSize),
+      {NumOfLabels ,_} = string:to_integer(LastLayerSize),
+      NumOfFeatures = DimY - NumOfLabels,
+      % io:format("ErlDataTensor of length ~p : ~p~n",[length(ErlDataTensor),ErlDataTensor]),
+      %%{ErlDataTensor , float , NumOfFeatures , NumOfLabels},
+      %% {SamplesFeatures , SamplesLabels} = nerlTensor:split_erl_tensor(ErlDataTensor , NumOfFeatures , float),
+      %% io:format("Splitted SamplesFeatures (Of Length ~p) is ~p~n",[length(SamplesFeatures) , SamplesFeatures]),
+      %% io:format("Splitted SamplesLabels (Of Length ~p) is ~p~n",[length(SamplesLabels) , SamplesLabels]).
+      {NerlTensor , Type} = nerlNIF:nerltensor_conversion({ErlDataTensor,erl_float} , float),
+      {NerlTensor , Type , ErlDataTensor , erl_float , NumOfFeatures , NumOfLabels}.
+
+
 
 nerlworker_test([], _Performance) -> _Performance;
 nerlworker_test([CurrentModel | Tail], Performance) -> 
@@ -279,14 +291,32 @@ nerlworker_test([CurrentModel | Tail], Performance) ->
       LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, 
       OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
       NumOfSamples = 700,
-      nerltest_print("before generate_nerltensor"),
-      {DataTensorEncoded, Type} = nerlworker_test_generate_data(LayersSizes, LayersTypes, NumOfSamples),
-      DataTensorEncodedDecoded = nerlNIF:nerltensor_conversion({DataTensorEncoded, float}, erl_float),
-     % nerltest_print(nerl:string_format("ModelId : ~p  Type: ~p DataTensorEncodedDecoded:~p ",[ModelId,Type,DataTensorEncodedDecoded])),
-      nerlNIF:train_nif(ModelId,DataTensorEncoded,Type), % ask Guy about receiver block
+      {NerlTensorDataBin , NerlTensorDataBinType , NerlTensorDataErl , NerlTensorDataErlType , NumOfFeatures , _NumOfLabels} = nerlworker_test_generate_data(LayersSizes, LayersTypes, NumOfSamples),
+      io:format("After genrate GOT HERE~n"),
+      if 
+            (ModelType == ?MODEL_TYPE_AUTOENCODER_IDX) or (ModelType == ?MODEL_TYPE_AE_CLASSIFIER_IDX) -> %% AE or AEC
+                  io:format("@AE: GOT HERE~n"),
+                  {DataTensorErlFeatures , _DataTensorErlLabels} = nerlTensor:split_cols_erl_tensor(NerlTensorDataErl , NerlTensorDataErlType , NumOfFeatures), 
+                  {NerlTensorDataBinTrain , _Type} = nerlNIF:nerltensor_conversion({DataTensorErlFeatures, erl_float}, float),
+                  NerlTensorDataBinPredict = NerlTensorDataBinTrain;
+      true -> 
+            NerlTensorDataBinTrain = NerlTensorDataBin,
+            {DataTensorErlPredictFeatures , DataTensorErlPredictLabels} = nerlTensor:split_cols_erl_tensor(NerlTensorDataErl , NerlTensorDataErlType , NumOfFeatures), 
+            {NerlTensorDataBinPredict , _Type} = nerlNIF:nerltensor_conversion({DataTensorErlPredictFeatures, erl_float}, float),
+            io:format("@true: GOT HERE~n")
+      end,
+
+      nerlNIF:train_nif(ModelId , NerlTensorDataBinTrain , NerlTensorDataBinType), % ask Guy about receiver block
+      io:format("After trainNIF GOT HERE 2~n"),
+      receive 
+            {nerlnif , _LossValue , _TrainTime} ->
+                  io:format("Got LossValue~n")
+      after 100000 -> throw("timeout")
+      end,
       %block receive to get loss values from worker
       nerltest_print("after train_nif"),
-      % TODO remove labels from generated data
+      nerlNIF:predict_nif(ModelId , NerlTensorDataBinPredict , NerlTensorDataBinType),
+      % TODO remove labels from generated data - ask David if we need to change "generate_tensor"
       % TODO Ori - implement predict
       nerlNIF:remove_nerlworker_nif(ModelId),
       nerlworker_test(Tail, Performance).
@@ -306,5 +336,5 @@ nerlworker_test([CurrentModel | Tail], Performance) ->
 %       LossMethod = "2",
 %       DistributedSystemType = "0",
 %       DistributedSystemArg = "",
- 
+
 

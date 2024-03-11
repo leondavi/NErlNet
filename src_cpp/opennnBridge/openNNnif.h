@@ -81,7 +81,8 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     PredictNNptr->return_tensor_type = tensor_type;
 
     nifpp::get_throws(env, argv[ARG_ModelID], PredictNNptr->mid); // get model id
-    
+    std::cout << "PredictNNptr->mid: " << PredictNNptr->mid << std::endl;
+    std::cout << "argv[ARG_BatchTensor]: " << argv[ARG_BatchTensor] << std::endl;
     nifpp::get_tensor_2d<float,fTensor2DPtr,fTensor2D>(env,argv[ARG_BatchTensor],PredictNNptr->data);
 
     int res;
@@ -124,6 +125,7 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     nifpp::get_throws(env, argv[ARG_Type],tensor_type);
     assert(tensor_type == "float");
     TrainNNptr->return_tensor_type = tensor_type;
+    std::cout << "argv[ARG_DataTensor]: " << argv[ARG_DataTensor] << std::endl;
     nifpp::get_tensor_2d<float,fTensor2DPtr,fTensor2D>(env,argv[ARG_DataTensor],TrainNNptr->data);
     ErlNifPid pid;
     enif_self(env, &pid);
