@@ -127,7 +127,7 @@ read_all_data(Req0, Got) ->
 
 deleteOldJson(FilePath) ->
   try   file:delete(FilePath)
-  catch {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[FilePath, E])
+  catch {error, E} -> ?LOG_ERROR("couldn't delete file ~p, beacuse ~p~n",[FilePath, E])
   end.
 
 % get this host ip 
@@ -208,13 +208,18 @@ calculate_size(List) when is_list(List) ->
 
 %% TODO: create create_body func for standard message passing
 
-make_routing_table(Ets,EntitiesList,Origin,NerlnetGraph)->
+%% Entities List must not contain ThisRouter
+%% NextHop is the next router for all entities that are not connected with ThisRouter
+%% Otherwise , NextHop is an entity of ThisRouter
+make_routing_table(Ets,EntitiesList,ThisRouter,NerlnetGraph)->
   GenerateTablesFunc = fun(Entity) -> 
-  case digraph:get_short_path(NerlnetGraph,Origin,Entity) of
-    false -> ok;
-    ShortPath -> NextHop = lists:nth(2,ShortPath),
-                 {Name , {Host , Port , _DeviceName}} = digraph:vertex(NerlnetGraph,NextHop),
-                 ets:insert(Ets,{Entity,{Name,Host,Port}})
-  end % case end
+    case digraph:get_short_path(NerlnetGraph,ThisRouter,Entity) of
+      false -> ok;
+      ShortPath -> NextHop = lists:nth(2,ShortPath),
+                  {Name , {Host , Port , _DeviceName}} = digraph:vertex(NerlnetGraph,NextHop),
+                  ets:insert(Ets,{Entity,{Name,Host,Port}})
+    end % case end
   end, % fun end
-  lists:foreach(GenerateTablesFunc, EntitiesList).
+  lists:foreach(GenerateTablesFunc, EntitiesList),
+  {ThisRouter , {RouterHost , RouterPort , _DeviceName}} = digraph:vertex(NerlnetGraph , ThisRouter),
+  ets:insert(Ets , {ThisRouter , {ThisRouter , RouterHost , RouterPort}}).

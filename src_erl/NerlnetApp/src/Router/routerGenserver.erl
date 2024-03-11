@@ -54,15 +54,14 @@ init({MyName , _Policy , NerlnetGraph}) -> %% TODO : Add policy to router
   {ok, #router_genserver_state{msgCounter = 1, myName = MyName, etsRef=RoutingTableEtsRef}}.
 
 handle_cast({statistics , _Body} , State=#router_genserver_state{etsRef = Routing_table}) ->
-
   RouterStatsEts = get(router_stats_ets),
   stats:increment_messages_received(RouterStatsEts),
 
   MyName = get(myName),
   StatsEtsStr = stats:encode_ets_to_http_bin_str(RouterStatsEts),
-  StatisticsBody = {term_to_binary(MyName) , list_to_binary(StatsEtsStr)}, % old data
-  [{_Dest,{_Name , RouterHost , RouterPort}}] = ets:lookup(Routing_table , ?MAIN_SERVER_ATOM),
-  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
+  StatisticsBody = {MyName , StatsEtsStr},
+  [{_Dest,{_Name , MyRouterAddress , MyRouterPort}}] = ets:lookup(Routing_table , MyName), % Router is always owned by itself
+  nerl_tools:http_router_request(MyRouterAddress, MyRouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
   stats:increment_messages_sent(RouterStatsEts),
   {noreply , State};
 
@@ -91,18 +90,19 @@ handle_cast({unicast,{Dest,Body}}, State = #router_genserver_state{msgCounter = 
   stats:increment_messages_sent(RouterStatsEts),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1,etsRef=Routing_table }};
 
-handle_cast({broadcast,{DestList,Body}}, State = #router_genserver_state{etsRef=Routing_table }) ->
+handle_cast({broadcast,{DestList,Body}}, State = #router_genserver_state{etsRef=Routing_table , myName = _MyName}) ->
   RouterStatsEts = get(router_stats_ets),
+  %%Destinations = [Dest || Dest <- DestList, Dest =/= get(myName)],
   stats:increment_messages_received(RouterStatsEts),
   MapFunc=fun(Dest,Acc)->
     %make a map when keys are addreses to send a message to, and values are lists of destination of the message that go throu key addres
-    [{Dest,{Name,Host,Port}}]=ets:lookup(Routing_table,Dest),
+    [{Dest,{Name,Host,Port}}] = ets:lookup(Routing_table,Dest),
     case maps:is_key({Name,Host,Port},Acc) of
       true->
-        %addres alread in, append Dest to exsisting value 
+        %address already in, append Dest to existing value 
         NewVal=maps:get({Name,Host,Port},Acc)++[Dest];
       false->
-        %addres not in yet, create new value for it
+        %address not in yet, create new value for it
         NewVal=[Dest]
     end,
     maps:put({Name,Host,Port},NewVal,Acc)

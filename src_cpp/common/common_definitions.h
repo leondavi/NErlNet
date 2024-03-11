@@ -7,5 +7,6 @@ namespace nerlnet
 #define DIM_Z_IDX 2
 #define DIM_W_IDX 3
 #define NERLNIF_ATOM_STR "nerlnif"
+#define NERLNIF_NAN_ATOM_STR "nan"
 
 }
