@@ -69,8 +69,8 @@ call_to_predict(ModelID, BatchTensor, Type, WorkerPid,CSVname, BatchID)->
             
             {nerlnif , PredNerlTensor, NewType, TimeTook}-> %% nerlnif atom means a message from the nif implementation
                   % io:format("pred_nif done~n"),
-                  % {PredTen, _NewType} = nerltensor_conversion({PredNerlTensor, NewType}, erl_float),
-                  % io:format("Pred returned: ~p~n", [PredNerlTensor]),
+                  % {PredNerlTensor2, _NewType} = nerltensor_conversion({PredNerlTensor, NewType}, erl_float),
+                  % io:format("Pred returned: ~p~n", [PredNerlTensor2]),
                   gen_statem:cast(WorkerPid,{predictRes,PredNerlTensor, NewType, TimeTook,CSVname, BatchID});
             Error ->
                   ?LOG_ERROR("received wrong prediction_nif format: ~p" ,[Error]),
@@ -115,7 +115,7 @@ printTensor(List,_Type) when is_list(List) ->
       exit(nif_library_not_loaded).
 
 
-validate_nerltensor_erl(NerlTensorErl) ->
+validate_nerltensor_erl(NerlTensorErl) when is_list(NerlTensorErl) ->
       {[X,Y,Z], NerlTensorRest} = lists:split(?NUMOF_DIMS, NerlTensorErl),
       TensorExpectedLength = trunc(X*Y*Z),
       % io:format("{X,Y,Z} = ~p, TensorLen (X*Y*Z)= ~p~n",[{X,Y,Z}, length(NerlTensorRest)]),
@@ -178,7 +178,6 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
                   {false, true} -> {decode, ResType, Type};
                   _ -> throw("invalid types combination")
                   end,
-      
       BinTypeInteger = lists:member(BinType, ?LIST_BINARY_INT_NERLTENSOR_TYPE),
       BinTypeFloat = lists:member(BinType, ?LIST_BINARY_FLOAT_NERLTENSOR_TYPE),
       
@@ -196,7 +195,11 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
                         true -> io:format("Wrong NerlTensor size!~n"), {<<>>, BinType}
                         % true -> throw(nerl:string_format("encode failure due to incorrect dimension declaring X*Y*Z not equal to tensor data length! ~p ",[NerlTensor]))
                       end;
-            decode -> decode_nif(NerlTensor, BinType);
+            decode -> 
+                  if 
+                        is_binary(NerlTensor) -> decode_nif(NerlTensor, BinType);
+                        true -> throw("Given non-binary NerlTensor for decoding!")
+                  end;
             _ -> throw("wrong operation")
       end.
 

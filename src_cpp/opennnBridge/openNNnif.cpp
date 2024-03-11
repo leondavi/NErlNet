@@ -3,6 +3,7 @@
 
 void* trainFun(void* arg)
 {
+    cout << "Got to trainFun" << endl;
     std::shared_ptr<TrainNN>* pTrainNNptr = static_cast<shared_ptr<TrainNN>*>(arg);
     std::shared_ptr<TrainNN> TrainNNptr = *pTrainNNptr;
     delete pTrainNNptr;
@@ -23,12 +24,14 @@ void* trainFun(void* arg)
     nerlworker_opennn->set_dataset(data_set_ptr, TrainNNptr->data);
     data_set_ptr = nerlworker_opennn->get_data_set();
     std::shared_ptr<TrainingStrategy> training_strategy_ptr = nerlworker_opennn->get_training_strategy_ptr();
-    training_strategy_ptr->set_data_set_pointer(data_set_ptr.get());
-    cout << "before perform_training"<< endl;
+    training_strategy_ptr->set_data_set_pointer(nerlworker_opennn->get_dataset_ptr().get());
+    nerlworker_opennn->get_dataset_ptr()->print();
     TrainingResults res = training_strategy_ptr->perform_training();
     cout << "after perform_training"<< endl;
-    nerlworker_opennn->post_training_process();
+    nerlworker_opennn->post_training_process(); 
     loss_val = res.get_training_error(); // learn about "get_training_error" of opennn
+    cout << "LossVal: " << loss_val << endl;
+    neural_network_ptr->print();
 
     // Stop the timer and calculate the time took for training
     high_resolution_clock::time_point  stop = high_resolution_clock::now();
@@ -66,7 +69,6 @@ void* PredictFun(void* arg)
     std::shared_ptr<PredictNN>* pPredictNNptr = static_cast<shared_ptr<PredictNN>*>(arg);
     std::shared_ptr<PredictNN> PredictNNptr = *pPredictNNptr;
     delete pPredictNNptr;
-
     nifpp::TERM prediction;
     int EAC_prediction; 
     ErlNifEnv *env = enif_alloc_env();    
@@ -79,19 +81,23 @@ void* PredictFun(void* arg)
 
     Index num_of_samples = PredictNNptr->data->dimension(0);
     Index inputs_number = neural_network->get_inputs_number();
-
     fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
+    Tensor<Index, 1> input_variable_dimension(4);
     Tensor<Index, 1> inputs_dimensions(2);
 
-    inputs_dimensions.setValues({num_of_samples, inputs_number});
-
-    *calculate_res = neural_network->calculate_outputs(PredictNNptr->data->data(), inputs_dimensions);
+    if(neural_network->has_convolutional_layer())
+    {  
+        ConvolutionalLayer* conv = (ConvolutionalLayer*)neural_network->get_layer_pointer(0);
+        input_variable_dimension.setValues({conv->get_input_variables_dimensions()(0),conv->get_input_variables_dimensions()(1), conv->get_input_variables_dimensions()(2), conv->get_input_variables_dimensions()(3)});
+        *calculate_res = neural_network->calculate_outputs(PredictNNptr->data->data(), input_variable_dimension);
+    }else{
+        inputs_dimensions.setValues({num_of_samples, inputs_number});
+         *calculate_res = neural_network->calculate_outputs(PredictNNptr->data->data(), inputs_dimensions);
+    }
     nerlworker_opennn->post_predict_process(calculate_res); 
-
     nifpp::make_tensor_2d<float,fTensor2D>(env, prediction, calculate_res);
-
     // only for AE and AEC calculate the distance between prediction labels and input data
-
+    std::cout << "*calculate_res.get(): " << (*calculate_res.get()).dimensions() << std::endl;
     // Stop the timer and calculate the time took for training
     high_resolution_clock::time_point  stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - PredictNNptr->start_time);

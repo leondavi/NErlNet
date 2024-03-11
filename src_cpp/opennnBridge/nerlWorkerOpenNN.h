@@ -37,6 +37,7 @@ class NerlWorkerOpenNN : public NerlWorker
     void set_learning_rate(float learning_rate);
     void set_epochs(int epochs);
     void set_dataset(std::shared_ptr<opennn::DataSet> data_set,fTensor2DPtr TrainDataNNptr);
+    std::shared_ptr<opennn::DataSet> get_dataset_ptr() { return _data_set; };
     
 
     private:
