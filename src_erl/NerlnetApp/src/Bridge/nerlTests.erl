@@ -286,6 +286,12 @@ nerlworker_test([CurrentModel | Tail], Performance) ->
      {ModelId,ModelType,LayersSizes, LayersTypes, LayersFunctionalityCodes,
       LearningRate, Epochs, OptimizerType, OptimizerArgs,
       LossMethod, DistributedSystemType, DistributedSystemArg} = CurrentModel,
+      case ModelType of
+            ?MODEL_TYPE_NN_IDX -> nerltest_print("Testing NN Model");
+            ?MODEL_TYPE_AUTOENCODER_IDX -> nerltest_print("Testing AE Model");
+            ?MODEL_TYPE_AE_CLASSIFIER_IDX -> nerltest_print("Testing AEC Model");
+            _ -> nerltest_print(nerl:string_format("Model Type ~p is being tested~n",[ModelType]))
+      end,
       nerlNIF:test_nerlworker_nif(ModelId,ModelType,LayersSizes, LayersTypes, 
       LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, 
       OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
@@ -306,14 +312,16 @@ nerlworker_test([CurrentModel | Tail], Performance) ->
 
       receive 
             {nerlnif , _LossValue , _TrainTime} ->
-                  io:format("Got LossValue~n")
+                  % io:format("Got LossValue~n")
+                  ok
       after 100000 -> throw("timeout")
       end,
       %block receive to get loss values from worker
       nerlNIF:predict_nif(ModelId , NerlTensorDataBinPredict , NerlTensorDataBinType),
       receive 
             {nerlnif , _PredNerlTensor, _NewType, _TimeTook} ->
-                  io:format("Got Pred~n")
+                  % io:format("Got Pred~n")
+                  ok
       after 100000 -> throw("timeout")
       end,
       % TODO remove labels from generated data - ask David if we need to change "generate_tensor"
