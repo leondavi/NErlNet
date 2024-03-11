@@ -19,13 +19,15 @@ init(Req0, [Action, Main_genserver_Pid]) ->
   {_,Body,_} = cowboy_req:read_body(Req0),
   % io:format("mainserver got ACTION: ~p~n",[Body]),
   case Action of
+    clientsPhaseUpdate -> gen_statem:cast(Main_genserver_Pid, {clientsPhaseUpdate,Body});
     clientsTraining ->  gen_statem:cast(Main_genserver_Pid, {clientsTraining,Body});
     clientsPredict ->  gen_statem:cast(Main_genserver_Pid, {clientsPredict,Body});
     lossFunction ->  gen_statem:cast(Main_genserver_Pid, {lossFunction,Body});
     predictRes ->  gen_statem:cast(Main_genserver_Pid, {predictRes,Body});
     statistics ->  gen_statem:cast(Main_genserver_Pid, {statistics,Body});
     startCasting ->  gen_statem:cast(Main_genserver_Pid, {startCasting,Body});
-    stopCasting ->  gen_statem:cast(Main_genserver_Pid, {stopCasting,Body})
+    stopCasting ->  gen_statem:cast(Main_genserver_Pid, {stopCasting,Body});
+    restart -> gen_statem:cast(Main_genserver_Pid, {restart,Body})
   end,
   Reply = io_lib:format("Body Received: ~p ~n ", [Body]),
   Req = cowboy_req:reply(200,

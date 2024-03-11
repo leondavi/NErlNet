@@ -15,7 +15,7 @@
             {
             "sourceName": "s1",
             "startingSample": "0",
-            "numOfBatches": "1000",
+            "numOfBatches": "40",
             "workers": "w1,w2,w3,w4"
             }
          ]  
@@ -27,8 +27,8 @@
          [
             {
             "sourceName": "s1",
-            "startingSample": "50000",
-            "numOfBatches": "1000",
+            "startingSample": "2000",
+            "numOfBatches": "40",
             "workers": "w1,w2,w3,w4"
             }
          ]    

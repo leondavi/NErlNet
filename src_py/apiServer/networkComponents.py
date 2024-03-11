@@ -17,13 +17,21 @@ from nerlPlanner.JsonElements import GetFields
 API_SERVER_STR = GetFields.get_api_server_field_name()
 MAIN_SERVER_STR = GetFields.get_main_server_field_name()
 
+# types
+TYPE_CLIENT = "client"
+TYPE_WORKER = "worker"
+TYPE_SOURCE = "source"
+TYPE_ROUTER = "router"
+TYPE_WORKER = "worker"
+TYPE_MAIN_SERVER = "mainServer"
+
 class NetworkComponents():
 
-    def __init__(self, dc_json):
+    def __init__(self, dc_json: dict):
         # Loading the data in JSON format:
         self.jsonData = dc_json
 
-        # Initializing lists for all the relevant components:
+        # Initializing lists for all the relevant components names:
         self.devicesIp = []
         self.clients = []
         self.workers = []
@@ -31,10 +39,13 @@ class NetworkComponents():
         self.sourcesPolicies = []
         self.sourceEpochs = {}
         self.routers = []
+        
 
         # Initializing maps
+        self.map_worker_to_client = {}
         self.map_entity_to_device = {}
         self.map_device_to_ip = {}
+        self.map_name_to_type = {}
 
         # Getting the desired batch size:
         self.batchSize = int(self.jsonData[KEY_NERLNET_SETTINGS][KEY_BATCH_SIZE])
@@ -60,11 +71,14 @@ class NetworkComponents():
         # Getting the names of all the clients and workers:
         clientsJsons = self.jsonData[GetFields.get_clients_field_name()]
 
-        for client in clientsJsons:
-            self.clients.append(client[GetFields.get_name_field_name()])
-            subWorkers = client[GetFields.get_workers_field_name()].split(',')
+        for client_dict in clientsJsons:
+            self.clients.append(client_dict[GetFields.get_name_field_name()])
+            subWorkers = client_dict[GetFields.get_workers_field_name()].split(',') # list
+            for worker_name in subWorkers:
+                self.map_worker_to_client[worker_name] = client_dict[GetFields.get_name_field_name()] # map worker name to client name
             # Add every sub-worker of this client, to the general workers list:
             self.workers.extend(subWorkers)
+            self.map_name_to_type[client_dict[GetFields.get_name_field_name()]] = TYPE_CLIENT
 
         # Getting the names of all the sources:
         sourcesJsons = self.jsonData[GetFields.get_sources_field_name()]
@@ -72,12 +86,20 @@ class NetworkComponents():
             self.sources.append(source[GetFields.get_name_field_name()])
             self.sourcesPolicies.append(source[GetFields.get_policy_field_name()])
             self.sourceEpochs[source[GetFields.get_name_field_name()]] = source[GetFields.get_epochs_field_name()]
+            self.map_name_to_type[source[GetFields.get_name_field_name()]] = TYPE_SOURCE
 
         # Getting the names of all the routers:
         routersJsons = self.jsonData[GetFields.get_routers_field_name()]
         for router in routersJsons:
             self.routers.append(router[GetFields.get_name_field_name()])
+            self.map_name_to_type[router[GetFields.get_name_field_name()]] = TYPE_ROUTER
 
+
+    def get_map_worker_to_client(self):
+        return self.map_worker_to_client
+    
+    def get_client_name_by_worker_name(self, worker_name):
+        return self.map_worker_to_client[worker_name]
 
     def get_main_server_ip_port(self):
         main_server_port = self.jsonData[MAIN_SERVER_STR][GetFields.get_port_field_name()]

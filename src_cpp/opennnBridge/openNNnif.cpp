@@ -31,15 +31,17 @@ void* trainFun(void* arg)
     // Stop the timer and calculate the time took for training
     high_resolution_clock::time_point  stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - TrainNNptr->start_time);
+    ERL_NIF_TERM loss_val_term;
 
     if(isnan(loss_val)  ) 
     {
-        loss_val = -1.0;
+        loss_val_term = enif_make_atom(env , NERLNIF_NAN_ATOM_STR);
         cout << NERLNIF_PREFIX << "loss val = nan , setting NN weights to random values" <<std::endl;
         neural_network_ptr->set_parameters_random();
     }
-    //cout << "returning training values"<<std::endl;
-    ERL_NIF_TERM loss_val_term = enif_make_double(env, loss_val);
+    else {
+        loss_val_term = enif_make_double(env, loss_val);
+    }
     ERL_NIF_TERM train_time = enif_make_double(env, duration.count());
     ERL_NIF_TERM nerlnif_atom = enif_make_atom(env, NERLNIF_ATOM_STR);
 
