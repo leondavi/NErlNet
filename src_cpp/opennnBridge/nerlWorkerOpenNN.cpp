@@ -49,14 +49,20 @@ namespace nerlnet
                 fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
                 Tensor<Index, 1> inputs_dimensions(2);
                 inputs_dimensions.setValues({num_of_samples, inputs_number});
-                *calculate_res = neural_network->calculate_outputs(*_aec_data_set);
-                fTensor2DPtr loss_values = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
-                *loss_values = (*calculate_res - *_aec_data_set).abs();
-                cout << "Loss Values: " << *loss_values << endl;
-                cout << "Dimensions of loss values tensor: " << loss_values->dimension(0) << "x" << loss_values->dimension(1) << endl; // ! Remove this prints later
-                _ae_red_ptr->update_batch(loss_values);
-                
-                }
+                // cout << "pred[0]: " << *calculate_res << endl; // ! Problem with values here
+                // cout << "************************************" << endl;
+                // cout << "data[0]: " << *_aec_data_set << endl;
+                fTensor2D absoluteDifferences = (*calculate_res - *_aec_data_set).abs();
+                fTensor1D loss_values = absoluteDifferences.sum(Eigen::array<int, 1>({1}));
+                // cout << "************************************" << endl;
+                // cout << "abs: " << absoluteDifferences << endl;
+                // cout << "************************************" << endl;
+                // cout << "sum: " << sumOfAbsoluteDifferences << endl;
+
+                cout << "Loss Values:" << endl << loss_values << endl;
+                fTensor1DPtr res = _ae_red_ptr->update_batch(loss_values);
+                cout << "AE_RED RESULT VECTOR:" << endl << res->data() << endl;
+            }
 
                 
             

@@ -8,13 +8,6 @@ using namespace nerlnet;
 
 class AeRed
 {
-    public:
-    AeRed(float k = PARAM_K_DEFAULT , float alpha = ALPHA_DEFAULT);
-    ~AeRed();
-
-    fTensor1DPtr update_batch(fTensor2DPtr loss_values);
-    float update_sample(float loss_value);
-
     private:
     float _k;
     float _alpha;
@@ -25,4 +18,12 @@ class AeRed
     float _ema_normal = 0;
     float _prev_ema = 0;
     float _prev_emad = 0;
+    
+    public:
+    AeRed(float k = PARAM_K_DEFAULT , float alpha = ALPHA_DEFAULT);
+    ~AeRed();
+
+    fTensor1DPtr update_batch(fTensor1D loss_values);
+    float update_sample(float loss_value);
+
 };

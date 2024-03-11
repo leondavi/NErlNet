@@ -82,7 +82,7 @@ void* PredictFun(void* arg)
     Tensor<Index, 1> inputs_dimensions(2);
 
     inputs_dimensions.setValues({num_of_samples, inputs_number});
-
+    // ! pre_predict_process(PredictNNptr->data()); // This function will copy the data for post_predict phase of AEC
     *calculate_res = neural_network->calculate_outputs(PredictNNptr->data->data(), inputs_dimensions);
     nerlworker_opennn->post_predict_process(calculate_res); 
 
