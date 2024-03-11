@@ -7,22 +7,28 @@ import globalVars as globe
 import sys
 import os
 from definitions import *
-from experiment import *
 from logger import *
+from experiment_flow import *
 
 class Transmitter:
 
-    def __init__(self, experiment : Experiment, mainServerAddress, input_data_path : str):
+    def __init__(self, experiment_flow : ExperimentFlow, mainServerAddress, input_data_path : str):
         # Addresses used throughout the module:
-        self.experiment = experiment
+        self.experiment_flow = experiment_flow
         self.input_data_path = input_data_path
         self.mainServerAddress = mainServerAddress
         self.sourceInitAddr = self.mainServerAddress + '/sourceInit'
-        self.clientsTrainingAddress = self.mainServerAddress + '/clientsTraining'
+        self.clientsTrainingAddress = self.mainServerAddress + '/clientsTraining'  #deprecated
+        self.clientsPhaseUpdateAddress = self.mainServerAddress + '/clientsPhaseUpdate'
         self.updateCSVAddress = self.mainServerAddress + '/updateCSV'
         self.startCastingAddress = self.mainServerAddress + '/startCasting'
-        self.clientsPredictAddress = self.mainServerAddress + '/clientsPredict'
+        self.clientsPredictAddress = self.mainServerAddress + '/clientsPredict' #deprecated
         self.statisticsAddress = self.mainServerAddress + '/statistics'
+        self.restart_address = self.mainServerAddress + '/restart'
+        main_server_http_with_init_port = f'{self.mainServerAddress.split(":")[0]}:{self.mainServerAddress.split(":")[1]}:{JSON_INIT_HANDLER_ERL_PORT}'
+        self.send_jsons_address = main_server_http_with_init_port + '/sendJsons'
+        
+
 
     def testPost(self, address, payloadNum):
         payload = {'test' : payloadNum}
@@ -33,148 +39,99 @@ class Transmitter:
         #Return the reponse in JSON format
         return(response.ok, response.status_code, response.json())
 
-    def clientsTraining(self):
+    def clients_set_phase(self, phase: str): 
+        LOG_INFO(f'Phase {phase} requested from Main Server')
+        try:
+            response = requests.post(self.clientsPhaseUpdateAddress, data = phase)
+            if not response.ok:
+                LOG_ERROR(f"Failed to update phase")
+        except ConnectionRefusedError:
+            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.clientsPhaseUpdateAddress}")
+            raise ConnectionRefusedError
+        except ConnectionError:
+            LOG_ERROR(f"Connection Error: failed to connect to {self.clientsPhaseUpdateAddress}")
+            raise ConnectionError
+
+    def clientsTraining(self):   #deprecated
         globe.set_receiver_wait_for_ack()
         LOG_INFO('Training Phase requested from Main Server')
         response = requests.post(self.clientsTrainingAddress, data='')
         if not response.ok:
             LOG_ERROR('Training Phase Request issue!')
 
-    def clientsPredict(self):
+    def clientsPredict(self):    #deprecated
         globe.set_receiver_wait_for_ack()
         LOG_INFO('Prediction Phase requested from Main Server')
         response = requests.post(self.clientsPredictAddress, data='')
         if not response.ok:
             LOG_ERROR('Prediction Phase Request issue!')
-
-    def updateCSV(self, phase): # currentPhase is either "Training", "Prediction" or "Statistics". 
-        csvfile = None
-        currentPhase = PHASE_STR_DICT[phase]
-        #split data by sources and send to mainServer:
-        for root, dirnames, filenames in os.walk(self.input_data_path):
-            for filename in filenames:
-                if filename == f"{globe.experiment_focused_on.expFlow['CSV path']}_{currentPhase.lower()}.csv":
-                    LOG_INFO(f"Reading csv file: {root}/{filename} for phase {currentPhase}")
-                    with open(os.path.join(root, filename), 'r') as file:
-                        csvfile = file.read()
-                    break
-
-        SourceData = []
-        linesPerSource = int(len(csvfile)/len(globe.components.sources))
-        for row in range(0,len(csvfile),linesPerSource):
-            SourceData.append(csvfile[row:row+linesPerSource])
-
-        for i,source in enumerate(globe.experiment_focused_on.expFlow[currentPhase]): # Itterate over sources in accordance to current phase
-            sourceName = source['source name']
-            workersUnderSource = source['workers']
-
-            try:    epochs = 1 if currentPhase == "Prediction" else globe.components.sourceEpochs[sourceName]
-            except: epochs = 1
-
-            dataStr = f'{sourceName}#{workersUnderSource}#{epochs}#{SourceData[i]}'
+    
+    def send_jsons_to_devices(self, files):
         try:
-            response = requests.post(self.updateCSVAddress, data=dataStr)
-        except ConnectionError:
-            LOG_ERROR(f"Connection Error: failed to connect to {self.updateCSVAddress}")
-            raise ConnectionError
+            response = requests.post(self.send_jsons_address, files = files, timeout = 8)
+            if not response.ok:
+                LOG_ERROR(f"Failed to send json files to Main Server")
         except ConnectionRefusedError:
-            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.updateCSVAddress}")
+            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.send_jsons_address}")
             raise ConnectionRefusedError
-
-        LOG_INFO("Data sent to sources")
-
-        globe.sourceCSVIndex=linesPerSource # TODO find what is the purpose of this line? and where using it
-
-    def startCasting(self, phase):
-        # numOfBatches, is no. of batches to request from the Main Server. On the other side, Batch size is found at the architecture JSOn, which is available at globe.components
-        if (phase==globe.TRAINING_STR):
-            batchesPerSource = globe.experiment_focused_on.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.TRAINING_STR]
-        elif (phase==globe.PREDICTION_STR):
-            batchesPerSource = globe.experiment_focused_on.expFlow[globe.BATHCHES_PER_SOURCE_STR][globe.PREDICTION_STR]
-        else:
-            batchesPerSource = sys.maxsize
-
-        # TODO - sources don't always start with 's'
-        dataStr = f"{globe.components.toString('s')},{batchesPerSource}" #sources, batches
-
-        globe.set_receiver_wait_for_ack()
-        globe.ack_debug_print()
-        requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
-        globe.ack_debug_print()
-
-
-    def train(self):
-        self.experiment.syncTrainingWithFlow()
-        self.clientsTraining() # set receiver wait for ack
-        globe.ack_debug_print()
-        globe.waitForAck()
-        globe.ack_debug_print()
-        self.startCasting(globe.TRAINING_STR) # set receiver wait for ack
-        globe.ack_debug_print()
-        globe.waitForAck()
-        globe.ack_debug_print()
-        return self.experiment.name
-
-    def contPhase(self, phase):     # phase can be train/training no matter capitals, otherwise predict
-        print("starting additional training")
-
-        if(phase.lower().startswith("train")):      # accepts train / training / etc...
-            self.clientsTraining()
-            phase = globe.TRAINING_STR
-        else:
-            self.clientsPredict()
-            phase = globe.PREDICTION_STR
-
-        globe.waitForAck()
-        self.startCasting(phase) 
-        globe.waitForAck()
-
-    def predict(self):
-        LOG_INFO("Predict phase starts")
-        globe.ack_debug_print()
-        self.experiment.syncPredicitionWithFlow()
-        self.clientsPredict() # set receiver wait for ack
-        globe.ack_debug_print()
-        globe.waitForAck()
-        globe.ack_debug_print()
-        self.startCasting(globe.PREDICTION_STR)
-        globe.ack_debug_print()
-        globe.waitForAck()
-        globe.ack_debug_print()
-        return self.experiment.name
-
-    def statistics(self):
-        requests.post(self.statisticsAddress, data='getStatistics')
-        globe.pendingAcks = 1
-        globe.waitForAck()
-    
-
-    '''
-    def checkIfCsvInResults(self, resList, csv):
-        for resDict in resList:
-            if resDict['CSV path'] == csv:
-                return True
+        except ConnectionError:
+            LOG_ERROR(f"Connection Error: failed to connect to {self.send_jsons_address}")
+            raise ConnectionError
         
-        return False
-    '''
 
-    '''
-    def ackTest(self):
-        globe.pendingAcks += 1
-        response = requests.get('http://127.0.0.1:8095' + '/testglobe')
-        print(int(response.content))
-    '''
+    def update_csv(self, csv_files: list, source_pieces: list):
+        assert len(csv_files) == len(source_pieces)
+        for index in range(len(csv_files)):
+            csv_file = csv_files[index]
+            source_piece = source_pieces[index]
+            source_name = source_piece.get_source_name()
+            target_workers = source_piece.get_target_workers()
+            num_of_batches = source_piece.get_num_of_batches()
+            with open(csv_file, 'r') as file:
+                csvfile = file.read()
+                data_str = f'{source_name}#{target_workers}#{num_of_batches}#{csvfile}'
+                try:
+                    response = requests.post(self.updateCSVAddress, data = data_str)
+                    if not response.ok:
+                        LOG_ERROR(f"Failed to update {csv_file} to Main Server")
+                except ConnectionRefusedError: 
+                    LOG_ERROR(f"Connection Refused Error: failed to connect to {self.updateCSVAddress}")
+                    raise ConnectionRefusedError
+                except ConnectionError:
+                    LOG_ERROR(f"Connection Error: failed to connect to {self.updateCSVAddress}")
+                    raise ConnectionError
 
-    '''
-    def testQueue(address):
-        for i in range(0, 10):
-            globe.q.put(testPost(address, i+1))
+    def start_casting(self, experiment_phase : ExperimentPhase):
+        dataStr = f"{experiment_phase.get_sources_str_list()}" 
+        try:
+            response = requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
+            if not response.ok:
+                LOG_ERROR(f"Failed to start casting to sources")
+        except ConnectionRefusedError:
+            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.startCastingAddress}")
+            raise ConnectionRefusedError
+        except ConnectionError:
+            LOG_ERROR(f"Connection Error: failed to connect to {self.startCastingAddress}")
+            raise ConnectionError
 
-        empty = globe.q.empty()
-    
-        return empty
-    
-    def wait():
-        while not globe.ackQueue.empty(): #While the queue is NOT empty
-            pass
-    '''
+    def restart(self):
+        requests.post(self.restart_address, data='restart')
+
+    def statistics(self, event_sync_inst : EventSync):
+        LOG_INFO("Statistics requested from Main Server")
+        event_sync_inst.set_event_wait(event_sync_inst.COMMUNICATION_STATS)
+        try:
+            response = requests.post(self.statisticsAddress, data='getStatistics') 
+            if not response.ok:
+                LOG_ERROR(f"Failed to get statistics from Main Server")
+        except ConnectionRefusedError:
+            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.statisticsAddress}")
+            raise ConnectionRefusedError
+        except ConnectionError:
+            LOG_ERROR(f"Connection Error: failed to connect to {self.statisticsAddress}")
+            raise ConnectionError
+        event_sync_inst.sync_on_event(event_sync_inst.COMMUNICATION_STATS)
+        LOG_INFO("Statistics received from Main Server")
+
+    def terminate_receiver(self, reciver_address : str, api_server_event_sync_inst : EventSync):
+        requests.post(self.mainServerAddress + '/terminate', data='terminate') # Todo change to Api server address

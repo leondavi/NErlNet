@@ -22,7 +22,7 @@
 
 %% init JSON defines
 -define(JSON_ADDR, "/tmp/nerlnet/jsons/").
--define(LOCAL_ARCH_FILE_NAME, "arch.json").
+-define(LOCAL_DC_FILE_NAME, "dc.json").
 -define(LOCAL_COMM_FILE_NAME, "conn.json").
 
 %% sorce tmpData name
