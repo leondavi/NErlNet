@@ -292,10 +292,8 @@ nerlworker_test([CurrentModel | Tail], Performance) ->
       OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
       NumOfSamples = 700,
       {NerlTensorDataBin , NerlTensorDataBinType , NerlTensorDataErl , NerlTensorDataErlType , NumOfFeatures , _NumOfLabels} = nerlworker_test_generate_data(LayersSizes, LayersTypes, NumOfSamples),
-      io:format("After genrate GOT HERE~n"),
       if 
             (ModelType == ?MODEL_TYPE_AUTOENCODER_IDX) or (ModelType == ?MODEL_TYPE_AE_CLASSIFIER_IDX) -> %% AE or AEC
-                  io:format("@AE: GOT HERE~n"),
                   {DataTensorErlFeatures , _DataTensorErlLabels} = nerlTensor:split_cols_erl_tensor(NerlTensorDataErl , NerlTensorDataErlType , NumOfFeatures), 
                   {NerlTensorDataBinTrain , _Type} = nerlNIF:nerltensor_conversion({DataTensorErlFeatures, erl_float}, float),
                   NerlTensorDataBinPredict = NerlTensorDataBinTrain;
@@ -307,10 +305,9 @@ nerlworker_test([CurrentModel | Tail], Performance) ->
       end,
 
       nerlNIF:train_nif(ModelId , NerlTensorDataBinTrain , NerlTensorDataBinType), % ask Guy about receiver block
-      io:format("After trainNIF GOT HERE 2~n"),
       receive 
-            {nerlnif , _LossValue , _TrainTime} ->
-                  io:format("Got LossValue~n")
+            {nerlnif , LossValue , _TrainTime} ->
+                  io:format("Got LossValue ~p~n", [LossValue])
       after 100000 -> throw("timeout")
       end,
       %block receive to get loss values from worker
