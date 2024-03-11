@@ -12,9 +12,9 @@ get_all_nerltensor_list_types() -> ?LIST_GROUP_NERLTENSOR_TYPE.
 
 split_cols_erl_tensor(Tensor , _DataType , SplitColumnIdx) -> %% DataType should determine the variable type for the dimensions and data
       [DimX, DimY, DimZ | Data] = Tensor,
-      io:format("DimX: ~p~n", [DimX]),
-      io:format("DimY: ~p~n", [DimY]),
-      io:format("DimZ: ~p~n", [DimZ]),
+      % io:format("DimX: ~p~n", [DimX]),
+      % io:format("DimY: ~p~n", [DimY]),
+      % io:format("DimZ: ~p~n", [DimZ]),
       {FeaturesSamples , LabelsSamples} = split_data(Data , round(DimY) , SplitColumnIdx , [] , []),
    %   io:format("FeaturesSamples: ~p~n", [FeaturesSamples]),
       {[DimX , float(SplitColumnIdx) , DimZ] ++ FeaturesSamples , [DimX , DimY - SplitColumnIdx , DimZ] ++ LabelsSamples}.

@@ -3,7 +3,6 @@
 
 void* trainFun(void* arg)
 {
-    cout << "Got to trainFun" << endl;
     std::shared_ptr<TrainNN>* pTrainNNptr = static_cast<shared_ptr<TrainNN>*>(arg);
     std::shared_ptr<TrainNN> TrainNNptr = *pTrainNNptr;
     delete pTrainNNptr;
@@ -95,7 +94,7 @@ void* PredictFun(void* arg)
     nerlworker_opennn->post_predict_process(calculate_res); 
     nifpp::make_tensor_2d<float,fTensor2D>(env, prediction, calculate_res);
     // only for AE and AEC calculate the distance between prediction labels and input data
-    std::cout << "*calculate_res.get(): " << (*calculate_res.get()).dimensions() << std::endl;
+    //std::cout << "*calculate_res.get(): " << (*calculate_res.get()).dimensions() << std::endl;
     // Stop the timer and calculate the time took for training
     high_resolution_clock::time_point  stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - PredictNNptr->start_time);
