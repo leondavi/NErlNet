@@ -86,7 +86,7 @@ void* PredictFun(void* arg)
     if(neural_network->has_convolutional_layer())
     {  
         ConvolutionalLayer* conv = (ConvolutionalLayer*)neural_network->get_layer_pointer(0);
-        input_variable_dimension.setValues({conv->get_input_variables_dimensions()(0),conv->get_input_variables_dimensions()(1), conv->get_input_variables_dimensions()(2), conv->get_input_variables_dimensions()(3)});
+        input_variable_dimension.setValues({num_of_samples,conv->get_input_variables_dimensions()(1), conv->get_input_variables_dimensions()(2), conv->get_input_variables_dimensions()(3)});
         *calculate_res = neural_network->calculate_outputs(PredictNNptr->data->data(), input_variable_dimension);
     }else{
         inputs_dimensions.setValues({num_of_samples, inputs_number});

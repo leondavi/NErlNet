@@ -53,4 +53,4 @@
                                 _DistributedSystemTypeAE = "0",
                                 _DistributedSystemArgAE = ""} ).
 
--define(NEURAL_NETWORK_TESTING_MODELS_LIST, [?PERCEPTRON_TESTING_NN , ?AEC_TESTING_NN,?CNN_TESTING_NN]).
+-define(NEURAL_NETWORK_TESTING_MODELS_LIST, [?PERCEPTRON_TESTING_NN ,?CNN_TESTING_NN]).
