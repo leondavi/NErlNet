@@ -119,13 +119,11 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     TrainNNptr->start_time = high_resolution_clock::now();
     
     nifpp::str_atom tensor_type;
-
     enum{ARG_ModelID,ARG_DataTensor,ARG_Type};
     nifpp::get_throws(env, argv[ARG_ModelID],TrainNNptr->mid); // model id
     nifpp::get_throws(env, argv[ARG_Type],tensor_type);
     assert(tensor_type == "float");
     TrainNNptr->return_tensor_type = tensor_type;
-    //std::cout << "argv[ARG_DataTensor]: " << argv[ARG_DataTensor] << std::endl;
     nifpp::get_tensor_2d<float,fTensor2DPtr,fTensor2D>(env,argv[ARG_DataTensor],TrainNNptr->data);
     ErlNifPid pid;
     enif_self(env, &pid);
