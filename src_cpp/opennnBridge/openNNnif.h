@@ -18,11 +18,11 @@
 #include <Logger.h>
 #include "../opennn/opennn/opennn.h"
 #include "bridgeController.h"
-#include "openNNmodelNif.h"
 #include "get_set_weights.h"
 #include "ModelParams.h"
 
 #include "nifppNerltensorEigen.h"
+#include "nerlWorkerNIF.h"
 
 #define DEBUG_CREATE_NIF 0
 
@@ -37,10 +37,6 @@ class TrainNN
 {
 public:
     long int mid;
-    int optimization_method;
-    int loss_method;
-    int epoch;
-    double learning_rate;
 
     fTensor2DPtr data;
     std::chrono::high_resolution_clock::time_point start_time;
@@ -88,9 +84,6 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     
     nifpp::get_tensor_2d<float,fTensor2DPtr,fTensor2D>(env,argv[ARG_BatchTensor],PredictNNptr->data);
 
-    opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
-    int modelType = onnBrCtrl.getModelType(PredictNNptr->mid);
-
     int res;
     void** exit_code;
     res = enif_thread_create((char*)"predict_nif_proc", &(PredictNNptr->tid), PredictFun, (void*) pPredictNNptr, 0);
@@ -111,13 +104,12 @@ static ERL_NIF_TERM predict_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         }
     }
 
-    nifpp::str_atom ret_status("predict_starts");
+    nifpp::str_atom ret_status("ok");
     return nifpp::make(env, ret_status);
 
 }  //end PREDICT mode
 
 void* trainFun(void* arg);
-void* trainFunAE(void* arg);
 
 static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
 
@@ -127,13 +119,9 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     
     nifpp::str_atom tensor_type;
 
-    enum{ARG_ModelID,ARG_OptimizationMethod,ARG_LossMethod, ARG_LearningRate,ARG_DataTensor,ARG_Type};
+    enum{ARG_ModelID,ARG_DataTensor,ARG_Type};
     nifpp::get_throws(env, argv[ARG_ModelID],TrainNNptr->mid); // model id
-    nifpp::get_throws(env, argv[ARG_OptimizationMethod],TrainNNptr->optimization_method);
-    nifpp::get_throws(env, argv[ARG_LossMethod],TrainNNptr->loss_method);
-    nifpp::get_throws(env, argv[ARG_LearningRate],TrainNNptr->learning_rate);
     nifpp::get_throws(env, argv[ARG_Type],tensor_type);
-    TrainNNptr->epoch = 1; //TODO get epoch from erlang
     assert(tensor_type == "float");
     TrainNNptr->return_tensor_type = tensor_type;
     
@@ -143,9 +131,6 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     ErlNifPid pid;
     enif_self(env, &pid);
     TrainNNptr->pid = pid;
-
-    opennnBridgeController& onnBrCtrl = opennnBridgeController::GetInstance();
-    int modelType = onnBrCtrl.getModelType(TrainNNptr->mid);
     int res;
 
     void** exit_code;
@@ -167,7 +152,7 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
         }
     }
 
-    nifpp::str_atom ret_status("train_starts");
+    nifpp::str_atom ret_status("ok");
     return nifpp::make(env, ret_status);
 }  //end trainn_nif
 
@@ -493,17 +478,20 @@ static ERL_NIF_TERM nerltensor_sum_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 
 static ErlNifFunc nif_funcs[] =
 {
-    {"create_nif", 6 , create_nif},
-    {"destroy_nif", 1, destroy_nif},
     {"get_active_models_ids_list",0, get_active_models_ids_list_nif},
-    {"train_nif", 6 , train_nif},
+    {"train_nif", 3 , train_nif},
     {"predict_nif", 3 , predict_nif},
     {"get_weights_nif",1, get_weights_nif},
     {"set_weights_nif",3, set_weights_nif},
     {"encode_nif",2, encode_nif},
     {"decode_nif",2, decode_nif},
     {"nerltensor_sum_nif",3, nerltensor_sum_nif},
-    {"nerltensor_scalar_multiplication_nif",3,nerltensor_scalar_multiplication_nif}
+    {"nerltensor_scalar_multiplication_nif",3,nerltensor_scalar_multiplication_nif},
+    // nerlworker functions
+    {"new_nerlworker_nif", 12, new_nerlworker_nif},
+    {"test_nerlworker_nif", 12, test_nerlworker_nif},
+    {"update_nerlworker_train_params_nif", 6, update_nerlworker_train_params_nif},
+    {"remove_nerlworker_nif", 1, remove_nerlworker_nif}
 };
 
 

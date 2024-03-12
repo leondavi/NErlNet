@@ -1,25 +1,38 @@
 {
-   "Features": 5,
-   "Labels": ["Norm(0,1)", "Norm(4,1)", "Norm(10,3)"],
-   "CSV path": "synthetic",
-   "Batches per source": 
-   {
-      "Training": 2000,
-      "Prediction": 2000
-   },
-   "Training":  [
+   "experimentName": "synthetic_3_gausians",
+   "batchSize": 50,
+   "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/synthetic/synthetic_full.csv",
+   "numOfFeatures": "5",
+   "numOfLabels": "3",
+   "headersNames": "Norm(0:1),Norm(4:1),Norm(10:3)",
+   "Phases": 
+   [
       {
-         "source name": "s1",
-         "workers": "w1,w2,w3,w4",
-         "CSV path": "synthetic_training"
-      }
-   ],
-   "Prediction": [
+         "phaseName": "training_phase",
+         "phaseType": "training",
+         "sourcePieces":
+         [
+            {
+            "sourceName": "s1",
+            "startingSample": "0",
+            "numOfBatches": "1000",
+            "workers": "w1,w2,w3,w4"
+            }
+         ]  
+      },
       {
-         "source name": "s1",
-         "workers": "w1,w2,w3,w4",
-         "CSV path": "synthetic_prediction"
+         "phaseName": "prediction_phase",
+         "phaseType": "prediction",
+         "sourcePieces":
+         [
+            {
+            "sourceName": "s1",
+            "startingSample": "50000",
+            "numOfBatches": "1000",
+            "workers": "w1,w2,w3,w4"
+            }
+         ]    
       }
-   ]
+   ]  
 }
     

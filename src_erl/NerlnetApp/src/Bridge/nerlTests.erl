@@ -5,13 +5,13 @@
 -compile(nerlNIF).
 -export([run_tests/0]).
 
--import(nerlNIF,[init/0,create_nif/6,train_nif/5,call_to_train/6,predict_nif/2,call_to_predict/5,get_weights_nif/1,printTensor/2]).
--import(nerlNIF,[call_to_get_weights/2,call_to_set_weights/2]).
 -import(nerlNIF,[decode_nif/2, nerltensor_binary_decode/2]).
 -import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
--import(nerlNIF,[nerltensor_sum_nif/3, nerltensor_sum_erl/2]).
--import(nerlNIF,[nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2, sum_nerltensors_lists/2]).
+-import(nerlNIF,[nerltensor_sum_nif/3]).
+-import(nerlNIF,[test_nerlworker_nif/12, remove_nerlworker_nif/1]).
+-import(nerlNIF,[nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
 -import(nerl,[compare_floats_L/3, string_format/2, logger_settings/1]).
+-import(nerlTensor,[nerltensor_sum_erl/2, sum_nerltensors_lists/2]).
 
 -define(NERLTEST_PRINT_STR, "[NERLTEST] ").
 
@@ -19,14 +19,15 @@ nerltest_print(String) ->
       logger:notice(?NERLTEST_PRINT_STR++String).
 
 % encode_decode test macros
--define(DIMX_RAND_MAX, 200).
--define(DIMY_RAND_MAX, 200).
+-define(DIMX_RAND_MAX, 13).
+-define(DIMY_RAND_MAX, 13).
 -define(SUM_NIF_ROUNDS, 50).
 -define(ENCODE_DECODE_ROUNDS, 50).
 -define(NERLTENSOR_CONVERSION_ROUNDS, 50).
 -define(NERLTENSOR_SCALAR_MULTIPLICATION_ROUNDS, 50).
 -define(NERLTENSORS_SUM_LIST_MAX_SIZE, 50).
 -define(NERLTESNORS_SUM_LIST_ROUNDS, 30).
+-define(NERLWORKER_TEST_ROUNDS, 1).
 
 test_envelope(Func, TestName, Rounds) ->
       nerltest_print(nerl:string_format("~p test starts for ~p rounds",[TestName, Rounds])),
@@ -35,8 +36,9 @@ test_envelope(Func, TestName, Rounds) ->
 
 test_envelope_nif_performance(Func, TestName, Rounds) ->
       nerltest_print(nerl:string_format("~p test starts for ~p rounds",[TestName, Rounds])),
-      {TimeTookMicro, AvgPerformance} = timer:tc(Func, [Rounds]),
-      nerltest_print(nerl:string_format("Elapsed: ~p~p Average nif performance: ~.3f~p",[TimeTookMicro/1000,ms, AvgPerformance/Rounds, ms])), ok.
+      {TimeTookMicro, AccPerfromance} = timer:tc(Func, [Rounds]),
+      AveragedPerformance = AccPerfromance/Rounds,
+      nerltest_print(nerl:string_format("Elapsed: ~p~p Average nif performance: ~.3f~p",[TimeTookMicro/1000,ms, AveragedPerformance, ms])), ok.
 
 run_tests()->
       nerl:logger_settings(nerlTests),
@@ -72,6 +74,10 @@ run_tests()->
       SumNerlTensorsListDoubleFunc = fun(Rounds) ->  Performance = 0, sum_nerltensors_lists_test(double, Rounds, Performance) end,
       SumNerlTensorsListDoubleName = "sum_nerltensors_lists double",
       test_envelope_nif_performance(SumNerlTensorsListDoubleFunc, SumNerlTensorsListDoubleName, ?NERLTESNORS_SUM_LIST_ROUNDS ),
+
+      NerlworkerTestFunc = fun(Rounds) ->  Performance = 0, nerlworker_test(Rounds, Performance) end,
+      NerlworkerTestName = "nerlworker_test",
+      test_envelope_nif_performance(NerlworkerTestFunc, NerlworkerTestName, ?NERLWORKER_TEST_ROUNDS ),
 
       nerltest_print("Tests Completed"),
       ok.
@@ -127,7 +133,7 @@ nerltensor_sum_nif_test(Type, N, Performance) ->
       NewTensorA =  generate_nerltensor(Type,DimX,DIMY,1),
       NewTensorB =  generate_nerltensor(Type,DimX,DIMY,1),
     %  io:format("NewTensorA ~p~n NewTensorB ~p~n",[NewTensorA, NewTensorB]),
-      ExpectedResult = nerlNIF:nerltensor_sum_erl({NewTensorA, erl_float}, {NewTensorB, erl_float}), %TODO add tensor addition element wise
+      ExpectedResult = nerlTensor:nerltensor_sum_erl({NewTensorA, erl_float}, {NewTensorB, erl_float}), %TODO add tensor addition element wise
     %  io:format("ExpectedResult: ~p~n",[ExpectedResult]),
       Tic = nerl:tic(),
       {NewTensorAEnc, Type} = nerlNIF:encode_nif(NewTensorA, Type),
@@ -155,11 +161,11 @@ sum_nerltensors_lists_test(Type, N, Performance) ->
       NerlTensors =  [generate_nerltensor(Type,DimX,DIMY,1) || _X <- lists:seq(1, Elements)],
      % io:format("NerlTensors ~p~n", [NerlTensors]),
       NerlTensorsEencoded = [element(1, nerlNIF:encode_nif(NerlTensor, Type)) || NerlTensor <- NerlTensors],
-      [ExpectedSumResult] = nerlNIF:sum_nerltensors_lists_erl(NerlTensors, erl_float),
+      [ExpectedSumResult] = nerlTensor:sum_nerltensors_lists_erl(NerlTensors, erl_float),
       %io:format("NerlTensorsEencoded ~p~n",[NerlTensorsEencoded]),
       %io:format("ExpectedSumResult ~p~n",[ExpectedSumResult]),
       Tic = nerl:tic(),
-      [ResultSumEncoded] = nerlNIF:sum_nerltensors_lists(NerlTensorsEencoded, Type),
+      [ResultSumEncoded] = nerlTensor:sum_nerltensors_lists(NerlTensorsEencoded, Type),
       {TocRes, _} = nerl:toc(Tic),
       PerformanceNew = (TocRes / (Elements - 1)) + Performance, % average sum nif performance (dividing by # of sum ops)
       %io:format("ResultSumEncoded ~p~n",[ResultSumEncoded]),
@@ -218,3 +224,21 @@ nerltensor_conversion_test(Rounds) ->
                                  _ -> throw(nerl:string_format("unknown nerltensor conversion exception Reason: ~p",[Reason]))
                             end 
       end.
+
+nerlworker_test(0, _Performance) -> _Performance;
+nerlworker_test(Rounds, Performance) ->
+      ModelId  = erlang:unique_integer([positive]),
+      ModelType = "5",
+      LayersSizes = "5,10,5,3",
+      LayersTypes = "1,3,3,3",
+      LayersFunctionalityCodes = "1,6,11,11", % change scaler functionality to 6 to check exception handling
+      LearningRate = "0.01",
+      Epochs = "1",
+      OptimizerType = "2",
+      OptimizerArgs = "",
+      LossMethod = "2",
+      DistributedSystemType = "0",
+      DistributedSystemArg = "",
+      nerlNIF:test_nerlworker_nif(ModelId,ModelType,LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
+      nerlNIF:remove_nerlworker_nif(ModelId),
+      nerlworker_test(Rounds - 1, Performance).

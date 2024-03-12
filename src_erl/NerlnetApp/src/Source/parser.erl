@@ -66,14 +66,14 @@ parse_file(SourceName, BatchSize,Data) ->
   % {ok, Data} = file:read_file(File_Address),
   Lines = re:split(Data, "\r|\n|\r\n", [{return,binary}] ),
   % CleanLines = [Line || Line <- Lines, Line /= []],
-  ?LOG_INFO("split in data"),
+  %?LOG_INFO("split in data"),
   %% TODO: create NIF that does dataStrToNumericData. In = ["1,2,3,4", "5,6,7,8", ....] => out = [[1,2,3,4],[5,6,7,8],....] (make sure to take type into account)
   ListOfLinesOfData = dataStrToNumericData(lists:droplast(Lines)),    %% drop empty line in the end of all CSV files
-  ?LOG_INFO("converted str to float"),
+  %?LOG_INFO("converted str to float"),
   SampleSize = length(hd(ListOfLinesOfData)),
   {_Num, DataType} = nerl_tools:list_to_numeric(hd(hd(ListOfLinesOfData))),
   ListOfBatches = generateListOfBatches(ListOfLinesOfData, BatchSize),
-  ?LOG_INFO("grouped batches"),
+  %?LOG_INFO("grouped batches"),
   % ErlType = nerlNIF:erl_type_conversion(UserType),        
   ErlType = erl_float,        %% TODO: delete so can accept int as well
   ListOfTensors = 

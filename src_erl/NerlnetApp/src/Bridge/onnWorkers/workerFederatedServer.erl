@@ -4,7 +4,8 @@
 
 -include("workerDefinitions.hrl").
 
--import(nerlNIF,[sum_nerltensors_lists/2, nerltensor_scalar_multiplication_nif/3]).
+-import(nerlNIF,[nerltensor_scalar_multiplication_nif/3]).
+-import(nerlTensor,[sum_nerltensors_lists/2]).
 
 -define(ETS_WID_IDX, 1).
 -define(ETS_TYPE_IDX, 2).
@@ -31,7 +32,6 @@ get_this_server_ets(GenWorkerEts) ->
 init({GenWorkerEts, WorkerData}) -> 
   Type = float, % update from data
   {SyncMaxCount, MyName, WorkersNamesList} = WorkerData,
-  % #workerFederatedServer{clientPID = ClientPid, workersNamesList = WorkersNamesList} = WorkerData,
   FederatedServerEts = ets:new(federated_server,[set]),
   ets:insert(GenWorkerEts, {federated_server_ets, FederatedServerEts}),
   ets:insert(FederatedServerEts, {workers, [MyName]}),    %% start with only self in list, get others in network thru handshake
@@ -88,12 +88,12 @@ update({GenWorkerEts, WorkerData}) ->
   ets:insert(ThisEts, {WorkerName, worker, NerlTensorWeights}),
 
   %% check if there are queued messages, and treat them accordingly
-  MessageQueue = ets:lookup_element(GenWorkerEts, message_q, ?ETS_KEYVAL_VAL_IDX),
+  MessageQueue = ets:lookup_element(GenWorkerEts, controller_message_q, ?ETS_KEYVAL_VAL_IDX),
   % io:format("MessageQ=~p~n",[MessageQueue]),
   [ets:insert(ThisEts, {WorkerName, worker, NerlTensorWeights}) || {Action, WorkerName, To, NerlTensorWeights} <- MessageQueue, Action == update],
   % reset q
-  ets:delete(GenWorkerEts, message_q),  
-  ets:insert(GenWorkerEts, {message_q, []}),
+  ets:delete(GenWorkerEts, controller_message_q),  
+  ets:insert(GenWorkerEts, {controller_message_q, []}),
 
   %% check if got all weights of workers
   WorkersList = ets:lookup_element(ThisEts, workers, ?ETS_KEYVAL_VAL_IDX),
@@ -118,6 +118,6 @@ generate_avg_weights(FedEts) ->
   ListOfWorkersNerlTensors = [ element(?TENSOR_DATA_IDX, element(?ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, Attr)) || Attr <- ets:tab2list(FedEts), element(?ETS_TYPE_IDX, Attr) == worker],
   % io:format("Tensors to sum = ~p~n",[ListOfWorkersNerlTensors]),
   NerlTensors = length(ListOfWorkersNerlTensors),
-  [FinalSumNerlTensor] = nerlNIF:sum_nerltensors_lists(ListOfWorkersNerlTensors, BinaryType),
+  [FinalSumNerlTensor] = nerlTensor:sum_nerltensors_lists(ListOfWorkersNerlTensors, BinaryType),
   % io:format("Summed = ~p~n",[FinalSumNerlTensor]),
   nerlNIF:nerltensor_scalar_multiplication_nif(FinalSumNerlTensor, BinaryType, 1.0/NerlTensors).

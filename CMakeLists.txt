@@ -9,10 +9,10 @@ cmake_minimum_required(VERSION 3.16.3 FATAL_ERROR)
 project(nerlnet DESCRIPTION "Nerlnet Distributed Machine Learning Research Platform")
 
 set(PROJECT_BINARY_DIR build)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -latomic")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -latomic")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 
 # Options
 option(NERLWOLF "Use Wolfram Engine workers extension" OFF)

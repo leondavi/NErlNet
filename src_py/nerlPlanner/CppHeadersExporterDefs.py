@@ -20,6 +20,16 @@ class PragmaOnce:
     
     def generate_code(self):
         return f'#pragma once\n'
+    
+class NameSpace:
+    def __init__(self, namespace_name: str = '') -> None:
+        self.namespace_name = namespace_name
+    
+    def generate_code(self):
+        return f'namespace {self.namespace_name} '+'{\n'
+    
+    def generate_namespace_close(self):
+        return '}'+f' // namespace {self.namespace_name}\n'
 
 class EnumType:
     def __init__(self, enum_name : str, in_ordered_dict : OrderedDict, all_caps : bool = False, prefix = '') -> None:

@@ -21,7 +21,7 @@
 init(Req0, [ApplicationPid]) ->
   case cowboy_req:parse_header(<<"content-type">>, Req0) of
     {<<"multipart">>, <<"form-data">>, _} ->
-        nerl_tools:deleteOldJson(?JSON_ADDR++?LOCAL_ARCH_FILE_NAME),
+        nerl_tools:deleteOldJson(?JSON_ADDR++?LOCAL_DC_FILE_NAME),
         nerl_tools:deleteOldJson(?JSON_ADDR++?LOCAL_COMM_FILE_NAME),
         %% get files from Req
         % io:format("parsing json of req with body: ~p~n",[cowboy_req:read_body(Req0)]),

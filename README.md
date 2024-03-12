@@ -8,10 +8,10 @@
 
 Nerlnet is an open-source library for research of distributed machine learning algorithms on IoT devices that gives full insights into both edge devices that run neural network models and network performance and statistics. Nerlnet can simulate distributed ML architectures and deploy them on various IoT devices.     
 
-Nerlnet is implemented using the following languages and libraries:  
-• Erlang is used for the communication layer. The implementation is based on Cowboy's http web server.  
-• C++ OpenNN library implements the neural network edge compute devices.  
-• Python manages NerlNet and gathers information from it.   
+Nerlnet library combines the following languages to achieve a stable and efficient distributed ML system platform:  
+• The communication layer of Nerlnet is based on Erlang and Cowboy's http web server open-source library.  
+• C++ OpenNN library (based on Eigen) implements the neural network on edge compute devices.  
+• An API-Server based on Python Flask allows the user to control experiments and ML phases executed on a Nerlnet cluster.
 
 ![image](https://user-images.githubusercontent.com/18975070/144730156-5bd03ad7-fc5f-45e9-8b4e-62d582af2200.png) 
 ![image](https://user-images.githubusercontent.com/18975070/144730182-c535b20a-a5f9-4d4f-8632-77d49732f17f.png) 
@@ -47,8 +47,8 @@ https://github.com/leondavi/NErlNet/assets/18975070/15a3957a-3fd6-4fb2-a365-7e15
 
 # Build and Run Nerlnet:
 Recommended cmake version 3.26   
-Minimum erlang version otp 24   
-Minimum gcc/g++ version 8.4   
+Minimum erlang version otp 25   
+Minimum gcc/g++ version 10.3.0   
 
 On every device that is a part of Nerlnet cluster the following steps should be taken:
 
@@ -69,22 +69,22 @@ exp_\<any name\>.json
 6. Run ```./NerlnetRun.sh``` to start Nerlnet.
 7. Use API-Server to load generated jsons (step 4) and execute Nerlnet experiment.
 
-## Python API and Jupyter (For UI Server): 
+## Python API and Jupyter-lab (For Api-Server): 
 Minimum Python version: 3.8
-
-1. Create and activate a virtual environment for Nerlnet: (https://docs.python.org/3/library/venv.html)  
-  ```python -m venv VENV_PATH/VENV_NAME ```  
-  ```source VENV/bin/activate``` 
-2. Install required modules while in venv ```pip install -r src_py/requirements.txt```
-3. Call Jupyter environment creator script with an experiment directory ```./NerlnetJupyterEnvGenerator.sh --j <experiment_direcotry>```
-4. Run Jupyter notebook with ```jupyter-notebook``` and create a new notebook in the created dir from step 3. 
-5. Follow the example: https://github.com/leondavi/NErlNet/blob/master/examples/example_run.ipynb 
+1. Open a jupyter lab environment using ```./NerlnetJupyterLaunch.sh -d <experiment_direcotry>```  
+1.1    Use -h to see the help menu of NerlnetJupyterLaunch.sh script.  
+1.2    If --no-venv option is selected then required modules can be read from ```src_py/requirements.txt```.  
+3. Read the instructions of importing Api-Server within the generated readme.md file inside <experiment_directory> folder. 
+4. Follow the example: https://github.com/leondavi/NErlNet/blob/master/examples/example_run.ipynb 
 
 Contact Email: leondavi@post.bgu.ac.il
 
 
-## Gratitude
-**Microsoft** for a grant of Azure credits as part of Microsoft’s Azure credits for open source projects program (2024).  
-<p align="center">
-<img src="https://github.com/leondavi/NErlNet/assets/18975070/d3255b30-ae3b-46fd-a87f-6c1ec7ae231b" width="50" title="Microsoft Azure Sponsorship">
-</p>
+## Gratitudes
+<h3 align="center">Microsoft</h1>
+<p align="center"> <img src="https://github.com/leondavi/NErlNet/assets/18975070/d3255b30-ae3b-46fd-a87f-6c1ec7ae231b" width="50" title="Microsoft Azure Sponsorship"></p>  
+<p align="left"> A grant of Azure credits as part of Microsoft’s Azure credits for open source projects program (2024).</p>  
+<h3 align="center">Amazon AWS</h1>
+<p align="center"> <img src="https://github.com/leondavi/NErlNet/assets/18975070/2db72554-4536-492b-9f81-dc0c5b06007b" width="50" title="Amazon AWS Sponsorship"></p>  
+
+<p align="left"> A grant of AWS credits as part of AWSOpen program for open source projects (2024).</p>

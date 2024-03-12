@@ -1,0 +1,53 @@
+{
+    "description": "example csv data set for nerlnet",
+    "numof_features": 3,
+    "numof_labels": 2,
+    "features_headers": [
+        "Feature1",
+        "Feature2",
+        "Feature3"
+    ],
+    "labels_headers": [
+        "Label1",
+        "Label2"
+    ],
+    "csv_db_path": "/tmp/nerlnet/data/example.csv",
+    "batch_size": 20,
+    "training_dbs": [
+        {
+            "source_name": "source_db_1",
+            "target_workers_names_list": "w1,w2,w3",
+            "starting_offset": 0,
+            "numof_batches": 100
+        },
+        {
+            "source_name": "source_db_2",
+            "target_workers_names_list": [
+                "worker_3",
+                "worker_4"
+            ],
+            "starting_offset": 2000,
+            "numof_batches": 100
+        }
+    ],
+    "prediction_dbs": [
+        {
+            "source_name": "source_db_3",
+            "target_workers_names_list": [
+                "worker_5",
+                "worker_6"
+            ],
+            "starting_offset": 5000,
+            "numof_batches": 100
+        },
+        {
+            "source_name": "source_db_4",
+            "target_workers_names_list": [
+                "worker_7",
+                "worker_8"
+            ],
+            "starting_offset": 7000,
+            "numof_batches": 10
+        }
+    ]
+}

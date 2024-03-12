@@ -1,6 +1,9 @@
 from JsonElementsDefinitions import *
+from JsonDistributedConfigDefs import *
 from collections import OrderedDict
 import random
+
+FIELD_NAME = "name"
 
 class JsonElement():
     def __init__(self, name = "none", elem_type = NONE_TYPE):
@@ -325,7 +328,7 @@ class Device(JsonElement):
         entities_str = ",".join(self.get_entities_names())
         elements_list = [self.get_name_as_tuple(), 
                          self.ip.get_as_tuple(),
-                         (FIELD_NAME_ENTITIES, entities_str)]
+                         (ENTITIES_FIELD, entities_str)]
         return OrderedDict(elements_list)
 
 class Router(JsonElement):
@@ -399,7 +402,7 @@ class Source(JsonElement):
                          self.frequency.get_as_tuple(),
                          self.policy.get_as_tuple(),
                          self.epochs.get_as_tuple(),
-                         (FIELD_NAME_SOURCE_TYPE, self.source_type)]
+                         (GetFields.get_source_type_field_name(), self.source_type)]
         return OrderedDict(elements_list)
 
 class Client(JsonElement):
@@ -443,36 +446,62 @@ class Client(JsonElement):
         workers_list_str = ",".join(self.get_workers_names())
         elements_list = [self.get_name_as_tuple(), 
                          self.port.get_as_tuple(),
-                         (FIELD_NAME_WORKERS, workers_list_str)]
+                         (WORKERS_FIELD, workers_list_str)]
         return OrderedDict(elements_list)
     
 
-def get_frequency_field_name():
-    return Frequency(0).get_name()
+class GetFields():
 
-def get_batch_size_field_name():
-    return BatchSize(0).get_name()
+    def __init__(self):
+        pass
 
-def get_port_field_name():
-    return Port(0).get_name()
+    def get_name_field_name():
+        return FIELD_NAME
 
-def get_args_field_name():
-    return Arguments('').get_name()
+    def get_main_server_field_name():
+        return MainServer.NAME
 
-def get_ipv4_field_name():
-    return Ipv4('0.0.0.0').get_name()
+    def get_api_server_field_name():
+        return ApiServer.NAME
 
-def get_epochs_field_name():
-    return Epochs(0).get_name()
+    def get_frequency_field_name():
+        return Frequency(0).get_name()
 
-def get_entities_field_name():
-    return FIELD_NAME_ENTITIES
+    def get_batch_size_field_name():
+        return BatchSize(0).get_name()
 
-def get_workers_field_name():
-    return FIELD_NAME_WORKERS
+    def get_port_field_name():
+        return Port(0).get_name()
 
-def get_source_type_field_name():
-    return FIELD_NAME_SOURCE_TYPE
+    def get_args_field_name():
+        return Arguments('').get_name()
 
-def get_policy_field_name():
-    return Policy(0,0).get_name()
+    def get_ipv4_field_name():
+        return Ipv4('0.0.0.0').get_name()
+
+    def get_epochs_field_name():
+        return Epochs(0).get_name()
+
+    def get_entities_field_name():
+        return ENTITIES_FIELD
+
+    def get_workers_field_name():
+        return KEY_WORKERS
+
+    def get_source_type_field_name():
+        return TYPE_FIELD
+
+    def get_policy_field_name():
+        return Policy(0,0).get_name()
+
+    def get_clients_field_name():
+        return KEY_CLIENTS
+
+    def get_routers_field_name():
+        return KEY_ROUTERS
+
+    def get_sources_field_name():
+        return KEY_SOURCES
+
+    def get_devices_field_name():
+        return KEY_DEVICES

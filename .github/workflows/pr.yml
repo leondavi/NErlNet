@@ -27,7 +27,10 @@ jobs:
         if: steps.build.outcome == 'success'
         run: |
           ./tests/NerlnetNifTest.sh
+        timeout-minutes: 15
       - name: Run FullFlow test
+        id: fullflow
         if: steps.nif.outcome == 'success'
         run: |
           ./tests/NerlnetFullFlowTest.sh
+        timeout-minutes: 20

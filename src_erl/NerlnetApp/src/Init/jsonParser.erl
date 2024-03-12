@@ -8,168 +8,205 @@
 %%%-------------------------------------------------------------------
 -module(jsonParser).
 -include("../nerl_tools.hrl").
--export([getHostEntities/3, json_to_ets/2]).
+-include("../dc_definitions_ag.hrl").
+-include("../worker_definitions_ag.hrl").
+-export([parseJsons/3, json_to_ets/2]).
 
--define(SINGLE_STRONG_COMPONENT,2). %% apiServer alone + all network 
+-define(SINGLE_STRONG_COMPONENT,1). %% apiServer alone + all network 
 -define(ETS_DATA_IDX, 2).
 -define(PORT_IDX, 1). % port is always at the first index of any entity that has a port!
 -define(NERLNET_DATA_ETS_LOG_DST, "/usr/local/lib/nerlnet-lib/log/nerlnet_data_ets.log").
 
 is_special_entity(EntityName) ->  lists:member(EntityName, ?LIST_OF_SPECIAL_SERVERS).
 
-get_special_entities(ArchMap, HostEntities)->
-  SpecialEntities = [ Entity || Entity <- HostEntities, is_special_entity(Entity)],
+get_special_entities(DCMap, DeviceEntities)->
+  SpecialEntities = [ Entity || Entity <- DeviceEntities, is_special_entity(Entity)],
   Func = fun(SpecialEntityName) ->
-    EntityMap = maps:get(atom_to_binary(SpecialEntityName), ArchMap),
-    HostIP = binary_to_list(maps:get(<<"host">>, EntityMap)),
-    Port = list_to_integer(binary_to_list(maps:get(<<"port">>, EntityMap))),
-    Args = binary_to_list(maps:get(<<"args">>, EntityMap)),
-    {SpecialEntityName, {Port, HostIP}}
+    EntityMap = maps:get(atom_to_binary(SpecialEntityName), DCMap),
+    Port = list_to_integer(binary_to_list(maps:get(?DC_PORT_FIELD_STR_BIN, EntityMap))),
+    Args = binary_to_list(maps:get(?DC_ARGS_FIELD_STR_BIN, EntityMap)),
+    {SpecialEntityName, {Port, Args}}
   end,
   [Func(E) || E <- SpecialEntities].
 
 get_clients_map([],ClientsMap) -> ClientsMap;
 get_clients_map([Client|Clients],ClientsMap)->
-  ClientName = binary_to_atom(maps:get(<<"name">>,Client)),
-  Workers = [ list_to_atom(WorkerStr) || WorkerStr <- re:split(binary_to_list(maps:get(<<"workers">>,Client)),",",[{return,list}])],
-  Port =  list_to_integer(binary_to_list(maps:get(<<"port">>, Client))),
+  ClientName = binary_to_atom(maps:get(?DC_NAME_FIELD_STR_BIN,Client)),
+  Workers = [ list_to_atom(WorkerStr) || WorkerStr <- re:split(binary_to_list(maps:get(?DC_WORKERS_FIELD_STR_BIN,Client)),",",[{return,list}])],    %% TODO: implement as function
+  Port =  list_to_integer(binary_to_list(maps:get(?DC_PORT_FIELD_STR_BIN,Client))),
   NewMap = maps:put(ClientName, {Workers, Port}, ClientsMap),
   get_clients_map(Clients,NewMap).
 
-get_devices(ArchMap) -> 
-  Devices = maps:get(<<"devices">>,ArchMap),
-  Func = fun(DeviceMap) ->
-    HostIP = maps:get(<<"host">>,DeviceMap),
-    Entities = [ list_to_atom(EntityStr) || EntityStr <- re:split(binary_to_list(maps:get(<<"entities">>,DeviceMap)),",",[{return,list}])],
-    {HostIP, Entities}
+get_devices(DCMap) -> 
+  Devices = maps:get(?DC_KEY_DEVICES_STR_BIN,DCMap),
+  DeviceNameToIPv4EntitiesFunc = fun(DeviceMap) ->
+    IPv4 = binary_to_list(maps:get(?DC_IPV4_FIELD_STR_BIN,DeviceMap)),
+    DeviceName = binary_to_atom(maps:get(?DC_NAME_FIELD_STR_BIN,DeviceMap)), 
+    Entities = [ list_to_atom(EntityStr) || EntityStr <- re:split(binary_to_list(maps:get(?DC_ENTITIES_FIELD_STR_BIN,DeviceMap)),",",[{return,list}])],
+    {DeviceName , {IPv4, Entities}}
   end,
-  [Func(D) || D <- Devices].
+  DeviceNameToIPv4EntitiesList = [DeviceNameToIPv4EntitiesFunc(D) || D <- Devices],
+  IPv4ToDeviceNameMap = maps:from_list(lists:map(fun({DeviceName, {IPv4, _Entities}}) -> {IPv4, DeviceName} end, DeviceNameToIPv4EntitiesList)),
+  DeviceNameToIPv4EntitiesMap = maps:from_list(DeviceNameToIPv4EntitiesList),
+  {IPv4ToDeviceNameMap, DeviceNameToIPv4EntitiesMap}.
+  
 
-get_host_clients(ArchMap, HostEntities) -> get_host_clients(ArchMap, HostEntities, false).
-get_host_clients(ArchMap, HostEntities, PrintLog) ->
-  AllClients = [ ClientMap || ClientMap <- maps:get(<<"clients">>,ArchMap) ],
-  HostClients = [ ClientMap || ClientMap <- AllClients, lists:member(binary_to_atom(maps:get(<<"name">>, ClientMap)), HostEntities) ],
+
+
+get_device_clients(DCMap, DeviceEntities) -> get_device_clients(DCMap, DeviceEntities, false).
+get_device_clients(DCMap, DeviceEntities, PrintLog) ->
+  AllClients = [ ClientMap || ClientMap <- maps:get(?DC_KEY_CLIENTS_STR_BIN,DCMap) ],
+  DeviceClients = [ ClientMap || ClientMap <- AllClients, lists:member(binary_to_atom(maps:get(?DC_NAME_FIELD_STR_BIN, ClientMap)), DeviceEntities) ],
   Func = fun(ClientMap) -> 
-    Name = binary_to_atom(maps:get(<<"name">>,ClientMap)),
-    Port = list_to_integer(binary_to_list(maps:get(<<"port">>, ClientMap))),
-    ClientWorkers = [ list_to_atom(WorkerStr) || WorkerStr <- re:split(binary_to_list(maps:get(<<"workers">>,ClientMap)),",",[{return,list}])],
-    WorkersMaps = maps:get(<<"workers">>, ArchMap),    %% workers arguments from level 1 of arch json
-    ClientWorkersMaps = [ WorkerMap || WorkerMap <- WorkersMaps, lists:member(binary_to_atom(maps:get(<<"name">>, WorkerMap)), ClientWorkers) ],
+    Name = binary_to_atom(maps:get(?DC_NAME_FIELD_STR_BIN,ClientMap)),
+    Port = list_to_integer(binary_to_list(maps:get(?DC_PORT_FIELD_STR_BIN, ClientMap))),
+    ClientWorkers = [ list_to_atom(WorkerStr) || WorkerStr <- re:split(binary_to_list(maps:get(?DC_WORKERS_FIELD_STR_BIN,ClientMap)),",",[{return,list}])],
+    WorkersMaps = maps:get(?DC_WORKERS_FIELD_STR_BIN, DCMap), 
+    WorkerShaList = lists:map(fun(WorkerMap) -> % Returns a list of tuples [{WorkerName, SHA},...]
+                              { maps:get(?DC_NAME_FIELD_STR_BIN, WorkerMap) , 
+                                maps:get(?DC_WORKER_MODEL_SHA_FIELD_STR_BIN , WorkerMap)} 
+                                end, 
+                              WorkersMaps),
+    WorkerShaMap = maps:from_list(lists:map(fun({WorkerName, SHA}) -> {binary_to_atom(WorkerName), binary_to_list(SHA)} end, WorkerShaList)),
     if PrintLog ->
-      ?LOG_NOTICE("Host Client Name: ~p Port: ~p Client Workers ~p",[Name,Port,ClientWorkers]);
+      ?LOG_NOTICE("Client Name: ~p Port: ~p Client Workers ~p",[Name,Port,ClientWorkers]);
       true -> skip
     end,
-    {Name,{Port,ClientWorkers,ClientWorkersMaps,get_workers_map(AllClients, #{})}}
+    {Name,{Port,ClientWorkers,WorkerShaMap,get_workers_map(AllClients, #{})}}
   end,
-  [Func(S) || S <- HostClients]. % list of tuples: [Name,{Port,WorkersMap}]
+  [Func(S) || S <- DeviceClients]. % list of tuples: [Name,{Port,WorkersMap}]
+
+get_models(ShaToModelMaps) ->
+  Func = fun(_SHA,ModelArgs) ->
+    ModelType = binary_to_list(maps:get(?WORKER_FIELD_KEY_MODEL_TYPE_BIN,ModelArgs)),
+    LayersSizes = binary_to_list(maps:get(?WORKER_FIELD_KEY_LAYER_SIZES_LIST_BIN,ModelArgs)),
+    LayersTypes = binary_to_list(maps:get(?WORKER_FIELD_KEY_LAYER_TYPES_LIST_BIN,ModelArgs)),
+    LayersFunctions = binary_to_list(maps:get(?WORKER_FIELD_KEY_LAYERS_FUNCTIONS_BIN,ModelArgs)),
+    LossMethod = binary_to_list(maps:get(?WORKER_FIELD_KEY_LOSS_METHOD_BIN,ModelArgs)),
+    LearningRate = binary_to_list(maps:get(?WORKER_FIELD_KEY_LEARNING_RATE_BIN,ModelArgs)),
+    Epochs = binary_to_list(maps:get(?WORKER_FIELD_KEY_EPOCHS_BIN,ModelArgs)),
+    Optimizer = binary_to_list(maps:get(?WORKER_FIELD_KEY_OPTIMIZER_TYPE_BIN,ModelArgs)),
+    OptimizerArgs = binary_to_list(maps:get(?WORKER_FIELD_KEY_OPTIMIZER_ARGS_BIN,ModelArgs)),
+    InfraType = binary_to_list(maps:get(?WORKER_FIELD_KEY_INFRA_TYPE_BIN,ModelArgs)),
+    DistributedSystemType = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_TYPE_BIN,ModelArgs)),
+    DistributedSystemArgs = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_ARGS_BIN,ModelArgs)),
+    DistributedSystemToken = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_TOKEN_BIN,ModelArgs)),
+    ModelTuple = {ModelType, LayersSizes, LayersTypes, LayersFunctions, LossMethod, LearningRate, Epochs, Optimizer, OptimizerArgs, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken},
+    ModelTuple
+  end,
+  ShaToModelArgsList = [{binary_to_list(ShaBin) , ModelArgs} || {ShaBin , ModelArgs} <- maps:to_list(maps:map(Func , ShaToModelMaps))],
+  maps:from_list(ShaToModelArgsList).
 
 generate_workers_map([],WorkersMap,_ClientName)->WorkersMap;
 generate_workers_map([Worker|Workers],WorkersMap,ClientName)->
-  generate_workers_map(Workers,maps:put(Worker, ClientName,WorkersMap),ClientName).
+  generate_workers_map(Workers,maps:put(Worker, ClientName,WorkersMap),ClientName). 
 
 %%returns a map for all workers  - key workerName, Value ClientName
 get_workers_map([],WorkersMap)->WorkersMap;
 get_workers_map([ClientMap|Clients],WorkersMap)->
-  ClientName = list_to_atom(binary_to_list(maps:get(<<"name">>,ClientMap))),
-  Workers = [ list_to_atom(WorkerStr) || WorkerStr <- re:split(binary_to_list(maps:get(<<"workers">>,ClientMap)),",",[{return,list}])],    %% TODO: implement as function
+  ClientName = list_to_atom(binary_to_list(maps:get(?DC_NAME_FIELD_STR_BIN,ClientMap))),
+  Workers = [ list_to_atom(WorkerStr) || WorkerStr <- re:split(binary_to_list(maps:get(?DC_WORKERS_FIELD_STR_BIN,ClientMap)),",",[{return,list}])],    %% TODO: implement as function
   NewMap = generate_workers_map(Workers,WorkersMap,ClientName),
   get_workers_map(Clients,NewMap).
 
-get_host_sources(ArchMap, HostEntities) ->
-  HostSources = [ SourceMap || SourceMap <- maps:get(<<"sources">>,ArchMap), lists:member(binary_to_atom(maps:get(<<"name">>, SourceMap)), HostEntities) ],
+get_device_sources(DCMap, DeviceEntities) ->
+  HostSources = [ SourceMap || SourceMap <- maps:get(?DC_KEY_SOURCES_STR_BIN,DCMap), lists:member(binary_to_atom(maps:get(?DC_NAME_FIELD_STR_BIN, SourceMap)), DeviceEntities) ],
   Func = fun(SourceMap) -> 
-    SourceName = binary_to_atom(maps:get(<<"name">>,SourceMap)),
-    SourcePort = list_to_integer(binary_to_list(maps:get(<<"port">>, SourceMap))),
-    SourceMethod = list_to_integer(binary_to_list(maps:get(<<"method">>, SourceMap))),
-    IsCustomFreq = maps:is_key(<<"frequency">>, SourceMap),
-    CustomFreq =
-    if IsCustomFreq -> list_to_integer(binary_to_list(maps:get(<<"frequency">>, SourceMap)));
-       true -> none
-    end,
-    {SourceName,{SourcePort,SourceMethod, CustomFreq}}
+    SourceName = binary_to_atom(maps:get(?DC_NAME_FIELD_STR_BIN,SourceMap)),
+    SourcePort = list_to_integer(binary_to_list(maps:get(?DC_PORT_FIELD_STR_BIN, SourceMap))),
+    SourcePolicy = list_to_integer(binary_to_list(maps:get(?DC_POLICY_FIELD_STR_BIN, SourceMap))), 
+    SourceEpochs = list_to_integer(binary_to_list(maps:get(?DC_EPOCHS_FIELD_STR_BIN, SourceMap))),
+    SourceType = binary_to_atom(maps:get(?DC_TYPE_FIELD_STR_BIN, SourceMap)),
+    SourceFrequency = list_to_integer(binary_to_list((maps:get(?DC_KEY_FREQUENCY_STR_BIN, SourceMap)))),
+    {SourceName,{SourcePort,SourcePolicy,SourceFrequency,SourceEpochs,SourceType}}
   end,
   [Func(S) || S <- HostSources]. % list of tuples: [{SourceName,SourcePort,SourceMethod}]
 
-get_host_routers(ArchMap, HostEntities) ->
-  HostRouters = [ RouterMap || RouterMap <- maps:get(<<"routers">>,ArchMap), lists:member(binary_to_atom(maps:get(<<"name">>, RouterMap)), HostEntities) ],
-  Func = fun(RouterMap) -> 
-    RouterName = binary_to_atom(maps:get(<<"name">>,RouterMap)),
-    RouterPort = list_to_integer(binary_to_list(maps:get(<<"port">>, RouterMap))),
-    RouterRouting = "", % TODO
-    RouterFiltering = "", % TODO
-    %RouterRouting = list_to_integer(binary_to_list(maps:get(<<"routing">>, RouterMap))),
-    %RouterFiltering = list_to_integer(binary_to_list(maps:get(<<"filtering">>, RouterMap))),
-    {RouterName,{RouterPort,RouterRouting,RouterFiltering}}
+get_device_routers(DCMap, DeviceEntities) ->
+  RouterMapsList = maps:get(?DC_KEY_ROUTERS_STR_BIN,DCMap),
+  RouterNamesAndMaps = lists:map(fun(RouterMap) -> {binary_to_atom(maps:get(?DC_NAME_FIELD_STR_BIN, RouterMap)) , RouterMap} end, RouterMapsList),
+  DeviceRouters = [{RouterName , RouterMap} || {RouterName , RouterMap} <- RouterNamesAndMaps, lists:member(RouterName, DeviceEntities)], 
+  Func = fun({RouterName , RouterMap}) -> 
+    RouterPort = list_to_integer(binary_to_list(maps:get(?DC_PORT_FIELD_STR_BIN, RouterMap))),
+    RouterPolicy = list_to_integer(binary_to_list(maps:get(?DC_POLICY_FIELD_STR_BIN, RouterMap))),
+    {RouterName,{RouterPort,RouterPolicy}}
   end,
-  [Func(R) || R <- HostRouters]. % list of tuples: [{RouterName,{RouterPort,RouterRouting,RouterFiltering}}]
+  [Func(R) || R <- DeviceRouters]. 
 
 %% ------------------- nerlnet data ets creation -----------------
 %% Stores json files data into ets table called nerlnet_data
 %% return the ets name
 %% --------------------------------------------------------------
-json_to_ets(HostName, JSONArchMap) ->
+json_to_ets(IPv4, JsonDCMap) ->
 
-  % update hostname
-  ets:insert(nerlnet_data, {hostname, HostName}),
-  ets:insert(nerlnet_data, {hostname_bin, list_to_binary(HostName)}),
-  ?LOG_NOTICE("Host IP=~p~n",[HostName]),
+  % update DeviceName
+  ets:insert(nerlnet_data, {?DC_IPV4_FIELD_ATOM, IPv4}),
+  ets:insert(nerlnet_data, {ipv4_bin, list_to_binary(IPv4)}), %% ? is this needed
+  ?LOG_NOTICE("Device IP=~p~n",[IPv4]),
 
   % Get NerlNetSettings, batch size, frequency etc..
-  NerlNetSettings = maps:get(<<"NerlNetSettings">>,JSONArchMap),
-  BatchSize = list_to_integer(binary_to_list(maps:get(<<"batchSize">>,NerlNetSettings))),
-  Frequency = list_to_integer(binary_to_list(maps:get(<<"frequency">>,NerlNetSettings))),
+  NerlNetSettings = maps:get(?DC_KEY_NERLNET_SETTINGS_STR_BIN,JsonDCMap),
+  BatchSize = list_to_integer(binary_to_list(maps:get(?DC_KEY_BATCH_SIZE_STR_BIN,NerlNetSettings))),
+  Frequency = list_to_integer(binary_to_list(maps:get(?DC_KEY_FREQUENCY_STR_BIN,NerlNetSettings))),
   
-  ets:insert(nerlnet_data, {frequency, Frequency}),
-  ets:insert(nerlnet_data, {batchSize, BatchSize}),
+  ets:insert(nerlnet_data, {?DC_KEY_FREQUENCY_ATOM,Frequency}),
+  ets:insert(nerlnet_data, {?DC_KEY_BATCH_SIZE_ATOM,BatchSize}),
 
-  JsonClients = maps:get(<<"clients">>,JSONArchMap),
+  JsonClients = maps:get(?DC_KEY_CLIENTS_STR_BIN,JsonDCMap),
   MapOfClients = get_clients_map(JsonClients, #{}), % each client has {WorkersList, Port}
-  ets:insert(nerlnet_data, {clients, MapOfClients}),
+  ets:insert(nerlnet_data, {?DC_KEY_CLIENTS_ATOM, MapOfClients}),
 
   %%  get workers to clients map
   MapOfWorkers = get_workers_map(JsonClients, #{}),
-  ets:insert(nerlnet_data, {workers, MapOfWorkers}),
+  ets:insert(nerlnet_data, {?DC_KEY_WORKERS_ATOM, MapOfWorkers}),
 
-  Hosts = get_devices(JSONArchMap), % get all hosts 
-  ets:insert(nerlnet_data, {hosts,maps:from_list(Hosts)}),
+  MapSHAToModelArgs = maps:get(?DC_KEY_MODEL_SHA_STR_BIN, JsonDCMap), % Map of MapShaToModel to ModelArgs
+  SHAToModelArgsMap = get_models(MapSHAToModelArgs), 
+  ets:insert(nerlnet_data, {sha_to_models_map, SHAToModelArgsMap}),
+
+  {IPv4ToDeviceNameMap, DeviceNameToIPv4EntitiesMap} = get_devices(JsonDCMap), % get all hosts 
+  ets:insert(nerlnet_data, {ipv4_to_devices,IPv4ToDeviceNameMap}),
+  ets:insert(nerlnet_data, {devices_map,DeviceNameToIPv4EntitiesMap}),
   %%  retrive this device entities
-  HostEntities = maps:get(list_to_binary(HostName), ets:lookup_element(nerlnet_data, hosts, ?ETS_DATA_IDX)), % List of host entities
-  ets:insert(nerlnet_data, {hostEntities, HostEntities}),
+  DeviceName = maps:get(IPv4, IPv4ToDeviceNameMap), 
+  ?LOG_NOTICE("Device Name: ~p IPv4: ~p~n", [DeviceName , IPv4]),
+  ets:insert(nerlnet_data, {device_name, DeviceName}),
 
-  HostSpecialEntities = get_special_entities(JSONArchMap, HostEntities),
+  {IPv4 , DeviceEntities} = maps:get(DeviceName, DeviceNameToIPv4EntitiesMap),
+  ets:insert(nerlnet_data, {device_entities, DeviceEntities}),
+  ?LOG_NOTICE("Device Entities: ~p", [DeviceEntities]),
+  DeviceSpecialEntities = get_special_entities(JsonDCMap, DeviceEntities),
   SpecialEntityAttributeFunc = fun(SpecialEntity) -> ets:insert(nerlnet_data,SpecialEntity) end,
-  lists:foreach(SpecialEntityAttributeFunc, HostSpecialEntities),
-  ?LOG_NOTICE("Host special entities: ~p", [HostSpecialEntities]),
+  lists:foreach(SpecialEntityAttributeFunc, DeviceSpecialEntities),
+  ?LOG_NOTICE("Device special entities: ~p", [DeviceSpecialEntities]),
   %%  retrive THIS device Clients And Workers
-  ?LOG_NOTICE("Adding Host Entities:"),
-  ets:insert(nerlnet_data, {hostClients, get_host_clients(JSONArchMap, HostEntities, true)}),
+  ?LOG_NOTICE("Adding Device Entities:"),
+  ets:insert(nerlnet_data, {deviceClients, get_device_clients(JsonDCMap, DeviceEntities, true)}),
 
   %%  retrive this device of sources, [{SourceName, {Port, Method}}]
-  Sources = get_host_sources(JSONArchMap, HostEntities),
+  Sources = get_device_sources(JsonDCMap, DeviceEntities),
   ets:insert(nerlnet_data, {sources, maps:from_list(Sources)}), % Stores list of sources in ets as {SourceName, {Port, Method}}
 
   %%  retrive THIS device Routers, returns a list of tuples:[{RoutersArgumentsMap, ConnectionMap},..]
-  Routers = get_host_routers(JSONArchMap, HostEntities),
+  Routers = get_device_routers(JsonDCMap, DeviceEntities),
   ets:insert(nerlnet_data, {routers, maps:from_list(Routers)}). % Stores list of Routers in ets as {RouterName, {Port,Routing,Filtering}}
 
 
 %% all data of host is stored to an ets named table: nerlnet_data
-getHostEntities(ArchitectureMap,CommunicationMap, HostNameBin)->
+parseJsons(DCMap,CommunicationMap, ThisDeviceIP)->
   nerl_tools:setup_logger(?MODULE),
   % create nerlnet_data ets
   ets:new(nerlnet_data,[named_table, set]),
   
-  HostName = binary_to_list(HostNameBin), % the string form of hostname
-
   % ets name is nerlnet_data
-  json_to_ets(HostName, ArchitectureMap),
+  json_to_ets(ThisDeviceIP, DCMap),
   
   % use the nerlnet_data ets from this point
   %%This function returns a graph G, represents all the connections in nerlnet. each entitie should have a copy of it.
   NerlnetGraph = digraph:new(),
   ets:insert(nerlnet_data, {communicationGraph, NerlnetGraph}),
 
-  NerlnetGraph = buildCommunicationGraph(ArchitectureMap, CommunicationMap),
+  NerlnetGraph = buildCommunicationGraph(DCMap, CommunicationMap),
 
   % Sources = ets:lookup_element(nerlnet_data, sources, ?ETS_DATA_IDX),
   % VerticesNames = digraph:vertices(NerlnetGraph),
@@ -181,6 +218,8 @@ getHostEntities(ArchitectureMap,CommunicationMap, HostNameBin)->
 
   % add graph to ets
   % save log of data extracted from json
+
+  ?LOG_NOTICE("Save nerlnet_data to log file: ~p", [?NERLNET_DATA_ETS_LOG_DST]),
   ets:tab2file(nerlnet_data, ?NERLNET_DATA_ETS_LOG_DST). % TODO consider adding a timestamp
 
 %%---------------------------- Graph part ---------------------------------%%
@@ -188,62 +227,53 @@ getHostEntities(ArchitectureMap,CommunicationMap, HostNameBin)->
 %% This graph represents the connections withing NerlNet. edge=connection between two entities in the net, vertices = etities.
 %The vaule of each of the vertices contains the tuple {Host,Port} with the host and port of the cowboy server connected to the entitie.
 %TODO extract graph properties and info (longest path, vertices etc.)
-buildCommunicationGraph(ArchitectureMap, CommunicationMap)->
+buildCommunicationGraph(DCMap, CommunicationMap)->
   %Start building the graph one device at a time, than connect all routers with communicationMap json.
-  HostsMap = ets:lookup_element(nerlnet_data, hosts, ?ETS_DATA_IDX), % Map of all hosts with their entities in ETS_DATA_IDX
+  DevicesMap = ets:lookup_element(nerlnet_data, devices_map, ?ETS_DATA_IDX), % Map of device name to {IPv4 , Entities} in ETS_DATA_IDX
   NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?ETS_DATA_IDX),
   % adding vertices to graph
-  Func = fun(HostName, HostEntities) -> 
-      add_host_vertices(NerlnetGraph, ArchitectureMap, HostName, HostEntities) end, % add all entities vertices include mainServer and serverAPI
-  maps:foreach(Func , HostsMap),
+  Func = fun(DeviceName, {IPv4 , DeviceEntities}) -> 
+      add_device_vertices(NerlnetGraph, DCMap, DeviceName , IPv4, DeviceEntities) end, % add all entities vertices include mainServer and serverAPI
+  maps:foreach(Func , DevicesMap),
 
-  connectRouters(NerlnetGraph,ArchitectureMap,CommunicationMap),
-
-  %%connect serverAPI to Main Server
-  add_edges(NerlnetGraph,?API_SERVER_ATOM, ?MAIN_SERVER_ATOM),
+  connectRouters(NerlnetGraph,DCMap,CommunicationMap),
   
-  _ConnectedEntities = [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,?MAIN_SERVER_ATOM)],
-  %% TODO check if NerlGUI appears in list of vertices , if it appears a connection edge of NerlGUI to the main server here
   NerlnetGraph.
 
+% add all entities vertices of given device include mainServer and serverAPI to NerlnetGraph
+add_device_vertices(NerlnetGraph, DCMap , DeviceName , IPv4 , DeviceEntities)->
+  DeviceRouters = get_device_routers(DCMap, DeviceEntities),
+  DeviceSources = get_device_sources(DCMap, DeviceEntities),
+  DeviceClients = get_device_clients(DCMap, DeviceEntities),
+  DeviceSpecialEntities = get_special_entities(DCMap, DeviceEntities),
 
-add_host_vertices(NerlnetGraph, ArchitectureMap, HostName, HostEntities)->
-  HostNameStr = binary_to_list(HostName),
+  DeviceEntitiesMap = maps:from_list(DeviceRouters ++ DeviceSources ++ DeviceClients ++ DeviceSpecialEntities),
   
-  HostRouters = get_host_routers(ArchitectureMap, HostEntities),
-  HostSources = get_host_sources(ArchitectureMap, HostEntities),
-  HostClients = get_host_clients(ArchitectureMap, HostEntities),
-  HostSpecials = get_special_entities(ArchitectureMap, HostEntities),
-
-  HostAllEntitiesMap = maps:from_list(HostRouters ++ HostSources ++ HostClients ++ HostSpecials),
-  
-  ?LOG_NOTICE("Adding host ~p vertices to graph",[HostNameStr]),
-
   AddEntityToGraph = fun(EntityName, EntityData) -> 
       EntityPort = element(?PORT_IDX, EntityData),
-      ?LOG_NOTICE("Entity: ~p Port: ~p ~n",[EntityName,EntityPort]),
-        case EntityName of 
-          ?API_SERVER_ATOM ->   digraph:add_vertex(NerlnetGraph,EntityName, {element(?DATA_IDX, EntityData), EntityPort});
-          _Else ->              digraph:add_vertex(NerlnetGraph,EntityName, {HostName, EntityPort})   %% TODO: atom_to_binary(EntityName)
-        end
+      digraph:add_vertex(NerlnetGraph,EntityName, {IPv4, EntityPort , DeviceName})
       end,
 
-  maps:foreach(AddEntityToGraph , HostAllEntitiesMap),
+  maps:foreach(AddEntityToGraph , DeviceEntitiesMap),
   NerlnetGraph.
 
 
 
 %%connects all the routers in the network by the json configuration received in CommunicationMapAdderess
-connectRouters(Graph,_ArchitectureMap,CommunicationMap) -> 
+connectRouters(Graph,_DCMap,CommunicationMap) -> 
 
-    ConnectionsMapList = maps:to_list(maps:get(<<"connectionsMap">>,CommunicationMap)),
+    ConnectionsMapList = maps:to_list(maps:get(?CONN_MAP_FIELD_BIN,CommunicationMap)),
     TranslateJsonNamesToAtoms = fun({NameBin, EntitiesBin}) -> 
       Name = binary_to_atom(NameBin),
       [ {Name, binary_to_atom(EntityBin)} || EntityBin <- EntitiesBin]
     end,
     RoutersEdges = lists:flatten(lists:map(TranslateJsonNamesToAtoms, ConnectionsMapList)),
     ?LOG_INFO("RoutersEdges:~p~n",[RoutersEdges]),
-    AddEdgesFunc = fun({Router,Entity}) -> add_edges(Graph,Router,Entity)  end,
+    AddEdgesFunc = fun({Router,Entity}) -> 
+                      case Entity of 
+                        ?MAIN_SERVER_ATOM -> add_edges(Graph , Router , ?API_SERVER_ATOM);
+                        _ -> skip end, 
+                      add_edges(Graph,Router,Entity)  end,
     lists:foreach(AddEdgesFunc, RoutersEdges),
     StrongComponents = digraph_utils:strong_components(Graph),
     ?LOG_INFO("Graph update - strong components: ~p",[StrongComponents]),
@@ -270,3 +300,4 @@ add_edges(Graph, Vertex1, Vertex2) ->
     EdgeB -> skip; % appears in graph then don't add 
     true -> digraph:add_edge(Graph,Vertex2,Vertex1)
   end.
+

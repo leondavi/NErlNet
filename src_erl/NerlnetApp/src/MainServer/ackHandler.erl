@@ -18,9 +18,10 @@ init(Req0, [Who,Main_genserver_Pid]) ->
   {_,Body,_} = cowboy_req:read_body(Req0),
   % io:format("mainserver got ACK: ~p~n",[Body]),
   case Who of
-    source -> gen_server:cast(Main_genserver_Pid, {sourceAck,Body});      %% when source data is ready
+    dataReady -> gen_server:cast(Main_genserver_Pid, {sourceAckDataReady,Body});      %% when source data is ready
     sourceDone -> gen_server:cast(Main_genserver_Pid, {sourceDone,Body}); %% when source finished casting
-    client -> gen_server:cast(Main_genserver_Pid, {clientAck,Body})       %% when client received message (new state)
+    clientAck -> gen_server:cast(Main_genserver_Pid, {clientAck,Body});       %% when client received message (new state)
+    jsonReceived -> gen_server:cast(Main_genserver_Pid, {jsonReceived,Body}) %% when other devices got the json and ready to start
   end,
   Reply = io_lib:format("Body Received: ~p ~n ", [Body]),
   Req = cowboy_req:reply(200,

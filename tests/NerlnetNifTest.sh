@@ -34,6 +34,7 @@ cp $ERL_BRIDGE_SOURCE_PATH/nerlTests.erl $NERLNET_TEST_DIR/nerlTests.erl
 cp $ERL_BRIDGE_SOURCE_PATH/nerlNIF.erl $NERLNET_TEST_DIR/nerlNIF.erl
 cp $ERL_BRIDGE_SOURCE_PATH/nerl.erl $NERLNET_TEST_DIR/nerl.erl
 cp $ERL_BRIDGE_SOURCE_PATH/nerlTensor.hrl $NERLNET_TEST_DIR/nerlTensor.hrl
+cp $ERL_BRIDGE_SOURCE_PATH/nerlTensor.erl $NERLNET_TEST_DIR/nerlTensor.erl
 
 print "Starting compilation: "
 # only for raspberry
@@ -53,8 +54,9 @@ print "Running nerlTests.erl"
 COMPILE_NERLNIF="compile:file(\"nerlNIF.erl\")"
 COMPILE_NERLTEST="compile:file(\"nerlTests.erl\")"
 COMPILE_NERL="compile:file(\"nerl.erl\")"
+COMPILE_NERLTENSOR="compile:file(\"nerlTensor.erl\")"
 
-COMPILE_FILES="$COMPILE_NERL,$COMPILE_NERLNIF,$COMPILE_NERLTEST"
+COMPILE_FILES="$COMPILE_NERL,$COMPILE_NERLNIF,$COMPILE_NERLTEST,$COMPILE_NERLTENSOR"
 
 erl -noshell -eval "$COMPILE_FILES, nerlTests:run_tests()." -s init stop > "$NERLNET_TEST_DIR/$LOG_FILE" #TODO fix 
 rc=$(echo $?)
