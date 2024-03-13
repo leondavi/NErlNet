@@ -13,7 +13,7 @@ class NerlLayer
 {
     public:
     NerlLayer(int layer_type, std::vector<int> &layers_dims, int layer_functionality);
-    ~NerlLayer();
+    virtual ~NerlLayer();
 
     std::shared_ptr<NerlLayer> get_next_layer_ptr() {return _next_layer;};
     std::shared_ptr<NerlLayer> get_prev_layer_ptr() {return _prev_layer;};
@@ -44,15 +44,17 @@ class NerlLayerPooling : public NerlLayer
 {
     public:
 
-    NerlLayerPooling(int layer_type, std::vector<int> &layers_dims, int layer_functionality, std::vector<int> &pooling_dims);
+    NerlLayerPooling(int layer_type, std::vector<int> &layers_dims, int layer_functionality, std::vector<int> &pooling_dims, std::vector<int> &stride_dims,std::vector<int> &padding_dims);
     ~NerlLayerPooling();
 
-    void get_pooling_dims(std::vector<int> &pooling_dims) {pooling_dims = this->pooling_dims;};
+    int get_dim_pooling_size(int dim_idx) {return _pooling_dims[dim_idx];}; // index 0 is the first dim
+    int get_stride(int dim_idx) {return _stride_dims[dim_idx];}; // index 0 is the first dim
+    int get_padding_size(int dim_idx) {return _padding_dims[dim_idx];}; // index 0 is the first dim
 
     private:
-    std::vector<int> pooling_dims; //TODO
-
-
+    std::vector<int> _pooling_dims; 
+    std::vector<int> _stride_dims; 
+    std::vector<int> _padding_dims; 
 };
 
 class NerlLayerCNN : public NerlLayer
@@ -60,13 +62,19 @@ class NerlLayerCNN : public NerlLayer
     public:
 
     NerlLayerCNN(int layer_type, std::vector<int> &layers_dims, int layer_functionality,
-                 std::vector<int> kernel_size, std::vector<int> &stride_dims, std::vector<int> padding_size);
-    ~NerlLayerCNN();
+                 std::vector<int> kernel_size, std::vector<int> &stride_dims, std::vector<int> padding_size,std::vector<int> type);
+    virtual ~NerlLayerCNN();
+
+    int get_dim_kernel_size(int dim_idx) {return _kernel_size[dim_idx];}; // index 0 is the first dim
+    const int get_stride(int dim_idx) {return _stride_dims[dim_idx];}; // index 0 is the first dim
+    const int get_type_conv() {return _type_conv[0];}; // index 0 is the first dim
+    int get_padding_size(int dim_idx) {return _padding_size[dim_idx];}; // index 0 is the first dim
 
     private:
     std::vector<int> _kernel_size;
     std::vector<int> _stride_dims;
     std::vector<int> _padding_size;
+    std::vector<int> _type_conv;
 };
 
 } // namespace nerlnet

@@ -1,12 +1,12 @@
 #include "nerlWorkerOpenNN.h"
-
+#include "ae_red.h"
 using namespace opennn;
 
 namespace nerlnet
 {
 // ----- NerlWorkerOpenNN -----
 
-    NerlWorkerOpenNN::NerlWorkerOpenNN(int model_type, std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
+    NerlWorkerOpenNN::NerlWorkerOpenNN(int model_type,std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
                      float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
                      int loss_method, int distributed_system_type, std::string &distributed_system_args_str) : NerlWorker(model_type, layer_sizes_str, layer_types_list, layers_functionality,
                                                                                                                       learning_rate, epochs, optimizer_type, optimizer_args_str,
@@ -16,12 +16,98 @@ namespace nerlnet
         generate_opennn_neural_network();
         _training_strategy_ptr = std::make_shared<opennn::TrainingStrategy>();
         generate_training_strategy();
-        //TODO Ori and Nadav - implement training strategy (loss method, optimizer type, epochs, only sgd and adam)
+        _ae_red_ptr = std::make_shared<AeRed>();
     }
 
     NerlWorkerOpenNN::~NerlWorkerOpenNN()
     {
 
+    }
+
+        void NerlWorkerOpenNN::post_training_process()
+    {
+        switch(_model_type){
+            case MODEL_TYPE_NN:
+            {
+                break;
+            }
+            case MODEL_TYPE_AUTOENCODER: // Get Loss Values by class LossIndexBackPropagationLM
+            {
+                // std::shared_ptr<TrainingStrategy> training_strategy_ptr = get_training_strategy_ptr();
+                // OptimizationAlgorithm* optimizer = training_strategy_ptr->get_optimization_algorithm_pointer();
+                // LossIndex* loss_index = optimizer->get_loss_index_pointer();
+                // std::shared_ptr<NeuralNetwork> _neural_network_pointer = get_neural_network_ptr();
+                // Tensor<Layer*, 1> trainable_layers_pointers = _neural_network_pointer->get_trainable_layers_pointers();
+                // cout << "Gradient: " << trainable_layers_pointers[0] << endl;
+                // cout << "LossType: " << loss_index->get_error_type() << endl;
+
+            }
+            case MODEL_TYPE_AE_CLASSIFIER: // Get Loss Values , Add RED support - David's Thesis
+            {
+                std::shared_ptr<opennn::NeuralNetwork> neural_network = get_neural_network_ptr();
+                Index num_of_samples = _aec_data_set->dimension(0);
+                Index inputs_number = neural_network->get_inputs_number();
+                fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
+                Tensor<Index, 1> inputs_dimensions(2);
+                inputs_dimensions.setValues({num_of_samples, inputs_number});
+                // SAV 
+                fTensor2D absoluteDifferences = (*calculate_res - *_aec_data_set).abs();
+                fTensor1D loss_values_sav = absoluteDifferences.sum(Eigen::array<int, 1>({1}));
+                // MSE
+                fTensor1D loss_values_mse = (float)1/_aec_data_set->dimension(0) * (*calculate_res - *_aec_data_set).pow(2).sum(Eigen::array<int, 1>({1}));
+                //cout << "Loss Values (MSE):" << endl << loss_values_mse << endl;
+                fTensor1DPtr res_sav = _ae_red_ptr->update_batch(loss_values_sav);
+                fTensor1DPtr res_mse = _ae_red_ptr->update_batch(loss_values_mse);
+                //cout << "AE_RED RESULT VECTOR:" << endl << *res_mse << endl;
+            }
+
+                
+            
+            // case MODEL_TYPE_LSTM:
+            // {
+            //     break;
+            // }
+            // case MODEL_TYPE_RECURRENT:
+            // {
+            //     break;
+            // }
+        } 
+    }
+
+        void NerlWorkerOpenNN::post_predict_process(fTensor2DPtr result_ptr){
+        switch(_model_type){
+            case MODEL_TYPE_NN:
+            {
+                break;
+            }
+            case MODEL_TYPE_AUTOENCODER:
+            {
+                break;
+            }
+            case MODEL_TYPE_AE_CLASSIFIER:
+            {
+                std::shared_ptr<opennn::NeuralNetwork> neural_network = get_neural_network_ptr();
+                Index num_of_samples = _aec_data_set->dimension(0);
+                Index inputs_number = neural_network->get_inputs_number();
+                fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
+                Tensor<Index, 1> inputs_dimensions(2);
+                inputs_dimensions.setValues({num_of_samples, inputs_number});
+                fTensor2D absoluteDifferences = (*calculate_res - *_aec_data_set).abs();
+                fTensor1D loss_values = absoluteDifferences.sum(Eigen::array<int, 1>({1}));
+                //cout << "Loss Values:" << endl << loss_values << endl;
+                fTensor1DPtr res = _ae_red_ptr->update_batch(loss_values);
+                //cout << "AE_RED RESULT VECTOR:" << endl << *res << endl;
+            }
+            // case MODEL_TYPE_LSTM:
+            // {
+            //     break;
+            // }
+            // case MODEL_TYPE_RECURRENT:
+            // {
+            //     break;
+            // }
+        }
+    
     }
 
     /**
@@ -31,8 +117,9 @@ namespace nerlnet
     void NerlWorkerOpenNN::generate_training_strategy()
     {
      _training_strategy_ptr->set_neural_network_pointer(_neural_network_ptr.get()); // Neural network must be defined at this point
-    _training_strategy_ptr->set_optimization_method((opennn::TrainingStrategy::OptimizationMethod) translate_optimizer_type_int(_optimizer_type));
-     _training_strategy_ptr->set_loss_method((opennn::TrainingStrategy::LossMethod) translate_loss_method_int(_loss_method)); 
+     set_optimization_method(_optimizer_type,_learning_rate);
+     set_loss_method(_loss_method);
+     //cout << "_epochs = " << _epochs << endl;
      _training_strategy_ptr->set_maximum_epochs_number(_epochs); 
      _training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); // remove opennn training strategy prints
     }

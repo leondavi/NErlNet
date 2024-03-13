@@ -35,6 +35,8 @@ set(SRC_CODE
 	"nerlWorkerOpenNN.h"
 	"nerlWorkerOpenNN.cpp"
 	"nerlWorkerNIF.h"
+	"ae_red.cpp"
+	"ae_red.h"
 	)
 
 add_library(${PROJECT_NAME} SHARED ${SRC_CODE})

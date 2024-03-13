@@ -15,12 +15,20 @@ std::vector<std::string> split_strings_by_comma(std::string &str) {
     return result;
 }
 
-std::vector<std::string> matchRegex(std::string &input, std::regex re) {
+// check if string is only an single integer number
+bool is_integer_number(const std::string &input_str) {
+    std::regex reg_num ("^\\d+$");
+    if (std::regex_match(input_str,reg_num)) return true;
+    return false;
+}
+
+// This function modifies the input string!
+std::vector<std::string> matchRegex(std::string &input_str, std::regex re) {
     std::vector<std::string> result;
     std::smatch match;
-    while (std::regex_search(input, match, re)) {
+    while (std::regex_search(input_str, match, re)) {
         result.push_back(match.str());
-        input = match.suffix().str();
+        input_str = match.suffix().str();
     }
     return result;
 }

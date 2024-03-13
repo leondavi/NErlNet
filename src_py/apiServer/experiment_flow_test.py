@@ -110,7 +110,11 @@ baseline_loss_min = import_dict_json(TEST_BASELINE_LOSS_MIN)
 baseline_performance_stats = import_dict_pickle(TESTS_BASELINE_MODEL_STATS)
 
 baseline_loss_min_avg = average_list(list(baseline_loss_min.values()))
-
+print("*************************************")
+print("*************************************")
+print("*************************************")
+print("*************************************")
+print("*************************************")
 for worker in loss_min_dict.keys():
     dist_from_avg_anomaly = abs(loss_min_dict[worker] - baseline_loss_min_avg)
     if dist_from_avg_anomaly > TEST_ACCEPTABLE_MARGIN_OF_ERROR:
