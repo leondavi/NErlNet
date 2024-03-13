@@ -118,12 +118,11 @@ namespace nerlnet
     **/
     void NerlWorkerOpenNN::generate_training_strategy()
     {
-     _training_strategy_ptr->set_neural_network_pointer(_neural_network_ptr.get()); // Neural network must be defined at this point
-     set_optimization_method(_optimizer_type,_learning_rate);
-     set_loss_method(_loss_method);
-     //cout << "_epochs = " << _epochs << endl;
-     _training_strategy_ptr->set_maximum_epochs_number(_epochs); 
-     _training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); // remove opennn training strategy prints
+  _training_strategy_ptr->set_neural_network_pointer(_neural_network_ptr.get()); // Neural network must be defined at this point
+    set_optimization_method(_optimizer_type,_learning_rate);
+    set_loss_method(_loss_method);
+    _training_strategy_ptr->set_maximum_epochs_number(_epochs); 
+    _training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); 
     }
 
     void NerlWorkerOpenNN::set_optimization_method(int optimizer_type,int learning_rate){
@@ -131,6 +130,7 @@ namespace nerlnet
         _optimizer_type = optimizer_type;
         //cout << "optimizer_type = " << optimizer_type << endl;
         _training_strategy_ptr->set_optimization_method(translate_optimizer_type(optimizer_type));
+        /*
         switch(_optimizer_type){
             case OPTIMIZER_GD:
             {
@@ -159,6 +159,7 @@ namespace nerlnet
                 break;
             }
         }
+          */
     }
 
     void NerlWorkerOpenNN::set_loss_method(int loss_method){
