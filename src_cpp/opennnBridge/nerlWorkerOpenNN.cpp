@@ -25,7 +25,7 @@ namespace nerlnet
 
     }
 
-    void NerlWorkerOpenNN::post_training_process()
+    void NerlWorkerOpenNN::post_training_process(fTensor2DPtr TrainData)
     {
         switch(_model_type){
             case MODEL_TYPE_NN:
@@ -48,9 +48,10 @@ namespace nerlnet
                 std::shared_ptr<opennn::NeuralNetwork> neural_network = get_neural_network_ptr();
                 Index num_of_samples = _aec_data_set->dimension(0);
                 Index inputs_number = neural_network->get_inputs_number();
-                fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
                 Tensor<Index, 1> inputs_dimensions(2);
                 inputs_dimensions.setValues({num_of_samples, inputs_number});
+                fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
+                *calculate_res = neural_network->calculate_outputs(TrainData->data(), inputs_dimensions);
                 // SAV 
                 fTensor2D absoluteDifferences = (*calculate_res - *_aec_data_set).abs();
                 fTensor1D loss_values_sav = absoluteDifferences.sum(Eigen::array<int, 1>({1}));
@@ -91,14 +92,15 @@ namespace nerlnet
                 std::shared_ptr<opennn::NeuralNetwork> neural_network = get_neural_network_ptr();
                 Index num_of_samples = _aec_data_set->dimension(0);
                 Index inputs_number = neural_network->get_inputs_number();
-                fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
-                Tensor<Index, 1> inputs_dimensions(2);
-                inputs_dimensions.setValues({num_of_samples, inputs_number});
-                fTensor2D absoluteDifferences = (*calculate_res - *_aec_data_set).abs();
-                fTensor1D loss_values = absoluteDifferences.sum(Eigen::array<int, 1>({1}));
-                //cout << "Loss Values:" << endl << loss_values << endl;
-                fTensor1DPtr res = _ae_red_ptr->update_batch(loss_values);
-                //cout << "AE_RED RESULT VECTOR:" << endl << *res << endl;
+                // SAV 
+                fTensor2D absoluteDifferences = (*result_ptr - *_aec_data_set).abs();
+                fTensor1D loss_values_sav = absoluteDifferences.sum(Eigen::array<int, 1>({1}));
+                // MSE
+                fTensor1D loss_values_mse = (float)1/_aec_data_set->dimension(0) * (*result_ptr - *_aec_data_set).pow(2).sum(Eigen::array<int, 1>({1}));
+                //cout << "Loss Values (MSE):" << endl << loss_values_mse << endl;
+                fTensor1DPtr res_sav = _ae_red_ptr->update_batch(loss_values_sav);
+                fTensor1DPtr res_mse = _ae_red_ptr->update_batch(loss_values_mse);
+                //cout << "AE_RED RESULT VECTOR:" << endl << *res_mse << endl;
             }
             // case MODEL_TYPE_LSTM:
             // {
