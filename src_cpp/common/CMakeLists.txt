@@ -1,6 +1,7 @@
 project(common)
 
 set(NIFPP_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../nifpp/")
+set(SIMPLE_LOGGER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../simple-cpp-logger/include")
 
 set(SRC_CODE
     "common_definitions.h"
@@ -19,4 +20,5 @@ add_library(common SHARED ${SRC_CODE})
 
 target_include_directories(common PUBLIC .
     ${NIFPP_PATH}
+    ${SIMPLE_LOGGER_PATH}
 )
