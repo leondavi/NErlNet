@@ -272,13 +272,11 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList =
 handle_cast({startCasting,SourcesNames}, State = #main_genserver_state{state = idle, sourcesCastingList=CastingList, sourcesWaitingList = [], clientsWaitingList = []}) ->
   put(curr_phase_ack , start_casting_done),
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
-  io:format("@MainServer startCasting Body ~p~n",[binary_to_list(SourcesNames)]),
   stats:increment_messages_received(StatsEts),
   SourcesList = re:split(binary_to_list(SourcesNames), "," , [{return, list}]), 
   %% NumOfSampleToSend = lists:last(Splitted),
   %% Sources = lists:sublist(Splitted,length(Splitted)-1),
   SourcesAtoms = [list_to_atom(Source_Name) || Source_Name <- SourcesList],
-  io:format("Sources: ~p~n",[SourcesList]),
   
   sources_start_casting(SourcesList), % each source gets a unicast message of start casting action
   stats:increment_messages_sent(StatsEts, length(SourcesList)),
