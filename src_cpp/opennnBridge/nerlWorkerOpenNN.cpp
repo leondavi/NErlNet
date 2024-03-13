@@ -119,9 +119,8 @@ namespace nerlnet
     void NerlWorkerOpenNN::generate_training_strategy()
     {
      _training_strategy_ptr->set_neural_network_pointer(_neural_network_ptr.get()); // Neural network must be defined at this point
-     set_optimization_method(_optimizer_type,_learning_rate);
-     set_loss_method(_loss_method);
-     //cout << "_epochs = " << _epochs << endl;
+    _training_strategy_ptr->set_optimization_method((opennn::TrainingStrategy::OptimizationMethod) translate_optimizer_type_int(_optimizer_type));
+     _training_strategy_ptr->set_loss_method((opennn::TrainingStrategy::LossMethod) translate_loss_method_int(_loss_method)); 
      _training_strategy_ptr->set_maximum_epochs_number(_epochs); 
      _training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); // remove opennn training strategy prints
     }
