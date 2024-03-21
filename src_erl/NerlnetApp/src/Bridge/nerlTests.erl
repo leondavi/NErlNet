@@ -310,17 +310,19 @@ nerlworker_test([CurrentModel | Tail], Performance) ->
       TicNIF = nerl:tic(),
       nerlNIF:train_nif(ModelId , NerlTensorDataBinTrain , NerlTensorDataBinType), % ask Guy about receiver block
 
-      receive 
-            {nerlnif , _LossValue , _TrainTime} ->
-                  % io:format("Got LossValue~n")
+      receive
+            {nerlnif, nan, _TrainTime} ->
+                  logger:warning(?NERLTEST_PRINT_STR++"Got nan loss value");
+            {nerlnif , _LossTensor, _LossTensorType , TrainTime} ->
+                  nerltest_print(nerl:string_format("train time: ~pms",[TrainTime/1000])),
                   ok
       after 100000 -> throw("timeout")
       end,
       %block receive to get loss values from worker
       nerlNIF:predict_nif(ModelId , NerlTensorDataBinPredict , NerlTensorDataBinType),
       receive 
-            {nerlnif , _PredNerlTensor, _NewType, _TimeTook} ->
-                  % io:format("Got Pred~n")
+            {nerlnif , _PredNerlTensor, _NewType, TimeTook} ->
+                  nerltest_print(nerl:string_format("predict time: ~pms",[TimeTook/1000])),
                   ok
       after 100000 -> throw("timeout")
       end,

@@ -9,6 +9,7 @@ void* trainFun(void* arg)
 
     double loss_val;
     ErlNifEnv *env = enif_alloc_env();    
+    ERL_NIF_TERM nerlnif_atom = enif_make_atom(env, NERLNIF_ATOM_STR);
 
     //cout << "TrainNNptr->data = " << *(TrainNNptr->data) << endl;
    // data_set.set_data(*(TrainNNptr->data));
@@ -30,24 +31,28 @@ void* trainFun(void* arg)
     // Stop the timer and calculate the time took for training
     high_resolution_clock::time_point  stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - TrainNNptr->start_time);
-    ERL_NIF_TERM loss_val_term;
 
-    if(isnan(loss_val)  ) 
+    ERL_NIF_TERM train_res_and_time;
+    ERL_NIF_TERM train_time = enif_make_double(env, duration.count());
+
+    if(isnan(loss_val)) 
     {
+        ERL_NIF_TERM loss_val_term;
         loss_val_term = enif_make_atom(env , NERLNIF_NAN_ATOM_STR);
         cout << NERLNIF_PREFIX << "loss val = nan , setting NN weights to random values" <<std::endl;
-        neural_network_ptr->set_parameters_random();
+        neural_network_ptr->set_parameters_random();// TODO investigate this approache
+        train_res_and_time = enif_make_tuple(env, 3 , nerlnif_atom , loss_val_term , train_time);
+
     }
     else {
-        loss_val_term = enif_make_double(env, loss_val);
+        fTensor2DPtr loss_val_tensor = std::make_shared<fTensor2D>(1, 1); // allocate tensor for loss value
+        (*loss_val_tensor)(0, 0) = static_cast<float>(loss_val); // set loss value to tensor
+        nifpp::TERM loss_val_tensor_term; // allocate erl term for loss value tensor
+        nifpp::make_tensor_2d<float,fTensor2D>(env, loss_val_tensor_term, loss_val_tensor);
+        train_res_and_time = enif_make_tuple(env, 4 , nerlnif_atom , loss_val_tensor_term , nifpp::make(env, TrainNNptr->return_tensor_type), train_time);
     }
-    ERL_NIF_TERM train_time = enif_make_double(env, duration.count());
-    ERL_NIF_TERM nerlnif_atom = enif_make_atom(env, NERLNIF_ATOM_STR);
 
-    ERL_NIF_TERM train_res_and_time = enif_make_tuple(env, 3 , nerlnif_atom , loss_val_term , train_time);
-
-
-    if(enif_send(NULL,&(TrainNNptr->pid), env,train_res_and_time)){
+    if(enif_send(NULL,&(TrainNNptr->pid), env, train_res_and_time)){
         //  printf("enif_send train succeed\n");
     }
     else 
