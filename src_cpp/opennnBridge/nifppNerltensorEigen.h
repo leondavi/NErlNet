@@ -129,7 +129,7 @@ namespace nifpp
         {
             std::shared_ptr<Eigen::Tensor<BasicType,CASE_2D,Eigen::RowMajor>>  tensor_ptr_rowmaj;
             colmajor_to_rowmajor_2d<BasicType, Eigen::Tensor<BasicType,CASE_2D>>(tensor_ptr, tensor_ptr_rowmaj);
-            dims_vec_from_tensor<BasicType,std::shared_ptr<Eigen::Tensor<BasicType,CASE_2D>>>(tensor_ptr, dims_vec, CASE_2D, tensor_total_size);
+            dims_vec_from_tensor<BasicType,std::shared_ptr<Eigen::Tensor<BasicType,CASE_2D,Eigen::RowMajor>>>(tensor_ptr_rowmaj, dims_vec, CASE_2D, tensor_total_size);
             data_bytes_ptr = tensor_ptr_rowmaj->data();
             
             // copy data
@@ -164,7 +164,6 @@ namespace nifpp
     */
     template<typename BasicType, typename EigenTypePtr, typename EigenType> int get_tensor_1d(ErlNifEnv *env , ERL_NIF_TERM bin_term, EigenTypePtr &tensor_ptr)
     {
-        enum {WRONG_DIM_ERR = -1, CASE_1D = 1, CASE_2D = 2, CASE_3D = 3};
         ErlNifBinary bin;
         int ret = enif_inspect_binary(env, bin_term, &bin);
         assert((ret != 0, "not a binary"));
@@ -193,7 +192,6 @@ namespace nifpp
 
     template<typename BasicType, typename EigenTypePtr, typename EigenType> int get_tensor_2d(ErlNifEnv *env , ERL_NIF_TERM bin_term, EigenTypePtr &tensor_ptr)
     {
-        enum {WRONG_DIM_ERR = -1, CASE_1D = 1, CASE_2D = 2, CASE_3D = 3};
         ErlNifBinary bin;
         int ret = enif_inspect_binary(env, bin_term, &bin);
         assert(ret != 0);
@@ -223,7 +221,6 @@ namespace nifpp
 
    template<typename BasicType, typename EigenTypePtr, typename EigenType> int get_tensor_3d(ErlNifEnv *env , ERL_NIF_TERM bin_term, EigenTypePtr &tensor_ptr)
     {
-        enum {WRONG_DIM_ERR = -1, CASE_1D = 1, CASE_2D = 2, CASE_3D = 3};
         ErlNifBinary bin;
         int ret = enif_inspect_binary(env, bin_term, &bin);
         assert(ret != 0);
