@@ -162,9 +162,8 @@ idle(cast, _Param, State) ->
 %% Waiting for receiving results or loss function
 %% Got nan or inf from loss function - Error, loss function too big for double
 wait(cast, {loss , nan , TimeNIF , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState}) ->
-  ?LOG_WARNING("~p , BatchID ~p training loss value in nan" , [MyName, BatchID]),
   stats:increment_by_value(get(worker_stats_ets), nan_loss_count, 1),
-  gen_statem:cast(get(client_pid),{loss, MyName , SourceName ,nan , TimeNIF ,BatchID}), %% TODO send to tal stop casting request with error desc
+  gen_statem:cast(get(client_pid),{loss, MyName , SourceName ,nan , TimeNIF ,BatchID}),
   {next_state, NextState, State};
 
 wait(cast, {loss, LossTensor , TimeNIF , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->

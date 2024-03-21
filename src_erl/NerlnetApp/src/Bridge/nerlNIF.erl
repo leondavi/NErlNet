@@ -24,7 +24,7 @@
 
 init() ->
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
-      io:format("PATH: ~p~n",[NELNET_LIB_PATH]),
+      % io:format("PATH: ~p~n",[NELNET_LIB_PATH]),
       RES = erlang:load_nif(NELNET_LIB_PATH, 0), %% CRASHES HERE
       RES.
 
@@ -48,20 +48,16 @@ update_nerlworker_train_params_nif(_ModelID,_LearningRate,_Epochs,_OptimizerType
       exit(nif_library_not_loaded).
 
 call_to_train(ModelID, {DataTensor, Type}, WorkerPid , BatchID , SourceName)-> 
-      % io:format("before train  ~n "),
-      % io:format("DataTensor= ~p~n ",[nerltensor_conversion({DataTensor, Type}, erl_float)]),
-       %{FakeTensor, Type} = nerltensor_conversion({[2.0,4.0,1.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0], erl_float}, float),
       ok = train_nif(ModelID, DataTensor, Type),
-      %io:format("Train Time= ~p~n ",[RetVal]),
       receive
-            {nerlnif , LossValue , TrainTime}->
-                  % io:format("Ret= ~p~n ",[Ret]),
-                  %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
-                  LossTensor = nerltensor_encode(1.0,1.0,1.0,[LossValue], erl_float), %% ALWAYS {[1.0,1.0,1.0,LOSS_VALUE] , <TYPE>}
-                  gen_statem:cast(WorkerPid,{loss, LossTensor , TrainTime , BatchID , SourceName}) % TODO @Haran - please check what worker does with this Ret value 
+            {nerlnif, nan, TrainTime} -> 
+                  gen_statem:cast(WorkerPid,{loss, nan , TrainTime , BatchID , SourceName}); %TODO Guy - Please the behavior when this case happens
+            {nerlnif , LossTensor, LossTensorType , TrainTime}->
+                  {ErlTensor, ErlTensorType} = nerltensor_conversion({LossTensor, LossTensorType}, erl_float), % TODO Guy - Please do the conversion in main server
+                  gen_statem:cast(WorkerPid,{loss, {ErlTensor, ErlTensorType} , TrainTime , BatchID , SourceName})
             after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
-                  ?LOG_ERROR("Worker train timeout reached! setting loss = -1~n "),
-                  gen_statem:cast(WorkerPid,{loss, timeout , SourceName}) %% Define train timeout state 
+                  ?LOG_ERROR("Worker train timeout reached! bid:~p s:~p",[BatchID , SourceName]),
+                  gen_statem:cast(WorkerPid,{loss, timeout , SourceName}) %% TODO Guy Define train timeout state 
       end.
 
 call_to_predict(ModelID, {BatchTensor, Type}, WorkerPid, BatchID , SourceName)->
@@ -125,6 +121,7 @@ validate_nerltensor_erl(NerlTensorErl) when is_list(NerlTensorErl) ->
             true -> false
       end.
 
+%% return {Binary, BinaryType}
 nerltensor_encode(X,Y,Z,List,Type) when is_number(X) and is_number(Y) and
                                         is_number(Z) and is_list(List) and is_atom(Type)->
       TensorExpectedLength = trunc(X*Y*Z),
