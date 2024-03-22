@@ -199,8 +199,10 @@ parseJsonAndStartNerlnet(ThisDeviceIP) ->
 send_jsons_to_other_devices(_DCJsonFileBytes, _CommunicationMapFileBytes, []) -> ?LOG_INFO("This experiment is running on a single device!",[]);
 send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, DevicesList) ->
     Fun = fun({DeviceNameAtom, {IPv4, _Entities}}) ->
+        io:format("params: ~p",[{DeviceNameAtom, {IPv4, _Entities}}]),
         ?LOG_INFO("Sending jsons to ~p",[DeviceNameAtom]),
-        {ok, _} = httpc:request(post, {IPv4 ++ ":" ++ integer_to_list(?NERLNET_INIT_PORT) ++ "/sendJsons", [], "application/json", term_to_binary({DCJsonFileBytes , CommunicationMapFileBytes})}, [], [])
+        URL = "http://" ++ IPv4 ++ ":" ++ integer_to_list(?NERLNET_INIT_PORT) ++ "/sendJsons",
+        {ok, _} = httpc:request(post, {URL, [], "application/json", term_to_binary({DCJsonFileBytes , CommunicationMapFileBytes})}, [], [])
     end,
     lists:foreach(Fun, DevicesList).
 
