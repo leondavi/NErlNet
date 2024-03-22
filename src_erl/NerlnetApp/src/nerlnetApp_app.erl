@@ -184,7 +184,7 @@ parseJsonAndStartNerlnet(ThisDeviceIP) ->
     HostOfMainServer = ets:member(nerlnet_data, mainServer),
     ThisDeviceName = maps:get(ThisDeviceIP , ets:lookup_element(nerlnet_data , ipv4_to_devices , ?DATA_IDX)),
     DevicesMap = ets:lookup_element(nerlnet_data, devices_map , ?DATA_IDX), % format of key value pairs: DeviceName => {Host,Port}
-    DevicesListWithoutMainServerDevice = maps:to_list(maps:remove(ThisDeviceName, DevicesMap)), %% Form: [{device_atom , {IP,Port}} , ..]
+    DevicesListWithoutMainServerDevice = maps:to_list(maps:remove(ThisDeviceName, DevicesMap)), %% Form: [{DeviceNameAtom , {IPv4, Entities}}, ..]
     createMainServer(HostOfMainServer,BatchSize,ThisDeviceIP , ThisDeviceName),
     if 
         HostOfMainServer -> 
@@ -197,10 +197,10 @@ parseJsonAndStartNerlnet(ThisDeviceIP) ->
     httpc:request(post , {URL , [] , "application/x-www-form-urlencoded" , term_to_binary({ThisDeviceName , length(DevicesListWithoutMainServerDevice)})}, [], []).
 
 send_jsons_to_other_devices(_DCJsonFileBytes, _CommunicationMapFileBytes, []) -> ?LOG_INFO("This experiment is running on a single device!",[]);
-send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, DevicesList) -> 
-    Fun = fun({DeviceName, {Host, Port}}) -> 
-        ?LOG_INFO("Sending jsons to ~p",[DeviceName]),
-        {ok, _} = httpc:request(post, {Host ++ ":" ++ integer_to_list(Port) ++ "/sendJsons", [], "application/json", term_to_binary({DCJsonFileBytes , CommunicationMapFileBytes})}, [], [])
+send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, DevicesList) ->
+    Fun = fun({DeviceNameAtom, {IPv4, _Entities}}) ->
+        ?LOG_INFO("Sending jsons to ~p",[DeviceNameAtom]),
+        {ok, _} = httpc:request(post, {IPv4 ++ ":" ++ integer_to_list(?NERLNET_INIT_PORT) ++ "/sendJsons", [], "application/json", term_to_binary({DCJsonFileBytes , CommunicationMapFileBytes})}, [], [])
     end,
     lists:foreach(Fun, DevicesList).
 
