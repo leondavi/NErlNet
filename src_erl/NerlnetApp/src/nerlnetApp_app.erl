@@ -20,6 +20,9 @@
 -behaviour(application).
 -include("nerl_tools.hrl").
 
+-define(NERLNET_APP_VERSION, "1.4.0").
+-define(NERLPLANNER_TESTED_VERSION,"1.0.0").
+
 -export([start/2, stop/1]).
 
 -import(nerlNIF,[nif_preload/0]).
@@ -85,13 +88,23 @@ welcome_print() ->
                                                                                                                                                 
 ~n~n").
 
+legal_print() ->
+    io:format("Nerlnet OTP Application is given without any warranty.~n"),
+    io:format("There is no commitiment or responsibility for results, damage, loss that can be caused by using this tool.~n"),
+    io:format("Please review the license of Nerlnet on Github repository: "),
+    io:format("www.github.com/leondavi/NErlNet~n"),
+    io:format("You must cite Nerlnet if you use any of its tools for academic/commercial/any purpose.~n~n").
+
 start(_StartType, _StartArgs) ->
+    legal_print(),
     welcome_print(),
     %% setup the erlang logger for this module 
     nerl_tools:setup_logger(?MODULE),
     %% make sure nif can be loaded:
     nerlNIF:nif_preload(),
     ThisDeviceIP = nerl_tools:getdeviceIP(),
+    ?LOG_INFO("Nerlnet version ~s",[?NERLNET_APP_VERSION]),
+    ?LOG_INFO("Nerlplanner tested version ~s",[?NERLPLANNER_TESTED_VERSION]),
     ?LOG_INFO("Installed Erlang OTP: ~s (Supported from 25)",[erlang:system_info(otp_release)]),
     ?LOG_INFO(?LOG_HEADER++"This device IP: ~p~n", [ThisDeviceIP]),
     os:cmd("nohup sh -c 'sleep 5 && echo hey > /tmp/detached.txt' &"), %% ** FOR FUTURE RESET FUNCTIONALITY **
