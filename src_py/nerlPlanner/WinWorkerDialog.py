@@ -202,7 +202,7 @@ def WinWorkerDialog():
             if DistributedSystemType == "none":
                 DistributedSystemToken = "none"
             # Update here when adding new fields to the worker 
-            worker_parameters_conditions = bool(LayersSizesList) and bool(ModelTypeStr) and bool(ModelType) and\
+            worker_parameters_conditions = bool(LayersSizesList) and bool(ModelTypeStr) and (ModelType >= 0) and\
                                            bool(OptimizationType) and bool(LossMethodStr) and bool(LossMethod) and\
                                            bool(LearningRate) and bool(LayersFunctionsList) and bool(LayersSizesList) and bool(Epochs) and bool(InfraType) and\
                                            bool(DistributedSystemType) and bool(DistributedSystemToken)
