@@ -202,7 +202,7 @@ send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, DevicesL
         io:format("params: ~p",[{DeviceNameAtom, {IPv4, _Entities}}]),
         ?LOG_INFO("Sending jsons to ~p",[DeviceNameAtom]),
         URL = "http://" ++ IPv4 ++ ":" ++ integer_to_list(?NERLNET_INIT_PORT) ++ "/sendJsons",
-        {ok, _} = httpc:request(post, {URL, [], "application/json", term_to_binary({DCJsonFileBytes , CommunicationMapFileBytes})}, [], [])
+        {ok, _} = httpc:request(post, {URL, [], "multipart/form-data", term_to_binary({DCJsonFileBytes , CommunicationMapFileBytes})}, [], [])
     end,
     lists:foreach(Fun, DevicesList).
 
