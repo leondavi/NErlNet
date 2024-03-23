@@ -78,12 +78,12 @@ class trainRes(Resource):
         #print(f"Received training result {resData}") # Todo remove print
         current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase() 
         raw_data_buffer = current_experiment_phase.get_raw_data_buffer()
-        raw_data_buffer.append(resData)
+        
+        entities_raw_data_list = split_results_to_entities_chunks(resData)
+        raw_data_buffer += entities_raw_data_list
 
         transmitter = receiver.config['TRANSMITTER']
         transmitter.send_batch_received_ack()
-
-        sleep(0.005) # This is necessary for flask - TODO we must move to production sever or reduce number of transactions
         return "OK", 200
 
 #http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++BatchID++"#"++CSVName++"#"++BatchSize)
@@ -94,11 +94,12 @@ class predictRes(Resource):
         resData = request.get_data().decode('utf-8')
         current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase() 
         raw_data_buffer = current_experiment_phase.get_raw_data_buffer()
-        raw_data_buffer.append(resData)
+        
+        entities_raw_data_list = split_results_to_entities_chunks(resData)
+        raw_data_buffer += entities_raw_data_list
 
         transmitter = receiver.config['TRANSMITTER']
         transmitter.send_batch_received_ack()
-        sleep(0.005) # This is necessary for flask - TODO we must move to production sever or reduce number of transactions
         return "OK", 200 
 
 class statistics(Resource):
