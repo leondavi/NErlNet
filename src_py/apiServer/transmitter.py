@@ -25,7 +25,6 @@ class Transmitter:
         self.clientsPredictAddress = self.mainServerAddress + '/clientsPredict' #deprecated
         self.statisticsAddress = self.mainServerAddress + '/statistics'
         self.restart_address = self.mainServerAddress + '/restart'
-        self.batch_received_ack_address = self.mainServerAddress + '/batch_ack'
         self.ack_validation_address = self.mainServerAddress + '/apiserver_ack_validation'
         main_server_http_with_init_port = f'{self.mainServerAddress.split(":")[0]}:{self.mainServerAddress.split(":")[1]}:{JSON_INIT_HANDLER_ERL_PORT}'
         self.send_jsons_address = main_server_http_with_init_port + '/sendJsons'
@@ -41,20 +40,6 @@ class Transmitter:
         except ConnectionError:
             LOG_ERROR(f"Connection Error: failed to connect to {self.ack_validation_address}")
             raise ConnectionError
-
-
-    def send_batch_received_ack(self):
-        try:
-            response = requests.post(self.batch_received_ack_address, data = "ok")
-            if not response.ok:
-                LOG_ERROR(f"Failed to send batch ack")
-        except ConnectionRefusedError:
-            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.batch_received_ack_address}")
-            raise ConnectionRefusedError
-        except ConnectionError:
-            LOG_ERROR(f"Connection Error: failed to connect to {self.batch_received_ack_address}")
-            raise ConnectionError
-
 
     def clients_set_phase(self, phase: str): 
         LOG_INFO(f'Phase {phase} requested from Main Server')

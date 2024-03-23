@@ -82,8 +82,6 @@ class trainRes(Resource):
         entities_raw_data_list = split_results_to_entities_chunks(resData)
         raw_data_buffer += entities_raw_data_list
 
-        transmitter = receiver.config['TRANSMITTER']
-        transmitter.send_batch_received_ack()
         return "OK", 200
 
 #http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++BatchID++"#"++CSVName++"#"++BatchSize)
@@ -98,8 +96,6 @@ class predictRes(Resource):
         entities_raw_data_list = split_results_to_entities_chunks(resData)
         raw_data_buffer += entities_raw_data_list
 
-        transmitter = receiver.config['TRANSMITTER']
-        transmitter.send_batch_received_ack()
         return "OK", 200 
 
 class statistics(Resource):
