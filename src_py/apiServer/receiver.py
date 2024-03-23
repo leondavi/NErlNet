@@ -10,9 +10,11 @@ import globalVars as globe
 from workerResult import *
 from decoderHttpMainServer import *
 
+from time import sleep # TODO remove
+
 # debug flask with receiver.logger.info("message") instead of print("message
-# import logging # To debug flask
-# logging.basicConfig(level=logging.ERROR) # to debug flask
+#import logging # To debug flask
+#logging.basicConfig(level=logging.INFO) # to debug flask
 
 
 WORKER_NON_RESULT = -1
@@ -29,44 +31,16 @@ api = Api(receiver)
 #Disable logging messages (Must be disabled in Jupyter):
 logging.getLogger('werkzeug').disabled = True
 
-def initReceiver(receiverHost, receiverPort, event, apiserver_event_sync):
+def initReceiver(globe_components, transmitter, event, apiserver_event_sync):
         try:
+            receiver.config['GLOBE_COMPONNETNS'] = globe_components
+            receiver.config['TRANSMITTER'] = transmitter
             receiver.config['API_SERVER_EVENT_SYNC'] = apiserver_event_sync #TODO Ohad&Noa check that this works otherwise use glboal
-            receiver.run(threaded = True, host = receiverHost, port = receiverPort) 
+            receiver.run(threaded = True, host = globe_components.receiverIp, port = globe_components.receiverPort) 
 
         except:
             event.set()
             return
-
-def processResult(resData, currentPhase):   # deprecated
-        if (currentPhase == "Training"):
-            # Parse the Result: [w#, float, float...]
-            worker = resData[0]
-            result = float(resData[1].replace(' ',''))
-            #print(result)
-            if (int(result) == -1):
-                print(f"Received loss=-1 from worker {worker}. The NN's weights have been reset.")
-
-            ## result is set by worker to be -1 when it had a problem working on the data
-            if (int(result) != WORKER_NON_RESULT): 
-                for csvRes in globe.experiment_focused_on.trainingResList:
-                    if worker in csvRes.workers:
-                        for workerRes in csvRes.workersResList:
-                            if (workerRes.name == worker):
-                                workerRes.addResult(result)
-
-        elif (currentPhase == "Prediction"):
-            # Parsing is done by the PredictBatch class:
-            # experiment has reslist => of csvResult has workerResList => of WorkerResult has resList => of PredictBatch
-            # resData = [w#, batchID, csvName, batchSize]
-            newPredictBatch = PredictBatch(resData) 
-
-            for csvRes in globe.experiment_focused_on.predictionResList:
-                if newPredictBatch.worker in csvRes.workers:
-                    for workerRes in csvRes.workersResList:
-                        if (workerRes.name == newPredictBatch.worker):
-                            newPredictBatch.fixOffset(csvRes.indexOffset)
-                            workerRes.addResult(newPredictBatch)
 
 class terminate(Resource):
     def post(self):
@@ -78,17 +52,14 @@ class terminate(Resource):
         api_server_event_sync_inst.set_event_done(api_server_event_sync_inst.TERMINATE)
         shutdown()
 
-class test(Resource):
-    def post(self):
-        #multiProcQueue.put("new message @@@")
-        return {'Test' : 'Passed!'} #Returns the response in JSON format
-
 class ack(Resource):  # request from Guy state related message as ack
     def post(self):
         event_str = request.get_data().decode('utf-8')
+        #receiver.logger.info(f"received event_str {event_str}")
         api_server_events_sync_inst = receiver.config['API_SERVER_EVENT_SYNC']
         enum_api_server_event_done = api_server_events_sync_inst.get_event_done(event_str)
         event_status = api_server_events_sync_inst.get_event_status(enum_api_server_event_done)
+        #receiver.logger.info(f"event_str {event_str} event_status {event_status}")
         if event_status == api_server_events_sync_inst.WAIT:
             api_server_events_sync_inst.set_event_done(enum_api_server_event_done)
 
@@ -97,21 +68,23 @@ class ack(Resource):  # request from Guy state related message as ack
         event_status = events_sync_inst.get_event_status(enum_event_done)
         if event_status == events_sync_inst.WAIT:
             events_sync_inst.set_event_done(enum_event_done)
+        
+        return "OK", 200
 
 class trainRes(Resource):
     def post(self):
-        # receiver.logger.info("Training result received")
-        # example "w1#source_name|batch_id|loss_value|duration|batch_timestamp"
-        # TODO GUY - Add all attributes of nerl_db (batch_id etc.)
         resData = request.get_data().decode('utf-8')
         #print(f"Got {resData} from MainServer")  # Todo remove print
-        source_name, tensor_data, duration, batch_id, worker_name, batch_timestamp = decode_main_server_str_train(resData) 
         #print(f"Received training result {resData}") # Todo remove print
         current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase() 
-        model_db = current_experiment_phase.get_nerl_model_db()
-        client_name = globe.components.get_client_name_by_worker_name(worker_name)
-        model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, tensor_data, duration, batch_timestamp)
-        #print(f"Created batch {batch_id} from worker {worker_name} with source {source_name} and duration {duration}") # Todo remove print
+        raw_data_buffer = current_experiment_phase.get_raw_data_buffer()
+        raw_data_buffer.append(resData)
+
+        transmitter = receiver.config['TRANSMITTER']
+        transmitter.send_batch_received_ack()
+
+        sleep(0.005) # This is necessary for flask - TODO we must move to production sever or reduce number of transactions
+        return "OK", 200
 
 #http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++BatchID++"#"++CSVName++"#"++BatchSize)
 class predictRes(Resource):
@@ -119,14 +92,14 @@ class predictRes(Resource):
         # Result preprocessing:
         # Receiving from Erlang: Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize)
         resData = request.get_data().decode('utf-8')
-        #print(f"Got {resData} from MainServer")   # Todo remove print
-        worker_name, source_name, tensor_data, duration, batch_id, batch_timestamp = decode_main_server_str_predict(resData)
-        #print(f"Received prediction result {resData}") # Todo remove print
-        current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase()
-        model_db = current_experiment_phase.get_nerl_model_db()
-        client_name = globe.components.get_client_name_by_worker_name(worker_name)
-        model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, tensor_data, duration, batch_timestamp)
-        #print(f"Created batch {batch_id} from worker {worker_name} with source {source_name} and duration {duration}") # Todo remove print
+        current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase() 
+        raw_data_buffer = current_experiment_phase.get_raw_data_buffer()
+        raw_data_buffer.append(resData)
+
+        transmitter = receiver.config['TRANSMITTER']
+        transmitter.send_batch_received_ack()
+        sleep(0.005) # This is necessary for flask - TODO we must move to production sever or reduce number of transactions
+        return "OK", 200 
 
 class statistics(Resource):
     def post(self) -> None:
@@ -138,9 +111,13 @@ class statistics(Resource):
         current_experiment_phase.get_nerl_comm_db().update_entities_stats(entity_com_dicts)     
         event_sync_inst.set_event_done(event_sync_inst.COMMUNICATION_STATS)
 
+        transmitter = receiver.config['TRANSMITTER']
+        transmitter.send_ack_validation()
+        
+        return "OK", 200
+
 
 #Listener Server list of resources: 
-api.add_resource(test, "/test")
 api.add_resource(ack, "/ackPy")
 api.add_resource(trainRes, "/trainRes")
 api.add_resource(predictRes, "/predRes")

@@ -9,6 +9,8 @@
 %% HEADER format example: "nerlNetServer_app/start@52: MES"
 -define(LOG_HEADER, atom_to_list(?MODULE) ++ "/" ++ atom_to_list(?FUNCTION_NAME) ++ "@" ++ integer_to_list(?LINE) ++ ": " ).
 
+-define(VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_NUMOF_TRIALS, 2).
+-define(VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_INTERVAL_MS, 50). % how much between each resend
 %% ETS definitions 
 
 % 2 elements ETS:

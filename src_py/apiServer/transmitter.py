@@ -25,19 +25,36 @@ class Transmitter:
         self.clientsPredictAddress = self.mainServerAddress + '/clientsPredict' #deprecated
         self.statisticsAddress = self.mainServerAddress + '/statistics'
         self.restart_address = self.mainServerAddress + '/restart'
+        self.batch_received_ack_address = self.mainServerAddress + '/batch_ack'
+        self.ack_validation_address = self.mainServerAddress + '/apiserver_ack_validation'
         main_server_http_with_init_port = f'{self.mainServerAddress.split(":")[0]}:{self.mainServerAddress.split(":")[1]}:{JSON_INIT_HANDLER_ERL_PORT}'
         self.send_jsons_address = main_server_http_with_init_port + '/sendJsons'
-        
+
+    def send_ack_validation(self):
+        try:
+            response = requests.post(self.ack_validation_address, data = "ok")
+            if not response.ok:
+                LOG_ERROR(f"Failed to send batch ack")
+        except ConnectionRefusedError:
+            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.ack_validation_address}")
+            raise ConnectionRefusedError
+        except ConnectionError:
+            LOG_ERROR(f"Connection Error: failed to connect to {self.ack_validation_address}")
+            raise ConnectionError
 
 
-    def testPost(self, address, payloadNum):
-        payload = {'test' : payloadNum}
-        response = requests.post(address ,data = payload)
-        print(response.ok, response.status_code, response.json())
-        #Return true, if received: HTTP status code < 400
-        #Return the HTTP status code for the response
-        #Return the reponse in JSON format
-        return(response.ok, response.status_code, response.json())
+    def send_batch_received_ack(self):
+        try:
+            response = requests.post(self.batch_received_ack_address, data = "ok")
+            if not response.ok:
+                LOG_ERROR(f"Failed to send batch ack")
+        except ConnectionRefusedError:
+            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.batch_received_ack_address}")
+            raise ConnectionRefusedError
+        except ConnectionError:
+            LOG_ERROR(f"Connection Error: failed to connect to {self.batch_received_ack_address}")
+            raise ConnectionError
+
 
     def clients_set_phase(self, phase: str): 
         LOG_INFO(f'Phase {phase} requested from Main Server')
@@ -52,19 +69,6 @@ class Transmitter:
             LOG_ERROR(f"Connection Error: failed to connect to {self.clientsPhaseUpdateAddress}")
             raise ConnectionError
 
-    def clientsTraining(self):   #deprecated
-        globe.set_receiver_wait_for_ack()
-        LOG_INFO('Training Phase requested from Main Server')
-        response = requests.post(self.clientsTrainingAddress, data='')
-        if not response.ok:
-            LOG_ERROR('Training Phase Request issue!')
-
-    def clientsPredict(self):    #deprecated
-        globe.set_receiver_wait_for_ack()
-        LOG_INFO('Prediction Phase requested from Main Server')
-        response = requests.post(self.clientsPredictAddress, data='')
-        if not response.ok:
-            LOG_ERROR('Prediction Phase Request issue!')
     
     def send_jsons_to_devices(self, files):
         try:
