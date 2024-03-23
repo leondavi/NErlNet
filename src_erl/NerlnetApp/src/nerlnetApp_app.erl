@@ -106,7 +106,7 @@ start(_StartType, _StartArgs) ->
     ?LOG_INFO("Nerlnet version ~s",[?NERLNET_APP_VERSION]),
     ?LOG_INFO("Nerlplanner tested version ~s",[?NERLPLANNER_TESTED_VERSION]),
     ?LOG_INFO("Installed Erlang OTP: ~s (Supported from 25)",[erlang:system_info(otp_release)]),
-    ?LOG_INFO(?LOG_HEADER++"This device IP: ~p~n", [ThisDeviceIP]),
+    ?LOG_INFO("This device IP: ~p~n", [ThisDeviceIP]),
     os:cmd("nohup sh -c 'sleep 5 && echo hey > /tmp/detached.txt' &"), %% ** FOR FUTURE RESET FUNCTIONALITY **
     %Create a listener that waits for a message from python about the adresses of the wanted json
 
@@ -114,8 +114,8 @@ start(_StartType, _StartArgs) ->
     {ArchitectureAdderess,CommunicationMapAdderess} = waitForInit(),
 
     %Parse json and start nerlnet:
-    ?LOG_INFO(?LOG_HEADER++"DC file local path: ~p",[binary_to_list(ArchitectureAdderess)]),
-    ?LOG_INFO(?LOG_HEADER++"Communication map file local path: ~p",[binary_to_list(CommunicationMapAdderess)]),
+    ?LOG_INFO("DC file local path: ~p",[binary_to_list(ArchitectureAdderess)]),
+    ?LOG_INFO("Communication map file local path: ~p",[binary_to_list(CommunicationMapAdderess)]),
 
     parseJsonAndStartNerlnet(ThisDeviceIP),
     nerlnetApp_sup:start_link().
@@ -175,11 +175,11 @@ parseJsonAndStartNerlnet(ThisDeviceIP) ->
 
     Routers = ets:lookup_element(nerlnet_data, routers, ?DATA_IDX), % router map format: {RouterName => RouterPort,RouterRouting,RouterFiltering}
     BatchSize = ets:lookup_element(nerlnet_data, batchSize,?DATA_IDX),
-    DefaultFrequency = ets:lookup_element(nerlnet_data, frequency, ?DATA_IDX),
+    % DefaultFrequency = ets:lookup_element(nerlnet_data, frequency, ?DATA_IDX), TODO nerlplanner already assigns default frequency to sources that demand it.
 
     createClientsAndWorkers(), % TODO extract all of this args from ETS
     createRouters(Routers,ThisDeviceIP), % TODO extract all of this args from ETS
-    createSources(BatchSize, DefaultFrequency, ThisDeviceIP), % TODO extract all of this args from ETS
+    createSources(BatchSize, ThisDeviceIP), % TODO extract all of this args from ETS
 
     HostOfMainServer = ets:member(nerlnet_data, mainServer),
     ThisDeviceName = maps:get(ThisDeviceIP , ets:lookup_element(nerlnet_data , ipv4_to_devices , ?DATA_IDX)),
@@ -199,10 +199,15 @@ parseJsonAndStartNerlnet(ThisDeviceIP) ->
 send_jsons_to_other_devices(_DCJsonFileBytes, _CommunicationMapFileBytes, []) -> ?LOG_INFO("This experiment is running on a single device!",[]);
 send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, DevicesList) ->
     Fun = fun({DeviceNameAtom, {IPv4, _Entities}}) ->
-        io:format("params: ~p",[{DeviceNameAtom, {IPv4, _Entities}}]),
         ?LOG_INFO("Sending jsons to ~p",[DeviceNameAtom]),
         URL = "http://" ++ IPv4 ++ ":" ++ integer_to_list(?NERLNET_INIT_PORT) ++ "/sendJsons",
-        {ok, _} = httpc:request(post, {URL, [], "multipart/form-data", term_to_binary({DCJsonFileBytes , CommunicationMapFileBytes})}, [], [])
+        Boundary = "------WebKitFormBoundaryUscTgwn7KiuepIr1",
+        ContentType = lists:concat(["multipart/form-data; boundary=", Boundary]),
+        Fields = [],
+        Files = [{?JSON_ADDR++?LOCAL_DC_FILE_NAME, ?LOCAL_DC_FILE_NAME, binary_to_list(DCJsonFileBytes)}, {?JSON_ADDR++?LOCAL_COMM_FILE_NAME, ?LOCAL_COMM_FILE_NAME, binary_to_list(CommunicationMapFileBytes)}],
+        ReqBody = nerl_tools:format_multipart_formdata(Boundary, Fields, Files),
+        ReqHeader = [{"Content-Length", integer_to_list(length(ReqBody))}],
+        {ok, _} = httpc:request(post, {URL, ReqHeader, ContentType, ReqBody}, [], [])
     end,
     lists:foreach(Fun, DevicesList).
 
@@ -252,7 +257,7 @@ createClientsAndWorkers() ->
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
 
-createSources(BatchSize, DefaultFrequency, HostName) ->
+createSources(BatchSize, HostName) ->
     DATA_IDX = 2,
     NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, DATA_IDX),
     WorkersMap = ets:lookup_element(nerlnet_data, workers, DATA_IDX),
