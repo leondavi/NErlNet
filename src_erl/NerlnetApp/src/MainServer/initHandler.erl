@@ -24,9 +24,9 @@ init(Req0, [Main_genServer_Pid]) ->
   Decoded_body = binary_to_list(Body),
   %Decoded_body = read_all_data(Req0),
   % io:format("GOT DATA: ~p~n",[Decoded_body]),
-  [SourceName, _WorkersStr, _Epochs, _Data] = string:split(Decoded_body, "#", all),
+  [Index, TotalSources, SourceName, _WorkersStr, _Epochs, _Data] = string:split(Decoded_body, "#", all),
   %WorkersList = string:split(WorkersStr, ",", all),
-  gen_server:cast(Main_genServer_Pid,{initCSV, SourceName, Body}),
+  gen_server:cast(Main_genServer_Pid,{initCSV, Index, TotalSources, SourceName, Body}),
   %[Source|WorkersAndInput] = re:split(binary_to_list(Body), "#", [{return, list}]),
   %{Workers,SourceData} = getWorkerInput(WorkersAndInput,[]),
 

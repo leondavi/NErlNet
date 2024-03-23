@@ -80,8 +80,9 @@ class Transmitter:
         
 
     def update_csv(self, csv_files: list, source_pieces: list):
-        assert len(csv_files) == len(source_pieces)
-        for index in range(len(csv_files)):
+        total_sources = len(csv_files)
+        assert total_sources == len(source_pieces)
+        for index in range(total_sources):
             csv_file = csv_files[index]
             source_piece = source_pieces[index]
             source_name = source_piece.get_source_name()
@@ -89,7 +90,7 @@ class Transmitter:
             num_of_batches = source_piece.get_num_of_batches()
             with open(csv_file, 'r') as file:
                 csvfile = file.read()
-                data_str = f'{source_name}#{target_workers}#{num_of_batches}#{csvfile}'
+                data_str = f'{index}#{total_sources}#{source_name}#{target_workers}#{num_of_batches}#{csvfile}'
                 try:
                     response = requests.post(self.updateCSVAddress, data = data_str)
                     if not response.ok:
