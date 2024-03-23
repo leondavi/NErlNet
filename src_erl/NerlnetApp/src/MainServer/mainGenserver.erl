@@ -79,14 +79,15 @@ init({MyName,ClientsNames,BatchSize,WorkersMap,NerlnetGraph , DeviceName}) ->
   {ok, #main_genserver_state{myName = MyNameStr , state=idle}}.
 
 
-handle_cast({initCSV, SourceName ,SourceData}, State = #main_genserver_state{state = idle, sourcesWaitingList = SourcesWaitingList}) ->
+handle_cast({initCSV, Index, TotalSources, SourceName ,SourceData}, State = #main_genserver_state{state = idle, sourcesWaitingList = SourcesWaitingList}) ->
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
   ActionStr = atom_to_list(updateCSV),
+  io:format("Index ~p TotalSources ~p", [Index, TotalSources]),
   nerl_tools:http_router_request(RouterHost,RouterPort, [SourceName], ActionStr, SourceData), % update the source with its data
   UpdatedSourceWaitingList = SourcesWaitingList++[list_to_atom(SourceName)],
   {noreply, State#main_genserver_state{sourcesWaitingList = UpdatedSourceWaitingList}};
 
-handle_cast({initCSV, _SourceName ,_SourceData}, State) ->
+handle_cast({initCSV, _Index, _TotalSources, _SourceName ,_SourceData}, State) ->
   ?LOG_ERROR("initCSV is only applicalble when main server is in idle state!"),
   {noreply, State#main_genserver_state{}};
 
@@ -254,7 +255,10 @@ handle_cast({sourceAckDataReady,Body}, State = #main_genserver_state{sourcesWait
     StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
     stats:increment_messages_received(StatsEts),
     SourceName = binary_to_term(Body),
+    io:format("Sourcees Waiting List Before ~p",[WaitingList]),
     NewWaitingList = WaitingList--[SourceName],
+    io:format("Sourcees Waiting List after ~p",[NewWaitingList]),
+
     if length(NewWaitingList) == 0 -> ack(atom_to_list(update_csv_done));
     true-> ok end,
   {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList}};
