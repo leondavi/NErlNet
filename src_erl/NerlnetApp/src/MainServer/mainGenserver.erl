@@ -447,7 +447,7 @@ ack(MsgStr) ->
   HttpRouterRequestFunc = fun() -> 
         nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], ?API_SERVER_ACTION_ACK, Body)
       end,
-  {ok, Response} = retransmission_to_apiserver(HttpRouterRequestFunc, 5*?VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_NUMOF_TRIALS),
+  {ok, Response} = retransmission_to_apiserver(HttpRouterRequestFunc, ?VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_NUMOF_TRIALS),
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_sent(StatsEts),
   case Response of 
@@ -457,21 +457,12 @@ ack(MsgStr) ->
     _Other -> ?LOG_ERROR("Bad response from ApiServer"), bad_response
   end.
 
-
-% batch ack validation
-transmission_to_apiserver_validation(HttpRouterRequestFunc, 0) -> HttpRouterRequestFunc();
-transmission_to_apiserver_validation(HttpRouterRequestFunc, Trials) ->
-  receive
-    {batch_ack, _Body} -> HttpRouterRequestFunc()
-  after ?VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_INTERVAL_MS -> transmission_to_apiserver_validation(HttpRouterRequestFunc, Trials - 1) % TODO fix magic number
-  end.
-
 % ack validation
 retransmission_to_apiserver(HttpRouterRequestFunc, 0) -> HttpRouterRequestFunc();
 retransmission_to_apiserver(HttpRouterRequestFunc, Trials) ->
   receive
     {apiserver_ack_validation, _Body} -> ok
-  after ?VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_INTERVAL_MS ->  HttpRouterRequestFunc(), transmission_to_apiserver_validation(HttpRouterRequestFunc, Trials - 1) % TODO fix magic number
+  after ?VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_INTERVAL_MS ->  HttpRouterRequestFunc(), retransmission_to_apiserver(HttpRouterRequestFunc, Trials - 1) % TODO fix magic number
   end.
 
 

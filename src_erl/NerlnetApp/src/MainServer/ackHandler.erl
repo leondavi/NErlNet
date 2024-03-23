@@ -22,7 +22,6 @@ init(Req0, [Who,Main_genserver_Pid]) ->
     sourceDone -> gen_server:cast(Main_genserver_Pid, {sourceDone,Body}); %% when source finished casting
     clientAck -> gen_server:cast(Main_genserver_Pid, {clientAck,Body});       %% when client received message (new state)
     jsonReceived -> gen_server:cast(Main_genserver_Pid, {jsonReceived,Body}); %% when other devices got the json and ready to start
-    batch_ack -> Main_genserver_Pid ! {batch_ack, Body}; % This is a special ack to validate that all batches transmitted successfully
     apiserver_ack_validation -> Main_genserver_Pid ! {apiserver_ack_validation, Body} % This ack validates transmission with flask
   end,
   Reply = io_lib:format("Body Received: ~p ~n ", [Body]),
