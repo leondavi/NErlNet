@@ -253,7 +253,9 @@ handle_cast({sourceAckDataReady,Body}, State = #main_genserver_state{sourcesWait
 handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList}) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
-  NewWaitingList = WaitingList--[binary_to_term(Body)], % waitingList is initialized in clientsTraining or clientsPredict handl cast calls
+  ClientName = binary_to_term(Body),
+  NewWaitingList = WaitingList--[ClientName], % waitingList is initialized in clientsTraining or clientsPredict handl cast calls
+  io:format("Client waitin list before ~p after ~p current client ~p",[WaitingList,NewWaitingList,ClientName]),
   if length(NewWaitingList) == 0 -> ack(atom_to_list(get(curr_phase_ack)));
   true-> ok end,
   {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList}};
