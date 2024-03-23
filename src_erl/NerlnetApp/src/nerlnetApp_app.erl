@@ -344,6 +344,8 @@ createMainServer(true,BatchSize,HostName,DeviceName) ->
         {"/startCasting",[],actionHandler, [startCasting, MainGenServerPid]},
         {"/stopCasting",[],actionHandler, [stopCasting, MainGenServerPid]},
         {"/clientsPhaseUpdate",[],actionHandler,[clientsPhaseUpdate,MainGenServerPid]},
+        {"/batch_ack", [], ackHandler, [batch_ack, MainGenServerPid]},
+        {"/apiserver_ack_validation", [], ackHandler, [apiserver_ack_validation, MainGenServerPid]},
 
         {"/[...]", [],noMatchingRouteHandler, [MainGenServerPid]}
         ]}

@@ -224,6 +224,7 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName, so
   stats:increment_messages_received(StatsEts),
   SourceName = binary_to_term(Body),
   UpdatedSourcesCastingList = SourcesCastingList--[SourceName],
+
   case UpdatedSourcesCastingList of
     [] -> % the list is empty - all sources were done casting their batches
       ?LOG_NOTICE("[Main-Server] All sources finished casting"),
@@ -255,7 +256,6 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList =
   stats:increment_messages_received(StatsEts),
   ClientName = binary_to_term(Body),
   NewWaitingList = WaitingList--[ClientName], % waitingList is initialized in clientsTraining or clientsPredict handl cast calls
-  io:format("Client waitin list before ~p after ~p current client ~p",[WaitingList,NewWaitingList,ClientName]),
   if length(NewWaitingList) == 0 -> ack(atom_to_list(get(curr_phase_ack)));
   true-> ok end,
   {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList}};
@@ -309,7 +309,10 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName})
         stats:increment_messages_sent(StatsEts);
       {WorkerName , SourceName , {LossTensor , _Type} , TimeNIF , BatchID , BatchTS} ->
         ToSend = atom_to_list(WorkerName) ++ ?PHASE_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ ?PHASE_RES_VALUES_SEPERATOR ++ nerl_tools:string_format("~p",[LossTensor]) ++ ?PHASE_RES_VALUES_SEPERATOR ++ float_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchTS),
-        nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(trainRes), ToSend),
+        HttpRouterRequestFunc = fun() -> 
+            nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(trainRes), ToSend) 
+          end,
+        transmission_to_apiserver_validation(HttpRouterRequestFunc, ?VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_NUMOF_TRIALS),
         stats:increment_messages_sent(StatsEts);
       _ELSE ->
         ?LOG_ERROR("~p Wrong loss function pattern received from client and its worker ~p", [MyName, Body])
@@ -335,7 +338,11 @@ handle_cast({predictRes,Body}, State) ->
       end,
       ToSend = WorkerName ++ ?PHASE_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ ?PHASE_RES_VALUES_SEPERATOR ++ nerl_tools:string_format("~p",[DecodedNerlTensor]) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchTS),
       %% io:format("ToSend: ~p~n",[ToSend]),
-      nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(predRes), ToSend),
+      HttpRouterRequestFunc = 
+          fun() -> 
+            nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(predRes), ToSend)
+          end,
+      transmission_to_apiserver_validation(HttpRouterRequestFunc, ?VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_NUMOF_TRIALS),
       stats:increment_messages_sent(StatsEts)
   catch Err:E ->  
     ?LOG_ERROR(?LOG_HEADER++"Error receiving predict result ~p",[{Err,E}])
@@ -430,7 +437,10 @@ sources_start_casting([CurrSource|RemainingSources]) ->
 ack(MsgStr) ->
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
   Body = MsgStr,
-  {ok, Response} = nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], ?API_SERVER_ACTION_ACK, Body),
+  HttpRouterRequestFunc = fun() -> 
+        nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], ?API_SERVER_ACTION_ACK, Body)
+      end,
+  {ok, Response} = retransmission_to_apiserver(HttpRouterRequestFunc, 5*?VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_NUMOF_TRIALS),
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_sent(StatsEts),
   case Response of 
@@ -439,12 +449,20 @@ ack(MsgStr) ->
     {{_Protocol, _Code = 200, _Meaning}, _Headers, _Body} -> done;
     _Other -> ?LOG_ERROR("Bad response from ApiServer"), bad_response
   end.
-  
 
-%% TODO remove - will be replaced by stats.erl
-%%
-%% encodes stats to string:
-%% "Entity1:Stats,...|Entity2:Stats,...|....."
-% mapToString([],Ret) -> Ret;
-% mapToString([{Name,Data}|StatisticsList],[]) -> mapToString(StatisticsList,Name++":"++Data);
-% mapToString([{Name,Data}|StatisticsList],Ret) -> mapToString(StatisticsList,Ret++"|"++Name++":"++Data).
+
+% batch ack validation
+transmission_to_apiserver_validation(HttpRouterRequestFunc, 0) -> HttpRouterRequestFunc();
+transmission_to_apiserver_validation(HttpRouterRequestFunc, Trials) ->
+  receive
+    {batch_ack, _Body} -> HttpRouterRequestFunc()
+  after ?VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_INTERVAL_MS -> transmission_to_apiserver_validation(HttpRouterRequestFunc, Trials - 1) % TODO fix magic number
+  end.
+
+% ack validation
+retransmission_to_apiserver(HttpRouterRequestFunc, 0) -> HttpRouterRequestFunc();
+retransmission_to_apiserver(HttpRouterRequestFunc, Trials) ->
+  receive
+    {apiserver_ack_validation, _Body} -> ok
+  after ?VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_INTERVAL_MS ->  HttpRouterRequestFunc(), transmission_to_apiserver_validation(HttpRouterRequestFunc, Trials - 1) % TODO fix magic number
+  end.

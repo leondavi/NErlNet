@@ -114,8 +114,6 @@ format_status(_Opt, [_PDict, _StateName, _State]) -> Status = some_term, Status.
 %% ==============STATES=================
 waitforWorkers(cast, In = {stateChange,WorkerName}, State = #client_statem_state{myName = MyName,waitforWorkers = WaitforWorkers,nextState = NextState, etsRef = _EtsRef}) ->
   NewWaitforWorkers = WaitforWorkers--[WorkerName],
-  io:format("wait for workers list: ~p, curr worker ~p before ~p NextState ~p ~n",[NewWaitforWorkers, WorkerName, WaitforWorkers, NextState]),
-
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),

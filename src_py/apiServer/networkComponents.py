@@ -127,60 +127,6 @@ class NetworkComponents():
                 Sources: {self.sources}\n \
                 Routers: {self.routers}")
 
-    def checkIdenticalAdresses(self):
-        addressesDict = {}
-
-        for idx, item in enumerate(self.jsonData["serverAPI"]):
-            name = f"API{str(idx)}"
-            address = item["host"] + item["port"]
-            if address in addressesDict.values():
-                print("Two identical addresses. Please check architecture JSON.")
-                addressesDict[name] = address
-                return addressesDict
-            else:
-                addressesDict[name] = address
-
-        for idx, item in enumerate(self.jsonData["mainServer"]):
-            name = f"MainServer{str(idx)}"
-            address = item["host"] + item["port"]
-            if address in addressesDict.values():
-                print("Two identical addresses. Please check architecture JSON.")
-                addressesDict[name] = address
-                return addressesDict
-            else:
-                addressesDict[name] = address
-        
-        for item in self.jsonData["routers"]:
-            address = item["host"] + item["port"]
-            if address in addressesDict.values():
-                print("Two identical addresses. Please check architecture JSON.")
-                addressesDict[name] = address
-                return addressesDict
-            else:
-                addressesDict[name] = address
-
-        for item in self.jsonData["clients"]:
-            name = item["name"]
-            address = item["port"]
-            if address in addressesDict.values():
-                print("Two identical addresses. Please check architecture JSON.")
-                addressesDict[name] = address
-                return addressesDict
-            else:
-                addressesDict[name] = address
-
-        for item in self.jsonData["sources"]:
-            name = item["name"]
-            address = item["port"]
-            if address in addressesDict.values():
-                print("Two identical addresses. Please check architecture JSON.")
-                addressesDict[name] = address
-                return addressesDict
-            else:
-                addressesDict[name] = address
-
-        print("No identical addresses were found in the architecture.")
-        return addressesDict
          
     def toString(self, char): #Prints the contents of any of the components' lists (e.g. "routers")
         if char == 'd':
