@@ -244,9 +244,10 @@ handle_cast({sourceAckDataReady,Body}, State = #main_genserver_state{sourcesWait
     NewWaitingList = WaitingList--[SourceName],
     SourcesDataReadyCtrNew = SourcesDataReadyCtr + 1, % The total sources comes from the APIServer - The ApiServer sends each source data in different streams, therefore, 
                                                       % we can't count on the waiting list since it can be empty during the process
-    if SourcesDataReadyCtrNew =:= TotalSources -> ack(atom_to_list(update_csv_done)), SourcesDataReadyCtrNew = 0;
-    true-> ok end,
-  {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList, sources_data_ready_ctr = SourcesDataReadyCtrNew}};
+    if
+    SourcesDataReadyCtrNew =:= TotalSources -> ack(atom_to_list(update_csv_done)), {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList, sources_data_ready_ctr = 0}};
+    true-> {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList, sources_data_ready_ctr = SourcesDataReadyCtrNew}}
+    end;
 
 
 handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList}) ->
