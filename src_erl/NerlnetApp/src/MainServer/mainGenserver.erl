@@ -23,7 +23,7 @@
 -define(SERVER, ?MODULE).
 
 
--record(main_genserver_state, {statisticsCounter = 0, myName, state, workersMap, clients, nerlnetGraph, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [], statisticsMap, msgCounter = 0}).
+-record(main_genserver_state, {statisticsCounter = 0, myName, state, workersMap, clients, nerlnetGraph, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [], statisticsMap, total_sources=0, sources_data_ready_ctr = 0}).
 
 %%%===============================================================
 %%% API
@@ -76,16 +76,21 @@ init({MyName,ClientsNames,BatchSize,WorkersMap,NerlnetGraph , DeviceName}) ->
   % Getting the router that main server is connected with
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,hd(ClientsNames),get(nerlnet_graph)),
   ets:insert(MainServerEts, {my_router,{MyRouterHost,MyRouterPort}}),
-  {ok, #main_genserver_state{myName = MyNameStr , state=idle}}.
+  {ok, #main_genserver_state{myName = MyNameStr , state=idle, total_sources=0, sources_data_ready_ctr = 0}}.
 
 
-handle_cast({initCSV, Index, TotalSources, SourceName ,SourceData}, State = #main_genserver_state{state = idle, sourcesWaitingList = SourcesWaitingList}) ->
+handle_cast({initCSV, _Index, TotalSources, SourceName ,SourceData}, State = #main_genserver_state{state = idle, sourcesWaitingList = SourcesWaitingList, total_sources = TotalSourcesOld, sources_data_ready_ctr = SourcesDataReadyCtrOld}) ->
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
   ActionStr = atom_to_list(updateCSV),
-  io:format("Index ~p TotalSources ~p", [Index, TotalSources]),
+  {TotalSourcesInt, _Rest} = string:to_integer(TotalSources),
   nerl_tools:http_router_request(RouterHost,RouterPort, [SourceName], ActionStr, SourceData), % update the source with its data
   UpdatedSourceWaitingList = SourcesWaitingList++[list_to_atom(SourceName)],
-  {noreply, State#main_genserver_state{sourcesWaitingList = UpdatedSourceWaitingList}};
+  {SourcesDataReadyCtr, NewTotalSources} = 
+  if 
+    TotalSourcesOld =/= TotalSourcesInt -> {0, TotalSourcesInt};
+    true -> {SourcesDataReadyCtrOld, TotalSourcesOld}
+  end,
+  {noreply, State#main_genserver_state{sourcesWaitingList = UpdatedSourceWaitingList, total_sources = NewTotalSources, sources_data_ready_ctr = SourcesDataReadyCtr}};
 
 handle_cast({initCSV, _Index, _TotalSources, _SourceName ,_SourceData}, State) ->
   ?LOG_ERROR("initCSV is only applicalble when main server is in idle state!"),
@@ -174,19 +179,6 @@ handle_cast({clientsPredict,_Body}, State = #main_genserver_state{myName = MyNam
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
 
 
-% handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = MyName}) ->
-%   %%  send router http request, to route this message to all sensors
-%   ?LOG_INFO("Casts the idle phase message to all clients"),
-%   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
-%   stats:increment_messages_received(StatsEts),
-%   PhaseAtom = clientsIdle,
-%   update_clients_phase(PhaseAtom, MyName),
-%   stats:increment_messages_sent(StatsEts),
-%   ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
-%   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
-
-% TODO
-%%% get Statistics from all Entities in the network
 handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) ->
     StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
     stats:increment_messages_received(StatsEts),
@@ -196,19 +188,13 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
       Body == <<>> ->  ?LOG_ERROR("~p: Wrong statistics message",[MyName]);
 
       true ->
-          
-          %% TODO - Guy here you should get the the encoded statistics from entities and decode it use it the function you should implement
-          %%      statistics arrived from Entity
+          %% statistics arrived from Entity
           {From, StatsEtsEncStr} = binary_to_term(Body),
-          %% EntityName = binary_to_atom(From), %TODO Guy / NO NEED
           set_entity_stats_ets_str(From, StatsEtsEncStr),
-          % TODO increase counter_received_stats ets by 1
+
+          % increase counter_received_stats ets by 1
           ets:update_counter(get(main_server_ets), counter_received_stats, 1),
           stats:increment_messages_received(StatsEts),
-          % [From|[NewCounter]] = re:split(binary_to_list(Body), ":", [{return, list}]),
-
-          % NewStatisticsMap = maps:put(From,NewCounter,StatisticsMap),
-          % NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap,statisticsCounter = StatisticsCounter-1},
 
           ReceivedCounterStatsValue = ets:lookup_element(get(main_server_ets), counter_received_stats, ?DATA_IDX),
           EntitiesNamesList = ets:lookup_element(get(main_server_ets), entities_names_list, ?DATA_IDX),
@@ -251,17 +237,16 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName, so
   {noreply, NextState};
 
 % Each update CSV process generates sourceAck that is sent to main server when all sources are ready
-handle_cast({sourceAckDataReady,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList}) ->
+handle_cast({sourceAckDataReady,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList, total_sources = TotalSources, sources_data_ready_ctr = SourcesDataReadyCtr}) ->
     StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
     stats:increment_messages_received(StatsEts),
     SourceName = binary_to_term(Body),
-    io:format("Sourcees Waiting List Before ~p",[WaitingList]),
     NewWaitingList = WaitingList--[SourceName],
-    io:format("Sourcees Waiting List after ~p",[NewWaitingList]),
-
-    if length(NewWaitingList) == 0 -> ack(atom_to_list(update_csv_done));
+    SourcesDataReadyCtrNew = SourcesDataReadyCtr + 1, % The total sources comes from the APIServer - The ApiServer sends each source data in different streams, therefore, 
+                                                      % we can't count on the waiting list since it can be empty during the process
+    if SourcesDataReadyCtrNew =:= TotalSources -> ack(atom_to_list(update_csv_done));
     true-> ok end,
-  {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList}};
+  {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList, sources_data_ready_ctr = SourcesDataReadyCtrNew}};
 
 
 handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList}) ->

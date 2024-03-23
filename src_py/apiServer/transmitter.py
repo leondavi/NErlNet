@@ -90,7 +90,7 @@ class Transmitter:
             num_of_batches = source_piece.get_num_of_batches()
             with open(csv_file, 'r') as file:
                 csvfile = file.read()
-                data_str = f'{index}#{total_sources}#{source_name}#{target_workers}#{num_of_batches}#{csvfile}'
+                data_str = f'{index + 1}#{total_sources}#{source_name}#{target_workers}#{num_of_batches}#{csvfile}'
                 try:
                     response = requests.post(self.updateCSVAddress, data = data_str)
                     if not response.ok:
