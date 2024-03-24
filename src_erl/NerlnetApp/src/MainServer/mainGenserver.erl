@@ -325,7 +325,9 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName})
   try
     case binary_to_term(Body) of
         {WorkerName , SourceName , {LossTensor , _Type} , TimeNIF , BatchID , BatchTS} ->
-        ToSend = atom_to_list(WorkerName) ++ ?PHASE_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ ?PHASE_RES_VALUES_SEPERATOR ++ nerl_tools:string_format("~p",[LossTensor]) ++ ?PHASE_RES_VALUES_SEPERATOR ++ float_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchTS),
+        ToSend = ?PHASE_RES_DATA_SEPARATOR ++ atom_to_list(WorkerName) ++ ?PHASE_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ 
+                 ?PHASE_RES_VALUES_SEPERATOR ++ nerl_tools:string_format("~p",[LossTensor]) ++ ?PHASE_RES_VALUES_SEPERATOR ++ float_to_list(TimeNIF) ++ 
+                 ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchTS) ++ ?PHASE_RES_DATA_SEPARATOR,
         store_phase_result_data_to_send_ets({WorkerName, BatchID , BatchTS}, ToSend);
       _ELSE ->
         ?LOG_ERROR("~p Wrong loss function pattern received from client and its worker ~p", [MyName, Body])
@@ -349,7 +351,10 @@ handle_cast({predictRes,Body}, State) ->
         (NerlTensor==<<>>) -> ?LOG_ERROR(?LOG_HEADER++"Got empty tensor"), empty_nerltensor_err;
         true ->  nerlNIF:nerltensor_conversion({NerlTensor, Type}, nerlNIF:erl_type_conversion(Type)) % converting nerltensor from binary to erlang type using NerlNIF
       end,
-      ToSend = WorkerName ++ ?PHASE_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ ?PHASE_RES_VALUES_SEPERATOR ++ nerl_tools:string_format("~p",[DecodedNerlTensor]) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchTS),
+      ToSend = ?PHASE_RES_DATA_SEPARATOR ++ WorkerName ++ ?PHASE_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ 
+               ?PHASE_RES_VALUES_SEPERATOR ++ nerl_tools:string_format("~p",[DecodedNerlTensor]) ++ ?PHASE_RES_VALUES_SEPERATOR ++ 
+                integer_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_SEPERATOR ++ 
+                integer_to_list(BatchTS) ++ ?PHASE_RES_DATA_SEPARATOR,
       store_phase_result_data_to_send_ets({WorkerName, BatchID , BatchTS}, ToSend)
   catch Err:E ->  
     ?LOG_ERROR(?LOG_HEADER++"Error receiving predict result ~p",[{Err,E}])
@@ -473,7 +478,7 @@ store_phase_result_data_to_send_ets({WorkerName, BatchID , BatchTS}, DataToSendS
 
 generate_phase_result_data_string_from_list([], _ResString) -> _ResString;
 generate_phase_result_data_string_from_list(ListOfData, ResString) ->
-  NewResString = ResString++?PHASE_RES_DATA_SEPARATOR++element(?DATA_IDX,hd(ListOfData))++?PHASE_RES_DATA_SEPARATOR,
+  NewResString = ResString++element(?DATA_IDX,hd(ListOfData)),
   generate_phase_result_data_string_from_list(tl(ListOfData), NewResString).
 
 generate_phase_result_data_to_send_from_ets_as_str() ->
