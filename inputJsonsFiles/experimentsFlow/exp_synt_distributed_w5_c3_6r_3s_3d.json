@@ -1,0 +1,62 @@
+{
+   "experimentName": "synthetic_3_gausians",
+   "batchSize": 100,
+   "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/synthetic/synthetic_full.csv",
+   "numOfFeatures": "5",
+   "numOfLabels": "3",
+   "headersNames": "Norm(0:1),Norm(4:1),Norm(10:3)",
+   "Phases": 
+   [
+      {
+         "phaseName": "training_phase",
+         "phaseType": "training",
+         "sourcePieces":
+         [
+            {
+            "sourceName": "s1",
+            "startingSample": "0",
+            "numOfBatches": "200",
+            "workers": "w1,w2"
+            },
+            {
+            "sourceName": "s2",
+            "startingSample": "20000",
+            "numOfBatches": "200",
+            "workers": "w3,w4"
+            },
+            {
+            "sourceName": "s3",
+            "startingSample": "40000",
+            "numOfBatches": "200",
+            "workers": "w5,w1,w2,w3,w4"
+            }
+         ]  
+      },
+      {
+         "phaseName": "prediction_phase",
+         "phaseType": "prediction",
+         "sourcePieces":
+         [
+            {
+            "sourceName": "s1",
+            "startingSample": "40000",
+            "numOfBatches": "300",
+            "workers": "w1,w2,w3,w4"
+            },
+            {
+            "sourceName": "s2",
+            "startingSample": "40000",
+            "numOfBatches": "300",
+            "workers": "w1,w2,w3,w4,w5"
+            },
+            {
+            "sourceName": "s3",
+            "startingSample": "40000",
+            "numOfBatches": "300",
+            "workers": "w5"
+            }
+         ]    
+      }
+   ]  
+}
+    

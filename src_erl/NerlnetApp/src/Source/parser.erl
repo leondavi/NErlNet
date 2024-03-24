@@ -79,12 +79,11 @@ parse_file(_SourceName, BatchSize,Data) ->
   ListOfTensors = 
     case ErlType of 
           erl_float ->
-            A = encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, ErlType, DataType, SampleSize),
-            ?LOG_INFO("converted to tensors"),
+            encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, ErlType, DataType, SampleSize);
+            % ?LOG_INFO("converted to tensors"),
             % TestTensor = nerlNIF:nerltensor_conversion(hd(tl(A)), erl_float),
             % B = encodeListOfListsNerlTensor(ListOfBatches, DataType, SampleSize, 1),
             % io:format("A = ~p~n~nB = ~p ~n", [A, B]),
-            A;
           % erl_int -> encodeListOfListsNerlTensor(ListOfGroupedBatches, UserType, BatchSize,SampleSize,DimZ);
           _Other -> throw("wrong ErlType")
     end,

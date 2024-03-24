@@ -108,13 +108,17 @@ PREDICTION_STR = "Prediction"
         mainServerIP = globe.components.mainServerIp
         mainServerPort = globe.components.mainServerPort
         self.mainServerAddress = 'http://' + mainServerIP + ':' + mainServerPort
+
+        # Initalize an instance for the transmitter:
+        if not hasattr(self, 'transmitter'):
+            self.transmitter = Transmitter(self.current_exp, self.mainServerAddress, self.input_data_path)
         
         LOG_INFO("Initializing ApiServer receiver thread")
 
         # Initializing the receiver (a Flask HTTP server that receives results from the Main Server):
         if is_port_free(int(globe.components.receiverPort)):
             self.receiverProblem = threading.Event()
-            self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components.receiverIp, globe.components.receiverPort, self.receiverProblem, self.apiserver_event_sync), daemon = True)
+            self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components, self.transmitter, self.receiverProblem, self.apiserver_event_sync), daemon = True)
             self.receiverThread.start()   
             # time.sleep(2)
             self.receiverThread.join(2) # After 2 secs, the receiver is either running, or the self.receiverProblem event is set.
@@ -125,9 +129,6 @@ PREDICTION_STR = "Prediction"
                 Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
                 sys.exit()
 
-        # Initalize an instance for the transmitter:
-        if not hasattr(self, 'transmitter'):
-            self.transmitter = Transmitter(self.current_exp, self.mainServerAddress, self.input_data_path)
 
         LOG_INFO("*** Remember to execute NerlnetRun.sh on each device before running the experiment! ***")
         
@@ -204,6 +205,10 @@ PREDICTION_STR = "Prediction"
         events_sync_inst.set_event_wait(EventSync.START_CASTING)
         self.transmitter.start_casting(current_exp_phase) # Source start sending data to workers
         events_sync_inst.sync_on_event(EventSync.START_CASTING)
+
+        LOG_INFO(f"Processing experiment phase data")
+        current_exp_phase.process_experiment_phase_data()
+        LOG_INFO(f"Processing experiment phase data completed")
 
         LOG_INFO(f"Start generating communication statistics for {current_exp_phase.get_name()} of type {current_exp_phase.get_phase_type()}")
         self.communication_stats()
