@@ -11,6 +11,7 @@
 -export([calculate_size/1]).
 -export([make_routing_table/4]).
 -export([http_router_request/5]).
+-export([format_multipart_formdata/3]).
 
 setup_logger(Module) ->
   logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
@@ -223,3 +224,26 @@ make_routing_table(Ets,EntitiesList,ThisRouter,NerlnetGraph)->
   lists:foreach(GenerateTablesFunc, EntitiesList),
   {ThisRouter , {RouterHost , RouterPort , _DeviceName}} = digraph:vertex(NerlnetGraph , ThisRouter),
   ets:insert(Ets , {ThisRouter , {ThisRouter , RouterHost , RouterPort}}).
+
+
+%% Reference: https://stackoverflow.com/questions/39222517/how-to-httppost-file-with-httpcrequest-in-erlang
+format_multipart_formdata(Boundary, Fields, Files) ->
+    FieldParts = lists:map(fun({FieldName, FieldContent}) ->
+        [lists:concat(["--", Boundary]),
+            lists:concat(["Content-Disposition: form-data; name=\"",FieldName,"\""]),
+            "", FieldContent]
+                           end, Fields),
+
+    FieldParts2 = lists:append(FieldParts),
+
+
+    FileParts = lists:map(fun({FieldName, FileName, FileContent}) ->
+
+        [lists:concat(["--", Boundary]),
+            lists:concat(["Content-Disposition: form-data; name=\"",FieldName,"\"; filename=\"",FileName,"\""]), %FieldName is a list
+            lists:concat(["Content-Type: ", "application/octet-stream"]), "", FileContent]
+                          end, Files),
+    FileParts2 = lists:append(FileParts),
+    EndingParts = [lists:concat(["--", Boundary, "--"]), ""],
+    Parts = lists:append([FieldParts2, FileParts2, EndingParts]),
+    string:join(Parts, "\r\n").

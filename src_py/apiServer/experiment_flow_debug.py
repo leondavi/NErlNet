@@ -17,10 +17,10 @@ NERLNET_RUN_STOP_SCRIPT = "./NerlnetRun.sh --run-mode stop"
 api_server_instance = ApiServer()
 #api_server_instance.help()
 api_server_instance.showJsons()
-dc = 1
-conn = 20
-flow = 18
-api_server_instance.setJsons(dc, conn, flow)
+dc_idx = 0
+conn_idx = 19
+exp_idx = 18
+api_server_instance.setJsons(dc_idx, conn_idx, exp_idx)
 dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
 experiment_name = "test_exp"

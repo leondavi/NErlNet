@@ -12,6 +12,9 @@ from decoderHttpMainServerDefs import *
 # @ seperates (stat_name, stat_value and type) -> worker_triplets for worker
 # $ seperates stat_name, stat_value and type
 
+def split_results_to_entities_chunks(string_to_convert : str) -> list:
+    return [x for x in string_to_convert.split(SEP_PHASE_ENTITY_DATA) if x]
+
 # Todo: fix all examples in the function
 def decode_main_server_ets_str(string_to_convert: str):
     result_dict = {} # {entity_name: ets_dict,...}

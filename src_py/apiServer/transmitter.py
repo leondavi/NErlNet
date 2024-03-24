@@ -25,19 +25,21 @@ class Transmitter:
         self.clientsPredictAddress = self.mainServerAddress + '/clientsPredict' #deprecated
         self.statisticsAddress = self.mainServerAddress + '/statistics'
         self.restart_address = self.mainServerAddress + '/restart'
+        self.ack_validation_address = self.mainServerAddress + '/apiserver_ack_validation'
         main_server_http_with_init_port = f'{self.mainServerAddress.split(":")[0]}:{self.mainServerAddress.split(":")[1]}:{JSON_INIT_HANDLER_ERL_PORT}'
         self.send_jsons_address = main_server_http_with_init_port + '/sendJsons'
-        
 
-
-    def testPost(self, address, payloadNum):
-        payload = {'test' : payloadNum}
-        response = requests.post(address ,data = payload)
-        print(response.ok, response.status_code, response.json())
-        #Return true, if received: HTTP status code < 400
-        #Return the HTTP status code for the response
-        #Return the reponse in JSON format
-        return(response.ok, response.status_code, response.json())
+    def send_ack_validation(self):
+        try:
+            response = requests.post(self.ack_validation_address, data = "ok")
+            if not response.ok:
+                LOG_ERROR(f"Failed to send batch ack")
+        except ConnectionRefusedError:
+            LOG_ERROR(f"Connection Refused Error: failed to connect to {self.ack_validation_address}")
+            raise ConnectionRefusedError
+        except ConnectionError:
+            LOG_ERROR(f"Connection Error: failed to connect to {self.ack_validation_address}")
+            raise ConnectionError
 
     def clients_set_phase(self, phase: str): 
         LOG_INFO(f'Phase {phase} requested from Main Server')
@@ -52,19 +54,6 @@ class Transmitter:
             LOG_ERROR(f"Connection Error: failed to connect to {self.clientsPhaseUpdateAddress}")
             raise ConnectionError
 
-    def clientsTraining(self):   #deprecated
-        globe.set_receiver_wait_for_ack()
-        LOG_INFO('Training Phase requested from Main Server')
-        response = requests.post(self.clientsTrainingAddress, data='')
-        if not response.ok:
-            LOG_ERROR('Training Phase Request issue!')
-
-    def clientsPredict(self):    #deprecated
-        globe.set_receiver_wait_for_ack()
-        LOG_INFO('Prediction Phase requested from Main Server')
-        response = requests.post(self.clientsPredictAddress, data='')
-        if not response.ok:
-            LOG_ERROR('Prediction Phase Request issue!')
     
     def send_jsons_to_devices(self, files):
         try:
@@ -80,8 +69,9 @@ class Transmitter:
         
 
     def update_csv(self, csv_files: list, source_pieces: list):
-        assert len(csv_files) == len(source_pieces)
-        for index in range(len(csv_files)):
+        total_sources = len(csv_files)
+        assert total_sources == len(source_pieces)
+        for index in range(total_sources):
             csv_file = csv_files[index]
             source_piece = source_pieces[index]
             source_name = source_piece.get_source_name()
@@ -89,7 +79,7 @@ class Transmitter:
             num_of_batches = source_piece.get_num_of_batches()
             with open(csv_file, 'r') as file:
                 csvfile = file.read()
-                data_str = f'{source_name}#{target_workers}#{num_of_batches}#{csvfile}'
+                data_str = f'{index + 1}#{total_sources}#{source_name}#{target_workers}#{num_of_batches}#{csvfile}'
                 try:
                     response = requests.post(self.updateCSVAddress, data = data_str)
                     if not response.ok:

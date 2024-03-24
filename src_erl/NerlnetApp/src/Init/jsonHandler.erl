@@ -29,7 +29,7 @@ init(Req0, [ApplicationPid]) ->
         ApplicationPid ! {jsonAddress,{lists:nth(1, Data),lists:nth(2, Data)}};
     _Other -> 
         {ok,Body,_} = cowboy_req:read_body(Req0),           %% shouldn't be here, files expected
-        io:format("got Req: ~p~nData: ~p~n",[Req0, Body])
+        io:format("Error - Got an unknown request: ~p~nData: ~p~n",[Req0, Body])
   end,
 
   Reply = io_lib:format("nerlnet starting", []),

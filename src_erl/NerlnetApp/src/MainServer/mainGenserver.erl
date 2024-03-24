@@ -23,7 +23,7 @@
 -define(SERVER, ?MODULE).
 
 
--record(main_genserver_state, {statisticsCounter = 0, myName, state, workersMap, clients, nerlnetGraph, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [], statisticsMap, msgCounter = 0}).
+-record(main_genserver_state, {statisticsCounter = 0, myName, state, workersMap, clients, nerlnetGraph, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [], statisticsMap, total_sources=0, sources_data_ready_ctr = 0}).
 
 %%%===============================================================
 %%% API
@@ -59,9 +59,12 @@ init({MyName,ClientsNames,BatchSize,WorkersMap,NerlnetGraph , DeviceName}) ->
   ConnectedEntities = [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,?MAIN_SERVER_ATOM)],
   ?LOG_NOTICE("Main Server is connected to: ~p~n",[ConnectedEntities]),
   MainServerEts = ets:new(main_server_ets , [set]),
+  PhaseResultDataEts = ets:new(phase_res_data_ets, [set]),
   put(main_server_ets, MainServerEts),
+  put(phase_res_data_ets, PhaseResultDataEts),
   put(nerlnet_graph, NerlnetGraph),
   put(device_name, DeviceName),
+  put(active_phase, none),
   EtsStats = ets:new(stats , [set]),
   put(etsStats, EtsStats), %% All entities including mainServer ets tables statistics
   Entities = [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--[?API_SERVER_ATOM]],
@@ -76,17 +79,23 @@ init({MyName,ClientsNames,BatchSize,WorkersMap,NerlnetGraph , DeviceName}) ->
   % Getting the router that main server is connected with
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,hd(ClientsNames),get(nerlnet_graph)),
   ets:insert(MainServerEts, {my_router,{MyRouterHost,MyRouterPort}}),
-  {ok, #main_genserver_state{myName = MyNameStr , state=idle}}.
+  {ok, #main_genserver_state{myName = MyNameStr , state=idle, total_sources=0, sources_data_ready_ctr = 0}}.
 
 
-handle_cast({initCSV, SourceName ,SourceData}, State = #main_genserver_state{state = idle, sourcesWaitingList = SourcesWaitingList}) ->
+handle_cast({initCSV, _Index, TotalSources, SourceName ,SourceData}, State = #main_genserver_state{state = idle, sourcesWaitingList = SourcesWaitingList, total_sources = TotalSourcesOld, sources_data_ready_ctr = SourcesDataReadyCtrOld}) ->
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
   ActionStr = atom_to_list(updateCSV),
+  {TotalSourcesInt, _Rest} = string:to_integer(TotalSources),
   nerl_tools:http_router_request(RouterHost,RouterPort, [SourceName], ActionStr, SourceData), % update the source with its data
   UpdatedSourceWaitingList = SourcesWaitingList++[list_to_atom(SourceName)],
-  {noreply, State#main_genserver_state{sourcesWaitingList = UpdatedSourceWaitingList}};
+  {SourcesDataReadyCtr, NewTotalSources} = 
+  if 
+    TotalSourcesOld =/= TotalSourcesInt -> {0, TotalSourcesInt};
+    true -> {SourcesDataReadyCtrOld, TotalSourcesOld}
+  end,
+  {noreply, State#main_genserver_state{sourcesWaitingList = UpdatedSourceWaitingList, total_sources = NewTotalSources, sources_data_ready_ctr = SourcesDataReadyCtr}};
 
-handle_cast({initCSV, _SourceName ,_SourceData}, State) ->
+handle_cast({initCSV, _Index, _TotalSources, _SourceName ,_SourceData}, State) ->
   ?LOG_ERROR("initCSV is only applicalble when main server is in idle state!"),
   {noreply, State#main_genserver_state{}};
 
@@ -119,15 +128,17 @@ handle_cast({jsonReceived,Body}, State = #main_genserver_state{}) ->
   stats:increment_messages_sent(StatsEts),
   {noreply, State#main_genserver_state{}};
 
+% Updating mainserver process dict with active phase!
 handle_cast({clientsPhaseUpdate , Phase}, State = #main_genserver_state{myName = MyName}) ->
   put(curr_phase_ack , update_phase_done),
   ?LOG_INFO("Received clientsPhaseUpdate message with phase ~p",[binary_to_list(Phase)]),
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
-  stats:increment_messages_received(StatsEts),
-  stats:increment_bad_messages(StatsEts),
   case binary_to_atom(Phase) of
-    training -> update_clients_phase(clientTraining, MyName);
-    prediction -> update_clients_phase(clientPredict, MyName)
+    training ->   stats:increment_messages_received(StatsEts),put(active_phase, training), 
+                  update_clients_phase(clientTraining, MyName);
+    prediction -> stats:increment_messages_received(StatsEts),put(active_phase, prediction),
+                  update_clients_phase(clientPredict, MyName);
+    _Else -> ?LOG_ERROR("Wrong phase was received: ~p",[Phase]), stats:increment_bad_messages(StatsEts)
   end,
   ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
@@ -173,19 +184,6 @@ handle_cast({clientsPredict,_Body}, State = #main_genserver_state{myName = MyNam
   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
 
 
-% handle_cast({clientsIdle}, State = #main_genserver_state{state = idle, myName = MyName}) ->
-%   %%  send router http request, to route this message to all sensors
-%   ?LOG_INFO("Casts the idle phase message to all clients"),
-%   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
-%   stats:increment_messages_received(StatsEts),
-%   PhaseAtom = clientsIdle,
-%   update_clients_phase(PhaseAtom, MyName),
-%   stats:increment_messages_sent(StatsEts),
-%   ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
-%   {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
-
-% TODO
-%%% get Statistics from all Entities in the network
 handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) ->
     StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
     stats:increment_messages_received(StatsEts),
@@ -195,19 +193,13 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
       Body == <<>> ->  ?LOG_ERROR("~p: Wrong statistics message",[MyName]);
 
       true ->
-          
-          %% TODO - Guy here you should get the the encoded statistics from entities and decode it use it the function you should implement
-          %%      statistics arrived from Entity
+          %% statistics arrived from Entity
           {From, StatsEtsEncStr} = binary_to_term(Body),
-          %% EntityName = binary_to_atom(From), %TODO Guy / NO NEED
           set_entity_stats_ets_str(From, StatsEtsEncStr),
-          % TODO increase counter_received_stats ets by 1
+
+          % increase counter_received_stats ets by 1
           ets:update_counter(get(main_server_ets), counter_received_stats, 1),
           stats:increment_messages_received(StatsEts),
-          % [From|[NewCounter]] = re:split(binary_to_list(Body), ":", [{return, list}]),
-
-          % NewStatisticsMap = maps:put(From,NewCounter,StatisticsMap),
-          % NewState = State#main_genserver_state{msgCounter = MsgCounter+1,statisticsMap = NewStatisticsMap,statisticsCounter = StatisticsCounter-1},
 
           ReceivedCounterStatsValue = ets:lookup_element(get(main_server_ets), counter_received_stats, ?DATA_IDX),
           EntitiesNamesList = ets:lookup_element(get(main_server_ets), entities_names_list, ?DATA_IDX),
@@ -237,6 +229,7 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName, so
   stats:increment_messages_received(StatsEts),
   SourceName = binary_to_term(Body),
   UpdatedSourcesCastingList = SourcesCastingList--[SourceName],
+
   case UpdatedSourcesCastingList of
     [] -> % the list is empty - all sources were done casting their batches
       ?LOG_NOTICE("[Main-Server] All sources finished casting"),
@@ -250,22 +243,41 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName, so
   {noreply, NextState};
 
 % Each update CSV process generates sourceAck that is sent to main server when all sources are ready
-handle_cast({sourceAckDataReady,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList}) ->
+handle_cast({sourceAckDataReady,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList, total_sources = TotalSources, sources_data_ready_ctr = SourcesDataReadyCtr}) ->
     StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
     stats:increment_messages_received(StatsEts),
     SourceName = binary_to_term(Body),
     NewWaitingList = WaitingList--[SourceName],
-    if length(NewWaitingList) == 0 -> ack(atom_to_list(update_csv_done));
-    true-> ok end,
-  {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList}};
+    SourcesDataReadyCtrNew = SourcesDataReadyCtr + 1, % The total sources comes from the APIServer - The ApiServer sends each source data in different streams, therefore, 
+                                                      % we can't count on the waiting list since it can be empty during the process
+    if
+    SourcesDataReadyCtrNew =:= TotalSources -> ack(atom_to_list(update_csv_done)), {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList, sources_data_ready_ctr = 0}};
+    true-> {noreply, State#main_genserver_state{sourcesWaitingList = NewWaitingList, sources_data_ready_ctr = SourcesDataReadyCtrNew}}
+    end;
 
 
 handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList}) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
-  NewWaitingList = WaitingList--[binary_to_term(Body)], % waitingList is initialized in clientsTraining or clientsPredict handl cast calls
-  if length(NewWaitingList) == 0 -> ack(atom_to_list(get(curr_phase_ack)));
-  true-> ok end,
+  ClientName = binary_to_term(Body),
+  NewWaitingList = WaitingList--[ClientName], % waitingList is initialized in clientsTraining or clientsPredict handl cast calls
+  if length(NewWaitingList) == 0 ->
+            ResultsToSendStr = generate_phase_result_data_to_send_from_ets_as_str(),
+            NothingToSend = string:is_empty(ResultsToSendStr),
+            if 
+              NothingToSend -> pass;
+              true ->  Action = case get(active_phase) of
+                                        training -> trainRes;
+                                        prediction -> predRes
+                                    end,
+                            {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX), % get main_server's router
+                            nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(Action), ResultsToSendStr),
+                            stats:increment_messages_sent(StatsEts),
+                            clean_phase_result_data_to_send_ets() % getting ready for next phase after data was sent to APIServer
+            end,
+            ack(atom_to_list(get(curr_phase_ack)));
+    true-> ok 
+  end,
   {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList}};
 
 %%TODO change Client_Names to list of clients
@@ -306,19 +318,17 @@ handle_cast({lossFunction,<<>>}, State = #main_genserver_state{}) ->
   {noreply, State#main_genserver_state{}};
 
 % sending loss to ApiServer when data of loss is received from worker (through client)
+% trainRes
 handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName}) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
   try
-    {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX), % get main_server's router,
     case binary_to_term(Body) of
-      {WorkerName,{LossFunction,_Time}} -> % average time should be gathered
-        nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(trainRes), atom_to_list(WorkerName)++"#"++float_to_list(LossFunction)),
-        stats:increment_messages_sent(StatsEts);
-      {WorkerName , SourceName , {LossTensor , _Type} , TimeNIF , BatchID , BatchTS} ->
-        ToSend = atom_to_list(WorkerName) ++ ?PHASE_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ ?PHASE_RES_VALUES_SEPERATOR ++ nerl_tools:string_format("~p",[LossTensor]) ++ ?PHASE_RES_VALUES_SEPERATOR ++ float_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchTS),
-        nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(trainRes), ToSend),
-        stats:increment_messages_sent(StatsEts);
+        {WorkerName , SourceName , {LossTensor , _Type} , TimeNIF , BatchID , BatchTS} ->
+        ToSend = ?PHASE_RES_DATA_SEPARATOR ++ atom_to_list(WorkerName) ++ ?PHASE_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ 
+                 ?PHASE_RES_VALUES_SEPERATOR ++ nerl_tools:string_format("~p",[LossTensor]) ++ ?PHASE_RES_VALUES_SEPERATOR ++ float_to_list(TimeNIF) ++ 
+                 ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchTS) ++ ?PHASE_RES_DATA_SEPARATOR,
+        store_phase_result_data_to_send_ets({WorkerName, BatchID , BatchTS}, ToSend);
       _ELSE ->
         ?LOG_ERROR("~p Wrong loss function pattern received from client and its worker ~p", [MyName, Body])
     end
@@ -328,12 +338,12 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName})
   {noreply, State#main_genserver_state{}};
 
 
+% predictRes
 handle_cast({predictRes,Body}, State) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   _BatchSize = ets:lookup_element(get(main_server_ets), batch_size, ?DATA_IDX),
   stats:increment_messages_received(StatsEts),
   try 
-      {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX), % get main_server's router,
       {WorkerName, SourceName, BatchID, {NerlTensor, Type}, TimeNIF , BatchTS} = binary_to_term(Body),   %% TODO: add convention with client
       %io:format("WorkerName: ~p, InputName: ~p, BatchID: ~p,  Type: ~p~n",[WorkerName, InputName, BatchID, Type]),
       {DecodedNerlTensor, _Type} =
@@ -341,10 +351,11 @@ handle_cast({predictRes,Body}, State) ->
         (NerlTensor==<<>>) -> ?LOG_ERROR(?LOG_HEADER++"Got empty tensor"), empty_nerltensor_err;
         true ->  nerlNIF:nerltensor_conversion({NerlTensor, Type}, nerlNIF:erl_type_conversion(Type)) % converting nerltensor from binary to erlang type using NerlNIF
       end,
-      ToSend = WorkerName ++ ?PHASE_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ ?PHASE_RES_VALUES_SEPERATOR ++ nerl_tools:string_format("~p",[DecodedNerlTensor]) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchTS),
-      %% io:format("ToSend: ~p~n",[ToSend]),
-      nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(predRes), ToSend),
-      stats:increment_messages_sent(StatsEts)
+      ToSend = ?PHASE_RES_DATA_SEPARATOR ++ WorkerName ++ ?PHASE_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ 
+               ?PHASE_RES_VALUES_SEPERATOR ++ nerl_tools:string_format("~p",[DecodedNerlTensor]) ++ ?PHASE_RES_VALUES_SEPERATOR ++ 
+                integer_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_SEPERATOR ++ 
+                integer_to_list(BatchTS) ++ ?PHASE_RES_DATA_SEPARATOR,
+      store_phase_result_data_to_send_ets({WorkerName, BatchID , BatchTS}, ToSend)
   catch Err:E ->  
     ?LOG_ERROR(?LOG_HEADER++"Error receiving predict result ~p",[{Err,E}])
   end,
@@ -438,7 +449,10 @@ sources_start_casting([CurrSource|RemainingSources]) ->
 ack(MsgStr) ->
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
   Body = MsgStr,
-  {ok, Response} = nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], ?API_SERVER_ACTION_ACK, Body),
+  HttpRouterRequestFunc = fun() -> 
+        nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], ?API_SERVER_ACTION_ACK, Body)
+      end,
+  {ok, Response} = retransmission_to_apiserver(HttpRouterRequestFunc, ?VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_NUMOF_TRIALS),
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_sent(StatsEts),
   case Response of 
@@ -447,12 +461,29 @@ ack(MsgStr) ->
     {{_Protocol, _Code = 200, _Meaning}, _Headers, _Body} -> done;
     _Other -> ?LOG_ERROR("Bad response from ApiServer"), bad_response
   end.
-  
 
-%% TODO remove - will be replaced by stats.erl
-%%
-%% encodes stats to string:
-%% "Entity1:Stats,...|Entity2:Stats,...|....."
-% mapToString([],Ret) -> Ret;
-% mapToString([{Name,Data}|StatisticsList],[]) -> mapToString(StatisticsList,Name++":"++Data);
-% mapToString([{Name,Data}|StatisticsList],Ret) -> mapToString(StatisticsList,Ret++"|"++Name++":"++Data).
+% ack validation
+retransmission_to_apiserver(HttpRouterRequestFunc, 0) -> HttpRouterRequestFunc();
+retransmission_to_apiserver(HttpRouterRequestFunc, Trials) ->
+  receive
+    {apiserver_ack_validation, _Body} -> ok
+  after ?VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_INTERVAL_MS ->  HttpRouterRequestFunc(), retransmission_to_apiserver(HttpRouterRequestFunc, Trials - 1) % TODO fix magic number
+  end.
+
+
+store_phase_result_data_to_send_ets({WorkerName, BatchID , BatchTS}, DataToSendStr) -> 
+  Key = {WorkerName, BatchID , BatchTS},
+  ets:insert(get(phase_res_data_ets),{Key, DataToSendStr}).
+
+
+generate_phase_result_data_string_from_list([], _ResString) -> _ResString;
+generate_phase_result_data_string_from_list(ListOfData, ResString) ->
+  NewResString = ResString++element(?DATA_IDX,hd(ListOfData)),
+  generate_phase_result_data_string_from_list(tl(ListOfData), NewResString).
+
+generate_phase_result_data_to_send_from_ets_as_str() ->
+  ListOfData = ets:tab2list(get(phase_res_data_ets)),
+  generate_phase_result_data_string_from_list(ListOfData, ""). % String to send is retruned
+
+clean_phase_result_data_to_send_ets() ->
+  ets:delete_all_objects(get(phase_res_data_ets)).

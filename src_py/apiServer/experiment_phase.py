@@ -2,6 +2,7 @@ from NerlComDB import *
 from nerl_model_db import *
 from definitions import *
 from nerl_csv_dataset_db import *
+from decoderHttpMainServer import *
 
 class ExperimentPhase():
     def __init__(self, experiment_flow_name : str, name : str, phase_type: str, network_componenets: NetworkComponents, num_of_features: str):
@@ -13,6 +14,26 @@ class ExperimentPhase():
         self.nerl_model_db = NerlModelDB(self.phase_type)
         self.source_pieces_dict = {}  # Dict of SourcePieceDS
         self.num_of_features = num_of_features
+        self.raw_data_buffer = []
+        self.network_componenets = network_componenets
+
+    def get_raw_data_buffer(self):
+        return self.raw_data_buffer
+
+    def clean_raw_data_buffer(self):
+        self.raw_data_buffer = []
+
+    def process_experiment_phase_data(self):
+        for resData in self.raw_data_buffer:
+            if self.phase_type == PHASE_TRAINING_STR:
+                source_name, tensor_data, duration, batch_id, worker_name, batch_timestamp = decode_main_server_str_train(resData)
+                client_name = self.network_componenets.get_client_name_by_worker_name(worker_name)
+                self.nerl_model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, tensor_data, duration, batch_timestamp)
+            elif self.phase_type == PHASE_PREDICTION_STR:
+                worker_name, source_name, tensor_data, duration, batch_id, batch_timestamp = decode_main_server_str_predict(resData)
+                client_name = self.network_componenets.get_client_name_by_worker_name(worker_name)
+                self.nerl_model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, tensor_data, duration, batch_timestamp)
+        self.clean_raw_data_buffer()
 
     def get_phase_type(self):
         return self.phase_type

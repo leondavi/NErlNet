@@ -25,7 +25,7 @@ init(Req0, [Action,Source_StateM_Pid]) ->
                     Decoded_body = binary_to_list(Body)
                     %io:format("got Req: ~p~nData: ~p~n",[Req0, Body])
               end,
-            [_SourceName, WorkersStr, NumOfBatches, CSVData] = string:split(Decoded_body, "#", all),
+            [_Index, _TotalSources, _SourceName, WorkersStr, NumOfBatches, CSVData] = string:split(Decoded_body, "#", all),
             WorkersList = string:split(WorkersStr, ",", all),
             gen_statem:cast(Source_StateM_Pid,{batchList,WorkersList, list_to_integer(NumOfBatches), CSVData});
     startCasting  ->  {_,Body,_} = cowboy_req:read_body(Req0),

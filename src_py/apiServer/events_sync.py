@@ -38,7 +38,7 @@ class EventSync():
         assert event in self.tracking_dict
         while(self.tracking_dict[event] == self.WAIT):
             assert not self.get_error_status()
-            sleep(0.005)
+            sleep(0.05)
     
     def get_event_status(self, event):
         assert event in self.tracking_dict
