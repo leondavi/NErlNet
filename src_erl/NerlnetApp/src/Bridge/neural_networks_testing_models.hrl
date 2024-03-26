@@ -20,7 +20,7 @@
                                 _LayersTypesCNN = "2,4,2,3,5",
                                 _LayersFunctionalityCodesCNN = "6,2,6,6,4", % change scaler functionality to 6 to check exception handling
                                 _LearningRateCNN = "0.01",
-                                _EpochsCNN = "100",
+                                _EpochsCNN = "50",
                                 _OptimizerTypeCNN = "5",
                                 _OptimizerArgsCNN = "",
                                 _LossMethodCNN = "2",
@@ -33,7 +33,7 @@
                                 _LayersTypesAEC = "1,3,3,3,3,3,3,9",
                                 _LayersFunctionalityCodesAEC = "1,11,11,11,11,11,11,1", 
                                 _LearningRateAEC = "0.01",
-                                _EpochsAEC = "100",
+                                _EpochsAEC = "50",
                                 _OptimizerTypeAEC = "5",
                                 _OptimizerArgsAEC = "",
                                 _LossMethodAEC = "2",

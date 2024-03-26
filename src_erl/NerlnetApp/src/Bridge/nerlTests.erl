@@ -246,7 +246,7 @@ nerlworker_test_generate_data(LayersSizes, LayerTypes, NumOfSamples) -> %% Ask D
                   ?LAYERS_TYPE_SCALING_IDX -> {FirstLayerSizeInt,_} = string:to_integer(FirstLayerSize),
                                               {LastLayerSizeInt,_} = string:to_integer(LastLayerSize), 
                                               {NumOfSamples,LastLayerSizeInt+FirstLayerSizeInt, 1};
-                  ?LAYERS_TYPE_CNN_IDX    ->  [DimXComplex, DimYComplex, DimZComplex | _] = re:split(FirstLayerSize,"x",[{return,list}]),
+                  ?LAYERS_TYPE_CONV_IDX    ->  [DimXComplex, DimYComplex, DimZComplex | _] = re:split(FirstLayerSize,"x",[{return,list}]),
                                               {DimXComplexInt,_} = string:to_integer(DimXComplex),
                                               {DimYComplexInt,_} = string:to_integer(DimYComplex),
                                               {DimZComplexInt,_} = string:to_integer(DimZComplex),
