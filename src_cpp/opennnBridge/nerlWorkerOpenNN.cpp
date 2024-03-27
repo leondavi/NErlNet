@@ -312,7 +312,7 @@ namespace nerlnet
             int layer_type = curr_layer->get_layer_type();
             switch(layer_type)
             {
-                case LAYER_TYPE_CNN: 
+                case LAYER_TYPE_CONV:
                 {
                    // std::shared_ptr<NerlLayer> prev_layer = curr_layer->get_prev_layer_ptr();
                     int layer_rows_num     = curr_layer->get_dim_size(DIM_X_IDX);
@@ -521,7 +521,7 @@ namespace nerlnet
         {
             case LAYER_TYPE_DEFAULT:      { res = translate_activation_function_int(layer_functionality); break;} // PERCEPTRON
             case LAYER_TYPE_SCALING:      { res = translate_scaling_method_int(layer_functionality);      break;}
-            case LAYER_TYPE_CNN:          { res = translate_activation_function_int(layer_functionality); break;}
+            case LAYER_TYPE_CONV:          { res = translate_activation_function_int(layer_functionality); break;}
             case LAYER_TYPE_PERCEPTRON:   { res = translate_activation_function_int(layer_functionality); break;}
             case LAYER_TYPE_POOLING:      { res = translate_pooling_method_int(layer_functionality);      break;}
             case LAYER_TYPE_PROBABILISTIC:{ res = translate_activation_function_int(layer_functionality); break;}
@@ -540,7 +540,7 @@ namespace nerlnet
         {
             case LAYER_TYPE_DEFAULT:      { res = (int)opennn::Layer::Type::Perceptron;          break;}
             case LAYER_TYPE_SCALING:      { res = (int)opennn::Layer::Type::Scaling;             break;}
-            case LAYER_TYPE_CNN:          { res = (int)opennn::Layer::Type::Convolutional;       break;}
+            case LAYER_TYPE_CONV:          { res = (int)opennn::Layer::Type::Convolutional;       break;}
             case LAYER_TYPE_PERCEPTRON:   { res = (int)opennn::Layer::Type::Perceptron;          break;}
             case LAYER_TYPE_POOLING:      { res = (int)opennn::Layer::Type::Pooling;             break;}
             case LAYER_TYPE_PROBABILISTIC:{ res = (int)opennn::Layer::Type::Probabilistic;       break;}

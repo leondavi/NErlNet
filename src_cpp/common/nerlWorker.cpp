@@ -67,7 +67,7 @@ std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_siz
                 pooling_dims, stride_dims,padding_dims);
                 break;  
             }
-            case LAYER_TYPE_CNN:
+            case LAYER_TYPE_CONV:
             {
                 LayerSizingParams_t params = layer_sizes_params[i];
                 std::vector<int>kernel_dims = params.get_ext_params(params.KERNEL_SIZE);
