@@ -31,14 +31,22 @@ http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, Body) -
   end.
 
 
+http_request(Host, Port, Path, {json, Body}) -> 
+  io:format("Sending Json to ~p:~p~n",[Host,Port]),
+  JsonContentType = ?HTTP_CONTENT_TYPE_JSON,
+  Json = jsx:encode(Body),
+  http_request(Host, Port,Path, JsonContentType, Json);
+http_request(Host, Port,Path, Body) -> 
+  DefaultContentType = ?HTTP_CONTENT_TYPE_FORM_URLENCODED,
+  http_request(Host, Port,Path, DefaultContentType, Body).
 
 %% send message between entities
-http_request(Host, Port,Path, Body) when is_atom(Body) -> http_request(Host, Port,Path, atom_to_list(Body));
-http_request(Host, Port,Path, Body) when is_binary(Host) -> http_request(binary_to_list(Host), Port,Path, Body);
-http_request(Host, Port,Path, Body)->
-  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
+http_request(Host, Port, Path, ContentType, Body) when is_atom(Body) -> http_request(Host, Port,Path, ContentType, atom_to_list(Body));
+http_request(Host, Port, Path, ContentType, Body) when is_binary(Host) -> http_request(binary_to_list(Host), Port,Path, ContentType, Body);
+http_request(Host, Port, Path, ContentType, Body)->
+  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path, % Path is the action
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
+  httpc:request(post,{URL, [], ContentType, Body}, [], []).
 
 get_client_worker_pairs([],_WorkersMap,Ret)-> Ret;
 get_client_worker_pairs([WorkerName|WorkersNames],WorkersMap,Ret)->

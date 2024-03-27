@@ -58,6 +58,50 @@ def decode_main_server_ets_str(string_to_convert: str):
 
     return result_dict
 
+def parse_key_string(key_string: str) -> tuple:
+    WORKER_NAME_IDX = 0
+    SOURCE_NAME_IDX = 1
+    BATCH_ID_IDX = 2
+    BATCH_TS_IDX = 3
+    DURATION_IDX = 4 # TimeNIF
+    NERLTENSOR_TYPE_IDX = 5
+
+    definitions_list = key_string.split(SEP_ENTITY_HASH_STATS)
+    worker_name = definitions_list[WORKER_NAME_IDX]
+    source_name = definitions_list[SOURCE_NAME_IDX]
+    batch_id = definitions_list[BATCH_ID_IDX]
+    batch_ts = definitions_list[BATCH_TS_IDX]
+    duration = definitions_list[DURATION_IDX]
+    nerltensor_type = definitions_list[NERLTENSOR_TYPE_IDX]
+
+    return worker_name, source_name, batch_id, batch_ts, duration, nerltensor_type
+
+
+def decode_phase_result_data_json_from_main_server(input_json_dict : dict) -> list:
+    decoded_data = []
+    DIMS_LENGTH = 3
+    for key_string, nerltensor in input_json_dict.items():
+        worker_name, source_name, batch_id, batch_ts, duration, nerltensor_type = parse_key_string(key_string)
+        duration = int(float(duration)) # from here duration is int in micro seconds
+
+        # nerltensor to numpy tensor conversion
+        np_tensor = None
+        nerltensor_as_bytes = bytes(nerltensor)
+        if nerltensor_type == 'float':
+            np_tensor = np.frombuffer(nerltensor_as_bytes, dtype=np.float32)
+        elif nerltensor_type == 'int':
+            np_tensor = np.frombuffer(nerltensor_as_bytes, dtype=np.int32)
+        elif nerltensor_type == 'double':
+            np_tensor = np.frombuffer(nerltensor_as_bytes, dtype=np.float64)
+
+        dims = np_tensor[:DIMS_LENGTH].astype(int)
+        np_tensor = np_tensor[DIMS_LENGTH:]
+        np_tensor = np_tensor.reshape(dims) # reshaped
+
+        decoded_data.append((worker_name, source_name, duration, batch_id, batch_ts, np_tensor))
+    return decoded_data
+    
+
 def decode_main_server_str_train(string_to_convert: str) -> tuple:  #change to tuple of 5 elements
     worker_name = string_to_convert.split(SEP_ENTITY_HASH_STATS)[0]
     train_result = string_to_convert.split(SEP_ENTITY_HASH_STATS)[1]

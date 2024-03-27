@@ -53,8 +53,7 @@ call_to_train(ModelID, {DataTensor, Type}, WorkerPid , BatchID , SourceName)->
             {nerlnif, nan, TrainTime} -> 
                   gen_statem:cast(WorkerPid,{loss, nan , TrainTime , BatchID , SourceName}); %TODO Guy - Please the behavior when this case happens
             {nerlnif , LossTensor, LossTensorType , TrainTime}->
-                  {ErlTensor, ErlTensorType} = nerltensor_conversion({LossTensor, LossTensorType}, erl_float), % TODO Guy - Please do the conversion in main server
-                  gen_statem:cast(WorkerPid,{loss, {ErlTensor, ErlTensorType} , TrainTime , BatchID , SourceName})
+                  gen_statem:cast(WorkerPid,{loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName})
             after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
                   ?LOG_ERROR("Worker train timeout reached! bid:~p s:~p",[BatchID , SourceName]),
                   gen_statem:cast(WorkerPid,{loss, timeout , SourceName}) %% TODO Guy Define train timeout state 
@@ -64,11 +63,11 @@ call_to_predict(ModelID, {BatchTensor, Type}, WorkerPid, BatchID , SourceName)->
       ok = predict_nif(ModelID, BatchTensor, Type),
       receive
             
-            {nerlnif , PredNerlTensor, NewType, TimeTook}-> %% nerlnif atom means a message from the nif implementation
+            {nerlnif , PredNerlTensor, PredNerlTensorType, TimeNif}-> %% nerlnif atom means a message from the nif implementation
                   % io:format("pred_nif done~n"),
                   % {PredTen, _NewType} = nerltensor_conversion({PredNerlTensor, NewType}, erl_float),
                   % io:format("Pred returned: ~p~n", [PredNerlTensor]),
-                  gen_statem:cast(WorkerPid,{predictRes,PredNerlTensor, NewType, TimeTook, BatchID , SourceName});
+                  gen_statem:cast(WorkerPid,{predictRes,PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , SourceName});
             Error ->
                   ?LOG_ERROR("received wrong prediction_nif format: ~p" ,[Error]),
                   throw("received wrong prediction_nif format")
