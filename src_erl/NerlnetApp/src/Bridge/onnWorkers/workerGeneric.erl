@@ -161,24 +161,23 @@ idle(cast, _Param, State) ->
 
 %% Waiting for receiving results or loss function
 %% Got nan or inf from loss function - Error, loss function too big for double
-wait(cast, {loss , nan , TimeNIF , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState}) ->
+wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState}) ->
   stats:increment_by_value(get(worker_stats_ets), nan_loss_count, 1),
-  gen_statem:cast(get(client_pid),{loss, MyName , SourceName ,nan , TimeNIF ,BatchID}),
+  gen_statem:cast(get(client_pid),{loss, MyName , SourceName ,nan , TrainTime ,BatchID}),
   {next_state, NextState, State};
 
-wait(cast, {loss, LossTensor , TimeNIF , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
-  % {[_ , _ , _ , LossValue] , _} = LossTensor, 
-  % io:format("Got Loss Value ~p~n",[LossValue]),
+
+wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
   BatchTimeStamp = erlang:system_time(nanosecond),
-  gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,LossTensor , TimeNIF , BatchID , BatchTimeStamp}), %% TODO Add Time and Time_NIF to the cast
+  gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,{LossTensor, LossTensorType} , TrainTime , BatchID , BatchTimeStamp}),
   ToUpdate = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),DistributedWorkerData}),
   if  ToUpdate -> {next_state, update, State#workerGeneric_state{nextState=NextState}};
       true ->     {next_state, NextState, State}
   end;
 
-wait(cast, {predictRes,PredNerlTensor, Type, TimeNIF, BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
+wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
   BatchTimeStamp = erlang:system_time(nanosecond),
-  gen_statem:cast(get(client_pid),{predictRes,MyName,SourceName, {PredNerlTensor, Type}, TimeNIF , BatchID , BatchTimeStamp}), 
+  gen_statem:cast(get(client_pid),{predictRes,MyName, SourceName, {PredNerlTensor, PredNerlTensorType}, TimeNif , BatchID , BatchTimeStamp}), 
   Update = DistributedBehaviorFunc(post_predict, {get(generic_worker_ets),DistributedWorkerData}),
   if Update -> 
     {next_state, update, State#workerGeneric_state{nextState=NextState}};

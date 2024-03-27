@@ -73,29 +73,19 @@ class ack(Resource):  # request from Guy state related message as ack
 
 class trainRes(Resource):
     def post(self):
-        resData = request.get_data().decode('utf-8')
-        #print(f"Got {resData} from MainServer")  # Todo remove print
-        #print(f"Received training result {resData}") # Todo remove print
+        resDataDict = request.get_json()
         current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase() 
         raw_data_buffer = current_experiment_phase.get_raw_data_buffer()
-        
-        entities_raw_data_list = split_results_to_entities_chunks(resData)
-        raw_data_buffer += entities_raw_data_list
-
+        raw_data_buffer.append(resDataDict)
         return "OK", 200
 
 #http_request(RouterHost,RouterPort,"predictRes",ListOfResults++"#"++BatchID++"#"++CSVName++"#"++BatchSize)
 class predictRes(Resource):
     def post(self):
-        # Result preprocessing:
-        # Receiving from Erlang: Result++"#"++integer_to_list(BatchID)++"#"++CSVName++"#"++integer_to_list(BatchSize)
-        resData = request.get_data().decode('utf-8')
+        resDataDict = request.get_json()
         current_experiment_phase = globe.experiment_focused_on.get_current_experiment_phase() 
         raw_data_buffer = current_experiment_phase.get_raw_data_buffer()
-        
-        entities_raw_data_list = split_results_to_entities_chunks(resData)
-        raw_data_buffer += entities_raw_data_list
-
+        raw_data_buffer.append(resDataDict)
         return "OK", 200 
 
 class statistics(Resource):

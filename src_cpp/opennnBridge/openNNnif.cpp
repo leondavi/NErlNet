@@ -102,7 +102,8 @@ void* PredictFun(void* arg)
     // Stop the timer and calculate the time took for training
     high_resolution_clock::time_point  stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - PredictNNptr->start_time);
-    nifpp::TERM predict_time = nifpp::make(env, duration.count());
+
+    ERL_NIF_TERM predict_time = enif_make_double(env, duration.count());
     nifpp::str_atom nerlnif_atom_str(NERLNIF_ATOM_STR);
     nifpp::TERM nerlnif_atom = nifpp::make(env , nerlnif_atom_str);
     ERL_NIF_TERM predict_res_and_time = enif_make_tuple(env, 4 , nerlnif_atom , prediction , nifpp::make(env, PredictNNptr->return_tensor_type) , predict_time);
