@@ -262,8 +262,8 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList =
   ClientName = binary_to_term(Body),
   NewWaitingList = WaitingList--[ClientName], % waitingList is initialized in clientsTraining or clientsPredict handl cast calls
   if length(NewWaitingList) == 0 ->
-            ResultsToSendStr = generate_phase_result_data_to_send_from_ets_as_str(),
-            NothingToSend = string:is_empty(ResultsToSendStr),
+            PhaseResultsDataMap = generate_phase_result_data_map(),
+            NothingToSend = string:is_empty(PhaseResultsDataMap),
             if 
               NothingToSend -> pass;
               true ->  Action = case get(active_phase) of
@@ -271,7 +271,7 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList =
                                         prediction -> predRes
                                     end,
                             {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX), % get main_server's router
-                            nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(Action), ResultsToSendStr),
+                            nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(Action), {json, PhaseResultsDataMap}),
                             stats:increment_messages_sent(StatsEts),
                             clean_phase_result_data_to_send_ets() % getting ready for next phase after data was sent to APIServer
             end,
@@ -324,11 +324,12 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName})
   stats:increment_messages_received(StatsEts),
   try
     case binary_to_term(Body) of
-        {WorkerName , SourceName , {LossTensor , _Type} , TimeNIF , BatchID , BatchTS} ->
-        ToSend = ?PHASE_RES_DATA_SEPARATOR ++ atom_to_list(WorkerName) ++ ?PHASE_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ 
-                 ?PHASE_RES_VALUES_SEPERATOR ++ nerl_tools:string_format("~p",[LossTensor]) ++ ?PHASE_RES_VALUES_SEPERATOR ++ float_to_list(TimeNIF) ++ 
-                 ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchTS) ++ ?PHASE_RES_DATA_SEPARATOR,
-        store_phase_result_data_to_send_ets({WorkerName, BatchID , BatchTS}, ToSend);
+        {WorkerName , SourceName , {LossNerlTensor , LossNerlTensorType} , TimeNIF , BatchID , BatchTS} ->
+        Key = atom_to_list(WorkerName) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ atom_to_list(SourceName) ++ 
+              ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ 
+              integer_to_list(BatchTS) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ float_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++
+              atom_to_list(LossNerlTensorType),
+        store_phase_result_data_to_send_ets(Key, binary_to_list(LossNerlTensor));
       _ELSE ->
         ?LOG_ERROR("~p Wrong loss function pattern received from client and its worker ~p", [MyName, Body])
     end
@@ -344,18 +345,12 @@ handle_cast({predictRes,Body}, State) ->
   _BatchSize = ets:lookup_element(get(main_server_ets), batch_size, ?DATA_IDX),
   stats:increment_messages_received(StatsEts),
   try 
-      {WorkerName, SourceName, BatchID, {NerlTensor, Type}, TimeNIF , BatchTS} = binary_to_term(Body),   %% TODO: add convention with client
-      %io:format("WorkerName: ~p, InputName: ~p, BatchID: ~p,  Type: ~p~n",[WorkerName, InputName, BatchID, Type]),
-      {DecodedNerlTensor, _Type} =
-      if 
-        (NerlTensor==<<>>) -> ?LOG_ERROR(?LOG_HEADER++"Got empty tensor"), empty_nerltensor_err;
-        true ->  nerlNIF:nerltensor_conversion({NerlTensor, Type}, nerlNIF:erl_type_conversion(Type)) % converting nerltensor from binary to erlang type using NerlNIF
-      end,
-      ToSend = ?PHASE_RES_DATA_SEPARATOR ++ WorkerName ++ ?PHASE_RES_WORKER_NAME_SEPERATOR ++ atom_to_list(SourceName) ++ 
-               ?PHASE_RES_VALUES_SEPERATOR ++ nerl_tools:string_format("~p",[DecodedNerlTensor]) ++ ?PHASE_RES_VALUES_SEPERATOR ++ 
-                integer_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_SEPERATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_SEPERATOR ++ 
-                integer_to_list(BatchTS) ++ ?PHASE_RES_DATA_SEPARATOR,
-      store_phase_result_data_to_send_ets({WorkerName, BatchID , BatchTS}, ToSend)
+      {WorkerName, SourceName, {NerlTensor, NerlTensorType}, TimeNIF , BatchID, BatchTS} = binary_to_term(Body),
+      Key = atom_to_list(WorkerName) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ atom_to_list(SourceName) ++ 
+            ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ 
+            integer_to_list(BatchTS) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ float_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++
+            atom_to_list(NerlTensorType),
+      store_phase_result_data_to_send_ets(Key, binary_to_list(NerlTensor))
   catch Err:E ->  
     ?LOG_ERROR(?LOG_HEADER++"Error receiving predict result ~p",[{Err,E}])
   end,
@@ -471,19 +466,14 @@ retransmission_to_apiserver(HttpRouterRequestFunc, Trials) ->
   end.
 
 
-store_phase_result_data_to_send_ets({WorkerName, BatchID , BatchTS}, DataToSendStr) -> 
-  Key = {WorkerName, BatchID , BatchTS},
-  ets:insert(get(phase_res_data_ets),{Key, DataToSendStr}).
+store_phase_result_data_to_send_ets(Key, NerlTensorData) ->
+  KeyBin = list_to_binary(Key),
+  ets:insert(get(phase_res_data_ets),{KeyBin, NerlTensorData}).
 
 
-generate_phase_result_data_string_from_list([], _ResString) -> _ResString;
-generate_phase_result_data_string_from_list(ListOfData, ResString) ->
-  NewResString = ResString++element(?DATA_IDX,hd(ListOfData)),
-  generate_phase_result_data_string_from_list(tl(ListOfData), NewResString).
-
-generate_phase_result_data_to_send_from_ets_as_str() ->
+generate_phase_result_data_map() ->
   ListOfData = ets:tab2list(get(phase_res_data_ets)),
-  generate_phase_result_data_string_from_list(ListOfData, ""). % String to send is retruned
+  ListOfData.
 
 clean_phase_result_data_to_send_ets() ->
   ets:delete_all_objects(get(phase_res_data_ets)).

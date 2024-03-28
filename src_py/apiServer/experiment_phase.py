@@ -24,15 +24,13 @@ class ExperimentPhase():
         self.raw_data_buffer = []
 
     def process_experiment_phase_data(self):
-        for resData in self.raw_data_buffer:
-            if self.phase_type == PHASE_TRAINING_STR:
-                source_name, tensor_data, duration, batch_id, worker_name, batch_timestamp = decode_main_server_str_train(resData)
-                client_name = self.network_componenets.get_client_name_by_worker_name(worker_name)
-                self.nerl_model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, tensor_data, duration, batch_timestamp)
-            elif self.phase_type == PHASE_PREDICTION_STR:
-                worker_name, source_name, tensor_data, duration, batch_id, batch_timestamp = decode_main_server_str_predict(resData)
-                client_name = self.network_componenets.get_client_name_by_worker_name(worker_name)
-                self.nerl_model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, tensor_data, duration, batch_timestamp)
+        assert (len(self.raw_data_buffer) == 1, "Expecting only one raw_data in buffer of a single phase")
+        list_of_decoded_data = decode_phase_result_data_json_from_main_server(self.raw_data_buffer[0])
+        for decoded_data in list_of_decoded_data:
+            worker_name, source_name, duration, batch_id, batch_ts, np_tensor = decoded_data
+            client_name = self.network_componenets.get_client_name_by_worker_name(worker_name)
+            self.nerl_model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, np_tensor, duration, batch_ts)
+        
         self.clean_raw_data_buffer()
 
     def get_phase_type(self):
