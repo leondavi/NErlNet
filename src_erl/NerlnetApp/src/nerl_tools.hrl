@@ -13,6 +13,11 @@
 -define(VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_INTERVAL_MS, 100). % how much between each resend
 %% ETS definitions 
 
+%% HTTP Content type definitions
+-define(HTTP_CONTENT_TYPE_MULTI_PART_FORM_DATA, "multipart/form-data").
+-define(HTTP_CONTENT_TYPE_JSON, "application/json").
+-define(HTTP_CONTENT_TYPE_FORM_URLENCODED, "application/x-www-form-urlencoded").
+
 % 2 elements ETS:
 -define(KEY_IDX, 1).
 -define(DATA_IDX, 2).
