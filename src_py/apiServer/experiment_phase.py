@@ -24,7 +24,7 @@ class ExperimentPhase():
         self.raw_data_buffer = []
 
     def process_experiment_phase_data(self):
-        assert (len(self.raw_data_buffer) == 1, "Expecting only one raw_data in buffer of a single phase")
+        assert len(self.raw_data_buffer) == 1, "Expecting only one raw_data in buffer of a single phase"
         list_of_decoded_data = decode_phase_result_data_json_from_main_server(self.raw_data_buffer[0])
         for decoded_data in list_of_decoded_data:
             worker_name, source_name, duration, batch_id, batch_ts, np_tensor = decoded_data
