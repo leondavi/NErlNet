@@ -142,8 +142,9 @@ def workers_handler(window, event, values):
 
 
     if event == KEY_WORKERS_LIST_BOX:
-        worker_name_selection = values[KEY_WORKERS_LIST_BOX][0]
-        window[KEY_WORKERS_INFO_BAR].update(f'{worker_name_selection} is selected')
+        if values[KEY_WORKERS_LIST_BOX]:
+            worker_name_selection = values[KEY_WORKERS_LIST_BOX][0]
+            window[KEY_WORKERS_INFO_BAR].update(f'{worker_name_selection} is selected')
 
     if event == KEY_WORKERS_LOAD_FROM_LIST_WORKER_BUTTON:
         if (worker_name_selection in json_dc_inst.get_workers_dict()):
@@ -181,7 +182,7 @@ def devices_handler(window, event, values):
     if event == KEY_DEVICES_IP_INPUT:
         devices_this_device_ip_str = values[KEY_DEVICES_IP_INPUT]
     if event == KEY_DEVICES_LIST_BOX_DEVICES:
-        devices_devices_list_box_selection = values[KEY_DEVICES_LIST_BOX_DEVICES][0]
+        devices_devices_list_box_selection = values[KEY_DEVICES_LIST_BOX_DEVICES][0] if values[KEY_DEVICES_LIST_BOX_DEVICES] else None
     if event == KEY_DEVICES_SELECTED_ENTITY_COMBO:
         last_selected_entity = values[KEY_DEVICES_SELECTED_ENTITY_COMBO]
     if event == KEY_DEVICES_ONLINE_LIST_COMBO_BOX:
@@ -564,15 +565,15 @@ def entities_handler(window, event, values):
         last_selected_entity = values[KEY_ENTITIES_CLIENTS_LISTBOX][0] if values[KEY_ENTITIES_CLIENTS_LISTBOX] else None
 
     if event == KEY_ENTITIES_CLIENTS_LISTBOX:
-        last_selected_entity = values[KEY_ENTITIES_CLIENTS_LISTBOX][0]
+        last_selected_entity = values[KEY_ENTITIES_CLIENTS_LISTBOX][0] if values[KEY_ENTITIES_CLIENTS_LISTBOX] else None
         window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity)
 
     if event == KEY_ENTITIES_ROUTERS_LISTBOX:
-        last_selected_entity = values[KEY_ENTITIES_ROUTERS_LISTBOX][0]
+        last_selected_entity = values[KEY_ENTITIES_ROUTERS_LISTBOX][0] if values[KEY_ENTITIES_ROUTERS_LISTBOX] else None
         window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity)
 
     if event == KEY_ENTITIES_SOURCES_LISTBOX:
-        last_selected_entity = values[KEY_ENTITIES_SOURCES_LISTBOX][0]
+        last_selected_entity = values[KEY_ENTITIES_SOURCES_LISTBOX][0] if values[KEY_ENTITIES_SOURCES_LISTBOX] else None
         window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update(last_selected_entity)
 
     # entities update lists
