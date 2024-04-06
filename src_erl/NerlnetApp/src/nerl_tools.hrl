@@ -9,7 +9,14 @@
 %% HEADER format example: "nerlNetServer_app/start@52: MES"
 -define(LOG_HEADER, atom_to_list(?MODULE) ++ "/" ++ atom_to_list(?FUNCTION_NAME) ++ "@" ++ integer_to_list(?LINE) ++ ": " ).
 
+-define(VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_NUMOF_TRIALS, 5).
+-define(VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_INTERVAL_MS, 100). % how much between each resend
 %% ETS definitions 
+
+%% HTTP Content type definitions
+-define(HTTP_CONTENT_TYPE_MULTI_PART_FORM_DATA, "multipart/form-data").
+-define(HTTP_CONTENT_TYPE_JSON, "application/json").
+-define(HTTP_CONTENT_TYPE_FORM_URLENCODED, "application/x-www-form-urlencoded").
 
 % 2 elements ETS:
 -define(KEY_IDX, 1).
@@ -22,7 +29,7 @@
 
 %% init JSON defines
 -define(JSON_ADDR, "/tmp/nerlnet/jsons/").
--define(LOCAL_ARCH_FILE_NAME, "arch.json").
+-define(LOCAL_DC_FILE_NAME, "dc.json").
 -define(LOCAL_COMM_FILE_NAME, "conn.json").
 
 %% sorce tmpData name

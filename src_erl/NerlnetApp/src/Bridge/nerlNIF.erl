@@ -2,7 +2,7 @@
 -include_lib("kernel/include/logger.hrl").
 -include("nerlTensor.hrl").
 
--export([init/0,nif_preload/0,get_active_models_ids_list/0, train_nif/3,update_nerlworker_train_params_nif/6,call_to_train/3,predict_nif/3,call_to_predict/6,get_weights_nif/1,printTensor/2]).
+-export([init/0,nif_preload/0,get_active_models_ids_list/0, train_nif/3,update_nerlworker_train_params_nif/6,call_to_train/5,predict_nif/3,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/2,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
 -export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
@@ -24,7 +24,8 @@
 
 init() ->
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
-      RES = erlang:load_nif(NELNET_LIB_PATH, 0),
+      % io:format("PATH: ~p~n",[NELNET_LIB_PATH]),
+      RES = erlang:load_nif(NELNET_LIB_PATH, 0), %% CRASHES HERE
       RES.
 
 %% make sure nif can be loaded (activates on_load)
@@ -46,39 +47,34 @@ train_nif(_ModelID,_DataTensor,_Type) ->
 update_nerlworker_train_params_nif(_ModelID,_LearningRate,_Epochs,_OptimizerType,_OptimizerArgs,_LossMethod) ->
       exit(nif_library_not_loaded).
 
-call_to_train(ModelID, {DataTensor, Type}, WorkerPid)-> 
-      % io:format("before train  ~n "),
-      % io:format("DataTensor= ~p~n ",[nerltensor_conversion({DataTensor, Type}, erl_float)]),
-       %{FakeTensor, Type} = nerltensor_conversion({[2.0,4.0,1.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0], erl_float}, float),
+call_to_train(ModelID, {DataTensor, Type}, WorkerPid , BatchID , SourceName)-> 
       ok = train_nif(ModelID, DataTensor, Type),
-      %io:format("Train Time= ~p~n ",[RetVal]),
       receive
-            {nerlnif , LossValue , TrainTime}->
-                  % io:format("Ret= ~p~n ",[Ret]),
-                  %io:format("WorkerPid,{loss, Ret}: ~p , ~p ~n ",[WorkerPid,{loss, Ret}]),
-                  gen_statem:cast(WorkerPid,{loss, LossValue , TrainTime}) % TODO @Haran - please check what worker does with this Ret value 
+            {nerlnif, nan, TrainTime} -> 
+                  gen_statem:cast(WorkerPid,{loss, nan , TrainTime , BatchID , SourceName}); %TODO Guy - Please the behavior when this case happens
+            {nerlnif , LossTensor, LossTensorType , TrainTime}->
+                  gen_statem:cast(WorkerPid,{loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName})
             after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
-                  ?LOG_ERROR("Worker train timeout reached! setting loss = -1~n "),
-                  gen_statem:cast(WorkerPid,{loss, timeout}) %% Define train timeout state 
+                  ?LOG_ERROR("Worker train timeout reached! bid:~p s:~p",[BatchID , SourceName]),
+                  gen_statem:cast(WorkerPid,{loss, timeout , SourceName}) %% TODO Guy Define train timeout state 
       end.
 
-call_to_predict(ModelID, BatchTensor, Type, WorkerPid,CSVname, BatchID)->
-      % io:format("satrting pred_nif~n"),
+call_to_predict(ModelID, {BatchTensor, Type}, WorkerPid, BatchID , SourceName)->
       ok = predict_nif(ModelID, BatchTensor, Type),
       receive
             
-            {nerlnif , PredNerlTensor, NewType, TimeTook}-> %% nerlnif atom means a message from the nif implementation
+            {nerlnif , PredNerlTensor, PredNerlTensorType, TimeNif}-> %% nerlnif atom means a message from the nif implementation
                   % io:format("pred_nif done~n"),
                   % {PredTen, _NewType} = nerltensor_conversion({PredNerlTensor, NewType}, erl_float),
                   % io:format("Pred returned: ~p~n", [PredNerlTensor]),
-                  gen_statem:cast(WorkerPid,{predictRes,PredNerlTensor, NewType, TimeTook,CSVname, BatchID});
+                  gen_statem:cast(WorkerPid,{predictRes,PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , SourceName});
             Error ->
                   ?LOG_ERROR("received wrong prediction_nif format: ~p" ,[Error]),
                   throw("received wrong prediction_nif format")
             after ?PREDICT_TIMEOUT -> 
                  % worker miss predict batch  TODO - inspect this code
                   ?LOG_ERROR("Worker prediction timeout reached! ~n "),
-                  gen_statem:cast(WorkerPid,{predictRes, nan, CSVname, BatchID})
+                  gen_statem:cast(WorkerPid,{predictRes, nan, BatchID , SourceName})
       end.
 
 call_to_get_weights(ThisEts, ModelID)->
@@ -115,7 +111,7 @@ printTensor(List,_Type) when is_list(List) ->
       exit(nif_library_not_loaded).
 
 
-validate_nerltensor_erl(NerlTensorErl) ->
+validate_nerltensor_erl(NerlTensorErl) when is_list(NerlTensorErl) ->
       {[X,Y,Z], NerlTensorRest} = lists:split(?NUMOF_DIMS, NerlTensorErl),
       TensorExpectedLength = trunc(X*Y*Z),
       % io:format("{X,Y,Z} = ~p, TensorLen (X*Y*Z)= ~p~n",[{X,Y,Z}, length(NerlTensorRest)]),
@@ -124,6 +120,7 @@ validate_nerltensor_erl(NerlTensorErl) ->
             true -> false
       end.
 
+%% return {Binary, BinaryType}
 nerltensor_encode(X,Y,Z,List,Type) when is_number(X) and is_number(Y) and
                                         is_number(Z) and is_list(List) and is_atom(Type)->
       TensorExpectedLength = trunc(X*Y*Z),
@@ -178,7 +175,6 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
                   {false, true} -> {decode, ResType, Type};
                   _ -> throw("invalid types combination")
                   end,
-      
       BinTypeInteger = lists:member(BinType, ?LIST_BINARY_INT_NERLTENSOR_TYPE),
       BinTypeFloat = lists:member(BinType, ?LIST_BINARY_FLOAT_NERLTENSOR_TYPE),
       
@@ -196,7 +192,11 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
                         true -> io:format("Wrong NerlTensor size!~n"), {<<>>, BinType}
                         % true -> throw(nerl:string_format("encode failure due to incorrect dimension declaring X*Y*Z not equal to tensor data length! ~p ",[NerlTensor]))
                       end;
-            decode -> decode_nif(NerlTensor, BinType);
+            decode -> 
+                  if 
+                        is_binary(NerlTensor) -> decode_nif(NerlTensor, BinType);
+                        true -> throw("Given non-binary NerlTensor for decoding!")
+                  end;
             _ -> throw("wrong operation")
       end.
 

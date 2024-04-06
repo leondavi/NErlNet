@@ -2,7 +2,7 @@
 import os
 from apiServer import *
 from logger import *
-from stats import Stats
+from stats import *
 from runCommand import RunCommand
 from definitions import *
 
@@ -17,27 +17,55 @@ NERLNET_RUN_STOP_SCRIPT = "./NerlnetRun.sh --run-mode stop"
 api_server_instance = ApiServer()
 #api_server_instance.help()
 api_server_instance.showJsons()
-dc = 0
-conn = 19
-flow = 17
-api_server_instance.setJsons(dc, conn, flow)
+dc_idx = 0
+conn_idx = 19
+exp_idx = 18
+api_server_instance.setJsons(dc_idx, conn_idx, exp_idx)
 dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
 experiment_name = "test_exp"
-api_server_instance.initialization(experiment_name, dc_json , connmap_json, exp_flow_json)
-api_server_instance.sendJsonsToDevices()
+api_server_instance.initialization(experiment_name, dc_json , connmap_json, exp_flow_json) # start to debug
+api_server_instance.send_jsons_to_devices()
 
-api_server_instance.sendDataToSources(PHASE_TRAINING) # sync on ack
-api_server_instance.train() # sync on ack
+next_expertiment_phase_exist = True 
+api_server_instance.run_current_experiment_phase() # blocking - deppended acks from mainserver
+stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
+stats.get_communication_stats_workers()
+stats.get_communication_stats_sources()
+stats.get_communication_stats_clients()
+stats.get_communication_stats_routers()
+stats.get_communication_stats_main_server()
+stats.get_loss_ts()
+stats.get_min_loss()
+next_expertiment_phase_exist = api_server_instance.next_experiment_phase()
+api_server_instance.run_current_experiment_phase()
+stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
+confusion_matrix_source_dict, confusion_matrix_worker_dict = stats.get_confusion_matrices()
+performence_stats = stats.get_model_performence_stats(confusion_matrix_worker_dict, True)
+stats.get_missed_batches()
 
-api_server_instance.sendDataToSources(PHASE_PREDICTION)
-api_server_instance.predict()
+exit(0)
+next_expertiment_phase_exist = api_server_instance.next_experiment_phase() 
+api_server_instance.run_current_experiment_phase()
+api_server_instance.communication_stats()
+# next_expertiment_phase_exist = api_server_instance.next_experiment_phase()  # expected error
 
-experiment_inst = api_server_instance.get_experiment(experiment_name)
-exp_stats = Stats(experiment_inst)
-exp_stats.get_loss_min(saveToFile=True)
-loss = exp_stats.get_loss()
-loss_min = exp_stats.get_loss_min()
+
+# api_server_instance.sendDataToSources(PHASE_TRAINING) # sync on ack
+# api_server_instance.train() # sync on ack
+
+# api_server_instance.sendDataToSources(PHASE_PREDICTION)
+# api_server_instance.predict()
+api_server_instance.communication_stats()
+
+experiment_flow_inst = api_server_instance.get_experiment(experiment_name)
+experiment_phase_inst = experiment_flow_inst.get_current_experiment_phase()
+exp_stats = Stats(experiment_phase_inst)
+exp_stats.get_loss_ts()
+exit(0)
+#exp_stats.get_loss_min(saveToFile=True)
+#loss = exp_stats.get_loss()
+#loss_min = exp_stats.get_loss_min()
 conf_mats = exp_stats.get_confusion_matrices()
 model_stats = exp_stats.get_model_performence_stats(conf_mats , show=True , saveToFile=True)
 for worker in model_stats.keys():

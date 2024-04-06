@@ -11,6 +11,7 @@
 -export([calculate_size/1]).
 -export([make_routing_table/4]).
 -export([http_router_request/5]).
+-export([format_multipart_formdata/3]).
 
 setup_logger(Module) ->
   logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
@@ -30,14 +31,22 @@ http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, Body) -
   end.
 
 
+http_request(Host, Port, Path, {json, Body}) -> 
+  io:format("Sending Json to ~p:~p~n",[Host,Port]),
+  JsonContentType = ?HTTP_CONTENT_TYPE_JSON,
+  Json = jsx:encode(Body),
+  http_request(Host, Port,Path, JsonContentType, Json);
+http_request(Host, Port,Path, Body) -> 
+  DefaultContentType = ?HTTP_CONTENT_TYPE_FORM_URLENCODED,
+  http_request(Host, Port,Path, DefaultContentType, Body).
 
 %% send message between entities
-http_request(Host, Port,Path, Body) when is_atom(Body) -> http_request(Host, Port,Path, atom_to_list(Body));
-http_request(Host, Port,Path, Body) when is_binary(Host) -> http_request(binary_to_list(Host), Port,Path, Body);
-http_request(Host, Port,Path, Body)->
-  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path,
+http_request(Host, Port, Path, ContentType, Body) when is_atom(Body) -> http_request(Host, Port,Path, ContentType, atom_to_list(Body));
+http_request(Host, Port, Path, ContentType, Body) when is_binary(Host) -> http_request(binary_to_list(Host), Port,Path, ContentType, Body);
+http_request(Host, Port, Path, ContentType, Body)->
+  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path, % Path is the action
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
-  httpc:request(post,{URL, [],"application/x-www-form-urlencoded",Body}, [], []).
+  httpc:request(post,{URL, [], ContentType, Body}, [], []).
 
 get_client_worker_pairs([],_WorkersMap,Ret)-> Ret;
 get_client_worker_pairs([WorkerName|WorkersNames],WorkersMap,Ret)->
@@ -127,7 +136,7 @@ read_all_data(Req0, Got) ->
 
 deleteOldJson(FilePath) ->
   try   file:delete(FilePath)
-  catch {error, E} -> io:format("couldn't delete file ~p, beacuse ~p~n",[FilePath, E])
+  catch {error, E} -> ?LOG_ERROR("couldn't delete file ~p, beacuse ~p~n",[FilePath, E])
   end.
 
 % get this host ip 
@@ -208,13 +217,41 @@ calculate_size(List) when is_list(List) ->
 
 %% TODO: create create_body func for standard message passing
 
-make_routing_table(Ets,EntitiesList,Origin,NerlnetGraph)->
+%% Entities List must not contain ThisRouter
+%% NextHop is the next router for all entities that are not connected with ThisRouter
+%% Otherwise , NextHop is an entity of ThisRouter
+make_routing_table(Ets,EntitiesList,ThisRouter,NerlnetGraph)->
   GenerateTablesFunc = fun(Entity) -> 
-  case digraph:get_short_path(NerlnetGraph,Origin,Entity) of
-    false -> ok;
-    ShortPath -> NextHop = lists:nth(2,ShortPath),
-                 {Name , {Host , Port , _DeviceName}} = digraph:vertex(NerlnetGraph,NextHop),
-                 ets:insert(Ets,{Entity,{Name,Host,Port}})
-  end % case end
+    case digraph:get_short_path(NerlnetGraph,ThisRouter,Entity) of
+      false -> ok;
+      ShortPath -> NextHop = lists:nth(2,ShortPath),
+                  {Name , {Host , Port , _DeviceName}} = digraph:vertex(NerlnetGraph,NextHop),
+                  ets:insert(Ets,{Entity,{Name,Host,Port}})
+    end % case end
   end, % fun end
-  lists:foreach(GenerateTablesFunc, EntitiesList).
+  lists:foreach(GenerateTablesFunc, EntitiesList),
+  {ThisRouter , {RouterHost , RouterPort , _DeviceName}} = digraph:vertex(NerlnetGraph , ThisRouter),
+  ets:insert(Ets , {ThisRouter , {ThisRouter , RouterHost , RouterPort}}).
+
+
+%% Reference: https://stackoverflow.com/questions/39222517/how-to-httppost-file-with-httpcrequest-in-erlang
+format_multipart_formdata(Boundary, Fields, Files) ->
+    FieldParts = lists:map(fun({FieldName, FieldContent}) ->
+        [lists:concat(["--", Boundary]),
+            lists:concat(["Content-Disposition: form-data; name=\"",FieldName,"\""]),
+            "", FieldContent]
+                           end, Fields),
+
+    FieldParts2 = lists:append(FieldParts),
+
+
+    FileParts = lists:map(fun({FieldName, FileName, FileContent}) ->
+
+        [lists:concat(["--", Boundary]),
+            lists:concat(["Content-Disposition: form-data; name=\"",FieldName,"\"; filename=\"",FileName,"\""]), %FieldName is a list
+            lists:concat(["Content-Type: ", "application/octet-stream"]), "", FileContent]
+                          end, Files),
+    FileParts2 = lists:append(FileParts),
+    EndingParts = [lists:concat(["--", Boundary, "--"]), ""],
+    Parts = lists:append([FieldParts2, FileParts2, EndingParts]),
+    string:join(Parts, "\r\n").

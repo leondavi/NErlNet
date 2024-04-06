@@ -62,7 +62,7 @@ parseCSV(SourceName, BatchSize, CSVData)->
 
 %%this parser takes a CSV folder containing chunked data, parsing into a list of binary.
 %%each record in the line is a batch of samples
-parse_file(SourceName, BatchSize,Data) ->
+parse_file(_SourceName, BatchSize,Data) ->
   % {ok, Data} = file:read_file(File_Address),
   Lines = re:split(Data, "\r|\n|\r\n", [{return,binary}] ),
   % CleanLines = [Line || Line <- Lines, Line /= []],
@@ -79,13 +79,11 @@ parse_file(SourceName, BatchSize,Data) ->
   ListOfTensors = 
     case ErlType of 
           erl_float ->
-            A = encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, ErlType, DataType, SampleSize),
-            ?LOG_INFO("converted to tensors"),
+            encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, ErlType, DataType, SampleSize);
+            % ?LOG_INFO("converted to tensors"),
             % TestTensor = nerlNIF:nerltensor_conversion(hd(tl(A)), erl_float),
             % B = encodeListOfListsNerlTensor(ListOfBatches, DataType, SampleSize, 1),
             % io:format("A = ~p~n~nB = ~p ~n", [A, B]),
-            % io:format("Test Tensor = ~p ~n", [TestTensor]),
-            A;
           % erl_int -> encodeListOfListsNerlTensor(ListOfGroupedBatches, UserType, BatchSize,SampleSize,DimZ);
           _Other -> throw("wrong ErlType")
     end,

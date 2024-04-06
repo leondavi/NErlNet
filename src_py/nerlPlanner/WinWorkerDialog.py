@@ -155,8 +155,9 @@ def WinWorkerDialog():
             ActivationDictStr = f'Activation:\n{pretty_print_dict(ActivationFunctionsMap)}'
             PoolingDictStr = f'Pooling:\n{pretty_print_dict(PoolingMethodMap)}'
             ScalerDictStr = f'Scaler:\n{pretty_print_dict(ScalingMethodMap)}'
+            BoundingDictStr = f'Bounding:\n{pretty_print_dict(BoundingMethodMap)}'
             ProbabilisticDictStr = f'Probabilistic:\n{pretty_print_dict(ProbabilisticActivationFunctionMap)}'
-            sg.popup_ok(f"Layer Functions Codes:\n{ActivationDictStr}\n{PoolingDictStr}\n{ScalerDictStr}\n{ProbabilisticDictStr}", keep_on_top=True, title="Layer Type Codes")
+            sg.popup_ok(f"Layer Functions Codes:\n{ActivationDictStr}\n{PoolingDictStr}\n{ScalerDictStr}\n{BoundingDictStr}\n{ProbabilisticDictStr}", keep_on_top=True, title="Layer Type Codes")
 
         if event == KEY_LEARNING_RATE_INPUT:
             LearningRate = values[event]
@@ -201,7 +202,7 @@ def WinWorkerDialog():
             if DistributedSystemType == "none":
                 DistributedSystemToken = "none"
             # Update here when adding new fields to the worker 
-            worker_parameters_conditions = bool(LayersSizesList) and bool(ModelTypeStr) and bool(ModelType) and\
+            worker_parameters_conditions = bool(LayersSizesList) and bool(ModelTypeStr) and (int(ModelType) >= 0) and\
                                            bool(OptimizationType) and bool(LossMethodStr) and bool(LossMethod) and\
                                            bool(LearningRate) and bool(LayersFunctionsList) and bool(LayersSizesList) and bool(Epochs) and bool(InfraType) and\
                                            bool(DistributedSystemType) and bool(DistributedSystemToken)
@@ -224,7 +225,7 @@ def WinWorkerDialog():
 
         if event == KEY_JSON_LOAD_FILE_BROWSE_EVENT:
             FilePathLoad = values[KEY_JSON_LOAD_FILE_BROWSE_EVENT]
-            print(f"{FilePathLoad}")
+            # print(f"{FilePathLoad}")
         
         if event == KEY_JSON_LOAD_FILE_BUTTON_EVENT:
             # Update here when adding new fields to the worker
@@ -250,14 +251,15 @@ def WinWorkerDialog():
 def LayerMethodSelection():
     global global_layer_method_selection_code
 
-    layout = [[sg.Text("Activation",expand_x=True), sg.Text('Pooling', expand_x=True), sg.Text('Scaler', expand_x=True), sg.Text('Probabilistic', expand_x=True)],
+    layout = [[sg.Text("Activation",expand_x=True), sg.Text('Pooling', expand_x=True), sg.Text('Scaler', expand_x=True),sg.Text('Bounding' , expand_x=True), sg.Text('Probabilistic', expand_x=True)],
                 [sg.Listbox(list(ActivationFunctionsMap.keys()), size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_ACTIVATION),
                  sg.Listbox(list(PoolingMethodMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_POOLING), 
                  sg.Listbox(list(ScalingMethodMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_SCALER),
+                 sg.Listbox(list(BoundingMethodMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_BOUNDING),
                  sg.Listbox(list(ProbabilisticActivationFunctionMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_PROBABILISTIC)],
                  [sg.Text('Selection', expand_x=True, enable_events=True, key=KEY_LAYER_METHOD_SELECTION_TEXT),sg.Button('Select', expand_x=True, key=KEY_LAYER_METHOD_SELECTION_BUTTON)]]
     
-    layer_selection_win = sg.Window(title="Layer Method Selection", layout=layout, modal=True, keep_on_top=True)
+    layer_selection_win = sg.Window(title="Layer Method Selection", layout=layout, modal=True)
 
 
     while True: 
@@ -281,6 +283,11 @@ def LayerMethodSelection():
         if event == KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_PROBABILISTIC:
             layer_method_selection = values[KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_PROBABILISTIC][0]
             global_layer_method_selection_code = ProbabilisticActivationFunctionMap[layer_method_selection]
+            layer_selection_win[KEY_LAYER_METHOD_SELECTION_TEXT].update(f'Selected {layer_method_selection} code: {global_layer_method_selection_code}')
+
+        if event == KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_BOUNDING:
+            layer_method_selection = values[KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_BOUNDING][0]
+            global_layer_method_selection_code = BoundingMethodMap[layer_method_selection]
             layer_selection_win[KEY_LAYER_METHOD_SELECTION_TEXT].update(f'Selected {layer_method_selection} code: {global_layer_method_selection_code}')
 
         if event == KEY_LAYER_METHOD_SELECTION_BUTTON:

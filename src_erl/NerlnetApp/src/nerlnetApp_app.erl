@@ -20,9 +20,13 @@
 -behaviour(application).
 -include("nerl_tools.hrl").
 
+-define(NERLNET_APP_VERSION, "1.4.1").
+-define(NERLPLANNER_TESTED_VERSION,"1.0.1").
+
 -export([start/2, stop/1]).
 
 -import(nerlNIF,[nif_preload/0]).
+
 
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
@@ -84,30 +88,41 @@ welcome_print() ->
                                                                                                                                                 
 ~n~n").
 
+legal_print() ->
+    io:format("Nerlnet OTP Application is given without any warranty.~n"),
+    io:format("There is no commitiment or responsibility for results, damage, loss that can be caused by using this tool.~n"),
+    io:format("Please review the license of Nerlnet on Github repository: "),
+    io:format("www.github.com/leondavi/NErlNet~n"),
+    io:format("You must cite Nerlnet if you use any of its tools for academic/commercial/any purpose.~n~n").
+
 start(_StartType, _StartArgs) ->
+    legal_print(),
     welcome_print(),
     %% setup the erlang logger for this module 
     nerl_tools:setup_logger(?MODULE),
     %% make sure nif can be loaded:
     nerlNIF:nif_preload(),
     ThisDeviceIP = nerl_tools:getdeviceIP(),
+    ?LOG_INFO("Nerlnet version ~s",[?NERLNET_APP_VERSION]),
+    ?LOG_INFO("Nerlplanner tested version ~s",[?NERLPLANNER_TESTED_VERSION]),
     ?LOG_INFO("Installed Erlang OTP: ~s (Supported from 25)",[erlang:system_info(otp_release)]),
-    ?LOG_INFO(?LOG_HEADER++"This device IP: ~p~n", [ThisDeviceIP]),
+    ?LOG_INFO("This device IP: ~p~n", [ThisDeviceIP]),
+    os:cmd("nohup sh -c 'sleep 5 && echo hey > /tmp/detached.txt' &"), %% ** FOR FUTURE RESET FUNCTIONALITY **
     %Create a listener that waits for a message from python about the adresses of the wanted json
 
     createNerlnetInitiator(ThisDeviceIP),
     {ArchitectureAdderess,CommunicationMapAdderess} = waitForInit(),
 
     %Parse json and start nerlnet:
-    ?LOG_INFO(?LOG_HEADER++"DC file local path: ~p",[binary_to_list(ArchitectureAdderess)]),
-    ?LOG_INFO(?LOG_HEADER++"Communication map file local path: ~p",[binary_to_list(CommunicationMapAdderess)]),
+    ?LOG_INFO("DC file local path: ~p",[binary_to_list(ArchitectureAdderess)]),
+    ?LOG_INFO("Communication map file local path: ~p",[binary_to_list(CommunicationMapAdderess)]),
 
     parseJsonAndStartNerlnet(ThisDeviceIP),
     nerlnetApp_sup:start_link().
 
 waitForInit() ->
     receive 
-        {jsonAddress, MSG} -> {_ArchitectureAdderess,_CommunicationMapAdderess} = MSG;
+        {jsonAddress, MSG} -> {_ArchitectureAdderess,_CommunicationMapAdderess} = MSG; % TODO GUY this is the case for main server which spread the message using http direct requests to devices
         Other -> ?LOG_WARNING(?LOG_HEADER++"Got bad message: ~p,~ncontinue listening for init Json~n",[Other]), waitForInit()
         after ?PYTHON_SERVER_WAITING_TIMEOUT_MS -> waitForInit()
     end.
@@ -120,7 +135,7 @@ createNerlnetInitiator(HostName) ->
             NerlnetInitiatorDispatch = cowboy_router:compile([
                 {'_', [
 
-                    {"/updateJsonPath",jsonHandler, [self()]},
+                    {"/sendJsons",jsonHandler, [self()]}, % ApiServer triggers sendJsons action by sending a request to the main server device
                     {"/isNerlnetDevice",iotHandler, [self()]}
                 ]}
             ]),
@@ -136,15 +151,15 @@ createNerlnetInitiator(HostName) ->
 
 parseJsonAndStartNerlnet(ThisDeviceIP) ->
     %% Entities to open on device from reading arch.json: 
-    {ok, DCJsonPath} = file:read_file(?JSON_ADDR++?LOCAL_ARCH_FILE_NAME),
-    {ok, CommunicationMapPath} = file:read_file(?JSON_ADDR++?LOCAL_COMM_FILE_NAME),
+    {ok, DCJsonFileBytes} = file:read_file(?JSON_ADDR++?LOCAL_DC_FILE_NAME),
+    {ok, CommunicationMapFileBytes} = file:read_file(?JSON_ADDR++?LOCAL_COMM_FILE_NAME),
 
     %%TODO: ADD CHECK FOR VALID INPUT:  
     % ?LOG_NOTICE("IS THIS A JSON? ~p~n",[jsx:is_json(ArchitectureAdderessData)]),
 
     %%Decode Json to architecute map and Connection map:
-    DCMap = jsx:decode(DCJsonPath,[]),
-    CommunicationMap = jsx:decode(CommunicationMapPath,[]),
+    DCMap = jsx:decode(DCJsonFileBytes,[]),
+    CommunicationMap = jsx:decode(CommunicationMapFileBytes,[]),
     
     jsonParser:parseJsons(DCMap,CommunicationMap,ThisDeviceIP), % we use nerlnet_data ETS from this point
 
@@ -160,14 +175,41 @@ parseJsonAndStartNerlnet(ThisDeviceIP) ->
 
     Routers = ets:lookup_element(nerlnet_data, routers, ?DATA_IDX), % router map format: {RouterName => RouterPort,RouterRouting,RouterFiltering}
     BatchSize = ets:lookup_element(nerlnet_data, batchSize,?DATA_IDX),
-    DefaultFrequency = ets:lookup_element(nerlnet_data, frequency, ?DATA_IDX),
+    % DefaultFrequency = ets:lookup_element(nerlnet_data, frequency, ?DATA_IDX), TODO nerlplanner already assigns default frequency to sources that demand it.
 
     createClientsAndWorkers(), % TODO extract all of this args from ETS
     createRouters(Routers,ThisDeviceIP), % TODO extract all of this args from ETS
-    createSources(BatchSize, DefaultFrequency, ThisDeviceIP), % TODO extract all of this args from ETS
+    createSources(BatchSize, ThisDeviceIP), % TODO extract all of this args from ETS
 
     HostOfMainServer = ets:member(nerlnet_data, mainServer),
-    createMainServer(HostOfMainServer,BatchSize,ThisDeviceIP).
+    ThisDeviceName = maps:get(ThisDeviceIP , ets:lookup_element(nerlnet_data , ipv4_to_devices , ?DATA_IDX)),
+    DevicesMap = ets:lookup_element(nerlnet_data, devices_map , ?DATA_IDX), % format of key value pairs: DeviceName => {Host,Port}
+    DevicesListWithoutMainServerDevice = maps:to_list(maps:remove(ThisDeviceName, DevicesMap)), %% Form: [{DeviceNameAtom , {IPv4, Entities}}, ..]
+    createMainServer(HostOfMainServer,BatchSize,ThisDeviceIP , ThisDeviceName),
+    if 
+        HostOfMainServer -> 
+            send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, DevicesListWithoutMainServerDevice);
+        true -> ok % Other devices get here and notify the main server they're ready
+    end,
+    NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
+    {?MAIN_SERVER_ATOM , {MainServerIP , MainServerPort , _MainServerDeviceName}} = digraph:vertex(NerlnetGraph, ?MAIN_SERVER_ATOM),
+    URL = "http://" ++ MainServerIP ++ ":" ++ integer_to_list(MainServerPort) ++ "/jsonReceived",
+    httpc:request(post , {URL , [] , "application/x-www-form-urlencoded" , term_to_binary({ThisDeviceName , length(DevicesListWithoutMainServerDevice)})}, [], []).
+
+send_jsons_to_other_devices(_DCJsonFileBytes, _CommunicationMapFileBytes, []) -> ?LOG_INFO("This experiment is running on a single device!",[]);
+send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, DevicesList) ->
+    Fun = fun({DeviceNameAtom, {IPv4, _Entities}}) ->
+        ?LOG_INFO("Sending jsons to ~p",[DeviceNameAtom]),
+        URL = "http://" ++ IPv4 ++ ":" ++ integer_to_list(?NERLNET_INIT_PORT) ++ "/sendJsons",
+        Boundary = "------WebKitFormBoundaryUscTgwn7KiuepIr1",
+        ContentType = lists:concat(["multipart/form-data; boundary=", Boundary]),
+        Fields = [],
+        Files = [{?JSON_ADDR++?LOCAL_DC_FILE_NAME, ?LOCAL_DC_FILE_NAME, binary_to_list(DCJsonFileBytes)}, {?JSON_ADDR++?LOCAL_COMM_FILE_NAME, ?LOCAL_COMM_FILE_NAME, binary_to_list(CommunicationMapFileBytes)}],
+        ReqBody = nerl_tools:format_multipart_formdata(Boundary, Fields, Files),
+        ReqHeader = [{"Content-Length", integer_to_list(length(ReqBody))}],
+        {ok, _} = httpc:request(post, {URL, ReqHeader, ContentType, ReqBody}, [], [])
+    end,
+    lists:foreach(Fun, DevicesList).
 
 %% internal functions
 port_validator(Port, EntityName) ->
@@ -215,7 +257,7 @@ createClientsAndWorkers() ->
     %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
     %%An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
 
-createSources(BatchSize, DefaultFrequency, HostName) ->
+createSources(BatchSize, HostName) ->
     DATA_IDX = 2,
     NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, DATA_IDX),
     WorkersMap = ets:lookup_element(nerlnet_data, workers, DATA_IDX),
@@ -271,8 +313,8 @@ createRouters(MapOfRouters, HostName) ->
     end,
     maps:foreach(Func, MapOfRouters). % iterates as key/values
 
-createMainServer(false,_BatchSize,_HostName) -> none;
-createMainServer(true,BatchSize,HostName) ->
+createMainServer(false,_BatchSize,_HostName,_DeviceName) -> none;
+createMainServer(true,BatchSize,HostName,DeviceName) ->
     Name = mainServer,
     {Port, _Args} = ets:lookup_element(nerlnet_data, mainServer, ?DATA_IDX),
     port_validator(Port, Name),
@@ -283,23 +325,26 @@ createMainServer(true,BatchSize,HostName) ->
     NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
     %%Create a gen_Server for maintaining Database for Main Server.
     %% all http requests will be handled by Cowboy which updates main_genserver if necessary.
-    MainGenServer_Args= {Name,ClientsNames,BatchSize,WorkersMap,NerlnetGraph},        %%TODO change from mainserverport to routerport . also make this a list of client
+    MainGenServer_Args= {Name,ClientsNames,BatchSize,WorkersMap,NerlnetGraph,DeviceName},        %%TODO change from mainserverport to routerport . also make this a list of client
     MainGenServerPid = mainGenserver:start_link(MainGenServer_Args),
     
     MainServerDispatcher = cowboy_router:compile([
     {'_', [
         %Nerlnet actions
+        {"/jsonReceived",[],ackHandler,[jsonReceived,MainGenServerPid]},
         {"/updateCSV",[],initHandler,[MainGenServerPid]},
         {"/lossFunction",[],actionHandler,[lossFunction,MainGenServerPid]},
         {"/predictRes",[],actionHandler,[predictRes,MainGenServerPid]},
         {"/dataReady",[],ackHandler,[dataReady,MainGenServerPid]},
         {"/sourceDone",[],ackHandler,[sourceDone,MainGenServerPid]},
-        {"/clientReady",[],ackHandler,[client,MainGenServerPid]},
+        {"/clientReady",[],ackHandler,[clientAck,MainGenServerPid]}, % when client is ready for phase
         {"/clientsTraining",[],actionHandler,[clientsTraining,MainGenServerPid]},
         {"/statistics",[],actionHandler,[statistics,MainGenServerPid]},
         {"/clientsPredict",[],actionHandler,[clientsPredict,MainGenServerPid]},
         {"/startCasting",[],actionHandler, [startCasting, MainGenServerPid]},
         {"/stopCasting",[],actionHandler, [stopCasting, MainGenServerPid]},
+        {"/clientsPhaseUpdate",[],actionHandler,[clientsPhaseUpdate,MainGenServerPid]},
+        {"/apiserver_ack_validation", [], ackHandler, [apiserver_ack_validation, MainGenServerPid]},
 
         {"/[...]", [],noMatchingRouteHandler, [MainGenServerPid]}
         ]}

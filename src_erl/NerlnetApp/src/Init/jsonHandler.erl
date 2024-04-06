@@ -21,7 +21,7 @@
 init(Req0, [ApplicationPid]) ->
   case cowboy_req:parse_header(<<"content-type">>, Req0) of
     {<<"multipart">>, <<"form-data">>, _} ->
-        nerl_tools:deleteOldJson(?JSON_ADDR++?LOCAL_ARCH_FILE_NAME),
+        nerl_tools:deleteOldJson(?JSON_ADDR++?LOCAL_DC_FILE_NAME),
         nerl_tools:deleteOldJson(?JSON_ADDR++?LOCAL_COMM_FILE_NAME),
         %% get files from Req
         % io:format("parsing json of req with body: ~p~n",[cowboy_req:read_body(Req0)]),
@@ -29,7 +29,7 @@ init(Req0, [ApplicationPid]) ->
         ApplicationPid ! {jsonAddress,{lists:nth(1, Data),lists:nth(2, Data)}};
     _Other -> 
         {ok,Body,_} = cowboy_req:read_body(Req0),           %% shouldn't be here, files expected
-        io:format("got Req: ~p~nData: ~p~n",[Req0, Body])
+        io:format("Error - Got an unknown request: ~p~nData: ~p~n",[Req0, Body])
   end,
 
   Reply = io_lib:format("nerlnet starting", []),

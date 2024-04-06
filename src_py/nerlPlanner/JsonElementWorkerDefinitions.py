@@ -8,13 +8,14 @@ from collections import OrderedDict
 LayerTypeMap = OrderedDict([
     ("Default" , "0"),
     ("Scaling" , "1"),
-    ("CNN" , "2"),
+    ("Conv" , "2"),
     ("Perceptron" , "3"),
     ("Pooling" , "4"),
     ("Probabilistic" , "5"),
     ("LSTM" , "6"),
     ("Reccurrent" , "7"),
-    ("Unscaling" , "8")]
+    ("Unscaling" , "8"),
+    ("Bounding" , "9")]
 )
 
 ProbabilisticActivationFunctionMap = OrderedDict(
@@ -22,6 +23,11 @@ ProbabilisticActivationFunctionMap = OrderedDict(
     ("Logistic" , "2"),
     ("Competitive" , "3"),
     ("Softmax" , "4")]
+)
+
+BoundingMethodMap = OrderedDict(
+    [("none" , "1"),
+     ("bounding" , "2")]
 )
 
 ScalingMethodMap = OrderedDict(
@@ -72,17 +78,18 @@ LayerTypeToFunctionalMap = OrderedDict([
     ("Unscaling" , UnScalingMethodMap)]
 )
 
-ModelTypeMapping = OrderedDict([
+# Model type name should be suitable with erlang atoms convention! 
+ModelTypeMapping = OrderedDict([ 
     ("nn" , "0"),
     ("approximation" , "1"),
     ("classification" , "2"),
     ("forecasting" , "3"),
-    ("image-classification" , "4"),
-    ("text-classification" , "5"),
-    ("text-generation" , "6"),
-    ("auto-association" , "7"),
+    ("image_classification" , "4"),
+    ("text_classification" , "5"),
+    ("text_generation" , "6"),
+    ("auto_association" , "7"),
     ("autoencoder" , "8"),
-    ("ae-classifier" , "9")
+    ("ae_classifier" , "9")
 ])
 
 OptimizerTypeMapping = OrderedDict([
