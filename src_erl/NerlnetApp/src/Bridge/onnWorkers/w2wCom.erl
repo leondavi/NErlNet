@@ -22,6 +22,7 @@ init({GenWorkerEts, WorkerName, ClientStatemPid}) ->
     ets:insert(GenWorkerEts, {get_ets_key(WorkerName), InboxQueue}),
     {ok, []}.
 
+% Messages are of the form: {FromWorkerName, Data}
 handle_cast({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, Data}, State) ->
     % TODO throw exception of ThisWorkerName is not this worker
     GenWorkerEts = get(gen_worker_ets),
@@ -30,6 +31,17 @@ handle_cast({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, Data}, State) ->
     InboxQueueUpdated = queue:in({FromWorkerName, Data}, InboxQueue),
     ets:insert(GenWorkerEts, {EtsKey, InboxQueueUpdated}),
     io:format("Worker ~p received message from ~p: ~p~n", [ThisWorkerName, FromWorkerName, Data]), %TODO remove
+    {noreply, State};
+
+% Token messages are tupe of: {FromWorkerName, Token, Data}
+handle_cast({?W2WCOM_TOKEN_CAST_ATOM, FromWorkerName, ThisWorkerName, Token, Data}, State) ->
+    % TODO throw exception of ThisWorkerName is not this worker
+    GenWorkerEts = get(gen_worker_ets),
+    EtsKey = get_ets_key(ThisWorkerName),
+    {_, InboxQueue} = ets:lookup(GenWorkerEts, EtsKey),
+    InboxQueueUpdated = queue:in({FromWorkerName, Token, Data}, InboxQueue),
+    ets:insert(GenWorkerEts, {EtsKey, InboxQueueUpdated}),
+    io:format("Worker ~p received token message from ~p: ~p~n", [ThisWorkerName, FromWorkerName, Data]), %TODO remove
     {noreply, State};
 
 handle_cast(_Msg, State) ->
@@ -41,7 +53,7 @@ handle_call(_Call, _From, State) ->
 
 % Generic Functions for Worker to Worker Communication
 get_ets_key(WorkerName) ->
-    {?W2WCOM_ATOM, inbox_queue, WorkerName}.
+    {?W2WCOM_INBOX_Q_ATOM, WorkerName}.
 
 get_inbox_queue(WorkerName) ->
     GenWorkerEts = get(gen_worker_ets),
