@@ -47,7 +47,7 @@ https://github.com/leondavi/NErlNet/assets/18975070/15a3957a-3fd6-4fb2-a365-7e15
 
 # Build and Run Nerlnet:
 Recommended cmake version 3.26   
-Minimum erlang version otp 25   
+Minimum erlang version otp 25 (Tested 24,25,26)   
 Minimum gcc/g++ version 10.3.0   
 
 On every device that is a part of Nerlnet cluster the following steps should be taken:
