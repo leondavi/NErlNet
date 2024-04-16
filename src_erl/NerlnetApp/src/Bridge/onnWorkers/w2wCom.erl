@@ -25,7 +25,12 @@ init({WorkerName, ClientStatemPid}) ->
 
 % Messages are of the form: {FromWorkerName, Data}
 handle_cast({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, Data}, State) ->
-    % TODO throw exception of ThisWorkerName is not this worker
+    % TODO throw exception of ThisWorkerName is not this worker - **DONE**
+    % ? Why do we need to check if the worker name is the same as the one in the message?
+    case get(worker_name) of
+        ThisWorkerName -> ok;
+        _ -> throw({error, "The provided worker name is not this worker"})
+    end,
     Message = {FromWorkerName, Data},
     add_msg_to_inbox_queue(Message),
     io:format("Worker ~p received message from ~p: ~p~n", [ThisWorkerName, FromWorkerName, Data]), %TODO remove
@@ -33,7 +38,12 @@ handle_cast({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, Data}, State) ->
 
 % Token messages are tupe of: {FromWorkerName, Token, Data}
 handle_cast({?W2WCOM_TOKEN_CAST_ATOM, FromWorkerName, ThisWorkerName, Token, Data}, State) ->
-    % TODO throw exception of ThisWorkerName is not this worker
+    % TODO throw exception of ThisWorkerName is not this worker - **DONE**
+    % ? Why do we need to check if the worker name is the same as the one in the message?
+    case get(worker_name) of
+        ThisWorkerName -> ok;
+        _ -> throw({error, "The provided worker name is not this worker"})
+    end,
     Message = {FromWorkerName, Token, Data},
     add_msg_to_inbox_queue(Message),
      io:format("Worker ~p received token message from ~p: ~p~n", [ThisWorkerName, FromWorkerName, Data]), %TODO remove
