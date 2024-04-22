@@ -97,7 +97,7 @@ class CsvDataSet():
         assert batch_size > 0 
         assert num_of_batches >= 0 
         assert starting_offset >= 0
-        assert phase == PHASE_TRAINING_STR or phase == PHASE_PREDICTION_STR
+        assert phase == PHASE_TRAINING_STR or phase == PHASE_PREDICTION_STR , "phase should be either 'training' or 'prediction'"
         assert (starting_offset + num_of_batches * batch_size) <= self.get_total_num_of_samples(), "starting_offset + num_of_batches * batch_size exceeds the total number of samples in the csv file"
         return SourcePieceDS(self, source_name, batch_size, phase, starting_offset, num_of_batches)
         
