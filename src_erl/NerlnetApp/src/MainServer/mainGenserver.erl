@@ -23,7 +23,7 @@
 -define(SERVER, ?MODULE).
 
 
--record(main_genserver_state, {statisticsCounter = 0, myName, state, workersMap, clients, nerlnetGraph, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [], statisticsMap, total_sources=0, sources_data_ready_ctr = 0}).
+-record(main_genserver_state, {myName, state, workersMap, clients, nerlnetGraph, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [], statisticsMap, total_sources=0, sources_data_ready_ctr = 0}).
 
 %%%===============================================================
 %%% API
