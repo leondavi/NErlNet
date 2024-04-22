@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from sklearn import metrics
+from IPython.display import display
 import matplotlib.pyplot as plt
 from datetime import datetime
 from pathlib import Path
@@ -8,7 +9,8 @@ import globalVars as globe
 from definitions import *
 import pandas as pd
 import numpy as np
-
+import seaborn as sns
+sns.set_theme()
 MIN_LOSS_BASELINE_FILENAME = "min_loss_dict.json"
 MODEL_PERFORMANCE_FILENAME = "model_perf.pickle"
 
@@ -80,6 +82,12 @@ class Stats():
         df = pd.DataFrame(loss_dict)
         self.loss_ts_pd = df
         #print(df)
+        
+        if plot:
+            sns.lineplot(data=df)
+            plt.xlabel('Batch Num.')
+            plt.ylabel('Loss Value')
+            plt.title('Training Loss Function')
         return df
 
     def get_min_loss(self , plot : bool = False , saveToFile : bool = False): # Todo change it
@@ -99,6 +107,11 @@ class Stats():
         if saveToFile:
             LOG_INFO(f"Saving min loss dict to file: {EXPERIMENT_RESULTS_PATH}/{self.exp_path}/min_loss_dict.json")
             export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/{MIN_LOSS_BASELINE_FILENAME}', min_loss_dict)
+            
+        if plot:
+            sns.barplot(data=min_loss_dict , palette='viridis')
+            plt.ylabel('Min Loss Value')
+            plt.title('Training Min Loss')
         return min_loss_dict
 
 
@@ -237,15 +250,14 @@ class Stats():
                     else:
                         confusion_matrix_worker_dict[(worker_name, class_name)] += confusion_matrix
                 
-                #plot = True
-                if plot:
-                    title = f"Confusion Matrix\nSource Piece: {source_name}\nWorker Name: {worker_name}"
-                    plt.imshow(confusion_matrix, interpolation='nearest', cmap=plt.cm.Blues)
-                    plt.title(title)
-                    plt.colorbar()
-                    plt.ylabel('Actual Label')
-                    plt.xlabel('Predicted Label')
-                    plt.show()
+
+        if plot:
+            for key , conf_mat in confusion_matrix_worker_dict.items():
+                worker , pred_class = key
+                plt.figure()
+                sns.heatmap(data=conf_mat , annot=True , fmt="d", cmap='Blues')
+                plt.title(f"{worker} Confusion Matrix For Class '{pred_class}'")
+                plt.show()
 
         return confusion_matrix_source_dict, confusion_matrix_worker_dict
     
@@ -354,16 +366,24 @@ class Stats():
             workers_performence[(worker_name, class_name)]['True Negative Rate'] = tnr
             workers_performence[(worker_name, class_name)]['Informedness'] = inf
             workers_performence[(worker_name, class_name)]['F1'] = f1
-
-            if show:
-                print(f"{worker_name}, class #{class_name}:")
-                print(f"{workers_performence[(worker_name,class_name)]}\n")
+            
+        df = pd.DataFrame.from_dict(workers_performence, orient='index')
+        stats = list(df.columns)
+        df.reset_index(inplace=True)
+        df.columns = ['Worker', 'Class'] + stats
+        if show:
+            centered_df = df.style.set_properties(**{'text-align': 'center'}).set_table_styles([ # Center all 
+                                {'selector': 'th', 'props': [('text-align', 'center')]},
+                                {'selector': 'th.col_heading', 'props': [('text-align', 'center')]},
+                                {'selector': 'th.row_heading', 'props': [('text-align', 'center')]}
+                            ])
+            display(centered_df)
         
         if saveToFile:
             LOG_INFO(f"Saving model performence stats to pickle file: {EXPERIMENT_RESULTS_PATH}/{self.exp_path}/{MODEL_PERFORMANCE_FILENAME}")
             export_dict_pickle(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/{MODEL_PERFORMANCE_FILENAME}', workers_performence)
             
-        return workers_performence
+        return df
 
 
     def get_confusion_matrices1(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):
