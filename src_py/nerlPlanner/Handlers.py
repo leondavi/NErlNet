@@ -168,6 +168,7 @@ def devices_update_settings_status_bar(window, device_selected_inst: Device):
         window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, {device_selected_inst}")
     elif api_server_inst and last_selected_entity == api_server_inst.NAME:
         window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, {device_selected_inst}")
+        
     
 def devices_handler(window, event, values):
     global devices_this_device_name 
@@ -183,6 +184,9 @@ def devices_handler(window, event, values):
         devices_this_device_ip_str = values[KEY_DEVICES_IP_INPUT]
     if event == KEY_DEVICES_LIST_BOX_DEVICES:
         devices_devices_list_box_selection = values[KEY_DEVICES_LIST_BOX_DEVICES][0] if values[KEY_DEVICES_LIST_BOX_DEVICES] else None
+        devices_this_device = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
+        window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(devices_this_device.get_entities_names())
+        
     if event == KEY_DEVICES_SELECTED_ENTITY_COMBO:
         last_selected_entity = values[KEY_DEVICES_SELECTED_ENTITY_COMBO]
     if event == KEY_DEVICES_ONLINE_LIST_COMBO_BOX:
@@ -275,6 +279,7 @@ def devices_handler(window, event, values):
             last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
             window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update("", last_entities_list_state_not_occupied)
             device_selected_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
+            window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(device_selected_inst.get_entities_names())
             devices_update_settings_status_bar(window, device_selected_inst)
         # mange duplicate port 
         elif res == json_dc_inst.ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_PORT: 
@@ -290,10 +295,28 @@ def devices_handler(window, event, values):
                 devices_update_settings_status_bar(window, device_selected_inst)
         else:
             sg.popup_ok(f"Could not add {last_selected_entity} to dev: {devices_devices_list_box_selection}")
+            
+    if event == KEY_DEVICES_REMOVE_ENTITY_FROM_DEVICE and devices_devices_list_box_selection:
+        devices_device_entites_list_box_selection = values[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES][0] if values[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES] else None
+        if devices_device_entites_list_box_selection:
+            json_dc_inst.remove_entity_from_device(devices_device_entites_list_box_selection)
+            # update device selected entitiy combo box 
+            last_entities_list_state_not_occupied = [x for x in last_entities_list_state if x not in json_dc_inst.get_devices_entities()]
+            window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update("", last_entities_list_state_not_occupied)
+            # update device entities list box 
+            device_selected_inst = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
+            window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(device_selected_inst.get_entities_names())
+            # update settings_status_bar if needed 
+            main_server_inst = json_dc_inst.get_main_server()
+            api_server_inst = json_dc_inst.get_api_server()
+            if main_server_inst and devices_device_entites_list_box_selection == main_server_inst.NAME:
+                window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}")
+            if api_server_inst and devices_device_entites_list_box_selection == api_server_inst.NAME:
+                window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}")
 
-    if devices_devices_list_box_selection:
-        devices_this_device = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
-        window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(devices_this_device.get_entities_names())
+    #if devices_devices_list_box_selection:
+       # devices_this_device = json_dc_inst.get_device_by_name(devices_devices_list_box_selection)
+       # window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update(devices_this_device.get_entities_names())
     
 
 def clients_reset_inputs_ui(window):
