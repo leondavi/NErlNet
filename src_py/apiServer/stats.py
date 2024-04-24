@@ -252,12 +252,24 @@ class Stats():
                 
 
         if plot:
-            for key , conf_mat in confusion_matrix_worker_dict.items():
-                worker , pred_class = key
-                plt.figure()
-                sns.heatmap(data=conf_mat , annot=True , fmt="d", cmap='Blues')
-                plt.title(f"{worker} Confusion Matrix For Class '{pred_class}'")
-                plt.show()
+            workers = sorted(list({tup[0] for tup in confusion_matrix_worker_dict.keys()}))
+            classes = sorted(list({tup[1] for tup in confusion_matrix_worker_dict.keys()}))
+            fig, ax = plt.subplots(nrows=len(workers), ncols=len(classes),figsize=(4*len(classes),4*len(workers)),dpi=140)
+            for i , worker in enumerate(workers): 
+                for j , pred_class in enumerate(classes):
+                    conf_mat = confusion_matrix_worker_dict[(worker , pred_class)]
+                    heatmap = sns.heatmap(data=conf_mat ,ax=ax[i,j], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
+                    cbar = heatmap.collections[0].colorbar
+                    cbar.ax.tick_params(labelsize = 8)
+                    ax[i, j].set_title(f"{worker} , Class '{pred_class}'" , fontsize=12)
+                    ax[i, j].tick_params(axis='both', which='major', labelsize=8) 
+                    ax[i, j].set_xlabel("Predicted Label" , fontsize=8)
+                    ax[i, j].set_ylabel("True Label" , fontsize=8)
+                    ax[i, j].set_aspect('equal')
+            fig.subplots_adjust(wspace=0.4 , hspace=0.4)
+            plt.show()
+                
+        
 
         return confusion_matrix_source_dict, confusion_matrix_worker_dict
     
@@ -295,7 +307,6 @@ class Stats():
         workers_dict = self.nerl_comm_db.get_workers()
         for worker_name in workers_dict:
             communication_stats_workers_dict[worker_name] = workers_dict[worker_name].get_as_dict()
-        print(f"communication_stats_workers_dict: {communication_stats_workers_dict}")
         return communication_stats_workers_dict
     
 
@@ -305,7 +316,6 @@ class Stats():
         sources_dict = self.nerl_comm_db.get_sources()
         for source_name in sources_dict:
             communication_stats_sources_dict[source_name] = sources_dict[source_name].get_as_dict()
-        print(f"communication_stats_sources_dict: {communication_stats_sources_dict}")
         return communication_stats_sources_dict
     
     def get_communication_stats_clients(self):
@@ -314,7 +324,6 @@ class Stats():
         clients_dict = self.nerl_comm_db.get_clients()
         for client_name in clients_dict:
             communication_stats_clients_dict[client_name] = clients_dict[client_name].get_as_dict()
-        print(f"communication_stats_clients_dict: {communication_stats_clients_dict}")
         return communication_stats_clients_dict
 
     def get_communication_stats_routers(self):
@@ -323,13 +332,11 @@ class Stats():
         routers_dict = self.nerl_comm_db.get_routers()
         for router_name in routers_dict:
             communication_stats_routers_dict[router_name] = routers_dict[router_name].get_as_dict()
-        print(f"communication_stats_routers_dict: {communication_stats_routers_dict}")
         return communication_stats_routers_dict
 
     def get_communication_stats_main_server(self):
         # return dictionary of {main_server : {communication_stats}}
         main_server_communication_stats = self.nerl_comm_db.get_main_server().get_as_dict()
-        print(f"main_server_communication_stats: {main_server_communication_stats}")
         return main_server_communication_stats
 
     def get_model_performence_stats(self , confusion_matrix_worker_dict , show : bool = False , saveToFile : bool = False, printStats = False) -> dict:
