@@ -1,5 +1,6 @@
 {
    "experimentName": "synthetic_3_gausians",
+   "experimentType": "classification",
    "batchSize": 50,
    "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/synthetic/synthetic_full.csv",
    "numOfFeatures": "5",
@@ -21,7 +22,7 @@
          ]  
       },
       {
-         "phaseName": "prediction_phase",
+         "phaseName": "prediction_phase",  
          "phaseType": "prediction",
          "sourcePieces":
          [
