@@ -12,7 +12,7 @@ import numpy as np
 import seaborn as sns
 sns.set_theme()
 MIN_LOSS_BASELINE_FILENAME = "min_loss_dict.json"
-MODEL_PERFORMANCE_FILENAME = "model_perf.pickle"
+MODEL_PERFORMANCE_FILENAME = "model_perf.csv"
 
 MATRIX_DISP_SCALING = 5
 class Stats():
@@ -387,8 +387,8 @@ class Stats():
             display(centered_df)
         
         if saveToFile:
-            LOG_INFO(f"Saving model performence stats to pickle file: {EXPERIMENT_RESULTS_PATH}/{self.exp_path}/{MODEL_PERFORMANCE_FILENAME}")
-            export_dict_pickle(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/{MODEL_PERFORMANCE_FILENAME}', workers_performence)
+            LOG_INFO(f"Saving model performence stats to csv file: {EXPERIMENT_RESULTS_PATH}/{self.exp_path}/{MODEL_PERFORMANCE_FILENAME}")
+            export_df_csv(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/{MODEL_PERFORMANCE_FILENAME}', df)
             
         return df
 

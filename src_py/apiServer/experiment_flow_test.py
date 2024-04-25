@@ -93,10 +93,10 @@ sources: {stats_predict.get_communication_stats_sources()}\
 clients: {stats_predict.get_communication_stats_clients()}\
 routers: {stats_predict.get_communication_stats_routers()}"
 
-LOG_INFO("Missed Batches prediction:")
 
 missed_batches = stats_predict.get_missed_batches()
 if missed_batches:
+    LOG_INFO("Missed Batches prediction:")
     LOG_INFO(missed_batches)
 
 generate_baseline_files = True
@@ -107,8 +107,7 @@ _ , confusion_matrix_worker_dict = stats_predict.get_confusion_matrices()
 performence_stats = stats_predict.get_model_performence_stats(confusion_matrix_worker_dict, saveToFile=generate_baseline_files) # Now a pandas DataFrame
 
 baseline_loss_min = import_dict_json(TEST_BASELINE_LOSS_MIN)
-baseline_performance_stats = import_dict_pickle(TESTS_BASELINE_MODEL_STATS)
-baseline_df = pd.DataFrame.from_dict(baseline_performance_stats, orient='index')
+baseline_performance_stats = import_csv_df(TESTS_BASELINE_MODEL_STATS)
 
 baseline_loss_min_avg = average_list(list(baseline_loss_min.values()))
 
@@ -122,7 +121,7 @@ for worker in loss_min_dict.keys():
 
 DIFF_MEASURE_METHOD = "F1"
         
-for f1_score_exp , f1_score_baseline in zip(performence_stats[DIFF_MEASURE_METHOD], baseline_df[DIFF_MEASURE_METHOD]):
+for f1_score_exp , f1_score_baseline in zip(performence_stats[DIFF_MEASURE_METHOD], baseline_performance_stats[DIFF_MEASURE_METHOD]):
     diff = abs(f1_score_exp - f1_score_baseline)
     error = diff/f1_score_baseline
     if error > TEST_ACCEPTABLE_F1_DIFF:
