@@ -4,7 +4,7 @@
 *.beam
 *.pyc
 /JupyterLabDir
-*.csv
+
 *.orig
 *.lock
 /src_py/.sconsign.dblite
