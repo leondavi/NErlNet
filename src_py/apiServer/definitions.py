@@ -5,6 +5,7 @@ from collections import OrderedDict
 from logger import *
 from pathlib import Path
 import pickle
+import pandas as pd
 
 # nerlconfig files
 
@@ -69,6 +70,16 @@ def export_dict_pickle(filepath : str , dict : OrderedDict):
     Path(filepath).parent.mkdir(parents=True, exist_ok=True)
     with open(filepath, 'wb') as handle:
         pickle.dump(dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
+def export_df_csv(filepath : str , df):
+    Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(filepath, index=False)
+    
+def import_csv_df(filepath : str):
+    if not os.path.isfile(filepath):
+        LOG_ERROR(f"File does not exist: {filepath}")
+        raise "File does not exist"
+    return pd.read_csv(filepath)
 
 def import_dict_pickle(filepath : str):
     if not os.path.isfile(filepath):

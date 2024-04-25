@@ -1,7 +1,7 @@
 {
     "nerlnetSettings": {
-        "frequency": "60",
-        "batchSize": "50"
+        "frequency": "200",
+        "batchSize": "100"
     },
     "mainServer": {
         "port": "8081",
@@ -14,7 +14,7 @@
     "devices": [
         {
             "name": "pc1",
-            "ipv4": "10.211.55.3",
+            "ipv4": "10.0.0.5",
             "entities": "c1,c2,r2,r1,r3,r4,s1,apiServer,mainServer"
         }
     ],
@@ -44,7 +44,7 @@
         {
             "name": "s1",
             "port": "8085",
-            "frequency": "60",
+            "frequency": "200",
             "policy": "0",
             "epochs": "1",
             "type": "0"
