@@ -10,6 +10,7 @@
 -import(nerlNIF,[decode_nif/2, nerltensor_binary_decode/2]).
 -import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0]).
 -import(nerlNIF,[erl_type_conversion/1]).
+-import(w2wCom,[send_message/3, get_inbox_queue/1]).
 -include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/NerlnetApp/src/nerl_tools.hrl").
 -include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/NerlnetApp/src/Bridge/nerlTensor.hrl").
 
@@ -68,7 +69,10 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{optimizer_args, OptimizerArgs}),
   ets:insert(GenWorkerEts,{distributed_system_args, DistributedSystemArgs}),
   ets:insert(GenWorkerEts,{distributed_system_type, DistributedSystemType}),
-  ets:insert(GenWorkerEts,{controller_message_q, []}), %% empty Queue
+  ets:insert(GenWorkerEts,{controller_message_q, []}), %% empty Queue  TODO Deprecated
+  % Worker to Worker communication gen_server
+  W2wComPid = w2wCom:start_link({WorkerName, ClientPid}),
+  put(w2wcom_pid, W2wComPid),
 
   Res = nerlNIF:new_nerlworker_nif(ModelID , ModelType, LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType,
                                 OptimizerArgs, LossMethod , DistributedSystemType , DistributedSystemArgs),
