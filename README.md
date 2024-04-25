@@ -79,12 +79,11 @@ Minimum Python version: 3.8
 
 Contact Email: leondavi@post.bgu.ac.il
 
-
 ## Gratitudes
-<h3 align="center">Microsoft</h1>
+<h3 align="center">Microsoft Azure</h1>
 <p align="center"> <img src="https://github.com/leondavi/NErlNet/assets/18975070/d3255b30-ae3b-46fd-a87f-6c1ec7ae231b" width="50" title="Microsoft Azure Sponsorship"></p>  
-<p align="left"> A grant of Azure credits as part of Microsoft’s Azure credits for open source projects program (2024).</p>  
+<p align="center"> A grant of Azure credits as part of Microsoft’s Azure credits for open source projects program (2024).</p>  
 <h3 align="center">Amazon AWS</h1>
-<p align="center"> <img src="https://github.com/leondavi/NErlNet/assets/18975070/2db72554-4536-492b-9f81-dc0c5b06007b" width="50" title="Amazon AWS Sponsorship"></p>  
+<p align="center"> <img src="https://github.com/leondavi/NErlNet/assets/18975070/5fe285fd-43c9-4de8-a619-5ebaace33b29" width="50" title="Amazon AWS Sponsorship"></p>  
 
-<p align="left"> A grant of AWS credits as part of AWSOpen program for open source projects (2024).</p>
+<p align="center"> A grant of AWS credits as part of AWSOpen program for open source projects (2024).</p>
