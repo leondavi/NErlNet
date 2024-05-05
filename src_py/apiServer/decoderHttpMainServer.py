@@ -1,6 +1,7 @@
 
 import numpy as np
 from decoderHttpMainServerDefs import *
+from definitions import NERLTENSOR_TYPE_LIST
 
 
 # | seperates entities
@@ -87,10 +88,15 @@ def decode_phase_result_data_json_from_main_server(input_json_dict : dict) -> li
         # nerltensor to numpy tensor conversion
         np_tensor = None
         nerltensor_as_bytes = bytes(nerltensor)
+        assert nerltensor_type in NERLTENSOR_TYPE_LIST, f"nerltensor_type: {nerltensor_type} is not in {NERLTENSOR_TYPE_LIST}"
         if nerltensor_type == 'float':
             np_tensor = np.frombuffer(nerltensor_as_bytes, dtype=np.float32)
-        elif nerltensor_type == 'int':
+        elif nerltensor_type == 'int16':
+            np_tensor = np.frombuffer(nerltensor_as_bytes, dtype=np.int16)
+        elif nerltensor_type == 'int32':
             np_tensor = np.frombuffer(nerltensor_as_bytes, dtype=np.int32)
+        elif nerltensor_type == 'uint8':
+            np_tensor = np.frombuffer(nerltensor_as_bytes, dtype=np.uint8)
         elif nerltensor_type == 'double':
             np_tensor = np.frombuffer(nerltensor_as_bytes, dtype=np.float64)
 
