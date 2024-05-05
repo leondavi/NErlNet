@@ -7,9 +7,9 @@ namespace nerlnet
 {
 // ----- NerlWorkerOpenNN -----
 
-    NerlWorkerOpenNN::NerlWorkerOpenNN(int model_type,std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
+    NerlWorkerOpenNN::NerlWorkerOpenNN(int model_type, std::string &model_args_str , std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
                      float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
-                     int loss_method, int distributed_system_type, std::string &distributed_system_args_str) : NerlWorker(model_type, layer_sizes_str, layer_types_list, layers_functionality,
+                     int loss_method, int distributed_system_type, std::string &distributed_system_args_str) : NerlWorker(model_type, model_args_str , layer_sizes_str, layer_types_list, layers_functionality,
                                                                                                                       learning_rate, epochs, optimizer_type, optimizer_args_str,
                                                                                                                       loss_method, distributed_system_type, distributed_system_args_str)
     {

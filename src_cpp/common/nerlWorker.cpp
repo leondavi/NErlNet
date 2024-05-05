@@ -2,11 +2,12 @@
 
 using namespace nerlnet;
 
-NerlWorker::NerlWorker(int model_type, std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
+NerlWorker::NerlWorker(int model_type, std::string &model_args_str , std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
                     float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
                     int loss_method, int distributed_system_type, std::string &distributed_system_args_str)
 {
     _model_type = model_type;
+    _model_args_str = model_args_str;
     _learning_rate = learning_rate;
     _epochs = epochs;
     _optimizer_type = optimizer_type;
