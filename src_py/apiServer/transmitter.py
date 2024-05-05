@@ -12,17 +12,14 @@ from experiment_flow import *
 
 class Transmitter:
 
-    def __init__(self, experiment_flow : ExperimentFlow, mainServerAddress, input_data_path : str):
+    def __init__(self, experiment_flow : ExperimentFlow, mainServerAddress):
         # Addresses used throughout the module:
         self.experiment_flow = experiment_flow
-        self.input_data_path = input_data_path
         self.mainServerAddress = mainServerAddress
         self.sourceInitAddr = self.mainServerAddress + '/sourceInit'
-        self.clientsTrainingAddress = self.mainServerAddress + '/clientsTraining'  #deprecated
         self.clientsPhaseUpdateAddress = self.mainServerAddress + '/clientsPhaseUpdate'
         self.updateCSVAddress = self.mainServerAddress + '/updateCSV'
         self.startCastingAddress = self.mainServerAddress + '/startCasting'
-        self.clientsPredictAddress = self.mainServerAddress + '/clientsPredict' #deprecated
         self.statisticsAddress = self.mainServerAddress + '/statistics'
         self.restart_address = self.mainServerAddress + '/restart'
         self.ack_validation_address = self.mainServerAddress + '/apiserver_ack_validation'

@@ -20,7 +20,6 @@ from events_sync import *
 class ApiServer():
     def __init__(self):       
         self.json_dir_parser = JsonDirParser()
-        self.input_data_path = read_nerlconfig(NERLCONFIG_INPUT_DATA_DIR)
         self.experiments_dict = {}
         self.current_exp = None
         self.apiserver_event_sync = EventSync() # pay attention! there are two kinds of syncs one for experiment phase events and one for api-server events
@@ -48,7 +47,6 @@ __________NERLNET CHECKLIST__________
     * Data includes: labeled prediction csv, training file, prediction file
     * Prediction CSVs need to be ordered the same!
     * jsonsDir is set to {self.json_dir_parser.get_json_dir_path()}
-    * inputDataDir is set to {self.input_data_path}
             
 ____________API COMMANDS_____________
 ==========Setting experiment========
@@ -111,7 +109,7 @@ PREDICTION_STR = "Prediction"
 
         # Initalize an instance for the transmitter:
         if not hasattr(self, 'transmitter'):
-            self.transmitter = Transmitter(self.current_exp, self.mainServerAddress, self.input_data_path)
+            self.transmitter = Transmitter(self.current_exp, self.mainServerAddress)
         
         LOG_INFO("Initializing ApiServer receiver thread")
 
