@@ -30,10 +30,10 @@ fi
 
 function virtualenv_installation()
 {
-pip3 install virtualenv
 if ! command -v virtualenv &> /dev/null
 then
     print "virtualenv could not be found"
+    print "consider using apt to install it: sudo apt install python3-venv"
     print_required_packages_install
     exit 1
 else
