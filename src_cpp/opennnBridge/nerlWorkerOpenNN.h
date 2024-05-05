@@ -19,7 +19,7 @@ class NerlWorkerOpenNN : public NerlWorker
 {
     public:
 
-    NerlWorkerOpenNN(int model_type, std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
+    NerlWorkerOpenNN(int model_type, std::string &model_args_str , std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
                      float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
                      int loss_method, int distributed_system_type, std::string &distributed_system_args_str);
     ~NerlWorkerOpenNN();

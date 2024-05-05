@@ -35,6 +35,7 @@ def WinWorkerDialog():
     WorkerFileFrame = sg.Frame("File",WorkerFileLayout)
 
     WorkerDefinitionsLayout = [[sg.Text("Model Type: "), sg.Combo(list(ModelTypeMapping.keys()),enable_events=True, key=KEY_MODEL_TYPE_LIST_BOX), sg.Button("LSTM Opts",disabled=True), sg.Button("Layers Sizes Help", enable_events=True, key=KEY_LAYER_SIZES_HELP_BUTTON)],
+                               [sg.Text("Model Args:" , expand_x=True), sg.InputText(key=KEY_MODEL_ARGS_INPUT, enable_events=True, expand_x=True)],
                                [sg.Text("Layers Sizes: Comma separated list, # of neurons in a layer, E.g, 100,80,40,5,1")],
                                [sg.InputText(key=KEY_LAYER_SIZES_INPUT,enable_events=True, expand_x=True), sg.Text("(0)",key=KEY_NUM_OF_LAYERS_SIZES)],
                                [sg.Text("List of layers types:"), sg.Combo(list(LayerTypeMap.keys()),key=KEY_LAYER_TYPE_SELECTION), sg.Button("Add",key=KEY_LAYER_TYPE_SELECTION_ADD), sg.Button("Help",key=KEY_LAYER_TYPE_HELP),sg.Button("Clear",key=KEY_LAYER_TYPE_SELECTION_CLEAR)],
@@ -68,6 +69,7 @@ def WinWorkerDialog():
     LayersSizesList = ""
     ModelTypeStr = ""
     ModelType = None # None
+    ModelArgsStr = ""
     OptimizationType = list(OptimizerTypeMapping.keys())[0]
     OptimizationArgs = "none"
     LossMethodStr = ""
@@ -83,8 +85,10 @@ def WinWorkerDialog():
     DistributedSystemToken = "none"
 
     def ui_update_all_values(WorkerWindow):
+        # Update here when adding new fields to the worker
         WorkerWindow[KEY_LAYER_SIZES_INPUT].update(LayersSizesList)
         WorkerWindow[KEY_MODEL_TYPE_LIST_BOX].update(ModelTypeStr)
+        WorkerWindow[KEY_MODEL_ARGS_INPUT].update(ModelArgsStr)
         WorkerWindow[KEY_OPTIMIZER_TYPE_LIST_BOX].update(OptimizationType)
         WorkerWindow[KEY_OPTIMIZER_ARGS_INPUT].update(OptimizationArgs)
         WorkerWindow[KEY_INFRA_TYPE_LIST_BOX].update(InfraType)
@@ -113,6 +117,9 @@ def WinWorkerDialog():
         if event == KEY_MODEL_TYPE_LIST_BOX:
             ModelTypeStr = values[event]
             ModelType = ModelTypeMapping[ModelTypeStr]
+
+        if event == KEY_MODEL_ARGS_INPUT:
+            ModelArgsStr = values[event]
         
         if event == KEY_LAYER_SIZES_HELP_BUTTON:
             sg.popup_ok(f"{LAYER_SIZES_HELP_POPUP_STR}", keep_on_top=True, title="Layer Sizes Help")
@@ -211,7 +218,7 @@ def WinWorkerDialog():
             first_element_condition = bool(LayerTypesList[0] != "3")
             if worker_parameters_conditions and filepath_condition and first_element_condition:
                 # Update here when adding new fields to the worker 
-                newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, OptimizationType, OptimizationArgs , LossMethodStr, LossMethod,
+                newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, ModelArgsStr, OptimizationType, OptimizationArgs , LossMethodStr, LossMethod,
                                     LearningRate, Epochs, LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken)
                 newWorker.save_as_json(FilePath.as_posix(), WithDocumentation)
                 sg.popup_auto_close("Successfully Created", keep_on_top=True)
@@ -235,7 +242,7 @@ def WinWorkerDialog():
                 loaded_worker_dict = {}
                 with open(FilePathLoad) as jsonFile:
                     loaded_worker_dict = json.load(jsonFile)
-                (LayersSizesList, ModelTypeStr, ModelType,OptimizationType, OptimizationArgs ,LossMethodStr, LossMethod, LearningRate, Epochs,
+                (LayersSizesList, ModelTypeStr, ModelType, ModelArgsStr, OptimizationType, OptimizationArgs ,LossMethodStr, LossMethod, LearningRate, Epochs,
                 LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemArgs ,DistributedSystemToken) = Worker.load_from_dict(loaded_worker_dict, get_params=True)
                 ui_update_all_values(WorkerWindow)
 

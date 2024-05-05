@@ -77,24 +77,25 @@ get_device_clients(DCMap, DeviceEntities, PrintLog) ->
   [Func(S) || S <- DeviceClients]. % list of tuples: [Name,{Port,WorkersMap}]
 
 get_models(ShaToModelMaps) ->
-  Func = fun(_SHA,ModelArgs) ->
-    ModelType = binary_to_list(maps:get(?WORKER_FIELD_KEY_MODEL_TYPE_BIN,ModelArgs)),
-    LayersSizes = binary_to_list(maps:get(?WORKER_FIELD_KEY_LAYER_SIZES_LIST_BIN,ModelArgs)),
-    LayersTypes = binary_to_list(maps:get(?WORKER_FIELD_KEY_LAYER_TYPES_LIST_BIN,ModelArgs)),
-    LayersFunctions = binary_to_list(maps:get(?WORKER_FIELD_KEY_LAYERS_FUNCTIONS_BIN,ModelArgs)),
-    LossMethod = binary_to_list(maps:get(?WORKER_FIELD_KEY_LOSS_METHOD_BIN,ModelArgs)),
-    LearningRate = binary_to_list(maps:get(?WORKER_FIELD_KEY_LEARNING_RATE_BIN,ModelArgs)),
-    Epochs = binary_to_list(maps:get(?WORKER_FIELD_KEY_EPOCHS_BIN,ModelArgs)),
-    Optimizer = binary_to_list(maps:get(?WORKER_FIELD_KEY_OPTIMIZER_TYPE_BIN,ModelArgs)),
-    OptimizerArgs = binary_to_list(maps:get(?WORKER_FIELD_KEY_OPTIMIZER_ARGS_BIN,ModelArgs)),
-    InfraType = binary_to_list(maps:get(?WORKER_FIELD_KEY_INFRA_TYPE_BIN,ModelArgs)),
-    DistributedSystemType = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_TYPE_BIN,ModelArgs)),
-    DistributedSystemArgs = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_ARGS_BIN,ModelArgs)),
-    DistributedSystemToken = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_TOKEN_BIN,ModelArgs)),
-    ModelTuple = {ModelType, LayersSizes, LayersTypes, LayersFunctions, LossMethod, LearningRate, Epochs, Optimizer, OptimizerArgs, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken},
+  Func = fun(_SHA,ModelParams) ->
+    ModelType = binary_to_list(maps:get(?WORKER_FIELD_KEY_MODEL_TYPE_BIN,ModelParams)),
+    ModelArgs = binary_to_list(maps:get(?WORKER_FIELD_KEY_MODEL_ARGS_BIN, ModelParams)),
+    LayersSizes = binary_to_list(maps:get(?WORKER_FIELD_KEY_LAYER_SIZES_LIST_BIN,ModelParams)),
+    LayersTypes = binary_to_list(maps:get(?WORKER_FIELD_KEY_LAYER_TYPES_LIST_BIN,ModelParams)),
+    LayersFunctions = binary_to_list(maps:get(?WORKER_FIELD_KEY_LAYERS_FUNCTIONS_BIN,ModelParams)),
+    LossMethod = binary_to_list(maps:get(?WORKER_FIELD_KEY_LOSS_METHOD_BIN,ModelParams)),
+    LearningRate = binary_to_list(maps:get(?WORKER_FIELD_KEY_LEARNING_RATE_BIN,ModelParams)),
+    Epochs = binary_to_list(maps:get(?WORKER_FIELD_KEY_EPOCHS_BIN,ModelParams)),
+    Optimizer = binary_to_list(maps:get(?WORKER_FIELD_KEY_OPTIMIZER_TYPE_BIN,ModelParams)),
+    OptimizerArgs = binary_to_list(maps:get(?WORKER_FIELD_KEY_OPTIMIZER_ARGS_BIN, ModelParams)),
+    InfraType = binary_to_list(maps:get(?WORKER_FIELD_KEY_INFRA_TYPE_BIN,ModelParams)),
+    DistributedSystemType = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_TYPE_BIN,ModelParams)),
+    DistributedSystemArgs = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_ARGS_BIN,ModelParams)),
+    DistributedSystemToken = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_TOKEN_BIN,ModelParams)),
+    ModelTuple = {ModelType, ModelArgs , LayersSizes, LayersTypes, LayersFunctions, LossMethod, LearningRate, Epochs, Optimizer, OptimizerArgs, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken},
     ModelTuple
   end,
-  ShaToModelArgsList = [{binary_to_list(ShaBin) , ModelArgs} || {ShaBin , ModelArgs} <- maps:to_list(maps:map(Func , ShaToModelMaps))],
+  ShaToModelArgsList = [{binary_to_list(ShaBin) , ModelParams} || {ShaBin , ModelParams} <- maps:to_list(maps:map(Func , ShaToModelMaps))],
   maps:from_list(ShaToModelArgsList).
 
 generate_workers_map([],WorkersMap,_ClientName)->WorkersMap;

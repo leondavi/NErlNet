@@ -137,6 +137,8 @@ def doc_print_dict(d):#define d
 KEY_DOC_PREFIX = "_doc_"
 KEY_MODEL_TYPE = "modelType"
 KEY_MODEL_TYPE_DOC = "_doc_modelType"
+KEY_MODEL_ARGS = "modelArgs"
+KEY_MODEL_ARGS_DOC = "_doc_modelArgs"
 KEY_LAYER_SIZES_LIST = "layersSizes"
 KEY_LAYER_SIZES_DOC = "_doc_layersSizes"
 KEY_LAYER_TYPES_LIST = "layerTypesList"
@@ -167,6 +169,7 @@ KEY_DISTRIBUTED_SYSTEM_TOKEN_DOC = "_doc_distributedSystemToken"
 
 # Update here when adding new fields to the worker
 VAL_MODEL_TYPE_DOC = f"{doc_print_dict(ModelTypeMapping)}"
+VAL_MODEL_ARGS_DOC = "Extra arguments to model"
 VAL_LAYER_SIZES_DOC = "List of postive integers [L0, L1, ..., LN]"
 VAL_LAYER_TYPES_DOC = f"{doc_print_dict(LayerTypeMap)}"
 VAL_LAYERS_FUNCTIONS_SCALER_DOC = f"{doc_print_dict(ScalingMethodMap)}"
