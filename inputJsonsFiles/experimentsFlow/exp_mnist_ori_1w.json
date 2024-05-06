@@ -1,0 +1,39 @@
+{
+    "experimentName": "mnist_digit1",
+    "batchSize": 50,
+    "csvFilePath": "/home/ori/Downloads/mnist_train_1.csv",
+    "numOfFeatures": "784",
+    "numOfLabels": "1",
+    "headersNames": "Norm(0:1),Norm(4:1),Norm(10:3)",
+    "Phases": 
+    [
+       {
+          "phaseName": "training_phase",
+          "phaseType": "training",
+          "sourcePieces":
+          [
+             {
+             "sourceName": "s1",
+             "startingSample": "0",
+             "numOfBatches": "100",
+             "workers": "w1"
+             }
+          ]  
+       },
+       {
+          "phaseName": "prediction_phase",
+          "phaseType": "prediction",
+          "sourcePieces":
+          [
+             {
+             "sourceName": "s1",
+             "startingSample": "5000",
+             "numOfBatches": "20",
+             "workers": "w1"
+             }
+          ]    
+       }
+    ]  
+ }
+     
+ 

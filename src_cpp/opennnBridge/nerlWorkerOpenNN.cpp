@@ -268,8 +268,11 @@ namespace nerlnet
             default:
             {  
             int data_cols = TrainDataNNptr->dimension(1);
+            LogInfo<<"data_cols: " << data_cols << std::endl;
             int num_of_features = neural_network_ptr->get_inputs_number();
+            LogInfo << "num_of_features: " << num_of_features << std::endl;
             int num_of_output_neurons = neural_network_ptr->get_outputs_number(); 
+            LogInfo << "num_of_output_neurons: " << num_of_output_neurons << std::endl;
             _data_set->set_data(*(TrainDataNNptr));
              // Data set definitions
              bool data_set_condition = (num_of_features + num_of_output_neurons) == data_cols;
