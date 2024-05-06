@@ -53,7 +53,7 @@ else
 fi
 }
 
-if [[ "$RUNNING_IN_DOCKER" = true ]]; then
+if [[ -z "$RUNNING_IN_DOCKER" ]]; then
   # Not running inside a docker container
     pip3_installation
     virtualenv_installation # must be installed after pip3
