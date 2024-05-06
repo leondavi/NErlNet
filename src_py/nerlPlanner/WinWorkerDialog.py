@@ -35,7 +35,7 @@ def WinWorkerDialog():
     WorkerFileFrame = sg.Frame("File",WorkerFileLayout)
 
     WorkerDefinitionsLayout = [[sg.Text("Model Type: "), sg.Combo(list(ModelTypeMapping.keys()),enable_events=True, key=KEY_MODEL_TYPE_LIST_BOX), sg.Button("LSTM Opts",disabled=True), sg.Button("Layers Sizes Help", enable_events=True, key=KEY_LAYER_SIZES_HELP_BUTTON)],
-                               [sg.Text("Model Args:" , expand_x=True), sg.InputText(key=KEY_MODEL_ARGS_INPUT, enable_events=True, expand_x=True)],
+                               [sg.Text("Model Args:"), sg.InputText(key=KEY_MODEL_ARGS_INPUT, enable_events=True, expand_x=True) , sg.Text("(0)",key=KEY_NUM_OF_MODEL_ARGS)],
                                [sg.Text("Layers Sizes: Comma separated list, # of neurons in a layer, E.g, 100,80,40,5,1")],
                                [sg.InputText(key=KEY_LAYER_SIZES_INPUT,enable_events=True, expand_x=True), sg.Text("(0)",key=KEY_NUM_OF_LAYERS_SIZES)],
                                [sg.Text("List of layers types:"), sg.Combo(list(LayerTypeMap.keys()),key=KEY_LAYER_TYPE_SELECTION), sg.Button("Add",key=KEY_LAYER_TYPE_SELECTION_ADD), sg.Button("Help",key=KEY_LAYER_TYPE_HELP),sg.Button("Clear",key=KEY_LAYER_TYPE_SELECTION_CLEAR)],
@@ -120,6 +120,7 @@ def WinWorkerDialog():
 
         if event == KEY_MODEL_ARGS_INPUT:
             ModelArgsStr = values[event]
+            WorkerWindow[KEY_NUM_OF_MODEL_ARGS].update(f'({str(count_str_list_elements(ModelArgsStr))})')
         
         if event == KEY_LAYER_SIZES_HELP_BUTTON:
             sg.popup_ok(f"{LAYER_SIZES_HELP_POPUP_STR}", keep_on_top=True, title="Layer Sizes Help")
