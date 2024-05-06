@@ -67,6 +67,10 @@ cp $NERLNET_CONFIG_SUBNETS_BACKUP $NERLNET_CONFIG_SUBNETS_DIR
 rm $NERLNET_CONFIG_SUBNETS_BACKUP
 rm $TEST_DC_JSON
 
-deactivate
+if [[ -z "$RUNNING_IN_DOCKER" ]]; then
+    # not running in docker
+    deactivate
+fi
+
 
 exit $rc
