@@ -83,18 +83,7 @@ void* PredictFun(void* arg)
     Index num_of_samples = PredictNNptr->data->dimension(0);
     Index inputs_number = neural_network->get_inputs_number();
     fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
-    Tensor<Index, 1> input_variable_dimension(4);
-    Tensor<Index, 1> inputs_dimensions(2);
-
-    if(neural_network->has_convolutional_layer())
-    {  
-        ConvolutionalLayer* conv = (ConvolutionalLayer*)neural_network->get_layer_pointer(0);
-        input_variable_dimension.setValues({num_of_samples,conv->get_input_variables_dimensions()(1), conv->get_input_variables_dimensions()(2), conv->get_input_variables_dimensions()(3)});
-        *calculate_res = neural_network->calculate_outputs(PredictNNptr->data->data(), input_variable_dimension);
-    }else{
-        inputs_dimensions.setValues({num_of_samples, inputs_number});
-         *calculate_res = neural_network->calculate_outputs(PredictNNptr->data->data(), inputs_dimensions);
-    }
+    nerlworker_opennn->get_result_calc(calculate_res, num_of_samples, inputs_number, PredictNNptr->data);
     nerlworker_opennn->post_predict_process(calculate_res); 
     nifpp::make_tensor_2d<float,fTensor2D>(env, prediction, calculate_res);
     // only for AE and AEC calculate the distance between prediction labels and input data
