@@ -4,14 +4,14 @@
 #include "SourceCSV.h"
 
 
-set_source(SourceType, DataType, BatchSize, CustomParamsStr) when is_list(CustomParams)->
-    exit(nif_library_not_loaded).
+// set_source(SourceType, DataType, BatchSize, CustomParamsStr) when is_list(CustomParams)->
+//     exit(nif_library_not_loaded).
 
-source_get_batches() ->
-    exit(nif_library_not_loaded).
+// source_get_batches() ->
+//     exit(nif_library_not_loaded).
 
-source_more_batches() ->
-    exit(nif_library_not_loaded).
+// source_more_batches() ->
+//     exit(nif_library_not_loaded).
 
 static ERL_NIF_TERM set_source_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
