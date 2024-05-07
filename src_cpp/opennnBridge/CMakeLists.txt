@@ -31,7 +31,6 @@ set(SRC_CODE
 	"definitionsNN.h"
 	"openNNnif.h"
 	"openNNnif.cpp"
-    "ModelParams.h"
 	"nerlWorkerOpenNN.h"
 	"nerlWorkerOpenNN.cpp"
 	"nerlWorkerNIF.h"

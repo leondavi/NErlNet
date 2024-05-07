@@ -25,8 +25,6 @@
 
 -export([start/2, stop/1]).
 
--import(nerlNIF,[nif_preload/0]).
-
 
 %% *    Initiate rebar3 shell : rebar3 shell
 %% **   send any request
@@ -102,6 +100,7 @@ start(_StartType, _StartArgs) ->
     nerl_tools:setup_logger(?MODULE),
     %% make sure nif can be loaded:
     nerlNIF:nif_preload(),
+    sourceNIF:nif_preload(),
     ThisDeviceIP = nerl_tools:getdeviceIP(),
     ?LOG_INFO("Nerlnet version ~s",[?NERLNET_APP_VERSION]),
     ?LOG_INFO("Nerlplanner tested version ~s",[?NERLPLANNER_TESTED_VERSION]),
