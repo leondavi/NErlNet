@@ -3,16 +3,18 @@
 
 -include("sourceNIFdefs.hrl").
 
--export([nif_init/0]).
+-export([init/0]).
+-export([nif_preload/0]).
 -export([set_source_nif/4, source_get_batches_nif/0, source_more_batches_nif/0]).
 
--on_load(nif_init/0).
+-on_load(init/0).
 
-nif_init() ->
+init() ->
     SOURCE_NIF_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?SOURCE_NIF_LIB,
-    RES = erlang:load_nif(SOURCE_NIF_LIB_PATH, 0),
-    RES.
+    erlang:load_nif(SOURCE_NIF_LIB_PATH, 0).
 
+%% make sure nif can be loaded (activates on_load)
+nif_preload() -> done.
 
 %% Reads a csv file and returns a binary nerltensor of the given data type
 %% This is user responsibility to validate that given file has the correct data type
