@@ -28,6 +28,12 @@ jobs:
         run: |
           ./tests/NerlnetNifTest.sh
         timeout-minutes: 15
+      - name: Source NIF unit tests
+        id: sourcenif
+        if: steps.build.outcome == 'success'
+        run: |
+          ./tests/NerlnetSourceNifTest.sh
+        timeout-minutes: 15
       - name: Run FullFlow test
         id: fullflow
         if: steps.nif.outcome == 'success'
