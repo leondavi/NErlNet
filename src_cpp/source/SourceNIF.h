@@ -2,20 +2,13 @@
 
 #include "nifpp.h"
 #include "SourceCSV.h"
+#include <Logger.h>
 
 
-// set_source(SourceType, DataType, BatchSize, CustomParamsStr) when is_list(CustomParams)->
-//     exit(nif_library_not_loaded).
-
-// source_get_batches() ->
-//     exit(nif_library_not_loaded).
-
-// source_more_batches() ->
-//     exit(nif_library_not_loaded).
 
 static ERL_NIF_TERM set_source_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    
+    enum {ARG_SOURCE_TYPE, ARG_DATA_TYPE, ARG_BATCH_SIZE, ARG_CUSTOM_PARAMS_STR};
 }
 
 static ERL_NIF_TERM source_get_batches_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -30,9 +23,9 @@ static ERL_NIF_TERM source_more_batches_nif(ErlNifEnv* env, int argc, const ERL_
 
 static ErlNifFunc nif_funcs[] =
 {
-    {"set_source_nif",0, set_source_nif},
+    {"set_source_nif",4, set_source_nif},
     {"source_get_batches_nif", 0 , source_get_batches_nif},
-    {"source_more_batches_nif", 0 , source_more_batches_nif},
+    {"source_more_batches_nif", 0 , source_more_batches_nif}
 };
 
 
@@ -48,6 +41,8 @@ static int load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
     return 0;
 }
 
+ERL_NIF_INIT(sourceNIF, nif_funcs, NULL, NULL, NULL, NULL)
+
 // This is the magic macro to initialize a NIF library. It is to be evaluated in global file scope.
 // ERL_NIF_INIT(MODULE, ErlNifFunc funcs[], load, NULL, upgrade, unload)
 // MODULE -  The first argument must be the name of the Erlang module as a C-identifier. It will be stringified by the macro.
@@ -55,8 +50,6 @@ static int load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
 // load -  is called when the NIF library is loaded and no previously loaded library exists for this module.
 // NULL - The fourth argument NULL is ignored. It was earlier used for the deprecated reload callback which is no longer supported since OTP 20.
 // The remaining arguments are pointers to callback functions that can be used to initialize the library.
-// They are not used in this simple example, hence they are all set to NULL.
-ERL_NIF_INIT(SourceNIF, nif_funcs, load, NULL, NULL, NULL)
 
 //ERL_NIF_INIT(nerlNIF,nif_funcs,NULL,NULL,NULL,NULL)
 

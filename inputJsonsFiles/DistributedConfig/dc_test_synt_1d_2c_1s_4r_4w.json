@@ -14,7 +14,7 @@
     "devices": [
         {
             "name": "pc1",
-            "ipv4": "10.0.0.5",
+            "ipv4": "10.211.55.3",
             "entities": "c1,c2,r2,r1,r3,r4,s1,apiServer,mainServer"
         }
     ],
@@ -84,6 +84,7 @@
         "d8df752e0a2e8f01de8f66e9cec941cdbc65d144ecf90ab7713e69d65e7e82aa": {
             "modelType": "0",
             "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image-classification:4 | text-classification:5 | text-generation:6 | auto-association:7 | autoencoder:8 | ae-classifier:9 |",
+            "modelArgs": "",
             "layersSizes": "5,10,5,3",
             "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
             "layerTypesList": "1,3,3,3",
