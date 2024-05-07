@@ -1,7 +1,6 @@
 
-project(SourceNIF)
+project(sourceNIF)
 
-set(CMAKE_CXX_STANDARD 17)
 set(NIFPP_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../nifpp/")
 set(COMMON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../common")
 set(SIMPLE_LOGGER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../simple-cpp-logger/include")
@@ -19,14 +18,13 @@ add_definitions( -D LOGGER_ENABLE_COLORS_ON_USER_HEADER=0 )
 set(SRC_CODE
     "Source.h"
     "SourceNIF.h"
+    "SourceNIF.cpp"
     "SourceCSV.h"
     "SourceCSV.cpp"
 )
 
 
 add_library(${PROJECT_NAME} SHARED ${SRC_CODE})
-
-target_link_libraries(${PROJECT_NAME} PUBLIC common)
 
 # Include NIF, OpenNN and Simple Cpp Logger
 target_include_directories(${PROJECT_NAME} PUBLIC
