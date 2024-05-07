@@ -143,21 +143,22 @@ waitforWorkers(cast, EventContent, State = #client_statem_state{myName = MyName}
 
 %% initiating workers when they include federated workers. init stage == handshake between federated worker client and server
 %% TODO: make custom_worker_message in all states to send messages from workers to entities (not just client)
-idle(cast, In = {custom_worker_message, {From, To}}, State = #client_statem_state{etsRef = EtsRef}) ->
+idle(cast, In = {worker_to_worker_msg, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  WorkerOfThisClient = ets:member(EtsRef, To),
+  WorkerOfThisClient = ets:member(EtsRef, ToWorker),
   if WorkerOfThisClient -> 
-    TargetWorkerPID = ets:lookup_element(EtsRef, To, ?WORKER_PID_IDX),
-    gen_statem:cast(TargetWorkerPID,{post_idle,From}),
+    % Extract W2WPID from Ets
+    TargetWorkerW2WPID = ets:lookup_element(EtsRef, ToWorker, ?WORKER_PID_IDX),
+    gen_statem:cast(TargetWorkerW2WPID,{worker_to_worker_msg, FromWorker, ToWorker, Data}),
     stats:increment_messages_sent(ClientStatsEts);
   true ->
     %% send to FedServer that worker From is connecting to it
-    DestClient = maps:get(To, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
-    MessageBody = {DestClient, custom_worker_message, {From, To}},
+    DestClient = maps:get(ToWorker, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
+    MessageBody = {worker_to_worker_msg, FromWorker, ToWorker, Data},
     {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-    nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(custom_worker_message), term_to_binary(MessageBody)),
+    nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(worker_to_worker_msg), term_to_binary(MessageBody)),
     stats:increment_messages_sent(ClientStatsEts),
     stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody))
   end,

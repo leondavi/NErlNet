@@ -70,7 +70,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{distributed_system_args, DistributedSystemArgs}),
   ets:insert(GenWorkerEts,{distributed_system_type, DistributedSystemType}),
   ets:insert(GenWorkerEts,{controller_message_q, []}), %% empty Queue  TODO Deprecated
-  % Worker to Worker communication gen_server
+  % Worker to Worker communication module - this is a gen_server
   W2wComPid = w2wCom:start_link({WorkerName, ClientPid}),
   put(w2wcom_pid, W2wComPid),
 
@@ -174,7 +174,7 @@ wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneri
 wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
   BatchTimeStamp = erlang:system_time(nanosecond),
   gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,{LossTensor, LossTensorType} , TrainTime , BatchID , BatchTimeStamp}),
-  ToUpdate = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),DistributedWorkerData}),
+  ToUpdate = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),DistributedWorkerData}), %% Change to W2WComm
   if  ToUpdate -> {next_state, update, State#workerGeneric_state{nextState=NextState}};
       true ->     {next_state, NextState, State}
   end;

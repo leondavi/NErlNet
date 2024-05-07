@@ -14,21 +14,23 @@ start_link(Args = {WorkerName, _ClientStatemPid}) ->
   {ok,Gen_Server_Pid} = gen_server:start_link({local, WorkerName}, ?MODULE, Args, []),
   Gen_Server_Pid.
 
-init({WorkerName, ClientStatemPid}) ->
+init({WorkerName, MyClientPid}) ->
     InboxQueue = queue:new(),
     W2wEts = ets:new(w2w_ets, [set]),
     put(worker_name, WorkerName),
-    put(client_statem_pid, ClientStatemPid),
+    put(client_statem_pid, MyClientPid),
+    % TODO Send init message to client with the {WorkerName , W2WCOMM_PID}
     put(w2w_ets, W2wEts),
     ets:insert(W2wEts, {inbox_queue, InboxQueue}),
     {ok, []}.
 
-% Messages are of the form: {FromWorkerName, Data}
+% Received messages are of the form: {worker_to_worker_msg, FromWorkerName, ThisWorkerName, Data}
 handle_cast({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, Data}, State) ->
     case get(worker_name) of
         ThisWorkerName -> ok;
         _ -> throw({error, "The provided worker name is not this worker"})
     end,
+    % Saved messages are of the form: {FromWorkerName, , Data}
     Message = {FromWorkerName, Data},
     add_msg_to_inbox_queue(Message),
     io:format("Worker ~p received message from ~p: ~p~n", [ThisWorkerName, FromWorkerName, Data]), %TODO remove
@@ -62,9 +64,9 @@ add_msg_to_inbox_queue(Message) ->
     InboxQueueUpdated = queue:in(Message, InboxQueue),
     ets:insert(W2WEts, {inbox_queue, InboxQueueUpdated}).
 
-send_message(FromWorkerName, ToWorkerName, Data) -> 
-    Msg = {?W2WCOM_ATOM, FromWorkerName, ToWorkerName, Data},
-    MyClient = client_name, % TODO
+send_message(FromWorker, TargetWorker, Data) -> 
+    Msg = {?W2WCOM_ATOM, FromWorker, TargetWorker, Data},
+    MyClient = get(client_statem_pid),
     gen_server:cast(MyClient, Msg).
 
     
