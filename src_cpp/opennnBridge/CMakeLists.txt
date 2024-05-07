@@ -28,7 +28,6 @@ set(SRC_CODE
 	"eigenTensorTypes.h"
 	"nifppEigenExtensions.h"
 	"nifppNerltensorEigen.h"
-	"definitionsNN.h"
 	"openNNnif.h"
 	"openNNnif.cpp"
 	"nerlWorkerOpenNN.h"
