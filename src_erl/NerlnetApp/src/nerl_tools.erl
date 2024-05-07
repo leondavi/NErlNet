@@ -32,7 +32,6 @@ http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, Body) -
 
 
 http_request(Host, Port, Path, {json, Body}) -> 
-  io:format("Sending Json to ~p:~p~n",[Host,Port]),
   JsonContentType = ?HTTP_CONTENT_TYPE_JSON,
   Json = jsx:encode(Body),
   http_request(Host, Port,Path, JsonContentType, Json);
