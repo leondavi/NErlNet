@@ -19,7 +19,6 @@
 #include "../opennn/opennn/opennn.h"
 #include "bridgeController.h"
 #include "get_set_weights.h"
-#include "ModelParams.h"
 
 #include "nifppNerltensorEigen.h"
 #include "nerlWorkerNIF.h"

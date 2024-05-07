@@ -9,6 +9,7 @@ project(src_cpp)
 
 add_subdirectory(common)
 add_subdirectory(opennnBridge)
+add_subdirectory(source)
 
 if(NERLWOLF)
     message("[NERLNET] Wolfram Engine nif extension is enabled")
