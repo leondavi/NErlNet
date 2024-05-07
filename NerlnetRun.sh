@@ -229,6 +229,7 @@ case "$_arg_run_mode" in
 (*) exit 1 ;;
 esac
 
+exit 0
 
 #TODO TO BE REMOVED
 # only for CI debug
