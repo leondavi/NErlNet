@@ -14,7 +14,6 @@
  * 
  */
 
-#include "ModelParams.h"
 #include "openNNExtensionFunction.h"
 #include "CustumNN.h"
 #include "../simple-cpp-logger/include/Logger.h"

@@ -39,3 +39,6 @@ if (NERLWOLF)
     add_library(nerlnet_wolf SHARED $<TARGET_OBJECTS:wolframBridge>)
     target_link_libraries(nerlnet_wolf PUBLIC wolframBridge)
 endif()
+
+add_library(source_nif SHARED $<TARGET_OBJECTS:SourceNIF>)
+target_link_libraries(source_nif PUBLIC SourceNIF)

@@ -44,10 +44,6 @@ is_rasp="$(grep -c raspbian /etc/os-release)"
 if [ $is_rasp -gt "0" ]; then 
     export LD_PRELOAD=/usr/lib/arm-linux-gnueabihf/libatomic.so.1.2.0 
 fi
-cmake -S . -B build/release -DCMAKE_BUILD_TYPE=RELEASE
-cd build/release 
-make . 
-cd -
 
 print "Change directory to $NERLNET_TEST_DIR:"
 cd $NERLNET_TEST_DIR

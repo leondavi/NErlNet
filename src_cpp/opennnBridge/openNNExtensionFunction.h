@@ -9,7 +9,6 @@
 
 #include <vector>
 #include <string>
-#include "ModelParams.h"
 #include "definitionsNN.h"
 #include <map>
 
