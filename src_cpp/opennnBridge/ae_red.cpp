@@ -1,15 +1,23 @@
 #include "ae_red.h"
 
-using namespace nerlnet;
-
-AeRed::AeRed(float k , float alpha)
+namespace nerlnet
+{
+    
+AeRed::AeRed(float k, float alpha)
 {
     _k = k;
     _alpha = alpha;
+    _ema = 0;
+    _emad = 1;
+    _ema_event = 0;
+    _ema_normal = 0;
+    _prev_ema = 0;
+    _prev_emad = 0;
 }
 
 AeRed::~AeRed()
 {
+
 }
 
 fTensor1DPtr AeRed::update_batch(fTensor1D loss_values)
@@ -39,3 +47,5 @@ float AeRed::update_sample(float loss_value){
     if(loss_value > _threshold) return loss_value;
     else return -loss_value;
 }
+
+} // namespace nerlnet
