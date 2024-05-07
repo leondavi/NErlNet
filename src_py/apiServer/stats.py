@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from sklearn import metrics
+from IPython.display import display
 import matplotlib.pyplot as plt
 from datetime import datetime
 from pathlib import Path
@@ -8,9 +9,10 @@ import globalVars as globe
 from definitions import *
 import pandas as pd
 import numpy as np
-
+import seaborn as sns
+sns.set_theme()
 MIN_LOSS_BASELINE_FILENAME = "min_loss_dict.json"
-MODEL_PERFORMANCE_FILENAME = "model_perf.pickle"
+MODEL_PERFORMANCE_FILENAME = "model_perf.csv"
 
 MATRIX_DISP_SCALING = 5
 class Stats():
@@ -80,6 +82,12 @@ class Stats():
         df = pd.DataFrame(loss_dict)
         self.loss_ts_pd = df
         #print(df)
+        
+        if plot:
+            sns.lineplot(data=df)
+            plt.xlabel('Batch Num.')
+            plt.ylabel('Loss Value')
+            plt.title('Training Loss Function')
         return df
 
     def get_min_loss(self , plot : bool = False , saveToFile : bool = False): # Todo change it
@@ -99,6 +107,11 @@ class Stats():
         if saveToFile:
             LOG_INFO(f"Saving min loss dict to file: {EXPERIMENT_RESULTS_PATH}/{self.exp_path}/min_loss_dict.json")
             export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/{MIN_LOSS_BASELINE_FILENAME}', min_loss_dict)
+            
+        if plot:
+            sns.barplot(data=min_loss_dict , palette='viridis')
+            plt.ylabel('Min Loss Value')
+            plt.title('Training Min Loss')
         return min_loss_dict
 
 
@@ -237,15 +250,26 @@ class Stats():
                     else:
                         confusion_matrix_worker_dict[(worker_name, class_name)] += confusion_matrix
                 
-                #plot = True
-                if plot:
-                    title = f"Confusion Matrix\nSource Piece: {source_name}\nWorker Name: {worker_name}"
-                    plt.imshow(confusion_matrix, interpolation='nearest', cmap=plt.cm.Blues)
-                    plt.title(title)
-                    plt.colorbar()
-                    plt.ylabel('Actual Label')
-                    plt.xlabel('Predicted Label')
-                    plt.show()
+
+        if plot:
+            workers = sorted(list({tup[0] for tup in confusion_matrix_worker_dict.keys()}))
+            classes = sorted(list({tup[1] for tup in confusion_matrix_worker_dict.keys()}))
+            fig, ax = plt.subplots(nrows=len(workers), ncols=len(classes),figsize=(4*len(classes),4*len(workers)),dpi=140)
+            for i , worker in enumerate(workers): 
+                for j , pred_class in enumerate(classes):
+                    conf_mat = confusion_matrix_worker_dict[(worker , pred_class)]
+                    heatmap = sns.heatmap(data=conf_mat ,ax=ax[i,j], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
+                    cbar = heatmap.collections[0].colorbar
+                    cbar.ax.tick_params(labelsize = 8)
+                    ax[i, j].set_title(f"{worker} , Class '{pred_class}'" , fontsize=12)
+                    ax[i, j].tick_params(axis='both', which='major', labelsize=8) 
+                    ax[i, j].set_xlabel("Predicted Label" , fontsize=8)
+                    ax[i, j].set_ylabel("True Label" , fontsize=8)
+                    ax[i, j].set_aspect('equal')
+            fig.subplots_adjust(wspace=0.4 , hspace=0.4)
+            plt.show()
+                
+        
 
         return confusion_matrix_source_dict, confusion_matrix_worker_dict
     
@@ -283,7 +307,6 @@ class Stats():
         workers_dict = self.nerl_comm_db.get_workers()
         for worker_name in workers_dict:
             communication_stats_workers_dict[worker_name] = workers_dict[worker_name].get_as_dict()
-        print(f"communication_stats_workers_dict: {communication_stats_workers_dict}")
         return communication_stats_workers_dict
     
 
@@ -293,7 +316,6 @@ class Stats():
         sources_dict = self.nerl_comm_db.get_sources()
         for source_name in sources_dict:
             communication_stats_sources_dict[source_name] = sources_dict[source_name].get_as_dict()
-        print(f"communication_stats_sources_dict: {communication_stats_sources_dict}")
         return communication_stats_sources_dict
     
     def get_communication_stats_clients(self):
@@ -302,7 +324,6 @@ class Stats():
         clients_dict = self.nerl_comm_db.get_clients()
         for client_name in clients_dict:
             communication_stats_clients_dict[client_name] = clients_dict[client_name].get_as_dict()
-        print(f"communication_stats_clients_dict: {communication_stats_clients_dict}")
         return communication_stats_clients_dict
 
     def get_communication_stats_routers(self):
@@ -311,13 +332,11 @@ class Stats():
         routers_dict = self.nerl_comm_db.get_routers()
         for router_name in routers_dict:
             communication_stats_routers_dict[router_name] = routers_dict[router_name].get_as_dict()
-        print(f"communication_stats_routers_dict: {communication_stats_routers_dict}")
         return communication_stats_routers_dict
 
     def get_communication_stats_main_server(self):
         # return dictionary of {main_server : {communication_stats}}
         main_server_communication_stats = self.nerl_comm_db.get_main_server().get_as_dict()
-        print(f"main_server_communication_stats: {main_server_communication_stats}")
         return main_server_communication_stats
 
     def get_model_performence_stats(self , confusion_matrix_worker_dict , show : bool = False , saveToFile : bool = False, printStats = False) -> dict:
@@ -354,16 +373,24 @@ class Stats():
             workers_performence[(worker_name, class_name)]['True Negative Rate'] = tnr
             workers_performence[(worker_name, class_name)]['Informedness'] = inf
             workers_performence[(worker_name, class_name)]['F1'] = f1
-
-            if show:
-                print(f"{worker_name}, class #{class_name}:")
-                print(f"{workers_performence[(worker_name,class_name)]}\n")
+            
+        df = pd.DataFrame.from_dict(workers_performence, orient='index')
+        stats = list(df.columns)
+        df.reset_index(inplace=True)
+        df.columns = ['Worker', 'Class'] + stats
+        if show:
+            centered_df = df.style.set_properties(**{'text-align': 'center'}).set_table_styles([ # Center all 
+                                {'selector': 'th', 'props': [('text-align', 'center')]},
+                                {'selector': 'th.col_heading', 'props': [('text-align', 'center')]},
+                                {'selector': 'th.row_heading', 'props': [('text-align', 'center')]}
+                            ])
+            display(centered_df)
         
         if saveToFile:
-            LOG_INFO(f"Saving model performence stats to pickle file: {EXPERIMENT_RESULTS_PATH}/{self.exp_path}/{MODEL_PERFORMANCE_FILENAME}")
-            export_dict_pickle(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/{MODEL_PERFORMANCE_FILENAME}', workers_performence)
+            LOG_INFO(f"Saving model performence stats to csv file: {EXPERIMENT_RESULTS_PATH}/{self.exp_path}/{MODEL_PERFORMANCE_FILENAME}")
+            export_df_csv(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/{MODEL_PERFORMANCE_FILENAME}', df)
             
-        return workers_performence
+        return df
 
 
     def get_confusion_matrices1(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):

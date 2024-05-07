@@ -1,6 +1,6 @@
 {
 "experimentName": "synthetic_3_gausians",
-"batchSize": 50,
+"batchSize": 100,
 "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/synthetic/synthetic_full.csv",
 "numOfFeatures": "5",
 "numOfLabels": "3",

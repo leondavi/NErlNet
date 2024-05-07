@@ -37,7 +37,7 @@ create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap , EtsStats) ->
     ModelID = erlang:unique_integer([positive]),
     WorkerStatsETS = stats:generate_workers_stats_ets(),
     {ok , SHA} = maps:find(WorkerName , ets:lookup_element(ClientEtsRef, workers_to_sha_map, ?DATA_IDX)),
-    {ModelType, LayersSizes, LayersTypes, LayersFunctions, LossMethod, 
+    {ModelType, ModelArgs, LayersSizes, LayersTypes, LayersFunctions, LossMethod, 
     LearningRate, Epochs, Optimizer, OptimizerArgs, _InfraType, DistributedSystemType, 
     DistributedSystemArgs, DistributedSystemToken} = maps:get(SHA, ShaToModelArgsMap),
     MyClientPid = self(),
@@ -45,9 +45,9 @@ create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap , EtsStats) ->
     % move this case to module called client_controller
     {DistributedBehaviorFunc , DistributedWorkerData} = get_distributed_worker_behavior(DistributedSystemType , WorkerName , DistributedSystemArgs , DistributedSystemToken),
 
-    WorkerArgs = {ModelID , ModelType , LayersSizes, LayersTypes, LayersFunctions, LearningRate , Epochs, 
+    WorkerArgs = {ModelID , ModelType , ModelArgs , LayersSizes, LayersTypes, LayersFunctions, LearningRate , Epochs, 
                   Optimizer, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs},
-    WorkerPid = workerGeneric:start_link({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , _ClientPid = self() , WorkerStatsETS}),
+    WorkerPid = workerGeneric:start_link({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , MyClientPid , WorkerStatsETS}),
     ets:insert(WorkersETS, {WorkerName, {WorkerPid, WorkerArgs}}), 
     ets:insert(EtsStats, {WorkerName, WorkerStatsETS}),
 

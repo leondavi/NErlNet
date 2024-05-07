@@ -106,7 +106,7 @@ class DistributedSystemToken(JsonElement):
         return self.value
     
 class Worker(JsonElement):      
-    def __init__(self, name, layers_sizes_list_str : str, model_type_str : str, model_type : int, optimization_type : str,
+    def __init__(self, name, layers_sizes_list_str : str, model_type_str : str, model_type : int, model_args_str, optimization_type : str,
                  optimizer_args : str,loss_method_str : str, loss_method : int, learning_rate : str, epochs : str, layer_functions_codes_list_str : str,
                  layer_types_list_str : str, infra : str, distributed_system_type : str, distributed_args : str, distributed_system_token : str):
         super(Worker, self).__init__(name, WORKER_TYPE)
@@ -115,6 +115,7 @@ class Worker(JsonElement):
         self.LayersSizesList = layers_sizes_list_str.split(',')
         self.ModelTypeStr = model_type_str
         self.ModelType = model_type # None
+        self.ModelArgs = model_args_str
         self.optimizer = Optimizer(optimization_type, optimizer_args)
         self.LossMethodStr = loss_method_str
         self.LossMethod = loss_method # None
@@ -173,7 +174,7 @@ class Worker(JsonElement):
 
     def copy(self, name):
         # Update here when adding new fields to the worker
-        newWorker =  Worker(name, self.LayersSizesListStr, self.ModelTypeStr, self.ModelType , self.Optimizer.get_val_str(), self.Optimizer.get_args(),
+        newWorker =  Worker(name, self.LayersSizesListStr, self.ModelTypeStr, self.ModelType , self.ModelArgs , self.Optimizer.get_val_str(), self.Optimizer.get_args(),
                  self.LossMethodStr, self.LossMethod, self.LearningRate, self.Epochs.get_value_str(), self.LayersFunctionsCodesListStr, self.LayerTypesListStr, self.Infra.get_val_str(),
                  self.distributedSystemType.get_val_str(), self.distributedSystemType.get_args(), self.distributedSystemToken.get_val_str())
         return newWorker
@@ -194,6 +195,8 @@ class Worker(JsonElement):
         self.key_val_pairs = [
             (KEY_MODEL_TYPE, self.ModelType),
             (KEY_MODEL_TYPE_DOC, VAL_MODEL_TYPE_DOC),
+            (KEY_MODEL_ARGS, self.ModelArgs),
+            (KEY_MODEL_ARGS_DOC, VAL_MODEL_ARGS_DOC),
             (KEY_LAYER_SIZES_LIST, self.LayersSizesListStr),
             (KEY_LAYER_SIZES_DOC, VAL_LAYER_SIZES_DOC),
             (KEY_LAYER_TYPES_LIST, self.LayerTypesListStr),
@@ -239,7 +242,7 @@ class Worker(JsonElement):
 
     def load_from_dict(worker_dict : dict, name = '', get_params = False):
         # Update here when adding new fields to the worker
-        required_keys = [KEY_LAYER_SIZES_LIST, KEY_MODEL_TYPE, KEY_OPTIMIZER_TYPE, KEY_OPTIMIZER_ARGS,
+        required_keys = [KEY_LAYER_SIZES_LIST, KEY_MODEL_TYPE, KEY_MODEL_ARGS,KEY_OPTIMIZER_TYPE, KEY_OPTIMIZER_ARGS,
                          KEY_LOSS_METHOD, KEY_LEARNING_RATE, KEY_EPOCHS, KEY_LAYERS_FUNCTIONS,
                          KEY_LAYER_TYPES_LIST, KEY_EPOCHS, KEY_INFRA_TYPE, KEY_DISTRIBUTED_SYSTEM_TYPE, KEY_DISTRIBUTED_SYSTEM_ARGS, KEY_DISTRIBUTED_SYSTEM_TOKEN]
 
@@ -250,6 +253,7 @@ class Worker(JsonElement):
             LayersSizesList = worker_dict[KEY_LAYER_SIZES_LIST]
             ModelType = int(worker_dict[KEY_MODEL_TYPE])
             ModelTypeStr = get_key_by_value(ModelTypeMapping, worker_dict[KEY_MODEL_TYPE])
+            ModelArgs = worker_dict[KEY_MODEL_ARGS]
             OptimizationType = Optimizer.get_key_from_value(worker_dict[KEY_OPTIMIZER_TYPE])
             Optimizer_args = worker_dict[KEY_OPTIMIZER_ARGS]
             LossMethod = int(worker_dict[KEY_LOSS_METHOD])
@@ -265,12 +269,12 @@ class Worker(JsonElement):
             
             if get_params:
                 # Update here when adding new fields to the worker
-                return (LayersSizesList, ModelTypeStr, ModelType, OptimizationType, Optimizer_args, LossMethodStr, LossMethod,
+                return (LayersSizesList, ModelTypeStr, ModelType, ModelArgs , OptimizationType, Optimizer_args, LossMethodStr, LossMethod,
                         LearningRate, EpochsStr, ActivationLayersList, LayerTypesList, InfraType,
                         DistributedSystemTypeInst, DistributedSystem_args, DistributedSystemTokenInst)
 
             # Update here when adding new fields to the worker
-            return Worker(name, LayersSizesList, ModelTypeStr, ModelType, OptimizationType, Optimizer_args, LossMethodStr, LossMethod, LearningRate, EpochsStr, ActivationLayersList, LayerTypesList, InfraType,
+            return Worker(name, LayersSizesList, ModelTypeStr, ModelType, ModelArgs, OptimizationType, Optimizer_args, LossMethodStr, LossMethod, LearningRate, EpochsStr, ActivationLayersList, LayerTypesList, InfraType,
                  DistributedSystemTypeInst, DistributedSystem_args, DistributedSystemTokenInst)
                     
         return None

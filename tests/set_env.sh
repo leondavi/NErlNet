@@ -30,10 +30,10 @@ fi
 
 function virtualenv_installation()
 {
-pip3 install virtualenv
 if ! command -v virtualenv &> /dev/null
 then
     print "virtualenv could not be found"
+    print "consider using apt to install it: sudo apt install python3-venv"
     print_required_packages_install
     exit 1
 else
@@ -53,14 +53,19 @@ else
 fi
 }
 
-pip3_installation
-virtualenv_installation # must be installed after pip3
-unzip_installation
-# set python environment to run Nerlnet Flow
-print "install virtualenv to $NERLNET_VENV_PATH"
-python3 -m virtualenv $NERLNET_VENV_PATH
-print "virtualenv is loaded from $NERLNET_VENV_PATH/bin/activate"
-source $NERLNET_VENV_PATH/bin/activate
+if [[ -z "$RUNNING_IN_DOCKER" ]]; then
+  # Not running inside a docker container
+    pip3_installation
+    virtualenv_installation # must be installed after pip3
+    unzip_installation
+    # set python environment to run Nerlnet Flow
+    print "install virtualenv to $NERLNET_VENV_PATH"
+    python3 -m virtualenv $NERLNET_VENV_PATH
+    print "virtualenv is loaded from $NERLNET_VENV_PATH/bin/activate"
+    source $NERLNET_VENV_PATH/bin/activate
+else
+    print "Skip venv installation when running in docker"
+fi
 
 print "pip3 runs in quiet mode"
 pip3 -q install -r src_py/requirements.txt

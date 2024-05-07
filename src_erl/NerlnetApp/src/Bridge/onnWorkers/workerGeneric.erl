@@ -48,7 +48,7 @@ start_link(ARGS) ->
 %% distributedBehaviorFunc is the special behavior of the worker regrading the distributed system e.g. federated client/server
 init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , ClientPid , WorkerStatsEts}) -> 
   nerl_tools:setup_logger(?MODULE),
-  {ModelID , ModelType , LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate , Epochs, 
+  {ModelID , ModelType , ModelArgs , LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate , Epochs, 
    OptimizerType, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs} = WorkerArgs,
   GenWorkerEts = ets:new(generic_worker,[set]),
   put(generic_worker_ets, GenWorkerEts),
@@ -59,6 +59,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{worker_name, WorkerName}),
   ets:insert(GenWorkerEts,{model_id, ModelID}),
   ets:insert(GenWorkerEts,{model_type, ModelType}),
+  ets:insert(GenWorkerEts,{model_args, ModelArgs}),
   ets:insert(GenWorkerEts,{layers_types, LayersTypes}),
   ets:insert(GenWorkerEts,{layers_sizes, LayersSizes}),
   ets:insert(GenWorkerEts,{layers_functionality_codes, LayersFunctionalityCodes}),
@@ -74,7 +75,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   W2wComPid = w2wCom:start_link({WorkerName, ClientPid}),
   put(w2wcom_pid, W2wComPid),
 
-  Res = nerlNIF:new_nerlworker_nif(ModelID , ModelType, LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType,
+  Res = nerlNIF:new_nerlworker_nif(ModelID , ModelType, ModelArgs, LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType,
                                 OptimizerArgs, LossMethod , DistributedSystemType , DistributedSystemArgs),
   DistributedBehaviorFunc(init,{GenWorkerEts, DistributedWorkerData}),
 

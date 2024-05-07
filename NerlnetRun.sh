@@ -78,7 +78,7 @@ function stop()
 function run_release_bg()
 {
     init
-    print running Nerlnet in background daemon
+    print "running Nerlnet in background daemon"
     cd src_erl/NerlnetApp
     rebar3 release
     $NERLNET_APP_RELEASE_BIN/nerlnetApp daemon
@@ -88,7 +88,7 @@ function run_release_bg()
 function run_release()
 {
     init
-    print running Nerlnet release
+    print "running Nerlnet release"
     cd src_erl/NerlnetApp
     rebar3 release
     $NERLNET_APP_RELEASE_BIN/nerlnetApp foreground
