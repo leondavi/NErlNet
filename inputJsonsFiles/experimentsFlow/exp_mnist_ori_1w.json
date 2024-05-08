@@ -4,7 +4,7 @@
     "csvFilePath": "/home/nerlnet/workspace/NErlNet/examples/mnistExample/mnist_train_1.csv",
     "numOfFeatures": "784",
     "numOfLabels": "10",
-    "headersNames": "Norm(0:1),Norm(4:1),Norm(10:3)",
+    "headersNames": "0,1,2,3,4,5,6,7,8,9",
     "Phases": 
     [
        {
@@ -27,8 +27,8 @@
           [
              {
              "sourceName": "s1",
-             "startingSample": "5000",
-             "numOfBatches": "20",
+             "startingSample": "5001",
+             "numOfBatches": "10",
              "workers": "w1"
              }
           ]    
