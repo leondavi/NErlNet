@@ -1,14 +1,11 @@
 #pragma once 
 
+#include "nerltensor.h"
 #include "eigenTensorTypes.h"
-#include "definitionsNN.h"
 #include "nifppEigenExtensions.h"
 
 namespace nifpp
 {
-    enum {NERL_TENSOR_DIMS = 3, CASE_1D = 1, CASE_2D =2, CASE_3D = 3};
-
-    int atom_str_to_enum(str_atom in_str);
     template<typename BasicType> int get_actual_dim(std::vector<BasicType> &dims);
     template<typename BasicType, typename EigenTypePtr, typename EigenType> int get_tensor_1d(ErlNifEnv *env , ERL_NIF_TERM bin_term, EigenTypePtr &tensor_ptr);
     template<typename BasicType, typename EigenTypePtr, typename EigenType> int get_tensor_2d(ErlNifEnv *env , ERL_NIF_TERM bin_term, EigenTypePtr &tensor_ptr);
@@ -262,26 +259,5 @@ namespace nifpp
         }
         vec = std::vector<Type>(bin.data, bin.data + bin.size / sizeof(Type));
         return ret;
-    }
-
-    int atom_str_to_enum(str_atom in_str)
-    {
-        if (in_str == "float")
-        {
-            return ATOM_FLOAT;
-        }
-        else if (in_str == "double")
-        {
-            return ATOM_DOUBLE;
-        }
-        else if (in_str == "int32")
-        {
-            return ATOM_INT32;
-        }
-        else if (in_str == "int16")
-        {
-            return ATOM_INT16;
-        }
-        throw("Type is unsupported, update atom_str_to_enum and enum in nifppEigenExtensions.h");
     }
 }
