@@ -1,9 +1,9 @@
 {
     "experimentName": "mnist_digit1",
     "batchSize": 50,
-    "csvFilePath": "/home/ori/Downloads/mnist_train_1.csv",
+    "csvFilePath": "/home/nerlnet/workspace/NErlNet/examples/mnistExample/mnist_train_1.csv",
     "numOfFeatures": "784",
-    "numOfLabels": "1",
+    "numOfLabels": "10",
     "headersNames": "Norm(0:1),Norm(4:1),Norm(10:3)",
     "Phases": 
     [

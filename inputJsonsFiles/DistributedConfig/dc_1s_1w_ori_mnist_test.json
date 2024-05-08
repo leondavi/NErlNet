@@ -1,6 +1,6 @@
 {
     "nerlnetSettings": {
-        "frequency": "50",
+        "frequency": "5",
         "batchSize": "50"
     },
     "mainServer": {
@@ -14,7 +14,7 @@
     "devices": [
         {
             "name": "vm_ori",
-            "ipv4": "10.0.2.15",
+            "ipv4": "10.1.0.5",
             "entities": "c1,r1,s1,apiServer,mainServer"
         }
     ],
@@ -29,7 +29,7 @@
         {
             "name": "s1",
             "port": "8903",
-            "frequency": "50",
+            "frequency": "5",
             "policy": "0",
             "epochs": "1",
             "type": "0"
@@ -52,6 +52,7 @@
         "32fdd5a4398afd3cec429a2761ee978682ae598e154b0e946d30d6996251e263": {
             "modelType": "0",
             "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image_classification:4 | text_classification:5 | text_generation:6 | auto_association:7 | autoencoder:8 | ae_classifier:9 |",
+            "modelArgs": "",
             "layersSizes": "28x28x1k5x5x1x6p0s1t1,28x28x6k2x2p0s2,14x14x6k4x4x6x12p0s1t0,32,10",
             "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
             "layerTypesList": "2,4,2,3,5",
