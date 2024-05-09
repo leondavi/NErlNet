@@ -77,24 +77,24 @@ TRAINING_STR = "Training"
 PREDICTION_STR = "Prediction"
         """)
     
-    def __new_experiment(self, experiment_name : str, json_path: str, batch_size: int, network_componenets: NetworkComponents):
+    def __new_experiment(self, experiment_name : str, json_path: str, batch_size: int, network_componenets: NetworkComponents, csv_path = ""):
         assert experiment_name not in self.experiments_dict, "experiment name exists!"
         self.experiments_dict[experiment_name] = ExperimentFlow(experiment_name, batch_size, network_componenets)
-        self.experiments_dict[experiment_name].parse_experiment_flow_json(json_path)
+        self.experiments_dict[experiment_name].parse_experiment_flow_json(json_path, csv_path)
 
     def experiment_focused_on(self, experiment_name):
         assert experiment_name in self.experiments_dict, "cannot focus on experiment that has never been created!"
         globe.experiment_focused_on = self.get_experiment_flow(experiment_name) # Get experiment instance from expirments dict
         self.current_exp = globe.experiment_focused_on # TODO the objective is to get rid of this global definitions
 
-    def initialization(self, experiment_name : str, dc_json: str, conn_map_json, experiment_flow_json):
+    def initialization(self, experiment_name : str, dc_json: str, conn_map_json, experiment_flow_json, csv_path = ""):
         dcData = self.json_dir_parser.json_from_path(dc_json)
         connData = self.json_dir_parser.json_from_path(conn_map_json)
         batch_size = int(dcData["nerlnetSettings"]["batchSize"])
 
         globe.components = NetworkComponents(dcData) # move network component into experiment class
         # comDB = NerlComDB(globe.components)
-        self.__new_experiment(experiment_name, experiment_flow_json, batch_size, globe.components) # create new experiment
+        self.__new_experiment(experiment_name, experiment_flow_json, batch_size, globe.components, csv_path) # create new experiment
         self.experiment_focused_on(experiment_name)
 
         globe.components.printComponents()
