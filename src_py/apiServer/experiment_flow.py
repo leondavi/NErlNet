@@ -64,7 +64,12 @@ class ExperimentFlow():
     def merge_stats(self, stats_list: list) -> Stats:
         pass
 
-    def parse_experiment_flow_json(self, json_path : str):
+    def parse_experiment_flow_json(self, json_path : str, override_csv_path = ""):
+        '''
+        json path is the path to the json file that was created by the nerlPlanner
+        override_csv_path is the path to the csv file that will be used instead of the one in the json file
+                          if it is empty the csv file path from the json file will be used
+        '''
         # read json file from nerlPlanner output
         with open(json_path) as json_file:
              self.exp_flow_json = json.load(json_file)
@@ -72,7 +77,7 @@ class ExperimentFlow():
         self.exp_name = self.exp_flow_json[EXPFLOW_EXPERIMENT_NAME_FIELD]
         self.batch_size = self.exp_flow_json[EXPFLOW_BATCH_SIZE_FIELD]
         assert self.batch_size == self.batch_size_dc
-        csv_file_path = self.exp_flow_json[EXPFLOW_CSV_FILE_PATH_FIELD]
+        csv_file_path = self.exp_flow_json[EXPFLOW_CSV_FILE_PATH_FIELD] if override_csv_path == "" else override_csv_path
         headers_row = self.exp_flow_json[EXPFLOW_HEADERS_NAMES_FIELD].split(",")
         num_of_features = self.exp_flow_json[EXPFLOW_NUM_OF_FEATURES_FIELD]
         num_of_labels = self.exp_flow_json[EXPFLOW_NUM_OF_LABELS_FIELD]
