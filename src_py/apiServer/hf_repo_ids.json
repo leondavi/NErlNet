@@ -2,16 +2,19 @@
     "datasets": [
         {
             "id": "Nerlnet/skab",
+            "idx": 0,
             "name": "skab",
             "description": "SKAB Dataset for AEC anomaly detection"
         },
         {
             "id": "Nerlnet/MNist",
+            "idx": 1,
             "name": "mnist",
             "description": "MNist Dataset for CNN experiments"
         },
         {
             "id": "Nerlnet/syntetic_norm",
+            "idx": 2,
             "name": "syntetic_norm",
             "description": "Gaussian Distributions Classification Syntetic Dataset for baseline experiments"
         }
