@@ -13,9 +13,9 @@
             "description": "MNist Dataset for CNN experiments"
         },
         {
-            "id": "Nerlnet/syntetic_norm",
+            "id": "Nerlnet/synthetic_norm",
             "idx": 2,
-            "name": "syntetic_norm",
+            "name": "synthetic_norm",
             "description": "Gaussian Distributions Classification Syntetic Dataset for baseline experiments"
         }
     ]
