@@ -51,9 +51,6 @@ print "Create backup of $NERLNET_CONFIG_JSONS_DIR"
 mv $NERLNET_CONFIG_JSONS_DIR $NERLNET_CONFIG_JSONS_DIR_BACKUP
 echo $TEST_INPUT_JSONS_FILES_DIR > $NERLNET_CONFIG_JSONS_DIR
 
-print "Execute NerlnetGetData.sh" 
-./NerlnetGetData.sh
-
 print "Execute Python - experiment_flow_test.py" 
 python3 src_py/apiServer/experiment_flow_test.py
 rc=$(echo $?)
