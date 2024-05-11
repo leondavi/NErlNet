@@ -62,7 +62,7 @@ add_msg_to_inbox_queue(Message) ->
     W2WEts = get(w2w_ets),
     {_, InboxQueue} = ets:lookup(W2WEts, inbox_queue),
     InboxQueueUpdated = queue:in(Message, InboxQueue),
-    ets:insert(W2WEts, {inbox_queue, InboxQueueUpdated}).
+    ets:update_element(W2WEts, inbox_queue, {inbox_queue, InboxQueueUpdated}).
 
 send_message(FromWorker, TargetWorker, Data) -> 
     Msg = {?W2WCOM_ATOM, FromWorker, TargetWorker, Data},

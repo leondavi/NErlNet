@@ -47,8 +47,8 @@ create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap , EtsStats) ->
 
     WorkerArgs = {ModelID , ModelType , ModelArgs , LayersSizes, LayersTypes, LayersFunctions, LearningRate , Epochs, 
                   Optimizer, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs},
-    WorkerPid = workerGeneric:start_link({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , MyClientPid , WorkerStatsETS}),
-    ets:insert(WorkersETS, {WorkerName, {WorkerPid, WorkerArgs}}), 
+    {WorkerPid , W2W_Pid} = workerGeneric:start_link({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , MyClientPid , WorkerStatsETS}),
+    ets:insert(WorkersETS, {WorkerName, {WorkerPid, W2W_Pid, WorkerArgs}}), 
     ets:insert(EtsStats, {WorkerName, WorkerStatsETS}),
 
     WorkerName

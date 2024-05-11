@@ -36,7 +36,8 @@
 start_link(ARGS) ->
   %{ok,Pid} = gen_statem:start_link({local, element(1, ARGS)}, ?MODULE, ARGS, []),   %% name this machine by unique name
   {ok,Pid} = gen_statem:start_link(?MODULE, ARGS, []),
-  Pid.
+  W2W_Pid = get(w2wcom_pid),
+  {Pid , W2W_Pid}.
 
 %%%===================================================================
 %%% gen_statem callbacks
@@ -49,7 +50,7 @@ start_link(ARGS) ->
 init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , ClientPid , WorkerStatsEts}) -> 
   nerl_tools:setup_logger(?MODULE),
   {ModelID , ModelType , ModelArgs , LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate , Epochs, 
-   OptimizerType, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs} = WorkerArgs,
+  OptimizerType, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs} = WorkerArgs,
   GenWorkerEts = ets:new(generic_worker,[set]),
   put(generic_worker_ets, GenWorkerEts),
   put(client_pid, ClientPid),

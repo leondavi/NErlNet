@@ -26,6 +26,7 @@
 
 -define(ETS_KV_VAL_IDX, 2). % key value pairs --> value index is 2
 -define(WORKER_PID_IDX, 1).
+-define(W2W_PID_IDX, 2).
 -define(SERVER, ?MODULE).
 
 %% client ETS table: {WorkerName, WorkerPid, WorkerArgs, TimingTuple}
@@ -147,21 +148,7 @@ idle(cast, In = {worker_to_worker_msg, FromWorker, ToWorker, Data}, State = #cli
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  WorkerOfThisClient = ets:member(EtsRef, ToWorker),
-  if WorkerOfThisClient -> 
-    % Extract W2WPID from Ets
-    TargetWorkerW2WPID = ets:lookup_element(EtsRef, ToWorker, ?WORKER_PID_IDX),
-    gen_statem:cast(TargetWorkerW2WPID,{worker_to_worker_msg, FromWorker, ToWorker, Data}),
-    stats:increment_messages_sent(ClientStatsEts);
-  true ->
-    %% send to FedServer that worker From is connecting to it
-    DestClient = maps:get(ToWorker, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
-    MessageBody = {worker_to_worker_msg, FromWorker, ToWorker, Data},
-    {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-    nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(worker_to_worker_msg), term_to_binary(MessageBody)),
-    stats:increment_messages_sent(ClientStatsEts),
-    stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody))
-  end,
+  handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data),
   {keep_state, State};
 
 idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, etsRef = EtsRef}) ->
@@ -226,20 +213,27 @@ training(cast, MessageIn = {update, {From, To, Data}}, State = #client_statem_st
 %% This is a generic way to move data from worker to worker
 %% TODO fix variables names to make it more generic
 %% federated server sends AvgWeights to workers
-training(cast, InMessage = {custom_worker_message, WorkersList, WeightsTensor}, State = #client_statem_state{etsRef = EtsRef}) ->
+% training(cast, InMessage = {custom_worker_message, WorkersList, WeightsTensor}, State = #client_statem_state{etsRef = EtsRef}) ->
+%   ClientStatsEts = get(client_stats_ets),
+%   stats:increment_messages_received(ClientStatsEts),
+%   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(InMessage)),
+%   Func = fun(WorkerName) ->
+%     DestClient = maps:get(WorkerName, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
+%     MessageBody = term_to_binary({DestClient, update, {_FedServer = "server", WorkerName, WeightsTensor}}), % TODO - fix client should not be aware of the data of custom worker message
+
+%     {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+%     nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(custom_worker_message), MessageBody),
+%     stats:increment_messages_sent(ClientStatsEts),
+%     stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody))
+%   end,
+%   lists:foreach(Func, WorkersList), % can be optimized with broadcast instead of unicast
+%   {keep_state, State};
+
+training(cast, In = {worker_to_worker_msg, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
-  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(InMessage)),
-  Func = fun(WorkerName) ->
-    DestClient = maps:get(WorkerName, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
-    MessageBody = term_to_binary({DestClient, update, {_FedServer = "server", WorkerName, WeightsTensor}}), % TODO - fix client should not be aware of the data of custom worker message
-
-    {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-    nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(custom_worker_message), MessageBody),
-    stats:increment_messages_sent(ClientStatsEts),
-    stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody))
-  end,
-  lists:foreach(Func, WorkersList), % can be optimized with broadcast instead of unicast
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data),
   {keep_state, State};
   
 % TODO Validate this state - sample and empty list 
@@ -336,6 +330,13 @@ predict(cast,_In = {training}, State = #client_statem_state{myName = MyName}) ->
   ?LOG_ERROR("client ~p got training request in predict state",[MyName]),
   {next_state, predict, State#client_statem_state{nextState = predict}};
 
+predict(cast, In = {worker_to_worker_msg, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data),
+  {keep_state, State};
+
 %% The source sends message to main server that it has finished
 %% The main server updates its' clients to move to state 'idle'
 predict(cast, In = {idle}, State = #client_statem_state{etsRef = EtsRef , myName = _MyName}) ->
@@ -405,3 +406,21 @@ create_encoded_stats_str(ListStatsEts) ->
     ?API_SERVER_ENTITY_SEPERATOR ++ atom_to_list(WorkerName) ++ ?WORKER_SEPERATOR ++ WorkerEncStatsStr
     end,
   lists:flatten(lists:map(Func , ListStatsEts)).
+
+handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data) ->
+  ClientStatsEts = get(client_stats_ets),
+  WorkerOfThisClient = ets:member(EtsRef, ToWorker),
+  if WorkerOfThisClient -> 
+    % Extract W2WPID from Ets
+    TargetWorkerW2WPID = ets:lookup_element(get(workers_ets), ToWorker, ?W2W_PID_IDX),
+    gen_statem:cast(TargetWorkerW2WPID,{worker_to_worker_msg, FromWorker, ToWorker, Data}),
+    stats:increment_messages_sent(ClientStatsEts);
+  true ->
+    %% Send to the correct client
+    DestClient = maps:get(ToWorker, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
+    MessageBody = {worker_to_worker_msg, FromWorker, ToWorker, Data},
+    {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+    nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(worker_to_worker_msg), term_to_binary(MessageBody)),
+    stats:increment_messages_sent(ClientStatsEts),
+    stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody))
+  end.
