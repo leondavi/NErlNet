@@ -5,7 +5,7 @@
 import time
 import threading
 import sys
-from huggingface_hub import HfApi, utils
+from huggingface_hub import HfApi, utils , snapshot_download
 from experiment_flow import *
 from pathlib import Path
 from jsonDirParser import JsonDirParser
@@ -243,21 +243,35 @@ ____________API COMMANDS_____________
         current_exp_flow = globe.experiment_focused_on
         return current_exp_flow.current_exp_phase_index < len(current_exp_flow.exp_phase_list)
     
-    def list_datasets_files(self):
+    def list_datasets(self):
         with open(HF_DATA_REPO_PATHS_JSON) as file:
             repo_ids = json.load(file)
         api = HfApi()
-        csv_files= []
+        datasets = {}
         try:
             for repo in repo_ids["datasets"]:
                 files = api.list_repo_files(repo_id=repo["id"], repo_type="dataset")
                 repo_csv_files = [file for file in files if file.endswith('.csv')]
-                csv_files.extend(repo_csv_files)
-            for i , csv_file in enumerate(csv_files):
-                print(f'{i+1}. {csv_file}')
+                datasets[repo["id"]] = repo_csv_files
+            for i , (repo_name , files) in enumerate(datasets.items()):
+                print(f'{i}. {repo_name}: {files}')
         except utils._errors.RepositoryNotFoundError:
-            print("Failed to find the repository. Check your 'repo_id' and network access.")
-            return csv_files
+            print(f"Failed to find the repository '{repo}'. Check your '{HF_DATA_REPO_PATHS_JSON}' file or network access.")
+            
+    def download_dataset(self, repo_idx : int | list[int], download_dir_path : str = NERLNET_DATA_DIR):
+        with open(HF_DATA_REPO_PATHS_JSON) as file:
+            repo_ids = json.load(file)
+        try:
+            if isinstance(repo_idx, int):
+                repo_idx = [repo_idx]
+            for repo in repo_ids["datasets"]:
+                if repo["idx"] in repo_idx:
+                    repo_id = repo["id"]
+                    snapshot_download(repo_id=repo_id, local_dir=f'{download_dir_path}/{repo["name"]}/', repo_type="dataset")
+                    print(f"Files downloaded to {download_dir_path}/{repo['name']}")
+        except utils._errors.RepositoryNotFoundError:
+            print(f"Failed to find the repository '{repo}'. Check your '{HF_DATA_REPO_PATHS_JSON}' file or network access.")
+        
     
     def add_repo_to_datasets_list(self, repo_id , name : str = "" , description : str = ""):
         try:
