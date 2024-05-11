@@ -260,9 +260,9 @@ ____________API COMMANDS_____________
                 repo_csv_files = [file for file in files if file.endswith('.csv')]
                 datasets[repo["id"]] = repo_csv_files
             for i , (repo_name , files) in enumerate(datasets.items()):
-                print(f'{i}. {repo_name}: {files}')
+                LOG_INFO(f'{i}. {repo_name}: {files}')
         except utils._errors.RepositoryNotFoundError:
-            print(f"Failed to find the repository '{repo}'. Check your '{HF_DATA_REPO_PATHS_JSON}' file or network access.")
+            LOG_INFO(f"Failed to find the repository '{repo}'. Check your '{HF_DATA_REPO_PATHS_JSON}' file or network access.")
             
     def download_dataset(self, repo_idx : int | list[int], download_dir_path : str = DEFAULT_NERLNET_TMP_DATA_DIR):
         with open(HF_DATA_REPO_PATHS_JSON) as file:
@@ -273,10 +273,13 @@ ____________API COMMANDS_____________
             for repo in repo_ids["datasets"]:
                 if repo["idx"] in repo_idx:
                     repo_id = repo["id"]
-                    snapshot_download(repo_id=repo_id, local_dir=f'{download_dir_path}/{repo["name"]}/', repo_type="dataset")
-                    print(f"Files downloaded to {download_dir_path}/{repo['name']}")
+                    full_path_to_repo = f'{download_dir_path}/{repo["name"]}/'
+                    if not os.path.exists(full_path_to_repo):
+                        os.makedirs(full_path_to_repo)
+                    snapshot_download(repo_id=repo_id, local_dir=f'{full_path_to_repo}', repo_type="dataset")
+                    LOG_INFO(f"Files downloaded to {download_dir_path}/{repo['name']}")
         except utils._errors.RepositoryNotFoundError:
-            print(f"Failed to find the repository '{repo}'. Check your '{HF_DATA_REPO_PATHS_JSON}' file or network access.")
+            LOG_INFO(f"Failed to find the repository '{repo}'. Check your '{HF_DATA_REPO_PATHS_JSON}' file or network access.")
         
     
     def add_repo_to_datasets_list(self, repo_id , name : str = "" , description : str = ""):
