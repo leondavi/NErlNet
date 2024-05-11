@@ -3,7 +3,6 @@
 
 #include <string>
 #include "../simple-cpp-logger/include/Logger.h"
-#include "ModelParams.h"
 #include "nifppNerltensorEigen.h"
 #include "bridgeController.h"
 #include "nerlWorkerOpenNN.h"

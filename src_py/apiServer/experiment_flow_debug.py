@@ -17,9 +17,9 @@ NERLNET_RUN_STOP_SCRIPT = "./NerlnetRun.sh --run-mode stop"
 api_server_instance = ApiServer()
 #api_server_instance.help()
 api_server_instance.showJsons()
-dc_idx = 1
-conn_idx = 20
-exp_idx = 2
+dc_idx = 3
+conn_idx = 22
+exp_idx = 4
 api_server_instance.setJsons(dc_idx, conn_idx, exp_idx)
 dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 

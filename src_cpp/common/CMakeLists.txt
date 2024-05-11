@@ -4,6 +4,7 @@ set(NIFPP_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../nifpp/")
 set(SIMPLE_LOGGER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../simple-cpp-logger/include")
 
 set(SRC_CODE
+    "nerltensor.h"
     "common_definitions.h"
     "nerlLayer.cpp"
     "nerlLayer.h"
