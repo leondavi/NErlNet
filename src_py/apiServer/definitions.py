@@ -12,6 +12,9 @@ import pandas as pd
 NERLNET_PATH = "/usr/local/lib/nerlnet-lib/NErlNet"
 NERLNET_SRC_PY_PATH = f"{NERLNET_PATH}/src_py"
 NERLCONFIG_JSONS_DIR = '/usr/local/lib/nerlnet-lib/NErlNet/config/jsonsDir.nerlconfig'
+HF_DATA_REPO_PATHS_JSON = f'{NERLNET_PATH}/src_py/apiServer/hf_repo_ids.json'
+HF_DATA_REPO_PATHS_TXT = f'{NERLNET_PATH}/src_py/apiServer/hf_repo_ids.txt'
+
 
 NERLCONFIG_SUFFIX = ".nerlconfig"
 INPUT_DATA_DIR_CONF = "inputDataDir"

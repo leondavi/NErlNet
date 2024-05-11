@@ -5,6 +5,7 @@
 import time
 import threading
 import sys
+from huggingface_hub import HfApi, utils
 from experiment_flow import *
 from pathlib import Path
 from jsonDirParser import JsonDirParser
@@ -18,7 +19,7 @@ from NerlComDB import *
 from events_sync import *
 
 class ApiServer():
-    def __init__(self):       
+    def __init__(self):
         self.json_dir_parser = JsonDirParser()
         self.experiments_dict = {}
         self.current_exp = None
@@ -241,3 +242,37 @@ ____________API COMMANDS_____________
     def experiment_phase_is_valid(self):
         current_exp_flow = globe.experiment_focused_on
         return current_exp_flow.current_exp_phase_index < len(current_exp_flow.exp_phase_list)
+    
+    def list_datasets_files(self):
+        with open(HF_DATA_REPO_PATHS_JSON) as file:
+            repo_ids = json.load(file)
+        api = HfApi()
+        csv_files= []
+        try:
+            for repo in repo_ids["datasets"]:
+                files = api.list_repo_files(repo_id=repo["id"], repo_type="dataset")
+                repo_csv_files = [file for file in files if file.endswith('.csv')]
+                csv_files.extend(repo_csv_files)
+            for i , csv_file in enumerate(csv_files):
+                print(f'{i+1}. {csv_file}')
+        except utils._errors.RepositoryNotFoundError:
+            print("Failed to find the repository. Check your 'repo_id' and network access.")
+            return csv_files
+    
+    def add_repo_to_datasets_list(self, repo_id , name : str = "" , description : str = ""):
+        try:
+            api = HfApi()
+            api.list_repo_files(repo_id=repo_id , repo_type="dataset")
+        except utils._errors.RepositoryNotFoundError:
+            print("Failed to find the repository. Check your 'repo_id' and network access.")
+            return
+        with open(HF_DATA_REPO_PATHS_JSON) as file:
+            repo_ids = json.load(file)
+        if repo_id not in [repo["id"] for repo in repo_ids["datasets"]]:
+            repo_ids["datasets"].append({"id": repo_id , "name": name , "description": description})
+        else:
+            print(f"Repository {repo_id} already exists in the hf_repo_ids.json")
+            return
+        with open(HF_DATA_REPO_PATHS_JSON, 'w') as file:
+            json.dump(repo_ids, file, indent=4)
+            print(f"Repository {repo_id} added to the hf_repo_ids.json")
