@@ -273,7 +273,7 @@ ____________API COMMANDS_____________
             for repo in repo_ids["datasets"]:
                 if repo["idx"] in repo_idx:
                     repo_id = repo["id"]
-                    full_path_to_repo = f'{download_dir_path}/{repo["name"]}/'
+                    full_path_to_repo = f'{download_dir_path}/{repo["name"]}'
                     if not os.path.exists(full_path_to_repo):
                         os.makedirs(full_path_to_repo)
                     snapshot_download(repo_id=repo_id, local_dir=f'{full_path_to_repo}', repo_type="dataset")
