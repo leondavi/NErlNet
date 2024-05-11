@@ -283,7 +283,7 @@ ____________API COMMANDS_____________
         with open(HF_DATA_REPO_PATHS_JSON) as file:
             repo_ids = json.load(file)
         if repo_id not in [repo["id"] for repo in repo_ids["datasets"]]:
-            repo_ids["datasets"].append({"id": repo_id , "name": name , "description": description})
+            repo_ids["datasets"].append({"id": repo_id , "idx": len(repo_ids["datasets"]) , "name": name , "description": description})
         else:
             print(f"Repository {repo_id} already exists in the hf_repo_ids.json")
             return
