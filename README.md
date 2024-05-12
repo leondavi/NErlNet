@@ -77,6 +77,10 @@ Minimum Python version: 3.8
 3. Read the instructions of importing Api-Server within the generated readme.md file inside <experiment_directory> folder. 
 4. Follow the example: https://github.com/leondavi/NErlNet/blob/master/examples/example_run.ipynb 
 
+Visit our hugging face organization page for more datasets and models of Nerlnet.  
+[<img width="150" alt="hf-logo-with-title" src="https://github.com/leondavi/NErlNet/assets/18975070/93e736b9-732e-4d33-a51a-ca5f68308772">](https://huggingface.co/Nerlnet)
+
+
 Contact Email: leondavi@post.bgu.ac.il
 
 ## Gratitudes
