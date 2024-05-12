@@ -116,7 +116,7 @@ class ExperimentFlow():
         self.csv_dataset = CsvDataSet(csv_file_path, self.temp_data_path ,self.batch_size, num_of_features, num_of_labels, headers_row)  # Todo get num of features and labels from csv file
 
     def add_phase(self, name : str, phase_type : str, source_pieces_inst_list : list, num_of_features : str):
-        exp_phase_inst = ExperimentPhase(self.exp_name, name, phase_type, self.network_componenets, num_of_features)
+        exp_phase_inst = ExperimentPhase(self.exp_name, self.exp_type, name, phase_type, self.network_componenets, num_of_features)
         for source_piece_inst in source_pieces_inst_list:
             exp_phase_inst.add_source_piece(source_piece_inst)
         self.exp_phase_list.append(exp_phase_inst)
