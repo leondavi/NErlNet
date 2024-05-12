@@ -1,10 +1,9 @@
-
-from definitions import PHASE_TRAINING_STR, PHASE_PREDICTION_STR
+from definitions import PHASE_TRAINING_STR, PHASE_PREDICTION_STR, NERLTENSOR_TYPE_LIST
 import pandas as pd
 from math import ceil
 
 class SourcePieceDS():
-    def __init__(self, csv_dataset_parent, source_name : str, batch_size, phase : str, starting_offset = 0, num_of_batches = 0):
+    def __init__(self, csv_dataset_parent, source_name : str, batch_size, phase : str, starting_offset = 0, num_of_batches = 0, nerltensor_type: str = 'float'):
         self.source_name = source_name
         self.batch_size = batch_size
         self.phase = phase
@@ -15,6 +14,7 @@ class SourcePieceDS():
         self.pointer_to_sourcePiece_CsvDataSet_labels = None # pointer to the csv file that contains the source piece labels
         self.filter_features_and_labels = [] 
         self.csv_dataset_parent = csv_dataset_parent
+        self.nerltensor_type = nerltensor_type
 
     def get_source_name(self):
         return self.source_name
@@ -33,6 +33,9 @@ class SourcePieceDS():
 
     def get_target_workers(self):
         return self.target_workers
+    
+    def get_nerltensor_type(self):
+        return self.nerltensor_type
     
     def get_filter_features_and_labels(self):
         return self.filter_features_and_labels
@@ -93,13 +96,13 @@ class CsvDataSet():
     def get_headers_row(self):
         return self.headers_row
     
-    def generate_source_piece_ds(self, source_name : str, batch_size: int, phase : str, starting_offset: int, num_of_batches: int):
-        assert batch_size > 0 
+    def generate_source_piece_ds(self, source_name : str, batch_size: int, phase : str, starting_offset: int, num_of_batches: int, nerltensor_type: str):
         assert num_of_batches >= 0 
         assert starting_offset >= 0
         assert phase == PHASE_TRAINING_STR or phase == PHASE_PREDICTION_STR , "phase should be either 'training' or 'prediction'"
         assert (starting_offset + num_of_batches * batch_size) <= self.get_total_num_of_samples(), "starting_offset + num_of_batches * batch_size exceeds the total number of samples in the csv file"
-        return SourcePieceDS(self, source_name, batch_size, phase, starting_offset, num_of_batches)
+        assert nerltensor_type in NERLTENSOR_TYPE_LIST, "nerltensor_type is not in NERLTENSOR_TYPE_LIST"
+        return SourcePieceDS(self, source_name, batch_size, phase, starting_offset, num_of_batches, nerltensor_type)
         
     def generate_source_piece_ds_csv_file(self, source_piece_ds_inst: SourcePieceDS, phase : str):
         skip_rows = source_piece_ds_inst.get_starting_offset()
