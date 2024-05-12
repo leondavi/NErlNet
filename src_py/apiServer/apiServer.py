@@ -53,30 +53,21 @@ __________NERLNET CHECKLIST__________
 ____________API COMMANDS_____________
 ==========Setting experiment========
 
--showJsons():                       shows available arch / conn / exp layouts
--printArchParams(Num)               print description of selected arch file
--selectJsons():                     get input from user for arch / conn / exp selection
--setJsons(arch, conn, exp):         set layout in code
--getUserJsons():                    returns the selected arch / conn / exp
--initialization(arch, conn, exp):   set up server for a NerlNet run
--sendJsonsToDevices():              send each NerlNet device the arch / conn jsons to init entities on it
--sendDataToSources(phase(,split)):  phase := "training" | "prediction". split := 1 default (split) | 2 (whole file). send the experiment data to sources (currently happens in beggining of train/predict)
+-showJsons():                                        shows available dc / conn / exp layouts
+-printArchParams(Num)                                print description of selected dc file
+-setJsons(dc, conn, exp):                            set layout in code (numbers)
+-getUserJsons():                                     returns the selected dc / conn / exp
+-initialization(experiment_name, dc, conn, exp):     set up server for a NerlNet run - initialize api server
+-send_jsons_to_devices():                            send each NerlNet device the dc / conn jsons to init entities on it
 
 ========Running experiment==========
--train():                           start training phase
--predict():                         start prediction phase
--contPhase(phase):                  send another `Batch_size` of a phase (must be called after initial train/predict)
+-run_current_experiment_phase():    run the current phase of the experiment
+-next_experiment_phase():           move to the next phase of the experiment
 
 ==========Experiment info===========
--print_saved_experiments()          prints saved experiments and their number for statistics later
--plot_loss(ExpNum)                  saves and shows the loss over time of the chosen experiment
--accuracy_matrix(ExpNum, Normalize) Normalize = True | False. shows a graphic for the confusion matrix. Also returns all ConfMat[worker][nueron]
--communication_stats()              prints the communication statistics of the current network. integer => message count, float => avg calc time (ms)
-
-_____GLOBAL VARIABLES / CONSTANTS_____
-pendingAcks:                        makes sure API command reaches all relevant entities (wait for pending acks)
-TRAINING_STR = "Training"
-PREDICTION_STR = "Prediction"
+-experiment_phase_is_valid()                returns True if there are more phases to run
+-get_experiment_flow(experiment_name)       returns the experiment flow object
+-experiment flow object.generate_stats()    returns the stats object for the experiment flow object
         """)
     
     def __new_experiment(self, experiment_name : str, json_path: str, batch_size: int, network_componenets: NetworkComponents):
@@ -134,8 +125,8 @@ PREDICTION_STR = "Prediction"
         
                 
     def send_jsons_to_devices(self): #User Api
-        archAddress , connMapAddress, _ = self.getUserJsons()
-        with open(archAddress, 'rb') as dc_json_file, open(connMapAddress, 'rb') as conn_json_file:
+        dcAddress , connMapAddress, _ = self.getUserJsons()
+        with open(dcAddress, 'rb') as dc_json_file, open(connMapAddress, 'rb') as conn_json_file:
             files = [(DC_FILE_ARCH_REMOTE_NAME, dc_json_file), (JSON_FILE_COMM_REMOTE_NAME, conn_json_file)] # files names should be identical to the ones defined as ?LOCAL_DC_FILE_NAME ?LOCAL_COMM_FILE_NAME
             self.apiserver_event_sync.set_event_wait(EventSync.SEND_JSONS)
             self.transmitter.send_jsons_to_devices(files)
@@ -146,11 +137,11 @@ PREDICTION_STR = "Prediction"
     def showJsons(self):
         self.json_dir_parser.print_lists()
     
-    def printArchParams(self, arch = ""):
-        if not arch:
-            print("\n Enter arch file number:", end = ' ')
-            arch = input()
-        selectedArch = self.json_dir_parser.dc_list[int(arch)].get_full_path()
+    def printArchParams(self, dc = ""):
+        if not dc:
+            print("\n Enter dc file number:", end = ' ')
+            dc = input()
+        selectedArch = self.json_dir_parser.dc_list[int(dc)].get_full_path()
         NetworkComponents(self.json_dir_parser.json_from_path(selectedArch)).printComponents()
 
     def setJsons(self, dc_num : int, conn_num : int, exp_num : int):
@@ -214,8 +205,6 @@ PREDICTION_STR = "Prediction"
         self.communication_stats()
 
         LOG_INFO(f"Phase of {current_exp_phase.get_name()} {current_exp_phase.get_phase_type()} completed")
-
-
 
     def next_experiment_phase(self):
         current_exp_flow = globe.experiment_focused_on

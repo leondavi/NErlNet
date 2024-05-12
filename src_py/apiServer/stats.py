@@ -35,6 +35,24 @@ class Stats():
         Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_phase.get_phase_type()}/{self.experiment_phase.get_experiment_flow_name()}').mkdir(parents=True, exist_ok=True)
         self.exp_path = f'{self.experiment_phase.get_experiment_flow_name()}_{self.name}_{self.phase}_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}'
 
+    def help(self):
+        print("Stats class is used to generate statistics for the experiment phase.")
+        print(""" 
+        ____________STATS COMMANDS_____________
+        - get_phase() : returns the phase type of the experiment phase.
+        - get_name() : returns the name of the experiment phase.
+        - get_communication_stats_workers() : returns a dictionary of {worker name: {communication_stats}} for each worker in the experiment.
+        - get_communication_stats_sources() : returns a dictionary of {source name: {communication_stats}} for each source in the experiment.
+        - get_communication_stats_clients() : returns a dictionary of {client name: {communication_stats}} for each client in the experiment.
+        - get_communication_stats_routers() : returns a dictionary of {router name: {communication_stats}} for each router in the experiment.
+        - get_communication_stats_main_server() : returns a dictionary of {main_server : {communication_stats}} for the main server in the experiment.
+        - get_loss_ts(plot : bool = False , saveToFile : bool = False) : returns a DataFrame of the loss function for each worker in the experiment.
+        - get_min_loss(plot : bool = False , saveToFile : bool = False) : returns a dictionary of {worker name : min loss} for each worker in the experiment.
+        - get_confusion_matrices(normalize : bool = False ,plot : bool = False , saveToFile : bool = False) : returns a dictionary of {(source, worker, class) : confusion_matrix} for each source, worker and class in the experiment.
+        - get_model_performence_stats(confusion_matrix_worker_dict , show : bool = False , saveToFile : bool = False) : returns a dictionary of {(worker, class): {Performence_Stat : VALUE}}} for each worker and class in the experiment.
+        - get_missed_batches() : returns a list of missed batches in the experiment phase.
+ """)
+
     def get_phase(self):
         return self.phase
     
