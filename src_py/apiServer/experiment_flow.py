@@ -70,7 +70,7 @@ class ExperimentFlow():
         override_csv_path is the path to the csv file that will be used instead of the one in the json file
                           if it is empty the csv file path from the json file will be used
         '''
-        # read json file from nerlPlanner output
+        # read experimentFlow json file
         with open(json_path) as json_file:
              self.exp_flow_json = json.load(json_file)
         # parse json and create experiment phases
@@ -94,7 +94,8 @@ class ExperimentFlow():
                 starting_sample = int(source_piece[EXPFLOW_PHASE_SOURCE_PIECES_STARTING_SAMPLE_FIELD])
                 num_of_batches = int(source_piece[EXPFLOW_PHASE_SOURCE_PIECES_NUM_OF_BATCHES_FIELD])
                 workers = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_WORKERS_FIELD]
-                source_piece_inst =  self.csv_dataset.generate_source_piece_ds(source_name, self.batch_size, phase_type, starting_sample, num_of_batches)
+                nerltensor_type = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_NERLTENSOR_TYPE_FIELD]
+                source_piece_inst = self.csv_dataset.generate_source_piece_ds(source_name, self.batch_size, phase_type, starting_sample, num_of_batches, nerltensor_type)
                 source_piece_inst.update_target_workers(workers)
                 source_piece_csv_file = self.csv_dataset.generate_source_piece_ds_csv_file(source_piece_inst, phase_type)
                 source_piece_inst.set_pointer_to_sourcePiece_CsvDataSet(source_piece_csv_file)
@@ -116,7 +117,7 @@ class ExperimentFlow():
         self.csv_dataset = CsvDataSet(csv_file_path, self.temp_data_path ,self.batch_size, num_of_features, num_of_labels, headers_row)  # Todo get num of features and labels from csv file
 
     def add_phase(self, name : str, phase_type : str, source_pieces_inst_list : list, num_of_features : str):
-        exp_phase_inst = ExperimentPhase(self.exp_name, name, phase_type, self.network_componenets, num_of_features)
+        exp_phase_inst = ExperimentPhase(self.exp_name, self.exp_type, name, phase_type, self.network_componenets, num_of_features)
         for source_piece_inst in source_pieces_inst_list:
             exp_phase_inst.add_source_piece(source_piece_inst)
         self.exp_phase_list.append(exp_phase_inst)
