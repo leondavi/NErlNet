@@ -22,6 +22,7 @@ class ExperimentFlow():
     DATA_SOURCE_TYPE_CAMERA = 1
     def __init__(self ,experiment_name, batch_size_dc: int, network_componenets: NetworkComponents, temp_data_path = NERLNET_TEMP_DATA_DIR, data_source_type = DATA_SOURCE_TYPE_CSV):
         self.exp_name = experiment_name
+        self.exp_type = None
         self.batch_size_dc = batch_size_dc
         self.batch_size = None  # batch size from parsed exp_flow_json
         self.network_componenets = network_componenets
@@ -75,6 +76,8 @@ class ExperimentFlow():
              self.exp_flow_json = json.load(json_file)
         # parse json and create experiment phases
         self.exp_name = self.exp_flow_json[EXPFLOW_EXPERIMENT_NAME_FIELD]
+        assert self.exp_flow_json[EXPFLOW_EXPERIMENT_TYPE_FIELD] , "experiment type is missing"
+        self.exp_type = self.exp_flow_json[EXPFLOW_EXPERIMENT_TYPE_FIELD]
         self.batch_size = self.exp_flow_json[EXPFLOW_BATCH_SIZE_FIELD]
         assert self.batch_size == self.batch_size_dc
         csv_file_path = self.exp_flow_json[EXPFLOW_CSV_FILE_PATH_FIELD] if override_csv_path == "" else override_csv_path
