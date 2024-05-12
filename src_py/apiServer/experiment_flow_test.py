@@ -22,6 +22,7 @@ TEST_BASELINE_LOSS_MIN = os.getenv('TEST_BASELINE_LOSS_MIN')
 NERLNET_RUN_SCRIPT = "./NerlnetRun.sh --run-mode release"
 NERLNET_RUN_STOP_SCRIPT = "./NerlnetRun.sh --run-mode stop"
 NERLNET_RUNNING_TIMEOUT_SEC = int(os.getenv('NERLNET_RUNNING_TIMEOUT_SEC'))
+TEST_DATASET_IDX = 2
 
 WAIT_TIME_FOR_NERLNET_RUN_BOOT=60 # secs
 
@@ -36,6 +37,7 @@ nerlnet_run_cmd = RunCommand(NERLNET_RUN_SCRIPT, NERLNET_PATH)
 time.sleep(WAIT_TIME_FOR_NERLNET_RUN_BOOT) # TODO replace with keep alive loop
 
 api_server_instance = ApiServer()
+api_server_instance.download_dataset(TEST_DATASET_IDX)
 #api_server_instance.help()
 #api_server_instance.showJsons()
 api_server_instance.setJsons(0,0,0)
