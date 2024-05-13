@@ -32,6 +32,10 @@ BoundingMethodMap = OrderedDict(
      ("bounding" , "2")]
 )
 
+FlattenMethodMap = OrderedDict(
+    [("none" , "0")]
+)
+
 ScalingMethodMap = OrderedDict(
     [("none" , "1"),
     ("MinMax" , "2"),
