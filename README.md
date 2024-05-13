@@ -62,12 +62,12 @@ On every device that is a part of Nerlnet cluster the following steps should be 
 4. Test Nerlnet by running: ```./tests/NerlnetFullFlowTest.sh```
 5. [Nerlplanner](https://github.com/leondavi/NErlNet/tree/master/src_py/nerlPlanner) is a Nerlnet tool to generate required jsons files to setup a distributed system of Nerlnet.  
 To use NerlPlanner execute ```./NerlPlanner.sh``` (support starts from version 1.3.0).  
-Create json files of distributed configurations, connection map and experiment flow as follows:
-dc_\<any name\>.json  
-conn_\<any name\>.json  
-exp_\<any name\>.json       
+Create json files of distributed configurations, connection map and experiment flow as follows:  
+- dc_\<any name\>.json  
+- conn_\<any name\>.json  
+- exp_\<any name\>.json       
 6. Run ```./NerlnetRun.sh``` to start Nerlnet.
-7. Use API-Server to load generated jsons (step 4) and execute Nerlnet experiment.
+7. Start Jupyter NB with ```./NerlnetJupyterLaunch.sh``` and follow ApiServerInstance.help() and [examples](https://github.com/leondavi/NErlNet/tree/master/examples).
 
 ## Python API and Jupyter-lab (For Api-Server): 
 Minimum Python version: 3.8
