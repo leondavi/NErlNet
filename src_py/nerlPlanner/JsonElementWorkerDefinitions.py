@@ -33,7 +33,7 @@ BoundingMethodMap = OrderedDict(
 )
 
 FlattenMethodMap = OrderedDict(
-    [("none" , "0")]
+    [("flatten" , "0")]
 )
 
 ScalingMethodMap = OrderedDict(
