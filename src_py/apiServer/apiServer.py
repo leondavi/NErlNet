@@ -41,9 +41,9 @@ class ApiServer():
     def help(self):
         print(API_SERVER_HELP_STR)        
     
-    def __new_experiment(self, experiment_name : str, json_path: str, batch_size: int, network_componenets: NetworkComponents, csv_path = ""):
+    def __new_experiment(self, experiment_name : str, experiment_type : str, json_path: str, batch_size: int, network_componenets: NetworkComponents, csv_path = ""):
         assert experiment_name not in self.experiments_dict, "experiment name exists!"
-        self.experiments_dict[experiment_name] = ExperimentFlow(experiment_name, batch_size, network_componenets)
+        self.experiments_dict[experiment_name] = ExperimentFlow(experiment_name, experiment_type, batch_size, network_componenets)
         self.experiments_dict[experiment_name].parse_experiment_flow_json(json_path, csv_path)
 
     def experiment_focused_on(self, experiment_name):
@@ -54,11 +54,12 @@ class ApiServer():
     def initialization(self, experiment_name : str, dc_json: str, conn_map_json, experiment_flow_json, csv_path = ""):
         dcData = self.json_dir_parser.json_from_path(dc_json)
         connData = self.json_dir_parser.json_from_path(conn_map_json)
+        expData = self.json_dir_parser.json_from_path(experiment_flow_json)
         batch_size = int(dcData["nerlnetSettings"]["batchSize"])
 
         globe.components = NetworkComponents(dcData) # move network component into experiment class
         # comDB = NerlComDB(globe.components)
-        self.__new_experiment(experiment_name, experiment_flow_json, batch_size, globe.components, csv_path) # create new experiment
+        self.__new_experiment(experiment_name, expData["experimentType"], experiment_flow_json, batch_size, globe.components, csv_path) # create new experiment
         self.experiment_focused_on(experiment_name)
 
         globe.components.printComponents()

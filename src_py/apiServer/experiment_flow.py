@@ -20,8 +20,9 @@ class ExperimentFlow():
 
     DATA_SOURCE_TYPE_CSV = 0
     DATA_SOURCE_TYPE_CAMERA = 1
-    def __init__(self ,experiment_name, batch_size_dc: int, network_componenets: NetworkComponents, temp_data_path = NERLNET_TEMP_DATA_DIR, data_source_type = DATA_SOURCE_TYPE_CSV):
+    def __init__(self ,experiment_name, experiment_type, batch_size_dc: int, network_componenets: NetworkComponents, temp_data_path = NERLNET_TEMP_DATA_DIR, data_source_type = DATA_SOURCE_TYPE_CSV):
         self.exp_name = experiment_name
+        self.exp_type = experiment_type
         self.batch_size_dc = batch_size_dc
         self.batch_size = None  # batch size from parsed exp_flow_json
         self.network_componenets = network_componenets
@@ -68,11 +69,11 @@ class ExperimentFlow():
         '''
         json path is the path to the json file that was created by the nerlPlanner
         override_csv_path is the path to the csv file that will be used instead of the one in the json file
-                          if it is empty the csv file path from the json file will be used
+        if it is empty the csv file path from the json file will be used
         '''
         # read experimentFlow json file
         with open(json_path) as json_file:
-             self.exp_flow_json = json.load(json_file)
+            self.exp_flow_json = json.load(json_file)
         # parse json and create experiment phases
         self.exp_name = self.exp_flow_json[EXPFLOW_EXPERIMENT_NAME_FIELD]
         self.batch_size = self.exp_flow_json[EXPFLOW_BATCH_SIZE_FIELD]

@@ -111,14 +111,15 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 
 
 %% This cast receive a list of samples to load to the records batchList
-idle(cast, {batchList,WorkersList,NumOfBatches, CSVData}, State) ->
+idle(cast, {batchList, WorkersList, NumOfBatches, NerlTensorType, Data}, State) ->
   EtsRef = get(source_ets),
   StatsEtsRef = get(source_stats_ets),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   BatchSize = ets:lookup_element(EtsRef, batch_size, ?DATA_IDX),
-  {NerlTensorBatchesList, NerlTensorType, SampleSize} = parser:parseCSV(MyName,BatchSize,CSVData), % TODO this is slow and heavy policy! pre parse in ETS a possible solution
+  {NerlTensorBatchesList, SampleSize} = parser:parseCSV(MyName, BatchSize, NerlTensorType, Data), % TODO this is slow and heavy policy! pre parse in ETS a possible solution
   ets:update_element(EtsRef, workers_list, [{?DATA_IDX, WorkersList}]),
   ets:update_element(EtsRef, num_of_batches, [{?DATA_IDX, NumOfBatches}]),
+  ets:insert(EtsRef, {nerlTensorType, NerlTensorType}),
   stats:increment_messages_received(StatsEtsRef),
   ?LOG_NOTICE("Source ~p, workers are: ~p", [MyName, WorkersList]),
   ?LOG_NOTICE("Source ~p, sample size: ~p", [MyName, SampleSize]),
