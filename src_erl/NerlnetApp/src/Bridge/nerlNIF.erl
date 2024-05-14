@@ -203,6 +203,7 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
 %% get BinType (float, double...) -> ErlType (erl_float / erl_int)
 erl_type_conversion(BinType) ->
       {_, ErlType} = lists:keyfind(BinType, 1, ?NERL_TYPES),
+      % TODO Throw exception if wrong type
       ErlType.
 
 nerltensor_scalar_multiplication_erl({NerlTensorErl, Type}, ScalarValue) -> 
