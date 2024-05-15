@@ -5,6 +5,7 @@
 import time
 import threading
 import sys
+from singleton import Singleton
 from huggingface_hub import HfApi, utils , snapshot_download
 from experiment_flow import *
 from pathlib import Path
@@ -19,7 +20,7 @@ from NerlComDB import *
 from events_sync import *
 from apiServerHelp import API_SERVER_HELP_STR
 
-class ApiServer():
+class ApiServer(metaclass=Singleton):
     def __init__(self):
         self.json_dir_parser = JsonDirParser()
         self.experiments_dict = {}
