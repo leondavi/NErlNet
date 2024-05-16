@@ -175,26 +175,26 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
                   {false, true} -> {decode, ResType, Type};
                   _ -> throw("invalid types combination")
                   end,
-      BinTypeInteger = lists:member(BinType, ?LIST_BINARY_INT_NERLTENSOR_TYPE),
-      BinTypeFloat = lists:member(BinType, ?LIST_BINARY_FLOAT_NERLTENSOR_TYPE),
-      
+      BinTypeAtom = list_to_atom(BinType),
+      BinTypeInteger = lists:member(BinTypeAtom, ?LIST_BINARY_INT_NERLTENSOR_TYPE),
+      BinTypeFloat = lists:member(BinTypeAtom, ?LIST_BINARY_FLOAT_NERLTENSOR_TYPE),
       % Wrong combination guard
       case ErlType of 
-      erl_float when BinTypeFloat-> ok;
-      erl_int when BinTypeInteger -> ok;
-      _ -> throw("invalid types combination")
+            erl_float when BinTypeFloat -> ok;
+            erl_int when BinTypeInteger -> ok;
+            _ -> throw("invalid types combination")
       end,
       
       case Operation of 
             encode -> Validated = validate_nerltensor_erl(NerlTensor),
-                      if
-                        Validated -> encode_nif(NerlTensor, BinType);
-                        true -> io:format("Wrong NerlTensor size!~n"), {<<>>, BinType}
+                  if
+                        Validated -> encode_nif(NerlTensor, BinTypeAtom);
+                        true -> io:format("Wrong NerlTensor size!~n"), {<<>>, BinTypeAtom}
                         % true -> throw(nerl:string_format("encode failure due to incorrect dimension declaring X*Y*Z not equal to tensor data length! ~p ",[NerlTensor]))
-                      end;
+                  end;
             decode -> 
                   if 
-                        is_binary(NerlTensor) -> decode_nif(NerlTensor, BinType);
+                        is_binary(NerlTensor) -> decode_nif(NerlTensor, BinTypeAtom);
                         true -> throw("Given non-binary NerlTensor for decoding!")
                   end;
             _ -> throw("wrong operation")
