@@ -8,7 +8,7 @@
 -export([create_workers/4]).
 -export([get_worker_pid/2 , get_worker_stats_ets/2 , get_workers_names/1]).
 
-get_distributed_worker_behavior(DistributedSystemType , WorkerName , DistributedSystemArgs , DistributedSystemToken) ->
+get_distributed_worker_behavior(ClientEtsRef, DistributedSystemType , WorkerName , DistributedSystemArgs , DistributedSystemToken) ->
 case DistributedSystemType of
       ?DC_DISTRIBUTED_SYSTEM_TYPE_NONE_IDX_STR ->
         DistributedBehaviorFunc = fun workerNN:controller/2,
@@ -18,8 +18,10 @@ case DistributedSystemType of
         DistributedWorkerData = {_WorkerName = WorkerName , _Args = DistributedSystemArgs, _Token = DistributedSystemToken};
       %% Parse args eg. batch_sync_count
       ?DC_DISTRIBUTED_SYSTEM_TYPE_FEDSERVERAVG_IDX_STR ->
+        WorkersMap = ets:lookup_element(ClientEtsRef, workerToClient, ?DATA_IDX),
+        WorkersList = [Worker || {Worker, _Val} <- maps:to_list(WorkersMap)],
         DistributedBehaviorFunc = fun workerFederatedServer:controller/2,
-        DistributedWorkerData = {_ServerName = WorkerName , _Args = DistributedSystemArgs, _Token = DistributedSystemToken}
+        DistributedWorkerData = {_ServerName = WorkerName , _Args = DistributedSystemArgs, _Token = DistributedSystemToken , _WorkersList = WorkersList}
       end,
 {DistributedBehaviorFunc , DistributedWorkerData}.
 
@@ -43,7 +45,7 @@ create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap , EtsStats) ->
     MyClientPid = self(),
     % TODO add documentation about this case of 
     % move this case to module called client_controller
-    {DistributedBehaviorFunc , DistributedWorkerData} = get_distributed_worker_behavior(DistributedSystemType , WorkerName , DistributedSystemArgs , DistributedSystemToken),
+    {DistributedBehaviorFunc , DistributedWorkerData} = get_distributed_worker_behavior(ClientEtsRef, DistributedSystemType , WorkerName , DistributedSystemArgs , DistributedSystemToken),
 
     WorkerArgs = {ModelID , ModelType , ModelArgs , LayersSizes, LayersTypes, LayersFunctions, LearningRate , Epochs, 
                   Optimizer, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs},

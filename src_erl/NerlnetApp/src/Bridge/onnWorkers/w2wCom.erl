@@ -79,17 +79,16 @@ is_inbox_empty() ->
     queue:len(InboxQueue) == 0.
 
 
-% Think about better alternative to this method
 
-timeout(Timeout) ->
+timeout_throw(Timeout) ->
     receive
         stop -> ok; 
-        _ -> timeout(Timeout)
+        _ -> timeout_throw(Timeout)
     after Timeout -> throw("Timeout reached")
     end.
 
 sync_inbox() ->
-    TimeoutPID = spawn(fun() -> timeout(?SYNC_INBOX_TIMEOUT) end),
+    TimeoutPID = spawn(fun() -> timeout_throw(?SYNC_INBOX_TIMEOUT) end),
     sync_inbox(TimeoutPID).
 
 sync_inbox(TimeoutPID) ->
