@@ -11,6 +11,7 @@
 -define(ETS_TYPE_IDX, 2).
 -define(ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, 3).
 -define(ETS_NERLTENSOR_TYPE_IDX, 2).
+-define(DEFAULT_SYNC_MAX_COUNT_ARG, 1).
 
 
 controller(FuncName, {GenWorkerEts, WorkerData}) -> 
@@ -28,19 +29,40 @@ controller(FuncName, {GenWorkerEts, WorkerData}) ->
 get_this_server_ets(GenWorkerEts) -> 
   ets:lookup_element(GenWorkerEts, federated_server_ets, ?ETS_KEYVAL_VAL_IDX).
   
+parse_args(Args) -> 
+  ArgsList = string:split(Args, "," , all),
+  Func = fun(Arg) ->
+    [Key, Val] = string:split(Arg, "="),
+    {Key, Val}
+  end,
+  lists:map(Func, ArgsList). % Returns list of tuples [{Key, Val}, ...]
+
+sync_max_count_init(FedServerEts , ArgsList) -> 
+  case lists:keyfind("sync_max_count", 1, ArgsList) of
+    false -> Val = ?DEFAULT_SYNC_MAX_COUNT_ARG;
+    {_, Val} -> list_to_integer(Val)
+  end,
+  ets:insert(FedServerEts, {sync_max_count, Val}).
+
 %% handshake with workers / server
 init({GenWorkerEts, WorkerData}) -> 
-  Type = float, % update from data
-  {SyncMaxCount, MyName, WorkersNamesList} = WorkerData,
   FederatedServerEts = ets:new(federated_server,[set]),
+  {MyName, Args, Token} = WorkerData,
+  ArgsList = parse_args(Args),
+  sync_max_count_init(FederatedServerEts, ArgsList),
   ets:insert(GenWorkerEts, {federated_server_ets, FederatedServerEts}),
-  ets:insert(FederatedServerEts, {workers, [MyName]}),    %% start with only self in list, get others in network thru handshake
-  ets:insert(FederatedServerEts, {sync_max_count, SyncMaxCount}),
-  ets:insert(FederatedServerEts, {sync_count, SyncMaxCount}),
+  ets:insert(FederatedServerEts, {fed_clients, []}),
+  ets:insert(FederatedServerEts, {sync_count, 0}),
   ets:insert(FederatedServerEts, {my_name, MyName}),
-  ets:insert(FederatedServerEts, {nerltensor_type, Type}).
+  ets:insert(FederatedServerEts, {token , Token}).
 
-pre_idle({GenWorkerEts, WorkerName}) -> ok.
+  
+
+pre_idle({_GenWorkerEts, _WorkerName}) -> 
+  % Extract all workers in nerlnet network 
+  % Send handshake message to all workers
+  % Wait for all workers to send handshake message back
+  timer:sleep(500) % 0.5 second
 
 post_idle({GenWorkerEts, WorkerName}) -> 
   ThisEts = get_this_server_ets(GenWorkerEts),
@@ -49,10 +71,10 @@ post_idle({GenWorkerEts, WorkerName}) ->
   ets:insert(ThisEts, {workers, Workers++[WorkerName]}).
 
 %% Send updated weights if set
-pre_train({GenWorkerEts, WorkerData}) -> ok.
+pre_train({_GenWorkerEts, _WorkerData}) -> ok.
 
 %% calculate avg of weights when set
-post_train({GenWorkerEts, WorkerData}) -> 
+post_train({GenWorkerEts, _WorkerData}) -> 
   ThisEts = get_this_server_ets(GenWorkerEts),
   SyncCount = ets:lookup_element(ThisEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
   if SyncCount == 0 -> 
@@ -63,10 +85,10 @@ post_train({GenWorkerEts, WorkerData}) ->
     gen_statem:cast(ClientPID, {update, {MyName, MyName, Weights}}),
     MaxSyncCount = ets:lookup_element(ThisEts, sync_max_count, ?ETS_KEYVAL_VAL_IDX),
     ets:update_counter(ThisEts, sync_count, MaxSyncCount),
-    ToUpdate = true;
+    _ToUpdate = true;
   true ->
     ets:update_counter(ThisEts, sync_count, -1),
-    ToUpdate = false
+    _ToUpdate = false
   end.
   % ThisEts = get_this_server_ets(GenWorkerEts),
   % Weights = generate_avg_weights(ThisEts),
@@ -74,15 +96,15 @@ post_train({GenWorkerEts, WorkerData}) ->
   % gen_statem:cast({update, Weights}). %TODO complete send to all workers in lists:foreach
 
 %% nothing?
-pre_predict({GenWorkerEts, WorkerData}) -> ok.
+pre_predict({_GenWorkerEts, _WorkerData}) -> ok.
 
 %% nothing?
-post_predict({GenWorkerEts, WorkerData}) -> ok.
+post_predict({_GenWorkerEts, _WorkerData}) -> ok.
 
 %%  FedServer keeps an ets list of tuples: {WorkerName, worker, WeightsAndBiasNerlTensor}
 %%  in update get weights of clients, if got from all => avg and send back
 update({GenWorkerEts, WorkerData}) ->
-  {WorkerName, Me, NerlTensorWeights} = WorkerData,
+  {WorkerName, _Me, NerlTensorWeights} = WorkerData,
   ThisEts = get_this_server_ets(GenWorkerEts),
   %% update weights in ets
   ets:insert(ThisEts, {WorkerName, worker, NerlTensorWeights}),

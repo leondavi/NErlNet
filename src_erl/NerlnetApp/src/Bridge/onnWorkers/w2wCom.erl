@@ -5,7 +5,9 @@
 
 -export([start_link/1]).
 -export([init/1, handle_cast/2, handle_call/3]).
--export([send_message/3, get_all_messages/0]). % methods that are used by worker
+-export([send_message/3, get_all_messages/0 , sync_inbox/0]). % methods that are used by worker
+
+-define(SYNC_INBOX_TIMEOUT, 30000). % 30 seconds
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link(args) ->
@@ -56,6 +58,8 @@ handle_call(_Call, _From, State) ->
 get_all_messages() ->
     W2WEts = get(w2w_ets),
     {_, InboxQueue} = ets:lookup(W2WEts, inbox_queue),
+    NewEmptyQueue = queue:new(),
+    ets:update_element(W2WEts, inbox_queue, {inbox_queue, NewEmptyQueue}),
     InboxQueue.
 
 add_msg_to_inbox_queue(Message) ->
@@ -69,5 +73,29 @@ send_message(FromWorker, TargetWorker, Data) ->
     MyClient = get(client_statem_pid),
     gen_server:cast(MyClient, Msg).
 
-    
-    
+is_inbox_empty() ->
+    W2WEts = get(w2w_ets),
+    {_ , InboxQueue} = ets:lookup(W2WEts, inbox_queue),
+    queue:len(InboxQueue) == 0.
+
+
+% Think about better alternative to this method
+
+timeout(Timeout) ->
+    receive
+        stop -> ok; 
+        _ -> timeout(Timeout)
+    after Timeout -> throw("Timeout reached")
+    end.
+
+sync_inbox() ->
+    TimeoutPID = spawn(fun() -> timeout(?SYNC_INBOX_TIMEOUT) end),
+    sync_inbox(TimeoutPID).
+
+sync_inbox(TimeoutPID) ->
+    timer:sleep(10), % 10 ms
+    IsInboxEmpty = is_inbox_empty(),
+    if 
+        IsInboxEmpty -> sync_inbox(TimeoutPID);
+        true -> TimeoutPID ! stop
+    end.

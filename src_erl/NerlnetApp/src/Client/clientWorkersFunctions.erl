@@ -19,7 +19,7 @@ case DistributedSystemType of
       %% Parse args eg. batch_sync_count
       ?DC_DISTRIBUTED_SYSTEM_TYPE_FEDSERVERAVG_IDX_STR ->
         DistributedBehaviorFunc = fun workerFederatedServer:controller/2,
-        DistributedWorkerData = {_ServerName = WorkerName , _Args = DistributedSystemArgs, _Token = DistributedSystemToken, _WorkersNamesList = []}
+        DistributedWorkerData = {_ServerName = WorkerName , _Args = DistributedSystemArgs, _Token = DistributedSystemToken}
       end,
 {DistributedBehaviorFunc , DistributedWorkerData}.
 

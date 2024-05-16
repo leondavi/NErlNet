@@ -4,9 +4,11 @@
 
 -include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/NerlnetApp/src/nerl_tools.hrl").
 -include("workerDefinitions.hrl").
+-include("w2wCom.hrl").
 
 -define(WORKER_FEDERATED_CLIENT_ETS_FIELDS, [my_name, client_pid, server_name, sync_max_count, sync_count]).
 -define(FEDERATED_CLIENT_ETS_KEY_IN_GENWORKER_ETS, fedrated_client_ets).
+-define(DEFAULT_SYNC_MAX_COUNT_ARG, 1).
 
 % %% Federated mode
 % wait(cast, {loss, {LOSS_FUNC,Time_NIF}}, State = #workerGeneric_state{clientPid = ClientPid,ackClient = AckClient, myName = MyName, nextState = NextState, count = Count, countLimit = CountLimit, modelId = Mid}) ->
@@ -35,7 +37,6 @@
 %   end.
 
 %% Data = -record(workerFederatedClient, {syncCount, syncMaxCount, serverAddr}).
-
 controller(FuncName, {GenWorkerEts, WorkerData}) -> 
   case FuncName of
     init        -> init({GenWorkerEts, WorkerData});
@@ -51,28 +52,70 @@ controller(FuncName, {GenWorkerEts, WorkerData}) ->
 get_this_client_ets(GenWorkerEts) -> 
   ets:lookup_element(GenWorkerEts, federated_client_ets, ?ETS_KEYVAL_VAL_IDX).
 
+parse_args(Args) -> 
+  ArgsList = string:split(Args, "," , all),
+  Func = fun(Arg) ->
+    [Key, Val] = string:split(Arg, "="),
+    {Key, Val}
+  end,
+  lists:map(Func, ArgsList). % Returns list of tuples [{Key, Val}, ...]
+
+sync_max_count_init(FedClientEts , ArgsList) -> 
+  case lists:keyfind("sync_max_count", 1, ArgsList) of
+    false -> Val = ?DEFAULT_SYNC_MAX_COUNT_ARG;
+    {_, Val} -> list_to_integer(Val)
+  end,
+  ets:insert(FedClientEts, {sync_max_count, Val}).
+
 %% handshake with workers / server
 init({GenWorkerEts, WorkerData}) ->
   % create an ets for this client and save it to generic worker ets
   FedratedClientEts = ets:new(federated_client,[set]),
   ets:insert(GenWorkerEts, {federated_client_ets, FedratedClientEts}),
-  {SyncMaxCount, MyName, ServerName} = WorkerData,
+  io:format("@FedClient: ~p~n",[WorkerData]),
+  {MyName, Args, Token} = WorkerData,
+  ArgsList = parse_args(Args),
+  sync_max_count_init(FedratedClientEts, ArgsList),
   % create fields in this ets
+  ets:insert(FedratedClientEts, {my_token, Token}),
   ets:insert(FedratedClientEts, {my_name, MyName}),
-  ets:insert(FedratedClientEts, {server_name, ServerName}),
-  ets:insert(FedratedClientEts, {sync_max_count, SyncMaxCount}),
-  ets:insert(FedratedClientEts, {sync_count, SyncMaxCount}),
+  ets:insert(FedratedClientEts, {server_name, none}), % update later
+  ets:insert(FedratedClientEts, {sync_count, 0}),
   ets:insert(FedratedClientEts, {server_update, false}),
+  ets:insert(FedratedClientEts, {handshake_done, false}),
   io:format("finished init in ~p~n",[MyName]). %% TODO REMOVE
+
+handshake(EtsRef) ->
+    w2wCom:sync_inbox(),
+    InboxQueue = w2wCom:get_all_messages(),
+    MessagesList = queue:to_list(InboxQueue),
+    %% Throw exception if there is more than 1 message in the queue or if its empty
+    Func = 
+      fun({?W2WCOM_ATOM, FromServer, MyName, {handshake, ServerToken}}) ->
+        ets:insert(EtsRef, {server_name, FromServer}),
+        ets:insert(EtsRef, {token , ServerToken}),
+        MyToken = ets:lookup_element(EtsRef, my_token, ?ETS_KEYVAL_VAL_IDX),
+        if 
+          ServerToken =/= MyToken -> not_my_server; 
+          true -> w2wCom:send_message(MyName, FromServer, {handshake, MyToken}) ,
+                  ets:update_element(EtsRef, handshake_done, true)
+        end
+    end,
+    lists:foreach(Func, MessagesList),
+    % Check if handshake is done
+    HandshakeDone = ets:lookup_element(EtsRef, handshake_done, ?ETS_KEYVAL_VAL_IDX),
+    if HandshakeDone -> ok;
+      true -> handshake(EtsRef)
+    end.
 
 pre_idle({GenWorkerEts, _WorkerData}) ->
     ThisEts = get_this_client_ets(GenWorkerEts),
-    %% send to server that this worker is part of the federated workers
     _ClientPID = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX), % No longer needed?
     MyName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
     ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX),
-    % gen_statem:cast(ClientPID,{custom_worker_message,{MyName, ServerName}}),
-    w2wCom:send_message(MyName, ServerName, {MyName, ServerName}), %% ****** NEW - TEST NEEDED ******
+    % Waiting for handshake from server
+    handshake(ThisEts),
+    
     io:format("@pre_idle: Worker ~p updates federated server ~p~n",[MyName , ServerName]).
 
 post_idle({_GenWorkerEts, _WorkerData}) -> ok.
@@ -132,3 +175,4 @@ update({GenWorkerEts, NerlTensorWeights}) ->
 %       after 1 -> worker_event_polling(T-1)
 %       end
 %   end.
+
