@@ -87,7 +87,8 @@ handle_cast({initCSV, _Index, TotalSources, SourceName, WorkersList, NumOfBatche
   ActionStr = atom_to_list(updateCSV),
   {TotalSourcesInt, _Rest} = string:to_integer(TotalSources),
   % MessageBody = WorkersList ++ "#" ++ NumOfBatches ++ "#" ++ NerlTensorType ++ "#" ++ Data,
-  MessageBody = {WorkersList, NumOfBatches, NerlTensorType, Data},
+  WorkersListSeperated = string:split(WorkersList, ",", all),
+  MessageBody = {WorkersListSeperated, NumOfBatches, NerlTensorType, Data},
   nerl_tools:http_router_request(RouterHost,RouterPort, [SourceName], ActionStr, MessageBody), % update the source with its data
   UpdatedSourceWaitingList = SourcesWaitingList++[list_to_atom(SourceName)],
   {SourcesDataReadyCtr, NewTotalSources} = 
