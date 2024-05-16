@@ -17,7 +17,7 @@ init(Req0, [Action,Source_StateM_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
 %%  io:format("casting handler got Body:~p~n",[Body]),
   case Action of
-    csv ->  {_ , Body , _} = cowboy_req:read_body(Req0),
+    csv ->  {_ , Body} = nerl_tools:read_all_data(Req0 , <<>>),
             {WorkersList, NumOfBatches, NerlTensorType, Data} = binary_to_term(Body),
             gen_statem:cast(Source_StateM_Pid, {batchList, WorkersList, list_to_integer(NumOfBatches), NerlTensorType , Data});
     startCasting  ->  {_,Body,_} = cowboy_req:read_body(Req0),
