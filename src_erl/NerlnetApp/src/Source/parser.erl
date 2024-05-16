@@ -46,7 +46,7 @@ parse_file(_SourceName, BatchSize, NerlTensorType, ErlType, Data) ->
   SampleSize = length(hd(ListOfLinesOfData)),
   ListOfBatches = generateListOfBatches(ListOfLinesOfData, BatchSize),
   ListOfTensors = encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, get(erl_tensor_type), NerlTensorType, SampleSize),
-  {ListOfTensors, NerlTensorType, SampleSize}.
+  {ListOfTensors, SampleSize}.
 
 dataStrToNumeric_NumHandler({NumStr, ErlType}) -> 
   % NumStrFixed =
@@ -56,11 +56,15 @@ dataStrToNumeric_NumHandler({NumStr, ErlType}) ->
   %       Str -> Str
   %     end,
   case ErlType of
-    erl_float -> Num = list_to_float(NumStr);
+    erl_float -> 
+      IsFloat = lists:member($. , NumStr), % Check if there is a decimal point (usually labels don't have)
+      if IsFloat -> 
+        Num = list_to_float(NumStr);
+        true -> Num = float(list_to_integer(NumStr))
+      end;
     erl_int -> Num = list_to_integer(NumStr);
     _ -> io:format("Error: unknown erl_tensor_type: ~p~n", [ErlType]) , Num = none
   end,
-  io:format("Num: ~p~n",[{Num}]),
   Num.
       
 
@@ -68,7 +72,6 @@ dataStrToNumeric_lineHandler(PIPD, LineOfData, EtsTable, EtsKey, ErlType) ->
   Splitted = string:split(binary_to_list(LineOfData), ",", all),
   Samples = [{Sample, ErlType} || Sample <- Splitted],
   FloatDataList = lists:map(fun dataStrToNumeric_NumHandler/1, Samples),
-  io:format("FloatDataList: ~p~n",[{FloatDataList}]),
   ets:insert(EtsTable, {EtsKey, FloatDataList}),
   PIPD ! done.
 
@@ -80,7 +83,7 @@ dataStrToNumeric_sync(PF) ->
   end.
 
 
-dataStrToNumericParallelLoop(_PF, _EtsTable, [], ErlType, _LastKey) -> done;
+dataStrToNumericParallelLoop(_PF, _EtsTable, [], _ErlType, _LastKey) -> done;
 dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfData, ErlType, LastKey) when length(ListOfLinesOfData) > PF -> % PF - Parallelization Factor
   {ListOfLinesOfDataToBeProcessed, ListOfLinesOfDataRest} = lists:split(PF, ListOfLinesOfData),
   IdxList = lists:seq(LastKey,LastKey+PF-1),
@@ -95,7 +98,7 @@ dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfData, ErlType, LastKey) 
   CurrentKey = LastKey + 1,
   dataStrToNumeric_lineHandler(PIPD, hd(ListOfLinesOfData), EtsTable, CurrentKey, ErlType),
   receive 
-    done -> dataStrToNumericParallelLoop(PF, EtsTable, tl(ListOfLinesOfData), CurrentKey, ErlType);
+    done -> dataStrToNumericParallelLoop(PF, EtsTable, tl(ListOfLinesOfData), ErlType, CurrentKey);
     _Other -> throw("unexpected message in source parse")
   end.
   

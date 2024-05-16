@@ -20,9 +20,8 @@ class ExperimentFlow():
 
     DATA_SOURCE_TYPE_CSV = 0
     DATA_SOURCE_TYPE_CAMERA = 1
-    def __init__(self ,experiment_name, experiment_type, batch_size_dc: int, network_componenets: NetworkComponents, temp_data_path = NERLNET_TEMP_DATA_DIR, data_source_type = DATA_SOURCE_TYPE_CSV):
+    def __init__(self ,experiment_name, batch_size_dc: int, network_componenets: NetworkComponents, temp_data_path = NERLNET_TEMP_DATA_DIR, data_source_type = DATA_SOURCE_TYPE_CSV):
         self.exp_name = experiment_name
-        self.exp_type = experiment_type
         self.batch_size_dc = batch_size_dc
         self.batch_size = None  # batch size from parsed exp_flow_json
         self.network_componenets = network_componenets
@@ -118,7 +117,7 @@ class ExperimentFlow():
         self.csv_dataset = CsvDataSet(csv_file_path, self.temp_data_path ,self.batch_size, num_of_features, num_of_labels, headers_row)  # Todo get num of features and labels from csv file
 
     def add_phase(self, name : str, phase_type : str, source_pieces_inst_list : list, num_of_features : str):
-        exp_phase_inst = ExperimentPhase(self.exp_name, self.exp_type, name, phase_type, self.network_componenets, num_of_features)
+        exp_phase_inst = ExperimentPhase(self.exp_name, name, phase_type, self.network_componenets, num_of_features)
         for source_piece_inst in source_pieces_inst_list:
             exp_phase_inst.add_source_piece(source_piece_inst)
         self.exp_phase_list.append(exp_phase_inst)
