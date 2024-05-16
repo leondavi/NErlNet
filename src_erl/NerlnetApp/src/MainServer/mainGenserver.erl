@@ -82,11 +82,14 @@ init({MyName,ClientsNames,BatchSize,WorkersMap,NerlnetGraph , DeviceName}) ->
   {ok, #main_genserver_state{myName = MyNameStr , state=idle, total_sources=0, sources_data_ready_ctr = 0}}.
 
 
-handle_cast({initCSV, _Index, TotalSources, SourceName ,SourceData}, State = #main_genserver_state{state = idle, sourcesWaitingList = SourcesWaitingList, total_sources = TotalSourcesOld, sources_data_ready_ctr = SourcesDataReadyCtrOld}) ->
+handle_cast({initCSV, _Index, TotalSources, SourceName, WorkersList, NumOfBatches, NerlTensorType, Data}, State = #main_genserver_state{state = idle, sourcesWaitingList = SourcesWaitingList, total_sources = TotalSourcesOld, sources_data_ready_ctr = SourcesDataReadyCtrOld}) ->
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
   ActionStr = atom_to_list(updateCSV),
   {TotalSourcesInt, _Rest} = string:to_integer(TotalSources),
-  nerl_tools:http_router_request(RouterHost,RouterPort, [SourceName], ActionStr, SourceData), % update the source with its data
+  % MessageBody = WorkersList ++ "#" ++ NumOfBatches ++ "#" ++ NerlTensorType ++ "#" ++ Data,
+  WorkersListSeperated = string:split(WorkersList, ",", all),
+  MessageBody = {WorkersListSeperated, NumOfBatches, NerlTensorType, Data},
+  nerl_tools:http_router_request(RouterHost,RouterPort, [SourceName], ActionStr, MessageBody), % update the source with its data
   UpdatedSourceWaitingList = SourcesWaitingList++[list_to_atom(SourceName)],
   {SourcesDataReadyCtr, NewTotalSources} = 
   if 

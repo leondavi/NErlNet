@@ -36,6 +36,8 @@ PHASE_STATS = 3 # TODO maybe redundant
 PHASE_TRAINING_STR = "training"
 PHASE_PREDICTION_STR = "prediction"
 
+NERLTENSOR_TYPE_LIST = ['float', 'int16', 'int32', 'double', 'uint8']
+
 def read_nerlconfig(nerlconfig_file_path : str):
     if not nerlconfig_file_path.endswith(NERLCONFIG_SUFFIX):
         raise "wrong filename suffix"
