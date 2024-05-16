@@ -125,6 +125,7 @@ batchesProcFunc(PPID, BatchesKey,BatchFunc) ->
       PPID ! done.
 
 encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, ErlType, TargetBinaryType, SampleSize) ->
+  NerlTensorAtom = list_to_atom(TargetBinaryType),
   BatchFunc =
     fun(Batch) ->
       NumOfSamples = round(length(Batch)/SampleSize),
@@ -134,7 +135,7 @@ encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, ErlType, TargetBinaryT
         YDim = float(SampleSize),
         ZDim = 1.0,
         % io:format("sending conversion: ~p ~p ~n ",[{[XDim, YDim, ZDim | Batch], ErlType}, TargetBinaryType]),
-        _NewTensor = nerlNIF:nerltensor_conversion({[XDim, YDim, ZDim | Batch], ErlType}, TargetBinaryType)
+        _NewTensor = nerlNIF:nerltensor_conversion({[XDim, YDim, ZDim | Batch], ErlType}, NerlTensorAtom)
       end
     end,
   {UpBatches, DownBatches} = lists:split(round(length(ListOfBatches)/2)-1, ListOfBatches),
