@@ -72,7 +72,9 @@ devicesFields = [[sg.Button("Scan",size=(10), key=KEY_DEVICES_SCANNER_BUTTON, en
                  [sg.Text('Selected Device: '), sg.Text('None',key=KEY_DEVICES_SELECTED_DEVICE_TEXT, enable_events=True)],
                  [sg.Text('Selected Entity:', size=(15)), 
                   sg.Combo('entities', size=(15), key=KEY_DEVICES_SELECTED_ENTITY_COMBO, enable_events=True),
-                  sg.Button("Add Entity to Selected Device", size=(25), key=KEY_DEVICES_ADD_ENTITY_TO_DEVICE, enable_events=True)]
+                  sg.Button("Add Entity to Selected Device", size=(30), key=KEY_DEVICES_ADD_ENTITY_TO_DEVICE, enable_events=True)],
+                 [sg.Text(' ', size=(34)), # fix spaces, more visible 
+                  sg.Button("Remove Entity from Selected Device", size=(30), key=KEY_DEVICES_REMOVE_ENTITY_FROM_DEVICE, enable_events=True)]
                   ] #TODO status bar
 
 davicesFieldsFrame = sg.Frame("",devicesFields, expand_x=True)
