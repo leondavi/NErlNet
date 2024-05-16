@@ -1,5 +1,5 @@
 -define (LIST_GROUP_NERLTENSOR_TYPE, [erl_float, erl_int]).
--define (LIST_BINARY_INT_NERLTENSOR_TYPE, [int32, int16]).
+-define (LIST_BINARY_INT_NERLTENSOR_TYPE, [int32, int16]). % add uint8
 -define (LIST_BINARY_FLOAT_NERLTENSOR_TYPE, [float,double]).
 
 -define(NUMOF_DIMS,3).

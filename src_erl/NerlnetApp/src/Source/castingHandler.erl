@@ -17,17 +17,9 @@ init(Req0, [Action,Source_StateM_Pid]) ->
   %Bindings also can be accesed as once, giving a map of all bindings of Req0:
 %%  io:format("casting handler got Body:~p~n",[Body]),
   case Action of
-    csv -> case cowboy_req:parse_header(<<"content-type">>, Req0) of 
-                {<<"multipart">>, <<"form-data">>, _} ->
-                    {_Req, Decoded_body} = nerl_tools:multipart(Req0, []);
-                _Other -> 
-                    {_Req,Body} = nerl_tools:read_all_data(Req0, <<>>),
-                    Decoded_body = binary_to_list(Body)
-                    %io:format("got Req: ~p~nData: ~p~n",[Req0, Body])
-              end,
-            [_Index, _TotalSources, _SourceName, WorkersStr, NumOfBatches, CSVData] = string:split(Decoded_body, "#", all),
-            WorkersList = string:split(WorkersStr, ",", all),
-            gen_statem:cast(Source_StateM_Pid,{batchList,WorkersList, list_to_integer(NumOfBatches), CSVData});
+    csv ->  {_ , Body} = nerl_tools:read_all_data(Req0 , <<>>),
+            {WorkersList, NumOfBatches, NerlTensorType, Data} = binary_to_term(Body),
+            gen_statem:cast(Source_StateM_Pid, {batchList, WorkersList, list_to_integer(NumOfBatches), NerlTensorType , Data});
     startCasting  ->  {_,Body,_} = cowboy_req:read_body(Req0),
                       gen_statem:cast(Source_StateM_Pid, {startCasting,Body});
     statistics    ->  gen_statem:cast(Source_StateM_Pid, {statistics});

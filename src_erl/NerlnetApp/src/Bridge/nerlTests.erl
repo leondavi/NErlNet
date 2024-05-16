@@ -99,10 +99,12 @@ generate_nerltensor_rand_dims(Type)->
 
 generate_nerltensor(BinType,DimX,DimY,DimZ) -> 
       DataLength = DimX * DimY * DimZ,
+      IsInt = lists:member(BinType , ?LIST_BINARY_INT_NERLTENSOR_TYPE),
+      IsFloat = lists:member(BinType , ?LIST_BINARY_FLOAT_NERLTENSOR_TYPE),
       if  
-            (BinType == int32) or (BinType == int16) -> Data = [rand:uniform(255) || _ <- lists:seq(1, DataLength)],
+            IsInt -> Data = [rand:uniform(255) || _ <- lists:seq(1, DataLength)],
                         [DimX,DimY,DimZ] ++ Data;
-            (BinType == double) or (BinType == float) -> 
+            IsFloat -> 
                         DimXf = float(DimX),
                         DimYf = float(DimY),
                         DimZf = float(DimZ),
