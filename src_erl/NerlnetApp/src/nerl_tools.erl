@@ -120,7 +120,11 @@ read_all_parts(Req0, Got) ->
   %% gets multipart data and combines it
 
 read_all_data(Req0, Got) ->
-  % io:format("length of read data so far: ~p~n",[length(Got)]),
+  % This function is useful when you’re dealing with large amounts of data that can’t be read all at once.
+  % By reading the data in chunks and using recursion, it can handle any amount of data without running out of memory.
+  % However, keep in mind that this function assumes that the data is either a binary or a list, and it may not work correctly
+  % if the data is of a different type. It’s always a good idea to validate the data before processing it.
+  % Cowboy website - https://ninenines.eu/docs/en/cowboy/2.10/guide/req_body/
   case cowboy_req:read_body(Req0) of
       {more, Data, Req} -> 
         if 
