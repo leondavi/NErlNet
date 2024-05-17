@@ -3,14 +3,19 @@
 -export([controller/2]).
 
 -include("workerDefinitions.hrl").
+-include("w2wCom.hrl").
 
 -import(nerlNIF,[nerltensor_scalar_multiplication_nif/3]).
 -import(nerlTensor,[sum_nerltensors_lists/2]).
+-import(w2wCom,[send_message/3, get_all_messages/0, is_inbox_empty/0]).
+
 
 -define(ETS_WID_IDX, 1).
 -define(ETS_TYPE_IDX, 2).
 -define(ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, 3).
 -define(ETS_NERLTENSOR_TYPE_IDX, 2).
+-define(DEFAULT_SYNC_MAX_COUNT_ARG, 1).
+-define(HANDSHAKE_TIMEOUT, 2000). % 2 seconds
 
 
 controller(FuncName, {GenWorkerEts, WorkerData}) -> 
@@ -28,31 +33,73 @@ controller(FuncName, {GenWorkerEts, WorkerData}) ->
 get_this_server_ets(GenWorkerEts) -> 
   ets:lookup_element(GenWorkerEts, federated_server_ets, ?ETS_KEYVAL_VAL_IDX).
   
+parse_args(Args) -> 
+  ArgsList = string:split(Args, "," , all),
+  Func = fun(Arg) ->
+    [Key, Val] = string:split(Arg, "="),
+    {Key, Val}
+  end,
+  lists:map(Func, ArgsList). % Returns list of tuples [{Key, Val}, ...]
+
+sync_max_count_init(FedServerEts , ArgsList) -> 
+  case lists:keyfind("sync_max_count", 1, ArgsList) of
+    false -> Val = ?DEFAULT_SYNC_MAX_COUNT_ARG;
+    {_, Val} -> list_to_integer(Val)
+  end,
+  ets:insert(FedServerEts, {sync_max_count, Val}).
+
 %% handshake with workers / server
 init({GenWorkerEts, WorkerData}) -> 
-  Type = float, % update from data
-  {SyncMaxCount, MyName, WorkersNamesList} = WorkerData,
   FederatedServerEts = ets:new(federated_server,[set]),
+  {MyName, Args, Token , WorkersList} = WorkerData,
+  ArgsList = parse_args(Args),
+  sync_max_count_init(FederatedServerEts, ArgsList),
   ets:insert(GenWorkerEts, {federated_server_ets, FederatedServerEts}),
-  ets:insert(FederatedServerEts, {workers, [MyName]}),    %% start with only self in list, get others in network thru handshake
-  ets:insert(FederatedServerEts, {sync_max_count, SyncMaxCount}),
-  ets:insert(FederatedServerEts, {sync_count, SyncMaxCount}),
+  ets:insert(FederatedServerEts, {workers, WorkersList}),
+  ets:insert(FederatedServerEts, {fed_clients, []}),
+  ets:insert(FederatedServerEts, {sync_count, 0}),
   ets:insert(FederatedServerEts, {my_name, MyName}),
-  ets:insert(FederatedServerEts, {nerltensor_type, Type}).
+  ets:insert(FederatedServerEts, {token , Token}),
+  put(fed_server_ets, FederatedServerEts).
 
-pre_idle({GenWorkerEts, WorkerName}) -> ok.
+  
 
-post_idle({GenWorkerEts, WorkerName}) -> 
-  ThisEts = get_this_server_ets(GenWorkerEts),
-  io:format("adding worker ~p to fed workers~n",[WorkerName]),
-  Workers = ets:lookup_element(ThisEts, workers, ?ETS_KEYVAL_VAL_IDX),
-  ets:insert(ThisEts, {workers, Workers++[WorkerName]}).
+pre_idle({_GenWorkerEts, _WorkerName}) -> ok.
+
+
+post_idle({_GenWorkerEts, _WorkerName}) -> 
+  % Extract all workers in nerlnet network 
+  % Send handshake message to all workers
+  % Wait for all workers to send handshake message back
+  FedServerEts = get(fed_server_ets),
+  FedServerName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
+  WorkersList = ets:lookup_element(FedServerEts, workers, ?ETS_KEYVAL_VAL_IDX),
+  MyToken = ets:lookup_element(FedServerEts, token, ?ETS_KEYVAL_VAL_IDX),
+  Func = fun(FedClient) ->
+    w2wCom:send_message(FedClient, FedServerName, {handshake, MyToken})
+  end,
+  lists:foreach(Func, WorkersList),
+  timer:sleep(?HANDSHAKE_TIMEOUT),
+  IsEmpty = w2wCom:is_inbox_empty(),
+  if IsEmpty == true -> 
+    throw("Handshake failed, none of the workers responded in time");
+    true -> ok
+  end,
+  InboxQueue = w2wCom:get_all_messages(),
+  MessagesList = queue:to_list(InboxQueue),
+  MsgFunc = 
+    fun({?W2WCOM_ATOM, FromWorker, _MyName, {handshake, _WorkerToken}}) ->
+      FedWorkers = ets:lookup_element(FedServerEts, fed_clients, ?ETS_KEYVAL_VAL_IDX),
+      ets:update_element(FedServerEts, fed_clients, {?ETS_KEYVAL_VAL_IDX , [FromWorker] ++ FedWorkers})
+  end,
+  lists:foreach(MsgFunc, MessagesList),
+  io:format("Handshake done~n").
 
 %% Send updated weights if set
-pre_train({GenWorkerEts, WorkerData}) -> ok.
+pre_train({_GenWorkerEts, _WorkerData}) -> ok.
 
 %% calculate avg of weights when set
-post_train({GenWorkerEts, WorkerData}) -> 
+post_train({GenWorkerEts, _WorkerData}) -> 
   ThisEts = get_this_server_ets(GenWorkerEts),
   SyncCount = ets:lookup_element(ThisEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
   if SyncCount == 0 -> 
@@ -63,10 +110,10 @@ post_train({GenWorkerEts, WorkerData}) ->
     gen_statem:cast(ClientPID, {update, {MyName, MyName, Weights}}),
     MaxSyncCount = ets:lookup_element(ThisEts, sync_max_count, ?ETS_KEYVAL_VAL_IDX),
     ets:update_counter(ThisEts, sync_count, MaxSyncCount),
-    ToUpdate = true;
+    _ToUpdate = true;
   true ->
     ets:update_counter(ThisEts, sync_count, -1),
-    ToUpdate = false
+    _ToUpdate = false
   end.
   % ThisEts = get_this_server_ets(GenWorkerEts),
   % Weights = generate_avg_weights(ThisEts),
@@ -74,15 +121,15 @@ post_train({GenWorkerEts, WorkerData}) ->
   % gen_statem:cast({update, Weights}). %TODO complete send to all workers in lists:foreach
 
 %% nothing?
-pre_predict({GenWorkerEts, WorkerData}) -> ok.
+pre_predict({_GenWorkerEts, _WorkerData}) -> ok.
 
 %% nothing?
-post_predict({GenWorkerEts, WorkerData}) -> ok.
+post_predict({_GenWorkerEts, _WorkerData}) -> ok.
 
 %%  FedServer keeps an ets list of tuples: {WorkerName, worker, WeightsAndBiasNerlTensor}
 %%  in update get weights of clients, if got from all => avg and send back
 update({GenWorkerEts, WorkerData}) ->
-  {WorkerName, Me, NerlTensorWeights} = WorkerData,
+  {WorkerName, _Me, NerlTensorWeights} = WorkerData,
   ThisEts = get_this_server_ets(GenWorkerEts),
   %% update weights in ets
   ets:insert(ThisEts, {WorkerName, worker, NerlTensorWeights}),

@@ -103,7 +103,7 @@
             "_doc_infraType": " opennn:0 | wolfengine:1 |",
             "distributedSystemType": "1",
             "_doc_distributedSystemType": " none:0 | fedClientAvg:1 | fedServerAvg:2 |",
-            "distributedSystemArgs": "none",
+            "distributedSystemArgs": "SyncMaxCount=5",
             "_doc_distributedSystemArgs": "String",
             "distributedSystemToken": "9922u",
             "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"
@@ -136,7 +136,7 @@
             "_doc_infraType": " opennn:0 | wolfengine:1 |",
             "distributedSystemType": "2",
             "_doc_distributedSystemType": " none:0 | fedClientAvg:1 | fedServerAvg:2 |",
-            "distributedSystemArgs": "none",
+            "distributedSystemArgs": "SyncMaxCount=5",
             "_doc_distributedSystemArgs": "String",
             "distributedSystemToken": "9922u",
             "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"

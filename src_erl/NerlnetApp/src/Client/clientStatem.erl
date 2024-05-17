@@ -77,8 +77,8 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   ClientStatsEts = stats:generate_stats_ets(), %% client stats ets inside ets_stats
   ets:insert(EtsStats, {MyName, ClientStatsEts}),
   put(ets_stats, EtsStats),
-  ets:insert(EtsRef, {workerToClient, WorkerToClientMap}),
-  ets:insert(EtsRef, {workersNames, ClientWorkers}),
+  ets:insert(EtsRef, {workerToClient, WorkerToClientMap}), % All workers in the network (map to their client)
+  ets:insert(EtsRef, {workersNames, ClientWorkers}), % All THIS Client's workers
   ets:insert(EtsRef, {nerlnetGraph, NerlnetGraph}),
   ets:insert(EtsRef, {myName, MyName}),
   MyWorkersToShaMap = maps:filter(fun(Worker , _SHA) -> lists:member(Worker , ClientWorkers) end , WorkerShaMap),
