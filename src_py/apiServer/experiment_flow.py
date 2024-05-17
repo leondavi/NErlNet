@@ -83,11 +83,13 @@ class ExperimentFlow():
         num_of_labels = self.exp_flow_json[EXPFLOW_NUM_OF_LABELS_FIELD]
         self.set_csv_dataset(csv_file_path, num_of_features, num_of_labels, headers_row)
         phases_list = self.exp_flow_json[EXPFLOW_PHASES_FIELD]
-        phases_names_list = []
+        phases_names_dict= {}
+        phase_index = 1
         for phase in phases_list:
             phase_name = phase[EXPFLOW_PHASES_PHASE_NAME_FIELD]
-            assert phase_name not in phases_names_list , "check for duplicate phase names" 
-            phases_names_list.append(phase_name)
+            assert phase_name not in phases_names_dict , "check for duplicate phase names" 
+            phases_names_dict.update({phase_name: phase_index})
+            phase_index += 1
             phase_type = phase[EXPFLOW_PHASES_PHASE_TYPE_FIELD]
             sourcePieces = phase[EXPFLOW_PHASES_PHASE_SOURCE_PIECES_FIELD]
             source_pieces_inst_list = []
