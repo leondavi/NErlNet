@@ -5,7 +5,7 @@
     "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/EEG_eye_state_classification_Ohad/EEG_Eye_State_Classification.csv",
     "numOfFeatures": "14",
     "numOfLabels": "2",
-    "headersNames": "eye_detection(0-open_1-closed)",
+    "headersNames": "eye-closed,eye-open",
     "Phases": 
     [
        {
