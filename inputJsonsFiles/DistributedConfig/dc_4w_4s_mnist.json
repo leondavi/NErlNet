@@ -14,12 +14,12 @@
     "devices": [
         {
             "name": "cmv0",
-            "ipv4": "10.0.2.15",
+            "ipv4": "10.1.0.5",
             "entities": "apiServer,mainServer,c1,s1,r1"
         },
         {
             "name": "cmv1",
-            "ipv4": "10.0.0.5",
+            "ipv4": "51.120.241.105",
             "entities": "c2,s2,r2"
         },
         {
@@ -29,7 +29,7 @@
         },
         {
             "name": "cmv3",
-            "ipv4": "10.0.0.9",
+            "ipv4": "10.0.0.12",
             "entities": "c4,r4,s4"
         }
     ],
@@ -59,7 +59,7 @@
         {
             "name": "s1",
             "port": "8902",
-            "frequency": "50",
+            "frequency": "5",
             "policy": "0",
             "epochs": "1",
             "type": "0"
