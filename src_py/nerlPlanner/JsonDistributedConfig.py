@@ -129,7 +129,8 @@ class JsonDistributedConfig():
     def remove_device(self, device_name : str):
         # device_inst = self.main_dict[KEY_DEVICES][device_name]
         # device_inst.entities_dict = None
-        del(self.main_dict[KEY_DEVICES][device_name]) 
+        if device_name in self.main_dict[KEY_DEVICES]:
+            del(self.main_dict[KEY_DEVICES][device_name]) 
 
     
     ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_PORT = -1
@@ -460,4 +461,8 @@ class JsonDistributedConfig():
             self.add_device(new_device_loaded)
 
         return self.IMPORT_DC_JSON_SUCCESS
+        
+    def clear_nerlplanner(self):
+        self.clear()
+        self.default_frequency = None
         
