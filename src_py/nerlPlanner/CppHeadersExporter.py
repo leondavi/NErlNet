@@ -30,7 +30,9 @@ def gen_header_worker_parameters_definitions(header_path : str, debug : bool = F
     scaling_enums = EnumType('ScalingEnum', ScalingMethodMap, True, 'SCALING')
     gen_header_exporter_logger(scaling_enums.generate_code())
     bounding_enums = EnumType('BoundingEnum', BoundingMethodMap, True, 'BOUNDING')
-    gen_header_exporter_logger(bounding_enums.generate_code())
+    gen_header_exporter_logger(bounding_enums.generate_code()),
+    flatten_enums = EnumType('FlattenEnum', FlattenMethodMap, True, 'FLATTEN')
+    gen_header_exporter_logger(flatten_enums.generate_code())
     unscaling_enums = EnumType('UnscalingEnum', UnScalingMethodMap, True, 'UNSCALING')
     gen_header_exporter_logger(unscaling_enums.generate_code())
     pooling_enums = EnumType('PoolingEnum', PoolingMethodMap, True, 'POOLING')
@@ -65,6 +67,7 @@ def gen_header_worker_parameters_definitions(header_path : str, debug : bool = F
         f.write(probabilistic_activation_enums.generate_code())
         f.write(scaling_enums.generate_code())
         f.write(bounding_enums.generate_code())
+        f.write(flatten_enums.generate_code())
         f.write(unscaling_enums.generate_code())
         f.write(pooling_enums.generate_code())
         f.write(activation_enums.generate_code())
