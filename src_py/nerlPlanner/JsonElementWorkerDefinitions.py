@@ -15,7 +15,9 @@ LayerTypeMap = OrderedDict([
     ("LSTM" , "6"),
     ("Reccurrent" , "7"),
     ("Unscaling" , "8"),
-    ("Bounding" , "9")]
+    ("Flatten" , "9"),
+    ("Bounding" , "10"),
+    ]
 )
 
 ProbabilisticActivationFunctionMap = OrderedDict(
@@ -28,6 +30,10 @@ ProbabilisticActivationFunctionMap = OrderedDict(
 BoundingMethodMap = OrderedDict(
     [("none" , "1"),
      ("bounding" , "2")]
+)
+
+FlattenMethodMap = OrderedDict(
+    [("flatten" , "0")]
 )
 
 ScalingMethodMap = OrderedDict(
