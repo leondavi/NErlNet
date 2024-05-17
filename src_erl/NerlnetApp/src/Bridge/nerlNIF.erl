@@ -177,21 +177,20 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
                   end,
       BinTypeInteger = lists:member(BinType, ?LIST_BINARY_INT_NERLTENSOR_TYPE),
       BinTypeFloat = lists:member(BinType, ?LIST_BINARY_FLOAT_NERLTENSOR_TYPE),
-      
       % Wrong combination guard
       case ErlType of 
-      erl_float when BinTypeFloat-> ok;
-      erl_int when BinTypeInteger -> ok;
-      _ -> throw("invalid types combination")
+            erl_float when BinTypeFloat -> ok;
+            erl_int when BinTypeInteger -> ok;
+            _ -> throw("invalid types combination")
       end,
       
       case Operation of 
             encode -> Validated = validate_nerltensor_erl(NerlTensor),
-                      if
+                  if
                         Validated -> encode_nif(NerlTensor, BinType);
                         true -> io:format("Wrong NerlTensor size!~n"), {<<>>, BinType}
                         % true -> throw(nerl:string_format("encode failure due to incorrect dimension declaring X*Y*Z not equal to tensor data length! ~p ",[NerlTensor]))
-                      end;
+                  end;
             decode -> 
                   if 
                         is_binary(NerlTensor) -> decode_nif(NerlTensor, BinType);
@@ -203,6 +202,7 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
 %% get BinType (float, double...) -> ErlType (erl_float / erl_int)
 erl_type_conversion(BinType) ->
       {_, ErlType} = lists:keyfind(BinType, 1, ?NERL_TYPES),
+      % TODO Throw exception if wrong type
       ErlType.
 
 nerltensor_scalar_multiplication_erl({NerlTensorErl, Type}, ScalarValue) -> 
