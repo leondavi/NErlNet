@@ -649,6 +649,13 @@ def sync_fields_with_json_dc_inst(window, values):
     last_workers_list_state_not_occupied = [x for x in last_workers_list_state if x not in json_dc_inst.get_clients_workers()]
     window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update("", last_workers_list_state_not_occupied)
 
+def dc_json_reset_inputs_ui(window):
+    global dc_json_import_file
+    global dc_json_export_file
+    global json_dc_inst
+    window[KEY_DC_JSON_IMPORT_INPUT].update('')
+    window[KEY_DC_JSON_EXPORT_TO_INPUT_DIR].update('')
+    window[KEY_DC_JSON_EXPORT_TO_INPUT_FILENAME].update('')
 
 def dc_json_handler(window, event, values):
     global dc_json_import_file
@@ -682,3 +689,41 @@ def dc_json_handler(window, event, values):
             json_dc_inst = json_dc_inst_tmp
             sync_fields_with_json_dc_inst(window, values)
 
+    if event == KEY_DC_JSON_CLEAR_BUTTON:
+        json_dc_inst.clear_nerlplanner()
+        
+        #clean settings and special Entities windows
+        settings_reset_inputs_ui(window)
+        settings_special_entities_reset_inputs_ui(window)
+        window[KEY_SETTINGS_MAIN_SERVER_STATUS_BAR].update(f"Main Server, {main_server_inst}, None")
+        window[KEY_SETTINGS_API_SERVER_STATUS_BAR].update(f"Api Server, {api_server_inst}, None")
+        window[KEY_SETTINGS_STATUS_BAR].update("")
+
+        #clean dc json window
+        dc_json_reset_inputs_ui(window)
+        
+        #clean clients window
+        window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update("")
+        window[KEY_CLIENTS_WORKERS_LIST_BOX_CLIENT_FOCUS].update("")
+        clients_reset_inputs_ui(window)
+
+        #clean sources window
+        sources_reset_inputs_ui(window)
+
+        #clean routers window
+        routers_reset_inputs_ui(window)
+        
+        #clean workers window
+        window[KEY_WORKERS_LIST_BOX].update("")
+        window[KEY_WORKERS_INFO_BAR].update("")
+        window[KEY_WORKERS_NAME_INPUT].update("")
+        window[KEY_WORKERS_INPUT_LOAD_WORKER_PATH].update("")
+
+        #clean devices window
+        window[KEY_DEVICES_SELECTED_ENTITY_COMBO].update("")
+        window[KEY_DEVICES_LIST_BOX_DEVICE_ENTITIES].update("")
+        window[KEY_DEVICES_LIST_BOX_DEVICES].update(json_dc_inst.get_devices_names())
+        devices_reset_inputs_ui(window)
+
+        
+        
