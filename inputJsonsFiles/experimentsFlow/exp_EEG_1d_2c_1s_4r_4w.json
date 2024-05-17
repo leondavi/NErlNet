@@ -1,0 +1,42 @@
+{
+    "experimentName": "EEG_Eye_State_Classification",
+    "experimentType": "classification",
+    "batchSize": 100,
+    "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/EEG_eye_state_classification_Ohad/EEG_Eye_State_Classification.csv",
+    "numOfFeatures": "14",
+    "numOfLabels": "1",
+    "headersNames": "eye_detection(0-open_1-closed)",
+    "Phases": 
+    [
+       {
+          "phaseName": "training_phase",
+          "phaseType": "training",
+          "sourcePieces":
+          [
+             {
+             "sourceName": "s1",
+             "startingSample": "0",
+             "numOfBatches": "100",
+             "workers": "w1,w2,w3,w4",
+             "nerltensorType": "float"
+             }
+          ]  
+       },
+       {
+          "phaseName": "prediction_phase",
+          "phaseType": "prediction",
+          "sourcePieces":
+          [
+             {
+             "sourceName": "s1",
+             "startingSample": "10000",
+             "numOfBatches": "40",
+             "workers": "w1,w2,w3,w4",
+             "nerltensorType": "float"
+             }
+          ]    
+       }
+    ]  
+ }
+     
+ 

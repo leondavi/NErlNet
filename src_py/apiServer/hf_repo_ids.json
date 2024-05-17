@@ -21,7 +21,7 @@
         {
             "id": "Nerlnet/EEG_Eye_State_Classification",
             "idx": 3,
-            "name": "EEG eye state classification - Ohad",
+            "name": "EEG_eye_state_classification_Ohad",
             "description": "2 class of classification"
         }
     ]
