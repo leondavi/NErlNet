@@ -511,7 +511,7 @@ namespace nerlnet
             case LAYER_TYPE_LSTM:         { res = translate_activation_function_int(layer_functionality); break;}
             case LAYER_TYPE_RECCURRENT:   { res = translate_activation_function_int(layer_functionality); break;}
             case LAYER_TYPE_UNSCALING:    { res = translate_unscaling_method_int(layer_functionality);    break;}
-            case LAYER_TYPE_BOUNDING:     { res = translate_activation_function_int(layer_functionality); break;}
+            case LAYER_TYPE_BOUNDING:     { res = translate_activation_function_int(layer_functionality); break;} // TODO Ori this is an error - bounding error should not have activation function
         }
        return res;
     }
@@ -529,6 +529,8 @@ namespace nerlnet
             case LAYER_TYPE_PROBABILISTIC:{ res = (int)opennn::Layer::Type::Probabilistic;       break;}
             case LAYER_TYPE_LSTM:         { res = (int)opennn::Layer::Type::LongShortTermMemory; break;}
             case LAYER_TYPE_RECCURRENT:   { res = (int)opennn::Layer::Type::Recurrent;           break;}
+            case LAYER_TYPE_UNSCALING:    { res = (int)opennn::Layer::Type::Unscaling;           break;}
+            case LAYER_TYPE_FLATTEN:      { res = (int)opennn::Layer::Type::Flatten;             break;}
             case LAYER_TYPE_BOUNDING:     { res = (int)opennn::Layer::Type::Bounding;            break;}
         }
        return res;
