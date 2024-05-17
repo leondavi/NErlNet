@@ -140,6 +140,17 @@ def workers_handler(window, event, values):
         else:
             sg.popup_ok(f"Cannot add - Parameters Issue!", keep_on_top=True, title="Adding New Worker Issue")
 
+    if event == KEY_WORKERS_BUTTON_REMOVE:
+        if (worker_name_selection in json_dc_inst.get_workers_dict()):
+            json_dc_inst.remove_worker(worker_name_selection)
+            client_of_worker = json_dc_inst.get_client_by_worker(worker_name_selection)
+            client_of_worker.remove_worker(worker_name_selection)
+            last_workers_list_state_not_occupied = [x for x in last_workers_list_state if x not in json_dc_inst.get_clients_workers()]
+            window[KEY_CLIENTS_WORKERS_LIST_COMBO_BOX].update("", last_workers_list_state_not_occupied)
+            window[KEY_WORKERS_LIST_BOX].update(json_dc_inst.get_workers_names_list())
+            window[KEY_WORKERS_INFO_BAR].update(f'{worker_name_selection} removed')
+        else:
+            sg.popup_ok(f"Cannot remove - Worker not found!", keep_on_top=True, title="Removing Worker Issue")
 
     if event == KEY_WORKERS_LIST_BOX:
         if values[KEY_WORKERS_LIST_BOX]:
