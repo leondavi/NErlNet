@@ -346,17 +346,6 @@ namespace nerlnet
                     convolutional_layer->set_activation_function((opennn::ConvolutionalLayer::ActivationFunction)(cnn_curr_layer->get_layer_functionality())); // set activation function
                     // add layer to the neural network
                     neural_network_ptr->add_layer(convolutional_layer); // add layer to the neural network
-                    /*
-                    if(curr_layer->get_next_layer_ptr()->get_layer_type() == LAYER_TYPE_PERCEPTRON){ // if the next layer is perceptron       
-                            FlattenLayer* flatten_layer = new FlattenLayer(convolutional_layer->get_outputs_dimensions()); // create flatten layer
-                            // TODO :Talk with Noa and Ohad about the sizes - make sure the sizes are correct in NerlPlanner
-                            if (flatten_layer->get_outputs_dimensions()[1] != curr_layer->get_next_layer_ptr()->get_dim_size(DIM_X_IDX)) // make sure the dims correct
-                            {
-                             //  LogError("NerlWorkerOpenNN::generate_custom_model_nn - wrong dimensions in CNN and Perceptron");
-                            //   throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - wrong dimensions in CNN  and Perceptron");
-                            }
-                            neural_network_ptr->add_layer(flatten_layer);
-                    }*/
                     break;
 
                 }
