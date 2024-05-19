@@ -245,7 +245,8 @@ createClientsAndWorkers() ->
                 {"/clientTraining",clientStateHandler, [training,ClientStatemPid]},
                 {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
                 {"/clientPredict",clientStateHandler, [predict,ClientStatemPid]},
-                {"/batch",clientStateHandler, [batch,ClientStatemPid]}
+                {"/batch",clientStateHandler, [batch,ClientStatemPid]},
+                {"/worker_to_worker_msg",clientStateHandler, [worker_to_worker_msg,ClientStatemPid]}
             ]}
         ]),
         init_cowboy_start_clear(Client, {DeviceName, Port},NerlClientDispatch)

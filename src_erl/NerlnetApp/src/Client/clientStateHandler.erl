@@ -17,7 +17,6 @@
 init(Req0, [Action,Client_StateM_Pid]) ->
 
   {ok,Body,_} = cowboy_req:read_body(Req0),
-%%  io:format("client state_handler got body:~p~n",[Body]),
   case Action of
     worker_to_worker_msg -> {worker_to_worker_msg , From , To , Data} = binary_to_term(Body),
                             gen_statem:cast(Client_StateM_Pid,{worker_to_worker_msg , From , To , Data});

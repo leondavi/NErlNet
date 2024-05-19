@@ -72,7 +72,7 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   inets:start(),
   ?LOG_INFO("Client ~p is connected to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
   % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
-  EtsRef = ets:new(client_data, [set]), %% client_data is responsible for functional attributes
+  EtsRef = ets:new(client_data, [set, public]), %% client_data is responsible for functional attributes
   EtsStats = ets:new(ets_stats, [set]), %% ets_stats is responsible for holding all the ets stats (client + workers)
   ClientStatsEts = stats:generate_stats_ets(), %% client stats ets inside ets_stats
   ets:insert(EtsStats, {MyName, ClientStatsEts}),
@@ -84,13 +84,14 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   MyWorkersToShaMap = maps:filter(fun(Worker , _SHA) -> lists:member(Worker , ClientWorkers) end , WorkerShaMap),
   ets:insert(EtsRef, {workers_to_sha_map, MyWorkersToShaMap}),
   ets:insert(EtsRef, {sha_to_models_map , ShaToModelArgsMap}),
+  ets:insert(EtsRef, {w2wcom_pids, #{}}),
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM, NerlnetGraph),
   ets:insert(EtsRef, {my_router,{MyRouterHost,MyRouterPort}}),
-
   clientWorkersFunctions:create_workers(MyName , EtsRef , ShaToModelArgsMap , EtsStats),
   %% send pre_idle signal to workers
   WorkersNames = clientWorkersFunctions:get_workers_names(EtsRef),
-  [gen_statem:cast(clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName), {pre_idle}) || WorkerName <- WorkersNames],
+  Pids = [clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName) || WorkerName <- WorkersNames],
+  [gen_statem:cast(WorkerPid, {pre_idle}) || WorkerPid <- Pids],
 
   % update dictionary
   WorkersEts = ets:lookup_element(EtsRef , workers_ets , ?DATA_IDX),
@@ -125,6 +126,13 @@ waitforWorkers(cast, In = {stateChange,WorkerName}, State = #client_statem_state
     _->  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers}}
   end;
 
+waitforWorkers(cast, In = {worker_to_worker_msg, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data),
+  {keep_state, State};
+
 waitforWorkers(cast, In = {NewState}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -155,12 +163,10 @@ idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, et
   EtsStats = get(ets_stats),
   ClientStatsEts = get(client_stats_ets),
   ClientStatsEncStr = stats:encode_ets_to_http_bin_str(ClientStatsEts),
-  %ClientStatsToSend = atom_to_list(MyName) ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ ClientStatsEncStr ++ ?API_SERVER_ENTITY_SEPERATOR,
   stats:increment_messages_received(ClientStatsEts),
   ListStatsEts = ets:tab2list(EtsStats) -- [{MyName , ClientStatsEts}], 
   WorkersStatsEncStr = create_encoded_stats_str(ListStatsEts),
   DataToSend = ClientStatsEncStr ++ WorkersStatsEncStr,
-  %% io:format("DataToSend: ~p~n",[DataToSend]),
   StatsBody = {MyName , DataToSend},
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatsBody),
@@ -170,7 +176,8 @@ idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, et
 idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
-  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),  MessageToCast = {training},
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  MessageToCast = {training},
   cast_message_to_workers(EtsRef, MessageToCast),
   {next_state, waitforWorkers, State#client_statem_state{waitforWorkers =  clientWorkersFunctions:get_workers_names(EtsRef), nextState = training}};
 
@@ -209,25 +216,6 @@ training(cast, MessageIn = {update, {From, To, Data}}, State = #client_statem_st
   end,
   {keep_state, State};
 
-
-%% This is a generic way to move data from worker to worker
-%% TODO fix variables names to make it more generic
-%% federated server sends AvgWeights to workers
-% training(cast, InMessage = {custom_worker_message, WorkersList, WeightsTensor}, State = #client_statem_state{etsRef = EtsRef}) ->
-%   ClientStatsEts = get(client_stats_ets),
-%   stats:increment_messages_received(ClientStatsEts),
-%   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(InMessage)),
-%   Func = fun(WorkerName) ->
-%     DestClient = maps:get(WorkerName, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
-%     MessageBody = term_to_binary({DestClient, update, {_FedServer = "server", WorkerName, WeightsTensor}}), % TODO - fix client should not be aware of the data of custom worker message
-
-%     {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-%     nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(custom_worker_message), MessageBody),
-%     stats:increment_messages_sent(ClientStatsEts),
-%     stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody))
-%   end,
-%   lists:foreach(Func, WorkersList), % can be optimized with broadcast instead of unicast
-%   {keep_state, State};
 
 training(cast, In = {worker_to_worker_msg, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
@@ -409,18 +397,21 @@ create_encoded_stats_str(ListStatsEts) ->
 
 handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data) ->
   ClientStatsEts = get(client_stats_ets),
-  WorkerOfThisClient = ets:member(EtsRef, ToWorker),
-  if WorkerOfThisClient -> 
-    % Extract W2WPID from Ets
-    TargetWorkerW2WPID = ets:lookup_element(get(workers_ets), ToWorker, ?W2W_PID_IDX),
-    gen_statem:cast(TargetWorkerW2WPID,{worker_to_worker_msg, FromWorker, ToWorker, Data}),
-    stats:increment_messages_sent(ClientStatsEts);
-  true ->
-    %% Send to the correct client
-    DestClient = maps:get(ToWorker, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
-    MessageBody = {worker_to_worker_msg, FromWorker, ToWorker, Data},
-    {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-    nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(worker_to_worker_msg), term_to_binary(MessageBody)),
-    stats:increment_messages_sent(ClientStatsEts),
-    stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody))
+  WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
+  WorkerOfThisClient = lists:member(ToWorker, WorkersOfThisClient),
+  case WorkerOfThisClient of
+    true -> 
+      % Extract W2WPID from Ets
+      W2WPidsMap = ets:lookup_element(EtsRef, w2wcom_pids, ?DATA_IDX),
+      TargetWorkerW2WPID = maps:get(ToWorker, W2WPidsMap),
+      {ok, _Reply} = gen_server:call(TargetWorkerW2WPID, {worker_to_worker_msg, FromWorker, ToWorker, Data}),
+      stats:increment_messages_sent(ClientStatsEts);
+    _ ->
+      %% Send to the correct client
+      DestClient = maps:get(ToWorker, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
+      MessageBody = {worker_to_worker_msg, FromWorker, ToWorker, Data},
+      {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+      nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(worker_to_worker_msg), MessageBody),
+      stats:increment_messages_sent(ClientStatsEts),
+      stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody))
   end.

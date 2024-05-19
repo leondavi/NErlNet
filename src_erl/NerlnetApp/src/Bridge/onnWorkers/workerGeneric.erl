@@ -22,7 +22,7 @@
 -export([init/1, format_status/2, state_name/3, handle_event/4, terminate/3,
   code_change/4, callback_mode/0]).
 %% States functions
--export([idle/3, train/3, predict/3, wait/3, update/3]).
+-export([idle/3, train/3, predict/3, wait/3]).
 
 %% ackClient :: need to tell mainserver that worker is safe and going to new state after wait state 
 
@@ -36,8 +36,7 @@
 start_link(ARGS) ->
   %{ok,Pid} = gen_statem:start_link({local, element(1, ARGS)}, ?MODULE, ARGS, []),   %% name this machine by unique name
   {ok,Pid} = gen_statem:start_link(?MODULE, ARGS, []),
-  W2W_Pid = get(w2wcom_pid),
-  {Pid , W2W_Pid}.
+  Pid.
 
 %%%===================================================================
 %%% gen_statem callbacks
@@ -47,16 +46,17 @@ start_link(ARGS) ->
 %% @doc Whenever a gen_statem is started using gen_statem:start/[3,4] or
 %% gen_statem:start_link/[3,4], this function is called by the new process to initialize.
 %% distributedBehaviorFunc is the special behavior of the worker regrading the distributed system e.g. federated client/server
-init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , ClientPid , WorkerStatsEts}) -> 
+init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , ClientPid , WorkerStatsEts , W2WPid}) -> 
   nerl_tools:setup_logger(?MODULE),
   {ModelID , ModelType , ModelArgs , LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate , Epochs, 
   OptimizerType, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs} = WorkerArgs,
-  GenWorkerEts = ets:new(generic_worker,[set]),
+  GenWorkerEts = ets:new(generic_worker,[set, public]),
   put(generic_worker_ets, GenWorkerEts),
   put(client_pid, ClientPid),
   put(worker_stats_ets , WorkerStatsEts),
   SourceBatchesEts = ets:new(source_batches,[set]),
   put(source_batches_ets, SourceBatchesEts),
+  ets:insert(GenWorkerEts,{w2wcom_pid, W2WPid}),
   ets:insert(GenWorkerEts,{worker_name, WorkerName}),
   ets:insert(GenWorkerEts,{model_id, ModelID}),
   ets:insert(GenWorkerEts,{model_type, ModelType}),
@@ -71,10 +71,10 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{optimizer_args, OptimizerArgs}),
   ets:insert(GenWorkerEts,{distributed_system_args, DistributedSystemArgs}),
   ets:insert(GenWorkerEts,{distributed_system_type, DistributedSystemType}),
-  ets:insert(GenWorkerEts,{controller_message_q, []}), %% empty Queue  TODO Deprecated
+  ets:insert(GenWorkerEts,{controller_message_q, []}), %% TODO Deprecated
+  ets:insert(GenWorkerEts,{handshake_done, false}),
   % Worker to Worker communication module - this is a gen_server
-  W2wComPid = w2wCom:start_link({WorkerName, ClientPid}),
-  put(w2wcom_pid, W2wComPid),
+
 
   Res = nerlNIF:new_nerlworker_nif(ModelID , ModelType, ModelArgs, LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType,
                                 OptimizerArgs, LossMethod , DistributedSystemType , DistributedSystemArgs),
@@ -86,7 +86,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
             ?LOG_ERROR("Failed to create worker ~p\n",[WorkerName]),
             exit(nif_failed_to_create)
   end,
-
+  DistributedBehaviorFunc(pre_idle,{GenWorkerEts, DistributedWorkerData}),
   {ok, idle, #workerGeneric_state{myName = WorkerName , modelID = ModelID , distributedBehaviorFunc = DistributedBehaviorFunc , distributedWorkerData = DistributedWorkerData}}.
 
 %% @private
@@ -139,26 +139,18 @@ code_change(_OldVsn, StateName, State = #workerGeneric_state{}, _Extra) ->
 
 %% State idle
 
-%% Event from clientStatem
-idle(cast, {pre_idle}, State = #workerGeneric_state{myName = _MyName,distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  DistributedBehaviorFunc(pre_idle, {get(generic_worker_ets), empty}),
-  {next_state, idle, State};
-
-%% Event from clientStatem
-idle(cast, {post_idle, From}, State = #workerGeneric_state{myName = _MyName,distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  DistributedBehaviorFunc(post_idle, {get(generic_worker_ets), From}),
-  {next_state, idle, State};
-
 % Go from idle to train
-idle(cast, {training}, State = #workerGeneric_state{myName = MyName}) ->
+idle(cast, {training}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   worker_controller_empty_message_queue(),
+  DistributedBehaviorFunc(post_idle, {get(generic_worker_ets), train}),
   update_client_avilable_worker(MyName),
   {next_state, train, State#workerGeneric_state{lastPhase = train}};
 
 % Go from idle to predict
-idle(cast, {predict}, State = #workerGeneric_state{myName = MyName}) ->
+idle(cast, {predict}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   worker_controller_empty_message_queue(),
   update_client_avilable_worker(MyName),
+  DistributedBehaviorFunc(post_idle, {get(generic_worker_ets), predict}),
   {next_state, predict, State#workerGeneric_state{lastPhase = predict}};
 
 idle(cast, _Param, State) ->
@@ -173,10 +165,10 @@ wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneri
   {next_state, NextState, State};
 
 
-wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
+wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   BatchTimeStamp = erlang:system_time(nanosecond),
   gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,{LossTensor, LossTensorType} , TrainTime , BatchID , BatchTimeStamp}),
-  DistributedBehaviorFunc(post_train, {get(generic_worker_ets),DistributedWorkerData}), %% Change to W2WComm
+  DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
   {next_state, NextState, State};
 
 wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
@@ -238,11 +230,13 @@ train(cast, {sample, SourceName ,BatchID ,{NerlTensorOfSamples, NerlTensorType}}
 %% TODO: implement send model and weights by demand (Tensor / XML)
 train(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelID = ModelId}) ->
   %% Set weights
-  %io:format("####sending new weights to workers####~n"),
   nerlNIF:call_to_set_weights(ModelId, Ret_weights_list), %% TODO wrong usage
   %logger:notice("####end set weights train####~n"),
   {next_state, train, State};
 
+train(cast, {post_train_update} ,State = #workerGeneric_state{distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+  DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}),
+  {next_state, train, State};
 
 train(cast, {idle}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   update_client_avilable_worker(MyName),
@@ -267,7 +261,6 @@ predict(cast, {sample , SourceName , BatchID , {PredictBatchTensor, Type}}, Stat
     DistributedBehaviorFunc(pre_predict, {get(generic_worker_ets),DistributedWorkerData}),
     WorkersStatsEts = get(worker_stats_ets),
     stats:increment_by_value(WorkersStatsEts , batches_received_predict , 1),
-    %% io:format("Pred Tensor: ~p~n",[nerlNIF:nerltensor_conversion({PredictBatchTensor , Type} , nerlNIF:erl_type_conversion(Type))]),
     _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId , {PredictBatchTensor, Type} , CurrPID , BatchID, SourceName) end),
     {next_state, wait, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}};
 

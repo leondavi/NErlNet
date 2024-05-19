@@ -1,7 +1,7 @@
 {
     "nerlnetSettings": {
         "frequency": "100",
-        "batchSize": "50"
+        "batchSize": "100"
     },
     "mainServer": {
         "port": "8900",
@@ -34,7 +34,7 @@
         {
             "name": "s1",
             "port": "8904",
-            "frequency": "100",
+            "frequency": "200",
             "policy": "0",
             "epochs": "1",
             "type": "0"
@@ -80,7 +80,7 @@
             "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image_classification:4 | text_classification:5 | text_generation:6 | auto_association:7 | autoencoder:8 | ae_classifier:9 |",
             "modelArgs": "",
             "_doc_modelArgs": "Extra arguments to model",
-            "layersSizes": "5,10,5,3,3",
+            "layersSizes": "5,2,2,2,3",
             "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
             "layerTypesList": "1,3,3,3,5",
             "_doc_LayerTypes": " Default:0 | Scaling:1 | Conv:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Bounding:9 |",
@@ -113,7 +113,7 @@
             "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image_classification:4 | text_classification:5 | text_generation:6 | auto_association:7 | autoencoder:8 | ae_classifier:9 |",
             "modelArgs": "",
             "_doc_modelArgs": "Extra arguments to model",
-            "layersSizes": "5,10,5,3,3",
+            "layersSizes": "5,2,2,2,3",
             "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
             "layerTypesList": "1,3,3,3,5",
             "_doc_LayerTypes": " Default:0 | Scaling:1 | Conv:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Bounding:9 |",
