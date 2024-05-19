@@ -22,6 +22,7 @@ class ExperimentFlow():
     DATA_SOURCE_TYPE_CAMERA = 1
     def __init__(self ,experiment_name, batch_size_dc: int, network_componenets: NetworkComponents, temp_data_path = NERLNET_TEMP_DATA_DIR, data_source_type = DATA_SOURCE_TYPE_CSV):
         self.exp_name = experiment_name
+        self.exp_type = None
         self.batch_size_dc = batch_size_dc
         self.batch_size = None  # batch size from parsed exp_flow_json
         self.network_componenets = network_componenets
@@ -75,6 +76,8 @@ class ExperimentFlow():
             self.exp_flow_json = json.load(json_file)
         # parse json and create experiment phases
         self.exp_name = self.exp_flow_json[EXPFLOW_EXPERIMENT_NAME_FIELD]
+        assert self.exp_flow_json[EXPFLOW_EXPERIMENT_TYPE_FIELD] , "experiment type is missing"
+        self.exp_type = self.exp_flow_json[EXPFLOW_EXPERIMENT_TYPE_FIELD]
         self.batch_size = self.exp_flow_json[EXPFLOW_BATCH_SIZE_FIELD]
         assert self.batch_size == self.batch_size_dc
         csv_file_path = self.exp_flow_json[EXPFLOW_CSV_FILE_PATH_FIELD] if override_csv_path == "" else override_csv_path
@@ -83,8 +86,13 @@ class ExperimentFlow():
         num_of_labels = self.exp_flow_json[EXPFLOW_NUM_OF_LABELS_FIELD]
         self.set_csv_dataset(csv_file_path, num_of_features, num_of_labels, headers_row)
         phases_list = self.exp_flow_json[EXPFLOW_PHASES_FIELD]
+        phases_names_dict= {}
+        phase_index = 1
         for phase in phases_list:
             phase_name = phase[EXPFLOW_PHASES_PHASE_NAME_FIELD]
+            assert phase_name not in phases_names_dict , "check for duplicate phase names" 
+            phases_names_dict.update({phase_name: phase_index})
+            phase_index += 1
             phase_type = phase[EXPFLOW_PHASES_PHASE_TYPE_FIELD]
             sourcePieces = phase[EXPFLOW_PHASES_PHASE_SOURCE_PIECES_FIELD]
             source_pieces_inst_list = []
@@ -117,7 +125,7 @@ class ExperimentFlow():
         self.csv_dataset = CsvDataSet(csv_file_path, self.temp_data_path ,self.batch_size, num_of_features, num_of_labels, headers_row)  # Todo get num of features and labels from csv file
 
     def add_phase(self, name : str, phase_type : str, source_pieces_inst_list : list, num_of_features : str):
-        exp_phase_inst = ExperimentPhase(self.exp_name, name, phase_type, self.network_componenets, num_of_features)
+        exp_phase_inst = ExperimentPhase(self.exp_name, self.exp_type, name, phase_type, self.network_componenets, num_of_features)
         for source_piece_inst in source_pieces_inst_list:
             exp_phase_inst.add_source_piece(source_piece_inst)
         self.exp_phase_list.append(exp_phase_inst)
