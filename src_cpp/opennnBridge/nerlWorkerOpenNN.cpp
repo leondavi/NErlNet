@@ -471,7 +471,8 @@ namespace nerlnet
                         int layer_cols_num     = curr_layer->get_dim_size(DIM_Y_IDX);
                         int layer_channels_num = curr_layer->get_dim_size(DIM_Z_IDX);
                         if(curr_layer->get_prev_layer_ptr()->get_layer_type() == LAYER_TYPE_CONV) { // if the next layer is perceptron       
-                            FlattenLayer* flatten_layer = new FlattenLayer(curr_layer->get_prev_layer_ptr()->get_outputs_dimensions()); // create flatten layer
+                            ConvolutionalLayer*  cnn_prev_layer = (ConvolutionalLayer*)neural_network_ptr->get_layer_pointer((neural_network_ptr->get_layers_number()-1));
+                            FlattenLayer* flatten_layer = new FlattenLayer(cnn_prev_layer->get_outputs_dimensions()); // create flatten layer
                             neural_network_ptr->add_layer(flatten_layer);
                         } else {
                             Tensor<Index, 1> input_variables_dimensions(3);
