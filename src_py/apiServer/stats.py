@@ -25,6 +25,7 @@ class Stats():
         self.name = self.experiment_phase.get_name()
         self.loss_ts_pd = None
         self.missed_batches_warning_msg = False
+        self.experiment_flow_type = self.experiment_phase.get_experiment_flow_type()
         if (self.phase == PHASE_PREDICTION_STR):
             for source_piece_inst in self.experiment_phase.get_sources_pieces():
                 csv_dataset = source_piece_inst.get_csv_dataset_parent()
@@ -59,6 +60,7 @@ class Stats():
         Returns a dictionary of {worker : loss list} for each worker in the experiment.
         use plot=True to plot the loss function.
         """
+        assert self.experiment_flow_type == "classification", "This function is only available for classification experiments"
         assert self.phase == PHASE_TRAINING_STR, "This function is only available for training phase"
         loss_dict = {}
         workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
@@ -95,6 +97,7 @@ class Stats():
         Returns a dictionary of {worker : min loss} for each worker in the experiment.
         use plot=True to plot the min loss of each worker.
         """
+        assert self.experiment_flow_type == "classification", "This function is only available for classification experiments"
         min_loss_dict = OrderedDict()
         if self.loss_ts_pd is None:
             loss_ts_pd = self.get_loss_ts()
@@ -132,39 +135,7 @@ class Stats():
         #     plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
         #     plt.show()
         #     plt.savefig(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}/Training/Loss_graph.png')
-        
-   
-    
-
-    # TODO is it deprecated???
-    def get_loss_min1(self , plot : bool = False , saveToFile : bool = False):  #Todo return get loss min and batch id
-        """
-        Returns a dictionary of {worker : min loss} for each worker in the experiment.
-        use plot=True to plot the min loss of each worker.
-        """
-        min_loss_dict = OrderedDict()
-        for key, loss_list in self.get_loss().items():
-            min_loss_dict[key] = min(loss_list)
-        if plot: # Plot in dots the min loss of each worker
-            plt.figure(figsize = (30,15), dpi = 150)
-            plt.rcParams.update({'font.size': 22})
-            plt.plot(list(min_loss_dict.keys()), list(min_loss_dict.values()), 'o')
-            plt.xlabel('Worker' , fontsize=30)
-            plt.ylabel('Loss (MSE)' , fontsize=30)
-            plt.yscale('log')
-            plt.xlim(left=0)
-            plt.ylim(bottom=0)
-            plt.title('Training Min Loss')
-            plt.grid(visible=True, which='major', linestyle='-')
-            plt.minorticks_on()
-            plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
-            plt.show()
-            plt.savefig(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}/Training/Min_loss_graph.png')
-            
-        if saveToFile:
-            export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/min_loss.json', min_loss_dict)
-        return min_loss_dict
-    
+         
     def expend_labels_df(self, df):
         assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"
         temp_list = list(range(df.shape[1])) 
@@ -174,7 +145,8 @@ class Stats():
         assert df.shape[1] == 2 * num_of_labels, "Error in expend_labels_df function"
         return df
 
-    def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):  
+    def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
+        assert self.experiment_flow_type == "classification", "This function is only available for classification experiments" 
         assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"   
         sources_pieces_list = self.experiment_phase.get_sources_pieces()
         workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
@@ -344,6 +316,7 @@ class Stats():
         Returns a dictionary of {(worker, class): {Performence_Stat : VALUE}}} for each worker and class in the experiment.
         Performence Statistics Available are: TN, FP, FN, TP, Accuracy, Balanced Accuracy, Precision, Recall, True Negative Rate, Informedness, F1
         """
+        assert self.experiment_flow_type == "classification", "This function is only available for classification experiments"
         workers_performence = OrderedDict()
         for (worker_name, class_name) in confusion_matrix_worker_dict.keys():
             workers_performence[(worker_name, class_name)] = OrderedDict()
@@ -391,98 +364,6 @@ class Stats():
             export_df_csv(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/{MODEL_PERFORMANCE_FILENAME}', df)
             
         return df
-
-
-    def get_confusion_matrices1(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False):
-        """
-        Returns a dictionary of {worker : {class : confusion matrix}} for each worker in the experiment.
-        use plot=True to plot the confusion matrix.
-        """
-        workers_confusion_matrices = {}
-        labels = self.experiment.get_labels_df()
-        workersList = self.experiment.get_workers_list()
-        if labels is None:
-            raise "No labels file found , check your input data directory"
-        workers_results = self.experiment.get_results_labels()
-        if plot:
-            f, axes = plt.subplots(len(workersList), self.experiment.labelsLen, figsize=(globe.MATRIX_DISP_SCALING*self.experiment.labelsLen, globe.MATRIX_DISP_SCALING*len(workersList)))
-        for i, worker in enumerate(workersList):
-            workers_confusion_matrices[worker] = [[] for i in range(self.experiment.labelsLen)]
-
-            for j in range(self.experiment.labelsLen):
-                # print(f"worker {worker}, has {len(workerNeuronRes[worker][TRUE_LABLE_IND])} labels, with {len(workerNeuronRes[worker][TRUE_LABLE_IND][j])} samples")
-                # print(f"confusion {worker}:{j}, has is of {workerNeuronRes[worker][TRUE_LABLE_IND][j]}, {workerNeuronRes[worker][PRED_LABLE_IND][j]}")
-                if normalize == True :
-                    workers_confusion_matrices[worker][j] = confusion_matrix(workers_results[worker][globe.TRUE_LABLE_IND][j], workers_results[worker][globe.PRED_LABLE_IND][j], normalize='all')
-                else:
-                    workers_confusion_matrices[worker][j] = confusion_matrix(workers_results[worker][globe.TRUE_LABLE_IND][j], workers_results[worker][globe.PRED_LABLE_IND][j])
-
-                if plot:
-                    disp = ConfusionMatrixDisplay(workers_confusion_matrices[worker][j], display_labels=["X", self.experiment.labelNames[j]])
-                    disp.plot(ax=axes[i, j], colorbar=False)
-                    disp.ax_.set_title(f'{worker}, class #{j}\nAccuracy={round(accuracy_score(workers_results[worker][globe.TRUE_LABLE_IND][j], workers_results[worker][globe.PRED_LABLE_IND][j]), 3)}')
-                    if i < len(workersList) - 1:
-                        disp.ax_.set_xlabel('') 
-                    if  j != 0:
-                        disp.ax_.set_ylabel('') 
-                    #disp.im_.colorbar.remove()  #remove individual colorbars
-                    fileName = f'{self.experiment.name}_confusion_matrices'
-                    disp.figure_.savefig(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}/Prediction/{fileName}.png')
-        if plot:
-            plt.subplots_adjust(wspace=1, hspace=0.15) 
-            f.colorbar(disp.im_, ax=axes)
-            plt.show()
-            
-        if saveToFile:
-            export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/confusion_matrices.json', workers_confusion_matrices)
-        return workers_confusion_matrices
-    
-    def get_model_performence_stats1(self , confMatDict , show : bool = False , saveToFile : bool = False, printStats = False) -> dict:
-        """
-        Returns a dictionary of {worker : {class: {Performence_Stat : VALUE}}} for each worker and class in the experiment.
-        Performence Statistics Available are: TN, FP, FN, TP, Accuracy, Balanced Accuracy, Precision, Recall, True Negative Rate, Informedness, F1
-        """
-        workers_accuracy = OrderedDict()
-        for worker in confMatDict.keys():
-            workers_accuracy[worker] = OrderedDict()
-            for j, label_stats in enumerate(confMatDict[worker]): # Multi-Class
-                workers_accuracy[worker][j] = OrderedDict()
-                tn, fp, fn, tp = label_stats.ravel()
-                if printStats:
-                    LOG_INFO(f"worker {worker} label: {j} tn: {tn}, fp: {fp}, fn: {fn}, tp: {tp}")
-                tn = int(tn)
-                fp = int(fp)
-                fn = int(fn)
-                tp = int(tp)
-                acc = (tp + tn) / (tp + tn + fp + fn)
-                ppv = tp / (tp + fp) if tp > 0 else 0 # Precision
-                tpr = tp / (tp + fn) if tp > 0 else 0 # Recall 
-                tnr = tn / (tn + fp) if tn > 0 else 0
-                bacc = (tpr + tnr) / 2
-                inf = tpr + tnr - 1
-                f1 = 2 * (ppv * tpr) / (ppv + tpr) if (ppv + tpr) > 0 else 0 # F1-Score
-
-                workers_accuracy[worker][j]['TN'] = tn
-                workers_accuracy[worker][j]['FP'] = fp
-                workers_accuracy[worker][j]['FN'] = fn
-                workers_accuracy[worker][j]['TP'] = tp
-                workers_accuracy[worker][j]['Accuracy'] = acc
-                workers_accuracy[worker][j]['Balanced Accuracy'] = bacc
-                workers_accuracy[worker][j]['Precision'] = ppv
-                workers_accuracy[worker][j]['Recall'] = tpr
-                workers_accuracy[worker][j]['True Negative Rate'] = tnr
-                workers_accuracy[worker][j]['Informedness'] = inf
-                workers_accuracy[worker][j]['F1'] = f1
-
-                if show:
-                    print(f"{worker}, class #{j}:")
-                    print(f"{workers_accuracy[worker][j]}\n")
-        
-        if saveToFile:
-            export_dict_json(f'{EXPERIMENT_RESULTS_PATH}/{self.exp_path}/accuracy_stats.json', workers_accuracy)
-            
-        return workers_accuracy
-    
 
     def get_predict_regression_stats(self , plot : bool = False , saveToFile : bool = False):
         pass
