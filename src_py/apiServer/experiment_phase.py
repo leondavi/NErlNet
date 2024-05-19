@@ -5,8 +5,9 @@ from nerl_csv_dataset_db import *
 from decoderHttpMainServer import *
 
 class ExperimentPhase():
-    def __init__(self, experiment_flow_name : str, name : str, phase_type: str, network_componenets: NetworkComponents, num_of_features: str):
+    def __init__(self, experiment_flow_name : str, experiment_flow_type: str, name : str, phase_type: str, network_componenets: NetworkComponents, num_of_features: str):
         self.experiment_flow_name = experiment_flow_name
+        self.experiment_flow_type = experiment_flow_type
         self.name = name 
         self.phase_type = phase_type # training/prediction
         assert self.phase_type in [PHASE_TRAINING_STR, PHASE_PREDICTION_STR]
@@ -41,6 +42,9 @@ class ExperimentPhase():
     
     def get_experiment_flow_name(self):
         return self.experiment_flow_name
+    
+    def get_experiment_flow_type(self):
+        return self.experiment_flow_type
 
     def get_sources_str_list(self):
         return ",".join(self.source_pieces_dict.keys())
