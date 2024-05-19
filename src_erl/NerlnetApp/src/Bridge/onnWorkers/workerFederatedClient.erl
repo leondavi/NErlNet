@@ -106,11 +106,12 @@ post_idle({GenWorkerEts, _WorkerData}) ->
 pre_train({GenWorkerEts, _NerlTensorWeights}) -> 
   ThisEts = get_this_client_ets(GenWorkerEts),
   SyncCount = ets:lookup_element(get_this_client_ets(GenWorkerEts), sync_count, ?ETS_KEYVAL_VAL_IDX),
+  WorkerName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
+  ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX),
   MaxSyncCount = ets:lookup_element(get_this_client_ets(GenWorkerEts), sync_max_count, ?ETS_KEYVAL_VAL_IDX),
   if SyncCount == MaxSyncCount ->
     W2WPid = ets:lookup_element(get_this_client_ets(GenWorkerEts), w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
     w2wCom:sync_inbox(W2WPid), % waiting for server to average the weights and send it
-    WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
     InboxQueue = w2wCom:get_all_messages(W2WPid),
     [UpdateWeightsMsg] = queue:to_list(InboxQueue),
     {_FedServer , {update_weights, UpdatedWeights}} = UpdateWeightsMsg,

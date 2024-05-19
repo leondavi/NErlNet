@@ -124,7 +124,7 @@ idle(cast, {batchList, WorkersList, NumOfBatches, NerlTensorType, Data}, State) 
   ?LOG_NOTICE("Source ~p, workers are: ~p", [MyName, WorkersList]),
   ?LOG_NOTICE("Source ~p, sample size: ~p", [MyName, SampleSize]),
   ets:update_element(EtsRef, sample_size, [{?DATA_IDX, SampleSize}]),
-  ?LOG_INFO("Source ~p updated transmission list, total avilable batches to send: ~p~n",[MyName, NumOfBatches]),
+  ?LOG_INFO("Source ~p updated transmission list, total available batches to send: ~p~n",[MyName, NumOfBatches]),
   %%  send an ACK to mainserver that the CSV file is ready
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(dataReady), MyName),
