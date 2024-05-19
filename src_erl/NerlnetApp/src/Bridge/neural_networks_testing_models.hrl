@@ -18,9 +18,9 @@
 -define(CNN_TESTING_NN,{        _ModelIdCNN  = erlang:unique_integer([positive]),
                                 _ModelTypeCNN = "0",
                                 _ModelArgsCNN = "",
-                                _LayersSizesCNN = "28x28x1k5x5x1x6p0s1t1,28x28x6k2x2p0s2,14x14x6k4x4x6x12p0s1t0,32,10",
-                                _LayersTypesCNN = "2,4,2,3,5",
-                                _LayersFunctionalityCodesCNN = "6,2,6,6,4", % change scaler functionality to 6 to check exception handling
+                                _LayersSizesCNN = "28x28x1k5x5x1x6p0s1t1,28x28x6k2x2p0s2,14x14x6k4x4x6x12p0s1t0,1,32,10",
+                                _LayersTypesCNN = "2,4,2,9,3,5",
+                                _LayersFunctionalityCodesCNN = "6,2,6,6,6,4", % change scaler functionality to 6 to check exception handling
                                 _LearningRateCNN = "0.01",
                                 _EpochsCNN = "50",
                                 _OptimizerTypeCNN = "5",
