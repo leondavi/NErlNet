@@ -46,12 +46,17 @@ create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap , EtsStats) ->
     % TODO add documentation about this case of 
     % move this case to module called client_controller
     {DistributedBehaviorFunc , DistributedWorkerData} = get_distributed_worker_behavior(ClientEtsRef, DistributedSystemType , WorkerName , DistributedSystemArgs , DistributedSystemToken),
+    W2wComPid = w2wCom:start_link({WorkerName, MyClientPid}), % TODO Switch to monitor instead of link
 
     WorkerArgs = {ModelID , ModelType , ModelArgs , LayersSizes, LayersTypes, LayersFunctions, LearningRate , Epochs, 
                   Optimizer, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs},
-    {WorkerPid , W2W_Pid} = workerGeneric:start_link({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , MyClientPid , WorkerStatsETS}),
-    ets:insert(WorkersETS, {WorkerName, {WorkerPid, W2W_Pid, WorkerArgs}}), 
+    WorkerPid = workerGeneric:start_link({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , MyClientPid , WorkerStatsETS , W2wComPid}),
+    gen_server:cast(W2wComPid, {update_gen_worker_pid, WorkerPid}),
+    ets:insert(WorkersETS, {WorkerName, {WorkerPid, WorkerArgs}}), 
     ets:insert(EtsStats, {WorkerName, WorkerStatsETS}),
+    W2WPidMap = ets:lookup_element(ClientEtsRef, w2wcom_pids, ?DATA_IDX),
+    W2WPidMapNew = maps:put(WorkerName, W2wComPid, W2WPidMap),
+    ets:update_element(ClientEtsRef, w2wcom_pids, {?DATA_IDX, W2WPidMapNew}),
 
     WorkerName
   end,

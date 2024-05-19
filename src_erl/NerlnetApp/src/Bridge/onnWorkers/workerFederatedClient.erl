@@ -6,6 +6,8 @@
 -include("workerDefinitions.hrl").
 -include("w2wCom.hrl").
 
+-import(nerlNIF, [call_to_get_weights/2, call_to_set_weights/2]).
+
 -define(WORKER_FEDERATED_CLIENT_ETS_FIELDS, [my_name, client_pid, server_name, sync_max_count, sync_count]).
 -define(FEDERATED_CLIENT_ETS_KEY_IN_GENWORKER_ETS, fedrated_client_ets).
 -define(DEFAULT_SYNC_MAX_COUNT_ARG, 1).
@@ -33,21 +35,21 @@ parse_args(Args) ->
   lists:map(Func, ArgsList). % Returns list of tuples [{Key, Val}, ...]
 
 sync_max_count_init(FedClientEts , ArgsList) -> 
-  case lists:keyfind("sync_max_count", 1, ArgsList) of
-    false -> Val = ?DEFAULT_SYNC_MAX_COUNT_ARG;
-    {_, Val} -> list_to_integer(Val)
+  case lists:keyfind("SyncMaxCount", 1, ArgsList) of
+    false -> ValInt = ?DEFAULT_SYNC_MAX_COUNT_ARG;
+    {_, Val} -> ValInt = list_to_integer(Val) % Val is a list (string) in the json so needs to be converted
   end,
-  ets:insert(FedClientEts, {sync_max_count, Val}).
+  ets:insert(FedClientEts, {sync_max_count, ValInt}).
 
-%% handshake with workers / server
+%% handshake with workers / server at the end of init
 init({GenWorkerEts, WorkerData}) ->
   % create an ets for this client and save it to generic worker ets
-  FedratedClientEts = ets:new(federated_client,[set]),
+  FedratedClientEts = ets:new(federated_client,[set, public]),
   ets:insert(GenWorkerEts, {federated_client_ets, FedratedClientEts}),
-  io:format("@FedClient: ~p~n",[WorkerData]),
   {MyName, Args, Token} = WorkerData,
   ArgsList = parse_args(Args),
   sync_max_count_init(FedratedClientEts, ArgsList),
+  W2WPid = ets:lookup_element(GenWorkerEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
   % create fields in this ets
   ets:insert(FedratedClientEts, {my_token, Token}),
   ets:insert(FedratedClientEts, {my_name, MyName}),
@@ -55,38 +57,68 @@ init({GenWorkerEts, WorkerData}) ->
   ets:insert(FedratedClientEts, {sync_count, 0}),
   ets:insert(FedratedClientEts, {server_update, false}),
   ets:insert(FedratedClientEts, {handshake_done, false}),
+  ets:insert(FedratedClientEts, {handshake_wait, false}),
+  ets:insert(FedratedClientEts, {w2wcom_pid, W2WPid}),
   spawn(fun() -> handshake(FedratedClientEts) end).
 
-handshake(EtsRef) ->
-    w2wCom:sync_inbox(),
-    InboxQueue = w2wCom:get_all_messages(),
-    MessagesList = queue:to_list(InboxQueue),
-    Func = 
-      fun({?W2WCOM_ATOM, FromServer, MyName, {handshake, ServerToken}}) ->
-        ets:insert(EtsRef, {server_name, FromServer}),
-        ets:insert(EtsRef, {token , ServerToken}),
-        MyToken = ets:lookup_element(EtsRef, my_token, ?ETS_KEYVAL_VAL_IDX),
-        if 
-          ServerToken =/= MyToken -> not_my_server; 
-          true -> w2wCom:send_message(MyName, FromServer, {handshake, MyToken}) ,
-                  ets:update_element(EtsRef, handshake_done, true)
-        end
-    end,
-    lists:foreach(Func, MessagesList),
-    % Check if handshake is done
-    HandshakeDone = ets:lookup_element(EtsRef, handshake_done, ?ETS_KEYVAL_VAL_IDX),
-    if HandshakeDone -> ok;
-      true -> handshake(EtsRef)
-    end.
+handshake(FedClientEts) ->
+  W2WPid = ets:lookup_element(FedClientEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+  w2wCom:sync_inbox(W2WPid),
+  InboxQueue = w2wCom:get_all_messages(W2WPid),
+  MessagesList = queue:to_list(InboxQueue),
+  Func = 
+    fun({FedServer , {handshake, ServerToken}}) ->
+      ets:insert(FedClientEts, {server_name, FedServer}),
+      ets:insert(FedClientEts, {my_token , ServerToken}),
+      MyToken = ets:lookup_element(FedClientEts, my_token, ?ETS_KEYVAL_VAL_IDX),
+      MyName = ets:lookup_element(FedClientEts, my_name, ?ETS_KEYVAL_VAL_IDX),
+      if 
+        ServerToken =/= MyToken -> not_my_server; 
+        true -> w2wCom:send_message(W2WPid, MyName, FedServer, {handshake, MyToken}),
+                ets:update_element(FedClientEts, handshake_wait, {?ETS_KEYVAL_VAL_IDX, true})
+      end
+  end,
+  lists:foreach(Func, MessagesList).
 
 pre_idle({_GenWorkerEts, _WorkerData}) -> ok.
 
-post_idle({_GenWorkerEts, _WorkerData}) -> ok.
+post_idle({GenWorkerEts, _WorkerData}) -> 
+  FedClientEts = get_this_client_ets(GenWorkerEts),
+  W2WPid = ets:lookup_element(FedClientEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+  Token = ets:lookup_element(FedClientEts, my_token, ?ETS_KEYVAL_VAL_IDX),
+  HandshakeWait = ets:lookup_element(FedClientEts, handshake_wait, ?ETS_KEYVAL_VAL_IDX),
+  case HandshakeWait of 
+    true -> HandshakeDone = ets:lookup_element(FedClientEts, handshake_done, ?ETS_KEYVAL_VAL_IDX),
+            case HandshakeDone of 
+            false -> 
+              w2wCom:sync_inbox(W2WPid),
+              InboxQueue = w2wCom:get_all_messages(W2WPid),
+              ets:update_element(FedClientEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true}),
+              [{_FedServer, {handshake_done, Token}}] = queue:to_list(InboxQueue);
+            true -> ok
+            end;
+    false -> post_idle({GenWorkerEts, _WorkerData}) % busy waiting until handshake is done
+  end.
+  
+
 
 % After SyncMaxCount , sync_inbox to get the updated model from FedServer
-pre_train({GenWorkerEts, NerlTensorWeights}) -> 
-  ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-  nerlNIF:call_to_set_weights(ModelID, NerlTensorWeights).
+pre_train({GenWorkerEts, _NerlTensorWeights}) -> 
+  ThisEts = get_this_client_ets(GenWorkerEts),
+  SyncCount = ets:lookup_element(get_this_client_ets(GenWorkerEts), sync_count, ?ETS_KEYVAL_VAL_IDX),
+  MaxSyncCount = ets:lookup_element(get_this_client_ets(GenWorkerEts), sync_max_count, ?ETS_KEYVAL_VAL_IDX),
+  if SyncCount == MaxSyncCount ->
+    W2WPid = ets:lookup_element(get_this_client_ets(GenWorkerEts), w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+    w2wCom:sync_inbox(W2WPid), % waiting for server to average the weights and send it
+    WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+    InboxQueue = w2wCom:get_all_messages(W2WPid),
+    [UpdateWeightsMsg] = queue:to_list(InboxQueue),
+    {_FedServer , {update_weights, UpdatedWeights}} = UpdateWeightsMsg,
+    ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
+    nerlNIF:call_to_set_weights(ModelID, UpdatedWeights),
+    ets:update_element(ThisEts, sync_count, {?ETS_KEYVAL_VAL_IDX , 0});
+  true -> ets:update_counter(ThisEts, sync_count, 1)
+  end.
 
 %% every countLimit batches, send updated weights
 post_train({GenWorkerEts, _WorkerData}) -> 
@@ -95,14 +127,12 @@ post_train({GenWorkerEts, _WorkerData}) ->
   MaxSyncCount = ets:lookup_element(ThisEts, sync_max_count, ?ETS_KEYVAL_VAL_IDX),
   if SyncCount == MaxSyncCount ->
     ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-    Weights = nerlNIF:call_to_get_weights(GenWorkerEts, ModelID),
+    Weights = nerlNIF:call_to_get_weights(ModelID),
     ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX), 
     MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
-    io:format("@post_train: Worker ~p updates federated server ~p~n",[MyName , ServerName]),
-    w2wCom:send_message(MyName, ServerName , Weights), %% ****** NEW - TEST NEEDED ******
-    ets:update_element(ThisEts, sync_count, {?ETS_KEYVAL_VAL_IDX , 0});
-  true ->
-    ets:update_counter(ThisEts, sync_count, 1)
+    W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+    w2wCom:send_message(W2WPid, MyName, ServerName , {post_train_update, Weights}); %% ****** NEW - TEST NEEDED ******
+  true -> ok
   end.
 
 %% nothing?

@@ -5,9 +5,11 @@
 
 -export([start_link/1]).
 -export([init/1, handle_cast/2, handle_call/3]).
--export([send_message/3, get_all_messages/0 , sync_inbox/0]). % methods that are used by worker
+-export([send_message/4, get_all_messages/1 , sync_inbox/1]). % methods that are used by worker
 
+-define(ETS_KEYVAL_VAL_IDX, 2).
 -define(SYNC_INBOX_TIMEOUT, 30000). % 30 seconds
+-define(DEFAULT_SYNC_INBOX_BUSY_WAITING_SLEEP, 5). % 5 milliseconds
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link(args) ->
@@ -26,8 +28,16 @@ init({WorkerName, MyClientPid}) ->
     ets:insert(W2wEts, {inbox_queue, InboxQueue}),
     {ok, []}.
 
-% Received messages are of the form: {worker_to_worker_msg, FromWorkerName, ThisWorkerName, Data}
-handle_cast({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, Data}, State) ->
+handle_cast({update_gen_worker_pid, GenWorkerPid}, State) ->
+    put(gen_worker_pid, GenWorkerPid),
+    {noreply, State};
+
+handle_cast(Msg, State) ->
+    io:format("@w2wCom: Wrong message received ~p~n", [Msg]),
+    {noreply, State}.
+
+% This handler also triggers the state machine during training state
+handle_call({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, {post_train_update, Data}}, _From, State) ->
     case get(worker_name) of
         ThisWorkerName -> ok;
         _ -> throw({error, "The provided worker name is not this worker"})
@@ -35,49 +45,65 @@ handle_cast({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, Data}, State) ->
     % Saved messages are of the form: {FromWorkerName, , Data}
     Message = {FromWorkerName, Data},
     add_msg_to_inbox_queue(Message),
-    io:format("Worker ~p received message from ~p: ~p~n", [ThisWorkerName, FromWorkerName, Data]), %TODO remove
-    {noreply, State};
+    gen_server:cast(get(gen_worker_pid), {post_train_update}),
+    {reply, {ok, post_train_update}, State};
+
+% Received messages are of the form: {worker_to_worker_msg, FromWorkerName, ThisWorkerName, Data}
+handle_call({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, Data}, _From, State) ->
+    case get(worker_name) of
+        ThisWorkerName -> ok;
+        _ -> throw({error, "The provided worker name is not this worker"})
+    end,
+    % Saved messages are of the form: {FromWorkerName, , Data}
+    Message = {FromWorkerName, Data},
+    add_msg_to_inbox_queue(Message),
+    {reply, {ok, "Message received"}, State};
 
 % Token messages are tupe of: {FromWorkerName, Token, Data}
-handle_cast({?W2WCOM_TOKEN_CAST_ATOM, FromWorkerName, ThisWorkerName, Token, Data}, State) ->
+handle_call({?W2WCOM_TOKEN_CAST_ATOM, FromWorkerName, ThisWorkerName, Token, Data}, _From, State) ->
     case get(worker_name) of
         ThisWorkerName -> ok;
         _ -> throw({error, "The provided worker name is not this worker"})
     end,
     Message = {FromWorkerName, Token, Data},
     add_msg_to_inbox_queue(Message),
-     io:format("Worker ~p received token message from ~p: ~p~n", [ThisWorkerName, FromWorkerName, Data]), %TODO remove
-    {noreply, State};
+    {reply, {ok, "Message received"}, State};
 
-handle_cast(_Msg, State) ->
-    {noreply, State}.
+
+handle_call({is_inbox_empty}, _From, State) ->
+    W2WEts = get(w2w_ets),
+    InboxQueue = ets:lookup_element(W2WEts, inbox_queue, ?ETS_KEYVAL_VAL_IDX),
+    IsInboxEmpty = queue:len(InboxQueue) == 0,
+    {reply, {ok, IsInboxEmpty}, State};
+
+handle_call({get_inbox_queue}, _From, State) ->
+    W2WEts = get(w2w_ets),
+    NewEmptyQueue = queue:new(),
+    InboxQueue = ets:lookup_element(W2WEts, inbox_queue, ?ETS_KEYVAL_VAL_IDX),
+    ets:update_element(W2WEts, inbox_queue, {?ETS_KEYVAL_VAL_IDX, NewEmptyQueue}),
+    {reply, {ok, InboxQueue}, State};
+
+handle_call({get_client_pid}, _From, State) ->
+    {reply, {ok, get(client_statem_pid)}, State};
 
 handle_call(_Call, _From, State) ->
     {noreply, State}.
 
-get_all_messages() ->
-    W2WEts = get(w2w_ets),
-    {_, InboxQueue} = ets:lookup(W2WEts, inbox_queue),
-    NewEmptyQueue = queue:new(),
-    ets:update_element(W2WEts, inbox_queue, {inbox_queue, NewEmptyQueue}),
+get_all_messages(W2WPid) -> % Returns the InboxQueue and flush it 
+    {ok , InboxQueue} = gen_server:call(W2WPid, {get_inbox_queue}),
     InboxQueue.
 
-add_msg_to_inbox_queue(Message) ->
+add_msg_to_inbox_queue(Message) -> % Only w2wCom process executes this function
     W2WEts = get(w2w_ets),
-    {_, InboxQueue} = ets:lookup(W2WEts, inbox_queue),
+    InboxQueue = ets:lookup_element(W2WEts, inbox_queue, ?ETS_KEYVAL_VAL_IDX),
     InboxQueueUpdated = queue:in(Message, InboxQueue),
-    ets:update_element(W2WEts, inbox_queue, {inbox_queue, InboxQueueUpdated}).
+    ets:update_element(W2WEts, inbox_queue, {?ETS_KEYVAL_VAL_IDX, InboxQueueUpdated}).
 
-send_message(FromWorker, TargetWorker, Data) -> 
+
+send_message(W2WPid, FromWorker, TargetWorker, Data) -> 
     Msg = {?W2WCOM_ATOM, FromWorker, TargetWorker, Data},
-    MyClient = get(client_statem_pid),
-    gen_server:cast(MyClient, Msg).
-
-is_inbox_empty() ->
-    W2WEts = get(w2w_ets),
-    {_ , InboxQueue} = ets:lookup(W2WEts, inbox_queue),
-    queue:len(InboxQueue) == 0.
-
+    {ok, MyClient} = gen_server:call(W2WPid, {get_client_pid}),
+    gen_statem:cast(MyClient, Msg).
 
 
 timeout_throw(Timeout) ->
@@ -87,14 +113,14 @@ timeout_throw(Timeout) ->
     after Timeout -> throw("Timeout reached")
     end.
 
-sync_inbox() ->
+sync_inbox(W2WPid) ->
     TimeoutPID = spawn(fun() -> timeout_throw(?SYNC_INBOX_TIMEOUT) end),
-    sync_inbox(TimeoutPID).
+    sync_inbox(TimeoutPID , W2WPid).
 
-sync_inbox(TimeoutPID) ->
-    timer:sleep(10), % 10 ms
-    IsInboxEmpty = is_inbox_empty(),
+sync_inbox(TimeoutPID, W2WPid) ->
+    timer:sleep(?DEFAULT_SYNC_INBOX_BUSY_WAITING_SLEEP), 
+    {ok , IsInboxEmpty} = gen_server:call(W2WPid, {is_inbox_empty}),
     if 
-        IsInboxEmpty -> sync_inbox(TimeoutPID);
+        IsInboxEmpty -> sync_inbox(TimeoutPID, W2WPid);
         true -> TimeoutPID ! stop
     end.
