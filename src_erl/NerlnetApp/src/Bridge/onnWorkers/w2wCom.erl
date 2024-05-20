@@ -48,6 +48,17 @@ handle_call({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, {post_train_update, D
     gen_server:cast(get(gen_worker_pid), {post_train_update}),
     {reply, {ok, post_train_update}, State};
 
+handle_call({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, {worker_done, Data}}, _From, State) ->
+    case get(worker_name) of
+        ThisWorkerName -> ok;
+        _ -> throw({error, "The provided worker name is not this worker"})
+    end,
+    % Saved messages are of the form: {FromWorkerName, , Data}
+    Message = {FromWorkerName, Data},
+    add_msg_to_inbox_queue(Message),
+    gen_server:cast(get(gen_worker_pid), {worker_done}),
+    {reply, {ok, worker_done}, State};
+
 % Received messages are of the form: {worker_to_worker_msg, FromWorkerName, ThisWorkerName, Data}
 handle_call({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, Data}, _From, State) ->
     case get(worker_name) of

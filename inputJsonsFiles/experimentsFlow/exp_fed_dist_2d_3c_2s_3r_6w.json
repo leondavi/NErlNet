@@ -16,14 +16,14 @@
             {
             "sourceName": "s1",
             "startingSample": "0",
-            "numOfBatches": "100",
+            "numOfBatches": "200",
             "workers": "w1,w2,w3,w4",
             "nerltensorType": "float"
             },
             {
             "sourceName": "s2",
-            "startingSample": "10000",
-            "numOfBatches": "100",
+            "startingSample": "20000",
+            "numOfBatches": "200",
             "workers": "w5,w6",
             "nerltensorType": "float"
             }
@@ -36,15 +36,15 @@
         [
             {
             "sourceName": "s1",
-            "startingSample": "20000",
-            "numOfBatches": "100",
+            "startingSample": "40000",
+            "numOfBatches": "50",
             "workers": "w1,w2,w3,w4",
             "nerltensorType": "float"
             },
             {
             "sourceName": "s2",
-            "startingSample": "30000",
-            "numOfBatches": "100",
+            "startingSample": "45000",
+            "numOfBatches": "50",
             "workers": "w5,w6",
             "nerltensorType": "float"
             }

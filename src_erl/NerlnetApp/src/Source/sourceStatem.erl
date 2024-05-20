@@ -365,12 +365,28 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,ClientWorkerPairs, Batches
   ets:insert(TransmitterEts, {batches_skipped, 0}),
   ets:insert(TransmitterEts, {current_batch_id, 0}),
   TransmissionStart = erlang:timestamp(),
+  % Message to all workrers : "start_stream"
+  {RouterHost, RouterPort} = ets:lookup_element(TransmitterEts, my_router, ?DATA_IDX),
+  FuncStart = fun({ClientName, WorkerName}) ->
+    ToSend = {MyName, ClientName, WorkerName},
+    io:format("~p sending start_stream to ~p of worker ~p~n",[MyName, ClientName, WorkerName]),
+    nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(start_stream), ToSend)
+  end,
+  lists:foreach(FuncStart, ClientWorkerPairs),
   case Method of
     ?SOURCE_POLICY_CASTING_ATOM -> send_method_casting(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
     ?SOURCE_POLICY_ROUNDROBIN_ATOM -> send_method_round_robin(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
     ?SOURCE_POLICY_RANDOM_ATOM -> send_method_random(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
     _Default -> send_method_casting(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend)
   end,
+  io:format("GOT HEREEEEE~n"),
+  % Message to workers : "end_stream"
+  FuncEnd = fun({ClientName, WorkerName}) ->
+    ToSend = {MyName, ClientName, WorkerName},
+    io:format("~p sending end_stream to ~p of worker ~p~n",[MyName, ClientName, WorkerName]),
+    nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(end_stream), ToSend)
+  end,
+  lists:foreach(FuncEnd, ClientWorkerPairs),
   TransmissionTimeTook_sec = timer:now_diff(erlang:timestamp(), TransmissionStart) / 1000000,
   ErrorBatches = ets:lookup_element(TransmitterEts, batches_issue, ?DATA_IDX),
   SkippedBatches = ets:lookup_element(TransmitterEts, batches_skipped, ?DATA_IDX),

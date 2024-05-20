@@ -10,7 +10,7 @@
 
 -define(WORKER_FEDERATED_CLIENT_ETS_FIELDS, [my_name, client_pid, server_name, sync_max_count, sync_count]).
 -define(FEDERATED_CLIENT_ETS_KEY_IN_GENWORKER_ETS, fedrated_client_ets).
--define(DEFAULT_SYNC_MAX_COUNT_ARG, 1).
+-define(DEFAULT_SYNC_MAX_COUNT_ARG, 100).
 
 controller(FuncName, {GenWorkerEts, WorkerData}) -> 
   case FuncName of
@@ -20,7 +20,10 @@ controller(FuncName, {GenWorkerEts, WorkerData}) ->
     pre_train   -> pre_train({GenWorkerEts, WorkerData});
     post_train  -> post_train({GenWorkerEts, WorkerData});
     pre_predict -> pre_predict({GenWorkerEts, WorkerData});
-    post_predict-> post_predict({GenWorkerEts, WorkerData})
+    post_predict -> post_predict({GenWorkerEts, WorkerData});
+    start_stream -> start_stream({GenWorkerEts, WorkerData});
+    end_stream -> end_stream({GenWorkerEts, WorkerData});
+    worker_done -> worker_done({GenWorkerEts, WorkerData})
   end.
 
 get_this_client_ets(GenWorkerEts) -> 
@@ -59,6 +62,7 @@ init({GenWorkerEts, WorkerData}) ->
   ets:insert(FedratedClientEts, {handshake_done, false}),
   ets:insert(FedratedClientEts, {handshake_wait, false}),
   ets:insert(FedratedClientEts, {w2wcom_pid, W2WPid}),
+  ets:insert(FedratedClientEts, {casting_sources, []}),
   spawn(fun() -> handshake(FedratedClientEts) end).
 
 handshake(FedClientEts) ->
@@ -79,6 +83,24 @@ handshake(FedClientEts) ->
       end
   end,
   lists:foreach(Func, MessagesList).
+
+start_stream({GenWorkerEts, WorkerData}) ->  % WorkerData is currently a list of [SourceName]
+  SourceName = hd(WorkerData),
+  ThisEts = get_this_client_ets(GenWorkerEts),
+  ets:update_element(ThisEts, stream_occuring , {?ETS_KEYVAL_VAL_IDX, true}),
+  CastingSources = ets:lookup_element(ThisEts, casting_sources, ?ETS_KEYVAL_VAL_IDX),
+  NewCastingSources = CastingSources ++ [SourceName],
+  ets:update_element(ThisEts, casting_sources, {?ETS_KEYVAL_VAL_IDX, NewCastingSources}).
+  % ***** Add SourcesList ***** 
+
+end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [SourceName]
+  SourceName = hd(WorkerData),
+  ThisEts = get_this_client_ets(GenWorkerEts),
+  ets:update_element(ThisEts, stream_occuring , {?ETS_KEYVAL_VAL_IDX, false}),
+  CastingSources = ets:lookup_element(ThisEts, casting_sources, ?ETS_KEYVAL_VAL_IDX),
+  NewCastingSources = CastingSources -- [SourceName],
+  ets:update_element(ThisEts, casting_sources, {?ETS_KEYVAL_VAL_IDX, NewCastingSources}).
+
 
 pre_idle({_GenWorkerEts, _WorkerData}) -> ok.
 
@@ -123,17 +145,22 @@ pre_train({GenWorkerEts, _NerlTensorWeights}) ->
 
 %% every countLimit batches, send updated weights
 post_train({GenWorkerEts, _WorkerData}) -> 
-  ThisEts = get_this_client_ets(GenWorkerEts),
-  SyncCount = ets:lookup_element(ThisEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
-  MaxSyncCount = ets:lookup_element(ThisEts, sync_max_count, ?ETS_KEYVAL_VAL_IDX),
-  if SyncCount == MaxSyncCount ->
-    ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-    Weights = nerlNIF:call_to_get_weights(ModelID),
-    ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX), 
-    MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
-    W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-    w2wCom:send_message(W2WPid, MyName, ServerName , {post_train_update, Weights}); %% ****** NEW - TEST NEEDED ******
-  true -> ok
+  CastingSources = ets:lookup_element(get_this_client_ets(GenWorkerEts), casting_sources, ?ETS_KEYVAL_VAL_IDX),
+  case CastingSources of
+    [] -> ok;
+    _ ->
+      ThisEts = get_this_client_ets(GenWorkerEts),
+      SyncCount = ets:lookup_element(ThisEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
+      MaxSyncCount = ets:lookup_element(ThisEts, sync_max_count, ?ETS_KEYVAL_VAL_IDX),
+      if SyncCount == MaxSyncCount ->
+        ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
+        Weights = nerlNIF:call_to_get_weights(ModelID),
+        ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX), 
+        MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+        W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+        w2wCom:send_message(W2WPid, MyName, ServerName , {post_train_update, Weights}); %% ****** NEW - TEST NEEDED ******
+      true -> ok
+      end
   end.
 
 %% nothing?
@@ -141,4 +168,7 @@ pre_predict({_GenWorkerEts, WorkerData}) -> WorkerData.
 
 %% nothing?
 post_predict(Data) -> Data.
+
+worker_done({_GenWorkerEts, _WorkerData}) -> ok.
+
 

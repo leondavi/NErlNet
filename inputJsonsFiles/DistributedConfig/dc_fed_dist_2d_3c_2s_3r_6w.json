@@ -52,7 +52,7 @@
         {
             "name": "s2",
             "port": "8902",
-            "frequency": "100",
+            "frequency": "200",
             "policy": "0",
             "epochs": "1",
             "type": "0"

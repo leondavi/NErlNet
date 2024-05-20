@@ -121,9 +121,11 @@ waitforWorkers(cast, In = {stateChange,WorkerName}, State = #client_statem_state
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   case NewWaitforWorkers of % TODO Guy here we need to check for keep alive with workers
     [] ->   send_client_is_ready(MyName), % when all workers done their work
+            io:format("Client ~p is ready~n",[MyName]),
             stats:increment_messages_sent(ClientStatsEts),
             {next_state, NextState, State#client_statem_state{waitforWorkers = []}};
-    _->  {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers}}
+    _  ->   io:format("Client ~p is waiting for workers ~p~n",[MyName,NewWaitforWorkers]),
+            {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers}}
   end;
 
 waitforWorkers(cast, In = {worker_to_worker_msg, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -255,12 +257,31 @@ training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef
   MessageToCast = {idle},
   cast_message_to_workers(EtsRef, MessageToCast),
   Workers =  clientWorkersFunctions:get_workers_names(EtsRef),
-  ?LOG_INFO("~p setting workers at idle: ~p~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
+  ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
   {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
 
 training(cast, _In = {predict}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
   ?LOG_ERROR("Wrong request , client ~p can't go from training to predict directly", [MyName]),
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
+
+% ************* NEW ***************
+training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+  {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , list_to_atom(WorkerName)),
+  gen_statem:cast(WorkerPid, {start_stream, SourceName}),
+  {keep_state, State};
+
+training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+  {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , list_to_atom(WorkerName)),
+  gen_statem:cast(WorkerPid, {end_stream, SourceName}),
+  {keep_state, State};
 
 training(cast, In = {loss, WorkerName ,SourceName ,LossTensor ,TimeNIF ,BatchID ,BatchTS}, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
@@ -297,6 +318,24 @@ predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef})
     true -> ?LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName])
   end,
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
+
+predict(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+  {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , list_to_atom(WorkerName)),
+  gen_statem:cast(WorkerPid, {start_stream, SourceName}),
+  {keep_state, State};
+
+predict(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+  {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , list_to_atom(WorkerName)),
+  gen_statem:cast(WorkerPid, {end_stream, SourceName}),
+  {keep_state, State};
 
 predict(cast, In = {predictRes,WorkerName, SourceName ,{PredictNerlTensor, NetlTensorType} , TimeTook , BatchID , BatchTS}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
@@ -380,8 +419,8 @@ send_client_is_ready(MyName) ->
 cast_message_to_workers(EtsRef, Msg) ->
   ClientStatsEts = get(client_stats_ets),
   Workers = ets:lookup_element(EtsRef, workersNames, ?ETS_KV_VAL_IDX),
-  Func = fun(WorkerKey) ->
-    WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef, WorkerKey), % WorkerKey is the worker name
+  Func = fun(WorkerName) ->
+    WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef, WorkerName), 
     gen_statem:cast(WorkerPid, Msg),
     stats:increment_messages_sent(ClientStatsEts)
   end,

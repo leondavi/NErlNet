@@ -24,7 +24,9 @@ init(Req0, [Action,Client_StateM_Pid]) ->
     idle        -> gen_statem:cast(Client_StateM_Pid,{idle});
     training    -> gen_statem:cast(Client_StateM_Pid,{training});
     predict     -> gen_statem:cast(Client_StateM_Pid,{predict});
-    statistics  -> gen_statem:cast(Client_StateM_Pid,{statistics})
+    statistics  -> gen_statem:cast(Client_StateM_Pid,{statistics});
+    start_stream -> gen_statem:cast(Client_StateM_Pid,{start_stream, Body});
+    end_stream -> gen_statem:cast(Client_StateM_Pid,{end_stream, Body})
   end,
 
   %% reply ACKnowledge to main server for initiating, later send finished initiating http_request from client_stateM
