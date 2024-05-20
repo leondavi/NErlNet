@@ -86,6 +86,7 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   ets:insert(EtsRef, {sha_to_models_map , ShaToModelArgsMap}),
   ets:insert(EtsRef, {w2wcom_pids, #{}}),
   ets:insert(EtsRef, {all_workers_done, false}),
+  ets:insert(EtsRef, {num_of_fed_servers, 0}),
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM, NerlnetGraph),
   ets:insert(EtsRef, {my_router,{MyRouterHost,MyRouterPort}}),
   clientWorkersFunctions:create_workers(MyName , EtsRef , ShaToModelArgsMap , EtsStats),
@@ -93,7 +94,9 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   WorkersNames = clientWorkersFunctions:get_workers_names(EtsRef),
   Pids = [clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName) || WorkerName <- WorkersNames],
   [gen_statem:cast(WorkerPid, {pre_idle}) || WorkerPid <- Pids],
-
+  NumOfFedServers = ets:lookup_element(EtsRef, num_of_fed_servers, ?DATA_IDX), % When non-federated exp this value is 0
+  ets:insert(EtsRef, {num_of_training_workers, length(ClientWorkers) - NumOfFedServers}),
+  ets:insert(EtsRef, {training_workers, 0}), % will be updated in idle -> training
   % update dictionary
   WorkersEts = ets:lookup_element(EtsRef , workers_ets , ?DATA_IDX),
   put(workers_ets, WorkersEts),
@@ -155,7 +158,6 @@ waitforWorkers(cast, EventContent, State = #client_statem_state{myName = MyName}
   
 
 %% initiating workers when they include federated workers. init stage == handshake between federated worker client and server
-%% TODO: make custom_worker_message in all states to send messages from workers to entities (not just client)
 idle(cast, In = {worker_to_worker_msg, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -184,6 +186,8 @@ idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRe
   MessageToCast = {training},
   cast_message_to_workers(EtsRef, MessageToCast),
   ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, false}),
+  NumOfTrainingWorkers = ets:lookup_element(EtsRef, num_of_training_workers, ?DATA_IDX),
+  ets:update_element(EtsRef, training_workers, {?DATA_IDX, NumOfTrainingWorkers}),
   {next_state, waitforWorkers, State#client_statem_state{waitforWorkers =  clientWorkersFunctions:get_workers_names(EtsRef), nextState = training}};
 
 idle(cast, In = {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -268,7 +272,7 @@ training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = E
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
   ClientStatsEts = get(client_stats_ets),
   WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
-  NumOfTrainingWorkers = ets:lookup_element(EtsRef, num_of_training_workers, ?DATA_IDX),
+  NumOfTrainingWorkers = ets:lookup_element(EtsRef, training_workers, ?DATA_IDX),
   WorkerOfThisClient = lists:member(WorkerName, WorkersOfThisClient),
   if WorkerOfThisClient -> 
           stats:increment_messages_received(ClientStatsEts),
@@ -276,7 +280,7 @@ training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = E
           WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , list_to_atom(WorkerName)),
           gen_statem:cast(WorkerPid, {end_stream, SourceName}),
           UpdatedNumOfTrainingWorkers = NumOfTrainingWorkers - 1,
-          ets:update_element(EtsRef, num_of_training_workers, {?DATA_IDX, UpdatedNumOfTrainingWorkers}),
+          ets:update_element(EtsRef, training_workers, {?DATA_IDX, UpdatedNumOfTrainingWorkers}),
           case UpdatedNumOfTrainingWorkers of 
             0 -> ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
             _ -> ok end;

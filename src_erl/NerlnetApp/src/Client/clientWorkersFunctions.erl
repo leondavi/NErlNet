@@ -21,6 +21,9 @@ case DistributedSystemType of
         WorkersMap = ets:lookup_element(ClientEtsRef, workerToClient, ?DATA_IDX),
         WorkersList = [Worker || {Worker, _Val} <- maps:to_list(WorkersMap)],
         DistributedBehaviorFunc = fun workerFederatedServer:controller/2,
+        NumOfFedServers = ets:lookup_element(ClientEtsRef, num_of_fed_servers, ?DATA_IDX),
+        UpdatedNumOfFedServers = NumOfFedServers + 1,
+        ets:update_element(ClientEtsRef, num_of_fed_servers, {?DATA_IDX, UpdatedNumOfFedServers}),
         DistributedWorkerData = {_ServerName = WorkerName , _Args = DistributedSystemArgs, _Token = DistributedSystemToken , _WorkersList = WorkersList}
       end,
 {DistributedBehaviorFunc , DistributedWorkerData}.
