@@ -47,23 +47,24 @@ sync_max_count_init(FedClientEts , ArgsList) ->
 %% handshake with workers / server at the end of init
 init({GenWorkerEts, WorkerData}) ->
   % create an ets for this client and save it to generic worker ets
-  FedratedClientEts = ets:new(federated_client,[set, public]),
-  ets:insert(GenWorkerEts, {federated_client_ets, FedratedClientEts}),
+  FederatedClientEts = ets:new(federated_client,[set, public]),
+  ets:insert(GenWorkerEts, {federated_client_ets, FederatedClientEts}),
   {MyName, Args, Token} = WorkerData,
   ArgsList = parse_args(Args),
-  sync_max_count_init(FedratedClientEts, ArgsList),
+  sync_max_count_init(FederatedClientEts, ArgsList),
   W2WPid = ets:lookup_element(GenWorkerEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
   % create fields in this ets
-  ets:insert(FedratedClientEts, {my_token, Token}),
-  ets:insert(FedratedClientEts, {my_name, MyName}),
-  ets:insert(FedratedClientEts, {server_name, none}), % update later
-  ets:insert(FedratedClientEts, {sync_count, 0}),
-  ets:insert(FedratedClientEts, {server_update, false}),
-  ets:insert(FedratedClientEts, {handshake_done, false}),
-  ets:insert(FedratedClientEts, {handshake_wait, false}),
-  ets:insert(FedratedClientEts, {w2wcom_pid, W2WPid}),
-  ets:insert(FedratedClientEts, {casting_sources, []}),
-  spawn(fun() -> handshake(FedratedClientEts) end).
+  ets:insert(FederatedClientEts, {my_token, Token}),
+  ets:insert(FederatedClientEts, {my_name, MyName}),
+  ets:insert(FederatedClientEts, {server_name, none}), % update later
+  ets:insert(FederatedClientEts, {sync_count, 0}),
+  ets:insert(FederatedClientEts, {server_update, false}),
+  ets:insert(FederatedClientEts, {handshake_done, false}),
+  ets:insert(FederatedClientEts, {handshake_wait, false}),
+  ets:insert(FederatedClientEts, {w2wcom_pid, W2WPid}),
+  ets:insert(FederatedClientEts, {casting_sources, []}),
+  ets:insert(FederatedClientEts, {stream_occuring, false}),
+  spawn(fun() -> handshake(FederatedClientEts) end).
 
 handshake(FedClientEts) ->
   W2WPid = ets:lookup_element(FedClientEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
@@ -128,7 +129,8 @@ post_idle({GenWorkerEts, _WorkerData}) ->
 
 % After SyncMaxCount , sync_inbox to get the updated model from FedServer
 pre_train({GenWorkerEts, _NerlTensorWeights}) -> 
-  StreamOccuring = ets:lookup_element(get_this_client_ets(GenWorkerEts), stream_occuring, ?ETS_KEYVAL_VAL_IDX),
+  ThisEts = get_this_client_ets(GenWorkerEts),
+  StreamOccuring = ets:lookup_element(ThisEts, stream_occuring, ?ETS_KEYVAL_VAL_IDX),
   case StreamOccuring of
     true -> 
       ThisEts = get_this_client_ets(GenWorkerEts),
