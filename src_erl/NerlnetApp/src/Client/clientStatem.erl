@@ -184,6 +184,7 @@ idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRe
   {next_state, waitforWorkers, State#client_statem_state{waitforWorkers =  clientWorkersFunctions:get_workers_names(EtsRef), nextState = training}};
 
 idle(cast, In = {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
+  io:format("Client sending workers to predict state...~n"),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
@@ -367,7 +368,6 @@ predict(cast, In = {worker_to_worker_msg, FromWorker, ToWorker, Data}, State = #
 %% The source sends message to main server that it has finished
 %% The main server updates its' clients to move to state 'idle'
 predict(cast, In = {idle}, State = #client_statem_state{etsRef = EtsRef , myName = _MyName}) ->
-
   MsgToCast = {idle},
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
