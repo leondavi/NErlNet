@@ -142,14 +142,14 @@ post_train({GenWorkerEts, WorkerData}) when length(WorkerData) == 0 -> % WorkerD
   ReceivedWeights = [WorkersWeights || {_WorkerName, {WorkersWeights, _BinaryType}} <- MessagesList],
   CurrWorkersWeightsList = ets:lookup_element(FedServerEts, weights_list, ?ETS_KEYVAL_VAL_IDX),
   TotalWorkersWeights = CurrWorkersWeightsList ++ ReceivedWeights,
-  case length(TotalWorkersWeights) == NumOfTrainingWorkers of % Why not timeout
+  case length(TotalWorkersWeights) == NumOfTrainingWorkers of % ? Why not timeout
     true -> 
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
       {CurrentModelWeights, BinaryType} = nerlNIF:call_to_get_weights(ModelID),
       FedServerName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
       AllWorkersWeightsList = TotalWorkersWeights ++ [CurrentModelWeights],
       AvgWeightsNerlTensor = generate_avg_weights(AllWorkersWeightsList, BinaryType),
-      nerlNIF:call_to_set_weights(ModelID, AvgWeightsNerlTensor),     %% update self weights to new model
+      nerlNIF:call_to_set_weights(ModelID, AvgWeightsNerlTensor), %% update self weights to new model
       Func = fun(FedClient) ->
         FedServerName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),

@@ -379,7 +379,6 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,ClientWorkerPairs, Batches
     ?SOURCE_POLICY_RANDOM_ATOM -> send_method_random(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
     _Default -> send_method_casting(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend)
   end,
-  io:format("GOT HEREEEEE~n"),
   % Message to workers : "end_stream"
   FuncEnd = fun({ClientName, WorkerName}) ->
     ToSend = {MyName, ClientName, WorkerName},

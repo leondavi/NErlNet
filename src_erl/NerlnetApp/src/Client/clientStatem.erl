@@ -85,6 +85,7 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   ets:insert(EtsRef, {workers_to_sha_map, MyWorkersToShaMap}),
   ets:insert(EtsRef, {sha_to_models_map , ShaToModelArgsMap}),
   ets:insert(EtsRef, {w2wcom_pids, #{}}),
+  ets:insert(EtsRef, {all_workers_done, false}),
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM, NerlnetGraph),
   ets:insert(EtsRef, {my_router,{MyRouterHost,MyRouterPort}}),
   clientWorkersFunctions:create_workers(MyName , EtsRef , ShaToModelArgsMap , EtsStats),
@@ -100,6 +101,7 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   put(client_data, EtsRef),
   put(ets_stats, EtsStats),
   put(client_stats_ets , ClientStatsEts),
+  put(my_pid , self()),
 
   {ok, idle, #client_statem_state{myName= MyName, etsRef = EtsRef}}.
 
@@ -181,6 +183,7 @@ idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRe
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   MessageToCast = {training},
   cast_message_to_workers(EtsRef, MessageToCast),
+  ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, false}),
   {next_state, waitforWorkers, State#client_statem_state{waitforWorkers =  clientWorkersFunctions:get_workers_names(EtsRef), nextState = training}};
 
 idle(cast, In = {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -251,20 +254,6 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
   true -> ?LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName]) end,
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
-training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
-  ClientStatsEts = get(client_stats_ets),
-  stats:increment_messages_received(ClientStatsEts),
-  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  MessageToCast = {idle},
-  cast_message_to_workers(EtsRef, MessageToCast),
-  Workers =  clientWorkersFunctions:get_workers_names(EtsRef),
-  ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
-  {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
-
-training(cast, _In = {predict}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
-  ?LOG_ERROR("Wrong request , client ~p can't go from training to predict directly", [MyName]),
-  {next_state, training, State#client_statem_state{etsRef = EtsRef}};
-
 % ************* NEW ***************
 training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
@@ -278,11 +267,43 @@ training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef =
 training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
   ClientStatsEts = get(client_stats_ets),
+  WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
+  NumOfTrainingWorkers = ets:lookup_element(EtsRef, num_of_training_workers, ?DATA_IDX),
+  WorkerOfThisClient = lists:member(WorkerName, WorkersOfThisClient),
+  if WorkerOfThisClient -> 
+          stats:increment_messages_received(ClientStatsEts),
+          stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+          WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , list_to_atom(WorkerName)),
+          gen_statem:cast(WorkerPid, {end_stream, SourceName}),
+          UpdatedNumOfTrainingWorkers = NumOfTrainingWorkers - 1,
+          ets:update_element(EtsRef, num_of_training_workers, {?DATA_IDX, UpdatedNumOfTrainingWorkers}),
+          case UpdatedNumOfTrainingWorkers of 
+            0 -> ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
+            _ -> ok end;
+        true -> ok
+  end,
+  {keep_state, State};
+
+
+training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , list_to_atom(WorkerName)),
-  gen_statem:cast(WorkerPid, {end_stream, SourceName}),
-  {keep_state, State};
+  MessageToCast = {idle},
+  WorkersDone = ets:lookup_element(EtsRef , all_workers_done , ?DATA_IDX),
+  case WorkersDone of
+    true -> cast_message_to_workers(EtsRef, MessageToCast),
+            Workers =  clientWorkersFunctions:get_workers_names(EtsRef),
+            ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
+            {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
+    false ->  gen_statem:cast(get(my_pid) , {idle}),
+              {next_state, training, State#client_statem_state{etsRef = EtsRef}}
+  end;
+
+training(cast, _In = {predict}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
+  ?LOG_ERROR("Wrong request , client ~p can't go from training to predict directly", [MyName]),
+  {next_state, training, State#client_statem_state{etsRef = EtsRef}};
+
 
 training(cast, In = {loss, WorkerName ,SourceName ,LossTensor ,TimeNIF ,BatchID ,BatchTS}, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
@@ -448,6 +469,8 @@ handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data) ->
     _ ->
       %% Send to the correct client
       DestClient = maps:get(ToWorker, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
+      % ClientName = ets:lookup_element(EtsRef, myName , ?DATA_IDX),
+      % io:format("Client ~p passing w2w_msg {~p --> ~p} to ~p: Data ~p~n",[ClientName, FromWorker, ToWorker, DestClient,Data]),
       MessageBody = {worker_to_worker_msg, FromWorker, ToWorker, Data},
       {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
       nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(worker_to_worker_msg), MessageBody),

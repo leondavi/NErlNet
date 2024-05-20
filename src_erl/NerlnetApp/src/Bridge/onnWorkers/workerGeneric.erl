@@ -248,6 +248,7 @@ train(cast, {post_train_update}, State = #workerGeneric_state{distributedBehavio
   {next_state, train, State};
 
 train(cast, {worker_done}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+  io:format("Worker ~p got worker_done~n",[MyName]),
   DistributedBehaviorFunc(worker_done, {get(generic_worker_ets),[MyName]}),
   {next_state, idle, State};
 
@@ -256,6 +257,7 @@ train(cast, {start_stream , SourceName}, State = #workerGeneric_state{myName = M
   {next_state, train, State};
 
 train(cast, {end_stream , SourceName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+  io:format("Worker ~p got end_stream~n",[MyName]),
   DistributedBehaviorFunc(end_stream, {get(generic_worker_ets), [SourceName]}),
   {next_state, train, State};
 
