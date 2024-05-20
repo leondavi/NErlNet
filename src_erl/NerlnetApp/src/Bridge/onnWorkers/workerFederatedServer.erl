@@ -84,6 +84,7 @@ worker_done({GenWorkerEts, WorkerData}) ->
   ThisEts = get_this_server_ets(GenWorkerEts),
   TrainingWorkers = ets:lookup_element(ThisEts, training_workers, ?ETS_KEYVAL_VAL_IDX),
   UpdatedTrainingWorkers = lists:delete(WorkerName, TrainingWorkers),
+  io:format("Worker ~p Done, UpdatedTrainingWorkers = ~p~n", [WorkerName, UpdatedTrainingWorkers]),
   ets:update_element(ThisEts, training_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedTrainingWorkers}).
 
 
