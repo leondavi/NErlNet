@@ -243,7 +243,8 @@ train(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelID
   %logger:notice("####end set weights train####~n"),
   {next_state, train, State};
 
-train(cast, {post_train_update}, State = #workerGeneric_state{distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+train(cast, {post_train_update}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+  io:format("Worker ~p got post_train_update~n",[MyName]),
   DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}),
   {next_state, train, State};
 
@@ -253,6 +254,7 @@ train(cast, {worker_done}, State = #workerGeneric_state{myName = MyName , distri
   {next_state, idle, State};
 
 train(cast, {start_stream , SourceName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+  io:format("Worker ~p got start_stream~n",[MyName]),
   DistributedBehaviorFunc(start_stream, {get(generic_worker_ets), [SourceName]}),
   {next_state, train, State};
 

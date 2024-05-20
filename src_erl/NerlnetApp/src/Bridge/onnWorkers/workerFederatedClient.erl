@@ -99,8 +99,13 @@ end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [S
   ThisEts = get_this_client_ets(GenWorkerEts),
   CastingSources = ets:lookup_element(ThisEts, casting_sources, ?ETS_KEYVAL_VAL_IDX),
   NewCastingSources = CastingSources -- [SourceName],
+  io:format("NewCastingSources = ~p~n", [NewCastingSources]),
   case NewCastingSources of
-    [] -> ets:update_element(ThisEts, stream_occuring , {?ETS_KEYVAL_VAL_IDX, false});
+    [] -> ets:update_element(ThisEts, stream_occuring , {?ETS_KEYVAL_VAL_IDX, false}),
+          ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX),
+          MyName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
+          W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+          w2wCom:send_message(W2WPid, MyName, ServerName , {worker_done, []});
     _ -> ets:update_element(ThisEts, casting_sources, {?ETS_KEYVAL_VAL_IDX, NewCastingSources})
   end.
 
@@ -131,6 +136,7 @@ post_idle({GenWorkerEts, _WorkerData}) ->
 pre_train({GenWorkerEts, _NerlTensorWeights}) -> 
   ThisEts = get_this_client_ets(GenWorkerEts),
   StreamOccuring = ets:lookup_element(ThisEts, stream_occuring, ?ETS_KEYVAL_VAL_IDX),
+  % io:format("StreamOccuring = ~p~n", [StreamOccuring]),
   case StreamOccuring of
     true -> 
       ThisEts = get_this_client_ets(GenWorkerEts),
