@@ -269,17 +269,19 @@ training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef =
   {keep_state, State};
 
 training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
-  {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
+  {SourceName, ClientName, WorkerName} = binary_to_term(Data),
   ClientStatsEts = get(client_stats_ets),
   WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
   NumOfTrainingWorkers = ets:lookup_element(EtsRef, training_workers, ?DATA_IDX),
-  WorkerOfThisClient = lists:member(WorkerName, WorkersOfThisClient),
+  io:format("Client ~p received end_stream to worker ~p , remaining training workers ~p~n",[ClientName, WorkerName, NumOfTrainingWorkers]),
+  WorkerOfThisClient = lists:member(list_to_atom(WorkerName), WorkersOfThisClient),
   if WorkerOfThisClient -> 
           stats:increment_messages_received(ClientStatsEts),
           stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
           WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , list_to_atom(WorkerName)),
           gen_statem:cast(WorkerPid, {end_stream, SourceName}),
           UpdatedNumOfTrainingWorkers = NumOfTrainingWorkers - 1,
+          io:format("UpdatedNumOfTrainingWorkers = ~p~n",[UpdatedNumOfTrainingWorkers]),
           ets:update_element(EtsRef, training_workers, {?DATA_IDX, UpdatedNumOfTrainingWorkers}),
           case UpdatedNumOfTrainingWorkers of 
             0 -> ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
