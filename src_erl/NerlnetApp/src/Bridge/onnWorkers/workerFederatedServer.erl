@@ -75,10 +75,14 @@ start_stream({GenWorkerEts, _WorkerData}) ->
   W2WPid = ets:lookup_element(GenWorkerEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
   w2wCom:sync_inbox(W2WPid),
   InboxQueue = w2wCom:get_all_messages(W2WPid),
-  [Message] = queue:to_list(InboxQueue),
-  {FromFedClient , [_SourceName]} = Message,
-  ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
-  UpdatedActiveWorkers = ActiveWorkers ++ [FromFedClient],
+  MessagesList = queue:to_list(InboxQueue),
+  Func = fun({FromFedClient , _SourceName}) ->
+      ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+      UpdatedActiveWorkers = ActiveWorkers ++ [FromFedClient],
+      ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers})
+  end,
+  lists:foreach(Func, MessagesList),
+  UpdatedActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
   ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers}),
   LengthFedClients = length(ets:lookup_element(FedServerEts, fed_clients, ?ETS_KEYVAL_VAL_IDX)),
   case length(UpdatedActiveWorkers) of
@@ -96,10 +100,14 @@ end_stream({GenWorkerEts, _WorkerData}) ->
   W2WPid = ets:lookup_element(GenWorkerEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
   w2wCom:sync_inbox(W2WPid),
   InboxQueue = w2wCom:get_all_messages(W2WPid),
-  [Message] = queue:to_list(InboxQueue),
-  {FromFedClient , [_SourceName]} = Message,
-  ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
-  UpdatedActiveWorkers = ActiveWorkers -- [FromFedClient],
+  MessagesList = queue:to_list(InboxQueue),
+  Func = fun({FromFedClient , _SourceName}) ->
+      ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+      UpdatedActiveWorkers = ActiveWorkers ++ [FromFedClient],
+      ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers})
+  end,
+  lists:foreach(Func, MessagesList),
+  UpdatedActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
   ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers}),
   case length(UpdatedActiveWorkers) of
     0 -> ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
