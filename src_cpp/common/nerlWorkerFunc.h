@@ -102,7 +102,7 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
                             std::string::const_iterator searchStartDim(layer_sizes_strs_vec[i].cbegin());
                             for (size_t k = 0; k < 3; k++){
                                  std::regex_search(searchStartDim, layer_sizes_strs_vec[i].cend(), dim_match, rgx_dim);
-                                 if(k == 0){
+                                    if(k == 0){
                                         out_layer_sizes_params[i].dimx = std::stoi(dim_match[0]);
                                     }else if(k == 1){
                                         out_layer_sizes_params[i].dimy = std::stoi(dim_match[0]);
@@ -124,9 +124,6 @@ static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int>
                                     std::string dimension;
                                     while (std::getline(dimensions_stream, dimension, 'x'))
                                     {
-                                      //  std::cout << "param_char: " << param_char << std::endl;
-                                       // std::cout << "dimension: " << dimension << std::endl;
-                                      //  std::cout << "std::stoi(dimension): " << std::stoi(dimension) << std::endl;
                                         out_layer_sizes_params[i]._ext_params.push_back(std::stoi(dimension));
                                     }
                                     if(dimensions_str_sub.length() == 1 && param_char!='t') out_layer_sizes_params[i]._ext_params.push_back(std::stoi(dimension));
