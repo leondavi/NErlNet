@@ -112,8 +112,8 @@ end_stream({GenWorkerEts, _WorkerData}) ->
   case length(UpdatedActiveWorkers) of
     0 -> ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
                         MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
-                        ClientName = ets:lookup_element(GenWorkerEts, client_name, ?ETS_KEYVAL_VAL_IDX),
-                        Data = {MyName, ClientName, MyName}, % Mimic source behavior to register as an active worker for the client
+                        % ClientName = ets:lookup_element(GenWorkerEts, client_name, ?ETS_KEYVAL_VAL_IDX),
+                        Data = {MyName, MyName, MyName}, % Mimic source behavior to register as an active worker for the client
                         gen_server:cast(ClientPid, {end_stream, term_to_binary(Data)});
     _ -> ok
   end.
