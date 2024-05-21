@@ -56,6 +56,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   put(worker_stats_ets , WorkerStatsEts),
   SourceBatchesEts = ets:new(source_batches,[set]),
   put(source_batches_ets, SourceBatchesEts),
+  ets:insert(GenWorkerEts,{client_pid, ClientPid}),
   ets:insert(GenWorkerEts,{w2wcom_pid, W2WPid}),
   ets:insert(GenWorkerEts,{worker_name, WorkerName}),
   ets:insert(GenWorkerEts,{model_id, ModelID}),
