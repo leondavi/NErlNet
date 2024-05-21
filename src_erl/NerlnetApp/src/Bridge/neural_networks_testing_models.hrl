@@ -33,7 +33,7 @@
                                 _ModelTypeAEC = "9",
                                 _ModelArgsAEC = "",
                                 _LayersSizesAEC = "32,16,8,4,8,16,32,32", % last layer (perceptron) should be the same as the input layer , followed by bounding layer
-                                _LayersTypesAEC = "1,3,3,3,3,3,3,9",
+                                _LayersTypesAEC = "1,3,3,3,3,3,3,10",
                                 _LayersFunctionalityCodesAEC = "1,11,11,11,11,11,11,1", 
                                 _LearningRateAEC = "0.01",
                                 _EpochsAEC = "50",
@@ -47,7 +47,7 @@
                                 _ModelTypeAE = "8",
                                 _ModelArgsAE = "",
                                 _LayersSizesAE = "32,16,8,4,8,16,32,32", % last layer (perceptron) should be the same as the input layer , followed by bounding layer
-                                _LayersTypesAE = "1,3,3,3,3,3,3,9",
+                                _LayersTypesAE = "1,3,3,3,3,3,3,10",
                                 _LayersFunctionalityCodesAE = "1,11,11,11,11,11,11,1", 
                                 _LearningRateAE = "0.01",
                                 _EpochsAE = "50",
