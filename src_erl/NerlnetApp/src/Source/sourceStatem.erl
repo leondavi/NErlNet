@@ -365,11 +365,11 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,ClientWorkerPairs, Batches
   ets:insert(TransmitterEts, {batches_skipped, 0}),
   ets:insert(TransmitterEts, {current_batch_id, 0}),
   TransmissionStart = erlang:timestamp(),
-  % Message to all workrers : "start_stream"
+  % Message to all workrers : "start_stream" , TRANSFER TO FUNCTIONS
   {RouterHost, RouterPort} = ets:lookup_element(TransmitterEts, my_router, ?DATA_IDX),
-  FuncStart = fun({ClientName, WorkerName}) ->
-    ToSend = {MyName, ClientName, WorkerName},
-    io:format("~p sending start_stream to ~p of worker ~p~n",[MyName, ClientName, WorkerName]),
+  FuncStart = fun({ClientName, WorkerNameStr}) ->
+    ToSend = {MyName, ClientName, list_to_atom(WorkerNameStr)},
+    io:format("~p sending start_stream to ~p of worker ~p~n",[MyName, ClientName, WorkerNameStr]),
     nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(start_stream), ToSend)
   end,
   lists:foreach(FuncStart, ClientWorkerPairs),
@@ -380,9 +380,9 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,ClientWorkerPairs, Batches
     _Default -> send_method_casting(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend)
   end,
   % Message to workers : "end_stream"
-  FuncEnd = fun({ClientName, WorkerName}) ->
-    ToSend = {MyName, ClientName, WorkerName},
-    io:format("~p sending end_stream to ~p of worker ~p~n",[MyName, ClientName, WorkerName]),
+  FuncEnd = fun({ClientName, WorkerNameStr}) ->
+    ToSend = {MyName, ClientName, list_to_atom(WorkerNameStr)},
+    io:format("~p sending end_stream to ~p of worker ~p~n",[MyName, ClientName, WorkerNameStr]),
     nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(end_stream), ToSend)
   end,
   lists:foreach(FuncEnd, ClientWorkerPairs),

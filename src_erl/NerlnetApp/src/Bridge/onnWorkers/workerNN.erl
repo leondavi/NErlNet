@@ -13,7 +13,6 @@ controller(FuncName, {GenWorkerEts, WorkerData}) ->
     post_predict -> post_predict({GenWorkerEts, WorkerData});
     start_stream -> start_stream({GenWorkerEts, WorkerData});
     end_stream -> end_stream({GenWorkerEts, WorkerData});
-    worker_done -> worker_done({GenWorkerEts, WorkerData});
     update -> update({GenWorkerEts, WorkerData})
   end.
 
@@ -37,6 +36,5 @@ start_stream({_GenWorkerEts, _WorkerData}) -> ok.
 
 end_stream({_GenWorkerEts, _WorkerData}) -> ok.
 
-worker_done({_GenWorkerEts, _WorkerData}) -> ok.
 
 

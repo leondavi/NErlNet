@@ -97,6 +97,7 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   NumOfFedServers = ets:lookup_element(EtsRef, num_of_fed_servers, ?DATA_IDX), % When non-federated exp this value is 0
   ets:insert(EtsRef, {num_of_training_workers, length(ClientWorkers) - NumOfFedServers}), % This number will not change 
   ets:insert(EtsRef, {training_workers, 0}), % will be updated in idle -> training & end_stream
+  ets:insert(EtsRef, {active_workers_sources_list, []}),
   % update dictionary
   WorkersEts = ets:lookup_element(EtsRef , workers_ets , ?DATA_IDX),
   put(workers_ets, WorkersEts),
@@ -187,8 +188,6 @@ idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRe
   MessageToCast = {training},
   cast_message_to_workers(EtsRef, MessageToCast),
   ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, false}),
-  NumOfTrainingWorkers = ets:lookup_element(EtsRef, num_of_training_workers, ?DATA_IDX),
-  ets:update_element(EtsRef, training_workers, {?DATA_IDX, NumOfTrainingWorkers}), % Reset the number of training workers
   {next_state, waitforWorkers, State#client_statem_state{waitforWorkers =  clientWorkersFunctions:get_workers_names(EtsRef), nextState = training}};
 
 idle(cast, In = {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -262,6 +261,8 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
 % ************* NEW ***************
 training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
+  ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_sources_list, ?DATA_IDX),
+  ets:update_element(EtsRef, active_workers_sources_list, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, SourceName}]}),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
@@ -273,24 +274,17 @@ training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef =
 training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, ClientName, WorkerName} = binary_to_term(Data),
   ClientStatsEts = get(client_stats_ets),
-  WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
-  NumOfTrainingWorkers = ets:lookup_element(EtsRef, training_workers, ?DATA_IDX),
-  io:format("Client ~p received end_stream to worker ~p , remaining training workers ~p~n",[ClientName, WorkerName, NumOfTrainingWorkers]),
-  WorkerOfThisClient = lists:member(list_to_atom(WorkerName), WorkersOfThisClient),
-  if WorkerOfThisClient -> 
-          stats:increment_messages_received(ClientStatsEts),
-          stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-          WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , list_to_atom(WorkerName)),
-          io:format("Worker ~p Pid is ~p~n",[WorkerName, WorkerPid]),
-          gen_statem:cast(WorkerPid, {end_stream, SourceName}), % WHY THIS IS NOT WORKING????
-          UpdatedNumOfTrainingWorkers = NumOfTrainingWorkers - 1,
-          io:format("UpdatedNumOfTrainingWorkers = ~p~n",[UpdatedNumOfTrainingWorkers]),
-          ets:update_element(EtsRef, training_workers, {?DATA_IDX, UpdatedNumOfTrainingWorkers}),
-          case UpdatedNumOfTrainingWorkers of 
-            0 -> ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
-            _ -> ok end;
-        true -> ok
-  end,
+  ListOfActiveWorkerSources = ets:lookup_element(EtsRef, active_workers_sources_list, ?DATA_IDX),
+  UpdatedListOfActiveWorkerSources = ListOfActiveWorkerSources -- [{WorkerName, SourceName}],
+  ets:update_element(EtsRef, active_workers_sources_list, {?DATA_IDX, UpdatedListOfActiveWorkerSources}),
+  io:format("Client ~p received end_stream to worker ~p , remaining training workers ~p~n",[ClientName, WorkerName , UpdatedListOfActiveWorkerSources]),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , list_to_atom(WorkerName)),
+  gen_statem:cast(WorkerPid, {end_stream, SourceName}), % WHY THIS IS NOT WORKING????
+  case length(UpdatedListOfActiveWorkerSources) of 
+    0 -> ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
+    _ -> ok end,
   {keep_state, State};
 
 

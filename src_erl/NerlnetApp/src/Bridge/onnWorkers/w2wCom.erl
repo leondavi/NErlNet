@@ -5,18 +5,20 @@
 
 -export([start_link/1]).
 -export([init/1, handle_cast/2, handle_call/3]).
--export([send_message/4, get_all_messages/1 , sync_inbox/1]). % methods that are used by worker
+-export([send_message/4, send_message_with_event/5, get_all_messages/1 , sync_inbox/1, sync_inbox_no_limit/1]). % methods that are used by worker
 
--define(ETS_KEYVAL_VAL_IDX, 2).
--define(SYNC_INBOX_TIMEOUT, 30000). % 30 seconds
--define(DEFAULT_SYNC_INBOX_BUSY_WAITING_SLEEP, 5). % 5 milliseconds
+
+setup_logger(Module) ->
+    logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
+    logger:set_module_level(Module, all).
 
 %% @doc Spawns the server and registers the local name (unique)
 -spec(start_link(args) ->
-  {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
+    {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 start_link(Args = {WorkerName, _ClientStatemPid}) ->
-  {ok,Gen_Server_Pid} = gen_server:start_link({local, WorkerName}, ?MODULE, Args, []),
-  Gen_Server_Pid.
+    setup_logger(?MODULE),
+    {ok,Gen_Server_Pid} = gen_server:start_link({local, WorkerName}, ?MODULE, Args, []),
+    Gen_Server_Pid.
 
 init({WorkerName, MyClientPid}) ->
     InboxQueue = queue:new(),
@@ -36,28 +38,22 @@ handle_cast(Msg, State) ->
     io:format("@w2wCom: Wrong message received ~p~n", [Msg]),
     {noreply, State}.
 
-% This handler also triggers the state machine during training state
-handle_call({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, {post_train_update, Data}}, _From, State) ->
+handle_call({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, {msg_with_event, Event,  Data}}, _From, State) ->
     case get(worker_name) of
         ThisWorkerName -> ok;
         _ -> throw({error, "The provided worker name is not this worker"})
     end,
-    % Saved messages are of the form: {FromWorkerName, , Data}
-    Message = {FromWorkerName, Data},
-    add_msg_to_inbox_queue(Message),
-    gen_server:cast(get(gen_worker_pid), {post_train_update}),
-    {reply, {ok, post_train_update}, State};
-
-handle_call({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, {worker_done, Data}}, _From, State) ->
-    case get(worker_name) of
-        ThisWorkerName -> ok;
-        _ -> throw({error, "The provided worker name is not this worker"})
+    GenWorkerPid = get(gen_worker_pid),
+    case Event of
+        post_train_update   -> gen_statem:cast(GenWorkerPid, {post_train_update, Data});
+        worker_done         -> gen_statem:cast(GenWorkerPid, {worker_done, Data});
+        start_stream        -> gen_statem:cast(GenWorkerPid, {start_stream, Data}); % Data is [SourceName]
+        end_stream          -> gen_statem:cast(GenWorkerPid, {end_stream, Data}) % Data is [SourceName]
     end,
     % Saved messages are of the form: {FromWorkerName, , Data}
     Message = {FromWorkerName, Data},
     add_msg_to_inbox_queue(Message),
-    gen_server:cast(get(gen_worker_pid), {worker_done}),
-    {reply, {ok, worker_done}, State};
+    {reply, {ok, Event}, State};
 
 % Received messages are of the form: {worker_to_worker_msg, FromWorkerName, ThisWorkerName, Data}
 handle_call({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, Data}, _From, State) ->
@@ -116,6 +112,16 @@ send_message(W2WPid, FromWorker, TargetWorker, Data) ->
     {ok, MyClient} = gen_server:call(W2WPid, {get_client_pid}),
     gen_statem:cast(MyClient, Msg).
 
+send_message_with_event(W2WPid, FromWorker, TargetWorker, Event, Data) -> 
+    ValidEvent = lists:member(Event, ?SUPPORTED_EVENTS),
+    if ValidEvent -> ok;
+        true -> ?LOG_ERROR("Event ~p is not supported!!",[Event]),
+                throw({error, "The provided event is not supported"})
+    end,
+    Msg = {?W2WCOM_ATOM, FromWorker, TargetWorker, {msg_with_event, Event, Data}},
+    {ok, MyClient} = gen_server:call(W2WPid, {get_client_pid}),
+    gen_statem:cast(MyClient, Msg).
+
 
 timeout_throw(Timeout) ->
     receive
@@ -126,6 +132,10 @@ timeout_throw(Timeout) ->
 
 sync_inbox(W2WPid) ->
     TimeoutPID = spawn(fun() -> timeout_throw(?SYNC_INBOX_TIMEOUT) end),
+    sync_inbox(TimeoutPID , W2WPid).
+
+sync_inbox_no_limit(W2WPid) ->
+    TimeoutPID = spawn(fun() -> timeout_throw(?SYNC_INBOX_TIMEOUT_NO_LIMIT) end),
     sync_inbox(TimeoutPID , W2WPid).
 
 sync_inbox(TimeoutPID, W2WPid) ->

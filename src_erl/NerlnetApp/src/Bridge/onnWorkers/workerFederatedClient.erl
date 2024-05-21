@@ -3,7 +3,6 @@
 -export([controller/2]).
 
 -include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/NerlnetApp/src/nerl_tools.hrl").
--include("workerDefinitions.hrl").
 -include("w2wCom.hrl").
 
 -import(nerlNIF, [call_to_get_weights/2, call_to_set_weights/2]).
@@ -14,16 +13,15 @@
 
 controller(FuncName, {GenWorkerEts, WorkerData}) -> 
   case FuncName of
-    init        -> init({GenWorkerEts, WorkerData});
-    pre_idle    -> pre_idle({GenWorkerEts, WorkerData});
-    post_idle   -> post_idle({GenWorkerEts, WorkerData});
-    pre_train   -> pre_train({GenWorkerEts, WorkerData});
-    post_train  -> post_train({GenWorkerEts, WorkerData});
-    pre_predict -> pre_predict({GenWorkerEts, WorkerData});
-    post_predict -> post_predict({GenWorkerEts, WorkerData});
-    start_stream -> start_stream({GenWorkerEts, WorkerData});
-    end_stream -> end_stream({GenWorkerEts, WorkerData});
-    worker_done -> worker_done({GenWorkerEts, WorkerData})
+    init          -> init({GenWorkerEts, WorkerData});
+    pre_idle      -> pre_idle({GenWorkerEts, WorkerData});
+    post_idle     -> post_idle({GenWorkerEts, WorkerData});
+    pre_train     -> pre_train({GenWorkerEts, WorkerData});
+    post_train    -> post_train({GenWorkerEts, WorkerData});
+    pre_predict   -> pre_predict({GenWorkerEts, WorkerData});
+    post_predict  -> post_predict({GenWorkerEts, WorkerData});
+    start_stream  -> start_stream({GenWorkerEts, WorkerData});
+    end_stream    -> end_stream({GenWorkerEts, WorkerData})
   end.
 
 get_this_client_ets(GenWorkerEts) -> 
@@ -56,7 +54,7 @@ init({GenWorkerEts, WorkerData}) ->
   % create fields in this ets
   ets:insert(FederatedClientEts, {my_token, Token}),
   ets:insert(FederatedClientEts, {my_name, MyName}),
-  ets:insert(FederatedClientEts, {server_name, none}), % update later
+  ets:insert(FederatedClientEts, {server_name, []}), % update later
   ets:insert(FederatedClientEts, {sync_count, 0}),
   ets:insert(FederatedClientEts, {server_update, false}),
   ets:insert(FederatedClientEts, {handshake_done, false}),
@@ -85,28 +83,36 @@ handshake(FedClientEts) ->
   end,
   lists:foreach(Func, MessagesList).
 
-start_stream({GenWorkerEts, WorkerData}) ->  % WorkerData is currently a list of [SourceName]
-  SourceName = hd(WorkerData),
-  ThisEts = get_this_client_ets(GenWorkerEts),
-  ets:update_element(ThisEts, stream_occuring , {?ETS_KEYVAL_VAL_IDX, true}),
-  CastingSources = ets:lookup_element(ThisEts, casting_sources, ?ETS_KEYVAL_VAL_IDX),
-  NewCastingSources = CastingSources ++ [SourceName],
-  ets:update_element(ThisEts, casting_sources, {?ETS_KEYVAL_VAL_IDX, NewCastingSources}).
-  % ***** Add SourcesList ***** 
+start_stream({GenWorkerEts, WorkerData}) ->  % WorkerData is currently a list of [SourceName, State]
+  [_SourceName, State] = WorkerData,
+  case State of
+    train ->
+        ThisEts = get_this_client_ets(GenWorkerEts),
+        MyName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
+        ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX),
+        W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+        CastingSources = ets:lookup_element(GenWorkerEts, casting_sources, ?ETS_KEYVAL_VAL_IDX),
+        case length(CastingSources) of % Send to server an updater after got start_stream from the first source
+          1 -> w2wCom:send_message_with_event(W2WPid, MyName, ServerName , start_stream, []);
+          _ -> ok
+        end;
+      predict -> ok
+  end.
 
 end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [SourceName]
-  SourceName = hd(WorkerData),
-  ThisEts = get_this_client_ets(GenWorkerEts),
-  CastingSources = ets:lookup_element(ThisEts, casting_sources, ?ETS_KEYVAL_VAL_IDX),
-  NewCastingSources = CastingSources -- [SourceName],
-  io:format("NewCastingSources = ~p~n", [NewCastingSources]),
-  case NewCastingSources of
-    [] -> ets:update_element(ThisEts, stream_occuring , {?ETS_KEYVAL_VAL_IDX, false}),
-          ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX),
-          MyName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
-          W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-          w2wCom:send_message(W2WPid, MyName, ServerName , {worker_done, []});
-    _ -> ets:update_element(ThisEts, casting_sources, {?ETS_KEYVAL_VAL_IDX, NewCastingSources})
+  [_SourceName, State] = WorkerData,
+  case State of
+    train ->
+        ThisEts = get_this_client_ets(GenWorkerEts),
+        MyName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
+        ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX),
+        W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+        CastingSources = ets:lookup_element(GenWorkerEts, casting_sources, ?ETS_KEYVAL_VAL_IDX),
+        case length(CastingSources) of % Send to server an updater after got start_stream from the first source
+          0 -> w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, []);
+          _ -> ok
+        end;
+      predict -> ok
   end.
 
 
@@ -146,7 +152,7 @@ pre_train({GenWorkerEts, _NerlTensorWeights}) ->
       MaxSyncCount = ets:lookup_element(get_this_client_ets(GenWorkerEts), sync_max_count, ?ETS_KEYVAL_VAL_IDX),
       if SyncCount == MaxSyncCount ->
         W2WPid = ets:lookup_element(get_this_client_ets(GenWorkerEts), w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-        w2wCom:sync_inbox(W2WPid), % waiting for server to average the weights and send it
+        w2wCom:sync_inbox_no_limit(W2WPid), % waiting for server to average the weights and send it
         InboxQueue = w2wCom:get_all_messages(W2WPid),
         [UpdateWeightsMsg] = queue:to_list(InboxQueue),
         {_FedServer , {update_weights, UpdatedWeights}} = UpdateWeightsMsg,
@@ -184,6 +190,5 @@ pre_predict({_GenWorkerEts, WorkerData}) -> WorkerData.
 %% nothing?
 post_predict(Data) -> Data.
 
-worker_done({_GenWorkerEts, _WorkerData}) -> ok.
 
 

@@ -2,7 +2,6 @@
 
 -export([controller/2]).
 
--include("workerDefinitions.hrl").
 -include("w2wCom.hrl").
 
 -import(nerlNIF,[nerltensor_scalar_multiplication_nif/3, call_to_get_weights/1, call_to_set_weights/2]).
@@ -20,16 +19,15 @@
 
 controller(FuncName, {GenWorkerEts, WorkerData}) -> 
   case FuncName of
-    init -> init({GenWorkerEts, WorkerData});
-    pre_idle -> pre_idle({GenWorkerEts, WorkerData});
-    post_idle -> post_idle({GenWorkerEts, WorkerData});
-    pre_train -> pre_train({GenWorkerEts, WorkerData});
-    post_train -> post_train({GenWorkerEts, WorkerData});
-    pre_predict -> pre_predict({GenWorkerEts, WorkerData});
-    post_predict -> post_predict({GenWorkerEts, WorkerData});
-    start_stream -> start_stream({GenWorkerEts, WorkerData});
-    end_stream -> end_stream({GenWorkerEts, WorkerData});
-    worker_done -> worker_done({GenWorkerEts, WorkerData})
+    init          -> init({GenWorkerEts, WorkerData});
+    pre_idle      -> pre_idle({GenWorkerEts, WorkerData});
+    post_idle     -> post_idle({GenWorkerEts, WorkerData});
+    pre_train     -> pre_train({GenWorkerEts, WorkerData});
+    post_train    -> post_train({GenWorkerEts, WorkerData});
+    pre_predict   -> pre_predict({GenWorkerEts, WorkerData});
+    post_predict  -> post_predict({GenWorkerEts, WorkerData});
+    start_stream  -> start_stream({GenWorkerEts, WorkerData});
+    end_stream    -> end_stream({GenWorkerEts, WorkerData})
   end.
 
 
@@ -64,7 +62,7 @@ init({GenWorkerEts, WorkerData}) ->
   ets:insert(FederatedServerEts, {w2wcom_pid, W2WPid}),
   ets:insert(FederatedServerEts, {broadcast_workers_list, BroadcastWorkers}),
   ets:insert(FederatedServerEts, {fed_clients, []}),
-  ets:insert(FederatedServerEts, {training_workers , []}),
+  ets:insert(FederatedServerEts, {active_workers , []}),
   ets:insert(FederatedServerEts, {sync_count, 0}),
   ets:insert(FederatedServerEts, {my_name, MyName}),
   ets:insert(FederatedServerEts, {token , Token}),
@@ -72,20 +70,48 @@ init({GenWorkerEts, WorkerData}) ->
   put(fed_server_ets, FederatedServerEts).
 
   
-start_stream({_GenWorkerEts, _WorkerData}) -> ok.
+start_stream({GenWorkerEts, _WorkerData}) -> 
+  FedServerEts = get_this_server_ets(GenWorkerEts),
+  W2WPid = ets:lookup_element(GenWorkerEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+  w2wCom:sync_inbox(W2WPid),
+  InboxQueue = w2wCom:get_all_messages(W2WPid),
+  [Message] = queue:to_list(InboxQueue),
+  {FromFedClient , [_SourceName]} = Message,
+  ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+  UpdatedActiveWorkers = ActiveWorkers ++ [FromFedClient],
+  ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers}),
+  LengthFedClients = length(ets:lookup_element(FedServerEts, fed_clients, ?ETS_KEYVAL_VAL_IDX)),
+  case length(UpdatedActiveWorkers) of
+    LengthFedClients -> ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
+                        MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
+                        ClientName = ets:lookup_element(GenWorkerEts, client_name, ?ETS_KEYVAL_VAL_IDX),
+                        Data = {MyName, ClientName, MyName}, % Mimic source behavior to register as an active worker for the client
+                        gen_server:cast(ClientPid, {start_stream, term_to_binary(Data)});
+    _ -> ok
+  end.
 
-end_stream({_GenWorkerEts, _WorkerData}) -> ok.
+
+end_stream({GenWorkerEts, _WorkerData}) -> 
+  FedServerEts = get_this_server_ets(GenWorkerEts),
+  W2WPid = ets:lookup_element(GenWorkerEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+  w2wCom:sync_inbox(W2WPid),
+  InboxQueue = w2wCom:get_all_messages(W2WPid),
+  [Message] = queue:to_list(InboxQueue),
+  {FromFedClient , [_SourceName]} = Message,
+  ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+  UpdatedActiveWorkers = ActiveWorkers -- [FromFedClient],
+  ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers}),
+  case length(UpdatedActiveWorkers) of
+    0 -> ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
+                        MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
+                        ClientName = ets:lookup_element(GenWorkerEts, client_name, ?ETS_KEYVAL_VAL_IDX),
+                        Data = {MyName, ClientName, MyName}, % Mimic source behavior to register as an active worker for the client
+                        gen_server:cast(ClientPid, {end_stream, term_to_binary(Data)});
+    _ -> ok
+  end.
+
 
 pre_idle({_GenWorkerEts, _WorkerName}) -> ok.
-
-
-worker_done({GenWorkerEts, WorkerData}) -> 
-  WorkerName = hd(WorkerData),
-  ThisEts = get_this_server_ets(GenWorkerEts),
-  TrainingWorkers = ets:lookup_element(ThisEts, training_workers, ?ETS_KEYVAL_VAL_IDX),
-  UpdatedTrainingWorkers = lists:delete(WorkerName, TrainingWorkers),
-  io:format("Worker ~p Done, UpdatedTrainingWorkers = ~p~n", [WorkerName, UpdatedTrainingWorkers]),
-  ets:update_element(ThisEts, training_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedTrainingWorkers}).
 
 
 % Extract all workers in nerlnet network 
@@ -119,8 +145,6 @@ post_idle({GenWorkerEts, _WorkerName}) ->
         w2wCom:send_message(W2WPid, FedServerName, FedClient, {handshake_done, MyToken})
     end,
     lists:foreach(MsgFunc, MessagesList),
-    UpdatedTrainingWorkers = ets:lookup_element(FedServerEts, fed_clients, ?ETS_KEYVAL_VAL_IDX),
-    ets:update_element(FedServerEts, training_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedTrainingWorkers}),
     ets:update_element(GenWorkerEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true});
   true -> ok
   end.
@@ -135,16 +159,14 @@ pre_train({_GenWorkerEts, _WorkerData}) -> ok.
 post_train({GenWorkerEts, WorkerData}) when length(WorkerData) == 0 -> % WorkerData = []
   ThisEts = get_this_server_ets(GenWorkerEts),
   FedServerEts = get(fed_server_ets),
-  NumOfTrainingWorkers = length(ets:lookup_element(ThisEts, training_workers, ?ETS_KEYVAL_VAL_IDX)),
-  io:format("NumOfTrainingWorkers = ~p~n",[NumOfTrainingWorkers]),
   W2WPid = ets:lookup_element(GenWorkerEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
   InboxQueue = w2wCom:get_all_messages(W2WPid),
   MessagesList = queue:to_list(InboxQueue),
   ReceivedWeights = [WorkersWeights || {_WorkerName, {WorkersWeights, _BinaryType}} <- MessagesList],
   CurrWorkersWeightsList = ets:lookup_element(FedServerEts, weights_list, ?ETS_KEYVAL_VAL_IDX),
   TotalWorkersWeights = CurrWorkersWeightsList ++ ReceivedWeights,
-  io:format("Num of TotalWorkersWeights = ~p~n",[length(TotalWorkersWeights)]),
-  case length(TotalWorkersWeights) == NumOfTrainingWorkers of % ? Why not timeout
+  NumOfActiveWorkers = length(ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX)),
+  case length(TotalWorkersWeights) == NumOfActiveWorkers of % ? Why not timeout
     true -> 
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
       io:format("Averaging model weights...~n"),
