@@ -389,7 +389,9 @@ namespace nerlnet
                 }
                 case LAYER_TYPE_DEFAULT:
                 {
-                    // continue to perceptron case
+                    LogError("NerlWorkerOpenNN::generate_custom_model_nn - wrong layer type");
+                    throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - wrong layer type");
+                    break;
                 }
                 case LAYER_TYPE_PERCEPTRON:
                 {
