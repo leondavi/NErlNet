@@ -84,7 +84,7 @@ handshake(FedClientEts) ->
   lists:foreach(Func, MessagesList).
 
 start_stream({GenWorkerEts, WorkerData}) ->  % WorkerData is currently a list of [SourceName, State]
-  [_SourceName, State] = WorkerData,
+  [SourceName, State] = WorkerData,
   case State of
     train ->
         ThisEts = get_this_client_ets(GenWorkerEts),
@@ -93,15 +93,15 @@ start_stream({GenWorkerEts, WorkerData}) ->  % WorkerData is currently a list of
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         CastingSources = ets:lookup_element(GenWorkerEts, casting_sources, ?ETS_KEYVAL_VAL_IDX),
         case length(CastingSources) of % Send to server an updater after got start_stream from the first source
-          1 ->  io:format("~p sending start_stream msg to ~p~n",[MyName, ServerName]),
-                w2wCom:send_message_with_event(W2WPid, MyName, ServerName , start_stream, []);
+          1 ->  ets:update_element(ThisEts, stream_occuring, {?ETS_KEYVAL_VAL_IDX, true}),
+                w2wCom:send_message_with_event(W2WPid, MyName, ServerName , start_stream, SourceName);
           _ -> ok
         end;
       predict -> ok
   end.
 
 end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [SourceName]
-  [_SourceName, State] = WorkerData,
+  [SourceName, State] = WorkerData,
   case State of
     train ->
         ThisEts = get_this_client_ets(GenWorkerEts),
@@ -110,8 +110,8 @@ end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [S
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         CastingSources = ets:lookup_element(GenWorkerEts, casting_sources, ?ETS_KEYVAL_VAL_IDX),
         case length(CastingSources) of % Send to server an updater after got start_stream from the first source
-          0 ->  io:format("~p sending end_stream msg to ~p~n",[MyName, ServerName]),
-                w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, []);
+          0 ->  ets:update_element(ThisEts, stream_occuring, {?ETS_KEYVAL_VAL_IDX, false}),
+                w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, SourceName);
           _ -> ok
         end;
       predict -> ok
@@ -144,13 +144,10 @@ post_idle({GenWorkerEts, _WorkerData}) ->
 pre_train({GenWorkerEts, _NerlTensorWeights}) -> 
   ThisEts = get_this_client_ets(GenWorkerEts),
   StreamOccuring = ets:lookup_element(ThisEts, stream_occuring, ?ETS_KEYVAL_VAL_IDX),
-  % io:format("StreamOccuring = ~p~n", [StreamOccuring]),
   case StreamOccuring of
     true -> 
       ThisEts = get_this_client_ets(GenWorkerEts),
       SyncCount = ets:lookup_element(get_this_client_ets(GenWorkerEts), sync_count, ?ETS_KEYVAL_VAL_IDX),
-      WorkerName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
-      ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX),
       MaxSyncCount = ets:lookup_element(get_this_client_ets(GenWorkerEts), sync_max_count, ?ETS_KEYVAL_VAL_IDX),
       if SyncCount == MaxSyncCount ->
         W2WPid = ets:lookup_element(get_this_client_ets(GenWorkerEts), w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
@@ -168,10 +165,13 @@ pre_train({GenWorkerEts, _NerlTensorWeights}) ->
 
 %% every countLimit batches, send updated weights
 post_train({GenWorkerEts, _WorkerData}) -> 
-  CastingSources = ets:lookup_element(get_this_client_ets(GenWorkerEts), casting_sources, ?ETS_KEYVAL_VAL_IDX),
+  MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+  CastingSources = ets:lookup_element(GenWorkerEts, casting_sources, ?ETS_KEYVAL_VAL_IDX),
+  % io:format("Worker ~p CastingSources ~p~n",[MyName, CastingSources]),
   case CastingSources of
     [] -> ok;
     _ ->
+      % io:format("Worker ~p Sending weights to server~n",[MyName]),
       ThisEts = get_this_client_ets(GenWorkerEts),
       SyncCount = ets:lookup_element(ThisEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
       MaxSyncCount = ets:lookup_element(ThisEts, sync_max_count, ?ETS_KEYVAL_VAL_IDX),
@@ -179,9 +179,8 @@ post_train({GenWorkerEts, _WorkerData}) ->
         ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
         Weights = nerlNIF:call_to_get_weights(ModelID),
         ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX), 
-        MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-        w2wCom:send_message(W2WPid, MyName, ServerName , {post_train_update, Weights}); %% ****** NEW - TEST NEEDED ******
+        w2wCom:send_message_with_event(W2WPid, MyName, ServerName , post_train_update, Weights); 
       true -> ok
       end
   end.

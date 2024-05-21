@@ -152,7 +152,6 @@ idle(cast, {training}, State = #workerGeneric_state{myName = MyName , distribute
 
 % Go from idle to predict
 idle(cast, {predict}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  io:format("@idle got predict , Worker ~p is going to state predict...~n",[MyName]),
   % worker_controller_empty_message_queue(),
   update_client_avilable_worker(MyName),
   DistributedBehaviorFunc(post_idle, {get(generic_worker_ets), predict}),
@@ -201,9 +200,8 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
     {next_state, NextState, State}
   end;
 
-wait(cast, {end_stream , _Data}, State= #workerGeneric_state{myName = MyName}) ->
+wait(cast, {end_stream , _Data}, State= #workerGeneric_state{myName = _MyName}) ->
   %logger:notice("Waiting, next state - idle"),
-  io:format("Worker ~p @wait got end_stream~n",[MyName]),
   {next_state, wait, State#workerGeneric_state{nextState = end_stream}};
 
 wait(cast, {idle}, State= #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc, nextState = NextState}) ->
@@ -217,18 +215,15 @@ wait(cast, {idle}, State= #workerGeneric_state{myName = MyName, distributedBehav
 
 wait(cast, {training}, State) ->
   %logger:notice("Waiting, next state - train"),
-  io:format("@wait got training , Worker is going to state idle...~n"),
   % gen_statem:cast(ClientPid,{stateChange,WorkerName}),
   {next_state, wait, State#workerGeneric_state{nextState = train}};
 
 wait(cast, {predict}, State) ->
-  io:format("@wait got predict , Worker is going to state idle...~n"),
   %logger:notice("Waiting, next state - predict"),
   {next_state, wait, State#workerGeneric_state{nextState = predict}};
 
 %% Worker in wait can't treat incoming message 
-wait(cast, _BatchData , State = #workerGeneric_state{lastPhase = LastPhase, myName= MyName}) ->
-  io:format("@wait got something , Worker ~p is going to state idle...~n",[MyName]),
+wait(cast, _BatchData , State = #workerGeneric_state{lastPhase = LastPhase, myName= _MyName}) ->
   case LastPhase of
     train -> 
       ets:update_counter(get(worker_stats_ets), batches_dropped_train , 1);
@@ -239,7 +234,6 @@ wait(cast, _BatchData , State = #workerGeneric_state{lastPhase = LastPhase, myNa
 
 wait(cast, Data, State) ->
   % logger:notice("worker ~p in wait cant treat message: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
-  io:format("@wait got something2 , Worker is going to state idle...~n"),
   worker_controller_message_queue(Data),
   {keep_state, State}.
 
@@ -268,23 +262,19 @@ train(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelID
   %logger:notice("####end set weights train####~n"),
   {next_state, train, State};
 
-train(cast, {post_train_update}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  io:format("Worker ~p got post_train_update~n",[MyName]),
-  DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}),
+train(cast, {post_train_update , Weights}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+  DistributedBehaviorFunc(post_train, {get(generic_worker_ets), Weights}),
   {next_state, train, State};
 
-train(cast, {start_stream , SourceName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  io:format("Worker ~p got start_stream~n",[MyName]),
+train(cast, {start_stream , SourceName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   stream_handler(start_stream, train, SourceName, DistributedBehaviorFunc),
   {next_state, train, State};
 
-train(cast, {end_stream , SourceName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  io:format("Worker ~p got end_stream~n",[MyName]),
+train(cast, {end_stream , SourceName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   stream_handler(end_stream, train, SourceName, DistributedBehaviorFunc),
   {next_state, train, State};
 
 train(cast, {idle}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  io:format("@train Worker ~p is going to state idle...~n",[MyName]),
   update_client_avilable_worker(MyName),
   DistributedBehaviorFunc(pre_idle, {get(generic_worker_ets), train}),
   {next_state, idle, State};
@@ -311,13 +301,11 @@ predict(cast, {sample , SourceName , BatchID , {PredictBatchTensor, Type}}, Stat
     _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId , {PredictBatchTensor, Type} , CurrPID , BatchID, SourceName) end),
     {next_state, wait, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}};
 
-predict(cast, {start_stream , SourceName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  io:format("Worker ~p got start_stream~n",[MyName]),
+predict(cast, {start_stream , SourceName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   stream_handler(start_stream, predict, SourceName, DistributedBehaviorFunc),
   {next_state, predict, State};
 
-predict(cast, {end_stream , SourceName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  io:format("Worker ~p got end_stream~n",[MyName]),
+predict(cast, {end_stream , SourceName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   stream_handler(end_stream, predict, SourceName, DistributedBehaviorFunc),
   {next_state, predict, State};
 
@@ -345,10 +333,18 @@ stream_handler(StreamPhase , ModelPhase , SourceName , DistributedBehaviorFunc) 
   GenWorkerEts = get(generic_worker_ets),
   ets:update_element(GenWorkerEts, stream_occuring , {?ETS_KEYVAL_VAL_IDX, true}),
   CastingSources = ets:lookup_element(GenWorkerEts, casting_sources, ?ETS_KEYVAL_VAL_IDX),
-  NewCastingSources = 
-    case StreamPhase of
-      start_stream -> CastingSources ++ [SourceName];
-      end_stream -> CastingSources -- [SourceName]
-    end,
-  ets:update_element(GenWorkerEts, casting_sources, {?ETS_KEYVAL_VAL_IDX, NewCastingSources}),
+  IsSource = case string:substr(atom_to_list(SourceName), 1, 1) of % Could be a FedServer sending to himself
+    "s" -> true;
+    _ -> false
+  end,
+  case IsSource of 
+    true -> 
+      NewCastingSources = 
+        case StreamPhase of
+          start_stream -> CastingSources ++ [SourceName];
+          end_stream -> CastingSources -- [SourceName]
+        end,
+      ets:update_element(GenWorkerEts, casting_sources, {?ETS_KEYVAL_VAL_IDX, NewCastingSources});
+    false -> ok
+  end,
   DistributedBehaviorFunc(StreamPhase, {GenWorkerEts, [SourceName , ModelPhase]}).

@@ -44,7 +44,6 @@ handle_call({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, {msg_with_event, Even
         _ -> throw({error, "The provided worker name is not this worker"})
     end,
     GenWorkerPid = get(gen_worker_pid),
-    io:format("~p got message with event ~p from ~p~n", [ThisWorkerName, Event, FromWorkerName]),
     case Event of
         post_train_update   -> gen_statem:cast(GenWorkerPid, {post_train_update, Data});
         worker_done         -> gen_statem:cast(GenWorkerPid, {worker_done, Data});
