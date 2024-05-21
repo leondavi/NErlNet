@@ -144,7 +144,7 @@ code_change(_OldVsn, StateName, State = #workerGeneric_state{}, _Extra) ->
 
 % Go from idle to train
 idle(cast, {training}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  io:format("@idle got training , Worker ~p is going to state idle...~n",[MyName]),
+  % io:format("@idle got training , Worker ~p is going to state idle...~n",[MyName]),
   worker_controller_empty_message_queue(),
   DistributedBehaviorFunc(post_idle, {get(generic_worker_ets), train}),
   update_client_avilable_worker(MyName),
@@ -152,14 +152,14 @@ idle(cast, {training}, State = #workerGeneric_state{myName = MyName , distribute
 
 % Go from idle to predict
 idle(cast, {predict}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  io:format("@idle got predict , Worker ~p is going to state predict...~n",[MyName]),
+  % io:format("@idle got predict , Worker ~p is going to state predict...~n",[MyName]),
   % worker_controller_empty_message_queue(),
   update_client_avilable_worker(MyName),
   DistributedBehaviorFunc(post_idle, {get(generic_worker_ets), predict}),
   {next_state, predict, State#workerGeneric_state{lastPhase = predict}};
 
 idle(cast, _Param, State = #workerGeneric_state{myName = MyName}) ->
-  io:format("@idle Worker ~p is going to state idle...~n",[MyName]),
+  % io:format("@idle Worker ~p is going to state idle...~n",[MyName]),
   {next_state, idle, State}.
 
 %% Waiting for receiving results or loss function

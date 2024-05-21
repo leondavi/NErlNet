@@ -93,7 +93,8 @@ start_stream({GenWorkerEts, WorkerData}) ->  % WorkerData is currently a list of
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         CastingSources = ets:lookup_element(GenWorkerEts, casting_sources, ?ETS_KEYVAL_VAL_IDX),
         case length(CastingSources) of % Send to server an updater after got start_stream from the first source
-          1 -> w2wCom:send_message_with_event(W2WPid, MyName, ServerName , start_stream, []);
+          1 ->  io:format("~p sending start_stream msg to ~p~n",[MyName, ServerName]),
+                w2wCom:send_message_with_event(W2WPid, MyName, ServerName , start_stream, []);
           _ -> ok
         end;
       predict -> ok
@@ -109,7 +110,8 @@ end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [S
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         CastingSources = ets:lookup_element(GenWorkerEts, casting_sources, ?ETS_KEYVAL_VAL_IDX),
         case length(CastingSources) of % Send to server an updater after got start_stream from the first source
-          0 -> w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, []);
+          0 ->  io:format("~p sending end_stream msg to ~p~n",[MyName, ServerName]),
+                w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, []);
           _ -> ok
         end;
       predict -> ok

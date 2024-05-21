@@ -72,50 +72,66 @@ init({GenWorkerEts, WorkerData}) ->
   
 start_stream({GenWorkerEts, _WorkerData}) -> 
   FedServerEts = get_this_server_ets(GenWorkerEts),
-  W2WPid = ets:lookup_element(GenWorkerEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-  w2wCom:sync_inbox(W2WPid),
-  InboxQueue = w2wCom:get_all_messages(W2WPid),
-  MessagesList = queue:to_list(InboxQueue),
-  Func = fun({FromFedClient , _SourceName}) ->
-      ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
-      UpdatedActiveWorkers = ActiveWorkers ++ [FromFedClient],
-      ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers})
-  end,
-  lists:foreach(Func, MessagesList),
-  UpdatedActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
-  ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers}),
-  LengthFedClients = length(ets:lookup_element(FedServerEts, fed_clients, ?ETS_KEYVAL_VAL_IDX)),
-  case length(UpdatedActiveWorkers) of
-    LengthFedClients -> ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
-                        MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
-                        % ClientName = ets:lookup_element(GenWorkerEts, client_name, ?ETS_KEYVAL_VAL_IDX),
-                        Data = {MyName, MyName, MyName}, % Mimic source behavior to register as an active worker for the client
-                        gen_server:cast(ClientPid, {start_stream, term_to_binary(Data)});
-    _ -> ok
+  CurrUpdatedActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+  CurrLengthFedClients = length(ets:lookup_element(FedServerEts, fed_clients, ?ETS_KEYVAL_VAL_IDX)),
+  case length(CurrUpdatedActiveWorkers) of 
+    CurrLengthFedClients -> ok;
+    _Else ->  
+      W2WPid = ets:lookup_element(GenWorkerEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+      w2wCom:sync_inbox(W2WPid),
+      InboxQueue = w2wCom:get_all_messages(W2WPid),
+      MessagesList = queue:to_list(InboxQueue),
+      io:format("@FedServer MessagesList = ~p~n",[MessagesList]),
+      Func = fun({FromFedClient , _SourceName}) ->
+          ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+          UpdatedActiveWorkers = ActiveWorkers ++ [FromFedClient],
+          ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers})
+      end,
+      lists:foreach(Func, MessagesList),
+      UpdatedActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+      ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers}),
+      LengthFedClients = length(ets:lookup_element(FedServerEts, fed_clients, ?ETS_KEYVAL_VAL_IDX)),
+      io:format("@FedServer start_stream UpdatedActiveWorkers = ~p , Num Of Fed Clients = ~p~n",[UpdatedActiveWorkers, LengthFedClients]),
+      case length(UpdatedActiveWorkers) of
+        LengthFedClients -> io:format("*****Federated Server Is Done With start_stream *****~n"),
+                            ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
+                            MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
+                            % ClientName = ets:lookup_element(GenWorkerEts, client_name, ?ETS_KEYVAL_VAL_IDX),
+                            Data = {MyName, MyName, MyName}, % Mimic source behavior to register as an active worker for the client
+                            gen_server:cast(ClientPid, {start_stream, term_to_binary(Data)});
+        _ -> start_stream({GenWorkerEts, []}) % If not all messages were received when inbox was synced
+      end
   end.
 
 
 end_stream({GenWorkerEts, _WorkerData}) -> 
   FedServerEts = get_this_server_ets(GenWorkerEts),
-  W2WPid = ets:lookup_element(GenWorkerEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-  w2wCom:sync_inbox(W2WPid),
-  InboxQueue = w2wCom:get_all_messages(W2WPid),
-  MessagesList = queue:to_list(InboxQueue),
-  Func = fun({FromFedClient , _SourceName}) ->
-      ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
-      UpdatedActiveWorkers = ActiveWorkers ++ [FromFedClient],
-      ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers})
-  end,
-  lists:foreach(Func, MessagesList),
-  UpdatedActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
-  ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers}),
-  case length(UpdatedActiveWorkers) of
-    0 -> ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
-                        MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
-                        % ClientName = ets:lookup_element(GenWorkerEts, client_name, ?ETS_KEYVAL_VAL_IDX),
-                        Data = {MyName, MyName, MyName}, % Mimic source behavior to register as an active worker for the client
-                        gen_server:cast(ClientPid, {end_stream, term_to_binary(Data)});
-    _ -> ok
+  CurrUpdatedActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+  case CurrUpdatedActiveWorkers of 
+    [] -> ok; % if there are no active workers, no need to do anything
+    _Else ->
+        W2WPid = ets:lookup_element(GenWorkerEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+        w2wCom:sync_inbox(W2WPid),
+        InboxQueue = w2wCom:get_all_messages(W2WPid),
+        MessagesList = queue:to_list(InboxQueue),
+        Func = fun({FromFedClient , _SourceName}) ->
+            ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+            UpdatedActiveWorkers = ActiveWorkers -- [FromFedClient],
+            ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers})
+        end,
+        lists:foreach(Func, MessagesList),
+        UpdatedActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+        ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers}),
+        io:format("@FedServer end_stream UpdatedActiveWorkers = ~p~n",[UpdatedActiveWorkers]),
+        case length(UpdatedActiveWorkers) of
+          0 ->                io:format("*****Federated Server Is Done With end_stream *****~n"),
+                              ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
+                              MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
+                              % ClientName = ets:lookup_element(GenWorkerEts, client_name, ?ETS_KEYVAL_VAL_IDX),
+                              Data = {MyName, MyName, MyName}, % Mimic source behavior to register as an active worker for the client
+                              gen_server:cast(ClientPid, {end_stream, term_to_binary(Data)});
+          _ -> end_stream({GenWorkerEts, []}) % If not all messages were received when inbox was synced
+        end
   end.
 
 
