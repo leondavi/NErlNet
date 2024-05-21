@@ -266,7 +266,7 @@ training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef =
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , list_to_atom(WorkerName)),
+  WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
   gen_statem:cast(WorkerPid, {start_stream, SourceName}),
   {keep_state, State};
 
@@ -280,7 +280,7 @@ training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = E
   io:format("Client ~p received end_stream to worker ~p , remaining training workers ~p~n",[ClientName, WorkerName , UpdatedListOfActiveWorkerSources]),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , list_to_atom(WorkerName)),
+  WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
   gen_statem:cast(WorkerPid, {end_stream, SourceName}), % WHY THIS IS NOT WORKING????
   case length(UpdatedListOfActiveWorkerSources) of 
     0 -> ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
@@ -350,7 +350,7 @@ predict(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef = 
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , list_to_atom(WorkerName)),
+  WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
   gen_statem:cast(WorkerPid, {start_stream, SourceName}),
   {keep_state, State};
 
@@ -359,7 +359,7 @@ predict(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = Et
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , list_to_atom(WorkerName)),
+  WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
   gen_statem:cast(WorkerPid, {end_stream, SourceName}),
   {keep_state, State};
 
