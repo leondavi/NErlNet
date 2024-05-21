@@ -73,6 +73,8 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{distributed_system_type, DistributedSystemType}),
   ets:insert(GenWorkerEts,{controller_message_q, []}), %% TODO Deprecated
   ets:insert(GenWorkerEts,{handshake_done, false}),
+  ets:insert(GenWorkerEts,{casting_sources, []}),
+  ets:insert(GenWorkerEts,{stream_occuring, false}),
   % Worker to Worker communication module - this is a gen_server
 
 
