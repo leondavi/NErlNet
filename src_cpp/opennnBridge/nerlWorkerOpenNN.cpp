@@ -297,7 +297,6 @@ namespace nerlnet
             {
                 case LAYER_TYPE_CONV:
                 {
-                   // std::shared_ptr<NerlLayer> prev_layer = curr_layer->get_prev_layer_ptr();
                     int layer_rows_num     = curr_layer->get_dim_size(DIM_X_IDX);
                     int layer_cols_num     = curr_layer->get_dim_size(DIM_Y_IDX);
                     int layer_channels_num = curr_layer->get_dim_size(DIM_Z_IDX);
@@ -347,16 +346,6 @@ namespace nerlnet
                     convolutional_layer->set_activation_function((opennn::ConvolutionalLayer::ActivationFunction)(cnn_curr_layer->get_layer_functionality())); // set activation function
                     // add layer to the neural network
                     neural_network_ptr->add_layer(convolutional_layer); // add layer to the neural network
-                    if(curr_layer->get_next_layer_ptr()->get_layer_type() == LAYER_TYPE_PERCEPTRON){ // if the next layer is perceptron       
-                            FlattenLayer* flatten_layer = new FlattenLayer(convolutional_layer->get_outputs_dimensions()); // create flatten layer
-                            // TODO :Talk with Noa and Ohad about the sizes - make sure the sizes are correct in NerlPlanner
-                            if (flatten_layer->get_outputs_dimensions()[1] != curr_layer->get_next_layer_ptr()->get_dim_size(DIM_X_IDX)) // make sure the dims correct
-                            {
-                             //  LogError("NerlWorkerOpenNN::generate_custom_model_nn - wrong dimensions in CNN and Perceptron");
-                            //   throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - wrong dimensions in CNN  and Perceptron");
-                            }
-                            neural_network_ptr->add_layer(flatten_layer);
-                    }
                     break;
 
                 }
@@ -400,7 +389,9 @@ namespace nerlnet
                 }
                 case LAYER_TYPE_DEFAULT:
                 {
-                    // continue to perceptron case
+                    LogError("NerlWorkerOpenNN::generate_custom_model_nn - wrong layer type");
+                    throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - wrong layer type");
+                    break;
                 }
                 case LAYER_TYPE_PERCEPTRON:
                 {
@@ -465,11 +456,34 @@ namespace nerlnet
                     }
                     std::shared_ptr<NerlLayer> prev_layer = curr_layer->get_prev_layer_ptr();
                     int prev_layer_size = prev_layer->get_dim_size(DIM_X_IDX);
-                    int layer_size_curr = curr_layer->get_dim_size(DIM_X_IDX);             
+                    int layer_size_curr = curr_layer->get_dim_size(DIM_X_IDX); 
+                    if(layer_size_curr<=1){
+                        LogError("NerlWorkerOpenNN::generate_custom_model_nn - PROBABILISTIC cannot be smaller or equal to 1");
+                        throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn -PROBABILISTIC cannot be smaller or equal to 1");
+                    }            
                     int get_layer_functionality = curr_layer->get_layer_functionality();
                     ProbabilisticLayer* newLayer =  new opennn::ProbabilisticLayer(prev_layer_size, layer_size_curr);
                     newLayer->set_activation_function(translate_probabilistic_activation_function(get_layer_functionality));
                     neural_network_ptr->add_layer(newLayer);
+                    break;
+                }
+                case LAYER_TYPE_FLATTEN:
+                {
+                        int layer_rows_num     = curr_layer->get_dim_size(DIM_X_IDX);
+                        int layer_cols_num     = curr_layer->get_dim_size(DIM_Y_IDX);
+                        int layer_channels_num = curr_layer->get_dim_size(DIM_Z_IDX);
+                        if(curr_layer->get_prev_layer_ptr()->get_layer_type() == LAYER_TYPE_CONV) { // if the next layer is perceptron       
+                            ConvolutionalLayer*  cnn_prev_layer = (ConvolutionalLayer*)neural_network_ptr->get_layer_pointer((neural_network_ptr->get_layers_number()-1));
+                            FlattenLayer* flatten_layer = new FlattenLayer(cnn_prev_layer->get_outputs_dimensions()); // create flatten layer
+                            neural_network_ptr->add_layer(flatten_layer);
+                        } else {
+                            Tensor<Index, 1> input_variables_dimensions(3);
+                            input_variables_dimensions(Convolutional4dDimensions::channel_index) = layer_channels_num;
+                            input_variables_dimensions(Convolutional4dDimensions::column_index)  = layer_cols_num;
+                            input_variables_dimensions(Convolutional4dDimensions::row_index)     = layer_rows_num;
+                            FlattenLayer* flatten_layer = new FlattenLayer(input_variables_dimensions); // create flatten layer
+                            neural_network_ptr->add_layer(flatten_layer);
+                          }
                     break;
                 }
             }  
