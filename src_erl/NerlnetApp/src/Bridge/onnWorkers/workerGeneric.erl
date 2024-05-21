@@ -152,7 +152,7 @@ idle(cast, {training}, State = #workerGeneric_state{myName = MyName , distribute
 
 % Go from idle to predict
 idle(cast, {predict}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  % io:format("@idle got predict , Worker ~p is going to state predict...~n",[MyName]),
+  io:format("@idle got predict , Worker ~p is going to state predict...~n",[MyName]),
   % worker_controller_empty_message_queue(),
   update_client_avilable_worker(MyName),
   DistributedBehaviorFunc(post_idle, {get(generic_worker_ets), predict}),
@@ -208,12 +208,11 @@ wait(cast, {end_stream , _Data}, State= #workerGeneric_state{myName = MyName}) -
 
 wait(cast, {idle}, State= #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc, nextState = NextState}) ->
   %logger:notice("Waiting, next state - idle"),
-  io:format("Worker ~p @wait is going to state idle...~n",[MyName]),
   DistributedBehaviorFunc(pre_idle, {get(generic_worker_ets), train}),
   case NextState of
     end_stream -> {next_state, wait, State#workerGeneric_state{nextState = end_stream}};
     _ ->          update_client_avilable_worker(MyName),
-                  {next_state, wait, State#workerGeneric_state{nextState = idle}}
+                  {next_state, idle, State#workerGeneric_state{nextState = idle}}
   end;
 
 wait(cast, {training}, State) ->
@@ -315,12 +314,12 @@ predict(cast, {sample , SourceName , BatchID , {PredictBatchTensor, Type}}, Stat
 predict(cast, {start_stream , SourceName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   io:format("Worker ~p got start_stream~n",[MyName]),
   stream_handler(start_stream, predict, SourceName, DistributedBehaviorFunc),
-  {next_state, train, State};
+  {next_state, predict, State};
 
 predict(cast, {end_stream , SourceName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   io:format("Worker ~p got end_stream~n",[MyName]),
   stream_handler(end_stream, predict, SourceName, DistributedBehaviorFunc),
-  {next_state, train, State};
+  {next_state, predict, State};
 
 predict(cast, {idle}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   update_client_avilable_worker(MyName),
