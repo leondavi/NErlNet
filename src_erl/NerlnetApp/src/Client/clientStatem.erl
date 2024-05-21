@@ -345,8 +345,11 @@ predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef})
   end,
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
 
+% ************* NEW ***************
 predict(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
+  ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_sources_list, ?DATA_IDX),
+  ets:update_element(EtsRef, active_workers_sources_list, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, SourceName}]}),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
@@ -354,13 +357,21 @@ predict(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef = 
   gen_statem:cast(WorkerPid, {start_stream, SourceName}),
   {keep_state, State};
 
+% ************* NEW ***************
 predict(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
-  {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
+  {SourceName, ClientName, WorkerName} = binary_to_term(Data),
   ClientStatsEts = get(client_stats_ets),
+  ListOfActiveWorkerSources = ets:lookup_element(EtsRef, active_workers_sources_list, ?DATA_IDX),
+  UpdatedListOfActiveWorkerSources = ListOfActiveWorkerSources -- [{WorkerName, SourceName}],
+  ets:update_element(EtsRef, active_workers_sources_list, {?DATA_IDX, UpdatedListOfActiveWorkerSources}),
+  io:format("Client ~p received end_stream to worker ~p , remaining training workers ~p~n",[ClientName, WorkerName , UpdatedListOfActiveWorkerSources]),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
-  gen_statem:cast(WorkerPid, {end_stream, SourceName}),
+  gen_statem:cast(WorkerPid, {end_stream, SourceName}), % WHY THIS IS NOT WORKING????
+  case length(UpdatedListOfActiveWorkerSources) of 
+    0 -> ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
+    _ -> ok end,
   {keep_state, State};
 
 predict(cast, In = {predictRes,WorkerName, SourceName ,{PredictNerlTensor, NetlTensorType} , TimeTook , BatchID , BatchTS}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
