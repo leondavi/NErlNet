@@ -181,7 +181,6 @@ wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceNam
   BatchTimeStamp = erlang:system_time(nanosecond),
   gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,{LossTensor, LossTensorType} , TrainTime , BatchID , BatchTimeStamp}),
   DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
-  io:format("GOT HEREEEEEEEEEEEEEEEEEEEE~n"),
   UpdatedNextState = 
     case NextState of
       end_stream -> stream_handler(end_stream, train, SourceName, DistributedBehaviorFunc),                    
@@ -202,6 +201,7 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
 
 wait(cast, {end_stream , _Data}, State= #workerGeneric_state{myName = _MyName}) ->
   %logger:notice("Waiting, next state - idle"),
+  % ******** WERE MISSING THE SOURCE NAME HERE ********
   {next_state, wait, State#workerGeneric_state{nextState = end_stream}};
 
 wait(cast, {idle}, State= #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc, nextState = NextState}) ->
