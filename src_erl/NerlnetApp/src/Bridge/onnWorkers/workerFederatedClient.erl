@@ -115,7 +115,7 @@ end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [S
                 w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, MyName),
                 ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
                 gen_statem:cast(ClientPid, {worker_done, {MyName, SourceName}}),
-                io:format("~p sent end_stream to ~p~n",[MyName , ServerName]);
+                io:format("~p sent end_stream to ~p and client~n",[MyName , ServerName]);
           _ -> ok
         end;
     predict -> ok

@@ -209,7 +209,8 @@ wait(cast, {idle}, State= #workerGeneric_state{myName = MyName, distributedBehav
   DistributedBehaviorFunc(pre_idle, {get(generic_worker_ets), train}),
   io:format("SHOULDNT BE HERE~n"),
   case NextState of
-    end_stream -> {next_state, wait, State#workerGeneric_state{nextState = end_stream}};
+    end_stream -> io:format("@wait --> idle , NextState = end_stream~n"),
+                  {next_state, wait, State#workerGeneric_state{nextState = end_stream}};
     _ ->          update_client_avilable_worker(MyName),
                   io:format("@wait --> idle SENDING STATE CHANGE~n"),
                   {next_state, idle, State#workerGeneric_state{nextState = idle}}
