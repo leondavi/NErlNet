@@ -1,0 +1,84 @@
+{
+    "experimentName": "EEG_Eye_State_Classification",
+    "experimentType": "classification",
+    "batchSize": 100,
+    "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/EEG_eye_state_classification_Ohad/EEG_Eye_State_Classification.csv",
+    "numOfFeatures": "14",
+    "numOfLabels": "2",
+    "headersNames": "eye-closed,eye-open",
+    "Phases": 
+    [
+       {
+          "phaseName": "training_phase",
+          "phaseType": "training",
+          "sourcePieces":
+          [
+             {
+                "sourceName": "s1",
+                "startingSample": "0",
+                "numOfBatches": "100",
+                "workers": "w1",
+                "nerltensorType": "float"
+             },
+             {
+                "sourceName": "s2",
+                "startingSample": "0",
+                "numOfBatches": "100",
+                "workers": "w2",
+                "nerltensorType": "float"
+             },
+             {
+                "sourceName": "s3",
+                "startingSample": "0",
+                "numOfBatches": "100",
+                "workers": "w3",
+                "nerltensorType": "float"
+             },
+             {
+                "sourceName": "s4",
+                "startingSample": "0",
+                "numOfBatches": "100",
+                "workers": "w4",
+                "nerltensorType": "float"
+            }
+          ]  
+       },
+       {
+          "phaseName": "prediction_phase",
+          "phaseType": "prediction",
+          "sourcePieces":
+          [
+             {
+                "sourceName": "s1",
+                "startingSample": "10000",
+                "numOfBatches": "40",
+                "workers": "w1",
+                "nerltensorType": "float"
+             },
+             {
+                "sourceName": "s2",
+                "startingSample": "10000",
+                "numOfBatches": "40",
+                "workers": "w2",
+                "nerltensorType": "float"
+             },
+             {
+                "sourceName": "s3",
+                "startingSample": "10000",
+                "numOfBatches": "40",
+                "workers": "w3",
+                "nerltensorType": "float"
+             },
+             {
+                "sourceName": "s4",
+                "startingSample": "10000",
+                "numOfBatches": "40",
+                "workers": "w4",
+                "nerltensorType": "float"
+            }
+          ]    
+       }
+    ]  
+ }
+     
+ 
