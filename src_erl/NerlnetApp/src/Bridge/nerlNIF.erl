@@ -20,7 +20,7 @@
 -export([nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
 
 % nerlworker nif methods
--export([new_nerlworker_nif/12, remove_nerlworker_nif/1, test_nerlworker_nif/12]).
+-export([new_nerlworker_nif/13, remove_nerlworker_nif/1, test_nerlworker_nif/13]).
 
 init() ->
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
@@ -177,21 +177,20 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
                   end,
       BinTypeInteger = lists:member(BinType, ?LIST_BINARY_INT_NERLTENSOR_TYPE),
       BinTypeFloat = lists:member(BinType, ?LIST_BINARY_FLOAT_NERLTENSOR_TYPE),
-      
       % Wrong combination guard
       case ErlType of 
-      erl_float when BinTypeFloat-> ok;
-      erl_int when BinTypeInteger -> ok;
-      _ -> throw("invalid types combination")
+            erl_float when BinTypeFloat -> ok;
+            erl_int when BinTypeInteger -> ok;
+            _ -> throw("invalid types combination")
       end,
       
       case Operation of 
             encode -> Validated = validate_nerltensor_erl(NerlTensor),
-                      if
+                  if
                         Validated -> encode_nif(NerlTensor, BinType);
                         true -> io:format("Wrong NerlTensor size!~n"), {<<>>, BinType}
                         % true -> throw(nerl:string_format("encode failure due to incorrect dimension declaring X*Y*Z not equal to tensor data length! ~p ",[NerlTensor]))
-                      end;
+                  end;
             decode -> 
                   if 
                         is_binary(NerlTensor) -> decode_nif(NerlTensor, BinType);
@@ -203,6 +202,7 @@ nerltensor_conversion({NerlTensor, Type}, ResType) ->
 %% get BinType (float, double...) -> ErlType (erl_float / erl_int)
 erl_type_conversion(BinType) ->
       {_, ErlType} = lists:keyfind(BinType, 1, ?NERL_TYPES),
+      % TODO Throw exception if wrong type
       ErlType.
 
 nerltensor_scalar_multiplication_erl({NerlTensorErl, Type}, ScalarValue) -> 
@@ -219,7 +219,7 @@ nerltensor_scalar_multiplication_erl({NerlTensorErl, Type}, ScalarValue) ->
 
 %%%%%% NerlWorker NIF Methods %%%%%%
 
-new_nerlworker_nif(_ModelId,_ModelType, _LayersSizes, _LayersTypes, _LayersFunctionalityCodes, _LearningRate, _Epochs, _OptimizerType,
+new_nerlworker_nif(_ModelId,_ModelType, _ModelArgs , _LayersSizes, _LayersTypes, _LayersFunctionalityCodes, _LearningRate, _Epochs, _OptimizerType,
 _OptimizerArgs, _LossMethod, _DistributedSystemType, _DistributedSystemArgs) ->
       exit(nif_library_not_loaded).
 
@@ -227,6 +227,6 @@ remove_nerlworker_nif(_ModelId) ->
       exit(nif_library_not_loaded).
 
 %% All of inputs must be binary strings! except for _ModelId which is an integer
-test_nerlworker_nif(_ModelId,_ModelType, _LayersSizes, _LayersTypes, _LayersFunctionalityCodes, _LearningRate, _Epochs, _OptimizerType,
+test_nerlworker_nif(_ModelId,_ModelType, _ModelArgs, _LayersSizes, _LayersTypes, _LayersFunctionalityCodes, _LearningRate, _Epochs, _OptimizerType,
                 _OptimizerArgs, _LossMethod, _DistributedSystemType, _DistributedSystemArgs) ->
       exit(nif_library_not_loaded).

@@ -64,15 +64,20 @@ class ExperimentFlow():
     def merge_stats(self, stats_list: list) -> Stats:
         pass
 
-    def parse_experiment_flow_json(self, json_path : str):
-        # read json file from nerlPlanner output
+    def parse_experiment_flow_json(self, json_path : str, override_csv_path = ""):
+        '''
+        json path is the path to the json file that was created by the nerlPlanner
+        override_csv_path is the path to the csv file that will be used instead of the one in the json file
+        if it is empty the csv file path from the json file will be used
+        '''
+        # read experimentFlow json file
         with open(json_path) as json_file:
-             self.exp_flow_json = json.load(json_file)
+            self.exp_flow_json = json.load(json_file)
         # parse json and create experiment phases
         self.exp_name = self.exp_flow_json[EXPFLOW_EXPERIMENT_NAME_FIELD]
         self.batch_size = self.exp_flow_json[EXPFLOW_BATCH_SIZE_FIELD]
         assert self.batch_size == self.batch_size_dc
-        csv_file_path = self.exp_flow_json[EXPFLOW_CSV_FILE_PATH_FIELD]
+        csv_file_path = self.exp_flow_json[EXPFLOW_CSV_FILE_PATH_FIELD] if override_csv_path == "" else override_csv_path
         headers_row = self.exp_flow_json[EXPFLOW_HEADERS_NAMES_FIELD].split(",")
         num_of_features = self.exp_flow_json[EXPFLOW_NUM_OF_FEATURES_FIELD]
         num_of_labels = self.exp_flow_json[EXPFLOW_NUM_OF_LABELS_FIELD]
@@ -89,7 +94,8 @@ class ExperimentFlow():
                 starting_sample = int(source_piece[EXPFLOW_PHASE_SOURCE_PIECES_STARTING_SAMPLE_FIELD])
                 num_of_batches = int(source_piece[EXPFLOW_PHASE_SOURCE_PIECES_NUM_OF_BATCHES_FIELD])
                 workers = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_WORKERS_FIELD]
-                source_piece_inst =  self.csv_dataset.generate_source_piece_ds(source_name, self.batch_size, phase_type, starting_sample, num_of_batches)
+                nerltensor_type = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_NERLTENSOR_TYPE_FIELD]
+                source_piece_inst = self.csv_dataset.generate_source_piece_ds(source_name, self.batch_size, phase_type, starting_sample, num_of_batches, nerltensor_type)
                 source_piece_inst.update_target_workers(workers)
                 source_piece_csv_file = self.csv_dataset.generate_source_piece_ds_csv_file(source_piece_inst, phase_type)
                 source_piece_inst.set_pointer_to_sourcePiece_CsvDataSet(source_piece_csv_file)
@@ -124,17 +130,20 @@ class ExperimentFlow():
         #LOG_INFO(f"CSV dataset: {self.csv_dataset.get_csv_file_path()}")
         LOG_INFO(f"Number of features: {self.csv_dataset.get_num_of_features()}")
         LOG_INFO(f"Number of labels: {self.csv_dataset.get_num_of_labels()}")
-        LOG_INFO("\nPhases:\n")
+        LOG_INFO("")
+        LOG_INFO("Phases:")
         for phase in self.exp_phase_list:
-            LOG_INFO(f"Phase name: {phase.get_name()}")
-            LOG_INFO(f"Phase type: {phase.get_phase_type()}")
-            LOG_INFO(f"Sources: {phase.get_sources_str_list()}")
-            LOG_INFO("\nSource pieces:\n")
+            LOG_INFO(f"   Phase name: {phase.get_name()}")
+            LOG_INFO(f"   Phase type: {phase.get_phase_type()}")
+            LOG_INFO(f"   Sources: {phase.get_sources_str_list()}")
+            LOG_INFO("")
+            LOG_INFO("    Source pieces:")
             for source_piece in phase.get_sources_pieces():
-                LOG_INFO(f"Source name: {source_piece.get_source_name()}")
-                LOG_INFO(f"Batch size: {source_piece.get_batch_size()}")
-                LOG_INFO(f"Phase: {source_piece.get_phase()}")
-                LOG_INFO(f"Starting offset: {source_piece.get_starting_offset()}")
-                LOG_INFO(f"Number of batches: {source_piece.get_num_of_batches()}")
-                LOG_INFO(f"Workers target: {source_piece.get_target_workers()}")
+                LOG_INFO(f"         Source name: {source_piece.get_source_name()}")
+                LOG_INFO(f"         Batch size: {source_piece.get_batch_size()}")
+                LOG_INFO(f"         Phase: {source_piece.get_phase()}")
+                LOG_INFO(f"         Starting offset: {source_piece.get_starting_offset()}")
+                LOG_INFO(f"         Number of batches: {source_piece.get_num_of_batches()}")
+                LOG_INFO(f"         Workers target: {source_piece.get_target_workers()}")
+                LOG_INFO("      ----------------------")
                 LOG_INFO("")

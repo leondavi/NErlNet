@@ -7,7 +7,6 @@
 -export([string_to_list_int/1, deleteOldJson/1]).
 -export([multipart/2, read_all_data/2]).
 -export([getdeviceIP/0, port_available/1]).
--export([list_to_numeric/1]).
 -export([calculate_size/1]).
 -export([make_routing_table/4]).
 -export([http_router_request/5]).
@@ -22,9 +21,9 @@ http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, Body) -
   if 
     length(DestinationsList) == 1 -> % unicast
         Dest = hd(DestinationsList),
-        nerl_tools:http_request(RouterHost,RouterPort,"unicast",term_to_binary({Dest,{ActionStr, Body}}));
+        nerl_tools:http_request(RouterHost, RouterPort, "unicast", term_to_binary({Dest,{ActionStr, Body}}));
     length(DestinationsList) > 1 -> % Broadcast
-        nerl_tools:http_request(RouterHost,RouterPort,"broadcast",term_to_binary({DestinationsList,{ActionStr , Body}}));
+        nerl_tools:http_request(RouterHost, RouterPort, "broadcast", term_to_binary({DestinationsList,{ActionStr , Body}}));
     true ->
         ?LOG_ERROR("Empty DestinationsList is given!"),
         throw("Empty DestinationsList is given!")
@@ -32,19 +31,18 @@ http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, Body) -
 
 
 http_request(Host, Port, Path, {json, Body}) -> 
-  io:format("Sending Json to ~p:~p~n",[Host,Port]),
   JsonContentType = ?HTTP_CONTENT_TYPE_JSON,
   Json = jsx:encode(Body),
   http_request(Host, Port,Path, JsonContentType, Json);
-http_request(Host, Port,Path, Body) -> 
+http_request(Host, Port, Path, Body) -> 
   DefaultContentType = ?HTTP_CONTENT_TYPE_FORM_URLENCODED,
   http_request(Host, Port,Path, DefaultContentType, Body).
 
 %% send message between entities
 http_request(Host, Port, Path, ContentType, Body) when is_atom(Body) -> http_request(Host, Port,Path, ContentType, atom_to_list(Body));
 http_request(Host, Port, Path, ContentType, Body) when is_binary(Host) -> http_request(binary_to_list(Host), Port,Path, ContentType, Body);
-http_request(Host, Port, Path, ContentType, Body)->
-  URL = "http://" ++ Host ++ ":"++integer_to_list(Port) ++ "/" ++ Path, % Path is the action
+http_request(Host, Port, Path, ContentType, Body) ->
+  URL = "http://" ++ Host ++ ":" ++ integer_to_list(Port) ++ "/" ++ Path, % Path is the action
   httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
   httpc:request(post,{URL, [], ContentType, Body}, [], []).
 
@@ -122,7 +120,11 @@ read_all_parts(Req0, Got) ->
   %% gets multipart data and combines it
 
 read_all_data(Req0, Got) ->
-  % io:format("length of read data so far: ~p~n",[length(Got)]),
+  % This function is useful when you’re dealing with large amounts of data that can’t be read all at once.
+  % By reading the data in chunks and using recursion, it can handle any amount of data without running out of memory.
+  % However, keep in mind that this function assumes that the data is either a binary or a list, and it may not work correctly
+  % if the data is of a different type. It’s always a good idea to validate the data before processing it.
+  % Cowboy website - https://ninenines.eu/docs/en/cowboy/2.10/guide/req_body/
   case cowboy_req:read_body(Req0) of
       {more, Data, Req} -> 
         if 
@@ -184,18 +186,6 @@ isAddrInSubnets(IF_addr, [Subnet|SubnetsList]) ->
 
 string_format(Pattern, Values) ->
     lists:flatten(io_lib:format(Pattern, Values)).
-
-list_to_numeric(Num) when is_float(Num) -> {Num, float};
-list_to_numeric(Num) when is_integer(Num) -> {Num, integer};
-list_to_numeric([]) -> {[], empty};
-list_to_numeric(L) ->
-  Float = (catch erlang:list_to_float(L)),
-  Int = (catch erlang:list_to_integer(L)),
-  if is_number(Float) -> {Float, float};
-    is_number(Int) -> {Int, integer};
-    true -> ErrorMessage = "couldnt convert - given input string is not a numeric value: ",   %% most common problem is L=[] (if input csv data is empty line, delete it)
-            ?LOG_ERROR(ErrorMessage), throw(ErrorMessage++L)
-  end.
 
 port_available(Port) ->
     case gen_tcp:listen(Port, []) of

@@ -5,6 +5,8 @@
 import time
 import threading
 import sys
+from singleton import Singleton
+from huggingface_hub import HfApi, utils , snapshot_download
 from experiment_flow import *
 from pathlib import Path
 from jsonDirParser import JsonDirParser
@@ -16,11 +18,11 @@ from definitions import *
 from logger import *
 from NerlComDB import *
 from events_sync import *
+from apiServerHelp import API_SERVER_HELP_STR
 
-class ApiServer():
-    def __init__(self):       
+class ApiServer(metaclass=Singleton):
+    def __init__(self):
         self.json_dir_parser = JsonDirParser()
-        self.input_data_path = read_nerlconfig(NERLCONFIG_INPUT_DATA_DIR)
         self.experiments_dict = {}
         self.current_exp = None
         self.apiserver_event_sync = EventSync() # pay attention! there are two kinds of syncs one for experiment phase events and one for api-server events
@@ -38,65 +40,26 @@ class ApiServer():
         return self.__init__()
 
     def help(self):
-    #i) data saved as .csv, training file ends with "_Training.csv", prediction with "_Prediction.csv" (may change in future)
-        print(
-f"""
-__________NERLNET CHECKLIST__________
-0. Run this Jupyter in the folder of generated .py files!
-1. Nerlnet configuration files are located at config directory
-   Make sure data and jsons in correct folder, and jsons include the correct paths
-    * Data includes: labeled prediction csv, training file, prediction file
-    * Prediction CSVs need to be ordered the same!
-    * jsonsDir is set to {self.json_dir_parser.get_json_dir_path()}
-    * inputDataDir is set to {self.input_data_path}
-            
-____________API COMMANDS_____________
-==========Setting experiment========
-
--showJsons():                       shows available arch / conn / exp layouts
--printArchParams(Num)               print description of selected arch file
--selectJsons():                     get input from user for arch / conn / exp selection
--setJsons(arch, conn, exp):         set layout in code
--getUserJsons():                    returns the selected arch / conn / exp
--initialization(arch, conn, exp):   set up server for a NerlNet run
--sendJsonsToDevices():              send each NerlNet device the arch / conn jsons to init entities on it
--sendDataToSources(phase(,split)):  phase := "training" | "prediction". split := 1 default (split) | 2 (whole file). send the experiment data to sources (currently happens in beggining of train/predict)
-
-========Running experiment==========
--train():                           start training phase
--predict():                         start prediction phase
--contPhase(phase):                  send another `Batch_size` of a phase (must be called after initial train/predict)
-
-==========Experiment info===========
--print_saved_experiments()          prints saved experiments and their number for statistics later
--plot_loss(ExpNum)                  saves and shows the loss over time of the chosen experiment
--accuracy_matrix(ExpNum, Normalize) Normalize = True | False. shows a graphic for the confusion matrix. Also returns all ConfMat[worker][nueron]
--communication_stats()              prints the communication statistics of the current network. integer => message count, float => avg calc time (ms)
-
-_____GLOBAL VARIABLES / CONSTANTS_____
-pendingAcks:                        makes sure API command reaches all relevant entities (wait for pending acks)
-TRAINING_STR = "Training"
-PREDICTION_STR = "Prediction"
-        """)
+        print(API_SERVER_HELP_STR)        
     
-    def __new_experiment(self, experiment_name : str, json_path: str, batch_size: int, network_componenets: NetworkComponents):
+    def __new_experiment(self, experiment_name : str, json_path: str, batch_size: int, network_componenets: NetworkComponents, csv_path = ""):
         assert experiment_name not in self.experiments_dict, "experiment name exists!"
         self.experiments_dict[experiment_name] = ExperimentFlow(experiment_name, batch_size, network_componenets)
-        self.experiments_dict[experiment_name].parse_experiment_flow_json(json_path)
+        self.experiments_dict[experiment_name].parse_experiment_flow_json(json_path, csv_path)
 
     def experiment_focused_on(self, experiment_name):
         assert experiment_name in self.experiments_dict, "cannot focus on experiment that has never been created!"
         globe.experiment_focused_on = self.get_experiment_flow(experiment_name) # Get experiment instance from expirments dict
         self.current_exp = globe.experiment_focused_on # TODO the objective is to get rid of this global definitions
 
-    def initialization(self, experiment_name : str, dc_json: str, conn_map_json, experiment_flow_json):
+    def initialization(self, experiment_name : str, dc_json: str, conn_map_json, experiment_flow_json, csv_path = ""):
         dcData = self.json_dir_parser.json_from_path(dc_json)
         connData = self.json_dir_parser.json_from_path(conn_map_json)
         batch_size = int(dcData["nerlnetSettings"]["batchSize"])
 
         globe.components = NetworkComponents(dcData) # move network component into experiment class
         # comDB = NerlComDB(globe.components)
-        self.__new_experiment(experiment_name, experiment_flow_json, batch_size, globe.components) # create new experiment
+        self.__new_experiment(experiment_name, experiment_flow_json, batch_size, globe.components, csv_path) # create new experiment
         self.experiment_focused_on(experiment_name)
 
         globe.components.printComponents()
@@ -111,7 +74,7 @@ PREDICTION_STR = "Prediction"
 
         # Initalize an instance for the transmitter:
         if not hasattr(self, 'transmitter'):
-            self.transmitter = Transmitter(self.current_exp, self.mainServerAddress, self.input_data_path)
+            self.transmitter = Transmitter(self.current_exp, self.mainServerAddress)
         
         LOG_INFO("Initializing ApiServer receiver thread")
 
@@ -235,3 +198,54 @@ PREDICTION_STR = "Prediction"
     def experiment_phase_is_valid(self):
         current_exp_flow = globe.experiment_focused_on
         return current_exp_flow.current_exp_phase_index < len(current_exp_flow.exp_phase_list)
+    
+    def list_datasets(self):
+        with open(HF_DATA_REPO_PATHS_JSON) as file:
+            repo_ids = json.load(file)
+        api = HfApi()
+        datasets = {}
+        try:
+            for repo in repo_ids["datasets"]:
+                files = api.list_repo_files(repo_id=repo["id"], repo_type="dataset")
+                repo_csv_files = [file for file in files if file.endswith('.csv')]
+                datasets[repo["id"]] = repo_csv_files
+            for i , (repo_name , files) in enumerate(datasets.items()):
+                LOG_INFO(f'{i}. {repo_name}: {files}')
+        except utils._errors.RepositoryNotFoundError:
+            LOG_INFO(f"Failed to find the repository '{repo}'. Check your '{HF_DATA_REPO_PATHS_JSON}' file or network access.")
+            
+    def download_dataset(self, repo_idx : int | list[int], download_dir_path : str = DEFAULT_NERLNET_TMP_DATA_DIR):
+        with open(HF_DATA_REPO_PATHS_JSON) as file:
+            repo_ids = json.load(file)
+        try:
+            if isinstance(repo_idx, int):
+                repo_idx = [repo_idx]
+            for repo in repo_ids["datasets"]:
+                if repo["idx"] in repo_idx:
+                    repo_id = repo["id"]
+                    full_path_to_repo = f'{download_dir_path}/{repo["name"]}'
+                    if not os.path.exists(full_path_to_repo):
+                        os.makedirs(full_path_to_repo)
+                    snapshot_download(repo_id=repo_id, local_dir=f'{full_path_to_repo}', repo_type="dataset")
+                    LOG_INFO(f"Files downloaded to {download_dir_path}/{repo['name']}")
+        except utils._errors.RepositoryNotFoundError:
+            LOG_INFO(f"Failed to find the repository '{repo}'. Check your '{HF_DATA_REPO_PATHS_JSON}' file or network access.")
+        
+    
+    def add_repo_to_datasets_list(self, repo_id , name : str = "" , description : str = ""):
+        try:
+            api = HfApi()
+            api.list_repo_files(repo_id=repo_id , repo_type="dataset")
+        except utils._errors.RepositoryNotFoundError:
+            print("Failed to find the repository. Check your 'repo_id' and network access.")
+            return
+        with open(HF_DATA_REPO_PATHS_JSON) as file:
+            repo_ids = json.load(file)
+        if repo_id not in [repo["id"] for repo in repo_ids["datasets"]]:
+            repo_ids["datasets"].append({"id": repo_id , "idx": len(repo_ids["datasets"]) , "name": name , "description": description})
+        else:
+            print(f"Repository {repo_id} already exists in the hf_repo_ids.json")
+            return
+        with open(HF_DATA_REPO_PATHS_JSON, 'w') as file:
+            json.dump(repo_ids, file, indent=4)
+            print(f"Repository {repo_id} added to the hf_repo_ids.json")

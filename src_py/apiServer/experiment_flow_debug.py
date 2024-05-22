@@ -6,6 +6,8 @@ from stats import *
 from runCommand import RunCommand
 from definitions import *
 
+TEST_DATASET_IDX = 2
+
 def print_test(in_str : str):
     PREFIX = "[NERLNET-TEST] "
     LOG_INFO(f"{PREFIX} {in_str}")
@@ -15,11 +17,12 @@ NERLNET_RUN_SCRIPT = "./NerlnetRun.sh --run-mode release"
 NERLNET_RUN_STOP_SCRIPT = "./NerlnetRun.sh --run-mode stop"
 
 api_server_instance = ApiServer()
+api_server_instance.download_dataset(TEST_DATASET_IDX)
 #api_server_instance.help()
 api_server_instance.showJsons()
-dc_idx = 0
-conn_idx = 19
-exp_idx = 18
+dc_idx = 2
+conn_idx = 21
+exp_idx = 3
 api_server_instance.setJsons(dc_idx, conn_idx, exp_idx)
 dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 

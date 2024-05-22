@@ -11,8 +11,9 @@ import pandas as pd
 
 NERLNET_PATH = "/usr/local/lib/nerlnet-lib/NErlNet"
 NERLNET_SRC_PY_PATH = f"{NERLNET_PATH}/src_py"
-NERLCONFIG_INPUT_DATA_DIR = "/usr/local/lib/nerlnet-lib/NErlNet/config/inputDataDir.nerlconfig"
 NERLCONFIG_JSONS_DIR = '/usr/local/lib/nerlnet-lib/NErlNet/config/jsonsDir.nerlconfig'
+DEFAULT_NERLNET_TMP_DATA_DIR = '/tmp/nerlnet/data/NerlnetData-master/nerlnet'
+HF_DATA_REPO_PATHS_JSON = f'{NERLNET_PATH}/src_py/apiServer/hf_repo_ids.json'
 
 NERLCONFIG_SUFFIX = ".nerlconfig"
 INPUT_DATA_DIR_CONF = "inputDataDir"
@@ -35,21 +36,21 @@ PHASE_STATS = 3 # TODO maybe redundant
 PHASE_TRAINING_STR = "training"
 PHASE_PREDICTION_STR = "prediction"
 
+NERLTENSOR_TYPE_LIST = ['float', 'int16', 'int32', 'double', 'uint8']
+
 def read_nerlconfig(nerlconfig_file_path : str):
     if not nerlconfig_file_path.endswith(NERLCONFIG_SUFFIX):
         raise "wrong filename suffix"
     if not os.path.isfile(nerlconfig_file_path):
         raise "nerlconfig does not exist!"
     with open(nerlconfig_file_path) as file:
-        if (INPUT_DATA_DIR_CONF in nerlconfig_file_path) or (JSONS_DIR in nerlconfig_file_path):
+        if (JSONS_DIR in nerlconfig_file_path):
             lines = file.readlines()
             if lines:
                 first_line = lines[0].rstrip()
                 if os.path.exists(first_line):
                     return first_line
                 else:
-                    if (INPUT_DATA_DIR_CONF in nerlconfig_file_path):
-                        LOG_ERROR("data directory does not exist in given path , consider running ./NerlnetGetData.sh")
                     LOG_ERROR(f"bad nerlconfig directory is given: {first_line} at {nerlconfig_file_path}")
                     raise "bad nerlconfig directory is given"
     return None

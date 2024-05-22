@@ -19,7 +19,7 @@ class NerlWorkerOpenNN : public NerlWorker
 {
     public:
 
-    NerlWorkerOpenNN(int model_type, std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
+    NerlWorkerOpenNN(int model_type, std::string &model_args_str , std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
                      float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
                      int loss_method, int distributed_system_type, std::string &distributed_system_args_str);
     ~NerlWorkerOpenNN();
@@ -32,7 +32,7 @@ class NerlWorkerOpenNN : public NerlWorker
     std::shared_ptr<opennn::DataSet> get_data_set() { return _data_set; };
     void post_training_process(fTensor2DPtr  TrainDataNNptr);
     void post_predict_process(fTensor2DPtr result_ptr);
-
+    void get_result_calc(fTensor2DPtr calculate_res,int num_of_samples,int inputs_number,fTensor2DPtr predictData);
     void set_optimization_method(int optimizer_type ,int learning_rate);
     void set_loss_method(int loss_method);
     void set_learning_rate(float learning_rate);

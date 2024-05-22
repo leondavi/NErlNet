@@ -7,9 +7,9 @@ namespace nerlnet
 {
 // ----- NerlWorkerOpenNN -----
 
-    NerlWorkerOpenNN::NerlWorkerOpenNN(int model_type,std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
+    NerlWorkerOpenNN::NerlWorkerOpenNN(int model_type, std::string &model_args_str , std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
                      float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
-                     int loss_method, int distributed_system_type, std::string &distributed_system_args_str) : NerlWorker(model_type, layer_sizes_str, layer_types_list, layers_functionality,
+                     int loss_method, int distributed_system_type, std::string &distributed_system_args_str) : NerlWorker(model_type, model_args_str , layer_sizes_str, layer_types_list, layers_functionality,
                                                                                                                       learning_rate, epochs, optimizer_type, optimizer_args_str,
                                                                                                                       loss_method, distributed_system_type, distributed_system_args_str)
     {
@@ -132,36 +132,6 @@ namespace nerlnet
         _optimizer_type = optimizer_type;
         //cout << "optimizer_type = " << optimizer_type << endl;
         _training_strategy_ptr->set_optimization_method(translate_optimizer_type(optimizer_type));
-        /*
-        switch(_optimizer_type){
-            case OPTIMIZER_GD:
-            {
-                break; //No implementation for learning rate in GD
-            }
-            case OPTIMIZER_SGD:
-            {
-                _training_strategy_ptr->get_stochastic_gradient_descent_pointer()->set_initial_learning_rate(learning_rate);
-                break;
-            }
-            case OPTIMIZER_CGD:
-            {
-                break; // No learning rate for CGD
-            }
-            case OPTIMIZER_QUASINEUTON:
-            {
-                break; //No learning rate for Quasi Newton
-            }
-            case OPTIMIZER_LVM:
-            {
-                break; //No learning rate for LVM
-            }
-            case OPTIMIZER_ADAM:
-            {
-                _training_strategy_ptr->get_adaptive_moment_estimation_pointer()->set_initial_learning_rate(learning_rate);
-                break;
-            }
-        }
-          */
     }
 
     void NerlWorkerOpenNN::set_loss_method(int loss_method){
@@ -237,7 +207,20 @@ namespace nerlnet
     }
 
  
-
+    void NerlWorkerOpenNN::get_result_calc(fTensor2DPtr calculate_res,int num_of_samples,int inputs_number,fTensor2DPtr predictData){
+        Tensor<Index, 1> input_variable_dimension(4);
+        Tensor<Index, 1> inputs_dimensions(2);
+        std::shared_ptr<opennn::NeuralNetwork> neural_network_ptr = get_neural_network_ptr();
+         if(neural_network_ptr->has_convolutional_layer())
+    {  
+        ConvolutionalLayer* conv = (ConvolutionalLayer*)neural_network_ptr->get_layer_pointer(0);
+        input_variable_dimension.setValues({num_of_samples,conv->get_input_variables_dimensions()(1), conv->get_input_variables_dimensions()(2), conv->get_input_variables_dimensions()(3)});
+        *calculate_res = neural_network_ptr->calculate_outputs(predictData->data(), input_variable_dimension);
+    }else{
+        inputs_dimensions.setValues({num_of_samples, inputs_number});
+         *calculate_res = neural_network_ptr->calculate_outputs(predictData->data(), inputs_dimensions);
+    }
+    }
 
     void NerlWorkerOpenNN::set_dataset(std::shared_ptr<opennn::DataSet> data_set,fTensor2DPtr TrainDataNNptr){
         _data_set = data_set;

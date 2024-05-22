@@ -7,3 +7,5 @@ pandas
 Requests
 scikit_learn
 seaborn
+huggingface_hub
+ipywidgets

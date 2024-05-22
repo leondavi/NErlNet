@@ -12,17 +12,14 @@ from experiment_flow import *
 
 class Transmitter:
 
-    def __init__(self, experiment_flow : ExperimentFlow, mainServerAddress, input_data_path : str):
+    def __init__(self, experiment_flow : ExperimentFlow, mainServerAddress):
         # Addresses used throughout the module:
         self.experiment_flow = experiment_flow
-        self.input_data_path = input_data_path
         self.mainServerAddress = mainServerAddress
         self.sourceInitAddr = self.mainServerAddress + '/sourceInit'
-        self.clientsTrainingAddress = self.mainServerAddress + '/clientsTraining'  #deprecated
         self.clientsPhaseUpdateAddress = self.mainServerAddress + '/clientsPhaseUpdate'
         self.updateCSVAddress = self.mainServerAddress + '/updateCSV'
         self.startCastingAddress = self.mainServerAddress + '/startCasting'
-        self.clientsPredictAddress = self.mainServerAddress + '/clientsPredict' #deprecated
         self.statisticsAddress = self.mainServerAddress + '/statistics'
         self.restart_address = self.mainServerAddress + '/restart'
         self.ack_validation_address = self.mainServerAddress + '/apiserver_ack_validation'
@@ -77,9 +74,10 @@ class Transmitter:
             source_name = source_piece.get_source_name()
             target_workers = source_piece.get_target_workers()
             num_of_batches = source_piece.get_num_of_batches()
+            nerltensor_type = source_piece.get_nerltensor_type()
             with open(csv_file, 'r') as file:
                 csvfile = file.read()
-                data_str = f'{index + 1}#{total_sources}#{source_name}#{target_workers}#{num_of_batches}#{csvfile}'
+                data_str = f'{index + 1}#{total_sources}#{source_name}#{target_workers}#{num_of_batches}#{nerltensor_type}#{csvfile}'
                 try:
                     response = requests.post(self.updateCSVAddress, data = data_str)
                     if not response.ok:

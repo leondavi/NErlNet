@@ -1,7 +1,8 @@
 {
    "experimentName": "synthetic_3_gausians",
+   "experimentType": "classification",
    "batchSize": 100,
-   "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/synthetic/synthetic_full.csv",
+   "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/synthetic_norm/synthetic_full.csv",
    "numOfFeatures": "5",
    "numOfLabels": "3",
    "headersNames": "Norm(0:1),Norm(4:1),Norm(10:3)",
@@ -15,8 +16,9 @@
             {
             "sourceName": "s1",
             "startingSample": "0",
-            "numOfBatches": "300",
-            "workers": "w1,w2,w3,w4"
+            "numOfBatches": "500",
+            "workers": "w1,w2,w3,w4",
+            "nerltensorType": "float"
             }
          ]  
       },
@@ -27,9 +29,10 @@
          [
             {
             "sourceName": "s1",
-            "startingSample": "30000",
-            "numOfBatches": "200",
-            "workers": "w1,w2,w3,w4"
+            "startingSample": "50000",
+            "numOfBatches": "500",
+            "workers": "w1,w2,w3,w4",
+            "nerltensorType": "float"
             }
          ]    
       }

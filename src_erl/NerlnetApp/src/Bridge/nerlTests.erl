@@ -99,10 +99,12 @@ generate_nerltensor_rand_dims(Type)->
 
 generate_nerltensor(BinType,DimX,DimY,DimZ) -> 
       DataLength = DimX * DimY * DimZ,
+      IsInt = lists:member(BinType , ?LIST_BINARY_INT_NERLTENSOR_TYPE),
+      IsFloat = lists:member(BinType , ?LIST_BINARY_FLOAT_NERLTENSOR_TYPE),
       if  
-            (BinType == int32) or (BinType == int16) -> Data = [rand:uniform(255) || _ <- lists:seq(1, DataLength)],
+            IsInt -> Data = [rand:uniform(255) || _ <- lists:seq(1, DataLength)],
                         [DimX,DimY,DimZ] ++ Data;
-            (BinType == double) or (BinType == float) -> 
+            IsFloat -> 
                         DimXf = float(DimX),
                         DimYf = float(DimY),
                         DimZf = float(DimZ),
@@ -283,7 +285,7 @@ nerlworker_test_generate_data(LayersSizes, LayerTypes, NumOfSamples) -> %% Ask D
 
 nerlworker_test([], _Performance) -> _Performance;
 nerlworker_test([CurrentModel | Tail], Performance) -> 
-     {ModelId,ModelType,LayersSizes, LayersTypes, LayersFunctionalityCodes,
+     {ModelId,ModelType,ModelArgs,LayersSizes, LayersTypes, LayersFunctionalityCodes,
       LearningRate, Epochs, OptimizerType, OptimizerArgs,
       LossMethod, DistributedSystemType, DistributedSystemArg} = CurrentModel,
       case ModelType of
@@ -292,7 +294,7 @@ nerlworker_test([CurrentModel | Tail], Performance) ->
             ?MODEL_TYPE_AE_CLASSIFIER_IDX -> nerltest_print("Testing AEC Model");
             _ -> nerltest_print(nerl:string_format("Model Type ~p is being tested~n",[ModelType]))
       end,
-      nerlNIF:test_nerlworker_nif(ModelId,ModelType,LayersSizes, LayersTypes, 
+      nerlNIF:test_nerlworker_nif(ModelId,ModelType,ModelArgs,LayersSizes, LayersTypes, 
       LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, 
       OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
       NumOfSamples = 500,

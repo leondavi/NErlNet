@@ -9,7 +9,7 @@ namespace nerlnet
 {
     public:
 
-    NerlWorker(int model_type, std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
+    NerlWorker(int model_type, std::string &model_args_str, std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
                      float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
                      int loss_method, int distributed_system_type, std::string &distributed_system_args_str);
     ~NerlWorker();
@@ -26,6 +26,7 @@ namespace nerlnet
 
     std::shared_ptr<NerlLayer> _nerl_layers_linked_list;
     int _model_type;
+    std::string _model_args_str;
     int _distributed_system_type;
     float _learning_rate;
     int _epochs;
