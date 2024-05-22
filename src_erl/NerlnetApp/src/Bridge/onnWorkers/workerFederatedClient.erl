@@ -152,6 +152,7 @@ pre_train({GenWorkerEts, _NerlTensorWeights}) ->
       if SyncCount == MaxSyncCount ->
         W2WPid = ets:lookup_element(get_this_client_ets(GenWorkerEts), w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         w2wCom:sync_inbox_no_limit(W2WPid), % waiting for server to average the weights and send it
+        io:format("@~p Updated weights received from server~n",[ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX)]),
         InboxQueue = w2wCom:get_all_messages(W2WPid),
         [UpdateWeightsMsg] = queue:to_list(InboxQueue),
         {_FedServer , {update_weights, UpdatedWeights}} = UpdateWeightsMsg,

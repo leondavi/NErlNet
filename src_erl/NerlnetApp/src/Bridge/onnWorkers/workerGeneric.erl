@@ -333,18 +333,10 @@ stream_handler(StreamPhase , ModelPhase , SourceName , DistributedBehaviorFunc) 
   GenWorkerEts = get(generic_worker_ets),
   ets:update_element(GenWorkerEts, stream_occuring , {?ETS_KEYVAL_VAL_IDX, true}),
   CastingSources = ets:lookup_element(GenWorkerEts, casting_sources, ?ETS_KEYVAL_VAL_IDX),
-  IsSource = case string:substr(atom_to_list(SourceName), 1, 1) of % Could be a FedServer sending to himself
-    "s" -> true;
-    _ -> false
-  end,
-  case IsSource of 
-    true -> 
-      NewCastingSources = 
-        case StreamPhase of
+  NewCastingSources = 
+      case StreamPhase of
           start_stream -> CastingSources ++ [SourceName];
           end_stream -> CastingSources -- [SourceName]
-        end,
-      ets:update_element(GenWorkerEts, casting_sources, {?ETS_KEYVAL_VAL_IDX, NewCastingSources});
-    false -> ok
-  end,
+      end,
+  ets:update_element(GenWorkerEts, casting_sources, {?ETS_KEYVAL_VAL_IDX, NewCastingSources}),
   DistributedBehaviorFunc(StreamPhase, {GenWorkerEts, [SourceName , ModelPhase]}).
