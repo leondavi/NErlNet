@@ -184,6 +184,7 @@ wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceNam
   UpdatedNextState = 
     case NextState of
       end_stream -> stream_handler(end_stream, train, SourceName, DistributedBehaviorFunc),
+                    io:format("@wait --> loss SENDING STATE CHANGE~n"),
                     update_client_avilable_worker(MyName),
                     idle;
       _ -> train
@@ -210,6 +211,7 @@ wait(cast, {idle}, State= #workerGeneric_state{myName = MyName, distributedBehav
   case NextState of
     end_stream -> {next_state, wait, State#workerGeneric_state{nextState = end_stream}};
     _ ->          update_client_avilable_worker(MyName),
+                  io:format("@wait --> idle SENDING STATE CHANGE~n"),
                   {next_state, idle, State#workerGeneric_state{nextState = idle}}
   end;
 
@@ -270,7 +272,8 @@ train(cast, {start_stream , SourceName}, State = #workerGeneric_state{myName = _
   stream_handler(start_stream, train, SourceName, DistributedBehaviorFunc),
   {next_state, train, State};
 
-train(cast, {end_stream , SourceName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+train(cast, {end_stream , SourceName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+  io:format("@worker ~p got end_stream from ~p~n",[MyName, SourceName]),
   stream_handler(end_stream, train, SourceName, DistributedBehaviorFunc),
   {next_state, train, State};
 

@@ -270,6 +270,7 @@ training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef =
 
 training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
+  io:format("@client ~p got end stream from ~p~n",[WorkerName, SourceName]),
   ClientStatsEts = get(client_stats_ets),
   ListOfActiveWorkerSources = ets:lookup_element(EtsRef, active_workers_sources_list, ?DATA_IDX),
   UpdatedListOfActiveWorkerSources = ListOfActiveWorkerSources -- [{WorkerName, SourceName}],
@@ -292,10 +293,10 @@ training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef
   WorkersDone = ets:lookup_element(EtsRef , all_workers_done , ?DATA_IDX),
   % io:format("Client ~p Workers Done? ~p~n",[MyName, WorkersDone]),
   case WorkersDone of
-    true -> cast_message_to_workers(EtsRef, MessageToCast),
-            Workers =  clientWorkersFunctions:get_workers_names(EtsRef),
-            ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
-            {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
+    true ->   cast_message_to_workers(EtsRef, MessageToCast),
+              Workers =  clientWorkersFunctions:get_workers_names(EtsRef),
+              ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
+              {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
     false ->  gen_statem:cast(get(my_pid) , {idle}),
               {next_state, training, State#client_statem_state{etsRef = EtsRef}}
   end;

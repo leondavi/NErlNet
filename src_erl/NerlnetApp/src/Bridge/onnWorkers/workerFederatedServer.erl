@@ -97,7 +97,7 @@ end_stream({GenWorkerEts, WorkerData}) ->
   [WorkerName , _ModelPhase] = WorkerData,
   FedServerEts = get_this_server_ets(GenWorkerEts),
   CurrActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
-  io:format("FedServer got end_stream , CurrActiveWorkers = ~p~n",[CurrActiveWorkers]),
+  io:format("FedServer got end_stream from ~p, CurrActiveWorkers = ~p~n",[WorkerName, CurrActiveWorkers]),
   case CurrActiveWorkers of 
     [] -> ok; % if there are no active workers, no need to do anything
     _Else ->
@@ -112,7 +112,7 @@ end_stream({GenWorkerEts, WorkerData}) ->
                 % ClientName = ets:lookup_element(GenWorkerEts, client_name, ?ETS_KEYVAL_VAL_IDX),
                 Data = {MyName, MyName, MyName}, % Mimic source behavior to register as an active worker for the client
                 gen_server:cast(ClientPid, {end_stream, term_to_binary(Data)});
-          _ ->  io:format("ActiveWorkers = ~p~n",[UpdatedActiveWorkers])
+          _ ->  ok
         end
   end.
 
@@ -172,7 +172,7 @@ post_train({GenWorkerEts, WeightsTensor}) ->
   case length(TotalWorkersWeights) of 
     NumOfActiveWorkers -> 
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-      % io:format("Averaging model weights...~n"),
+      io:format("Averaging model weights...~n"),
       {CurrentModelWeights, BinaryType} = nerlNIF:call_to_get_weights(ModelID),
       FedServerName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
       AllWorkersWeightsList = TotalWorkersWeights ++ [CurrentModelWeights],
