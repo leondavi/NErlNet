@@ -182,7 +182,7 @@ post_train({GenWorkerEts, WeightsTensor}) ->
   {WorkerWeights, _BinaryType} = WeightsTensor,
   TotalWorkersWeights = CurrWorkersWeightsList ++ [WorkerWeights],
   NumOfActiveWorkers = length(ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX)),
-  % io:format("NumOfActiveWorkers = ~p~n",[NumOfActiveWorkers]),
+  io:format("NumOfActiveWorkers = ~p~n",[NumOfActiveWorkers]),
   case length(TotalWorkersWeights) of 
     NumOfActiveWorkers -> 
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),

@@ -143,25 +143,19 @@ post_idle({GenWorkerEts, _WorkerData}) ->
 % After SyncMaxCount , sync_inbox to get the updated model from FedServer
 pre_train({GenWorkerEts, _NerlTensorWeights}) -> 
   ThisEts = get_this_client_ets(GenWorkerEts),
-  StreamOccuring = ets:lookup_element(ThisEts, stream_occuring, ?ETS_KEYVAL_VAL_IDX),
-  case StreamOccuring of
-    true -> 
-      ThisEts = get_this_client_ets(GenWorkerEts),
-      SyncCount = ets:lookup_element(get_this_client_ets(GenWorkerEts), sync_count, ?ETS_KEYVAL_VAL_IDX),
-      MaxSyncCount = ets:lookup_element(get_this_client_ets(GenWorkerEts), sync_max_count, ?ETS_KEYVAL_VAL_IDX),
-      if SyncCount == MaxSyncCount ->
-        W2WPid = ets:lookup_element(get_this_client_ets(GenWorkerEts), w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-        w2wCom:sync_inbox_no_limit(W2WPid), % waiting for server to average the weights and send it
-        io:format("@~p Updated weights received from server~n",[ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX)]),
-        InboxQueue = w2wCom:get_all_messages(W2WPid),
-        [UpdateWeightsMsg] = queue:to_list(InboxQueue),
-        {_FedServer , {update_weights, UpdatedWeights}} = UpdateWeightsMsg,
-        ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-        nerlNIF:call_to_set_weights(ModelID, UpdatedWeights),
-        ets:update_element(ThisEts, sync_count, {?ETS_KEYVAL_VAL_IDX , 0});
-      true -> ets:update_counter(ThisEts, sync_count, 1)
-      end;
-    false -> ok 
+  SyncCount = ets:lookup_element(get_this_client_ets(GenWorkerEts), sync_count, ?ETS_KEYVAL_VAL_IDX),
+  MaxSyncCount = ets:lookup_element(get_this_client_ets(GenWorkerEts), sync_max_count, ?ETS_KEYVAL_VAL_IDX),
+  if SyncCount == MaxSyncCount ->
+    W2WPid = ets:lookup_element(get_this_client_ets(GenWorkerEts), w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+    w2wCom:sync_inbox_no_limit(W2WPid), % waiting for server to average the weights and send it
+    io:format("@~p Updated weights received from server~n",[ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX)]),
+    InboxQueue = w2wCom:get_all_messages(W2WPid),
+    [UpdateWeightsMsg] = queue:to_list(InboxQueue),
+    {_FedServer , {update_weights, UpdatedWeights}} = UpdateWeightsMsg,
+    ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
+    nerlNIF:call_to_set_weights(ModelID, UpdatedWeights),
+    ets:update_element(ThisEts, sync_count, {?ETS_KEYVAL_VAL_IDX , 0});
+  true -> ets:update_counter(ThisEts, sync_count, 1)
   end.
 
 %% every countLimit batches, send updated weights
@@ -172,16 +166,17 @@ post_train({GenWorkerEts, _WorkerData}) ->
   case CastingSources of
     [] -> ok;
     _ ->
-      % io:format("Worker ~p Sending weights to server~n",[MyName]),
       ThisEts = get_this_client_ets(GenWorkerEts),
       SyncCount = ets:lookup_element(ThisEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
       MaxSyncCount = ets:lookup_element(ThisEts, sync_max_count, ?ETS_KEYVAL_VAL_IDX),
       if SyncCount == MaxSyncCount ->
+        io:format("SyncCount = MaxSyncCount = ~p~n",[SyncCount]),
+        io:format("Worker ~p Sending weights to server~n",[MyName]),
         ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-        Weights = nerlNIF:call_to_get_weights(ModelID),
+        WeightsTensor = nerlNIF:call_to_get_weights(ModelID),
         ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX), 
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-        w2wCom:send_message_with_event(W2WPid, MyName, ServerName , post_train_update, Weights); 
+        w2wCom:send_message_with_event(W2WPid, MyName, ServerName , post_train_update, WeightsTensor); 
       true -> ok
       end
   end.
