@@ -145,7 +145,7 @@ code_change(_OldVsn, StateName, State = #workerGeneric_state{}, _Extra) ->
 % Go from idle to train
 idle(cast, {training}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   % io:format("@idle got training , Worker ~p is going to state idle...~n",[MyName]),
-  worker_controller_empty_message_queue(),
+  ets:update_element(get(generic_worker_ets), active_streams, {?ETS_KEYVAL_VAL_IDX, []}),
   DistributedBehaviorFunc(post_idle, {get(generic_worker_ets), train}),
   update_client_avilable_worker(MyName),
   {next_state, train, State#workerGeneric_state{lastPhase = train}};
@@ -153,6 +153,7 @@ idle(cast, {training}, State = #workerGeneric_state{myName = MyName , distribute
 % Go from idle to predict
 idle(cast, {predict}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   % worker_controller_empty_message_queue(),
+  ets:update_element(get(generic_worker_ets), active_streams, {?ETS_KEYVAL_VAL_IDX, []}),
   update_client_avilable_worker(MyName),
   DistributedBehaviorFunc(post_idle, {get(generic_worker_ets), predict}),
   {next_state, predict, State#workerGeneric_state{lastPhase = predict}};
@@ -222,7 +223,8 @@ wait(cast, _BatchData , State = #workerGeneric_state{lastPhase = LastPhase, myNa
 
 wait(cast, Data, State) ->
   % logger:notice("worker ~p in wait cant treat message: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
-  worker_controller_message_queue(Data),
+  ?LOG_ERROR("Got unknown message in wait state: ~p~n",[Data]),
+  throw("Got unknown message in wait state"),
   {keep_state, State}.
 
 
@@ -268,10 +270,10 @@ train(cast, {idle}, State = #workerGeneric_state{myName = MyName , distributedBe
   DistributedBehaviorFunc(pre_idle, {get(generic_worker_ets), train}),
   {next_state, idle, State};
 
-train(cast, Data, State = #workerGeneric_state{myName = MyName}) ->
+train(cast, Data, State = #workerGeneric_state{myName = _MyName}) ->
   % logger:notice("worker ~p in wait cant treat message: ~p\n",[ets:lookup_element(get(generic_worker_ets), worker_name, ?ETS_KEYVAL_VAL_IDX), Data]),
-  io:format("~p Got unknown message in train state: ~p~n",[MyName , Data]),
-  worker_controller_message_queue(Data),
+  ?LOG_ERROR("Got unknown message in train state: ~p~n",[Data]),
+  throw("Got unknown message in train state"),
   {keep_state, State}.
 
 %% State predict
@@ -304,19 +306,13 @@ predict(cast, {idle}, State = #workerGeneric_state{myName = MyName , distributed
   {next_state, idle, State};
 
 predict(cast, Data, State) ->
-  worker_controller_message_queue(Data),
+  ?LOG_ERROR("Got unknown message in predict state: ~p~n",[Data]),
+  throw("Got unknown message in predict state"),
   {next_state, predict, State}.
 
 %% Updates the client that worker is available
 update_client_avilable_worker(MyName) -> 
   gen_statem:cast(get(client_pid),{stateChange,MyName}).
-
-worker_controller_message_queue(ReceiveData) ->
-    Queue = ets:lookup_element(get(generic_worker_ets), controller_message_q, ?ETS_KEYVAL_VAL_IDX),
-    ets:update_element(get(generic_worker_ets), controller_message_q, {?ETS_KEYVAL_VAL_IDX , Queue++[ReceiveData]}).
-
-worker_controller_empty_message_queue() ->
-    ets:update_element(get(generic_worker_ets), controller_message_q, {?ETS_KEYVAL_VAL_IDX , []}).
 
 stream_handler(StreamPhase , ModelPhase , StreamName , DistributedBehaviorFunc) -> 
   GenWorkerEts = get(generic_worker_ets),
@@ -329,8 +325,9 @@ stream_handler(StreamPhase , ModelPhase , StreamName , DistributedBehaviorFunc) 
       end,
   ets:update_element(GenWorkerEts, active_streams, {?ETS_KEYVAL_VAL_IDX, NewActiveStreams}),
   DistributedBehaviorFunc(StreamPhase, {GenWorkerEts, [StreamName , ModelPhase]}),
-  case length(NewActiveStreams) of % Send to client an update after done with training phase
-      0 ->    ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
+  UpdatedActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
+  case UpdatedActiveStreams of % Send to client an update after done with training phase
+      [] ->   ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
               gen_statem:cast(ClientPid, {worker_done, {MyName, StreamName}});
-      _ -> ok
+      _ -> ok 
   end.

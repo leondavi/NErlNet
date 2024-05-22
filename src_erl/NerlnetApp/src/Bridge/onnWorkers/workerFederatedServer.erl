@@ -77,30 +77,17 @@ start_stream({GenWorkerEts, WorkerData}) ->
   MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
   gen_server:cast(ClientPid, {start_stream, {worker, MyName, FedWorkerName}}).
 
-end_stream({_GenWorkerEts, _WorkerData}) -> ok. % All happens in GenWorker stream_handler
-
-% end_stream({GenWorkerEts, WorkerData}) -> 
-%   [WorkerName , _ModelPhase] = WorkerData,
-%   FedServerEts = get_this_server_ets(GenWorkerEts),
-%   CurrActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
-%   ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
-%   MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
-%   io:format("FedServer got end_stream from ~p, CurrActiveWorkers = ~p~n",[WorkerName, CurrActiveWorkers]),
-%   case CurrActiveWorkers of 
-%     [] -> gen_statem:cast(ClientPid, {worker_done, {MyName, MyName}});
-%     _Else ->
-%         ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
-%         io:format("ActiveWorkers = ~p , got end stream from ~p removing it..~n",[ActiveWorkers, WorkerName]),
-%         UpdatedActiveWorkers = ActiveWorkers -- [WorkerName],
-%         ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers}),
-%         case length(UpdatedActiveWorkers) of
-%           0 ->  io:format("GOT HEREEEE~n"),
-%                 % ClientName = ets:lookup_element(GenWorkerEts, client_name, ?ETS_KEYVAL_VAL_IDX),
-%                 Data = {MyName, MyName, MyName}, % Mimic source behavior to register as an active worker for the client
-%                 gen_server:cast(ClientPid, {end_stream, term_to_binary(Data)});
-%           _ ->  ok
-%         end
-%   end.
+end_stream({GenWorkerEts, WorkerData}) -> % Federated server takes the control of popping the stream from the active streams list
+  [FedWorkerName , _ModelPhase] = WorkerData,
+  FedServerEts = get_this_server_ets(GenWorkerEts),
+  MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
+  ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
+  gen_statem:cast(ClientPid, {worker_done, {MyName, FedWorkerName}}),
+  ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
+  case ActiveStreams of
+    [] -> ets:update_element(FedServerEts, active_streams, {?ETS_KEYVAL_VAL_IDX, none});
+    _ -> ok
+  end.
 
 
 pre_idle({_GenWorkerEts, _WorkerName}) -> ok.
