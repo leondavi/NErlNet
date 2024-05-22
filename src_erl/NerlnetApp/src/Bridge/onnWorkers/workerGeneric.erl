@@ -273,7 +273,7 @@ train(cast, {start_stream , SourceName}, State = #workerGeneric_state{myName = _
   stream_handler(start_stream, train, SourceName, DistributedBehaviorFunc),
   {next_state, train, State};
 
-train(cast, {end_stream , SourceName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+train(cast, {end_stream , [SourceName]}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   io:format("@worker ~p got end_stream from ~p~n",[MyName, SourceName]),
   stream_handler(end_stream, train, SourceName, DistributedBehaviorFunc),
   {next_state, train, State};
