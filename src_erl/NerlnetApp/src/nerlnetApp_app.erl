@@ -20,7 +20,7 @@
 -behaviour(application).
 -include("nerl_tools.hrl").
 
--define(NERLNET_APP_VERSION, "1.4.3").
+-define(NERLNET_APP_VERSION, "1.5.0").
 -define(NERLPLANNER_TESTED_VERSION,"1.0.2").
 
 -export([start/2, stop/1]).
@@ -245,7 +245,10 @@ createClientsAndWorkers() ->
                 {"/clientTraining",clientStateHandler, [training,ClientStatemPid]},
                 {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
                 {"/clientPredict",clientStateHandler, [predict,ClientStatemPid]},
-                {"/batch",clientStateHandler, [batch,ClientStatemPid]}
+                {"/batch",clientStateHandler, [batch,ClientStatemPid]},
+                {"/worker_to_worker_msg",clientStateHandler, [worker_to_worker_msg,ClientStatemPid]},
+                {"/start_stream", clientStateHandler, [start_stream, ClientStatemPid]},
+                {"/end_stream", clientStateHandler, [end_stream, ClientStatemPid]}
             ]}
         ]),
         init_cowboy_start_clear(Client, {DeviceName, Port},NerlClientDispatch)

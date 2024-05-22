@@ -17,20 +17,16 @@
 init(Req0, [Action,Client_StateM_Pid]) ->
 
   {ok,Body,_} = cowboy_req:read_body(Req0),
-%%  io:format("client state_handler got body:~p~n",[Body]),
   case Action of
-    custom_worker_message -> 
-              case binary_to_term(Body) of
-                    {To, custom_worker_message, Data} ->    %% handshake
-                        gen_statem:cast(Client_StateM_Pid,{custom_worker_message,Data});
-                    {From, update, Data} ->         %% updating weights
-                      gen_statem:cast(Client_StateM_Pid,{update,Data})
-              end;    
+    worker_to_worker_msg -> {worker_to_worker_msg , From , To , Data} = binary_to_term(Body),
+                            gen_statem:cast(Client_StateM_Pid,{worker_to_worker_msg , From , To , Data});
     batch      -> gen_statem:cast(Client_StateM_Pid,{sample,Body});
     idle        -> gen_statem:cast(Client_StateM_Pid,{idle});
     training    -> gen_statem:cast(Client_StateM_Pid,{training});
     predict     -> gen_statem:cast(Client_StateM_Pid,{predict});
-    statistics  -> gen_statem:cast(Client_StateM_Pid,{statistics})
+    statistics  -> gen_statem:cast(Client_StateM_Pid,{statistics});
+    start_stream -> gen_statem:cast(Client_StateM_Pid,{start_stream, Body});
+    end_stream -> gen_statem:cast(Client_StateM_Pid,{end_stream, Body})
   end,
 
   %% reply ACKnowledge to main server for initiating, later send finished initiating http_request from client_stateM

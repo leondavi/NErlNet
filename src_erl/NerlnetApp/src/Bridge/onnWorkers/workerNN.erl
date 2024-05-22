@@ -11,6 +11,8 @@ controller(FuncName, {GenWorkerEts, WorkerData}) ->
     post_train -> post_train({GenWorkerEts, WorkerData});
     pre_predict -> pre_predict({GenWorkerEts, WorkerData});
     post_predict -> post_predict({GenWorkerEts, WorkerData});
+    start_stream -> start_stream({GenWorkerEts, WorkerData});
+    end_stream -> end_stream({GenWorkerEts, WorkerData});
     update -> update({GenWorkerEts, WorkerData})
   end.
 
@@ -29,6 +31,10 @@ pre_predict({_GenWorkerEts, _WorkerData}) -> ok.
 post_predict({_GenWorkerEts, _WorkerData}) -> ok.
 
 update({_GenWorkerEts, _WorkerData}) -> ok.
+
+start_stream({_GenWorkerEts, _WorkerData}) -> ok.
+
+end_stream({_GenWorkerEts, _WorkerData}) -> ok.
 
 
 
