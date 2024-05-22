@@ -259,13 +259,14 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
 
 training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
-  ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_sources_list, ?DATA_IDX),
-  ets:update_element(EtsRef, active_workers_sources_list, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, SourceName}]}),
-  ClientStatsEts = get(client_stats_ets),
-  stats:increment_messages_received(ClientStatsEts),
-  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
-  gen_statem:cast(WorkerPid, {start_stream, SourceName}),
+  case SourceName of % Only Federated Servers send start_stream with FedServerName == SourceName
+    WorkerName -> ok;
+    _ ->      ClientStatsEts = get(client_stats_ets),
+              stats:increment_messages_received(ClientStatsEts),
+              stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+              WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
+              gen_statem:cast(WorkerPid, {start_stream, SourceName})
+  end,
   {keep_state, State};
 
 training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -285,10 +286,11 @@ training(cast, _In = {worker_done, Data}, State = #client_statem_state{etsRef = 
   UpdatedListOfActiveWorkerSources = ListOfActiveWorkerSources -- [{WorkerName, SourceName}],
   ets:update_element(EtsRef, active_workers_sources_list, {?DATA_IDX, UpdatedListOfActiveWorkerSources}),
   case length(UpdatedListOfActiveWorkerSources) of 
-    0 -> ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
-    _ -> ok 
-  end,
-  {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef}};
+    0 ->  ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true}),
+          {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef}};
+    _ ->  {next_state, training, State#client_statem_state{etsRef = EtsRef}}
+  end;
+  
 
 training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
