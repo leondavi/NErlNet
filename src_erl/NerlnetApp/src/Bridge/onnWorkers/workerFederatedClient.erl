@@ -84,8 +84,9 @@ handshake(FedClientEts) ->
   lists:foreach(Func, MessagesList).
 
 start_stream({GenWorkerEts, WorkerData}) ->  % WorkerData is currently a list of [SourceName, State]
-  [_SourceName, State] = WorkerData,
-  case State of
+  [_SourceName, ModelPhase] = WorkerData,
+  FirstMsg = 1,
+  case ModelPhase of
     train ->
         ThisEts = get_this_client_ets(GenWorkerEts),
         MyName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
@@ -93,16 +94,16 @@ start_stream({GenWorkerEts, WorkerData}) ->  % WorkerData is currently a list of
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
         case length(ActiveStreams) of % Send to server an updater after got start_stream from the first source
-          1 ->  w2wCom:send_message_with_event(W2WPid, MyName, ServerName , start_stream, MyName), % Server gets FedWorkerName instead of SourceName
-                io:format("~p sent START_stream to ~p~n",[MyName , ServerName]);
+          FirstMsg ->   w2wCom:send_message_with_event(W2WPid, MyName, ServerName , start_stream, MyName), % Server gets FedWorkerName instead of SourceName
+                        io:format("~p sent START_stream to ~p~n",[MyName , ServerName]);
           _ -> ok
         end;
       predict -> ok
   end.
 
 end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [SourceName]
-  [_SourceName, State] = WorkerData,
-  case State of
+  [_SourceName, ModelPhase] = WorkerData,
+  case ModelPhase of
     train ->
         ThisEts = get_this_client_ets(GenWorkerEts),
         MyName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
@@ -110,7 +111,7 @@ end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [S
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
         case length(ActiveStreams) of % Send to server an updater after got start_stream from the first source
-          0 ->  w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, MyName),
+          0 ->  w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, MyName), % Mimic source behavior
                 io:format("~p sent END_stream to ~p~n",[MyName , ServerName]);
           _ -> ok
         end;

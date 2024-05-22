@@ -90,7 +90,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
             exit(nif_failed_to_create)
   end,
   DistributedBehaviorFunc(pre_idle,{GenWorkerEts, DistributedWorkerData}),
-  {ok, idle, #workerGeneric_state{myName = WorkerName , modelID = ModelID , distributedBehaviorFunc = DistributedBehaviorFunc , distributedWorkerData = DistributedWorkerData}}.
+  {ok, idle, #workerGeneric_state{myName = WorkerName , modelID = ModelID , distributedBehaviorFunc = DistributedBehaviorFunc , distributedWorkerData = DistributedWorkerData, postBatchFunc = ?EMPTY_FUNC}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -163,18 +163,20 @@ idle(cast, _Param, State = #workerGeneric_state{myName = _MyName}) ->
 
 %% Waiting for receiving results or loss function
 %% Got nan or inf from loss function - Error, loss function too big for double
-wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
   stats:increment_by_value(get(worker_stats_ets), nan_loss_count, 1),
   gen_statem:cast(get(client_pid),{loss, MyName , SourceName ,nan , TrainTime ,BatchID}),
   DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
-  {next_state, NextState, State};
+  PostBatchFunc(),
+  {next_state, NextState, State = #workerGeneric_state{postBatchFunc = ?EMPTY_FUNC}};
 
 
-wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
   BatchTimeStamp = erlang:system_time(nanosecond),
   gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,{LossTensor, LossTensorType} , TrainTime , BatchID , BatchTimeStamp}),
   DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
-  {next_state, NextState, State};
+  PostBatchFunc(),
+  {next_state, NextState, State = #workerGeneric_state{postBatchFunc = ?EMPTY_FUNC}};
 
 wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
   BatchTimeStamp = erlang:system_time(nanosecond),
@@ -186,10 +188,10 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
     {next_state, NextState, State}
   end;
 
-wait(cast, {end_stream , Data}, State= #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+wait(cast, {end_stream , Data}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   %logger:notice("Waiting, next state - idle"),
-  stream_handler(end_stream, wait, Data, DistributedBehaviorFunc),
-  {next_state, wait, State#workerGeneric_state{nextState = end_stream}};
+  Func = fun() -> stream_handler(end_stream, wait, Data, DistributedBehaviorFunc) end,
+  {next_state, wait, State = #workerGeneric_state{postBatchFunc = Func}};
 
 
 % CANNOT HAPPEN 
@@ -315,19 +317,19 @@ worker_controller_message_queue(ReceiveData) ->
 worker_controller_empty_message_queue() ->
     ets:update_element(get(generic_worker_ets), controller_message_q, {?ETS_KEYVAL_VAL_IDX , []}).
 
-stream_handler(StreamPhase , ModelPhase , SourceName , DistributedBehaviorFunc) -> 
+stream_handler(StreamPhase , ModelPhase , StreamName , DistributedBehaviorFunc) -> 
   GenWorkerEts = get(generic_worker_ets),
   MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
   ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
   NewActiveStreams = 
       case StreamPhase of
-          start_stream -> ActiveStreams ++ [SourceName];
-          end_stream -> ActiveStreams -- [SourceName]
+          start_stream -> ActiveStreams ++ [StreamName];
+          end_stream -> ActiveStreams -- [StreamName]
       end,
   ets:update_element(GenWorkerEts, active_streams, {?ETS_KEYVAL_VAL_IDX, NewActiveStreams}),
-  DistributedBehaviorFunc(StreamPhase, {GenWorkerEts, [SourceName , ModelPhase]}),
+  DistributedBehaviorFunc(StreamPhase, {GenWorkerEts, [StreamName , ModelPhase]}),
   case length(NewActiveStreams) of % Send to client an update after done with training phase
       0 ->    ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
-              gen_statem:cast(ClientPid, {worker_done, {MyName, SourceName}});
+              gen_statem:cast(ClientPid, {worker_done, {MyName, StreamName}});
       _ -> ok
   end.
