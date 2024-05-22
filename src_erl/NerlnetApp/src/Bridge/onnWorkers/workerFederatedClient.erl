@@ -113,7 +113,8 @@ end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [S
           0 ->  w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, MyName); % Mimic source behavior
           _ -> ok
         end;
-    predict -> ok
+    predict -> ok;
+    wait -> ok
   end.
 
 
