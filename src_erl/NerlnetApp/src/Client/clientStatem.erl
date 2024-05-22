@@ -278,7 +278,6 @@ training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef =
 
 training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
-  io:format("@client: Worker ~p got end_stream from ~p~n",[WorkerName, SourceName]),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
@@ -288,14 +287,11 @@ training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = E
 
 training(cast, _In = {worker_done, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {WorkerName, StreamName} = Data,
-  io:format("Client got worker_done from ~p~n",[WorkerName]),
   ListOfActiveWorkerSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   UpdatedListOfActiveWorkerSources = ListOfActiveWorkerSources -- [{WorkerName, StreamName}],
-  io:format("~p Sent worker_done with ~p, UpdatedListOfActiveWorkerSources = ~p~n",[WorkerName, StreamName, UpdatedListOfActiveWorkerSources]),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, UpdatedListOfActiveWorkerSources}),
   case length(UpdatedListOfActiveWorkerSources) of 
-    0 ->  io:format("All workers sent worker_done~n"),
-          ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
+    0 ->  ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
     _ ->  ok
   end,
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
@@ -314,7 +310,7 @@ training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef
               ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
               {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
     false ->  gen_statem:cast(get(my_pid) , {idle}), % Trigger this action until all workers are done
-              {next_state, training, State#client_statem_state{etsRef = EtsRef}}
+              {keep_state, State}
   end;
 
 training(cast, _In = {predict}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
@@ -358,6 +354,13 @@ predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef})
   end,
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
 
+% This action is used for start_stream triggered from a clients' worker and not source
+predict(cast, {start_stream , {worker, WorkerName, TargetName}}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
+  ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, TargetName}]}),
+  {keep_state, State};
+
+% This action is used for start_stream triggered from a source per worker
 predict(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
@@ -372,17 +375,39 @@ predict(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef = 
 predict(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
   ClientStatsEts = get(client_stats_ets),
-  ListOfActiveWorkerSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
-  UpdatedListOfActiveWorkerSources = ListOfActiveWorkerSources -- [{WorkerName, SourceName}],
-  ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, UpdatedListOfActiveWorkerSources}),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
-  gen_statem:cast(WorkerPid, {end_stream, SourceName}), % WHY THIS IS NOT WORKING????
-  case length(UpdatedListOfActiveWorkerSources) of 
-    0 -> ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
-    _ -> ok end,
+  gen_statem:cast(WorkerPid, {end_stream, SourceName}), 
   {keep_state, State};
+
+predict(cast, _In = {worker_done, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+  {WorkerName, StreamName} = Data,
+  ListOfActiveWorkerSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
+  UpdatedListOfActiveWorkerSources = ListOfActiveWorkerSources -- [{WorkerName, StreamName}],
+  ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, UpdatedListOfActiveWorkerSources}),
+  case length(UpdatedListOfActiveWorkerSources) of 
+    0 ->  ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
+    _ ->  ok
+  end,
+  {keep_state, State};
+
+% From MainServer
+predict(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  MessageToCast = {idle},
+  WorkersDone = ets:lookup_element(EtsRef , all_workers_done , ?DATA_IDX),
+  % io:format("Client ~p Workers Done? ~p~n",[MyName, WorkersDone]),
+  case WorkersDone of
+    true ->   cast_message_to_workers(EtsRef, MessageToCast),
+              Workers =  clientWorkersFunctions:get_workers_names(EtsRef),
+              ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
+              {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
+    false ->  gen_statem:cast(get(my_pid) , {idle}), % Trigger this action until all workers are done
+              {keep_state, State}
+  end;
 
 predict(cast, In = {predictRes,WorkerName, SourceName ,{PredictNerlTensor, NetlTensorType} , TimeTook , BatchID , BatchTS}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
@@ -413,14 +438,6 @@ predict(cast, In = {worker_to_worker_msg, FromWorker, ToWorker, Data}, State = #
 
 %% The source sends message to main server that it has finished
 %% The main server updates its' clients to move to state 'idle'
-predict(cast, In = {idle}, State = #client_statem_state{etsRef = EtsRef , myName = _MyName}) ->
-  MsgToCast = {idle},
-  ClientStatsEts = get(client_stats_ets),
-  stats:increment_messages_received(ClientStatsEts),
-  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  cast_message_to_workers(EtsRef, MsgToCast),
-  Workers = clientWorkersFunctions:get_workers_names(EtsRef),
-  {next_state, waitforWorkers, State#client_statem_state{nextState = idle, waitforWorkers = Workers, etsRef = EtsRef}};
 
 predict(cast, EventContent, State = #client_statem_state{etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),

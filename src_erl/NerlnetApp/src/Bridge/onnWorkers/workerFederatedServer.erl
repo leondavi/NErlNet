@@ -145,7 +145,7 @@ post_train({GenWorkerEts, WeightsTensor}) ->
   case length(TotalWorkersWeights) of 
     NumOfActiveWorkers -> 
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-      io:format("Averaging model weights...~n"),
+      % io:format("Averaging model weights...~n"),
       {CurrentModelWeights, BinaryType} = nerlNIF:call_to_get_weights(ModelID),
       FedServerName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
       AllWorkersWeightsList = TotalWorkersWeights ++ [CurrentModelWeights],

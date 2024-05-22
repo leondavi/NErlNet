@@ -94,8 +94,7 @@ start_stream({GenWorkerEts, WorkerData}) ->  % WorkerData is currently a list of
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
         case length(ActiveStreams) of % Send to server an updater after got start_stream from the first source
-          FirstMsg ->   w2wCom:send_message_with_event(W2WPid, MyName, ServerName , start_stream, MyName), % Server gets FedWorkerName instead of SourceName
-                        io:format("~p sent START_stream to ~p~n",[MyName , ServerName]);
+          FirstMsg ->   w2wCom:send_message_with_event(W2WPid, MyName, ServerName , start_stream, MyName); % Server gets FedWorkerName instead of SourceName
           _ -> ok
         end;
       predict -> ok
@@ -111,8 +110,7 @@ end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [S
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
         case length(ActiveStreams) of % Send to server an updater after got start_stream from the first source
-          0 ->  w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, MyName), % Mimic source behavior
-                io:format("~p sent END_stream to ~p~n",[MyName , ServerName]);
+          0 ->  w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, MyName); % Mimic source behavior
           _ -> ok
         end;
     predict -> ok
@@ -149,7 +147,6 @@ pre_train({GenWorkerEts, _NerlTensorWeights}) ->
   if SyncCount == MaxSyncCount ->
     W2WPid = ets:lookup_element(get_this_client_ets(GenWorkerEts), w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
     w2wCom:sync_inbox_no_limit(W2WPid), % waiting for server to average the weights and send it
-    io:format("~p done syncing inbox~n",[ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX)]),
     InboxQueue = w2wCom:get_all_messages(W2WPid),
     [UpdateWeightsMsg] = queue:to_list(InboxQueue),
     {_FedServer , {update_weights, UpdatedWeights}} = UpdateWeightsMsg,
@@ -165,7 +162,7 @@ post_train({GenWorkerEts, _WorkerData}) ->
   ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
   % io:format("Worker ~p ActiveStreams ~p~n",[MyName, ActiveStreams]),
   case ActiveStreams of
-    [] -> io:format("~p done training...~n",[MyName]), ok;
+    [] -> ok;
     _ ->
       ThisEts = get_this_client_ets(GenWorkerEts),
       SyncCount = ets:lookup_element(ThisEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
@@ -175,8 +172,7 @@ post_train({GenWorkerEts, _WorkerData}) ->
         WeightsTensor = nerlNIF:call_to_get_weights(ModelID),
         ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX), 
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-        w2wCom:send_message_with_event(W2WPid, MyName, ServerName , post_train_update, WeightsTensor),
-        io:format("~p sent post_train_update to ~p~n",[MyName , ServerName]);
+        w2wCom:send_message_with_event(W2WPid, MyName, ServerName , post_train_update, WeightsTensor);
       true -> ok
       end
   end.
