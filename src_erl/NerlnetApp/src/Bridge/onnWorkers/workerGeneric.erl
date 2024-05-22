@@ -168,7 +168,7 @@ wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneri
   gen_statem:cast(get(client_pid),{loss, MyName , SourceName ,nan , TrainTime ,BatchID}),
   DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
   PostBatchFunc(),
-  {next_state, NextState, State = #workerGeneric_state{postBatchFunc = ?EMPTY_FUNC}};
+  {next_state, NextState, State#workerGeneric_state{postBatchFunc = ?EMPTY_FUNC}};
 
 
 wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
@@ -176,7 +176,7 @@ wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceNam
   gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,{LossTensor, LossTensorType} , TrainTime , BatchID , BatchTimeStamp}),
   DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
   PostBatchFunc(),
-  {next_state, NextState, State = #workerGeneric_state{postBatchFunc = ?EMPTY_FUNC}};
+  {next_state, NextState, State#workerGeneric_state{postBatchFunc = ?EMPTY_FUNC}};
 
 wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
   BatchTimeStamp = erlang:system_time(nanosecond),
@@ -191,7 +191,7 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
 wait(cast, {end_stream , Data}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   %logger:notice("Waiting, next state - idle"),
   Func = fun() -> stream_handler(end_stream, wait, Data, DistributedBehaviorFunc) end,
-  {next_state, wait, State = #workerGeneric_state{postBatchFunc = Func}};
+  {next_state, wait, State#workerGeneric_state{postBatchFunc = Func}};
 
 
 % CANNOT HAPPEN 
