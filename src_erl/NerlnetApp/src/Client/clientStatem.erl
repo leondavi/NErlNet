@@ -121,7 +121,7 @@ format_status(_Opt, [_PDict, _StateName, _State]) -> Status = some_term, Status.
 
 %% ==============STATES=================
 waitforWorkers(cast, In = {stateChange,WorkerName}, State = #client_statem_state{myName = MyName,waitforWorkers = WaitforWorkers,nextState = NextState, etsRef = _EtsRef}) ->
-  NewWaitforWorkers = WaitforWorkers--[WorkerName],
+  NewWaitforWorkers = WaitforWorkers -- [WorkerName],
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
@@ -268,22 +268,27 @@ training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef =
   gen_statem:cast(WorkerPid, {start_stream, SourceName}),
   {keep_state, State};
 
-training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+training(cast, _In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
   io:format("@client ~p got end stream from ~p~n",[WorkerName, SourceName]),
   ClientStatsEts = get(client_stats_ets),
-  ListOfActiveWorkerSources = ets:lookup_element(EtsRef, active_workers_sources_list, ?DATA_IDX),
-  UpdatedListOfActiveWorkerSources = ListOfActiveWorkerSources -- [{WorkerName, SourceName}],
-  ets:update_element(EtsRef, active_workers_sources_list, {?DATA_IDX, UpdatedListOfActiveWorkerSources}),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
   gen_statem:cast(WorkerPid, {end_stream, [SourceName]}), 
-  case length(UpdatedListOfActiveWorkerSources) of 
-    0 -> ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
-    _ -> ok end,
   {keep_state, State};
 
+training(cast, _In = {worker_done, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+  {WorkerName, SourceName} = binary_to_term(Data),
+  io:format("Client got worker_done from ~p~n",[WorkerName]),
+  ListOfActiveWorkerSources = ets:lookup_element(EtsRef, active_workers_sources_list, ?DATA_IDX),
+  UpdatedListOfActiveWorkerSources = ListOfActiveWorkerSources -- [{WorkerName, SourceName}],
+  ets:update_element(EtsRef, active_workers_sources_list, {?DATA_IDX, UpdatedListOfActiveWorkerSources}),
+  case length(UpdatedListOfActiveWorkerSources) of 
+    0 -> ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
+    _ -> ok 
+  end,
+  {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef}};
 
 training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),

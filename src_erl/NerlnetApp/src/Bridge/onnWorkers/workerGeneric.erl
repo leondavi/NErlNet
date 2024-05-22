@@ -183,10 +183,8 @@ wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceNam
   DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
   UpdatedNextState = 
     case NextState of
-      end_stream -> stream_handler(end_stream, train, SourceName, DistributedBehaviorFunc),
-                    io:format("@wait --> loss SENDING STATE CHANGE~n"),
-                    update_client_avilable_worker(MyName),
-                    idle;
+      end_stream -> stream_handler(end_stream, train, SourceName, DistributedBehaviorFunc),                    
+                    train;
       _ -> train
     end,
   {next_state, UpdatedNextState, State};

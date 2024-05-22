@@ -97,9 +97,11 @@ end_stream({GenWorkerEts, WorkerData}) ->
   [WorkerName , _ModelPhase] = WorkerData,
   FedServerEts = get_this_server_ets(GenWorkerEts),
   CurrActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+  ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
+  MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
   io:format("FedServer got end_stream from ~p, CurrActiveWorkers = ~p~n",[WorkerName, CurrActiveWorkers]),
   case CurrActiveWorkers of 
-    [] -> ok; % if there are no active workers, no need to do anything
+    [] -> gen_statem:cast(ClientPid, {worker_done, {MyName, MyName}});
     _Else ->
         ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
         io:format("ActiveWorkers = ~p , got end stream from ~p removing it..~n",[ActiveWorkers, WorkerName]),
@@ -107,8 +109,6 @@ end_stream({GenWorkerEts, WorkerData}) ->
         ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers}),
         case length(UpdatedActiveWorkers) of
           0 ->  io:format("GOT HEREEEE~n"),
-                ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
-                MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
                 % ClientName = ets:lookup_element(GenWorkerEts, client_name, ?ETS_KEYVAL_VAL_IDX),
                 Data = {MyName, MyName, MyName}, % Mimic source behavior to register as an active worker for the client
                 gen_server:cast(ClientPid, {end_stream, term_to_binary(Data)});
