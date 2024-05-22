@@ -268,7 +268,7 @@ training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef =
   gen_statem:cast(WorkerPid, {start_stream, SourceName}),
   {keep_state, State};
 
-training(cast, _In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
   io:format("@client ~p got end stream from ~p~n",[WorkerName, SourceName]),
   ClientStatsEts = get(client_stats_ets),
