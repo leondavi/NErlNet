@@ -1,0 +1,67 @@
+{
+    "nerlnetSettings": {
+        "frequency": "200",
+        "batchSize": "100"
+    },
+    "mainServer": {
+        "port": "8081",
+        "args": ""
+    },
+    "apiServer": {
+        "port": "8082",
+        "args": ""
+    },
+    "devices": [
+        {
+            "name": "pc1",
+            "ipv4": "10.211.55.3",
+            "entities": "c1,c2,r2,r1,r3,r4,s1,apiServer,mainServer"
+        }
+    ],
+    "routers": [
+        {
+            "name": "r1",
+            "port": "8086",
+            "policy": "0"
+        },
+        {
+            "name": "r2",
+            "port": "8087",
+            "policy": "0"
+        },
+        {
+            "name": "r3",
+            "port": "8088",
+            "policy": "0"
+        },
+        {
+            "name": "r4",
+            "port": "8089",
+            "policy": "0"
+        }
+    ],
+    "sources": [
+        {
+            "name": "s1",
+            "port": "8085",
+            "frequency": "200",
+            "policy": "0",
+            "epochs": "1",
+            "type": "0"
+        }
+    ],
+    "clients": [
+        {
+            "name": "c1",
+            "port": "8083",
+            "workers": ""
+        },
+        {
+            "name": "c2",
+            "port": "8084",
+            "workers": ""
+        }
+    ],
+    "workers": [],
+    "model_sha": {}
+}

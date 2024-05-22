@@ -1,0 +1,145 @@
+{
+    "nerlnetSettings": {
+        "frequency": "100",
+        "batchSize": "100"
+    },
+    "mainServer": {
+        "port": "8900",
+        "args": ""
+    },
+    "apiServer": {
+        "port": "8901",
+        "args": ""
+    },
+    "devices": [
+        {
+            "name": "c0vm0",
+            "ipv4": "10.0.0.5",
+            "entities": "mainServer,c1,c2,r1,r2,s1,apiServer"
+        }
+    ],
+    "routers": [
+        {
+            "name": "r1",
+            "port": "8905",
+            "policy": "0"
+        },
+        {
+            "name": "r2",
+            "port": "8906",
+            "policy": "0"
+        }
+    ],
+    "sources": [
+        {
+            "name": "s1",
+            "port": "8904",
+            "frequency": "200",
+            "policy": "0",
+            "epochs": "1",
+            "type": "0"
+        }
+    ],
+    "clients": [
+        {
+            "name": "c1",
+            "port": "8902",
+            "workers": "w1,w2,ws"
+        },
+        {
+            "name": "c2",
+            "port": "8903",
+            "workers": "w3,w4"
+        }
+    ],
+    "workers": [
+        {
+            "name": "w1",
+            "model_sha": "7c0c5327ad2632a8a1107ed60f03b5bb49fc098332e7b91a12f214d045c6dd74"
+        },
+        {
+            "name": "w2",
+            "model_sha": "7c0c5327ad2632a8a1107ed60f03b5bb49fc098332e7b91a12f214d045c6dd74"
+        },
+        {
+            "name": "ws",
+            "model_sha": "24cfe345509ff1d121e437fc0baf3fb8feba88dda87db11b7c9c7aaff065c40b"
+        },
+        {
+            "name": "w3",
+            "model_sha": "7c0c5327ad2632a8a1107ed60f03b5bb49fc098332e7b91a12f214d045c6dd74"
+        },
+        {
+            "name": "w4",
+            "model_sha": "7c0c5327ad2632a8a1107ed60f03b5bb49fc098332e7b91a12f214d045c6dd74"
+        }
+    ],
+    "model_sha": {
+        "7c0c5327ad2632a8a1107ed60f03b5bb49fc098332e7b91a12f214d045c6dd74": {
+            "modelType": "0",
+            "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image_classification:4 | text_classification:5 | text_generation:6 | auto_association:7 | autoencoder:8 | ae_classifier:9 |",
+            "modelArgs": "",
+            "_doc_modelArgs": "Extra arguments to model",
+            "layersSizes": "5,2,2,2,3",
+            "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
+            "layerTypesList": "1,3,3,3,5",
+            "_doc_LayerTypes": " Default:0 | Scaling:1 | Conv:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Bounding:9 |",
+            "layers_functions": "1,6,6,11,4",
+            "_doc_layers_functions_activation": " Threshold:1 | Sign:2 | Logistic:3 | Tanh:4 | Linear:5 | ReLU:6 | eLU:7 | SeLU:8 | Soft-plus:9 | Soft-sign:10 | Hard-sigmoid:11 |",
+            "_doc_layer_functions_pooling": " none:1 | Max:2 | Avg:3 |",
+            "_doc_layer_functions_probabilistic": " Binary:1 | Logistic:2 | Competitive:3 | Softmax:4 |",
+            "_doc_layer_functions_scaler": " none:1 | MinMax:2 | MeanStd:3 | STD:4 | Log:5 |",
+            "lossMethod": "2",
+            "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
+            "lr": "0.01",
+            "_doc_lr": "Positve float",
+            "epochs": "1",
+            "_doc_epochs": "Positve Integer",
+            "optimizer": "5",
+            "_doc_optimizer": " GD:0 | CGD:1 | SGD:2 | QuasiNeuton:3 | LVM:4 | ADAM:5 |",
+            "optimizerArgs": "none",
+            "_doc_optimizerArgs": "String",
+            "infraType": "0",
+            "_doc_infraType": " opennn:0 | wolfengine:1 |",
+            "distributedSystemType": "1",
+            "_doc_distributedSystemType": " none:0 | fedClientAvg:1 | fedServerAvg:2 |",
+            "distributedSystemArgs": "SyncMaxCount=5",
+            "_doc_distributedSystemArgs": "String",
+            "distributedSystemToken": "9922u",
+            "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"
+        },
+        "24cfe345509ff1d121e437fc0baf3fb8feba88dda87db11b7c9c7aaff065c40b": {
+            "modelType": "0",
+            "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image_classification:4 | text_classification:5 | text_generation:6 | auto_association:7 | autoencoder:8 | ae_classifier:9 |",
+            "modelArgs": "",
+            "_doc_modelArgs": "Extra arguments to model",
+            "layersSizes": "5,2,2,2,3",
+            "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
+            "layerTypesList": "1,3,3,3,5",
+            "_doc_LayerTypes": " Default:0 | Scaling:1 | Conv:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Bounding:9 |",
+            "layers_functions": "1,6,6,11,4",
+            "_doc_layers_functions_activation": " Threshold:1 | Sign:2 | Logistic:3 | Tanh:4 | Linear:5 | ReLU:6 | eLU:7 | SeLU:8 | Soft-plus:9 | Soft-sign:10 | Hard-sigmoid:11 |",
+            "_doc_layer_functions_pooling": " none:1 | Max:2 | Avg:3 |",
+            "_doc_layer_functions_probabilistic": " Binary:1 | Logistic:2 | Competitive:3 | Softmax:4 |",
+            "_doc_layer_functions_scaler": " none:1 | MinMax:2 | MeanStd:3 | STD:4 | Log:5 |",
+            "lossMethod": "2",
+            "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
+            "lr": "0.01",
+            "_doc_lr": "Positve float",
+            "epochs": "1",
+            "_doc_epochs": "Positve Integer",
+            "optimizer": "5",
+            "_doc_optimizer": " GD:0 | CGD:1 | SGD:2 | QuasiNeuton:3 | LVM:4 | ADAM:5 |",
+            "optimizerArgs": "none",
+            "_doc_optimizerArgs": "String",
+            "infraType": "0",
+            "_doc_infraType": " opennn:0 | wolfengine:1 |",
+            "distributedSystemType": "2",
+            "_doc_distributedSystemType": " none:0 | fedClientAvg:1 | fedServerAvg:2 |",
+            "distributedSystemArgs": "SyncMaxCount=5",
+            "_doc_distributedSystemArgs": "String",
+            "distributedSystemToken": "9922u",
+            "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"
+        }
+    }
+}
