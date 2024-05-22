@@ -78,7 +78,6 @@ start_stream({GenWorkerEts, WorkerData}) ->
   case length(CurrActiveWorkers) of 
     CurrLengthFedClients -> ok;
     _Else ->  
-      io:format("FedServer got start_stream from ~p~n",[WorkerName]),
       ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
       UpdatedActiveWorkers = ActiveWorkers ++ [WorkerName],
       ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers}),
@@ -98,6 +97,7 @@ end_stream({GenWorkerEts, WorkerData}) ->
   [WorkerName , _ModelPhase] = WorkerData,
   FedServerEts = get_this_server_ets(GenWorkerEts),
   CurrActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+  io:format("FedServer got end_stream , CurrActiveWorkers = ~p~n",[CurrActiveWorkers]),
   case CurrActiveWorkers of 
     [] -> ok; % if there are no active workers, no need to do anything
     _Else ->
@@ -151,7 +151,6 @@ post_idle({GenWorkerEts, _WorkerName}) ->
         w2wCom:send_message(W2WPid, FedServerName, FedClient, {handshake_done, MyToken})
     end,
     lists:foreach(MsgFunc, MessagesList),
-    io:format("After handshake , FedClients = ~p~n",[ets:lookup_element(FedServerEts, fed_clients, ?ETS_KEYVAL_VAL_IDX)]),
     ets:update_element(GenWorkerEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true});
   true -> ok
   end.
@@ -170,7 +169,6 @@ post_train({GenWorkerEts, WeightsTensor}) ->
   {WorkerWeights, _BinaryType} = WeightsTensor,
   TotalWorkersWeights = CurrWorkersWeightsList ++ [WorkerWeights],
   NumOfActiveWorkers = length(ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX)),
-  io:format("NumOfActiveWorkers = ~p~n",[NumOfActiveWorkers]),
   case length(TotalWorkersWeights) of 
     NumOfActiveWorkers -> 
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
@@ -183,7 +181,6 @@ post_train({GenWorkerEts, WeightsTensor}) ->
       Func = fun(FedClient) ->
         FedServerName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-        io:format("Sending updated weights to ~p~n",[FedClient]),
         w2wCom:send_message(W2WPid, FedServerName, FedClient, {update_weights, AvgWeightsNerlTensor})
       end,
       WorkersList = ets:lookup_element(ThisEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
