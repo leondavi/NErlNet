@@ -279,7 +279,7 @@ training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = E
   {keep_state, State};
 
 training(cast, _In = {worker_done, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
-  {WorkerName, SourceName} = binary_to_term(Data),
+  {WorkerName, SourceName} = Data,
   io:format("Client got worker_done from ~p~n",[WorkerName]),
   ListOfActiveWorkerSources = ets:lookup_element(EtsRef, active_workers_sources_list, ?DATA_IDX),
   UpdatedListOfActiveWorkerSources = ListOfActiveWorkerSources -- [{WorkerName, SourceName}],
