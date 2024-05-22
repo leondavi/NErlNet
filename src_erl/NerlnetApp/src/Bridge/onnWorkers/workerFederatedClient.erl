@@ -84,7 +84,7 @@ handshake(FedClientEts) ->
   lists:foreach(Func, MessagesList).
 
 start_stream({GenWorkerEts, WorkerData}) ->  % WorkerData is currently a list of [SourceName, State]
-  [SourceName, State] = WorkerData,
+  [_SourceName, State] = WorkerData,
   case State of
     train ->
         ThisEts = get_this_client_ets(GenWorkerEts),
@@ -94,14 +94,15 @@ start_stream({GenWorkerEts, WorkerData}) ->  % WorkerData is currently a list of
         CastingSources = ets:lookup_element(GenWorkerEts, casting_sources, ?ETS_KEYVAL_VAL_IDX),
         case length(CastingSources) of % Send to server an updater after got start_stream from the first source
           1 ->  ets:update_element(ThisEts, stream_occuring, {?ETS_KEYVAL_VAL_IDX, true}),
-                w2wCom:send_message_with_event(W2WPid, MyName, ServerName , start_stream, SourceName);
+                io:format("FedWorker ~p sending start_stream to server ~p~n",[MyName, ServerName]),
+                w2wCom:send_message_with_event(W2WPid, MyName, ServerName , start_stream, MyName); % Server gets FedWorkerName instead of SourceName
           _ -> ok
         end;
       predict -> ok
   end.
 
 end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [SourceName]
-  [SourceName, State] = WorkerData,
+  [_SourceName, State] = WorkerData,
   case State of
     train ->
         ThisEts = get_this_client_ets(GenWorkerEts),
@@ -111,10 +112,10 @@ end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [S
         CastingSources = ets:lookup_element(GenWorkerEts, casting_sources, ?ETS_KEYVAL_VAL_IDX),
         case length(CastingSources) of % Send to server an updater after got start_stream from the first source
           0 ->  ets:update_element(ThisEts, stream_occuring, {?ETS_KEYVAL_VAL_IDX, false}),
-                w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, SourceName);
+                w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, MyName);
           _ -> ok
         end;
-      predict -> ok
+    predict -> ok
   end.
 
 

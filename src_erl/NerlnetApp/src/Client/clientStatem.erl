@@ -128,6 +128,7 @@ waitforWorkers(cast, In = {stateChange,WorkerName}, State = #client_statem_state
   case NewWaitforWorkers of % TODO Guy here we need to check for keep alive with workers
     [] ->   send_client_is_ready(MyName), % when all workers done their work
             stats:increment_messages_sent(ClientStatsEts),
+            io:format("Client ~p is ready~n", [MyName]),
             {next_state, NextState, State#client_statem_state{waitforWorkers = []}};
     _  ->   %io:format("Client ~p is waiting for workers ~p~n",[MyName,NewWaitforWorkers]),
             {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers}}
@@ -276,7 +277,7 @@ training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = E
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
-  gen_statem:cast(WorkerPid, {end_stream, SourceName}), 
+  gen_statem:cast(WorkerPid, {end_stream, [SourceName]}), 
   case length(UpdatedListOfActiveWorkerSources) of 
     0 -> ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
     _ -> ok end,
@@ -463,6 +464,7 @@ create_encoded_stats_str(ListStatsEts) ->
   lists:flatten(lists:map(Func , ListStatsEts)).
 
 handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data) ->
+  io:format("~p sent w2w_msg to ~p~n",[FromWorker, ToWorker]),
   ClientStatsEts = get(client_stats_ets),
   WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
   WorkerOfThisClient = lists:member(ToWorker, WorkersOfThisClient),

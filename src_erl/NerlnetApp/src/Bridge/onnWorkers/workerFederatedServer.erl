@@ -70,24 +70,17 @@ init({GenWorkerEts, WorkerData}) ->
   put(fed_server_ets, FederatedServerEts).
 
   
-start_stream({GenWorkerEts, _WorkerData}) -> 
+start_stream({GenWorkerEts, WorkerData}) -> 
+  [WorkerName , _ModelPhase] = WorkerData,
   FedServerEts = get_this_server_ets(GenWorkerEts),
-  CurrUpdatedActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+  CurrActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
   CurrLengthFedClients = length(ets:lookup_element(FedServerEts, fed_clients, ?ETS_KEYVAL_VAL_IDX)),
-  case length(CurrUpdatedActiveWorkers) of 
+  case length(CurrActiveWorkers) of 
     CurrLengthFedClients -> ok;
     _Else ->  
-      W2WPid = ets:lookup_element(GenWorkerEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-      w2wCom:sync_inbox(W2WPid),
-      InboxQueue = w2wCom:get_all_messages(W2WPid),
-      MessagesList = queue:to_list(InboxQueue),
-      Func = fun({FromFedClient , _SourceName}) ->
-          ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
-          UpdatedActiveWorkers = ActiveWorkers ++ [FromFedClient],
-          ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers})
-      end,
-      lists:foreach(Func, MessagesList),
-      UpdatedActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+      io:format("FedServer got start_stream from ~p~n",[WorkerName]),
+      ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+      UpdatedActiveWorkers = ActiveWorkers ++ [WorkerName],
       ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers}),
       LengthFedClients = length(ets:lookup_element(FedServerEts, fed_clients, ?ETS_KEYVAL_VAL_IDX)),
       case length(UpdatedActiveWorkers) of
@@ -96,36 +89,30 @@ start_stream({GenWorkerEts, _WorkerData}) ->
                             % ClientName = ets:lookup_element(GenWorkerEts, client_name, ?ETS_KEYVAL_VAL_IDX),
                             Data = {MyName, MyName, MyName}, % Mimic source behavior to register as an active worker for the client
                             gen_server:cast(ClientPid, {start_stream, term_to_binary(Data)});
-        _ -> start_stream({GenWorkerEts, []}) % If not all messages were received when inbox was synced
+        _ -> ok
       end
   end.
 
 
-end_stream({GenWorkerEts, _WorkerData}) -> 
+end_stream({GenWorkerEts, WorkerData}) -> 
+  [WorkerName , _ModelPhase] = WorkerData,
   FedServerEts = get_this_server_ets(GenWorkerEts),
-  CurrUpdatedActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
-  case CurrUpdatedActiveWorkers of 
+  CurrActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+  case CurrActiveWorkers of 
     [] -> ok; % if there are no active workers, no need to do anything
     _Else ->
-        W2WPid = ets:lookup_element(GenWorkerEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-        w2wCom:sync_inbox(W2WPid),
-        InboxQueue = w2wCom:get_all_messages(W2WPid),
-        MessagesList = queue:to_list(InboxQueue),
-        Func = fun({FromFedClient , _SourceName}) ->
-            ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
-            UpdatedActiveWorkers = ActiveWorkers -- [FromFedClient],
-            ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers})
-        end,
-        lists:foreach(Func, MessagesList),
-        UpdatedActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+        ActiveWorkers = ets:lookup_element(FedServerEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
+        io:format("ActiveWorkers = ~p , got end stream from ~p removing it..~n",[ActiveWorkers, WorkerName]),
+        UpdatedActiveWorkers = ActiveWorkers -- [WorkerName],
         ets:update_element(FedServerEts, active_workers, {?ETS_KEYVAL_VAL_IDX, UpdatedActiveWorkers}),
         case length(UpdatedActiveWorkers) of
-          0 ->                ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
-                              MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
-                              % ClientName = ets:lookup_element(GenWorkerEts, client_name, ?ETS_KEYVAL_VAL_IDX),
-                              Data = {MyName, MyName, MyName}, % Mimic source behavior to register as an active worker for the client
-                              gen_server:cast(ClientPid, {end_stream, term_to_binary(Data)});
-          _ -> end_stream({GenWorkerEts, []}) % If not all messages were received when inbox was synced
+          0 ->  io:format("GOT HEREEEE~n"),
+                ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
+                MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
+                % ClientName = ets:lookup_element(GenWorkerEts, client_name, ?ETS_KEYVAL_VAL_IDX),
+                Data = {MyName, MyName, MyName}, % Mimic source behavior to register as an active worker for the client
+                gen_server:cast(ClientPid, {end_stream, term_to_binary(Data)});
+          _ ->  io:format("ActiveWorkers = ~p~n",[UpdatedActiveWorkers])
         end
   end.
 
@@ -164,6 +151,7 @@ post_idle({GenWorkerEts, _WorkerName}) ->
         w2wCom:send_message(W2WPid, FedServerName, FedClient, {handshake_done, MyToken})
     end,
     lists:foreach(MsgFunc, MessagesList),
+    io:format("After handshake , FedClients = ~p~n",[ets:lookup_element(FedServerEts, fed_clients, ?ETS_KEYVAL_VAL_IDX)]),
     ets:update_element(GenWorkerEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true});
   true -> ok
   end.
@@ -195,6 +183,7 @@ post_train({GenWorkerEts, WeightsTensor}) ->
       Func = fun(FedClient) ->
         FedServerName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+        io:format("Sending updated weights to ~p~n",[FedClient]),
         w2wCom:send_message(W2WPid, FedServerName, FedClient, {update_weights, AvgWeightsNerlTensor})
       end,
       WorkersList = ets:lookup_element(ThisEts, active_workers, ?ETS_KEYVAL_VAL_IDX),
