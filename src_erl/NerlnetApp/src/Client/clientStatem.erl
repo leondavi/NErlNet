@@ -283,7 +283,7 @@ training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = E
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
-  gen_statem:cast(WorkerPid, {end_stream, [SourceName]}), 
+  gen_statem:cast(WorkerPid, {end_stream, SourceName}), 
   {keep_state, State};
 
 training(cast, _In = {worker_done, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
