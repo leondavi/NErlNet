@@ -130,13 +130,13 @@ post_idle({GenWorkerEts, _WorkerData}) ->
     true -> HandshakeDone = ets:lookup_element(FedClientEts, handshake_done, ?ETS_KEYVAL_VAL_IDX),
             case HandshakeDone of 
             false -> 
-              w2wCom:sync_inbox(W2WPid),
-              InboxQueue = w2wCom:get_all_messages(W2WPid),
-              [{_FedServer, {handshake_done, ServerToken}}] = queue:to_list(InboxQueue),
-              case ServerToken of 
-                MyToken ->  ets:update_element(FedClientEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true});
-                _ ->      post_idle({GenWorkerEts, _WorkerData}) , not_my_token
-              end;
+                w2wCom:sync_inbox(W2WPid),
+                InboxQueue = w2wCom:get_all_messages(W2WPid),
+                [{_FedServer, {handshake_done, ServerToken}}] = queue:to_list(InboxQueue),
+                case ServerToken of 
+                  MyToken ->  ets:update_element(FedClientEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true});
+                  _ ->        post_idle({GenWorkerEts, _WorkerData}) , not_my_token
+                end;
             true -> ok
             end;
     false -> post_idle({GenWorkerEts, _WorkerData}) % busy waiting until handshake is done
