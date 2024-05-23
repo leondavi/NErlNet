@@ -76,8 +76,9 @@ handshake(FedClientEts) ->
       MyToken = ets:lookup_element(FedClientEts, my_token, ?ETS_KEYVAL_VAL_IDX),
       MyName = ets:lookup_element(FedClientEts, my_name, ?ETS_KEYVAL_VAL_IDX),
       case ServerToken of 
-        MyToken -> w2wCom:send_message(W2WPid, MyName, FedServer, {handshake, MyToken}),
-                ets:update_element(FedClientEts, handshake_wait, {?ETS_KEYVAL_VAL_IDX, true});
+        MyToken ->  io:format("MyToken: ~p , ServerToken ~p~n",[MyToken,ServerToken]),
+                    w2wCom:send_message(W2WPid, MyName, FedServer, {handshake, MyToken}),
+                    ets:update_element(FedClientEts, handshake_wait, {?ETS_KEYVAL_VAL_IDX, true});
         _ -> not_my_server
       end
   end,
@@ -123,7 +124,7 @@ pre_idle({_GenWorkerEts, _WorkerData}) -> ok.
 post_idle({GenWorkerEts, _WorkerData}) -> 
   FedClientEts = get_this_client_ets(GenWorkerEts),
   W2WPid = ets:lookup_element(FedClientEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-  Token = ets:lookup_element(FedClientEts, my_token, ?ETS_KEYVAL_VAL_IDX),
+  MyToken = ets:lookup_element(FedClientEts, my_token, ?ETS_KEYVAL_VAL_IDX),
   HandshakeWait = ets:lookup_element(FedClientEts, handshake_wait, ?ETS_KEYVAL_VAL_IDX),
   case HandshakeWait of 
     true -> HandshakeDone = ets:lookup_element(FedClientEts, handshake_done, ?ETS_KEYVAL_VAL_IDX),
@@ -131,8 +132,11 @@ post_idle({GenWorkerEts, _WorkerData}) ->
             false -> 
               w2wCom:sync_inbox(W2WPid),
               InboxQueue = w2wCom:get_all_messages(W2WPid),
-              ets:update_element(FedClientEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true}),
-              [{_FedServer, {handshake_done, Token}}] = queue:to_list(InboxQueue);
+              [{_FedServer, {handshake_done, ServerToken}}] = queue:to_list(InboxQueue),
+              case ServerToken of 
+                MyToken ->  ets:update_element(FedClientEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true});
+                _ ->      post_idle({GenWorkerEts, _WorkerData}) , not_my_token
+              end;
             true -> ok
             end;
     false -> post_idle({GenWorkerEts, _WorkerData}) % busy waiting until handshake is done
