@@ -23,6 +23,12 @@
             "idx": 3,
             "name": "EEG_eye_state_classification_Ohad",
             "description": "2 class of classification"
+        },
+        {
+            "id": "Nerlnet/EEG_Eye_State_Classification_table_freq_window",
+            "idx": 4,
+            "name": "EEG_freq_eye_state_classification",
+            "description": "3 class of classification"
         }
     ]
 }

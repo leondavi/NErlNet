@@ -214,7 +214,7 @@ class ApiServer(metaclass=Singleton):
         except utils._errors.RepositoryNotFoundError:
             LOG_INFO(f"Failed to find the repository '{repo}'. Check your '{HF_DATA_REPO_PATHS_JSON}' file or network access.")
             
-    def download_dataset(self, repo_idx : int | list[int], download_dir_path : str = DEFAULT_NERLNET_TMP_DATA_DIR):
+    def download_dataset(self, repo_idx : int, download_dir_path : str = DEFAULT_NERLNET_TMP_DATA_DIR):
         with open(HF_DATA_REPO_PATHS_JSON) as file:
             repo_ids = json.load(file)
         try:
