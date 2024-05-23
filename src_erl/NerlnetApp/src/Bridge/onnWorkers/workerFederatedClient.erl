@@ -130,11 +130,12 @@ post_idle({GenWorkerEts, _WorkerData}) ->
     true -> HandshakeDone = ets:lookup_element(FedClientEts, handshake_done, ?ETS_KEYVAL_VAL_IDX),
             case HandshakeDone of 
             false -> 
+                MyServer = ets:lookup_element(FedClientEts, server_name, ?ETS_KEYVAL_VAL_IDX),
                 w2wCom:sync_inbox(W2WPid),
                 InboxQueue = w2wCom:get_all_messages(W2WPid),
-                [{_FedServer, {handshake_done, ServerToken}}] = queue:to_list(InboxQueue),
-                case ServerToken of 
-                  MyToken ->  ets:update_element(FedClientEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true});
+                [{FedWorker, {handshake_done, ServerToken}}] = queue:to_list(InboxQueue),
+                case FedWorker of 
+                  MyServer ->  ets:update_element(FedClientEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true});
                   _ ->        post_idle({GenWorkerEts, _WorkerData}) , not_my_token
                 end;
             true -> ok
