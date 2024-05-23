@@ -44,16 +44,16 @@
         {
             "name": "s1",
             "port": "8904",
-            "frequency": "200",
-            "policy": "1",
+            "frequency": "300",
+            "policy": "0",
             "epochs": "1",
             "type": "0"
         },
         {
             "name": "s2",
             "port": "8902",
-            "frequency": "200",
-            "policy": "1",
+            "frequency": "300",
+            "policy": "0",
             "epochs": "1",
             "type": "0"
         }

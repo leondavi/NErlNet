@@ -75,10 +75,10 @@ handshake(FedClientEts) ->
       ets:insert(FedClientEts, {my_token , ServerToken}),
       MyToken = ets:lookup_element(FedClientEts, my_token, ?ETS_KEYVAL_VAL_IDX),
       MyName = ets:lookup_element(FedClientEts, my_name, ?ETS_KEYVAL_VAL_IDX),
-      if 
-        ServerToken =/= MyToken -> not_my_server; 
-        true -> w2wCom:send_message(W2WPid, MyName, FedServer, {handshake, MyToken}),
-                ets:update_element(FedClientEts, handshake_wait, {?ETS_KEYVAL_VAL_IDX, true})
+      case ServerToken of 
+        MyToken -> w2wCom:send_message(W2WPid, MyName, FedServer, {handshake, MyToken}),
+                ets:update_element(FedClientEts, handshake_wait, {?ETS_KEYVAL_VAL_IDX, true});
+        _ -> not_my_server
       end
   end,
   lists:foreach(Func, MessagesList).
