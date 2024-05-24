@@ -76,6 +76,7 @@ init({MyName, WorkersMap, NerlnetGraph, Policy, BatchSize, Frequency , Epochs, T
   ets:insert(EtsRef, {sample_size, none}),
   ets:insert(EtsRef, {workers_list, []}),
   ets:insert(EtsRef, {csv_name, ""}), % not in use
+  ets:insert(EtsRef, {stats_ets, EtsStatsRef}),
   
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM, NerlnetGraph),
   ets:insert(EtsRef, {my_router,{MyRouterHost,MyRouterPort}}),
@@ -402,4 +403,6 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,ClientWorkerPairs, Batches
   gen_statem:cast(SourcePid,{finishedCasting,BatchesSent}),
   ActualFrequency = 1/(TransmissionTimeTook_sec/BatchesSent),
   ?LOG_INFO("Source ~p Actual Frequency: ~p [B/Sec]",[MyName, ActualFrequency]),
+  StatsEtsRef = ets:lookup_element(SourceEtsRef, stats_ets, ?DATA_IDX),
+  stats:set_value(StatsEtsRef, actual_frequency, ActualFrequency),
   ets:delete(TransmitterEts).
