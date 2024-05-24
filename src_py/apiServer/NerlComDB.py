@@ -203,6 +203,7 @@ class SourceComDB(EntityComDB):
     def __init__(self):
         super().__init__()
         self.batches_sent = 0
+        self.actual_frequency = 0
 
     def __add__(self, other):  
         self.batches_sent += other.batches_sent
@@ -217,6 +218,7 @@ class SourceComDB(EntityComDB):
         self.bytes_sent = input_dict["bytes_sent"]
         self.bad_messages = input_dict["bad_messages"]
         self.batches_sent = input_dict["batches_sent"]
+        self.actual_frequency = input_dict["actual_frequency"]
         
     def get_as_dict(self):
         return {
@@ -226,7 +228,8 @@ class SourceComDB(EntityComDB):
             "bytes_received": self.bytes_received,
             "bytes_sent": self.bytes_sent,
             "bad_messages": self.bad_messages,
-            "batches_sent": self.batches_sent
+            "batches_sent": self.batches_sent,
+            "actual_frequency": self.actual_frequency
         }
 
 class NerlComDB():

@@ -311,6 +311,14 @@ class Stats():
         main_server_communication_stats = self.nerl_comm_db.get_main_server().get_as_dict()
         return main_server_communication_stats
 
+    def get_actual_frequencies_of_sources(self):
+        # return dictionary of {source : {actual_freq}}
+        actual_frequencies_of_sources_dict = OrderedDict()
+        sources_dict = self.nerl_comm_db.get_sources()
+        for source_name, source_db_dict in sources_dict.items():
+            actual_frequencies_of_sources_dict[source_name] = source_db_dict.get_as_dict()["actual_frequency"]
+        return actual_frequencies_of_sources_dict
+
     def get_model_performence_stats(self , confusion_matrix_worker_dict , show : bool = False , saveToFile : bool = False, printStats = False) -> dict:
         """
         Returns a dictionary of {(worker, class): {Performence_Stat : VALUE}}} for each worker and class in the experiment.
