@@ -85,6 +85,9 @@ sources: {stats_train.get_communication_stats_sources()}\
 clients: {stats_train.get_communication_stats_clients()}\
 routers: {stats_train.get_communication_stats_routers()}"
 
+LOG_INFO("Actual Frequencies:")
+print(f"{stats_train.get_actual_frequencies_of_sources()}")
+
 LOG_INFO("Missed Batches training:")
 #LOG_INFO(stats_train.get_missed_batches())
 
@@ -95,6 +98,8 @@ sources: {stats_predict.get_communication_stats_sources()}\
 clients: {stats_predict.get_communication_stats_clients()}\
 routers: {stats_predict.get_communication_stats_routers()}"
 
+LOG_INFO("Actual Frequencies:")
+print(f"{stats_predict.get_actual_frequencies_of_sources()}")
 
 missed_batches = stats_predict.get_missed_batches()
 if missed_batches:
