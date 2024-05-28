@@ -129,7 +129,8 @@ class JsonDistributedConfig():
     def remove_device(self, device_name : str):
         # device_inst = self.main_dict[KEY_DEVICES][device_name]
         # device_inst.entities_dict = None
-        del(self.main_dict[KEY_DEVICES][device_name]) 
+        if device_name in self.main_dict[KEY_DEVICES]:
+            del(self.main_dict[KEY_DEVICES][device_name]) 
 
     
     ENTITIY_TO_DEVICE_ADD_ISSUE_WITH_PORT = -1
@@ -181,9 +182,14 @@ class JsonDistributedConfig():
             del(self.main_dict[KEY_CLIENTS][client_name]) 
         self.remove_entity_from_device(client_name)
 
-    
     def get_clients_names(self):
         return list(self.main_dict[KEY_CLIENTS].keys())
+    
+    def get_client_by_worker(self, worker_name : str):
+        for client_inst , client in self.main_dict[KEY_CLIENTS].items():
+            if worker_name in client.get_workers_names():
+                return client
+        return None
     
     def get_owned_workers_by_clients_dict(self) -> list:
         owned_workers_dict = {}
@@ -282,6 +288,14 @@ class JsonDistributedConfig():
             else:
                 self.main_dict[KEY_MODEL_SHA][worker_sha].append(worker_name)
         return True
+    
+    def remove_worker(self, worker_name : str):
+        if worker_name in self.get_workers_names_list():
+            worker_sha = self.main_dict[KEY_WORKERS][worker_name].get_sha()
+            del self.main_dict[KEY_WORKERS][worker_name]
+            self.main_dict[KEY_MODEL_SHA][worker_sha].remove(worker_name)
+            if len(self.main_dict[KEY_MODEL_SHA][worker_sha]) == 0:
+                del self.main_dict[KEY_MODEL_SHA][worker_sha]
     
     def get_worker(self, worker_name : str) -> Worker:
         return self.main_dict[KEY_WORKERS][worker_name]
@@ -447,4 +461,8 @@ class JsonDistributedConfig():
             self.add_device(new_device_loaded)
 
         return self.IMPORT_DC_JSON_SUCCESS
+        
+    def clear_nerlplanner(self):
+        self.clear()
+        self.default_frequency = None
         

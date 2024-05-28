@@ -10,6 +10,7 @@
 -export([get_bytes_sent/1, increment_bytes_sent/2]).
 -export([get_bad_messages/1, increment_bad_messages/1]).
 -export([get_value/2, increment_by_value/3]).
+-export([set_value/3]).
 -export([encode_ets_to_http_bin_str/1 , decode_http_bin_str_to_ets/1 , encode_workers_ets_to_http_bin_str/1]).
 -export([update_workers_ets/4, increment_workers_ets/4 , generate_workers_stats_ets/0]).
 
@@ -63,8 +64,8 @@ decode_http_bin_str_to_ets(EncodedStr) ->
     ReturnedEts.
     
 
-generate_stats_ets() -> %% clients , routers , mainserver...
-    StatsEts = ets:new(stats_ets , [set]),
+generate_stats_ets() -> %% sources, clients , routers , mainserver...
+    StatsEts = ets:new(stats_ets , [set, public]),
     ets:insert(StatsEts, {messages_received , 0}),
     ets:insert(StatsEts, {messages_sent , 0}),
     ets:insert(StatsEts, {messages_dropped , 0}),
@@ -73,7 +74,8 @@ generate_stats_ets() -> %% clients , routers , mainserver...
     ets:insert(StatsEts, {bad_messages , 0}),
     ets:insert(StatsEts, {batches_received , 0}), % related with client only
     ets:insert(StatsEts, {batches_dropped , 0}), % related with client only
-    ets:insert(StatsEts, {batches_sent , 0}), % related with source
+    ets:insert(StatsEts, {batches_sent , 0}), % related with source only
+    ets:insert(StatsEts, {actual_frequency, 0}), % related with source only
     StatsEts.
 
 generate_workers_stats_ets() -> %% workers..
@@ -107,6 +109,9 @@ increment_workers_ets(StatsEts, WorkerName, WorkerAttribute, Value) ->
     ets:update_counter(WorkerStatsEts, Key, Value).
 
 %% ---- Stats ETS Methods -----%%
+set_value(StatsEts, Key, Value) ->
+    ets:update_element(StatsEts, Key, {?STATS_KEYVAL_VAL_IDX, Value}).
+
 increment_by_value(StatsEts, Key, Value) ->
     ets:update_counter(StatsEts, Key, Value).
 

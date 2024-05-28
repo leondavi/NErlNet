@@ -33,14 +33,7 @@ References and libraries:
 - [Rebar3](https://github.com/erlang/rebar3), an Erlang tool that makes it easy to create, develop, and release Erlang libraries, applications, and systems in a repeatable manner.
 - [Simple Cpp Logger](https://github.com/nadrino/simple-cpp-logger), simple cpp logger headers-only implementation.
 
-Nerlnet is developed by David Leon, Dr. Yehuda Ben-Shimol, and the community of Nerlnet open-source contributors.   
-
-### Introducing Nerlnet
-
-
-https://github.com/leondavi/NErlNet/assets/18975070/15a3957a-3fd6-4fb2-a365-7e1578468298
-
-
+Nerlnet is developed by David Leon, Dr. Yehuda Ben-Shimol, and the community of Nerlnet open-source contributors.  
 
 ### Nerlnet Architecture:
 ![Nerlnet Architecture](https://user-images.githubusercontent.com/18975070/141692829-f0cdca7d-96d1-43b0-920a-5821a14242f7.jpg)
@@ -79,9 +72,12 @@ Minimum Python version: 3.8
 
 Visit our hugging face organization page for more datasets and models of Nerlnet.  
 [<img width="150" alt="hf-logo-with-title" src="https://github.com/leondavi/NErlNet/assets/18975070/93e736b9-732e-4d33-a51a-ca5f68308772">](https://huggingface.co/Nerlnet)
+### Social
 
+https://github.com/leondavi/NErlNet/assets/18975070/15a3957a-3fd6-4fb2-a365-7e1578468298  
+  
+[<img width="20" alt="nerlnet-linkedin-page" src="https://github.com/leondavi/NErlNet/assets/18975070/b39d6793-2c31-4cfd-8436-c495267c353a">](https://www.linkedin.com/company/nerlnet)  
 
-Contact Email: leondavi@post.bgu.ac.il
 
 ## Gratitudes
 <h3 align="center">Microsoft Azure</h1>
@@ -91,3 +87,5 @@ Contact Email: leondavi@post.bgu.ac.il
 <p align="center"> <img src="https://github.com/leondavi/NErlNet/assets/18975070/5fe285fd-43c9-4de8-a619-5ebaace33b29" width="50" title="Amazon AWS Sponsorship"></p>  
 
 <p align="center"> A grant of AWS credits as part of AWSOpen program for open source projects (2024).</p>
+
+Contact Email: leondavi@post.bgu.ac.il

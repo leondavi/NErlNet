@@ -210,7 +210,7 @@ class ApiServer(metaclass=Singleton):
                 repo_csv_files = [file for file in files if file.endswith('.csv')]
                 datasets[repo["id"]] = repo_csv_files
             for i , (repo_name , files) in enumerate(datasets.items()):
-                LOG_INFO(f'{i}. {repo_name}: {files}')
+                print(f'{i}. {repo_name}: {files}')
         except utils._errors.RepositoryNotFoundError:
             LOG_INFO(f"Failed to find the repository '{repo}'. Check your '{HF_DATA_REPO_PATHS_JSON}' file or network access.")
             

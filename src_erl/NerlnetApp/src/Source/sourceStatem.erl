@@ -76,6 +76,7 @@ init({MyName, WorkersMap, NerlnetGraph, Policy, BatchSize, Frequency , Epochs, T
   ets:insert(EtsRef, {sample_size, none}),
   ets:insert(EtsRef, {workers_list, []}),
   ets:insert(EtsRef, {csv_name, ""}), % not in use
+  ets:insert(EtsRef, {stats_ets, EtsStatsRef}),
   
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM, NerlnetGraph),
   ets:insert(EtsRef, {my_router,{MyRouterHost,MyRouterPort}}),
@@ -124,7 +125,7 @@ idle(cast, {batchList, WorkersList, NumOfBatches, NerlTensorType, Data}, State) 
   ?LOG_NOTICE("Source ~p, workers are: ~p", [MyName, WorkersList]),
   ?LOG_NOTICE("Source ~p, sample size: ~p", [MyName, SampleSize]),
   ets:update_element(EtsRef, sample_size, [{?DATA_IDX, SampleSize}]),
-  ?LOG_INFO("Source ~p updated transmission list, total avilable batches to send: ~p~n",[MyName, NumOfBatches]),
+  ?LOG_INFO("Source ~p updated transmission list, total available batches to send: ~p~n",[MyName, NumOfBatches]),
   %%  send an ACK to mainserver that the CSV file is ready
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(dataReady), MyName),
@@ -365,12 +366,25 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,ClientWorkerPairs, Batches
   ets:insert(TransmitterEts, {batches_skipped, 0}),
   ets:insert(TransmitterEts, {current_batch_id, 0}),
   TransmissionStart = erlang:timestamp(),
+  % Message to all workrers : "start_stream" , TRANSFER TO FUNCTIONS
+  {RouterHost, RouterPort} = ets:lookup_element(TransmitterEts, my_router, ?DATA_IDX),
+  FuncStart = fun({ClientName, WorkerNameStr}) ->
+    ToSend = {MyName, ClientName, list_to_atom(WorkerNameStr)},
+    nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(start_stream), ToSend)
+  end,
+  lists:foreach(FuncStart, ClientWorkerPairs),
   case Method of
     ?SOURCE_POLICY_CASTING_ATOM -> send_method_casting(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
     ?SOURCE_POLICY_ROUNDROBIN_ATOM -> send_method_round_robin(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
     ?SOURCE_POLICY_RANDOM_ATOM -> send_method_random(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
     _Default -> send_method_casting(TransmitterEts, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend)
   end,
+  % Message to workers : "end_stream"
+  FuncEnd = fun({ClientName, WorkerNameStr}) ->
+    ToSend = {MyName, ClientName, list_to_atom(WorkerNameStr)},
+    nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(end_stream), ToSend)
+  end,
+  lists:foreach(FuncEnd, ClientWorkerPairs),
   TransmissionTimeTook_sec = timer:now_diff(erlang:timestamp(), TransmissionStart) / 1000000,
   ErrorBatches = ets:lookup_element(TransmitterEts, batches_issue, ?DATA_IDX),
   SkippedBatches = ets:lookup_element(TransmitterEts, batches_skipped, ?DATA_IDX),
@@ -389,4 +403,6 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid ,ClientWorkerPairs, Batches
   gen_statem:cast(SourcePid,{finishedCasting,BatchesSent}),
   ActualFrequency = 1/(TransmissionTimeTook_sec/BatchesSent),
   ?LOG_INFO("Source ~p Actual Frequency: ~p [B/Sec]",[MyName, ActualFrequency]),
+  StatsEtsRef = ets:lookup_element(SourceEtsRef, stats_ets, ?DATA_IDX),
+  stats:set_value(StatsEtsRef, actual_frequency, ActualFrequency),
   ets:delete(TransmitterEts).

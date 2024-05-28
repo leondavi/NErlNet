@@ -39,6 +39,17 @@ class NerlLayer
     int _layer_functionality;
 };
 
+class NerlLayerFlatten : public NerlLayer
+{
+    //TODO Ori continue implementation of Flatten layer
+    public:
+
+    NerlLayerFlatten(int layer_type, std::vector<int> &layers_dims, int layer_functionality);
+    ~NerlLayerFlatten();
+
+    private:
+};
+
 
 class NerlLayerPooling : public NerlLayer
 {
