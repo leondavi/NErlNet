@@ -92,5 +92,3 @@ https://github.com/leondavi/NErlNet/assets/18975070/15a3957a-3fd6-4fb2-a365-7e15
 <p align="center"> <img src="https://github.com/leondavi/NErlNet/assets/18975070/5fe285fd-43c9-4de8-a619-5ebaace33b29" width="50" title="Amazon AWS Sponsorship"></p>  
 
 <p align="center"> A grant of AWS credits as part of AWSOpen program for open source projects (2024).</p>
-
-Contact Email: leondavi@post.bgu.ac.il
