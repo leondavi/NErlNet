@@ -1,5 +1,10 @@
 # NErlNet
-![version](https://img.shields.io/github/v/release/leondavi/NErlNet)
+![Version](https://img.shields.io/github/v/release/leondavi/NErlNet)
+![Contributors](https://img.shields.io/github/contributors/leondavi/NErlNet)
+![Issues](https://img.shields.io/github/issues/leondavi/NErlNet)
+<a href="https://discord.com/channels/914616114204516393/914616114833670159">
+        <img src="https://img.shields.io/discord/914616114204516393?logo=discord"
+            alt="chat on Discord"></a>
 
 
 <p align="center">
