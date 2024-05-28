@@ -73,6 +73,7 @@ Minimum Python version: 3.8
 Visit our hugging face organization page for more datasets and models of Nerlnet.  
 [<img width="150" alt="hf-logo-with-title" src="https://github.com/leondavi/NErlNet/assets/18975070/93e736b9-732e-4d33-a51a-ca5f68308772">](https://huggingface.co/Nerlnet)
 ### Social
+
 https://github.com/leondavi/NErlNet/assets/18975070/15a3957a-3fd6-4fb2-a365-7e1578468298  
   
 [<img width="20" alt="nerlnet-linkedin-page" src="https://github.com/leondavi/NErlNet/assets/18975070/b39d6793-2c31-4cfd-8436-c495267c353a">](https://www.linkedin.com/company/nerlnet)  
