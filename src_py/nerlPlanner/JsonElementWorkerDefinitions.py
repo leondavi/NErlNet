@@ -118,8 +118,12 @@ LossMethodMapping = OrderedDict([
 
 DistributedSystemTypeMapping = OrderedDict([
     ("none" , "0"),
-    ("fedClientAvg" , "1"),
-    ("fedServerAvg" , "2")
+    ("FedClientAvg" , "1"),
+    ("FedServerAvg" , "2"),
+    ("FedClientWegithedAvgClassification" , "3"),
+    ("FedServerWegithedAvgClassification" , "4"),
+    ("FedClientAE" , "5"),
+    ("FedServerAE" , "6")
 ])
 
 InfraTypeMapping = OrderedDict([

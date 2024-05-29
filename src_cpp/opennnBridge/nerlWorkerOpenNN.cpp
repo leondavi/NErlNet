@@ -285,6 +285,23 @@ namespace nerlnet
               break;
             }
          }
+         //------------ Distributed System Type ------------
+         switch (_distributed_system_type)
+         {
+            case WORKER_DISTRIBUTED_SYSTEM_TYPE_FEDCLIENTWEGITHEDAVGCLASSIFICATION: // Federated Client Weighted Average Classification
+            {
+                // TODO Ori - Implement
+                // we need to update _train_labels_count
+                // look at number of output neurons
+                // if this is the first time resize the vector to the number of output neurons
+                // sum columns of labels (assert if num of labels not equal to num of output neurons)
+                break;
+            }
+            default:
+            {
+                break;
+            }
+         }
     }
 
     void NerlWorkerOpenNN::generate_custom_model_nn(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
@@ -760,6 +777,24 @@ namespace nerlnet
         case MODEL_TYPE_AE_CLASSIFIER:   {custom_model = true; break;}
         }
         return res;
+    }
+
+    std::vector<int> NerlWorkerOpenNN::get_distributed_system_train_labels_count()
+    {
+         switch (_distributed_system_type)
+        {
+            case WORKER_DISTRIBUTED_SYSTEM_TYPE_FEDCLIENTWEGITHEDAVGCLASSIFICATION: // Federated Client Weighted Average Classification
+            {
+                // TODO Ori - implement
+                // Return copy of the vector
+                _train_labels_count = std::make_shared<std::vector<int>>();
+                break;
+            }
+            default:
+            {
+                break;
+            }
+        }
     }
 
 } // namespace nerlnet
