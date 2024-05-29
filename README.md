@@ -23,15 +23,13 @@ Nerlnet library combines the following languages to achieve a stable and efficie
 ![image](https://user-images.githubusercontent.com/18975070/144730189-4bad4fba-e559-45a6-b163-d3e5d7d87e1f.png) 
 ![image](https://user-images.githubusercontent.com/18975070/144730205-5a665819-4be0-40aa-88e5-868ba99aab17.png)
  
-A Json script defines a distributed network layout that consists the following instances:    
-Edge Compute Device (ECD) which is a worker that runs a neural network model.   
-Sensor, generates data and send it through the network.   
-Router that connects ECDs, sensors and other routers.   
-Communication with Nerlnet is done through a simple python API that can be easily used through Jupyter notebook.       
-The API allows the user to collect statistics insights of a distributed machine learning network:   
-Messages, throughput, loss, predictions, ECD performance monitor.
+### Nerlnet cluster is defined by three configuration files (Json files):
+- Distributed Configuration that defines entities of Nerlnet: Source, Router, Client.
+  - A client is a host of workers. A worker is a NN model that can move between phases of train and predict.
+  - Source generates data streams that are sent to workers.
+  - Router controls the data flow through Nerlnet cluster.
 
-References and libraries:
+### References and libraries:
 - [OpenNN](https://www.opennn.net/), an open-source neural networks library for machine learning.   
 - [Cowboy](https://github.com/ninenines/cowboy) an HTTP server for Erlang/OTP.  
 - [NIFPP](https://github.com/goertzenator/nifpp) C++11 Wrapper for Erlang NIF API.   
@@ -40,7 +38,7 @@ References and libraries:
 
 Nerlnet is developed by David Leon, Dr. Yehuda Ben-Shimol, and the community of Nerlnet open-source contributors.  
 
-### Nerlnet Architecture:
+### Nerlnet Architecture Example:
 ![Nerlnet Architecture](https://user-images.githubusercontent.com/18975070/141692829-f0cdca7d-96d1-43b0-920a-5821a14242f7.jpg)
 
 # Build and Run Nerlnet:
@@ -68,7 +66,13 @@ Create json files of distributed configurations, connection map and experiment f
 7. Start Jupyter NB with ```./NerlnetJupyterLaunch.sh``` and follow ApiServerInstance.help() and [examples](https://github.com/leondavi/NErlNet/tree/master/examples).
 
 ## Python API and Jupyter-lab (For Api-Server): 
-Minimum Python version: 3.8
+Minimum Python version: 3.8  
+  
+Communication with Nerlnet is done through a simple python API that can be easily used through Jupyter notebook.       
+The API allows the user to collect statistics insights of a distributed machine learning network:   
+Number of messages, throughput, loss, predictions, models performance, etc.  
+
+### Instructions
 1. Open a jupyter lab environment using ```./NerlnetJupyterLaunch.sh -d <experiment_direcotry>```  
 1.1    Use -h to see the help menu of NerlnetJupyterLaunch.sh script.  
 1.2    If --no-venv option is selected then required modules can be read from ```src_py/requirements.txt```.  
@@ -78,6 +82,7 @@ Minimum Python version: 3.8
 Visit our hugging face organization page for more datasets and models of Nerlnet.  
 [<img width="150" alt="hf-logo-with-title" src="https://github.com/leondavi/NErlNet/assets/18975070/93e736b9-732e-4d33-a51a-ca5f68308772">](https://huggingface.co/Nerlnet)
 ### Social
+Distributed ML on the edge - A new evolution step of AI.  
 
 https://github.com/leondavi/NErlNet/assets/18975070/15a3957a-3fd6-4fb2-a365-7e1578468298  
   
