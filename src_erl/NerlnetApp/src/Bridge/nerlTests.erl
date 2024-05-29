@@ -16,6 +16,8 @@
 -import(nerl,[compare_floats_L/3, string_format/2, logger_settings/1]).
 -import(nerlTensor,[nerltensor_sum_erl/2, sum_nerltensors_lists/2]).
 
+-export([generate_random_list_of_unique_integers/3]). % TODO remove when test is implemented
+
 -define(NERLTEST_PRINT_STR, "[NERLTEST] ").
 
 nerltest_print(String) ->
@@ -31,6 +33,12 @@ nerltest_print(String) ->
 -define(NERLTENSORS_SUM_LIST_MAX_SIZE, 50).
 -define(NERLTESNORS_SUM_LIST_ROUNDS, 30).
 -define(NERLWORKER_TEST_ROUNDS, 1).
+
+-define(NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X, 20).
+-define(NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_X, 100).
+-define(NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_Y, 5).
+-define(NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_Y, 20).
+-define(NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_TOTAL_TRUE_LABELS, 20).
 
 test_envelope(Func, TestName, Rounds) ->
       nerltest_print(nerl:string_format("~p test starts for ~p rounds",[TestName, Rounds])),
@@ -90,6 +98,18 @@ random_pick_nerltensor_type()->
       RandomIndex = rand:uniform(length(nerlNIF:get_all_binary_types())),
       lists:nth(RandomIndex, nerlNIF:get_all_binary_types()).
 
+generate_random_list_of_unique_integers(ListSize, Min, Max) -> 
+      generate_random_list_of_unique_integers(ListSize, Min, Max, []).
+
+generate_random_list_of_unique_integers(0, _Min, _Max, List) -> List;
+generate_random_list_of_unique_integers(RemainedNumOfElements, Min, Max, List) -> 
+      N = Max - Min,
+      rand:uniform(N) - 1 + Min,
+      IsMember = lists:is_member(N, List), % O(N)
+      if 
+            IsMember -> generate_random_list_of_unique_integers(RemainedNumOfElements, Min, Max, List);
+            true -> generate_random_list_of_unique_integers(RemainedNumOfElements - 1, Min, Max, [N | List])
+      end.
 
 generate_nerltensor_rand_dims(Type)->
       DimX = rand:uniform(?DIMX_RAND_MAX),
