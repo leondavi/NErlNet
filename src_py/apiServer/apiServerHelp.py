@@ -1,3 +1,8 @@
+################################################
+# Nerlnet - 2024 GPL-3.0 license
+# Authors: Noa Shapira, Ohad Adi, David Leon
+#          Guy Perets, Haran Cohen, Dor Yerchi
+################################################
 
 API_SERVER_HELP_STR = """
 __________NERLNET CHECKLIST__________
