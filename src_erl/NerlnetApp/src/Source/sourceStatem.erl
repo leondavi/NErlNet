@@ -404,7 +404,6 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
   ets:insert(TransmitterEts, {batches_issue, 0}),
   ets:insert(TransmitterEts, {batches_skipped, 0}),
   ets:insert(TransmitterEts, {current_batch_id, 0}),
-  TransmissionStart = erlang:timestamp(),
   % Message to all workrers : "start_stream" , TRANSFER TO FUNCTIONS
   {RouterHost, RouterPort} = ets:lookup_element(TransmitterEts, my_router, ?DATA_IDX),
   FuncStart = fun({ClientName, WorkerNameStr}) ->
@@ -412,19 +411,20 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
     nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(start_stream), ToSend)
   end,
   lists:foreach(FuncStart, ClientWorkerPairs),
+  TransmissionStart = erlang:timestamp(),
   case Method of
     ?SOURCE_POLICY_CASTING_ATOM -> send_method_casting(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
     ?SOURCE_POLICY_ROUNDROBIN_ATOM -> send_method_round_robin(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
     ?SOURCE_POLICY_RANDOM_ATOM -> send_method_random(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
     _Default -> send_method_casting(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend)
   end,
+  TransmissionTimeTook_sec = timer:now_diff(erlang:timestamp(), TransmissionStart) / 1000000,
   % Message to workers : "end_stream"
   FuncEnd = fun({ClientName, WorkerNameStr}) ->
     ToSend = {MyName, ClientName, list_to_atom(WorkerNameStr)},
     nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(end_stream), ToSend)
   end,
   lists:foreach(FuncEnd, ClientWorkerPairs),
-  TransmissionTimeTook_sec = timer:now_diff(erlang:timestamp(), TransmissionStart) / 1000000,
   ErrorBatches = ets:lookup_element(TransmitterEts, batches_issue, ?DATA_IDX),
   SkippedBatches = ets:lookup_element(TransmitterEts, batches_skipped, ?DATA_IDX),
   BatchesSent = ets:lookup_element(TransmitterEts, batches_sent, ?DATA_IDX),
