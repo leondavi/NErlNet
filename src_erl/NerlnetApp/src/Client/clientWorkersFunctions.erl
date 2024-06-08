@@ -52,7 +52,7 @@ create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap , EtsStats) ->
     W2wComPid = w2wCom:start_link({WorkerName, MyClientPid}), % TODO Switch to monitor instead of link
 
     WorkerArgs = {ModelID , ModelType , ModelArgs , LayersSizes, LayersTypes, LayersFunctions, LearningRate , Epochs, 
-                  Optimizer, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs},
+                  Optimizer, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemToken, DistributedSystemArgs},
     WorkerPid = workerGeneric:start_link({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , MyClientPid , WorkerStatsETS , W2wComPid}),
     gen_server:cast(W2wComPid, {update_gen_worker_pid, WorkerPid}),
     ets:insert(WorkersETS, {WorkerName, {WorkerPid, WorkerArgs}}), 

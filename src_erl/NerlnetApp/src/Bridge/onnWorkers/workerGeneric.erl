@@ -48,8 +48,10 @@ start_link(ARGS) ->
 %% distributedBehaviorFunc is the special behavior of the worker regrading the distributed system e.g. federated client/server
 init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , ClientPid , WorkerStatsEts , W2WPid}) -> 
   nerl_tools:setup_logger(?MODULE),
-  {ModelID , ModelType , ModelArgs , LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate , Epochs, 
-  OptimizerType, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemArgs} = WorkerArgs,
+  {ModelID , ModelType , ModelArgs , LayersSizes,
+   LayersTypes, LayersFunctionalityCodes, LearningRate , Epochs, 
+   OptimizerType, OptimizerArgs , LossMethod , DistributedSystemType ,
+   DistributedSystemToken, DistributedSystemArgs} = WorkerArgs,
   GenWorkerEts = ets:new(generic_worker,[set, public]),
   put(generic_worker_ets, GenWorkerEts),
   put(client_pid, ClientPid),
@@ -71,6 +73,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{optimizer, OptimizerType}),
   ets:insert(GenWorkerEts,{optimizer_args, OptimizerArgs}),
   ets:insert(GenWorkerEts,{distributed_system_args, DistributedSystemArgs}),
+  ets:insert(GenWorkerEts,{distributed_system_token, DistributedSystemToken}),
   ets:insert(GenWorkerEts,{distributed_system_type, DistributedSystemType}),
   ets:insert(GenWorkerEts,{controller_message_q, []}), %% TODO Deprecated
   ets:insert(GenWorkerEts,{handshake_done, false}),
@@ -166,7 +169,8 @@ idle(cast, _Param, State = #workerGeneric_state{myName = _MyName}) ->
 %% Got nan or inf from loss function - Error, loss function too big for double
 wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
   stats:increment_by_value(get(worker_stats_ets), nan_loss_count, 1),
-  gen_statem:cast(get(client_pid),{loss, MyName , SourceName ,nan , TrainTime ,BatchID}),
+  WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
+  gen_statem:cast(get(client_pid),{loss, MyName , SourceName ,nan , TrainTime, WorkerToken ,BatchID}),
   DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
   PostBatchFunc(),
   {next_state, NextState, State#workerGeneric_state{postBatchFunc = ?EMPTY_FUNC}};
@@ -174,14 +178,16 @@ wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneri
 
 wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
   BatchTimeStamp = erlang:system_time(nanosecond),
-  gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,{LossTensor, LossTensorType} , TrainTime , BatchID , BatchTimeStamp}),
+  WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
+  gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,{LossTensor, LossTensorType} , TrainTime , WorkerToken, BatchID , BatchTimeStamp}),
   DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
   PostBatchFunc(),
   {next_state, NextState, State#workerGeneric_state{postBatchFunc = ?EMPTY_FUNC}};
 
 wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
   BatchTimeStamp = erlang:system_time(nanosecond),
-  gen_statem:cast(get(client_pid),{predictRes,MyName, SourceName, {PredNerlTensor, PredNerlTensorType}, TimeNif , BatchID , BatchTimeStamp}), 
+  WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
+  gen_statem:cast(get(client_pid),{predictRes,MyName, SourceName, {PredNerlTensor, PredNerlTensorType}, TimeNif , WorkerToken, BatchID , BatchTimeStamp}), 
   Update = DistributedBehaviorFunc(post_predict, {get(generic_worker_ets),DistributedWorkerData}),
   if Update -> 
     {next_state, update, State#workerGeneric_state{nextState=NextState}};

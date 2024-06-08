@@ -317,12 +317,12 @@ training(cast, _In = {predict}, State = #client_statem_state{myName = MyName, et
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
 
-training(cast, In = {loss, WorkerName ,SourceName ,LossTensor ,TimeNIF ,BatchID ,BatchTS}, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
+training(cast, In = {loss, WorkerName ,SourceName ,LossTensor ,TimeNIF , WorkerToken,BatchID ,BatchTS}, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  MessageBody = {WorkerName , SourceName , LossTensor , TimeNIF , BatchID , BatchTS},
+  MessageBody = {WorkerName , SourceName , LossTensor , TimeNIF , WorkerToken, BatchID , BatchTS},
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(lossFunction), MessageBody), %% Change lossFunction atom to lossValue
   stats:increment_messages_sent(ClientStatsEts),
   stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
@@ -408,13 +408,13 @@ predict(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef 
               {keep_state, State}
   end;
 
-predict(cast, In = {predictRes,WorkerName, SourceName ,{PredictNerlTensor, NetlTensorType} , TimeTook , BatchID , BatchTS}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
+predict(cast, In = {predictRes,WorkerName, SourceName ,{PredictNerlTensor, NetlTensorType} , TimeTook , WorkerToken, BatchID , BatchTS}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
 
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  MessageBody = {WorkerName, SourceName, {PredictNerlTensor , NetlTensorType}, TimeTook, BatchID, BatchTS}, %% SHOULD INCLUDE TYPE?
+  MessageBody = {WorkerName, SourceName, {PredictNerlTensor , NetlTensorType}, TimeTook, WorkerToken, BatchID, BatchTS}, %% SHOULD INCLUDE TYPE?
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(predictRes), MessageBody),
   
   stats:increment_messages_sent(ClientStatsEts),
