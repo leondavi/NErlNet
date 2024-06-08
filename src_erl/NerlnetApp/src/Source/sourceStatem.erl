@@ -25,6 +25,8 @@
 -define(SENDING_FREQUENCY_OVERHEAD_FIX_FACTOR_PERC, 0.75).
 -define(MICRO_TO_MILLI_FACTOR, 0.001).
 
+-define(PHASE_TRAINING_ATOM, training).
+-define(PHASE_PREDICTION_ATOM, prediction).
 
 -record(source_statem_state, {ets_ref, batchesList = [], castingTo=[], myName, source_pid, transmitter_pid = none,csvName="", nerlTensorType}).
 
@@ -77,6 +79,7 @@ init({MyName, WorkersMap, NerlnetGraph, Policy, BatchSize, Frequency , Epochs, T
   ets:insert(EtsRef, {workers_list, []}),
   ets:insert(EtsRef, {csv_name, ""}), % not in use
   ets:insert(EtsRef, {stats_ets, EtsStatsRef}),
+  ets:insert(EtsRef, {current_phase, none}),
   
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM, NerlnetGraph),
   ets:insert(EtsRef, {my_router,{MyRouterHost,MyRouterPort}}),
@@ -112,7 +115,7 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 
 
 %% This cast receive a list of samples to load to the records batchList
-idle(cast, {batchList, WorkersList, NumOfBatches, NerlTensorType, Data}, State) ->
+idle(cast, {batchList, WorkersList, Phase, NumOfBatches, NerlTensorType, Data}, State) ->
   EtsRef = get(source_ets),
   StatsEtsRef = get(source_stats_ets),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
@@ -120,6 +123,7 @@ idle(cast, {batchList, WorkersList, NumOfBatches, NerlTensorType, Data}, State) 
   {NerlTensorBatchesList, SampleSize} = parser:parseCSV(MyName, BatchSize, NerlTensorType, Data), % TODO this is slow and heavy policy! pre parse in ETS a possible solution
   ets:update_element(EtsRef, workers_list, [{?DATA_IDX, WorkersList}]),
   ets:update_element(EtsRef, num_of_batches, [{?DATA_IDX, NumOfBatches}]),
+  ets:update_element(EtsRef, current_phase, [{?DATA_IDX, Phase}]),
   ets:insert(EtsRef, {nerlTensorType, NerlTensorType}),
   stats:increment_messages_received(StatsEtsRef),
   ?LOG_NOTICE("Source ~p, workers are: ~p", [MyName, WorkersList]),
@@ -145,8 +149,8 @@ idle(cast, {startCasting,_Body}, State = #source_statem_state{batchesList = Batc
   BatchSize = ets:lookup_element(EtsRef, batch_size, ?DATA_IDX),
   SampleSize = ets:lookup_element(EtsRef, sample_size, ?DATA_IDX),
   Epochs = ets:lookup_element(EtsRef, epochs, ?DATA_IDX),
-  BatchSize = ets:lookup_element(EtsRef, batch_size, ?DATA_IDX),
   WorkersList = ets:lookup_element(EtsRef, workers_list, ?DATA_IDX),
+  Phase = ets:lookup_element(EtsRef, current_phase, ?DATA_IDX),
 
   %% UserLimitNumberOfBatchesToSendInt = list_to_integer(UserLimitNumberOfBatchesToSend),
   %% BatchesToSend = min(length(BatchesList), UserLimitNumberOfBatchesToSendInt),
@@ -154,7 +158,7 @@ idle(cast, {startCasting,_Body}, State = #source_statem_state{batchesList = Batc
   BatchesListFinal = lists:sublist(BatchesList, BatchesToSend), % Batches list with respect of constraint UserLimitNumberOfBatchesToSendInt
 
   % TODO consider add offset value from API
-  ?LOG_NOTICE("~p - starts casting to workers: ~p",[MyName, WorkersList]),
+  ?LOG_NOTICE("~p - starts casting of phase ~p to workers: ~p",[MyName, Phase, WorkersList]),
   ?LOG_NOTICE("Frequency: ~pHz [Batches/Second]",[Frequency]),
   ?LOG_NOTICE("Batch size: ~p", [BatchSize]),
   ?LOG_NOTICE("Sample size = ~p",[SampleSize]),
@@ -283,6 +287,13 @@ spawnTransmitter(SourceEtsRef, WorkersListOfNames, BatchesListToSend)->
   TimeInterval_ms = ets:lookup_element(SourceEtsRef, time_interval_ms, ?DATA_IDX), % frequency to time interval duration in milliseconds between each send
   ClientWorkerPairs = nerl_tools:get_client_worker_pairs(WorkersListOfNames,WorkersMap,[]),
   Epochs = ets:lookup_element(SourceEtsRef, epochs, ?DATA_IDX),
+  Phase = ets:lookup_element(SourceEtsRef, current_phase, ?DATA_IDX),
+  MyName = ets:lookup_element(SourceEtsRef, my_name, ?DATA_IDX),
+  case Phase of
+    ?PHASE_TRAINING_ATOM -> pass;
+    ?PHASE_PREDICTION_ATOM -> Epochs = 1; % In prediction phase, we send only a single epoch always!
+    _ -> ?LOG_ERROR("Source ~p has an unknown phase: ~p",[MyName, Phase])
+  end,
   SourcePid = self(),
   TimeIntervalWithOverheadFactor = TimeInterval_ms * ?SENDING_FREQUENCY_OVERHEAD_FIX_FACTOR_PERC,
   spawn_link(?MODULE,transmitter,[TimeIntervalWithOverheadFactor,SourceEtsRef, SourcePid ,Epochs, ClientWorkerPairs, BatchesListToSend, Method]).
