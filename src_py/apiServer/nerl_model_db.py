@@ -1,13 +1,18 @@
+################################################
+# Nerlnet - 2024 GPL-3.0 license
+# Authors: Ohad Adi, Noa Shapira, David Leon
+################################################
+
 from logger import *
-import numpy as np
 
 class BatchDB():
-    def __init__(self, batch_id, source_name, tensor_data, duration, batch_timestamp):
+    def __init__(self, batch_id, source_name, tensor_data, duration, distributed_token, batch_timestamp):
         self.batch_id = batch_id
         self.source_name = source_name
         self.tensor_data = tensor_data
         self.duration = duration
         self.batch_timestamp = batch_timestamp
+        self.distributed_token = distributed_token
 
     def get_source_name(self):
         return self.source_name
@@ -17,6 +22,11 @@ class BatchDB():
     
     def get_tensor_data(self):
         return self.tensor_data
+
+    def get_distributed_token(self):
+        return self.distributed_token
+
+
 class WorkerModelDB():
     def __init__(self, worker_name):
         self.batches_dict = {}
@@ -24,12 +34,12 @@ class WorkerModelDB():
         self.warn_override = False
         self.worker_name = worker_name
 
-    def create_batch(self, batch_id, source_name, tensor_data, duration, batch_timestamp):
+    def create_batch(self, batch_id, source_name, tensor_data, duration, distributed_token, batch_timestamp):
         if batch_id in self.batches_dict:
             if not self.warn_override:
                 LOG_WARNING(f"Override batches from batch id: {batch_id} in worker {self.worker_name} in source {source_name}.")
                 self.warn_override = True
-        self.batches_dict[(source_name, batch_id)] = BatchDB(batch_id, source_name, tensor_data, duration, batch_timestamp)
+        self.batches_dict[(source_name, batch_id)] = BatchDB(batch_id, source_name, tensor_data, duration, distributed_token, batch_timestamp)
         self.batches_ts_dict[batch_timestamp] = self.batches_dict[(source_name, batch_id)]
 
     def get_batch(self, source_name, batch_id):

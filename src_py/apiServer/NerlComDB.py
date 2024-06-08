@@ -1,5 +1,12 @@
+################################################
+# Nerlnet - 2024 GPL-3.0 license
+# Authors: Ohad Adi, Noa Shapira, David Leon #
+################################################
+
 from networkComponents import MAIN_SERVER_STR , NetworkComponents
 from abc import ABC
+
+
 class EntityComDB(ABC): # Abstract Class
     def __init__(self):
         # based on stats.erl
