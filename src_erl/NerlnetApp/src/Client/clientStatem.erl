@@ -128,6 +128,7 @@ waitforWorkers(cast, In = {stateChange,WorkerName}, State = #client_statem_state
   case NewWaitforWorkers of % TODO Guy here we need to check for keep alive with workers
     [] ->   send_client_is_ready(MyName), % when all workers done their work
             stats:increment_messages_sent(ClientStatsEts),
+            ?LOG_INFO("Client ~p and its workers are ready~n",[MyName]),
             {next_state, NextState, State#client_statem_state{waitforWorkers = []}};
     _  ->   %io:format("Client ~p is waiting for workers ~p~n",[MyName,NewWaitforWorkers]),
             {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers}}

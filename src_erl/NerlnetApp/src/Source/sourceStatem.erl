@@ -162,7 +162,6 @@ idle(cast, {startCasting,_Body}, State = #source_statem_state{batchesList = Batc
   ?LOG_NOTICE("Frequency: ~pHz [Batches/Second]",[Frequency]),
   ?LOG_NOTICE("Batch size: ~p", [BatchSize]),
   ?LOG_NOTICE("Sample size = ~p",[SampleSize]),
-  ?LOG_NOTICE("Rounds of all data (Source Epochs): ~p", [Epochs]),
   ?LOG_NOTICE("# of batches to send is ~p ",[BatchesToSend]),
   if
     Epochs =:= 0 ->
@@ -286,14 +285,14 @@ spawnTransmitter(SourceEtsRef, WorkersListOfNames, BatchesListToSend)->
   Method = ets:lookup_element(SourceEtsRef, method , ?DATA_IDX),
   TimeInterval_ms = ets:lookup_element(SourceEtsRef, time_interval_ms, ?DATA_IDX), % frequency to time interval duration in milliseconds between each send
   ClientWorkerPairs = nerl_tools:get_client_worker_pairs(WorkersListOfNames,WorkersMap,[]),
-  Epochs = ets:lookup_element(SourceEtsRef, epochs, ?DATA_IDX),
   Phase = ets:lookup_element(SourceEtsRef, current_phase, ?DATA_IDX),
   MyName = ets:lookup_element(SourceEtsRef, my_name, ?DATA_IDX),
-  case Phase of
-    ?PHASE_TRAINING_ATOM -> pass;
-    ?PHASE_PREDICTION_ATOM -> Epochs = 1; % In prediction phase, we send only a single epoch always!
+  Epochs = case Phase of
+    ?PHASE_TRAINING_ATOM -> ets:lookup_element(SourceEtsRef, epochs, ?DATA_IDX);
+    ?PHASE_PREDICTION_ATOM -> 1; % In prediction phase, we send only a single epoch always!
     _ -> ?LOG_ERROR("Source ~p has an unknown phase: ~p",[MyName, Phase])
   end,
+  ?LOG_NOTICE("Rounds of all data (Source Epochs): ~p", [Epochs]),
   SourcePid = self(),
   TimeIntervalWithOverheadFactor = TimeInterval_ms * ?SENDING_FREQUENCY_OVERHEAD_FIX_FACTOR_PERC,
   spawn_link(?MODULE,transmitter,[TimeIntervalWithOverheadFactor,SourceEtsRef, SourcePid ,Epochs, ClientWorkerPairs, BatchesListToSend, Method]).
