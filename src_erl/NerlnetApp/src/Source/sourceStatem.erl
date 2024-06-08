@@ -158,8 +158,13 @@ idle(cast, {startCasting,_Body}, State = #source_statem_state{batchesList = Batc
   ?LOG_NOTICE("Frequency: ~pHz [Batches/Second]",[Frequency]),
   ?LOG_NOTICE("Batch size: ~p", [BatchSize]),
   ?LOG_NOTICE("Sample size = ~p",[SampleSize]),
-  ?LOG_NOTICE("Rounds per data (epochs): ~p", [Epochs]),
+  ?LOG_NOTICE("Rounds of all data (Source Epochs): ~p", [Epochs]),
   ?LOG_NOTICE("# of batches to send is ~p ",[BatchesToSend]),
+  if
+    Epochs =:= 0 ->
+      ?LOG_WARNING("Source ~p is casting for 0 rounds of all data (source epochs)",[MyName]);
+    true -> ok
+  end,
 
   TransmitterPID =  spawnTransmitter(EtsRef, WorkersList, BatchesListFinal),
   {next_state, castingData, State#source_statem_state{transmitter_pid = TransmitterPID}};
@@ -344,7 +349,7 @@ send_method_round_robin(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPai
   BatchFunc = fun({BatchIdx, Batch}) ->
     ClientWorkerPairIdx = BatchIdx rem length(ClientWorkerPairs),
     ClientWorkerPair = maps:get(ClientWorkerPairIdx, ClientWorkerPairsMap),
-    prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [ClientWorkerPair]) % improve by allowing casting messages
+    prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [ClientWorkerPair])
   end, % end of BatchFunc
   TotalNumOfBatches = length(BatchesListToSend),
   BatchesIndexes = generate_batch_indexes(TotalNumOfBatches, EpochIdx),
@@ -367,7 +372,7 @@ send_method_random(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, B
   BatchFunc = fun({BatchIdx, Batch}) ->
     ClientWorkerPairIdx = rand:uniform(length(ClientWorkerPairs)),
     ClientWorkerPair = maps:get(ClientWorkerPairIdx, ClientWorkerPairsMap),
-    prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [ClientWorkerPair]) % improve by allowing casting messages
+    prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [ClientWorkerPair])
   end, % end of BatchFunc
   TotalNumOfBatches = length(BatchesListToSend),
   BatchesIndexes = generate_batch_indexes(TotalNumOfBatches, EpochIdx),
