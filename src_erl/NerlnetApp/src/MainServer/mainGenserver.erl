@@ -327,11 +327,14 @@ handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName})
   stats:increment_messages_received(StatsEts),
   try
     case binary_to_term(Body) of
-        {WorkerName , SourceName , {LossNerlTensor , LossNerlTensorType} , TimeNIF , BatchID , BatchTS} ->
+        {WorkerName , SourceName , {LossNerlTensor , LossNerlTensorType} , TimeNIF , WorkerToken, BatchID , BatchTS} ->
         Key = atom_to_list(WorkerName) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ atom_to_list(SourceName) ++ 
               ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ 
-              integer_to_list(BatchTS) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ float_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++
+              integer_to_list(BatchTS) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ float_to_list(TimeNIF) ++
+              ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ WorkerToken ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++
               atom_to_list(LossNerlTensorType),
+              % data is encoded in key with separators as follows:
+              % WorkerName + SourceName + BatchID + BatchTS + TimeNIF + WorkerToken + LossNerlTensorType
         store_phase_result_data_to_send_ets(Key, binary_to_list(LossNerlTensor));
       _ELSE ->
         ?LOG_ERROR("~p Wrong loss function pattern received from client and its worker ~p", [MyName, Body])
@@ -348,11 +351,14 @@ handle_cast({predictRes,Body}, State) ->
   _BatchSize = ets:lookup_element(get(main_server_ets), batch_size, ?DATA_IDX),
   stats:increment_messages_received(StatsEts),
   try 
-      {WorkerName, SourceName, {NerlTensor, NerlTensorType}, TimeNIF , BatchID, BatchTS} = binary_to_term(Body),
+      {WorkerName, SourceName, {NerlTensor, NerlTensorType}, TimeNIF , WorkerToken, BatchID, BatchTS} = binary_to_term(Body),
       Key = atom_to_list(WorkerName) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ atom_to_list(SourceName) ++ 
             ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ integer_to_list(BatchID) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ 
-            integer_to_list(BatchTS) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ float_to_list(TimeNIF) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++
+            integer_to_list(BatchTS) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ float_to_list(TimeNIF) ++ 
+            ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ WorkerToken ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++
             atom_to_list(NerlTensorType),
+            % data is encoded in key with separators as follows:
+            % WorkerName + SourceName + BatchID + BatchTS + TimeNIF + WorkerToken + NerlTensorType
       store_phase_result_data_to_send_ets(Key, binary_to_list(NerlTensor))
   catch Err:E ->  
     ?LOG_ERROR(?LOG_HEADER++"Error receiving predict result ~p",[{Err,E}])
