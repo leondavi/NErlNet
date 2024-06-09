@@ -787,6 +787,18 @@ namespace nerlnet
             {
                 // TODO Ori - implement
                 // Return copy of the vector
+                int col_num = _data_set->get_columns_number();
+                std::shared_ptr<opennn::NeuralNetwork> neural_network_ptr = get_neural_network_ptr();
+                int num_of_output_neurons = neural_network_ptr->get_outputs_number(); 
+                Tensor<Index, 1> selected_column_indices(num_of_output_neurons);
+                for(int i =0;i<num_of_output_neurons;i++){
+                    selected_column_indices(i) = col_num - num_of_output_neurons + i;
+                }
+                cout << _data_set->get_columns_data(selected_column_indices) << endl;
+                Tensor<type, 2> labels = _data_set->get_columns_data(selected_column_indices);
+                Tensor<type, 1> rowSum = labels.sum(Eigen::array<int, 1>{1});
+                cout << labels << "labels" << endl;
+                cout << rowSum << "rowSum" << endl;
                 _train_labels_count = std::make_shared<std::vector<int>>();
                 break;
             }
