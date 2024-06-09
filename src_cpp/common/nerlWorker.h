@@ -22,8 +22,7 @@ namespace nerlnet
     int get_optimizer_type() { return _optimizer_type; };
     int get_loss_method() { return _loss_method; };
     int get_distributed_system_type() { return _distributed_system_type; };
-
-    std::vector<int> get_distributed_system_train_labels_count() {LogError<<"Distributed System Weighted Avg count label is unsupported";
+    virtual std::vector<int> get_distributed_system_train_labels_count() {LogError<<"Distributed System Weighted Avg count label is unsupported";
                                                                                           throw("Distributed System Weighted Avg count label is unsupported");} // counts the number of each label appears in the training set for weighted average
 
     protected:
