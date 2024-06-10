@@ -1,6 +1,8 @@
 ![Version](https://img.shields.io/github/v/release/leondavi/NErlNet)
 ![Contributors](https://img.shields.io/github/contributors/leondavi/NErlNet)
-![Issues](https://img.shields.io/github/issues/leondavi/NErlNet)
+![Issues](https://img.shields.io/github/issues/leondavi/NErlNet)  
+[![LinkedIn](https://img.shields.io/badge/Linkedin-%230077B5.svg?logo=linkedin&logoColor=white)](https://www.linkedin.com/company/nerlnet)
+[![YouTube](https://img.shields.io/badge/YouTube-%23FF0000.svg?logo=YouTube&logoColor=white)](https://www.youtube.com/channel/UCnnWPPKiHioTBy7Zq5shrQw)
 
 # NErlNet
 
