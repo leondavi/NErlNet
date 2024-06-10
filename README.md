@@ -4,7 +4,7 @@
 [![Discord](https://shields.microej.com/discord/914616114204516393)](https://discord.gg/xwBTbzER)  
 [![LinkedIn](https://img.shields.io/badge/Linkedin-%230077B5.svg?logo=linkedin&logoColor=white)](https://www.linkedin.com/company/nerlnet)
 [![YouTube](https://img.shields.io/badge/YouTube-%23FF0000.svg?logo=YouTube&logoColor=white)](https://www.youtube.com/channel/UCnnWPPKiHioTBy7Zq5shrQw)
-
+[![Hugging Face](https://img.shields.io/badge/Hugging%20Face-FFD21E?logo=huggingface&logoColor=000)](https://huggingface.co/Nerlnet)
 
 # NErlNet
 
@@ -80,17 +80,12 @@ Number of messages, throughput, loss, predictions, models performance, etc.
 1.1    Use -h to see the help menu of NerlnetJupyterLaunch.sh script.  
 1.2    If --no-venv option is selected then required modules can be read from ```src_py/requirements.txt```.  
 3. Read the instructions of importing Api-Server within the generated readme.md file inside <experiment_directory> folder. 
-4. Follow the example: https://github.com/leondavi/NErlNet/blob/master/examples/example_run.ipynb 
+4. Follow the [Example Notebook](https://github.com/leondavi/NErlNet/blob/master/examples/example_run.ipynb)
 
-Visit our hugging face organization page for more datasets and models of Nerlnet.  
-[<img width="150" alt="hf-logo-with-title" src="https://github.com/leondavi/NErlNet/assets/18975070/93e736b9-732e-4d33-a51a-ca5f68308772">](https://huggingface.co/Nerlnet)
-### Social
+### Distributed ML on The Edge
 Distributed ML on the edge - A new evolution step of AI.  
 
 https://github.com/leondavi/NErlNet/assets/18975070/15a3957a-3fd6-4fb2-a365-7e1578468298  
-  
-[<img width="20" alt="nerlnet-linkedin-page" src="https://github.com/leondavi/NErlNet/assets/18975070/b39d6793-2c31-4cfd-8436-c495267c353a">](https://www.linkedin.com/company/nerlnet)  
-
 
 ## Gratitudes
 <h3 align="center">Microsoft Azure</h1>
