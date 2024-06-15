@@ -302,6 +302,20 @@ nerlworker_test_generate_data(LayersSizes, LayerTypes, NumOfSamples) -> %% Ask D
       {NerlTensor , Type , ErlDataTensor , erl_float , NumOfFeatures , NumOfLabels}.
 
 
+count_label_test(_Performance) -> _Performance;
+count_label_test(Performance) -> 
+  lenData   = rand:uniform(?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_X-?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X),
+  lenLabels =  rand:uniform(?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_Y-?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_Y),
+  lenActualData = lenData+?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X,
+  lenActualLabels = lenLabels + ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_Y,
+  maxNum = 255,
+  dataRand = generate_random_list_of_unique_integers(lenActualData, 0, maxNum),
+  dataRand.
+  %add nerlworkerNif
+  
+ 
+      %NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_TOTAL_TRUE_LABELS 
+
 
 nerlworker_test([], _Performance) -> _Performance;
 nerlworker_test([CurrentModel | Tail], Performance) -> 
