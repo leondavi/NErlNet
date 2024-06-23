@@ -6,7 +6,7 @@
 
 -import(nerlNIF,[nerltensor_scalar_multiplication_nif/3, call_to_get_weights/1, call_to_set_weights/2]).
 -import(nerlTensor,[sum_nerltensors_lists/2]).
--import(w2wCom,[send_message/3, get_all_messages/0, is_inbox_empty/0]).
+-import(w2wCom,[send_message_with_event/5, get_all_messages/0, is_inbox_empty/0]).
 
 
 -define(ETS_WID_IDX, 1).
@@ -156,7 +156,7 @@ post_train({GenWorkerEts, WeightsTensor}) ->
       Func = fun(FedClient) ->
         FedServerName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-        w2wCom:send_message_with_event(W2WPid, FedServerName, FedClient, {post_train_update, {SyncIdx, AvgWeightsNerlTensor}}) 
+        w2wCom:send_message_with_event(W2WPid, FedServerName, FedClient, post_train_update, {SyncIdx, AvgWeightsNerlTensor}) 
       end,
       WorkersList = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
       lists:foreach(Func, WorkersList),
