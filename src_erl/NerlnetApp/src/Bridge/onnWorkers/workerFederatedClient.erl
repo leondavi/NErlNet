@@ -78,6 +78,7 @@ handshake(FedClientEts) ->
       if 
         ServerToken =/= MyToken -> not_my_server; 
         true -> w2wCom:send_message(W2WPid, MyName, FedServer, {handshake, MyToken}),
+                io:format("@FedClient: Sent handshake to server ~p with token ~p~n", [FedServer, MyToken]),
                 ets:update_element(FedClientEts, handshake_wait, {?ETS_KEYVAL_VAL_IDX, true})
       end
   end,
