@@ -49,9 +49,9 @@ start_link(ARGS) ->
 init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , ClientPid , WorkerStatsEts , W2WPid}) -> 
   nerl_tools:setup_logger(?MODULE),
   {ModelID , ModelType , ModelArgs , LayersSizes,
-   LayersTypes, LayersFunctionalityCodes, LearningRate , Epochs, 
-   OptimizerType, OptimizerArgs , LossMethod , DistributedSystemType ,
-   DistributedSystemToken, DistributedSystemArgs} = WorkerArgs,
+  LayersTypes, LayersFunctionalityCodes, LearningRate , Epochs, 
+  OptimizerType, OptimizerArgs , LossMethod , DistributedSystemType ,
+  DistributedSystemToken, DistributedSystemArgs} = WorkerArgs,
   GenWorkerEts = ets:new(generic_worker,[set, public]),
   put(generic_worker_ets, GenWorkerEts),
   put(client_pid, ClientPid),
@@ -324,6 +324,10 @@ update_client_avilable_worker(MyName) ->
 stream_handler(StreamPhase , ModelPhase , StreamName , DistributedBehaviorFunc) -> 
   GenWorkerEts = get(generic_worker_ets),
   MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+  case ModelPhase of
+    wait -> io:format("@~p got ~p from ~p~n",[ModelPhase, StreamPhase, StreamName]);
+    _ -> ok
+  end,
   ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
   NewActiveStreams = 
       case StreamPhase of
