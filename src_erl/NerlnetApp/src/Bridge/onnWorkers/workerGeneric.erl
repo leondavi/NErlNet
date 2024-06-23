@@ -327,7 +327,7 @@ stream_handler(StreamPhase , ModelPhase , StreamName , DistributedBehaviorFunc) 
   ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
   NewActiveStreams = 
       case StreamPhase of
-          start_stream -> io:format("@~p Removing ~p ,NewActiveStreams: ~p~n",[MyName, StreamName, ActiveStreams -- [StreamName]]), ActiveStreams ++ [StreamName];
+          start_stream -> io:format("@~p Adding ~p ,NewActiveStreams: ~p~n",[MyName, StreamName, ActiveStreams -- [StreamName]]), ActiveStreams ++ [StreamName];
           end_stream -> io:format("@~p Removing ~p ,NewActiveStreams: ~p~n",[MyName, StreamName, ActiveStreams -- [StreamName]]), ActiveStreams -- [StreamName]
       end,
   ets:update_element(GenWorkerEts, active_streams, {?ETS_KEYVAL_VAL_IDX, NewActiveStreams}),
