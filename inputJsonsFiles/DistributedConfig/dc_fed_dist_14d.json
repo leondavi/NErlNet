@@ -1,7 +1,7 @@
 {
     "nerlnetSettings": {
-        "frequency": "300",
-        "batchSize": "100"
+        "frequency": "100",
+        "batchSize": "50"
     },
     "mainServer": {
         "port": "8900",
@@ -114,41 +114,41 @@
         {
             "name": "s1",
             "port": "8900",
-            "frequency": "300",
+            "frequency": "50",
             "policy": "0",
-            "epochs": "1",
+            "epochs": "2",
             "type": "0"
         },
         {
             "name": "s2",
             "port": "8900",
-            "frequency": "300",
+            "frequency": "50",
             "policy": "0",
-            "epochs": "1",
+            "epochs": "2",
             "type": "0"
         },
         {
             "name": "s3",
             "port": "8900",
-            "frequency": "300",
+            "frequency": "50",
             "policy": "0",
-            "epochs": "1",
+            "epochs": "2",
             "type": "0"
         },
         {
             "name": "s4",
             "port": "8900",
-            "frequency": "300",
+            "frequency": "50",
             "policy": "0",
-            "epochs": "1",
+            "epochs": "2",
             "type": "0"
         },
         {
             "name": "s5",
             "port": "8900",
-            "frequency": "300",
+            "frequency": "50",
             "policy": "0",
-            "epochs": "1",
+            "epochs": "2",
             "type": "0"
         }
     ],
@@ -214,7 +214,7 @@
         },
         {
             "name": "w9",
-            "model_sha": "0771693392e898393c9b2b8235497537b5fbed1fd0c9a5a7ec6aab665d2c1896"
+            "model_sha": "c081daf49b8332585243b68cb828ebc9b947528601a6852688cea0312b3e3914"
         }
     ],
     "model_sha": {
@@ -223,11 +223,11 @@
             "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image_classification:4 | text_classification:5 | text_generation:6 | auto_association:7 | autoencoder:8 | ae_classifier:9 |",
             "modelArgs": "",
             "_doc_modelArgs": "Extra arguments to model",
-            "layersSizes": "5,6,6,4,3",
+            "layersSizes": "5,16,8,3",
             "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
-            "layerTypesList": "1,3,3,3,3",
+            "layerTypesList": "1,3,3,3",
             "_doc_LayerTypes": " Default:0 | Scaling:1 | Conv:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Flatten:9 | Bounding:10 |",
-            "layers_functions": "1,8,8,8,11",
+            "layers_functions": "1,7,7,11",
             "_doc_layers_functions_activation": " Threshold:1 | Sign:2 | Logistic:3 | Tanh:4 | Linear:5 | ReLU:6 | eLU:7 | SeLU:8 | Soft-plus:9 | Soft-sign:10 | Hard-sigmoid:11 |",
             "_doc_layer_functions_pooling": " none:1 | Max:2 | Avg:3 |",
             "_doc_layer_functions_probabilistic": " Binary:1 | Logistic:2 | Competitive:3 | Softmax:4 |",
@@ -244,9 +244,9 @@
             "_doc_optimizerArgs": "String",
             "infraType": "0",
             "_doc_infraType": " opennn:0 | wolfengine:1 |",
-            "distributedSystemType": "0",
+            "distributedSystemType": "1",
             "_doc_distributedSystemType": " none:0 | fedClientAvg:1 | fedServerAvg:2 |",
-            "distributedSystemArgs": "SyncMaxCount=10",
+            "distributedSystemArgs": "SyncMaxCount=300",
             "_doc_distributedSystemArgs": "String",
             "distributedSystemToken": "9922u",
             "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"
@@ -256,11 +256,11 @@
             "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image_classification:4 | text_classification:5 | text_generation:6 | auto_association:7 | autoencoder:8 | ae_classifier:9 |",
             "modelArgs": "",
             "_doc_modelArgs": "Extra arguments to model",
-            "layersSizes": "5,6,6,4,3",
+            "layersSizes": "5,16,8,3",
             "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
-            "layerTypesList": "1,3,3,3,3",
+            "layerTypesList": "1,3,3,3",
             "_doc_LayerTypes": " Default:0 | Scaling:1 | Conv:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Flatten:9 | Bounding:10 |",
-            "layers_functions": "1,8,8,8,11",
+            "layers_functions": "1,7,7,11",
             "_doc_layers_functions_activation": " Threshold:1 | Sign:2 | Logistic:3 | Tanh:4 | Linear:5 | ReLU:6 | eLU:7 | SeLU:8 | Soft-plus:9 | Soft-sign:10 | Hard-sigmoid:11 |",
             "_doc_layer_functions_pooling": " none:1 | Max:2 | Avg:3 |",
             "_doc_layer_functions_probabilistic": " Binary:1 | Logistic:2 | Competitive:3 | Softmax:4 |",
@@ -279,7 +279,7 @@
             "_doc_infraType": " opennn:0 | wolfengine:1 |",
             "distributedSystemType": "2",
             "_doc_distributedSystemType": " none:0 | fedClientAvg:1 | fedServerAvg:2 |",
-            "distributedSystemArgs": "SyncMaxCount=10",
+            "distributedSystemArgs": "SyncMaxCount=300",
             "_doc_distributedSystemArgs": "String",
             "distributedSystemToken": "9922u",
             "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"
