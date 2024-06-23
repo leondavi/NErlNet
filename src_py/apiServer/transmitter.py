@@ -75,9 +75,10 @@ class Transmitter:
             target_workers = source_piece.get_target_workers()
             num_of_batches = source_piece.get_num_of_batches()
             nerltensor_type = source_piece.get_nerltensor_type()
+            phase_type = source_piece.get_phase()
             with open(csv_file, 'r') as file:
                 csvfile = file.read()
-                data_str = f'{index + 1}#{total_sources}#{source_name}#{target_workers}#{num_of_batches}#{nerltensor_type}#{csvfile}'
+                data_str = f'{index + 1}#{total_sources}#{source_name}#{target_workers}#{phase_type}#{num_of_batches}#{nerltensor_type}#{csvfile}'
                 try:
                     response = requests.post(self.updateCSVAddress, data = data_str)
                     if not response.ok:

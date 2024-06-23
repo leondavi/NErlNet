@@ -28,9 +28,9 @@ class ExperimentPhase():
         assert len(self.raw_data_buffer) == 1, "Expecting only one raw_data in buffer of a single phase"
         list_of_decoded_data = decode_phase_result_data_json_from_main_server(self.raw_data_buffer[0])
         for decoded_data in list_of_decoded_data:
-            worker_name, source_name, duration, batch_id, batch_ts, np_tensor = decoded_data
+            worker_name, source_name, duration, batch_id, batch_ts, distributed_token, np_tensor = decoded_data
             client_name = self.network_componenets.get_client_name_by_worker_name(worker_name)
-            self.nerl_model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, np_tensor, duration, batch_ts)
+            self.nerl_model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, np_tensor, duration, distributed_token, batch_ts)
         
         self.clean_raw_data_buffer()
 
