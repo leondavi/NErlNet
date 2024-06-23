@@ -129,7 +129,7 @@ post_idle({GenWorkerEts, _WorkerData}) ->
   MyName = ets:lookup_element(FedClientEts, my_name, ?ETS_KEYVAL_VAL_IDX),
   case HandshakeWait of 
     true -> HandshakeDone = ets:lookup_element(FedClientEts, handshake_done, ?ETS_KEYVAL_VAL_IDX),
-            io:format("@~p: HandshakeDone = ~p~n", [MyName, HandshakeDone])
+            io:format("@~p: HandshakeDone = ~p~n", [MyName, HandshakeDone]),
             case HandshakeDone of 
             false -> 
               w2wCom:sync_inbox(W2WPid),
