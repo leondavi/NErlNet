@@ -62,6 +62,7 @@ init({GenWorkerEts, WorkerData}) ->
   ets:insert(FederatedClientEts, {w2wcom_pid, W2WPid}),
   ets:insert(FederatedClientEts, {active_streams, []}),
   ets:insert(FederatedClientEts, {stream_occuring, false}),
+  ets:insert(FederatedClientEts, {wait_for_weights_update, false}),
   spawn(fun() -> handshake(FederatedClientEts) end).
 
 handshake(FedClientEts) ->
@@ -142,38 +143,30 @@ post_idle({GenWorkerEts, _WorkerData}) ->
   end.
   
 
+pre_train({GenWorkerEts, _NerlTensorWeights}) -> ok.
 
-% After SyncMaxCount , sync_inbox to get the updated model from FedServer
-pre_train({GenWorkerEts, _NerlTensorWeights}) -> 
-  ThisEts = get_this_client_ets(GenWorkerEts),
-  SyncCount = ets:lookup_element(get_this_client_ets(GenWorkerEts), sync_count, ?ETS_KEYVAL_VAL_IDX),
-  MaxSyncCount = ets:lookup_element(get_this_client_ets(GenWorkerEts), sync_max_count, ?ETS_KEYVAL_VAL_IDX),
-  if SyncCount == MaxSyncCount ->
-    W2WPid = ets:lookup_element(get_this_client_ets(GenWorkerEts), w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-    % w2wCom:sync_inbox_no_limit(W2WPid), % waiting for server to average the weights and send it back
-    InboxQueue = w2wCom:get_all_messages(W2WPid),
-    UpdateWeightsMsg = queue:to_list(InboxQueue),
-    case length(UpdateWeightsMsg) of
-      0 -> ok;
-      1 ->  [{_FedServer , {update_weights, SyncIdx, UpdatedWeights}}] = UpdateWeightsMsg,
-            io:format("Sync Index = ~p~n",[SyncIdx]),
-            ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-            nerlNIF:call_to_set_weights(ModelID, UpdatedWeights),
-            ets:update_element(ThisEts, sync_count, {?ETS_KEYVAL_VAL_IDX , 0});
-      _ ->  SyncIndexes = [SyncIdx || {_FedServer , {update_weights, SyncIdx, _UpdatedWeights}} <- UpdateWeightsMsg],
-            io:format(">1: SyncIndexes = ~p~n",[SyncIndexes]),
-            throw("More than one message received from server")
-    end;
-  true -> ets:update_counter(ThisEts, sync_count, 1)
-  end.
+% post_train_update is a message from the server to update weights, so we need to wait for it
+post_train({GenWorkerEts, {post_train_update, {_SyncIdx, UpdatedWeights}}}) ->
+  WeightsUpdateFlag = ets:lookup_element(GenWorkerEts, wait_for_weights_update, ?ETS_KEYVAL_VAL_IDX), % either true or false
+  case WeightsUpdateFlag of
+    false -> throw("Received weights update but not waiting for it");
+    true -> 
+      ThisEts = get_this_client_ets(GenWorkerEts),
+      ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
+      nerlNIF:call_to_set_weights(ModelID, UpdatedWeights),
+      ets:update_element(ThisEts, wait_for_weights_update, {?ETS_KEYVAL_VAL_IDX, false}),
+      ets:update_element(ThisEts, sync_count, {?ETS_KEYVAL_VAL_IDX , 0})
+  end,
+  train;
 
-%% every countLimit batches, send updated weights
-post_train({GenWorkerEts, _WorkerData}) -> 
+%% every MaxSyncCount batches, send updated weights to server
+post_train({GenWorkerEts, Data}) -> 
   MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
   ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
+  ets:update_counter(ThisEts, sync_count, 1),
   % io:format("Worker ~p ActiveStreams ~p~n",[MyName, ActiveStreams]),
   case ActiveStreams of
-    [] -> ok;
+    [] -> train;
     _ ->
       ThisEts = get_this_client_ets(GenWorkerEts),
       SyncCount = ets:lookup_element(ThisEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
@@ -183,8 +176,10 @@ post_train({GenWorkerEts, _WorkerData}) ->
         WeightsTensor = nerlNIF:call_to_get_weights(ModelID),
         ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX), 
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-        w2wCom:send_message_with_event(W2WPid, MyName, ServerName , post_train_update, WeightsTensor);
-      true -> ok
+        w2wCom:send_message_with_event(W2WPid, MyName, ServerName , post_train_update, WeightsTensor),
+        ets:update_element(ThisEts, wait_for_weights_update, {?ETS_KEYVAL_VAL_IDX, true}),
+        wait % wait for server to send updated weights, workerGeneric should stay in wait state
+      true -> train
       end
   end.
 

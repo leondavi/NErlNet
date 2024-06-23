@@ -173,18 +173,18 @@ wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneri
   stats:increment_by_value(get(worker_stats_ets), nan_loss_count, 1),
   WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
   gen_statem:cast(get(client_pid),{loss, MyName , SourceName ,nan , TrainTime, WorkerToken ,BatchID}),
-  DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
+  NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
   PostBatchFunc(),
-  {next_state, NextState, State#workerGeneric_state{postBatchFunc = ?EMPTY_FUNC}};
+  {next_state, NextStateBehavior, State#workerGeneric_state{postBatchFunc = ?EMPTY_FUNC}};
 
 
 wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
   BatchTimeStamp = erlang:system_time(nanosecond),
   WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
   gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,{LossTensor, LossTensorType} , TrainTime , WorkerToken, BatchID , BatchTimeStamp}),
-  DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
+  NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
   PostBatchFunc(),
-  {next_state, NextState, State#workerGeneric_state{postBatchFunc = ?EMPTY_FUNC}};
+  {next_state, NextStateBehavior, State#workerGeneric_state{postBatchFunc = ?EMPTY_FUNC}};
 
 wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
   BatchTimeStamp = erlang:system_time(nanosecond),
@@ -192,7 +192,7 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
   gen_statem:cast(get(client_pid),{predictRes,MyName, SourceName, {PredNerlTensor, PredNerlTensorType}, TimeNif , WorkerToken, BatchID , BatchTimeStamp}), 
   Update = DistributedBehaviorFunc(post_predict, {get(generic_worker_ets),DistributedWorkerData}),
   if Update -> 
-    {next_state, update, State#workerGeneric_state{nextState=NextState}};
+    {next_state, update, State#workerGeneric_state{nextState=NextState}}; % Deprecated
   true ->
     {next_state, NextState, State}
   end;
@@ -202,6 +202,10 @@ wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyNa
   io:format("@~p got end_stream from ~p while being at state wait~n",[MyName, StreamName]),
   Func = fun() -> stream_handler(end_stream, wait, StreamName, DistributedBehaviorFunc) end,
   {next_state, wait, State#workerGeneric_state{postBatchFunc = Func}};
+
+wait(cast, {post_train_update, Data}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+  NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets), {post_train_update, Data}}),
+  {next_state, NextStateBehavior, State};
 
 
 % CANNOT HAPPEN 

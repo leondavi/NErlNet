@@ -24,7 +24,7 @@ post_idle({_GenWorkerEts, _WorkerData}) -> ok.
 
 pre_train({_GenWorkerEts, _WorkerData}) -> ok.
 
-post_train({_GenWorkerEts, _WorkerData}) -> ok.
+post_train({_GenWorkerEts, _WorkerData}) -> train. % post_train returns the next state
 
 pre_predict({_GenWorkerEts, _WorkerData}) -> ok.
 
