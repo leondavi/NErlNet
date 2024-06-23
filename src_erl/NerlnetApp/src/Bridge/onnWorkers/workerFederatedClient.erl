@@ -131,8 +131,9 @@ post_idle({GenWorkerEts, _WorkerData}) ->
             false -> 
               w2wCom:sync_inbox(W2WPid),
               InboxQueue = w2wCom:get_all_messages(W2WPid),
+              [{_FedServer, {handshake_done, Token}}] = queue:to_list(InboxQueue),
               ets:update_element(FedClientEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true}),
-              [{_FedServer, {handshake_done, Token}}] = queue:to_list(InboxQueue);
+              ?LOG_INFO("Worker is part of cluster with token ~p", [Token]);
             true -> ok
             end;
     false -> post_idle({GenWorkerEts, _WorkerData}) % busy waiting until handshake is done
