@@ -98,8 +98,6 @@ handle_call(_Call, _From, State) ->
 
 get_all_messages(W2WPid) -> % Returns the InboxQueue and flush it 
     {ok , InboxQueue} = gen_server:call(W2WPid, {get_inbox_queue}),
-    io:format("@w2wCom: InboxQueue = ~p~n", [InboxQueue]),
-    io:format("@w2wCom: InboxQueue as list = ~p~n", [queue:to_list(InboxQueue)]),
     InboxQueue.
 
 add_msg_to_inbox_queue(Message) -> % Only w2wCom process executes this function

@@ -129,17 +129,13 @@ post_idle({GenWorkerEts, _WorkerData}) ->
   MyName = ets:lookup_element(FedClientEts, my_name, ?ETS_KEYVAL_VAL_IDX),
   case HandshakeWait of 
     true -> HandshakeDone = ets:lookup_element(FedClientEts, handshake_done, ?ETS_KEYVAL_VAL_IDX),
-            io:format("@~p: HandshakeDone = ~p~n", [MyName, HandshakeDone]),
             case HandshakeDone of 
             false -> 
-              io:format("@~p: Handshake not done yet~n", [MyName]),
               w2wCom:sync_inbox(W2WPid),
-              io:format("@~p: Synced inbox~n", [MyName]),
               InboxQueue = w2wCom:get_all_messages(W2WPid),
-              io:format("@~p: InboxQueue = ~p~n", [MyName, InboxQueue]),
               [{_FedServer, {handshake_done, Token}}] = queue:to_list(InboxQueue),
               ets:update_element(FedClientEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true}),
-              ?LOG_INFO("Worker is part of cluster with token ~p", [Token]);
+              io:format("Worker is part of cluster with token ~p~n", [Token]);
             true -> ok
             end;
     false -> post_idle({GenWorkerEts, _WorkerData}) % busy waiting until handshake is done
