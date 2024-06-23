@@ -129,7 +129,6 @@ post_idle({GenWorkerEts, _WorkerName}) ->
   true -> ok
   end.
 
-%% Send updated weights if set
 pre_train({_GenWorkerEts, _WorkerData}) -> ok.
 
 % 1. get weights from all workers
@@ -157,7 +156,7 @@ post_train({GenWorkerEts, WeightsTensor}) ->
       Func = fun(FedClient) ->
         FedServerName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-        w2wCom:send_message(W2WPid, FedServerName, FedClient, {update_weights, SyncIdx, AvgWeightsNerlTensor})
+        w2wCom:send_message_with_event(W2WPid, FedServerName, FedClient, {post_train_update, {SyncIdx, AvgWeightsNerlTensor}}) 
       end,
       WorkersList = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
       lists:foreach(Func, WorkersList),
