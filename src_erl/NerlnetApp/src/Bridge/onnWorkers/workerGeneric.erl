@@ -200,7 +200,7 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
 wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   %logger:notice("Waiting, next state - idle"),
   io:format("@~p got end_stream from ~p while being at state wait~n",[MyName, StreamName]),
-  Func = fun() -> stream_handler(end_stream, wait, StreamName, DistributedBehaviorFunc) end,
+  Func = fun() -> io:format("HEY~n"), stream_handler(end_stream, wait, StreamName, DistributedBehaviorFunc) end,
   {next_state, wait, State#workerGeneric_state{postBatchFunc = Func}};
 
 wait(cast, {post_train_update, Data}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
