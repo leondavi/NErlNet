@@ -147,15 +147,15 @@ pre_train({_GenWorkerEts, _NerlTensorWeights}) -> ok.
 
 % post_train_update is a message from the server to update weights, so we need to wait for it
 post_train({GenWorkerEts, {post_train_update, {_SyncIdx, UpdatedWeights}}}) ->
-  WeightsUpdateFlag = ets:lookup_element(GenWorkerEts, wait_for_weights_update, ?ETS_KEYVAL_VAL_IDX), % either true or false
+  FedClientEts = get_this_client_ets(GenWorkerEts),
+  WeightsUpdateFlag = ets:lookup_element(FedClientEts, wait_for_weights_update, ?ETS_KEYVAL_VAL_IDX), % either true or false
   case WeightsUpdateFlag of
     false -> throw("Received weights update but not waiting for it");
     true -> 
-      ThisEts = get_this_client_ets(GenWorkerEts),
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
       nerlNIF:call_to_set_weights(ModelID, UpdatedWeights),
-      ets:update_element(ThisEts, wait_for_weights_update, {?ETS_KEYVAL_VAL_IDX, false}),
-      ets:update_element(ThisEts, sync_count, {?ETS_KEYVAL_VAL_IDX , 0})
+      ets:update_element(FedClientEts, wait_for_weights_update, {?ETS_KEYVAL_VAL_IDX, false}),
+      ets:update_element(FedClientEts, sync_count, {?ETS_KEYVAL_VAL_IDX , 0})
   end,
   train;
 
@@ -163,22 +163,21 @@ post_train({GenWorkerEts, {post_train_update, {_SyncIdx, UpdatedWeights}}}) ->
 post_train({GenWorkerEts, _Data}) -> 
   MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
   ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
-  ThisEts = get_this_client_ets(GenWorkerEts),
-  ets:update_counter(ThisEts, sync_count, 1),
+  FedClientEts = get_this_client_ets(GenWorkerEts),
+  ets:update_counter(FedClientEts, sync_count, 1),
   % io:format("Worker ~p ActiveStreams ~p~n",[MyName, ActiveStreams]),
   case ActiveStreams of
     [] -> train;
     _ ->
-      ThisEts = get_this_client_ets(GenWorkerEts),
-      SyncCount = ets:lookup_element(ThisEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
-      MaxSyncCount = ets:lookup_element(ThisEts, sync_max_count, ?ETS_KEYVAL_VAL_IDX),
+      SyncCount = ets:lookup_element(FedClientEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
+      MaxSyncCount = ets:lookup_element(FedClientEts, sync_max_count, ?ETS_KEYVAL_VAL_IDX),
       if SyncCount == MaxSyncCount ->
         ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
         WeightsTensor = nerlNIF:call_to_get_weights(ModelID),
-        ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX), 
-        W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+        ServerName = ets:lookup_element(FedClientEts, server_name, ?ETS_KEYVAL_VAL_IDX), 
+        W2WPid = ets:lookup_element(FedClientEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         w2wCom:send_message_with_event(W2WPid, MyName, ServerName , post_train_update, WeightsTensor),
-        ets:update_element(ThisEts, wait_for_weights_update, {?ETS_KEYVAL_VAL_IDX, true}),
+        ets:update_element(FedClientEts, wait_for_weights_update, {?ETS_KEYVAL_VAL_IDX, true}),
         wait; % wait for server to send updated weights, workerGeneric should stay in wait state
       true -> train
       end
