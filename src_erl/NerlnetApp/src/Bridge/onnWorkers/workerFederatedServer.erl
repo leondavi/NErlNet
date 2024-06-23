@@ -119,10 +119,10 @@ post_idle({GenWorkerEts, _WorkerName}) ->
     end,
     MessagesList = queue:to_list(InboxQueue),
     MsgFunc = 
-      fun({FedClient, {handshake, _Token}}) ->
+      fun({FedClient, {handshake, Token}}) ->
         FedClients = ets:lookup_element(FedServerEts, fed_clients, ?ETS_KEYVAL_VAL_IDX),
         ets:update_element(FedServerEts, fed_clients, {?ETS_KEYVAL_VAL_IDX , [FedClient] ++ FedClients}),
-        w2wCom:send_message(W2WPid, FedServerName, FedClient, {handshake_done, MyToken})
+        w2wCom:send_message(W2WPid, FedServerName, FedClient, {handshake_done, Token = MyToken})
     end,
     lists:foreach(MsgFunc, MessagesList),
     ets:update_element(GenWorkerEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true});
