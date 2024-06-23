@@ -151,14 +151,16 @@ idle(cast, {training}, State = #workerGeneric_state{myName = MyName , distribute
   ets:update_element(get(generic_worker_ets), active_streams, {?ETS_KEYVAL_VAL_IDX, []}),
   DistributedBehaviorFunc(post_idle, {get(generic_worker_ets), train}),
   update_client_avilable_worker(MyName),
+  io:format("Worker ~p is starting to train...~n",[MyName]),
   {next_state, train, State#workerGeneric_state{lastPhase = train}};
 
 % Go from idle to predict
 idle(cast, {predict}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   % worker_controller_empty_message_queue(),
   ets:update_element(get(generic_worker_ets), active_streams, {?ETS_KEYVAL_VAL_IDX, []}),
-  update_client_avilable_worker(MyName),
   DistributedBehaviorFunc(post_idle, {get(generic_worker_ets), predict}),
+  update_client_avilable_worker(MyName),
+  io:format("Worker ~p is starting to predict...~n",[MyName]),
   {next_state, predict, State#workerGeneric_state{lastPhase = predict}};
 
 idle(cast, _Param, State = #workerGeneric_state{myName = _MyName}) ->
