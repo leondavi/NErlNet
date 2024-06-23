@@ -45,7 +45,7 @@
             "sourceName": "s5",
             "startingSample": "0",
             "numOfBatches": "200",
-            "workers": "w8",
+            "workers": "w8,w9",
             "nerltensorType": "float"
             }
         ]  
@@ -87,7 +87,7 @@
             "sourceName": "s5",
             "startingSample": "20000",
             "numOfBatches": "200",
-            "workers": "w8",
+            "workers": "w8,w9",
             "nerltensorType": "float"
         }
     ]  

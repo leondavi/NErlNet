@@ -214,7 +214,7 @@
         },
         {
             "name": "w9",
-            "model_sha": "c081daf49b8332585243b68cb828ebc9b947528601a6852688cea0312b3e3914"
+            "model_sha": "0771693392e898393c9b2b8235497537b5fbed1fd0c9a5a7ec6aab665d2c1896"
         }
     ],
     "model_sha": {
@@ -244,7 +244,7 @@
             "_doc_optimizerArgs": "String",
             "infraType": "0",
             "_doc_infraType": " opennn:0 | wolfengine:1 |",
-            "distributedSystemType": "1",
+            "distributedSystemType": "0",
             "_doc_distributedSystemType": " none:0 | fedClientAvg:1 | fedServerAvg:2 |",
             "distributedSystemArgs": "SyncMaxCount=10",
             "_doc_distributedSystemArgs": "String",
