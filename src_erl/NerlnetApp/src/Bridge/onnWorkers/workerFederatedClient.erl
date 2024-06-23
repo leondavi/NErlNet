@@ -132,7 +132,9 @@ post_idle({GenWorkerEts, _WorkerData}) ->
             io:format("@~p: HandshakeDone = ~p~n", [MyName, HandshakeDone]),
             case HandshakeDone of 
             false -> 
+              io:formar("@~p: Handshake not done yet~n", [MyName]),
               w2wCom:sync_inbox(W2WPid),
+              io:format("@~p: Synced inbox~n", [MyName]),
               InboxQueue = w2wCom:get_all_messages(W2WPid),
               [{_FedServer, {handshake_done, Token}}] = queue:to_list(InboxQueue),
               ets:update_element(FedClientEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true}),
