@@ -78,7 +78,7 @@ handshake(FedClientEts) ->
       if 
         ServerToken =/= MyToken -> not_my_server; 
         true -> w2wCom:send_message(W2WPid, MyName, FedServer, {handshake, MyToken}),
-                io:format("@FedClient: Sent handshake to server ~p with token ~p~n", [FedServer, MyToken]),
+                % io:format("@FedClient: Sent handshake to server ~p with token ~p~n", [FedServer, MyToken]),
                 ets:update_element(FedClientEts, handshake_wait, {?ETS_KEYVAL_VAL_IDX, true})
       end
   end,
@@ -135,7 +135,7 @@ post_idle({GenWorkerEts, _WorkerData}) ->
               InboxQueue = w2wCom:get_all_messages(W2WPid),
               [{_FedServer, {handshake_done, Token}}] = queue:to_list(InboxQueue),
               ets:update_element(FedClientEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true}),
-              io:format("Worker is part of cluster with token ~p~n", [Token]);
+              % io:format("Worker is part of cluster with token ~p~n", [Token]);
             true -> ok
             end;
     false -> post_idle({GenWorkerEts, _WorkerData}) % busy waiting until handshake is done
