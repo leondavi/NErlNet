@@ -105,7 +105,8 @@ start_stream({GenWorkerEts, WorkerData}) ->  % WorkerData is currently a list of
 end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [SourceName]
   [_SourceName, ModelPhase] = WorkerData,
   case ModelPhase of
-    train ->
+    predict -> ok;
+    _ -> % train/wait
         ThisEts = get_this_client_ets(GenWorkerEts),
         MyName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
         ServerName = ets:lookup_element(ThisEts, server_name, ?ETS_KEYVAL_VAL_IDX),
@@ -114,9 +115,7 @@ end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [S
         case length(ActiveStreams) of % Send to server an updater after got start_stream from the first source
           0 ->  w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, MyName); % Mimic source behavior
           _ -> ok
-        end;
-    predict -> ok;
-    wait -> io:format("HEY2~n")
+        end
   end.
 
 
