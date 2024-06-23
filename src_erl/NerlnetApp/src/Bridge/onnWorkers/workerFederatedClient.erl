@@ -160,9 +160,10 @@ post_train({GenWorkerEts, {post_train_update, {_SyncIdx, UpdatedWeights}}}) ->
   train;
 
 %% every MaxSyncCount batches, send updated weights to server
-post_train({GenWorkerEts, Data}) -> 
+post_train({GenWorkerEts, _Data}) -> 
   MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
   ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
+  ThisEts = get_this_client_ets(GenWorkerEts),
   ets:update_counter(ThisEts, sync_count, 1),
   % io:format("Worker ~p ActiveStreams ~p~n",[MyName, ActiveStreams]),
   case ActiveStreams of
