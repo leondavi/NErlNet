@@ -67,6 +67,7 @@ init({GenWorkerEts, WorkerData}) ->
   ets:insert(FederatedServerEts, {my_name, MyName}),
   ets:insert(FederatedServerEts, {token , Token}),
   ets:insert(FederatedServerEts, {weights_list, []}),
+  ets:insert(FederatedServerEts, {total_syncs, 0}),
   put(fed_server_ets, FederatedServerEts).
 
   
@@ -144,6 +145,8 @@ post_train({GenWorkerEts, WeightsTensor}) ->
   NumOfActiveWorkers = length(ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX)),
   case length(TotalWorkersWeights) of 
     NumOfActiveWorkers -> 
+      ets:update_counter(FedServerEts, total_syncs, 1),
+      SyncIdx = ets:lookup_element(FedServerEts, total_syncs, ?ETS_KEYVAL_VAL_IDX),
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
       % io:format("Averaging model weights...~n"),
       {CurrentModelWeights, BinaryType} = nerlNIF:call_to_get_weights(ModelID),
@@ -154,7 +157,7 @@ post_train({GenWorkerEts, WeightsTensor}) ->
       Func = fun(FedClient) ->
         FedServerName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-        w2wCom:send_message(W2WPid, FedServerName, FedClient, {update_weights, AvgWeightsNerlTensor})
+        w2wCom:send_message(W2WPid, FedServerName, FedClient, {update_weights, SyncIdx, AvgWeightsNerlTensor})
       end,
       WorkersList = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
       lists:foreach(Func, WorkersList),
