@@ -162,7 +162,8 @@ post_train({GenWorkerEts, WeightsTensor}) ->
       lists:foreach(Func, WorkersList),
       ets:update_element(FedServerEts, weights_list, {?ETS_KEYVAL_VAL_IDX, []});
     _ -> ets:update_element(FedServerEts, weights_list, {?ETS_KEYVAL_VAL_IDX, TotalWorkersWeights})
-  end.
+  end,
+  train.
   
 %% nothing?
 pre_predict({_GenWorkerEts, _WorkerData}) -> ok.
