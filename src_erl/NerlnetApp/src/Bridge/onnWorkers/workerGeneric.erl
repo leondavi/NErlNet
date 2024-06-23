@@ -151,7 +151,7 @@ idle(cast, {training}, State = #workerGeneric_state{myName = MyName , distribute
   ets:update_element(get(generic_worker_ets), active_streams, {?ETS_KEYVAL_VAL_IDX, []}),
   DistributedBehaviorFunc(post_idle, {get(generic_worker_ets), train}),
   update_client_avilable_worker(MyName),
-  io:format("Worker ~p is starting to train...~n",[MyName]),
+  ?LOG_INFO("Worker ~p is switching to phase train",[MyName]),
   {next_state, train, State#workerGeneric_state{lastPhase = train}};
 
 % Go from idle to predict
@@ -160,7 +160,7 @@ idle(cast, {predict}, State = #workerGeneric_state{myName = MyName , distributed
   ets:update_element(get(generic_worker_ets), active_streams, {?ETS_KEYVAL_VAL_IDX, []}),
   DistributedBehaviorFunc(post_idle, {get(generic_worker_ets), predict}),
   update_client_avilable_worker(MyName),
-  io:format("Worker ~p is starting to predict...~n",[MyName]),
+  ?LOG_INFO("Worker ~p is switching to phase predict",[MyName]),
   {next_state, predict, State#workerGeneric_state{lastPhase = predict}};
 
 idle(cast, _Param, State = #workerGeneric_state{myName = _MyName}) ->
@@ -327,8 +327,8 @@ stream_handler(StreamPhase , ModelPhase , StreamName , DistributedBehaviorFunc) 
   ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
   NewActiveStreams = 
       case StreamPhase of
-          start_stream -> ActiveStreams ++ [StreamName];
-          end_stream -> ActiveStreams -- [StreamName]
+          start_stream -> ActiveStreams ++ [StreamName], io:format("@~p Removing ~p ,NewActiveStreams: ~p~n",[MyName, StreamName, ActiveStreams -- [StreamName]]);
+          end_stream -> ActiveStreams -- [StreamName], io:format("@~p Removing ~p ,NewActiveStreams: ~p~n",[MyName, StreamName, ActiveStreams -- [StreamName]])
       end,
   ets:update_element(GenWorkerEts, active_streams, {?ETS_KEYVAL_VAL_IDX, NewActiveStreams}),
   DistributedBehaviorFunc(StreamPhase, {GenWorkerEts, [StreamName , ModelPhase]}),
