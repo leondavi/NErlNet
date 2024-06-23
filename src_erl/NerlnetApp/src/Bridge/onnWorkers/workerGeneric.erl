@@ -197,8 +197,9 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
     {next_state, NextState, State}
   end;
 
-wait(cast, {end_stream , Data}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+wait(cast, {end_stream , Data}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   %logger:notice("Waiting, next state - idle"),
+  io:format("@~p got end_stream from ~p while being at state wait~n",[MyName, StreamName]),
   Func = fun() -> stream_handler(end_stream, wait, Data, DistributedBehaviorFunc) end,
   {next_state, wait, State#workerGeneric_state{postBatchFunc = Func}};
 
@@ -268,7 +269,8 @@ train(cast, {start_stream , StreamName}, State = #workerGeneric_state{myName = _
   stream_handler(start_stream, train, StreamName, DistributedBehaviorFunc),
   {next_state, train, State};
 
-train(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+train(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+  io:format("@~p got end_stream from ~p while being at state train~n",[MyName, StreamName]),
   stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
   {next_state, train, State};
 
@@ -325,7 +327,7 @@ stream_handler(StreamPhase , ModelPhase , StreamName , DistributedBehaviorFunc) 
   GenWorkerEts = get(generic_worker_ets),
   MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
   case ModelPhase of
-    wait -> io:format("@~p got ~p from ~p~n",[ModelPhase, StreamPhase, StreamName]);
+    wait -> io:format("@~p got ~p from ~p~n",[MyName, StreamPhase, StreamName]);
     _ -> ok
   end,
   ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
