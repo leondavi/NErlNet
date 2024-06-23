@@ -155,7 +155,8 @@ pre_train({GenWorkerEts, _NerlTensorWeights}) ->
     UpdateWeightsMsg = queue:to_list(InboxQueue),
     case length(UpdateWeightsMsg) of
       0 -> ok;
-      _ -> [{_FedServer , {update_weights, UpdatedWeights}}] = UpdateWeightsMsg,
+      _ ->  io:format("UpdateWeightsMsg = ~p~n",[UpdateWeightsMsg]),
+            [{_FedServer , {update_weights, UpdatedWeights}}] = UpdateWeightsMsg,
             ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
             nerlNIF:call_to_set_weights(ModelID, UpdatedWeights),
             ets:update_element(ThisEts, sync_count, {?ETS_KEYVAL_VAL_IDX , 0})
