@@ -160,7 +160,9 @@ pre_train({GenWorkerEts, _NerlTensorWeights}) ->
             ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
             nerlNIF:call_to_set_weights(ModelID, UpdatedWeights),
             ets:update_element(ThisEts, sync_count, {?ETS_KEYVAL_VAL_IDX , 0});
-      _ -> throw("More than one message received from server")
+      _ ->  SyncIndexes = [SyncIdx || {_FedServer , {update_weights, SyncIdx, _UpdatedWeights}} <- UpdateWeightsMsg],
+            io:format(">1: SyncIndexes = ~p~n",[SyncIndexes]),
+            throw("More than one message received from server")
     end;
   true -> ets:update_counter(ThisEts, sync_count, 1)
   end.
