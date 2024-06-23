@@ -1,4 +1,10 @@
 
+################################################
+# Nerlnet - 2024 GPL-3.0 license
+# Authors: Ohad Adi, Noa Shapira, David Leon 
+#          Guy Perets
+################################################
+
 import numpy as np
 from decoderHttpMainServerDefs import *
 from definitions import NERLTENSOR_TYPE_LIST
@@ -65,7 +71,8 @@ def parse_key_string(key_string: str) -> tuple:
     BATCH_ID_IDX = 2
     BATCH_TS_IDX = 3
     DURATION_IDX = 4 # TimeNIF
-    NERLTENSOR_TYPE_IDX = 5
+    WORKER_DISTRIBUTED_TOKEN_IDX = 5
+    NERLTENSOR_TYPE_IDX = 6
 
     definitions_list = key_string.split(SEP_ENTITY_HASH_STATS)
     worker_name = definitions_list[WORKER_NAME_IDX]
@@ -73,16 +80,17 @@ def parse_key_string(key_string: str) -> tuple:
     batch_id = definitions_list[BATCH_ID_IDX]
     batch_ts = definitions_list[BATCH_TS_IDX]
     duration = definitions_list[DURATION_IDX]
+    distributed_token = definitions_list[WORKER_DISTRIBUTED_TOKEN_IDX]
     nerltensor_type = definitions_list[NERLTENSOR_TYPE_IDX]
 
-    return worker_name, source_name, batch_id, batch_ts, duration, nerltensor_type
+    return worker_name, source_name, batch_id, batch_ts, duration, distributed_token, nerltensor_type
 
 
 def decode_phase_result_data_json_from_main_server(input_json_dict : dict) -> list:
     decoded_data = []
     DIMS_LENGTH = 3
     for key_string, nerltensor in input_json_dict.items():
-        worker_name, source_name, batch_id, batch_ts, duration, nerltensor_type = parse_key_string(key_string)
+        worker_name, source_name, batch_id, batch_ts, duration, distributed_token, nerltensor_type = parse_key_string(key_string)
         duration = int(float(duration)) # from here duration is int in micro seconds
 
         # nerltensor to numpy tensor conversion
@@ -104,5 +112,5 @@ def decode_phase_result_data_json_from_main_server(input_json_dict : dict) -> li
         np_tensor = np_tensor[DIMS_LENGTH:]
         np_tensor = np_tensor.reshape(dims) # reshaped
 
-        decoded_data.append((worker_name, source_name, duration, batch_id, batch_ts, np_tensor))
+        decoded_data.append((worker_name, source_name, duration, batch_id, batch_ts, distributed_token, np_tensor))
     return decoded_data

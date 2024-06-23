@@ -1,7 +1,9 @@
 ################################################
-# Nerlnet - 2023 GPL-3.0 license
-# Authors: Haran Cohen, David Leon, Dor Yerchi #
+# Nerlnet - 2024 GPL-3.0 license
+# Authors: Noa Shapira, Ohad Adi, David Leon
+#          Guy Perets, Haran Cohen, Dor Yerchi
 ################################################
+
 import time
 import threading
 import sys
