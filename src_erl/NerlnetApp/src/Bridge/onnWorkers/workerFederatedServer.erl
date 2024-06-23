@@ -14,7 +14,7 @@
 -define(ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, 3).
 -define(ETS_NERLTENSOR_TYPE_IDX, 2).
 -define(DEFAULT_SYNC_MAX_COUNT_ARG, 1).
--define(HANDSHAKE_TIMEOUT, 2000). % 2 seconds
+-define(HANDSHAKE_TIMEOUT, 10000). % 10 seconds
 
 
 controller(FuncName, {GenWorkerEts, WorkerData}) -> 
