@@ -127,7 +127,7 @@ post_idle({GenWorkerEts, _WorkerData}) ->
   W2WPid = ets:lookup_element(FedClientEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
   Token = ets:lookup_element(FedClientEts, my_token, ?ETS_KEYVAL_VAL_IDX),
   HandshakeWait = ets:lookup_element(FedClientEts, handshake_wait, ?ETS_KEYVAL_VAL_IDX),
-  MyName = ets:lookup_element(FedClientEts, my_name, ?ETS_KEYVAL_VAL_IDX),
+  _MyName = ets:lookup_element(FedClientEts, my_name, ?ETS_KEYVAL_VAL_IDX),
   case HandshakeWait of 
     true -> HandshakeDone = ets:lookup_element(FedClientEts, handshake_done, ?ETS_KEYVAL_VAL_IDX),
             case HandshakeDone of 
@@ -143,7 +143,7 @@ post_idle({GenWorkerEts, _WorkerData}) ->
   end.
   
 
-pre_train({GenWorkerEts, _NerlTensorWeights}) -> ok.
+pre_train({_GenWorkerEts, _NerlTensorWeights}) -> ok.
 
 % post_train_update is a message from the server to update weights, so we need to wait for it
 post_train({GenWorkerEts, {post_train_update, {_SyncIdx, UpdatedWeights}}}) ->
@@ -178,7 +178,7 @@ post_train({GenWorkerEts, Data}) ->
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         w2wCom:send_message_with_event(W2WPid, MyName, ServerName , post_train_update, WeightsTensor),
         ets:update_element(ThisEts, wait_for_weights_update, {?ETS_KEYVAL_VAL_IDX, true}),
-        wait % wait for server to send updated weights, workerGeneric should stay in wait state
+        wait; % wait for server to send updated weights, workerGeneric should stay in wait state
       true -> train
       end
   end.
