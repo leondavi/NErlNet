@@ -109,8 +109,9 @@ post_idle({GenWorkerEts, _WorkerName}) ->
       w2wCom:send_message(W2WPid, FedServerName, FedClient, {handshake, MyToken})
     end,
     lists:foreach(Func, WorkersList),
-    timer:sleep(?HANDSHAKE_TIMEOUT),
+    timer:sleep(?HANDSHAKE_TIMEOUT), % wait 2 seconds for response
     InboxQueue = w2wCom:get_all_messages(W2WPid),
+    io:format("@FedServer: InboxQueue = ~p~n",[InboxQueue]),
     IsEmpty = queue:len(InboxQueue) == 0,
     if IsEmpty == true -> 
       throw("Handshake failed, none of the workers responded in time");
