@@ -116,7 +116,7 @@ end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [S
           _ -> ok
         end;
     predict -> ok;
-    wait -> ok
+    wait -> io:format("HEY2~n")
   end.
 
 
