@@ -1,0 +1,140 @@
+{
+    "experimentName": "synthetic_3_gausians",
+    "experimentType": "classification",
+    "batchSize": 50,
+    "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/synthetic_norm/synthetic_full.csv",
+    "numOfFeatures": "5",
+    "numOfLabels": "3",
+    "headersNames": "Norm(0:1),Norm(4:1),Norm(10:3)",
+    "Phases": 
+    [
+        {
+            "phaseName": "training_phase1",
+            "phaseType": "training",
+            "sourcePieces":
+            [
+                {
+                "sourceName": "s1",
+                "startingSample": "0",
+                "numOfBatches": "200",
+                "workers": "w1,w2",
+                "nerltensorType": "float"
+                },
+                {
+                "sourceName": "s2",
+                "startingSample": "0",
+                "numOfBatches": "200",
+                "workers": "w3,w4",
+                "nerltensorType": "float"
+                },
+                {
+                "sourceName": "s3",
+                "startingSample": "0",
+                "numOfBatches": "200",
+                "workers": "w5,w6",
+                "nerltensorType": "float"
+                },
+                {
+                "sourceName": "s4",
+                "startingSample": "0",
+                "numOfBatches": "200",
+                "workers": "w7,w8",
+                "nerltensorType": "float"
+                },
+                {
+                "sourceName": "s5",
+                "startingSample": "0",
+                "numOfBatches": "200",
+                "workers": "w9,w10",
+                "nerltensorType": "float"
+                }
+            ]  
+        },
+        {
+        "phaseName": "training_phase2",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+                "sourceName": "s1",
+                "startingSample": "20000",
+                "numOfBatches": "200",
+                "workers": "w1,w3",
+                "nerltensorType": "float"
+            },
+            {
+                "sourceName": "s2",
+                "startingSample": "20000",
+                "numOfBatches": "200",
+                "workers": "w2,w4",
+                "nerltensorType": "float"
+            },
+            {
+                "sourceName": "s3",
+                "startingSample": "20000",
+                "numOfBatches": "200",
+                "workers": "w5,w7",
+                "nerltensorType": "float"
+            },
+            {
+                "sourceName": "s4",
+                "startingSample": "20000",
+                "numOfBatches": "200",
+                "workers": "w6,w10",
+                "nerltensorType": "float"
+            },
+            {
+                "sourceName": "s5",
+                "startingSample": "20000",
+                "numOfBatches": "200",
+                "workers": "w8,w9",
+                "nerltensorType": "float"
+            }
+        ]  
+    },
+        {
+            "phaseName": "prediction_phase",
+            "phaseType": "prediction",
+            "sourcePieces":
+            [
+                {
+                "sourceName": "s1",
+                "startingSample": "40000",
+                "numOfBatches": "100",
+                "workers": "w1,w8",
+                "nerltensorType": "float"
+                },
+                {
+                "sourceName": "s2",
+                "startingSample": "40000",
+                "numOfBatches": "100",
+                "workers": "w2,w7",
+                "nerltensorType": "float"
+                },
+                {
+                "sourceName": "s3",
+                "startingSample": "40000",
+                "numOfBatches": "100",
+                "workers": "w3,w6",
+                "nerltensorType": "float"
+                },
+                {
+                "sourceName": "s4",
+                "startingSample": "40000",
+                "numOfBatches": "100",
+                "workers": "w4,w9",
+                "nerltensorType": "float"
+                },
+                {
+                "sourceName": "s5",
+                "startingSample": "40000",
+                "numOfBatches": "100",
+                "workers": "w5,w10",
+                "nerltensorType": "float"
+                }
+            ]    
+        }
+    ]  
+    }
+    
+    
