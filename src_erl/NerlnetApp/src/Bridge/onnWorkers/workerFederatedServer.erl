@@ -6,7 +6,7 @@
 
 -import(nerlNIF,[nerltensor_scalar_multiplication_nif/3, call_to_get_weights/1, call_to_set_weights/2]).
 -import(nerlTensor,[sum_nerltensors_lists/2]).
--import(w2wCom,[send_message/3, get_all_messages/0, is_inbox_empty/0]).
+-import(w2wCom,[send_message_with_event/5, get_all_messages/0, is_inbox_empty/0]).
 
 
 -define(ETS_WID_IDX, 1).
@@ -67,6 +67,7 @@ init({GenWorkerEts, WorkerData}) ->
   ets:insert(FederatedServerEts, {my_name, MyName}),
   ets:insert(FederatedServerEts, {token , Token}),
   ets:insert(FederatedServerEts, {weights_list, []}),
+  ets:insert(FederatedServerEts, {total_syncs, 0}),
   put(fed_server_ets, FederatedServerEts).
 
   
@@ -109,7 +110,7 @@ post_idle({GenWorkerEts, _WorkerName}) ->
       w2wCom:send_message(W2WPid, FedServerName, FedClient, {handshake, MyToken})
     end,
     lists:foreach(Func, WorkersList),
-    timer:sleep(?HANDSHAKE_TIMEOUT),
+    timer:sleep(?HANDSHAKE_TIMEOUT), % wait 2 seconds for response
     InboxQueue = w2wCom:get_all_messages(W2WPid),
     IsEmpty = queue:len(InboxQueue) == 0,
     if IsEmpty == true -> 
@@ -118,17 +119,16 @@ post_idle({GenWorkerEts, _WorkerName}) ->
     end,
     MessagesList = queue:to_list(InboxQueue),
     MsgFunc = 
-      fun({FedClient, {handshake, _Token}}) ->
+      fun({FedClient, {handshake, Token}}) ->
         FedClients = ets:lookup_element(FedServerEts, fed_clients, ?ETS_KEYVAL_VAL_IDX),
         ets:update_element(FedServerEts, fed_clients, {?ETS_KEYVAL_VAL_IDX , [FedClient] ++ FedClients}),
-        w2wCom:send_message(W2WPid, FedServerName, FedClient, {handshake_done, MyToken})
+        w2wCom:send_message(W2WPid, FedServerName, FedClient, {handshake_done, Token = MyToken})
     end,
     lists:foreach(MsgFunc, MessagesList),
     ets:update_element(GenWorkerEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true});
   true -> ok
   end.
 
-%% Send updated weights if set
 pre_train({_GenWorkerEts, _WorkerData}) -> ok.
 
 % 1. get weights from all workers
@@ -144,6 +144,8 @@ post_train({GenWorkerEts, WeightsTensor}) ->
   NumOfActiveWorkers = length(ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX)),
   case length(TotalWorkersWeights) of 
     NumOfActiveWorkers -> 
+      ets:update_counter(FedServerEts, total_syncs, 1),
+      SyncIdx = ets:lookup_element(FedServerEts, total_syncs, ?ETS_KEYVAL_VAL_IDX),
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
       % io:format("Averaging model weights...~n"),
       {CurrentModelWeights, BinaryType} = nerlNIF:call_to_get_weights(ModelID),
@@ -154,13 +156,14 @@ post_train({GenWorkerEts, WeightsTensor}) ->
       Func = fun(FedClient) ->
         FedServerName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-        w2wCom:send_message(W2WPid, FedServerName, FedClient, {update_weights, AvgWeightsNerlTensor})
+        w2wCom:send_message_with_event(W2WPid, FedServerName, FedClient, post_train_update, {SyncIdx, AvgWeightsNerlTensor}) 
       end,
       WorkersList = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
       lists:foreach(Func, WorkersList),
       ets:update_element(FedServerEts, weights_list, {?ETS_KEYVAL_VAL_IDX, []});
     _ -> ets:update_element(FedServerEts, weights_list, {?ETS_KEYVAL_VAL_IDX, TotalWorkersWeights})
-  end.
+  end,
+  train.
   
 %% nothing?
 pre_predict({_GenWorkerEts, _WorkerData}) -> ok.
