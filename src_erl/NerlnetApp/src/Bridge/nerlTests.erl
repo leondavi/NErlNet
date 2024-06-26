@@ -9,8 +9,8 @@
 -export([run_tests/0]).
 
 -import(nerlNIF,[decode_nif/2, nerltensor_binary_decode/2]).
--import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
--import(nerlNIF,[nerltensor_sum_nif/3]).
+-import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_nerltensor_list_types/0]).
+-import(nerlNIF,[nerltensor_sum_nif/3, get_all_binary_types/0]).
 -import(nerlNIF,[test_nerlworker_nif/12, remove_nerlworker_nif/1]).
 -import(nerlNIF,[nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
 -import(nerl,[compare_floats_L/3, string_format/2, logger_settings/1]).
@@ -106,7 +106,7 @@ generate_random_list_of_unique_integers(ListSize, Min, Max) ->
 generate_random_list_of_unique_integers(0, _Min, _Max, List) -> List;
 generate_random_list_of_unique_integers(RemainedNumOfElements, Min, Max, List) -> 
       N = Max - Min,
-      rand:uniform(N) - 1 + Min,
+      rand:uniform(N) - 1 + Min, % NO ASSIGNMENT (??)
       IsMember = lists:is_member(N, List), % O(N)
       if 
             IsMember -> generate_random_list_of_unique_integers(RemainedNumOfElements, Min, Max, List);
@@ -210,6 +210,7 @@ sum_nerltensors_lists_test(Type, N, Performance) ->
 
 encode_decode_nifs_test(0, _Res, Performance) -> Performance ;
 encode_decode_nifs_test(N, Res, Performance) ->
+      io:format("GOT HERE~n"),
       EncodeType = random_pick_nerltensor_type(),
       NerlTensor = generate_nerltensor_rand_dims(EncodeType),
       Tic = nerl:tic(),
