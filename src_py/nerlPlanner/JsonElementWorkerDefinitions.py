@@ -12,11 +12,12 @@ LayerTypeMap = OrderedDict([
     ("Perceptron" , "3"),
     ("Pooling" , "4"),
     ("Probabilistic" , "5"),
-    ("LSTM" , "6"),
-    ("Reccurrent" , "7"),
-    ("Unscaling" , "8"),
-    ("Flatten" , "9"),
-    ("Bounding" , "10"),
+    ("BatchNormalization" , "6"),
+    ("LSTM" , "7"),
+    ("Reccurrent" , "8"),
+    ("Unscaling" , "9"),
+    ("Flatten" , "10"),
+    ("Bounding" , "11"),
     ]
 )
 
