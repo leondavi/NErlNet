@@ -1,9 +1,10 @@
 ![Version](https://img.shields.io/github/v/release/leondavi/NErlNet)
 ![Contributors](https://img.shields.io/github/contributors/leondavi/NErlNet)
 ![Issues](https://img.shields.io/github/issues/leondavi/NErlNet)
-<a href="https://discord.com/channels/914616114204516393/914616114833670159">
-        <img src="https://img.shields.io/discord/914616114204516393?logo=discord"
-            alt="chat on Discord"></a>
+[![Discord](https://shields.microej.com/discord/914616114204516393)](https://discord.gg/xwBTbzER)  
+[![LinkedIn](https://img.shields.io/badge/Linkedin-%230077B5.svg?logo=linkedin&logoColor=white)](https://www.linkedin.com/company/nerlnet)
+[![YouTube](https://img.shields.io/badge/YouTube-%23FF0000.svg?logo=YouTube&logoColor=white)](https://www.youtube.com/channel/UCnnWPPKiHioTBy7Zq5shrQw)
+[![Hugging Face](https://img.shields.io/badge/Hugging%20Face-FFD21E?logo=huggingface&logoColor=000)](https://huggingface.co/Nerlnet)
 
 # NErlNet
 
@@ -11,7 +12,7 @@
   <img src="NerlnetLogo.png" width="200" title="NerlNet">
 </p>
 
-Nerlnet is an open-source library for researching distributed machine learning algorithms on IoT devices. It provides comprehensive insights into both edge devices that run neural network models and network performance and statistics. Nerlnet can simulate distributed ML clusters on a single or multiple machines and deploy these clusters, with minor changes, on various kinds of IoT devices.  
+Nerlnet is an open-source framework for research and deployment of distributed machine learning algorithms on IoT devices. It provides comprehensive insights into both edge devices that run neural network models and network performance and statistics. Nerlnet can simulate distributed ML clusters on a single or multiple machines and deploy these clusters, with minor changes, on various kinds of IoT devices.  
 
 Nerlnet simplifies the setup of a distributed cluster that consists of many models on its edge, communication flow can be fully controlled and monitored, and Nerlnet's Python API allows users to manage and gather data from the distributed cluster throughout the experiment.  
 
@@ -79,17 +80,12 @@ Number of messages, throughput, loss, predictions, models performance, etc.
 1.1    Use -h to see the help menu of NerlnetJupyterLaunch.sh script.  
 1.2    If --no-venv option is selected then required modules can be read from ```src_py/requirements.txt```.  
 3. Read the instructions of importing Api-Server within the generated readme.md file inside <experiment_directory> folder. 
-4. Follow the example: https://github.com/leondavi/NErlNet/blob/master/examples/example_run.ipynb 
+4. Follow the [Example Notebook](https://github.com/leondavi/NErlNet/blob/master/examples/example_run.ipynb)
 
-Visit our hugging face organization page for more datasets and models of Nerlnet.  
-[<img width="150" alt="hf-logo-with-title" src="https://github.com/leondavi/NErlNet/assets/18975070/93e736b9-732e-4d33-a51a-ca5f68308772">](https://huggingface.co/Nerlnet)
-### Social
+### Distributed ML on The Edge
 Distributed ML on the edge - A new evolution step of AI.  
 
 https://github.com/leondavi/NErlNet/assets/18975070/15a3957a-3fd6-4fb2-a365-7e1578468298  
-  
-[<img width="20" alt="nerlnet-linkedin-page" src="https://github.com/leondavi/NErlNet/assets/18975070/b39d6793-2c31-4cfd-8436-c495267c353a">](https://www.linkedin.com/company/nerlnet)  
-
 
 ## Gratitudes
 <h3 align="center">Microsoft Azure</h1>
