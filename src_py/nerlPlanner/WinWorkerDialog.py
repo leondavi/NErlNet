@@ -166,7 +166,8 @@ def WinWorkerDialog():
             FlattenDictStr = f'Flatten:\n{pretty_print_dict(FlattenMethodMap)}'
             BoundingDictStr = f'Bounding:\n{pretty_print_dict(BoundingMethodMap)}'
             ProbabilisticDictStr = f'Probabilistic:\n{pretty_print_dict(ProbabilisticActivationFunctionMap)}'
-            sg.popup_ok(f"Layer Functions Codes:\n{ActivationDictStr}\n{PoolingDictStr}\n{ScalerDictStr}\n{FlattenDictStr}\n{BoundingDictStr}\n{ProbabilisticDictStr}", keep_on_top=True, title="Layer Type Codes")
+            BatchNormalizationDictStr = f'Batch Normalization:\n{pretty_print_dict(BatchNomalizationMap)}'
+            sg.popup_ok(f"Layer Functions Codes:\n{ActivationDictStr}\n{PoolingDictStr}\n{ScalerDictStr}\n{FlattenDictStr}\n{BoundingDictStr}\n{ProbabilisticDictStr}\n{BatchNormalizationDictStr}", keep_on_top=True, title="Layer Type Codes")
 
         if event == KEY_LEARNING_RATE_INPUT:
             LearningRate = values[event]
