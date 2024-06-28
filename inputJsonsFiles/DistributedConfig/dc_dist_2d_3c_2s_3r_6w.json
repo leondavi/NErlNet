@@ -18,8 +18,8 @@
             "entities": "mainServer,c1,c2,r1,r2,s1,apiServer"
         },
         {
-            "name": "c0vm1",
-            "ipv4": "10.0.0.4",
+            "name": "minionms",
+            "ipv4": "10.0.0.31",
             "entities": "c3,r3,s2"
         }
     ],
