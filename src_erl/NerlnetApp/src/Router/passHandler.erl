@@ -11,13 +11,13 @@
 
 %%State = [RouterPID, Graph, RouterName]
 init(Req0, State) ->
-    Router_genserver_Pid = lists:nth(1, State),
+    _Router_genserver_Pid = lists:nth(1, State),
   
     %Bindings also can be accesed as once, giving a map of all bindings of Req0:
     {_,Body,_} = cowboy_req:read_body(Req0),
     %Decoded_body = binary_to_list(Body),
   %  io:format("router got action ~p body:~p~n",[Action,Body]),
-    {To, PassingAction, Data} = binary_to_term(Body),
+    {To, PassingAction, _Data} = binary_to_term(Body),
     Graph = lists:nth(2, State),
     MyName = lists:nth(3, State),
     {Host,Port} = nerl_tools:getShortPath(MyName,To,Graph),
