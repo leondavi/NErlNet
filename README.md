@@ -49,24 +49,24 @@ Recommended cmake version 3.26
 Minimum erlang version otp 25 (Tested 24,25,26)   
 Minimum gcc/g++ version 10.3.0   
 
-On every device that is a part of Nerlnet cluster the following steps should be taken:
+### On every device that hosts Nerlnet cluster entities, do the following steps:
 
 1. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo> NErlNet```  
 2. Run ```sudo ./NerlnetInstall.sh```  
-  2.1 With argument -i script builds and installs Erlang, latest stable, and CMake.
-      (validate that erlang is not installed before executing installation from source)
+  2.1 With argument -i script builds and installs Erlang (OTP 25), and CMake from source.
+      (validate that erlang is not installed before executing installation from source)  
   2.2 On successful installation, NErlNet directory is accessible  
       via the following path: ```/usr/local/lib/nerlnet-lib```
 3. Run ```./NerlnetBuild.sh```
 4. Test Nerlnet by running: ```./tests/NerlnetFullFlowTest.sh```
-5. [Nerlplanner](https://github.com/leondavi/NErlNet/tree/master/src_py/nerlPlanner) is a Nerlnet tool to generate required jsons files to setup a distributed system of Nerlnet.  
-To use NerlPlanner execute ```./NerlPlanner.sh``` (support starts from version 1.3.0).  
+5. [Nerlplanner](https://github.com/leondavi/NErlNet/wiki/NerlPlanner) is a Nerlnet tool to generate required jsons files to setup a distributed system of Nerlnet.  
+To use NerlPlanner execute ```./NerlPlanner.sh```.  
 Create json files of distributed configurations, connection map and experiment flow as follows:  
 - dc_\<any name\>.json  
 - conn_\<any name\>.json  
 - exp_\<any name\>.json       
-6. Run ```./NerlnetRun.sh``` to start Nerlnet.
-7. Start Jupyter NB with ```./NerlnetJupyterLaunch.sh``` and follow ApiServerInstance.help() and [examples](https://github.com/leondavi/NErlNet/tree/master/examples).
+6. Run ```./NerlnetRun.sh```.
+7. On API-Server device, Start Jupyter NB with ```./NerlnetJupyterLaunch.sh``` and follow ApiServerInstance.help() and [examples](https://github.com/leondavi/NErlNet/tree/master/examples).
 
 ## Python API and Jupyter-lab (For Api-Server): 
 Minimum Python version: 3.8  
