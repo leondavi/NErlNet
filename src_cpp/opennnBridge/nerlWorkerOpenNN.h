@@ -40,7 +40,7 @@ class NerlWorkerOpenNN : public NerlWorker
     void set_dataset(std::shared_ptr<opennn::DataSet> data_set,fTensor2DPtr TrainDataNNptr);
     std::shared_ptr<opennn::DataSet> get_dataset_ptr() { return _data_set; };
     
-    std::vector<int> get_distributed_system_train_labels_count() override;
+    std::shared_ptr<std::vector<int>> get_distributed_system_train_labels_count() override;
 
     private:
 

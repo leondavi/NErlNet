@@ -90,9 +90,9 @@ run_tests()->
       NerlworkerTestName = "nerlworker_test",
       test_envelope_nif_performance(NerlworkerTestFunc, NerlworkerTestName, length(NeuralNetworkTestingModelList) ),
       nerltest_print("count label test"),
-      %CountLabelTestName = "test_count_label",
-      %CountLabelTestFunc = fun(_Rounds) ->   test_count_label_nif() end, 
-      %אest_envelope(CountLabelTestFunc, CountLabelTestName, 1 ),
+      CountLabelTestName = "test_count_label",
+      CountLabelTestFunc = fun(_Rounds) ->   test_count_label_nif() end, 
+      test_envelope(CountLabelTestFunc, CountLabelTestName, 1 ),
       nerltest_print("Tests Completed"),
       ok.
 
@@ -105,8 +105,8 @@ generate_random_list_of_unique_integers(ListSize, Min, Max) ->
 
 generate_random_list_of_unique_integers(0, _Min, _Max, List) -> List;
 generate_random_list_of_unique_integers(RemainedNumOfElements, Min, Max, List) -> 
-      N = Max - Min,
-      rand:uniform(N) - 1 + Min, % NO ASSIGNMENT (??)
+      Range = Max - Min,
+      N = rand:uniform(Range) - 1 + Min,
       IsMember = lists:is_member(N, List), % O(N)
       if 
             IsMember -> generate_random_list_of_unique_integers(RemainedNumOfElements, Min, Max, List);
@@ -305,47 +305,47 @@ nerlworker_test_generate_data(LayersSizes, LayerTypes, NumOfSamples) -> %% Ask D
       {NerlTensor , Type , ErlDataTensor , erl_float , NumOfFeatures , NumOfLabels}.
 
 %test_count_label_nif(_Performance) -> _Performance;
-% test_count_label_nif() -> 
-%       ModelId  = erlang:unique_integer([positive]),
-%       ModelType = "0",
-%       ModelArgs = "",
-%       LayersFunctionalityCodes = "1,6", 
-%       LearningRate = "0.01",
-%       Epochs = "50",
-%       OptimizerType = "2",
-%       OptimizerArgs = "",
-%       LossMethod = "2",
-%       DistributedSystemType = "0",
-%       DistributedSystemArg = "",
-%       nerltest_print(nerl:string_format("DATA_DIM_X ~p ~n",[?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_X])),
-%       nerltest_print(nerl:string_format("DATA_DIM_X 2 ~p ~n",[?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X])),
-%       lenDataToRand = ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_X-?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X,
-%       nerltest_print(nerl:string_format("lenDataToRand ~p ~n",[lenDataToRand])),
-%       lenData   = rand:uniform(lenDataToRand),
-%       lenLabelsToRand = ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_Y-?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_Y,
-%       lenLabels =  rand:uniform(lenLabelsToRand),
-%       lenActualData = lenData + ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X,
-%       lenActualLabels = lenLabels + ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_Y,
-%       maxNum = 255, 
+test_count_label_nif() -> 
+      ModelId  = erlang:unique_integer([positive]),
+      ModelType = "0",
+      ModelArgs = "",
+      LayersFunctionalityCodes = "1,6", 
+      LearningRate = "0.01",
+      Epochs = "50",
+      OptimizerType = "2",
+      OptimizerArgs = "",
+      LossMethod = "2",
+      DistributedSystemType = "0",
+      DistributedSystemArg = "",
+      nerltest_print(nerl:string_format("DATA_DIM_X ~p ~n",[?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_X])),
+      nerltest_print(nerl:string_format("DATA_DIM_X 2 ~p ~n",[?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X])),
+      lenDataToRand = ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_X-?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X,
+      nerltest_print(nerl:string_format("lenDataToRand ~p ~n",[lenDataToRand])),
+      lenData   = rand:uniform(lenDataToRand),
+      lenLabelsToRand = ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_Y-?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_Y,
+      lenLabels =  rand:uniform(lenLabelsToRand),
+      lenActualData = lenData + ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X,
+      lenActualLabels = lenLabels + ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_Y,
+      maxNum = 255, 
      
-%       if 
-%       (lenActualData == lenActualLabels) -> 
-%                 lenActualDataIf  =  lenActualData+1;
-%       true -> 
-%                 lenActualDataIf  =  lenActualData
-%       end,
-%       NumOfSamples = 50,
-%       dataRand = generate_nerltensor(float,NumOfSamples,lenActualDataIf,1),
-%       {NerlTensor , _Type} = nerlNIF:nerltensor_conversion({dataRand,erl_float} , float),
-%       LayersSizes = [lenActualDataIf-lenActualLabels,lenActualLabels],
-%       LayersTypes = "1,3",
-%       nerlNIF:test_nerlworker_nif(ModelId,ModelType,ModelArgs,LayersSizes, LayersTypes, 
-%       LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, 
-%       OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
-%       NerlTensorDataBinTrain = NerlTensor,
-%       nerlNIF:train_nif(ModelId , NerlTensorDataBinTrain , erl_float), 
-%       nerlNIF:get_distributed_system_train_labels_count_nif(ModelId),
-%       nerlNIF:remove_nerlworker_nif(ModelId).
+      if 
+      (lenActualData == lenActualLabels) -> 
+                lenActualDataIf  =  lenActualData+1;
+      true -> 
+                lenActualDataIf  =  lenActualData
+      end,
+      NumOfSamples = 50,
+      dataRand = generate_nerltensor(float,NumOfSamples,lenActualDataIf,1),
+      {NerlTensor , _Type} = nerlNIF:nerltensor_conversion({dataRand,erl_float} , float),
+      LayersSizes = [lenActualDataIf-lenActualLabels,lenActualLabels],
+      LayersTypes = "1,3",
+      nerlNIF:test_nerlworker_nif(ModelId,ModelType,ModelArgs,LayersSizes, LayersTypes, 
+      LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, 
+      OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
+      NerlTensorDataBinTrain = NerlTensor,
+      nerlNIF:train_nif(ModelId , NerlTensorDataBinTrain , erl_float), 
+      nerlNIF:get_distributed_system_train_labels_count_nif(ModelId),
+      nerlNIF:remove_nerlworker_nif(ModelId).
 
 
 nerlworker_test([], _Performance) -> _Performance;
