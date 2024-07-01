@@ -120,8 +120,8 @@ DistributedSystemTypeMapping = OrderedDict([
     ("none" , "0"),
     ("FedClientAvg" , "1"),
     ("FedServerAvg" , "2"),
-    ("FedClientWegithedAvgClassification" , "3"),
-    ("FedServerWegithedAvgClassification" , "4"),
+    ("FedClientWeightedAvgClassification" , "3"),
+    ("FedServerWeightedAvgClassification" , "4"),
     ("FedClientAE" , "5"),
     ("FedServerAE" , "6")
 ])
