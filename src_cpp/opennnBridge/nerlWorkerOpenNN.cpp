@@ -486,6 +486,15 @@ namespace nerlnet
                           }
                     break;
                 }
+                case LAYER_TYPE_BATCHNORMALIZATION: 
+                {
+                    int layer_size  = curr_layer->get_dim_size(DIM_X_IDX);
+                    BatchNormalizationLayer* newLayer;
+                    newLayer->set(layer_size);
+                    neural_network_ptr->add_layer(newLayer);
+
+                    break;
+                }
             }  
             curr_layer = curr_layer->get_next_layer_ptr();
         }
