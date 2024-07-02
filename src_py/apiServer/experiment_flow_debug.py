@@ -20,9 +20,9 @@ api_server_instance = ApiServer()
 api_server_instance.download_dataset(TEST_DATASET_IDX)
 #api_server_instance.help()
 api_server_instance.showJsons()
-dc_idx = 2
-conn_idx = 21
-exp_idx = 3
+dc_idx = 0
+conn_idx = 25
+exp_idx = 0
 api_server_instance.setJsons(dc_idx, conn_idx, exp_idx)
 dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 

@@ -17,7 +17,7 @@ class AeRed
     AeRed(float k = PARAM_K_DEFAULT , float alpha = ALPHA_DEFAULT);
     ~AeRed();
 
-    fTensor1DPtr update_batch(fTensor1D loss_values);
+    fTensor2DPtr update_batch(fTensor2DPtr loss_values);
     float update_sample(float loss_value);
     
     private:

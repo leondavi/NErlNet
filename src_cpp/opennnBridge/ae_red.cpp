@@ -3,7 +3,7 @@
 namespace nerlnet
 {
     
-AeRed::AeRed(float k, float alpha)
+AeRed::AeRed(float k, float alpha) // TODO Add ModelArgs and parse them here
 {
     _k = k;
     _alpha = alpha;
@@ -20,13 +20,14 @@ AeRed::~AeRed()
 
 }
 
-fTensor1DPtr AeRed::update_batch(fTensor1D loss_values)
+fTensor2DPtr AeRed::update_batch(fTensor2DPtr loss_values)
 {
-    fTensor1DPtr result = std::make_shared<fTensor1D>(loss_values.size());
-    for(int i = 0; i < loss_values.size() - 1; i++)
+    fTensor2DPtr result = std::make_shared<fTensor2D>(loss_values->dimension(0), loss_values->dimension(1));
+    for(int i = 0; i < (*loss_values).dimension(0); i++)
     {
-        float val = update_sample(loss_values(i));
-        result->data()[i] = val;
+        float val = update_sample((*loss_values)(i, 0));
+        if ((*loss_values)(i) == val) (*result)(i, 0) = 1;
+        else (*result)(i, 0) = 0;
     }
     return result;
 }

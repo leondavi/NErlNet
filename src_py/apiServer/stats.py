@@ -183,7 +183,7 @@ class Stats():
                         worker_missed_batches[(worker_name, source_name, str(batch_id))] = (starting_offset + batch_id * batch_size, batch_size)  # save the missing batch
                 
                 df_worker_labels = df_worker_labels.dropna()
-                #print(df_worker_labels)
+                # print(df_worker_labels)
                 for batch_id in range(total_batches_per_source):
                     batch_db = worker_db.get_batch(source_name, str(batch_id))
                     if batch_db:
@@ -191,53 +191,76 @@ class Stats():
                         # cycle = according indexs of panadas (with jump)
                         cycle = int(batch_db.get_batch_id())
                         tensor_data = batch_db.get_tensor_data()
-                        tensor_data = tensor_data.reshape(batch_size, num_of_labels)
+                        # print(f"tensor_data shape: {tensor_data.shape}")
+                        tensor_data = tensor_data.reshape(batch_size, num_of_labels) 
                         #print(df_worker_labels)
                         #print(tensor_data)
                         start_index = cycle * batch_size
                         end_index = (cycle + 1) * batch_size
                         df_worker_labels.iloc[start_index:end_index, num_of_labels:] = None # Fix an issue of pandas of incompatible dtype
                         df_worker_labels.iloc[start_index:end_index, num_of_labels:] = tensor_data
-                        #print(df_worker_labels)
+                        # print(df_worker_labels)
 
-
-                # Take 2 list from the df, one for the actual labels and one for the predict labels to build the confusion matrix
-                max_column_predict_index = df_worker_labels.iloc[:, num_of_labels:].idxmax(axis=1)
-                max_column_predict_index = max_column_predict_index.tolist()
-                max_column_predict_index = [int(predict_index) - num_of_labels for predict_index in max_column_predict_index] # fix the index to original labels index
-                max_column_labels_index = df_worker_labels.iloc[:, :num_of_labels].idxmax(axis=1)
-                max_column_labels_index = max_column_labels_index.tolist()
-                #print(f"max_column_predict_index: {max_column_predict_index}")
-                #print(f"max_column_labels_index: {max_column_labels_index}")
-                
-                # building confusion matrix for each class
-                for class_index, class_name in enumerate(self.headers_list):
-                    class_actual_list = [1 if label_num == class_index else 0 for label_num in max_column_labels_index]   # 1 if the label is belong to the class, 0 otherwise
-                    class_predict_list = [1 if label_num == class_index else 0 for label_num in max_column_predict_index]   # 1 if the label is belong to the class, 0 otherwise
-                    confusion_matrix = metrics.confusion_matrix(class_actual_list, class_predict_list)  
-                    #confusion_matrix_np = confusion_matrix.to_numpy()
+                if len(self.headers_list) == 1:
+                    class_name = self.headers_list[0]
+                    actual_labels = df_worker_labels.iloc[:, :num_of_labels].values.flatten().tolist()
+                    predict_labels = df_worker_labels.iloc[:, num_of_labels:].values.flatten().tolist()
+                    confusion_matrix = metrics.confusion_matrix(actual_labels, predict_labels)
                     confusion_matrix_source_dict[(source_name, worker_name, class_name)] = confusion_matrix
                     if (worker_name, class_name) not in confusion_matrix_worker_dict:
                         confusion_matrix_worker_dict[(worker_name, class_name)] = confusion_matrix
                     else:
                         confusion_matrix_worker_dict[(worker_name, class_name)] += confusion_matrix
+                    
+                else: # Multi-Class
+                    # Take 2 list from the df, one for the actual labels and one for the predict labels to build the confusion matrix
+                    max_column_predict_index = df_worker_labels.iloc[:, num_of_labels:].idxmax(axis=1) 
+                    max_column_predict_index = max_column_predict_index.tolist() 
+                    max_column_predict_index = [int(predict_index) - num_of_labels for predict_index in max_column_predict_index] # fix the index to original labels index
+                    max_column_labels_index = df_worker_labels.iloc[:, :num_of_labels].idxmax(axis=1)
+                    max_column_labels_index = max_column_labels_index.tolist()
+                    
+                    # building confusion matrix for each class
+                    for class_index, class_name in enumerate(self.headers_list):
+                        class_actual_list = [1 if label_num == class_index else 0 for label_num in max_column_labels_index]   # 1 if the label is belong to the class, 0 otherwise
+                        class_predict_list = [1 if label_num == class_index else 0 for label_num in max_column_predict_index]   # 1 if the label is belong to the class, 0 otherwise
+                        confusion_matrix = metrics.confusion_matrix(class_actual_list, class_predict_list)  
+                        #confusion_matrix_np = confusion_matrix.to_numpy()
+                        confusion_matrix_source_dict[(source_name, worker_name, class_name)] = confusion_matrix
+                        if (worker_name, class_name) not in confusion_matrix_worker_dict:
+                            confusion_matrix_worker_dict[(worker_name, class_name)] = confusion_matrix
+                        else:
+                            confusion_matrix_worker_dict[(worker_name, class_name)] += confusion_matrix
                 
 
         if plot:
             workers = sorted(list({tup[0] for tup in confusion_matrix_worker_dict.keys()}))
             classes = sorted(list({tup[1] for tup in confusion_matrix_worker_dict.keys()}))
             fig, ax = plt.subplots(nrows=len(workers), ncols=len(classes),figsize=(4*len(classes),4*len(workers)),dpi=140)
-            for i , worker in enumerate(workers): 
-                for j , pred_class in enumerate(classes):
-                    conf_mat = confusion_matrix_worker_dict[(worker , pred_class)]
-                    heatmap = sns.heatmap(data=conf_mat ,ax=ax[i,j], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
+            if len(classes) > 1:
+                for i , worker in enumerate(workers): 
+                    for j , pred_class in enumerate(classes):
+                        conf_mat = confusion_matrix_worker_dict[(worker , pred_class)]
+                        # print(f"conf_mat: {conf_mat}")
+                        heatmap = sns.heatmap(data=conf_mat ,ax=ax[i,j], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
+                        cbar = heatmap.collections[0].colorbar
+                        cbar.ax.tick_params(labelsize = 8)
+                        ax[i, j].set_title(f"{worker} , Class '{pred_class}'" , fontsize=12)
+                        ax[i, j].tick_params(axis='both', which='major', labelsize=8) 
+                        ax[i, j].set_xlabel("Predicted Label" , fontsize=8)
+                        ax[i, j].set_ylabel("True Label" , fontsize=8)
+                        ax[i, j].set_aspect('equal')
+            else:
+                for i, worker in enumerate(workers):
+                    conf_mat = confusion_matrix_worker_dict[(worker , classes[0])]
+                    heatmap = sns.heatmap(data=conf_mat ,ax=ax[i], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
                     cbar = heatmap.collections[0].colorbar
                     cbar.ax.tick_params(labelsize = 8)
-                    ax[i, j].set_title(f"{worker} , Class '{pred_class}'" , fontsize=12)
-                    ax[i, j].tick_params(axis='both', which='major', labelsize=8) 
-                    ax[i, j].set_xlabel("Predicted Label" , fontsize=8)
-                    ax[i, j].set_ylabel("True Label" , fontsize=8)
-                    ax[i, j].set_aspect('equal')
+                    ax[i].set_title(f"{worker} , Class '{classes[0]}'" , fontsize=12)
+                    ax[i].tick_params(axis='both', which='major', labelsize=8) 
+                    ax[i].set_xlabel("Predicted Label" , fontsize=8)
+                    ax[i].set_ylabel("True Label" , fontsize=8)
+                    ax[i].set_aspect('equal')
             fig.subplots_adjust(wspace=0.4 , hspace=0.4)
             plt.show()
                 
