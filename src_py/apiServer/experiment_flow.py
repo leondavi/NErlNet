@@ -9,6 +9,7 @@ from nerl_csv_dataset_db import *
 from events_sync import *
 from networkComponents import *
 from stats import * 
+from statsTiles import *
 from experiment_phase import *
 
 # Todo check imports and remove unused ones
@@ -57,12 +58,12 @@ class ExperimentFlow():
     def get_csv_dataset(self):
         return self.csv_dataset
 
-    def generate_stats(self, experiment_phase = None) -> Stats:
+    def generate_stats(self, experiment_phase = None) -> StatsTiles:
         if experiment_phase is None:
             experiment_phase = self.get_current_experiment_phase() 
-        return Stats(experiment_phase)
+        return StatsTiles(experiment_phase)
 
-    def merge_stats(self, stats_list: list) -> Stats:
+    def merge_stats(self, stats_list: list) -> StatsTiles:
         pass
 
     def parse_experiment_flow_json(self, json_path : str, override_csv_path = ""):
