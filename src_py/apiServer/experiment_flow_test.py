@@ -54,8 +54,8 @@ assert curr_experiment_phase_exists, "No experiment phase found"
 api_server_instance.run_current_experiment_phase() # blocking until phase is completed
 stats_train = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
 
-next_expertiment_phase_exist = api_server_instance.next_experiment_phase()
-assert next_expertiment_phase_exist, "No next experiment phase found"
+api_server_instance.next_experiment_phase()
+assert api_server_instance.next_expertiment_phase_exist, "No next experiment phase found"
 api_server_instance.run_current_experiment_phase() # blocking until phase is completed
 stats_predict = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
 
