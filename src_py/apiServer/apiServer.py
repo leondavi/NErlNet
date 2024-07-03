@@ -28,6 +28,7 @@ class ApiServer(metaclass=Singleton):
         self.experiments_dict = {}
         self.current_exp = None
         self.apiserver_event_sync = EventSync() # pay attention! there are two kinds of syncs one for experiment phase events and one for api-server events
+        self.next_expertiment_phase_exist = True      # flag to check if there are more phases to run
 
         # Create a new folder for the results:
         Path(EXPERIMENT_RESULTS_PATH).mkdir(parents=True, exist_ok=True)
@@ -153,6 +154,7 @@ class ApiServer(metaclass=Singleton):
         LOG_INFO("Data is ready in sources")
 
     def run_current_experiment_phase(self):
+        assert self.next_expertiment_phase_exist, "experiment override is not supported!"     # don't allow calling the same phase twice 
         current_exp_phase = self.current_exp.get_current_experiment_phase()
         LOG_INFO(f"Experiment phase: {current_exp_phase.get_name()} of type {current_exp_phase.get_phase_type()} starts running...")
         csv_dataset_inst = self.current_exp.get_csv_dataset()
@@ -179,7 +181,8 @@ class ApiServer(metaclass=Singleton):
         self.communication_stats()
 
         LOG_INFO(f"Phase of {current_exp_phase.get_name()} {current_exp_phase.get_phase_type()} completed")
-
+        
+        self.next_expertiment_phase_exist = False  
 
 
     def next_experiment_phase(self):
@@ -189,8 +192,9 @@ class ApiServer(metaclass=Singleton):
         current_exp_flow.current_exp_phase_index += 1
         if not self.experiment_phase_is_valid():
             LOG_WARNING("No more phases to run")
-            return False
-        return True
+            self.next_expertiment_phase_exist = False
+        else:
+            self.next_expertiment_phase_exist = True
 
     def communication_stats(self):
         assert self.experiment_phase_is_valid(), "No valid experiment phase"
