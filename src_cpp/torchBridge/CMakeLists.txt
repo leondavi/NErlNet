@@ -25,8 +25,13 @@ add_definitions( -D LOGGER_ENABLE_COLORS=1 )
 add_definitions( -D LOGGER_ENABLE_COLORS_ON_USER_HEADER=0 )
 
 set(SRC_CODE
+    "nerltensorTorchDefs.h"
+    "nifppNerlTensorTorch.h"
     "torchNIF.h"
     "torchNIF.cpp"
+    "NerlWorkerTorch.h"
+    "NerlWorkerTorch.cpp"
+    "NerlWorkerTorchNIF.h"
 	)
 
 add_library(${PROJECT_NAME} SHARED ${SRC_CODE})
