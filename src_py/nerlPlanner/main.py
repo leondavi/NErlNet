@@ -1,6 +1,10 @@
+
+from Definitions import *
+PySimpleGUI_License = PYSIMPLEGUI_5_LICENSE
+
 import PySimpleGUI as sg
 from Handlers import *
-from Definitions import *
+
 from WinWorkerDialog import WinWorkerDialog
 from WinExperimentFlowDialog import WinExperimentFlowDialog
 from WinCommunicationMapDialog import WinCommunicationMapDialog
