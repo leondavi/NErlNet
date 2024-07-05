@@ -103,10 +103,10 @@ namespace nifpp
             colmajor_to_rowmajor_3d<BasicType, Eigen::Tensor<BasicType,CASE_3D>>(tensor_ptr, tensor_ptr_rowmaj);
             dims_vec_from_tensor<BasicType,std::shared_ptr<Eigen::Tensor<BasicType,CASE_3D,Eigen::RowMajor>>>(tensor_ptr_rowmaj, dims_vec, CASE_3D, tensor_total_size);
             data_bytes_ptr = tensor_ptr_rowmaj->data();
-            // copy data
-            std::memcpy(nifpp_bin.data, dims_vec.data(), dim_size);
-            std::memcpy(nifpp_bin.data + dim_size, data_bytes_ptr, data_size);
         }
+        // copy data
+        std::memcpy(nifpp_bin.data, dims_vec.data(), dim_size);
+        std::memcpy(nifpp_bin.data + dim_size, data_bytes_ptr, data_size);
 
         ret_bin_term = nifpp::make(env, nifpp_bin);
     }
@@ -128,11 +128,11 @@ namespace nifpp
             colmajor_to_rowmajor_2d<BasicType, Eigen::Tensor<BasicType,CASE_2D>>(tensor_ptr, tensor_ptr_rowmaj);
             dims_vec_from_tensor<BasicType,std::shared_ptr<Eigen::Tensor<BasicType,CASE_2D,Eigen::RowMajor>>>(tensor_ptr_rowmaj, dims_vec, CASE_2D, tensor_total_size);
             data_bytes_ptr = tensor_ptr_rowmaj->data();
-            
-            // copy data
-            std::memcpy(nifpp_bin.data, dims_vec.data(), dim_size);
-            std::memcpy(nifpp_bin.data + dim_size, data_bytes_ptr, data_size);
         }
+
+        // copy data
+        std::memcpy(nifpp_bin.data, dims_vec.data(), dim_size);
+        std::memcpy(nifpp_bin.data + dim_size, data_bytes_ptr, data_size);
 
         ret_bin_term = nifpp::make(env, nifpp_bin);
     }
