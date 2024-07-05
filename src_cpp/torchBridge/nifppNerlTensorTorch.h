@@ -19,6 +19,8 @@ namespace nifpp
     // Declarations
     template<typename BasicType> int get_nerltensor_dims(ErlNifEnv *env , ERL_NIF_TERM bin_term, nerltensor_dims &dims_info);
     template<typename BasicType> int get_nerltensor(ErlNifEnv *env , ERL_NIF_TERM bin_term, TorchTensor &tensor, torch::ScalarType torch_dtype);
+    template<typename BasicType> void make_tensor(ErlNifEnv *env , nifpp::TERM &ret_bin_term, TorchTensor &tensor);
+
 
     // Definitions
     template<typename BasicType> int get_nerltensor_dims(ErlNifEnv *env , ERL_NIF_TERM bin_term, nerltensor_dims &dims_info)
@@ -84,6 +86,34 @@ namespace nifpp
         // copy data from nerltensor to torch tensor
         int skip_dims_bytes = (DIMS_TOTAL * sizeof(BasicType));
         std::memcpy(tensor.data_ptr(),bin.data + skip_dims_bytes, sizeof(BasicType)*tensor.numel());
+    }
+
+    template<typename BasicType> void make_tensor(ErlNifEnv *env , nifpp::TERM &ret_bin_term, TorchTensor &tensor)
+    {
+        std::vector<BasicType> dims;
+        dims.resize(DIMS_TOTAL);
+        for (int dim=0; dim < DIMS_TOTAL; dim++)
+        {
+            if (dim < tensor.sizes().Length())
+            {
+                dims[dim] = static_cast<BasicType>(tensor.sizes()[dim]);
+            }
+            else
+            {
+                dims[dim] = 1;
+            }
+        }
+        size_t dims_size = DIMS_TOTAL * sizeof(BasicType);
+        size_t data_size = tensor.numel() * sizeof(BasicType);
+
+        nifpp::binary nifpp_bin(dims_size + data_size);
+
+        assert((sizeof(BasicType) == tensor.element_size(), "Size of BasicType and torch tensor element size mismatch"));
+
+        std::memcpy(nifpp_bin.data, dims.data(), dims_size);
+        std::memcpy(nifpp_bin.data + dims_size, tensor.data_ptr(), data_size);
+
+        ret_bin_term = nifpp:make(env, nifpp_bin);
     }
 
 }
