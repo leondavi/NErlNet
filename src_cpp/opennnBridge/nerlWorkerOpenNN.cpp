@@ -8,10 +8,10 @@ namespace nerlnet
 // ----- NerlWorkerOpenNN -----
 
     NerlWorkerOpenNN::NerlWorkerOpenNN(int model_type, std::string &model_args_str , std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
-                     float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
-                     int loss_method, int distributed_system_type, std::string &distributed_system_args_str) : NerlWorker(model_type, model_args_str , layer_sizes_str, layer_types_list, layers_functionality,
-                                                                                                                      learning_rate, epochs, optimizer_type, optimizer_args_str,
-                                                                                                                      loss_method, distributed_system_type, distributed_system_args_str)
+                    float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
+                    int loss_method, int distributed_system_type, std::string &distributed_system_args_str) : NerlWorker(model_type, model_args_str , layer_sizes_str, layer_types_list, layers_functionality,
+                                                                                                                    learning_rate, epochs, optimizer_type, optimizer_args_str,
+                                                                                                                    loss_method, distributed_system_type, distributed_system_args_str)
     {
         _neural_network_ptr = std::make_shared<opennn::NeuralNetwork>();
         generate_opennn_neural_network();
@@ -49,6 +49,10 @@ namespace nerlnet
         {
             case MODEL_TYPE_AE_CLASSIFIER:
             {
+                loss_val_tensor = std::make_shared<fTensor2D>(3, 1);
+                (*loss_val_tensor)(0, 0) = static_cast<float>(_last_loss);
+                (*loss_val_tensor)(1, 0) = _ae_red_ptr->_ema_event;
+                (*loss_val_tensor)(2, 0) = _ae_red_ptr->_ema_normal;
                 break;
             }
             default:
@@ -91,6 +95,8 @@ namespace nerlnet
                 fTensor2DPtr results = std::make_shared<fTensor2D>(num_of_samples, num_of_labels + num_of_labels*2); // LOWER/UPPER for each label
                 fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
                 *calculate_res = neural_network->calculate_outputs(TrainData->data(), inputs_dimensions);
+
+                // MSE Calculation
                 fTensor2DPtr loss_values_mse = std::make_shared<fTensor2D>(num_of_samples, 1);
                 fTensor2D diff = (*calculate_res - *_aec_data_set);
                 fTensor2D squared_diff = diff.pow(2);
@@ -98,19 +104,8 @@ namespace nerlnet
                 fTensor1D mse1D = (1.0 / static_cast<float>(_aec_data_set->dimension(0))) * sum_squared_diff;
                 fTensor2D mse2D = mse1D.reshape(Eigen::array<int, 2>({num_of_samples, 1}));
                 *loss_values_mse = mse2D;
-                // cout << "MSE Loss: " << mse_loss << endl;
-                fTensor2DPtr res = _ae_red_ptr->update_batch(loss_values_mse);
-                // cout << "AE_RED RESULT VECTOR:" << endl << *res << endl;
-                float lower_boundary = _ae_red_ptr->_ema_event; 
-                float upper_boundary = _ae_red_ptr->_ema_normal;
 
-                // concat res_ptr with lower and upper boundaries
-                for (Index i = 0; i < num_of_samples; i++)
-                {
-                    (*results)(i, 0) = (*loss_values_mse)(i, 0);
-                    (*results)(i, 1) = lower_boundary;
-                    (*results)(i, 2) = upper_boundary;
-                }
+                _ae_red_ptr->update_batch(loss_values_mse); // Update thresholds
                 
                 break;
             }
@@ -291,52 +286,52 @@ namespace nerlnet
             }
             case MODEL_TYPE_AE_CLASSIFIER:
             {
-            _aec_data_set = TrainDataNNptr; 
-            Eigen::array<int, 2> bcast({1, 2}); 
-            std::shared_ptr<Eigen::Tensor<float,2>> autoencoder_data = std::make_shared<Eigen::Tensor<float,2>>(TrainDataNNptr->broadcast(bcast));
-            int num_of_features = neural_network_ptr->get_inputs_number();
-            int num_of_output_neurons = neural_network_ptr->get_outputs_number();
-            bool data_set_condition = (num_of_features + num_of_output_neurons) == autoencoder_data->dimension(1);
-            assert(("issue with data input/output dimensions", data_set_condition));
-            _data_set->set_data(*autoencoder_data);
-            _data_set->set(autoencoder_data->dimension(0) , num_of_features , num_of_output_neurons); // TODO CHECK
-            break;
+                _aec_data_set = TrainDataNNptr; 
+                Eigen::array<int, 2> bcast({1, 2}); 
+                std::shared_ptr<Eigen::Tensor<float,2>> autoencoder_data = std::make_shared<Eigen::Tensor<float,2>>(TrainDataNNptr->broadcast(bcast));
+                int num_of_features = neural_network_ptr->get_inputs_number();
+                int num_of_output_neurons = neural_network_ptr->get_outputs_number();
+                bool data_set_condition = (num_of_features + num_of_output_neurons) == autoencoder_data->dimension(1);
+                assert(("issue with data input/output dimensions", data_set_condition));
+                _data_set->set_data(*autoencoder_data);
+                _data_set->set(autoencoder_data->dimension(0) , num_of_features , num_of_output_neurons); // TODO CHECK
+                break;
             }
             default:
             {  
-            int data_cols = TrainDataNNptr->dimension(1);
-            int num_of_features = neural_network_ptr->get_inputs_number();
-            int num_of_output_neurons = neural_network_ptr->get_outputs_number(); 
-            _data_set->set_data(*(TrainDataNNptr));
-             // Data set definitions
-             bool data_set_condition = (num_of_features + num_of_output_neurons) == data_cols;
-             assert(("issue with data input/output dimensions", data_set_condition));
-            if(neural_network_ptr->has_convolutional_layer()){
-                 Tensor<Index, 1> input_variable_dimension(3);
-                 input_variable_dimension.setValues({this->_nerl_layers_linked_list->get_dim_size(DIM_Z_IDX), this->_nerl_layers_linked_list->get_dim_size(DIM_Y_IDX), this->_nerl_layers_linked_list->get_dim_size(DIM_X_IDX)});
-                 _data_set->set_input_variables_dimensions(input_variable_dimension);
-                int samples_num =  _data_set->get_samples_number();
-                int input_variable = this->_nerl_layers_linked_list->get_dim_size(DIM_Y_IDX)* this->_nerl_layers_linked_list->get_dim_size(DIM_X_IDX);
-                for(Index sample_indx = 0; sample_indx < samples_num ; sample_indx++)
-                 {
-                   _data_set->set_sample_use(sample_indx, DataSet::SampleUse::Training);
-                 }
-            
-                for(Index column_indx = 0; column_indx <input_variable ; column_indx++)
-                {
-                  _data_set->set_column_use(column_indx, DataSet::VariableUse::Input);
-                  _data_set->set_column_type(column_indx, DataSet::ColumnType::Numeric);
-                 }
-                for(Index column_indx = input_variable; column_indx < input_variable + num_of_output_neurons; column_indx++)
-                 {
-                    _data_set->set_column_type(column_indx, DataSet::ColumnType::Binary);
-                    _data_set->set_column_use(column_indx, DataSet::VariableUse::Target);
-                 }
-                    _data_set->set_columns_scalers(Scaler::NoScaling);
-            }else{
-                    _data_set->set(TrainDataNNptr->dimension(0), num_of_features, num_of_output_neurons);
-            }
-              break;
+                int data_cols = TrainDataNNptr->dimension(1);
+                int num_of_features = neural_network_ptr->get_inputs_number();
+                int num_of_output_neurons = neural_network_ptr->get_outputs_number(); 
+                _data_set->set_data(*(TrainDataNNptr));
+                // Data set definitions
+                bool data_set_condition = (num_of_features + num_of_output_neurons) == data_cols;
+                assert(("issue with data input/output dimensions", data_set_condition));
+                if(neural_network_ptr->has_convolutional_layer()){
+                    Tensor<Index, 1> input_variable_dimension(3);
+                    input_variable_dimension.setValues({this->_nerl_layers_linked_list->get_dim_size(DIM_Z_IDX), this->_nerl_layers_linked_list->get_dim_size(DIM_Y_IDX), this->_nerl_layers_linked_list->get_dim_size(DIM_X_IDX)});
+                    _data_set->set_input_variables_dimensions(input_variable_dimension);
+                    int samples_num =  _data_set->get_samples_number();
+                    int input_variable = this->_nerl_layers_linked_list->get_dim_size(DIM_Y_IDX)* this->_nerl_layers_linked_list->get_dim_size(DIM_X_IDX);
+                    for(Index sample_indx = 0; sample_indx < samples_num ; sample_indx++)
+                    {
+                    _data_set->set_sample_use(sample_indx, DataSet::SampleUse::Training);
+                    }
+                
+                    for(Index column_indx = 0; column_indx <input_variable ; column_indx++)
+                    {
+                    _data_set->set_column_use(column_indx, DataSet::VariableUse::Input);
+                    _data_set->set_column_type(column_indx, DataSet::ColumnType::Numeric);
+                    }
+                    for(Index column_indx = input_variable; column_indx < input_variable + num_of_output_neurons; column_indx++)
+                    {
+                        _data_set->set_column_type(column_indx, DataSet::ColumnType::Binary);
+                        _data_set->set_column_use(column_indx, DataSet::VariableUse::Target);
+                    }
+                        _data_set->set_columns_scalers(Scaler::NoScaling);
+                }else{
+                        _data_set->set(TrainDataNNptr->dimension(0), num_of_features, num_of_output_neurons);
+                }
+                break;
             }
          }
     }

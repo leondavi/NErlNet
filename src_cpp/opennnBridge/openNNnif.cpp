@@ -22,7 +22,6 @@ void* trainFun(void* arg)
     std::shared_ptr<opennn::DataSet> data_set_ptr = std::make_shared<opennn::DataSet> ();
     std::shared_ptr<opennn::NeuralNetwork> neural_network_ptr = nerlworker_opennn->get_neural_network_ptr();
     nerlworker_opennn->set_dataset(data_set_ptr, TrainNNptr->data);
-    data_set_ptr = nerlworker_opennn->get_data_set();
     // perform training
     nerlworker_opennn->perform_training();
     // post training
