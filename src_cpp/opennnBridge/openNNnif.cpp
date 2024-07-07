@@ -24,8 +24,6 @@ void* trainFun(void* arg)
     nerlworker_opennn->set_dataset(data_set_ptr, TrainNNptr->data);
     data_set_ptr = nerlworker_opennn->get_data_set();
     // perform training
-    std::shared_ptr<TrainingStrategy> training_strategy_ptr = nerlworker_opennn->get_training_strategy_ptr();
-    training_strategy_ptr->set_data_set_pointer(nerlworker_opennn->get_dataset_ptr().get());
     nerlworker_opennn->perform_training();
     // post training
     nerlworker_opennn->post_training_process(TrainNNptr->data);
