@@ -84,20 +84,35 @@ namespace nerlnet
             {
                 std::shared_ptr<opennn::NeuralNetwork> neural_network = get_neural_network_ptr();
                 Index num_of_samples = _aec_data_set->dimension(0);
+                Index num_of_labels = 1;
                 Index inputs_number = neural_network->get_inputs_number();
                 Tensor<Index, 1> inputs_dimensions(2);
                 inputs_dimensions.setValues({num_of_samples, inputs_number});
+                fTensor2DPtr results = std::make_shared<fTensor2D>(num_of_samples, num_of_labels + num_of_labels*2); // LOWER/UPPER for each label
                 fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
                 *calculate_res = neural_network->calculate_outputs(TrainData->data(), inputs_dimensions);
-                // SAV 
-                fTensor2D absoluteDifferences = (*calculate_res - *_aec_data_set).abs();
-                fTensor1D loss_values_sav = absoluteDifferences.sum(Eigen::array<int, 1>({1}));
-                // MSE
-                fTensor1D loss_values_mse = (float)1/_aec_data_set->dimension(0) * (*calculate_res - *_aec_data_set).pow(2).sum(Eigen::array<int, 1>({1}));
-                //cout << "Loss Values (MSE):" << endl << loss_values_mse << endl;
-                fTensor1DPtr res_sav = _ae_red_ptr->update_batch(loss_values_sav);
-                fTensor1DPtr res_mse = _ae_red_ptr->update_batch(loss_values_mse);
-                //cout << "AE_RED RESULT VECTOR:" << endl << *res_mse << endl;
+                fTensor2DPtr loss_values_mse = std::make_shared<fTensor2D>(num_of_samples, 1);
+                fTensor2D diff = (*calculate_res - *_aec_data_set);
+                fTensor2D squared_diff = diff.pow(2);
+                fTensor1D sum_squared_diff = squared_diff.sum(Eigen::array<int, 1>({1}));
+                fTensor1D mse1D = (1.0 / static_cast<float>(_aec_data_set->dimension(0))) * sum_squared_diff;
+                fTensor2D mse2D = mse1D.reshape(Eigen::array<int, 2>({num_of_samples, 1}));
+                *loss_values_mse = mse2D;
+                // cout << "MSE Loss: " << mse_loss << endl;
+                fTensor2DPtr res = _ae_red_ptr->update_batch(loss_values_mse);
+                // cout << "AE_RED RESULT VECTOR:" << endl << *res << endl;
+                float lower_boundary = _ae_red_ptr->_ema_event; 
+                float upper_boundary = _ae_red_ptr->_ema_normal;
+
+                // concat res_ptr with lower and upper boundaries
+                for (Index i = 0; i < num_of_samples; i++)
+                {
+                    (*results)(i, 0) = (*loss_values_mse)(i, 0);
+                    (*results)(i, 1) = lower_boundary;
+                    (*results)(i, 2) = upper_boundary;
+                }
+                
+                break;
             }
 
                 
@@ -129,15 +144,17 @@ namespace nerlnet
                 std::shared_ptr<opennn::NeuralNetwork> neural_network = get_neural_network_ptr();
                 Index num_of_samples = _aec_data_set->dimension(0);
                 Index inputs_number = neural_network->get_inputs_number();
-                // SAV 
-                fTensor2D absoluteDifferences = (*result_ptr - *_aec_data_set).abs();
-                fTensor1D loss_values_sav = absoluteDifferences.sum(Eigen::array<int, 1>({1}));
-                // MSE
-                fTensor1D loss_values_mse = (float)1/_aec_data_set->dimension(0) * (*result_ptr - *_aec_data_set).pow(2).sum(Eigen::array<int, 1>({1}));
-                //cout << "Loss Values (MSE):" << endl << loss_values_mse << endl;
-                fTensor1DPtr res_sav = _ae_red_ptr->update_batch(loss_values_sav);
-                fTensor1DPtr res_mse = _ae_red_ptr->update_batch(loss_values_mse);
-                //cout << "AE_RED RESULT VECTOR:" << endl << *res_mse << endl;
+                Index num_of_labels = 3; // TODO need to add bounderies
+                // fTensor2DPtr results = std::make_shared<fTensor2D>(num_of_samples, num_of_labels + num_of_labels*2); // LOWER/UPPER for each label
+                fTensor2DPtr loss_values_mse = std::make_shared<fTensor2D>(num_of_samples , 1);
+                fTensor2D diff = (*result_ptr - *_aec_data_set);
+                fTensor2D squared_diff = diff.pow(2);
+                fTensor1D sum_squared_diff = squared_diff.sum(Eigen::array<int, 1>({1}));
+                fTensor1D mse1D = (1.0 / static_cast<float>(_aec_data_set->dimension(0))) * sum_squared_diff;
+                fTensor2D mse2D = mse1D.reshape(Eigen::array<int, 2>({num_of_samples, 1}));
+                *loss_values_mse = mse2D;
+                result_ptr = _ae_red_ptr->update_batch(loss_values_mse);
+                break;
             }
             // case MODEL_TYPE_LSTM:
             // {
