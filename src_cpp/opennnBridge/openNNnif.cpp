@@ -23,11 +23,14 @@ void* trainFun(void* arg)
     std::shared_ptr<opennn::NeuralNetwork> neural_network_ptr = nerlworker_opennn->get_neural_network_ptr();
     nerlworker_opennn->set_dataset(data_set_ptr, TrainNNptr->data);
     data_set_ptr = nerlworker_opennn->get_data_set();
+    // perform training
     std::shared_ptr<TrainingStrategy> training_strategy_ptr = nerlworker_opennn->get_training_strategy_ptr();
     training_strategy_ptr->set_data_set_pointer(nerlworker_opennn->get_dataset_ptr().get());
-    TrainingResults res = training_strategy_ptr->perform_training();
-    nerlworker_opennn->post_training_process(TrainNNptr->data); 
-    loss_val = res.get_training_error(); // learn about "get_training_error" of opennn
+    nerlworker_opennn->perform_training();
+    // post training
+    nerlworker_opennn->post_training_process(TrainNNptr->data);
+    // retrieve results
+    fTensor2DPtr loss_val_tensor = nerlworker_opennn->get_loss_nerltensor();
     // Stop the timer and calculate the time took for training
     high_resolution_clock::time_point  stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - TrainNNptr->start_time);
@@ -35,7 +38,7 @@ void* trainFun(void* arg)
     ERL_NIF_TERM train_res_and_time;
     ERL_NIF_TERM train_time = enif_make_double(env, duration.count());
 
-    if(isnan(loss_val)) 
+    if(!loss_val_tensor) 
     {
         ERL_NIF_TERM loss_val_term;
         loss_val_term = enif_make_atom(env , NERLNIF_NAN_ATOM_STR);
@@ -45,8 +48,6 @@ void* trainFun(void* arg)
 
     }
     else {
-        fTensor2DPtr loss_val_tensor = std::make_shared<fTensor2D>(1, 1); // allocate tensor for loss value
-        (*loss_val_tensor)(0, 0) = static_cast<float>(loss_val); // set loss value to tensor
         nifpp::TERM loss_val_tensor_term; // allocate erl term for loss value tensor
         nifpp::make_tensor_2d<float,fTensor2D>(env, loss_val_tensor_term, loss_val_tensor);
         train_res_and_time = enif_make_tuple(env, 4 , nerlnif_atom , loss_val_tensor_term , nifpp::make(env, TrainNNptr->return_tensor_type), train_time);

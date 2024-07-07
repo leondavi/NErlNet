@@ -25,6 +25,41 @@ namespace nerlnet
 
     }
 
+    void NerlWorkerOpenNN::perform_training()
+    {
+        TrainingResults res = this->_training_strategy_ptr->perform_training();
+        this->_last_loss = res.get_training_error();
+    
+        switch (_model_type)
+        {
+            default:
+            {
+                break;
+            }
+        }
+    }
+
+    fTensor2DPtr NerlWorkerOpenNN::get_loss_nerltensor()
+    {
+        fTensor2DPtr loss_val_tensor;
+
+        switch (_model_type)
+        {
+            case MODEL_TYPE_AE_CLASSIFIER:
+            {
+                break;
+            }
+            default:
+            {
+                 loss_val_tensor = std::make_shared<fTensor2D>(1, 1); // allocate tensor for loss value
+                (*loss_val_tensor)(0, 0) = static_cast<float>(_last_loss); // set loss value to tensor
+            }
+        }
+
+        return loss_val_tensor;
+
+    } 
+
     void NerlWorkerOpenNN::post_training_process(fTensor2DPtr TrainData)
     {
         switch(_model_type){
