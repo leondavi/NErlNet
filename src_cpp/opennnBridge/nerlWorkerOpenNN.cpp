@@ -139,8 +139,8 @@ namespace nerlnet
                 std::shared_ptr<opennn::NeuralNetwork> neural_network = get_neural_network_ptr();
                 Index num_of_samples = _aec_data_set->dimension(0);
                 Index inputs_number = neural_network->get_inputs_number();
-                Index num_of_labels = 3; // TODO need to add bounderies
-                // fTensor2DPtr results = std::make_shared<fTensor2D>(num_of_samples, num_of_labels + num_of_labels*2); // LOWER/UPPER for each label
+                Index num_of_labels = 1;
+                fTensor2DPtr results = std::make_shared<fTensor2D>(num_of_samples, num_of_labels); 
                 fTensor2DPtr loss_values_mse = std::make_shared<fTensor2D>(num_of_samples , 1);
                 fTensor2D diff = (*result_ptr - *_aec_data_set);
                 fTensor2D squared_diff = diff.pow(2);
