@@ -29,8 +29,7 @@ dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 experiment_name = "test_exp"
 api_server_instance.initialization(experiment_name, dc_json , connmap_json, exp_flow_json) # start to debug
 api_server_instance.send_jsons_to_devices()
-
-next_expertiment_phase_exist = True 
+ 
 api_server_instance.run_current_experiment_phase() # blocking - deppended acks from mainserver
 stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
 stats.get_communication_stats_workers()
@@ -40,7 +39,7 @@ stats.get_communication_stats_routers()
 stats.get_communication_stats_main_server()
 stats.get_loss_ts()
 stats.get_min_loss()
-next_expertiment_phase_exist = api_server_instance.next_experiment_phase()
+api_server_instance.next_experiment_phase()
 api_server_instance.run_current_experiment_phase()
 stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
 confusion_matrix_source_dict, confusion_matrix_worker_dict = stats.get_confusion_matrices()
