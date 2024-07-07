@@ -124,7 +124,7 @@ namespace nerlnet
     }
     
 
-    void NerlWorkerOpenNN::post_predict_process(fTensor2DPtr result_ptr){
+    void NerlWorkerOpenNN::post_predict_process(fTensor2DPtr &result_ptr){
         switch(_model_type){
             case MODEL_TYPE_NN:
             {
