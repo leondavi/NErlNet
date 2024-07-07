@@ -41,6 +41,10 @@ class NerlWorkerOpenNN : public NerlWorker
     std::shared_ptr<opennn::DataSet> get_dataset_ptr() { return _data_set; };
     
 
+    void perform_training();
+    fTensor2DPtr get_loss_nerltensor(); // this is the last calculated loss by perform training
+
+
     private:
 
     std::shared_ptr<opennn::NeuralNetwork> _neural_network_ptr;
@@ -48,6 +52,9 @@ class NerlWorkerOpenNN : public NerlWorker
     std::shared_ptr<opennn::DataSet> _data_set;
     fTensor2DPtr _aec_data_set;
     std::shared_ptr<AeRed> _ae_red_ptr;
+
+    // training vars
+    double _last_loss;
     
     // neural network generator functions
     void generate_opennn_project(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);
