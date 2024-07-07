@@ -27,6 +27,8 @@ namespace nerlnet
 
     void NerlWorkerOpenNN::perform_training()
     {
+        this->_training_strategy_ptr->set_data_set_pointer(this->_data_set.get());
+
         TrainingResults res = this->_training_strategy_ptr->perform_training();
         this->_last_loss = res.get_training_error();
     
