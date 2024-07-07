@@ -14,7 +14,7 @@ sns.set_theme()
 
 class StatsTiles(Stats):
 
-    def __init__(self):
+    def __init__(self, experiment_phase: ExperimentPhase):
         pass
 
     def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
