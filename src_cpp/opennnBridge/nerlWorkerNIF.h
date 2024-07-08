@@ -141,7 +141,7 @@ static ERL_NIF_TERM get_distributed_system_train_labels_count_nif(ErlNifEnv* env
     std::shared_ptr<NerlWorkerOpenNN> nerl_worker_ptr = std::static_pointer_cast<NerlWorkerOpenNN>(bridge_controller.getModelPtr(modelId));
     // assert: the model is a distributed system of federated weighted average classification
     std::shared_ptr<std::vector<int>> train_labels_count = nerl_worker_ptr->get_distributed_system_train_labels_count();
-    nifpp::str_atom nerltensor_type = "erl_int";
+    nifpp::str_atom nerltensor_type = "erl_float";
     fTensor1DPtr train_labels_count_tesnsor_ptr;
     nifpp::TERM term_label_count;
     std::tuple<nifpp::TERM, nifpp::TERM> nerltensor_tuple; 
@@ -149,12 +149,10 @@ static ERL_NIF_TERM get_distributed_system_train_labels_count_nif(ErlNifEnv* env
     train_labels_count_tesnsor_ptr = std::make_shared<fTensor1D>(train_labels_count->size());
      for(int i = 0; i < train_labels_count->size(); i++)
     {
-        int val = (*train_labels_count)[i];
+        float val = (*train_labels_count)[i];
         train_labels_count_tesnsor_ptr->data()[i] = val;
-        std::cout << "train_labels_count->data()[i] = " << train_labels_count->data()[i] << std::endl;
     }
-    std::cout << "train_labels_count->data = " << train_labels_count->data() << std::endl;
-    nifpp::make_tensor_1d<int, fTensor1D>(env, term_label_count, train_labels_count_tesnsor_ptr); //binary tensor
+    nifpp::make_tensor_1d<float, fTensor1D>(env, term_label_count, train_labels_count_tesnsor_ptr); //binary tensor
     nerltensor_tuple = { term_label_count , nifpp::make(env, nerltensor_type) };
     // Return tuple of {nerltensor, nerltensor_type}
     return nifpp::make(env, nerltensor_tuple); // returns NerlTensor erl_int
