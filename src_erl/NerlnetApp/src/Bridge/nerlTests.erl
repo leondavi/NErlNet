@@ -317,22 +317,19 @@ test_count_label_nif() ->
       LossMethod = "2",
       DistributedSystemType = "3",
       DistributedSystemArg = "",
-      nerltest_print(nerl:string_format("DATA_DIM_X ~p",[?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_X])),
-      nerltest_print(nerl:string_format("DATA_DIM_X 2 ~p",[?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X])),
+     % nerltest_print(nerl:string_format("DATA_DIM_X ~p",[?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_X])),
+      %nerltest_print(nerl:string_format("DATA_DIM_X 2 ~p",[?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X])),
       DimMaxDimX = ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_X,
       DimMinDimX = ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X,
       LenDataToRand = DimMaxDimX - DimMinDimX,
-      nerltest_print(nerl:string_format("lenDataToRand ~p",[LenDataToRand])),
+      %nerltest_print(nerl:string_format("lenDataToRand ~p",[LenDataToRand])),
       LenData   = rand:uniform(LenDataToRand),
       LenLabelsToRand = ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_Y-?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_Y,
       LenLabels =  rand:uniform(LenLabelsToRand),
       LenActualData = LenData + ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X,
       LenActualLabels = LenLabels + ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_Y,
-      nerltest_print(nerl:string_format("LenActualData ~p",[LenActualData])),
-      nerltest_print(nerl:string_format("LenActualLabels ~p",[LenActualLabels])),
+      io:format("LenActualData ~p~n LenActualLabels ~p~n",[LenActualData, LenActualLabels]),
 
-      MaxNum = 255, 
-     
       if 
       (LenActualData == LenActualLabels) -> 
                 LenActualDataIf  =  LenActualData+1;
@@ -344,16 +341,19 @@ test_count_label_nif() ->
       NerlTensor = DataRand,
       LayersSizes = nerl:string_format("~p,~p",[LenActualDataIf-LenActualLabels,LenActualLabels]),
       LayersTypes = "1,3",
-      nerltest_print("before test_nerlworker_nif"),
+      io:format("before test_nerlworker_nif ~n"),
       nerlNIF:test_nerlworker_nif(ModelId,ModelType,ModelArgs,LayersSizes, LayersTypes, 
       LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, 
       OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
-      nerltest_print("before train_nif"),
+      io:format("before train_nif ~n"),
       {NerlTensorDataBinTrain , Type} = nerlNIF:nerltensor_conversion({NerlTensor,erl_float} , float),
       nerlNIF:train_nif(ModelId , NerlTensorDataBinTrain , Type), 
-      nerltest_print("before get_distributed_system_train_labels_count_nif"),
-      nerlNIF:get_distributed_system_train_labels_count_nif(ModelId),
-      nerlNIF:remove_nerlworker_nif(ModelId).
+      io:format("before get_distributed_system_train_labels_count_nif ~n"),
+      LabelCount = nerlNIF:get_distributed_system_train_labels_count_nif(ModelId),
+      io:format("before remove_nerlworker_nif ~n"),
+      nerlNIF:remove_nerlworker_nif(ModelId),
+      io:format("finished test ~n").
+
 
 
 nerlworker_test([], _Performance) -> _Performance;

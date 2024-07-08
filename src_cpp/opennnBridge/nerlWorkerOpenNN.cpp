@@ -303,12 +303,8 @@ namespace nerlnet
                 for(int i =0;i<num_of_output_neurons;i++){
                     selected_column_indices(i) = col_num - num_of_output_neurons + i;
                 }
-                cout << _data_set->get_columns_data(selected_column_indices) << endl;
                 Tensor<type, 2> labels = _data_set->get_columns_data(selected_column_indices);
                 Tensor<type, 1> rowSum = labels.sum(Eigen::array<int, 1>{0});
-                cout << labels << " labels " << labels.size() << " size " << endl;
-                cout << rowSum << " rowSum " << rowSum.size() << " size " << endl;
-                cout << rowSum.data() << " rowSum data " << endl;
                 std::vector<int> rowSumVec;
                 size_t tensorSize = rowSum.size();
                 float* tensorData = rowSum.data();
