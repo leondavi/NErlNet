@@ -40,6 +40,7 @@ class NerlWorkerOpenNN : public NerlWorker
     void set_dataset(std::shared_ptr<opennn::DataSet> data_set,fTensor2DPtr TrainDataNNptr);
     std::shared_ptr<opennn::DataSet> get_dataset_ptr() { return _data_set; };
     
+    std::shared_ptr<std::vector<int>> get_distributed_system_train_labels_count() override;
 
     void perform_training();
     fTensor2DPtr get_loss_nerltensor(); // this is the last calculated loss by perform training
@@ -50,6 +51,7 @@ class NerlWorkerOpenNN : public NerlWorker
     std::shared_ptr<opennn::NeuralNetwork> _neural_network_ptr;
     std::shared_ptr<opennn::TrainingStrategy> _training_strategy_ptr;
     std::shared_ptr<opennn::DataSet> _data_set;
+
     fTensor2DPtr _aec_data_set;
     std::shared_ptr<AeRed> _ae_red_ptr;
 

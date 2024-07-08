@@ -14,6 +14,19 @@
                                 _DistributedSystemType = "0",
                                 _DistributedSystemArg = ""} ).
 
+-define(PERCEPTRON_TESTING_DISTRIBUTED_NN,{ _ModelId  = erlang:unique_integer([positive]),
+                                _ModelType = "0",
+                                _ModelArgs = "",
+                                _LayersSizes = "5,30,5,3",
+                                _LayersTypes = "1,3,3,3",
+                                _LayersFunctionalityCodes = "1,6,6,6", % change scaler functionality to 6 to check exception handling
+                                _LearningRate = "0.01",
+                                _Epochs = "50",
+                                _OptimizerType = "2",
+                                _OptimizerArgs = "",
+                                _LossMethod = "2",
+                                _DistributedSystemType = "0", % TODO Ori put the correct value
+                                _DistributedSystemArg = ""} ).
 
 -define(CNN_TESTING_NN,{        _ModelIdCNN  = erlang:unique_integer([positive]),
                                 _ModelTypeCNN = "0",

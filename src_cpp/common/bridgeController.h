@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include <memory>
 #include <stdexcept>
-#include "nifpp.h"
+
 #include "nerlWorker.h" // adding the api of opennn for creating a model
 
 
