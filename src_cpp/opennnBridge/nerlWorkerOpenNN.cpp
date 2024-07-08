@@ -288,13 +288,27 @@ namespace nerlnet
          //------------ Distributed System Type ------------
          switch (_distributed_system_type)
          {
-            case WORKER_DISTRIBUTED_SYSTEM_TYPE_FEDCLIENTWEGITHEDAVGCLASSIFICATION: // Federated Client Weighted Average Classification
+            case WORKER_DISTRIBUTED_SYSTEM_TYPE_FEDCLIENTWEIGHTEDAVGCLASSIFICATION: // Federated Client Weighted Average Classification
             {
                 // TODO Ori - Implement
                 // we need to update _train_labels_count
                 // look at number of output neurons
                 // if this is the first time resize the vector to the number of output neurons
                 // sum columns of labels (assert if num of labels not equal to num of output neurons)
+                int col_num = _data_set->get_columns_number();
+                std::shared_ptr<opennn::NeuralNetwork> neural_network_ptr = get_neural_network_ptr();
+                int num_of_output_neurons = neural_network_ptr->get_outputs_number(); 
+                Tensor<Index, 1> selected_column_indices(num_of_output_neurons);
+                // TODO : add explain the for loop
+                for(int i =0;i<num_of_output_neurons;i++){
+                    selected_column_indices(i) = col_num - num_of_output_neurons + i;
+                }
+                cout << _data_set->get_columns_data(selected_column_indices) << endl;
+                Tensor<type, 2> labels = _data_set->get_columns_data(selected_column_indices);
+                Tensor<type, 1> rowSum = labels.sum(Eigen::array<int, 1>{1});
+                cout << labels << "labels" << endl;
+                cout << rowSum << "rowSum" << endl;
+                _train_labels_count = std::make_shared<std::vector<int>>();
                 break;
             }
             default:
@@ -779,27 +793,16 @@ namespace nerlnet
         return res;
     }
 
-    std::vector<int> NerlWorkerOpenNN::get_distributed_system_train_labels_count()
-    {
+    std::shared_ptr<std::vector<int>> NerlWorkerOpenNN::get_distributed_system_train_labels_count()
+    {       
          switch (_distributed_system_type)
         {
-            case WORKER_DISTRIBUTED_SYSTEM_TYPE_FEDCLIENTWEGITHEDAVGCLASSIFICATION: // Federated Client Weighted Average Classification
+            case WORKER_DISTRIBUTED_SYSTEM_TYPE_FEDCLIENTWEIGHTEDAVGCLASSIFICATION: // Federated Client Weighted Average Classification
             {
                 // TODO Ori - implement
                 // Return copy of the vector
-                int col_num = _data_set->get_columns_number();
-                std::shared_ptr<opennn::NeuralNetwork> neural_network_ptr = get_neural_network_ptr();
-                int num_of_output_neurons = neural_network_ptr->get_outputs_number(); 
-                Tensor<Index, 1> selected_column_indices(num_of_output_neurons);
-                for(int i =0;i<num_of_output_neurons;i++){
-                    selected_column_indices(i) = col_num - num_of_output_neurons + i;
-                }
-                cout << _data_set->get_columns_data(selected_column_indices) << endl;
-                Tensor<type, 2> labels = _data_set->get_columns_data(selected_column_indices);
-                Tensor<type, 1> rowSum = labels.sum(Eigen::array<int, 1>{1});
-                cout << labels << "labels" << endl;
-                cout << rowSum << "rowSum" << endl;
-                _train_labels_count = std::make_shared<std::vector<int>>();
+                // make sure - throw error if data_set doesn't exist
+                return _train_labels_count;
                 break;
             }
             default:

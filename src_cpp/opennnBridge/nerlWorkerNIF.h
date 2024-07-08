@@ -127,21 +127,24 @@ static ERL_NIF_TERM remove_nerlworker_nif(ErlNifEnv* env, int argc, const ERL_NI
 
 }
 
-// static ERL_NIF_TERM get_distributed_system_train_labels_count_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-// {
-//     enum{ARG_MODEL_ID};
-//     unsigned long modelId;
+/**  input -  unsigned long modelId 
+ *   output - nerltensor that is the acc sum of each label in the last training data_set
+ * **/
+static ERL_NIF_TERM get_distributed_system_train_labels_count_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    enum{ARG_MODEL_ID};
+    unsigned long modelId;
 
-//     nifpp::get_throws(env,argv[ARG_MODEL_ID],modelId);
+    nifpp::get_throws(env,argv[ARG_MODEL_ID],modelId);
 
-//     BridgeController& bridge_controller = BridgeController::GetInstance();
-//     std::shared_ptr<NerlWorkerOpenNN> nerl_worker_ptr = std::static_pointer_cast<NerlWorkerOpenNN>(bridge_controller.getModelPtr(modelId));
-//     // assert: the model is a distributed system of federated weighted average classification
-//     std::vector<int> train_labels_count = nerl_worker_ptr->get_distributed_system_train_labels_count();
+    BridgeController& bridge_controller = BridgeController::GetInstance();
+    std::shared_ptr<NerlWorkerOpenNN> nerl_worker_ptr = std::static_pointer_cast<NerlWorkerOpenNN>(bridge_controller.getModelPtr(modelId));
+    // assert: the model is a distributed system of federated weighted average classification
+    std::shared_ptr<std::vector<int>> train_labels_count = nerl_worker_ptr->get_distributed_system_train_labels_count();
 
-//     nifpp::str_atom nerltensor_type = "erl_int";
+    nifpp::str_atom nerltensor_type = "erl_int";
     
-//     nifpp::TERM nerltensor_tuple; // TODO
-//     // Return tuple of {nerltensor, nerltensor_type}
-//     return nifpp::make(env, nerltensor_tuple); // returns NerlTensor erl_int
-// }
+    nifpp::TERM nerltensor_tuple; // TODO
+    // Return tuple of {nerltensor, nerltensor_type}
+    return nifpp::make(env, nerltensor_tuple); // returns NerlTensor erl_int
+}
