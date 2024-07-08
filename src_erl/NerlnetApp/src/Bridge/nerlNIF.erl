@@ -161,7 +161,8 @@ nerltensor_binary_decode(Binary, Type) when erlang:is_binary(Binary) and erlang:
       NerlTensorListForm.
 
 % return the merged list of all supported binary types
-get_all_binary_types() -> ?LIST_BINARY_FLOAT_NERLTENSOR_TYPE ++ ?LIST_BINARY_INT_NERLTENSOR_TYPE.
+get_all_binary_types() ->     io:format("HEREEEEE~n"), 
+                              ?LIST_BINARY_FLOAT_NERLTENSOR_TYPE ++ ?LIST_BINARY_INT_NERLTENSOR_TYPE.
 get_all_nerltensor_list_types() -> ?LIST_GROUP_NERLTENSOR_TYPE.
 % nerltensor_conversion:
 % Type is Binary then: Binary (Compressed Form) --> Erlang List
