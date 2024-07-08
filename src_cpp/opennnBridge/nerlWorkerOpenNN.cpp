@@ -290,26 +290,22 @@ namespace nerlnet
          {
             case WORKER_DISTRIBUTED_SYSTEM_TYPE_FEDCLIENTWEIGHTEDAVGCLASSIFICATION: // Federated Client Weighted Average Classification
             {
-                // TODO Ori - Implement
-                // we need to update _train_labels_count
-                // look at number of output neurons
-                // if this is the first time resize the vector to the number of output neurons
-                // sum columns of labels (assert if num of labels not equal to num of output neurons)
                 int col_num = _data_set->get_columns_number();
-                std::shared_ptr<opennn::NeuralNetwork> neural_network_ptr = get_neural_network_ptr();
-                int num_of_output_neurons = neural_network_ptr->get_outputs_number(); 
+                int num_of_output_neurons = _neural_network_ptr->get_outputs_number(); 
                 Tensor<Index, 1> selected_column_indices(num_of_output_neurons);
-                // TODO : add explain the for loop
+                // selected_column_indices is the indices of the labels, it's wrote
+                // like that because there is a meaning to the order of the labels
+                // it's used in get_columns_data to get the labels (last columns in the data set)
                 for(int i =0;i<num_of_output_neurons;i++){
                     selected_column_indices(i) = col_num - num_of_output_neurons + i;
                 }
                 Tensor<type, 2> labels = _data_set->get_columns_data(selected_column_indices);
-                Tensor<type, 1> rowSum = labels.sum(Eigen::array<int, 1>{0});
+                Tensor<type, 1> rowSum = labels.sum(Eigen::array<int, 1>{0}); // sum of the rows - each col is labels , each row is a sample
                 std::vector<int> rowSumVec;
                 size_t tensorSize = rowSum.size();
                 float* tensorData = rowSum.data();
                 for (size_t i = 0; i < tensorSize; ++i) {
-                    rowSumVec.push_back(tensorData[i]);
+                    rowSumVec.push_back(tensorData[i]); // copy the data to the vector from tensor
                 }
                 _train_labels_count = std::make_shared<std::vector<int>>(rowSumVec);
                 break;
@@ -802,10 +798,11 @@ namespace nerlnet
         {
             case WORKER_DISTRIBUTED_SYSTEM_TYPE_FEDCLIENTWEIGHTEDAVGCLASSIFICATION: // Federated Client Weighted Average Classification
             {
-                // TODO Ori - implement
-                // Return copy of the vector
-                // make sure - throw error if data_set doesn't exist
-                std::cout << "get_distributed_system_train_labels_count" << std::endl;
+                 if (_data_set == nullptr)
+                    {
+                       LogError("NerlWorkerOpenNN::generate_custom_model_nn - _data_set is nullptr");
+                       throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - _data_set is nullptr");
+                    }
                 return _train_labels_count;
                 break;
             }
