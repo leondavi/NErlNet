@@ -318,7 +318,7 @@ count_label_nif_test() ->
       OptimizerType = "2",
       OptimizerArgs = "",
       LossMethod = "2",
-      DistributedSystemType = "4", % TODO this should be derived from AG macro
+      DistributedSystemType = "3", % TODO this should be derived from AG macro
       DistributedSystemArg = "",
       DimMaxDimX = ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_X,
       DimMinDimX = ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X,
