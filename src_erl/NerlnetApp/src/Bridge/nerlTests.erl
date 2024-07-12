@@ -90,9 +90,9 @@ run_tests()->
       NerlworkerTestFunc = fun(_Rounds) ->  Performance = 0, nerlworker_test(NeuralNetworkTestingModelList, Performance) end, 
       NerlworkerTestName = "nerlworker_test",
       test_envelope_nif_performance(NerlworkerTestFunc, NerlworkerTestName, length(NeuralNetworkTestingModelList) ),
-      nerltest_print("count label test"),
+
       CountLabelTestName = "test_count_label",
-      CountLabelTestFunc = fun(_Rounds) ->   test_count_label_nif() end, 
+      CountLabelTestFunc = fun(_Rounds) ->   count_label_nif_test() end, 
       test_envelope(CountLabelTestFunc, CountLabelTestName, 1 ),
       nerltest_print("Tests Completed"),
       ok.
@@ -305,7 +305,10 @@ nerlworker_test_generate_data(LayersSizes, LayerTypes, NumOfSamples) -> %% Ask D
       {NerlTensor , Type} = nerlNIF:nerltensor_conversion({ErlDataTensor,erl_float} , float),
       {NerlTensor , Type , ErlDataTensor , erl_float , NumOfFeatures , NumOfLabels}.
 
-test_count_label_nif() -> 
+count_label_nif_test() -> 
+      % TODO - Ori please move the network configuration to neural_networks_testing_models.hrl
+      % Please add performance evaluation - Run this test 10-20 rounds and accumulate performance of nif
+      % By adding tic toc before and after the NIF
       ModelId  = erlang:unique_integer([positive]),
       ModelType = "0",
       ModelArgs = "",
@@ -315,7 +318,7 @@ test_count_label_nif() ->
       OptimizerType = "2",
       OptimizerArgs = "",
       LossMethod = "2",
-      DistributedSystemType = "3",
+      DistributedSystemType = "4", % TODO this should be derived from AG macro
       DistributedSystemArg = "",
       DimMaxDimX = ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_X,
       DimMinDimX = ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X,
@@ -333,8 +336,8 @@ test_count_label_nif() ->
                 LenActualDataIf  =  LenActualData
       end,
       DataRand = generate_nerltensor(float,?TEST_LABEL_COUNT_NUMOF_SAMPLES,LenActualDataIf,1),
-      LayersSizes = nerl:string_format("~p,~p",[LenActualDataIf-LenActualLabels,LenActualLabels]),
-      LayersTypes = "1,3",
+      LayersSizes = nerl:string_format("~p,~p",[LenActualDataIf-LenActualLabels,LenActualLabels]), 
+      LayersTypes = "1,3",% Please move it to neural_networks_testing_models.hrl as part of NN configuration
       nerlNIF:test_nerlworker_nif(ModelId,ModelType,ModelArgs,LayersSizes, LayersTypes, 
       LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, 
       OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
@@ -346,11 +349,11 @@ test_count_label_nif() ->
       {_,DataRandRes} = lists:split(3, DataRand),
       Sum = get_label_count(LenActualLabels,LenActualDataIf,SumInit,DataRandRes,0) ,
       {_,LabelCountRes} = lists:split(3, LabelCountFloat),
+      nerlNIF:remove_nerlworker_nif(ModelId),
       if 
             (Sum == LabelCountRes) -> nerltest_print("Label count test passed");
             true -> throw(nerl:string_format("Label count test failed ~n Sum: ~p ~n LabelCount: ~p",[Sum,LabelCountRes]))
-      end,
-      nerlNIF:remove_nerlworker_nif(ModelId).
+      end.
 
 
 get_label_count(LenLabel,LenData,Sum,Data,N) -> 
