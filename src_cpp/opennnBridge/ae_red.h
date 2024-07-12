@@ -1,6 +1,6 @@
 #pragma once
 
-#define PARAM_K_DEFAULT 1.2f
+#define PARAM_K_DEFAULT 1.5f
 #define ALPHA_DEFAULT 0.3f
 
 #include "eigenTensorTypes.h"

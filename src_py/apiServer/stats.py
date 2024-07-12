@@ -55,7 +55,7 @@ class Stats():
         """
         pass
 
-    def get_loss_ts(self , plot : bool = False , saveToFile : bool = False): # Todo change it
+    def get_loss_ts(self , plot : bool = False , saveToFile : bool = False, log : bool = False): # Todo change it
         """
         Returns a dictionary of {worker : loss list} for each worker in the experiment.
         use plot=True to plot the loss function.
@@ -89,6 +89,9 @@ class Stats():
             sns.lineplot(data=df)
             plt.xlabel('Batch Num.')
             plt.ylabel('Loss Value')
+            if log:
+                plt.yscale('log')
+                plt.xscale('log')
             plt.title('Training Loss Function')
         return df
 
