@@ -9,12 +9,13 @@
 -export([run_tests/0]).
 
 -import(nerlNIF,[decode_nif/2, nerltensor_binary_decode/2]).
--import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
--import(nerlNIF,[nerltensor_sum_nif/3]).
+-import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_nerltensor_list_types/0]).
+-import(nerlNIF,[nerltensor_sum_nif/3, get_all_binary_types/0]).
 -import(nerlNIF,[test_nerlworker_nif/12, remove_nerlworker_nif/1]).
 -import(nerlNIF,[nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
 -import(nerl,[compare_floats_L/3, string_format/2, logger_settings/1]).
 -import(nerlTensor,[nerltensor_sum_erl/2, sum_nerltensors_lists/2]).
+-export([generate_random_list_of_unique_integers/3]). % TODO remove when test is implemented
 
 -define(NERLTEST_PRINT_STR, "[NERLTEST] ").
 
@@ -31,6 +32,13 @@ nerltest_print(String) ->
 -define(NERLTENSORS_SUM_LIST_MAX_SIZE, 50).
 -define(NERLTESNORS_SUM_LIST_ROUNDS, 30).
 -define(NERLWORKER_TEST_ROUNDS, 1).
+
+-define(NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X, 20).
+-define(NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_X, 100).
+-define(NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_Y, 5).
+-define(NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_Y, 20).
+-define(NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_TOTAL_TRUE_LABELS, 20).
+-define(TEST_LABEL_COUNT_NUMOF_SAMPLES,50).
 
 test_envelope(Func, TestName, Rounds) ->
       nerltest_print(nerl:string_format("~p test starts for ~p rounds",[TestName, Rounds])),
@@ -82,7 +90,10 @@ run_tests()->
       NerlworkerTestFunc = fun(_Rounds) ->  Performance = 0, nerlworker_test(NeuralNetworkTestingModelList, Performance) end, 
       NerlworkerTestName = "nerlworker_test",
       test_envelope_nif_performance(NerlworkerTestFunc, NerlworkerTestName, length(NeuralNetworkTestingModelList) ),
-
+      nerltest_print("count label test"),
+      CountLabelTestName = "test_count_label",
+      CountLabelTestFunc = fun(_Rounds) ->   test_count_label_nif() end, 
+      test_envelope(CountLabelTestFunc, CountLabelTestName, 1 ),
       nerltest_print("Tests Completed"),
       ok.
 
@@ -90,6 +101,18 @@ random_pick_nerltensor_type()->
       RandomIndex = rand:uniform(length(nerlNIF:get_all_binary_types())),
       lists:nth(RandomIndex, nerlNIF:get_all_binary_types()).
 
+generate_random_list_of_unique_integers(ListSize, Min, Max) -> 
+      generate_random_list_of_unique_integers(ListSize, Min, Max, []).
+
+generate_random_list_of_unique_integers(0, _Min, _Max, List) -> List;
+generate_random_list_of_unique_integers(RemainedNumOfElements, Min, Max, List) -> 
+      Range = Max - Min,
+      N = rand:uniform(Range) - 1 + Min,
+      IsMember = lists:is_member(N, List), % O(N)
+      if 
+            IsMember -> generate_random_list_of_unique_integers(RemainedNumOfElements, Min, Max, List);
+            true -> generate_random_list_of_unique_integers(RemainedNumOfElements - 1, Min, Max, [N | List])
+      end.
 
 generate_nerltensor_rand_dims(Type)->
       DimX = rand:uniform(?DIMX_RAND_MAX),
@@ -188,6 +211,7 @@ sum_nerltensors_lists_test(Type, N, Performance) ->
 
 encode_decode_nifs_test(0, _Res, Performance) -> Performance ;
 encode_decode_nifs_test(N, Res, Performance) ->
+      %io:format("GOT HERE~n"),
       EncodeType = random_pick_nerltensor_type(),
       NerlTensor = generate_nerltensor_rand_dims(EncodeType),
       Tic = nerl:tic(),
@@ -281,8 +305,64 @@ nerlworker_test_generate_data(LayersSizes, LayerTypes, NumOfSamples) -> %% Ask D
       {NerlTensor , Type} = nerlNIF:nerltensor_conversion({ErlDataTensor,erl_float} , float),
       {NerlTensor , Type , ErlDataTensor , erl_float , NumOfFeatures , NumOfLabels}.
 
+test_count_label_nif() -> 
+      ModelId  = erlang:unique_integer([positive]),
+      ModelType = "0",
+      ModelArgs = "",
+      LayersFunctionalityCodes = "1,6", 
+      LearningRate = "0.01",
+      Epochs = "50",
+      OptimizerType = "2",
+      OptimizerArgs = "",
+      LossMethod = "2",
+      DistributedSystemType = "3",
+      DistributedSystemArg = "",
+      DimMaxDimX = ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_X,
+      DimMinDimX = ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X,
+      LenDataToRand = DimMaxDimX - DimMinDimX,
+      LenData   = rand:uniform(LenDataToRand),
+      LenLabelsToRand = ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_Y-?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_Y,
+      LenLabels =  rand:uniform(LenLabelsToRand),
+      LenActualData = LenData + ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_X,
+      LenActualLabels = LenLabels + ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_MIN_DIM_Y,
+
+      if 
+      (LenActualData == LenActualLabels) -> 
+                LenActualDataIf  =  LenActualData + 1;
+      true -> 
+                LenActualDataIf  =  LenActualData
+      end,
+      DataRand = generate_nerltensor(float,?TEST_LABEL_COUNT_NUMOF_SAMPLES,LenActualDataIf,1),
+      LayersSizes = nerl:string_format("~p,~p",[LenActualDataIf-LenActualLabels,LenActualLabels]),
+      LayersTypes = "1,3",
+      nerlNIF:test_nerlworker_nif(ModelId,ModelType,ModelArgs,LayersSizes, LayersTypes, 
+      LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, 
+      OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
+      {NerlTensorDataBinTrain , Type} = nerlNIF:nerltensor_conversion({DataRand,erl_float} , float),
+      nerlNIF:train_nif(ModelId , NerlTensorDataBinTrain , Type), 
+      {LabelCount,_} = nerlNIF:get_distributed_system_train_labels_count_nif(ModelId),
+      {LabelCountFloat , _} = nerlNIF:nerltensor_conversion({LabelCount,float} , erl_float),
+      SumInit = lists:duplicate(LenActualLabels, 0),
+      {_,DataRandRes} = lists:split(3, DataRand),
+      Sum = get_label_count(LenActualLabels,LenActualDataIf,SumInit,DataRandRes,0) ,
+      {_,LabelCountRes} = lists:split(3, LabelCountFloat),
+      if 
+            (Sum == LabelCountRes) -> nerltest_print("Label count test passed");
+            true -> throw(nerl:string_format("Label count test failed ~n Sum: ~p ~n LabelCount: ~p",[Sum,LabelCountRes]))
+      end,
+      nerlNIF:remove_nerlworker_nif(ModelId).
 
 
+get_label_count(LenLabel,LenData,Sum,Data,N) -> 
+      if 
+            (N == ?TEST_LABEL_COUNT_NUMOF_SAMPLES) -> [math:floor(X) || X <- Sum];
+            true -> 
+                  {DataN,DataNext} = lists:split(LenData, Data),
+                  {_,DataL} =lists:split(LenData-LenLabel,DataN) ,
+                  SumN =  lists:zipwith(fun(X, Y) -> X + Y end, Sum, DataL),
+                  get_label_count(LenLabel,LenData,SumN,DataNext,N+1)
+      end.
+      
 nerlworker_test([], _Performance) -> _Performance;
 nerlworker_test([CurrentModel | Tail], Performance) -> 
      {ModelId,ModelType,ModelArgs,LayersSizes, LayersTypes, LayersFunctionalityCodes,
@@ -299,6 +379,7 @@ nerlworker_test([CurrentModel | Tail], Performance) ->
       OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
       NumOfSamples = 500,
       {NerlTensorDataBin , NerlTensorDataBinType , NerlTensorDataErl , NerlTensorDataErlType , NumOfFeatures , _NumOfLabels} = nerlworker_test_generate_data(LayersSizes, LayersTypes, NumOfSamples),
+     % {NerlTensor , Type , ErlDataTensor , erl_float , NumOfFeatures , NumOfLabels}.
       if 
             (ModelType == ?MODEL_TYPE_AUTOENCODER_IDX) or (ModelType == ?MODEL_TYPE_AE_CLASSIFIER_IDX) -> %% AE or AEC
                   {DataTensorErlFeatures , _DataTensorErlLabels} = nerlTensor:split_cols_erl_tensor(NerlTensorDataErl , NerlTensorDataErlType , NumOfFeatures), 

@@ -19,8 +19,6 @@ class AeRed
 
     fTensor2DPtr update_batch(fTensor2DPtr loss_values);
     float update_sample(float loss_value);
-    
-    private:
     float _k;
     float _alpha;
     float _threshold;
