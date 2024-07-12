@@ -31,7 +31,7 @@ init(Req0, [Action , ApplicationPid]) ->
   _Port = cowboy_req:port(Req0),
   _Path = cowboy_req:path(Req0),
   _Qs = cowboy_req:qs(Req0),
-  {ok,Body,_} = cowboy_req:read_body(Req0),
+  {ok,_Body,_} = cowboy_req:read_body(Req0),
   %% io:format("Body at iot Handler: ~p,~n", [Body]),
   %Notify the application that python is ready and send the addreses received in this http request:
   

@@ -137,7 +137,8 @@ def WinWorkerDialog():
         clear_butt_key = KEY_LAYER_TYPE_SELECTION_CLEAR
         LayerTypesList = combo_list_editable_handler(WorkerWindow, event, values, LayerTypeMap, LayerTypesList,
                                                     selection_key, codes_key, add_butt_key, clear_butt_key)
-        WorkerWindow[KEY_NUM_OF_LAYERS_TYPES].update(f'({str(count_str_list_elements(LayerTypesList))})')
+        if event: # Protects from update when windows is closed
+            WorkerWindow[KEY_NUM_OF_LAYERS_TYPES].update(f'({str(count_str_list_elements(LayerTypesList))})') if LayerTypesList else None
 
         if event == KEY_LAYER_TYPE_HELP:
             sg.popup_ok(f"Layer type codes:\n{pretty_print_dict(LayerTypeMap)}", keep_on_top=True, title="Layer Type Codes")
@@ -149,7 +150,9 @@ def WinWorkerDialog():
         clear_butt_key = KEY_LAYER_FUNCTIONS_SELECTION_CLEAR
         LayersFunctionsList = combo_list_editable_handler(WorkerWindow, event, values, ActivationFunctionsMap, LayersFunctionsList,
                                                             selection_key, codes_key, add_butt_key, clear_butt_key)
-        WorkerWindow[KEY_LAYERS_FUNCTIONS_CODES].update(f'({str(count_str_list_elements(LayersFunctionsList))})')
+
+        if event: # Protects from update when windows is closed
+            WorkerWindow[KEY_LAYERS_FUNCTIONS_CODES].update(f'({str(count_str_list_elements(LayersFunctionsList))})') if LayersFunctionsList else None
 
         # Activation codes combo and output list handling:
         if event == KEY_LAYER_METHODS_BUTTON_SELECT:
@@ -157,7 +160,7 @@ def WinWorkerDialog():
             LayersFunctionsList += ',' if not LayersFunctionsList.endswith(',') and LayersFunctionsList else ''
             LayersFunctionsList += global_layer_method_selection_code if global_layer_method_selection_code else ''
             WorkerWindow[KEY_LAYER_FUNCTIONS_CODES_INPUT].update(LayersFunctionsList)
-            WorkerWindow[KEY_LAYERS_FUNCTIONS_CODES].update(f'({str(count_str_list_elements(LayersFunctionsList))})')
+            WorkerWindow[KEY_LAYERS_FUNCTIONS_CODES].update(f'({str(count_str_list_elements(LayersFunctionsList))})') if LayersFunctionsList else None
 
         if event == KEY_ACTIVATION_LAYER_HELP:
             ActivationDictStr = f'Activation:\n{pretty_print_dict(ActivationFunctionsMap)}'
@@ -166,7 +169,8 @@ def WinWorkerDialog():
             FlattenDictStr = f'Flatten:\n{pretty_print_dict(FlattenMethodMap)}'
             BoundingDictStr = f'Bounding:\n{pretty_print_dict(BoundingMethodMap)}'
             ProbabilisticDictStr = f'Probabilistic:\n{pretty_print_dict(ProbabilisticActivationFunctionMap)}'
-            sg.popup_ok(f"Layer Functions Codes:\n{ActivationDictStr}\n{PoolingDictStr}\n{ScalerDictStr}\n{FlattenDictStr}\n{BoundingDictStr}\n{ProbabilisticDictStr}", keep_on_top=True, title="Layer Type Codes")
+            BatchNormalizationDictStr = f'Batch Normalization:\n{pretty_print_dict(BatchNomalizationMap)}'
+            sg.popup_ok(f"Layer Functions Codes:\n{ActivationDictStr}\n{PoolingDictStr}\n{ScalerDictStr}\n{FlattenDictStr}\n{BoundingDictStr}\n{ProbabilisticDictStr}\n{BatchNormalizationDictStr}", keep_on_top=True, title="Layer Type Codes")
 
         if event == KEY_LEARNING_RATE_INPUT:
             LearningRate = values[event]
@@ -266,9 +270,15 @@ def LayerMethodSelection():
                  sg.Listbox(list(ScalingMethodMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_SCALER)],
                  [ sg.Text("Bounding",expand_x=True), sg.Text('Flatten', expand_x=True), sg.Text('Probabilistic', expand_x=True)],
                  [
-                 sg.Listbox(list(BoundingMethodMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_BOUNDING),
-                 sg.Listbox(list(FlattenMethodMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_FLATTEN),
-                 sg.Listbox(list(ProbabilisticActivationFunctionMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_PROBABILISTIC)
+                 sg.Listbox(list(BoundingMethodMap.keys()),size=(20,5), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_BOUNDING),
+                 sg.Listbox(list(FlattenMethodMap.keys()),size=(20,5), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_FLATTEN),
+                 sg.Listbox(list(ProbabilisticActivationFunctionMap.keys()),size=(20,5), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_PROBABILISTIC)
+                 ],
+                 [
+                    sg.Text("BatchNorm",expand_x=True), sg.Text(' ', expand_x=True), sg.Text(' ', expand_x=True)
+                 ],
+                 [
+                    sg.Listbox(list(BatchNomalizationMap.keys()),size=(20,5), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_BATCH_NORMALIZATION),
                  ],
                  [sg.Text('Selection', expand_x=True, enable_events=True, key=KEY_LAYER_METHOD_SELECTION_TEXT),sg.Button('Select', expand_x=True, key=KEY_LAYER_METHOD_SELECTION_BUTTON)]]
     
@@ -306,6 +316,11 @@ def LayerMethodSelection():
         if event == KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_FLATTEN:
             layer_method_selection = values[KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_FLATTEN][0]
             global_layer_method_selection_code = FlattenMethodMap[layer_method_selection]
+            layer_selection_win[KEY_LAYER_METHOD_SELECTION_TEXT].update(f'Selected {layer_method_selection} code: {global_layer_method_selection_code}')
+
+        if event == KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_BATCH_NORMALIZATION:
+            layer_method_selection = values[KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_BATCH_NORMALIZATION][0]
+            global_layer_method_selection_code = BatchNomalizationMap[layer_method_selection]
             layer_selection_win[KEY_LAYER_METHOD_SELECTION_TEXT].update(f'Selected {layer_method_selection} code: {global_layer_method_selection_code}')
 
         if event == KEY_LAYER_METHOD_SELECTION_BUTTON:

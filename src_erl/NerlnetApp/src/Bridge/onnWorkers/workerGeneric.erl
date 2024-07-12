@@ -169,7 +169,7 @@ idle(cast, _Param, State = #workerGeneric_state{myName = _MyName}) ->
 
 %% Waiting for receiving results or loss function
 %% Got nan or inf from loss function - Error, loss function too big for double
-wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
+wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
   stats:increment_by_value(get(worker_stats_ets), nan_loss_count, 1),
   WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
   gen_statem:cast(get(client_pid),{loss, MyName , SourceName ,nan , TrainTime, WorkerToken ,BatchID}),
@@ -178,7 +178,7 @@ wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneri
   {next_state, NextStateBehavior, State#workerGeneric_state{postBatchFunc = ?EMPTY_FUNC}};
 
 
-wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
+wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
   BatchTimeStamp = erlang:system_time(nanosecond),
   WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
   gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,{LossTensor, LossTensorType} , TrainTime , WorkerToken, BatchID , BatchTimeStamp}),
@@ -197,12 +197,12 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
     {next_state, NextState, State}
   end;
 
-wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   %logger:notice("Waiting, next state - idle"),
   Func = fun() -> stream_handler(end_stream, wait, StreamName, DistributedBehaviorFunc) end,
   {next_state, wait, State#workerGeneric_state{postBatchFunc = Func}};
 
-wait(cast, {post_train_update, Data}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
+wait(cast, {post_train_update, Data}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
   NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets), {post_train_update, Data}}),
   PostBatchFunc(),
   {next_state, NextStateBehavior, State#workerGeneric_state{postBatchFunc = ?EMPTY_FUNC}};
@@ -273,7 +273,7 @@ train(cast, {start_stream , StreamName}, State = #workerGeneric_state{myName = _
   stream_handler(start_stream, train, StreamName, DistributedBehaviorFunc),
   {next_state, train, State};
 
-train(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+train(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
   {next_state, train, State};
 
