@@ -123,7 +123,8 @@ DistributedSystemTypeMapping = OrderedDict([
     ("FedClientWeightedAvgClassification" , "3"),
     ("FedServerWeightedAvgClassification" , "4"),
     ("FedClientAE" , "5"),
-    ("FedServerAE" , "6")
+    ("FedServerAE" , "6"),
+    ("tiles", "7")
 ])
 
 InfraTypeMapping = OrderedDict([
