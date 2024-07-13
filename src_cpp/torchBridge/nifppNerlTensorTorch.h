@@ -1,7 +1,8 @@
 #pragma once
 
-#include "nerltensorTorchDefs.h"
 #include "nifpp.h"
+#include "nerltensorTorchDefs.h"
+
 
 namespace nifpp
 {
@@ -113,7 +114,7 @@ namespace nifpp
         std::memcpy(nifpp_bin.data, dims.data(), dims_size);
         std::memcpy(nifpp_bin.data + dims_size, tensor.data_ptr(), data_size);
 
-        ret_bin_term = nifpp:make(env, nifpp_bin);
+        ret_bin_term = nifpp::make(env, nifpp_bin);
     }
 
 }

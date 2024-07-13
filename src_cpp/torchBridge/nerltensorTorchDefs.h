@@ -1,3 +1,5 @@
+#pragma once
+
 #include <nerltensor.h>
 #include <torch/torch.h>
 
