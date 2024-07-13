@@ -10,6 +10,9 @@
 
 get_distributed_worker_behavior(ClientEtsRef, DistributedSystemType , WorkerName , DistributedSystemArgs , DistributedSystemToken) ->
 case DistributedSystemType of
+      ?DC_DISTRIBUTED_SYSTEM_TYPE_TILES_IDX_STR ->
+        DistributedBehaviorFunc = fun workerNN:controller/2,
+        DistributedWorkerData = {tiles, DistributedSystemArgs, DistributedSystemToken};
       ?DC_DISTRIBUTED_SYSTEM_TYPE_NONE_IDX_STR ->
         DistributedBehaviorFunc = fun workerNN:controller/2,
         DistributedWorkerData = none;
