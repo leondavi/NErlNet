@@ -8,7 +8,7 @@ from collections import OrderedDict
 LayerTypeMap = OrderedDict([
     ("Default" , "0"),
     ("Scaling" , "1"),
-    ("CNN" , "2"),
+    ("Conv" , "2"),
     ("Perceptron" , "3"),
     ("Pooling" , "4"),
     ("Probabilistic" , "5"),
