@@ -137,7 +137,8 @@ def WinWorkerDialog():
         clear_butt_key = KEY_LAYER_TYPE_SELECTION_CLEAR
         LayerTypesList = combo_list_editable_handler(WorkerWindow, event, values, LayerTypeMap, LayerTypesList,
                                                     selection_key, codes_key, add_butt_key, clear_butt_key)
-        WorkerWindow[KEY_NUM_OF_LAYERS_TYPES].update(f'({str(count_str_list_elements(LayerTypesList))})')
+        if event: # Protects from update when windows is closed
+            WorkerWindow[KEY_NUM_OF_LAYERS_TYPES].update(f'({str(count_str_list_elements(LayerTypesList))})') if LayerTypesList else None
 
         if event == KEY_LAYER_TYPE_HELP:
             sg.popup_ok(f"Layer type codes:\n{pretty_print_dict(LayerTypeMap)}", keep_on_top=True, title="Layer Type Codes")
@@ -149,7 +150,9 @@ def WinWorkerDialog():
         clear_butt_key = KEY_LAYER_FUNCTIONS_SELECTION_CLEAR
         LayersFunctionsList = combo_list_editable_handler(WorkerWindow, event, values, ActivationFunctionsMap, LayersFunctionsList,
                                                             selection_key, codes_key, add_butt_key, clear_butt_key)
-        WorkerWindow[KEY_LAYERS_FUNCTIONS_CODES].update(f'({str(count_str_list_elements(LayersFunctionsList))})')
+
+        if event: # Protects from update when windows is closed
+            WorkerWindow[KEY_LAYERS_FUNCTIONS_CODES].update(f'({str(count_str_list_elements(LayersFunctionsList))})') if LayersFunctionsList else None
 
         # Activation codes combo and output list handling:
         if event == KEY_LAYER_METHODS_BUTTON_SELECT:
@@ -157,7 +160,7 @@ def WinWorkerDialog():
             LayersFunctionsList += ',' if not LayersFunctionsList.endswith(',') and LayersFunctionsList else ''
             LayersFunctionsList += global_layer_method_selection_code if global_layer_method_selection_code else ''
             WorkerWindow[KEY_LAYER_FUNCTIONS_CODES_INPUT].update(LayersFunctionsList)
-            WorkerWindow[KEY_LAYERS_FUNCTIONS_CODES].update(f'({str(count_str_list_elements(LayersFunctionsList))})')
+            WorkerWindow[KEY_LAYERS_FUNCTIONS_CODES].update(f'({str(count_str_list_elements(LayersFunctionsList))})') if LayersFunctionsList else None
 
         if event == KEY_ACTIVATION_LAYER_HELP:
             ActivationDictStr = f'Activation:\n{pretty_print_dict(ActivationFunctionsMap)}'

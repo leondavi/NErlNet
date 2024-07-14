@@ -20,7 +20,7 @@
 -export([nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
 
 % nerlworker nif methods
--export([new_nerlworker_nif/13, remove_nerlworker_nif/1, test_nerlworker_nif/13]).
+-export([new_nerlworker_nif/13, remove_nerlworker_nif/1, test_nerlworker_nif/13,get_distributed_system_train_labels_count_nif/1]).
 
 init() ->
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
@@ -231,3 +231,9 @@ remove_nerlworker_nif(_ModelId) ->
 test_nerlworker_nif(_ModelId,_ModelType, _ModelArgs, _LayersSizes, _LayersTypes, _LayersFunctionalityCodes, _LearningRate, _Epochs, _OptimizerType,
                 _OptimizerArgs, _LossMethod, _DistributedSystemType, _DistributedSystemArgs) ->
       exit(nif_library_not_loaded).
+
+%  input -  unsigned long modelId 
+%  output - nerltensor that is the acc sum of each label in the last training data_set
+% distributed system type should be FedClientWeightedAvgClassification
+get_distributed_system_train_labels_count_nif(_ModelId) ->
+       exit(nif_library_not_loaded).
