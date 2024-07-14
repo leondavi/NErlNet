@@ -154,7 +154,6 @@ class ApiServer(metaclass=Singleton):
         LOG_INFO("Data is ready in sources")
 
     def run_current_experiment_phase(self):
-<<<<<<< HEAD
         if not self.next_expertiment_phase_exist:         # don't allow calling the same phase twice 
             LOG_WARNING("experiment override is not supported!")
         else:
@@ -165,18 +164,6 @@ class ApiServer(metaclass=Singleton):
             
             send_jsons_event = self.apiserver_event_sync.get_event_status(EventSync.SEND_JSONS)
             assert send_jsons_event == EventSync.DONE, "Jsons not sent to devices yet"
-=======
-        assert self.next_expertiment_phase_exist, "experiment override is not supported!"     # don't allow calling the same phase twice 
-        current_exp_phase = self.current_exp.get_current_experiment_phase()
-        LOG_INFO(f"Experiment phase: {current_exp_phase.get_name()} of type {current_exp_phase.get_phase_type()} starts running...")
-        csv_dataset_inst = self.current_exp.get_csv_dataset()
-        events_sync_inst = self.current_exp.get_events_sync()
-        
-        send_jsons_event = self.apiserver_event_sync.get_event_status(EventSync.SEND_JSONS)
-        assert send_jsons_event == EventSync.DONE, "Jsons not sent to devices yet"
-
-        self.send_data_to_sources(csv_dataset_inst, current_exp_phase, events_sync_inst)
->>>>>>> d2b6830b26775cd2874548f6d8f5b9a4d87d093d
 
             self.send_data_to_sources(csv_dataset_inst, current_exp_phase, events_sync_inst)
 
@@ -192,18 +179,12 @@ class ApiServer(metaclass=Singleton):
             current_exp_phase.process_experiment_phase_data()
             LOG_INFO(f"Processing experiment phase data completed")
 
-<<<<<<< HEAD
             LOG_INFO(f"Start generating communication statistics for {current_exp_phase.get_name()} of type {current_exp_phase.get_phase_type()}")
             self.communication_stats()
 
             LOG_INFO(f"Phase of {current_exp_phase.get_name()} {current_exp_phase.get_phase_type()} completed")
             
             self.next_expertiment_phase_exist = False  
-=======
-        LOG_INFO(f"Phase of {current_exp_phase.get_name()} {current_exp_phase.get_phase_type()} completed")
-        
-        self.next_expertiment_phase_exist = False  
->>>>>>> d2b6830b26775cd2874548f6d8f5b9a4d87d093d
 
 
     def next_experiment_phase(self):
