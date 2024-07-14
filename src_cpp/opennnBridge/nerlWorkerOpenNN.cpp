@@ -95,11 +95,6 @@ namespace nerlnet
                 fTensor2DPtr results = std::make_shared<fTensor2D>(num_of_samples, num_of_labels + num_of_labels*2); // LOWER/UPPER for each label
                 fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
                 *calculate_res = neural_network->calculate_outputs(TrainData->data(), inputs_dimensions);
-<<<<<<< HEAD
-=======
-
-                // MSE Calculation
->>>>>>> b280e5605dabbe3972610f41d7b29c334f02f621
                 fTensor2DPtr loss_values_mse = std::make_shared<fTensor2D>(num_of_samples, 1);
                 fTensor2D diff = (*calculate_res - *_aec_data_set);
                 fTensor2D squared_diff = diff.pow(2);
@@ -107,16 +102,9 @@ namespace nerlnet
                 fTensor1D mse1D = (1.0 / static_cast<float>(_aec_data_set->dimension(0))) * sum_squared_diff;
                 fTensor2D mse2D = mse1D.reshape(Eigen::array<int, 2>({num_of_samples, 1}));
                 *loss_values_mse = mse2D;
-<<<<<<< HEAD
                 // cout << "MSE Loss: " << mse_loss << endl;
                 fTensor2DPtr res = _ae_red_ptr->update_batch(loss_values_mse);
                 // cout << "AE_RED RESULT VECTOR:" << endl << *res << endl;
-=======
-
-                _ae_red_ptr->update_batch(loss_values_mse); // Update thresholds
-                
-                break;
->>>>>>> b280e5605dabbe3972610f41d7b29c334f02f621
             }
 
                 
@@ -148,13 +136,8 @@ namespace nerlnet
                 std::shared_ptr<opennn::NeuralNetwork> neural_network = get_neural_network_ptr();
                 Index num_of_samples = _aec_data_set->dimension(0);
                 Index inputs_number = neural_network->get_inputs_number();
-<<<<<<< HEAD
                 Index num_of_labels = 1; // TODO need to add bounderies
                 fTensor2DPtr results = std::make_shared<fTensor2D>(num_of_samples, num_of_labels); // TODO +2 for upper and lower boundaries for each label
-=======
-                Index num_of_labels = 1;
-                fTensor2DPtr results = std::make_shared<fTensor2D>(num_of_samples, num_of_labels); 
->>>>>>> b280e5605dabbe3972610f41d7b29c334f02f621
                 fTensor2DPtr loss_values_mse = std::make_shared<fTensor2D>(num_of_samples , 1);
                 fTensor2D diff = (*result_ptr - *_aec_data_set);
                 fTensor2D squared_diff = diff.pow(2);
@@ -162,11 +145,7 @@ namespace nerlnet
                 fTensor1D mse1D = (1.0 / static_cast<float>(_aec_data_set->dimension(0))) * sum_squared_diff;
                 fTensor2D mse2D = mse1D.reshape(Eigen::array<int, 2>({num_of_samples, 1}));
                 *loss_values_mse = mse2D;
-<<<<<<< HEAD
                 result_ptr = _ae_red_ptr->update_batch(loss_values_mse); // ! This should override the result_ptr
-=======
-                result_ptr = _ae_red_ptr->update_batch(loss_values_mse);
->>>>>>> b280e5605dabbe3972610f41d7b29c334f02f621
                 break;
             }
             // case MODEL_TYPE_LSTM:

@@ -48,10 +48,6 @@ class StatsAEC():
 
         
     def get_aec_boundaries(self, plot=False):
-<<<<<<< HEAD
-        i = 0
-=======
->>>>>>> b280e5605dabbe3972610f41d7b29c334f02f621
         upper_boundaries_dict = {}
         lower_boundaries_dict = {}
         workers_model_db_list = self.stats.nerl_model_db.get_workers_model_db_list()
@@ -86,17 +82,13 @@ class StatsAEC():
                 plt.fill_between(df_lower[worker_name].index, df_lower[worker_name] - df_lower[worker_name].std(), df_lower[worker_name] + df_lower[worker_name].std(), color='C1', alpha=0.2)
                 plt.plot(seperator, label='Seperator', color='C2')
                 plt.fill_between(seperator.index, seperator + seperator.std(), seperator - seperator.std(), color='C2', alpha=0.2)
-<<<<<<< HEAD
                 plt.xscale('log') # For better visualization
-=======
->>>>>>> b280e5605dabbe3972610f41d7b29c334f02f621
                 plt.xlabel('Batch Num.')
                 plt.ylabel('Boundary Value')
                 plt.title(f'Training Boundaries {worker_name}')
                 plt.legend()
                 plt.show()
         return df_upper, df_lower
-<<<<<<< HEAD
     
     def get_false_alarm_rate(self, conf_mats_workers):
         false_alarm_rate_dict = {}
@@ -111,5 +103,3 @@ class StatsAEC():
             conf_mat = conf_mats_workers[worker_name]
             detection_rate_dict[worker_name] = conf_mat[1][1] / (conf_mat[1][1] + conf_mat[1][0])
         return detection_rate_dict
-=======
->>>>>>> b280e5605dabbe3972610f41d7b29c334f02f621

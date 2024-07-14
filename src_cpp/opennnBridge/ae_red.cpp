@@ -17,11 +17,6 @@ AeRed::AeRed(float k, float alpha) // TODO Add ModelArgs and parse them here
 
 AeRed::~AeRed(){}
 
-<<<<<<< HEAD
-}
-
-=======
->>>>>>> b280e5605dabbe3972610f41d7b29c334f02f621
 fTensor2DPtr AeRed::update_batch(fTensor2DPtr loss_values)
 {
     fTensor2DPtr result = std::make_shared<fTensor2D>(loss_values->dimension(0), loss_values->dimension(1));
