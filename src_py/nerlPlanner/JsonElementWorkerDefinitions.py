@@ -8,7 +8,7 @@ from collections import OrderedDict
 LayerTypeMap = OrderedDict([
     ("Default" , "0"),
     ("Scaling" , "1"),
-    ("Conv" , "2"),
+    ("CNN" , "2"),
     ("Perceptron" , "3"),
     ("Pooling" , "4"),
     ("Probabilistic" , "5"),
@@ -81,7 +81,9 @@ LayerTypeToFunctionalMap = OrderedDict([
     ("Probabilistic" , ProbabilisticActivationFunctionMap),
     ("LSTM" , None),
     ("Reccurrent" , None),
-    ("Unscaling" , UnScalingMethodMap)]
+    ("Unscaling" , UnScalingMethodMap),
+    ("Flatten" , FlattenMethodMap),
+    ("Bounding" , BoundingMethodMap)]
 )
 
 # Model type name should be suitable with erlang atoms convention! 
