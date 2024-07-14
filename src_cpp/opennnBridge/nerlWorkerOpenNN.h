@@ -31,7 +31,7 @@ class NerlWorkerOpenNN : public NerlWorker
     std::shared_ptr<opennn::TrainingStrategy> get_training_strategy_ptr() { return _training_strategy_ptr; };
     std::shared_ptr<opennn::DataSet> get_data_set() { return _data_set; };
     void post_training_process(fTensor2DPtr  TrainDataNNptr);
-    void post_predict_process(fTensor2DPtr result_ptr);
+    void post_predict_process(fTensor2DPtr &result_ptr);
     void get_result_calc(fTensor2DPtr calculate_res,int num_of_samples,int inputs_number,fTensor2DPtr predictData);
     void set_optimization_method(int optimizer_type ,int learning_rate);
     void set_loss_method(int loss_method);
@@ -40,14 +40,23 @@ class NerlWorkerOpenNN : public NerlWorker
     void set_dataset(std::shared_ptr<opennn::DataSet> data_set,fTensor2DPtr TrainDataNNptr);
     std::shared_ptr<opennn::DataSet> get_dataset_ptr() { return _data_set; };
     
+    std::shared_ptr<std::vector<int>> get_distributed_system_train_labels_count() override;
+
+    void perform_training();
+    fTensor2DPtr get_loss_nerltensor(); // this is the last calculated loss by perform training
+
 
     private:
 
     std::shared_ptr<opennn::NeuralNetwork> _neural_network_ptr;
     std::shared_ptr<opennn::TrainingStrategy> _training_strategy_ptr;
     std::shared_ptr<opennn::DataSet> _data_set;
+
     fTensor2DPtr _aec_data_set;
     std::shared_ptr<AeRed> _ae_red_ptr;
+
+    // training vars
+    double _last_loss;
     
     // neural network generator functions
     void generate_opennn_project(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);

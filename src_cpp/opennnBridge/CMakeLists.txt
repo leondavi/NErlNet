@@ -14,7 +14,6 @@ set(COMMON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../common")
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_CXX_FLAGS "-fpic")
-set(ERL_NIF_DEFAULT_LOCATION "/usr/local/lib/erlang/usr/include")
 
 # cpp Simple logger options
 add_definitions( -D LOGGER_MAX_LOG_LEVEL_PRINTED=6 )
@@ -35,6 +34,9 @@ set(SRC_CODE
 	"nerlWorkerNIF.h"
 	"ae_red.h"
 	"ae_red.cpp"
+	"encode_nerltensor_nif.h"
+	"decode_nerltensor_nif.h"
+	"operations_nerltensor_nif.h"
 	)
 
 add_library(${PROJECT_NAME} SHARED ${SRC_CODE})
@@ -44,7 +46,6 @@ target_link_libraries(${PROJECT_NAME} PUBLIC opennn common)
 # Include NIF, OpenNN and Simple Cpp Logger
 target_include_directories(${PROJECT_NAME} PUBLIC
 							${COMMON_PATH}
-							${NIFPP_PATH}
 							${OPENN_PATH}
 							${SIMPLE_LOGGER_PATH}
-							${ERL_NIF_DEFAULT_LOCATION})
+							)

@@ -43,7 +43,6 @@ std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_siz
         layer_types_vec[i] = std::stoi(layer_types_strs_vec[i]);
     }
     std::vector<LayerSizingParams_t> layer_sizes_params;
-
     parse_layer_sizes_str(layer_sizes_str, layer_types_vec, layer_sizes_params);
     std::vector<std::shared_ptr<NerlLayer>> nerl_layers_vec;
     nerl_layers_vec.resize(layer_sizes_params.size());
@@ -52,7 +51,6 @@ std::shared_ptr<NerlLayer> NerlWorker::parse_layers_input(std::string &layer_siz
         int layer_type = std::stoi(layer_types_strs_vec[i]);
         int layer_size = layer_sizes_params[i].dimx;
         int layer_functionality = std::stoi(layers_functionality_strs_vec[i]);
-
         std::vector<int> layer_dims = {layer_sizes_params[i].dimx,
         layer_sizes_params[i].dimy,layer_sizes_params[i].dimz};
 

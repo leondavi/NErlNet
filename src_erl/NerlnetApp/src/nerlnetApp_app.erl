@@ -20,8 +20,8 @@
 -behaviour(application).
 -include("nerl_tools.hrl").
 
--define(NERLNET_APP_VERSION, "1.5.0").
--define(NERLPLANNER_TESTED_VERSION,"1.0.2").
+-define(NERLNET_APP_VERSION, "1.5.1").
+-define(NERLPLANNER_TESTED_VERSION,"1.0.3").
 
 -export([start/2, stop/1]).
 
