@@ -75,7 +75,7 @@ ActivationFunctionsMap = OrderedDict(
 # Maps from layer type to the functionality of layer mapping 
 LayerTypeToFunctionalMap = OrderedDict([
     ("Scaling" , ScalingMethodMap),
-    ("CNN" , None),
+    ("Conv" , None),
     ("Perceptron" , ActivationFunctionsMap),
     ("Pooling" , PoolingMethodMap),
     ("Probabilistic" , ProbabilisticActivationFunctionMap),
