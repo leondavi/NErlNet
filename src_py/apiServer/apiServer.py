@@ -154,35 +154,37 @@ class ApiServer(metaclass=Singleton):
         LOG_INFO("Data is ready in sources")
 
     def run_current_experiment_phase(self):
-        assert self.next_expertiment_phase_exist, "experiment override is not supported!"     # don't allow calling the same phase twice 
-        current_exp_phase = self.current_exp.get_current_experiment_phase()
-        LOG_INFO(f"Experiment phase: {current_exp_phase.get_name()} of type {current_exp_phase.get_phase_type()} starts running...")
-        csv_dataset_inst = self.current_exp.get_csv_dataset()
-        events_sync_inst = self.current_exp.get_events_sync()
-        
-        send_jsons_event = self.apiserver_event_sync.get_event_status(EventSync.SEND_JSONS)
-        assert send_jsons_event == EventSync.DONE, "Jsons not sent to devices yet"
+        if not self.next_expertiment_phase_exist:         # don't allow calling the same phase twice 
+            LOG_WARNING("experiment override is not supported!")
+        else:
+            current_exp_phase = self.current_exp.get_current_experiment_phase()
+            LOG_INFO(f"Experiment phase: {current_exp_phase.get_name()} of type {current_exp_phase.get_phase_type()} starts running...")
+            csv_dataset_inst = self.current_exp.get_csv_dataset()
+            events_sync_inst = self.current_exp.get_events_sync()
+            
+            send_jsons_event = self.apiserver_event_sync.get_event_status(EventSync.SEND_JSONS)
+            assert send_jsons_event == EventSync.DONE, "Jsons not sent to devices yet"
 
-        self.send_data_to_sources(csv_dataset_inst, current_exp_phase, events_sync_inst)
+            self.send_data_to_sources(csv_dataset_inst, current_exp_phase, events_sync_inst)
 
-        events_sync_inst.set_event_wait(EventSync.UPDATE_PHASE)
-        self.transmitter.clients_set_phase(current_exp_phase.get_phase_type())
-        events_sync_inst.sync_on_event(EventSync.UPDATE_PHASE)
+            events_sync_inst.set_event_wait(EventSync.UPDATE_PHASE)
+            self.transmitter.clients_set_phase(current_exp_phase.get_phase_type())
+            events_sync_inst.sync_on_event(EventSync.UPDATE_PHASE)
 
-        events_sync_inst.set_event_wait(EventSync.START_CASTING)
-        self.transmitter.start_casting(current_exp_phase) # Source start sending data to workers
-        events_sync_inst.sync_on_event(EventSync.START_CASTING)
+            events_sync_inst.set_event_wait(EventSync.START_CASTING)
+            self.transmitter.start_casting(current_exp_phase) # Source start sending data to workers
+            events_sync_inst.sync_on_event(EventSync.START_CASTING)
 
-        LOG_INFO(f"Processing experiment phase data")
-        current_exp_phase.process_experiment_phase_data()
-        LOG_INFO(f"Processing experiment phase data completed")
+            LOG_INFO(f"Processing experiment phase data")
+            current_exp_phase.process_experiment_phase_data()
+            LOG_INFO(f"Processing experiment phase data completed")
 
-        LOG_INFO(f"Start generating communication statistics for {current_exp_phase.get_name()} of type {current_exp_phase.get_phase_type()}")
-        self.communication_stats()
+            LOG_INFO(f"Start generating communication statistics for {current_exp_phase.get_name()} of type {current_exp_phase.get_phase_type()}")
+            self.communication_stats()
 
-        LOG_INFO(f"Phase of {current_exp_phase.get_name()} {current_exp_phase.get_phase_type()} completed")
-        
-        self.next_expertiment_phase_exist = False  
+            LOG_INFO(f"Phase of {current_exp_phase.get_name()} {current_exp_phase.get_phase_type()} completed")
+            
+            self.next_expertiment_phase_exist = False  
 
 
     def next_experiment_phase(self):
