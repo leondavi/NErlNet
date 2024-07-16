@@ -1,7 +1,7 @@
 {
     "nerlnetSettings": {
         "frequency": "200",
-        "batchSize": "10"
+        "batchSize": "5"
     },
     "mainServer": {
         "port": "8900",
@@ -14,8 +14,8 @@
     "devices": [
         {
             "name": "pc12",
-            "ipv4": "10.0.0.30",
-            "entities": "c1,r1,r2,s1,s2,s3,apiServer,mainServer"
+            "ipv4": "10.0.0.8",
+            "entities": "c1,c2,c3,r1,r2,s1,s2,s3,apiServer,mainServer"
         }
     ],
     "routers": [
@@ -61,11 +61,29 @@
             "name": "c1",
             "port": "8907",
             "workers": "w1"
+        },
+        {
+            "name": "c2",
+            "port": "8908",
+            "workers": "w2"
+        },
+        {
+            "name": "c3",
+            "port": "8909",
+            "workers": "w3"
         }
     ],
     "workers": [
         {
             "name": "w1",
+            "model_sha": "d8df752e0a2e8f01de8f66e9cec941cdbc65d144ecf90ab7713e69d65e7e82aa"
+        },
+        {
+            "name": "w2",
+            "model_sha": "d8df752e0a2e8f01de8f66e9cec941cdbc65d144ecf90ab7713e69d65e7e82aa"
+        },
+        {
+            "name": "w3",
             "model_sha": "d8df752e0a2e8f01de8f66e9cec941cdbc65d144ecf90ab7713e69d65e7e82aa"
         }
     ],
