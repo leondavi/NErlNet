@@ -33,11 +33,6 @@
             "entities": "c3"
         },
         {
-            "name": "c0VM12",
-            "ipv4": "10.0.0.30",
-            "entities": "s1"
-        },
-        {
             "name": "nerlSpilke0",
             "ipv4": "10.0.0.32",
             "entities": "s2"
@@ -50,12 +45,12 @@
         {
             "name": "nerlSpilke2",
             "ipv4": "10.0.0.34",
-            "entities": "r1"
+            "entities": "s1"
         },
         {
             "name": "nerlSpilke3",
             "ipv4": "10.0.0.35",
-            "entities": "r2"
+            "entities": "r1,r2"
         }
     ],
     "routers": [
