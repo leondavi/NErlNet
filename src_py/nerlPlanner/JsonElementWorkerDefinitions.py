@@ -75,13 +75,15 @@ ActivationFunctionsMap = OrderedDict(
 # Maps from layer type to the functionality of layer mapping 
 LayerTypeToFunctionalMap = OrderedDict([
     ("Scaling" , ScalingMethodMap),
-    ("CNN" , None),
+    ("Conv" , None),
     ("Perceptron" , ActivationFunctionsMap),
     ("Pooling" , PoolingMethodMap),
     ("Probabilistic" , ProbabilisticActivationFunctionMap),
     ("LSTM" , None),
     ("Reccurrent" , None),
-    ("Unscaling" , UnScalingMethodMap)]
+    ("Unscaling" , UnScalingMethodMap),
+    ("Flatten" , FlattenMethodMap),
+    ("Bounding" , BoundingMethodMap)]
 )
 
 # Model type name should be suitable with erlang atoms convention! 
