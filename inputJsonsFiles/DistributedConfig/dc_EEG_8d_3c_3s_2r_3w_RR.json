@@ -8,7 +8,7 @@
         "args": ""
     },
     "apiServer": {
-        "port": "8991",
+        "port": "8901",
         "args": ""
     },
     "devices": [
@@ -70,7 +70,7 @@
             "name": "s1",
             "port": "8904",
             "frequency": "100",
-            "policy": "0",
+            "policy": "1",
             "epochs": "1",
             "type": "0"
         },
@@ -78,7 +78,7 @@
             "name": "s2",
             "port": "8905",
             "frequency": "100",
-            "policy": "0",
+            "policy": "1",
             "epochs": "1",
             "type": "0"
         },
@@ -86,7 +86,7 @@
             "name": "s3",
             "port": "8906",
             "frequency": "100",
-            "policy": "0",
+            "policy": "1",
             "epochs": "1",
             "type": "0"
         }
@@ -127,7 +127,7 @@
             "modelType": "0",
             "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image-classification:4 | text-classification:5 | text-generation:6 | auto-association:7 | autoencoder:8 | ae-classifier:9 |",
             "modelArgs": "",
-            "layersSizes": "70x1x1k5x1x1x128p0s2t1,33x1x128k2x1p0s1,32x1x128k5x1x128x128p0s1t0,28x1x128k2x1p0s1,27x1x128k5x1x128x64p0s1t0,1,64,32,16,9",
+            "layersSizes": "70x1x1k5x1x1x128p0s1t0,66x1x128k2x1p0s1,65x1x128k5x1x128x128p0s1t0,61x1x128k2x1p0s1,60x1x128k5x1x128x64p0s1t0,1,64,32,16,9",
             "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
             "layerTypesList": "2,4,2,4,2,9,3,3,3,3",
             "_doc_LayerTypes": " Default:0 | Scaling:1 | CNN:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Flatten:9 | Bounding:10 |",
