@@ -1,0 +1,127 @@
+{
+    "experimentName": "EEG_Valence_Recognition_DEAP",
+    "experimentType": "classification",
+    "batchSize": 5,
+    "csvFilePath": "/home/nerlnet/workspace/1_3_person_valence_nerlnet.csv", 
+    "numOfFeatures": "70",
+    "numOfLabels": "9",
+    "headersNames": "1,2,3,4,5,6,7,8,9",
+    "Phases": 
+    
+    [
+    {
+        "phaseName": "training1_phase",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "0",
+            "numOfBatches": "400",
+            "workers": "w1",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s2",
+            "startingSample": "19520",
+            "numOfBatches": "400",
+            "workers": "w2",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s3",
+            "startingSample": "39040",
+            "numOfBatches": "400",
+            "workers": "w3",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "training2_phase",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "2000",
+            "numOfBatches": "200",
+            "workers": "w2",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s2",
+            "startingSample": "21520",
+            "numOfBatches": "200",
+            "workers": "w3",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s3",
+            "startingSample": "41040",
+            "numOfBatches": "200",
+            "workers": "w1",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "training3_phase",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "3000",
+            "numOfBatches": "200",
+            "workers": "w3",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s2",
+            "startingSample": "22520",
+            "numOfBatches": "200",
+            "workers": "w1",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s3",
+            "startingSample": "42040",
+            "numOfBatches": "200",
+            "workers": "w2",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "prediction_phase",
+        "phaseType": "prediction",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "15610",
+            "numOfBatches": "200",
+            "workers": "w1",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s2",
+            "startingSample": "35130",
+            "numOfBatches": "200",
+            "workers": "w2",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s3",
+            "startingSample": "54650",
+            "numOfBatches": "200",
+            "workers": "w3",
+            "nerltensorType": "float"
+            }   
+                
+            
+        ]    
+    }
+]
+}
