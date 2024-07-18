@@ -58,7 +58,12 @@ class ExperimentFlow():
     def get_csv_dataset(self):
         return self.csv_dataset
 
-    def generate_stats(self, experiment_phase = None) -> StatsTiles:
+    def generate_stats(self, experiment_phase = None) -> Stats:
+        if experiment_phase is None:
+            experiment_phase = self.get_current_experiment_phase() 
+        return Stats(experiment_phase)
+    
+    def generate_stats_tiles(self, experiment_phase = None) -> StatsTiles:
         if experiment_phase is None:
             experiment_phase = self.get_current_experiment_phase() 
         return Stats(experiment_phase)
@@ -73,7 +78,7 @@ class ExperimentFlow():
         # TODO add assertion of AEC experiment type
         return StatsAEC(stats)
 
-    def merge_stats(self, stats_list: list) -> StatsTiles:
+    def merge_stats(self, stats_list: list) -> Stats:
         pass
 
     def parse_experiment_flow_json(self, json_path : str, override_csv_path = ""):

@@ -2,7 +2,7 @@
     "experimentName": "mnist_rr",
     "experimentType": "classification",
     "batchSize": 20,
-    "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/mnist_normalized/mnist_train_255_norm.csv",
+    "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/Nerlnet/Mnist_normalized/mnist_train_255_norm.csv",
     "numOfFeatures": "784",
     "numOfLabels": "10",
     "headersNames": "0,1,2,3,4,5,6,7,8,9",
@@ -15,32 +15,32 @@
           [
              {
                 "sourceName": "s1",
-                "startingSample": "0",
-                "numOfBatches": "300",
+                "startingSample": "",
+                "numOfBatches": "500",
                 "workers": "w1",
                 "nerltensorType": "float"
             },
             {
                 "sourceName": "s2",
-                "startingSample": "200",
-                "numOfBatches": "300",
+                "startingSample": "",
+                "numOfBatches": "500",
                 "workers": "w2",
                 "nerltensorType": "float"
             },
             {
-               "sourceName": "s3",
-               "startingSample": "600",
-               "numOfBatches": "300",
-               "workers": "w3",
-               "nerltensorType": "float"
-           },
-           {
-               "sourceName": "s4",
-               "startingSample": "1000",
-               "numOfBatches": "300",
-               "workers": "w4",
-               "nerltensorType": "float"
-           }
+                "sourceName": "s3",
+                "startingSample": "",
+                "numOfBatches": "500",
+                "workers": "w3",
+                "nerltensorType": "float"
+            },
+            {
+                "sourceName": "s4",
+                "startingSample": "",
+                "numOfBatches": "500",
+                "workers": "w4",
+                "nerltensorType": "float"
+            }
           ]  
        },
        {
@@ -49,17 +49,31 @@
           "sourcePieces":
           [
             {
+                "sourceName": "s1",
+                "startingSample": "",
+                "numOfBatches": "50",
+                "workers": "w1",
+                "nerltensorType": "float"
+            },
+            {
+                "sourceName": "s2",
+                "startingSample": "",
+                "numOfBatches": "50",
+                "workers": "w2",
+                "nerltensorType": "float"
+            },
+            {
                 "sourceName": "s3",
-                "startingSample": "3000",
-                "numOfBatches": "30",
-                "workers": "w3,w1",
+                "startingSample": "",
+                "numOfBatches": "50",
+                "workers": "w3",
                 "nerltensorType": "float"
             },
             {
                 "sourceName": "s4",
-                "startingSample": "1000",
-                "numOfBatches": "30",
-                "workers": "w4,w2",
+                "startingSample": "",
+                "numOfBatches": "50",
+                "workers": "w4",
                 "nerltensorType": "float"
             }
           ]    
