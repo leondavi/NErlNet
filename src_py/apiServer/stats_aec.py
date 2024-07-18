@@ -28,9 +28,9 @@ class StatsAEC():
         
         for worker_db in workers_model_db_list:
             worker_name = worker_db.get_worker_name()
-            batches_ts_tansor_data_dict = worker_db.get_batches_ts_tansor_data_dict()
-            sorted_batches_ts_tansor_data_dict = dict(sorted(batches_ts_tansor_data_dict.items()))
-            loss_dict[worker_name] = [sorted_batches_ts_tansor_data_dict[key][0] for key in sorted(sorted_batches_ts_tansor_data_dict)]
+            batches_ts_tensor_data_dict = worker_db.get_batches_ts_tensor_data_dict()
+            sorted_batches_ts_tensor_data_dict = dict(sorted(batches_ts_tensor_data_dict.items()))
+            loss_dict[worker_name] = [sorted_batches_ts_tensor_data_dict[key][0] for key in sorted(sorted_batches_ts_tensor_data_dict)]
             
         for worker_name in loss_dict:
             loss_dict[worker_name] = [float(arr) for sublist in loss_dict[worker_name] for arr in sublist]
@@ -56,10 +56,10 @@ class StatsAEC():
         
         for worker_db in workers_model_db_list:
             worker_name = worker_db.get_worker_name()
-            batches_ts_tansor_data_dict = worker_db.get_batches_ts_tansor_data_dict()
-            sorted_batches_ts_tansor_data_dict = dict(sorted(batches_ts_tansor_data_dict.items()))
-            upper_boundaries_dict[worker_name] = [sorted_batches_ts_tansor_data_dict[key][1] for key in sorted(sorted_batches_ts_tansor_data_dict)]
-            lower_boundaries_dict[worker_name] = [sorted_batches_ts_tansor_data_dict[key][2] for key in sorted(sorted_batches_ts_tansor_data_dict)]
+            batches_ts_tensor_data_dict = worker_db.get_batches_ts_tensor_data_dict()
+            sorted_batches_ts_tensor_data_dict = dict(sorted(batches_ts_tensor_data_dict.items()))
+            upper_boundaries_dict[worker_name] = [sorted_batches_ts_tensor_data_dict[key][1] for key in sorted(sorted_batches_ts_tensor_data_dict)]
+            lower_boundaries_dict[worker_name] = [sorted_batches_ts_tensor_data_dict[key][2] for key in sorted(sorted_batches_ts_tensor_data_dict)]
             
         for worker_name in upper_boundaries_dict:
             upper_boundaries_dict[worker_name] = [float(arr) for sublist in upper_boundaries_dict[worker_name] for arr in sublist]
@@ -70,6 +70,10 @@ class StatsAEC():
 
         df_upper = pd.DataFrame(upper_boundaries_dict).sort_index(axis=1)
         df_lower = pd.DataFrame(lower_boundaries_dict).sort_index(axis=1)
+        
+        # Take 10% of the data for better visualization
+        df_upper = df_upper.iloc[::len(df_upper) // 100, :]
+        df_lower = df_lower.iloc[::len(df_lower) // 100, :]
         
         if plot:
             for worker_name in df_upper:
@@ -82,13 +86,26 @@ class StatsAEC():
                 plt.fill_between(df_lower[worker_name].index, df_lower[worker_name] - df_lower[worker_name].std(), df_lower[worker_name] + df_lower[worker_name].std(), color='C1', alpha=0.2)
                 plt.plot(seperator, label='Seperator', color='C2')
                 plt.fill_between(seperator.index, seperator + seperator.std(), seperator - seperator.std(), color='C2', alpha=0.2)
-                plt.xscale('log') # For better visualization
+                # plt.xscale('log') # For better visualization
                 plt.xlabel('Batch Num.')
                 plt.ylabel('Boundary Value')
                 plt.title(f'Training Boundaries {worker_name}')
                 plt.legend()
                 plt.show()
         return df_upper, df_lower
+        
+    
+    def get_average_anomaly_error(self):
+        workers_model_db_list = self.stats.nerl_model_db.get_workers_model_db_list()
+        # labels = self.get_labels() # TODO ADD THIS FUNCTION
+        loss_values_dict = {}
+        for worker_db in workers_model_db_list:
+            worker_name = worker_db.get_worker_name()
+            batches_ts_tensor_data_dict = worker_db.get_batches_ts_tensor_data_dict()
+            sorted_batches_ts_tensor_data_dict = dict(sorted(batches_ts_tensor_data_dict.items()))
+            loss_values_dict[worker_name] = [sorted_batches_ts_tensor_data_dict[key][3:] for key in sorted(sorted_batches_ts_tensor_data_dict)]
+            
+        return loss_values_dict
     
     def get_false_alarm_rate(self, conf_mats_workers):
         false_alarm_rate_dict = {}

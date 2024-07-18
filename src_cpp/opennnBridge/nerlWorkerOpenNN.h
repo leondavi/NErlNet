@@ -53,6 +53,7 @@ class NerlWorkerOpenNN : public NerlWorker
     std::shared_ptr<opennn::DataSet> _data_set;
 
     fTensor2DPtr _aec_data_set;
+    fTensor2DPtr _aec_all_loss_values;
     std::shared_ptr<AeRed> _ae_red_ptr;
 
     // training vars

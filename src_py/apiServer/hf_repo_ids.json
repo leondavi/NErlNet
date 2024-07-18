@@ -17,6 +17,12 @@
             "idx": 2,
             "name": "synthetic_norm",
             "description": "Gaussian Distributions Classification Syntetic Dataset for baseline experiments"
+        },
+        {
+            "id": "Nerlnet/forest_cover",
+            "idx": 3,
+            "name": "ForestCover",
+            "description": "Dataset for AEC"
         }
     ]
 }

@@ -49,10 +49,16 @@ namespace nerlnet
         {
             case MODEL_TYPE_AE_CLASSIFIER:
             {
-                loss_val_tensor = std::make_shared<fTensor2D>(3, 1);
+                int num_of_samples = _aec_data_set->dimension(0);
+                loss_val_tensor = std::make_shared<fTensor2D>(3 + num_of_samples, 1);
                 (*loss_val_tensor)(0, 0) = static_cast<float>(_last_loss);
                 (*loss_val_tensor)(1, 0) = _ae_red_ptr->_ema_event;
                 (*loss_val_tensor)(2, 0) = _ae_red_ptr->_ema_normal;
+                // Add _aec_all_loss_values to loss_val_tensor
+                for (int i = 0; i < num_of_samples; i++)
+                {
+                    (*loss_val_tensor)(3 + i, 0) = (*_aec_all_loss_values)(i, 0);
+                }
                 break;
             }
             default:
@@ -95,13 +101,19 @@ namespace nerlnet
                 fTensor2DPtr results = std::make_shared<fTensor2D>(num_of_samples, num_of_labels + num_of_labels*2); // LOWER/UPPER for each label
                 fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
                 *calculate_res = neural_network->calculate_outputs(TrainData->data(), inputs_dimensions);
+                // cout << "Results: " << endl << *calculate_res << endl;
                 fTensor2DPtr loss_values_mse = std::make_shared<fTensor2D>(num_of_samples, 1);
+                fTensor2DPtr loss_values_return = std::make_shared<fTensor2D>(num_of_samples, 1);
                 fTensor2D diff = (*calculate_res - *_aec_data_set);
+                // cout << "Diff: " << endl << diff << endl;
                 fTensor2D squared_diff = diff.pow(2);
                 fTensor1D sum_squared_diff = squared_diff.sum(Eigen::array<int, 1>({1}));
                 fTensor1D mse1D = (1.0 / static_cast<float>(_aec_data_set->dimension(0))) * sum_squared_diff;
                 fTensor2D mse2D = mse1D.reshape(Eigen::array<int, 2>({num_of_samples, 1}));
+                // cout << "MSE2D: " << mse2D << endl;
                 *loss_values_mse = mse2D;
+                *loss_values_return = mse2D;
+                _aec_all_loss_values = loss_values_return;
                 // cout << "MSE Loss: " << mse_loss << endl;
                 fTensor2DPtr res = _ae_red_ptr->update_batch(loss_values_mse);
                 // cout << "AE_RED RESULT VECTOR:" << endl << *res << endl;
@@ -291,6 +303,7 @@ namespace nerlnet
                 bool data_set_condition = (num_of_features + num_of_output_neurons) == autoencoder_data->dimension(1);
                 assert(("issue with data input/output dimensions", data_set_condition));
                 _data_set->set_data(*autoencoder_data);
+                _data_set->set_columns_scalers(Scaler::NoScaling);
                 _data_set->set(autoencoder_data->dimension(0) , num_of_features , num_of_output_neurons); // TODO CHECK
                 break;
             }

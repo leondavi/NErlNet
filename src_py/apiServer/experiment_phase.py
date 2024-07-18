@@ -29,7 +29,6 @@ class ExperimentPhase():
         list_of_decoded_data = decode_phase_result_data_json_from_main_server(self.raw_data_buffer[0])
         for decoded_data in list_of_decoded_data:
             worker_name, source_name, duration, batch_id, batch_ts, distributed_token, np_tensor = decoded_data
-            # print(f"BATCH {batch_id}: {np_tensor}") # ! AEC RETURN WRONG NP_TENSOR
             client_name = self.network_componenets.get_client_name_by_worker_name(worker_name)
             self.nerl_model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, np_tensor, duration, distributed_token, batch_ts)
         
@@ -64,9 +63,13 @@ class ExperimentPhase():
             self.source_pieces_dict[source_piece.source_name] = source_piece
         else: 
             LOG_ERROR(f"Source piece with name {source_piece.source_name} already exists in phase { self.phase}")
-       
+    
     def get_sources_pieces(self):
         return list(self.source_pieces_dict.values())
 
     def remove_source_piece(self, source_name: str): 
         self.source_pieces_dict.pop(source_name)   
+        
+    def get_source_piece(self, source_name: str):
+        return self.source_pieces_dict[source_name]
+    
