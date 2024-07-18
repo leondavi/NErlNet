@@ -56,9 +56,10 @@ COMPILE_NERLTENSOR="compile:file(\"nerlTensor.erl\")"
 
 COMPILE_FILES="$COMPILE_NERL,$COMPILE_NERLNIF,$COMPILE_NERLTEST,$COMPILE_NERLTENSOR"
 
-erl -noshell -eval "$COMPILE_FILES, nerlTests:run_tests()." -s init stop > "$NERLNET_TEST_DIR/$LOG_FILE" #TODO fix 
+erl -noshell -eval "$COMPILE_FILES, nerlTests:run_tests()." -s init stop > "$NERLNET_TEST_DIR/$LOG_FILE"
 rc=$(echo $?)
 cat "$NERLNET_TEST_DIR/$LOG_FILE"
 cd -
 
+echo "Test returned: $rc"
 exit $rc

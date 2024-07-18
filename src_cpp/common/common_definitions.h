@@ -1,4 +1,8 @@
 #pragma once
+
+#include "nifpp.h"
+#include <Logger.h>
+
 namespace nerlnet
 {
 

@@ -75,13 +75,15 @@ ActivationFunctionsMap = OrderedDict(
 # Maps from layer type to the functionality of layer mapping 
 LayerTypeToFunctionalMap = OrderedDict([
     ("Scaling" , ScalingMethodMap),
-    ("CNN" , None),
+    ("Conv" , None),
     ("Perceptron" , ActivationFunctionsMap),
     ("Pooling" , PoolingMethodMap),
     ("Probabilistic" , ProbabilisticActivationFunctionMap),
     ("LSTM" , None),
     ("Reccurrent" , None),
-    ("Unscaling" , UnScalingMethodMap)]
+    ("Unscaling" , UnScalingMethodMap),
+    ("Flatten" , FlattenMethodMap),
+    ("Bounding" , BoundingMethodMap)]
 )
 
 # Model type name should be suitable with erlang atoms convention! 
@@ -118,8 +120,13 @@ LossMethodMapping = OrderedDict([
 
 DistributedSystemTypeMapping = OrderedDict([
     ("none" , "0"),
-    ("fedClientAvg" , "1"),
-    ("fedServerAvg" , "2")
+    ("FedClientAvg" , "1"),
+    ("FedServerAvg" , "2"),
+    ("FedClientWeightedAvgClassification" , "3"),
+    ("FedServerWeightedAvgClassification" , "4"),
+    ("FedClientAE" , "5"),
+    ("FedServerAE" , "6"),
+    ("tiles", "7")
 ])
 
 InfraTypeMapping = OrderedDict([

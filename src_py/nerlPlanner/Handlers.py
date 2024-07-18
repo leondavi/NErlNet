@@ -692,13 +692,14 @@ def dc_json_handler(window, event, values):
         dc_json_import_file = values[KEY_DC_JSON_IMPORT_INPUT]
 
     if event == KEY_DC_JSON_IMPORT_BUTTON:
-        json_dc_inst_tmp = JsonDistributedConfig()
-        res_code, error_str = json_dc_inst_tmp.import_dc_json(dc_json_import_file)
-        if (res_code, error_str) != json_dc_inst_tmp.IMPORT_DC_JSON_SUCCESS:
-            sg.popup_ok(f"Issue of {error_str}", keep_on_top=True, title="DC json Import Issue")
-        else:
-            json_dc_inst = json_dc_inst_tmp
-            sync_fields_with_json_dc_inst(window, values)
+        if dc_json_import_file: 
+            json_dc_inst_tmp = JsonDistributedConfig()
+            res_code, error_str = json_dc_inst_tmp.import_dc_json(dc_json_import_file)
+            if (res_code, error_str) != json_dc_inst_tmp.IMPORT_DC_JSON_SUCCESS:
+                sg.popup_ok(f"Issue of {error_str}", keep_on_top=True, title="DC json Import Issue")
+            else:
+                json_dc_inst = json_dc_inst_tmp
+                sync_fields_with_json_dc_inst(window, values)
 
     if event == KEY_DC_JSON_CLEAR_BUTTON:
         json_dc_inst.clear_nerlplanner()

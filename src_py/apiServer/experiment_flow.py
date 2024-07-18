@@ -10,6 +10,7 @@ from events_sync import *
 from networkComponents import *
 from stats import * 
 from statsTiles import *
+from stats_aec import *
 from experiment_phase import *
 
 # Todo check imports and remove unused ones
@@ -67,6 +68,11 @@ class ExperimentFlow():
         if experiment_phase is None:
             experiment_phase = self.get_current_experiment_phase() 
         return StatsTiles(experiment_phase)
+    
+    def generate_stats_aec(self, stats: Stats) -> Stats:
+        assert stats is not None , "stats is None"
+        # TODO add assertion of AEC experiment type
+        return StatsAEC(stats)
 
     def merge_stats(self, stats_list: list) -> Stats:
         pass
