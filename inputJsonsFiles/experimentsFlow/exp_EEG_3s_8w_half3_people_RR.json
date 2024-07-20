@@ -17,6 +17,7 @@
             {
             "sourceName": "s1",
             "startingSample": "0",
+<<<<<<<< HEAD:inputJsonsFiles/experimentsFlow/exp_EEG_3s_8w_half3_people_RR.json
             "numOfBatches": "100",
             "workers": "w1,w4,w7",
             "nerltensorType": "float"
@@ -33,6 +34,10 @@
             "startingSample": "39040",
             "numOfBatches": "100",
             "workers": "w3,w6",
+========
+            "numOfBatches": "3",
+            "workers": "w1,w2,w3",
+>>>>>>>> f61f1ff7 (some jsons experiments):inputJsonsFiles/experimentsFlow/exp_EEG_3c_3s_2r_3w_small_sample_RR.json
             "nerltensorType": "float"
             }
         ]  
@@ -48,6 +53,7 @@
             "numOfBatches": "200",
             "workers": "w1,w4,w7",
             "nerltensorType": "float"
+<<<<<<<< HEAD:inputJsonsFiles/experimentsFlow/exp_EEG_3s_8w_half3_people_RR.json
             },
             {
             "sourceName": "s2",
@@ -63,6 +69,9 @@
             "workers": "w3,w6",
             "nerltensorType": "float"
             }           
+========
+            }
+>>>>>>>> f61f1ff7 (some jsons experiments):inputJsonsFiles/experimentsFlow/exp_EEG_3c_3s_2r_3w_small_sample_RR.json
         ]    
     }
 ]
