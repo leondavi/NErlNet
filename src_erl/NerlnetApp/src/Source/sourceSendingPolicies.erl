@@ -73,7 +73,7 @@ send_method_round_robin(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPai
   TotalNumOfBatches = length(BatchesListToSend),
   BatchesIndexes = generate_batch_indexes(TotalNumOfBatches, EpochIdx),
   ClientWorkerPairsLength = length(ClientWorkerPairs),
-  WorkerIdxBatchIdxTuples = [ {X , X rem ClientWorkerPairsLength} || X <- BatchesIndexes],
+  WorkerIdxBatchIdxTuples = [ {X div ClientWorkerPairsLength, X rem ClientWorkerPairsLength} || X <- BatchesIndexes],
   BatchesWithIndexes = lists:zip(WorkerIdxBatchIdxTuples, BatchesListToSend),
   lists:foreach(BatchFunc, BatchesWithIndexes),
   % update batches sent
@@ -97,7 +97,7 @@ send_method_random(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, B
   TotalNumOfBatches = length(BatchesListToSend),
   BatchesIndexes = generate_batch_indexes(TotalNumOfBatches, EpochIdx),
   ClientWorkerPairsLength = length(ClientWorkerPairs),
-  WorkerIdxBatchIdxTuples = [ {X , rand:uniform(ClientWorkerPairsLength)} || X <- BatchesIndexes],
+  WorkerIdxBatchIdxTuples = [ {X div ClientWorkerPairsLength, rand:uniform(ClientWorkerPairsLength)} || X <- BatchesIndexes],
   BatchesWithIndexes = lists:zip(WorkerIdxBatchIdxTuples, BatchesListToSend), % Tuple {{BatchIdx, WorkerIdx}, Batch}
   lists:foreach(BatchFunc, BatchesWithIndexes),
   % update batches sent
