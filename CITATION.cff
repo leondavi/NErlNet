@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Leon"
+  given-names: "David"
+  orcid: "https://orcid.org/0000-0001-8036-9964"
+- family-names: "Ben-Shimol"
+  given-names: "Yehuda"
+  orcid: "https://orcid.org/0000-0002-4905-2085"
+title: "NErlNet"
+version: 1.5.1
+date-released: 2024-07-18
+url: "https://github.com/leondavi/NErlNet"

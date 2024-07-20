@@ -40,6 +40,7 @@ Nerlnet library combines the following languages to achieve a stable and efficie
 - [Simple Cpp Logger](https://github.com/nadrino/simple-cpp-logger), simple cpp logger headers-only implementation.
 
 Nerlnet is developed by David Leon, Dr. Yehuda Ben-Shimol, and the community of Nerlnet open-source contributors.  
+Academic researchers can use Nerlnet for free, provided they cite this repository.  
 
 ### Nerlnet Architecture Example:
 ![Nerlnet Architecture](https://user-images.githubusercontent.com/18975070/141692829-f0cdca7d-96d1-43b0-920a-5821a14242f7.jpg)
@@ -95,3 +96,4 @@ https://github.com/leondavi/NErlNet/assets/18975070/15a3957a-3fd6-4fb2-a365-7e15
 <p align="center"> <img src="https://github.com/leondavi/NErlNet/assets/18975070/5fe285fd-43c9-4de8-a619-5ebaace33b29" width="50" title="Amazon AWS Sponsorship"></p>  
 
 <p align="center"> A grant of AWS credits as part of AWSOpen program for open source projects (2024).</p>
+
