@@ -97,7 +97,8 @@ send_method_random(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, B
   TotalNumOfBatches = length(BatchesListToSend),
   BatchesIndexes = generate_batch_indexes(TotalNumOfBatches, EpochIdx),
   ClientWorkerPairsLength = length(ClientWorkerPairs),
-  WorkerIdxBatchIdxTuples = [ {X div ClientWorkerPairsLength, rand:uniform(ClientWorkerPairsLength)} || X <- BatchesIndexes],
+  % TODO Guy - there is an issue here  the batch Index should be accumulated according to random selections. 
+  WorkerIdxBatchIdxTuples = [ {X, rand:uniform(ClientWorkerPairsLength)} || X <- BatchesIndexes],
   BatchesWithIndexes = lists:zip(WorkerIdxBatchIdxTuples, BatchesListToSend), % Tuple {{BatchIdx, WorkerIdx}, Batch}
   lists:foreach(BatchFunc, BatchesWithIndexes),
   % update batches sent
