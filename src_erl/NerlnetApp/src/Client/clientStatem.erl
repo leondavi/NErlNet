@@ -279,6 +279,7 @@ training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef =
 
 training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
+  io:format("~p send end_stream to worker ~p~n",[SourceName, WorkerName]),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
