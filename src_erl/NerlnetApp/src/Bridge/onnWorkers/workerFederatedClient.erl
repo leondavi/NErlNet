@@ -113,7 +113,8 @@ end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [S
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
         case length(ActiveStreams) of % Send to server an updater after got start_stream from the first source
-          0 ->  w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, {MyName, SourceName}); % Mimic source behavior
+          0 ->  io:format("Worker ~p ending stream with ~p~n", [MyName, SourceName]),
+                w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, {MyName, SourceName}); % Mimic source behavior
           _ -> ok
         end
   end.
