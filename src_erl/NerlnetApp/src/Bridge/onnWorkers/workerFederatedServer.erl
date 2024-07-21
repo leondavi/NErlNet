@@ -142,7 +142,7 @@ post_train({GenWorkerEts, WeightsTensor}) ->
   {WorkerWeights, _BinaryType} = WeightsTensor,
   TotalWorkersWeights = CurrWorkersWeightsList ++ [WorkerWeights],
   ActiveWorkersSourcesList = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
-  NumOfActiveWorkers = length([Worker || {Worker, _Source} <- ActiveWorkersSourcesList]),
+  NumOfActiveWorkers = length(lists:usort([Worker || {Worker, _Source} <- ActiveWorkersSourcesList])), % Remove duplicates
   case length(TotalWorkersWeights) of 
     NumOfActiveWorkers -> 
       ets:update_counter(FedServerEts, total_syncs, 1),
@@ -160,7 +160,7 @@ post_train({GenWorkerEts, WeightsTensor}) ->
         w2wCom:send_message_with_event(W2WPid, FedServerName, FedClient, post_train_update, {SyncIdx, AvgWeightsNerlTensor}) 
       end,
       WorkersSourcesList = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
-      WorkersList = [Worker || {Worker, _Source} <- WorkersSourcesList],
+      WorkersList = lists:usort([Worker || {Worker, _Source} <- WorkersSourcesList]), % Remove duplicates
       lists:foreach(Func, WorkersList),
       ets:update_element(FedServerEts, weights_list, {?ETS_KEYVAL_VAL_IDX, []});
     _ -> ets:update_element(FedServerEts, weights_list, {?ETS_KEYVAL_VAL_IDX, TotalWorkersWeights})
