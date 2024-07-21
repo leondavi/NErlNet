@@ -232,7 +232,7 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
   end,
   {next_state, NextState, State};
 
-wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = _DistributedBehaviorFunc}) ->
+wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = _DistributedBehaviorFunc}) ->
   %logger:notice("Waiting, next state - idle"),
   CurrentEndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
   NewEndStreamWaitingList = CurrentEndStreamWaitingList ++ [StreamName],
