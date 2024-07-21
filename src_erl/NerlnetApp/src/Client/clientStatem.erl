@@ -313,8 +313,7 @@ training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef
               Workers =  clientWorkersFunctions:get_workers_names(EtsRef),
               ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
               {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
-    false ->  gen_statem:cast(get(my_pid) , {idle}), % Trigger this action until all workers are done
-              timer:sleep(10), % wait 10 milliseconds
+    false ->   spawn(fun() -> timer:sleep(10), gen_statem:cast(get(my_pid) , {idle}) end), % Trigger this action until all workers are done
               {keep_state, State}
   end;
 
