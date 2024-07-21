@@ -199,9 +199,10 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
     {next_state, NextState, State}
   end;
 
-wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   %logger:notice("Waiting, next state - idle"),
   Func = fun() -> stream_handler(end_stream, wait, StreamName, DistributedBehaviorFunc) end,
+  io:format("@wait ~p got end stream from ~p~n",[MyName, StreamName]),
   {next_state, wait, State#workerGeneric_state{postBatchFunc = Func}};
 
 wait(cast, {post_train_update, Data}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
@@ -227,8 +228,7 @@ wait(cast, {predict}, State) ->
   {next_state, wait, State#workerGeneric_state{nextState = predict}};
 
 %% Worker in wait can't treat incoming message 
-wait(cast, BatchTuple , State = #workerGeneric_state{lastPhase = LastPhase, myName= MyName}) when element(1, BatchTuple) == sample ->
-  io:format("Worker ~p can't treat incoming message in wait state~n",[MyName]),
+wait(cast, BatchTuple , State = #workerGeneric_state{lastPhase = LastPhase, myName= _MyName}) when element(1, BatchTuple) == sample ->
   case LastPhase of
     train -> 
       ets:update_counter(get(worker_stats_ets), batches_dropped_train , 1);
