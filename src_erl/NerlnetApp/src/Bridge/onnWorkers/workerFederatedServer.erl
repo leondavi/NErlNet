@@ -163,6 +163,7 @@ post_train({GenWorkerEts, WeightsTensor}) ->
         w2wCom:send_message_with_event(W2WPid, FedServerName, FedClient, post_train_update, {SyncIdx, AvgWeightsNerlTensor}) 
       end,
       WorkersSourcesList = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
+      io:format("WorkersSourcesList = ~p~n",[WorkersSourcesList]),
       WorkersList = lists:usort([Worker || {Worker, _Source} <- WorkersSourcesList]), % Remove duplicates
       io:format("Sending new weights to workers ~p~n",[WorkersList]),
       lists:foreach(Func, WorkersList),
