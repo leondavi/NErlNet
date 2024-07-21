@@ -170,6 +170,7 @@ idle(cast, _Param, State = #workerGeneric_state{myName = _MyName}) ->
 %% Waiting for receiving results or loss function
 %% Got nan or inf from loss function - Error, loss function too big for double
 wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
+  io:format("~p got loss tensor nan for batch ~p~n", [MyName, BatchID]),
   stats:increment_by_value(get(worker_stats_ets), nan_loss_count, 1),
   WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
   gen_statem:cast(get(client_pid),{loss, MyName , SourceName ,nan , TrainTime, WorkerToken ,BatchID}),
@@ -179,6 +180,7 @@ wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneri
 
 
 wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
+  io:format("~p got loss tensor for batch ~p~n", [MyName, BatchID]),
   BatchTimeStamp = erlang:system_time(nanosecond),
   WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
   gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,{LossTensor, LossTensorType} , TrainTime , WorkerToken, BatchID , BatchTimeStamp}),
@@ -225,7 +227,8 @@ wait(cast, {predict}, State) ->
   {next_state, wait, State#workerGeneric_state{nextState = predict}};
 
 %% Worker in wait can't treat incoming message 
-wait(cast, BatchTuple , State = #workerGeneric_state{lastPhase = LastPhase, myName= _MyName}) when element(1, BatchTuple) == sample ->
+wait(cast, BatchTuple , State = #workerGeneric_state{lastPhase = LastPhase, myName= MyName}) when element(1, BatchTuple) == sample ->
+  io:format("Worker ~p can't treat incoming message in wait state~n",[MyName]),
   case LastPhase of
     train -> 
       ets:update_counter(get(worker_stats_ets), batches_dropped_train , 1);
