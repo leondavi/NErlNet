@@ -516,7 +516,6 @@ handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data) ->
       stats:increment_messages_sent(ClientStatsEts);
     _ ->
       %% Send to the correct client
-      io:format("ToWorker = ~p~n",[ToWorker]),
       DestClient = maps:get(ToWorker, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
       % ClientName = ets:lookup_element(EtsRef, myName , ?DATA_IDX),
       % io:format("Client ~p passing w2w_msg {~p --> ~p} to ~p: Data ~p~n",[ClientName, FromWorker, ToWorker, DestClient,Data]),
