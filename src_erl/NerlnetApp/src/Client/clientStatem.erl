@@ -516,7 +516,7 @@ handle_w2w_msg(EtsRef, FromWorker, WorkerData, Data) ->
       % Extract W2WPID from Ets
       W2WPidsMap = ets:lookup_element(EtsRef, w2wcom_pids, ?DATA_IDX),
       TargetWorkerW2WPID = maps:get(ToWorker, W2WPidsMap),
-      {ok, _Reply} = gen_server:call(TargetWorkerW2WPID, {worker_to_worker_msg, FromWorker, WorkerName, Data}),
+      {ok, _Reply} = gen_server:call(TargetWorkerW2WPID, {worker_to_worker_msg, FromWorker, ToWorker, Data}),
       stats:increment_messages_sent(ClientStatsEts);
     _ ->
       %% Send to the correct client
