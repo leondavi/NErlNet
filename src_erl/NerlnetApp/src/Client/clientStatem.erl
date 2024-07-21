@@ -504,7 +504,6 @@ create_encoded_stats_str(ListStatsEts) ->
   lists:flatten(lists:map(Func , ListStatsEts)).
 
 handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data) ->
-  io:format("~p got w2w_msg ~p from ~p~n", [ToWorker, Data, FromWorker]),
   ClientStatsEts = get(client_stats_ets),
   WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
   WorkerOfThisClient = lists:member(ToWorker, WorkersOfThisClient),

@@ -141,7 +141,8 @@ post_train({GenWorkerEts, WeightsTensor}) ->
   CurrWorkersWeightsList = ets:lookup_element(FedServerEts, weights_list, ?ETS_KEYVAL_VAL_IDX),
   {WorkerWeights, _BinaryType} = WeightsTensor,
   TotalWorkersWeights = CurrWorkersWeightsList ++ [WorkerWeights],
-  NumOfActiveWorkers = length(ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX)),
+  ActiveWorkersSourcesList = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
+  NumOfActiveWorkers = length([Worker || {Worker, _Source} <- ActiveWorkersSourcesList]),
   case length(TotalWorkersWeights) of 
     NumOfActiveWorkers -> 
       ets:update_counter(FedServerEts, total_syncs, 1),
