@@ -287,6 +287,9 @@ training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = E
   {keep_state, State};
 
 training(cast, In = {stream_ended , Pair}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   UpdatedListOfActiveWorkersSources = ListOfActiveWorkersSources -- [Pair],
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, UpdatedListOfActiveWorkersSources}),
@@ -382,6 +385,9 @@ predict(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = Et
   {keep_state, State};
 
 predict(cast, In = {stream_ended , Pair}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   UpdatedListOfActiveWorkersSources = ListOfActiveWorkersSources -- [Pair],
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, UpdatedListOfActiveWorkersSources}),
@@ -507,7 +513,7 @@ handle_w2w_msg(EtsRef, FromWorker, WorkerSourcePair, Data) ->
       % Extract W2WPID from Ets
       W2WPidsMap = ets:lookup_element(EtsRef, w2wcom_pids, ?DATA_IDX),
       TargetWorkerW2WPID = maps:get(WorkerSourcePair, W2WPidsMap),
-      {ok, _Reply} = gen_server:call(TargetWorkerW2WPID, {worker_to_worker_msg, FromWorker, ToWorker, Data}),
+      {ok, _Reply} = gen_server:call(TargetWorkerW2WPID, {worker_to_worker_msg, FromWorker, WorkerName, Data}),
       stats:increment_messages_sent(ClientStatsEts);
     _ ->
       %% Send to the correct client
