@@ -152,8 +152,11 @@ post_train({GenWorkerEts, WeightsTensor}) ->
       {CurrentModelWeights, BinaryType} = nerlNIF:call_to_get_weights(ModelID),
       FedServerName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
       AllWorkersWeightsList = TotalWorkersWeights ++ [CurrentModelWeights],
+      io:format("GOT HERE1~n"),
       AvgWeightsNerlTensor = generate_avg_weights(AllWorkersWeightsList, BinaryType),
+      io:format("GOT HERE2~n"),
       nerlNIF:call_to_set_weights(ModelID, AvgWeightsNerlTensor), %% update self weights to new model
+      io:format("GOT HERE3~n"),
       Func = fun(FedClient) ->
         FedServerName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
@@ -161,6 +164,7 @@ post_train({GenWorkerEts, WeightsTensor}) ->
       end,
       WorkersSourcesList = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
       WorkersList = lists:usort([Worker || {Worker, _Source} <- WorkersSourcesList]), % Remove duplicates
+      io:format("Sending new weights to workers ~p~n",[WorkersList]),
       lists:foreach(Func, WorkersList),
       ets:update_element(FedServerEts, weights_list, {?ETS_KEYVAL_VAL_IDX, []});
     _ -> ets:update_element(FedServerEts, weights_list, {?ETS_KEYVAL_VAL_IDX, TotalWorkersWeights})
