@@ -497,23 +497,24 @@ create_encoded_stats_str(ListStatsEts) ->
     end,
   lists:flatten(lists:map(Func , ListStatsEts)).
 
-handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data) ->
+handle_w2w_msg(EtsRef, FromWorker, WorkerSourcePair, Data) ->
   ClientStatsEts = get(client_stats_ets),
   WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
-  WorkerOfThisClient = lists:member(ToWorker, WorkersOfThisClient),
+  WorkerOfThisClient = lists:member(WorkerSourcePair, WorkersOfThisClient),
+  {WorkerName, _SourceName} = WorkerSourcePair,
   case WorkerOfThisClient of
     true -> 
       % Extract W2WPID from Ets
       W2WPidsMap = ets:lookup_element(EtsRef, w2wcom_pids, ?DATA_IDX),
-      TargetWorkerW2WPID = maps:get(ToWorker, W2WPidsMap),
+      TargetWorkerW2WPID = maps:get(WorkerSourcePair, W2WPidsMap),
       {ok, _Reply} = gen_server:call(TargetWorkerW2WPID, {worker_to_worker_msg, FromWorker, ToWorker, Data}),
       stats:increment_messages_sent(ClientStatsEts);
     _ ->
       %% Send to the correct client
-      DestClient = maps:get(ToWorker, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
+      DestClient = maps:get(WorkerName, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
       % ClientName = ets:lookup_element(EtsRef, myName , ?DATA_IDX),
       % io:format("Client ~p passing w2w_msg {~p --> ~p} to ~p: Data ~p~n",[ClientName, FromWorker, ToWorker, DestClient,Data]),
-      MessageBody = {worker_to_worker_msg, FromWorker, ToWorker, Data},
+      MessageBody = {worker_to_worker_msg, FromWorker, WorkerSourcePair, Data},
       {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
       nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(worker_to_worker_msg), MessageBody),
       stats:increment_messages_sent(ClientStatsEts),
