@@ -49,13 +49,10 @@ update_nerlworker_train_params_nif(_ModelID,_LearningRate,_Epochs,_OptimizerType
 
 call_to_train(ModelID, {DataTensor, Type}, WorkerPid , BatchID , SourceName)-> 
       ok = train_nif(ModelID, DataTensor, Type),
-      io:format("Worker ~p called nif_train with batch ~p~n",[WorkerPid, BatchID]),
       receive
             {nerlnif, nan, TrainTime} -> 
-                  io:format("Worker ~p received nan loss for batch ~p~n",[WorkerPid, BatchID]),
                   gen_statem:cast(WorkerPid,{loss, nan , TrainTime , BatchID , SourceName}); %TODO Guy - Please the behavior when this case happens
             {nerlnif , LossTensor, LossTensorType , TrainTime}->
-                  io:format("Worker ~p received loss tensor for batch ~p~n",[WorkerPid, BatchID]),
                   gen_statem:cast(WorkerPid,{loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName})
             after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
                   ?LOG_ERROR("Worker train timeout reached! bid:~p s:~p",[BatchID , SourceName]),
