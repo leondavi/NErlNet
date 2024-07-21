@@ -171,13 +171,11 @@ idle(cast, _Param, State = #workerGeneric_state{myName = _MyName}) ->
 %% Waiting for receiving results or loss function
 %% Got nan or inf from loss function - Error, loss function too big for double
 wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  io:format("~p got loss tensor nan for batch ~p~n", [MyName, BatchID]),
   stats:increment_by_value(get(worker_stats_ets), nan_loss_count, 1),
   WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
   gen_statem:cast(get(client_pid),{loss, MyName , SourceName ,nan , TrainTime, WorkerToken ,BatchID}),
   NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
   EndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
-  io:format("EndStreamWaitingList: ~p~n",[EndStreamWaitingList]),
   case length(EndStreamWaitingList) of
     0 -> ok;
     _ -> 
@@ -193,13 +191,11 @@ wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneri
 
 
 wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  io:format("~p got loss tensor for batch ~p~n", [MyName, BatchID]),
   BatchTimeStamp = erlang:system_time(nanosecond),
   WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
   gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,{LossTensor, LossTensorType} , TrainTime , WorkerToken, BatchID , BatchTimeStamp}),
   NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
   EndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
-  io:format("EndStreamWaitingList: ~p~n",[EndStreamWaitingList]),
   case length(EndStreamWaitingList) of
     0 -> ok;
     _ -> 
