@@ -86,7 +86,7 @@ handshake(FedClientEts) ->
   lists:foreach(Func, MessagesList).
 
 start_stream({GenWorkerEts, WorkerData}) ->  % WorkerData is currently a list of [SourceName, State]
-  [_SourceName, ModelPhase] = WorkerData,
+  [SourceName, ModelPhase] = WorkerData,
   FirstMsg = 1,
   case ModelPhase of
     train ->
@@ -96,14 +96,14 @@ start_stream({GenWorkerEts, WorkerData}) ->  % WorkerData is currently a list of
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
         case length(ActiveStreams) of % Send to server an updater after got start_stream from the first source
-          FirstMsg ->   w2wCom:send_message_with_event(W2WPid, MyName, ServerName , start_stream, MyName); % Server gets FedWorkerName instead of SourceName
+          FirstMsg ->   w2wCom:send_message_with_event(W2WPid, MyName, ServerName , start_stream, {MyName, SourceName}); % Server gets FedWorkerName instead of SourceName
           _ -> ok
         end;
       predict -> ok
   end.
 
 end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [SourceName]
-  [_SourceName, ModelPhase] = WorkerData,
+  [SourceName, ModelPhase] = WorkerData,
   case ModelPhase of
     predict -> ok;
     _ -> % train/wait
@@ -113,7 +113,7 @@ end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [S
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
         case length(ActiveStreams) of % Send to server an updater after got start_stream from the first source
-          0 ->  w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, MyName); % Mimic source behavior
+          0 ->  w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, {MyName, SourceName}); % Mimic source behavior
           _ -> ok
         end
   end.
