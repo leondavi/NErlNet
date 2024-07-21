@@ -503,11 +503,7 @@ create_encoded_stats_str(ListStatsEts) ->
     end,
   lists:flatten(lists:map(Func , ListStatsEts)).
 
-handle_w2w_msg(EtsRef, FromWorker, WorkerData, Data) ->
-  case length(WorkerData) of
-    1 -> ToWorker = WorkerData;
-    2 -> {ToWorker, _SourceName} = WorkerData
-  end,
+handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data) ->
   ClientStatsEts = get(client_stats_ets),
   WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
   WorkerOfThisClient = lists:member(ToWorker, WorkersOfThisClient),
@@ -520,10 +516,11 @@ handle_w2w_msg(EtsRef, FromWorker, WorkerData, Data) ->
       stats:increment_messages_sent(ClientStatsEts);
     _ ->
       %% Send to the correct client
+      io:format("ToWorker = ~p~n",[ToWorker]),
       DestClient = maps:get(ToWorker, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
       % ClientName = ets:lookup_element(EtsRef, myName , ?DATA_IDX),
       % io:format("Client ~p passing w2w_msg {~p --> ~p} to ~p: Data ~p~n",[ClientName, FromWorker, ToWorker, DestClient,Data]),
-      MessageBody = {worker_to_worker_msg, FromWorker, WorkerData, Data},
+      MessageBody = {worker_to_worker_msg, FromWorker, ToWorker, Data},
       {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
       nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(worker_to_worker_msg), MessageBody),
       stats:increment_messages_sent(ClientStatsEts),
