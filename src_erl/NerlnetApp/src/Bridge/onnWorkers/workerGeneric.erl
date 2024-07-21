@@ -237,7 +237,7 @@ wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyNa
   CurrentEndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
   NewEndStreamWaitingList = CurrentEndStreamWaitingList ++ [StreamName],
   ets:update_element(get(generic_worker_ets), end_streams_waiting_list, {?ETS_KEYVAL_VAL_IDX, NewEndStreamWaitingList}),
-  io:format("@wait ~p got end stream from ~p~n",[MyName, StreamName]),
+  % io:format("@wait ~p got end stream from ~p~n",[MyName, StreamName]),
   {next_state, wait, State};
 
 wait(cast, {post_train_update, Data}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
@@ -369,7 +369,7 @@ update_client_avilable_worker(MyName) ->
 stream_handler(StreamPhase , ModelPhase , StreamName , DistributedBehaviorFunc) -> 
   GenWorkerEts = get(generic_worker_ets),
   MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
-  io:format("~p got ~p from ~p~n",[MyName, StreamPhase, StreamName]),
+  % io:format("~p got ~p from ~p~n",[MyName, StreamPhase, StreamName]),
   ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
   ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
   NewActiveStreams = 

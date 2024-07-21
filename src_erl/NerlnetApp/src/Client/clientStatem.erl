@@ -279,7 +279,7 @@ training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef =
 
 training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
-  io:format("~p send end_stream to worker ~p~n",[SourceName, WorkerName]),
+  % io:format("~p send end_stream to worker ~p~n",[SourceName, WorkerName]),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
@@ -308,7 +308,7 @@ training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   MessageToCast = {idle},
   WorkersDone = ets:lookup_element(EtsRef , all_workers_done , ?DATA_IDX),
-  io:format("Client ~p Workers Done? ~p~n",[MyName, WorkersDone]),
+  % io:format("Client ~p Workers Done? ~p~n",[MyName, WorkersDone]),
   case WorkersDone of
     true ->   cast_message_to_workers(EtsRef, MessageToCast),
               Workers =  clientWorkersFunctions:get_workers_names(EtsRef),
