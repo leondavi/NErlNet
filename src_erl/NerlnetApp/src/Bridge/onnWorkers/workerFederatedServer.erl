@@ -72,21 +72,21 @@ init({GenWorkerEts, WorkerData}) ->
 
   
 start_stream({GenWorkerEts, WorkerData}) -> 
-  [FedWorkerName , _ModelPhase] = WorkerData,
+  [Pair , _ModelPhase] = WorkerData,
   FedServerEts = get_this_server_ets(GenWorkerEts),
   ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
   MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
-  gen_server:cast(ClientPid, {start_stream, {worker, MyName, FedWorkerName}}).
+  gen_server:cast(ClientPid, {start_stream, {worker, MyName, Pair}}).
 
 end_stream({GenWorkerEts, WorkerData}) -> % Federated server takes the control of popping the stream from the active streams list
-  [FedWorkerName , _ModelPhase] = WorkerData,
+  [Pair , _ModelPhase] = WorkerData,
   FedServerEts = get_this_server_ets(GenWorkerEts),
   MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
   ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
-  gen_statem:cast(ClientPid, {worker_done, {MyName, FedWorkerName}}),
+  gen_statem:cast(ClientPid, {stream_ended, {MyName, Pair}}),
   ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
   case ActiveStreams of
-    [] -> ets:update_element(FedServerEts, active_streams, {?ETS_KEYVAL_VAL_IDX, none});
+    [] -> ets:update_element(FedServerEts, active_streams, {?ETS_KEYVAL_VAL_IDX, []});
     _ -> ok
   end.
 

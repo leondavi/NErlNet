@@ -269,11 +269,13 @@ train(cast, {post_train_update , Weights}, State = #workerGeneric_state{myName =
   DistributedBehaviorFunc(post_train, {get(generic_worker_ets), Weights}),
   {next_state, train, State};
 
-train(cast, {start_stream , StreamName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+train(cast, {start_stream , StreamName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+  % io:format("~p start stream ~p~n",[MyName, StreamName]),
   stream_handler(start_stream, train, StreamName, DistributedBehaviorFunc),
   {next_state, train, State};
 
-train(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+train(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+  % io:format("~p end stream ~p~n",[MyName, StreamName]),
   stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
   {next_state, train, State};
 
@@ -329,17 +331,14 @@ update_client_avilable_worker(MyName) ->
 stream_handler(StreamPhase , ModelPhase , StreamName , DistributedBehaviorFunc) -> 
   GenWorkerEts = get(generic_worker_ets),
   MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+  ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
   ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
   NewActiveStreams = 
       case StreamPhase of
-          start_stream -> ActiveStreams ++ [StreamName];
-          end_stream -> ActiveStreams -- [StreamName]
+          start_stream -> ActiveStreams ++ [{MyName, StreamName}];
+          end_stream -> gen_statem:cast(ClientPid, {stream_ended, {MyName, StreamName}}),
+                        ActiveStreams -- [{MyName, StreamName}]
+                        
       end,
   ets:update_element(GenWorkerEts, active_streams, {?ETS_KEYVAL_VAL_IDX, NewActiveStreams}),
-  DistributedBehaviorFunc(StreamPhase, {GenWorkerEts, [StreamName , ModelPhase]}),
-  UpdatedActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
-  case UpdatedActiveStreams of % Send to client an update after done with training phase
-      [] ->   ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
-              gen_statem:cast(ClientPid, {worker_done, {MyName, StreamName}});
-      _ -> ok 
-  end.
+  DistributedBehaviorFunc(StreamPhase, {GenWorkerEts, [StreamName , ModelPhase]}).
