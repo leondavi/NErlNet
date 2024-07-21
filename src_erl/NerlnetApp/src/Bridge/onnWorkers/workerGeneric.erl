@@ -215,7 +215,7 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
   BatchTimeStamp = erlang:system_time(nanosecond),
   WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
   gen_statem:cast(get(client_pid),{predictRes,MyName, SourceName, {PredNerlTensor, PredNerlTensorType}, TimeNif , WorkerToken, BatchID , BatchTimeStamp}), 
-  Update = DistributedBehaviorFunc(post_predict, {get(generic_worker_ets),DistributedWorkerData}),
+  DistributedBehaviorFunc(post_predict, {get(generic_worker_ets),DistributedWorkerData}),
   EndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
   case length(EndStreamWaitingList) of
     0 -> ok;
@@ -228,11 +228,7 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
               end,
       lists:foreach(Func, EndStreamWaitingList)
   end,
-  if Update -> 
-    {next_state, update, State#workerGeneric_state{nextState=NextState}}; % Deprecated
-  true ->
-    {next_state, NextState, State}
-  end;
+  {next_state, NextState, State};
 
 wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = _DistributedBehaviorFunc}) ->
   %logger:notice("Waiting, next state - idle"),
