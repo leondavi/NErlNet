@@ -2,7 +2,7 @@
 
 -export([controller/2]).
 
--include("w2wCom.hrl").
+-include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/NerlnetApp/src/Bridge/Common/w2wCom.hrl").
 
 -import(nerlNIF,[nerltensor_scalar_multiplication_nif/3, call_to_get_weights/1, call_to_set_weights/2]).
 -import(nerlTensor,[sum_nerltensors_lists/2]).

@@ -3,7 +3,7 @@
 -export([controller/2]).
 
 -include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/NerlnetApp/src/nerl_tools.hrl").
--include("w2wCom.hrl").
+-include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/NerlnetApp/src/Bridge/Common/w2wCom.hrl").
 
 -import(nerlNIF, [call_to_get_weights/2, call_to_set_weights/2]).
 

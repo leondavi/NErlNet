@@ -1,5 +1,4 @@
 -module(workerGeneric).
--include("workerDefinitions.hrl").
 %%%-------------------------------------------------------------------
 %%% @copyright (C) 2023, Nerlnet
 %%% @doc
@@ -11,6 +10,9 @@
 -import(nerlNIF,[encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0]).
 -import(nerlNIF,[erl_type_conversion/1]).
 -import(w2wCom,[send_message/3, get_inbox_queue/1]).
+
+% includes
+-include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/NerlnetApp/src/Bridge/Common/workerDefinitions.hrl").
 -include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/NerlnetApp/src/nerl_tools.hrl").
 -include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/NerlnetApp/src/Bridge/nerlTensor.hrl").
 

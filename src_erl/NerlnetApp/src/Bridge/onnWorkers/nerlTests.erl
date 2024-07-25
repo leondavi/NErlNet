@@ -1,9 +1,9 @@
 -module(nerlTests).
 -author("David Leon").
--include("nerlTensor.hrl").
+-include("../nerlTensor.hrl").
 -include("neural_networks_testing_models.hrl").
--include("layers_types_ag.hrl").
--include("models_types_ag.hrl").
+-include("../layers_types_ag.hrl").
+-include("../models_types_ag.hrl").
 
 -compile(nerlNIF).
 -export([run_tests/0]).
