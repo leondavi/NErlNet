@@ -280,8 +280,6 @@ class Stats():
         missed_batches_dict = {}
         sources_pieces_list = self.experiment_phase.get_sources_pieces()
         workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
-        print(f"worker name: {workers_model_db_list[0].get_worker_name()}, batch id: {workers_model_db_list[0].get_batches_dict().keys()}")
-        print(len(workers_model_db_list[0].get_batches_dict().keys()))
         for source_piece_inst in sources_pieces_list:
             source_name = source_piece_inst.get_source_name()
             source_policy = globe.components.sources_policy_dict[source_name]   # 0 -> casting , 1 -> round robin, 2 -> random
