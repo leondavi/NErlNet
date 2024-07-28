@@ -39,6 +39,7 @@ class NetworkComponents():
         self.sourcesPolicies = []
         self.sourceEpochs = {}
         self.routers = []
+        self.sources_policy_dict = {}
         
 
         # Initializing maps
@@ -87,6 +88,7 @@ class NetworkComponents():
             self.sourcesPolicies.append(source[GetFields.get_policy_field_name()])
             self.sourceEpochs[source[GetFields.get_name_field_name()]] = source[GetFields.get_epochs_field_name()]
             self.map_name_to_type[source[GetFields.get_name_field_name()]] = TYPE_SOURCE
+            self.sources_policy_dict[source[GetFields.get_name_field_name()]] = source[GetFields.get_policy_field_name()]
 
         # Getting the names of all the routers:
         routersJsons = self.jsonData[GetFields.get_routers_field_name()]
