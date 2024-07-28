@@ -17,7 +17,7 @@ namespace nerlnet
         generate_opennn_neural_network();
         _training_strategy_ptr = std::make_shared<opennn::TrainingStrategy>();
         generate_training_strategy();
-        _ae_red_ptr = std::make_shared<AeRed>();
+        _ae_red_ptr = std::make_shared<AeRed>(model_args_str);
     }
 
     NerlWorkerOpenNN::~NerlWorkerOpenNN()
