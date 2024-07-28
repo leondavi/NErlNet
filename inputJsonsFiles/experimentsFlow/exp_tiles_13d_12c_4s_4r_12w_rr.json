@@ -37,28 +37,84 @@
           ]  
        },
        {
+        "phaseName": "training1_phase",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+           {
+              "sourceName": "s1",
+              "startingSample": "0",
+              "numOfBatches": "500",
+              "workers": "w1_0,w1_1,w1_2,w1_3",
+              "nerltensorType": "float"
+          },
+          {
+              "sourceName": "s2",
+              "startingSample": "59999",
+              "numOfBatches": "500",
+              "workers": "w2_0,w2_1,w2_2,w2_3",
+              "nerltensorType": "float"
+          },
+          {
+              "sourceName": "s3",
+              "startingSample": "119998",
+              "numOfBatches": "500",
+              "workers": "w3_1,w3_2,w3_3,w3_0",
+              "nerltensorType": "float"
+          }
+        ]  
+     },
+     {
+        "phaseName": "training2_phase",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+           {
+              "sourceName": "s1",
+              "startingSample": "0",
+              "numOfBatches": "500",
+              "workers": "w1_0,w1_1,w1_2,w1_3",
+              "nerltensorType": "float"
+          },
+          {
+              "sourceName": "s2",
+              "startingSample": "59999",
+              "numOfBatches": "500",
+              "workers": "w2_0,w2_1,w2_2,w2_3",
+              "nerltensorType": "float"
+          },
+          {
+              "sourceName": "s3",
+              "startingSample": "119998",
+              "numOfBatches": "500",
+              "workers": "w3_1,w3_2,w3_3,w3_0",
+              "nerltensorType": "float"
+          }
+        ]  
+     },
+       {
           "phaseName": "prediction_phase",
           "phaseType": "prediction",
           "sourcePieces":
           [
             {
                 "sourceName": "s1",
-                "startingSample": "15000",
-                "numOfBatches": "50",
+                "startingSample": "32000",
+                "numOfBatches": "60",
                 "workers": "w1_1,w1_2,w1_3,w1_0",
                 "nerltensorType": "float"
             },
             {
                 "sourceName": "s2",
-                "startingSample": "74999",
-                "numOfBatches": "50",
+                "startingSample": "91999",
+                "numOfBatches": "60",
                 "workers": "w2_1,w2_2,w2_3,w2_0",
                 "nerltensorType": "float"
             },
             {
                 "sourceName": "s3",
-                "startingSample": "134998",
-                "numOfBatches": "50",
+                "startingSample": "151998",
+                "numOfBatches": "60",
                 "workers": "w3_1,w3_2,w3_3,w3_0",
                 "nerltensorType": "float"
             }

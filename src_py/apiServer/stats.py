@@ -179,7 +179,6 @@ class Stats():
         return fig, ax
 
     def get_distributed_train_labels(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
-        assert self.experiment_flow_type == "training", "This function is only available for training experiments" 
         assert self.phase == PHASE_TRAINING_STR, "This function is only available for train phase"   
         sources_pieces_list = self.experiment_phase.get_sources_pieces()
         workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
@@ -187,17 +186,6 @@ class Stats():
         for worker in workers_model_db_list:
             dict_worker[worker.get_worker_name()] = []
         labels_d = []
-        category_names = ['Strongly disagree', 'Disagree',
-                  'Neither agree nor disagree', 'Agree', 'Strongly agree']
-        results = {
-    'Question 1': [10, 15, 17, 32, 26],
-    'Question 2': [26, 22, 29, 10, 13],
-    'Question 3': [35, 37, 7, 2, 19],
-    'Question 4': [32, 11, 9, 15, 33],
-    'Question 5': [21, 29, 5, 5, 40],
-    'Question 6': [8, 19, 5, 30, 38]
-        }
-
         for source_piece_inst in sources_pieces_list:
             sourcePiece_csv_labels_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet_labels()
             df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)

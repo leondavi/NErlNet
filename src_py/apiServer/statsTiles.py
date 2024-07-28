@@ -118,7 +118,6 @@ class StatsTiles(Stats):
                     class_actual_list = []
                     class_predict_list = []
                     workers_list = batch_id_dict[batch_id_val]
-                    print("workers_list: ",workers_list)
                     labels_list = distributed_token_arr
                     cycle = int(batch_id_val)
                     start_index = cycle * batch_size

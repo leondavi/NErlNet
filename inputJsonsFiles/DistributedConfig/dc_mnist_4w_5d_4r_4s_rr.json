@@ -1,6 +1,6 @@
 {
     "nerlnetSettings": {
-        "frequency": "100",
+        "frequency": "50",
         "batchSize": "20"
     },
     "mainServer": {
@@ -64,32 +64,32 @@
         {
             "name": "s1",
             "port": "8086",
-            "frequency": "50",
-            "policy": "1",
+            "frequency": "30",
+            "policy": "0",
             "epochs": "1",
             "type": "0"
         },
         {
             "name": "s2",
             "port": "8087",
-            "frequency": "50",
-            "policy": "1",
+            "frequency": "30",
+            "policy": "0",
             "epochs": "1",
             "type": "0"
         },
         {
             "name": "s3",
             "port": "8088",
-            "frequency": "50",
-            "policy": "1",
+            "frequency": "30",
+            "policy": "0",
             "epochs": "1",
             "type": "0"
         },
         {
             "name": "s4",
             "port": "8089",
-            "frequency": "50",
-            "policy": "1",
+            "frequency": "30",
+            "policy": "0",
             "epochs": "1",
             "type": "0"
         }
