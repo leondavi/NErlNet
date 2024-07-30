@@ -187,8 +187,9 @@ class Stats():
             dict_worker[worker.get_worker_name()] = []
         labels_d = []
         for source_piece_inst in sources_pieces_list:
-            sourcePiece_csv_labels_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet_labels()
+            sourcePiece_csv_labels_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet()
             df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
+            print(df_actual_labels,"df_actual_labels")
             num_of_labels = df_actual_labels.shape[1]
             header_list = range(num_of_labels) 
             df_actual_labels.columns = header_list

@@ -50,14 +50,10 @@ class StatsTiles(Stats):
                 for batch_id in range(total_batches_per_source):
                     batch_db = worker_db.get_batch(source_name, str(batch_id))
                     if not batch_db: # if batch is missing
-                        if not self.missed_batches_warning_msg:
-                            LOG_WARNING(f"missed batches")
-                            self.missed_batches_warning_msg = True
                         starting_offset = source_piece_inst.get_starting_offset()
                         df_worker_labels.iloc[batch_id * batch_size: (batch_id + 1) * batch_size, num_of_labels:] = None # set the actual label to None for the predict labels in the df 
                         worker_missed_batches[(worker_name, source_name, str(batch_id))] = (starting_offset + batch_id * batch_size, batch_size)  # save the missing batch
                 
-                #df_worker_labels = df_worker_labels.dropna()
                 for batch_id in range(total_batches_per_source):
                     batch_db = worker_db.get_batch(source_name, str(batch_id))
                     if batch_db:
@@ -95,22 +91,17 @@ class StatsTiles(Stats):
             
         for distributed_token_key in list(distributed_tokens_dict.keys()):
             workers = list(distributed_tokens_dict[distributed_token_key].keys())
-            distributed_token_arr = []
-            batch_id_arr = []
+            distributed_token_arr = {}
+            batch_id_dict = {}
             for worker in list(workers):
                 labels = worker_name_labels_dict[worker]["labels"]
-                distributed_token_arr.append(labels)
-                distributed_token_key_worker = distributed_tokens_dict[distributed_token_key][worker]
-                batch_id_arr.append([distributed_token_key_worker,worker])
-            batch_id_dict = {}
-            for i in range(len(batch_id_arr)):
-                if(batch_id_arr[i][0] is None):
-                    continue
-                for batch_id in batch_id_arr[i][0]:
+                distributed_token_arr[worker] = labels
+                batch_list_for_worker = distributed_tokens_dict[distributed_token_key][worker]
+                for batch_id in batch_list_for_worker:
                     try:
-                        batch_id_dict[batch_id].append(batch_id_arr[i][1])
+                        batch_id_dict[batch_id].append(worker)
                     except:
-                        batch_id_dict[batch_id] = [batch_id_arr[i][1]]
+                        batch_id_dict[batch_id] = [worker]
             for class_index, class_name in enumerate(self.headers_list):
                 class_actual_list_full = []
                 class_actual_predict_full = []
@@ -118,13 +109,13 @@ class StatsTiles(Stats):
                     class_actual_list = []
                     class_predict_list = []
                     workers_list = batch_id_dict[batch_id_val]
-                    labels_list = distributed_token_arr
+                    labels_dict = distributed_token_arr
                     cycle = int(batch_id_val)
                     start_index = cycle * batch_size
                     end_index = (cycle + 1) * batch_size
-                    for worker_id,worker in enumerate(workers_list):
-                        class_actual_list  = [1 if label_num == class_index else 0 for label_num in labels_list[worker_id][0][start_index:end_index]]
-                        label_list_worker = labels_list[worker_id][1][start_index:end_index]
+                    for worker in workers_list:
+                        class_actual_list  = [1 if label_num == class_index else 0 for label_num in labels_dict[worker][0][start_index:end_index]]
+                        label_list_worker = labels_dict[worker][1][start_index:end_index]
                         class_predict_temp = [1 if label_num == class_index else 0 for label_num in label_list_worker]
                         if(class_predict_list == []):
                             class_predict_list = [0]*len(class_predict_temp)
@@ -142,25 +133,167 @@ class StatsTiles(Stats):
                 except:
                     confusion_matrix_distributed_dict[(distributed_token_key, class_name)] = confusion_matrix 
         if plot:
-            distributed_token_worker = sorted(list({tup[0] for tup in confusion_matrix_distributed_dict.keys()}))
-            classes = sorted(list({tup[1] for tup in confusion_matrix_distributed_dict.keys()}))
-            fig, ax = plt.subplots(nrows=len(distributed_token_worker), ncols=len(classes),figsize=(4*len(classes),4*len(distributed_token_worker)),dpi=140)
-            for i , worker in enumerate(distributed_token_worker): 
-                for j , pred_class in enumerate(classes):
-                    conf_mat = confusion_matrix_distributed_dict[(worker , pred_class)]
-                    heatmap = sns.heatmap(data=conf_mat ,ax=ax[i,j], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
-                    cbar = heatmap.collections[0].colorbar
-                    cbar.ax.tick_params(labelsize = 8)
-                    ax[i, j].set_title(f"{worker} , Class '{pred_class}'" , fontsize=12)
-                    ax[i, j].tick_params(axis='both', which='major', labelsize=8) 
-                    ax[i, j].set_xlabel("Predicted Label" , fontsize=8)
-                    ax[i, j].set_ylabel("True Label" , fontsize=8)
-                    ax[i, j].set_aspect('equal')
-            fig.subplots_adjust(wspace=0.4 , hspace=0.4)
-            plt.show()
-                
+            self.print_plot(confusion_matrix_distributed_dict) 
         return confusion_matrix_source_dict, confusion_matrix_distributed_dict
     
+    def print_plot(self, confusion_matrix):
+        distributed_token_worker = sorted(list({tup[0] for tup in confusion_matrix.keys()}))
+        classes = sorted(list({tup[1] for tup in confusion_matrix.keys()}))
+        fig, ax = plt.subplots(nrows=len(distributed_token_worker), ncols=len(classes),figsize=(4*len(classes),4*len(distributed_token_worker)),dpi=140)
+        for i , token in enumerate(distributed_token_worker): 
+            for j , pred_class in enumerate(classes):
+                conf_mat = confusion_matrix[(token , pred_class)]
+                heatmap = sns.heatmap(data=conf_mat ,ax=ax[i,j], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
+                cbar = heatmap.collections[0].colorbar
+                cbar.ax.tick_params(labelsize = 8)
+                ax[i, j].set_title(f"{token} , Class '{pred_class}'" , fontsize=12)
+                ax[i, j].tick_params(axis='both', which='major', labelsize=8) 
+                ax[i, j].set_xlabel("Predicted Label" , fontsize=8)
+                ax[i, j].set_ylabel("True Label" , fontsize=8)
+                ax[i, j].set_aspect('equal')
+        fig.subplots_adjust(wspace=0.4 , hspace=0.4)
+        plt.show()
+
+    def add_lists_of_lists(self,list1, list2):
+        if len(list1) != len(list2):
+            raise ValueError("Both lists of lists must have the same number of sublists")
+        result = [
+            [item1 + item2 for item1, item2 in zip(sublist1, sublist2)]
+         for sublist1, sublist2 in zip(list1, list2)
+        ]
+        return result
+
+    def argmax_axis_1(self,list_of_lists):
+    # Get the index of the maximum value in each sublist
+        result = [sublist.index(max(sublist)) for sublist in list_of_lists]
+        return result
+
+
+    def get_confusion_matrices_tiles_new(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
+        assert self.experiment_flow_type == "classification", "This function is only available for classification experiments" 
+        assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"   
+        sources_pieces_list = self.experiment_phase.get_sources_pieces()
+        workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
+        confusion_matrix_source_dict = {}
+        confusion_matrix_distributed_dict = {}
+        distributed_tokens_dict = {}
+        worker_name_labels_dict={}
+        for source_piece_inst in sources_pieces_list:
+            sourcePiece_csv_labels_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet_labels()
+            df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
+            num_of_labels = df_actual_labels.shape[1]
+            header_list = range(num_of_labels) 
+            df_actual_labels.columns = header_list
+            df_actual_labels = self.expend_labels_df(df_actual_labels)
+            source_name = source_piece_inst.get_source_name()
+            target_workers = source_piece_inst.get_target_workers()
+            worker_missed_batches = {}
+            batch_size = source_piece_inst.get_batch_size()
+            for worker_db in workers_model_db_list:
+                worker_name = worker_db.get_worker_name()
+                if worker_name not in target_workers:
+                    continue
+                df_worker_labels = df_actual_labels.copy()
+                total_batches_per_source = worker_db.get_total_batches_per_source(source_name)
+                for batch_id in range(total_batches_per_source):
+                    batch_db = worker_db.get_batch(source_name, str(batch_id))
+                    if not batch_db: # if batch is missing
+                        starting_offset = source_piece_inst.get_starting_offset()
+                        df_worker_labels.iloc[batch_id * batch_size: (batch_id + 1) * batch_size, num_of_labels:] = None # set the actual label to None for the predict labels in the df 
+                        worker_missed_batches[(worker_name, source_name, str(batch_id))] = (starting_offset + batch_id * batch_size, batch_size)  # save the missing batch
+                
+                for batch_id in range(total_batches_per_source):
+                    batch_db = worker_db.get_batch(source_name, str(batch_id))
+                    if batch_db:
+                        distributed_token_db = batch_db.get_distributed_token()
+                        cycle = int(batch_db.get_batch_id())
+                        tensor_data = batch_db.get_tensor_data()
+                        tensor_data = tensor_data.reshape(batch_size, num_of_labels)
+                        start_index = cycle * batch_size
+                        end_index = (cycle + 1) * batch_size
+                        df_worker_labels.iloc[start_index:end_index, num_of_labels:] = None # Fix an issue of pandas of incompatible dtype
+                        df_worker_labels.iloc[start_index:end_index, num_of_labels:] = tensor_data
+                        try:
+                            distributed_dict = distributed_tokens_dict[distributed_token_db]
+                            try:
+                                batch_id_arr_worker = distributed_dict[worker_name]
+                                batch_id_arr_worker.append(batch_id)
+                                distributed_tokens_dict[distributed_token_db][worker_name] = batch_id_arr_worker
+                            except: 
+                                distributed_tokens_dict[distributed_token_db].update({worker_name : [batch_id]})
+                        except:
+                            distributed_tokens_dict[distributed_token_db] =  {worker_name : [batch_id]}
+                    else:
+                        cycle = int(batch_id)
+                        start_index = cycle * batch_size
+                        end_index = (cycle + 1) * batch_size
+                        df_worker_labels.iloc[start_index:end_index, num_of_labels:] = 0 
+                # Take 2 list from the df, one for the actual labels and one for the predict labels to build the confusion matrix
+                max_column_predict_index = df_worker_labels.iloc[:, num_of_labels:]
+                max_column_predict_index = max_column_predict_index
+                max_column_labels_index = df_worker_labels.iloc[:, :num_of_labels].idxmax(axis=1)
+                max_column_labels_index = max_column_labels_index.tolist()
+                worker_name_labels_dict[worker_name] = {"labels": [max_column_labels_index,max_column_predict_index]}
+            
+            
+        for distributed_token_key in list(distributed_tokens_dict.keys()):
+            workers = list(distributed_tokens_dict[distributed_token_key].keys())
+            distributed_token_arr = []
+            batch_dict_worker_labels = {}
+            batch_id_dict = {}
+            for worker in list(workers):
+                labels = worker_name_labels_dict[worker]["labels"]
+                distributed_token_arr.append(labels)
+                distributed_token_key_worker = distributed_tokens_dict[distributed_token_key][worker]
+                for batch_id in distributed_token_key_worker:
+                    batch_dict_worker_labels[batch_id] = labels[0]
+                    try:
+                        batch_id_dict[batch_id].append(worker)
+                    except:
+                        batch_id_dict[batch_id] = [worker]
+            class_actual_predict_dict = {}
+            for batch_id_val in list(batch_id_dict.keys()):
+                class_predict_list = []
+                workers_list = batch_id_dict[batch_id_val]
+                labels_list = distributed_token_arr
+                cycle = int(batch_id_val)
+                start_index = cycle * batch_size
+                end_index = (cycle + 1) * batch_size
+                for worker_id,worker in enumerate(workers_list):
+                    label_list_worker = labels_list[worker_id][1][start_index:end_index]
+                    class_predict_temp = label_list_worker.values.tolist()
+                    if(class_predict_list == []):
+                        class_predict_list = class_predict_temp
+                    else:
+                        class_predict_list = self.add_lists_of_lists(class_predict_list, class_predict_temp)
+                class_actual_predict_dict[batch_id_val] = class_predict_list
+
+          
+            for class_index, class_name in enumerate(self.headers_list):
+                class_actual_predict_full = []
+                class_actual_list_full = []
+                for batch_id_val in list(batch_id_dict.keys()):
+                    cycle = int(batch_id_val)
+                    start_index = cycle * batch_size
+                    end_index = (cycle + 1) * batch_size
+                    class_predict_list_prev = class_actual_predict_dict[batch_id_val]
+                    class_predict_list = []
+                    class_actual_list  = [1 if label_num == class_index else 0 for label_num in batch_dict_worker_labels[batch_id_val][start_index:end_index]]
+                    max_column_predict_index = self.argmax_axis_1(class_predict_list_prev)
+                    max_column_predict_index = [int(predict_index) for predict_index in max_column_predict_index] 
+                    class_predict_list = [1 if label_num == class_index else 0 for label_num in max_column_predict_index]
+                    class_actual_predict_full.extend(class_predict_list) 
+                    class_actual_list_full.extend(class_actual_list) 
+
+                confusion_matrix = metrics.confusion_matrix(class_actual_list_full, class_actual_predict_full)  
+                try:
+                    confusion_matrix_distributed_dict[(distributed_token_key, class_name)] += confusion_matrix   
+                except:
+                    confusion_matrix_distributed_dict[(distributed_token_key, class_name)] = confusion_matrix
+
+        if plot:
+            self.print_plot(confusion_matrix_distributed_dict)
+        return confusion_matrix_source_dict, confusion_matrix_distributed_dict
 
     def get_model_performence_stats_tiles(self , confusion_matrix_worker_dict , show : bool = False , saveToFile : bool = False, printStats = False) -> dict:
         """
@@ -201,7 +334,7 @@ class StatsTiles(Stats):
         df = pd.DataFrame.from_dict(distributed_token_performence, orient='index')
         stats = list(df.columns)
         df.reset_index(inplace=True)
-        df.columns = ['Worker', 'Class'] + stats
+        df.columns = ['Cluster', 'Class'] + stats
         if show:
             centered_df = df.style.set_properties(**{'text-align': 'center'}).set_table_styles([ # Center all 
                                 {'selector': 'th', 'props': [('text-align', 'center')]},
