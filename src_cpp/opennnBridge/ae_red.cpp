@@ -50,8 +50,7 @@ fTensor2DPtr AeRed::update_batch(fTensor2DPtr loss_values)
     fTensor2DPtr result = std::make_shared<fTensor2D>(loss_values->dimension(0), loss_values->dimension(1));
     for(int i = 0; i < (*loss_values).dimension(0); i++)
     {
-        float val = update_sample((*loss_values)(i, 0), i);
-        (*result)(i, 0) = val;
+        (*result)(i, 0) = update_sample((*loss_values)(i, 0), i);
     }
     return result;
 }
@@ -67,49 +66,48 @@ float AeRed::update_sample(float loss_value, int index)
 }
 
 float AeRed::update_sample_red(float loss_value, int index){
-    if (index == 0){
+    if (_ema != 0) {
+        _ema = _alpha * loss_value + (1 - _alpha) * _prev_ema;
+    }
+    else {
         _ema = loss_value;
-        _prev_ema = loss_value;
-        _emad = 0;
-        _prev_emad = 0;
-        _ema_event = 0;
-        _ema_normal = 0;
-        _threshold = loss_value / 2;
+    }
+    _prev_ema = _ema;
+    if (_emad != 1) {
+        _emad = _alpha * abs(loss_value - _ema) + (1 - _alpha) * _prev_emad;
+    }
+    else {
+        _emad = loss_value;
+    }
+    _prev_emad = _emad;
+    if(_ema + _k * _emad < loss_value){
+        _ema_event = loss_value;
     }
     else{
-        _ema = _alpha * loss_value + (1 - _alpha) * _prev_ema;
-        _prev_ema = _ema;
-        _emad = _alpha * abs(loss_value - _ema) + (1 - _alpha) * _prev_emad;
-        _prev_emad = _emad;
-        if(_ema + _k * _emad < loss_value){
-            _ema_event = loss_value;
-        }
-        else{
-            _ema_normal = loss_value;
-        }
-        _threshold = (_ema_event + _ema_normal) / 2; // New Threshold
-
-        if(loss_value > _threshold) return 1.f;
-        else return 0.f;
+        _ema_normal = loss_value;
     }
-    return 0.f;
+    _threshold = (_ema_event + _ema_normal) / 2; // New Threshold
+
+    if(loss_value > _threshold) 
+        return 1.f;
+    else 
+        return 0.f;
 }
 
 float AeRed::update_sample_ema(float loss_value, int index)
 {
-    if (index == 0){
-        _ema = loss_value;
-        _prev_ema = loss_value;
-        _threshold = loss_value / 2;
-    }
-    else{
+    if (_ema != 0) {
         _ema = _alpha * loss_value + (1 - _alpha) * _prev_ema;
-        _prev_ema = _ema;
-        _threshold = _ema / 2;
-        if(loss_value > _threshold) return 1.f;
-        else return 0.f;
     }
-    return 0.f;
+    else {
+        _ema = loss_value;
+    }
+    _prev_ema = _ema;
+    _threshold = _ema / 2;
+    if(loss_value > _threshold) 
+        return 1.f;
+    else 
+        return 0.f;
 }
 
 

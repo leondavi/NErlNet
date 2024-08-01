@@ -1,11 +1,14 @@
 from definitions import PHASE_TRAINING_STR, PHASE_PREDICTION_STR, NERLTENSOR_TYPE_LIST
 import pandas as pd
 from math import ceil
+import os
 
 class SourcePieceDS():
-    def __init__(self, csv_dataset_parent, source_name : str, batch_size, phase : str, starting_offset = 0, num_of_batches = 0, nerltensor_type: str = 'float'):
+    def __init__(self, csv_dataset_parent, source_name : str, batch_size, phase : str, starting_offset = 0, num_of_batches = 0, nerltensor_type: str = 'float', num_of_features = 0, num_of_labels = 0):
         self.source_name = source_name
         self.batch_size = batch_size
+        self.num_of_features = num_of_features
+        self.num_of_labels = num_of_labels
         self.phase = phase
         self.starting_offset = starting_offset  # given as index of csv rows
         self.num_of_batches = num_of_batches
@@ -21,6 +24,12 @@ class SourcePieceDS():
     
     def get_batch_size(self):
         return self.batch_size
+    
+    def get_num_of_features(self):
+        return self.num_of_features
+    
+    def get_num_of_labels(self):
+        return self.num_of_labels
 
     def get_phase(self):
         return self.phase
@@ -65,8 +74,9 @@ class SourcePieceDS():
 class CsvDataSet():
     def __init__(self, csv_path, output_dir: str, batch_size, num_of_features, num_of_labels, headers_row: list):
         self.csv_path = csv_path
+        assert self.csv_path.endswith('.csv'), "csv_path should end with '.csv'"
+        assert os.path.exists(self.csv_path), "csv_path does not exist"
         self.output_dir = output_dir
-        #Todo throw exception if csv file does not exist and file path ends with .csv
         self.batch_size = batch_size
         self.num_of_features = num_of_features
         self.num_of_labels = num_of_labels
@@ -87,10 +97,12 @@ class CsvDataSet():
     def set_num_of_labels(self, num_of_labels):
         self.num_of_labels = num_of_labels
 
-    def get_total_num_of_batches(self):
+    def get_total_num_of_batches(self): 
+        # ! Not always using the whole csv! (should be calculated by the source pieces offsets)
         return ceil(pd.read_csv(self.csv_path).shape[0] / self.batch_size)
 
     def get_total_num_of_samples(self):
+        # ! Not always using the whole csv! (should be calculated by the source pieces offsets)
         return pd.read_csv(self.csv_path).shape[0] + 1 # +1 for sample 0 which is the header row
     
     def get_headers_row(self):
@@ -102,7 +114,7 @@ class CsvDataSet():
         assert phase == PHASE_TRAINING_STR or phase == PHASE_PREDICTION_STR , "phase should be either 'training' or 'prediction'"
         assert (starting_offset + num_of_batches * batch_size) <= self.get_total_num_of_samples(), "starting_offset + num_of_batches * batch_size exceeds the total number of samples in the csv file"
         assert nerltensor_type in NERLTENSOR_TYPE_LIST, "nerltensor_type is not in NERLTENSOR_TYPE_LIST"
-        return SourcePieceDS(self, source_name, batch_size, phase, starting_offset, num_of_batches, nerltensor_type)
+        return SourcePieceDS(self, source_name, batch_size, phase, starting_offset, num_of_batches, nerltensor_type, self.num_of_features, self.num_of_labels)
         
     def generate_source_piece_ds_csv_file(self, source_piece_ds_inst: SourcePieceDS, phase : str):
         skip_rows = source_piece_ds_inst.get_starting_offset()
