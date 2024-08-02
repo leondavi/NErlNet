@@ -189,9 +189,9 @@ class Stats():
                 # print(f'Worker {worker_name} index: {worker_idx}')
                 if worker_name not in target_workers:
                     continue
-                df_worker_labels = pd.DataFrame(np.zeros((batch_size * worker_db.get_total_batches_per_source(source_name), num_of_labels)))
+                df_worker_labels = pd.DataFrame(np.zeros((batch_size * worker_db.get_total_batches(), num_of_labels)))
                 # print(f'Worker {worker_name} Got {total_batches_per_source} batches (={batch_size * total_batches_per_source} samples) from {source_name}')
-                for _, batch_id in worker_db.get_batches_dict().keys(): # !!!!!!!!!!!!!!!!!
+                for _, batch_id in worker_db.get_batches_dict().keys(): # !!!!!!!!!!!!!!!!! CHANGED
                     batch_db = worker_db.get_batch(source_name, str(batch_id))
                     if not batch_db: # if batch is missing
                         print(f'{worker_name} missed batch {batch_id}')
@@ -209,14 +209,18 @@ class Stats():
                         # cycle = according indexs of panadas (with jump)
                         tensor_data = batch_db.get_tensor_data()
                         tensor_data = tensor_data.reshape(batch_size, num_of_labels) 
-                        start_index_pred = (int(batch_id) * batch_size) 
-                        end_index_pred = ((int(batch_id) + 1) * batch_size)
-                        if start_index_pred >= df_worker_labels.shape[0]:
-                            start_index_pred -= (df_worker_labels.shape[0] * (num_of_workers - 1))
-                            end_index_pred -= (df_worker_labels.shape[0] * (num_of_workers - 1))
+                        start_index_pred = int(batch_id) * batch_size
+                        end_index_pred = (int(batch_id) + 1) * batch_size
+                        # if start_index_pred >= df_worker_labels.shape[0]: # ! Handle the case of round robin casting policy
+                        #     start_index_pred -= (df_worker_labels.shape[0] * (num_of_workers - 1))
+                        #     end_index_pred -= (df_worker_labels.shape[0] * (num_of_workers - 1))
                         # print(f'The following indexes {start_index_pred}-{end_index_pred} will be filled with the tensor data')
-                        df_worker_labels.iloc[start_index_pred:end_index_pred, :num_of_labels] = None # Fix an issue of pandas of incompatible dtype
-                        df_worker_labels.iloc[start_index_pred:end_index_pred, :num_of_labels] = tensor_data
+                        try:
+                            df_worker_labels.iloc[start_index_pred:end_index_pred, :num_of_labels] = tensor_data
+                        except ValueError:
+                            display(df_worker_labels)
+                            print(f'The following indexes {start_index_pred}-{end_index_pred} caused an error')
+                            exit(0)
                 df_worker_labels = self.attach_true_labels(df_actual_labels, df_worker_labels, num_of_workers, worker_idx)
                 # print(f'Actual Labels (Column 0) & Predict Labels (Column 1 for worker: {worker_name}')
                 # display(df_worker_labels)

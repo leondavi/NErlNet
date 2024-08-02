@@ -141,7 +141,7 @@ class StatsAEC():
             normal_loss = [loss for loss, label in total_loss_labels_pairs if label == 0.0]
             _, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8)) # ! Current anomaly detection AEC has only 2 classes (anomaly/normal)
             min_loss = min(min(anomalies_loss), min(normal_loss))
-            max_loss = 0.2 # ! FOR CURRENT EXPERIMENT VISUALIZATION
+            max_loss = max(np.median(anomalies_loss), np.median(normal_loss))
             # if max_loss > 1: # To handle the case of the loss being large at the beginning of the training (for better visualization)
             #     max_loss -= 1
             bins = np.linspace(min_loss, max_loss, 100)
@@ -163,10 +163,10 @@ class StatsAEC():
             plt.tight_layout()
             plt.show()
         # Check weather the workers got the same batchesIDs
-        for worker in batchesIDs_per_worker.keys():
-            for other_worker in batchesIDs_per_worker.keys():
-                if worker != other_worker:
-                    print(f'Workers {worker} and {other_worker} have the same batches IDs: {np.intersect1d(batchesIDs_per_worker[worker], batchesIDs_per_worker[other_worker])}')
+        # for worker in batchesIDs_per_worker.keys():
+        #     for other_worker in batchesIDs_per_worker.keys():
+        #         if worker != other_worker:
+        #             print(f'Workers {worker} and {other_worker} have the same batches IDs: {np.intersect1d(batchesIDs_per_worker[worker], batchesIDs_per_worker[other_worker])}')
 
 
     def plot_average_aec_errors(self):
