@@ -46,7 +46,7 @@
             "port": "8085",
             "frequency": "300",
             "policy": "0",
-            "epochs": "2",
+            "epochs": "1",
             "type": "0"
         }
     ],
