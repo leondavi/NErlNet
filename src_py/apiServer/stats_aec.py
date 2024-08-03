@@ -28,9 +28,9 @@ class StatsAEC():
         
         for worker_db in workers_model_db_list:
             worker_name = worker_db.get_worker_name()
-            batches_ts_tansor_data_dict = worker_db.get_batches_ts_tansor_data_dict()
-            sorted_batches_ts_tansor_data_dict = dict(sorted(batches_ts_tansor_data_dict.items()))
-            loss_dict[worker_name] = [sorted_batches_ts_tansor_data_dict[key][0] for key in sorted(sorted_batches_ts_tansor_data_dict)]
+            batches_ts_tensor_data_dict = worker_db.get_batches_ts_tensor_data_dict()
+            sorted_batches_ts_tensor_data_dict = dict(sorted(batches_ts_tensor_data_dict.items()))
+            loss_dict[worker_name] = [sorted_batches_ts_tensor_data_dict[key][0] for key in sorted(sorted_batches_ts_tensor_data_dict)]
             
         for worker_name in loss_dict:
             loss_dict[worker_name] = [float(arr) for sublist in loss_dict[worker_name] for arr in sublist]
@@ -56,10 +56,10 @@ class StatsAEC():
         
         for worker_db in workers_model_db_list:
             worker_name = worker_db.get_worker_name()
-            batches_ts_tansor_data_dict = worker_db.get_batches_ts_tansor_data_dict()
-            sorted_batches_ts_tansor_data_dict = dict(sorted(batches_ts_tansor_data_dict.items()))
-            upper_boundaries_dict[worker_name] = [sorted_batches_ts_tansor_data_dict[key][1] for key in sorted(sorted_batches_ts_tansor_data_dict)]
-            lower_boundaries_dict[worker_name] = [sorted_batches_ts_tansor_data_dict[key][2] for key in sorted(sorted_batches_ts_tansor_data_dict)]
+            batches_ts_tensor_data_dict = worker_db.get_batches_ts_tensor_data_dict()
+            sorted_batches_ts_tensor_data_dict = dict(sorted(batches_ts_tensor_data_dict.items()))
+            upper_boundaries_dict[worker_name] = [sorted_batches_ts_tensor_data_dict[key][1] for key in sorted(sorted_batches_ts_tensor_data_dict)]
+            lower_boundaries_dict[worker_name] = [sorted_batches_ts_tensor_data_dict[key][2] for key in sorted(sorted_batches_ts_tensor_data_dict)]
             
         for worker_name in upper_boundaries_dict:
             upper_boundaries_dict[worker_name] = [float(arr) for sublist in upper_boundaries_dict[worker_name] for arr in sublist]

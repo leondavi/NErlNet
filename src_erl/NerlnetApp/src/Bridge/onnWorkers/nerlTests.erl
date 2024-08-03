@@ -1,9 +1,9 @@
 -module(nerlTests).
 -author("David Leon").
--include("nerlTensor.hrl").
+-include("../nerlTensor.hrl").
 -include("neural_networks_testing_models.hrl").
--include("layers_types_ag.hrl").
--include("models_types_ag.hrl").
+-include("../layers_types_ag.hrl").
+-include("../models_types_ag.hrl").
 
 -compile(nerlNIF).
 -export([run_tests/0]).
@@ -211,7 +211,6 @@ sum_nerltensors_lists_test(Type, N, Performance) ->
 
 encode_decode_nifs_test(0, _Res, Performance) -> Performance ;
 encode_decode_nifs_test(N, Res, Performance) ->
-      %io:format("GOT HERE~n"),
       EncodeType = random_pick_nerltensor_type(),
       NerlTensor = generate_nerltensor_rand_dims(EncodeType),
       Tic = nerl:tic(),

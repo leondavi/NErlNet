@@ -72,9 +72,9 @@ class Stats():
         for worker_db in workers_model_db_list:
             worker_name = worker_db.get_worker_name()
             loss_dict[worker_name] = []
-            batches_ts_tansor_data_dict =worker_db.get_batches_ts_tansor_data_dict()
-            sorted_batches_ts_tansor_data_dict = dict(sorted(batches_ts_tansor_data_dict.items()))
-            loss_dict[worker_name] = [sorted_batches_ts_tansor_data_dict[key] for key in sorted(sorted_batches_ts_tansor_data_dict)]
+            batches_ts_tensor_data_dict =worker_db.get_batches_ts_tensor_data_dict()
+            sorted_batches_ts_tensor_data_dict = dict(sorted(batches_ts_tensor_data_dict.items()))
+            loss_dict[worker_name] = [sorted_batches_ts_tensor_data_dict[key] for key in sorted(sorted_batches_ts_tensor_data_dict)]
             
         # Convert NumPy arrays to floats
         for worker_name in loss_dict:
