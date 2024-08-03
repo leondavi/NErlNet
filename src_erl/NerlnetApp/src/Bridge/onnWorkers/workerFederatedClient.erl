@@ -173,6 +173,7 @@ post_train({GenWorkerEts, _Data}) ->
       SyncCount = ets:lookup_element(FedClientEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
       MaxSyncCount = ets:lookup_element(FedClientEts, sync_max_count, ?ETS_KEYVAL_VAL_IDX),
       if SyncCount == MaxSyncCount ->
+        io:format("~p sent averaging request to server~n", [MyName]),
         ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
         WeightsTensor = nerlNIF:call_to_get_weights(ModelID),
         ServerName = ets:lookup_element(FedClientEts, server_name, ?ETS_KEYVAL_VAL_IDX), 
