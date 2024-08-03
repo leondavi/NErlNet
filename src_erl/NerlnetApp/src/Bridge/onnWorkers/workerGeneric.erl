@@ -251,6 +251,7 @@ wait(cast, {post_train_update, Data}, State = #workerGeneric_state{myName = _MyN
 % CANNOT HAPPEN 
 wait(cast, {idle}, State= #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   %logger:notice("Waiting, next state - idle"),
+  io:format("@wait: Got idle message, next state - idle~n"),
   DistributedBehaviorFunc(pre_idle, {get(generic_worker_ets), train}),
   update_client_avilable_worker(MyName),
   {next_state, idle, State#workerGeneric_state{nextState = idle}};
