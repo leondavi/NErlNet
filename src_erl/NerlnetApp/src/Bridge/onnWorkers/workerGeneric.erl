@@ -208,6 +208,13 @@ wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = _MyN
 
 wait(cast, {post_train_update, Data}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets), {post_train_update, Data}}),
+  if 
+    NextStateBehavior == train -> 
+      ok;
+    true -> 
+      ?LOG_ERROR("@wait: post_train controller method must return train atom!"),
+      throw("@wait: post_train controller method must return train atom!")
+  end,
   handle_end_stream_waiting_list(DistributedBehaviorFunc, train),
   {next_state, NextStateBehavior, State};
 
