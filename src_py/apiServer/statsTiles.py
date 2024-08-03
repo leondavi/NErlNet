@@ -21,6 +21,12 @@ class StatsTiles(Stats):
         confusion_matrix_source_dict, confusion_matrix_distributed_dict = self.get_confusion_matrices_tiles(normalize ,plot ,saveToFile )
         return confusion_matrix_source_dict, confusion_matrix_distributed_dict
 
+    
+    """
+        This function is used to calculate the confusion matrix for each cluster and each class in the distributed tokens
+        attention! get_confusion_matrices_tiles take the sum of the labels and from that do majority vote and
+        then decide 0 or 1 for each class
+    """
     def get_confusion_matrices_tiles(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
         assert self.experiment_flow_type == "classification", "This function is only available for classification experiments" 
         assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"   
@@ -168,7 +174,12 @@ class StatsTiles(Stats):
         result = [sublist.index(max(sublist)) for sublist in list_of_lists]
         return result
 
+    """
+        This function is used to calculate the confusion matrix for each cluster and each class in the distributed tokens
+        attention! get_confusion_matrices_tiles_new take the sum of the probabilities and from that do majority vote and
+        then decide 0 or 1 for each class
 
+    """
     def get_confusion_matrices_tiles_new(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
         assert self.experiment_flow_type == "classification", "This function is only available for classification experiments" 
         assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"   
