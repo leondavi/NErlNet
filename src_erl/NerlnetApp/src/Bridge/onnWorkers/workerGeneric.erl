@@ -197,13 +197,13 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
   handle_end_stream_waiting_list(DistributedBehaviorFunc, predict),
   {next_state, NextState, State};
 
-wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = _DistributedBehaviorFunc}) ->
+wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = _DistributedBehaviorFunc}) ->
   %logger:notice("Waiting, next state - idle"),
   CurrentEndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
   NewEndStreamWaitingList = CurrentEndStreamWaitingList ++ [StreamName],
-  io:format("Got end_stream @wait: NewWaitingList: ~p~n",[NewEndStreamWaitingList]),
+  % io:format("Got end_stream @wait: NewWaitingList: ~p~n",[NewEndStreamWaitingList]),
   ets:update_element(get(generic_worker_ets), end_streams_waiting_list, {?ETS_KEYVAL_VAL_IDX, NewEndStreamWaitingList}),
-  io:format("@wait ~p got end stream from ~p~n",[MyName, StreamName]),
+  % io:format("@wait ~p got end stream from ~p~n",[MyName, StreamName]),
   {next_state, wait, State};
 
 wait(cast, {post_train_update, Data}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
@@ -215,7 +215,7 @@ wait(cast, {post_train_update, Data}, State = #workerGeneric_state{myName = _MyN
 % CANNOT HAPPEN 
 wait(cast, {idle}, State= #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   %logger:notice("Waiting, next state - idle"),
-  io:format("@wait: Got idle message, next state - idle~n"),
+  % io:format("@wait: Got idle message, next state - idle~n"),
   DistributedBehaviorFunc(pre_idle, {get(generic_worker_ets), train}),
   update_client_avilable_worker(MyName),
   {next_state, idle, State#workerGeneric_state{nextState = idle}};
@@ -231,7 +231,7 @@ wait(cast, {predict}, State) ->
 
 %% Worker in wait can't treat incoming message 
 wait(cast, BatchTuple , State = #workerGeneric_state{lastPhase = LastPhase, myName= _MyName}) when element(1, BatchTuple) == sample ->
-  io:format("@wait: Dropped batch state...~n"),
+  % io:format("@wait: Dropped batch state...~n"),
   case LastPhase of
     train -> 
       ets:update_counter(get(worker_stats_ets), batches_dropped_train , 1);
@@ -280,8 +280,8 @@ train(cast, {start_stream , StreamName}, State = #workerGeneric_state{myName = _
   % io:format("~p start stream ~p~n",[MyName, StreamName]),
   {next_state, train, State};
 
-train(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  io:format("@train: ~p end stream ~p~n",[MyName, StreamName]),
+train(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+  % io:format("@train: ~p end stream ~p~n",[MyName, StreamName]),
   stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
   {next_state, train, State};
 
@@ -337,7 +337,7 @@ update_client_avilable_worker(MyName) ->
 stream_handler(StreamPhase , ModelPhase , StreamName , DistributedBehaviorFunc) -> 
   GenWorkerEts = get(generic_worker_ets),
   MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
-  io:format("~p got ~p from ~p~n",[MyName, StreamPhase, StreamName]),
+  % io:format("~p got ~p from ~p~n",[MyName, StreamPhase, StreamName]),
   ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
   ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
   NewActiveStreams = 
@@ -352,11 +352,11 @@ stream_handler(StreamPhase , ModelPhase , StreamName , DistributedBehaviorFunc) 
 
 handle_end_stream_waiting_list(DistributedBehaviorFunc, ModelPhase) ->
   EndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
-  io:format("EndStreamWaitingList: ~p~n",[EndStreamWaitingList]),
+  % io:format("EndStreamWaitingList: ~p~n",[EndStreamWaitingList]),
   case length(EndStreamWaitingList) of
     0 -> ok;
     _ -> 
-      io:format("Removing from waiting list...~n"),
+      % io:format("Removing from waiting list...~n"),
       Func = fun(StreamName) -> 
                 stream_handler(end_stream, ModelPhase, StreamName, DistributedBehaviorFunc),
                 CurrentEndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
