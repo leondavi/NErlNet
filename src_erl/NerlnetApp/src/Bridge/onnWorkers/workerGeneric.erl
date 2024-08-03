@@ -179,7 +179,7 @@ wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneri
   NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
   EndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
   case length(EndStreamWaitingList) of
-    0 -> io:format("WAITING LIST EMPTY nan~n"), ok;
+    0 -> ok;
     _ -> 
       Func = fun(StreamName) -> 
                 stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
@@ -199,9 +199,10 @@ wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceNam
   NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
   EndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
   case length(EndStreamWaitingList) of
-    0 -> io:format("WAITING LIST EMPTY~n"), ok;
+    0 -> ok;
     _ -> 
       Func = fun(StreamName) -> 
+                io:format("Removing ~p from waiting list~n",[StreamName]),
                 stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
                 CurrentEndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
                 NewEndStreamWaitingList = CurrentEndStreamWaitingList -- [StreamName],
@@ -218,7 +219,7 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
   DistributedBehaviorFunc(post_predict, {get(generic_worker_ets),DistributedWorkerData}),
   EndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
   case length(EndStreamWaitingList) of
-    0 -> io:format("WAITING LIST EMPTY~n"), ok;
+    0 -> ok;
     _ -> 
       Func = fun(StreamName) -> 
                 stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
@@ -234,6 +235,7 @@ wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyNa
   %logger:notice("Waiting, next state - idle"),
   CurrentEndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
   NewEndStreamWaitingList = CurrentEndStreamWaitingList ++ [StreamName],
+  io:format("Got end_stream @wait: NewWaitingList: ~p~n",[NewEndStreamWaitingList]),
   ets:update_element(get(generic_worker_ets), end_streams_waiting_list, {?ETS_KEYVAL_VAL_IDX, NewEndStreamWaitingList}),
   io:format("@wait ~p got end stream from ~p~n",[MyName, StreamName]),
   {next_state, wait, State};
@@ -306,12 +308,12 @@ train(cast, {post_train_update , Weights}, State = #workerGeneric_state{myName =
   {next_state, train, State};
 
 train(cast, {start_stream , StreamName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  % io:format("~p start stream ~p~n",[MyName, StreamName]),
   stream_handler(start_stream, train, StreamName, DistributedBehaviorFunc),
+  % io:format("~p start stream ~p~n",[MyName, StreamName]),
   {next_state, train, State};
 
-train(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  % io:format("~p end stream ~p~n",[MyName, StreamName]),
+train(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+  io:format("~p end stream ~p~n",[MyName, StreamName]),
   stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
   {next_state, train, State};
 
