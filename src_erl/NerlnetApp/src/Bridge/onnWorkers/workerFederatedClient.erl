@@ -152,6 +152,7 @@ post_train({GenWorkerEts, {post_train_update, {_SyncIdx, UpdatedWeights}}}) ->
   case WeightsUpdateFlag of
     false -> throw("Received weights update but not waiting for it");
     true -> 
+      io:format("Got updated weights from server~n"),
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
       nerlNIF:call_to_set_weights(ModelID, UpdatedWeights),
       ets:update_element(FedClientEts, wait_for_weights_update, {?ETS_KEYVAL_VAL_IDX, false}),
