@@ -181,6 +181,7 @@ wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneri
   case length(EndStreamWaitingList) of
     0 -> ok;
     _ -> 
+      io:format("Removing from waiting list(nan)...~n"),
       Func = fun(StreamName) -> 
                 stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
                 CurrentEndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
@@ -198,11 +199,12 @@ wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceNam
   gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,{LossTensor, LossTensorType} , TrainTime , WorkerToken, BatchID , BatchTimeStamp}),
   NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
   EndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
+  io:format("EndStreamWaitingList: ~p~n",[EndStreamWaitingList]),
   case length(EndStreamWaitingList) of
     0 -> ok;
     _ -> 
+      io:format("Removing from waiting list...~n"),
       Func = fun(StreamName) -> 
-                io:format("Removing ~p from waiting list~n",[StreamName]),
                 stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
                 CurrentEndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
                 NewEndStreamWaitingList = CurrentEndStreamWaitingList -- [StreamName],
@@ -264,6 +266,7 @@ wait(cast, {predict}, State) ->
 
 %% Worker in wait can't treat incoming message 
 wait(cast, BatchTuple , State = #workerGeneric_state{lastPhase = LastPhase, myName= _MyName}) when element(1, BatchTuple) == sample ->
+  io:format("@wait: Dropped batch state...~n"),
   case LastPhase of
     train -> 
       ets:update_counter(get(worker_stats_ets), batches_dropped_train , 1);
@@ -313,7 +316,7 @@ train(cast, {start_stream , StreamName}, State = #workerGeneric_state{myName = _
   {next_state, train, State};
 
 train(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  io:format("~p end stream ~p~n",[MyName, StreamName]),
+  io:format("@train: ~p end stream ~p~n",[MyName, StreamName]),
   stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
   {next_state, train, State};
 
