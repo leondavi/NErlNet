@@ -72,9 +72,9 @@ class Stats():
         for worker_db in workers_model_db_list:
             worker_name = worker_db.get_worker_name()
             loss_dict[worker_name] = []
-            batches_ts_tansor_data_dict =worker_db.get_batches_ts_tansor_data_dict()
-            sorted_batches_ts_tansor_data_dict = dict(sorted(batches_ts_tansor_data_dict.items()))
-            loss_dict[worker_name] = [sorted_batches_ts_tansor_data_dict[key] for key in sorted(sorted_batches_ts_tansor_data_dict)]
+            batches_ts_tensor_data_dict =worker_db.get_batches_ts_tensor_data_dict()
+            sorted_batches_ts_tensor_data_dict = dict(sorted(batches_ts_tensor_data_dict.items()))
+            loss_dict[worker_name] = [sorted_batches_ts_tensor_data_dict[key] for key in sorted(sorted_batches_ts_tensor_data_dict)]
             
         # Convert NumPy arrays to floats
         for worker_name in loss_dict:
@@ -161,27 +161,25 @@ class Stats():
         return predicted_labels_df
 
     def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
-        assert self.experiment_flow_type == "classification", "This function is only available for classification experiments" 
-        assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"   
+        assert self.experiment_flow_type == "classification", "This function is only available for classification experiments"
+        assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"
         sources_pieces_list = self.experiment_phase.get_sources_pieces()
         workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
         confusion_matrix_source_dict = {}
         confusion_matrix_worker_dict = {}
-        # TODO Add a check - if the source policy is 1, then round robin flag (rr_flag) should be True and passed in attach_true_labels function
-
 
         for source_piece_inst in sources_pieces_list:
             num_of_workers = len(source_piece_inst.target_workers)
             sourcePiece_csv_labels_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet_labels()
             df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
             num_of_labels = df_actual_labels.shape[1]
-            header_list = range(num_of_labels) 
+            header_list = range(num_of_labels)
             df_actual_labels.columns = header_list
             # df_actual_labels = self.expend_labels_df(df_actual_labels)
             #print(df_actual_labels)
             source_name = source_piece_inst.get_source_name()
             source_policy = globe.components.sources_policy_dict[source_name] # ! NEW
-            if source_policy == 1:
+            if source_policy == SOURCE_POLICY_ROUND_ROBIN:
                 rr_flag = True
             # build confusion matrix for each worker
             target_workers = source_piece_inst.get_target_workers()
@@ -196,8 +194,8 @@ class Stats():
                     continue
                 df_worker_labels = pd.DataFrame(np.zeros((batch_size * worker_db.get_total_batches(), num_of_labels)))
                 print(f'Worker {worker_name} Got {worker_db.get_total_batches_per_source(source_name)} batches (={batch_size * worker_db.get_total_batches_per_source(source_name)} samples) from {source_name}')
-                for _, batch_id in worker_db.get_batches_dict().keys(): # ! CHANGED
-                    batch_id = int(batch_id)
+                for _, batch_id_str in worker_db.get_batches_dict().keys(): # ! CHANGED
+                    batch_id = int(batch_id_str)
                     batch_db = worker_db.get_batch(source_name, str(batch_id))
                     if not batch_db: # if batch is missing
                         print(f'{worker_name} missed batch {int(batch_id)}')
@@ -208,32 +206,20 @@ class Stats():
                         df_worker_labels.iloc[batch_id * batch_size: (batch_id + 1) * batch_size, :num_of_labels] = None # set the batch to None if dropped
                         worker_missed_batches[(worker_name, source_name, str(batch_id))] = (starting_offset + batch_id * batch_size, batch_size)  # save the missing batch
                 # df_worker_labels = df_worker_labels.dropna()
-                for _, batch_id in worker_db.get_batches_dict().keys():
-                    batch_id = int(batch_id) # Saved originally as string
+                
+                # This loop inserts predicted labels of every batch into a worker specific DataFrame 
+                for _, batch_id_str in worker_db.get_batches_dict().keys():
+                    batch_id = int(batch_id_str) 
+                    if rr_flag: # ! Handle the case of round robin casting policy
+                        batch_id = batch_id // num_of_workers
                     batch_db = worker_db.get_batch(source_name, str(batch_id))
                     if batch_db:
-                        tensor_data = batch_db.get_tensor_data()
-                        tensor_data = tensor_data.reshape(batch_size, num_of_labels) 
+                        predicted_labels = batch_db.get_tensor_data()
+                        predicted_labels = predicted_labels.reshape(batch_size, num_of_labels) 
                         start_index_pred = batch_id * batch_size
                         end_index_pred = (batch_id + 1) * batch_size
-                        if rr_flag: # ! Handle the case of round robin casting policy
-                            start_index_pred = start_index_pred // num_of_workers
-                            end_index_pred = end_index_pred // num_of_workers
-                            if start_index_pred % batch_size != 0 or end_index_pred % batch_size != 0: # ! Handle the case of inproper indexes (should be multiples of batch_size)
-                                # print(f'Before: {start_index_pred}-{end_index_pred}')
-                                start_index_pred -= (start_index_pred % batch_size)
-                                end_index_pred += (end_index_pred % batch_size)
-                                # print(f'After: {start_index_pred}-{end_index_pred}')
-                            # print(f'The following indexes {start_index_pred}-{end_index_pred} will be filled with the tensor data')
-                            # if (start_index_pred, end_index_pred) in handled_indexes:
-                            #     if start_index_pred < (df_worker_labels.shape[0] // num_of_workers): # Determine new indexes 
-                            #         start_index_pred += (df_worker_labels.shape[0] // num_of_workers)
-                            #         end_index_pred += (df_worker_labels.shape[0] // num_of_workers)
-                            #     else:
-                            #         start_index_pred -= (df_worker_labels.shape[0] // num_of_workers)
-                            #         end_index_pred -= (df_worker_labels.shape[0] // num_of_workers)
                         try:
-                            df_worker_labels.iloc[start_index_pred:end_index_pred, :num_of_labels] = tensor_data
+                            df_worker_labels.iloc[start_index_pred:end_index_pred, :num_of_labels] = predicted_labels
                         except ValueError:
                             print(f'The following indexes {start_index_pred}-{end_index_pred} caused an error')
                             exit(0)
