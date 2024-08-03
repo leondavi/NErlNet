@@ -211,7 +211,6 @@ sum_nerltensors_lists_test(Type, N, Performance) ->
 
 encode_decode_nifs_test(0, _Res, Performance) -> Performance ;
 encode_decode_nifs_test(N, Res, Performance) ->
-      %io:format("GOT HERE~n"),
       EncodeType = random_pick_nerltensor_type(),
       NerlTensor = generate_nerltensor_rand_dims(EncodeType),
       Tic = nerl:tic(),
