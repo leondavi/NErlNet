@@ -168,7 +168,7 @@ class Stats():
         confusion_matrix_source_dict = {}
         confusion_matrix_worker_dict = {}
         # TODO Add a check - if the source policy is 1, then round robin flag (rr_flag) should be True and passed in attach_true_labels function
-        rr_flag = False
+
 
         for source_piece_inst in sources_pieces_list:
             num_of_workers = len(source_piece_inst.target_workers)
@@ -180,7 +180,9 @@ class Stats():
             # df_actual_labels = self.expend_labels_df(df_actual_labels)
             #print(df_actual_labels)
             source_name = source_piece_inst.get_source_name()
-
+            source_policy = globe.components.sources_policy_dict[source_name] # ! NEW
+            if source_policy == 1:
+                rr_flag = True
             # build confusion matrix for each worker
             target_workers = source_piece_inst.get_target_workers()
             worker_missed_batches = {}
