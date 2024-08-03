@@ -54,7 +54,8 @@ create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap , EtsStats) ->
         if length(DistributedSystemToken) == 5 -> 
           ?LOG_INFO("~p Running a Distributed independent system on this device with Token: ~p",[WorkerName, DistributedSystemToken]);
           true -> throw("Distributed non-independent system (e.g., Federated Learning) must have a token which is NOT none. Add it to the Distributed Config json file under distributedSystemToken field, make sure it is 5 characters long")
-        end
+        end;
+      true -> ok
     end,
     MyClientPid = self(),
     % TODO add documentation about this case of 
