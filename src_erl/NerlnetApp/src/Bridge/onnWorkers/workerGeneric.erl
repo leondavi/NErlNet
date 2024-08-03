@@ -177,19 +177,7 @@ wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneri
   WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
   gen_statem:cast(get(client_pid),{loss, MyName , SourceName ,nan , TrainTime, WorkerToken ,BatchID}),
   NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
-  EndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
-  case length(EndStreamWaitingList) of
-    0 -> ok;
-    _ -> 
-      io:format("Removing from waiting list(nan)...~n"),
-      Func = fun(StreamName) -> 
-                stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
-                CurrentEndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
-                NewEndStreamWaitingList = CurrentEndStreamWaitingList -- [StreamName],
-                ets:update_element(get(generic_worker_ets), end_streams_waiting_list, {?ETS_KEYVAL_VAL_IDX, NewEndStreamWaitingList})
-              end,
-      lists:foreach(Func, EndStreamWaitingList)
-  end,
+  handle_end_stream_waiting_list(DistributedBehaviorFunc, train),
   {next_state, NextStateBehavior, State};
 
 
@@ -198,20 +186,7 @@ wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceNam
   WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
   gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,{LossTensor, LossTensorType} , TrainTime , WorkerToken, BatchID , BatchTimeStamp}),
   NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
-  EndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
-  io:format("EndStreamWaitingList: ~p~n",[EndStreamWaitingList]),
-  case length(EndStreamWaitingList) of
-    0 -> ok;
-    _ -> 
-      io:format("Removing from waiting list...~n"),
-      Func = fun(StreamName) -> 
-                stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
-                CurrentEndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
-                NewEndStreamWaitingList = CurrentEndStreamWaitingList -- [StreamName],
-                ets:update_element(get(generic_worker_ets), end_streams_waiting_list, {?ETS_KEYVAL_VAL_IDX, NewEndStreamWaitingList})
-              end,
-      lists:foreach(Func, EndStreamWaitingList)
-  end,
+  handle_end_stream_waiting_list(DistributedBehaviorFunc, train),
   {next_state, NextStateBehavior, State};
 
 wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
@@ -219,18 +194,7 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
   WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
   gen_statem:cast(get(client_pid),{predictRes,MyName, SourceName, {PredNerlTensor, PredNerlTensorType}, TimeNif , WorkerToken, BatchID , BatchTimeStamp}), 
   DistributedBehaviorFunc(post_predict, {get(generic_worker_ets),DistributedWorkerData}),
-  EndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
-  case length(EndStreamWaitingList) of
-    0 -> ok;
-    _ -> 
-      Func = fun(StreamName) -> 
-                stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
-                CurrentEndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
-                NewEndStreamWaitingList = CurrentEndStreamWaitingList -- [StreamName],
-                ets:update_element(get(generic_worker_ets), end_streams_waiting_list, {?ETS_KEYVAL_VAL_IDX, NewEndStreamWaitingList})
-              end,
-      lists:foreach(Func, EndStreamWaitingList)
-  end,
+  handle_end_stream_waiting_list(DistributedBehaviorFunc, predict),
   {next_state, NextState, State};
 
 wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = _DistributedBehaviorFunc}) ->
@@ -242,10 +206,10 @@ wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyNa
   io:format("@wait ~p got end stream from ~p~n",[MyName, StreamName]),
   {next_state, wait, State};
 
-wait(cast, {post_train_update, Data}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc, postBatchFunc = PostBatchFunc}) ->
+wait(cast, {post_train_update, Data}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets), {post_train_update, Data}}),
-  PostBatchFunc(),
-  {next_state, NextStateBehavior, State#workerGeneric_state{postBatchFunc = ?EMPTY_FUNC}};
+  handle_end_stream_waiting_list(DistributedBehaviorFunc, train),
+  {next_state, NextStateBehavior, State};
 
 
 % CANNOT HAPPEN 
@@ -385,3 +349,20 @@ stream_handler(StreamPhase , ModelPhase , StreamName , DistributedBehaviorFunc) 
       end,
   ets:update_element(GenWorkerEts, active_streams, {?ETS_KEYVAL_VAL_IDX, NewActiveStreams}),
   DistributedBehaviorFunc(StreamPhase, {GenWorkerEts, [StreamName , ModelPhase]}).
+
+handle_end_stream_waiting_list(DistributedBehaviorFunc, ModelPhase) ->
+  EndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
+  io:format("EndStreamWaitingList: ~p~n",[EndStreamWaitingList]),
+  case length(EndStreamWaitingList) of
+    0 -> ok;
+    _ -> 
+      io:format("Removing from waiting list...~n"),
+      Func = fun(StreamName) -> 
+                stream_handler(end_stream, ModelPhase, StreamName, DistributedBehaviorFunc),
+                CurrentEndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
+                NewEndStreamWaitingList = CurrentEndStreamWaitingList -- [StreamName],
+                ets:update_element(get(generic_worker_ets), end_streams_waiting_list, {?ETS_KEYVAL_VAL_IDX, NewEndStreamWaitingList})
+              end,
+      lists:foreach(Func, EndStreamWaitingList)
+  end.
+
