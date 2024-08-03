@@ -12,11 +12,12 @@ LayerTypeMap = OrderedDict([
     ("Perceptron" , "3"),
     ("Pooling" , "4"),
     ("Probabilistic" , "5"),
-    ("LSTM" , "6"),
-    ("Reccurrent" , "7"),
-    ("Unscaling" , "8"),
-    ("Flatten" , "9"),
-    ("Bounding" , "10"),
+    ("BatchNormalization" , "6"),
+    ("LSTM" , "7"),
+    ("Reccurrent" , "8"),
+    ("Unscaling" , "9"),
+    ("Flatten" , "10"),
+    ("Bounding" , "11"),
     ]
 )
 
@@ -56,6 +57,11 @@ PoolingMethodMap = OrderedDict(
     [("none" , "1"),
     ("Max" , "2"),
     ("Avg" , "3")]
+)
+
+BatchNomalizationMap = OrderedDict(
+    [("none" , "1"),
+    ]
 )
 
 ActivationFunctionsMap = OrderedDict(
@@ -161,6 +167,7 @@ KEY_LAYERS_FUNCTIONS_ACTIVATION_DOC = "_doc_layers_functions_activation"
 KEY_LAYERS_FUNCTIONS_SCALER_DOC = "_doc_layer_functions_scaler"
 KEY_LAYERS_FUNCTIONS_POOLING_DOC = "_doc_layer_functions_pooling"
 KEY_LAYERS_FUNCTIONS_PROBABILISTIC_DOC = "_doc_layer_functions_probabilistic"
+KEY_LAYERS_FUNCTIONS_BOUNDING_DOC = "_doc_layer_functions_bounding"
 KEY_LOSS_METHOD = "lossMethod"
 KEY_LOSS_METHOD_DOC = "_doc_lossMethod"
 KEY_EPOCHS = "epochs"
@@ -189,6 +196,7 @@ VAL_LAYERS_FUNCTIONS_SCALER_DOC = f"{doc_print_dict(ScalingMethodMap)}"
 VAL_LAYERS_FUNCTIONS_POOLING_DOC = f"{doc_print_dict(PoolingMethodMap)}"
 VAL_LAYERS_FUNCTIONS_PROBABILISTIC_DOC = f"{doc_print_dict(ProbabilisticActivationFunctionMap)}"
 VAL_LAYERS_FUNCTIONS_ACTIVATION_DOC = f"{doc_print_dict(ActivationFunctionsMap)}"
+VAL_LAYERS_FUNCTIONS_BOUNDING_DOC = f"{doc_print_dict(BoundingMethodMap)}"
 VAL_LOSS_METHOD_DOC = f"{doc_print_dict(LossMethodMapping)}"
 VAL_EPOCHS_DOC = "Positve Integer"
 VAL_LEARNING_RATE_DOC = "Positve float"

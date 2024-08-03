@@ -169,7 +169,8 @@ def WinWorkerDialog():
             FlattenDictStr = f'Flatten:\n{pretty_print_dict(FlattenMethodMap)}'
             BoundingDictStr = f'Bounding:\n{pretty_print_dict(BoundingMethodMap)}'
             ProbabilisticDictStr = f'Probabilistic:\n{pretty_print_dict(ProbabilisticActivationFunctionMap)}'
-            sg.popup_ok(f"Layer Functions Codes:\n{ActivationDictStr}\n{PoolingDictStr}\n{ScalerDictStr}\n{FlattenDictStr}\n{BoundingDictStr}\n{ProbabilisticDictStr}", keep_on_top=True, title="Layer Type Codes")
+            BatchNormalizationDictStr = f'Batch Normalization:\n{pretty_print_dict(BatchNomalizationMap)}'
+            sg.popup_ok(f"Layer Functions Codes:\n{ActivationDictStr}\n{PoolingDictStr}\n{ScalerDictStr}\n{FlattenDictStr}\n{BoundingDictStr}\n{ProbabilisticDictStr}\n{BatchNormalizationDictStr}", keep_on_top=True, title="Layer Type Codes")
 
         if event == KEY_LEARNING_RATE_INPUT:
             LearningRate = values[event]
@@ -269,9 +270,15 @@ def LayerMethodSelection():
                  sg.Listbox(list(ScalingMethodMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_SCALER)],
                  [ sg.Text("Bounding",expand_x=True), sg.Text('Flatten', expand_x=True), sg.Text('Probabilistic', expand_x=True)],
                  [
-                 sg.Listbox(list(BoundingMethodMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_BOUNDING),
-                 sg.Listbox(list(FlattenMethodMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_FLATTEN),
-                 sg.Listbox(list(ProbabilisticActivationFunctionMap.keys()),size=(20,15), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_PROBABILISTIC)
+                 sg.Listbox(list(BoundingMethodMap.keys()),size=(20,5), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_BOUNDING),
+                 sg.Listbox(list(FlattenMethodMap.keys()),size=(20,5), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_FLATTEN),
+                 sg.Listbox(list(ProbabilisticActivationFunctionMap.keys()),size=(20,5), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_PROBABILISTIC)
+                 ],
+                 [
+                    sg.Text("BatchNorm",expand_x=True), sg.Text(' ', expand_x=True), sg.Text(' ', expand_x=True)
+                 ],
+                 [
+                    sg.Listbox(list(BatchNomalizationMap.keys()),size=(20,5), enable_events=True, key=KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_BATCH_NORMALIZATION),
                  ],
                  [sg.Text('Selection', expand_x=True, enable_events=True, key=KEY_LAYER_METHOD_SELECTION_TEXT),sg.Button('Select', expand_x=True, key=KEY_LAYER_METHOD_SELECTION_BUTTON)]]
     
@@ -309,6 +316,11 @@ def LayerMethodSelection():
         if event == KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_FLATTEN:
             layer_method_selection = values[KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_FLATTEN][0]
             global_layer_method_selection_code = FlattenMethodMap[layer_method_selection]
+            layer_selection_win[KEY_LAYER_METHOD_SELECTION_TEXT].update(f'Selected {layer_method_selection} code: {global_layer_method_selection_code}')
+
+        if event == KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_BATCH_NORMALIZATION:
+            layer_method_selection = values[KEY_LAYER_METHOD_SELECTION_DIALOG_LISTBOX_BATCH_NORMALIZATION][0]
+            global_layer_method_selection_code = BatchNomalizationMap[layer_method_selection]
             layer_selection_win[KEY_LAYER_METHOD_SELECTION_TEXT].update(f'Selected {layer_method_selection} code: {global_layer_method_selection_code}')
 
         if event == KEY_LAYER_METHOD_SELECTION_BUTTON:
