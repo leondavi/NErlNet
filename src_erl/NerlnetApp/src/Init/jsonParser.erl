@@ -92,6 +92,14 @@ get_models(ShaToModelMaps) ->
     DistributedSystemType = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_TYPE_BIN,ModelParams)),
     DistributedSystemArgs = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_ARGS_BIN,ModelParams)),
     DistributedSystemToken = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_TOKEN_BIN,ModelParams)),
+    case lists:member(DistributedSystemType, ["1", "2"]) of 
+      true -> 
+        case DistributedSystemToken of 
+          "none" -> throw("Federated Learning Distributed System Must have a token which is NOT none. Add it to the Distributed Config json file under distributedSystemToken field, make sure it is 5 characters long");
+          _ -> io:format("Running a Federated Learning Model on this device with Token: ~p~n", [DistributedSystemToken])
+        end;
+      _ -> skip
+    end,
     ModelTuple = {ModelType, ModelArgs , LayersSizes, LayersTypes, LayersFunctions, LossMethod, LearningRate, Epochs, Optimizer, OptimizerArgs, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken},
     ModelTuple
   end,
