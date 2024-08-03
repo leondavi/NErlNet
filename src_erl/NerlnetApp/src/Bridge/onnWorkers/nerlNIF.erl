@@ -1,6 +1,6 @@
 -module(nerlNIF).
 -include_lib("kernel/include/logger.hrl").
--include("nerlTensor.hrl").
+-include("../nerlTensor.hrl").
 
 -export([init/0,nif_preload/0,get_active_models_ids_list/0, train_nif/3,update_nerlworker_train_params_nif/6,call_to_train/5,predict_nif/3,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).

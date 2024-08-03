@@ -1,0 +1,54 @@
+{
+    "experimentName": "synthetic_3_gausians",
+    "experimentType": "classification",
+    "batchSize": 100,
+    "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/synthetic_norm/synthetic_full.csv",
+    "numOfFeatures": "5",
+    "numOfLabels": "3",
+    "headersNames": "Norm(0:1),Norm(4:1),Norm(10:3)",
+    "Phases": 
+    [
+    {
+        "phaseName": "training_phase",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "0",
+            "numOfBatches": "500",
+            "workers": "w1,w2",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s2",
+            "startingSample": "0",
+            "numOfBatches": "500",
+            "workers": "w3",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "prediction_phase",
+        "phaseType": "prediction",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "50000",
+            "numOfBatches": "500",
+            "workers": "w1,w2",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s2",
+            "startingSample": "50000",
+            "numOfBatches": "500",
+            "workers": "w3",
+            "nerltensorType": "float"
+            }
+        ]    
+    }
+]  
+}
