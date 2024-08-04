@@ -16,22 +16,8 @@
             {
             "sourceName": "s1",
             "startingSample": "0",
-            "numOfBatches": "1250",
-            "workers": "w1",
-            "nerltensorType": "float"
-            }
-        ]
-    },
-    {
-        "phaseName": "training_phase2",
-        "phaseType": "training",
-        "sourcePieces":
-        [
-            {
-            "sourceName": "s1",
-            "startingSample": "125000",
-            "numOfBatches": "1250",
-            "workers": "w2",
+            "numOfBatches": "2500",
+            "workers": "w1,w2",
             "nerltensorType": "float"
             }
         ]

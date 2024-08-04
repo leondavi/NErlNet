@@ -156,7 +156,7 @@ class Stats():
             else:
                 worker_true_labels = true_labels_df
         predicted_labels_df['TrueLabel'] = worker_true_labels
-        predicted_labels_df = predicted_labels_df.dropna()
+        # predicted_labels_df = predicted_labels_df.dropna()
         display(predicted_labels_df)
         return predicted_labels_df
 
@@ -179,8 +179,11 @@ class Stats():
             #print(df_actual_labels)
             source_name = source_piece_inst.get_source_name()
             source_policy = globe.components.sources_policy_dict[source_name] # ! NEW
+            print(f'Source {source_name} policy is round robin {source_policy}? {source_policy == SOURCE_POLICY_ROUND_ROBIN}')  
             if source_policy == SOURCE_POLICY_ROUND_ROBIN:
                 rr_flag = True
+            else:
+                rr_flag = False
             # build confusion matrix for each worker
             target_workers = source_piece_inst.get_target_workers()
             worker_missed_batches = {}
@@ -230,7 +233,7 @@ class Stats():
                     class_name = self.headers_list[0]
                     actual_labels = df_worker_labels.iloc[:, num_of_labels:].values.flatten().tolist()
                     predict_labels = df_worker_labels.iloc[:, :num_of_labels].values.flatten().tolist()
-                    print(f'Pred and True DFs are identical in {len([1 for i, j in zip(actual_labels, predict_labels) if i == j])} out of {len(actual_labels)} samples')
+                    # print(f'Pred and True DFs are identical in {len([1 for i, j in zip(actual_labels, predict_labels) if i == j])} out of {len(actual_labels)} samples')
                     confusion_matrix = metrics.confusion_matrix(actual_labels, predict_labels)
                     confusion_matrix_source_dict[(source_name, worker_name, class_name)] = confusion_matrix
                     if (worker_name, class_name) not in confusion_matrix_worker_dict:
