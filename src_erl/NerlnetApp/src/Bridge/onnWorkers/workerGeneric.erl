@@ -355,3 +355,19 @@ stream_handler(StreamPhase , ModelPhase , StreamName , DistributedBehaviorFunc) 
               gen_statem:cast(ClientPid, {worker_done, {MyName, StreamName}});
       _ -> ok 
   end.
+
+handle_end_stream_waiting_list(DistributedBehaviorFunc, ModelPhase) ->
+  EndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
+  % io:format("EndStreamWaitingList: ~p~n",[EndStreamWaitingList]),
+  case length(EndStreamWaitingList) of
+    0 -> ok;
+    _ -> 
+      % io:format("Removing from waiting list...~n"),
+      Func = fun(StreamName) -> 
+                stream_handler(end_stream, ModelPhase, StreamName, DistributedBehaviorFunc),
+                CurrentEndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
+                NewEndStreamWaitingList = CurrentEndStreamWaitingList -- [StreamName],
+                ets:update_element(get(generic_worker_ets), end_streams_waiting_list, {?ETS_KEYVAL_VAL_IDX, NewEndStreamWaitingList})
+              end,
+      lists:foreach(Func, EndStreamWaitingList)
+  end.
