@@ -28,10 +28,10 @@ class Stats():
         self.experiment_flow_type = self.experiment_phase.get_experiment_flow_type()
         if (self.phase == PHASE_PREDICTION_STR):
             for source_piece_inst in self.experiment_phase.get_sources_pieces():
-                csv_dataset = source_piece_inst.get_csv_dataset_parent()
-                source_piece_csv_labels_file = csv_dataset.genrate_source_piece_ds_csv_file_labels(source_piece_inst, self.phase)
+                csv_dataset_inst = source_piece_inst.get_csv_dataset_parent()   # get the csv dataset instance (csv_dataset_db.py)
+                source_piece_csv_labels_file = csv_dataset_inst.genrate_source_piece_ds_csv_file_labels(source_piece_inst, self.phase)  #return the path of the csv file that contains the source piece labels data
                 source_piece_inst.set_pointer_to_sourcePiece_CsvDataSet_labels(source_piece_csv_labels_file)
-            self.headers_list = csv_dataset.get_headers_row()
+            self.headers_list = csv_dataset_inst.get_headers_row()
 
         Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_phase.get_experiment_flow_name()}').mkdir(parents=True, exist_ok=True)
         Path(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment_phase.get_phase_type()}/{self.experiment_phase.get_experiment_flow_name()}').mkdir(parents=True, exist_ok=True)
@@ -144,6 +144,68 @@ class Stats():
         df = df.reindex(columns = [*df.columns.tolist(), *temp_list], fill_value = 0)
         assert df.shape[1] == 2 * num_of_labels, "Error in expend_labels_df function"
         return df
+    
+    def get_confusion_matrices_new(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
+        
+        def build_worker_label_df(original_df, batch_ids, batch_size):
+            rows_list = []
+
+            for batch_id in batch_ids:
+                # Calculate the start and end indices for the rows to be copied
+                start_idx = batch_id * batch_size
+                end_idx = (batch_id + 1) * batch_size
+        
+                # Extract the rows and append to the list
+                batch_rows = original_df.iloc[start_idx:end_idx]
+                rows_list.append(batch_rows)
+    
+                # Concatenate all the extracted rows into a new DataFrame
+            df_worker_labels = pd.concat(rows_list, ignore_index=True)
+            return df_worker_labels
+        
+        assert self.experiment_flow_type == "classification", "This function is only available for classification experiments" 
+        assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"   
+        sources_pieces_list = self.experiment_phase.get_sources_pieces()
+        workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
+        confusion_matrix_source_dict = {}
+        confusion_matrix_worker_dict = {}
+        recived_batches_dict = self.get_recieved_batches()
+        for source_piece_inst in sources_pieces_list:
+            source_name = source_piece_inst.get_source_name()
+            sourcePiece_csv_labels_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet_labels()
+            df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
+            num_of_labels = df_actual_labels.shape[1]
+
+            
+            # build confusion matrix for each worker
+            target_workers = source_piece_inst.get_target_workers()
+            batch_size = source_piece_inst.get_batch_size()
+            for worker_db in workers_model_db_list:
+                worker_name = worker_db.get_worker_name()
+                if worker_name not in target_workers:
+                    continue
+                worker_recived_batches_id = recived_batches_dict.get(f"phase:{self.experiment_phase.get_name()},{source_name}->{worker_name}")   # get a list of recived batches id for the worker
+                df_worker_labels = build_worker_label_df(df_actual_labels, worker_recived_batches_id, batch_size)
+                header_list = range(num_of_labels) 
+                df_worker_labels.columns = header_list
+                df_worker_labels = self.expend_labels_df(df_worker_labels)  #Now there is a csv file with the actual labels of the source piece and empty columns for the predict labels
+                
+                for batch_id in worker_recived_batches_id:
+                    batch_db = worker_db.get_batch(source_name, str(batch_id))
+                    if not batch_db:             #It's not necessary to check if the batch is missing, because we already know wich batches are recieved
+                        LOG_INFO(f"Batch {batch_id} is missing for worker {worker_name}")
+                        continue
+                    tensor_data = batch_db.get_tensor_data() 
+                    tensor_data = tensor_data.reshape(batch_size, num_of_labels) 
+                    start_index = batch_id * batch_size
+                    end_index = (batch_id + 1) * batch_size
+                    print(worker_name)
+                    print(df_worker_labels)
+                    df_worker_labels.iloc[start_index:end_index, num_of_labels:] = tensor_data
+                    print(df_worker_labels)
+                    #TODO: countinue from here
+            
+                
 
     def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
         assert self.experiment_flow_type == "classification", "This function is only available for classification experiments" 
@@ -152,15 +214,18 @@ class Stats():
         workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
         confusion_matrix_source_dict = {}
         confusion_matrix_worker_dict = {}
+        missed_batches_dict = self.get_missed_batches()
         for source_piece_inst in sources_pieces_list:
+            source_name = source_piece_inst.get_source_name()
+            starting_offset = source_piece_inst.get_starting_offset()
             sourcePiece_csv_labels_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet_labels()
             df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
             num_of_labels = df_actual_labels.shape[1]
             header_list = range(num_of_labels) 
             df_actual_labels.columns = header_list
+            print(df_actual_labels)              #TODO: remove this line
             df_actual_labels = self.expend_labels_df(df_actual_labels)
-            #print(df_actual_labels)
-            source_name = source_piece_inst.get_source_name()
+            print(df_actual_labels)              #TODO: remove this line
 
             # build confusion matrix for each worker
             target_workers = source_piece_inst.get_target_workers()
@@ -169,10 +234,12 @@ class Stats():
             for worker_db in workers_model_db_list:
                 worker_name = worker_db.get_worker_name()
                 if worker_name not in target_workers:
-                    continue
+                    continue                            #plot only the workers that are in the target workers list of the source
                 df_worker_labels = df_actual_labels.copy()
-                total_batches_per_source = worker_db.get_total_batches_per_source(source_name)
-                for batch_id in range(total_batches_per_source):
+                total_batch_db_per_source = worker_db.get_total_batches_per_source(source_name)
+                
+                """""
+                for batch_id in range(source_piece_inst.get_num_of_batches()):     # In case of casting policy, the number of batches in the source piece is equal to the number of batches in the worker
                     batch_db = worker_db.get_batch(source_name, str(batch_id))
                     if not batch_db: # if batch is missing
                         if not self.missed_batches_warning_msg:
@@ -181,10 +248,17 @@ class Stats():
                         starting_offset = source_piece_inst.get_starting_offset()
                         df_worker_labels.iloc[batch_id * batch_size: (batch_id + 1) * batch_size, num_of_labels:] = None # set the actual label to None for the predict labels in the df 
                         worker_missed_batches[(worker_name, source_name, str(batch_id))] = (starting_offset + batch_id * batch_size, batch_size)  # save the missing batch
+                        """""
                 
-                df_worker_labels = df_worker_labels.dropna()
+                worker_missed_batches_id = missed_batches_dict.get(f"phase:{self.experiment_phase.get_name()},{source_name}->{worker_name}")   # get a list of missed batches id for the worker
+                for batch_id in worker_missed_batches_id:
+                    df_worker_labels.iloc[batch_id * batch_size: (batch_id + 1) * batch_size, num_of_labels:] = None # set the actual label to None for the predict labels in the df
+                    worker_missed_batches[(worker_name, source_name, str(batch_id))] = (starting_offset + batch_id * batch_size, batch_size)  # save the missing batch
+
+
+                df_worker_labels = df_worker_labels.dropna()   #drop the rows with missing values (missing batches)
                 # print(df_worker_labels)
-                for batch_id in range(total_batches_per_source):
+                for batch_id in range(total_batch_db_per_source):
                     batch_db = worker_db.get_batch(source_name, str(batch_id))
                     if batch_db:
                         # counter = according indexs of array 
@@ -268,9 +342,76 @@ class Stats():
 
         return confusion_matrix_source_dict, confusion_matrix_worker_dict
     
+    def get_recieved_batches(self):
+        """
+        Returns a dictionary of recieved batches in the experiment phase.
+        recived_batches_dict = {(source_name, worker_name): [batch_id,...]}
+        """
+        def recieved_batches_key(phase_name, source_name, worker_name):
+            return f"phase:{phase_name},{source_name}->{worker_name}"
+        
+        phase_name = self.experiment_phase.get_name()
+        recived_batches_dict = {}
+        sources_pieces_list = self.experiment_phase.get_sources_pieces()
+        workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
+        for source_piece_inst in sources_pieces_list:
+            source_name = source_piece_inst.get_source_name()
+            target_workers_string = source_piece_inst.get_target_workers()
+            target_workers_names = target_workers_string.split(',')
+            for worker_db in workers_model_db_list:
+                    worker_name = worker_db.get_worker_name()
+                    if worker_name in target_workers_names:       # Check if the worker is in the target workers list of this source
+                        for batch_id in range(source_piece_inst.get_num_of_batches()):
+                            batch_db = worker_db.get_batch(source_name, str(batch_id))
+                            if batch_db:    # if batch is recieved
+                                recieved_batch_key_str = recieved_batches_key(phase_name, source_name, worker_name)
+                                if recieved_batch_key_str not in recived_batches_dict:
+                                    recived_batches_dict[recieved_batch_key_str] = []
+                                recived_batches_dict[recieved_batch_key_str].append(batch_id)
+        return recived_batches_dict
+    
+        """
+            source_policy = globe.components.sources_policy_dict[source_name]   # 0 -> casting , 1 -> round robin, 2 -> random
+            target_workers_string = source_piece_inst.get_target_workers()
+            target_workers_names = target_workers_string.split(',')
+            if source_policy == '0':  # casting policy
+                for worker_db in workers_model_db_list:
+                    worker_name = worker_db.get_worker_name()
+                    if worker_name in target_workers_names:       # Check if the worker is in the target workers list of this source
+                        for batch_id in range(source_piece_inst.get_num_of_batches()):
+                            batch_db = worker_db.get_batch(source_name, str(batch_id))
+                            if batch_db:  # if batch is recieved
+                                recieved_batch_key_str = recived_batches_dict(phase_name, source_name, worker_name)
+                                if recieved_batch_key_str not in recived_batches_dict:
+                                    recived_batches_dict[recieved_batch_key_str] = []
+                                recived_batches_dict[recieved_batch_key_str].append(batch_id)
+            elif source_policy == '1':  # round robin policy
+                number_of_workers = len(target_workers_names)
+                batches_indexes = [i for i in range(source_piece_inst.get_num_of_batches())]
+                batch_worker_tuple = [(batch_index, target_workers_names[batch_index % number_of_workers]) for batch_index in batches_indexes]  # (batch_index, worker_name_that_should_recive_the_batch)
+                worker_batches_dict = {worker_name: [] for worker_name in target_workers_names}   # Create a dictionary to hold batches id for each worker
+                for batch_index, worker_name in batch_worker_tuple:
+                    worker_batches_dict[worker_name].append(batch_index)            
+                for worker_db in workers_model_db_list:
+                    worker_name = worker_db.get_worker_name()
+                    if worker_name in target_workers_names:       # Check if the worker is in the target workers list of this source
+                        for batch_id in worker_batches_dict[worker_name]:
+                            batch_db = worker_db.get_batch(source_name, str(batch_id))
+                            if batch_db:  #if batch is recieved
+                                recieved_batch_key_str = recived_batches_dict(phase_name, source_name, worker_name)
+                                if  recieved_batch_key_str not in recived_batches_dict:
+                                    recived_batches_dict[recieved_batch_key_str] = []
+                                recived_batches_dict[recieved_batch_key_str].append(batch_id)
+            elif source_policy == '2':  # random policy
+                #TODO - implement random policy
+                LOG_INFO(f"Source {source_name} policy is random, it's not posiblle check for missed batches")
+                break
+        return recived_batches_dict
+        """
+    
     def get_missed_batches(self):
         """
-        Returns a list of missed batches in the experiment phase.
+        Returns a dictionary of missed batches in the experiment phase.
         {(source_name, worker_name): [batch_id,...]}
         """
         def missed_batches_key(phase_name, source_name, worker_name):
