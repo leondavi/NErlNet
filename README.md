@@ -91,7 +91,7 @@ https://github.com/leondavi/NErlNet/assets/18975070/15a3957a-3fd6-4fb2-a365-7e15
 ## Gratitudes
 <h3 align="center">Microsoft Azure</h1>
 <p align="center"> <img src="https://github.com/leondavi/NErlNet/assets/18975070/d3255b30-ae3b-46fd-a87f-6c1ec7ae231b" width="50" title="Microsoft Azure Sponsorship"></p>  
-<p align="center"> A grant of Azure credits as part of Microsoft’s Azure credits for open source projects program (2024).</p>  
+<p align="center"> A grant of Azure credits as part of Microsoft’s Azure credits for open source projects program (2024,2025).</p>  
 <h3 align="center">Amazon AWS</h1>
 <p align="center"> <img src="https://github.com/leondavi/NErlNet/assets/18975070/5fe285fd-43c9-4de8-a619-5ebaace33b29" width="50" title="Amazon AWS Sponsorship"></p>  
 
