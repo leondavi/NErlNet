@@ -20,9 +20,9 @@ api_server_instance = ApiServer()
 api_server_instance.download_dataset(TEST_DATASET_IDX)
 #api_server_instance.help()
 api_server_instance.showJsons()
-dc_idx = 2
+dc_idx = 3
 conn_idx = 21
-exp_idx = 3
+exp_idx = 2
 api_server_instance.setJsons(dc_idx, conn_idx, exp_idx)
 dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
@@ -32,6 +32,12 @@ api_server_instance.send_jsons_to_devices()
  
 api_server_instance.run_current_experiment_phase() # blocking - deppended acks from mainserver
 stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
+
+#Start of test noa
+#print(stats.get_recieved_batches())
+#print(stats.get_missed_batches())
+
+#End of test noa
 stats.get_communication_stats_workers()
 stats.get_communication_stats_sources()
 stats.get_communication_stats_clients()
@@ -42,10 +48,11 @@ stats.get_min_loss()
 api_server_instance.next_experiment_phase()
 api_server_instance.run_current_experiment_phase()
 stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
-confusion_matrix_source_dict, confusion_matrix_worker_dict = stats.get_confusion_matrices()
+#print(stats.get_recieved_batches())
+#print(stats.get_missed_batches())
+confusion_matrix_source_dict, confusion_matrix_worker_dict = stats.get_confusion_matrices_new()
 performence_stats = stats.get_model_performence_stats(confusion_matrix_worker_dict, True)
 stats.get_missed_batches()
-
 exit(0)
 next_expertiment_phase_exist = api_server_instance.next_experiment_phase() 
 api_server_instance.run_current_experiment_phase()
