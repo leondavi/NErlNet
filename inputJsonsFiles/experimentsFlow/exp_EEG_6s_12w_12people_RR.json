@@ -59,55 +59,6 @@
         ]  
     },
     {
-        "phaseName": "training_phase2",
-        "phaseType": "training",
-        "sourcePieces":
-        [
-            {
-            "sourceName": "s1",
-            "startingSample": "0",
-            "numOfBatches": "1561",
-            "workers": "w1,w2",
-            "nerltensorType": "float"
-            },
-            {
-            "sourceName": "s2",
-            "startingSample": "19520",
-            "numOfBatches": "1561",
-            "workers": "w3,w4",
-            "nerltensorType": "float"
-            },
-            {
-            "sourceName": "s3",
-            "startingSample": "39040",
-            "numOfBatches": "1561",
-            "workers": "w5,w6",
-            "nerltensorType": "float"
-            },
-            {
-            "sourceName": "s4",
-            "startingSample": "39040",
-            "numOfBatches": "1561",
-            "workers": "w7,w8",
-            "nerltensorType": "float"
-            },
-            {
-            "sourceName": "s5",
-            "startingSample": "39040",
-            "numOfBatches": "1561",
-            "workers": "w9,w10",
-            "nerltensorType": "float"
-            },
-            {
-            "sourceName": "s6",
-            "startingSample": "39040",
-            "numOfBatches": "1561",
-            "workers": "w11,w12",
-            "nerltensorType": "float"
-            }
-        ]  
-    },
-    {
         "phaseName": "prediction_phase",
         "phaseType": "prediction",
         "sourcePieces":
