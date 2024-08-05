@@ -139,7 +139,9 @@ get_device_routers(DCMap, DeviceEntities) ->
 %% return the ets name
 %% --------------------------------------------------------------
 json_to_ets(IPv4, JsonDCMap) ->
-
+  % Auto generated definitions validation
+  if ?DC_DISTRIBUTED_SYSTEM_TYPE_NONE_IDX_STR == "0" -> ok;
+  true -> throw("Auto generated definitions are not valid, none-distributed system type should be 0") end,
   % update DeviceName
   ets:insert(nerlnet_data, {?DC_IPV4_FIELD_ATOM, IPv4}),
   ets:insert(nerlnet_data, {ipv4_bin, list_to_binary(IPv4)}), %% ? is this needed

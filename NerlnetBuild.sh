@@ -11,16 +11,23 @@ INPUT_DATA_DIR="inputDataDir"
 Branch="master"
 JobsNum=4
 NerlWolf=OFF
+NerlTorch=OFF
 
 help()
 {
     echo "-------------------------------------" && echo "Nerlnet Build" && echo "-------------------------------------"
     echo "Usage:"
     echo "--p or --pull Warning! this uses checkout -f! and branch name checkout to branch $Branch and pull the latest"
-    echo "--w or --wolf wolfram engine workers extension (nerlwolf)"
+    echo "--w or --wolf wolfram engine workers infra (nerlwolf)"
+	echo "--t or --torch torch workers infra (nerltorch)"
 	echo "--j or --jobs number of jobs to cmake build"
     echo "--c or --clean remove build directory"
     exit 2
+}
+
+print()
+{
+	echo "$NERLNET_BUILD_PREFIX $1"
 }
 
 gitOperations()
@@ -67,6 +74,8 @@ print_help()
 	printf '\t%s\n' "-j, --jobs: number of jobs (default: '4')"
 	printf '\t%s\n' "-p, --pull: pull from branch (default: '4')"
 	printf '\t%s\n' "-w, --wolf: wolfram engine extension build (default: 'off')"
+	printf '\t%s\n' "-t, --torch: torch engine extension build (default: 'off')"
+	printf '\t%s\n' "-c, --clean: clean build directory (default: 'off')"
 
 }
 
@@ -109,6 +118,17 @@ parse_commandline()
 				;;
 			-w*)
 				NerlWolf="${_key##-j}"
+				;;
+			-t|--torch)
+				test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
+				NerlTorch="$2"
+				shift
+				;;
+			--torch=*)
+				NerlTorch="${_key##--jobs=}"
+				;;
+			-t*)
+				NerlTorch="${_key##-j}"
 				;;
 			-j|--jobs)
 				test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
@@ -157,6 +177,11 @@ else
         sed -i "s/^.*\(${OPTION}.*$\)/#\1/" CMakeLists.txt
 fi
 
+if [[ ! $NerlTorch =~ OFF ]]; then
+    print "NerlTorch is enabled"
+	print "Installation directory points to /usr/local/lib/libtorch"
+fi
+
 if command -v python3 >/dev/null 2>&1; then
     echo "$NERLNET_BUILD_PREFIX Python 3 is installed"
 	# Generate auto-generated files
@@ -187,7 +212,7 @@ fi
 echo "$NERLNET_BUILD_PREFIX Building Nerlnet Library"
 echo "$NERLNET_BUILD_PREFIX Cmake command of Nerlnet NIFPP"
 set -e
-cmake -S . -B build/release -DNERLWOLF=$NerlWolf -DCMAKE_BUILD_TYPE=RELEASE
+cmake -S . -B build/release -DNERLWOLF=$NerlWolf -DNERLTORCH=$NerlTorch -DCMAKE_BUILD_TYPE=RELEASE
 cd build/release
 echo "$NERLNET_BUILD_PREFIX Script CWD: $PWD"
 echo "$NERLNET_BUILD_PREFIX Build Nerlnet"

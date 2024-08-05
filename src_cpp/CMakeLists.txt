@@ -15,3 +15,8 @@ if(NERLWOLF)
     message("[NERLNET] Wolfram Engine nif extension is enabled")
     add_subdirectory(wolframBridge)
 endif()
+
+if(NERLTORCH)
+    message("[NERLNET] Libtorch nif extension is enabled")
+    add_subdirectory(torchBridge)
+endif()
