@@ -9,6 +9,7 @@ from nerl_csv_dataset_db import *
 from events_sync import *
 from networkComponents import *
 from stats import * 
+from statsTiles import *
 from stats_aec import *
 from experiment_phase import *
 
@@ -62,6 +63,11 @@ class ExperimentFlow():
         if experiment_phase is None:
             experiment_phase = self.get_current_experiment_phase() 
         return Stats(experiment_phase)
+    
+    def generate_stats_tiles(self, experiment_phase = None) -> StatsTiles:
+        if experiment_phase is None:
+            experiment_phase = self.get_current_experiment_phase() 
+        return StatsTiles(experiment_phase)
     
     def generate_stats_aec(self, stats: Stats) -> Stats:
         assert stats is not None , "stats is None"

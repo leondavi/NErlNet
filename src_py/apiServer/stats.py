@@ -144,6 +144,7 @@ class Stats():
         df = df.reindex(columns = [*df.columns.tolist(), *temp_list], fill_value = 0)
         assert df.shape[1] == 2 * num_of_labels, "Error in expend_labels_df function"
         return df
+  
 
     def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
         assert self.experiment_flow_type == "classification", "This function is only available for classification experiments" 

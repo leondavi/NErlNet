@@ -7,9 +7,9 @@
             "description": "SKAB Dataset for AEC anomaly detection"
         },
         {
-            "id": "Nerlnet/MNist",
+            "id": "Nerlnet/MNist_test",
             "idx": 1,
-            "name": "mnist",
+            "name": "mnist_test",
             "description": "MNist Dataset for CNN experiments"
         },
         {
@@ -17,6 +17,18 @@
             "idx": 2,
             "name": "synthetic_norm",
             "description": "Gaussian Distributions Classification Syntetic Dataset for baseline experiments"
+        },
+        {
+            "id": "Nerlnet/tiles_sorted",
+            "idx": 3,
+            "name": "Tiles_Mnist_sorted",
+            "description": "Mnist tiled,sorted by parts - tiled to 3 parts"
+        },
+        {
+            "id": "Nerlnet/Mnist_normalized",
+            "idx": 4,
+            "name": "mnist_normalized",
+            "description": "MNist Dataset for CNN experiments - 255 normalized"
         }
     ]
 }
