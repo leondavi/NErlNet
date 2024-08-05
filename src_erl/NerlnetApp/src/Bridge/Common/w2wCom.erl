@@ -46,6 +46,7 @@ handle_call({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, {msg_with_event, Even
     GenWorkerPid = get(gen_worker_pid),
     case Event of
         post_train_update   -> gen_statem:cast(GenWorkerPid, {post_train_update, Data});
+        worker_done         -> gen_statem:cast(GenWorkerPid, {worker_done, Data});
         start_stream        -> gen_statem:cast(GenWorkerPid, {start_stream, Data}); 
         end_stream          -> gen_statem:cast(GenWorkerPid, {end_stream, Data}) 
     end,

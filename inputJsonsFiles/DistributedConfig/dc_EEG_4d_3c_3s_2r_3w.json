@@ -1,6 +1,6 @@
 {
     "nerlnetSettings": {
-        "frequency": "200",
+        "frequency": "150",
         "batchSize": "5"
     },
     "mainServer": {
@@ -13,9 +13,24 @@
     },
     "devices": [
         {
-            "name": "pc12",
+            "name": "c0VM5",
+            "ipv4": "10.0.0.11",
+            "entities": "apiServer,mainServer"
+        },
+        {
+            "name": "c0VM6",
             "ipv4": "10.0.0.8",
-            "entities": "c1,c2,c3,r1,r2,s1,s2,s3,apiServer,mainServer"
+            "entities": "c1,r1,s1"
+        },
+        {
+            "name": "c0VM7",
+            "ipv4": "10.0.0.12",
+            "entities": "s2,c2"
+        },
+        {
+            "name": "c0VM4",
+            "ipv4": "10.0.0.10",
+            "entities": "r2,s3,c3"
         }
     ],
     "routers": [
@@ -34,7 +49,7 @@
         {
             "name": "s1",
             "port": "8904",
-            "frequency": "200",
+            "frequency": "150",
             "policy": "0",
             "epochs": "1",
             "type": "0"
@@ -42,7 +57,7 @@
         {
             "name": "s2",
             "port": "8905",
-            "frequency": "200",
+            "frequency": "150",
             "policy": "0",
             "epochs": "1",
             "type": "0"
@@ -50,7 +65,7 @@
         {
             "name": "s3",
             "port": "8906",
-            "frequency": "200",
+            "frequency": "150",
             "policy": "0",
             "epochs": "1",
             "type": "0"
@@ -94,18 +109,18 @@
             "modelArgs": "",
             "layersSizes": "70x1x1k5x1x1x128p0s1t0,66x1x128k2x1p0s1,65x1x128k5x1x128x128p0s1t0,61x1x128k2x1p0s1,60x1x128k5x1x128x64p0s1t0,1,64,32,16,9",
             "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
-            "layerTypesList": "2,4,2,4,2,9,3,3,3,5",
+            "layerTypesList": "2,4,2,4,2,9,3,3,3,3",
             "_doc_LayerTypes": " Default:0 | Scaling:1 | CNN:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Flatten:9 | Bounding:10 |",
-            "layers_functions": "6,2,6,2,6,1,6,6,6,4",
+            "layers_functions": "11,2,11,2,11,1,6,6,6,11",
             "_doc_layers_functions_activation": " Threshold:1 | Sign:2 | Logistic:3 | Tanh:4 | Linear:5 | ReLU:6 | eLU:7 | SeLU:8 | Soft-plus:9 | Soft-sign:10 | Hard-sigmoid:11 |",
             "_doc_layer_functions_pooling": " none:1 | Max:2 | Avg:3 |",
             "_doc_layer_functions_probabilistic": " Binary:1 | Logistic:2 | Competitive:3 | Softmax:4 |",
             "_doc_layer_functions_scaler": " none:1 | MinMax:2 | MeanStd:3 | STD:4 | Log:5 |",
             "lossMethod": "2",
             "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
-            "lr": "0.001",
+            "lr": "0.00001",
             "_doc_lr": "Positve float",
-            "epochs": "50",
+            "epochs": "1",
             "_doc_epochs": "Positve Integer",
             "optimizer": "5",
             "_doc_optimizer": " GD:0 | CGD:1 | SGD:2 | QuasiNeuton:3 | LVM:4 | ADAM:5 |",

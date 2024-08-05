@@ -1,7 +1,7 @@
 {
     "experimentName": "EEG_Valence_Recognition_DEAP",
     "experimentType": "classification",
-    "batchSize": 5,
+    "batchSize": 10,
     "csvFilePath": "/home/nerlnet/workspace/1_3_person_valence_nerlnet.csv", 
     "numOfFeatures": "70",
     "numOfLabels": "9",
@@ -17,22 +17,22 @@
             {
             "sourceName": "s1",
             "startingSample": "0",
-            "numOfBatches": "200",
-            "workers": "w1,w2,w3",
+            "numOfBatches": "1561",
+            "workers": "w1",
             "nerltensorType": "float"
             },
             {
             "sourceName": "s2",
             "startingSample": "19520",
-            "numOfBatches": "200",
-            "workers": "w1,w2,w3",
+            "numOfBatches": "1561",
+            "workers": "w2",
             "nerltensorType": "float"
             },
             {
             "sourceName": "s3",
             "startingSample": "39040",
-            "numOfBatches": "200",
-            "workers": "w1,w2,w3",
+            "numOfBatches": "1561",
+            "workers": "w3",
             "nerltensorType": "float"
             }
         ]  
@@ -45,22 +45,22 @@
             {
             "sourceName": "s1",
             "startingSample": "15610",
-            "numOfBatches": "200",
-            "workers": "w1,w2,w3",
+            "numOfBatches": "391",
+            "workers": "w1",
             "nerltensorType": "float"
             },
             {
             "sourceName": "s2",
             "startingSample": "35130",
-            "numOfBatches": "200",
-            "workers": "w1,w2,w3",
+            "numOfBatches": "391",
+            "workers": "w2",
             "nerltensorType": "float"
             },
             {
             "sourceName": "s3",
             "startingSample": "54650",
-            "numOfBatches": "200",
-            "workers": "w1,w2,w3",
+            "numOfBatches": "391",
+            "workers": "w3",
             "nerltensorType": "float"
             }   
                 

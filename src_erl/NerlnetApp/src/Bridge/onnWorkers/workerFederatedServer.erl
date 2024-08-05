@@ -72,21 +72,21 @@ init({GenWorkerEts, WorkerData}) ->
 
   
 start_stream({GenWorkerEts, WorkerData}) -> 
-  [Pair , _ModelPhase] = WorkerData,
+  [FedWorkerName , _ModelPhase] = WorkerData,
   FedServerEts = get_this_server_ets(GenWorkerEts),
   ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
   MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
-  gen_server:cast(ClientPid, {start_stream, {worker, MyName, Pair}}).
+  gen_server:cast(ClientPid, {start_stream, {worker, MyName, FedWorkerName}}).
 
 end_stream({GenWorkerEts, WorkerData}) -> % Federated server takes the control of popping the stream from the active streams list
-  [Pair , _ModelPhase] = WorkerData,
+  [FedWorkerName , _ModelPhase] = WorkerData,
   FedServerEts = get_this_server_ets(GenWorkerEts),
   MyName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
   ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
-  gen_statem:cast(ClientPid, {stream_ended, {MyName, Pair}}),
+  gen_statem:cast(ClientPid, {worker_done, {MyName, FedWorkerName}}),
   ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
   case ActiveStreams of
-    [] -> ets:update_element(FedServerEts, active_streams, {?ETS_KEYVAL_VAL_IDX, []});
+    [] -> ets:update_element(FedServerEts, active_streams, {?ETS_KEYVAL_VAL_IDX, none});
     _ -> ok
   end.
 
@@ -141,8 +141,7 @@ post_train({GenWorkerEts, WeightsTensor}) ->
   CurrWorkersWeightsList = ets:lookup_element(FedServerEts, weights_list, ?ETS_KEYVAL_VAL_IDX),
   {WorkerWeights, _BinaryType} = WeightsTensor,
   TotalWorkersWeights = CurrWorkersWeightsList ++ [WorkerWeights],
-  ActiveWorkersSourcesList = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
-  NumOfActiveWorkers = length([FedWorker || {_MyName, {FedWorker, _Source}} <- ActiveWorkersSourcesList]),
+  NumOfActiveWorkers = length(ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX)),
   case length(TotalWorkersWeights) of 
     NumOfActiveWorkers -> 
       % io:format("Averaging model weights...~n"),
@@ -159,9 +158,7 @@ post_train({GenWorkerEts, WeightsTensor}) ->
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         w2wCom:send_message_with_event(W2WPid, FedServerName, FedClient, post_train_update, {SyncIdx, AvgWeightsNerlTensor}) 
       end,
-      WorkersSourcesList = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
-      WorkersList = [FedWorker || {_MyName, {FedWorker, _Source}} <- WorkersSourcesList], 
-      % io:format("Sending new weights to workers ~p~n",[WorkersList]),
+      WorkersList = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
       lists:foreach(Func, WorkersList),
       ets:update_element(FedServerEts, weights_list, {?ETS_KEYVAL_VAL_IDX, []});
     _ -> ets:update_element(FedServerEts, weights_list, {?ETS_KEYVAL_VAL_IDX, TotalWorkersWeights})

@@ -8,4 +8,4 @@
 -define(SYNC_INBOX_TIMEOUT, 30000). % 30 seconds
 -define(SYNC_INBOX_TIMEOUT_NO_LIMIT, 36000000). % 36000 seconds = 10 hours , no limit 
 -define(DEFAULT_SYNC_INBOX_BUSY_WAITING_SLEEP, 5). % 5 milliseconds
--define(SUPPORTED_EVENTS , [post_train_update, start_stream, end_stream]).
+-define(SUPPORTED_EVENTS , [post_train_update, worker_done, start_stream, end_stream]).

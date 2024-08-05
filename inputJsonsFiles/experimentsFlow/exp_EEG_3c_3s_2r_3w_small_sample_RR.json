@@ -17,21 +17,7 @@
             {
             "sourceName": "s1",
             "startingSample": "0",
-            "numOfBatches": "200",
-            "workers": "w1,w2,w3",
-            "nerltensorType": "float"
-            },
-            {
-            "sourceName": "s2",
-            "startingSample": "19520",
-            "numOfBatches": "200",
-            "workers": "w1,w2,w3",
-            "nerltensorType": "float"
-            },
-            {
-            "sourceName": "s3",
-            "startingSample": "39040",
-            "numOfBatches": "200",
+            "numOfBatches": "3",
             "workers": "w1,w2,w3",
             "nerltensorType": "float"
             }
@@ -48,23 +34,7 @@
             "numOfBatches": "200",
             "workers": "w1,w2,w3",
             "nerltensorType": "float"
-            },
-            {
-            "sourceName": "s2",
-            "startingSample": "35130",
-            "numOfBatches": "200",
-            "workers": "w1,w2,w3",
-            "nerltensorType": "float"
-            },
-            {
-            "sourceName": "s3",
-            "startingSample": "54650",
-            "numOfBatches": "200",
-            "workers": "w1,w2,w3",
-            "nerltensorType": "float"
-            }   
-                
-            
+            }
         ]    
     }
 ]
