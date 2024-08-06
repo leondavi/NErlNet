@@ -67,7 +67,12 @@ class ExperimentFlow():
     def generate_stats_tiles(self, experiment_phase = None) -> StatsTiles:
         if experiment_phase is None:
             experiment_phase = self.get_current_experiment_phase() 
-        return StatsTiles(experiment_phase)
+        return Stats(experiment_phase)
+    
+    def generate_stats_tiles(self, experiment_phase = None) -> StatsTiles:
+        if experiment_phase is None:
+            experiment_phase = self.get_current_experiment_phase() 
+        return Stats(experiment_phase)
     
     def generate_stats_aec(self, stats: Stats) -> Stats:
         assert stats is not None , "stats is None"
