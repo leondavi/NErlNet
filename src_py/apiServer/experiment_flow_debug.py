@@ -33,11 +33,6 @@ api_server_instance.send_jsons_to_devices()
 api_server_instance.run_current_experiment_phase() # blocking - deppended acks from mainserver
 stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
 
-#Start of test noa
-#print(stats.get_recieved_batches())
-#print(stats.get_missed_batches())
-
-#End of test noa
 stats.get_communication_stats_workers()
 stats.get_communication_stats_sources()
 stats.get_communication_stats_clients()
@@ -48,8 +43,6 @@ stats.get_min_loss()
 api_server_instance.next_experiment_phase()
 api_server_instance.run_current_experiment_phase()
 stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
-#print(stats.get_recieved_batches())
-#print(stats.get_missed_batches())
 confusion_matrix_source_dict, confusion_matrix_worker_dict = stats.get_confusion_matrices_new()
 performence_stats = stats.get_model_performence_stats(confusion_matrix_worker_dict, True)
 stats.get_missed_batches()
@@ -57,7 +50,6 @@ exit(0)
 next_expertiment_phase_exist = api_server_instance.next_experiment_phase() 
 api_server_instance.run_current_experiment_phase()
 api_server_instance.communication_stats()
-# next_expertiment_phase_exist = api_server_instance.next_experiment_phase()  # expected error
 
 
 # api_server_instance.sendDataToSources(PHASE_TRAINING) # sync on ack

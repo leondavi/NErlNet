@@ -49,13 +49,13 @@ class Stats():
         pass
 
     #TODO Implement this function
-    def get_loss_by_source(self , plot : bool = False , saveToFile : bool = False): # Todo change i
+    def get_loss_by_source(self , plot : bool = False , saveToFile : bool = False): 
         """
         Returns a dictionary of {source : DataFrame[BatchID,'w1','w2'...'wn']} for each source in the experiment.
         """
         pass
 
-    def get_loss_ts(self , plot : bool = False , saveToFile : bool = False): # Todo change it
+    def get_loss_ts(self , plot : bool = False , saveToFile : bool = False): 
         """
         Returns a dictionary of {worker : loss list} for each worker in the experiment.
         use plot=True to plot the loss function.
@@ -83,7 +83,6 @@ class Stats():
 
         df = pd.DataFrame(loss_dict)
         self.loss_ts_pd = df
-        #print(df)
         
         if plot:
             sns.lineplot(data=df)
@@ -117,25 +116,6 @@ class Stats():
             plt.title('Training Min Loss')
         return min_loss_dict
 
-
-        # if plot: 
-        #     plt.figure(figsize = (30,15), dpi = 150)
-        #     plt.rcParams.update({'font.size': 22})
-        #     for worker_name, loss_list in loss_dict.items():
-        #         plt.plot(loss_list, label=worker_name)
-        #     plt.legend(list(loss_dict.keys()))
-        #     plt.xlabel('Batch Number' , fontsize=30)
-        #     plt.ylabel('Loss' , fontsize=30) 
-        #     plt.yscale('log')
-        #     plt.xlim(left=0)
-        #     plt.ylim(bottom=0)
-        #     plt.title('Training Loss Function')
-        #     plt.grid(visible=True, which='major', linestyle='-')
-        #     plt.minorticks_on()
-        #     plt.grid(visible=True, which='minor', linestyle='-', alpha=0.7)
-        #     plt.show()
-        #     plt.savefig(f'{EXPERIMENT_RESULTS_PATH}/{self.experiment.name}/Training/Loss_graph.png')
-         
     def expend_labels_df(self, df):
         assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"
         temp_list = list(range(df.shape[1])) 
@@ -145,7 +125,7 @@ class Stats():
         assert df.shape[1] == 2 * num_of_labels, "Error in expend_labels_df function"
         return df
     
-    def get_confusion_matrices_new(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
+    def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
         
         def build_worker_label_df(original_df, batch_ids, batch_size):
             rows_list = []
@@ -176,7 +156,6 @@ class Stats():
             df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
             num_of_labels = df_actual_labels.shape[1]
 
-            
             # build confusion matrix for each worker
             target_workers = source_piece_inst.get_target_workers()
             batch_size = source_piece_inst.get_batch_size()
@@ -204,7 +183,7 @@ class Stats():
                     df_worker_labels.iloc[start_index:end_index, num_of_labels:] = tensor_data
                     index += 1
                     
-                if len(self.headers_list) == 1:   #One class
+                if len(self.headers_list) == 1:   # One class
                     class_name = self.headers_list[0]
                     actual_labels = df_worker_labels.iloc[:, :num_of_labels].values.flatten().tolist()
                     predict_labels = df_worker_labels.iloc[:, num_of_labels:].values.flatten().tolist()
@@ -267,141 +246,6 @@ class Stats():
             
         return confusion_matrix_source_dict, confusion_matrix_worker_dict          
 
-    def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
-        assert self.experiment_flow_type == "classification", "This function is only available for classification experiments" 
-        assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"   
-        sources_pieces_list = self.experiment_phase.get_sources_pieces()
-        workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
-        confusion_matrix_source_dict = {}
-        confusion_matrix_worker_dict = {}
-        missed_batches_dict = self.get_missed_batches()
-        for source_piece_inst in sources_pieces_list:
-            source_name = source_piece_inst.get_source_name()
-            starting_offset = source_piece_inst.get_starting_offset()
-            sourcePiece_csv_labels_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet_labels()
-            df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
-            num_of_labels = df_actual_labels.shape[1]
-            header_list = range(num_of_labels) 
-            df_actual_labels.columns = header_list
-            print(df_actual_labels)              #TODO: remove this line
-            df_actual_labels = self.expend_labels_df(df_actual_labels)
-            print(df_actual_labels)              #TODO: remove this line
-
-            # build confusion matrix for each worker
-            target_workers = source_piece_inst.get_target_workers()
-            worker_missed_batches = {}
-            batch_size = source_piece_inst.get_batch_size()
-            for worker_db in workers_model_db_list:
-                worker_name = worker_db.get_worker_name()
-                if worker_name not in target_workers:
-                    continue                            #plot only the workers that are in the target workers list of the source
-                df_worker_labels = df_actual_labels.copy()
-                total_batch_db_per_source = worker_db.get_total_batches_per_source(source_name)
-                
-                """""
-                for batch_id in range(source_piece_inst.get_num_of_batches()):     # In case of casting policy, the number of batches in the source piece is equal to the number of batches in the worker
-                    batch_db = worker_db.get_batch(source_name, str(batch_id))
-                    if not batch_db: # if batch is missing
-                        if not self.missed_batches_warning_msg:
-                            LOG_WARNING(f"missed batches")
-                            self.missed_batches_warning_msg = True
-                        starting_offset = source_piece_inst.get_starting_offset()
-                        df_worker_labels.iloc[batch_id * batch_size: (batch_id + 1) * batch_size, num_of_labels:] = None # set the actual label to None for the predict labels in the df 
-                        worker_missed_batches[(worker_name, source_name, str(batch_id))] = (starting_offset + batch_id * batch_size, batch_size)  # save the missing batch
-                        """""
-                
-                worker_missed_batches_id = missed_batches_dict.get(f"phase:{self.experiment_phase.get_name()},{source_name}->{worker_name}")   # get a list of missed batches id for the worker
-                for batch_id in worker_missed_batches_id:
-                    df_worker_labels.iloc[batch_id * batch_size: (batch_id + 1) * batch_size, num_of_labels:] = None # set the actual label to None for the predict labels in the df
-                    worker_missed_batches[(worker_name, source_name, str(batch_id))] = (starting_offset + batch_id * batch_size, batch_size)  # save the missing batch
-
-
-                df_worker_labels = df_worker_labels.dropna()   #drop the rows with missing values (missing batches)
-                # print(df_worker_labels)
-                for batch_id in range(total_batch_db_per_source):
-                    batch_db = worker_db.get_batch(source_name, str(batch_id))
-                    if batch_db:
-                        # counter = according indexs of array 
-                        # cycle = according indexs of panadas (with jump)
-                        cycle = int(batch_db.get_batch_id())
-                        tensor_data = batch_db.get_tensor_data()
-                        # print(f"tensor_data shape: {tensor_data.shape}")
-                        tensor_data = tensor_data.reshape(batch_size, num_of_labels) 
-                        #print(df_worker_labels)
-                        #print(tensor_data)
-                        start_index = cycle * batch_size
-                        end_index = (cycle + 1) * batch_size
-                        df_worker_labels.iloc[start_index:end_index, num_of_labels:] = None # Fix an issue of pandas of incompatible dtype
-                        df_worker_labels.iloc[start_index:end_index, num_of_labels:] = tensor_data
-                        # print(df_worker_labels)
-
-                if len(self.headers_list) == 1:
-                    class_name = self.headers_list[0]
-                    actual_labels = df_worker_labels.iloc[:, :num_of_labels].values.flatten().tolist()
-                    predict_labels = df_worker_labels.iloc[:, num_of_labels:].values.flatten().tolist()
-                    confusion_matrix = metrics.confusion_matrix(actual_labels, predict_labels)
-                    confusion_matrix_source_dict[(source_name, worker_name, class_name)] = confusion_matrix
-                    if (worker_name, class_name) not in confusion_matrix_worker_dict:
-                        confusion_matrix_worker_dict[(worker_name, class_name)] = confusion_matrix
-                    else:
-                        confusion_matrix_worker_dict[(worker_name, class_name)] += confusion_matrix
-                    
-                else: # Multi-Class
-                    # Take 2 list from the df, one for the actual labels and one for the predict labels to build the confusion matrix
-                    max_column_predict_index = df_worker_labels.iloc[:, num_of_labels:].idxmax(axis=1) 
-                    max_column_predict_index = max_column_predict_index.tolist() 
-                    max_column_predict_index = [int(predict_index) - num_of_labels for predict_index in max_column_predict_index] # fix the index to original labels index
-                    max_column_labels_index = df_worker_labels.iloc[:, :num_of_labels].idxmax(axis=1)
-                    max_column_labels_index = max_column_labels_index.tolist()
-                    
-                    # building confusion matrix for each class
-                    for class_index, class_name in enumerate(self.headers_list):
-                        class_actual_list = [1 if label_num == class_index else 0 for label_num in max_column_labels_index]   # 1 if the label is belong to the class, 0 otherwise
-                        class_predict_list = [1 if label_num == class_index else 0 for label_num in max_column_predict_index]   # 1 if the label is belong to the class, 0 otherwise
-                        confusion_matrix = metrics.confusion_matrix(class_actual_list, class_predict_list)  
-                        #confusion_matrix_np = confusion_matrix.to_numpy()
-                        confusion_matrix_source_dict[(source_name, worker_name, class_name)] = confusion_matrix
-                        if (worker_name, class_name) not in confusion_matrix_worker_dict:
-                            confusion_matrix_worker_dict[(worker_name, class_name)] = confusion_matrix
-                        else:
-                            confusion_matrix_worker_dict[(worker_name, class_name)] += confusion_matrix
-                
-
-        if plot:
-            workers = sorted(list({tup[0] for tup in confusion_matrix_worker_dict.keys()}))
-            classes = sorted(list({tup[1] for tup in confusion_matrix_worker_dict.keys()}))
-            fig, ax = plt.subplots(nrows=len(workers), ncols=len(classes),figsize=(4*len(classes),4*len(workers)),dpi=140)
-            if len(classes) > 1:
-                for i , worker in enumerate(workers): 
-                    for j , pred_class in enumerate(classes):
-                        conf_mat = confusion_matrix_worker_dict[(worker , pred_class)]
-                        # print(f"conf_mat: {conf_mat}")
-                        heatmap = sns.heatmap(data=conf_mat ,ax=ax[i,j], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
-                        cbar = heatmap.collections[0].colorbar
-                        cbar.ax.tick_params(labelsize = 8)
-                        ax[i, j].set_title(f"{worker} , Class '{pred_class}'" , fontsize=12)
-                        ax[i, j].tick_params(axis='both', which='major', labelsize=8) 
-                        ax[i, j].set_xlabel("Predicted Label" , fontsize=8)
-                        ax[i, j].set_ylabel("True Label" , fontsize=8)
-                        ax[i, j].set_aspect('equal')
-            else:
-                for i, worker in enumerate(workers):
-                    conf_mat = confusion_matrix_worker_dict[(worker , classes[0])]
-                    heatmap = sns.heatmap(data=conf_mat ,ax=ax[i], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
-                    cbar = heatmap.collections[0].colorbar
-                    cbar.ax.tick_params(labelsize = 8)
-                    ax[i].set_title(f"{worker} , Class '{classes[0]}'" , fontsize=12)
-                    ax[i].tick_params(axis='both', which='major', labelsize=8) 
-                    ax[i].set_xlabel("Predicted Label" , fontsize=8)
-                    ax[i].set_ylabel("True Label" , fontsize=8)
-                    ax[i].set_aspect('equal')
-            fig.subplots_adjust(wspace=0.4 , hspace=0.4)
-            plt.show()
-                
-        
-
-        return confusion_matrix_source_dict, confusion_matrix_worker_dict
-    
     def get_recieved_batches(self):
         """
         Returns a dictionary of recieved batches in the experiment phase.
@@ -429,45 +273,6 @@ class Stats():
                                     recived_batches_dict[recieved_batch_key_str] = []
                                 recived_batches_dict[recieved_batch_key_str].append(batch_id)
         return recived_batches_dict
-    
-        """
-            source_policy = globe.components.sources_policy_dict[source_name]   # 0 -> casting , 1 -> round robin, 2 -> random
-            target_workers_string = source_piece_inst.get_target_workers()
-            target_workers_names = target_workers_string.split(',')
-            if source_policy == '0':  # casting policy
-                for worker_db in workers_model_db_list:
-                    worker_name = worker_db.get_worker_name()
-                    if worker_name in target_workers_names:       # Check if the worker is in the target workers list of this source
-                        for batch_id in range(source_piece_inst.get_num_of_batches()):
-                            batch_db = worker_db.get_batch(source_name, str(batch_id))
-                            if batch_db:  # if batch is recieved
-                                recieved_batch_key_str = recived_batches_dict(phase_name, source_name, worker_name)
-                                if recieved_batch_key_str not in recived_batches_dict:
-                                    recived_batches_dict[recieved_batch_key_str] = []
-                                recived_batches_dict[recieved_batch_key_str].append(batch_id)
-            elif source_policy == '1':  # round robin policy
-                number_of_workers = len(target_workers_names)
-                batches_indexes = [i for i in range(source_piece_inst.get_num_of_batches())]
-                batch_worker_tuple = [(batch_index, target_workers_names[batch_index % number_of_workers]) for batch_index in batches_indexes]  # (batch_index, worker_name_that_should_recive_the_batch)
-                worker_batches_dict = {worker_name: [] for worker_name in target_workers_names}   # Create a dictionary to hold batches id for each worker
-                for batch_index, worker_name in batch_worker_tuple:
-                    worker_batches_dict[worker_name].append(batch_index)            
-                for worker_db in workers_model_db_list:
-                    worker_name = worker_db.get_worker_name()
-                    if worker_name in target_workers_names:       # Check if the worker is in the target workers list of this source
-                        for batch_id in worker_batches_dict[worker_name]:
-                            batch_db = worker_db.get_batch(source_name, str(batch_id))
-                            if batch_db:  #if batch is recieved
-                                recieved_batch_key_str = recived_batches_dict(phase_name, source_name, worker_name)
-                                if  recieved_batch_key_str not in recived_batches_dict:
-                                    recived_batches_dict[recieved_batch_key_str] = []
-                                recived_batches_dict[recieved_batch_key_str].append(batch_id)
-            elif source_policy == '2':  # random policy
-                #TODO - implement random policy
-                LOG_INFO(f"Source {source_name} policy is random, it's not posiblle check for missed batches")
-                break
-        return recived_batches_dict
-        """
     
     def get_missed_batches(self):
         """
