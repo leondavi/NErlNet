@@ -9,6 +9,7 @@ from nerl_csv_dataset_db import *
 from events_sync import *
 from networkComponents import *
 from stats import * 
+from statsTiles import *
 from stats_aec import *
 from experiment_phase import *
 
