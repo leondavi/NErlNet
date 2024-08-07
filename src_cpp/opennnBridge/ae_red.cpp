@@ -23,22 +23,39 @@ void AeRed::getModelArgsParsed(const std::string &_model_args_str, ModelArgsPars
     std::size_t found_k = _model_args_str.find(k_str);
     std::size_t found_alpha = _model_args_str.find(alpha_str);
     std::size_t found_use_ema_only = _model_args_str.find(use_ema_only_str);
-    if (found_k != std::string::npos){
-        model_args_parsed.k = std::stof(_model_args_str.substr(found_k + k_str.length()));
-    }
-    else{
+    
+    try {
+        if (found_k != std::string::npos) {
+            std::string k_value_str = _model_args_str.substr(found_k + k_str.length());
+            model_args_parsed.k = std::stof(k_value_str);
+        } else {
+            model_args_parsed.k = PARAM_K_DEFAULT;
+        }
+        
+        if (found_alpha != std::string::npos) {
+            std::string alpha_value_str = _model_args_str.substr(found_alpha + alpha_str.length());
+            model_args_parsed.alpha = std::stof(alpha_value_str);
+        } else {
+            model_args_parsed.alpha = ALPHA_DEFAULT;
+        }
+        
+        if (found_use_ema_only != std::string::npos) {
+            std::string use_ema_only_value_str = _model_args_str.substr(found_use_ema_only + use_ema_only_str.length());
+            model_args_parsed.use_ema_only = std::stoi(use_ema_only_value_str);
+        } else {
+            model_args_parsed.use_ema_only = 0;
+        }
+    } catch (const std::invalid_argument &e) {
+        std::cerr << "Invalid argument: " << e.what() << std::endl;
+        // Handle error or set default values
         model_args_parsed.k = PARAM_K_DEFAULT;
-    }
-    if (found_alpha != std::string::npos){
-        model_args_parsed.alpha = std::stof(_model_args_str.substr(found_alpha + alpha_str.length()));
-    }
-    else{
         model_args_parsed.alpha = ALPHA_DEFAULT;
-    }
-    if (found_use_ema_only != std::string::npos){
-        model_args_parsed.use_ema_only = std::stoi(_model_args_str.substr(found_use_ema_only + use_ema_only_str.length()));
-    }
-    else{
+        model_args_parsed.use_ema_only = 0;
+    } catch (const std::out_of_range &e) {
+        std::cerr << "Out of range: " << e.what() << std::endl;
+        // Handle error or set default values
+        model_args_parsed.k = PARAM_K_DEFAULT;
+        model_args_parsed.alpha = ALPHA_DEFAULT;
         model_args_parsed.use_ema_only = 0;
     }
 }

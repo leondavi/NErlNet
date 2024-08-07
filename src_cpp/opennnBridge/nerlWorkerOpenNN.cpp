@@ -56,6 +56,7 @@ namespace nerlnet
                 (*loss_val_tensor)(0, 0) = static_cast<float>(_last_loss);
                 (*loss_val_tensor)(1, 0) = _ae_red_ptr->_ema_event;
                 (*loss_val_tensor)(2, 0) = _ae_red_ptr->_ema_normal;
+                // cout << "Upper Bound: " << _ae_red_ptr->_ema_event << ", Lower Bound: " << _ae_red_ptr->_ema_normal << endl;
                 // Add _aec_all_loss_values to loss_val_tensor
                 for (int i = 0; i < num_of_samples; i++)
                 {
@@ -115,7 +116,7 @@ namespace nerlnet
                 *loss_values_return = mse2D;
                 _aec_all_loss_values = loss_values_return;
                 // cout << "MSE Loss: " << mse_loss << endl;
-                // _ae_red_ptr->update_batch(loss_values_mse);
+                _ae_red_ptr->update_batch(loss_values_mse);
                 // cout << "AE_RED RESULT VECTOR:" << endl << *res << endl;
             }
 
