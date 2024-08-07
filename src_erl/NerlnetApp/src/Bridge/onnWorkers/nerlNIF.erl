@@ -20,7 +20,7 @@
 -export([nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
 
 % nerlworker nif methods
--export([new_nerlworker_nif/13, remove_nerlworker_nif/1, test_nerlworker_nif/13,get_distributed_system_train_labels_count_nif/1]).
+-export([new_nerlworker_nif/14, remove_nerlworker_nif/1, test_nerlworker_nif/14,get_distributed_system_train_labels_count_nif/1]).
 
 init() ->
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
