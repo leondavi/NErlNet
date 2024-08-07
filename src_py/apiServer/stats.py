@@ -151,17 +151,19 @@ class Stats():
         confusion_matrix_worker_dict = {}
         recived_batches_dict = self.get_recieved_batches()
         for source_piece_inst in sources_pieces_list:
+            nerltensorType = source_piece_inst.get_nerltensor_type()
             source_name = source_piece_inst.get_source_name()
             sourcePiece_csv_labels_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet_labels()
             df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
             num_of_labels = df_actual_labels.shape[1]
 
-            # build confusion matrix for each worker
-            target_workers = source_piece_inst.get_target_workers()
+             # build confusion matrix for each worker
+            target_workers_string = source_piece_inst.get_target_workers()
+            target_workers_names = target_workers_string.split(',')
             batch_size = source_piece_inst.get_batch_size()
             for worker_db in workers_model_db_list:
                 worker_name = worker_db.get_worker_name()
-                if worker_name not in target_workers:
+                if worker_name not in target_workers_names:
                     continue
                 worker_recived_batches_id = recived_batches_dict.get(f"phase:{self.experiment_phase.get_name()},{source_name}->{worker_name}")   # get a list of recived batches id for the worker
                 df_worker_labels = build_worker_label_df(df_actual_labels, worker_recived_batches_id, batch_size)
@@ -169,6 +171,11 @@ class Stats():
                 df_worker_labels.columns = header_list
                 df_worker_labels = self.expend_labels_df(df_worker_labels)  #Now there is a csv file with the actual labels of the source piece and empty columns for the predict labels
                  
+                # Check if the actual labels are integers and the predict labels are floats, if so convert the actual labels to nerltensorType
+                if nerltensorType == 'float':
+                    if any(pd.api.types.is_integer_dtype(df_worker_labels[col]) for col in df_worker_labels.columns):
+                        df_worker_labels = df_worker_labels.astype(float)
+                
                 #build df_worker_labels with the actual labels and the predict labels
                 index = 0
                 for batch_id in worker_recived_batches_id:
@@ -177,7 +184,7 @@ class Stats():
                         LOG_INFO(f"Batch {batch_id} is missing for worker {worker_name}")
                         continue
                     tensor_data = batch_db.get_tensor_data() 
-                    tensor_data = tensor_data.reshape(batch_size, num_of_labels) 
+                    tensor_data = tensor_data.reshape(batch_size, num_of_labels).copy()  # Make the tensor_data array writable
                     start_index = index * batch_size
                     end_index = (index + 1) * batch_size
                     df_worker_labels.iloc[start_index:end_index, num_of_labels:] = tensor_data
