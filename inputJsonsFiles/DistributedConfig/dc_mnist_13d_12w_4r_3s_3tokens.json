@@ -14,67 +14,67 @@
     "devices": [
         {
             "name": "vm1",
-            "ipv4": "10.0.0.0",
+            "ipv4": "10.0.0.6",
             "entities": "apiServer,mainServer"
         },
         {
             "name": "vm2",
-            "ipv4": "10.0.0.1",
+            "ipv4": "10.0.0.44",
             "entities": "c1,r1"
         },
         {
             "name": "vm3",
-            "ipv4": "10.0.0.2",
+            "ipv4": "10.0.0.42",
             "entities": "c2"
         },
         {
             "name": "vm4",
-            "ipv4": "10.0.0.3",
+            "ipv4": "10.0.0.43",
             "entities": "c3,s1"
         },
         {
             "name": "vm5",
-            "ipv4": "10.0.0.4",
+            "ipv4": "10.0.0.41",
             "entities": "c4,r3"
         },
         {
             "name": "vm6",
-            "ipv4": "10.0.0.5",
+            "ipv4": "10.0.0.40",
             "entities": "c5"
         },
         {
             "name": "vm7",
-            "ipv4": "10.0.0.6",
+            "ipv4": "10.0.0.45",
             "entities": "c6"
         },
         {
             "name": "vm8",
-            "ipv4": "10.0.0.7",
+            "ipv4": "10.0.0.37",
             "entities": "c7"
         },
         {
             "name": "vm9",
-            "ipv4": "10.0.0.8",
-            "entities": "c8"
+            "ipv4": "10.0.0.36",
+            "entities": "c8,s4"
         },
         {
             "name": "vm10",
-            "ipv4": "10.0.0.9",
+            "ipv4": "10.0.0.39",
             "entities": "c9,s2"
         },
         {
             "name": "vm11",
-            "ipv4": "10.0.0.10",
+            "ipv4": "10.0.0.38",
             "entities": "c10,r4"
         },
         {
             "name": "vm12",
-            "ipv4": "10.0.0.11",
+            "ipv4": "10.0.0.46",
             "entities": "c11,r2"
         },
         {
             "name": "vm13",
-            "ipv4": "10.0.0.12",
+            "ipv4": "10.0.0.16",
             "entities": "c12,s3"
         }
     ],
@@ -120,6 +120,14 @@
         {
             "name": "s3",
             "port": "8084",
+            "frequency": "100",
+            "policy": "1",
+            "epochs": "1",
+            "type": "0"
+        },
+        {
+            "name": "s4",
+            "port": "8102",
             "frequency": "100",
             "policy": "1",
             "epochs": "1",
