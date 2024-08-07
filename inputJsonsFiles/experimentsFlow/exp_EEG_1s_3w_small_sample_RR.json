@@ -17,7 +17,7 @@
             {
             "sourceName": "s1",
             "startingSample": "0",
-            "numOfBatches": "3",
+            "numOfBatches": "30",
             "workers": "w1,w2,w3",
             "nerltensorType": "float"
             }
