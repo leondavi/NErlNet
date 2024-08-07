@@ -4,7 +4,7 @@ using namespace nerlnet;
 
 NerlWorker::NerlWorker(int model_type, std::string &model_args_str , std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
                     float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
-                    int loss_method, int distributed_system_type, std::string &distributed_system_args_str)
+                    int loss_method, std::string &loss_args_str, int distributed_system_type, std::string &distributed_system_args_str)
 {
     _model_type = model_type;
     _model_args_str = model_args_str;
@@ -12,6 +12,7 @@ NerlWorker::NerlWorker(int model_type, std::string &model_args_str , std::string
     _epochs = epochs;
     _optimizer_type = optimizer_type;
     _loss_method = loss_method;
+    _loss_args_str = loss_args_str;
     _distributed_system_type = distributed_system_type;
     _distributed_system_args_str = distributed_system_args_str;
     _nerl_layers_linked_list = parse_layers_input(layer_sizes_str,layer_types_list,layers_functionality);
