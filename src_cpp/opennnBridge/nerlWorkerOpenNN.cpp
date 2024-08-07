@@ -863,13 +863,31 @@ namespace nerlnet
             }
         }
     }
-
+    
+    
     opennn::LossIndex::RegularizationMethod NerlWorkerOpenNN::parse_loss_args(const std::string &loss_args)
     {
-        // TODO Ori parse loss_args to find the regularization method
-        // use switch case to decide
-        // if nothing is given then NoRegularization (this enum # exist in opennn)
-        return opennn::LossIndex::RegularizationMethod::L1;
+        enum LossArgsEnum{L1=0,L2=1,NONE=2};
+        string L1_text = "L1";
+        string L2_text = "L2";
+        std::string delimiter = "reg=";
+        std::string token = loss_args.substr(loss_args.find(delimiter)+delimiter.length());
+        std::cout << "token: " << token << std::endl;
+        int loss_arg = token == L1_text ? L1 : (token == L2_text ? L2 : NONE);
+        std::cout << "loss_arg: " << loss_arg << std::endl;
+        switch (loss_arg)
+        {
+        case L1:
+            return opennn::LossIndex::RegularizationMethod::L1;
+            break;
+        case L2:
+            return opennn::LossIndex::RegularizationMethod::L2;
+            break;
+        case NONE:
+        default:
+            return opennn::LossIndex::RegularizationMethod::NoRegularization;
+            break;
+        }
     }
 
 } // namespace nerlnet
