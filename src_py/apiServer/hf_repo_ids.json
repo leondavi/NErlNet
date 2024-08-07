@@ -7,9 +7,9 @@
             "description": "SKAB Dataset for AEC anomaly detection"
         },
         {
-            "id": "Nerlnet/MNist",
+            "id": "Nerlnet/MNist_test",
             "idx": 1,
-            "name": "mnist",
+            "name": "mnist_test",
             "description": "MNist Dataset for CNN experiments"
         },
         {
