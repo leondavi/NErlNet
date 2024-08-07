@@ -1,7 +1,7 @@
 import subprocess
 from logger import *
 
-VERSION = "1.0.3"
+VERSION = "1.0.4"
 NERLNET_VERSION_TESTED_WITH = "1.5.2"
 NERLNET_TMP_PATH = "/tmp/nerlnet"
 NERLNET_GRAPHVIZ_OUTPUT_DIR = f"{NERLNET_TMP_PATH}/nerlplanner"

@@ -29,12 +29,12 @@ def gen_worker_fields_hrl(header_path : str, debug : bool = False):
 
     fields_list_vals = [KEY_MODEL_TYPE, KEY_MODEL_ARGS , KEY_LAYER_SIZES_LIST,
                    KEY_LAYER_TYPES_LIST, KEY_LAYERS_FUNCTIONS,
-                   KEY_LOSS_METHOD, KEY_LEARNING_RATE,
+                   KEY_LOSS_METHOD, KEY_LOSS_ARGS, KEY_LEARNING_RATE,
                    KEY_EPOCHS, KEY_OPTIMIZER_TYPE, KEY_OPTIMIZER_ARGS, KEY_INFRA_TYPE,
                    KEY_DISTRIBUTED_SYSTEM_TYPE, KEY_DISTRIBUTED_SYSTEM_TOKEN, KEY_DISTRIBUTED_SYSTEM_ARGS]
     fields_list_strs = ['KEY_MODEL_TYPE', 'KEY_MODEL_ARGS', 'KEY_LAYER_SIZES_LIST',
                    'KEY_LAYER_TYPES_LIST', 'KEY_LAYERS_FUNCTIONS',
-                   'KEY_LOSS_METHOD', 'KEY_LEARNING_RATE',
+                   'KEY_LOSS_METHOD', 'KEY_LOSS_ARGS', 'KEY_LEARNING_RATE',
                    'KEY_EPOCHS', 'KEY_OPTIMIZER_TYPE', 'KEY_OPTIMIZER_ARGS', 'KEY_INFRA_TYPE',
                    'KEY_DISTRIBUTED_SYSTEM_TYPE', 'KEY_DISTRIBUTED_SYSTEM_TOKEN', 'KEY_DISTRIBUTED_SYSTEM_ARGS']
     fields_list_strs = [f'WORKER_FIELD_{x}' for x in fields_list_strs]
