@@ -9,9 +9,9 @@ namespace nerlnet
 
     NerlWorkerOpenNN::NerlWorkerOpenNN(int model_type, std::string &model_args_str , std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
                     float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
-                    int loss_method, int distributed_system_type, std::string &distributed_system_args_str) : NerlWorker(model_type, model_args_str , layer_sizes_str, layer_types_list, layers_functionality,
+                    int loss_method, std::string &loss_args_str, int distributed_system_type, std::string &distributed_system_args_str) : NerlWorker(model_type, model_args_str , layer_sizes_str, layer_types_list, layers_functionality,
                                                                                                                     learning_rate, epochs, optimizer_type, optimizer_args_str,
-                                                                                                                    loss_method, distributed_system_type, distributed_system_args_str)
+                                                                                                                    loss_method, loss_args_str, distributed_system_type, distributed_system_args_str)
     {
         _neural_network_ptr = std::make_shared<opennn::NeuralNetwork>();
         generate_opennn_neural_network();
@@ -169,11 +169,13 @@ namespace nerlnet
     **/
     void NerlWorkerOpenNN::generate_training_strategy()
     {
-  _training_strategy_ptr->set_neural_network_pointer(_neural_network_ptr.get()); // Neural network must be defined at this point
-    set_optimization_method(_optimizer_type,_learning_rate);
-    set_loss_method(_loss_method);
-    _training_strategy_ptr->set_maximum_epochs_number(_epochs); 
-    _training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); 
+      _training_strategy_ptr->set_neural_network_pointer(_neural_network_ptr.get()); // Neural network must be defined at this point
+      set_optimization_method(_optimizer_type,_learning_rate);
+      set_loss_method(_loss_method);
+      // TODO Ori add here the parsing of loss args
+      // _training_strategy_ptr->get_loss_index_pointer()->set_regularization_method(reg_val);
+      _training_strategy_ptr->set_maximum_epochs_number(_epochs); 
+      _training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); 
     }
 
     void NerlWorkerOpenNN::set_optimization_method(int optimizer_type,int learning_rate){
@@ -860,6 +862,14 @@ namespace nerlnet
                 break;
             }
         }
+    }
+
+    opennn::LossIndex::RegularizationMethod NerlWorkerOpenNN::parse_loss_args(const std::string &loss_args)
+    {
+        // TODO Ori parse loss_args to find the regularization method
+        // use switch case to decide
+        // if nothing is given then NoRegularization (this enum # exist in opennn)
+        return opennn::LossIndex::RegularizationMethod::L1;
     }
 
 } // namespace nerlnet

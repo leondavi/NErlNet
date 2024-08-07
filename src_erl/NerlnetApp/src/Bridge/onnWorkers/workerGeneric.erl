@@ -86,7 +86,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
 
 
   Res = nerlNIF:new_nerlworker_nif(ModelID , ModelType, ModelArgs, LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType,
-                                OptimizerArgs, LossMethod , DistributedSystemType , DistributedSystemArgs),
+                                OptimizerArgs, LossMethod , LossArgs, DistributedSystemType , DistributedSystemArgs),
   DistributedBehaviorFunc(init,{GenWorkerEts, DistributedWorkerData}),
 
   if 

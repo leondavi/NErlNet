@@ -12,7 +12,7 @@ namespace nerlnet
 
     NerlWorker(int model_type, std::string &model_args_str, std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
                      float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
-                     int loss_method, int distributed_system_type, std::string &distributed_system_args_str);
+                     int loss_method, std::string &loss_args_str, int distributed_system_type, std::string &distributed_system_args_str);
     ~NerlWorker();
 
     std::shared_ptr<NerlLayer> parse_layers_input(std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality);
@@ -35,6 +35,7 @@ namespace nerlnet
     int _epochs;
     int _optimizer_type;
     int _loss_method;
+    std::string _loss_args_str;
     std::string _distributed_system_args_str;
     std::shared_ptr<std::vector<int>> _train_labels_count; // accumulates the number of each label in the training set
 
