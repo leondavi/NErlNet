@@ -15,7 +15,7 @@
         {
             "name": "c0VM5",
             "ipv4": "10.0.0.11",
-            "entities": "apiServer,mainServer,s6"
+            "entities": "apiServer,mainServer,s6,rms"
         },
         {
             "name": "c0VM6",
@@ -45,7 +45,7 @@
         {
             "name": "nerlSpilke2",
             "ipv4": "10.0.0.34",
-            "entities": "c6,r10"
+            "entities": "c6"
         },
         {
             "name": "nerlSpilke3",
@@ -150,7 +150,7 @@
             "policy": "0"
         },
         {
-            "name": "r10",
+            "name": "rms",
             "port": "8911",
             "policy": "0"
         }
