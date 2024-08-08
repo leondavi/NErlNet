@@ -1,0 +1,97 @@
+{
+    "experimentName": "EEG_Valence_Recognition_DEAP",
+    "experimentType": "classification",
+    "batchSize": 10,
+    "csvFilePath": "/home/nerlnet/workspace/1_3_person_valence_nerlnet.csv", 
+    "numOfFeatures": "70",
+    "numOfLabels": "9",
+    "headersNames": "1,2,3,4,5,6,7,8,9",
+    "Phases": 
+    
+    [
+    {
+        "phaseName": "training_phase1",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "10",
+            "numOfBatches": "100",
+            "workers": "w1,w4,w7",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s2",
+            "startingSample": "19520",
+            "numOfBatches": "100",
+            "workers": "w2,w5,w8",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s3",
+            "startingSample": "39040",
+            "numOfBatches": "100",
+            "workers": "w3,w6",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "training_phase2",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "7810",
+            "numOfBatches": "100",
+            "workers": "w1,w4,w7",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s2",
+            "startingSample": "27320",
+            "numOfBatches": "100",
+            "workers": "w2,w5,w8",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s3",
+            "startingSample": "46840",
+            "numOfBatches": "100",
+            "workers": "w3,w6",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "prediction_phase",
+        "phaseType": "prediction",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "15610",
+            "numOfBatches": "80",
+            "workers": "w1,w4,w7",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s2",
+            "startingSample": "35130",
+            "numOfBatches": "80",
+            "workers": "w2,w5,w8",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s3",
+            "startingSample": "54650",
+            "numOfBatches": "80",
+            "workers": "w3,w6",
+            "nerltensorType": "float"
+            }           
+        ]    
+    }
+]
+}
