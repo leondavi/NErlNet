@@ -23,6 +23,12 @@
             "idx": 3,
             "name": "ForestCover",
             "description": "Dataset for AEC"
+        },
+        {
+            "id": "Nerlnet/KDD14",
+            "idx": 4,
+            "name": "KDD14",
+            "description": "KDD14 Anomaly Detection Dataset"
         }
     ]
 }

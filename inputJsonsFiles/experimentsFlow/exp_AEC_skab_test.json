@@ -1,0 +1,40 @@
+{
+    "experimentName": "anomaly_detection_skab",
+    "experimentType": "classification",
+    "batchSize": 50,
+    "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/skab/skab_full.csv",
+    "numOfFeatures": "8",
+    "numOfLabels": "1",
+    "headersNames": "Anomaly",
+    "Phases": 
+    [
+    {
+        "phaseName": "training_phase1",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "0",
+            "numOfBatches": "420",
+            "workers": "w1,w2",
+            "nerltensorType": "float"
+            }
+        ]
+    },
+    {
+        "phaseName": "prediction_phase",
+        "phaseType": "prediction",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "21000",
+            "numOfBatches": "320",
+            "workers": "w1,w2",
+            "nerltensorType": "float"
+            }
+        ]    
+    }
+]
+}
