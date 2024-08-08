@@ -196,7 +196,7 @@ VAL_EPOCHS_DOC = "Positve Integer"
 VAL_LEARNING_RATE_DOC = "Positve float"
 VAL_OPTIMIZER_TYPE_DOC = f"{doc_print_dict(OptimizerTypeMapping)}"
 VAL_OPTIMIZER_ARGS_DOC = "String"   # Todo: fix in the future
-VAL_LOSS_ARGS_DOC = "Arguments to loss function e.g., reg=L1,L2"
+VAL_LOSS_ARGS_DOC = "Arguments to loss function. Regularization: reg=L2, reg=L1, reg=NoRegularization (can be also empty)"
 VAL_INFRA_TYPE_DOC = f"{doc_print_dict(InfraTypeMapping)}"
 VAL_DISTRIBUTED_SYSTEM_TYPE_DOC = f"{doc_print_dict(DistributedSystemTypeMapping)}"
 VAL_DISTRIBUTED_SYSTEM_ARGS_DOC = "String" # Todo: fix in the future
