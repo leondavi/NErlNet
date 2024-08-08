@@ -20,17 +20,17 @@
         {
             "name": "c0VM6",
             "ipv4": "10.0.0.8",
-            "entities": "c1,r6"
+            "entities": "c1"
         },
         {
             "name": "c0VM7",
             "ipv4": "10.0.0.12",
-            "entities": "c2,r7"
+            "entities": "c2"
         },
         {
             "name": "c0VM4",
             "ipv4": "10.0.0.10",
-            "entities": "c3,r8"
+            "entities": "c3"
         },
         {
             "name": "nerlSpilke0",
@@ -40,7 +40,7 @@
         {
             "name": "nerlSpilke1",
             "ipv4": "10.0.0.33",
-            "entities": "c5,r9"
+            "entities": "c5"
         },
         {
             "name": "nerlSpilke2",
@@ -80,22 +80,22 @@
         {
             "name": "NerlGrogu5",
             "ipv4": "10.0.0.52",
-            "entities": "s1,r1"
+            "entities": "s1,r1,r6"
         },
         {
             "name": "NerlGrogu6",
             "ipv4": "10.0.0.53",
-            "entities": "s2,r2"
+            "entities": "s2,r2,r9"
         },
         {
             "name": "NerlGrogu7",
             "ipv4": "10.0.0.54",
-            "entities": "s3,r3"
+            "entities": "s3,r3,r7"
         },
         {
             "name": "NerlGrogu8",
             "ipv4": "10.0.0.55",
-            "entities": "s4,r4"
+            "entities": "s4,r4,r8"
         },
         {
             "name": "NerlGrogu9",
