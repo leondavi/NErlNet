@@ -104,6 +104,7 @@ class Stats():
                 plt.savefig('training_loss_function.png', bbox_inches='tight')
 
             plt.show()
+        return df
 
     def get_min_loss(self , plot : bool = False , saveToFile : bool = False): # Todo change it
         """
