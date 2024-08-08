@@ -172,8 +172,7 @@ namespace nerlnet
       _training_strategy_ptr->set_neural_network_pointer(_neural_network_ptr.get()); // Neural network must be defined at this point
       set_optimization_method(_optimizer_type,_learning_rate);
       set_loss_method(_loss_method);
-      // TODO Ori add here the parsing of loss args
-      // _training_strategy_ptr->get_loss_index_pointer()->set_regularization_method(reg_val);
+      _training_strategy_ptr->get_loss_index_pointer()->set_regularization_method(parse_loss_args(_loss_args_str));
       _training_strategy_ptr->set_maximum_epochs_number(_epochs); 
       _training_strategy_ptr->set_display(TRAINING_STRATEGY_SET_DISPLAY_OFF); 
     }
@@ -867,14 +866,19 @@ namespace nerlnet
     
     opennn::LossIndex::RegularizationMethod NerlWorkerOpenNN::parse_loss_args(const std::string &loss_args)
     {
+        if (loss_args.empty())
+        {
+            return opennn::LossIndex::RegularizationMethod::NoRegularization;
+        }
+
         enum LossArgsEnum{L1=0,L2=1,NONE=2};
         string L1_text = "L1";
         string L2_text = "L2";
         std::string delimiter = "reg=";
         std::string token = loss_args.substr(loss_args.find(delimiter)+delimiter.length());
-        std::cout << "token: " << token << std::endl;
+        // std::cout << "token: " << token << std::endl; TODO remove
         int loss_arg = token == L1_text ? L1 : (token == L2_text ? L2 : NONE);
-        std::cout << "loss_arg: " << loss_arg << std::endl;
+        // std::cout << "loss_arg: " << loss_arg << std::endl; TODO remove
         switch (loss_arg)
         {
         case L1:

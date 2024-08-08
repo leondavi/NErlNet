@@ -11,6 +11,7 @@
                                 _OptimizerType = "2",
                                 _OptimizerArgs = "",
                                 _LossMethod = "2",
+                                _LossArgs = "",
                                 _DistributedSystemType = "0",
                                 _DistributedSystemArg = ""} ).
 
@@ -25,6 +26,7 @@
                                 _OptimizerType = "2",
                                 _OptimizerArgs = "",
                                 _LossMethod = "2",
+                                _LossArgs = "L2",
                                 _DistributedSystemType = "0", % TODO Ori put the correct value
                                 _DistributedSystemArg = ""} ).
 
@@ -39,6 +41,7 @@
                                 _OptimizerTypeCNN = "5",
                                 _OptimizerArgsCNN = "",
                                 _LossMethodCNN = "2",
+                                _LossArgsCNN = "",
                                 _DistributedSystemTypeCNN = "0",
                                 _DistributedSystemArgCNN = ""} ).
 
@@ -53,6 +56,7 @@
                                 _OptimizerTypeAEC = "5",
                                 _OptimizerArgsAEC = "",
                                 _LossMethodAEC = "2",
+                                _LossArgsAEC = "",
                                 _DistributedSystemTypeAEC = "0",
                                 _DistributedSystemArgAEC = ""} ).
 
@@ -67,6 +71,7 @@
                                 _OptimizerTypeAE = "5",
                                 _OptimizerArgsAE = "",
                                 _LossMethodAE = "2",
+                                _LossArgsAE = "",
                                 _DistributedSystemTypeAE = "0",
                                 _DistributedSystemArgAE = ""} ).
 
