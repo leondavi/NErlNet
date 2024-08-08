@@ -82,7 +82,7 @@ class NerlWorkerOpenNN : public NerlWorker
     opennn::Scaler translate_unscaling_method(int scaling_method);
     opennn::PoolingLayer::PoolingMethod translate_pooling_method(int pooling_method);
     opennn::ProbabilisticLayer::ActivationFunction translate_probabilistic_activation_function(int activation_function);
-    opennn::LossIndex::RegularizationMethod parse_loss_args(const std::string &loss_args_str);
+    opennn::LossIndex::RegularizationMethod parse_regularization_loss_args(const std::string &loss_args_str);
 
     int translate_pooling_method_int(int pooling_method);
     int translate_model_type(int model_type, int &custom_model);

@@ -26,7 +26,7 @@
                                 _OptimizerType = "2",
                                 _OptimizerArgs = "",
                                 _LossMethod = "2",
-                                _LossArgs = "L2",
+                                _LossArgs = "reg=L2",
                                 _DistributedSystemType = "0", % TODO Ori put the correct value
                                 _DistributedSystemArg = ""} ).
 
