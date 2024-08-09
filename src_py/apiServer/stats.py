@@ -55,7 +55,7 @@ class Stats():
         """
         pass
 
-    def get_loss_ts(self , plot : bool = False , saveToFile : bool = False): 
+    def get_loss_ts(self , plot : bool = False , saveToFile : bool = False, smoothing : bool = False, log_plot : bool = False): 
         """
         Returns a dictionary of {worker : loss list} for each worker in the experiment.
         use plot=True to plot the loss function.
@@ -83,6 +83,11 @@ class Stats():
 
         df = pd.DataFrame(loss_dict)
         self.loss_ts_pd = df
+       
+        if smoothing:
+            for column in df.columns:
+                for i in range(1, len(df)):
+                    df.at[i, column] = (df.at[i, column] + df.at[i-1, column]) / 2      
         
         if plot:
             sns.set(style="whitegrid")
@@ -92,7 +97,7 @@ class Stats():
             # Customize the grid lines to be black
             plt.grid(color='black', linestyle='-', linewidth=0.5)
             
-            sns.lineplot(data=df)
+            sns.lineplot(data=df['w1'])
             plt.xlabel('Batch Num.')
             plt.ylabel('Loss Value')
             plt.title(f'Training Loss Function of ({self.experiment_phase.get_name()})')
@@ -103,6 +108,9 @@ class Stats():
             if saveToFile:
                 plt.savefig('training_loss_function.png', bbox_inches='tight')
 
+            if log_plot:
+                plt.yscale('log')
+            
             plt.show()
         return df
 
