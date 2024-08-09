@@ -1,0 +1,85 @@
+{
+    "nerlnetSettings": {
+        "frequency": "100",
+        "batchSize": "10"
+    },
+    "mainServer": {
+        "port": "8900",
+        "args": ""
+    },
+    "apiServer": {
+        "port": "8901",
+        "args": ""
+    },
+    "devices": [
+        {
+            "name": "comv5",
+            "ipv4": "10.0.0.11",
+            "entities": "apiServer,mainServer,r1,s1,c1"
+        }
+    ],
+    "routers": [
+        {
+            "name": "r1",
+            "port": "8902",
+            "policy": "0"
+        }
+    ],
+    "sources": [
+        {
+            "name": "s1",
+            "port": "8904",
+            "frequency": "100",
+            "policy": "1",
+            "epochs": "1",
+            "type": "0"
+        }
+    ],
+    "clients": [
+        {
+            "name": "c1",
+            "port": "8907",
+            "workers": "w1"
+        }
+    ],
+    "workers": [
+        {
+            "name": "w1",
+            "model_sha": "d8df752e0a2e8f01de8f66e9cec941cdbc65d144ecf90ab7713e69d65e7e82aa"
+        }
+    ],
+    "model_sha": {
+        "d8df752e0a2e8f01de8f66e9cec941cdbc65d144ecf90ab7713e69d65e7e82aa": {
+            "modelType": "0",
+            "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image-classification:4 | text-classification:5 | text-generation:6 | auto-association:7 | autoencoder:8 | ae-classifier:9 |",
+            "modelArgs": "",
+            "layersSizes": "70x1x1k5x1x1x64p0s1t0,66x1x64k2x1p0s1,65x1x64k5x1x64x64p0s1t0,61x1x64k2x1p0s1,60x1x64k5x1x64x32p0s1t0,1,64,32,16,9",
+            "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
+            "layerTypesList": "2,4,2,4,2,9,3,3,3,3",
+            "_doc_LayerTypes": " Default:0 | Scaling:1 | CNN:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Flatten:9 | Bounding:10 |",
+            "layers_functions": "7,2,7,2,7,1,7,7,7,11",
+            "_doc_layers_functions_activation": " Threshold:1 | Sign:2 | Logistic:3 | Tanh:4 | Linear:5 | ReLU:6 | eLU:7 | SeLU:8 | Soft-plus:9 | Soft-sign:10 | Hard-sigmoid:11 |",
+            "_doc_layer_functions_pooling": " none:1 | Max:2 | Avg:3 |",
+            "_doc_layer_functions_probabilistic": " Binary:1 | Logistic:2 | Competitive:3 | Softmax:4 |",
+            "_doc_layer_functions_scaler": " none:1 | MinMax:2 | MeanStd:3 | STD:4 | Log:5 |",
+            "lossMethod": "2",
+            "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
+            "lr": "0.00001",
+            "_doc_lr": "Positve float",
+            "epochs": "10",
+            "_doc_epochs": "Positve Integer",
+            "optimizer": "5",
+            "_doc_optimizer": " GD:0 | CGD:1 | SGD:2 | QuasiNeuton:3 | LVM:4 | ADAM:5 |",
+            "optimizerArgs": "",
+            "_doc_optimizerArgs": "String",
+            "infraType": "0",
+            "_doc_infraType": " opennn:0 | wolfengine:1 |",
+            "distributedSystemType": "0",
+            "_doc_distributedSystemType": " none:0 | fedClientAvg:1 | fedServerAvg:2 |",
+            "distributedSystemArgs": "",
+            "_doc_distributedSystemArgs": "String",
+            "distributedSystemToken": "none",
+            "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"
+        }
+    }
+}
