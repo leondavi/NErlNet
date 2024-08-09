@@ -1,0 +1,167 @@
+{
+    "experimentName": "EEG_Valence_Recognition_DEAP",
+    "experimentType": "classification",
+    "batchSize": 10,
+    "csvFilePath": "/home/nerlnet/workspace/1_3_persons_normalize_valence.csv", 
+    "numOfFeatures": "70",
+    "numOfLabels": "9",
+    "headersNames": "1,2,3,4,5,6,7,8,9",
+    "Phases": 
+    
+    [
+    {
+        "phaseName": "training_phase1",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "10",
+            "numOfBatches": "780",
+            "workers": "w1",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "training_phase2",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "10",
+            "numOfBatches": "780",
+            "workers": "w1",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "training_phase3",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "10",
+            "numOfBatches": "780",
+            "workers": "w1",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "training_phase4",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "10",
+            "numOfBatches": "780",
+            "workers": "w1",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "training_phase5",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "10",
+            "numOfBatches": "780",
+            "workers": "w1",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "training_phase6",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "10",
+            "numOfBatches": "780",
+            "workers": "w1",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "training_phase7",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "10",
+            "numOfBatches": "780",
+            "workers": "w1",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "training_phase8",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "10",
+            "numOfBatches": "780",
+            "workers": "w1",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "training_phase9",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "10",
+            "numOfBatches": "780",
+            "workers": "w1",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "training_phase10",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "10",
+            "numOfBatches": "780",
+            "workers": "w1",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "prediction_phase",
+        "phaseType": "prediction",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "15610",
+            "numOfBatches": "200",
+            "workers": "w1,w2,w3",
+            "nerltensorType": "float"
+            }
+        ]    
+    }
+]
+}
