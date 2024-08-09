@@ -12,6 +12,8 @@
     "_doc_layer_functions_scaler": " none:1 | MinMax:2 | MeanStd:3 | STD:4 | Log:5 |",
     "lossMethod": "2",
     "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
+    "lossArgs:": "",
+    "_doc_lossArgs": "Arguments to loss function. Regularization: reg=L2, reg=L1, reg=NoRegularization (can be also empty)",
     "lr": "0.001",
     "_doc_lr": "Positve float",
     "epochs": "1",

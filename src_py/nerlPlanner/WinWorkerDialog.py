@@ -75,7 +75,7 @@ def WinWorkerDialog():
     OptimizationArgs = "none"
     LossMethodStr = ""
     LossMethod = None # None
-    LossArgs = "none"
+    LossArgs = ""
     LearningRate = None
     Epochs = "1"
     LayersFunctionsList = ""
@@ -229,7 +229,7 @@ def WinWorkerDialog():
             first_element_condition = bool(LayerTypesList[0] != "3")
             if worker_parameters_conditions and filepath_condition and first_element_condition:
                 # Update here when adding new fields to the worker 
-                newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, ModelArgsStr, OptimizationType, OptimizationArgs , LossMethodStr, LossArgs, LossMethod,
+                newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, ModelArgsStr, OptimizationType, OptimizationArgs , LossMethodStr, LossMethod, LossArgs,
                                     LearningRate, Epochs, LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken)
                 newWorker.save_as_json(FilePath.as_posix(), WithDocumentation)
                 sg.popup_auto_close("Successfully Created", keep_on_top=True)
@@ -253,7 +253,7 @@ def WinWorkerDialog():
                 loaded_worker_dict = {}
                 with open(FilePathLoad) as jsonFile:
                     loaded_worker_dict = json.load(jsonFile)
-                (LayersSizesList, ModelTypeStr, ModelType, ModelArgsStr, OptimizationType, OptimizationArgs ,LossMethodStr, LossMethod, LearningRate, Epochs,
+                (LayersSizesList, ModelTypeStr, ModelType, ModelArgsStr, OptimizationType, OptimizationArgs ,LossMethodStr, LossMethod, LossArgs, LearningRate, Epochs,
                 LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemArgs ,DistributedSystemToken) = Worker.load_from_dict(loaded_worker_dict, get_params=True)
                 ui_update_all_values(WorkerWindow)
 
