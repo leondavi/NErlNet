@@ -13,9 +13,19 @@
     },
     "devices": [
         {
-            "name": "comv5",
-            "ipv4": "10.0.0.11",
-            "entities": "apiServer,mainServer,r1,s1,c1"
+            "name": "comv12",
+            "ipv4": "10.0.0.30",
+            "entities": "apiServer,mainServer,r1"
+        },
+        {
+            "name": "c0VM6",
+            "ipv4": "10.0.0.8",
+            "entities": "c1"
+        },
+        {
+            "name": "c0VM7",
+            "ipv4": "10.0.0.12",
+            "entities": "s1"
         }
     ],
     "routers": [
@@ -30,7 +40,7 @@
             "name": "s1",
             "port": "8904",
             "frequency": "100",
-            "policy": "1",
+            "policy": "0",
             "epochs": "1",
             "type": "0"
         }
@@ -66,7 +76,7 @@
             "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
             "lr": "0.00001",
             "_doc_lr": "Positve float",
-            "epochs": "10",
+            "epochs": "1",
             "_doc_epochs": "Positve Integer",
             "optimizer": "5",
             "_doc_optimizer": " GD:0 | CGD:1 | SGD:2 | QuasiNeuton:3 | LVM:4 | ADAM:5 |",
