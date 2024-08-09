@@ -19,7 +19,7 @@ Nerlnet simplifies the setup of a distributed cluster that consists of many mode
 Nerlnet library combines the following languages to achieve a stable and efficient distributed ML system framework:  
 • The communication layer of Nerlnet is based on an Cowboy - an HTTP web server open-source library.  
 • ML on the edge of the distributed cluster is based on OpenNN library, an open-source project of Cpp Neural Network library.  
-• Managemnt of Nerlnet cluster - An HTTP server of Flask communicates with Nerlnet's main server to control the cluster's entities.  
+• Management of Nerlnet cluster - An HTTP server of Flask communicates with Nerlnet's main server to control the cluster's entities.  
 
 ![image](https://user-images.githubusercontent.com/18975070/144730156-5bd03ad7-fc5f-45e9-8b4e-62d582af2200.png) 
 ![image](https://user-images.githubusercontent.com/18975070/144730182-c535b20a-a5f9-4d4f-8632-77d49732f17f.png) 
