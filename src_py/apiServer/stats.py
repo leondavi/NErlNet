@@ -290,12 +290,13 @@ class Stats():
         workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
         for source_piece_inst in sources_pieces_list:
             source_name = source_piece_inst.get_source_name()
+            source_epoch = int(globe.components.sourceEpochs[source_name])
             target_workers_string = source_piece_inst.get_target_workers()
             target_workers_names = target_workers_string.split(',')
             for worker_db in workers_model_db_list:
                     worker_name = worker_db.get_worker_name()
                     if worker_name in target_workers_names:       # Check if the worker is in the target workers list of this source
-                        for batch_id in range(source_piece_inst.get_num_of_batches()):
+                        for batch_id in range(source_epoch * source_piece_inst.get_num_of_batches()):
                             batch_db = worker_db.get_batch(source_name, str(batch_id))
                             if batch_db:    # if batch is recieved
                                 recieved_batch_key_str = recieved_batches_key(phase_name, source_name, worker_name)
@@ -319,13 +320,14 @@ class Stats():
         for source_piece_inst in sources_pieces_list:
             source_name = source_piece_inst.get_source_name()
             source_policy = globe.components.sources_policy_dict[source_name]   # 0 -> casting , 1 -> round robin, 2 -> random
+            source_epoch = int(globe.components.sourceEpochs[source_name])
             target_workers_string = source_piece_inst.get_target_workers()
             target_workers_names = target_workers_string.split(',')
             if source_policy == '0':  # casting policy
                 for worker_db in workers_model_db_list:
                     worker_name = worker_db.get_worker_name()
                     if worker_name in target_workers_names:       # Check if the worker is in the target workers list of this source
-                        for batch_id in range(source_piece_inst.get_num_of_batches()):
+                        for batch_id in range(source_epoch * source_piece_inst.get_num_of_batches()):
                             batch_db = worker_db.get_batch(source_name, str(batch_id))
                             if not batch_db:  # if batch is missing
                                 missed_batch_key_str = missed_batches_key(phase_name, source_name, worker_name)
@@ -334,7 +336,7 @@ class Stats():
                                 missed_batches_dict[missed_batch_key_str].append(batch_id)
             elif source_policy == '1':  # round robin policy
                 number_of_workers = len(target_workers_names)
-                batches_indexes = [i for i in range(source_piece_inst.get_num_of_batches())]
+                batches_indexes = [i for i in range(source_epoch * source_piece_inst.get_num_of_batches())]
                 batch_worker_tuple = [(batch_index, target_workers_names[batch_index % number_of_workers]) for batch_index in batches_indexes]  # (batch_index, worker_name_that_should_recive_the_batch)
                 worker_batches_dict = {worker_name: [] for worker_name in target_workers_names}   # Create a dictionary to hold batches id for each worker
                 for batch_index, worker_name in batch_worker_tuple:
