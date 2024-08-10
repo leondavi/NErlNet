@@ -317,6 +317,7 @@ count_label_nif_test() ->
       OptimizerType = "2",
       OptimizerArgs = "",
       LossMethod = "2",
+      LossArgs = "L2",
       DistributedSystemType = "3", % TODO this should be derived from AG macro
       DistributedSystemArg = "",
       DimMaxDimX = ?NERLWORKER_DISTRIBUTED_FED_WEIGHTED_AVG_CLASSIFIER_DATA_DIM_X,
@@ -339,7 +340,7 @@ count_label_nif_test() ->
       LayersTypes = "1,3",% Please move it to neural_networks_testing_models.hrl as part of NN configuration
       nerlNIF:test_nerlworker_nif(ModelId,ModelType,ModelArgs,LayersSizes, LayersTypes, 
       LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, 
-      OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
+      OptimizerArgs, LossMethod, LossArgs, DistributedSystemType, DistributedSystemArg),
       {NerlTensorDataBinTrain , Type} = nerlNIF:nerltensor_conversion({DataRand,erl_float} , float),
       nerlNIF:train_nif(ModelId , NerlTensorDataBinTrain , Type), 
       {LabelCount,_} = nerlNIF:get_distributed_system_train_labels_count_nif(ModelId),
@@ -369,7 +370,7 @@ nerlworker_test([], _Performance) -> _Performance;
 nerlworker_test([CurrentModel | Tail], Performance) -> 
      {ModelId,ModelType,ModelArgs,LayersSizes, LayersTypes, LayersFunctionalityCodes,
       LearningRate, Epochs, OptimizerType, OptimizerArgs,
-      LossMethod, DistributedSystemType, DistributedSystemArg} = CurrentModel,
+      LossMethod, LossArgs, DistributedSystemType, DistributedSystemArg} = CurrentModel,
       case ModelType of
             ?MODEL_TYPE_NN_IDX -> nerltest_print("Testing NN Model");
             ?MODEL_TYPE_AUTOENCODER_IDX -> nerltest_print("Testing AE Model");
@@ -378,7 +379,7 @@ nerlworker_test([CurrentModel | Tail], Performance) ->
       end,
       nerlNIF:test_nerlworker_nif(ModelId,ModelType,ModelArgs,LayersSizes, LayersTypes, 
       LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType, 
-      OptimizerArgs, LossMethod, DistributedSystemType, DistributedSystemArg),
+      OptimizerArgs, LossMethod, LossArgs, DistributedSystemType, DistributedSystemArg),
       NumOfSamples = 500,
       {NerlTensorDataBin , NerlTensorDataBinType , NerlTensorDataErl , NerlTensorDataErlType , NumOfFeatures , _NumOfLabels} = nerlworker_test_generate_data(LayersSizes, LayersTypes, NumOfSamples),
      % {NerlTensor , Type , ErlDataTensor , erl_float , NumOfFeatures , NumOfLabels}.

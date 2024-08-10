@@ -21,7 +21,7 @@ class NerlWorkerOpenNN : public NerlWorker
 
     NerlWorkerOpenNN(int model_type, std::string &model_args_str , std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
                      float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
-                     int loss_method, int distributed_system_type, std::string &distributed_system_args_str);
+                     int loss_method, std::string &loss_args_str, int distributed_system_type, std::string &distributed_system_args_str);
     ~NerlWorkerOpenNN();
 
     void generate_opennn_neural_network();
@@ -83,6 +83,7 @@ class NerlWorkerOpenNN : public NerlWorker
     opennn::Scaler translate_unscaling_method(int scaling_method);
     opennn::PoolingLayer::PoolingMethod translate_pooling_method(int pooling_method);
     opennn::ProbabilisticLayer::ActivationFunction translate_probabilistic_activation_function(int activation_function);
+    opennn::LossIndex::RegularizationMethod parse_regularization_loss_args(const std::string &loss_args_str);
 
     int translate_pooling_method_int(int pooling_method);
     int translate_model_type(int model_type, int &custom_model);

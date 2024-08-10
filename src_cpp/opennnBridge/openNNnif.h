@@ -164,8 +164,8 @@ static ErlNifFunc nif_funcs[] =
     {"nerltensor_sum_nif",3, nerltensor_sum_nif},
     {"nerltensor_scalar_multiplication_nif",3,nerltensor_scalar_multiplication_nif},
     // nerlworker functions
-    {"new_nerlworker_nif", 13, new_nerlworker_nif},
-    {"test_nerlworker_nif", 13, test_nerlworker_nif},
+    {"new_nerlworker_nif", 14, new_nerlworker_nif},
+    {"test_nerlworker_nif", 14, test_nerlworker_nif},
     {"update_nerlworker_train_params_nif", 6, update_nerlworker_train_params_nif},
     {"remove_nerlworker_nif", 1, remove_nerlworker_nif},
     {"get_distributed_system_train_labels_count_nif", 1, get_distributed_system_train_labels_count_nif}
