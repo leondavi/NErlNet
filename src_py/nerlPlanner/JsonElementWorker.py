@@ -210,7 +210,7 @@ class Worker(JsonElement):
             (KEY_LOSS_METHOD, self.LossMethod),
             (KEY_LOSS_METHOD_DOC, VAL_LOSS_METHOD_DOC),
             (KEY_LOSS_ARGS, self.LossArgs),
-            (KEY_LOSS_ARGS_DOC, VAL_LOSS_ARGS_DOC)
+            (KEY_LOSS_ARGS_DOC, VAL_LOSS_ARGS_DOC),
             (KEY_LEARNING_RATE, self.LearningRate),
             (KEY_LEARNING_RATE_DOC, VAL_LEARNING_RATE_DOC),
             (KEY_EPOCHS, self.Epochs.get_value_str()),
