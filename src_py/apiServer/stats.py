@@ -97,7 +97,7 @@ class Stats():
             # Customize the grid lines to be black
             plt.grid(color='black', linestyle='-', linewidth=0.5)
             
-            sns.lineplot(data=df['w1'])
+            sns.lineplot(data=df)
             plt.xlabel('Batch Num.')
             plt.ylabel('Loss Value')
             plt.title(f'Training Loss Function of ({self.experiment_phase.get_name()})')
