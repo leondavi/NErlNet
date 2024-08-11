@@ -10,18 +10,18 @@
 using namespace nerlnet;
 
 static std::shared_ptr<NerlWorkerOpenNN> create_nerlworker(std::string &model_type_str, std::string &model_args_str, std::string &learning_rate_str,
- std::string &epochs_str, std::string &optimizer_type_str, std::string &loss_method_str,
+ std::string &epochs_str, std::string &optimizer_type_str, std::string &loss_method_str, std::string &loss_args_str,
  std::string &distributed_system_type_str, std::string &layer_sizes_str, std:: string &layer_types_str,
  std::string &layers_functionality_str, std::string &optimizer_args_str, std::string &distributed_system_args_str) //all should be const reference
 {
-    std::shared_ptr<NerlWorkerOpenNN> new_worker = parse_model_params<NerlWorkerOpenNN>(model_type_str,model_args_str,learning_rate_str,epochs_str,optimizer_type_str,loss_method_str,distributed_system_type_str,layer_sizes_str,
+    std::shared_ptr<NerlWorkerOpenNN> new_worker = parse_model_params<NerlWorkerOpenNN>(model_type_str,model_args_str,learning_rate_str,epochs_str,optimizer_type_str,loss_method_str, loss_args_str, distributed_system_type_str,layer_sizes_str,
     layer_types_str,layers_functionality_str,optimizer_args_str,distributed_system_args_str);
     return new_worker;
 }
 static ERL_NIF_TERM new_nerlworker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     enum{ARG_MODEL_ID,ARG_MODEL_TYPE, ARG_MODEL_ARGS, ARG_LAYERS_SIZES, ARG_LAYERS_TYPES, ARG_LAYERS_FUNCTIONALITY_CODES, ARG_LEARNING_RATE, ARG_EPOCHS, ARG_OPTIMIZER_TYPE,
-         ARG_OPTIMIZER_ARGS, ARG_LOSS_METHOD, ARG_DISTRIBUTED_SYSTEM_TYPE, ARG_DISTRIBUTED_SYSTEM_ARGS};
+         ARG_OPTIMIZER_ARGS, ARG_LOSS_METHOD, ARG_LOSS_ARGS, ARG_DISTRIBUTED_SYSTEM_TYPE, ARG_DISTRIBUTED_SYSTEM_ARGS};
   
     unsigned long modelId;
     std::string model_type_str;
@@ -34,6 +34,7 @@ static ERL_NIF_TERM new_nerlworker_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
     std::string optimizer_type_str;
     std::string optimizer_args_str;
     std::string loss_method_str;
+    std::string loss_args_str;
     std::string distributed_system_type_str;
     std::string distributed_system_args_str;
 
@@ -48,10 +49,12 @@ static ERL_NIF_TERM new_nerlworker_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
     nifpp::get_throws(env, argv[ARG_OPTIMIZER_TYPE], optimizer_type_str);
     nifpp::get_throws(env, argv[ARG_OPTIMIZER_ARGS], optimizer_args_str);
     nifpp::get_throws(env, argv[ARG_LOSS_METHOD], loss_method_str);
+    nifpp::get_throws(env, argv[ARG_LOSS_ARGS], loss_args_str);
     nifpp::get_throws(env, argv[ARG_DISTRIBUTED_SYSTEM_TYPE], distributed_system_type_str);
     nifpp::get_throws(env, argv[ARG_DISTRIBUTED_SYSTEM_ARGS], distributed_system_args_str);
 
-    std::shared_ptr<NerlWorkerOpenNN> new_nerl_worker_ptr =  create_nerlworker(model_type_str,model_args_str,learning_rate_str,epochs_str,optimizer_type_str,loss_method_str,distributed_system_type_str,layer_sizes_str,
+    std::shared_ptr<NerlWorkerOpenNN> new_nerl_worker_ptr =  create_nerlworker(model_type_str,model_args_str,learning_rate_str,epochs_str,optimizer_type_str,
+                                                                            loss_method_str,loss_args_str,distributed_system_type_str,layer_sizes_str,
     layer_types_str,layers_functionality_str,optimizer_args_str,distributed_system_args_str);
     // Create the singleton instance
     BridgeController& onnBrCtrl = BridgeController::GetInstance();
@@ -65,7 +68,7 @@ static ERL_NIF_TERM new_nerlworker_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 static ERL_NIF_TERM test_nerlworker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     enum{ARG_MODEL_ID,ARG_MODEL_TYPE, ARG_MODEL_ARGS , ARG_LAYERS_SIZES, ARG_LAYERS_TYPES, ARG_LAYERS_FUNCTIONALITY_CODES, ARG_LEARNING_RATE, ARG_EPOCHS, ARG_OPTIMIZER_TYPE,
-         ARG_OPTIMIZER_ARGS, ARG_LOSS_METHOD, ARG_DISTRIBUTED_SYSTEM_TYPE, ARG_DISTRIBUTED_SYSTEM_ARGS};
+         ARG_OPTIMIZER_ARGS, ARG_LOSS_METHOD, ARG_LOSS_ARGS, ARG_DISTRIBUTED_SYSTEM_TYPE, ARG_DISTRIBUTED_SYSTEM_ARGS};
    
     unsigned long modelId;
     std::string model_type_str;
@@ -78,6 +81,7 @@ static ERL_NIF_TERM test_nerlworker_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     std::string optimizer_type_str;
     std::string optimizer_args_str;
     std::string loss_method_str;
+    std::string loss_args_str;
     std::string distributed_system_type_str;
     std::string distributed_system_args_str;
 
@@ -92,10 +96,12 @@ static ERL_NIF_TERM test_nerlworker_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     nifpp::get_throws(env, argv[ARG_OPTIMIZER_TYPE], optimizer_type_str);
     nifpp::get_throws(env, argv[ARG_OPTIMIZER_ARGS], optimizer_args_str);
     nifpp::get_throws(env, argv[ARG_LOSS_METHOD], loss_method_str);
+    nifpp::get_throws(env, argv[ARG_LOSS_ARGS], loss_args_str);
     nifpp::get_throws(env, argv[ARG_DISTRIBUTED_SYSTEM_TYPE], distributed_system_type_str);
     nifpp::get_throws(env, argv[ARG_DISTRIBUTED_SYSTEM_ARGS], distributed_system_args_str);
-    std::shared_ptr<NerlWorkerOpenNN> new_nerl_worker_ptr = create_nerlworker(model_type_str,model_args_str,learning_rate_str,epochs_str,optimizer_type_str,loss_method_str,distributed_system_type_str,layer_sizes_str,
-    layer_types_str,layers_functionality_str,optimizer_args_str,distributed_system_args_str);
+    std::shared_ptr<NerlWorkerOpenNN> new_nerl_worker_ptr = create_nerlworker(model_type_str,model_args_str,learning_rate_str,epochs_str,
+                                                                            optimizer_type_str,loss_method_str,loss_args_str,distributed_system_type_str,layer_sizes_str,
+                                                                            layer_types_str,layers_functionality_str,optimizer_args_str,distributed_system_args_str);
      // Create the singleton instance
     BridgeController& onnBrCtrl = BridgeController::GetInstance();
     // Put the model record to the map with modelId

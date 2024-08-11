@@ -45,7 +45,7 @@ create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap , EtsStats) ->
     ModelID = erlang:unique_integer([positive]),
     WorkerStatsETS = stats:generate_workers_stats_ets(),
     {ok , SHA} = maps:find(WorkerName , ets:lookup_element(ClientEtsRef, workers_to_sha_map, ?DATA_IDX)),
-    {ModelType, ModelArgs, LayersSizes, LayersTypes, LayersFunctions, LossMethod, 
+    {ModelType, ModelArgs, LayersSizes, LayersTypes, LayersFunctions, LossMethod, LossArgs,
     LearningRate, Epochs, Optimizer, OptimizerArgs, _InfraType, DistributedSystemType, 
     DistributedSystemArgs, DistributedSystemToken} = maps:get(SHA, ShaToModelArgsMap),
     DistributedTypeInteger = list_to_integer(DistributedSystemType),
@@ -64,7 +64,7 @@ create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap , EtsStats) ->
     W2wComPid = w2wCom:start_link({WorkerName, MyClientPid}), % TODO Switch to monitor instead of link
 
     WorkerArgs = {ModelID , ModelType , ModelArgs , LayersSizes, LayersTypes, LayersFunctions, LearningRate , Epochs, 
-                  Optimizer, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemToken, DistributedSystemArgs},
+                  Optimizer, OptimizerArgs , LossMethod , LossArgs, DistributedSystemType , DistributedSystemToken, DistributedSystemArgs},
     WorkerPid = workerGeneric:start_link({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , MyClientPid , WorkerStatsETS , W2wComPid}),
     gen_server:cast(W2wComPid, {update_gen_worker_pid, WorkerPid}),
     ets:insert(WorkersETS, {WorkerName, {WorkerPid, WorkerArgs}}), 

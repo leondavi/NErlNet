@@ -107,7 +107,7 @@ class DistributedSystemToken(JsonElement):
     
 class Worker(JsonElement):      
     def __init__(self, name, layers_sizes_list_str : str, model_type_str : str, model_type : int, model_args_str, optimization_type : str,
-                 optimizer_args : str,loss_method_str : str, loss_method : int, learning_rate : str, epochs : str, layer_functions_codes_list_str : str,
+                 optimizer_args : str,loss_method_str : str, loss_method : int, loss_args : str, learning_rate : str, epochs : str, layer_functions_codes_list_str : str,
                  layer_types_list_str : str, infra : str, distributed_system_type : str, distributed_args : str, distributed_system_token : str):
         super(Worker, self).__init__(name, WORKER_TYPE)
         # Update here when adding new fields to the worker
@@ -119,6 +119,7 @@ class Worker(JsonElement):
         self.optimizer = Optimizer(optimization_type, optimizer_args)
         self.LossMethodStr = loss_method_str
         self.LossMethod = loss_method # None
+        self.LossArgs = loss_args
         self.LearningRate = float(learning_rate)
         self.LayersFunctionsCodesListStr = layer_functions_codes_list_str
         self.LayersFunctionsCodesList = layer_functions_codes_list_str.split(',') #TODO validate
@@ -180,7 +181,7 @@ class Worker(JsonElement):
         return newWorker
 
     def __str__(self):
-        return f"layers sizes: {self.LayersSizesListStr}, model: {self.ModelTypeStr}, using optimizer: {self.optimizer.get_val_str()}, loss method: {self.LossMethodStr}, lr: {self.LearningRate}, epochs: {self.Epochs.get_value_str()}, infra: {self.Infra.get_val_str()}, distributed system type: {self.distributedSystemType.get_val_str()}, distributed system token: {self.distributedSystemToken.get_val_str()}"
+        return f"layers sizes: {self.LayersSizesListStr}, model: {self.ModelTypeStr}, using optimizer: {self.optimizer.get_val_str()}, loss method: {self.LossMethodStr}, loss args: {self.LossArgs} ,lr: {self.LearningRate}, epochs: {self.Epochs.get_value_str()}, infra: {self.Infra.get_val_str()}, distributed system type: {self.distributedSystemType.get_val_str()}, distributed system token: {self.distributedSystemToken.get_val_str()}"
     
     def error(self): 
         return not self.input_validation() # + more checks
@@ -208,6 +209,8 @@ class Worker(JsonElement):
             (KEY_LAYERS_FUNCTIONS_SCALER_DOC, VAL_LAYERS_FUNCTIONS_SCALER_DOC),
             (KEY_LOSS_METHOD, self.LossMethod),
             (KEY_LOSS_METHOD_DOC, VAL_LOSS_METHOD_DOC),
+            (KEY_LOSS_ARGS, self.LossArgs),
+            (KEY_LOSS_ARGS_DOC, VAL_LOSS_ARGS_DOC),
             (KEY_LEARNING_RATE, self.LearningRate),
             (KEY_LEARNING_RATE_DOC, VAL_LEARNING_RATE_DOC),
             (KEY_EPOCHS, self.Epochs.get_value_str()),
@@ -243,7 +246,7 @@ class Worker(JsonElement):
     def load_from_dict(worker_dict : dict, name = '', get_params = False):
         # Update here when adding new fields to the worker
         required_keys = [KEY_LAYER_SIZES_LIST, KEY_MODEL_TYPE, KEY_MODEL_ARGS,KEY_OPTIMIZER_TYPE, KEY_OPTIMIZER_ARGS,
-                         KEY_LOSS_METHOD, KEY_LEARNING_RATE, KEY_EPOCHS, KEY_LAYERS_FUNCTIONS,
+                         KEY_LOSS_METHOD, KEY_LOSS_ARGS, KEY_LEARNING_RATE, KEY_EPOCHS, KEY_LAYERS_FUNCTIONS,
                          KEY_LAYER_TYPES_LIST, KEY_EPOCHS, KEY_INFRA_TYPE, KEY_DISTRIBUTED_SYSTEM_TYPE, KEY_DISTRIBUTED_SYSTEM_ARGS, KEY_DISTRIBUTED_SYSTEM_TOKEN]
 
         all_keys_exist = all([key in worker_dict for key in required_keys])
@@ -258,6 +261,7 @@ class Worker(JsonElement):
             Optimizer_args = worker_dict[KEY_OPTIMIZER_ARGS]
             LossMethod = int(worker_dict[KEY_LOSS_METHOD])
             LossMethodStr = get_key_by_value(LossMethodMapping, worker_dict[KEY_LOSS_METHOD])
+            LossArgs = worker_dict[KEY_LOSS_ARGS]
             LearningRate = float(worker_dict[KEY_LEARNING_RATE])
             ActivationLayersList = worker_dict[KEY_LAYERS_FUNCTIONS]
             LayerTypesList = worker_dict[KEY_LAYER_TYPES_LIST]
@@ -269,12 +273,12 @@ class Worker(JsonElement):
             
             if get_params:
                 # Update here when adding new fields to the worker
-                return (LayersSizesList, ModelTypeStr, ModelType, ModelArgs , OptimizationType, Optimizer_args, LossMethodStr, LossMethod,
+                return (LayersSizesList, ModelTypeStr, ModelType, ModelArgs , OptimizationType, Optimizer_args, LossMethodStr, LossMethod, LossArgs,
                         LearningRate, EpochsStr, ActivationLayersList, LayerTypesList, InfraType,
                         DistributedSystemTypeInst, DistributedSystem_args, DistributedSystemTokenInst)
 
             # Update here when adding new fields to the worker
-            return Worker(name, LayersSizesList, ModelTypeStr, ModelType, ModelArgs, OptimizationType, Optimizer_args, LossMethodStr, LossMethod, LearningRate, EpochsStr, ActivationLayersList, LayerTypesList, InfraType,
+            return Worker(name, LayersSizesList, ModelTypeStr, ModelType, ModelArgs, OptimizationType, Optimizer_args, LossMethodStr, LossMethod, LossArgs, LearningRate, EpochsStr, ActivationLayersList, LayerTypesList, InfraType,
                  DistributedSystemTypeInst, DistributedSystem_args, DistributedSystemTokenInst)
                     
         return None

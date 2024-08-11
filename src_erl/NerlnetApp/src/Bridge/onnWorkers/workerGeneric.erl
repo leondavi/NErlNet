@@ -52,7 +52,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   nerl_tools:setup_logger(?MODULE),
   {ModelID , ModelType , ModelArgs , LayersSizes,
   LayersTypes, LayersFunctionalityCodes, LearningRate , Epochs, 
-  OptimizerType, OptimizerArgs , LossMethod , DistributedSystemType ,
+  OptimizerType, OptimizerArgs , LossMethod , LossArgs, DistributedSystemType ,
   DistributedSystemToken, DistributedSystemArgs} = WorkerArgs,
   GenWorkerEts = ets:new(generic_worker,[set, public]),
   put(generic_worker_ets, GenWorkerEts),
@@ -70,6 +70,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{layers_sizes, LayersSizes}),
   ets:insert(GenWorkerEts,{layers_functionality_codes, LayersFunctionalityCodes}),
   ets:insert(GenWorkerEts,{loss_method, LossMethod}),
+  ets:insert(GenWorkerEts,{loss_args, LossArgs}),
   ets:insert(GenWorkerEts,{learning_rate, LearningRate}),
   ets:insert(GenWorkerEts,{epochs, Epochs}),
   ets:insert(GenWorkerEts,{optimizer, OptimizerType}),
@@ -85,7 +86,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
 
 
   Res = nerlNIF:new_nerlworker_nif(ModelID , ModelType, ModelArgs, LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType,
-                                OptimizerArgs, LossMethod , DistributedSystemType , DistributedSystemArgs),
+                                OptimizerArgs, LossMethod , LossArgs, DistributedSystemType , DistributedSystemArgs),
   DistributedBehaviorFunc(init,{GenWorkerEts, DistributedWorkerData}),
 
   if 
