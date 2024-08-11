@@ -1,0 +1,55 @@
+{
+    "experimentName": "EEG_Valence_Recognition_DEAP",
+    "experimentType": "classification",
+    "batchSize": 10,
+    "csvFilePath": "/home/nerlnet/workspace/1_3_persons_normalize_bins_valence.csv", 
+    "numOfFeatures": "70",
+    "numOfLabels": "9",
+    "headersNames": "1,2,3,4,5,6,7,8,9",
+    "Phases": 
+    
+    [
+    {
+        "phaseName": "training_phase",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "10",
+            "numOfBatches": "100",
+            "workers": "w1",
+            "nerltensorType": "float"
+            }
+        ]  
+    },
+    {
+        "phaseName": "prediction_phase1",
+        "phaseType": "prediction",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "10",
+            "numOfBatches": "10",
+            "workers": "w1",
+            "nerltensorType": "float"
+            }
+        ]    
+    },
+    {
+        "phaseName": "prediction_phase2",
+        "phaseType": "prediction",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "15610",
+            "numOfBatches": "10",
+            "workers": "w1",
+            "nerltensorType": "float"
+            }
+        ]    
+    }
+]
+}

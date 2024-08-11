@@ -1,6 +1,6 @@
 {
     "nerlnetSettings": {
-        "frequency": "100",
+        "frequency": "2",
         "batchSize": "10"
     },
     "mainServer": {
@@ -8,13 +8,13 @@
         "args": ""
     },
     "apiServer": {
-        "port": "8901",
+        "port": "9000",
         "args": ""
     },
     "devices": [
         {
-            "name": "comv12",
-            "ipv4": "10.0.0.30",
+            "name": "comv5",
+            "ipv4": "10.0.0.11",
             "entities": "apiServer,mainServer,r1"
         },
         {
@@ -39,9 +39,9 @@
         {
             "name": "s1",
             "port": "8904",
-            "frequency": "100",
+            "frequency": "2",
             "policy": "0",
-            "epochs": "1",
+            "epochs": "10",
             "type": "0"
         }
     ],
@@ -63,17 +63,19 @@
             "modelType": "0",
             "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image-classification:4 | text-classification:5 | text-generation:6 | auto-association:7 | autoencoder:8 | ae-classifier:9 |",
             "modelArgs": "",
-            "layersSizes": "70x1x1k5x1x1x64p0s1t0,66x1x64k2x1p0s1,65x1x64k5x1x64x64p0s1t0,61x1x64k2x1p0s1,60x1x64k5x1x64x32p0s1t0,1,64,32,16,9",
+            "layersSizes": "70x1x1k5x1x1x64p0s1t0,66x1x64k2x1p0s1,65x1x64k5x1x64x64p0s1t0,61x1x64k2x1p0s1,60x1x64k5x1x64x32p0s1t0,1,32,16,9",
             "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
-            "layerTypesList": "2,4,2,4,2,9,3,3,3,3",
+            "layerTypesList": "2,4,2,4,2,9,3,3,5",
             "_doc_LayerTypes": " Default:0 | Scaling:1 | CNN:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Flatten:9 | Bounding:10 |",
-            "layers_functions": "7,2,7,2,7,1,7,7,7,11",
+            "layers_functions": "11,2,11,2,11,1,7,4,4",
             "_doc_layers_functions_activation": " Threshold:1 | Sign:2 | Logistic:3 | Tanh:4 | Linear:5 | ReLU:6 | eLU:7 | SeLU:8 | Soft-plus:9 | Soft-sign:10 | Hard-sigmoid:11 |",
             "_doc_layer_functions_pooling": " none:1 | Max:2 | Avg:3 |",
             "_doc_layer_functions_probabilistic": " Binary:1 | Logistic:2 | Competitive:3 | Softmax:4 |",
             "_doc_layer_functions_scaler": " none:1 | MinMax:2 | MeanStd:3 | STD:4 | Log:5 |",
-            "lossMethod": "2",
+            "lossMethod": "6",
             "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
+            "lossArgs": "",
+    	    "_doc_lossArgs": "Arguments to loss function. Regularization: reg=L2, reg=L1, reg=NoRegularization (can be also empty)",
             "lr": "0.00001",
             "_doc_lr": "Positve float",
             "epochs": "1",
