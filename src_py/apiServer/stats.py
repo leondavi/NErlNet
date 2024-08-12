@@ -253,8 +253,6 @@ class Stats():
                         else:
                             class_predict_list = [1 if label_num == class_index else 0 for label_num in max_column_predict_index]   # 1 if the label is belong to the class, 0 otherwise
                         class_actual_list = [1 if label_num == class_index else 0 for label_num in max_column_labels_index]   # 1 if the label is belong to the class, 0 otherwise
-                        print(f'class_predict_list: {class_predict_list}')
-                        print(f'class_actual_list: {class_actual_list}')
                         labels = [0, 1]
                         confusion_matrix = metrics.confusion_matrix(class_actual_list, class_predict_list, labels=labels)  
                         #confusion_matrix_np = confusion_matrix.to_numpy()
