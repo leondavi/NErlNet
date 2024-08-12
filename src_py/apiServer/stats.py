@@ -172,51 +172,6 @@ class Stats():
         return recived_batches_dict
 
     def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
-            
-            def build_worker_label_df(original_df, batch_ids, batch_size):
-                rows_list = []
-
-                for batch_id in batch_ids:
-                    # Calculate the start and end indices for the rows to be copied
-                    start_idx = batch_id * batch_size
-                    end_idx = (batch_id + 1) * batch_size
-            
-                    # Extract the rows and append to the list
-                    batch_rows = original_df.iloc[start_idx:end_idx]
-                    rows_list.append(batch_rows)
-        
-                    # Concatenate all the extracted rows into a new DataFrame
-                df_worker_labels = pd.concat(rows_list, ignore_index=True)
-                return df_worker_labels
-            
-            assert self.experiment_flow_type == "classification", "This function is only available for classification experiments" 
-            assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"   
-            sources_pieces_list = self.experiment_phase.get_sources_pieces()
-            workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
-            confusion_matrix_source_dict = {}
-            confusion_matrix_worker_dict = {}
-            recived_batches_dict = self.get_recieved_batches()
-            for source_piece_inst in sources_pieces_list:
-                nerltensorType = source_piece_inst.get_nerltensor_type()
-                source_name = source_piece_inst.get_source_name()
-                sourcePiece_csv_labels_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet_labels()
-                df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
-                num_of_labels = df_actual_labels.shape[1]
-
-                # build confusion matrix for each worker
-                target_workers_string = source_piece_inst.get_target_workers()
-                target_workers_names = target_workers_string.split(',')
-                batch_size = source_piece_inst.get_batch_size()
-                for worker_db in workers_model_db_list:
-                    worker_name = worker_db.get_worker_name()
-                    if worker_name not in target_workers_names:
-                        continue
-                    worker_recived_batches_id = recived_batches_dict.get(f"phase:{self.experiment_phase.get_name()},{source_name}->{worker_name}")   # get a list of recived batches id for the worker
-                    df_worker_labels = build_worker_label_df(df_actual_labels, worker_recived_batches_id, batch_size)
-                    header_list = range(num_of_labels) 
-                    df_worker_labels.columns = header_list
-                    df_worker_labels = self.expend_labels_df(df_worker_labels)  #Now there is a csv file with the actual labels of the source piece and empty columns for the predict labels
-    def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
         
         def build_worker_label_df(original_df, batch_ids, batch_size):
             rows_list = []
@@ -248,7 +203,7 @@ class Stats():
             df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
             num_of_labels = df_actual_labels.shape[1]
 
-             # build confusion matrix for each worker
+            # build confusion matrix for each worker
             target_workers_string = source_piece_inst.get_target_workers()
             target_workers_names = target_workers_string.split(',')
             batch_size = source_piece_inst.get_batch_size()
@@ -261,7 +216,7 @@ class Stats():
                 header_list = range(num_of_labels) 
                 df_worker_labels.columns = header_list
                 df_worker_labels = self.expend_labels_df(df_worker_labels)  #Now there is a csv file with the actual labels of the source piece and empty columns for the predict labels
-                 
+                
                 # Check if the actual labels are integers and the predict labels are floats, if so convert the actual labels to nerltensorType
                 if nerltensorType == 'float':
                     if any(pd.api.types.is_integer_dtype(df_worker_labels[col]) for col in df_worker_labels.columns):
@@ -292,88 +247,25 @@ class Stats():
                     else:
                         confusion_matrix_worker_dict[(worker_name, class_name)] += confusion_matrix
                     
-                    # Check if the actual labels are integers and the predict labels are floats, if so convert the actual labels to nerltensorType
-                    if nerltensorType == 'float':
-                        if any(pd.api.types.is_integer_dtype(df_worker_labels[col]) for col in df_worker_labels.columns):
-                            df_worker_labels = df_worker_labels.astype(float)
+                else: # Multi-Class
+                    # Take 2 list from the df, one for the actual labels and one for the predict labels to build the confusion matrix
+                    max_column_predict_index = df_worker_labels.iloc[:, num_of_labels:].idxmax(axis=1) 
+                    max_column_predict_index = max_column_predict_index.tolist() 
+                    max_column_predict_index = [int(predict_index) - num_of_labels for predict_index in max_column_predict_index] # fix the index to original labels index
+                    max_column_labels_index = df_worker_labels.iloc[:, :num_of_labels].idxmax(axis=1)
+                    max_column_labels_index = max_column_labels_index.tolist()
                     
-                    #build df_worker_labels with the actual labels and the predict labels
-                    index = 0
-                    for batch_id in worker_recived_batches_id:
-                        batch_db = worker_db.get_batch(source_name, str(batch_id))
-                        if not batch_db:             #It's not necessary to check if the batch is missing, because we already know wich batches are recieved
-                            LOG_INFO(f"Batch {batch_id} is missing for worker {worker_name}")
-                            continue
-                        tensor_data = batch_db.get_tensor_data() 
-                        tensor_data = tensor_data.reshape(batch_size, num_of_labels).copy()  # Make the tensor_data array writable
-                        start_index = index * batch_size
-                        end_index = (index + 1) * batch_size
-                        df_worker_labels.iloc[start_index:end_index, num_of_labels:] = tensor_data
-                        index += 1
-                        
-                    if len(self.headers_list) == 1:   # One class
-                        class_name = self.headers_list[0]
-                        actual_labels = df_worker_labels.iloc[:, :num_of_labels].values.flatten().tolist()
-                        predict_labels = df_worker_labels.iloc[:, num_of_labels:].values.flatten().tolist()
-                        confusion_matrix = metrics.confusion_matrix(actual_labels, predict_labels)
+                    # building confusion matrix for each class
+                    for class_index, class_name in enumerate(self.headers_list):
+                        class_actual_list = [1 if label_num == class_index else 0 for label_num in max_column_labels_index]   # 1 if the label is belong to the class, 0 otherwise
+                        class_predict_list = [1 if label_num == class_index else 0 for label_num in max_column_predict_index]   # 1 if the label is belong to the class, 0 otherwise
+                        confusion_matrix = metrics.confusion_matrix(class_actual_list, class_predict_list)  
+                        #confusion_matrix_np = confusion_matrix.to_numpy()
                         confusion_matrix_source_dict[(source_name, worker_name, class_name)] = confusion_matrix
                         if (worker_name, class_name) not in confusion_matrix_worker_dict:
                             confusion_matrix_worker_dict[(worker_name, class_name)] = confusion_matrix
                         else:
                             confusion_matrix_worker_dict[(worker_name, class_name)] += confusion_matrix
-                        
-                    else: # Multi-Class
-                        # Take 2 list from the df, one for the actual labels and one for the predict labels to build the confusion matrix
-                        max_column_predict_index = df_worker_labels.iloc[:, num_of_labels:].idxmax(axis=1) 
-                        max_column_predict_index = max_column_predict_index.tolist() 
-                        max_column_predict_index = [int(predict_index) - num_of_labels for predict_index in max_column_predict_index] # fix the index to original labels index
-                        max_column_labels_index = df_worker_labels.iloc[:, :num_of_labels].idxmax(axis=1)
-                        max_column_labels_index = max_column_labels_index.tolist()
-                        
-                        # building confusion matrix for each class
-                        for class_index, class_name in enumerate(self.headers_list):
-                            class_actual_list = [1 if label_num == class_index else 0 for label_num in max_column_labels_index]   # 1 if the label is belong to the class, 0 otherwise
-                            class_predict_list = [1 if label_num == class_index else 0 for label_num in max_column_predict_index]   # 1 if the label is belong to the class, 0 otherwise
-                            confusion_matrix = metrics.confusion_matrix(class_actual_list, class_predict_list)  
-                            #confusion_matrix_np = confusion_matrix.to_numpy()
-                            confusion_matrix_source_dict[(source_name, worker_name, class_name)] = confusion_matrix
-                            if (worker_name, class_name) not in confusion_matrix_worker_dict:
-                                confusion_matrix_worker_dict[(worker_name, class_name)] = confusion_matrix
-                            else:
-                                confusion_matrix_worker_dict[(worker_name, class_name)] += confusion_matrix
-            
-            if plot:
-                workers = sorted(list({tup[0] for tup in confusion_matrix_worker_dict.keys()}))
-                classes = sorted(list({tup[1] for tup in confusion_matrix_worker_dict.keys()}))
-                fig, ax = plt.subplots(nrows=len(workers), ncols=len(classes),figsize=(4*len(classes),4*len(workers)),dpi=140)
-                if len(classes) > 1:
-                    for i , worker in enumerate(workers): 
-                        for j , pred_class in enumerate(classes):
-                            conf_mat = confusion_matrix_worker_dict[(worker , pred_class)]
-                            heatmap = sns.heatmap(data=conf_mat ,ax=ax[i,j], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
-                            cbar = heatmap.collections[0].colorbar
-                            cbar.ax.tick_params(labelsize = 8)
-                            ax[i, j].set_title(f"{worker} , Class '{pred_class}'" , fontsize=12)
-                            ax[i, j].tick_params(axis='both', which='major', labelsize=8) 
-                            ax[i, j].set_xlabel("Predicted Label" , fontsize=8)
-                            ax[i, j].set_ylabel("True Label" , fontsize=8)
-                            ax[i, j].set_aspect('equal')
-                else:
-                    for i, worker in enumerate(workers):
-                        conf_mat = confusion_matrix_worker_dict[(worker , classes[0])]
-                        heatmap = sns.heatmap(data=conf_mat ,ax=ax[i], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
-                        cbar = heatmap.collections[0].colorbar
-                        cbar.ax.tick_params(labelsize = 8)
-                        ax[i].set_title(f"{worker} , Class '{classes[0]}'" , fontsize=12)
-                        ax[i].tick_params(axis='both', which='major', labelsize=8) 
-                        ax[i].set_xlabel("Predicted Label" , fontsize=8)
-                        ax[i].set_ylabel("True Label" , fontsize=8)
-                        ax[i].set_aspect('equal')
-                fig.subplots_adjust(wspace=0.4 , hspace=0.4)
-                plt.show()
-                
-            return confusion_matrix_source_dict, confusion_matrix_worker_dict    
-        
         
         if plot:
             workers = sorted(list({tup[0] for tup in confusion_matrix_worker_dict.keys()}))
@@ -406,7 +298,7 @@ class Stats():
             plt.show()
             
         return confusion_matrix_source_dict, confusion_matrix_worker_dict
-    
+        
     def get_recieved_batches(self):
         """
         Returns a dictionary of recieved batches in the experiment phase.
