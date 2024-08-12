@@ -233,13 +233,12 @@ class Stats():
 
                     if has_multiple_max:
                         LOG_INFO(f"Worker {worker_name} has at least one sample with multiple predicted labels")
-                        #max_column_predict_index = is_max.apply(lambda row: list(row[row].index), axis=1).tolist()  # Generate a list of lists' each sublist has the index of the maximum value in the row
-                        max_column_predict_index = is_max.apply(lambda row: list(row[row].index) if row.any() else [-1], axis=1).tolist()
+                        max_column_predict_index = is_max.apply(lambda row: list(row[row].index) if row.any() else [-1], axis=1).tolist()   # Generate a list of lists' each sublist has the index of the maximum value in the row
                         max_column_predict_index =[[int(predict_label) - num_of_labels for predict_label in prdict_indexes_sublist] for prdict_indexes_sublist in max_column_predict_index]  # fix the index to original labels index
                         max_column_labels_index = df_worker_labels.iloc[:, :num_of_labels].idxmax(axis=1).tolist()  # Get the index of the maximum actual value in each row
 
                     else:            # No sample with multiple predicted labels
-                        # Take 2 list from the df, one for the actual labels and one for the predict labels to build the confusion matrix
+                        # Take 2 lists from the df, one for the actual labels and one for the predict labels to build the confusion matrix
                         max_column_predict_index = df_worker_labels.iloc[:, num_of_labels:].idxmax(axis=1) 
                         max_column_predict_index = max_column_predict_index.tolist() 
                         max_column_predict_index = [int(predict_index) - num_of_labels for predict_index in max_column_predict_index] # fix the index to original labels index
@@ -255,7 +254,6 @@ class Stats():
                         class_actual_list = [1 if label_num == class_index else 0 for label_num in max_column_labels_index]   # 1 if the label is belong to the class, 0 otherwise
                         labels = [0, 1]
                         confusion_matrix = metrics.confusion_matrix(class_actual_list, class_predict_list, labels=labels)  
-                        #confusion_matrix_np = confusion_matrix.to_numpy()
                         confusion_matrix_source_dict[(source_name, worker_name, class_name)] = confusion_matrix
                         if (worker_name, class_name) not in confusion_matrix_worker_dict:
                             confusion_matrix_worker_dict[(worker_name, class_name)] = confusion_matrix
