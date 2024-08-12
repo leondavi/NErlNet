@@ -8,7 +8,7 @@
         "args": ""
     },
     "apiServer": {
-        "port": "8930",
+        "port": "8700",
         "args": ""
     },
     "devices": [
@@ -326,7 +326,7 @@
             "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
             "layerTypesList": "2,4,2,4,2,9,3,3,3,5",
             "_doc_LayerTypes": " Default:0 | Scaling:1 | CNN:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Flatten:9 | Bounding:10 |",
-            "layers_functions": "6,2,6,2,6,1,6,6,4,4",
+            "layers_functions": "11,2,11,2,11,1,7,7,4,4",
             "_doc_layers_functions_activation": " Threshold:1 | Sign:2 | Logistic:3 | Tanh:4 | Linear:5 | ReLU:6 | eLU:7 | SeLU:8 | Soft-plus:9 | Soft-sign:10 | Hard-sigmoid:11 |",
             "_doc_layer_functions_pooling": " none:1 | Max:2 | Avg:3 |",
             "_doc_layer_functions_probabilistic": " Binary:1 | Logistic:2 | Competitive:3 | Softmax:4 |",
