@@ -16,6 +16,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 
 # Options
 option(NERLWOLF "Use Wolfram Engine workers extension" OFF)
+option(NERLTORCH "use libtorch installed to /usr/local/lib/libtorch" OFF)
 option(USE_OpenMP "Use-OpenMP" ON)
 
 #add_compile_definitions(EIGEN_MAX_ALIGN_BYTES=8) #Open this line for RASPI
@@ -41,4 +42,9 @@ target_link_libraries(source_nif PUBLIC sourceNIF)
 if (NERLWOLF)
     add_library(nerlnet_wolf SHARED $<TARGET_OBJECTS:wolframBridge>)
     target_link_libraries(nerlnet_wolf PUBLIC wolframBridge)
+endif()
+
+if (NERLTORCH)
+    add_library(nerlnet_torch SHARED $<TARGET_OBJECTS:torchBridge>)
+    target_link_libraries(nerlnet_torch PUBLIC torchBridge)
 endif()

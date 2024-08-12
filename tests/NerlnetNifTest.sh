@@ -12,9 +12,11 @@ TEST_LOG_PATH="/usr/local/lib/nerlnet-lib/log"
 TEST_LOG_FILE_PATH="$TEST_LOG_PATH/$LOG_FILE"
 ERL_BRIDGE_SOURCE_PATH="$NERLNET_PATH/src_erl/NerlnetApp/src/Bridge"
 NERLNET_BUILD_DIR="$NERLNET_PATH/build"
-NERLNET_TEST_DIR="$NERLNET_BUILD_DIR/test"
+NERLNET_TEST_DIR="$NERLNET_BUILD_DIR/test/onnNifTest"
+ONN_WORKER_DIR="onnWorkers"
+ONN_WORKER_PATH_FULL="$NERLNET_PATH/src_erl/NerlnetApp/src/Bridge/$ONN_WORKER_DIR"
 
-print "Nerlnet testing script initiated"
+print "Nerlnet testing script initiated for ONN-NIF"
 print "Copy files to $NERLNET_TEST_DIR"
 
 if [ -d "$NERLNET_TEST_DIR" ];
@@ -28,13 +30,20 @@ else
     mkdir -p $NERLNET_TEST_DIR
 fi
 
+if [ -d "$NERLNET_TEST_DIR/$ONN_WORKER_DIR" ];
+then
+    :
+else
+    mkdir -p $NERLNET_TEST_DIR/$ONN_WORKER_DIR
+fi
+
 cd $NERLNET_PATH
-cp $ERL_BRIDGE_SOURCE_PATH/nerlTests.erl $NERLNET_TEST_DIR/nerlTests.erl
-cp $ERL_BRIDGE_SOURCE_PATH/nerlNIF.erl $NERLNET_TEST_DIR/nerlNIF.erl
+cp $ONN_WORKER_PATH_FULL/nerlTests.erl $NERLNET_TEST_DIR/$ONN_WORKER_DIR/nerlTests.erl
+cp $ONN_WORKER_PATH_FULL/nerlNIF.erl $NERLNET_TEST_DIR/$ONN_WORKER_DIR/nerlNIF.erl
+cp $ONN_WORKER_PATH_FULL/neural_networks_testing_models.hrl $NERLNET_TEST_DIR/$ONN_WORKER_DIR/neural_networks_testing_models.hrl
 cp $ERL_BRIDGE_SOURCE_PATH/nerl.erl $NERLNET_TEST_DIR/nerl.erl
 cp $ERL_BRIDGE_SOURCE_PATH/nerlTensor.hrl $NERLNET_TEST_DIR/nerlTensor.hrl
 cp $ERL_BRIDGE_SOURCE_PATH/nerlTensor.erl $NERLNET_TEST_DIR/nerlTensor.erl
-cp $ERL_BRIDGE_SOURCE_PATH/neural_networks_testing_models.hrl $NERLNET_TEST_DIR/neural_networks_testing_models.hrl
 cp $ERL_BRIDGE_SOURCE_PATH/layers_types_ag.hrl $NERLNET_TEST_DIR/layers_types_ag.hrl
 cp $ERL_BRIDGE_SOURCE_PATH/models_types_ag.hrl $NERLNET_TEST_DIR/models_types_ag.hrl
 
@@ -49,8 +58,8 @@ print "Change directory to $NERLNET_TEST_DIR:"
 cd $NERLNET_TEST_DIR
 
 print "Running nerlTests.erl"
-COMPILE_NERLNIF="compile:file(\"nerlNIF.erl\")"
-COMPILE_NERLTEST="compile:file(\"nerlTests.erl\")"
+COMPILE_NERLNIF="compile:file(\"$ONN_WORKER_DIR/nerlNIF.erl\")"
+COMPILE_NERLTEST="compile:file(\"$ONN_WORKER_DIR/nerlTests.erl\")"
 COMPILE_NERL="compile:file(\"nerl.erl\")"
 COMPILE_NERLTENSOR="compile:file(\"nerlTensor.erl\")"
 

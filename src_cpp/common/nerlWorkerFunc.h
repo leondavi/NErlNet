@@ -58,7 +58,7 @@ enum {KERNEL_SIZE = -1, PADDING_SIZE = -2,STRIDE_SIZE = -3 ,POOLING_SIZE= -4 , I
 
 template <class NerlWorkerType>
 std::shared_ptr<NerlWorkerType> parse_model_params(std::string &model_type_str,std::string &model_args_str, std::string &learning_rate_str,std::string &epochs_str,
-                                    std::string &optimizer_type_str,std::string &loss_method_str,std::string &distributed_system_type_str,
+                                    std::string &optimizer_type_str,std::string &loss_method_str, std::string &loss_args_str, std::string &distributed_system_type_str,
                                     std::string &layer_sizes_str,std::string &layer_types_str,std::string &layers_functionality_str,
                                     std::string &optimizer_args_str,std::string &distributed_system_args_str)
 {
@@ -68,7 +68,7 @@ std::shared_ptr<NerlWorkerType> parse_model_params(std::string &model_type_str,s
     int optimizer_type = std::stoi(optimizer_type_str);
     int loss_method = std::stoi(loss_method_str);
     int distributed_system_type = std::stoi(distributed_system_type_str);
-    return std::make_shared<NerlWorkerType>(model_type, model_args_str, layer_sizes_str, layer_types_str, layers_functionality_str,learning_rate, epochs, optimizer_type, optimizer_args_str, loss_method, distributed_system_type, distributed_system_args_str);
+    return std::make_shared<NerlWorkerType>(model_type, model_args_str, layer_sizes_str, layer_types_str, layers_functionality_str,learning_rate, epochs, optimizer_type, optimizer_args_str, loss_method, loss_args_str, distributed_system_type, distributed_system_args_str);
 }
 
 static void parse_layer_sizes_str(std::string &layer_sizes_str, std::vector<int> &layers_types_vec, std::vector<LayerSizingParams_t> &out_layer_sizes_params)

@@ -2,7 +2,7 @@
 
 -export([controller/2]).
 
--include("w2wCom.hrl").
+-include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/NerlnetApp/src/Bridge/Common/w2wCom.hrl").
 
 -import(nerlNIF,[nerltensor_scalar_multiplication_nif/3, call_to_get_weights/1, call_to_set_weights/2]).
 -import(nerlTensor,[sum_nerltensors_lists/2]).
@@ -145,18 +145,15 @@ post_train({GenWorkerEts, WeightsTensor}) ->
   NumOfActiveWorkers = length([FedWorker || {_MyName, {FedWorker, _Source}} <- ActiveWorkersSourcesList]),
   case length(TotalWorkersWeights) of 
     NumOfActiveWorkers -> 
+      % io:format("Averaging model weights...~n"),
       ets:update_counter(FedServerEts, total_syncs, 1),
       SyncIdx = ets:lookup_element(FedServerEts, total_syncs, ?ETS_KEYVAL_VAL_IDX),
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-      % io:format("Averaging model weights...~n"),
       {CurrentModelWeights, BinaryType} = nerlNIF:call_to_get_weights(ModelID),
       FedServerName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
       AllWorkersWeightsList = TotalWorkersWeights ++ [CurrentModelWeights],
-      io:format("GOT HERE1~n"),
       AvgWeightsNerlTensor = generate_avg_weights(AllWorkersWeightsList, BinaryType),
-      io:format("GOT HERE2~n"),
       nerlNIF:call_to_set_weights(ModelID, AvgWeightsNerlTensor), %% update self weights to new model
-      io:format("GOT HERE3~n"),
       Func = fun(FedClient) ->
         FedServerName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),

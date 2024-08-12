@@ -45,9 +45,18 @@ create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap , EtsStats) ->
     ModelID = erlang:unique_integer([positive]),
     WorkerStatsETS = stats:generate_workers_stats_ets(),
     {ok , SHA} = maps:find(WorkerName , ets:lookup_element(ClientEtsRef, workers_to_sha_map, ?DATA_IDX)),
-    {ModelType, ModelArgs, LayersSizes, LayersTypes, LayersFunctions, LossMethod, 
+    {ModelType, ModelArgs, LayersSizes, LayersTypes, LayersFunctions, LossMethod, LossArgs,
     LearningRate, Epochs, Optimizer, OptimizerArgs, _InfraType, DistributedSystemType, 
     DistributedSystemArgs, DistributedSystemToken} = maps:get(SHA, ShaToModelArgsMap),
+    DistributedTypeInteger = list_to_integer(DistributedSystemType),
+    if 
+      DistributedTypeInteger > 0 -> % not none (distributed)
+        if length(DistributedSystemToken) == 5 -> 
+          ?LOG_INFO("~p Running a Distributed independent system on this device with Token: ~p",[WorkerName, DistributedSystemToken]);
+          true -> throw("Distributed non-independent system (e.g., Federated Learning) must have a token which is NOT none. Add it to the Distributed Config json file under distributedSystemToken field, make sure it is 5 characters long")
+        end;
+      true -> ok
+    end,
     MyClientPid = self(),
     % TODO add documentation about this case of 
     % move this case to module called client_controller
@@ -55,7 +64,7 @@ create_workers(ClientName, ClientEtsRef , ShaToModelArgsMap , EtsStats) ->
     W2wComPid = w2wCom:start_link({WorkerName, MyClientPid}), % TODO Switch to monitor instead of link
 
     WorkerArgs = {ModelID , ModelType , ModelArgs , LayersSizes, LayersTypes, LayersFunctions, LearningRate , Epochs, 
-                  Optimizer, OptimizerArgs , LossMethod , DistributedSystemType , DistributedSystemToken, DistributedSystemArgs},
+                  Optimizer, OptimizerArgs , LossMethod , LossArgs, DistributedSystemType , DistributedSystemToken, DistributedSystemArgs},
     WorkerPid = workerGeneric:start_link({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData , MyClientPid , WorkerStatsETS , W2wComPid}),
     gen_server:cast(W2wComPid, {update_gen_worker_pid, WorkerPid}),
     ets:insert(WorkersETS, {WorkerName, {WorkerPid, WorkerArgs}}), 

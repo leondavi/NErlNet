@@ -18,6 +18,11 @@ std::vector<std::string> split_strings_by_comma(std::string &str);
 bool is_integer_number(const std::string &input_str);
 std::vector<std::string> matchRegex(std::string &input, std::regex re);
 
+inline bool substr_in_string(const std::string &input, const std::string &substr)
+{
+    return input.find(substr) != std::string::npos;
+}
+
 inline bool is_big_endian(void)
 {
     union {
