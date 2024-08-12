@@ -55,7 +55,7 @@ class Stats():
         """
         pass
 
-    def get_loss_ts(self , plot : bool = False , saveToFile : bool = False, log : bool = False): # Todo change it
+    def get_loss_ts(self , plot : bool = False , saveToFile : bool = False, smoothing : bool = False, log_plot : bool = False): 
         """
         Returns a dictionary of {worker : loss list} for each worker in the experiment.
         use plot=True to plot the loss function.
@@ -83,6 +83,11 @@ class Stats():
 
         df = pd.DataFrame(loss_dict)
         self.loss_ts_pd = df
+
+        if smoothing:
+            for column in df.columns:
+                for i in range(1, len(df)):
+                    df.at[i, column] = (df.at[i, column] + df.at[i-1, column]) / 2      
         
         if plot:
             sns.set(style="whitegrid")
@@ -95,7 +100,7 @@ class Stats():
             sns.lineplot(data=df)
             plt.xlabel('Batch Num.')
             plt.ylabel('Loss Value')
-            if log:
+            if log_plot:
                 plt.yscale('log')
                 plt.xscale('log')
             plt.title(f'Training Loss Function of ({self.experiment_phase.get_name()})')
@@ -106,6 +111,9 @@ class Stats():
             if saveToFile:
                 plt.savefig('training_loss_function.png', bbox_inches='tight')
 
+            if log_plot:
+                plt.yscale('log')
+            
             plt.show()
         return df
 
@@ -248,19 +256,35 @@ class Stats():
                         confusion_matrix_worker_dict[(worker_name, class_name)] += confusion_matrix
                     
                 else: # Multi-Class
-                    # Take 2 list from the df, one for the actual labels and one for the predict labels to build the confusion matrix
-                    max_column_predict_index = df_worker_labels.iloc[:, num_of_labels:].idxmax(axis=1) 
-                    max_column_predict_index = max_column_predict_index.tolist() 
-                    max_column_predict_index = [int(predict_index) - num_of_labels for predict_index in max_column_predict_index] # fix the index to original labels index
-                    max_column_labels_index = df_worker_labels.iloc[:, :num_of_labels].idxmax(axis=1)
-                    max_column_labels_index = max_column_labels_index.tolist()
+                    #check if there is a sample with more than one predicted label
+                    max_in_row = df_worker_labels.iloc[:, num_of_labels:].max(axis=1)
+                    is_max = df_worker_labels.iloc[:, num_of_labels:].eq(max_in_row, axis=0)  #Get a DataFrame of boolean values where True indicates the maximum value in that row
+                    max_counts = is_max.sum(axis=1)    #Get the number of maximum values in each row
+                    has_multiple_max = max_counts.gt(1).any()  #boolean value: checks if there is at least one row with multiple maximum values in the predict labels
+
+                    if has_multiple_max:
+                        LOG_INFO(f"Worker {worker_name} has at least one sample with multiple predicted labels")
+                        max_column_predict_index = is_max.apply(lambda row: list(row[row].index) if row.any() else [-1], axis=1).tolist()   # Generate a list of lists' each sublist has the index of the maximum value in the row
+                        max_column_predict_index =[[int(predict_label) - num_of_labels for predict_label in prdict_indexes_sublist] for prdict_indexes_sublist in max_column_predict_index]  # fix the index to original labels index
+                        max_column_labels_index = df_worker_labels.iloc[:, :num_of_labels].idxmax(axis=1).tolist()  # Get the index of the maximum actual value in each row
+
+                    else:            # No sample with multiple predicted labels
+                        # Take 2 lists from the df, one for the actual labels and one for the predict labels to build the confusion matrix
+                        max_column_predict_index = df_worker_labels.iloc[:, num_of_labels:].idxmax(axis=1) 
+                        max_column_predict_index = max_column_predict_index.tolist() 
+                        max_column_predict_index = [int(predict_index) - num_of_labels for predict_index in max_column_predict_index] # fix the index to original labels index
+                        max_column_labels_index = df_worker_labels.iloc[:, :num_of_labels].idxmax(axis=1)
+                        max_column_labels_index = max_column_labels_index.tolist()
                     
                     # building confusion matrix for each class
                     for class_index, class_name in enumerate(self.headers_list):
+                        if has_multiple_max:
+                            class_predict_list = [1 if class_index in row_max_list else 0 for row_max_list in max_column_predict_index]
+                        else:
+                            class_predict_list = [1 if label_num == class_index else 0 for label_num in max_column_predict_index]   # 1 if the label is belong to the class, 0 otherwise
                         class_actual_list = [1 if label_num == class_index else 0 for label_num in max_column_labels_index]   # 1 if the label is belong to the class, 0 otherwise
-                        class_predict_list = [1 if label_num == class_index else 0 for label_num in max_column_predict_index]   # 1 if the label is belong to the class, 0 otherwise
-                        confusion_matrix = metrics.confusion_matrix(class_actual_list, class_predict_list)  
-                        #confusion_matrix_np = confusion_matrix.to_numpy()
+                        labels = [0, 1]
+                        confusion_matrix = metrics.confusion_matrix(class_actual_list, class_predict_list, labels=labels)  
                         confusion_matrix_source_dict[(source_name, worker_name, class_name)] = confusion_matrix
                         if (worker_name, class_name) not in confusion_matrix_worker_dict:
                             confusion_matrix_worker_dict[(worker_name, class_name)] = confusion_matrix
@@ -313,12 +337,13 @@ class Stats():
         workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
         for source_piece_inst in sources_pieces_list:
             source_name = source_piece_inst.get_source_name()
+            source_epoch = int(globe.components.sourceEpochs[source_name])
             target_workers_string = source_piece_inst.get_target_workers()
             target_workers_names = target_workers_string.split(',')
             for worker_db in workers_model_db_list:
                     worker_name = worker_db.get_worker_name()
                     if worker_name in target_workers_names:       # Check if the worker is in the target workers list of this source
-                        for batch_id in range(source_piece_inst.get_num_of_batches()):
+                        for batch_id in range(source_epoch * source_piece_inst.get_num_of_batches()):
                             batch_db = worker_db.get_batch(source_name, str(batch_id))
                             if batch_db:    # if batch is recieved
                                 recieved_batch_key_str = recieved_batches_key(phase_name, source_name, worker_name)
@@ -342,13 +367,14 @@ class Stats():
         for source_piece_inst in sources_pieces_list:
             source_name = source_piece_inst.get_source_name()
             source_policy = globe.components.sources_policy_dict[source_name]   # 0 -> casting , 1 -> round robin, 2 -> random
+            source_epoch = int(globe.components.sourceEpochs[source_name])
             target_workers_string = source_piece_inst.get_target_workers()
             target_workers_names = target_workers_string.split(',')
             if source_policy == '0':  # casting policy
                 for worker_db in workers_model_db_list:
                     worker_name = worker_db.get_worker_name()
                     if worker_name in target_workers_names:       # Check if the worker is in the target workers list of this source
-                        for batch_id in range(source_piece_inst.get_num_of_batches()):
+                        for batch_id in range(source_epoch * source_piece_inst.get_num_of_batches()):
                             batch_db = worker_db.get_batch(source_name, str(batch_id))
                             if not batch_db:  # if batch is missing
                                 missed_batch_key_str = missed_batches_key(phase_name, source_name, worker_name)
@@ -357,7 +383,7 @@ class Stats():
                                 missed_batches_dict[missed_batch_key_str].append(batch_id)
             elif source_policy == '1':  # round robin policy
                 number_of_workers = len(target_workers_names)
-                batches_indexes = [i for i in range(source_piece_inst.get_num_of_batches())]
+                batches_indexes = [i for i in range(source_epoch * source_piece_inst.get_num_of_batches())]
                 batch_worker_tuple = [(batch_index, target_workers_names[batch_index % number_of_workers]) for batch_index in batches_indexes]  # (batch_index, worker_name_that_should_recive_the_batch)
                 worker_batches_dict = {worker_name: [] for worker_name in target_workers_names}   # Create a dictionary to hold batches id for each worker
                 for batch_index, worker_name in batch_worker_tuple:
