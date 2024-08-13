@@ -200,8 +200,9 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
     {next_state, NextState, State}
   end;
 
-wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   %logger:notice("Waiting, next state - idle"),
+  io:format("~p got end stream ~p~n",[MyName, StreamName]),
   Func = fun() -> stream_handler(end_stream, wait, StreamName, DistributedBehaviorFunc) end,
   {next_state, wait, State#workerGeneric_state{postBatchFunc = Func}};
 
@@ -281,12 +282,14 @@ train(cast, {post_train_update , Weights}, State = #workerGeneric_state{myName =
   DistributedBehaviorFunc(post_train, {get(generic_worker_ets), Weights}),
   {next_state, train, State};
 
-train(cast, {start_stream , StreamName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+train(cast, {start_stream , StreamName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+  io:format("~p got start stream ~p~n",[MyName, StreamName]),
   stream_handler(start_stream, train, StreamName, DistributedBehaviorFunc),
   % io:format("~p start stream ~p~n",[MyName, StreamName]),
   {next_state, train, State};
 
-train(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+train(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+  io:format("~p got end stream ~p~n",[MyName, StreamName]),
   stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
   {next_state, train, State};
 

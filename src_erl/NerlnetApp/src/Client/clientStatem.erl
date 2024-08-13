@@ -289,6 +289,7 @@ training(cast, _In = {worker_done, Data}, State = #client_statem_state{etsRef = 
   {WorkerName, StreamName} = Data,
   ListOfActiveWorkerSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   UpdatedListOfActiveWorkerSources = ListOfActiveWorkerSources -- [{WorkerName, StreamName}],
+  io:format("Client ~p got worker_done from ~p, Updated List: ~p~n",[ets:lookup_element(EtsRef, myName, ?DATA_IDX), WorkerName, UpdatedListOfActiveWorkerSources]),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, UpdatedListOfActiveWorkerSources}),
   case length(UpdatedListOfActiveWorkerSources) of 
     0 ->  ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
