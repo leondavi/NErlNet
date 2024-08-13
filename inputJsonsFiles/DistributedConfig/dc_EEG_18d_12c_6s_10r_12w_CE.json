@@ -13,8 +13,8 @@
     },
     "devices": [
         {
-            "name": "c0VM5",
-            "ipv4": "10.0.0.11",
+            "name": "c0VM12",
+            "ipv4": "10.0.0.30",
             "entities": "apiServer,mainServer,s6,rms"
         },
         {
@@ -161,7 +161,7 @@
             "port": "8912",
             "frequency": "5",
             "policy": "1",
-            "epochs": "3",
+            "epochs": "9",
             "type": "0"
         },
         {
@@ -169,7 +169,7 @@
             "port": "8913",
             "frequency": "5",
             "policy": "1",
-            "epochs": "3",
+            "epochs": "9",
             "type": "0"
         },
         {
@@ -177,7 +177,7 @@
             "port": "8914",
             "frequency": "5",
             "policy": "1",
-            "epochs": "3",
+            "epochs": "9",
             "type": "0"
         },
         {
@@ -185,7 +185,7 @@
             "port": "8915",
             "frequency": "5",
             "policy": "1",
-            "epochs": "3",
+            "epochs": "9",
             "type": "0"
         },
         {
@@ -193,7 +193,7 @@
             "port": "8916",
             "frequency": "5",
             "policy": "1",
-            "epochs": "3",
+            "epochs": "9",
             "type": "0"
         },
         {
@@ -201,7 +201,7 @@
             "port": "8917",
             "frequency": "5",
             "policy": "1",
-            "epochs": "3",
+            "epochs": "9",
             "type": "0"
         }
     ],
