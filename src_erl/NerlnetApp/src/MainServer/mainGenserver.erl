@@ -189,6 +189,7 @@ handle_cast({clientsPredict,_Body}, State = #main_genserver_state{myName = MyNam
 
 
 handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) ->
+    io:format("Received statistics message~n"),
     StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
     stats:increment_messages_received(StatsEts),
     if Body == <<"getStatistics">> ->   %% initial message from APIServer, get stats from entities
@@ -199,6 +200,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
       true ->
           %% statistics arrived from Entity
           {From, StatsEtsEncStr} = binary_to_term(Body),
+          io:format("Received statistics from ~p~n",[From]),
           set_entity_stats_ets_str(From, StatsEtsEncStr),
 
           % increase counter_received_stats ets by 1
