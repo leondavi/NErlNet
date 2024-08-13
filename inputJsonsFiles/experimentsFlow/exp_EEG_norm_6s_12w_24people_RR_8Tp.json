@@ -401,7 +401,7 @@
         ]  
     },
     {
-        "phaseName": "prediction_phase",
+        "phaseName": "prediction_phase1",
         "phaseType": "prediction",
         "sourcePieces":
         [
@@ -443,6 +443,55 @@
             {
             "sourceName": "s6",
             "startingSample": "113210",
+            "numOfBatches": "391",
+            "workers": "w11,w12",
+            "nerltensorType": "float"
+            }                      
+        ]    
+    },
+    {
+        "phaseName": "prediction_phase2",
+        "phaseType": "prediction",
+        "sourcePieces":
+        [
+            {
+            "sourceName": "s1",
+            "startingSample": "132730",
+            "numOfBatches": "391",
+            "workers": "w1,w2",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s2",
+            "startingSample": "152250",
+            "numOfBatches": "391",
+            "workers": "w3,w4",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s3",
+            "startingSample": "171770",
+            "numOfBatches": "391",
+            "workers": "w5,w6",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s4",
+            "startingSample": "191290",
+            "numOfBatches": "391",
+            "workers": "w7,w8",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s5",
+            "startingSample": "210810",
+            "numOfBatches": "391",
+            "workers": "w9,w10",
+            "nerltensorType": "float"
+            },
+            {
+            "sourceName": "s6",
+            "startingSample": "230330",
             "numOfBatches": "391",
             "workers": "w11,w12",
             "nerltensorType": "float"
