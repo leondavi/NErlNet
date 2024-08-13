@@ -267,7 +267,7 @@ training(cast, {start_stream , {worker, WorkerName, TargetName}}, State = #clien
 % This action is used for start_stream triggered from a source per worker
 training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
-  % io:format("Client ~p got start_stream for worker ~p, sent from source ~p~n",[ets:lookup_element(EtsRef, myName, ?DATA_IDX), WorkerName, SourceName]),
+  io:format("Client ~p got start_stream for worker ~p, sent from source ~p~n",[ets:lookup_element(EtsRef, myName, ?DATA_IDX), WorkerName, SourceName]),
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, SourceName}]}),
   ClientStatsEts = get(client_stats_ets),
@@ -290,7 +290,7 @@ training(cast, _In = {worker_done, Data}, State = #client_statem_state{etsRef = 
   {WorkerName, StreamName} = Data,
   ListOfActiveWorkerSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   UpdatedListOfActiveWorkerSources = ListOfActiveWorkerSources -- [{WorkerName, StreamName}],
-  % io:format("Client ~p got worker_done from ~p, Updated List: ~p~n",[ets:lookup_element(EtsRef, myName, ?DATA_IDX), WorkerName, UpdatedListOfActiveWorkerSources]),
+  io:format("Client ~p got worker_done from ~p, Updated List: ~p~n",[ets:lookup_element(EtsRef, myName, ?DATA_IDX), WorkerName, UpdatedListOfActiveWorkerSources]),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, UpdatedListOfActiveWorkerSources}),
   case length(UpdatedListOfActiveWorkerSources) of 
     0 ->  ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});

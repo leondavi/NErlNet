@@ -61,8 +61,8 @@ send_method_round_robin(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPai
   send_method_round_robin(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend, 0).
 send_method_round_robin(_TransmitterEts, Epochs, _TimeInterval_ms, _ClientWorkerPairs, _BatchesListToSend, EpochIdx) when EpochIdx == Epochs -> ok;
 send_method_round_robin(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend, EpochIdx) ->
-  % io:format("Epoch ~p~n", [EpochIdx]),
-  % io:format("Sending to clients-workers ~p~n", [ClientWorkerPairs]),
+  io:format("Epoch ~p~n", [EpochIdx]),
+  io:format("Sending to clients-workers ~p~n", [ClientWorkerPairs]),
   % Sends a batch per each
   ClientWorkerPairsIndexes = lists:seq(0, length(ClientWorkerPairs)-1),
   ClientWorkerPairsWithIndexes = lists:zip(ClientWorkerPairsIndexes, ClientWorkerPairs), % Tuple {Idx, Triplet}
