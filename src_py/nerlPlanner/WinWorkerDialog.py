@@ -48,8 +48,9 @@ def WinWorkerDialog():
                                   [sg.Text("Epochs:          "), sg.InputText("1", size=(15), key=KEY_EPOCHS_INPUT, enable_events=True)],
                                   [sg.Text("Optimizer Type: "), sg.Combo(list(OptimizerTypeMapping.keys()),enable_events=True, key=KEY_OPTIMIZER_TYPE_LIST_BOX),
                                    sg.Text("   Optimizer Args:"), sg.InputText(key=KEY_OPTIMIZER_ARGS_INPUT, size=(15), enable_events=True, expand_x=True)],
-                                  [sg.Text("Loss Method: "), sg.Combo(list(LossMethodMapping.keys()),enable_events=True, key=KEY_LOSS_METHOD_LIST_BOX)]
-                                  ]
+                                  [sg.Text("Loss Method: "), sg.Combo(list(LossMethodMapping.keys()),enable_events=True, key=KEY_LOSS_METHOD_LIST_BOX),
+                                   sg.Text("   Loss Args:"), sg.InputText(key=KEY_LOSS_ARGS_INPUT, size=(15), enable_events=True, expand_x=True)]]
+
     OptimizerDefinitionsFrame = sg.Frame("Optimizer Definitions", layout=OptimizerDefinitionsLayout, expand_x=True)
 
     InfraTypeLayout = [[ sg.Text("Infra Type: "), sg.Combo(list(InfraTypeMapping.keys()),default_value=list(InfraTypeMapping.keys())[0], enable_events=True, key=KEY_INFRA_TYPE_LIST_BOX)],
@@ -74,6 +75,7 @@ def WinWorkerDialog():
     OptimizationArgs = "none"
     LossMethodStr = ""
     LossMethod = None # None
+    LossArgs = ""
     LearningRate = None
     Epochs = "1"
     LayersFunctionsList = ""
@@ -93,6 +95,7 @@ def WinWorkerDialog():
         WorkerWindow[KEY_OPTIMIZER_ARGS_INPUT].update(OptimizationArgs)
         WorkerWindow[KEY_INFRA_TYPE_LIST_BOX].update(InfraType)
         WorkerWindow[KEY_LOSS_METHOD_LIST_BOX].update(LossMethodStr)
+        WorkerWindow[KEY_LOSS_ARGS_INPUT].update(LossArgs)
         WorkerWindow[KEY_LEARNING_RATE_INPUT].update(LearningRate)
         WorkerWindow[KEY_EPOCHS_INPUT].update(Epochs)
         WorkerWindow[KEY_LAYER_FUNCTIONS_CODES_INPUT].update(LayersFunctionsList)
@@ -182,7 +185,7 @@ def WinWorkerDialog():
         
         if event == KEY_OPTIMIZER_ARGS_INPUT:
             OptimizationArgs = values[event]
-        
+
         if event == KEY_INFRA_TYPE_LIST_BOX:
             InfraType = values[event]
 
@@ -206,6 +209,9 @@ def WinWorkerDialog():
         if event == KEY_LOSS_METHOD_LIST_BOX:
             LossMethodStr = values[event]
             LossMethod = LossMethodMapping[LossMethodStr]
+        
+        if event == KEY_LOSS_ARGS_INPUT:
+            LossArgs = values[event]
 
         if event == KEY_CHECKBOX_WORKER_WITH_DOCUMENTATION:
             WithDocumentation = values[KEY_CHECKBOX_WORKER_WITH_DOCUMENTATION]
@@ -223,7 +229,7 @@ def WinWorkerDialog():
             first_element_condition = bool(LayerTypesList[0] != "3")
             if worker_parameters_conditions and filepath_condition and first_element_condition:
                 # Update here when adding new fields to the worker 
-                newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, ModelArgsStr, OptimizationType, OptimizationArgs , LossMethodStr, LossMethod,
+                newWorker = Worker("new",LayersSizesList, ModelTypeStr, ModelType, ModelArgsStr, OptimizationType, OptimizationArgs , LossMethodStr, LossMethod, LossArgs,
                                     LearningRate, Epochs, LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken)
                 newWorker.save_as_json(FilePath.as_posix(), WithDocumentation)
                 sg.popup_auto_close("Successfully Created", keep_on_top=True)
@@ -247,7 +253,7 @@ def WinWorkerDialog():
                 loaded_worker_dict = {}
                 with open(FilePathLoad) as jsonFile:
                     loaded_worker_dict = json.load(jsonFile)
-                (LayersSizesList, ModelTypeStr, ModelType, ModelArgsStr, OptimizationType, OptimizationArgs ,LossMethodStr, LossMethod, LearningRate, Epochs,
+                (LayersSizesList, ModelTypeStr, ModelType, ModelArgsStr, OptimizationType, OptimizationArgs ,LossMethodStr, LossMethod, LossArgs, LearningRate, Epochs,
                 LayersFunctionsList, LayerTypesList, InfraType, DistributedSystemType, DistributedSystemArgs ,DistributedSystemToken) = Worker.load_from_dict(loaded_worker_dict, get_params=True)
                 ui_update_all_values(WorkerWindow)
 
