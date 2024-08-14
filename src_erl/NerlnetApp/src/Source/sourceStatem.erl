@@ -199,7 +199,9 @@ idle(cast, {statistics}, State) ->
   StatsEtsStr = stats:encode_ets_to_http_bin_str(StatsEtsRef),
   StatisticsBody = {MyName , StatsEtsStr}, 
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+  io:format("Source is sending statistics to main server~n"),
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
+  io:format("Source sent statistics to main server~n"),
   stats:increment_messages_sent(StatsEtsRef),
   {next_state, idle, State#source_statem_state{}};
 
@@ -319,7 +321,8 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
   TransmissionStart = erlang:timestamp(),
   case integer_to_list(Method) of % Method is given as an integer
     ?SOURCE_POLICY_CASTING_IDX -> sourceSendingPolicies:send_method_casting(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
-    ?SOURCE_POLICY_ROUNDROBIN_IDX -> sourceSendingPolicies:send_method_round_robin(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
+    ?SOURCE_POLICY_ROUNDROBIN_IDX -> sourceSendingPolicies:send_method_round_robin(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend),
+                                      io:format("Done sending batches~n");
     ?SOURCE_POLICY_RANDOM_IDX ->  sourceSendingPolicies:send_method_random(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
     _Default -> sourceSendingPolicies:send_method_casting(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend)
   end,
@@ -330,6 +333,7 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
     nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(end_stream), ToSend)
   end,
   lists:foreach(FuncEnd, ClientWorkerPairs),
+  io:format("Done sending end_stream messages~n"),
   ErrorBatches = ets:lookup_element(TransmitterEts, batches_issue, ?DATA_IDX),
   SkippedBatches = ets:lookup_element(TransmitterEts, batches_skipped, ?DATA_IDX),
   BatchesSent = ets:lookup_element(TransmitterEts, batches_sent, ?DATA_IDX),
@@ -344,6 +348,7 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
     true -> ok
   end,
 
+  io:format("Source ~p finished casting, notifying mainServer~n", [MyName]),
   gen_statem:cast(SourcePid,{finishedCasting,BatchesSent}),
   ActualFrequency = 1/(TransmissionTimeTook_sec/BatchesSent),
   ?LOG_INFO("Source ~p Actual Frequency: ~p [B/Sec]",[MyName, ActualFrequency]),
