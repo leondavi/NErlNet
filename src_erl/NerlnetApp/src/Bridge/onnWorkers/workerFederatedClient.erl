@@ -67,6 +67,7 @@ init({GenWorkerEts, WorkerData}) ->
 
 handshake(FedClientEts) ->
   W2WPid = ets:lookup_element(FedClientEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+  io:format("Handshake with server~n"),
   w2wCom:sync_inbox(W2WPid),
   InboxQueue = w2wCom:get_all_messages(W2WPid),
   MessagesList = queue:to_list(InboxQueue),
@@ -134,6 +135,7 @@ post_idle({GenWorkerEts, _WorkerData}) ->
               w2wCom:sync_inbox(W2WPid),
               InboxQueue = w2wCom:get_all_messages(W2WPid),
               [{_FedServer, {handshake_done, Token}}] = queue:to_list(InboxQueue),
+              io:format("Handshake done with server~n"),
               ets:update_element(FedClientEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true});
               % io:format("Worker is part of cluster with token ~p~n", [Token]);
             true -> ok
