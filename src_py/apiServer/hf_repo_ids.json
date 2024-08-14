@@ -22,13 +22,25 @@
             "id": "Nerlnet/tiles_sorted",
             "idx": 3,
             "name": "Tiles_Mnist_sorted",
-            "description": "Mnist tiled,sorted by parts - tiled to 3 parts"
+            "description": "Mnist tiled,sorted by parts - tiled"
         },
         {
             "id": "Nerlnet/Mnist_normalized",
             "idx": 4,
             "name": "mnist_normalized",
             "description": "MNist Dataset for CNN experiments - 255 normalized"
+        },
+        {
+            "id": "Nerlnet/cifar10",
+            "idx": 5,
+            "name": "cifar10",
+            "description": "cifar10"
+        }
+        ,{
+        "id": "Nerlnet/cifar10_tiles",
+        "idx": 6,
+        "name": "cifar10_tiles",
+        "description": "cifar10 tiles"
         }
     ]
 }

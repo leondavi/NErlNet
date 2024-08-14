@@ -44,6 +44,7 @@ class StatsTiles(Stats):
             df_actual_labels.columns = header_list
             df_actual_labels = self.expend_labels_df(df_actual_labels)
             source_name = source_piece_inst.get_source_name()
+            source_name_new = source_name.split("_")[1]
             target_workers = source_piece_inst.get_target_workers()
             worker_missed_batches = {}
             batch_size = source_piece_inst.get_batch_size()
@@ -75,12 +76,12 @@ class StatsTiles(Stats):
                             distributed_dict = distributed_tokens_dict[distributed_token_db]
                             try:
                                 batch_id_arr_worker = distributed_dict[worker_name]
-                                batch_id_arr_worker.append(batch_id)
+                                batch_id_arr_worker.append((source_name_new,batch_id))
                                 distributed_tokens_dict[distributed_token_db][worker_name] = batch_id_arr_worker
                             except: 
-                                distributed_tokens_dict[distributed_token_db].update({worker_name : [batch_id]})
+                                distributed_tokens_dict[distributed_token_db].update({worker_name : [(source_name_new,batch_id)]})
                         except:
-                            distributed_tokens_dict[distributed_token_db] =  {worker_name : [batch_id]}
+                            distributed_tokens_dict[distributed_token_db] =  {worker_name : [(source_name_new,batch_id)]}
                     else:
                         cycle = int(batch_id)
                         start_index = cycle * batch_size
@@ -92,52 +93,68 @@ class StatsTiles(Stats):
                 max_column_predict_index = [int(predict_index) - num_of_labels for predict_index in max_column_predict_index] # fix the index to original labels index
                 max_column_labels_index = df_worker_labels.iloc[:, :num_of_labels].idxmax(axis=1)
                 max_column_labels_index = max_column_labels_index.tolist()
-                worker_name_labels_dict[worker_name] = {"labels": [max_column_labels_index,max_column_predict_index]}
+                try:
+                    worker_name_labels_dict[source_name_new].update({worker_name : {"labels": [max_column_labels_index,max_column_predict_index]}})
+                except:
+                    worker_name_labels_dict[source_name_new]= {worker_name : {"labels": [max_column_labels_index,max_column_predict_index]}}
+                
             
             
         for distributed_token_key in list(distributed_tokens_dict.keys()):
             workers = list(distributed_tokens_dict[distributed_token_key].keys())
-            distributed_token_arr = {}
-            batch_id_dict = {}
+            distributed_token_dict = {}
+            batch_id_source_dict = {}
             for worker in list(workers):
-                labels = worker_name_labels_dict[worker]["labels"]
-                distributed_token_arr[worker] = labels
-                batch_list_for_worker = distributed_tokens_dict[distributed_token_key][worker]
-                for batch_id in batch_list_for_worker:
-                    try:
-                        batch_id_dict[batch_id].append(worker)
+                batch_source_list_for_worker = distributed_tokens_dict[distributed_token_key][worker]
+                for value in batch_source_list_for_worker:
+                    source_name = value[0]
+                    batch_id = value[1]
+                    labels = worker_name_labels_dict[source_name][worker]["labels"]
+                    try: 
+                        distributed_token_dict[source_name][worker] = labels
                     except:
-                        batch_id_dict[batch_id] = [worker]
+                        distributed_token_dict[source_name] = {worker : labels}
+                    try:
+                        batch_id_source_dict[source_name][batch_id].append(worker)
+                    except:
+                        try:
+                            batch_id_source_dict[source_name].update({batch_id : [worker]})
+                        except:
+                            batch_id_source_dict[source_name] = {batch_id : [worker]}
+
             for class_index, class_name in enumerate(self.headers_list):
                 class_actual_list_full = []
                 class_actual_predict_full = []
-                for batch_id_val in list(batch_id_dict.keys()):
-                    class_actual_list = []
-                    class_predict_list = []
-                    workers_list = batch_id_dict[batch_id_val]
-                    labels_dict = distributed_token_arr
-                    cycle = int(batch_id_val)
-                    start_index = cycle * batch_size
-                    end_index = (cycle + 1) * batch_size
-                    for worker in workers_list:
-                        class_actual_list  = [1 if label_num == class_index else 0 for label_num in labels_dict[worker][0][start_index:end_index]]
-                        label_list_worker = labels_dict[worker][1][start_index:end_index]
-                        class_predict_temp = [1 if label_num == class_index else 0 for label_num in label_list_worker]
-                        if(class_predict_list == []):
-                            class_predict_list = [0]*len(class_predict_temp)
-                        try:
-                            temp_list = [class_predict_list,class_predict_temp]
-                            class_predict_list = [sum(x) for x in zip(*temp_list)]
-                        except:
-                            class_predict_list = [1 if label_num == class_index else 0 for label_num in label_list_worker]
-                    class_predict_list_new = [1 if (i>len(workers_list)/2 or i == len(workers_list))  else 0 for i in class_predict_list]
-                    class_actual_list_full.extend(class_actual_list) 
-                    class_actual_predict_full.extend(class_predict_list_new) 
-                confusion_matrix = metrics.confusion_matrix(class_actual_list_full, class_actual_predict_full)  
-                try:
-                    confusion_matrix_distributed_dict[(distributed_token_key, class_name)] += confusion_matrix   
-                except:
-                    confusion_matrix_distributed_dict[(distributed_token_key, class_name)] = confusion_matrix 
+                for source_name in list(batch_id_source_dict.keys()):
+                    batch_id_dict = batch_id_source_dict[source_name]
+                    distributed_token_dict_temp = distributed_token_dict[source_name]
+                    for batch_id_val in list(batch_id_dict.keys()):
+                        class_actual_list = []
+                        class_predict_list = []
+                        workers_list = batch_id_dict[batch_id_val]
+                        labels_dict = distributed_token_dict_temp
+                        cycle = int(batch_id_val)
+                        start_index = cycle * batch_size
+                        end_index = (cycle + 1) * batch_size
+                        for worker in workers_list:
+                            class_actual_list  = [1 if label_num == class_index else 0 for label_num in labels_dict[worker][0][start_index:end_index]]
+                            label_list_worker = labels_dict[worker][1][start_index:end_index]
+                            class_predict_temp = [1 if label_num == class_index else 0 for label_num in label_list_worker]
+                            if(class_predict_list == []):
+                                class_predict_list = [0]*len(class_predict_temp)
+                            try:
+                                temp_list = [class_predict_list,class_predict_temp]
+                                class_predict_list = [sum(x) for x in zip(*temp_list)]
+                            except:
+                                class_predict_list = [1 if label_num == class_index else 0 for label_num in label_list_worker]
+                        class_predict_list_new = [1 if (i>len(workers_list)/2 or i == len(workers_list))  else 0 for i in class_predict_list]
+                        class_actual_list_full.extend(class_actual_list) 
+                        class_actual_predict_full.extend(class_predict_list_new) 
+                    confusion_matrix = metrics.confusion_matrix(class_actual_list_full, class_actual_predict_full)  
+                    try:
+                        confusion_matrix_distributed_dict[(distributed_token_key, class_name)] += confusion_matrix   
+                    except:
+                        confusion_matrix_distributed_dict[(distributed_token_key, class_name)] = confusion_matrix 
         if plot:
             self.print_plot(confusion_matrix_distributed_dict) 
         return confusion_matrix_source_dict, confusion_matrix_distributed_dict
@@ -197,6 +214,7 @@ class StatsTiles(Stats):
             df_actual_labels.columns = header_list
             df_actual_labels = self.expend_labels_df(df_actual_labels)
             source_name = source_piece_inst.get_source_name()
+            source_name_new = source_name.split("_")[1]
             target_workers = source_piece_inst.get_target_workers()
             worker_missed_batches = {}
             batch_size = source_piece_inst.get_batch_size()
@@ -228,12 +246,12 @@ class StatsTiles(Stats):
                             distributed_dict = distributed_tokens_dict[distributed_token_db]
                             try:
                                 batch_id_arr_worker = distributed_dict[worker_name]
-                                batch_id_arr_worker.append(batch_id)
+                                batch_id_arr_worker.append((source_name_new,batch_id))
                                 distributed_tokens_dict[distributed_token_db][worker_name] = batch_id_arr_worker
                             except: 
-                                distributed_tokens_dict[distributed_token_db].update({worker_name : [batch_id]})
+                                distributed_tokens_dict[distributed_token_db].update({worker_name : [(source_name_new,batch_id)]})
                         except:
-                            distributed_tokens_dict[distributed_token_db] =  {worker_name : [batch_id]}
+                            distributed_tokens_dict[distributed_token_db] =  {worker_name : [(source_name_new,batch_id)]}
                     else:
                         cycle = int(batch_id)
                         start_index = cycle * batch_size
@@ -244,57 +262,81 @@ class StatsTiles(Stats):
                 max_column_predict_index = max_column_predict_index
                 max_column_labels_index = df_worker_labels.iloc[:, :num_of_labels].idxmax(axis=1)
                 max_column_labels_index = max_column_labels_index.tolist()
-                worker_name_labels_dict[worker_name] = {"labels": [max_column_labels_index,max_column_predict_index]}
+                try:
+                    worker_name_labels_dict[source_name_new].update({worker_name : {"labels": [max_column_labels_index,max_column_predict_index]}})
+                except:
+                    worker_name_labels_dict[source_name_new]= {worker_name : {"labels": [max_column_labels_index,max_column_predict_index]}}
+                
             
             
         for distributed_token_key in list(distributed_tokens_dict.keys()):
             workers = list(distributed_tokens_dict[distributed_token_key].keys())
-            distributed_token_arr = []
+            distributed_token_dict = {}
             batch_dict_worker_labels = {}
-            batch_id_dict = {}
+            batch_id_source_dict = {}
             for worker in list(workers):
-                labels = worker_name_labels_dict[worker]["labels"]
-                distributed_token_arr.append(labels)
-                distributed_token_key_worker = distributed_tokens_dict[distributed_token_key][worker]
-                for batch_id in distributed_token_key_worker:
-                    batch_dict_worker_labels[batch_id] = labels[0]
+                batch_source_list_for_worker = distributed_tokens_dict[distributed_token_key][worker]
+                for value in batch_source_list_for_worker:
+                    source_name = value[0]
+                    batch_id = value[1]
+                    labels = worker_name_labels_dict[source_name][worker]["labels"]
                     try:
-                        batch_id_dict[batch_id].append(worker)
+                        batch_dict_worker_labels[source_name].update({batch_id: labels[0]})
                     except:
-                        batch_id_dict[batch_id] = [worker]
+                        batch_dict_worker_labels[source_name] = {batch_id: labels[0]}
+                    try: 
+                        distributed_token_dict[source_name][worker] = labels
+                    except:
+                        distributed_token_dict[source_name] = {worker : labels}
+                    try:
+                        batch_id_source_dict[source_name][batch_id].append(worker)
+                    except:
+                        try:
+                            batch_id_source_dict[source_name].update({batch_id : [worker]})
+                        except:
+                            batch_id_source_dict[source_name] = {batch_id : [worker]}
+                   
+                
             class_actual_predict_dict = {}
-            for batch_id_val in list(batch_id_dict.keys()):
-                class_predict_list = []
-                workers_list = batch_id_dict[batch_id_val]
-                labels_list = distributed_token_arr
-                cycle = int(batch_id_val)
-                start_index = cycle * batch_size
-                end_index = (cycle + 1) * batch_size
-                for worker_id,worker in enumerate(workers_list):
-                    label_list_worker = labels_list[worker_id][1][start_index:end_index]
-                    class_predict_temp = label_list_worker.values.tolist()
-                    if(class_predict_list == []):
-                        class_predict_list = class_predict_temp
-                    else:
-                        class_predict_list = self.add_lists_of_lists(class_predict_list, class_predict_temp)
-                class_actual_predict_dict[batch_id_val] = class_predict_list
+            for source_name in list(batch_id_source_dict.keys()):
+                batch_id_dict = batch_id_source_dict[source_name]
+                for batch_id_val in list(batch_id_dict.keys()):
+                    class_predict_list = []
+                    workers_list = batch_id_dict[batch_id_val]
+                    labels_list = distributed_token_dict[source_name]
+                    cycle = int(batch_id_val)
+                    start_index = cycle * batch_size
+                    end_index = (cycle + 1) * batch_size
+                    for worker in workers_list:
+                        label_list_worker = labels_list[worker][1][start_index:end_index]
+                        class_predict_temp = label_list_worker.values.tolist()
+                        if(class_predict_list == []):
+                            class_predict_list = class_predict_temp
+                        else:
+                            class_predict_list = self.add_lists_of_lists(class_predict_list, class_predict_temp)
+                    try:
+                        class_actual_predict_dict[source_name].update({batch_id_val: class_predict_list})
+                    except:
+                         class_actual_predict_dict[source_name] = {batch_id_val: class_predict_list}
 
           
             for class_index, class_name in enumerate(self.headers_list):
                 class_actual_predict_full = []
                 class_actual_list_full = []
-                for batch_id_val in list(batch_id_dict.keys()):
-                    cycle = int(batch_id_val)
-                    start_index = cycle * batch_size
-                    end_index = (cycle + 1) * batch_size
-                    class_predict_list_prev = class_actual_predict_dict[batch_id_val]
-                    class_predict_list = []
-                    class_actual_list  = [1 if label_num == class_index else 0 for label_num in batch_dict_worker_labels[batch_id_val][start_index:end_index]]
-                    max_column_predict_index = self.argmax_axis_1(class_predict_list_prev)
-                    max_column_predict_index = [int(predict_index) for predict_index in max_column_predict_index] 
-                    class_predict_list = [1 if label_num == class_index else 0 for label_num in max_column_predict_index]
-                    class_actual_predict_full.extend(class_predict_list) 
-                    class_actual_list_full.extend(class_actual_list) 
+                for source_name in list(batch_id_source_dict.keys()):
+                    batch_id_dict = batch_id_source_dict[source_name]
+                    for batch_id_val in list(batch_id_dict.keys()):
+                        cycle = int(batch_id_val)
+                        start_index = cycle * batch_size
+                        end_index = (cycle + 1) * batch_size
+                        class_predict_list_prev = class_actual_predict_dict[source_name][batch_id_val]
+                        class_predict_list = []
+                        class_actual_list  = [1 if label_num == class_index else 0 for label_num in batch_dict_worker_labels[source_name][batch_id_val][start_index:end_index]]
+                        max_column_predict_index = self.argmax_axis_1(class_predict_list_prev)
+                        max_column_predict_index = [int(predict_index) for predict_index in max_column_predict_index] 
+                        class_predict_list = [1 if label_num == class_index else 0 for label_num in max_column_predict_index]
+                        class_actual_predict_full.extend(class_predict_list) 
+                        class_actual_list_full.extend(class_actual_list) 
 
                 confusion_matrix = metrics.confusion_matrix(class_actual_list_full, class_actual_predict_full)  
                 try:
