@@ -312,7 +312,7 @@ namespace nerlnet
                     input_variable_dimension.setValues({this->_nerl_layers_linked_list->get_dim_size(DIM_Z_IDX), this->_nerl_layers_linked_list->get_dim_size(DIM_Y_IDX), this->_nerl_layers_linked_list->get_dim_size(DIM_X_IDX)});
                     _data_set->set_input_variables_dimensions(input_variable_dimension);
                     int samples_num =  _data_set->get_samples_number();
-                    int input_variable = this->_nerl_layers_linked_list->get_dim_size(DIM_Y_IDX)* this->_nerl_layers_linked_list->get_dim_size(DIM_X_IDX);
+                    int input_variable = this->_nerl_layers_linked_list->get_dim_size(DIM_Y_IDX)* this->_nerl_layers_linked_list->get_dim_size(DIM_X_IDX)*this->_nerl_layers_linked_list->get_dim_size(DIM_Z_IDX);
                     for(Index sample_indx = 0; sample_indx < samples_num ; sample_indx++)
                     {
                     _data_set->set_sample_use(sample_indx, DataSet::SampleUse::Training);
@@ -370,6 +370,7 @@ namespace nerlnet
     void NerlWorkerOpenNN::generate_custom_model_nn(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
     {        
         shared_ptr<NerlLayer> curr_layer = _nerl_layers_linked_list;
+        std::cout << "generate_custom_model_nn" << std::endl;
         while(curr_layer)
         {
             int layer_type = curr_layer->get_layer_type();
@@ -426,6 +427,7 @@ namespace nerlnet
                     convolutional_layer->set_activation_function((opennn::ConvolutionalLayer::ActivationFunction)(cnn_curr_layer->get_layer_functionality())); // set activation function
                     // add layer to the neural network
                     neural_network_ptr->add_layer(convolutional_layer); // add layer to the neural network
+                    std::cout << "ConvolutionalLayer" << std::endl;
                     break;
 
                 }
@@ -569,6 +571,7 @@ namespace nerlnet
             }  
             curr_layer = curr_layer->get_next_layer_ptr();
         }
+        std::cout << "generate_custom_model_nn end" << std::endl;
     }
 
     void NerlWorkerOpenNN::generate_custom_model_aec(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
