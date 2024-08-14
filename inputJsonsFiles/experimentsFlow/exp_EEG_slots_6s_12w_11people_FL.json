@@ -96,13 +96,6 @@
             "numOfBatches": "1561",
             "workers": "w11",
             "nerltensorType": "float"
-            },
-            {
-            "sourceName": "s6",
-            "startingSample": "214720",
-            "numOfBatches": "1561",
-            "workers": "w12",
-            "nerltensorType": "float"
             }
         ]  
     },
@@ -194,14 +187,7 @@
             "numOfBatches": "391",
             "workers": "w11",
             "nerltensorType": "float"
-            },
-            {
-            "sourceName": "s6",
-            "startingSample": "230330",
-            "numOfBatches": "391",
-            "workers": "w12",
-            "nerltensorType": "float"
-            }                      
+            }                   
         ]    
     }
 ]
