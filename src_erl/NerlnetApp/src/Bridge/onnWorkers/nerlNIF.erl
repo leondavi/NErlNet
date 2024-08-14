@@ -94,6 +94,9 @@ recv_call_loop() ->
             {'$gen_cast', _Any} -> ?LOG_WARNING("Missed batch in call of get_weigths"),
                   recv_call_loop();
             NerlTensorWeights -> NerlTensorWeights
+      after 
+            10000 -> ?LOG_ERROR("Timeout in get_weights_nif~n"),
+                     []
       end.
 
 call_to_set_weights(ModelID,{WeightsNerlTensor, Type})->
