@@ -82,6 +82,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{handshake_done, false}),
   ets:insert(GenWorkerEts,{active_streams, []}),
   ets:insert(GenWorkerEts,{stream_occuring, false}),
+  ets:insert(GenWorkerEts,{end_streams_waiting_list, []}), % Waiting list of messages from client to end_stream with source
   % Worker to Worker communication module - this is a gen_server
 
 
@@ -200,11 +201,14 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
     {next_state, NextState, State}
   end;
 
-wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = _DistributedBehaviorFunc}) ->
   %logger:notice("Waiting, next state - idle"),
-  io:format("~p got end stream ~p~n",[MyName, StreamName]),
-  Func = fun() -> stream_handler(end_stream, wait, StreamName, DistributedBehaviorFunc) end,
-  {next_state, wait, State#workerGeneric_state{postBatchFunc = Func}};
+  CurrentEndStreamWaitingList = ets:lookup_element(get(generic_worker_ets), end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
+  NewEndStreamWaitingList = CurrentEndStreamWaitingList ++ [StreamName],
+  % io:format("Got end_stream @wait: NewWaitingList: ~p~n",[NewEndStreamWaitingList]),
+  ets:update_element(get(generic_worker_ets), end_streams_waiting_list, {?ETS_KEYVAL_VAL_IDX, NewEndStreamWaitingList}),
+  % io:format("@wait ~p got end stream from ~p~n",[MyName, StreamName]),
+  {next_state, wait, State};
 
 wait(cast, {post_train_update, Data}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets), {post_train_update, Data}}),
