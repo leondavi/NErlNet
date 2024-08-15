@@ -239,7 +239,7 @@ wait(cast, {predict}, State) ->
 
 %% Worker in wait can't treat incoming message 
 wait(cast, BatchTuple , State = #workerGeneric_state{lastPhase = LastPhase, myName= _MyName}) when element(1, BatchTuple) == sample ->
-  % io:format("@wait: Dropped batch state...~n"),
+  io:format("@wait: Dropped batch state...~n"),
   case LastPhase of
     train -> 
       ets:update_counter(get(worker_stats_ets), batches_dropped_train , 1);
