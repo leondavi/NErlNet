@@ -289,6 +289,7 @@ training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = E
   {keep_state, State};
 
 training(cast, In = {stream_ended , Pair}, State = #client_statem_state{etsRef = EtsRef}) ->
+  io:format("~p stream ended ~n",[Pair]),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
