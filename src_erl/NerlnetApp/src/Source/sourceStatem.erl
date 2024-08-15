@@ -330,6 +330,7 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
     nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(end_stream), ToSend)
   end,
   lists:foreach(FuncEnd, ClientWorkerPairs),
+  io:format("Sent end stream to all workers~n"),
   ErrorBatches = ets:lookup_element(TransmitterEts, batches_issue, ?DATA_IDX),
   SkippedBatches = ets:lookup_element(TransmitterEts, batches_skipped, ?DATA_IDX),
   BatchesSent = ets:lookup_element(TransmitterEts, batches_sent, ?DATA_IDX),
