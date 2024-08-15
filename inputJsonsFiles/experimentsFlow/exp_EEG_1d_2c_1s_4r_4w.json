@@ -2,7 +2,7 @@
    "experimentName": "EEG_Valence_Recognition_DEAP",
    "experimentType": "classification",
    "batchSize": 10,
-   "csvFilePath": "/home/nerlnet/workspace/1_3_persons_slots_valence.csv",
+   "csvFilePath": "/home/nerlnet/data/persons_csvs/persons_slots_valence/1_3_persons_slots_valence.csv",
    "numOfFeatures": "70",
    "numOfLabels": "9",
    "headersNames": "1,2,3,4,5,6,7,8,9",
@@ -15,9 +15,9 @@
          [
             {
             "sourceName": "s1",
-            "startingSample": "10",
-            "numOfBatches": "500",
-            "workers": "w1,w2,w3,w4",
+            "startingSample": "0",
+            "numOfBatches": "100",
+            "workers": "w1,w2,w3",
             "nerltensorType": "float"
             }
          ]  
@@ -30,8 +30,8 @@
             {
             "sourceName": "s1",
             "startingSample": "16510",
-            "numOfBatches": "200",
-            "workers": "w1,w2,w3,w4",
+            "numOfBatches": "100",
+            "workers": "w1,w2,w3",
             "nerltensorType": "float"
             }
          ]    
