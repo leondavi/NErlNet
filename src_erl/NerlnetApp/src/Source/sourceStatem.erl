@@ -313,7 +313,8 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
   {RouterHost, RouterPort} = ets:lookup_element(TransmitterEts, my_router, ?DATA_IDX),
   FuncStart = fun({ClientName, WorkerNameStr}) ->
     ToSend = {MyName, ClientName, list_to_atom(WorkerNameStr)},
-    nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(start_stream), ToSend)
+    nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(start_stream), ToSend),
+    io:format("Source ~p sent start_stream to ~p~n", [MyName, ClientName])
   end,
   lists:foreach(FuncStart, ClientWorkerPairs),
   TransmissionStart = erlang:timestamp(),
@@ -327,7 +328,8 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
   % Message to workers : "end_stream"
   FuncEnd = fun({ClientName, WorkerNameStr}) ->
     ToSend = {MyName, ClientName, list_to_atom(WorkerNameStr)},
-    nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(end_stream), ToSend)
+    nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(end_stream), ToSend),
+    io:format("Source ~p sent end_stream to ~p~n", [MyName, ClientName])
   end,
   lists:foreach(FuncEnd, ClientWorkerPairs),
   ErrorBatches = ets:lookup_element(TransmitterEts, batches_issue, ?DATA_IDX),

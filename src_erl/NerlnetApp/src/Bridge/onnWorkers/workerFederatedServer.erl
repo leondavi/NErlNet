@@ -145,7 +145,7 @@ post_train({GenWorkerEts, WeightsTensor}) ->
   NumOfActiveWorkers = length([FedWorker || {_MyName, {FedWorker, _Source}} <- ActiveWorkersSourcesList]),
   case length(TotalWorkersWeights) of 
     NumOfActiveWorkers -> 
-      % io:format("Averaging model weights...~n"),
+      io:format("Averaging model weights...~n"),
       ets:update_counter(FedServerEts, total_syncs, 1),
       SyncIdx = ets:lookup_element(FedServerEts, total_syncs, ?ETS_KEYVAL_VAL_IDX),
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
@@ -161,7 +161,7 @@ post_train({GenWorkerEts, WeightsTensor}) ->
       end,
       WorkersSourcesList = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
       WorkersList = [FedWorker || {_MyName, {FedWorker, _Source}} <- WorkersSourcesList], 
-      % io:format("Sending new weights to workers ~p~n",[WorkersList]),
+      io:format("Sending new weights to workers ~p~n",[WorkersList]),
       lists:foreach(Func, WorkersList),
       ets:update_element(FedServerEts, weights_list, {?ETS_KEYVAL_VAL_IDX, []});
     _ -> ets:update_element(FedServerEts, weights_list, {?ETS_KEYVAL_VAL_IDX, TotalWorkersWeights})
