@@ -96,7 +96,7 @@ get_models(ShaToModelMaps) ->
     ModelTuple = {ModelType, ModelArgs , LayersSizes, LayersTypes, LayersFunctions, LossMethod, LossArgs, LearningRate, Epochs, Optimizer, OptimizerArgs, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken},
     ModelTuple
   end,
-  ShaToModelArgsList = [{binary_to_list(ShaBin) , ModelParams} || {ShaBin , ModelParams} <- lists:map(Func , ShaToModelMaps)], % CHANGED BY GUY 15/8/24
+  ShaToModelArgsList = [{binary_to_list(ShaBin) , ModelParams} || {ShaBin , ModelParams} <- maps:to_list(maps:map(Func, ShaToModelMaps))],
   maps:from_list(ShaToModelArgsList).
 
 generate_workers_map([],WorkersMap,_ClientName)->WorkersMap;
