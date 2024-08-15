@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import comm
 from sklearn import metrics
 from IPython.display import display
 import matplotlib.pyplot as plt
@@ -229,6 +230,7 @@ class Stats():
                 if nerltensorType == 'float':
                     if any(pd.api.types.is_integer_dtype(df_worker_labels[col]) for col in df_worker_labels.columns):
                         df_worker_labels = df_worker_labels.astype(float)
+                        
                 
                 #build df_worker_labels with the actual labels and the predict labels
                 index = 0
@@ -247,7 +249,9 @@ class Stats():
                 if len(self.headers_list) == 1:   # One class
                     class_name = self.headers_list[0]
                     actual_labels = df_worker_labels.iloc[:, :num_of_labels].values.flatten().tolist()
+                    # Predicted labels should be binary, threshold 0.5, turn every float to 1 if it's greater than 0.5, 0 otherwise
                     predict_labels = df_worker_labels.iloc[:, num_of_labels:].values.flatten().tolist()
+                    predict_labels = [1.0 if label > 0.5 else 0.0 for label in predict_labels]
                     confusion_matrix = metrics.confusion_matrix(actual_labels, predict_labels)
                     confusion_matrix_source_dict[(source_name, worker_name, class_name)] = confusion_matrix
                     if (worker_name, class_name) not in confusion_matrix_worker_dict:
@@ -567,5 +571,27 @@ class Stats():
 
     def get_predict_regression_stats(self , plot : bool = False , saveToFile : bool = False):
         pass
+    
+    def get_total_bytes(self):
+        # Return the total bytes sent and received in the experiment
+        assert self.phase == PHASE_PREDICTION_STR, "This function is only available for prediction phase"
+        comm_stats_main_server = self.get_communication_stats_main_server()
+        comm_stats_router = self.get_communication_stats_routers()
+        comm_stats_clients = self.get_communication_stats_clients()
+        comm_stats_sources = self.get_communication_stats_sources()
+        bytes = 0
+        for client in comm_stats_clients:
+            bytes += comm_stats_clients[client]['bytes_sent']
+            bytes += comm_stats_clients[client]['bytes_received']
+        for source in comm_stats_sources:
+            bytes += comm_stats_sources[source]['bytes_sent']
+            bytes += comm_stats_sources[source]['bytes_received']
+        for router in comm_stats_router:
+            bytes += comm_stats_router[router]['bytes_sent']
+            bytes += comm_stats_router[router]['bytes_received']
+        bytes += comm_stats_main_server['bytes_sent']
+        bytes += comm_stats_main_server['bytes_received']
+        return bytes
+        
 
 

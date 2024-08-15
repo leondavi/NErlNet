@@ -67,7 +67,7 @@ init({GenWorkerEts, WorkerData}) ->
 
 handshake(FedClientEts) ->
   W2WPid = ets:lookup_element(FedClientEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-  w2wCom:sync_inbox(W2WPid),
+  w2wCom:sync_inbox_no_limit(W2WPid),
   InboxQueue = w2wCom:get_all_messages(W2WPid),
   MessagesList = queue:to_list(InboxQueue),
   Func = 
@@ -132,7 +132,7 @@ post_idle({GenWorkerEts, _WorkerData}) ->
     true -> HandshakeDone = ets:lookup_element(FedClientEts, handshake_done, ?ETS_KEYVAL_VAL_IDX),
             case HandshakeDone of 
             false -> 
-              w2wCom:sync_inbox(W2WPid),
+              w2wCom:sync_inbox_no_limit(W2WPid),
               InboxQueue = w2wCom:get_all_messages(W2WPid),
               [{_FedServer, {handshake_done, Token}}] = queue:to_list(InboxQueue),
               ets:update_element(FedClientEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true});
