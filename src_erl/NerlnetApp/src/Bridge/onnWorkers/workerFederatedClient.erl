@@ -70,20 +70,25 @@ handshake(FedClientEts) ->
   w2wCom:sync_inbox_no_limit(W2WPid),
   InboxQueue = w2wCom:get_all_messages(W2WPid),
   MessagesList = queue:to_list(InboxQueue),
+  MyToken = ets:lookup_element(FedClientEts, my_token, ?ETS_KEYVAL_VAL_IDX),
+  MyName = ets:lookup_element(FedClientEts, my_name, ?ETS_KEYVAL_VAL_IDX),
   Func = 
     fun({FedServer , {handshake, ServerToken}}) ->
-      ets:insert(FedClientEts, {server_name, FedServer}),
-      ets:insert(FedClientEts, {my_token , ServerToken}),
-      MyToken = ets:lookup_element(FedClientEts, my_token, ?ETS_KEYVAL_VAL_IDX),
-      MyName = ets:lookup_element(FedClientEts, my_name, ?ETS_KEYVAL_VAL_IDX),
       if 
-        ServerToken =/= MyToken -> io:format("Got the wrong Token...~n"), handshake(FedClientEts); 
-        true -> w2wCom:send_message(W2WPid, MyName, FedServer, {handshake, MyToken}),
+        ServerToken =/= MyToken -> io:format("Got the wrong Token...~n"); 
+        true -> ets:insert(FedClientEts, {server_name, FedServer}),
+                % ets:insert(FedClientEts, {my_token , ServerToken}),
+                w2wCom:send_message(W2WPid, MyName, FedServer, {handshake, MyToken}),
                 io:format("@FedClient: Sent handshake to server ~p with token ~p~n", [FedServer, MyToken]),
                 ets:update_element(FedClientEts, handshake_wait, {?ETS_KEYVAL_VAL_IDX, true})
       end
   end,
-  lists:foreach(Func, MessagesList).
+  lists:foreach(Func, MessagesList),
+  ServerName = ets:lookup_element(FedClientEts, server_name, ?ETS_KEYVAL_VAL_IDX),
+  case ServerName of
+    [] -> handshake(FedClientEts); % Did not got the right message yet
+    _ -> done
+  end.
 
 start_stream({GenWorkerEts, WorkerData}) ->  % WorkerData is currently a list of [SourceName, State]
   [SourceName, ModelPhase] = WorkerData,
