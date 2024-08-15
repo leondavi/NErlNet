@@ -77,7 +77,7 @@ handshake(FedClientEts) ->
       MyToken = ets:lookup_element(FedClientEts, my_token, ?ETS_KEYVAL_VAL_IDX),
       MyName = ets:lookup_element(FedClientEts, my_name, ?ETS_KEYVAL_VAL_IDX),
       if 
-        ServerToken =/= MyToken -> not_my_server; 
+        ServerToken =/= MyToken -> io:format("Got the wrong Token...~n"), handshake(FedClientEts); 
         true -> w2wCom:send_message(W2WPid, MyName, FedServer, {handshake, MyToken}),
                 io:format("@FedClient: Sent handshake to server ~p with token ~p~n", [FedServer, MyToken]),
                 ets:update_element(FedClientEts, handshake_wait, {?ETS_KEYVAL_VAL_IDX, true})
@@ -134,12 +134,13 @@ post_idle({GenWorkerEts, _WorkerData}) ->
             false -> 
               w2wCom:sync_inbox_no_limit(W2WPid),
               InboxQueue = w2wCom:get_all_messages(W2WPid),
+              % [{_FedServer, {handshake_done, Token}}] = queue:to_list(InboxQueue),
               Msg = queue:to_list(InboxQueue),
               case Msg of
               [{_FedServer, {handshake_done, Token}}] ->
                           ets:update_element(FedClientEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true}),
                           io:format("Worker is part of cluster with token ~p~n", [Token]);
-              _ -> post_idle({GenWorkerEts, _WorkerData})
+              _ -> io:format("Got the wrong message...~n"), post_idle({GenWorkerEts, _WorkerData})
               end; 
             true -> ok
             end;
