@@ -2,7 +2,7 @@
    "experimentName": "EEG_Valence_Recognition_DEAP",
    "experimentType": "classification",
    "batchSize": 10,
-   "csvFilePath": "/home/nerlnet/data/persons_csvs/persons_slots_valence/full_persons_slots_valence.csv",
+   "csvFilePath": "/home/nerlnet/data/persons_csvs/persons_slots_valence/1_3_persons_slots_valence.csv",
    "numOfFeatures": "70",
    "numOfLabels": "9",
    "headersNames": "1,2,3,4,5,6,7,8,9",
