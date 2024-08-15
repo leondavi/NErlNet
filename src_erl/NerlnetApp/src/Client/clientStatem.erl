@@ -260,6 +260,7 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
 
 % This action is used for start_stream triggered from a clients' worker and not source
 training(cast, {start_stream , {worker, WorkerName, TargetPair}}, State = #client_statem_state{etsRef = EtsRef}) ->
+  io:format("Worker ~p started stream with ~p~n",[WorkerName, TargetPair]),
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, TargetPair}]}),
   {keep_state, State};
@@ -267,6 +268,7 @@ training(cast, {start_stream , {worker, WorkerName, TargetPair}}, State = #clien
 % This action is used for start_stream triggered from a source per worker
 training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
+  io:format("~p started stream with ~p~n",[WorkerName, SourceName]),
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, SourceName}]}),
   ClientStatsEts = get(client_stats_ets),
