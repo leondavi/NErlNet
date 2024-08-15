@@ -120,6 +120,10 @@ post_idle({GenWorkerEts, _WorkerName}) ->
     MessagesList = queue:to_list(InboxQueue),
     MsgFunc = 
       fun({FedClient, {handshake, Token}}) ->
+        case Token of 
+          MyToken -> ok;
+          _ -> post_idle({GenWorkerEts, _WorkerName})
+        end,
         io:format("Handshake with ~p, Token = ~p~n",[FedClient, Token]),
         FedClients = ets:lookup_element(FedServerEts, fed_clients, ?ETS_KEYVAL_VAL_IDX),
         ets:update_element(FedServerEts, fed_clients, {?ETS_KEYVAL_VAL_IDX , [FedClient] ++ FedClients}),
