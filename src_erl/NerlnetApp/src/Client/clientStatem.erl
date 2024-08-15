@@ -295,6 +295,7 @@ training(cast, In = {stream_ended , Pair}, State = #client_statem_state{etsRef =
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   UpdatedListOfActiveWorkersSources = ListOfActiveWorkersSources -- [Pair],
+  io:format("Active workers streams: ~p~n",[UpdatedListOfActiveWorkersSources]),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, UpdatedListOfActiveWorkersSources}),
   case length(UpdatedListOfActiveWorkersSources) of 
     0 ->  ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
