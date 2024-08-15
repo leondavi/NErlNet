@@ -162,7 +162,7 @@ post_train({GenWorkerEts, {post_train_update, {_SyncIdx, UpdatedWeights}}}) ->
   case WeightsUpdateFlag of
     false -> throw("Received weights update but not waiting for it");
     true -> 
-      io:format("Got updated weights from server~n"),
+      % io:format("Got updated weights from server~n"),
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
       nerlNIF:call_to_set_weights(ModelID, UpdatedWeights),
       ets:update_element(FedClientEts, wait_for_weights_update, {?ETS_KEYVAL_VAL_IDX, false}),
@@ -183,7 +183,7 @@ post_train({GenWorkerEts, _Data}) ->
       SyncCount = ets:lookup_element(FedClientEts, sync_count, ?ETS_KEYVAL_VAL_IDX),
       MaxSyncCount = ets:lookup_element(FedClientEts, sync_max_count, ?ETS_KEYVAL_VAL_IDX),
       if SyncCount == MaxSyncCount ->
-        io:format("~p sent averaging request to server~n", [MyName]),
+        % io:format("~p sent averaging request to server~n", [MyName]),
         ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
         WeightsTensor = nerlNIF:call_to_get_weights(ModelID),
         ServerName = ets:lookup_element(FedClientEts, server_name, ?ETS_KEYVAL_VAL_IDX), 
