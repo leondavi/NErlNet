@@ -370,7 +370,6 @@ namespace nerlnet
     void NerlWorkerOpenNN::generate_custom_model_nn(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
     {        
         shared_ptr<NerlLayer> curr_layer = _nerl_layers_linked_list;
-        std::cout << "generate_custom_model_nn" << std::endl;
         while(curr_layer)
         {
             int layer_type = curr_layer->get_layer_type();
