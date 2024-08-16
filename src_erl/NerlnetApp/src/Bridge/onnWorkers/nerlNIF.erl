@@ -2,6 +2,9 @@
 -include_lib("kernel/include/logger.hrl").
 -include("../nerlTensor.hrl").
 
+-define(ETS_KEYVAL_KEY_IDX, 1).
+-define(ETS_KEYVAL_VAL_IDX, 2).
+
 -export([init/0,nif_preload/0,get_active_models_ids_list/0, train_nif/3,update_nerlworker_train_params_nif/6,call_to_train/5,predict_nif/3,call_to_predict/5,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
@@ -81,19 +84,33 @@ call_to_predict(ModelID, {BatchTensor, Type}, WorkerPid, BatchID , SourceName)->
 % Returns {NerlTensorWeights , BinaryType} 
 call_to_get_weights(ModelID)->
       try   
-            ?LOG_INFO("Calling get weights in model ~p~n",{ModelID}),
-            _RetVal = get_weights_nif(ModelID),
-            recv_call_loop()
+            ?LOG_INFO("Calling get weights in model ~p~n",{ModelID}), %TODO remove this line after debug
+            WeightsEts = ets:new([set]),
+            ets:insert(WeightsEts, {weights_status, waiting}),
+            spawn_link(fun() -> get_weights_nif(ModelID), recv_call_loop(WeightsEts) end),
+            get_weights_sync(WeightsEts), % sync on ETS update
+            ets:lookup_element(WeightsEts, weights, ?ETS_KEYVAL_VAL_IDX)
       catch Err:E -> ?LOG_ERROR("Couldnt get weights from worker~n~p~n",{Err,E}),
             []
       end.
 
-%% sometimes the receive loop gets OTP calls that its not supposed to in high freq. wait for nerktensor of weights
-recv_call_loop() ->
+get_weights_sync(WeightsEts) ->
+      WeightsEtsStats = ets:lookup_element(WeightsEts, weights_status, ?ETS_KEYVAL_VAL_IDX),
+      case WeightsEtsStats of 
+            updated -> 
+                  {weights_status, updated} = ets:lookup_element(WeightsEts, weights_status, ?ETS_KEYVAL_VAL_IDX), finished;
+            waiting -> get_weights_sync(WeightsEts)
+      end.
+
+%% This function runs in a spwaned thread to avoid blocking the main process
+%% Moreover the main process belongs to the FSM and we don't want to catch messages of the FSM ({'$gen_cast',_Any} {'$gen_call', _Any} etc...)
+recv_call_loop(WeightsEts) ->
       receive
-            {'$gen_cast', _Any} -> ?LOG_WARNING("Missed batch in call of get_weigths"),
-                  recv_call_loop();
-            NerlTensorWeights -> NerlTensorWeights
+            {get_weights, NerlTensorWeights, NerlTensorType} -> 
+                  ets:insert(WeightsEts, {weights, {NerlTensorWeights, NerlTensorType}}),
+                  ets:update_element(WeightsEts, weights_status, {?ETS_KEYVAL_VAL_IDX, updated}); % save weights to temporary ets - TODO try to optimize
+            _Else -> ?LOG_ERROR("Received wrong message in get_weights_nif~n"),
+                  recv_call_loop(WeightsEts)
       end.
 
 call_to_set_weights(ModelID,{WeightsNerlTensor, Type})->

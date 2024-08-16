@@ -7,6 +7,8 @@
 #include "bridgeController.h"
 #include "nerlWorkerOpenNN.h"
 
+#define GET_WEIGHTS_ATOM_STR "get_weights"
+
 using namespace opennn;
 using namespace nerlnet;
 
@@ -17,7 +19,6 @@ public:
     ErlNifPid pid;
     ErlNifTid tid;
 };
-
 
 inline void* get_weights(void* arg)
 {
@@ -31,7 +32,8 @@ inline void* get_weights(void* arg)
     fTensor1D parameters;
     fTensor1DPtr parameters_ptr;
     nifpp::str_atom nerltensor_type = "float";
-    std::tuple<nifpp::TERM, nifpp::TERM> message_tuple; // returned nerltensor of parameters
+    nifpp::str_atom get_weights_atom = GET_WEIGHTS_ATOM_STR;
+    std::tuple<nifpp::TERM, nifpp::TERM, nifpp::TERM> message_tuple; // returned nerltensor of parameters
     
     //get neural network parameters which are weights and biases valuse as a 1D vector         
     BridgeController &bridge_controller = BridgeController::GetInstance();
@@ -45,7 +47,7 @@ inline void* get_weights(void* arg)
     nifpp::make_tensor_1d<float, fTensor1D>(env, nerltensor_parameters_bin, parameters_ptr); //binary tensor
     
     // create returned tuple
-    message_tuple = { nerltensor_parameters_bin , nifpp::make(env, nerltensor_type) };
+    message_tuple = { nifpp::make(env, get_weights_atom), nerltensor_parameters_bin , nifpp::make(env, nerltensor_type) };
     nifpp::TERM message = nifpp::make(env, message_tuple);
 
     if(enif_send(NULL,&(getWeigthsParamsPtr->pid), env, message)) //TODO check this value in Erlang!
