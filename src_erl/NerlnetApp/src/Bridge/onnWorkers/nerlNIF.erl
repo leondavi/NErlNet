@@ -85,10 +85,12 @@ call_to_predict(ModelID, {BatchTensor, Type}, WorkerPid, BatchID , SourceName)->
 call_to_get_weights(ModelID)->
       try   
             ?LOG_INFO("Calling get weights in model ~p~n",{ModelID}), %TODO remove this line after debug
-            WeightsEts = ets:new([set]),
+            WeightsEts = ets:new(weights_ets, [set]),
             ets:insert(WeightsEts, {weights_status, waiting}),
-            spawn_link(fun() -> get_weights_nif(ModelID), recv_call_loop(WeightsEts) end),
+            io:format("ets insert WeightsEts: ~n",[]),
+            spawn_link(fun() -> get_weights_nif(ModelID), io:format("after get_weights_nif"), recv_call_loop(WeightsEts) end),
             get_weights_sync(WeightsEts), % sync on ETS update
+            io:format("after_sync~n"),
             ets:lookup_element(WeightsEts, weights, ?ETS_KEYVAL_VAL_IDX)
       catch Err:E -> ?LOG_ERROR("Couldnt get weights from worker~n~p~n",{Err,E}),
             []
