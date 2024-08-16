@@ -109,8 +109,11 @@ get_weights_sync(WeightsEts) ->
 recv_call_loop(WeightsEts) ->
       receive
             {get_weights, NerlTensorWeights, NerlTensorType} -> 
+                  io:format("Received weights~n"),
                   ets:insert(WeightsEts, {weights, {NerlTensorWeights, NerlTensorType}}),
-                  ets:update_element(WeightsEts, weights_status, {?ETS_KEYVAL_VAL_IDX, updated}); % save weights to temporary ets - TODO try to optimize
+                  io:format("ets insert weights: ~n",[]),
+                  ets:update_element(WeightsEts, weights_status, {?ETS_KEYVAL_VAL_IDX, updated}), % save weights to temporary ets - TODO try to optimize
+                  io:format("ets update weights_status: ~n",[]);
             _Else -> ?LOG_ERROR("Received wrong message in get_weights_nif~n"),
                   recv_call_loop(WeightsEts)
       end.
