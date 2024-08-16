@@ -85,7 +85,7 @@ call_to_predict(ModelID, {BatchTensor, Type}, WorkerPid, BatchID , SourceName)->
 call_to_get_weights(ModelID)->
       try   
             ?LOG_INFO("Calling get weights in model ~p~n",{ModelID}), %TODO remove this line after debug
-            WeightsEts = ets:new(weights_ets, [set]),
+            WeightsEts = ets:new(weights_ets, [set,public]),
             ets:insert(WeightsEts, {weights_status, waiting}),
             io:format("ets insert WeightsEts: ~n",[]),
             spawn_link(fun() -> get_weights_nif(ModelID), io:format("after get_weights_nif"), recv_call_loop(WeightsEts) end),
