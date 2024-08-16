@@ -427,7 +427,6 @@ namespace nerlnet
                     convolutional_layer->set_activation_function((opennn::ConvolutionalLayer::ActivationFunction)(cnn_curr_layer->get_layer_functionality())); // set activation function
                     // add layer to the neural network
                     neural_network_ptr->add_layer(convolutional_layer); // add layer to the neural network
-                    std::cout << "ConvolutionalLayer" << std::endl;
                     break;
 
                 }
@@ -571,7 +570,6 @@ namespace nerlnet
             }  
             curr_layer = curr_layer->get_next_layer_ptr();
         }
-        std::cout << "generate_custom_model_nn end" << std::endl;
     }
 
     void NerlWorkerOpenNN::generate_custom_model_aec(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
