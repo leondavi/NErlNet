@@ -316,6 +316,7 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
     nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(start_stream), ToSend)
   end,
   lists:foreach(FuncStart, ClientWorkerPairs),
+  io:format("Sent start stream to all workers~n"),
   TransmissionStart = erlang:timestamp(),
   case integer_to_list(Method) of % Method is given as an integer
     ?SOURCE_POLICY_CASTING_IDX -> sourceSendingPolicies:send_method_casting(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend);
