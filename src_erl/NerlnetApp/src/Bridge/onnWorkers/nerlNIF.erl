@@ -99,8 +99,7 @@ call_to_get_weights(ModelID)->
 get_weights_sync(WeightsEts) ->
       WeightsEtsStats = ets:lookup_element(WeightsEts, weights_status, ?ETS_KEYVAL_VAL_IDX),
       case WeightsEtsStats of 
-            updated -> 
-                  {weights_status, updated} = ets:lookup_element(WeightsEts, weights_status, ?ETS_KEYVAL_VAL_IDX), finished;
+            updated -> finished;
             waiting -> get_weights_sync(WeightsEts)
       end.
 
