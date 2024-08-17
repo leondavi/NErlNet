@@ -8,7 +8,7 @@
         "args": ""
     },
     "apiServer": {
-        "port": "8950",
+        "port": "9001",
         "args": ""
     },
     "devices": [
