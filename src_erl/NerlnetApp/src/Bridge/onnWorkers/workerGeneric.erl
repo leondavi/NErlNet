@@ -284,12 +284,10 @@ train(cast, {post_train_update , Weights}, State = #workerGeneric_state{myName =
   {next_state, train, State};
 
 train(cast, {start_stream , StreamName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  io:format("@train: ~p got start stream from ~p~n",[MyName, StreamName]),
   stream_handler(start_stream, train, StreamName, DistributedBehaviorFunc),
   {next_state, train, State};
 
 train(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  io:format("@train: ~p got end stream from ~p~n",[MyName, StreamName]),
   stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
   {next_state, train, State};
 
@@ -345,7 +343,7 @@ update_client_avilable_worker(MyName) ->
 stream_handler(StreamPhase , ModelPhase , StreamName , DistributedBehaviorFunc) -> 
   GenWorkerEts = get(generic_worker_ets),
   MyName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
-  % io:format("~p got ~p from ~p~n",[MyName, StreamPhase, StreamName]),
+  io:format("~p got ~p from ~p~n",[MyName, StreamPhase, StreamName]),
   ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
   ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
   io:format("~p ActiveStreams: ~p~n",[MyName, ActiveStreams]),

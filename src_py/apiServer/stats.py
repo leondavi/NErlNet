@@ -574,7 +574,6 @@ class Stats():
     
     def get_total_bytes(self):
         # Return the total bytes sent and received in the experiment
-        assert self.phase == PHASE_PREDICTION_STR, "This function is only available for prediction phase"
         comm_stats_main_server = self.get_communication_stats_main_server()
         comm_stats_router = self.get_communication_stats_routers()
         comm_stats_clients = self.get_communication_stats_clients()
