@@ -81,15 +81,15 @@ call_to_predict(ModelID, {BatchTensor, Type}, WorkerPid, BatchID , SourceName)->
       end.
 
 % This function calls to get_weights_nif() and waits for the result using receive block
+% It uses NIF and receive block in a new process to avoid from blocking the main process of the FSM
 % Returns {NerlTensorWeights , BinaryType} 
 call_to_get_weights(ModelID)->
       try   
-            ?LOG_INFO("Calling get weights in model ~p~n",{ModelID}), %TODO remove this line after debug
-            WeightsEts = ets:new([set]),
+            WeightsEts = ets:new(weights_ets, [set,public]),
             ets:insert(WeightsEts, {weights_status, waiting}),
             spawn_link(fun() -> get_weights_nif(ModelID), recv_call_loop(WeightsEts) end),
             get_weights_sync(WeightsEts), % sync on ETS update
-            ets:lookup_element(WeightsEts, weights, ?ETS_KEYVAL_VAL_IDX)
+            ets:lookup_element(WeightsEts, weights, ?ETS_KEYVAL_VAL_IDX) % return weights NerlTensor
       catch Err:E -> ?LOG_ERROR("Couldnt get weights from worker~n~p~n",{Err,E}),
             []
       end.
@@ -97,8 +97,7 @@ call_to_get_weights(ModelID)->
 get_weights_sync(WeightsEts) ->
       WeightsEtsStats = ets:lookup_element(WeightsEts, weights_status, ?ETS_KEYVAL_VAL_IDX),
       case WeightsEtsStats of 
-            updated -> 
-                  {weights_status, updated} = ets:lookup_element(WeightsEts, weights_status, ?ETS_KEYVAL_VAL_IDX), finished;
+            updated -> finished;
             waiting -> get_weights_sync(WeightsEts)
       end.
 
