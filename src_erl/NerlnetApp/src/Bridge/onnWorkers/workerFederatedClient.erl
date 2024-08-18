@@ -180,7 +180,7 @@ post_train({GenWorkerEts, _Data}) ->
         W2WPid = ets:lookup_element(FedClientEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         w2wCom:send_message_with_event(W2WPid, MyName, ServerName , post_train_update, WeightsTensor),
         ets:update_element(FedClientEts, wait_for_weights_update, {?ETS_KEYVAL_VAL_IDX, true}),
-        train; %TODO David change % wait for server to send updated weights, workerGeneric should stay in wait state
+        wait; % wait for server to send updated weights, workerGeneric should stay in wait state
       true -> train
       end
   end.
