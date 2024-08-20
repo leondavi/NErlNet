@@ -199,9 +199,9 @@ port_available(Port) ->
 %% calculate the number of bytes of term
 
 calculate_size(Term) when is_tuple(Term) -> calculate_size(tuple_to_list(Term));
-calculate_size(List) when is_list(List) -> 
-  Sizes = lists:map(fun(Term) -> erts_debug:flat_size(Term) end, List),
-  lists:sum(Sizes).
+calculate_size(List) when is_list(List) ->
+    Sizes = lists:map(fun(Term) -> byte_size(term_to_binary(Term)) end, List),
+    lists:sum(Sizes).
 
 %% TODO: add another timing map for NIF of each worker action
 
