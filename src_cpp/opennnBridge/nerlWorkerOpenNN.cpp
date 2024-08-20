@@ -52,16 +52,16 @@ namespace nerlnet
             case MODEL_TYPE_AE_CLASSIFIER:
             {
                 int num_of_samples = _aec_data_set->dimension(0);
-                loss_val_tensor = std::make_shared<fTensor2D>(3 + num_of_samples, 1);
+                loss_val_tensor = std::make_shared<fTensor2D>(1, 1);
                 (*loss_val_tensor)(0, 0) = static_cast<float>(_last_loss);
-                (*loss_val_tensor)(1, 0) = _ae_red_ptr->_ema_event;
-                (*loss_val_tensor)(2, 0) = _ae_red_ptr->_ema_normal;
+                // (*loss_val_tensor)(1, 0) = _ae_red_ptr->_ema_event;
+                // (*loss_val_tensor)(2, 0) = _ae_red_ptr->_ema_normal;
                 // cout << "Upper Bound: " << _ae_red_ptr->_ema_event << ", Lower Bound: " << _ae_red_ptr->_ema_normal << endl;
                 // Add _aec_all_loss_values to loss_val_tensor
-                for (int i = 0; i < num_of_samples; i++)
-                {
-                    (*loss_val_tensor)(3 + i, 0) = (*_aec_all_loss_values)(i, 0);
-                }
+                // for (int i = 0; i < num_of_samples; i++)
+                // {
+                //     (*loss_val_tensor)(3 + i, 0) = (*_aec_all_loss_values)(i, 0);
+                // }
                 break;
             }
             default:
