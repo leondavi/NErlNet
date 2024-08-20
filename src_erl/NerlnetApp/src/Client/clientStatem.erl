@@ -245,6 +245,7 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  io:format("Sample Size: ~p", nerl_tools:calculate_size(In)),
   {SourceName , ClientName, WorkerNameStr, BatchID, BatchOfSamples} = binary_to_term(Body),
   WorkerName = list_to_atom(WorkerNameStr),
   WorkersEts = get(workers_ets),
