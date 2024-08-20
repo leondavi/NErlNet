@@ -1,0 +1,126 @@
+{
+    "experimentName": "tiles_rr",
+    "experimentType": "classification",
+    "batchSize": 20,
+    "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/Tiles_Mnist_sorted/mnist_tiles_sorted.csv",
+    "numOfFeatures": "252",
+    "numOfLabels": "10",
+    "headersNames": "0,1,2,3,4,5,6,7,8,9",
+    "Phases": 
+    [
+       {
+          "phaseName": "training_phase",
+          "phaseType": "training",
+          "sourcePieces":
+          [
+             {
+                "sourceName": "s1_0",
+                "startingSample": "0",
+                "numOfBatches": "500",
+                "workers": "w1_0,w1_1,w1_2,w1_3",
+                "nerltensorType": "float"
+            },
+            {
+                "sourceName": "s2_0",
+                "startingSample": "59999",
+                "numOfBatches": "500",
+                "workers": "w2_0,w2_1,w2_2,w2_3",
+                "nerltensorType": "float"
+            },
+            {
+                "sourceName": "s3_0",
+                "startingSample": "119998",
+                "numOfBatches": "500",
+                "workers": "w3_0,w3_1,w3_2,w3_3",
+                "nerltensorType": "float"
+            }
+          ]  
+       },
+       {
+        "phaseName": "training1_phase",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+           {
+              "sourceName": "s1_0",
+              "startingSample": "10000",
+              "numOfBatches": "500",
+              "workers": "w1_0,w1_1,w1_2,w1_3",
+              "nerltensorType": "float"
+          },
+          {
+              "sourceName": "s2_0",
+              "startingSample": "69999",
+              "numOfBatches": "500",
+              "workers": "w2_0,w2_1,w2_2,w2_3",
+              "nerltensorType": "float"
+          },
+          {
+              "sourceName": "s3_0",
+              "startingSample": "129998",
+              "numOfBatches": "500",
+              "workers": "w3_0,w3_1,w3_2,w3_3",
+              "nerltensorType": "float"
+          }
+        ]  
+     },
+     {
+        "phaseName": "training2_phase",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+           {
+              "sourceName": "s1_0",
+              "startingSample": "20000",
+              "numOfBatches": "500",
+              "workers": "w1_0,w1_1,w1_2,w1_3",
+              "nerltensorType": "float"
+          },
+          {
+              "sourceName": "s2_0",
+              "startingSample": "79999",
+              "numOfBatches": "500",
+              "workers": "w2_0,w2_1,w2_2,w2_3",
+              "nerltensorType": "float"
+          },
+          {
+              "sourceName": "s3_0",
+              "startingSample": "139998",
+              "numOfBatches": "500",
+              "workers": "w3_0,w3_1,w3_2,w3_3",
+              "nerltensorType": "float"
+          }
+        ]  
+     },
+       {
+          "phaseName": "prediction_phase",
+          "phaseType": "prediction",
+          "sourcePieces":
+          [
+            {
+                "sourceName": "s1_0",
+                "startingSample": "32000",
+                "numOfBatches": "500",
+                "workers": "w1_0,w1_1,w1_2,w1_3",
+                "nerltensorType": "float"
+            },
+            {
+                "sourceName": "s2_0",
+                "startingSample": "91999",
+                "numOfBatches": "500",
+                "workers": "w2_0,w2_1,w2_2,w2_3",
+                "nerltensorType": "float"
+            },
+            {
+                "sourceName": "s3_0",
+                "startingSample": "151998",
+                "numOfBatches": "500",
+                "workers": "w3_0,w3_1,w3_2,w3_3",
+                "nerltensorType": "float"
+            }
+          ]    
+       }
+    ]
+ }
+     
+ 
