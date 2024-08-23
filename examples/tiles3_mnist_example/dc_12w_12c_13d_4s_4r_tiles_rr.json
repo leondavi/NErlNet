@@ -8,14 +8,14 @@
         "args": ""
     },
     "apiServer": {
-        "port": "8081",
+        "port": "8079",
         "args": ""
     },
     "devices": [
         {
             "name": "vm1",
             "ipv4": "10.0.0.6",
-            "entities": "apiServer,mainServer"
+            "entities": "mainServer,apiServer"
         },
         {
             "name": "vm2",
@@ -23,29 +23,29 @@
             "entities": "c1,r1"
         },
         {
-            "name": "vm3",
-            "ipv4": "10.0.0.42",
-            "entities": "c2"
-        },
-        {
             "name": "vm4",
             "ipv4": "10.0.0.43",
-            "entities": "c3,s1"
+            "entities": "c3,s1_0"
         },
         {
             "name": "vm5",
             "ipv4": "10.0.0.41",
-            "entities": "c4,r3"
+            "entities": "c4,s2_0"
+        },
+        {
+            "name": "vm3",
+            "ipv4": "10.0.0.42",
+            "entities": "c2,r4"
         },
         {
             "name": "vm6",
             "ipv4": "10.0.0.40",
-            "entities": "c5"
+            "entities": "c5,s3_0"
         },
         {
             "name": "vm7",
             "ipv4": "10.0.0.45",
-            "entities": "c6"
+            "entities": "c6,r2"
         },
         {
             "name": "vm8",
@@ -55,80 +55,80 @@
         {
             "name": "vm9",
             "ipv4": "10.0.0.36",
-            "entities": "c8,s4"
+            "entities": "c8,r3"
         },
         {
             "name": "vm10",
             "ipv4": "10.0.0.39",
-            "entities": "c9,s2"
+            "entities": "c9"
         },
         {
             "name": "vm11",
             "ipv4": "10.0.0.38",
-            "entities": "c10,r4"
+            "entities": "c10"
         },
         {
             "name": "vm12",
             "ipv4": "10.0.0.46",
-            "entities": "c11,r2"
+            "entities": "c11,s4_0"
         },
         {
             "name": "vm13",
             "ipv4": "10.0.0.16",
-            "entities": "c12,s3"
+            "entities": "c12"
         }
     ],
     "routers": [
         {
             "name": "r1",
-            "port": "8085",
+            "port": "8098",
             "policy": "0"
         },
         {
             "name": "r2",
-            "port": "8086",
+            "port": "8099",
             "policy": "0"
         },
         {
             "name": "r3",
-            "port": "8087",
+            "port": "8100",
             "policy": "0"
         },
         {
             "name": "r4",
-            "port": "8088",
+            "port": "8101",
             "policy": "0"
         }
     ],
     "sources": [
         {
-            "name": "s1",
-            "port": "8082",
-            "frequency": "100",
+            "name": "s1_0",
+            "port": "8094",
+            "frequency": "50",
             "policy": "1",
             "epochs": "1",
             "type": "0"
         },
         {
-            "name": "s2",
-            "port": "8083",
-            "frequency": "100",
+            "name": "s2_0",
+            "port": "8095",
+            "frequency": "50",
             "policy": "1",
             "epochs": "1",
             "type": "0"
         },
         {
-            "name": "s3",
-            "port": "8084",
-            "frequency": "100",
+            "name": "s3_0",
+            "port": "8096",
+            "frequency": "50",
             "policy": "1",
             "epochs": "1",
             "type": "0"
         },
         {
-            "name": "s4",
-            "port": "8102",
-            "frequency": "100",
+            "name": "s4_0",
+            "port": "8097",
+            "frequency": "50",
             "policy": "1",
             "epochs": "1",
             "type": "0"
@@ -136,123 +136,123 @@
     ],
     "clients": [
         {
-            "name": "c1",
-            "port": "8089",
-            "workers": "w1_1"
-        },
-        {
             "name": "c2",
-            "port": "8090",
-            "workers": "w2_1"
+            "port": "8083",
+            "workers": "w2_0"
         },
         {
             "name": "c3",
-            "port": "8091",
-            "workers": "w3_1"
+            "port": "8084",
+            "workers": "w3_0"
         },
         {
             "name": "c4",
-            "port": "8092",
-            "workers": "w4_1"
+            "port": "8085",
+            "workers": "w1_1"
+        },
+        {
+            "name": "c1",
+            "port": "8082",
+            "workers": "w1_0"
         },
         {
             "name": "c5",
-            "port": "8093",
-            "workers": "w1_2"
+            "port": "8086",
+            "workers": "w2_1"
         },
         {
             "name": "c6",
-            "port": "8094",
-            "workers": "w2_2"
+            "port": "8087",
+            "workers": "w3_1"
         },
         {
             "name": "c7",
-            "port": "8095",
-            "workers": "w3_2"
+            "port": "8088",
+            "workers": "w1_2"
         },
         {
             "name": "c8",
-            "port": "8096",
-            "workers": "w4_2"
+            "port": "8089",
+            "workers": "w2_2"
         },
         {
             "name": "c9",
-            "port": "8097",
-            "workers": "w1_3"
+            "port": "8090",
+            "workers": "w3_2"
         },
         {
             "name": "c10",
-            "port": "8098",
-            "workers": "w2_3"
+            "port": "8091",
+            "workers": "w1_3"
         },
         {
             "name": "c11",
-            "port": "8099",
-            "workers": "w3_3"
+            "port": "8092",
+            "workers": "w2_3"
         },
         {
             "name": "c12",
-            "port": "8100",
-            "workers": "w4_3"
+            "port": "8093",
+            "workers": "w3_3"
         }
     ],
     "workers": [
         {
+            "name": "w2_0",
+            "model_sha": "4bf6d1d5bc458db326e5cd17ccfeb4db3550373b8f5b2d260240ef4683184e38"
+        },
+        {
+            "name": "w3_0",
+            "model_sha": "4bf6d1d5bc458db326e5cd17ccfeb4db3550373b8f5b2d260240ef4683184e38"
+        },
+        {
             "name": "w1_1",
-            "model_sha": "ffef532224331dde3a92aa0c30c51efea41eac213c308e137445ae4248c35529"
+            "model_sha": "27623ebcd31c718209e874b6869ca62ec9842a5b05ee469cb12cc14a878d0c58"
+        },
+        {
+            "name": "w1_0",
+            "model_sha": "4bf6d1d5bc458db326e5cd17ccfeb4db3550373b8f5b2d260240ef4683184e38"
         },
         {
             "name": "w2_1",
-            "model_sha": "ffef532224331dde3a92aa0c30c51efea41eac213c308e137445ae4248c35529"
+            "model_sha": "27623ebcd31c718209e874b6869ca62ec9842a5b05ee469cb12cc14a878d0c58"
         },
         {
             "name": "w3_1",
-            "model_sha": "ffef532224331dde3a92aa0c30c51efea41eac213c308e137445ae4248c35529"
-        },
-        {
-            "name": "w4_1",
-            "model_sha": "ffef532224331dde3a92aa0c30c51efea41eac213c308e137445ae4248c35529"
+            "model_sha": "27623ebcd31c718209e874b6869ca62ec9842a5b05ee469cb12cc14a878d0c58"
         },
         {
             "name": "w1_2",
-            "model_sha": "8bfb23bac4c5c8b82cde1901d5410f1268f2794ad295ab4947755aa13db43541"
+            "model_sha": "8527b95bd75ec8d0eb95d06d5d1cdd1194d5706c5eada665c50240efac424ca4"
         },
         {
             "name": "w2_2",
-            "model_sha": "8bfb23bac4c5c8b82cde1901d5410f1268f2794ad295ab4947755aa13db43541"
+            "model_sha": "8527b95bd75ec8d0eb95d06d5d1cdd1194d5706c5eada665c50240efac424ca4"
         },
         {
             "name": "w3_2",
-            "model_sha": "8bfb23bac4c5c8b82cde1901d5410f1268f2794ad295ab4947755aa13db43541"
-        },
-        {
-            "name": "w4_2",
-            "model_sha": "8bfb23bac4c5c8b82cde1901d5410f1268f2794ad295ab4947755aa13db43541"
+            "model_sha": "8527b95bd75ec8d0eb95d06d5d1cdd1194d5706c5eada665c50240efac424ca4"
         },
         {
             "name": "w1_3",
-            "model_sha": "b7c0c6e0cce7968d2864c4701764fb90a3473b75ba6c173b3a92d8df6d8e5f35"
+            "model_sha": "e09032ba977d35e5c39fb9c96dc4cfb3d73a8238b4e94635c031c00ec019a268"
         },
         {
             "name": "w2_3",
-            "model_sha": "b7c0c6e0cce7968d2864c4701764fb90a3473b75ba6c173b3a92d8df6d8e5f35"
+            "model_sha": "e09032ba977d35e5c39fb9c96dc4cfb3d73a8238b4e94635c031c00ec019a268"
         },
         {
             "name": "w3_3",
-            "model_sha": "b7c0c6e0cce7968d2864c4701764fb90a3473b75ba6c173b3a92d8df6d8e5f35"
-        },
-        {
-            "name": "w4_3",
-            "model_sha": "b7c0c6e0cce7968d2864c4701764fb90a3473b75ba6c173b3a92d8df6d8e5f35"
+            "model_sha": "e09032ba977d35e5c39fb9c96dc4cfb3d73a8238b4e94635c031c00ec019a268"
         }
     ],
     "model_sha": {
-        "ffef532224331dde3a92aa0c30c51efea41eac213c308e137445ae4248c35529": {
+        "4bf6d1d5bc458db326e5cd17ccfeb4db3550373b8f5b2d260240ef4683184e38": {
             "modelType": "0",
             "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image_classification:4 | text_classification:5 | text_generation:6 | auto_association:7 | autoencoder:8 | ae_classifier:9 |",
             "modelArgs": "",
             "_doc_modelArgs": "Extra arguments to model",
-            "layersSizes": "14x14x1k3x3x1x6p0s1t1,14x14x6k2x2p0s2,7x7x6k3x3x6x16p0s1t0,1,120,84,10",
+            "layersSizes": "9x28x1k3x3x1x6p0s1t1,9x28x6k2x2p0s2,4x14x6k3x3x6x16p0s1t0,1,120,84,10",
             "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
             "layerTypesList": "2,4,2,9,3,3,5",
             "_doc_LayerTypes": " Default:0 | Scaling:1 | Conv:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Flatten:9 | Bounding:10 |",
@@ -263,6 +263,8 @@
             "_doc_layer_functions_scaler": " none:1 | MinMax:2 | MeanStd:3 | STD:4 | Log:5 |",
             "lossMethod": "6",
             "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
+            "lossArgs": "",
+            "_doc_lossArgs": "Arguments to loss function. Regularization: reg=L2, reg=L1, reg=NoRegularization (can be also empty)",
             "lr": "0.01",
             "_doc_lr": "Positve float",
             "epochs": "1",
@@ -277,15 +279,15 @@
             "_doc_distributedSystemType": " none:0 | FedClientAvg:1 | FedServerAvg:2 | FedClientWeightedAvgClassification:3 | FedServerWeightedAvgClassification:4 | FedClientAE:5 | FedServerAE:6 | tiles:7 |",
             "distributedSystemArgs": "none",
             "_doc_distributedSystemArgs": "String",
-            "distributedSystemToken": "cl_token0",
+            "distributedSystemToken": "t_cl0",
             "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"
         },
-        "8bfb23bac4c5c8b82cde1901d5410f1268f2794ad295ab4947755aa13db43541": {
+        "27623ebcd31c718209e874b6869ca62ec9842a5b05ee469cb12cc14a878d0c58": {
             "modelType": "0",
             "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image_classification:4 | text_classification:5 | text_generation:6 | auto_association:7 | autoencoder:8 | ae_classifier:9 |",
             "modelArgs": "",
             "_doc_modelArgs": "Extra arguments to model",
-            "layersSizes": "14x14x1k3x3x1x6p0s1t1,14x14x6k2x2p0s2,7x7x6k3x3x6x16p0s1t0,1,120,84,10",
+            "layersSizes": "9x28x1k3x3x1x6p0s1t1,9x28x6k2x2p0s2,4x14x6k3x3x6x16p0s1t0,1,120,84,10",
             "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
             "layerTypesList": "2,4,2,9,3,3,5",
             "_doc_LayerTypes": " Default:0 | Scaling:1 | Conv:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Flatten:9 | Bounding:10 |",
@@ -296,6 +298,8 @@
             "_doc_layer_functions_scaler": " none:1 | MinMax:2 | MeanStd:3 | STD:4 | Log:5 |",
             "lossMethod": "6",
             "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
+            "lossArgs": "",
+            "_doc_lossArgs": "Arguments to loss function. Regularization: reg=L2, reg=L1, reg=NoRegularization (can be also empty)",
             "lr": "0.01",
             "_doc_lr": "Positve float",
             "epochs": "1",
@@ -310,15 +314,15 @@
             "_doc_distributedSystemType": " none:0 | FedClientAvg:1 | FedServerAvg:2 | FedClientWeightedAvgClassification:3 | FedServerWeightedAvgClassification:4 | FedClientAE:5 | FedServerAE:6 | tiles:7 |",
             "distributedSystemArgs": "none",
             "_doc_distributedSystemArgs": "String",
-            "distributedSystemToken": "cl_token1",
+            "distributedSystemToken": "t_cl1",
             "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"
         },
-        "b7c0c6e0cce7968d2864c4701764fb90a3473b75ba6c173b3a92d8df6d8e5f35": {
+        "8527b95bd75ec8d0eb95d06d5d1cdd1194d5706c5eada665c50240efac424ca4": {
             "modelType": "0",
             "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image_classification:4 | text_classification:5 | text_generation:6 | auto_association:7 | autoencoder:8 | ae_classifier:9 |",
             "modelArgs": "",
             "_doc_modelArgs": "Extra arguments to model",
-            "layersSizes": "14x14x1k3x3x1x6p0s1t1,14x14x6k2x2p0s2,7x7x6k3x3x6x16p0s1t0,1,120,84,10",
+            "layersSizes": "9x28x1k3x3x1x6p0s1t1,9x28x6k2x2p0s2,4x14x6k3x3x6x16p0s1t0,1,120,84,10",
             "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
             "layerTypesList": "2,4,2,9,3,3,5",
             "_doc_LayerTypes": " Default:0 | Scaling:1 | Conv:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Flatten:9 | Bounding:10 |",
@@ -329,6 +333,8 @@
             "_doc_layer_functions_scaler": " none:1 | MinMax:2 | MeanStd:3 | STD:4 | Log:5 |",
             "lossMethod": "6",
             "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
+            "lossArgs": "",
+            "_doc_lossArgs": "Arguments to loss function. Regularization: reg=L2, reg=L1, reg=NoRegularization (can be also empty)",
             "lr": "0.01",
             "_doc_lr": "Positve float",
             "epochs": "1",
@@ -343,7 +349,42 @@
             "_doc_distributedSystemType": " none:0 | FedClientAvg:1 | FedServerAvg:2 | FedClientWeightedAvgClassification:3 | FedServerWeightedAvgClassification:4 | FedClientAE:5 | FedServerAE:6 | tiles:7 |",
             "distributedSystemArgs": "none",
             "_doc_distributedSystemArgs": "String",
-            "distributedSystemToken": "cl_token2",
+            "distributedSystemToken": "t_cl2",
+            "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"
+        },
+        "e09032ba977d35e5c39fb9c96dc4cfb3d73a8238b4e94635c031c00ec019a268": {
+            "modelType": "0",
+            "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image_classification:4 | text_classification:5 | text_generation:6 | auto_association:7 | autoencoder:8 | ae_classifier:9 |",
+            "modelArgs": "",
+            "_doc_modelArgs": "Extra arguments to model",
+            "layersSizes": "9x28x1k3x3x1x6p0s1t1,9x28x6k2x2p0s2,4x14x6k3x3x6x16p0s1t0,1,120,84,10",
+            "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
+            "layerTypesList": "2,4,2,9,3,3,5",
+            "_doc_LayerTypes": " Default:0 | Scaling:1 | Conv:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Flatten:9 | Bounding:10 |",
+            "layers_functions": "6,2,6,1,6,6,4",
+            "_doc_layers_functions_activation": " Threshold:1 | Sign:2 | Logistic:3 | Tanh:4 | Linear:5 | ReLU:6 | eLU:7 | SeLU:8 | Soft-plus:9 | Soft-sign:10 | Hard-sigmoid:11 |",
+            "_doc_layer_functions_pooling": " none:1 | Max:2 | Avg:3 |",
+            "_doc_layer_functions_probabilistic": " Binary:1 | Logistic:2 | Competitive:3 | Softmax:4 |",
+            "_doc_layer_functions_scaler": " none:1 | MinMax:2 | MeanStd:3 | STD:4 | Log:5 |",
+            "lossMethod": "6",
+            "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
+            "lossArgs": "",
+            "_doc_lossArgs": "Arguments to loss function. Regularization: reg=L2, reg=L1, reg=NoRegularization (can be also empty)",
+            "lr": "0.01",
+            "_doc_lr": "Positve float",
+            "epochs": "1",
+            "_doc_epochs": "Positve Integer",
+            "optimizer": "5",
+            "_doc_optimizer": " GD:0 | CGD:1 | SGD:2 | QuasiNeuton:3 | LVM:4 | ADAM:5 |",
+            "optimizerArgs": "none",
+            "_doc_optimizerArgs": "String",
+            "infraType": "0",
+            "_doc_infraType": " opennn:0 | wolfengine:1 |",
+            "distributedSystemType": "7",
+            "_doc_distributedSystemType": " none:0 | FedClientAvg:1 | FedServerAvg:2 | FedClientWeightedAvgClassification:3 | FedServerWeightedAvgClassification:4 | FedClientAE:5 | FedServerAE:6 | tiles:7 |",
+            "distributedSystemArgs": "none",
+            "_doc_distributedSystemArgs": "String",
+            "distributedSystemToken": "t_cl3",
             "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"
         }
     }

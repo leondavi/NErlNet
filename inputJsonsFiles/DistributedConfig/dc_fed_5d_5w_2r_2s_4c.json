@@ -1,0 +1,183 @@
+{
+    "nerlnetSettings": {
+        "frequency": "5",
+        "batchSize": "20"
+    },
+    "mainServer": {
+        "port": "8080",
+        "args": ""
+    },
+    "apiServer": {
+        "port": "8081",
+        "args": ""
+    },
+    "devices": [
+        {
+            "name": "vm0",
+            "ipv4": "10.0.0.6",
+            "entities": "mainServer,apiServer"
+        },
+        {
+            "name": "vm1",
+            "ipv4": "10.0.0.16",
+            "entities": "c1,r1"
+        },
+        {
+            "name": "vm2",
+            "ipv4": "10.0.0.46",
+            "entities": "c2,s2"
+        },
+        {
+            "name": "vm3",
+            "ipv4": "10.0.0.42",
+            "entities": "c3,s1"
+        },
+        {
+            "name": "vm4",
+            "ipv4": "10.0.0.43",
+            "entities": "c4,r2"
+        }
+    ],
+    "routers": [
+        {
+            "name": "r1",
+            "port": "8088",
+            "policy": "0"
+        },
+        {
+            "name": "r2",
+            "port": "8089",
+            "policy": "0"
+        }
+    ],
+    "sources": [
+        {
+            "name": "s1",
+            "port": "8086",
+            "frequency": "5",
+            "policy": "0",
+            "epochs": "10",
+            "type": "0"
+        },
+        {
+            "name": "s2",
+            "port": "8087",
+            "frequency": "5",
+            "policy": "0",
+            "epochs": "10",
+            "type": "0"
+        }
+    ],
+    "clients": [
+        {
+            "name": "c1",
+            "port": "8082",
+            "workers": "w1Client,w1Server"
+        },
+        {
+            "name": "c2",
+            "port": "8083",
+            "workers": "w2Client"
+        },
+        {
+            "name": "c3",
+            "port": "8084",
+            "workers": "w3Client"
+        },
+        {
+            "name": "c4",
+            "port": "8085",
+            "workers": "w4Client"
+        }
+    ],
+    "workers": [
+        {
+            "name": "w1Client",
+            "model_sha": "6d4446d32c91f1c20cc8fc44138900d05c5344076ada3dabbd44a6249862fd0c"
+        },
+        {
+            "name": "w2Client",
+            "model_sha": "6d4446d32c91f1c20cc8fc44138900d05c5344076ada3dabbd44a6249862fd0c"
+        },
+        {
+            "name": "w1Server",
+            "model_sha": "361269f11553525d646c57f5edcefa9ead63d9082cfa67ccf4c8fd1fcd3face6"
+        },
+        {
+            "name": "w3Client",
+            "model_sha": "6d4446d32c91f1c20cc8fc44138900d05c5344076ada3dabbd44a6249862fd0c"
+        },
+        {
+            "name": "w4Client",
+            "model_sha": "6d4446d32c91f1c20cc8fc44138900d05c5344076ada3dabbd44a6249862fd0c"
+        }
+    ],
+    "model_sha": {
+        "6d4446d32c91f1c20cc8fc44138900d05c5344076ada3dabbd44a6249862fd0c": {
+            "modelType": "0",
+            "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image_classification:4 | text_classification:5 | text_generation:6 | auto_association:7 | autoencoder:8 | ae_classifier:9 |",
+            "modelArgs": "",
+            "_doc_modelArgs": "Extra arguments to model",
+            "layersSizes": "28x28x1k5x5x1x6p0s1t1,28x28x6k2x2p0s2,14x14x6k4x4x6x12p0s1t0,1,32,10",
+            "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
+            "layerTypesList": "2,4,2,9,3,5",
+            "_doc_LayerTypes": " Default:0 | Scaling:1 | Conv:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Flatten:9 | Bounding:10 |",
+            "layers_functions": "6,2,6,1,6,4",
+            "_doc_layers_functions_activation": " Threshold:1 | Sign:2 | Logistic:3 | Tanh:4 | Linear:5 | ReLU:6 | eLU:7 | SeLU:8 | Soft-plus:9 | Soft-sign:10 | Hard-sigmoid:11 |",
+            "_doc_layer_functions_pooling": " none:1 | Max:2 | Avg:3 |",
+            "_doc_layer_functions_probabilistic": " Binary:1 | Logistic:2 | Competitive:3 | Softmax:4 |",
+            "_doc_layer_functions_scaler": " none:1 | MinMax:2 | MeanStd:3 | STD:4 | Log:5 |",
+            "lossMethod": "6",
+            "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
+            "lr": "0.01",
+            "_doc_lr": "Positve float",
+            "epochs": "1",
+            "_doc_epochs": "Positve Integer",
+            "optimizer": "5",
+            "_doc_optimizer": " GD:0 | CGD:1 | SGD:2 | QuasiNeuton:3 | LVM:4 | ADAM:5 |",
+            "optimizerArgs": "none",
+            "_doc_optimizerArgs": "String",
+            "infraType": "0",
+            "_doc_infraType": " opennn:0 | wolfengine:1 |",
+            "distributedSystemType": "1",
+            "_doc_distributedSystemType": " none:0 | FedClientAvg:1 | FedServerAvg:2 | FedClientWeightedAvgClassification:3 | FedServerWeightedAvgClassification:4 | FedClientAE:5 | FedServerAE:6 | tiles:7 |",
+            "distributedSystemArgs": "SyncMaxCount=150",
+            "_doc_distributedSystemArgs": "String",
+            "distributedSystemToken": "9922u",
+            "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"
+        },
+        "361269f11553525d646c57f5edcefa9ead63d9082cfa67ccf4c8fd1fcd3face6": {
+            "modelType": "0",
+            "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image_classification:4 | text_classification:5 | text_generation:6 | auto_association:7 | autoencoder:8 | ae_classifier:9 |",
+            "modelArgs": "",
+            "_doc_modelArgs": "Extra arguments to model",
+            "layersSizes": "28x28x1k5x5x1x6p0s1t1,28x28x6k2x2p0s2,14x14x6k4x4x6x12p0s1t0,1,32,10",
+            "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
+            "layerTypesList": "2,4,2,9,3,5",
+            "_doc_LayerTypes": " Default:0 | Scaling:1 | Conv:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Flatten:9 | Bounding:10 |",
+            "layers_functions": "6,2,6,1,6,4",
+            "_doc_layers_functions_activation": " Threshold:1 | Sign:2 | Logistic:3 | Tanh:4 | Linear:5 | ReLU:6 | eLU:7 | SeLU:8 | Soft-plus:9 | Soft-sign:10 | Hard-sigmoid:11 |",
+            "_doc_layer_functions_pooling": " none:1 | Max:2 | Avg:3 |",
+            "_doc_layer_functions_probabilistic": " Binary:1 | Logistic:2 | Competitive:3 | Softmax:4 |",
+            "_doc_layer_functions_scaler": " none:1 | MinMax:2 | MeanStd:3 | STD:4 | Log:5 |",
+            "lossMethod": "6",
+            "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
+            "lr": "0.01",
+            "_doc_lr": "Positve float",
+            "epochs": "1",
+            "_doc_epochs": "Positve Integer",
+            "optimizer": "5",
+            "_doc_optimizer": " GD:0 | CGD:1 | SGD:2 | QuasiNeuton:3 | LVM:4 | ADAM:5 |",
+            "optimizerArgs": "none",
+            "_doc_optimizerArgs": "String",
+            "infraType": "0",
+            "_doc_infraType": " opennn:0 | wolfengine:1 |",
+            "distributedSystemType": "2",
+            "_doc_distributedSystemType": " none:0 | FedClientAvg:1 | FedServerAvg:2 | FedClientWeightedAvgClassification:3 | FedServerWeightedAvgClassification:4 | FedClientAE:5 | FedServerAE:6 | tiles:7 |",
+            "distributedSystemArgs": "SyncMaxCount=150",
+            "_doc_distributedSystemArgs": "String",
+            "distributedSystemToken": "8249j",
+            "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"
+        }
+    }
+}

@@ -341,7 +341,7 @@ namespace nerlnet
                     input_variable_dimension.setValues({this->_nerl_layers_linked_list->get_dim_size(DIM_Z_IDX), this->_nerl_layers_linked_list->get_dim_size(DIM_Y_IDX), this->_nerl_layers_linked_list->get_dim_size(DIM_X_IDX)});
                     _data_set->set_input_variables_dimensions(input_variable_dimension);
                     int samples_num =  _data_set->get_samples_number();
-                    int input_variable = this->_nerl_layers_linked_list->get_dim_size(DIM_Y_IDX)* this->_nerl_layers_linked_list->get_dim_size(DIM_X_IDX);
+                    int input_variable = this->_nerl_layers_linked_list->get_dim_size(DIM_Y_IDX)* this->_nerl_layers_linked_list->get_dim_size(DIM_X_IDX)*this->_nerl_layers_linked_list->get_dim_size(DIM_Z_IDX);
                     for(Index sample_indx = 0; sample_indx < samples_num ; sample_indx++)
                     {
                     _data_set->set_sample_use(sample_indx, DataSet::SampleUse::Training);
