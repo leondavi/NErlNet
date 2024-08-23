@@ -88,7 +88,7 @@ send_method_random(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, B
   send_method_random(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend, 0).
 send_method_random(_TransmitterEts, Epochs, _TimeInterval_ms, _ClientWorkerPairs, _BatchesListToSend, EpochIdx) when EpochIdx == Epochs -> ok;
 send_method_random(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend, EpochIdx) ->
-  io:format("Epoch ~p~n", [EpochIdx]),
+  io:format("Epoch ~p~n", [EpochIdx + 1]),
   % Sends a batch per each
   ClientWorkerPairsIndexes = lists:seq(1, length(ClientWorkerPairs)),
   ClientWorkerPairsWithIndexes = lists:zip(ClientWorkerPairsIndexes, ClientWorkerPairs), % Tuple {Idx, Triplet}

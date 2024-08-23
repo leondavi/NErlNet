@@ -245,8 +245,6 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  % Size = nerl_tools:calculate_size(In),
-  % io:format("Sample Size: ~p [Bytes]~n", [Size]),
   {SourceName , ClientName, WorkerNameStr, BatchID, BatchOfSamples} = binary_to_term(Body),
   WorkerName = list_to_atom(WorkerNameStr),
   WorkersEts = get(workers_ets),
@@ -262,7 +260,6 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
 
 % This action is used for start_stream triggered from a clients' worker and not source
 training(cast, {start_stream , {worker, WorkerName, TargetPair}}, State = #client_statem_state{etsRef = EtsRef}) ->
-  io:format("Worker ~p started stream with ~p~n",[WorkerName, TargetPair]),
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, TargetPair}]}),
   {keep_state, State};
@@ -270,7 +267,6 @@ training(cast, {start_stream , {worker, WorkerName, TargetPair}}, State = #clien
 % This action is used for start_stream triggered from a source per worker
 training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
-  io:format("~p started stream with ~p~n",[WorkerName, SourceName]),
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, SourceName}]}),
   ClientStatsEts = get(client_stats_ets),
@@ -291,13 +287,11 @@ training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = E
   {keep_state, State};
 
 training(cast, In = {stream_ended , Pair}, State = #client_statem_state{etsRef = EtsRef}) ->
-  io:format("~p stream ended ~n",[Pair]),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   UpdatedListOfActiveWorkersSources = ListOfActiveWorkersSources -- [Pair],
-  io:format("Active workers streams: ~p~n",[UpdatedListOfActiveWorkersSources]),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, UpdatedListOfActiveWorkersSources}),
   case length(UpdatedListOfActiveWorkersSources) of 
     0 ->  ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
@@ -523,7 +517,6 @@ handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data) ->
       %% Send to the correct client
       DestClient = maps:get(ToWorker, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
       % ClientName = ets:lookup_element(EtsRef, myName , ?DATA_IDX),
-      % io:format("Client ~p passing w2w_msg {~p --> ~p} to ~p: Data ~p~n",[ClientName, FromWorker, ToWorker, DestClient,Data]),
       MessageBody = {worker_to_worker_msg, FromWorker, ToWorker, Data},
       {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
       nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(worker_to_worker_msg), MessageBody),
