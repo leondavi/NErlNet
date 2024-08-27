@@ -32,6 +32,8 @@ PHASE_TRAINING = 1
 PHASE_PREDICTION = 2
 PHASE_STATS = 3 # TODO maybe redundant
 
+SOURCE_POLICY_CASTING = "0" # TODO check import from NerlPlanner
+SOURCE_POLICY_ROUND_ROBIN = "1" # TODO check import from NerlPlanner
 
 PHASE_TRAINING_STR = "training"
 PHASE_PREDICTION_STR = "prediction"

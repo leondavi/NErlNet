@@ -14,7 +14,7 @@
 -define(ETS_WEIGHTS_AND_BIAS_NERLTENSOR_IDX, 3).
 -define(ETS_NERLTENSOR_TYPE_IDX, 2).
 -define(DEFAULT_SYNC_MAX_COUNT_ARG, 1).
--define(HANDSHAKE_TIMEOUT, 2000). % 2 seconds
+-define(HANDSHAKE_TIMEOUT, 10000). % 10 seconds
 
 
 controller(FuncName, {GenWorkerEts, WorkerData}) -> 
@@ -106,11 +106,12 @@ post_idle({GenWorkerEts, _WorkerName}) ->
     WorkersList = ets:lookup_element(FedServerEts, broadcast_workers_list, ?ETS_KEYVAL_VAL_IDX),
     W2WPid = ets:lookup_element(FedServerEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
     MyToken = ets:lookup_element(FedServerEts, token, ?ETS_KEYVAL_VAL_IDX),
+    io:format("~p Token is ~p~n",[FedServerName, MyToken]),
     Func = fun(FedClient) ->
       w2wCom:send_message(W2WPid, FedServerName, FedClient, {handshake, MyToken})
     end,
     lists:foreach(Func, WorkersList),
-    timer:sleep(?HANDSHAKE_TIMEOUT), % wait 2 seconds for response
+    timer:sleep(?HANDSHAKE_TIMEOUT), % wait 10 seconds for response
     InboxQueue = w2wCom:get_all_messages(W2WPid),
     IsEmpty = queue:len(InboxQueue) == 0,
     if IsEmpty == true -> 
@@ -120,9 +121,13 @@ post_idle({GenWorkerEts, _WorkerName}) ->
     MessagesList = queue:to_list(InboxQueue),
     MsgFunc = 
       fun({FedClient, {handshake, Token}}) ->
-        FedClients = ets:lookup_element(FedServerEts, fed_clients, ?ETS_KEYVAL_VAL_IDX),
-        ets:update_element(FedServerEts, fed_clients, {?ETS_KEYVAL_VAL_IDX , [FedClient] ++ FedClients}),
-        w2wCom:send_message(W2WPid, FedServerName, FedClient, {handshake_done, Token = MyToken})
+        case Token of 
+          MyToken ->  io:format("Handshake with ~p~n",[FedClient]),
+                      FedClients = ets:lookup_element(FedServerEts, fed_clients, ?ETS_KEYVAL_VAL_IDX),
+                      ets:update_element(FedServerEts, fed_clients, {?ETS_KEYVAL_VAL_IDX , [FedClient] ++ FedClients}),
+                      w2wCom:send_message(W2WPid, FedServerName, FedClient, {handshake_done, Token = MyToken});
+          _ -> io:format("Token mismatch, expected ~p, got ~p~n",[MyToken, Token])
+        end
     end,
     lists:foreach(MsgFunc, MessagesList),
     ets:update_element(GenWorkerEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true});

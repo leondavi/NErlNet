@@ -63,9 +63,13 @@ class ExperimentPhase():
             self.source_pieces_dict[source_piece.source_name] = source_piece
         else: 
             LOG_ERROR(f"Source piece with name {source_piece.source_name} already exists in phase { self.phase}")
-       
+    
     def get_sources_pieces(self):
         return list(self.source_pieces_dict.values())
 
     def remove_source_piece(self, source_name: str): 
         self.source_pieces_dict.pop(source_name)   
+        
+    def get_source_piece(self, source_name: str):
+        return self.source_pieces_dict[source_name]
+    

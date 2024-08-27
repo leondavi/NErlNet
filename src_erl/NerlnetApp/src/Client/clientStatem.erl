@@ -517,7 +517,6 @@ handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data) ->
       %% Send to the correct client
       DestClient = maps:get(ToWorker, ets:lookup_element(EtsRef, workerToClient, ?ETS_KV_VAL_IDX)),
       % ClientName = ets:lookup_element(EtsRef, myName , ?DATA_IDX),
-      % io:format("Client ~p passing w2w_msg {~p --> ~p} to ~p: Data ~p~n",[ClientName, FromWorker, ToWorker, DestClient,Data]),
       MessageBody = {worker_to_worker_msg, FromWorker, ToWorker, Data},
       {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
       nerl_tools:http_router_request(RouterHost, RouterPort, [DestClient], atom_to_list(worker_to_worker_msg), MessageBody),

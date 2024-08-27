@@ -1,5 +1,6 @@
 #include "nerlWorkerOpenNN.h"
 #include "ae_red.h" 
+#include <iostream>
 
 using namespace opennn;
 
@@ -17,7 +18,7 @@ namespace nerlnet
         generate_opennn_neural_network();
         _training_strategy_ptr = std::make_shared<opennn::TrainingStrategy>();
         generate_training_strategy();
-        _ae_red_ptr = std::make_shared<AeRed>();
+        _ae_red_ptr = std::make_shared<AeRed>(model_args_str);
     }
 
     NerlWorkerOpenNN::~NerlWorkerOpenNN()
@@ -28,7 +29,6 @@ namespace nerlnet
     void NerlWorkerOpenNN::perform_training()
     {
         this->_training_strategy_ptr->set_data_set_pointer(this->_data_set.get());
-
         TrainingResults res = this->_training_strategy_ptr->perform_training();
         this->_last_loss = res.get_training_error();
     
@@ -49,10 +49,17 @@ namespace nerlnet
         {
             case MODEL_TYPE_AE_CLASSIFIER:
             {
-                loss_val_tensor = std::make_shared<fTensor2D>(3, 1);
-                (*loss_val_tensor)(0, 0) = static_cast<float>(_last_loss);
-                (*loss_val_tensor)(1, 0) = _ae_red_ptr->_ema_event;
-                (*loss_val_tensor)(2, 0) = _ae_red_ptr->_ema_normal;
+                int num_of_samples = _aec_data_set->dimension(0);
+                loss_val_tensor = std::make_shared<fTensor2D>(3 + num_of_samples, 1); // TODO Check with if statements the correct size of loss_val_tensor
+                (*loss_val_tensor)(0, 0) = static_cast<float>(_last_loss); 
+                // TODO Add an if statement to save this values only if the user wants to save them (ModelArgs)
+                (*loss_val_tensor)(1, 0) = _ae_red_ptr->_ema_event; // Mask the following lines to get reduction in data tranfers sizes, or Unmask to enable AEC stats
+                (*loss_val_tensor)(2, 0) = _ae_red_ptr->_ema_normal; 
+                // Add _aec_all_loss_values to loss_val_tensor
+                for (int i = 0; i < num_of_samples; i++) // TODO Needs optimization
+                {
+                    (*loss_val_tensor)(3 + i, 0) = (*_aec_all_loss_values)(i, 0);
+                }
                 break;
             }
             default:
@@ -87,7 +94,7 @@ namespace nerlnet
             case MODEL_TYPE_AE_CLASSIFIER: // Get Loss Values , Add RED support - David's Thesis
             {
                 std::shared_ptr<opennn::NeuralNetwork> neural_network = get_neural_network_ptr();
-                Index num_of_samples = _aec_data_set->dimension(0);
+                int num_of_samples = (int)_aec_data_set->dimension(0);
                 Index num_of_labels = 1;
                 Index inputs_number = neural_network->get_inputs_number();
                 Tensor<Index, 1> inputs_dimensions(2);
@@ -95,19 +102,15 @@ namespace nerlnet
                 fTensor2DPtr results = std::make_shared<fTensor2D>(num_of_samples, num_of_labels + num_of_labels*2); // LOWER/UPPER for each label
                 fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
                 *calculate_res = neural_network->calculate_outputs(TrainData->data(), inputs_dimensions);
-
-                // MSE Calculation
                 fTensor2DPtr loss_values_mse = std::make_shared<fTensor2D>(num_of_samples, 1);
                 fTensor2D diff = (*calculate_res - *_aec_data_set);
                 fTensor2D squared_diff = diff.pow(2);
                 fTensor1D sum_squared_diff = squared_diff.sum(Eigen::array<int, 1>({1}));
                 fTensor1D mse1D = (1.0 / static_cast<float>(_aec_data_set->dimension(0))) * sum_squared_diff;
-                fTensor2D mse2D = mse1D.reshape(Eigen::array<int, 2>({num_of_samples, 1}));
-                *loss_values_mse = mse2D;
-
-                _ae_red_ptr->update_batch(loss_values_mse); // Update thresholds
-                
-                break;
+                fTensor2DPtr mse2D = std::make_shared<fTensor2D>(num_of_samples, 1);
+                *mse2D = mse1D.reshape(Eigen::array<int, 2>({(int)num_of_samples, 1}));
+                _aec_all_loss_values = mse2D;
+                _ae_red_ptr->update_batch(mse2D);
             }
 
                 
@@ -124,7 +127,7 @@ namespace nerlnet
     }
     
 
-    void NerlWorkerOpenNN::post_predict_process(fTensor2DPtr &result_ptr){
+    void NerlWorkerOpenNN::post_predict_process(fTensor2DPtr &result_ptr, fTensor2DPtr &predictData){
         switch(_model_type){
             case MODEL_TYPE_NN:
             {
@@ -139,16 +142,17 @@ namespace nerlnet
                 std::shared_ptr<opennn::NeuralNetwork> neural_network = get_neural_network_ptr();
                 Index num_of_samples = _aec_data_set->dimension(0);
                 Index inputs_number = neural_network->get_inputs_number();
-                Index num_of_labels = 1;
+                Index num_of_labels = 1; 
                 fTensor2DPtr results = std::make_shared<fTensor2D>(num_of_samples, num_of_labels); 
                 fTensor2DPtr loss_values_mse = std::make_shared<fTensor2D>(num_of_samples , 1);
-                fTensor2D diff = (*result_ptr - *_aec_data_set);
+                fTensor2D diff = (*result_ptr - *predictData);
                 fTensor2D squared_diff = diff.pow(2);
                 fTensor1D sum_squared_diff = squared_diff.sum(Eigen::array<int, 1>({1}));
                 fTensor1D mse1D = (1.0 / static_cast<float>(_aec_data_set->dimension(0))) * sum_squared_diff;
-                fTensor2D mse2D = mse1D.reshape(Eigen::array<int, 2>({num_of_samples, 1}));
-                *loss_values_mse = mse2D;
-                result_ptr = _ae_red_ptr->update_batch(loss_values_mse);
+                fTensor2D mse2D = mse1D.reshape(Eigen::array<int, 2>({(int)num_of_samples, 1}));
+                *loss_values_mse = mse2D;                
+                result_ptr = _ae_red_ptr->update_batch(loss_values_mse); // ! This should override the result_ptr
+                // result_ptr = loss_values_mse;
                 break;
             }
             // case MODEL_TYPE_LSTM:
@@ -295,6 +299,7 @@ namespace nerlnet
                 bool data_set_condition = (num_of_features + num_of_output_neurons) == autoencoder_data->dimension(1);
                 assert(("issue with data input/output dimensions", data_set_condition));
                 _data_set->set_data(*autoencoder_data);
+                _data_set->set_columns_scalers(Scaler::NoScaling);
                 _data_set->set(autoencoder_data->dimension(0) , num_of_features , num_of_output_neurons); // TODO CHECK
                 break;
             }
@@ -569,6 +574,10 @@ namespace nerlnet
             }  
             curr_layer = curr_layer->get_next_layer_ptr();
         }
+        // neural_network_ptr->get_parameters();
+        // neural_network_ptr->save("/home/nerlnet/workspace/NErlNet/model_parameters.xml");
+        // cout << "Model Parameters Saved" << endl;
+        // exit(0);
     }
 
     void NerlWorkerOpenNN::generate_custom_model_aec(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr)
@@ -844,14 +853,14 @@ namespace nerlnet
 
     std::shared_ptr<std::vector<int>> NerlWorkerOpenNN::get_distributed_system_train_labels_count()
     {       
-         switch (_distributed_system_type)
+        switch (_distributed_system_type)
         {
             case WORKER_DISTRIBUTED_SYSTEM_TYPE_FEDCLIENTWEIGHTEDAVGCLASSIFICATION: // Federated Client Weighted Average Classification
             {
-                 if (_data_set == nullptr)
+                if (_data_set == nullptr)
                     {
-                       LogError("NerlWorkerOpenNN::generate_custom_model_nn - _data_set is nullptr");
-                       throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - _data_set is nullptr");
+                        LogError("NerlWorkerOpenNN::generate_custom_model_nn - _data_set is nullptr");
+                        throw std::invalid_argument("NerlWorkerOpenNN::generate_custom_model_nn - _data_set is nullptr");
                     }
                 return _train_labels_count;
                 break;
@@ -861,6 +870,7 @@ namespace nerlnet
                 break;
             }
         }
+        return nullptr;
     }
     
     
@@ -891,5 +901,4 @@ namespace nerlnet
             break;
         }
     }
-
 } // namespace nerlnet

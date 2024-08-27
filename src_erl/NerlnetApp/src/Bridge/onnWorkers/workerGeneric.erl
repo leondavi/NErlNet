@@ -285,11 +285,9 @@ train(cast, {post_train_update , Weights}, State = #workerGeneric_state{myName =
 
 train(cast, {start_stream , StreamName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   stream_handler(start_stream, train, StreamName, DistributedBehaviorFunc),
-  % io:format("~p start stream ~p~n",[MyName, StreamName]),
   {next_state, train, State};
 
 train(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  % io:format("@train: ~p end stream ~p~n",[MyName, StreamName]),
   stream_handler(end_stream, train, StreamName, DistributedBehaviorFunc),
   {next_state, train, State};
 
@@ -348,6 +346,7 @@ stream_handler(StreamPhase , ModelPhase , StreamName , DistributedBehaviorFunc) 
   % io:format("~p got ~p from ~p~n",[MyName, StreamPhase, StreamName]),
   ClientPid = ets:lookup_element(GenWorkerEts, client_pid, ?ETS_KEYVAL_VAL_IDX),
   ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
+  % io:format("~p ActiveStreams: ~p~n",[MyName, ActiveStreams]),
   NewActiveStreams = 
       case StreamPhase of
           start_stream -> ActiveStreams ++ [{MyName, StreamName}];

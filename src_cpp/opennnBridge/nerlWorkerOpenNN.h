@@ -31,7 +31,7 @@ class NerlWorkerOpenNN : public NerlWorker
     std::shared_ptr<opennn::TrainingStrategy> get_training_strategy_ptr() { return _training_strategy_ptr; };
     std::shared_ptr<opennn::DataSet> get_data_set() { return _data_set; };
     void post_training_process(fTensor2DPtr  TrainDataNNptr);
-    void post_predict_process(fTensor2DPtr &result_ptr);
+    void post_predict_process(fTensor2DPtr &result_ptr, fTensor2DPtr &predictData);
     void get_result_calc(fTensor2DPtr calculate_res,int num_of_samples,int inputs_number,fTensor2DPtr predictData);
     void set_optimization_method(int optimizer_type ,int learning_rate);
     void set_loss_method(int loss_method);
@@ -53,6 +53,7 @@ class NerlWorkerOpenNN : public NerlWorker
     std::shared_ptr<opennn::DataSet> _data_set;
 
     fTensor2DPtr _aec_data_set;
+    fTensor2DPtr _aec_all_loss_values;
     std::shared_ptr<AeRed> _ae_red_ptr;
 
     // training vars

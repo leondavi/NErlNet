@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import comm
 from sklearn import metrics
 from IPython.display import display
 import matplotlib.pyplot as plt
@@ -83,7 +84,7 @@ class Stats():
 
         df = pd.DataFrame(loss_dict)
         self.loss_ts_pd = df
-       
+
         if smoothing:
             for column in df.columns:
                 for i in range(1, len(df)):
@@ -100,6 +101,9 @@ class Stats():
             sns.lineplot(data=df)
             plt.xlabel('Batch Num.')
             plt.ylabel('Loss Value')
+            if log_plot:
+                plt.yscale('log')
+                plt.xscale('log')
             plt.title(f'Training Loss Function of ({self.experiment_phase.get_name()})')
 
             # Move legend outside of the plot
@@ -147,6 +151,34 @@ class Stats():
         df = df.reindex(columns = [*df.columns.tolist(), *temp_list], fill_value = 0)
         assert df.shape[1] == 2 * num_of_labels, "Error in expend_labels_df function"
         return df
+    
+    def get_recieved_batches(self):
+        """
+        Returns a dictionary of recieved batches in the experiment phase.
+        recived_batches_dict = {(source_name, worker_name): [batch_id,...]}
+        """
+        def recieved_batches_key(phase_name, source_name, worker_name):
+            return f"phase:{phase_name},{source_name}->{worker_name}"
+
+        phase_name = self.experiment_phase.get_name()
+        recived_batches_dict = {}
+        sources_pieces_list = self.experiment_phase.get_sources_pieces()
+        workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
+        for source_piece_inst in sources_pieces_list:
+            source_name = source_piece_inst.get_source_name()
+            target_workers_string = source_piece_inst.get_target_workers()
+            target_workers_names = target_workers_string.split(',')
+            for worker_db in workers_model_db_list:
+                    worker_name = worker_db.get_worker_name()
+                    if worker_name in target_workers_names:       # Check if the worker is in the target workers list of this source
+                        for batch_id in range(source_piece_inst.get_num_of_batches()):
+                            batch_db = worker_db.get_batch(source_name, str(batch_id))
+                            if batch_db:    # if batch is recieved
+                                recieved_batch_key_str = recieved_batches_key(phase_name, source_name, worker_name)
+                                if recieved_batch_key_str not in recived_batches_dict:
+                                    recived_batches_dict[recieved_batch_key_str] = []
+                                recived_batches_dict[recieved_batch_key_str].append(batch_id)
+        return recived_batches_dict
 
     def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
         
@@ -180,7 +212,7 @@ class Stats():
             df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
             num_of_labels = df_actual_labels.shape[1]
 
-             # build confusion matrix for each worker
+            # build confusion matrix for each worker
             target_workers_string = source_piece_inst.get_target_workers()
             target_workers_names = target_workers_string.split(',')
             batch_size = source_piece_inst.get_batch_size()
@@ -193,11 +225,12 @@ class Stats():
                 header_list = range(num_of_labels) 
                 df_worker_labels.columns = header_list
                 df_worker_labels = self.expend_labels_df(df_worker_labels)  #Now there is a csv file with the actual labels of the source piece and empty columns for the predict labels
-                 
+                
                 # Check if the actual labels are integers and the predict labels are floats, if so convert the actual labels to nerltensorType
                 if nerltensorType == 'float':
                     if any(pd.api.types.is_integer_dtype(df_worker_labels[col]) for col in df_worker_labels.columns):
                         df_worker_labels = df_worker_labels.astype(float)
+                        
                 
                 #build df_worker_labels with the actual labels and the predict labels
                 index = 0
@@ -216,7 +249,9 @@ class Stats():
                 if len(self.headers_list) == 1:   # One class
                     class_name = self.headers_list[0]
                     actual_labels = df_worker_labels.iloc[:, :num_of_labels].values.flatten().tolist()
+                    # Predicted labels should be binary, threshold 0.5, turn every float to 1 if it's greater than 0.5, 0 otherwise
                     predict_labels = df_worker_labels.iloc[:, num_of_labels:].values.flatten().tolist()
+                    predict_labels = [1.0 if label > 0.5 else 0.0 for label in predict_labels]
                     confusion_matrix = metrics.confusion_matrix(actual_labels, predict_labels)
                     confusion_matrix_source_dict[(source_name, worker_name, class_name)] = confusion_matrix
                     if (worker_name, class_name) not in confusion_matrix_worker_dict:
@@ -263,35 +298,46 @@ class Stats():
         if plot:
             workers = sorted(list({tup[0] for tup in confusion_matrix_worker_dict.keys()}))
             classes = sorted(list({tup[1] for tup in confusion_matrix_worker_dict.keys()}))
-            fig, ax = plt.subplots(nrows=len(workers), ncols=len(classes),figsize=(4*len(classes),4*len(workers)),dpi=140)
-            if len(classes) > 1:
-                for i , worker in enumerate(workers): 
-                    for j , pred_class in enumerate(classes):
-                        conf_mat = confusion_matrix_worker_dict[(worker , pred_class)]
-                        heatmap = sns.heatmap(data=conf_mat ,ax=ax[i,j], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
+            if len(workers) > 1:
+                fig, ax = plt.subplots(nrows=len(workers), ncols=len(classes),figsize=(4*len(classes), 4*len(workers)), dpi=140)
+                if len(classes) > 1:
+                    for i , worker in enumerate(workers): 
+                        for j , pred_class in enumerate(classes):
+                            conf_mat = confusion_matrix_worker_dict[(worker , pred_class)]
+                            heatmap = sns.heatmap(data=conf_mat ,ax=ax[i,j], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
+                            cbar = heatmap.collections[0].colorbar
+                            cbar.ax.tick_params(labelsize = 8)
+                            ax[i, j].set_title(f"{worker} , Class '{pred_class}'" , fontsize=12)
+                            ax[i, j].tick_params(axis='both', which='major', labelsize=8) 
+                            ax[i, j].set_xlabel("Predicted Label" , fontsize=8)
+                            ax[i, j].set_ylabel("True Label" , fontsize=8)
+                            ax[i, j].set_aspect('equal')
+                else:
+                    for i, worker in enumerate(workers):
+                        conf_mat = confusion_matrix_worker_dict[(worker , classes[0])]
+                        heatmap = sns.heatmap(data=conf_mat ,ax=ax[i], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
                         cbar = heatmap.collections[0].colorbar
                         cbar.ax.tick_params(labelsize = 8)
-                        ax[i, j].set_title(f"{worker} , Class '{pred_class}'" , fontsize=12)
-                        ax[i, j].tick_params(axis='both', which='major', labelsize=8) 
-                        ax[i, j].set_xlabel("Predicted Label" , fontsize=8)
-                        ax[i, j].set_ylabel("True Label" , fontsize=8)
-                        ax[i, j].set_aspect('equal')
+                        ax[i].set_title(f"{worker} , Class '{classes[0]}'" , fontsize=12)
+                        ax[i].tick_params(axis='both', which='major', labelsize=8) 
+                        ax[i].set_xlabel("Predicted Label" , fontsize=8)
+                        ax[i].set_ylabel("True Label" , fontsize=8)
+                        ax[i].set_aspect('equal')
+                fig.subplots_adjust(wspace=0.4 , hspace=0.4)
             else:
-                for i, worker in enumerate(workers):
-                    conf_mat = confusion_matrix_worker_dict[(worker , classes[0])]
-                    heatmap = sns.heatmap(data=conf_mat ,ax=ax[i], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
-                    cbar = heatmap.collections[0].colorbar
-                    cbar.ax.tick_params(labelsize = 8)
-                    ax[i].set_title(f"{worker} , Class '{classes[0]}'" , fontsize=12)
-                    ax[i].tick_params(axis='both', which='major', labelsize=8) 
-                    ax[i].set_xlabel("Predicted Label" , fontsize=8)
-                    ax[i].set_ylabel("True Label" , fontsize=8)
-                    ax[i].set_aspect('equal')
-            fig.subplots_adjust(wspace=0.4 , hspace=0.4)
+                plt.figure(figsize=(4*len(classes), 3), dpi=140)
+                conf_mat = confusion_matrix_worker_dict[(workers[0] , classes[0])]
+                heatmap = sns.heatmap(data=conf_mat , annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
+                cbar = heatmap.collections[0].colorbar
+                cbar.ax.tick_params(labelsize = 8)
+                plt.title(f"{workers[0]} , Class '{classes[0]}'" , fontsize=12)
+                plt.xlabel("Predicted Label" , fontsize=8)
+                plt.ylabel("True Label" , fontsize=8)
+                plt.tick_params(axis='both', which='major', labelsize=8)
             plt.show()
             
         return confusion_matrix_source_dict, confusion_matrix_worker_dict
-    
+        
     def get_recieved_batches(self):
         """
         Returns a dictionary of recieved batches in the experiment phase.
@@ -525,5 +571,26 @@ class Stats():
 
     def get_predict_regression_stats(self , plot : bool = False , saveToFile : bool = False):
         pass
+    
+    def get_total_bytes(self):
+        # Return the total bytes sent and received in the experiment
+        comm_stats_main_server = self.get_communication_stats_main_server()
+        comm_stats_router = self.get_communication_stats_routers()
+        comm_stats_clients = self.get_communication_stats_clients()
+        comm_stats_sources = self.get_communication_stats_sources()
+        bytes = 0
+        for client in comm_stats_clients:
+            bytes += comm_stats_clients[client]['bytes_sent']
+            bytes += comm_stats_clients[client]['bytes_received']
+        for source in comm_stats_sources:
+            bytes += comm_stats_sources[source]['bytes_sent']
+            bytes += comm_stats_sources[source]['bytes_received']
+        for router in comm_stats_router:
+            bytes += comm_stats_router[router]['bytes_sent']
+            bytes += comm_stats_router[router]['bytes_received']
+        bytes += comm_stats_main_server['bytes_sent']
+        bytes += comm_stats_main_server['bytes_received']
+        return bytes
+        
 
 

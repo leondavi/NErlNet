@@ -19,28 +19,40 @@
             "description": "Gaussian Distributions Classification Syntetic Dataset for baseline experiments"
         },
         {
-            "id": "Nerlnet/tiles_sorted",
+            "id": "Nerlnet/forest_cover",
             "idx": 3,
+            "name": "ForestCover",
+            "description": "Dataset for AEC"
+        },
+        {
+            "id": "Nerlnet/MNist_sorted",
+            "idx": 4,
             "name": "Tiles_Mnist_sorted",
             "description": "Mnist tiled,sorted by parts - tiled"
         },
         {
-            "id": "Nerlnet/Mnist_normalized",
-            "idx": 4,
+            "id": "Nerlnet/KDD14",
+            "idx": 5,
+            "name": "KDD14",
+            "description": "KDD14 Anomaly Detection Dataset"
+        },
+        {
+            "id": "Nerlnet/forest_cover_tiles",
+            "idx": 6,
             "name": "mnist_normalized",
             "description": "MNist Dataset for CNN experiments - 255 normalized"
         },
         {
             "id": "Nerlnet/cifar10",
-            "idx": 5,
+            "idx": 7,
             "name": "cifar10",
             "description": "cifar10"
-        }
-        ,{
-        "id": "Nerlnet/cifar10_tiles",
-        "idx": 6,
-        "name": "cifar10_tiles",
-        "description": "cifar10 tiles"
+        },
+        {
+            "id": "Nerlnet/cifar10_tiles",
+            "idx": 8,
+            "name": "cifar10_tiles",
+            "description": "cifar10 tiles"
         }
     ]
 }

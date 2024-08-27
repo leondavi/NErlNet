@@ -82,7 +82,7 @@ void* PredictFun(void* arg)
     Index inputs_number = neural_network->get_inputs_number();
     fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
     nerlworker_opennn->get_result_calc(calculate_res, num_of_samples, inputs_number, PredictNNptr->data);
-    nerlworker_opennn->post_predict_process(calculate_res); 
+    nerlworker_opennn->post_predict_process(calculate_res, PredictNNptr->data);
     nifpp::make_tensor_2d<float,fTensor2D>(env, prediction, calculate_res);
     // only for AE and AEC calculate the distance between prediction labels and input data
     //std::cout << "*calculate_res.get(): " << (*calculate_res.get()).dimensions() << std::endl;

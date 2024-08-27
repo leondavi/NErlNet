@@ -54,16 +54,12 @@
         {
             "name": "c1",
             "port": "8083",
-            "workers": "w1,w2"
+            "workers": "w1"
         }
     ],
     "workers": [
         {
             "name": "w1",
-            "model_sha": "d8df752e0a2e8f01de8f66e9cec941cdbc65d144ecf90ab7713e69d65e7e82aa"
-        },
-        {
-            "name": "w2",
             "model_sha": "d8df752e0a2e8f01de8f66e9cec941cdbc65d144ecf90ab7713e69d65e7e82aa"
         }
     ],
@@ -76,13 +72,15 @@
             "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
             "layerTypesList": "1,3,3,3,3",
             "_doc_LayerTypes": " Default:0 | Scaling:1 | CNN:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 |",
-            "layers_functions": "1,7,7,7,7",
+            "layers_functions": "1,8,8,8,8",
             "_doc_layers_functions_activation": " Threshold:1 | Sign:2 | Logistic:3 | Tanh:4 | Linear:5 | ReLU:6 | eLU:7 | SeLU:8 | Soft-plus:9 | Soft-sign:10 | Hard-sigmoid:11 |",
             "_doc_layer_functions_pooling": " none:1 | Max:2 | Avg:3 |",
             "_doc_layer_functions_probabilistic": " Binary:1 | Logistic:2 | Competitive:3 | Softmax:4 |",
             "_doc_layer_functions_scaler": " none:1 | MinMax:2 | MeanStd:3 | STD:4 | Log:5 |",
             "lossMethod": "2",
             "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
+            "lossArgs": "",
+            "_doc_lossArgs": "reg=L2, reg=L1, reg=NoRegularization (can be also empty)",
             "lr": "0.001",
             "_doc_lr": "Positve float",
             "epochs": "1",

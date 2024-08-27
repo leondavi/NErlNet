@@ -67,23 +67,28 @@ init({GenWorkerEts, WorkerData}) ->
 
 handshake(FedClientEts) ->
   W2WPid = ets:lookup_element(FedClientEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
-  w2wCom:sync_inbox(W2WPid),
+  w2wCom:sync_inbox_no_limit(W2WPid),
   InboxQueue = w2wCom:get_all_messages(W2WPid),
   MessagesList = queue:to_list(InboxQueue),
+  MyToken = ets:lookup_element(FedClientEts, my_token, ?ETS_KEYVAL_VAL_IDX),
+  MyName = ets:lookup_element(FedClientEts, my_name, ?ETS_KEYVAL_VAL_IDX),
   Func = 
     fun({FedServer , {handshake, ServerToken}}) ->
-      ets:insert(FedClientEts, {server_name, FedServer}),
-      ets:insert(FedClientEts, {my_token , ServerToken}),
-      MyToken = ets:lookup_element(FedClientEts, my_token, ?ETS_KEYVAL_VAL_IDX),
-      MyName = ets:lookup_element(FedClientEts, my_name, ?ETS_KEYVAL_VAL_IDX),
       if 
-        ServerToken =/= MyToken -> not_my_server; 
-        true -> w2wCom:send_message(W2WPid, MyName, FedServer, {handshake, MyToken}),
-                % io:format("@FedClient: Sent handshake to server ~p with token ~p~n", [FedServer, MyToken]),
+        ServerToken =/= MyToken -> io:format("Got the wrong Token...~n"); 
+        true -> ets:insert(FedClientEts, {server_name, FedServer}),
+                % ets:insert(FedClientEts, {my_token , ServerToken}),
+                w2wCom:send_message(W2WPid, MyName, FedServer, {handshake, MyToken}),
+                io:format("@FedClient: Sent handshake to server ~p with token ~p~n", [FedServer, MyToken]),
                 ets:update_element(FedClientEts, handshake_wait, {?ETS_KEYVAL_VAL_IDX, true})
       end
   end,
-  lists:foreach(Func, MessagesList).
+  lists:foreach(Func, MessagesList),
+  ServerName = ets:lookup_element(FedClientEts, server_name, ?ETS_KEYVAL_VAL_IDX),
+  case ServerName of
+    [] -> handshake(FedClientEts); % Did not got the right message yet
+    _ -> done
+  end.
 
 start_stream({GenWorkerEts, WorkerData}) ->  % WorkerData is currently a list of [SourceName, State]
   [SourceName, ModelPhase] = WorkerData,
@@ -113,7 +118,7 @@ end_stream({GenWorkerEts, WorkerData}) -> % WorkerData is currently a list of [S
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         ActiveStreams = ets:lookup_element(GenWorkerEts, active_streams, ?ETS_KEYVAL_VAL_IDX),
         case length(ActiveStreams) of % Send to server an updater after got start_stream from the first source
-          0 ->  % io:format("Worker ~p ending stream with ~p~n", [MyName, SourceName]),
+          0 ->  io:format("Worker ~p ending stream with ~p~n", [MyName, SourceName]),
                 w2wCom:send_message_with_event(W2WPid, MyName, ServerName , end_stream, {MyName, SourceName}); % Mimic source behavior
           _ -> ok
         end
@@ -132,11 +137,16 @@ post_idle({GenWorkerEts, _WorkerData}) ->
     true -> HandshakeDone = ets:lookup_element(FedClientEts, handshake_done, ?ETS_KEYVAL_VAL_IDX),
             case HandshakeDone of 
             false -> 
-              w2wCom:sync_inbox(W2WPid),
+              w2wCom:sync_inbox_no_limit(W2WPid),
               InboxQueue = w2wCom:get_all_messages(W2WPid),
-              [{_FedServer, {handshake_done, Token}}] = queue:to_list(InboxQueue),
-              ets:update_element(FedClientEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true});
-              % io:format("Worker is part of cluster with token ~p~n", [Token]);
+              % [{_FedServer, {handshake_done, Token}}] = queue:to_list(InboxQueue),
+              Msg = queue:to_list(InboxQueue),
+              case Msg of
+              [{_FedServer, {handshake_done, Token}}] ->
+                          ets:update_element(FedClientEts, handshake_done, {?ETS_KEYVAL_VAL_IDX, true}),
+                          io:format("Worker is part of cluster with token ~p~n", [Token]);
+              _ -> io:format("Got the wrong message...~n"), post_idle({GenWorkerEts, _WorkerData})
+              end; 
             true -> ok
             end;
     false -> post_idle({GenWorkerEts, _WorkerData}) % busy waiting until handshake is done

@@ -59,11 +59,19 @@ call_to_train(ModelID, {DataTensor, Type}, WorkerPid , BatchID , SourceName)->
                   gen_statem:cast(WorkerPid,{loss, timeout , SourceName}) %% TODO Guy Define train timeout state 
       end.
 
+save_to_file([]) -> 
+      file:write_file("/tmp/nerlnet/predict_error.csv", io_lib:fwrite("~n", []), [append]);
+save_to_file(List) ->
+      file:write_file("/tmp/nerlnet/predict_error.csv", io_lib:fwrite("~p,", [hd(List)]), [append]),
+      save_to_file(tl(List)).
+
 call_to_predict(ModelID, {BatchTensor, Type}, WorkerPid, BatchID , SourceName)->
       ok = predict_nif(ModelID, BatchTensor, Type),
       receive
             
             {nerlnif , PredNerlTensor, PredNerlTensorType, TimeNif}-> %% nerlnif atom means a message from the nif implementation
+                  % {Tensor, _} = nerlNIF:nerltensor_conversion({PredNerlTensor, PredNerlTensorType}, erl_float),
+                  % save_to_file([BatchID | Tensor]),
                   % io:format("pred_nif done~n"),
                   % {PredTen, _NewType} = nerltensor_conversion({PredNerlTensor, NewType}, erl_float),
                   % io:format("Pred returned: ~p~n", [PredNerlTensor]),

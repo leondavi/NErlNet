@@ -1,11 +1,11 @@
 {
     "experimentName": "anomaly_detection_skab",
     "experimentType": "classification",
-    "batchSize": 100,
-    "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/ForestCover/cover_normalized_std.csv",
-    "numOfFeatures": "10",
+    "batchSize": 50,
+    "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/skab/skab_full.csv",
+    "numOfFeatures": "8",
     "numOfLabels": "1",
-    "headersNames": "Label",
+    "headersNames": "Anomaly",
     "Phases": 
     [
     {
@@ -16,7 +16,7 @@
             {
             "sourceName": "s1",
             "startingSample": "0",
-            "numOfBatches": "2500",
+            "numOfBatches": "420",
             "workers": "w1,w2",
             "nerltensorType": "float"
             }
@@ -29,8 +29,8 @@
         [
             {
             "sourceName": "s1",
-            "startingSample": "250000",
-            "numOfBatches": "600",
+            "startingSample": "21000",
+            "numOfBatches": "320",
             "workers": "w1,w2",
             "nerltensorType": "float"
             }

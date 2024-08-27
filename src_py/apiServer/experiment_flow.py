@@ -91,7 +91,7 @@ class ExperimentFlow():
         assert self.exp_flow_json[EXPFLOW_EXPERIMENT_TYPE_FIELD] , "experiment type is missing"
         self.exp_type = self.exp_flow_json[EXPFLOW_EXPERIMENT_TYPE_FIELD]
         self.batch_size = self.exp_flow_json[EXPFLOW_BATCH_SIZE_FIELD]
-        assert self.batch_size == self.batch_size_dc
+        assert self.batch_size == self.batch_size_dc, "Make sure the batch size field in the DC json and the Exp_flow json are the same"
         csv_file_path = self.exp_flow_json[EXPFLOW_CSV_FILE_PATH_FIELD] if override_csv_path == "" else override_csv_path
         headers_row = self.exp_flow_json[EXPFLOW_HEADERS_NAMES_FIELD].split(",")
         num_of_features = self.exp_flow_json[EXPFLOW_NUM_OF_FEATURES_FIELD]

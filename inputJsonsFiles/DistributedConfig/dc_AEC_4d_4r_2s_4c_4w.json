@@ -4,18 +4,33 @@
         "batchSize": "100"
     },
     "mainServer": {
-        "port": "8081",
+        "port": "8900",
         "args": ""
     },
     "apiServer": {
-        "port": "8082",
+        "port": "8901",
         "args": ""
     },
     "devices": [
         {
             "name": "C0VM0",
             "ipv4": "10.0.0.5",
-            "entities": "c1,c2,r2,r1,r3,r4,s1,apiServer,mainServer"
+            "entities": "apiServer,mainServer,c1,r1,s1"
+        },
+        {
+            "name": "MinionMS",
+            "ipv4": "10.0.0.31",
+            "entities": "c2,r2,s2"
+        },
+        {
+            "name": "Minion0",
+            "ipv4": "10.0.0.17",
+            "entities": "c3,r3"
+        },
+        {
+            "name": "Minion1",
+            "ipv4": "10.0.0.18",
+            "entities": "c4,r4"
         }
     ],
     "routers": [
@@ -44,7 +59,15 @@
         {
             "name": "s1",
             "port": "8085",
-            "frequency": "300",
+            "frequency": "500",
+            "policy": "0",
+            "epochs": "1",
+            "type": "0"
+        },
+        {
+            "name": "s2",
+            "port": "8085",
+            "frequency": "500",
             "policy": "0",
             "epochs": "1",
             "type": "0"
@@ -54,7 +77,22 @@
         {
             "name": "c1",
             "port": "8083",
-            "workers": "w1,w2"
+            "workers": "w1"
+        },
+        {
+            "name": "c2",
+            "port": "8083",
+            "workers": "w2"
+        },
+        {
+            "name": "c3",
+            "port": "8083",
+            "workers": "w3"
+        },
+        {
+            "name": "c4",
+            "port": "8083",
+            "workers": "w4"
         }
     ],
     "workers": [
@@ -65,24 +103,34 @@
         {
             "name": "w2",
             "model_sha": "d8df752e0a2e8f01de8f66e9cec941cdbc65d144ecf90ab7713e69d65e7e82aa"
+        },
+        {
+            "name": "w3",
+            "model_sha": "d8df752e0a2e8f01de8f66e9cec941cdbc65d144ecf90ab7713e69d65e7e82aa"
+        },
+        {
+            "name": "w4",
+            "model_sha": "d8df752e0a2e8f01de8f66e9cec941cdbc65d144ecf90ab7713e69d65e7e82aa"
         }
     ],
     "model_sha": {
         "d8df752e0a2e8f01de8f66e9cec941cdbc65d144ecf90ab7713e69d65e7e82aa": {
             "modelType": "9",
             "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image-classification:4 | text-classification:5 | text-generation:6 | auto-association:7 | autoencoder:8 | ae-classifier:9 |",
-            "modelArgs": "k=0.5,alpha=0.4,use_ema_only=1",
-            "layersSizes": "10,32,16,32,10",
+            "modelArgs": "k=1.9,alpha=0.4,use_ema_only=1",
+            "layersSizes": "10,128,64,32,16,32,64,128,10",
             "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
-            "layerTypesList": "1,3,3,3,3",
+            "layerTypesList": "1,3,3,3,3,3,3,3,3",
             "_doc_LayerTypes": " Default:0 | Scaling:1 | CNN:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 |",
-            "layers_functions": "1,7,7,7,7",
+            "layers_functions": "1,8,8,8,8,8,8,8,8",
             "_doc_layers_functions_activation": " Threshold:1 | Sign:2 | Logistic:3 | Tanh:4 | Linear:5 | ReLU:6 | eLU:7 | SeLU:8 | Soft-plus:9 | Soft-sign:10 | Hard-sigmoid:11 |",
             "_doc_layer_functions_pooling": " none:1 | Max:2 | Avg:3 |",
             "_doc_layer_functions_probabilistic": " Binary:1 | Logistic:2 | Competitive:3 | Softmax:4 |",
             "_doc_layer_functions_scaler": " none:1 | MinMax:2 | MeanStd:3 | STD:4 | Log:5 |",
             "lossMethod": "2",
             "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
+            "lossArgs": "",
+            "_doc_lossArgs": "reg=L2, reg=L1, reg=NoRegularization (can be also empty)",
             "lr": "0.001",
             "_doc_lr": "Positve float",
             "epochs": "1",

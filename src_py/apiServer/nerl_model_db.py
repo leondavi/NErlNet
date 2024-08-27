@@ -43,7 +43,7 @@ class WorkerModelDB():
         self.batches_ts_dict[batch_timestamp] = self.batches_dict[(source_name, batch_id)]
 
     def get_batch(self, source_name, batch_id):
-        if (source_name, batch_id) in self.batches_dict:
+        if (source_name, batch_id) in self.batches_dict.keys():
             return self.batches_dict[(source_name, batch_id)]
         return None
     
@@ -62,6 +62,12 @@ class WorkerModelDB():
         for batch_db in self.batches_ts_dict.values():
             batches_ts_tensor_data_dict[batch_db.batch_timestamp] = batch_db.tensor_data
         return batches_ts_tensor_data_dict
+    
+    def get_batches_batchid_tensor_data_dict(self):
+        batches_batchid_tensor_data_dict = {}
+        for batch_db in self.batches_ts_dict.values():
+            batches_batchid_tensor_data_dict[(batch_db.get_source_name(), int(batch_db.batch_id))] = batch_db.tensor_data
+        return batches_batchid_tensor_data_dict
     
     def get_batches_dict(self):
         return self.batches_dict
