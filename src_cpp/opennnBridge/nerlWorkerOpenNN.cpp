@@ -1,6 +1,5 @@
 #include "nerlWorkerOpenNN.h"
 #include "ae_red.h" 
-#include <fstream>
 #include <iostream>
 
 using namespace opennn;
@@ -30,7 +29,6 @@ namespace nerlnet
     void NerlWorkerOpenNN::perform_training()
     {
         this->_training_strategy_ptr->set_data_set_pointer(this->_data_set.get());
-        this->_training_strategy_ptr->get_loss_index_pointer()->set_regularization_method(LossIndex::RegularizationMethod::L2); // ! ADDED NOW
         TrainingResults res = this->_training_strategy_ptr->perform_training();
         this->_last_loss = res.get_training_error();
     
@@ -54,11 +52,11 @@ namespace nerlnet
                 int num_of_samples = _aec_data_set->dimension(0);
                 loss_val_tensor = std::make_shared<fTensor2D>(1, 1);
                 (*loss_val_tensor)(0, 0) = static_cast<float>(_last_loss); 
+                // TODO Add an if statement to save this values only if the user wants to save them (ModelArgs)
                 (*loss_val_tensor)(1, 0) = _ae_red_ptr->_ema_event; // Mask the following lines to get reduction in data tranfers sizes, or Unmask to enable AEC stats
                 (*loss_val_tensor)(2, 0) = _ae_red_ptr->_ema_normal; 
-                cout << "Upper Bound: " << _ae_red_ptr->_ema_event << ", Lower Bound: " << _ae_red_ptr->_ema_normal << endl;
                 // Add _aec_all_loss_values to loss_val_tensor
-                for (int i = 0; i < num_of_samples; i++)
+                for (int i = 0; i < num_of_samples; i++) // TODO Needs optimization
                 {
                     (*loss_val_tensor)(3 + i, 0) = (*_aec_all_loss_values)(i, 0);
                 }
@@ -105,19 +103,17 @@ namespace nerlnet
                 fTensor2DPtr calculate_res = std::make_shared<fTensor2D>(num_of_samples, neural_network->get_outputs_number());
                 *calculate_res = neural_network->calculate_outputs(TrainData->data(), inputs_dimensions);
                 fTensor2DPtr loss_values_mse = std::make_shared<fTensor2D>(num_of_samples, 1);
-                fTensor2DPtr loss_values_return = std::make_shared<fTensor2D>(num_of_samples, 1);
                 fTensor2D diff = (*calculate_res - *_aec_data_set);
                 fTensor2D squared_diff = diff.pow(2);
                 fTensor1D sum_squared_diff = squared_diff.sum(Eigen::array<int, 1>({1}));
                 fTensor1D mse1D = (1.0 / static_cast<float>(_aec_data_set->dimension(0))) * sum_squared_diff;
-                fTensor2D mse2D = mse1D.reshape(Eigen::array<int, 2>({(int)num_of_samples, 1}));
-                // cout << "MSE2D: " << mse2D << endl;
-                *loss_values_mse = mse2D;
-                *loss_values_return = mse2D;
-                _aec_all_loss_values = loss_values_return;
-                // cout << "MSE Loss: " << mse_loss << endl;
-                _ae_red_ptr->update_batch(loss_values_mse);
-                // cout << "AE_RED RESULT VECTOR:" << endl << *res << endl;
+                fTensor2DPtr mse2D = std::make_shared<fTensor2D>(num_of_samples, 1);
+                cout << "GOT HERE1" << endl;
+                *mse2D = mse1D.reshape(Eigen::array<int, 2>({(int)num_of_samples, 1}));
+                cout << "GOT HERE2" << endl;
+                _aec_all_loss_values = mse2D;
+                cout << "GOT HERE3" << endl;
+                _ae_red_ptr->update_batch(mse2D);
             }
 
                 
@@ -157,24 +153,7 @@ namespace nerlnet
                 fTensor1D sum_squared_diff = squared_diff.sum(Eigen::array<int, 1>({1}));
                 fTensor1D mse1D = (1.0 / static_cast<float>(_aec_data_set->dimension(0))) * sum_squared_diff;
                 fTensor2D mse2D = mse1D.reshape(Eigen::array<int, 2>({(int)num_of_samples, 1}));
-                *loss_values_mse = mse2D;
-                // string filename = "/tmp/nerlnet/predict_errors.csv";
-                // std::ofstream file(filename, std::ios::out | std::ios::app);
-                // if (file.is_open()) {
-                //     for (int i = 0; i < mse2D.dimension(0); ++i) {
-                //         for (int j = 0; j < mse2D.dimension(1); ++j) {
-                //             file << mse2D(i, j);
-                //             if (j < mse2D.dimension(1) - 1) {
-                //                 file << ",";
-                //             }
-                //         }
-                //         file << "\n";
-                //     }
-                //     file.close();
-                // } 
-                // else {
-                //     cerr << "Unable to open file" << endl;
-                //     }
+                *loss_values_mse = mse2D;                
                 result_ptr = _ae_red_ptr->update_batch(loss_values_mse); // ! This should override the result_ptr
                 // result_ptr = loss_values_mse;
                 break;
@@ -598,7 +577,6 @@ namespace nerlnet
             }  
             curr_layer = curr_layer->get_next_layer_ptr();
         }
-        // Write the model parameters to file
         // neural_network_ptr->get_parameters();
         // neural_network_ptr->save("/home/nerlnet/workspace/NErlNet/model_parameters.xml");
         // cout << "Model Parameters Saved" << endl;
