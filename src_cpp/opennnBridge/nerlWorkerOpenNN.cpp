@@ -50,7 +50,7 @@ namespace nerlnet
             case MODEL_TYPE_AE_CLASSIFIER:
             {
                 int num_of_samples = _aec_data_set->dimension(0);
-                loss_val_tensor = std::make_shared<fTensor2D>(1, 1);
+                loss_val_tensor = std::make_shared<fTensor2D>(3 + num_of_samples, 1); // TODO Check with if statements the correct size of loss_val_tensor
                 (*loss_val_tensor)(0, 0) = static_cast<float>(_last_loss); 
                 // TODO Add an if statement to save this values only if the user wants to save them (ModelArgs)
                 (*loss_val_tensor)(1, 0) = _ae_red_ptr->_ema_event; // Mask the following lines to get reduction in data tranfers sizes, or Unmask to enable AEC stats
@@ -108,11 +108,8 @@ namespace nerlnet
                 fTensor1D sum_squared_diff = squared_diff.sum(Eigen::array<int, 1>({1}));
                 fTensor1D mse1D = (1.0 / static_cast<float>(_aec_data_set->dimension(0))) * sum_squared_diff;
                 fTensor2DPtr mse2D = std::make_shared<fTensor2D>(num_of_samples, 1);
-                cout << "GOT HERE1" << endl;
                 *mse2D = mse1D.reshape(Eigen::array<int, 2>({(int)num_of_samples, 1}));
-                cout << "GOT HERE2" << endl;
                 _aec_all_loss_values = mse2D;
-                cout << "GOT HERE3" << endl;
                 _ae_red_ptr->update_batch(mse2D);
             }
 
