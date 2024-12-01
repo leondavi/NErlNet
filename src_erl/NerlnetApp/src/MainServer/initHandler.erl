@@ -21,17 +21,15 @@ init(Req0, [Main_genServer_Pid]) ->
 
   %Bindings also can be accessed as once, giving a map of all bindings of Req0:
   {_,Body,_} = cowboy_req:read_body(Req0, #{length => ?DATA_LEN}),  %read up to X MB (default was 8MB)
-  Decoded_body = binary_to_list(Body),
-  [Index, TotalSources, SourceName, WorkersStr, Phase, NumOfBatches, NerlTensorType, Data] = string:split(Decoded_body, "#", all),
+  DecodedBody = binary_to_list(zlib:uncompress(Body)),
+  [Index, TotalSources, SourceName, WorkersStr, Phase, NumOfBatches, NerlTensorType, Data] = string:split(DecodedBody, "#", all),
   gen_server:cast(Main_genServer_Pid,{initCSV, Index, TotalSources, SourceName, WorkersStr, Phase, NumOfBatches, NerlTensorType, Data}),
   %[Source|WorkersAndInput] = re:split(binary_to_list(Body), "#", [{return, list}]),
   %{Workers,SourceData} = getWorkerInput(WorkersAndInput,[]),
 
-  Reply = io_lib:format("Body Received: ~p, Decoded Body = ~p ~n State:~p~n", [Body,Decoded_body, Main_genServer_Pid]),
-
   Req = cowboy_req:reply(200,
     #{<<"content-type">> => <<"text/plain">>},
-    Reply,
+    "OK",
     Req0),
   {ok, Req, Main_genServer_Pid}.
 

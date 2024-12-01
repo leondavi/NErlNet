@@ -88,7 +88,7 @@ handle_cast({initCSV, _Index, TotalSources, SourceName, WorkersList, Phase, NumO
   {TotalSourcesInt, _Rest} = string:to_integer(TotalSources),
   % MessageBody = WorkersList ++ "#" ++ NumOfBatches ++ "#" ++ NerlTensorType ++ "#" ++ Data,
   WorkersListSeperated = string:split(WorkersList, ",", all),
-  MessageBody = {WorkersListSeperated, Phase, NumOfBatches, NerlTensorType, Data},
+  MessageBody = {WorkersListSeperated, Phase, NumOfBatches, NerlTensorType, zlib:compress(list_to_binary(Data))},
   nerl_tools:http_router_request(RouterHost,RouterPort, [SourceName], ActionStr, MessageBody), % update the source with its data
   UpdatedSourceWaitingList = SourcesWaitingList++[list_to_atom(SourceName)],
   {SourcesDataReadyCtr, NewTotalSources} = 
@@ -241,7 +241,7 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName, so
       update_clients_phase(PhaseAtom, MyName),
       ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
       stats:increment_messages_sent(StatsEts),
-      NextState = State#main_genserver_state{state = idle, sourcesCastingList = UpdatedSourcesCastingList, clientsWaitingList = ListOfClients};
+      NextState = State#main_genserver_state{state = idle, sourcesCastingList = UpdatedSourcesCastingList, clientsWaitingList = ListOfClients, total_sources = 0};
     _ -> NextState = State#main_genserver_state{state = casting, sourcesCastingList = UpdatedSourcesCastingList}
   end,
   {noreply, NextState};
