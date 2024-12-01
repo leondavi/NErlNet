@@ -83,14 +83,16 @@ init({MyName,ClientsNames,BatchSize,WorkersMap,NerlnetGraph , DeviceName}) ->
 
 
 handle_cast({initCSV, _Index, TotalSources, SourceName, WorkersList, Phase, NumOfBatches, NerlTensorType, Data}, State = #main_genserver_state{state = idle, sourcesWaitingList = SourcesWaitingList, total_sources = TotalSourcesOld, sources_data_ready_ctr = SourcesDataReadyCtrOld}) ->
+  io:format("GOT HERE~n"),
   {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
   ActionStr = atom_to_list(updateCSV),
   {TotalSourcesInt, _Rest} = string:to_integer(TotalSources),
   % MessageBody = WorkersList ++ "#" ++ NumOfBatches ++ "#" ++ NerlTensorType ++ "#" ++ Data,
   WorkersListSeperated = string:split(WorkersList, ",", all),
-  MessageBody = {WorkersListSeperated, Phase, NumOfBatches, NerlTensorType, Data},
+  MessageBody = {WorkersListSeperated, Phase, NumOfBatches, NerlTensorType, zlib:compress(list_to_binary(Data))},
   nerl_tools:http_router_request(RouterHost,RouterPort, [SourceName], ActionStr, MessageBody), % update the source with its data
   UpdatedSourceWaitingList = SourcesWaitingList++[list_to_atom(SourceName)],
+  io:format("UpdatedSourceWaitingList: ~p", [UpdatedSourceWaitingList]),
   {SourcesDataReadyCtr, NewTotalSources} = 
   if 
     TotalSourcesOld =/= TotalSourcesInt -> {0, TotalSourcesInt};

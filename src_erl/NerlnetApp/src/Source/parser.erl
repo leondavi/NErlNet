@@ -44,8 +44,11 @@ parse_file(_SourceName, BatchSize, NerlTensorType, ErlType, Data) ->
   %% TODO: create NIF that does dataStrToNumericData. In = ["1,2,3,4", "5,6,7,8", ....] => out = [[1,2,3,4],[5,6,7,8],....] (make sure to take type into account)
   ListOfLinesOfData = dataStrToNumericData(lists:droplast(Lines) , ErlType),    %% drop empty line in the end of all CSV files
   SampleSize = length(hd(ListOfLinesOfData)),
+  io:format("BEFORE LIST OF BATCHES"),
   ListOfBatches = generateListOfBatches(ListOfLinesOfData, BatchSize),
+  io:format("AFTER LIST OF BATCHES"),
   ListOfTensors = encodeListOfBatchesToNerlTensorsBinBatches(ListOfBatches, get(erl_tensor_type), NerlTensorType, SampleSize),
+  io:format("AFTER ENCODE TENSOR BATCHES"),
   {ListOfTensors, SampleSize}.
 
 dataStrToNumeric_NumHandler({NumStr, ErlType}) -> 

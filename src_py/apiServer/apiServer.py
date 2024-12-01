@@ -147,6 +147,7 @@ class ApiServer(metaclass=Singleton):
         for source_piece_inst in sources_pieces_list:
             source_generated_csv_path = csv_dataset.generate_source_piece_ds_csv_file(source_piece_inst, experiment_phase.get_phase_type())
             source_files_to_send.append(source_generated_csv_path)
+        LOG_INFO("Done generating source pieces")
 
         events_sync_inst.set_event_wait(EventSync.UPDATE_CSV)
         self.transmitter.update_csv(source_files_to_send, sources_pieces_list)
