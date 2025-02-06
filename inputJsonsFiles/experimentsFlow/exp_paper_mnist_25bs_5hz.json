@@ -1,0 +1,56 @@
+{
+    "experimentName": "mnist_rr",
+    "experimentType": "classification",
+    "batchSize": 25,
+    "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/mnist_norm/mnist_train_255_norm.csv",
+    "numOfFeatures": "784",
+    "numOfLabels": "10",
+    "headersNames": "0,1,2,3,4,5,6,7,8,9",
+    "Phases": 
+    [
+       {
+          "phaseName": "training_phase",
+          "phaseType": "training",
+          "sourcePieces":
+          [
+            {
+                "sourceName": "s1",
+                "startingSample": "0",
+                "numOfBatches": "500",
+                "workers": "w1",
+                "nerltensorType": "float"
+            },
+            {
+                "sourceName": "s2",
+                "startingSample": "12500",
+                "numOfBatches": "500",
+                "workers": "w1",
+                "nerltensorType": "float"
+            }
+          ]  
+       },
+       {
+          "phaseName": "prediction_phase",
+          "phaseType": "prediction",
+          "sourcePieces":
+          [
+            {
+                "sourceName": "s1",
+                "startingSample": "25000",
+                "numOfBatches": "250",
+                "workers": "w1",
+                "nerltensorType": "float"
+            },
+            {
+                "sourceName": "s2",
+                "startingSample": "31250",
+                "numOfBatches": "250",
+                "workers": "w1",
+                "nerltensorType": "float"
+            }
+          ]    
+       }
+    ]
+ }
+     
+ 

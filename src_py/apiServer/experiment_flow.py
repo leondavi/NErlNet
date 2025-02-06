@@ -120,7 +120,7 @@ class ExperimentFlow():
                 source_piece_csv_file = self.csv_dataset.generate_source_piece_ds_csv_file(source_piece_inst, phase_type)
                 source_piece_inst.set_pointer_to_sourcePiece_CsvDataSet(source_piece_csv_file)
                 source_pieces_inst_list.append(source_piece_inst)
-            LOG_INFO(f"phase {phase} source pieces parsed and generated.")
+            LOG_INFO(f"phase {phase_name} source pieces parsed and generated.")
                 
             self.add_phase(phase_name, phase_type, source_pieces_inst_list, num_of_features)
 
