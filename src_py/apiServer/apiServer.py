@@ -145,7 +145,7 @@ class ApiServer(metaclass=Singleton):
         sources_pieces_list = experiment_phase.get_sources_pieces()
         source_files_to_send = []  # list of csv's paths to send to sources
         for source_piece_inst in sources_pieces_list:
-            source_generated_csv_path = csv_dataset.generate_source_piece_ds_csv_file(source_piece_inst, experiment_phase.get_phase_type())
+            source_generated_csv_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet()
             source_files_to_send.append(source_generated_csv_path)
         LOG_INFO("Done generating source pieces")
 
