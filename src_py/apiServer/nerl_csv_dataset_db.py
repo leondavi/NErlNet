@@ -71,6 +71,8 @@ class SourcePieceDS():
     
     def set_pointer_to_sourcePiece_CsvDataSet_labels(self, pointer_to_sourcePiece_CsvDataSet_labels):
         self.pointer_to_sourcePiece_CsvDataSet_labels = pointer_to_sourcePiece_CsvDataSet_labels
+
+
 class CsvDataSet():
     def __init__(self, csv_path, output_dir: str, batch_size, num_of_features, num_of_labels, headers_row: list):
         self.csv_path = csv_path
@@ -81,6 +83,7 @@ class CsvDataSet():
         self.num_of_features = num_of_features
         self.num_of_labels = num_of_labels
         self.headers_row = headers_row
+        self.df = pd.read_csv(self.csv_path, header = None) 
 
     def get_csv_path(self):
         return self.csv_path
@@ -99,11 +102,11 @@ class CsvDataSet():
 
     def get_total_num_of_batches(self): 
         # ! Not always using the whole csv! (should be calculated by the source pieces offsets)
-        return ceil(pd.read_csv(self.csv_path).shape[0] / self.batch_size)
+        return ceil(self.df.shape[0] / self.batch_size)
 
     def get_total_num_of_samples(self):
         # ! Not always using the whole csv! (should be calculated by the source pieces offsets)
-        return pd.read_csv(self.csv_path).shape[0] + 1 # +1 for sample 0 which is the header row
+        return self.df.shape[0] + 1 # +1 for sample 0 which is the header row
     
     def get_headers_row(self):
         return self.headers_row
@@ -119,25 +122,21 @@ class CsvDataSet():
     def generate_source_piece_ds_csv_file(self, source_piece_ds_inst: SourcePieceDS, phase : str):
         skip_rows = source_piece_ds_inst.get_starting_offset()
         number_of_samples = source_piece_ds_inst.get_num_of_batches() * source_piece_ds_inst.get_batch_size()
-        df = pd.read_csv(self.csv_path, skiprows = skip_rows, nrows = number_of_samples, header = None)
-        df = df.rename(columns=df.iloc[0]).drop(df.index[0]) # set the first row as the header, to prevent sending of the header row 
+        df = self.df[skip_rows:(skip_rows + number_of_samples)] # slicing creates a copy of the data
         df_features = df.iloc[:, :int(self.get_num_of_features())]  # from 0 column to num_of_features column (bun not including num_of_features column)  
-        #print(f'df_features: {df_features}')
-        #df_labels = df.iloc[:, int(self.get_num_of_features()):] # from num_of_features column to the end of the dataframe
-        #print(f'df_labels: {df_labels}')
         source_piece_file_path = f'{self.output_dir}/{source_piece_ds_inst.get_source_name()}_data.csv'
         if phase == PHASE_TRAINING_STR:  
             df_train = df.iloc[:, :int(self.get_num_of_features()) + int(self.get_num_of_labels())]  # from 0 column to num_of_features + num_of_labels column (bun not including num_of_features + num_of_labels column)
-            df_train.to_csv(source_piece_file_path, index = False)
+            df_train.to_csv(source_piece_file_path, index = False, header = False)
         elif phase == PHASE_PREDICTION_STR:
-            df_features.to_csv(source_piece_file_path, index = False)
+            df_features.to_csv(source_piece_file_path, index = False, header = False)
         return source_piece_file_path
     
     def genrate_source_piece_ds_csv_file_labels(self, source_piece_ds_inst: SourcePieceDS, phase: str):
         if phase == PHASE_PREDICTION_STR:  # only for prediction phase
             skip_rows = source_piece_ds_inst.get_starting_offset()
             number_of_samples = source_piece_ds_inst.get_num_of_batches() * source_piece_ds_inst.get_batch_size()
-            df = pd.read_csv(self.csv_path, skiprows = skip_rows, nrows = number_of_samples, header = None)
+            df = self.df[skip_rows:(skip_rows + number_of_samples)]
             df_labels = df.iloc[:, int(self.get_num_of_features()):int(self.get_num_of_features()) + int(self.get_num_of_labels())] # from num_of_features column to the end of the dataframe
             df_labels.columns = self.headers_row
             source_piece_file_path_labels = f'{self.output_dir}/{source_piece_ds_inst.get_source_name()}_data_labels.csv'
