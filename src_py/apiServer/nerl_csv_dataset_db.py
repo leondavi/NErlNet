@@ -80,10 +80,11 @@ class CsvDataSet():
         assert os.path.exists(self.csv_path), "csv_path does not exist"
         self.output_dir = output_dir
         self.batch_size = batch_size
-        self.num_of_features = num_of_features
-        self.num_of_labels = num_of_labels
+        self.num_of_features = int(num_of_features)
+        self.num_of_labels = int(num_of_labels)
         self.headers_row = headers_row
         self.df = pd.read_csv(self.csv_path, header = None) 
+        assert self.df.shape[1] == (self.num_of_features + self.num_of_labels), "Experiment Flow JSON #Features + #Labels mismatched with CSV #Cols"
 
     def get_csv_path(self):
         return self.csv_path
@@ -119,16 +120,16 @@ class CsvDataSet():
         assert nerltensor_type in NERLTENSOR_TYPE_LIST, "nerltensor_type is not in NERLTENSOR_TYPE_LIST"
         return SourcePieceDS(self, source_name, batch_size, phase, starting_offset, num_of_batches, nerltensor_type, self.num_of_features, self.num_of_labels)
         
-    def generate_source_piece_ds_csv_file(self, source_piece_ds_inst: SourcePieceDS, phase : str):
+    def generate_source_piece_ds_csv_file(self, source_piece_ds_inst: SourcePieceDS, phase_type : str, phase_name : str):
         skip_rows = source_piece_ds_inst.get_starting_offset()
         number_of_samples = source_piece_ds_inst.get_num_of_batches() * source_piece_ds_inst.get_batch_size()
         df = self.df[skip_rows:(skip_rows + number_of_samples)] # slicing creates a copy of the data
         df_features = df.iloc[:, :int(self.get_num_of_features())]  # from 0 column to num_of_features column (bun not including num_of_features column)  
-        source_piece_file_path = f'{self.output_dir}/{source_piece_ds_inst.get_source_name()}_data.csv'
-        if phase == PHASE_TRAINING_STR:  
+        source_piece_file_path = f'{self.output_dir}/{source_piece_ds_inst.get_source_name()}_data_{phase_name}.csv'
+        if phase_type == PHASE_TRAINING_STR:  
             df_train = df.iloc[:, :int(self.get_num_of_features()) + int(self.get_num_of_labels())]  # from 0 column to num_of_features + num_of_labels column (bun not including num_of_features + num_of_labels column)
             df_train.to_csv(source_piece_file_path, index = False, header = False)
-        elif phase == PHASE_PREDICTION_STR:
+        elif phase_type == PHASE_PREDICTION_STR:
             df_features.to_csv(source_piece_file_path, index = False, header = False)
         return source_piece_file_path
     
