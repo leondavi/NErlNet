@@ -105,7 +105,8 @@ dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfData, ErlType, LastKey) 
 dataStrToNumericData(ListOfLinesOfData , ErlType)->
   EtsTable = ets:new(data_str_to_numeric_data, [ordered_set, public]),
   dataStrToNumericParallelLoop(?PARALLELIZATION_FACTOR, EtsTable, ListOfLinesOfData, ErlType, 0),
-  [ element(?DATA_IDX, Attribute) || Attribute <- ets:tab2list(EtsTable)].
+  NumericDataList = [ element(?DATA_IDX, Attribute) || Attribute <- ets:tab2list(EtsTable)],
+  ets:delete(EtsTable), NumericDataList.
 
 generateListOfBatches(ListOfList, BatchSize) -> generateListOfBatches(ListOfList, BatchSize, []).
 
