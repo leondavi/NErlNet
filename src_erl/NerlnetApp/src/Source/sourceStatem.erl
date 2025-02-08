@@ -122,6 +122,7 @@ idle(cast, {batchList, WorkersList, Phase, NumOfBatches, NerlTensorType, Data}, 
   StatsEtsRef = get(source_stats_ets),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   BatchSize = ets:lookup_element(EtsRef, batch_size, ?DATA_IDX),
+  ?LOG_NOTICE("Source ~p, Receiving and parsing data", [MyName, WorkersList]),
   {NerlTensorBatchesList, SampleSize} = parser:parseCSV(MyName, BatchSize, NerlTensorType, Data), % TODO this is slow and heavy policy! pre parse in ETS a possible solution
   ets:update_element(EtsRef, workers_list, [{?DATA_IDX, WorkersList}]),
   ets:update_element(EtsRef, num_of_batches, [{?DATA_IDX, NumOfBatches}]),
