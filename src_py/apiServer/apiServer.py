@@ -147,7 +147,7 @@ class ApiServer(metaclass=Singleton):
         for source_piece_inst in sources_pieces_list:
             source_generated_csv_path = source_piece_inst.get_pointer_to_sourcePiece_CsvDataSet()
             source_files_to_send.append(source_generated_csv_path)
-        LOG_INFO("Done generating source pieces")
+        LOG_INFO("Done sending data to source")
 
         events_sync_inst.set_event_wait(EventSync.UPDATE_CSV)
         self.transmitter.update_csv(source_files_to_send, sources_pieces_list)

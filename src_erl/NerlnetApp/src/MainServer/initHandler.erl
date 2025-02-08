@@ -23,7 +23,8 @@ init(Req0, [Main_genServer_Pid]) ->
   {_,Body,_} = cowboy_req:read_body(Req0, #{length => ?DATA_LEN}),  %read up to X MB (default was 8MB)
   DecodedBody = binary_to_list(zlib:uncompress(Body)),
   [Index, TotalSources, SourceName, WorkersStr, Phase, NumOfBatches, NerlTensorType, Data] = string:split(DecodedBody, "#", all),
-  gen_server:cast(Main_genServer_Pid,{initCSV, Index, TotalSources, SourceName, WorkersStr, Phase, NumOfBatches, NerlTensorType, Data}),
+  DataCompressed = zlib:compress(list_to_binary(Data)),
+  gen_server:cast(Main_genServer_Pid,{initCSV, Index, TotalSources, SourceName, WorkersStr, Phase, NumOfBatches, NerlTensorType, DataCompressed}),
   %[Source|WorkersAndInput] = re:split(binary_to_list(Body), "#", [{return, list}]),
   %{Workers,SourceData} = getWorkerInput(WorkersAndInput,[]),
 
