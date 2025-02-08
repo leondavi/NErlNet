@@ -219,7 +219,10 @@ wait(cast, {post_train_update, Data}, State = #workerGeneric_state{myName = _MyN
   handle_end_stream_waiting_list(DistributedBehaviorFunc, train),
   {next_state, NextStateBehavior, State};
 
-
+% This state happens when worker is busy with sample that sent by source X but source Y just its stream
+wait(cast,  {start_stream , StreamName}, State = #workerGeneric_state{lastPhase = LastPhase, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
+    stream_handler(start_stream, LastPhase, StreamName, DistributedBehaviorFunc),
+{keep_state, State};
 % CANNOT HAPPEN 
 wait(cast, {idle}, State= #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   %logger:notice("Waiting, next state - idle"),
