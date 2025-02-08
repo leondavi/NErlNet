@@ -60,7 +60,7 @@ dataStrToNumeric_NumHandler({NumStr, ErlType}) ->
       IsFloat = lists:member($. , NumStr), % Check if there is a decimal point (usually labels don't have)
       if IsFloat -> 
         Num = list_to_float(NumStr);
-        true -> Num = list_to_float(NumStr+".0")
+        true -> Num = list_to_float(NumStr++".0")
       end;
     erl_int -> Num = list_to_integer(NumStr);
     _ -> io:format("Error: unknown erl_tensor_type: ~p~n", [ErlType]) , Num = none
