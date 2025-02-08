@@ -70,9 +70,9 @@ dataStrToNumeric_NumHandler({NumStr, ErlType}) ->
 
 dataStrToNumeric_lineHandler(PIPD, LineOfData, EtsTable, EtsKey, ErlType) -> 
   Splitted = string:split(binary_to_list(LineOfData), ",", all),
-  Samples = [{Sample, ErlType} || Sample <- Splitted],
-  FloatDataList = lists:map(fun dataStrToNumeric_NumHandler/1, Samples),
-  ets:insert(EtsTable, {EtsKey, FloatDataList}),
+  SampleStrList = [{Sample, ErlType} || Sample <- Splitted],
+  SampleNumericList = lists:map(fun dataStrToNumeric_NumHandler/1, SampleStrList),
+  ets:insert(EtsTable, {EtsKey, SampleNumericList}),
   PIPD ! done.
 
 dataStrToNumeric_sync(0) -> ok;
@@ -84,14 +84,13 @@ dataStrToNumeric_sync(PF) ->
 
 
 dataStrToNumericParallelLoop(_PF, _EtsTable, [], _ErlType, _LastKey) -> done;
-dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfData, ErlType, LastKey) when length(ListOfLinesOfData) > PF -> % PF - Parallelization Factor
+dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfData, ErlType, LastKey) when length(ListOfLinesOfData) >= PF -> % PF - Parallelization Factor
   {ListOfLinesOfDataToBeProcessed, ListOfLinesOfDataRest} = lists:split(PF, ListOfLinesOfData),
   IdxList = lists:seq(LastKey,LastKey+PF-1),
   PIPD = self(),
   lists:zipwith(fun(LineOfData, Idx) -> spawn_link(?MODULE,dataStrToNumeric_lineHandler,[PIPD, LineOfData, EtsTable, Idx, ErlType]) end, ListOfLinesOfDataToBeProcessed, IdxList),
   dataStrToNumeric_sync(PF),
   dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfDataRest, ErlType, LastKey+PF);
-
 
 dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfData, ErlType, LastKey) ->
   PIPD = self(),
