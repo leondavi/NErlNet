@@ -117,9 +117,10 @@ class ExperimentFlow():
                 nerltensor_type = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_NERLTENSOR_TYPE_FIELD]
                 source_piece_inst = self.csv_dataset.generate_source_piece_ds(source_name, self.batch_size, phase_type, starting_sample, num_of_batches, nerltensor_type)
                 source_piece_inst.update_target_workers(workers)
-                source_piece_csv_file = self.csv_dataset.generate_source_piece_ds_csv_file(source_piece_inst, phase_type)
+                source_piece_csv_file = self.csv_dataset.generate_source_piece_ds_csv_file(source_piece_inst, phase_type, phase_name)
                 source_piece_inst.set_pointer_to_sourcePiece_CsvDataSet(source_piece_csv_file)
                 source_pieces_inst_list.append(source_piece_inst)
+            LOG_INFO(f"phase {phase_name} source pieces parsed and generated.")
                 
             self.add_phase(phase_name, phase_type, source_pieces_inst_list, num_of_features)
 
@@ -141,6 +142,7 @@ class ExperimentFlow():
         for source_piece_inst in source_pieces_inst_list:
             exp_phase_inst.add_source_piece(source_piece_inst)
         self.exp_phase_list.append(exp_phase_inst)
+
         
     def print(self):
         

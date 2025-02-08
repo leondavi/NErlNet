@@ -1,0 +1,140 @@
+{
+    "experimentName": "mnist_rr",
+    "experimentType": "classification",
+    "batchSize": 25,
+    "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/cifar10/cifar_independent1.csv",
+    "numOfFeatures": "3072",
+    "numOfLabels": "10",
+    "headersNames": "airplane,automobile,bird,cat,deer,dog,frog,horse,ship,truck",
+    "Phases": 
+    [
+       {
+          "phaseName": "training_phase1",
+          "phaseType": "training",
+          "sourcePieces":
+          [
+            {
+                "sourceName": "s1",
+                "startingSample": "0",
+                "numOfBatches": "200",
+                "workers": "w1",
+                "nerltensorType": "float"
+            },
+            {
+                "sourceName": "s2",
+                "startingSample": "5000",
+                "numOfBatches": "200",
+                "workers": "w1",
+                "nerltensorType": "float"
+            }
+          ]  
+       },
+       {
+        "phaseName": "training_phase2",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+          {
+              "sourceName": "s1",
+              "startingSample": "10000",
+              "numOfBatches": "200",
+              "workers": "w1",
+              "nerltensorType": "float"
+          },
+          {
+              "sourceName": "s2",
+              "startingSample": "15000",
+              "numOfBatches": "200",
+              "workers": "w1",
+              "nerltensorType": "float"
+          }
+        ]  
+     },
+     {
+        "phaseName": "training_phase3",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+          {
+              "sourceName": "s1",
+              "startingSample": "20000",
+              "numOfBatches": "200",
+              "workers": "w1",
+              "nerltensorType": "float"
+          },
+          {
+              "sourceName": "s2",
+              "startingSample": "25000",
+              "numOfBatches": "200",
+              "workers": "w1",
+              "nerltensorType": "float"
+          }
+        ]  
+     },
+     {
+        "phaseName": "training_phase4",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+          {
+              "sourceName": "s1",
+              "startingSample": "30000",
+              "numOfBatches": "200",
+              "workers": "w1",
+              "nerltensorType": "float"
+          },
+          {
+              "sourceName": "s2",
+              "startingSample": "35000",
+              "numOfBatches": "200",
+              "workers": "w1",
+              "nerltensorType": "float"
+          }
+        ]  
+     },
+     {
+        "phaseName": "training_phase5",
+        "phaseType": "training",
+        "sourcePieces":
+        [
+          {
+              "sourceName": "s1",
+              "startingSample": "40000",
+              "numOfBatches": "200",
+              "workers": "w1",
+              "nerltensorType": "float"
+          },
+          {
+              "sourceName": "s2",
+              "startingSample": "45000",
+              "numOfBatches": "200",
+              "workers": "w1",
+              "nerltensorType": "float"
+          }
+        ]  
+     },
+       {
+          "phaseName": "prediction_phase",
+          "phaseType": "prediction",
+          "sourcePieces":
+          [
+            {
+                "sourceName": "s1",
+                "startingSample": "50000",
+                "numOfBatches": "200",
+                "workers": "w1",
+                "nerltensorType": "float"
+            },
+            {
+                "sourceName": "s2",
+                "startingSample": "55000",
+                "numOfBatches": "199",
+                "workers": "w1",
+                "nerltensorType": "float"
+            }
+          ]    
+       }
+    ]
+ }
+     
+ 

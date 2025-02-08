@@ -1,0 +1,146 @@
+{
+    "nerlnetSettings": {
+        "frequency": "5",
+        "batchSize": "25"
+    },
+    "mainServer": {
+        "port": "8080",
+        "args": ""
+    },
+    "apiServer": {
+        "port": "8081",
+        "args": ""
+    },
+    "devices": [
+        {
+            "name": "NerlNist-Powerful",
+            "ipv4": "10.0.0.57",
+            "entities": "mainServer,apiServer,c1"
+        },
+        {
+            "name": "C0VM0",
+            "ipv4": "10.0.0.5",
+            "entities": "s1"
+        },
+        {
+            "name": "C0VM3",
+            "ipv4": "10.0.0.7",
+            "entities": "s2"
+        },
+        {
+            "name": "C0VM2",
+            "ipv4": "10.0.0.9",
+            "entities": "s3"
+        },
+        {
+            "name": "C0VM1",
+            "ipv4": "10.0.0.4",
+            "entities": "s4"
+        },
+        {
+            "name": "NerlNist-6",
+            "ipv4": "10.0.0.44",
+            "entities": "r1"
+        },
+        {
+            "name": "NerlNist-8",
+            "ipv4": "10.0.0.43",
+            "entities": "r2"
+        }
+    ],
+    "routers": [
+        {
+            "name": "r1",
+            "port": "8090",
+            "policy": "0"
+        },
+        {
+            "name": "r2",
+            "port": "8090",
+            "policy": "0"
+        }
+    ],
+    "sources": [
+        {
+            "name": "s1",
+            "port": "8086",
+            "frequency": "5",
+            "policy": "0",
+            "epochs": "1",
+            "type": "0"
+        },
+        {
+            "name": "s2",
+            "port": "8086",
+            "frequency": "5",
+            "policy": "0",
+            "epochs": "1",
+            "type": "0"
+        },
+        {
+            "name": "s3",
+            "port": "8086",
+            "frequency": "80",
+            "policy": "0",
+            "epochs": "1",
+            "type": "0"
+        },
+        {
+            "name": "s4",
+            "port": "8086",
+            "frequency": "80",
+            "policy": "0",
+            "epochs": "1",
+            "type": "0"
+        }
+    ],
+    "clients": [
+        {
+            "name": "c1",
+            "port": "8082",
+            "workers": "w1"
+        }
+    ],
+    "workers": [
+        {
+            "name": "w1",
+            "model_sha": "9c5f1261068be7be96487a2cae282aa22e8c1cb482a5bf8d557bc8e1e2b6fef0"
+        }
+    ],
+    "model_sha": {
+        "9c5f1261068be7be96487a2cae282aa22e8c1cb482a5bf8d557bc8e1e2b6fef0": {
+            "modelType": "0",
+            "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image_classification:4 | text_classification:5 | text_generation:6 | auto_association:7 | autoencoder:8 | ae_classifier:9 |",
+            "modelArgs": "",
+            "_doc_modelArgs": "Extra arguments to model",
+            "layersSizes": "32x32x3k3x3x3x32p0s1t1,32x32x32k2x2p0s2,16x16x32k3x3x32x64p0s1t1,16x16x64k2x2p0s2,8x8x64k3x3x64x128p0s1t0,1,512,128,10",
+            "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
+            "layerTypesList": "2,4,2,4,2,9,3,3,5",
+            "_doc_LayerTypes": " Default:0 | Scaling:1 | Conv:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Flatten:9 | Bounding:10 |",
+            "layers_functions": "6,2,6,2,6,1,6,11,4",
+            "_doc_layers_functions_activation": " Threshold:1 | Sign:2 | Logistic:3 | Tanh:4 | Linear:5 | ReLU:6 | eLU:7 | SeLU:8 | Soft-plus:9 | Soft-sign:10 | Hard-sigmoid:11 |",
+            "_doc_layer_functions_pooling": " none:1 | Max:2 | Avg:3 |",
+            "_doc_layer_functions_probabilistic": " Binary:1 | Logistic:2 | Competitive:3 | Softmax:4 |",
+            "_doc_layer_functions_scaler": " none:1 | MinMax:2 | MeanStd:3 | STD:4 | Log:5 |",
+            "lossMethod": "6",
+            "lossArgs": "reg=L2",
+            "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
+            "lr": "0.00001",
+            "_doc_lr": "Positve float",
+            "epochs": "1",
+            "_doc_epochs": "Positve Integer",
+            "optimizer": "5",
+            "_doc_optimizer": " GD:0 | CGD:1 | SGD:2 | QuasiNeuton:3 | LVM:4 | ADAM:5 |",
+            "optimizerArgs": "none",
+            "_doc_optimizerArgs": "String",
+            "infraType": "0",
+            "_doc_infraType": " opennn:0 | wolfengine:1 |",
+            "distributedSystemType": "0",
+            "_doc_distributedSystemType": " none:0 | FedClientAvg:1 | FedServerAvg:2 | FedClientWeightedAvgClassification:3 | FedServerWeightedAvgClassification:4 | FedClientAE:5 | FedServerAE:6 | tiles:7 |",
+            "distributedSystemArgs": "none",
+            "_doc_distributedSystemArgs": "String",
+            "distributedSystemToken": "none",
+            "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"
+        }
+    }
+}

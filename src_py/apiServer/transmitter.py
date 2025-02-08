@@ -77,20 +77,22 @@ class Transmitter:
             num_of_batches = source_piece.get_num_of_batches()
             nerltensor_type = source_piece.get_nerltensor_type()
             phase_type = source_piece.get_phase()
+            data_str_encoded =  None
             with open(csv_file, 'r') as file:
                 csvfile = file.read()
-                data_str = f'{index + 1}#{total_sources}#{source_name}#{target_workers}#{phase_type}#{num_of_batches}#{nerltensor_type}#{csvfile}'
-                data_zip = zlib.compress(data_str.encode())
-                try:
-                    response = requests.post(self.updateCSVAddress, data = data_zip)
-                    if not response.ok: # If Code =/= 200
-                        LOG_ERROR(f"Failed to update {csv_file} to Main Server")
-                except ConnectionRefusedError: 
-                    LOG_ERROR(f"Connection Refused Error: failed to connect to {self.updateCSVAddress}")
-                    raise ConnectionRefusedError
-                except ConnectionError:
-                    LOG_ERROR(f"Connection Error: failed to connect to {self.updateCSVAddress}")
-                    raise ConnectionError
+                data_str_encoded = (f'{index + 1}#{total_sources}#{source_name}#{target_workers}#{phase_type}#{num_of_batches}#{nerltensor_type}#{csvfile}').encode()
+            data_zip = zlib.compress(data_str_encoded)
+            data_str_encoded = None
+            try:
+                response = requests.post(self.updateCSVAddress, data = data_zip)
+                if not response.ok: # If Code =/= 200
+                    LOG_ERROR(f"Failed to update {csv_file} to Main Server")
+            except ConnectionRefusedError: 
+                LOG_ERROR(f"Connection Refused Error: failed to connect to {self.updateCSVAddress}")
+                raise ConnectionRefusedError
+            except ConnectionError:
+                LOG_ERROR(f"Connection Error: failed to connect to {self.updateCSVAddress}")
+                raise ConnectionError
             LOG_INFO(f'{((index+1)/total_sources)*100:.2f}% Sent')
         LOG_INFO(f'Data Transmission To Sources Is Completed!')
 

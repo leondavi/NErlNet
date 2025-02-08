@@ -43,7 +43,6 @@ send_method_casting(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, 
     send_method_casting(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend, 0).
 send_method_casting(_TransmitterEts, Epochs, _TimeInterval_ms, _ClientWorkerPairs, _BatchesListToSend, EpochIdx) when EpochIdx == Epochs -> ok;
 send_method_casting(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend, EpochIdx) ->
-  io:format("Epoch ~p~n", [EpochIdx]),
   % Sends the same batch to all
   BatchFunc = fun({BatchIdx, Batch}) ->
     prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, ClientWorkerPairs)
@@ -62,7 +61,6 @@ send_method_round_robin(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPai
   send_method_round_robin(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend, 0).
 send_method_round_robin(_TransmitterEts, Epochs, _TimeInterval_ms, _ClientWorkerPairs, _BatchesListToSend, EpochIdx) when EpochIdx == Epochs -> ok;
 send_method_round_robin(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend, EpochIdx) ->
-  io:format("Epoch ~p~n", [EpochIdx]),
   % Sends a batch per each
   ClientWorkerPairsIndexes = lists:seq(0, length(ClientWorkerPairs)-1),
   ClientWorkerPairsWithIndexes = lists:zip(ClientWorkerPairsIndexes, ClientWorkerPairs), % Tuple {Idx, Triplet}
@@ -88,7 +86,6 @@ send_method_random(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, B
   send_method_random(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend, 0).
 send_method_random(_TransmitterEts, Epochs, _TimeInterval_ms, _ClientWorkerPairs, _BatchesListToSend, EpochIdx) when EpochIdx == Epochs -> ok;
 send_method_random(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend, EpochIdx) ->
-  io:format("Epoch ~p~n", [EpochIdx + 1]),
   % Sends a batch per each
   ClientWorkerPairsIndexes = lists:seq(1, length(ClientWorkerPairs)),
   ClientWorkerPairsWithIndexes = lists:zip(ClientWorkerPairsIndexes, ClientWorkerPairs), % Tuple {Idx, Triplet}

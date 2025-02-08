@@ -13,7 +13,7 @@ class ExperimentPhase():
         assert self.phase_type in [PHASE_TRAINING_STR, PHASE_PREDICTION_STR]
         self.nerl_comm_db = NerlComDB(network_componenets)  
         self.nerl_model_db = NerlModelDB(self.phase_type)
-        self.source_pieces_dict = {}  # Dict of SourcePieceDS
+        self.source_pieces_dict = {}  # Dict of SourcePieceDS 
         self.num_of_features = num_of_features
         self.raw_data_buffer = []
         self.network_componenets = network_componenets

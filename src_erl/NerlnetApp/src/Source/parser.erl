@@ -14,7 +14,7 @@
 -import(nerlNIF,[erl_type_conversion/1]).
 
 -define(CORE_NUM, erlang:system_info(logical_processors_available)).
--define(PARALLELIZATION_FACTOR, 4).
+-define(PARALLELIZATION_FACTOR, 2).
 
 %% API
 -export([parseCSV/4, batchesProcFunc/3]).
@@ -22,17 +22,17 @@
 
 
 parseCSV(SourceName, BatchSize, NerlTensorType, CSVData)->
-  put(nerltensor_type , NerlTensorType),
   ErlType = nerlNIF:erl_type_conversion(list_to_atom(NerlTensorType)),
   put(erl_tensor_type, ErlType),
-  SourceNameStr = atom_to_list(SourceName),
-  nerl_tools:setup_logger(?MODULE),
-  FileName = ?TMP_DIR_RUN ++ SourceNameStr ++ ?TMP_DATA_ADDR,
   try
-    file:write_file(FileName, CSVData),
     parse_file(SourceName, BatchSize, NerlTensorType, ErlType, CSVData) %% change so read data only when sending (currently loading all data)
   catch
-    {error,Er} -> logger:error("couldn't write file ~p, beacuse ~p",[FileName, Er])
+    {error,Er} ->
+      nerl_tools:setup_logger(?MODULE),
+      SourceNameStr = atom_to_list(SourceName),
+      FileName = ?TMP_DIR_RUN ++ SourceNameStr ++ ?TMP_DATA_ADDR,
+      file:write_file(FileName, CSVData),
+      logger:error("couldn't write file ~p, beacuse ~p",[FileName, Er])
   end.
 
 
@@ -60,7 +60,7 @@ dataStrToNumeric_NumHandler({NumStr, ErlType}) ->
       IsFloat = lists:member($. , NumStr), % Check if there is a decimal point (usually labels don't have)
       if IsFloat -> 
         Num = list_to_float(NumStr);
-        true -> Num = float(list_to_integer(NumStr))
+        true -> Num = list_to_float(NumStr++".0")
       end;
     erl_int -> Num = list_to_integer(NumStr);
     _ -> io:format("Error: unknown erl_tensor_type: ~p~n", [ErlType]) , Num = none
@@ -70,9 +70,9 @@ dataStrToNumeric_NumHandler({NumStr, ErlType}) ->
 
 dataStrToNumeric_lineHandler(PIPD, LineOfData, EtsTable, EtsKey, ErlType) -> 
   Splitted = string:split(binary_to_list(LineOfData), ",", all),
-  Samples = [{Sample, ErlType} || Sample <- Splitted],
-  FloatDataList = lists:map(fun dataStrToNumeric_NumHandler/1, Samples),
-  ets:insert(EtsTable, {EtsKey, FloatDataList}),
+  SampleStrList = [{Sample, ErlType} || Sample <- Splitted],
+  SampleNumericList = lists:map(fun dataStrToNumeric_NumHandler/1, SampleStrList),
+  ets:insert(EtsTable, {EtsKey, SampleNumericList}),
   PIPD ! done.
 
 dataStrToNumeric_sync(0) -> ok;
@@ -84,14 +84,13 @@ dataStrToNumeric_sync(PF) ->
 
 
 dataStrToNumericParallelLoop(_PF, _EtsTable, [], _ErlType, _LastKey) -> done;
-dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfData, ErlType, LastKey) when length(ListOfLinesOfData) > PF -> % PF - Parallelization Factor
+dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfData, ErlType, LastKey) when length(ListOfLinesOfData) >= PF -> % PF - Parallelization Factor
   {ListOfLinesOfDataToBeProcessed, ListOfLinesOfDataRest} = lists:split(PF, ListOfLinesOfData),
   IdxList = lists:seq(LastKey,LastKey+PF-1),
   PIPD = self(),
   lists:zipwith(fun(LineOfData, Idx) -> spawn_link(?MODULE,dataStrToNumeric_lineHandler,[PIPD, LineOfData, EtsTable, Idx, ErlType]) end, ListOfLinesOfDataToBeProcessed, IdxList),
   dataStrToNumeric_sync(PF),
   dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfDataRest, ErlType, LastKey+PF);
-
 
 dataStrToNumericParallelLoop(PF, EtsTable, ListOfLinesOfData, ErlType, LastKey) ->
   PIPD = self(),
