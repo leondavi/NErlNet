@@ -189,6 +189,10 @@ class ApiServer(metaclass=Singleton):
 
 
     def next_experiment_phase(self):
+        """
+        Returns - None if noe more experiments
+                  next phase type (training or prediction)
+        """
         current_exp_flow = globe.experiment_focused_on
         events_sync_inst = current_exp_flow.get_events_sync()
         events_sync_inst.reset() # preparing for next phase 
@@ -196,8 +200,11 @@ class ApiServer(metaclass=Singleton):
         if not self.experiment_phase_is_valid():
             LOG_WARNING("No more phases to run")
             self.next_expertiment_phase_exist = False
+            return None
         else:
             self.next_expertiment_phase_exist = True
+            next_phase_type = self.current_exp.get_current_experiment_phase().get_phase_type()
+            return next_phase_type
 
     def communication_stats(self):
         assert self.experiment_phase_is_valid(), "No valid experiment phase"
