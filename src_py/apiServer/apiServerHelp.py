@@ -40,7 +40,7 @@ ____________API COMMANDS_____________
 ======== Running experiment ==========
 -experiment_phase_is_valid()        returns True if there are more experiment phases to run
 -run_current_experiment_phase()     runs the current experiment phase
--next_experiment_phase()            moves to the next experiment phase
+-next_experiment_phase()            moves to the next experiment phase and returns the phase type
 
 ======== Retrieving statistics ======
 -get_experiment_flow(experiment_name).generate_stats()   returns statistics object (E.g., assigned to StatsInst) class for the current experiment phase

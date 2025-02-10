@@ -37,13 +37,7 @@ class ExperimentFlow():
         self.exp_flow_json = None
         self.events_sync_inst = EventSync()
 
-    # def next_experiment_phase(self):
-    #     self.current_exp_phase_index += 1
-    #     if self.current_exp_phase_index >= len(self.exp_phase_list) - 1:
-    #         return False
-    #     return True
-
-    def get_current_experiment_phase(self):
+    def get_current_experiment_phase(self) -> ExperimentPhase:
         assert self.current_exp_phase_index < len(self.exp_phase_list) , "current experiment phase index is out of range"
         return self.exp_phase_list[self.current_exp_phase_index]
 
@@ -124,15 +118,6 @@ class ExperimentFlow():
                 
             self.add_phase(phase_name, phase_type, source_pieces_inst_list, num_of_features)
 
-
-    def generate_experiment_flow_skeleton(self): 
-        # Todo check with david if we need this function
-        # for user to fill in the details
-        experimentName = ""
-        batch_size = 0
-        csv_file_path = ""
-        num_of_features = 0
-        num_of_labels = 0
 
     def set_csv_dataset(self, csv_file_path : str,  num_of_features : int, num_of_labels : int, headers_row : list):
         self.csv_dataset = CsvDataSet(csv_file_path, self.temp_data_path ,self.batch_size, num_of_features, num_of_labels, headers_row)  # Todo get num of features and labels from csv file
