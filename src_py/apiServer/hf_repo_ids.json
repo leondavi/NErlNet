@@ -53,6 +53,30 @@
             "idx": 8,
             "name": "mnist_tiles",
             "description": "mnist_tiles"
+        },
+        {
+            "id": "Nerlnet/mnist_3tiles",
+            "idx": 9,
+            "name": "mnist_3tiles",
+            "description": "mnist_3tiles"
+        },
+        {
+            "id": "Nerlnet/mnist_4tiles",
+            "idx": 10,
+            "name": "mnist_4tiles",
+            "description": "mnist_4tiles"
+        },
+        {
+            "id": "Nerlnet/cifar10_3tiles",
+            "idx": 11,
+            "name": "cifar10_3tiles",
+            "description": "cifar10_3tiles"
+        },
+        {
+            "id": "Nerlnet/cifar10_4tiles",
+            "idx": 12,
+            "name": "cifar10_4tiles",
+            "description": "cifar10_4tiles"
         }
     ]
 }
