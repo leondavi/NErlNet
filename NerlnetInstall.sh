@@ -116,7 +116,8 @@ function install_erlang()
   apt install -y make gcc libncurses-dev libssl-dev
   git clone https://github.com/erlang/otp.git
   cd otp
-  git checkout maint-25
+  git fetch --all --tags
+  git checkout tags/OTP-28.0 -b otp-28.0
   ./configure
   make -j$NumJobs
   make install
