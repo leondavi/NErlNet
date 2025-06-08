@@ -75,7 +75,9 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   EtsRef = ets:new(client_data, [set, public]), %% client_data is responsible for functional attributes
   EtsStats = ets:new(ets_stats, [set]), %% ets_stats is responsible for holding all the ets stats (client + workers)
   ClientStatsEts = stats:generate_stats_ets(), %% client stats ets inside ets_stats
+  ClientPerformanceEts = stats:generate_performance_stats_ets(), %% client performance stats ets inside ets_stats
   ets:insert(EtsStats, {MyName, ClientStatsEts}),
+  ets:insert(EtsStats, {performance_stats, ClientStatsEts}),
   put(ets_stats, EtsStats),
   ets:insert(EtsRef, {workerToClient, WorkerToClientMap}), % All workers in the network (map to their client)
   ets:insert(EtsRef, {workersNames, ClientWorkers}), % All THIS Client's workers
