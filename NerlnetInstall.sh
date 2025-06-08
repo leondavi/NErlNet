@@ -222,6 +222,7 @@ if [[ -z "$RUNNING_IN_DOCKER" ]]; then
 fi
 
 echo "enable and start nerlnet.service"
+apt install systemd
 systemctl enable nerlnet.service
 #systemctl start nerlnet.service
 
