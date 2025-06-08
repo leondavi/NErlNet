@@ -221,7 +221,5 @@ if [[ -z "$RUNNING_IN_DOCKER" ]]; then
   chown -R $LOGGED_IN_USER $NERLNET_DIR
 fi
 
-echo "enable and start nerlnet.service"
-systemctl enable nerlnet.service
-#systemctl start nerlnet.service
+echo "You can enable and start nerlnet.service using the command: systemctl enable nerlnet.service"
 
