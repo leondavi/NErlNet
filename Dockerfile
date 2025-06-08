@@ -2,7 +2,8 @@ FROM ubuntu:latest
 
 RUN apt-get update && \
     apt-get install -y make gcc g++ libncurses-dev libssl-dev git wget \
-    cmake python3-pip iproute2 zip unzip
+    cmake python3-pip iproute2 zip unzip \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Erlang/OTP 28.0
 RUN git clone https://github.com/erlang/otp.git  && \
