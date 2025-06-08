@@ -47,7 +47,7 @@ Academic researchers can use Nerlnet for free, provided they cite this repositor
 
 # Build and Run Nerlnet:
 Recommended cmake version 3.26   
-Minimum erlang version otp 25 (Tested 24,25,26)   
+Minimum erlang version otp 25 (Tested 24,25,26,28)   
 Minimum gcc/g++ version 10.3.0   
 
 ### On every device that hosts Nerlnet cluster entities, do the following steps:
@@ -89,11 +89,11 @@ Distributed ML on the edge - A new evolution step of AI.
 https://github.com/leondavi/NErlNet/assets/18975070/15a3957a-3fd6-4fb2-a365-7e1578468298  
 
 ## Gratitudes
-<h3 align="center">Microsoft Azure</h1>
-<p align="center"> <img src="https://github.com/leondavi/NErlNet/assets/18975070/d3255b30-ae3b-46fd-a87f-6c1ec7ae231b" width="50" title="Microsoft Azure Sponsorship"></p>  
-<p align="center"> A grant of Azure credits as part of Microsoft’s Azure credits for open source projects program (2024-2025).</p>  
 <h3 align="center">Amazon AWS</h1>
 <p align="center"> <img src="https://github.com/leondavi/NErlNet/assets/18975070/5fe285fd-43c9-4de8-a619-5ebaace33b29" width="50" title="Amazon AWS Sponsorship"></p>  
 
-<p align="center"> A grant of AWS credits as part of AWSOpen program for open source projects (2024).</p>
+<p align="center"> A grant of AWS credits as part of AWSOpen program for open source projects (2025-2027).</p>
+<h3 align="center">Microsoft Azure</h1>
+<p align="center"> <img src="https://github.com/leondavi/NErlNet/assets/18975070/d3255b30-ae3b-46fd-a87f-6c1ec7ae231b" width="50" title="Microsoft Azure Sponsorship"></p>  
+<p align="center"> A grant of Azure credits as part of Microsoft’s Azure credits for open source projects program (2024-2025).</p>  
 
