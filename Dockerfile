@@ -16,7 +16,7 @@ RUN apt-get update && \
 #     cd - && \
 #     rm -rf otp
 # Install OTP 27.3.4
-RUN curl -1sLf 'https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-erlang/setup.deb.sh' | sudo -E bash
+RUN curl -1sLf 'https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-erlang/setup.deb.sh' | -E bash
 RUN apt-get update && \
     apt-get install erlang -y && \
     rm -rf /var/lib/apt/lists/*
