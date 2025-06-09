@@ -1,4 +1,4 @@
--define(ETS_KEYVAL_KEY_IDX, 2).
+-define(ETS_KEYVAL_KEY_IDX, 1).
 -define(ETS_KEYVAL_VAL_IDX, 2).
 -define(TENSOR_DATA_IDX, 1).
 
