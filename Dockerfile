@@ -1,7 +1,7 @@
 FROM ubuntu:latest
 
 RUN apt-get update && \
-    apt-get install -y make gcc g++ libncurses-dev libssl-dev git wget \
+    apt-get install -y make gcc g++ libncurses-dev libssl-dev git wget curl \
     cmake python3-pip iproute2 zip unzip \
     && rm -rf /var/lib/apt/lists/*
 
@@ -16,12 +16,10 @@ RUN apt-get update && \
 #     cd - && \
 #     rm -rf otp
 # Install OTP 27.3.4
-RUN wget https://binaries2.erlang-solutions.com/GPG-KEY-pmanager.asc && \
-    apt-key add GPG-KEY-pmanager.asc && \
-    rm GPG-KEY-pmanager.asc && \
-    echo "deb http://binaries2.erlang-solutions.com/ubuntu/ focal-esl-erlang-27 contrib" > /etc/apt/sources.list.d/erlang-solutions.list && \
-    apt-get update && \
-    apt-get install erlang
+RUN curl -1sLf 'https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-erlang/setup.deb.sh' | sudo -E bash
+RUN apt-get update && \
+    apt-get install erlang -y && \
+    rm -rf /var/lib/apt/lists/*
     
 ENV RUNNING_IN_DOCKER=true \
     PIP_BREAK_SYSTEM_PACKAGES=1
