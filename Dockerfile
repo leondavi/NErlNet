@@ -19,7 +19,7 @@ RUN apt-get update && \
 RUN wget https://binaries2.erlang-solutions.com/GPG-KEY-pmanager.asc && \
     apt-key add GPG-KEY-pmanager.asc && \
     rm GPG-KEY-pmanager.asc && \
-    echo "deb https://binaries.erlang-solutions.com/ubuntu focal-esl-erlang-27 contrib" > /etc/apt/sources.list.d/erlang-solutions.list && \
+    echo "deb http://binaries2.erlang-solutions.com/ubuntu/ focal-esl-erlang-27 contrib" > /etc/apt/sources.list.d/erlang-solutions.list && \
     apt-get update && \
     apt-get install erlang
     
