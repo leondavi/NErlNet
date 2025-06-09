@@ -21,7 +21,7 @@ RUN wget https://binaries2.erlang-solutions.com/GPG-KEY-pmanager.asc && \
     rm GPG-KEY-pmanager.asc && \
     echo "deb https://binaries.erlang-solutions.com/ubuntu focal-esl-erlang-27 contrib" > /etc/apt/sources.list.d/erlang-solutions.list && \
     apt-get update && \
-    sudo apt-get install erlang
+    apt-get install erlang
     
 ENV RUNNING_IN_DOCKER=true \
     PIP_BREAK_SYSTEM_PACKAGES=1
