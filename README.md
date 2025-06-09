@@ -12,9 +12,9 @@
   <img src="NerlnetLogo.png" width="200" title="NerlNet">
 </p>
 
-Nerlnet is an open-source framework for research and deployment of distributed machine learning algorithms on IoT devices. It provides comprehensive insights into both edge devices that run neural network models and network performance and statistics. Nerlnet can simulate distributed ML clusters on a single or multiple machines and deploy these clusters, with minor changes, on various kinds of IoT devices.  
+Nerlnet is an open-source framework designed for researching and deploying distributed machine learning algorithms on IoT devices. It offers comprehensive insights into both edge devices running neural network models and the performance and statistics of network operations. With the ability to simulate distributed ML clusters on a single machine or across multiple machines, Nerlnet enables seamless deployment of these clusters—with minimal modifications—onto various types of IoT devices.
 
-Nerlnet simplifies the setup of a distributed cluster that consists of many models on its edge, communication flow can be fully controlled and monitored, and Nerlnet's Python API allows users to manage and gather data from the distributed cluster throughout the experiment.  
+By streamlining the setup of distributed clusters composed of multiple edge models, Nerlnet provides full control and monitoring over communication flows. Its Python API empowers users to manage experiments efficiently, collect data, and analyze performance metrics throughout the research process.  
 
 Nerlnet library combines the following languages to achieve a stable and efficient distributed ML system framework:  
 • The communication layer of Nerlnet is based on an Cowboy - an HTTP web server open-source library.  
@@ -54,7 +54,7 @@ Minimum gcc/g++ version 10.3.0
 
 1. Clone this repository with its subomdules ```git clone --recurse-submodules <link to this repo> NErlNet```  
 2. Run ```sudo ./NerlnetInstall.sh```  
-  2.1 With argument -i script builds and installs Erlang (OTP 25), and CMake from source.
+  2.1 With argument -i script builds and installs Erlang (OTP 28), and CMake from source.
       (validate that erlang is not installed before executing installation from source)  
   2.2 On successful installation, NErlNet directory is accessible  
       via the following path: ```/usr/local/lib/nerlnet-lib```
