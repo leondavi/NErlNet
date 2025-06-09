@@ -16,9 +16,12 @@ RUN apt-get update && \
 #     cd - && \
 #     rm -rf otp
 # Install OTP 27.3.4
-RUN wget https://binaries2.erlang-solutions.com/ubuntu/pool/contrib/e/esl-erlang/esl-erlang_27.3.4-1~ubuntu~focal_amd64.deb && \
-    dpkg -i esl-erlang_27.3.4-1~ubuntu~focal_amd64.deb && \
-    rm esl-erlang_27.3.4-1~ubuntu~focal_amd64.deb
+RUN wget https://binaries2.erlang-solutions.com/GPG-KEY-pmanager.asc && \
+    apt-key add GPG-KEY-pmanager.asc && \
+    rm GPG-KEY-pmanager.asc && \
+    echo "deb https://binaries.erlang-solutions.com/ubuntu focal-esl-erlang-27 contrib" > /etc/apt/sources.list.d/erlang-solutions.list && \
+    apt-get update && \
+    sudo apt-get install erlang
     
 ENV RUNNING_IN_DOCKER=true \
     PIP_BREAK_SYSTEM_PACKAGES=1
