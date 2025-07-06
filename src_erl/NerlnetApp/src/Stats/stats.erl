@@ -14,6 +14,10 @@
 -export([encode_ets_to_http_bin_str/1 , decode_http_bin_str_to_ets/1 , encode_workers_ets_to_http_bin_str/1]).
 -export([update_workers_ets/4, increment_workers_ets/4 , generate_workers_stats_ets/0]).
 
+% performance stats
+-export([generate_performance_stats_ets/0]).
+-export([start_os_mon/0]).
+
 get_numeric_type(Value) ->
     case Value of
         _ when is_integer(Value) -> int;
@@ -77,6 +81,55 @@ generate_stats_ets() -> %% sources, clients , routers , mainserver...
     ets:insert(StatsEts, {batches_sent , 0}), % related with source only
     ets:insert(StatsEts, {actual_frequency, 0}), % related with source only
     StatsEts.
+
+%% Starts the os_mon application if it is not already started.
+%% This is necessary for monitoring system performance.
+%% It also ensures that the sasl application is started, as os_mon depends on it.
+start_os_mon() ->
+    % check if os_mon is already started
+    case application:which_applications() of
+        [{os_mon, _, _} | _] ->
+            ok;
+        _ -> % start sasl application
+            {ok,[sasl]} = application:ensure_all_started(sasl),
+            % start os_mon application
+            {ok,[os_mon]} = application:ensure_all_started(os_mon)
+    end,
+    ok.
+
+
+generate_performance_stats_ets() -> %% clients
+    start_os_mon(),
+    PerformanceStatsEts = ets:new(performance_stats_ets , [set, public]),
+    ets:insert(PerformanceStatsEts, {time_train_active , 0}), % Client Aggregate training times of workers
+    ets:insert(PerformanceStatsEts, {time_train_total , 0}), % Client counts the total time spent in training state
+    ets:insert(PerformanceStatsEts, {time_predict_active , 0}), % Client Aggregate prediction times of workers
+    ets:insert(PerformanceStatsEts, {time_predict_total , 0}), % Client counts the total time spent in prediction state
+
+
+    ets:insert(PerformanceStatsEts, {average_gpu_usage , 0}),
+    ets:insert(PerformanceStatsEts, {average_gpu_memory_usage , 0}),
+
+    ets:insert(PerformanceStatsEts, {memory_train_avg_usage , 0}),
+    ets:insert(PerformanceStatsEts, {memory_predict_avg_usage , 0}),
+    ets:insert(PerformanceStatsEts, {memory_train_peak_usage , 0}),
+    ets:insert(PerformanceStatsEts, {memory_predict_peak_usage , 0}),
+
+    % cores usage
+    NumberOfCores = length(cpu_sup:util([per_cpu])),
+    ets:insert(PerformanceStatsEts, {num_of_cores , NumberOfCores}),
+    lists:foreach(fun(CoreIndex) ->
+        KeyAvgUtilTrainingPerCoreStr = lists:flatten(io_lib:format("cpu_train_avg_util_core_~p" , [CoreIndex])),
+        KeyAvgUtilTrainingPerCoreAtom = list_to_atom(KeyAvgUtilTrainingPerCoreStr),
+        ets:insert(PerformanceStatsEts, {KeyAvgUtilTrainingPerCoreAtom, 0}),
+        KeyAvgUtilPredictPerCoreStr = lists:flatten(io_lib:format("cpu_predict_avg_util_core_~p" , [CoreIndex])),
+        KeyAvgUtilPredictPerCoreAtom = list_to_atom(KeyAvgUtilPredictPerCoreStr),
+        ets:insert(PerformanceStatsEts, {KeyAvgUtilPredictPerCoreAtom, 0})
+    end, 
+    lists:seq(1, NumberOfCores)),
+    PerformanceStatsEts.
+
+% TODO add setters/getters 
 
 generate_workers_stats_ets() -> %% workers..
     WorkersStatsEts = ets:new(workers_ets , [set, public]),
