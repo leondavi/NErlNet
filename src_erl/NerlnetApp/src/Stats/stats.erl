@@ -91,37 +91,45 @@ start_os_mon() ->
         [{os_mon, _, _} | _] ->
             ok;
         _ -> % start sasl application
-            ok = application:ensure_all_started(sasl),
+            {ok,[sasl]} = application:ensure_all_started(sasl),
             % start os_mon application
-            ok = application:ensure_all_started(os_mon)
+            {ok,[os_mon]} = application:ensure_all_started(os_mon)
     end,
     ok.
+
 
 generate_performance_stats_ets() -> %% clients
     start_os_mon(),
     PerformanceStatsEts = ets:new(performance_stats_ets , [set, public]),
-    ets:insert(PerformanceStatsEts, {average_time_training , 0}),
-    ets:insert(PerformanceStatsEts, {average_time_prediction , 0}),
-    ets:insert(PerformanceStatsEts, {average_cpu_all_cores_usage , 0}),
-    ets:insert(PerformanceStatsEts, {average_cpu_all_cores_peak_usage , 0}),
+    ets:insert(PerformanceStatsEts, {time_train_active , 0}), % Client Aggregate training times of workers
+    ets:insert(PerformanceStatsEts, {time_train_total , 0}), % Client counts the total time spent in training state
+    ets:insert(PerformanceStatsEts, {time_predict_active , 0}), % Client Aggregate prediction times of workers
+    ets:insert(PerformanceStatsEts, {time_predict_total , 0}), % Client counts the total time spent in prediction state
+
+
     ets:insert(PerformanceStatsEts, {average_gpu_usage , 0}),
     ets:insert(PerformanceStatsEts, {average_gpu_memory_usage , 0}),
-    ets:insert(PerformanceStatsEts, {average_memory_usage , 0}),
-    ets:insert(PerformanceStatsEts, {average_memory_peak_usage , 0}),
+
+    ets:insert(PerformanceStatsEts, {memory_train_avg_usage , 0}),
+    ets:insert(PerformanceStatsEts, {memory_predict_avg_usage , 0}),
+    ets:insert(PerformanceStatsEts, {memory_train_peak_usage , 0}),
+    ets:insert(PerformanceStatsEts, {memory_predict_peak_usage , 0}),
 
     % cores usage
     NumberOfCores = length(cpu_sup:util([per_cpu])),
     ets:insert(PerformanceStatsEts, {num_of_cores , NumberOfCores}),
     lists:foreach(fun(CoreIndex) ->
-        KeyAvgStr = lists:flatten(io_lib:format("average_cpu_core_~p_usage" , [CoreIndex])),
-        KeyAvgAtom = list_to_atom(KeyAvgStr),
-        ets:insert(PerformanceStatsEts, {KeyAvgAtom, 0}),
-        KeyPeakStr = lists:flatten(io_lib:format("peak_cpu_core_~p_usage" , [CoreIndex])),
-        KeyPeakAtom = list_to_atom(KeyPeakStr),
-        ets:insert(PerformanceStatsEts, {KeyPeakAtom, 0})
+        KeyAvgUtilTrainingPerCoreStr = lists:flatten(io_lib:format("cpu_train_avg_util_core_~p" , [CoreIndex])),
+        KeyAvgUtilTrainingPerCoreAtom = list_to_atom(KeyAvgUtilTrainingPerCoreStr),
+        ets:insert(PerformanceStatsEts, {KeyAvgUtilTrainingPerCoreAtom, 0}),
+        KeyAvgUtilPredictPerCoreStr = lists:flatten(io_lib:format("cpu_predict_avg_util_core_~p" , [CoreIndex])),
+        KeyAvgUtilPredictPerCoreAtom = list_to_atom(KeyAvgUtilPredictPerCoreStr),
+        ets:insert(PerformanceStatsEts, {KeyAvgUtilPredictPerCoreAtom, 0})
     end, 
-    lists:seq(0, NumberOfCores)),
+    lists:seq(1, NumberOfCores)),
     PerformanceStatsEts.
+
+% TODO add setters/getters 
 
 generate_workers_stats_ets() -> %% workers..
     WorkersStatsEts = ets:new(workers_ets , [set, public]),
