@@ -17,6 +17,20 @@
 % performance stats
 -export([generate_performance_stats_ets/0]).
 -export([start_os_mon/0]).
+-export([performance_stats_reset/1]).
+% perofmance stats getters/setters
+-export([get_time_train_active/1, increment_time_train_active/2]).
+-export([get_time_train_total/1, increment_time_train_total/2]).
+-export([get_time_predict_active/1, increment_time_predict_active/2]).
+-export([get_time_predict_total/1, increment_time_predict_total/2]).
+-export([get_memory_peak_usage_train/1, update_memory_peak_usage_train/2]).
+-export([get_memory_peak_usage_predict/1, update_memory_peak_usage_predict/2]).
+-export([get_memory_train_ema_usage/1, update_memory_train_ema_usage/2]).
+-export([get_memory_predict_ema_usage/1, update_memory_predict_ema_usage/2]).
+-export([set_cpu_util_per_core/2]).
+
+% performance stats queries
+-export([query_memory_usage/0, query_cpu_util_cores/0]).
 
 get_numeric_type(Value) ->
     case Value of
@@ -106,25 +120,24 @@ generate_performance_stats_ets() -> %% clients
     ets:insert(PerformanceStatsEts, {time_predict_active , 0}), % Client Aggregate prediction times of workers
     ets:insert(PerformanceStatsEts, {time_predict_total , 0}), % Client counts the total time spent in prediction state
 
+    ets:insert(PerformanceStatsEts, {average_gpu_usage_train , 0}),
+    ets:insert(PerformanceStatsEts, {average_gpu_memory_usage_predict , 0}),
 
-    ets:insert(PerformanceStatsEts, {average_gpu_usage , 0}),
-    ets:insert(PerformanceStatsEts, {average_gpu_memory_usage , 0}),
-
-    ets:insert(PerformanceStatsEts, {memory_train_avg_usage , 0}),
-    ets:insert(PerformanceStatsEts, {memory_predict_avg_usage , 0}),
+    ets:insert(PerformanceStatsEts, {memory_train_ema_usage , 0}),
+    ets:insert(PerformanceStatsEts, {memory_predict_ema_usage , 0}),
     ets:insert(PerformanceStatsEts, {memory_train_peak_usage , 0}),
     ets:insert(PerformanceStatsEts, {memory_predict_peak_usage , 0}),
 
     % cores usage
-    NumberOfCores = length(cpu_sup:util([per_cpu])),
+    NumberOfCores = length(cpu_sup:util([per_cpu])), % Important! this call also resets util since last util's call
     ets:insert(PerformanceStatsEts, {num_of_cores , NumberOfCores}),
     lists:foreach(fun(CoreIndex) ->
-        KeyAvgUtilTrainingPerCoreStr = lists:flatten(io_lib:format("cpu_train_avg_util_core_~p" , [CoreIndex])),
-        KeyAvgUtilTrainingPerCoreAtom = list_to_atom(KeyAvgUtilTrainingPerCoreStr),
-        ets:insert(PerformanceStatsEts, {KeyAvgUtilTrainingPerCoreAtom, 0}),
-        KeyAvgUtilPredictPerCoreStr = lists:flatten(io_lib:format("cpu_predict_avg_util_core_~p" , [CoreIndex])),
-        KeyAvgUtilPredictPerCoreAtom = list_to_atom(KeyAvgUtilPredictPerCoreStr),
-        ets:insert(PerformanceStatsEts, {KeyAvgUtilPredictPerCoreAtom, 0})
+        KeyUtilTrainingPerCoreStr = lists:flatten(io_lib:format("cpu_train_util_core_~p" , [CoreIndex])),
+        KeyUtilTrainingPerCoreAtom = list_to_atom(KeyUtilTrainingPerCoreStr),
+        ets:insert(PerformanceStatsEts, {KeyUtilTrainingPerCoreAtom, 0}),
+        KeyUtilPredictPerCoreStr = lists:flatten(io_lib:format("cpu_predict_util_core_~p" , [CoreIndex])),
+        KeyUtilPredictPerCoreAtom = list_to_atom(KeyUtilPredictPerCoreStr),
+        ets:insert(PerformanceStatsEts, {KeyUtilPredictPerCoreAtom, 0})
     end, 
     lists:seq(1, NumberOfCores)),
     PerformanceStatsEts.
@@ -216,3 +229,112 @@ get_bad_messages(StatsEts) ->
 increment_bad_messages(StatsEts) ->
     ets:update_counter(StatsEts, ?STATS_ATOM_BAD_MSG, 1).
 
+
+performance_stats_reset(OldEts) ->
+    % delete the old ETS table
+    ets:delete(OldEts),
+    % create a new ETS table
+    NewEts = generate_performance_stats_ets(),
+    NewEts.
+
+%% Performance Stats Methods
+ema_calc(OldValue, NewValue) ->
+    %% Exponential Moving Average (EMA) calculation
+    Coefficient = ?EMA_COEFFICIENT_HIST,
+    NewValue * Coefficient + OldValue * (1 - Coefficient).
+
+%% Perofrmance Stats Query Methods
+query_memory_usage() ->
+    %% Get the memory usage of the Erlang VM
+    [{system_total_memory,SystemTotalMemory},
+    {free_memory, FreeMemory},
+    {total_memory, TotalMemory},
+    {buffered_memory, BufferedMemory},
+    {cached_memory, CachedMemory},
+    {total_swap, TotalSwap},
+    {free_swap, FreeSwap},
+    {available_memory, AvailableMemory}] = memsup:get_system_memory_data(),
+    %% Calculate the used memory
+    UsedMemory = SystemTotalMemory - FreeMemory.
+
+query_cpu_util_cores() -> 
+    %% Get the CPU utilization of the Erlang VM
+    CpuUtil = cpu_sup:util([per_cpu]),
+    %% Convert the CPU utilization to a list of tuples
+    lists:map(fun({CoreIndex, Busy, NonBusy, _ }) -> {CoreIndex, Busy} end, CpuUtil).
+
+%% Performance Stats Getters/Setters
+get_time_train_active(StatsEts) ->
+    ets:lookup_element(StatsEts, ?STATS_ATOM_TIME_TRAIN_ACTIVE , ?STATS_KEYVAL_VAL_IDX).
+
+increment_time_train_active(StatsEts, Value) ->
+    ets:update_counter(StatsEts, ?STATS_ATOM_TIME_TRAIN_ACTIVE, Value).
+
+get_time_train_total(StatsEts) ->
+    ets:lookup_element(StatsEts, ?STATS_ATOM_TIME_TRAIN_TOTAL , ?STATS_KEYVAL_VAL_IDX).
+
+increment_time_train_total(StatsEts, Value) ->
+    ets:update_counter(StatsEts, ?STATS_ATOM_TIME_TRAIN_TOTAL, Value).
+
+get_time_predict_active(StatsEts) ->
+    ets:lookup_element(StatsEts, ?STATS_ATOM_TIME_PREDICT_ACTIVE , ?STATS_KEYVAL_VAL_IDX).  
+
+increment_time_predict_active(StatsEts, Value) ->
+    ets:update_counter(StatsEts, ?STATS_ATOM_TIME_PREDICT_ACTIVE, Value).
+
+get_time_predict_total(StatsEts) ->
+    ets:lookup_element(StatsEts, ?STATS_ATOM_TIME_PREDICT_TOTAL , ?STATS_KEYVAL_VAL_IDX).
+
+increment_time_predict_total(StatsEts, Value) ->
+    ets:update_counter(StatsEts, ?STATS_ATOM_TIME_PREDICT_TOTAL, Value).
+
+get_memory_peak_usage_train(StatsEts) ->
+    ets:lookup_element(StatsEts, ?STATS_MEMORY_TRAIN_PEAK_USAGE , ?STATS_KEYVAL_VAL_IDX).
+
+update_memory_peak_usage_train(StatsEts, Value) ->
+    % get the current peak usage
+    CurrentPeak = get_memory_peak_usage_train(StatsEts),
+    % update the peak usage if the new value is greater
+    NewPeak = max(CurrentPeak, Value),
+    ets:update_element(StatsEts, ?STATS_MEMORY_TRAIN_PEAK_USAGE, { ?STATS_KEYVAL_VAL_IDX, NewPeak }).
+
+get_memory_peak_usage_predict(StatsEts) ->
+    ets:lookup_element(StatsEts, ?STATS_MEMORY_PREDICT_PEAK_USAGE , ?STATS_KEYVAL_VAL_IDX).
+
+update_memory_peak_usage_predict(StatsEts, Value) ->
+    % get the current peak usage
+    CurrentPeak = get_memory_peak_usage_predict(StatsEts),
+    % update the peak usage if the new value is greater
+    NewPeak = max(CurrentPeak, Value),
+    ets:update_element(StatsEts, ?STATS_MEMORY_PREDICT_PEAK_USAGE, { ?STATS_KEYVAL_VAL_IDX, NewPeak }).
+
+get_memory_train_ema_usage(StatsEts) ->
+    ets:lookup_element(StatsEts, ?STATS_MEMORY_TRAIN_EMA_USAGE , ?STATS_KEYVAL_VAL_IDX).
+
+update_memory_train_ema_usage(StatsEts, Value) ->
+    % get the current EMA usage
+    CurrentEma = get_memory_train_ema_usage(StatsEts),
+    % calculate the new EMA usage
+    NewEma = ema_calc(CurrentEma, Value),
+    ets:update_element(StatsEts, ?STATS_MEMORY_TRAIN_EMA_USAGE, { ?STATS_KEYVAL_VAL_IDX, NewEma }).
+
+get_memory_predict_ema_usage(StatsEts) ->
+    ets:lookup_element(StatsEts, ?STATS_MEMORY_PREDICT_EMA_USAGE , ?STATS_KEYVAL_VAL_IDX).
+
+update_memory_predict_ema_usage(StatsEts, Value) ->
+    % get the current EMA usage
+    CurrentEma = get_memory_predict_ema_usage(StatsEts),
+    % calculate the new EMA usage
+    NewEma = ema_calc(CurrentEma, Value),
+    ets:update_element(StatsEts, ?STATS_MEMORY_PREDICT_EMA_USAGE, { ?STATS_KEYVAL_VAL_IDX, NewEma }). 
+
+set_cpu_util_per_core(StatsEts, UtilList) ->
+    %% UtilList is a list of tuples {CoreIndex, Util}
+    lists:foreach(fun({CoreIndex, Util}) ->
+        KeyUtilTrainingPerCoreStr = lists:flatten(io_lib:format("cpu_train_util_core_~p" , [CoreIndex])),
+        KeyUtilTrainingPerCoreAtom = list_to_atom(KeyUtilTrainingPerCoreStr),
+        ets:update_element(StatsEts, KeyUtilTrainingPerCoreAtom, { ?STATS_KEYVAL_VAL_IDX, Util }),
+        KeyUtilPredictPerCoreStr = lists:flatten(io_lib:format("cpu_predict_util_core_~p" , [CoreIndex])),
+        KeyUtilPredictPerCoreAtom = list_to_atom(KeyUtilPredictPerCoreStr),
+        ets:update_element(StatsEts, KeyUtilPredictPerCoreAtom, { ?STATS_KEYVAL_VAL_IDX, Util })
+    end, UtilList).
