@@ -12,7 +12,7 @@
 -export([get_value/2, increment_by_value/3]).
 -export([set_value/3]).
 -export([encode_ets_to_http_bin_str/1 , decode_http_bin_str_to_ets/1 , encode_workers_ets_to_http_bin_str/1]).
--export([update_workers_ets/4, increment_workers_ets/4 , generate_workers_stats_ets/0]).
+-export([update_workers_ets/4, increment_workers_ets/4 , generate_workers_stats_ets/0, tic/2, toc/2]).
 
 % performance stats
 -export([generate_performance_stats_ets/0]).
@@ -243,7 +243,26 @@ ema_calc(OldValue, NewValue) ->
     Coefficient = ?EMA_COEFFICIENT_HIST,
     NewValue * Coefficient + OldValue * (1 - Coefficient).
 
-%% Perofrmance Stats Query Methods
+tic(StatsEts, TimerID) ->
+    Tic = erlang:monotonic_time(microsecond),
+    Key = {tic, TimerID},
+    % Check if key TimerID exists, if not insert it
+    case ets:lookup(StatsEts, Key) of
+        [] -> ets:insert(StatsEts, {Key, Tic});
+        _ -> ets:update_element(StatsEts, Key, {?STATS_KEYVAL_VAL_IDX, Tic})
+    end,
+    ok.
+
+toc(StatsEts, TimerID) ->
+    Toc = erlang:monotonic_time(microsecond),
+    Key = {tic, TimerID},
+    case ets:lookup(StatsEts, Key) of
+        [] -> throw("TimerID not found. Did you call tic/2 first?");
+        [{Key, Tic}] -> 
+            Toc - Tic
+    end.
+
+%% Performance Stats Query Methods
 query_memory_usage() ->
     %% Get the memory usage of the Erlang VM
     [{system_total_memory,SystemTotalMemory},

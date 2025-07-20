@@ -52,7 +52,7 @@ call_to_train(ModelID, {DataTensor, Type}, WorkerPid , BatchID , SourceName)->
       receive
             {nerlnif, nan, TrainTime} -> 
                   gen_statem:cast(WorkerPid,{loss, nan , TrainTime , BatchID , SourceName}); %TODO Guy - Please the behavior when this case happens
-            {nerlnif , LossTensor, LossTensorType , TrainTime}->
+            {nerlnif , LossTensor, LossTensorType , TrainTime}-> % TrainTime is in microseconds
                   gen_statem:cast(WorkerPid,{loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName})
             after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
                   ?LOG_ERROR("Worker train timeout reached! bid:~p s:~p",[BatchID , SourceName]),

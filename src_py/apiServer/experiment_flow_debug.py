@@ -13,16 +13,16 @@ def print_test(in_str : str):
     LOG_INFO(f"{PREFIX} {in_str}")
 
 NERLNET_PATH = os.getenv('NERLNET_PATH')
-NERLNET_RUN_SCRIPT = "./NerlnetRun.sh --run-mode release"
-NERLNET_RUN_STOP_SCRIPT = "./NerlnetRun.sh --run-mode stop"
+NERLNET_RUN_SCRIPT = ""
+NERLNET_RUN_STOP_SCRIPT = ""
 
 api_server_instance = ApiServer()
 api_server_instance.download_dataset(TEST_DATASET_IDX)
 #api_server_instance.help()
 api_server_instance.showJsons()
-dc_idx = 6
-conn_idx = 25
-exp_idx = 3
+dc_idx = 0
+conn_idx = 0
+exp_idx = 0
 api_server_instance.setJsons(dc_idx, conn_idx, exp_idx)
 dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
