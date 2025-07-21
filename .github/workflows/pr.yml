@@ -40,3 +40,9 @@ jobs:
         run: |
           ./tests/NerlnetFullFlowTest.sh
         timeout-minutes: 20
+      - name: Post FullFlow test
+        id: fullflowpost
+        if: steps.fullflow.outcome == 'success'
+        run: |
+          ./tests/NerlnetFullFlowTestPost.sh
+        timeout-minutes: 5
