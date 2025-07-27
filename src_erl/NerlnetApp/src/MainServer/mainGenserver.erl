@@ -200,7 +200,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
           %% statistics arrived from Entity
           {From, StatsEtsEncStr} = binary_to_term(Body),
           set_entity_stats_ets_str(From, StatsEtsEncStr),
-
+          
           % increase counter_received_stats ets by 1
           ets:update_counter(get(main_server_ets), counter_received_stats, 1),
           stats:increment_messages_received(StatsEts),

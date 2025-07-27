@@ -22,6 +22,7 @@ class Stats():
         self.experiment_phase = experiment_phase
         self.nerl_model_db = self.experiment_phase.get_nerl_model_db()
         self.nerl_comm_db = self.experiment_phase.get_nerl_comm_db()
+        self.nerl_perf_db = self.experiment_phase.get_nerl_perf_db()
         self.phase = self.experiment_phase.get_phase_type()
         self.name = self.experiment_phase.get_name()
         self.loss_ts_pd = None
@@ -503,6 +504,14 @@ class Stats():
         # return dictionary of {main_server : {communication_stats}}
         main_server_communication_stats = self.nerl_comm_db.get_main_server().get_as_dict()
         return main_server_communication_stats
+    
+    def get_performance_stats_clients(self):
+        # return dictionary of {client : {performance_stats}}
+        performance_stats_clients_dict = OrderedDict()
+        clients_dict = self.nerl_perf_db.get_clients()
+        for client_name in clients_dict:
+            performance_stats_clients_dict[client_name] = clients_dict[client_name].get_as_dict()
+        return performance_stats_clients_dict
 
     def get_actual_frequencies_of_sources(self):
         # return dictionary of {source : {actual_freq}}

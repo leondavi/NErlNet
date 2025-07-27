@@ -15,6 +15,7 @@
 -define(SEPERATOR_WITHIN_TRIPLET , ":").
 
 -define(API_SERVER_ENTITY_SEPERATOR , "|").
+-define(PERF_STATS_SEPERATOR , ";").
 -define(API_SERVER_WITHIN_ENTITY_SEPERATOR , "&").
 
 -define(WORKER_SEPERATOR , "^").

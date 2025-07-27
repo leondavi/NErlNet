@@ -25,7 +25,7 @@ def split_results_to_entities_chunks(string_to_convert : str) -> list:
 # Todo: fix all examples in the function
 def decode_main_server_ets_str(string_to_convert: str):
     result_dict = {} # {entity_name: ets_dict,...}
-
+    perf_dict = {} # {entity_name: perf_dict,...}
     entity_with_stats_list = string_to_convert.split(SEP_ENTITY_OR_STATS)[:-1]
     for entity_with_stats in entity_with_stats_list:
         # Example: entity_with_stats = c2&bytes_sent:0:int#messages_sent:8015:int#bad_messages:0:int#batches_sent:0:int...
@@ -46,7 +46,21 @@ def decode_main_server_ets_str(string_to_convert: str):
                 
             result_dict[entity_name] = entity_dict
             
-        if  SEP_ENTITY_XOR_STATS in entity_with_stats: # Belongs only to workers
+        if SEP_PERF_STATS in entity_with_stats:
+            entity_name = entity_with_stats.split(SEP_ENTITY_AND_STATS)[0]
+            perf_stats = entity_with_stats.split(SEP_PERF_STATS)[1]
+            triplets = perf_stats.split(SEP_ENTITY_HASH_STATS)[:-1]  # Example: [cpu_util:0.5:float, memory_usage:1024:int, ...]
+            perf_entity_dict = {}
+            for triplet in triplets:
+                key, value, value_type = triplet.split(SEP_ENTITY_COLON_STATS) # Example: [cpu_util,0.5,float]
+                if value_type == 'string':
+                    value = value
+                else:
+                    value = float(value) if value_type == 'float' else int(value)
+                perf_entity_dict[key] = value  # Key is always a string
+            perf_dict[entity_name] = perf_entity_dict  # Store performance stats separately
+
+        if SEP_ENTITY_XOR_STATS in entity_with_stats: # Belongs only to workers
             # Example: entity_with_stats = w4^bytes_sent$0$int@empty_batches$0$int@...
             worker_name = entity_with_stats.split(SEP_ENTITY_XOR_STATS)[0]
             worker_stats = entity_with_stats.split(SEP_ENTITY_XOR_STATS)[1]
@@ -62,8 +76,9 @@ def decode_main_server_ets_str(string_to_convert: str):
                 worker_dict[key] = value  # Key is always a string
                 
             result_dict[worker_name] = worker_dict
+            
 
-    return result_dict
+    return result_dict, perf_dict
 
 def parse_key_string(key_string: str) -> tuple:
     WORKER_NAME_IDX = 0

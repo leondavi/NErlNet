@@ -176,8 +176,10 @@ idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, et
   ClientStatsEncStr = stats:encode_ets_to_http_bin_str(ClientStatsEts),
   stats:increment_messages_received(ClientStatsEts),
   ListStatsEts = ets:tab2list(EtsStats) -- [{MyName , ClientStatsEts}], 
+  PerformenceStatsEts = get(performance_stats_ets),
+  ClientPerformenceStatsEncStr = ?PERF_STATS_SEPERATOR ++ stats:encode_ets_to_http_bin_str(PerformenceStatsEts) ++ ?PERF_STATS_SEPERATOR,
   WorkersStatsEncStr = create_encoded_stats_str(ListStatsEts),
-  DataToSend = ClientStatsEncStr ++ WorkersStatsEncStr,
+  DataToSend = ClientStatsEncStr ++ ClientPerformenceStatsEncStr ++ WorkersStatsEncStr,
   StatsBody = {MyName , DataToSend},
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatsBody),
@@ -187,21 +189,27 @@ idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, et
 % Main Server triggers this state
 idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
+  PerformanceStatsEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   MessageToCast = {training},
   cast_message_to_workers(EtsRef, MessageToCast),
   ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, false}),
+  stats:performance_stats_reset(PerformanceStatsEts),
   stats:tic(ClientStatsEts, time_train_total),
+  stats:reset_query_cpu_util_cores(),
   {next_state, waitforWorkers, State#client_statem_state{waitforWorkers =  clientWorkersFunctions:get_workers_names(EtsRef), nextState = training}};
 
 idle(cast, In = {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
+  PerformanceStatsEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   MessageToCast = {predict},
   cast_message_to_workers(EtsRef, MessageToCast),
-  stats:tic(ClientStatsEts, time_predict_total),
+  stats:performance_stats_reset(PerformanceStatsEts),
+  stats:tic(ClientStatsEts, time_predict_total), 
+  stats:reset_query_cpu_util_cores(),
   {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = clientWorkersFunctions:get_workers_names(EtsRef),nextState = predict}};
 
 idle(cast, EventContent, State = #client_statem_state{etsRef = EtsRef , myName = MyName}) ->
@@ -318,7 +326,7 @@ training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef
               ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
               Elapsed = stats:toc(ClientStatsEts, time_train_total),
               stats:increment_time_train_total(ClientPerformanceEts, Elapsed),
-              io:format("Client ~p PerformanceETS: ~p~n",[MyName, ets:tab2list(ClientPerformanceEts)]),
+              stats:update_cpu_util_per_core(ClientPerformanceEts, train), % Update CPU utilization for training phase
               {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
     false ->  MyPid = get(my_pid), 
               spawn(fun() -> timer:sleep(10), gen_statem:cast(MyPid, {idle}) end), % Trigger this action until all workers are done
@@ -423,6 +431,7 @@ predict(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef 
               ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
               Elapsed = stats:toc(ClientStatsEts, time_predict_total),
               stats:increment_time_predict_total(ClientPerformanceEts, Elapsed),
+              stats:update_cpu_util_per_core(ClientPerformanceEts, predict), % Update CPU utilization for predict phase
               {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
     false ->  gen_statem:cast(get(my_pid) , {idle}), % Trigger this action until all workers are done
               {keep_state, State}

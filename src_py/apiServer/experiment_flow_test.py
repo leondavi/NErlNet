@@ -53,12 +53,12 @@ assert curr_experiment_phase_exists, "No experiment phase found"
 
 api_server_instance.run_current_experiment_phase() # blocking until phase is completed
 stats_train = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
-
+perf_stats_train = stats_train.get_performance_stats_clients()
 api_server_instance.next_experiment_phase()
 assert api_server_instance.next_expertiment_phase_exist, "No next experiment phase found"
 api_server_instance.run_current_experiment_phase() # blocking until phase is completed
 stats_predict = api_server_instance.get_experiment_flow(experiment_name).generate_stats()
-
+perf_stats_predict = stats_predict.get_performance_stats_clients()
 print_test("Experiment phases completed")
 
 print_test("Stopping NerlnetApp")
@@ -136,5 +136,10 @@ for f1_score_exp , f1_score_baseline in zip(performence_stats[DIFF_MEASURE_METHO
         LOG_ERROR("Anomaly failure detected")
         LOG_ERROR(f"diff_from_baseline: {diff}")
         ExitValue = 1
+
+print("Performance stats training:")
+print(pretty_dict(perf_stats_train))
+print("Performance stats prediction:")
+print(pretty_dict(perf_stats_predict))
 
 exit(ExitValue)

@@ -1,5 +1,6 @@
 from NerlComDB import *
 from nerl_model_db import *
+from NerlPerfDB import *
 from definitions import *
 from nerl_csv_dataset_db import *
 from decoderHttpMainServer import *
@@ -12,6 +13,7 @@ class ExperimentPhase():
         self.phase_type = phase_type # training/prediction
         assert self.phase_type in [PHASE_TRAINING_STR, PHASE_PREDICTION_STR]
         self.nerl_comm_db = NerlComDB(network_componenets)  
+        self.nerl_perf_db = NerlPerfDB(network_componenets)
         self.nerl_model_db = NerlModelDB(self.phase_type)
         self.source_pieces_dict = {}  # Dict of SourcePieceDS 
         self.num_of_features = num_of_features
@@ -51,6 +53,9 @@ class ExperimentPhase():
     
     def get_nerl_comm_db(self):
         return self.nerl_comm_db
+    
+    def get_nerl_perf_db(self):
+        return self.nerl_perf_db
 
     def get_nerl_model_db(self):
         return self.nerl_model_db

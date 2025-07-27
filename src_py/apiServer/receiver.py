@@ -91,11 +91,12 @@ class predictRes(Resource):
 class statistics(Resource):
     def post(self) -> None:
         resData = request.get_data().decode('utf-8')
-        entity_com_dicts = decode_main_server_ets_str(resData) # dict of dicts 
+        entity_com_dicts, entity_perf_dicts = decode_main_server_ets_str(resData) # dict of dicts 
         current_experiment_flow = globe.experiment_focused_on
         event_sync_inst = current_experiment_flow.get_events_sync()
         current_experiment_phase = current_experiment_flow.get_current_experiment_phase()
-        current_experiment_phase.get_nerl_comm_db().update_entities_stats(entity_com_dicts)     
+        current_experiment_phase.get_nerl_comm_db().update_entities_stats(entity_com_dicts)    
+        current_experiment_phase.get_nerl_perf_db().update_entities_stats(entity_perf_dicts) 
         event_sync_inst.set_event_done(event_sync_inst.COMMUNICATION_STATS)
 
         transmitter = receiver.config['TRANSMITTER']
