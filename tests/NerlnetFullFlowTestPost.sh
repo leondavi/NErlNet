@@ -1,0 +1,1 @@
+cat /tmp/nerlnet_run_log.txt

@@ -98,18 +98,26 @@ generate_stats_ets() -> %% sources, clients , routers , mainserver...
 
 %% Starts the os_mon application if it is not already started.
 %% This is necessary for monitoring system performance.
+
+start_apps_if_not_started(Apps) ->
+    lists:foreach(fun(App) ->
+        case lists:keymember(Apps, 1, application:which_applications()) of
+        true ->
+            ok;  % Already running
+        false ->
+            case application:ensure_all_started(App) of
+                {ok, _} -> ok;
+                {error, {already_started, App}} -> ok;
+                {error, Reason} -> {error, Reason}
+            end
+        end
+    end, Apps).
+
+
 %% It also ensures that the sasl application is started, as os_mon depends on it.
 start_os_mon() ->
-    % check if os_mon is already started
-    case application:which_applications() of
-        [{os_mon, _, _} | _] ->
-            ok;
-        _ -> % start sasl application
-            {ok,[sasl]} = application:ensure_all_started(sasl),
-            % start os_mon application
-            {ok,[os_mon]} = application:ensure_all_started(os_mon)
-    end,
-    ok.
+    Apps = [sasl, os_mon],
+    start_apps_if_not_started(Apps).
 
 
 generate_performance_stats_ets() -> %% clients
