@@ -111,3 +111,14 @@ def import_dict_json(filepath : str):
 
 def average_list(list : list) -> float:
     return sum(list) / len(list)
+
+def pretty_dict(d):
+    pretty_dict_str = ''
+    # Print the dict nicely
+    for k, v in d.items():
+        if isinstance(v, list):
+            v = ', '.join(map(str, v))
+        elif isinstance(v, dict):
+            v = pretty_dict(v)
+        pretty_dict_str += f'{k}: {str(v)}\n'
+    return pretty_dict_str

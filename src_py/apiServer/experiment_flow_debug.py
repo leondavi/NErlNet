@@ -13,16 +13,16 @@ def print_test(in_str : str):
     LOG_INFO(f"{PREFIX} {in_str}")
 
 NERLNET_PATH = os.getenv('NERLNET_PATH')
-NERLNET_RUN_SCRIPT = "./NerlnetRun.sh --run-mode release"
-NERLNET_RUN_STOP_SCRIPT = "./NerlnetRun.sh --run-mode stop"
+NERLNET_RUN_SCRIPT = ""
+NERLNET_RUN_STOP_SCRIPT = ""
 
 api_server_instance = ApiServer()
 api_server_instance.download_dataset(TEST_DATASET_IDX)
 #api_server_instance.help()
 api_server_instance.showJsons()
-dc_idx = 6
-conn_idx = 25
-exp_idx = 3
+dc_idx = 0
+conn_idx = 0
+exp_idx = 0
 api_server_instance.setJsons(dc_idx, conn_idx, exp_idx)
 dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 
@@ -37,6 +37,8 @@ stats.get_communication_stats_sources()
 stats.get_communication_stats_clients()
 stats.get_communication_stats_routers()
 stats.get_communication_stats_main_server()
+perf_stats = stats.get_performance_stats_clients()
+print(pretty_dict(perf_stats))
 stats.get_loss_ts()
 stats.get_min_loss()
 api_server_instance.next_experiment_phase()
@@ -45,7 +47,8 @@ stats = api_server_instance.get_experiment_flow(experiment_name).generate_stats(
 confusion_matrix_source_dict, confusion_matrix_worker_dict = stats.get_confusion_matrices()
 performence_stats = stats.get_model_performence_stats(confusion_matrix_worker_dict, True)
 stats.get_missed_batches()
-
+perf_stats = stats.get_performance_stats_clients()
+print(pretty_dict(perf_stats))
 exit(0)
 next_expertiment_phase_exist = api_server_instance.next_experiment_phase() 
 api_server_instance.run_current_experiment_phase()

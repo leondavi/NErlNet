@@ -75,7 +75,10 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   EtsRef = ets:new(client_data, [set, public]), %% client_data is responsible for functional attributes
   EtsStats = ets:new(ets_stats, [set]), %% ets_stats is responsible for holding all the ets stats (client + workers)
   ClientStatsEts = stats:generate_stats_ets(), %% client stats ets inside ets_stats
+  % TODO add flag to control generate performance stats ets
+  ClientPerformanceEts = stats:generate_performance_stats_ets(), %% client performance stats ets inside ets_stats
   ets:insert(EtsStats, {MyName, ClientStatsEts}),
+  ets:insert(EtsStats, {performance_stats, ClientPerformanceEts}),
   put(ets_stats, EtsStats),
   ets:insert(EtsRef, {workerToClient, WorkerToClientMap}), % All workers in the network (map to their client)
   ets:insert(EtsRef, {workersNames, ClientWorkers}), % All THIS Client's workers
@@ -105,6 +108,7 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   put(client_data, EtsRef),
   put(ets_stats, EtsStats),
   put(client_stats_ets , ClientStatsEts),
+  put(performance_stats_ets , ClientPerformanceEts),
   put(my_pid , self()),
 
   {ok, idle, #client_statem_state{myName= MyName, etsRef = EtsRef}}.
@@ -130,8 +134,7 @@ waitforWorkers(cast, In = {stateChange,WorkerName}, State = #client_statem_state
             stats:increment_messages_sent(ClientStatsEts),
             ?LOG_INFO("Client ~p and its workers are ready~n",[MyName]),
             {next_state, NextState, State#client_statem_state{waitforWorkers = []}};
-    _  ->   %io:format("Client ~p is waiting for workers ~p~n",[MyName,NewWaitforWorkers]),
-            {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers}}
+    _  ->   {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = NewWaitforWorkers}}
   end;
 
 waitforWorkers(cast, In = {worker_to_worker_msg, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -173,8 +176,10 @@ idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, et
   ClientStatsEncStr = stats:encode_ets_to_http_bin_str(ClientStatsEts),
   stats:increment_messages_received(ClientStatsEts),
   ListStatsEts = ets:tab2list(EtsStats) -- [{MyName , ClientStatsEts}], 
+  PerformenceStatsEts = get(performance_stats_ets),
+  ClientPerformenceStatsEncStr = ?PERF_STATS_SEPERATOR ++ stats:encode_ets_to_http_bin_str(PerformenceStatsEts) ++ ?PERF_STATS_SEPERATOR,
   WorkersStatsEncStr = create_encoded_stats_str(ListStatsEts),
-  DataToSend = ClientStatsEncStr ++ WorkersStatsEncStr,
+  DataToSend = ClientStatsEncStr ++ ClientPerformenceStatsEncStr ++ WorkersStatsEncStr,
   StatsBody = {MyName , DataToSend},
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatsBody),
@@ -184,19 +189,27 @@ idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, et
 % Main Server triggers this state
 idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
+  PerformanceStatsEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   MessageToCast = {training},
   cast_message_to_workers(EtsRef, MessageToCast),
   ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, false}),
+  stats:performance_stats_reset(PerformanceStatsEts),
+  stats:tic(ClientStatsEts, time_train_total),
+  stats:reset_query_cpu_util_cores(),
   {next_state, waitforWorkers, State#client_statem_state{waitforWorkers =  clientWorkersFunctions:get_workers_names(EtsRef), nextState = training}};
 
 idle(cast, In = {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
+  PerformanceStatsEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   MessageToCast = {predict},
   cast_message_to_workers(EtsRef, MessageToCast),
+  stats:performance_stats_reset(PerformanceStatsEts),
+  stats:tic(ClientStatsEts, time_predict_total), 
+  stats:reset_query_cpu_util_cores(),
   {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = clientWorkersFunctions:get_workers_names(EtsRef),nextState = predict}};
 
 idle(cast, EventContent, State = #client_statem_state{etsRef = EtsRef , myName = MyName}) ->
@@ -302,6 +315,7 @@ training(cast, In = {stream_ended , Pair}, State = #client_statem_state{etsRef =
 % From MainServer
 training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
+  ClientPerformanceEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   MessageToCast = {idle},
@@ -310,6 +324,9 @@ training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef
     true ->   cast_message_to_workers(EtsRef, MessageToCast),
               Workers =  clientWorkersFunctions:get_workers_names(EtsRef),
               ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
+              Elapsed = stats:toc(ClientStatsEts, time_train_total),
+              stats:increment_time_train_total(ClientPerformanceEts, Elapsed),
+              stats:update_cpu_util_per_core(ClientPerformanceEts, train), % Update CPU utilization for training phase
               {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
     false ->  MyPid = get(my_pid), 
               spawn(fun() -> timer:sleep(10), gen_statem:cast(MyPid, {idle}) end), % Trigger this action until all workers are done
@@ -323,9 +340,11 @@ training(cast, _In = {predict}, State = #client_statem_state{myName = MyName, et
 
 training(cast, In = {loss, WorkerName ,SourceName ,LossTensor ,TimeNIF , WorkerToken,BatchID ,BatchTS}, State = #client_statem_state{myName = MyName,etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
+  ClientPerformanceEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+  stats:increment_time_train_active(ClientPerformanceEts, trunc(TimeNIF)), % in microseconds
   MessageBody = {WorkerName , SourceName , LossTensor , TimeNIF , WorkerToken, BatchID , BatchTS},
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(lossFunction), MessageBody), %% Change lossFunction atom to lossValue
   stats:increment_messages_sent(ClientStatsEts),
@@ -401,6 +420,7 @@ predict(cast, In = {stream_ended , Pair}, State = #client_statem_state{etsRef = 
 % From MainServer
 predict(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
+  ClientPerformanceEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   MessageToCast = {idle},
@@ -409,6 +429,9 @@ predict(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef 
     true ->   cast_message_to_workers(EtsRef, MessageToCast),
               Workers =  clientWorkersFunctions:get_workers_names(EtsRef),
               ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
+              Elapsed = stats:toc(ClientStatsEts, time_predict_total),
+              stats:increment_time_predict_total(ClientPerformanceEts, Elapsed),
+              stats:update_cpu_util_per_core(ClientPerformanceEts, predict), % Update CPU utilization for predict phase
               {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
     false ->  gen_statem:cast(get(my_pid) , {idle}), % Trigger this action until all workers are done
               {keep_state, State}
@@ -416,6 +439,7 @@ predict(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef 
 
 predict(cast, In = {predictRes,WorkerName, SourceName ,{PredictNerlTensor, NetlTensorType} , TimeTook , WorkerToken, BatchID , BatchTS}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
+  ClientPerformanceEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
 
@@ -425,6 +449,7 @@ predict(cast, In = {predictRes,WorkerName, SourceName ,{PredictNerlTensor, NetlT
   
   stats:increment_messages_sent(ClientStatsEts),
   stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody)),
+  stats:increment_time_predict_active(ClientPerformanceEts, trunc(TimeTook)), % in microseconds
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
 
 % TODO from predict directly to training?!?!?

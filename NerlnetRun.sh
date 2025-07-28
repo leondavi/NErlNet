@@ -59,6 +59,8 @@ function init()
     if [ $is_rasp -gt "0" ]; then 
         export LD_PRELOAD=/usr/lib/arm-linux-gnueabihf/libatomic.so.1.2.0 
     fi
+
+	pkill beam.smp
 }
 
 function status()
