@@ -293,14 +293,14 @@ query_memory_usage() ->
     %% Get the memory usage of the Erlang VM
     [{system_total_memory,SystemTotalMemory},
     {free_memory, FreeMemory},
-    {total_memory, TotalMemory},
-    {buffered_memory, BufferedMemory},
-    {cached_memory, CachedMemory},
-    {total_swap, TotalSwap},
-    {free_swap, FreeSwap},
-    {available_memory, AvailableMemory}] = memsup:get_system_memory_data(),
+    {total_memory, _TotalMemory},
+    {buffered_memory, _BufferedMemory},
+    {cached_memory, _CachedMemory},
+    {total_swap, _TotalSwap},
+    {free_swap, _FreeSwap},
+    {available_memory, _AvailableMemory}] = memsup:get_system_memory_data(),
     %% Calculate the used memory
-    UsedMemory = SystemTotalMemory - FreeMemory.
+    SystemTotalMemory - FreeMemory.
 
 reset_query_cpu_util_cores() ->
     %% Reset the CPU utilization data
