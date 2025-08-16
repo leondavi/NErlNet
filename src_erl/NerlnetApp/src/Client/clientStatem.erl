@@ -267,7 +267,8 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
       gen_statem:cast(WorkerPid, {sample, SourceName ,BatchID ,BatchOfSamples}),
       stats:increment_messages_sent(ClientStatsEts),
       BatchSize = nerl_tools:calculate_size(BatchOfSamples),
-      stats:increment_bytes_sent(ClientStatsEts , BatchSize);
+      stats:increment_bytes_sent(ClientStatsEts , BatchSize),
+      perf_stats_memory_usage_update_train();
   true -> ?LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName]) end,
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
@@ -275,6 +276,8 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
 training(cast, {start_stream , {worker, WorkerName, TargetPair}}, State = #client_statem_state{etsRef = EtsRef}) ->
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, TargetPair}]}),
+  
+  perf_stats_memory_usage_update_train(),
   {keep_state, State};
 
 % This action is used for start_stream triggered from a source per worker
@@ -287,6 +290,8 @@ training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef =
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
   gen_statem:cast(WorkerPid, {start_stream, SourceName}),
+
+  perf_stats_memory_usage_update_train(),  
   {keep_state, State};
 
 
@@ -296,7 +301,9 @@ training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = E
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
-  gen_statem:cast(WorkerPid, {end_stream, SourceName}), 
+  gen_statem:cast(WorkerPid, {end_stream, SourceName}),
+
+  perf_stats_memory_usage_update_train(),
   {keep_state, State};
 
 training(cast, In = {stream_ended , Pair}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -371,7 +378,8 @@ predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef})
       WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
       gen_statem:cast(WorkerPid, {sample, SourceName ,BatchID ,BatchOfSamples}),
       stats:increment_messages_sent(ClientStatsEts),
-      stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(BatchOfSamples));
+      stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(BatchOfSamples)),
+      perf_stats_memory_usage_update_predict();
     true -> ?LOG_ERROR("Given worker ~p isn't found in client ~p",[WorkerName, ClientName])
   end,
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
@@ -380,6 +388,8 @@ predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef})
 predict(cast, {start_stream , {worker, WorkerName, TargetName}}, State = #client_statem_state{etsRef = EtsRef}) ->
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, TargetName}]}),
+
+  perf_stats_memory_usage_update_predict(),
   {keep_state, State};
 
 % This action is used for start_stream triggered from a source per worker
@@ -392,6 +402,8 @@ predict(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef = 
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
   gen_statem:cast(WorkerPid, {start_stream, SourceName}),
+
+  perf_stats_memory_usage_update_predict(),
   {keep_state, State};
 
 predict(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -400,7 +412,9 @@ predict(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = Et
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
-  gen_statem:cast(WorkerPid, {end_stream, SourceName}), 
+  gen_statem:cast(WorkerPid, {end_stream, SourceName}),
+
+  perf_stats_memory_usage_update_predict(),
   {keep_state, State};
 
 predict(cast, In = {stream_ended , Pair}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -548,3 +562,17 @@ handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data) ->
       stats:increment_messages_sent(ClientStatsEts),
       stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody))
   end.
+
+perf_stats_memory_usage_update_train() ->
+  % memory usage update
+  PerformanceStatsEts = get(performance_stats_ets),
+  MemoryUsageValue = stats:query_memory_usage(),
+  stats:update_memory_peak_usage_train(PerformanceStatsEts, MemoryUsageValue),
+  stats:update_memory_train_ema_usage(PerformanceStatsEts, MemoryUsageValue).
+
+perf_stats_memory_usage_update_predict() ->
+  % memory usage update
+  PerformanceStatsEts = get(performance_stats_ets),
+  MemoryUsageValue = stats:query_memory_usage(),
+  stats:update_memory_peak_usage_predict(PerformanceStatsEts, MemoryUsageValue),
+  stats:update_memory_predict_ema_usage(PerformanceStatsEts, MemoryUsageValue).
