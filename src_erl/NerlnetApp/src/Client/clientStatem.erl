@@ -196,6 +196,7 @@ idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRe
   cast_message_to_workers(EtsRef, MessageToCast),
   ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, false}),
   stats:performance_stats_reset(PerformanceStatsEts),
+  stats:communication_stats_reset(ClientStatsEts),
   stats:tic(ClientStatsEts, time_train_total),
   stats:reset_query_cpu_util_cores(),
   {next_state, waitforWorkers, State#client_statem_state{waitforWorkers =  clientWorkersFunctions:get_workers_names(EtsRef), nextState = training}};
@@ -208,6 +209,7 @@ idle(cast, In = {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
   MessageToCast = {predict},
   cast_message_to_workers(EtsRef, MessageToCast),
   stats:performance_stats_reset(PerformanceStatsEts),
+  stats:communication_stats_reset(ClientStatsEts),
   stats:tic(ClientStatsEts, time_predict_total), 
   stats:reset_query_cpu_util_cores(),
   {next_state, waitforWorkers, State#client_statem_state{waitforWorkers = clientWorkersFunctions:get_workers_names(EtsRef),nextState = predict}};

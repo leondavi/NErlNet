@@ -100,6 +100,9 @@ class NetworkComponents():
     def get_map_worker_to_client(self):
         return self.map_worker_to_client
     
+    def get_source_epochs_dict(self):
+        return self.sourceEpochs
+    
     def get_client_name_by_worker_name(self, worker_name):
         return self.map_worker_to_client[worker_name]
 
@@ -112,7 +115,18 @@ class NetworkComponents():
         api_server_port = self.jsonData[API_SERVER_STR][GetFields.get_port_field_name()]
         api_server_ip = self.map_device_to_ip[self.map_entity_to_device[API_SERVER_STR]]
         return api_server_ip, api_server_port
-
+    
+    def get_freq(self):
+        return self.frequency
+    
+    def get_batch_size(self):
+        return self.batchSize
+    
+    def get_num_of_sources(self):
+        return len(self.sources)
+    
+    def get_workers_list(self):
+        return self.workers
 
     def printComponents(self):
         LOG_INFO(f"\nNetwork components:\n \

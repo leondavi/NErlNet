@@ -215,6 +215,107 @@ class ApiServer(metaclass=Singleton):
         current_exp_flow = globe.experiment_focused_on
         return current_exp_flow.current_exp_phase_index < len(current_exp_flow.exp_phase_list)
     
+    def run_all_experiment_phases(self):
+        """
+        Runs all experiment phases sequentially from the experiment JSON file.
+        
+        This function iterates through all phases defined in the experiment flow JSON,
+        executing each phase in order (training phases followed by prediction phases).
+        It collects statistics for each completed phase and returns them as a list.
+        
+        The function will:
+        1. Print information about the current phase being executed (name and type)
+        2. Execute each phase using run_current_experiment_phase()
+        3. Generate and collect Stats objects for each completed phase
+        4. Move to the next phase using next_experiment_phase()
+        5. Continue until all phases are completed
+        
+        Returns:
+            list: A list of Stats objects, one for each successfully completed phase.
+                  Each Stats object contains performance metrics, communication statistics,
+                  and other phase-specific data.
+        
+        Raises:
+            AssertionError: If no valid experiment is currently focused or if required
+                           setup (initialization, send_jsons_to_devices) is not completed.
+        
+        Example:
+            # After initialization and sending JSONs to devices
+            api_server.send_jsons_to_devices()
+            all_stats = api_server.run_all_experiment_phases()
+            
+            # Process results
+            for i, stats in enumerate(all_stats):
+                print(f"Phase {i+1}: {stats.get_name()} ({stats.get_phase()})")
+                if stats.get_phase() == "training":
+                    loss_data = stats.get_loss_ts()
+                elif stats.get_phase() == "prediction":
+                    confusion_matrices = stats.get_confusion_matrices()
+        
+        Note:
+            - Requires that initialization() and send_jsons_to_devices() have been called first
+            - All NerlNet devices must be running and accessible
+            - The experiment JSON must contain valid phase definitions
+        """
+        # Ensure we have a valid experiment focused
+        if self.current_exp is None:
+            raise AssertionError("No experiment is currently focused. Call initialization() and experiment_focused_on() first.")
+        
+        # Ensure JSONs have been sent to devices
+        send_jsons_event = self.apiserver_event_sync.get_event_status(EventSync.SEND_JSONS)
+        if send_jsons_event != EventSync.DONE:
+            raise AssertionError("JSONs must be sent to devices first. Call send_jsons_to_devices() before running phases.")
+        
+        all_phases_stats = []
+        
+        # Get the initial phase information
+        current_exp_flow = self.current_exp
+        total_phases = len(current_exp_flow.exp_phase_list)
+        
+        if total_phases == 0:
+            LOG_WARNING("No experiment phases found in the experiment flow")
+            return all_phases_stats
+        
+        LOG_INFO(f"Starting to run all {total_phases} experiment phases for experiment: {current_exp_flow.get_exp_name()}")
+        
+        # Run phases sequentially
+        phase_count = 1
+        while True:
+            if not self.next_expertiment_phase_exist:
+                LOG_WARNING("No valid experiment phase available to run")
+                break
+                
+            current_phase = current_exp_flow.get_current_experiment_phase()
+            phase_name = current_phase.get_name()
+            phase_type = current_phase.get_phase_type()
+            
+            LOG_INFO(f"Running phase {phase_count}/{total_phases}: '{phase_name}' (Type: {phase_type})")
+            
+            try:
+                # Run the current phase
+                self.run_current_experiment_phase()
+                
+                # Generate stats for the completed phase
+                phase_stats = current_exp_flow.generate_stats(current_phase)
+                all_phases_stats.append(phase_stats)
+                
+                LOG_INFO(f"Completed phase {phase_count}/{total_phases}: '{phase_name}' ({phase_type})")
+                
+            except Exception as e:
+                LOG_ERROR(f"Error running phase {phase_count}/{total_phases} '{phase_name}': {str(e)}")
+                # Continue with next phase instead of stopping completely
+                
+            # Move to next phase
+            next_phase_type = self.next_experiment_phase()
+            if next_phase_type is None:
+                LOG_INFO("All experiment phases completed successfully")
+                break
+                
+            phase_count += 1
+            
+        LOG_INFO(f"Finished running all experiment phases. Total phases executed: {len(all_phases_stats)}")
+        return all_phases_stats
+    
     def list_datasets(self):
         with open(HF_DATA_REPO_PATHS_JSON) as file:
             repo_ids = json.load(file)

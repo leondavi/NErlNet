@@ -24,7 +24,13 @@ class Stats():
         self.nerl_comm_db = self.experiment_phase.get_nerl_comm_db()
         self.nerl_perf_db = self.experiment_phase.get_nerl_perf_db()
         self.phase = self.experiment_phase.get_phase_type()
-        self.name = self.experiment_phase.get_name()
+        self.name = self.experiment_phase.get_experiment_name()
+        self.net_comps = self.experiment_phase.get_network_components()
+        self.workers_list = self.net_comps.get_workers_list()
+        self.freq = self.net_comps.get_freq()
+        self.batch_size = self.net_comps.get_batch_size()
+        self.num_of_sources = self.net_comps.get_num_of_sources()
+        self.sources_epochs_dict = self.net_comps.get_source_epochs_dict()
         self.loss_ts_pd = None
         self.missed_batches_warning_msg = False
         self.experiment_flow_type = self.experiment_phase.get_experiment_flow_type()
@@ -299,42 +305,63 @@ class Stats():
         if plot:
             workers = sorted(list({tup[0] for tup in confusion_matrix_worker_dict.keys()}))
             classes = sorted(list({tup[1] for tup in confusion_matrix_worker_dict.keys()}))
-            if len(workers) > 1:
-                fig, ax = plt.subplots(nrows=len(workers), ncols=len(classes),figsize=(4*len(classes), 4*len(workers)), dpi=140)
-                if len(classes) > 1:
-                    for i , worker in enumerate(workers): 
-                        for j , pred_class in enumerate(classes):
-                            conf_mat = confusion_matrix_worker_dict[(worker , pred_class)]
-                            heatmap = sns.heatmap(data=conf_mat ,ax=ax[i,j], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
-                            cbar = heatmap.collections[0].colorbar
-                            cbar.ax.tick_params(labelsize = 8)
-                            ax[i, j].set_title(f"{worker} , Class '{pred_class}'" , fontsize=12)
-                            ax[i, j].tick_params(axis='both', which='major', labelsize=8) 
-                            ax[i, j].set_xlabel("Predicted Label" , fontsize=8)
-                            ax[i, j].set_ylabel("True Label" , fontsize=8)
-                            ax[i, j].set_aspect('equal')
-                else:
-                    for i, worker in enumerate(workers):
-                        conf_mat = confusion_matrix_worker_dict[(worker , classes[0])]
-                        heatmap = sns.heatmap(data=conf_mat ,ax=ax[i], annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
-                        cbar = heatmap.collections[0].colorbar
-                        cbar.ax.tick_params(labelsize = 8)
-                        ax[i].set_title(f"{worker} , Class '{classes[0]}'" , fontsize=12)
-                        ax[i].tick_params(axis='both', which='major', labelsize=8) 
-                        ax[i].set_xlabel("Predicted Label" , fontsize=8)
-                        ax[i].set_ylabel("True Label" , fontsize=8)
-                        ax[i].set_aspect('equal')
-                fig.subplots_adjust(wspace=0.4 , hspace=0.4)
-            else:
-                plt.figure(figsize=(4*len(classes), 3), dpi=140)
-                conf_mat = confusion_matrix_worker_dict[(workers[0] , classes[0])]
-                heatmap = sns.heatmap(data=conf_mat , annot=True , fmt="d", cmap='Blues',annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
+            fig, ax = plt.subplots(nrows=len(workers), ncols=len(classes),figsize=(4*len(classes), 4*len(workers)), dpi=140)
+            
+            # Handle different combinations of workers and classes
+            if len(workers) == 1 and len(classes) == 1:
+                # Single worker, single class
+                worker = workers[0]
+                pred_class = classes[0]
+                conf_mat = confusion_matrix_worker_dict[(worker, pred_class)]
+                heatmap = sns.heatmap(data=conf_mat, ax=ax, annot=True, fmt="d", cmap='Blues', annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
                 cbar = heatmap.collections[0].colorbar
-                cbar.ax.tick_params(labelsize = 8)
-                plt.title(f"{workers[0]} , Class '{classes[0]}'" , fontsize=12)
-                plt.xlabel("Predicted Label" , fontsize=8)
-                plt.ylabel("True Label" , fontsize=8)
-                plt.tick_params(axis='both', which='major', labelsize=8)
+                cbar.ax.tick_params(labelsize=8)
+                ax.set_title(f"{worker} , Class '{pred_class}'", fontsize=12)
+                ax.tick_params(axis='both', which='major', labelsize=8)
+                ax.set_xlabel("Predicted Label", fontsize=8)
+                ax.set_ylabel("True Label", fontsize=8)
+                ax.set_aspect('equal')
+            elif len(workers) == 1 and len(classes) > 1:
+                # Single worker, multiple classes
+                worker = workers[0]
+                for j, pred_class in enumerate(classes):
+                    conf_mat = confusion_matrix_worker_dict[(worker, pred_class)]
+                    heatmap = sns.heatmap(data=conf_mat, ax=ax[j], annot=True, fmt="d", cmap='Blues', annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
+                    cbar = heatmap.collections[0].colorbar
+                    cbar.ax.tick_params(labelsize=8)
+                    ax[j].set_title(f"{worker} , Class '{pred_class}'", fontsize=12)
+                    ax[j].tick_params(axis='both', which='major', labelsize=8)
+                    ax[j].set_xlabel("Predicted Label", fontsize=8)
+                    ax[j].set_ylabel("True Label", fontsize=8)
+                    ax[j].set_aspect('equal')
+            elif len(workers) > 1 and len(classes) == 1:
+                # Multiple workers, single class
+                pred_class = classes[0]
+                for i, worker in enumerate(workers):
+                    conf_mat = confusion_matrix_worker_dict[(worker, pred_class)]
+                    heatmap = sns.heatmap(data=conf_mat, ax=ax[i], annot=True, fmt="d", cmap='Blues', annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
+                    cbar = heatmap.collections[0].colorbar
+                    cbar.ax.tick_params(labelsize=8)
+                    ax[i].set_title(f"{worker} , Class '{pred_class}'", fontsize=12)
+                    ax[i].tick_params(axis='both', which='major', labelsize=8)
+                    ax[i].set_xlabel("Predicted Label", fontsize=8)
+                    ax[i].set_ylabel("True Label", fontsize=8)
+                    ax[i].set_aspect('equal')
+            else:
+                # Multiple workers, multiple classes
+                for i, worker in enumerate(workers):
+                    for j, pred_class in enumerate(classes):
+                        conf_mat = confusion_matrix_worker_dict[(worker, pred_class)]
+                        heatmap = sns.heatmap(data=conf_mat, ax=ax[i, j], annot=True, fmt="d", cmap='Blues', annot_kws={"size": 8}, cbar_kws={'pad': 0.1})
+                        cbar = heatmap.collections[0].colorbar
+                        cbar.ax.tick_params(labelsize=8)
+                        ax[i, j].set_title(f"{worker} , Class '{pred_class}'", fontsize=12)
+                        ax[i, j].tick_params(axis='both', which='major', labelsize=8)
+                        ax[i, j].set_xlabel("Predicted Label", fontsize=8)
+                        ax[i, j].set_ylabel("True Label", fontsize=8)
+                        ax[i, j].set_aspect('equal')
+            
+            fig.subplots_adjust(wspace=0.4, hspace=0.4)
             plt.show()
             
         return confusion_matrix_source_dict, confusion_matrix_worker_dict
