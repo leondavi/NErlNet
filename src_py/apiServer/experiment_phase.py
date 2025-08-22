@@ -6,19 +6,19 @@ from nerl_csv_dataset_db import *
 from decoderHttpMainServer import *
 
 class ExperimentPhase():
-    def __init__(self, experiment_flow_name : str, experiment_flow_type: str, name : str, phase_type: str, network_componenets: NetworkComponents, num_of_features: str):
+    def __init__(self, experiment_flow_name : str, experiment_flow_type: str, name : str, phase_type: str, network_components: NetworkComponents, num_of_features: str):
         self.experiment_flow_name = experiment_flow_name
         self.experiment_flow_type = experiment_flow_type
         self.name = name 
         self.phase_type = phase_type # training/prediction
         assert self.phase_type in [PHASE_TRAINING_STR, PHASE_PREDICTION_STR]
-        self.nerl_comm_db = NerlComDB(network_componenets)  
-        self.nerl_perf_db = NerlPerfDB(network_componenets)
+        self.nerl_comm_db = NerlComDB(network_components)  
+        self.nerl_perf_db = NerlPerfDB(network_components)
         self.nerl_model_db = NerlModelDB(self.phase_type)
         self.source_pieces_dict = {}  # Dict of SourcePieceDS 
         self.num_of_features = num_of_features
         self.raw_data_buffer = []
-        self.network_componenets = network_componenets
+        self.network_components = network_components
 
     def get_raw_data_buffer(self):
         return self.raw_data_buffer
@@ -31,7 +31,7 @@ class ExperimentPhase():
         list_of_decoded_data = decode_phase_result_data_json_from_main_server(self.raw_data_buffer[0])
         for decoded_data in list_of_decoded_data:
             worker_name, source_name, duration, batch_id, batch_ts, distributed_token, np_tensor = decoded_data
-            client_name = self.network_componenets.get_client_name_by_worker_name(worker_name)
+            client_name = self.network_components.get_client_name_by_worker_name(worker_name)
             self.nerl_model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, np_tensor, duration, distributed_token, batch_ts)
         
         self.clean_raw_data_buffer()
@@ -42,11 +42,17 @@ class ExperimentPhase():
     def get_name(self):
         return self.name
     
+    def get_experiment_name(self):
+        return self.experiment_flow_name
+    
     def get_experiment_flow_name(self):
         return self.experiment_flow_name
     
     def get_experiment_flow_type(self):
         return self.experiment_flow_type
+
+    def get_network_components(self):
+        return self.network_components
 
     def get_sources_str_list(self):
         return ",".join(self.source_pieces_dict.keys())

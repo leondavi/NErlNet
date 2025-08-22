@@ -17,7 +17,7 @@
 % performance stats
 -export([generate_performance_stats_ets/0]).
 -export([start_os_mon/0]).
--export([performance_stats_reset/1]).
+-export([performance_stats_reset/1, communication_stats_reset/1]).
 % perofmance stats getters/setters
 -export([get_time_train_active/1, increment_time_train_active/2]).
 -export([get_time_train_total/1, increment_time_train_total/2]).
@@ -237,6 +237,19 @@ get_bad_messages(StatsEts) ->
 increment_bad_messages(StatsEts) ->
     ets:update_counter(StatsEts, ?STATS_ATOM_BAD_MSG, 1).
 
+communication_stats_reset(ComStatsEts) ->
+    % Reset all communication stats to zero
+    ets:update_element(ComStatsEts, ?STATS_ATOM_MSG_RECV, {?STATS_KEYVAL_VAL_IDX, 0}),
+    ets:update_element(ComStatsEts, ?STATS_ATOM_MSG_SENT, {?STATS_KEYVAL_VAL_IDX, 0}),
+    ets:update_element(ComStatsEts, ?STATS_ATOM_MSG_DROP, {?STATS_KEYVAL_VAL_IDX, 0}),
+    ets:update_element(ComStatsEts, ?STATS_ATOM_BYTES_RECV, {?STATS_KEYVAL_VAL_IDX, 0}),
+    ets:update_element(ComStatsEts, ?STATS_ATOM_BYTES_SENT, {?STATS_KEYVAL_VAL_IDX, 0}),
+    ets:update_element(ComStatsEts, ?STATS_ATOM_BAD_MSG, {?STATS_KEYVAL_VAL_IDX, 0}),
+    ets:update_element(ComStatsEts, ?STATS_ATOM_BATCHES_RECEIVED, {?STATS_KEYVAL_VAL_IDX, 0}), % related with client only
+    ets:update_element(ComStatsEts, ?STATS_ATOM_BATCHES_DROPPED, {?STATS_KEYVAL_VAL_IDX, 0}), % related with client only
+    ets:update_element(ComStatsEts, ?STATS_ATOM_BATCHES_SENT, {?STATS_KEYVAL_VAL_IDX, 0}), % related with source only
+    ets:update_element(ComStatsEts, ?STATS_ATOM_ACTUAL_FREQUENCY, {?STATS_KEYVAL_VAL_IDX, 0}), % related with source only
+    ok.
 
 performance_stats_reset(PerfStatsEts) ->
     % Reset all performance stats to zero

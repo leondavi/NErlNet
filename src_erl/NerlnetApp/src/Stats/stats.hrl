@@ -7,6 +7,7 @@
 -define(STATS_ATOM_BATCHES_RECEIVED, batches_received).
 -define(STATS_ATOM_BATCHES_DROPPED, batches_dropped).
 -define(STATS_ATOM_BATCHES_SENT, batches_sent).
+-define(STATS_ATOM_ACTUAL_FREQUENCY, actual_frequency).
 
 -define(STATS_KEYVAL_KEY_IDX, 1).
 -define(STATS_KEYVAL_VAL_IDX, 2).
