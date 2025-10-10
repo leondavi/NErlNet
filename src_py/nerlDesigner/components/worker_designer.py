@@ -2504,11 +2504,20 @@ class WorkerDesigner:
                                 stride = ui.number('Stride', value=1, min=1).classes('w-full')
                                 conv_type = ui.select(['1', '0'], label='Conv Type (1=valid, 0=same)', value='1').classes('w-full')
                         
+                        # Activation function selector for Conv layers
+                        ui.label('Activation Function').classes('font-bold mt-4')
+                        activation = ui.select(
+                            options=self.get_activation_functions_options(),
+                            label='Activation',
+                            value='6 - ReLU'
+                        ).classes('w-full')
+                        
                         # Store references for CNN config
                         config_container.cnn_config = {
                             'width': width, 'height': height, 'depth': depth,
                             'kernel_w': kernel_w, 'kernel_h': kernel_h, 'kernel_d': kernel_d, 'filters': filters,
-                            'padding': padding, 'stride': stride, 'conv_type': conv_type
+                            'padding': padding, 'stride': stride, 'conv_type': conv_type,
+                            'activation': activation
                         }
                     
                     elif selected_type == 'Pooling':
@@ -2527,17 +2536,38 @@ class WorkerDesigner:
                             stride_x = ui.number('Stride X', value=1, min=1).classes('w-full')
                             stride_y = ui.number('Stride Y', value=1, min=1).classes('w-full')
                         
+                        # Pooling method selector
+                        ui.label('Pooling Method').classes('font-bold mt-4')
+                        pooling_method = ui.select(
+                            options=self.get_pooling_methods_options(),
+                            label='Method',
+                            value='2 - Max'
+                        ).classes('w-full')
+                        
                         config_container.pooling_config = {
                             'layer_width': layer_width, 'layer_height': layer_height,
                             'pool_width': pool_width, 'pool_height': pool_height,
-                            'stride_x': stride_x, 'stride_y': stride_y
+                            'stride_x': stride_x, 'stride_y': stride_y,
+                            'pooling_method': pooling_method
                         }
                     
                     elif selected_type == 'Perceptron':
                         # Dense/Perceptron Layer
                         ui.label('Perceptron Layer Configuration').classes('text-h6 font-bold')
                         neurons = ui.number('Number of Neurons', value=64, min=1).classes('w-full')
-                        config_container.perceptron_config = {'neurons': neurons}
+                        
+                        # Activation function selector for Perceptron layers
+                        ui.label('Activation Function').classes('font-bold mt-4')
+                        activation = ui.select(
+                            options=self.get_activation_functions_options(),
+                            label='Activation',
+                            value='6 - ReLU'
+                        ).classes('w-full')
+                        
+                        config_container.perceptron_config = {
+                            'neurons': neurons,
+                            'activation': activation
+                        }
                         
                     elif selected_type in ['Scaling', 'Unscaling']:
                         # Scaling Layer Configuration
@@ -2548,8 +2578,36 @@ class WorkerDesigner:
                             scale_width = ui.number('Width', value=100, min=1).classes('w-full')
                             scale_height = ui.number('Height (optional)', value=0, min=0).classes('w-full')
                         
+                        # Scaler method selector
+                        ui.label('Scaler Method').classes('font-bold mt-4')
+                        scaler_method = ui.select(
+                            options=self.get_scaler_methods_options(),
+                            label='Method',
+                            value='2 - MinMax'
+                        ).classes('w-full')
+                        
                         config_container.scaling_config = {
-                            'width': scale_width, 'height': scale_height
+                            'width': scale_width,
+                            'height': scale_height,
+                            'scaler_method': scaler_method
+                        }
+                    
+                    elif selected_type == 'Probabilistic':
+                        # Probabilistic Layer
+                        ui.label('Probabilistic Layer Configuration').classes('text-h6 font-bold')
+                        size = ui.number('Layer Size', value=10, min=1).classes('w-full')
+                        
+                        # Probabilistic method selector
+                        ui.label('Probabilistic Method').classes('font-bold mt-4')
+                        prob_method = ui.select(
+                            options=self.get_probabilistic_methods_options(),
+                            label='Method',
+                            value='4 - Softmax'
+                        ).classes('w-full')
+                        
+                        config_container.probabilistic_config = {
+                            'size': size,
+                            'prob_method': prob_method
                         }
                     
                     else:
@@ -2591,6 +2649,9 @@ class WorkerDesigner:
                     elif selected_type_name == 'Perceptron' and hasattr(config_container, 'perceptron_config'):
                         layer_size_str = str(config_container.perceptron_config['neurons'].value)
                     
+                    elif selected_type_name == 'Probabilistic' and hasattr(config_container, 'probabilistic_config'):
+                        layer_size_str = str(config_container.probabilistic_config['size'].value)
+                    
                     elif selected_type_name in ['Scaling', 'Unscaling'] and hasattr(config_container, 'scaling_config'):
                         cfg = config_container.scaling_config
                         if cfg['height'].value > 0:
@@ -2617,16 +2678,24 @@ class WorkerDesigner:
                     self.model.layer_sizes_raw.append(layer_size_str)
                     self.model.layer_types_raw.append(selected_type_id)
                     
-                    # Add default activation function based on layer type
-                    if selected_type_name == 'Conv':
-                        self.model.layer_functions_raw.append('6')  # ReLU
-                    elif selected_type_name == 'Pooling':
-                        self.model.layer_functions_raw.append('2')  # Max pooling
-                    elif selected_type_name == 'Probabilistic':
-                        self.model.layer_functions_raw.append('4')  # Softmax
-                    elif selected_type_name == 'Scaling':
-                        self.model.layer_functions_raw.append('2')  # MinMax
+                    # Add activation/method function based on layer type and user selection
+                    if selected_type_name == 'Conv' and hasattr(config_container, 'cnn_config'):
+                        activation_id = self.extract_function_id(config_container.cnn_config['activation'].value)
+                        self.model.layer_functions_raw.append(activation_id)
+                    elif selected_type_name == 'Perceptron' and hasattr(config_container, 'perceptron_config'):
+                        activation_id = self.extract_function_id(config_container.perceptron_config['activation'].value)
+                        self.model.layer_functions_raw.append(activation_id)
+                    elif selected_type_name == 'Pooling' and hasattr(config_container, 'pooling_config'):
+                        method_id = self.extract_function_id(config_container.pooling_config['pooling_method'].value)
+                        self.model.layer_functions_raw.append(method_id)
+                    elif selected_type_name == 'Probabilistic' and hasattr(config_container, 'probabilistic_config'):
+                        method_id = self.extract_function_id(config_container.probabilistic_config['prob_method'].value)
+                        self.model.layer_functions_raw.append(method_id)
+                    elif selected_type_name in ['Scaling', 'Unscaling'] and hasattr(config_container, 'scaling_config'):
+                        method_id = self.extract_function_id(config_container.scaling_config['scaler_method'].value)
+                        self.model.layer_functions_raw.append(method_id)
                     else:
+                        # Default activation for other layer types
                         self.model.layer_functions_raw.append('6')  # ReLU default
                     
                     # Update the configuration strings
@@ -2689,6 +2758,55 @@ class WorkerDesigner:
             '9': 'Soft-plus', '10': 'Soft-sign', '11': 'Hard-sigmoid'
         }
         return activation_map.get(activation_code, f'Function {activation_code}')
+    
+    def get_activation_functions_options(self) -> List[str]:
+        """Get activation function options for Perceptron/Conv layers"""
+        return [
+            '1 - Threshold',
+            '2 - Sign',
+            '3 - Logistic',
+            '4 - Tanh',
+            '5 - Linear',
+            '6 - ReLU',
+            '7 - eLU',
+            '8 - SeLU',
+            '9 - Soft-plus',
+            '10 - Soft-sign',
+            '11 - Hard-sigmoid'
+        ]
+    
+    def get_pooling_methods_options(self) -> List[str]:
+        """Get pooling method options"""
+        return [
+            '1 - None',
+            '2 - Max',
+            '3 - Avg'
+        ]
+    
+    def get_probabilistic_methods_options(self) -> List[str]:
+        """Get probabilistic layer method options"""
+        return [
+            '1 - Binary',
+            '2 - Logistic',
+            '3 - Competitive',
+            '4 - Softmax'
+        ]
+    
+    def get_scaler_methods_options(self) -> List[str]:
+        """Get scaler method options for Scaling/Unscaling layers"""
+        return [
+            '1 - None',
+            '2 - MinMax',
+            '3 - MeanStd',
+            '4 - STD',
+            '5 - Log'
+        ]
+    
+    def extract_function_id(self, display_value: str) -> str:
+        """Extract function ID from display format '1 - Name' -> '1'"""
+        if ' - ' in display_value:
+            return display_value.split(' - ')[0]
+        return display_value
     
     def edit_layer_simple(self, layer_index: int):
         """Edit a specific layer (simple notification)"""

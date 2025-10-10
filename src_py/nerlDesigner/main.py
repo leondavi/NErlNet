@@ -452,7 +452,8 @@ class NerlDesigner:
             # Ensure files is iterable
             if not hasattr(files, '__iter__'):
                 files = [files]
-                
+            
+            # Now it's safe to get the length
             print(f"DEBUG: Number of files: {len(files)}")
             
             for file_info in files:
@@ -481,15 +482,22 @@ class NerlDesigner:
                     
                     # Method 1: Check if it's a NiceGUI UploadEventArguments object
                     try:
-                        if hasattr(file_info, 'content') and hasattr(file_info.content, 'read'):
-                            # Reset file pointer if possible
-                            if hasattr(file_info.content, 'seek'):
-                                file_info.content.seek(0)
-                            content = file_info.content.read()
-                            if isinstance(content, bytes):
-                                content = content.decode('utf-8')
-                        elif hasattr(file_info, 'content') and not callable(file_info.content):
-                            content = str(file_info.content)
+                        if hasattr(file_info, 'content'):
+                            content_attr = file_info.content
+                            # Check if content is a method/callable - call it first
+                            if callable(content_attr):
+                                content_attr = content_attr()
+                            
+                            # Now try to read from it
+                            if hasattr(content_attr, 'read'):
+                                # Reset file pointer if possible
+                                if hasattr(content_attr, 'seek'):
+                                    content_attr.seek(0)
+                                content = content_attr.read()
+                                if isinstance(content, bytes):
+                                    content = content.decode('utf-8')
+                            elif isinstance(content_attr, (str, bytes)):
+                                content = content_attr if isinstance(content_attr, str) else content_attr.decode('utf-8')
                     except Exception as e1:
                         print(f"DEBUG: Method 1 failed: {e1}")
                     
