@@ -1,0 +1,51 @@
+/* NerlDesigner Custom Styles */
+
+.nerldesigner-logo {
+    max-height: 40px;
+    width: auto;
+}
+
+.nerldesigner-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.nerldesigner-card {
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.nerldesigner-button-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+.nerldesigner-button-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.network-node {
+    border-radius: 50%;
+    padding: 8px;
+    margin: 4px;
+    display: inline-block;
+}
+
+.node-device { background-color: #3498db; }
+.node-router { background-color: #2ecc71; }
+.node-client { background-color: #9b59b6; }
+.node-server { background-color: #e74c3c; }
+.node-worker { background-color: #f39c12; }
+.node-source { background-color: #1abc9c; }
+
+.connection-line {
+    stroke: #34495e;
+    stroke-width: 2;
+    fill: none;
+}
+
+.connection-data { stroke: #3498db; }
+.connection-control { stroke: #e74c3c; }
+.connection-feedback { stroke: #f39c12; }

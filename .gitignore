@@ -41,3 +41,4 @@ conn.json
 *.crashdump
 tests/inputJsonsFiles/dc_test_synt_1d_2c_1s_4r_4w.json
 tests/inputJsonsFiles/arch_test_synt_1d_2c_1s_4r_4w.json
+/.nerldesigner_env

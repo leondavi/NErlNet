@@ -1,0 +1,760 @@
+#!/usr/bin/env python3
+"""
+NerlDesigner - Modern Web-based Designer for NerlNet
+Built with NiceGUI for cross-platform comp                # Connection Configuration  
+                self.create_json_section(
+                    title='Connection Map',
+                    description='Device connections and network topology', 
+                    file_type='connection',
+                    prefixes=['conn', 'connection', 'topology'],
+                    color='red-700'
+                )y
+"""
+
+import sys
+import os
+from pathlib import Path
+from typing import Dict, Any, List, Optional
+import json
+import asyncio
+
+# Add the project root to the path for imports
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from nicegui import ui, app, run
+
+# Import NerlNet definitions from autogen
+try:
+    from src_py.autogen.Definitions import VERSION as NERLPLANNER_VERSION
+    from src_py.autogen.JsonElementsDefinitions import *
+    from src_py.autogen.JsonElementWorkerDefinitions import *
+    from src_py.autogen.JsonDistributedConfigDefs import *
+except ImportError:
+    # Fallback to relative imports
+    sys.path.insert(0, str(Path(__file__).parent.parent / "autogen"))
+    try:
+        from Definitions import VERSION as NERLPLANNER_VERSION
+        from JsonElementsDefinitions import *
+        from JsonElementWorkerDefinitions import *
+        from JsonDistributedConfigDefs import *
+    except ImportError:
+        # If autogen imports fail, use defaults
+        NERLPLANNER_VERSION = "1.0.0"
+
+# Import local modules
+from models.worker_model import WorkerModel
+from models.connection_model import ConnectionModel
+from models.distributed_config_model import DistributedConfigModel
+from components.worker_designer import WorkerDesigner
+from components.connection_designer import ConnectionDesigner
+from components.experiment_designer import ExperimentDesigner
+from components.dc_designer import DCDesigner
+from components.graph_visualizer import GraphVisualizer
+from utils.json_handler import JsonHandler
+
+class NerlDesigner:
+    """Main NerlDesigner application class"""
+    
+    def __init__(self):
+        self.current_project: Dict[str, Any] = {}
+        self.worker_model = WorkerModel()
+        self.connection_model = ConnectionModel() 
+        self.distributed_config_model = DistributedConfigModel()
+        self.json_handler = JsonHandler()
+        
+        # UI Components
+        self.worker_designer: Optional[WorkerDesigner] = None
+        self.connection_designer: Optional[ConnectionDesigner] = None
+        self.dc_designer: Optional[DCDesigner] = None
+        self.experiment_designer = ExperimentDesigner()
+        self.graph_visualizer: Optional[GraphVisualizer] = None
+        
+        # Setup paths
+        self.project_root = project_root
+        self.examples_path = project_root / "inputJsonsFiles"
+        
+    def setup_ui(self):
+        """Setup the main UI layout"""
+        # Configure static files
+        app.add_static_files('/static', str(Path(__file__).parent / 'static'))
+        app.add_static_files('/assets', str(Path(__file__).parent / 'assets'))
+        
+        # Create the main page
+        @ui.page('/')
+        def index():
+            self.create_main_page()
+    
+    def create_main_page(self):
+        """Create the main page content"""
+        
+        # Header with logo and title - Dark Red Theme
+        with ui.header().classes('bg-red-900 text-white shadow-lg'):
+            with ui.row().classes('w-full items-center px-4'):
+                # Logo and title section
+                with ui.row().classes('items-center gap-4'):
+                    logo_path = Path(__file__).parent / 'assets' / 'logo' / 'nerldesigner_logo.png'
+                    if logo_path.exists():
+                        ui.image('/assets/logo/nerldesigner_logo.png').classes('h-12 w-12')
+                    else:
+                        ui.icon('account_tree', size='3rem').classes('text-white')
+                    with ui.column().classes('gap-0'):
+                        ui.label('NerlDesigner').classes('text-h4 font-bold')
+                        ui.label('Neural Network Configuration Tool').classes('text-caption opacity-80')
+                
+                ui.space()
+                
+        # File Management Toolbar with Dark Red Theme
+        with ui.row().classes('w-full bg-red-900 px-4 py-3 shadow-lg justify-between items-center'):
+            # New Project button - Dark Orange
+            ui.button('New Project', 
+                     on_click=self.new_project).props('unelevated').classes('bg-orange-800 hover:bg-orange-700 text-white')
+            
+            # Status and version info
+            with ui.row().classes('gap-4 items-center'):
+                self.status_label = ui.label('Ready').classes('text-white text-sm')
+                ui.separator().props('vertical').classes('bg-red-600')
+                ui.label(f'NerlDesigner v{NERLPLANNER_VERSION}').classes('text-white text-sm opacity-80')
+        
+        # Dedicated JSON Import/Export Sections
+        with ui.column().classes('w-full p-4 bg-red-50'):
+            ui.label('JSON Configuration Manager').classes('text-h5 font-bold text-red-900 mb-4')
+            
+            # Grid layout for different file types
+            with ui.grid(columns=2).classes('gap-6 w-full'):
+                # Worker Configuration
+                self.create_json_section(
+                    title='Worker Configuration', 
+                    description='Neural network architecture and training parameters',
+                    file_type='worker',
+                    prefixes=['worker', 'neural', 'nn'],
+                    color='red-800'
+                )
+                
+                # Connection Configuration  
+                self.create_json_section(
+                    title='� Connection Map',
+                    description='Device connections and network topology', 
+                    file_type='connection',
+                    prefixes=['conn', 'connection', 'topology'],
+                    color='red-700'
+                )
+                
+                # Distributed Configuration
+                self.create_json_section(
+                    title='Distributed Config',
+                    description='Distributed system settings and parameters',
+                    file_type='distributed', 
+                    prefixes=['dc', 'dist', 'distributed'],
+                    color='red-600'
+                )
+                
+                # Experiment Configuration
+                self.create_json_section(
+                    title='Experiment Setup',
+                    description='Experiment parameters and configurations',
+                    file_type='experiment',
+                    prefixes=['exp', 'experiment', 'test'],
+                    color='red-500'
+                )
+        
+        # Main content area with dark red themed tabs
+        with ui.column().classes('flex-1 w-full'):
+            with ui.tabs().classes('w-full bg-red-900 shadow-lg') as tabs:
+                worker_tab = ui.tab('Worker Designer', icon='psychology').classes('text-white hover:bg-red-800')
+                connection_tab = ui.tab('Connections', icon='share').classes('text-white hover:bg-red-800')
+                dc_tab = ui.tab('Distributed Config', icon='settings_ethernet').classes('text-white hover:bg-red-800')
+                graph_tab = ui.tab('Graph View', icon='account_tree').classes('text-white hover:bg-red-800')
+                experiment_tab = ui.tab('Experiments', icon='science').classes('text-white hover:bg-red-800')
+            
+            with ui.tab_panels(tabs, value=worker_tab).classes('flex-1 w-full bg-red-50'):
+                # Worker Designer Tab
+                with ui.tab_panel(worker_tab).classes('p-0'):
+                    self.worker_designer = WorkerDesigner(self.worker_model)
+                    self.worker_designer.create_ui()
+                    
+                    # Load any pending worker data
+                    if hasattr(self, 'pending_worker_data'):
+                        self.worker_designer.load_from_json(self.pending_worker_data)
+                        delattr(self, 'pending_worker_data')
+                
+                # Connection Designer Tab  
+                with ui.tab_panel(connection_tab).classes('p-0'):
+                    self.connection_designer = ConnectionDesigner(self.connection_model)
+                    self.connection_designer.create_ui()
+                
+                # Distributed Configuration Tab
+                with ui.tab_panel(dc_tab).classes('p-0'):
+                    self.dc_designer = DCDesigner(self.distributed_config_model)
+                    self.dc_designer.create_ui()
+                
+                # Graph Visualization Tab
+                with ui.tab_panel(graph_tab).classes('p-0'):
+                    self.graph_visualizer = GraphVisualizer()
+                    self.graph_visualizer.create_ui()
+                    
+                # Experiment Configuration Tab
+                with ui.tab_panel(experiment_tab).classes('p-0'):
+                    self.create_experiment_ui()
+    
+    def create_experiment_ui(self):
+        """Create the experiment configuration UI"""
+        self.experiment_designer.create_ui()
+    
+    def new_project(self):
+        """Create a new project"""
+        self.current_project = {}
+        # Reset all models to default values
+        if hasattr(self.worker_model, 'reset'):
+            self.worker_model.reset()
+        if hasattr(self.connection_model, 'reset'):
+            self.connection_model.reset()
+        if hasattr(self.distributed_config_model, 'reset'):
+            self.distributed_config_model.reset()
+        
+        # Update status
+        self.update_status('New project created')
+        ui.notify('New project created successfully!', type='positive')
+    
+
+    
+    def import_json_data(self, data: dict, filename: str, expected_type: str = None) -> bool:
+        """Import JSON data into appropriate model"""
+        try:
+            imported = False
+            
+            # If expected type is specified, try that first
+            if expected_type == 'worker' or 'model_sha' in data or 'modelType' in data:
+                # Worker configuration - handle both direct model config and distributed config with model_sha
+                try:
+                    if hasattr(self, 'worker_designer') and self.worker_designer:
+                        success = self.worker_designer.load_from_json(data)
+                        if success:
+                            imported = True
+                    else:
+                        # Fallback: store data for later loading
+                        self.pending_worker_data = data
+                        imported = True
+                except Exception as e:
+                    print(f"Worker import error: {e}")
+                    pass
+                    
+            elif expected_type == 'connection' and ('connections' in data or 'devices' in data):
+                # Connection configuration
+                try:
+                    if hasattr(self.connection_model, 'from_dict'):
+                        self.connection_model.from_dict(data)
+                    imported = True
+                except:
+                    pass
+                    
+            elif expected_type == 'distributed' and ('distributed_system_type' in data or 'devices' in data):
+                # Distributed configuration
+                try:
+                    if hasattr(self.distributed_config_model, 'from_dict'):
+                        self.distributed_config_model.from_dict(data)
+                    imported = True
+                except:
+                    pass
+                    
+            elif expected_type == 'experiment' and ('experiment' in data or 'experimentName' in data or 'Phases' in data):
+                # Experiment configuration
+                try:
+                    success = self.experiment_designer.load_from_json(data)
+                    if success:
+                        imported = True
+                except Exception as e:
+                    print(f"Experiment import error: {e}")
+                    pass
+            
+            # Fallback: Auto-detect based on content if expected type didn't work
+            if not imported:
+                if 'modelType' in data or 'model_type' in data or 'layer_sizes' in data:
+                    # Worker configuration
+                    try:
+                        if hasattr(self.worker_model, 'from_dict'):
+                            self.worker_model.from_dict(data)
+                        imported = True
+                    except:
+                        pass
+                        
+                elif 'devices' in data or 'connections' in data:
+                    # Connection/Distributed config
+                    try:
+                        if 'connections' in data and hasattr(self.connection_model, 'from_dict'):
+                            self.connection_model.from_dict(data)
+                        if 'devices' in data and hasattr(self.distributed_config_model, 'from_dict'):
+                            self.distributed_config_model.from_dict(data)
+                        imported = True
+                    except:
+                        pass
+                        
+                elif 'worker' in data and 'connection' in data:
+                    # Complete project
+                    try:
+                        if 'worker' in data and hasattr(self.worker_model, 'from_dict'):
+                            self.worker_model.from_dict(data['worker'])
+                        if 'connection' in data and hasattr(self.connection_model, 'from_dict'):
+                            self.connection_model.from_dict(data['connection'])
+                        if 'distributed_config' in data and hasattr(self.distributed_config_model, 'from_dict'):
+                            self.distributed_config_model.from_dict(data['distributed_config'])
+                        imported = True
+                    except:
+                        pass
+            
+            # Update UI if import was successful
+            if imported:
+                # Refresh UI components to show imported data
+                self.refresh_ui_with_imported_data()
+                return True
+            else:
+                ui.notify(f'Could not import {filename} - format not recognized', type='warning')
+                return False
+                
+        except Exception as e:
+            ui.notify(f'Error importing {filename}: {str(e)}', type='negative')
+            return False
+    
+    def refresh_ui_with_imported_data(self):
+        """Refresh UI components to display imported data"""
+        try:
+            # Refresh worker designer if it exists
+            if hasattr(self, 'worker_designer') and self.worker_designer:
+                if hasattr(self.worker_designer, 'refresh_from_model'):
+                    self.worker_designer.refresh_from_model()
+                elif hasattr(self.worker_designer, 'update_ui_from_model'):
+                    self.worker_designer.update_ui_from_model()
+            
+            # Refresh other components as needed
+            if hasattr(self, 'connection_designer') and self.connection_designer:
+                if hasattr(self.connection_designer, 'refresh_from_model'):
+                    self.connection_designer.refresh_from_model()
+            
+            ui.notify('UI updated with imported data', type='info')
+        except Exception as e:
+            print(f"Warning: Could not refresh UI: {e}")
+    
+    def create_json_section(self, title: str, description: str, file_type: str, prefixes: list, color: str):
+        """Create a JSON import/export section for a specific file type"""
+        with ui.card().classes('w-full border-2 border-red-200 hover:border-red-400 transition-colors'):
+            with ui.card_section():
+                # Header
+                ui.label(title).classes(f'text-h6 font-bold text-{color} mb-2')
+                ui.label(description).classes('text-sm text-gray-600 mb-4')
+                
+                # Import section with drag & drop
+                with ui.column().classes('w-full gap-3'):
+                    # Drop zone
+                    drop_zone = ui.element('div').classes(
+                        f'w-full h-24 border-2 border-dashed border-{color} rounded-lg '
+                        'flex items-center justify-center cursor-pointer '
+                        f'hover:bg-red-50 hover:border-{color} transition-colors'
+                    )
+                    
+                    with drop_zone:
+                        with ui.column().classes('items-center gap-2'):
+                            ui.icon('cloud_upload', size='lg').classes(f'text-{color}')
+                            ui.label(f'Drop {file_type} JSON here or click to browse').classes(f'text-{color} font-medium')
+                            ui.label(f'Supports: {", ".join(prefixes)}*.json').classes('text-xs text-gray-500')
+                    
+                    # Export button only
+                    with ui.row().classes('w-full justify-center'):
+                        ui.button(f'Export {file_type.title()}', 
+                                 on_click=lambda ft=file_type: self.export_json(ft)).classes('bg-orange-800 hover:bg-orange-700 text-white')
+                    
+                    # Enhanced drag and drop functionality with click to browse
+                    upload = ui.upload(
+                        on_upload=lambda e, ft=file_type, pf=prefixes: self.handle_file_upload(e, ft, pf),
+                        auto_upload=True,
+                        multiple=True
+                    ).props('accept=.json').style('display: none')
+                    
+                    drop_zone.on('drop', lambda e, ft=file_type, pf=prefixes: self.handle_drop_event(e, ft, pf))
+                    drop_zone.on('dragover', lambda e: e.preventDefault())
+                    drop_zone.on('dragenter', lambda e: e.preventDefault())
+                    drop_zone.on('click', lambda: upload.run_method('pickFiles'))
+    
+    def handle_drop_event(self, e, file_type: str, prefixes: list):
+        """Handle drag and drop file events"""
+        try:
+            # Access event data
+            event_data = e.args if hasattr(e, 'args') else e
+            
+            # Try different ways to access the files
+            files = None
+            if isinstance(event_data, dict):
+                dt = event_data.get('dataTransfer', {})
+                files = dt.get('files', [])
+            
+            # If no files found, try alternative approach
+            if not files:
+                ui.notify('Drop a JSON file here to import it', type='info')
+                return
+            
+            for file_data in files:
+                filename = file_data.get('name', '')
+                if filename.endswith('.json'):
+                    # Read file content
+                    content = file_data.get('content', '') or file_data.get('text', '')
+                    if content:
+                        try:
+                            data = json.loads(content)
+                            success = self.import_json_data(data, filename, expected_type=file_type)
+                            if success:
+                                ui.notify(f'Successfully imported {filename}', type='positive')
+                            else:
+                                ui.notify(f'Failed to import {filename}', type='negative')
+                        except json.JSONDecodeError as ex:
+                            ui.notify(f'Invalid JSON in {filename}: {str(ex)}', type='negative')
+                    else:
+                        ui.notify(f'Could not read content from {filename}', type='negative')
+                else:
+                    ui.notify(f'Only JSON files are supported: {filename}', type='warning')
+        except Exception as ex:
+            ui.notify(f'Error processing dropped files: {str(ex)}', type='negative')
+
+    def handle_file_upload(self, e, file_type: str, prefixes: list):
+        """Handle file upload from click browsing"""
+        try:
+            print(f"DEBUG: handle_file_upload called with file_type={file_type}, prefixes={prefixes}")
+            print(f"DEBUG: Upload event type: {type(e)}")
+            print(f"DEBUG: Upload event attributes: {dir(e)}")
+            
+            # Try different ways to access files from upload event
+            files = None
+            if hasattr(e, 'files'):
+                files = e.files
+            elif hasattr(e, 'file'):
+                files = [e.file] if e.file else []
+            elif hasattr(e, 'content'):
+                # Single file upload case
+                files = [e]
+            else:
+                print(f"DEBUG: Looking for files in event object...")
+                # Try to find files in the event object
+                for attr in dir(e):
+                    if not attr.startswith('_'):
+                        attr_value = getattr(e, attr)
+                        print(f"DEBUG: Attribute {attr}: {type(attr_value)} = {attr_value}")
+                        if isinstance(attr_value, list) and attr_value:
+                            files = attr_value
+                            break
+                
+            if not files:
+                ui.notify(f'Error: No files found in upload event', type='negative')
+                return
+                
+            print(f"DEBUG: Number of files: {len(files)}")
+            
+            for file_info in files:
+                print(f"DEBUG: Processing file: {getattr(file_info, 'name', 'unknown')}")
+                
+                # Get file name
+                filename = getattr(file_info, 'name', 'unknown')
+                if not filename.endswith('.json'):
+                    ui.notify(f'Only JSON files supported. Skipped: {filename}', type='negative')
+                    continue
+                
+                # Check if filename matches expected prefixes
+                filename_lower = filename.lower()
+                matches_prefix = any(filename_lower.startswith(prefix) for prefix in prefixes)
+                
+                if not matches_prefix:
+                    ui.notify(f'File "{filename}" doesn\'t match expected prefixes: {", ".join(prefixes)}', 
+                             type='warning', timeout=5000)
+                
+                try:
+                    # Read and parse JSON content
+                    print(f"DEBUG: Reading content from {filename}")
+                    
+                    # Try different ways to get content
+                    content = None
+                    
+                    # Method 1: Check if it's a NiceGUI UploadEventArguments object
+                    try:
+                        if hasattr(file_info, 'content') and hasattr(file_info.content, 'read'):
+                            # Reset file pointer if possible
+                            if hasattr(file_info.content, 'seek'):
+                                file_info.content.seek(0)
+                            content = file_info.content.read()
+                            if isinstance(content, bytes):
+                                content = content.decode('utf-8')
+                        elif hasattr(file_info, 'content') and not callable(file_info.content):
+                            content = str(file_info.content)
+                    except Exception as e1:
+                        print(f"DEBUG: Method 1 failed: {e1}")
+                    
+                    # Method 2: Try alternative approaches
+                    if not content:
+                        try:
+                            if hasattr(file_info, 'data'):
+                                content = file_info.data
+                            elif hasattr(file_info, 'text'):
+                                content = file_info.text
+                            elif hasattr(file_info, 'content') and isinstance(file_info.content, str):
+                                content = file_info.content
+                        except Exception as e2:
+                            print(f"DEBUG: Method 2 failed: {e2}")
+                    
+                    # Method 3: Try direct file reading if path is available
+                    if not content:
+                        try:
+                            if hasattr(file_info, 'path') and file_info.path:
+                                with open(file_info.path, 'r', encoding='utf-8') as f:
+                                    content = f.read()
+                        except Exception as e3:
+                            print(f"DEBUG: Method 3 failed: {e3}")
+                    
+                    print(f"DEBUG: Final content type: {type(content)}, length: {len(content) if content else 0}")
+                    
+                    if not content:
+                        ui.notify(f'Could not read content from {filename}', type='negative')
+                        continue
+                        
+                    print(f"DEBUG: Content length: {len(content)}")
+                    
+                    data = json.loads(content)
+                    print(f"DEBUG: JSON parsed successfully, keys: {list(data.keys()) if isinstance(data, dict) else 'not a dict'}")
+                    
+                    # Import the data
+                    success = self.import_json_data(data, filename, expected_type=file_type)
+                    print(f"DEBUG: Import result: {success}")
+                    
+                    if success:
+                        status_msg = "Success" if matches_prefix else "Warning"
+                        ui.notify(f'{status_msg}: Imported {filename} as {file_type} config!', 
+                                 type='positive' if matches_prefix else 'warning')
+                        self.update_status(f'Imported {file_type}: {filename}')
+                    else:
+                        ui.notify(f'Failed to import {filename}', type='negative')
+                        
+                except json.JSONDecodeError as json_ex:
+                    ui.notify(f'Invalid JSON in {filename}: {str(json_ex)}', type='negative')
+                except Exception as file_ex:
+                    ui.notify(f'Error processing {filename}: {str(file_ex)}', type='negative')
+                    print(f"DEBUG: File processing error: {file_ex}")
+                    
+        except Exception as ex:
+            print(f"DEBUG: General upload error: {ex}")
+            ui.notify(f'Error uploading file: {str(ex)}', type='negative')
+
+    def handle_specific_import(self, e, file_type: str, prefixes: list):
+        """Handle import for a specific file type with prefix detection"""
+        for file_info in e.files:
+            if not file_info.name.endswith('.json'):
+                ui.notify(f'Only JSON files supported. Skipped: {file_info.name}', type='negative')
+                continue
+            
+            # Check if filename matches expected prefixes
+            filename_lower = file_info.name.lower()
+            matches_prefix = any(filename_lower.startswith(prefix) for prefix in prefixes)
+            
+            if not matches_prefix:
+                ui.notify(f'File "{file_info.name}" doesn\'t match expected prefixes: {", ".join(prefixes)}', 
+                         type='warning', timeout=5000)
+            
+            try:
+                # Read and parse JSON content
+                content = file_info.content.read().decode('utf-8')
+                data = json.loads(content)
+                
+                # Import the data
+                success = self.import_json_data(data, file_info.name, expected_type=file_type)
+                
+                if success:
+                    status_msg = "Success" if matches_prefix else "Warning"
+                    ui.notify(f'{status_msg}: Imported {file_info.name} as {file_type} config!', 
+                             type='positive' if matches_prefix else 'warning')
+                    self.update_status(f'Imported {file_type}: {file_info.name}')
+                else:
+                    ui.notify(f'Failed to import {file_info.name}', type='negative')
+                    
+            except json.JSONDecodeError as e:
+                ui.notify(f'Invalid JSON in {file_info.name}: {str(e)}', type='negative')
+            except Exception as e:
+                ui.notify(f'Error importing {file_info.name}: {str(e)}', type='negative')
+    
+    def update_status(self, message: str):
+        """Update status message"""
+        if hasattr(self, 'status_label'):
+            self.status_label.text = message
+    
+    def export_json(self, export_type: str = 'worker'):
+        """Export JSON configuration"""
+        try:
+            timestamp = asyncio.get_event_loop().time() if hasattr(asyncio, 'get_event_loop') else '1'
+            
+            if export_type == 'worker':
+                data = self.get_worker_data()
+                filename = f'worker_config_{int(timestamp)}.json'
+                
+            elif export_type == 'connection':
+                data = self.get_connection_data()
+                filename = f'connection_map_{int(timestamp)}.json'
+                
+            elif export_type == 'distributed':
+                data = self.get_distributed_data()
+                filename = f'distributed_config_{int(timestamp)}.json'
+                
+            elif export_type == 'complete':
+                data = {
+                    'worker': self.get_worker_data(),
+                    'connection': self.get_connection_data(),
+                    'distributed': self.get_distributed_data(),
+                    'metadata': {
+                        'version': NERLPLANNER_VERSION,
+                        'created_with': 'NerlDesigner',
+                        'timestamp': int(timestamp)
+                    }
+                }
+                filename = f'nerlnet_project_{int(timestamp)}.json'
+            
+            else:
+                ui.notify(f'Unknown export type: {export_type}', type='negative')
+                return
+            
+            # Convert to JSON and trigger download
+            json_str = json.dumps(data, indent=2)
+            ui.download(json_str.encode(), filename=filename)
+            
+            self.update_status(f'Exported {filename}')
+            ui.notify(f'Exported {filename} successfully!', type='positive')
+            
+        except Exception as e:
+            ui.notify(f'Export failed: {str(e)}', type='negative')
+    
+    def get_worker_data(self) -> dict:
+        """Get current worker configuration data"""
+        # Return worker model data or default structure
+        try:
+            if hasattr(self.worker_model, 'model_dump'):
+                return self.worker_model.model_dump()
+            elif hasattr(self.worker_model, 'dict'):
+                return self.worker_model.dict()
+            elif hasattr(self.worker_model, 'to_dict'):
+                return self.worker_model.to_dict()
+            else:
+                # Return a basic structure
+                return {
+                    'modelType': 'neural_network',
+                    'infraType': 'sequential',
+                    'layerSizes': [784, 128, 10],
+                    'activationFunction': 'relu',
+                    'lossMethod': 'mean_squared_error',
+                    'optimizerType': 'adam'
+                }
+        except Exception:
+            return {'error': 'Could not serialize worker data'}
+    
+    def get_connection_data(self) -> dict:
+        """Get current connection configuration data"""
+        try:
+            if hasattr(self.connection_model, 'dict'):
+                return self.connection_model.dict()
+            elif hasattr(self.connection_model, 'to_dict'):
+                return self.connection_model.to_dict()
+            else:
+                return {
+                    'connections': [],
+                    'devices': []
+                }
+        except Exception:
+            return {'error': 'Could not serialize connection data'}
+    
+    def get_distributed_data(self) -> dict:
+        """Get current distributed configuration data"""
+        try:
+            if hasattr(self.distributed_config_model, 'dict'):
+                return self.distributed_config_model.dict()
+            elif hasattr(self.distributed_config_model, 'to_dict'):
+                return self.distributed_config_model.to_dict()
+            else:
+                return {
+                    'distributed_system_type': 'federated',
+                    'devices': [],
+                    'parameters': {}
+                }
+        except Exception:
+            return {'error': 'Could not serialize distributed data'}
+        
+        dialog.open()
+    
+    def export_worker_json(self, dialog):
+        """Export worker configuration"""
+        data = self.worker_model.to_dict()
+        # For now, just show the JSON
+        ui.notify('Worker JSON would be exported here', type='info')
+        dialog.close()
+    
+    def export_connection_json(self, dialog):
+        """Export connection configuration"""
+        data = self.connection_model.to_dict()
+        ui.notify('Connection JSON would be exported here', type='info')
+        dialog.close()
+    
+    def export_distributed_json(self, dialog):
+        """Export distributed configuration"""
+        data = self.distributed_config_model.to_dict()
+        ui.notify('Distributed config JSON would be exported here', type='info')
+        dialog.close()
+    
+    def export_all_json(self, dialog):
+        """Export all configurations"""
+        ui.notify('All JSON files would be exported here', type='info')
+        dialog.close()
+
+def main():
+    """Main entry point"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='NerlDesigner - NerlNet Web Designer')
+    parser.add_argument('--host', default='0.0.0.0', help='Host to bind to (default: 0.0.0.0)')
+    parser.add_argument('--port', type=int, default=8082, help='Port to bind to (default: 8082)')
+    parser.add_argument('--dark', action='store_true', help='Use dark theme')
+    parser.add_argument('--reload', action='store_true', help='Enable auto-reload for development')
+    
+    args = parser.parse_args()
+    
+    # Check for environment variables (set by launcher script)
+    host = os.getenv('NERLDESIGNER_HOST', args.host)
+    port = int(os.getenv('NERLDESIGNER_PORT', args.port))
+    
+    # Print startup information
+    print("🧠 NerlDesigner - NerlNet Web Designer")
+    print("=" * 50)
+    print(f"🌐 Server starting on {host}:{port}")
+    if host == '0.0.0.0':
+        print("📱 Local access:")
+        print(f"   http://localhost:{port}")
+        print(f"   or http://127.0.0.1:{port}")
+        print("")
+        print("📡 SSH Tunnel (if connecting remotely):")
+        print("   On your local machine, run:")
+        print(f"   ssh -L {port}:localhost:{port} <username>@<server-address>")
+        print(f"   Then open: http://localhost:{port}")
+        print("")
+    else:
+        print(f"📱 Direct access: http://{host}:{port}")
+    print("⏹️  Press Ctrl+C to stop the server")
+    print("=" * 50)
+    
+    designer = NerlDesigner()
+    designer.setup_ui()
+    
+    # Configure favicon - use emoji for now to avoid path issues
+    # NiceGUI expects favicons to be either emoji or properly configured static files
+    favicon_icon = '🧠'  # Simple emoji favicon that always works
+    
+    # Configure and run the app
+    ui.run(
+        title='NerlDesigner - NerlNet Web Designer',
+        port=port,
+        host=host,
+        favicon=favicon_icon,
+        dark=args.dark,
+        show=True,
+        reload=args.reload
+    )
+
+if __name__ in {"__main__", "__mp_main__"}:
+    main()
