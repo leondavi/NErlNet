@@ -443,6 +443,15 @@ class NerlDesigner:
             if not files:
                 ui.notify(f'Error: No files found in upload event', type='negative')
                 return
+            
+            # Check if files is callable (method) and call it if needed
+            if callable(files):
+                print(f"DEBUG: files is callable, calling it...")
+                files = files()
+            
+            # Ensure files is iterable
+            if not hasattr(files, '__iter__'):
+                files = [files]
                 
             print(f"DEBUG: Number of files: {len(files)}")
             

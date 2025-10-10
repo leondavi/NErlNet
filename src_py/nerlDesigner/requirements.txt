@@ -4,3 +4,4 @@ networkx>=3.0
 plotly>=5.0.0
 pandas>=1.5.0
 fastapi>=0.100.0
+kaleido>=0.2.0

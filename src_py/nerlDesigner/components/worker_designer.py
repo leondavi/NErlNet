@@ -4,6 +4,8 @@ Worker Designer Component - UI for designing neural network workers
 
 from typing import Dict, Any, List
 import json
+import networkx as nx
+import plotly.graph_objects as go
 from nicegui import ui
 from models.worker_model import WorkerModel, ModelType, LayerType, ActivationFunction, LossMethod, OptimizerType, InfraType, DistributedSystemType
 
@@ -307,11 +309,10 @@ class WorkerDesigner:
                     
                     # Interactive Network Canvas
                     with ui.card().classes('w-full flex-1 border border-gray-300'):
-                        with ui.card_section().classes('p-0'):
-                            # Canvas container with scroll
-                            with ui.scroll_area().classes('w-full h-96'):
-                                self.network_canvas = ui.column().classes('w-full min-h-96 p-4 bg-gray-900 relative')
-                                self.render_network_diagram()
+                        with ui.card_section().classes('p-4'):
+                            # Canvas container - removed scroll_area to test
+                            self.network_canvas = ui.column().classes('w-full')
+                            self.render_network_diagram()
                     
                     # Quick Layer Tools
                     with ui.card().classes('w-full mt-4 border border-gray-300'):
@@ -1724,94 +1725,181 @@ class WorkerDesigner:
         }
     
     def render_network_diagram(self):
-        """Render the visual network diagram"""
-        print(f"DEBUG: render_network_diagram called")
-        print(f"DEBUG: has network_canvas: {hasattr(self, 'network_canvas')}")
-        if hasattr(self.model, 'layer_sizes_raw'):
-            print(f"DEBUG: layer_sizes_raw: {self.model.layer_sizes_raw}")
-        if hasattr(self.model, 'layer_types_raw'):
-            print(f"DEBUG: layer_types_raw: {self.model.layer_types_raw}")
-        
+        """Render the visual network diagram using Plotly for interactive visualization"""
         if not hasattr(self, 'network_canvas'):
-            print("DEBUG: network_canvas not found, skipping render")
             return
             
         self.network_canvas.clear()
+        
         with self.network_canvas:
-            # Add network visualization header
-            ui.label('Network Architecture').classes('text-lg font-bold mb-2')
+            # Check if we have layers to display
+            has_layers = False
+            layer_data = []
             
-            # Create scrollable network canvas
-            with ui.column().classes('w-full border border-gray-300 rounded-lg p-4 bg-gray-900 max-h-80 overflow-y-auto') as canvas:
-                # Check if we have layers to display
-                has_layers = False
-                layer_data = []
+            # Get layer information from raw data
+            if (hasattr(self.model, 'layer_sizes_raw') and self.model.layer_sizes_raw and
+                hasattr(self.model, 'layer_types_raw') and self.model.layer_types_raw):
                 
-                # Get layer information from raw data
-                if (hasattr(self.model, 'layer_sizes_raw') and self.model.layer_sizes_raw and
-                    hasattr(self.model, 'layer_types_raw') and self.model.layer_types_raw):
+                for i, (size, layer_type) in enumerate(zip(self.model.layer_sizes_raw, self.model.layer_types_raw)):
+                    type_name = self.get_layer_type_name(layer_type)
+                    activation = self.model.layer_functions_raw[i] if i < len(self.model.layer_functions_raw) else '6'
+                    layer_info = {
+                        'index': i,
+                        'size': size,
+                        'type': layer_type,
+                        'type_name': type_name,
+                        'activation': activation
+                    }
+                    layer_data.append(layer_info)
+                    has_layers = True
+            
+            if not has_layers:
+                # Show empty state
+                with ui.column().classes('w-full h-96 items-center justify-center bg-gray-100 rounded-lg'):
+                    ui.icon('account_tree', size='xl').classes('text-gray-400 mb-4')
+                    ui.label('No layers added yet').classes('text-xl text-gray-500 mb-2')
+                    ui.label('Use the "Add Layer" button to build your network').classes('text-sm text-gray-400')
+            else:
+                # Create interactive network graph using Plotly
+                try:
+                    fig = self.create_network_graph(layer_data)
                     
-                    for i, (size, layer_type) in enumerate(zip(self.model.layer_sizes_raw, self.model.layer_types_raw)):
-                        layer_info = {
-                            'index': i,
-                            'size': size,
-                            'type': layer_type,
-                            'type_name': self.get_layer_type_name(layer_type),
-                            'activation': self.model.layer_functions_raw[i] if i < len(self.model.layer_functions_raw) else '6'
-                        }
-                        layer_data.append(layer_info)
-                        has_layers = True
+                    # Display the interactive graph with increased size
+                    plotly_widget = ui.plotly(fig)
+                    plotly_widget.classes('w-full')
+                    plotly_widget.style('min-height: 600px; height: 600px;')
+                except Exception as e:
+                    print(f"ERROR: Failed to create graph: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    ui.label(f'Error creating graph: {e}').classes('text-red-500')
                 
-                print(f"DEBUG: has_layers = {has_layers}, layer_data length = {len(layer_data)}")
-                
-                if not has_layers:
-                    print("DEBUG: No layers found, showing empty message")
-                    with ui.row().classes('justify-center p-8'):
-                        ui.label('No layers added. Use the "Add Layer" button to build your network.').classes('text-gray-400 italic')
-                else:
-                    # Render each layer
+                # Add layer list below the graph
+                with ui.expansion('Layer Details', icon='list').classes('w-full mt-4'):
                     for i, layer in enumerate(layer_data):
-                        with ui.card().classes('w-full mb-2 bg-gray-800 border border-gray-600'):
+                        with ui.card().classes('w-full mb-2'):
                             with ui.card_section().classes('p-3'):
                                 with ui.row().classes('w-full items-center justify-between'):
                                     with ui.column().classes('flex-1'):
-                                        ui.label(f'Layer {i + 1}: {layer["type_name"]}').classes('text-white font-bold')
+                                        ui.label(f'Layer {i + 1}: {layer["type_name"]}').classes('font-bold')
                                         if layer['type'] == '2':  # CNN layer
-                                            ui.label(f'CNN: {layer["size"]}').classes('text-sm text-blue-300')
+                                            ui.label(f'CNN: {layer["size"]}').classes('text-sm text-blue-600')
                                         elif layer['type'] == '4':  # Pooling layer
-                                            ui.label(f'Pooling: {layer["size"]}').classes('text-sm text-green-300')
+                                            ui.label(f'Pooling: {layer["size"]}').classes('text-sm text-green-600')
                                         else:
-                                            ui.label(f'Size: {layer["size"]}').classes('text-sm text-gray-300')
+                                            ui.label(f'Size: {layer["size"]}').classes('text-sm')
                                         
-                                        # Show activation function
                                         activation_name = self.get_activation_name(layer['activation'])
-                                        ui.label(f'Activation: {activation_name}').classes('text-xs text-yellow-300')
+                                        ui.label(f'Activation: {activation_name}').classes('text-xs text-gray-600')
                                     
                                     with ui.row().classes('gap-2'):
                                         ui.button('Edit', icon='edit', 
-                                                on_click=lambda idx=i: self.edit_layer(idx)).classes('bg-blue-600 hover:bg-blue-500 text-white text-xs px-2 py-1')
+                                                on_click=lambda idx=i: self.edit_layer(idx)).classes('bg-blue-600 text-white text-xs')
                                         ui.button('Remove', icon='delete',
-                                                on_click=lambda idx=i: self.remove_layer(idx)).classes('bg-red-600 hover:bg-red-500 text-white text-xs px-2 py-1')
-                                
-                                # Visual connection line (except for last layer)
-                                if i < len(layer_data) - 1:
-                                    with ui.row().classes('justify-center mt-2'):
-                                        ui.icon('arrow_downward', size='sm').classes('text-gray-400')
-                    
-                    # Quick configuration display
-                    with ui.card().classes('w-full mt-4 p-3 bg-blue-50 border-l-4 border-blue-400'):
-                        ui.label('Current Configuration:').classes('font-semibold text-blue-800')
-                        
-                        # Show current layer configuration
-                        if hasattr(self.model, 'layer_sizes_raw') and self.model.layer_sizes_raw:
-                            ui.label(f'Layer Sizes: {",".join(self.model.layer_sizes_raw)}').classes('font-mono text-sm text-blue-700')
-                        if hasattr(self.model, 'layer_types_raw') and self.model.layer_types_raw:
-                            ui.label(f'Layer Types: {",".join(self.model.layer_types_raw)}').classes('font-mono text-sm text-blue-700')
-                        if hasattr(self.model, 'layer_functions_raw') and self.model.layer_functions_raw:
-                            ui.label(f'Activations: {",".join(self.model.layer_functions_raw)}').classes('font-mono text-sm text-blue-700')
-            
-            # Layer management controls
-            self.render_layer_controls()
+                                                on_click=lambda idx=i: self.remove_layer(idx)).classes('bg-red-600 text-white text-xs')
+    
+    def create_network_graph(self, layer_data: List[Dict]) -> go.Figure:
+        """Create an interactive network graph using NetworkX and Plotly"""
+        # Create directed graph
+        G = nx.DiGraph()
+        
+        # Add nodes for each layer
+        for i, layer in enumerate(layer_data):
+            node_label = f"Layer {i+1}\n{layer['type_name']}\nSize: {layer['size']}"
+            G.add_node(i, label=node_label, type=layer['type_name'], size=layer['size'])
+        
+        # Add edges between consecutive layers
+        for i in range(len(layer_data) - 1):
+            G.add_edge(i, i + 1)
+        
+        # Calculate positions using hierarchical layout
+        pos = {}
+        for i in range(len(layer_data)):
+            pos[i] = (i * 2, 0)  # Horizontal layout
+        
+        # Create edge traces
+        edge_x = []
+        edge_y = []
+        for edge in G.edges():
+            x0, y0 = pos[edge[0]]
+            x1, y1 = pos[edge[1]]
+            edge_x.extend([x0, x1, None])
+            edge_y.extend([y0, y1, None])
+        
+        edge_trace = go.Scatter(
+            x=edge_x, y=edge_y,
+            line=dict(width=2, color='#888'),
+            hoverinfo='none',
+            mode='lines',
+            showlegend=False
+        )
+        
+        # Create node traces
+        node_x = []
+        node_y = []
+        node_text = []
+        node_colors = []
+        
+        # Color map for different layer types
+        color_map = {
+            'Default': '#3498db',
+            'Scaling': '#e74c3c',
+            'Conv': '#9b59b6',
+            'Perceptron': '#2ecc71',
+            'Pooling': '#f39c12',
+            'Probabilistic': '#1abc9c',
+            'LSTM': '#34495e',
+            'Recurrent': '#e67e22',
+            'Unscaling': '#95a5a6',
+            'Flatten': '#d35400',
+            'Bounding': '#c0392b'
+        }
+        
+        for node in G.nodes():
+            x, y = pos[node]
+            node_x.append(x)
+            node_y.append(y)
+            layer = layer_data[node]
+            node_text.append(f"Layer {node+1}: {layer['type_name']}<br>Size: {layer['size']}<br>Activation: {self.get_activation_name(layer['activation'])}")
+            node_colors.append(color_map.get(layer['type_name'], '#95a5a6'))
+        
+        node_trace = go.Scatter(
+            x=node_x, y=node_y,
+            mode='markers+text',
+            hoverinfo='text',
+            text=[f"L{i+1}" for i in range(len(layer_data))],
+            textposition="middle center",
+            textfont=dict(size=10, color='white', family='Arial Black'),
+            hovertext=node_text,
+            marker=dict(
+                showscale=False,
+                color=node_colors,
+                size=50,
+                line=dict(width=2, color='white')
+            ),
+            showlegend=False
+        )
+        
+        # Create figure
+        fig = go.Figure(data=[edge_trace, node_trace],
+                       layout=go.Layout(
+                           title=dict(
+                               text='Neural Network Architecture',
+                               x=0.5,
+                               xanchor='center',
+                               font=dict(size=18, color='#2c3e50')
+                           ),
+                           showlegend=False,
+                           hovermode='closest',
+                           margin=dict(b=20, l=5, r=5, t=50),
+                           xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                           yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                           plot_bgcolor='#f8f9fa',
+                           paper_bgcolor='white',
+                           height=600
+                       ))
+        
+        return fig
     
     def render_layer_card(self, layer, index):
         """Render an individual layer card"""
@@ -2573,15 +2661,16 @@ class WorkerDesigner:
         
         dialog.open()
     
+    
     def auto_layout_network(self):
-        """Auto-layout the network visualization"""
-        ui.notify('Auto-layout network functionality coming soon!', color='info')
-        # This would implement automatic positioning of network nodes
+        """Auto-layout the network visualization - refreshes the graph"""
+        self.render_network_diagram()
+        ui.notify('Network graph refreshed', color='positive')
     
     def zoom_to_fit(self):
-        """Zoom to fit the entire network"""
-        ui.notify('Zoom to fit functionality coming soon!', color='info')
-        # This would adjust the zoom level to show the entire network
+        """Zoom to fit the entire network - re-renders with optimal sizing"""
+        self.render_network_diagram()
+        ui.notify('Network view reset', color='positive')
     
     def get_layer_type_name(self, type_code: str) -> str:
         """Get human-readable layer type name from code"""

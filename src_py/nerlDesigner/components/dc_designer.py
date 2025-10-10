@@ -185,9 +185,14 @@ class DCDesigner:
                         with ui.card_section().classes('p-3'):
                             with ui.row().classes('w-full items-center justify-between'):
                                 with ui.column().classes('flex-1'):
-                                    ui.label(f'{router.get("name", "Unknown")}').classes('font-bold')
-                                    ui.label(f'Port: {router.get("port", "N/A")}').classes('text-sm text-gray-600')
-                                    ui.label(f'Policy: {router.get("policy", "0")}').classes('text-sm text-gray-600')
+                                    # Handle both RouterDefinition objects and dict formats
+                                    router_name = router.name if hasattr(router, 'name') else router.get('name', 'Unknown')
+                                    router_port = router.port if hasattr(router, 'port') else router.get('port', 'N/A')
+                                    router_policy = router.policy if hasattr(router, 'policy') else router.get('policy', '0')
+                                    
+                                    ui.label(f'{router_name}').classes('font-bold')
+                                    ui.label(f'Port: {router_port}').classes('text-sm text-gray-600')
+                                    ui.label(f'Policy: {router_policy}').classes('text-sm text-gray-600')
                                 
                                 with ui.row().classes('gap-2'):
                                     ui.button('Edit', icon='edit',
@@ -379,27 +384,31 @@ class DCDesigner:
                 def add_router():
                     print(f"DEBUG: Adding router with name: {name_input.value}")
                     if name_input.value:
-                        router = {
-                            'name': name_input.value,
-                            'port': str(port_input.value),
-                            'policy': policy_input.value
-                        }
-                        
-                        if not hasattr(self.dc_model, 'routers'):
-                            self.dc_model.routers = []
-                            print("DEBUG: Created routers list")
-                        
-                        self.dc_model.routers.append(router)
-                        print(f"DEBUG: Router added. Total routers: {len(self.dc_model.routers)}")
-                        
-                        # Refresh the display
-                        if hasattr(self, 'routers_container'):
-                            self.render_routers()
-                        else:
-                            print("DEBUG: routers_container not found")
-                        
-                        ui.notify(f'Added router: {name_input.value}', type='positive')
-                        dialog.close()
+                        try:
+                            # Use the model's add_router method
+                            success = self.dc_model.add_router(
+                                name=name_input.value,
+                                port=str(port_input.value),
+                                policy=policy_input.value
+                            )
+                            
+                            if success:
+                                print(f"DEBUG: Router added successfully. Total routers: {len(self.dc_model.routers)}")
+                                
+                                # Refresh the display
+                                if hasattr(self, 'routers_container'):
+                                    self.render_routers()
+                                else:
+                                    print("DEBUG: routers_container not found")
+                                
+                                ui.notify(f'Added router: {name_input.value}', type='positive')
+                                dialog.close()
+                            else:
+                                ui.notify('Router name already exists', type='warning')
+                                
+                        except Exception as e:
+                            print(f"DEBUG: Error adding router: {e}")
+                            ui.notify(f'Error adding router: {str(e)}', type='negative')
                     else:
                         ui.notify('Router name is required', type='warning')
                 
@@ -496,9 +505,22 @@ class DCDesigner:
     
     def remove_router(self, index):
         if hasattr(self.dc_model, 'routers') and index < len(self.dc_model.routers):
-            removed = self.dc_model.routers.pop(index)
-            self.render_routers()
-            ui.notify(f'Removed router: {removed.get("name", "Unknown")}', color='positive')
+            try:
+                # Get the router name before removing
+                router_name = self.dc_model.routers[index].name if hasattr(self.dc_model.routers[index], 'name') else self.dc_model.routers[index].get('name', 'Unknown')
+                
+                # Use the model's remove_router method
+                success = self.dc_model.remove_router(router_name)
+                
+                if success:
+                    self.render_routers()
+                    ui.notify(f'Removed router: {router_name}', color='positive')
+                else:
+                    ui.notify('Router not found', color='warning')
+                    
+            except Exception as e:
+                print(f"DEBUG: Error removing router: {e}")
+                ui.notify(f'Error removing router: {str(e)}', color='negative')
     
     def edit_source(self, index):
         ui.notify(f'Edit source {index + 1} functionality coming soon!', color='info')

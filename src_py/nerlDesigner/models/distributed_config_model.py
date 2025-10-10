@@ -53,6 +53,24 @@ class DistributedDevice(BaseModel):
         self.ipv4 = data.get("ipv4", "")
         self.entities = data.get("entities", "")
 
+class RouterDefinition(BaseModel):
+    """Router definition in distributed config"""
+    name: str = Field(description="Router name")
+    port: str = Field(description="Router port")
+    policy: str = Field(default="0", description="Router policy")
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "port": self.port,
+            "policy": self.policy
+        }
+    
+    def from_dict(self, data: Dict[str, Any]):
+        self.name = data.get("name", "")
+        self.port = data.get("port", "")
+        self.policy = data.get("policy", "0")
+
 class WorkerDefinition(BaseModel):
     """Worker definition in distributed config"""
     worker_id: str = Field(description="Worker identifier")
@@ -75,6 +93,7 @@ class DistributedConfigModel(BaseModel):
     main_server: ServerConfig = Field(default_factory=lambda: ServerConfig(port="8080"))
     api_server: ServerConfig = Field(default_factory=lambda: ServerConfig(port="8081"))
     devices: List[DistributedDevice] = Field(default=[])
+    routers: List[RouterDefinition] = Field(default=[])
     workers: List[WorkerDefinition] = Field(default=[])
     sources: List[Dict[str, Any]] = Field(default=[])
     connections_file: str = Field(default="", description="Path to connections file")
@@ -87,6 +106,15 @@ class DistributedConfigModel(BaseModel):
     def remove_device(self, name: str):
         """Remove a device by name"""
         self.devices = [d for d in self.devices if d.name != name]
+    
+    def add_router(self, name: str, port: str, policy: str = "0"):
+        """Add a router definition"""
+        router = RouterDefinition(name=name, port=port, policy=policy)
+        self.routers.append(router)
+    
+    def remove_router(self, name: str):
+        """Remove a router by name"""
+        self.routers = [r for r in self.routers if r.name != name]
     
     def add_worker(self, worker_id: str, worker_file: str):
         """Add a worker definition"""
@@ -105,6 +133,9 @@ class DistributedConfigModel(BaseModel):
             "apiServer": self.api_server.to_dict(),
             "devices": [device.to_dict() for device in self.devices]
         }
+        
+        if self.routers:
+            result["routers"] = [router.to_dict() for router in self.routers]
         
         if self.workers:
             result["workers"] = [worker.to_dict() for worker in self.workers]
@@ -138,6 +169,13 @@ class DistributedConfigModel(BaseModel):
                 device.from_dict(device_data)
                 self.devices.append(device)
         
+        self.routers = []
+        if "routers" in data:
+            for router_data in data["routers"]:
+                router = RouterDefinition(name="", port="", policy="0")
+                router.from_dict(router_data)
+                self.routers.append(router)
+        
         self.workers = []
         if "workers" in data:
             for worker_data in data["workers"]:
@@ -154,6 +192,7 @@ class DistributedConfigModel(BaseModel):
         self.main_server = ServerConfig(port="8080")
         self.api_server = ServerConfig(port="8081")
         self.devices = []
+        self.routers = []
         self.workers = []
         self.sources = []
         self.connections_file = ""
