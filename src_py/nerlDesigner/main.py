@@ -633,32 +633,41 @@ class NerlDesigner:
                     print(f"Worker import error: {e}")
                     pass
                     
-            elif expected_type == 'connection' and ('connections' in data or 'devices' in data):
+            elif expected_type == 'connection' and ('connections' in data or 'devices' in data or 'connectionsMap' in data):
                 # Connection configuration
                 try:
                     if hasattr(self.connection_model, 'from_dict'):
+                        print(f"DEBUG: Loading connection config with data keys: {list(data.keys())}")
                         self.connection_model.from_dict(data)
                     imported = True
-                except:
+                except Exception as e:
+                    print(f"DEBUG: Connection config import error: {e}")
+                    import traceback
+                    traceback.print_exc()
                     pass
                     
             elif expected_type == 'distributed' and ('distributed_system_type' in data or 'devices' in data):
                 # Distributed configuration
                 try:
                     if hasattr(self.distributed_config_model, 'from_dict'):
+                        print(f"DEBUG: Loading distributed config with data keys: {list(data.keys())}")
                         self.distributed_config_model.from_dict(data)
                     imported = True
-                except:
+                except Exception as e:
+                    print(f"DEBUG: Distributed config import error: {e}")
                     pass
                     
             elif expected_type == 'experiment' and ('experiment' in data or 'experimentName' in data or 'Phases' in data):
                 # Experiment configuration
                 try:
+                    print(f"DEBUG: Loading experiment config with data keys: {list(data.keys())}")
                     success = self.experiment_designer.load_from_json(data)
                     if success:
                         imported = True
                 except Exception as e:
-                    print(f"Experiment import error: {e}")
+                    print(f"DEBUG: Experiment import error: {e}")
+                    import traceback
+                    traceback.print_exc()
                     pass
             
             # Fallback: Auto-detect based on content if expected type didn't work
@@ -672,15 +681,20 @@ class NerlDesigner:
                     except:
                         pass
                         
-                elif 'devices' in data or 'connections' in data:
+                elif 'devices' in data or 'connections' in data or 'connectionsMap' in data:
                     # Connection/Distributed config
                     try:
-                        if 'connections' in data and hasattr(self.connection_model, 'from_dict'):
+                        if ('connections' in data or 'connectionsMap' in data) and hasattr(self.connection_model, 'from_dict'):
+                            print(f"DEBUG: Auto-detecting connection config")
                             self.connection_model.from_dict(data)
                         if 'devices' in data and hasattr(self.distributed_config_model, 'from_dict'):
+                            print(f"DEBUG: Auto-detecting distributed config with devices")
                             self.distributed_config_model.from_dict(data)
                         imported = True
-                    except:
+                    except Exception as e:
+                        print(f"DEBUG: Auto-detect import error: {e}")
+                        import traceback
+                        traceback.print_exc()
                         pass
                         
                 elif 'worker' in data and 'connection' in data:
@@ -944,9 +958,13 @@ class NerlDesigner:
                 except Exception as file_ex:
                     ui.notify(f'Error processing {filename}: {str(file_ex)}', type='negative')
                     print(f"DEBUG: File processing error: {file_ex}")
+                    import traceback
+                    traceback.print_exc()
                     
         except Exception as ex:
             print(f"DEBUG: General upload error: {ex}")
+            import traceback
+            traceback.print_exc()
             ui.notify(f'Error uploading file: {str(ex)}', type='negative')
 
     def handle_specific_import(self, e, file_type: str, prefixes: list):

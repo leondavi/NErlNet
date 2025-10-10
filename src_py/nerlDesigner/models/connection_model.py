@@ -85,6 +85,9 @@ class ConnectionModel(BaseModel):
         self.devices = []
         self.connections = []
         
+        print(f"DEBUG: ConnectionModel.from_dict called with keys: {list(data.keys())}")
+        
+        # Handle standard format with devices and connections arrays
         if "devices" in data:
             for device_data in data["devices"]:
                 device = Device(name="", ipv4="")
@@ -96,6 +99,25 @@ class ConnectionModel(BaseModel):
                 connection = Connection(from_entity="", to_entity="")
                 connection.from_dict(conn_data)
                 self.connections.append(connection)
+        
+        # Handle connectionsMap format
+        if "connectionsMap" in data:
+            print(f"DEBUG: Processing connectionsMap format")
+            connections_map = data["connectionsMap"]
+            print(f"DEBUG: connectionsMap type: {type(connections_map)}, value: {connections_map}")
+            
+            # Convert connectionsMap to connections list
+            if isinstance(connections_map, dict):
+                for from_entity, to_entities in connections_map.items():
+                    print(f"DEBUG: Processing {from_entity} -> {to_entities}, type: {type(to_entities)}")
+                    if isinstance(to_entities, list):
+                        for to_entity in to_entities:
+                            connection = Connection(from_entity=from_entity, to_entity=to_entity)
+                            self.connections.append(connection)
+                    else:
+                        print(f"DEBUG: Warning - to_entities is not a list: {type(to_entities)}")
+            else:
+                print(f"DEBUG: Warning - connectionsMap is not a dict: {type(connections_map)}")
     
     def reset(self):
         """Reset to default values"""

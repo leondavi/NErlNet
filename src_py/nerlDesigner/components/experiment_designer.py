@@ -80,16 +80,28 @@ class ExperimentDesigner:
     
     def render_phases(self):
         """Render all experiment phases"""
-        self.phases_container.clear()
-        
-        if not self.experiment_data['Phases']:
+        print(f"DEBUG: render_phases called")
+        try:
+            self.phases_container.clear()
+            
+            phases = self.experiment_data.get('Phases', [])
+            print(f"DEBUG: phases type: {type(phases)}, length: {len(phases) if hasattr(phases, '__len__') else 'no len'}")
+            
+            if not phases:
+                with self.phases_container:
+                    ui.label('No phases configured. Add phases to define experiment flow.').classes('text-center text-gray-500 py-8')
+                return
+            
             with self.phases_container:
-                ui.label('No phases configured. Add phases to define experiment flow.').classes('text-center text-gray-500 py-8')
-            return
-        
-        with self.phases_container:
-            for i, phase in enumerate(self.experiment_data['Phases']):
-                self.render_phase_card(phase, i)
+                for i, phase in enumerate(phases):
+                    print(f"DEBUG: Rendering phase {i}, type: {type(phase)}")
+                    self.render_phase_card(phase, i)
+        except Exception as e:
+            print(f"DEBUG: Error in render_phases: {e}")
+            import traceback
+            traceback.print_exc()
+            with self.phases_container:
+                ui.label(f'Error rendering phases: {str(e)}').classes('text-red-500')
     
     def render_phase_card(self, phase: Dict[str, Any], index: int):
         """Render a single phase card"""
@@ -109,29 +121,45 @@ class ExperimentDesigner:
                 
                 # Source pieces summary
                 source_pieces = phase.get('sourcePieces', [])
+                print(f"DEBUG: source_pieces type: {type(source_pieces)}, value: {source_pieces}")
                 if source_pieces:
-                    ui.label(f"Source Pieces: {len(source_pieces)}").classes('text-sm')
+                    try:
+                        if hasattr(source_pieces, '__len__'):
+                            piece_count = len(source_pieces)
+                            ui.label(f"Source Pieces: {piece_count}").classes('text-sm')
+                        else:
+                            print(f"DEBUG: source_pieces has no __len__ attribute")
+                            ui.label(f"Source Pieces: Invalid data (no length)").classes('text-sm text-red-500')
+                    except Exception as e:
+                        print(f"DEBUG: Error getting len of source_pieces: {e}")
+                        print(f"DEBUG: source_pieces attributes: {dir(source_pieces)}")
+                        ui.label(f"Source Pieces: Error - {str(e)}").classes('text-sm text-red-500')
                     
                     # Show source pieces in a compact table
-                    with ui.expansion(f'Source Pieces ({len(source_pieces)})', icon='list').classes('w-full mt-2'):
-                        with ui.grid(columns=6).classes('gap-2 w-full text-sm'):
-                            # Headers
-                            ui.label('Source').classes('font-bold')
-                            ui.label('Start Sample').classes('font-bold')
-                            ui.label('Batches').classes('font-bold')
-                            ui.label('Workers').classes('font-bold')
-                            ui.label('Tensor Type').classes('font-bold')
-                            ui.label('Actions').classes('font-bold')
-                            
-                            # Source piece rows
-                            for j, piece in enumerate(source_pieces):
-                                ui.label(piece.get('sourceName', ''))
-                                ui.label(piece.get('startingSample', ''))
-                                ui.label(piece.get('numOfBatches', ''))
-                                ui.label(piece.get('workers', ''))
-                                ui.label(piece.get('nerltensorType', ''))
-                                ui.button('Edit', on_click=lambda p_idx=index, s_idx=j: self.edit_source_piece(p_idx, s_idx),
-                                         icon='edit').props('size=xs flat').classes('text-black')
+                    try:
+                        count = len(source_pieces) if hasattr(source_pieces, '__len__') else 0
+                        with ui.expansion(f'Source Pieces ({count})', icon='list').classes('w-full mt-2'):
+                            with ui.grid(columns=6).classes('gap-2 w-full text-sm'):
+                                # Headers
+                                ui.label('Source').classes('font-bold')
+                                ui.label('Start Sample').classes('font-bold')
+                                ui.label('Batches').classes('font-bold')
+                                ui.label('Workers').classes('font-bold')
+                                ui.label('Tensor Type').classes('font-bold')
+                                ui.label('Actions').classes('font-bold')
+                                
+                                # Source piece rows
+                                for j, piece in enumerate(source_pieces):
+                                    ui.label(piece.get('sourceName', ''))
+                                    ui.label(piece.get('startingSample', ''))
+                                    ui.label(piece.get('numOfBatches', ''))
+                                    ui.label(piece.get('workers', ''))
+                                    ui.label(piece.get('nerltensorType', ''))
+                                    ui.button('Edit', on_click=lambda p_idx=index, s_idx=j: self.edit_source_piece(p_idx, s_idx),
+                                             icon='edit').props('size=xs flat').classes('text-black')
+                    except Exception as e:
+                        print(f"DEBUG: Error rendering source pieces: {e}")
+                        ui.label(f"Error displaying source pieces: {str(e)}").classes('text-red-500')
     
     def show_add_phase_dialog(self):
         """Show dialog to add a new phase"""
@@ -262,30 +290,57 @@ class ExperimentDesigner:
     def load_from_json(self, data: Dict[str, Any]) -> bool:
         """Load experiment data from JSON"""
         try:
-            self.experiment_data = data.copy()
+            print(f"DEBUG: Loading experiment data with keys: {list(data.keys())}")
+            
+            # Validate and sanitize the data
+            sanitized_data = data.copy()
+            
+            # Ensure Phases is a list
+            if 'Phases' in sanitized_data:
+                phases = sanitized_data['Phases']
+                if not isinstance(phases, list):
+                    print(f"DEBUG: Phases is not a list, type: {type(phases)}")
+                    sanitized_data['Phases'] = []
+                else:
+                    # Validate each phase
+                    for i, phase in enumerate(phases):
+                        if not isinstance(phase, dict):
+                            print(f"DEBUG: Phase {i} is not a dict, type: {type(phase)}")
+                            continue
+                        
+                        # Ensure sourcePieces is a list
+                        if 'sourcePieces' in phase:
+                            source_pieces = phase['sourcePieces']
+                            if not isinstance(source_pieces, list):
+                                print(f"DEBUG: sourcePieces in phase {i} is not a list, type: {type(source_pieces)}")
+                                phase['sourcePieces'] = []
+            
+            self.experiment_data = sanitized_data
             
             # Update UI elements
             if hasattr(self, 'exp_name_input'):
-                self.exp_name_input.value = data.get('experimentName', '')
+                self.exp_name_input.value = sanitized_data.get('experimentName', '')
             if hasattr(self, 'exp_type_select'):
-                self.exp_type_select.value = data.get('experimentType', 'classification')
+                self.exp_type_select.value = sanitized_data.get('experimentType', 'classification')
             if hasattr(self, 'batch_size_input'):
-                self.batch_size_input.value = data.get('batchSize', 50)
+                self.batch_size_input.value = sanitized_data.get('batchSize', 50)
             if hasattr(self, 'csv_path_input'):
-                self.csv_path_input.value = data.get('csvFilePath', '')
+                self.csv_path_input.value = sanitized_data.get('csvFilePath', '')
             if hasattr(self, 'num_features_input'):
-                self.num_features_input.value = data.get('numOfFeatures', '')
+                self.num_features_input.value = sanitized_data.get('numOfFeatures', '')
             if hasattr(self, 'num_labels_input'):
-                self.num_labels_input.value = data.get('numOfLabels', '')
+                self.num_labels_input.value = sanitized_data.get('numOfLabels', '')
             if hasattr(self, 'headers_input'):
-                self.headers_input.value = data.get('headersNames', '')
+                self.headers_input.value = sanitized_data.get('headersNames', '')
             
             # Re-render phases
             self.render_phases()
             
             return True
         except Exception as e:
-            print(f"Error loading experiment data: {e}")
+            print(f"DEBUG: Error loading experiment data: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def export_experiment(self):
