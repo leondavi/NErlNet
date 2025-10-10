@@ -109,8 +109,13 @@ class DistributedConfigModel(BaseModel):
     
     def add_router(self, name: str, port: str, policy: str = "0"):
         """Add a router definition"""
+        # Check if router name already exists
+        if any(r.name == name for r in self.routers):
+            return False
+        
         router = RouterDefinition(name=name, port=port, policy=policy)
         self.routers.append(router)
+        return True
     
     def remove_router(self, name: str):
         """Remove a router by name"""

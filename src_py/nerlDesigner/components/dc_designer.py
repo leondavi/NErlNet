@@ -89,7 +89,7 @@ class DCDesigner:
                                      icon='add').classes('bg-orange-700 hover:bg-orange-600 text-white')
                             ui.button('Scan Network', 
                                      on_click=self.show_network_scanner,
-                                     icon='wifi_find').classes('bg-blue-600 hover:bg-blue-500 text-white')
+                                     icon='wifi_find').classes('bg-black hover:bg-gray-800 text-white')
                     
                     # Devices list
                     self.devices_container = ui.column().classes('w-full gap-2')
@@ -167,7 +167,7 @@ class DCDesigner:
                                 
                                 with ui.row().classes('gap-2'):
                                     ui.button('Edit', icon='edit',
-                                             on_click=lambda idx=i: self.edit_device(idx)).classes('bg-blue-600 hover:bg-blue-500 text-white text-xs px-2 py-1')
+                                             on_click=lambda idx=i: self.edit_device(idx)).classes('bg-black hover:bg-gray-800 text-white text-xs px-2 py-1')
                                     ui.button('Remove', icon='delete',
                                              on_click=lambda idx=i: self.remove_device(idx)).classes('bg-red-600 hover:bg-red-500 text-white text-xs px-2 py-1')
     
@@ -196,7 +196,7 @@ class DCDesigner:
                                 
                                 with ui.row().classes('gap-2'):
                                     ui.button('Edit', icon='edit',
-                                             on_click=lambda idx=i: self.edit_router(idx)).classes('bg-blue-600 hover:bg-blue-500 text-white text-xs px-2 py-1')
+                                             on_click=lambda idx=i: self.edit_router(idx)).classes('bg-black hover:bg-gray-800 text-white text-xs px-2 py-1')
                                     ui.button('Remove', icon='delete',
                                              on_click=lambda idx=i: self.remove_router(idx)).classes('bg-red-600 hover:bg-red-500 text-white text-xs px-2 py-1')
     
@@ -220,7 +220,7 @@ class DCDesigner:
                                 
                                 with ui.row().classes('gap-2'):
                                     ui.button('Edit', icon='edit',
-                                             on_click=lambda idx=i: self.edit_source(idx)).classes('bg-blue-600 hover:bg-blue-500 text-white text-xs px-2 py-1')
+                                             on_click=lambda idx=i: self.edit_source(idx)).classes('bg-black hover:bg-gray-800 text-white text-xs px-2 py-1')
                                     ui.button('Remove', icon='delete',
                                              on_click=lambda idx=i: self.remove_source(idx)).classes('bg-red-600 hover:bg-red-500 text-white text-xs px-2 py-1')
     
@@ -244,7 +244,7 @@ class DCDesigner:
                                 
                                 with ui.row().classes('gap-2'):
                                     ui.button('Edit', icon='edit',
-                                             on_click=lambda idx=i: self.edit_client(idx)).classes('bg-blue-600 hover:bg-blue-500 text-white text-xs px-2 py-1')
+                                             on_click=lambda idx=i: self.edit_client(idx)).classes('bg-black hover:bg-gray-800 text-white text-xs px-2 py-1')
                                     ui.button('Remove', icon='delete',
                                              on_click=lambda idx=i: self.remove_client(idx)).classes('bg-red-600 hover:bg-red-500 text-white text-xs px-2 py-1')
     
@@ -300,7 +300,7 @@ class DCDesigner:
                     ui.notify('Name and IP address are required', color='negative')
             
             with ui.row().classes('w-full justify-end gap-2 mt-4'):
-                ui.button('Add Device', on_click=add_device).classes('bg-orange-700 hover:bg-orange-600 text-white')
+                ui.button('Add Device', on_click=add_device).classes('bg-black hover:bg-gray-800 text-white')
                 ui.button('Cancel', on_click=dialog.close).classes('bg-gray-600 hover:bg-gray-500 text-white')
         
         dialog.open()
@@ -360,7 +360,7 @@ class DCDesigner:
                 ui.notify(f'Added device: {name}', color='positive')
             
             with ui.row().classes('w-full justify-end gap-2 mt-4'):
-                ui.button('Scan Network', on_click=start_scan).classes('bg-blue-600 hover:bg-blue-500 text-white')
+                ui.button('Scan Network', on_click=start_scan).classes('bg-black hover:bg-gray-800 text-white')
                 ui.button('Close', on_click=dialog.close).classes('bg-gray-600 hover:bg-gray-500 text-white')
         
         dialog.open()
@@ -414,7 +414,7 @@ class DCDesigner:
                 
                 with ui.row().classes('w-full justify-end gap-2'):
                     ui.button('Cancel', on_click=dialog.close).classes('bg-gray-500 hover:bg-gray-400 text-white')
-                    ui.button('Add Router', on_click=add_router).classes('bg-orange-700 hover:bg-orange-600 text-white')
+                    ui.button('Add Router', on_click=add_router).classes('bg-black hover:bg-gray-800 text-white')
         
         dialog.open()
     
@@ -452,7 +452,7 @@ class DCDesigner:
                     ui.notify('Source name is required', color='negative')
             
             with ui.row().classes('w-full justify-end gap-2 mt-4'):
-                ui.button('Add Source', on_click=add_source).classes('bg-orange-700 hover:bg-orange-600 text-white')
+                ui.button('Add Source', on_click=add_source).classes('bg-black hover:bg-gray-800 text-white')
                 ui.button('Cancel', on_click=dialog.close).classes('bg-gray-600 hover:bg-gray-500 text-white')
         
         dialog.open()
@@ -485,7 +485,7 @@ class DCDesigner:
                     ui.notify('Client name is required', color='negative')
             
             with ui.row().classes('w-full justify-end gap-2 mt-4'):
-                ui.button('Add Client', on_click=add_client).classes('bg-orange-700 hover:bg-orange-600 text-white')
+                ui.button('Add Client', on_click=add_client).classes('bg-black hover:bg-gray-800 text-white')
                 ui.button('Cancel', on_click=dialog.close).classes('bg-gray-600 hover:bg-gray-500 text-white')
         
         dialog.open()
@@ -624,7 +624,7 @@ class DCDesigner:
                 
                 with ui.row().classes('w-full justify-end gap-2'):
                     ui.button('Cancel', on_click=dialog.close).classes('bg-gray-500 hover:bg-gray-400 text-white')
-                    ui.button('Add Worker', on_click=add_worker).classes('bg-purple-700 hover:bg-purple-600 text-white')
+                    ui.button('Add Worker', on_click=add_worker).classes('bg-black hover:bg-gray-800 text-white')
         
         dialog.open()
     

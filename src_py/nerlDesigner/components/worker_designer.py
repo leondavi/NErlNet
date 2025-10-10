@@ -42,7 +42,7 @@ class WorkerDesigner:
         self.visual_layers = []
         self.selected_layer = None
         
-        with ui.splitter(value=30).classes('w-full h-full') as splitter:
+        with ui.splitter(value=20).classes('w-full h-full') as splitter:
             # Left panel - Configuration
             with splitter.before:
                 with ui.column().classes('w-full h-full p-4 bg-red-50'):
@@ -51,7 +51,7 @@ class WorkerDesigner:
                         ui.icon('psychology', size='md').classes('text-white')
                         ui.label('Neural Network Designer').classes('text-h6 font-bold text-white')
                         ui.space()
-                        ui.button('Load Config', on_click=self.load_configuration).props('flat dense').classes('bg-orange-800 hover:bg-orange-700 text-white')
+                        ui.button('Load Config', on_click=self.load_configuration).props('flat dense').classes('bg-black hover:bg-gray-800 text-white')
                     
                     # Scrollable configuration area
                     with ui.scroll_area().classes('w-full h-full'):
@@ -61,7 +61,7 @@ class WorkerDesigner:
                                 # Model Type
                                 with ui.row().classes('w-full items-center gap-2'):
                                     ui.label('Model Type:').classes('font-bold')
-                                    ui.button('Help', on_click=self.show_model_type_help, icon='help').classes('bg-orange-600 hover:bg-orange-500 text-white')
+                                    ui.button('Help', on_click=self.show_model_type_help, icon='help').classes('bg-black hover:bg-gray-800 text-white')
                                 
                                 self.model_type_select = ui.select(
                                     self.get_model_type_options(),
@@ -97,7 +97,7 @@ class WorkerDesigner:
                                                 on_change=self.on_layers_sizes_change
                                             ).classes('flex-1')
                                             self.layers_count = ui.label('(0)').classes('text-sm text-gray-600')
-                                            ui.button('Help', on_click=self.show_layers_help, icon='help').classes('bg-orange-600 hover:bg-orange-500 text-white')
+                                            ui.button('Help', on_click=self.show_layers_help, icon='help').classes('bg-black hover:bg-gray-800 text-white')
                                 
                                 # Layer Types Configuration  
                                 with ui.card().classes('w-full mb-4'):
@@ -109,9 +109,9 @@ class WorkerDesigner:
                                                 self.get_layer_type_options_for_display(),
                                                 label='Select Layer Type'
                                             ).classes('flex-1')
-                                            ui.button('Add', on_click=self.add_layer_type, icon='add').classes('bg-orange-700 hover:bg-orange-600 text-white')
-                                            ui.button('Help', on_click=self.show_layer_type_help, icon='help').classes('bg-orange-600 hover:bg-orange-500 text-white')
-                                            ui.button('Clear', on_click=self.clear_layer_types, icon='clear').classes('bg-orange-600 hover:bg-orange-500 text-white')
+                                            ui.button('Add', on_click=self.add_layer_type, icon='add').classes('bg-black hover:bg-gray-800 text-white')
+                                            ui.button('Help', on_click=self.show_layer_type_help, icon='help').classes('bg-black hover:bg-gray-800 text-white')
+                                            ui.button('Clear', on_click=self.clear_layer_types, icon='clear').classes('bg-black hover:bg-gray-800 text-white')
                                         
                                         with ui.row().classes('w-full items-end gap-2 mt-2'):
                                             self.layer_types_input = ui.input(
@@ -130,8 +130,8 @@ class WorkerDesigner:
                                             ui.button('Select Layer Functions', 
                                                      on_click=self.show_layer_method_selection, 
                                                      icon='functions').classes('bg-orange-700 hover:bg-orange-600 text-white')
-                                            ui.button('Help', on_click=self.show_activation_help, icon='help').classes('bg-orange-600 hover:bg-orange-500 text-white')
-                                            ui.button('Clear', on_click=self.clear_layer_functions, icon='clear').classes('bg-orange-600 hover:bg-orange-500 text-white')
+                                            ui.button('Help', on_click=self.show_activation_help, icon='help').classes('bg-black hover:bg-gray-800 text-white')
+                                            ui.button('Clear', on_click=self.clear_layer_functions, icon='clear').classes('bg-black hover:bg-gray-800 text-white')
                                         
                                         with ui.row().classes('w-full items-end gap-2 mt-2'):
                                             self.layer_functions_input = ui.input(
@@ -226,7 +226,7 @@ class WorkerDesigner:
                                 # Infrastructure Type
                                 with ui.row().classes('w-full items-center gap-2'):
                                     ui.label('Infrastructure Type:').classes('font-bold')
-                                    ui.button('Help', on_click=self.show_infra_help, icon='help').classes('bg-orange-600 hover:bg-orange-500 text-white')
+                                    ui.button('Help', on_click=self.show_infra_help, icon='help').classes('bg-black hover:bg-gray-800 text-white')
                                 
                                 self.infra_type_select = ui.select(
                                     self.get_infra_type_options(),
@@ -238,7 +238,7 @@ class WorkerDesigner:
                                 # Distributed System Configuration
                                 with ui.row().classes('w-full items-center gap-2'):
                                     ui.label('Distributed System:').classes('font-bold')
-                                    ui.button('Help', on_click=self.show_distributed_help, icon='help').classes('bg-orange-600 hover:bg-orange-500 text-white')
+                                    ui.button('Help', on_click=self.show_distributed_help, icon='help').classes('bg-black hover:bg-gray-800 text-white')
                                 
                                 self.distributed_type_select = ui.select(
                                     self.get_distributed_system_options(),
@@ -292,7 +292,7 @@ class WorkerDesigner:
                                              icon='upload').classes('bg-orange-700 hover:bg-orange-600 text-white flex-1')
                                     ui.button('Reset Config', 
                                              on_click=self.reset_config, 
-                                             icon='refresh').classes('bg-orange-600 hover:bg-orange-500 text-white flex-1')
+                                             icon='refresh').classes('bg-black hover:bg-gray-800 text-white flex-1')
             
             # Right panel - Interactive Network Designer
             with splitter.after:
@@ -303,15 +303,15 @@ class WorkerDesigner:
                         ui.label('Visual Network Designer').classes('text-h6 font-bold text-white')
                         ui.space()
                         with ui.button_group():
-                            ui.button('Add Layer', on_click=self.show_add_layer_dialog, icon='add').classes('bg-orange-700 hover:bg-orange-600 text-white')
-                            ui.button('Auto Layout', on_click=self.auto_layout_network, icon='auto_fix_high').classes('bg-orange-600 hover:bg-orange-500 text-white')
-                            ui.button('Zoom Fit', on_click=self.zoom_to_fit, icon='zoom_out_map').classes('bg-orange-500 hover:bg-orange-400 text-white')
+                            ui.button('Add Layer', on_click=self.show_add_layer_dialog, icon='add').classes('bg-black hover:bg-gray-800 text-white')
+                            ui.button('Auto Layout', on_click=self.auto_layout_network, icon='auto_fix_high').classes('bg-black hover:bg-gray-800 text-white')
+                            ui.button('Zoom Fit', on_click=self.zoom_to_fit, icon='zoom_out_map').classes('bg-black hover:bg-gray-800 text-white')
                     
                     # Interactive Network Canvas
                     with ui.card().classes('w-full flex-1 border border-gray-300'):
-                        with ui.card_section().classes('p-4'):
-                            # Canvas container - removed scroll_area to test
-                            self.network_canvas = ui.column().classes('w-full')
+                        with ui.card_section().classes('p-0 w-full h-full'):
+                            # Canvas container - full width with no padding
+                            self.network_canvas = ui.column().classes('w-full h-full')
                             self.render_network_diagram()
                     
                     # Quick Layer Tools
@@ -320,13 +320,13 @@ class WorkerDesigner:
                             ui.label('Quick Add Layers').classes('text-subtitle1 font-bold mb-2')
                             with ui.grid(columns=4).classes('gap-2 w-full'):
                                 # Common layer types as quick buttons
-                                ui.button('Input', on_click=lambda: self.quick_add_layer('input')).classes('bg-blue-600 hover:bg-blue-500 text-white text-xs')
-                                ui.button('Dense', on_click=lambda: self.quick_add_layer('dense')).classes('bg-green-600 hover:bg-green-500 text-white text-xs')
-                                ui.button('Conv2D', on_click=lambda: self.quick_add_layer('conv2d')).classes('bg-purple-600 hover:bg-purple-500 text-white text-xs')
-                                ui.button('MaxPool', on_click=lambda: self.quick_add_layer('maxpool')).classes('bg-red-600 hover:bg-red-500 text-white text-xs')
-                                ui.button('Dropout', on_click=lambda: self.quick_add_layer('dropout')).classes('bg-yellow-600 hover:bg-yellow-500 text-white text-xs')
-                                ui.button('BatchNorm', on_click=lambda: self.quick_add_layer('batchnorm')).classes('bg-indigo-600 hover:bg-indigo-500 text-white text-xs')
-                                ui.button('Flatten', on_click=lambda: self.quick_add_layer('flatten')).classes('bg-pink-600 hover:bg-pink-500 text-white text-xs')
+                                ui.button('Input', on_click=lambda: self.quick_add_layer('input')).classes('bg-black hover:bg-gray-800 text-white text-xs')
+                                ui.button('Dense', on_click=lambda: self.quick_add_layer('dense')).classes('bg-black hover:bg-gray-800 text-white text-xs')
+                                ui.button('Conv2D', on_click=lambda: self.quick_add_layer('conv2d')).classes('bg-black hover:bg-gray-800 text-white text-xs')
+                                ui.button('MaxPool', on_click=lambda: self.quick_add_layer('maxpool')).classes('bg-black hover:bg-gray-800 text-white text-xs')
+                                ui.button('Dropout', on_click=lambda: self.quick_add_layer('dropout')).classes('bg-black hover:bg-gray-800 text-white text-xs')
+                                ui.button('BatchNorm', on_click=lambda: self.quick_add_layer('batchnorm')).classes('bg-black hover:bg-gray-800 text-white text-xs')
+                                ui.button('Flatten', on_click=lambda: self.quick_add_layer('flatten')).classes('bg-black hover:bg-gray-800 text-white text-xs')
                                 ui.button('Output', on_click=lambda: self.quick_add_layer('output')).classes('bg-gray-600 hover:bg-gray-500 text-white text-xs')
                     
                     # Layer Properties Panel
@@ -1575,7 +1575,7 @@ class WorkerDesigner:
                 # Layer controls
                 with ui.row().classes('w-full justify-end gap-1 mt-2'):
                     ui.button('Edit', on_click=lambda idx=index: self.edit_visual_layer(idx), 
-                             icon='edit').props('size=sm').classes('bg-orange-600 hover:bg-orange-500 text-white')
+                             icon='edit').props('size=sm').classes('bg-black hover:bg-gray-800 text-white')
                     ui.button('Delete', on_click=lambda idx=index: self.delete_visual_layer(idx), 
                              icon='delete').props('size=sm').classes('bg-red-600 hover:bg-red-500 text-white')
     
@@ -1764,10 +1764,12 @@ class WorkerDesigner:
                 try:
                     fig = self.create_network_graph(layer_data)
                     
-                    # Display the interactive graph with increased size
-                    plotly_widget = ui.plotly(fig)
-                    plotly_widget.classes('w-full')
-                    plotly_widget.style('min-height: 600px; height: 600px;')
+                    # Container for plotly with explicit full-width styling
+                    with ui.element('div').classes('w-full').style('width: 100%; display: flex; flex-direction: column;'):
+                        # Display the interactive graph with full width and height
+                        plotly_widget = ui.plotly(fig)
+                        plotly_widget.classes('w-full')
+                        plotly_widget.style('width: 100% !important; min-height: 600px; flex: 1;')
                 except Exception as e:
                     print(f"ERROR: Failed to create graph: {e}")
                     import traceback
@@ -1794,7 +1796,7 @@ class WorkerDesigner:
                                     
                                     with ui.row().classes('gap-2'):
                                         ui.button('Edit', icon='edit', 
-                                                on_click=lambda idx=i: self.edit_layer(idx)).classes('bg-blue-600 text-white text-xs')
+                                                on_click=lambda idx=i: self.edit_layer(idx)).classes('bg-black text-white text-xs')
                                         ui.button('Remove', icon='delete',
                                                 on_click=lambda idx=i: self.remove_layer(idx)).classes('bg-red-600 text-white text-xs')
     
@@ -1880,7 +1882,7 @@ class WorkerDesigner:
             showlegend=False
         )
         
-        # Create figure
+        # Create figure with responsive configuration
         fig = go.Figure(data=[edge_trace, node_trace],
                        layout=go.Layout(
                            title=dict(
@@ -1891,13 +1893,18 @@ class WorkerDesigner:
                            ),
                            showlegend=False,
                            hovermode='closest',
-                           margin=dict(b=20, l=5, r=5, t=50),
+                           margin=dict(b=20, l=20, r=20, t=50),
                            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
                            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
                            plot_bgcolor='#f8f9fa',
                            paper_bgcolor='white',
-                           height=600
+                           autosize=True
                        ))
+        
+        # Configure responsive behavior
+        fig.update_layout(
+            height=600
+        )
         
         return fig
     
@@ -1935,10 +1942,10 @@ class WorkerDesigner:
                 
                 # Layer controls
                 with ui.row().classes('gap-1'):
-                    ui.button('Edit', on_click=lambda idx=index: self.edit_layer(idx)).classes('bg-blue-500 text-white px-2 py-1 text-xs rounded hover:bg-blue-600')
+                    ui.button('Edit', on_click=lambda idx=index: self.edit_layer(idx)).classes('bg-black text-white px-2 py-1 text-xs rounded hover:bg-gray-800')
                     ui.button('↑', on_click=lambda idx=index: self.move_layer(idx, -1)).classes('bg-gray-400 text-white px-2 py-1 text-xs rounded hover:bg-gray-500').props('disabled' if index == 0 else '')
                     ui.button('↓', on_click=lambda idx=index: self.move_layer(idx, 1)).classes('bg-gray-400 text-white px-2 py-1 text-xs rounded hover:bg-gray-500').props('disabled' if index == len(self.visual_layers) - 1 else '')
-                    ui.button('×', on_click=lambda idx=index: self.remove_layer(idx)).classes('bg-red-500 text-white px-2 py-1 text-xs rounded hover:bg-red-600')
+                    ui.button('×', on_click=lambda idx=index: self.remove_layer(idx)).classes('bg-black text-white px-2 py-1 text-xs rounded hover:bg-gray-800')
     
     def render_layer_controls(self):
         """Render layer management controls"""
@@ -1947,13 +1954,13 @@ class WorkerDesigner:
             
             with ui.row().classes('w-full gap-2 flex-wrap'):
                 # Quick add buttons for common layers
-                ui.button('+ Input Layer', on_click=lambda: self.quick_add_layer('Input')).classes('bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600')
-                ui.button('+ Conv2D', on_click=lambda: self.quick_add_layer('Conv2D')).classes('bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600')
-                ui.button('+ MaxPool2D', on_click=lambda: self.quick_add_layer('MaxPool2D')).classes('bg-purple-500 text-white px-3 py-2 rounded hover:bg-purple-600')
-                ui.button('+ Dense', on_click=lambda: self.quick_add_layer('Dense')).classes('bg-orange-500 text-white px-3 py-2 rounded hover:bg-orange-600')
-                ui.button('+ Dropout', on_click=lambda: self.quick_add_layer('Dropout')).classes('bg-yellow-500 text-white px-3 py-2 rounded hover:bg-yellow-600')
+                ui.button('+ Input Layer', on_click=lambda: self.quick_add_layer('Input')).classes('bg-black text-white px-3 py-2 rounded hover:bg-gray-800')
+                ui.button('+ Conv2D', on_click=lambda: self.quick_add_layer('Conv2D')).classes('bg-black text-white px-3 py-2 rounded hover:bg-gray-800')
+                ui.button('+ MaxPool2D', on_click=lambda: self.quick_add_layer('MaxPool2D')).classes('bg-black text-white px-3 py-2 rounded hover:bg-gray-800')
+                ui.button('+ Dense', on_click=lambda: self.quick_add_layer('Dense')).classes('bg-black text-white px-3 py-2 rounded hover:bg-gray-800')
+                ui.button('+ Dropout', on_click=lambda: self.quick_add_layer('Dropout')).classes('bg-black text-white px-3 py-2 rounded hover:bg-gray-800')
                 ui.button('+ Flatten', on_click=lambda: self.quick_add_layer('Flatten')).classes('bg-gray-500 text-white px-3 py-2 rounded hover:bg-gray-600')
-                ui.button('+ Output', on_click=lambda: self.quick_add_layer('Output')).classes('bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600')
+                ui.button('+ Output', on_click=lambda: self.quick_add_layer('Output')).classes('bg-black text-white px-3 py-2 rounded hover:bg-gray-800')
     
     def quick_add_layer(self, layer_type):
         """Quick add a layer with default parameters"""
@@ -2334,7 +2341,7 @@ class WorkerDesigner:
             <p><strong>Classification:</strong> Network optimized for classification tasks</p>
             <p><strong>Regression:</strong> Network optimized for regression tasks</p>
             ''', sanitize=False)
-            ui.button('Close', on_click=dialog.close).classes('bg-orange-600 hover:bg-orange-500 text-white')
+            ui.button('Close', on_click=dialog.close).classes('bg-black hover:bg-gray-800 text-white')
         dialog.open()
     
     def show_layers_help(self):
@@ -2346,7 +2353,7 @@ class WorkerDesigner:
             <p>Example: 784,128,64,10</p>
             <p>First layer should match input size, last should match output size</p>
             ''', sanitize=False)
-            ui.button('Close', on_click=dialog.close).classes('bg-orange-600 hover:bg-orange-500 text-white')
+            ui.button('Close', on_click=dialog.close).classes('bg-black hover:bg-gray-800 text-white')
         dialog.open()
     
     def add_layer_type(self):
@@ -2364,7 +2371,7 @@ class WorkerDesigner:
             <p><strong>Dropout:</strong> Dropout layer for regularization</p>
             <p><strong>Flatten:</strong> Flatten layer to convert 2D to 1D</p>
             ''', sanitize=False)
-            ui.button('Close', on_click=dialog.close).classes('bg-orange-600 hover:bg-orange-500 text-white')
+            ui.button('Close', on_click=dialog.close).classes('bg-black hover:bg-gray-800 text-white')
         dialog.open()
     
     def clear_layer_types(self):
@@ -2387,7 +2394,7 @@ class WorkerDesigner:
             <p><strong>Softmax:</strong> Used for multi-class classification output</p>
             <p><strong>Linear:</strong> No activation, output as-is</p>
             ''', sanitize=False)
-            ui.button('Close', on_click=dialog.close).classes('bg-orange-600 hover:bg-orange-500 text-white')
+            ui.button('Close', on_click=dialog.close).classes('bg-black hover:bg-gray-800 text-white')
         dialog.open()
     
     def clear_layer_functions(self):
@@ -2408,7 +2415,7 @@ class WorkerDesigner:
             <p><strong>Parallel:</strong> Process layers in parallel where possible</p>
             <p><strong>Distributed:</strong> Distribute processing across multiple nodes</p>
             ''', sanitize=False)
-            ui.button('Close', on_click=dialog.close).classes('bg-orange-600 hover:bg-orange-500 text-white')
+            ui.button('Close', on_click=dialog.close).classes('bg-black hover:bg-gray-800 text-white')
         dialog.open()
     
     def show_distributed_help(self):
@@ -2420,7 +2427,7 @@ class WorkerDesigner:
             <p><strong>Data Parallel:</strong> Split data across multiple workers</p>
             <p><strong>Model Parallel:</strong> Split model across multiple workers</p>
             ''', sanitize=False)
-            ui.button('Close', on_click=dialog.close).classes('bg-orange-600 hover:bg-orange-500 text-white')
+            ui.button('Close', on_click=dialog.close).classes('bg-black hover:bg-gray-800 text-white')
         dialog.open()
     
     def auto_generate_token(self):
@@ -2725,7 +2732,7 @@ class WorkerDesigner:
             
             # Dialog buttons
             with ui.row().classes('w-full justify-end gap-2 mt-4'):
-                ui.button('Add Layer', on_click=add_layer_to_config).classes('bg-orange-700 hover:bg-orange-600 text-white')
+                ui.button('Add Layer', on_click=add_layer_to_config).classes('bg-black hover:bg-gray-800 text-white')
                 ui.button('Cancel', on_click=dialog.close).classes('bg-gray-600 hover:bg-gray-500 text-white')
         
         dialog.open()

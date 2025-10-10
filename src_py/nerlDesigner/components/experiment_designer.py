@@ -103,7 +103,7 @@ class ExperimentDesigner:
                     
                     with ui.row().classes('gap-2'):
                         ui.button('Edit', on_click=lambda idx=index: self.edit_phase(idx),
-                                 icon='edit').props('size=sm').classes('bg-blue-600 hover:bg-blue-500 text-white')
+                                 icon='edit').props('size=sm').classes('bg-black hover:bg-gray-800 text-white')
                         ui.button('Delete', on_click=lambda idx=index: self.delete_phase(idx),
                                  icon='delete').props('size=sm').classes('bg-red-600 hover:bg-red-500 text-white')
                 
@@ -131,7 +131,7 @@ class ExperimentDesigner:
                                 ui.label(piece.get('workers', ''))
                                 ui.label(piece.get('nerltensorType', ''))
                                 ui.button('Edit', on_click=lambda p_idx=index, s_idx=j: self.edit_source_piece(p_idx, s_idx),
-                                         icon='edit').props('size=xs flat').classes('text-blue-600')
+                                         icon='edit').props('size=xs flat').classes('text-black')
     
     def show_add_phase_dialog(self):
         """Show dialog to add a new phase"""

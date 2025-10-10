@@ -13,6 +13,10 @@ Built with NiceGUI for cross-platform comp                # Connection Configura
 
 import sys
 import os
+import subprocess
+import signal
+import re
+import select
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import json
@@ -70,6 +74,13 @@ class NerlDesigner:
         self.experiment_designer = ExperimentDesigner()
         self.graph_visualizer: Optional[GraphVisualizer] = None
         
+        # Jupyter Lab process management
+        self.jupyter_process: Optional[subprocess.Popen] = None
+        self.jupyter_status_label: Optional[ui.label] = None
+        self.jupyter_url: Optional[str] = None
+        self.loading_dialog = None
+        self.jupyter_startup_timeout = 0
+        
         # Setup paths
         self.project_root = project_root
         self.examples_path = project_root / "inputJsonsFiles"
@@ -88,29 +99,41 @@ class NerlDesigner:
     def create_main_page(self):
         """Create the main page content"""
         
-        # Header with logo and title - Dark Red Theme
-        with ui.header().classes('bg-red-900 text-white shadow-lg'):
+        # Header with logo and title - White Background Theme
+        with ui.header().classes('bg-white text-gray-800 shadow-lg border-b border-gray-200'):
             with ui.row().classes('w-full items-center px-4'):
                 # Logo and title section
                 with ui.row().classes('items-center gap-4'):
-                    logo_path = Path(__file__).parent / 'assets' / 'logo' / 'nerldesigner_logo.png'
+                    logo_path = Path(__file__).parent / 'assets' / 'logo' / 'nerlnet_logo.png'
                     if logo_path.exists():
-                        ui.image('/assets/logo/nerldesigner_logo.png').classes('h-12 w-12')
+                        ui.image('/assets/logo/nerlnet_logo.png').classes('h-12 w-12')
                     else:
-                        ui.icon('account_tree', size='3rem').classes('text-white')
+                        ui.icon('account_tree', size='3rem').classes('text-red-900')
                     with ui.column().classes('gap-0'):
-                        ui.label('NerlDesigner').classes('text-h4 font-bold')
-                        ui.label('Neural Network Configuration Tool').classes('text-caption opacity-80')
+                        ui.label('NerlDesigner').classes('text-h4 font-bold text-red-900')
+                        ui.label('Neural Network Configuration Tool').classes('text-caption text-gray-600 opacity-80')
                 
                 ui.space()
                 
         # File Management Toolbar with Dark Red Theme
         with ui.row().classes('w-full bg-red-900 px-4 py-3 shadow-lg justify-between items-center'):
-            # New Project button - Dark Orange
-            ui.button('New Project', 
-                     on_click=self.new_project).props('unelevated').classes('bg-orange-800 hover:bg-orange-700 text-white')
+            # Left side - Project and Jupyter controls
+            with ui.row().classes('gap-3 items-center'):
+                # New Project button - Black
+                ui.button('New Project', 
+                         on_click=self.new_project).props('unelevated').classes('bg-black hover:bg-gray-800 text-white')
+                
+                # Jupyter Lab controls
+                ui.separator().props('vertical').classes('bg-red-600')
+                ui.button('Launch Jupyter Lab', 
+                         on_click=self.launch_jupyter_lab_with_dialog).props('unelevated').classes('bg-black hover:bg-gray-800 text-white')
+                ui.button('Stop Jupyter Lab', 
+                         on_click=self.stop_jupyter_lab).props('unelevated').classes('bg-black hover:bg-gray-800 text-white')
+                
+                # Jupyter status
+                self.jupyter_status_label = ui.label('Jupyter: Not Running').classes('text-white text-sm opacity-80')
             
-            # Status and version info
+            # Right side - Status and version info
             with ui.row().classes('gap-4 items-center'):
                 self.status_label = ui.label('Ready').classes('text-white text-sm')
                 ui.separator().props('vertical').classes('bg-red-600')
@@ -216,7 +239,378 @@ class NerlDesigner:
         self.update_status('New project created')
         ui.notify('New project created successfully!', type='positive')
     
-
+    def launch_jupyter_lab(self):
+        """Launch Jupyter Lab server"""
+        try:
+            # Check if Jupyter is already running
+            if self.jupyter_process and self.jupyter_process.poll() is None:
+                ui.notify('Jupyter Lab is already running!', type='warning')
+                return
+            
+            # Look for the Jupyter Lab launch script
+            jupyter_script = self.project_root / "NerlnetJupyterLaunch.sh"
+            
+            if not jupyter_script.exists():
+                ui.notify('Jupyter Lab launch script not found!', type='negative')
+                return
+            
+            # Make script executable
+            os.chmod(jupyter_script, 0o755)
+            
+            # Launch Jupyter Lab in background with text output buffering disabled
+            self.jupyter_process = subprocess.Popen(
+                [str(jupyter_script)],
+                cwd=str(self.project_root),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,  # Combine stderr with stdout
+                universal_newlines=True,
+                bufsize=1,  # Line buffered
+                preexec_fn=os.setsid  # Create new process group
+            )
+            
+            # Update UI
+            self.jupyter_status_label.text = 'Jupyter: Starting...'
+            self.update_status('Launching Jupyter Lab...')
+            ui.notify('Jupyter Lab is starting up...', type='positive')
+            
+            # Start monitoring for URL with faster polling
+            ui.timer(0.5, self.monitor_jupyter_startup, once=False)
+            
+        except Exception as e:
+            ui.notify(f'Failed to launch Jupyter Lab: {str(e)}', type='negative')
+            self.jupyter_status_label.text = 'Jupyter: Error'
+            
+            # Close loading dialog if it exists
+            if hasattr(self, 'loading_dialog') and self.loading_dialog:
+                try:
+                    self.loading_dialog.close()
+                except:
+                    pass
+    
+    def stop_jupyter_lab(self):
+        """Stop Jupyter Lab server"""
+        try:
+            if not self.jupyter_process or self.jupyter_process.poll() is not None:
+                ui.notify('Jupyter Lab is not running', type='warning')
+                self.jupyter_status_label.text = 'Jupyter: Not Running'
+                return
+            
+            # Terminate the process group to kill all child processes
+            os.killpg(os.getpgid(self.jupyter_process.pid), signal.SIGTERM)
+            
+            # Wait for process to terminate, then force kill if needed
+            try:
+                self.jupyter_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                os.killpg(os.getpgid(self.jupyter_process.pid), signal.SIGKILL)
+                self.jupyter_process.wait()
+            
+            self.jupyter_process = None
+            self.jupyter_url = None
+            self.jupyter_status_label.text = 'Jupyter: Stopped'
+            self.update_status('Jupyter Lab stopped')
+            ui.notify('Jupyter Lab stopped successfully', type='positive')
+            
+        except Exception as e:
+            ui.notify(f'Failed to stop Jupyter Lab: {str(e)}', type='negative')
+            self.jupyter_status_label.text = 'Jupyter: Error'
+    
+    def monitor_jupyter_startup(self):
+        """Monitor Jupyter startup and extract URL"""
+        try:
+            if not self.jupyter_process:
+                return False  # Stop the timer
+            
+            # Increment timeout counter (0.5 second intervals)
+            self.jupyter_startup_timeout += 0.5
+            print(f"DEBUG: Jupyter startup monitoring, timeout: {self.jupyter_startup_timeout}s")
+            
+            # Timeout after 60 seconds - show fallback URL
+            if self.jupyter_startup_timeout >= 60:
+                print("DEBUG: Jupyter startup timeout reached, showing fallback URL")
+                self.jupyter_url = "http://localhost:8888/lab"
+                self.jupyter_status_label.text = 'Jupyter: Running (fallback)'
+                self.update_status('Jupyter Lab running (using default URL)')
+                ui.notify('Jupyter Lab timeout - using default URL', type='warning')
+                
+                # Close loading dialog and show URL dialog
+                if hasattr(self, 'loading_dialog') and self.loading_dialog:
+                    try:
+                        self.loading_dialog.close()
+                    except:
+                        pass
+                
+                self.show_jupyter_url_dialog()
+                return False  # Stop the timer
+            
+            if self.jupyter_process.poll() is not None:
+                # Process has stopped
+                if self.jupyter_process and self.jupyter_process.returncode != 0:
+                    ui.notify(f'Jupyter Lab failed to start (exit code: {self.jupyter_process.returncode})', type='negative')
+                    self.jupyter_status_label.text = 'Jupyter: Error'
+                else:
+                    self.jupyter_status_label.text = 'Jupyter: Not Running'
+                
+                # Close loading dialog if it exists
+                if hasattr(self, 'loading_dialog') and self.loading_dialog:
+                    try:
+                        self.loading_dialog.close()
+                    except:
+                        pass
+                    
+                return False  # Stop the timer
+            
+            # Read all available output lines at once for efficiency
+            if self.jupyter_process.stdout:
+                try:
+                    # Use non-blocking read with select
+                    if select.select([self.jupyter_process.stdout], [], [], 0)[0]:
+                        # Read multiple lines if available
+                        lines = []
+                        while True:
+                            try:
+                                if select.select([self.jupyter_process.stdout], [], [], 0)[0]:
+                                    line = self.jupyter_process.stdout.readline()
+                                    if line:
+                                        lines.append(line.strip())
+                                    else:
+                                        break
+                                else:
+                                    break
+                            except:
+                                break
+                        
+                        # Process all lines for URL patterns (with debugging)
+                        for line in lines:
+                            if line:
+                                print(f"DEBUG: Jupyter output line: {line}")
+                                # Look for URL patterns in the output
+                                if ('http://' in line or 'https://' in line) and ('lab' in line or 'token' in line):
+                                    print(f"DEBUG: Found potential URL line: {line}")
+                                    # Extract URL from line
+                                    url_match = re.search(r'(https?://[^\s]+)', line)
+                                    if url_match:
+                                        self.jupyter_url = url_match.group(1)
+                                        # Clean up the URL (remove any trailing characters)
+                                        self.jupyter_url = self.jupyter_url.rstrip('/')
+                                        
+                                        self.jupyter_status_label.text = 'Jupyter: Running'
+                                        self.update_status(f'Jupyter Lab running')
+                                        ui.notify(f'Jupyter Lab is ready!', type='positive')
+                                        print(f"DEBUG: Found Jupyter URL: {self.jupyter_url}")
+                                        
+                                        # Close loading dialog if it exists
+                                        if hasattr(self, 'loading_dialog') and self.loading_dialog:
+                                            try:
+                                                self.loading_dialog.close()
+                                            except:
+                                                pass
+                                        
+                                        # Show the URL dialog automatically
+                                        self.show_jupyter_url_dialog()
+                                        return False  # Stop the timer
+                                # Also look for simpler patterns that might indicate the server is ready
+                                elif 'jupyter lab' in line.lower() and 'running' in line.lower():
+                                    print(f"DEBUG: Found Jupyter running indication: {line}")
+                                elif 'server is running' in line.lower():
+                                    print(f"DEBUG: Found server running indication: {line}")
+                                elif 'localhost' in line.lower() or '127.0.0.1' in line:
+                                    print(f"DEBUG: Found localhost reference: {line}")
+                except:
+                    pass  # Continue monitoring
+            
+            return True  # Continue monitoring
+            
+        except Exception as e:
+            self.jupyter_status_label.text = 'Jupyter: Error'
+            ui.notify(f'Error monitoring Jupyter startup: {str(e)}', type='negative')
+            
+            # Close loading dialog if it exists
+            if hasattr(self, 'loading_dialog') and self.loading_dialog:
+                try:
+                    self.loading_dialog.close()
+                except:
+                    pass
+            
+            return False  # Stop the timer
+    
+    def launch_jupyter_lab_with_dialog(self):
+        """Launch Jupyter Lab and show dialog immediately with default URL"""
+        try:
+            # Show loading dialog
+            self.show_loading_dialog()
+            
+            # Launch Jupyter Lab in background
+            jupyter_script = self.project_root / "NerlnetJupyterLaunch.sh"
+            
+            if not jupyter_script.exists():
+                ui.notify('Jupyter Lab launch script not found!', type='negative')
+                if hasattr(self, 'loading_dialog') and self.loading_dialog:
+                    self.loading_dialog.close()
+                return
+            
+            # Make script executable
+            os.chmod(jupyter_script, 0o755)
+            
+            # Launch Jupyter Lab with output redirected to log file
+            log_file = self.project_root / "jupyter_output.log" 
+            with open(log_file, 'w') as log:
+                self.jupyter_process = subprocess.Popen(
+                    [str(jupyter_script)],
+                    cwd=str(self.project_root),
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    universal_newlines=True,
+                    preexec_fn=os.setsid
+                )
+            
+            # Update status
+            self.jupyter_status_label.text = 'Jupyter: Starting...'
+            self.update_status('Launching Jupyter Lab...')
+            
+            # Wait longer for Jupyter to fully start up and write output
+            ui.timer(15.0, self.show_jupyter_dialog_after_delay, once=True)
+            
+        except Exception as e:
+            ui.notify(f'Failed to launch Jupyter Lab: {str(e)}', type='negative')
+            if hasattr(self, 'loading_dialog') and self.loading_dialog:
+                self.loading_dialog.close()
+    
+    def show_jupyter_dialog_after_delay(self):
+        """Show Jupyter dialog after a short delay with real URL detection"""
+        # Try to find the real URL from the output first
+        real_url = self.extract_jupyter_url_from_output()
+        
+        if real_url:
+            self.jupyter_url = real_url
+            ui.notify('Jupyter Lab is ready with real URL!', type='positive')
+        else:
+            # Fallback to checking common ports
+            for port in [8888, 8889, 8890, 8891]:
+                test_url = f"http://localhost:{port}/lab"
+                self.jupyter_url = test_url
+                break
+            ui.notify('Jupyter Lab should be starting - check the URL!', type='info')
+        
+        self.jupyter_status_label.text = 'Jupyter: Running'
+        self.update_status('Jupyter Lab running')
+        
+        # Close loading dialog
+        if hasattr(self, 'loading_dialog') and self.loading_dialog:
+            try:
+                self.loading_dialog.close()
+            except:
+                pass
+        
+        # Show URL dialog
+        self.show_jupyter_url_dialog()
+    
+    def extract_jupyter_url_from_output(self):
+        """Extract Jupyter URL from the log file"""
+        try:
+            log_file = self.project_root / "jupyter_output.log"
+            if log_file.exists():
+                with open(log_file, 'r') as f:
+                    content = f.read()
+                    print(f"DEBUG: Checking log content for URL...")
+                    
+                    # Look for the URL pattern in the log
+                    url_match = re.search(r'http://localhost:\d+/lab\?token=[a-f0-9]+', content)
+                    if url_match:
+                        url = url_match.group(0)
+                        print(f"DEBUG: Found real Jupyter URL in log: {url}")
+                        return url
+        except Exception as e:
+            print(f"DEBUG: Error reading log file: {e}")
+            
+        return None
+    
+    def show_jupyter_url_dialog(self):
+        """Show dialog with Jupyter Lab URL and clickable link"""
+        print(f"DEBUG: show_jupyter_url_dialog called with URL: {self.jupyter_url}")
+        
+        with ui.dialog().props('persistent') as dialog, ui.card():
+            ui.label('Jupyter Lab is Ready!').classes('text-h6 font-bold mb-4')
+            
+            with ui.column().classes('gap-4 min-w-96'):
+                ui.label('Your Jupyter Lab server is running at:').classes('text-sm text-gray-600')
+                
+                # URL display with copy functionality
+                with ui.row().classes('w-full items-center gap-2 p-3 bg-gray-100 rounded border'):
+                    if self.jupyter_url:
+                        ui.label(self.jupyter_url).classes('text-sm font-mono flex-1 text-blue-600')
+                        ui.button('Copy', on_click=lambda: self.copy_to_clipboard(self.jupyter_url)).props('flat dense').classes('bg-black hover:bg-gray-800 text-white text-xs')
+                    else:
+                        ui.label('URL not available').classes('text-sm text-red-500')
+                
+                # Instructions
+                ui.label('Click the link below to open Jupyter Lab in a new tab:').classes('text-sm text-gray-600')
+                
+                # Clickable link
+                if self.jupyter_url:
+                    ui.link(text=self.jupyter_url, target=self.jupyter_url).classes('text-blue-600 hover:text-blue-800 underline break-all')
+                
+                # Action buttons
+                with ui.row().classes('w-full justify-end gap-2 mt-4'):
+                    if self.jupyter_url:
+                        ui.button('Open in New Tab', 
+                                 on_click=lambda: [self.open_url_in_new_tab(self.jupyter_url), dialog.close()]).classes('bg-black hover:bg-gray-800 text-white')
+                    ui.button('Close', on_click=dialog.close).props('flat').classes('bg-black hover:bg-gray-800 text-white')
+        
+        print("DEBUG: Opening dialog...")
+        dialog.open()
+        print("DEBUG: Dialog opened")
+    
+    def show_loading_dialog(self):
+        """Show loading dialog while Jupyter Lab starts"""
+        self.loading_dialog = ui.dialog().props('persistent')
+        
+        with self.loading_dialog, ui.card():
+            ui.label('Starting Jupyter Lab...').classes('text-h6 font-bold mb-4')
+            
+            with ui.column().classes('gap-4 min-w-96 items-center'):
+                # Loading spinner
+                ui.spinner(size='lg').classes('mb-4')
+                
+                ui.label('Please wait while Jupyter Lab starts up.').classes('text-sm text-gray-600 text-center')
+                ui.label('This may take a few moments...').classes('text-sm text-gray-600 text-center')
+                
+                # Cancel button
+                with ui.row().classes('w-full justify-center mt-4'):
+                    ui.button('Cancel', 
+                             on_click=lambda: [self.stop_jupyter_lab(), self.loading_dialog.close() if self.loading_dialog else None]).props('flat').classes('bg-gray-600 hover:bg-gray-700 text-white')
+        
+        self.loading_dialog.open()
+    
+    def open_url_in_new_tab(self, url: str):
+        """Open URL in a new tab using JavaScript"""
+        ui.run_javascript(f'window.open("{url}", "_blank");')
+    
+    def copy_to_clipboard(self, text: str):
+        """Copy text to clipboard"""
+        ui.run_javascript(f'navigator.clipboard.writeText("{text}")')
+        ui.notify('URL copied to clipboard!', type='positive')
+    
+    def check_jupyter_status(self):
+        """Check if Jupyter Lab is running and update status"""
+        try:
+            if self.jupyter_process and self.jupyter_process.poll() is None:
+                if not self.jupyter_url:
+                    self.jupyter_status_label.text = 'Jupyter: Starting...'
+                else:
+                    self.jupyter_status_label.text = 'Jupyter: Running'
+                    self.update_status('Jupyter Lab is running')
+            else:
+                self.jupyter_status_label.text = 'Jupyter: Not Running'
+                self.jupyter_url = None
+                if self.jupyter_process:
+                    # Process has terminated, check if it was an error
+                    returncode = self.jupyter_process.returncode
+                    if returncode != 0:
+                        ui.notify(f'Jupyter Lab failed to start (exit code: {returncode})', type='negative')
+        except Exception as e:
+            self.jupyter_status_label.text = 'Jupyter: Error'
+            ui.notify(f'Error checking Jupyter status: {str(e)}', type='negative')
     
     def import_json_data(self, data: dict, filename: str, expected_type: str = None) -> bool:
         """Import JSON data into appropriate model"""
@@ -360,7 +754,7 @@ class NerlDesigner:
                     # Export button only
                     with ui.row().classes('w-full justify-center'):
                         ui.button(f'Export {file_type.title()}', 
-                                 on_click=lambda ft=file_type: self.export_json(ft)).classes('bg-orange-800 hover:bg-orange-700 text-white')
+                                 on_click=lambda ft=file_type: self.export_json(ft)).classes('bg-black hover:bg-gray-800 text-white')
                     
                     # Enhanced drag and drop functionality with click to browse
                     upload = ui.upload(
@@ -596,6 +990,26 @@ class NerlDesigner:
         if hasattr(self, 'status_label'):
             self.status_label.text = message
     
+    def cleanup(self):
+        """Cleanup resources when shutting down"""
+        try:
+            # Stop Jupyter Lab if running
+            if self.jupyter_process and self.jupyter_process.poll() is None:
+                print("Shutting down Jupyter Lab...")
+                os.killpg(os.getpgid(self.jupyter_process.pid), signal.SIGTERM)
+                try:
+                    self.jupyter_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    os.killpg(os.getpgid(self.jupyter_process.pid), signal.SIGKILL)
+                    self.jupyter_process.wait()
+                print("Jupyter Lab stopped.")
+                
+            # Reset Jupyter state
+            self.jupyter_process = None
+            self.jupyter_url = None
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
+    
     def export_json(self, export_type: str = 'worker'):
         """Export JSON configuration"""
         try:
@@ -758,9 +1172,14 @@ def main():
     designer = NerlDesigner()
     designer.setup_ui()
     
-    # Configure favicon - use emoji for now to avoid path issues
-    # NiceGUI expects favicons to be either emoji or properly configured static files
-    favicon_icon = '🧠'  # Simple emoji favicon that always works
+    # Register cleanup function for app shutdown
+    import atexit
+    atexit.register(designer.cleanup)
+    
+    # Configure favicon - use emoji (NiceGUI requirement)
+    # NiceGUI only supports emoji or properly configured favicon files
+    # Using brain emoji to represent neural networks
+    favicon_icon = '🧠'
     
     # Configure and run the app
     ui.run(
