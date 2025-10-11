@@ -10,6 +10,14 @@ from datetime import datetime
 from nicegui import ui
 from models.worker_model import WorkerModel, ModelType, LayerType, ActivationFunction, LossMethod, OptimizerType, InfraType, DistributedSystemType
 
+# Import official definitions from autogen
+from src_py.autogen.JsonElementWorkerDefinitions import (
+    LayerTypeMap, ActivationFunctionsMap, PoolingMethodMap, ScalingMethodMap, UnScalingMethodMap,
+    ProbabilisticActivationFunctionMap, BoundingMethodMap, FlattenMethodMap,
+    ModelTypeMapping, OptimizerTypeMapping, LossMethodMapping, DistributedSystemTypeMapping,
+    InfraTypeMapping, get_key_by_value
+)
+
 class WorkerDesigner:
     """UI component for designing neural network workers"""
     
@@ -533,25 +541,65 @@ class WorkerDesigner:
             return {'sequential': 'Sequential', 'parallel': 'Parallel'}
     
     def get_loss_method_options(self) -> dict:
-        """Get loss method options"""
-        try:
-            return {lm.value: lm.name.replace('_', ' ').title() for lm in LossMethod}
-        except:
-            return {'mean_squared_error': 'Mean Squared Error', 'binary_crossentropy': 'Binary Crossentropy'}
+        """Get loss method options from autogen definitions"""
+        # Convert autogen definitions to display format
+        display_options = {}
+        for name, code in LossMethodMapping.items():
+            # Convert names to readable format
+            if name == 'SSE':
+                display_name = 'Sum Squared Error'
+            elif name == 'MSE':
+                display_name = 'Mean Squared Error'
+            elif name == 'NSE':
+                display_name = 'Normalized Squared Error'
+            elif name == 'ME':
+                display_name = 'Minkowski Error'
+            elif name == 'WSE':
+                display_name = 'Weighted Squared Error'
+            elif name == 'CEE':
+                display_name = 'Cross Entropy Error'
+            else:
+                display_name = name
+            display_options[display_name] = code
+        return display_options
     
     def get_optimizer_options(self) -> dict:
-        """Get optimizer options"""
-        try:
-            return {opt.value: opt.name.title() for opt in OptimizerType}
-        except:
-            return {'adam': 'Adam', 'sgd': 'SGD', 'rmsprop': 'RMSprop'}
+        """Get optimizer options from autogen definitions"""
+        # Convert autogen definitions to display format
+        display_options = {}
+        for name, code in OptimizerTypeMapping.items():
+            # Convert names to readable format
+            if name == 'GD':
+                display_name = 'Gradient Descent'
+            elif name == 'CGD':
+                display_name = 'Conjugate Gradient'
+            elif name == 'SGD':
+                display_name = 'Stochastic Gradient Descent'
+            elif name == 'QuasiNeuton':
+                display_name = 'Quasi-Newton'
+            elif name == 'LVM':
+                display_name = 'Levenberg-Marquardt'
+            elif name == 'ADAM':
+                display_name = 'ADAM'
+            else:
+                display_name = name
+            display_options[display_name] = code
+        return display_options
     
     def get_distributed_options(self) -> dict:
-        """Get distributed system options"""
-        try:
-            return {dst.value: dst.name.replace('_', ' ').title() for dst in DistributedSystemType}
-        except:
-            return {'federated': 'Federated Learning', 'centralized': 'Centralized'}
+        """Get distributed system options from autogen definitions"""
+        # Convert autogen definitions to display format
+        display_options = {}
+        for name, code in DistributedSystemTypeMapping.items():
+            # Convert names to readable format
+            if name == 'Federated':
+                display_name = 'Federated Learning'
+            elif name == 'Centralized':
+                display_name = 'Centralized'
+            else:
+                display_name = name
+            display_options[display_name] = code
+        return display_options
     
     def show_quick_setup(self):
         """Show quick setup dialog"""
@@ -942,51 +990,26 @@ class WorkerDesigner:
 
     # Helper methods for dropdowns
     def get_model_type_options(self):
-        """Get model type options"""
-        return {
-            'Neural Network': '0',
-            'Approximation': '1', 
-            'Classification': '2',
-            'Forecasting': '3',
-            'Image Classification': '4',
-            'Text Classification': '5',
-            'Text Generation': '6',
-            'Auto Association': '7',
-            'Autoencoder': '8',
-            'AE Classifier': '9'
-        }
+        """Get model type options from autogen definitions"""
+        # Convert autogen definitions to display format
+        display_options = {}
+        for name, code in ModelTypeMapping.items():
+            # Convert names to readable format
+            display_name = name.replace('_', ' ').title()
+            if name == 'nn':
+                display_name = 'Neural Network'
+            elif name == 'ae_classifier':
+                display_name = 'AE Classifier'
+            display_options[display_name] = code
+        return display_options
     
     def get_layer_type_options(self):
-        """Get layer type options for internal use"""
-        return {
-            'Default': '0',
-            'Scaling': '1',
-            'Conv': '2',
-            'Perceptron': '3',
-            'Pooling': '4',
-            'Probabilistic': '5',
-            'LSTM': '6',
-            'Recurrent': '7',
-            'Unscaling': '8',
-            'Flatten': '9',
-            'Bounding': '10'
-        }
+        """Get layer type options from autogen definitions"""
+        return dict(LayerTypeMap)
     
     def get_layer_type_options_for_display(self):
-        """Get layer type options with ID and name for display"""
-        return [
-            '0 - Default',
-            '1 - Scaling', 
-            '2 - Conv',
-            '3 - Perceptron',
-            '4 - Pooling',
-            '5 - Probabilistic',
-            '6 - LSTM',
-            '7 - Recurrent',
-            '8 - Unscaling',
-            '9 - Flatten',
-            '10 - Bounding'
-        ]
+        """Get layer type options with ID and name for display from autogen definitions"""
+        return [f'{code} - {name}' for name, code in LayerTypeMap.items()]
 
     def extract_layer_type_id(self, display_value):
         """Extract the numeric ID from display format 'ID - Name'"""
@@ -1001,46 +1024,92 @@ class WorkerDesigner:
         return display_value
     
     def get_optimizer_options(self):
-        """Get optimizer options"""
-        return {
-            'Gradient Descent': '0',
-            'Conjugate Gradient': '1',
-            'Stochastic Gradient Descent': '2',
-            'Quasi-Newton': '3',
-            'Levenberg-Marquardt': '4',
-            'ADAM': '5'
-        }
+        """Get optimizer options from autogen definitions"""
+        # Convert autogen definitions to display format
+        display_options = {}
+        for name, code in OptimizerTypeMapping.items():
+            # Convert names to readable format
+            if name == 'GD':
+                display_name = 'Gradient Descent'
+            elif name == 'CGD':
+                display_name = 'Conjugate Gradient'
+            elif name == 'SGD':
+                display_name = 'Stochastic Gradient Descent'
+            elif name == 'QuasiNeuton':
+                display_name = 'Quasi-Newton'
+            elif name == 'LVM':
+                display_name = 'Levenberg-Marquardt'
+            elif name == 'ADAM':
+                display_name = 'ADAM'
+            else:
+                display_name = name
+            display_options[display_name] = code
+        return display_options
     
     def get_loss_method_options(self):
-        """Get loss method options"""
-        return {
-            'Sum Squared Error': '1',
-            'Mean Squared Error': '2',
-            'Normalized Squared Error': '3',
-            'Minkowski Error': '4',
-            'Weighted Squared Error': '5',
-            'Cross Entropy Error': '6'
-        }
+        """Get loss method options from autogen definitions"""
+        # Convert autogen definitions to display format
+        display_options = {}
+        for name, code in LossMethodMapping.items():
+            # Convert names to readable format
+            if name == 'SSE':
+                display_name = 'Sum Squared Error'
+            elif name == 'MSE':
+                display_name = 'Mean Squared Error'
+            elif name == 'NSE':
+                display_name = 'Normalized Squared Error'
+            elif name == 'ME':
+                display_name = 'Minkowski Error'
+            elif name == 'WSE':
+                display_name = 'Weighted Squared Error'
+            elif name == 'CEE':
+                display_name = 'Cross Entropy Error'
+            else:
+                display_name = name
+            display_options[display_name] = code
+        return display_options
     
     def get_infra_type_options(self):
-        """Get infrastructure type options"""
-        return {
-            'OpenNN': '0',
-            'Wolfram Engine': '1'
-        }
+        """Get infrastructure type options from autogen definitions"""
+        # Convert autogen definitions to display format
+        display_options = {}
+        for name, code in InfraTypeMapping.items():
+            # Convert names to readable format
+            if name == 'opennn':
+                display_name = 'OpenNN'
+            elif name == 'wolfengine':
+                display_name = 'Wolfram Engine'
+            else:
+                display_name = name
+            display_options[display_name] = code
+        return display_options
     
     def get_distributed_system_options(self):
-        """Get distributed system options"""
-        return {
-            'None': '0',
-            'Fed Client Avg': '1',
-            'Fed Server Avg': '2',
-            'Fed Client Weighted Avg Classification': '3',
-            'Fed Server Weighted Avg Classification': '4',
-            'Fed Client AE': '5',
-            'Fed Server AE': '6',
-            'Tiles': '7'
-        }
+        """Get distributed system options from autogen definitions"""
+        # Convert autogen definitions to display format
+        display_options = {}
+        for name, code in DistributedSystemTypeMapping.items():
+            # Convert names to readable format
+            if name == 'none':
+                display_name = 'None'
+            elif name == 'FedClientAvg':
+                display_name = 'Fed Client Avg'
+            elif name == 'FedServerAvg':
+                display_name = 'Fed Server Avg'
+            elif name == 'FedClientWeightedAvgClassification':
+                display_name = 'Fed Client Weighted Avg Classification'
+            elif name == 'FedServerWeightedAvgClassification':
+                display_name = 'Fed Server Weighted Avg Classification'
+            elif name == 'FedClientAE':
+                display_name = 'Fed Client AE'
+            elif name == 'FedServerAE':
+                display_name = 'Fed Server AE'
+            elif name == 'tiles':
+                display_name = 'Tiles'
+            else:
+                display_name = name
+            display_options[display_name] = code
+        return display_options
 
     # Layer management methods
     def add_layer_type(self):
@@ -2879,65 +2948,48 @@ class WorkerDesigner:
         ui.notify('Network view reset', color='positive')
     
     def get_layer_type_name(self, type_code: str) -> str:
-        """Get human-readable layer type name from code"""
-        type_map = {
-            '0': 'Default', '1': 'Scaling', '2': 'Conv', '3': 'Perceptron',
-            '4': 'Pooling', '5': 'Probabilistic', '6': 'LSTM', '7': 'Recurrent',
-            '8': 'Unscaling', '9': 'Flatten', '10': 'Bounding'
-        }
-        return type_map.get(type_code, f'Type {type_code}')
+        """Get human-readable layer type name from code using autogen definitions"""
+        # Create reverse mapping from autogen definitions
+        for name, code in LayerTypeMap.items():
+            if code == type_code:
+                return name
+        return f'Type {type_code}'
     
     def get_activation_name(self, activation_code: str) -> str:
-        """Get human-readable activation function name from code"""
-        activation_map = {
-            '1': 'Threshold', '2': 'Sign', '3': 'Logistic', '4': 'Tanh',
-            '5': 'Linear', '6': 'ReLU', '7': 'eLU', '8': 'SeLU',
-            '9': 'Soft-plus', '10': 'Soft-sign', '11': 'Hard-sigmoid'
-        }
-        return activation_map.get(activation_code, f'Function {activation_code}')
+        """Get human-readable activation function name from code using autogen definitions"""
+        # Create reverse mapping from autogen definitions
+        for name, code in ActivationFunctionsMap.items():
+            if code == activation_code:
+                return name
+        return f'Function {activation_code}'
     
     def get_activation_functions_options(self) -> List[str]:
-        """Get activation function options for Perceptron/Conv layers"""
-        return [
-            '1 - Threshold',
-            '2 - Sign',
-            '3 - Logistic',
-            '4 - Tanh',
-            '5 - Linear',
-            '6 - ReLU',
-            '7 - eLU',
-            '8 - SeLU',
-            '9 - Soft-plus',
-            '10 - Soft-sign',
-            '11 - Hard-sigmoid'
-        ]
+        """Get activation function options for Perceptron/Conv layers from autogen definitions"""
+        options = []
+        for name, code in ActivationFunctionsMap.items():
+            options.append(f'{code} - {name}')
+        return sorted(options, key=lambda x: int(x.split(' - ')[0]))
     
     def get_pooling_methods_options(self) -> List[str]:
-        """Get pooling method options"""
-        return [
-            '1 - None',
-            '2 - Max',
-            '3 - Avg'
-        ]
+        """Get pooling method options from autogen definitions"""
+        options = []
+        for name, code in PoolingMethodMap.items():
+            options.append(f'{code} - {name}')
+        return sorted(options, key=lambda x: int(x.split(' - ')[0]))
     
     def get_probabilistic_methods_options(self) -> List[str]:
-        """Get probabilistic layer method options"""
-        return [
-            '1 - Binary',
-            '2 - Logistic',
-            '3 - Competitive',
-            '4 - Softmax'
-        ]
+        """Get probabilistic layer method options from autogen definitions"""
+        options = []
+        for name, code in ProbabilisticActivationFunctionMap.items():
+            options.append(f'{code} - {name}')
+        return sorted(options, key=lambda x: int(x.split(' - ')[0]))
     
     def get_scaler_methods_options(self) -> List[str]:
-        """Get scaler method options for Scaling/Unscaling layers"""
-        return [
-            '1 - None',
-            '2 - MinMax',
-            '3 - MeanStd',
-            '4 - STD',
-            '5 - Log'
-        ]
+        """Get scaler method options for Scaling/Unscaling layers from autogen definitions"""
+        options = []
+        for name, code in ScalingMethodMap.items():
+            options.append(f'{code} - {name}')
+        return sorted(options, key=lambda x: int(x.split(' - ')[0]))
     
     def extract_function_id(self, display_value: str) -> str:
         """Extract function ID from display format '1 - Name' -> '1'"""
