@@ -238,9 +238,14 @@ class DCDesigner:
                         with ui.card_section().classes('p-3'):
                             with ui.row().classes('w-full items-center justify-between'):
                                 with ui.column().classes('flex-1'):
-                                    ui.label(f'{client.get("name", "Unknown")}').classes('font-bold')
-                                    ui.label(f'Port: {client.get("port", "N/A")}').classes('text-sm text-gray-600')
-                                    ui.label(f'Workers: {client.get("workers", "None")}').classes('text-sm text-gray-600')
+                                    # Handle both ClientDefinition objects and dict formats
+                                    client_name = client.name if hasattr(client, 'name') else client.get('name', 'Unknown')
+                                    client_port = client.port if hasattr(client, 'port') else client.get('port', 'N/A')
+                                    client_workers = client.workers if hasattr(client, 'workers') else client.get('workers', 'None')
+                                    
+                                    ui.label(f'{client_name}').classes('font-bold')
+                                    ui.label(f'Port: {client_port}').classes('text-sm text-gray-600')
+                                    ui.label(f'Workers: {client_workers}').classes('text-sm text-gray-600')
                                 
                                 with ui.row().classes('gap-2'):
                                     ui.button('Edit', icon='edit',
@@ -271,6 +276,39 @@ class DCDesigner:
             'args': self.api_server_args.value
         }
     
+    # Helper methods
+    def check_worker_conflicts(self, workers_string: str, exclude_client: str = None) -> tuple[bool, str]:
+        """
+        Check if any workers in the string are already assigned to other clients
+        Returns (has_conflict, conflict_message)
+        """
+        if not workers_string or not workers_string.strip():
+            return False, ""
+        
+        # Parse workers from the input string
+        requested_workers = [w.strip() for w in workers_string.split(',') if w.strip()]
+        
+        conflicts = []
+        for worker in requested_workers:
+            # Check all existing clients
+            for client in self.dc_model.clients:
+                client_name = client.name if hasattr(client, 'name') else client.get('name', '')
+                client_workers_str = client.workers if hasattr(client, 'workers') else client.get('workers', '')
+                
+                # Skip the client we're excluding (for edit operations)
+                if exclude_client and client_name == exclude_client:
+                    continue
+                
+                # Parse workers assigned to this client
+                if client_workers_str:
+                    assigned_workers = [w.strip() for w in client_workers_str.split(',') if w.strip()]
+                    if worker in assigned_workers:
+                        conflicts.append(f"Worker '{worker}' is already assigned to client '{client_name}'")
+        
+        if conflicts:
+            return True, "; ".join(conflicts)
+        return False, ""
+
     # Dialog methods
     def show_add_device_dialog(self):
         """Show dialog to add a new device"""
@@ -462,27 +500,57 @@ class DCDesigner:
         with ui.dialog() as dialog, ui.card().classes('w-full max-w-lg'):
             ui.html('<h3>Add New Client</h3>', sanitize=False)
             
+            # Information section
+            with ui.row().classes('w-full mb-3 p-2 bg-blue-50 rounded'):
+                ui.icon('info', size='sm').classes('text-blue-600')
+                ui.label('Workers can only be assigned to one client at a time. Use comma-separated names (e.g., w1,w2).').classes('text-sm text-blue-800')
+            
             name_input = ui.input('Client Name', placeholder='e.g., c1').classes('w-full')
             port_input = ui.number('Port', value=8082, min=1000, max=65535).classes('w-full')
             workers_input = ui.input('Workers', placeholder='e.g., w1,w2').classes('w-full')
             
+            # Validation feedback area
+            validation_label = ui.label('').classes('text-sm text-red-600 mt-2')
+            
+            def validate_workers():
+                """Validate workers in real-time"""
+                has_conflict, conflict_msg = self.check_worker_conflicts(workers_input.value or '')
+                
+                if has_conflict:
+                    validation_label.text = f'⚠️ {conflict_msg}'
+                    validation_label.classes('text-sm text-red-600 mt-2')
+                elif workers_input.value and workers_input.value.strip():
+                    validation_label.text = '✅ Workers available'
+                    validation_label.classes('text-sm text-green-600 mt-2')
+                else:
+                    validation_label.text = ''
+            
+            # Add real-time validation
+            workers_input.on('input', lambda: validate_workers())
+            
             def add_client():
                 if name_input.value:
-                    client = {
-                        'name': name_input.value,
-                        'port': str(port_input.value),
-                        'workers': workers_input.value or ''
-                    }
+                    # Check for worker conflicts before adding
+                    has_conflict, conflict_msg = self.check_worker_conflicts(workers_input.value or '')
                     
-                    if not hasattr(self.dc_model, 'clients'):
-                        self.dc_model.clients = []
-                    self.dc_model.clients.append(client)
+                    if has_conflict:
+                        ui.notify(f'Worker conflict: {conflict_msg}', type='negative')
+                        return
                     
-                    self.render_clients()
-                    ui.notify(f'Added client: {name_input.value}', color='positive')
-                    dialog.close()
+                    success = self.dc_model.add_client(
+                        name=name_input.value,
+                        port=str(port_input.value),
+                        workers=workers_input.value or ''
+                    )
+                    
+                    if success:
+                        self.render_clients()
+                        ui.notify(f'Added client: {name_input.value}', type='positive')
+                        dialog.close()
+                    else:
+                        ui.notify('Client name already exists', type='warning')
                 else:
-                    ui.notify('Client name is required', color='negative')
+                    ui.notify('Client name is required', type='negative')
             
             with ui.row().classes('w-full justify-end gap-2 mt-4'):
                 ui.button('Add Client', on_click=add_client).classes('bg-black hover:bg-gray-800 text-white')
@@ -532,13 +600,104 @@ class DCDesigner:
             ui.notify(f'Removed source: {removed.get("name", "Unknown")}', color='positive')
     
     def edit_client(self, index):
-        ui.notify(f'Edit client {index + 1} functionality coming soon!', color='info')
+        """Edit an existing client"""
+        if not hasattr(self.dc_model, 'clients') or index >= len(self.dc_model.clients):
+            ui.notify('Client not found', type='negative')
+            return
+        
+        client = self.dc_model.clients[index]
+        client_name = client.name if hasattr(client, 'name') else client.get('name', '')
+        client_port = client.port if hasattr(client, 'port') else client.get('port', '8082')
+        client_workers = client.workers if hasattr(client, 'workers') else client.get('workers', '')
+        
+        with ui.dialog().props('persistent') as dialog:
+            with ui.card().style('width: 500px; max-width: 90vw'):
+                ui.label(f'Edit Client: {client_name}').classes('text-h6 mb-4')
+                
+                name_input = ui.input('Client Name', value=client_name).classes('w-full mb-3')
+                port_input = ui.number('Port', value=int(client_port), min=1000, max=65535).classes('w-full mb-3')
+                workers_input = ui.input('Workers', value=client_workers, placeholder='e.g., w1,w2').classes('w-full')
+                
+                # Validation feedback area
+                validation_label = ui.label('').classes('text-sm text-gray-600 mt-2 mb-4')
+                
+                def validate_workers_edit():
+                    """Validate workers in real-time for edit dialog"""
+                    has_conflict, conflict_msg = self.check_worker_conflicts(
+                        workers_input.value or '', 
+                        exclude_client=client_name
+                    )
+                    
+                    if has_conflict:
+                        validation_label.text = f'⚠️ {conflict_msg}'
+                        validation_label.classes('text-sm text-red-600 mt-2 mb-4')
+                    elif workers_input.value and workers_input.value.strip():
+                        validation_label.text = '✅ Workers available'
+                        validation_label.classes('text-sm text-green-600 mt-2 mb-4')
+                    else:
+                        validation_label.text = ''
+                
+                # Add real-time validation
+                workers_input.on('input', lambda: validate_workers_edit())
+                
+                def save_client():
+                    if name_input.value:
+                        # Check for worker conflicts (exclude current client from check)
+                        has_conflict, conflict_msg = self.check_worker_conflicts(
+                            workers_input.value or '', 
+                            exclude_client=client_name
+                        )
+                        
+                        if has_conflict:
+                            ui.notify(f'Worker conflict: {conflict_msg}', type='negative')
+                            return
+                        
+                        try:
+                            # Update the client object directly
+                            if hasattr(client, 'name'):
+                                client.name = name_input.value
+                                client.port = str(port_input.value)
+                                client.workers = workers_input.value or ''
+                            else:
+                                # Handle dict format
+                                client['name'] = name_input.value
+                                client['port'] = str(port_input.value)
+                                client['workers'] = workers_input.value or ''
+                            
+                            self.render_clients()
+                            ui.notify(f'Updated client: {name_input.value}', type='positive')
+                            dialog.close()
+                            
+                        except Exception as e:
+                            print(f"DEBUG: Error updating client: {e}")
+                            ui.notify(f'Error updating client: {str(e)}', type='negative')
+                    else:
+                        ui.notify('Client name is required', type='negative')
+                
+                with ui.row().classes('w-full justify-end gap-2'):
+                    ui.button('Cancel', on_click=dialog.close).classes('bg-gray-500 hover:bg-gray-400 text-white')
+                    ui.button('Save Changes', on_click=save_client).classes('bg-black hover:bg-gray-800 text-white')
+        
+        dialog.open()
     
     def remove_client(self, index):
         if hasattr(self.dc_model, 'clients') and index < len(self.dc_model.clients):
-            removed = self.dc_model.clients.pop(index)
-            self.render_clients()
-            ui.notify(f'Removed client: {removed.get("name", "Unknown")}', color='positive')
+            try:
+                # Get the client name before removing
+                client_name = self.dc_model.clients[index].name if hasattr(self.dc_model.clients[index], 'name') else self.dc_model.clients[index].get('name', 'Unknown')
+                
+                # Use the model's remove_client method
+                success = self.dc_model.remove_client(client_name)
+                
+                if success:
+                    self.render_clients()
+                    ui.notify(f'Removed client: {client_name}', type='positive')
+                else:
+                    ui.notify('Client not found', type='warning')
+                    
+            except Exception as e:
+                print(f"DEBUG: Error removing client: {e}")
+                ui.notify(f'Error removing client: {str(e)}', type='negative')
     
     def build_dc_json(self):
         """Build complete distributed configuration JSON"""
@@ -555,11 +714,11 @@ class DCDesigner:
                 "port": "8081", 
                 "args": ""
             }),
-            "devices": getattr(self.dc_model, 'devices', []),
-            "routers": getattr(self.dc_model, 'routers', []),
+            "devices": [device.to_dict() if hasattr(device, 'to_dict') else device for device in getattr(self.dc_model, 'devices', [])],
+            "routers": [router.to_dict() if hasattr(router, 'to_dict') else router for router in getattr(self.dc_model, 'routers', [])],
             "sources": getattr(self.dc_model, 'sources', []),
-            "clients": getattr(self.dc_model, 'clients', []),
-            "workers": getattr(self.dc_model, 'workers', [])
+            "clients": [client.to_dict() if hasattr(client, 'to_dict') else client for client in getattr(self.dc_model, 'clients', [])],
+            "workers": [worker.to_dict() if hasattr(worker, 'to_dict') else worker for worker in getattr(self.dc_model, 'workers', [])]
         }
     
     def render_workers(self):

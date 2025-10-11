@@ -71,6 +71,24 @@ class RouterDefinition(BaseModel):
         self.port = data.get("port", "")
         self.policy = data.get("policy", "0")
 
+class ClientDefinition(BaseModel):
+    """Client definition in distributed config"""
+    name: str = Field(description="Client name")
+    port: str = Field(description="Client port")
+    workers: str = Field(default="", description="Associated workers")
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "port": self.port,
+            "workers": self.workers
+        }
+    
+    def from_dict(self, data: Dict[str, Any]):
+        self.name = data.get("name", "")
+        self.port = data.get("port", "")
+        self.workers = data.get("workers", "")
+
 class WorkerDefinition(BaseModel):
     """Worker definition in distributed config"""
     worker_id: str = Field(description="Worker identifier")
@@ -94,6 +112,7 @@ class DistributedConfigModel(BaseModel):
     api_server: ServerConfig = Field(default_factory=lambda: ServerConfig(port="8081"))
     devices: List[DistributedDevice] = Field(default=[])
     routers: List[RouterDefinition] = Field(default=[])
+    clients: List[ClientDefinition] = Field(default=[])
     workers: List[WorkerDefinition] = Field(default=[])
     sources: List[Dict[str, Any]] = Field(default=[])
     connections_file: str = Field(default="", description="Path to connections file")
@@ -119,7 +138,25 @@ class DistributedConfigModel(BaseModel):
     
     def remove_router(self, name: str):
         """Remove a router by name"""
+        initial_count = len(self.routers)
         self.routers = [r for r in self.routers if r.name != name]
+        return len(self.routers) < initial_count
+    
+    def add_client(self, name: str, port: str, workers: str = ""):
+        """Add a client definition"""
+        # Check if client name already exists
+        if any(c.name == name for c in self.clients):
+            return False
+        
+        client = ClientDefinition(name=name, port=port, workers=workers)
+        self.clients.append(client)
+        return True
+    
+    def remove_client(self, name: str):
+        """Remove a client by name"""
+        initial_count = len(self.clients)
+        self.clients = [c for c in self.clients if c.name != name]
+        return len(self.clients) < initial_count
     
     def add_worker(self, worker_id: str, worker_file: str):
         """Add a worker definition"""
@@ -141,6 +178,9 @@ class DistributedConfigModel(BaseModel):
         
         if self.routers:
             result["routers"] = [router.to_dict() for router in self.routers]
+        
+        if self.clients:
+            result["clients"] = [client.to_dict() for client in self.clients]
         
         if self.workers:
             result["workers"] = [worker.to_dict() for worker in self.workers]
@@ -181,6 +221,13 @@ class DistributedConfigModel(BaseModel):
                 router.from_dict(router_data)
                 self.routers.append(router)
         
+        self.clients = []
+        if "clients" in data:
+            for client_data in data["clients"]:
+                client = ClientDefinition(name="", port="", workers="")
+                client.from_dict(client_data)
+                self.clients.append(client)
+        
         self.workers = []
         if "workers" in data:
             for worker_data in data["workers"]:
@@ -198,6 +245,7 @@ class DistributedConfigModel(BaseModel):
         self.api_server = ServerConfig(port="8081")
         self.devices = []
         self.routers = []
+        self.clients = []
         self.workers = []
         self.sources = []
         self.connections_file = ""

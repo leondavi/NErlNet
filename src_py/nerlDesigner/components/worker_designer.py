@@ -6,6 +6,7 @@ from typing import Dict, Any, List
 import json
 import networkx as nx
 import plotly.graph_objects as go
+from datetime import datetime
 from nicegui import ui
 from models.worker_model import WorkerModel, ModelType, LayerType, ActivationFunction, LossMethod, OptimizerType, InfraType, DistributedSystemType
 
@@ -15,6 +16,14 @@ class WorkerDesigner:
     def __init__(self, worker_model: WorkerModel):
         self.model = worker_model
         self.ui_elements = {}
+        
+        # Model management
+        self.saved_models: Dict[str, Dict] = {}
+        self.current_model_name: str = "Untitled Architecture"
+        self.model_list_container: ui.column = None
+        
+        # Load sample architectures
+        self.load_sample_architectures()
         
     def create_ui(self):
         """Create the comprehensive worker designer UI"""
@@ -46,12 +55,40 @@ class WorkerDesigner:
             # Left panel - Configuration
             with splitter.before:
                 with ui.column().classes('w-full h-full p-4 bg-red-50'):
-                    # Header with quick actions
-                    with ui.row().classes('w-full items-center mb-4 p-3 bg-red-900 rounded-lg'):
-                        ui.icon('psychology', size='md').classes('text-white')
-                        ui.label('Neural Network Designer').classes('text-h6 font-bold text-white')
-                        ui.space()
-                        ui.button('Load Config', on_click=self.load_configuration).props('flat dense').classes('bg-black hover:bg-gray-800 text-white')
+                    # Neural Network Architecture Manager
+                    with ui.column().classes('w-full mb-4'):
+                        # Header
+                        with ui.row().classes('w-full items-center mb-3 p-3 bg-red-900 rounded-lg'):
+                            ui.icon('psychology', size='md').classes('text-white')
+                            ui.label('Neural Network Architectures').classes('text-h6 font-bold text-white')
+                            ui.space()
+                            ui.button('Save Current', 
+                                     on_click=self.save_current_architecture, 
+                                     icon='save').props('flat dense').classes('bg-black hover:bg-gray-800 text-white')
+                        
+                        # Current model name input
+                        with ui.row().classes('w-full gap-2 mb-3'):
+                            ui.label('Architecture Name:').classes('text-sm font-medium text-gray-700 self-center')
+                            self.model_name_input = ui.input(
+                                value=self.current_model_name,
+                                placeholder='Enter architecture name...'
+                            ).classes('flex-1').on('change', lambda e: setattr(self, 'current_model_name', e.value or "Untitled Architecture"))
+                        
+                        # Saved models list
+                        with ui.card().classes('w-full mb-3'):
+                            with ui.card_section():
+                                ui.label('Saved Architectures').classes('text-sm font-semibold text-red-800 mb-2')
+                                self.model_list_container = ui.column().classes('gap-1 w-full max-h-80 overflow-y-auto')
+                                self.refresh_model_list()
+                        
+                        # Quick actions
+                        with ui.row().classes('w-full gap-2'):
+                            ui.button('Load from JSON', 
+                                     on_click=self.load_configuration, 
+                                     icon='upload_file').props('dense').classes('flex-1 bg-orange-700 hover:bg-orange-600 text-white')
+                            ui.button('Export JSON', 
+                                     on_click=self.export_worker_config, 
+                                     icon='download').props('dense').classes('flex-1 bg-red-600 hover:bg-red-700 text-white')
                     
                     # Scrollable configuration area
                     with ui.scroll_area().classes('w-full h-full'):
@@ -1111,8 +1148,111 @@ class WorkerDesigner:
     
     # File operations
     def load_configuration(self):
-        """Load configuration from drag & drop or file selector"""
-        ui.notify('Drop a JSON configuration file onto the designated areas, or use the distributed config section', type='info', timeout=6000)
+        """Load configuration from file upload dialog"""
+        with ui.dialog() as dialog, ui.card().classes('w-96'):
+            ui.label('Load Neural Network Architecture').classes('text-h6 font-bold mb-4')
+            
+            ui.label('Select a worker configuration JSON file:').classes('text-sm text-gray-600 mb-3')
+            
+            # File upload
+            upload = ui.upload(
+                on_upload=lambda e: self.handle_config_upload(e, dialog),
+                max_file_size=10_000_000,
+                auto_upload=True
+            ).props('accept=".json" label="Choose JSON File" color="primary"').classes('w-full mb-4')
+            
+            with ui.row().classes('w-full justify-end gap-2'):
+                ui.button('Cancel', on_click=dialog.close).props('flat').classes('bg-gray-600 hover:bg-gray-700 text-white')
+        
+        dialog.open()
+    
+    def handle_config_upload(self, e, dialog):
+        """Handle uploaded configuration file"""
+        try:
+            if not e.files:
+                return
+            
+            for file_info in e.files:
+                if not file_info.name.endswith('.json'):
+                    ui.notify(f'Only JSON files supported. Skipped: {file_info.name}', type='negative')
+                    continue
+                
+                # Read file content
+                content = self.extract_file_content(file_info)
+                if not content:
+                    ui.notify(f'Could not read content from {file_info.name}', type='negative')
+                    continue
+                
+                data = json.loads(content)
+                
+                # Load the configuration
+                self.load_config_from_data(data, file_info.name)
+                
+        except Exception as e:
+            ui.notify(f'Failed to load configuration: {str(e)}', type='negative')
+            print(f"DEBUG: Error loading config: {e}")
+    
+    def extract_file_content(self, file_info) -> str:
+        """Extract content from uploaded file"""
+        try:
+            content_attr = file_info.content
+            if callable(content_attr):
+                content_attr = content_attr()
+            
+            if hasattr(content_attr, 'read'):
+                if hasattr(content_attr, 'seek'):
+                    content_attr.seek(0)
+                content = content_attr.read()
+                if isinstance(content, bytes):
+                    content = content.decode('utf-8')
+                return content
+            elif isinstance(content_attr, str):
+                return content_attr
+            else:
+                return str(content_attr)
+        except Exception as e:
+            print(f"DEBUG: Error extracting file content: {e}")
+            return None
+    
+    def load_config_from_data(self, data: dict, filename: str = "Imported Config"):
+        """Load configuration from JSON data"""
+        try:
+            # Extract configuration from JSON
+            self.current_config.update({
+                'modelType': str(data.get('modelType', '0')),
+                'modelArgs': data.get('modelArgs', ''),
+                'layersSizes': data.get('layersSizes', ''),
+                'layerTypesList': data.get('layerTypesList', ''),
+                'layers_functions': data.get('layers_functions', ''),
+                'lossMethod': str(data.get('lossMethod', '2')),
+                'lossArgs': data.get('lossArgs', ''),
+                'lr': str(data.get('lr', '0.001')),
+                'epochs': str(data.get('epochs', '100')),
+                'optimizer': str(data.get('optimizer', '2')),
+                'optimizerArgs': data.get('optimizerArgs', 'none'),
+                'infraType': str(data.get('infraType', '0')),
+                'distributedSystemType': str(data.get('distributedSystemType', '0')),
+                'distributedSystemArgs': data.get('distributedSystemArgs', 'none'),
+                'distributedSystemToken': data.get('distributedSystemToken', 'none')
+            })
+            
+            # Update model name from filename
+            base_name = filename.replace('.json', '').replace('_', ' ').title()
+            self.current_model_name = base_name
+            if hasattr(self, 'model_name_input'):
+                self.model_name_input.value = base_name
+            
+            # Update UI elements
+            self.update_ui_from_config()
+            
+            # Refresh network diagram
+            self.render_network_diagram()
+            
+            print(f"DEBUG: Configuration loaded successfully from {filename}")
+            
+        except Exception as e:
+            ui.notify(f'Error processing configuration: {str(e)}', type='negative')
+            print(f"DEBUG: Error loading config from data: {e}")
     
     def load_worker_config(self):
         """Load worker configuration from JSON"""
@@ -1124,8 +1264,14 @@ class WorkerDesigner:
             # Build the complete worker configuration
             config = self.build_worker_json()
             
-            # Get filename
-            filename = self.filename_input.value or 'worker_config.json'
+            # Get filename - use current model name if available
+            if hasattr(self, 'filename_input') and self.filename_input.value:
+                filename = self.filename_input.value
+            else:
+                # Create filename from model name
+                safe_name = "".join(c for c in self.current_model_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                filename = f"{safe_name.replace(' ', '_')}_worker.json"
+            
             if not filename.endswith('.json'):
                 filename += '.json'
             
@@ -2326,10 +2472,6 @@ class WorkerDesigner:
             return None
     
     # Missing callback methods
-    def load_configuration(self):
-        """Load a configuration file"""
-        ui.notify('Load configuration functionality coming soon!', color='info')
-    
     def show_model_type_help(self):
         """Show help for model types"""
         with ui.dialog() as dialog, ui.card():
@@ -2436,18 +2578,6 @@ class WorkerDesigner:
         token = str(uuid.uuid4())[:8]
         self.model.unique_token = token
         ui.notify(f'Generated token: {token}', color='positive')
-    
-    def export_worker_config(self):
-        """Export worker configuration to JSON"""
-        try:
-            config = self.build_worker_json()
-            ui.download(
-                content=json.dumps(config, indent=2),
-                filename=f'worker_config_{self.model.unique_token or "default"}.json'
-            )
-            ui.notify('Configuration exported successfully!', color='positive')
-        except Exception as e:
-            ui.notify(f'Export failed: {str(e)}', color='negative')
     
     def load_worker_config(self):
         """Load worker configuration from JSON"""
@@ -2906,3 +3036,368 @@ class WorkerDesigner:
             
         except Exception as e:
             ui.notify(f'Error saving layer: {str(e)}', type='negative')
+    
+    # Model Management Methods
+    def save_current_architecture(self):
+        """Save the current neural network architecture"""
+        try:
+            if not self.current_model_name or self.current_model_name.strip() == "":
+                ui.notify('Please enter an architecture name', type='warning')
+                return
+            
+            # Get current model configuration
+            model_data = {
+                'name': self.current_model_name,
+                'timestamp': datetime.now().isoformat(),
+                'model_type': self.current_config.get('modelType', '0'),
+                'model_args': self.current_config.get('modelArgs', ''),
+                'layers_sizes': self.current_config.get('layersSizes', ''),
+                'layer_types': self.current_config.get('layerTypesList', ''),
+                'layer_functions': self.current_config.get('layers_functions', ''),
+                'loss_method': self.current_config.get('lossMethod', '2'),
+                'loss_args': self.current_config.get('lossArgs', ''),
+                'learning_rate': self.current_config.get('lr', '0.001'),
+                'epochs': self.current_config.get('epochs', '100'),
+                'optimizer': self.current_config.get('optimizer', '2'),
+                'optimizer_args': self.current_config.get('optimizerArgs', 'none'),
+                'infra_type': self.current_config.get('infraType', '0'),
+                'distributed_type': self.current_config.get('distributedSystemType', '0'),
+                'distributed_args': self.current_config.get('distributedSystemArgs', 'none'),
+                'distributed_token': self.current_config.get('distributedSystemToken', 'none'),
+                'version': '1.0',
+                'type': 'nerlnet_worker_architecture'
+            }
+            
+            # Save to the models dictionary
+            self.saved_models[self.current_model_name] = model_data
+            
+            # Generate and show SHA
+            model_sha = self.generate_model_sha(model_data)
+            
+            # Refresh the model list
+            self.refresh_model_list()
+            
+            ui.notify(f'Architecture "{self.current_model_name}" saved successfully! SHA: {model_sha[:8]}...', type='positive')
+            
+        except Exception as e:
+            ui.notify(f'Failed to save architecture: {str(e)}', type='negative')
+            print(f"DEBUG: Error saving architecture: {e}")
+    
+    def load_saved_architecture(self, model_name: str):
+        """Load a saved neural network architecture"""
+        try:
+            if model_name not in self.saved_models:
+                ui.notify(f'Architecture "{model_name}" not found', type='negative')
+                return
+            
+            model_data = self.saved_models[model_name]
+            
+            # Update current configuration
+            self.current_config.update({
+                'modelType': model_data.get('model_type', '0'),
+                'modelArgs': model_data.get('model_args', ''),
+                'layersSizes': model_data.get('layers_sizes', ''),
+                'layerTypesList': model_data.get('layer_types', ''),
+                'layers_functions': model_data.get('layer_functions', ''),
+                'lossMethod': model_data.get('loss_method', '2'),
+                'lossArgs': model_data.get('loss_args', ''),
+                'lr': model_data.get('learning_rate', '0.001'),
+                'epochs': model_data.get('epochs', '100'),
+                'optimizer': model_data.get('optimizer', '2'),
+                'optimizerArgs': model_data.get('optimizer_args', 'none'),
+                'infraType': model_data.get('infra_type', '0'),
+                'distributedSystemType': model_data.get('distributed_type', '0'),
+                'distributedSystemArgs': model_data.get('distributed_args', 'none'),
+                'distributedSystemToken': model_data.get('distributed_token', 'none')
+            })
+            
+            # Update current name
+            self.current_model_name = model_name
+            if hasattr(self, 'model_name_input'):
+                self.model_name_input.value = model_name
+            
+            # Update all UI elements
+            self.update_ui_from_config()
+            
+            # Refresh network diagram
+            self.render_network_diagram()
+            
+            ui.notify(f'Architecture "{model_name}" loaded successfully!', type='positive')
+            
+        except Exception as e:
+            ui.notify(f'Failed to load architecture: {str(e)}', type='negative')
+            print(f"DEBUG: Error loading architecture: {e}")
+    
+    def delete_saved_architecture(self, model_name: str):
+        """Delete a saved architecture"""
+        try:
+            if model_name in self.saved_models:
+                del self.saved_models[model_name]
+                self.refresh_model_list()
+                ui.notify(f'Architecture "{model_name}" deleted', type='info')
+            else:
+                ui.notify(f'Architecture "{model_name}" not found', type='negative')
+        except Exception as e:
+            ui.notify(f'Failed to delete architecture: {str(e)}', type='negative')
+            print(f"DEBUG: Error deleting architecture: {e}")
+    
+    def generate_model_sha(self, model_data: dict) -> str:
+        """Generate SHA256 hash for a model configuration"""
+        try:
+            import hashlib
+            import json
+            
+            # Create a consistent representation of the model data for hashing
+            hash_data = {
+                'model_type': model_data.get('model_type', '0'),
+                'model_args': model_data.get('model_args', ''),
+                'layers_sizes': model_data.get('layers_sizes', ''),
+                'layer_types': model_data.get('layer_types', ''),
+                'layer_functions': model_data.get('layer_functions', ''),
+                'loss_method': model_data.get('loss_method', '2'),
+                'loss_args': model_data.get('loss_args', ''),
+                'learning_rate': model_data.get('learning_rate', '0.001'),
+                'epochs': model_data.get('epochs', '100'),
+                'optimizer': model_data.get('optimizer', '2'),
+                'optimizer_args': model_data.get('optimizer_args', 'none'),
+                'infra_type': model_data.get('infra_type', '0'),
+                'distributed_type': model_data.get('distributed_type', '0'),
+                'distributed_args': model_data.get('distributed_args', 'none'),
+                'distributed_token': model_data.get('distributed_token', 'none')
+            }
+            
+            # Convert to JSON string and hash
+            config_str = json.dumps(hash_data, sort_keys=True)
+            return hashlib.sha256(config_str.encode()).hexdigest()
+            
+        except Exception as e:
+            print(f"DEBUG: Error generating SHA: {e}")
+            return "unknown_sha"
+    
+    def show_model_sha(self, model_name: str, model_sha: str):
+        """Show the full SHA of a model in a dialog"""
+        with ui.dialog() as dialog, ui.card().classes('w-full max-w-2xl'):
+            ui.label(f'Model SHA - {model_name}').classes('text-h6 font-bold mb-4')
+            
+            ui.label('Full SHA256 Hash:').classes('text-sm font-medium text-gray-700 mb-2')
+            
+            # SHA display area with copy functionality
+            with ui.card().classes('w-full bg-gray-50 p-3'):
+                sha_label = ui.label(model_sha).classes('text-sm font-mono break-all text-gray-800')
+            
+            with ui.row().classes('w-full justify-end gap-2 mt-4'):
+                ui.button('Copy SHA', 
+                         on_click=lambda: self.copy_model_sha(model_sha),
+                         icon='content_copy').classes('bg-blue-600 hover:bg-blue-700 text-white')
+                ui.button('Close', 
+                         on_click=dialog.close).classes('bg-gray-600 hover:bg-gray-700 text-white')
+        
+        dialog.open()
+    
+    def copy_model_sha(self, model_sha: str):
+        """Copy model SHA to clipboard"""
+        try:
+            # Use JavaScript to copy to clipboard
+            ui.run_javascript(f'''
+                navigator.clipboard.writeText("{model_sha}").then(function() {{
+                    console.log("SHA copied to clipboard");
+                }}).catch(function(err) {{
+                    console.error("Failed to copy SHA: ", err);
+                }});
+            ''')
+            ui.notify('SHA copied to clipboard!', type='positive')
+        except Exception as e:
+            ui.notify(f'Failed to copy SHA: {str(e)}', type='warning')
+            print(f"DEBUG: Error copying SHA: {e}")
+    
+    def refresh_model_list(self):
+        """Refresh the saved models list display"""
+        if not self.model_list_container:
+            return
+        
+        # Clear existing content
+        self.model_list_container.clear()
+        
+        if not self.saved_models:
+            with self.model_list_container:
+                ui.label('No saved architectures').classes('text-xs text-gray-500 italic text-center py-2')
+            return
+        
+        # Add model entries
+        with self.model_list_container:
+            for model_name, model_data in self.saved_models.items():
+                with ui.column().classes('w-full p-2 hover:bg-red-50 rounded border border-gray-200 mb-2'):
+                    # Main row with name and primary actions
+                    with ui.row().classes('w-full items-center justify-between'):
+                        with ui.column().classes('flex-1 gap-0'):
+                            ui.label(model_name).classes('text-sm font-medium text-gray-800')
+                            if 'timestamp' in model_data:
+                                try:
+                                    timestamp = datetime.fromisoformat(model_data['timestamp'])
+                                    ui.label(f'{timestamp.strftime("%m/%d %H:%M")}').classes('text-xs text-gray-500')
+                                except:
+                                    ui.label('Recently saved').classes('text-xs text-gray-500')
+                        
+                        with ui.row().classes('gap-1'):
+                            ui.button('Load', 
+                                     on_click=lambda m=model_name: self.load_saved_architecture(m),
+                                     icon='play_arrow').props('dense flat size=sm').classes('text-green-600 hover:bg-green-50')
+                            ui.button('Del', 
+                                     on_click=lambda m=model_name: self.delete_saved_architecture(m),
+                                     icon='delete').props('dense flat size=sm').classes('text-red-600 hover:bg-red-50')
+                    
+                    # SHA row
+                    model_sha = self.generate_model_sha(model_data)
+                    with ui.row().classes('w-full items-center gap-2 mt-1'):
+                        ui.label('SHA:').classes('text-xs text-gray-600 font-medium')
+                        ui.label(f'{model_sha[:8]}...{model_sha[-8:]}').classes('text-xs text-gray-500 font-mono flex-1')
+                        ui.button('View', 
+                                 on_click=lambda sha=model_sha, name=model_name: self.show_model_sha(name, sha),
+                                 icon='visibility').props('dense flat size=xs').classes('text-blue-600 hover:bg-blue-50')
+                        ui.button('Copy', 
+                                 on_click=lambda sha=model_sha: self.copy_model_sha(sha),
+                                 icon='content_copy').props('dense flat size=xs').classes('text-gray-600 hover:bg-gray-50')
+    
+    def update_ui_from_config(self):
+        """Update UI elements from current configuration"""
+        try:
+            # Update input fields with current config values
+            if hasattr(self, 'model_type_select'):
+                # Find the matching model type value
+                model_type_code = self.current_config.get('modelType', '0')
+                model_type_options = self.get_model_type_options()
+                for display_name, code in model_type_options.items():
+                    if code == model_type_code:
+                        self.model_type_select.value = display_name
+                        break
+            
+            if hasattr(self, 'model_args_input'):
+                self.model_args_input.value = self.current_config.get('modelArgs', '')
+            
+            if hasattr(self, 'layers_sizes_input'):
+                self.layers_sizes_input.value = self.current_config.get('layersSizes', '')
+                
+            if hasattr(self, 'layer_types_input'):
+                self.layer_types_input.value = self.current_config.get('layerTypesList', '')
+                
+            if hasattr(self, 'layer_functions_input'):
+                self.layer_functions_input.value = self.current_config.get('layers_functions', '')
+            
+            if hasattr(self, 'learning_rate_input'):
+                try:
+                    self.learning_rate_input.value = float(self.current_config.get('lr', '0.001'))
+                except:
+                    self.learning_rate_input.value = 0.001
+            
+            if hasattr(self, 'epochs_input'):
+                try:
+                    self.epochs_input.value = int(self.current_config.get('epochs', '100'))
+                except:
+                    self.epochs_input.value = 100
+            
+            # Update selects for optimizer, loss method, etc.
+            if hasattr(self, 'optimizer_select'):
+                optimizer_code = self.current_config.get('optimizer', '2')
+                optimizer_options = self.get_optimizer_options()
+                for display_name, code in optimizer_options.items():
+                    if code == optimizer_code:
+                        self.optimizer_select.value = display_name
+                        break
+            
+            if hasattr(self, 'loss_method_select'):
+                loss_code = self.current_config.get('lossMethod', '2')
+                loss_options = self.get_loss_method_options()
+                for display_name, code in loss_options.items():
+                    if code == loss_code:
+                        self.loss_method_select.value = display_name
+                        break
+            
+            # Update counts
+            self.update_counts()
+            
+        except Exception as e:
+            print(f"DEBUG: Error updating UI from config: {e}")
+    
+    def update_counts(self):
+        """Update the count labels"""
+        try:
+            if hasattr(self, 'model_args_count'):
+                args = self.current_config.get('modelArgs', '')
+                count = len(args.split(',')) if args and args.strip() else 0
+                self.model_args_count.text = f'({count})'
+            
+            if hasattr(self, 'layers_count'):
+                sizes = self.current_config.get('layersSizes', '')
+                count = len(sizes.split(',')) if sizes and sizes.strip() else 0
+                self.layers_count.text = f'({count})'
+            
+            if hasattr(self, 'layer_types_count'):
+                types = self.current_config.get('layerTypesList', '')
+                count = len(types.split(',')) if types and types.strip() else 0
+                self.layer_types_count.text = f'({count})'
+            
+            if hasattr(self, 'layer_functions_count'):
+                functions = self.current_config.get('layers_functions', '')
+                count = len(functions.split(',')) if functions and functions.strip() else 0
+                self.layer_functions_count.text = f'({count})'
+        except Exception as e:
+            print(f"DEBUG: Error updating counts: {e}")
+    
+    def load_sample_architectures(self):
+        """Load sample architectures from the Workers directory"""
+        try:
+            from pathlib import Path
+            
+            # Get the workers directory
+            workers_dir = Path(__file__).parent.parent.parent.parent / "inputJsonsFiles" / "Workers"
+            
+            if not workers_dir.exists():
+                print(f"DEBUG: Workers directory not found: {workers_dir}")
+                return
+            
+            # Load each JSON file as a sample architecture
+            for json_file in workers_dir.glob("*.json"):
+                try:
+                    with open(json_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    
+                    # Create architecture name from filename
+                    arch_name = json_file.stem.replace('_', ' ').replace('worker', '').strip().title()
+                    if not arch_name:
+                        arch_name = json_file.stem
+                    
+                    # Convert to our architecture format
+                    arch_data = {
+                        'name': arch_name,
+                        'timestamp': datetime.now().isoformat(),
+                        'model_type': str(data.get('modelType', '0')),
+                        'model_args': data.get('modelArgs', ''),
+                        'layers_sizes': data.get('layersSizes', ''),
+                        'layer_types': data.get('layerTypesList', ''),
+                        'layer_functions': data.get('layers_functions', ''),
+                        'loss_method': str(data.get('lossMethod', '2')),
+                        'loss_args': data.get('lossArgs', ''),
+                        'learning_rate': str(data.get('lr', '0.001')),
+                        'epochs': str(data.get('epochs', '100')),
+                        'optimizer': str(data.get('optimizer', '2')),
+                        'optimizer_args': data.get('optimizerArgs', 'none'),
+                        'infra_type': str(data.get('infraType', '0')),
+                        'distributed_type': str(data.get('distributedSystemType', '0')),
+                        'distributed_args': data.get('distributedSystemArgs', 'none'),
+                        'distributed_token': data.get('distributedSystemToken', 'none'),
+                        'version': '1.0',
+                        'type': 'nerlnet_worker_architecture',
+                        'source': 'sample'
+                    }
+                    
+                    self.saved_models[arch_name] = arch_data
+                    print(f"DEBUG: Loaded sample architecture: {arch_name}")
+                
+                except Exception as e:
+                    print(f"DEBUG: Error loading sample {json_file}: {e}")
+                    continue
+            
+            print(f"DEBUG: Loaded {len(self.saved_models)} sample architectures")
+            
+        except Exception as e:
+            print(f"DEBUG: Error loading sample architectures: {e}")
