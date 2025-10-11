@@ -80,6 +80,7 @@ class NerlDesigner:
         self.jupyter_url: Optional[str] = None
         self.loading_dialog = None
         self.jupyter_startup_timeout = 0
+        self.dialog_open = False  # Flag to prevent multiple dialogs
         
         # Setup paths
         self.project_root = project_root
@@ -219,6 +220,9 @@ class NerlDesigner:
                 # Experiment Configuration Tab
                 with ui.tab_panel(experiment_tab).classes('p-0'):
                     self.create_experiment_ui()
+        
+        # Check initial Jupyter Lab status after UI is ready
+        ui.timer(1.0, self.check_initial_jupyter_status, once=True)
     
     def create_experiment_ui(self):
         """Create the experiment configuration UI"""
@@ -435,9 +439,24 @@ class NerlDesigner:
             return False  # Stop the timer
     
     def launch_jupyter_lab_with_dialog(self):
-        """Launch Jupyter Lab and show dialog immediately with default URL"""
+        """Launch Jupyter Lab or show existing server URL if already running"""
+        print("DEBUG: launch_jupyter_lab_with_dialog called")
+        ui.notify('Checking for existing Jupyter Lab...', type='info')
+        
         try:
-            # Show loading dialog
+            # First check if Jupyter is already running
+            existing_url = self.check_existing_jupyter_server()
+            if existing_url:
+                print(f"DEBUG: Found existing Jupyter server at: {existing_url}")
+                self.jupyter_url = existing_url
+                self.jupyter_status_label.text = 'Jupyter: Running'
+                self.update_status('Jupyter Lab already running')
+                ui.notify('Jupyter Lab is already running! Opening URL dialog...', type='positive')
+                print("DEBUG: About to show dialog...")
+                self.show_jupyter_url_dialog()
+                return
+            
+            # Show loading dialog for new launch
             self.show_loading_dialog()
             
             # Launch Jupyter Lab in background
@@ -505,6 +524,94 @@ class NerlDesigner:
         # Show URL dialog
         self.show_jupyter_url_dialog()
     
+    def check_existing_jupyter_server(self):
+        """Check if Jupyter Lab is already running and return its URL"""
+        try:
+            # Method 1: Check if our process is still running
+            if hasattr(self, 'jupyter_process') and self.jupyter_process and self.jupyter_process.poll() is None:
+                print("DEBUG: Jupyter process is still running")
+                # Try to get URL from existing log
+                existing_url = self.extract_jupyter_url_from_output()
+                if existing_url:
+                    return existing_url
+            
+            # Method 2: Check for running jupyter-lab processes
+            import subprocess
+            try:
+                result = subprocess.run(['pgrep', '-f', 'jupyter-lab'], 
+                                     capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    print("DEBUG: Found running jupyter-lab process via pgrep")
+                    # Try to get URL from log file and verify it's accessible
+                    existing_url = self.extract_jupyter_url_from_output()
+                    if existing_url:
+                        # Verify the URL is actually accessible
+                        if self.verify_jupyter_url(existing_url):
+                            return existing_url
+                        else:
+                            print("DEBUG: Found URL in log but server not accessible")
+            except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+                pass
+            
+            # Method 3: Check common Jupyter ports
+            import socket
+            for port in [8888, 8889, 8890, 8891, 8892]:
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                        sock.settimeout(1)
+                        result = sock.connect_ex(('localhost', port))
+                        if result == 0:
+                            print(f"DEBUG: Found service running on port {port}")
+                            # Try to make a simple HTTP request to check if it's Jupyter
+                            try:
+                                import urllib.request
+                                response = urllib.request.urlopen(f'http://localhost:{port}/', timeout=2)
+                                content = response.read().decode('utf-8')
+                                if 'jupyter' in content.lower() or 'lab' in content.lower():
+                                    print(f"DEBUG: Confirmed Jupyter Lab on port {port}")
+                                    # Try to get proper URL with token from logs first
+                                    url_with_token = self.extract_jupyter_url_from_output()
+                                    if url_with_token and self.verify_jupyter_url(url_with_token):
+                                        return url_with_token
+                                    # Fallback to URL without token
+                                    return f"http://localhost:{port}/lab"
+                            except:
+                                pass
+                except:
+                    continue
+                    
+        except Exception as e:
+            print(f"DEBUG: Error checking existing Jupyter server: {e}")
+            
+        return None
+
+    def verify_jupyter_url(self, url):
+        """Verify that a Jupyter URL is actually accessible"""
+        try:
+            import urllib.request
+            import urllib.parse
+            
+            # Parse the URL to get port
+            parsed = urllib.parse.urlparse(url)
+            port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+            
+            print(f"DEBUG: Verifying Jupyter URL: {url} (port {port})")
+            
+            # Make HTTP request to verify server is responding
+            req = urllib.request.Request(url, headers={'User-Agent': 'NerlDesigner'})
+            response = urllib.request.urlopen(req, timeout=3)
+            
+            if response.getcode() in [200, 302]:  # 302 is normal for Jupyter redirects
+                print(f"DEBUG: Server verified accessible at {url}")
+                return True
+            else:
+                print(f"DEBUG: Server returned HTTP {response.getcode()}")
+                return False
+                
+        except Exception as e:
+            print(f"DEBUG: URL verification failed: {e}")
+            return False
+
     def extract_jupyter_url_from_output(self):
         """Extract Jupyter URL from the log file"""
         try:
@@ -528,6 +635,14 @@ class NerlDesigner:
     def show_jupyter_url_dialog(self):
         """Show dialog with Jupyter Lab URL and clickable link"""
         print(f"DEBUG: show_jupyter_url_dialog called with URL: {self.jupyter_url}")
+        
+        # Prevent multiple dialogs from opening
+        if self.dialog_open:
+            print("DEBUG: Dialog already open, skipping")
+            return
+            
+        self.dialog_open = True
+        ui.notify('Opening Jupyter URL dialog...', type='info')
         
         with ui.dialog().props('persistent') as dialog, ui.card():
             ui.label('Jupyter Lab is Ready!').classes('text-h6 font-bold mb-4')
@@ -554,12 +669,21 @@ class NerlDesigner:
                 with ui.row().classes('w-full justify-end gap-2 mt-4'):
                     if self.jupyter_url:
                         ui.button('Open in New Tab', 
-                                 on_click=lambda: [self.open_url_in_new_tab(self.jupyter_url), dialog.close()]).classes('bg-black hover:bg-gray-800 text-white')
-                    ui.button('Close', on_click=dialog.close).props('flat').classes('bg-black hover:bg-gray-800 text-white')
+                                 on_click=lambda: [self.open_url_in_new_tab(self.jupyter_url), self.close_jupyter_dialog(dialog)]).classes('bg-black hover:bg-gray-800 text-white')
+                    ui.button('Close', on_click=lambda: self.close_jupyter_dialog(dialog)).props('flat').classes('bg-black hover:bg-gray-800 text-white')
         
         print("DEBUG: Opening dialog...")
         dialog.open()
         print("DEBUG: Dialog opened")
+    
+    def close_jupyter_dialog(self, dialog):
+        """Close the Jupyter dialog and reset the flag"""
+        try:
+            dialog.close()
+        except:
+            pass
+        self.dialog_open = False
+        print("DEBUG: Dialog closed and flag reset")
     
     def show_loading_dialog(self):
         """Show loading dialog while Jupyter Lab starts"""
@@ -611,6 +735,32 @@ class NerlDesigner:
         except Exception as e:
             self.jupyter_status_label.text = 'Jupyter: Error'
             ui.notify(f'Error checking Jupyter status: {str(e)}', type='negative')
+    
+    def check_initial_jupyter_status(self):
+        """Check for existing Jupyter Lab servers at startup (delayed to allow UI initialization)"""
+        def delayed_check():
+            try:
+                # Check for existing Jupyter Lab servers
+                existing_url = self.check_existing_jupyter_server()
+                if existing_url:
+                    self.jupyter_url = existing_url
+                    if self.jupyter_status_label:
+                        self.jupyter_status_label.text = 'Jupyter: Running (external)'
+                    self.update_status(f'Found existing Jupyter Lab server at startup')
+                    print(f"🔗 Found existing Jupyter Lab server: {existing_url}")
+                else:
+                    if self.jupyter_status_label:
+                        self.jupyter_status_label.text = 'Jupyter: Not Running'
+                    self.update_status('Welcome to NerlDesigner - No Jupyter Lab server detected')
+                    print("ℹ️  No existing Jupyter Lab server found")
+            except Exception as e:
+                print(f"⚠️  Error checking initial Jupyter status: {str(e)}")
+                if self.jupyter_status_label:
+                    self.jupyter_status_label.text = 'Jupyter: Unknown'
+                self.update_status(f'Error checking Jupyter status: {str(e)}')
+        
+        # Delay the check to allow UI initialization
+        ui.timer(1.0, delayed_check, once=True)
     
     def import_json_data(self, data: dict, filename: str, expected_type: str = None) -> bool:
         """Import JSON data into appropriate model"""
