@@ -214,7 +214,7 @@ class NerlDesigner:
                 
                 # Graph Visualization Tab
                 with ui.tab_panel(graph_tab).classes('p-0'):
-                    self.graph_visualizer = GraphVisualizer()
+                    self.graph_visualizer = GraphVisualizer(self.distributed_config_model)
                     self.graph_visualizer.create_ui()
                     
                 # Experiment Configuration Tab
