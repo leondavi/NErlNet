@@ -92,6 +92,7 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   ets:insert(EtsRef, {num_of_fed_servers, 0}), % Will stay 0 if non-federated
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM, NerlnetGraph),
   ets:insert(EtsRef, {my_router,{MyRouterHost,MyRouterPort}}),
+  ets:insert(EtsRef, {monitoring_workers_done_running, false}),
   clientWorkersFunctions:create_workers(MyName , EtsRef , ShaToModelArgsMap , EtsStats),
   %% send pre_idle signal to workers
   WorkersNames = clientWorkersFunctions:get_workers_names(EtsRef),
@@ -339,7 +340,7 @@ training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef
               {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
     false ->  MyPid = get(my_pid),
               start_monitor_workers_done(EtsRef, MyPid),
-              {keep_state, State}
+              {keep_state, State#client_statem_state{etsRef = EtsRef}}
   end;
 
 training(cast, _In = {predict}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
@@ -449,7 +450,9 @@ predict(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef 
               stats:increment_time_predict_total(ClientPerformanceEts, Elapsed),
               stats:update_cpu_util_per_core(ClientPerformanceEts, predict), % Update CPU utilization for predict phase
               {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
-    false ->  gen_statem:cast(get(my_pid) , {idle}), % Trigger this action until all workers are done
+    false ->  
+              MyPid = get(my_pid),
+              start_monitor_workers_done(EtsRef, MyPid), % ← Pass EtsRef
               {keep_state, State}
   end;
 
@@ -526,22 +529,23 @@ send_client_is_ready(MyName) ->
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(clientReady), MyName).
 
 
-query_monitor_workers_done_status() ->
-  case get(monitoring_workers_done_running) of
-    undefined -> false;
-    Status -> Status
+%% Check if monitor is running using ETS instead of process dictionary
+query_monitor_workers_done_status(EtsRef) ->
+  case ets:lookup(EtsRef, monitoring_workers_done_running) of
+    [] -> false;
+    [{monitoring_workers_done_running, Status}] -> Status
   end.
 
 
 %% This function spawns a process that monitors when all workers are done
 %% and then triggers the statem to send idle message to all workers
 start_monitor_workers_done(EtsRef, ClientPid) ->
-  MonitorStatus = query_monitor_workers_done_status(),
+  MonitorStatus = query_monitor_workers_done_status(EtsRef),
   case MonitorStatus of
     true -> ok; % already running
     false ->
-      % update registery that monitor is running
-      put(monitoring_workers_done_running, true),
+      % Update ETS that monitor is running
+      ets:insert(EtsRef, {monitoring_workers_done_running, true}),
       spawn(fun() -> monitor_workers_done(EtsRef, ClientPid) end)
   end.
 
@@ -549,9 +553,13 @@ start_monitor_workers_done(EtsRef, ClientPid) ->
 monitor_workers_done(EtsRef, ClientPid) ->
   WorkersDone = ets:lookup_element(EtsRef, all_workers_done, ?DATA_IDX),
   case WorkersDone of
-    true -> gen_statem:cast(ClientPid, {idle}),
-           put(monitoring_workers_done_running, false); % update registery that monitor is not running
-    false -> timer:sleep(10), monitor_workers_done(EtsRef, ClientPid)
+    true -> 
+      gen_statem:cast(ClientPid, {idle}),
+      % Update ETS that monitor is not running
+      ets:insert(EtsRef, {monitoring_workers_done_running, false});
+    false -> 
+      timer:sleep(10), 
+      monitor_workers_done(EtsRef, ClientPid)
   end.
 
 cast_message_to_workers(EtsRef, Msg) ->
