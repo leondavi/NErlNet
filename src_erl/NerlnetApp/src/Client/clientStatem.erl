@@ -337,8 +337,8 @@ training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef
               stats:increment_time_train_total(ClientPerformanceEts, Elapsed),
               stats:update_cpu_util_per_core(ClientPerformanceEts, train), % Update CPU utilization for training phase
               {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
-    false ->  MyPid = get(my_pid), 
-              spawn(fun() -> timer:sleep(10), gen_statem:cast(MyPid, {idle}) end), % Trigger this action until all workers are done
+    false ->  MyPid = get(my_pid),
+              start_monitor_workers_done(EtsRef, MyPid),
               {keep_state, State}
   end;
 
@@ -524,6 +524,35 @@ send_client_is_ready(MyName) ->
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   %%  send an ACK to mainserver that the client is ready
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(clientReady), MyName).
+
+
+query_monitor_workers_done_status() ->
+  case get(monitoring_workers_done_running) of
+    undefined -> false;
+    Status -> Status
+  end.
+
+
+%% This function spawns a process that monitors when all workers are done
+%% and then triggers the statem to send idle message to all workers
+start_monitor_workers_done(EtsRef, ClientPid) ->
+  MonitorStatus = query_monitor_workers_done_status(),
+  case MonitorStatus of
+    true -> ok; % already running
+    false ->
+      % update registery that monitor is running
+      put(monitoring_workers_done_running, true),
+      spawn(fun() -> monitor_workers_done(EtsRef, ClientPid) end)
+  end.
+
+%% Sends idle to all workers when all are done
+monitor_workers_done(EtsRef, ClientPid) ->
+  WorkersDone = ets:lookup_element(EtsRef, all_workers_done, ?DATA_IDX),
+  case WorkersDone of
+    true -> gen_statem:cast(ClientPid, {idle}),
+           put(monitoring_workers_done_running, false); % update registery that monitor is not running
+    false -> timer:sleep(10), monitor_workers_done(EtsRef, ClientPid)
+  end.
 
 cast_message_to_workers(EtsRef, Msg) ->
   ClientStatsEts = get(client_stats_ets),
