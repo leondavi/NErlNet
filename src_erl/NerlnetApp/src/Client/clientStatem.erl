@@ -339,7 +339,7 @@ training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef
               {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
     false ->  MyPid = get(my_pid),
               start_monitor_workers_done(EtsRef, MyPid),
-              {keep_state, State}
+              {keep_state, State#client_statem_state{etsRef = EtsRef}}
   end;
 
 training(cast, _In = {predict}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
