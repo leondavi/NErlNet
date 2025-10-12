@@ -1,6 +1,6 @@
 {
     "nerlnetSettings": {
-        "frequency": "100",
+        "frequency": "2",
         "batchSize": "25"
     },
     "mainServer": {
@@ -15,18 +15,29 @@
         {
             "name": "NerlControllerG",
             "ipv4": "172.31.91.176",
-            "entities": "mainServer,apiServer,r1"
+            "entities": "mainServer,r1"
         },
         {
             "name": "NerlControllerD",
             "ipv4": "172.31.93.88",
-            "entities": "s1,r2,r3"
+            "entities": "s1,r2,apiServer"
         },
         {
             "name": "Nerl-Powerful",
             "ipv4": "172.31.44.250",
-            "entities": "c1,r4"
+            "entities": "c1"
+        },
+        {
+            "name": "Nerlnet-2Cores-0",
+            "ipv4": "172.31.84.94",
+            "entities": "s2,r3"
+        },
+                {
+            "name": "Nerlnet-2Cores-1",
+            "ipv4": "172.31.88.217",
+            "entities": "s3,s4,r4"
         }
+
     ],
     "routers": [
         {
@@ -54,9 +65,33 @@
         {
             "name": "s1",
             "port": "8086",
-            "frequency": "25",
+            "frequency": "2",
             "policy": "0",
-            "epochs": "4",
+            "epochs": "10",
+            "type": "0"
+        },
+                {
+            "name": "s2",
+            "port": "8086",
+            "frequency": "2",
+            "policy": "0",
+            "epochs": "10",
+            "type": "0"
+        },
+                {
+            "name": "s3",
+            "port": "8086",
+            "frequency": "2",
+            "policy": "0",
+            "epochs": "10",
+            "type": "0"
+        },
+                {
+            "name": "s4",
+            "port": "8087",
+            "frequency": "2",
+            "policy": "0",
+            "epochs": "10",
             "type": "0"
         }
     ],
@@ -79,11 +114,11 @@
             "_doc_modelType": " nn:0 | approximation:1 | classification:2 | forecasting:3 | image_classification:4 | text_classification:5 | text_generation:6 | auto_association:7 | autoencoder:8 | ae_classifier:9 |",
             "modelArgs": "",
             "_doc_modelArgs": "Extra arguments to model",
-            "layersSizes": "28x28x1k5x5x1x6p0s1t1,28x28x6k2x2p0s2,14x14x6k4x4x6x12p0s1t0,1,32,10",
+            "layersSizes": "28x28x1k5x5x1x6p0s1t1,28x28x6k2x2p0s2,14x14x6k4x4x6x12p0s1t0,1,64,32,10",
             "_doc_layersSizes": "List of postive integers [L0, L1, ..., LN]",
-            "layerTypesList": "2,4,2,9,3,5",
+            "layerTypesList": "2,4,2,9,3,3,3",
             "_doc_LayerTypes": " Default:0 | Scaling:1 | Conv:2 | Perceptron:3 | Pooling:4 | Probabilistic:5 | LSTM:6 | Reccurrent:7 | Unscaling:8 | Flatten:9 | Bounding:10 |",
-            "layers_functions": "6,2,6,1,6,4",
+            "layers_functions": "6,2,6,1,6,6,11",
             "_doc_layers_functions_activation": " Threshold:1 | Sign:2 | Logistic:3 | Tanh:4 | Linear:5 | ReLU:6 | eLU:7 | SeLU:8 | Soft-plus:9 | Soft-sign:10 | Hard-sigmoid:11 |",
             "_doc_layer_functions_pooling": " none:1 | Max:2 | Avg:3 |",
             "_doc_layer_functions_probabilistic": " Binary:1 | Logistic:2 | Competitive:3 | Softmax:4 |",
@@ -91,7 +126,7 @@
             "lossMethod": "2",
             "lossArgs": "",
             "_doc_lossMethod": " SSE:1 | MSE:2 | NSE:3 | MinkowskiE:4 | WSE:5 | CEE:6 |",
-            "lr": "0.01",
+            "lr": "0.001",
             "_doc_lr": "Positve float",
             "epochs": "1",
             "_doc_epochs": "Positve Integer",
