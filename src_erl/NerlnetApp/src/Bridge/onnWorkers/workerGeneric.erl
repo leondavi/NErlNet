@@ -58,8 +58,6 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   put(generic_worker_ets, GenWorkerEts),
   put(client_pid, ClientPid),
   put(worker_stats_ets , WorkerStatsEts),
-  SourceBatchesEts = ets:new(source_batches,[set]),
-  put(source_batches_ets, SourceBatchesEts),
   ets:insert(GenWorkerEts,{client_pid, ClientPid}),
   ets:insert(GenWorkerEts,{w2wcom_pid, W2WPid}),
   ets:insert(GenWorkerEts,{worker_name, WorkerName}),
@@ -229,6 +227,7 @@ wait(cast, {idle}, State= #workerGeneric_state{myName = MyName, distributedBehav
   % io:format("@wait: Got idle message, next state - idle~n"),
   DistributedBehaviorFunc(pre_idle, {get(generic_worker_ets), train}),
   update_client_avilable_worker(MyName),
+  erlang:garbage_collect(), % free memory when phase is changed to idle
   {next_state, idle, State#workerGeneric_state{nextState = idle}};
 
 wait(cast, {training}, State) ->
@@ -297,6 +296,7 @@ train(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = _My
 train(cast, {idle}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   update_client_avilable_worker(MyName),
   DistributedBehaviorFunc(pre_idle, {get(generic_worker_ets), train}),
+  erlang:garbage_collect(), % free memory when phase is changed to idle
   {next_state, idle, State};
 
 train(cast, Data, State = #workerGeneric_state{myName = _MyName}) ->
@@ -332,6 +332,7 @@ predict(cast, {end_stream , SourceName}, State = #workerGeneric_state{myName = _
 predict(cast, {idle}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   update_client_avilable_worker(MyName),
   DistributedBehaviorFunc(pre_idle, {get(generic_worker_ets), predict}),
+  erlang:garbage_collect(), % free memory when phase is changed to idle
   {next_state, idle, State};
 
 predict(cast, Data, State) ->
