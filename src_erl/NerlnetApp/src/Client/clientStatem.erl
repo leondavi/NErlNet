@@ -185,10 +185,13 @@ idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, et
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatsBody),
   stats:increment_messages_sent(ClientStatsEts),
+
+  erlang:garbage_collect(), % free memory when phase is changed to idle
   {next_state, idle, State};
 
 % Main Server triggers this state
 idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
+  erlang:garbage_collect(), % free memory when phase is changed to training
   ClientStatsEts = get(client_stats_ets),
   PerformanceStatsEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -203,6 +206,7 @@ idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRe
   {next_state, waitforWorkers, State#client_statem_state{waitforWorkers =  clientWorkersFunctions:get_workers_names(EtsRef), nextState = training}};
 
 idle(cast, In = {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
+  erlang:garbage_collect(), % free memory when phase is changed to predict
   ClientStatsEts = get(client_stats_ets),
   PerformanceStatsEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
