@@ -62,6 +62,7 @@ start_train_negotiator(ModelID, WorkerPid) ->
 stop_train_negotiator() ->
       TrainNegotiatorPID = get(nerlnif_train_negotiator_pid),
       TrainNegotiatorPID ! {nerlnif_stop_train},
+      put(nerlnif_train_negotiator_pid, undefined),
       ok.
 
 train_negotiator(ModelID, WorkerPid, BatchID, SourceName) ->
@@ -74,10 +75,10 @@ train_negotiator(ModelID, WorkerPid, BatchID, SourceName) ->
                   gen_statem:cast(WorkerPid,{loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}), train_negotiator(ModelID, WorkerPid, BatchID, SourceName);
             {nerlnif_stop_train} ->
                   ok
-            after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
-                  ?LOG_ERROR("Worker train timeout reached! bid:~p s:~p",[BatchID , SourceName]),
-                  gen_statem:cast(WorkerPid,{loss, timeout , BatchID , SourceName}),
-                  train_negotiator(ModelID, WorkerPid, BatchID, SourceName)
+            % after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
+            %       ?LOG_ERROR("Worker train timeout reached! bid:~p s:~p",[BatchID , SourceName]),
+            %       gen_statem:cast(WorkerPid,{loss, timeout , BatchID , SourceName}),
+            %       train_negotiator(ModelID, WorkerPid, BatchID, SourceName)
       end.
 
 call_to_train(ModelID, {DataTensor, Type} , BatchID , SourceName) ->
@@ -96,6 +97,7 @@ start_predict_negotiator(ModelID, WorkerPid) ->
 stop_predict_negotiator() ->
       PredictNegotiatorPID = get(nerlnif_predict_negotiator_pid),
       PredictNegotiatorPID ! {nerlnif_stop_predict},
+      put(nerlnif_predict_negotiator_pid, undefined),
       ok.
 
 predict_negotiator(ModelID, WorkerPid, BatchID, SourceName) ->
@@ -108,11 +110,11 @@ predict_negotiator(ModelID, WorkerPid, BatchID, SourceName) ->
                   predict_negotiator(ModelID, WorkerPid, BatchID, SourceName); 
             {nerlnif_stop_predict} ->
                   ok
-            after ?PREDICT_TIMEOUT ->
-                  % worker miss predict batch  TODO - inspect this code
-                  ?LOG_ERROR("Worker prediction timeout reached! ~n "),
-                  gen_statem:cast(WorkerPid,{predictRes, nan, BatchID , SourceName}),
-                  predict_negotiator(ModelID, WorkerPid, BatchID, SourceName)
+            % after ?PREDICT_TIMEOUT ->
+            %       % worker miss predict batch  TODO - inspect this code
+            %       ?LOG_ERROR("Worker prediction timeout reached! ~n "),
+            %       gen_statem:cast(WorkerPid,{predictRes, timeout, BatchID , SourceName}),
+            %       predict_negotiator(ModelID, WorkerPid, BatchID, SourceName)
       end.
 
 call_to_predict(ModelID, {BatchTensor, Type} , BatchID , SourceName)-> 

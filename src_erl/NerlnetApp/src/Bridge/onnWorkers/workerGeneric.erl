@@ -140,11 +140,6 @@ terminate(_Reason, _StateName, _State) ->
   % stop negotiators
   nerlNIF:stop_train_negotiator(),
   nerlNIF:stop_predict_negotiator(),
-  % free nif resources
-  ModelID = get(model_id),
-  nerlNIF:free_nerlworker_nif(ModelID),
-  % delete ets table
-  ets:delete(get(generic_worker_ets)),
   ok.
 
 %% @private
