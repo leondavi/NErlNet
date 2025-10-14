@@ -83,7 +83,6 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{end_streams_waiting_list, []}), % Waiting list of messages from client to end_stream with source
   % Worker to Worker communication module - this is a gen_server
 
-
   Res = nerlNIF:new_nerlworker_nif(ModelID , ModelType, ModelArgs, LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType,
                                 OptimizerArgs, LossMethod , LossArgs, DistributedSystemType , DistributedSystemArgs),
   DistributedBehaviorFunc(init,{GenWorkerEts, DistributedWorkerData}),
@@ -95,6 +94,10 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
             exit(nif_failed_to_create)
   end,
   DistributedBehaviorFunc(pre_idle,{GenWorkerEts, DistributedWorkerData}),
+  %% Starting negotiators processes for train and predict
+  WorkerPid = self(),
+  nerlNIF:start_train_negotiator(ModelID, WorkerPid),
+  nerlNIF:start_predict_negotiator(ModelID, WorkerPid),
   {ok, idle, #workerGeneric_state{myName = WorkerName , modelID = ModelID , distributedBehaviorFunc = DistributedBehaviorFunc , distributedWorkerData = DistributedWorkerData, postBatchFunc = ?EMPTY_FUNC}}.
 
 %% @private
@@ -134,6 +137,14 @@ handle_event(_EventType, _EventContent, _StateName, State = #workerGeneric_state
 %% necessary cleaning up. When it returns, the gen_statem terminates with
 %% Reason. The return value is ignored.
 terminate(_Reason, _StateName, _State) ->
+  % stop negotiators
+  nerlNIF:stop_train_negotiator(),
+  nerlNIF:stop_predict_negotiator(),
+  % free nif resources
+  ModelID = get(model_id),
+  nerlNIF:free_nerlworker_nif(ModelID),
+  % delete ets table
+  ets:delete(get(generic_worker_ets)),
   ok.
 
 %% @private
@@ -275,11 +286,10 @@ train(cast, {sample, BatchID ,{<<>>, _Type}}, State) ->
 %% Change SampleListTrain to NerlTensor
 train(cast, {sample, SourceName ,BatchID ,{NerlTensorOfSamples, NerlTensorType}}, State = #workerGeneric_state{modelID = ModelId, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData, myName = _MyName}) ->
     % NerlTensor = nerltensor_conversion({NerlTensorOfSamples, Type}, erl_float),
-    MyPid = self(),
     DistributedBehaviorFunc(pre_train, {get(generic_worker_ets),DistributedWorkerData}), % Here the model can be updated by the federated server
     WorkersStatsEts = get(worker_stats_ets),
     stats:increment_by_value(WorkersStatsEts , batches_received_train , 1),
-    _Pid = spawn(fun()-> nerlNIF:call_to_train(ModelId , {NerlTensorOfSamples, NerlTensorType} ,MyPid , BatchID , SourceName) end),
+    nerlNIF:call_to_train(ModelId , {NerlTensorOfSamples, NerlTensorType} , BatchID , SourceName),
     {next_state, wait, State#workerGeneric_state{nextState = train, currentBatchID = BatchID}};
   
 %% TODO: implement send model and weights by demand (Tensor / XML)
@@ -322,11 +332,10 @@ predict(cast, {sample,_CSVname, BatchID, {<<>>, _Type}}, State) ->
 
 % send predict sample to worker
 predict(cast, {sample , SourceName , BatchID , {PredictBatchTensor, Type}}, State = #workerGeneric_state{modelID = ModelId, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
-    CurrPID = self(),
     DistributedBehaviorFunc(pre_predict, {get(generic_worker_ets),DistributedWorkerData}),
     WorkersStatsEts = get(worker_stats_ets),
     stats:increment_by_value(WorkersStatsEts , batches_received_predict , 1),
-    _Pid = spawn(fun()-> nerlNIF:call_to_predict(ModelId , {PredictBatchTensor, Type} , CurrPID , BatchID, SourceName) end),
+    nerlNIF:call_to_predict(ModelId , {PredictBatchTensor, Type} , BatchID, SourceName),
     {next_state, wait, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}};
 
 predict(cast, {start_stream , SourceName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
