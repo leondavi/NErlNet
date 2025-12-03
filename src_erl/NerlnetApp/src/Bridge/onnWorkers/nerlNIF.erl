@@ -2,12 +2,11 @@
 -include_lib("kernel/include/logger.hrl").
 -include("../nerlTensor.hrl").
 
--export([init/0,nif_preload/0,get_active_models_ids_list/0, train_nif/3,update_nerlworker_train_params_nif/6,call_to_train/5,predict_nif/3,call_to_predict/5,get_weights_nif/1,printTensor/2]).
+-export([init/0,nif_preload/0,get_active_models_ids_list/0, train_nif/3,update_nerlworker_train_params_nif/6,call_to_train/4,predict_nif/3,call_to_predict/4,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
 -export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
 -export([erl_type_conversion/1]).
-
 -import(nerl,[even/1, odd/1, string_format/2]).
 
 -on_load(init/0).
@@ -21,6 +20,11 @@
 
 % nerlworker nif methods
 -export([new_nerlworker_nif/14, remove_nerlworker_nif/1, test_nerlworker_nif/14,get_distributed_system_train_labels_count_nif/1]).
+
+% negotiators for train and predict
+-export([start_train_negotiator/2, stop_train_negotiator/0, start_predict_negotiator/2, stop_predict_negotiator/0]).
+-export([train_negotiator/4, predict_negotiator/4]).
+
 
 init() ->
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
@@ -47,43 +51,83 @@ train_nif(_ModelID,_DataTensor,_Type) ->
 update_nerlworker_train_params_nif(_ModelID,_LearningRate,_Epochs,_OptimizerType,_OptimizerArgs,_LossMethod) ->
       exit(nif_library_not_loaded).
 
-call_to_train(ModelID, {DataTensor, Type}, WorkerPid , BatchID , SourceName)-> 
-      ok = train_nif(ModelID, DataTensor, Type),
+
+% Train Negotiator process - to handle train requests without spawning for each batch
+% This process is spawned once per phase by the worker statem
+% ModelID - the model to use for training
+% WorkerPid - the pid of the worker statem to send back the results
+start_train_negotiator(ModelID, WorkerPid) ->
+      put(nerlnif_train_negotiator_pid, spawn(fun() -> nerlNIF:train_negotiator(ModelID, WorkerPid, none, none) end)).
+
+stop_train_negotiator() ->
+      TrainNegotiatorPID = get(nerlnif_train_negotiator_pid),
+      TrainNegotiatorPID ! {nerlnif_stop_train},
+      put(nerlnif_train_negotiator_pid, undefined),
+      ok.
+
+train_negotiator(ModelID, WorkerPid, BatchID, SourceName) ->
       receive
+            {start_train , CurrentSourceName, CurrentBatchID, ModelID, DataTensor, Type} ->
+                  ok = train_nif(ModelID, DataTensor, Type), train_negotiator(ModelID, WorkerPid, CurrentBatchID, CurrentSourceName);
             {nerlnif, nan, TrainTime} -> 
-                  gen_statem:cast(WorkerPid,{loss, nan , TrainTime , BatchID , SourceName}); %TODO Guy - Please the behavior when this case happens
+                  gen_statem:cast(WorkerPid,{loss, nan , TrainTime , BatchID , SourceName}), train_negotiator(ModelID, WorkerPid, BatchID, SourceName);
             {nerlnif , LossTensor, LossTensorType , TrainTime}-> % TrainTime is in microseconds
-                  gen_statem:cast(WorkerPid,{loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName})
-            after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
-                  ?LOG_ERROR("Worker train timeout reached! bid:~p s:~p",[BatchID , SourceName]),
-                  gen_statem:cast(WorkerPid,{loss, timeout , SourceName}) %% TODO Guy Define train timeout state 
+                  gen_statem:cast(WorkerPid,{loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}), train_negotiator(ModelID, WorkerPid, BatchID, SourceName);
+            {nerlnif_stop_train} ->
+                  ok
+            % after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
+            %       ?LOG_ERROR("Worker train timeout reached! bid:~p s:~p",[BatchID , SourceName]),
+            %       gen_statem:cast(WorkerPid,{loss, timeout , BatchID , SourceName}),
+            %       train_negotiator(ModelID, WorkerPid, BatchID, SourceName)
       end.
+
+call_to_train(ModelID, {DataTensor, Type} , BatchID , SourceName) ->
+      TrainNegotiatorPID = get(nerlnif_train_negotiator_pid),
+      % send the batch to the nif for training
+      TrainNegotiatorPID ! {start_train , SourceName, BatchID, ModelID, DataTensor, Type},
+      ok.
+
+% Predict Negotiator process - to handle predict requests without spawning for each batch
+% This process is spawned once per phase by the worker statem
+% ModelID - the model to use for prediction
+% WorkerPid - the pid of the worker statem to send back the results
+start_predict_negotiator(ModelID, WorkerPid) ->
+      put(nerlnif_predict_negotiator_pid, spawn(fun() -> nerlNIF:predict_negotiator(ModelID, WorkerPid, none, none) end)).
+
+stop_predict_negotiator() ->
+      PredictNegotiatorPID = get(nerlnif_predict_negotiator_pid),
+      PredictNegotiatorPID ! {nerlnif_stop_predict},
+      put(nerlnif_predict_negotiator_pid, undefined),
+      ok.
+
+predict_negotiator(ModelID, WorkerPid, BatchID, SourceName) ->
+      receive
+            {start_predict, CurrentSourceName, CurrentBatchID, ModelID, DataTensor, Type} ->
+                  ok = predict_nif(ModelID, DataTensor, Type),
+                  predict_negotiator(ModelID, WorkerPid, CurrentBatchID, CurrentSourceName); % here we update the current batch id and source name
+            {nerlnif , PredNerlTensor, PredNerlTensorType, TimeNif}-> %% nerlnif atom means a message from the nif implementation
+                  gen_statem:cast(WorkerPid,{predictRes,PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , SourceName}), % here we use the already updated batch id and source name
+                  predict_negotiator(ModelID, WorkerPid, BatchID, SourceName); 
+            {nerlnif_stop_predict} ->
+                  ok
+            % after ?PREDICT_TIMEOUT ->
+            %       % worker miss predict batch  TODO - inspect this code
+            %       ?LOG_ERROR("Worker prediction timeout reached! ~n "),
+            %       gen_statem:cast(WorkerPid,{predictRes, timeout, BatchID , SourceName}),
+            %       predict_negotiator(ModelID, WorkerPid, BatchID, SourceName)
+      end.
+
+call_to_predict(ModelID, {BatchTensor, Type} , BatchID , SourceName)-> 
+      PredictNegotiatorPID = get(nerlnif_predict_negotiator_pid),
+      % send the batch to the nif for prediction
+      PredictNegotiatorPID ! {start_predict, SourceName, BatchID, ModelID, BatchTensor, Type},
+      ok.
 
 save_to_file([]) -> 
       file:write_file("/tmp/nerlnet/predict_error.csv", io_lib:fwrite("~n", []), [append]);
 save_to_file(List) ->
       file:write_file("/tmp/nerlnet/predict_error.csv", io_lib:fwrite("~p,", [hd(List)]), [append]),
       save_to_file(tl(List)).
-
-call_to_predict(ModelID, {BatchTensor, Type}, WorkerPid, BatchID , SourceName)->
-      ok = predict_nif(ModelID, BatchTensor, Type),
-      receive
-            
-            {nerlnif , PredNerlTensor, PredNerlTensorType, TimeNif}-> %% nerlnif atom means a message from the nif implementation
-                  % {Tensor, _} = nerlNIF:nerltensor_conversion({PredNerlTensor, PredNerlTensorType}, erl_float),
-                  % save_to_file([BatchID | Tensor]),
-                  % io:format("pred_nif done~n"),
-                  % {PredTen, _NewType} = nerltensor_conversion({PredNerlTensor, NewType}, erl_float),
-                  % io:format("Pred returned: ~p~n", [PredNerlTensor]),
-                  gen_statem:cast(WorkerPid,{predictRes,PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , SourceName});
-            Error ->
-                  ?LOG_ERROR("received wrong prediction_nif format: ~p" ,[Error]),
-                  throw("received wrong prediction_nif format")
-            after ?PREDICT_TIMEOUT -> 
-                 % worker miss predict batch  TODO - inspect this code
-                  ?LOG_ERROR("Worker prediction timeout reached! ~n "),
-                  gen_statem:cast(WorkerPid,{predictRes, nan, BatchID , SourceName})
-      end.
 
 % This function calls to get_weights_nif() and waits for the result using receive block
 % Returns {NerlTensorWeights , BinaryType} 

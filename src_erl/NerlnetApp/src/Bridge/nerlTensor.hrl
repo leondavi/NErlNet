@@ -4,8 +4,8 @@
 
 -define(NUMOF_DIMS,3).
 % nif return timeouts
--define(PREDICT_TIMEOUT,60000). % 60 seconds limit for prediction results
--define(TRAIN_TIMEOUT,60000). % 60 seconds limit for prediction results
+-define(PREDICT_TIMEOUT,6000000). % 600 seconds limit for prediction results
+-define(TRAIN_TIMEOUT,6000000). % 600 seconds limit for training results
 
 %% nerlNIF defines
 -define(NERLNET_LIB,"libnerlnet_onn").

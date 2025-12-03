@@ -25,7 +25,9 @@ parseCSV(SourceName, BatchSize, NerlTensorType, CSVData)->
   ErlType = nerlNIF:erl_type_conversion(list_to_atom(NerlTensorType)),
   put(erl_tensor_type, ErlType),
   try
-    parse_file(SourceName, BatchSize, NerlTensorType, ErlType, CSVData) %% change so read data only when sending (currently loading all data)
+    Res = parse_file(SourceName, BatchSize, NerlTensorType, ErlType, CSVData), %% change so read data only when sending (currently loading all data)
+    erlang:garbage_collect(), % free memory after parsing due to large data processing
+    Res
   catch
     {error,Er} ->
       nerl_tools:setup_logger(?MODULE),
