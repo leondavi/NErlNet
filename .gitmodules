@@ -10,3 +10,6 @@
 [submodule "nifpp"]
 	path = src_cpp/nifpp
 	url = https://github.com/goertzenator/nifpp.git
+[submodule "src_cpp/SynapNIF"]
+	path = src_cpp/SynapNIF
+	url = https://github.com/leondavi/SynapNIF
