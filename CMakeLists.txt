@@ -17,6 +17,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 # Options
 option(NERLWOLF "Use Wolfram Engine workers extension" OFF)
 option(NERLTORCH "use libtorch installed to /usr/local/lib/libtorch" OFF)
+option(NERLSYNAPNIF "Enable SynapNIF torch/onnx bridges" OFF)
 option(USE_OpenMP "Use-OpenMP" ON)
 
 #add_compile_definitions(EIGEN_MAX_ALIGN_BYTES=8) #Open this line for RASPI
