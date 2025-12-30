@@ -180,6 +180,8 @@ run_predict_cycles(ModelId, [{BatchBinary, BatchType} | Rest], CycleIdx) ->
 build_train_params(ModelPath, LearningRate, Epochs, OptimizerType, LossMethod, OptimizerArgs, LayersSizes, LayersTypes) ->
       OptimizerName = optimizer_code_to_name(OptimizerType, OptimizerArgs),
       {InputShape, LabelShape} = derive_shape_metadata(LayersSizes, LayersTypes),
+      InputShapeStr = shape_list_to_string(InputShape),
+      LabelShapeStr = shape_list_to_string(LabelShape),
       #{
             "model_path" => ModelPath,
             "model_format" => "torchscript",
@@ -191,8 +193,8 @@ build_train_params(ModelPath, LearningRate, Epochs, OptimizerType, LossMethod, O
             "optimizer" => OptimizerName,
             "optim" => OptimizerName,
             "loss" => LossMethod,
-            "input_tensor_shape" => InputShape,
-            "labels_shape" => LabelShape,
+            "input_tensor_shape" => InputShapeStr,
+            "labels_shape" => LabelShapeStr,
             "labels_offset" => "default"
        }.
 
@@ -281,6 +283,10 @@ derive_shape_metadata(LayersSizes, LayersTypes) ->
                   {LastLayerSizeInt, _} = string:to_integer(LastLayerSize),
                   {[BatchSize, FirstLayerSizeInt], [BatchSize, LastLayerSizeInt]}
       end.
+
+shape_list_to_string(ShapeList) ->
+      Strings = [integer_to_list(Dim) || Dim <- ShapeList],
+      "[" ++ string:join(Strings, ",") ++ "]".
 
 await_worker_lifecycle([]) -> ok;
 await_worker_lifecycle(Pending) ->
