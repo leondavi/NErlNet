@@ -34,6 +34,12 @@ jobs:
         run: |
           ./tests/NerlnetSourceNifTest.sh
         timeout-minutes: 15
+      - name: Torch NIF unit tests
+        id: torchnif
+        if: steps.nif.outcome == 'success'
+        run: |
+          ./tests/NerlnetNIFTorchTest.sh
+        timeout-minutes: 15
       - name: Run FullFlow test
         id: fullflow
         if: steps.nif.outcome == 'success'
