@@ -141,7 +141,7 @@ setup_and_teardown_worker({ModelId,ModelType,ModelArgs,LayersSizes, LayersTypes,
                            LossMethod, DistributedSystemType, DistributedSystemArg}) ->
       DistributedArgs = DistributedSystemArg,
       ResolvedModelArgs = resolve_model_args(ModelArgs),
-      TrainParams = build_train_params(ResolvedModelArgs, LearningRate, Epochs, OptimizerType, LossMethod, OptimizerArgs),
+      TrainParams = build_train_params(ResolvedModelArgs, LearningRate, Epochs, OptimizerType, LossMethod, OptimizerArgs, LayersSizes, LayersTypes),
       ensure_train_params_cover_required_keys(ModelId, TrainParams),
       ok = ensure_worker_created(ModelId, DistributedSystemType, DistributedArgs, TrainParams),
       exercise_worker_train_predict(ModelId, ModelType, LayersSizes, LayersTypes),
@@ -177,8 +177,9 @@ run_predict_cycles(ModelId, [{BatchBinary, BatchType} | Rest], CycleIdx) ->
       nerltest_print(nerl:string_format("Predict cycle #~p completed", [CycleIdx])),
       run_predict_cycles(ModelId, Rest, CycleIdx + 1).
 
-build_train_params(ModelPath, LearningRate, Epochs, OptimizerType, LossMethod, OptimizerArgs) ->
+build_train_params(ModelPath, LearningRate, Epochs, OptimizerType, LossMethod, OptimizerArgs, LayersSizes, LayersTypes) ->
       OptimizerName = optimizer_code_to_name(OptimizerType, OptimizerArgs),
+      {InputShape, LabelShape} = derive_shape_metadata(LayersSizes, LayersTypes),
       #{
             "model_path" => ModelPath,
             "model_format" => "torchscript",
@@ -189,11 +190,14 @@ build_train_params(ModelPath, LearningRate, Epochs, OptimizerType, LossMethod, O
             "epochs" => Epochs,
             "optimizer" => OptimizerName,
             "optim" => OptimizerName,
-            "loss" => LossMethod
+            "loss" => LossMethod,
+            "input_tensor_shape" => InputShape,
+            "labels_shape" => LabelShape,
+            "labels_offset" => "default"
        }.
 
 nerlTorch_training_params_integrity_test() ->
-      SampleParams = build_train_params("/tmp/model.pt", "0.1", "10", "2", "mse", undefined),
+      SampleParams = build_train_params("/tmp/model.pt", "0.1", "10", "2", "mse", undefined, "5,3", "1,3"),
       ensure_train_params_cover_required_keys(sample_model_id, SampleParams),
       nerltest_print("Verified Torch training parameter coverage").
 
@@ -234,7 +238,7 @@ nerlTorch_concurrent_train_predict_test() ->
 
 default_train_params() ->
       ResolvedModelPath = resolve_model_args(?TORCH_TEST_MODEL_PERCEPTRON_RELATIVE_PATH),
-      build_train_params(ResolvedModelPath, "0.01", "5", "2", "2", "").
+      build_train_params(ResolvedModelPath, "0.01", "5", "2", "2", "", "5,30,5,3", "1,3,3,3").
 
 run_worker_creation_case(#{label := Label, params := Params, expect := Expect}) ->
       ModelId = erlang:unique_integer([positive]),
@@ -256,6 +260,26 @@ run_worker_lifecycle(Model, Parent) ->
             Parent ! {worker_lifecycle_done, self(), ok}
       catch
             Class:Reason:Stack -> Parent ! {worker_lifecycle_done, self(), {error, {Class, Reason, Stack}}}
+      end.
+
+derive_shape_metadata(LayersSizes, LayersTypes) ->
+      [FirstLayerSize | LayerSizesList] = re:split(LayersSizes, ",", [{return, list}]),
+      [LastLayerSize | _] = lists:reverse(LayerSizesList),
+      [FirstLayerType | _] = re:split(LayersTypes, ",", [{return, list}]),
+      BatchSize = ?NERLWORKER_TEST_NUM_SAMPLES,
+      case FirstLayerType of
+            ?LAYERS_TYPE_CONV_IDX ->
+                  [DimXComplex, DimYComplex, DimZComplex | _] = re:split(FirstLayerSize, "x", [{return, list}]),
+                  {DimXComplexInt, _} = string:to_integer(DimXComplex),
+                  {DimYComplexInt, _} = string:to_integer(DimYComplex),
+                  {DimZComplexInt, _} = string:to_integer(DimZComplex),
+                  {LastLayerSizeInt, _} = string:to_integer(LastLayerSize),
+                  InputFeatures = DimXComplexInt * DimYComplexInt * DimZComplexInt,
+                  {[BatchSize, InputFeatures], [BatchSize, LastLayerSizeInt]};
+            _ ->
+                  {FirstLayerSizeInt, _} = string:to_integer(FirstLayerSize),
+                  {LastLayerSizeInt, _} = string:to_integer(LastLayerSize),
+                  {[BatchSize, FirstLayerSizeInt], [BatchSize, LastLayerSizeInt]}
       end.
 
 await_worker_lifecycle([]) -> ok;
