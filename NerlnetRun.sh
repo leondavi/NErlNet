@@ -67,7 +67,9 @@ function init()
         export LD_PRELOAD=/usr/lib/arm-linux-gnueabihf/libatomic.so.1.2.0 
     fi
 
-	pkill beam.smp
+	if [ "$_arg_beam_kill" = "on" ]; then
+		pkill beam.smp
+	fi
 }
 
 function status()
@@ -137,7 +139,7 @@ die()
 # This is required in order to support getopts-like short options grouping.
 begins_with_short_option()
 {
-	local first_option all_short_options='rch'
+	local first_option all_short_options='rkch'
 	first_option="${1:0:1}"
 	test "$all_short_options" = "${all_short_options/$first_option/}" && return 1 || return 0
 }
@@ -145,6 +147,7 @@ begins_with_short_option()
 # THE DEFAULTS INITIALIZATION - OPTIONALS
 _arg_run_mode="shell"
 _arg_clear="off"
+_arg_beam_kill="off"
 
 
 # Function that prints general usage of the script.
@@ -154,9 +157,10 @@ print_help()
 {
 	printf '%s\n' "NerlnetRun.sh script runs NerlnetApp on device"
     printf '%s\n' "NerlnetInstall.sh and NerlnetBuild.sh must be performed before this script!"
-	printf 'Usage: %s [-r|--run-mode <arg>] [-c|--(no-)clear] [-h|--help]\n' "$0"
+	printf 'Usage: %s [-r|--run-mode <arg>] [-c|--(no-)clear] [-k|--(no-)beam-kill] [-h|--help]\n' "$0"
 	printf '\t%s\n' "-r, --run-mode: NerlnetApp running modes: shell, release, release-bg, stop, status (default: 'shell')"
 	printf '\t%s\n' "-c, --clear, --no-clear: clear rebar3 directories (off by default)"
+	printf '\t%s\n' "-k, --beam-kill, --no-beam-kill: kill running beam.smp instances before start (off by default)"
 	printf '\t%s\n' "-h, --help: Prints help"
 }
 
@@ -207,6 +211,18 @@ parse_commandline()
 				if test -n "$_next" -a "$_next" != "$_key"
 				then
 					{ begins_with_short_option "$_next" && shift && set -- "-c" "-$_next" "$@"; } || die "The short option '$_key' can't be decomposed to ${_key:0:2} and -${_key:2}, because ${_key:0:2} doesn't accept value and '-${_key:2:1}' doesn't correspond to a short option."
+				fi
+				;;
+			-k|--no-beam-kill|--beam-kill)
+				_arg_beam_kill="on"
+				test "${1:0:5}" = "--no-" && _arg_beam_kill="off"
+				;;
+			-k*)
+				_arg_beam_kill="on"
+				_next="${_key##-k}"
+				if test -n "$_next" -a "$_next" != "$_key"
+				then
+					{ begins_with_short_option "$_next" && shift && set -- "-k" "-$_next" "$@"; } || die "The short option '$_key' can't be decomposed to ${_key:0:2} and -${_key:2}, because ${_key:0:2} doesn't accept value and '-${_key:2:1}' doesn't correspond to a short option."
 				fi
 				;;
 			# See the comment of option '--clear' to see what's going on here - principle is the same.

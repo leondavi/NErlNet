@@ -345,9 +345,11 @@ chmod 744 $NERLNET_DIR/NerlnetRun.sh
 chmod 664 /etc/systemd/system/nerlnet.service
 
 if [[ -z "$RUNNING_IN_DOCKER" ]]; then
-  # Not running in docker
-  chown -R $LOGGED_IN_USER $NERLNET_LOG_DIR
-  chown -R $LOGGED_IN_USER $NERLNET_DIR
+	# Not running in docker
+	# Always ensure the active workspace (especially build artifacts) belongs to the invoking user
+	chown -R $LOGGED_IN_USER $NERLNET_DIR/build 2>/dev/null || true
+	chown -R $LOGGED_IN_USER $NERLNET_LOG_DIR
+	chown -R $LOGGED_IN_USER $NERLNET_DIR
 fi
 
 echo "You can enable and start nerlnet.service using the command: systemctl enable nerlnet.service"

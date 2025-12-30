@@ -22,8 +22,22 @@
 
 -define(NERLNET_APP_VERSION, "1.6.0").
 -define(NERLPLANNER_TESTED_VERSION,"1.0.4").
+-define(START_LOG, "/tmp/nerlnet/logs/start/nerlnet_start.log").
 
 -export([start/2, stop/1]).
+
+start_log(Tag, Data) ->
+    ok = ensure_start_log_dir(),
+    file:write_file(?START_LOG, io_lib:format("~p: ~p~n", [Tag, Data]), [append]).
+
+ensure_start_log_dir() ->
+    case filelib:ensure_dir(?START_LOG) of
+        ok -> ok;
+        {error, Reason} ->
+            %% Logging must never fail; fall back to stdout if we cannot create directories.
+            io:format("Failed creating start log dir (~p): ~p~n", [?START_LOG, Reason]),
+            ok
+    end.
 
 
 %% *    Initiate rebar3 shell : rebar3 shell
@@ -74,29 +88,41 @@ legal_print() ->
     io:format("You must cite Nerlnet if you use any of its tools for academic/commercial/any purpose.~n~n").
 
 start(_StartType, _StartArgs) ->
-    legal_print(),
-    welcome_print(),
+    _ = file:delete(?START_LOG),
+    start_log(starting, ok),
+    safe_call(fun legal_print/0, after_legal_print),
+    safe_call(fun welcome_print/0, after_welcome_print),
     %% setup the erlang logger for this module 
-    nerl_tools:setup_logger(?MODULE),
+    setup_logger_with_trap(),
+    ?LOG_INFO("Logger initialized for release start", []),
     %% make sure nif can be loaded:
-    nerlNIF:nif_preload(),
-    sourceNIF:nif_preload(),
+    start_log(loading_nifs, start),
+    ensure_nif_loaded(nerlNIF),
+    ensure_nif_loaded(sourceNIF),
+    start_log(nifs_ready, ok),
     ThisDeviceIP = nerl_tools:getdeviceIP(),
+    start_log(device_ip, ThisDeviceIP),
     ?LOG_INFO("Nerlnet version ~s",[?NERLNET_APP_VERSION]),
     ?LOG_INFO("Nerlplanner tested version ~s",[?NERLPLANNER_TESTED_VERSION]),
     ?LOG_INFO("Installed Erlang OTP: ~s (Supported from 25)",[erlang:system_info(otp_release)]),
     ?LOG_INFO("This device IP: ~p~n", [ThisDeviceIP]),
+    ?LOG_INFO("About to create initiator on port ~p", [?NERLNET_INIT_PORT]),
     os:cmd("nohup sh -c 'sleep 5 && echo hey > /tmp/detached.txt' &"), %% ** FOR FUTURE RESET FUNCTIONALITY **
     %Create a listener that waits for a message from python about the adresses of the wanted json
 
     createNerlnetInitiator(ThisDeviceIP),
+    ?LOG_INFO("Initiator listener started", []),
+    start_log(initiator_ready, ok),
     {ArchitectureAdderess,CommunicationMapAdderess} = waitForInit(),
+    ?LOG_INFO("Init payload received", []),
+    start_log(init_received, {ArchitectureAdderess, CommunicationMapAdderess}),
 
     %Parse json and start nerlnet:
     ?LOG_INFO("DC file local path: ~p",[binary_to_list(ArchitectureAdderess)]),
     ?LOG_INFO("Communication map file local path: ~p",[binary_to_list(CommunicationMapAdderess)]),
 
     parseJsonAndStartNerlnet(ThisDeviceIP),
+    start_log(parsing_done, ok),
     nerlnetApp_sup:start_link().
 
 waitForInit() ->
@@ -108,9 +134,11 @@ waitForInit() ->
 
 createNerlnetInitiator(HostName) ->
     DefaultPort = ?NERLNET_INIT_PORT,
+    start_log(initiator_probe, {HostName, DefaultPort}),
     PortAvailable = nerl_tools:port_available(DefaultPort),
     if
         PortAvailable ->
+            start_log(initiator_port_available, DefaultPort),
             NerlnetInitiatorDispatch = cowboy_router:compile([
                 {'_', [
 
@@ -120,10 +148,20 @@ createNerlnetInitiator(HostName) ->
             ]),
             %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
             %% An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
-            init_cowboy_start_clear(nerlnetInitiator, {HostName,DefaultPort},NerlnetInitiatorDispatch);
-        true -> ?LOG_NOTICE("Nerlnet uses port ~p and it has to be unused before running Nerlnet server!", [DefaultPort]),
-                ?LOG_NOTICE("Find the process that uses port ~p using the command: sudo fuser -k ~p/tcp",[DefaultPort, DefaultPort]),
-                ?LOG_ERROR("Port ~p is being used - can not start (definition NERLNET_INIT_PORT in nerl_tools.hrl)", [DefaultPort])
+            try init_cowboy_start_clear(nerlnetInitiator, {HostName,DefaultPort},NerlnetInitiatorDispatch) of
+                {ok, _} ->
+                    start_log(initiator_listener_ready, {HostName, DefaultPort}),
+                    ok
+            catch
+                Class:Reason ->
+                    start_log(initiator_listener_failed, {DefaultPort, {Class, Reason}}),
+                    erlang:error({initiator_listener_failed, DefaultPort, {Class, Reason}})
+            end;
+        true ->
+            start_log(initiator_port_conflict, DefaultPort),
+            ?LOG_NOTICE("Nerlnet uses port ~p and it has to be unused before running Nerlnet server!", [DefaultPort]),
+            ?LOG_NOTICE("Find the process that uses port ~p using the command: sudo fuser -k ~p/tcp",[DefaultPort, DefaultPort]),
+            ?LOG_ERROR("Port ~p is being used - can not start (definition NERLNET_INIT_PORT in nerl_tools.hrl)", [DefaultPort])
     end.
 
 
@@ -370,10 +408,50 @@ createMainServer(true,BatchSize,HostName,DeviceName) ->
 %% cowboy:init_cowboy_start_clear  start_clear(Name, TransOpts, ProtoOpts) - an http_listener
 %% An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
 init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
-%%    TODO check how to catch ! messages in listenerPid
-    {ok, _listenerPid} = cowboy:start_clear(ListenerName,
-        [{port,Port}], #{env => #{dispatch =>Dispatcher}}
-    ).
+    %% Wrap cowboy:start_clear/3 so we can capture and persist any failure reasons.
+    try cowboy:start_clear(ListenerName, [{port,Port}], #{env => #{dispatch => Dispatcher}}) of
+        {ok, ListenerPid} ->
+            start_log({listener_ready, ListenerName}, Port),
+            {ok, ListenerPid}
+    catch
+        Class:Reason ->
+            start_log({listener_failed, ListenerName}, {Port, {Class, Reason}}),
+            ?LOG_ERROR("Listener ~p failed to bind port ~p: ~p", [ListenerName, Port, {Class, Reason}]),
+            erlang:error({listener_failed, ListenerName, Port, {Class, Reason}})
+    end.
 
 stop(_State) ->
     ok.
+
+ensure_nif_loaded(Module) ->
+    start_log({nif_loading, Module}, start),
+    case catch Module:nif_preload() of
+        done ->
+            start_log({nif_loading, Module}, ok),
+            ok;
+        {'EXIT', Reason} ->
+            start_log({nif_failed, Module}, Reason),
+            erlang:error({nif_load_failed, Module, Reason})
+    end.
+
+setup_logger_with_trap() ->
+    case catch nerl_tools:setup_logger(?MODULE) of
+        ok ->
+            start_log(logger_ready, ok);
+        {'EXIT', Reason} ->
+            start_log(logger_failed, Reason),
+            erlang:error({logger_setup_failed, Reason})
+    end.
+
+safe_call(Fun, Tag) ->
+    Parent = self(),
+    Worker = spawn(fun() -> Parent ! {self(), catch Fun()} end),
+    receive
+        {Worker, {'EXIT', Reason}} ->
+            start_log({Tag, failed}, Reason);
+        {Worker, _} ->
+            start_log(Tag, ok)
+    after 2000 ->
+            start_log({Tag, timeout}, ok),
+            exit(Worker, kill)
+    end.

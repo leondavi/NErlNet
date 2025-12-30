@@ -230,6 +230,8 @@ parse_commandline()
 parse_commandline "$@"
 # end of args parsing
 configure_infrastructure_targets
+# sourceNIF.erl requires libsource_nif.so even if we only build ONN or Torch workers.
+BuildTargets+=("source_nif")
 get_opennn_version_sha
 
 OPTION="add_compile_definitions(EIGEN_MAX_ALIGN_BYTES=8)"

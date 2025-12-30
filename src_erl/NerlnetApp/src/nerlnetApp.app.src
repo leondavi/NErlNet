@@ -1,6 +1,6 @@
 {application, nerlnetApp,
  [{description, "Nerlnet OTP Application"},
-  {vsn, "1.4.0"},
+  {vsn, "1.6.0"},
   {registered, []},
   {mod, {nerlnetApp_app, []}},
   {applications,

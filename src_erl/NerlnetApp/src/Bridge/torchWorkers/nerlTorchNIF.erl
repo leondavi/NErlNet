@@ -32,14 +32,17 @@ init() ->
       LibName = get_env_or_default("NERLTORCH_LIB", ?NERLTORCH_LIB),
       BuildPath = BasePath ++ BuildSuffix,
       NerlLibPath = filename:join(BuildPath, LibName),
-      io:format("[nerlTorchNIF] Loading Torch NIF from ~ts~n", [NerlLibPath]),
+      % Avoid io:format during -on_load as it crashes in release mode before IO is ready
+      % Use logger which queues messages safely, or defer to application start
       case catch erlang:load_nif(NerlLibPath, 0) of
-            ok -> ok;
+            ok -> 
+                  ?LOG_INFO("[nerlTorchNIF] Successfully loaded Torch NIF from ~ts", [NerlLibPath]),
+                  ok;
             {error, Reason} ->
-                  io:format("[nerlTorchNIF] Failed to load Torch NIF from ~ts reason: ~p~n", [NerlLibPath, Reason]),
+                  ?LOG_ERROR("[nerlTorchNIF] Failed to load Torch NIF from ~ts reason: ~p", [NerlLibPath, Reason]),
                   erlang:error({failed_to_load_torch_nif, NerlLibPath, Reason});
             {'EXIT', Reason} ->
-                  io:format("[nerlTorchNIF] Torch NIF loader crashed for ~ts reason: ~p~n", [NerlLibPath, Reason]),
+                  ?LOG_ERROR("[nerlTorchNIF] Torch NIF loader crashed for ~ts reason: ~p", [NerlLibPath, Reason]),
                   erlang:error({failed_to_load_torch_nif, NerlLibPath, Reason})
       end.
 
