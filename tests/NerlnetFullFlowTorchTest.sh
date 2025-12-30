@@ -90,7 +90,9 @@ MODEL_GENERATOR="$NERLNET_PATH/tests/scripts/generate_torch_test_model.py"
 MODEL_PERCEPTRON_OUTPUT="$NERLNET_PATH/tests/inputTorchJsonsFiles/models/placeholder_perceptron.pt"
 if [ -x "$MODEL_GENERATOR" ] || [ -f "$MODEL_GENERATOR" ]; then
     print "Generating TorchScript test model at $MODEL_PERCEPTRON_OUTPUT"
-    if ! "$PYTHON_BIN" "$MODEL_GENERATOR" --output "$MODEL_PERCEPTRON_OUTPUT"; then
+    # Ensure the Python wheel-provided libtorch is used instead of the system libtorch
+    # by clearing LD_LIBRARY_PATH for this invocation only.
+    if ! env LD_LIBRARY_PATH= "$PYTHON_BIN" "$MODEL_GENERATOR" --output "$MODEL_PERCEPTRON_OUTPUT"; then
         print "Failed to generate TorchScript model"
         exit 1
     fi
