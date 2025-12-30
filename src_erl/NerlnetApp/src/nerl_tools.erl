@@ -6,7 +6,7 @@
 -export([http_request/4, sendHTTP/4, get_client_worker_pairs/3, getShortPath/3]).
 -export([string_to_list_int/1, deleteOldJson/1]).
 -export([multipart/2, read_all_data/2]).
--export([getdeviceIP/0, port_available/1]).
+-export([getdeviceIP/0, getNerlSubnets/0, port_available/1]).
 -export([calculate_size/1]).
 -export([make_routing_table/4]).
 -export([http_router_request/5]).
@@ -89,8 +89,9 @@ multipart(Req0, Data) ->
                   %% The multipart message contains normal/basic data
                   {data, _FieldName} -> {_Req2, _BodyData} = read_all_parts(Req1,[]);
                   %% The message contains a file, write it to "FieldName"
-                  {file, FieldName, _Filename, _CType} -> % TODO understand this function
-                      {ok, File} = file:open(FieldName, [append]),
+                    {file, FieldName, _Filename, _CType} -> % TODO understand this function
+                      ok = filelib:ensure_dir(FieldName),
+                      {ok, File} = file:open(FieldName, [write, binary]),
                       Req2 = stream_file(Req1, File),
                       {Req2, [FieldName]}
               end,
@@ -163,9 +164,10 @@ getdeviceIP([IF|IFList], SubnetsList) ->
 
 getNerlSubnets() ->
     {ok, Data} = file:read_file(?SUBNETS_CONFIG_ADDR),
-    Lines = string:split(binary_to_list(Data), "\n", all),
-    Subnets = [Subnet || Subnet <- Lines, hd(Subnet) /= $#],
-    lists:sort(Subnets).
+  Lines = string:split(binary_to_list(Data), "\n", all),
+  CleanLines = [string:trim(Line) || Line <- Lines],
+  Subnets = [Subnet || Subnet <- CleanLines, Subnet =/= [], hd(Subnet) /= $#],
+  lists:sort(Subnets).
 
 ip_list_to_str(IpList) ->
   IpIntListAsStr = lists:flatten(io_lib:format("~p", [IpList])),
@@ -188,13 +190,14 @@ string_format(Pattern, Values) ->
     lists:flatten(io_lib:format(Pattern, Values)).
 
 port_available(Port) ->
-    case gen_tcp:listen(Port, []) of
-        {ok, Sock} ->
-            ok = gen_tcp:close(Sock),
-            true;
-        _ ->
-            false
-    end.
+  case gen_tcp:listen(Port, []) of
+    {ok, Sock} ->
+      ok = gen_tcp:close(Sock),
+      true;
+    {error, Reason} ->
+      ?LOG_ERROR("Port ~p availability probe failed: ~p", [Port, Reason]),
+      false
+  end.
 
 %% calculate the number of bytes of term
 

@@ -1,6 +1,5 @@
 import os
 import subprocess, pathlib
-from threading import Timer
 
 def force_kill(process):
     if process.returncode is None:
@@ -15,18 +14,16 @@ class RunCommand():
 
     TIMEOUT_PROC_KILLED=-1
     def sync(self, timeout_sec):
-        timer = Timer(timeout_sec, force_kill, [self.process])
         try:
-            timer.start()
-            stdout, stderr = self.process.communicate()
+            stdout, stderr = self.process.communicate(timeout=timeout_sec)
             exit_code = self.process.returncode
             stdout_str = stdout.decode("utf-8")
             stderr_str = stderr.decode("utf-8")
             return stdout_str, stderr_str, exit_code
+        except subprocess.TimeoutExpired:
+            return None, None, self.TIMEOUT_PROC_KILLED
         except Exception:
             return None, None, self.TIMEOUT_PROC_KILLED
-        finally:
-            timer.cancel()
 
     def __format__(self, __format_spec: str) -> str:
         return f'{self.cmd} rc: {self.process.returncode}'

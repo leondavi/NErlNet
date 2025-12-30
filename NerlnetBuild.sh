@@ -5,6 +5,8 @@ NERLNET_DIR=$NERLNET_LIB_DIR/NErlNet
 NERLNET_PREFIX="[NERLNET_SCRIPT]"
 NERLNET_BUILD_PREFIX="[Nerlnet Build] "
 INPUT_DATA_DIR="inputDataDir"
+NERLNET_WORKSPACE="$(pwd)"
+TorchEnvFile="$NERLNET_WORKSPACE/build/torch_env.sh"
 
 # arguments parsing 
 # Thanks to https://github.com/matejak/argbash
@@ -12,6 +14,9 @@ Branch="master"
 JobsNum=4
 NerlWolf=OFF
 NerlTorch=OFF
+EnableDebugSymbols=OFF
+InfraTarget="openn"
+declare -a BuildTargets=()
 
 help()
 {
@@ -19,8 +24,9 @@ help()
     echo "Usage:"
     echo "--p or --pull Warning! this uses checkout -f! and branch name checkout to branch $Branch and pull the latest"
     echo "--w or --wolf wolfram engine workers infra (nerlwolf)"
-	echo "--t or --torch torch workers infra (nerltorch)"
+	echo "--i or --infra <openn|torch|all> select worker infrastructures (default: openn)"
 	echo "--j or --jobs number of jobs to cmake build"
+	echo "-g  enable compiler debug symbols (-g flag)"
     echo "--c or --clean remove build directory"
     exit 2
 }
@@ -28,6 +34,22 @@ help()
 print()
 {
 	echo "$NERLNET_BUILD_PREFIX $1"
+}
+
+source_torch_environment()
+{
+	if [ ! -f "$TorchEnvFile" ]; then
+		echo "$NERLNET_BUILD_PREFIX Torch environment file not found at $TorchEnvFile"
+		echo "$NERLNET_BUILD_PREFIX Please run NerlnetInstall.sh --torch on this machine first"
+		exit 1
+	fi
+	# shellcheck disable=SC1090
+	source "$TorchEnvFile"
+	if [ -z "$TORCH_ROOT" ]; then
+		echo "$NERLNET_BUILD_PREFIX TORCH_ROOT is not defined in $TorchEnvFile"
+		exit 1
+	fi
+	print "Loaded torch environment from $TorchEnvFile"
 }
 
 gitOperations()
@@ -52,7 +74,7 @@ die()
 
 begins_with_short_option()
 {
-	local first_option all_short_options='hjp'
+	local first_option all_short_options='hjpg'
 	first_option="${1:0:1}"
 	test "$all_short_options" = "${all_short_options/$first_option/}" && return 1 || return 0
 }
@@ -70,20 +92,48 @@ clean_build_directory()
 
 print_help()
 {
-	printf 'Usage: %s [-h|--help] [-c|--clean] [-j|--jobs <arg>] [-p|--pull <arg>]\n' "$0"
+	printf 'Usage: %s [-h|--help] [-c|--clean] [-j|--jobs <arg>] [-p|--pull <arg>] [-i|--infra <arg>]\n' "$0"
 	printf '\t%s\n' "-j, --jobs: number of jobs (default: '4')"
 	printf '\t%s\n' "-p, --pull: pull from branch (default: '4')"
 	printf '\t%s\n' "-w, --wolf: wolfram engine extension build (default: 'off')"
-	printf '\t%s\n' "-t, --torch: torch engine extension build (default: 'off')"
+	printf '\t%s\n' "-i, --infra: worker infrastructures to build (openn|torch|all, default: 'openn')"
+	printf '\t%s\n' "-g, --debug-build, --no-debug-build: add compiler -g debug symbols (default: 'off')"
 	printf '\t%s\n' "-c, --clean: clean build directory (default: 'off')"
 
 }
+
 
 get_opennn_version_sha()
 {
 	cd $NERLNET_DIR/src_cpp/opennn
 	echo "$NERLNET_BUILD_PREFIX OpenNN Commit: $(git rev-parse --verify HEAD)"
 	cd -
+}
+
+configure_infrastructure_targets()
+{
+	local selection="${InfraTarget,,}"
+	case "$selection" in
+		openn)
+			InfraTarget="openn"
+			NerlTorch=OFF
+			BuildTargets=("nerlnet_onn")
+		;;
+		torch)
+			InfraTarget="torch"
+			NerlTorch=ON
+			BuildTargets=("nerlnet_torch")
+		;;
+		all)
+			InfraTarget="all"
+			NerlTorch=ON
+			BuildTargets=("nerlnet_onn" "nerlnet_torch")
+		;;
+		*)
+			die "Invalid infrastructure selection '$InfraTarget'. Use openn, torch, or all." 1
+		;;
+	esac
+	print "Worker infrastructures selected: $InfraTarget"
 }
 
 parse_commandline()
@@ -114,21 +164,35 @@ parse_commandline()
 				shift
 				;;
 			--wolf=*)
-				NerlWolf="${_key##--jobs=}"
+				NerlWolf="${_key##--wolf=}"
 				;;
 			-w*)
-				NerlWolf="${_key##-j}"
+				NerlWolf="${_key##-w}"
 				;;
-			-t|--torch)
+			-i|--infra)
 				test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
-				NerlTorch="$2"
+				InfraTarget="$2"
 				shift
 				;;
-			--torch=*)
-				NerlTorch="${_key##--jobs=}"
+			--infra=*)
+				InfraTarget="${_key##--infra=}"
 				;;
-			-t*)
-				NerlTorch="${_key##-j}"
+			-i*)
+				InfraTarget="${_key##-i}"
+				;;
+			-g|--debug-build)
+				EnableDebugSymbols=ON
+				;;
+			--no-debug-build)
+				EnableDebugSymbols=OFF
+				;;
+			-g*)
+				EnableDebugSymbols=ON
+				_next="${_key##-g}"
+				if test -n "$_next" -a "$_next" != "$_key"
+				then
+					{ begins_with_short_option "$_next" && shift && set -- "-g" "-${_next}" "$@"; } || die "The short option '$_key' can't be decomposed to ${_key:0:2} and -${_key:2}, because ${_key:0:2} doesn't accept value and '-${_key:2:1}' doesn't correspond to a short option."
+				fi
 				;;
 			-j|--jobs)
 				test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
@@ -165,6 +229,9 @@ parse_commandline()
 
 parse_commandline "$@"
 # end of args parsing
+configure_infrastructure_targets
+# sourceNIF.erl requires libsource_nif.so even if we only build ONN or Torch workers.
+BuildTargets+=("source_nif")
 get_opennn_version_sha
 
 OPTION="add_compile_definitions(EIGEN_MAX_ALIGN_BYTES=8)"
@@ -178,8 +245,11 @@ else
 fi
 
 if [[ ! $NerlTorch =~ OFF ]]; then
-    print "NerlTorch is enabled"
-	print "Installation directory points to /usr/local/lib/libtorch"
+	print "NerlTorch is enabled ($NerlTorch)"
+	source_torch_environment
+	if [ -n "$TORCH_ROOT" ]; then
+		print "Torch root detected at $TORCH_ROOT"
+	fi
 fi
 
 if command -v python3 >/dev/null 2>&1; then
@@ -212,12 +282,43 @@ fi
 echo "$NERLNET_BUILD_PREFIX Building Nerlnet Library"
 echo "$NERLNET_BUILD_PREFIX Cmake command of Nerlnet NIFPP"
 set -e
-cmake -S . -B build/release -DNERLWOLF=$NerlWolf -DNERLTORCH=$NerlTorch -DCMAKE_BUILD_TYPE=RELEASE
+cmake_cmd=(cmake -S . -B build/release -DNERLWOLF=$NerlWolf -DNERLTORCH=$NerlTorch -DCMAKE_BUILD_TYPE=RELEASE)
+if [[ "$EnableDebugSymbols" != "OFF" ]]; then
+	print "Compiler debug symbols enabled (-g)"
+	debug_c_flags="-g"
+	debug_cxx_flags="-g"
+	if [ -n "$CMAKE_C_FLAGS" ]; then
+		debug_c_flags="$CMAKE_C_FLAGS -g"
+	fi
+	if [ -n "$CMAKE_CXX_FLAGS" ]; then
+		debug_cxx_flags="$CMAKE_CXX_FLAGS -g"
+	fi
+	cmake_cmd+=(-DCMAKE_C_FLAGS="$debug_c_flags")
+	cmake_cmd+=(-DCMAKE_CXX_FLAGS="$debug_cxx_flags")
+fi
+if [[ ! $NerlTorch =~ OFF ]]; then
+	if [ -n "$TORCH_ROOT" ]; then
+		cmake_cmd+=(-DTORCH_ROOT="$TORCH_ROOT")
+	fi
+	if [ -n "$TORCH_CMAKE_PREFIX" ]; then
+		cmake_cmd+=(-DTORCH_CMAKE_PREFIX="$TORCH_CMAKE_PREFIX")
+		cmake_cmd+=(-DTorch_DIR="$TORCH_CMAKE_PREFIX")
+	fi
+	if [ -n "$TORCH_CXX_FLAGS" ]; then
+		cmake_cmd+=(-DTORCH_CXX_FLAGS="$TORCH_CXX_FLAGS")
+	fi
+fi
+"${cmake_cmd[@]}"
 cd build/release
 echo "$NERLNET_BUILD_PREFIX Script CWD: $PWD"
 echo "$NERLNET_BUILD_PREFIX Build Nerlnet"
 echo "Jobs Number: $JobsNum"
-make -j$JobsNum 
+if [ ${#BuildTargets[@]} -gt 0 ]; then
+	echo "$NERLNET_BUILD_PREFIX Targets: ${BuildTargets[*]}"
+	cmake --build . --target "${BuildTargets[@]}" -- -j$JobsNum
+else
+	cmake --build . -- -j$JobsNum
+fi
 cd ../../
 echo "$NERLNET_BUILD_PREFIX Script CWD: $PWD"
 set +e

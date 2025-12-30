@@ -7,6 +7,10 @@
 import time
 import threading
 import sys
+import os
+import json
+import tempfile
+from contextlib import ExitStack
 from singleton import Singleton
 from huggingface_hub import HfApi, utils , snapshot_download
 from experiment_flow import *
@@ -14,6 +18,7 @@ from pathlib import Path
 from jsonDirParser import JsonDirParser
 from transmitter import Transmitter
 from networkComponents import NetworkComponents
+from nerlPlanner.JsonDistributedConfigDefs import *
 import globalVars as globe
 import receiver
 from definitions import *
@@ -101,12 +106,64 @@ class ApiServer(metaclass=Singleton):
                 
     def send_jsons_to_devices(self): #User Api
         archAddress , connMapAddress, _ = self.getUserJsons()
-        with open(archAddress, 'rb') as dc_json_file, open(connMapAddress, 'rb') as conn_json_file:
-            files = [(DC_FILE_ARCH_REMOTE_NAME, dc_json_file), (JSON_FILE_COMM_REMOTE_NAME, conn_json_file)] # files names should be identical to the ones defined as ?LOCAL_DC_FILE_NAME ?LOCAL_COMM_FILE_NAME
+        torch_assets = self._get_torch_assets()
+
+        with ExitStack() as stack:
+            dc_stream = self._prepare_dc_stream(stack, archAddress, torch_assets)
+            conn_stream = stack.enter_context(open(connMapAddress, 'rb'))
+            files = [
+                (DC_FILE_ARCH_REMOTE_NAME, (os.path.basename(archAddress), dc_stream, 'application/json')),
+                (JSON_FILE_COMM_REMOTE_NAME, (os.path.basename(connMapAddress), conn_stream, 'application/json'))
+            ]
+            torch_payloads = self._build_torch_file_payloads(stack, torch_assets)
+            if torch_payloads:
+                LOG_INFO(f"Attaching {len(torch_payloads)} Torch model artifact(s): {list(torch_assets.keys())}")
+                files.extend(torch_payloads)
+
             self.apiserver_event_sync.set_event_wait(EventSync.SEND_JSONS)
             self.transmitter.send_jsons_to_devices(files)
             self.apiserver_event_sync.sync_on_event(EventSync.SEND_JSONS)
             LOG_INFO("Sending distributed configurations to devices is completed")
+
+    def _get_torch_assets(self):
+        components = getattr(globe, 'components', None)
+        if not components or not hasattr(components, 'get_torch_model_assets'):
+            return {}
+        return components.get_torch_model_assets()
+
+    def _prepare_dc_stream(self, stack: ExitStack, dc_path: str, torch_assets: dict):
+        if not torch_assets:
+            return stack.enter_context(open(dc_path, 'rb'))
+
+        with open(dc_path, 'r', encoding='utf-8') as dc_file_obj:
+            dc_dict = json.load(dc_file_obj)
+
+        mutated = False
+        model_sha_section = dc_dict.get(KEY_MODEL_SHA, {})
+        for model_sha, asset in torch_assets.items():
+            if model_sha in model_sha_section:
+                if model_sha_section[model_sha].get('pt_path') != asset['remote_path']:
+                    model_sha_section[model_sha]['pt_path'] = asset['remote_path']
+                    mutated = True
+
+        if not mutated:
+            return stack.enter_context(open(dc_path, 'rb'))
+
+        temp_file = tempfile.NamedTemporaryFile(mode='w+b', suffix='_torch_dc.json', delete=False)
+        stack.callback(lambda path=temp_file.name: os.remove(path))
+        temp_file.write(json.dumps(dc_dict, indent=4).encode('utf-8'))
+        temp_file.flush()
+        temp_file.seek(0)
+        return stack.enter_context(temp_file)
+
+    def _build_torch_file_payloads(self, stack: ExitStack, torch_assets: dict):
+        payloads = []
+        for _, asset in torch_assets.items():
+            artifact_handle = stack.enter_context(open(asset['local_path'], 'rb'))
+            payloads.append(
+                (asset['remote_path'], (os.path.basename(asset['local_path']), artifact_handle, 'application/octet-stream'))
+            )
+        return payloads
 
 
     def showJsons(self):

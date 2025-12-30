@@ -108,7 +108,7 @@ generate_random_list_of_unique_integers(0, _Min, _Max, List) -> List;
 generate_random_list_of_unique_integers(RemainedNumOfElements, Min, Max, List) -> 
       Range = Max - Min,
       N = rand:uniform(Range) - 1 + Min,
-      IsMember = lists:is_member(N, List), % O(N)
+      IsMember = lists:member(N, List), % O(N)
       if 
             IsMember -> generate_random_list_of_unique_integers(RemainedNumOfElements, Min, Max, List);
             true -> generate_random_list_of_unique_integers(RemainedNumOfElements - 1, Min, Max, [N | List])

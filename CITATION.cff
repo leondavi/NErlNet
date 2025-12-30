@@ -8,6 +8,6 @@ authors:
   given-names: "Yehuda"
   orcid: "https://orcid.org/0000-0002-4905-2085"
 title: "NErlNet"
-version: 1.5.2
-date-released: 2024-07-18
+version: 1.6.0
+date-released: 2025-12-30
 url: "https://github.com/leondavi/NErlNet"

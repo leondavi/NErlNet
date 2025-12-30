@@ -1,0 +1,40 @@
+{
+   "experimentName": "synthetic_3_gausians_torch",
+   "experimentType": "classification",
+   "batchSize": 50,
+   "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/synthetic_norm/synthetic_full.csv",
+   "numOfFeatures": "5",
+   "numOfLabels": "3",
+   "headersNames": "Norm(0:1),Norm(4:1),Norm(10:3)",
+   "Phases": 
+   [
+      {
+         "phaseName": "training_phase",
+         "phaseType": "training",
+         "sourcePieces":
+         [
+            {
+            "sourceName": "s1",
+            "startingSample": "0",
+            "numOfBatches": "1000",
+            "workers": "w1,w2,w3,w4",
+            "nerltensorType": "float"
+            }
+         ]  
+      },
+      {
+         "phaseName": "prediction_phase",
+         "phaseType": "prediction",
+         "sourcePieces":
+         [
+            {
+            "sourceName": "s1",
+            "startingSample": "50000",
+            "numOfBatches": "1000",
+            "workers": "w1,w2,w3,w4",
+            "nerltensorType": "float"
+            }
+         ]    
+      }
+   ]  
+}

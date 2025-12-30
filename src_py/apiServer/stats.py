@@ -86,7 +86,21 @@ class Stats():
             
         # Convert NumPy arrays to floats
         for worker_name in loss_dict:
-            loss_dict[worker_name] = [float(arr) for sublist in loss_dict[worker_name] for arr in sublist]
+            flattened = []
+            for item in loss_dict[worker_name]:
+                if isinstance(item, np.ndarray):
+                    # Flatten the array and extract all scalar values
+                    flattened.extend(item.flatten().tolist())
+                elif isinstance(item, (list, tuple)):
+                    # If it's a nested structure, recursively flatten
+                    for subitem in item:
+                        if isinstance(subitem, np.ndarray):
+                            flattened.extend(subitem.flatten().tolist())
+                        else:
+                            flattened.append(float(subitem))
+                else:
+                    flattened.append(float(item))
+            loss_dict[worker_name] = flattened
             loss_dict[worker_name] += [None] * (max_batches - len(loss_dict[worker_name]))
 
         df = pd.DataFrame(loss_dict)

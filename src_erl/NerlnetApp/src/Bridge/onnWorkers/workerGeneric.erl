@@ -52,8 +52,8 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   nerl_tools:setup_logger(?MODULE),
   {ModelID , ModelType , ModelArgs , LayersSizes,
   LayersTypes, LayersFunctionalityCodes, LearningRate , Epochs, 
-  OptimizerType, OptimizerArgs , LossMethod , LossArgs, DistributedSystemType ,
-  DistributedSystemToken, DistributedSystemArgs} = WorkerArgs,
+  OptimizerType, OptimizerArgs , LossMethod , LossArgs, InfraType, DistributedSystemType ,
+  DistributedSystemToken, DistributedSystemArgs, TrainParams} = WorkerArgs,
   GenWorkerEts = ets:new(generic_worker,[set, public]),
   put(generic_worker_ets, GenWorkerEts),
   put(client_pid, ClientPid),
@@ -76,6 +76,12 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{distributed_system_args, DistributedSystemArgs}),
   ets:insert(GenWorkerEts,{distributed_system_token, DistributedSystemToken}),
   ets:insert(GenWorkerEts,{distributed_system_type, DistributedSystemType}),
+  InfraModule = select_infra_module(InfraType),
+  NormalizedInfraType = normalize_infra_type(InfraType),
+  ets:insert(GenWorkerEts,{infra_type, InfraType}),
+  ets:insert(GenWorkerEts,{nif_module, InfraModule}),
+  ets:insert(GenWorkerEts,{train_params, TrainParams}),
+  put(nif_module, InfraModule),
   ets:insert(GenWorkerEts,{controller_message_q, []}), %% TODO Deprecated
   ets:insert(GenWorkerEts,{handshake_done, false}),
   ets:insert(GenWorkerEts,{active_streams, []}),
@@ -83,8 +89,13 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{end_streams_waiting_list, []}), % Waiting list of messages from client to end_stream with source
   % Worker to Worker communication module - this is a gen_server
 
-  Res = nerlNIF:new_nerlworker_nif(ModelID , ModelType, ModelArgs, LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType,
-                                OptimizerArgs, LossMethod , LossArgs, DistributedSystemType , DistributedSystemArgs),
+  Res = case NormalizedInfraType of
+          torch ->
+            nif_call(new_nerlworker_nif, [ModelID, DistributedSystemType, DistributedSystemArgs, TrainParams]);
+          _ ->
+            nif_call(new_nerlworker_nif, [ModelID , ModelType, ModelArgs, LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType,
+                                OptimizerArgs, LossMethod , LossArgs, DistributedSystemType , DistributedSystemArgs])
+        end,
   DistributedBehaviorFunc(init,{GenWorkerEts, DistributedWorkerData}),
 
   if 
@@ -96,9 +107,9 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   DistributedBehaviorFunc(pre_idle,{GenWorkerEts, DistributedWorkerData}),
   %% Starting negotiators processes for train and predict
   WorkerPid = self(),
-  nerlNIF:start_train_negotiator(ModelID, WorkerPid),
-  nerlNIF:start_predict_negotiator(ModelID, WorkerPid),
-  {ok, idle, #workerGeneric_state{myName = WorkerName , modelID = ModelID , distributedBehaviorFunc = DistributedBehaviorFunc , distributedWorkerData = DistributedWorkerData, postBatchFunc = ?EMPTY_FUNC}}.
+  nif_call(start_train_negotiator, [ModelID, WorkerPid]),
+  nif_call(start_predict_negotiator, [ModelID, WorkerPid]),
+  {ok, idle, #workerGeneric_state{myName = WorkerName , modelID = ModelID , distributedBehaviorFunc = DistributedBehaviorFunc , distributedWorkerData = DistributedWorkerData, postBatchFunc = ?EMPTY_FUNC, nifModule = InfraModule}}.
 
 %% @private
 %% @doc This function is called by a gen_statem when it needs to find out
@@ -138,8 +149,8 @@ handle_event(_EventType, _EventContent, _StateName, State = #workerGeneric_state
 %% Reason. The return value is ignored.
 terminate(_Reason, _StateName, _State) ->
   % stop negotiators
-  nerlNIF:stop_train_negotiator(),
-  nerlNIF:stop_predict_negotiator(),
+  nif_call(stop_train_negotiator, []),
+  nif_call(stop_predict_negotiator, []),
   ok.
 
 %% @private
@@ -284,13 +295,13 @@ train(cast, {sample, SourceName ,BatchID ,{NerlTensorOfSamples, NerlTensorType}}
     DistributedBehaviorFunc(pre_train, {get(generic_worker_ets),DistributedWorkerData}), % Here the model can be updated by the federated server
     WorkersStatsEts = get(worker_stats_ets),
     stats:increment_by_value(WorkersStatsEts , batches_received_train , 1),
-    nerlNIF:call_to_train(ModelId , {NerlTensorOfSamples, NerlTensorType} , BatchID , SourceName),
+    nif_call(call_to_train, [ModelId , {NerlTensorOfSamples, NerlTensorType} , BatchID , SourceName]),
     {next_state, wait, State#workerGeneric_state{nextState = train, currentBatchID = BatchID}};
   
 %% TODO: implement send model and weights by demand (Tensor / XML)
 train(cast, {set_weights,Ret_weights_list}, State = #workerGeneric_state{modelID = ModelId}) ->
   %% Set weights
-  nerlNIF:call_to_set_weights(ModelId, Ret_weights_list), %% TODO wrong usage
+  nif_call(call_to_set_weights, [ModelId, Ret_weights_list]), %% TODO wrong usage
   %logger:notice("####end set weights train####~n"),
   {next_state, train, State};
 
@@ -330,7 +341,7 @@ predict(cast, {sample , SourceName , BatchID , {PredictBatchTensor, Type}}, Stat
     DistributedBehaviorFunc(pre_predict, {get(generic_worker_ets),DistributedWorkerData}),
     WorkersStatsEts = get(worker_stats_ets),
     stats:increment_by_value(WorkersStatsEts , batches_received_predict , 1),
-    nerlNIF:call_to_predict(ModelId , {PredictBatchTensor, Type} , BatchID, SourceName),
+    nif_call(call_to_predict, [ModelId , {PredictBatchTensor, Type} , BatchID, SourceName]),
     {next_state, wait, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}};
 
 predict(cast, {start_stream , SourceName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
@@ -388,4 +399,39 @@ handle_end_stream_waiting_list(DistributedBehaviorFunc, ModelPhase) ->
               end,
       lists:foreach(Func, EndStreamWaitingList)
   end.
+
+
+get_backend_module() ->
+  case get(nif_module) of
+    undefined -> ets:lookup_element(get(generic_worker_ets), nif_module, ?ETS_KEYVAL_VAL_IDX);
+    Module -> Module
+  end.
+
+nif_call(Function, Args) when is_atom(Function), is_list(Args) ->
+  Module = get_backend_module(),
+  erlang:apply(Module, Function, Args).
+
+select_infra_module(InfraType) ->
+  case normalize_infra_type(InfraType) of
+    opennn -> nerlNIF;
+    torch -> nerlTorchNIF;
+    Other ->
+      ?LOG_ERROR("Unsupported infrastructure type ~p~n", [InfraType]),
+      throw({unsupported_infra_type, Other})
+  end.
+
+normalize_infra_type(Value) when is_list(Value) ->
+  Lower = string:lowercase(Value),
+  case Lower of
+    "" -> opennn;
+    "0" -> opennn;
+    "opennn" -> opennn;
+    "onn" -> opennn;
+    "torch" -> torch;
+    "2" -> torch;
+    _ -> Lower
+  end;
+normalize_infra_type(Value) when is_atom(Value) -> normalize_infra_type(atom_to_list(Value));
+normalize_infra_type(Value) when is_integer(Value) -> normalize_infra_type(integer_to_list(Value));
+normalize_infra_type(Other) -> Other.
 

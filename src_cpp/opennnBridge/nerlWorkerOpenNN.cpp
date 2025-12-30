@@ -1,6 +1,10 @@
 #include "nerlWorkerOpenNN.h"
 #include "ae_red.h" 
+#include "../common/nerlWorkerFunc.h"
+
 #include <iostream>
+#include <stdexcept>
+#include <utility>
 
 using namespace opennn;
 
@@ -8,22 +12,151 @@ namespace nerlnet
 {
 // ----- NerlWorkerOpenNN -----
 
-    NerlWorkerOpenNN::NerlWorkerOpenNN(int model_type, std::string &model_args_str , std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
-                    float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
-                    int loss_method, std::string &loss_args_str, int distributed_system_type, std::string &distributed_system_args_str) : NerlWorker(model_type, model_args_str , layer_sizes_str, layer_types_list, layers_functionality,
-                                                                                                                    learning_rate, epochs, optimizer_type, optimizer_args_str,
-                                                                                                                    loss_method, loss_args_str, distributed_system_type, distributed_system_args_str)
+    NerlWorkerOpenNN::NerlWorkerOpenNN(WorkerParams worker_params,
+                                       int distributed_system_type,
+                                       std::string distributed_system_args_str)
+        : NerlWorker(distributed_system_type,
+                     std::move(distributed_system_args_str),
+                     std::move(worker_params))
     {
+        _model_type = get_required_int_param("model_type");
+        _model_args_str = get_required_param("model_args");
+        _learning_rate = get_required_float_param("learning_rate");
+        _epochs = get_required_int_param("epochs");
+        _optimizer_type = get_required_int_param("optimizer_type");
+        _loss_method = get_required_int_param("loss_method");
+        _loss_args_str = get_optional_param("loss_args");
+        _optimizer_args_str = get_optional_param("optimizer_args");
+
+        const std::string layer_sizes_str = get_required_param("layer_sizes");
+        const std::string layer_types_str = get_required_param("layer_types");
+        const std::string layers_functionality_str = get_required_param("layers_functionality");
+        _nerl_layers_linked_list = parse_layers_input(layer_sizes_str,
+                                                      layer_types_str,
+                                                      layers_functionality_str);
+
         _neural_network_ptr = std::make_shared<opennn::NeuralNetwork>();
         generate_opennn_neural_network();
         _training_strategy_ptr = std::make_shared<opennn::TrainingStrategy>();
         generate_training_strategy();
-        _ae_red_ptr = std::make_shared<AeRed>(model_args_str);
+        _ae_red_ptr = std::make_shared<AeRed>(_model_args_str);
     }
 
     NerlWorkerOpenNN::~NerlWorkerOpenNN()
     {
 
+    }
+
+    const std::string &NerlWorkerOpenNN::get_required_param(const std::string &key) const
+    {
+        auto it = _worker_params.find(key);
+        if (it == _worker_params.end())
+        {
+            throw std::invalid_argument("Missing worker parameter: " + key);
+        }
+        return it->second;
+    }
+
+    std::string NerlWorkerOpenNN::get_optional_param(const std::string &key, const std::string &fallback) const
+    {
+        auto it = _worker_params.find(key);
+        if (it == _worker_params.end())
+        {
+            return fallback;
+        }
+        return it->second;
+    }
+
+    int NerlWorkerOpenNN::get_required_int_param(const std::string &key) const
+    {
+        return std::stoi(get_required_param(key));
+    }
+
+    float NerlWorkerOpenNN::get_required_float_param(const std::string &key) const
+    {
+        return std::stof(get_required_param(key));
+    }
+
+    std::shared_ptr<NerlLayer> NerlWorkerOpenNN::parse_layers_input(const std::string &layer_sizes_str,
+                                                                    const std::string &layer_types_list,
+                                                                    const std::string &layers_functionality)
+    {
+        std::string layer_types_copy = layer_types_list;
+        std::string layer_functions_copy = layers_functionality;
+        std::string layer_sizes_copy = layer_sizes_str;
+
+        std::vector<std::string> layer_types_strs_vec = nerlnet_utilities::split_strings_by_comma(layer_types_copy);
+        std::vector<std::string> layers_functionality_strs_vec = nerlnet_utilities::split_strings_by_comma(layer_functions_copy);
+        std::vector<int> layer_types_vec(layer_types_strs_vec.size());
+        for (size_t i = 0; i < layer_types_vec.size(); ++i)
+        {
+            layer_types_vec[i] = std::stoi(layer_types_strs_vec[i]);
+        }
+
+        std::vector<LayerSizingParams_t> layer_sizes_params;
+        parse_layer_sizes_str(layer_sizes_copy, layer_types_vec, layer_sizes_params);
+        std::vector<std::shared_ptr<NerlLayer>> nerl_layers_vec(layer_sizes_params.size());
+
+        for (int i = 0; i < static_cast<int>(layer_sizes_params.size()); ++i)
+        {
+            int layer_type = std::stoi(layer_types_strs_vec[i]);
+            int layer_functionality = std::stoi(layers_functionality_strs_vec[i]);
+            std::vector<int> layer_dims = {
+                layer_sizes_params[i].dimx,
+                layer_sizes_params[i].dimy,
+                layer_sizes_params[i].dimz};
+
+            switch (layer_type)
+            {
+                case LAYER_TYPE_POOLING:
+                {
+                    LayerSizingParams_t params = layer_sizes_params[i];
+                    std::vector<int> pooling_dims = params.get_ext_params(params.KERNEL_SIZE);
+                    std::vector<int> stride_dims = params.get_ext_params(params.STRIDE_SIZE);
+                    std::vector<int> padding_dims = params.get_ext_params(params.PADDING_SIZE);
+                    nerl_layers_vec[i] = std::make_shared<NerlLayerPooling>(layer_type,
+                                                                            layer_dims,
+                                                                            layer_functionality,
+                                                                            pooling_dims,
+                                                                            stride_dims,
+                                                                            padding_dims);
+                    break;
+                }
+                case LAYER_TYPE_CONV:
+                {
+                    LayerSizingParams_t params = layer_sizes_params[i];
+                    std::vector<int> kernel_dims = params.get_ext_params(params.KERNEL_SIZE);
+                    std::vector<int> stride_dims = params.get_ext_params(params.STRIDE_SIZE);
+                    std::vector<int> padding_dims = params.get_ext_params(params.PADDING_SIZE);
+                    std::vector<int> type_conv = params.get_ext_params(params.IS_VALID);
+                    nerl_layers_vec[i] = std::make_shared<NerlLayerCNN>(layer_type,
+                                                                        layer_dims,
+                                                                        layer_functionality,
+                                                                        kernel_dims,
+                                                                        stride_dims,
+                                                                        padding_dims,
+                                                                        type_conv);
+                    break;
+                }
+                default:
+                {
+                    nerl_layers_vec[i] = std::make_shared<NerlLayer>(layer_type, layer_dims, layer_functionality);
+                    break;
+                }
+            }
+        }
+
+        for (size_t i = 1; i < nerl_layers_vec.size(); ++i)
+        {
+            nerl_layers_vec[i - 1]->set_next_layer(nerl_layers_vec[i]);
+            nerl_layers_vec[i]->set_prev_layer(nerl_layers_vec[i - 1]);
+        }
+
+        if (nerl_layers_vec.empty())
+        {
+            return nullptr;
+        }
+        return nerl_layers_vec.front();
     }
 
     void NerlWorkerOpenNN::perform_training()
@@ -313,6 +446,10 @@ namespace nerlnet
                 bool data_set_condition = (num_of_features + num_of_output_neurons) == data_cols;
                 assert(("issue with data input/output dimensions", data_set_condition));
                 if(neural_network_ptr->has_convolutional_layer()){
+                    if(!_nerl_layers_linked_list)
+                    {
+                        throw std::runtime_error("Missing layer definitions for convolutional model");
+                    }
                     Tensor<Index, 1> input_variable_dimension(3);
                     input_variable_dimension.setValues({this->_nerl_layers_linked_list->get_dim_size(DIM_Z_IDX), this->_nerl_layers_linked_list->get_dim_size(DIM_Y_IDX), this->_nerl_layers_linked_list->get_dim_size(DIM_X_IDX)});
                     _data_set->set_input_variables_dimensions(input_variable_dimension);

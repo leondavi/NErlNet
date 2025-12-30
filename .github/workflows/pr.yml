@@ -17,11 +17,15 @@ jobs:
           submodules: recursive
       - name: Install
         run: |
-          ./NerlnetInstall.sh
+          ./NerlnetInstall.sh --torch
+      - name: Install Python Torch dependency
+        run: |
+          python3 -m pip install --no-input --no-cache-dir --break-system-packages \
+            torch==2.2.1 --extra-index-url https://download.pytorch.org/whl/cpu
       - name: Build
         id: build
         run: |
-          ./NerlnetBuild.sh
+          ./NerlnetBuild.sh  --infra all
       - name: Run NIF unit tests
         id: nif
         if: steps.build.outcome == 'success'
@@ -34,6 +38,12 @@ jobs:
         run: |
           ./tests/NerlnetSourceNifTest.sh
         timeout-minutes: 15
+      - name: Torch NIF unit tests
+        id: torchnif
+        if: steps.nif.outcome == 'success'
+        run: |
+          ./tests/NerlnetNIFTorchTest.sh
+        timeout-minutes: 15
       - name: Run FullFlow test
         id: fullflow
         if: steps.nif.outcome == 'success'
@@ -45,4 +55,16 @@ jobs:
         if: steps.fullflow.outcome == 'success'
         run: |
           ./tests/NerlnetFullFlowTestPost.sh
+        timeout-minutes: 5
+      - name: Torch FullFlow test
+        id: torchfullflow
+        if: steps.fullflow.outcome == 'success'
+        run: |
+          ./tests/NerlnetFullFlowTorchTest.sh
+        timeout-minutes: 20
+      - name: Torch Post FullFlow test
+        id: torchfullflowpost
+        if: steps.torchfullflow.outcome == 'success'
+        run: |
+          ./tests/NerlnetFullFlowTorchTestPost.sh
         timeout-minutes: 5

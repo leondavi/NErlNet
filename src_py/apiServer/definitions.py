@@ -21,6 +21,7 @@ JSONS_DIR = "jsonsDir"
 # Should be exatly as ?LOCAL_DC_FILE_NAME ?LOCAL_COMM_FILE_NAME
 DC_FILE_ARCH_REMOTE_NAME = '/tmp/nerlnet/jsons/dc.json' #TODO get back to this after taking care to multipart
 JSON_FILE_COMM_REMOTE_NAME = '/tmp/nerlnet/jsons/conn.json'
+TORCH_REMOTE_MODEL_ROOT = '/tmp/nerlnet/torch/models/pt'
 
 JSON_INIT_HANDLER_ERL_PORT = 8484 #TODO fix main server bypassing
 
@@ -81,13 +82,13 @@ def export_df_csv(filepath : str , df):
 def import_csv_df(filepath : str):
     if not os.path.isfile(filepath):
         LOG_ERROR(f"File does not exist: {filepath}")
-        raise "File does not exist"
+        raise FileNotFoundError(f"File does not exist: {filepath}")
     return pd.read_csv(filepath)
 
 def import_dict_pickle(filepath : str):
     if not os.path.isfile(filepath):
         LOG_ERROR(f"File does not exist: {filepath}")
-        raise "File does not exist"
+        raise FileNotFoundError(f"File does not exist: {filepath}")
     with open(filepath, 'rb') as handle:
         return pickle.load(handle)
 
@@ -105,7 +106,7 @@ def is_file_exists(filepath : str) -> bool:
 def import_dict_json(filepath : str):
     if not os.path.isfile(filepath):
         LOG_ERROR(f"File does not exist: {filepath}")
-        raise "File does not exist"
+        raise FileNotFoundError(f"File does not exist: {filepath}")
     with open(filepath, "r") as infile:
         return json.load(infile , object_pairs_hook=OrderedDict)
 
@@ -122,3 +123,9 @@ def pretty_dict(d):
             v = pretty_dict(v)
         pretty_dict_str += f'{k}: {str(v)}\n'
     return pretty_dict_str
+
+def build_torch_remote_model_path(model_sha : str, artifact_name : str) -> str:
+    """Return the canonical remote path for a Torch artifact referenced by model_sha."""
+    safe_sha = ''.join(ch for ch in model_sha if ch.isalnum())
+    safe_name = os.path.basename(artifact_name)
+    return os.path.join(TORCH_REMOTE_MODEL_ROOT, safe_sha, safe_name)
