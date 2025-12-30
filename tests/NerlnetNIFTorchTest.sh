@@ -60,7 +60,9 @@ generate_torch_model() {
     local output="$1"
     shift
     print "Generating TorchScript test model at $output"
-    if ! "$PYTHON_BIN" "$MODEL_GENERATOR" --output "$output" "$@"; then
+    # Ensure the Python wheel-provided libtorch is used instead of the system libtorch
+    # by clearing LD_LIBRARY_PATH for this invocation only.
+    if ! env LD_LIBRARY_PATH= "$PYTHON_BIN" "$MODEL_GENERATOR" --output "$output" "$@"; then
         print "Failed to generate TorchScript model"
         exit 1
     fi
