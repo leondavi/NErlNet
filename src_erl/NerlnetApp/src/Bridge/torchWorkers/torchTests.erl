@@ -228,7 +228,7 @@ nerlTorch_concurrent_train_predict_test() ->
             , LearningRate, Epochs, OptimizerType, OptimizerArgs,
             LossMethod, DistributedSystemType, DistributedSystemArg} = ModelSpec,
       ResolvedModelArgs = resolve_model_args(ModelArgs),
-      TrainParams = build_train_params(ResolvedModelArgs, LearningRate, Epochs, OptimizerType, LossMethod, OptimizerArgs),
+      TrainParams = build_train_params(ResolvedModelArgs, LearningRate, Epochs, OptimizerType, LossMethod, OptimizerArgs, LayersSizes, LayersTypes),
       ensure_train_params_cover_required_keys(ModelId, TrainParams),
       ok = ensure_worker_created(ModelId, DistributedSystemType, DistributedSystemArg, TrainParams),
       {TrainBatch, PredictBatch} = prepare_worker_batches(ModelType, LayersSizes, LayersTypes),
