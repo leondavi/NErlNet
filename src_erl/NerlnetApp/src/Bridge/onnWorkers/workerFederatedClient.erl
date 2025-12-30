@@ -5,7 +5,6 @@
 -include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/NerlnetApp/src/nerl_tools.hrl").
 -include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/NerlnetApp/src/Bridge/Common/w2wCom.hrl").
 
--import(nerlNIF, [call_to_get_weights/2, call_to_set_weights/2]).
 
 -define(WORKER_FEDERATED_CLIENT_ETS_FIELDS, [my_name, client_pid, server_name, sync_max_count, sync_count]).
 -define(FEDERATED_CLIENT_ETS_KEY_IN_GENWORKER_ETS, fedrated_client_ets).
@@ -26,6 +25,10 @@ controller(FuncName, {GenWorkerEts, WorkerData}) ->
 
 get_this_client_ets(GenWorkerEts) -> 
   ets:lookup_element(GenWorkerEts, federated_client_ets, ?ETS_KEYVAL_VAL_IDX).
+
+nif_call(GenWorkerEts, Function, Args) when is_atom(Function), is_list(Args) ->
+  Module = ets:lookup_element(GenWorkerEts, nif_module, ?ETS_KEYVAL_VAL_IDX),
+  erlang:apply(Module, Function, Args).
 
 parse_args(Args) -> 
   ArgsList = string:split(Args, "," , all),
@@ -164,7 +167,7 @@ post_train({GenWorkerEts, {post_train_update, {_SyncIdx, UpdatedWeights}}}) ->
     true -> 
       % io:format("Got updated weights from server~n"),
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-      nerlNIF:call_to_set_weights(ModelID, UpdatedWeights),
+      nif_call(GenWorkerEts, call_to_set_weights, [ModelID, UpdatedWeights]),
       ets:update_element(FedClientEts, wait_for_weights_update, {?ETS_KEYVAL_VAL_IDX, false}),
       ets:update_element(FedClientEts, sync_count, {?ETS_KEYVAL_VAL_IDX , 0})
   end,
@@ -185,7 +188,7 @@ post_train({GenWorkerEts, _Data}) ->
       if SyncCount == MaxSyncCount ->
         % io:format("~p sent averaging request to server~n", [MyName]),
         ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-        WeightsTensor = nerlNIF:call_to_get_weights(ModelID),
+        WeightsTensor = nif_call(GenWorkerEts, call_to_get_weights, [ModelID]),
         ServerName = ets:lookup_element(FedClientEts, server_name, ?ETS_KEYVAL_VAL_IDX), 
         W2WPid = ets:lookup_element(FedClientEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
         w2wCom:send_message_with_event(W2WPid, MyName, ServerName , post_train_update, WeightsTensor),

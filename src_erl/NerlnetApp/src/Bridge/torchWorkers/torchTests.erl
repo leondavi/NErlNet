@@ -17,12 +17,22 @@
 -define(PREDICT_PHASE_ROUNDS, 2).
 -define(NIF_REPLY_TIMEOUT_MS, 10000).
 -define(NERLWORKER_TEST_NUM_SAMPLES, 500).
+-define(TORCH_TRAIN_PARAM_MANDATORY_GROUPS,
+      [#{label => model_path, keys => ["model_path"], allow_blank => false},
+       #{label => learning_rate, keys => ["lr", "learning_rate"], allow_blank => false},
+       #{label => epochs, keys => ["epochs"], allow_blank => false},
+       #{label => optimizer, keys => ["optimizer", "optim"], allow_blank => false},
+       #{label => loss, keys => ["loss"], allow_blank => false}]).
+-define(TORCH_TRAIN_PARAM_EXPECTED_KEYS,
+      ["model_format",
+       "model_checksum",
+       "model_description"]).
 
 -export([run_tests/0]).
 
 -import(nerlTorchNIF,[encode_nif/2, decode_nif/2, nerltensor_conversion/2, get_all_binary_types/0,
                       nerltensor_sum_nif/3, nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2,
-                      test_nerlworker_nif/14, remove_nerlworker_nif/1, nif_preload/0,
+                      test_nerlworker_nif/4, remove_nerlworker_nif/1, nif_preload/0,
                       train_nif/3, predict_nif/3]).
 -import(nerlTensor,[nerltensor_sum_erl/2, split_cols_erl_tensor/3]).
 -import(nerl,[compare_floats_L/3, string_format/2, logger_settings/1, tic/0, toc/1]).
@@ -59,8 +69,15 @@ run_tests()->
       ScalarMulDouble = fun(Rounds) -> nerltensor_scalar_multiplication_test(double, Rounds, 0) end,
       test_envelope_nif_performance(ScalarMulDouble, "nerltensor_scalar_multiplication double", ?SCALAR_MUL_ROUNDS),
 
-      WorkerTest = fun(_Rounds) -> nerlTorch_worker_smoke() end,
-      test_envelope(WorkerTest, "torch_worker_smoke", 1),
+      nerlTorch_training_params_integrity_test(),
+      nerlTorch_worker_creation_matrix_test(),
+      nerlTorch_dual_worker_lifecycle_test(),
+      nerlTorch_concurrent_train_predict_test(),
+
+            WorkerTest = fun(_Rounds) ->
+                  nerlTorch_worker_smoke()
+            end,
+            test_envelope(WorkerTest, "torch_worker_smoke", 1),
 
       nerltest_print("Torch tests completed"),
       ok.
@@ -119,26 +136,21 @@ nerlTorch_worker_smoke() ->
       lists:foreach(fun setup_and_teardown_worker/1, NeuralNetworkTestingModelList),
       ok.
 
-setup_and_teardown_worker({ModelId,ModelType,ModelArgs,LayersSizes, LayersTypes, LayersFunctionalityCodes,
+setup_and_teardown_worker({ModelId,ModelType,ModelArgs,LayersSizes, LayersTypes, _LayersFunctionalityCodes,
                            LearningRate, Epochs, OptimizerType, OptimizerArgs,
                            LossMethod, DistributedSystemType, DistributedSystemArg}) ->
-      LossArgs = "",
       DistributedArgs = DistributedSystemArg,
       ResolvedModelArgs = resolve_model_args(ModelArgs),
-      ok = ensure_worker_created(ModelId, ModelType, ResolvedModelArgs, LayersSizes, LayersTypes, LayersFunctionalityCodes,
-                                 LearningRate, Epochs, OptimizerType, OptimizerArgs, LossMethod,
-                                 LossArgs, DistributedSystemType, DistributedArgs),
+      TrainParams = build_train_params(ResolvedModelArgs, LearningRate, Epochs, OptimizerType, LossMethod, OptimizerArgs),
+      ensure_train_params_cover_required_keys(ModelId, TrainParams),
+      ok = ensure_worker_created(ModelId, DistributedSystemType, DistributedArgs, TrainParams),
       exercise_worker_train_predict(ModelId, ModelType, LayersSizes, LayersTypes),
       _ = remove_nerlworker_nif(ModelId),
       ok.
 
-ensure_worker_created(ModelId, ModelType, ModelArgs, LayersSizes, LayersTypes, LayersFunctionalityCodes,
-                      LearningRate, Epochs, OptimizerType, OptimizerArgs, LossMethod,
-                      LossArgs, DistributedSystemType, DistributedSystemArgs) ->
+ensure_worker_created(ModelId, DistributedSystemType, DistributedSystemArgs, TrainParams) ->
       try
-            test_nerlworker_nif(ModelId,ModelType,ModelArgs,LayersSizes, LayersTypes,
-                                LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType,
-                                OptimizerArgs, LossMethod, LossArgs, DistributedSystemType, DistributedSystemArgs),
+            test_nerlworker_nif(ModelId, DistributedSystemType, DistributedSystemArgs, TrainParams),
             ok
       catch
             Class:Reason:Stack -> erlang:error({torch_worker_setup_failed, Class, Reason, Stack})
@@ -164,6 +176,183 @@ run_predict_cycles(ModelId, [{BatchBinary, BatchType} | Rest], CycleIdx) ->
       await_nerlnif_reply(predict),
       nerltest_print(nerl:string_format("Predict cycle #~p completed", [CycleIdx])),
       run_predict_cycles(ModelId, Rest, CycleIdx + 1).
+
+build_train_params(ModelPath, LearningRate, Epochs, OptimizerType, LossMethod, OptimizerArgs) ->
+      OptimizerName = optimizer_code_to_name(OptimizerType, OptimizerArgs),
+      #{
+            "model_path" => ModelPath,
+            "model_format" => "torchscript",
+            "model_checksum" => "",
+            "model_description" => "torch_test_model",
+            "lr" => LearningRate,
+            "learning_rate" => LearningRate,
+            "epochs" => Epochs,
+            "optimizer" => OptimizerName,
+            "optim" => OptimizerName,
+            "loss" => LossMethod
+       }.
+
+nerlTorch_training_params_integrity_test() ->
+      SampleParams = build_train_params("/tmp/model.pt", "0.1", "10", "2", "mse", undefined),
+      ensure_train_params_cover_required_keys(sample_model_id, SampleParams),
+      nerltest_print("Verified Torch training parameter coverage").
+
+nerlTorch_worker_creation_matrix_test() ->
+      BaseParams = default_train_params(),
+      Cases = [
+            #{label => valid_model_path, params => BaseParams, expect => ok},
+            #{label => missing_model_file, params => BaseParams#{"model_path" := "/tmp/nerlnet/does_not_exist.pt"}, expect => ok},
+            #{label => alt_optimizer_alias, params => BaseParams#{"optimizer" := "AdamW", "optim" := "AdamW"}, expect => ok},
+            #{label => blank_metadata, params => BaseParams#{"model_description" := ""}, expect => ok},
+            #{label => invalid_train_params_term, params => ['not', a, map], expect => badarg}
+      ],
+      lists:foreach(fun run_worker_creation_case/1, Cases),
+      nerltest_print("Torch worker creation matrix completed").
+
+nerlTorch_dual_worker_lifecycle_test() ->
+      [ModelA, ModelB | _] = ?NEURAL_NETWORK_TESTING_MODELS_LIST,
+      Parent = self(),
+      Pids = [spawn(fun() ->
+                        run_worker_lifecycle(Model, Parent)
+                  end) || Model <- [ModelA, ModelB]],
+      await_worker_lifecycle(Pids),
+      nerltest_print("Dual worker lifecycle completed").
+
+nerlTorch_concurrent_train_predict_test() ->
+      [ModelSpec | _] = ?NEURAL_NETWORK_TESTING_MODELS_LIST,
+      {ModelId,ModelType,ModelArgs,LayersSizes, LayersTypes, _
+            , LearningRate, Epochs, OptimizerType, OptimizerArgs,
+            LossMethod, DistributedSystemType, DistributedSystemArg} = ModelSpec,
+      ResolvedModelArgs = resolve_model_args(ModelArgs),
+      TrainParams = build_train_params(ResolvedModelArgs, LearningRate, Epochs, OptimizerType, LossMethod, OptimizerArgs),
+      ensure_train_params_cover_required_keys(ModelId, TrainParams),
+      ok = ensure_worker_created(ModelId, DistributedSystemType, DistributedSystemArg, TrainParams),
+      {TrainBatch, PredictBatch} = prepare_worker_batches(ModelType, LayersSizes, LayersTypes),
+      launch_async_train_predict(ModelId, TrainBatch, PredictBatch),
+      _ = remove_nerlworker_nif(ModelId),
+      nerltest_print("Concurrent train/predict test completed").
+
+default_train_params() ->
+      ResolvedModelPath = resolve_model_args(?TORCH_TEST_MODEL_PERCEPTRON_RELATIVE_PATH),
+      build_train_params(ResolvedModelPath, "0.01", "5", "2", "2", "").
+
+run_worker_creation_case(#{label := Label, params := Params, expect := Expect}) ->
+      ModelId = erlang:unique_integer([positive]),
+      DistType = "0",
+      DistArgs = "",
+      Result = catch test_nerlworker_nif(ModelId, DistType, DistArgs, Params),
+      case {Expect, Result} of
+            {ok, ok} ->
+                  _ = remove_nerlworker_nif(ModelId),
+                  ok;
+            {badarg, {'EXIT', {badarg, _}}} -> ok;
+            {_, {'EXIT', Reason}} -> erlang:error({worker_creation_failed, Label, Reason});
+            {Expected, Actual} -> erlang:error({unexpected_worker_creation_result, Label, Expected, Actual})
+      end.
+
+run_worker_lifecycle(Model, Parent) ->
+      try
+            setup_and_teardown_worker(Model),
+            Parent ! {worker_lifecycle_done, self(), ok}
+      catch
+            Class:Reason:Stack -> Parent ! {worker_lifecycle_done, self(), {error, {Class, Reason, Stack}}}
+      end.
+
+await_worker_lifecycle([]) -> ok;
+await_worker_lifecycle(Pending) ->
+      receive
+            {worker_lifecycle_done, Pid, ok} ->
+                  await_worker_lifecycle(lists:delete(Pid, Pending));
+            {worker_lifecycle_done, Pid, Error} -> erlang:error({worker_lifecycle_failed, Pid, Error})
+      after ?NIF_REPLY_TIMEOUT_MS -> erlang:error({worker_lifecycle_timeout, Pending})
+      end.
+
+launch_async_train_predict(ModelId, {TrainBinary, TrainType}, {PredictBinary, PredictType}) ->
+      Parent = self(),
+      Launch = fun(Label, Fun) ->
+            spawn(fun() ->
+                  Result = catch Fun(),
+                  case Result of
+                        ok -> Parent ! {async_done, Label, ok};
+                        {'EXIT', Reason} -> Parent ! {async_done, Label, {error, Reason}};
+                        Other -> Parent ! {async_done, Label, {unexpected, Other}}
+                  end
+            end)
+      end,
+      _TrainPid = Launch(train, fun() ->
+            ok = train_nif(ModelId, TrainBinary, TrainType),
+            await_nerlnif_reply(train)
+      end),
+      _PredictPid = Launch(predict, fun() ->
+            ok = predict_nif(ModelId, PredictBinary, PredictType),
+            await_nerlnif_reply(predict)
+      end),
+      await_async_results(2).
+
+await_async_results(0) -> ok;
+await_async_results(Remaining) ->
+      receive
+            {async_done, _Label, ok} -> await_async_results(Remaining - 1);
+            {async_done, Label, Error} -> erlang:error({async_task_failed, Label, Error})
+      after ?NIF_REPLY_TIMEOUT_MS -> erlang:error({async_tasks_timeout, Remaining})
+      end.
+
+ensure_train_params_cover_required_keys(ModelId, TrainParams) ->
+      ensure_mandatory_groups(ModelId, TrainParams, ?TORCH_TRAIN_PARAM_MANDATORY_GROUPS),
+      ensure_expected_keys_present(ModelId, TrainParams, ?TORCH_TRAIN_PARAM_EXPECTED_KEYS).
+
+ensure_mandatory_groups(_ModelId, _TrainParams, []) -> ok;
+ensure_mandatory_groups(ModelId, TrainParams, [Group | Rest]) ->
+      #{label := Label, keys := Keys, allow_blank := AllowBlank} = Group,
+      case find_first_present_key(Keys, TrainParams) of
+            {ok, Key} ->
+                  Value = maps:get(Key, TrainParams),
+                  case AllowBlank of
+                        true -> ok;
+                        false ->
+                              case is_invalid_train_param_value(Value) of
+                                    true -> erlang:error({torch_train_params_invalid_values, ModelId, [Key]});
+                                    false -> ok
+                              end
+                  end;
+            error -> erlang:error({torch_train_params_missing_keys, ModelId, [Label]})
+      end,
+      ensure_mandatory_groups(ModelId, TrainParams, Rest).
+
+ensure_expected_keys_present(_ModelId, _TrainParams, []) -> ok;
+ensure_expected_keys_present(ModelId, TrainParams, [Key | Rest]) ->
+      case maps:is_key(Key, TrainParams) of
+            true -> ensure_expected_keys_present(ModelId, TrainParams, Rest);
+            false -> erlang:error({torch_train_params_missing_keys, ModelId, [Key]})
+      end.
+
+find_first_present_key([], _TrainParams) -> error;
+find_first_present_key([Key | Rest], TrainParams) ->
+      case maps:is_key(Key, TrainParams) of
+            true -> {ok, Key};
+            false -> find_first_present_key(Rest, TrainParams)
+      end.
+
+is_invalid_train_param_value(Value) when Value =:= undefined; Value =:= <<>> -> true;
+is_invalid_train_param_value(Value) when is_list(Value) -> length(string:trim(Value)) =:= 0;
+is_invalid_train_param_value(Value) when is_binary(Value) ->
+      Trimmed = string:trim(binary_to_list(Value)),
+      length(Trimmed) =:= 0;
+is_invalid_train_param_value(_) -> false.
+
+optimizer_code_to_name("5", _) -> "adam";
+optimizer_code_to_name("2", _) -> "sgd";
+optimizer_code_to_name(_, Args) ->
+      case string:lowercase(normalize_optimizer_arg(Args)) of
+            "adam" -> "adam";
+            _ -> "sgd"
+      end.
+
+normalize_optimizer_arg(undefined) -> "";
+normalize_optimizer_arg(Args) when is_list(Args) -> Args;
+normalize_optimizer_arg(Args) when is_binary(Args) -> binary_to_list(Args);
+normalize_optimizer_arg(Args) when is_atom(Args) -> atom_to_list(Args);
+normalize_optimizer_arg(Other) -> lists:flatten(io_lib:format("~p", [Other])).
 
 await_nerlnif_reply(Action) ->
       receive

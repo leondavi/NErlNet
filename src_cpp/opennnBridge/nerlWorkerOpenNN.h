@@ -4,6 +4,7 @@
 #include <Logger.h>
 
 #include "../opennn/opennn/opennn.h"
+#include "../common/nerlLayer.h"
 #include "../common/nerlWorker.h"
 #include "eigenTensorTypes.h"
 #include "worker_definitions_ag.h"
@@ -17,12 +18,11 @@ namespace nerlnet
 
 class NerlWorkerOpenNN : public NerlWorker
 {
-    public:
-
-    NerlWorkerOpenNN(int model_type, std::string &model_args_str , std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
-                     float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
-                     int loss_method, std::string &loss_args_str, int distributed_system_type, std::string &distributed_system_args_str);
-    ~NerlWorkerOpenNN();
+public:
+    NerlWorkerOpenNN(WorkerParams worker_params,
+                     int distributed_system_type,
+                     std::string distributed_system_args_str);
+    ~NerlWorkerOpenNN() override;
 
     void generate_opennn_neural_network();
     void generate_training_strategy();
@@ -46,7 +46,14 @@ class NerlWorkerOpenNN : public NerlWorker
     fTensor2DPtr get_loss_nerltensor(); // this is the last calculated loss by perform training
 
 
-    private:
+private:
+    const std::string &get_required_param(const std::string &key) const;
+    std::string get_optional_param(const std::string &key, const std::string &fallback = "") const;
+    int get_required_int_param(const std::string &key) const;
+    float get_required_float_param(const std::string &key) const;
+    std::shared_ptr<NerlLayer> parse_layers_input(const std::string &layer_sizes_str,
+                                                 const std::string &layer_types_list,
+                                                 const std::string &layers_functionality);
 
     std::shared_ptr<opennn::NeuralNetwork> _neural_network_ptr;
     std::shared_ptr<opennn::TrainingStrategy> _training_strategy_ptr;
@@ -58,6 +65,16 @@ class NerlWorkerOpenNN : public NerlWorker
 
     // training vars
     double _last_loss;
+
+    std::shared_ptr<NerlLayer> _nerl_layers_linked_list;
+    int _model_type{0};
+    std::string _model_args_str;
+    float _learning_rate{0.0F};
+    int _epochs{0};
+    int _optimizer_type{0};
+    int _loss_method{0};
+    std::string _loss_args_str;
+    std::string _optimizer_args_str;
     
     // neural network generator functions
     void generate_opennn_project(std::shared_ptr<opennn::NeuralNetwork> &neural_network_ptr);

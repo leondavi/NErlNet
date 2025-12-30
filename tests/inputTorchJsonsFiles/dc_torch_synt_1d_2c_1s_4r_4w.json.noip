@@ -1,0 +1,73 @@
+{
+    "nerlnetSettings": {
+        "frequency": "60",
+        "batchSize": "50"
+    },
+    "mainServer": {
+        "port": "8081",
+        "args": ""
+    },
+    "apiServer": {
+        "port": "8082",
+        "args": ""
+    },
+    "devices": [
+        {
+            "name": "pc1",
+            "ipv4": "x.x.x.x",
+            "entities": "c1,c2,r2,r1,r3,r4,s1,apiServer,mainServer"
+        }
+    ],
+    "routers": [
+        {"name": "r1", "port": "28086", "policy": "0"},
+        {"name": "r2", "port": "28087", "policy": "0"},
+        {"name": "r3", "port": "28088", "policy": "0"},
+        {"name": "r4", "port": "28089", "policy": "0"}
+    ],
+    "sources": [
+        {
+            "name": "s1",
+            "port": "28085",
+            "frequency": "60",
+            "policy": "0",
+            "epochs": "1",
+            "type": "0"
+        }
+    ],
+    "clients": [
+        {"name": "c1", "port": "28083", "workers": "w1,w2"},
+        {"name": "c2", "port": "28084", "workers": "w3,w4"}
+    ],
+    "workers": [
+        {"name": "w1", "model_sha": "62f7cb1a684f78159c8b283fe9415167a7fb2430b6a4b538c5920f9969fafb14"},
+        {"name": "w2", "model_sha": "62f7cb1a684f78159c8b283fe9415167a7fb2430b6a4b538c5920f9969fafb14"},
+        {"name": "w3", "model_sha": "62f7cb1a684f78159c8b283fe9415167a7fb2430b6a4b538c5920f9969fafb14"},
+        {"name": "w4", "model_sha": "62f7cb1a684f78159c8b283fe9415167a7fb2430b6a4b538c5920f9969fafb14"}
+    ],
+    "model_sha": {
+        "62f7cb1a684f78159c8b283fe9415167a7fb2430b6a4b538c5920f9969fafb14": {
+            "infraType": "torch",
+            "_doc_infraType": " opennn:0 | wolfengine:1 | torch:2 |",
+            "distributedSystemType": "0",
+            "_doc_distributedSystemType": " none:0 | fedClientAvg:1 | fedServerAvg:2 |",
+            "distributedSystemArgs": "",
+            "_doc_distributedSystemArgs": "String",
+            "distributedSystemToken": "none",
+            "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server",
+            "pt_path": "tests/inputTorchJsonsFiles/models/placeholder_perceptron.pt",
+            "pt_format": "torchscript",
+            "pt_checksum": "placeholder",
+            "pt_description": "Tiny TorchScript placeholder used by Nerlnet torch tests",
+            "train_params": {
+                "lr": "0.001",
+                "epochs": "1",
+                "optimizer": "adam",
+                "batch_size": "50",
+                "input_tensor_shape": [50, 5],
+                "labels_offset": "default",
+                "labels_shape": [50, 3],
+                "w_init_rand": "True"
+            }
+        }
+    }
+}

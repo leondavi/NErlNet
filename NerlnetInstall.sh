@@ -20,6 +20,8 @@ fi
 
 # args defaults
 InstallAll=false
+InstallErlang=false
+InstallCmake=false
 InstallTorch=false
 NumJobs=4
 
@@ -38,9 +40,11 @@ TORCH_INSTALL_ROOT="$NERLNET_LIB_DIR/libtorch"
 help()
 {
     echo "-------------------------------------" && echo "Nerlnet Install" && echo "-------------------------------------"
-	echo "Runnig this script only with sudo priviledges!"
+	echo "Run this script only with sudo privileges!"
 	echo "Usage:"
-	echo "-i or --install installs all required utilities to run Nerlnet "
+	echo "-a or --all installs Erlang and CMake from source (asks for confirmation)"
+	echo "-e or --erlang installs Erlang from source"
+	echo "-c or --cmake installs CMake from source"
 	echo "-t or --torch downloads libtorch and prepares build/torch_env.sh"
 	echo "-j or --jobs number of jobs to build of libraries (erlang and cmake)"
     exit 2
@@ -57,7 +61,7 @@ die()
 
 begins_with_short_option()
 {
-	local first_option all_short_options='ihtj'
+	local first_option all_short_options='aectjh'
 	first_option="${1:0:1}"
 	test "$all_short_options" = "${all_short_options/$first_option/}" && return 1 || return 0
 }
@@ -66,8 +70,10 @@ begins_with_short_option()
 
 print_help()
 {
-	printf 'Usage: %s [-i|--install] [-t|--torch] [-h|--help] [-j|--jobs <arg>]\n' "$0"
-	printf '\t%s\n' "-i, --install: install erlang and cmake from source"
+	printf 'Usage: %s [-a|--all] [-e|--erlang] [-c|--cmake] [-t|--torch] [-h|--help] [-j|--jobs <arg>]\n' "$0"
+	printf '\t%s\n' "-a, --all: install Erlang and CMake from source (will prompt for confirmation)"
+	printf '\t%s\n' "-e, --erlang: install Erlang from source"
+	printf '\t%s\n' "-c, --cmake: install CMake from source"
 	printf '\t%s\n' "-t, --torch: download libtorch and emit build/torch_env.sh"
 	printf '\t%s\n' "-j, --jobs: number of jobs (default: '4')"
 }
@@ -79,11 +85,23 @@ parse_commandline()
 	do
 		_key="$1"
 		case "$_key" in
-			-i|--install)
+			-a|--all)
 				InstallAll=true
 				;;
-			-i*)
+			-a*)
 				InstallAll=true
+				;;
+			-e|--erlang)
+				InstallErlang=true
+				;;
+			-e*)
+				InstallErlang=true
+				;;
+			-c|--cmake)
+				InstallCmake=true
+				;;
+			-c*)
+				InstallCmake=true
 				;;
 			-t|--torch)
 				InstallTorch=true
@@ -119,6 +137,24 @@ parse_commandline()
 }
 
 parse_commandline "$@"
+
+if [[ $EUID -ne 0 ]]; then
+	echo "This installer requires sudo privileges. Please run: sudo $0 $*"
+	exit 1
+fi
+
+if [ "$InstallAll" = true ]; then
+	read -r -p "Install Erlang and CMake from source? (y/N): " _confirm_all
+	case "$_confirm_all" in
+		[Yy]|[Yy][Ee][Ss])
+			InstallErlang=true
+			InstallCmake=true
+			;;
+		*)
+			echo "[NERLNET] Skipping Erlang and CMake installation (--all not confirmed)."
+			;;
+	esac
+fi
 
 # Script startds here
 
@@ -262,9 +298,12 @@ elif [ "$ARCH_TYPE" = "armv7l" ]; then
     NumJobs=1
 fi
 
-if [ "$InstallAll" = true ] ; then
-    install_erlang
-    install_cmake
+if [ "$InstallErlang" = true ] ; then
+	install_erlang
+fi
+
+if [ "$InstallCmake" = true ] ; then
+	install_cmake
 fi
 
 build_rebar3

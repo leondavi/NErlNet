@@ -7,6 +7,7 @@ BUILD_DIRECTORY="build/release"
 buildNerlnetLibrary=0
 TMP_DIR_RUN=/tmp/nerlnet/run
 REMOTE_JSONS_DIR=/tmp/nerlnet/jsons
+TORCH_MODELS_DIR=/tmp/nerlnet/torch/models/pt
 NERLNET_APP_BUILD_DIR=build/rebar/default/lib
 NERLNET_APP_DIR=src_erl/NerlnetApp
 NERLNET_APP_RELEASE_BIN=$NERLNET_DIR/build/rebar/nerlnetApp/bin
@@ -54,6 +55,12 @@ function init()
         mkdir -p $REMOTE_JSONS_DIR
     fi
 
+	if [ -d "$TORCH_MODELS_DIR" ]; then
+		print "$NERLNET_PREFIX Delete $TORCH_MODELS_DIR directory content"
+		rm -rf "$TORCH_MODELS_DIR"
+	fi
+	mkdir -p "$TORCH_MODELS_DIR"
+
     # only for raspberry
     is_rasp="$(grep -c raspbian /etc/os-release)"
     if [ $is_rasp -gt "0" ]; then 
@@ -93,8 +100,9 @@ function run_release()
     print "running Nerlnet release"
     cd src_erl/NerlnetApp
     rebar3 release
-    $NERLNET_APP_RELEASE_BIN/nerlnetApp foreground
-    cd -
+	local -a _nerlnet_app_cmd=("$NERLNET_APP_RELEASE_BIN/nerlnetApp" foreground)
+	"${_nerlnet_app_cmd[@]}"
+	cd -
 }
 
 function run_shell()
@@ -198,7 +206,7 @@ parse_commandline()
 				_next="${_key##-c}"
 				if test -n "$_next" -a "$_next" != "$_key"
 				then
-					{ begins_with_short_option "$_next" && shift && set -- "-c" "-${_next}" "$@"; } || die "The short option '$_key' can't be decomposed to ${_key:0:2} and -${_key:2}, because ${_key:0:2} doesn't accept value and '-${_key:2:1}' doesn't correspond to a short option."
+					{ begins_with_short_option "$_next" && shift && set -- "-c" "-$_next" "$@"; } || die "The short option '$_key' can't be decomposed to ${_key:0:2} and -${_key:2}, because ${_key:0:2} doesn't accept value and '-${_key:2:1}' doesn't correspond to a short option."
 				fi
 				;;
 			# See the comment of option '--clear' to see what's going on here - principle is the same.

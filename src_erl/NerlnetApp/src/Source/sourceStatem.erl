@@ -15,7 +15,7 @@
 %% API
 -export([start_link/1]).
 %% gen_statem callbacks
--export([format_status/2, state_name/3, handle_event/4, terminate/3, code_change/4, callback_mode/0]).
+-export([state_name/3, handle_event/4, terminate/3, code_change/4, callback_mode/0]).
 %% states and misc
 -export([init/1,  idle/3, castingData/3, transmitter/7]).
 %% utils
@@ -97,14 +97,6 @@ init({MyName, WorkersMap, NerlnetGraph, Policy, BatchSize, Frequency , Epochs, T
 %% the callback mode of the callback module.
 callback_mode() ->
   state_functions.
-
-%% @private
-%% @doc Called (1) whenever sys:get_status/1,2 is called by gen_statem or
-%% (2) when gen_statem terminates abnormally.
-%% This callback is optional.
-format_status(_Opt, [_PDict, _StateName, _State]) ->
-  Status = some_term,
-  Status.
 
 %% @private
 %% @doc There should be one instance of this function for each possible

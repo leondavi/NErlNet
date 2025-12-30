@@ -89,8 +89,9 @@ multipart(Req0, Data) ->
                   %% The multipart message contains normal/basic data
                   {data, _FieldName} -> {_Req2, _BodyData} = read_all_parts(Req1,[]);
                   %% The message contains a file, write it to "FieldName"
-                  {file, FieldName, _Filename, _CType} -> % TODO understand this function
-                      {ok, File} = file:open(FieldName, [append]),
+                    {file, FieldName, _Filename, _CType} -> % TODO understand this function
+                      ok = filelib:ensure_dir(FieldName),
+                      {ok, File} = file:open(FieldName, [write, binary]),
                       Req2 = stream_file(Req1, File),
                       {Req2, [FieldName]}
               end,

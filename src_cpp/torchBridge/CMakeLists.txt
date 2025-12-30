@@ -31,6 +31,8 @@ add_definitions( -D LOGGER_ENABLE_COLORS_ON_USER_HEADER=0 )
 set(SRC_CODE
     "nerltensorTorchDefs.h"
     "nifppNerlTensorTorch.h"
+    "TensorCodec.h"
+    "TensorCodec.cpp"
     "torchNIF.h"
     "torchNIF.cpp"
     "NerlWorkerTorch.h"

@@ -7,10 +7,6 @@ NERLNET_BUILD_PREFIX="[Nerlnet Build] "
 INPUT_DATA_DIR="inputDataDir"
 NERLNET_WORKSPACE="$(pwd)"
 TorchEnvFile="$NERLNET_WORKSPACE/build/torch_env.sh"
-SynapNifEnvFile=""
-SynapNifTorchRoot=""
-SynapNifOnnxRoot=""
-SynapNifErlInclude=""
 
 # arguments parsing 
 # Thanks to https://github.com/matejak/argbash
@@ -18,7 +14,9 @@ Branch="master"
 JobsNum=4
 NerlWolf=OFF
 NerlTorch=OFF
-EnableSynapNif=OFF
+EnableDebugSymbols=OFF
+InfraTarget="openn"
+declare -a BuildTargets=()
 
 help()
 {
@@ -26,9 +24,9 @@ help()
     echo "Usage:"
     echo "--p or --pull Warning! this uses checkout -f! and branch name checkout to branch $Branch and pull the latest"
     echo "--w or --wolf wolfram engine workers infra (nerlwolf)"
-	echo "--t or --torch torch workers infra (nerltorch)"
-	echo "     --enable-synapnif prepare SynapNIF torch/onnx shared libraries"
+	echo "--i or --infra <openn|torch|all> select worker infrastructures (default: openn)"
 	echo "--j or --jobs number of jobs to cmake build"
+	echo "-g  enable compiler debug symbols (-g flag)"
     echo "--c or --clean remove build directory"
     exit 2
 }
@@ -54,66 +52,6 @@ source_torch_environment()
 	print "Loaded torch environment from $TorchEnvFile"
 }
 
-link_synapnif_dependency()
-{
-	local source_dir="$1"
-	local link_name="$2"
-	if [ -z "$source_dir" ] || [ ! -d "$source_dir" ]; then
-		return
-	fi
-
-	local link_root="$NERLNET_WORKSPACE/build/synapnif_deps"
-	local link_path="$link_root/$link_name"
-	mkdir -p "$link_root"
-	rm -rf "$link_path"
-	ln -s "$source_dir" "$link_path"
-	print "SynapNIF dependency '$link_name' linked to $link_path"
-
-	local lib_candidate="$source_dir/lib"
-	if [ ! -d "$lib_candidate" ]; then
-		lib_candidate="$source_dir"
-	fi
-	if [ -d "$lib_candidate" ]; then
-		export LD_LIBRARY_PATH="$lib_candidate:${LD_LIBRARY_PATH:-}"
-	fi
-}
-
-propagate_synapnif_env_file()
-{
-	local env_file="$1"
-	if [ -z "$env_file" ] || [ ! -f "$env_file" ]; then
-		print "SynapNIF environment cache not found; manual LD paths may be required"
-		return
-	fi
-
-	local target_dir="$NERLNET_WORKSPACE/build"
-	mkdir -p "$target_dir"
-	local env_target="$target_dir/synapnif_env.sh"
-	cp "$env_file" "$env_target"
-	chmod +x "$env_target"
-	print "SynapNIF environment exported to $env_target (source this before running tests)"
-
-	link_synapnif_dependency "$SynapNifTorchRoot" "libtorch"
-	link_synapnif_dependency "$SynapNifOnnxRoot" "onnxruntime"
-}
-
-detect_synapnif_erlang_include()
-{
-	if command -v erl >/dev/null 2>&1; then
-		local erl_root
-		erl_root=$(erl -noshell -eval 'io:format("~s~n", [code:root_dir()]), halt().' 2>/dev/null | tail -n 1)
-		if [ -n "$erl_root" ] && [ -d "$erl_root/usr/include" ]; then
-			SynapNifErlInclude="$erl_root/usr/include"
-			export SYNAPNIF_ERLANG_INCLUDE_DIR="$SynapNifErlInclude"
-			print "Detected Erlang include directory at $SynapNifErlInclude"
-		else
-			print "Unable to determine Erlang include directory automatically"
-		fi
-	else
-		print "Erlang executable not found; cannot auto-detect include directory"
-	fi
-}
-
 gitOperations()
 {
     echo "$NERLNET_PREFIX Warning! git checkout -f is about to be executed"
@@ -136,7 +74,7 @@ die()
 
 begins_with_short_option()
 {
-	local first_option all_short_options='hjp'
+	local first_option all_short_options='hjpg'
 	first_option="${1:0:1}"
 	test "$all_short_options" = "${all_short_options/$first_option/}" && return 1 || return 0
 }
@@ -154,68 +92,48 @@ clean_build_directory()
 
 print_help()
 {
-	printf 'Usage: %s [-h|--help] [-c|--clean] [-j|--jobs <arg>] [-p|--pull <arg>]\n' "$0"
+	printf 'Usage: %s [-h|--help] [-c|--clean] [-j|--jobs <arg>] [-p|--pull <arg>] [-i|--infra <arg>]\n' "$0"
 	printf '\t%s\n' "-j, --jobs: number of jobs (default: '4')"
 	printf '\t%s\n' "-p, --pull: pull from branch (default: '4')"
 	printf '\t%s\n' "-w, --wolf: wolfram engine extension build (default: 'off')"
-	printf '\t%s\n' "-t, --torch: torch engine extension build (default: 'off')"
-	printf '\t%s\n' "    --enable-synapnif: run SynapNifBuild setup (default: 'off')"
+	printf '\t%s\n' "-i, --infra: worker infrastructures to build (openn|torch|all, default: 'openn')"
+	printf '\t%s\n' "-g, --debug-build, --no-debug-build: add compiler -g debug symbols (default: 'off')"
 	printf '\t%s\n' "-c, --clean: clean build directory (default: 'off')"
 
 }
 
-prepare_synapnif_shared_libs()
-{
-	local script_candidates=("$NERLNET_DIR/src_cpp/SynapNIF/SynapNifBuild.sh" "$(pwd)/src_cpp/SynapNIF/SynapNifBuild.sh")
-	local script_path=""
-	for candidate in "${script_candidates[@]}"; do
-		if [ -x "$candidate" ]; then
-			script_path="$candidate"
-			break
-		fi
-		if [ -z "$script_path" ] && [ -f "$candidate" ]; then
-			script_path="$candidate"
-			break
-		fi
-	done
-
-	if [ -z "$script_path" ]; then
-		echo "$NERLNET_BUILD_PREFIX SynapNifBuild.sh not found; rerun with --enable-synapnif after installing SynapNIF"
-		exit 1
-	fi
-
-	local script_dir="$(dirname "$script_path")"
-	local script_name="$(basename "$script_path")"
-	print "Preparing SynapNIF shared libraries using $script_name"
-	pushd "$script_dir" > /dev/null
-	if ! bash "$script_name" setup; then
-		popd > /dev/null
-		echo "$NERLNET_BUILD_PREFIX SynapNifBuild.sh setup failed"
-		exit 1
-	fi
-	popd > /dev/null
-
-	local env_file="$script_dir/_build/env/synapnif_env.sh"
-	if [ -f "$env_file" ]; then
-		source "$env_file"
-		SynapNifEnvFile="$env_file"
-		SynapNifTorchRoot="${SYNAPNIF_TORCH_ROOT:-$TORCH_ROOT}"
-		SynapNifOnnxRoot="${SYNAPNIF_ONNX_ROOT:-$ONNX_ROOT}"
-	else
-		print "SynapNIF environment cache not found at $env_file"
-	fi
-
-	if [ -n "$SynapNifEnvFile" ]; then
-		propagate_synapnif_env_file "$SynapNifEnvFile"
-		detect_synapnif_erlang_include
-	fi
-}
 
 get_opennn_version_sha()
 {
 	cd $NERLNET_DIR/src_cpp/opennn
 	echo "$NERLNET_BUILD_PREFIX OpenNN Commit: $(git rev-parse --verify HEAD)"
 	cd -
+}
+
+configure_infrastructure_targets()
+{
+	local selection="${InfraTarget,,}"
+	case "$selection" in
+		openn)
+			InfraTarget="openn"
+			NerlTorch=OFF
+			BuildTargets=("nerlnet_onn")
+		;;
+		torch)
+			InfraTarget="torch"
+			NerlTorch=ON
+			BuildTargets=("nerlnet_torch")
+		;;
+		all)
+			InfraTarget="all"
+			NerlTorch=ON
+			BuildTargets=("nerlnet_onn" "nerlnet_torch")
+		;;
+		*)
+			die "Invalid infrastructure selection '$InfraTarget'. Use openn, torch, or all." 1
+		;;
+	esac
+	print "Worker infrastructures selected: $InfraTarget"
 }
 
 parse_commandline()
@@ -246,36 +164,36 @@ parse_commandline()
 				shift
 				;;
 			--wolf=*)
-				NerlWolf="${_key##--jobs=}"
+				NerlWolf="${_key##--wolf=}"
 				;;
 			-w*)
-				NerlWolf="${_key##-j}"
+				NerlWolf="${_key##-w}"
 				;;
-			-t|--torch)
+			-i|--infra)
 				test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
-				NerlTorch="$2"
+				InfraTarget="$2"
 				shift
 				;;
-			--torch=*)
-				NerlTorch="${_key##--jobs=}"
+			--infra=*)
+				InfraTarget="${_key##--infra=}"
 				;;
-			-t*)
-				NerlTorch="${_key##-j}"
+			-i*)
+				InfraTarget="${_key##-i}"
 				;;
-			--enable-synapnif)
-				EnableSynapNif=ON
-			;;
-			--enable-synapnif=*)
-				local value="${_key##--enable-synapnif=}"
-				case "$value" in
-					[Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|[Oo][Ff][Ff]|0)
-						EnableSynapNif=OFF
-					;;
-					*)
-						EnableSynapNif=ON
-					;;
-				esac
-			;;
+			-g|--debug-build)
+				EnableDebugSymbols=ON
+				;;
+			--no-debug-build)
+				EnableDebugSymbols=OFF
+				;;
+			-g*)
+				EnableDebugSymbols=ON
+				_next="${_key##-g}"
+				if test -n "$_next" -a "$_next" != "$_key"
+				then
+					{ begins_with_short_option "$_next" && shift && set -- "-g" "-${_next}" "$@"; } || die "The short option '$_key' can't be decomposed to ${_key:0:2} and -${_key:2}, because ${_key:0:2} doesn't accept value and '-${_key:2:1}' doesn't correspond to a short option."
+				fi
+				;;
 			-j|--jobs)
 				test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
 				JobsNum="$2"
@@ -311,6 +229,7 @@ parse_commandline()
 
 parse_commandline "$@"
 # end of args parsing
+configure_infrastructure_targets
 get_opennn_version_sha
 
 OPTION="add_compile_definitions(EIGEN_MAX_ALIGN_BYTES=8)"
@@ -328,13 +247,6 @@ if [[ ! $NerlTorch =~ OFF ]]; then
 	source_torch_environment
 	if [ -n "$TORCH_ROOT" ]; then
 		print "Torch root detected at $TORCH_ROOT"
-	fi
-fi
-
-if [[ "$EnableSynapNif" != "OFF" ]]; then
-	prepare_synapnif_shared_libs
-    if [ -z "$SynapNifErlInclude" ]; then
-		detect_synapnif_erlang_include
 	fi
 fi
 
@@ -368,7 +280,20 @@ fi
 echo "$NERLNET_BUILD_PREFIX Building Nerlnet Library"
 echo "$NERLNET_BUILD_PREFIX Cmake command of Nerlnet NIFPP"
 set -e
-cmake_cmd=(cmake -S . -B build/release -DNERLWOLF=$NerlWolf -DNERLTORCH=$NerlTorch -DNERLSYNAPNIF=$EnableSynapNif -DCMAKE_BUILD_TYPE=RELEASE)
+cmake_cmd=(cmake -S . -B build/release -DNERLWOLF=$NerlWolf -DNERLTORCH=$NerlTorch -DCMAKE_BUILD_TYPE=RELEASE)
+if [[ "$EnableDebugSymbols" != "OFF" ]]; then
+	print "Compiler debug symbols enabled (-g)"
+	debug_c_flags="-g"
+	debug_cxx_flags="-g"
+	if [ -n "$CMAKE_C_FLAGS" ]; then
+		debug_c_flags="$CMAKE_C_FLAGS -g"
+	fi
+	if [ -n "$CMAKE_CXX_FLAGS" ]; then
+		debug_cxx_flags="$CMAKE_CXX_FLAGS -g"
+	fi
+	cmake_cmd+=(-DCMAKE_C_FLAGS="$debug_c_flags")
+	cmake_cmd+=(-DCMAKE_CXX_FLAGS="$debug_cxx_flags")
+fi
 if [[ ! $NerlTorch =~ OFF ]]; then
 	if [ -n "$TORCH_ROOT" ]; then
 		cmake_cmd+=(-DTORCH_ROOT="$TORCH_ROOT")
@@ -381,23 +306,17 @@ if [[ ! $NerlTorch =~ OFF ]]; then
 		cmake_cmd+=(-DTORCH_CXX_FLAGS="$TORCH_CXX_FLAGS")
 	fi
 fi
-if [[ "$EnableSynapNif" != "OFF" ]]; then
-	if [ -n "$SynapNifTorchRoot" ]; then
-		cmake_cmd+=(-DSYNAPNIF_TORCH_ROOT="$SynapNifTorchRoot")
-	fi
-	if [ -n "$SynapNifOnnxRoot" ]; then
-		cmake_cmd+=(-DSYNAPNIF_ONNX_ROOT="$SynapNifOnnxRoot")
-	fi
-	if [ -n "$SynapNifErlInclude" ]; then
-		cmake_cmd+=(-DSYNAPNIF_ERLANG_INCLUDE_DIR="$SynapNifErlInclude")
-	fi
-fi
 "${cmake_cmd[@]}"
 cd build/release
 echo "$NERLNET_BUILD_PREFIX Script CWD: $PWD"
 echo "$NERLNET_BUILD_PREFIX Build Nerlnet"
 echo "Jobs Number: $JobsNum"
-make -j$JobsNum 
+if [ ${#BuildTargets[@]} -gt 0 ]; then
+	echo "$NERLNET_BUILD_PREFIX Targets: ${BuildTargets[*]}"
+	cmake --build . --target "${BuildTargets[@]}" -- -j$JobsNum
+else
+	cmake --build . -- -j$JobsNum
+fi
 cd ../../
 echo "$NERLNET_BUILD_PREFIX Script CWD: $PWD"
 set +e

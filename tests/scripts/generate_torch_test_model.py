@@ -15,7 +15,7 @@ from typing import Sequence
 
 import torch
 
-DEFAULT_RELATIVE_OUTPUT = pathlib.Path("tests/inputTorchJsonsFiles/models/placeholder_linear.pt")
+DEFAULT_RELATIVE_OUTPUT = pathlib.Path("tests/inputTorchJsonsFiles/models/placeholder_perceptron.pt")
 
 
 def parse_args() -> argparse.Namespace:

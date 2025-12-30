@@ -20,7 +20,7 @@
 -behaviour(application).
 -include("nerl_tools.hrl").
 
--define(NERLNET_APP_VERSION, "1.5.4").
+-define(NERLNET_APP_VERSION, "1.6.0").
 -define(NERLPLANNER_TESTED_VERSION,"1.0.4").
 
 -export([start/2, stop/1]).
@@ -177,18 +177,49 @@ parseJsonAndStartNerlnet(ThisDeviceIP) ->
 
 send_jsons_to_other_devices(_DCJsonFileBytes, _CommunicationMapFileBytes, []) -> ?LOG_INFO("This experiment is running on a single device!",[]);
 send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, DevicesList) ->
+    TorchPayloads = gather_torch_payloads(),
     Fun = fun({DeviceNameAtom, {IPv4, _Entities}}) ->
         ?LOG_INFO("Sending jsons to ~p",[DeviceNameAtom]),
         URL = "http://" ++ IPv4 ++ ":" ++ integer_to_list(?NERLNET_INIT_PORT) ++ "/sendJsons",
         Boundary = "------WebKitFormBoundaryUscTgwn7KiuepIr1",
         ContentType = lists:concat(["multipart/form-data; boundary=", Boundary]),
         Fields = [],
-        Files = [{?JSON_ADDR++?LOCAL_DC_FILE_NAME, ?LOCAL_DC_FILE_NAME, binary_to_list(DCJsonFileBytes)}, {?JSON_ADDR++?LOCAL_COMM_FILE_NAME, ?LOCAL_COMM_FILE_NAME, binary_to_list(CommunicationMapFileBytes)}],
+        BaseFiles = [{?JSON_ADDR++?LOCAL_DC_FILE_NAME, ?LOCAL_DC_FILE_NAME, binary_to_list(DCJsonFileBytes)},
+                     {?JSON_ADDR++?LOCAL_COMM_FILE_NAME, ?LOCAL_COMM_FILE_NAME, binary_to_list(CommunicationMapFileBytes)}],
+        Files = BaseFiles ++ TorchPayloads,
         ReqBody = nerl_tools:format_multipart_formdata(Boundary, Fields, Files),
         ReqHeader = [{"Content-Length", integer_to_list(length(ReqBody))}],
         {ok, _} = httpc:request(post, {URL, ReqHeader, ContentType, ReqBody}, [], [])
     end,
     lists:foreach(Fun, DevicesList).
+
+gather_torch_payloads() ->
+    case catch ets:lookup_element(nerlnet_data, torch_models_map, ?DATA_IDX) of
+        {'EXIT', _} -> [];
+        TorchMap ->
+            Payloads = lists:flatmap(fun build_torch_payload/1, maps:to_list(TorchMap)),
+            case Payloads of
+                [] -> [];
+                _ ->
+                    ?LOG_INFO("Replicating ~p Torch artifact(s) with distributed config", [length(Payloads)]),
+                    Payloads
+            end
+    end.
+
+build_torch_payload({_Sha, TorchMeta}) ->
+    Path0 = maps:get(path, TorchMeta, ""),
+    case string:trim(Path0) of
+        "" -> [];
+        Path ->
+            AbsPath = filename:absname(Path),
+            case file:read_file(AbsPath) of
+                {ok, Bin} ->
+                    [{Path, filename:basename(Path), binary_to_list(Bin)}];
+                {error, Reason} ->
+                    ?LOG_ERROR("Failed to read Torch model at ~p: ~p", [AbsPath, Reason]),
+                    []
+            end
+    end.
 
 %% internal functions
 port_validator(Port, EntityName) ->

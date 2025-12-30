@@ -4,6 +4,8 @@
 ################################################
 
 import sys
+import os
+import hashlib
 from definitions import *
 
 sys.path.insert(0, f'{NERLNET_SRC_PY_PATH}/nerlPlanner')
@@ -47,6 +49,9 @@ class NetworkComponents():
         self.map_entity_to_device = {}
         self.map_device_to_ip = {}
         self.map_name_to_type = {}
+        self.worker_to_model_sha = {}
+        self.model_sha_map = self.jsonData.get(KEY_MODEL_SHA, {})
+        self.torch_model_assets = {}
 
         # Getting the desired batch size:
         self.batchSize = int(self.jsonData[KEY_NERLNET_SETTINGS][KEY_BATCH_SIZE])
@@ -81,6 +86,13 @@ class NetworkComponents():
             self.workers.extend(subWorkers)
             self.map_name_to_type[client_dict[GetFields.get_name_field_name()]] = TYPE_CLIENT
 
+        workers_section = self.jsonData.get(GetFields.get_workers_field_name(), [])
+        for worker_def in workers_section:
+            worker_name = worker_def.get(GetFields.get_name_field_name())
+            worker_sha = worker_def.get(WORKER_MODEL_SHA_FIELD)
+            if worker_name and worker_sha:
+                self.worker_to_model_sha[worker_name] = worker_sha
+
         # Getting the names of all the sources:
         sourcesJsons = self.jsonData[GetFields.get_sources_field_name()]
         for source in sourcesJsons:
@@ -95,6 +107,8 @@ class NetworkComponents():
         for router in routersJsons:
             self.routers.append(router[GetFields.get_name_field_name()])
             self.map_name_to_type[router[GetFields.get_name_field_name()]] = TYPE_ROUTER
+
+        self.torch_model_assets = self._extract_torch_assets()
 
 
     def get_map_worker_to_client(self):
@@ -142,6 +156,70 @@ class NetworkComponents():
                 Workers: {self.workers}\n \
                 Sources: {self.sources}\n \
                 Routers: {self.routers}")
+
+    def has_torch_models(self) -> bool:
+        return bool(self.torch_model_assets)
+
+    def get_torch_model_assets(self):
+        return dict(self.torch_model_assets)
+
+    def _extract_torch_assets(self):
+        assets = {}
+        if not self.model_sha_map:
+            return assets
+
+        for model_sha, model_payload in self.model_sha_map.items():
+            infra_type = str(model_payload.get('infraType', '')).lower()
+            if infra_type != 'torch':
+                continue
+
+            pt_path = model_payload.get('pt_path')
+            if not pt_path:
+                raise ValueError(f"Torch model {model_sha} is missing 'pt_path' in distributed config")
+
+            resolved_path = self._resolve_asset_path(pt_path)
+            if not os.path.isfile(resolved_path):
+                raise FileNotFoundError(f"Torch model file not found for {model_sha}: {resolved_path}")
+
+            remote_path = build_torch_remote_model_path(model_sha, os.path.basename(resolved_path))
+            actual_checksum = self._calculate_sha256(resolved_path)
+            expected_checksum = model_payload.get('pt_checksum')
+            if expected_checksum and expected_checksum.lower() not in ('placeholder', 'none'):
+                if actual_checksum.lower() != expected_checksum.lower():
+                    raise ValueError(f"Checksum mismatch for Torch model {model_sha}")
+
+            assets[model_sha] = {
+                'sha': model_sha,
+                'local_path': resolved_path,
+                'remote_path': remote_path,
+                'format': model_payload.get('pt_format', 'torchscript'),
+                'description': model_payload.get('pt_description', ''),
+                'checksum': actual_checksum,
+            }
+
+        return assets
+
+    def _resolve_asset_path(self, asset_path: str) -> str:
+        normalized = asset_path.strip()
+        candidate_paths = []
+        if os.path.isabs(normalized):
+            candidate_paths.append(normalized)
+        else:
+            candidate_paths.append(os.path.abspath(normalized))
+            candidate_paths.append(os.path.abspath(os.path.join(NERLNET_PATH, normalized)))
+
+        for candidate in candidate_paths:
+            if os.path.isfile(candidate):
+                return candidate
+
+        raise FileNotFoundError(f"Unable to resolve Torch model path: {asset_path}")
+
+    def _calculate_sha256(self, file_path: str) -> str:
+        sha256_hash = hashlib.sha256()
+        with open(file_path, 'rb') as file_obj:
+            for chunk in iter(lambda: file_obj.read(1024 * 1024), b''):
+                sha256_hash.update(chunk)
+        return sha256_hash.hexdigest()
 
          
     def toString(self, char): #Prints the contents of any of the components' lists (e.g. "routers")

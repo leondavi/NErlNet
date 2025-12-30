@@ -4,7 +4,6 @@
 
 -include("/usr/local/lib/nerlnet-lib/NErlNet/src_erl/NerlnetApp/src/Bridge/Common/w2wCom.hrl").
 
--import(nerlNIF,[nerltensor_scalar_multiplication_nif/3, call_to_get_weights/1, call_to_set_weights/2]).
 -import(nerlTensor,[sum_nerltensors_lists/2]).
 -import(w2wCom,[send_message_with_event/5, get_all_messages/0, is_inbox_empty/0]).
 
@@ -34,6 +33,10 @@ controller(FuncName, {GenWorkerEts, WorkerData}) ->
 % After adding put(Ets) to init this function is not needed
 get_this_server_ets(GenWorkerEts) -> 
   ets:lookup_element(GenWorkerEts, federated_server_ets, ?ETS_KEYVAL_VAL_IDX).
+
+nif_call(GenWorkerEts, Function, Args) when is_atom(Function), is_list(Args) ->
+  Module = ets:lookup_element(GenWorkerEts, nif_module, ?ETS_KEYVAL_VAL_IDX),
+  erlang:apply(Module, Function, Args).
   
 parse_args(Args) -> 
   ArgsList = string:split(Args, "," , all),
@@ -154,11 +157,11 @@ post_train({GenWorkerEts, WeightsTensor}) ->
       ets:update_counter(FedServerEts, total_syncs, 1),
       SyncIdx = ets:lookup_element(FedServerEts, total_syncs, ?ETS_KEYVAL_VAL_IDX),
       ModelID = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
-      {CurrentModelWeights, BinaryType} = nerlNIF:call_to_get_weights(ModelID),
+      {CurrentModelWeights, BinaryType} = nif_call(GenWorkerEts, call_to_get_weights, [ModelID]),
       FedServerName = ets:lookup_element(FedServerEts, my_name, ?ETS_KEYVAL_VAL_IDX),
       AllWorkersWeightsList = TotalWorkersWeights ++ [CurrentModelWeights],
-      AvgWeightsNerlTensor = generate_avg_weights(AllWorkersWeightsList, BinaryType),
-      nerlNIF:call_to_set_weights(ModelID, AvgWeightsNerlTensor), %% update self weights to new model
+      AvgWeightsNerlTensor = generate_avg_weights(GenWorkerEts, AllWorkersWeightsList, BinaryType),
+      nif_call(GenWorkerEts, call_to_set_weights, [ModelID, AvgWeightsNerlTensor]), %% update self weights to new model
       Func = fun(FedClient) ->
         FedServerName = ets:lookup_element(ThisEts, my_name, ?ETS_KEYVAL_VAL_IDX),
         W2WPid = ets:lookup_element(ThisEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
@@ -180,7 +183,7 @@ pre_predict({_GenWorkerEts, _WorkerData}) -> ok.
 post_predict({_GenWorkerEts, _WorkerData}) -> ok.
 
 
-generate_avg_weights(AllWorkersWeightsList, BinaryType) ->
+generate_avg_weights(GenWorkerEts, AllWorkersWeightsList, BinaryType) ->
   % io:format("AllWorkersWeightsList = ~p~n",[AllWorkersWeightsList]),
   NumNerlTensors = length(AllWorkersWeightsList),
   if 
@@ -188,4 +191,4 @@ generate_avg_weights(AllWorkersWeightsList, BinaryType) ->
     true -> FinalSumNerlTensor = hd(AllWorkersWeightsList)
   end,
   % io:format("Summed = ~p~n",[FinalSumNerlTensor]),
-  nerlNIF:nerltensor_scalar_multiplication_nif(FinalSumNerlTensor, BinaryType, 1.0/NumNerlTensors).
+  nif_call(GenWorkerEts, nerltensor_scalar_multiplication_nif, [FinalSumNerlTensor, BinaryType, 1.0/NumNerlTensors]).

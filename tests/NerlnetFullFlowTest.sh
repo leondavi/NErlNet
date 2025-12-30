@@ -34,6 +34,44 @@ function print()
     echo "[NERLNET-FULL-FLOW-TEST] $1"
 }
 
+function usage()
+{
+    cat <<EOF
+Usage: ${0##*/} [options]
+
+Options:
+  --manual-start    NerlnetApp is already running; skip auto start logic.
+  -h, --help        Show this help message and exit.
+EOF
+}
+
+MANUAL_START=false
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --manual-start)
+            MANUAL_START=true
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            print "Unknown argument: $1"
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+if $MANUAL_START; then
+    export NERLNET_MANUAL_START=1
+    print "Manual start mode enabled - make sure NerlnetApp is already running"
+else
+    unset NERLNET_MANUAL_START 2>/dev/null
+fi
+
 # add this host ip to subnets and backup subnets.nerlconfig
 cp $NERLNET_CONFIG_SUBNETS_DIR $NERLNET_CONFIG_SUBNETS_BACKUP
 CURRENT_MACHINE_IPV4_ADD="$(ip addr | grep -m 2 -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" | head -n 2 | grep -v "127.0.0.1")"

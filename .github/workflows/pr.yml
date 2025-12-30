@@ -17,11 +17,11 @@ jobs:
           submodules: recursive
       - name: Install
         run: |
-          ./NerlnetInstall.sh
+          ./NerlnetInstall.sh --torch
       - name: Build
         id: build
         run: |
-          ./NerlnetBuild.sh
+          ./NerlnetBuild.sh  --infra all
       - name: Run NIF unit tests
         id: nif
         if: steps.build.outcome == 'success'
@@ -40,15 +40,21 @@ jobs:
         run: |
           ./tests/NerlnetFullFlowTest.sh
         timeout-minutes: 20
-      - name: SynapNIF bridge test
-        id: synap
-        if: steps.fullflow.outcome == 'success'
-        run: |
-          ./tests/NerlnetSynapNifTest.sh
-        timeout-minutes: 10
       - name: Post FullFlow test
         id: fullflowpost
-        if: steps.synap.outcome == 'success'
+        if: steps.fullflow.outcome == 'success'
         run: |
           ./tests/NerlnetFullFlowTestPost.sh
+        timeout-minutes: 5
+      - name: Torch FullFlow test
+        id: torchfullflow
+        if: steps.fullflow.outcome == 'success'
+        run: |
+          ./tests/NerlnetFullFlowTorchTest.sh
+        timeout-minutes: 20
+      - name: Torch Post FullFlow test
+        id: torchfullflowpost
+        if: steps.torchfullflow.outcome == 'success'
+        run: |
+          ./tests/NerlnetFullFlowTorchTestPost.sh
         timeout-minutes: 5

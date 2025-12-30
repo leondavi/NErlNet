@@ -37,12 +37,17 @@ This checklist expands on the torch bridge plan with file-level tasks required t
 4. Document the InfraType → implementation mapping (e.g., `"torch": torchBridge`, `"onn": opennnBridge`) in `agent_plans` and propagate to user documentation.
 
 ## 6. Test Harnesses & CI
-1. Fork `tests/NerlnetSynapNifTest.sh --torch` into a standalone `tests/NerlnetTorchNifTest.sh` that builds the torch bridge, sources `build/torch_env.sh`, copies `torchWorkers`, and runs `rebar3 eunit` suites (e.g., `torchTests:run_tests/0`).
-2. Add an end-to-end script (`tests/NerlnetFullFlowTorchTest.sh`) mirroring `NerlnetFullFlowTest.sh` but loading a Torch-enabled distributed config JSON.
-3. Wire both scripts into CI with a toggle so that libtorch steps only execute when the toolchain is available.
-4. Provide smoke-test JSONs under `examples/` demonstrating an `InfraType` that selects torch workers while still using the existing `model_sha` discipline.
+1. `tests/NerlnetNIFTorchTest.sh` replicates the OpenNN harness for Torch by sourcing `build/torch_env.sh`, staging `torchWorkers`, compiling `nerlTorchNIF`, and invoking `torchTests:run_tests/0`.
+2. `tests/NerlnetFullFlowTorchTest.sh` mirrors `NerlnetFullFlowTest.sh` while swapping in the Torch JSON suite (see `tests/inputTorchJsonsFiles/`).
+3. Wire both scripts into CI with a toggle so that libtorch steps only execute when the toolchain is available, and expose knobs for CPU vs CUDA libtorch downloads.
+4. Expand the smoke-test corpus (`tests/inputTorchJsonsFiles/` plus future `examples/`) so Torch InfraTypes flow through the planner/JSON pipeline using the established `model_sha` contract.
 
 ## 7. Documentation & Operational Notes
 1. Update `README.md`, `docs/CONTRIBUTING.md`, and any runbooks to explain how to enable Torch (`NerlnetInstall.sh --torch`, `NerlnetBuild.sh --torch`, env sourcing before tests).
 2. Add troubleshooting guidance for ABI mismatches, missing `LD_LIBRARY_PATH`, and differences between CPU/CUDA torch builds.
 3. Capture the InfraType + worker model parsing expectations (referencing `jsonParser.erl` and planner JSON exporters) in `docs/` so future bridge implementations reuse the same pipeline.
+
+## 8. Python Control Plane Plumbing
+1. `networkComponents.py` eagerly resolves Torch `pt_path` entries, verifies checksums, and maps each SHA to both the local artifact and the remote upload target built via `build_torch_remote_model_path/1`.
+2. `ApiServer.send_jsons_to_devices()` rewrites the distributed config payload so Torch workers reference `/tmp/nerlnet/jsons/torch_model_<sha>.pt` and attaches the corresponding `.pt` binaries in the multipart POST to `/sendJsons`.
+3. The new helpers (`build_torch_remote_model_path`, `_prepare_dc_stream`, `_build_torch_file_payloads`) ensure future CI runs can swap in CUDA/CPU artifacts without touching the JSONs.
