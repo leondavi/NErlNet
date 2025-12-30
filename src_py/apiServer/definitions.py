@@ -82,13 +82,13 @@ def export_df_csv(filepath : str , df):
 def import_csv_df(filepath : str):
     if not os.path.isfile(filepath):
         LOG_ERROR(f"File does not exist: {filepath}")
-        raise "File does not exist"
+        raise FileNotFoundError(f"File does not exist: {filepath}")
     return pd.read_csv(filepath)
 
 def import_dict_pickle(filepath : str):
     if not os.path.isfile(filepath):
         LOG_ERROR(f"File does not exist: {filepath}")
-        raise "File does not exist"
+        raise FileNotFoundError(f"File does not exist: {filepath}")
     with open(filepath, 'rb') as handle:
         return pickle.load(handle)
 
@@ -106,7 +106,7 @@ def is_file_exists(filepath : str) -> bool:
 def import_dict_json(filepath : str):
     if not os.path.isfile(filepath):
         LOG_ERROR(f"File does not exist: {filepath}")
-        raise "File does not exist"
+        raise FileNotFoundError(f"File does not exist: {filepath}")
     with open(filepath, "r") as infile:
         return json.load(infile , object_pairs_hook=OrderedDict)
 

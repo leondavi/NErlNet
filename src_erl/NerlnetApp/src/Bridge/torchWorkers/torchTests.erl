@@ -277,11 +277,13 @@ derive_shape_metadata(LayersSizes, LayersTypes) ->
                   {DimZComplexInt, _} = string:to_integer(DimZComplex),
                   {LastLayerSizeInt, _} = string:to_integer(LastLayerSize),
                   InputFeatures = DimXComplexInt * DimYComplexInt * DimZComplexInt,
-                  {[BatchSize, InputFeatures], [BatchSize, LastLayerSizeInt]};
+                  TotalColumns = InputFeatures + LastLayerSizeInt,
+                  {[BatchSize, TotalColumns], [BatchSize, LastLayerSizeInt]};
             _ ->
                   {FirstLayerSizeInt, _} = string:to_integer(FirstLayerSize),
                   {LastLayerSizeInt, _} = string:to_integer(LastLayerSize),
-                  {[BatchSize, FirstLayerSizeInt], [BatchSize, LastLayerSizeInt]}
+                  TotalColumns = FirstLayerSizeInt + LastLayerSizeInt,
+                  {[BatchSize, TotalColumns], [BatchSize, LastLayerSizeInt]}
       end.
 
 shape_list_to_string(ShapeList) ->
