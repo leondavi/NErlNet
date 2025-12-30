@@ -26,8 +26,8 @@ def parse_args() -> argparse.Namespace:
                         help="Destination .pt file (default: %(default)s)")
     parser.add_argument("--samples", type=int, default=500, help="Synthetic sample count")
     parser.add_argument("--input-size", type=int, default=5, help="Input feature dimension")
-    parser.add_argument("--hidden-sizes", type=int, nargs="*", default=[30, 5],
-                        help="Hidden layer sizes (default: 30 5)")
+    parser.add_argument("--hidden-sizes", type=int, nargs="*", default=[32,8],
+                        help="Hidden layer sizes (default: 32 8)")
     parser.add_argument("--labels", type=int, default=3, help="Output dimension (number of labels)")
     parser.add_argument("--epochs", type=int, default=200, help="Training epochs")
     parser.add_argument("--lr", type=float, default=1e-2, help="Training learning rate")
