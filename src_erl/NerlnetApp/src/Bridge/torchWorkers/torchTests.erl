@@ -179,7 +179,7 @@ run_predict_cycles(ModelId, [{BatchBinary, BatchType} | Rest], CycleIdx) ->
 
 build_train_params(ModelPath, LearningRate, Epochs, OptimizerType, LossMethod, OptimizerArgs, LayersSizes, LayersTypes) ->
       OptimizerName = optimizer_code_to_name(OptimizerType, OptimizerArgs),
-      {InputShape, LabelShape} = derive_shape_metadata(LayersSizes, LayersTypes),
+      {InputShape, LabelShape, LabelsOffset} = derive_shape_metadata(LayersSizes, LayersTypes),
       InputShapeStr = shape_list_to_string(InputShape),
       LabelShapeStr = shape_list_to_string(LabelShape),
       #{
@@ -195,7 +195,7 @@ build_train_params(ModelPath, LearningRate, Epochs, OptimizerType, LossMethod, O
             "loss" => LossMethod,
             "input_tensor_shape" => InputShapeStr,
             "labels_shape" => LabelShapeStr,
-            "labels_offset" => "default"
+            "labels_offset" => integer_to_list(LabelsOffset)
        }.
 
 nerlTorch_training_params_integrity_test() ->
@@ -278,12 +278,14 @@ derive_shape_metadata(LayersSizes, LayersTypes) ->
                   {LastLayerSizeInt, _} = string:to_integer(LastLayerSize),
                   InputFeatures = DimXComplexInt * DimYComplexInt * DimZComplexInt,
                   TotalColumns = InputFeatures + LastLayerSizeInt,
-                  {[BatchSize, TotalColumns], [BatchSize, LastLayerSizeInt]};
+                  LabelsOffset = InputFeatures,
+                  {[BatchSize, TotalColumns], [BatchSize, LastLayerSizeInt], LabelsOffset};
             _ ->
                   {FirstLayerSizeInt, _} = string:to_integer(FirstLayerSize),
                   {LastLayerSizeInt, _} = string:to_integer(LastLayerSize),
                   TotalColumns = FirstLayerSizeInt + LastLayerSizeInt,
-                  {[BatchSize, TotalColumns], [BatchSize, LastLayerSizeInt]}
+                  LabelsOffset = FirstLayerSizeInt,
+                  {[BatchSize, TotalColumns], [BatchSize, LastLayerSizeInt], LabelsOffset}
       end.
 
 shape_list_to_string(ShapeList) ->
