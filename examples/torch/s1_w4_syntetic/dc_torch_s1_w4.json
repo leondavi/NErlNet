@@ -1,0 +1,67 @@
+{
+  "nerlnetSettings": {
+    "frequency": "60",
+    "batchSize": "50"
+  },
+  "mainServer": {
+    "port": "8081",
+    "args": ""
+  },
+  "apiServer": {
+    "port": "8082",
+    "args": ""
+  },
+  "devices": [
+    {
+      "name": "pc1",
+      "ipv4": "x.x.x.x",
+      "entities": "c1,c2,r1,s1,apiServer,mainServer"
+    }
+  ],
+  "routers": [
+    { "name": "r1", "port": "28086", "policy": "0" }
+  ],
+  "sources": [
+    {
+      "name": "s1",
+      "port": "28085",
+      "frequency": "60",
+      "policy": "0",
+      "epochs": "1",
+      "type": "0"
+    }
+  ],
+  "clients": [
+    { "name": "c1", "port": "28083", "workers": "w1,w2" },
+    { "name": "c2", "port": "28084", "workers": "w3,w4" }
+  ],
+  "workers": [
+    { "name": "w1", "model_sha": "torch_s1w4_v160" },
+    { "name": "w2", "model_sha": "torch_s1w4_v160" },
+    { "name": "w3", "model_sha": "torch_s1w4_v160" },
+    { "name": "w4", "model_sha": "torch_s1w4_v160" }
+  ],
+  "model_sha": {
+    "torch_s1w4_v160": {
+      "infraType": "torch",
+      "_doc_infraType": " opennn:0 | wolfengine:1 | torch:2 |",
+      "distributedSystemType": "0",
+      "distributedSystemArgs": "",
+      "distributedSystemToken": "none",
+      "pt_path": "examples/torch/s1_w4_syntetic/models/synthetic_torch_example.pt",
+      "pt_format": "torchscript",
+      "pt_checksum": "example",
+      "pt_description": "Example TorchScript perceptron for the synthetic_3_gaussians dataset",
+      "train_params": {
+        "lr": "0.001",
+        "epochs": "3",
+        "optimizer": "adam",
+        "batch_size": "50",
+        "input_tensor_shape": [50, 5],
+        "labels_offset": "default",
+        "labels_shape": [50, 3],
+        "w_init_rand": "True"
+      }
+    }
+  }
+}

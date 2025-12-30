@@ -7,6 +7,7 @@ BUILD_DIRECTORY="build/release"
 buildNerlnetLibrary=0
 TMP_DIR_RUN=/tmp/nerlnet/run
 REMOTE_JSONS_DIR=/tmp/nerlnet/jsons
+TORCH_MODELS_DIR=/tmp/nerlnet/torch/models/pt
 NERLNET_APP_BUILD_DIR=build/rebar/default/lib
 NERLNET_APP_DIR=src_erl/NerlnetApp
 NERLNET_APP_RELEASE_BIN=$NERLNET_DIR/build/rebar/nerlnetApp/bin
@@ -54,13 +55,21 @@ function init()
         mkdir -p $REMOTE_JSONS_DIR
     fi
 
+	if [ -d "$TORCH_MODELS_DIR" ]; then
+		print "$NERLNET_PREFIX Delete $TORCH_MODELS_DIR directory content"
+		rm -rf "$TORCH_MODELS_DIR"
+	fi
+	mkdir -p "$TORCH_MODELS_DIR"
+
     # only for raspberry
     is_rasp="$(grep -c raspbian /etc/os-release)"
     if [ $is_rasp -gt "0" ]; then 
         export LD_PRELOAD=/usr/lib/arm-linux-gnueabihf/libatomic.so.1.2.0 
     fi
 
-	pkill beam.smp
+	if [ "$_arg_beam_kill" = "on" ]; then
+		pkill beam.smp
+	fi
 }
 
 function status()
@@ -93,8 +102,9 @@ function run_release()
     print "running Nerlnet release"
     cd src_erl/NerlnetApp
     rebar3 release
-    $NERLNET_APP_RELEASE_BIN/nerlnetApp foreground
-    cd -
+	local -a _nerlnet_app_cmd=("$NERLNET_APP_RELEASE_BIN/nerlnetApp" foreground)
+	"${_nerlnet_app_cmd[@]}"
+	cd -
 }
 
 function run_shell()
@@ -129,7 +139,7 @@ die()
 # This is required in order to support getopts-like short options grouping.
 begins_with_short_option()
 {
-	local first_option all_short_options='rch'
+	local first_option all_short_options='rkch'
 	first_option="${1:0:1}"
 	test "$all_short_options" = "${all_short_options/$first_option/}" && return 1 || return 0
 }
@@ -137,6 +147,7 @@ begins_with_short_option()
 # THE DEFAULTS INITIALIZATION - OPTIONALS
 _arg_run_mode="shell"
 _arg_clear="off"
+_arg_beam_kill="off"
 
 
 # Function that prints general usage of the script.
@@ -146,9 +157,10 @@ print_help()
 {
 	printf '%s\n' "NerlnetRun.sh script runs NerlnetApp on device"
     printf '%s\n' "NerlnetInstall.sh and NerlnetBuild.sh must be performed before this script!"
-	printf 'Usage: %s [-r|--run-mode <arg>] [-c|--(no-)clear] [-h|--help]\n' "$0"
+	printf 'Usage: %s [-r|--run-mode <arg>] [-c|--(no-)clear] [-k|--(no-)beam-kill] [-h|--help]\n' "$0"
 	printf '\t%s\n' "-r, --run-mode: NerlnetApp running modes: shell, release, release-bg, stop, status (default: 'shell')"
 	printf '\t%s\n' "-c, --clear, --no-clear: clear rebar3 directories (off by default)"
+	printf '\t%s\n' "-k, --beam-kill, --no-beam-kill: kill running beam.smp instances before start (off by default)"
 	printf '\t%s\n' "-h, --help: Prints help"
 }
 
@@ -198,7 +210,19 @@ parse_commandline()
 				_next="${_key##-c}"
 				if test -n "$_next" -a "$_next" != "$_key"
 				then
-					{ begins_with_short_option "$_next" && shift && set -- "-c" "-${_next}" "$@"; } || die "The short option '$_key' can't be decomposed to ${_key:0:2} and -${_key:2}, because ${_key:0:2} doesn't accept value and '-${_key:2:1}' doesn't correspond to a short option."
+					{ begins_with_short_option "$_next" && shift && set -- "-c" "-$_next" "$@"; } || die "The short option '$_key' can't be decomposed to ${_key:0:2} and -${_key:2}, because ${_key:0:2} doesn't accept value and '-${_key:2:1}' doesn't correspond to a short option."
+				fi
+				;;
+			-k|--no-beam-kill|--beam-kill)
+				_arg_beam_kill="on"
+				test "${1:0:5}" = "--no-" && _arg_beam_kill="off"
+				;;
+			-k*)
+				_arg_beam_kill="on"
+				_next="${_key##-k}"
+				if test -n "$_next" -a "$_next" != "$_key"
+				then
+					{ begins_with_short_option "$_next" && shift && set -- "-k" "-$_next" "$@"; } || die "The short option '$_key' can't be decomposed to ${_key:0:2} and -${_key:2}, because ${_key:0:2} doesn't accept value and '-${_key:2:1}' doesn't correspond to a short option."
 				fi
 				;;
 			# See the comment of option '--clear' to see what's going on here - principle is the same.

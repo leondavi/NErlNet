@@ -10,9 +10,13 @@ project(torchBridge)
 set(NIFPP_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../nifpp/")
 set(SIMPLE_LOGGER_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../simple-cpp-logger/include")
 set(COMMON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../common")
-set(Torch_DIR "/usr/local/lib/libtorch/share/cmake/Torch")
+if(DEFINED TORCH_CMAKE_PREFIX)
+    set(Torch_DIR "${TORCH_CMAKE_PREFIX}")
+elseif(DEFINED TORCH_ROOT)
+    set(Torch_DIR "${TORCH_ROOT}/share/cmake/Torch")
+endif()
 
-find_package(Torch REQUIRED "TorchConfig.cmake" CONFIG )
+find_package(Torch REQUIRED CONFIG)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_CXX_FLAGS "-fpic")
@@ -27,6 +31,8 @@ add_definitions( -D LOGGER_ENABLE_COLORS_ON_USER_HEADER=0 )
 set(SRC_CODE
     "nerltensorTorchDefs.h"
     "nifppNerlTensorTorch.h"
+    "TensorCodec.h"
+    "TensorCodec.cpp"
     "torchNIF.h"
     "torchNIF.cpp"
     "NerlWorkerTorch.h"

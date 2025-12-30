@@ -25,6 +25,8 @@ Nerlnet library combines the following languages to achieve a stable and efficie
 ![image](https://user-images.githubusercontent.com/18975070/144730182-c535b20a-a5f9-4d4f-8632-77d49732f17f.png) 
 ![image](https://user-images.githubusercontent.com/18975070/144730189-4bad4fba-e559-45a6-b163-d3e5d7d87e1f.png) 
 ![image](https://user-images.githubusercontent.com/18975070/144730205-5a665819-4be0-40aa-88e5-868ba99aab17.png)
+<img width="48" height="48" alt="image" src="https://github.com/user-attachments/assets/bff3958e-6e66-422d-b35d-f695fbd9337c" />
+
  
 ### Nerlnet cluster is defined by three configuration files (Json files):
 - Distributed Configuration that defines entities of Nerlnet: Source, Router, Client.
@@ -38,6 +40,7 @@ Nerlnet library combines the following languages to achieve a stable and efficie
 - [NIFPP](https://github.com/goertzenator/nifpp) C++11 Wrapper for Erlang NIF API.   
 - [Rebar3](https://github.com/erlang/rebar3), an Erlang tool that makes it easy to create, develop, and release Erlang libraries, applications, and systems in a repeatable manner.
 - [Simple Cpp Logger](https://github.com/nadrino/simple-cpp-logger), simple cpp logger headers-only implementation.
+- [LibTorch](https://docs.pytorch.org/cppdocs/index.html), a research and production ready C++ library for tensor computation and dynamic neural networks with strong emphasis on GPU acceleration as well as fast CPU performance.
 
 Nerlnet is developed by David Leon, Dr. Yehuda Ben-Shimol, and the community of Nerlnet open-source contributors.  
 Academic researchers can use Nerlnet for free, provided they cite this repository.  

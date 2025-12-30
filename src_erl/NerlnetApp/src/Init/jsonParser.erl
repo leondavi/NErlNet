@@ -12,6 +12,10 @@
 -include("../worker_definitions_ag.hrl").
 -export([parseJsons/3, json_to_ets/2]).
 
+-if(?DC_DISTRIBUTED_SYSTEM_TYPE_NONE_IDX_STR =/= "0").
+-error("Auto generated definitions are not valid, none-distributed system type should be 0").
+-endif.
+
 -define(SINGLE_STRONG_COMPONENT,1). %% apiServer alone + all network 
 -define(ETS_DATA_IDX, 2).
 -define(PORT_IDX, 1). % port is always at the first index of any entity that has a port!
@@ -77,27 +81,86 @@ get_device_clients(DCMap, DeviceEntities, PrintLog) ->
   [Func(S) || S <- DeviceClients]. % list of tuples: [Name,{Port,WorkersMap}]
 
 get_models(ShaToModelMaps) ->
-  Func = fun(_SHA,ModelParams) ->
-    ModelType = binary_to_list(maps:get(?WORKER_FIELD_KEY_MODEL_TYPE_BIN,ModelParams)),
-    ModelArgs = binary_to_list(maps:get(?WORKER_FIELD_KEY_MODEL_ARGS_BIN, ModelParams)),
-    LayersSizes = binary_to_list(maps:get(?WORKER_FIELD_KEY_LAYER_SIZES_LIST_BIN,ModelParams)),
-    LayersTypes = binary_to_list(maps:get(?WORKER_FIELD_KEY_LAYER_TYPES_LIST_BIN,ModelParams)),
-    LayersFunctions = binary_to_list(maps:get(?WORKER_FIELD_KEY_LAYERS_FUNCTIONS_BIN,ModelParams)),
-    LossMethod = binary_to_list(maps:get(?WORKER_FIELD_KEY_LOSS_METHOD_BIN,ModelParams)),
-    LossArgs = binary_to_list(maps:get(?WORKER_FIELD_KEY_LOSS_ARGS_BIN,ModelParams)),
-    LearningRate = binary_to_list(maps:get(?WORKER_FIELD_KEY_LEARNING_RATE_BIN,ModelParams)),
-    Epochs = binary_to_list(maps:get(?WORKER_FIELD_KEY_EPOCHS_BIN,ModelParams)),
-    Optimizer = binary_to_list(maps:get(?WORKER_FIELD_KEY_OPTIMIZER_TYPE_BIN,ModelParams)),
-    OptimizerArgs = binary_to_list(maps:get(?WORKER_FIELD_KEY_OPTIMIZER_ARGS_BIN, ModelParams)),
-    InfraType = binary_to_list(maps:get(?WORKER_FIELD_KEY_INFRA_TYPE_BIN,ModelParams)),
-    DistributedSystemType = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_TYPE_BIN,ModelParams)),
-    DistributedSystemArgs = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_ARGS_BIN,ModelParams)),
-    DistributedSystemToken = binary_to_list(maps:get(?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_TOKEN_BIN,ModelParams)),
-    ModelTuple = {ModelType, ModelArgs , LayersSizes, LayersTypes, LayersFunctions, LossMethod, LossArgs, LearningRate, Epochs, Optimizer, OptimizerArgs, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken},
-    ModelTuple
-  end,
-  ShaToModelArgsList = [{binary_to_list(ShaBin) , ModelParams} || {ShaBin , ModelParams} <- maps:to_list(maps:map(Func, ShaToModelMaps))],
-  maps:from_list(ShaToModelArgsList).
+  maps:fold(fun(ShaBin, ModelParams, {ModelsAcc, TorchAcc}) ->
+    ModelType = get_string_field(ModelParams, ?WORKER_FIELD_KEY_MODEL_TYPE_BIN),
+    ModelArgs = get_string_field(ModelParams, ?WORKER_FIELD_KEY_MODEL_ARGS_BIN),
+    LayersSizes = get_string_field(ModelParams, ?WORKER_FIELD_KEY_LAYER_SIZES_LIST_BIN),
+    LayersTypes = get_string_field(ModelParams, ?WORKER_FIELD_KEY_LAYER_TYPES_LIST_BIN),
+    LayersFunctions = get_string_field(ModelParams, ?WORKER_FIELD_KEY_LAYERS_FUNCTIONS_BIN),
+    LossMethod = get_string_field(ModelParams, ?WORKER_FIELD_KEY_LOSS_METHOD_BIN),
+    LossArgs = get_string_field(ModelParams, ?WORKER_FIELD_KEY_LOSS_ARGS_BIN),
+    LearningRate = get_string_field(ModelParams, ?WORKER_FIELD_KEY_LEARNING_RATE_BIN),
+    Epochs = get_string_field(ModelParams, ?WORKER_FIELD_KEY_EPOCHS_BIN),
+    Optimizer = get_string_field(ModelParams, ?WORKER_FIELD_KEY_OPTIMIZER_TYPE_BIN),
+    OptimizerArgs = get_string_field(ModelParams, ?WORKER_FIELD_KEY_OPTIMIZER_ARGS_BIN),
+    InfraType = get_string_field(ModelParams, ?WORKER_FIELD_KEY_INFRA_TYPE_BIN),
+    DistributedSystemType = get_string_field(ModelParams, ?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_TYPE_BIN),
+    DistributedSystemArgs = get_string_field(ModelParams, ?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_ARGS_BIN),
+    DistributedSystemToken = get_string_field(ModelParams, ?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_TOKEN_BIN),
+    TrainParams = extract_train_params(ModelParams),
+    ModelTuple = {ModelType, ModelArgs , LayersSizes, LayersTypes, LayersFunctions, LossMethod, LossArgs, LearningRate, Epochs, Optimizer, OptimizerArgs, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken, TrainParams},
+    Sha = binary_to_list(ShaBin),
+    ModelsAcc2 = maps:put(Sha, ModelTuple, ModelsAcc),
+    TorchAcc2 = maybe_add_torch_metadata(Sha, InfraType, ModelParams, TorchAcc),
+    {ModelsAcc2, TorchAcc2}
+  end, {#{}, #{}}, ShaToModelMaps).
+
+get_string_field(Map, Key) ->
+  get_string_field(Map, Key, "").
+
+get_string_field(Map, Key, Default) ->
+  case maps:get(Key, Map, undefined) of
+    undefined -> Default;
+    Value -> normalize_param_text(Value)
+  end.
+
+extract_train_params(ModelParams) ->
+  case maps:get(<<"train_params">>, ModelParams, undefined) of
+    undefined -> #{};
+    ParamsMap when is_map(ParamsMap) ->
+      maps:from_list([
+        {normalize_param_key(Key), normalize_param_value(Value)}
+        || {Key, Value} <- maps:to_list(ParamsMap)
+      ]);
+    _Other -> #{}
+  end.
+
+normalize_param_key(Key) -> normalize_param_text(Key).
+
+normalize_param_value(Value) -> normalize_param_text(Value).
+
+normalize_param_text(Text) when is_binary(Text) -> binary_to_list(Text);
+normalize_param_text(Text) when is_list(Text) -> Text;
+normalize_param_text(Text) when is_atom(Text) -> atom_to_list(Text);
+normalize_param_text(Text) when is_integer(Text) -> integer_to_list(Text);
+normalize_param_text(Text) when is_float(Text) ->
+  lists:flatten(io_lib:format("~p", [Text]));
+normalize_param_text(Text) ->
+  lists:flatten(io_lib:format("~p", [Text])).
+
+maybe_add_torch_metadata(Sha, InfraType, ModelParams, TorchAcc) ->
+  case string:lowercase(InfraType) of
+    "torch" ->
+      case maps:get(<<"pt_path">>, ModelParams, undefined) of
+        undefined -> TorchAcc;
+        PtPathBin ->
+          Path = binary_to_list(PtPathBin),
+          ArtifactName = case string:trim(Path) of
+                            "" -> "";
+                            Trimmed -> filename:basename(Trimmed)
+                          end,
+          FormatBin = maps:get(<<"pt_format">>, ModelParams, <<"torchscript">>),
+          ChecksumBin = maps:get(<<"pt_checksum">>, ModelParams, <<>>),
+          DescriptionBin = maps:get(<<"pt_description">>, ModelParams, <<>>),
+          TorchMeta = #{path => Path,
+                        artifact_name => ArtifactName,
+                        format => binary_to_list(FormatBin),
+                        checksum => binary_to_list(ChecksumBin),
+                        description => binary_to_list(DescriptionBin)},
+          maps:put(Sha, TorchMeta, TorchAcc)
+      end;
+    _ -> TorchAcc
+  end.
 
 generate_workers_map([],WorkersMap,_ClientName)->WorkersMap;
 generate_workers_map([Worker|Workers],WorkersMap,ClientName)->
@@ -140,9 +203,7 @@ get_device_routers(DCMap, DeviceEntities) ->
 %% return the ets name
 %% --------------------------------------------------------------
 json_to_ets(IPv4, JsonDCMap) ->
-  % Auto generated definitions validation
-  if ?DC_DISTRIBUTED_SYSTEM_TYPE_NONE_IDX_STR == "0" -> ok;
-  true -> throw("Auto generated definitions are not valid, none-distributed system type should be 0") end,
+  % Auto generated definitions validated at compile time
   % update DeviceName
   ets:insert(nerlnet_data, {?DC_IPV4_FIELD_ATOM, IPv4}),
   ets:insert(nerlnet_data, {ipv4_bin, list_to_binary(IPv4)}), %% ? is this needed
@@ -165,8 +226,9 @@ json_to_ets(IPv4, JsonDCMap) ->
   ets:insert(nerlnet_data, {?DC_KEY_WORKERS_ATOM, MapOfWorkers}),
 
   MapSHAToModelArgs = maps:get(?DC_KEY_MODEL_SHA_STR_BIN, JsonDCMap), % Map of MapShaToModel to ModelArgs
-  SHAToModelArgsMap = get_models(MapSHAToModelArgs), 
+  {SHAToModelArgsMap, TorchModelsMap} = get_models(MapSHAToModelArgs), 
   ets:insert(nerlnet_data, {sha_to_models_map, SHAToModelArgsMap}),
+  ets:insert(nerlnet_data, {torch_models_map, TorchModelsMap}),
 
   {IPv4ToDeviceNameMap, DeviceNameToIPv4EntitiesMap} = get_devices(JsonDCMap), % get all hosts 
   ets:insert(nerlnet_data, {ipv4_to_devices,IPv4ToDeviceNameMap}),

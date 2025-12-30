@@ -1,5 +1,6 @@
 
 import os
+import time
 from apiServer import *
 from runCommand import RunCommand
 from logger import *
@@ -25,6 +26,7 @@ NERLNET_RUNNING_TIMEOUT_SEC = int(os.getenv('NERLNET_RUNNING_TIMEOUT_SEC'))
 TEST_DATASET_IDX = 2
 
 WAIT_TIME_FOR_NERLNET_RUN_BOOT=60 # secs
+MANUAL_START_MODE = os.getenv('NERLNET_MANUAL_START', '0').lower() in ('1', 'true', 'yes', 'on')
 
 # TODO JUST FOR DEBUG
 print_test(f"$NERLNET_PATH: {NERLNET_PATH}")
@@ -32,9 +34,13 @@ print_test(f"$TESTS_PATH: {TESTS_PATH}")
 print_test(f"$NERLNET_RUN_SCRIPT: {NERLNET_RUN_SCRIPT}")
 print_test(f"$NERLNET_RUNNING_TIMEOUT_SEC: {NERLNET_RUNNING_TIMEOUT_SEC}")
 
-print_test("NerlnetApp Start")
-nerlnet_run_cmd = RunCommand(NERLNET_RUN_SCRIPT, NERLNET_PATH)
-time.sleep(WAIT_TIME_FOR_NERLNET_RUN_BOOT) # TODO replace with keep alive loop
+if MANUAL_START_MODE:
+    print_test("Manual start mode enabled - assuming NerlnetApp is already running")
+    nerlnet_run_cmd = None
+else:
+    print_test("NerlnetApp Start")
+    nerlnet_run_cmd = RunCommand(NERLNET_RUN_SCRIPT, NERLNET_PATH)
+    time.sleep(WAIT_TIME_FOR_NERLNET_RUN_BOOT) # TODO replace with keep alive loop
 
 api_server_instance = ApiServer()
 api_server_instance.download_dataset(TEST_DATASET_IDX)
@@ -61,20 +67,23 @@ stats_predict = api_server_instance.get_experiment_flow(experiment_name).generat
 perf_stats_predict = stats_predict.get_performance_stats_clients()
 print_test("Experiment phases completed")
 
-print_test("Stopping NerlnetApp")
-nerlnet_stop_cmd = RunCommand(NERLNET_RUN_STOP_SCRIPT, NERLNET_PATH)
-stdout, stderr, rc = nerlnet_run_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
-print_test(f'rc: {rc}')
-if stderr: 
-    LOG_ERROR(stderr)
+if MANUAL_START_MODE:
+    print_test("Manual start mode enabled - skipping automatic stop")
 else:
-    print_test(stdout)
-stdout, stderr, rc = nerlnet_stop_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
-print_test(f'rc stop: {rc}')
-if stderr: 
-    LOG_ERROR(stderr)
-else:
-    print_test(stdout, False)
+    print_test("Stopping NerlnetApp")
+    nerlnet_stop_cmd = RunCommand(NERLNET_RUN_STOP_SCRIPT, NERLNET_PATH)
+    stdout, stderr, rc = nerlnet_run_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
+    print_test(f'rc: {rc}')
+    if stderr: 
+        LOG_ERROR(stderr)
+    else:
+        print_test(stdout)
+    stdout, stderr, rc = nerlnet_stop_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
+    print_test(f'rc stop: {rc}')
+    if stderr: 
+        LOG_ERROR(stderr)
+    else:
+        print_test(stdout, False)
 
 
 LOG_INFO("Communication stats training:")

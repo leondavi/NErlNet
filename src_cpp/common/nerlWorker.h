@@ -1,46 +1,37 @@
 #pragma once
 
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include <Logger.h>
-#include "nerlWorkerFunc.h"
-#include "nerlLayer.h"
 
 namespace nerlnet
 {
-    class NerlWorker  // every child class of NerlWorker must implement the same constrctor signature 
+class NerlWorker
 {
-    public:
+public:
+    using WorkerParams = std::map<std::string, std::string>;
 
-    NerlWorker(int model_type, std::string &model_args_str, std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality,
-                     float learning_rate, int epochs, int optimizer_type, std::string &optimizer_args_str,
-                     int loss_method, std::string &loss_args_str, int distributed_system_type, std::string &distributed_system_args_str);
-    ~NerlWorker();
+    NerlWorker(int distributed_system_type,
+               std::string distributed_system_args_str,
+               WorkerParams worker_params = {});
+    virtual ~NerlWorker() = 0;
 
-    std::shared_ptr<NerlLayer> parse_layers_input(std::string &layer_sizes_str, std::string &layer_types_list, std::string &layers_functionality);
+    int get_distributed_system_type() const { return _distributed_system_type; }
+    const std::string &get_distributed_system_args() const { return _distributed_system_args_str; }
+    const WorkerParams &get_worker_params() const { return _worker_params; }
+    virtual std::shared_ptr<std::vector<int>> get_distributed_system_train_labels_count()
+    {
+        LogError << "Distributed System Weighted Avg count label is unsupported";
+        throw("Distributed System Weighted Avg count label is unsupported");
+    }
 
-    float get_learning_rate() { return _learning_rate; };
-    int get_epochs() { return _epochs; };
-    int get_optimizer_type() { return _optimizer_type; };
-    int get_loss_method() { return _loss_method; };
-    int get_distributed_system_type() { return _distributed_system_type; };
-    virtual std::shared_ptr<std::vector<int>> get_distributed_system_train_labels_count() {LogError<<"Distributed System Weighted Avg count label is unsupported";
-                                                                                          throw("Distributed System Weighted Avg count label is unsupported");} // counts the number of each label appears in the training set for weighted average
-
-    protected:
-
-    std::shared_ptr<NerlLayer> _nerl_layers_linked_list;
-    int _model_type;
-    std::string _model_args_str;
+protected:
+    WorkerParams _worker_params;
     int _distributed_system_type;
-    float _learning_rate;
-    int _epochs;
-    int _optimizer_type;
-    int _loss_method;
-    std::string _loss_args_str;
     std::string _distributed_system_args_str;
-    std::shared_ptr<std::vector<int>> _train_labels_count; // accumulates the number of each label in the training set
-
-
-    private:
-
+    std::shared_ptr<std::vector<int>> _train_labels_count;
 };
 }

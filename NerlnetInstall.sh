@@ -20,15 +20,33 @@ fi
 
 # args defaults
 InstallAll=false
+InstallErlang=false
+InstallCmake=false
+InstallTorch=false
 NumJobs=4
+
+TorchVersion="${NERLNET_TORCH_VERSION:-2.1.2}"
+TorchVariant="${NERLNET_TORCH_VARIANT:-cpu}"
+TorchArchive="${NERLNET_TORCH_ARCHIVE:-libtorch-cxx11-abi-shared-with-deps-${TorchVersion}+${TorchVariant}.zip}"
+if [[ -n "$NERLNET_TORCH_URL" ]]; then
+	TorchUrl="$NERLNET_TORCH_URL"
+else
+	TorchArchiveEncoded="${TorchArchive//+/%2B}"
+	TorchUrl="https://download.pytorch.org/libtorch/${TorchVariant}/${TorchArchiveEncoded}"
+fi
+TorchAbiFlag="${NERLNET_TORCH_ABI_FLAG:--D_GLIBCXX_USE_CXX11_ABI=1}"
+TORCH_INSTALL_ROOT="$NERLNET_LIB_DIR/libtorch"
 
 help()
 {
     echo "-------------------------------------" && echo "Nerlnet Install" && echo "-------------------------------------"
-    echo "Runnig this script only with sudo priviledges!"
-    echo "Usage:"
-    echo "-i or --install installs all required utilities to run Nerlnet "
-    echo "-j or --jobs number of jobs to build of libraries (erlang and cmake)"
+	echo "Run this script only with sudo privileges!"
+	echo "Usage:"
+	echo "-a or --all installs Erlang and CMake from source (asks for confirmation)"
+	echo "-e or --erlang installs Erlang from source"
+	echo "-c or --cmake installs CMake from source"
+	echo "-t or --torch downloads libtorch and prepares build/torch_env.sh"
+	echo "-j or --jobs number of jobs to build of libraries (erlang and cmake)"
     exit 2
 }
 
@@ -43,7 +61,7 @@ die()
 
 begins_with_short_option()
 {
-	local first_option all_short_options='ihj'
+	local first_option all_short_options='aectjh'
 	first_option="${1:0:1}"
 	test "$all_short_options" = "${all_short_options/$first_option/}" && return 1 || return 0
 }
@@ -52,8 +70,11 @@ begins_with_short_option()
 
 print_help()
 {
-	printf 'Usage: %s [-i|--install] [-h|--help] [-j|--jobs <arg>]\n' "$0"
-	printf '\t%s\n' "-i, --install: install erlang and cmake from source"
+	printf 'Usage: %s [-a|--all] [-e|--erlang] [-c|--cmake] [-t|--torch] [-h|--help] [-j|--jobs <arg>]\n' "$0"
+	printf '\t%s\n' "-a, --all: install Erlang and CMake from source (will prompt for confirmation)"
+	printf '\t%s\n' "-e, --erlang: install Erlang from source"
+	printf '\t%s\n' "-c, --cmake: install CMake from source"
+	printf '\t%s\n' "-t, --torch: download libtorch and emit build/torch_env.sh"
 	printf '\t%s\n' "-j, --jobs: number of jobs (default: '4')"
 }
 
@@ -64,11 +85,29 @@ parse_commandline()
 	do
 		_key="$1"
 		case "$_key" in
-			-i|--install)
+			-a|--all)
 				InstallAll=true
 				;;
-			-i*)
+			-a*)
 				InstallAll=true
+				;;
+			-e|--erlang)
+				InstallErlang=true
+				;;
+			-e*)
+				InstallErlang=true
+				;;
+			-c|--cmake)
+				InstallCmake=true
+				;;
+			-c*)
+				InstallCmake=true
+				;;
+			-t|--torch)
+				InstallTorch=true
+				;;
+			-t*)
+				InstallTorch=true
 				;;
 			-h|--help)
 				help
@@ -99,11 +138,94 @@ parse_commandline()
 
 parse_commandline "$@"
 
+if [[ $EUID -ne 0 ]]; then
+	echo "This installer requires sudo privileges. Please run: sudo $0 $*"
+	exit 1
+fi
+
+if [ "$InstallAll" = true ]; then
+	read -r -p "Install Erlang and CMake from source? (y/N): " _confirm_all
+	case "$_confirm_all" in
+		[Yy]|[Yy][Ee][Ss])
+			InstallErlang=true
+			InstallCmake=true
+			;;
+		*)
+			echo "[NERLNET] Skipping Erlang and CMake installation (--all not confirmed)."
+			;;
+	esac
+fi
+
 # Script startds here
 
 function print()
 {
     echo "[NERLNET] $1"
+}
+
+function write_torch_env_script()
+{
+	local torch_root="$1"
+	local archive_sha="$2"
+	local env_dir="$NERLNET_DIR/build"
+	local env_file="$env_dir/torch_env.sh"
+	mkdir -p "$env_dir"
+	cat <<EOF > "$env_file"
+#!/bin/bash
+
+export TORCH_VERSION="$TorchVersion"
+export TORCH_VARIANT="$TorchVariant"
+export TORCH_ARCHIVE_NAME="$TorchArchive"
+export TORCH_ARCHIVE_SHA256="$archive_sha"
+export TORCH_URL="$TorchUrl"
+export TORCH_ROOT="$torch_root"
+export TORCH_INCLUDE_MAIN="${torch_root}/include"
+export TORCH_INCLUDE_API="${torch_root}/include/torch/csrc/api/include"
+export TORCH_INCLUDE="${torch_root}/include:${torch_root}/include/torch/csrc/api/include"
+export TORCH_LIB_DIR="${torch_root}/lib"
+export TORCH_CMAKE_PREFIX="${torch_root}/share/cmake/Torch"
+export TORCH_CXX_FLAGS="$TorchAbiFlag"
+
+case ":\${LD_LIBRARY_PATH:-}:" in
+	*":${torch_root}/lib:"*) ;;
+	*) export LD_LIBRARY_PATH="${torch_root}/lib:\${LD_LIBRARY_PATH:-}";;
+esac
+
+case ":\${CMAKE_PREFIX_PATH:-}:" in
+	*":${torch_root}/share/cmake/Torch:"*) ;;
+	*) export CMAKE_PREFIX_PATH="${torch_root}/share/cmake/Torch:\${CMAKE_PREFIX_PATH:-}";;
+esac
+EOF
+	chmod +x "$env_file"
+	print "Torch environment exported to $env_file"
+}
+
+function install_libtorch()
+{
+	local torch_target_dir="$TORCH_INSTALL_ROOT/${TorchVersion}-${TorchVariant}"
+	print "Installing libtorch (${TorchVersion}, ${TorchVariant}) into $torch_target_dir"
+	apt update
+	apt install -y wget unzip
+	local tmp_dir
+	tmp_dir=$(mktemp -d)
+	local archive_path="$tmp_dir/$TorchArchive"
+	if ! wget -O "$archive_path" "$TorchUrl"; then
+		rm -rf "$tmp_dir"
+		die "Failed to download libtorch from $TorchUrl"
+	fi
+	local archive_sha
+	archive_sha=$(sha256sum "$archive_path" | awk '{print $1}')
+	unzip -q "$archive_path" -d "$tmp_dir"
+	if [ ! -d "$tmp_dir/libtorch" ]; then
+		rm -rf "$tmp_dir"
+		die "Downloaded archive missing libtorch directory"
+	fi
+	rm -rf "$torch_target_dir"
+	mkdir -p "$TORCH_INSTALL_ROOT"
+	mv "$tmp_dir/libtorch" "$torch_target_dir"
+	rm -rf "$tmp_dir"
+	write_torch_env_script "$torch_target_dir" "$archive_sha"
+	print "libtorch installed successfully. Source $NERLNET_DIR/build/torch_env.sh before building."
 }
 
 function install_erlang()
@@ -176,9 +298,12 @@ elif [ "$ARCH_TYPE" = "armv7l" ]; then
     NumJobs=1
 fi
 
-if [ "$InstallAll" = true ] ; then
-    install_erlang
-    install_cmake
+if [ "$InstallErlang" = true ] ; then
+	install_erlang
+fi
+
+if [ "$InstallCmake" = true ] ; then
+	install_cmake
 fi
 
 build_rebar3
@@ -201,6 +326,10 @@ fi
 
 print "$NERLNET_DIR symbolic link is linked to `pwd`"
 
+if [ "$InstallTorch" = true ] ; then
+	install_libtorch
+fi
+
 echo -e "
 [Unit]
 After=network.service
@@ -216,9 +345,11 @@ chmod 744 $NERLNET_DIR/NerlnetRun.sh
 chmod 664 /etc/systemd/system/nerlnet.service
 
 if [[ -z "$RUNNING_IN_DOCKER" ]]; then
-  # Not running in docker
-  chown -R $LOGGED_IN_USER $NERLNET_LOG_DIR
-  chown -R $LOGGED_IN_USER $NERLNET_DIR
+	# Not running in docker
+	# Always ensure the active workspace (especially build artifacts) belongs to the invoking user
+	chown -R $LOGGED_IN_USER $NERLNET_DIR/build 2>/dev/null || true
+	chown -R $LOGGED_IN_USER $NERLNET_LOG_DIR
+	chown -R $LOGGED_IN_USER $NERLNET_DIR
 fi
 
 echo "You can enable and start nerlnet.service using the command: systemctl enable nerlnet.service"

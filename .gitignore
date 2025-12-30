@@ -1,4 +1,5 @@
 /.idea
+/.venv
 /src_cpp/.sconsign.dblite
 *.o
 *.beam
@@ -32,6 +33,7 @@ src_cpp/.idea
 /src_cpp/opennnBridge/CMakeFiles
 /src_cpp/opennnBridge/Makefile
 /src_cpp/opennnBridge/\[binary_dir\]
+/agent_plan/
 src_erl/NerlGUI/_build/*
 examples/.ipynb_checkpoints/simple_run-checkpoint.ipynb
 /Results
@@ -42,3 +44,4 @@ conn.json
 tests/inputJsonsFiles/dc_test_synt_1d_2c_1s_4r_4w.json
 tests/inputJsonsFiles/arch_test_synt_1d_2c_1s_4r_4w.json
 /.nerldesigner_env
+src_erl/NerlnetApp/core

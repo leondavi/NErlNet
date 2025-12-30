@@ -3,6 +3,8 @@
 #include "nifpp.h"
 #include "nerltensorTorchDefs.h"
 
+#include <array>
+
 
 namespace nifpp
 {
@@ -30,13 +32,13 @@ namespace nifpp
         int ret = enif_inspect_binary(env, bin_term, &bin);
         assert(ret != 0);
 
-        std::vector<BasicType> dims;
+        std::array<BasicType, DIMS_TOTAL> dims{};
         // extract dims and data size
-        dims.resize(DIMS_TOTAL);
-        memcpy(dims.data(), bin.data, DIMS_TOTAL * sizeof(BasicType));
+        std::memcpy(dims.data(), bin.data, DIMS_TOTAL * sizeof(BasicType));
 
+        dims_info.dims_case = DIMS_CASE_1D;
         dims_info.total_size = 1;
-        for (int i=0; i < DIMS_TOTAL; i++)
+        for (int i = 0; i < DIMS_TOTAL; i++)
         {
             dims_info.total_size *= dims[i];
             if (dims[i] > 1)
@@ -50,6 +52,8 @@ namespace nifpp
         dims_info.dimx = static_cast<int>(dims[DIMS_X_IDX]);
         dims_info.dimy = static_cast<int>(dims[DIMS_Y_IDX]);
         dims_info.dimz = static_cast<int>(dims[DIMS_Z_IDX]);
+
+        return dims_info.dims_case;
     }
 
 
@@ -87,21 +91,24 @@ namespace nifpp
         // copy data from nerltensor to torch tensor
         int skip_dims_bytes = (DIMS_TOTAL * sizeof(BasicType));
         std::memcpy(tensor.data_ptr(),bin.data + skip_dims_bytes, sizeof(BasicType)*tensor.numel());
+
+        return dims_info.dims_case;
     }
 
     template<typename BasicType> void make_tensor(ErlNifEnv *env , nifpp::TERM &ret_bin_term, TorchTensor &tensor)
     {
-        std::vector<BasicType> dims;
-        dims.resize(DIMS_TOTAL);
-        for (int dim=0; dim < DIMS_TOTAL; dim++)
+        std::array<BasicType, DIMS_TOTAL> dims{};
+        const auto sizes = tensor.sizes();
+        const auto sizes_count = sizes.size();
+        for (int dim = 0; dim < DIMS_TOTAL; dim++)
         {
-            if (dim < tensor.sizes().Length())
+            if (dim < static_cast<int>(sizes_count))
             {
-                dims[dim] = static_cast<BasicType>(tensor.sizes()[dim]);
+                dims[dim] = static_cast<BasicType>(sizes[dim]);
             }
             else
             {
-                dims[dim] = 1;
+                dims[dim] = static_cast<BasicType>(1);
             }
         }
         size_t dims_size = DIMS_TOTAL * sizeof(BasicType);

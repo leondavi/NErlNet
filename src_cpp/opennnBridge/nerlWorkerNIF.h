@@ -2,6 +2,7 @@
 
 #include <Logger.h>
 #include <memory>
+#include <utility>
 #include "nifppNerltensorEigen.h"
 #include "nerlWorkerOpenNN.h"
 #include "nerlWorkerFunc.h"
@@ -12,11 +13,25 @@ using namespace nerlnet;
 static std::shared_ptr<NerlWorkerOpenNN> create_nerlworker(std::string &model_type_str, std::string &model_args_str, std::string &learning_rate_str,
  std::string &epochs_str, std::string &optimizer_type_str, std::string &loss_method_str, std::string &loss_args_str,
  std::string &distributed_system_type_str, std::string &layer_sizes_str, std:: string &layer_types_str,
- std::string &layers_functionality_str, std::string &optimizer_args_str, std::string &distributed_system_args_str) //all should be const reference
+std::string &layers_functionality_str, std::string &optimizer_args_str, std::string &distributed_system_args_str) //all should be const reference
 {
-    std::shared_ptr<NerlWorkerOpenNN> new_worker = parse_model_params<NerlWorkerOpenNN>(model_type_str,model_args_str,learning_rate_str,epochs_str,optimizer_type_str,loss_method_str, loss_args_str, distributed_system_type_str,layer_sizes_str,
-    layer_types_str,layers_functionality_str,optimizer_args_str,distributed_system_args_str);
-    return new_worker;
+    NerlWorker::WorkerParams worker_params = {
+        {"model_type", model_type_str},
+        {"model_args", model_args_str},
+        {"learning_rate", learning_rate_str},
+        {"epochs", epochs_str},
+        {"optimizer_type", optimizer_type_str},
+        {"optimizer_args", optimizer_args_str},
+        {"loss_method", loss_method_str},
+        {"loss_args", loss_args_str},
+        {"layer_sizes", layer_sizes_str},
+        {"layer_types", layer_types_str},
+        {"layers_functionality", layers_functionality_str}
+    };
+    int distributed_system_type = std::stoi(distributed_system_type_str);
+    return std::make_shared<NerlWorkerOpenNN>(std::move(worker_params),
+                                              distributed_system_type,
+                                              distributed_system_args_str);
 }
 static ERL_NIF_TERM new_nerlworker_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {

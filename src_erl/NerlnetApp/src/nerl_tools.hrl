@@ -31,6 +31,7 @@
 -define(JSON_ADDR, "/tmp/nerlnet/jsons/").
 -define(LOCAL_DC_FILE_NAME, "dc.json").
 -define(LOCAL_COMM_FILE_NAME, "conn.json").
+-define(TORCH_MODELS_BASE_DIR, "/tmp/nerlnet/torch/models/pt/").
 
 %% sorce tmpData name
 -define(TMP_DIR_RUN,"/tmp/nerlnet/run").
