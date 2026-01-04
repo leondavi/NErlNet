@@ -163,6 +163,17 @@ function print()
     echo "[NERLNET] $1"
 }
 
+function install_nodejs_npm()
+{
+	if command -v npm >/dev/null 2>&1; then
+		print "npm is already installed"
+		return
+	fi
+	print "Installing nodejs/npm"
+	apt update
+	apt install -y nodejs npm
+}
+
 function write_torch_env_script()
 {
 	local torch_root="$1"
@@ -298,6 +309,8 @@ elif [ "$ARCH_TYPE" = "armv7l" ]; then
     NumJobs=1
 fi
 
+install_nodejs_npm
+
 if [ "$InstallErlang" = true ] ; then
 	install_erlang
 fi
@@ -353,4 +366,3 @@ if [[ -z "$RUNNING_IN_DOCKER" ]]; then
 fi
 
 echo "You can enable and start nerlnet.service using the command: systemctl enable nerlnet.service"
-

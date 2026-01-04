@@ -1,57 +1,32 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-print()
-{
-    echo "[NERLPLANNER] $1"
+set -euo pipefail
+
+print() {
+  echo "[NERLPLANNER] $1"
 }
 
-NERLNET_DIR="/usr/local/lib/nerlnet-lib/NErlNet"
-NERLPLANNER_DIR=$NERLNET_DIR/src_py/nerlPlanner
-NERLPLANNER_MAIN_PY=$NERLPLANNER_DIR/main.py
-NERLPLANNER_VENV_PATH="/tmp/nerlnet/nerlplanner/python/virtualenv"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLANNER_DIR="$ROOT_DIR/web/nerl-planner"
 
-
-# install and validate prerequisites
-
-DOT_PACKAGE="python3-pydot"
-DOT_EXIST=$(dpkg-query -W --showformat='${Status}\n' $DOT_PACKAGE | grep "install ok installed")
-print "Checking for $DOT_PACKAGE"
-if [ "" = "$DOT_EXIST" ]; then
-  print "Please run: sudo apt-get install $DOT_PACKAGE"
+if [ ! -d "$PLANNER_DIR" ]; then
+  print "Planner folder not found: $PLANNER_DIR"
   exit 1
-else
-  print "$DOT_PACKAGE installed"
 fi
 
-
-GRAPHVIZ_PACKAGE="graphviz"
-GRAPHVIZ_EXIST=$(dpkg-query -W --showformat='${Status}\n' $GRAPHVIZ_PACKAGE|grep "install ok installed")
-print "Checking for $GRAPHVIZ_PACKAGE"
-if [ "" = "$GRAPHVIZ_EXIST" ]; then
-  print "Please run: sudo apt-get install $GRAPHVIZ_PACKAGE"
+if ! command -v npm >/dev/null 2>&1; then
+  print "npm is required. Install Node.js first."
   exit 1
-else
-  print "$GRAPHVIZ_PACKAGE installed"
 fi
 
-TKINTER_PACKAGE="python3-tk"
-TKINTER_EXIST=$(dpkg-query -W --showformat='${Status}\n' $TKINTER_PACKAGE|grep "install ok installed")
-print "Checking for $TKINTER_PACKAGE"
-if [ "" = "$TKINTER_EXIST" ]; then
-  print "Please run: sudo apt-get install $TKINTER_PACKAGE"
-  exit 1
+cd "$PLANNER_DIR"
+
+if [ ! -d node_modules ]; then
+  print "Installing npm dependencies..."
+  npm install
 else
-  print "$TKINTER_PACKAGE installed"
+  print "npm dependencies already installed."
 fi
 
-# set python environment to run Nerlnet Flow
-print "install virtualenv to $NERLPLANNER_VENV_PATH"
-pip3 install virtualenv > $NERLPLANNER_VENV_PATH/set_env.log
-python3 -m virtualenv $NERLPLANNER_VENV_PATH
-print "virtualenv is loaded from $NERLPLANNER_VENV_PATH/bin/activate"
-source $NERLPLANNER_VENV_PATH/bin/activate
-
-print "pip3 runs in quiet mode"
-pip3 -q install -r src_py/nerlPlanner/requirements.txt
-
-python3 $NERLPLANNER_MAIN_PY
+print "Starting dev server and opening the planner..."
+npm run dev -- --open

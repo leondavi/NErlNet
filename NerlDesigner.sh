@@ -117,15 +117,32 @@ check_python3()
     fi
 }
 
-check_venv_module()
+check_uv()
 {
-    if python3 -m venv --help >/dev/null 2>&1; then
-        print "Python venv module is available"
+    if command -v uv >/dev/null 2>&1; then
+        print "uv is available"
+        uv --version
         return 0
     else
-        print "ERROR: Python venv module is not available"
-        print "Please install python3-venv package"
-        return 1
+        print "ERROR: uv is not installed"
+        print "Installing uv..."
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        
+        # Source the shell configuration to get uv in PATH
+        if [ -f "$HOME/.cargo/env" ]; then
+            source "$HOME/.cargo/env"
+        fi
+        
+        # Check again after installation
+        if command -v uv >/dev/null 2>&1; then
+            print "uv installed successfully"
+            uv --version
+            return 0
+        else
+            print "ERROR: Failed to install uv"
+            print "Please install manually: curl -LsSf https://astral.sh/uv/install.sh | sh"
+            return 1
+        fi
     fi
 }
 
@@ -139,8 +156,8 @@ clean_environment()
 
 create_environment()
 {
-    print "Creating Python virtual environment: $NERLDESIGNER_ENV_NAME"
-    python3 -m venv "$NERLDESIGNER_ENV_PATH"
+    print "Creating Python virtual environment with uv: $NERLDESIGNER_ENV_NAME"
+    uv venv "$NERLDESIGNER_ENV_PATH"
     
     if [ ! -d "$NERLDESIGNER_ENV_PATH" ]; then
         print "ERROR: Failed to create virtual environment"
@@ -173,19 +190,15 @@ activate_environment()
 
 install_dependencies()
 {
-    print "Installing NerlDesigner dependencies"
-    
-    # Upgrade pip first
-    print "Upgrading pip..."
-    python -m pip install --upgrade pip
+    print "Installing NerlDesigner dependencies with uv"
     
     # Install requirements
     if [ -f "$NERLDESIGNER_REQUIREMENTS_PATH" ]; then
         print "Installing requirements from: $NERLDESIGNER_REQUIREMENTS_PATH"
-        pip install -r "$NERLDESIGNER_REQUIREMENTS_PATH"
+        uv pip install -r "$NERLDESIGNER_REQUIREMENTS_PATH"
     else
         print "Requirements file not found, installing basic dependencies"
-        pip install nicegui>=1.4.0 pydantic>=2.0.0 networkx>=3.0 plotly>=5.0.0 pandas>=1.5.0 fastapi>=0.100.0
+        uv pip install nicegui>=1.4.0 pydantic>=2.0.0 networkx>=3.0 plotly>=5.0.0 pandas>=1.5.0 fastapi>=0.100.0
     fi
     
     print "Dependencies installed successfully"
@@ -275,7 +288,7 @@ main()
         exit 1
     fi
     
-    if ! check_venv_module; then
+    if ! check_uv; then
         exit 1
     fi
     

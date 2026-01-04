@@ -45,3 +45,53 @@ tests/inputJsonsFiles/dc_test_synt_1d_2c_1s_4r_4w.json
 tests/inputJsonsFiles/arch_test_synt_1d_2c_1s_4r_4w.json
 /.nerldesigner_env
 src_erl/NerlnetApp/core
+
+# Node / frontend
+**/node_modules/
+**/dist/
+**/.vite/
+**/.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python
+**/__pycache__/
+*.pyo
+*.pyd
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+coverage/
+*.egg-info/
+*.ipynb_checkpoints
+
+# C/C++ build artifacts
+*.a
+*.dll
+*.dylib
+*.exe
+*.obj
+
+# CMake/Build outputs
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+**/build/
+**/build-*/
+cmake-build-*/
+
+# Erlang build/cache
+**/_build/
+**/.rebar3/
+erl_crash.dump
+
+# OS/editor leftovers
+.DS_Store
+Thumbs.db
+*.swp
+*~
