@@ -45,6 +45,7 @@ tests/inputJsonsFiles/dc_test_synt_1d_2c_1s_4r_4w.json
 tests/inputJsonsFiles/arch_test_synt_1d_2c_1s_4r_4w.json
 /.nerldesigner_env
 src_erl/NerlnetApp/core
+nerl_designer_models/
 
 # Node / frontend
 **/node_modules/

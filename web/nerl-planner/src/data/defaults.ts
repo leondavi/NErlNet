@@ -8,13 +8,11 @@ export const createLayer = (index: number): Layer => ({
   functionCode: index === 0 ? defaultLayerFunctionByType['1'] : defaultLayerFunctionByType['3']
 });
 
-const createDefaultLayers = (): Layer[] => [createLayer(0), createLayer(1), createLayer(2)];
-
 export const createOpenNNModel = (
   name = 'New OpenNN Model',
   layers?: Layer[]
 ): OpenNNModel => {
-  const resolvedLayers = layers && layers.length > 0 ? layers : createDefaultLayers();
+  const resolvedLayers = Array.isArray(layers) ? layers : [];
   return {
     id: crypto.randomUUID(),
     name,
@@ -34,23 +32,28 @@ export const createOpenNNModel = (
   };
 };
 
-export const createTorchModel = (name = 'New Torch Model', layers: Layer[] = []): TorchModel => ({
+export const createTorchModel = (name = 'New Torch Model'): TorchModel => ({
   id: crypto.randomUUID(),
   name,
   infraType: 'torch',
-  ptPath: 'tests/inputTorchJsonsFiles/models/placeholder_perceptron.pt',
+  ptPath: 'nerl_designer_models/placeholder.pt',
   ptFormat: 'torchscript',
   ptChecksum: 'placeholder',
-  ptDescription: 'TorchScript placeholder',
-  layers,
+  ptDescription: 'Export to generate a TorchScript model.',
+  graph: {
+    nodes: [],
+    edges: [],
+    inputShape: '[N, 1, 28, 28]'
+  },
   trainParams: {
     lr: '0.001',
     epochs: '1',
     optimizer: 'adam',
+    loss: 'mse',
     batchSize: '50',
-    inputTensorShape: '[50, 5]',
+    inputTensorShape: '[50, 1, 28, 28]',
     labelsOffset: 'default',
-    labelsShape: '[50, 3]',
+    labelsShape: '[50, 10]',
     wInitRand: 'True'
   },
   distributedSystemType: '0',
@@ -83,5 +86,8 @@ export const createDefaultState = (): PlannerState => ({
     numOfLabels: '3',
     headersNames: 'feature1,feature2,feature3',
     phases: []
+  },
+  ui: {
+    nodePositions: {}
   }
 });

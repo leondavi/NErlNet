@@ -19,6 +19,13 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
+# Check Node.js version (Vite 5 requires Node 18+)
+NODE_VERSION=$(node -v 2>/dev/null | sed 's/v//' | cut -d. -f1)
+if [ -z "$NODE_VERSION" ] || [ "$NODE_VERSION" -lt 18 ]; then
+  print "Node.js 18 or higher is required. Current: $(node -v 2>/dev/null || echo 'not found')"
+  exit 1
+fi
+
 cd "$PLANNER_DIR"
 
 if [ ! -d node_modules ]; then

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { PlannerState } from '../data/types';
 import { buildConnectionMap, buildDistributedConfig, buildExperimentFlow } from '../utils/exporters';
 import { importConnectionMap, importDistributedConfig, importExperimentFlow } from '../utils/importers';
+import ValidationPanel from './ValidationPanel';
+import { validatePlannerState } from '../utils/validation';
 
 const ExportView = ({
   state,
@@ -11,9 +13,17 @@ const ExportView = ({
   onChange: (next: PlannerState) => void;
 }) => {
   const [includeDocs, setIncludeDocs] = useState(true);
+  const [activeExport, setActiveExport] = useState<'dc' | 'conn' | 'exp'>('dc');
   const [dcPreview, setDcPreview] = useState('');
   const [connPreview, setConnPreview] = useState('');
   const [expPreview, setExpPreview] = useState('');
+
+  const validation = useMemo(() => validatePlannerState(state), [state]);
+  const exportIssues = useMemo(
+    () => validation.issues.filter((issue) => issue.scope.includes('export')),
+    [validation]
+  );
+  const hasErrors = validation.errors.length > 0;
 
   const connJson = useMemo(() => buildConnectionMap(state.connections), [state.connections]);
   const expJson = useMemo(() => buildExperimentFlow(state.experimentFlow), [state.experimentFlow]);
@@ -98,83 +108,139 @@ const ExportView = ({
         </div>
       </div>
 
-      <div className="panel">
-        <div className="panel-header">
-          <div>
-            <p className="panel-title">Distributed Config</p>
-            <p className="panel-subtitle">Includes workers, devices, and model SHA mapping.</p>
-          </div>
-          <div className="panel-actions">
-            <label className="toggle">
-              <input
-                type="checkbox"
-                checked={includeDocs}
-                onChange={(event) => setIncludeDocs(event.target.checked)}
-              />
-              <span>Include docs</span>
-            </label>
-            <label className="ghost">
-              Import DC
-              <input type="file" accept="application/json" onChange={(event) => handleImport(event, 'dc')} />
-            </label>
-            <button
-              className="primary"
-              type="button"
-              onClick={() => downloadJson(dcPreview, `dc_${getExportBaseName()}.json`)}
-            >
-              Download DC
-            </button>
-          </div>
-        </div>
-        <textarea className="json-preview" value={dcPreview} readOnly />
-      </div>
+      <ValidationPanel
+        issues={exportIssues}
+        title="Export validation"
+        subtitle={hasErrors ? 'Resolve errors to enable JSON downloads.' : undefined}
+        showEmpty
+        emptyMessage="All checks passed. Exports are ready."
+      />
 
-      <div className="grid two">
-        <div className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="panel-title">Connection Map</p>
-              <p className="panel-subtitle">Router topology and entity routes.</p>
-            </div>
-            <div className="panel-actions">
-              <label className="ghost">
-                Import Conn
-                <input type="file" accept="application/json" onChange={(event) => handleImport(event, 'conn')} />
-              </label>
-              <button
-                className="primary"
-                type="button"
-                onClick={() => downloadJson(connPreview, `conn_${getExportBaseName()}.json`)}
-              >
-                Download Conn
-              </button>
-            </div>
-          </div>
-          <textarea className="json-preview" value={connPreview} readOnly />
+      <div className="panel export-panel">
+        <div className="export-tabs">
+          <button
+            type="button"
+            className={activeExport === 'dc' ? 'active' : ''}
+            onClick={() => setActiveExport('dc')}
+          >
+            Distributed Config
+          </button>
+          <button
+            type="button"
+            className={activeExport === 'conn' ? 'active' : ''}
+            onClick={() => setActiveExport('conn')}
+          >
+            Connection Map
+          </button>
+          <button
+            type="button"
+            className={activeExport === 'exp' ? 'active' : ''}
+            onClick={() => setActiveExport('exp')}
+          >
+            Experiment Flow
+          </button>
         </div>
 
-        <div className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="panel-title">Experiment Flow</p>
-              <p className="panel-subtitle">Phases and source piece scheduling.</p>
+        {activeExport === 'dc' && (
+          <div className="export-content">
+            <div className="panel-header">
+              <div>
+                <p className="panel-title">Distributed Config</p>
+                <p className="panel-subtitle">Includes workers, devices, and model SHA mapping.</p>
+              </div>
+              <div className="panel-actions">
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={includeDocs}
+                    onChange={(event) => setIncludeDocs(event.target.checked)}
+                  />
+                  <span>Include docs</span>
+                </label>
+                <label className="ghost">
+                  Import DC
+                  <input
+                    type="file"
+                    accept="application/json"
+                    onChange={(event) => handleImport(event, 'dc')}
+                  />
+                </label>
+                <button
+                  className="primary"
+                  type="button"
+                  disabled={hasErrors}
+                  title={hasErrors ? 'Fix validation errors to export.' : ''}
+                  onClick={() => downloadJson(dcPreview, `dc_${getExportBaseName()}.json`)}
+                >
+                  Download DC
+                </button>
+              </div>
             </div>
-            <div className="panel-actions">
-              <label className="ghost">
-                Import Exp
-                <input type="file" accept="application/json" onChange={(event) => handleImport(event, 'exp')} />
-              </label>
-              <button
-                className="primary"
-                type="button"
-                onClick={() => downloadJson(expPreview, `exp_${getExportBaseName()}.json`)}
-              >
-                Download Exp
-              </button>
-            </div>
+            <textarea className="json-preview" value={dcPreview} readOnly />
           </div>
-          <textarea className="json-preview" value={expPreview} readOnly />
-        </div>
+        )}
+
+        {activeExport === 'conn' && (
+          <div className="export-content">
+            <div className="panel-header">
+              <div>
+                <p className="panel-title">Connection Map</p>
+                <p className="panel-subtitle">Router topology and entity routes.</p>
+              </div>
+              <div className="panel-actions">
+                <label className="ghost">
+                  Import Conn
+                  <input
+                    type="file"
+                    accept="application/json"
+                    onChange={(event) => handleImport(event, 'conn')}
+                  />
+                </label>
+                <button
+                  className="primary"
+                  type="button"
+                  disabled={hasErrors}
+                  title={hasErrors ? 'Fix validation errors to export.' : ''}
+                  onClick={() => downloadJson(connPreview, `conn_${getExportBaseName()}.json`)}
+                >
+                  Download Conn
+                </button>
+              </div>
+            </div>
+            <textarea className="json-preview" value={connPreview} readOnly />
+          </div>
+        )}
+
+        {activeExport === 'exp' && (
+          <div className="export-content">
+            <div className="panel-header">
+              <div>
+                <p className="panel-title">Experiment Flow</p>
+                <p className="panel-subtitle">Phases and source piece scheduling.</p>
+              </div>
+              <div className="panel-actions">
+                <label className="ghost">
+                  Import Exp
+                  <input
+                    type="file"
+                    accept="application/json"
+                    onChange={(event) => handleImport(event, 'exp')}
+                  />
+                </label>
+                <button
+                  className="primary"
+                  type="button"
+                  disabled={hasErrors}
+                  title={hasErrors ? 'Fix validation errors to export.' : ''}
+                  onClick={() => downloadJson(expPreview, `exp_${getExportBaseName()}.json`)}
+                >
+                  Download Exp
+                </button>
+              </div>
+            </div>
+            <textarea className="json-preview" value={expPreview} readOnly />
+          </div>
+        )}
       </div>
     </div>
   );

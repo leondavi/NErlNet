@@ -136,8 +136,10 @@ export const phaseTypeOptions: Option[] = [
 
 export const nerltensorTypeOptions: Option[] = [
   { label: 'Float', value: 'float' },
+  { label: 'Int16', value: 'int16' },
+  { label: 'Int32', value: 'int32' },
   { label: 'Double', value: 'double' },
-  { label: 'Int', value: 'int' }
+  { label: 'Uint8', value: 'uint8' }
 ];
 
 export const functionOptionsByLayerType: Record<string, Option[]> = {

@@ -5,6 +5,56 @@ export type Layer = {
   functionCode: string;
 };
 
+export type TorchLayerType =
+  | 'conv2d'
+  | 'maxpool2d'
+  | 'relu'
+  | 'batchnorm2d'
+  | 'dropout'
+  | 'linear'
+  | 'flatten'
+  | 'softmax'
+  | 'sigmoid'
+  | 'conv1d'
+  | 'maxpool1d'
+  | 'transformer'
+  | 'layernorm'
+  | 'residual';
+
+export type TorchLayerParams = {
+  outChannels?: number;
+  kernel?: number | [number, number];
+  stride?: number | [number, number];
+  padding?: number | [number, number];
+  dropout?: number;
+  outFeatures?: number;
+  dim?: number;
+  dModel?: number;
+  nHead?: number;
+  dimFeedforward?: number;
+  normalizedShape?: number;
+};
+
+export type TorchLayerNode = {
+  id: string;
+  name: string;
+  type: TorchLayerType;
+  params: TorchLayerParams;
+  position?: { x: number; y: number };
+};
+
+export type TorchGraphEdge = {
+  id: string;
+  from: string;
+  to: string;
+};
+
+export type TorchGraph = {
+  nodes: TorchLayerNode[];
+  edges: TorchGraphEdge[];
+  inputShape: string;
+};
+
 export type OpenNNModel = {
   id: string;
   name: string;
@@ -31,11 +81,12 @@ export type TorchModel = {
   ptFormat: string;
   ptChecksum: string;
   ptDescription: string;
-  layers: Layer[];
+  graph: TorchGraph;
   trainParams: {
     lr: string;
     epochs: string;
     optimizer: string;
+    loss: string;
     batchSize: string;
     inputTensorShape: string;
     labelsOffset: string;
@@ -89,6 +140,7 @@ export type ConnectionEdge = {
 };
 
 export type ExperimentSourcePiece = {
+  id: string;
   sourceName: string;
   startingSample: string;
   numOfBatches: string;
@@ -97,6 +149,7 @@ export type ExperimentSourcePiece = {
 };
 
 export type ExperimentPhase = {
+  id: string;
   phaseName: string;
   phaseType: string;
   sourcePieces: ExperimentSourcePiece[];
@@ -130,4 +183,8 @@ export type PlannerState = {
   models: WorkerModel[];
   connections: ConnectionEdge[];
   experimentFlow: ExperimentFlow;
+  ui?: {
+    nodePositions: Record<string, { x: number; y: number }>;
+    openLayerPositions?: Record<string, { x: number; y: number }>;
+  };
 };

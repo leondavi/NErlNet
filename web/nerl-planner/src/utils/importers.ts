@@ -8,6 +8,7 @@ import {
   TorchModel
 } from '../data/types';
 import { defaultLayerFunctionByType } from '../data/mappings';
+import { createTorchModel } from '../data/defaults';
 
 export function importDistributedConfig(
   data: Record<string, unknown>,
@@ -126,10 +127,12 @@ export function importExperimentFlow(data: Record<string, unknown>): ExperimentF
   const phasesRaw = (data.Phases ?? data.phases) as Record<string, unknown>[] | undefined;
   const phases = Array.isArray(phasesRaw)
     ? phasesRaw.map((phase) => ({
+        id: crypto.randomUUID(),
         phaseName: String(phase.phaseName ?? ''),
         phaseType: String(phase.phaseType ?? 'training'),
         sourcePieces: Array.isArray(phase.sourcePieces)
           ? (phase.sourcePieces as Record<string, unknown>[]).map((piece) => ({
+              id: crypto.randomUUID(),
               sourceName: String(piece.sourceName ?? ''),
               startingSample: String(piece.startingSample ?? ''),
               numOfBatches: String(piece.numOfBatches ?? ''),
@@ -137,7 +140,7 @@ export function importExperimentFlow(data: Record<string, unknown>): ExperimentF
                 .split(',')
                 .map((worker) => worker.trim())
                 .filter(Boolean),
-              nerltensorType: String(piece.nerltensorType ?? 'float')
+              nerltensorType: normalizeNerltensorType(String(piece.nerltensorType ?? 'float'))
             }))
           : []
       }))
@@ -154,6 +157,20 @@ export function importExperimentFlow(data: Record<string, unknown>): ExperimentF
     phases
   };
 }
+
+const normalizeNerltensorType = (value: string): string => {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'int') {
+    return 'int32';
+  }
+  if (normalized === 'float32') {
+    return 'float';
+  }
+  if (normalized === 'float64') {
+    return 'double';
+  }
+  return normalized;
+};
 
 const parseLayers = (payload: Record<string, unknown>): Layer[] => {
   const layersSizesRaw = String(payload.layersSizes ?? '').trim();
@@ -183,24 +200,36 @@ const parseLayers = (payload: Record<string, unknown>): Layer[] => {
 function parseModelPayload(sha: string, payload: Record<string, unknown>): WorkerModel {
   const layers = parseLayers(payload);
   if (payload.infraType === 'torch' || payload.pt_path) {
+    const base = createTorchModel(`Torch Model ${sha.slice(0, 6)}`);
+    const trainParams = payload.train_params as Record<string, unknown> | undefined;
+    const inputTensorShape = String(trainParams?.input_tensor_shape ?? base.trainParams.inputTensorShape);
+    const graphInputShape =
+      inputTensorShape && inputTensorShape.startsWith('[')
+        ? inputTensorShape.replace(/^\[(\d+)/, '[N')
+        : base.graph.inputShape;
     const torchModel: TorchModel = {
+      ...base,
       id: sha,
       name: `Torch Model ${sha.slice(0, 6)}`,
-      infraType: 'torch',
       ptPath: String(payload.pt_path ?? ''),
       ptFormat: String(payload.pt_format ?? 'torchscript'),
       ptChecksum: String(payload.pt_checksum ?? 'placeholder'),
       ptDescription: String(payload.pt_description ?? ''),
-      layers,
+      graph: {
+        ...base.graph,
+        inputShape: graphInputShape
+      },
       trainParams: {
-        lr: String(payload.train_params ? (payload.train_params as Record<string, unknown>).lr ?? '' : ''),
-        epochs: String(payload.train_params ? (payload.train_params as Record<string, unknown>).epochs ?? '' : ''),
-        optimizer: String(payload.train_params ? (payload.train_params as Record<string, unknown>).optimizer ?? '' : ''),
-        batchSize: String(payload.train_params ? (payload.train_params as Record<string, unknown>).batch_size ?? '' : ''),
-        inputTensorShape: String(payload.train_params ? (payload.train_params as Record<string, unknown>).input_tensor_shape ?? '' : ''),
-        labelsOffset: String(payload.train_params ? (payload.train_params as Record<string, unknown>).labels_offset ?? '' : ''),
-        labelsShape: String(payload.train_params ? (payload.train_params as Record<string, unknown>).labels_shape ?? '' : ''),
-        wInitRand: String(payload.train_params ? (payload.train_params as Record<string, unknown>).w_init_rand ?? '' : '')
+        ...base.trainParams,
+        lr: String(trainParams?.lr ?? base.trainParams.lr),
+        epochs: String(trainParams?.epochs ?? base.trainParams.epochs),
+        optimizer: String(trainParams?.optimizer ?? base.trainParams.optimizer),
+        loss: String(trainParams?.loss ?? base.trainParams.loss),
+        batchSize: String(trainParams?.batch_size ?? base.trainParams.batchSize),
+        inputTensorShape,
+        labelsOffset: String(trainParams?.labels_offset ?? base.trainParams.labelsOffset),
+        labelsShape: String(trainParams?.labels_shape ?? base.trainParams.labelsShape),
+        wInitRand: String(trainParams?.w_init_rand ?? base.trainParams.wInitRand)
       },
       distributedSystemType: String(payload.distributedSystemType ?? '0'),
       distributedSystemArgs: String(payload.distributedSystemArgs ?? ''),
@@ -233,7 +262,7 @@ function parseModelPayload(sha: string, payload: Record<string, unknown>): Worke
 function dedupeEdges(edges: ConnectionEdge[]): ConnectionEdge[] {
   const seen = new Set<string>();
   return edges.filter((edge) => {
-    const key = `${edge.from}->${edge.to}`;
+    const key = [edge.from, edge.to].sort().join('--');
     if (seen.has(key)) {
       return false;
     }

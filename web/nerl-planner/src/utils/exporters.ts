@@ -28,7 +28,7 @@ const MODEL_DOCS = {
   layerTypes: docStringFromOptions(layerTypeOptions),
   lossMethod: docStringFromOptions(lossMethodOptions),
   optimizer: docStringFromOptions(optimizerOptions),
-  infraType: ' opennn:0 | wolfengine:1 |',
+  infraType: ' opennn:0 | wolfengine:1 | torch:torch |',
   distributedSystem: docStringFromOptions(distributedSystemOptions),
   activation: docStringFromOptions(activationFunctionOptions),
   pooling: docStringFromOptions(poolingMethodOptions),
@@ -39,7 +39,7 @@ const MODEL_DOCS = {
 };
 
 const TorchDoc = {
-  infraType: ' opennn:0 | wolfengine:1 | torch:2 |',
+  infraType: MODEL_DOCS.infraType,
   distributedSystem: MODEL_DOCS.distributedSystem
 };
 
@@ -50,14 +50,25 @@ export async function buildDistributedConfig(
   const modelPayloads: Record<string, Record<string, unknown>> = {};
   const workerEntries: { name: string; model_sha: string }[] = [];
 
-  for (const worker of state.workers) {
+  // Compute all SHA hashes in parallel for better performance
+  const workerShaPromises = state.workers.map(async (worker) => {
     const model = state.models.find((entry) => entry.id === worker.modelId);
     if (!model) {
+      return null;
+    }
+    const basePayload = buildModelPayload(model, false);
+    const sha = await sha256String(stableStringify(basePayload));
+    const payload = includeDocs ? buildModelPayload(model, true) : basePayload;
+    return { worker, model, sha, payload };
+  });
+
+  const results = await Promise.all(workerShaPromises);
+
+  for (const result of results) {
+    if (!result) {
       continue;
     }
-
-    const payload = buildModelPayload(model, includeDocs);
-    const sha = await sha256String(stableStringify(payload));
+    const { worker, sha, payload } = result;
 
     if (!modelPayloads[sha]) {
       modelPayloads[sha] = payload;
@@ -109,13 +120,20 @@ export async function buildDistributedConfig(
 
 export function buildConnectionMap(connections: ConnectionEdge[]): Record<string, unknown> {
   const map: Record<string, string[]> = {};
+  const addLink = (from: string, to: string) => {
+    if (!from || !to || from === to) {
+      return;
+    }
+    if (!map[from]) {
+      map[from] = [];
+    }
+    if (!map[from].includes(to)) {
+      map[from].push(to);
+    }
+  };
   for (const edge of connections) {
-    if (!map[edge.from]) {
-      map[edge.from] = [];
-    }
-    if (!map[edge.from].includes(edge.to)) {
-      map[edge.from].push(edge.to);
-    }
+    addLink(edge.from, edge.to);
+    addLink(edge.to, edge.from);
   }
   return { connectionsMap: map };
 }
@@ -126,16 +144,16 @@ export function buildExperimentFlow(experimentFlow: ExperimentFlow): Record<stri
     experimentType: experimentFlow.experimentType,
     batchSize: toNumberOrString(experimentFlow.batchSize),
     csvFilePath: experimentFlow.csvFilePath,
-    numOfFeatures: experimentFlow.numOfFeatures,
-    numOfLabels: experimentFlow.numOfLabels,
+    numOfFeatures: toNumberOrString(experimentFlow.numOfFeatures),
+    numOfLabels: toNumberOrString(experimentFlow.numOfLabels),
     headersNames: experimentFlow.headersNames,
     Phases: experimentFlow.phases.map((phase) => ({
       phaseName: phase.phaseName,
       phaseType: phase.phaseType,
       sourcePieces: phase.sourcePieces.map((piece) => ({
         sourceName: piece.sourceName,
-        startingSample: piece.startingSample,
-        numOfBatches: piece.numOfBatches,
+        startingSample: toNumberOrString(piece.startingSample),
+        numOfBatches: toNumberOrString(piece.numOfBatches),
         workers: piece.workers.join(','),
         nerltensorType: piece.nerltensorType
       }))
@@ -145,15 +163,6 @@ export function buildExperimentFlow(experimentFlow: ExperimentFlow): Record<stri
 
 export function buildModelPayload(model: WorkerModel, includeDocs: boolean): Record<string, unknown> {
   if (model.infraType === 'torch') {
-    const layers = model.layers ?? [];
-    const layerPayload =
-      layers.length > 0
-        ? {
-            layersSizes: layers.map((layer) => layer.size).join(','),
-            layerTypesList: layers.map((layer) => layer.type).join(','),
-            layers_functions: layers.map((layer) => layer.functionCode).join(',')
-          }
-        : {};
     const base: Record<string, unknown> = {
       infraType: model.infraType,
       distributedSystemType: model.distributedSystemType,
@@ -167,13 +176,13 @@ export function buildModelPayload(model: WorkerModel, includeDocs: boolean): Rec
         lr: model.trainParams.lr,
         epochs: model.trainParams.epochs,
         optimizer: model.trainParams.optimizer,
+        loss: model.trainParams.loss,
         batch_size: model.trainParams.batchSize,
         input_tensor_shape: model.trainParams.inputTensorShape,
         labels_offset: model.trainParams.labelsOffset,
         labels_shape: model.trainParams.labelsShape,
         w_init_rand: model.trainParams.wInitRand
-      },
-      ...layerPayload
+      }
     };
 
     if (!includeDocs) {
@@ -185,17 +194,7 @@ export function buildModelPayload(model: WorkerModel, includeDocs: boolean): Rec
       _doc_infraType: TorchDoc.infraType,
       _doc_distributedSystemType: TorchDoc.distributedSystem,
       _doc_distributedSystemArgs: 'String',
-      _doc_distributedSystemToken: 'Token that associates distributed group of workers and parameter-server',
-      ...(layers.length > 0
-        ? {
-            _doc_layersSizes: 'List of postive integers [L0, L1, ..., LN]',
-            _doc_LayerTypes: MODEL_DOCS.layerTypes,
-            _doc_layers_functions_activation: MODEL_DOCS.activation,
-            _doc_layer_functions_pooling: MODEL_DOCS.pooling,
-            _doc_layer_functions_probabilistic: MODEL_DOCS.probabilistic,
-            _doc_layer_functions_scaler: MODEL_DOCS.scaling
-          }
-        : {})
+      _doc_distributedSystemToken: 'Token that associates distributed group of workers and parameter-server'
     };
   }
 

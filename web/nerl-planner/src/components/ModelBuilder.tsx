@@ -26,7 +26,7 @@ const ModelBuilder = ({
   onSave: () => void;
   onDelete?: () => void;
 }) => {
-  const modelLayers = model.layers ?? [];
+  const modelLayers = model.infraType === 'torch' ? [] : model.layers;
 
   const updateOpenNN = (patch: Partial<OpenNNModel>) => {
     if (model.infraType === 'torch') {
@@ -73,7 +73,7 @@ const ModelBuilder = ({
   };
 
   const switchToOpenNN = () => onChange(createOpenNNModel(model.name, modelLayers));
-  const switchToTorch = () => onChange(createTorchModel(model.name, modelLayers));
+  const switchToTorch = () => onChange(createTorchModel(model.name));
 
   return (
     <div className="panel">
@@ -110,7 +110,7 @@ const ModelBuilder = ({
                 value={model.infraType}
                 onChange={(event) => {
                   if (event.target.value === 'torch') {
-                    onChange(createTorchModel(model.name, modelLayers));
+                    onChange(createTorchModel(model.name));
                   } else {
                     onChange({
                       ...createOpenNNModel(model.name, modelLayers),
@@ -327,6 +327,18 @@ const ModelBuilder = ({
                     onChange={(event) =>
                       updateTorch({
                         trainParams: { ...model.trainParams, optimizer: event.target.value }
+                      })
+                    }
+                  />
+                </label>
+                <label className="field">
+                  <span>Train Loss</span>
+                  <input
+                    type="text"
+                    value={model.trainParams.loss}
+                    onChange={(event) =>
+                      updateTorch({
+                        trainParams: { ...model.trainParams, loss: event.target.value }
                       })
                     }
                   />
