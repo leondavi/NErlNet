@@ -22,6 +22,13 @@ jobs:
         run: |
           python3 -m pip install --no-input --no-cache-dir --break-system-packages \
             torch==2.2.1 --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: Verify PTD POC trace invariants
+        run: |
+          python3 tests/parallelism/test_poc_schedule_trace.py
+          python3 tests/parallelism/test_parallel_schema.py
+          python3 tests/parallelism/test_scheduler_conformance.py
+          python3 tests/parallelism/test_supernode_comm_contract.py
+          python3 tests/parallelism/test_eventsync_abort.py
       - name: Build
         id: build
         run: |

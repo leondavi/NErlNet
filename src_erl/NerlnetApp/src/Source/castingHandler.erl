@@ -18,8 +18,15 @@ init(Req0, [Action,Source_StateM_Pid]) ->
 %%  io:format("casting handler got Body:~p~n",[Body]),
   case Action of
     csv ->  {_ , Body} = nerl_tools:read_all_data(Req0 , <<>>),
-            {WorkersList, Phase, NumOfBatches, NerlTensorType, CompressedData} = binary_to_term(Body),
-            gen_statem:cast(Source_StateM_Pid, {batchList, WorkersList, list_to_atom(Phase), list_to_integer(NumOfBatches), NerlTensorType , CompressedData});
+            case binary_to_term_safe(Body) of
+              {WorkersList, Phase, NumOfBatches, NerlTensorType, CompressedData} ->
+                gen_statem:cast(
+                  Source_StateM_Pid,
+                  {batchList, WorkersList, list_to_atom(Phase), list_to_integer(NumOfBatches), NerlTensorType , CompressedData}
+                );
+              _ ->
+                ok
+            end;
     startCasting  ->  {_,Body,_} = cowboy_req:read_body(Req0),
                       gen_statem:cast(Source_StateM_Pid, {startCasting,Body});
     statistics    ->  gen_statem:cast(Source_StateM_Pid, {statistics});
@@ -39,3 +46,10 @@ start(_StartType, _StartArgs) ->
 
 stop(_State) ->
   erlang:error(not_implemented).
+
+binary_to_term_safe(Body) ->
+  try binary_to_term(Body, [safe]) of
+    Term -> Term
+  catch
+    _:_ -> undefined
+  end.

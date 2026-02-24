@@ -194,8 +194,9 @@ parseJsonAndStartNerlnet(ThisDeviceIP) ->
     BatchSize = ets:lookup_element(nerlnet_data, batchSize,?DATA_IDX),
     % DefaultFrequency = ets:lookup_element(nerlnet_data, frequency, ?DATA_IDX), TODO nerlplanner already assigns default frequency to sources that demand it.
 
-    createClientsAndWorkers(), % TODO extract all of this args from ETS
     createRouters(Routers,ThisDeviceIP), % TODO extract all of this args from ETS
+    createSuperNodes(ThisDeviceIP),
+    createClientsAndWorkers(), % TODO extract all of this args from ETS
     createSources(BatchSize, ThisDeviceIP), % TODO extract all of this args from ETS
 
     HostOfMainServer = ets:member(nerlnet_data, mainServer),
@@ -273,16 +274,16 @@ port_validator(Port, EntityName) ->
     end.
 
 createClientsAndWorkers() ->
-    ClientsAndWorkers = ets:lookup_element(nerlnet_data, deviceClients, ?DATA_IDX), % Each element is  {Name,{Port,ClientWorkers,ClientWorkersMaps}}
+    ClientsAndWorkers = ets:lookup_element(nerlnet_data, deviceClients, ?DATA_IDX), % Each element is  {Name,{Port,ClientWorkers,WorkerShaMap,WorkerToClientMap,ClientSuperNode}}
     % WorkerToClientMap = ets:lookup_element(nerlnet_data, workers, ?DATA_IDX),
     % io:format("Starting clients and workers locally with: ~p~n",[ClientsAndWorkers]),
     DeviceName = ets:lookup_element(nerlnet_data, device_name, ?DATA_IDX),
     NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
     ShaToModelArgsMap = ets:lookup_element(nerlnet_data, sha_to_models_map, ?DATA_IDX),
     Func = 
-        fun({Client,{Port,ClientWorkers,WorkerShaMap, WorkerToClientMap}}) ->
+        fun({Client,{Port,ClientWorkers,WorkerShaMap, WorkerToClientMap, ClientSuperNode}}) ->
         port_validator(Port, Client),
-        ClientStatemArgs = {Client, NerlnetGraph, ClientWorkers , WorkerShaMap, WorkerToClientMap , ShaToModelArgsMap},
+        ClientStatemArgs = {Client, NerlnetGraph, ClientWorkers , WorkerShaMap, WorkerToClientMap , ShaToModelArgsMap, ClientSuperNode},
         ClientStatemPid = clientStatem:start_link(ClientStatemArgs),
         %%Nerl Client
         %%Dispatcher for cowboy to rout each given http_request for the matching handler
@@ -294,8 +295,12 @@ createClientsAndWorkers() ->
                 {"/clientTraining",clientStateHandler, [training,ClientStatemPid]},
                 {"/clientIdle",clientStateHandler, [idle,ClientStatemPid]},
                 {"/clientPredict",clientStateHandler, [predict,ClientStatemPid]},
+                {"/parallelMode",clientStateHandler, [parallel_mode,ClientStatemPid]},
+                {"/parallelExecution",clientStateHandler, [parallel_execution,ClientStatemPid]},
+                {"/parallelSuperCommand",clientStateHandler, [parallel_super_command,ClientStatemPid]},
                 {"/batch",clientStateHandler, [batch,ClientStatemPid]},
                 {"/worker_to_worker_msg",clientStateHandler, [worker_to_worker_msg,ClientStatemPid]},
+                {"/parallelDeliver",clientStateHandler, [parallel_deliver,ClientStatemPid]},
                 {"/start_stream", clientStateHandler, [start_stream, ClientStatemPid]},
                 {"/end_stream", clientStateHandler, [end_stream, ClientStatemPid]}
             ]}
@@ -364,6 +369,27 @@ createRouters(MapOfRouters, HostName) ->
     end,
     maps:foreach(Func, MapOfRouters). % iterates as key/values
 
+createSuperNodes(HostName) ->
+    DeviceSuperNodes = ets:lookup_element(nerlnet_data, deviceSuperNodes, ?DATA_IDX),
+    NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
+    Fun =
+    fun(SuperNodeName, {Port, ManagedClients, HeartbeatMs, MaxInflight}) ->
+        port_validator(Port, SuperNodeName),
+        SuperNodeArgs = {SuperNodeName, ManagedClients, HeartbeatMs, MaxInflight, NerlnetGraph},
+        {ok, SuperNodePid} = superNodeGenserver:start_link(SuperNodeArgs),
+        SuperNodeDispatch = cowboy_router:compile([
+            {'_', [
+                {"/registerClient", superNodeHandler, [register_client, SuperNodePid]},
+                {"/superHeartbeat", superNodeHandler, [super_heartbeat, SuperNodePid]},
+                {"/parallelWorkerMessage", superNodeHandler, [parallel_worker_message, SuperNodePid]},
+                {"/parallelPhaseUpdate", superNodeHandler, [parallel_phase_update, SuperNodePid]},
+                {"/parallelEvent", superNodeHandler, [parallel_event, SuperNodePid]}
+            ]}
+        ]),
+        init_cowboy_start_clear(SuperNodeName, {HostName, Port}, SuperNodeDispatch)
+    end,
+    maps:foreach(Fun, DeviceSuperNodes).
+
 createMainServer(false,_BatchSize,_HostName,_DeviceName) -> none;
 createMainServer(true,BatchSize,HostName,DeviceName) ->
     Name = mainServer,
@@ -395,6 +421,7 @@ createMainServer(true,BatchSize,HostName,DeviceName) ->
         {"/startCasting",[],actionHandler, [startCasting, MainGenServerPid]},
         {"/stopCasting",[],actionHandler, [stopCasting, MainGenServerPid]},
         {"/clientsPhaseUpdate",[],actionHandler,[clientsPhaseUpdate,MainGenServerPid]},
+        {"/parallelAbort",[],actionHandler,[parallelAbort,MainGenServerPid]},
         {"/apiserver_ack_validation", [], ackHandler, [apiserver_ack_validation, MainGenServerPid]},
 
         {"/[...]", [],noMatchingRouteHandler, [MainGenServerPid]}

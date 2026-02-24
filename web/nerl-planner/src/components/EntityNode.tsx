@@ -2,7 +2,7 @@ import { Handle, NodeProps, Position } from '@xyflow/react';
 
 export type EntityNodeData = {
   name: string;
-  kind: 'router' | 'source' | 'client' | 'server';
+  kind: 'router' | 'source' | 'client' | 'server' | 'super';
   role?: 'main' | 'api';
   deviceName?: string;
   deviceIp?: string;
@@ -10,7 +10,8 @@ export type EntityNodeData = {
   warning?: string;
 };
 
-const EntityNode = ({ data }: NodeProps<EntityNodeData>) => {
+const EntityNode = (props: NodeProps) => {
+  const data = props.data as EntityNodeData;
   const deviceLabel = data.deviceName
     ? `${data.deviceName}${data.deviceIp ? ` - ${data.deviceIp}` : ''}`
     : 'Unassigned device';
@@ -24,6 +25,8 @@ const EntityNode = ({ data }: NodeProps<EntityNodeData>) => {
             ? data.role === 'main'
               ? 'Main Server'
               : 'API Server'
+            : data.kind === 'super'
+              ? 'Super Node'
             : data.kind.charAt(0).toUpperCase() + data.kind.slice(1)}
         </span>
         <strong className="entity-name">{data.name}</strong>

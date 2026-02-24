@@ -4,7 +4,7 @@ import ExportView from './components/ExportView';
 import ModelLabView from './components/ModelLabView';
 import SandboxView from './components/SandboxView';
 import { createDefaultState } from './data/defaults';
-import { PlannerState } from './data/types';
+import { ExperimentPhase, ExperimentSourcePiece, PlannerState } from './data/types';
 
 const STORAGE_KEY = 'nerlnet-planner-state-v1';
 
@@ -21,9 +21,42 @@ const hydrateState = (stored?: Partial<PlannerState> | null): PlannerState => {
   if (!stored) {
     return defaults;
   }
-  const storedExperiment = coerceRecord(stored.experimentFlow, {});
-  const storedServers = coerceRecord(stored.servers, {});
-  const storedUi = coerceRecord(stored.ui, {});
+  const storedExperiment = coerceRecord<Partial<PlannerState['experimentFlow']>>(
+    stored.experimentFlow,
+    {}
+  );
+  const storedServers = coerceRecord<Partial<PlannerState['servers']>>(stored.servers, {});
+  const storedUi = coerceRecord<Partial<NonNullable<PlannerState['ui']>>>(stored.ui, {});
+  const storedHfDatasetCache = coerceRecord<Partial<NonNullable<NonNullable<PlannerState['ui']>['hfDatasetCache']>>>(
+    storedUi.hfDatasetCache,
+    {}
+  );
+  const defaultHfDatasetCache = defaults.ui?.hfDatasetCache ?? {
+    datasets: [],
+    selectedIdx: '',
+    status: 'idle',
+    message: '',
+    hasLoaded: false
+  };
+  const hydratedPhases = coerceArray<Partial<ExperimentPhase>>(
+    storedExperiment.phases,
+    defaults.experimentFlow.phases
+  ).map((phase, index) => ({
+    id: phase.id ?? crypto.randomUUID(),
+    phaseName: typeof phase.phaseName === 'string' ? phase.phaseName : `phase_${index + 1}`,
+    phaseType: phase.phaseType === 'prediction' ? 'prediction' : 'training',
+    sourcePieces: coerceArray<Partial<ExperimentSourcePiece>>(phase.sourcePieces, []).map(
+      (piece) => ({
+      id: piece.id ?? crypto.randomUUID(),
+      sourceName: piece.sourceName ?? '',
+      startingSample: piece.startingSample ?? '',
+      numOfBatches: piece.numOfBatches ?? '',
+      workers: coerceArray(piece.workers, []),
+      nerltensorType: piece.nerltensorType ?? 'float'
+      })
+    ),
+    parallelExecution: phase.parallelExecution
+  }));
   return {
     ...defaults,
     ...stored,
@@ -31,35 +64,36 @@ const hydrateState = (stored?: Partial<PlannerState> | null): PlannerState => {
     routers: coerceArray(stored.routers, defaults.routers),
     sources: coerceArray(stored.sources, defaults.sources),
     clients: coerceArray(stored.clients, defaults.clients),
+    superNodes: coerceArray(stored.superNodes, defaults.superNodes),
     workers: coerceArray(stored.workers, defaults.workers),
     models: coerceArray(stored.models, defaults.models),
     connections: coerceArray(stored.connections, defaults.connections),
     settings: { ...defaults.settings, ...(stored.settings ?? {}) },
     servers: {
-      mainServer: { ...defaults.servers.mainServer, ...(storedServers.mainServer as Record<string, string> ?? {}) },
-      apiServer: { ...defaults.servers.apiServer, ...(storedServers.apiServer as Record<string, string> ?? {}) }
+      mainServer: { ...defaults.servers.mainServer, ...(storedServers.mainServer ?? {}) },
+      apiServer: { ...defaults.servers.apiServer, ...(storedServers.apiServer ?? {}) }
     },
     experimentFlow: {
       ...defaults.experimentFlow,
       ...storedExperiment,
-      phases: coerceArray(
-        (storedExperiment as { phases?: unknown }).phases,
-        defaults.experimentFlow.phases
-      ).map((phase: { id?: string; phaseName?: string; phaseType?: string; sourcePieces?: unknown[] }) => ({
-        ...phase,
-        id: phase.id ?? crypto.randomUUID(),
-        sourcePieces: coerceArray(phase.sourcePieces, []).map(
-          (piece: { id?: string }) => ({
-            ...piece,
-            id: piece.id ?? crypto.randomUUID()
-          })
-        )
-      }))
+      phases: hydratedPhases
     },
     ui: {
       nodePositions: {
         ...defaults.ui?.nodePositions,
-        ...((storedUi.nodePositions as Record<string, { x: number; y: number }>) ?? {})
+        ...(storedUi.nodePositions ?? {})
+      },
+      openLayerPositions: {
+        ...(defaults.ui?.openLayerPositions ?? {}),
+        ...(storedUi.openLayerPositions ?? {})
+      },
+      hfDatasetCache: {
+        ...defaultHfDatasetCache,
+        ...storedHfDatasetCache,
+        datasets: coerceArray(
+          storedHfDatasetCache.datasets,
+          defaultHfDatasetCache.datasets
+        )
       }
     }
   };

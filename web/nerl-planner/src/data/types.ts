@@ -71,6 +71,7 @@ export type OpenNNModel = {
   distributedSystemType: string;
   distributedSystemArgs: string;
   distributedSystemToken: string;
+  tpPlan?: TpPlanEntry[];
 };
 
 export type TorchModel = {
@@ -96,6 +97,7 @@ export type TorchModel = {
   distributedSystemType: string;
   distributedSystemArgs: string;
   distributedSystemToken: string;
+  tpPlan?: TpPlanEntry[];
 };
 
 export type WorkerModel = OpenNNModel | TorchModel;
@@ -103,12 +105,22 @@ export type WorkerModel = OpenNNModel | TorchModel;
 export type WorkerEntity = {
   name: string;
   modelId: string;
+  parallel?: WorkerParallelConfig;
 };
 
 export type Client = {
   name: string;
   port: string;
   workers: string[];
+  superNode?: string;
+};
+
+export type SuperNode = {
+  name: string;
+  port: string;
+  managedClients: string[];
+  heartbeatMs: string;
+  maxInflightMicrobatches: string;
 };
 
 export type Source = {
@@ -153,6 +165,34 @@ export type ExperimentPhase = {
   phaseName: string;
   phaseType: string;
   sourcePieces: ExperimentSourcePiece[];
+  parallelExecution?: ParallelExecutionConfig;
+};
+
+export type ParallelExecutionMode = 'legacy' | 'pipeline' | 'tensor' | 'pipeline_tensor';
+export type ParallelScheduler = 'gpipe' | '1f1b' | 'interleaved';
+
+export type ParallelExecutionConfig = {
+  mode: ParallelExecutionMode;
+  superNode: string;
+  scheduler: ParallelScheduler;
+  microBatchSize: string;
+  numMicroBatches: string;
+  virtualStages: string;
+};
+
+export type WorkerParallelConfig = {
+  pipelineStage: string;
+  pipelineWorldSize: string;
+  tpGroup: string;
+  tpRank: string;
+  tpWorldSize: string;
+};
+
+export type TpPlanEntry = {
+  layer: string;
+  mode: 'column' | 'row';
+  shardAxis: string;
+  group: string;
 };
 
 export type ExperimentFlow = {
@@ -164,6 +204,29 @@ export type ExperimentFlow = {
   numOfLabels: string;
   headersNames: string;
   phases: ExperimentPhase[];
+};
+
+export type HfDatasetMeta = {
+  id: string;
+  idx: number;
+  name: string;
+  description: string;
+  csvFiles: string[];
+  error?: string;
+  datasetPath?: string;
+  firstCsvPath?: string;
+  sampleRows?: number | null;
+  sampleColumns?: number | null;
+};
+
+export type HfDatasetStatus = 'idle' | 'loading' | 'downloading' | 'done' | 'error';
+
+export type HfDatasetCache = {
+  datasets: HfDatasetMeta[];
+  selectedIdx: string;
+  status: HfDatasetStatus;
+  message: string;
+  hasLoaded: boolean;
 };
 
 export type PlannerState = {
@@ -179,6 +242,7 @@ export type PlannerState = {
   routers: Router[];
   sources: Source[];
   clients: Client[];
+  superNodes: SuperNode[];
   workers: WorkerEntity[];
   models: WorkerModel[];
   connections: ConnectionEdge[];
@@ -186,5 +250,6 @@ export type PlannerState = {
   ui?: {
     nodePositions: Record<string, { x: number; y: number }>;
     openLayerPositions?: Record<string, { x: number; y: number }>;
+    hfDatasetCache?: HfDatasetCache;
   };
 };

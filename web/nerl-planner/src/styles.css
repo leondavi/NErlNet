@@ -342,10 +342,62 @@ a {
   flex-direction: column;
   gap: 6px;
   font-size: 0.85rem;
+  min-width: 0;
 }
 
 .field span {
   color: var(--ink-soft);
+}
+
+.label-with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.help-tip {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: #fffdf8;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  user-select: none;
+}
+
+.help-tip-content {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  transform: none;
+  width: min(280px, 70vw);
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--stroke);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 0.74rem;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: normal;
+  text-transform: none;
+  box-shadow: var(--shadow-soft);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 40;
+  transition: opacity 0.15s ease;
+}
+
+.help-tip:hover .help-tip-content,
+.help-tip:focus .help-tip-content {
+  opacity: 1;
 }
 
 .field input,
@@ -357,6 +409,9 @@ a {
   background: #fffdf8;
   font-size: 0.95rem;
   font-family: 'Work Sans', sans-serif;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .field select[multiple] {
@@ -367,6 +422,11 @@ a {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 16px;
+  min-width: 0;
+}
+
+.inline-fields > * {
+  min-width: 0;
 }
 
 button.primary,
@@ -477,6 +537,46 @@ button.ghost.danger:hover {
 .library-item span.muted {
   font-size: 0.75rem;
   color: var(--ink-soft);
+}
+
+.library-item.worker-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px) auto;
+  grid-template-areas:
+    "identity model remove"
+    "pp pp remove"
+    "tp tp remove";
+  align-items: start;
+  gap: 12px 14px;
+}
+
+.library-item.worker-item > * {
+  min-width: 0;
+}
+
+.worker-item-identity {
+  grid-area: identity;
+  display: grid;
+  gap: 4px;
+}
+
+.worker-item-model {
+  grid-area: model;
+}
+
+.worker-item-pp {
+  grid-area: pp;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+}
+
+.worker-item-tp {
+  grid-area: tp;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+}
+
+.worker-item-remove {
+  grid-area: remove;
+  align-self: center;
 }
 
 .model-grid {
@@ -891,6 +991,10 @@ button.ghost.danger:hover {
   overflow: auto;
 }
 
+.floating-panel.floating-panel-workers {
+  width: min(860px, 96%);
+}
+
 .floating-panel-header {
   display: flex;
   align-items: center;
@@ -1010,7 +1114,7 @@ button.ghost.danger:hover {
   border-color: var(--accent);
 }
 
-.library-item select {
+.library-item > select {
   margin-left: auto;
   border-radius: 10px;
   border: 1px solid var(--stroke);
@@ -1137,6 +1241,7 @@ button.ghost.danger:hover {
 
 .model-lab-grid.torch .model-settings {
   grid-area: settings;
+  min-width: 0;
 }
 
 .model-lab-grid.torch .torch-graph {
@@ -1151,11 +1256,26 @@ button.ghost.danger:hover {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+  min-width: 0;
 }
 
 .model-settings.torch .torch-settings-col {
   display: grid;
   gap: 16px;
+  min-width: 0;
+}
+
+.model-settings.torch .panel-section {
+  min-width: 0;
+}
+
+.model-settings.torch input[readonly] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.model-settings.torch .muted {
+  overflow-wrap: anywhere;
 }
 
 .layer-studio {
@@ -1471,5 +1591,24 @@ label.ghost input[type='file'] {
     left: 12px;
     right: 12px;
     width: auto;
+  }
+
+  .library-item.worker-item {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "identity"
+      "model"
+      "pp"
+      "tp"
+      "remove";
+  }
+
+  .worker-item-pp,
+  .worker-item-tp {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .worker-item-remove {
+    justify-self: start;
   }
 }

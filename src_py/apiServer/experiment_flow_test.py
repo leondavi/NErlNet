@@ -27,6 +27,19 @@ TEST_DATASET_IDX = 2
 
 WAIT_TIME_FOR_NERLNET_RUN_BOOT=60 # secs
 MANUAL_START_MODE = os.getenv('NERLNET_MANUAL_START', '0').lower() in ('1', 'true', 'yes', 'on')
+TARGET_TORCH_DC_JSON = "dc_torch_synt_1d_2c_1s_4r_4w.json"
+TARGET_TORCH_CONN_JSON = "conn_torch_synt_1d_2c_1s_4r_4w.json"
+TARGET_TORCH_EXP_JSON = "exp_torch_synt_1d_2c_1s_4r_4w.json"
+
+
+def find_json_index_or_default(files_list, target_filename: str, default_index: int = 0) -> int:
+    for idx, elem in enumerate(files_list):
+        try:
+            if elem.get_filename() == target_filename:
+                return idx
+        except Exception:
+            continue
+    return default_index
 
 # TODO JUST FOR DEBUG
 print_test(f"$NERLNET_PATH: {NERLNET_PATH}")
@@ -46,7 +59,14 @@ api_server_instance = ApiServer()
 api_server_instance.download_dataset(TEST_DATASET_IDX)
 #api_server_instance.help()
 #api_server_instance.showJsons()
-api_server_instance.setJsons(0,0,0)
+dc_idx = find_json_index_or_default(api_server_instance.json_dir_parser.dc_list, TARGET_TORCH_DC_JSON, 0)
+conn_idx = find_json_index_or_default(api_server_instance.json_dir_parser.conn_map_list, TARGET_TORCH_CONN_JSON, 0)
+exp_idx = find_json_index_or_default(api_server_instance.json_dir_parser.experiments_list, TARGET_TORCH_EXP_JSON, 0)
+print_test(
+    f"Selected JSON indices -> dc:{dc_idx} conn:{conn_idx} exp:{exp_idx} "
+    f"(targets: {TARGET_TORCH_DC_JSON}, {TARGET_TORCH_CONN_JSON}, {TARGET_TORCH_EXP_JSON})"
+)
+api_server_instance.setJsons(dc_idx, conn_idx, exp_idx)
 
 dc_json , connmap_json, exp_flow_json = api_server_instance.getUserJsons()
 

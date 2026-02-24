@@ -48,7 +48,7 @@ export async function buildDistributedConfig(
   includeDocs: boolean
 ): Promise<Record<string, unknown>> {
   const modelPayloads: Record<string, Record<string, unknown>> = {};
-  const workerEntries: { name: string; model_sha: string }[] = [];
+  const workerEntries: Record<string, unknown>[] = [];
 
   // Compute all SHA hashes in parallel for better performance
   const workerShaPromises = state.workers.map(async (worker) => {
@@ -74,7 +74,29 @@ export async function buildDistributedConfig(
       modelPayloads[sha] = payload;
     }
 
-    workerEntries.push({ name: worker.name, model_sha: sha });
+    const workerEntry: Record<string, unknown> = { name: worker.name, model_sha: sha };
+    if (worker.parallel) {
+      const parallel: Record<string, number | string> = {};
+      if (worker.parallel.pipelineStage.trim()) {
+        parallel.pipelineStage = toNumberOrString(worker.parallel.pipelineStage);
+      }
+      if (worker.parallel.pipelineWorldSize.trim()) {
+        parallel.pipelineWorldSize = toNumberOrString(worker.parallel.pipelineWorldSize);
+      }
+      if (worker.parallel.tpGroup.trim()) {
+        parallel.tpGroup = worker.parallel.tpGroup.trim();
+      }
+      if (worker.parallel.tpRank.trim()) {
+        parallel.tpRank = toNumberOrString(worker.parallel.tpRank);
+      }
+      if (worker.parallel.tpWorldSize.trim()) {
+        parallel.tpWorldSize = toNumberOrString(worker.parallel.tpWorldSize);
+      }
+      if (Object.keys(parallel).length > 0) {
+        workerEntry.parallel = parallel;
+      }
+    }
+    workerEntries.push(workerEntry);
   }
 
   return {
@@ -108,11 +130,24 @@ export async function buildDistributedConfig(
       epochs: source.epochs,
       type: source.type
     })),
-    clients: state.clients.map((client) => ({
-      name: client.name,
-      port: client.port,
-      workers: client.workers.join(',')
+    superNodes: state.superNodes.map((superNode) => ({
+      name: superNode.name,
+      port: superNode.port,
+      managedClients: superNode.managedClients,
+      heartbeatMs: toNumberOrString(superNode.heartbeatMs),
+      maxInflightMicrobatches: toNumberOrString(superNode.maxInflightMicrobatches)
     })),
+    clients: state.clients.map((client) => {
+      const entry: Record<string, unknown> = {
+        name: client.name,
+        port: client.port,
+        workers: client.workers.join(',')
+      };
+      if (client.superNode?.trim()) {
+        entry.superNode = client.superNode.trim();
+      }
+      return entry;
+    }),
     workers: workerEntries,
     model_sha: modelPayloads
   };
@@ -147,17 +182,30 @@ export function buildExperimentFlow(experimentFlow: ExperimentFlow): Record<stri
     numOfFeatures: toNumberOrString(experimentFlow.numOfFeatures),
     numOfLabels: toNumberOrString(experimentFlow.numOfLabels),
     headersNames: experimentFlow.headersNames,
-    Phases: experimentFlow.phases.map((phase) => ({
-      phaseName: phase.phaseName,
-      phaseType: phase.phaseType,
-      sourcePieces: phase.sourcePieces.map((piece) => ({
+    Phases: experimentFlow.phases.map((phase) => {
+      const phasePayload: Record<string, unknown> = {
+        phaseName: phase.phaseName,
+        phaseType: phase.phaseType,
+        sourcePieces: phase.sourcePieces.map((piece) => ({
         sourceName: piece.sourceName,
         startingSample: toNumberOrString(piece.startingSample),
         numOfBatches: toNumberOrString(piece.numOfBatches),
         workers: piece.workers.join(','),
         nerltensorType: piece.nerltensorType
-      }))
-    }))
+        }))
+      };
+      if (phase.parallelExecution) {
+        phasePayload.parallelExecution = {
+          mode: phase.parallelExecution.mode,
+          superNode: phase.parallelExecution.superNode,
+          scheduler: phase.parallelExecution.scheduler,
+          microBatchSize: toNumberOrString(phase.parallelExecution.microBatchSize),
+          numMicroBatches: toNumberOrString(phase.parallelExecution.numMicroBatches),
+          virtualStages: toNumberOrString(phase.parallelExecution.virtualStages)
+        };
+      }
+      return phasePayload;
+    })
   };
 }
 
@@ -184,6 +232,14 @@ export function buildModelPayload(model: WorkerModel, includeDocs: boolean): Rec
         w_init_rand: model.trainParams.wInitRand
       }
     };
+    if (model.tpPlan && model.tpPlan.length > 0) {
+      base.tpPlan = model.tpPlan.map((entry) => ({
+        layer: entry.layer,
+        mode: entry.mode,
+        shardAxis: toNumberOrString(entry.shardAxis),
+        group: entry.group
+      }));
+    }
 
     if (!includeDocs) {
       return base;
@@ -219,6 +275,14 @@ export function buildModelPayload(model: WorkerModel, includeDocs: boolean): Rec
     distributedSystemArgs: model.distributedSystemArgs,
     distributedSystemToken: model.distributedSystemToken
   };
+  if (model.tpPlan && model.tpPlan.length > 0) {
+    base.tpPlan = model.tpPlan.map((entry) => ({
+      layer: entry.layer,
+      mode: entry.mode,
+      shardAxis: toNumberOrString(entry.shardAxis),
+      group: entry.group
+    }));
+  }
 
   if (!includeDocs) {
     return base;

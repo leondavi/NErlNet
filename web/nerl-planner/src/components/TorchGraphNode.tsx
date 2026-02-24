@@ -9,7 +9,8 @@ export type TorchGraphNodeData = {
   warning?: string;
 };
 
-const TorchGraphNode = ({ data }: NodeProps<TorchGraphNodeData>) => {
+const TorchGraphNode = (props: NodeProps) => {
+  const data = props.data as TorchGraphNodeData;
   return (
     <div className={`torch-node torch-${data.type}`}>
       <Handle type="target" position={Position.Left} />

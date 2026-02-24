@@ -186,18 +186,24 @@ def gen_dc_fields_hrl(header_path : str, debug : bool = False):
     gen_erlang_exporter_logger(nerlplanner_version.generate_code())
 
     fields_list_vals_atoms = [KEY_NERLNET_SETTINGS, KEY_FREQUENCY, KEY_BATCH_SIZE,
-                        KEY_DEVICES, KEY_CLIENTS, KEY_WORKERS, KEY_MODEL_SHA,
+                        KEY_DEVICES, KEY_CLIENTS, KEY_SUPER_NODES, KEY_WORKERS, KEY_MODEL_SHA,
                         KEY_SOURCES, KEY_ROUTERS, NAME_FIELD, WORKER_MODEL_SHA_FIELD,
                         IPV4_FIELD, PORT_FIELD, ARGS_FIELD, ENTITIES_FIELD,
                         POLICY_FIELD, EPOCHS_FIELD, TYPE_FIELD, FREQUENCY_FIELD,
-                        WORKERS_FIELD]
+                        WORKERS_FIELD, MANAGED_CLIENTS_FIELD, HEARTBEAT_MS_FIELD,
+                        MAX_INFLIGHT_MICROBATCHES_FIELD, SUPERNODE_FIELD, PARALLEL_FIELD,
+                        PIPELINE_STAGE_FIELD, PIPELINE_WORLD_SIZE_FIELD, TP_GROUP_FIELD,
+                        TP_RANK_FIELD, TP_WORLD_SIZE_FIELD, TP_PLAN_FIELD]
     fields_list_vals_strs = [f'"{x}"' for x in fields_list_vals_atoms]
     fields_list_strs = ['KEY_NERLNET_SETTINGS', 'KEY_FREQUENCY', 'KEY_BATCH_SIZE',
-                        'KEY_DEVICES', 'KEY_CLIENTS', 'KEY_WORKERS', 'KEY_MODEL_SHA',
+                        'KEY_DEVICES', 'KEY_CLIENTS', 'KEY_SUPER_NODES', 'KEY_WORKERS', 'KEY_MODEL_SHA',
                         'KEY_SOURCES', 'KEY_ROUTERS', 'NAME_FIELD', 'WORKER_MODEL_SHA_FIELD',
                         'IPV4_FIELD', 'PORT_FIELD', 'ARGS_FIELD', 'ENTITIES_FIELD',
                         'POLICY_FIELD', 'EPOCHS_FIELD', 'TYPE_FIELD', 'FREQUENCY_FIELD',
-                        'WORKERS_FIELD']
+                        'WORKERS_FIELD', 'MANAGED_CLIENTS_FIELD', 'HEARTBEAT_MS_FIELD',
+                        'MAX_INFLIGHT_MICROBATCHES_FIELD', 'SUPERNODE_FIELD', 'PARALLEL_FIELD',
+                        'PIPELINE_STAGE_FIELD', 'PIPELINE_WORLD_SIZE_FIELD', 'TP_GROUP_FIELD',
+                        'TP_RANK_FIELD', 'TP_WORLD_SIZE_FIELD', 'TP_PLAN_FIELD']
     fields_list_strs_atom = [f'DC_{x}_ATOM' for x in fields_list_strs]
     fields_list_strs_string = [f'DC_{x}_STR' for x in fields_list_strs]
     fields_list_strs_bin = [f'DC_{x}_STR_BIN' for x in fields_list_strs]
@@ -308,4 +314,3 @@ def main():
 
 if __name__=="__main__":
     main()
-

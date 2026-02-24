@@ -131,9 +131,13 @@ const torchModelPlugin = () => {
       });
       child.on('close', (code) => {
         if (code !== 0) {
+          const baseError = (stderr || 'Torch export failed').trim();
+          const guidance = baseError.includes('Torch not available')
+            ? '\nInstall CPU torch for the planner python interpreter (example: python3 -m pip install torch --index-url https://download.pytorch.org/whl/cpu), or run planner with PYTHON=/path/to/python-with-torch npm run dev.'
+            : '';
           res.statusCode = 500;
           res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ error: stderr || 'Torch export failed' }));
+          res.end(JSON.stringify({ error: `${baseError}${guidance}` }));
           return;
         }
         try {
@@ -208,8 +212,141 @@ const torchModelPlugin = () => {
   };
 };
 
+const hfDatasetsPlugin = () => {
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const scriptPath = path.resolve(__dirname, 'scripts', 'hf_datasets.py');
+  const repoIdsPath = path.resolve(rootDir, 'src_py', 'apiServer', 'hf_repo_ids.json');
+  const defaultDownloadDir = '/tmp/nerlnet/data/NerlnetData-master/nerlnet';
+
+  const readBody = (req: any) =>
+    new Promise<string>((resolve, reject) => {
+      let data = '';
+      req.on('data', (chunk: Buffer) => {
+        data += chunk.toString('utf-8');
+      });
+      req.on('end', () => resolve(data));
+      req.on('error', reject);
+    });
+
+  const runScript = (args: string[]) =>
+    new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve) => {
+      const python = process.env.PYTHON || 'python3';
+      const child = spawn(python, [scriptPath, ...args]);
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (chunk) => {
+        stdout += chunk.toString('utf-8');
+      });
+      child.stderr.on('data', (chunk) => {
+        stderr += chunk.toString('utf-8');
+      });
+      child.on('close', (code) => resolve({ code, stdout, stderr }));
+    });
+
+  const explainFailure = (raw: string) => {
+    const baseError = raw.trim() || 'HF dataset operation failed';
+    if (baseError.includes('huggingface_hub not available')) {
+      return `${baseError}\nInstall huggingface_hub for the planner python interpreter (example: python3 -m pip install huggingface_hub), or run planner with PYTHON=/path/to/python-with-huggingface_hub npm run dev.`;
+    }
+    return baseError;
+  };
+
+  const handleList = async (req: any, res: any) => {
+    if (req.method !== 'GET') {
+      res.statusCode = 405;
+      res.end();
+      return;
+    }
+
+    try {
+      const { code, stdout, stderr } = await runScript([
+        '--action',
+        'list',
+        '--repo-file',
+        repoIdsPath
+      ]);
+
+      if (code !== 0) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: explainFailure(stderr || stdout) }));
+        return;
+      }
+
+      const payload = JSON.parse(stdout || '{}');
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify(payload));
+    } catch (error) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: error instanceof Error ? error.message : 'HF list failed' }));
+    }
+  };
+
+  const handleDownload = async (req: any, res: any) => {
+    if (req.method !== 'POST') {
+      res.statusCode = 405;
+      res.end();
+      return;
+    }
+
+    try {
+      const body = await readBody(req);
+      const payload = JSON.parse(body || '{}') as { repoIdx?: number | string };
+      const repoIdx = Number(payload.repoIdx);
+      if (!Number.isInteger(repoIdx) || repoIdx < 0) {
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'repoIdx must be a non-negative integer' }));
+        return;
+      }
+
+      const { code, stdout, stderr } = await runScript([
+        '--action',
+        'download',
+        '--repo-file',
+        repoIdsPath,
+        '--repo-idx',
+        String(repoIdx),
+        '--download-dir',
+        defaultDownloadDir
+      ]);
+
+      if (code !== 0) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: explainFailure(stderr || stdout) }));
+        return;
+      }
+
+      const responsePayload = JSON.parse(stdout || '{}');
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify(responsePayload));
+    } catch (error) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: error instanceof Error ? error.message : 'HF download failed' }));
+    }
+  };
+
+  const registerRoutes = (server: { middlewares: { use: Function } }) => {
+    server.middlewares.use('/api/hf/datasets/download', handleDownload);
+    server.middlewares.use('/api/hf/datasets', handleList);
+  };
+
+  return {
+    name: 'hf-datasets',
+    configureServer(server: { middlewares: { use: Function } }) {
+      registerRoutes(server);
+    },
+    configurePreviewServer(server: { middlewares: { use: Function } }) {
+      registerRoutes(server);
+    }
+  };
+};
+
 export default defineConfig({
-  plugins: [react(), networkScanPlugin(), torchModelPlugin()],
+  plugins: [react(), networkScanPlugin(), torchModelPlugin(), hfDatasetsPlugin()],
   server: {
     port: 5173,
     open: false

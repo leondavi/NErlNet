@@ -43,7 +43,11 @@ EOF_USAGE
 
 function detect_ipv4() {
     if command -v ip >/dev/null 2>&1; then
-        ip addr | grep -m 2 -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" | head -n 2 | grep -v "127.0.0.1" | head -n 1
+        ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i=1; i<=NF; ++i) if ($i=="src") {print $(i+1); exit}}' | grep -v '^127\.0\.0\.1$' | grep -v '^0\.0\.0\.0$' | head -n 1
+        return
+    fi
+    if command -v ip >/dev/null 2>&1; then
+        ip addr | grep -m 2 -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" | head -n 2 | grep -v "127.0.0.1" | grep -v '^0\.0\.0\.0$' | head -n 1
         return
     fi
     if command -v ifconfig >/dev/null 2>&1; then
@@ -180,7 +184,10 @@ if $MANUAL_START; then
     print "Manual start mode enabled - skipping NerlnetRun start/stop"
 else
     print "Starting NerlnetRun (release mode)"
-    (cd "$NERLNET_PATH" && ./NerlnetRun.sh --run-mode release > "$RUN_LOG" 2>&1 &)
+    (
+        cd "$NERLNET_PATH"
+        ./NerlnetRun.sh --run-mode release > "$RUN_LOG" 2>&1
+    ) &
     RUN_PID=$!
     print "Waiting $WAIT_TIME_FOR_NERLNET_RUN_BOOT seconds for NerlnetApp boot"
     sleep "$WAIT_TIME_FOR_NERLNET_RUN_BOOT"

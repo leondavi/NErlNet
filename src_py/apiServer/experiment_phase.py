@@ -6,7 +6,16 @@ from nerl_csv_dataset_db import *
 from decoderHttpMainServer import *
 
 class ExperimentPhase():
-    def __init__(self, experiment_flow_name : str, experiment_flow_type: str, name : str, phase_type: str, network_components: NetworkComponents, num_of_features: str):
+    def __init__(
+        self,
+        experiment_flow_name: str,
+        experiment_flow_type: str,
+        name: str,
+        phase_type: str,
+        network_components: NetworkComponents,
+        num_of_features: str,
+        parallel_execution = None
+    ):
         self.experiment_flow_name = experiment_flow_name
         self.experiment_flow_type = experiment_flow_type
         self.name = name 
@@ -19,6 +28,7 @@ class ExperimentPhase():
         self.num_of_features = num_of_features
         self.raw_data_buffer = []
         self.network_components = network_components
+        self.parallel_execution = parallel_execution or {"mode": "legacy"}
 
     def get_raw_data_buffer(self):
         return self.raw_data_buffer
@@ -68,6 +78,9 @@ class ExperimentPhase():
 
     def get_num_of_features(self):
         return self.num_of_features
+
+    def get_parallel_execution(self):
+        return dict(self.parallel_execution)
     
     def add_source_piece(self, source_piece : SourcePieceDS):
         if source_piece.source_name not in self.source_pieces_dict:

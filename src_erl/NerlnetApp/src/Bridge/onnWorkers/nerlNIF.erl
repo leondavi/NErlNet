@@ -2,7 +2,7 @@
 -include_lib("kernel/include/logger.hrl").
 -include("../nerlTensor.hrl").
 
--export([init/0,nif_preload/0,get_active_models_ids_list/0, train_nif/3,update_nerlworker_train_params_nif/6,call_to_train/4,predict_nif/3,call_to_predict/4,get_weights_nif/1,printTensor/2]).
+-export([init/0,nif_preload/0,get_active_models_ids_list/0, train_nif/3,train_microbatch_nif/4,optimizer_barrier_nif/1,update_nerlworker_train_params_nif/6,call_to_train/4,call_to_train_microbatch/5,call_to_optimizer_barrier/1,predict_nif/3,call_to_predict/4,get_weights_nif/1,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
 -export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
@@ -28,9 +28,16 @@
 
 init() ->
       NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
-      % io:format("PATH: ~p~n",[NELNET_LIB_PATH]),
-      RES = erlang:load_nif(NELNET_LIB_PATH, 0), %% CRASHES HERE
-      RES.
+      case catch erlang:load_nif(NELNET_LIB_PATH, 0) of
+            ok ->
+                  ok;
+            {error, Reason} ->
+                  ?LOG_WARNING("[nerlNIF] OpenNN NIF unavailable at ~ts reason: ~p", [NELNET_LIB_PATH, Reason]),
+                  ok;
+            {'EXIT', Reason} ->
+                  ?LOG_WARNING("[nerlNIF] OpenNN NIF load crashed at ~ts reason: ~p", [NELNET_LIB_PATH, Reason]),
+                  ok
+      end.
 
 %% make sure nif can be loaded (activates on_load)
 nif_preload() -> done.
@@ -47,6 +54,12 @@ get_active_models_ids_list() ->
 
 train_nif(_ModelID,_DataTensor,_Type) ->
       exit(nif_library_not_loaded).
+
+train_microbatch_nif(_ModelID,_DataTensor,_Type,_MicrobatchID) ->
+      exit(nif_library_not_loaded).
+
+optimizer_barrier_nif(_ModelID) ->
+      ok.
 
 update_nerlworker_train_params_nif(_ModelID,_LearningRate,_Epochs,_OptimizerType,_OptimizerArgs,_LossMethod) ->
       exit(nif_library_not_loaded).
@@ -86,6 +99,12 @@ call_to_train(ModelID, {DataTensor, Type} , BatchID , SourceName) ->
       % send the batch to the nif for training
       TrainNegotiatorPID ! {start_train , SourceName, BatchID, ModelID, DataTensor, Type},
       ok.
+
+call_to_train_microbatch(ModelID, {DataTensor, Type}, BatchID, SourceName, _MicrobatchID) ->
+      call_to_train(ModelID, {DataTensor, Type}, BatchID, SourceName).
+
+call_to_optimizer_barrier(ModelID) ->
+      optimizer_barrier_nif(ModelID).
 
 % Predict Negotiator process - to handle predict requests without spawning for each batch
 % This process is spawned once per phase by the worker statem
@@ -192,20 +211,20 @@ nerltensor_encode(X,Y,Z,List,Type) when is_number(X) and is_number(Y) and
 % Output: {Binary,BinaryType}
 % Warning - if _XYZ_LIST_FORM type is double it can be cast to integer if binaryType is an integer
 encode_nif(_XYZ_LIST_FORM, _BinaryType)  when erlang:is_list(_XYZ_LIST_FORM) and erlang:is_atom(_BinaryType) ->
-      exit(nif_library_not_loaded). 
+      nerlTorchNIF:encode_nif(_XYZ_LIST_FORM, _BinaryType). 
 
 % Input: Binary and Binary Type (atom from the group ?BINARY_GROUP_NERLTENSOR_TYPE)
 % Output: {List, ListType} (ListType is an atom from the group ?LIST_GROUP_NERLTENSOR_TYPE)
 decode_nif(_Binary, _BinaryType) when erlang:is_binary(_Binary) and erlang:is_atom(_BinaryType) ->
-      exit(nif_library_not_loaded). % returns {List,ListType}
+      nerlTorchNIF:decode_nif(_Binary, _BinaryType). % returns {List,ListType}
 
 % Only float/double types are supported
 nerltensor_sum_nif(_BinaryA, _BinaryB, _Mutual_Binary_Type) -> 
-      exit(nif_library_not_loaded). % returns {Binary, Type}
+      nerlTorchNIF:nerltensor_sum_nif(_BinaryA, _BinaryB, _Mutual_Binary_Type). % returns {Binary, Type}
 
 % Only float/double types are supported
 nerltensor_scalar_multiplication_nif(_NerlTensorBinary, _BinaryType, _ScalarValue) -> 
-      exit(nif_library_not_loaded). % returns {Binary, Type}
+      nerlTorchNIF:nerltensor_scalar_multiplication_nif(_NerlTensorBinary, _BinaryType, _ScalarValue). % returns {Binary, Type}
 
 %---------- nerlTensor -----------%
 nerltensor_binary_decode(Binary, Type) when erlang:is_binary(Binary) and erlang:is_atom(Type) ->

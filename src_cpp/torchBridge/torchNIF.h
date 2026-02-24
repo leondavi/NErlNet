@@ -147,6 +147,8 @@ public:
     nifpp::str_atom return_tensor_type; // holds the type of tensor should be returned
     c10::ScalarType tensor_dtype;
     std::chrono::high_resolution_clock::time_point start_time;
+    long microbatch_id{-1};
+    bool is_microbatch{false};
 
 
     ErlNifTid tid;
@@ -169,6 +171,8 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     c10::ScalarType torch_dtype;
 
     thread_args_ptr->start_time = std::chrono::high_resolution_clock::now();
+    thread_args_ptr->is_microbatch = false;
+    thread_args_ptr->microbatch_id = -1;
 
     enum{ARG_MODEL_ID, ARG_NERLTENSOR, ARG_NERLTENSOR_TYPE};
 
@@ -206,6 +210,92 @@ static ERL_NIF_TERM train_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     }
     nifpp::str_atom ret_status("ok");
     return nifpp::make(env, ret_status);
+}
+
+static ERL_NIF_TERM train_microbatch_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    std::shared_ptr<dirty_thread_args>* p_thread_args_ptr = new std::shared_ptr<dirty_thread_args>(std::make_shared<dirty_thread_args>());
+    std::shared_ptr<dirty_thread_args> thread_args_ptr = *p_thread_args_ptr;
+
+    nifpp::str_atom tensor_type;
+    c10::ScalarType torch_dtype;
+    long microbatch_id = 0;
+
+    thread_args_ptr->start_time = std::chrono::high_resolution_clock::now();
+    thread_args_ptr->is_microbatch = true;
+
+    enum{ARG_MODEL_ID, ARG_NERLTENSOR, ARG_NERLTENSOR_TYPE, ARG_MICROBATCH_ID};
+
+    nifpp::get_throws(env, argv[ARG_NERLTENSOR_TYPE], tensor_type);
+    thread_args_ptr->return_tensor_type = tensor_type;
+    nifpp::get_throws(env, argv[ARG_MODEL_ID], thread_args_ptr->mid);
+    if (!enif_get_long(env, argv[ARG_MICROBATCH_ID], &microbatch_id))
+    {
+        delete p_thread_args_ptr;
+        return enif_make_badarg(env);
+    }
+    thread_args_ptr->microbatch_id = microbatch_id;
+    torch_dtype = nerlnet::get_torch_dtype(tensor_type);
+    thread_args_ptr->tensor_dtype = torch_dtype;
+    thread_args_ptr->nerltensor = nerlnet::torchbridge::TensorCodec::decode(env, argv[ARG_NERLTENSOR], torch_dtype);
+
+    ErlNifPid pid;
+    enif_self(env, &pid);
+    thread_args_ptr->pid = pid;
+
+    char thread_name[] = "train_microbatch_thread";
+    int thread_create_status = enif_thread_create(thread_name, &(thread_args_ptr->tid), train_threaded_function, (void*) p_thread_args_ptr, NULL);
+    void* exit_code = nullptr;
+    if (thread_create_status != 0)
+    {
+        LogError("failed to call enif_thread_create with train_microbatch_nif");
+        nifpp::str_atom ret_status("train_microbatch_nif_error");
+        return nifpp::make(env, ret_status);
+    }
+    else
+    {
+        thread_create_status = enif_thread_join(thread_args_ptr->tid, &exit_code );
+        if (thread_create_status != 0)
+        {
+            LogError("failed to join with train_microbatch_nif");
+            nifpp::str_atom ret_status("train_microbatch_nif_error");
+            return nifpp::make(env, ret_status);
+        }
+    }
+    nifpp::str_atom ret_status("ok");
+    return nifpp::make(env, ret_status);
+}
+
+static ERL_NIF_TERM optimizer_barrier_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    enum {ARG_MODEL_ID};
+    nifpp::str_atom ok_atom("ok");
+    nifpp::str_atom error_atom("error");
+
+    try
+    {
+        unsigned long model_id = 0;
+        nifpp::get_throws(env, argv[ARG_MODEL_ID], model_id);
+        nerlnet::BridgeController& controller = nerlnet::BridgeController::GetInstance();
+        std::shared_ptr<nerlnet::NerlWorker> worker_base = controller.getModelPtr(model_id);
+        std::shared_ptr<nerlnet::NerlWorkerTorch> worker = std::dynamic_pointer_cast<nerlnet::NerlWorkerTorch>(worker_base);
+        if (!worker)
+        {
+            return nifpp::make(env, error_atom);
+        }
+        worker->optimizer_barrier();
+        return nifpp::make(env, ok_atom);
+    }
+    catch (const std::exception& ex)
+    {
+        LogError << "optimizer_barrier_nif failed: " << ex.what() << std::endl;
+        return nifpp::make(env, error_atom);
+    }
+    catch (...)
+    {
+        LogError << "optimizer_barrier_nif failed with unknown error" << std::endl;
+        return nifpp::make(env, error_atom);
+    }
 }
 /*
 predict_nif function is called by NIF from Erlang.
@@ -357,6 +447,8 @@ static ErlNifFunc nif_funcs[] =
     {"nerltensor_sum_nif", 3, nerltensor_sum_nif},
     {"nerltensor_scalar_multiplication_nif", 3, nerltensor_scalar_multiplication_nif},
     {"train_nif", 3 , train_nif},
+    {"train_microbatch_nif", 4, train_microbatch_nif},
+    {"optimizer_barrier_nif", 1, optimizer_barrier_nif},
     {"predict_nif", 3 , predict_nif},
     {"new_nerlworker_nif", 4, nerlnet::torchbridge::new_nerlworker_nif},
     {"test_nerlworker_nif", 4, nerlnet::torchbridge::test_nerlworker_nif},

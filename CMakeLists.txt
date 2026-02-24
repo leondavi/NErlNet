@@ -47,5 +47,6 @@ endif()
 
 if (NERLTORCH)
     add_library(nerlnet_torch SHARED $<TARGET_OBJECTS:torchBridge>)
+    target_link_options(nerlnet_torch PRIVATE "-Wl,--no-as-needed")
     target_link_libraries(nerlnet_torch PUBLIC torchBridge)
 endif()

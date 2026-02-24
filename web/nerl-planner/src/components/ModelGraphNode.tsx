@@ -1,4 +1,5 @@
-import { Handle, NodeProps, Position } from '@xyflow/react';
+import { useEffect } from 'react';
+import { Handle, NodeProps, Position, useUpdateNodeInternals } from '@xyflow/react';
 
 export type ModelGraphNodeData = {
   label: string;
@@ -9,11 +10,21 @@ export type ModelGraphNodeData = {
   layout?: 'horizontal' | 'vertical' | 'free';
 };
 
-const ModelGraphNode = ({ data }: NodeProps<ModelGraphNodeData>) => {
+const ModelGraphNode = (props: NodeProps) => {
+  const data = props.data as ModelGraphNodeData;
+  const updateNodeInternals = useUpdateNodeInternals();
   const toneClass = data.tone ? ` ${data.tone}` : '';
   const isVertical = data.layout === 'vertical';
   const targetPosition = isVertical ? Position.Top : Position.Left;
   const sourcePosition = isVertical ? Position.Bottom : Position.Right;
+
+  useEffect(() => {
+    const rafId = requestAnimationFrame(() => {
+      updateNodeInternals(props.id);
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [data.layout, props.id, updateNodeInternals]);
+
   return (
     <div className={`model-node${toneClass}`}>
       <Handle type="target" position={targetPosition} />
@@ -23,7 +34,7 @@ const ModelGraphNode = ({ data }: NodeProps<ModelGraphNodeData>) => {
       </div>
       {data.info && data.info.length > 0 && (
         <div className="model-node-info">
-          {data.info.map((line, index) => (
+          {data.info.map((line: string, index: number) => (
             <span key={`${line}-${index}`}>{line}</span>
           ))}
         </div>

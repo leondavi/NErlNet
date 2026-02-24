@@ -72,6 +72,7 @@ class EventSync():
             "restart_done" : self.RESTART,  # Todo Guy please implement it
             "communication_stats_done" : self.COMMUNICATION_STATS,
             "main_server_error" : self.MAIN_SERVER_ERROR,
+            "parallel_abort" : self.MAIN_SERVER_ERROR,
 
         }
         return done_actions_dict

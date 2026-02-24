@@ -101,7 +101,14 @@ else
 fi
 
 cp $NERLNET_CONFIG_SUBNETS_DIR $NERLNET_CONFIG_SUBNETS_BACKUP
-CURRENT_MACHINE_IPV4_ADD="$(ip addr | grep -m 2 -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" | head -n 2 | grep -v "127.0.0.1")"
+CURRENT_MACHINE_IPV4_ADD="$(ip -4 -o addr show scope global | awk '{print $4}' | cut -d/ -f1 | grep -v '^127\.' | grep -v '^0\.0\.0\.0$' | head -n 1)"
+if [ -z "$CURRENT_MACHINE_IPV4_ADD" ]; then
+    CURRENT_MACHINE_IPV4_ADD="$(hostname -I | tr ' ' '\n' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | grep -v '^127\.' | grep -v '^0\.0\.0\.0$' | head -n 1)"
+fi
+if [ -z "$CURRENT_MACHINE_IPV4_ADD" ]; then
+    print "Failed to detect a usable local IPv4 address"
+    exit 1
+fi
 print "This machine ipv4 is: $CURRENT_MACHINE_IPV4_ADD"
 sed -i '$a\' $NERLNET_CONFIG_SUBNETS_DIR
 echo "$CURRENT_MACHINE_IPV4_ADD" >> $NERLNET_CONFIG_SUBNETS_DIR

@@ -8,6 +8,7 @@ import {
   Controls,
   Edge,
   Node,
+  Position,
   ReactFlow,
   ReactFlowInstance,
   useEdgesState,
@@ -26,10 +27,18 @@ import {
 } from '../data/mappings';
 import { createOpenNNModel, createTorchModel } from '../data/defaults';
 import { torchLayerCatalog, torchLayerDefaults, torchLossOptions, torchOptimizerOptions } from '../data/torchCatalog';
-import { Layer, OpenNNModel, PlannerState, TorchLayerNode, TorchModel, WorkerModel } from '../data/types';
+import {
+  Layer,
+  OpenNNModel,
+  PlannerState,
+  TorchLayerNode,
+  TorchModel,
+  TpPlanEntry,
+  WorkerModel
+} from '../data/types';
 import { defaultLayerFunctionByType } from '../data/mappings';
 import WorkerPreview from './WorkerPreview';
-import { formatShape, inferTorchGraph, parseShape } from '../utils/torchGraph';
+import { formatShape, inferTorchGraph, parseShape, TorchShape } from '../utils/torchGraph';
 import ModelGraphNode, { ModelGraphNodeData } from './ModelGraphNode';
 import ValidationPanel from './ValidationPanel';
 import { validatePlannerState } from '../utils/validation';
@@ -60,6 +69,60 @@ const getTorchNodeDimensions = (shape: TorchShape | null): { width: number; heig
       ? Math.min(160, Math.max(60, 40 + shape[2]))
       : 90;
   return { width: widthBase, height: heightBase };
+};
+
+const HANDLE_SIZE = 8;
+
+const getNodeHandles = (
+  layout: 'horizontal' | 'vertical' | 'free',
+  width: number,
+  height: number
+) => {
+  const isVertical = layout === 'vertical';
+  if (isVertical) {
+    const centerX = Math.max(0, width / 2 - HANDLE_SIZE / 2);
+    return [
+      {
+        id: 'target',
+        type: 'target' as const,
+        position: Position.Top,
+        x: centerX,
+        y: 0,
+        width: HANDLE_SIZE,
+        height: HANDLE_SIZE
+      },
+      {
+        id: 'source',
+        type: 'source' as const,
+        position: Position.Bottom,
+        x: centerX,
+        y: Math.max(0, height - HANDLE_SIZE),
+        width: HANDLE_SIZE,
+        height: HANDLE_SIZE
+      }
+    ];
+  }
+  const centerY = Math.max(0, height / 2 - HANDLE_SIZE / 2);
+  return [
+    {
+      id: 'target',
+      type: 'target' as const,
+      position: Position.Left,
+      x: 0,
+      y: centerY,
+      width: HANDLE_SIZE,
+      height: HANDLE_SIZE
+    },
+    {
+      id: 'source',
+      type: 'source' as const,
+      position: Position.Right,
+      x: Math.max(0, width - HANDLE_SIZE),
+      y: centerY,
+      width: HANDLE_SIZE,
+      height: HANDLE_SIZE
+    }
+  ];
 };
 
 const getBounds = (nodes: Node[]) => {
@@ -95,6 +158,8 @@ const layerDescriptions: Record<string, string> = {
   '9': 'Flatten for tensor shaping.',
   '10': 'Bounding layer for clipping.'
 };
+
+type FlowMouseEvent = MouseEvent | React.MouseEvent<Element, MouseEvent>;
 
 const ModelLabView = ({
   state,
@@ -154,8 +219,10 @@ const ModelLabView = ({
   const [graphNodes, setGraphNodes, onGraphNodesChange] = useNodesState<Node<ModelGraphNodeData>>(
     []
   );
-  const [graphEdges, setGraphEdges, onGraphEdgesChange] = useEdgesState<Edge>([]);
-  const [graphFlowInstance, setGraphFlowInstance] = useState<ReactFlowInstance | null>(null);
+  const [graphEdges, setGraphEdges] = useEdgesState<Edge>([]);
+  const [graphFlowInstance, setGraphFlowInstance] = useState<
+    ReactFlowInstance<Node<ModelGraphNodeData>, Edge> | null
+  >(null);
   const [graphMenu, setGraphMenu] = useState<{
     x: number;
     y: number;
@@ -183,24 +250,67 @@ const ModelLabView = ({
   } | null>(null);
   const [layerInspectorOpen, setLayerInspectorOpen] = useState(false);
   const [stackExpanded, setStackExpanded] = useState(false);
+  const manualPanStateRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    lastX: number;
+    lastY: number;
+    moved: boolean;
+  } | null>(null);
+  const suppressNextPaneClickRef = useRef(false);
   const [openLayerPositions, setOpenLayerPositions] = useState<
     Record<string, { x: number; y: number }>
   >(() => state.ui?.openLayerPositions ?? {});
   const graphFrameRef = useRef<HTMLDivElement | null>(null);
-  const [lastTorchLayerType, setLastTorchLayerType] = useState<TorchLayerNode['type']>('conv2d');
   const isTorch = modelDraft.infraType === 'torch';
   const fallbackTorchGraph = useMemo(() => createTorchModel().graph, []);
   const torchGraph = isTorch ? modelDraft.graph ?? fallbackTorchGraph : null;
+  const torchDraft = modelDraft.infraType === 'torch' ? modelDraft : null;
   const [graphLayout, setGraphLayout] = useState<'free' | 'horizontal' | 'vertical'>('horizontal');
   const [graphFrameSize, setGraphFrameSize] = useState({ width: 0, height: 0 });
   const torchTrainParams = isTorch ? modelDraft.trainParams : null;
-  const openLayers = useMemo(() => {
-    if (modelDraft.infraType === 'torch') {
-      return [];
-    }
-    return Array.isArray(modelDraft.layers) ? modelDraft.layers : [];
-  }, [modelDraft.infraType, modelDraft.layers]);
+  const openLayers = useMemo<Layer[]>(
+    () => (modelDraft.infraType === 'torch' ? [] : modelDraft.layers),
+    [modelDraft]
+  );
   const openLayerCount = openLayers.length;
+  const tpPlanEntries = modelDraft.tpPlan ?? [];
+  const availableTpLayers = useMemo(
+    () =>
+      modelDraft.infraType === 'torch'
+        ? (torchGraph?.nodes.map((node) => node.name || node.id) ?? [])
+        : openLayers.map((layer) => layer.id),
+    [modelDraft.infraType, openLayers, torchGraph]
+  );
+  const updateTpPlan = (updater: (entries: TpPlanEntry[]) => TpPlanEntry[]) => {
+    setModelDraft((current) => ({
+      ...current,
+      tpPlan: updater(current.tpPlan ?? [])
+    }));
+  };
+  const addTpPlanEntry = () => {
+    const fallbackLayer = availableTpLayers[0] ?? '';
+    updateTpPlan((entries) => [
+      ...entries,
+      {
+        layer: fallbackLayer,
+        mode: 'column',
+        shardAxis: '0',
+        group: ''
+      }
+    ]);
+  };
+  const updateTpPlanEntry = (index: number, patch: Partial<TpPlanEntry>) => {
+    updateTpPlan((entries) =>
+      entries.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, ...patch } : entry
+      )
+    );
+  };
+  const removeTpPlanEntry = (index: number) => {
+    updateTpPlan((entries) => entries.filter((_, entryIndex) => entryIndex !== index));
+  };
   const graphNodeTypes = useMemo(() => ({ model: ModelGraphNode }), []);
   const torchOptimizerChoices = useMemo(() => {
     if (!isTorch) {
@@ -506,7 +616,6 @@ const ModelLabView = ({
         };
       });
       setSelectedTorchNodeId(nodeId);
-      setLastTorchLayerType(type);
       setGraphMenu(null);
     },
     [graphLayout, selectedTorchNodeId, updateTorchGraph]
@@ -544,7 +653,6 @@ const ModelLabView = ({
         };
       });
       setSelectedTorchNodeId(nodeId);
-      setLastTorchLayerType(type);
     },
     [updateTorchGraph]
   );
@@ -708,35 +816,55 @@ const ModelLabView = ({
     [edgePresentationForNodes, graphBounds, graphNodeMap, isTorch, setGraphEdges, syncTorchEdges]
   );
 
+  const addTorchLink = useCallback(
+    (sourceId: string, targetId: string) => {
+      if (!isTorch || !sourceId || !targetId || sourceId === targetId) {
+        return false;
+      }
+      if (
+        graphEdges.some((edge) => String(edge.source) === sourceId && String(edge.target) === targetId)
+      ) {
+        return false;
+      }
+      const edgePresentation = edgePresentationForNodes(sourceId, targetId, graphNodeMap, graphBounds);
+      const nextEdges = [
+        ...graphEdges,
+        {
+          id: `${sourceId}-${targetId}`,
+          source: sourceId,
+          target: targetId,
+          ...edgePresentation,
+          animated: true
+        }
+      ];
+      setGraphEdges(nextEdges);
+      syncTorchEdges(nextEdges);
+      return true;
+    },
+    [
+      edgePresentationForNodes,
+      graphBounds,
+      graphEdges,
+      graphNodeMap,
+      isTorch,
+      setGraphEdges,
+      syncTorchEdges
+    ]
+  );
+
   const handleGraphNodeClick = useCallback(
     (_: unknown, node: Node) => {
+      if (suppressNextPaneClickRef.current) {
+        suppressNextPaneClickRef.current = false;
+        return;
+      }
       setNodeMenu(null);
       setEdgeMenu(null);
       setGraphMenu(null);
       if (isTorch) {
         setSelectedTorchNodeId(node.id);
         if (linkingFrom && node.id !== linkingFrom) {
-          const id = `${linkingFrom}-${node.id}`;
-          if (!graphEdges.some((edge) => edge.id === id)) {
-            const edgePresentation = edgePresentationForNodes(
-              linkingFrom,
-              node.id,
-              graphNodeMap,
-              graphBounds
-            );
-            const nextEdges = [
-              ...graphEdges,
-              {
-                id,
-                source: linkingFrom,
-                target: node.id,
-                ...edgePresentation,
-                animated: true
-              }
-            ];
-            setGraphEdges(nextEdges);
-            syncTorchEdges(nextEdges);
-          }
+          addTorchLink(linkingFrom, node.id);
           setLinkingFrom(null);
         }
         return;
@@ -746,7 +874,7 @@ const ModelLabView = ({
         setSelectedLayerIndex(index);
       }
     },
-    [graphEdges, isTorch, linkingFrom, openLayerIndexById, setGraphEdges, syncTorchEdges]
+    [addTorchLink, isTorch, linkingFrom, openLayerIndexById]
   );
 
   const handleGraphNodeContextMenu = useCallback(
@@ -798,8 +926,11 @@ const ModelLabView = ({
       onGraphNodesChange(changes);
       const updates: Record<string, { x: number; y: number }> = {};
       changes.forEach((change) => {
-        if (change.type === 'position' && change.position) {
-          updates[change.id] = change.position;
+        if (change.type === 'position') {
+          const nextPosition = change.position ?? change.positionAbsolute;
+          if (nextPosition) {
+            updates[change.id] = nextPosition;
+          }
         }
       });
       if (Object.keys(updates).length === 0) {
@@ -820,7 +951,7 @@ const ModelLabView = ({
   );
 
   const openGraphMenu = useCallback(
-    (event: React.MouseEvent) => {
+    (event: FlowMouseEvent) => {
       const flowPos = graphFlowInstance?.screenToFlowPosition({
         x: event.clientX,
         y: event.clientY
@@ -855,7 +986,11 @@ const ModelLabView = ({
   );
 
   const handleGraphPaneClick = useCallback(
-    (event: React.MouseEvent) => {
+    (event: FlowMouseEvent) => {
+      if (suppressNextPaneClickRef.current) {
+        suppressNextPaneClickRef.current = false;
+        return;
+      }
       if (event.detail > 1) {
         event.preventDefault();
         if (linkingFrom) {
@@ -877,8 +1012,85 @@ const ModelLabView = ({
     [linkingFrom, openGraphMenu]
   );
 
+  const shouldBlockManualPan = useCallback((target: EventTarget | null) => {
+    const element = target instanceof Element ? target : null;
+    if (!element) {
+      return false;
+    }
+    return Boolean(
+      element.closest(
+        'button, input, select, textarea, a, label, .graph-layer-picker, .context-menu, .floating-panel, .react-flow__controls, .react-flow__handle, .react-flow__edge'
+      )
+    );
+  }, []);
+
+  const handleGraphFramePointerDownCapture = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0 || !graphFlowInstance || shouldBlockManualPan(event.target)) {
+        return;
+      }
+      manualPanStateRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        lastX: event.clientX,
+        lastY: event.clientY,
+        moved: false
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [graphFlowInstance, shouldBlockManualPan]
+  );
+
+  const handleGraphFramePointerMoveCapture = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const state = manualPanStateRef.current;
+      if (!state || state.pointerId !== event.pointerId || !graphFlowInstance) {
+        return;
+      }
+      const deltaX = event.clientX - state.lastX;
+      const deltaY = event.clientY - state.lastY;
+      const totalMove = Math.hypot(event.clientX - state.startX, event.clientY - state.startY);
+      if (!state.moved && totalMove > 2) {
+        state.moved = true;
+      }
+      state.lastX = event.clientX;
+      state.lastY = event.clientY;
+      if (!state.moved || (deltaX === 0 && deltaY === 0)) {
+        return;
+      }
+      const viewport = graphFlowInstance.getViewport();
+      void graphFlowInstance.setViewport({
+        x: viewport.x + deltaX,
+        y: viewport.y + deltaY,
+        zoom: viewport.zoom
+      });
+      suppressNextPaneClickRef.current = true;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [graphFlowInstance]
+  );
+
+  const handleGraphFramePointerUpCapture = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const state = manualPanStateRef.current;
+      if (!state || state.pointerId !== event.pointerId) {
+        return;
+      }
+      if (state.moved) {
+        suppressNextPaneClickRef.current = true;
+      }
+      manualPanStateRef.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    },
+    []
+  );
+
   const handleGraphPaneContextMenu = useCallback(
-    (event: React.MouseEvent) => {
+    (event: FlowMouseEvent) => {
       event.preventDefault();
       if (linkingFrom) {
         setLinkingFrom(null);
@@ -964,7 +1176,16 @@ const ModelLabView = ({
         body: JSON.stringify(payload)
       });
       if (!response.ok) {
-        throw new Error(`Export failed (${response.status})`);
+        let message = `Export failed (${response.status})`;
+        try {
+          const failure = (await response.json()) as { error?: string };
+          if (failure.error && failure.error.trim().length > 0) {
+            message = failure.error.trim();
+          }
+        } catch {
+          // fallback to generic HTTP status message
+        }
+        throw new Error(message);
       }
       const data = (await response.json()) as {
         ptPath: string;
@@ -988,7 +1209,7 @@ const ModelLabView = ({
 
   const handleTorchImport = useCallback(
     async (modelName: string) => {
-      if (!modelName) {
+      if (!modelName || !torchDraft) {
         return;
       }
       try {
@@ -1009,20 +1230,20 @@ const ModelLabView = ({
         }
         updateTorch({
           graph: data.graph,
-          ptPath: data.ptPath ?? modelDraft.ptPath,
-          ptChecksum: data.ptChecksum ?? modelDraft.ptChecksum,
-          ptFormat: data.ptFormat ?? modelDraft.ptFormat,
-          ptDescription: data.ptDescription ?? modelDraft.ptDescription,
+          ptPath: data.ptPath ?? torchDraft.ptPath,
+          ptChecksum: data.ptChecksum ?? torchDraft.ptChecksum,
+          ptFormat: data.ptFormat ?? torchDraft.ptFormat,
+          ptDescription: data.ptDescription ?? torchDraft.ptDescription,
           trainParams: data.trainParams
-            ? { ...modelDraft.trainParams, ...data.trainParams }
-            : modelDraft.trainParams
+            ? { ...torchDraft.trainParams, ...data.trainParams }
+            : torchDraft.trainParams
         });
       } catch (error) {
         setTorchExportStatus('error');
         setTorchExportError(error instanceof Error ? error.message : 'Import failed');
       }
     },
-    [modelDraft, updateTorch]
+    [torchDraft, updateTorch]
   );
 
   useEffect(() => {
@@ -1061,6 +1282,9 @@ const ModelLabView = ({
           id: node.id,
           type: 'model',
           position,
+          initialWidth: widthBase,
+          initialHeight: heightBase,
+          handles: getNodeHandles(graphLayout, widthBase, heightBase),
           data: {
             label: node.name,
             subtitle: node.type,
@@ -1104,6 +1328,9 @@ const ModelLabView = ({
         id: layer.id,
         type: 'model',
         position,
+        initialWidth: 180,
+        initialHeight: 90,
+        handles: getNodeHandles(graphLayout, 180, 90),
         data: {
           label: layerTypeLabelByValue[layer.type] ?? 'Layer',
           subtitle: `Layer ${index + 1}`,
@@ -1215,16 +1442,10 @@ const ModelLabView = ({
     if (graphLayout === 'free') {
       return;
     }
-    const frame = graphFrameRef.current;
-    const rect = frame ? frame.getBoundingClientRect() : null;
-    const centerFlow = rect && graphFlowInstance
-      ? graphFlowInstance.screenToFlowPosition({
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2
-        })
-      : null;
-    const baseX = centerFlow?.x ?? 160;
-    const baseY = centerFlow?.y ?? 140;
+    // Keep canonical coordinates for arranged layouts so viewport panning
+    // does not re-center layers and cancel visual movement.
+    const baseX = 160;
+    const baseY = 140;
     const gap = 90;
     if (isTorch) {
       updateTorchGraph((graph) => {
@@ -1270,9 +1491,6 @@ const ModelLabView = ({
     isTorch,
     openLayerCount,
     openLayers,
-    graphFlowInstance,
-    graphFrameSize.height,
-    graphFrameSize.width,
     torchInference,
     torchNodeCount,
     updateTorchGraph
@@ -1623,11 +1841,10 @@ const ModelLabView = ({
       <p className="muted">Select a layer to edit parameters.</p>
     );
   const getModelLayerCount = useCallback((model: WorkerModel) => {
-    const infraType = (model as { infraType?: string }).infraType;
-    if (infraType === 'torch' || infraType === '2') {
-      return model.graph?.nodes?.length ?? 0;
+    if (model.infraType === 'torch') {
+      return model.graph.nodes.length;
     }
-    return model.layers?.length ?? 0;
+    return model.layers.length;
   }, []);
 
   return (
@@ -1694,7 +1911,10 @@ const ModelLabView = ({
             <div>
               <p className="panel-title">Model Graph</p>
               <p className="panel-subtitle">
-                Right-click or double-click to add layers. {isTorch ? 'Use Add Link to connect nodes.' : 'OpenNN layers connect sequentially.'}
+                Right-click or double-click to add layers. Press-hold drag to pan the grid.{' '}
+                {isTorch
+                  ? 'Right-click a layer and choose Start Link to connect nodes.'
+                  : 'OpenNN layers connect sequentially.'}
               </p>
             </div>
             <div className="panel-actions">
@@ -1721,27 +1941,6 @@ const ModelLabView = ({
                   Vertical
                 </button>
               </div>
-              {isTorch && (
-                <>
-                  <button
-                    type="button"
-                    className="ghost"
-                    onClick={() => {
-                      if (selectedTorchNodeId) {
-                        setLinkingFrom(selectedTorchNodeId);
-                      }
-                    }}
-                    disabled={!selectedTorchNodeId}
-                  >
-                    Add Link
-                  </button>
-                  {linkingFrom && (
-                    <button type="button" className="ghost" onClick={() => setLinkingFrom(null)}>
-                      Cancel Link
-                    </button>
-                  )}
-                </>
-              )}
             </div>
           </div>
           {isTorch && torchWarnings.length > 0 && (
@@ -1751,8 +1950,15 @@ const ModelLabView = ({
               ))}
             </div>
           )}
-          <div className="model-graph-frame" ref={graphFrameRef}>
-            <ReactFlow
+          <div
+            className="model-graph-frame"
+            ref={graphFrameRef}
+            onPointerDownCapture={handleGraphFramePointerDownCapture}
+            onPointerMoveCapture={handleGraphFramePointerMoveCapture}
+            onPointerUpCapture={handleGraphFramePointerUpCapture}
+            onPointerCancelCapture={handleGraphFramePointerUpCapture}
+          >
+            <ReactFlow<Node<ModelGraphNodeData>, Edge>
               nodes={graphNodes}
               edges={graphEdges}
               nodeTypes={graphNodeTypes}
@@ -1768,6 +1974,11 @@ const ModelLabView = ({
               onConnect={handleGraphConnect}
               onPaneClick={handleGraphPaneClick}
               onPaneContextMenu={handleGraphPaneContextMenu}
+              panOnDrag={false}
+              zoomOnScroll
+              zoomOnPinch
+              nodesDraggable={false}
+              selectionOnDrag={false}
               zoomOnDoubleClick={false}
               fitView
             >
@@ -1848,6 +2059,46 @@ const ModelLabView = ({
 
           {nodeMenu && (
             <div className="context-menu" style={{ top: nodeMenu.y, left: nodeMenu.x }}>
+              {isTorch && (
+                <>
+                  {!linkingFrom && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLinkingFrom(nodeMenu.nodeId);
+                        setSelectedTorchNodeId(nodeMenu.nodeId);
+                        setNodeMenu(null);
+                      }}
+                    >
+                      Start Link
+                    </button>
+                  )}
+                  {linkingFrom && linkingFrom !== nodeMenu.nodeId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        addTorchLink(linkingFrom, nodeMenu.nodeId);
+                        setSelectedTorchNodeId(nodeMenu.nodeId);
+                        setLinkingFrom(null);
+                        setNodeMenu(null);
+                      }}
+                    >
+                      Link Here
+                    </button>
+                  )}
+                  {linkingFrom === nodeMenu.nodeId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLinkingFrom(null);
+                        setNodeMenu(null);
+                      }}
+                    >
+                      Cancel Link Start
+                    </button>
+                  )}
+                </>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -2299,6 +2550,82 @@ const ModelLabView = ({
                 }
               />
             </label>
+
+            <div className="panel-section">
+              <p className="section-title">Tensor Parallel Plan</p>
+              <p className="muted">Explicit layer shards used by TP orchestration.</p>
+              <div className="library-list compact">
+                {tpPlanEntries.map((entry, index) => (
+                  <div key={`${entry.layer}-${index}`} className="library-item">
+                    <div className="inline-fields">
+                      <label className="field">
+                        <span>Layer</span>
+                        <input
+                          type="text"
+                          value={entry.layer}
+                          onChange={(event) =>
+                            updateTpPlanEntry(index, { layer: event.target.value })
+                          }
+                          list="tp-plan-layers"
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Mode</span>
+                        <select
+                          value={entry.mode}
+                          onChange={(event) =>
+                            updateTpPlanEntry(index, {
+                              mode: event.target.value as TpPlanEntry['mode']
+                            })
+                          }
+                        >
+                          <option value="column">column</option>
+                          <option value="row">row</option>
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span>Shard Axis</span>
+                        <input
+                          type="text"
+                          value={entry.shardAxis}
+                          onChange={(event) =>
+                            updateTpPlanEntry(index, { shardAxis: event.target.value })
+                          }
+                        />
+                      </label>
+                      <label className="field">
+                        <span>TP Group</span>
+                        <input
+                          type="text"
+                          value={entry.group}
+                          onChange={(event) =>
+                            updateTpPlanEntry(index, { group: event.target.value })
+                          }
+                        />
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      className="ghost danger"
+                      onClick={() => removeTpPlanEntry(index)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                {tpPlanEntries.length === 0 && <p className="muted">No TP entries yet.</p>}
+              </div>
+              <div className="panel-actions align-right">
+                <button type="button" className="ghost" onClick={addTpPlanEntry}>
+                  Add TP Entry
+                </button>
+              </div>
+              <datalist id="tp-plan-layers">
+                {availableTpLayers.map((layer) => (
+                  <option key={layer} value={layer} />
+                ))}
+              </datalist>
+            </div>
 
             <div className="panel-actions align-right">
               <button type="button" className="ghost danger" onClick={deleteModel} disabled={!modelDraft.id}>

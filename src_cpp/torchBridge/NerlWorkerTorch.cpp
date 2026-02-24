@@ -316,7 +316,7 @@ NerlWorkerTorch::TrainingSlices NerlWorkerTorch::split_training_batch(const Torc
 	return {inputs, labels};
 }
 
-TorchTensor NerlWorkerTorch::train_batch(const TorchTensor &batch)
+TorchTensor NerlWorkerTorch::train_batch_impl(const TorchTensor &batch, bool defer_optimizer_step, long microbatch_id)
 {
 	TorchTensor prepared = ensure_training_dtype(batch);
 	if (!_has_batch_layout)
@@ -340,7 +340,20 @@ TorchTensor NerlWorkerTorch::train_batch(const TorchTensor &batch)
 
 	try
 	{
-		_optimizer->zero_grad();
+		if (defer_optimizer_step)
+		{
+			if (!_has_deferred_gradients)
+			{
+				_optimizer->zero_grad();
+				_has_deferred_gradients = true;
+				_deferred_microbatch_count = 0;
+			}
+		}
+		else
+		{
+			_optimizer->zero_grad();
+		}
+
 		TorchTensor prediction = forward_or_clone(slices.inputs, true);
 		if (!prediction.defined())
 		{
@@ -364,7 +377,17 @@ TorchTensor NerlWorkerTorch::train_batch(const TorchTensor &batch)
 
 		TorchTensor loss = torch::mse_loss(prediction, slices.labels);
 		loss.backward();
-		_optimizer->step();
+		if (defer_optimizer_step)
+		{
+			++_deferred_microbatch_count;
+		}
+		else
+		{
+			_optimizer->step();
+			_optimizer->zero_grad();
+			_has_deferred_gradients = false;
+			_deferred_microbatch_count = 0;
+		}
 
 		_last_loss = loss.detach();
 		_last_prediction = prediction.detach();
@@ -376,8 +399,53 @@ TorchTensor NerlWorkerTorch::train_batch(const TorchTensor &batch)
 		TorchTensor fallback = slices.inputs.mean().unsqueeze(0);
 		_last_loss = fallback.clone();
 		_last_prediction = slices.inputs.clone();
+		if (!defer_optimizer_step)
+		{
+			_has_deferred_gradients = false;
+			_deferred_microbatch_count = 0;
+		}
+		else
+		{
+			LogWarning << "Torch deferred microbatch " << microbatch_id << " failed; barrier may flush partial gradients" << std::endl;
+		}
 		return fallback;
 	}
+}
+
+TorchTensor NerlWorkerTorch::train_batch(const TorchTensor &batch)
+{
+	return train_batch_impl(batch, false, -1);
+}
+
+TorchTensor NerlWorkerTorch::train_microbatch(const TorchTensor &batch, long microbatch_id)
+{
+	return train_batch_impl(batch, true, microbatch_id);
+}
+
+void NerlWorkerTorch::optimizer_barrier()
+{
+	if (!_has_optimizer || !_has_script_module)
+	{
+		_has_deferred_gradients = false;
+		_deferred_microbatch_count = 0;
+		return;
+	}
+
+	if (_has_deferred_gradients && _deferred_microbatch_count > 0)
+	{
+		try
+		{
+			_optimizer->step();
+			_optimizer->zero_grad();
+		}
+		catch (const std::exception &ex)
+		{
+			LogWarning << "Torch optimizer_barrier failed: " << ex.what() << std::endl;
+		}
+	}
+
+	_has_deferred_gradients = false;
+	_deferred_microbatch_count = 0;
 }
 
 TorchTensor NerlWorkerTorch::predict_batch(const TorchTensor &batch)

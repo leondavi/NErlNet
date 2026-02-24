@@ -12,6 +12,11 @@ from stats import *
 from statsTiles import *
 from stats_aec import *
 from experiment_phase import *
+from parallel_scheduler import (
+    assert_scheduler_trace_integrity,
+    build_scheduler_schedule,
+    infer_stage_world_size,
+)
 
 # Todo check imports and remove unused ones
 
@@ -100,6 +105,7 @@ class ExperimentFlow():
             phases_names_dict.update({phase_name: phase_index})
             phase_index += 1
             phase_type = phase[EXPFLOW_PHASES_PHASE_TYPE_FIELD]
+            parallel_execution = self._parse_parallel_execution(phase)
             sourcePieces = phase[EXPFLOW_PHASES_PHASE_SOURCE_PIECES_FIELD]
             source_pieces_inst_list = []
             for source_piece in sourcePieces:
@@ -116,17 +122,166 @@ class ExperimentFlow():
                 source_pieces_inst_list.append(source_piece_inst)
             LOG_INFO(f"phase {phase_name} source pieces parsed and generated.")
                 
-            self.add_phase(phase_name, phase_type, source_pieces_inst_list, num_of_features)
+            self.add_phase(
+                phase_name,
+                phase_type,
+                source_pieces_inst_list,
+                num_of_features,
+                parallel_execution
+            )
 
 
     def set_csv_dataset(self, csv_file_path : str,  num_of_features : int, num_of_labels : int, headers_row : list):
         self.csv_dataset = CsvDataSet(csv_file_path, self.temp_data_path ,self.batch_size, num_of_features, num_of_labels, headers_row)  # Todo get num of features and labels from csv file
 
-    def add_phase(self, name : str, phase_type : str, source_pieces_inst_list : list, num_of_features : str):
-        exp_phase_inst = ExperimentPhase(self.exp_name, self.exp_type, name, phase_type, self.network_componenets, num_of_features)
+    def add_phase(
+        self,
+        name : str,
+        phase_type : str,
+        source_pieces_inst_list : list,
+        num_of_features : str,
+        parallel_execution = None
+    ):
+        exp_phase_inst = ExperimentPhase(
+            self.exp_name,
+            self.exp_type,
+            name,
+            phase_type,
+            self.network_componenets,
+            num_of_features,
+            parallel_execution
+        )
         for source_piece_inst in source_pieces_inst_list:
             exp_phase_inst.add_source_piece(source_piece_inst)
         self.exp_phase_list.append(exp_phase_inst)
+
+    def _parse_parallel_execution(self, phase_dict: dict):
+        raw_parallel = phase_dict.get(EXPFLOW_PHASES_PARALLEL_EXECUTION_FIELD, None)
+        if raw_parallel is None:
+            return {"mode": "legacy"}
+        if not isinstance(raw_parallel, dict):
+            raise ValueError(
+                f"phase '{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}' has invalid "
+                f"'{EXPFLOW_PHASES_PARALLEL_EXECUTION_FIELD}' (must be object)"
+            )
+
+        mode = str(raw_parallel.get(EXPFLOW_PARALLEL_EXECUTION_MODE_FIELD, "legacy")).strip().lower()
+        if mode not in EXPFLOW_PARALLEL_MODES:
+            raise ValueError(
+                f"invalid parallelExecution.mode '{mode}' in phase "
+                f"'{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}'"
+            )
+
+        normalized = {
+            EXPFLOW_PARALLEL_EXECUTION_MODE_FIELD: mode
+        }
+
+        super_node = str(raw_parallel.get(EXPFLOW_PARALLEL_EXECUTION_SUPER_NODE_FIELD, "")).strip()
+        if mode != "legacy":
+            if not super_node:
+                raise ValueError(
+                    f"parallel phase '{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}' must define "
+                    f"'{EXPFLOW_PARALLEL_EXECUTION_SUPER_NODE_FIELD}'"
+                )
+            if not self.network_componenets.has_super_nodes():
+                raise ValueError("parallelExecution requires at least one configured super node")
+            super_nodes = set(self.network_componenets.get_super_nodes_list())
+            if super_node not in super_nodes:
+                raise ValueError(
+                    f"phase '{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}' references unknown "
+                    f"super node '{super_node}'"
+                )
+        if super_node:
+            normalized[EXPFLOW_PARALLEL_EXECUTION_SUPER_NODE_FIELD] = super_node
+
+        scheduler = str(raw_parallel.get(EXPFLOW_PARALLEL_EXECUTION_SCHEDULER_FIELD, "")).strip().lower()
+        if mode in ("pipeline", "pipeline_tensor"):
+            if scheduler not in EXPFLOW_PARALLEL_SCHEDULERS:
+                raise ValueError(
+                    f"phase '{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}' requires a valid "
+                    f"pipeline scheduler in {sorted(EXPFLOW_PARALLEL_SCHEDULERS)}"
+                )
+            normalized[EXPFLOW_PARALLEL_EXECUTION_SCHEDULER_FIELD] = scheduler
+            normalized[EXPFLOW_PARALLEL_EXECUTION_MICRO_BATCH_SIZE_FIELD] = self._parse_positive_int_field(
+                raw_parallel,
+                EXPFLOW_PARALLEL_EXECUTION_MICRO_BATCH_SIZE_FIELD
+            )
+            normalized[EXPFLOW_PARALLEL_EXECUTION_NUM_MICRO_BATCHES_FIELD] = self._parse_positive_int_field(
+                raw_parallel,
+                EXPFLOW_PARALLEL_EXECUTION_NUM_MICRO_BATCHES_FIELD
+            )
+            total_microbatch_samples = (
+                normalized[EXPFLOW_PARALLEL_EXECUTION_MICRO_BATCH_SIZE_FIELD]
+                * normalized[EXPFLOW_PARALLEL_EXECUTION_NUM_MICRO_BATCHES_FIELD]
+            )
+            expected_phase_batch_size = int(
+                self.batch_size if self.batch_size is not None else self.batch_size_dc
+            )
+            if total_microbatch_samples != expected_phase_batch_size:
+                raise ValueError(
+                    f"parallelExecution microBatchSize*numMicroBatches must equal phase batchSize "
+                    f"({expected_phase_batch_size}), got {total_microbatch_samples}"
+                )
+            if scheduler == "interleaved":
+                normalized[EXPFLOW_PARALLEL_EXECUTION_VIRTUAL_STAGES_FIELD] = self._parse_positive_int_field(
+                    raw_parallel,
+                    EXPFLOW_PARALLEL_EXECUTION_VIRTUAL_STAGES_FIELD
+                )
+            if not self.network_componenets.has_pipeline_workers():
+                raise ValueError(
+                    f"phase '{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}' selected pipeline mode "
+                    f"but no worker parallel pipeline metadata is configured"
+                )
+
+            stage_world_size = infer_stage_world_size(self.network_componenets.get_worker_parallel_map())
+            if stage_world_size < 2:
+                raise ValueError(
+                    f"phase '{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}' requires at least 2 pipeline stages"
+                )
+
+            virtual_stages = normalized.get(EXPFLOW_PARALLEL_EXECUTION_VIRTUAL_STAGES_FIELD, 1)
+            schedule = build_scheduler_schedule(
+                scheduler,
+                stage_world_size,
+                normalized[EXPFLOW_PARALLEL_EXECUTION_NUM_MICRO_BATCHES_FIELD],
+                virtual_stages=virtual_stages
+            )
+            effective_stage_count = stage_world_size if scheduler != "interleaved" else stage_world_size * virtual_stages
+            assert_scheduler_trace_integrity(
+                schedule,
+                effective_stage_count,
+                normalized[EXPFLOW_PARALLEL_EXECUTION_NUM_MICRO_BATCHES_FIELD]
+            )
+            normalized["stageWorldSize"] = stage_world_size
+            normalized["scheduleTraceLength"] = len(schedule)
+        else:
+            if scheduler:
+                if scheduler not in EXPFLOW_PARALLEL_SCHEDULERS:
+                    raise ValueError(
+                        f"phase '{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}' has invalid "
+                        f"scheduler '{scheduler}'"
+                )
+                normalized[EXPFLOW_PARALLEL_EXECUTION_SCHEDULER_FIELD] = scheduler
+
+        if mode in ("tensor", "pipeline_tensor") and not self.network_componenets.has_tp_workers():
+            raise ValueError(
+                f"phase '{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}' selected tensor mode "
+                f"but no worker TP metadata is configured"
+            )
+
+        return normalized
+
+    def _parse_positive_int_field(self, parent_dict: dict, field_name: str):
+        if field_name not in parent_dict:
+            raise ValueError(f"Missing required parallelExecution field '{field_name}'")
+        value = parent_dict[field_name]
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"parallelExecution field '{field_name}' must be an integer") from exc
+        if parsed < 1:
+            raise ValueError(f"parallelExecution field '{field_name}' must be >= 1")
+        return parsed
 
         
     def print(self):
@@ -142,6 +297,7 @@ class ExperimentFlow():
         for phase in self.exp_phase_list:
             LOG_INFO(f"   Phase name: {phase.get_name()}")
             LOG_INFO(f"   Phase type: {phase.get_phase_type()}")
+            LOG_INFO(f"   Parallel execution: {phase.get_parallel_execution()}")
             LOG_INFO(f"   Sources: {phase.get_sources_str_list()}")
             LOG_INFO("")
             LOG_INFO("    Source pieces:")

@@ -49,7 +49,23 @@ export function importDistributedConfig(
     ? data.clients.map((client: Record<string, string>) => ({
         name: client.name ?? '',
         port: client.port ?? '',
-        workers: client.workers ? client.workers.split(',').map((w) => w.trim()).filter(Boolean) : []
+        workers: client.workers ? client.workers.split(',').map((w) => w.trim()).filter(Boolean) : [],
+        superNode: client.superNode ? String(client.superNode) : ''
+      }))
+    : [];
+
+  const superNodes = Array.isArray(data.superNodes)
+    ? data.superNodes.map((superNode: Record<string, unknown>) => ({
+        name: String(superNode.name ?? ''),
+        port: String(superNode.port ?? ''),
+        managedClients: Array.isArray(superNode.managedClients)
+          ? (superNode.managedClients as unknown[]).map((entry) => String(entry).trim()).filter(Boolean)
+          : String(superNode.managedClients ?? '')
+              .split(',')
+              .map((entry) => entry.trim())
+              .filter(Boolean),
+        heartbeatMs: String(superNode.heartbeatMs ?? '1000'),
+        maxInflightMicrobatches: String(superNode.maxInflightMicrobatches ?? '1')
       }))
     : [];
 
@@ -57,9 +73,14 @@ export function importDistributedConfig(
   const models = Object.entries(modelSha).map(([sha, payload]) => parseModelPayload(sha, payload));
 
   const workers = Array.isArray(data.workers)
-    ? data.workers.map((worker: Record<string, string>) => ({
-        name: worker.name ?? '',
-        modelId: worker.model_sha ?? ''
+    ? data.workers.map((worker: Record<string, unknown>) => ({
+        name: String(worker.name ?? ''),
+        modelId: String(worker.model_sha ?? ''),
+        parallel: parseWorkerParallel(
+          (typeof worker.parallel === 'object' ? worker.parallel : undefined) as
+            | Record<string, unknown>
+            | undefined
+        )
       }))
     : [];
 
@@ -83,6 +104,7 @@ export function importDistributedConfig(
     routers,
     sources,
     clients,
+    superNodes,
     workers,
     models
   };
@@ -142,7 +164,8 @@ export function importExperimentFlow(data: Record<string, unknown>): ExperimentF
                 .filter(Boolean),
               nerltensorType: normalizeNerltensorType(String(piece.nerltensorType ?? 'float'))
             }))
-          : []
+          : [],
+        parallelExecution: parseParallelExecution(phase.parallelExecution as Record<string, unknown> | undefined)
       }))
     : [];
 
@@ -171,6 +194,63 @@ const normalizeNerltensorType = (value: string): string => {
   }
   return normalized;
 };
+
+const parseWorkerParallel = (parallel: Record<string, unknown> | undefined) => {
+  if (!parallel || typeof parallel !== 'object') {
+    return undefined;
+  }
+  return {
+    pipelineStage: String(parallel.pipelineStage ?? ''),
+    pipelineWorldSize: String(parallel.pipelineWorldSize ?? ''),
+    tpGroup: String(parallel.tpGroup ?? ''),
+    tpRank: String(parallel.tpRank ?? ''),
+    tpWorldSize: String(parallel.tpWorldSize ?? '')
+  };
+};
+
+const parseParallelExecution = (parallel: Record<string, unknown> | undefined) => {
+  if (!parallel || typeof parallel !== 'object') {
+    return undefined;
+  }
+  const modeRaw = String(parallel.mode ?? 'legacy').toLowerCase();
+  const schedulerRaw = String(parallel.scheduler ?? 'gpipe').toLowerCase();
+  const mode = (
+    modeRaw === 'pipeline' || modeRaw === 'tensor' || modeRaw === 'pipeline_tensor'
+      ? modeRaw
+      : 'legacy'
+  ) as 'legacy' | 'pipeline' | 'tensor' | 'pipeline_tensor';
+  const scheduler = (
+    schedulerRaw === '1f1b' || schedulerRaw === 'interleaved'
+      ? schedulerRaw
+      : 'gpipe'
+  ) as 'gpipe' | '1f1b' | 'interleaved';
+  return {
+    mode,
+    superNode: String(parallel.superNode ?? ''),
+    scheduler,
+    microBatchSize: String(parallel.microBatchSize ?? ''),
+    numMicroBatches: String(parallel.numMicroBatches ?? ''),
+    virtualStages: String(parallel.virtualStages ?? '')
+  };
+};
+
+const parseTpPlan = (value: unknown) =>
+  Array.isArray(value)
+    ? value
+        .map((entry) => ({
+          modeRaw: String((entry as Record<string, unknown>).mode ?? 'column').toLowerCase(),
+          layer: String((entry as Record<string, unknown>).layer ?? ''),
+          shardAxis: String((entry as Record<string, unknown>).shardAxis ?? '0'),
+          group: String((entry as Record<string, unknown>).group ?? '')
+        }))
+        .map((entry) => ({
+          layer: entry.layer,
+          mode: (entry.modeRaw === 'row' ? 'row' : 'column') as 'column' | 'row',
+          shardAxis: entry.shardAxis,
+          group: entry.group
+        }))
+        .filter((entry) => entry.layer && entry.group)
+    : [];
 
 const parseLayers = (payload: Record<string, unknown>): Layer[] => {
   const layersSizesRaw = String(payload.layersSizes ?? '').trim();
@@ -233,7 +313,8 @@ function parseModelPayload(sha: string, payload: Record<string, unknown>): Worke
       },
       distributedSystemType: String(payload.distributedSystemType ?? '0'),
       distributedSystemArgs: String(payload.distributedSystemArgs ?? ''),
-      distributedSystemToken: String(payload.distributedSystemToken ?? 'none')
+      distributedSystemToken: String(payload.distributedSystemToken ?? 'none'),
+      tpPlan: parseTpPlan(payload.tpPlan)
     };
     return torchModel;
   }
@@ -253,7 +334,8 @@ function parseModelPayload(sha: string, payload: Record<string, unknown>): Worke
     optimizerArgs: String(payload.optimizerArgs ?? ''),
     distributedSystemType: String(payload.distributedSystemType ?? '0'),
     distributedSystemArgs: String(payload.distributedSystemArgs ?? ''),
-    distributedSystemToken: String(payload.distributedSystemToken ?? 'none')
+    distributedSystemToken: String(payload.distributedSystemToken ?? 'none'),
+    tpPlan: parseTpPlan(payload.tpPlan)
   };
 
   return model;

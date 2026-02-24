@@ -6,6 +6,7 @@ import requests
 import globalVars as globe
 import sys
 import os
+import json
 import zlib
 from definitions import *
 from logger import *
@@ -39,10 +40,18 @@ class Transmitter:
             LOG_ERROR(f"Connection Error: failed to connect to {self.ack_validation_address}")
             raise ConnectionError
 
-    def clients_set_phase(self, phase: str): 
+    def clients_set_phase(self, phase: str, parallel_execution = None): 
         LOG_INFO(f'Phase {phase} requested from Main Server')
+        payload = phase
+        if isinstance(parallel_execution, dict):
+            mode = str(parallel_execution.get("mode", "legacy")).strip().lower()
+            if mode != "legacy":
+                payload = json.dumps({
+                    "phase": phase,
+                    "parallelExecution": parallel_execution
+                })
         try:
-            response = requests.post(self.clientsPhaseUpdateAddress, data = phase)
+            response = requests.post(self.clientsPhaseUpdateAddress, data = payload)
             if not response.ok:
                 LOG_ERROR(f"Failed to update phase")
         except ConnectionRefusedError:

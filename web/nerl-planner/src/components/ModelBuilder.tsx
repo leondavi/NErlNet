@@ -26,7 +26,8 @@ const ModelBuilder = ({
   onSave: () => void;
   onDelete?: () => void;
 }) => {
-  const modelLayers = model.infraType === 'torch' ? [] : model.layers;
+  const openNNModel = model.infraType === 'torch' ? null : model;
+  const modelLayers = openNNModel?.layers ?? [];
 
   const updateOpenNN = (patch: Partial<OpenNNModel>) => {
     if (model.infraType === 'torch') {
@@ -43,25 +44,37 @@ const ModelBuilder = ({
   };
 
   const updateLayer = (index: number, patch: Partial<Layer>) => {
+    if (!openNNModel) {
+      return;
+    }
     if (index < 0 || index >= modelLayers.length) {
       return;
     }
     const nextLayers = [...modelLayers];
     nextLayers[index] = { ...nextLayers[index], ...patch };
-    onChange({ ...model, layers: nextLayers });
+    onChange({ ...openNNModel, layers: nextLayers });
   };
 
   const addLayer = () => {
+    if (!openNNModel) {
+      return;
+    }
     const next = createLayer(modelLayers.length);
-    onChange({ ...model, layers: [...modelLayers, next] });
+    onChange({ ...openNNModel, layers: [...modelLayers, next] });
   };
 
   const removeLayer = (index: number) => {
+    if (!openNNModel) {
+      return;
+    }
     const nextLayers = modelLayers.filter((_, idx) => idx !== index);
-    onChange({ ...model, layers: nextLayers });
+    onChange({ ...openNNModel, layers: nextLayers });
   };
 
   const moveLayer = (index: number, direction: number) => {
+    if (!openNNModel) {
+      return;
+    }
     const nextLayers = [...modelLayers];
     const target = index + direction;
     if (target < 0 || target >= nextLayers.length) {
@@ -69,7 +82,7 @@ const ModelBuilder = ({
     }
     const [item] = nextLayers.splice(index, 1);
     nextLayers.splice(target, 0, item);
-    onChange({ ...model, layers: nextLayers });
+    onChange({ ...openNNModel, layers: nextLayers });
   };
 
   const switchToOpenNN = () => onChange(createOpenNNModel(model.name, modelLayers));

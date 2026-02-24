@@ -27,6 +27,8 @@ public:
 					TrainingParams training_params);
 
 	TorchTensor train_batch(const TorchTensor &batch);
+	TorchTensor train_microbatch(const TorchTensor &batch, long microbatch_id);
+	void optimizer_barrier();
 	TorchTensor predict_batch(const TorchTensor &batch);
 	TorchTensor last_loss() const { return _last_loss; }
 
@@ -74,6 +76,7 @@ private:
 					   bool fallback) const;
 	void maybe_randomize_module_weights();
 	static std::string to_lower_copy(std::string value);
+	TorchTensor train_batch_impl(const TorchTensor &batch, bool defer_optimizer_step, long microbatch_id);
 
 	TorchTensor _last_prediction;
 	TorchTensor _last_loss;
@@ -91,6 +94,8 @@ private:
 	bool _weights_randomized{false};
 	std::unique_ptr<torch::optim::Optimizer> _optimizer;
 	bool _has_optimizer{false};
+	bool _has_deferred_gradients{false};
+	int64_t _deferred_microbatch_count{0};
 };
 
 } // namespace nerlnet

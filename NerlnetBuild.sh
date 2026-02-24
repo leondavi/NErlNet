@@ -105,9 +105,13 @@ print_help()
 
 get_opennn_version_sha()
 {
-	cd $NERLNET_DIR/src_cpp/opennn
-	echo "$NERLNET_BUILD_PREFIX OpenNN Commit: $(git rev-parse --verify HEAD)"
-	cd -
+	if [ -d "$NERLNET_DIR/src_cpp/opennn/.git" ] || [ -f "$NERLNET_DIR/src_cpp/opennn/.git" ]; then
+		cd $NERLNET_DIR/src_cpp/opennn
+		echo "$NERLNET_BUILD_PREFIX OpenNN Commit: $(git rev-parse --verify HEAD)"
+		cd -
+	else
+		echo "$NERLNET_BUILD_PREFIX OpenNN Commit: unavailable (no git metadata)"
+	fi
 }
 
 configure_infrastructure_targets()

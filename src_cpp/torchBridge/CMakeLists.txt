@@ -42,7 +42,9 @@ set(SRC_CODE
 
 add_library(${PROJECT_NAME} SHARED ${SRC_CODE})
 
-target_link_libraries(${PROJECT_NAME} "${TORCH_LIBRARIES}" common)
+# Keep Torch dependency private to this bridge to avoid leaking
+# Torch-internal generator expressions to parent wrapper targets.
+target_link_libraries(${PROJECT_NAME} PRIVATE "${TORCH_LIBRARIES}" common)
 
 # Include NIF, OpenNN and Simple Cpp Logger
 target_include_directories(${PROJECT_NAME} PUBLIC

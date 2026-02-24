@@ -42,7 +42,9 @@ void* train_threaded_function(void* args)
     try
     {
         message = execute_with_worker(thread_args_ptr, [&](const std::shared_ptr<NerlWorkerTorch> &worker) {
-            TorchTensor loss = worker->train_batch(thread_args_ptr->nerltensor);
+            TorchTensor loss = thread_args_ptr->is_microbatch
+                ? worker->train_microbatch(thread_args_ptr->nerltensor, thread_args_ptr->microbatch_id)
+                : worker->train_batch(thread_args_ptr->nerltensor);
             nifpp::TERM encoded_loss;
             TensorCodec::encode(env, loss, encoded_loss);
 
@@ -51,13 +53,24 @@ void* train_threaded_function(void* args)
 
             ERL_NIF_TERM nerlnif_atom = enif_make_atom(env, NERLNIF_ATOM_STR);
             ERL_NIF_TERM train_time = enif_make_double(env, static_cast<double>(duration.count()));
+            if (thread_args_ptr->is_microbatch)
+            {
+                ERL_NIF_TERM microbatch_id = enif_make_long(env, thread_args_ptr->microbatch_id);
+                return enif_make_tuple(env,
+                                        5,
+                                        nerlnif_atom,
+                                        encoded_loss,
+                                        nifpp::make(env, thread_args_ptr->return_tensor_type),
+                                        train_time,
+                                        microbatch_id);
+            }
 
             return enif_make_tuple(env,
-                                    4,
-                                    nerlnif_atom,
-                                    encoded_loss,
-                                    nifpp::make(env, thread_args_ptr->return_tensor_type),
-                                    train_time);
+                                   4,
+                                   nerlnif_atom,
+                                   encoded_loss,
+                                   nifpp::make(env, thread_args_ptr->return_tensor_type),
+                                   train_time);
         });
     }
     catch (const std::exception &ex)

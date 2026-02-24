@@ -23,7 +23,7 @@
 -define(SERVER, ?MODULE).
 
 
--record(main_genserver_state, {myName, state, workersMap, clients, nerlnetGraph, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [], statisticsMap, total_sources=0, sources_data_ready_ctr = 0}).
+-record(main_genserver_state, {myName, state, workersMap, clients, nerlnetGraph, sourcesCastingList = [], sourcesWaitingList = [], clientsWaitingList = [], statisticsMap, total_sources=0, sources_data_ready_ctr = 0, parallel_mode = legacy, parallel_super_node = none}).
 
 %%%===============================================================
 %%% API
@@ -69,8 +69,14 @@ init({MyName,ClientsNames,BatchSize,WorkersMap,NerlnetGraph , DeviceName}) ->
   put(etsStats, EtsStats), %% All entities including mainServer ets tables statistics
   Entities = [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--[?API_SERVER_ATOM]],
   EntitiesNames = [Name || {Name, _CommTuple} <- Entities],
+  SuperNodes = case catch ets:lookup_element(nerlnet_data, super_nodes, ?DATA_IDX) of
+                 {'EXIT', _} -> [];
+                 SuperNodesMap when is_map(SuperNodesMap) -> maps:keys(SuperNodesMap);
+                 _ -> []
+               end,
+  EntitiesStatsNames = (EntitiesNames -- [?MAIN_SERVER_ATOM]) -- SuperNodes,
   generate_stats_ets_tables(EntitiesNames),
-  ets:insert(MainServerEts , {entities_names_list , EntitiesNames -- [?MAIN_SERVER_ATOM]}),
+  ets:insert(MainServerEts , {entities_names_list , EntitiesStatsNames}),
   ets:insert(MainServerEts , {batch_size , BatchSize}),
   ets:insert(MainServerEts , {workers_map , WorkersMap}),
   ets:insert(MainServerEts , {clients_names_list , ClientsNames}),
@@ -133,19 +139,48 @@ handle_cast({jsonReceived,Body}, State = #main_genserver_state{}) ->
   {noreply, State#main_genserver_state{}};
 
 % Updating mainserver process dict with active phase!
-handle_cast({clientsPhaseUpdate , Phase}, State = #main_genserver_state{myName = MyName}) ->
+handle_cast({clientsPhaseUpdate , PhasePayload}, State = #main_genserver_state{myName = MyName}) ->
   put(curr_phase_ack , update_phase_done),
-  ?LOG_INFO("Received clientsPhaseUpdate message with phase ~p",[binary_to_list(Phase)]),
+  {PhaseAtom, ParallelMode, SuperNode, ParallelExecution} = parse_phase_update_payload(PhasePayload),
+  ?LOG_INFO("Received clientsPhaseUpdate phase=~p parallel_mode=~p super=~p",[PhaseAtom, ParallelMode, SuperNode]),
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
-  case binary_to_atom(Phase) of
+  {EffectiveParallelMode, EffectiveSuperNode} =
+    apply_parallel_phase_routing(PhaseAtom, ParallelMode, SuperNode, ParallelExecution),
+  case PhaseAtom of
     training ->   stats:increment_messages_received(StatsEts),put(active_phase, training), 
                   update_clients_phase(clientTraining, MyName);
     prediction -> stats:increment_messages_received(StatsEts),put(active_phase, prediction),
                   update_clients_phase(clientPredict, MyName);
-    _Else -> ?LOG_ERROR("Wrong phase was received: ~p",[Phase]), stats:increment_bad_messages(StatsEts)
+    _Else -> ?LOG_ERROR("Wrong phase was received: ~p",[PhaseAtom]), stats:increment_bad_messages(StatsEts)
   end,
   ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
-  {noreply, State#main_genserver_state{clientsWaitingList = ListOfClients}};
+  {noreply, State#main_genserver_state{
+    clientsWaitingList = ListOfClients,
+    parallel_mode = EffectiveParallelMode,
+    parallel_super_node = EffectiveSuperNode
+  }};
+
+handle_cast({parallelAbort, Body}, State = #main_genserver_state{myName = MyName, parallel_super_node = SuperNode}) ->
+  AbortMessage = decode_parallel_abort_body(Body),
+  ?LOG_ERROR("Parallel abort received by ~p: ~p", [MyName, AbortMessage]),
+  ResetPhase = normalize_phase_atom(get(active_phase)),
+  maybe_update_super_node_phase(SuperNode, ResetPhase, legacy, #{}),
+  update_clients_parallel_execution(#{}),
+  update_clients_parallel_mode(legacy),
+  update_clients_phase(clientIdle, MyName),
+  put(active_phase, none),
+  clean_phase_result_data_to_send_ets(),
+  ack("parallel_abort"),
+  {noreply, State#main_genserver_state{
+    state = idle,
+    sourcesCastingList = [],
+    sourcesWaitingList = [],
+    clientsWaitingList = [],
+    total_sources = 0,
+    sources_data_ready_ctr = 0,
+    parallel_mode = legacy,
+    parallel_super_node = none
+  }};
 
 handle_cast({clientsTraining, Body}, State = #main_genserver_state{state = casting}) ->
   ?LOG_WARNING("Received training request during casting phase",[]),
@@ -409,6 +444,197 @@ update_clients_phase(PhaseAtom, MessageBody) when is_atom(PhaseAtom) ->
   ActionStr = atom_to_list(PhaseAtom),
   DestinationsList = ListOfClients,
   nerl_tools:http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, MessageBody).
+
+update_clients_parallel_mode(ModeAtom) when is_atom(ModeAtom) ->
+  ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
+  {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
+  ActionStr = atom_to_list(parallelMode),
+  MessageBody = atom_to_list(ModeAtom),
+  nerl_tools:http_router_request(RouterHost, RouterPort, ListOfClients, ActionStr, MessageBody).
+
+update_clients_parallel_execution(ParallelExecution) when is_map(ParallelExecution) ->
+  ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
+  {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
+  ActionStr = atom_to_list(parallelExecution),
+  nerl_tools:http_router_request(RouterHost, RouterPort, ListOfClients, ActionStr, ParallelExecution);
+update_clients_parallel_execution(_ParallelExecution) ->
+  update_clients_parallel_execution(#{}).
+
+parse_phase_update_payload(PhasePayload) when is_binary(PhasePayload) ->
+  Trimmed = string:trim(binary_to_list(PhasePayload)),
+  case Trimmed of
+    [$\{ | _Rest] ->
+      parse_phase_update_json(PhasePayload);
+    _ ->
+      {normalize_phase_atom(Trimmed), legacy, none, #{}}
+  end;
+parse_phase_update_payload(PhasePayload) when is_list(PhasePayload) ->
+  parse_phase_update_payload(list_to_binary(PhasePayload));
+parse_phase_update_payload(PhasePayload) when is_atom(PhasePayload) ->
+  {normalize_phase_atom(PhasePayload), legacy, none, #{}};
+parse_phase_update_payload(_) ->
+  {training, legacy, none, #{}}.
+
+parse_phase_update_json(Payload) ->
+  try jsx:decode(Payload, [return_maps]) of
+    Parsed when is_map(Parsed) ->
+      PhaseValue = maps:get(<<"phase">>, Parsed, maps:get(<<"phaseType">>, Parsed, <<"training">>)),
+      ParallelExecutionRaw = maps:get(<<"parallelExecution">>, Parsed, maps:get(parallelExecution, Parsed, #{})),
+      ParallelExecution = normalize_parallel_execution(ParallelExecutionRaw),
+      Mode = normalize_parallel_mode(
+               maps:get(<<"mode">>, ParallelExecution, maps:get(mode, ParallelExecution, <<"legacy">>))
+             ),
+      SuperNodeValue = maps:get(<<"superNode">>, ParallelExecution, maps:get(superNode, ParallelExecution, undefined)),
+      SuperNode = resolve_super_node(SuperNodeValue),
+      {normalize_phase_atom(PhaseValue), Mode, SuperNode, ParallelExecution};
+    _ -> {training, legacy, none, #{}}
+  catch
+    _:_ -> {training, legacy, none, #{}}
+  end.
+
+maybe_update_super_node_phase(none, _PhaseAtom, _ParallelMode, _ParallelExecution) ->
+  ok;
+maybe_update_super_node_phase(SuperNode, PhaseAtom, ParallelMode, ParallelExecution) when is_atom(SuperNode) ->
+  {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
+  WorkerParallelMap = case catch ets:lookup_element(nerlnet_data, workers_parallel, ?DATA_IDX) of
+                        {'EXIT', _} -> #{};
+                        Map -> Map
+                      end,
+  MessageBody = {parallel_phase_update, PhaseAtom, ParallelMode, ParallelExecution, WorkerParallelMap},
+  try
+    nerl_tools:http_router_request(RouterHost, RouterPort, [SuperNode], atom_to_list(parallelPhaseUpdate), MessageBody),
+    ok
+  catch
+    Err:Reason ->
+      ?LOG_ERROR("Failed to update super node ~p phase metadata: ~p", [SuperNode, {Err, Reason}]),
+      {error, {Err, Reason}}
+  end;
+maybe_update_super_node_phase(_SuperNode, _PhaseAtom, _ParallelMode, _ParallelExecution) ->
+  ok.
+
+apply_parallel_phase_routing(PhaseAtom, legacy, SuperNode, _ParallelExecution) ->
+  _ = maybe_update_super_node_phase(SuperNode, PhaseAtom, legacy, #{}),
+  update_clients_parallel_mode(legacy),
+  update_clients_parallel_execution(#{}),
+  {legacy, none};
+apply_parallel_phase_routing(_PhaseAtom, ParallelMode, none, _ParallelExecution) ->
+  ?LOG_ERROR(
+    "Parallel mode ~p requested without a valid super node. Forcing legacy mode.",
+    [ParallelMode]
+  ),
+  update_clients_parallel_mode(legacy),
+  update_clients_parallel_execution(#{}),
+  {legacy, none};
+apply_parallel_phase_routing(PhaseAtom, ParallelMode, SuperNode, ParallelExecution) ->
+  case maybe_update_super_node_phase(SuperNode, PhaseAtom, ParallelMode, ParallelExecution) of
+    ok ->
+      % Non-legacy mode settings are propagated to clients only by Super Node commands.
+      {ParallelMode, SuperNode};
+    {error, Reason} ->
+      ?LOG_ERROR(
+        "Super node phase update failed for mode ~p super=~p reason=~p. Forcing legacy mode.",
+        [ParallelMode, SuperNode, Reason]
+      ),
+      update_clients_parallel_mode(legacy),
+      update_clients_parallel_execution(#{}),
+      {legacy, none}
+  end.
+
+normalize_parallel_execution(ParallelExecution) when is_map(ParallelExecution) ->
+  ParallelExecution;
+normalize_parallel_execution(_) ->
+  #{}.
+
+normalize_phase_atom(PhaseValue) when is_atom(PhaseValue) ->
+  normalize_phase_atom(atom_to_list(PhaseValue));
+normalize_phase_atom(PhaseValue) when is_binary(PhaseValue) ->
+  normalize_phase_atom(binary_to_list(PhaseValue));
+normalize_phase_atom(PhaseValue) when is_list(PhaseValue) ->
+  case string:lowercase(string:trim(PhaseValue)) of
+    "training" -> training;
+    "prediction" -> prediction;
+    "predict" -> prediction;
+    _ -> training
+  end;
+normalize_phase_atom(_) ->
+  training.
+
+resolve_super_node(undefined) ->
+  default_super_node();
+resolve_super_node(<<>>) ->
+  default_super_node();
+resolve_super_node("") ->
+  default_super_node();
+resolve_super_node(none) ->
+  none;
+resolve_super_node(SuperNode) when is_atom(SuperNode) ->
+  case lists:member(SuperNode, get_known_super_nodes()) of
+    true -> SuperNode;
+    false -> none
+  end;
+resolve_super_node(SuperNodeValue) ->
+  Candidate = string:trim(normalize_text_value(SuperNodeValue)),
+  case Candidate of
+    "" -> default_super_node();
+    _ -> find_known_super_node(Candidate)
+  end.
+
+find_known_super_node(Candidate) ->
+  CandidateLower = string:lowercase(Candidate),
+  find_known_super_node(Candidate, CandidateLower, get_known_super_nodes()).
+
+find_known_super_node(_Candidate, _CandidateLower, []) ->
+  none;
+find_known_super_node(Candidate, CandidateLower, [SuperNode | Rest]) ->
+  SuperNodeName = atom_to_list(SuperNode),
+  case (SuperNodeName =:= Candidate) orelse (string:lowercase(SuperNodeName) =:= CandidateLower) of
+    true -> SuperNode;
+    false -> find_known_super_node(Candidate, CandidateLower, Rest)
+  end.
+
+default_super_node() ->
+  case get_known_super_nodes() of
+    [SingleSuperNode] -> SingleSuperNode;
+    _ -> none
+  end.
+
+get_known_super_nodes() ->
+  case catch ets:lookup_element(nerlnet_data, super_nodes, ?DATA_IDX) of
+    {'EXIT', _} -> [];
+    SuperNodesMap when is_map(SuperNodesMap) -> maps:keys(SuperNodesMap);
+    _ -> []
+  end.
+
+normalize_text_value(Value) when is_binary(Value) ->
+  binary_to_list(Value);
+normalize_text_value(Value) when is_list(Value) ->
+  Value;
+normalize_text_value(Value) when is_atom(Value) ->
+  atom_to_list(Value);
+normalize_text_value(Value) ->
+  lists:flatten(io_lib:format("~p", [Value])).
+
+normalize_parallel_mode(ModeBin) when is_binary(ModeBin) ->
+  normalize_parallel_mode(binary_to_list(ModeBin));
+normalize_parallel_mode(ModeList) when is_list(ModeList) ->
+  case string:lowercase(string:trim(ModeList)) of
+    "pipeline" -> pipeline;
+    "tensor" -> tensor;
+    "pipeline_tensor" -> pipeline_tensor;
+    _ -> legacy
+  end;
+normalize_parallel_mode(ModeAtom) when is_atom(ModeAtom) ->
+  normalize_parallel_mode(atom_to_list(ModeAtom));
+normalize_parallel_mode(_) -> legacy.
+
+decode_parallel_abort_body(Body) when is_binary(Body) ->
+  try binary_to_term(Body, [safe]) of
+    Term -> Term
+  catch
+    _:_ -> Body
+  end;
+decode_parallel_abort_body(Body) ->
+  Body.
 
 % Sends requests for statisics from all entities excludes main server
 statistics_requests_to_entities() ->

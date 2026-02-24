@@ -23,10 +23,15 @@ init(Req0, State) ->
   {_,Body,_} = cowboy_req:read_body(Req0, #{length => ?DATA_LEN}),
   %Decoded_body = binary_to_list(Body),
 %  io:format("router got action ~p body:~p~n",[Action,Body]),
-  case Action of
-    unicast ->gen_server:cast(Router_genserver_Pid, {unicast,binary_to_term(Body)});
-    broadcast ->gen_server:cast(Router_genserver_Pid, {broadcast,binary_to_term(Body)});
-    statistics -> gen_server:cast(Router_genserver_Pid, {statistics,binary_to_term(Body)})
+  case {Action, binary_to_term_safe(Body)} of
+    {unicast, DecodedBody} when DecodedBody =/= undefined ->
+      gen_server:cast(Router_genserver_Pid, {unicast,DecodedBody});
+    {broadcast, DecodedBody} when DecodedBody =/= undefined ->
+      gen_server:cast(Router_genserver_Pid, {broadcast,DecodedBody});
+    {statistics, DecodedBody} when DecodedBody =/= undefined ->
+      gen_server:cast(Router_genserver_Pid, {statistics,DecodedBody});
+    _ ->
+      ok
   end,
   Reply = io_lib:format(" ", []),
 %%  Reply = io_lib:format("Body Received: ~p, Decoded Body = ~p ~n Client_StateM_Pid:~p, Handler's Pid: ~p~n ", [Body,Decoded_body,  Router_genserver_Pid,self()]),
@@ -35,3 +40,10 @@ init(Req0, State) ->
     Reply,
     Req0),
   {ok, Req, State}.
+
+binary_to_term_safe(Body) ->
+  try binary_to_term(Body, [safe]) of
+    Term -> Term
+  catch
+    _:_ -> undefined
+  end.

@@ -72,16 +72,69 @@ get_device_clients(DCMap, DeviceEntities, PrintLog) ->
                                 end, 
                               WorkersMaps),
     WorkerShaMap = maps:from_list(lists:map(fun({WorkerName, SHA}) -> {binary_to_atom(WorkerName), binary_to_list(SHA)} end, WorkerShaList)),
+    ClientSuperNode = case maps:get(?DC_SUPERNODE_FIELD_STR_BIN, ClientMap, undefined) of
+                        undefined -> none;
+                        <<>> -> none;
+                        SuperNodeBin -> binary_to_atom(SuperNodeBin)
+                      end,
     if PrintLog ->
-      ?LOG_NOTICE("Client Name: ~p Port: ~p Client Workers ~p",[Name,Port,ClientWorkers]);
+      ?LOG_NOTICE("Client Name: ~p Port: ~p Client Workers ~p SuperNode ~p",[Name,Port,ClientWorkers,ClientSuperNode]);
       true -> skip
     end,
-    {Name,{Port,ClientWorkers,WorkerShaMap,get_workers_map(AllClients, #{})}}
+    {Name,{Port,ClientWorkers,WorkerShaMap,get_workers_map(AllClients, #{}), ClientSuperNode}}
   end,
   [Func(S) || S <- DeviceClients]. % list of tuples: [Name,{Port,WorkersMap}]
 
+split_csv_to_atoms(<<>>) -> [];
+split_csv_to_atoms(undefined) -> [];
+split_csv_to_atoms(Bin) when is_binary(Bin) ->
+  [list_to_atom(Token) || Token <- re:split(binary_to_list(Bin), ",", [{return, list}]), Token =/= ""].
+
+extract_managed_clients(SuperNodeMap) ->
+  case maps:get(?DC_MANAGED_CLIENTS_FIELD_STR_BIN, SuperNodeMap, undefined) of
+    undefined -> [];
+    ManagedClients when is_list(ManagedClients) ->
+      [binary_to_atom(ClientBin) || ClientBin <- ManagedClients];
+    ManagedClientsBin when is_binary(ManagedClientsBin) ->
+      split_csv_to_atoms(ManagedClientsBin);
+    _Else -> []
+  end.
+
+get_super_nodes_map(DCMap) ->
+  SuperNodes = maps:get(?DC_KEY_SUPER_NODES_STR_BIN, DCMap, []),
+  lists:foldl(
+    fun(SuperNodeMap, Acc) ->
+      Name = binary_to_atom(maps:get(?DC_NAME_FIELD_STR_BIN, SuperNodeMap)),
+      Port = case maps:get(?DC_PORT_FIELD_STR_BIN, SuperNodeMap) of
+               PortValueBin when is_binary(PortValueBin) -> list_to_integer(binary_to_list(PortValueBin));
+               PortValueInt when is_integer(PortValueInt) -> PortValueInt;
+               _ -> 0
+             end,
+      ManagedClients = extract_managed_clients(SuperNodeMap),
+      HeartbeatMs = case maps:get(?DC_HEARTBEAT_MS_FIELD_STR_BIN, SuperNodeMap, <<"1000">>) of
+                      HeartbeatValueBin when is_binary(HeartbeatValueBin) -> list_to_integer(binary_to_list(HeartbeatValueBin));
+                      HeartbeatValueInt when is_integer(HeartbeatValueInt) -> HeartbeatValueInt;
+                      _ -> 1000
+                    end,
+      MaxInflight = case maps:get(?DC_MAX_INFLIGHT_MICROBATCHES_FIELD_STR_BIN, SuperNodeMap, <<"1">>) of
+                      MaxInflightValueBin when is_binary(MaxInflightValueBin) -> list_to_integer(binary_to_list(MaxInflightValueBin));
+                      MaxInflightValueInt when is_integer(MaxInflightValueInt) -> MaxInflightValueInt;
+                      _ -> 1
+                    end,
+      maps:put(Name, {Port, ManagedClients, HeartbeatMs, MaxInflight}, Acc)
+    end,
+    #{},
+    SuperNodes
+  ).
+
+get_device_super_nodes(DCMap, DeviceEntities) ->
+  SuperNodesMap = get_super_nodes_map(DCMap),
+  maps:from_list(
+    [{Name, Data} || {Name, Data} <- maps:to_list(SuperNodesMap), lists:member(Name, DeviceEntities)]
+  ).
+
 get_models(ShaToModelMaps) ->
-  maps:fold(fun(ShaBin, ModelParams, {ModelsAcc, TorchAcc}) ->
+  maps:fold(fun(ShaBin, ModelParams, {ModelsAcc, TorchAcc, TpPlanAcc}) ->
     ModelType = get_string_field(ModelParams, ?WORKER_FIELD_KEY_MODEL_TYPE_BIN),
     ModelArgs = get_string_field(ModelParams, ?WORKER_FIELD_KEY_MODEL_ARGS_BIN),
     LayersSizes = get_string_field(ModelParams, ?WORKER_FIELD_KEY_LAYER_SIZES_LIST_BIN),
@@ -98,12 +151,14 @@ get_models(ShaToModelMaps) ->
     DistributedSystemArgs = get_string_field(ModelParams, ?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_ARGS_BIN),
     DistributedSystemToken = get_string_field(ModelParams, ?WORKER_FIELD_KEY_DISTRIBUTED_SYSTEM_TOKEN_BIN),
     TrainParams = extract_train_params(ModelParams),
+    TpPlan = extract_tp_plan(ModelParams),
     ModelTuple = {ModelType, ModelArgs , LayersSizes, LayersTypes, LayersFunctions, LossMethod, LossArgs, LearningRate, Epochs, Optimizer, OptimizerArgs, InfraType, DistributedSystemType, DistributedSystemArgs, DistributedSystemToken, TrainParams},
     Sha = binary_to_list(ShaBin),
     ModelsAcc2 = maps:put(Sha, ModelTuple, ModelsAcc),
     TorchAcc2 = maybe_add_torch_metadata(Sha, InfraType, ModelParams, TorchAcc),
-    {ModelsAcc2, TorchAcc2}
-  end, {#{}, #{}}, ShaToModelMaps).
+    TpPlanAcc2 = maps:put(Sha, TpPlan, TpPlanAcc),
+    {ModelsAcc2, TorchAcc2, TpPlanAcc2}
+  end, {#{}, #{}, #{}}, ShaToModelMaps).
 
 get_string_field(Map, Key) ->
   get_string_field(Map, Key, "").
@@ -123,6 +178,50 @@ extract_train_params(ModelParams) ->
         || {Key, Value} <- maps:to_list(ParamsMap)
       ]);
     _Other -> #{}
+  end.
+
+extract_tp_plan(ModelParams) ->
+  RawTpPlan = maps:get(?DC_TP_PLAN_FIELD_STR_BIN, ModelParams, []),
+  case RawTpPlan of
+    TpPlanList when is_list(TpPlanList) ->
+      lists:map(fun normalize_tp_plan_entry/1, TpPlanList);
+    _ ->
+      []
+  end.
+
+normalize_tp_plan_entry(Entry) when is_map(Entry) ->
+  Layer = normalize_param_text(maps:get(<<"layer">>, Entry, "")),
+  Mode = string:lowercase(normalize_param_text(maps:get(<<"mode">>, Entry, ""))),
+  Group = normalize_param_text(maps:get(<<"group">>, Entry, "")),
+  ShardAxis = normalize_param_int(maps:get(<<"shardAxis">>, Entry, 0), 0),
+  #{
+    layer => Layer,
+    mode => Mode,
+    group => Group,
+    shard_axis => ShardAxis
+  };
+normalize_tp_plan_entry(_) ->
+  #{
+    layer => "",
+    mode => "",
+    group => "",
+    shard_axis => 0
+  }.
+
+normalize_param_int(Value, _Default) when is_integer(Value) ->
+  Value;
+normalize_param_int(Value, Default) when is_binary(Value) ->
+  safe_list_to_int(binary_to_list(Value), Default);
+normalize_param_int(Value, Default) when is_list(Value) ->
+  safe_list_to_int(Value, Default);
+normalize_param_int(_Value, Default) ->
+  Default.
+
+safe_list_to_int(Value, Default) ->
+  try
+    list_to_integer(string:trim(Value))
+  catch
+    _:_ -> Default
   end.
 
 normalize_param_key(Key) -> normalize_param_text(Key).
@@ -174,6 +273,54 @@ get_workers_map([ClientMap|Clients],WorkersMap)->
   NewMap = generate_workers_map(Workers,WorkersMap,ClientName),
   get_workers_map(Clients,NewMap).
 
+parse_optional_int(ParallelMap, Key) ->
+  case maps:get(Key, ParallelMap, undefined) of
+    undefined -> undefined;
+    Value when is_integer(Value) -> Value;
+    Value when is_binary(Value) -> list_to_integer(binary_to_list(Value));
+    Value when is_list(Value) -> list_to_integer(Value);
+    _ -> undefined
+  end.
+
+parse_optional_str(ParallelMap, Key) ->
+  case maps:get(Key, ParallelMap, undefined) of
+    undefined -> undefined;
+    Value when is_binary(Value) -> binary_to_list(Value);
+    Value when is_list(Value) -> Value;
+    Value when is_atom(Value) -> atom_to_list(Value);
+    _ -> undefined
+  end.
+
+normalize_worker_parallel_cfg(ParallelMap) when is_map(ParallelMap) ->
+  PipelineStage = parse_optional_int(ParallelMap, ?DC_PIPELINE_STAGE_FIELD_STR_BIN),
+  PipelineWorldSize = parse_optional_int(ParallelMap, ?DC_PIPELINE_WORLD_SIZE_FIELD_STR_BIN),
+  TpGroup = parse_optional_str(ParallelMap, ?DC_TP_GROUP_FIELD_STR_BIN),
+  TpRank = parse_optional_int(ParallelMap, ?DC_TP_RANK_FIELD_STR_BIN),
+  TpWorldSize = parse_optional_int(ParallelMap, ?DC_TP_WORLD_SIZE_FIELD_STR_BIN),
+  maps:filter(
+    fun(_K, V) -> V =/= undefined end,
+    #{
+      pipeline_stage => PipelineStage,
+      pipeline_world_size => PipelineWorldSize,
+      tp_group => TpGroup,
+      tp_rank => TpRank,
+      tp_world_size => TpWorldSize
+    }
+  );
+normalize_worker_parallel_cfg(_) -> #{}.
+
+get_workers_parallel_map(DCMap) ->
+  Workers = maps:get(?DC_KEY_WORKERS_STR_BIN, DCMap, []),
+  lists:foldl(
+    fun(WorkerMap, Acc) ->
+      Name = binary_to_atom(maps:get(?DC_NAME_FIELD_STR_BIN, WorkerMap)),
+      ParallelMap = maps:get(?DC_PARALLEL_FIELD_STR_BIN, WorkerMap, #{}),
+      maps:put(Name, normalize_worker_parallel_cfg(ParallelMap), Acc)
+    end,
+    #{},
+    Workers
+  ).
+
 get_device_sources(DCMap, DeviceEntities) ->
   HostSources = [ SourceMap || SourceMap <- maps:get(?DC_KEY_SOURCES_STR_BIN,DCMap), lists:member(binary_to_atom(maps:get(?DC_NAME_FIELD_STR_BIN, SourceMap)), DeviceEntities) ],
   Func = fun(SourceMap) -> 
@@ -221,14 +368,19 @@ json_to_ets(IPv4, JsonDCMap) ->
   MapOfClients = get_clients_map(JsonClients, #{}), % each client has {WorkersList, Port}
   ets:insert(nerlnet_data, {?DC_KEY_CLIENTS_ATOM, MapOfClients}),
 
+  MapOfSuperNodes = get_super_nodes_map(JsonDCMap),
+  ets:insert(nerlnet_data, {super_nodes, MapOfSuperNodes}),
+
   %%  get workers to clients map
   MapOfWorkers = get_workers_map(JsonClients, #{}),
   ets:insert(nerlnet_data, {?DC_KEY_WORKERS_ATOM, MapOfWorkers}),
+  ets:insert(nerlnet_data, {workers_parallel, get_workers_parallel_map(JsonDCMap)}),
 
   MapSHAToModelArgs = maps:get(?DC_KEY_MODEL_SHA_STR_BIN, JsonDCMap), % Map of MapShaToModel to ModelArgs
-  {SHAToModelArgsMap, TorchModelsMap} = get_models(MapSHAToModelArgs), 
+  {SHAToModelArgsMap, TorchModelsMap, ModelTpPlanMap} = get_models(MapSHAToModelArgs), 
   ets:insert(nerlnet_data, {sha_to_models_map, SHAToModelArgsMap}),
   ets:insert(nerlnet_data, {torch_models_map, TorchModelsMap}),
+  ets:insert(nerlnet_data, {model_tp_plan_map, ModelTpPlanMap}),
 
   {IPv4ToDeviceNameMap, DeviceNameToIPv4EntitiesMap} = get_devices(JsonDCMap), % get all hosts 
   ets:insert(nerlnet_data, {ipv4_to_devices,IPv4ToDeviceNameMap}),
@@ -248,6 +400,7 @@ json_to_ets(IPv4, JsonDCMap) ->
   %%  retrive THIS device Clients And Workers
   ?LOG_NOTICE("Adding Device Entities:"),
   ets:insert(nerlnet_data, {deviceClients, get_device_clients(JsonDCMap, DeviceEntities, true)}),
+  ets:insert(nerlnet_data, {deviceSuperNodes, get_device_super_nodes(JsonDCMap, DeviceEntities)}),
 
   %%  retrive this device of sources, [{SourceName, {Port, Method}}]
   Sources = get_device_sources(JsonDCMap, DeviceEntities),
@@ -310,10 +463,11 @@ buildCommunicationGraph(DCMap, CommunicationMap)->
 add_device_vertices(NerlnetGraph, DCMap , DeviceName , IPv4 , DeviceEntities)->
   DeviceRouters = get_device_routers(DCMap, DeviceEntities),
   DeviceSources = get_device_sources(DCMap, DeviceEntities),
+  DeviceSuperNodes = get_device_super_nodes(DCMap, DeviceEntities),
   DeviceClients = get_device_clients(DCMap, DeviceEntities),
   DeviceSpecialEntities = get_special_entities(DCMap, DeviceEntities),
 
-  DeviceEntitiesMap = maps:from_list(DeviceRouters ++ DeviceSources ++ DeviceClients ++ DeviceSpecialEntities),
+  DeviceEntitiesMap = maps:from_list(DeviceRouters ++ DeviceSources ++ maps:to_list(DeviceSuperNodes) ++ DeviceClients ++ DeviceSpecialEntities),
   
   AddEntityToGraph = fun(EntityName, EntityData) -> 
       EntityPort = element(?PORT_IDX, EntityData),
@@ -366,4 +520,3 @@ add_edges(Graph, Vertex1, Vertex2) ->
     EdgeB -> skip; % appears in graph then don't add 
     true -> digraph:add_edge(Graph,Vertex2,Vertex1)
   end.
-

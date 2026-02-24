@@ -19,21 +19,34 @@ import {
   sourcePolicyOptions,
   sourceTypeOptions
 } from '../data/mappings';
-import { PlannerState } from '../data/types';
+import { PlannerState, WorkerParallelConfig } from '../data/types';
 import EntityNode, { EntityNodeData } from './EntityNode';
 import ValidationPanel from './ValidationPanel';
 import { validatePlannerState } from '../utils/validation';
 
-type EntityKind = 'router' | 'source' | 'client' | 'server';
+type EntityKind = 'router' | 'source' | 'client' | 'server' | 'super';
+type FlowMouseEvent = MouseEvent | React.MouseEvent<Element, MouseEvent>;
 
 const TYPE_COLORS: Record<EntityKind, string> = {
   router: '#e57a44',
   source: '#2e8a7a',
   client: '#1c4561',
-  server: '#8a5a2b'
+  server: '#8a5a2b',
+  super: '#5b3f9b'
 };
 
 const GRID_COLUMNS = 4;
+const renderFieldLabel = (label: string, helpText?: string) => (
+  <span className="label-with-help">
+    <span>{label}</span>
+    {helpText ? (
+      <span className="help-tip" tabIndex={0} role="note" aria-label={`${label} help`}>
+        ?
+        <span className="help-tip-content">{helpText}</span>
+      </span>
+    ) : null}
+  </span>
+);
 
 const SandboxView = ({
   state,
@@ -77,6 +90,13 @@ const SandboxView = ({
   const [workerDraft, setWorkerDraft] = useState({ name: '', modelId: '' });
   const [nameDraft, setNameDraft] = useState('');
   const isEditingNameRef = useRef(false);
+  const emptyParallelConfig: WorkerParallelConfig = {
+    pipelineStage: '',
+    pipelineWorldSize: '',
+    tpGroup: '',
+    tpRank: '',
+    tpWorldSize: ''
+  };
 
   const nodeTypes = useMemo(() => ({ entity: EntityNode }), []);
 
@@ -86,9 +106,10 @@ const SandboxView = ({
       { id: 'apiServer', kind: 'server' as EntityKind, role: 'api' as const },
       ...state.routers.map((router) => ({ id: router.name, kind: 'router' as const })),
       ...state.sources.map((source) => ({ id: source.name, kind: 'source' as const })),
-      ...state.clients.map((client) => ({ id: client.name, kind: 'client' as const }))
+      ...state.clients.map((client) => ({ id: client.name, kind: 'client' as const })),
+      ...state.superNodes.map((superNode) => ({ id: superNode.name, kind: 'super' as const }))
     ].filter((entry) => entry.id);
-  }, [state.clients, state.routers, state.sources]);
+  }, [state.clients, state.routers, state.sources, state.superNodes]);
 
   const deviceByEntity = useMemo(() => {
     const map = new Map<string, { name: string; ipv4: string }>();
@@ -431,7 +452,7 @@ const SandboxView = ({
   }, []);
 
   const openAddMenu = useCallback(
-    (event: React.MouseEvent) => {
+    (event: FlowMouseEvent) => {
       const flowPos = reactFlowInstance?.screenToFlowPosition({
         x: event.clientX,
         y: event.clientY
@@ -450,7 +471,7 @@ const SandboxView = ({
   );
 
   const handlePaneClick = useCallback(
-    (event: React.MouseEvent) => {
+    (event: FlowMouseEvent) => {
       if (linkingFrom) {
         setLinkingFrom(null);
         return;
@@ -461,7 +482,7 @@ const SandboxView = ({
   );
 
   const handlePaneContextMenu = useCallback(
-    (event: React.MouseEvent) => {
+    (event: FlowMouseEvent) => {
       event.preventDefault();
       if (linkingFrom) {
         setLinkingFrom(null);
@@ -474,7 +495,14 @@ const SandboxView = ({
 
   const addEntity = (kind: EntityKind, position?: { x: number; y: number }) => {
     const existingNames = new Set(entityDescriptors.map((entity) => entity.id));
-    const baseName = kind === 'router' ? 'router' : kind === 'source' ? 'source' : 'client';
+    const baseName =
+      kind === 'router'
+        ? 'router'
+        : kind === 'source'
+          ? 'source'
+          : kind === 'super'
+            ? 'super'
+            : 'client';
     let nextName = `${baseName}-1`;
     let counter = 1;
     while (existingNames.has(nextName)) {
@@ -503,6 +531,18 @@ const SandboxView = ({
     }
     if (kind === 'client') {
       nextState.clients = [...state.clients, { name: nextName, port: '', workers: [] }];
+    }
+    if (kind === 'super') {
+      nextState.superNodes = [
+        ...state.superNodes,
+        {
+          name: nextName,
+          port: '',
+          managedClients: [],
+          heartbeatMs: '1000',
+          maxInflightMicrobatches: '16'
+        }
+      ];
     }
 
     nextState.ui = {
@@ -535,8 +575,11 @@ const SandboxView = ({
       onNodesChange(changes);
       const positionUpdates: Record<string, { x: number; y: number }> = {};
       changes.forEach((change) => {
-        if (change.type === 'position' && change.position) {
-          positionUpdates[change.id] = change.position;
+        if (change.type === 'position') {
+          const nextPosition = change.position ?? change.positionAbsolute;
+          if (nextPosition) {
+            positionUpdates[change.id] = nextPosition;
+          }
         }
       });
       if (Object.keys(positionUpdates).length > 0) {
@@ -613,18 +656,43 @@ const SandboxView = ({
     }));
 
     const nextExperiment =
-      kind === 'source'
+      kind === 'source' || kind === 'super'
         ? {
             ...state.experimentFlow,
             phases: state.experimentFlow.phases.map((phase) => ({
               ...phase,
-              sourcePieces: phase.sourcePieces.map((piece) => ({
-                ...piece,
-                sourceName: replaceName(piece.sourceName)
-              }))
+              sourcePieces:
+                kind === 'source'
+                  ? phase.sourcePieces.map((piece) => ({
+                      ...piece,
+                      sourceName: replaceName(piece.sourceName)
+                    }))
+                  : phase.sourcePieces,
+              parallelExecution:
+                kind === 'super' && phase.parallelExecution
+                  ? {
+                      ...phase.parallelExecution,
+                      superNode:
+                        phase.parallelExecution.superNode === oldName
+                          ? trimmed
+                          : phase.parallelExecution.superNode
+                    }
+                  : phase.parallelExecution
             }))
           }
         : state.experimentFlow;
+
+    const nextSuperNodes =
+      kind === 'client'
+        ? state.superNodes.map((superNode) => ({
+            ...superNode,
+            managedClients: superNode.managedClients.map(replaceName)
+          }))
+        : kind === 'super'
+          ? state.superNodes.map((superNode) =>
+              superNode.name === oldName ? { ...superNode, name: trimmed } : superNode
+            )
+          : state.superNodes;
 
     const nextUiPositions = { ...(state.ui?.nodePositions ?? {}) };
     if (nextUiPositions[oldName]) {
@@ -651,7 +719,12 @@ const SandboxView = ({
           ? state.clients.map((client) =>
               client.name === oldName ? { ...client, name: trimmed } : client
             )
+          : kind === 'super'
+            ? state.clients.map((client) =>
+                client.superNode === oldName ? { ...client, superNode: trimmed } : client
+              )
           : state.clients,
+      superNodes: nextSuperNodes,
       connections: nextConnections,
       devices: nextDevices,
       experimentFlow: nextExperiment,
@@ -674,11 +747,16 @@ const SandboxView = ({
     let nextWorkers = state.workers;
     let nextClients = state.clients;
     let nextExperiment = state.experimentFlow;
+    let nextSuperNodes = state.superNodes;
 
     if (kind === 'client') {
       const removedWorkers = state.clients.find((client) => client.name === name)?.workers ?? [];
       nextWorkers = state.workers.filter((worker) => !removedWorkers.includes(worker.name));
       nextClients = state.clients.filter((client) => client.name !== name);
+      nextSuperNodes = state.superNodes.map((superNode) => ({
+        ...superNode,
+        managedClients: superNode.managedClients.filter((clientName) => clientName !== name)
+      }));
       nextExperiment = {
         ...state.experimentFlow,
         phases: state.experimentFlow.phases.map((phase) => ({
@@ -701,11 +779,29 @@ const SandboxView = ({
       };
     }
 
+    if (kind === 'super') {
+      nextSuperNodes = state.superNodes.filter((superNode) => superNode.name !== name);
+      nextClients = state.clients.map((client) =>
+        client.superNode === name ? { ...client, superNode: undefined } : client
+      );
+      nextExperiment = {
+        ...state.experimentFlow,
+        phases: state.experimentFlow.phases.map((phase) => ({
+          ...phase,
+          parallelExecution:
+            phase.parallelExecution?.superNode === name
+              ? { ...phase.parallelExecution, superNode: '' }
+              : phase.parallelExecution
+        }))
+      };
+    }
+
     onChange({
       ...state,
       routers: kind === 'router' ? state.routers.filter((router) => router.name !== name) : state.routers,
       sources: kind === 'source' ? state.sources.filter((source) => source.name !== name) : state.sources,
-      clients: kind === 'client' ? nextClients : state.clients,
+      clients: kind === 'client' || kind === 'super' ? nextClients : state.clients,
+      superNodes: nextSuperNodes,
       workers: nextWorkers,
       connections: nextConnections,
       devices: nextDevices,
@@ -737,8 +833,12 @@ const SandboxView = ({
     if (client) {
       return { kind: 'client' as const, data: client, name: client.name };
     }
+    const superNode = state.superNodes.find((entry) => entry.name === entityId);
+    if (superNode) {
+      return { kind: 'super' as const, data: superNode, name: superNode.name };
+    }
     return null;
-  }, [state.routers, state.sources, state.clients]);
+  }, [state.routers, state.sources, state.clients, state.superNodes]);
 
   const selectedEntity = useMemo(
     () => resolveEntity(selectedEntityId),
@@ -814,10 +914,53 @@ const SandboxView = ({
     setWorkerDraft({ name: '', modelId: workerDraft.modelId });
   };
 
+  const setClientSuperNode = (clientName: string, superNodeName: string) => {
+    const normalized = superNodeName.trim();
+    const nextClients = state.clients.map((client) =>
+      client.name === clientName
+        ? { ...client, superNode: normalized || undefined }
+        : client
+    );
+    const nextSuperNodes = state.superNodes.map((superNode) => {
+      const managed = superNode.managedClients.filter((name) => name !== clientName);
+      if (superNode.name === normalized) {
+        return {
+          ...superNode,
+          managedClients: [...managed, clientName]
+        };
+      }
+      return {
+        ...superNode,
+        managedClients: managed
+      };
+    });
+    onChange({
+      ...state,
+      clients: nextClients,
+      superNodes: nextSuperNodes
+    });
+  };
+
   const updateWorkerModel = (workerName: string, modelId: string) => {
     const nextWorkers = state.workers.map((worker) =>
       worker.name === workerName ? { ...worker, modelId } : worker
     );
+    onChange({ ...state, workers: nextWorkers });
+  };
+
+  const updateWorkerParallel = (workerName: string, patch: Partial<WorkerParallelConfig>) => {
+    const nextWorkers = state.workers.map((worker) => {
+      if (worker.name !== workerName) {
+        return worker;
+      }
+      return {
+        ...worker,
+        parallel: {
+          ...(worker.parallel ?? emptyParallelConfig),
+          ...patch
+        }
+      };
+    });
     onChange({ ...state, workers: nextWorkers });
   };
 
@@ -943,6 +1086,7 @@ const SandboxView = ({
                 if (node.className?.includes('entity-router')) return TYPE_COLORS.router;
                 if (node.className?.includes('entity-source')) return TYPE_COLORS.source;
                 if (node.className?.includes('entity-client')) return TYPE_COLORS.client;
+                if (node.className?.includes('entity-super')) return TYPE_COLORS.super;
                 return TYPE_COLORS.server;
               }}
             />
@@ -958,6 +1102,9 @@ const SandboxView = ({
               </button>
               <button type="button" onClick={() => addEntity('client', { x: contextMenu.flowX, y: contextMenu.flowY })}>
                 Add Client
+              </button>
+              <button type="button" onClick={() => addEntity('super', { x: contextMenu.flowX, y: contextMenu.flowY })}>
+                Add Super Node
               </button>
             </div>
           )}
@@ -1009,7 +1156,11 @@ const SandboxView = ({
             </div>
           )}
           {panelState && panelEntity && (
-            <div className="floating-panel">
+            <div
+              className={`floating-panel ${
+                panelState.type === 'worker' ? 'floating-panel-workers' : ''
+              }`}
+            >
               <div className="floating-panel-header">
                 <div>
                   <p className="panel-title">
@@ -1255,13 +1406,8 @@ const SandboxView = ({
                               ))}
                             </select>
                           </label>
-        </div>
-        <ValidationPanel
-          issues={sandboxIssues}
-          title="Topology validation"
-          subtitle="Resolve blocking topology and device issues before export."
-        />
-      </div>
+                        </div>
+                      </div>
                     )}
 
                     {panelEntity.kind === 'client' && (
@@ -1298,9 +1444,151 @@ const SandboxView = ({
                             }
                           />
                         </label>
+                        <label className="field">
+                          <span>Super Node</span>
+                          <select
+                            value={panelEntity.data.superNode ?? ''}
+                            onChange={(event) =>
+                              setClientSuperNode(panelEntity.name, event.target.value)
+                            }
+                          >
+                            <option value="">None</option>
+                            {state.superNodes.map((superNode) => (
+                              <option key={superNode.name} value={superNode.name}>
+                                {superNode.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
                         <button type="button" className="ghost" onClick={() => openWorkerPanel(panelEntity.name)}>
                           Manage Workers
                         </button>
+                      </div>
+                    )}
+
+                    {panelEntity.kind === 'super' && (
+                      <div className="inspector-form">
+                        <label className="field">
+                          <span>Name</span>
+                          <input
+                            type="text"
+                            value={nameDraft}
+                            onChange={(event) => setNameDraft(event.target.value)}
+                            onFocus={() => {
+                              isEditingNameRef.current = true;
+                            }}
+                            onBlur={() => {
+                              isEditingNameRef.current = false;
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') {
+                                applyNameChange();
+                              }
+                            }}
+                          />
+                        </label>
+                        <label className="field">
+                          <span>Port</span>
+                          <input
+                            type="text"
+                            value={panelEntity.data.port}
+                            onChange={(event) =>
+                              onChange({
+                                ...state,
+                                superNodes: state.superNodes.map((superNode) =>
+                                  superNode.name === panelEntity.name
+                                    ? { ...superNode, port: event.target.value }
+                                    : superNode
+                                )
+                              })
+                            }
+                          />
+                        </label>
+                        <div className="inline-fields">
+                          <label className="field">
+                            <span>Heartbeat (ms)</span>
+                            <input
+                              type="text"
+                              value={panelEntity.data.heartbeatMs}
+                              onChange={(event) =>
+                                onChange({
+                                  ...state,
+                                  superNodes: state.superNodes.map((superNode) =>
+                                    superNode.name === panelEntity.name
+                                      ? { ...superNode, heartbeatMs: event.target.value }
+                                      : superNode
+                                  )
+                                })
+                              }
+                            />
+                          </label>
+                          <label className="field">
+                            <span>Max Inflight Microbatches</span>
+                            <input
+                              type="text"
+                              value={panelEntity.data.maxInflightMicrobatches}
+                              onChange={(event) =>
+                                onChange({
+                                  ...state,
+                                  superNodes: state.superNodes.map((superNode) =>
+                                    superNode.name === panelEntity.name
+                                      ? {
+                                          ...superNode,
+                                          maxInflightMicrobatches: event.target.value
+                                        }
+                                      : superNode
+                                  )
+                                })
+                              }
+                            />
+                          </label>
+                        </div>
+                        <label className="field">
+                          <span>Managed Clients</span>
+                          <select
+                            multiple
+                            value={panelEntity.data.managedClients}
+                            onChange={(event) => {
+                              const selectedClients = Array.from(event.target.selectedOptions).map(
+                                (option) => option.value
+                              );
+                              const nextSuperNodes = state.superNodes.map((superNode) => {
+                                if (superNode.name !== panelEntity.name) {
+                                  return {
+                                    ...superNode,
+                                    managedClients: superNode.managedClients.filter(
+                                      (clientName) => !selectedClients.includes(clientName)
+                                    )
+                                  };
+                                }
+                                return {
+                                  ...superNode,
+                                  managedClients: selectedClients
+                                };
+                              });
+                              const nextClients = state.clients.map((client) => {
+                                if (selectedClients.includes(client.name)) {
+                                  return { ...client, superNode: panelEntity.name };
+                                }
+                                if (client.superNode === panelEntity.name) {
+                                  return { ...client, superNode: undefined };
+                                }
+                                return client;
+                              });
+                              onChange({
+                                ...state,
+                                superNodes: nextSuperNodes,
+                                clients: nextClients
+                              });
+                            }}
+                          >
+                            {state.clients.map((client) => (
+                              <option key={client.name} value={client.name}>
+                                {client.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
                       </div>
                     )}
 
@@ -1365,8 +1653,8 @@ const SandboxView = ({
                     </button>
                     <div className="library-list compact">
                       {panelEntity.data.workers.map((workerName) => (
-                        <div key={workerName} className="library-item">
-                          <div>
+                        <div key={workerName} className="library-item worker-item">
+                          <div className="worker-item-identity">
                             <strong>{workerName}</strong>
                             <span className="muted">
                               {modelNameById.get(
@@ -1375,22 +1663,120 @@ const SandboxView = ({
                               ) ?? 'Unlinked'}
                             </span>
                           </div>
-                          <select
-                            value={
-                              state.workers.find((worker) => worker.name === workerName)?.modelId ?? ''
-                            }
-                            onChange={(event) => updateWorkerModel(workerName, event.target.value)}
-                          >
-                            <option value="">Select model</option>
-                            {state.models.map((model) => (
-                              <option key={model.id} value={model.id}>
-                                {model.name}
-                              </option>
-                            ))}
-                          </select>
+                          <label className="field worker-item-model">
+                            <span>Model</span>
+                            <select
+                              value={
+                                state.workers.find((worker) => worker.name === workerName)?.modelId ??
+                                ''
+                              }
+                              onChange={(event) => updateWorkerModel(workerName, event.target.value)}
+                            >
+                              <option value="">Select model</option>
+                              {state.models.map((model) => (
+                                <option key={model.id} value={model.id}>
+                                  {model.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <div className="inline-fields worker-item-pp">
+                            <label className="field">
+                              {renderFieldLabel(
+                                'PP Stage',
+                                'Pipeline stage index handled by this worker. Use zero-based values: 0 to PP World-1.'
+                              )}
+                              <input
+                                type="text"
+                                value={
+                                  state.workers.find((worker) => worker.name === workerName)?.parallel
+                                    ?.pipelineStage ?? ''
+                                }
+                                onChange={(event) =>
+                                  updateWorkerParallel(workerName, {
+                                    pipelineStage: event.target.value
+                                  })
+                                }
+                              />
+                            </label>
+                            <label className="field">
+                              {renderFieldLabel(
+                                'PP World',
+                                'Total number of pipeline stages in this run. Keep this identical for all PP workers in the same pipeline.'
+                              )}
+                              <input
+                                type="text"
+                                value={
+                                  state.workers.find((worker) => worker.name === workerName)?.parallel
+                                    ?.pipelineWorldSize ?? ''
+                                }
+                                onChange={(event) =>
+                                  updateWorkerParallel(workerName, {
+                                    pipelineWorldSize: event.target.value
+                                  })
+                                }
+                              />
+                            </label>
+                          </div>
+                          <div className="inline-fields worker-item-tp">
+                            <label className="field">
+                              {renderFieldLabel(
+                                'TP Group',
+                                'Text group ID for tensor parallel workers that shard layers together (for example: tp_g0).'
+                              )}
+                              <input
+                                type="text"
+                                value={
+                                  state.workers.find((worker) => worker.name === workerName)?.parallel
+                                    ?.tpGroup ?? ''
+                                }
+                                onChange={(event) =>
+                                  updateWorkerParallel(workerName, {
+                                    tpGroup: event.target.value
+                                  })
+                                }
+                              />
+                            </label>
+                            <label className="field">
+                              {renderFieldLabel(
+                                'TP Rank',
+                                'Worker index inside its TP Group. Use zero-based values: 0 to TP World-1.'
+                              )}
+                              <input
+                                type="text"
+                                value={
+                                  state.workers.find((worker) => worker.name === workerName)?.parallel
+                                    ?.tpRank ?? ''
+                                }
+                                onChange={(event) =>
+                                  updateWorkerParallel(workerName, {
+                                    tpRank: event.target.value
+                                  })
+                                }
+                              />
+                            </label>
+                            <label className="field">
+                              {renderFieldLabel(
+                                'TP World',
+                                'Number of workers participating in this TP Group. Must match the total ranks defined for that group.'
+                              )}
+                              <input
+                                type="text"
+                                value={
+                                  state.workers.find((worker) => worker.name === workerName)?.parallel
+                                    ?.tpWorldSize ?? ''
+                                }
+                                onChange={(event) =>
+                                  updateWorkerParallel(workerName, {
+                                    tpWorldSize: event.target.value
+                                  })
+                                }
+                              />
+                            </label>
+                          </div>
                           <button
                             type="button"
-                            className="ghost danger"
+                            className="ghost danger worker-item-remove"
                             onClick={() => removeWorker(workerName)}
                           >
                             Remove
@@ -1572,6 +1958,12 @@ const SandboxView = ({
           </div>
         </aside>
       </div>
+
+      <ValidationPanel
+        issues={sandboxIssues}
+        title="Topology validation"
+        subtitle="Resolve blocking topology and device issues before export."
+      />
     </div>
   );
 };

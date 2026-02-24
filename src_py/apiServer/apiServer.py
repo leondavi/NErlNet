@@ -12,7 +12,19 @@ import json
 import tempfile
 from contextlib import ExitStack
 from singleton import Singleton
-from huggingface_hub import HfApi, utils , snapshot_download
+from huggingface_hub import HfApi, snapshot_download
+
+try:
+    from huggingface_hub.errors import RepositoryNotFoundError
+except Exception:
+    try:
+        from huggingface_hub.utils import RepositoryNotFoundError
+    except Exception:
+        try:
+            from huggingface_hub.utils._errors import RepositoryNotFoundError
+        except Exception:
+            class RepositoryNotFoundError(Exception):
+                pass
 from experiment_flow import *
 from pathlib import Path
 from jsonDirParser import JsonDirParser
@@ -32,6 +44,7 @@ class ApiServer(metaclass=Singleton):
         self.json_dir_parser = JsonDirParser()
         self.experiments_dict = {}
         self.current_exp = None
+        self.explicit_json_paths = None
         self.apiserver_event_sync = EventSync() # pay attention! there are two kinds of syncs one for experiment phase events and one for api-server events
         self.next_expertiment_phase_exist = True      # flag to check if there are more phases to run
 
@@ -64,6 +77,7 @@ class ApiServer(metaclass=Singleton):
         dcData = self.json_dir_parser.json_from_path(dc_json)
         connData = self.json_dir_parser.json_from_path(conn_map_json)
         batch_size = int(dcData["nerlnetSettings"]["batchSize"])
+        self.explicit_json_paths = (dc_json, conn_map_json, experiment_flow_json)
 
         globe.components = NetworkComponents(dcData) # move network component into experiment class
         # comDB = NerlComDB(globe.components)
@@ -106,6 +120,11 @@ class ApiServer(metaclass=Singleton):
                 
     def send_jsons_to_devices(self): #User Api
         archAddress , connMapAddress, _ = self.getUserJsons()
+        if not archAddress or not connMapAddress:
+            if self.explicit_json_paths:
+                archAddress, connMapAddress, _ = self.explicit_json_paths
+            else:
+                raise RuntimeError("No distributed config/connection map were selected for transmission.")
         torch_assets = self._get_torch_assets()
 
         with ExitStack() as stack:
@@ -226,7 +245,10 @@ class ApiServer(metaclass=Singleton):
             self.send_data_to_sources(csv_dataset_inst, current_exp_phase, events_sync_inst)
 
             events_sync_inst.set_event_wait(EventSync.UPDATE_PHASE)
-            self.transmitter.clients_set_phase(current_exp_phase.get_phase_type())
+            self.transmitter.clients_set_phase(
+                current_exp_phase.get_phase_type(),
+                current_exp_phase.get_parallel_execution()
+            )
             events_sync_inst.sync_on_event(EventSync.UPDATE_PHASE)
 
             events_sync_inst.set_event_wait(EventSync.START_CASTING)
@@ -385,7 +407,7 @@ class ApiServer(metaclass=Singleton):
                 datasets[repo["id"]] = repo_csv_files
             for i , (repo_name , files) in enumerate(datasets.items()):
                 print(f'{i}. {repo_name}: {files}')
-        except utils._errors.RepositoryNotFoundError:
+        except RepositoryNotFoundError:
             LOG_INFO(f"Failed to find the repository '{repo}'. Check your '{HF_DATA_REPO_PATHS_JSON}' file or network access.")
             
     def download_dataset(self, repo_idx : int, download_dir_path : str = DEFAULT_NERLNET_TMP_DATA_DIR):
@@ -402,7 +424,7 @@ class ApiServer(metaclass=Singleton):
                         os.makedirs(full_path_to_repo)
                     snapshot_download(repo_id=repo_id, local_dir=f'{full_path_to_repo}', repo_type="dataset")
                     LOG_INFO(f"Files downloaded to {download_dir_path}/{repo['name']}")
-        except utils._errors.RepositoryNotFoundError:
+        except RepositoryNotFoundError:
             LOG_INFO(f"Failed to find the repository '{repo}'. Check your '{HF_DATA_REPO_PATHS_JSON}' file or network access.")
         
     
@@ -410,7 +432,7 @@ class ApiServer(metaclass=Singleton):
         try:
             api = HfApi()
             api.list_repo_files(repo_id=repo_id , repo_type="dataset")
-        except utils._errors.RepositoryNotFoundError:
+        except RepositoryNotFoundError:
             print("Failed to find the repository. Check your 'repo_id' and network access.")
             return
         with open(HF_DATA_REPO_PATHS_JSON) as file:

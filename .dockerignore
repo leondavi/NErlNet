@@ -1,0 +1,9 @@
+.git
+.build-codex
+.rebar3
+.docker-artifacts
+build
+src_erl/NerlnetApp/_build
+src_erl/NerlnetApp/.rebar3
+src_erl/rebar3/_build
+src_erl/rebar3/.rebar3

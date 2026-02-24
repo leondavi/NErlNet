@@ -18,8 +18,8 @@ export type ValidationResult = {
   warnings: ValidationIssue[];
 };
 
-const ensureExportScope = (scopes: ValidationScope[]) =>
-  Array.from(new Set([...scopes, 'export']));
+const ensureExportScope = (scopes: ValidationScope[]): ValidationScope[] =>
+  Array.from(new Set<ValidationScope>([...scopes, 'export']));
 
 const addIssue = (
   issues: ValidationIssue[],
@@ -61,7 +61,8 @@ export const validatePlannerState = (state: PlannerState): ValidationResult => {
     { name: 'apiServer', kind: 'server', port: state.servers.apiServer.port },
     ...state.routers.map((router) => ({ name: router.name, kind: 'router', port: router.port })),
     ...state.sources.map((source) => ({ name: source.name, kind: 'source', port: source.port })),
-    ...state.clients.map((client) => ({ name: client.name, kind: 'client', port: client.port }))
+    ...state.clients.map((client) => ({ name: client.name, kind: 'client', port: client.port })),
+    ...state.superNodes.map((superNode) => ({ name: superNode.name, kind: 'superNode', port: superNode.port }))
   ].filter((entry) => entry.name.trim() !== '');
 
   const entityNames = entityEntries.map((entry) => entry.name);
@@ -293,6 +294,7 @@ export const validatePlannerState = (state: PlannerState): ValidationResult => {
   const workerNames = new Set(state.workers.map((worker) => worker.name));
   const modelIds = new Set(state.models.map((model) => model.id));
   const assignedWorkers = new Set(state.clients.flatMap((client) => client.workers));
+  const superNodeNames = new Set(state.superNodes.map((superNode) => superNode.name));
 
   state.clients.forEach((client) => {
     if (client.workers.length === 0) {
@@ -313,6 +315,56 @@ export const validatePlannerState = (state: PlannerState): ValidationResult => {
         );
       }
     });
+    if (client.superNode && client.superNode.trim()) {
+      if (!superNodeNames.has(client.superNode)) {
+        addIssue(
+          issues,
+          'error',
+          `Client ${client.name} references unknown super node ${client.superNode}.`,
+          ['sandbox', 'experiment']
+        );
+      }
+    }
+  });
+
+  state.superNodes.forEach((superNode) => {
+    if (superNode.managedClients.length === 0) {
+      addIssue(
+        issues,
+        'warning',
+        `Super node ${superNode.name} has no managed clients.`,
+        ['sandbox', 'experiment']
+      );
+    }
+    superNode.managedClients.forEach((clientName) => {
+      if (!state.clients.some((client) => client.name === clientName)) {
+        addIssue(
+          issues,
+          'error',
+          `Super node ${superNode.name} references unknown client ${clientName}.`,
+          ['sandbox', 'experiment']
+        );
+      }
+    });
+    if (!isNumeric(superNode.heartbeatMs) || Number(superNode.heartbeatMs) < 1) {
+      addIssue(
+        issues,
+        'error',
+        `Super node ${superNode.name} heartbeat must be a positive number.`,
+        ['sandbox']
+      );
+    }
+    if (
+      !isNumeric(superNode.maxInflightMicrobatches) ||
+      Number(superNode.maxInflightMicrobatches) < 1
+    ) {
+      addIssue(
+        issues,
+        'error',
+        `Super node ${superNode.name} max inflight microbatches must be positive.`,
+        ['sandbox']
+      );
+    }
   });
 
   state.workers.forEach((worker) => {
@@ -332,6 +384,62 @@ export const validatePlannerState = (state: PlannerState): ValidationResult => {
         ['models']
       );
     }
+    if (worker.parallel) {
+      const stage = toNumber(worker.parallel.pipelineStage);
+      const stageWorld = toNumber(worker.parallel.pipelineWorldSize);
+      const tpRank = toNumber(worker.parallel.tpRank);
+      const tpWorld = toNumber(worker.parallel.tpWorldSize);
+
+      if (worker.parallel.pipelineStage && (stage === null || stage < 0)) {
+        addIssue(
+          issues,
+          'error',
+          `Worker ${worker.name} has invalid pipeline stage.`,
+          ['models', 'experiment']
+        );
+      }
+      if (worker.parallel.pipelineWorldSize && (stageWorld === null || stageWorld < 1)) {
+        addIssue(
+          issues,
+          'error',
+          `Worker ${worker.name} has invalid pipeline world size.`,
+          ['models', 'experiment']
+        );
+      }
+      if (stage !== null && stageWorld !== null && stage >= stageWorld) {
+        addIssue(
+          issues,
+          'error',
+          `Worker ${worker.name} pipeline stage must be lower than pipeline world size.`,
+          ['models', 'experiment']
+        );
+      }
+
+      if (worker.parallel.tpRank && (tpRank === null || tpRank < 0)) {
+        addIssue(
+          issues,
+          'error',
+          `Worker ${worker.name} has invalid TP rank.`,
+          ['models', 'experiment']
+        );
+      }
+      if (worker.parallel.tpWorldSize && (tpWorld === null || tpWorld < 1)) {
+        addIssue(
+          issues,
+          'error',
+          `Worker ${worker.name} has invalid TP world size.`,
+          ['models', 'experiment']
+        );
+      }
+      if (tpRank !== null && tpWorld !== null && tpRank >= tpWorld) {
+        addIssue(
+          issues,
+          'error',
+          `Worker ${worker.name} TP rank must be lower than TP world size.`,
+          ['models', 'experiment']
+        );
+      }
+    }
   });
 
   const usedModelIds = new Set(state.workers.map((worker) => worker.modelId).filter(Boolean));
@@ -349,6 +457,42 @@ export const validatePlannerState = (state: PlannerState): ValidationResult => {
           ['models']
         );
       }
+    }
+    if (Array.isArray(model.tpPlan)) {
+      model.tpPlan.forEach((entry, index) => {
+        if (!entry.layer.trim()) {
+          addIssue(
+            issues,
+            'error',
+            `Model ${model.name} tpPlan entry #${index + 1} is missing layer.`,
+            ['models']
+          );
+        }
+        if (!['column', 'row'].includes(entry.mode)) {
+          addIssue(
+            issues,
+            'error',
+            `Model ${model.name} tpPlan entry #${index + 1} has invalid mode.`,
+            ['models']
+          );
+        }
+        if (!entry.group.trim()) {
+          addIssue(
+            issues,
+            'error',
+            `Model ${model.name} tpPlan entry #${index + 1} is missing TP group.`,
+            ['models']
+          );
+        }
+        if (!isNumeric(entry.shardAxis)) {
+          addIssue(
+            issues,
+            'error',
+            `Model ${model.name} tpPlan entry #${index + 1} has invalid shard axis.`,
+            ['models']
+          );
+        }
+      });
     }
   });
 
@@ -573,6 +717,79 @@ export const validatePlannerState = (state: PlannerState): ValidationResult => {
         `Phase ${phase.phaseName} has invalid type ${phase.phaseType}.`,
         ['experiment']
       );
+    }
+    if (phase.parallelExecution) {
+      const mode = phase.parallelExecution.mode;
+      if (!['legacy', 'pipeline', 'tensor', 'pipeline_tensor'].includes(mode)) {
+        addIssue(
+          issues,
+          'error',
+          `Phase ${phase.phaseName} has unsupported parallel mode ${mode}.`,
+          ['experiment']
+        );
+      }
+      if (mode !== 'legacy') {
+        if (!phase.parallelExecution.superNode.trim()) {
+          addIssue(
+            issues,
+            'error',
+            `Phase ${phase.phaseName} must define a super node for non-legacy parallel mode.`,
+            ['experiment']
+          );
+        } else if (!superNodeNames.has(phase.parallelExecution.superNode)) {
+          addIssue(
+            issues,
+            'error',
+            `Phase ${phase.phaseName} references unknown super node ${phase.parallelExecution.superNode}.`,
+            ['experiment']
+          );
+        }
+      }
+      if (['pipeline', 'pipeline_tensor'].includes(mode)) {
+        if (!['gpipe', '1f1b', 'interleaved'].includes(phase.parallelExecution.scheduler)) {
+          addIssue(
+            issues,
+            'error',
+            `Phase ${phase.phaseName} has invalid parallel scheduler ${phase.parallelExecution.scheduler}.`,
+            ['experiment']
+          );
+        }
+        if (
+          !isNumeric(phase.parallelExecution.microBatchSize) ||
+          Number(phase.parallelExecution.microBatchSize) < 1
+        ) {
+          addIssue(
+            issues,
+            'error',
+            `Phase ${phase.phaseName} microBatchSize must be a positive number.`,
+            ['experiment']
+          );
+        }
+        if (
+          !isNumeric(phase.parallelExecution.numMicroBatches) ||
+          Number(phase.parallelExecution.numMicroBatches) < 1
+        ) {
+          addIssue(
+            issues,
+            'error',
+            `Phase ${phase.phaseName} numMicroBatches must be a positive number.`,
+            ['experiment']
+          );
+        }
+        if (phase.parallelExecution.scheduler === 'interleaved') {
+          if (
+            !isNumeric(phase.parallelExecution.virtualStages) ||
+            Number(phase.parallelExecution.virtualStages) < 1
+          ) {
+            addIssue(
+              issues,
+              'error',
+              `Phase ${phase.phaseName} virtualStages must be a positive number for interleaved scheduling.`,
+              ['experiment']
+            );
+          }
+        }
+      }
     }
     if (phase.sourcePieces.length === 0) {
       addIssue(

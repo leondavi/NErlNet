@@ -169,6 +169,8 @@ generate_workers_stats_ets() -> %% workers..
     ets:insert(WorkersStatsEts, {acc_time_training , 0}),
     ets:insert(WorkersStatsEts, {acc_time_prediction , 0}),
     ets:insert(WorkersStatsEts, {nan_loss_count , 0}),
+    ets:insert(WorkersStatsEts, {tp_collective_count , 0}),
+    ets:insert(WorkersStatsEts, {tp_collective_latency_us , 0}),
     WorkersStatsEts.
 
 %% ---- Workers Stats ETS Methods ----%%
@@ -303,17 +305,18 @@ toc(StatsEts, TimerID) ->
 
 %% Performance Stats Query Methods
 query_memory_usage() ->
-    %% Get the memory usage of the Erlang VM
-    [{system_total_memory,SystemTotalMemory},
-    {free_memory, FreeMemory},
-    {total_memory, _TotalMemory},
-    {buffered_memory, _BufferedMemory},
-    {cached_memory, _CachedMemory},
-    {total_swap, _TotalSwap},
-    {free_swap, _FreeSwap},
-    {available_memory, _AvailableMemory}] = memsup:get_system_memory_data(),
+    %% memsup payload key order is not stable across OTP versions.
+    %% Resolve keys by name and keep a backward-compatible fallback.
+    MemData = memsup:get_system_memory_data(),
+    SystemTotalMemory = proplists:get_value(system_total_memory, MemData, 0),
+    TotalMemory = proplists:get_value(total_memory, MemData, 0),
+    FreeMemory = proplists:get_value(free_memory, MemData, 0),
+    MemoryTotal = case SystemTotalMemory > 0 of
+        true -> SystemTotalMemory;
+        false -> TotalMemory
+    end,
     %% Calculate the used memory
-    SystemTotalMemory - FreeMemory.
+    MemoryTotal - FreeMemory.
 
 reset_query_cpu_util_cores() ->
     %% Reset the CPU utilization data

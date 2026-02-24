@@ -1,5 +1,6 @@
 /.idea
 /.venv
+/.venv-*
 /src_cpp/.sconsign.dblite
 *.o
 *.beam
@@ -96,3 +97,11 @@ erl_crash.dump
 Thumbs.db
 *.swp
 *~
+
+# Local/dev artifacts
+.build-codex/
+.docker-artifacts/
+*.bac
+*.bak
+*.tmp
+*.temp

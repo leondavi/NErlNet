@@ -11,22 +11,37 @@
 ## Pipeline overview
 1) API Server (Python) loads DC + Conn + Exp JSONs, builds `NetworkComponents`, and orchestrates phases.
 2) Main Server + entities (sources/routers/clients/workers) run on devices; routers forward data, sources emit batches, clients host workers.
-3) Training phase runs, then prediction phase runs; stats are collected per phase.
+3) In `parallelExecution.mode=legacy`, client/worker behavior follows legacy flow.
+4) In non-legacy parallel modes, Super Node is the control authority (`Super Node -> Clients -> Workers`):
+   - Main Server sends phase update to Super Node.
+   - Super Node pushes parallel config commands to managed clients.
+   - Super Node issues scheduler grants for pipeline events.
+   - Clients forward grants to workers; workers must consume grants before emitting pipeline events.
+5) Training phase runs, then prediction phase runs; stats are collected per phase.
 
 ## JSONs (shape + purpose)
 - Distributed config (DC, `dc_*.json`):
   - `nerlnetSettings` (frequency, batchSize)
   - `mainServer`/`apiServer` (port, args)
   - `devices` (name, ipv4, entities CSV string)
-  - `routers`, `sources`, `clients`
+  - `routers`, `sources`, `clients`, optional `superNodes`
   - `workers` list (name + model_sha)
   - `model_sha` map (sha -> model payload)
+  - Parallel extensions:
+    - `clients[].superNode`
+    - `workers[].parallel` (`pipelineStage`, `pipelineWorldSize`, `tpGroup`, `tpRank`, `tpWorldSize`)
+    - `model_sha[*].tpPlan` (explicit TP shard plan metadata)
 - Connection map (`conn_*.json`):
   - `connectionsMap` dict `{entity: [neighbors...]}`; parser adds bidirectional edges.
 - Experiment flow (`exp_*.json`):
   - `experimentName`, `experimentType`, `batchSize`, `csvFilePath`, `numOfFeatures`, `numOfLabels`, `headersNames`
   - `Phases`: list of `{phaseName, phaseType, sourcePieces}`
   - `sourcePieces`: `{sourceName, startingSample, numOfBatches, workers, nerltensorType}`
+  - Optional per-phase `parallelExecution`:
+    - `mode`: `legacy|pipeline|tensor|pipeline_tensor`
+    - `superNode`
+    - `scheduler`: `gpipe|1f1b|interleaved` (pipeline modes)
+    - `microBatchSize`, `numMicroBatches`, `virtualStages` (as relevant)
 - Torch model payload (inside DC `model_sha` map):
   - `infraType: "torch"`, `pt_path`, `pt_format`, `pt_checksum`, `pt_description`
   - `train_params` (lr, epochs, optimizer, loss, input_tensor_shape, labels_shape, labels_offset, w_init_rand, batch_size)
@@ -39,6 +54,8 @@
 - Each entity assigned to exactly one device; `mainServer` must appear in a device.
 - No duplicate ports within the same device.
 - Connection map must connect all entities (strongly connected after bidirectional edges).
+- If non-legacy parallel mode is selected, a valid Super Node must be configured and referenced by phase config.
+- Non-legacy client parallel settings are Super Node-driven; Main Server does not directly own non-legacy mode/execution fanout.
 - Clients should have non-empty worker lists; all client workers must exist in DC `workers`.
 - Experiment flow: `experimentType` required; `phaseName` unique; `phaseType` in {training,prediction}.
 - Exp `batchSize` must equal DC `batchSize` (asserted in API server).
@@ -49,6 +66,9 @@
 - Torch: `pt_path` must resolve to an existing file; if `pt_checksum` not `placeholder/none`, checksum must match.
 - Torch train params must include keys: `model_path` (auto), `lr`, `epochs`, `optimizer`, `loss`, `input_tensor_shape`, `labels_shape`, `labels_offset`.
 - Torch worker effectively supports `adam` or `sgd` optimizers; loss is fixed to MSE in the runtime.
+- Worker non-legacy pipeline events are scheduler-grant-gated when Super Node authority is enabled.
+- In non-legacy modes, workers buffer incoming `sample` messages while in `wait` state (`parallel_deferred_samples`) and dequeue deterministically after batch completion to avoid TP peer batch desynchronization.
+- `pipeline_tensor` uses forward-only scheduler grants, while TP collectives execute per `tpPlan` entry with deterministic `{batch,microbatch,layer,mode}` collective tokens.
 
 ## Web planner (web/nerl-planner)
 - `NerlnetPlanner.sh` only runs the planner dev server (`npm install`, `npm run dev -- --open`).
@@ -68,3 +88,6 @@
 - Full-flow tests use `tests/inputJsonsFiles` and `tests/inputTorchJsonsFiles` with `src_py/apiServer/experiment_flow_test.py`.
 - `tests/NerlnetFullFlowTorchTest.sh` generates a TorchScript model and runs the pipeline end-to-end.
 - `tests/NerlnetFullFlowTorchLocalDebug.sh` runs a local Torch flow against supplied JSONs and prints verbose logs via `src_py/apiServer/experiment_flow_local_debug.py`.
+- Parallel contract and scheduler tests live under `tests/parallelism/`.
+- Docker CPU Torch validation lives under `docker/ubuntu-torch-cpu/` and includes PTD loss parity checks.
+- `tests/inputTorchJsonsFiles/parallel_smoke/exp_torch_pipeline_tensor_smoke.json` is the primary smoke for Super Node + `pipeline_tensor` runtime verification.

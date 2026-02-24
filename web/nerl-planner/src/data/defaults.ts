@@ -28,7 +28,8 @@ export const createOpenNNModel = (
     optimizerArgs: '',
     distributedSystemType: '0',
     distributedSystemArgs: '',
-    distributedSystemToken: 'none'
+    distributedSystemToken: 'none',
+    tpPlan: []
   };
 };
 
@@ -58,7 +59,8 @@ export const createTorchModel = (name = 'New Torch Model'): TorchModel => ({
   },
   distributedSystemType: '0',
   distributedSystemArgs: '',
-  distributedSystemToken: 'none'
+  distributedSystemToken: 'none',
+  tpPlan: []
 });
 
 export const createDefaultState = (): PlannerState => ({
@@ -74,6 +76,7 @@ export const createDefaultState = (): PlannerState => ({
   routers: [],
   sources: [],
   clients: [],
+  superNodes: [],
   workers: [],
   models: [],
   connections: [],
@@ -88,6 +91,13 @@ export const createDefaultState = (): PlannerState => ({
     phases: []
   },
   ui: {
-    nodePositions: {}
+    nodePositions: {},
+    hfDatasetCache: {
+      datasets: [],
+      selectedIdx: '',
+      status: 'idle',
+      message: '',
+      hasLoaded: false
+    }
   }
 });

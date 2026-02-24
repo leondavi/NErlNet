@@ -2,7 +2,9 @@
 -include_lib("kernel/include/logger.hrl").
 -include("torchDefs.hrl").
 
--export([init/0,nif_preload/0,get_active_models_ids_list/0, train_nif/3,update_nerlworker_train_params_nif/6,call_to_train/4,predict_nif/3,call_to_predict/4,get_weights_nif/1,printTensor/2]).
+-export([init/0,nif_preload/0,get_active_models_ids_list/0, train_nif/3,train_microbatch_nif/4,optimizer_barrier_nif/1,
+         update_nerlworker_train_params_nif/6,call_to_train/4,call_to_train_microbatch/5,call_to_optimizer_barrier/1,
+         predict_nif/3,call_to_predict/4,get_weights_nif/1,set_weights_nif/3,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
 -export([encode_nif/2, nerltensor_encode/5, nerltensor_conversion/2, get_all_binary_types/0, get_all_nerltensor_list_types/0]).
@@ -17,6 +19,7 @@
 % math of nerltensors
 -export([nerltensor_sum_nif/3]).
 -export([nerltensor_scalar_multiplication_nif/3, nerltensor_scalar_multiplication_erl/2]).
+-export([nerltensor_split_nif/4, nerltensor_concat_nif/3, nerltensor_reduce_sum_list_nif/2]).
 
 % nerlworker nif methods
 -export([new_nerlworker_nif/4, remove_nerlworker_nif/1, test_nerlworker_nif/4,get_distributed_system_train_labels_count_nif/1]).
@@ -68,6 +71,12 @@ get_active_models_ids_list() ->
 train_nif(_ModelID,_DataTensor,_Type) ->
       exit(nif_library_not_loaded).
 
+train_microbatch_nif(_ModelID, _DataTensor, _Type, _MicrobatchID) ->
+      exit(nif_library_not_loaded).
+
+optimizer_barrier_nif(_ModelID) ->
+      exit(nif_library_not_loaded).
+
 update_nerlworker_train_params_nif(_ModelID,_LearningRate,_Epochs,_OptimizerType,_OptimizerArgs,_LossMethod) ->
       exit(nif_library_not_loaded).
 
@@ -89,10 +98,19 @@ train_negotiator(ModelID, WorkerPid, BatchID, SourceName) ->
       receive
             {start_train , CurrentSourceName, CurrentBatchID, ModelID, DataTensor, Type} ->
                   ok = train_nif(ModelID, DataTensor, Type), train_negotiator(ModelID, WorkerPid, CurrentBatchID, CurrentSourceName);
+            {start_train_microbatch, CurrentSourceName, CurrentBatchID, CurrentMicrobatchID, ModelID, DataTensor, Type} ->
+                  ok = train_microbatch_nif(ModelID, DataTensor, Type, CurrentMicrobatchID),
+                  train_negotiator(ModelID, WorkerPid, CurrentBatchID, CurrentSourceName);
+            {optimizer_barrier, ModelID} ->
+                  _ = optimizer_barrier_nif(ModelID),
+                  train_negotiator(ModelID, WorkerPid, BatchID, SourceName);
             {nerlnif, nan, TrainTime} -> 
                   gen_statem:cast(WorkerPid,{loss, nan , TrainTime , BatchID , SourceName}), train_negotiator(ModelID, WorkerPid, BatchID, SourceName);
             {nerlnif , LossTensor, LossTensorType , TrainTime}-> % TrainTime is in microseconds
                   gen_statem:cast(WorkerPid,{loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}), train_negotiator(ModelID, WorkerPid, BatchID, SourceName);
+            {nerlnif , LossTensor, LossTensorType , TrainTime, MicrobatchID}-> % microbatch parallel mode
+                  gen_statem:cast(WorkerPid,{loss_microbatch, {LossTensor, LossTensorType}, TrainTime, BatchID, SourceName, MicrobatchID}),
+                  train_negotiator(ModelID, WorkerPid, BatchID, SourceName);
             {nerlnif_stop_train} ->
                   ok
             % after ?TRAIN_TIMEOUT ->  %TODO inspect this timeout 
@@ -105,6 +123,16 @@ call_to_train(ModelID, {DataTensor, Type} , BatchID , SourceName) ->
       TrainNegotiatorPID = get(nerlnif_train_negotiator_pid),
       % send the batch to the nif for training
       TrainNegotiatorPID ! {start_train , SourceName, BatchID, ModelID, DataTensor, Type},
+      ok.
+
+call_to_train_microbatch(ModelID, {DataTensor, Type}, BatchID, SourceName, MicrobatchID) ->
+      TrainNegotiatorPID = get(nerlnif_train_negotiator_pid),
+      TrainNegotiatorPID ! {start_train_microbatch, SourceName, BatchID, MicrobatchID, ModelID, DataTensor, Type},
+      ok.
+
+call_to_optimizer_barrier(ModelID) ->
+      TrainNegotiatorPID = get(nerlnif_train_negotiator_pid),
+      TrainNegotiatorPID ! {optimizer_barrier, ModelID},
       ok.
 
 % Predict Negotiator process - to handle predict requests without spawning for each batch
@@ -227,6 +255,47 @@ nerltensor_sum_nif(_BinaryA, _BinaryB, _Mutual_Binary_Type) ->
 nerltensor_scalar_multiplication_nif(_NerlTensorBinary, _BinaryType, _ScalarValue) -> 
       exit(nif_library_not_loaded). % returns {Binary, Type}
 
+nerltensor_split_nif(NerlTensorBinary, BinaryType, NumShards, Axis) ->
+      {DecodedTensor, TensorListType} = decode_nif(NerlTensorBinary, BinaryType),
+      [DimXRaw, DimYRaw, DimZRaw | Data] = DecodedTensor,
+      DimX = round(DimXRaw),
+      DimY = round(DimYRaw),
+      DimZ = round(DimZRaw),
+      case Axis of
+            0 ->
+                  split_axis0(Data, DimX, DimY, DimZ, NumShards, TensorListType, BinaryType);
+            1 ->
+                  split_axis1(Data, DimX, DimY, DimZ, NumShards, TensorListType, BinaryType);
+            _ ->
+                  throw({unsupported_split_axis, Axis})
+      end.
+
+nerltensor_concat_nif(ShardsList, BinaryType, Axis) when is_list(ShardsList) ->
+      DecodedShards = [decode_nif(ShardBin, BinaryType) || {ShardBin, _ShardType} <- ShardsList],
+      case Axis of
+            0 -> concat_axis0(DecodedShards, BinaryType);
+            1 -> concat_axis1(DecodedShards, BinaryType);
+            _ -> throw({unsupported_concat_axis, Axis})
+      end.
+
+nerltensor_reduce_sum_list_nif([], _BinaryType) ->
+      {<<>>, float};
+nerltensor_reduce_sum_list_nif([{TensorBinary, BinaryType}], _RequestedBinaryType) ->
+      {TensorBinary, BinaryType};
+nerltensor_reduce_sum_list_nif([{TensorBinaryA, BinaryType} | Rest], RequestedBinaryType) ->
+      {TensorBinary, TensorType} =
+            lists:foldl(
+              fun({TensorBinaryB, _TensorType}, {AccBinary, AccType}) ->
+                      nerltensor_sum_nif(AccBinary, TensorBinaryB, AccType)
+              end,
+              {TensorBinaryA, BinaryType},
+              Rest
+            ),
+      case RequestedBinaryType of
+            BinaryType -> {TensorBinary, TensorType};
+            _Other -> {TensorBinary, TensorType}
+      end.
+
 %---------- nerlTensor -----------%
 nerltensor_binary_decode(Binary, Type) when erlang:is_binary(Binary) and erlang:is_atom(Type) ->
       NerlTensorListForm = decode_nif(Binary, Type),
@@ -287,6 +356,101 @@ nerltensor_scalar_multiplication_erl({NerlTensorErl, Type}, ScalarValue) ->
                   Dims ++ lists:map(fun(X) -> X * ScalarValue end, NerlTensorErl_NODIMS);
             true -> throw("Bad Type")
       end.
+
+split_axis0(Data, DimX, DimY, DimZ, NumShards, TensorListType, BinaryType) ->
+      SampleSpan = DimY * DimZ,
+      split_axis0_loop(Data, DimX, DimY, DimZ, SampleSpan, NumShards, TensorListType, BinaryType, 0, []).
+
+split_axis0_loop(_Data, _DimX, _DimY, _DimZ, _SampleSpan, NumShards, _TensorListType, _BinaryType, ShardIdx, Acc)
+when ShardIdx >= NumShards ->
+      lists:reverse(Acc);
+split_axis0_loop(Data, DimX, DimY, DimZ, SampleSpan, NumShards, TensorListType, BinaryType, ShardIdx, Acc) ->
+      RemainingShards = NumShards - ShardIdx,
+      RemainingSamples = length(Data) div SampleSpan,
+      SamplesForShard = case RemainingShards =< 1 of
+                          true -> RemainingSamples;
+                          false -> RemainingSamples div RemainingShards
+                        end,
+      ValuesCount = SamplesForShard * SampleSpan,
+      {ShardData, RestData} = lists:split(ValuesCount, Data),
+      DimPrefix = tensor_dims_prefix(TensorListType, SamplesForShard, DimY, DimZ),
+      {ShardBin, _ShardType} = encode_nif(DimPrefix ++ ShardData, BinaryType),
+      split_axis0_loop(
+        RestData, DimX, DimY, DimZ, SampleSpan, NumShards, TensorListType, BinaryType,
+        ShardIdx + 1,
+        [{ShardBin, BinaryType} | Acc]
+      ).
+
+split_axis1(Data, DimX, DimY, DimZ, NumShards, TensorListType, BinaryType) ->
+      SampleSpan = DimY * DimZ,
+      split_axis1_loop(Data, DimX, DimY, DimZ, SampleSpan, NumShards, TensorListType, BinaryType, 0, 0, []).
+
+split_axis1_loop(_Data, _DimX, _DimY, _DimZ, _SampleSpan, NumShards, _TensorListType, _BinaryType, ShardIdx, _StartY, Acc)
+when ShardIdx >= NumShards ->
+      lists:reverse(Acc);
+split_axis1_loop(Data, DimX, DimY, DimZ, SampleSpan, NumShards, TensorListType, BinaryType, ShardIdx, StartY, Acc) ->
+      RemainingShards = NumShards - ShardIdx,
+      RemainingY = DimY - StartY,
+      WidthY = case RemainingShards =< 1 of
+                 true -> RemainingY;
+                 false -> RemainingY div RemainingShards
+               end,
+      ShardData = collect_axis1_shard_data(Data, DimX, DimY, DimZ, SampleSpan, StartY, WidthY),
+      DimPrefix = tensor_dims_prefix(TensorListType, DimX, WidthY, DimZ),
+      {ShardBin, _ShardType} = encode_nif(DimPrefix ++ ShardData, BinaryType),
+      split_axis1_loop(
+        Data, DimX, DimY, DimZ, SampleSpan, NumShards, TensorListType, BinaryType,
+        ShardIdx + 1, StartY + WidthY, [{ShardBin, BinaryType} | Acc]
+      ).
+
+collect_axis1_shard_data(Data, DimX, _DimY, DimZ, SampleSpan, StartY, WidthY) ->
+      lists:flatten(
+        [begin
+            Offset = SampleIdx * SampleSpan + StartY * DimZ,
+            lists:sublist(Data, Offset + 1, WidthY * DimZ)
+         end || SampleIdx <- lists:seq(0, DimX - 1)]
+      ).
+
+concat_axis0(DecodedShards, BinaryType) ->
+      {TotalX, DimY, DimZ, TensorListType, DataList} =
+            lists:foldl(
+              fun({ShardTensor, ShardTensorType}, {AccX, _AccY, _AccZ, _AccType, AccData}) ->
+                      [ShardXRaw, ShardYRaw, ShardZRaw | ShardData] = ShardTensor,
+                      {AccX + round(ShardXRaw), round(ShardYRaw), round(ShardZRaw), ShardTensorType, AccData ++ ShardData}
+              end,
+              {0, 0, 0, erl_float, []},
+              DecodedShards
+            ),
+      DimPrefix = tensor_dims_prefix(TensorListType, TotalX, DimY, DimZ),
+      encode_nif(DimPrefix ++ DataList, BinaryType).
+
+concat_axis1(DecodedShards, BinaryType) ->
+      [{FirstTensor, TensorListType} | _] = DecodedShards,
+      [DimXRaw, _DimYRaw, DimZRaw | _] = FirstTensor,
+      DimX = round(DimXRaw),
+      DimZ = round(DimZRaw),
+      YWidths = [round(YRaw) || {[_, YRaw, _ | _], _} <- DecodedShards],
+      TotalY = lists:sum(YWidths),
+      ReconstructedData = reconstruct_axis1_data(DecodedShards, DimX, DimZ),
+      DimPrefix = tensor_dims_prefix(TensorListType, DimX, TotalY, DimZ),
+      encode_nif(DimPrefix ++ ReconstructedData, BinaryType).
+
+reconstruct_axis1_data(DecodedShards, DimX, DimZ) ->
+      lists:flatten(
+        [lists:flatten(
+           [begin
+               [_, YRaw, _ | ShardData] = ShardTensor,
+               Width = round(YRaw) * DimZ,
+               Offset = SampleIdx * Width,
+               lists:sublist(ShardData, Offset + 1, Width)
+            end || {ShardTensor, _} <- DecodedShards]
+         ) || SampleIdx <- lists:seq(0, DimX - 1)]
+      ).
+
+tensor_dims_prefix(erl_float, DimX, DimY, DimZ) ->
+      [float(DimX), float(DimY), float(DimZ)];
+tensor_dims_prefix(_OtherType, DimX, DimY, DimZ) ->
+      [DimX, DimY, DimZ].
 
 
 

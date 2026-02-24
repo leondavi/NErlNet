@@ -68,7 +68,7 @@ start_link(Args) ->
 
 %%  NerlClientsArgs=[{MyName,Workers,ConnectionsMap},...], Workers = list of maps of name and args
 %%  init nerlClient with given workers and parameters, and build a map :#{workerName=>WorkerPid,...}
-init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , ShaToModelArgsMap}) ->
+init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , ShaToModelArgsMap, ClientSuperNode}) ->
   inets:start(),
   ?LOG_INFO("Client ~p is connected to: ~p~n",[MyName, [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]]),
   % nerl_tools:start_connection([digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:out_neighbours(NerlnetGraph,MyName)]),
@@ -88,6 +88,10 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   ets:insert(EtsRef, {workers_to_sha_map, MyWorkersToShaMap}),
   ets:insert(EtsRef, {sha_to_models_map , ShaToModelArgsMap}),
   ets:insert(EtsRef, {w2wcom_pids, #{}}),
+  ets:insert(EtsRef, {super_node, ClientSuperNode}),
+  ets:insert(EtsRef, {parallel_mode, legacy}),
+  ets:insert(EtsRef, {parallel_execution, #{}}),
+  ets:insert(EtsRef, {parallel_authority, main_server}),
   ets:insert(EtsRef, {all_workers_done, false}),
   ets:insert(EtsRef, {num_of_fed_servers, 0}), % Will stay 0 if non-federated
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM, NerlnetGraph),
@@ -111,6 +115,8 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   put(client_stats_ets , ClientStatsEts),
   put(performance_stats_ets , ClientPerformanceEts),
   put(my_pid , self()),
+  maybe_register_super_node(MyName, EtsRef, NerlnetGraph, ClientWorkers),
+  maybe_start_super_node_heartbeat(MyName, EtsRef, NerlnetGraph),
 
   {ok, idle, #client_statem_state{myName= MyName, etsRef = EtsRef}}.
 
@@ -125,6 +131,30 @@ callback_mode() -> state_functions.
 format_status(_Opt, [_PDict, _StateName, _State]) -> Status = some_term, Status.
 
 %% ==============STATES=================
+waitforWorkers(cast, {set_parallel_mode, Mode, Source}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_mode(EtsRef, Mode, Source),
+  {keep_state, State};
+
+waitforWorkers(cast, {set_parallel_mode, Mode}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_mode(EtsRef, Mode, main_server),
+  {keep_state, State};
+
+waitforWorkers(cast, {set_parallel_execution, ParallelExecution, Source}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_execution(EtsRef, ParallelExecution, Source),
+  {keep_state, State};
+
+waitforWorkers(cast, {set_parallel_execution, ParallelExecution}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_execution(EtsRef, ParallelExecution, main_server),
+  {keep_state, State};
+
+waitforWorkers(cast, {parallel_super_command, SuperCommand}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_super_command(EtsRef, SuperCommand),
+  {keep_state, State};
+
+waitforWorkers(cast, {worker_parallel_abort, WorkerName, Reason}, State = #client_statem_state{etsRef = EtsRef}) ->
+  handle_worker_parallel_abort(EtsRef, WorkerName, Reason),
+  {keep_state, State};
+
 waitforWorkers(cast, In = {stateChange,WorkerName}, State = #client_statem_state{myName = MyName,waitforWorkers = WaitforWorkers,nextState = NextState, etsRef = _EtsRef}) ->
   NewWaitforWorkers = WaitforWorkers -- [WorkerName],
   ClientStatsEts = get(client_stats_ets),
@@ -143,6 +173,20 @@ waitforWorkers(cast, In = {worker_to_worker_msg, FromWorker, ToWorker, Data}, St
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data),
+  {keep_state, State};
+
+waitforWorkers(cast, In = {parallel_deliver, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  deliver_parallel_msg(EtsRef, FromWorker, ToWorker, Data),
+  {keep_state, State};
+
+waitforWorkers(cast, In = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
+  forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
   {keep_state, State};
 
 waitforWorkers(cast, In = {NewState}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
@@ -164,11 +208,49 @@ waitforWorkers(cast, EventContent, State = #client_statem_state{myName = MyName}
   
 
 %% initiating workers when they include federated workers. init stage == handshake between federated worker client and server
+idle(cast, {set_parallel_mode, Mode, Source}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_mode(EtsRef, Mode, Source),
+  {keep_state, State};
+
+idle(cast, {set_parallel_mode, Mode}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_mode(EtsRef, Mode, main_server),
+  {keep_state, State};
+
+idle(cast, {set_parallel_execution, ParallelExecution, Source}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_execution(EtsRef, ParallelExecution, Source),
+  {keep_state, State};
+
+idle(cast, {set_parallel_execution, ParallelExecution}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_execution(EtsRef, ParallelExecution, main_server),
+  {keep_state, State};
+
+idle(cast, {parallel_super_command, SuperCommand}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_super_command(EtsRef, SuperCommand),
+  {keep_state, State};
+
+idle(cast, {worker_parallel_abort, WorkerName, Reason}, State = #client_statem_state{etsRef = EtsRef}) ->
+  handle_worker_parallel_abort(EtsRef, WorkerName, Reason),
+  {keep_state, State};
+
 idle(cast, In = {worker_to_worker_msg, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data),
+  {keep_state, State};
+
+idle(cast, In = {parallel_deliver, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  deliver_parallel_msg(EtsRef, FromWorker, ToWorker, Data),
+  {keep_state, State};
+
+idle(cast, In = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
+  forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
   {keep_state, State};
 
 idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, etsRef = EtsRef}) ->
@@ -226,6 +308,30 @@ idle(cast, EventContent, State = #client_statem_state{etsRef = EtsRef , myName =
   {next_state, training, State#client_statem_state{etsRef = EtsRef}}.
 
 %% passing Data from worker to worker e.g. (FedClient to FedServer)
+training(cast, {set_parallel_mode, Mode, Source}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_mode(EtsRef, Mode, Source),
+  {keep_state, State};
+
+training(cast, {set_parallel_mode, Mode}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_mode(EtsRef, Mode, main_server),
+  {keep_state, State};
+
+training(cast, {set_parallel_execution, ParallelExecution, Source}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_execution(EtsRef, ParallelExecution, Source),
+  {keep_state, State};
+
+training(cast, {set_parallel_execution, ParallelExecution}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_execution(EtsRef, ParallelExecution, main_server),
+  {keep_state, State};
+
+training(cast, {parallel_super_command, SuperCommand}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_super_command(EtsRef, SuperCommand),
+  {keep_state, State};
+
+training(cast, {worker_parallel_abort, WorkerName, Reason}, State = #client_statem_state{etsRef = EtsRef}) ->
+  handle_worker_parallel_abort(EtsRef, WorkerName, Reason),
+  {keep_state, State};
+
 training(cast, MessageIn = {update, {From, To, Data}}, State = #client_statem_state{etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -252,6 +358,20 @@ training(cast, In = {worker_to_worker_msg, FromWorker, ToWorker, Data}, State = 
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data),
+  {keep_state, State};
+
+training(cast, In = {parallel_deliver, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  deliver_parallel_msg(EtsRef, FromWorker, ToWorker, Data),
+  {keep_state, State};
+
+training(cast, In = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
+  forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
   {keep_state, State};
   
 % TODO Validate this state - sample and empty list 
@@ -372,6 +492,30 @@ training(cast, EventContent, State = #client_statem_state{etsRef = EtsRef, myNam
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(EventContent)),
   {next_state, training, State#client_statem_state{etsRef = EtsRef}}.
 
+predict(cast, {set_parallel_mode, Mode, Source}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_mode(EtsRef, Mode, Source),
+  {keep_state, State};
+
+predict(cast, {set_parallel_mode, Mode}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_mode(EtsRef, Mode, main_server),
+  {keep_state, State};
+
+predict(cast, {set_parallel_execution, ParallelExecution, Source}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_execution(EtsRef, ParallelExecution, Source),
+  {keep_state, State};
+
+predict(cast, {set_parallel_execution, ParallelExecution}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_execution(EtsRef, ParallelExecution, main_server),
+  {keep_state, State};
+
+predict(cast, {parallel_super_command, SuperCommand}, State = #client_statem_state{etsRef = EtsRef}) ->
+  apply_parallel_super_command(EtsRef, SuperCommand),
+  {keep_state, State};
+
+predict(cast, {worker_parallel_abort, WorkerName, Reason}, State = #client_statem_state{etsRef = EtsRef}) ->
+  handle_worker_parallel_abort(EtsRef, WorkerName, Reason),
+  {keep_state, State};
+
 predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -489,6 +633,20 @@ predict(cast, In = {worker_to_worker_msg, FromWorker, ToWorker, Data}, State = #
   handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data),
   {keep_state, State};
 
+predict(cast, In = {parallel_deliver, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  deliver_parallel_msg(EtsRef, FromWorker, ToWorker, Data),
+  {keep_state, State};
+
+predict(cast, In = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
+  forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
+  {keep_state, State};
+
 %% The source sends message to main server that it has finished
 %% The main server updates its' clients to move to state 'idle'
 
@@ -576,6 +734,166 @@ cast_message_to_workers(EtsRef, Msg) ->
   end,
   lists:foreach(Func, Workers).
 
+apply_parallel_mode(EtsRef, Mode) ->
+  apply_parallel_mode(EtsRef, Mode, main_server).
+
+apply_parallel_mode(EtsRef, Mode, SourceRaw) ->
+  Source = normalize_parallel_source(SourceRaw),
+  NormalizedMode = normalize_parallel_mode(Mode),
+  CurrentAuthority = get_parallel_authority(EtsRef),
+  case should_accept_parallel_update(CurrentAuthority, Source, NormalizedMode) of
+    false ->
+      ok;
+    true ->
+      ets:update_element(EtsRef, parallel_mode, {?DATA_IDX, NormalizedMode}),
+      UpdatedAuthority = resolve_parallel_authority(Source, NormalizedMode),
+      ets:update_element(EtsRef, parallel_authority, {?DATA_IDX, UpdatedAuthority}),
+      case NormalizedMode of
+        legacy ->
+          ets:update_element(EtsRef, parallel_execution, {?DATA_IDX, #{}}),
+          cast_message_to_workers(EtsRef, {set_parallel_mode, legacy}),
+          cast_message_to_workers(EtsRef, {set_parallel_execution, #{}}),
+          cast_message_to_workers(EtsRef, {set_parallel_authority, false});
+        _ ->
+          cast_message_to_workers(EtsRef, {set_parallel_mode, NormalizedMode}),
+          cast_message_to_workers(EtsRef, {set_parallel_authority, Source =:= super_node})
+      end
+  end.
+
+apply_parallel_execution(EtsRef, ParallelExecution) ->
+  apply_parallel_execution(EtsRef, ParallelExecution, main_server).
+
+apply_parallel_execution(EtsRef, ParallelExecution, SourceRaw) ->
+  Source = normalize_parallel_source(SourceRaw),
+  Mode = ets:lookup_element(EtsRef, parallel_mode, ?DATA_IDX),
+  CurrentAuthority = get_parallel_authority(EtsRef),
+  NormalizedExecution = case is_map(ParallelExecution) of
+                          true -> ParallelExecution;
+                          false -> #{}
+                        end,
+  case should_accept_parallel_update(CurrentAuthority, Source, Mode) of
+    false ->
+      ok;
+    true ->
+      case Mode of
+        legacy ->
+          ets:update_element(EtsRef, parallel_execution, {?DATA_IDX, #{}}),
+          cast_message_to_workers(EtsRef, {set_parallel_execution, #{}});
+        _ ->
+          ets:update_element(EtsRef, parallel_execution, {?DATA_IDX, NormalizedExecution}),
+          cast_message_to_workers(EtsRef, {set_parallel_execution, NormalizedExecution})
+      end
+  end.
+
+apply_parallel_super_command(EtsRef, {parallel_super_command, configure_parallel, Mode, ParallelExecution}) ->
+  apply_parallel_mode(EtsRef, Mode, super_node),
+  apply_parallel_execution(EtsRef, ParallelExecution, super_node);
+apply_parallel_super_command(EtsRef, {configure_parallel, Mode, ParallelExecution}) ->
+  apply_parallel_mode(EtsRef, Mode, super_node),
+  apply_parallel_execution(EtsRef, ParallelExecution, super_node);
+apply_parallel_super_command(
+  EtsRef,
+  {parallel_super_command, grant_scheduler_event, Direction, MicrobatchID, StageID, WorkerName}
+) ->
+  deliver_scheduler_grant(EtsRef, Direction, MicrobatchID, StageID, WorkerName);
+apply_parallel_super_command(EtsRef, {grant_scheduler_event, Direction, MicrobatchID, StageID, WorkerName}) ->
+  deliver_scheduler_grant(EtsRef, Direction, MicrobatchID, StageID, WorkerName);
+apply_parallel_super_command(_EtsRef, UnknownCommand) ->
+  ?LOG_WARNING("Ignoring unknown parallel super command: ~p", [UnknownCommand]),
+  ok.
+
+deliver_scheduler_grant(EtsRef, Direction, MicrobatchID, StageID, WorkerNameRaw) ->
+  WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
+  case resolve_worker_name(WorkersOfThisClient, WorkerNameRaw) of
+    {error, _} ->
+      notify_parallel_abort(EtsRef, {scheduler_grant_non_local_worker, WorkerNameRaw, Direction, MicrobatchID, StageID});
+    {ok, WorkerName} ->
+      WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef, WorkerName),
+      gen_statem:cast(
+        WorkerPid,
+        {parallel_scheduler_grant, normalize_parallel_direction(Direction), MicrobatchID, StageID}
+      )
+  end.
+
+normalize_parallel_direction(Direction) when is_atom(Direction) ->
+  Direction;
+normalize_parallel_direction(Direction) when is_binary(Direction) ->
+  normalize_parallel_direction(binary_to_list(Direction));
+normalize_parallel_direction(Direction) when is_list(Direction) ->
+  case string:lowercase(string:trim(Direction)) of
+    "backward" -> backward;
+    _ -> forward
+  end;
+normalize_parallel_direction(_) ->
+  forward.
+
+resolve_worker_name(Workers, WorkerNameRaw) when is_atom(WorkerNameRaw) ->
+  case lists:member(WorkerNameRaw, Workers) of
+    true -> {ok, WorkerNameRaw};
+    false -> {error, unknown_worker}
+  end;
+resolve_worker_name(Workers, WorkerNameRaw) ->
+  CandidateText = worker_name_to_text(WorkerNameRaw),
+  resolve_worker_name_by_text(Workers, CandidateText).
+
+resolve_worker_name_by_text([], _CandidateText) ->
+  {error, unknown_worker};
+resolve_worker_name_by_text([WorkerName | Rest], CandidateText) ->
+  case worker_name_to_text(WorkerName) =:= CandidateText of
+    true -> {ok, WorkerName};
+    false -> resolve_worker_name_by_text(Rest, CandidateText)
+  end.
+
+worker_name_to_text(WorkerName) when is_atom(WorkerName) ->
+  atom_to_list(WorkerName);
+worker_name_to_text(WorkerName) when is_binary(WorkerName) ->
+  binary_to_list(WorkerName);
+worker_name_to_text(WorkerName) when is_list(WorkerName) ->
+  WorkerName;
+worker_name_to_text(WorkerName) ->
+  lists:flatten(io_lib:format("~p", [WorkerName])).
+
+normalize_parallel_source(super_node) -> super_node;
+normalize_parallel_source(main_server) -> main_server;
+normalize_parallel_source(_) -> main_server.
+
+should_accept_parallel_update(_CurrentAuthority, _Source, legacy) ->
+  true;
+should_accept_parallel_update(super_node, main_server, _Mode) ->
+  false;
+should_accept_parallel_update(_CurrentAuthority, _Source, _Mode) ->
+  true.
+
+resolve_parallel_authority(_Source, legacy) ->
+  main_server;
+resolve_parallel_authority(super_node, _Mode) ->
+  super_node;
+resolve_parallel_authority(_Source, _Mode) ->
+  main_server.
+
+get_parallel_authority(EtsRef) ->
+  case ets:lookup(EtsRef, parallel_authority) of
+    [{parallel_authority, Authority}] -> Authority;
+    _ -> main_server
+  end.
+
+handle_worker_parallel_abort(EtsRef, WorkerName, Reason) ->
+  notify_parallel_abort(EtsRef, {worker_parallel_abort, WorkerName, Reason}).
+
+normalize_parallel_mode(Mode) when is_atom(Mode) ->
+  normalize_parallel_mode(atom_to_list(Mode));
+normalize_parallel_mode(Mode) when is_binary(Mode) ->
+  normalize_parallel_mode(binary_to_list(Mode));
+normalize_parallel_mode(Mode) when is_list(Mode) ->
+  case string:lowercase(string:trim(Mode)) of
+    "pipeline" -> pipeline;
+    "tensor" -> tensor;
+    "pipeline_tensor" -> pipeline_tensor;
+    _ -> legacy
+  end;
+normalize_parallel_mode(_) ->
+  legacy.
+
 create_encoded_stats_str(ListStatsEts) ->
   Func = fun({WorkerName , StatsEts}) ->
     WorkerEncStatsStr = stats:encode_workers_ets_to_http_bin_str(StatsEts),
@@ -585,6 +903,16 @@ create_encoded_stats_str(ListStatsEts) ->
   lists:flatten(lists:map(Func , ListStatsEts)).
 
 handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data) ->
+  ParallelMode = case ets:lookup(EtsRef, parallel_mode) of
+                   [] -> legacy;
+                   [{parallel_mode, Mode}] -> Mode
+                 end,
+  case ParallelMode of
+    legacy -> handle_w2w_msg_legacy(EtsRef, FromWorker, ToWorker, Data);
+    _Else -> handle_w2w_msg_super(EtsRef, FromWorker, ToWorker, Data)
+  end.
+
+handle_w2w_msg_legacy(EtsRef, FromWorker, ToWorker, Data) ->
   ClientStatsEts = get(client_stats_ets),
   WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
   WorkerOfThisClient = lists:member(ToWorker, WorkersOfThisClient),
@@ -605,6 +933,113 @@ handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data) ->
       stats:increment_messages_sent(ClientStatsEts),
       stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody))
   end.
+
+handle_w2w_msg_super(EtsRef, FromWorker, ToWorker, Data) ->
+  ClientStatsEts = get(client_stats_ets),
+  SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
+  case SuperNode of
+    none ->
+      notify_parallel_abort(EtsRef, {missing_super_node, FromWorker, ToWorker}),
+      stats:increment_bad_messages(ClientStatsEts);
+    _ ->
+      MessageBody = {parallel_worker_message, FromWorker, ToWorker, Data},
+      {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+      try
+        nerl_tools:http_router_request(RouterHost, RouterPort, [SuperNode], atom_to_list(parallelWorkerMessage), MessageBody),
+        stats:increment_messages_sent(ClientStatsEts),
+        stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(MessageBody))
+      catch
+        Err:Reason ->
+          ?LOG_ERROR("Failed sending parallel worker message through super node ~p: ~p", [SuperNode, {Err, Reason}]),
+          notify_parallel_abort(EtsRef, {super_route_failed, SuperNode, FromWorker, ToWorker, {Err, Reason}}),
+          stats:increment_bad_messages(ClientStatsEts)
+      end
+  end.
+
+deliver_parallel_msg(EtsRef, FromWorker, ToWorker, Data) ->
+  ClientStatsEts = get(client_stats_ets),
+  WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
+  case lists:member(ToWorker, WorkersOfThisClient) of
+    true ->
+      W2WPidsMap = ets:lookup_element(EtsRef, w2wcom_pids, ?DATA_IDX),
+      case maps:get(ToWorker, W2WPidsMap, undefined) of
+        undefined ->
+          notify_parallel_abort(EtsRef, {parallel_target_w2w_missing, ToWorker, FromWorker}),
+          stats:increment_bad_messages(ClientStatsEts);
+        TargetWorkerW2WPID ->
+          {ok, _Reply} = gen_server:call(TargetWorkerW2WPID, {worker_to_worker_msg, FromWorker, ToWorker, Data}),
+          stats:increment_messages_sent(ClientStatsEts),
+          stats:increment_bytes_sent(ClientStatsEts, nerl_tools:calculate_size({FromWorker, ToWorker, Data}))
+      end;
+    false ->
+      notify_parallel_abort(EtsRef, {parallel_deliver_non_local_target, ToWorker, FromWorker}),
+      stats:increment_bad_messages(ClientStatsEts)
+  end.
+
+forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta) ->
+  ClientStatsEts = get(client_stats_ets),
+  SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
+  case SuperNode of
+    none ->
+      notify_parallel_abort(EtsRef, {missing_super_node_parallel_event, FromWorker, Direction}),
+      stats:increment_bad_messages(ClientStatsEts);
+    _ ->
+      MessageBody = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta},
+      {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+      try
+        nerl_tools:http_router_request(RouterHost, RouterPort, [SuperNode], atom_to_list(parallelEvent), MessageBody),
+        stats:increment_messages_sent(ClientStatsEts),
+        stats:increment_bytes_sent(ClientStatsEts, nerl_tools:calculate_size(MessageBody))
+      catch
+        Err:Reason ->
+          notify_parallel_abort(EtsRef, {parallel_event_route_failed, SuperNode, FromWorker, {Err, Reason}}),
+          stats:increment_bad_messages(ClientStatsEts)
+      end
+  end.
+
+notify_parallel_abort(EtsRef, Reason) ->
+  {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+  ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+  MessageBody = {ClientName, Reason},
+  try
+    nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(parallelAbort), MessageBody)
+  catch
+    _:_ -> ok
+  end.
+
+maybe_register_super_node(MyName, EtsRef, _NerlnetGraph, ClientWorkers) ->
+  SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
+  case SuperNode of
+    none -> ok;
+    _ ->
+      {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+      MessageBody = {register_client, MyName, ClientWorkers},
+      try nerl_tools:http_router_request(RouterHost, RouterPort, [SuperNode], atom_to_list(registerClient), MessageBody) of
+        _ -> ok
+      catch
+        _:_ -> ok
+      end
+  end.
+
+maybe_start_super_node_heartbeat(MyName, EtsRef, _NerlnetGraph) ->
+  SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
+  case SuperNode of
+    none -> ok;
+    _ ->
+      spawn(fun() -> super_node_heartbeat_loop(MyName, EtsRef, SuperNode) end),
+      ok
+  end.
+
+super_node_heartbeat_loop(MyName, EtsRef, SuperNode) ->
+  timer:sleep(1000),
+  {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+  HeartbeatPayload = {heartbeat, MyName, erlang:system_time(millisecond)},
+  try
+    nerl_tools:http_router_request(RouterHost, RouterPort, [SuperNode], atom_to_list(superHeartbeat), HeartbeatPayload)
+  catch
+    _:_ -> ok
+  end,
+  super_node_heartbeat_loop(MyName, EtsRef, SuperNode).
 
 perf_stats_memory_usage_update_train() ->
   % memory usage update
