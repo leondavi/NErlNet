@@ -346,6 +346,7 @@ class ApiServer(metaclass=Singleton):
             raise AssertionError("JSONs must be sent to devices first. Call send_jsons_to_devices() before running phases.")
         
         all_phases_stats = []
+        phase_failures = []
         
         # Get the initial phase information
         current_exp_flow = self.current_exp
@@ -381,13 +382,26 @@ class ApiServer(metaclass=Singleton):
                 LOG_INFO(f"Completed phase {phase_count}/{total_phases}: '{phase_name}' ({phase_type})")
                 
             except Exception as e:
-                LOG_ERROR(f"Error running phase {phase_count}/{total_phases} '{phase_name}': {str(e)}")
+                err_msg = str(e) if str(e) else repr(e)
+                LOG_ERROR(f"Error running phase {phase_count}/{total_phases} '{phase_name}': {err_msg}")
+                phase_failures.append((phase_name, phase_type, err_msg))
                 # Continue with next phase instead of stopping completely
                 
             # Move to next phase
             next_phase_type = self.next_experiment_phase()
             if next_phase_type is None:
-                LOG_INFO("All experiment phases completed successfully")
+                if phase_failures:
+                    LOG_WARNING(
+                        f"Experiment phases finished with failures. "
+                        f"failed={len(phase_failures)} succeeded={len(all_phases_stats)} total={total_phases}"
+                    )
+                    for failed_phase_name, failed_phase_type, failed_reason in phase_failures:
+                        LOG_WARNING(
+                            f"Failed phase summary: name='{failed_phase_name}' "
+                            f"type='{failed_phase_type}' reason='{failed_reason}'"
+                        )
+                else:
+                    LOG_INFO("All experiment phases completed successfully")
                 break
                 
             phase_count += 1

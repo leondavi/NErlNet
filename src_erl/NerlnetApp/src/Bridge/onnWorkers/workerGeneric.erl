@@ -90,6 +90,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{parallel_loss_acc, undefined}),
   ets:insert(GenWorkerEts,{parallel_time_acc, 0.0}),
   ets:insert(GenWorkerEts,{parallel_microbatch_queue, []}),
+  ets:insert(GenWorkerEts,{parallel_pending_backward_events, []}),
   ets:insert(GenWorkerEts,{parallel_active_batch_ctx, undefined}),
   ets:insert(GenWorkerEts,{parallel_deferred_samples, []}),
   ets:insert(GenWorkerEts,{worker_parallel_cfg, WorkerParallelCfg}),
@@ -245,13 +246,23 @@ wait(cast, {set_parallel_authority, Enabled}, State) ->
 wait(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) ->
   GenWorkerEts = get(generic_worker_ets),
   append_parallel_scheduler_grant(GenWorkerEts, Direction, MicrobatchID, StageID),
-  case dispatch_queued_parallel_microbatches(GenWorkerEts) of
+  case maybe_dispatch_pending_parallel_backward_events(GenWorkerEts) of
     ok ->
-      {keep_state, State};
-    {abort, DispatchReason} ->
+      case dispatch_queued_parallel_microbatches(GenWorkerEts) of
+        ok ->
+          {keep_state, State};
+        {abort, DispatchReason} ->
+          notify_worker_parallel_abort(
+            GenWorkerEts,
+            {queued_parallel_dispatch_failed, DispatchReason}
+          ),
+          reset_parallel_loss_context(GenWorkerEts),
+          {keep_state, State}
+      end;
+    {abort, PendingDispatchReason} ->
       notify_worker_parallel_abort(
         GenWorkerEts,
-        {queued_parallel_dispatch_failed, DispatchReason}
+        {pending_parallel_backward_dispatch_failed, PendingDispatchReason}
       ),
       reset_parallel_loss_context(GenWorkerEts),
       {keep_state, State}
@@ -790,7 +801,15 @@ maybe_emit_parallel_forward_event(tensor, _WorkerName, _BatchID, _MicrobatchID, 
 maybe_emit_parallel_forward_event(legacy, _WorkerName, _BatchID, _MicrobatchID, _StageID) ->
   ok;
 maybe_emit_parallel_forward_event(_Mode, WorkerName, BatchID, MicrobatchID, StageID) ->
-  emit_parallel_event(WorkerName, forward, BatchID, MicrobatchID, StageID, training).
+  GenWorkerEts = get(generic_worker_ets),
+  case can_emit_parallel_event_now(GenWorkerEts, forward, MicrobatchID, StageID) of
+    ready ->
+      emit_parallel_event(WorkerName, forward, BatchID, MicrobatchID, StageID, training);
+    wait_for_grant ->
+      {error, no_scheduler_grant};
+    {error, Reason} ->
+      {error, Reason}
+  end.
 
 maybe_emit_parallel_backward_event(tensor, _WorkerName, _BatchID, _MicrobatchID, _StageID, _TrainTime) ->
   ok;
@@ -799,7 +818,28 @@ maybe_emit_parallel_backward_event(pipeline_tensor, _WorkerName, _BatchID, _Micr
 maybe_emit_parallel_backward_event(legacy, _WorkerName, _BatchID, _MicrobatchID, _StageID, _TrainTime) ->
   ok;
 maybe_emit_parallel_backward_event(_Mode, WorkerName, BatchID, MicrobatchID, StageID, TrainTime) ->
-  emit_parallel_event(WorkerName, backward, BatchID, MicrobatchID, StageID, TrainTime).
+  GenWorkerEts = get(generic_worker_ets),
+  case can_emit_parallel_event_now(GenWorkerEts, backward, MicrobatchID, StageID) of
+    ready ->
+      emit_parallel_event(WorkerName, backward, BatchID, MicrobatchID, StageID, TrainTime);
+    wait_for_grant ->
+      queue_parallel_backward_event(
+        GenWorkerEts,
+        WorkerName,
+        BatchID,
+        MicrobatchID,
+        StageID,
+        TrainTime
+      ),
+      case maybe_dispatch_pending_parallel_backward_events(GenWorkerEts) of
+        ok ->
+          ok;
+        {abort, PendingDispatchReason} ->
+          {error, {pending_backward_dispatch_failed, PendingDispatchReason}}
+      end;
+    {error, Reason} ->
+      {error, Reason}
+  end.
 
 maybe_apply_tensor_parallel_collectives(
   _GenWorkerEts,
@@ -1514,6 +1554,7 @@ set_worker_parallel_authority(GenWorkerEts, EnabledRaw) ->
     true -> ok;
     false ->
       ets:update_element(GenWorkerEts, parallel_scheduler_grants, {?ETS_KEYVAL_VAL_IDX, []}),
+      ets:update_element(GenWorkerEts, parallel_pending_backward_events, {?ETS_KEYVAL_VAL_IDX, []}),
       ets:update_element(GenWorkerEts, tp_collective_inbox_buffer, {?ETS_KEYVAL_VAL_IDX, []})
   end.
 
@@ -1548,6 +1589,102 @@ maybe_consume_parallel_scheduler_grant(GenWorkerEts, Direction, MicrobatchID, St
           end
       end
   end.
+
+can_emit_parallel_event_now(GenWorkerEts, Direction, MicrobatchID, StageID) ->
+  Mode = normalize_parallel_mode_atom(
+           ets:lookup_element(GenWorkerEts, parallel_mode, ?ETS_KEYVAL_VAL_IDX)
+         ),
+  case is_pipeline_mode_atom(Mode) of
+    false ->
+      ready;
+    true ->
+      HasSuperAuthority = ets:lookup_element(GenWorkerEts, parallel_super_authority, ?ETS_KEYVAL_VAL_IDX),
+      case HasSuperAuthority of
+        false ->
+          {error, super_authority_disabled};
+        true ->
+          ExpectedGrant = {normalize_parallel_direction_atom(Direction), MicrobatchID, StageID},
+          case ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX) of
+            [ExpectedGrant | _RestGrants] ->
+              ready;
+            _ ->
+              wait_for_grant
+          end
+      end
+  end.
+
+queue_parallel_backward_event(GenWorkerEts, WorkerName, BatchID, MicrobatchID, StageID, TrainTime) ->
+  PendingEvents = ets:lookup_element(GenWorkerEts, parallel_pending_backward_events, ?ETS_KEYVAL_VAL_IDX),
+  Event = {WorkerName, BatchID, MicrobatchID, StageID, TrainTime},
+  case lists:any(
+         fun({_W, _B, PendingMicrobatchID, PendingStageID, _T}) ->
+           PendingMicrobatchID =:= MicrobatchID andalso PendingStageID =:= StageID
+         end,
+         PendingEvents
+       ) of
+    true ->
+      ok;
+    false ->
+      ets:update_element(
+        GenWorkerEts,
+        parallel_pending_backward_events,
+        {?ETS_KEYVAL_VAL_IDX, PendingEvents ++ [Event]}
+      )
+  end.
+
+maybe_dispatch_pending_parallel_backward_events(GenWorkerEts) ->
+  Grants = ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX),
+  PendingEvents = ets:lookup_element(GenWorkerEts, parallel_pending_backward_events, ?ETS_KEYVAL_VAL_IDX),
+  maybe_dispatch_pending_parallel_backward_events_loop(GenWorkerEts, Grants, PendingEvents).
+
+maybe_dispatch_pending_parallel_backward_events_loop(_GenWorkerEts, [], _PendingEvents) ->
+  ok;
+maybe_dispatch_pending_parallel_backward_events_loop(_GenWorkerEts, _Grants, []) ->
+  ok;
+maybe_dispatch_pending_parallel_backward_events_loop(
+  _GenWorkerEts,
+  [{Direction, _MicrobatchID, _StageID} | _RestGrants],
+  _PendingEvents
+) when Direction =/= backward ->
+  ok;
+maybe_dispatch_pending_parallel_backward_events_loop(
+  GenWorkerEts,
+  [{backward, MicrobatchID, StageID} | _RestGrants],
+  PendingEvents
+) ->
+  case pop_pending_parallel_backward_event(PendingEvents, MicrobatchID, StageID, []) of
+    not_found ->
+      ok;
+    {ok, {WorkerName, BatchID, MicrobatchID, StageID, TrainTime}, RemainingPendingEvents} ->
+      case emit_parallel_event(WorkerName, backward, BatchID, MicrobatchID, StageID, TrainTime) of
+        ok ->
+          ets:update_element(
+            GenWorkerEts,
+            parallel_pending_backward_events,
+            {?ETS_KEYVAL_VAL_IDX, RemainingPendingEvents}
+          ),
+          UpdatedGrants = ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX),
+          maybe_dispatch_pending_parallel_backward_events_loop(
+            GenWorkerEts,
+            UpdatedGrants,
+            RemainingPendingEvents
+          );
+        {error, EmitReason} ->
+          {abort, {pending_backward_event_emit_rejected, WorkerName, BatchID, MicrobatchID, StageID, EmitReason}}
+      end
+  end.
+
+pop_pending_parallel_backward_event([], _MicrobatchID, _StageID, _Acc) ->
+  not_found;
+pop_pending_parallel_backward_event(
+  [Event = {_WorkerName, _BatchID, MicrobatchID, StageID, _TrainTime} | Rest],
+  MicrobatchID,
+  StageID,
+  Acc
+) ->
+  {ok, Event, lists:reverse(Acc) ++ Rest};
+pop_pending_parallel_backward_event([Event | Rest], MicrobatchID, StageID, Acc) ->
+  pop_pending_parallel_backward_event(Rest, MicrobatchID, StageID, [Event | Acc]).
 
 normalize_parallel_direction_atom(Direction) when is_atom(Direction) ->
   Direction;
@@ -1616,6 +1753,7 @@ reset_parallel_batch_context(GenWorkerEts) ->
   ets:update_element(GenWorkerEts, parallel_loss_acc, {?ETS_KEYVAL_VAL_IDX, undefined}),
   ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX, 0.0}),
   ets:update_element(GenWorkerEts, parallel_microbatch_queue, {?ETS_KEYVAL_VAL_IDX, []}),
+  ets:update_element(GenWorkerEts, parallel_pending_backward_events, {?ETS_KEYVAL_VAL_IDX, []}),
   ets:update_element(GenWorkerEts, parallel_active_batch_ctx, {?ETS_KEYVAL_VAL_IDX, undefined}).
 
 queue_deferred_parallel_sample(GenWorkerEts, SampleTuple) ->
