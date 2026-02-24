@@ -43,19 +43,45 @@ NERLTENSOR_TYPE_LIST = ['float', 'int16', 'int32', 'double', 'uint8']
 
 def read_nerlconfig(nerlconfig_file_path : str):
     if not nerlconfig_file_path.endswith(NERLCONFIG_SUFFIX):
-        raise "wrong filename suffix"
+        raise ValueError(f"wrong filename suffix for nerlconfig: {nerlconfig_file_path}")
     if not os.path.isfile(nerlconfig_file_path):
-        raise "nerlconfig does not exist!"
-    with open(nerlconfig_file_path) as file:
+        raise FileNotFoundError(f"nerlconfig does not exist: {nerlconfig_file_path}")
+
+    with open(nerlconfig_file_path, encoding="utf-8") as file:
         if (JSONS_DIR in nerlconfig_file_path):
-            lines = file.readlines()
-            if lines:
-                first_line = lines[0].rstrip()
-                if os.path.exists(first_line):
-                    return first_line
-                else:
-                    LOG_ERROR(f"bad nerlconfig directory is given: {first_line} at {nerlconfig_file_path}")
-                    raise "bad nerlconfig directory is given"
+            lines = [line.strip() for line in file.readlines() if line.strip()]
+            if not lines:
+                raise ValueError(f"jsons nerlconfig is empty: {nerlconfig_file_path}")
+
+            configured_path = os.path.expanduser(lines[0])
+            if not os.path.isabs(configured_path):
+                configured_path = os.path.abspath(
+                    os.path.join(os.path.dirname(nerlconfig_file_path), configured_path)
+                )
+
+            if os.path.isfile(configured_path):
+                LOG_ERROR(
+                    f"bad nerlconfig directory is given: {configured_path} at {nerlconfig_file_path} "
+                    f"(path points to a file)"
+                )
+                raise NotADirectoryError(
+                    f"Configured JSON directory points to a file: {configured_path}"
+                )
+
+            if not os.path.isdir(configured_path):
+                LOG_WARNING(
+                    f"configured json directory does not exist: {configured_path}; creating it"
+                )
+                try:
+                    os.makedirs(configured_path, exist_ok=True)
+                except OSError as exc:
+                    LOG_ERROR(
+                        f"bad nerlconfig directory is given: {configured_path} at {nerlconfig_file_path}"
+                    )
+                    raise FileNotFoundError(
+                        f"Configured JSON directory cannot be created: {configured_path}"
+                    ) from exc
+            return configured_path
     return None
 
 def is_port_free(port: int) -> bool:
