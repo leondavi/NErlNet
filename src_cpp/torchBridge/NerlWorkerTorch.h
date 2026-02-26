@@ -9,6 +9,8 @@
 #include <initializer_list>
 #include <memory>
 #include <vector>
+#include <tuple>
+#include <unordered_map>
 
 #include "../common/nerlWorker.h"
 #include "worker_definitions_ag.h"
@@ -30,6 +32,12 @@ public:
 	TorchTensor train_microbatch(const TorchTensor &batch, long microbatch_id);
 	void optimizer_barrier();
 	TorchTensor predict_batch(const TorchTensor &batch);
+	std::tuple<TorchTensor, TorchTensor> pipeline_stage0_forward(const TorchTensor &batch, long microbatch_id);
+	std::tuple<TorchTensor, TorchTensor> pipeline_stage_forward(const TorchTensor &activation, const TorchTensor &labels, long microbatch_id);
+	std::tuple<TorchTensor, TorchTensor> pipeline_stage_last_forward_backward(const TorchTensor &activation, const TorchTensor &labels, long microbatch_id);
+	TorchTensor pipeline_stage_backward(const TorchTensor &grad_output, long microbatch_id);
+	TorchTensor pipeline_predict_stage0_forward(const TorchTensor &batch);
+	TorchTensor pipeline_predict_stage_forward(const TorchTensor &activation);
 	TorchTensor last_loss() const { return _last_loss; }
 
 private:
@@ -54,6 +62,12 @@ private:
 		TorchTensor labels;
 	};
 
+	struct PipelineStageContext
+	{
+		TorchTensor stage_input;
+		TorchTensor stage_output;
+	};
+
 	void load_script_module();
 	TorchTensor forward_or_clone(const TorchTensor &input, bool training_mode);
 	TorchTensor ensure_training_dtype(const TorchTensor &batch) const;
@@ -61,6 +75,7 @@ private:
 	void initialize_optimizer();
 	void initialize_batch_layout();
 	TrainingSlices split_training_batch(const TorchTensor &prepared) const;
+	TorchTensor prepare_predict_inputs(const TorchTensor &prepared) const;
 	std::vector<int64_t> parse_shape_param(const std::initializer_list<const char *> &keys) const;
 	static std::vector<int64_t> parse_shape_spec(const std::string &text);
 	static int64_t count_elements(const std::vector<int64_t> &dims);
@@ -76,6 +91,12 @@ private:
 					   bool fallback) const;
 	void maybe_randomize_module_weights();
 	static std::string to_lower_copy(std::string value);
+	void initialize_pipeline_partition();
+	TorchTensor run_pipeline_stage_layers(const TorchTensor &stage_input, bool training_mode);
+	static bool layer_requires_flatten(const torch::jit::script::Module &layer_module);
+	void cache_pipeline_stage_context(long microbatch_id, const TorchTensor &stage_input, const TorchTensor &stage_output);
+	PipelineStageContext pop_pipeline_stage_context(long microbatch_id);
+	void clear_pipeline_stage_contexts();
 	TorchTensor train_batch_impl(const TorchTensor &batch, bool defer_optimizer_step, long microbatch_id);
 
 	TorchTensor _last_prediction;
@@ -96,6 +117,13 @@ private:
 	bool _has_optimizer{false};
 	bool _has_deferred_gradients{false};
 	int64_t _deferred_microbatch_count{0};
+	bool _pipeline_enabled{false};
+	int64_t _pipeline_stage{0};
+	int64_t _pipeline_world_size{1};
+	size_t _pipeline_stage_start_idx{0};
+	size_t _pipeline_stage_end_idx{0};
+	std::vector<torch::jit::script::Module> _pipeline_layers;
+	std::unordered_map<long, PipelineStageContext> _pipeline_stage_contexts;
 };
 
 } // namespace nerlnet

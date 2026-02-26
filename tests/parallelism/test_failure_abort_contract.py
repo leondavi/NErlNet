@@ -27,6 +27,7 @@ class FailureAbortContractTests(unittest.TestCase):
         self.assertIn("parallel_super_node = none", content)
         self.assertIn("apply_parallel_phase_routing(PhaseAtom, ParallelMode, SuperNode, ParallelExecution)", content)
         self.assertIn("Non-legacy mode settings are propagated to clients only by Super Node commands.", content)
+        self.assertIn("Main server delegating non-legacy parallel routing to super node ~p phase=~p mode=~p", content)
 
     def test_phase_payload_parsing_uses_whitelist_normalization(self) -> None:
         content = MAIN_SERVER_FILE.read_text(encoding="utf-8")

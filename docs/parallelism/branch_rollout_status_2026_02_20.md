@@ -1,6 +1,6 @@
 # NErlNet Parallelism Branch Report (Super Node + PP/TP)
 
-Date: 2026-02-24
+Date: 2026-02-25
 Branch: `parallelism-project`
 Repository: `NErlNet`
 
@@ -24,15 +24,27 @@ Implemented and working today:
 - Main Server non-legacy routing now treats Super Node as authority:
   - Main Server no longer directly fans out non-legacy `parallelMode`/`parallelExecution`.
   - Clients receive non-legacy config from Super Node command path.
+- API-server preflight now validates connection-map connectivity (including Super Node reachability) before experiment initialization.
+- Super hierarchy validation is strict:
+  - any `clients[].superNode` assignment must match the owning super node `managedClients` list.
 - Worker runtime now enforces non-legacy authority contracts:
   - no legacy fallback in microbatch loss handling
   - scheduler-grant consumption required before pipeline forward/backward events
   - explicit worker-side abort signaling on authority/grant violations
 - Torch microbatch and optimizer barrier surfaces added in C++/NIF and wired through Erlang worker runtime.
+- True stage-sliced pipeline runtime for `parallelExecution.mode=pipeline`:
+  - each worker executes only its assigned stage-layer partition
+  - stage workers exchange forward activations and backward gradients through Super Node-routed worker messaging
+  - optimizer step remains barriered and deterministic per batch
+- Pipeline mode layout guard:
+  - parser now rejects multi-worker-per-stage layouts in `mode=pipeline` (use `mode=pipeline_tensor` for multi-worker stages).
+- Stage0 prediction input normalization:
+  - Torch stage0 predict path accepts both feature-only and feature+label-span microbatches without span-mismatch aborts.
 - Planner UI and import/export support for `superNodes`, worker parallel fields, phase `parallelExecution`, and model `tpPlan`.
 - New tests for schema, scheduler contracts, comm-path contract, abort mapping, and torch NIF contracts.
 - Dockerized CPU Torch validation that runs full Torch flow and compares PTD POC loss invariants.
 - `pipeline_tensor` runtime now executes end-to-end in Docker smoke and repeated-run soak (2 consecutive runs), with no TP collective timeout.
+- Super Node / Client / Worker logs now expose orchestration events (config push, scheduler grants, event acks, routed worker messages) for runtime traceability.
 
 ---
 
@@ -96,6 +108,7 @@ Key behavior implemented:
 - Receives phase updates and constructs scheduler trace from phase config and worker metadata.
 - Validates optional tagged parallel events against scheduler trace.
 - Emits `parallelAbort` to Main Server on route failures, heartbeat issues, unknown workers, and schedule mismatches.
+- Emits detailed runtime logs for phase updates, scheduler grants, scheduler acks, and worker-message routing.
 
 ### P0.2 Main server parallel orchestration hooks and abort handling
 - Modified:
@@ -130,6 +143,7 @@ Key changes:
   - grant scheduler events to target workers (`parallel_scheduler_grant`)
 - Emits `parallel_event` and `parallelAbort` notifications.
 - Adds super-node registration + periodic heartbeat loop from client.
+- Emits detailed logs for Super Node command reception, mode/execution authority updates, scheduler-grant forwarding, and event forwarding to Super Node.
 
 ### P0.4 App wiring for new runtime entity and routes
 - Modified:
@@ -183,6 +197,7 @@ Key changes:
 Implemented validations:
 - super node uniqueness, assignment to exactly one device, managed clients existence.
 - client->super consistency.
+- strict client ownership parity: every `clients[].superNode` assignment must appear in that super node's `managedClients`.
 - worker parallel integrity:
   - stage/world pair consistency
   - rank/world consistency
@@ -193,6 +208,7 @@ Implemented validations:
 
 Additional behavior:
 - Extracts torch model assets with path resolution and checksum validation.
+- Exposes `validate_connection_map(...)` to enforce one connected runtime graph (after bidirectional completion) and explicit Super Node presence in topology edges.
 
 ### P1.4 Experiment flow parallelExecution parsing and sanity checks
 - Modified:
@@ -213,22 +229,25 @@ Checks enforced:
 - pipeline modes require valid scheduler + positive microbatch params.
 - `microBatchSize * numMicroBatches == phase batchSize`.
 - pipeline mode requires pipeline worker metadata and stage world >= 2.
+- pipeline mode currently enforces exactly one worker per pipeline stage (for that phase target set); multi-worker stages must use `mode=pipeline_tensor`.
 - tensor modes require TP metadata.
 
 ### P1.5 API transmitter + event sync
 - Modified:
   - `src_py/apiServer/transmitter.py`
   - `src_py/apiServer/events_sync.py`
+  - `src_py/apiServer/apiServer.py`
 
 Key changes:
 - `clients_set_phase` now sends JSON payload for non-legacy phases.
 - `parallel_abort` mapped into `MAIN_SERVER_ERROR` fail-fast path.
+- `ApiServer.initialization(...)` now performs connection-map preflight validation through `NetworkComponents.validate_connection_map(...)`.
 
 ---
 
-## P2: Torch Bridge and Worker Runtime for Microbatch/Barrier
+## P2: Torch Bridge and Worker Runtime for True Stage Pipeline
 
-### P2.1 Torch C++ worker microbatch + deferred optimizer barrier
+### P2.1 Torch C++ worker stage partition + stage forward/backward APIs
 - Modified:
   - `src_cpp/torchBridge/NerlWorkerTorch.h`
   - `src_cpp/torchBridge/NerlWorkerTorch.cpp`
@@ -236,13 +255,26 @@ Key changes:
 New API/behavior:
 - `train_microbatch(batch, microbatch_id)`
 - `optimizer_barrier()`
+- `pipeline_stage0_forward(batch, microbatch_id)`
+- `pipeline_stage_forward(activation, labels, microbatch_id)`
+- `pipeline_stage_last_forward_backward(activation, labels, microbatch_id)`
+- `pipeline_stage_backward(grad_output, microbatch_id)`
+- `pipeline_predict_stage0_forward(batch)`
+- `pipeline_predict_stage_forward(activation)`
 - internal deferred gradient accumulation state (`_has_deferred_gradients`, `_deferred_microbatch_count`).
+- per-microbatch stage activation cache for delayed backward (`_pipeline_stage_contexts`).
+- stage-layer partition computed from worker `pipeline_stage/pipeline_world_size` metadata.
 
 Semantics:
-- microbatch path defers optimizer step until explicit barrier.
+- stage workers hold only local stage-layer execution responsibility for `pipeline` mode.
+- forward activations and labels are routed stage-to-stage; backward gradients flow from last stage to first stage.
+- optimizer step is deferred until explicit barrier after deterministic batch completion.
+- stage0 prediction normalizes both input forms:
+  - feature+label-span rows (split and keep feature slice), and
+  - feature-only rows (reshape by input span).
 - non-microbatch path remains immediate train-step behavior.
 
-### P2.2 Torch NIF API extensions
+### P2.2 Torch NIF API extensions for stage execution
 - Modified:
   - `src_cpp/torchBridge/torchNIF.h`
   - `src_cpp/torchBridge/torchNIF.cpp`
@@ -250,18 +282,31 @@ Semantics:
 Added NIF functions:
 - `train_microbatch_nif/4`
 - `optimizer_barrier_nif/1`
+- `pipeline_stage0_forward_nif/4`
+- `pipeline_stage_forward_nif/6`
+- `pipeline_stage_last_forward_backward_nif/6`
+- `pipeline_stage_backward_nif/4`
+- `pipeline_predict_stage0_forward_nif/3`
+- `pipeline_predict_stage_forward_nif/3`
 
 Train threaded return now supports microbatch metadata tuple when needed.
 
-### P2.3 Erlang bridge runtime wiring for microbatch path
+### P2.3 Erlang bridge/runtime wiring for stage-sliced path
 - Modified:
   - `src_erl/NerlnetApp/src/Bridge/torchWorkers/nerlTorchNIF.erl`
   - `src_erl/NerlnetApp/src/Bridge/onnWorkers/nerlNIF.erl`
   - `src_erl/NerlnetApp/src/Bridge/onnWorkers/workerGeneric.erl`
+  - `src_erl/NerlnetApp/src/Bridge/Common/w2wCom.erl`
 
 Key changes:
 - Train negotiator supports `start_train_microbatch` and `optimizer_barrier` messages.
-- Worker generic state tracks pending microbatch losses and aggregates them.
+- Torch bridge exports stage-call wrappers used by worker runtime (`call_to_pipeline_stage*`).
+- Worker runtime adds stage payload buffers and stage dispatch flow:
+  - `pipeline_forward_payload`
+  - `pipeline_backward_payload`
+  - `pipeline_predict_payload`
+- `w2wCom` now notifies worker state machines immediately for pipeline payload tags via `{parallel_pipeline_inbox,...}`.
+- Worker generic tracks stage batch contexts (`forward_completed`, `backward_completed`, `predict_acc`) and aggregates last-stage outputs.
 - Emits scheduler-gated parallel events with stage and microbatch id (forward-only for `pipeline_tensor`, forward+backward for pure pipeline modes).
 - Calls optimizer barrier once all microbatches for a batch complete.
 - Buffers non-legacy `sample` messages received during `wait` state and dispatches them after batch completion.
@@ -357,10 +402,12 @@ Implemented:
   - `tests/parallelism/test_scheduler_conformance.py`
   - `tests/parallelism/test_parallel_schema.py`
   - `tests/parallelism/test_supernode_comm_contract.py`
+  - `tests/parallelism/test_api_server_parallel_contract.py`
   - `tests/parallelism/test_eventsync_abort.py`
   - `tests/parallelism/test_failure_abort_contract.py`
   - `tests/parallelism/test_parallel_soak.py`
   - `tests/parallelism/test_torch_parallel_nif_contract.py`
+  - `tests/parallelism/test_pipeline_stage_execution_contract.py`
   - `tests/parallelism/compare_ptd_poc_losses.py`
 
 ### P4.2 POC grounding artifacts
@@ -410,12 +457,19 @@ Fix:
 
 ## 4) Verification Status (Latest Run)
 
-Run date: 2026-02-24
+Run date: 2026-02-26
 
-Executed and passed (local host):
-- `python3 -m unittest discover -s tests/parallelism -p 'test_*.py'` (41 tests)
-- `cd web/nerl-planner && npm run build`
-- `cd web/nerl-planner && npx tsc --noEmit --pretty false`
+Executed and passed (this implementation step, local host):
+- `erlc src_erl/NerlnetApp/src/Bridge/Common/w2wCom.erl`
+- `erlc src_erl/NerlnetApp/src/SuperNode/superNodeGenserver.erl`
+- `erlc src_erl/NerlnetApp/src/Bridge/onnWorkers/workerGeneric.erl`
+- `erlc src_erl/NerlnetApp/src/Bridge/torchWorkers/nerlTorchNIF.erl`
+- `python3 -m unittest tests.parallelism.test_pipeline_stage_execution_contract tests.parallelism.test_supernode_comm_contract tests.parallelism.test_torch_parallel_nif_contract`
+- `python3 -m unittest discover -s tests/parallelism -p 'test_*.py'` (54 tests)
+
+Executed and attempted (local C++ configure/build sanity):
+- `cmake -S . -B .build-codex` failed on host due missing Torch CMake package (`TorchConfig.cmake`).
+- Interpretation: Erlang/runtime contract tests and Erlang compile checks passed; native Torch C++ build must be validated in an environment with libtorch/Torch CMake config installed (Docker/Linux matrix already covers this in prior runs).
 
 Executed and passed (Docker CPU Torch validation):
 - `docker/ubuntu-torch-cpu/build_and_run.sh`
@@ -429,19 +483,15 @@ Executed and passed (Docker CPU Torch validation):
   - `1F1B: 2404.0`
   - `Interleaved: 2404.0`
   - absolute deltas `0.0` for all modes.
+- Includes Linux Torch rebuild after stage-sliced pipeline additions and prediction-input normalization fix.
 
-Executed and passed (expanded Linux matrix in container):
-- `python3 -m unittest discover -s tests/parallelism -p 'test_*.py'`
-- `./NerlnetBuild.sh --infra all -j4`
-- `tests/NerlnetNifTest.sh`
-- `tests/NerlnetSourceNifTest.sh`
-- `tests/NerlnetNIFTorchTest.sh`
-- `tests/NerlnetFullFlowTest.sh`
-- `tests/NerlnetFullFlowTorchTest.sh`
-
-Notes from expanded matrix:
-- Legacy full-flow no longer stalled on invalid address selection; script detected usable container IPv4 (`172.17.0.3`) and completed.
-- Torch NIF/full-flow tests passed; expected warning-path cases in Torch NIF test logs are still exercised and end with exit code `0`.
+Executed and passed (Docker, pure `pipeline` smoke with true stage slicing):
+- `tests/NerlnetFullFlowTorchLocalDebug.sh` using a 2-worker, 2-stage phase target set (stage0=`w1`, stage1=`w3`) derived from:
+  - `tests/inputTorchJsonsFiles/parallel_smoke/dc_torch_parallel_smoke.json.noip`
+  - `tests/inputTorchJsonsFiles/parallel_smoke/conn_torch_parallel_smoke.json`
+  - `tests/inputTorchJsonsFiles/parallel_smoke/exp_torch_parallel_smoke.json` (reduced to 5 batches)
+- Result: `RC=0`, training + prediction completed successfully with Super Node grant/event orchestration logs.
+- Verified fix: prediction no longer aborts on stage0 input span mismatch (`batch elements not divisible by sample span`).
 
 Executed and passed (Docker, `pipeline_tensor` TP smoke):
 - `tests/NerlnetFullFlowTorchLocalDebug.sh` with:
@@ -449,11 +499,11 @@ Executed and passed (Docker, `pipeline_tensor` TP smoke):
   - `tests/inputTorchJsonsFiles/parallel_smoke/conn_torch_parallel_smoke.json`
   - `tests/inputTorchJsonsFiles/parallel_smoke/exp_torch_pipeline_tensor_smoke.json`
 - Result: `RC=0`, training + prediction completed, no `parallelAbort`.
-- Artifact: `.docker-artifacts/torch-cpu-validation/pipeline_tensor_smoke.log`
+- Result remains stable after prediction-input fix and after enforcing pipeline-mode worker-layout validation in parser.
 
-Executed and passed (Docker, short soak):
-- Two consecutive `pipeline_tensor` smoke runs in one container session.
-- Result: `SOAK_OK`, no TP collective timeout.
+Executed and passed (schema/runtime contract hardening):
+- New parser guard: `mode=pipeline` now rejects multi-worker-per-stage layouts for the phase target set (must use `mode=pipeline_tensor` for that topology).
+- Covered by unit test: `tests/parallelism/test_parallel_schema.py::test_pipeline_mode_rejects_multi_worker_stage_layout`.
 
 ---
 
@@ -681,38 +731,41 @@ This section is the explicit runtime call graph for non-legacy parallel executio
    - `clientStateHandler:init(batch,...)`
    - `clientStatem:training(cast,{sample,...})`
    - forwards `{sample,...}` to target worker PID.
-4. Worker train path:
-   - `workerGeneric:train(cast,{sample,...})`
-   - non-legacy mode enters `maybe_parallel_train_microbatch_path(...)`.
-5. Pipeline microbatch split and launch:
-   - `prepare_and_dispatch_parallel_microbatches(...)`
-   - `split_batch_into_microbatches(...)`
+4. Stage-0 worker true pipeline split/forward:
+   - `workerGeneric:train(cast,{sample,...})` in `pipeline` mode and `pipelineStage=0`
+   - `prepare_pipeline_stage0_microbatches(...)`
+   - `dispatch_pipeline_stage0_forward_microbatch_loop(...)`
+   - for each microbatch:
+     - consume/validate grant via `maybe_emit_parallel_forward_event(...)`
+     - call Torch stage NIF wrapper `call_to_pipeline_stage0_forward(...)`
+     - route activation + labels to next stage via `route_pipeline_payload_to_worker(...)`
+5. Intermediate/last stage forward:
+   - `w2wCom:maybe_notify_pipeline_inbox(...)` casts `{parallel_pipeline_inbox,...}` to worker.
+   - `workerGeneric:handle_parallel_pipeline_inbox(...)`
+   - `dispatch_pipeline_forward_buffer(...)`
+   - non-last stage:
+     - `call_to_pipeline_stage_forward(...)`
+     - route to next stage as `pipeline_forward_payload`
+   - last stage:
+     - `call_to_pipeline_stage_last_forward_backward(...)`
+     - accumulate loss/time
+     - emit first backward payload to previous stage.
+6. Backward wave (last -> first):
+   - `workerGeneric:dispatch_pipeline_backward_buffer(...)`
    - per microbatch:
-     - `emit_parallel_event(..., forward, BatchID, MicrobatchID, StageID, ...)`
-       - internally calls `maybe_consume_parallel_scheduler_grant(...)`
-     - `nif_call(call_to_train_microbatch, ...)`
-6. Torch train negotiator path:
-   - `nerlTorchNIF:call_to_train_microbatch(...)`
-   - `nerlTorchNIF:train_negotiator` receives `{start_train_microbatch,...}`
-   - `train_microbatch_nif(...)` executes Torch NIF
-   - callback `{nerlnif, LossTensor, LossType, TrainTime, MicrobatchID}`
-   - negotiator casts worker `{loss_microbatch,...}`.
-7. Worker microbatch loss aggregation:
-   - `workerGeneric:wait(cast,{loss_microbatch,...})`
-   - pipeline modes emit backward events; `pipeline_tensor` intentionally skips backward scheduler events (forward-only trace).
-   - `accumulate_parallel_loss(...)`
-   - on final microbatch:
-     - `maybe_call_optimizer_barrier(...)`
-     - `nif_call(call_to_optimizer_barrier, ...)`
-     - `finalize_parallel_loss(...)`
-     - `maybe_dispatch_deferred_parallel_sample(...)` (batch-aligned non-legacy sample buffering)
-     - cast client `{loss,...}`.
+     - consume/validate backward grant via `maybe_emit_parallel_backward_event(...)`
+     - `call_to_pipeline_stage_backward(...)`
+     - route resulting gradient to previous stage.
+7. Batch barrier/finalization:
+   - each stage waits until deterministic completion counters reach `total_microbatches`.
+   - `maybe_call_optimizer_barrier(...)` executes once per stage per batch.
+   - last stage sends aggregated `{loss,...}` to client.
 8. Client -> MainServer loss upload:
    - `clientStatem:training(cast,{loss,...})`
    - posts `/lossFunction`
    - `mainGenserver:handle_cast({lossFunction,...})`
    - `store_phase_result_data_to_send_ets(...)`.
-9. Super Node control-plane paths during training:
+9. Super Node control-plane during training:
    - Parallel event route:
      - `clientStatem:forward_parallel_event(...)`
      - POST `/parallelEvent`
@@ -733,19 +786,26 @@ This section is the explicit runtime call graph for non-legacy parallel executio
    - `sourceSendingPolicies:sendBatch` -> `/batch`
    - `clientStatem:predict(cast,{sample,...})`
    - `workerGeneric:predict(cast,{sample,...})`.
-2. Worker predict path:
-   - `workerGeneric` calls `nif_call(call_to_predict, ...)`
-   - `nerlTorchNIF:call_to_predict(...)`
-   - `nerlTorchNIF:predict_negotiator` receives `{start_predict,...}`
-   - `predict_nif(...)`
-   - callback `{nerlnif, PredTensor, PredType, TimeNif}`
-   - worker receives `{predictRes,...}`.
-3. Client -> MainServer prediction upload:
-   - `workerGeneric:wait(cast,{predictRes,...})` -> cast client `{predictRes,...}`
+2. Worker predict path in true pipeline mode:
+   - Stage-0:
+     - `prepare_pipeline_predict_stage0_microbatches(...)`
+     - `dispatch_pipeline_stage0_predict_microbatch_loop(...)`
+     - `call_to_pipeline_predict_stage0_forward(...)` -> `pipeline_predict_payload`.
+   - Intermediate/last stages:
+     - `handle_parallel_pipeline_predict_inbox(...)`
+     - `dispatch_pipeline_predict_buffer(...)`
+     - `call_to_pipeline_predict_stage_forward(...)`.
+   - Super Node scheduler for prediction uses forward-only grants (`normalize_phase_name(PhaseName)` in Super Node trace builder).
+3. Last stage prediction aggregation:
+   - worker stores per-microbatch predictions in `predict_acc`.
+   - on final microbatch:
+     - concatenate outputs (axis 0) via `nerltensor_concat_nif(...)`
+     - send client `{predictRes,...}` once per batch.
+4. Client -> MainServer prediction upload:
    - `clientStatem:predict(cast,{predictRes,...})` -> POST `/predictRes`
    - `mainGenserver:handle_cast({predictRes,...})`
    - `store_phase_result_data_to_send_ets(...)`.
-4. Any cross-worker message in prediction non-legacy mode still uses Super Node route:
+5. Any cross-worker message in prediction non-legacy mode still uses Super Node route:
    - `handle_w2w_msg_super -> /parallelWorkerMessage -> /parallelDeliver`.
 
 ### 8.6 Phase Finalization, Result Return, and Stats

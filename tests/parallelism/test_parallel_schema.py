@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import sys
 import types
 import unittest
@@ -154,6 +155,12 @@ class ParallelSchemaTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             NetworkComponents(dc)
 
+    def test_client_super_assignment_requires_managed_clients_membership(self) -> None:
+        dc = _base_dc()
+        dc["superNodes"][0]["managedClients"] = ["client_b"]
+        with self.assertRaises(ValueError):
+            NetworkComponents(dc)
+
     def test_invalid_tp_rank_rejected(self) -> None:
         dc = _base_dc()
         dc["workers"][0]["parallel"]["tpRank"] = 2
@@ -201,6 +208,55 @@ class ParallelSchemaTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             exp._parse_parallel_execution(phase)
 
+    def test_pipeline_mode_rejects_multi_worker_stage_layout(self) -> None:
+        dc = _base_dc()
+        dc["clients"][0]["workers"] = "worker_a0,worker_a1"
+        dc["clients"][1]["workers"] = "worker_b0,worker_b1"
+        dc["devices"][0]["entities"] = "mainServer,apiServer,router_a,source_a,client_a,client_b,super_0"
+        dc["workers"].extend(
+            [
+                {
+                    "name": "worker_a1",
+                    "model_sha": "sha_x",
+                    "parallel": {
+                        "pipelineStage": 0,
+                        "pipelineWorldSize": 2,
+                        "tpGroup": "tp_g2",
+                        "tpRank": 0,
+                        "tpWorldSize": 1,
+                    },
+                },
+                {
+                    "name": "worker_b1",
+                    "model_sha": "sha_x",
+                    "parallel": {
+                        "pipelineStage": 1,
+                        "pipelineWorldSize": 2,
+                        "tpGroup": "tp_g3",
+                        "tpRank": 0,
+                        "tpWorldSize": 1,
+                    },
+                },
+            ]
+        )
+
+        components = NetworkComponents(dc)
+        exp = ExperimentFlow("exp", 4, components, temp_data_path="/tmp/nerlnet_parallel_schema_tests")
+        phase = {
+            EXPFLOW_PHASES_PHASE_NAME_FIELD: "train_replicated_stage",
+            "sourcePieces": [{"workers": "worker_a0,worker_a1,worker_b0,worker_b1"}],
+            EXPFLOW_PHASES_PARALLEL_EXECUTION_FIELD: {
+                EXPFLOW_PARALLEL_EXECUTION_MODE_FIELD: "pipeline",
+                EXPFLOW_PARALLEL_EXECUTION_SUPER_NODE_FIELD: "super_0",
+                EXPFLOW_PARALLEL_EXECUTION_SCHEDULER_FIELD: "gpipe",
+                EXPFLOW_PARALLEL_EXECUTION_MICRO_BATCH_SIZE_FIELD: 2,
+                EXPFLOW_PARALLEL_EXECUTION_NUM_MICRO_BATCHES_FIELD: 2,
+            },
+        }
+
+        with self.assertRaisesRegex(ValueError, "exactly one worker per pipeline stage"):
+            exp._parse_parallel_execution(phase)
+
     def test_pipeline_stage_coverage_mismatch_rejected(self) -> None:
         dc = _base_dc()
         dc["workers"][1]["parallel"]["pipelineStage"] = 2
@@ -230,6 +286,29 @@ class ParallelSchemaTests(unittest.TestCase):
         }
         with self.assertRaises(ValueError):
             exp._parse_parallel_execution(phase)
+
+    def test_connection_map_with_super_node_is_validated(self) -> None:
+        components = NetworkComponents(_base_dc())
+        valid_conn_map = {
+            "router_a": ["mainServer", "source_a", "client_a", "client_b", "super_0"]
+        }
+        components.validate_connection_map(valid_conn_map)
+
+    def test_connection_map_missing_super_node_is_rejected(self) -> None:
+        components = NetworkComponents(_base_dc())
+        invalid_conn_map = {
+            "router_a": ["mainServer", "source_a", "client_a", "client_b"]
+        }
+        with self.assertRaises(ValueError):
+            components.validate_connection_map(invalid_conn_map)
+
+    def test_legacy_fixture_parses_without_parallel_fields(self) -> None:
+        dc_path = REPO_ROOT / "tests" / "inputJsonsFiles" / "dc_test_synt_1d_2c_1s_4r_4w.json.noip"
+        with dc_path.open("r", encoding="utf-8") as dc_file_obj:
+            dc = json.load(dc_file_obj)
+        components = NetworkComponents(dc)
+        self.assertFalse(components.has_super_nodes())
+        self.assertEqual(components.get_worker_parallel_map(), {})
 
 
 if __name__ == "__main__":

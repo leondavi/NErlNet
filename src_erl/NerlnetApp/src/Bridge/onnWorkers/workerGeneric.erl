@@ -79,6 +79,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   WorkerModelSha = get_worker_model_sha(TrainParams),
   WorkerTpPlan = get_worker_tp_plan(WorkerModelSha),
   WorkerParallelCfg = get_worker_parallel_cfg(WorkerName),
+  PreparedTrainParams = augment_train_params_with_parallel_cfg(TrainParams, WorkerParallelCfg),
   TpGroupState = build_worker_tp_group_state(WorkerName, WorkerParallelCfg),
   WorkerTpPlanFiltered = filter_tp_plan_for_worker(WorkerTpPlan, WorkerParallelCfg),
   ets:insert(GenWorkerEts,{parallel_mode, legacy}),
@@ -93,6 +94,9 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{parallel_pending_backward_events, []}),
   ets:insert(GenWorkerEts,{parallel_active_batch_ctx, undefined}),
   ets:insert(GenWorkerEts,{parallel_deferred_samples, []}),
+  ets:insert(GenWorkerEts,{parallel_pipeline_forward_buffer, []}),
+  ets:insert(GenWorkerEts,{parallel_pipeline_backward_buffer, []}),
+  ets:insert(GenWorkerEts,{parallel_pipeline_predict_buffer, []}),
   ets:insert(GenWorkerEts,{worker_parallel_cfg, WorkerParallelCfg}),
   ets:insert(GenWorkerEts,{worker_model_sha, WorkerModelSha}),
   ets:insert(GenWorkerEts,{worker_tp_plan, WorkerTpPlanFiltered}),
@@ -102,7 +106,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   NormalizedInfraType = normalize_infra_type(InfraType),
   ets:insert(GenWorkerEts,{infra_type, InfraType}),
   ets:insert(GenWorkerEts,{nif_module, InfraModule}),
-  ets:insert(GenWorkerEts,{train_params, TrainParams}),
+  ets:insert(GenWorkerEts,{train_params, PreparedTrainParams}),
   put(nif_module, InfraModule),
   ets:insert(GenWorkerEts,{controller_message_q, []}), %% TODO Deprecated
   ets:insert(GenWorkerEts,{handshake_done, false}),
@@ -113,7 +117,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
 
   Res = case NormalizedInfraType of
           torch ->
-            nif_call(new_nerlworker_nif, [ModelID, DistributedSystemType, DistributedSystemArgs, TrainParams]);
+            nif_call(new_nerlworker_nif, [ModelID, DistributedSystemType, DistributedSystemArgs, PreparedTrainParams]);
           _ ->
             nif_call(new_nerlworker_nif, [ModelID , ModelType, ModelArgs, LayersSizes, LayersTypes, LayersFunctionalityCodes, LearningRate, Epochs, OptimizerType,
                                 OptimizerArgs, LossMethod , LossArgs, DistributedSystemType , DistributedSystemArgs])
@@ -246,24 +250,50 @@ wait(cast, {set_parallel_authority, Enabled}, State) ->
 wait(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) ->
   GenWorkerEts = get(generic_worker_ets),
   append_parallel_scheduler_grant(GenWorkerEts, Direction, MicrobatchID, StageID),
-  case maybe_dispatch_pending_parallel_backward_events(GenWorkerEts) of
-    ok ->
-      case dispatch_queued_parallel_microbatches(GenWorkerEts) of
+  ParallelMode = normalize_parallel_mode_atom(
+                   ets:lookup_element(GenWorkerEts, parallel_mode, ?ETS_KEYVAL_VAL_IDX)
+                 ),
+  case ParallelMode of
+    pipeline ->
+      case dispatch_pipeline_buffers(GenWorkerEts, State#workerGeneric_state.modelID, State#workerGeneric_state.myName) of
         ok ->
           {keep_state, State};
-        {abort, DispatchReason} ->
-          notify_worker_parallel_abort(
-            GenWorkerEts,
-            {queued_parallel_dispatch_failed, DispatchReason}
-          ),
+        {abort, PipelineReason} ->
+          notify_worker_parallel_abort(GenWorkerEts, {pipeline_dispatch_failed, PipelineReason}),
           reset_parallel_loss_context(GenWorkerEts),
           {keep_state, State}
       end;
-    {abort, PendingDispatchReason} ->
-      notify_worker_parallel_abort(
-        GenWorkerEts,
-        {pending_parallel_backward_dispatch_failed, PendingDispatchReason}
-      ),
+    _ ->
+      case maybe_dispatch_pending_parallel_backward_events(GenWorkerEts) of
+        ok ->
+          case dispatch_queued_parallel_microbatches(GenWorkerEts) of
+            ok ->
+              {keep_state, State};
+            {abort, DispatchReason} ->
+              notify_worker_parallel_abort(
+                GenWorkerEts,
+                {queued_parallel_dispatch_failed, DispatchReason}
+              ),
+              reset_parallel_loss_context(GenWorkerEts),
+              {keep_state, State}
+          end;
+        {abort, PendingDispatchReason} ->
+          notify_worker_parallel_abort(
+            GenWorkerEts,
+            {pending_parallel_backward_dispatch_failed, PendingDispatchReason}
+          ),
+          reset_parallel_loss_context(GenWorkerEts),
+          {keep_state, State}
+      end
+  end;
+
+wait(cast, {parallel_pipeline_inbox, FromWorker, Payload}, State = #workerGeneric_state{modelID = ModelId, myName = MyName}) ->
+  GenWorkerEts = get(generic_worker_ets),
+  case handle_parallel_pipeline_inbox(GenWorkerEts, ModelId, MyName, FromWorker, Payload) of
+    ok ->
+      {keep_state, State};
+    {abort, Reason} ->
+      notify_worker_parallel_abort(GenWorkerEts, {pipeline_inbox_rejected, Reason}),
       reset_parallel_loss_context(GenWorkerEts),
       {keep_state, State}
   end;
@@ -454,8 +484,34 @@ train(cast, {set_parallel_authority, Enabled}, State) ->
   {keep_state, State};
 
 train(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) ->
-  append_parallel_scheduler_grant(get(generic_worker_ets), Direction, MicrobatchID, StageID),
-  {keep_state, State};
+  GenWorkerEts = get(generic_worker_ets),
+  append_parallel_scheduler_grant(GenWorkerEts, Direction, MicrobatchID, StageID),
+  ParallelMode = normalize_parallel_mode_atom(
+                   ets:lookup_element(GenWorkerEts, parallel_mode, ?ETS_KEYVAL_VAL_IDX)
+                 ),
+  case ParallelMode of
+    pipeline ->
+      case dispatch_pipeline_buffers(GenWorkerEts, State#workerGeneric_state.modelID, State#workerGeneric_state.myName) of
+        ok -> {keep_state, State};
+        {abort, Reason} ->
+          notify_worker_parallel_abort(GenWorkerEts, {pipeline_dispatch_failed, Reason}),
+          reset_parallel_loss_context(GenWorkerEts),
+          {keep_state, State}
+      end;
+    _ ->
+      {keep_state, State}
+  end;
+
+train(cast, {parallel_pipeline_inbox, FromWorker, Payload}, State = #workerGeneric_state{modelID = ModelId, myName = MyName}) ->
+  GenWorkerEts = get(generic_worker_ets),
+  case handle_parallel_pipeline_inbox(GenWorkerEts, ModelId, MyName, FromWorker, Payload) of
+    ok ->
+      {keep_state, State};
+    {abort, Reason} ->
+      notify_worker_parallel_abort(GenWorkerEts, {pipeline_inbox_rejected, Reason}),
+      reset_parallel_loss_context(GenWorkerEts),
+      {keep_state, State}
+  end;
 
 train(cast, {sample, BatchID ,{<<>>, _Type}}, State) ->
   ?LOG_WARNING("Empty sample received , batch id: ~p~n",[BatchID]),
@@ -474,6 +530,56 @@ train(cast, {sample, SourceName ,BatchID ,{NerlTensorOfSamples, NerlTensorType}}
         stats:increment_by_value(WorkersStatsEts , batches_received_train , 1),
         nif_call(call_to_train, [ModelId , {NerlTensorOfSamples, NerlTensorType} , BatchID , SourceName]),
         {next_state, wait, State#workerGeneric_state{nextState = train, currentBatchID = BatchID}};
+      pipeline ->
+        DistributedBehaviorFunc(pre_train, {GenWorkerEts,DistributedWorkerData}),
+        WorkersStatsEts = get(worker_stats_ets),
+        stats:increment_by_value(WorkersStatsEts , batches_received_train , 1),
+        StageID = get_worker_pipeline_stage(GenWorkerEts),
+        case StageID of
+          0 ->
+            case prepare_pipeline_stage0_microbatches(
+                   GenWorkerEts,
+                   SourceName,
+                   BatchID,
+                   {NerlTensorOfSamples, NerlTensorType}
+                 ) of
+              {ok, NumDispatched, RemainingQueue, TotalMicrobatches} ->
+                ActiveBatchCtx = #{
+                  model_id => ModelId,
+                  source_name => SourceName,
+                  batch_id => BatchID,
+                  mode => pipeline,
+                  stage => StageID,
+                  total_microbatches => TotalMicrobatches,
+                  forward_dispatched => NumDispatched,
+                  backward_completed => 0
+                },
+                ets:update_element(GenWorkerEts, parallel_pending_losses, {?ETS_KEYVAL_VAL_IDX, TotalMicrobatches}),
+                ets:update_element(GenWorkerEts, parallel_total_microbatches, {?ETS_KEYVAL_VAL_IDX, TotalMicrobatches}),
+                ets:update_element(GenWorkerEts, parallel_loss_acc, {?ETS_KEYVAL_VAL_IDX, undefined}),
+                ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX, 0.0}),
+                ets:update_element(GenWorkerEts, parallel_microbatch_queue, {?ETS_KEYVAL_VAL_IDX, RemainingQueue}),
+                ets:update_element(GenWorkerEts, parallel_active_batch_ctx, {?ETS_KEYVAL_VAL_IDX, ActiveBatchCtx}),
+                ?LOG_INFO(
+                  "Worker ~p stage0 pipeline batch=~p source=~p total_microbatches=~p dispatched=~p queued=~p",
+                  [State#workerGeneric_state.myName, BatchID, SourceName, TotalMicrobatches, NumDispatched, length(RemainingQueue)]
+                ),
+                {next_state, wait, State#workerGeneric_state{nextState = train, currentBatchID = BatchID}};
+              {abort, Stage0Reason} ->
+                notify_worker_parallel_abort(
+                  GenWorkerEts,
+                  {pipeline_stage0_prepare_failed, BatchID, SourceName, Stage0Reason}
+                ),
+                reset_parallel_loss_context(GenWorkerEts),
+                {next_state, train, State#workerGeneric_state{nextState = train, currentBatchID = BatchID}}
+            end;
+          _NonZeroStage ->
+            ?LOG_INFO(
+              "Worker ~p pipeline stage ~p ignored source batch=~p from ~p; waiting for upstream activation",
+              [State#workerGeneric_state.myName, StageID, BatchID, SourceName]
+            ),
+            {next_state, train, State#workerGeneric_state{nextState = train, currentBatchID = BatchID}}
+        end;
       _ ->
         DistributedBehaviorFunc(pre_train, {GenWorkerEts,DistributedWorkerData}),
         WorkersStatsEts = get(worker_stats_ets),
@@ -563,8 +669,35 @@ predict(cast, {set_parallel_authority, Enabled}, State) ->
   {keep_state, State};
 
 predict(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) ->
-  append_parallel_scheduler_grant(get(generic_worker_ets), Direction, MicrobatchID, StageID),
-  {keep_state, State};
+  GenWorkerEts = get(generic_worker_ets),
+  append_parallel_scheduler_grant(GenWorkerEts, Direction, MicrobatchID, StageID),
+  ParallelMode = normalize_parallel_mode_atom(
+                   ets:lookup_element(GenWorkerEts, parallel_mode, ?ETS_KEYVAL_VAL_IDX)
+                 ),
+  case ParallelMode of
+    pipeline ->
+      case dispatch_pipeline_predict_buffers(GenWorkerEts, State#workerGeneric_state.modelID, State#workerGeneric_state.myName) of
+        ok ->
+          {keep_state, State};
+        {abort, Reason} ->
+          notify_worker_parallel_abort(GenWorkerEts, {pipeline_predict_dispatch_failed, Reason}),
+          reset_parallel_loss_context(GenWorkerEts),
+          {keep_state, State}
+      end;
+    _ ->
+      {keep_state, State}
+  end;
+
+predict(cast, {parallel_pipeline_inbox, FromWorker, Payload}, State = #workerGeneric_state{modelID = ModelId, myName = MyName}) ->
+  GenWorkerEts = get(generic_worker_ets),
+  case handle_parallel_pipeline_predict_inbox(GenWorkerEts, ModelId, MyName, FromWorker, Payload) of
+    ok ->
+      {keep_state, State};
+    {abort, Reason} ->
+      notify_worker_parallel_abort(GenWorkerEts, {pipeline_predict_inbox_rejected, Reason}),
+      reset_parallel_loss_context(GenWorkerEts),
+      {keep_state, State}
+  end;
 
 predict(cast, {sample,_CSVname, BatchID, {<<>>, _Type}}, State) ->
   ?LOG_WARNING("Received empty tensor , batch id: ~p",[BatchID]),
@@ -574,11 +707,62 @@ predict(cast, {sample,_CSVname, BatchID, {<<>>, _Type}}, State) ->
 
 % send predict sample to worker
 predict(cast, {sample , SourceName , BatchID , {PredictBatchTensor, Type}}, State = #workerGeneric_state{modelID = ModelId, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
-    DistributedBehaviorFunc(pre_predict, {get(generic_worker_ets),DistributedWorkerData}),
+    GenWorkerEts = get(generic_worker_ets),
+    ParallelMode = normalize_parallel_mode_atom(
+                     ets:lookup_element(GenWorkerEts, parallel_mode, ?ETS_KEYVAL_VAL_IDX)
+                   ),
+    DistributedBehaviorFunc(pre_predict, {GenWorkerEts,DistributedWorkerData}),
     WorkersStatsEts = get(worker_stats_ets),
     stats:increment_by_value(WorkersStatsEts , batches_received_predict , 1),
-    nif_call(call_to_predict, [ModelId , {PredictBatchTensor, Type} , BatchID, SourceName]),
-    {next_state, wait, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}};
+    case ParallelMode of
+      pipeline ->
+        StageID = get_worker_pipeline_stage(GenWorkerEts),
+        case StageID of
+          0 ->
+            case prepare_pipeline_predict_stage0_microbatches(
+                   GenWorkerEts,
+                   SourceName,
+                   BatchID,
+                   {PredictBatchTensor, Type}
+                 ) of
+              {ok, NumDispatched, RemainingQueue, TotalMicrobatches} ->
+                ActiveBatchCtx = #{
+                  model_id => ModelId,
+                  source_name => SourceName,
+                  batch_id => BatchID,
+                  mode => pipeline_predict,
+                  stage => StageID,
+                  total_microbatches => TotalMicrobatches,
+                  forward_dispatched => NumDispatched,
+                  forward_completed => 0,
+                  predict_acc => []
+                },
+                ets:update_element(GenWorkerEts, parallel_total_microbatches, {?ETS_KEYVAL_VAL_IDX, TotalMicrobatches}),
+                ets:update_element(GenWorkerEts, parallel_pending_losses, {?ETS_KEYVAL_VAL_IDX, 0}),
+                ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX, 0.0}),
+                ets:update_element(GenWorkerEts, parallel_microbatch_queue, {?ETS_KEYVAL_VAL_IDX, RemainingQueue}),
+                ets:update_element(GenWorkerEts, parallel_active_batch_ctx, {?ETS_KEYVAL_VAL_IDX, ActiveBatchCtx}),
+                ?LOG_INFO(
+                  "Worker ~p stage0 pipeline predict batch=~p source=~p total_microbatches=~p dispatched=~p queued=~p",
+                  [State#workerGeneric_state.myName, BatchID, SourceName, TotalMicrobatches, NumDispatched, length(RemainingQueue)]
+                ),
+                {next_state, wait, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}};
+              {abort, PredictReason} ->
+                notify_worker_parallel_abort(GenWorkerEts, {pipeline_predict_stage0_prepare_failed, BatchID, SourceName, PredictReason}),
+                reset_parallel_loss_context(GenWorkerEts),
+                {next_state, predict, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}}
+            end;
+          _ ->
+            ?LOG_INFO(
+              "Worker ~p pipeline predict stage ~p ignored source batch=~p from ~p; waiting for upstream activation",
+              [State#workerGeneric_state.myName, StageID, BatchID, SourceName]
+            ),
+            {next_state, predict, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}}
+        end;
+      _ ->
+        nif_call(call_to_predict, [ModelId , {PredictBatchTensor, Type} , BatchID, SourceName]),
+        {next_state, wait, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}}
+    end;
 
 predict(cast, {start_stream , SourceName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   stream_handler(start_stream, predict, SourceName, DistributedBehaviorFunc),
@@ -780,13 +964,37 @@ normalize_tp_string(Value) when is_atom(Value) -> atom_to_list(Value);
 normalize_tp_string(Value) when is_integer(Value) -> integer_to_list(Value);
 normalize_tp_string(_Value) -> "".
 
+augment_train_params_with_parallel_cfg(TrainParams, WorkerParallelCfg) ->
+  BaseParams =
+    case TrainParams of
+      Map when is_map(Map) -> Map;
+      _ -> #{}
+    end,
+  PipelineStage = normalize_tp_int(maps:get(pipeline_stage, WorkerParallelCfg, 0), 0),
+  PipelineWorldSize = normalize_tp_int(maps:get(pipeline_world_size, WorkerParallelCfg, 1), 1),
+  maps:merge(
+    BaseParams,
+    #{
+      "pipeline_stage" => integer_to_list(PipelineStage),
+      "pipeline_world_size" => integer_to_list(PipelineWorldSize)
+    }
+  ).
+
 emit_parallel_event(WorkerName, Direction, BatchID, MicrobatchID, StageID, Meta) ->
   GenWorkerEts = get(generic_worker_ets),
   case maybe_consume_parallel_scheduler_grant(GenWorkerEts, Direction, MicrobatchID, StageID) of
     ok ->
+      ?LOG_INFO(
+        "Worker ~p emits parallel event direction=~p batch=~p microbatch=~p stage=~p (grant-consumed)",
+        [WorkerName, Direction, BatchID, MicrobatchID, StageID]
+      ),
       gen_statem:cast(get(client_pid), {parallel_event, WorkerName, Direction, BatchID, MicrobatchID, StageID, Meta}),
       ok;
     {error, no_scheduler_grant} ->
+      ?LOG_INFO(
+        "Worker ~p waits for super-node scheduler grant direction=~p microbatch=~p stage=~p",
+        [WorkerName, Direction, MicrobatchID, StageID]
+      ),
       {error, no_scheduler_grant};
     {error, GrantReason} ->
       notify_worker_parallel_abort(
@@ -1213,17 +1421,6 @@ maybe_parallel_train_microbatch_path(GenWorkerEts, ModelId, SourceName, BatchID,
   SupportsMicrobatch = (NifModule =:= nerlTorchNIF) andalso erlang:function_exported(NifModule, call_to_train_microbatch, 5),
   HasSuperAuthority = ets:lookup_element(GenWorkerEts, parallel_super_authority, ?ETS_KEYVAL_VAL_IDX),
   case {ModeLower, SupportsMicrobatch, NumMicrobatches > 0, HasSuperAuthority} of
-    {"pipeline", true, true, true} ->
-      prepare_and_dispatch_parallel_microbatches(
-        GenWorkerEts,
-        ModelId,
-        SourceName,
-        BatchID,
-        {NerlTensorOfSamples, NerlTensorType},
-        NumMicrobatches,
-        MicroBatchSize,
-        pipeline
-      );
     {"pipeline_tensor", true, true, true} ->
       prepare_and_dispatch_parallel_microbatches(
         GenWorkerEts,
@@ -1390,6 +1587,998 @@ dispatch_queued_parallel_microbatches(GenWorkerEts) ->
     _ ->
       ok
   end.
+
+prepare_pipeline_stage0_microbatches(
+  GenWorkerEts,
+  SourceName,
+  BatchID,
+  BatchTensor
+) ->
+  case pipeline_torch_backend_supported(GenWorkerEts) of
+    false ->
+      {abort, pipeline_torch_backend_required};
+    true ->
+  ParallelExecution = ets:lookup_element(GenWorkerEts, parallel_execution, ?ETS_KEYVAL_VAL_IDX),
+  NumMicrobatches = get_parallel_execution_int(ParallelExecution, [<<"numMicroBatches">>, numMicroBatches], 1),
+  MicroBatchSize = get_parallel_execution_int(ParallelExecution, [<<"microBatchSize">>, microBatchSize], 0),
+  case split_batch_into_microbatches(BatchTensor, NumMicrobatches, MicroBatchSize) of
+    [] ->
+      {abort, microbatch_split_failed};
+    MicrobatchList ->
+      ModelId = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
+      WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+      StageID = get_worker_pipeline_stage(GenWorkerEts),
+      TotalMicrobatches = length(MicrobatchList),
+      dispatch_pipeline_stage0_forward_microbatch_loop(
+        GenWorkerEts,
+        ModelId,
+        WorkerName,
+        SourceName,
+        BatchID,
+        StageID,
+        TotalMicrobatches,
+        MicrobatchList,
+        0
+      )
+  end
+  end.
+
+dispatch_pipeline_stage0_forward_microbatch_loop(
+  _GenWorkerEts,
+  _ModelId,
+  _WorkerName,
+  _SourceName,
+  _BatchID,
+  _StageID,
+  _TotalMicrobatches,
+  [],
+  NumDispatched
+) ->
+  {ok, NumDispatched, [], NumDispatched};
+dispatch_pipeline_stage0_forward_microbatch_loop(
+  GenWorkerEts,
+  ModelId,
+  WorkerName,
+  SourceName,
+  BatchID,
+  StageID,
+  TotalMicrobatches,
+  [{MicrobatchID, {MicrobatchTensor, MicrobatchType}} | Rest],
+  NumDispatched
+) ->
+  case maybe_emit_parallel_forward_event(pipeline, WorkerName, BatchID, MicrobatchID, StageID) of
+    {error, no_scheduler_grant} ->
+      {ok, NumDispatched, [{MicrobatchID, {MicrobatchTensor, MicrobatchType}} | Rest], TotalMicrobatches};
+    {error, EmitReason} ->
+      {abort, {pipeline_stage0_forward_grant_rejected, EmitReason}};
+    ok ->
+      case nif_call(call_to_pipeline_stage0_forward, [ModelId, {MicrobatchTensor, MicrobatchType}, BatchID, MicrobatchID]) of
+        {ok, pipeline_stage0_forward, ActivationTensor, ActivationType, LabelsTensor, LabelsType, StageTime} ->
+          case resolve_pipeline_adjacent_worker(GenWorkerEts, next) of
+            {ok, NextWorker} ->
+              Payload = {
+                pipeline_forward_payload,
+                BatchID,
+                SourceName,
+                TotalMicrobatches,
+                MicrobatchID,
+                {ActivationTensor, ActivationType},
+                {LabelsTensor, LabelsType}
+              },
+              route_pipeline_payload_to_worker(GenWorkerEts, WorkerName, NextWorker, Payload),
+              ets:update_element(
+                GenWorkerEts,
+                parallel_time_acc,
+                {
+                  ?ETS_KEYVAL_VAL_IDX,
+                  ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
+                }
+              ),
+              dispatch_pipeline_stage0_forward_microbatch_loop(
+                GenWorkerEts,
+                ModelId,
+                WorkerName,
+                SourceName,
+                BatchID,
+                StageID,
+                TotalMicrobatches,
+                Rest,
+                NumDispatched + 1
+              );
+            {error, AdjacentReason} ->
+              {abort, {pipeline_next_stage_resolution_failed, AdjacentReason}}
+          end;
+        {nerlnif, error, Reason} ->
+          {abort, {pipeline_stage0_forward_nif_error, Reason}};
+        Unexpected ->
+          {abort, {pipeline_stage0_forward_unexpected, Unexpected}}
+      end
+  end.
+
+prepare_pipeline_predict_stage0_microbatches(
+  GenWorkerEts,
+  SourceName,
+  BatchID,
+  BatchTensor
+) ->
+  case pipeline_torch_backend_supported(GenWorkerEts) of
+    false ->
+      {abort, pipeline_torch_backend_required};
+    true ->
+  ParallelExecution = ets:lookup_element(GenWorkerEts, parallel_execution, ?ETS_KEYVAL_VAL_IDX),
+  NumMicrobatches = get_parallel_execution_int(ParallelExecution, [<<"numMicroBatches">>, numMicroBatches], 1),
+  MicroBatchSize = get_parallel_execution_int(ParallelExecution, [<<"microBatchSize">>, microBatchSize], 0),
+  case split_batch_into_microbatches(BatchTensor, NumMicrobatches, MicroBatchSize) of
+    [] ->
+      {abort, microbatch_split_failed};
+    MicrobatchList ->
+      ModelId = ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX),
+      WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+      StageID = get_worker_pipeline_stage(GenWorkerEts),
+      TotalMicrobatches = length(MicrobatchList),
+      dispatch_pipeline_stage0_predict_microbatch_loop(
+        GenWorkerEts,
+        ModelId,
+        WorkerName,
+        SourceName,
+        BatchID,
+        StageID,
+        TotalMicrobatches,
+        MicrobatchList,
+        0
+      )
+  end
+  end.
+
+dispatch_pipeline_stage0_predict_microbatch_loop(
+  _GenWorkerEts,
+  _ModelId,
+  _WorkerName,
+  _SourceName,
+  _BatchID,
+  _StageID,
+  _TotalMicrobatches,
+  [],
+  NumDispatched
+) ->
+  {ok, NumDispatched, [], NumDispatched};
+dispatch_pipeline_stage0_predict_microbatch_loop(
+  GenWorkerEts,
+  ModelId,
+  WorkerName,
+  SourceName,
+  BatchID,
+  StageID,
+  TotalMicrobatches,
+  [{MicrobatchID, {MicrobatchTensor, MicrobatchType}} | Rest],
+  NumDispatched
+) ->
+  case maybe_emit_parallel_forward_event(pipeline, WorkerName, BatchID, MicrobatchID, StageID) of
+    {error, no_scheduler_grant} ->
+      {ok, NumDispatched, [{MicrobatchID, {MicrobatchTensor, MicrobatchType}} | Rest], TotalMicrobatches};
+    {error, EmitReason} ->
+      {abort, {pipeline_predict_stage0_grant_rejected, EmitReason}};
+    ok ->
+      case nif_call(call_to_pipeline_predict_stage0_forward, [ModelId, {MicrobatchTensor, MicrobatchType}, BatchID]) of
+        {ok, pipeline_predict_stage0, ActivationTensor, ActivationType, StageTime} ->
+          case resolve_pipeline_adjacent_worker(GenWorkerEts, next) of
+            {ok, NextWorker} ->
+              Payload = {
+                pipeline_predict_payload,
+                BatchID,
+                SourceName,
+                TotalMicrobatches,
+                MicrobatchID,
+                {ActivationTensor, ActivationType}
+              },
+              route_pipeline_payload_to_worker(GenWorkerEts, WorkerName, NextWorker, Payload),
+              ets:update_element(
+                GenWorkerEts,
+                parallel_time_acc,
+                {
+                  ?ETS_KEYVAL_VAL_IDX,
+                  ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
+                }
+              ),
+              dispatch_pipeline_stage0_predict_microbatch_loop(
+                GenWorkerEts,
+                ModelId,
+                WorkerName,
+                SourceName,
+                BatchID,
+                StageID,
+                TotalMicrobatches,
+                Rest,
+                NumDispatched + 1
+              );
+            {error, AdjacentReason} ->
+              {abort, {pipeline_predict_next_stage_resolution_failed, AdjacentReason}}
+          end;
+        {nerlnif, error, Reason} ->
+          {abort, {pipeline_predict_stage0_nif_error, Reason}};
+        Unexpected ->
+          {abort, {pipeline_predict_stage0_unexpected, Unexpected}}
+      end
+  end.
+
+handle_parallel_pipeline_inbox(GenWorkerEts, ModelId, WorkerName, _FromWorker, Payload) ->
+  case Payload of
+    {pipeline_forward_payload, BatchID, SourceName, TotalMicrobatches, _MicrobatchID, _Activation, _Labels} ->
+      ForwardBuffer = ets:lookup_element(GenWorkerEts, parallel_pipeline_forward_buffer, ?ETS_KEYVAL_VAL_IDX),
+      ets:update_element(
+        GenWorkerEts,
+        parallel_pipeline_forward_buffer,
+        {?ETS_KEYVAL_VAL_IDX, ForwardBuffer ++ [Payload]}
+      ),
+      ensure_active_pipeline_training_ctx(
+        GenWorkerEts,
+        ModelId,
+        SourceName,
+        BatchID,
+        TotalMicrobatches
+      ),
+      dispatch_pipeline_buffers(GenWorkerEts, ModelId, WorkerName);
+    {pipeline_backward_payload, BatchID, SourceName, TotalMicrobatches, _MicrobatchID, _Grad} ->
+      BackwardBuffer = ets:lookup_element(GenWorkerEts, parallel_pipeline_backward_buffer, ?ETS_KEYVAL_VAL_IDX),
+      ets:update_element(
+        GenWorkerEts,
+        parallel_pipeline_backward_buffer,
+        {?ETS_KEYVAL_VAL_IDX, BackwardBuffer ++ [Payload]}
+      ),
+      ensure_active_pipeline_training_ctx(
+        GenWorkerEts,
+        ModelId,
+        SourceName,
+        BatchID,
+        TotalMicrobatches
+      ),
+      dispatch_pipeline_buffers(GenWorkerEts, ModelId, WorkerName);
+    _ ->
+      {abort, {unsupported_pipeline_train_payload, Payload}}
+  end.
+
+handle_parallel_pipeline_predict_inbox(GenWorkerEts, ModelId, WorkerName, _FromWorker, Payload) ->
+  case Payload of
+    {pipeline_predict_payload, BatchID, SourceName, TotalMicrobatches, _MicrobatchID, _Activation} ->
+      PredictBuffer = ets:lookup_element(GenWorkerEts, parallel_pipeline_predict_buffer, ?ETS_KEYVAL_VAL_IDX),
+      ets:update_element(
+        GenWorkerEts,
+        parallel_pipeline_predict_buffer,
+        {?ETS_KEYVAL_VAL_IDX, PredictBuffer ++ [Payload]}
+      ),
+      ensure_active_pipeline_predict_ctx(
+        GenWorkerEts,
+        ModelId,
+        SourceName,
+        BatchID,
+        TotalMicrobatches
+      ),
+      dispatch_pipeline_predict_buffers(GenWorkerEts, ModelId, WorkerName);
+    _ ->
+      {abort, {unsupported_pipeline_predict_payload, Payload}}
+  end.
+
+dispatch_pipeline_buffers(GenWorkerEts, ModelId, WorkerName) ->
+  case dispatch_pipeline_stage0_queue(GenWorkerEts, ModelId, WorkerName) of
+    {abort, _Reason} = Abort ->
+      Abort;
+    ok ->
+      case dispatch_pipeline_forward_buffer(GenWorkerEts, ModelId, WorkerName) of
+        {abort, _Reason} = Abort ->
+          Abort;
+        ok ->
+          case dispatch_pipeline_backward_buffer(GenWorkerEts, ModelId, WorkerName) of
+            {abort, _Reason} = Abort ->
+              Abort;
+            ok ->
+              maybe_finalize_pipeline_training_batch(GenWorkerEts, WorkerName)
+          end
+      end
+  end.
+
+dispatch_pipeline_stage0_queue(GenWorkerEts, ModelId, WorkerName) ->
+  StageID = get_worker_pipeline_stage(GenWorkerEts),
+  case StageID of
+    0 ->
+      ActiveCtx = ets:lookup_element(GenWorkerEts, parallel_active_batch_ctx, ?ETS_KEYVAL_VAL_IDX),
+      Queue = ets:lookup_element(GenWorkerEts, parallel_microbatch_queue, ?ETS_KEYVAL_VAL_IDX),
+      case {ActiveCtx, Queue} of
+        {Ctx, [_ | _]} when is_map(Ctx) ->
+          Mode = maps:get(mode, Ctx, legacy),
+          SourceName = maps:get(source_name, Ctx, undefined),
+          BatchID = maps:get(batch_id, Ctx, undefined),
+          TotalMicrobatches = maps:get(total_microbatches, Ctx, length(Queue)),
+          Dispatched = maps:get(forward_dispatched, Ctx, 0),
+          case Mode of
+            pipeline ->
+              case dispatch_pipeline_stage0_forward_microbatch_loop(
+                     GenWorkerEts,
+                     ModelId,
+                     WorkerName,
+                     SourceName,
+                     BatchID,
+                     StageID,
+                     TotalMicrobatches,
+                     Queue,
+                     Dispatched
+                   ) of
+                {ok, NewDispatched, RemainingQueue, _Total} ->
+                  ets:update_element(GenWorkerEts, parallel_microbatch_queue, {?ETS_KEYVAL_VAL_IDX, RemainingQueue}),
+                  update_active_pipeline_batch_ctx(
+                    GenWorkerEts,
+                    fun(Ctx0) -> Ctx0#{forward_dispatched => NewDispatched, total_microbatches => TotalMicrobatches} end
+                  ),
+                  ok;
+                {abort, _Reason} = Abort ->
+                  Abort
+              end;
+            pipeline_predict ->
+              case dispatch_pipeline_stage0_predict_microbatch_loop(
+                     GenWorkerEts,
+                     ModelId,
+                     WorkerName,
+                     SourceName,
+                     BatchID,
+                     StageID,
+                     TotalMicrobatches,
+                     Queue,
+                     Dispatched
+                   ) of
+                {ok, NewDispatched, RemainingQueue, _Total} ->
+                  ets:update_element(GenWorkerEts, parallel_microbatch_queue, {?ETS_KEYVAL_VAL_IDX, RemainingQueue}),
+                  update_active_pipeline_batch_ctx(
+                    GenWorkerEts,
+                    fun(Ctx0) -> Ctx0#{forward_dispatched => NewDispatched, total_microbatches => TotalMicrobatches} end
+                  ),
+                  ok;
+                {abort, _Reason} = Abort ->
+                  Abort
+              end;
+            _ ->
+              ok
+          end;
+        _ ->
+          ok
+      end;
+    _ ->
+      ok
+  end.
+
+dispatch_pipeline_forward_buffer(GenWorkerEts, ModelId, WorkerName) ->
+  ForwardBuffer = ets:lookup_element(GenWorkerEts, parallel_pipeline_forward_buffer, ?ETS_KEYVAL_VAL_IDX),
+  dispatch_pipeline_forward_buffer_loop(GenWorkerEts, ModelId, WorkerName, ForwardBuffer, []).
+
+dispatch_pipeline_forward_buffer_loop(GenWorkerEts, _ModelId, _WorkerName, [], RemainingAcc) ->
+  ets:update_element(
+    GenWorkerEts,
+    parallel_pipeline_forward_buffer,
+    {?ETS_KEYVAL_VAL_IDX, lists:reverse(RemainingAcc)}
+  ),
+  ok;
+dispatch_pipeline_forward_buffer_loop(
+  GenWorkerEts,
+  ModelId,
+  WorkerName,
+  [Payload | Rest],
+  RemainingAcc
+) ->
+  case maybe_process_pipeline_forward_payload(GenWorkerEts, ModelId, WorkerName, Payload) of
+    processed ->
+      dispatch_pipeline_forward_buffer_loop(GenWorkerEts, ModelId, WorkerName, Rest, RemainingAcc);
+    wait_for_grant ->
+      ets:update_element(
+        GenWorkerEts,
+        parallel_pipeline_forward_buffer,
+        {?ETS_KEYVAL_VAL_IDX, lists:reverse(RemainingAcc) ++ [Payload | Rest]}
+      ),
+      ok;
+    {skip, Reason} ->
+      ets:update_element(
+        GenWorkerEts,
+        parallel_pipeline_forward_buffer,
+        {?ETS_KEYVAL_VAL_IDX, lists:reverse([Payload | RemainingAcc]) ++ Rest}
+      ),
+      {abort, {pipeline_forward_payload_skipped, Reason}};
+    {abort, _Reason} = Abort ->
+      Abort
+  end.
+
+maybe_process_pipeline_forward_payload(
+  GenWorkerEts,
+  ModelId,
+  WorkerName,
+  {pipeline_forward_payload, BatchID, SourceName, TotalMicrobatches, MicrobatchID, Activation, Labels}
+) ->
+  case pipeline_torch_backend_supported(GenWorkerEts) of
+    false ->
+      {abort, pipeline_torch_backend_required};
+    true ->
+  StageID = get_worker_pipeline_stage(GenWorkerEts),
+  case maybe_emit_parallel_forward_event(pipeline, WorkerName, BatchID, MicrobatchID, StageID) of
+    {error, no_scheduler_grant} ->
+      wait_for_grant;
+    {error, EmitReason} ->
+      {abort, {pipeline_forward_event_rejected, EmitReason}};
+    ok ->
+      case is_last_pipeline_stage(GenWorkerEts) of
+        true ->
+          case nif_call(
+                 call_to_pipeline_stage_last_forward_backward,
+                 [ModelId, Activation, Labels, BatchID, SourceName, MicrobatchID]
+               ) of
+            {ok, pipeline_stage_last, LossTensor, LossType, GradTensor, GradType, StageTime} ->
+              UpdatedLossAcc = accumulate_parallel_loss(
+                                 ets:lookup_element(GenWorkerEts, parallel_loss_acc, ?ETS_KEYVAL_VAL_IDX),
+                                 {LossTensor, LossType}
+                               ),
+              ets:update_element(GenWorkerEts, parallel_loss_acc, {?ETS_KEYVAL_VAL_IDX, UpdatedLossAcc}),
+              ets:update_element(
+                GenWorkerEts,
+                parallel_time_acc,
+                {
+                  ?ETS_KEYVAL_VAL_IDX,
+                  ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
+                }
+              ),
+              update_active_pipeline_batch_ctx(
+                GenWorkerEts,
+                fun(Ctx) ->
+                  Ctx#{
+                    forward_completed => maps:get(forward_completed, Ctx, 0) + 1,
+                    backward_completed => maps:get(backward_completed, Ctx, 0) + 1,
+                    total_microbatches => TotalMicrobatches
+                  }
+                end
+              ),
+              case resolve_pipeline_adjacent_worker(GenWorkerEts, prev) of
+                {ok, PrevWorker} ->
+                  BackwardPayload = {
+                    pipeline_backward_payload,
+                    BatchID,
+                    SourceName,
+                    TotalMicrobatches,
+                    MicrobatchID,
+                    {GradTensor, GradType}
+                  },
+                  route_pipeline_payload_to_worker(GenWorkerEts, WorkerName, PrevWorker, BackwardPayload),
+                  processed;
+                {error, no_adjacent_stage} ->
+                  processed;
+                {error, AdjacentReason} ->
+                  {abort, {pipeline_prev_stage_resolution_failed, AdjacentReason}}
+              end;
+            {nerlnif, error, Reason} ->
+              {abort, {pipeline_stage_last_nif_error, Reason}};
+            Unexpected ->
+              {abort, {pipeline_stage_last_unexpected, Unexpected}}
+          end;
+        false ->
+          case nif_call(
+                 call_to_pipeline_stage_forward,
+                 [ModelId, Activation, Labels, BatchID, SourceName, MicrobatchID]
+               ) of
+            {ok, pipeline_stage_forward, StageTensor, StageType, ForwardLabelsTensor, ForwardLabelsType, StageTime} ->
+              update_active_pipeline_batch_ctx(
+                GenWorkerEts,
+                fun(Ctx) ->
+                  Ctx#{
+                    forward_completed => maps:get(forward_completed, Ctx, 0) + 1,
+                    total_microbatches => TotalMicrobatches
+                  }
+                end
+              ),
+              ets:update_element(
+                GenWorkerEts,
+                parallel_time_acc,
+                {
+                  ?ETS_KEYVAL_VAL_IDX,
+                  ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
+                }
+              ),
+              case resolve_pipeline_adjacent_worker(GenWorkerEts, next) of
+                {ok, NextWorker} ->
+                  ForwardPayload = {
+                    pipeline_forward_payload,
+                    BatchID,
+                    SourceName,
+                    TotalMicrobatches,
+                    MicrobatchID,
+                    {StageTensor, StageType},
+                    {ForwardLabelsTensor, ForwardLabelsType}
+                  },
+                  route_pipeline_payload_to_worker(GenWorkerEts, WorkerName, NextWorker, ForwardPayload),
+                  processed;
+                {error, AdjacentReason} ->
+                  {abort, {pipeline_next_stage_resolution_failed, AdjacentReason}}
+              end;
+            {nerlnif, error, Reason} ->
+              {abort, {pipeline_stage_forward_nif_error, Reason}};
+            Unexpected ->
+              {abort, {pipeline_stage_forward_unexpected, Unexpected}}
+          end
+      end
+  end
+  end;
+maybe_process_pipeline_forward_payload(_GenWorkerEts, _ModelId, _WorkerName, Payload) ->
+  {skip, {invalid_pipeline_forward_payload, Payload}}.
+
+dispatch_pipeline_backward_buffer(GenWorkerEts, ModelId, WorkerName) ->
+  BackwardBuffer = ets:lookup_element(GenWorkerEts, parallel_pipeline_backward_buffer, ?ETS_KEYVAL_VAL_IDX),
+  dispatch_pipeline_backward_buffer_loop(GenWorkerEts, ModelId, WorkerName, BackwardBuffer, []).
+
+dispatch_pipeline_backward_buffer_loop(GenWorkerEts, _ModelId, _WorkerName, [], RemainingAcc) ->
+  ets:update_element(
+    GenWorkerEts,
+    parallel_pipeline_backward_buffer,
+    {?ETS_KEYVAL_VAL_IDX, lists:reverse(RemainingAcc)}
+  ),
+  ok;
+dispatch_pipeline_backward_buffer_loop(
+  GenWorkerEts,
+  ModelId,
+  WorkerName,
+  [Payload | Rest],
+  RemainingAcc
+) ->
+  case maybe_process_pipeline_backward_payload(GenWorkerEts, ModelId, WorkerName, Payload) of
+    processed ->
+      dispatch_pipeline_backward_buffer_loop(GenWorkerEts, ModelId, WorkerName, Rest, RemainingAcc);
+    wait_for_grant ->
+      ets:update_element(
+        GenWorkerEts,
+        parallel_pipeline_backward_buffer,
+        {?ETS_KEYVAL_VAL_IDX, lists:reverse(RemainingAcc) ++ [Payload | Rest]}
+      ),
+      ok;
+    {skip, Reason} ->
+      ets:update_element(
+        GenWorkerEts,
+        parallel_pipeline_backward_buffer,
+        {?ETS_KEYVAL_VAL_IDX, lists:reverse([Payload | RemainingAcc]) ++ Rest}
+      ),
+      {abort, {pipeline_backward_payload_skipped, Reason}};
+    {abort, _Reason} = Abort ->
+      Abort
+  end.
+
+maybe_process_pipeline_backward_payload(
+  GenWorkerEts,
+  ModelId,
+  WorkerName,
+  {pipeline_backward_payload, BatchID, SourceName, TotalMicrobatches, MicrobatchID, Grad}
+) ->
+  case pipeline_torch_backend_supported(GenWorkerEts) of
+    false ->
+      {abort, pipeline_torch_backend_required};
+    true ->
+  StageID = get_worker_pipeline_stage(GenWorkerEts),
+  case maybe_emit_parallel_backward_event(
+         pipeline,
+         WorkerName,
+         BatchID,
+         MicrobatchID,
+         StageID,
+         0.0
+       ) of
+    {error, no_scheduler_grant} ->
+      wait_for_grant;
+    {error, EmitReason} ->
+      {abort, {pipeline_backward_event_rejected, EmitReason}};
+    ok ->
+      case nif_call(call_to_pipeline_stage_backward, [ModelId, Grad, BatchID, MicrobatchID]) of
+        {ok, pipeline_stage_backward, PrevGradTensor, PrevGradType, StageTime} ->
+          update_active_pipeline_batch_ctx(
+            GenWorkerEts,
+            fun(Ctx) ->
+              Ctx#{
+                backward_completed => maps:get(backward_completed, Ctx, 0) + 1,
+                total_microbatches => TotalMicrobatches
+              }
+            end
+          ),
+          ets:update_element(
+            GenWorkerEts,
+            parallel_time_acc,
+            {
+              ?ETS_KEYVAL_VAL_IDX,
+              ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
+            }
+          ),
+          case resolve_pipeline_adjacent_worker(GenWorkerEts, prev) of
+            {ok, PrevWorker} ->
+              PrevPayload = {
+                pipeline_backward_payload,
+                BatchID,
+                SourceName,
+                TotalMicrobatches,
+                MicrobatchID,
+                {PrevGradTensor, PrevGradType}
+              },
+              route_pipeline_payload_to_worker(GenWorkerEts, WorkerName, PrevWorker, PrevPayload),
+              processed;
+            {error, no_adjacent_stage} ->
+              processed;
+            {error, AdjacentReason} ->
+              {abort, {pipeline_prev_stage_resolution_failed, AdjacentReason}}
+          end;
+        {nerlnif, error, Reason} ->
+          {abort, {pipeline_stage_backward_nif_error, Reason}};
+        Unexpected ->
+          {abort, {pipeline_stage_backward_unexpected, Unexpected}}
+      end
+  end
+  end;
+maybe_process_pipeline_backward_payload(_GenWorkerEts, _ModelId, _WorkerName, Payload) ->
+  {skip, {invalid_pipeline_backward_payload, Payload}}.
+
+maybe_finalize_pipeline_training_batch(GenWorkerEts, WorkerName) ->
+  ActiveCtx = ets:lookup_element(GenWorkerEts, parallel_active_batch_ctx, ?ETS_KEYVAL_VAL_IDX),
+  case ActiveCtx of
+    undefined ->
+      ok;
+    Ctx when is_map(Ctx) ->
+      Mode = maps:get(mode, Ctx, legacy),
+      case Mode of
+        pipeline ->
+          TotalMicrobatches = maps:get(total_microbatches, Ctx, 0),
+          ForwardCompleted = maps:get(forward_completed, Ctx, maps:get(forward_dispatched, Ctx, 0)),
+          BackwardCompleted = maps:get(backward_completed, Ctx, 0),
+          IsLastStage = is_last_pipeline_stage(GenWorkerEts),
+          Done =
+            case IsLastStage of
+              true -> ForwardCompleted >= TotalMicrobatches andalso TotalMicrobatches > 0;
+              false -> ForwardCompleted >= TotalMicrobatches andalso BackwardCompleted >= TotalMicrobatches andalso TotalMicrobatches > 0
+            end,
+          case Done of
+            false ->
+              ok;
+            true ->
+              ModelId = maps:get(model_id, Ctx, ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX)),
+              SourceName = maps:get(source_name, Ctx, undefined),
+              BatchID = maps:get(batch_id, Ctx, undefined),
+              maybe_call_optimizer_barrier(ModelId),
+              case IsLastStage of
+                true ->
+                  maybe_send_pipeline_last_stage_loss(GenWorkerEts, WorkerName, SourceName, BatchID, TotalMicrobatches);
+                false ->
+                  ok
+              end,
+              reset_parallel_batch_context(GenWorkerEts),
+              maybe_dispatch_deferred_parallel_sample(GenWorkerEts, train),
+              ok
+          end;
+        _ ->
+          ok
+      end;
+    _ ->
+      ok
+  end.
+
+maybe_send_pipeline_last_stage_loss(GenWorkerEts, WorkerName, SourceName, BatchID, TotalMicrobatches) ->
+  LossAcc = ets:lookup_element(GenWorkerEts, parallel_loss_acc, ?ETS_KEYVAL_VAL_IDX),
+  AvgLossTensor = finalize_parallel_loss(LossAcc, erlang:max(1, TotalMicrobatches)),
+  TimeAcc = ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX),
+  AvgTime = TimeAcc / erlang:max(1, TotalMicrobatches),
+  BatchTimeStamp = erlang:system_time(nanosecond),
+  WorkerToken = ets:lookup_element(GenWorkerEts, distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
+  ?LOG_INFO(
+    "Worker ~p pipeline last-stage completed batch=~p source=~p microbatches=~p",
+    [WorkerName, BatchID, SourceName, TotalMicrobatches]
+  ),
+  gen_statem:cast(
+    get(client_pid),
+    {loss, WorkerName, SourceName, AvgLossTensor, AvgTime, WorkerToken, BatchID, BatchTimeStamp}
+  ).
+
+ensure_active_pipeline_training_ctx(GenWorkerEts, ModelId, SourceName, BatchID, TotalMicrobatches) ->
+  ActiveCtx = ets:lookup_element(GenWorkerEts, parallel_active_batch_ctx, ?ETS_KEYVAL_VAL_IDX),
+  case ActiveCtx of
+    undefined ->
+      StageID = get_worker_pipeline_stage(GenWorkerEts),
+      NewCtx = #{
+        model_id => ModelId,
+        source_name => SourceName,
+        batch_id => BatchID,
+        mode => pipeline,
+        stage => StageID,
+        total_microbatches => TotalMicrobatches,
+        forward_completed => 0,
+        backward_completed => 0
+      },
+      ets:update_element(GenWorkerEts, parallel_active_batch_ctx, {?ETS_KEYVAL_VAL_IDX, NewCtx}),
+      ets:update_element(GenWorkerEts, parallel_total_microbatches, {?ETS_KEYVAL_VAL_IDX, TotalMicrobatches}),
+      ets:update_element(GenWorkerEts, parallel_loss_acc, {?ETS_KEYVAL_VAL_IDX, undefined}),
+      ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX, 0.0});
+    Ctx when is_map(Ctx) ->
+      case maps:get(batch_id, Ctx, BatchID) of
+        BatchID ->
+          ok;
+        _OtherBatch ->
+          ok
+      end;
+    _ ->
+      ok
+  end.
+
+update_active_pipeline_batch_ctx(GenWorkerEts, UpdaterFun) ->
+  ActiveCtx = ets:lookup_element(GenWorkerEts, parallel_active_batch_ctx, ?ETS_KEYVAL_VAL_IDX),
+  case ActiveCtx of
+    Ctx when is_map(Ctx) ->
+      UpdatedCtx = UpdaterFun(Ctx),
+      ets:update_element(GenWorkerEts, parallel_active_batch_ctx, {?ETS_KEYVAL_VAL_IDX, UpdatedCtx});
+    _ ->
+      ok
+  end.
+
+dispatch_pipeline_predict_buffers(GenWorkerEts, ModelId, WorkerName) ->
+  case dispatch_pipeline_stage0_queue(GenWorkerEts, ModelId, WorkerName) of
+    {abort, _Reason} = Abort ->
+      Abort;
+    ok ->
+      PredictBuffer = ets:lookup_element(GenWorkerEts, parallel_pipeline_predict_buffer, ?ETS_KEYVAL_VAL_IDX),
+      case dispatch_pipeline_predict_buffer_loop(GenWorkerEts, ModelId, WorkerName, PredictBuffer, []) of
+        {abort, _Reason} = Abort ->
+          Abort;
+        ok ->
+          maybe_finalize_pipeline_predict_batch(GenWorkerEts, WorkerName)
+      end
+  end.
+
+dispatch_pipeline_predict_buffer_loop(GenWorkerEts, _ModelId, _WorkerName, [], RemainingAcc) ->
+  ets:update_element(
+    GenWorkerEts,
+    parallel_pipeline_predict_buffer,
+    {?ETS_KEYVAL_VAL_IDX, lists:reverse(RemainingAcc)}
+  ),
+  ok;
+dispatch_pipeline_predict_buffer_loop(
+  GenWorkerEts,
+  ModelId,
+  WorkerName,
+  [Payload | Rest],
+  RemainingAcc
+) ->
+  case maybe_process_pipeline_predict_payload(GenWorkerEts, ModelId, WorkerName, Payload) of
+    processed ->
+      dispatch_pipeline_predict_buffer_loop(GenWorkerEts, ModelId, WorkerName, Rest, RemainingAcc);
+    wait_for_grant ->
+      ets:update_element(
+        GenWorkerEts,
+        parallel_pipeline_predict_buffer,
+        {?ETS_KEYVAL_VAL_IDX, lists:reverse(RemainingAcc) ++ [Payload | Rest]}
+      ),
+      ok;
+    {skip, Reason} ->
+      ets:update_element(
+        GenWorkerEts,
+        parallel_pipeline_predict_buffer,
+        {?ETS_KEYVAL_VAL_IDX, lists:reverse([Payload | RemainingAcc]) ++ Rest}
+      ),
+      {abort, {pipeline_predict_payload_skipped, Reason}};
+    {abort, _Reason} = Abort ->
+      Abort
+  end.
+
+maybe_process_pipeline_predict_payload(
+  GenWorkerEts,
+  ModelId,
+  WorkerName,
+  {pipeline_predict_payload, BatchID, SourceName, TotalMicrobatches, MicrobatchID, Activation}
+) ->
+  case pipeline_torch_backend_supported(GenWorkerEts) of
+    false ->
+      {abort, pipeline_torch_backend_required};
+    true ->
+  StageID = get_worker_pipeline_stage(GenWorkerEts),
+  case maybe_emit_parallel_forward_event(pipeline, WorkerName, BatchID, MicrobatchID, StageID) of
+    {error, no_scheduler_grant} ->
+      wait_for_grant;
+    {error, EmitReason} ->
+      {abort, {pipeline_predict_event_rejected, EmitReason}};
+    ok ->
+      case nif_call(call_to_pipeline_predict_stage_forward, [ModelId, Activation, BatchID]) of
+        {ok, pipeline_predict_stage, StageTensor, StageType, StageTime} ->
+          update_active_pipeline_batch_ctx(
+            GenWorkerEts,
+            fun(Ctx) ->
+              ExistingPred = maps:get(predict_acc, Ctx, []),
+              Ctx#{
+                forward_completed => maps:get(forward_completed, Ctx, 0) + 1,
+                total_microbatches => TotalMicrobatches,
+                predict_acc => ExistingPred ++ [{MicrobatchID, {StageTensor, StageType}}]
+              }
+            end
+          ),
+          ets:update_element(
+            GenWorkerEts,
+            parallel_time_acc,
+            {
+              ?ETS_KEYVAL_VAL_IDX,
+              ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
+            }
+          ),
+          case is_last_pipeline_stage(GenWorkerEts) of
+            true ->
+              processed;
+            false ->
+              case resolve_pipeline_adjacent_worker(GenWorkerEts, next) of
+                {ok, NextWorker} ->
+                  ForwardPayload = {
+                    pipeline_predict_payload,
+                    BatchID,
+                    SourceName,
+                    TotalMicrobatches,
+                    MicrobatchID,
+                    {StageTensor, StageType}
+                  },
+                  route_pipeline_payload_to_worker(GenWorkerEts, WorkerName, NextWorker, ForwardPayload),
+                  processed;
+                {error, AdjacentReason} ->
+                  {abort, {pipeline_predict_next_stage_resolution_failed, AdjacentReason}}
+              end
+          end;
+        {nerlnif, error, Reason} ->
+          {abort, {pipeline_predict_stage_nif_error, Reason}};
+        Unexpected ->
+          {abort, {pipeline_predict_stage_unexpected, Unexpected}}
+      end
+  end
+  end;
+maybe_process_pipeline_predict_payload(_GenWorkerEts, _ModelId, _WorkerName, Payload) ->
+  {skip, {invalid_pipeline_predict_payload, Payload}}.
+
+maybe_finalize_pipeline_predict_batch(GenWorkerEts, WorkerName) ->
+  ActiveCtx = ets:lookup_element(GenWorkerEts, parallel_active_batch_ctx, ?ETS_KEYVAL_VAL_IDX),
+  case ActiveCtx of
+    Ctx when is_map(Ctx) ->
+      Mode = maps:get(mode, Ctx, legacy),
+      case Mode of
+        pipeline_predict ->
+          TotalMicrobatches = maps:get(total_microbatches, Ctx, 0),
+          ForwardCompleted = maps:get(forward_completed, Ctx, 0),
+          case ForwardCompleted >= TotalMicrobatches andalso TotalMicrobatches > 0 andalso is_last_pipeline_stage(GenWorkerEts) of
+            false ->
+              ok;
+            true ->
+              ModelPredAcc = maps:get(predict_acc, Ctx, []),
+              maybe_send_pipeline_last_stage_prediction(GenWorkerEts, WorkerName, Ctx, ModelPredAcc, TotalMicrobatches),
+              reset_parallel_batch_context(GenWorkerEts),
+              maybe_dispatch_deferred_parallel_sample(GenWorkerEts, predict),
+              ok
+          end;
+        _ ->
+          ok
+      end;
+    _ ->
+      ok
+  end.
+
+maybe_send_pipeline_last_stage_prediction(
+  GenWorkerEts,
+  WorkerName,
+  Ctx,
+  PredictAcc,
+  TotalMicrobatches
+) ->
+  SortedPredictions = lists:keysort(1, PredictAcc),
+  PayloadList = [TensorPayload || {_MicrobatchID, TensorPayload} <- SortedPredictions],
+  case PayloadList of
+    [] ->
+      ok;
+    [SinglePayload] ->
+      send_pipeline_prediction_to_client(GenWorkerEts, WorkerName, Ctx, SinglePayload, TotalMicrobatches);
+    _ ->
+      case PayloadList of
+        [{_TensorBin, TensorType} | _] ->
+          case nif_call(nerltensor_concat_nif, [PayloadList, TensorType, 0]) of
+            {PredTensor, PredType} ->
+              send_pipeline_prediction_to_client(
+                GenWorkerEts,
+                WorkerName,
+                Ctx,
+                {PredTensor, PredType},
+                TotalMicrobatches
+              );
+            _ ->
+              ok
+          end;
+        _ ->
+          ok
+      end
+  end.
+
+send_pipeline_prediction_to_client(GenWorkerEts, WorkerName, Ctx, {PredTensor, PredType}, TotalMicrobatches) ->
+  SourceName = maps:get(source_name, Ctx, undefined),
+  BatchID = maps:get(batch_id, Ctx, undefined),
+  BatchTimeStamp = erlang:system_time(nanosecond),
+  WorkerToken = ets:lookup_element(GenWorkerEts, distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
+  TimeAcc = ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX),
+  AvgTime = TimeAcc / erlang:max(1, TotalMicrobatches),
+  ?LOG_INFO(
+    "Worker ~p pipeline last-stage predict completed batch=~p source=~p microbatches=~p",
+    [WorkerName, BatchID, SourceName, TotalMicrobatches]
+  ),
+  gen_statem:cast(
+    get(client_pid),
+    {predictRes, WorkerName, SourceName, {PredTensor, PredType}, AvgTime, WorkerToken, BatchID, BatchTimeStamp}
+  ).
+
+ensure_active_pipeline_predict_ctx(GenWorkerEts, ModelId, SourceName, BatchID, TotalMicrobatches) ->
+  ActiveCtx = ets:lookup_element(GenWorkerEts, parallel_active_batch_ctx, ?ETS_KEYVAL_VAL_IDX),
+  case ActiveCtx of
+    undefined ->
+      StageID = get_worker_pipeline_stage(GenWorkerEts),
+      NewCtx = #{
+        model_id => ModelId,
+        source_name => SourceName,
+        batch_id => BatchID,
+        mode => pipeline_predict,
+        stage => StageID,
+        total_microbatches => TotalMicrobatches,
+        forward_completed => 0,
+        predict_acc => []
+      },
+      ets:update_element(GenWorkerEts, parallel_active_batch_ctx, {?ETS_KEYVAL_VAL_IDX, NewCtx}),
+      ets:update_element(GenWorkerEts, parallel_total_microbatches, {?ETS_KEYVAL_VAL_IDX, TotalMicrobatches}),
+      ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX, 0.0});
+    _ ->
+      ok
+  end.
+
+resolve_pipeline_adjacent_worker(GenWorkerEts, next) ->
+  WorkerParallelCfg = ets:lookup_element(GenWorkerEts, worker_parallel_cfg, ?ETS_KEYVAL_VAL_IDX),
+  Stage = normalize_tp_int(maps:get(pipeline_stage, WorkerParallelCfg, 0), 0),
+  WorldSize = normalize_tp_int(maps:get(pipeline_world_size, WorkerParallelCfg, 1), 1),
+  TargetStage = Stage + 1,
+  case TargetStage >= WorldSize of
+    true -> {error, no_adjacent_stage};
+    false -> pick_pipeline_stage_worker(TargetStage, WorldSize)
+  end;
+resolve_pipeline_adjacent_worker(GenWorkerEts, prev) ->
+  WorkerParallelCfg = ets:lookup_element(GenWorkerEts, worker_parallel_cfg, ?ETS_KEYVAL_VAL_IDX),
+  Stage = normalize_tp_int(maps:get(pipeline_stage, WorkerParallelCfg, 0), 0),
+  WorldSize = normalize_tp_int(maps:get(pipeline_world_size, WorkerParallelCfg, 1), 1),
+  TargetStage = Stage - 1,
+  case TargetStage < 0 of
+    true -> {error, no_adjacent_stage};
+    false -> pick_pipeline_stage_worker(TargetStage, WorldSize)
+  end.
+
+pick_pipeline_stage_worker(TargetStage, WorldSize) ->
+  WorkersParallelMap =
+    case catch ets:lookup_element(nerlnet_data, workers_parallel, ?ETS_KEYVAL_VAL_IDX) of
+      {'EXIT', _} -> #{};
+      Map when is_map(Map) -> Map;
+      _ -> #{}
+    end,
+  MatchingWorkers =
+    maps:fold(
+      fun(CandidateWorker, CandidateCfg, Acc) ->
+        CandidateStage = normalize_tp_int(maps:get(pipeline_stage, CandidateCfg, -1), -1),
+        CandidateWorld = normalize_tp_int(maps:get(pipeline_world_size, CandidateCfg, 1), 1),
+        case (CandidateStage =:= TargetStage) andalso (CandidateWorld =:= WorldSize) of
+          true -> [CandidateWorker | Acc];
+          false -> Acc
+        end
+      end,
+      [],
+      WorkersParallelMap
+    ),
+  case lists:sort(MatchingWorkers) of
+    [] -> {error, {missing_pipeline_stage_worker, TargetStage}};
+    [Worker | _] -> {ok, Worker}
+  end.
+
+is_last_pipeline_stage(GenWorkerEts) ->
+  WorkerParallelCfg = ets:lookup_element(GenWorkerEts, worker_parallel_cfg, ?ETS_KEYVAL_VAL_IDX),
+  Stage = normalize_tp_int(maps:get(pipeline_stage, WorkerParallelCfg, 0), 0),
+  WorldSize = normalize_tp_int(maps:get(pipeline_world_size, WorkerParallelCfg, 1), 1),
+  Stage + 1 >= WorldSize.
+
+route_pipeline_payload_to_worker(GenWorkerEts, FromWorker, ToWorker, Payload) ->
+  W2WPid = ets:lookup_element(GenWorkerEts, w2wcom_pid, ?ETS_KEYVAL_VAL_IDX),
+  ?LOG_INFO("Worker ~p routes pipeline payload to ~p payload_tag=~p", [FromWorker, ToWorker, element(1, Payload)]),
+  send_message(W2WPid, FromWorker, ToWorker, Payload).
 
 split_batch_into_microbatches({_TensorBin, _TensorType}, NumMicrobatches, _MicroBatchSize)
 when NumMicrobatches =< 0 ->
@@ -1754,6 +2943,9 @@ reset_parallel_batch_context(GenWorkerEts) ->
   ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX, 0.0}),
   ets:update_element(GenWorkerEts, parallel_microbatch_queue, {?ETS_KEYVAL_VAL_IDX, []}),
   ets:update_element(GenWorkerEts, parallel_pending_backward_events, {?ETS_KEYVAL_VAL_IDX, []}),
+  ets:update_element(GenWorkerEts, parallel_pipeline_forward_buffer, {?ETS_KEYVAL_VAL_IDX, []}),
+  ets:update_element(GenWorkerEts, parallel_pipeline_backward_buffer, {?ETS_KEYVAL_VAL_IDX, []}),
+  ets:update_element(GenWorkerEts, parallel_pipeline_predict_buffer, {?ETS_KEYVAL_VAL_IDX, []}),
   ets:update_element(GenWorkerEts, parallel_active_batch_ctx, {?ETS_KEYVAL_VAL_IDX, undefined}).
 
 queue_deferred_parallel_sample(GenWorkerEts, SampleTuple) ->
@@ -1788,6 +2980,18 @@ get_backend_module() ->
     undefined -> ets:lookup_element(get(generic_worker_ets), nif_module, ?ETS_KEYVAL_VAL_IDX);
     Module -> Module
   end.
+
+pipeline_torch_backend_supported(GenWorkerEts) ->
+  NifModule =
+    case ets:lookup(GenWorkerEts, nif_module) of
+      [{nif_module, Module}] -> Module;
+      _ -> get_backend_module()
+    end,
+  NifModule =:= nerlTorchNIF andalso
+    erlang:function_exported(NifModule, call_to_pipeline_stage0_forward, 4) andalso
+    erlang:function_exported(NifModule, call_to_pipeline_stage_forward, 6) andalso
+    erlang:function_exported(NifModule, call_to_pipeline_stage_last_forward_backward, 6) andalso
+    erlang:function_exported(NifModule, call_to_pipeline_stage_backward, 4).
 
 nif_call(Function, Args) when is_atom(Function), is_list(Args) ->
   Module = get_backend_module(),

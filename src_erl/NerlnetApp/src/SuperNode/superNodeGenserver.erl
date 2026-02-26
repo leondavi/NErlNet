@@ -93,6 +93,7 @@ handle_cast({register_client, ClientName, Workers}, State = #super_node_state{
 handle_cast({super_heartbeat, ClientName, TsMs}, State = #super_node_state{
   last_heartbeat = LastHeartbeat
 }) ->
+  ?LOG_INFO("Super node heartbeat received from ~p ts_ms=~p", [ClientName, TsMs]),
   UpdatedHeartbeats = maps:put(ClientName, TsMs, LastHeartbeat),
   {noreply, State#super_node_state{last_heartbeat = UpdatedHeartbeats}};
 
@@ -100,6 +101,7 @@ handle_cast({parallel_worker_message, FromWorker, ToWorker, Data}, State = #supe
   worker_to_client = WorkerToClientMap,
   my_router = {RouterHost, RouterPort}
 }) ->
+  ?LOG_INFO("Super node routing parallel worker message from ~p to ~p", [FromWorker, ToWorker]),
   FinalState =
     case maps:get(ToWorker, WorkerToClientMap, undefined) of
       undefined ->
@@ -129,6 +131,10 @@ handle_cast(
   {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta},
   State = #super_node_state{}
 ) ->
+  ?LOG_INFO(
+    "Super node received parallel event worker=~p direction=~p batch=~p microbatch=~p stage=~p meta=~p",
+    [FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta]
+  ),
   EventPayload = {parallel_event, FromWorker, Direction, MicrobatchID, StageID, {BatchID, Meta}},
   case maybe_advance_scheduler(EventPayload, State) of
     {abort, AbortReason, UpdatedState} ->
@@ -265,7 +271,7 @@ apply_parallel_phase_update(
   }
 ) ->
   NormalizedMode = normalize_parallel_mode(ParallelMode),
-  SchedulerTrace = build_scheduler_trace(NormalizedMode, ParallelExecution, WorkerParallelMap),
+  SchedulerTrace = build_scheduler_trace(PhaseName, NormalizedMode, ParallelExecution, WorkerParallelMap),
   ParallelActive = is_parallel_mode_active(NormalizedMode),
   PhaseStartMs =
     case ParallelActive of
@@ -276,6 +282,10 @@ apply_parallel_phase_update(
   ?LOG_INFO(
     "Super node ~p updated parallel phase ~p mode=~p trace_length=~p active=~p",
     [MyName, PhaseName, NormalizedMode, length(SchedulerTrace), ParallelActive]
+  ),
+  ?LOG_INFO(
+    "Super node ~p phase stage-worker map: ~p",
+    [MyName, StageWorkers]
   ),
   StateAfterPhaseUpdate = State#super_node_state{
     parallel_phase = PhaseName,
@@ -335,6 +345,10 @@ push_parallel_config_to_managed_clients(
   lists:foldl(
     fun(ClientName, AccState) ->
       Command = {parallel_super_command, configure_parallel, ParallelMode, ParallelExecution},
+      ?LOG_INFO(
+        "Super node pushing parallel config to client ~p mode=~p",
+        [ClientName, ParallelMode]
+      ),
       case send_super_command_to_client(AccState, ClientName, Command) of
         ok ->
           AccState;
@@ -416,6 +430,10 @@ issue_next_scheduler_grant(
         {error, Reason} ->
           {abort, Reason, EffectiveState};
         {ok, TargetWorkers, UpdatedStageRoundRobin} ->
+          ?LOG_INFO(
+            "Super node issuing scheduler grant direction=~p microbatch=~p stage=~p targets=~p cursor=~p",
+            [Direction, MicrobatchId, StageId, TargetWorkers, EffectiveCursor]
+          ),
           case send_scheduler_grants(EffectiveState, TargetWorkers, Direction, MicrobatchId, StageId) of
             ok ->
               {ok, EffectiveState#super_node_state{
@@ -467,6 +485,10 @@ send_scheduler_grants(
     undefined ->
       {error, {unknown_grant_target_worker, TargetWorker}};
     TargetClient ->
+      ?LOG_INFO(
+        "Super node delivering grant to worker=~p via client=~p direction=~p microbatch=~p stage=~p",
+        [TargetWorker, TargetClient, Direction, MicrobatchId, StageId]
+      ),
       Command = {
         parallel_super_command,
         grant_scheduler_event,
@@ -507,13 +529,16 @@ safe_parse_int(Value, Default) ->
     _:_ -> Default
   end.
 
-build_scheduler_trace(legacy, _ParallelExecution, _WorkerParallelMap) -> [];
-build_scheduler_trace(tensor, _ParallelExecution, _WorkerParallelMap) -> [];
-build_scheduler_trace(Mode, ParallelExecution, WorkerParallelMap) ->
+build_scheduler_trace(PhaseName, legacy, _ParallelExecution, _WorkerParallelMap) when PhaseName =:= training; PhaseName =:= prediction -> [];
+build_scheduler_trace(_PhaseName, legacy, _ParallelExecution, _WorkerParallelMap) -> [];
+build_scheduler_trace(PhaseName, tensor, _ParallelExecution, _WorkerParallelMap) when PhaseName =:= training; PhaseName =:= prediction -> [];
+build_scheduler_trace(_PhaseName, tensor, _ParallelExecution, _WorkerParallelMap) -> [];
+build_scheduler_trace(PhaseName, Mode, ParallelExecution, WorkerParallelMap) ->
   StageWorldSize = infer_pipeline_stage_world_size(WorkerParallelMap),
   NumMicroBatches = get_execution_int(ParallelExecution, <<"numMicroBatches">>, 1),
   Scheduler = normalize_scheduler(maps:get(<<"scheduler">>, ParallelExecution, <<"gpipe">>)),
-  case {Mode, Scheduler} of
+  BaseTrace =
+    case {Mode, Scheduler} of
     {pipeline, gpipe} -> build_gpipe_trace(StageWorldSize, NumMicroBatches);
     {pipeline_tensor, gpipe} -> forward_only_trace(build_gpipe_trace(StageWorldSize, NumMicroBatches));
     {pipeline, '1f1b'} -> build_1f1b_trace(StageWorldSize, NumMicroBatches);
@@ -525,7 +550,23 @@ build_scheduler_trace(Mode, ParallelExecution, WorkerParallelMap) ->
       VirtualStages = get_execution_int(ParallelExecution, <<"virtualStages">>, 2),
       forward_only_trace(build_interleaved_trace(StageWorldSize, NumMicroBatches, VirtualStages));
     _ -> build_gpipe_trace(StageWorldSize, NumMicroBatches)
+  end,
+  case normalize_phase_name(PhaseName) of
+    prediction -> forward_only_trace(BaseTrace);
+    _ -> BaseTrace
   end.
+
+normalize_phase_name(Value) when is_atom(Value) ->
+  normalize_phase_name(atom_to_list(Value));
+normalize_phase_name(Value) when is_binary(Value) ->
+  normalize_phase_name(binary_to_list(Value));
+normalize_phase_name(Value) when is_list(Value) ->
+  case string:lowercase(string:trim(Value)) of
+    "prediction" -> prediction;
+    _ -> training
+  end;
+normalize_phase_name(_) ->
+  training.
 
 forward_only_trace(Trace) ->
   [Event || Event = {Direction, _MicrobatchId, _StageId} <- Trace, Direction =:= forward].
@@ -627,6 +668,10 @@ maybe_advance_scheduler(
 ) ->
   case validate_scheduler_event(FromWorker, Direction, MicrobatchId, Stage, Trace, Cursor, State) of
     {ok, UpdatedState} ->
+      ?LOG_INFO(
+        "Super node accepted scheduler event worker=~p direction=~p microbatch=~p stage=~p cursor=~p",
+        [FromWorker, Direction, MicrobatchId, Stage, Cursor]
+      ),
       maybe_send_next_scheduler_grant(UpdatedState);
     Error ->
       Error
@@ -637,6 +682,10 @@ maybe_advance_scheduler(
 ) ->
   case validate_scheduler_event(undefined, Direction, MicrobatchId, Stage, Trace, Cursor, State) of
     {ok, UpdatedState} ->
+      ?LOG_INFO(
+        "Super node accepted scheduler event direction=~p microbatch=~p stage=~p cursor=~p",
+        [Direction, MicrobatchId, Stage, Cursor]
+      ),
       maybe_send_next_scheduler_grant(UpdatedState);
     Error ->
       Error
@@ -697,11 +746,19 @@ validate_scheduler_grant(
           UpdatedAckedWorkers = lists:usort([FromWorker | AckedWorkers]),
           case lists:sort(UpdatedAckedWorkers) =:= lists:sort(GrantedWorkers) of
             true ->
+              ?LOG_INFO(
+                "Super node grant fully acknowledged workers=~p direction=~p microbatch=~p stage=~p",
+                [GrantedWorkers, Direction, MicrobatchId, Stage]
+              ),
               {ok, State#super_node_state{
                 scheduler_cursor = Cursor + 1,
                 pending_grant = none
               }};
             false ->
+              ?LOG_INFO(
+                "Super node grant partial ack worker=~p acked=~p granted=~p direction=~p microbatch=~p stage=~p",
+                [FromWorker, UpdatedAckedWorkers, GrantedWorkers, Direction, MicrobatchId, Stage]
+              ),
               {ok, State#super_node_state{
                 pending_grant = {Direction, MicrobatchId, Stage, GrantedWorkers, UpdatedAckedWorkers}
               }}

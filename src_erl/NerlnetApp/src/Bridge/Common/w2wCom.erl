@@ -63,6 +63,7 @@ handle_call({?W2WCOM_ATOM, FromWorkerName, ThisWorkerName, Data}, _From, State) 
     % Saved messages are of the form: {FromWorkerName, , Data}
     Message = {FromWorkerName, Data},
     add_msg_to_inbox_queue(Message),
+    maybe_notify_pipeline_inbox(FromWorkerName, Data),
     {reply, {ok, "Message received"}, State};
 
 % Token messages are tupe of: {FromWorkerName, Token, Data}
@@ -104,6 +105,29 @@ add_msg_to_inbox_queue(Message) -> % Only w2wCom process executes this function
     InboxQueue = ets:lookup_element(W2WEts, inbox_queue, ?ETS_KEYVAL_VAL_IDX),
     InboxQueueUpdated = queue:in(Message, InboxQueue),
     ets:update_element(W2WEts, inbox_queue, {?ETS_KEYVAL_VAL_IDX, InboxQueueUpdated}).
+
+maybe_notify_pipeline_inbox(FromWorkerName, Data) ->
+    case is_pipeline_runtime_payload(Data) of
+        true ->
+            GenWorkerPid = get(gen_worker_pid),
+            case is_pid(GenWorkerPid) of
+                true ->
+                    gen_statem:cast(GenWorkerPid, {parallel_pipeline_inbox, FromWorkerName, Data});
+                false ->
+                    ok
+            end;
+        false ->
+            ok
+    end.
+
+is_pipeline_runtime_payload({pipeline_forward_payload, _BatchID, _SourceName, _TotalMicrobatches, _MicrobatchID, _Activation, _Labels}) ->
+    true;
+is_pipeline_runtime_payload({pipeline_backward_payload, _BatchID, _SourceName, _TotalMicrobatches, _MicrobatchID, _Grad}) ->
+    true;
+is_pipeline_runtime_payload({pipeline_predict_payload, _BatchID, _SourceName, _TotalMicrobatches, _MicrobatchID, _Activation}) ->
+    true;
+is_pipeline_runtime_payload(_) ->
+    false.
 
 
 send_message(W2WPid, FromWorker, TargetWorker, Data) -> 

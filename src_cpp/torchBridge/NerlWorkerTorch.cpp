@@ -105,13 +105,17 @@ namespace
 
 		initialize_batch_layout();
 		initialize_optimizer();
+		initialize_pipeline_partition();
 
 		LogInfo << "Torch worker configured with lr=" << _configured_learning_rate
 				<< ", epochs=" << _configured_epochs
 				<< ", optimizer=" << _optimizer_name
 			<< ", randomize_on_load=" << _randomize_weights_on_load
 				<< ", has_layout=" << _has_batch_layout
-				<< ", has_optimizer=" << _has_optimizer << std::endl;
+				<< ", has_optimizer=" << _has_optimizer
+				<< ", pipeline_enabled=" << _pipeline_enabled
+				<< ", pipeline_stage=" << _pipeline_stage
+				<< ", pipeline_world_size=" << _pipeline_world_size << std::endl;
 	}
 
 	void NerlWorkerTorch::initialize_batch_layout()
@@ -316,6 +320,398 @@ NerlWorkerTorch::TrainingSlices NerlWorkerTorch::split_training_batch(const Torc
 	return {inputs, labels};
 }
 
+TorchTensor NerlWorkerTorch::prepare_predict_inputs(const TorchTensor &prepared) const
+{
+	if (!_has_batch_layout)
+	{
+		return prepared;
+	}
+
+	TorchTensor contiguous = prepared.contiguous();
+	TorchTensor flattened = contiguous.reshape({contiguous.numel()});
+	if (flattened.numel() <= 0)
+	{
+		return contiguous;
+	}
+
+	const int64_t sample_span = _batch_layout.required_elements();
+	if (sample_span > 0 && flattened.numel() % sample_span == 0)
+	{
+		TrainingSlices slices = split_training_batch(contiguous);
+		return slices.inputs;
+	}
+
+	const int64_t input_span = _batch_layout.input_sample_span;
+	if (input_span > 0 && flattened.numel() % input_span == 0)
+	{
+		const int64_t sample_count = flattened.numel() / input_span;
+		TorchTensor input_matrix = flattened.reshape({sample_count, input_span});
+		std::vector<int64_t> input_view_shape = _batch_layout.input_shape;
+		if (!input_view_shape.empty())
+		{
+			input_view_shape[0] = sample_count;
+		}
+		else
+		{
+			input_view_shape.push_back(sample_count);
+		}
+
+		const int64_t expected_input_elements = count_elements(input_view_shape);
+		if (expected_input_elements == flattened.numel())
+		{
+			return input_matrix.reshape(torch::IntArrayRef(input_view_shape));
+		}
+		return input_matrix;
+	}
+
+	LogWarning << "Torch worker prediction batch does not match configured spans. numel="
+			   << flattened.numel() << " sample_span=" << sample_span
+			   << " input_span=" << input_span << "; using raw batch tensor" << std::endl;
+	return contiguous;
+}
+
+void NerlWorkerTorch::initialize_pipeline_partition()
+{
+	_pipeline_enabled = false;
+	_pipeline_layers.clear();
+	_pipeline_stage_contexts.clear();
+	_pipeline_stage_start_idx = 0;
+	_pipeline_stage_end_idx = 0;
+
+	_pipeline_stage = std::max<int64_t>(0, get_int_param({"pipeline_stage"}, 0));
+	_pipeline_world_size = std::max<int64_t>(1, get_int_param({"pipeline_world_size"}, 1));
+	if (_pipeline_world_size <= 1 || !_has_script_module)
+	{
+		return;
+	}
+
+	std::vector<torch::jit::script::Module> discovered_layers;
+	try
+	{
+		if (_script_module.hasattr("layers"))
+		{
+			torch::jit::IValue layers_value = _script_module.attr("layers");
+			if (layers_value.isModule())
+			{
+				torch::jit::script::Module layer_container = layers_value.toModule();
+				for (const auto &named_layer : layer_container.named_children())
+				{
+					discovered_layers.push_back(named_layer.value);
+				}
+			}
+		}
+	}
+	catch (const std::exception &ex)
+	{
+		LogWarning << "Torch worker failed to inspect script module 'layers' attribute: " << ex.what() << std::endl;
+	}
+
+	if (discovered_layers.empty())
+	{
+		for (const auto &named_layer : _script_module.named_children())
+		{
+			discovered_layers.push_back(named_layer.value);
+		}
+	}
+
+	if (discovered_layers.empty())
+	{
+		LogWarning << "Torch pipeline partition unavailable: model exposes no child modules" << std::endl;
+		return;
+	}
+
+	if (_pipeline_stage >= _pipeline_world_size)
+	{
+		LogWarning << "Torch pipeline stage index " << _pipeline_stage
+				   << " is invalid for world size " << _pipeline_world_size
+				   << "; forcing stage 0" << std::endl;
+		_pipeline_stage = 0;
+	}
+
+	const size_t total_layers = discovered_layers.size();
+	const size_t world_size = static_cast<size_t>(_pipeline_world_size);
+	const size_t stage = static_cast<size_t>(_pipeline_stage);
+	const size_t base = total_layers / world_size;
+	const size_t remainder = total_layers % world_size;
+
+	size_t start_idx = 0;
+	for (size_t idx = 0; idx < stage; ++idx)
+	{
+		start_idx += base + (idx < remainder ? 1 : 0);
+	}
+	const size_t stage_layer_count = base + (stage < remainder ? 1 : 0);
+	if (stage_layer_count == 0)
+	{
+		LogWarning << "Torch pipeline stage " << _pipeline_stage
+				   << " would own zero layers out of " << total_layers
+				   << " (world size " << _pipeline_world_size << ")" << std::endl;
+		return;
+	}
+
+	_pipeline_layers = std::move(discovered_layers);
+	_pipeline_stage_start_idx = start_idx;
+	_pipeline_stage_end_idx = start_idx + stage_layer_count;
+	_pipeline_enabled = true;
+
+	LogInfo << "Torch pipeline partition stage=" << _pipeline_stage
+			<< "/" << _pipeline_world_size
+			<< " layer_range=[" << _pipeline_stage_start_idx
+			<< "," << _pipeline_stage_end_idx << ")" << std::endl;
+}
+
+bool NerlWorkerTorch::layer_requires_flatten(const torch::jit::script::Module &layer_module)
+{
+	for (const auto &named_param : layer_module.named_parameters(/*recurse=*/false))
+	{
+		if (named_param.name == "weight" && named_param.value.defined() && named_param.value.dim() == 2)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+TorchTensor NerlWorkerTorch::run_pipeline_stage_layers(const TorchTensor &stage_input, bool training_mode)
+{
+	if (!_pipeline_enabled)
+	{
+		return forward_or_clone(stage_input, training_mode);
+	}
+
+	TorchTensor output = stage_input;
+	for (size_t idx = _pipeline_stage_start_idx; idx < _pipeline_stage_end_idx; ++idx)
+	{
+		if (idx >= _pipeline_layers.size())
+		{
+			throw std::runtime_error("Torch pipeline stage layer index out of range");
+		}
+		torch::jit::script::Module &layer = _pipeline_layers[idx];
+		if (layer_requires_flatten(layer) && output.dim() > 2)
+		{
+			output = output.flatten(1);
+		}
+		if (training_mode)
+		{
+			layer.train();
+		}
+		else
+		{
+			layer.eval();
+		}
+
+		std::vector<torch::jit::IValue> inputs;
+		inputs.emplace_back(output);
+		torch::jit::IValue out_val = layer.forward(inputs);
+		if (!out_val.isTensor())
+		{
+			throw std::runtime_error("Torch pipeline stage layer returned non-tensor output");
+		}
+		output = out_val.toTensor();
+	}
+	return output;
+}
+
+void NerlWorkerTorch::cache_pipeline_stage_context(long microbatch_id, const TorchTensor &stage_input, const TorchTensor &stage_output)
+{
+	PipelineStageContext context;
+	context.stage_input = stage_input;
+	context.stage_output = stage_output;
+	_pipeline_stage_contexts[microbatch_id] = context;
+}
+
+NerlWorkerTorch::PipelineStageContext NerlWorkerTorch::pop_pipeline_stage_context(long microbatch_id)
+{
+	auto it = _pipeline_stage_contexts.find(microbatch_id);
+	if (it == _pipeline_stage_contexts.end())
+	{
+		throw std::runtime_error("Missing pipeline stage context for microbatch " + std::to_string(microbatch_id));
+	}
+	PipelineStageContext context = it->second;
+	_pipeline_stage_contexts.erase(it);
+	return context;
+}
+
+void NerlWorkerTorch::clear_pipeline_stage_contexts()
+{
+	_pipeline_stage_contexts.clear();
+}
+
+std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage0_forward(const TorchTensor &batch, long microbatch_id)
+{
+	if (!_pipeline_enabled)
+	{
+		throw std::runtime_error("pipeline_stage0_forward called but pipeline partition is not enabled");
+	}
+
+	if (!_has_optimizer)
+	{
+		throw std::runtime_error("pipeline_stage0_forward called without optimizer initialization");
+	}
+
+	TorchTensor prepared = ensure_training_dtype(batch);
+	TrainingSlices slices = split_training_batch(prepared);
+	if (!_has_deferred_gradients)
+	{
+		_optimizer->zero_grad();
+		_has_deferred_gradients = true;
+		_deferred_microbatch_count = 0;
+		clear_pipeline_stage_contexts();
+	}
+
+	TorchTensor stage_input = slices.inputs.detach().set_requires_grad(true);
+	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, true);
+	cache_pipeline_stage_context(microbatch_id, stage_input, stage_output);
+	_last_prediction = stage_output.detach();
+	return {stage_output.detach().clone(), slices.labels.detach().clone()};
+}
+
+std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_forward(
+	const TorchTensor &activation,
+	const TorchTensor &labels,
+	long microbatch_id
+)
+{
+	if (!_pipeline_enabled)
+	{
+		throw std::runtime_error("pipeline_stage_forward called but pipeline partition is not enabled");
+	}
+
+	if (!_has_optimizer)
+	{
+		throw std::runtime_error("pipeline_stage_forward called without optimizer initialization");
+	}
+
+	if (!_has_deferred_gradients)
+	{
+		_optimizer->zero_grad();
+		_has_deferred_gradients = true;
+		_deferred_microbatch_count = 0;
+		clear_pipeline_stage_contexts();
+	}
+
+	TorchTensor stage_input = ensure_training_dtype(activation).detach().set_requires_grad(true);
+	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, true);
+	cache_pipeline_stage_context(microbatch_id, stage_input, stage_output);
+	_last_prediction = stage_output.detach();
+	return {stage_output.detach().clone(), ensure_training_dtype(labels).detach().clone()};
+}
+
+std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_last_forward_backward(
+	const TorchTensor &activation,
+	const TorchTensor &labels,
+	long microbatch_id
+)
+{
+	if (!_pipeline_enabled)
+	{
+		throw std::runtime_error("pipeline_stage_last_forward_backward called but pipeline partition is not enabled");
+	}
+
+	if (!_has_optimizer)
+	{
+		throw std::runtime_error("pipeline_stage_last_forward_backward called without optimizer initialization");
+	}
+
+	if (!_has_deferred_gradients)
+	{
+		_optimizer->zero_grad();
+		_has_deferred_gradients = true;
+		_deferred_microbatch_count = 0;
+		clear_pipeline_stage_contexts();
+	}
+
+	TorchTensor stage_input = ensure_training_dtype(activation).detach().set_requires_grad(true);
+	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, true);
+	TorchTensor target_labels = ensure_training_dtype(labels);
+	if (stage_output.scalar_type() != target_labels.scalar_type())
+	{
+		stage_output = stage_output.to(target_labels.scalar_type());
+	}
+	if (stage_output.numel() != target_labels.numel())
+	{
+		std::ostringstream oss;
+		oss << "Pipeline last stage prediction element mismatch. pred=" << stage_output.numel()
+			<< " labels=" << target_labels.numel() << " microbatch=" << microbatch_id;
+		throw std::runtime_error(oss.str());
+	}
+	if (stage_output.sizes() != target_labels.sizes())
+	{
+		stage_output = stage_output.reshape(target_labels.sizes());
+	}
+
+	TorchTensor loss = torch::mse_loss(stage_output, target_labels);
+	loss.backward();
+	TorchTensor grad_input = stage_input.grad();
+	if (!grad_input.defined())
+	{
+		grad_input = torch::zeros_like(stage_input);
+	}
+	++_deferred_microbatch_count;
+	_last_loss = loss.detach();
+	_last_prediction = stage_output.detach();
+	return {_last_loss.clone(), grad_input.detach().clone()};
+}
+
+TorchTensor NerlWorkerTorch::pipeline_stage_backward(const TorchTensor &grad_output, long microbatch_id)
+{
+	if (!_pipeline_enabled)
+	{
+		throw std::runtime_error("pipeline_stage_backward called but pipeline partition is not enabled");
+	}
+
+	PipelineStageContext context = pop_pipeline_stage_context(microbatch_id);
+	TorchTensor local_grad = ensure_training_dtype(grad_output);
+	if (local_grad.scalar_type() != context.stage_output.scalar_type())
+	{
+		local_grad = local_grad.to(context.stage_output.scalar_type());
+	}
+	if (local_grad.numel() != context.stage_output.numel())
+	{
+		std::ostringstream oss;
+		oss << "Pipeline backward gradient element mismatch. grad=" << local_grad.numel()
+			<< " output=" << context.stage_output.numel() << " microbatch=" << microbatch_id;
+		throw std::runtime_error(oss.str());
+	}
+	if (local_grad.sizes() != context.stage_output.sizes())
+	{
+		local_grad = local_grad.reshape(context.stage_output.sizes());
+	}
+
+	torch::autograd::backward({context.stage_output}, {local_grad});
+	TorchTensor grad_input = context.stage_input.grad();
+	if (!grad_input.defined())
+	{
+		grad_input = torch::zeros_like(context.stage_input);
+	}
+	++_deferred_microbatch_count;
+	return grad_input.detach().clone();
+}
+
+TorchTensor NerlWorkerTorch::pipeline_predict_stage0_forward(const TorchTensor &batch)
+{
+	if (!_pipeline_enabled)
+	{
+		return predict_batch(batch);
+	}
+
+	TorchTensor prepared = ensure_training_dtype(batch);
+	TorchTensor stage_input = prepare_predict_inputs(prepared);
+	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, false);
+	return stage_output.detach().clone();
+}
+
+TorchTensor NerlWorkerTorch::pipeline_predict_stage_forward(const TorchTensor &activation)
+{
+	if (!_pipeline_enabled)
+	{
+		return predict_batch(activation);
+	}
+
+	TorchTensor stage_input = ensure_training_dtype(activation);
+	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, false);
+	return stage_output.detach().clone();
+}
+
 TorchTensor NerlWorkerTorch::train_batch_impl(const TorchTensor &batch, bool defer_optimizer_step, long microbatch_id)
 {
 	TorchTensor prepared = ensure_training_dtype(batch);
@@ -428,6 +824,7 @@ void NerlWorkerTorch::optimizer_barrier()
 	{
 		_has_deferred_gradients = false;
 		_deferred_microbatch_count = 0;
+		clear_pipeline_stage_contexts();
 		return;
 	}
 
@@ -446,12 +843,14 @@ void NerlWorkerTorch::optimizer_barrier()
 
 	_has_deferred_gradients = false;
 	_deferred_microbatch_count = 0;
+	clear_pipeline_stage_contexts();
 }
 
 TorchTensor NerlWorkerTorch::predict_batch(const TorchTensor &batch)
 {
 	TorchTensor prepared = ensure_training_dtype(batch);
-	TorchTensor prediction = forward_or_clone(prepared, false);
+	TorchTensor predict_input = prepare_predict_inputs(prepared);
+	TorchTensor prediction = forward_or_clone(predict_input, false);
 	_last_prediction = prediction.clone();
 	return prediction;
 }

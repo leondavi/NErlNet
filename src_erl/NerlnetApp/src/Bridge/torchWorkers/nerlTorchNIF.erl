@@ -3,7 +3,11 @@
 -include("torchDefs.hrl").
 
 -export([init/0,nif_preload/0,get_active_models_ids_list/0, train_nif/3,train_microbatch_nif/4,optimizer_barrier_nif/1,
+         pipeline_stage0_forward_nif/4,pipeline_stage_forward_nif/6,pipeline_stage_last_forward_backward_nif/6,pipeline_stage_backward_nif/4,
+         pipeline_predict_stage0_forward_nif/3,pipeline_predict_stage_forward_nif/3,
          update_nerlworker_train_params_nif/6,call_to_train/4,call_to_train_microbatch/5,call_to_optimizer_barrier/1,
+         call_to_pipeline_stage0_forward/4,call_to_pipeline_stage_forward/6,call_to_pipeline_stage_last_forward_backward/6,
+         call_to_pipeline_stage_backward/4,call_to_pipeline_predict_stage0_forward/3,call_to_pipeline_predict_stage_forward/3,
          predict_nif/3,call_to_predict/4,get_weights_nif/1,set_weights_nif/3,printTensor/2]).
 -export([call_to_get_weights/1,call_to_set_weights/2]).
 -export([decode_nif/2, nerltensor_binary_decode/2]).
@@ -77,6 +81,24 @@ train_microbatch_nif(_ModelID, _DataTensor, _Type, _MicrobatchID) ->
 optimizer_barrier_nif(_ModelID) ->
       exit(nif_library_not_loaded).
 
+pipeline_stage0_forward_nif(_ModelID, _DataTensor, _Type, _MicrobatchID) ->
+      exit(nif_library_not_loaded).
+
+pipeline_stage_forward_nif(_ModelID, _ActivationTensor, _ActivationType, _LabelsTensor, _LabelsType, _MicrobatchID) ->
+      exit(nif_library_not_loaded).
+
+pipeline_stage_last_forward_backward_nif(_ModelID, _ActivationTensor, _ActivationType, _LabelsTensor, _LabelsType, _MicrobatchID) ->
+      exit(nif_library_not_loaded).
+
+pipeline_stage_backward_nif(_ModelID, _GradTensor, _GradType, _MicrobatchID) ->
+      exit(nif_library_not_loaded).
+
+pipeline_predict_stage0_forward_nif(_ModelID, _DataTensor, _Type) ->
+      exit(nif_library_not_loaded).
+
+pipeline_predict_stage_forward_nif(_ModelID, _ActivationTensor, _ActivationType) ->
+      exit(nif_library_not_loaded).
+
 update_nerlworker_train_params_nif(_ModelID,_LearningRate,_Epochs,_OptimizerType,_OptimizerArgs,_LossMethod) ->
       exit(nif_library_not_loaded).
 
@@ -134,6 +156,24 @@ call_to_optimizer_barrier(ModelID) ->
       TrainNegotiatorPID = get(nerlnif_train_negotiator_pid),
       TrainNegotiatorPID ! {optimizer_barrier, ModelID},
       ok.
+
+call_to_pipeline_stage0_forward(ModelID, {DataTensor, Type}, _BatchID, MicrobatchID) ->
+      pipeline_stage0_forward_nif(ModelID, DataTensor, Type, MicrobatchID).
+
+call_to_pipeline_stage_forward(ModelID, {ActivationTensor, ActivationType}, {LabelsTensor, LabelsType}, _BatchID, _SourceName, MicrobatchID) ->
+      pipeline_stage_forward_nif(ModelID, ActivationTensor, ActivationType, LabelsTensor, LabelsType, MicrobatchID).
+
+call_to_pipeline_stage_last_forward_backward(ModelID, {ActivationTensor, ActivationType}, {LabelsTensor, LabelsType}, _BatchID, _SourceName, MicrobatchID) ->
+      pipeline_stage_last_forward_backward_nif(ModelID, ActivationTensor, ActivationType, LabelsTensor, LabelsType, MicrobatchID).
+
+call_to_pipeline_stage_backward(ModelID, {GradTensor, GradType}, _BatchID, MicrobatchID) ->
+      pipeline_stage_backward_nif(ModelID, GradTensor, GradType, MicrobatchID).
+
+call_to_pipeline_predict_stage0_forward(ModelID, {DataTensor, Type}, _BatchID) ->
+      pipeline_predict_stage0_forward_nif(ModelID, DataTensor, Type).
+
+call_to_pipeline_predict_stage_forward(ModelID, {ActivationTensor, ActivationType}, _BatchID) ->
+      pipeline_predict_stage_forward_nif(ModelID, ActivationTensor, ActivationType).
 
 % Predict Negotiator process - to handle predict requests without spawning for each batch
 % This process is spawned once per phase by the worker statem

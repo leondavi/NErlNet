@@ -145,6 +145,195 @@ const getBounds = (nodes: Node[]) => {
   return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
 };
 
+const AUTO_LAYOUT_MIN_READABLE_ZOOM = 0.62;
+const AUTO_LAYOUT_MARGIN = 84;
+const AUTO_LAYOUT_GAP = 90;
+
+type LayoutSpec = {
+  id: string;
+  width: number;
+  height: number;
+};
+
+type LayoutPlan = {
+  positions: Record<string, { x: number; y: number }>;
+  bounds: ReturnType<typeof getBounds>;
+  estimatedZoom: number;
+};
+
+const estimateViewportZoom = (
+  bounds: ReturnType<typeof getBounds>,
+  frame: { width: number; height: number }
+) => {
+  if (bounds.width <= 0 || bounds.height <= 0 || frame.width <= 0 || frame.height <= 0) {
+    return 1;
+  }
+  const freeWidth = Math.max(1, frame.width - AUTO_LAYOUT_MARGIN * 2);
+  const freeHeight = Math.max(1, frame.height - AUTO_LAYOUT_MARGIN * 2);
+  return Math.min(freeWidth / bounds.width, freeHeight / bounds.height, 1);
+};
+
+const buildLayoutForMaxTrack = (
+  layout: 'horizontal' | 'vertical',
+  specs: LayoutSpec[],
+  maxTrackCount: number
+): LayoutPlan => {
+  const positions: Record<string, { x: number; y: number }> = {};
+  const safeTrackCount = Math.max(1, maxTrackCount);
+  const startX = AUTO_LAYOUT_MARGIN;
+  const startY = AUTO_LAYOUT_MARGIN;
+
+  if (layout === 'horizontal') {
+    let x = startX;
+    let y = startY;
+    let countInTrack = 0;
+    let trackMaxHeight = 0;
+    for (const spec of specs) {
+      if (countInTrack >= safeTrackCount) {
+        x = startX;
+        y += trackMaxHeight + AUTO_LAYOUT_GAP;
+        countInTrack = 0;
+        trackMaxHeight = 0;
+      }
+      positions[spec.id] = { x, y };
+      x += spec.width + AUTO_LAYOUT_GAP;
+      trackMaxHeight = Math.max(trackMaxHeight, spec.height);
+      countInTrack += 1;
+    }
+  } else {
+    let x = startX;
+    let y = startY;
+    let countInTrack = 0;
+    let trackMaxWidth = 0;
+    for (const spec of specs) {
+      if (countInTrack >= safeTrackCount) {
+        y = startY;
+        x += trackMaxWidth + AUTO_LAYOUT_GAP;
+        countInTrack = 0;
+        trackMaxWidth = 0;
+      }
+      positions[spec.id] = { x, y };
+      y += spec.height + AUTO_LAYOUT_GAP;
+      trackMaxWidth = Math.max(trackMaxWidth, spec.width);
+      countInTrack += 1;
+    }
+  }
+
+  const nodesForBounds: Node[] = specs.map((spec) => ({
+    id: spec.id,
+    position: positions[spec.id] ?? { x: 0, y: 0 },
+    data: {},
+    style: { width: spec.width, height: spec.height }
+  }));
+  return {
+    positions,
+    bounds: getBounds(nodesForBounds),
+    estimatedZoom: 1
+  };
+};
+
+const chooseWrappedAutoLayout = (
+  layout: 'horizontal' | 'vertical',
+  specs: LayoutSpec[],
+  frame: { width: number; height: number }
+) => {
+  if (specs.length === 0) {
+    return { positions: {} };
+  }
+
+  let bestPlan = buildLayoutForMaxTrack(layout, specs, specs.length);
+  bestPlan = {
+    ...bestPlan,
+    estimatedZoom: estimateViewportZoom(bestPlan.bounds, frame)
+  };
+
+  for (let maxTrack = specs.length - 1; maxTrack >= 1; maxTrack -= 1) {
+    const candidateBase = buildLayoutForMaxTrack(layout, specs, maxTrack);
+    const candidate = {
+      ...candidateBase,
+      estimatedZoom: estimateViewportZoom(candidateBase.bounds, frame)
+    };
+    if (candidate.estimatedZoom >= AUTO_LAYOUT_MIN_READABLE_ZOOM) {
+      return { positions: candidate.positions };
+    }
+    if (candidate.estimatedZoom > bestPlan.estimatedZoom) {
+      bestPlan = candidate;
+    }
+  }
+
+  return { positions: bestPlan.positions };
+};
+
+const selectPreferredTorchOutputNode = (graph: TorchModel['graph']): TorchLayerNode | null => {
+  if (!graph.nodes || graph.nodes.length === 0) {
+    return null;
+  }
+
+  const nodeIds = graph.nodes.map((node) => node.id);
+  const nodeIndex = new Map(nodeIds.map((id, index) => [id, index]));
+  const outDegree = new Map(nodeIds.map((id) => [id, 0]));
+  const inDegree = new Map(nodeIds.map((id) => [id, 0]));
+  const adjacency = new Map(nodeIds.map((id) => [id, [] as string[]]));
+
+  graph.edges.forEach((edge) => {
+    if (!nodeIndex.has(edge.from) || !nodeIndex.has(edge.to)) {
+      return;
+    }
+    outDegree.set(edge.from, (outDegree.get(edge.from) ?? 0) + 1);
+    inDegree.set(edge.to, (inDegree.get(edge.to) ?? 0) + 1);
+    adjacency.get(edge.from)?.push(edge.to);
+  });
+
+  const sinkIds = nodeIds.filter((id) => (outDegree.get(id) ?? 0) === 0);
+  if (sinkIds.length === 0) {
+    return graph.nodes[graph.nodes.length - 1] ?? null;
+  }
+  if (sinkIds.length === 1) {
+    return graph.nodes[nodeIndex.get(sinkIds[0]) ?? 0] ?? null;
+  }
+
+  const queue = nodeIds.filter((id) => (inDegree.get(id) ?? 0) === 0);
+  const depth = new Map(nodeIds.map((id) => [id, 0]));
+  let processed = 0;
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) {
+      continue;
+    }
+    processed += 1;
+    const currentDepth = depth.get(current) ?? 0;
+    const neighbors = adjacency.get(current) ?? [];
+    neighbors.forEach((next) => {
+      const nextDepth = Math.max(depth.get(next) ?? 0, currentDepth + 1);
+      depth.set(next, nextDepth);
+      const nextIn = (inDegree.get(next) ?? 0) - 1;
+      inDegree.set(next, nextIn);
+      if (nextIn === 0) {
+        queue.push(next);
+      }
+    });
+  }
+
+  if (processed !== nodeIds.length) {
+    const fallbackSink = sinkIds[sinkIds.length - 1];
+    return graph.nodes[nodeIndex.get(fallbackSink) ?? graph.nodes.length - 1] ?? null;
+  }
+
+  let bestSink = sinkIds[0];
+  for (const candidate of sinkIds.slice(1)) {
+    const bestDepth = depth.get(bestSink) ?? 0;
+    const candidateDepth = depth.get(candidate) ?? 0;
+    const bestIdx = nodeIndex.get(bestSink) ?? -1;
+    const candidateIdx = nodeIndex.get(candidate) ?? -1;
+    if (candidateDepth > bestDepth || (candidateDepth === bestDepth && candidateIdx > bestIdx)) {
+      bestSink = candidate;
+    }
+  }
+
+  return graph.nodes[nodeIndex.get(bestSink) ?? graph.nodes.length - 1] ?? null;
+};
+
 const layerDescriptions: Record<string, string> = {
   '0': 'Baseline passthrough for generic layers.',
   '1': 'Scaling layer for normalization strategies.',
@@ -258,6 +447,8 @@ const ModelLabView = ({
     lastY: number;
     moved: boolean;
   } | null>(null);
+  const pendingCenterNodeIdRef = useRef<string | null>(null);
+  const previousLayoutRef = useRef<'free' | 'horizontal' | 'vertical'>('horizontal');
   const suppressNextPaneClickRef = useRef(false);
   const [openLayerPositions, setOpenLayerPositions] = useState<
     Record<string, { x: number; y: number }>
@@ -500,9 +691,11 @@ const ModelLabView = ({
           ? { x: 160 + targetIndex * (180 + 90), y: 140 - 90 / 2 }
           : { x: 160 - 180 / 2, y: 140 + targetIndex * (90 + 90) };
     nextLayers.splice(targetIndex, 0, nextLayer);
+    pendingCenterNodeIdRef.current = nextLayer.id;
     setModelDraft({ ...modelDraft, layers: nextLayers });
     setSelectedLayerIndex(targetIndex);
-    const resolvedPosition = position ?? defaultLayoutPosition;
+    const resolvedPosition =
+      graphLayout === 'free' ? position ?? defaultLayoutPosition : defaultLayoutPosition;
     if (resolvedPosition) {
       setOpenLayerPositions((prev) => ({ ...prev, [nextLayer.id]: resolvedPosition }));
     }
@@ -592,7 +785,10 @@ const ModelLabView = ({
           name: definition?.label ?? type,
           type,
           params: { ...torchLayerDefaults[type] },
-          position: position ?? defaultLayoutPosition ?? { x: 120 + graph.nodes.length * 220, y: 140 }
+          position:
+            graphLayout === 'free'
+              ? position ?? defaultLayoutPosition ?? { x: 120 + graph.nodes.length * 220, y: 140 }
+              : defaultLayoutPosition ?? { x: 120 + graph.nodes.length * 220, y: 140 }
         };
         const lastNode = connectFromId
           ? graph.nodes.find((entry) => entry.id === connectFromId)
@@ -615,6 +811,7 @@ const ModelLabView = ({
           edges: nextEdges
         };
       });
+      pendingCenterNodeIdRef.current = nodeId;
       setSelectedTorchNodeId(nodeId);
       setGraphMenu(null);
     },
@@ -631,12 +828,22 @@ const ModelLabView = ({
       const nodeId = `torch-${crypto.randomUUID()}`;
       updateTorchGraph((graph) => {
         const definition = torchLayerCatalog.find((entry) => entry.type === type);
+        const { width, height } = getTorchNodeDimensions(null);
+        const defaultLayoutPosition =
+          graphLayout === 'free'
+            ? undefined
+            : graphLayout === 'horizontal'
+              ? { x: 160 + graph.nodes.length * (width + 90), y: 140 - height / 2 }
+              : { x: 160 - width / 2, y: 140 + graph.nodes.length * (height + 90) };
         const node: TorchLayerNode = {
           id: nodeId,
           name: definition?.label ?? type,
           type,
           params: { ...torchLayerDefaults[type] },
-          position: position ?? { x: 120 + graph.nodes.length * 220, y: 140 }
+          position:
+            graphLayout === 'free'
+              ? position ?? defaultLayoutPosition ?? { x: 120 + graph.nodes.length * 220, y: 140 }
+              : defaultLayoutPosition ?? { x: 120 + graph.nodes.length * 220, y: 140 }
         };
         const prunedEdges = graph.edges.filter(
           (edge) => !(edge.from === sourceId && edge.to === targetId)
@@ -652,9 +859,10 @@ const ModelLabView = ({
           edges: nextEdges
         };
       });
+      pendingCenterNodeIdRef.current = nodeId;
       setSelectedTorchNodeId(nodeId);
     },
-    [updateTorchGraph]
+    [graphLayout, updateTorchGraph]
   );
 
   const updateTorchNode = (id: string, patch: Partial<TorchLayerNode>) => {
@@ -739,6 +947,24 @@ const ModelLabView = ({
     [graphNodes]
   );
   const graphBounds = useMemo(() => getBounds(graphNodes), [graphNodes]);
+  const graphTranslateExtent = useMemo<
+    [[number, number], [number, number]] | undefined
+  >(() => {
+    if (graphLayout === 'free') {
+      return undefined;
+    }
+    if (graphNodes.length === 0) {
+      return [
+        [-1200, -1200],
+        [1200, 1200]
+      ];
+    }
+    const pad = 520;
+    return [
+      [graphBounds.minX - pad, graphBounds.minY - pad],
+      [graphBounds.maxX + pad, graphBounds.maxY + pad]
+    ];
+  }, [graphBounds.maxX, graphBounds.maxY, graphBounds.minX, graphBounds.minY, graphLayout, graphNodes.length]);
   const edgePresentationForNodes = useCallback(
     (sourceId: string, targetId: string, nodeMap: Map<string, Node>, bounds: ReturnType<typeof getBounds>) => {
       const source = nodeMap.get(sourceId);
@@ -1406,12 +1632,7 @@ const ModelLabView = ({
     const resolvedInput = `[${parsedInput
       .map((dim) => (dim === 'N' ? batchSize : dim))
       .join(', ')}]`;
-    const outgoing = new Map<string, number>();
-    graph.edges.forEach((edge) => {
-      outgoing.set(edge.from, (outgoing.get(edge.from) ?? 0) + 1);
-    });
-    const sinkNode =
-      graph.nodes.find((node) => !outgoing.has(node.id)) ?? graph.nodes[graph.nodes.length - 1];
+    const sinkNode = selectPreferredTorchOutputNode(graph);
     const outputShape = sinkNode ? torchInference?.shapes.get(sinkNode.id) ?? null : parsedInput;
     const resolvedOutput = outputShape
       ? `[${outputShape.map((dim) => (dim === 'N' ? batchSize : dim)).join(', ')}]`
@@ -1442,54 +1663,57 @@ const ModelLabView = ({
     if (graphLayout === 'free') {
       return;
     }
-    // Keep canonical coordinates for arranged layouts so viewport panning
-    // does not re-center layers and cancel visual movement.
-    const baseX = 160;
-    const baseY = 140;
-    const gap = 90;
     if (isTorch) {
       updateTorchGraph((graph) => {
-        let cursorX = baseX;
-        let cursorY = baseY;
-        const nextNodes = graph.nodes.map((node) => {
+        const layoutSpecs = graph.nodes.map((node) => {
           const shape = torchInference?.shapes.get(node.id) ?? null;
           const { width, height } = getTorchNodeDimensions(shape);
-          const position =
-            graphLayout === 'horizontal'
-              ? { x: cursorX - width / 2, y: baseY - height / 2 }
-              : { x: baseX - width / 2, y: cursorY - height / 2 };
-          if (graphLayout === 'horizontal') {
-            cursorX += width + gap;
-          } else {
-            cursorY += height + gap;
-          }
-          return { ...node, position };
+          return { id: node.id, width, height };
         });
+        const { positions } = chooseWrappedAutoLayout(graphLayout, layoutSpecs, graphFrameSize);
+        let changed = false;
+        const nextNodes = graph.nodes.map((node) => {
+          const nextPosition = positions[node.id];
+          if (!nextPosition) {
+            return node;
+          }
+          const currentPosition = node.position;
+          if (
+            !currentPosition ||
+            Math.abs(currentPosition.x - nextPosition.x) > 0.5 ||
+            Math.abs(currentPosition.y - nextPosition.y) > 0.5
+          ) {
+            changed = true;
+            return { ...node, position: nextPosition };
+          }
+          return node;
+        });
+        if (!changed) {
+          return graph;
+        }
         return { ...graph, nodes: nextNodes };
       });
       return;
     }
-    const nextPositions: Record<string, { x: number; y: number }> = {};
-    let cursorX = baseX;
-    let cursorY = baseY;
-    openLayers.forEach((layer) => {
-      const width = 180;
-      const height = 90;
-      nextPositions[layer.id] =
-        graphLayout === 'horizontal'
-          ? { x: cursorX - width / 2, y: baseY - height / 2 }
-          : { x: baseX - width / 2, y: cursorY - height / 2 };
-      if (graphLayout === 'horizontal') {
-        cursorX += width + gap;
-      } else {
-        cursorY += height + gap;
+    const layoutSpecs = openLayers.map((layer) => ({ id: layer.id, width: 180, height: 90 }));
+    const { positions } = chooseWrappedAutoLayout(graphLayout, layoutSpecs, graphFrameSize);
+    const changed = openLayers.some((layer) => {
+      const prevPos = openLayerPositions[layer.id];
+      const nextPos = positions[layer.id];
+      if (!nextPos || !prevPos) {
+        return true;
       }
+      return Math.abs(prevPos.x - nextPos.x) > 0.5 || Math.abs(prevPos.y - nextPos.y) > 0.5;
     });
-    setOpenLayerPositions(nextPositions);
+    if (changed || Object.keys(openLayerPositions).length !== Object.keys(positions).length) {
+      setOpenLayerPositions(positions);
+    }
   }, [
     graphLayout,
+    graphFrameSize,
     isTorch,
     openLayerCount,
+    openLayerPositions,
     openLayers,
     torchInference,
     torchNodeCount,
@@ -1515,28 +1739,68 @@ const ModelLabView = ({
     }
   }, [graphLayout, isTorch, torchGraph, updateTorchGraph]);
 
-  const prevNodeCountRef = useRef(0);
+  const arrangedGeometrySignature = useMemo(
+    () =>
+      graphLayout === 'free'
+        ? ''
+        : graphNodes
+            .map((node) => {
+              const { width, height } = getNodeSize(node);
+              return `${node.id}:${Math.round(node.position.x)}:${Math.round(node.position.y)}:${Math.round(width)}:${Math.round(height)}`;
+            })
+            .join('|'),
+    [graphLayout, graphNodes]
+  );
+
   useEffect(() => {
     if (!graphFlowInstance || graphNodes.length === 0) {
-      prevNodeCountRef.current = graphNodes.length;
       return;
     }
-    const countChanged = prevNodeCountRef.current !== graphNodes.length;
-    prevNodeCountRef.current = graphNodes.length;
-    // Always fit view when node count changes, regardless of layout mode
-    if (!countChanged) {
+    const pendingNodeId = pendingCenterNodeIdRef.current;
+    if (!pendingNodeId) {
       return;
     }
-    // Use setTimeout to allow React Flow to measure nodes before fitting view.
-    // requestAnimationFrame is not sufficient as React Flow needs more time.
+    const targetNode = graphNodes.find((node) => node.id === pendingNodeId);
+    if (!targetNode) {
+      return;
+    }
+    const { width, height } = getNodeSize(targetNode);
+    const centerX = (targetNode.position?.x ?? 0) + width / 2;
+    const centerY = (targetNode.position?.y ?? 0) + height / 2;
+    const zoom = graphFlowInstance.getViewport().zoom;
+
     const id = setTimeout(() => {
-      graphFlowInstance.fitView({ padding: 0.2, duration: 250 });
-    }, 50);
+      void graphFlowInstance.setCenter(centerX, centerY, {
+        zoom,
+        duration: 260
+      });
+      if (pendingCenterNodeIdRef.current === pendingNodeId) {
+        pendingCenterNodeIdRef.current = null;
+      }
+    }, 110);
     return () => clearTimeout(id);
   }, [
+    arrangedGeometrySignature,
+    graphNodes,
     graphFlowInstance,
     graphNodes.length
   ]);
+
+  useEffect(() => {
+    if (
+      !graphFlowInstance ||
+      graphNodes.length === 0 ||
+      previousLayoutRef.current === graphLayout
+    ) {
+      previousLayoutRef.current = graphLayout;
+      return;
+    }
+    previousLayoutRef.current = graphLayout;
+    const id = setTimeout(() => {
+      graphFlowInstance.fitView({ padding: 0.2, duration: 250, maxZoom: 1.2, minZoom: 0.1 });
+    }, 80);
+    return () => clearTimeout(id);
+  }, [graphFlowInstance, graphLayout, graphNodes.length]);
 
   const saveModel = () => {
     const existingIndex = state.models.findIndex((model) => model.id === modelDraft.id);
@@ -1980,6 +2244,7 @@ const ModelLabView = ({
               nodesDraggable={false}
               selectionOnDrag={false}
               zoomOnDoubleClick={false}
+              translateExtent={graphTranslateExtent}
               fitView
             >
               <Background color="#d1c8b8" gap={18} variant={BackgroundVariant.Dots} />
@@ -2006,7 +2271,9 @@ const ModelLabView = ({
                         if (isTorch) {
                           addTorchLayer(
                             option.key as TorchLayerNode['type'],
-                            { x: graphPalette.flowX, y: graphPalette.flowY }
+                            graphLayout === 'free'
+                              ? { x: graphPalette.flowX, y: graphPalette.flowY }
+                              : undefined
                           );
                         } else {
                           addLayerByType(option.key, undefined, {

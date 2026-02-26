@@ -748,6 +748,11 @@ apply_parallel_mode(EtsRef, Mode, SourceRaw) ->
       ets:update_element(EtsRef, parallel_mode, {?DATA_IDX, NormalizedMode}),
       UpdatedAuthority = resolve_parallel_authority(Source, NormalizedMode),
       ets:update_element(EtsRef, parallel_authority, {?DATA_IDX, UpdatedAuthority}),
+      ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+      ?LOG_INFO(
+        "Client ~p parallel mode update source=~p mode=~p authority=~p",
+        [ClientName, Source, NormalizedMode, UpdatedAuthority]
+      ),
       case NormalizedMode of
         legacy ->
           ets:update_element(EtsRef, parallel_execution, {?DATA_IDX, #{}}),
@@ -778,25 +783,46 @@ apply_parallel_execution(EtsRef, ParallelExecution, SourceRaw) ->
       case Mode of
         legacy ->
           ets:update_element(EtsRef, parallel_execution, {?DATA_IDX, #{}}),
+          ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+          ?LOG_INFO("Client ~p cleared parallel execution (legacy mode)", [ClientName]),
           cast_message_to_workers(EtsRef, {set_parallel_execution, #{}});
         _ ->
           ets:update_element(EtsRef, parallel_execution, {?DATA_IDX, NormalizedExecution}),
+          ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+          ?LOG_INFO(
+            "Client ~p parallel execution update source=~p mode=~p payload=~p",
+            [ClientName, Source, Mode, NormalizedExecution]
+          ),
           cast_message_to_workers(EtsRef, {set_parallel_execution, NormalizedExecution})
       end
   end.
 
 apply_parallel_super_command(EtsRef, {parallel_super_command, configure_parallel, Mode, ParallelExecution}) ->
+  ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+  ?LOG_INFO("Client ~p received super command configure_parallel mode=~p", [ClientName, Mode]),
   apply_parallel_mode(EtsRef, Mode, super_node),
   apply_parallel_execution(EtsRef, ParallelExecution, super_node);
 apply_parallel_super_command(EtsRef, {configure_parallel, Mode, ParallelExecution}) ->
+  ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+  ?LOG_INFO("Client ~p received super command configure_parallel mode=~p", [ClientName, Mode]),
   apply_parallel_mode(EtsRef, Mode, super_node),
   apply_parallel_execution(EtsRef, ParallelExecution, super_node);
 apply_parallel_super_command(
   EtsRef,
   {parallel_super_command, grant_scheduler_event, Direction, MicrobatchID, StageID, WorkerName}
 ) ->
+  ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+  ?LOG_INFO(
+    "Client ~p received scheduler grant direction=~p microbatch=~p stage=~p target=~p",
+    [ClientName, Direction, MicrobatchID, StageID, WorkerName]
+  ),
   deliver_scheduler_grant(EtsRef, Direction, MicrobatchID, StageID, WorkerName);
 apply_parallel_super_command(EtsRef, {grant_scheduler_event, Direction, MicrobatchID, StageID, WorkerName}) ->
+  ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+  ?LOG_INFO(
+    "Client ~p received scheduler grant direction=~p microbatch=~p stage=~p target=~p",
+    [ClientName, Direction, MicrobatchID, StageID, WorkerName]
+  ),
   deliver_scheduler_grant(EtsRef, Direction, MicrobatchID, StageID, WorkerName);
 apply_parallel_super_command(_EtsRef, UnknownCommand) ->
   ?LOG_WARNING("Ignoring unknown parallel super command: ~p", [UnknownCommand]),
@@ -808,6 +834,11 @@ deliver_scheduler_grant(EtsRef, Direction, MicrobatchID, StageID, WorkerNameRaw)
     {error, _} ->
       notify_parallel_abort(EtsRef, {scheduler_grant_non_local_worker, WorkerNameRaw, Direction, MicrobatchID, StageID});
     {ok, WorkerName} ->
+      ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+      ?LOG_INFO(
+        "Client ~p forwarding scheduler grant to worker ~p direction=~p microbatch=~p stage=~p",
+        [ClientName, WorkerName, Direction, MicrobatchID, StageID]
+      ),
       WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef, WorkerName),
       gen_statem:cast(
         WorkerPid,
@@ -942,6 +973,11 @@ handle_w2w_msg_super(EtsRef, FromWorker, ToWorker, Data) ->
       notify_parallel_abort(EtsRef, {missing_super_node, FromWorker, ToWorker}),
       stats:increment_bad_messages(ClientStatsEts);
     _ ->
+      ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+      ?LOG_INFO(
+        "Client ~p routing worker message via super node ~p from ~p to ~p",
+        [ClientName, SuperNode, FromWorker, ToWorker]
+      ),
       MessageBody = {parallel_worker_message, FromWorker, ToWorker, Data},
       {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
       try
@@ -984,6 +1020,11 @@ forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, Sta
       notify_parallel_abort(EtsRef, {missing_super_node_parallel_event, FromWorker, Direction}),
       stats:increment_bad_messages(ClientStatsEts);
     _ ->
+      ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+      ?LOG_INFO(
+        "Client ~p forwarding parallel event to super node ~p worker=~p direction=~p batch=~p microbatch=~p stage=~p",
+        [ClientName, SuperNode, FromWorker, Direction, BatchID, MicrobatchID, StageID]
+      ),
       MessageBody = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta},
       {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
       try
@@ -1012,6 +1053,7 @@ maybe_register_super_node(MyName, EtsRef, _NerlnetGraph, ClientWorkers) ->
   case SuperNode of
     none -> ok;
     _ ->
+      ?LOG_INFO("Client ~p registering to super node ~p with workers ~p", [MyName, SuperNode, ClientWorkers]),
       {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
       MessageBody = {register_client, MyName, ClientWorkers},
       try nerl_tools:http_router_request(RouterHost, RouterPort, [SuperNode], atom_to_list(registerClient), MessageBody) of
@@ -1026,6 +1068,7 @@ maybe_start_super_node_heartbeat(MyName, EtsRef, _NerlnetGraph) ->
   case SuperNode of
     none -> ok;
     _ ->
+      ?LOG_INFO("Client ~p starting super node heartbeat loop for ~p", [MyName, SuperNode]),
       spawn(fun() -> super_node_heartbeat_loop(MyName, EtsRef, SuperNode) end),
       ok
   end.

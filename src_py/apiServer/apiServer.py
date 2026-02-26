@@ -80,6 +80,7 @@ class ApiServer(metaclass=Singleton):
         self.explicit_json_paths = (dc_json, conn_map_json, experiment_flow_json)
 
         globe.components = NetworkComponents(dcData) # move network component into experiment class
+        globe.components.validate_connection_map(connData.get("connectionsMap", {}))
         # comDB = NerlComDB(globe.components)
         self.__new_experiment(experiment_name, experiment_flow_json, batch_size, globe.components, csv_path) # create new experiment
         self.experiment_focused_on(experiment_name)

@@ -513,6 +513,7 @@ maybe_update_super_node_phase(_SuperNode, _PhaseAtom, _ParallelMode, _ParallelEx
   ok.
 
 apply_parallel_phase_routing(PhaseAtom, legacy, SuperNode, _ParallelExecution) ->
+  ?LOG_INFO("Main server applying legacy parallel routing for phase=~p", [PhaseAtom]),
   _ = maybe_update_super_node_phase(SuperNode, PhaseAtom, legacy, #{}),
   update_clients_parallel_mode(legacy),
   update_clients_parallel_execution(#{}),
@@ -526,6 +527,10 @@ apply_parallel_phase_routing(_PhaseAtom, ParallelMode, none, _ParallelExecution)
   update_clients_parallel_execution(#{}),
   {legacy, none};
 apply_parallel_phase_routing(PhaseAtom, ParallelMode, SuperNode, ParallelExecution) ->
+  ?LOG_INFO(
+    "Main server delegating non-legacy parallel routing to super node ~p phase=~p mode=~p",
+    [SuperNode, PhaseAtom, ParallelMode]
+  ),
   case maybe_update_super_node_phase(SuperNode, PhaseAtom, ParallelMode, ParallelExecution) of
     ok ->
       % Non-legacy mode settings are propagated to clients only by Super Node commands.

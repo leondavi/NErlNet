@@ -239,6 +239,13 @@ class ExperimentFlow():
                     f"phase '{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}' requires at least 2 pipeline stages"
                 )
 
+            if mode == "pipeline":
+                phase_workers = self._extract_phase_target_workers(phase_dict)
+                self._validate_pipeline_mode_worker_layout(
+                    phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, ""),
+                    phase_workers,
+                )
+
             virtual_stages = normalized.get(EXPFLOW_PARALLEL_EXECUTION_VIRTUAL_STAGES_FIELD, 1)
             schedule = build_scheduler_schedule(
                 scheduler,
@@ -270,6 +277,53 @@ class ExperimentFlow():
             )
 
         return normalized
+
+    def _extract_phase_target_workers(self, phase_dict: dict):
+        workers = set()
+        source_pieces = phase_dict.get(EXPFLOW_PHASES_PHASE_SOURCE_PIECES_FIELD, [])
+        if not isinstance(source_pieces, list):
+            return workers
+        for source_piece in source_pieces:
+            if not isinstance(source_piece, dict):
+                continue
+            raw_workers = source_piece.get(EXPFLOW_PHASE_SOURCE_PIECES_WORKERS_FIELD, "")
+            if isinstance(raw_workers, str):
+                for worker_name in raw_workers.split(","):
+                    normalized_name = worker_name.strip()
+                    if normalized_name:
+                        workers.add(normalized_name)
+            elif isinstance(raw_workers, list):
+                for worker_name in raw_workers:
+                    normalized_name = str(worker_name).strip()
+                    if normalized_name:
+                        workers.add(normalized_name)
+        return workers
+
+    def _validate_pipeline_mode_worker_layout(self, phase_name: str, phase_workers: set):
+        worker_parallel_map = self.network_componenets.get_worker_parallel_map()
+        if not worker_parallel_map:
+            return
+
+        stage_to_workers = {}
+        for worker_name, cfg in worker_parallel_map.items():
+            if phase_workers and worker_name not in phase_workers:
+                continue
+            stage = cfg.get(PIPELINE_STAGE_FIELD)
+            if stage is None:
+                continue
+            stage_to_workers.setdefault(stage, []).append(worker_name)
+
+        invalid = {
+            stage: sorted(workers)
+            for stage, workers in stage_to_workers.items()
+            if len(workers) != 1
+        }
+        if invalid:
+            raise ValueError(
+                f"phase '{phase_name}' in mode 'pipeline' currently requires exactly one worker "
+                f"per pipeline stage. got stage->workers={invalid}. use mode 'pipeline_tensor' "
+                f"for multi-worker stages."
+            )
 
     def _parse_positive_int_field(self, parent_dict: dict, field_name: str):
         if field_name not in parent_dict:

@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+"""Contract checks for stage-sliced pipeline runtime execution paths."""
+
+from __future__ import annotations
+
+import unittest
+from pathlib import Path
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+WORKER_GENERIC = REPO_ROOT / "src_erl" / "NerlnetApp" / "src" / "Bridge" / "onnWorkers" / "workerGeneric.erl"
+W2W_COM = REPO_ROOT / "src_erl" / "NerlnetApp" / "src" / "Bridge" / "Common" / "w2wCom.erl"
+TORCH_WORKER_CPP = REPO_ROOT / "src_cpp" / "torchBridge" / "NerlWorkerTorch.cpp"
+
+
+class PipelineStageExecutionContractTests(unittest.TestCase):
+    def test_worker_runtime_has_stage_payload_buffers_and_dispatch(self) -> None:
+        content = WORKER_GENERIC.read_text(encoding="utf-8")
+        self.assertIn("parallel_pipeline_forward_buffer", content)
+        self.assertIn("parallel_pipeline_backward_buffer", content)
+        self.assertIn("parallel_pipeline_predict_buffer", content)
+        self.assertIn("dispatch_pipeline_stage0_forward_microbatch_loop", content)
+        self.assertIn("dispatch_pipeline_stage0_predict_microbatch_loop", content)
+        self.assertIn("maybe_process_pipeline_forward_payload", content)
+        self.assertIn("maybe_process_pipeline_backward_payload", content)
+        self.assertIn("maybe_process_pipeline_predict_payload", content)
+        self.assertIn("resolve_pipeline_adjacent_worker", content)
+        self.assertIn("route_pipeline_payload_to_worker", content)
+        self.assertIn("stage0 pipeline batch=", content)
+        self.assertIn("pipeline last-stage completed batch", content)
+
+    def test_w2w_bridge_notifies_worker_pipeline_inbox(self) -> None:
+        content = W2W_COM.read_text(encoding="utf-8")
+        self.assertIn("maybe_notify_pipeline_inbox", content)
+        self.assertIn("{parallel_pipeline_inbox, FromWorkerName, Data}", content)
+        self.assertIn("pipeline_forward_payload", content)
+        self.assertIn("pipeline_backward_payload", content)
+        self.assertIn("pipeline_predict_payload", content)
+
+    def test_torch_cpp_worker_has_stage_partition_execution(self) -> None:
+        content = TORCH_WORKER_CPP.read_text(encoding="utf-8")
+        self.assertIn("initialize_pipeline_partition()", content)
+        self.assertIn("run_pipeline_stage_layers", content)
+        self.assertIn("pipeline_stage0_forward", content)
+        self.assertIn("pipeline_stage_forward", content)
+        self.assertIn("pipeline_stage_last_forward_backward", content)
+        self.assertIn("pipeline_stage_backward", content)
+        self.assertIn("pipeline_predict_stage0_forward", content)
+        self.assertIn("pipeline_predict_stage_forward", content)
+        self.assertIn("Torch pipeline partition stage=", content)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -231,6 +231,75 @@ class NetworkComponents():
     def get_model_tp_plan_map(self):
         return dict(self.model_tp_plan_map)
 
+    def get_runtime_graph_entities(self):
+        entities = [MAIN_SERVER_STR, API_SERVER_STR]
+        entities.extend(self.routers)
+        entities.extend(self.sources)
+        entities.extend(self.clients)
+        entities.extend(self.super_nodes)
+        return list(dict.fromkeys(entities))
+
+    def validate_connection_map(self, connections_map: dict):
+        if not isinstance(connections_map, dict):
+            raise ValueError("Connection map must include a 'connectionsMap' object")
+
+        runtime_entities = self.get_runtime_graph_entities()
+        adjacency = {entity_name: set() for entity_name in runtime_entities}
+        runtime_entity_set = set(runtime_entities)
+        referenced_entities = set()
+
+        for raw_src, raw_neighbors in connections_map.items():
+            src = str(raw_src).strip()
+            if not src:
+                raise ValueError("Connection map contains an empty source entity")
+            if src not in runtime_entity_set:
+                raise ValueError(f"Connection map references unknown source entity '{src}'")
+            if not isinstance(raw_neighbors, list):
+                raise ValueError(f"Connection map neighbors for '{src}' must be a list")
+
+            for raw_neighbor in raw_neighbors:
+                neighbor = str(raw_neighbor).strip()
+                if not neighbor:
+                    continue
+                if neighbor not in runtime_entity_set:
+                    raise ValueError(
+                        f"Connection map references unknown neighbor '{neighbor}' from '{src}'"
+                    )
+                adjacency[src].add(neighbor)
+                adjacency[neighbor].add(src)
+                referenced_entities.add(src)
+                referenced_entities.add(neighbor)
+
+                # Erlang runtime automatically aliases router->mainServer into router->apiServer.
+                if neighbor == MAIN_SERVER_STR:
+                    adjacency[src].add(API_SERVER_STR)
+                    adjacency[API_SERVER_STR].add(src)
+                    referenced_entities.add(API_SERVER_STR)
+
+        if runtime_entities:
+            root = MAIN_SERVER_STR if MAIN_SERVER_STR in adjacency else runtime_entities[0]
+            stack = [root]
+            visited = set()
+            while stack:
+                node = stack.pop()
+                if node in visited:
+                    continue
+                visited.add(node)
+                stack.extend(neighbor for neighbor in adjacency[node] if neighbor not in visited)
+
+            disconnected = sorted(name for name in runtime_entities if name not in visited)
+            if disconnected:
+                raise ValueError(
+                    "Connection map must produce one fully connected runtime graph after "
+                    f"bidirectional completion. Disconnected entities: {disconnected}"
+                )
+
+        for super_name in self.super_nodes:
+            if super_name not in referenced_entities:
+                raise ValueError(
+                    f"Super node '{super_name}' must appear in the connection map adjacency"
+                )
+
     def _extract_super_nodes(self):
         super_nodes_json = self.jsonData.get(KEY_SUPER_NODES, [])
         if super_nodes_json is None:
@@ -375,6 +444,12 @@ class NetworkComponents():
                 raise ValueError(f"Unknown client '{client_name}' declared under super node '{super_name}'")
             if super_name not in self.super_nodes:
                 raise ValueError(f"Client '{client_name}' references unknown super node '{super_name}'")
+            managed_clients = self.super_node_to_clients.get(super_name, [])
+            if client_name not in managed_clients:
+                raise ValueError(
+                    f"Client '{client_name}' is assigned to super node '{super_name}' but is missing "
+                    f"from '{MANAGED_CLIENTS_FIELD}'"
+                )
 
     def _validate_worker_parallel(self):
         tp_groups = {}

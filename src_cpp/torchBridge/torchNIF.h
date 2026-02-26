@@ -137,6 +137,27 @@ ERL_NIF_TERM list_type_from_dtype(ErlNifEnv* env, c10::ScalarType dtype)
     return nifpp::make(env, nifpp::str_atom("erl_int"));
 }
 
+nerlnet::TorchTensor ensure_tensor_dtype(const nerlnet::TorchTensor &tensor, c10::ScalarType dtype)
+{
+    if (!tensor.defined())
+    {
+        return tensor;
+    }
+    if (tensor.scalar_type() == dtype)
+    {
+        return tensor;
+    }
+    return tensor.to(dtype);
+}
+
+ERL_NIF_TERM make_pipeline_error(ErlNifEnv* env, const std::string& message)
+{
+    ERL_NIF_TERM nerlnif_atom = enif_make_atom(env, "nerlnif");
+    nifpp::TERM error_atom = nifpp::make(env, nifpp::str_atom("error"));
+    nifpp::TERM msg_term = nifpp::make(env, message);
+    return enif_make_tuple(env, 3, nerlnif_atom, error_atom, msg_term);
+}
+
 } // namespace
 
 class dirty_thread_args
@@ -297,6 +318,393 @@ static ERL_NIF_TERM optimizer_barrier_nif(ErlNifEnv* env, int argc, const ERL_NI
         return nifpp::make(env, error_atom);
     }
 }
+
+static ERL_NIF_TERM pipeline_stage0_forward_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    enum {ARG_MODEL_ID, ARG_NERLTENSOR, ARG_NERLTENSOR_TYPE, ARG_MICROBATCH_ID};
+    nifpp::str_atom ok_atom("ok");
+    nifpp::str_atom stage_atom("pipeline_stage0_forward");
+
+    try
+    {
+        unsigned long model_id = 0;
+        long microbatch_id = 0;
+        nifpp::str_atom tensor_type;
+        nifpp::get_throws(env, argv[ARG_MODEL_ID], model_id);
+        nifpp::get_throws(env, argv[ARG_NERLTENSOR_TYPE], tensor_type);
+        if (!enif_get_long(env, argv[ARG_MICROBATCH_ID], &microbatch_id))
+        {
+            return enif_make_badarg(env);
+        }
+
+        const c10::ScalarType dtype = nerlnet::get_torch_dtype(tensor_type);
+        const auto stage_input = nerlnet::torchbridge::TensorCodec::decode(env, argv[ARG_NERLTENSOR], dtype);
+        const auto start = std::chrono::high_resolution_clock::now();
+
+        nerlnet::BridgeController& controller = nerlnet::BridgeController::GetInstance();
+        std::shared_ptr<nerlnet::NerlWorker> worker_base = controller.getModelPtr(model_id);
+        std::shared_ptr<nerlnet::NerlWorkerTorch> worker = std::dynamic_pointer_cast<nerlnet::NerlWorkerTorch>(worker_base);
+        if (!worker)
+        {
+            return make_pipeline_error(env, "pipeline_stage0_forward_missing_worker");
+        }
+
+        auto [activation, labels] = worker->pipeline_stage0_forward(stage_input, microbatch_id);
+        activation = ensure_tensor_dtype(activation, dtype);
+        labels = ensure_tensor_dtype(labels, dtype);
+
+        nifpp::TERM encoded_activation;
+        nifpp::TERM encoded_labels;
+        nerlnet::torchbridge::TensorCodec::encode(env, activation, encoded_activation);
+        nerlnet::torchbridge::TensorCodec::encode(env, labels, encoded_labels);
+
+        const auto stop = std::chrono::high_resolution_clock::now();
+        const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+        ERL_NIF_TERM stage_time = enif_make_double(env, static_cast<double>(duration.count()));
+
+        return enif_make_tuple(env,
+                               7,
+                               nifpp::make(env, ok_atom),
+                               nifpp::make(env, stage_atom),
+                               encoded_activation,
+                               nifpp::make(env, tensor_type),
+                               encoded_labels,
+                               nifpp::make(env, tensor_type),
+                               stage_time);
+    }
+    catch (const std::exception& ex)
+    {
+        LogError << "pipeline_stage0_forward_nif failed: " << ex.what() << std::endl;
+        return make_pipeline_error(env, ex.what());
+    }
+    catch (...)
+    {
+        LogError << "pipeline_stage0_forward_nif failed with unknown error" << std::endl;
+        return make_pipeline_error(env, "pipeline_stage0_forward_unknown_error");
+    }
+}
+
+static ERL_NIF_TERM pipeline_stage_forward_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    enum
+    {
+        ARG_MODEL_ID,
+        ARG_ACTIVATION_TENSOR,
+        ARG_ACTIVATION_TYPE,
+        ARG_LABELS_TENSOR,
+        ARG_LABELS_TYPE,
+        ARG_MICROBATCH_ID
+    };
+    nifpp::str_atom ok_atom("ok");
+    nifpp::str_atom stage_atom("pipeline_stage_forward");
+
+    try
+    {
+        unsigned long model_id = 0;
+        long microbatch_id = 0;
+        nifpp::str_atom activation_type;
+        nifpp::str_atom labels_type;
+        nifpp::get_throws(env, argv[ARG_MODEL_ID], model_id);
+        nifpp::get_throws(env, argv[ARG_ACTIVATION_TYPE], activation_type);
+        nifpp::get_throws(env, argv[ARG_LABELS_TYPE], labels_type);
+        if (!enif_get_long(env, argv[ARG_MICROBATCH_ID], &microbatch_id))
+        {
+            return enif_make_badarg(env);
+        }
+
+        const c10::ScalarType activation_dtype = nerlnet::get_torch_dtype(activation_type);
+        const c10::ScalarType labels_dtype = nerlnet::get_torch_dtype(labels_type);
+        const auto activation = nerlnet::torchbridge::TensorCodec::decode(env, argv[ARG_ACTIVATION_TENSOR], activation_dtype);
+        const auto labels = nerlnet::torchbridge::TensorCodec::decode(env, argv[ARG_LABELS_TENSOR], labels_dtype);
+        const auto start = std::chrono::high_resolution_clock::now();
+
+        nerlnet::BridgeController& controller = nerlnet::BridgeController::GetInstance();
+        std::shared_ptr<nerlnet::NerlWorker> worker_base = controller.getModelPtr(model_id);
+        std::shared_ptr<nerlnet::NerlWorkerTorch> worker = std::dynamic_pointer_cast<nerlnet::NerlWorkerTorch>(worker_base);
+        if (!worker)
+        {
+            return make_pipeline_error(env, "pipeline_stage_forward_missing_worker");
+        }
+
+        auto [stage_output, forwarded_labels] = worker->pipeline_stage_forward(activation, labels, microbatch_id);
+        stage_output = ensure_tensor_dtype(stage_output, activation_dtype);
+        forwarded_labels = ensure_tensor_dtype(forwarded_labels, labels_dtype);
+
+        nifpp::TERM encoded_stage_output;
+        nifpp::TERM encoded_forwarded_labels;
+        nerlnet::torchbridge::TensorCodec::encode(env, stage_output, encoded_stage_output);
+        nerlnet::torchbridge::TensorCodec::encode(env, forwarded_labels, encoded_forwarded_labels);
+
+        const auto stop = std::chrono::high_resolution_clock::now();
+        const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+        ERL_NIF_TERM stage_time = enif_make_double(env, static_cast<double>(duration.count()));
+
+        return enif_make_tuple(env,
+                               7,
+                               nifpp::make(env, ok_atom),
+                               nifpp::make(env, stage_atom),
+                               encoded_stage_output,
+                               nifpp::make(env, activation_type),
+                               encoded_forwarded_labels,
+                               nifpp::make(env, labels_type),
+                               stage_time);
+    }
+    catch (const std::exception& ex)
+    {
+        LogError << "pipeline_stage_forward_nif failed: " << ex.what() << std::endl;
+        return make_pipeline_error(env, ex.what());
+    }
+    catch (...)
+    {
+        LogError << "pipeline_stage_forward_nif failed with unknown error" << std::endl;
+        return make_pipeline_error(env, "pipeline_stage_forward_unknown_error");
+    }
+}
+
+static ERL_NIF_TERM pipeline_stage_last_forward_backward_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    enum
+    {
+        ARG_MODEL_ID,
+        ARG_ACTIVATION_TENSOR,
+        ARG_ACTIVATION_TYPE,
+        ARG_LABELS_TENSOR,
+        ARG_LABELS_TYPE,
+        ARG_MICROBATCH_ID
+    };
+    nifpp::str_atom ok_atom("ok");
+    nifpp::str_atom stage_atom("pipeline_stage_last");
+
+    try
+    {
+        unsigned long model_id = 0;
+        long microbatch_id = 0;
+        nifpp::str_atom activation_type;
+        nifpp::str_atom labels_type;
+        nifpp::get_throws(env, argv[ARG_MODEL_ID], model_id);
+        nifpp::get_throws(env, argv[ARG_ACTIVATION_TYPE], activation_type);
+        nifpp::get_throws(env, argv[ARG_LABELS_TYPE], labels_type);
+        if (!enif_get_long(env, argv[ARG_MICROBATCH_ID], &microbatch_id))
+        {
+            return enif_make_badarg(env);
+        }
+
+        const c10::ScalarType activation_dtype = nerlnet::get_torch_dtype(activation_type);
+        const c10::ScalarType labels_dtype = nerlnet::get_torch_dtype(labels_type);
+        const auto activation = nerlnet::torchbridge::TensorCodec::decode(env, argv[ARG_ACTIVATION_TENSOR], activation_dtype);
+        const auto labels = nerlnet::torchbridge::TensorCodec::decode(env, argv[ARG_LABELS_TENSOR], labels_dtype);
+        const auto start = std::chrono::high_resolution_clock::now();
+
+        nerlnet::BridgeController& controller = nerlnet::BridgeController::GetInstance();
+        std::shared_ptr<nerlnet::NerlWorker> worker_base = controller.getModelPtr(model_id);
+        std::shared_ptr<nerlnet::NerlWorkerTorch> worker = std::dynamic_pointer_cast<nerlnet::NerlWorkerTorch>(worker_base);
+        if (!worker)
+        {
+            return make_pipeline_error(env, "pipeline_stage_last_missing_worker");
+        }
+
+        auto [loss_tensor, grad_input] = worker->pipeline_stage_last_forward_backward(activation, labels, microbatch_id);
+        loss_tensor = ensure_tensor_dtype(loss_tensor, labels_dtype);
+        grad_input = ensure_tensor_dtype(grad_input, activation_dtype);
+
+        nifpp::TERM encoded_loss;
+        nifpp::TERM encoded_grad_input;
+        nerlnet::torchbridge::TensorCodec::encode(env, loss_tensor, encoded_loss);
+        nerlnet::torchbridge::TensorCodec::encode(env, grad_input, encoded_grad_input);
+
+        const auto stop = std::chrono::high_resolution_clock::now();
+        const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+        ERL_NIF_TERM stage_time = enif_make_double(env, static_cast<double>(duration.count()));
+
+        return enif_make_tuple(env,
+                               7,
+                               nifpp::make(env, ok_atom),
+                               nifpp::make(env, stage_atom),
+                               encoded_loss,
+                               nifpp::make(env, labels_type),
+                               encoded_grad_input,
+                               nifpp::make(env, activation_type),
+                               stage_time);
+    }
+    catch (const std::exception& ex)
+    {
+        LogError << "pipeline_stage_last_forward_backward_nif failed: " << ex.what() << std::endl;
+        return make_pipeline_error(env, ex.what());
+    }
+    catch (...)
+    {
+        LogError << "pipeline_stage_last_forward_backward_nif failed with unknown error" << std::endl;
+        return make_pipeline_error(env, "pipeline_stage_last_forward_backward_unknown_error");
+    }
+}
+
+static ERL_NIF_TERM pipeline_stage_backward_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    enum {ARG_MODEL_ID, ARG_GRAD_TENSOR, ARG_GRAD_TYPE, ARG_MICROBATCH_ID};
+    nifpp::str_atom ok_atom("ok");
+    nifpp::str_atom stage_atom("pipeline_stage_backward");
+
+    try
+    {
+        unsigned long model_id = 0;
+        long microbatch_id = 0;
+        nifpp::str_atom grad_type;
+        nifpp::get_throws(env, argv[ARG_MODEL_ID], model_id);
+        nifpp::get_throws(env, argv[ARG_GRAD_TYPE], grad_type);
+        if (!enif_get_long(env, argv[ARG_MICROBATCH_ID], &microbatch_id))
+        {
+            return enif_make_badarg(env);
+        }
+
+        const c10::ScalarType grad_dtype = nerlnet::get_torch_dtype(grad_type);
+        const auto grad_output = nerlnet::torchbridge::TensorCodec::decode(env, argv[ARG_GRAD_TENSOR], grad_dtype);
+        const auto start = std::chrono::high_resolution_clock::now();
+
+        nerlnet::BridgeController& controller = nerlnet::BridgeController::GetInstance();
+        std::shared_ptr<nerlnet::NerlWorker> worker_base = controller.getModelPtr(model_id);
+        std::shared_ptr<nerlnet::NerlWorkerTorch> worker = std::dynamic_pointer_cast<nerlnet::NerlWorkerTorch>(worker_base);
+        if (!worker)
+        {
+            return make_pipeline_error(env, "pipeline_stage_backward_missing_worker");
+        }
+
+        auto grad_input = worker->pipeline_stage_backward(grad_output, microbatch_id);
+        grad_input = ensure_tensor_dtype(grad_input, grad_dtype);
+
+        nifpp::TERM encoded_grad_input;
+        nerlnet::torchbridge::TensorCodec::encode(env, grad_input, encoded_grad_input);
+
+        const auto stop = std::chrono::high_resolution_clock::now();
+        const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+        ERL_NIF_TERM stage_time = enif_make_double(env, static_cast<double>(duration.count()));
+
+        return enif_make_tuple(env,
+                               5,
+                               nifpp::make(env, ok_atom),
+                               nifpp::make(env, stage_atom),
+                               encoded_grad_input,
+                               nifpp::make(env, grad_type),
+                               stage_time);
+    }
+    catch (const std::exception& ex)
+    {
+        LogError << "pipeline_stage_backward_nif failed: " << ex.what() << std::endl;
+        return make_pipeline_error(env, ex.what());
+    }
+    catch (...)
+    {
+        LogError << "pipeline_stage_backward_nif failed with unknown error" << std::endl;
+        return make_pipeline_error(env, "pipeline_stage_backward_unknown_error");
+    }
+}
+
+static ERL_NIF_TERM pipeline_predict_stage0_forward_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    enum {ARG_MODEL_ID, ARG_NERLTENSOR, ARG_NERLTENSOR_TYPE};
+    nifpp::str_atom ok_atom("ok");
+    nifpp::str_atom stage_atom("pipeline_predict_stage0");
+
+    try
+    {
+        unsigned long model_id = 0;
+        nifpp::str_atom tensor_type;
+        nifpp::get_throws(env, argv[ARG_MODEL_ID], model_id);
+        nifpp::get_throws(env, argv[ARG_NERLTENSOR_TYPE], tensor_type);
+        const c10::ScalarType dtype = nerlnet::get_torch_dtype(tensor_type);
+        const auto stage_input = nerlnet::torchbridge::TensorCodec::decode(env, argv[ARG_NERLTENSOR], dtype);
+        const auto start = std::chrono::high_resolution_clock::now();
+
+        nerlnet::BridgeController& controller = nerlnet::BridgeController::GetInstance();
+        std::shared_ptr<nerlnet::NerlWorker> worker_base = controller.getModelPtr(model_id);
+        std::shared_ptr<nerlnet::NerlWorkerTorch> worker = std::dynamic_pointer_cast<nerlnet::NerlWorkerTorch>(worker_base);
+        if (!worker)
+        {
+            return make_pipeline_error(env, "pipeline_predict_stage0_missing_worker");
+        }
+
+        auto stage_output = worker->pipeline_predict_stage0_forward(stage_input);
+        stage_output = ensure_tensor_dtype(stage_output, dtype);
+
+        nifpp::TERM encoded_stage_output;
+        nerlnet::torchbridge::TensorCodec::encode(env, stage_output, encoded_stage_output);
+
+        const auto stop = std::chrono::high_resolution_clock::now();
+        const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+        ERL_NIF_TERM stage_time = enif_make_double(env, static_cast<double>(duration.count()));
+
+        return enif_make_tuple(env,
+                               5,
+                               nifpp::make(env, ok_atom),
+                               nifpp::make(env, stage_atom),
+                               encoded_stage_output,
+                               nifpp::make(env, tensor_type),
+                               stage_time);
+    }
+    catch (const std::exception& ex)
+    {
+        LogError << "pipeline_predict_stage0_forward_nif failed: " << ex.what() << std::endl;
+        return make_pipeline_error(env, ex.what());
+    }
+    catch (...)
+    {
+        LogError << "pipeline_predict_stage0_forward_nif failed with unknown error" << std::endl;
+        return make_pipeline_error(env, "pipeline_predict_stage0_forward_unknown_error");
+    }
+}
+
+static ERL_NIF_TERM pipeline_predict_stage_forward_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    enum {ARG_MODEL_ID, ARG_NERLTENSOR, ARG_NERLTENSOR_TYPE};
+    nifpp::str_atom ok_atom("ok");
+    nifpp::str_atom stage_atom("pipeline_predict_stage");
+
+    try
+    {
+        unsigned long model_id = 0;
+        nifpp::str_atom tensor_type;
+        nifpp::get_throws(env, argv[ARG_MODEL_ID], model_id);
+        nifpp::get_throws(env, argv[ARG_NERLTENSOR_TYPE], tensor_type);
+        const c10::ScalarType dtype = nerlnet::get_torch_dtype(tensor_type);
+        const auto stage_input = nerlnet::torchbridge::TensorCodec::decode(env, argv[ARG_NERLTENSOR], dtype);
+        const auto start = std::chrono::high_resolution_clock::now();
+
+        nerlnet::BridgeController& controller = nerlnet::BridgeController::GetInstance();
+        std::shared_ptr<nerlnet::NerlWorker> worker_base = controller.getModelPtr(model_id);
+        std::shared_ptr<nerlnet::NerlWorkerTorch> worker = std::dynamic_pointer_cast<nerlnet::NerlWorkerTorch>(worker_base);
+        if (!worker)
+        {
+            return make_pipeline_error(env, "pipeline_predict_stage_missing_worker");
+        }
+
+        auto stage_output = worker->pipeline_predict_stage_forward(stage_input);
+        stage_output = ensure_tensor_dtype(stage_output, dtype);
+
+        nifpp::TERM encoded_stage_output;
+        nerlnet::torchbridge::TensorCodec::encode(env, stage_output, encoded_stage_output);
+
+        const auto stop = std::chrono::high_resolution_clock::now();
+        const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+        ERL_NIF_TERM stage_time = enif_make_double(env, static_cast<double>(duration.count()));
+
+        return enif_make_tuple(env,
+                               5,
+                               nifpp::make(env, ok_atom),
+                               nifpp::make(env, stage_atom),
+                               encoded_stage_output,
+                               nifpp::make(env, tensor_type),
+                               stage_time);
+    }
+    catch (const std::exception& ex)
+    {
+        LogError << "pipeline_predict_stage_forward_nif failed: " << ex.what() << std::endl;
+        return make_pipeline_error(env, ex.what());
+    }
+    catch (...)
+    {
+        LogError << "pipeline_predict_stage_forward_nif failed with unknown error" << std::endl;
+        return make_pipeline_error(env, "pipeline_predict_stage_forward_unknown_error");
+    }
+}
 /*
 predict_nif function is called by NIF from Erlang.
 It creates a TorchTensor from input data and calls the threaded predict function
@@ -449,6 +857,12 @@ static ErlNifFunc nif_funcs[] =
     {"train_nif", 3 , train_nif},
     {"train_microbatch_nif", 4, train_microbatch_nif},
     {"optimizer_barrier_nif", 1, optimizer_barrier_nif},
+    {"pipeline_stage0_forward_nif", 4, pipeline_stage0_forward_nif},
+    {"pipeline_stage_forward_nif", 6, pipeline_stage_forward_nif},
+    {"pipeline_stage_last_forward_backward_nif", 6, pipeline_stage_last_forward_backward_nif},
+    {"pipeline_stage_backward_nif", 4, pipeline_stage_backward_nif},
+    {"pipeline_predict_stage0_forward_nif", 3, pipeline_predict_stage0_forward_nif},
+    {"pipeline_predict_stage_forward_nif", 3, pipeline_predict_stage_forward_nif},
     {"predict_nif", 3 , predict_nif},
     {"new_nerlworker_nif", 4, nerlnet::torchbridge::new_nerlworker_nif},
     {"test_nerlworker_nif", 4, nerlnet::torchbridge::test_nerlworker_nif},

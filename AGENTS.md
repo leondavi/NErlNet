@@ -17,6 +17,8 @@
    - Super Node pushes parallel config commands to managed clients.
    - Super Node issues scheduler grants for pipeline events.
    - Clients forward grants to workers; workers must consume grants before emitting pipeline events.
+   - In `mode=pipeline`, workers run true stage-sliced execution (not full-model-per-worker): stage0 splits source batches, stages exchange activations/gradients through Super Node-routed worker messages, and per-stage optimizer barriers happen after deterministic microbatch completion.
+   - Super Node/Client/Worker logs expose config/grant/event flow for run-time orchestration traceability.
 5) Training phase runs, then prediction phase runs; stats are collected per phase.
 
 ## JSONs (shape + purpose)
@@ -54,8 +56,10 @@
 - Each entity assigned to exactly one device; `mainServer` must appear in a device.
 - No duplicate ports within the same device.
 - Connection map must connect all entities (strongly connected after bidirectional edges).
+- API preflight validates `connectionsMap` against runtime entities and requires explicit Super Node adjacency when super nodes are configured.
 - If non-legacy parallel mode is selected, a valid Super Node must be configured and referenced by phase config.
 - Non-legacy client parallel settings are Super Node-driven; Main Server does not directly own non-legacy mode/execution fanout.
+- If `clients[].superNode` is set, that client must also be listed under the super node `managedClients`.
 - Clients should have non-empty worker lists; all client workers must exist in DC `workers`.
 - Experiment flow: `experimentType` required; `phaseName` unique; `phaseType` in {training,prediction}.
 - Exp `batchSize` must equal DC `batchSize` (asserted in API server).
@@ -68,7 +72,16 @@
 - Torch worker effectively supports `adam` or `sgd` optimizers; loss is fixed to MSE in the runtime.
 - Worker non-legacy pipeline events are scheduler-grant-gated when Super Node authority is enabled.
 - In non-legacy modes, workers buffer incoming `sample` messages while in `wait` state (`parallel_deferred_samples`) and dequeue deterministically after batch completion to avoid TP peer batch desynchronization.
+- `pipeline` mode stage execution is Torch-only and requires pipeline metadata (`pipelineStage`, `pipelineWorldSize`) on workers.
+- `pipeline` mode currently enforces exactly one worker per pipeline stage per phase target set; use `pipeline_tensor` for multi-worker stage layouts.
+- Stage-sliced worker messaging payload tags are:
+  - `pipeline_forward_payload`
+  - `pipeline_backward_payload`
+  - `pipeline_predict_payload`
+- `w2wCom` immediately casts these payloads back into worker state machines as `{parallel_pipeline_inbox, FromWorker, Payload}` while still preserving inbox queue behavior used by TP collectives.
 - `pipeline_tensor` uses forward-only scheduler grants, while TP collectives execute per `tpPlan` entry with deterministic `{batch,microbatch,layer,mode}` collective tokens.
+- Super Node scheduler trace is forward-only for prediction phase (`phaseType=prediction`) even in `mode=pipeline`, preventing backward-grant deadlocks during prediction.
+- Torch pipeline stage0 prediction now accepts both feature-only microbatches and feature+label-span microbatches, normalizing input shape before local stage execution.
 
 ## Web planner (web/nerl-planner)
 - `NerlnetPlanner.sh` only runs the planner dev server (`npm install`, `npm run dev -- --open`).
@@ -89,5 +102,6 @@
 - `tests/NerlnetFullFlowTorchTest.sh` generates a TorchScript model and runs the pipeline end-to-end.
 - `tests/NerlnetFullFlowTorchLocalDebug.sh` runs a local Torch flow against supplied JSONs and prints verbose logs via `src_py/apiServer/experiment_flow_local_debug.py`.
 - Parallel contract and scheduler tests live under `tests/parallelism/`.
+- Stage-sliced pipeline contracts are asserted by `tests/parallelism/test_pipeline_stage_execution_contract.py`.
 - Docker CPU Torch validation lives under `docker/ubuntu-torch-cpu/` and includes PTD loss parity checks.
 - `tests/inputTorchJsonsFiles/parallel_smoke/exp_torch_pipeline_tensor_smoke.json` is the primary smoke for Super Node + `pipeline_tensor` runtime verification.
