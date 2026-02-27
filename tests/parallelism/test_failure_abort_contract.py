@@ -51,9 +51,21 @@ class FailureAbortContractTests(unittest.TestCase):
 
     def test_client_legacy_mode_forces_parallel_execution_clear(self) -> None:
         content = CLIENT_STATEM_FILE.read_text(encoding="utf-8")
-        self.assertIn("apply_parallel_mode(EtsRef, Mode)", content)
-        self.assertIn("apply_parallel_execution(EtsRef, ParallelExecution)", content)
+        self.assertIn("apply_parallel_mode(EtsRef, Mode, SourceRaw)", content)
+        self.assertIn("apply_parallel_execution(EtsRef, ParallelExecution, SourceRaw)", content)
         self.assertIn("cast_message_to_workers(EtsRef, {set_parallel_execution, #{}})", content)
+        self.assertIn("reset_parallel_phase_close_state(EtsRef)", content)
+
+    def test_phase_close_barrier_paths_exist(self) -> None:
+        super_content = SUPER_NODE_FILE.read_text(encoding="utf-8")
+        client_content = CLIENT_STATEM_FILE.read_text(encoding="utf-8")
+        self.assertIn("handle_parallel_phase_close_request", super_content)
+        self.assertIn("finalize_parallel_phase_close", super_content)
+        self.assertIn("broadcast_phase_close_granted", super_content)
+        self.assertIn("handle_scheduler_grant_rejected", super_content)
+        self.assertIn("maybe_request_super_phase_close(EtsRef, training)", client_content)
+        self.assertIn("maybe_request_super_phase_close(EtsRef, prediction)", client_content)
+        self.assertIn("scheduler_grant_reject_reason", client_content)
 
 
 if __name__ == "__main__":

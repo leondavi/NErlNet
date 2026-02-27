@@ -92,6 +92,10 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   ets:insert(EtsRef, {parallel_mode, legacy}),
   ets:insert(EtsRef, {parallel_execution, #{}}),
   ets:insert(EtsRef, {parallel_authority, main_server}),
+  ets:insert(EtsRef, {parallel_phase_epoch, 0}),
+  ets:insert(EtsRef, {parallel_phase_close_requested, false}),
+  ets:insert(EtsRef, {parallel_phase_close_granted, false}),
+  ets:insert(EtsRef, {parallel_idle_requested, false}),
   ets:insert(EtsRef, {all_workers_done, false}),
   ets:insert(EtsRef, {num_of_fed_servers, 0}), % Will stay 0 if non-federated
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM, NerlnetGraph),
@@ -148,20 +152,24 @@ waitforWorkers(cast, {set_parallel_execution, ParallelExecution}, State = #clien
   {keep_state, State};
 
 waitforWorkers(cast, {parallel_super_command, SuperCommand}, State = #client_statem_state{etsRef = EtsRef}) ->
-  apply_parallel_super_command(EtsRef, SuperCommand),
+  apply_parallel_super_command(EtsRef, SuperCommand, waitforWorkers),
   {keep_state, State};
 
 waitforWorkers(cast, {worker_parallel_abort, WorkerName, Reason}, State = #client_statem_state{etsRef = EtsRef}) ->
   handle_worker_parallel_abort(EtsRef, WorkerName, Reason),
   {keep_state, State};
 
-waitforWorkers(cast, In = {stateChange,WorkerName}, State = #client_statem_state{myName = MyName,waitforWorkers = WaitforWorkers,nextState = NextState, etsRef = _EtsRef}) ->
+waitforWorkers(cast, In = {stateChange,WorkerName}, State = #client_statem_state{myName = MyName,waitforWorkers = WaitforWorkers,nextState = NextState, etsRef = EtsRef}) ->
   NewWaitforWorkers = WaitforWorkers -- [WorkerName],
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   case NewWaitforWorkers of % TODO Guy here we need to check for keep alive with workers
-    [] ->   send_client_is_ready(MyName), % when all workers done their work
+    [] ->   case NextState of
+              idle -> reset_parallel_phase_close_state(EtsRef);
+              _ -> ok
+            end,
+            send_client_is_ready(MyName), % when all workers done their work
             stats:increment_messages_sent(ClientStatsEts),
             ?LOG_INFO("Client ~p and its workers are ready~n",[MyName]),
             {next_state, NextState, State#client_statem_state{waitforWorkers = []}};
@@ -187,6 +195,9 @@ waitforWorkers(cast, In = {parallel_event, FromWorker, Direction, BatchID, Micro
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
   forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
+  {keep_state, State};
+
+waitforWorkers(cast, {parallel_finalize_idle}, State = #client_statem_state{}) ->
   {keep_state, State};
 
 waitforWorkers(cast, In = {NewState}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
@@ -225,7 +236,7 @@ idle(cast, {set_parallel_execution, ParallelExecution}, State = #client_statem_s
   {keep_state, State};
 
 idle(cast, {parallel_super_command, SuperCommand}, State = #client_statem_state{etsRef = EtsRef}) ->
-  apply_parallel_super_command(EtsRef, SuperCommand),
+  apply_parallel_super_command(EtsRef, SuperCommand, idle),
   {keep_state, State};
 
 idle(cast, {worker_parallel_abort, WorkerName, Reason}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -253,6 +264,9 @@ idle(cast, In = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, S
   forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
   {keep_state, State};
 
+idle(cast, {parallel_finalize_idle}, State = #client_statem_state{}) ->
+  {keep_state, State};
+
 idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, etsRef = EtsRef}) ->
   EtsStats = get(ets_stats),
   ClientStatsEts = get(client_stats_ets),
@@ -274,6 +288,7 @@ idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, et
 % Main Server triggers this state
 idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   erlang:garbage_collect(), % free memory when phase is changed to training
+  reset_parallel_phase_close_state(EtsRef),
   ClientStatsEts = get(client_stats_ets),
   PerformanceStatsEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -289,6 +304,7 @@ idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRe
 
 idle(cast, In = {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
   erlang:garbage_collect(), % free memory when phase is changed to predict
+  reset_parallel_phase_close_state(EtsRef),
   ClientStatsEts = get(client_stats_ets),
   PerformanceStatsEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -325,7 +341,7 @@ training(cast, {set_parallel_execution, ParallelExecution}, State = #client_stat
   {keep_state, State};
 
 training(cast, {parallel_super_command, SuperCommand}, State = #client_statem_state{etsRef = EtsRef}) ->
-  apply_parallel_super_command(EtsRef, SuperCommand),
+  apply_parallel_super_command(EtsRef, SuperCommand, training),
   {keep_state, State};
 
 training(cast, {worker_parallel_abort, WorkerName, Reason}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -452,20 +468,32 @@ training(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef
   ClientPerformanceEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  MessageToCast = {idle},
+  ets:insert(EtsRef, {parallel_idle_requested, true}),
   WorkersDone = ets:lookup_element(EtsRef , all_workers_done , ?DATA_IDX),
   case WorkersDone of
-    true ->   cast_message_to_workers(EtsRef, MessageToCast),
-              Workers =  clientWorkersFunctions:get_workers_names(EtsRef),
-              ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
-              Elapsed = stats:toc(ClientStatsEts, time_train_total),
-              stats:increment_time_train_total(ClientPerformanceEts, Elapsed),
-              stats:update_cpu_util_per_core(ClientPerformanceEts, train), % Update CPU utilization for training phase
-              {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
+    true ->
+      case should_gate_idle_with_super_close(EtsRef) of
+        true ->
+          maybe_request_super_phase_close(EtsRef, training),
+          case ets:lookup_element(EtsRef, parallel_phase_close_granted, ?DATA_IDX) of
+            true ->
+              finalize_training_idle_transition(State, MyName, EtsRef, ClientStatsEts, ClientPerformanceEts);
+            false ->
+              ?LOG_INFO("~p waiting for Super Node phase-close grant before idling workers", [MyName]),
+              {keep_state, State#client_statem_state{etsRef = EtsRef}}
+          end;
+        false ->
+          finalize_training_idle_transition(State, MyName, EtsRef, ClientStatsEts, ClientPerformanceEts)
+      end;
     false ->  MyPid = get(my_pid),
               start_monitor_workers_done(EtsRef, MyPid),
               {keep_state, State#client_statem_state{etsRef = EtsRef}}
   end;
+
+training(cast, {parallel_finalize_idle}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  ClientPerformanceEts = get(performance_stats_ets),
+  maybe_finalize_parallel_idle_transition(training, State, MyName, EtsRef, ClientStatsEts, ClientPerformanceEts);
 
 training(cast, _In = {predict}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
   ?LOG_ERROR("Wrong request , client ~p can't go from training to predict directly", [MyName]),
@@ -509,7 +537,7 @@ predict(cast, {set_parallel_execution, ParallelExecution}, State = #client_state
   {keep_state, State};
 
 predict(cast, {parallel_super_command, SuperCommand}, State = #client_statem_state{etsRef = EtsRef}) ->
-  apply_parallel_super_command(EtsRef, SuperCommand),
+  apply_parallel_super_command(EtsRef, SuperCommand, predict),
   {keep_state, State};
 
 predict(cast, {worker_parallel_abort, WorkerName, Reason}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -588,21 +616,33 @@ predict(cast, In = {idle}, State = #client_statem_state{myName = MyName, etsRef 
   ClientPerformanceEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
-  MessageToCast = {idle},
+  ets:insert(EtsRef, {parallel_idle_requested, true}),
   WorkersDone = ets:lookup_element(EtsRef , all_workers_done , ?DATA_IDX),
   case WorkersDone of
-    true ->   cast_message_to_workers(EtsRef, MessageToCast),
-              Workers =  clientWorkersFunctions:get_workers_names(EtsRef),
-              ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
-              Elapsed = stats:toc(ClientStatsEts, time_predict_total),
-              stats:increment_time_predict_total(ClientPerformanceEts, Elapsed),
-              stats:update_cpu_util_per_core(ClientPerformanceEts, predict), % Update CPU utilization for predict phase
-              {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}};
+    true ->
+      case should_gate_idle_with_super_close(EtsRef) of
+        true ->
+          maybe_request_super_phase_close(EtsRef, prediction),
+          case ets:lookup_element(EtsRef, parallel_phase_close_granted, ?DATA_IDX) of
+            true ->
+              finalize_predict_idle_transition(State, MyName, EtsRef, ClientStatsEts, ClientPerformanceEts);
+            false ->
+              ?LOG_INFO("~p waiting for Super Node phase-close grant before idling workers", [MyName]),
+              {keep_state, State#client_statem_state{etsRef = EtsRef}}
+          end;
+        false ->
+          finalize_predict_idle_transition(State, MyName, EtsRef, ClientStatsEts, ClientPerformanceEts)
+      end;
     false ->  
               MyPid = get(my_pid),
               start_monitor_workers_done(EtsRef, MyPid), % ← Pass EtsRef
               {keep_state, State}
   end;
+
+predict(cast, {parallel_finalize_idle}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  ClientPerformanceEts = get(performance_stats_ets),
+  maybe_finalize_parallel_idle_transition(predict, State, MyName, EtsRef, ClientStatsEts, ClientPerformanceEts);
 
 predict(cast, In = {predictRes,WorkerName, SourceName ,{PredictNerlTensor, NetlTensorType} , TimeTook , WorkerToken, BatchID , BatchTS}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
@@ -734,8 +774,201 @@ cast_message_to_workers(EtsRef, Msg) ->
   end,
   lists:foreach(Func, Workers).
 
-apply_parallel_mode(EtsRef, Mode) ->
-  apply_parallel_mode(EtsRef, Mode, main_server).
+reset_parallel_phase_close_state(EtsRef) ->
+  ets:insert(EtsRef, {parallel_phase_close_requested, false}),
+  ets:insert(EtsRef, {parallel_phase_close_granted, false}),
+  ets:insert(EtsRef, {parallel_idle_requested, false}),
+  ok.
+
+resolve_parallel_phase_epoch(EtsRef, current) ->
+  ets:lookup_element(EtsRef, parallel_phase_epoch, ?DATA_IDX);
+resolve_parallel_phase_epoch(EtsRef, EpochRaw) ->
+  CurrentEpoch = ets:lookup_element(EtsRef, parallel_phase_epoch, ?DATA_IDX),
+  ParsedEpoch =
+    case EpochRaw of
+      EpochInt when is_integer(EpochInt) -> EpochInt;
+      EpochBin when is_binary(EpochBin) ->
+        try list_to_integer(binary_to_list(EpochBin)) of
+          Value -> Value
+        catch
+          _:_ -> CurrentEpoch
+        end;
+      EpochList when is_list(EpochList) ->
+        try list_to_integer(string:trim(EpochList)) of
+          Value -> Value
+        catch
+          _:_ -> CurrentEpoch
+        end;
+      _ ->
+        CurrentEpoch
+    end,
+  case ParsedEpoch < 0 of
+    true -> CurrentEpoch;
+    false -> ParsedEpoch
+  end.
+
+should_gate_idle_with_super_close(EtsRef) ->
+  ParallelMode = ets:lookup_element(EtsRef, parallel_mode, ?DATA_IDX),
+  SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
+  ParallelAuthority = get_parallel_authority(EtsRef),
+  (ParallelMode =/= legacy) andalso (SuperNode =/= none) andalso (ParallelAuthority =:= super_node).
+
+maybe_request_super_phase_close(EtsRef, PhaseName) ->
+  Requested = ets:lookup_element(EtsRef, parallel_phase_close_requested, ?DATA_IDX),
+  case Requested of
+    true ->
+      ok;
+    false ->
+      ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+      SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
+      PhaseEpoch = ets:lookup_element(EtsRef, parallel_phase_epoch, ?DATA_IDX),
+      case SuperNode of
+        none ->
+          ?LOG_WARNING(
+            "Client ~p cannot request phase-close (phase=~p epoch=~p): missing super node",
+            [ClientName, PhaseName, PhaseEpoch]
+          ),
+          ets:insert(EtsRef, {parallel_phase_close_granted, true});
+        _ ->
+          ets:insert(EtsRef, {parallel_phase_close_requested, true}),
+          MessageBody = {parallel_phase_close, ClientName, PhaseEpoch},
+          {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+          ?LOG_INFO(
+            "Client ~p requesting phase-close from super node ~p phase=~p epoch=~p",
+            [ClientName, SuperNode, PhaseName, PhaseEpoch]
+          ),
+          try
+            nerl_tools:http_router_request(
+              RouterHost,
+              RouterPort,
+              [SuperNode],
+              atom_to_list(parallelPhaseClose),
+              MessageBody
+            )
+          catch
+            Err:Reason ->
+              ?LOG_ERROR(
+                "Client ~p failed to request phase-close from super node ~p: ~p",
+                [ClientName, SuperNode, {Err, Reason}]
+              ),
+              notify_parallel_abort(EtsRef, {parallel_phase_close_route_failed, SuperNode, PhaseName, {Err, Reason}})
+          end
+      end
+  end.
+
+maybe_finalize_parallel_idle_transition(training, State, MyName, EtsRef, ClientStatsEts, ClientPerformanceEts) ->
+  IdleRequested = ets:lookup_element(EtsRef, parallel_idle_requested, ?DATA_IDX),
+  WorkersDone = ets:lookup_element(EtsRef, all_workers_done, ?DATA_IDX),
+  CloseGranted = ets:lookup_element(EtsRef, parallel_phase_close_granted, ?DATA_IDX),
+  case {IdleRequested, WorkersDone, should_gate_idle_with_super_close(EtsRef), CloseGranted} of
+    {true, true, false, _} ->
+      finalize_training_idle_transition(State, MyName, EtsRef, ClientStatsEts, ClientPerformanceEts);
+    {true, true, true, true} ->
+      finalize_training_idle_transition(State, MyName, EtsRef, ClientStatsEts, ClientPerformanceEts);
+    _ ->
+      {keep_state, State#client_statem_state{etsRef = EtsRef}}
+  end;
+maybe_finalize_parallel_idle_transition(predict, State, MyName, EtsRef, ClientStatsEts, ClientPerformanceEts) ->
+  IdleRequested = ets:lookup_element(EtsRef, parallel_idle_requested, ?DATA_IDX),
+  WorkersDone = ets:lookup_element(EtsRef, all_workers_done, ?DATA_IDX),
+  CloseGranted = ets:lookup_element(EtsRef, parallel_phase_close_granted, ?DATA_IDX),
+  case {IdleRequested, WorkersDone, should_gate_idle_with_super_close(EtsRef), CloseGranted} of
+    {true, true, false, _} ->
+      finalize_predict_idle_transition(State, MyName, EtsRef, ClientStatsEts, ClientPerformanceEts);
+    {true, true, true, true} ->
+      finalize_predict_idle_transition(State, MyName, EtsRef, ClientStatsEts, ClientPerformanceEts);
+    _ ->
+      {keep_state, State#client_statem_state{etsRef = EtsRef}}
+  end.
+
+finalize_training_idle_transition(
+  State = #client_statem_state{},
+  MyName,
+  EtsRef,
+  ClientStatsEts,
+  ClientPerformanceEts
+) ->
+  cast_message_to_workers(EtsRef, {idle}),
+  Workers = clientWorkersFunctions:get_workers_names(EtsRef),
+  ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
+  Elapsed = stats:toc(ClientStatsEts, time_train_total),
+  stats:increment_time_train_total(ClientPerformanceEts, Elapsed),
+  stats:update_cpu_util_per_core(ClientPerformanceEts, train),
+  {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}}.
+
+finalize_predict_idle_transition(
+  State = #client_statem_state{},
+  MyName,
+  EtsRef,
+  ClientStatsEts,
+  ClientPerformanceEts
+) ->
+  cast_message_to_workers(EtsRef, {idle}),
+  Workers = clientWorkersFunctions:get_workers_names(EtsRef),
+  ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
+  Elapsed = stats:toc(ClientStatsEts, time_predict_total),
+  stats:increment_time_predict_total(ClientPerformanceEts, Elapsed),
+  stats:update_cpu_util_per_core(ClientPerformanceEts, predict),
+  {next_state, waitforWorkers, State#client_statem_state{etsRef = EtsRef, waitforWorkers = Workers , nextState = idle}}.
+
+scheduler_grant_reject_reason(EtsRef, GrantEpoch, StateName) ->
+  ActiveEpoch = ets:lookup_element(EtsRef, parallel_phase_epoch, ?DATA_IDX),
+  IdleRequested = ets:lookup_element(EtsRef, parallel_idle_requested, ?DATA_IDX),
+  CloseGranted = ets:lookup_element(EtsRef, parallel_phase_close_granted, ?DATA_IDX),
+  case GrantEpoch =:= ActiveEpoch of
+    false ->
+      {stale_phase_epoch, GrantEpoch, ActiveEpoch};
+    true ->
+      case {StateName, IdleRequested, CloseGranted} of
+        {idle, _, _} -> {client_idle_state, StateName};
+        {waitforWorkers, true, _} -> {phase_close_waiting_worker_idle_ack, StateName};
+        {_, true, true} -> {phase_close_granted, StateName};
+        {_, true, false} -> {phase_close_pending, StateName};
+        _ -> none
+      end
+  end.
+
+notify_scheduler_grant_rejected(
+  EtsRef,
+  WorkerName,
+  Direction,
+  MicrobatchID,
+  StageID,
+  GrantEpoch,
+  RejectReason
+) ->
+  SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
+  ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+  case SuperNode of
+    none ->
+      ?LOG_WARNING(
+        "Client ~p rejected scheduler grant but cannot notify super node (missing super): worker=~p direction=~p microbatch=~p stage=~p epoch=~p reason=~p",
+        [ClientName, WorkerName, Direction, MicrobatchID, StageID, GrantEpoch, RejectReason]
+      );
+    _ ->
+      ?LOG_INFO(
+        "Client ~p rejecting scheduler grant worker=~p direction=~p microbatch=~p stage=~p epoch=~p reason=~p",
+        [ClientName, WorkerName, Direction, MicrobatchID, StageID, GrantEpoch, RejectReason]
+      ),
+      MessageBody = {scheduler_grant_rejected, ClientName, WorkerName, Direction, MicrobatchID, StageID, RejectReason, GrantEpoch},
+      {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+      try
+        nerl_tools:http_router_request(
+          RouterHost,
+          RouterPort,
+          [SuperNode],
+          atom_to_list(schedulerGrantRejected),
+          MessageBody
+        )
+      catch
+        Err:Reason ->
+          ?LOG_ERROR(
+            "Client ~p failed notifying scheduler grant rejection to super node ~p: ~p",
+            [ClientName, SuperNode, {Err, Reason}]
+          ),
+          notify_parallel_abort(EtsRef, {scheduler_grant_rejection_route_failed, SuperNode, {Err, Reason}})
+      end
+  end.
 
 apply_parallel_mode(EtsRef, Mode, SourceRaw) ->
   Source = normalize_parallel_source(SourceRaw),
@@ -755,6 +988,8 @@ apply_parallel_mode(EtsRef, Mode, SourceRaw) ->
       ),
       case NormalizedMode of
         legacy ->
+          reset_parallel_phase_close_state(EtsRef),
+          ets:insert(EtsRef, {parallel_phase_epoch, 0}),
           ets:update_element(EtsRef, parallel_execution, {?DATA_IDX, #{}}),
           cast_message_to_workers(EtsRef, {set_parallel_mode, legacy}),
           cast_message_to_workers(EtsRef, {set_parallel_execution, #{}}),
@@ -764,9 +999,6 @@ apply_parallel_mode(EtsRef, Mode, SourceRaw) ->
           cast_message_to_workers(EtsRef, {set_parallel_authority, Source =:= super_node})
       end
   end.
-
-apply_parallel_execution(EtsRef, ParallelExecution) ->
-  apply_parallel_execution(EtsRef, ParallelExecution, main_server).
 
 apply_parallel_execution(EtsRef, ParallelExecution, SourceRaw) ->
   Source = normalize_parallel_source(SourceRaw),
@@ -797,38 +1029,88 @@ apply_parallel_execution(EtsRef, ParallelExecution, SourceRaw) ->
       end
   end.
 
-apply_parallel_super_command(EtsRef, {parallel_super_command, configure_parallel, Mode, ParallelExecution}) ->
+apply_parallel_super_command(EtsRef, {parallel_super_command, configure_parallel, Mode, ParallelExecution}, StateName) ->
+  apply_parallel_super_command(EtsRef, {parallel_super_command, configure_parallel, Mode, ParallelExecution, current}, StateName);
+apply_parallel_super_command(EtsRef, {configure_parallel, Mode, ParallelExecution}, StateName) ->
+  apply_parallel_super_command(EtsRef, {parallel_super_command, configure_parallel, Mode, ParallelExecution, current}, StateName);
+apply_parallel_super_command(EtsRef, {parallel_super_command, configure_parallel, Mode, ParallelExecution, PhaseEpochRaw}, _StateName) ->
   ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
-  ?LOG_INFO("Client ~p received super command configure_parallel mode=~p", [ClientName, Mode]),
+  PhaseEpoch = resolve_parallel_phase_epoch(EtsRef, PhaseEpochRaw),
+  ?LOG_INFO("Client ~p received super command configure_parallel mode=~p epoch=~p", [ClientName, Mode, PhaseEpoch]),
   apply_parallel_mode(EtsRef, Mode, super_node),
-  apply_parallel_execution(EtsRef, ParallelExecution, super_node);
-apply_parallel_super_command(EtsRef, {configure_parallel, Mode, ParallelExecution}) ->
-  ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
-  ?LOG_INFO("Client ~p received super command configure_parallel mode=~p", [ClientName, Mode]),
-  apply_parallel_mode(EtsRef, Mode, super_node),
-  apply_parallel_execution(EtsRef, ParallelExecution, super_node);
+  apply_parallel_execution(EtsRef, ParallelExecution, super_node),
+  reset_parallel_phase_close_state(EtsRef),
+  ets:insert(EtsRef, {parallel_phase_epoch, PhaseEpoch});
 apply_parallel_super_command(
   EtsRef,
-  {parallel_super_command, grant_scheduler_event, Direction, MicrobatchID, StageID, WorkerName}
+  {parallel_super_command, grant_scheduler_event, Direction, MicrobatchID, StageID, WorkerName},
+  StateName
 ) ->
+  apply_parallel_super_command(
+    EtsRef,
+    {parallel_super_command, grant_scheduler_event, Direction, MicrobatchID, StageID, WorkerName, current},
+    StateName
+  );
+apply_parallel_super_command(
+  EtsRef,
+  {grant_scheduler_event, Direction, MicrobatchID, StageID, WorkerName},
+  StateName
+) ->
+  apply_parallel_super_command(
+    EtsRef,
+    {parallel_super_command, grant_scheduler_event, Direction, MicrobatchID, StageID, WorkerName, current},
+    StateName
+  );
+apply_parallel_super_command(
+  EtsRef,
+  {parallel_super_command, grant_scheduler_event, Direction, MicrobatchID, StageID, WorkerName, GrantEpochRaw},
+  StateName
+) ->
+  GrantEpoch = resolve_parallel_phase_epoch(EtsRef, GrantEpochRaw),
   ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
   ?LOG_INFO(
-    "Client ~p received scheduler grant direction=~p microbatch=~p stage=~p target=~p",
-    [ClientName, Direction, MicrobatchID, StageID, WorkerName]
+    "Client ~p received scheduler grant direction=~p microbatch=~p stage=~p target=~p epoch=~p",
+    [ClientName, Direction, MicrobatchID, StageID, WorkerName, GrantEpoch]
   ),
-  deliver_scheduler_grant(EtsRef, Direction, MicrobatchID, StageID, WorkerName);
-apply_parallel_super_command(EtsRef, {grant_scheduler_event, Direction, MicrobatchID, StageID, WorkerName}) ->
+  deliver_scheduler_grant(EtsRef, Direction, MicrobatchID, StageID, WorkerName, GrantEpoch, StateName);
+apply_parallel_super_command(EtsRef, {parallel_super_command, phase_close_granted, PhaseEpochRaw}, _StateName) ->
+  PhaseEpoch = resolve_parallel_phase_epoch(EtsRef, PhaseEpochRaw),
+  ActiveEpoch = ets:lookup_element(EtsRef, parallel_phase_epoch, ?DATA_IDX),
   ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
-  ?LOG_INFO(
-    "Client ~p received scheduler grant direction=~p microbatch=~p stage=~p target=~p",
-    [ClientName, Direction, MicrobatchID, StageID, WorkerName]
-  ),
-  deliver_scheduler_grant(EtsRef, Direction, MicrobatchID, StageID, WorkerName);
-apply_parallel_super_command(_EtsRef, UnknownCommand) ->
+  case PhaseEpoch =:= ActiveEpoch of
+    false ->
+      ?LOG_WARNING(
+        "Client ~p ignored stale phase-close grant epoch=~p active_epoch=~p",
+        [ClientName, PhaseEpoch, ActiveEpoch]
+      );
+    true ->
+      ?LOG_INFO("Client ~p received phase-close grant epoch=~p", [ClientName, PhaseEpoch]),
+      ets:insert(EtsRef, {parallel_phase_close_granted, true}),
+      gen_statem:cast(get(my_pid), {parallel_finalize_idle})
+  end;
+apply_parallel_super_command(EtsRef, {phase_close_granted, PhaseEpochRaw}, StateName) ->
+  apply_parallel_super_command(EtsRef, {parallel_super_command, phase_close_granted, PhaseEpochRaw}, StateName);
+apply_parallel_super_command(_EtsRef, UnknownCommand, _StateName) ->
   ?LOG_WARNING("Ignoring unknown parallel super command: ~p", [UnknownCommand]),
   ok.
 
-deliver_scheduler_grant(EtsRef, Direction, MicrobatchID, StageID, WorkerNameRaw) ->
+deliver_scheduler_grant(EtsRef, Direction, MicrobatchID, StageID, WorkerNameRaw, GrantEpoch, StateName) ->
+  case scheduler_grant_reject_reason(EtsRef, GrantEpoch, StateName) of
+    none ->
+      deliver_scheduler_grant_to_worker(EtsRef, Direction, MicrobatchID, StageID, WorkerNameRaw, GrantEpoch);
+    RejectReason ->
+      notify_scheduler_grant_rejected(
+        EtsRef,
+        WorkerNameRaw,
+        Direction,
+        MicrobatchID,
+        StageID,
+        GrantEpoch,
+        RejectReason
+      )
+  end.
+
+deliver_scheduler_grant_to_worker(EtsRef, Direction, MicrobatchID, StageID, WorkerNameRaw, GrantEpoch) ->
   WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
   case resolve_worker_name(WorkersOfThisClient, WorkerNameRaw) of
     {error, _} ->
@@ -836,8 +1118,8 @@ deliver_scheduler_grant(EtsRef, Direction, MicrobatchID, StageID, WorkerNameRaw)
     {ok, WorkerName} ->
       ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
       ?LOG_INFO(
-        "Client ~p forwarding scheduler grant to worker ~p direction=~p microbatch=~p stage=~p",
-        [ClientName, WorkerName, Direction, MicrobatchID, StageID]
+        "Client ~p forwarding scheduler grant to worker ~p direction=~p microbatch=~p stage=~p epoch=~p",
+        [ClientName, WorkerName, Direction, MicrobatchID, StageID, GrantEpoch]
       ),
       WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef, WorkerName),
       gen_statem:cast(
@@ -1015,6 +1297,7 @@ deliver_parallel_msg(EtsRef, FromWorker, ToWorker, Data) ->
 forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta) ->
   ClientStatsEts = get(client_stats_ets),
   SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
+  PhaseEpoch = ets:lookup_element(EtsRef, parallel_phase_epoch, ?DATA_IDX),
   EventID = parallel_event_id(FromWorker, Direction, BatchID, MicrobatchID, StageID),
   case SuperNode of
     none ->
@@ -1023,10 +1306,11 @@ forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, Sta
     _ ->
       ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
       ?LOG_INFO(
-        "Client ~p forwarding parallel event to super node ~p worker=~p direction=~p batch=~p microbatch=~p stage=~p event_id=~p",
-        [ClientName, SuperNode, FromWorker, Direction, BatchID, MicrobatchID, StageID, EventID]
+        "Client ~p forwarding parallel event to super node ~p worker=~p direction=~p batch=~p microbatch=~p stage=~p epoch=~p event_id=~p",
+        [ClientName, SuperNode, FromWorker, Direction, BatchID, MicrobatchID, StageID, PhaseEpoch, EventID]
       ),
-      MessageBody = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta},
+      TaggedMeta = {parallel_meta, PhaseEpoch, Meta},
+      MessageBody = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, TaggedMeta},
       {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
       try
         {LatencyUs, RouterReply} =
@@ -1036,8 +1320,8 @@ forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, Sta
             [RouterHost, RouterPort, [SuperNode], atom_to_list(parallelEvent), MessageBody]
           ),
         ?LOG_INFO(
-          "Client ~p routed parallel event_id=~p to super node ~p latency_us=~p reply=~p",
-          [ClientName, EventID, SuperNode, LatencyUs, RouterReply]
+          "Client ~p routed parallel event_id=~p epoch=~p to super node ~p latency_us=~p reply=~p",
+          [ClientName, EventID, PhaseEpoch, SuperNode, LatencyUs, RouterReply]
         ),
         stats:increment_messages_sent(ClientStatsEts),
         stats:increment_bytes_sent(ClientStatsEts, nerl_tools:calculate_size(MessageBody))

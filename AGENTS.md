@@ -71,6 +71,10 @@
 - Torch train params must include keys: `model_path` (auto), `lr`, `epochs`, `optimizer`, `loss`, `input_tensor_shape`, `labels_shape`, `labels_offset`.
 - Torch worker effectively supports `adam` or `sgd` optimizers; loss is fixed to MSE in the runtime.
 - Worker non-legacy pipeline events are scheduler-grant-gated when Super Node authority is enabled.
+- Non-legacy phases now carry a Super Node epoch (`phase_epoch`): Super Node grants include epoch, clients tag forwarded `parallel_event` meta with epoch, and Super Node ignores stale-epoch events instead of aborting current phase state.
+- Client idle transition in non-legacy modes is phase-close-gated: clients request `parallelPhaseClose` from Super Node before idling workers, then wait for `phase_close_granted`.
+- Super Node phase-close barrier completes only after all managed clients requested close; then scheduler grants are disabled and `phase_close_granted` is broadcast.
+- If a scheduler grant arrives while client is closing/idle (or stale epoch), client rejects it deterministically and notifies Super Node via `schedulerGrantRejected` to avoid pending-grant timeout hangs.
 - In non-legacy modes, workers buffer incoming `sample` messages while in `wait` state (`parallel_deferred_samples`) and dequeue deterministically after batch completion to avoid TP peer batch desynchronization.
 - If a deferred sample is replayed while the worker is still in `wait`, workers now fast-transition `wait -> train|predict` (when no active parallel batch context/buffers remain) and immediately re-cast that sample, preventing deferred requeue loops and batch-0-only turnover stalls.
 - Worker/Client/Super Node now log a shared deterministic parallel event id tuple: `{parallel_event, Worker, Direction, Batch, Microbatch, Stage}`.

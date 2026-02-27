@@ -37,6 +37,9 @@
   grant_timeout_ms = 5000,
   parallel_active = false,
   phase_start_ms = 0,
+  phase_epoch = 0,
+  phase_close_requested = [],
+  phase_close_completed = false,
   last_parallel_event = none,
   last_abort = {none, 0}
 }).
@@ -135,31 +138,42 @@ handle_cast({parallel_worker_message, FromWorker, ToWorker, Data}, State = #supe
 
 handle_cast(
   {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta},
-  State = #super_node_state{}
+  State = #super_node_state{phase_epoch = PhaseEpoch}
 ) ->
+  {EventEpoch, EventMeta} = extract_event_epoch_and_meta(PhaseEpoch, Meta),
   EventID = parallel_event_id(FromWorker, Direction, BatchID, MicrobatchID, StageID),
   ?LOG_INFO(
-    "Super node received parallel event worker=~p direction=~p batch=~p microbatch=~p stage=~p event_id=~p meta=~p",
-    [FromWorker, Direction, BatchID, MicrobatchID, StageID, EventID, Meta]
+    "Super node received parallel event worker=~p direction=~p batch=~p microbatch=~p stage=~p epoch=~p event_id=~p meta=~p",
+    [FromWorker, Direction, BatchID, MicrobatchID, StageID, EventEpoch, EventID, EventMeta]
   ),
-  EventTsMs = erlang:system_time(millisecond),
-  StateWithLastEvent = State#super_node_state{
-    last_parallel_event = #{
-      event_id => EventID,
-      worker => FromWorker,
-      direction => Direction,
-      batch_id => BatchID,
-      microbatch_id => MicrobatchID,
-      stage_id => StageID,
-      at_ms => EventTsMs
-    }
-  },
-  EventPayload = {parallel_event, FromWorker, Direction, MicrobatchID, StageID, {BatchID, Meta}},
-  case maybe_advance_scheduler(EventPayload, StateWithLastEvent) of
-    {abort, AbortReason, UpdatedState} ->
-      {noreply, maybe_notify_parallel_abort(UpdatedState, AbortReason)};
-    {ok, UpdatedState} ->
-      {noreply, UpdatedState}
+  case EventEpoch =:= PhaseEpoch of
+    false ->
+      ?LOG_WARNING(
+        "Super node ignoring stale parallel event event_id=~p worker=~p event_epoch=~p active_epoch=~p",
+        [EventID, FromWorker, EventEpoch, PhaseEpoch]
+      ),
+      {noreply, State};
+    true ->
+      EventTsMs = erlang:system_time(millisecond),
+      StateWithLastEvent = State#super_node_state{
+        last_parallel_event = #{
+          event_id => EventID,
+          worker => FromWorker,
+          direction => Direction,
+          batch_id => BatchID,
+          microbatch_id => MicrobatchID,
+          stage_id => StageID,
+          phase_epoch => EventEpoch,
+          at_ms => EventTsMs
+        }
+      },
+      EventPayload = {parallel_event, FromWorker, Direction, MicrobatchID, StageID, {BatchID, EventMeta}},
+      case maybe_advance_scheduler(EventPayload, StateWithLastEvent) of
+        {abort, AbortReason, UpdatedState} ->
+          {noreply, maybe_notify_parallel_abort(UpdatedState, AbortReason)};
+        {ok, UpdatedState} ->
+          {noreply, UpdatedState}
+      end
   end;
 
 handle_cast(
@@ -168,6 +182,29 @@ handle_cast(
 ) ->
   {_, UpdatedState} =
     apply_parallel_phase_update(PhaseName, ParallelMode, ParallelExecution, WorkerParallelMap, State),
+  {noreply, UpdatedState};
+
+handle_cast(
+  {parallel_phase_close, ClientName, ClientEpoch},
+  State = #super_node_state{}
+) ->
+  UpdatedState = handle_parallel_phase_close_request(ClientName, ClientEpoch, State),
+  {noreply, UpdatedState};
+
+handle_cast(
+  {scheduler_grant_rejected, ClientName, WorkerName, Direction, MicrobatchID, StageID, RejectReason, ClientEpoch},
+  State = #super_node_state{}
+) ->
+  UpdatedState = handle_scheduler_grant_rejected(
+                   ClientName,
+                   WorkerName,
+                   Direction,
+                   MicrobatchID,
+                   StageID,
+                   RejectReason,
+                   ClientEpoch,
+                   State
+                 ),
   {noreply, UpdatedState};
 
 handle_cast(_Request, State = #super_node_state{}) ->
@@ -287,14 +324,15 @@ maybe_check_pending_grant_timeout(
 
 pending_grant_summary(PendingGrant) ->
   case normalize_pending_grant(PendingGrant) of
-    {ok, Direction, MicrobatchId, StageId, GrantedWorkers, AckedWorkers, EventID} ->
+    {ok, Direction, MicrobatchId, StageId, GrantedWorkers, AckedWorkers, EventID, GrantEpoch} ->
       #{
         direction => Direction,
         microbatch_id => MicrobatchId,
         stage_id => StageId,
         workers => GrantedWorkers,
         acked_workers => AckedWorkers,
-        event_id => EventID
+        event_id => EventID,
+        phase_epoch => GrantEpoch
       };
     {error, _Reason} ->
       PendingGrant
@@ -336,9 +374,11 @@ apply_parallel_phase_update(
   State = #super_node_state{
     my_name = MyName,
     managed_clients = ManagedClients,
-    worker_to_client = WorkerToClientMap
+    worker_to_client = WorkerToClientMap,
+    phase_epoch = PreviousPhaseEpoch
   }
 ) ->
+  PhaseEpoch = PreviousPhaseEpoch + 1,
   NormalizedMode = normalize_parallel_mode(ParallelMode),
   SchedulerTrace = build_scheduler_trace(PhaseName, NormalizedMode, ParallelExecution, WorkerParallelMap),
   ParallelActive = is_parallel_mode_active(NormalizedMode),
@@ -349,8 +389,8 @@ apply_parallel_phase_update(
     end,
   StageWorkers = build_stage_workers(WorkerParallelMap, ManagedClients, WorkerToClientMap),
   ?LOG_INFO(
-    "Super node ~p updated parallel phase ~p mode=~p trace_length=~p active=~p",
-    [MyName, PhaseName, NormalizedMode, length(SchedulerTrace), ParallelActive]
+    "Super node ~p updated parallel phase ~p mode=~p epoch=~p trace_length=~p active=~p",
+    [MyName, PhaseName, NormalizedMode, PhaseEpoch, length(SchedulerTrace), ParallelActive]
   ),
   ?LOG_INFO(
     "Super node ~p phase stage-worker map: ~p",
@@ -369,6 +409,9 @@ apply_parallel_phase_update(
     pending_grant_issued_ms = 0,
     parallel_active = ParallelActive,
     phase_start_ms = PhaseStartMs,
+    phase_epoch = PhaseEpoch,
+    phase_close_requested = [],
+    phase_close_completed = false,
     last_parallel_event = none
   },
   StateAfterConfig = push_parallel_config_to_managed_clients(StateAfterPhaseUpdate),
@@ -410,15 +453,16 @@ push_parallel_config_to_managed_clients(
   State = #super_node_state{
     managed_clients = ManagedClients,
     parallel_mode = ParallelMode,
-    parallel_execution = ParallelExecution
+    parallel_execution = ParallelExecution,
+    phase_epoch = PhaseEpoch
   }
 ) ->
   lists:foldl(
     fun(ClientName, AccState) ->
-      Command = {parallel_super_command, configure_parallel, ParallelMode, ParallelExecution},
+      Command = {parallel_super_command, configure_parallel, ParallelMode, ParallelExecution, PhaseEpoch},
       ?LOG_INFO(
-        "Super node pushing parallel config to client ~p mode=~p",
-        [ClientName, ParallelMode]
+        "Super node pushing parallel config to client ~p mode=~p epoch=~p",
+        [ClientName, ParallelMode, PhaseEpoch]
       ),
       case send_super_command_to_client(AccState, ClientName, Command) of
         ok ->
@@ -471,13 +515,183 @@ maybe_send_next_scheduler_grant(
       {ok, State}
   end.
 
+handle_parallel_phase_close_request(
+  ClientName,
+  ClientEpoch,
+  State = #super_node_state{
+    my_name = MyName,
+    managed_clients = ManagedClients,
+    phase_epoch = PhaseEpoch,
+    phase_close_requested = RequestedClients,
+    phase_close_completed = PhaseCloseCompleted
+  }
+) ->
+  case lists:member(ClientName, ManagedClients) of
+    false ->
+      ?LOG_WARNING(
+        "Super node ~p ignoring phase-close request from unmanaged client ~p",
+        [MyName, ClientName]
+      ),
+      State;
+    true ->
+      case ClientEpoch =:= PhaseEpoch of
+        false ->
+          ?LOG_WARNING(
+            "Super node ~p ignoring phase-close request from ~p due to epoch mismatch request=~p active=~p",
+            [MyName, ClientName, ClientEpoch, PhaseEpoch]
+          ),
+          State;
+        true ->
+          UpdatedRequestedClients = lists:usort([ClientName | RequestedClients]),
+          RequestedCount = length(UpdatedRequestedClients),
+          ManagedCount = length(ManagedClients),
+          ?LOG_INFO(
+            "Super node ~p received phase-close request from client ~p epoch=~p progress=~p/~p",
+            [MyName, ClientName, PhaseEpoch, RequestedCount, ManagedCount]
+          ),
+          StateWithRequest = State#super_node_state{phase_close_requested = UpdatedRequestedClients},
+          case {PhaseCloseCompleted, RequestedCount =:= ManagedCount} of
+            {true, _} ->
+              StateWithRequest;
+            {false, true} ->
+              finalize_parallel_phase_close(StateWithRequest);
+            _ ->
+              StateWithRequest
+          end
+      end
+  end.
+
+finalize_parallel_phase_close(
+  State = #super_node_state{
+    my_name = MyName,
+    phase_epoch = PhaseEpoch
+  }
+) ->
+  ?LOG_INFO(
+    "Super node ~p entering phase-close barrier epoch=~p; disabling scheduler grants and broadcasting close grant",
+    [MyName, PhaseEpoch]
+  ),
+  ClearedState = State#super_node_state{
+    parallel_active = false,
+    scheduler_trace = [],
+    scheduler_cursor = 0,
+    pending_grant = none,
+    pending_grant_issued_ms = 0,
+    phase_close_completed = true
+  },
+  broadcast_phase_close_granted(ClearedState).
+
+broadcast_phase_close_granted(
+  State = #super_node_state{
+    managed_clients = ManagedClients,
+    phase_epoch = PhaseEpoch
+  }
+) ->
+  lists:foldl(
+    fun(ClientName, AccState) ->
+      Command = {parallel_super_command, phase_close_granted, PhaseEpoch},
+      case send_super_command_to_client(AccState, ClientName, Command) of
+        ok ->
+          ?LOG_INFO(
+            "Super node sent phase-close grant to client ~p epoch=~p",
+            [ClientName, PhaseEpoch]
+          ),
+          AccState;
+        {error, RouteReason} ->
+          maybe_notify_parallel_abort(
+            AccState,
+            {phase_close_granted_route_failed, ClientName, PhaseEpoch, RouteReason}
+          )
+      end
+    end,
+    State,
+    ManagedClients
+  ).
+
+handle_scheduler_grant_rejected(
+  ClientName,
+  WorkerName,
+  Direction,
+  MicrobatchID,
+  StageID,
+  RejectReason,
+  ClientEpoch,
+  State = #super_node_state{
+    my_name = MyName,
+    phase_epoch = PhaseEpoch,
+    pending_grant = PendingGrant,
+    scheduler_cursor = Cursor
+  }
+) ->
+  case ClientEpoch =:= PhaseEpoch of
+    false ->
+      ?LOG_WARNING(
+        "Super node ~p ignoring scheduler grant rejection from ~p/~p due to epoch mismatch reject=~p active=~p",
+        [MyName, ClientName, WorkerName, ClientEpoch, PhaseEpoch]
+      ),
+      State;
+    true ->
+      ?LOG_WARNING(
+        "Super node ~p received scheduler grant rejection client=~p worker=~p direction=~p microbatch=~p stage=~p epoch=~p reason=~p",
+        [MyName, ClientName, WorkerName, Direction, MicrobatchID, StageID, PhaseEpoch, RejectReason]
+      ),
+      case normalize_pending_grant(PendingGrant) of
+        {ok, GrantDirection, GrantMicrobatchID, GrantStageID, GrantedWorkers, AckedWorkers, EventID, GrantEpoch} ->
+          ExpectedGrantTuple = {GrantDirection, GrantMicrobatchID, GrantStageID},
+          RejectedGrantTuple = {Direction, MicrobatchID, StageID},
+          case (ExpectedGrantTuple =:= RejectedGrantTuple) andalso lists:member(WorkerName, GrantedWorkers) of
+            false ->
+              ?LOG_WARNING(
+                "Super node ~p received non-matching grant rejection worker=~p rejected=~p pending=~p",
+                [MyName, WorkerName, RejectedGrantTuple, ExpectedGrantTuple]
+              ),
+              State;
+            true ->
+              UpdatedAckedWorkers = lists:usort([WorkerName | AckedWorkers]),
+              case lists:sort(UpdatedAckedWorkers) =:= lists:sort(GrantedWorkers) of
+                true ->
+                  ?LOG_INFO(
+                    "Super node ~p treating rejected grant as terminal ack worker=~p event_id=~p",
+                    [MyName, WorkerName, EventID]
+                  ),
+                  StateAfterAck = State#super_node_state{
+                    scheduler_cursor = Cursor + 1,
+                    pending_grant = none,
+                    pending_grant_issued_ms = 0
+                  },
+                  case maybe_send_next_scheduler_grant(StateAfterAck) of
+                    {ok, NextState} ->
+                      NextState;
+                    {abort, AbortReason, StateOnError} ->
+                      maybe_notify_parallel_abort(StateOnError, AbortReason)
+                  end;
+                false ->
+                  State#super_node_state{
+                    pending_grant = #{
+                      direction => GrantDirection,
+                      microbatch_id => GrantMicrobatchID,
+                      stage_id => GrantStageID,
+                      workers => GrantedWorkers,
+                      acked_workers => UpdatedAckedWorkers,
+                      event_id => EventID,
+                      phase_epoch => GrantEpoch
+                    }
+                  }
+              end
+          end;
+        _ ->
+          State
+      end
+  end.
+
 issue_next_scheduler_grant(
   State = #super_node_state{
     scheduler_trace = Trace,
     scheduler_cursor = Cursor,
     parallel_mode = ParallelMode,
     stage_workers = StageWorkers,
-    stage_rr = StageRoundRobin
+    stage_rr = StageRoundRobin,
+    phase_epoch = PhaseEpoch
   }
 ) ->
   TraceLen = length(Trace),
@@ -502,13 +716,13 @@ issue_next_scheduler_grant(
         {error, Reason} ->
           {abort, Reason, EffectiveState};
         {ok, TargetWorkers, UpdatedStageRoundRobin} ->
-          EventID = grant_event_id(Direction, MicrobatchId, StageId, TargetWorkers),
+          EventID = grant_event_id(PhaseEpoch, Direction, MicrobatchId, StageId, TargetWorkers),
           GrantIssuedMs = erlang:system_time(millisecond),
           ?LOG_INFO(
-            "Super node issuing scheduler grant direction=~p microbatch=~p stage=~p targets=~p cursor=~p event_id=~p",
-            [Direction, MicrobatchId, StageId, TargetWorkers, EffectiveCursor, EventID]
+            "Super node issuing scheduler grant direction=~p microbatch=~p stage=~p epoch=~p targets=~p cursor=~p event_id=~p",
+            [Direction, MicrobatchId, StageId, PhaseEpoch, TargetWorkers, EffectiveCursor, EventID]
           ),
-          case send_scheduler_grants(EffectiveState, TargetWorkers, Direction, MicrobatchId, StageId) of
+          case send_scheduler_grants(EffectiveState, TargetWorkers, Direction, MicrobatchId, StageId, PhaseEpoch) of
             ok ->
               {ok, EffectiveState#super_node_state{
                 stage_rr = UpdatedStageRoundRobin,
@@ -518,7 +732,8 @@ issue_next_scheduler_grant(
                   stage_id => StageId,
                   workers => TargetWorkers,
                   acked_workers => [],
-                  event_id => EventID
+                  event_id => EventID,
+                  phase_epoch => PhaseEpoch
                 },
                 pending_grant_issued_ms = GrantIssuedMs
               }};
@@ -553,7 +768,8 @@ send_scheduler_grants(
   [],
   _Direction,
   _MicrobatchId,
-  _StageId
+  _StageId,
+  _PhaseEpoch
 ) ->
   ok;
 send_scheduler_grants(
@@ -561,15 +777,16 @@ send_scheduler_grants(
   [TargetWorker | Rest],
   Direction,
   MicrobatchId,
-  StageId
+  StageId,
+  PhaseEpoch
 ) ->
   case maps:get(TargetWorker, WorkerToClientMap, undefined) of
     undefined ->
       {error, {unknown_grant_target_worker, TargetWorker}};
     TargetClient ->
       ?LOG_INFO(
-        "Super node delivering grant to worker=~p via client=~p direction=~p microbatch=~p stage=~p",
-        [TargetWorker, TargetClient, Direction, MicrobatchId, StageId]
+        "Super node delivering grant to worker=~p via client=~p direction=~p microbatch=~p stage=~p epoch=~p",
+        [TargetWorker, TargetClient, Direction, MicrobatchId, StageId, PhaseEpoch]
       ),
       Command = {
         parallel_super_command,
@@ -577,11 +794,12 @@ send_scheduler_grants(
         Direction,
         MicrobatchId,
         StageId,
-        TargetWorker
+        TargetWorker,
+        PhaseEpoch
       },
       case send_super_command_to_client(State, TargetClient, Command) of
         ok ->
-          send_scheduler_grants(State, Rest, Direction, MicrobatchId, StageId);
+          send_scheduler_grants(State, Rest, Direction, MicrobatchId, StageId, PhaseEpoch);
         {error, _Reason} = Error ->
           Error
       end
@@ -649,6 +867,15 @@ normalize_phase_name(Value) when is_list(Value) ->
   end;
 normalize_phase_name(_) ->
   training.
+
+extract_event_epoch_and_meta(DefaultEpoch, {parallel_meta, EpochRaw, Payload}) ->
+  {normalize_non_negative_int(EpochRaw, DefaultEpoch), Payload};
+extract_event_epoch_and_meta(DefaultEpoch, MetaMap) when is_map(MetaMap) ->
+  EpochRaw = maps:get(phase_epoch, MetaMap, DefaultEpoch),
+  Payload = maps:get(payload, MetaMap, MetaMap),
+  {normalize_non_negative_int(EpochRaw, DefaultEpoch), Payload};
+extract_event_epoch_and_meta(DefaultEpoch, Payload) ->
+  {DefaultEpoch, Payload}.
 
 forward_only_trace(Trace) ->
   [Event || Event = {Direction, _MicrobatchId, _StageId} <- Trace, Direction =:= forward].
@@ -814,54 +1041,60 @@ validate_scheduler_grant(
   FromWorker,
   PendingGrantRaw,
   ExpectedEvent = {Direction, MicrobatchId, Stage},
-  State,
+  State = #super_node_state{phase_epoch = PhaseEpoch},
   Cursor
 ) ->
   case normalize_pending_grant(PendingGrantRaw) of
     {error, NormalizeReason} ->
       {abort, {invalid_pending_grant, PendingGrantRaw, NormalizeReason}, State};
-    {ok, GrantDirection, GrantMicrobatchId, GrantStage, GrantedWorkers, AckedWorkers, EventID} ->
+    {ok, GrantDirection, GrantMicrobatchId, GrantStage, GrantedWorkers, AckedWorkers, EventID, GrantEpoch} ->
       case {GrantDirection, GrantMicrobatchId, GrantStage} =:= ExpectedEvent of
         false ->
           {abort, {scheduler_grant_mismatch, PendingGrantRaw, ExpectedEvent}, State};
         true ->
-          case (FromWorker =:= undefined) orelse (not lists:member(FromWorker, GrantedWorkers)) of
+          case GrantEpoch =:= PhaseEpoch of
             true ->
-              {abort, {scheduler_grant_worker_mismatch, GrantedWorkers, FromWorker}, State};
-            false ->
-              case lists:member(FromWorker, AckedWorkers) of
+              case (FromWorker =:= undefined) orelse (not lists:member(FromWorker, GrantedWorkers)) of
                 true ->
-                  {abort, {scheduler_duplicate_worker_event, FromWorker, {Direction, MicrobatchId, Stage}}, State};
+                  {abort, {scheduler_grant_worker_mismatch, GrantedWorkers, FromWorker}, State};
                 false ->
-                  UpdatedAckedWorkers = lists:usort([FromWorker | AckedWorkers]),
-                  case lists:sort(UpdatedAckedWorkers) =:= lists:sort(GrantedWorkers) of
+                  case lists:member(FromWorker, AckedWorkers) of
                     true ->
-                      ?LOG_INFO(
-                        "Super node grant fully acknowledged workers=~p direction=~p microbatch=~p stage=~p event_id=~p",
-                        [GrantedWorkers, Direction, MicrobatchId, Stage, EventID]
-                      ),
-                      {ok, State#super_node_state{
-                        scheduler_cursor = Cursor + 1,
-                        pending_grant = none,
-                        pending_grant_issued_ms = 0
-                      }};
+                      {abort, {scheduler_duplicate_worker_event, FromWorker, {Direction, MicrobatchId, Stage}}, State};
                     false ->
-                      ?LOG_INFO(
-                        "Super node grant partial ack worker=~p acked=~p granted=~p direction=~p microbatch=~p stage=~p event_id=~p",
-                        [FromWorker, UpdatedAckedWorkers, GrantedWorkers, Direction, MicrobatchId, Stage, EventID]
-                      ),
-                      {ok, State#super_node_state{
-                        pending_grant = #{
-                          direction => Direction,
-                          microbatch_id => MicrobatchId,
-                          stage_id => Stage,
-                          workers => GrantedWorkers,
-                          acked_workers => UpdatedAckedWorkers,
-                          event_id => EventID
-                        }
-                      }}
+                      UpdatedAckedWorkers = lists:usort([FromWorker | AckedWorkers]),
+                      case lists:sort(UpdatedAckedWorkers) =:= lists:sort(GrantedWorkers) of
+                        true ->
+                          ?LOG_INFO(
+                            "Super node grant fully acknowledged workers=~p direction=~p microbatch=~p stage=~p epoch=~p event_id=~p",
+                            [GrantedWorkers, Direction, MicrobatchId, Stage, GrantEpoch, EventID]
+                          ),
+                          {ok, State#super_node_state{
+                            scheduler_cursor = Cursor + 1,
+                            pending_grant = none,
+                            pending_grant_issued_ms = 0
+                          }};
+                        false ->
+                          ?LOG_INFO(
+                            "Super node grant partial ack worker=~p acked=~p granted=~p direction=~p microbatch=~p stage=~p epoch=~p event_id=~p",
+                            [FromWorker, UpdatedAckedWorkers, GrantedWorkers, Direction, MicrobatchId, Stage, GrantEpoch, EventID]
+                          ),
+                          {ok, State#super_node_state{
+                            pending_grant = #{
+                              direction => Direction,
+                              microbatch_id => MicrobatchId,
+                              stage_id => Stage,
+                              workers => GrantedWorkers,
+                              acked_workers => UpdatedAckedWorkers,
+                              event_id => EventID,
+                              phase_epoch => GrantEpoch
+                            }
+                          }}
+                      end
                   end
-              end
+              end;
+            false ->
+              {abort, {scheduler_grant_epoch_mismatch, GrantEpoch, PhaseEpoch, PendingGrantRaw}, State}
           end
       end
   end.
@@ -873,25 +1106,35 @@ normalize_pending_grant(PendingGrant) when is_map(PendingGrant) ->
     Direction = maps:get(direction, PendingGrant),
     MicrobatchId = maps:get(microbatch_id, PendingGrant),
     StageId = maps:get(stage_id, PendingGrant),
+    PhaseEpoch = maps:get(phase_epoch, PendingGrant, 0),
     WorkersRaw = maps:get(workers, PendingGrant),
     AckedRaw = maps:get(acked_workers, PendingGrant, []),
     Workers = normalize_granted_workers(WorkersRaw),
     AckedWorkers = normalize_granted_workers(AckedRaw),
-    EventID = maps:get(event_id, PendingGrant, grant_event_id(Direction, MicrobatchId, StageId, Workers)),
-    {ok, Direction, MicrobatchId, StageId, Workers, AckedWorkers, EventID}
+    EventID = maps:get(event_id, PendingGrant, grant_event_id(PhaseEpoch, Direction, MicrobatchId, StageId, Workers)),
+    {ok, Direction, MicrobatchId, StageId, Workers, AckedWorkers, EventID, PhaseEpoch}
   catch
     _:Reason ->
       {error, Reason}
   end;
-normalize_pending_grant({Direction, MicrobatchId, StageId, GrantedWorkers, AckedWorkers}) ->
+normalize_pending_grant({Direction, MicrobatchId, StageId, GrantedWorkers, AckedWorkers}) when is_list(AckedWorkers) ->
   Workers = normalize_granted_workers(GrantedWorkers),
   Acked = normalize_granted_workers(AckedWorkers),
-  EventID = grant_event_id(Direction, MicrobatchId, StageId, Workers),
-  {ok, Direction, MicrobatchId, StageId, Workers, Acked, EventID};
+  EventID = grant_event_id(0, Direction, MicrobatchId, StageId, Workers),
+  {ok, Direction, MicrobatchId, StageId, Workers, Acked, EventID, 0};
+normalize_pending_grant({Direction, MicrobatchId, StageId, GrantedWorkers, AckedWorkers, PhaseEpoch}) ->
+  Workers = normalize_granted_workers(GrantedWorkers),
+  Acked = normalize_granted_workers(AckedWorkers),
+  EventID = grant_event_id(PhaseEpoch, Direction, MicrobatchId, StageId, Workers),
+  {ok, Direction, MicrobatchId, StageId, Workers, Acked, EventID, PhaseEpoch};
 normalize_pending_grant({Direction, MicrobatchId, StageId, GrantedWorker}) ->
   Workers = normalize_granted_workers([GrantedWorker]),
-  EventID = grant_event_id(Direction, MicrobatchId, StageId, Workers),
-  {ok, Direction, MicrobatchId, StageId, Workers, [], EventID};
+  EventID = grant_event_id(0, Direction, MicrobatchId, StageId, Workers),
+  {ok, Direction, MicrobatchId, StageId, Workers, [], EventID, 0};
+normalize_pending_grant({Direction, MicrobatchId, StageId, GrantedWorker, PhaseEpoch}) when is_integer(PhaseEpoch) ->
+  Workers = normalize_granted_workers([GrantedWorker]),
+  EventID = grant_event_id(PhaseEpoch, Direction, MicrobatchId, StageId, Workers),
+  {ok, Direction, MicrobatchId, StageId, Workers, [], EventID, PhaseEpoch};
 normalize_pending_grant(Unexpected) ->
   {error, {unsupported_pending_grant, Unexpected}}.
 
@@ -900,8 +1143,8 @@ normalize_granted_workers(Workers) when is_list(Workers) ->
 normalize_granted_workers(Worker) ->
   [Worker].
 
-grant_event_id(Direction, MicrobatchId, StageId, Workers) ->
-  {scheduler_grant, Direction, MicrobatchId, StageId, lists:sort(Workers)}.
+grant_event_id(PhaseEpoch, Direction, MicrobatchId, StageId, Workers) ->
+  {scheduler_grant, PhaseEpoch, Direction, MicrobatchId, StageId, lists:sort(Workers)}.
 
 parallel_event_id(WorkerName, Direction, BatchID, MicrobatchID, StageID) ->
   {parallel_event, WorkerName, Direction, BatchID, MicrobatchID, StageID}.

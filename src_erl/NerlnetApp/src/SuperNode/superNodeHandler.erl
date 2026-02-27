@@ -45,6 +45,24 @@ init(Req0, [Action, SuperNodePid]) ->
             {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}
           );
         _ -> ok
+      end;
+    parallel_phase_close ->
+      case binary_to_term_safe(Body) of
+        {parallel_phase_close, ClientName, PhaseEpoch} ->
+          gen_server:cast(
+            SuperNodePid,
+            {parallel_phase_close, ClientName, PhaseEpoch}
+          );
+        _ -> ok
+      end;
+    scheduler_grant_rejected ->
+      case binary_to_term_safe(Body) of
+        {scheduler_grant_rejected, ClientName, WorkerName, Direction, MicrobatchID, StageID, Reason, PhaseEpoch} ->
+          gen_server:cast(
+            SuperNodePid,
+            {scheduler_grant_rejected, ClientName, WorkerName, Direction, MicrobatchID, StageID, Reason, PhaseEpoch}
+          );
+        _ -> ok
       end
   end,
   Req = cowboy_req:reply(

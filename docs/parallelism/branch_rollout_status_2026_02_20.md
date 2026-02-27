@@ -62,6 +62,11 @@ Implemented and working today:
   - Worker/Client/Super Node logs now include the same deterministic per-event id tuple (`{parallel_event, Worker, Direction, Batch, Microbatch, Stage}`) so one event can be traced end-to-end across devices.
   - Client `parallelEvent` forwarding now logs router request latency and router reply payload on success, and logs explicit event-id-tagged failure context on route errors.
   - Super Node tracks pending scheduler grant issue timestamps and emits deterministic `scheduler_grant_timeout` aborts when a grant is not acknowledged in time, including expected grant summary and last seen parallel event metadata.
+- Phase-close barrier + stale-event hardening (new):
+  - Super Node now maintains a per-phase `phase_epoch` and includes it in scheduler grant identity (`event_id`).
+  - Clients tag forwarded parallel events with `{parallel_meta, phase_epoch, payload}`; Super Node ignores stale-epoch events instead of mismatching current trace.
+  - Non-legacy client idle transitions now request Super Node phase close (`/parallelPhaseClose`) and wait for `phase_close_granted` before idling workers.
+  - If a grant arrives during closing/idle or with stale epoch, client rejects it deterministically and reports via `/schedulerGrantRejected`; Super Node consumes this as terminal grant ack when it matches the pending grant.
 
 ---
 
@@ -123,7 +128,9 @@ Key behavior implemented:
 - Accepts client registration and heartbeat events.
 - Receives and forwards `parallel_worker_message` to destination client via `/parallelDeliver` endpoint.
 - Receives phase updates and constructs scheduler trace from phase config and worker metadata.
-- Validates optional tagged parallel events against scheduler trace.
+- Validates optional tagged parallel events against scheduler trace, now epoch-scoped per phase.
+- Receives client phase-close requests (`/parallelPhaseClose`) and performs all-managed-client close barrier before disabling grants.
+- Receives deterministic grant rejections (`/schedulerGrantRejected`) so pending grants can be resolved without timeout hangs during close transitions.
 - Emits `parallelAbort` to Main Server on route failures, heartbeat issues, unknown workers, and schedule mismatches.
 - Emits detailed runtime logs for phase updates, scheduler grants, scheduler acks, and worker-message routing.
 
@@ -146,6 +153,7 @@ Key changes:
 
 Key changes:
 - Stores per-client `parallel_mode`, `parallel_execution`, `parallel_authority`, `super_node` in ETS.
+- Stores per-client `parallel_phase_epoch`, close-request/grant flags, and idle-close gating state in ETS.
 - New handler endpoints:
   - `/parallelMode`
   - `/parallelExecution`
@@ -158,6 +166,11 @@ Key changes:
 - Super Node commands can:
   - configure non-legacy mode/execution at client and worker scope
   - grant scheduler events to target workers (`parallel_scheduler_grant`)
+- Non-legacy idle now follows Super Node barrier:
+  - client requests close (`parallelPhaseClose`)
+  - waits for `phase_close_granted`
+  - then idles workers
+- Client rejects stale/close-window scheduler grants and reports deterministic rejection metadata to Super Node (`schedulerGrantRejected`).
 - Emits `parallel_event` and `parallelAbort` notifications.
 - Adds super-node registration + periodic heartbeat loop from client.
 - Emits detailed logs for Super Node command reception, mode/execution authority updates, scheduler-grant forwarding, and event forwarding to Super Node.
@@ -170,6 +183,7 @@ Key changes:
 - Adds Super Node listener startup for local device super-node entities.
 - Adds new main server route `/parallelAbort`.
 - Adds new client routes (`/parallelMode`, `/parallelExecution`, `/parallelDeliver`).
+- Adds new Super Node routes (`/parallelPhaseClose`, `/schedulerGrantRejected`) for close barrier and grant-rejection control.
 
 ### P0.5 Runtime message safety hardening
 - Modified:
@@ -658,6 +672,8 @@ This section is the explicit runtime call graph for non-legacy parallel executio
    - `/parallelWorkerMessage`
    - `/parallelPhaseUpdate`
    - `/parallelEvent`
+   - `/parallelPhaseClose`
+   - `/schedulerGrantRejected`
 9. `nerlnetApp_app:createClientsAndWorkers/0` -> `clientStatem:start_link/1` + `clientStateHandler:init/2` routes:
    - `/parallelMode`
    - `/parallelExecution`
@@ -719,8 +735,9 @@ This section is the explicit runtime call graph for non-legacy parallel executio
    - Super command path: `superNodeGenserver:send_super_command_to_client(..., parallelSuperCommand, ...)`.
    - Client `/parallelSuperCommand` -> `clientStateHandler:init(parallel_super_command,...)`.
    - `clientStatem:apply_parallel_super_command(...)`:
-     - `configure_parallel` -> `apply_parallel_mode(..., super_node)` + `apply_parallel_execution(..., super_node)`.
-     - `grant_scheduler_event` -> forwards `{parallel_scheduler_grant,...}` to target worker.
+     - `configure_parallel` -> `apply_parallel_mode(..., super_node)` + `apply_parallel_execution(..., super_node)` + set `phase_epoch`.
+     - `grant_scheduler_event` -> validates close/epoch guard, forwards `{parallel_scheduler_grant,...}` to target worker when accepted.
+     - `phase_close_granted` -> unblocks idle finalize path (`parallel_finalize_idle`).
    - Workers receive:
      - `{set_parallel_mode,...}`
      - `{set_parallel_execution,...}`
@@ -793,6 +810,7 @@ This section is the explicit runtime call graph for non-legacy parallel executio
      - `clientStatem:forward_parallel_event(...)`
      - POST `/parallelEvent`
      - `superNodeGenserver:handle_cast({parallel_event,...})`
+     - event meta includes `{parallel_meta, phase_epoch, payload}`; stale epochs are ignored.
      - `maybe_advance_scheduler(...)`
      - `validate_scheduler_event(...)`
      - after successful validation, `maybe_send_next_scheduler_grant(...)`
@@ -842,8 +860,12 @@ This section is the explicit runtime call graph for non-legacy parallel executio
 2. Main server idles clients when all sources done:
    - `mainGenserver:update_clients_phase(clientIdle, ...)`
    - clients route `/clientIdle`.
-3. Client/worker idle handshake:
-   - `clientStatem:{training|predict}(cast,{idle},...)` -> cast idle to workers
+3. Client close barrier + idle handshake (non-legacy):
+   - `clientStatem:{training|predict}(cast,{idle},...)`:
+     - set `parallel_idle_requested=true`
+     - request Super Node close (`/parallelPhaseClose`)
+     - wait for `phase_close_granted`
+   - after grant: cast idle to workers
    - workers transition to `idle` and send `stateChange`
    - `clientStatem:waitforWorkers` waits all done
    - `clientStatem:send_client_is_ready` -> `/clientReady`
@@ -873,6 +895,7 @@ This section is the explicit runtime call graph for non-legacy parallel executio
 1. Abort source can be:
    - Super Node scheduler mismatch (`validate_scheduler_event`)
    - heartbeat timeout/missing heartbeat (`check_heartbeats`)
+   - scheduler grant timeout watchdog (`scheduler_grant_timeout`)
    - route failures or unknown target worker
    - client-side missing super node / delivery failure (`clientStatem:notify_parallel_abort`).
 2. Super Node abort emission:

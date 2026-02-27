@@ -33,6 +33,12 @@ class SuperNodeCommContractTest(unittest.TestCase):
         self.assertIn("normalize_phase_name(PhaseName)", content)
         self.assertIn("prediction -> forward_only_trace(BaseTrace)", content)
         self.assertIn("maybe_check_pending_grant_timeout", content)
+        self.assertIn("parallel_phase_close", content)
+        self.assertIn("phase_close_granted", content)
+        self.assertIn("scheduler_grant_rejected", content)
+        self.assertIn("phase_close_requested = []", content)
+        self.assertIn("phase_epoch = 0", content)
+        self.assertIn("extract_event_epoch_and_meta", content)
 
     def test_client_has_parallel_deliver_path(self) -> None:
         handler_content = CLIENT_HANDLER_FILE.read_text(encoding="utf-8")
@@ -45,9 +51,15 @@ class SuperNodeCommContractTest(unittest.TestCase):
         self.assertIn("\"/parallelDeliver\"", app_content)
         self.assertIn("\"/parallelSuperCommand\"", app_content)
         self.assertIn("parallel_super_command", handler_content)
-        self.assertIn("apply_parallel_super_command(EtsRef, SuperCommand)", statem_content)
+        self.assertIn("apply_parallel_super_command(EtsRef, SuperCommand, waitforWorkers)", statem_content)
         self.assertIn("{parallel_scheduler_grant, normalize_parallel_direction(Direction), MicrobatchID, StageID}", statem_content)
         self.assertIn("Client ~p received scheduler grant direction=~p microbatch=~p stage=~p target=~p", statem_content)
+        self.assertIn("parallelPhaseClose", statem_content)
+        self.assertIn("schedulerGrantRejected", statem_content)
+        self.assertIn("phase_close_granted", statem_content)
+        self.assertIn("parallel_meta", statem_content)
+        self.assertIn("\"/parallelPhaseClose\"", app_content)
+        self.assertIn("\"/schedulerGrantRejected\"", app_content)
 
     def test_non_legacy_path_still_routes_outbound_via_super_node(self) -> None:
         statem_content = CLIENT_STATEM_FILE.read_text(encoding="utf-8")
