@@ -255,23 +255,35 @@ wait(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) 
                  ),
   case ParallelMode of
     pipeline ->
-      case maybe_dispatch_pending_parallel_backward_events(GenWorkerEts) of
-        ok ->
-          case dispatch_pipeline_buffers(GenWorkerEts, State#workerGeneric_state.modelID, State#workerGeneric_state.myName) of
+      case get(phase) of
+        predict ->
+          case dispatch_pipeline_predict_buffers(GenWorkerEts, State#workerGeneric_state.modelID, State#workerGeneric_state.myName) of
             ok ->
               {keep_state, State};
             {abort, PipelineReason} ->
-              notify_worker_parallel_abort(GenWorkerEts, {pipeline_dispatch_failed, PipelineReason}),
+              notify_worker_parallel_abort(GenWorkerEts, {pipeline_predict_dispatch_failed, PipelineReason}),
               reset_parallel_loss_context(GenWorkerEts),
               {keep_state, State}
           end;
-        {abort, PendingDispatchReason} ->
-          notify_worker_parallel_abort(
-            GenWorkerEts,
-            {pending_parallel_backward_dispatch_failed, PendingDispatchReason}
-          ),
-          reset_parallel_loss_context(GenWorkerEts),
-          {keep_state, State}
+        _ ->
+          case maybe_dispatch_pending_parallel_backward_events(GenWorkerEts) of
+            ok ->
+              case dispatch_pipeline_buffers(GenWorkerEts, State#workerGeneric_state.modelID, State#workerGeneric_state.myName) of
+                ok ->
+                  {keep_state, State};
+                {abort, PipelineReason} ->
+                  notify_worker_parallel_abort(GenWorkerEts, {pipeline_dispatch_failed, PipelineReason}),
+                  reset_parallel_loss_context(GenWorkerEts),
+                  {keep_state, State}
+              end;
+            {abort, PendingDispatchReason} ->
+              notify_worker_parallel_abort(
+                GenWorkerEts,
+                {pending_parallel_backward_dispatch_failed, PendingDispatchReason}
+              ),
+              reset_parallel_loss_context(GenWorkerEts),
+              {keep_state, State}
+          end
       end;
     _ ->
       case maybe_dispatch_pending_parallel_backward_events(GenWorkerEts) of
@@ -2264,9 +2276,13 @@ maybe_finalize_pipeline_training_batch(GenWorkerEts, WorkerName) ->
           ForwardCompleted = maps:get(forward_completed, Ctx, maps:get(forward_dispatched, Ctx, 0)),
           BackwardCompleted = maps:get(backward_completed, Ctx, 0),
           IsLastStage = is_last_pipeline_stage(GenWorkerEts),
+          PendingBackwardEvents = ets:lookup_element(GenWorkerEts, parallel_pending_backward_events, ?ETS_KEYVAL_VAL_IDX),
           Done =
             case IsLastStage of
-              true -> ForwardCompleted >= TotalMicrobatches andalso TotalMicrobatches > 0;
+              true ->
+                ForwardCompleted >= TotalMicrobatches andalso
+                TotalMicrobatches > 0 andalso
+                PendingBackwardEvents =:= [];
               false -> ForwardCompleted >= TotalMicrobatches andalso BackwardCompleted >= TotalMicrobatches andalso TotalMicrobatches > 0
             end,
           case Done of
