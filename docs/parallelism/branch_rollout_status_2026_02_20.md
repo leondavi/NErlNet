@@ -1,6 +1,6 @@
 # NErlNet Parallelism Branch Report (Super Node + PP/TP)
 
-Date: 2026-02-25
+Date: 2026-02-27
 Branch: `parallelism-project`
 Repository: `NErlNet`
 
@@ -48,9 +48,12 @@ Implemented and working today:
 - Pipeline training scheduler-progress fix:
   - last pipeline stage now emits/queues backward scheduler events immediately after stage-last forward/backward compute, allowing Super Node backward grants to be fully acknowledged.
   - worker grant handlers now attempt pending backward-event dispatch when pipeline scheduler grants arrive.
-- Pipeline prediction batch-turnover fix:
-  - non-last stages (including stage0) now finalize local prediction batch context once local microbatch dispatch completes.
-  - deferred source samples are popped for the next batch without waiting for last-stage prediction emission on the same worker.
+- Pipeline backward dispatch deadlock fix:
+  - stage workers now select backward payloads by the current head scheduler grant microbatch id instead of strict FIFO-only dequeue.
+  - this removes head-of-line blocking when payload arrival order differs from reverse-order backward grants.
+- Pipeline prediction progress + event metadata fix:
+  - stage0 now mirrors `forward_dispatched` into `forward_completed`, enabling deterministic local predict batch finalization and next-batch turnover.
+  - pipeline prediction forward events are emitted with `meta=predict` (instead of stale `meta=training`).
 
 ---
 
@@ -759,6 +762,7 @@ This section is the explicit runtime call graph for non-legacy parallel executio
      - emit first backward payload to previous stage.
 6. Backward wave (last -> first):
    - `workerGeneric:dispatch_pipeline_backward_buffer(...)`
+   - `dispatch_pipeline_backward_buffer_by_grant(...)` picks the payload matching the current backward grant microbatch id.
    - per microbatch:
      - consume/validate backward grant via `maybe_emit_parallel_backward_event(...)`
      - `call_to_pipeline_stage_backward(...)`
@@ -797,8 +801,9 @@ This section is the explicit runtime call graph for non-legacy parallel executio
    - Stage-0:
      - `prepare_pipeline_predict_stage0_microbatches(...)`
      - `dispatch_pipeline_stage0_predict_microbatch_loop(...)`
+     - emits scheduler-gated forward events with `meta=predict`.
      - `call_to_pipeline_predict_stage0_forward(...)` -> `pipeline_predict_payload`.
-     - once all local microbatches are dispatched for the active batch, stage0 finalizes local predict batch context and dequeues deferred samples for the next batch.
+     - once all local microbatches are dispatched for the active batch, stage0 marks local `forward_completed` progress, finalizes local predict batch context, and dequeues deferred samples for the next batch.
    - Intermediate/last stages:
      - `handle_parallel_pipeline_predict_inbox(...)`
      - `dispatch_pipeline_predict_buffer(...)`

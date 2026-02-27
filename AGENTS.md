@@ -75,7 +75,10 @@
 - `pipeline` mode stage execution is Torch-only and requires pipeline metadata (`pipelineStage`, `pipelineWorldSize`) on workers.
 - `pipeline` mode currently enforces exactly one worker per pipeline stage per phase target set; use `pipeline_tensor` for multi-worker stage layouts.
 - In `pipeline` training, last-stage workers emit/queue backward scheduler events after last-stage forward/backward compute so Super Node backward grants can be acknowledged deterministically.
+- In `pipeline` training, backward payload dispatch is grant-aware by microbatch id (`dispatch_pipeline_backward_buffer_by_grant`) to avoid head-of-line deadlocks when payload arrival order differs from backward grant order.
 - In `pipeline` prediction, non-last stages (including stage0) finalize local batch context after all local microbatches are dispatched and then dequeue deferred source samples, preventing batch-0-only stall.
+- In `pipeline` prediction, stage0 progress mirrors `forward_dispatched` into `forward_completed` so local batch turnover can complete deterministically.
+- In `pipeline` prediction, worker forward `parallel_event` metadata is `predict` (not `training`), which should be reflected in Super Node event logs.
 - Stage-sliced worker messaging payload tags are:
   - `pipeline_forward_payload`
   - `pipeline_backward_payload`
