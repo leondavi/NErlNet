@@ -102,8 +102,8 @@ class ExperimentFlow():
             phases_names_dict.update({phase_name: phase_index})
             phase_index += 1
             phase_type = phase[EXPFLOW_PHASES_PHASE_TYPE_FIELD]
-            parallel_execution = self._parse_parallel_execution(phase)
             sourcePieces = phase[EXPFLOW_PHASES_PHASE_SOURCE_PIECES_FIELD]
+            parallel_execution = self._parse_parallel_execution(phase, sourcePieces)
             self._validate_pipeline_source_piece_workers(
                 phase_name,
                 parallel_execution.get(EXPFLOW_PARALLEL_EXECUTION_MODE_FIELD, "legacy"),
@@ -157,7 +157,7 @@ class ExperimentFlow():
             exp_phase_inst.add_source_piece(source_piece_inst)
         self.exp_phase_list.append(exp_phase_inst)
 
-    def _parse_parallel_execution(self, phase_dict: dict):
+    def _parse_parallel_execution(self, phase_dict: dict, source_pieces=None):
         raw_parallel = phase_dict.get(EXPFLOW_PHASES_PARALLEL_EXECUTION_FIELD, None)
         if raw_parallel is None:
             return {"mode": "legacy"}
@@ -177,12 +177,30 @@ class ExperimentFlow():
         normalized = {
             EXPFLOW_PARALLEL_EXECUTION_MODE_FIELD: mode
         }
+        phase_name = phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, "")
+        if mode != "legacy":
+            inferred_max_batches = self._infer_phase_max_batches(source_pieces, phase_name)
+            configured_max_batches = raw_parallel.get(EXPFLOW_PARALLEL_EXECUTION_MAX_BATCHES_FIELD, None)
+            if configured_max_batches is not None:
+                configured_max_batches = self._parse_non_negative_int_field(
+                    raw_parallel,
+                    EXPFLOW_PARALLEL_EXECUTION_MAX_BATCHES_FIELD
+                )
+            if inferred_max_batches is not None:
+                if configured_max_batches is not None and configured_max_batches != inferred_max_batches:
+                    raise ValueError(
+                        f"parallelExecution.{EXPFLOW_PARALLEL_EXECUTION_MAX_BATCHES_FIELD} ({configured_max_batches}) "
+                        f"must match max source-piece numOfBatches ({inferred_max_batches}) in phase '{phase_name}'"
+                    )
+                normalized[EXPFLOW_PARALLEL_EXECUTION_MAX_BATCHES_FIELD] = inferred_max_batches
+            elif configured_max_batches is not None:
+                normalized[EXPFLOW_PARALLEL_EXECUTION_MAX_BATCHES_FIELD] = configured_max_batches
 
         super_node = str(raw_parallel.get(EXPFLOW_PARALLEL_EXECUTION_SUPER_NODE_FIELD, "")).strip()
         if mode != "legacy":
             if not super_node:
                 raise ValueError(
-                    f"parallel phase '{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}' must define "
+                    f"parallel phase '{phase_name}' must define "
                     f"'{EXPFLOW_PARALLEL_EXECUTION_SUPER_NODE_FIELD}'"
                 )
             if not self.network_componenets.has_super_nodes():
@@ -190,7 +208,7 @@ class ExperimentFlow():
             super_nodes = set(self.network_componenets.get_super_nodes_list())
             if super_node not in super_nodes:
                 raise ValueError(
-                    f"phase '{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}' references unknown "
+                    f"phase '{phase_name}' references unknown "
                     f"super node '{super_node}'"
                 )
         if super_node:
@@ -200,7 +218,7 @@ class ExperimentFlow():
         if mode in ("pipeline", "pipeline_tensor"):
             if scheduler not in EXPFLOW_PARALLEL_SCHEDULERS:
                 raise ValueError(
-                    f"phase '{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}' requires a valid "
+                    f"phase '{phase_name}' requires a valid "
                     f"pipeline scheduler in {sorted(EXPFLOW_PARALLEL_SCHEDULERS)}"
                 )
             normalized[EXPFLOW_PARALLEL_EXECUTION_SCHEDULER_FIELD] = scheduler
@@ -231,20 +249,20 @@ class ExperimentFlow():
                 )
             if not self.network_componenets.has_pipeline_workers():
                 raise ValueError(
-                    f"phase '{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}' selected pipeline mode "
+                    f"phase '{phase_name}' selected pipeline mode "
                     f"but no worker parallel pipeline metadata is configured"
                 )
 
             stage_world_size = infer_stage_world_size(self.network_componenets.get_worker_parallel_map())
             if stage_world_size < 2:
                 raise ValueError(
-                    f"phase '{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}' requires at least 2 pipeline stages"
+                    f"phase '{phase_name}' requires at least 2 pipeline stages"
                 )
 
             if mode == "pipeline":
                 phase_workers = self._extract_phase_target_workers(phase_dict)
                 self._validate_pipeline_mode_worker_layout(
-                    phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, ""),
+                    phase_name,
                     phase_workers,
                 )
 
@@ -267,14 +285,14 @@ class ExperimentFlow():
             if scheduler:
                 if scheduler not in EXPFLOW_PARALLEL_SCHEDULERS:
                     raise ValueError(
-                        f"phase '{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}' has invalid "
+                        f"phase '{phase_name}' has invalid "
                         f"scheduler '{scheduler}'"
                 )
                 normalized[EXPFLOW_PARALLEL_EXECUTION_SCHEDULER_FIELD] = scheduler
 
         if mode in ("tensor", "pipeline_tensor") and not self.network_componenets.has_tp_workers():
             raise ValueError(
-                f"phase '{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}' selected tensor mode "
+                f"phase '{phase_name}' selected tensor mode "
                 f"but no worker TP metadata is configured"
             )
 
@@ -368,6 +386,41 @@ class ExperimentFlow():
         if parsed < 1:
             raise ValueError(f"parallelExecution field '{field_name}' must be >= 1")
         return parsed
+
+    def _parse_non_negative_int_field(self, parent_dict: dict, field_name: str):
+        if field_name not in parent_dict:
+            raise ValueError(f"Missing required parallelExecution field '{field_name}'")
+        value = parent_dict[field_name]
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"parallelExecution field '{field_name}' must be an integer") from exc
+        if parsed < 0:
+            raise ValueError(f"parallelExecution field '{field_name}' must be >= 0")
+        return parsed
+
+    def _infer_phase_max_batches(self, source_pieces, phase_name: str):
+        if not isinstance(source_pieces, list):
+            return None
+        max_batches = None
+        for source_piece in source_pieces:
+            if not isinstance(source_piece, dict):
+                continue
+            if EXPFLOW_PHASE_SOURCE_PIECES_NUM_OF_BATCHES_FIELD not in source_piece:
+                continue
+            raw_batches = source_piece[EXPFLOW_PHASE_SOURCE_PIECES_NUM_OF_BATCHES_FIELD]
+            try:
+                parsed_batches = int(raw_batches)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"phase '{phase_name}' has non-integer numOfBatches value '{raw_batches}'"
+                ) from exc
+            if parsed_batches < 0:
+                raise ValueError(
+                    f"phase '{phase_name}' has negative numOfBatches value '{parsed_batches}'"
+                )
+            max_batches = parsed_batches if max_batches is None else max(max_batches, parsed_batches)
+        return max_batches
 
         
     def print(self):

@@ -88,6 +88,10 @@ Implemented and working today:
   - Super Node scheduler grants now carry/track `batch_id` and `phase_epoch` end-to-end.
   - Client `schedulerGrantRejected` reports now include `batch_id` and `phase_epoch`.
   - Worker grant matching is batch-aware, while legacy batch-less grants are still normalized to `batch=any` for compatibility.
+- Scheduler batch-bound hardening:
+  - API phase parsing now injects `parallelExecution.maxBatches` from experiment flow `sourcePieces[].numOfBatches` (max across phase pieces).
+  - Super Node scheduler now enforces this bound and stops grant rollover when the configured batch range is exhausted.
+  - This prevents synthetic out-of-range grants (for example, issuing batch `100` after processing valid source batches `0..99`).
 - Worker pipeline batch isolation hardening:
   - out-of-batch pipeline payloads are held in buffers (`wait_for_batch`) until active batch turnover.
   - backward payload dequeue is keyed by `{batch,microbatch}` grant identity (`pop_pipeline_backward_payload_for_grant`) to prevent cross-batch collisions.

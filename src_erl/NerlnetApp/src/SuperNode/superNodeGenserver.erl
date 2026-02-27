@@ -33,6 +33,7 @@
   scheduler_trace = [],
   scheduler_cursor = 0,
   scheduler_batch_id = undefined,
+  scheduler_max_batches = undefined,
   pending_grant = none,
   pending_grant_issued_ms = 0,
   grant_timeout_ms = 5000,
@@ -403,6 +404,7 @@ apply_parallel_phase_update(
   PhaseEpoch = PreviousPhaseEpoch + 1,
   NormalizedMode = normalize_parallel_mode(ParallelMode),
   SchedulerTrace = build_scheduler_trace(PhaseName, NormalizedMode, ParallelExecution, WorkerParallelMap),
+  SchedulerMaxBatches = resolve_scheduler_max_batches(ParallelExecution),
   ParallelActive = is_parallel_mode_active(NormalizedMode),
   PhaseStartMs =
     case ParallelActive of
@@ -411,8 +413,8 @@ apply_parallel_phase_update(
     end,
   StageWorkers = build_stage_workers(WorkerParallelMap, ManagedClients, WorkerToClientMap),
   ?LOG_INFO(
-    "Super node ~p updated parallel phase ~p mode=~p epoch=~p trace_length=~p active=~p",
-    [MyName, PhaseName, NormalizedMode, PhaseEpoch, length(SchedulerTrace), ParallelActive]
+    "Super node ~p updated parallel phase ~p mode=~p epoch=~p trace_length=~p max_batches=~p active=~p",
+    [MyName, PhaseName, NormalizedMode, PhaseEpoch, length(SchedulerTrace), SchedulerMaxBatches, ParallelActive]
   ),
   ?LOG_INFO(
     "Super node ~p phase stage-worker map: ~p",
@@ -428,6 +430,7 @@ apply_parallel_phase_update(
     scheduler_trace = SchedulerTrace,
     scheduler_cursor = 0,
     scheduler_batch_id = undefined,
+    scheduler_max_batches = SchedulerMaxBatches,
     pending_grant = none,
     pending_grant_issued_ms = 0,
     rejection_streak = 0,
@@ -613,6 +616,7 @@ finalize_parallel_phase_close(
     scheduler_trace = [],
     scheduler_cursor = 0,
     scheduler_batch_id = undefined,
+    scheduler_max_batches = undefined,
     pending_grant = none,
     pending_grant_issued_ms = 0,
     rejection_streak = 0,
@@ -836,6 +840,7 @@ clear_scheduler_for_abort(State = #super_node_state{}) ->
     scheduler_trace = [],
     scheduler_cursor = 0,
     scheduler_batch_id = undefined,
+    scheduler_max_batches = undefined,
     pending_grant = none,
     pending_grant_issued_ms = 0,
     rejection_streak = 0
@@ -846,6 +851,7 @@ issue_next_scheduler_grant(
     scheduler_trace = Trace,
     scheduler_cursor = Cursor,
     scheduler_batch_id = SchedulerBatchID,
+    scheduler_max_batches = SchedulerMaxBatches,
     parallel_mode = ParallelMode,
     stage_workers = StageWorkers,
     stage_rr = StageRoundRobin,
@@ -857,61 +863,70 @@ issue_next_scheduler_grant(
     0 ->
       {ok, State};
     _ ->
-      EffectiveState =
-        case Cursor >= TraceLen of
-          true ->
-            NextBatchID = advance_scheduler_batch_id(SchedulerBatchID),
-            State#super_node_state{
-              scheduler_cursor = 0,
-              scheduler_batch_id = NextBatchID,
-              pending_grant = none,
-              pending_grant_issued_ms = 0
-            };
-          false ->
-            State
-        end,
-      EffectiveCursor = EffectiveState#super_node_state.scheduler_cursor,
-      EffectiveBatchID = EffectiveState#super_node_state.scheduler_batch_id,
-      {Direction, MicrobatchId, StageId} = lists:nth(EffectiveCursor + 1, Trace),
-      GrantBatchID = resolve_scheduler_grant_batch_id(EffectiveBatchID),
-      case choose_stage_workers(ParallelMode, StageId, StageWorkers, StageRoundRobin) of
-        {error, Reason} ->
-          {abort, Reason, EffectiveState};
-        {ok, TargetWorkers, UpdatedStageRoundRobin} ->
-          EventID = grant_event_id(PhaseEpoch, Direction, GrantBatchID, MicrobatchId, StageId, TargetWorkers),
-          GrantIssuedMs = erlang:system_time(millisecond),
+      case scheduler_max_batches_reached(Cursor, TraceLen, SchedulerBatchID, SchedulerMaxBatches) of
+        true ->
           ?LOG_INFO(
-            "Super node issuing scheduler grant direction=~p batch=~p microbatch=~p stage=~p epoch=~p targets=~p cursor=~p event_id=~p",
-            [Direction, GrantBatchID, MicrobatchId, StageId, PhaseEpoch, TargetWorkers, EffectiveCursor, EventID]
+            "Super node scheduler reached configured maxBatches=~p at batch=~p cursor=~p; waiting for phase close",
+            [SchedulerMaxBatches, SchedulerBatchID, Cursor]
           ),
-          case send_scheduler_grants(
-                 EffectiveState,
-                 TargetWorkers,
-                 Direction,
-                 GrantBatchID,
-                 MicrobatchId,
-                 StageId,
-                 PhaseEpoch
-               ) of
-            ok ->
-              {ok, EffectiveState#super_node_state{
-                stage_rr = UpdatedStageRoundRobin,
-                pending_grant = #{
-                  direction => Direction,
-                  batch_id => GrantBatchID,
-                  microbatch_id => MicrobatchId,
-                  stage_id => StageId,
-                  workers => TargetWorkers,
-                  acked_workers => [],
-                  event_id => EventID,
-                  phase_epoch => PhaseEpoch
-                },
-                pending_grant_issued_ms = GrantIssuedMs
-              }};
-            {error, RouteReason} ->
-              {abort,
-               {scheduler_grant_route_failed, TargetWorkers, {Direction, GrantBatchID, MicrobatchId, StageId}, RouteReason},
-               EffectiveState}
+          {ok, State};
+        false ->
+          EffectiveState =
+            case Cursor >= TraceLen of
+              true ->
+                NextBatchID = advance_scheduler_batch_id(SchedulerBatchID),
+                State#super_node_state{
+                  scheduler_cursor = 0,
+                  scheduler_batch_id = NextBatchID,
+                  pending_grant = none,
+                  pending_grant_issued_ms = 0
+                };
+              false ->
+                State
+            end,
+          EffectiveCursor = EffectiveState#super_node_state.scheduler_cursor,
+          EffectiveBatchID = EffectiveState#super_node_state.scheduler_batch_id,
+          {Direction, MicrobatchId, StageId} = lists:nth(EffectiveCursor + 1, Trace),
+          GrantBatchID = resolve_scheduler_grant_batch_id(EffectiveBatchID),
+          case choose_stage_workers(ParallelMode, StageId, StageWorkers, StageRoundRobin) of
+            {error, Reason} ->
+              {abort, Reason, EffectiveState};
+            {ok, TargetWorkers, UpdatedStageRoundRobin} ->
+              EventID = grant_event_id(PhaseEpoch, Direction, GrantBatchID, MicrobatchId, StageId, TargetWorkers),
+              GrantIssuedMs = erlang:system_time(millisecond),
+              ?LOG_INFO(
+                "Super node issuing scheduler grant direction=~p batch=~p microbatch=~p stage=~p epoch=~p targets=~p cursor=~p event_id=~p",
+                [Direction, GrantBatchID, MicrobatchId, StageId, PhaseEpoch, TargetWorkers, EffectiveCursor, EventID]
+              ),
+              case send_scheduler_grants(
+                     EffectiveState,
+                     TargetWorkers,
+                     Direction,
+                     GrantBatchID,
+                     MicrobatchId,
+                     StageId,
+                     PhaseEpoch
+                   ) of
+                ok ->
+                  {ok, EffectiveState#super_node_state{
+                    stage_rr = UpdatedStageRoundRobin,
+                    pending_grant = #{
+                      direction => Direction,
+                      batch_id => GrantBatchID,
+                      microbatch_id => MicrobatchId,
+                      stage_id => StageId,
+                      workers => TargetWorkers,
+                      acked_workers => [],
+                      event_id => EventID,
+                      phase_epoch => PhaseEpoch
+                    },
+                    pending_grant_issued_ms = GrantIssuedMs
+                  }};
+                {error, RouteReason} ->
+                  {abort,
+                   {scheduler_grant_route_failed, TargetWorkers, {Direction, GrantBatchID, MicrobatchId, StageId}, RouteReason},
+                   EffectiveState}
+              end
           end
       end
   end.
@@ -987,6 +1002,47 @@ resolve_scheduler_grant_batch_id(BatchID) ->
 advance_scheduler_batch_id(BatchID) when is_integer(BatchID) ->
   BatchID + 1;
 advance_scheduler_batch_id(_) ->
+  undefined.
+
+scheduler_max_batches_reached(_Cursor, _TraceLen, _SchedulerBatchID, undefined) ->
+  false;
+scheduler_max_batches_reached(_Cursor, _TraceLen, _SchedulerBatchID, MaxBatches)
+when not is_integer(MaxBatches); MaxBatches < 0 ->
+  false;
+scheduler_max_batches_reached(_Cursor, _TraceLen, _SchedulerBatchID, 0) ->
+  true;
+scheduler_max_batches_reached(Cursor, TraceLen, SchedulerBatchID, MaxBatches)
+when Cursor >= TraceLen, is_integer(SchedulerBatchID) ->
+  (SchedulerBatchID + 1) >= MaxBatches;
+scheduler_max_batches_reached(_Cursor, _TraceLen, _SchedulerBatchID, _MaxBatches) ->
+  false.
+
+resolve_scheduler_max_batches(ParallelExecution) when is_map(ParallelExecution) ->
+  RawMaxBatches =
+    maps:get(
+      <<"maxBatches">>,
+      ParallelExecution,
+      maps:get(
+        maxBatches,
+        ParallelExecution,
+        maps:get(
+          <<"max_batches">>,
+          ParallelExecution,
+          maps:get(max_batches, ParallelExecution, undefined)
+        )
+      )
+    ),
+  case RawMaxBatches of
+    undefined ->
+      undefined;
+    _ ->
+      ParsedMaxBatches = normalize_non_negative_int(RawMaxBatches, -1),
+      case ParsedMaxBatches >= 0 of
+        true -> ParsedMaxBatches;
+        false -> undefined
+      end
+  end;
+resolve_scheduler_max_batches(_) ->
   undefined.
 
 normalize_non_negative_int(Value, Default) ->

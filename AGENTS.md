@@ -101,6 +101,8 @@
 - In `pipeline` prediction, worker forward `parallel_event` metadata is `predict` (not `training`), which should be reflected in Super Node event logs.
 - In `pipeline|pipeline_tensor`, worker `end_stream` is drain-gated: workers queue `end_stream`, defer `stream_ended`, and flush only after active batch context, scheduler grants, pipeline inbox buffers, TP collective inbox, and deferred microbatches/samples are empty.
 - During `pipeline|pipeline_tensor` stream-end drain, workers now drop stale scheduler grants if no non-grant runtime work remains; this prevents end-of-data deadlocks where a speculative next-batch grant blocks `stream_ended`/phase-close.
+- API phase parsing now injects `parallelExecution.maxBatches` (derived from phase `sourcePieces[].numOfBatches`, max across pieces) for non-legacy modes.
+- Super Node scheduler respects `maxBatches` and stops issuing rollover grants once the configured bound is reached, preventing synthetic out-of-range batches (for example, batch `100` when source batches are `0..99`).
 - Stage-sliced worker messaging payload tags are:
   - `pipeline_forward_payload`
   - `pipeline_backward_payload`

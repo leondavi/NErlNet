@@ -48,6 +48,7 @@ if "stats_aec" not in sys.modules:
 
 from experiment_flow import ExperimentFlow  # noqa: E402
 from experiment_flow_defs import (  # noqa: E402
+    EXPFLOW_PARALLEL_EXECUTION_MAX_BATCHES_FIELD,
     EXPFLOW_PARALLEL_EXECUTION_MICRO_BATCH_SIZE_FIELD,
     EXPFLOW_PARALLEL_EXECUTION_MODE_FIELD,
     EXPFLOW_PARALLEL_EXECUTION_NUM_MICRO_BATCHES_FIELD,
@@ -180,6 +181,13 @@ class ParallelSchemaTests(unittest.TestCase):
 
         phase = {
             EXPFLOW_PHASES_PHASE_NAME_FIELD: "train_1",
+            "sourcePieces": [
+                {
+                    "sourceName": "source_a",
+                    "numOfBatches": "7",
+                    "workers": "worker_a0",
+                }
+            ],
             EXPFLOW_PHASES_PARALLEL_EXECUTION_FIELD: {
                 EXPFLOW_PARALLEL_EXECUTION_MODE_FIELD: "pipeline",
                 EXPFLOW_PARALLEL_EXECUTION_SUPER_NODE_FIELD: "super_0",
@@ -188,9 +196,10 @@ class ParallelSchemaTests(unittest.TestCase):
                 EXPFLOW_PARALLEL_EXECUTION_NUM_MICRO_BATCHES_FIELD: 2,
             },
         }
-        normalized = exp._parse_parallel_execution(copy.deepcopy(phase))
+        normalized = exp._parse_parallel_execution(copy.deepcopy(phase), phase["sourcePieces"])
         self.assertEqual(normalized.get("mode"), "pipeline")
         self.assertEqual(normalized.get("superNode"), "super_0")
+        self.assertEqual(normalized.get(EXPFLOW_PARALLEL_EXECUTION_MAX_BATCHES_FIELD), 7)
 
     def test_parallel_execution_unknown_super_node_rejected(self) -> None:
         components = NetworkComponents(_base_dc())
@@ -207,6 +216,30 @@ class ParallelSchemaTests(unittest.TestCase):
         }
         with self.assertRaises(ValueError):
             exp._parse_parallel_execution(phase)
+
+    def test_parallel_execution_rejects_max_batches_mismatch(self) -> None:
+        components = NetworkComponents(_base_dc())
+        exp = ExperimentFlow("exp", 4, components, temp_data_path="/tmp/nerlnet_parallel_schema_tests")
+        phase = {
+            EXPFLOW_PHASES_PHASE_NAME_FIELD: "train_1",
+            "sourcePieces": [
+                {
+                    "sourceName": "source_a",
+                    "numOfBatches": "9",
+                    "workers": "worker_a0",
+                }
+            ],
+            EXPFLOW_PHASES_PARALLEL_EXECUTION_FIELD: {
+                EXPFLOW_PARALLEL_EXECUTION_MODE_FIELD: "pipeline",
+                EXPFLOW_PARALLEL_EXECUTION_SUPER_NODE_FIELD: "super_0",
+                EXPFLOW_PARALLEL_EXECUTION_SCHEDULER_FIELD: "gpipe",
+                EXPFLOW_PARALLEL_EXECUTION_MICRO_BATCH_SIZE_FIELD: 2,
+                EXPFLOW_PARALLEL_EXECUTION_NUM_MICRO_BATCHES_FIELD: 2,
+                EXPFLOW_PARALLEL_EXECUTION_MAX_BATCHES_FIELD: 8,
+            },
+        }
+        with self.assertRaisesRegex(ValueError, "must match max source-piece numOfBatches"):
+            exp._parse_parallel_execution(phase, phase["sourcePieces"])
 
     def test_pipeline_mode_rejects_multi_worker_stage_layout(self) -> None:
         dc = _base_dc()
