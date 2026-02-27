@@ -45,6 +45,12 @@ Implemented and working today:
 - Dockerized CPU Torch validation that runs full Torch flow and compares PTD POC loss invariants.
 - `pipeline_tensor` runtime now executes end-to-end in Docker smoke and repeated-run soak (2 consecutive runs), with no TP collective timeout.
 - Super Node / Client / Worker logs now expose orchestration events (config push, scheduler grants, event acks, routed worker messages) for runtime traceability.
+- Pipeline training scheduler-progress fix:
+  - last pipeline stage now emits/queues backward scheduler events immediately after stage-last forward/backward compute, allowing Super Node backward grants to be fully acknowledged.
+  - worker grant handlers now attempt pending backward-event dispatch when pipeline scheduler grants arrive.
+- Pipeline prediction batch-turnover fix:
+  - non-last stages (including stage0) now finalize local prediction batch context once local microbatch dispatch completes.
+  - deferred source samples are popped for the next batch without waiting for last-stage prediction emission on the same worker.
 
 ---
 
@@ -749,6 +755,7 @@ This section is the explicit runtime call graph for non-legacy parallel executio
    - last stage:
      - `call_to_pipeline_stage_last_forward_backward(...)`
      - accumulate loss/time
+     - emit/queue scheduler backward event via `maybe_emit_parallel_backward_event(...)` so backward grants can be acknowledged when issued.
      - emit first backward payload to previous stage.
 6. Backward wave (last -> first):
    - `workerGeneric:dispatch_pipeline_backward_buffer(...)`
@@ -791,6 +798,7 @@ This section is the explicit runtime call graph for non-legacy parallel executio
      - `prepare_pipeline_predict_stage0_microbatches(...)`
      - `dispatch_pipeline_stage0_predict_microbatch_loop(...)`
      - `call_to_pipeline_predict_stage0_forward(...)` -> `pipeline_predict_payload`.
+     - once all local microbatches are dispatched for the active batch, stage0 finalizes local predict batch context and dequeues deferred samples for the next batch.
    - Intermediate/last stages:
      - `handle_parallel_pipeline_predict_inbox(...)`
      - `dispatch_pipeline_predict_buffer(...)`

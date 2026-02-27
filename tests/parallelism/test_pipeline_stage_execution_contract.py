@@ -29,6 +29,14 @@ class PipelineStageExecutionContractTests(unittest.TestCase):
         self.assertIn("stage0 pipeline batch=", content)
         self.assertIn("pipeline last-stage completed batch", content)
 
+    def test_worker_runtime_handles_backward_ack_and_stage0_predict_turnover(self) -> None:
+        content = WORKER_GENERIC.read_text(encoding="utf-8")
+        self.assertIn("pipeline_last_stage_backward_event_rejected", content)
+        self.assertIn("maybe_dispatch_pending_parallel_backward_events(GenWorkerEts)", content)
+        self.assertIn("maps:get(forward_completed, Ctx, maps:get(forward_dispatched, Ctx, 0))", content)
+        self.assertIn("pipeline predict stage ~p completed local batch=", content)
+        self.assertIn("maybe_dispatch_deferred_parallel_sample(GenWorkerEts, predict)", content)
+
     def test_w2w_bridge_notifies_worker_pipeline_inbox(self) -> None:
         content = W2W_COM.read_text(encoding="utf-8")
         self.assertIn("maybe_notify_pipeline_inbox", content)

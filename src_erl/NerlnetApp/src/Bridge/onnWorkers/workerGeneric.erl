@@ -255,11 +255,21 @@ wait(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) 
                  ),
   case ParallelMode of
     pipeline ->
-      case dispatch_pipeline_buffers(GenWorkerEts, State#workerGeneric_state.modelID, State#workerGeneric_state.myName) of
+      case maybe_dispatch_pending_parallel_backward_events(GenWorkerEts) of
         ok ->
-          {keep_state, State};
-        {abort, PipelineReason} ->
-          notify_worker_parallel_abort(GenWorkerEts, {pipeline_dispatch_failed, PipelineReason}),
+          case dispatch_pipeline_buffers(GenWorkerEts, State#workerGeneric_state.modelID, State#workerGeneric_state.myName) of
+            ok ->
+              {keep_state, State};
+            {abort, PipelineReason} ->
+              notify_worker_parallel_abort(GenWorkerEts, {pipeline_dispatch_failed, PipelineReason}),
+              reset_parallel_loss_context(GenWorkerEts),
+              {keep_state, State}
+          end;
+        {abort, PendingDispatchReason} ->
+          notify_worker_parallel_abort(
+            GenWorkerEts,
+            {pending_parallel_backward_dispatch_failed, PendingDispatchReason}
+          ),
           reset_parallel_loss_context(GenWorkerEts),
           {keep_state, State}
       end;
@@ -491,10 +501,20 @@ train(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State)
                  ),
   case ParallelMode of
     pipeline ->
-      case dispatch_pipeline_buffers(GenWorkerEts, State#workerGeneric_state.modelID, State#workerGeneric_state.myName) of
-        ok -> {keep_state, State};
-        {abort, Reason} ->
-          notify_worker_parallel_abort(GenWorkerEts, {pipeline_dispatch_failed, Reason}),
+      case maybe_dispatch_pending_parallel_backward_events(GenWorkerEts) of
+        ok ->
+          case dispatch_pipeline_buffers(GenWorkerEts, State#workerGeneric_state.modelID, State#workerGeneric_state.myName) of
+            ok -> {keep_state, State};
+            {abort, Reason} ->
+              notify_worker_parallel_abort(GenWorkerEts, {pipeline_dispatch_failed, Reason}),
+              reset_parallel_loss_context(GenWorkerEts),
+              {keep_state, State}
+          end;
+        {abort, PendingDispatchReason} ->
+          notify_worker_parallel_abort(
+            GenWorkerEts,
+            {pending_parallel_backward_dispatch_failed, PendingDispatchReason}
+          ),
           reset_parallel_loss_context(GenWorkerEts),
           {keep_state, State}
       end;
@@ -566,6 +586,10 @@ train(cast, {sample, SourceName ,BatchID ,{NerlTensorOfSamples, NerlTensorType}}
                 ),
                 {next_state, wait, State#workerGeneric_state{nextState = train, currentBatchID = BatchID}};
               {abort, Stage0Reason} ->
+                ?LOG_ERROR(
+                  "Worker ~p stage0 pipeline prepare failed batch=~p source=~p reason=~p",
+                  [State#workerGeneric_state.myName, BatchID, SourceName, Stage0Reason]
+                ),
                 notify_worker_parallel_abort(
                   GenWorkerEts,
                   {pipeline_stage0_prepare_failed, BatchID, SourceName, Stage0Reason}
@@ -1689,6 +1713,10 @@ dispatch_pipeline_stage0_forward_microbatch_loop(
               {abort, {pipeline_next_stage_resolution_failed, AdjacentReason}}
           end;
         {nerlnif, error, Reason} ->
+          ?LOG_ERROR(
+            "Worker ~p stage0 pipeline NIF failed batch=~p microbatch=~p stage=~p reason=~p",
+            [WorkerName, BatchID, MicrobatchID, StageID, Reason]
+          ),
           {abort, {pipeline_stage0_forward_nif_error, Reason}};
         Unexpected ->
           {abort, {pipeline_stage0_forward_unexpected, Unexpected}}
@@ -2030,22 +2058,34 @@ maybe_process_pipeline_forward_payload(
                   }
                 end
               ),
-              case resolve_pipeline_adjacent_worker(GenWorkerEts, prev) of
-                {ok, PrevWorker} ->
-                  BackwardPayload = {
-                    pipeline_backward_payload,
-                    BatchID,
-                    SourceName,
-                    TotalMicrobatches,
-                    MicrobatchID,
-                    {GradTensor, GradType}
-                  },
-                  route_pipeline_payload_to_worker(GenWorkerEts, WorkerName, PrevWorker, BackwardPayload),
-                  processed;
-                {error, no_adjacent_stage} ->
-                  processed;
-                {error, AdjacentReason} ->
-                  {abort, {pipeline_prev_stage_resolution_failed, AdjacentReason}}
+              case maybe_emit_parallel_backward_event(
+                     pipeline,
+                     WorkerName,
+                     BatchID,
+                     MicrobatchID,
+                     StageID,
+                     StageTime
+                   ) of
+                {error, EmitReason} ->
+                  {abort, {pipeline_last_stage_backward_event_rejected, EmitReason}};
+                ok ->
+                  case resolve_pipeline_adjacent_worker(GenWorkerEts, prev) of
+                    {ok, PrevWorker} ->
+                      BackwardPayload = {
+                        pipeline_backward_payload,
+                        BatchID,
+                        SourceName,
+                        TotalMicrobatches,
+                        MicrobatchID,
+                        {GradTensor, GradType}
+                      },
+                      route_pipeline_payload_to_worker(GenWorkerEts, WorkerName, PrevWorker, BackwardPayload),
+                      processed;
+                    {error, no_adjacent_stage} ->
+                      processed;
+                    {error, AdjacentReason} ->
+                      {abort, {pipeline_prev_stage_resolution_failed, AdjacentReason}}
+                  end
               end;
             {nerlnif, error, Reason} ->
               {abort, {pipeline_stage_last_nif_error, Reason}};
@@ -2435,13 +2475,24 @@ maybe_finalize_pipeline_predict_batch(GenWorkerEts, WorkerName) ->
       case Mode of
         pipeline_predict ->
           TotalMicrobatches = maps:get(total_microbatches, Ctx, 0),
-          ForwardCompleted = maps:get(forward_completed, Ctx, 0),
-          case ForwardCompleted >= TotalMicrobatches andalso TotalMicrobatches > 0 andalso is_last_pipeline_stage(GenWorkerEts) of
+          ForwardCompleted = maps:get(forward_completed, Ctx, maps:get(forward_dispatched, Ctx, 0)),
+          StageID = get_worker_pipeline_stage(GenWorkerEts),
+          IsLastStage = is_last_pipeline_stage(GenWorkerEts),
+          IsBatchComplete = ForwardCompleted >= TotalMicrobatches andalso TotalMicrobatches > 0,
+          case IsBatchComplete of
             false ->
               ok;
             true ->
-              ModelPredAcc = maps:get(predict_acc, Ctx, []),
-              maybe_send_pipeline_last_stage_prediction(GenWorkerEts, WorkerName, Ctx, ModelPredAcc, TotalMicrobatches),
+              case IsLastStage of
+                true ->
+                  ModelPredAcc = maps:get(predict_acc, Ctx, []),
+                  maybe_send_pipeline_last_stage_prediction(GenWorkerEts, WorkerName, Ctx, ModelPredAcc, TotalMicrobatches);
+                false ->
+                  ?LOG_INFO(
+                    "Worker ~p pipeline predict stage ~p completed local batch=~p source=~p microbatches=~p",
+                    [WorkerName, StageID, maps:get(batch_id, Ctx, undefined), maps:get(source_name, Ctx, undefined), TotalMicrobatches]
+                  )
+              end,
               reset_parallel_batch_context(GenWorkerEts),
               maybe_dispatch_deferred_parallel_sample(GenWorkerEts, predict),
               ok

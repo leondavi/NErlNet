@@ -92,8 +92,12 @@ private:
 	void maybe_randomize_module_weights();
 	static std::string to_lower_copy(std::string value);
 	void initialize_pipeline_partition();
-	TorchTensor run_pipeline_stage_layers(const TorchTensor &stage_input, bool training_mode);
+	TorchTensor run_pipeline_stage_layers(const TorchTensor &stage_input, bool training_mode, long microbatch_id);
 	static bool layer_requires_flatten(const torch::jit::script::Module &layer_module);
+	static std::string tensor_shape_to_string(const TorchTensor &tensor);
+	static std::string tensor_dtype_to_string(const TorchTensor &tensor);
+	static std::string ivalue_type_to_string(const torch::jit::IValue &value);
+	std::string pipeline_layer_name(size_t idx) const;
 	void cache_pipeline_stage_context(long microbatch_id, const TorchTensor &stage_input, const TorchTensor &stage_output);
 	PipelineStageContext pop_pipeline_stage_context(long microbatch_id);
 	void clear_pipeline_stage_contexts();
@@ -123,6 +127,7 @@ private:
 	size_t _pipeline_stage_start_idx{0};
 	size_t _pipeline_stage_end_idx{0};
 	std::vector<torch::jit::script::Module> _pipeline_layers;
+	std::vector<std::string> _pipeline_layer_names;
 	std::unordered_map<long, PipelineStageContext> _pipeline_stage_contexts;
 };
 

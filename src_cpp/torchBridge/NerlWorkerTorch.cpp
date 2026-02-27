@@ -374,6 +374,7 @@ void NerlWorkerTorch::initialize_pipeline_partition()
 {
 	_pipeline_enabled = false;
 	_pipeline_layers.clear();
+	_pipeline_layer_names.clear();
 	_pipeline_stage_contexts.clear();
 	_pipeline_stage_start_idx = 0;
 	_pipeline_stage_end_idx = 0;
@@ -386,6 +387,7 @@ void NerlWorkerTorch::initialize_pipeline_partition()
 	}
 
 	std::vector<torch::jit::script::Module> discovered_layers;
+	std::vector<std::string> discovered_layer_names;
 	try
 	{
 		if (_script_module.hasattr("layers"))
@@ -397,6 +399,7 @@ void NerlWorkerTorch::initialize_pipeline_partition()
 				for (const auto &named_layer : layer_container.named_children())
 				{
 					discovered_layers.push_back(named_layer.value);
+					discovered_layer_names.push_back(named_layer.name);
 				}
 			}
 		}
@@ -411,6 +414,7 @@ void NerlWorkerTorch::initialize_pipeline_partition()
 		for (const auto &named_layer : _script_module.named_children())
 		{
 			discovered_layers.push_back(named_layer.value);
+			discovered_layer_names.push_back(named_layer.name);
 		}
 	}
 
@@ -449,14 +453,37 @@ void NerlWorkerTorch::initialize_pipeline_partition()
 	}
 
 	_pipeline_layers = std::move(discovered_layers);
+	_pipeline_layer_names = std::move(discovered_layer_names);
+	if (_pipeline_layer_names.size() != _pipeline_layers.size())
+	{
+		_pipeline_layer_names.resize(_pipeline_layers.size());
+	}
+	for (size_t idx = 0; idx < _pipeline_layer_names.size(); ++idx)
+	{
+		if (_pipeline_layer_names[idx].empty())
+		{
+			_pipeline_layer_names[idx] = "layer_" + std::to_string(idx);
+		}
+	}
 	_pipeline_stage_start_idx = start_idx;
 	_pipeline_stage_end_idx = start_idx + stage_layer_count;
 	_pipeline_enabled = true;
 
+	std::ostringstream stage_layers_desc;
+	for (size_t idx = _pipeline_stage_start_idx; idx < _pipeline_stage_end_idx; ++idx)
+	{
+		if (idx > _pipeline_stage_start_idx)
+		{
+			stage_layers_desc << ", ";
+		}
+		stage_layers_desc << idx << ":" << pipeline_layer_name(idx);
+	}
+
 	LogInfo << "Torch pipeline partition stage=" << _pipeline_stage
 			<< "/" << _pipeline_world_size
 			<< " layer_range=[" << _pipeline_stage_start_idx
-			<< "," << _pipeline_stage_end_idx << ")" << std::endl;
+			<< "," << _pipeline_stage_end_idx << ")"
+			<< " layers={" << stage_layers_desc.str() << "}" << std::endl;
 }
 
 bool NerlWorkerTorch::layer_requires_flatten(const torch::jit::script::Module &layer_module)
@@ -471,7 +498,69 @@ bool NerlWorkerTorch::layer_requires_flatten(const torch::jit::script::Module &l
 	return false;
 }
 
-TorchTensor NerlWorkerTorch::run_pipeline_stage_layers(const TorchTensor &stage_input, bool training_mode)
+std::string NerlWorkerTorch::tensor_shape_to_string(const TorchTensor &tensor)
+{
+	if (!tensor.defined())
+	{
+		return "undefined";
+	}
+	std::ostringstream oss;
+	oss << "[";
+	for (int64_t idx = 0; idx < tensor.dim(); ++idx)
+	{
+		if (idx > 0)
+		{
+			oss << ",";
+		}
+		oss << tensor.size(idx);
+	}
+	oss << "]";
+	return oss.str();
+}
+
+std::string NerlWorkerTorch::tensor_dtype_to_string(const TorchTensor &tensor)
+{
+	if (!tensor.defined())
+	{
+		return "undefined";
+	}
+	return std::string(c10::toString(tensor.scalar_type()));
+}
+
+std::string NerlWorkerTorch::ivalue_type_to_string(const torch::jit::IValue &value)
+{
+	if (value.isNone())
+	{
+		return "None";
+	}
+	if (value.isTensor())
+	{
+		return "Tensor";
+	}
+	try
+	{
+		const c10::TypePtr type_ptr = value.type();
+		if (type_ptr)
+		{
+			return type_ptr->str();
+		}
+	}
+	catch (...)
+	{
+	}
+	return "UnknownIValue";
+}
+
+std::string NerlWorkerTorch::pipeline_layer_name(size_t idx) const
+{
+	if (idx < _pipeline_layer_names.size() && !_pipeline_layer_names[idx].empty())
+	{
+		return _pipeline_layer_names[idx];
+	}
+	return "layer_" + std::to_string(idx);
+}
+
+TorchTensor NerlWorkerTorch::run_pipeline_stage_layers(const TorchTensor &stage_input, bool training_mode, long microbatch_id)
 {
 	if (!_pipeline_enabled)
 	{
@@ -486,9 +575,20 @@ TorchTensor NerlWorkerTorch::run_pipeline_stage_layers(const TorchTensor &stage_
 			throw std::runtime_error("Torch pipeline stage layer index out of range");
 		}
 		torch::jit::script::Module &layer = _pipeline_layers[idx];
+		const std::string layer_name = pipeline_layer_name(idx);
 		if (layer_requires_flatten(layer) && output.dim() > 2)
 		{
 			output = output.flatten(1);
+		}
+		if (microbatch_id == 0)
+		{
+			LogInfo << "Torch pipeline layer begin stage=" << _pipeline_stage
+					<< " microbatch=" << microbatch_id
+					<< " layer_idx=" << idx
+					<< " layer_name=" << layer_name
+					<< " mode=" << (training_mode ? "train" : "predict")
+					<< " input_shape=" << tensor_shape_to_string(output)
+					<< " input_dtype=" << tensor_dtype_to_string(output) << std::endl;
 		}
 		if (training_mode)
 		{
@@ -504,9 +604,28 @@ TorchTensor NerlWorkerTorch::run_pipeline_stage_layers(const TorchTensor &stage_
 		torch::jit::IValue out_val = layer.forward(inputs);
 		if (!out_val.isTensor())
 		{
-			throw std::runtime_error("Torch pipeline stage layer returned non-tensor output");
+			std::ostringstream err;
+			err << "Torch pipeline stage layer returned non-tensor output"
+				<< " stage=" << _pipeline_stage
+				<< " microbatch=" << microbatch_id
+				<< " layer_idx=" << idx
+				<< " layer_name=" << layer_name
+				<< " input_shape=" << tensor_shape_to_string(output)
+				<< " input_dtype=" << tensor_dtype_to_string(output)
+				<< " output_ivalue_type=" << ivalue_type_to_string(out_val);
+			LogError << err.str() << std::endl;
+			throw std::runtime_error(err.str());
 		}
 		output = out_val.toTensor();
+		if (microbatch_id == 0)
+		{
+			LogInfo << "Torch pipeline layer end stage=" << _pipeline_stage
+					<< " microbatch=" << microbatch_id
+					<< " layer_idx=" << idx
+					<< " layer_name=" << layer_name
+					<< " output_shape=" << tensor_shape_to_string(output)
+					<< " output_dtype=" << tensor_dtype_to_string(output) << std::endl;
+		}
 	}
 	return output;
 }
@@ -559,7 +678,7 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage0_forward(co
 	}
 
 	TorchTensor stage_input = slices.inputs.detach().set_requires_grad(true);
-	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, true);
+	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, true, microbatch_id);
 	cache_pipeline_stage_context(microbatch_id, stage_input, stage_output);
 	_last_prediction = stage_output.detach();
 	return {stage_output.detach().clone(), slices.labels.detach().clone()};
@@ -590,7 +709,7 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_forward(
 	}
 
 	TorchTensor stage_input = ensure_training_dtype(activation).detach().set_requires_grad(true);
-	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, true);
+	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, true, microbatch_id);
 	cache_pipeline_stage_context(microbatch_id, stage_input, stage_output);
 	_last_prediction = stage_output.detach();
 	return {stage_output.detach().clone(), ensure_training_dtype(labels).detach().clone()};
@@ -621,7 +740,7 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_last_forwar
 	}
 
 	TorchTensor stage_input = ensure_training_dtype(activation).detach().set_requires_grad(true);
-	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, true);
+	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, true, microbatch_id);
 	TorchTensor target_labels = ensure_training_dtype(labels);
 	if (stage_output.scalar_type() != target_labels.scalar_type())
 	{
@@ -696,7 +815,7 @@ TorchTensor NerlWorkerTorch::pipeline_predict_stage0_forward(const TorchTensor &
 
 	TorchTensor prepared = ensure_training_dtype(batch);
 	TorchTensor stage_input = prepare_predict_inputs(prepared);
-	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, false);
+	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, false, -1);
 	return stage_output.detach().clone();
 }
 
@@ -708,7 +827,7 @@ TorchTensor NerlWorkerTorch::pipeline_predict_stage_forward(const TorchTensor &a
 	}
 
 	TorchTensor stage_input = ensure_training_dtype(activation);
-	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, false);
+	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, false, -1);
 	return stage_output.detach().clone();
 }
 
