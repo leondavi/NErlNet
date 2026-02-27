@@ -466,7 +466,7 @@ wait(cast, {predict}, State) ->
   {next_state, wait, State#workerGeneric_state{nextState = predict}};
 
 %% Worker in wait can't treat incoming message 
-wait(cast, BatchTuple , State = #workerGeneric_state{lastPhase = LastPhase, myName= _MyName}) when element(1, BatchTuple) == sample ->
+wait(cast, BatchTuple , State = #workerGeneric_state{lastPhase = LastPhase, nextState = NextState, myName= _MyName}) when element(1, BatchTuple) == sample ->
   GenWorkerEts = get(generic_worker_ets),
   ParallelMode = normalize_parallel_mode_atom(
                    ets:lookup_element(GenWorkerEts, parallel_mode, ?ETS_KEYVAL_VAL_IDX)
@@ -481,8 +481,18 @@ wait(cast, BatchTuple , State = #workerGeneric_state{lastPhase = LastPhase, myNa
       end,
       {next_state, wait, State};
     _ ->
-      queue_deferred_parallel_sample(GenWorkerEts, BatchTuple),
-      {keep_state, State}
+      case should_replay_parallel_sample_immediately(GenWorkerEts, NextState) of
+        true ->
+          ?LOG_INFO(
+            "Worker ~p replaying deferred parallel sample immediately by transitioning wait->~p",
+            [ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX), NextState]
+          ),
+          gen_statem:cast(self(), BatchTuple),
+          {next_state, normalize_parallel_next_state(NextState, LastPhase), State};
+        false ->
+          queue_deferred_parallel_sample(GenWorkerEts, BatchTuple),
+          {keep_state, State}
+      end
   end;
 
 wait(cast, Data, State) ->
@@ -3102,6 +3112,36 @@ maybe_dispatch_deferred_parallel_sample(GenWorkerEts, _NextState) ->
       ok;
     empty ->
       ok
+  end.
+
+normalize_parallel_next_state(train, _LastPhase) ->
+  train;
+normalize_parallel_next_state(predict, _LastPhase) ->
+  predict;
+normalize_parallel_next_state(_, LastPhase) ->
+  case LastPhase of
+    train -> train;
+    predict -> predict;
+    _ -> train
+  end.
+
+should_replay_parallel_sample_immediately(GenWorkerEts, NextState) ->
+  case NextState =:= train orelse NextState =:= predict of
+    false ->
+      false;
+    true ->
+      ActiveCtx = ets:lookup_element(GenWorkerEts, parallel_active_batch_ctx, ?ETS_KEYVAL_VAL_IDX),
+      MicrobatchQueue = ets:lookup_element(GenWorkerEts, parallel_microbatch_queue, ?ETS_KEYVAL_VAL_IDX),
+      ForwardBuffer = ets:lookup_element(GenWorkerEts, parallel_pipeline_forward_buffer, ?ETS_KEYVAL_VAL_IDX),
+      BackwardBuffer = ets:lookup_element(GenWorkerEts, parallel_pipeline_backward_buffer, ?ETS_KEYVAL_VAL_IDX),
+      PredictBuffer = ets:lookup_element(GenWorkerEts, parallel_pipeline_predict_buffer, ?ETS_KEYVAL_VAL_IDX),
+      PendingBackwardEvents = ets:lookup_element(GenWorkerEts, parallel_pending_backward_events, ?ETS_KEYVAL_VAL_IDX),
+      ActiveCtx =:= undefined andalso
+        MicrobatchQueue =:= [] andalso
+        ForwardBuffer =:= [] andalso
+        BackwardBuffer =:= [] andalso
+        PredictBuffer =:= [] andalso
+        PendingBackwardEvents =:= []
   end.
 
 

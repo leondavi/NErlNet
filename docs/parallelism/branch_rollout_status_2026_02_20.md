@@ -54,6 +54,10 @@ Implemented and working today:
 - Pipeline prediction progress + event metadata fix:
   - stage0 now mirrors `forward_dispatched` into `forward_completed`, enabling deterministic local predict batch finalization and next-batch turnover.
   - pipeline prediction forward events are emitted with `meta=predict` (instead of stale `meta=training`).
+- Pipeline deferred-sample turnover fix (training + prediction):
+  - workers in `wait` now detect empty active parallel context and fast-transition `wait -> train|predict` when replaying deferred samples.
+  - replayed samples are re-cast immediately in the target phase state instead of being re-queued back into `parallel_deferred_samples`.
+  - this removes the batch-turnover requeue loop that can manifest as batch-0-only progression while source batches continue streaming.
 
 ---
 
@@ -474,7 +478,11 @@ Executed and passed (this implementation step, local host):
 - `erlc src_erl/NerlnetApp/src/Bridge/onnWorkers/workerGeneric.erl`
 - `erlc src_erl/NerlnetApp/src/Bridge/torchWorkers/nerlTorchNIF.erl`
 - `python3 -m unittest tests.parallelism.test_pipeline_stage_execution_contract tests.parallelism.test_supernode_comm_contract tests.parallelism.test_torch_parallel_nif_contract`
-- `python3 -m unittest discover -s tests/parallelism -p 'test_*.py'` (54 tests)
+- `python3 -m unittest discover -s tests/parallelism -p 'test_*.py'` (55 tests)
+- Added contract assertions for wait-state deferred-sample fast replay path:
+  - `should_replay_parallel_sample_immediately`
+  - `normalize_parallel_next_state(NextState, LastPhase)`
+  - explicit replay log marker `replaying deferred parallel sample immediately ...`
 
 Executed and attempted (local C++ configure/build sanity):
 - `cmake -S . -B .build-codex` failed on host due missing Torch CMake package (`TorchConfig.cmake`).

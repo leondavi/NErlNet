@@ -40,6 +40,9 @@ class PipelineStageExecutionContractTests(unittest.TestCase):
         self.assertIn("maps:get(forward_completed, Ctx, maps:get(forward_dispatched, Ctx, 0))", content)
         self.assertIn("pipeline predict stage ~p completed local batch=", content)
         self.assertIn("maybe_dispatch_deferred_parallel_sample(GenWorkerEts, predict)", content)
+        self.assertIn("should_replay_parallel_sample_immediately", content)
+        self.assertIn("replaying deferred parallel sample immediately by transitioning wait->~p", content)
+        self.assertIn("normalize_parallel_next_state(NextState, LastPhase)", content)
 
     def test_w2w_bridge_notifies_worker_pipeline_inbox(self) -> None:
         content = W2W_COM.read_text(encoding="utf-8")

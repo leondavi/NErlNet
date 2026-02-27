@@ -72,6 +72,7 @@
 - Torch worker effectively supports `adam` or `sgd` optimizers; loss is fixed to MSE in the runtime.
 - Worker non-legacy pipeline events are scheduler-grant-gated when Super Node authority is enabled.
 - In non-legacy modes, workers buffer incoming `sample` messages while in `wait` state (`parallel_deferred_samples`) and dequeue deterministically after batch completion to avoid TP peer batch desynchronization.
+- If a deferred sample is replayed while the worker is still in `wait`, workers now fast-transition `wait -> train|predict` (when no active parallel batch context/buffers remain) and immediately re-cast that sample, preventing deferred requeue loops and batch-0-only turnover stalls.
 - `pipeline` mode stage execution is Torch-only and requires pipeline metadata (`pipelineStage`, `pipelineWorldSize`) on workers.
 - `pipeline` mode currently enforces exactly one worker per pipeline stage per phase target set; use `pipeline_tensor` for multi-worker stage layouts.
 - In `pipeline` training, last-stage workers emit/queue backward scheduler events after last-stage forward/backward compute so Super Node backward grants can be acknowledged deterministically.
