@@ -23,10 +23,16 @@ class SuperNodeCommContractTest(unittest.TestCase):
         self.assertIn("configure_parallel", content)
         self.assertIn("grant_scheduler_event", content)
         self.assertIn("pipeline_tensor ->", content)
-        self.assertIn("pending_grant = {Direction, MicrobatchId, StageId, TargetWorkers, []}", content)
+        self.assertIn("pending_grant = #{", content)
+        self.assertIn("direction => Direction", content)
+        self.assertIn("microbatch_id => MicrobatchId", content)
+        self.assertIn("stage_id => StageId", content)
+        self.assertIn("workers => TargetWorkers", content)
+        self.assertIn("acked_workers => []", content)
         self.assertIn("scheduler_duplicate_worker_event", content)
         self.assertIn("normalize_phase_name(PhaseName)", content)
         self.assertIn("prediction -> forward_only_trace(BaseTrace)", content)
+        self.assertIn("maybe_check_pending_grant_timeout", content)
 
     def test_client_has_parallel_deliver_path(self) -> None:
         handler_content = CLIENT_HANDLER_FILE.read_text(encoding="utf-8")

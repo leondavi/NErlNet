@@ -1015,28 +1015,45 @@ deliver_parallel_msg(EtsRef, FromWorker, ToWorker, Data) ->
 forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta) ->
   ClientStatsEts = get(client_stats_ets),
   SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
+  EventID = parallel_event_id(FromWorker, Direction, BatchID, MicrobatchID, StageID),
   case SuperNode of
     none ->
-      notify_parallel_abort(EtsRef, {missing_super_node_parallel_event, FromWorker, Direction}),
+      notify_parallel_abort(EtsRef, {missing_super_node_parallel_event, EventID, FromWorker, Direction}),
       stats:increment_bad_messages(ClientStatsEts);
     _ ->
       ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
       ?LOG_INFO(
-        "Client ~p forwarding parallel event to super node ~p worker=~p direction=~p batch=~p microbatch=~p stage=~p",
-        [ClientName, SuperNode, FromWorker, Direction, BatchID, MicrobatchID, StageID]
+        "Client ~p forwarding parallel event to super node ~p worker=~p direction=~p batch=~p microbatch=~p stage=~p event_id=~p",
+        [ClientName, SuperNode, FromWorker, Direction, BatchID, MicrobatchID, StageID, EventID]
       ),
       MessageBody = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta},
       {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
       try
-        nerl_tools:http_router_request(RouterHost, RouterPort, [SuperNode], atom_to_list(parallelEvent), MessageBody),
+        {LatencyUs, RouterReply} =
+          timer:tc(
+            nerl_tools,
+            http_router_request,
+            [RouterHost, RouterPort, [SuperNode], atom_to_list(parallelEvent), MessageBody]
+          ),
+        ?LOG_INFO(
+          "Client ~p routed parallel event_id=~p to super node ~p latency_us=~p reply=~p",
+          [ClientName, EventID, SuperNode, LatencyUs, RouterReply]
+        ),
         stats:increment_messages_sent(ClientStatsEts),
         stats:increment_bytes_sent(ClientStatsEts, nerl_tools:calculate_size(MessageBody))
       catch
         Err:Reason ->
-          notify_parallel_abort(EtsRef, {parallel_event_route_failed, SuperNode, FromWorker, {Err, Reason}}),
+          ?LOG_ERROR(
+            "Client ~p failed routing parallel event_id=~p to super node ~p reason=~p",
+            [ClientName, EventID, SuperNode, {Err, Reason}]
+          ),
+          notify_parallel_abort(EtsRef, {parallel_event_route_failed, EventID, SuperNode, FromWorker, {Err, Reason}}),
           stats:increment_bad_messages(ClientStatsEts)
       end
   end.
+
+parallel_event_id(WorkerName, Direction, BatchID, MicrobatchID, StageID) ->
+  {parallel_event, WorkerName, Direction, BatchID, MicrobatchID, StageID}.
 
 notify_parallel_abort(EtsRef, Reason) ->
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),

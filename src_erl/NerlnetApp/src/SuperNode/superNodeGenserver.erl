@@ -33,12 +33,16 @@
   scheduler_trace = [],
   scheduler_cursor = 0,
   pending_grant = none,
+  pending_grant_issued_ms = 0,
+  grant_timeout_ms = 5000,
   parallel_active = false,
   phase_start_ms = 0,
+  last_parallel_event = none,
   last_abort = {none, 0}
 }).
 
 -define(HEARTBEAT_MISS_FACTOR, 3).
+-define(GRANT_TIMEOUT_FACTOR, 2).
 
 start_link(Args = {MyName, _ManagedClients, _HeartbeatMs, _MaxInflight, _NerlnetGraph}) ->
   gen_server:start_link({local, MyName}, ?MODULE, Args, []).
@@ -46,6 +50,7 @@ start_link(Args = {MyName, _ManagedClients, _HeartbeatMs, _MaxInflight, _Nerlnet
 init({MyName, ManagedClients, HeartbeatMs, MaxInflight, NerlnetGraph}) ->
   nerl_tools:setup_logger(?MODULE),
   inets:start(),
+  GrantTimeoutMs = erlang:max(5000, HeartbeatMs * ?HEARTBEAT_MISS_FACTOR * ?GRANT_TIMEOUT_FACTOR),
   WorkerToClientMap = ets:lookup_element(nerlnet_data, workers, ?DATA_IDX),
   RouterProbeDestination = case ManagedClients of
                              [Client | _] -> Client;
@@ -59,6 +64,7 @@ init({MyName, ManagedClients, HeartbeatMs, MaxInflight, NerlnetGraph}) ->
     managed_clients = ManagedClients,
     worker_to_client = WorkerToClientMap,
     heartbeat_ms = HeartbeatMs,
+    grant_timeout_ms = GrantTimeoutMs,
     max_inflight = MaxInflight,
     nerlnet_graph = NerlnetGraph,
     my_router = {RouterHost, RouterPort}
@@ -131,12 +137,25 @@ handle_cast(
   {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta},
   State = #super_node_state{}
 ) ->
+  EventID = parallel_event_id(FromWorker, Direction, BatchID, MicrobatchID, StageID),
   ?LOG_INFO(
-    "Super node received parallel event worker=~p direction=~p batch=~p microbatch=~p stage=~p meta=~p",
-    [FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta]
+    "Super node received parallel event worker=~p direction=~p batch=~p microbatch=~p stage=~p event_id=~p meta=~p",
+    [FromWorker, Direction, BatchID, MicrobatchID, StageID, EventID, Meta]
   ),
+  EventTsMs = erlang:system_time(millisecond),
+  StateWithLastEvent = State#super_node_state{
+    last_parallel_event = #{
+      event_id => EventID,
+      worker => FromWorker,
+      direction => Direction,
+      batch_id => BatchID,
+      microbatch_id => MicrobatchID,
+      stage_id => StageID,
+      at_ms => EventTsMs
+    }
+  },
   EventPayload = {parallel_event, FromWorker, Direction, MicrobatchID, StageID, {BatchID, Meta}},
-  case maybe_advance_scheduler(EventPayload, State) of
+  case maybe_advance_scheduler(EventPayload, StateWithLastEvent) of
     {abort, AbortReason, UpdatedState} ->
       {noreply, maybe_notify_parallel_abort(UpdatedState, AbortReason)};
     {ok, UpdatedState} ->
@@ -180,11 +199,12 @@ handle_info(check_heartbeats, State = #super_node_state{
             )
           end,
           State,
-          ManagedClients
+            ManagedClients
         )
     end,
+  StateAfterGrantTimeoutCheck = maybe_check_pending_grant_timeout(UpdatedState, NowMs),
   erlang:send_after(HeartbeatMs, self(), check_heartbeats),
-  {noreply, UpdatedState};
+  {noreply, StateAfterGrantTimeoutCheck};
 
 handle_info(_Info, State = #super_node_state{}) ->
   {noreply, State}.
@@ -229,6 +249,55 @@ maybe_check_client_heartbeat(
         true -> maybe_notify_parallel_abort(State, {heartbeat_timeout, ClientName, NowMs - LastTs});
         false -> State
       end
+  end.
+
+maybe_check_pending_grant_timeout(
+  State = #super_node_state{
+    parallel_active = ParallelActive,
+    pending_grant = PendingGrant,
+    pending_grant_issued_ms = PendingGrantIssuedMs,
+    grant_timeout_ms = GrantTimeoutMs,
+    last_parallel_event = LastParallelEvent
+  },
+  NowMs
+) ->
+  case {ParallelActive, PendingGrant, PendingGrantIssuedMs > 0} of
+    {true, Grant, true} when Grant =/= none ->
+      WaitMs = NowMs - PendingGrantIssuedMs,
+      case WaitMs > GrantTimeoutMs of
+        false ->
+          State;
+        true ->
+          PendingGrantSummary = pending_grant_summary(PendingGrant),
+          TimeoutReason = {
+            scheduler_grant_timeout,
+            PendingGrantSummary,
+            GrantTimeoutMs,
+            LastParallelEvent
+          },
+          ?LOG_WARNING(
+            "Super node grant timeout after ~p ms (threshold=~p) pending=~p last_event=~p",
+            [WaitMs, GrantTimeoutMs, PendingGrantSummary, LastParallelEvent]
+          ),
+          maybe_notify_parallel_abort(State, TimeoutReason)
+      end;
+    _ ->
+      State
+  end.
+
+pending_grant_summary(PendingGrant) ->
+  case normalize_pending_grant(PendingGrant) of
+    {ok, Direction, MicrobatchId, StageId, GrantedWorkers, AckedWorkers, EventID} ->
+      #{
+        direction => Direction,
+        microbatch_id => MicrobatchId,
+        stage_id => StageId,
+        workers => GrantedWorkers,
+        acked_workers => AckedWorkers,
+        event_id => EventID
+      };
+    {error, _Reason} ->
+      PendingGrant
   end.
 
 maybe_notify_parallel_abort(State = #super_node_state{
@@ -297,8 +366,10 @@ apply_parallel_phase_update(
     scheduler_trace = SchedulerTrace,
     scheduler_cursor = 0,
     pending_grant = none,
+    pending_grant_issued_ms = 0,
     parallel_active = ParallelActive,
-    phase_start_ms = PhaseStartMs
+    phase_start_ms = PhaseStartMs,
+    last_parallel_event = none
   },
   StateAfterConfig = push_parallel_config_to_managed_clients(StateAfterPhaseUpdate),
   case maybe_send_next_scheduler_grant(StateAfterConfig) of
@@ -419,7 +490,8 @@ issue_next_scheduler_grant(
           true ->
             State#super_node_state{
               scheduler_cursor = 0,
-              pending_grant = none
+              pending_grant = none,
+              pending_grant_issued_ms = 0
             };
           false ->
             State
@@ -430,15 +502,25 @@ issue_next_scheduler_grant(
         {error, Reason} ->
           {abort, Reason, EffectiveState};
         {ok, TargetWorkers, UpdatedStageRoundRobin} ->
+          EventID = grant_event_id(Direction, MicrobatchId, StageId, TargetWorkers),
+          GrantIssuedMs = erlang:system_time(millisecond),
           ?LOG_INFO(
-            "Super node issuing scheduler grant direction=~p microbatch=~p stage=~p targets=~p cursor=~p",
-            [Direction, MicrobatchId, StageId, TargetWorkers, EffectiveCursor]
+            "Super node issuing scheduler grant direction=~p microbatch=~p stage=~p targets=~p cursor=~p event_id=~p",
+            [Direction, MicrobatchId, StageId, TargetWorkers, EffectiveCursor, EventID]
           ),
           case send_scheduler_grants(EffectiveState, TargetWorkers, Direction, MicrobatchId, StageId) of
             ok ->
               {ok, EffectiveState#super_node_state{
                 stage_rr = UpdatedStageRoundRobin,
-                pending_grant = {Direction, MicrobatchId, StageId, TargetWorkers, []}
+                pending_grant = #{
+                  direction => Direction,
+                  microbatch_id => MicrobatchId,
+                  stage_id => StageId,
+                  workers => TargetWorkers,
+                  acked_workers => [],
+                  event_id => EventID
+                },
+                pending_grant_issued_ms = GrantIssuedMs
               }};
             {error, RouteReason} ->
               {abort,
@@ -730,62 +812,96 @@ validate_scheduler_grant(
   {abort, {scheduler_event_without_grant, ExpectedEvent}, State};
 validate_scheduler_grant(
   FromWorker,
-  {Direction, MicrobatchId, Stage, GrantedWorkers, AckedWorkers},
-  {Direction, MicrobatchId, Stage},
+  PendingGrantRaw,
+  ExpectedEvent = {Direction, MicrobatchId, Stage},
   State,
   Cursor
 ) ->
-  case (FromWorker =:= undefined) orelse (not lists:member(FromWorker, GrantedWorkers)) of
-    true ->
-      {abort, {scheduler_grant_worker_mismatch, GrantedWorkers, FromWorker}, State};
-    false ->
-      case lists:member(FromWorker, AckedWorkers) of
-        true ->
-          {abort, {scheduler_duplicate_worker_event, FromWorker, {Direction, MicrobatchId, Stage}}, State};
+  case normalize_pending_grant(PendingGrantRaw) of
+    {error, NormalizeReason} ->
+      {abort, {invalid_pending_grant, PendingGrantRaw, NormalizeReason}, State};
+    {ok, GrantDirection, GrantMicrobatchId, GrantStage, GrantedWorkers, AckedWorkers, EventID} ->
+      case {GrantDirection, GrantMicrobatchId, GrantStage} =:= ExpectedEvent of
         false ->
-          UpdatedAckedWorkers = lists:usort([FromWorker | AckedWorkers]),
-          case lists:sort(UpdatedAckedWorkers) =:= lists:sort(GrantedWorkers) of
+          {abort, {scheduler_grant_mismatch, PendingGrantRaw, ExpectedEvent}, State};
+        true ->
+          case (FromWorker =:= undefined) orelse (not lists:member(FromWorker, GrantedWorkers)) of
             true ->
-              ?LOG_INFO(
-                "Super node grant fully acknowledged workers=~p direction=~p microbatch=~p stage=~p",
-                [GrantedWorkers, Direction, MicrobatchId, Stage]
-              ),
-              {ok, State#super_node_state{
-                scheduler_cursor = Cursor + 1,
-                pending_grant = none
-              }};
+              {abort, {scheduler_grant_worker_mismatch, GrantedWorkers, FromWorker}, State};
             false ->
-              ?LOG_INFO(
-                "Super node grant partial ack worker=~p acked=~p granted=~p direction=~p microbatch=~p stage=~p",
-                [FromWorker, UpdatedAckedWorkers, GrantedWorkers, Direction, MicrobatchId, Stage]
-              ),
-              {ok, State#super_node_state{
-                pending_grant = {Direction, MicrobatchId, Stage, GrantedWorkers, UpdatedAckedWorkers}
-              }}
+              case lists:member(FromWorker, AckedWorkers) of
+                true ->
+                  {abort, {scheduler_duplicate_worker_event, FromWorker, {Direction, MicrobatchId, Stage}}, State};
+                false ->
+                  UpdatedAckedWorkers = lists:usort([FromWorker | AckedWorkers]),
+                  case lists:sort(UpdatedAckedWorkers) =:= lists:sort(GrantedWorkers) of
+                    true ->
+                      ?LOG_INFO(
+                        "Super node grant fully acknowledged workers=~p direction=~p microbatch=~p stage=~p event_id=~p",
+                        [GrantedWorkers, Direction, MicrobatchId, Stage, EventID]
+                      ),
+                      {ok, State#super_node_state{
+                        scheduler_cursor = Cursor + 1,
+                        pending_grant = none,
+                        pending_grant_issued_ms = 0
+                      }};
+                    false ->
+                      ?LOG_INFO(
+                        "Super node grant partial ack worker=~p acked=~p granted=~p direction=~p microbatch=~p stage=~p event_id=~p",
+                        [FromWorker, UpdatedAckedWorkers, GrantedWorkers, Direction, MicrobatchId, Stage, EventID]
+                      ),
+                      {ok, State#super_node_state{
+                        pending_grant = #{
+                          direction => Direction,
+                          microbatch_id => MicrobatchId,
+                          stage_id => Stage,
+                          workers => GrantedWorkers,
+                          acked_workers => UpdatedAckedWorkers,
+                          event_id => EventID
+                        }
+                      }}
+                  end
+              end
           end
       end
+  end.
+
+normalize_pending_grant(none) ->
+  {error, none};
+normalize_pending_grant(PendingGrant) when is_map(PendingGrant) ->
+  try
+    Direction = maps:get(direction, PendingGrant),
+    MicrobatchId = maps:get(microbatch_id, PendingGrant),
+    StageId = maps:get(stage_id, PendingGrant),
+    WorkersRaw = maps:get(workers, PendingGrant),
+    AckedRaw = maps:get(acked_workers, PendingGrant, []),
+    Workers = normalize_granted_workers(WorkersRaw),
+    AckedWorkers = normalize_granted_workers(AckedRaw),
+    EventID = maps:get(event_id, PendingGrant, grant_event_id(Direction, MicrobatchId, StageId, Workers)),
+    {ok, Direction, MicrobatchId, StageId, Workers, AckedWorkers, EventID}
+  catch
+    _:Reason ->
+      {error, Reason}
   end;
-validate_scheduler_grant(
-  FromWorker,
-  {Direction, MicrobatchId, Stage, GrantedWorker},
-  {Direction, MicrobatchId, Stage},
-  State,
-  Cursor
-) ->
-  case (FromWorker =:= undefined) orelse (FromWorker =:= GrantedWorker) of
-    true ->
-      {ok, State#super_node_state{
-        scheduler_cursor = Cursor + 1,
-        pending_grant = none
-      }};
-    false ->
-      {abort, {scheduler_grant_worker_mismatch, GrantedWorker, FromWorker}, State}
-  end;
-validate_scheduler_grant(
-  _FromWorker,
-  PendingGrant,
-  ExpectedEvent,
-  State,
-  _Cursor
-) ->
-  {abort, {scheduler_grant_mismatch, PendingGrant, ExpectedEvent}, State}.
+normalize_pending_grant({Direction, MicrobatchId, StageId, GrantedWorkers, AckedWorkers}) ->
+  Workers = normalize_granted_workers(GrantedWorkers),
+  Acked = normalize_granted_workers(AckedWorkers),
+  EventID = grant_event_id(Direction, MicrobatchId, StageId, Workers),
+  {ok, Direction, MicrobatchId, StageId, Workers, Acked, EventID};
+normalize_pending_grant({Direction, MicrobatchId, StageId, GrantedWorker}) ->
+  Workers = normalize_granted_workers([GrantedWorker]),
+  EventID = grant_event_id(Direction, MicrobatchId, StageId, Workers),
+  {ok, Direction, MicrobatchId, StageId, Workers, [], EventID};
+normalize_pending_grant(Unexpected) ->
+  {error, {unsupported_pending_grant, Unexpected}}.
+
+normalize_granted_workers(Workers) when is_list(Workers) ->
+  lists:usort(Workers);
+normalize_granted_workers(Worker) ->
+  [Worker].
+
+grant_event_id(Direction, MicrobatchId, StageId, Workers) ->
+  {scheduler_grant, Direction, MicrobatchId, StageId, lists:sort(Workers)}.
+
+parallel_event_id(WorkerName, Direction, BatchID, MicrobatchID, StageID) ->
+  {parallel_event, WorkerName, Direction, BatchID, MicrobatchID, StageID}.

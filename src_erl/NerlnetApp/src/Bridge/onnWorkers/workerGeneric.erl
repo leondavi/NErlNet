@@ -1028,18 +1028,19 @@ augment_train_params_with_parallel_cfg(TrainParams, WorkerParallelCfg) ->
 
 emit_parallel_event(WorkerName, Direction, BatchID, MicrobatchID, StageID, Meta) ->
   GenWorkerEts = get(generic_worker_ets),
+  EventID = parallel_event_id(WorkerName, Direction, BatchID, MicrobatchID, StageID),
   case maybe_consume_parallel_scheduler_grant(GenWorkerEts, Direction, MicrobatchID, StageID) of
     ok ->
       ?LOG_INFO(
-        "Worker ~p emits parallel event direction=~p batch=~p microbatch=~p stage=~p (grant-consumed)",
-        [WorkerName, Direction, BatchID, MicrobatchID, StageID]
+        "Worker ~p emits parallel event direction=~p batch=~p microbatch=~p stage=~p event_id=~p (grant-consumed)",
+        [WorkerName, Direction, BatchID, MicrobatchID, StageID, EventID]
       ),
       gen_statem:cast(get(client_pid), {parallel_event, WorkerName, Direction, BatchID, MicrobatchID, StageID, Meta}),
       ok;
     {error, no_scheduler_grant} ->
       ?LOG_INFO(
-        "Worker ~p waits for super-node scheduler grant direction=~p microbatch=~p stage=~p",
-        [WorkerName, Direction, MicrobatchID, StageID]
+        "Worker ~p waits for super-node scheduler grant direction=~p microbatch=~p stage=~p event_id=~p",
+        [WorkerName, Direction, MicrobatchID, StageID, EventID]
       ),
       {error, no_scheduler_grant};
     {error, GrantReason} ->
@@ -1049,6 +1050,9 @@ emit_parallel_event(WorkerName, Direction, BatchID, MicrobatchID, StageID, Meta)
       ),
       {error, GrantReason}
   end.
+
+parallel_event_id(WorkerName, Direction, BatchID, MicrobatchID, StageID) ->
+  {parallel_event, WorkerName, Direction, BatchID, MicrobatchID, StageID}.
 
 maybe_emit_parallel_forward_event(tensor, _WorkerName, _BatchID, _MicrobatchID, _StageID) ->
   ok;

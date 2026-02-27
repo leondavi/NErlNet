@@ -58,6 +58,10 @@ Implemented and working today:
   - workers in `wait` now detect empty active parallel context and fast-transition `wait -> train|predict` when replaying deferred samples.
   - replayed samples are re-cast immediately in the target phase state instead of being re-queued back into `parallel_deferred_samples`.
   - this removes the batch-turnover requeue loop that can manifest as batch-0-only progression while source batches continue streaming.
+- Runtime liveness diagnostics + deterministic timeout abort hardening:
+  - Worker/Client/Super Node logs now include the same deterministic per-event id tuple (`{parallel_event, Worker, Direction, Batch, Microbatch, Stage}`) so one event can be traced end-to-end across devices.
+  - Client `parallelEvent` forwarding now logs router request latency and router reply payload on success, and logs explicit event-id-tagged failure context on route errors.
+  - Super Node tracks pending scheduler grant issue timestamps and emits deterministic `scheduler_grant_timeout` aborts when a grant is not acknowledged in time, including expected grant summary and last seen parallel event metadata.
 
 ---
 
