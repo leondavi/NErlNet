@@ -80,8 +80,10 @@
 - Worker/Client/Super Node now log a shared deterministic parallel event id tuple: `{parallel_event, Worker, Direction, Batch, Microbatch, Stage}`.
 - Client logs for `parallelEvent` include router latency (`latency_us`) and router reply payload, allowing transport-level confirmation for each forwarded event.
 - Super Node keeps pending-grant issue timestamps and runs a watchdog that emits deterministic `scheduler_grant_timeout` aborts with expected grant summary + last seen parallel event metadata.
+- Main Server `clientAck` handling is hardened for abort/reset races: if `active_phase` is already cleared (`none|undefined`), phase result upload is skipped safely and result ETS is cleaned.
 - `pipeline` mode stage execution is Torch-only and requires pipeline metadata (`pipelineStage`, `pipelineWorldSize`) on workers.
 - `pipeline` mode currently enforces exactly one worker per pipeline stage per phase target set; use `pipeline_tensor` for multi-worker stage layouts.
+- For `mode in {pipeline, pipeline_tensor}`, `sourcePieces[].workers` must reference stage-0 workers only (source ingress guard is enforced by API parse + planner validation).
 - In `pipeline` training, last-stage workers emit/queue backward scheduler events after last-stage forward/backward compute so Super Node backward grants can be acknowledged deterministically.
 - In `pipeline` training, backward payload dispatch is grant-aware by microbatch id (`dispatch_pipeline_backward_buffer_by_grant`) to avoid head-of-line deadlocks when payload arrival order differs from backward grant order.
 - In `pipeline` prediction, non-last stages (including stage0) finalize local batch context after all local microbatches are dispatched and then dequeue deferred source samples, preventing batch-0-only stall.
@@ -95,6 +97,7 @@
 - `pipeline_tensor` uses forward-only scheduler grants, while TP collectives execute per `tpPlan` entry with deterministic `{batch,microbatch,layer,mode}` collective tokens.
 - Super Node scheduler trace is forward-only for prediction phase (`phaseType=prediction`) even in `mode=pipeline`, preventing backward-grant deadlocks during prediction.
 - Torch pipeline stage0 prediction now accepts both feature-only microbatches and feature+label-span microbatches, normalizing input shape before local stage execution.
+- Torch stage-training APIs now carry both `batch_id` and `microbatch_id`; delayed backward stage context is keyed by `{batch_id, microbatch_id}` to prevent cross-batch microbatch-id collisions.
 
 ## Web planner (web/nerl-planner)
 - `NerlnetPlanner.sh` only runs the planner dev server (`npm install`, `npm run dev -- --open`).

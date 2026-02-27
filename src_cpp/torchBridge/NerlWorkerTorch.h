@@ -32,10 +32,10 @@ public:
 	TorchTensor train_microbatch(const TorchTensor &batch, long microbatch_id);
 	void optimizer_barrier();
 	TorchTensor predict_batch(const TorchTensor &batch);
-	std::tuple<TorchTensor, TorchTensor> pipeline_stage0_forward(const TorchTensor &batch, long microbatch_id);
-	std::tuple<TorchTensor, TorchTensor> pipeline_stage_forward(const TorchTensor &activation, const TorchTensor &labels, long microbatch_id);
-	std::tuple<TorchTensor, TorchTensor> pipeline_stage_last_forward_backward(const TorchTensor &activation, const TorchTensor &labels, long microbatch_id);
-	TorchTensor pipeline_stage_backward(const TorchTensor &grad_output, long microbatch_id);
+	std::tuple<TorchTensor, TorchTensor> pipeline_stage0_forward(const TorchTensor &batch, long batch_id, long microbatch_id);
+	std::tuple<TorchTensor, TorchTensor> pipeline_stage_forward(const TorchTensor &activation, const TorchTensor &labels, long batch_id, long microbatch_id);
+	std::tuple<TorchTensor, TorchTensor> pipeline_stage_last_forward_backward(const TorchTensor &activation, const TorchTensor &labels, long batch_id, long microbatch_id);
+	TorchTensor pipeline_stage_backward(const TorchTensor &grad_output, long batch_id, long microbatch_id);
 	TorchTensor pipeline_predict_stage0_forward(const TorchTensor &batch);
 	TorchTensor pipeline_predict_stage_forward(const TorchTensor &activation);
 	TorchTensor last_loss() const { return _last_loss; }
@@ -98,8 +98,9 @@ private:
 	static std::string tensor_dtype_to_string(const TorchTensor &tensor);
 	static std::string ivalue_type_to_string(const torch::jit::IValue &value);
 	std::string pipeline_layer_name(size_t idx) const;
-	void cache_pipeline_stage_context(long microbatch_id, const TorchTensor &stage_input, const TorchTensor &stage_output);
-	PipelineStageContext pop_pipeline_stage_context(long microbatch_id);
+	std::string pipeline_context_key(long batch_id, long microbatch_id) const;
+	void cache_pipeline_stage_context(long batch_id, long microbatch_id, const TorchTensor &stage_input, const TorchTensor &stage_output);
+	PipelineStageContext pop_pipeline_stage_context(long batch_id, long microbatch_id);
 	void clear_pipeline_stage_contexts();
 	TorchTensor train_batch_impl(const TorchTensor &batch, bool defer_optimizer_step, long microbatch_id);
 
@@ -128,7 +129,7 @@ private:
 	size_t _pipeline_stage_end_idx{0};
 	std::vector<torch::jit::script::Module> _pipeline_layers;
 	std::vector<std::string> _pipeline_layer_names;
-	std::unordered_map<long, PipelineStageContext> _pipeline_stage_contexts;
+	std::unordered_map<std::string, PipelineStageContext> _pipeline_stage_contexts;
 };
 
 } // namespace nerlnet

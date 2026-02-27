@@ -18,8 +18,6 @@ from parallel_scheduler import (
     infer_stage_world_size,
 )
 
-# Todo check imports and remove unused ones
-
 PARAM_CSV_DB_PATH = "csv_db_path"
 PARAM_BATCH_SIZE = "batch_size"
 
@@ -70,7 +68,6 @@ class ExperimentFlow():
     
     def generate_stats_aec(self, stats: Stats) -> Stats:
         assert stats is not None , "stats is None"
-        # TODO add assertion of AEC experiment type
         return StatsAEC(stats)
 
     def merge_stats(self, stats_list: list) -> Stats:
@@ -107,6 +104,11 @@ class ExperimentFlow():
             phase_type = phase[EXPFLOW_PHASES_PHASE_TYPE_FIELD]
             parallel_execution = self._parse_parallel_execution(phase)
             sourcePieces = phase[EXPFLOW_PHASES_PHASE_SOURCE_PIECES_FIELD]
+            self._validate_pipeline_source_piece_workers(
+                phase_name,
+                parallel_execution.get(EXPFLOW_PARALLEL_EXECUTION_MODE_FIELD, "legacy"),
+                sourcePieces,
+            )
             source_pieces_inst_list = []
             for source_piece in sourcePieces:
                 # build source piece instant 
@@ -286,18 +288,48 @@ class ExperimentFlow():
         for source_piece in source_pieces:
             if not isinstance(source_piece, dict):
                 continue
-            raw_workers = source_piece.get(EXPFLOW_PHASE_SOURCE_PIECES_WORKERS_FIELD, "")
-            if isinstance(raw_workers, str):
-                for worker_name in raw_workers.split(","):
-                    normalized_name = worker_name.strip()
-                    if normalized_name:
-                        workers.add(normalized_name)
-            elif isinstance(raw_workers, list):
-                for worker_name in raw_workers:
-                    normalized_name = str(worker_name).strip()
-                    if normalized_name:
-                        workers.add(normalized_name)
+            for worker_name in self._extract_source_piece_workers(source_piece):
+                workers.add(worker_name)
         return workers
+
+    def _extract_source_piece_workers(self, source_piece: dict):
+        raw_workers = source_piece.get(EXPFLOW_PHASE_SOURCE_PIECES_WORKERS_FIELD, "")
+        if isinstance(raw_workers, str):
+            return [worker_name.strip() for worker_name in raw_workers.split(",") if worker_name.strip()]
+        if isinstance(raw_workers, list):
+            return [str(worker_name).strip() for worker_name in raw_workers if str(worker_name).strip()]
+        return []
+
+    def _validate_pipeline_source_piece_workers(self, phase_name: str, phase_mode: str, source_pieces):
+        if phase_mode not in ("pipeline", "pipeline_tensor"):
+            return
+        if not isinstance(source_pieces, list):
+            return
+
+        worker_parallel_map = self.network_componenets.get_worker_parallel_map()
+        for source_piece in source_pieces:
+            if not isinstance(source_piece, dict):
+                continue
+            source_name = source_piece.get(EXPFLOW_PHASE_SOURCE_PIECES_SOURCE_NAME_FIELD, "")
+            source_workers = self._extract_source_piece_workers(source_piece)
+            if not source_workers:
+                raise ValueError(
+                    f"phase '{phase_name}' source '{source_name}' must target at least one stage-0 worker "
+                    f"when mode='{phase_mode}'"
+                )
+            for worker_name in source_workers:
+                worker_parallel = worker_parallel_map.get(worker_name, {})
+                stage = worker_parallel.get(PIPELINE_STAGE_FIELD)
+                if stage is None:
+                    raise ValueError(
+                        f"phase '{phase_name}' source '{source_name}' targets worker '{worker_name}' "
+                        f"without pipelineStage metadata. pipeline ingress must target stage 0 workers only"
+                    )
+                if int(stage) != 0:
+                    raise ValueError(
+                        f"phase '{phase_name}' source '{source_name}' targets worker '{worker_name}' "
+                        f"at pipelineStage={stage}. only stage 0 workers can receive source batches in mode='{phase_mode}'"
+                    )
 
     def _validate_pipeline_mode_worker_layout(self, phase_name: str, phase_workers: set):
         worker_parallel_map = self.network_componenets.get_worker_parallel_map()

@@ -292,6 +292,9 @@ export const validatePlannerState = (state: PlannerState): ValidationResult => {
   }
 
   const workerNames = new Set(state.workers.map((worker) => worker.name));
+  const workerPipelineStages = new Map(
+    state.workers.map((worker) => [worker.name, toNumber(worker.parallel.pipelineStage)])
+  );
   const modelIds = new Set(state.models.map((model) => model.id));
   const assignedWorkers = new Set(state.clients.flatMap((client) => client.workers));
   const superNodeNames = new Set(state.superNodes.map((superNode) => superNode.name));
@@ -698,6 +701,7 @@ export const validatePlannerState = (state: PlannerState): ValidationResult => {
 
   const phaseNames = new Set<string>();
   exp.phases.forEach((phase) => {
+    const parallelMode = phase.parallelExecution?.mode ?? 'legacy';
     if (!phase.phaseName.trim()) {
       addIssue(issues, 'error', 'Phase name is missing.', ['experiment']);
     } else if (phaseNames.has(phase.phaseName)) {
@@ -832,6 +836,25 @@ export const validatePlannerState = (state: PlannerState): ValidationResult => {
             `Source piece references unknown worker ${worker}.`,
             ['experiment']
           );
+          return;
+        }
+        if (parallelMode === 'pipeline' || parallelMode === 'pipeline_tensor') {
+          const stage = workerPipelineStages.get(worker);
+          if (stage === null || stage === undefined) {
+            addIssue(
+              issues,
+              'error',
+              `Phase ${phase.phaseName} source ${piece.sourceName} targets worker ${worker} without pipeline stage metadata.`,
+              ['experiment']
+            );
+          } else if (stage !== 0) {
+            addIssue(
+              issues,
+              'error',
+              `Phase ${phase.phaseName} source ${piece.sourceName} targets worker ${worker} at stage ${stage}; only stage 0 workers can receive source batches.`,
+              ['experiment']
+            );
+          }
         }
       });
       if (piece.workers.length === 0) {
@@ -839,6 +862,14 @@ export const validatePlannerState = (state: PlannerState): ValidationResult => {
           issues,
           'warning',
           `Source piece for ${piece.sourceName} has no workers assigned.`,
+          ['experiment']
+        );
+      }
+      if ((parallelMode === 'pipeline' || parallelMode === 'pipeline_tensor') && piece.workers.length === 0) {
+        addIssue(
+          issues,
+          'error',
+          `Phase ${phase.phaseName} source ${piece.sourceName} must target at least one stage 0 worker in ${parallelMode} mode.`,
           ['experiment']
         );
       }

@@ -321,17 +321,22 @@ static ERL_NIF_TERM optimizer_barrier_nif(ErlNifEnv* env, int argc, const ERL_NI
 
 static ERL_NIF_TERM pipeline_stage0_forward_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    enum {ARG_MODEL_ID, ARG_NERLTENSOR, ARG_NERLTENSOR_TYPE, ARG_MICROBATCH_ID};
+    enum {ARG_MODEL_ID, ARG_NERLTENSOR, ARG_NERLTENSOR_TYPE, ARG_BATCH_ID, ARG_MICROBATCH_ID};
     nifpp::str_atom ok_atom("ok");
     nifpp::str_atom stage_atom("pipeline_stage0_forward");
 
     try
     {
         unsigned long model_id = 0;
+        long batch_id = 0;
         long microbatch_id = 0;
         nifpp::str_atom tensor_type;
         nifpp::get_throws(env, argv[ARG_MODEL_ID], model_id);
         nifpp::get_throws(env, argv[ARG_NERLTENSOR_TYPE], tensor_type);
+        if (!enif_get_long(env, argv[ARG_BATCH_ID], &batch_id))
+        {
+            return enif_make_badarg(env);
+        }
         if (!enif_get_long(env, argv[ARG_MICROBATCH_ID], &microbatch_id))
         {
             return enif_make_badarg(env);
@@ -349,7 +354,7 @@ static ERL_NIF_TERM pipeline_stage0_forward_nif(ErlNifEnv* env, int argc, const 
             return make_pipeline_error(env, "pipeline_stage0_forward_missing_worker");
         }
 
-        auto [activation, labels] = worker->pipeline_stage0_forward(stage_input, microbatch_id);
+        auto [activation, labels] = worker->pipeline_stage0_forward(stage_input, batch_id, microbatch_id);
         activation = ensure_tensor_dtype(activation, dtype);
         labels = ensure_tensor_dtype(labels, dtype);
 
@@ -393,6 +398,7 @@ static ERL_NIF_TERM pipeline_stage_forward_nif(ErlNifEnv* env, int argc, const E
         ARG_ACTIVATION_TYPE,
         ARG_LABELS_TENSOR,
         ARG_LABELS_TYPE,
+        ARG_BATCH_ID,
         ARG_MICROBATCH_ID
     };
     nifpp::str_atom ok_atom("ok");
@@ -401,12 +407,17 @@ static ERL_NIF_TERM pipeline_stage_forward_nif(ErlNifEnv* env, int argc, const E
     try
     {
         unsigned long model_id = 0;
+        long batch_id = 0;
         long microbatch_id = 0;
         nifpp::str_atom activation_type;
         nifpp::str_atom labels_type;
         nifpp::get_throws(env, argv[ARG_MODEL_ID], model_id);
         nifpp::get_throws(env, argv[ARG_ACTIVATION_TYPE], activation_type);
         nifpp::get_throws(env, argv[ARG_LABELS_TYPE], labels_type);
+        if (!enif_get_long(env, argv[ARG_BATCH_ID], &batch_id))
+        {
+            return enif_make_badarg(env);
+        }
         if (!enif_get_long(env, argv[ARG_MICROBATCH_ID], &microbatch_id))
         {
             return enif_make_badarg(env);
@@ -426,7 +437,7 @@ static ERL_NIF_TERM pipeline_stage_forward_nif(ErlNifEnv* env, int argc, const E
             return make_pipeline_error(env, "pipeline_stage_forward_missing_worker");
         }
 
-        auto [stage_output, forwarded_labels] = worker->pipeline_stage_forward(activation, labels, microbatch_id);
+        auto [stage_output, forwarded_labels] = worker->pipeline_stage_forward(activation, labels, batch_id, microbatch_id);
         stage_output = ensure_tensor_dtype(stage_output, activation_dtype);
         forwarded_labels = ensure_tensor_dtype(forwarded_labels, labels_dtype);
 
@@ -470,6 +481,7 @@ static ERL_NIF_TERM pipeline_stage_last_forward_backward_nif(ErlNifEnv* env, int
         ARG_ACTIVATION_TYPE,
         ARG_LABELS_TENSOR,
         ARG_LABELS_TYPE,
+        ARG_BATCH_ID,
         ARG_MICROBATCH_ID
     };
     nifpp::str_atom ok_atom("ok");
@@ -478,12 +490,17 @@ static ERL_NIF_TERM pipeline_stage_last_forward_backward_nif(ErlNifEnv* env, int
     try
     {
         unsigned long model_id = 0;
+        long batch_id = 0;
         long microbatch_id = 0;
         nifpp::str_atom activation_type;
         nifpp::str_atom labels_type;
         nifpp::get_throws(env, argv[ARG_MODEL_ID], model_id);
         nifpp::get_throws(env, argv[ARG_ACTIVATION_TYPE], activation_type);
         nifpp::get_throws(env, argv[ARG_LABELS_TYPE], labels_type);
+        if (!enif_get_long(env, argv[ARG_BATCH_ID], &batch_id))
+        {
+            return enif_make_badarg(env);
+        }
         if (!enif_get_long(env, argv[ARG_MICROBATCH_ID], &microbatch_id))
         {
             return enif_make_badarg(env);
@@ -503,7 +520,7 @@ static ERL_NIF_TERM pipeline_stage_last_forward_backward_nif(ErlNifEnv* env, int
             return make_pipeline_error(env, "pipeline_stage_last_missing_worker");
         }
 
-        auto [loss_tensor, grad_input] = worker->pipeline_stage_last_forward_backward(activation, labels, microbatch_id);
+        auto [loss_tensor, grad_input] = worker->pipeline_stage_last_forward_backward(activation, labels, batch_id, microbatch_id);
         loss_tensor = ensure_tensor_dtype(loss_tensor, labels_dtype);
         grad_input = ensure_tensor_dtype(grad_input, activation_dtype);
 
@@ -540,17 +557,22 @@ static ERL_NIF_TERM pipeline_stage_last_forward_backward_nif(ErlNifEnv* env, int
 
 static ERL_NIF_TERM pipeline_stage_backward_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    enum {ARG_MODEL_ID, ARG_GRAD_TENSOR, ARG_GRAD_TYPE, ARG_MICROBATCH_ID};
+    enum {ARG_MODEL_ID, ARG_GRAD_TENSOR, ARG_GRAD_TYPE, ARG_BATCH_ID, ARG_MICROBATCH_ID};
     nifpp::str_atom ok_atom("ok");
     nifpp::str_atom stage_atom("pipeline_stage_backward");
 
     try
     {
         unsigned long model_id = 0;
+        long batch_id = 0;
         long microbatch_id = 0;
         nifpp::str_atom grad_type;
         nifpp::get_throws(env, argv[ARG_MODEL_ID], model_id);
         nifpp::get_throws(env, argv[ARG_GRAD_TYPE], grad_type);
+        if (!enif_get_long(env, argv[ARG_BATCH_ID], &batch_id))
+        {
+            return enif_make_badarg(env);
+        }
         if (!enif_get_long(env, argv[ARG_MICROBATCH_ID], &microbatch_id))
         {
             return enif_make_badarg(env);
@@ -568,7 +590,7 @@ static ERL_NIF_TERM pipeline_stage_backward_nif(ErlNifEnv* env, int argc, const 
             return make_pipeline_error(env, "pipeline_stage_backward_missing_worker");
         }
 
-        auto grad_input = worker->pipeline_stage_backward(grad_output, microbatch_id);
+        auto grad_input = worker->pipeline_stage_backward(grad_output, batch_id, microbatch_id);
         grad_input = ensure_tensor_dtype(grad_input, grad_dtype);
 
         nifpp::TERM encoded_grad_input;
@@ -857,10 +879,10 @@ static ErlNifFunc nif_funcs[] =
     {"train_nif", 3 , train_nif},
     {"train_microbatch_nif", 4, train_microbatch_nif},
     {"optimizer_barrier_nif", 1, optimizer_barrier_nif},
-    {"pipeline_stage0_forward_nif", 4, pipeline_stage0_forward_nif},
-    {"pipeline_stage_forward_nif", 6, pipeline_stage_forward_nif},
-    {"pipeline_stage_last_forward_backward_nif", 6, pipeline_stage_last_forward_backward_nif},
-    {"pipeline_stage_backward_nif", 4, pipeline_stage_backward_nif},
+    {"pipeline_stage0_forward_nif", 5, pipeline_stage0_forward_nif},
+    {"pipeline_stage_forward_nif", 7, pipeline_stage_forward_nif},
+    {"pipeline_stage_last_forward_backward_nif", 7, pipeline_stage_last_forward_backward_nif},
+    {"pipeline_stage_backward_nif", 5, pipeline_stage_backward_nif},
     {"pipeline_predict_stage0_forward_nif", 3, pipeline_predict_stage0_forward_nif},
     {"pipeline_predict_stage_forward_nif", 3, pipeline_predict_stage_forward_nif},
     {"predict_nif", 3 , predict_nif},

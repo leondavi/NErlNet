@@ -305,14 +305,26 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList =
             NothingToSend = string:is_empty(PhaseResultsDataMap),
             if 
               NothingToSend -> pass;
-              true ->  Action = case get(active_phase) of
-                                        training -> trainRes;
-                                        prediction -> predRes
-                                    end,
-                            {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX), % get main_server's router
-                            nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(Action), {json, PhaseResultsDataMap}),
-                            stats:increment_messages_sent(StatsEts),
-                            clean_phase_result_data_to_send_ets() % getting ready for next phase after data was sent to APIServer
+              true ->
+                case get(active_phase) of
+                  training ->
+                    {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX), % get main_server's router
+                    nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(trainRes), {json, PhaseResultsDataMap}),
+                    stats:increment_messages_sent(StatsEts),
+                    clean_phase_result_data_to_send_ets(); % getting ready for next phase after data was sent to APIServer
+                  prediction ->
+                    {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX), % get main_server's router
+                    nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(predRes), {json, PhaseResultsDataMap}),
+                    stats:increment_messages_sent(StatsEts),
+                    clean_phase_result_data_to_send_ets();
+                  UnexpectedPhase ->
+                    % late client ack can arrive after deterministic abort/reset when active_phase was cleared.
+                    ?LOG_WARNING(
+                      "[Main-Server] skipping phase result upload because active_phase is ~p",
+                      [UnexpectedPhase]
+                    ),
+                    clean_phase_result_data_to_send_ets()
+                end
             end,
             ack(atom_to_list(get(curr_phase_ack)));
     true-> ok 

@@ -67,6 +67,14 @@ Implemented and working today:
   - Clients tag forwarded parallel events with `{parallel_meta, phase_epoch, payload}`; Super Node ignores stale-epoch events instead of mismatching current trace.
   - Non-legacy client idle transitions now request Super Node phase close (`/parallelPhaseClose`) and wait for `phase_close_granted` before idling workers.
   - If a grant arrives during closing/idle or with stale epoch, client rejects it deterministically and reports via `/schedulerGrantRejected`; Super Node consumes this as terminal grant ack when it matches the pending grant.
+- Post-abort late-ack hardening:
+  - Main Server `clientAck` path now handles `active_phase=none|undefined` safely, logs a skip, clears pending result ETS, and does not crash.
+- Batch-aware pipeline stage-context hardening:
+  - Torch stage context cache keys are now `{batch_id, microbatch_id}` (not microbatch-only) to avoid cross-batch collisions.
+  - Stage NIF surfaces now accept explicit `batch_id` for stage0/stage/last-stage/backward compute calls.
+- Pipeline ingress validation hardening:
+  - API-side experiment flow validation now rejects `pipeline|pipeline_tensor` source pieces targeting non-stage0 workers.
+  - Planner validation mirrors the same rule before export.
 
 ---
 
@@ -145,6 +153,7 @@ Key changes:
 - Keeps direct client `parallelMode`/`parallelExecution` fanout only for legacy/reset paths.
 - Non-legacy configuration authority is delegated to Super Node command fanout.
 - Handles `/parallelAbort` with fail-fast transition to idle and ACK back to API server.
+- Handles late `clientAck` after abort/reset without crashing when `active_phase` was already cleared.
 
 ### P0.3 Client statem cutover and terminal delivery path
 - Modified:
@@ -261,6 +270,7 @@ Checks enforced:
 - `microBatchSize * numMicroBatches == phase batchSize`.
 - pipeline mode requires pipeline worker metadata and stage world >= 2.
 - pipeline mode currently enforces exactly one worker per pipeline stage (for that phase target set); multi-worker stages must use `mode=pipeline_tensor`.
+- for `mode in {pipeline, pipeline_tensor}`, each `sourcePieces[].workers` target must be stage-0 workers only (pipeline ingress guard).
 - tensor modes require TP metadata.
 
 ### P1.5 API transmitter + event sync
@@ -286,14 +296,14 @@ Key changes:
 New API/behavior:
 - `train_microbatch(batch, microbatch_id)`
 - `optimizer_barrier()`
-- `pipeline_stage0_forward(batch, microbatch_id)`
-- `pipeline_stage_forward(activation, labels, microbatch_id)`
-- `pipeline_stage_last_forward_backward(activation, labels, microbatch_id)`
-- `pipeline_stage_backward(grad_output, microbatch_id)`
+- `pipeline_stage0_forward(batch, batch_id, microbatch_id)`
+- `pipeline_stage_forward(activation, labels, batch_id, microbatch_id)`
+- `pipeline_stage_last_forward_backward(activation, labels, batch_id, microbatch_id)`
+- `pipeline_stage_backward(grad_output, batch_id, microbatch_id)`
 - `pipeline_predict_stage0_forward(batch)`
 - `pipeline_predict_stage_forward(activation)`
 - internal deferred gradient accumulation state (`_has_deferred_gradients`, `_deferred_microbatch_count`).
-- per-microbatch stage activation cache for delayed backward (`_pipeline_stage_contexts`).
+- stage activation cache keyed by `{batch_id, microbatch_id}` for delayed backward (`_pipeline_stage_contexts`).
 - stage-layer partition computed from worker `pipeline_stage/pipeline_world_size` metadata.
 
 Semantics:
@@ -313,10 +323,10 @@ Semantics:
 Added NIF functions:
 - `train_microbatch_nif/4`
 - `optimizer_barrier_nif/1`
-- `pipeline_stage0_forward_nif/4`
-- `pipeline_stage_forward_nif/6`
-- `pipeline_stage_last_forward_backward_nif/6`
-- `pipeline_stage_backward_nif/4`
+- `pipeline_stage0_forward_nif/5` (`model, data, type, batch_id, microbatch_id`)
+- `pipeline_stage_forward_nif/7` (`model, activation, activation_type, labels, labels_type, batch_id, microbatch_id`)
+- `pipeline_stage_last_forward_backward_nif/7` (`model, activation, activation_type, labels, labels_type, batch_id, microbatch_id`)
+- `pipeline_stage_backward_nif/5` (`model, grad, grad_type, batch_id, microbatch_id`)
 - `pipeline_predict_stage0_forward_nif/3`
 - `pipeline_predict_stage_forward_nif/3`
 

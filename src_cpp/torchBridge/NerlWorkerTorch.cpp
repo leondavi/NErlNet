@@ -630,20 +630,29 @@ TorchTensor NerlWorkerTorch::run_pipeline_stage_layers(const TorchTensor &stage_
 	return output;
 }
 
-void NerlWorkerTorch::cache_pipeline_stage_context(long microbatch_id, const TorchTensor &stage_input, const TorchTensor &stage_output)
+std::string NerlWorkerTorch::pipeline_context_key(long batch_id, long microbatch_id) const
+{
+	return std::to_string(batch_id) + ":" + std::to_string(microbatch_id);
+}
+
+void NerlWorkerTorch::cache_pipeline_stage_context(long batch_id, long microbatch_id, const TorchTensor &stage_input, const TorchTensor &stage_output)
 {
 	PipelineStageContext context;
 	context.stage_input = stage_input;
 	context.stage_output = stage_output;
-	_pipeline_stage_contexts[microbatch_id] = context;
+	_pipeline_stage_contexts[pipeline_context_key(batch_id, microbatch_id)] = context;
 }
 
-NerlWorkerTorch::PipelineStageContext NerlWorkerTorch::pop_pipeline_stage_context(long microbatch_id)
+NerlWorkerTorch::PipelineStageContext NerlWorkerTorch::pop_pipeline_stage_context(long batch_id, long microbatch_id)
 {
-	auto it = _pipeline_stage_contexts.find(microbatch_id);
+	const std::string context_key = pipeline_context_key(batch_id, microbatch_id);
+	auto it = _pipeline_stage_contexts.find(context_key);
 	if (it == _pipeline_stage_contexts.end())
 	{
-		throw std::runtime_error("Missing pipeline stage context for microbatch " + std::to_string(microbatch_id));
+		throw std::runtime_error(
+			"Missing pipeline stage context for batch " + std::to_string(batch_id)
+			+ " microbatch " + std::to_string(microbatch_id)
+		);
 	}
 	PipelineStageContext context = it->second;
 	_pipeline_stage_contexts.erase(it);
@@ -655,7 +664,7 @@ void NerlWorkerTorch::clear_pipeline_stage_contexts()
 	_pipeline_stage_contexts.clear();
 }
 
-std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage0_forward(const TorchTensor &batch, long microbatch_id)
+std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage0_forward(const TorchTensor &batch, long batch_id, long microbatch_id)
 {
 	if (!_pipeline_enabled)
 	{
@@ -679,7 +688,7 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage0_forward(co
 
 	TorchTensor stage_input = slices.inputs.detach().set_requires_grad(true);
 	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, true, microbatch_id);
-	cache_pipeline_stage_context(microbatch_id, stage_input, stage_output);
+	cache_pipeline_stage_context(batch_id, microbatch_id, stage_input, stage_output);
 	_last_prediction = stage_output.detach();
 	return {stage_output.detach().clone(), slices.labels.detach().clone()};
 }
@@ -687,6 +696,7 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage0_forward(co
 std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_forward(
 	const TorchTensor &activation,
 	const TorchTensor &labels,
+	long batch_id,
 	long microbatch_id
 )
 {
@@ -710,7 +720,7 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_forward(
 
 	TorchTensor stage_input = ensure_training_dtype(activation).detach().set_requires_grad(true);
 	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, true, microbatch_id);
-	cache_pipeline_stage_context(microbatch_id, stage_input, stage_output);
+	cache_pipeline_stage_context(batch_id, microbatch_id, stage_input, stage_output);
 	_last_prediction = stage_output.detach();
 	return {stage_output.detach().clone(), ensure_training_dtype(labels).detach().clone()};
 }
@@ -718,6 +728,7 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_forward(
 std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_last_forward_backward(
 	const TorchTensor &activation,
 	const TorchTensor &labels,
+	long batch_id,
 	long microbatch_id
 )
 {
@@ -750,7 +761,8 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_last_forwar
 	{
 		std::ostringstream oss;
 		oss << "Pipeline last stage prediction element mismatch. pred=" << stage_output.numel()
-			<< " labels=" << target_labels.numel() << " microbatch=" << microbatch_id;
+			<< " labels=" << target_labels.numel() << " batch=" << batch_id
+			<< " microbatch=" << microbatch_id;
 		throw std::runtime_error(oss.str());
 	}
 	if (stage_output.sizes() != target_labels.sizes())
@@ -771,14 +783,14 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_last_forwar
 	return {_last_loss.clone(), grad_input.detach().clone()};
 }
 
-TorchTensor NerlWorkerTorch::pipeline_stage_backward(const TorchTensor &grad_output, long microbatch_id)
+TorchTensor NerlWorkerTorch::pipeline_stage_backward(const TorchTensor &grad_output, long batch_id, long microbatch_id)
 {
 	if (!_pipeline_enabled)
 	{
 		throw std::runtime_error("pipeline_stage_backward called but pipeline partition is not enabled");
 	}
 
-	PipelineStageContext context = pop_pipeline_stage_context(microbatch_id);
+	PipelineStageContext context = pop_pipeline_stage_context(batch_id, microbatch_id);
 	TorchTensor local_grad = ensure_training_dtype(grad_output);
 	if (local_grad.scalar_type() != context.stage_output.scalar_type())
 	{
@@ -788,7 +800,8 @@ TorchTensor NerlWorkerTorch::pipeline_stage_backward(const TorchTensor &grad_out
 	{
 		std::ostringstream oss;
 		oss << "Pipeline backward gradient element mismatch. grad=" << local_grad.numel()
-			<< " output=" << context.stage_output.numel() << " microbatch=" << microbatch_id;
+			<< " output=" << context.stage_output.numel() << " batch=" << batch_id
+			<< " microbatch=" << microbatch_id;
 		throw std::runtime_error(oss.str());
 	}
 	if (local_grad.sizes() != context.stage_output.sizes())

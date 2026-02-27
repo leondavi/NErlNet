@@ -257,6 +257,29 @@ class ParallelSchemaTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "exactly one worker per pipeline stage"):
             exp._parse_parallel_execution(phase)
 
+    def test_pipeline_mode_rejects_non_stage0_source_targets(self) -> None:
+        components = NetworkComponents(_base_dc())
+        exp = ExperimentFlow("exp", 4, components, temp_data_path="/tmp/nerlnet_parallel_schema_tests")
+        source_pieces = [
+            {
+                "sourceName": "source_a",
+                "workers": "worker_b0",
+            }
+        ]
+        with self.assertRaisesRegex(ValueError, "only stage 0 workers can receive source batches"):
+            exp._validate_pipeline_source_piece_workers("train_1", "pipeline", source_pieces)
+
+    def test_pipeline_mode_accepts_stage0_source_targets(self) -> None:
+        components = NetworkComponents(_base_dc())
+        exp = ExperimentFlow("exp", 4, components, temp_data_path="/tmp/nerlnet_parallel_schema_tests")
+        source_pieces = [
+            {
+                "sourceName": "source_a",
+                "workers": "worker_a0",
+            }
+        ]
+        exp._validate_pipeline_source_piece_workers("train_1", "pipeline", source_pieces)
+
     def test_pipeline_stage_coverage_mismatch_rejected(self) -> None:
         dc = _base_dc()
         dc["workers"][1]["parallel"]["pipelineStage"] = 2

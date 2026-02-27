@@ -3,7 +3,7 @@
 -include("torchDefs.hrl").
 
 -export([init/0,nif_preload/0,get_active_models_ids_list/0, train_nif/3,train_microbatch_nif/4,optimizer_barrier_nif/1,
-         pipeline_stage0_forward_nif/4,pipeline_stage_forward_nif/6,pipeline_stage_last_forward_backward_nif/6,pipeline_stage_backward_nif/4,
+         pipeline_stage0_forward_nif/5,pipeline_stage_forward_nif/7,pipeline_stage_last_forward_backward_nif/7,pipeline_stage_backward_nif/5,
          pipeline_predict_stage0_forward_nif/3,pipeline_predict_stage_forward_nif/3,
          update_nerlworker_train_params_nif/6,call_to_train/4,call_to_train_microbatch/5,call_to_optimizer_barrier/1,
          call_to_pipeline_stage0_forward/4,call_to_pipeline_stage_forward/6,call_to_pipeline_stage_last_forward_backward/6,
@@ -81,16 +81,16 @@ train_microbatch_nif(_ModelID, _DataTensor, _Type, _MicrobatchID) ->
 optimizer_barrier_nif(_ModelID) ->
       exit(nif_library_not_loaded).
 
-pipeline_stage0_forward_nif(_ModelID, _DataTensor, _Type, _MicrobatchID) ->
+pipeline_stage0_forward_nif(_ModelID, _DataTensor, _Type, _BatchID, _MicrobatchID) ->
       exit(nif_library_not_loaded).
 
-pipeline_stage_forward_nif(_ModelID, _ActivationTensor, _ActivationType, _LabelsTensor, _LabelsType, _MicrobatchID) ->
+pipeline_stage_forward_nif(_ModelID, _ActivationTensor, _ActivationType, _LabelsTensor, _LabelsType, _BatchID, _MicrobatchID) ->
       exit(nif_library_not_loaded).
 
-pipeline_stage_last_forward_backward_nif(_ModelID, _ActivationTensor, _ActivationType, _LabelsTensor, _LabelsType, _MicrobatchID) ->
+pipeline_stage_last_forward_backward_nif(_ModelID, _ActivationTensor, _ActivationType, _LabelsTensor, _LabelsType, _BatchID, _MicrobatchID) ->
       exit(nif_library_not_loaded).
 
-pipeline_stage_backward_nif(_ModelID, _GradTensor, _GradType, _MicrobatchID) ->
+pipeline_stage_backward_nif(_ModelID, _GradTensor, _GradType, _BatchID, _MicrobatchID) ->
       exit(nif_library_not_loaded).
 
 pipeline_predict_stage0_forward_nif(_ModelID, _DataTensor, _Type) ->
@@ -157,17 +157,17 @@ call_to_optimizer_barrier(ModelID) ->
       TrainNegotiatorPID ! {optimizer_barrier, ModelID},
       ok.
 
-call_to_pipeline_stage0_forward(ModelID, {DataTensor, Type}, _BatchID, MicrobatchID) ->
-      pipeline_stage0_forward_nif(ModelID, DataTensor, Type, MicrobatchID).
+call_to_pipeline_stage0_forward(ModelID, {DataTensor, Type}, BatchID, MicrobatchID) ->
+      pipeline_stage0_forward_nif(ModelID, DataTensor, Type, BatchID, MicrobatchID).
 
-call_to_pipeline_stage_forward(ModelID, {ActivationTensor, ActivationType}, {LabelsTensor, LabelsType}, _BatchID, _SourceName, MicrobatchID) ->
-      pipeline_stage_forward_nif(ModelID, ActivationTensor, ActivationType, LabelsTensor, LabelsType, MicrobatchID).
+call_to_pipeline_stage_forward(ModelID, {ActivationTensor, ActivationType}, {LabelsTensor, LabelsType}, BatchID, _SourceName, MicrobatchID) ->
+      pipeline_stage_forward_nif(ModelID, ActivationTensor, ActivationType, LabelsTensor, LabelsType, BatchID, MicrobatchID).
 
-call_to_pipeline_stage_last_forward_backward(ModelID, {ActivationTensor, ActivationType}, {LabelsTensor, LabelsType}, _BatchID, _SourceName, MicrobatchID) ->
-      pipeline_stage_last_forward_backward_nif(ModelID, ActivationTensor, ActivationType, LabelsTensor, LabelsType, MicrobatchID).
+call_to_pipeline_stage_last_forward_backward(ModelID, {ActivationTensor, ActivationType}, {LabelsTensor, LabelsType}, BatchID, _SourceName, MicrobatchID) ->
+      pipeline_stage_last_forward_backward_nif(ModelID, ActivationTensor, ActivationType, LabelsTensor, LabelsType, BatchID, MicrobatchID).
 
-call_to_pipeline_stage_backward(ModelID, {GradTensor, GradType}, _BatchID, MicrobatchID) ->
-      pipeline_stage_backward_nif(ModelID, GradTensor, GradType, MicrobatchID).
+call_to_pipeline_stage_backward(ModelID, {GradTensor, GradType}, BatchID, MicrobatchID) ->
+      pipeline_stage_backward_nif(ModelID, GradTensor, GradType, BatchID, MicrobatchID).
 
 call_to_pipeline_predict_stage0_forward(ModelID, {DataTensor, Type}, _BatchID) ->
       pipeline_predict_stage0_forward_nif(ModelID, DataTensor, Type).

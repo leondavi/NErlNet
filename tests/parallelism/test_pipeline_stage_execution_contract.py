@@ -62,6 +62,8 @@ class PipelineStageExecutionContractTests(unittest.TestCase):
         self.assertIn("pipeline_stage_backward", content)
         self.assertIn("pipeline_predict_stage0_forward", content)
         self.assertIn("pipeline_predict_stage_forward", content)
+        self.assertIn("pipeline_context_key", content)
+        self.assertIn("Missing pipeline stage context for batch", content)
         self.assertIn("Torch pipeline partition stage=", content)
 
 

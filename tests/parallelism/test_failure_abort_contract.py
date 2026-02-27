@@ -36,6 +36,12 @@ class FailureAbortContractTests(unittest.TestCase):
         self.assertNotIn("{binary_to_atom(PhaseBin)", content)
         self.assertNotIn("{list_to_atom(Trimmed), legacy, none, #{}}", content)
 
+    def test_main_server_client_ack_handles_cleared_active_phase(self) -> None:
+        content = MAIN_SERVER_FILE.read_text(encoding="utf-8")
+        self.assertIn("skipping phase result upload because active_phase is", content)
+        self.assertIn("UnexpectedPhase ->", content)
+        self.assertIn("clean_phase_result_data_to_send_ets()", content)
+
     def test_super_node_heartbeat_checks_only_active_parallel_phase(self) -> None:
         content = SUPER_NODE_FILE.read_text(encoding="utf-8")
         self.assertIn("parallel_active = false", content)
