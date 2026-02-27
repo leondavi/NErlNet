@@ -73,9 +73,14 @@ class FailureAbortContractTests(unittest.TestCase):
         self.assertIn("finalize_parallel_phase_close", super_content)
         self.assertIn("broadcast_phase_close_granted", super_content)
         self.assertIn("handle_scheduler_grant_rejected", super_content)
+        self.assertIn("is_phase_close_reject_reason", super_content)
+        self.assertIn("phase_close_pending_before_global_barrier", super_content)
+        self.assertIn("scheduler_grant_rejection_storm", super_content)
         self.assertIn("maybe_request_super_phase_close(EtsRef, training)", client_content)
         self.assertIn("maybe_request_super_phase_close(EtsRef, prediction)", client_content)
         self.assertIn("scheduler_grant_reject_reason", client_content)
+        self.assertIn("parallel_phase_close_last_request_ms", client_content)
+        self.assertIn("PHASE_CLOSE_RETRY_MS", client_content)
 
 
 if __name__ == "__main__":

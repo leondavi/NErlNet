@@ -67,7 +67,10 @@ Implemented and working today:
   - Super Node now maintains a per-phase `phase_epoch` and includes it in scheduler grant identity (`event_id`).
   - Clients tag forwarded parallel events with `{parallel_meta, phase_epoch, payload}`; Super Node ignores stale-epoch events instead of mismatching current trace.
   - Non-legacy client idle transitions now request Super Node phase close (`/parallelPhaseClose`) and wait for `phase_close_granted` before idling workers.
-  - If a grant arrives during closing/idle or with stale epoch, client rejects it deterministically and reports via `/schedulerGrantRejected`; Super Node consumes this as terminal grant ack when it matches the pending grant.
+  - Client grant rejection is now gated by explicit close-request state (`parallel_phase_close_requested`) rather than raw `idle` request flag, preventing premature close-pending deadlocks during in-flight pipeline drain.
+  - Clients retry `/parallelPhaseClose` requests until grant (bounded retry interval) so transient route loss does not strand close handshake.
+  - Super Node interprets close-related `/schedulerGrantRejected` reasons as phase-close signals and either finalizes close or emits deterministic abort when global close barrier cannot be completed.
+  - Super Node includes a rejection-storm circuit breaker (`scheduler_grant_rejection_storm`) to fail fast instead of spinning grant/reject loops indefinitely.
 - Post-abort late-ack hardening:
   - Main Server `clientAck` path now handles `active_phase=none|undefined` safely, logs a skip, clears pending result ETS, and does not crash.
   - Main Server now ignores stale/duplicate client acks that are not in `clientsWaitingList`, so a late ack cannot erroneously complete a new phase barrier.

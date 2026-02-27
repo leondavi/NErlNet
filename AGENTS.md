@@ -74,7 +74,10 @@
 - Non-legacy phases now carry a Super Node epoch (`phase_epoch`): Super Node grants include epoch, clients tag forwarded `parallel_event` meta with epoch, and Super Node ignores stale-epoch events instead of aborting current phase state.
 - Client idle transition in non-legacy modes is phase-close-gated: clients request `parallelPhaseClose` from Super Node before idling workers, then wait for `phase_close_granted`.
 - Super Node phase-close barrier completes only after all managed clients requested close; then scheduler grants are disabled and `phase_close_granted` is broadcast.
-- If a scheduler grant arrives while client is closing/idle (or stale epoch), client rejects it deterministically and notifies Super Node via `schedulerGrantRejected` to avoid pending-grant timeout hangs.
+- Client no longer rejects scheduler grants solely because `idle` was requested; close-related grant rejection starts only after explicit `parallelPhaseClose` request state is set (or idle/waitforWorkers terminal states), preventing premature drain deadlocks.
+- Client phase-close requests are retried (bounded by `PHASE_CLOSE_RETRY_MS`) until `phase_close_granted`, so transient route loss cannot strand the client in close-pending.
+- Super Node treats close-related `schedulerGrantRejected` reasons as a phase-close signal and either finalizes close or emits deterministic abort if global close barrier cannot be completed, preventing infinite grant/reject loops.
+- Super Node includes a scheduler grant rejection storm circuit breaker (`scheduler_grant_rejection_storm`) that fails fast and disables scheduling instead of spinning indefinitely.
 - In non-legacy modes, workers buffer incoming `sample` messages while in `wait` state (`parallel_deferred_samples`) and dequeue deterministically after batch completion to avoid TP peer batch desynchronization.
 - If a deferred sample is replayed while the worker is still in `wait`, workers now fast-transition `wait -> train|predict` (when no active parallel batch context/buffers remain) and immediately re-cast that sample, preventing deferred requeue loops and batch-0-only turnover stalls.
 - Worker/Client/Super Node now log a shared deterministic parallel event id tuple: `{parallel_event, Worker, Direction, Batch, Microbatch, Stage}`.

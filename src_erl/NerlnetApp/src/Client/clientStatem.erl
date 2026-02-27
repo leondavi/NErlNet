@@ -28,6 +28,7 @@
 -define(WORKER_PID_IDX, 1).
 -define(W2W_PID_IDX, 2).
 -define(SERVER, ?MODULE).
+-define(PHASE_CLOSE_RETRY_MS, 1000).
 
 %% client ETS table: {WorkerName, WorkerPid, WorkerArgs, TimingTuple}
 %   myName - Client Name,
@@ -95,6 +96,7 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   ets:insert(EtsRef, {parallel_phase_epoch, 0}),
   ets:insert(EtsRef, {parallel_phase_close_requested, false}),
   ets:insert(EtsRef, {parallel_phase_close_granted, false}),
+  ets:insert(EtsRef, {parallel_phase_close_last_request_ms, 0}),
   ets:insert(EtsRef, {parallel_idle_requested, false}),
   ets:insert(EtsRef, {all_workers_done, false}),
   ets:insert(EtsRef, {num_of_fed_servers, 0}), % Will stay 0 if non-federated
@@ -777,6 +779,7 @@ cast_message_to_workers(EtsRef, Msg) ->
 reset_parallel_phase_close_state(EtsRef) ->
   ets:insert(EtsRef, {parallel_phase_close_requested, false}),
   ets:insert(EtsRef, {parallel_phase_close_granted, false}),
+  ets:insert(EtsRef, {parallel_phase_close_last_request_ms, 0}),
   ets:insert(EtsRef, {parallel_idle_requested, false}),
   ok.
 
@@ -815,10 +818,19 @@ should_gate_idle_with_super_close(EtsRef) ->
 
 maybe_request_super_phase_close(EtsRef, PhaseName) ->
   Requested = ets:lookup_element(EtsRef, parallel_phase_close_requested, ?DATA_IDX),
-  case Requested of
-    true ->
-      ok;
+  CloseGranted = ets:lookup_element(EtsRef, parallel_phase_close_granted, ?DATA_IDX),
+  LastRequestMs = ets:lookup_element(EtsRef, parallel_phase_close_last_request_ms, ?DATA_IDX),
+  NowMs = erlang:system_time(millisecond),
+  ShouldSend =
+    case {Requested, CloseGranted} of
+      {_AnyRequested, true} -> false;
+      {false, false} -> true;
+      {true, false} -> (NowMs - LastRequestMs) >= ?PHASE_CLOSE_RETRY_MS
+    end,
+  case ShouldSend of
     false ->
+      ok;
+    true ->
       ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
       SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
       PhaseEpoch = ets:lookup_element(EtsRef, parallel_phase_epoch, ?DATA_IDX),
@@ -828,14 +840,15 @@ maybe_request_super_phase_close(EtsRef, PhaseName) ->
             "Client ~p cannot request phase-close (phase=~p epoch=~p): missing super node",
             [ClientName, PhaseName, PhaseEpoch]
           ),
-          ets:insert(EtsRef, {parallel_phase_close_granted, true});
-        _ ->
           ets:insert(EtsRef, {parallel_phase_close_requested, true}),
+          ets:insert(EtsRef, {parallel_phase_close_granted, true}),
+          ets:insert(EtsRef, {parallel_phase_close_last_request_ms, NowMs});
+        _ ->
           MessageBody = {parallel_phase_close, ClientName, PhaseEpoch},
           {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
           ?LOG_INFO(
-            "Client ~p requesting phase-close from super node ~p phase=~p epoch=~p",
-            [ClientName, SuperNode, PhaseName, PhaseEpoch]
+            "Client ~p sending phase-close request to super node ~p phase=~p epoch=~p requested_before=~p",
+            [ClientName, SuperNode, PhaseName, PhaseEpoch, Requested]
           ),
           try
             nerl_tools:http_router_request(
@@ -844,7 +857,9 @@ maybe_request_super_phase_close(EtsRef, PhaseName) ->
               [SuperNode],
               atom_to_list(parallelPhaseClose),
               MessageBody
-            )
+            ),
+            ets:insert(EtsRef, {parallel_phase_close_requested, true}),
+            ets:insert(EtsRef, {parallel_phase_close_last_request_ms, NowMs})
           catch
             Err:Reason ->
               ?LOG_ERROR(
@@ -914,16 +929,22 @@ finalize_predict_idle_transition(
 scheduler_grant_reject_reason(EtsRef, GrantEpoch, StateName) ->
   ActiveEpoch = ets:lookup_element(EtsRef, parallel_phase_epoch, ?DATA_IDX),
   IdleRequested = ets:lookup_element(EtsRef, parallel_idle_requested, ?DATA_IDX),
+  WorkersDone = ets:lookup_element(EtsRef, all_workers_done, ?DATA_IDX),
+  CloseRequested = ets:lookup_element(EtsRef, parallel_phase_close_requested, ?DATA_IDX),
   CloseGranted = ets:lookup_element(EtsRef, parallel_phase_close_granted, ?DATA_IDX),
   case GrantEpoch =:= ActiveEpoch of
     false ->
       {stale_phase_epoch, GrantEpoch, ActiveEpoch};
     true ->
-      case {StateName, IdleRequested, CloseGranted} of
-        {idle, _, _} -> {client_idle_state, StateName};
-        {waitforWorkers, true, _} -> {phase_close_waiting_worker_idle_ack, StateName};
-        {_, true, true} -> {phase_close_granted, StateName};
-        {_, true, false} -> {phase_close_pending, StateName};
+      case {StateName, IdleRequested, WorkersDone, CloseRequested, CloseGranted} of
+        {idle, _AnyIdleRequested, _AnyWorkersDone, _AnyCloseRequested, _AnyCloseGranted} ->
+          {client_idle_state, StateName};
+        {waitforWorkers, true, _AnyWorkersDone, _AnyCloseRequested, _AnyCloseGranted} ->
+          {phase_close_waiting_worker_idle_ack, StateName};
+        {_AnyState, _AnyIdleRequested, _AnyWorkersDone, true, true} ->
+          {phase_close_granted, StateName};
+        {_AnyState, _AnyIdleRequested, _AnyWorkersDone, true, false} ->
+          {phase_close_pending, StateName};
         _ -> none
       end
   end.

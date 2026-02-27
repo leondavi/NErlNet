@@ -35,6 +35,7 @@
   pending_grant = none,
   pending_grant_issued_ms = 0,
   grant_timeout_ms = 5000,
+  rejection_streak = 0,
   parallel_active = false,
   phase_start_ms = 0,
   phase_epoch = 0,
@@ -46,6 +47,7 @@
 
 -define(HEARTBEAT_MISS_FACTOR, 3).
 -define(GRANT_TIMEOUT_FACTOR, 2).
+-define(MAX_GRANT_REJECTION_STREAK, 256).
 
 start_link(Args = {MyName, _ManagedClients, _HeartbeatMs, _MaxInflight, _NerlnetGraph}) ->
   gen_server:start_link({local, MyName}, ?MODULE, Args, []).
@@ -165,7 +167,8 @@ handle_cast(
           stage_id => StageID,
           phase_epoch => EventEpoch,
           at_ms => EventTsMs
-        }
+        },
+        rejection_streak = 0
       },
       EventPayload = {parallel_event, FromWorker, Direction, MicrobatchID, StageID, {BatchID, EventMeta}},
       case maybe_advance_scheduler(EventPayload, StateWithLastEvent) of
@@ -407,6 +410,7 @@ apply_parallel_phase_update(
     scheduler_cursor = 0,
     pending_grant = none,
     pending_grant_issued_ms = 0,
+    rejection_streak = 0,
     parallel_active = ParallelActive,
     phase_start_ms = PhaseStartMs,
     phase_epoch = PhaseEpoch,
@@ -590,6 +594,7 @@ finalize_parallel_phase_close(
     scheduler_cursor = 0,
     pending_grant = none,
     pending_grant_issued_ms = 0,
+    rejection_streak = 0,
     phase_close_completed = true
   },
   broadcast_phase_close_granted(ClearedState).
@@ -633,7 +638,8 @@ handle_scheduler_grant_rejected(
     my_name = MyName,
     phase_epoch = PhaseEpoch,
     pending_grant = PendingGrant,
-    scheduler_cursor = Cursor
+    scheduler_cursor = Cursor,
+    rejection_streak = RejectionStreak
   }
 ) ->
   case ClientEpoch =:= PhaseEpoch of
@@ -644,58 +650,170 @@ handle_scheduler_grant_rejected(
       ),
       State;
     true ->
+      StateWithRejection = State#super_node_state{rejection_streak = RejectionStreak + 1},
       ?LOG_WARNING(
         "Super node ~p received scheduler grant rejection client=~p worker=~p direction=~p microbatch=~p stage=~p epoch=~p reason=~p",
         [MyName, ClientName, WorkerName, Direction, MicrobatchID, StageID, PhaseEpoch, RejectReason]
       ),
-      case normalize_pending_grant(PendingGrant) of
-        {ok, GrantDirection, GrantMicrobatchID, GrantStageID, GrantedWorkers, AckedWorkers, EventID, GrantEpoch} ->
-          ExpectedGrantTuple = {GrantDirection, GrantMicrobatchID, GrantStageID},
-          RejectedGrantTuple = {Direction, MicrobatchID, StageID},
-          case (ExpectedGrantTuple =:= RejectedGrantTuple) andalso lists:member(WorkerName, GrantedWorkers) of
-            false ->
-              ?LOG_WARNING(
-                "Super node ~p received non-matching grant rejection worker=~p rejected=~p pending=~p",
-                [MyName, WorkerName, RejectedGrantTuple, ExpectedGrantTuple]
-              ),
-              State;
+      case maybe_abort_rejection_storm(
+             StateWithRejection,
+             ClientName,
+             WorkerName,
+             RejectReason,
+             PendingGrant
+           ) of
+        {abort, AbortedState} ->
+          AbortedState;
+        {continue, StableState} ->
+          case is_phase_close_reject_reason(RejectReason) of
             true ->
-              UpdatedAckedWorkers = lists:usort([WorkerName | AckedWorkers]),
-              case lists:sort(UpdatedAckedWorkers) =:= lists:sort(GrantedWorkers) of
-                true ->
-                  ?LOG_INFO(
-                    "Super node ~p treating rejected grant as terminal ack worker=~p event_id=~p",
-                    [MyName, WorkerName, EventID]
-                  ),
-                  StateAfterAck = State#super_node_state{
-                    scheduler_cursor = Cursor + 1,
-                    pending_grant = none,
-                    pending_grant_issued_ms = 0
-                  },
-                  case maybe_send_next_scheduler_grant(StateAfterAck) of
-                    {ok, NextState} ->
-                      NextState;
-                    {abort, AbortReason, StateOnError} ->
-                      maybe_notify_parallel_abort(StateOnError, AbortReason)
+              handle_close_related_grant_rejection(
+                StableState,
+                ClientName,
+                ClientEpoch,
+                WorkerName,
+                RejectReason
+              );
+            false ->
+              case normalize_pending_grant(PendingGrant) of
+                {ok, GrantDirection, GrantMicrobatchID, GrantStageID, GrantedWorkers, AckedWorkers, EventID, GrantEpoch} ->
+                  ExpectedGrantTuple = {GrantDirection, GrantMicrobatchID, GrantStageID},
+                  RejectedGrantTuple = {Direction, MicrobatchID, StageID},
+                  case (ExpectedGrantTuple =:= RejectedGrantTuple) andalso lists:member(WorkerName, GrantedWorkers) of
+                    false ->
+                      ?LOG_WARNING(
+                        "Super node ~p received non-matching grant rejection worker=~p rejected=~p pending=~p",
+                        [MyName, WorkerName, RejectedGrantTuple, ExpectedGrantTuple]
+                      ),
+                      StableState;
+                    true ->
+                      UpdatedAckedWorkers = lists:usort([WorkerName | AckedWorkers]),
+                      case lists:sort(UpdatedAckedWorkers) =:= lists:sort(GrantedWorkers) of
+                        true ->
+                          ?LOG_INFO(
+                            "Super node ~p treating rejected grant as terminal ack worker=~p event_id=~p",
+                            [MyName, WorkerName, EventID]
+                          ),
+                          StateAfterAck = StableState#super_node_state{
+                            scheduler_cursor = Cursor + 1,
+                            pending_grant = none,
+                            pending_grant_issued_ms = 0
+                          },
+                          case maybe_send_next_scheduler_grant(StateAfterAck) of
+                            {ok, NextState} ->
+                              NextState;
+                            {abort, AbortReason, StateOnError} ->
+                              maybe_notify_parallel_abort(StateOnError, AbortReason)
+                          end;
+                        false ->
+                          StableState#super_node_state{
+                            pending_grant = #{
+                              direction => GrantDirection,
+                              microbatch_id => GrantMicrobatchID,
+                              stage_id => GrantStageID,
+                              workers => GrantedWorkers,
+                              acked_workers => UpdatedAckedWorkers,
+                              event_id => EventID,
+                              phase_epoch => GrantEpoch
+                            }
+                          }
+                      end
                   end;
-                false ->
-                  State#super_node_state{
-                    pending_grant = #{
-                      direction => GrantDirection,
-                      microbatch_id => GrantMicrobatchID,
-                      stage_id => GrantStageID,
-                      workers => GrantedWorkers,
-                      acked_workers => UpdatedAckedWorkers,
-                      event_id => EventID,
-                      phase_epoch => GrantEpoch
-                    }
-                  }
+                _ ->
+                  StableState
               end
-          end;
-        _ ->
-          State
+          end
       end
   end.
+
+handle_close_related_grant_rejection(
+  State = #super_node_state{
+    my_name = MyName,
+    pending_grant = PendingGrant
+  },
+  ClientName,
+  ClientEpoch,
+  WorkerName,
+  RejectReason
+) ->
+  PendingGrantSummary = pending_grant_summary(PendingGrant),
+  ?LOG_WARNING(
+    "Super node ~p converting close-related grant rejection into phase-close handling client=~p worker=~p reason=~p pending=~p",
+    [MyName, ClientName, WorkerName, RejectReason, PendingGrantSummary]
+  ),
+  StateWithClearedGrant = clear_pending_grant_state(State),
+  StateAfterCloseRequest = handle_parallel_phase_close_request(ClientName, ClientEpoch, StateWithClearedGrant),
+  case StateAfterCloseRequest#super_node_state.phase_close_completed of
+    true ->
+      StateAfterCloseRequest;
+    false ->
+      maybe_notify_parallel_abort(
+        clear_scheduler_for_abort(StateAfterCloseRequest),
+        {phase_close_pending_before_global_barrier, ClientName, WorkerName, RejectReason, PendingGrantSummary}
+      )
+  end.
+
+maybe_abort_rejection_storm(
+  State = #super_node_state{
+    my_name = MyName,
+    rejection_streak = RejectionStreak
+  },
+  ClientName,
+  WorkerName,
+  RejectReason,
+  PendingGrant
+) ->
+  case RejectionStreak >= ?MAX_GRANT_REJECTION_STREAK of
+    false ->
+      {continue, State};
+    true ->
+      PendingGrantSummary = pending_grant_summary(PendingGrant),
+      ?LOG_ERROR(
+        "Super node ~p aborting due to scheduler grant rejection storm streak=~p client=~p worker=~p reason=~p pending=~p",
+        [MyName, RejectionStreak, ClientName, WorkerName, RejectReason, PendingGrantSummary]
+      ),
+      AbortReason = {
+        scheduler_grant_rejection_storm,
+        RejectionStreak,
+        ClientName,
+        WorkerName,
+        RejectReason,
+        PendingGrantSummary
+      },
+      {abort, maybe_notify_parallel_abort(clear_scheduler_for_abort(State), AbortReason)}
+  end.
+
+is_phase_close_reject_reason(RejectReason) ->
+  case reject_reason_tag(RejectReason) of
+    phase_close_pending -> true;
+    phase_close_granted -> true;
+    phase_close_waiting_worker_idle_ack -> true;
+    client_idle_state -> true;
+    _ -> false
+  end.
+
+reject_reason_tag({Tag, _}) when is_atom(Tag) ->
+  Tag;
+reject_reason_tag(Tag) when is_atom(Tag) ->
+  Tag;
+reject_reason_tag(_) ->
+  unknown.
+
+clear_pending_grant_state(State = #super_node_state{}) ->
+  State#super_node_state{
+    pending_grant = none,
+    pending_grant_issued_ms = 0
+  }.
+
+clear_scheduler_for_abort(State = #super_node_state{}) ->
+  State#super_node_state{
+    parallel_active = false,
+    scheduler_trace = [],
+    scheduler_cursor = 0,
+    pending_grant = none,
+    pending_grant_issued_ms = 0,
+    rejection_streak = 0
+  }.
 
 issue_next_scheduler_grant(
   State = #super_node_state{
