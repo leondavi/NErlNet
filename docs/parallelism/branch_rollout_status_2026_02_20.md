@@ -84,6 +84,13 @@ Implemented and working today:
 - Pipeline ingress validation hardening:
   - API-side experiment flow validation now rejects `pipeline|pipeline_tensor` source pieces targeting non-stage0 workers.
   - Planner validation mirrors the same rule before export.
+- Batch-aware grant protocol hardening:
+  - Super Node scheduler grants now carry/track `batch_id` and `phase_epoch` end-to-end.
+  - Client `schedulerGrantRejected` reports now include `batch_id` and `phase_epoch`.
+  - Worker grant matching is batch-aware, while legacy batch-less grants are still normalized to `batch=any` for compatibility.
+- Worker pipeline batch isolation hardening:
+  - out-of-batch pipeline payloads are held in buffers (`wait_for_batch`) until active batch turnover.
+  - backward payload dequeue is keyed by `{batch,microbatch}` grant identity (`pop_pipeline_backward_payload_for_grant`) to prevent cross-batch collisions.
 
 ---
 
@@ -148,6 +155,7 @@ Key behavior implemented:
 - Validates optional tagged parallel events against scheduler trace, now epoch-scoped per phase.
 - Receives client phase-close requests (`/parallelPhaseClose`) and performs all-managed-client close barrier before disabling grants.
 - Receives deterministic grant rejections (`/schedulerGrantRejected`) so pending grants can be resolved without timeout hangs during close transitions.
+- Tracks pending scheduler grants by batch-aware identity (`direction,batch,microbatch,stage,epoch`) and resolves acks/rejections deterministically.
 - Emits `parallelAbort` to Main Server on route failures, heartbeat issues, unknown workers, and schedule mismatches.
 - Emits detailed runtime logs for phase updates, scheduler grants, scheduler acks, and worker-message routing.
 
@@ -189,6 +197,7 @@ Key changes:
   - waits for `phase_close_granted`
   - then idles workers
 - Client rejects stale/close-window scheduler grants and reports deterministic rejection metadata to Super Node (`schedulerGrantRejected`).
+- `schedulerGrantRejected` payload now includes `batch_id` and `phase_epoch`, allowing deterministic pending-grant resolution in Super Node.
 - Emits `parallel_event` and `parallelAbort` notifications.
 - Adds super-node registration + periodic heartbeat loop from client.
 - Emits detailed logs for Super Node command reception, mode/execution authority updates, scheduler-grant forwarding, and event forwarding to Super Node.
@@ -357,9 +366,10 @@ Key changes:
   - `pipeline_predict_payload`
 - `w2wCom` now notifies worker state machines immediately for pipeline payload tags via `{parallel_pipeline_inbox,...}`.
 - Worker generic tracks stage batch contexts (`forward_completed`, `backward_completed`, `predict_acc`) and aggregates last-stage outputs.
-- Emits scheduler-gated parallel events with stage and microbatch id (forward-only for `pipeline_tensor`, forward+backward for pure pipeline modes).
+- Emits scheduler-gated parallel events with batch/stage/microbatch identity (forward-only for `pipeline_tensor`, forward+backward for pure pipeline modes).
 - Calls optimizer barrier once all microbatches for a batch complete.
 - Buffers non-legacy `sample` messages received during `wait` state and dispatches them after batch completion.
+- Holds out-of-batch pipeline payloads in-buffer (`wait_for_batch`) until active batch turnover to preserve batch integrity.
 - OpenNN bridge provides compatibility stubs for microbatch/barrier APIs.
 
 ### P2.4 TP primitive helpers in Erlang bridge

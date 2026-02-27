@@ -71,7 +71,11 @@
 - Torch train params must include keys: `model_path` (auto), `lr`, `epochs`, `optimizer`, `loss`, `input_tensor_shape`, `labels_shape`, `labels_offset`.
 - Torch worker effectively supports `adam` or `sgd` optimizers; loss is fixed to MSE in the runtime.
 - Worker non-legacy pipeline events are scheduler-grant-gated when Super Node authority is enabled.
+- Super Node scheduler grants are batch-aware and epoch-scoped:
+  - client receives `{grant_scheduler_event, Direction, BatchID, MicrobatchID, StageID, Worker, PhaseEpoch}`
+  - worker stores grants as `{Direction, BatchID, MicrobatchID, StageID}` (legacy batch-less grants are normalized to `BatchID=any`).
 - Non-legacy phases now carry a Super Node epoch (`phase_epoch`): Super Node grants include epoch, clients tag forwarded `parallel_event` meta with epoch, and Super Node ignores stale-epoch events instead of aborting current phase state.
+- Client scheduler-grant rejection payloads now include batch + epoch (`schedulerGrantRejected`) so Super Node can deterministically resolve pending grants.
 - Client idle transition in non-legacy modes is phase-close-gated: clients request `parallelPhaseClose` from Super Node before idling workers, then wait for `phase_close_granted`.
 - Super Node phase-close barrier completes only after all managed clients requested close; then scheduler grants are disabled and `phase_close_granted` is broadcast.
 - Client no longer rejects scheduler grants solely because `idle` was requested; close-related grant rejection starts only after explicit `parallelPhaseClose` request state is set (or idle/waitforWorkers terminal states), preventing premature drain deadlocks.
@@ -79,6 +83,7 @@
 - Super Node treats close-related `schedulerGrantRejected` reasons as a phase-close signal and either finalizes close or emits deterministic abort if global close barrier cannot be completed, preventing infinite grant/reject loops.
 - Super Node includes a scheduler grant rejection storm circuit breaker (`scheduler_grant_rejection_storm`) that fails fast and disables scheduling instead of spinning indefinitely.
 - In non-legacy modes, workers buffer incoming `sample` messages while in `wait` state (`parallel_deferred_samples`) and dequeue deterministically after batch completion to avoid TP peer batch desynchronization.
+- In `pipeline|pipeline_tensor`, worker pipeline inbox handling is batch-aware: out-of-batch forward/backward/predict payloads are retained (`wait_for_batch`) until the active batch context advances.
 - If a deferred sample is replayed while the worker is still in `wait`, workers now fast-transition `wait -> train|predict` (when no active parallel batch context/buffers remain) and immediately re-cast that sample, preventing deferred requeue loops and batch-0-only turnover stalls.
 - Worker/Client/Super Node now log a shared deterministic parallel event id tuple: `{parallel_event, Worker, Direction, Batch, Microbatch, Stage}`.
 - Client logs for `parallelEvent` include router latency (`latency_us`) and router reply payload, allowing transport-level confirmation for each forwarded event.
@@ -90,6 +95,7 @@
 - For `mode in {pipeline, pipeline_tensor}`, `sourcePieces[].workers` must reference stage-0 workers only (source ingress guard is enforced by API parse + planner validation).
 - In `pipeline` training, last-stage workers emit/queue backward scheduler events after last-stage forward/backward compute so Super Node backward grants can be acknowledged deterministically.
 - In `pipeline` training, backward payload dispatch is grant-aware by microbatch id (`dispatch_pipeline_backward_buffer_by_grant`) to avoid head-of-line deadlocks when payload arrival order differs from backward grant order.
+- In `pipeline` training, backward payload selection is grant-aware by both batch id and microbatch id (`pop_pipeline_backward_payload_for_grant`) to avoid cross-batch collisions.
 - In `pipeline` prediction, non-last stages (including stage0) finalize local batch context after all local microbatches are dispatched and then dequeue deferred source samples, preventing batch-0-only stall.
 - In `pipeline` prediction, stage0 progress mirrors `forward_dispatched` into `forward_completed` so local batch turnover can complete deterministically.
 - In `pipeline` prediction, worker forward `parallel_event` metadata is `predict` (not `training`), which should be reflected in Super Node event logs.

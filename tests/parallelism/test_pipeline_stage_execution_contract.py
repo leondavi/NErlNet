@@ -35,7 +35,7 @@ class PipelineStageExecutionContractTests(unittest.TestCase):
         self.assertIn("maybe_dispatch_pending_parallel_backward_events(GenWorkerEts)", content)
         self.assertIn("dispatch_pipeline_backward_buffer_by_grant", content)
         self.assertIn("peek_pipeline_backward_grant", content)
-        self.assertIn("pop_pipeline_backward_payload_for_microbatch", content)
+        self.assertIn("pop_pipeline_backward_payload_for_grant", content)
         self.assertIn("parallel_forward_event_meta(pipeline_predict)", content)
         self.assertIn("maps:get(forward_completed, Ctx, maps:get(forward_dispatched, Ctx, 0))", content)
         self.assertIn("pipeline predict stage ~p completed local batch=", content)

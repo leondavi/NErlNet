@@ -57,6 +57,11 @@ init(Req0, [Action, SuperNodePid]) ->
       end;
     scheduler_grant_rejected ->
       case binary_to_term_safe(Body) of
+        {scheduler_grant_rejected, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, Reason, PhaseEpoch} ->
+          gen_server:cast(
+            SuperNodePid,
+            {scheduler_grant_rejected, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, Reason, PhaseEpoch}
+          );
         {scheduler_grant_rejected, ClientName, WorkerName, Direction, MicrobatchID, StageID, Reason, PhaseEpoch} ->
           gen_server:cast(
             SuperNodePid,

@@ -202,9 +202,11 @@ idle(cast, {set_parallel_authority, Enabled}, State) ->
   set_worker_parallel_authority(get(generic_worker_ets), Enabled),
   {keep_state, State};
 
-idle(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) ->
-  append_parallel_scheduler_grant(get(generic_worker_ets), Direction, MicrobatchID, StageID),
+idle(cast, {parallel_scheduler_grant, Direction, BatchID, MicrobatchID, StageID}, State) ->
+  append_parallel_scheduler_grant(get(generic_worker_ets), Direction, BatchID, MicrobatchID, StageID),
   {keep_state, State};
+idle(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) ->
+  idle(cast, {parallel_scheduler_grant, Direction, any, MicrobatchID, StageID}, State);
 
 % Go from idle to train
 idle(cast, {training}, State = #workerGeneric_state{myName = MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
@@ -247,9 +249,9 @@ wait(cast, {set_parallel_authority, Enabled}, State) ->
   set_worker_parallel_authority(get(generic_worker_ets), Enabled),
   {keep_state, State};
 
-wait(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) ->
+wait(cast, {parallel_scheduler_grant, Direction, BatchID, MicrobatchID, StageID}, State) ->
   GenWorkerEts = get(generic_worker_ets),
-  append_parallel_scheduler_grant(GenWorkerEts, Direction, MicrobatchID, StageID),
+  append_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, MicrobatchID, StageID),
   ParallelMode = normalize_parallel_mode_atom(
                    ets:lookup_element(GenWorkerEts, parallel_mode, ?ETS_KEYVAL_VAL_IDX)
                  ),
@@ -308,6 +310,8 @@ wait(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) 
           {keep_state, State}
       end
   end;
+wait(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) ->
+  wait(cast, {parallel_scheduler_grant, Direction, any, MicrobatchID, StageID}, State);
 
 wait(cast, {parallel_pipeline_inbox, FromWorker, Payload}, State = #workerGeneric_state{modelID = ModelId, myName = MyName}) ->
   GenWorkerEts = get(generic_worker_ets),
@@ -508,9 +512,9 @@ train(cast, {set_parallel_authority, Enabled}, State) ->
   set_worker_parallel_authority(get(generic_worker_ets), Enabled),
   {keep_state, State};
 
-train(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) ->
+train(cast, {parallel_scheduler_grant, Direction, BatchID, MicrobatchID, StageID}, State) ->
   GenWorkerEts = get(generic_worker_ets),
-  append_parallel_scheduler_grant(GenWorkerEts, Direction, MicrobatchID, StageID),
+  append_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, MicrobatchID, StageID),
   ParallelMode = normalize_parallel_mode_atom(
                    ets:lookup_element(GenWorkerEts, parallel_mode, ?ETS_KEYVAL_VAL_IDX)
                  ),
@@ -536,6 +540,8 @@ train(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State)
     _ ->
       {keep_state, State}
   end;
+train(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) ->
+  train(cast, {parallel_scheduler_grant, Direction, any, MicrobatchID, StageID}, State);
 
 train(cast, {parallel_pipeline_inbox, FromWorker, Payload}, State = #workerGeneric_state{modelID = ModelId, myName = MyName}) ->
   GenWorkerEts = get(generic_worker_ets),
@@ -707,9 +713,9 @@ predict(cast, {set_parallel_authority, Enabled}, State) ->
   set_worker_parallel_authority(get(generic_worker_ets), Enabled),
   {keep_state, State};
 
-predict(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) ->
+predict(cast, {parallel_scheduler_grant, Direction, BatchID, MicrobatchID, StageID}, State) ->
   GenWorkerEts = get(generic_worker_ets),
-  append_parallel_scheduler_grant(GenWorkerEts, Direction, MicrobatchID, StageID),
+  append_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, MicrobatchID, StageID),
   ParallelMode = normalize_parallel_mode_atom(
                    ets:lookup_element(GenWorkerEts, parallel_mode, ?ETS_KEYVAL_VAL_IDX)
                  ),
@@ -721,11 +727,13 @@ predict(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, Stat
         {abort, Reason} ->
           notify_worker_parallel_abort(GenWorkerEts, {pipeline_predict_dispatch_failed, Reason}),
           reset_parallel_loss_context(GenWorkerEts),
-          {keep_state, State}
+        {keep_state, State}
       end;
     _ ->
       {keep_state, State}
   end;
+predict(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) ->
+  predict(cast, {parallel_scheduler_grant, Direction, any, MicrobatchID, StageID}, State);
 
 predict(cast, {parallel_pipeline_inbox, FromWorker, Payload}, State = #workerGeneric_state{modelID = ModelId, myName = MyName}) ->
   GenWorkerEts = get(generic_worker_ets),
@@ -1087,7 +1095,7 @@ augment_train_params_with_parallel_cfg(TrainParams, WorkerParallelCfg) ->
 emit_parallel_event(WorkerName, Direction, BatchID, MicrobatchID, StageID, Meta) ->
   GenWorkerEts = get(generic_worker_ets),
   EventID = parallel_event_id(WorkerName, Direction, BatchID, MicrobatchID, StageID),
-  case maybe_consume_parallel_scheduler_grant(GenWorkerEts, Direction, MicrobatchID, StageID) of
+  case maybe_consume_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, MicrobatchID, StageID) of
     ok ->
       ?LOG_INFO(
         "Worker ~p emits parallel event direction=~p batch=~p microbatch=~p stage=~p event_id=~p (grant-consumed)",
@@ -1097,8 +1105,8 @@ emit_parallel_event(WorkerName, Direction, BatchID, MicrobatchID, StageID, Meta)
       ok;
     {error, no_scheduler_grant} ->
       ?LOG_INFO(
-        "Worker ~p waits for super-node scheduler grant direction=~p microbatch=~p stage=~p event_id=~p",
-        [WorkerName, Direction, MicrobatchID, StageID, EventID]
+        "Worker ~p waits for super-node scheduler grant direction=~p batch=~p microbatch=~p stage=~p event_id=~p",
+        [WorkerName, Direction, BatchID, MicrobatchID, StageID, EventID]
       ),
       {error, no_scheduler_grant};
     {error, GrantReason} ->
@@ -1118,7 +1126,7 @@ maybe_emit_parallel_forward_event(legacy, _WorkerName, _BatchID, _MicrobatchID, 
   ok;
 maybe_emit_parallel_forward_event(Mode, WorkerName, BatchID, MicrobatchID, StageID) ->
   GenWorkerEts = get(generic_worker_ets),
-  case can_emit_parallel_event_now(GenWorkerEts, forward, MicrobatchID, StageID) of
+  case can_emit_parallel_event_now(GenWorkerEts, forward, BatchID, MicrobatchID, StageID) of
     ready ->
       emit_parallel_event(
         WorkerName,
@@ -1147,7 +1155,7 @@ maybe_emit_parallel_backward_event(legacy, _WorkerName, _BatchID, _MicrobatchID,
   ok;
 maybe_emit_parallel_backward_event(_Mode, WorkerName, BatchID, MicrobatchID, StageID, TrainTime) ->
   GenWorkerEts = get(generic_worker_ets),
-  case can_emit_parallel_event_now(GenWorkerEts, backward, MicrobatchID, StageID) of
+  case can_emit_parallel_event_now(GenWorkerEts, backward, BatchID, MicrobatchID, StageID) of
     ready ->
       emit_parallel_event(WorkerName, backward, BatchID, MicrobatchID, StageID, TrainTime);
     wait_for_grant ->
@@ -2093,6 +2101,13 @@ dispatch_pipeline_forward_buffer_loop(
   case maybe_process_pipeline_forward_payload(GenWorkerEts, ModelId, WorkerName, Payload) of
     processed ->
       dispatch_pipeline_forward_buffer_loop(GenWorkerEts, ModelId, WorkerName, Rest, RemainingAcc);
+    wait_for_batch ->
+      ets:update_element(
+        GenWorkerEts,
+        parallel_pipeline_forward_buffer,
+        {?ETS_KEYVAL_VAL_IDX, lists:reverse(RemainingAcc) ++ [Payload | Rest]}
+      ),
+      ok;
     wait_for_grant ->
       ets:update_element(
         GenWorkerEts,
@@ -2121,123 +2136,128 @@ maybe_process_pipeline_forward_payload(
     false ->
       {abort, pipeline_torch_backend_required};
     true ->
-  StageID = get_worker_pipeline_stage(GenWorkerEts),
-  case maybe_emit_parallel_forward_event(pipeline, WorkerName, BatchID, MicrobatchID, StageID) of
-    {error, no_scheduler_grant} ->
-      wait_for_grant;
-    {error, EmitReason} ->
-      {abort, {pipeline_forward_event_rejected, EmitReason}};
-    ok ->
-      case is_last_pipeline_stage(GenWorkerEts) of
-        true ->
-          case nif_call(
-                 call_to_pipeline_stage_last_forward_backward,
-                 [ModelId, Activation, Labels, BatchID, SourceName, MicrobatchID]
-               ) of
-            {ok, pipeline_stage_last, LossTensor, LossType, GradTensor, GradType, StageTime} ->
-              UpdatedLossAcc = accumulate_parallel_loss(
-                                 ets:lookup_element(GenWorkerEts, parallel_loss_acc, ?ETS_KEYVAL_VAL_IDX),
-                                 {LossTensor, LossType}
-                               ),
-              ets:update_element(GenWorkerEts, parallel_loss_acc, {?ETS_KEYVAL_VAL_IDX, UpdatedLossAcc}),
-              ets:update_element(
-                GenWorkerEts,
-                parallel_time_acc,
-                {
-                  ?ETS_KEYVAL_VAL_IDX,
-                  ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
-                }
-              ),
-              update_active_pipeline_batch_ctx(
-                GenWorkerEts,
-                fun(Ctx) ->
-                  Ctx#{
-                    forward_completed => maps:get(forward_completed, Ctx, 0) + 1,
-                    backward_completed => maps:get(backward_completed, Ctx, 0) + 1,
-                    total_microbatches => TotalMicrobatches
-                  }
-                end
-              ),
-              case maybe_emit_parallel_backward_event(
-                     pipeline,
-                     WorkerName,
-                     BatchID,
-                     MicrobatchID,
-                     StageID,
-                     StageTime
-                   ) of
-                {error, EmitReason} ->
-                  {abort, {pipeline_last_stage_backward_event_rejected, EmitReason}};
-                ok ->
-                  case resolve_pipeline_adjacent_worker(GenWorkerEts, prev) of
-                    {ok, PrevWorker} ->
-                      BackwardPayload = {
-                        pipeline_backward_payload,
-                        BatchID,
-                        SourceName,
-                        TotalMicrobatches,
-                        MicrobatchID,
-                        {GradTensor, GradType}
-                      },
-                      route_pipeline_payload_to_worker(GenWorkerEts, WorkerName, PrevWorker, BackwardPayload),
-                      processed;
-                    {error, no_adjacent_stage} ->
-                      processed;
-                    {error, AdjacentReason} ->
-                      {abort, {pipeline_prev_stage_resolution_failed, AdjacentReason}}
+      case pipeline_payload_batch_status(GenWorkerEts, BatchID) of
+        wait_for_batch ->
+          wait_for_batch;
+        ready ->
+          StageID = get_worker_pipeline_stage(GenWorkerEts),
+          case maybe_emit_parallel_forward_event(pipeline, WorkerName, BatchID, MicrobatchID, StageID) of
+            {error, no_scheduler_grant} ->
+              wait_for_grant;
+            {error, EmitReason} ->
+              {abort, {pipeline_forward_event_rejected, EmitReason}};
+            ok ->
+              case is_last_pipeline_stage(GenWorkerEts) of
+                true ->
+                  case nif_call(
+                         call_to_pipeline_stage_last_forward_backward,
+                         [ModelId, Activation, Labels, BatchID, SourceName, MicrobatchID]
+                       ) of
+                    {ok, pipeline_stage_last, LossTensor, LossType, GradTensor, GradType, StageTime} ->
+                      UpdatedLossAcc = accumulate_parallel_loss(
+                                         ets:lookup_element(GenWorkerEts, parallel_loss_acc, ?ETS_KEYVAL_VAL_IDX),
+                                         {LossTensor, LossType}
+                                       ),
+                      ets:update_element(GenWorkerEts, parallel_loss_acc, {?ETS_KEYVAL_VAL_IDX, UpdatedLossAcc}),
+                      ets:update_element(
+                        GenWorkerEts,
+                        parallel_time_acc,
+                        {
+                          ?ETS_KEYVAL_VAL_IDX,
+                          ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
+                        }
+                      ),
+                      update_active_pipeline_batch_ctx(
+                        GenWorkerEts,
+                        fun(Ctx) ->
+                          Ctx#{
+                            forward_completed => maps:get(forward_completed, Ctx, 0) + 1,
+                            backward_completed => maps:get(backward_completed, Ctx, 0) + 1,
+                            total_microbatches => TotalMicrobatches
+                          }
+                        end
+                      ),
+                      case maybe_emit_parallel_backward_event(
+                             pipeline,
+                             WorkerName,
+                             BatchID,
+                             MicrobatchID,
+                             StageID,
+                             StageTime
+                           ) of
+                        {error, EmitReason} ->
+                          {abort, {pipeline_last_stage_backward_event_rejected, EmitReason}};
+                        ok ->
+                          case resolve_pipeline_adjacent_worker(GenWorkerEts, prev) of
+                            {ok, PrevWorker} ->
+                              BackwardPayload = {
+                                pipeline_backward_payload,
+                                BatchID,
+                                SourceName,
+                                TotalMicrobatches,
+                                MicrobatchID,
+                                {GradTensor, GradType}
+                              },
+                              route_pipeline_payload_to_worker(GenWorkerEts, WorkerName, PrevWorker, BackwardPayload),
+                              processed;
+                            {error, no_adjacent_stage} ->
+                              processed;
+                            {error, AdjacentReason} ->
+                              {abort, {pipeline_prev_stage_resolution_failed, AdjacentReason}}
+                          end
+                      end;
+                    {nerlnif, error, Reason} ->
+                      {abort, {pipeline_stage_last_nif_error, Reason}};
+                    Unexpected ->
+                      {abort, {pipeline_stage_last_unexpected, Unexpected}}
+                  end;
+                false ->
+                  case nif_call(
+                         call_to_pipeline_stage_forward,
+                         [ModelId, Activation, Labels, BatchID, SourceName, MicrobatchID]
+                       ) of
+                    {ok, pipeline_stage_forward, StageTensor, StageType, ForwardLabelsTensor, ForwardLabelsType, StageTime} ->
+                      update_active_pipeline_batch_ctx(
+                        GenWorkerEts,
+                        fun(Ctx) ->
+                          Ctx#{
+                            forward_completed => maps:get(forward_completed, Ctx, 0) + 1,
+                            total_microbatches => TotalMicrobatches
+                          }
+                        end
+                      ),
+                      ets:update_element(
+                        GenWorkerEts,
+                        parallel_time_acc,
+                        {
+                          ?ETS_KEYVAL_VAL_IDX,
+                          ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
+                        }
+                      ),
+                      case resolve_pipeline_adjacent_worker(GenWorkerEts, next) of
+                        {ok, NextWorker} ->
+                          ForwardPayload = {
+                            pipeline_forward_payload,
+                            BatchID,
+                            SourceName,
+                            TotalMicrobatches,
+                            MicrobatchID,
+                            {StageTensor, StageType},
+                            {ForwardLabelsTensor, ForwardLabelsType}
+                          },
+                          route_pipeline_payload_to_worker(GenWorkerEts, WorkerName, NextWorker, ForwardPayload),
+                          processed;
+                        {error, AdjacentReason} ->
+                          {abort, {pipeline_next_stage_resolution_failed, AdjacentReason}}
+                      end;
+                    {nerlnif, error, Reason} ->
+                      {abort, {pipeline_stage_forward_nif_error, Reason}};
+                    Unexpected ->
+                      {abort, {pipeline_stage_forward_unexpected, Unexpected}}
                   end
-              end;
-            {nerlnif, error, Reason} ->
-              {abort, {pipeline_stage_last_nif_error, Reason}};
-            Unexpected ->
-              {abort, {pipeline_stage_last_unexpected, Unexpected}}
-          end;
-        false ->
-          case nif_call(
-                 call_to_pipeline_stage_forward,
-                 [ModelId, Activation, Labels, BatchID, SourceName, MicrobatchID]
-               ) of
-            {ok, pipeline_stage_forward, StageTensor, StageType, ForwardLabelsTensor, ForwardLabelsType, StageTime} ->
-              update_active_pipeline_batch_ctx(
-                GenWorkerEts,
-                fun(Ctx) ->
-                  Ctx#{
-                    forward_completed => maps:get(forward_completed, Ctx, 0) + 1,
-                    total_microbatches => TotalMicrobatches
-                  }
-                end
-              ),
-              ets:update_element(
-                GenWorkerEts,
-                parallel_time_acc,
-                {
-                  ?ETS_KEYVAL_VAL_IDX,
-                  ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
-                }
-              ),
-              case resolve_pipeline_adjacent_worker(GenWorkerEts, next) of
-                {ok, NextWorker} ->
-                  ForwardPayload = {
-                    pipeline_forward_payload,
-                    BatchID,
-                    SourceName,
-                    TotalMicrobatches,
-                    MicrobatchID,
-                    {StageTensor, StageType},
-                    {ForwardLabelsTensor, ForwardLabelsType}
-                  },
-                  route_pipeline_payload_to_worker(GenWorkerEts, WorkerName, NextWorker, ForwardPayload),
-                  processed;
-                {error, AdjacentReason} ->
-                  {abort, {pipeline_next_stage_resolution_failed, AdjacentReason}}
-              end;
-            {nerlnif, error, Reason} ->
-              {abort, {pipeline_stage_forward_nif_error, Reason}};
-            Unexpected ->
-              {abort, {pipeline_stage_forward_unexpected, Unexpected}}
+              end
           end
       end
-  end
   end;
 maybe_process_pipeline_forward_payload(_GenWorkerEts, _ModelId, _WorkerName, Payload) ->
   {skip, {invalid_pipeline_forward_payload, Payload}}.
@@ -2258,8 +2278,8 @@ dispatch_pipeline_backward_buffer_by_grant(GenWorkerEts, ModelId, WorkerName, Ba
         {?ETS_KEYVAL_VAL_IDX, BackwardBuffer}
       ),
       ok;
-    {GrantMicrobatchID, _GrantStageID} ->
-      case pop_pipeline_backward_payload_for_microbatch(BackwardBuffer, GrantMicrobatchID, []) of
+    {GrantBatchID, GrantMicrobatchID, _GrantStageID} ->
+      case pop_pipeline_backward_payload_for_grant(GenWorkerEts, BackwardBuffer, GrantBatchID, GrantMicrobatchID, []) of
         not_found ->
           ets:update_element(
             GenWorkerEts,
@@ -2276,6 +2296,13 @@ dispatch_pipeline_backward_buffer_by_grant(GenWorkerEts, ModelId, WorkerName, Ba
                 WorkerName,
                 RemainingBuffer
               );
+            wait_for_batch ->
+              ets:update_element(
+                GenWorkerEts,
+                parallel_pipeline_backward_buffer,
+                {?ETS_KEYVAL_VAL_IDX, [Payload | RemainingBuffer]}
+              ),
+              ok;
             wait_for_grant ->
               ets:update_element(
                 GenWorkerEts,
@@ -2303,22 +2330,50 @@ dispatch_pipeline_backward_buffer_by_grant(GenWorkerEts, ModelId, WorkerName, Ba
 
 peek_pipeline_backward_grant(GenWorkerEts) ->
   case ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX) of
-    [{backward, MicrobatchID, StageID} | _Rest] ->
-      {MicrobatchID, StageID};
+    [HeadGrant | _Rest] ->
+      case normalize_parallel_scheduler_grant(HeadGrant) of
+        {ok, {backward, BatchID, MicrobatchID, StageID}} ->
+          {BatchID, MicrobatchID, StageID};
+        _ ->
+          none
+      end;
     _ ->
       none
   end.
 
-pop_pipeline_backward_payload_for_microbatch([], _MicrobatchID, _Acc) ->
+pop_pipeline_backward_payload_for_grant(GenWorkerEts, BackwardBuffer, RequestedBatchID, MicrobatchID, Acc) ->
+  EffectiveBatchID =
+    case RequestedBatchID of
+      any ->
+        case active_pipeline_batch_id(GenWorkerEts) of
+          {ok, ActiveBatchID} -> ActiveBatchID;
+          _ -> any
+        end;
+      _ -> RequestedBatchID
+    end,
+  pop_pipeline_backward_payload_for_grant_loop(BackwardBuffer, EffectiveBatchID, MicrobatchID, Acc).
+
+pop_pipeline_backward_payload_for_grant_loop([], _BatchID, _MicrobatchID, _Acc) ->
   not_found;
-pop_pipeline_backward_payload_for_microbatch(
-  [Payload = {pipeline_backward_payload, _BatchID, _SourceName, _TotalMicrobatches, MicrobatchID, _Grad} | Rest],
+pop_pipeline_backward_payload_for_grant_loop(
+  [Payload = {pipeline_backward_payload, PayloadBatchID, _SourceName, _TotalMicrobatches, PayloadMicrobatchID, _Grad} | Rest],
+  BatchID,
   MicrobatchID,
   Acc
 ) ->
-  {ok, Payload, lists:reverse(Acc) ++ Rest};
-pop_pipeline_backward_payload_for_microbatch([Payload | Rest], MicrobatchID, Acc) ->
-  pop_pipeline_backward_payload_for_microbatch(Rest, MicrobatchID, [Payload | Acc]).
+  case (PayloadMicrobatchID =:= MicrobatchID) andalso payload_batch_matches(BatchID, PayloadBatchID) of
+    true ->
+      {ok, Payload, lists:reverse(Acc) ++ Rest};
+    false ->
+      pop_pipeline_backward_payload_for_grant_loop(Rest, BatchID, MicrobatchID, [Payload | Acc])
+  end;
+pop_pipeline_backward_payload_for_grant_loop([Payload | Rest], BatchID, MicrobatchID, Acc) ->
+  pop_pipeline_backward_payload_for_grant_loop(Rest, BatchID, MicrobatchID, [Payload | Acc]).
+
+payload_batch_matches(any, _PayloadBatchID) ->
+  true;
+payload_batch_matches(ExpectedBatchID, PayloadBatchID) ->
+  ExpectedBatchID =:= PayloadBatchID.
 
 maybe_process_pipeline_backward_payload(
   GenWorkerEts,
@@ -2330,62 +2385,67 @@ maybe_process_pipeline_backward_payload(
     false ->
       {abort, pipeline_torch_backend_required};
     true ->
-  StageID = get_worker_pipeline_stage(GenWorkerEts),
-  case maybe_emit_parallel_backward_event(
-         pipeline,
-         WorkerName,
-         BatchID,
-         MicrobatchID,
-         StageID,
-         0.0
-       ) of
-    {error, no_scheduler_grant} ->
-      wait_for_grant;
-    {error, EmitReason} ->
-      {abort, {pipeline_backward_event_rejected, EmitReason}};
-    ok ->
-      case nif_call(call_to_pipeline_stage_backward, [ModelId, Grad, BatchID, MicrobatchID]) of
-        {ok, pipeline_stage_backward, PrevGradTensor, PrevGradType, StageTime} ->
-          update_active_pipeline_batch_ctx(
-            GenWorkerEts,
-            fun(Ctx) ->
-              Ctx#{
-                backward_completed => maps:get(backward_completed, Ctx, 0) + 1,
-                total_microbatches => TotalMicrobatches
-              }
-            end
-          ),
-          ets:update_element(
-            GenWorkerEts,
-            parallel_time_acc,
-            {
-              ?ETS_KEYVAL_VAL_IDX,
-              ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
-            }
-          ),
-          case resolve_pipeline_adjacent_worker(GenWorkerEts, prev) of
-            {ok, PrevWorker} ->
-              PrevPayload = {
-                pipeline_backward_payload,
-                BatchID,
-                SourceName,
-                TotalMicrobatches,
-                MicrobatchID,
-                {PrevGradTensor, PrevGradType}
-              },
-              route_pipeline_payload_to_worker(GenWorkerEts, WorkerName, PrevWorker, PrevPayload),
-              processed;
-            {error, no_adjacent_stage} ->
-              processed;
-            {error, AdjacentReason} ->
-              {abort, {pipeline_prev_stage_resolution_failed, AdjacentReason}}
-          end;
-        {nerlnif, error, Reason} ->
-          {abort, {pipeline_stage_backward_nif_error, Reason}};
-        Unexpected ->
-          {abort, {pipeline_stage_backward_unexpected, Unexpected}}
+      case pipeline_payload_batch_status(GenWorkerEts, BatchID) of
+        wait_for_batch ->
+          wait_for_batch;
+        ready ->
+          StageID = get_worker_pipeline_stage(GenWorkerEts),
+          case maybe_emit_parallel_backward_event(
+                 pipeline,
+                 WorkerName,
+                 BatchID,
+                 MicrobatchID,
+                 StageID,
+                 0.0
+               ) of
+            {error, no_scheduler_grant} ->
+              wait_for_grant;
+            {error, EmitReason} ->
+              {abort, {pipeline_backward_event_rejected, EmitReason}};
+            ok ->
+              case nif_call(call_to_pipeline_stage_backward, [ModelId, Grad, BatchID, MicrobatchID]) of
+                {ok, pipeline_stage_backward, PrevGradTensor, PrevGradType, StageTime} ->
+                  update_active_pipeline_batch_ctx(
+                    GenWorkerEts,
+                    fun(Ctx) ->
+                      Ctx#{
+                        backward_completed => maps:get(backward_completed, Ctx, 0) + 1,
+                        total_microbatches => TotalMicrobatches
+                      }
+                    end
+                  ),
+                  ets:update_element(
+                    GenWorkerEts,
+                    parallel_time_acc,
+                    {
+                      ?ETS_KEYVAL_VAL_IDX,
+                      ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
+                    }
+                  ),
+                  case resolve_pipeline_adjacent_worker(GenWorkerEts, prev) of
+                    {ok, PrevWorker} ->
+                      PrevPayload = {
+                        pipeline_backward_payload,
+                        BatchID,
+                        SourceName,
+                        TotalMicrobatches,
+                        MicrobatchID,
+                        {PrevGradTensor, PrevGradType}
+                      },
+                      route_pipeline_payload_to_worker(GenWorkerEts, WorkerName, PrevWorker, PrevPayload),
+                      processed;
+                    {error, no_adjacent_stage} ->
+                      processed;
+                    {error, AdjacentReason} ->
+                      {abort, {pipeline_prev_stage_resolution_failed, AdjacentReason}}
+                  end;
+                {nerlnif, error, Reason} ->
+                  {abort, {pipeline_stage_backward_nif_error, Reason}};
+                Unexpected ->
+                  {abort, {pipeline_stage_backward_unexpected, Unexpected}}
+              end
+          end
       end
-  end
   end;
 maybe_process_pipeline_backward_payload(_GenWorkerEts, _ModelId, _WorkerName, Payload) ->
   {skip, {invalid_pipeline_backward_payload, Payload}}.
@@ -2483,6 +2543,35 @@ ensure_active_pipeline_training_ctx(GenWorkerEts, ModelId, SourceName, BatchID, 
       ok
   end.
 
+active_pipeline_batch_id(GenWorkerEts) ->
+  case ets:lookup_element(GenWorkerEts, parallel_active_batch_ctx, ?ETS_KEYVAL_VAL_IDX) of
+    Ctx when is_map(Ctx) ->
+      case maps:get(batch_id, Ctx, undefined) of
+        BatchID when is_integer(BatchID) ->
+          {ok, BatchID};
+        _ ->
+          undefined
+      end;
+    _ ->
+      undefined
+  end.
+
+pipeline_payload_batch_status(GenWorkerEts, BatchID) when is_integer(BatchID) ->
+  case active_pipeline_batch_id(GenWorkerEts) of
+    undefined ->
+      ready;
+    {ok, BatchID} ->
+      ready;
+    {ok, ActiveBatchID} ->
+      ?LOG_INFO(
+        "Worker ~p deferring payload for batch=~p while active batch=~p",
+        [ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX), BatchID, ActiveBatchID]
+      ),
+      wait_for_batch
+  end;
+pipeline_payload_batch_status(_GenWorkerEts, _BatchID) ->
+  ready.
+
 update_active_pipeline_batch_ctx(GenWorkerEts, UpdaterFun) ->
   ActiveCtx = ets:lookup_element(GenWorkerEts, parallel_active_batch_ctx, ?ETS_KEYVAL_VAL_IDX),
   case ActiveCtx of
@@ -2532,6 +2621,13 @@ dispatch_pipeline_predict_buffer_loop(
   case maybe_process_pipeline_predict_payload(GenWorkerEts, ModelId, WorkerName, Payload) of
     processed ->
       dispatch_pipeline_predict_buffer_loop(GenWorkerEts, ModelId, WorkerName, Rest, RemainingAcc);
+    wait_for_batch ->
+      ets:update_element(
+        GenWorkerEts,
+        parallel_pipeline_predict_buffer,
+        {?ETS_KEYVAL_VAL_IDX, lists:reverse(RemainingAcc) ++ [Payload | Rest]}
+      ),
+      ok;
     wait_for_grant ->
       ets:update_element(
         GenWorkerEts,
@@ -2560,60 +2656,65 @@ maybe_process_pipeline_predict_payload(
     false ->
       {abort, pipeline_torch_backend_required};
     true ->
-  StageID = get_worker_pipeline_stage(GenWorkerEts),
-  case maybe_emit_parallel_forward_event(pipeline_predict, WorkerName, BatchID, MicrobatchID, StageID) of
-    {error, no_scheduler_grant} ->
-      wait_for_grant;
-    {error, EmitReason} ->
-      {abort, {pipeline_predict_event_rejected, EmitReason}};
-    ok ->
-      case nif_call(call_to_pipeline_predict_stage_forward, [ModelId, Activation, BatchID]) of
-        {ok, pipeline_predict_stage, StageTensor, StageType, StageTime} ->
-          update_active_pipeline_batch_ctx(
-            GenWorkerEts,
-            fun(Ctx) ->
-              ExistingPred = maps:get(predict_acc, Ctx, []),
-              Ctx#{
-                forward_completed => maps:get(forward_completed, Ctx, 0) + 1,
-                total_microbatches => TotalMicrobatches,
-                predict_acc => ExistingPred ++ [{MicrobatchID, {StageTensor, StageType}}]
-              }
-            end
-          ),
-          ets:update_element(
-            GenWorkerEts,
-            parallel_time_acc,
-            {
-              ?ETS_KEYVAL_VAL_IDX,
-              ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
-            }
-          ),
-          case is_last_pipeline_stage(GenWorkerEts) of
-            true ->
-              processed;
-            false ->
-              case resolve_pipeline_adjacent_worker(GenWorkerEts, next) of
-                {ok, NextWorker} ->
-                  ForwardPayload = {
-                    pipeline_predict_payload,
-                    BatchID,
-                    SourceName,
-                    TotalMicrobatches,
-                    MicrobatchID,
-                    {StageTensor, StageType}
-                  },
-                  route_pipeline_payload_to_worker(GenWorkerEts, WorkerName, NextWorker, ForwardPayload),
-                  processed;
-                {error, AdjacentReason} ->
-                  {abort, {pipeline_predict_next_stage_resolution_failed, AdjacentReason}}
+      case pipeline_payload_batch_status(GenWorkerEts, BatchID) of
+        wait_for_batch ->
+          wait_for_batch;
+        ready ->
+          StageID = get_worker_pipeline_stage(GenWorkerEts),
+          case maybe_emit_parallel_forward_event(pipeline_predict, WorkerName, BatchID, MicrobatchID, StageID) of
+            {error, no_scheduler_grant} ->
+              wait_for_grant;
+            {error, EmitReason} ->
+              {abort, {pipeline_predict_event_rejected, EmitReason}};
+            ok ->
+              case nif_call(call_to_pipeline_predict_stage_forward, [ModelId, Activation, BatchID]) of
+                {ok, pipeline_predict_stage, StageTensor, StageType, StageTime} ->
+                  update_active_pipeline_batch_ctx(
+                    GenWorkerEts,
+                    fun(Ctx) ->
+                      ExistingPred = maps:get(predict_acc, Ctx, []),
+                      Ctx#{
+                        forward_completed => maps:get(forward_completed, Ctx, 0) + 1,
+                        total_microbatches => TotalMicrobatches,
+                        predict_acc => ExistingPred ++ [{MicrobatchID, {StageTensor, StageType}}]
+                      }
+                    end
+                  ),
+                  ets:update_element(
+                    GenWorkerEts,
+                    parallel_time_acc,
+                    {
+                      ?ETS_KEYVAL_VAL_IDX,
+                      ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
+                    }
+                  ),
+                  case is_last_pipeline_stage(GenWorkerEts) of
+                    true ->
+                      processed;
+                    false ->
+                      case resolve_pipeline_adjacent_worker(GenWorkerEts, next) of
+                        {ok, NextWorker} ->
+                          ForwardPayload = {
+                            pipeline_predict_payload,
+                            BatchID,
+                            SourceName,
+                            TotalMicrobatches,
+                            MicrobatchID,
+                            {StageTensor, StageType}
+                          },
+                          route_pipeline_payload_to_worker(GenWorkerEts, WorkerName, NextWorker, ForwardPayload),
+                          processed;
+                        {error, AdjacentReason} ->
+                          {abort, {pipeline_predict_next_stage_resolution_failed, AdjacentReason}}
+                      end
+                  end;
+                {nerlnif, error, Reason} ->
+                  {abort, {pipeline_predict_stage_nif_error, Reason}};
+                Unexpected ->
+                  {abort, {pipeline_predict_stage_unexpected, Unexpected}}
               end
-          end;
-        {nerlnif, error, Reason} ->
-          {abort, {pipeline_predict_stage_nif_error, Reason}};
-        Unexpected ->
-          {abort, {pipeline_predict_stage_unexpected, Unexpected}}
+          end
       end
-  end
   end;
 maybe_process_pipeline_predict_payload(_GenWorkerEts, _ModelId, _WorkerName, Payload) ->
   {skip, {invalid_pipeline_predict_payload, Payload}}.
@@ -2949,12 +3050,17 @@ set_worker_parallel_authority(GenWorkerEts, EnabledRaw) ->
       ets:update_element(GenWorkerEts, tp_collective_inbox_buffer, {?ETS_KEYVAL_VAL_IDX, []})
   end.
 
-append_parallel_scheduler_grant(GenWorkerEts, Direction, MicrobatchID, StageID) ->
+append_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, MicrobatchID, StageID) ->
   Grants = ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX),
-  NormalizedGrant = {normalize_parallel_direction_atom(Direction), MicrobatchID, StageID},
+  NormalizedGrant = {
+    normalize_parallel_direction_atom(Direction),
+    normalize_parallel_batch_id(BatchID),
+    MicrobatchID,
+    StageID
+  },
   ets:update_element(GenWorkerEts, parallel_scheduler_grants, {?ETS_KEYVAL_VAL_IDX, Grants ++ [NormalizedGrant]}).
 
-maybe_consume_parallel_scheduler_grant(GenWorkerEts, Direction, MicrobatchID, StageID) ->
+maybe_consume_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, MicrobatchID, StageID) ->
   Mode = normalize_parallel_mode_atom(
            ets:lookup_element(GenWorkerEts, parallel_mode, ?ETS_KEYVAL_VAL_IDX)
          ),
@@ -2967,21 +3073,37 @@ maybe_consume_parallel_scheduler_grant(GenWorkerEts, Direction, MicrobatchID, St
         false ->
           {error, super_authority_disabled};
         true ->
-          ExpectedGrant = {normalize_parallel_direction_atom(Direction), MicrobatchID, StageID},
+          ExpectedGrant = {
+            normalize_parallel_direction_atom(Direction),
+            normalize_parallel_batch_id(BatchID),
+            MicrobatchID,
+            StageID
+          },
           Grants = ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX),
           case Grants of
             [] ->
               {error, no_scheduler_grant};
-            [ExpectedGrant | RestGrants] ->
-              ets:update_element(GenWorkerEts, parallel_scheduler_grants, {?ETS_KEYVAL_VAL_IDX, RestGrants}),
-              ok;
-            [UnexpectedGrant | _Rest] ->
-              {error, {scheduler_grant_mismatch, UnexpectedGrant, ExpectedGrant}}
+            [HeadGrant | RestGrants] ->
+              case normalize_parallel_scheduler_grant(HeadGrant) of
+                {ok, NormalizedHead = {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID}} ->
+                  case scheduler_grant_matches(
+                         ExpectedGrant,
+                         {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID}
+                       ) of
+                    true ->
+                      ets:update_element(GenWorkerEts, parallel_scheduler_grants, {?ETS_KEYVAL_VAL_IDX, RestGrants}),
+                      ok;
+                    false ->
+                      {error, {scheduler_grant_mismatch, NormalizedHead, ExpectedGrant}}
+                  end;
+                {error, _} ->
+                  {error, {invalid_scheduler_grant, HeadGrant, ExpectedGrant}}
+              end
           end
       end
   end.
 
-can_emit_parallel_event_now(GenWorkerEts, Direction, MicrobatchID, StageID) ->
+can_emit_parallel_event_now(GenWorkerEts, Direction, BatchID, MicrobatchID, StageID) ->
   Mode = normalize_parallel_mode_atom(
            ets:lookup_element(GenWorkerEts, parallel_mode, ?ETS_KEYVAL_VAL_IDX)
          ),
@@ -2994,10 +3116,32 @@ can_emit_parallel_event_now(GenWorkerEts, Direction, MicrobatchID, StageID) ->
         false ->
           {error, super_authority_disabled};
         true ->
-          ExpectedGrant = {normalize_parallel_direction_atom(Direction), MicrobatchID, StageID},
+          ExpectedGrant = {
+            normalize_parallel_direction_atom(Direction),
+            normalize_parallel_batch_id(BatchID),
+            MicrobatchID,
+            StageID
+          },
           case ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX) of
-            [ExpectedGrant | _RestGrants] ->
-              ready;
+            [HeadGrant | _RestGrants] ->
+              case normalize_parallel_scheduler_grant(HeadGrant) of
+                {ok, NormalizedHead = {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID}} ->
+                  case scheduler_grant_matches(
+                         ExpectedGrant,
+                         {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID}
+                       ) of
+                    true ->
+                      ready;
+                    false ->
+                      ?LOG_INFO(
+                        "Worker ~p waiting for matching scheduler grant expected=~p head=~p",
+                        [ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX), ExpectedGrant, NormalizedHead]
+                      ),
+                      wait_for_grant
+                  end;
+                _ ->
+                  wait_for_grant
+              end;
             _ ->
               wait_for_grant
           end
@@ -3008,8 +3152,10 @@ queue_parallel_backward_event(GenWorkerEts, WorkerName, BatchID, MicrobatchID, S
   PendingEvents = ets:lookup_element(GenWorkerEts, parallel_pending_backward_events, ?ETS_KEYVAL_VAL_IDX),
   Event = {WorkerName, BatchID, MicrobatchID, StageID, TrainTime},
   case lists:any(
-         fun({_W, _B, PendingMicrobatchID, PendingStageID, _T}) ->
-           PendingMicrobatchID =:= MicrobatchID andalso PendingStageID =:= StageID
+         fun({_W, PendingBatchID, PendingMicrobatchID, PendingStageID, _T}) ->
+           PendingBatchID =:= BatchID andalso
+             PendingMicrobatchID =:= MicrobatchID andalso
+             PendingStageID =:= StageID
          end,
          PendingEvents
        ) of
@@ -3033,21 +3179,31 @@ maybe_dispatch_pending_parallel_backward_events_loop(_GenWorkerEts, [], _Pending
 maybe_dispatch_pending_parallel_backward_events_loop(_GenWorkerEts, _Grants, []) ->
   ok;
 maybe_dispatch_pending_parallel_backward_events_loop(
+  GenWorkerEts,
+  [{Direction, MicrobatchID, StageID} | RestGrants],
+  PendingEvents
+) ->
+  maybe_dispatch_pending_parallel_backward_events_loop(
+    GenWorkerEts,
+    [{Direction, any, MicrobatchID, StageID} | RestGrants],
+    PendingEvents
+  );
+maybe_dispatch_pending_parallel_backward_events_loop(
   _GenWorkerEts,
-  [{Direction, _MicrobatchID, _StageID} | _RestGrants],
+  [{Direction, _BatchID, _MicrobatchID, _StageID} | _RestGrants],
   _PendingEvents
 ) when Direction =/= backward ->
   ok;
 maybe_dispatch_pending_parallel_backward_events_loop(
   GenWorkerEts,
-  [{backward, MicrobatchID, StageID} | _RestGrants],
+  [{backward, GrantBatchID, MicrobatchID, StageID} | _RestGrants],
   PendingEvents
 ) ->
-  case pop_pending_parallel_backward_event(PendingEvents, MicrobatchID, StageID, []) of
+  case pop_pending_parallel_backward_event(PendingEvents, GrantBatchID, MicrobatchID, StageID, []) of
     not_found ->
       ok;
-    {ok, {WorkerName, BatchID, MicrobatchID, StageID, TrainTime}, RemainingPendingEvents} ->
-      case emit_parallel_event(WorkerName, backward, BatchID, MicrobatchID, StageID, TrainTime) of
+    {ok, {WorkerName, EventBatchID, MicrobatchID, StageID, TrainTime}, RemainingPendingEvents} ->
+      case emit_parallel_event(WorkerName, backward, EventBatchID, MicrobatchID, StageID, TrainTime) of
         ok ->
           ets:update_element(
             GenWorkerEts,
@@ -3061,21 +3217,66 @@ maybe_dispatch_pending_parallel_backward_events_loop(
             RemainingPendingEvents
           );
         {error, EmitReason} ->
-          {abort, {pending_backward_event_emit_rejected, WorkerName, BatchID, MicrobatchID, StageID, EmitReason}}
+          {abort, {pending_backward_event_emit_rejected, WorkerName, EventBatchID, MicrobatchID, StageID, EmitReason}}
       end
   end.
 
-pop_pending_parallel_backward_event([], _MicrobatchID, _StageID, _Acc) ->
+pop_pending_parallel_backward_event([], _BatchID, _MicrobatchID, _StageID, _Acc) ->
   not_found;
 pop_pending_parallel_backward_event(
-  [Event = {_WorkerName, _BatchID, MicrobatchID, StageID, _TrainTime} | Rest],
+  [Event = {_WorkerName, BatchID, MicrobatchID, StageID, _TrainTime} | Rest],
+  BatchID,
   MicrobatchID,
   StageID,
   Acc
 ) ->
   {ok, Event, lists:reverse(Acc) ++ Rest};
-pop_pending_parallel_backward_event([Event | Rest], MicrobatchID, StageID, Acc) ->
-  pop_pending_parallel_backward_event(Rest, MicrobatchID, StageID, [Event | Acc]).
+pop_pending_parallel_backward_event(
+  [Event = {_WorkerName, _EventBatchID, MicrobatchID, StageID, _TrainTime} | Rest],
+  any,
+  MicrobatchID,
+  StageID,
+  Acc
+) ->
+  {ok, Event, lists:reverse(Acc) ++ Rest};
+pop_pending_parallel_backward_event([Event | Rest], BatchID, MicrobatchID, StageID, Acc) ->
+  pop_pending_parallel_backward_event(Rest, BatchID, MicrobatchID, StageID, [Event | Acc]).
+
+normalize_parallel_batch_id(any) ->
+  any;
+normalize_parallel_batch_id(BatchID) when is_integer(BatchID) ->
+  BatchID;
+normalize_parallel_batch_id(BatchID) when is_binary(BatchID) ->
+  normalize_parallel_batch_id(binary_to_list(BatchID));
+normalize_parallel_batch_id(BatchID) when is_list(BatchID) ->
+  try list_to_integer(string:trim(BatchID)) of
+    ParsedBatchID ->
+      ParsedBatchID
+  catch
+    _:_ ->
+      any
+  end;
+normalize_parallel_batch_id(_) ->
+  any.
+
+normalize_parallel_scheduler_grant({Direction, BatchID, MicrobatchID, StageID}) ->
+  {ok, {normalize_parallel_direction_atom(Direction), normalize_parallel_batch_id(BatchID), MicrobatchID, StageID}};
+normalize_parallel_scheduler_grant({Direction, MicrobatchID, StageID}) ->
+  {ok, {normalize_parallel_direction_atom(Direction), any, MicrobatchID, StageID}};
+normalize_parallel_scheduler_grant(Unexpected) ->
+  {error, {invalid_grant_shape, Unexpected}}.
+
+scheduler_grant_matches({ExpectedDirection, ExpectedBatchID, ExpectedMicrobatchID, ExpectedStageID},
+                        {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID}) ->
+  ExpectedDirection =:= GrantDirection andalso
+    batch_id_matches(ExpectedBatchID, GrantBatchID) andalso
+    ExpectedMicrobatchID =:= GrantMicrobatchID andalso
+    ExpectedStageID =:= GrantStageID.
+
+batch_id_matches(_ExpectedBatchID, any) ->
+  true;
+batch_id_matches(ExpectedBatchID, GrantBatchID) ->
+  ExpectedBatchID =:= GrantBatchID.
 
 normalize_parallel_direction_atom(Direction) when is_atom(Direction) ->
   Direction;

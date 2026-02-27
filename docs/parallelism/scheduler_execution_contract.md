@@ -1,33 +1,53 @@
 # Super Node Scheduler Execution Contract
 
-This document captures the current runtime contract implemented for non-legacy parallel modes.
+This document captures the runtime contract for non-legacy parallel modes (`pipeline`, `tensor`, `pipeline_tensor`).
 
 ## Message routing contract
 
-- Outbound worker message path in non-legacy mode:
-  - `Worker -> Client -> SuperNode (/parallelWorkerMessage) -> Destination Client (/parallelDeliver) -> Destination Worker`
-- Legacy mode remains unchanged and still supports direct `worker_to_worker_msg` handling.
-- `parallelDeliver` is a **terminal delivery** path on the destination client and does not re-route via Super Node.
+- Non-legacy worker data path:
+  - `Worker -> Client -> Super Node (/parallelWorkerMessage) -> Destination Client (/parallelDeliver) -> Destination Worker`
+- Legacy mode keeps direct `worker_to_worker_msg`.
+- `/parallelDeliver` is terminal delivery on the destination client (no re-route loop).
 
 ## Phase control contract
 
-- Main Server sends per-phase parallel metadata to Super Node before phase cast:
-  - endpoint: `/parallelPhaseUpdate`
-  - body tuple: `{parallel_phase_update, PhaseAtom, ParallelMode, ParallelExecutionMap, WorkerParallelMap}`
-- Super Node stores active parallel metadata and builds deterministic scheduler traces for:
-  - `gpipe`
-  - `1f1b`
-  - `interleaved`
+- Main Server sends parallel phase updates to Super Node (`/parallelPhaseUpdate`) before phase execution.
+- Super Node increments and stores a per-phase `phase_epoch`.
+- Super Node broadcasts config/grants to managed clients through `/parallelSuperCommand`.
+- Non-legacy client idle transitions are phase-close gated:
+  - client requests `/parallelPhaseClose`
+  - Super Node grants close only after all managed clients request close.
 
-## Scheduler trace guard contract
+## Scheduler grant contract
 
-- Super Node accepts optional tagged worker payloads:
-  - `{parallel_event, Direction, MicrobatchId, Stage}`
-  - `{parallel_event, Direction, MicrobatchId, Stage, Payload}`
-- When tagged payloads are present, Super Node validates order against the active scheduler trace.
-- On mismatch, Super Node emits deterministic abort to Main Server using `parallelAbort`.
+- Super Node grant command shape:
+  - `{parallel_super_command, grant_scheduler_event, Direction, BatchID, MicrobatchID, StageID, WorkerName, PhaseEpoch}`
+- Grant identity is batch-aware and epoch-scoped:
+  - `{Direction, BatchID, MicrobatchID, StageID, PhaseEpoch}`
+- Clients and workers still accept legacy batch-less grant tuples and normalize them to `BatchID=any`.
+- Scheduler grant rejections are reported to Super Node as:
+  - `{scheduler_grant_rejected, Client, Worker, Direction, BatchID, MicrobatchID, StageID, Reason, PhaseEpoch}`
 
-## API server error sync contract
+## Parallel event contract
 
-- `parallel_abort` is treated as `MAIN_SERVER_ERROR` in `EventSync`.
-- Any waiting sync loop fails fast once this abort is observed.
+- Workers emit scheduler-gated events with batch/microbatch/stage metadata.
+- Clients forward events to Super Node with epoch-tagged metadata:
+  - `{parallel_meta, PhaseEpoch, Meta}`
+- Super Node ignores stale-epoch events (instead of applying them to current phase state).
+
+## Pipeline batch isolation contract
+
+- Worker pipeline inbox processing is batch-aware:
+  - payloads for non-active batches return `wait_for_batch` and stay buffered.
+- Backward dispatch is grant-aware:
+  - worker selects backward payload by `{BatchID, MicrobatchID}` from the head grant, not strict FIFO alone.
+- This prevents cross-batch state corruption and head-of-line deadlocks when message arrival order differs from grant order.
+
+## Fail-fast contract
+
+- Super Node enforces deterministic aborts for:
+  - scheduler trace violations
+  - pending grant timeout (`scheduler_grant_timeout`)
+  - rejection storm (`scheduler_grant_rejection_storm`)
+  - routing/heartbeat/ownership failures
+- API synchronization maps `parallel_abort` to Main Server error semantics for immediate phase failure handling.

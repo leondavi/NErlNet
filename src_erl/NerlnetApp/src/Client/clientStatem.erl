@@ -953,6 +953,7 @@ notify_scheduler_grant_rejected(
   EtsRef,
   WorkerName,
   Direction,
+  BatchID,
   MicrobatchID,
   StageID,
   GrantEpoch,
@@ -963,15 +964,15 @@ notify_scheduler_grant_rejected(
   case SuperNode of
     none ->
       ?LOG_WARNING(
-        "Client ~p rejected scheduler grant but cannot notify super node (missing super): worker=~p direction=~p microbatch=~p stage=~p epoch=~p reason=~p",
-        [ClientName, WorkerName, Direction, MicrobatchID, StageID, GrantEpoch, RejectReason]
+        "Client ~p rejected scheduler grant but cannot notify super node (missing super): worker=~p direction=~p batch=~p microbatch=~p stage=~p epoch=~p reason=~p",
+        [ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, GrantEpoch, RejectReason]
       );
     _ ->
       ?LOG_INFO(
-        "Client ~p rejecting scheduler grant worker=~p direction=~p microbatch=~p stage=~p epoch=~p reason=~p",
-        [ClientName, WorkerName, Direction, MicrobatchID, StageID, GrantEpoch, RejectReason]
+        "Client ~p rejecting scheduler grant worker=~p direction=~p batch=~p microbatch=~p stage=~p epoch=~p reason=~p",
+        [ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, GrantEpoch, RejectReason]
       ),
-      MessageBody = {scheduler_grant_rejected, ClientName, WorkerName, Direction, MicrobatchID, StageID, RejectReason, GrantEpoch},
+      MessageBody = {scheduler_grant_rejected, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, RejectReason, GrantEpoch},
       {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
       try
         nerl_tools:http_router_request(
@@ -1064,12 +1065,32 @@ apply_parallel_super_command(EtsRef, {parallel_super_command, configure_parallel
   ets:insert(EtsRef, {parallel_phase_epoch, PhaseEpoch});
 apply_parallel_super_command(
   EtsRef,
+  {parallel_super_command, grant_scheduler_event, Direction, BatchID, MicrobatchID, StageID, WorkerName},
+  StateName
+) ->
+  apply_parallel_super_command(
+    EtsRef,
+    {parallel_super_command, grant_scheduler_event, Direction, BatchID, MicrobatchID, StageID, WorkerName, current},
+    StateName
+  );
+apply_parallel_super_command(
+  EtsRef,
   {parallel_super_command, grant_scheduler_event, Direction, MicrobatchID, StageID, WorkerName},
   StateName
 ) ->
   apply_parallel_super_command(
     EtsRef,
-    {parallel_super_command, grant_scheduler_event, Direction, MicrobatchID, StageID, WorkerName, current},
+    {parallel_super_command, grant_scheduler_event, Direction, any, MicrobatchID, StageID, WorkerName, current},
+    StateName
+  );
+apply_parallel_super_command(
+  EtsRef,
+  {grant_scheduler_event, Direction, BatchID, MicrobatchID, StageID, WorkerName},
+  StateName
+) ->
+  apply_parallel_super_command(
+    EtsRef,
+    {parallel_super_command, grant_scheduler_event, Direction, BatchID, MicrobatchID, StageID, WorkerName, current},
     StateName
   );
 apply_parallel_super_command(
@@ -1079,21 +1100,21 @@ apply_parallel_super_command(
 ) ->
   apply_parallel_super_command(
     EtsRef,
-    {parallel_super_command, grant_scheduler_event, Direction, MicrobatchID, StageID, WorkerName, current},
+    {parallel_super_command, grant_scheduler_event, Direction, any, MicrobatchID, StageID, WorkerName, current},
     StateName
   );
 apply_parallel_super_command(
   EtsRef,
-  {parallel_super_command, grant_scheduler_event, Direction, MicrobatchID, StageID, WorkerName, GrantEpochRaw},
+  {parallel_super_command, grant_scheduler_event, Direction, BatchID, MicrobatchID, StageID, WorkerName, GrantEpochRaw},
   StateName
 ) ->
   GrantEpoch = resolve_parallel_phase_epoch(EtsRef, GrantEpochRaw),
   ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
   ?LOG_INFO(
-    "Client ~p received scheduler grant direction=~p microbatch=~p stage=~p target=~p epoch=~p",
-    [ClientName, Direction, MicrobatchID, StageID, WorkerName, GrantEpoch]
+    "Client ~p received scheduler grant direction=~p batch=~p microbatch=~p stage=~p target=~p epoch=~p",
+    [ClientName, Direction, BatchID, MicrobatchID, StageID, WorkerName, GrantEpoch]
   ),
-  deliver_scheduler_grant(EtsRef, Direction, MicrobatchID, StageID, WorkerName, GrantEpoch, StateName);
+  deliver_scheduler_grant(EtsRef, Direction, BatchID, MicrobatchID, StageID, WorkerName, GrantEpoch, StateName);
 apply_parallel_super_command(EtsRef, {parallel_super_command, phase_close_granted, PhaseEpochRaw}, _StateName) ->
   PhaseEpoch = resolve_parallel_phase_epoch(EtsRef, PhaseEpochRaw),
   ActiveEpoch = ets:lookup_element(EtsRef, parallel_phase_epoch, ?DATA_IDX),
@@ -1115,15 +1136,16 @@ apply_parallel_super_command(_EtsRef, UnknownCommand, _StateName) ->
   ?LOG_WARNING("Ignoring unknown parallel super command: ~p", [UnknownCommand]),
   ok.
 
-deliver_scheduler_grant(EtsRef, Direction, MicrobatchID, StageID, WorkerNameRaw, GrantEpoch, StateName) ->
+deliver_scheduler_grant(EtsRef, Direction, BatchID, MicrobatchID, StageID, WorkerNameRaw, GrantEpoch, StateName) ->
   case scheduler_grant_reject_reason(EtsRef, GrantEpoch, StateName) of
     none ->
-      deliver_scheduler_grant_to_worker(EtsRef, Direction, MicrobatchID, StageID, WorkerNameRaw, GrantEpoch);
+      deliver_scheduler_grant_to_worker(EtsRef, Direction, BatchID, MicrobatchID, StageID, WorkerNameRaw, GrantEpoch);
     RejectReason ->
       notify_scheduler_grant_rejected(
         EtsRef,
         WorkerNameRaw,
         Direction,
+        BatchID,
         MicrobatchID,
         StageID,
         GrantEpoch,
@@ -1131,21 +1153,21 @@ deliver_scheduler_grant(EtsRef, Direction, MicrobatchID, StageID, WorkerNameRaw,
       )
   end.
 
-deliver_scheduler_grant_to_worker(EtsRef, Direction, MicrobatchID, StageID, WorkerNameRaw, GrantEpoch) ->
+deliver_scheduler_grant_to_worker(EtsRef, Direction, BatchID, MicrobatchID, StageID, WorkerNameRaw, GrantEpoch) ->
   WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
   case resolve_worker_name(WorkersOfThisClient, WorkerNameRaw) of
     {error, _} ->
-      notify_parallel_abort(EtsRef, {scheduler_grant_non_local_worker, WorkerNameRaw, Direction, MicrobatchID, StageID});
+      notify_parallel_abort(EtsRef, {scheduler_grant_non_local_worker, WorkerNameRaw, Direction, BatchID, MicrobatchID, StageID});
     {ok, WorkerName} ->
       ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
       ?LOG_INFO(
-        "Client ~p forwarding scheduler grant to worker ~p direction=~p microbatch=~p stage=~p epoch=~p",
-        [ClientName, WorkerName, Direction, MicrobatchID, StageID, GrantEpoch]
+        "Client ~p forwarding scheduler grant to worker ~p direction=~p batch=~p microbatch=~p stage=~p epoch=~p",
+        [ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, GrantEpoch]
       ),
       WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef, WorkerName),
       gen_statem:cast(
         WorkerPid,
-        {parallel_scheduler_grant, normalize_parallel_direction(Direction), MicrobatchID, StageID}
+        {parallel_scheduler_grant, normalize_parallel_direction(Direction), BatchID, MicrobatchID, StageID}
       )
   end.
 
