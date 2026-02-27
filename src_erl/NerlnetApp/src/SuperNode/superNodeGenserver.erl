@@ -501,17 +501,30 @@ maybe_send_next_scheduler_grant(
   State = #super_node_state{
     parallel_active = ParallelActive,
     scheduler_trace = Trace,
+    scheduler_cursor = Cursor,
     pending_grant = PendingGrant
   }
 ) ->
   case {ParallelActive, Trace, PendingGrant} of
     {false, _AnyTrace, _AnyGrant} ->
+      ?LOG_INFO(
+        "Super node scheduler gate: parallel_active=false cursor=~p trace_len=~p pending_grant=~p",
+        [Cursor, length(Trace), PendingGrant]
+      ),
       {ok, State};
     {_True, [], _AnyGrant} ->
+      ?LOG_INFO(
+        "Super node scheduler gate: empty trace cursor=~p pending_grant=~p",
+        [Cursor, PendingGrant]
+      ),
       {ok, State};
     {_True, _NonEmptyTrace, none} ->
       issue_next_scheduler_grant(State);
     {_True, _NonEmptyTrace, _ExistingGrant} ->
+      ?LOG_INFO(
+        "Super node scheduler gate: pending grant still open cursor=~p pending_grant=~p",
+        [Cursor, PendingGrant]
+      ),
       {ok, State}
   end.
 

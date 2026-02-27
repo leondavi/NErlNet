@@ -41,6 +41,8 @@ class FailureAbortContractTests(unittest.TestCase):
         self.assertIn("skipping phase result upload because active_phase is", content)
         self.assertIn("UnexpectedPhase ->", content)
         self.assertIn("clean_phase_result_data_to_send_ets()", content)
+        self.assertIn("ignoring stale/duplicate clientAck from", content)
+        self.assertIn("case lists:member(ClientName, WaitingList) of", content)
 
     def test_super_node_heartbeat_checks_only_active_parallel_phase(self) -> None:
         content = SUPER_NODE_FILE.read_text(encoding="utf-8")
@@ -54,6 +56,8 @@ class FailureAbortContractTests(unittest.TestCase):
         self.assertIn("last_abort = {none, 0}", content)
         self.assertIn("SuppressWindow = erlang:max(200, HeartbeatMs)", content)
         self.assertIn("State#super_node_state{last_abort = {Reason, NowMs}}", content)
+        self.assertIn("scheduler gate: parallel_active=false", content)
+        self.assertIn("scheduler gate: pending grant still open", content)
 
     def test_client_legacy_mode_forces_parallel_execution_clear(self) -> None:
         content = CLIENT_STATEM_FILE.read_text(encoding="utf-8")

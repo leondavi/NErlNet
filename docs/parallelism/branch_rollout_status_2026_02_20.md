@@ -62,6 +62,7 @@ Implemented and working today:
   - Worker/Client/Super Node logs now include the same deterministic per-event id tuple (`{parallel_event, Worker, Direction, Batch, Microbatch, Stage}`) so one event can be traced end-to-end across devices.
   - Client `parallelEvent` forwarding now logs router request latency and router reply payload on success, and logs explicit event-id-tagged failure context on route errors.
   - Super Node tracks pending scheduler grant issue timestamps and emits deterministic `scheduler_grant_timeout` aborts when a grant is not acknowledged in time, including expected grant summary and last seen parallel event metadata.
+  - Super Node scheduler gate now logs non-issuing states (`parallel_active=false`, empty trace, pending grant still open) with scheduler cursor context so it is clear whether grant issuance is intentionally paused.
 - Phase-close barrier + stale-event hardening (new):
   - Super Node now maintains a per-phase `phase_epoch` and includes it in scheduler grant identity (`event_id`).
   - Clients tag forwarded parallel events with `{parallel_meta, phase_epoch, payload}`; Super Node ignores stale-epoch events instead of mismatching current trace.
@@ -69,9 +70,14 @@ Implemented and working today:
   - If a grant arrives during closing/idle or with stale epoch, client rejects it deterministically and reports via `/schedulerGrantRejected`; Super Node consumes this as terminal grant ack when it matches the pending grant.
 - Post-abort late-ack hardening:
   - Main Server `clientAck` path now handles `active_phase=none|undefined` safely, logs a skip, clears pending result ETS, and does not crash.
+  - Main Server now ignores stale/duplicate client acks that are not in `clientsWaitingList`, so a late ack cannot erroneously complete a new phase barrier.
 - Batch-aware pipeline stage-context hardening:
   - Torch stage context cache keys are now `{batch_id, microbatch_id}` (not microbatch-only) to avoid cross-batch collisions.
   - Stage NIF surfaces now accept explicit `batch_id` for stage0/stage/last-stage/backward compute calls.
+- Pipeline stream-end barrier hardening:
+  - Worker `end_stream` handling in `pipeline|pipeline_tensor` is now drain-gated.
+  - `end_stream` is queued first and `stream_ended` is deferred until active parallel runtime state is empty (active batch context, pending losses, scheduler grants, microbatch/sample queues, pipeline inbox buffers, and TP collective inbox).
+  - This prevents early phase-close races where client/Main Server advance before the pipeline drained.
 - Pipeline ingress validation hardening:
   - API-side experiment flow validation now rejects `pipeline|pipeline_tensor` source pieces targeting non-stage0 workers.
   - Planner validation mirrors the same rule before export.

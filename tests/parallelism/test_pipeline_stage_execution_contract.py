@@ -43,6 +43,11 @@ class PipelineStageExecutionContractTests(unittest.TestCase):
         self.assertIn("should_replay_parallel_sample_immediately", content)
         self.assertIn("replaying deferred parallel sample immediately by transitioning wait->~p", content)
         self.assertIn("normalize_parallel_next_state(NextState, LastPhase)", content)
+        self.assertIn("handle_end_stream_event(DistributedBehaviorFunc, ModelPhase, StreamName)", content)
+        self.assertIn("maybe_finalize_pending_end_streams(DistributedBehaviorFunc, ModelPhase)", content)
+        self.assertIn("queued end_stream for source=~p and deferred stream_ended until pipeline drain", content)
+        self.assertIn("is_pipeline_stream_end_flush_ready(GenWorkerEts)", content)
+        self.assertIn("has_pending_parallel_runtime_for_stream_end(GenWorkerEts)", content)
 
     def test_w2w_bridge_notifies_worker_pipeline_inbox(self) -> None:
         content = W2W_COM.read_text(encoding="utf-8")

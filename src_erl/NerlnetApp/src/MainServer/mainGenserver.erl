@@ -299,37 +299,46 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList =
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
   ClientName = binary_to_term(Body),
-  NewWaitingList = WaitingList--[ClientName], % waitingList is initialized in clientsTraining or clientsPredict handl cast calls
-  if length(NewWaitingList) == 0 ->
-            PhaseResultsDataMap = generate_phase_result_data_map(),
-            NothingToSend = string:is_empty(PhaseResultsDataMap),
-            if 
-              NothingToSend -> pass;
-              true ->
-                case get(active_phase) of
-                  training ->
-                    {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX), % get main_server's router
-                    nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(trainRes), {json, PhaseResultsDataMap}),
-                    stats:increment_messages_sent(StatsEts),
-                    clean_phase_result_data_to_send_ets(); % getting ready for next phase after data was sent to APIServer
-                  prediction ->
-                    {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX), % get main_server's router
-                    nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(predRes), {json, PhaseResultsDataMap}),
-                    stats:increment_messages_sent(StatsEts),
-                    clean_phase_result_data_to_send_ets();
-                  UnexpectedPhase ->
-                    % late client ack can arrive after deterministic abort/reset when active_phase was cleared.
-                    ?LOG_WARNING(
-                      "[Main-Server] skipping phase result upload because active_phase is ~p",
-                      [UnexpectedPhase]
-                    ),
-                    clean_phase_result_data_to_send_ets()
-                end
-            end,
-            ack(atom_to_list(get(curr_phase_ack)));
-    true-> ok 
-  end,
-  {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList}};
+  case lists:member(ClientName, WaitingList) of
+    false ->
+      ?LOG_WARNING(
+        "[Main-Server] ignoring stale/duplicate clientAck from ~p; active waiting list: ~p",
+        [ClientName, WaitingList]
+      ),
+      {noreply, State};
+    true ->
+      NewWaitingList = WaitingList--[ClientName], % waiting list is set by clientsTraining/clientsPredict handlers
+      if length(NewWaitingList) == 0 ->
+                PhaseResultsDataMap = generate_phase_result_data_map(),
+                NothingToSend = string:is_empty(PhaseResultsDataMap),
+                if
+                  NothingToSend -> pass;
+                  true ->
+                    case get(active_phase) of
+                      training ->
+                        {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX), % get main_server's router
+                        nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(trainRes), {json, PhaseResultsDataMap}),
+                        stats:increment_messages_sent(StatsEts),
+                        clean_phase_result_data_to_send_ets(); % getting ready for next phase after data was sent to APIServer
+                      prediction ->
+                        {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX), % get main_server's router
+                        nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(predRes), {json, PhaseResultsDataMap}),
+                        stats:increment_messages_sent(StatsEts),
+                        clean_phase_result_data_to_send_ets();
+                      UnexpectedPhase ->
+                        % late client ack can arrive after deterministic abort/reset when active_phase was cleared.
+                        ?LOG_WARNING(
+                          "[Main-Server] skipping phase result upload because active_phase is ~p",
+                          [UnexpectedPhase]
+                        ),
+                        clean_phase_result_data_to_send_ets()
+                    end
+                end,
+                ack(atom_to_list(get(curr_phase_ack)));
+        true-> ok
+      end,
+      {noreply, State#main_genserver_state{clientsWaitingList = NewWaitingList}}
+  end;
 
 %%TODO change Client_Names to list of clients
 handle_cast({startCasting,SourcesNames}, State = #main_genserver_state{state = idle, sourcesCastingList=CastingList, sourcesWaitingList = [], clientsWaitingList = []}) ->
