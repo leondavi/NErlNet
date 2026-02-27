@@ -8,8 +8,18 @@ REBAR3_FILE=src_erl/rebar3/rebar3
 REBAR3_SYMLINK=/usr/local/bin/rebar3
 
 if [[ -z "$RUNNING_IN_DOCKER" ]]; then
-  # Not running inside a docker container
-  LOGGED_IN_USER=$(logname)
+  # Not running inside a docker container.
+  # Prefer sudo-invoking user, then terminal login user, then process owner.
+  LOGGED_IN_USER="${SUDO_USER:-}"
+  if [[ -z "$LOGGED_IN_USER" ]]; then
+    LOGGED_IN_USER="$(logname 2>/dev/null || true)"
+  fi
+  if [[ -z "$LOGGED_IN_USER" ]]; then
+    LOGGED_IN_USER="$(who am i 2>/dev/null | awk '{print $1}' || true)"
+  fi
+  if [[ -z "$LOGGED_IN_USER" ]]; then
+    LOGGED_IN_USER="$(whoami)"
+  fi
 else
   # Running inside a docker container
   LOGGED_IN_USER="$(whoami)" # Probably root
@@ -360,9 +370,13 @@ chmod 664 /etc/systemd/system/nerlnet.service
 if [[ -z "$RUNNING_IN_DOCKER" ]]; then
 	# Not running in docker
 	# Always ensure the active workspace (especially build artifacts) belongs to the invoking user
-	chown -R $LOGGED_IN_USER $NERLNET_DIR/build 2>/dev/null || true
-	chown -R $LOGGED_IN_USER $NERLNET_LOG_DIR
-	chown -R $LOGGED_IN_USER $NERLNET_DIR
+	if [[ -n "$LOGGED_IN_USER" ]]; then
+		chown -R "$LOGGED_IN_USER" "$NERLNET_DIR/build" 2>/dev/null || true
+		chown -R "$LOGGED_IN_USER" "$NERLNET_LOG_DIR"
+		chown -R "$LOGGED_IN_USER" "$NERLNET_DIR"
+	else
+		echo "[NERLNET] Warning: LOGGED_IN_USER is empty, skipping chown ownership fix"
+	fi
 fi
 
 echo "You can enable and start nerlnet.service using the command: systemctl enable nerlnet.service"
