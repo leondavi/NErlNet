@@ -91,6 +91,8 @@ Implemented and working today:
 - Worker pipeline batch isolation hardening:
   - out-of-batch pipeline payloads are held in buffers (`wait_for_batch`) until active batch turnover.
   - backward payload dequeue is keyed by `{batch,microbatch}` grant identity (`pop_pipeline_backward_payload_for_grant`) to prevent cross-batch collisions.
+- End-of-data grant-timeout hardening:
+  - workers now drop stale scheduler grants during stream-end drain when no non-grant runtime work remains, allowing `stream_ended` and Super Node phase-close to proceed instead of timing out on speculative next-batch grants.
 
 ---
 

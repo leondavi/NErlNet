@@ -42,6 +42,8 @@ This document captures the runtime contract for non-legacy parallel modes (`pipe
 - Backward dispatch is grant-aware:
   - worker selects backward payload by `{BatchID, MicrobatchID}` from the head grant, not strict FIFO alone.
 - This prevents cross-batch state corruption and head-of-line deadlocks when message arrival order differs from grant order.
+- Stream-end drain is stale-grant safe:
+  - if `end_stream` is queued and no non-grant runtime work remains, workers drop leftover scheduler grants so `stream_ended` can flush and client phase-close can complete.
 
 ## Fail-fast contract
 

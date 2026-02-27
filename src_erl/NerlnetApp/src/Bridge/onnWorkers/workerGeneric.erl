@@ -896,7 +896,13 @@ queue_end_stream_waiting(GenWorkerEts, StreamName) ->
 
 can_flush_pending_end_streams(GenWorkerEts) ->
   EndStreamWaitingList = ets:lookup_element(GenWorkerEts, end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
-  EndStreamWaitingList =/= [] andalso is_pipeline_stream_end_flush_ready(GenWorkerEts).
+  case EndStreamWaitingList =/= [] of
+    false ->
+      false;
+    true ->
+      maybe_drop_stale_scheduler_grants_for_stream_end(GenWorkerEts),
+      is_pipeline_stream_end_flush_ready(GenWorkerEts)
+  end.
 
 is_pipeline_stream_end_flush_ready(GenWorkerEts) ->
   Mode = normalize_parallel_mode_atom(
@@ -912,6 +918,11 @@ is_pipeline_stream_end_flush_ready(GenWorkerEts) ->
   end.
 
 has_pending_parallel_runtime_for_stream_end(GenWorkerEts) ->
+  HasPendingNonGrantRuntime = has_pending_runtime_excluding_scheduler_grants(GenWorkerEts),
+  SchedulerGrants = ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX),
+  HasPendingNonGrantRuntime orelse SchedulerGrants =/= [].
+
+has_pending_runtime_excluding_scheduler_grants(GenWorkerEts) ->
   ActiveCtx = ets:lookup_element(GenWorkerEts, parallel_active_batch_ctx, ?ETS_KEYVAL_VAL_IDX),
   PendingLosses = ets:lookup_element(GenWorkerEts, parallel_pending_losses, ?ETS_KEYVAL_VAL_IDX),
   MicrobatchQueue = ets:lookup_element(GenWorkerEts, parallel_microbatch_queue, ?ETS_KEYVAL_VAL_IDX),
@@ -920,7 +931,6 @@ has_pending_parallel_runtime_for_stream_end(GenWorkerEts) ->
   BackwardBuffer = ets:lookup_element(GenWorkerEts, parallel_pipeline_backward_buffer, ?ETS_KEYVAL_VAL_IDX),
   PredictBuffer = ets:lookup_element(GenWorkerEts, parallel_pipeline_predict_buffer, ?ETS_KEYVAL_VAL_IDX),
   PendingBackwardEvents = ets:lookup_element(GenWorkerEts, parallel_pending_backward_events, ?ETS_KEYVAL_VAL_IDX),
-  SchedulerGrants = ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX),
   CollectiveInbox = ets:lookup_element(GenWorkerEts, tp_collective_inbox_buffer, ?ETS_KEYVAL_VAL_IDX),
   ActiveCtx =/= undefined orelse
     PendingLosses > 0 orelse
@@ -930,8 +940,22 @@ has_pending_parallel_runtime_for_stream_end(GenWorkerEts) ->
     BackwardBuffer =/= [] orelse
     PredictBuffer =/= [] orelse
     PendingBackwardEvents =/= [] orelse
-    SchedulerGrants =/= [] orelse
     CollectiveInbox =/= [].
+
+maybe_drop_stale_scheduler_grants_for_stream_end(GenWorkerEts) ->
+  HasPendingNonGrantRuntime = has_pending_runtime_excluding_scheduler_grants(GenWorkerEts),
+  SchedulerGrants = ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX),
+  case {HasPendingNonGrantRuntime, SchedulerGrants =/= []} of
+    {false, true} ->
+      WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+      ?LOG_WARNING(
+        "Worker ~p dropping stale scheduler grants during end_stream drain grants=~p",
+        [WorkerName, SchedulerGrants]
+      ),
+      ets:update_element(GenWorkerEts, parallel_scheduler_grants, {?ETS_KEYVAL_VAL_IDX, []});
+    _ ->
+      ok
+  end.
 
 get_worker_parallel_cfg(WorkerName) ->
   case catch ets:lookup_element(nerlnet_data, workers_parallel, ?ETS_KEYVAL_VAL_IDX) of
