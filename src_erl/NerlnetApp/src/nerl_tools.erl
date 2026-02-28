@@ -226,13 +226,52 @@ string_format(Pattern, Values) ->
     lists:flatten(io_lib:format(Pattern, Values)).
 
 port_available(Port) ->
+  Retries = get_env_int("NERLNET_PORT_PROBE_RETRIES", 60),
+  SleepMs = get_env_int("NERLNET_PORT_PROBE_SLEEP_MS", 500),
+  port_available_retry(Port, Retries, SleepMs, Retries).
+
+port_available_retry(Port, Remaining, SleepMs, Initial) ->
   case gen_tcp:listen(Port, []) of
     {ok, Sock} ->
       ok = gen_tcp:close(Sock),
       true;
+    {error, eaddrinuse} when Remaining > 0 ->
+      log_port_probe_retry(Port, Remaining, Initial, SleepMs),
+      timer:sleep(SleepMs),
+      port_available_retry(Port, Remaining - 1, SleepMs, Initial);
     {error, Reason} ->
-      ?LOG_ERROR("Port ~p availability probe failed: ~p", [Port, Reason]),
+      ?LOG_ERROR(
+        "Port ~p availability probe failed: ~p "
+        "(set env NERLNET_PORT_PROBE_RETRIES / NERLNET_PORT_PROBE_SLEEP_MS to tune startup wait)",
+        [Port, Reason]
+      ),
       false
+  end.
+
+log_port_probe_retry(Port, Remaining, Initial, SleepMs) ->
+  Attempt = (Initial - Remaining) + 1,
+  ShouldLog =
+    (Attempt =:= 1) orelse
+    (Remaining =:= 0) orelse
+    ((Attempt rem 10) =:= 0),
+  case ShouldLog of
+    true ->
+      ?LOG_WARNING(
+        "Port ~p still busy (eaddrinuse). retry ~p/~p in ~pms",
+        [Port, Attempt, Initial, SleepMs]
+      );
+    false ->
+      ok
+  end.
+
+get_env_int(Name, Default) ->
+  case os:getenv(Name) of
+    false -> Default;
+    Raw ->
+      case string:to_integer(string:trim(Raw)) of
+        {Value, _Rest} when is_integer(Value), Value >= 0 -> Value;
+        _ -> Default
+      end
   end.
 
 %% calculate the number of bytes of term
