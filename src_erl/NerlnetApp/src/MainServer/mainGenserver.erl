@@ -185,24 +185,38 @@ handle_cast({parallelAbort, Body}, State = #main_genserver_state{myName = MyName
 handle_cast(
   {parallelPhaseDone, Body},
   State = #main_genserver_state{
-    myName = MyName,
     state = MainState,
-    parallel_mode = ParallelMode
+    parallel_mode = ParallelMode,
+    clientsWaitingList = ClientsWaitingList
   }
 ) ->
   ParallelDoneMessage = decode_parallel_phase_done_body(Body),
   case {MainState, ParallelMode} of
     {casting, Mode} when Mode =/= legacy ->
       ?LOG_NOTICE(
-        "[Main-Server] parallel phase completion reported by Super Node while casting. forcing client idle transition: ~p",
+        "[Main-Server] parallel phase completion reported by Super Node while casting. awaiting client idle acknowledgements: ~p",
         [ParallelDoneMessage]
       ),
-      update_clients_phase(clientIdle, MyName),
       ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
       {noreply, State#main_genserver_state{
         state = idle,
         sourcesCastingList = [],
         clientsWaitingList = ListOfClients,
+        total_sources = 0
+      }};
+    {idle, Mode} when Mode =/= legacy ->
+      ?LOG_WARNING(
+        "[Main-Server] received parallel phase completion while already idle (mode=~p). treating as idempotent completion: ~p",
+        [Mode, ParallelDoneMessage]
+      ),
+      EffectiveWaitingList =
+        case ClientsWaitingList of
+          [] -> ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX);
+          Existing -> Existing
+        end,
+      {noreply, State#main_genserver_state{
+        sourcesCastingList = [],
+        clientsWaitingList = EffectiveWaitingList,
         total_sources = 0
       }};
     _ ->
@@ -299,6 +313,7 @@ handle_cast(
   State = #main_genserver_state{
     myName = MyName,
     state = MainState,
+    parallel_mode = ParallelMode,
     sourcesCastingList = SourcesCastingList
   }
 ) ->
@@ -313,6 +328,18 @@ handle_cast(
   UpdatedSourcesCastingList = SourcesCastingList--[SourceName],
 
   case UpdatedSourcesCastingList of
+    [] when ParallelMode =/= legacy ->
+      % In non-legacy parallel modes, Super Node is the only completion authority.
+      % Source stream completion does not imply pipeline/collective completion.
+      ?LOG_INFO(
+        "[Main-Server] all sources finished casting in mode=~p; waiting for Super Node parallel phase completion",
+        [ParallelMode]
+      ),
+      NextState = State#main_genserver_state{
+        state = casting,
+        sourcesCastingList = UpdatedSourcesCastingList,
+        total_sources = 0
+      };
     [] -> % the list is empty - all sources were done casting their batches
       ?LOG_NOTICE("[Main-Server] All sources finished casting"),
       PhaseAtom = clientIdle,
@@ -320,7 +347,8 @@ handle_cast(
       ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
       stats:increment_messages_sent(StatsEts),
       NextState = State#main_genserver_state{state = idle, sourcesCastingList = UpdatedSourcesCastingList, clientsWaitingList = ListOfClients, total_sources = 0};
-    _ -> NextState = State#main_genserver_state{state = casting, sourcesCastingList = UpdatedSourcesCastingList}
+    _ ->
+      NextState = State#main_genserver_state{state = casting, sourcesCastingList = UpdatedSourcesCastingList}
   end,
   {noreply, NextState}
   end;

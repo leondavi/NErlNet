@@ -90,6 +90,17 @@ class SuperNodeCommContractTest(unittest.TestCase):
         self.assertIn("parallelPhaseDone ->", action_content)
         self.assertIn("{parallelPhaseDone, Body}", main_content)
         self.assertIn("[Main-Server] parallel phase completion reported by Super Node", main_content)
+        self.assertIn("awaiting client idle acknowledgements", main_content)
+        self.assertIn("treating as idempotent completion", main_content)
+
+    def test_main_server_non_legacy_source_done_waits_for_super_node(self) -> None:
+        main_content = MAIN_GENSERVER_FILE.read_text(encoding="utf-8")
+        self.assertIn("all sources finished casting in mode=~p; waiting for Super Node parallel phase completion", main_content)
+
+    def test_client_idle_unrecognized_message_does_not_switch_to_training(self) -> None:
+        statem_content = CLIENT_STATEM_FILE.read_text(encoding="utf-8")
+        self.assertIn("idle(cast, EventContent", statem_content)
+        self.assertIn("{next_state, idle, State#client_statem_state", statem_content)
 
 
 if __name__ == "__main__":

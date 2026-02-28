@@ -323,7 +323,7 @@ idle(cast, EventContent, State = #client_statem_state{etsRef = EtsRef , myName =
   ClientStatsEts = get(client_stats_ets),
   stats:increment_bad_messages(ClientStatsEts),
   ?LOG_WARNING("~p Unrecognized Message!!!:  ~p",[MyName , EventContent]),
-  {next_state, training, State#client_statem_state{etsRef = EtsRef}}.
+  {next_state, idle, State#client_statem_state{etsRef = EtsRef}}.
 
 %% passing Data from worker to worker e.g. (FedClient to FedServer)
 training(cast, {set_parallel_mode, Mode, Source}, State = #client_statem_state{etsRef = EtsRef}) ->
