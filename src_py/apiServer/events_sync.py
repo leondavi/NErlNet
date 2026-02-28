@@ -28,10 +28,8 @@ class EventSync():
     def set_event_wait(self, event):
         assert event in self.done_actions_dict.values() 
         assert event in self.tracking_dict
-        if self.tracking_dict[event] == self.INIT:
-            self.tracking_dict[event] = self.WAIT
-            return True
-        return False
+        self.tracking_dict[event] = self.WAIT
+        return True
             
     def sync_on_event(self, event):
         assert event in self.done_actions_dict.values()
@@ -55,7 +53,15 @@ class EventSync():
     def set_event_done(self,event):
         assert event in self.done_actions_dict.values()
         assert event in self.tracking_dict
-        assert self.tracking_dict[event] == self.WAIT
+        current_state = self.tracking_dict[event]
+        if current_state == self.DONE:
+            return
+        if current_state != self.WAIT:
+            LOG_WARNING(
+                f"Ignoring stale/unexpected event_done for event={event} "
+                f"state={current_state}"
+            )
+            return
         self.tracking_dict[event] = self.DONE
 
     def reset(self):

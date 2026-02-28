@@ -74,6 +74,10 @@ class ApiServer(metaclass=Singleton):
         self.current_exp = globe.experiment_focused_on # TODO the objective is to get rid of this global definitions
 
     def initialization(self, experiment_name : str, dc_json: str, conn_map_json, experiment_flow_json, csv_path = ""):
+        # Each experiment initialization should start with a fresh ApiServer
+        # event-sync state to avoid stale DONE/ERROR states from prior runs.
+        self.apiserver_event_sync.reset()
+
         dcData = self.json_dir_parser.json_from_path(dc_json)
         connData = self.json_dir_parser.json_from_path(conn_map_json)
         batch_size = int(dcData["nerlnetSettings"]["batchSize"])
