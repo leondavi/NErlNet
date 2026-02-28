@@ -88,6 +88,8 @@
 - Worker/Client/Super Node now log a shared deterministic parallel event id tuple: `{parallel_event, Worker, Direction, Batch, Microbatch, Stage}`.
 - Client logs for `parallelEvent` include router latency (`latency_us`) and router reply payload, allowing transport-level confirmation for each forwarded event.
 - Super Node keeps pending-grant issue timestamps and runs a watchdog that emits deterministic `scheduler_grant_timeout` aborts with expected grant summary + last seen parallel event metadata.
+- Super Node parallel worker payload transport is now delivery-tracked: each `/parallelDeliver` message carries a delivery id, clients ACK with `/parallelDeliverAck`, and Super Node retries unacked deliveries (`parallel_delivery_retry_ms`) before deterministic `parallel_delivery_timeout` abort.
+- Clients deduplicate retried delivery ids (`parallel_delivery_seen_ids`) so at-least-once transport retries do not duplicate worker payload execution.
 - Python worker communication stats now expose TP counters from runtime payloads: `tp_collective_count`, `tp_collective_latency_us`, and derived `tp_collective_avg_latency_us` (zero-safe for mixed-version payloads).
 - `Stats.get_tensor_parallel_stats()` returns per-worker TP observability tables and optional normalization (`tp_collective_per_predict_batch`) when predict batch counters are available.
 - `ExperimentSummary` CSV rows now include per-worker TP columns: `TP Collective Count`, `TP Collective Latency (us)`, `TP Avg Collective Latency (us)`.

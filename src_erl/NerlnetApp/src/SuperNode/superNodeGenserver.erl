@@ -44,12 +44,18 @@
   phase_close_requested = [],
   phase_close_completed = false,
   last_parallel_event = none,
-  last_abort = {none, 0}
+  last_abort = {none, 0},
+  pending_parallel_deliveries = #{},
+  next_parallel_delivery_id = 1,
+  parallel_delivery_retry_ms = 250,
+  parallel_delivery_max_retries = 20
 }).
 
 -define(HEARTBEAT_MISS_FACTOR, 3).
 -define(GRANT_TIMEOUT_FACTOR, 2).
 -define(MAX_GRANT_REJECTION_STREAK, 256).
+-define(PARALLEL_DELIVERY_RETRY_FLOOR_MS, 100).
+-define(PARALLEL_DELIVERY_MAX_RETRIES_DEFAULT, 20).
 
 start_link(Args = {MyName, _ManagedClients, _HeartbeatMs, _MaxInflight, _NerlnetGraph}) ->
   gen_server:start_link({local, MyName}, ?MODULE, Args, []).
@@ -58,6 +64,7 @@ init({MyName, ManagedClients, HeartbeatMs, MaxInflight, NerlnetGraph}) ->
   nerl_tools:setup_logger(?MODULE),
   inets:start(),
   GrantTimeoutMs = erlang:max(5000, HeartbeatMs * ?HEARTBEAT_MISS_FACTOR * ?GRANT_TIMEOUT_FACTOR),
+  ParallelDeliveryRetryMs = erlang:max(?PARALLEL_DELIVERY_RETRY_FLOOR_MS, HeartbeatMs div 4),
   WorkerToClientMap = ets:lookup_element(nerlnet_data, workers, ?DATA_IDX),
   RouterProbeDestination = case ManagedClients of
                              [Client | _] -> Client;
@@ -72,6 +79,8 @@ init({MyName, ManagedClients, HeartbeatMs, MaxInflight, NerlnetGraph}) ->
     worker_to_client = WorkerToClientMap,
     heartbeat_ms = HeartbeatMs,
     grant_timeout_ms = GrantTimeoutMs,
+    parallel_delivery_retry_ms = ParallelDeliveryRetryMs,
+    parallel_delivery_max_retries = ?PARALLEL_DELIVERY_MAX_RETRIES_DEFAULT,
     max_inflight = MaxInflight,
     nerlnet_graph = NerlnetGraph,
     my_router = {RouterHost, RouterPort}
@@ -112,7 +121,7 @@ handle_cast({super_heartbeat, ClientName, TsMs}, State = #super_node_state{
 
 handle_cast({parallel_worker_message, FromWorker, ToWorker, Data}, State = #super_node_state{
   worker_to_client = WorkerToClientMap,
-  my_router = {RouterHost, RouterPort}
+  pending_parallel_deliveries = PendingDeliveries
 }) ->
   ?LOG_INFO("Super node routing parallel worker message from ~p to ~p", [FromWorker, ToWorker]),
   FinalState =
@@ -120,25 +129,61 @@ handle_cast({parallel_worker_message, FromWorker, ToWorker, Data}, State = #supe
       undefined ->
         maybe_notify_parallel_abort(State, {unknown_target_worker, ToWorker, FromWorker});
       DestClient ->
-        MessageBody = {parallel_deliver, FromWorker, ToWorker, Data},
-        try
-          nerl_tools:http_router_request(
-            RouterHost,
-            RouterPort,
-            [DestClient],
-            atom_to_list(parallelDeliver),
-            MessageBody
-          ),
-          State
-        catch
-          Err:Reason ->
+        {DeliveryId, StateWithDeliveryId} = allocate_parallel_delivery_id(State),
+        MessageBody = {parallel_deliver, DeliveryId, FromWorker, ToWorker, Data},
+        case route_parallel_delivery_to_client(StateWithDeliveryId, DestClient, MessageBody) of
+          ok ->
+            DeliveryNowMs = erlang:system_time(millisecond),
+            DeliveryInfo = #{
+              client => DestClient,
+              from_worker => FromWorker,
+              to_worker => ToWorker,
+              data => Data,
+              sent_ms => DeliveryNowMs,
+              retries => 0
+            },
+            StateWithDeliveryId#super_node_state{
+              pending_parallel_deliveries = maps:put(DeliveryId, DeliveryInfo, PendingDeliveries)
+            };
+          {error, RouteReason} ->
             maybe_notify_parallel_abort(
-              State,
-              {route_failed, DestClient, ToWorker, {Err, Reason}}
+              StateWithDeliveryId,
+              {route_failed, DestClient, ToWorker, {parallel_delivery, RouteReason}}
             )
         end
     end,
   {noreply, FinalState};
+
+handle_cast({parallel_deliver_ack, ClientName, DeliveryId, AckStatus}, State = #super_node_state{
+  pending_parallel_deliveries = PendingDeliveries
+}) ->
+  case maps:get(DeliveryId, PendingDeliveries, undefined) of
+    undefined ->
+      ?LOG_WARNING(
+        "Super node received unknown parallel delivery ack id=~p from client=~p status=~p",
+        [DeliveryId, ClientName, AckStatus]
+      ),
+      {noreply, State};
+    DeliveryInfo ->
+      RemainingDeliveries = maps:remove(DeliveryId, PendingDeliveries),
+      case delivery_ack_succeeded(AckStatus) of
+        true ->
+          ?LOG_INFO(
+            "Super node acknowledged parallel delivery id=~p from ~p to ~p via client=~p",
+            [DeliveryId, maps:get(from_worker, DeliveryInfo, undefined), maps:get(to_worker, DeliveryInfo, undefined), ClientName]
+          ),
+          {noreply, State#super_node_state{pending_parallel_deliveries = RemainingDeliveries}};
+        false ->
+          FailureReason = {
+            parallel_delivery_failed,
+            DeliveryId,
+            ClientName,
+            AckStatus,
+            maps:get(to_worker, DeliveryInfo, undefined)
+          },
+          {noreply, maybe_notify_parallel_abort(State#super_node_state{pending_parallel_deliveries = RemainingDeliveries}, FailureReason)}
+      end
+  end;
 
 handle_cast(
   {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta},
@@ -262,8 +307,9 @@ handle_info(check_heartbeats, State = #super_node_state{
         )
     end,
   StateAfterGrantTimeoutCheck = maybe_check_pending_grant_timeout(UpdatedState, NowMs),
+  StateAfterDeliveryRetry = maybe_retry_pending_parallel_deliveries(StateAfterGrantTimeoutCheck, NowMs),
   erlang:send_after(HeartbeatMs, self(), check_heartbeats),
-  {noreply, StateAfterGrantTimeoutCheck};
+  {noreply, StateAfterDeliveryRetry};
 
 handle_info(_Info, State = #super_node_state{}) ->
   {noreply, State}.
@@ -304,6 +350,119 @@ notify_parallel_phase_done(#super_node_state{
     )
   catch
     _:_ -> ok
+  end.
+
+allocate_parallel_delivery_id(State = #super_node_state{
+  phase_epoch = PhaseEpoch,
+  next_parallel_delivery_id = Counter
+}) ->
+  {{parallel_delivery, PhaseEpoch, Counter}, State#super_node_state{next_parallel_delivery_id = Counter + 1}}.
+
+delivery_ack_succeeded(ok) ->
+  true;
+delivery_ack_succeeded({ok, _}) ->
+  true;
+delivery_ack_succeeded(_) ->
+  false.
+
+route_parallel_delivery_to_client(
+  #super_node_state{my_router = {RouterHost, RouterPort}},
+  DestClient,
+  MessageBody
+) ->
+  try
+    nerl_tools:http_router_request(
+      RouterHost,
+      RouterPort,
+      [DestClient],
+      atom_to_list(parallelDeliver),
+      MessageBody
+    ),
+    ok
+  catch
+    Err:Reason ->
+      {error, {Err, Reason}}
+  end.
+
+maybe_retry_pending_parallel_deliveries(
+  State = #super_node_state{pending_parallel_deliveries = PendingDeliveries},
+  _NowMs
+) when map_size(PendingDeliveries) =:= 0 ->
+  State;
+maybe_retry_pending_parallel_deliveries(State, NowMs) ->
+  lists:foldl(
+    fun({DeliveryId, _DeliveryInfo}, AccState) ->
+      maybe_retry_pending_parallel_delivery(DeliveryId, NowMs, AccState)
+    end,
+    State,
+    maps:to_list(State#super_node_state.pending_parallel_deliveries)
+  ).
+
+maybe_retry_pending_parallel_delivery(
+  DeliveryId,
+  NowMs,
+  State = #super_node_state{
+    pending_parallel_deliveries = PendingDeliveries,
+    parallel_delivery_retry_ms = RetryMs,
+    parallel_delivery_max_retries = MaxRetries
+  }
+) ->
+  case maps:get(DeliveryId, PendingDeliveries, undefined) of
+    undefined ->
+      State;
+    DeliveryInfo ->
+      LastSentMs = maps:get(sent_ms, DeliveryInfo, 0),
+      Retries = maps:get(retries, DeliveryInfo, 0),
+      case (NowMs - LastSentMs) >= RetryMs of
+        false ->
+          State;
+        true ->
+          DestClient = maps:get(client, DeliveryInfo, undefined),
+          case Retries >= MaxRetries of
+            true ->
+              RemainingDeliveries = maps:remove(DeliveryId, PendingDeliveries),
+              TimeoutReason = {
+                parallel_delivery_timeout,
+                DeliveryId,
+                DestClient,
+                maps:get(from_worker, DeliveryInfo, undefined),
+                maps:get(to_worker, DeliveryInfo, undefined),
+                RetryMs,
+                MaxRetries
+              },
+              maybe_notify_parallel_abort(
+                State#super_node_state{pending_parallel_deliveries = RemainingDeliveries},
+                TimeoutReason
+              );
+            false ->
+              MessageBody = {
+                parallel_deliver,
+                DeliveryId,
+                maps:get(from_worker, DeliveryInfo, undefined),
+                maps:get(to_worker, DeliveryInfo, undefined),
+                maps:get(data, DeliveryInfo, undefined)
+              },
+              case route_parallel_delivery_to_client(State, DestClient, MessageBody) of
+                ok ->
+                  UpdatedInfo = DeliveryInfo#{
+                    sent_ms => NowMs,
+                    retries => Retries + 1
+                  },
+                  ?LOG_WARNING(
+                    "Super node retrying parallel delivery id=~p client=~p retry=~p/~p to=~p",
+                    [DeliveryId, DestClient, Retries + 1, MaxRetries, maps:get(to_worker, DeliveryInfo, undefined)]
+                  ),
+                  State#super_node_state{
+                    pending_parallel_deliveries = maps:put(DeliveryId, UpdatedInfo, PendingDeliveries)
+                  };
+                {error, RouteReason} ->
+                  maybe_notify_parallel_abort(
+                    State,
+                    {parallel_delivery_retry_route_failed, DeliveryId, DestClient, RouteReason}
+                  )
+              end
+          end
+      end
   end.
 
 is_parallel_mode_active(legacy) -> false;
@@ -460,7 +619,8 @@ apply_parallel_phase_update(
     phase_epoch = PhaseEpoch,
     phase_close_requested = [],
     phase_close_completed = false,
-    last_parallel_event = none
+    last_parallel_event = none,
+    pending_parallel_deliveries = #{}
   },
   StateAfterConfig = push_parallel_config_to_managed_clients(StateAfterPhaseUpdate),
   case maybe_send_next_scheduler_grant(StateAfterConfig) of
@@ -641,7 +801,8 @@ finalize_parallel_phase_close(
     pending_grant = none,
     pending_grant_issued_ms = 0,
     rejection_streak = 0,
-    phase_close_completed = true
+    phase_close_completed = true,
+    pending_parallel_deliveries = #{}
   },
   broadcast_phase_close_granted(ClearedState).
 
@@ -864,7 +1025,8 @@ clear_scheduler_for_abort(State = #super_node_state{}) ->
     scheduler_max_batches = undefined,
     pending_grant = none,
     pending_grant_issued_ms = 0,
-    rejection_streak = 0
+    rejection_streak = 0,
+    pending_parallel_deliveries = #{}
   }.
 
 issue_next_scheduler_grant(

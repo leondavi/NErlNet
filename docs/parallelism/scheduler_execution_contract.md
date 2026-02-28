@@ -8,6 +8,10 @@ This document captures the runtime contract for non-legacy parallel modes (`pipe
   - `Worker -> Client -> Super Node (/parallelWorkerMessage) -> Destination Client (/parallelDeliver) -> Destination Worker`
 - Legacy mode keeps direct `worker_to_worker_msg`.
 - `/parallelDeliver` is terminal delivery on the destination client (no re-route loop).
+- `/parallelDeliver` is delivery-tracked:
+  - payload includes `DeliveryID`
+  - destination client ACKs with `/parallelDeliverAck`
+  - Super Node retries unacked deliveries and fails fast with `parallel_delivery_timeout` when retries are exhausted.
 
 ## Phase control contract
 

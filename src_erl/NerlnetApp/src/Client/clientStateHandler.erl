@@ -24,6 +24,8 @@ init(Req0, [Action,Client_StateM_Pid]) ->
                               _ -> ok
                             end;
     parallel_deliver -> case binary_to_term_safe(Body) of
+                          {parallel_deliver, DeliveryId, From, To, Data} ->
+                            gen_statem:cast(Client_StateM_Pid, {parallel_deliver, DeliveryId, From, To, Data});
                           {parallel_deliver, From, To, Data} ->
                             gen_statem:cast(Client_StateM_Pid, {parallel_deliver, From, To, Data});
                           {worker_to_worker_msg, From, To, Data} ->

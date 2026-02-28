@@ -63,6 +63,8 @@ Implemented and working today:
   - Client `parallelEvent` forwarding now logs router request latency and router reply payload on success, and logs explicit event-id-tagged failure context on route errors.
   - Super Node tracks pending scheduler grant issue timestamps and emits deterministic `scheduler_grant_timeout` aborts when a grant is not acknowledged in time, including expected grant summary and last seen parallel event metadata.
   - Super Node scheduler gate now logs non-issuing states (`parallel_active=false`, empty trace, pending grant still open) with scheduler cursor context so it is clear whether grant issuance is intentionally paused.
+  - Super Node now uses delivery-tracked worker payload transport for `/parallelDeliver`: each payload includes a delivery id, clients ACK with `/parallelDeliverAck`, unacked deliveries are retried on heartbeat ticks, and timeout deterministically aborts with `parallel_delivery_timeout`.
+  - Clients keep a bounded `parallel_delivery_seen_ids` set to deduplicate retried deliveries, preserving exactly-once worker processing semantics while transport remains at-least-once.
 - Phase-close barrier + stale-event hardening (new):
   - Super Node now maintains a per-phase `phase_epoch` and includes it in scheduler grant identity (`event_id`).
   - Clients tag forwarded parallel events with `{parallel_meta, phase_epoch, payload}`; Super Node ignores stale-epoch events instead of mismatching current trace.

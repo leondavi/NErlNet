@@ -29,6 +29,7 @@
 -define(W2W_PID_IDX, 2).
 -define(SERVER, ?MODULE).
 -define(PHASE_CLOSE_RETRY_MS, 1000).
+-define(PARALLEL_DELIVERY_SEEN_MAX, 2048).
 
 %% client ETS table: {WorkerName, WorkerPid, WorkerArgs, TimingTuple}
 %   myName - Client Name,
@@ -98,6 +99,7 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   ets:insert(EtsRef, {parallel_phase_close_granted, false}),
   ets:insert(EtsRef, {parallel_phase_close_last_request_ms, 0}),
   ets:insert(EtsRef, {parallel_idle_requested, false}),
+  ets:insert(EtsRef, {parallel_delivery_seen_ids, []}),
   ets:insert(EtsRef, {all_workers_done, false}),
   ets:insert(EtsRef, {num_of_fed_servers, 0}), % Will stay 0 if non-federated
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM, NerlnetGraph),
@@ -192,6 +194,13 @@ waitforWorkers(cast, In = {parallel_deliver, FromWorker, ToWorker, Data}, State 
   deliver_parallel_msg(EtsRef, FromWorker, ToWorker, Data),
   {keep_state, State};
 
+waitforWorkers(cast, In = {parallel_deliver, DeliveryId, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  handle_parallel_delivery_with_ack(EtsRef, DeliveryId, FromWorker, ToWorker, Data),
+  {keep_state, State};
+
 waitforWorkers(cast, In = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}, State = #client_statem_state{etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -259,6 +268,13 @@ idle(cast, In = {parallel_deliver, FromWorker, ToWorker, Data}, State = #client_
   deliver_parallel_msg(EtsRef, FromWorker, ToWorker, Data),
   {keep_state, State};
 
+idle(cast, In = {parallel_deliver, DeliveryId, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  handle_parallel_delivery_with_ack(EtsRef, DeliveryId, FromWorker, ToWorker, Data),
+  {keep_state, State};
+
 idle(cast, In = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}, State = #client_statem_state{etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -291,6 +307,7 @@ idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, et
 idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   erlang:garbage_collect(), % free memory when phase is changed to training
   reset_parallel_phase_close_state(EtsRef),
+  ets:update_element(EtsRef, parallel_delivery_seen_ids, {?DATA_IDX, []}),
   ClientStatsEts = get(client_stats_ets),
   PerformanceStatsEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -307,6 +324,7 @@ idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRe
 idle(cast, In = {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
   erlang:garbage_collect(), % free memory when phase is changed to predict
   reset_parallel_phase_close_state(EtsRef),
+  ets:update_element(EtsRef, parallel_delivery_seen_ids, {?DATA_IDX, []}),
   ClientStatsEts = get(client_stats_ets),
   PerformanceStatsEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -383,6 +401,13 @@ training(cast, In = {parallel_deliver, FromWorker, ToWorker, Data}, State = #cli
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   deliver_parallel_msg(EtsRef, FromWorker, ToWorker, Data),
+  {keep_state, State};
+
+training(cast, In = {parallel_deliver, DeliveryId, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  handle_parallel_delivery_with_ack(EtsRef, DeliveryId, FromWorker, ToWorker, Data),
   {keep_state, State};
 
 training(cast, In = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -680,6 +705,13 @@ predict(cast, In = {parallel_deliver, FromWorker, ToWorker, Data}, State = #clie
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   deliver_parallel_msg(EtsRef, FromWorker, ToWorker, Data),
+  {keep_state, State};
+
+predict(cast, In = {parallel_deliver, DeliveryId, FromWorker, ToWorker, Data}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  handle_parallel_delivery_with_ack(EtsRef, DeliveryId, FromWorker, ToWorker, Data),
   {keep_state, State};
 
 predict(cast, In = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -1329,15 +1361,79 @@ deliver_parallel_msg(EtsRef, FromWorker, ToWorker, Data) ->
       case maps:get(ToWorker, W2WPidsMap, undefined) of
         undefined ->
           notify_parallel_abort(EtsRef, {parallel_target_w2w_missing, ToWorker, FromWorker}),
-          stats:increment_bad_messages(ClientStatsEts);
+          stats:increment_bad_messages(ClientStatsEts),
+          {error, {parallel_target_w2w_missing, ToWorker, FromWorker}};
         TargetWorkerW2WPID ->
-          {ok, _Reply} = gen_server:call(TargetWorkerW2WPID, {worker_to_worker_msg, FromWorker, ToWorker, Data}),
-          stats:increment_messages_sent(ClientStatsEts),
-          stats:increment_bytes_sent(ClientStatsEts, nerl_tools:calculate_size({FromWorker, ToWorker, Data}))
+          try
+            {ok, _Reply} = gen_server:call(TargetWorkerW2WPID, {worker_to_worker_msg, FromWorker, ToWorker, Data}),
+            stats:increment_messages_sent(ClientStatsEts),
+            stats:increment_bytes_sent(ClientStatsEts, nerl_tools:calculate_size({FromWorker, ToWorker, Data})),
+            ok
+          catch
+            Err:Reason ->
+              notify_parallel_abort(EtsRef, {parallel_local_delivery_failed, ToWorker, FromWorker, {Err, Reason}}),
+              stats:increment_bad_messages(ClientStatsEts),
+              {error, {parallel_local_delivery_failed, ToWorker, FromWorker, {Err, Reason}}}
+          end
       end;
     false ->
       notify_parallel_abort(EtsRef, {parallel_deliver_non_local_target, ToWorker, FromWorker}),
-      stats:increment_bad_messages(ClientStatsEts)
+      stats:increment_bad_messages(ClientStatsEts),
+      {error, {parallel_deliver_non_local_target, ToWorker, FromWorker}}
+  end.
+
+handle_parallel_delivery_with_ack(EtsRef, DeliveryId, FromWorker, ToWorker, Data) ->
+  case is_parallel_delivery_duplicate(EtsRef, DeliveryId) of
+    true ->
+      ?LOG_WARNING(
+        "Client ~p dropping duplicate parallel delivery id=~p to=~p",
+        [ets:lookup_element(EtsRef, myName, ?DATA_IDX), DeliveryId, ToWorker]
+      ),
+      maybe_ack_parallel_delivery(EtsRef, DeliveryId, ok);
+    false ->
+      mark_parallel_delivery_seen(EtsRef, DeliveryId),
+      DeliveryStatus = deliver_parallel_msg(EtsRef, FromWorker, ToWorker, Data),
+      maybe_ack_parallel_delivery(EtsRef, DeliveryId, DeliveryStatus)
+  end.
+
+is_parallel_delivery_duplicate(EtsRef, DeliveryId) ->
+  SeenIds = ets:lookup_element(EtsRef, parallel_delivery_seen_ids, ?DATA_IDX),
+  lists:member(DeliveryId, SeenIds).
+
+mark_parallel_delivery_seen(EtsRef, DeliveryId) ->
+  SeenIds = ets:lookup_element(EtsRef, parallel_delivery_seen_ids, ?DATA_IDX),
+  UpdatedSeenIds = trim_parallel_delivery_seen_ids(SeenIds ++ [DeliveryId]),
+  ets:update_element(EtsRef, parallel_delivery_seen_ids, {?DATA_IDX, UpdatedSeenIds}).
+
+trim_parallel_delivery_seen_ids(SeenIds) ->
+  Overflow = length(SeenIds) - ?PARALLEL_DELIVERY_SEEN_MAX,
+  case Overflow > 0 of
+    true -> lists:nthtail(Overflow, SeenIds);
+    false -> SeenIds
+  end.
+
+maybe_ack_parallel_delivery(EtsRef, DeliveryId, AckStatus) ->
+  SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
+  case SuperNode of
+    none ->
+      ok;
+    _ ->
+      ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+      AckPayload = {parallel_deliver_ack, ClientName, DeliveryId, AckStatus},
+      {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+      try
+        nerl_tools:http_router_request(
+          RouterHost,
+          RouterPort,
+          [SuperNode],
+          atom_to_list(parallelDeliverAck),
+          AckPayload
+        ),
+        ok
+      catch
+        _:_ ->
+          ok
+      end
   end.
 
 forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta) ->

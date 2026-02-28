@@ -28,6 +28,12 @@ init(Req0, [Action, SuperNodePid]) ->
           gen_server:cast(SuperNodePid, {parallel_worker_message, FromWorker, ToWorker, Data});
         _ -> ok
       end;
+    parallel_deliver_ack ->
+      case binary_to_term_safe(Body) of
+        {parallel_deliver_ack, ClientName, DeliveryId, AckStatus} ->
+          gen_server:cast(SuperNodePid, {parallel_deliver_ack, ClientName, DeliveryId, AckStatus});
+        _ -> ok
+      end;
     parallel_phase_update ->
       case binary_to_term_safe(Body) of
         {parallel_phase_update, PhaseName, ParallelMode, ParallelExecution, WorkerParallelMap} ->
