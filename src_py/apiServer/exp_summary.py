@@ -110,6 +110,8 @@ class ExperimentSummary:
             predict_dropped = self._safe_int(worker_comm.get("batches_dropped_predict", 0), 0)
             train_sent = self._safe_int(worker_comm.get("batches_sent_train", 0), 0)
             predict_sent = self._safe_int(worker_comm.get("batches_sent_predict", 0), 0)
+            train_completed = self._safe_int(worker_comm.get("batches_completed_train", 0), 0)
+            predict_completed = self._safe_int(worker_comm.get("batches_completed_predict", 0), 0)
             worker_totals[worker_name] = {
                 "train_received": train_received,
                 "train_dropped": train_dropped,
@@ -117,8 +119,10 @@ class ExperimentSummary:
                 "predict_dropped": predict_dropped,
                 "train_sent": train_sent,
                 "predict_sent": predict_sent,
-                "train_total": max(train_received + train_dropped, train_sent),
-                "predict_total": max(predict_received + predict_dropped, predict_sent),
+                "train_completed": train_completed,
+                "predict_completed": predict_completed,
+                "train_total": max(train_received + train_dropped, train_sent, train_completed),
+                "predict_total": max(predict_received + predict_dropped, predict_sent, predict_completed),
             }
 
         worker_parallel_map = self._get_worker_parallel_map(stats_obj)
@@ -127,6 +131,16 @@ class ExperimentSummary:
             worker_parallel = worker_parallel_map.get(worker_name, {})
             if isinstance(worker_parallel, dict) and worker_parallel.get("pipelineStage") is not None:
                 pipeline_workers.append(worker_name)
+
+        if not pipeline_workers:
+            phase_parallel_mode = "legacy"
+            try:
+                parallel_execution = stats_obj.experiment_phase.get_parallel_execution() or {}
+                phase_parallel_mode = str(parallel_execution.get("mode", "legacy"))
+            except Exception:
+                phase_parallel_mode = "legacy"
+            if phase_parallel_mode in ("pipeline", "pipeline_tensor"):
+                pipeline_workers = list(self.workers)
 
         if pipeline_workers:
             max_train_total = max(worker_totals[w]["train_total"] for w in pipeline_workers)
@@ -229,11 +243,12 @@ class ExperimentSummary:
                     )
 
         unresolved = [worker_name for worker_name, payload in worker_perf.items() if not payload]
-        if unresolved and len(perf_stats) == 1:
+        resolved_count = len(self.workers) - len(unresolved)
+        if unresolved and len(perf_stats) == 1 and resolved_count == 0:
             only_payload = list(perf_stats.values())[0]
             if isinstance(only_payload, dict):
-                weights = self._compute_worker_activity_weights(unresolved, worker_totals)
-                for worker_name in unresolved:
+                weights = self._compute_worker_activity_weights(self.workers, worker_totals)
+                for worker_name in self.workers:
                     worker_perf[worker_name] = self._scale_worker_perf_payload(
                         only_payload, weights.get(worker_name, 0.0)
                     )

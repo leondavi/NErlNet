@@ -532,9 +532,50 @@ class Stats():
         # return dictionary of {worker : {communication_stats}}
         communication_stats_workers_dict = OrderedDict()
         workers_dict = self.nerl_comm_db.get_workers()
+        completed_batches_by_worker = self._get_completed_batches_by_worker()
         for worker_name in workers_dict:
-            communication_stats_workers_dict[worker_name] = workers_dict[worker_name].get_as_dict()
+            worker_stats = workers_dict[worker_name].get_as_dict()
+            completed_batches = int(completed_batches_by_worker.get(worker_name, 0))
+            if self.phase == PHASE_TRAINING_STR:
+                worker_stats["batches_completed_train"] = completed_batches
+                worker_stats["batches_completed_predict"] = 0
+            elif self.phase == PHASE_PREDICTION_STR:
+                worker_stats["batches_completed_train"] = 0
+                worker_stats["batches_completed_predict"] = completed_batches
+            else:
+                worker_stats["batches_completed_train"] = 0
+                worker_stats["batches_completed_predict"] = 0
+            communication_stats_workers_dict[worker_name] = worker_stats
         return communication_stats_workers_dict
+
+    def _get_completed_batches_by_worker(self):
+        """
+        Returns unique completed batch count per worker from model DB for this phase.
+        This is a phase-local completion signal and is useful in pipeline mode where
+        source-ingress communication counters can be zero on non-stage0 workers.
+        """
+        completed = OrderedDict()
+        source_names = {
+            source_piece.get_source_name()
+            for source_piece in self.experiment_phase.get_sources_pieces()
+        }
+        if not source_names:
+            return completed
+
+        workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
+        for worker_db in workers_model_db_list:
+            worker_name = worker_db.get_worker_name()
+            unique_batches = set()
+            for (source_name, batch_id) in worker_db.get_batches_dict().keys():
+                if source_name not in source_names:
+                    continue
+                try:
+                    batch_id_int = int(batch_id)
+                except (TypeError, ValueError):
+                    continue
+                unique_batches.add((source_name, batch_id_int))
+            completed[worker_name] = len(unique_batches)
+        return completed
 
     def get_tensor_parallel_stats(self):
         """Return per-worker TP collective stats as a DataFrame."""

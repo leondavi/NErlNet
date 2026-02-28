@@ -140,15 +140,21 @@ class _FakeEntityStats:
 
 class _FakeCommDb:
     def get_workers(self):
-        payload = {
+        payload_w1 = {
             "batches_received_train": 0,
             "batches_dropped_train": 0,
             "batches_received_predict": 2,
             "batches_dropped_predict": 0,
         }
+        payload_w2 = {
+            "batches_received_train": 0,
+            "batches_dropped_train": 0,
+            "batches_received_predict": 0,
+            "batches_dropped_predict": 0,
+        }
         return {
-            "w1": _FakeEntityStats(payload),
-            "w2": _FakeEntityStats(payload),
+            "w1": _FakeEntityStats(payload_w1),
+            "w2": _FakeEntityStats(payload_w2),
         }
 
     def get_sources(self):
@@ -215,6 +221,9 @@ class _FakeExperimentPhase:
     def get_name(self):
         return "Prediction1"
 
+    def get_parallel_execution(self):
+        return {"mode": "pipeline", "scheduler": "gpipe"}
+
 
 class ExperimentSummaryPipelineRegressionTests(unittest.TestCase):
     def test_stage0_targeting_does_not_force_zero_metrics(self) -> None:
@@ -260,6 +269,39 @@ class ExperimentSummaryPipelineRegressionTests(unittest.TestCase):
             perf = summary.get_model_performance_aggregates(stats_obj)
             self.assertGreater(perf["min_accuracy"], 0.99)
             self.assertGreater(perf["min_f1"], 0.99)
+
+    def test_pipeline_summary_uses_completed_batches_for_stage_workers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            labels = pd.DataFrame(
+                [
+                    [1, 0, 0],
+                    [0, 1, 0],
+                    [0, 0, 1],
+                    [1, 0, 0],
+                ]
+            )
+            labels_path = Path(tmp_dir) / "labels.csv"
+            labels.to_csv(labels_path, index=False)
+
+            csv_parent = _FakeCsvDatasetParent(str(labels_path), ["c0", "c1", "c2"])
+            source_piece = _FakeSourcePiece("s1", batch_size=2, num_batches=2, csv_parent=csv_parent)
+
+            model_db = NerlModelDB(PHASE_PREDICTION_STR)
+            client_db = model_db.get_client("client_1")
+            w1 = client_db.get_worker("w1")
+            w2 = client_db.get_worker("w2")
+            w1.create_batch("0", "s1", np.zeros((2, 4), dtype=np.float32), 0, "none", 0)
+            w1.create_batch("1", "s1", np.zeros((2, 4), dtype=np.float32), 0, "none", 1)
+            w2.create_batch("0", "s1", labels.iloc[0:2].to_numpy(dtype=np.float32), 0, "none", 2)
+            w2.create_batch("1", "s1", labels.iloc[2:4].to_numpy(dtype=np.float32), 0, "none", 3)
+
+            phase = _FakeExperimentPhase(model_db, source_piece)
+            stats_obj = Stats(phase)
+            summary = ExperimentSummary([stats_obj])
+
+            row = summary.generate_summary_row(stats_obj)
+            self.assertEqual(row["w1 Total Batches Prediction"], 2)
+            self.assertEqual(row["w2 Total Batches Prediction"], 2)
 
 
 if __name__ == "__main__":
