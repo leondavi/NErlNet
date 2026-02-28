@@ -84,6 +84,9 @@ class ApiServer(metaclass=Singleton):
         # comDB = NerlComDB(globe.components)
         self.__new_experiment(experiment_name, experiment_flow_json, batch_size, globe.components, csv_path) # create new experiment
         self.experiment_focused_on(experiment_name)
+        # Reset phase cursor/flag for every new experiment initialization.
+        self.current_exp.current_exp_phase_index = 0
+        self.next_expertiment_phase_exist = True
 
         globe.components.printComponents()
         LOG_INFO("Connections:")
@@ -370,6 +373,9 @@ class ApiServer(metaclass=Singleton):
         # Get the initial phase information
         current_exp_flow = self.current_exp
         total_phases = len(current_exp_flow.exp_phase_list)
+        # Ensure phase state is reset for each full-flow execution.
+        current_exp_flow.current_exp_phase_index = 0
+        self.next_expertiment_phase_exist = True
         
         if total_phases == 0:
             LOG_WARNING("No experiment phases found in the experiment flow")
