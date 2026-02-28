@@ -118,7 +118,15 @@ class Transmitter:
                 retry_sleep_sec=0.5
             )
             if not response.ok:
-                LOG_ERROR(f"Failed to send json files to Main Server")
+                response_preview = ""
+                try:
+                    response_preview = response.text[:300]
+                except Exception:
+                    response_preview = "<unavailable>"
+                raise RuntimeError(
+                    f"send_jsons_to_devices failed with HTTP {response.status_code} "
+                    f"from {self.send_jsons_address}: {response_preview}"
+                )
         except (ConnectionRefusedError, RequestsConnectionError):
             LOG_ERROR(f"Connection Refused Error: failed to connect to {self.send_jsons_address}")
             raise ConnectionRefusedError

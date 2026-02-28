@@ -19,29 +19,35 @@
 
 %%%%%% Getting files in multipart format.
 init(Req0, [ApplicationPid]) ->
-  case cowboy_req:parse_header(<<"content-type">>, Req0) of
-    {<<"multipart">>, <<"form-data">>, _} ->
-        nerl_tools:deleteOldJson(?JSON_ADDR++?LOCAL_DC_FILE_NAME),
-        nerl_tools:deleteOldJson(?JSON_ADDR++?LOCAL_COMM_FILE_NAME),
-      cleanup_torch_payloads(),
-        %% get files from Req
-        % io:format("parsing json of req with body: ~p~n",[cowboy_req:read_body(Req0)]),
-      {_Req, Data} = nerl_tools:multipart(Req0, []), % multipart also save data to file      %% Data = [FileName1, FileName2]
-      case Data of
-        [ArchPath, ConnPath | TorchPaths] ->
-          log_torch_payloads(TorchPaths),
-          ApplicationPid ! {jsonAddress,{ArchPath,ConnPath}};
-        _ ->
-          ?LOG_ERROR("Multipart payload missing expected json files, received entries: ~p", [Data])
-      end;
-    _Other -> 
-        {ok,Body,_} = cowboy_req:read_body(Req0),           %% shouldn't be here, files expected
-        io:format("Error - Got an unknown request: ~p~nData: ~p~n",[Req0, Body])
-  end,
+  {StatusCode, Reply} =
+    try
+      case cowboy_req:parse_header(<<"content-type">>, Req0) of
+        {<<"multipart">>, <<"form-data">>, _} ->
+            nerl_tools:deleteOldJson(?JSON_ADDR++?LOCAL_DC_FILE_NAME),
+            nerl_tools:deleteOldJson(?JSON_ADDR++?LOCAL_COMM_FILE_NAME),
+            cleanup_torch_payloads(),
+            {_Req, Data} = nerl_tools:multipart(Req0, []), % multipart also saves file data to disk
+            case Data of
+              [ArchPath, ConnPath | TorchPaths] ->
+                log_torch_payloads(TorchPaths),
+                ApplicationPid ! {jsonAddress,{ArchPath,ConnPath}},
+                {200, "nerlnet starting"};
+              _ ->
+                ?LOG_ERROR("Multipart payload missing expected json files, received entries: ~p", [Data]),
+                {400, "missing required json files in multipart payload"}
+            end;
+        _Other ->
+            {ok, Body, _} = cowboy_req:read_body(Req0),
+            ?LOG_ERROR("Unexpected non-multipart /sendJsons request. body=~p", [Body]),
+            {415, "unsupported content-type for /sendJsons"}
+      end
+    catch
+      Class:Reason:Stacktrace ->
+        ?LOG_ERROR("jsonHandler init failed class=~p reason=~p stack=~p", [Class, Reason, Stacktrace]),
+        {500, "failed to process /sendJsons payload"}
+    end,
 
-  Reply = io_lib:format("nerlnet starting", []),
-
-  Req2 = cowboy_req:reply(200,
+  Req2 = cowboy_req:reply(StatusCode,
     #{<<"content-type">> => <<"text/plain">>},
     Reply,
     Req0),

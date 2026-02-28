@@ -130,12 +130,21 @@ multipart(Req0, Data) ->
 stream_file(Req0, File) ->
     case cowboy_req:read_part_body(Req0) of
         {ok, LastBodyChunk, Req} ->
-            file:write(File, LastBodyChunk),
+            write_chunk_or_fail(File, LastBodyChunk),
             file:close(File),
             Req;
         {more, BodyChunk, Req} ->
-            file:write(File, BodyChunk),
+            write_chunk_or_fail(File, BodyChunk),
             stream_file(Req, File)
+    end.
+
+write_chunk_or_fail(File, Chunk) ->
+    case file:write(File, Chunk) of
+        ok -> ok;
+        {error, Reason} ->
+            ?LOG_ERROR("Failed to write multipart chunk to disk: ~p", [Reason]),
+            file:close(File),
+            erlang:error({multipart_write_failed, Reason})
     end.
 
 %% gets multipart data and combines it

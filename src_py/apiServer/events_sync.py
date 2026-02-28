@@ -1,5 +1,4 @@
-
-from time import sleep
+from time import sleep, monotonic
 from logger import *
 class EventSync():
     # api server events 
@@ -31,12 +30,20 @@ class EventSync():
         self.tracking_dict[event] = self.WAIT
         return True
             
-    def sync_on_event(self, event):
+    def sync_on_event(self, event, timeout_sec=None, poll_sec=0.05, wait_label=""):
         assert event in self.done_actions_dict.values()
         assert event in self.tracking_dict
-        while(self.tracking_dict[event] == self.WAIT):
+        start_time = monotonic()
+        while self.tracking_dict[event] == self.WAIT:
             assert not self.get_error_status()
-            sleep(0.05)
+            if timeout_sec is not None and timeout_sec >= 0:
+                elapsed = monotonic() - start_time
+                if elapsed > timeout_sec:
+                    label = wait_label if wait_label else f"event={event}"
+                    raise TimeoutError(
+                        f"Timed out waiting for {label} after {timeout_sec:.1f}s"
+                    )
+            sleep(poll_sec)
     
     def get_event_status(self, event):
         assert event in self.tracking_dict

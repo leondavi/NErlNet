@@ -167,7 +167,23 @@ class ApiServer(metaclass=Singleton):
 
             self.apiserver_event_sync.set_event_wait(EventSync.SEND_JSONS)
             self.transmitter.send_jsons_to_devices(files)
-            self.apiserver_event_sync.sync_on_event(EventSync.SEND_JSONS)
+            send_jsons_ack_timeout_sec = float(
+                os.getenv("NERLNET_SEND_JSONS_ACK_TIMEOUT_SEC", "120")
+            )
+            try:
+                self.apiserver_event_sync.sync_on_event(
+                    EventSync.SEND_JSONS,
+                    timeout_sec=send_jsons_ack_timeout_sec,
+                    wait_label="Main Server sendJsons ack (received_jsons_done)"
+                )
+            except TimeoutError as exc:
+                LOG_ERROR(
+                    "Timed out waiting for Main Server sendJsons ack. "
+                    "Likely causes: init handler crash, JSON parse failure, or disk space exhaustion "
+                    "under /tmp/nerlnet or /tmp. "
+                    "Check controller logs and run: `df -h /tmp /`, `du -sh /tmp/nerlnet`."
+                )
+                raise RuntimeError(str(exc)) from exc
             LOG_INFO("Sending distributed configurations to devices is completed")
 
     def _get_torch_assets(self):
