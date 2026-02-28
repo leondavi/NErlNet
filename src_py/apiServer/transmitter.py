@@ -8,9 +8,12 @@ import sys
 import os
 import json
 import zlib
+import time
 from definitions import *
 from logger import *
 from experiment_flow import *
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import Timeout as RequestsTimeout
 
 class Transmitter:
 
@@ -28,15 +31,51 @@ class Transmitter:
         main_server_http_with_init_port = f'{self.mainServerAddress.split(":")[0]}:{self.mainServerAddress.split(":")[1]}:{JSON_INIT_HANDLER_ERL_PORT}'
         self.send_jsons_address = main_server_http_with_init_port + '/sendJsons'
 
+    def _post_with_retry(
+        self,
+        url: str,
+        *,
+        data=None,
+        files=None,
+        timeout=None,
+        operation: str = "request",
+        retries: int = 20,
+        retry_sleep_sec: float = 0.5
+    ):
+        last_exc = None
+        for attempt in range(1, retries + 1):
+            try:
+                return requests.post(url, data=data, files=files, timeout=timeout)
+            except (RequestsConnectionError, RequestsTimeout) as exc:
+                last_exc = exc
+                if attempt < retries:
+                    LOG_WARNING(
+                        f"{operation} transient failure ({attempt}/{retries}) for {url}: {exc}. "
+                        f"retrying in {retry_sleep_sec:.2f}s"
+                    )
+                    time.sleep(retry_sleep_sec)
+                else:
+                    break
+        LOG_ERROR(
+            f"{operation} failed after {retries} attempt(s) for {url}: {last_exc}"
+        )
+        raise last_exc
+
     def send_ack_validation(self):
         try:
-            response = requests.post(self.ack_validation_address, data = "ok")
+            response = self._post_with_retry(
+                self.ack_validation_address,
+                data="ok",
+                operation="send_ack_validation",
+                retries=8,
+                retry_sleep_sec=0.25
+            )
             if not response.ok:
                 LOG_ERROR(f"Failed to send batch ack")
-        except ConnectionRefusedError:
+        except (ConnectionRefusedError, RequestsConnectionError):
             LOG_ERROR(f"Connection Refused Error: failed to connect to {self.ack_validation_address}")
             raise ConnectionRefusedError
-        except ConnectionError:
+        except (ConnectionError, RequestsTimeout):
             LOG_ERROR(f"Connection Error: failed to connect to {self.ack_validation_address}")
             raise ConnectionError
 
@@ -51,26 +90,39 @@ class Transmitter:
                     "parallelExecution": parallel_execution
                 })
         try:
-            response = requests.post(self.clientsPhaseUpdateAddress, data = payload)
+            response = self._post_with_retry(
+                self.clientsPhaseUpdateAddress,
+                data=payload,
+                operation="clients_set_phase",
+                retries=20,
+                retry_sleep_sec=0.5
+            )
             if not response.ok:
                 LOG_ERROR(f"Failed to update phase")
-        except ConnectionRefusedError:
+        except (ConnectionRefusedError, RequestsConnectionError):
             LOG_ERROR(f"Connection Refused Error: failed to connect to {self.clientsPhaseUpdateAddress}")
             raise ConnectionRefusedError
-        except ConnectionError:
+        except (ConnectionError, RequestsTimeout):
             LOG_ERROR(f"Connection Error: failed to connect to {self.clientsPhaseUpdateAddress}")
             raise ConnectionError
 
     
     def send_jsons_to_devices(self, files):
         try:
-            response = requests.post(self.send_jsons_address, files = files, timeout = 8)
+            response = self._post_with_retry(
+                self.send_jsons_address,
+                files=files,
+                timeout=8,
+                operation="send_jsons_to_devices",
+                retries=20,
+                retry_sleep_sec=0.5
+            )
             if not response.ok:
                 LOG_ERROR(f"Failed to send json files to Main Server")
-        except ConnectionRefusedError:
+        except (ConnectionRefusedError, RequestsConnectionError):
             LOG_ERROR(f"Connection Refused Error: failed to connect to {self.send_jsons_address}")
             raise ConnectionRefusedError
-        except ConnectionError:
+        except (ConnectionError, RequestsTimeout):
             LOG_ERROR(f"Connection Error: failed to connect to {self.send_jsons_address}")
             raise ConnectionError
         
@@ -93,13 +145,19 @@ class Transmitter:
             data_zip = zlib.compress(data_str_encoded)
             data_str_encoded = None
             try:
-                response = requests.post(self.updateCSVAddress, data = data_zip)
+                response = self._post_with_retry(
+                    self.updateCSVAddress,
+                    data=data_zip,
+                    operation=f"update_csv[{source_name}]",
+                    retries=40,
+                    retry_sleep_sec=0.5
+                )
                 if not response.ok: # If Code =/= 200
                     LOG_ERROR(f"Failed to update {csv_file} to Main Server")
-            except ConnectionRefusedError: 
+            except (ConnectionRefusedError, RequestsConnectionError):
                 LOG_ERROR(f"Connection Refused Error: failed to connect to {self.updateCSVAddress}")
                 raise ConnectionRefusedError
-            except ConnectionError:
+            except (ConnectionError, RequestsTimeout):
                 LOG_ERROR(f"Connection Error: failed to connect to {self.updateCSVAddress}")
                 raise ConnectionError
             LOG_INFO(f'{((index+1)/total_sources)*100:.2f}% Sent')
@@ -108,13 +166,19 @@ class Transmitter:
     def start_casting(self, experiment_phase : ExperimentPhase):
         dataStr = f"{experiment_phase.get_sources_str_list()}" 
         try:
-            response = requests.post(self.startCastingAddress, data=dataStr) #startCasting to sources
+            response = self._post_with_retry(
+                self.startCastingAddress,
+                data=dataStr,
+                operation="start_casting",
+                retries=20,
+                retry_sleep_sec=0.5
+            ) #startCasting to sources
             if not response.ok:
                 LOG_ERROR(f"Failed to start casting to sources")
-        except ConnectionRefusedError:
+        except (ConnectionRefusedError, RequestsConnectionError):
             LOG_ERROR(f"Connection Refused Error: failed to connect to {self.startCastingAddress}")
             raise ConnectionRefusedError
-        except ConnectionError:
+        except (ConnectionError, RequestsTimeout):
             LOG_ERROR(f"Connection Error: failed to connect to {self.startCastingAddress}")
             raise ConnectionError
 
@@ -125,13 +189,19 @@ class Transmitter:
         LOG_INFO("Statistics requested from Main Server")
         event_sync_inst.set_event_wait(event_sync_inst.COMMUNICATION_STATS)
         try:
-            response = requests.post(self.statisticsAddress, data='getStatistics') 
+            response = self._post_with_retry(
+                self.statisticsAddress,
+                data='getStatistics',
+                operation="statistics",
+                retries=20,
+                retry_sleep_sec=0.5
+            ) 
             if not response.ok:
                 LOG_ERROR(f"Failed to get statistics from Main Server")
-        except ConnectionRefusedError:
+        except (ConnectionRefusedError, RequestsConnectionError):
             LOG_ERROR(f"Connection Refused Error: failed to connect to {self.statisticsAddress}")
             raise ConnectionRefusedError
-        except ConnectionError:
+        except (ConnectionError, RequestsTimeout):
             LOG_ERROR(f"Connection Error: failed to connect to {self.statisticsAddress}")
             raise ConnectionError
         event_sync_inst.sync_on_event(event_sync_inst.COMMUNICATION_STATS)
