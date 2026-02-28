@@ -182,6 +182,37 @@ handle_cast({parallelAbort, Body}, State = #main_genserver_state{myName = MyName
     parallel_super_node = none
   }};
 
+handle_cast(
+  {parallelPhaseDone, Body},
+  State = #main_genserver_state{
+    myName = MyName,
+    state = MainState,
+    parallel_mode = ParallelMode
+  }
+) ->
+  ParallelDoneMessage = decode_parallel_phase_done_body(Body),
+  case {MainState, ParallelMode} of
+    {casting, Mode} when Mode =/= legacy ->
+      ?LOG_NOTICE(
+        "[Main-Server] parallel phase completion reported by Super Node while casting. forcing client idle transition: ~p",
+        [ParallelDoneMessage]
+      ),
+      update_clients_phase(clientIdle, MyName),
+      ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
+      {noreply, State#main_genserver_state{
+        state = idle,
+        sourcesCastingList = [],
+        clientsWaitingList = ListOfClients,
+        total_sources = 0
+      }};
+    _ ->
+      ?LOG_INFO(
+        "[Main-Server] ignored parallel phase completion report in state=~p mode=~p payload=~p",
+        [MainState, ParallelMode, ParallelDoneMessage]
+      ),
+      {noreply, State}
+  end;
+
 handle_cast({clientsTraining, Body}, State = #main_genserver_state{state = casting}) ->
   ?LOG_WARNING("Received training request during casting phase",[]),
   ?LOG_INFO("Body content ~p",[Body]),
@@ -263,10 +294,22 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
 
 %% Trigerred when Source finished to cast all of its batches.
 %% sourcesCastingList - List of sources that are still casting - this function  removes the source from this list
-handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName, sourcesCastingList = SourcesCastingList}) ->
+handle_cast(
+  {sourceDone,Body},
+  State = #main_genserver_state{
+    myName = MyName,
+    state = MainState,
+    sourcesCastingList = SourcesCastingList
+  }
+) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
   SourceName = binary_to_term(Body),
+  case (MainState =:= idle) andalso (SourcesCastingList =:= []) of
+    true ->
+      ?LOG_INFO("[Main-Server] ignoring stale sourceDone from ~p while already idle", [SourceName]),
+      {noreply, State};
+    false ->
   UpdatedSourcesCastingList = SourcesCastingList--[SourceName],
 
   case UpdatedSourcesCastingList of
@@ -279,7 +322,8 @@ handle_cast({sourceDone,Body}, State = #main_genserver_state{myName = MyName, so
       NextState = State#main_genserver_state{state = idle, sourcesCastingList = UpdatedSourcesCastingList, clientsWaitingList = ListOfClients, total_sources = 0};
     _ -> NextState = State#main_genserver_state{state = casting, sourcesCastingList = UpdatedSourcesCastingList}
   end,
-  {noreply, NextState};
+  {noreply, NextState}
+  end;
 
 % Each update CSV process generates sourceAck that is sent to main server when all sources are ready
 handle_cast({sourceAckDataReady,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList, total_sources = TotalSources, sources_data_ready_ctr = SourcesDataReadyCtr}) ->
@@ -660,6 +704,15 @@ decode_parallel_abort_body(Body) when is_binary(Body) ->
     _:_ -> Body
   end;
 decode_parallel_abort_body(Body) ->
+  Body.
+
+decode_parallel_phase_done_body(Body) when is_binary(Body) ->
+  try binary_to_term(Body, [safe]) of
+    Term -> Term
+  catch
+    _:_ -> Body
+  end;
+decode_parallel_phase_done_body(Body) ->
   Body.
 
 % Sends requests for statisics from all entities excludes main server

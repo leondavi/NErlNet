@@ -92,6 +92,13 @@ Implemented and working today:
   - API phase parsing now injects `parallelExecution.maxBatches` from experiment flow `sourcePieces[].numOfBatches` (max across phase pieces).
   - Super Node scheduler now enforces this bound and stops grant rollover when the configured batch range is exhausted.
   - This prevents synthetic out-of-range grants (for example, issuing batch `100` after processing valid source batches `0..99`).
+- Deterministic phase-close unblocking hardening:
+  - On scheduler `maxBatches` completion, Super Node now signals Main Server (`/parallelPhaseDone`) and immediately initiates deterministic phase-close broadcast.
+  - Main Server accepts this signal in non-legacy casting mode and forces client-idle transition even when source completion signaling is delayed.
+  - Client `phase_close_granted` handling now marks stream bookkeeping complete (`all_workers_done=true`, active stream list cleared) before idle finalization.
+- Source transmitter liveness hardening:
+  - Source `start_stream` / `end_stream` control signals are now timeout-bounded per worker target.
+  - Stream signal failures/timeouts are logged and do not block `finishedCasting`/`sourceDone` progression indefinitely.
 - Worker pipeline batch isolation hardening:
   - out-of-batch pipeline payloads are held in buffers (`wait_for_batch`) until active batch turnover.
   - backward payload dequeue is keyed by `{batch,microbatch}` grant identity (`pop_pipeline_backward_payload_for_grant`) to prevent cross-batch collisions.

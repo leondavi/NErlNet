@@ -27,6 +27,7 @@ init(Req0, [Action, Main_genserver_Pid]) ->
     statistics ->  gen_statem:cast(Main_genserver_Pid, {statistics,Body});
     startCasting ->  gen_statem:cast(Main_genserver_Pid, {startCasting,Body});
     stopCasting ->  gen_statem:cast(Main_genserver_Pid, {stopCasting,Body});
+    parallelPhaseDone -> gen_statem:cast(Main_genserver_Pid, {parallelPhaseDone,Body});
     parallelAbort -> gen_statem:cast(Main_genserver_Pid, {parallelAbort,Body});
     restart -> gen_statem:cast(Main_genserver_Pid, {restart,Body})
   end,

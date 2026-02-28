@@ -1128,6 +1128,8 @@ apply_parallel_super_command(EtsRef, {parallel_super_command, phase_close_grante
     true ->
       ?LOG_INFO("Client ~p received phase-close grant epoch=~p", [ClientName, PhaseEpoch]),
       ets:insert(EtsRef, {parallel_phase_close_granted, true}),
+      ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, []}),
+      ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true}),
       gen_statem:cast(get(my_pid), {parallel_finalize_idle})
   end;
 apply_parallel_super_command(EtsRef, {phase_close_granted, PhaseEpochRaw}, StateName) ->

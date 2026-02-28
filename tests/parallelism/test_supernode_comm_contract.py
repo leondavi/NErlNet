@@ -12,6 +12,8 @@ SUPER_NODE_FILE = REPO_ROOT / "src_erl" / "NerlnetApp" / "src" / "SuperNode" / "
 CLIENT_STATEM_FILE = REPO_ROOT / "src_erl" / "NerlnetApp" / "src" / "Client" / "clientStatem.erl"
 CLIENT_HANDLER_FILE = REPO_ROOT / "src_erl" / "NerlnetApp" / "src" / "Client" / "clientStateHandler.erl"
 APP_FILE = REPO_ROOT / "src_erl" / "NerlnetApp" / "src" / "nerlnetApp_app.erl"
+ACTION_HANDLER_FILE = REPO_ROOT / "src_erl" / "NerlnetApp" / "src" / "MainServer" / "actionHandler.erl"
+MAIN_GENSERVER_FILE = REPO_ROOT / "src_erl" / "NerlnetApp" / "src" / "MainServer" / "mainGenserver.erl"
 
 
 class SuperNodeCommContractTest(unittest.TestCase):
@@ -39,6 +41,7 @@ class SuperNodeCommContractTest(unittest.TestCase):
         self.assertIn("phase_close_requested = []", content)
         self.assertIn("phase_epoch = 0", content)
         self.assertIn("extract_event_epoch_and_meta", content)
+        self.assertIn("atom_to_list(parallelPhaseDone)", content)
 
     def test_client_has_parallel_deliver_path(self) -> None:
         handler_content = CLIENT_HANDLER_FILE.read_text(encoding="utf-8")
@@ -78,6 +81,15 @@ class SuperNodeCommContractTest(unittest.TestCase):
         self.assertIn("\"/superHeartbeat\"", app_content)
         self.assertIn("check_heartbeats", super_content)
         self.assertIn("Super node heartbeat received from ~p ts_ms=~p", super_content)
+
+    def test_main_server_accepts_super_node_phase_done_signal(self) -> None:
+        app_content = APP_FILE.read_text(encoding="utf-8")
+        action_content = ACTION_HANDLER_FILE.read_text(encoding="utf-8")
+        main_content = MAIN_GENSERVER_FILE.read_text(encoding="utf-8")
+        self.assertIn("\"/parallelPhaseDone\"", app_content)
+        self.assertIn("parallelPhaseDone ->", action_content)
+        self.assertIn("{parallelPhaseDone, Body}", main_content)
+        self.assertIn("[Main-Server] parallel phase completion reported by Super Node", main_content)
 
 
 if __name__ == "__main__":

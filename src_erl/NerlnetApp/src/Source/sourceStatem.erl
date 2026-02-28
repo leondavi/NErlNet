@@ -26,6 +26,7 @@
 
 %% defintions
 -define(SENDING_FREQUENCY_OVERHEAD_FIX_FACTOR_PERC, 0.75).
+-define(STREAM_SIGNAL_TIMEOUT_MS, 5000).
 
 -define(PHASE_TRAINING_ATOM, training).
 -define(PHASE_PREDICTION_ATOM, prediction).
@@ -303,11 +304,20 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
   ets:insert(TransmitterEts, {batches_issue, 0}),
   ets:insert(TransmitterEts, {batches_skipped, 0}),
   ets:insert(TransmitterEts, {current_batch_id, 0}),
-  % Message to all workrers : "start_stream" , TRANSFER TO FUNCTIONS
+  % Message to all workers: "start_stream". Keep this bounded so a single
+  % unreachable endpoint cannot stall the transmitter forever.
   {RouterHost, RouterPort} = ets:lookup_element(TransmitterEts, my_router, ?DATA_IDX),
   FuncStart = fun({ClientName, WorkerNameStr}) ->
     ToSend = {MyName, ClientName, list_to_atom(WorkerNameStr)},
-    nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(start_stream), ToSend)
+    safe_stream_signal_request(
+      RouterHost,
+      RouterPort,
+      ClientName,
+      start_stream,
+      ToSend,
+      MyName,
+      WorkerNameStr
+    )
   end,
   lists:foreach(FuncStart, ClientWorkerPairs),
   TransmissionStart = erlang:timestamp(),
@@ -318,10 +328,19 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
     _Default -> sourceSendingPolicies:send_method_casting(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend)
   end,
   TransmissionTimeTook_sec = timer:now_diff(erlang:timestamp(), TransmissionStart) / 1000000,
-  % Message to workers : "end_stream"
+  % Message to workers: "end_stream". Failures are logged but do not block
+  % source completion forever.
   FuncEnd = fun({ClientName, WorkerNameStr}) ->
     ToSend = {MyName, ClientName, list_to_atom(WorkerNameStr)},
-    nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(end_stream), ToSend)
+    safe_stream_signal_request(
+      RouterHost,
+      RouterPort,
+      ClientName,
+      end_stream,
+      ToSend,
+      MyName,
+      WorkerNameStr
+    )
   end,
   lists:foreach(FuncEnd, ClientWorkerPairs),
   ErrorBatches = ets:lookup_element(TransmitterEts, batches_issue, ?DATA_IDX),
@@ -344,3 +363,57 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
   StatsEtsRef = ets:lookup_element(SourceEtsRef, stats_ets, ?DATA_IDX),
   stats:set_value(StatsEtsRef, actual_frequency, ActualFrequency),
   ets:delete(TransmitterEts).
+
+safe_stream_signal_request(
+  RouterHost,
+  RouterPort,
+  ClientName,
+  ActionAtom,
+  Payload,
+  SourceName,
+  WorkerName
+) ->
+  ParentPid = self(),
+  Ref = make_ref(),
+  Pid =
+    spawn(fun() ->
+      Result =
+        try
+          nerl_tools:http_router_request(
+            RouterHost,
+            RouterPort,
+            [ClientName],
+            atom_to_list(ActionAtom),
+            Payload
+          )
+        catch
+          Err:Reason ->
+            {error, {Err, Reason}}
+        end,
+      ParentPid ! {Ref, Result}
+    end),
+  receive
+    {Ref, {ok, _HttpResponse}} ->
+      ok;
+    {Ref, ok} ->
+      ok;
+    {Ref, {error, Reason}} ->
+      ?LOG_WARNING(
+        "Source ~p stream signal ~p failed for worker ~p via client ~p reason=~p",
+        [SourceName, ActionAtom, WorkerName, ClientName, Reason]
+      ),
+      ok;
+    {Ref, Unexpected} ->
+      ?LOG_WARNING(
+        "Source ~p stream signal ~p got unexpected response for worker ~p via client ~p response=~p",
+        [SourceName, ActionAtom, WorkerName, ClientName, Unexpected]
+      ),
+      ok
+  after ?STREAM_SIGNAL_TIMEOUT_MS ->
+    exit(Pid, kill),
+    ?LOG_WARNING(
+      "Source ~p stream signal ~p timed out after ~p ms for worker ~p via client ~p",
+      [SourceName, ActionAtom, ?STREAM_SIGNAL_TIMEOUT_MS, WorkerName, ClientName]
+    ),
+    ok
+  end.

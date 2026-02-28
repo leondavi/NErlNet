@@ -103,6 +103,10 @@
 - During `pipeline|pipeline_tensor` stream-end drain, workers now drop stale scheduler grants if no non-grant runtime work remains; this prevents end-of-data deadlocks where a speculative next-batch grant blocks `stream_ended`/phase-close.
 - API phase parsing now injects `parallelExecution.maxBatches` (derived from phase `sourcePieces[].numOfBatches`, max across pieces) for non-legacy modes.
 - Super Node scheduler respects `maxBatches` and stops issuing rollover grants once the configured bound is reached, preventing synthetic out-of-range batches (for example, batch `100` when source batches are `0..99`).
+- On `maxBatches` completion, Super Node now emits a deterministic phase-done signal to Main Server (`/parallelPhaseDone`) and initiates Super Node phase-close broadcast for managed clients.
+- Main Server accepts Super Node phase-done signals in non-legacy casting mode and forces client idle transition even if source completion signaling is delayed.
+- Client handling of `phase_close_granted` now marks stream bookkeeping done (`all_workers_done=true`, `active_workers_streams=[]`) before `parallel_finalize_idle`, preventing close-handshake stalls.
+- Source stream control signals (`start_stream`/`end_stream`) are timeout-bounded per target worker (`STREAM_SIGNAL_TIMEOUT_MS`) and cannot block source transmitter completion indefinitely.
 - Stage-sliced worker messaging payload tags are:
   - `pipeline_forward_payload`
   - `pipeline_backward_payload`

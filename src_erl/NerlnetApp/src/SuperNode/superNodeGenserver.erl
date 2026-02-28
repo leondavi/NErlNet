@@ -285,6 +285,27 @@ notify_parallel_abort(#super_node_state{
     _:_ -> ok
   end.
 
+notify_parallel_phase_done(#super_node_state{
+  my_name = MyName,
+  parallel_phase = ParallelPhase,
+  parallel_mode = ParallelMode,
+  phase_epoch = PhaseEpoch,
+  scheduler_batch_id = SchedulerBatchID,
+  my_router = {RouterHost, RouterPort}
+}) ->
+  MessageBody = {MyName, ParallelPhase, ParallelMode, PhaseEpoch, SchedulerBatchID},
+  try
+    nerl_tools:http_router_request(
+      RouterHost,
+      RouterPort,
+      [?MAIN_SERVER_ATOM],
+      atom_to_list(parallelPhaseDone),
+      MessageBody
+    )
+  catch
+    _:_ -> ok
+  end.
+
 is_parallel_mode_active(legacy) -> false;
 is_parallel_mode_active(_) -> true.
 
@@ -866,10 +887,16 @@ issue_next_scheduler_grant(
       case scheduler_max_batches_reached(Cursor, TraceLen, SchedulerBatchID, SchedulerMaxBatches) of
         true ->
           ?LOG_INFO(
-            "Super node scheduler reached configured maxBatches=~p at batch=~p cursor=~p; waiting for phase close",
+            "Super node scheduler reached configured maxBatches=~p at batch=~p cursor=~p; initiating deterministic phase close",
             [SchedulerMaxBatches, SchedulerBatchID, Cursor]
           ),
-          {ok, State};
+          notify_parallel_phase_done(State),
+          StateAfterClose =
+            case State#super_node_state.phase_close_completed of
+              true -> State;
+              false -> finalize_parallel_phase_close(State)
+            end,
+          {ok, StateAfterClose};
         false ->
           EffectiveState =
             case Cursor >= TraceLen of
