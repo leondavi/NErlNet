@@ -94,6 +94,8 @@ class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse
         self.acc_time_training = 0
         self.acc_time_prediction = 0
         self.nan_loss_count = 0
+        self.tp_collective_count = 0
+        self.tp_collective_latency_us = 0
 
     def __add__(self, other):
         self.bytes_received += other.bytes_received
@@ -111,10 +113,17 @@ class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse
         self.acc_time_training += other.acc_time_training
         self.acc_time_prediction += other.acc_time_prediction
         self.nan_loss_count += other.nan_loss_count
+        self.tp_collective_count += other.tp_collective_count
+        self.tp_collective_latency_us += other.tp_collective_latency_us
         return self
 
     
     def get_as_dict(self):
+        tp_collective_avg_latency_us = (
+            float(self.tp_collective_latency_us) / float(self.tp_collective_count)
+            if self.tp_collective_count > 0
+            else 0.0
+        )
         return {
             "bytes_received": self.bytes_received,
             "bytes_sent": self.bytes_sent,
@@ -130,7 +139,10 @@ class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse
             "average_time_prediction": self.average_time_prediction,
             "acc_time_training": self.acc_time_training,
             "acc_time_prediction": self.acc_time_prediction,
-            "nan_loss_count": self.nan_loss_count
+            "nan_loss_count": self.nan_loss_count,
+            "tp_collective_count": self.tp_collective_count,
+            "tp_collective_latency_us": self.tp_collective_latency_us,
+            "tp_collective_avg_latency_us": tp_collective_avg_latency_us
         }
 
     def update_stats(self, input_dict):
@@ -149,6 +161,9 @@ class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse
         self.acc_time_training = input_dict["acc_time_training"]
         self.acc_time_prediction = input_dict["acc_time_prediction"]
         self.nan_loss_count = input_dict["nan_loss_count"]
+        # Keep backward compatibility with older worker stats payloads.
+        self.tp_collective_count = int(input_dict.get("tp_collective_count", 0))
+        self.tp_collective_latency_us = int(input_dict.get("tp_collective_latency_us", 0))
 
 
 class ClientComDB(EntityComDB):
@@ -335,5 +350,4 @@ class NerlComDB():
                 self.clients[this_worker_client_name].get_worker(entity_name).update_stats(entity_stats_dict)
             elif entity_name == MAIN_SERVER_STR:
                 self.main_server.update_stats(entity_stats_dict)
-
 

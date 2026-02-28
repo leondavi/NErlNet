@@ -623,6 +623,7 @@ Executed and passed (schema/runtime contract hardening):
 8. Add parallel observability metrics end-to-end.
 - Required: scheduler type, per-microbatch latency, stage utilization, collective latency, abort codes.
 - Integrate into phase stats output and planner/export visibility.
+- Status update (2026-02-28): TP collective observability is now wired end-to-end for backend stats and summary CSV export (`tp_collective_count`, `tp_collective_latency_us`, derived avg latency).
 
 9. Soak and leak testing.
 - Long-duration tests with high microbatch counts.
@@ -933,6 +934,28 @@ This section is the explicit runtime call graph for non-legacy parallel executio
    - Main aggregates and POSTs API `/statistics`
    - `receiver.statistics.post` updates CommDB/PerfDB and sets `COMMUNICATION_STATS` done
    - Flask sends `transmitter.send_ack_validation()` to `/apiserver_ack_validation`.
+7. TP observability bridge (Python summary path):
+   - worker runtime payload includes TP counters (`tp_collective_count`, `tp_collective_latency_us`)
+   - `WorkerComDB.update_stats(...)` reads TP keys with backward-compatible defaults (`0`)
+   - `WorkerComDB.get_as_dict()` exports raw counters + `tp_collective_avg_latency_us`
+   - `Stats.get_tensor_parallel_stats()` returns worker-indexed TP DataFrame and optional `tp_collective_per_predict_batch`
+   - `ExperimentSummary.generate_summary_row(...)` writes per-worker TP columns into benchmark CSV rows.
+
+Notebook usage snippet (prediction-phase stats object):
+
+```python
+tp_df = st_pred.get_tensor_parallel_stats()
+display(tp_df)
+
+from exp_summary import ExperimentSummary
+summary = ExperimentSummary(all_phases_stats)
+summary_df = summary.generate_summary_csv("experiment_summary.csv", force_append=True)
+```
+
+Expected TP summary columns (per worker):
+- `<worker> TP Collective Count`
+- `<worker> TP Collective Latency (us)`
+- `<worker> TP Avg Collective Latency (us)`
 
 ### 8.7 Deterministic Fail-Fast Abort Path
 
@@ -978,6 +1001,7 @@ This branch has delivered a strong foundational slice for Super Node-based paral
 - runtime control-plane skeleton,
 - dual-path compatibility,
 - microbatch/barrier bridge surfaces,
+- TP collective observability in Python stats and summary exports,
 - planner support,
 - CI and Docker validation scaffolding.
 

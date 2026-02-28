@@ -173,51 +173,41 @@ class Stats():
         assert df.shape[1] == 2 * num_of_labels, "Error in expend_labels_df function"
         return df
     
-    def get_recieved_batches(self):
-        """
-        Returns a dictionary of recieved batches in the experiment phase.
-        recived_batches_dict = {(source_name, worker_name): [batch_id,...]}
-        """
-        def recieved_batches_key(phase_name, source_name, worker_name):
-            return f"phase:{phase_name},{source_name}->{worker_name}"
-
-        phase_name = self.experiment_phase.get_name()
-        recived_batches_dict = {}
-        sources_pieces_list = self.experiment_phase.get_sources_pieces()
-        workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
-        for source_piece_inst in sources_pieces_list:
-            source_name = source_piece_inst.get_source_name()
-            target_workers_string = source_piece_inst.get_target_workers()
-            target_workers_names = target_workers_string.split(',')
-            for worker_db in workers_model_db_list:
-                    worker_name = worker_db.get_worker_name()
-                    if worker_name in target_workers_names:       # Check if the worker is in the target workers list of this source
-                        for batch_id in range(source_piece_inst.get_num_of_batches()):
-                            batch_db = worker_db.get_batch(source_name, str(batch_id))
-                            if batch_db:    # if batch is recieved
-                                recieved_batch_key_str = recieved_batches_key(phase_name, source_name, worker_name)
-                                if recieved_batch_key_str not in recived_batches_dict:
-                                    recived_batches_dict[recieved_batch_key_str] = []
-                                recived_batches_dict[recieved_batch_key_str].append(batch_id)
-        return recived_batches_dict
-
     def get_confusion_matrices(self , normalize : bool = False ,plot : bool = False , saveToFile : bool = False): 
         
-        def build_worker_label_df(original_df, batch_ids, batch_size):
+        def build_worker_label_df(original_df, batch_ids, batch_size, source_name, worker_name):
             rows_list = []
+            valid_batch_ids = []
+            total_rows = len(original_df)
 
             for batch_id in batch_ids:
-                # Calculate the start and end indices for the rows to be copied
                 start_idx = batch_id * batch_size
                 end_idx = (batch_id + 1) * batch_size
-        
-                # Extract the rows and append to the list
+                if start_idx < 0 or end_idx > total_rows:
+                    LOG_WARNING(
+                        f"Skipping out-of-range batch {batch_id} for source '{source_name}' "
+                        f"worker '{worker_name}' while building confusion matrix labels"
+                    )
+                    continue
                 batch_rows = original_df.iloc[start_idx:end_idx]
                 rows_list.append(batch_rows)
-    
-                # Concatenate all the extracted rows into a new DataFrame
+                valid_batch_ids.append(batch_id)
+
+            if not rows_list:
+                return pd.DataFrame(), []
             df_worker_labels = pd.concat(rows_list, ignore_index=True)
-            return df_worker_labels
+            return df_worker_labels, valid_batch_ids
+
+        def get_worker_received_batches_for_source(worker_db, source_name):
+            batch_ids = []
+            for batch_source_name, batch_id in worker_db.get_batches_dict().keys():
+                if batch_source_name != source_name:
+                    continue
+                try:
+                    batch_ids.append(int(batch_id))
+                except (TypeError, ValueError):
+                    continue
+            return sorted(set(batch_ids))
         
         assert self.experiment_flow_type == "classification", "This function is only available for classification experiments" 
         assert self.phase == PHASE_PREDICTION_STR, "This function is only available for predict phase"   
@@ -225,7 +215,6 @@ class Stats():
         workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
         confusion_matrix_source_dict = {}
         confusion_matrix_worker_dict = {}
-        recived_batches_dict = self.get_recieved_batches()
         for source_piece_inst in sources_pieces_list:
             nerltensorType = source_piece_inst.get_nerltensor_type()
             source_name = source_piece_inst.get_source_name()
@@ -233,16 +222,49 @@ class Stats():
             df_actual_labels = pd.read_csv(sourcePiece_csv_labels_path)
             num_of_labels = df_actual_labels.shape[1]
 
-            # build confusion matrix for each worker
-            target_workers_string = source_piece_inst.get_target_workers()
-            target_workers_names = target_workers_string.split(',')
             batch_size = source_piece_inst.get_batch_size()
             for worker_db in workers_model_db_list:
                 worker_name = worker_db.get_worker_name()
-                if worker_name not in target_workers_names:
+                worker_recived_batches_id = get_worker_received_batches_for_source(worker_db, source_name)
+                if not worker_recived_batches_id:
                     continue
-                worker_recived_batches_id = recived_batches_dict.get(f"phase:{self.experiment_phase.get_name()},{source_name}->{worker_name}")   # get a list of recived batches id for the worker
-                df_worker_labels = build_worker_label_df(df_actual_labels, worker_recived_batches_id, batch_size)
+
+                valid_batch_ids = []
+                predictions_by_batch = {}
+                expected_elements = int(batch_size) * int(num_of_labels)
+                incompatible_output_shape = False
+
+                for batch_id in worker_recived_batches_id:
+                    batch_db = worker_db.get_batch(source_name, str(batch_id))
+                    if not batch_db:
+                        continue
+                    tensor_data = batch_db.get_tensor_data()
+                    if int(tensor_data.size) != expected_elements:
+                        incompatible_output_shape = True
+                        continue
+                    predictions_by_batch[batch_id] = tensor_data.reshape(batch_size, num_of_labels).copy()
+                    valid_batch_ids.append(batch_id)
+
+                if incompatible_output_shape and not valid_batch_ids:
+                    LOG_INFO(
+                        f"Skipping worker '{worker_name}' for source '{source_name}' confusion matrix: "
+                        f"prediction tensor shape is incompatible with labels shape ({batch_size}, {num_of_labels}). "
+                        "This can happen on non-terminal pipeline stages."
+                    )
+                    continue
+                if not valid_batch_ids:
+                    continue
+
+                df_worker_labels, valid_batch_ids = build_worker_label_df(
+                    df_actual_labels,
+                    valid_batch_ids,
+                    batch_size,
+                    source_name,
+                    worker_name
+                )
+                if df_worker_labels.empty:
+                    continue
+
                 header_list = range(num_of_labels) 
                 df_worker_labels.columns = header_list
                 df_worker_labels = self.expend_labels_df(df_worker_labels)  #Now there is a csv file with the actual labels of the source piece and empty columns for the predict labels
@@ -254,18 +276,13 @@ class Stats():
                         
                 
                 #build df_worker_labels with the actual labels and the predict labels
-                index = 0
-                for batch_id in worker_recived_batches_id:
-                    batch_db = worker_db.get_batch(source_name, str(batch_id))
-                    if not batch_db:             #It's not necessary to check if the batch is missing, because we already know wich batches are recieved
-                        LOG_INFO(f"Batch {batch_id} is missing for worker {worker_name}")
+                for index, batch_id in enumerate(valid_batch_ids):
+                    tensor_data = predictions_by_batch.get(batch_id)
+                    if tensor_data is None:
                         continue
-                    tensor_data = batch_db.get_tensor_data() 
-                    tensor_data = tensor_data.reshape(batch_size, num_of_labels).copy()  # Make the tensor_data array writable
                     start_index = index * batch_size
                     end_index = (index + 1) * batch_size
                     df_worker_labels.iloc[start_index:end_index, num_of_labels:] = tensor_data
-                    index += 1
                     
                 if len(self.headers_list) == 1:   # One class
                     class_name = self.headers_list[0]
@@ -411,6 +428,9 @@ class Stats():
                                     recived_batches_dict[recieved_batch_key_str] = []
                                 recived_batches_dict[recieved_batch_key_str].append(batch_id)
         return recived_batches_dict
+
+    # Compatibility alias with corrected spelling.
+    get_received_batches = get_recieved_batches
     
     def get_missed_batches(self):
         """
@@ -515,6 +535,56 @@ class Stats():
         for worker_name in workers_dict:
             communication_stats_workers_dict[worker_name] = workers_dict[worker_name].get_as_dict()
         return communication_stats_workers_dict
+
+    def get_tensor_parallel_stats(self):
+        """Return per-worker TP collective stats as a DataFrame."""
+        required_columns = [
+            "tp_collective_count",
+            "tp_collective_latency_us",
+            "tp_collective_avg_latency_us",
+        ]
+        workers_comm = self.get_communication_stats_workers()
+        if not workers_comm:
+            empty_df = pd.DataFrame(columns=required_columns)
+            empty_df.index.name = "worker"
+            return empty_df
+
+        rows = OrderedDict()
+        has_predict_batches = False
+        for worker_name, worker_stats in workers_comm.items():
+            tp_count = int(worker_stats.get("tp_collective_count", 0) or 0)
+            tp_latency_us = int(worker_stats.get("tp_collective_latency_us", 0) or 0)
+            tp_avg_latency_us = (
+                float(worker_stats.get("tp_collective_avg_latency_us"))
+                if worker_stats.get("tp_collective_avg_latency_us") is not None
+                else (float(tp_latency_us) / float(tp_count) if tp_count > 0 else 0.0)
+            )
+            rows[worker_name] = {
+                "tp_collective_count": tp_count,
+                "tp_collective_latency_us": tp_latency_us,
+                "tp_collective_avg_latency_us": tp_avg_latency_us,
+            }
+            if "batches_received_predict" in worker_stats:
+                has_predict_batches = True
+
+        df = pd.DataFrame.from_dict(rows, orient="index")
+        df.index.name = "worker"
+        for column in required_columns:
+            if column not in df.columns:
+                df[column] = 0
+        df = df[required_columns]
+
+        if has_predict_batches:
+            per_predict_batch = []
+            for worker_name, worker_stats in workers_comm.items():
+                predict_batches = int(worker_stats.get("batches_received_predict", 0) or 0)
+                tp_count = int(worker_stats.get("tp_collective_count", 0) or 0)
+                per_predict_batch.append(
+                    float(tp_count) / float(predict_batches) if predict_batches > 0 else 0.0
+                )
+            df["tp_collective_per_predict_batch"] = per_predict_batch
+
+        return df
     
 
     def get_communication_stats_sources(self):
@@ -642,5 +712,3 @@ class Stats():
         bytes += comm_stats_main_server['bytes_received']
         return bytes
         
-
-

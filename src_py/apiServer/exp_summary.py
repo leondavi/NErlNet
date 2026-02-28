@@ -5,6 +5,7 @@ import numpy as np
 import os
 from collections import OrderedDict
 from definitions import PHASE_PREDICTION_STR, PHASE_TRAINING_STR
+from logger import LOG_WARNING
 
 class ExperimentSummary:
     def __init__(self, stats_list: List[Stats]):
@@ -13,7 +14,7 @@ class ExperimentSummary:
         self.workers = self.stats_list[0].workers_list
         
     def summary_headers(self):
-        headers_ml_comm = ["Batch Size", "Frequency", "Num Of Sources", "Batches/Second", "Min. Accuracy", "Avg. Accuracy", "Min. Precision", "Avg. Precision", "Min. F1-Score", "Avg. F1-Score", "WX % Dropped Training", "WX % Dropped Prediction", "WX # Dropped Training", "WX # Dropped Prediction", "WX Total Batches Training", "WX Total Batches Prediction"]
+        headers_ml_comm = ["Batch Size", "Frequency", "Num Of Sources", "Samples/Second", "Min. Accuracy", "Avg. Accuracy", "Min. Precision", "Avg. Precision", "Min. F1-Score", "Avg. F1-Score", "WX % Dropped Training", "WX % Dropped Prediction", "WX # Dropped Training", "WX # Dropped Prediction", "WX Total Batches Training", "WX Total Batches Prediction", "WX TP Collective Count", "WX TP Collective Latency (us)", "WX TP Avg Collective Latency (us)"]
         headers_perf = ["WX Accumulated Time Train Active", "WX Accumulated Time Train Total", "WX Accumulated Time Predict Active", "WX Accumulated Time Predict Total", "WX Memory Train EMA Usage", "WX Memory Predict EMA Usage", "WX Memory Train Peak Usage", "WX Memory Predict Peak Usage", "WX Num Of Cores", "WX CPU Train Util Core X", "WX CPU Predict Util Core X"]
         all_headers = headers_ml_comm + headers_perf
         return all_headers
@@ -61,37 +62,58 @@ class ExperimentSummary:
         """
         Get min/avg accuracy, precision, and F1-score from model performance stats
         """
+        zero_metrics = {
+            'min_accuracy': 0, 'avg_accuracy': 0,
+            'min_precision': 0, 'avg_precision': 0,
+            'min_f1': 0, 'avg_f1': 0,
+        }
         try:
             # First we need confusion matrices to get model performance
             confusion_matrices_source, confusion_matrices_worker = stats_obj.get_confusion_matrices()
             model_perf_df = stats_obj.get_model_performence_stats(confusion_matrices_worker)
-            
-            if not model_perf_df.empty:
-                accuracies = model_perf_df['Accuracy'].values
-                precisions = model_perf_df['Precision'].values
-                f1_scores = model_perf_df['F1'].values
-                
-                return {
-                    'min_accuracy': np.min(accuracies) if len(accuracies) > 0 else 0,
-                    'avg_accuracy': np.mean(accuracies) if len(accuracies) > 0 else 0,
-                    'min_precision': np.min(precisions) if len(precisions) > 0 else 0,
-                    'avg_precision': np.mean(precisions) if len(precisions) > 0 else 0,
-                    'min_f1': np.min(f1_scores) if len(f1_scores) > 0 else 0,
-                    'avg_f1': np.mean(f1_scores) if len(f1_scores) > 0 else 0,
-                }
-            else:
-                return {
-                    'min_accuracy': 0, 'avg_accuracy': 0,
-                    'min_precision': 0, 'avg_precision': 0,
-                    'min_f1': 0, 'avg_f1': 0,
-                }
-        except Exception as e:
-            # Return zeros if model performance can't be calculated (e.g., for training phase)
+
+            if model_perf_df is None or model_perf_df.empty:
+                return zero_metrics
+
+            metric_columns = ['Accuracy', 'Precision', 'F1']
+            if not all(column in model_perf_df.columns for column in metric_columns):
+                LOG_WARNING(
+                    f"Model performance DataFrame is missing required columns {metric_columns}; "
+                    f"available columns={list(model_perf_df.columns)}"
+                )
+                return zero_metrics
+
+            metric_df = model_perf_df[metric_columns].apply(pd.to_numeric, errors='coerce')
+            metric_df = metric_df.replace([np.inf, -np.inf], np.nan)
+
+            # Ignore degenerate rows when confusion matrix support is missing.
+            if all(col in model_perf_df.columns for col in ['TN', 'FP', 'FN', 'TP']):
+                support_df = model_perf_df[['TN', 'FP', 'FN', 'TP']].apply(pd.to_numeric, errors='coerce')
+                support_mask = support_df.fillna(0).sum(axis=1) > 0
+                metric_df = metric_df[support_mask]
+
+            metric_df = metric_df.dropna(how='any')
+            if metric_df.empty:
+                return zero_metrics
+
+            accuracies = metric_df['Accuracy'].values
+            precisions = metric_df['Precision'].values
+            f1_scores = metric_df['F1'].values
+
             return {
-                'min_accuracy': 0, 'avg_accuracy': 0,
-                'min_precision': 0, 'avg_precision': 0,
-                'min_f1': 0, 'avg_f1': 0,
+                'min_accuracy': np.min(accuracies),
+                'avg_accuracy': np.mean(accuracies),
+                'min_precision': np.min(precisions),
+                'avg_precision': np.mean(precisions),
+                'min_f1': np.min(f1_scores),
+                'avg_f1': np.mean(f1_scores),
             }
+        except Exception as e:
+            LOG_WARNING(
+                f"Failed to compute model performance aggregates for "
+                f"experiment='{stats_obj.get_name()}', phase='{stats_obj.get_phase()}': {e}"
+            )
+            return zero_metrics
 
     def get_training_aggregates(self, prediction_stats_obj, debug=False):
         """
@@ -318,6 +340,18 @@ class ExperimentSummary:
             row_data[f"{worker_name} # Dropped Prediction"] = predict_dropped
             row_data[f"{worker_name} Total Batches Training"] = train_total_current
             row_data[f"{worker_name} Total Batches Prediction"] = predict_total
+            tp_collective_count = int(worker_comm.get('tp_collective_count', 0) or 0)
+            tp_collective_latency_us = int(worker_comm.get('tp_collective_latency_us', 0) or 0)
+            tp_collective_avg_latency_us = worker_comm.get('tp_collective_avg_latency_us')
+            if tp_collective_avg_latency_us is None:
+                tp_collective_avg_latency_us = (
+                    float(tp_collective_latency_us) / float(tp_collective_count)
+                    if tp_collective_count > 0
+                    else 0.0
+                )
+            row_data[f"{worker_name} TP Collective Count"] = tp_collective_count
+            row_data[f"{worker_name} TP Collective Latency (us)"] = tp_collective_latency_us
+            row_data[f"{worker_name} TP Avg Collective Latency (us)"] = float(tp_collective_avg_latency_us)
         
         # Performance stats per worker (from clients)
         perf_stats = stats_obj.get_performance_stats_clients()
