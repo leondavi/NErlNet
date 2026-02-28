@@ -35,7 +35,9 @@ class EventSync():
         assert event in self.tracking_dict
         start_time = monotonic()
         while self.tracking_dict[event] == self.WAIT:
-            assert not self.get_error_status()
+            if self.get_error_status():
+                label = wait_label if wait_label else f"event={event}"
+                raise RuntimeError(f"Main Server signaled error while waiting for {label}")
             if timeout_sec is not None and timeout_sec >= 0:
                 elapsed = monotonic() - start_time
                 if elapsed > timeout_sec:

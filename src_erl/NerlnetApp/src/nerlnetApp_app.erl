@@ -204,33 +204,69 @@ parseJsonAndStartNerlnet(ThisDeviceIP) ->
     DevicesMap = ets:lookup_element(nerlnet_data, devices_map , ?DATA_IDX), % format of key value pairs: DeviceName => {Host,Port}
     DevicesListWithoutMainServerDevice = maps:to_list(maps:remove(ThisDeviceName, DevicesMap)), %% Form: [{DeviceNameAtom , {IPv4, Entities}}, ..]
     createMainServer(HostOfMainServer,BatchSize,ThisDeviceIP , ThisDeviceName),
-    if 
-        HostOfMainServer -> 
-            send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, DevicesListWithoutMainServerDevice);
-        true -> ok % Other devices get here and notify the main server they're ready
-    end,
-    NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
-    {?MAIN_SERVER_ATOM , {MainServerIP , MainServerPort , _MainServerDeviceName}} = digraph:vertex(NerlnetGraph, ?MAIN_SERVER_ATOM),
-    URL = "http://" ++ MainServerIP ++ ":" ++ integer_to_list(MainServerPort) ++ "/jsonReceived",
-    httpc:request(post , {URL , [] , "application/x-www-form-urlencoded" , term_to_binary({ThisDeviceName , length(DevicesListWithoutMainServerDevice)})}, [], []).
+    JsonDistributionStatus =
+      if
+          HostOfMainServer ->
+              send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, DevicesListWithoutMainServerDevice);
+          true -> ok % Other devices get here and notify the main server they're ready
+      end,
+    case JsonDistributionStatus of
+      ok ->
+        NerlnetGraph = ets:lookup_element(nerlnet_data, communicationGraph, ?DATA_IDX),
+        {?MAIN_SERVER_ATOM , {MainServerIP , MainServerPort , _MainServerDeviceName}} = digraph:vertex(NerlnetGraph, ?MAIN_SERVER_ATOM),
+        URL = "http://" ++ MainServerIP ++ ":" ++ integer_to_list(MainServerPort) ++ "/jsonReceived",
+        httpc:request(post , {URL , [] , "application/x-www-form-urlencoded" , term_to_binary({ThisDeviceName , length(DevicesListWithoutMainServerDevice)})}, [], []);
+      {error, Reason} ->
+        ?LOG_ERROR("JSON distribution failed before jsonReceived notification: ~p", [Reason]),
+        case whereis(mainGenserver) of
+          undefined -> ?LOG_ERROR("mainGenserver pid not found; cannot signal main_server_error", []);
+          MainPid -> gen_server:cast(MainPid, {jsonDistributionError, Reason})
+        end,
+        {error, Reason}
+    end.
 
-send_jsons_to_other_devices(_DCJsonFileBytes, _CommunicationMapFileBytes, []) -> ?LOG_INFO("This experiment is running on a single device!",[]);
+send_jsons_to_other_devices(_DCJsonFileBytes, _CommunicationMapFileBytes, []) ->
+    ?LOG_INFO("This experiment is running on a single device!",[]),
+    ok;
 send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, DevicesList) ->
     TorchPayloads = gather_torch_payloads(),
-    Fun = fun({DeviceNameAtom, {IPv4, _Entities}}) ->
-        ?LOG_INFO("Sending jsons to ~p",[DeviceNameAtom]),
-        URL = "http://" ++ IPv4 ++ ":" ++ integer_to_list(?NERLNET_INIT_PORT) ++ "/sendJsons",
-        Boundary = "------WebKitFormBoundaryUscTgwn7KiuepIr1",
-        ContentType = lists:concat(["multipart/form-data; boundary=", Boundary]),
-        Fields = [],
-        BaseFiles = [{?JSON_ADDR++?LOCAL_DC_FILE_NAME, ?LOCAL_DC_FILE_NAME, binary_to_list(DCJsonFileBytes)},
-                     {?JSON_ADDR++?LOCAL_COMM_FILE_NAME, ?LOCAL_COMM_FILE_NAME, binary_to_list(CommunicationMapFileBytes)}],
-        Files = BaseFiles ++ TorchPayloads,
-        ReqBody = nerl_tools:format_multipart_formdata(Boundary, Fields, Files),
-        ReqHeader = [{"Content-Length", integer_to_list(length(ReqBody))}],
-        {ok, _} = httpc:request(post, {URL, ReqHeader, ContentType, ReqBody}, [], [])
-    end,
-    lists:foreach(Fun, DevicesList).
+    send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, TorchPayloads, DevicesList).
+
+send_jsons_to_other_devices(_DCJsonFileBytes, _CommunicationMapFileBytes, _TorchPayloads, []) ->
+    ok;
+send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, TorchPayloads, [{DeviceNameAtom, {IPv4, _Entities}} | Tail]) ->
+    ?LOG_INFO("Sending jsons to ~p",[DeviceNameAtom]),
+    URL = "http://" ++ IPv4 ++ ":" ++ integer_to_list(?NERLNET_INIT_PORT) ++ "/sendJsons",
+    Boundary = "------WebKitFormBoundaryUscTgwn7KiuepIr1",
+    ContentType = lists:concat(["multipart/form-data; boundary=", Boundary]),
+    Fields = [],
+    BaseFiles = [{?JSON_ADDR++?LOCAL_DC_FILE_NAME, ?LOCAL_DC_FILE_NAME, binary_to_list(DCJsonFileBytes)},
+                 {?JSON_ADDR++?LOCAL_COMM_FILE_NAME, ?LOCAL_COMM_FILE_NAME, binary_to_list(CommunicationMapFileBytes)}],
+    Files = BaseFiles ++ TorchPayloads,
+    ReqBody = nerl_tools:format_multipart_formdata(Boundary, Fields, Files),
+    ReqHeader = [{"Content-Length", integer_to_list(length(ReqBody))}],
+    HttpOpts = [{timeout, 60000}, {connect_timeout, 10000}],
+    case httpc:request(post, {URL, ReqHeader, ContentType, ReqBody}, HttpOpts, []) of
+      {ok, {{_Proto, 200, _Meaning}, _Headers, _RespBody}} ->
+          send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, TorchPayloads, Tail);
+      {ok, {{_Proto, Code, Meaning}, _Headers, RespBody}} ->
+          RespPreview = preview_response_body(RespBody),
+          {error, {peer_send_jsons_http_error, DeviceNameAtom, IPv4, Code, Meaning, RespPreview}};
+      {error, Reason} ->
+          {error, {peer_send_jsons_transport_error, DeviceNameAtom, IPv4, Reason}}
+    end.
+
+preview_response_body(RespBody) when is_binary(RespBody) ->
+    RespList = binary_to_list(RespBody),
+    preview_response_body(RespList);
+preview_response_body(RespBody) when is_list(RespBody) ->
+    MaxLen = 200,
+    case length(RespBody) > MaxLen of
+      true -> lists:sublist(RespBody, MaxLen);
+      false -> RespBody
+    end;
+preview_response_body(RespBody) ->
+    io_lib:format("~p", [RespBody]).
 
 gather_torch_payloads() ->
     case catch ets:lookup_element(nerlnet_data, torch_models_map, ?DATA_IDX) of

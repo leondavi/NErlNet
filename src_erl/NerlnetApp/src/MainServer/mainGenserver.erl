@@ -138,6 +138,11 @@ handle_cast({jsonReceived,Body}, State = #main_genserver_state{}) ->
   stats:increment_messages_sent(StatsEts),
   {noreply, State#main_genserver_state{}};
 
+handle_cast({jsonDistributionError, Reason}, State = #main_genserver_state{}) ->
+  ?LOG_ERROR("JSON distribution error reported by app layer: ~p", [Reason]),
+  ack("main_server_error"),
+  {noreply, State#main_genserver_state{}};
+
 % Updating mainserver process dict with active phase!
 handle_cast({clientsPhaseUpdate , PhasePayload}, State = #main_genserver_state{myName = MyName}) ->
   put(curr_phase_ack , update_phase_done),
