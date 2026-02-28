@@ -96,7 +96,7 @@ Implemented and working today:
   - On scheduler `maxBatches` completion, Super Node now signals Main Server (`/parallelPhaseDone`) and immediately initiates deterministic phase-close broadcast.
   - In non-legacy modes, Main Server now treats Super Node `/parallelPhaseDone` as the phase-complete authority and no longer closes the phase from `sourceDone`.
   - Main Server `parallelPhaseDone` handling is idempotent (late/duplicate reports are handled as completion, not dropped as hard ignores).
-  - Client `phase_close_granted` handling now marks stream bookkeeping complete (`all_workers_done=true`, active stream list cleared) before idle finalization.
+  - Client `phase_close_granted` handling now marks stream bookkeeping complete (`all_workers_done=true`, active stream list cleared), sets `parallel_idle_requested=true`, then triggers idle finalization.
   - Client idle-state fallback was hardened to stay in `idle` for unrecognized messages (prevents accidental idle->training regression during close races).
 - Source transmitter liveness hardening:
   - Source `start_stream` / `end_stream` control signals are now timeout-bounded per worker target.

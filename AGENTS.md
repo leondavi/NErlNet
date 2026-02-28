@@ -107,6 +107,7 @@
 - In non-legacy modes, Main Server no longer uses `sourceDone` as the phase-complete trigger; it waits for Super Node `/parallelPhaseDone` and treats that as the completion authority.
 - Main Server `parallelPhaseDone` handling is idempotent in non-legacy mode and primes client-ack waiting without issuing duplicate `clientIdle` fanout.
 - Client handling of `phase_close_granted` now marks stream bookkeeping done (`all_workers_done=true`, `active_workers_streams=[]`) before `parallel_finalize_idle`, preventing close-handshake stalls.
+- Client `phase_close_granted` now also flips `parallel_idle_requested=true`, so local idle-finalize guards can complete even when Main Server does not send a separate duplicate `clientIdle` in non-legacy close.
 - Client idle-state fallback now remains in `idle` for unrecognized messages (no accidental idle->training transition).
 - Source stream control signals (`start_stream`/`end_stream`) are timeout-bounded per target worker (`STREAM_SIGNAL_TIMEOUT_MS`) and cannot block source transmitter completion indefinitely.
 - Stage-sliced worker messaging payload tags are:

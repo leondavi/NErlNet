@@ -101,6 +101,7 @@ class SuperNodeCommContractTest(unittest.TestCase):
         statem_content = CLIENT_STATEM_FILE.read_text(encoding="utf-8")
         self.assertIn("idle(cast, EventContent", statem_content)
         self.assertIn("{next_state, idle, State#client_statem_state", statem_content)
+        self.assertIn("ets:insert(EtsRef, {parallel_idle_requested, true})", statem_content)
 
 
 if __name__ == "__main__":
