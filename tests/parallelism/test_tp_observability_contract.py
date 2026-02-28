@@ -246,6 +246,88 @@ class _FakeSummaryStats:
         return {"w1": payload, "w2": payload}
 
 
+class _FakePipelineNetComponents:
+    def get_worker_parallel_map(self):
+        return {
+            "w1": {"pipelineStage": 0, "pipelineWorldSize": 2},
+            "w2": {"pipelineStage": 1, "pipelineWorldSize": 2},
+        }
+
+    def get_map_worker_to_client(self):
+        return {"w1": "client_1", "w2": "client_1"}
+
+
+class _FakePipelineSummaryStats:
+    def __init__(self):
+        self.workers_list = ["w1", "w2"]
+        self.batch_size = 10
+        self.freq = 1
+        self.num_of_sources = 1
+        self.net_comps = _FakePipelineNetComponents()
+
+    def get_phase(self):
+        return PHASE_PREDICTION_STR
+
+    def get_name(self):
+        return "PTD_PIPELINE_EXP"
+
+    def get_confusion_matrices(self):
+        confusion = np.array([[8, 1], [1, 10]])
+        return {("s1", "w2", "c0"): confusion}, {("w2", "c0"): confusion}
+
+    def get_model_performence_stats(self, _confusion_matrix_worker_dict):
+        return pd.DataFrame(
+            [
+                {
+                    "Worker": "w2",
+                    "Class": "c0",
+                    "TN": 8,
+                    "FP": 1,
+                    "FN": 1,
+                    "TP": 10,
+                    "Accuracy": 0.9,
+                    "Precision": 0.91,
+                    "F1": 0.9,
+                }
+            ]
+        )
+
+    def get_communication_stats_workers(self):
+        # w2 mirrors a stage-N pipeline worker that may not report source-received
+        # batches; summary should infer batch totals for pipeline workers.
+        return {
+            "w1": {
+                "batches_received_train": 20,
+                "batches_dropped_train": 0,
+                "batches_received_predict": 20,
+                "batches_dropped_predict": 0,
+                "batches_sent_train": 20,
+                "batches_sent_predict": 20,
+            },
+            "w2": {
+                "batches_received_train": 0,
+                "batches_dropped_train": 0,
+                "batches_received_predict": 0,
+                "batches_dropped_predict": 0,
+                "batches_sent_train": 0,
+                "batches_sent_predict": 0,
+            },
+        }
+
+    def get_performance_stats_clients(self):
+        # Client-level aggregate should be attributed across workers, not copied in full.
+        return {
+            "client_1": {
+                "time_predict_active": 200.0,
+                "time_predict_total": 400.0,
+                "memory_predict_ema_usage": 1000.0,
+                "memory_predict_peak_usage": 2000.0,
+                "num_of_cores": 2,
+                "cpu_predict_util_per_core": {0: 0.6, 1: 0.4},
+            }
+        }
+
+
 class TpObservabilityContractTests(unittest.TestCase):
     def test_worker_com_db_roundtrip_includes_tp_fields(self):
         payload = _base_worker_payload()
@@ -345,6 +427,25 @@ class TpObservabilityContractTests(unittest.TestCase):
             self.assertEqual(len(persisted), 1)
             self.assertEqual(int(persisted.iloc[0]["w1 TP Collective Count"]), 50)
             self.assertEqual(int(persisted.iloc[0]["w1 TP Collective Latency (us)"]), 5000)
+
+    def test_pipeline_summary_infers_stage_batch_totals_and_avoids_client_full_copy(self):
+        stats_obj = _FakePipelineSummaryStats()
+        summary = ExperimentSummary([stats_obj])
+        row = summary.generate_summary_row(stats_obj)
+
+        self.assertEqual(int(row["w1 Total Batches Prediction"]), 20)
+        self.assertEqual(int(row["w2 Total Batches Prediction"]), 20)
+        self.assertGreater(float(row["Effective Samples/Second"]), 0.0)
+
+        # Client predict total is 400 us and should be attributed (not copied in full)
+        # across both workers.
+        total_predict_time = (
+            float(row["w1 Accumulated Time Predict Total"])
+            + float(row["w2 Accumulated Time Predict Total"])
+        )
+        self.assertAlmostEqual(total_predict_time, 400.0, places=5)
+        self.assertLess(float(row["w1 Accumulated Time Predict Total"]), 400.0)
+        self.assertLess(float(row["w2 Accumulated Time Predict Total"]), 400.0)
 
 
 if __name__ == "__main__":

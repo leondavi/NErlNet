@@ -3,6 +3,7 @@ from typing import List
 import pandas as pd
 import numpy as np
 import os
+from numbers import Number
 from collections import OrderedDict
 from definitions import PHASE_PREDICTION_STR, PHASE_TRAINING_STR
 from logger import LOG_WARNING
@@ -14,7 +15,7 @@ class ExperimentSummary:
         self.workers = self.stats_list[0].workers_list
         
     def summary_headers(self):
-        headers_ml_comm = ["Batch Size", "Frequency", "Num Of Sources", "Samples/Second", "Min. Accuracy", "Avg. Accuracy", "Min. Precision", "Avg. Precision", "Min. F1-Score", "Avg. F1-Score", "WX % Dropped Training", "WX % Dropped Prediction", "WX # Dropped Training", "WX # Dropped Prediction", "WX Total Batches Training", "WX Total Batches Prediction", "WX TP Collective Count", "WX TP Collective Latency (us)", "WX TP Avg Collective Latency (us)"]
+        headers_ml_comm = ["Batch Size", "Frequency", "Num Of Sources", "Samples/Second", "Effective Samples/Second", "Min. Accuracy", "Avg. Accuracy", "Min. Precision", "Avg. Precision", "Min. F1-Score", "Avg. F1-Score", "WX % Dropped Training", "WX % Dropped Prediction", "WX # Dropped Training", "WX # Dropped Prediction", "WX Total Batches Training", "WX Total Batches Prediction", "WX TP Collective Count", "WX TP Collective Latency (us)", "WX TP Avg Collective Latency (us)"]
         headers_perf = ["WX Accumulated Time Train Active", "WX Accumulated Time Train Total", "WX Accumulated Time Predict Active", "WX Accumulated Time Predict Total", "WX Memory Train EMA Usage", "WX Memory Predict EMA Usage", "WX Memory Train Peak Usage", "WX Memory Predict Peak Usage", "WX Num Of Cores", "WX CPU Train Util Core X", "WX CPU Predict Util Core X"]
         all_headers = headers_ml_comm + headers_perf
         return all_headers
@@ -57,6 +58,186 @@ class ExperimentSummary:
         freq = stats_obj.freq
         batch_size = stats_obj.batch_size
         return freq * batch_size if freq and batch_size else 0
+
+    def _get_worker_parallel_map(self, stats_obj):
+        net_comps = getattr(stats_obj, "net_comps", None)
+        if net_comps and hasattr(net_comps, "get_worker_parallel_map"):
+            try:
+                return net_comps.get_worker_parallel_map() or {}
+            except Exception:
+                return {}
+        return {}
+
+    def _get_worker_to_client_map(self, stats_obj):
+        net_comps = getattr(stats_obj, "net_comps", None)
+        if not net_comps:
+            return {}
+        if hasattr(net_comps, "get_map_worker_to_client"):
+            try:
+                return net_comps.get_map_worker_to_client() or {}
+            except Exception:
+                return {}
+        mapping = {}
+        if hasattr(net_comps, "get_client_name_by_worker_name"):
+            for worker_name in self.workers:
+                try:
+                    mapping[worker_name] = net_comps.get_client_name_by_worker_name(worker_name)
+                except Exception:
+                    continue
+        return mapping
+
+    @staticmethod
+    def _safe_int(value, default=0):
+        try:
+            return int(value)
+        except Exception:
+            return default
+
+    @staticmethod
+    def _safe_float(value, default=0.0):
+        try:
+            return float(value)
+        except Exception:
+            return default
+
+    def _compute_worker_batch_totals(self, stats_obj, comm_stats):
+        worker_totals = {}
+        for worker_name in self.workers:
+            worker_comm = comm_stats.get(worker_name, {})
+            train_received = self._safe_int(worker_comm.get("batches_received_train", 0), 0)
+            train_dropped = self._safe_int(worker_comm.get("batches_dropped_train", 0), 0)
+            predict_received = self._safe_int(worker_comm.get("batches_received_predict", 0), 0)
+            predict_dropped = self._safe_int(worker_comm.get("batches_dropped_predict", 0), 0)
+            train_sent = self._safe_int(worker_comm.get("batches_sent_train", 0), 0)
+            predict_sent = self._safe_int(worker_comm.get("batches_sent_predict", 0), 0)
+            worker_totals[worker_name] = {
+                "train_received": train_received,
+                "train_dropped": train_dropped,
+                "predict_received": predict_received,
+                "predict_dropped": predict_dropped,
+                "train_sent": train_sent,
+                "predict_sent": predict_sent,
+                "train_total": max(train_received + train_dropped, train_sent),
+                "predict_total": max(predict_received + predict_dropped, predict_sent),
+            }
+
+        worker_parallel_map = self._get_worker_parallel_map(stats_obj)
+        pipeline_workers = []
+        for worker_name in self.workers:
+            worker_parallel = worker_parallel_map.get(worker_name, {})
+            if isinstance(worker_parallel, dict) and worker_parallel.get("pipelineStage") is not None:
+                pipeline_workers.append(worker_name)
+
+        if pipeline_workers:
+            max_train_total = max(worker_totals[w]["train_total"] for w in pipeline_workers)
+            max_predict_total = max(worker_totals[w]["predict_total"] for w in pipeline_workers)
+            for worker_name in pipeline_workers:
+                if worker_totals[worker_name]["train_total"] == 0 and max_train_total > 0:
+                    worker_totals[worker_name]["train_total"] = max_train_total
+                if worker_totals[worker_name]["predict_total"] == 0 and max_predict_total > 0:
+                    worker_totals[worker_name]["predict_total"] = max_predict_total
+
+        return worker_totals
+
+    def _compute_worker_activity_weights(self, worker_names, worker_totals):
+        activity = OrderedDict()
+        total_activity = 0.0
+        for worker_name in worker_names:
+            totals = worker_totals.get(worker_name, {})
+            score = float(
+                self._safe_int(totals.get("train_total", 0), 0)
+                + self._safe_int(totals.get("predict_total", 0), 0)
+            )
+            activity[worker_name] = score
+            total_activity += score
+        if total_activity <= 0 and worker_names:
+            equal = 1.0 / float(len(worker_names))
+            return {worker_name: equal for worker_name in worker_names}
+        if total_activity <= 0:
+            return {}
+        return {worker_name: score / total_activity for worker_name, score in activity.items()}
+
+    def _scale_worker_perf_payload(self, payload, weight):
+        if not payload:
+            return {}
+        scaled = dict(payload)
+        fields_to_scale = [
+            "time_train_active",
+            "time_train_total",
+            "time_predict_active",
+            "time_predict_total",
+            "memory_train_ema_usage",
+            "memory_predict_ema_usage",
+            "memory_train_peak_usage",
+            "memory_predict_peak_usage",
+            "average_gpu_usage_train",
+            "average_gpu_memory_usage_predict",
+        ]
+        for field_name in fields_to_scale:
+            value = payload.get(field_name)
+            if isinstance(value, Number):
+                scaled[field_name] = float(value) * weight
+
+        for cpu_field in ("cpu_train_util_per_core", "cpu_predict_util_per_core"):
+            cpu_payload = payload.get(cpu_field)
+            if isinstance(cpu_payload, dict):
+                scaled[cpu_field] = {
+                    core_num: (float(util) * weight if isinstance(util, Number) else util)
+                    for core_num, util in cpu_payload.items()
+                }
+        return scaled
+
+    def _resolve_worker_perf_stats(self, stats_obj, perf_stats, worker_totals, debug=False):
+        worker_perf = {worker_name: {} for worker_name in self.workers}
+        if not perf_stats:
+            return worker_perf
+
+        # Preferred path: payload is already keyed by worker name.
+        for worker_name in self.workers:
+            payload = perf_stats.get(worker_name)
+            if isinstance(payload, dict):
+                worker_perf[worker_name] = dict(payload)
+
+        unresolved = [worker_name for worker_name, payload in worker_perf.items() if not payload]
+        if not unresolved:
+            return worker_perf
+
+        worker_to_client = self._get_worker_to_client_map(stats_obj)
+        client_to_workers = OrderedDict()
+        for worker_name in self.workers:
+            client_name = worker_to_client.get(worker_name)
+            if client_name:
+                client_to_workers.setdefault(client_name, []).append(worker_name)
+
+        # Attribute client-level payload to workers by activity weight to avoid
+        # duplicating the same client aggregate across every worker.
+        for client_name, client_workers in client_to_workers.items():
+            payload = perf_stats.get(client_name)
+            if not isinstance(payload, dict):
+                continue
+            weights = self._compute_worker_activity_weights(client_workers, worker_totals)
+            for worker_name in client_workers:
+                if worker_perf.get(worker_name):
+                    continue
+                worker_perf[worker_name] = self._scale_worker_perf_payload(
+                    payload, weights.get(worker_name, 0.0)
+                )
+                if debug:
+                    print(
+                        f"Attributed client perf {client_name} -> {worker_name} "
+                        f"with weight={weights.get(worker_name, 0.0):.4f}"
+                    )
+
+        unresolved = [worker_name for worker_name, payload in worker_perf.items() if not payload]
+        if unresolved and len(perf_stats) == 1:
+            only_payload = list(perf_stats.values())[0]
+            if isinstance(only_payload, dict):
+                weights = self._compute_worker_activity_weights(unresolved, worker_totals)
+                for worker_name in unresolved:
+                    worker_perf[worker_name] = self._scale_worker_perf_payload(
+                        only_payload, weights.get(worker_name, 0.0)
+                    )
+        return worker_perf
 
     def get_model_performance_aggregates(self, stats_obj):
         """
@@ -212,38 +393,21 @@ class ExperimentSummary:
                 if debug:
                     print(f"Error getting performance stats: {e}")
                 perf_stats = {}
+
+            train_comm_stats = train_stats_obj.get_communication_stats_workers()
+            train_worker_totals = self._compute_worker_batch_totals(train_stats_obj, train_comm_stats)
+            worker_perf_stats = self._resolve_worker_perf_stats(
+                train_stats_obj,
+                perf_stats,
+                train_worker_totals,
+                debug=debug,
+            )
             
             for worker_name in self.workers:
                 if debug:
                     print(f"\n  Processing worker: {worker_name}")
-                
-                # Map worker to client using the same logic as before
-                client_perf = {}
-                possible_client_names = [
-                    worker_name,
-                    f"c{worker_name}",
-                    f"client{worker_name}",
-                    f"c{worker_name.replace('w', '')}",
-                    f"client{worker_name.replace('w', '')}"
-                ]
-                
-                if debug:
-                    print(f"    Trying client mappings: {possible_client_names}")
-                
-                for possible_name in possible_client_names:
-                    if possible_name in perf_stats:
-                        client_perf = perf_stats[possible_name]
-                        if debug:
-                            print(f"    ✓ Training mapping found: {worker_name} -> {possible_name}")
-                            print(f"    Client perf data keys: {list(client_perf.keys())}")
-                        break
-                
-                if not client_perf and len(perf_stats) == 1:
-                    client_perf = list(perf_stats.values())[0]
-                    if debug:
-                        print(f"    ✓ Training: Using single available client data for worker {worker_name}")
-                        print(f"    Client perf data keys: {list(client_perf.keys())}")
-                
+
+                client_perf = worker_perf_stats.get(worker_name, {})
                 if not client_perf:
                     if debug:
                         print(f"    ✗ No client performance data found for worker {worker_name}")
@@ -273,9 +437,10 @@ class ExperimentSummary:
                         print(f"      cpu_train_util_per_core: {cpu_train_util}")
                     
                     for core_num, util in cpu_train_util.items():
-                        if core_num not in aggregated[worker_name]['cpu_train_util_per_core_list']:
-                            aggregated[worker_name]['cpu_train_util_per_core_list'][core_num] = []
-                        aggregated[worker_name]['cpu_train_util_per_core_list'][core_num].append(util)
+                        core_idx = self._safe_int(core_num, 0)
+                        if core_idx not in aggregated[worker_name]['cpu_train_util_per_core_list']:
+                            aggregated[worker_name]['cpu_train_util_per_core_list'][core_idx] = []
+                        aggregated[worker_name]['cpu_train_util_per_core_list'][core_idx].append(util)
         
         # Debug: Print final aggregated data
         if debug:
@@ -302,6 +467,7 @@ class ExperimentSummary:
         row_data["Frequency"] = stats_obj.freq
         row_data["Num Of Sources"] = stats_obj.num_of_sources
         row_data["Samples/Second"] = self.calculate_samples_per_second(stats_obj)
+        row_data["Effective Samples/Second"] = 0
         
         # Model performance aggregates
         model_perf = self.get_model_performance_aggregates(stats_obj)
@@ -317,21 +483,21 @@ class ExperimentSummary:
         
         # Communication stats per worker
         comm_stats = stats_obj.get_communication_stats_workers()
+        worker_totals = self._compute_worker_batch_totals(stats_obj, comm_stats)
         for worker_name in self.workers:
             worker_comm = comm_stats.get(worker_name, {})
+            worker_totals_dict = worker_totals.get(worker_name, {})
             
             # Current prediction phase stats
-            predict_received = worker_comm.get('batches_received_predict', 0)
-            predict_dropped = worker_comm.get('batches_dropped_predict', 0)
-            predict_total = predict_received + predict_dropped
+            predict_received = self._safe_int(worker_totals_dict.get('predict_received', 0), 0)
+            predict_dropped = self._safe_int(worker_totals_dict.get('predict_dropped', 0), 0)
+            predict_total = self._safe_int(worker_totals_dict.get('predict_total', 0), 0)
             predict_drop_pct = (predict_dropped / predict_total * 100) if predict_total > 0 else 0
             
             # Training batch counts - get from current stats object (prediction phase)
             # instead of aggregating from training phases to avoid double counting
-            current_worker_comm = comm_stats.get(worker_name, {})
-            train_dropped_current = current_worker_comm.get('batches_dropped_train', 0)
-            train_received_current = current_worker_comm.get('batches_received_train', 0)
-            train_total_current = train_dropped_current + train_received_current
+            train_dropped_current = self._safe_int(worker_totals_dict.get('train_dropped', 0), 0)
+            train_total_current = self._safe_int(worker_totals_dict.get('train_total', 0), 0)
             train_drop_pct_current = (train_dropped_current / train_total_current * 100) if train_total_current > 0 else 0
             
             row_data[f"{worker_name} % Dropped Training"] = train_drop_pct_current
@@ -355,6 +521,12 @@ class ExperimentSummary:
         
         # Performance stats per worker (from clients)
         perf_stats = stats_obj.get_performance_stats_clients()
+        worker_perf_stats = self._resolve_worker_perf_stats(
+            stats_obj,
+            perf_stats,
+            worker_totals,
+            debug=debug,
+        )
         
         # Debug: print available clients to understand the mapping
         if debug:
@@ -362,29 +534,7 @@ class ExperimentSummary:
             print(f"Workers list: {self.workers}")
         
         for worker_name in self.workers:
-            # Try different possible mappings: worker_name, c+worker_name, client+worker_name
-            client_perf = {}
-            possible_client_names = [
-                worker_name,
-                f"c{worker_name}",
-                f"client{worker_name}",
-                f"c{worker_name.replace('w', '')}",  # if worker is 'w1', try 'c1'
-                f"client{worker_name.replace('w', '')}"  # if worker is 'w1', try 'client1'
-            ]
-            
-            for possible_name in possible_client_names:
-                if possible_name in perf_stats:
-                    client_perf = perf_stats[possible_name]
-                    if debug:
-                        print(f"Found mapping: {worker_name} -> {possible_name}")
-                    break
-            
-            if not client_perf:
-                # If no direct mapping found, use the first available client if there's only one
-                if len(perf_stats) == 1:
-                    client_perf = list(perf_stats.values())[0]
-                    if debug:
-                        print(f"Warning: Using single available client data for worker {worker_name}")
+            client_perf = worker_perf_stats.get(worker_name, {})
             
             # Aggregated training performance stats
             if worker_name in training_aggregates:
@@ -457,12 +607,33 @@ class ExperimentSummary:
                     avg_cpu_train_util = 0
                 
                 row_data[f"{worker_name} CPU Train Util Core {core_num}"] = avg_cpu_train_util
-                row_data[f"{worker_name} CPU Predict Util Core {core_num}"] = cpu_predict_util.get(core_num, 0)
+                row_data[f"{worker_name} CPU Predict Util Core {core_num}"] = cpu_predict_util.get(
+                    core_num, cpu_predict_util.get(str(core_num), 0)
+                )
                 
                 if debug:
                     print(f"  {worker_name} CPU Train Util Core {core_num}: {avg_cpu_train_util}")
-                    print(f"  {worker_name} CPU Predict Util Core {core_num}: {cpu_predict_util.get(core_num, 0)}")
-        
+                    print(
+                        f"  {worker_name} CPU Predict Util Core {core_num}: "
+                        f"{cpu_predict_util.get(core_num, cpu_predict_util.get(str(core_num), 0))}"
+                    )
+        max_predict_batches = 0
+        max_predict_time_us = 0.0
+        for worker_name in self.workers:
+            predict_batches = self._safe_int(
+                worker_totals.get(worker_name, {}).get("predict_total", 0), 0
+            )
+            predict_time = self._safe_float(
+                worker_perf_stats.get(worker_name, {}).get("time_predict_total", 0), 0.0
+            )
+            max_predict_batches = max(max_predict_batches, predict_batches)
+            max_predict_time_us = max(max_predict_time_us, predict_time)
+        if max_predict_batches > 0 and max_predict_time_us > 0:
+            row_data["Effective Samples/Second"] = (
+                float(max_predict_batches * stats_obj.batch_size)
+                / (max_predict_time_us / 1_000_000.0)
+            )
+
         return row_data
 
     def generate_summary_csv(self, output_path=None, debug=False, force_append=False):
