@@ -14,7 +14,34 @@
 
 setup_logger(Module) ->
   logger:set_handler_config(default, formatter, {logger_formatter, #{}}),
-  logger:set_module_level(Module, all).
+  logger:set_module_level(Module, resolve_module_log_level(Module)).
+
+resolve_module_log_level(Module) ->
+  case {is_parallel_log_module(Module), parallel_debug_enabled()} of
+    {true, false} -> warning;
+    _ -> all
+  end.
+
+parallel_debug_enabled() ->
+  case os:getenv("NERLNET_PARALLEL_DEBUG") of
+    false -> false;
+    ValueRaw ->
+      Value = string:lowercase(string:trim(ValueRaw)),
+      lists:member(Value, ["1", "true", "yes", "on", "debug"])
+  end.
+
+is_parallel_log_module(Module) ->
+  lists:member(
+    Module,
+    [
+      superNodeGenserver,
+      superNodeHandler,
+      clientStatem,
+      clientStateHandler,
+      workerGeneric,
+      w2wCom
+    ]
+  ).
 
 
 http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, Body) ->

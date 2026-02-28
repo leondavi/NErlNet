@@ -89,6 +89,7 @@ function stop()
 function run_release_bg()
 {
     init
+    configure_parallel_logging_env
     print "running Nerlnet in background daemon"
     cd src_erl/NerlnetApp
     rebar3 release
@@ -99,6 +100,7 @@ function run_release_bg()
 function run_release()
 {
     init
+    configure_parallel_logging_env
     print "running Nerlnet release"
     cd src_erl/NerlnetApp
     rebar3 release
@@ -110,10 +112,22 @@ function run_release()
 function run_shell()
 {
     init
+    configure_parallel_logging_env
     print "running Nerlnet shell (default)"
     cd src_erl/NerlnetApp
     rebar3 shell 
     cd -
+}
+
+function configure_parallel_logging_env()
+{
+    if [ "$_arg_debug" = "on" ]; then
+        export NERLNET_PARALLEL_DEBUG=1
+        print "$NERLNET_PREFIX Parallel runtime debug logging is enabled (NERLNET_PARALLEL_DEBUG=1)"
+    else
+        export NERLNET_PARALLEL_DEBUG=0
+        print "$NERLNET_PREFIX Parallel runtime debug logging is disabled (pass --debug to enable)"
+    fi
 }
 
 #------------------------- S C R I P T   S T A R T -------------------------#
@@ -139,7 +153,7 @@ die()
 # This is required in order to support getopts-like short options grouping.
 begins_with_short_option()
 {
-	local first_option all_short_options='rkch'
+	local first_option all_short_options='rkcdh'
 	first_option="${1:0:1}"
 	test "$all_short_options" = "${all_short_options/$first_option/}" && return 1 || return 0
 }
@@ -148,6 +162,7 @@ begins_with_short_option()
 _arg_run_mode="shell"
 _arg_clear="off"
 _arg_beam_kill="off"
+_arg_debug="off"
 
 
 # Function that prints general usage of the script.
@@ -157,10 +172,11 @@ print_help()
 {
 	printf '%s\n' "NerlnetRun.sh script runs NerlnetApp on device"
     printf '%s\n' "NerlnetInstall.sh and NerlnetBuild.sh must be performed before this script!"
-	printf 'Usage: %s [-r|--run-mode <arg>] [-c|--(no-)clear] [-k|--(no-)beam-kill] [-h|--help]\n' "$0"
+	printf 'Usage: %s [-r|--run-mode <arg>] [-c|--(no-)clear] [-k|--(no-)beam-kill] [-d|--(no-)debug] [-h|--help]\n' "$0"
 	printf '\t%s\n' "-r, --run-mode: NerlnetApp running modes: shell, release, release-bg, stop, status (default: 'shell')"
 	printf '\t%s\n' "-c, --clear, --no-clear: clear rebar3 directories (off by default)"
 	printf '\t%s\n' "-k, --beam-kill, --no-beam-kill: kill running beam.smp instances before start (off by default)"
+	printf '\t%s\n' "-d, --debug, --no-debug: enable verbose parallelism debug logs from Super Node/Client/Worker modules (off by default)"
 	printf '\t%s\n' "-h, --help: Prints help"
 }
 
@@ -223,6 +239,18 @@ parse_commandline()
 				if test -n "$_next" -a "$_next" != "$_key"
 				then
 					{ begins_with_short_option "$_next" && shift && set -- "-k" "-$_next" "$@"; } || die "The short option '$_key' can't be decomposed to ${_key:0:2} and -${_key:2}, because ${_key:0:2} doesn't accept value and '-${_key:2:1}' doesn't correspond to a short option."
+				fi
+				;;
+			-d|--no-debug|--debug)
+				_arg_debug="on"
+				test "${1:0:5}" = "--no-" && _arg_debug="off"
+				;;
+			-d*)
+				_arg_debug="on"
+				_next="${_key##-d}"
+				if test -n "$_next" -a "$_next" != "$_key"
+				then
+					{ begins_with_short_option "$_next" && shift && set -- "-d" "-$_next" "$@"; } || die "The short option '$_key' can't be decomposed to ${_key:0:2} and -${_key:2}, because ${_key:0:2} doesn't accept value and '-${_key:2:1}' doesn't correspond to a short option."
 				fi
 				;;
 			# See the comment of option '--clear' to see what's going on here - principle is the same.

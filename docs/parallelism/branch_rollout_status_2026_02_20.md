@@ -626,6 +626,7 @@ Executed and passed (schema/runtime contract hardening):
 - Required: scheduler type, per-microbatch latency, stage utilization, collective latency, abort codes.
 - Integrate into phase stats output and planner/export visibility.
 - Status update (2026-02-28): TP collective observability is now wired end-to-end for backend stats and summary CSV export (`tp_collective_count`, `tp_collective_latency_us`, derived avg latency).
+- Status update (2026-02-28): Runtime parallel debug logging is now optional and defaults to quiet mode; use `NerlnetRun.sh --debug` (sets `NERLNET_PARALLEL_DEBUG=1`) to enable verbose Super Node/Client/Worker info logs for deep orchestration tracing.
 
 9. Soak and leak testing.
 - Long-duration tests with high microbatch counts.

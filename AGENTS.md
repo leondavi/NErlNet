@@ -87,6 +87,7 @@
 - If a deferred sample is replayed while the worker is still in `wait`, workers now fast-transition `wait -> train|predict` (when no active parallel batch context/buffers remain) and immediately re-cast that sample, preventing deferred requeue loops and batch-0-only turnover stalls.
 - Worker/Client/Super Node now log a shared deterministic parallel event id tuple: `{parallel_event, Worker, Direction, Batch, Microbatch, Stage}`.
 - Client logs for `parallelEvent` include router latency (`latency_us`) and router reply payload, allowing transport-level confirmation for each forwarded event.
+- Runtime parallel debug logging is opt-in: `NerlnetRun.sh --debug` sets `NERLNET_PARALLEL_DEBUG=1` and enables verbose info logs from parallel control-path modules (Super Node/Client/Worker); default runs keep warnings/errors while suppressing parallel info-level log spam.
 - Super Node keeps pending-grant issue timestamps and runs a watchdog that emits deterministic `scheduler_grant_timeout` aborts with expected grant summary + last seen parallel event metadata.
 - Super Node parallel worker payload transport is now delivery-tracked: each `/parallelDeliver` message carries a delivery id, clients ACK with `/parallelDeliverAck`, and Super Node retries unacked deliveries (`parallel_delivery_retry_ms`) before deterministic `parallel_delivery_timeout` abort.
 - Clients deduplicate retried delivery ids (`parallel_delivery_seen_ids`) so at-least-once transport retries do not duplicate worker payload execution.
