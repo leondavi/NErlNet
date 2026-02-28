@@ -93,6 +93,7 @@
 - Clients deduplicate retried delivery ids (`parallel_delivery_seen_ids`) so at-least-once transport retries do not duplicate worker payload execution.
 - Python worker communication stats now expose TP counters from runtime payloads: `tp_collective_count`, `tp_collective_latency_us`, and derived `tp_collective_avg_latency_us` (zero-safe for mixed-version payloads).
 - Python worker communication stats now also expose phase-local model-db completion counters (`batches_completed_train`, `batches_completed_predict`) to avoid stage-0-only ingress counter bias in pipeline summaries.
+- Python worker communication stats now backfill per-worker `acc_time_*`, `average_time_*`, and `batches_sent_*` from phase result durations in model DB when runtime counters are zero (common in pipeline paths), improving report relevance without requiring immediate runtime stats schema changes.
 - `ExperimentSummary` worker batch totals prefer the max of ingress/sent/completed counters and use pipeline-mode fallback propagation so non-stage0 workers are not misreported as zero-total in PP runs.
 - `Stats.get_tensor_parallel_stats()` returns per-worker TP observability tables and optional normalization (`tp_collective_per_predict_batch`) when predict batch counters are available.
 - `ExperimentSummary` CSV rows now include per-worker TP columns: `TP Collective Count`, `TP Collective Latency (us)`, `TP Avg Collective Latency (us)`.

@@ -628,6 +628,7 @@ Executed and passed (schema/runtime contract hardening):
 - Status update (2026-02-28): TP collective observability is now wired end-to-end for backend stats and summary CSV export (`tp_collective_count`, `tp_collective_latency_us`, derived avg latency).
 - Status update (2026-02-28): Runtime parallel debug logging is now optional and defaults to quiet mode; use `NerlnetRun.sh --debug` (sets `NERLNET_PARALLEL_DEBUG=1`) to enable verbose Super Node/Client/Worker info logs for deep orchestration tracing.
 - Status update (2026-02-28): Prediction/training summary batch totals are now pipeline-aware by including model-db completion counters (`batches_completed_*`) in Python stats; this prevents non-stage0 workers from being falsely reported as zero-batch workers in PP runs.
+- Status update (2026-02-28): Worker communication timing counters in Python stats now backfill from decoded phase-result batch durations (`duration` field) whenever runtime worker timing counters are zero, so PP benchmark notebooks can report meaningful per-worker timing aggregates even when runtime worker comm timing instrumentation is sparse.
 
 9. Soak and leak testing.
 - Long-duration tests with high microbatch counts.

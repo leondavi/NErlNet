@@ -101,8 +101,11 @@ class ApiServer(metaclass=Singleton):
         
         LOG_INFO("Initializing ApiServer receiver thread")
 
+        receiver_ip = str(globe.components.receiverIp)
+        receiver_port = int(globe.components.receiverPort)
+
         # Initializing the receiver (a Flask HTTP server that receives results from the Main Server):
-        if is_port_free(int(globe.components.receiverPort)):
+        if is_port_free(receiver_port, receiver_ip):
             self.receiverProblem = threading.Event()
             self.receiverThread = threading.Thread(target = receiver.initReceiver, args = (globe.components, self.transmitter, self.receiverProblem, self.apiserver_event_sync), daemon = True)
             self.receiverThread.start()   
@@ -114,6 +117,21 @@ class ApiServer(metaclass=Singleton):
                 (http://{globe.components.receiverIp}:{globe.components.receiverPort})\n\
                 Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
                 sys.exit()
+        else:
+            if hasattr(self, 'receiverThread') and self.receiverThread is not None and self.receiverThread.is_alive():
+                LOG_INFO(
+                    f"ApiServer receiver is already running on "
+                    f"http://{receiver_ip}:{receiver_port}; reusing existing thread"
+                )
+            else:
+                LOG_ERROR(
+                    f"ApiServer receiver port is already in use: "
+                    f"http://{receiver_ip}:{receiver_port}. "
+                    f"Stop the process using this port and retry."
+                )
+                raise RuntimeError(
+                    f"ApiServer receiver port is busy at http://{receiver_ip}:{receiver_port}"
+                )
 
 
         LOG_INFO("*** Remember to execute NerlnetRun.sh on each device before running the experiment! ***")

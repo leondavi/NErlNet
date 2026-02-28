@@ -84,10 +84,14 @@ def read_nerlconfig(nerlconfig_file_path : str):
             return configured_path
     return None
 
-def is_port_free(port: int) -> bool:
+def is_port_free(port: int, host: str = "localhost") -> bool:
     import socket
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        return s.connect_ex(('localhost', port)) != 0
+        try:
+            s.bind((host, port))
+            return True
+        except OSError:
+            return False
     
 
 def search_file(filename : str , rootdir : str) -> str:

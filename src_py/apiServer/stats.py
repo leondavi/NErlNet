@@ -533,15 +533,35 @@ class Stats():
         communication_stats_workers_dict = OrderedDict()
         workers_dict = self.nerl_comm_db.get_workers()
         completed_batches_by_worker = self._get_completed_batches_by_worker()
+        duration_stats_by_worker = self._get_duration_stats_by_worker()
         for worker_name in workers_dict:
             worker_stats = workers_dict[worker_name].get_as_dict()
             completed_batches = int(completed_batches_by_worker.get(worker_name, 0))
+            duration_stats = duration_stats_by_worker.get(worker_name, {})
+
+            # Backfill worker timing/send counters from model-db durations when
+            # runtime worker communication counters are not populated in this mode.
+            phase_duration_acc = int(duration_stats.get("acc_duration_us", 0))
+            phase_duration_avg = int(duration_stats.get("avg_duration_us", 0))
+            phase_batch_count = int(duration_stats.get("count", 0))
             if self.phase == PHASE_TRAINING_STR:
                 worker_stats["batches_completed_train"] = completed_batches
                 worker_stats["batches_completed_predict"] = 0
+                if int(worker_stats.get("acc_time_training", 0) or 0) <= 0 and phase_duration_acc > 0:
+                    worker_stats["acc_time_training"] = phase_duration_acc
+                if int(worker_stats.get("average_time_training", 0) or 0) <= 0 and phase_duration_avg > 0:
+                    worker_stats["average_time_training"] = phase_duration_avg
+                if int(worker_stats.get("batches_sent_train", 0) or 0) <= 0 and phase_batch_count > 0:
+                    worker_stats["batches_sent_train"] = phase_batch_count
             elif self.phase == PHASE_PREDICTION_STR:
                 worker_stats["batches_completed_train"] = 0
                 worker_stats["batches_completed_predict"] = completed_batches
+                if int(worker_stats.get("acc_time_prediction", 0) or 0) <= 0 and phase_duration_acc > 0:
+                    worker_stats["acc_time_prediction"] = phase_duration_acc
+                if int(worker_stats.get("average_time_prediction", 0) or 0) <= 0 and phase_duration_avg > 0:
+                    worker_stats["average_time_prediction"] = phase_duration_avg
+                if int(worker_stats.get("batches_sent_predict", 0) or 0) <= 0 and phase_batch_count > 0:
+                    worker_stats["batches_sent_predict"] = phase_batch_count
             else:
                 worker_stats["batches_completed_train"] = 0
                 worker_stats["batches_completed_predict"] = 0
@@ -576,6 +596,42 @@ class Stats():
                 unique_batches.add((source_name, batch_id_int))
             completed[worker_name] = len(unique_batches)
         return completed
+
+    def _get_duration_stats_by_worker(self):
+        """
+        Returns per-worker phase-local duration summaries from model DB batches.
+        Duration values are in microseconds and come from decoded phase result payloads.
+        """
+        duration_stats = OrderedDict()
+        source_names = {
+            source_piece.get_source_name()
+            for source_piece in self.experiment_phase.get_sources_pieces()
+        }
+        if not source_names:
+            return duration_stats
+
+        workers_model_db_list = self.nerl_model_db.get_workers_model_db_list()
+        for worker_db in workers_model_db_list:
+            worker_name = worker_db.get_worker_name()
+            durations_us = []
+            for (source_name, _batch_id), batch_db in worker_db.get_batches_dict().items():
+                if source_name not in source_names:
+                    continue
+                try:
+                    duration_value = int(getattr(batch_db, "duration", 0))
+                except Exception:
+                    duration_value = 0
+                if duration_value > 0:
+                    durations_us.append(duration_value)
+            count = len(durations_us)
+            acc_duration_us = int(sum(durations_us)) if count > 0 else 0
+            avg_duration_us = int(round(acc_duration_us / float(count))) if count > 0 else 0
+            duration_stats[worker_name] = {
+                "count": count,
+                "acc_duration_us": acc_duration_us,
+                "avg_duration_us": avg_duration_us,
+            }
+        return duration_stats
 
     def get_tensor_parallel_stats(self):
         """Return per-worker TP collective stats as a DataFrame."""

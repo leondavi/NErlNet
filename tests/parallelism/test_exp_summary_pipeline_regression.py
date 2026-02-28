@@ -303,6 +303,42 @@ class ExperimentSummaryPipelineRegressionTests(unittest.TestCase):
             self.assertEqual(row["w1 Total Batches Prediction"], 2)
             self.assertEqual(row["w2 Total Batches Prediction"], 2)
 
+    def test_prediction_comm_stats_duration_backfill_from_modeldb(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            labels = pd.DataFrame(
+                [
+                    [1, 0, 0],
+                    [0, 1, 0],
+                    [0, 0, 1],
+                    [1, 0, 0],
+                ]
+            )
+            labels_path = Path(tmp_dir) / "labels.csv"
+            labels.to_csv(labels_path, index=False)
+
+            csv_parent = _FakeCsvDatasetParent(str(labels_path), ["c0", "c1", "c2"])
+            source_piece = _FakeSourcePiece("s1", batch_size=2, num_batches=2, csv_parent=csv_parent)
+
+            model_db = NerlModelDB(PHASE_PREDICTION_STR)
+            client_db = model_db.get_client("client_1")
+            w1 = client_db.get_worker("w1")
+            w2 = client_db.get_worker("w2")
+            w1.create_batch("0", "s1", np.zeros((2, 4), dtype=np.float32), 111, "none", 0)
+            w1.create_batch("1", "s1", np.zeros((2, 4), dtype=np.float32), 333, "none", 1)
+            w2.create_batch("0", "s1", labels.iloc[0:2].to_numpy(dtype=np.float32), 200, "none", 2)
+            w2.create_batch("1", "s1", labels.iloc[2:4].to_numpy(dtype=np.float32), 400, "none", 3)
+
+            phase = _FakeExperimentPhase(model_db, source_piece)
+            stats_obj = Stats(phase)
+            worker_comm = stats_obj.get_communication_stats_workers()
+
+            self.assertEqual(worker_comm["w1"]["acc_time_prediction"], 444)
+            self.assertEqual(worker_comm["w1"]["average_time_prediction"], 222)
+            self.assertEqual(worker_comm["w1"]["batches_sent_predict"], 2)
+            self.assertEqual(worker_comm["w2"]["acc_time_prediction"], 600)
+            self.assertEqual(worker_comm["w2"]["average_time_prediction"], 300)
+            self.assertEqual(worker_comm["w2"]["batches_sent_predict"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()
