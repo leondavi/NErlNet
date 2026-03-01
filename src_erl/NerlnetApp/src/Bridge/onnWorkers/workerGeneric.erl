@@ -3147,7 +3147,12 @@ append_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, MicrobatchID, 
     MicrobatchID,
     StageID
   },
-  ets:update_element(GenWorkerEts, parallel_scheduler_grants, {?ETS_KEYVAL_VAL_IDX, Grants ++ [NormalizedGrant]}).
+  case lists:member(NormalizedGrant, Grants) of
+    true ->
+      ok;
+    false ->
+      ets:update_element(GenWorkerEts, parallel_scheduler_grants, {?ETS_KEYVAL_VAL_IDX, Grants ++ [NormalizedGrant]})
+  end.
 
 maybe_consume_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, MicrobatchID, StageID) ->
   Mode = normalize_parallel_mode_atom(
@@ -3169,25 +3174,12 @@ maybe_consume_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, Microba
             StageID
           },
           Grants = ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX),
-          case Grants of
-            [] ->
-              {error, no_scheduler_grant};
-            [HeadGrant | RestGrants] ->
-              case normalize_parallel_scheduler_grant(HeadGrant) of
-                {ok, NormalizedHead = {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID}} ->
-                  case scheduler_grant_matches(
-                         ExpectedGrant,
-                         {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID}
-                       ) of
-                    true ->
-                      ets:update_element(GenWorkerEts, parallel_scheduler_grants, {?ETS_KEYVAL_VAL_IDX, RestGrants}),
-                      ok;
-                    false ->
-                      {error, {scheduler_grant_mismatch, NormalizedHead, ExpectedGrant}}
-                  end;
-                {error, _} ->
-                  {error, {invalid_scheduler_grant, HeadGrant, ExpectedGrant}}
-              end
+          case pop_matching_scheduler_grant(ExpectedGrant, Grants, []) of
+            {ok, _MatchedGrant, RemainingGrants, _MatchedAtHead} ->
+              ets:update_element(GenWorkerEts, parallel_scheduler_grants, {?ETS_KEYVAL_VAL_IDX, RemainingGrants}),
+              ok;
+            not_found ->
+              {error, no_scheduler_grant}
           end
       end
   end.
@@ -3211,27 +3203,11 @@ can_emit_parallel_event_now(GenWorkerEts, Direction, BatchID, MicrobatchID, Stag
             MicrobatchID,
             StageID
           },
-          case ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX) of
-            [HeadGrant | _RestGrants] ->
-              case normalize_parallel_scheduler_grant(HeadGrant) of
-                {ok, NormalizedHead = {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID}} ->
-                  case scheduler_grant_matches(
-                         ExpectedGrant,
-                         {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID}
-                       ) of
-                    true ->
-                      ready;
-                    false ->
-                      ?LOG_INFO(
-                        "Worker ~p waiting for matching scheduler grant expected=~p head=~p",
-                        [ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX), ExpectedGrant, NormalizedHead]
-                      ),
-                      wait_for_grant
-                  end;
-                _ ->
-                  wait_for_grant
-              end;
-            _ ->
+          Grants = ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX),
+          case has_matching_scheduler_grant(ExpectedGrant, Grants) of
+            true ->
+              ready;
+            false ->
               wait_for_grant
           end
       end
@@ -3269,26 +3245,10 @@ maybe_dispatch_pending_parallel_backward_events_loop(_GenWorkerEts, _Grants, [])
   ok;
 maybe_dispatch_pending_parallel_backward_events_loop(
   GenWorkerEts,
-  [{Direction, MicrobatchID, StageID} | RestGrants],
+  Grants,
   PendingEvents
 ) ->
-  maybe_dispatch_pending_parallel_backward_events_loop(
-    GenWorkerEts,
-    [{Direction, any, MicrobatchID, StageID} | RestGrants],
-    PendingEvents
-  );
-maybe_dispatch_pending_parallel_backward_events_loop(
-  _GenWorkerEts,
-  [{Direction, _BatchID, _MicrobatchID, _StageID} | _RestGrants],
-  _PendingEvents
-) when Direction =/= backward ->
-  ok;
-maybe_dispatch_pending_parallel_backward_events_loop(
-  GenWorkerEts,
-  [{backward, GrantBatchID, MicrobatchID, StageID} | _RestGrants],
-  PendingEvents
-) ->
-  case pop_pending_parallel_backward_event(PendingEvents, GrantBatchID, MicrobatchID, StageID, []) of
+  case find_dispatchable_pending_backward_event(Grants, PendingEvents) of
     not_found ->
       ok;
     {ok, {WorkerName, EventBatchID, MicrobatchID, StageID, TrainTime}, RemainingPendingEvents} ->
@@ -3305,9 +3265,52 @@ maybe_dispatch_pending_parallel_backward_events_loop(
             UpdatedGrants,
             RemainingPendingEvents
           );
+        {error, no_scheduler_grant} ->
+          ok;
         {error, EmitReason} ->
           {abort, {pending_backward_event_emit_rejected, WorkerName, EventBatchID, MicrobatchID, StageID, EmitReason}}
       end
+  end.
+
+find_dispatchable_pending_backward_event([], _PendingEvents) ->
+  not_found;
+find_dispatchable_pending_backward_event([Grant | Rest], PendingEvents) ->
+  case normalize_parallel_scheduler_grant(Grant) of
+    {ok, {backward, GrantBatchID, MicrobatchID, StageID}} ->
+      case pop_pending_parallel_backward_event(PendingEvents, GrantBatchID, MicrobatchID, StageID, []) of
+        not_found ->
+          find_dispatchable_pending_backward_event(Rest, PendingEvents);
+        {ok, Event, RemainingPendingEvents} ->
+          {ok, Event, RemainingPendingEvents}
+      end;
+    _ ->
+      find_dispatchable_pending_backward_event(Rest, PendingEvents)
+  end.
+
+pop_matching_scheduler_grant(_ExpectedGrant, [], _Acc) ->
+  not_found;
+pop_matching_scheduler_grant(ExpectedGrant, [Grant | Rest], Acc) ->
+  case normalize_parallel_scheduler_grant(Grant) of
+    {ok, NormalizedGrant} ->
+      case scheduler_grant_matches(ExpectedGrant, NormalizedGrant) of
+        true ->
+          {ok, NormalizedGrant, lists:reverse(Acc) ++ Rest, Acc =:= []};
+        false ->
+          pop_matching_scheduler_grant(ExpectedGrant, Rest, [Grant | Acc])
+      end;
+    {error, _Reason} ->
+      pop_matching_scheduler_grant(ExpectedGrant, Rest, Acc)
+  end.
+
+has_matching_scheduler_grant(_ExpectedGrant, []) ->
+  false;
+has_matching_scheduler_grant(ExpectedGrant, [Grant | Rest]) ->
+  case normalize_parallel_scheduler_grant(Grant) of
+    {ok, NormalizedGrant} ->
+      scheduler_grant_matches(ExpectedGrant, NormalizedGrant) orelse
+        has_matching_scheduler_grant(ExpectedGrant, Rest);
+    {error, _Reason} ->
+      has_matching_scheduler_grant(ExpectedGrant, Rest)
   end.
 
 pop_pending_parallel_backward_event([], _BatchID, _MicrobatchID, _StageID, _Acc) ->

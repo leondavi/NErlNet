@@ -130,6 +130,8 @@
 - `pipeline_tensor` uses forward-only scheduler grants, while TP collectives execute per `tpPlan` entry with deterministic `{batch,microbatch,layer,mode}` collective tokens.
 - Super Node scheduler trace is forward-only for prediction phase (`phaseType=prediction`) even in `mode=pipeline`, preventing backward-grant deadlocks during prediction.
 - Super Node scheduler gate logs now explicitly report non-issuing states (`parallel_active=false`, empty trace, pending grant still open) with cursor/trace context for deadlock triage.
+- Worker scheduler grant handling is match-based (not strict head-of-queue): forward/backward emits can consume any matching `{direction,batch,microbatch,stage}` grant in queue, preventing head-of-line deadlocks from stale or out-of-order grants.
+- Worker scheduler grant enqueue is deduplicated by normalized grant tuple, reducing duplicate-grant buildup under retries and improving interleaved schedule stability.
 - Torch pipeline stage0 prediction now accepts both feature-only microbatches and feature+label-span microbatches, normalizing input shape before local stage execution.
 - Torch stage-training APIs now carry both `batch_id` and `microbatch_id`; delayed backward stage context is keyed by `{batch_id, microbatch_id}` to prevent cross-batch microbatch-id collisions.
 

@@ -44,6 +44,9 @@ This document captures the runtime contract for non-legacy parallel modes (`pipe
 
 - Worker pipeline inbox processing is batch-aware:
   - payloads for non-active batches return `wait_for_batch` and stay buffered.
+- Worker scheduler grants are consumed by tuple match (direction/batch/microbatch/stage), not strict queue head only:
+  - stale/out-of-order grants no longer head-of-line block valid events in interleaved/overlap windows.
+- Worker scheduler grant enqueue is deduplicated by normalized tuple to avoid retry-induced duplicate buildup.
 - Backward dispatch is grant-aware:
   - worker selects backward payload by `{BatchID, MicrobatchID}` from queued grants, not strict FIFO alone.
 - This prevents cross-batch state corruption and head-of-line deadlocks when message arrival order differs from grant order.
