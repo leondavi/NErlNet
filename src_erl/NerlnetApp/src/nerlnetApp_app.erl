@@ -301,12 +301,32 @@ port_validator(Port, EntityName) ->
     PortAvailable = nerl_tools:port_available(Port),
     if PortAvailable ->
         ok;
-        true -> ?LOG_ERROR("Nerlnet entity: ~p uses port ~p and it must be free", [EntityName, Port]),
+        true ->
+                ?LOG_ERROR("Nerlnet entity: ~p pre-check sees port ~p as busy", [EntityName, Port]),
                 ?LOG_ERROR("You can take the following steps:",[]),
                 ?LOG_ERROR("1. Change port in DC file to free port",[]),
                 ?LOG_ERROR("2. Find the process that uses port ~p using the command: sudo fuser -k ~p/tcp and terminate it (Risky approach)",[Port, Port]),
                 ?LOG_ERROR("3. Kill Erlang beam instances on this machine: sudo pkill beam"),
-                erlang:error("Port ~p is being used - cannot start")
+                case strict_port_precheck_enabled() of
+                    true ->
+                        erlang:error("Port ~p is being used - cannot start");
+                    false ->
+                        ?LOG_WARNING(
+                            "Continuing despite failed pre-check for ~p:~p; "
+                            "listener bind will provide final authority "
+                            "(set NERLNET_STRICT_PORT_PRECHECK=1 to fail fast here)",
+                            [EntityName, Port]
+                        ),
+                        ok
+                end
+    end.
+
+strict_port_precheck_enabled() ->
+    case os:getenv("NERLNET_STRICT_PORT_PRECHECK") of
+        false -> false;
+        Raw ->
+            Value = string:lowercase(string:trim(Raw)),
+            lists:member(Value, ["1", "true", "yes", "on"])
     end.
 
 createClientsAndWorkers() ->
@@ -476,7 +496,8 @@ createMainServer(true,BatchSize,HostName,DeviceName) ->
 %% An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
 init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
     %% Wrap cowboy:start_clear/3 so we can capture and persist any failure reasons.
-    try cowboy:start_clear(ListenerName, [{port,Port}], #{env => #{dispatch => Dispatcher}}) of
+    TransOpts = [{port,Port}, {reuseaddr,true}],
+    try cowboy:start_clear(ListenerName, TransOpts, #{env => #{dispatch => Dispatcher}}) of
         {ok, ListenerPid} ->
             start_log({listener_ready, ListenerName}, Port),
             {ok, ListenerPid}
