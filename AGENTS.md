@@ -106,6 +106,7 @@
 - In `pipeline` training, last-stage workers emit/queue backward scheduler events after last-stage forward/backward compute so Super Node backward grants can be acknowledged deterministically.
 - In `pipeline` training, backward payload dispatch is grant-aware by microbatch id (`dispatch_pipeline_backward_buffer_by_grant`) to avoid head-of-line deadlocks when payload arrival order differs from backward grant order.
 - In `pipeline` training, backward payload selection is grant-aware by both batch id and microbatch id (`pop_pipeline_backward_payload_for_grant`) to avoid cross-batch collisions.
+- Torch pipeline stage context cache is no longer globally cleared at optimizer barriers or deferred-gradient cycle boundaries; contexts are consumed per `{batch,microbatch}` on backward so overlapped next-batch forwards cannot be erased before their backward arrives.
 - In `pipeline` prediction, non-last stages (including stage0) finalize local batch context after all local microbatches are dispatched and then dequeue deferred source samples, preventing batch-0-only stall.
 - In `pipeline` prediction, stage0 progress mirrors `forward_dispatched` into `forward_completed` so local batch turnover can complete deterministically.
 - In `pipeline` prediction, worker forward `parallel_event` metadata is `predict` (not `training`), which should be reflected in Super Node event logs.

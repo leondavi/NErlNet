@@ -683,7 +683,6 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage0_forward(co
 		_optimizer->zero_grad();
 		_has_deferred_gradients = true;
 		_deferred_microbatch_count = 0;
-		clear_pipeline_stage_contexts();
 	}
 
 	TorchTensor stage_input = slices.inputs.detach().set_requires_grad(true);
@@ -715,7 +714,6 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_forward(
 		_optimizer->zero_grad();
 		_has_deferred_gradients = true;
 		_deferred_microbatch_count = 0;
-		clear_pipeline_stage_contexts();
 	}
 
 	TorchTensor stage_input = ensure_training_dtype(activation).detach().set_requires_grad(true);
@@ -747,7 +745,6 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_last_forwar
 		_optimizer->zero_grad();
 		_has_deferred_gradients = true;
 		_deferred_microbatch_count = 0;
-		clear_pipeline_stage_contexts();
 	}
 
 	TorchTensor stage_input = ensure_training_dtype(activation).detach().set_requires_grad(true);
@@ -956,7 +953,6 @@ void NerlWorkerTorch::optimizer_barrier()
 	{
 		_has_deferred_gradients = false;
 		_deferred_microbatch_count = 0;
-		clear_pipeline_stage_contexts();
 		return;
 	}
 
@@ -975,7 +971,6 @@ void NerlWorkerTorch::optimizer_barrier()
 
 	_has_deferred_gradients = false;
 	_deferred_microbatch_count = 0;
-	clear_pipeline_stage_contexts();
 }
 
 TorchTensor NerlWorkerTorch::predict_batch(const TorchTensor &batch)

@@ -112,6 +112,12 @@ class TorchParallelNifContractTests(unittest.TestCase):
         self.assertIn("run_pipeline_stage_layers", cpp_content)
         self.assertIn("pipeline_stage_contexts", cpp_content)
 
+    def test_pipeline_contexts_are_not_globally_cleared_on_barrier(self) -> None:
+        cpp_content = TORCH_WORKER_CPP.read_text(encoding="utf-8")
+        self.assertIn("PipelineStageContext context = pop_pipeline_stage_context(batch_id, microbatch_id);", cpp_content)
+        self.assertIn("void NerlWorkerTorch::optimizer_barrier()", cpp_content)
+        self.assertNotIn("_deferred_microbatch_count = 0;\n\tclear_pipeline_stage_contexts();", cpp_content)
+
     def test_json_parser_stores_model_tp_plan_map_for_runtime(self) -> None:
         content = JSON_PARSER.read_text(encoding="utf-8")
         self.assertIn("extract_tp_plan(ModelParams)", content)
