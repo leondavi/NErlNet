@@ -74,7 +74,6 @@
 - Super Node scheduler grants are batch-aware and epoch-scoped:
   - client receives `{grant_scheduler_event, Direction, BatchID, MicrobatchID, StageID, Worker, PhaseEpoch}`
   - worker stores grants as `{Direction, BatchID, MicrobatchID, StageID}` (legacy batch-less grants are normalized to `BatchID=any`).
-- Worker grant matching/consumption is resilient to out-of-order grant delivery: workers search queued grants for the expected `{direction,batch,microbatch,stage}` identity instead of requiring strict head-of-queue order.
 - Non-legacy phases now carry a Super Node epoch (`phase_epoch`): Super Node grants include epoch, clients tag forwarded `parallel_event` meta with epoch, and Super Node ignores stale-epoch events instead of aborting current phase state.
 - Client scheduler-grant rejection payloads now include batch + epoch (`schedulerGrantRejected`) so Super Node can deterministically resolve pending grants.
 - Client idle transition in non-legacy modes is phase-close-gated: clients request `parallelPhaseClose` from Super Node before idling workers, then wait for `phase_close_granted`.
@@ -107,6 +106,7 @@
 - In `pipeline` training, backward payload dispatch is grant-aware by microbatch id (`dispatch_pipeline_backward_buffer_by_grant`) to avoid head-of-line deadlocks when payload arrival order differs from backward grant order.
 - In `pipeline` training, backward payload selection is grant-aware by both batch id and microbatch id (`pop_pipeline_backward_payload_for_grant`) to avoid cross-batch collisions.
 - Torch pipeline stage context cache is no longer globally cleared at optimizer barriers or deferred-gradient cycle boundaries; contexts are consumed per `{batch,microbatch}` on backward so overlapped next-batch forwards cannot be erased before their backward arrives.
+- Torch optimizer barrier is stage-context aware in pipeline mode: if unconsumed pipeline stage contexts remain, the barrier defers optimizer step to avoid in-place parameter version invalidation during pending backward passes.
 - In `pipeline` prediction, non-last stages (including stage0) finalize local batch context after all local microbatches are dispatched and then dequeue deferred source samples, preventing batch-0-only stall.
 - In `pipeline` prediction, stage0 progress mirrors `forward_dispatched` into `forward_completed` so local batch turnover can complete deterministically.
 - In `pipeline` prediction, worker forward `parallel_event` metadata is `predict` (not `training`), which should be reflected in Super Node event logs.

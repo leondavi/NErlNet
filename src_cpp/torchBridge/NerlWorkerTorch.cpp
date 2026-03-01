@@ -956,6 +956,14 @@ void NerlWorkerTorch::optimizer_barrier()
 		return;
 	}
 
+	if (_pipeline_enabled && !_pipeline_stage_contexts.empty())
+	{
+		LogInfo << "Torch optimizer barrier deferred for stage=" << _pipeline_stage
+				<< " because " << _pipeline_stage_contexts.size()
+				<< " pipeline stage context(s) are still waiting for backward" << std::endl;
+		return;
+	}
+
 	if (_has_deferred_gradients && _deferred_microbatch_count > 0)
 	{
 		try

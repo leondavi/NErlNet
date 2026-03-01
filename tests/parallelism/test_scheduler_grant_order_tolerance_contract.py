@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Contract checks for out-of-order scheduler grant handling in worker runtime."""
+"""Contract checks for scheduler-grant head-order gating in worker runtime."""
 
 from __future__ import annotations
 
@@ -12,21 +12,21 @@ WORKER_GENERIC = REPO_ROOT / "src_erl" / "NerlnetApp" / "src" / "Bridge" / "onnW
 
 
 class SchedulerGrantOrderToleranceContractTests(unittest.TestCase):
-    def test_worker_runtime_has_matching_grant_search_helpers(self) -> None:
+    def test_worker_runtime_uses_head_grant_matching(self) -> None:
         content = WORKER_GENERIC.read_text(encoding="utf-8")
-        self.assertIn("has_matching_scheduler_grant(Grants, ExpectedGrant)", content)
-        self.assertIn("pop_matching_scheduler_grant(Grants, ExpectedGrant)", content)
-        self.assertIn("pop_matching_scheduler_grant([Grant | Rest], ExpectedGrant, Acc)", content)
+        self.assertIn("scheduler_grant_mismatch", content)
+        self.assertIn("waiting for matching scheduler grant expected=~p head=~p", content)
+        self.assertIn("[HeadGrant | RestGrants]", content)
+        self.assertNotIn("pop_matching_scheduler_grant", content)
+        self.assertNotIn("has_matching_scheduler_grant", content)
 
-    def test_worker_consumes_matching_grant_not_only_head(self) -> None:
+    def test_worker_consumes_only_head_matching_grant(self) -> None:
         content = WORKER_GENERIC.read_text(encoding="utf-8")
-        self.assertIn("case pop_matching_scheduler_grant(Grants, ExpectedGrant) of", content)
-        self.assertIn("{ok, _MatchedGrant, RemainingGrants} ->", content)
-        self.assertIn("has_matching_scheduler_grant(", content)
-        self.assertIn("not_found ->", content)
-        self.assertNotIn("scheduler_grant_mismatch", content)
+        self.assertIn("case Grants of", content)
+        self.assertIn("[] ->", content)
+        self.assertIn("{error, no_scheduler_grant}", content)
+        self.assertIn("{ok, NormalizedHead", content)
 
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -3104,12 +3104,25 @@ maybe_consume_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, Microba
             StageID
           },
           Grants = ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX),
-          case pop_matching_scheduler_grant(Grants, ExpectedGrant) of
-            {ok, _MatchedGrant, RemainingGrants} ->
-              ets:update_element(GenWorkerEts, parallel_scheduler_grants, {?ETS_KEYVAL_VAL_IDX, RemainingGrants}),
-              ok;
-            not_found ->
-              {error, no_scheduler_grant}
+          case Grants of
+            [] ->
+              {error, no_scheduler_grant};
+            [HeadGrant | RestGrants] ->
+              case normalize_parallel_scheduler_grant(HeadGrant) of
+                {ok, NormalizedHead = {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID}} ->
+                  case scheduler_grant_matches(
+                         ExpectedGrant,
+                         {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID}
+                       ) of
+                    true ->
+                      ets:update_element(GenWorkerEts, parallel_scheduler_grants, {?ETS_KEYVAL_VAL_IDX, RestGrants}),
+                      ok;
+                    false ->
+                      {error, {scheduler_grant_mismatch, NormalizedHead, ExpectedGrant}}
+                  end;
+                {error, _} ->
+                  {error, {invalid_scheduler_grant, HeadGrant, ExpectedGrant}}
+              end
           end
       end
   end.
@@ -3133,40 +3146,30 @@ can_emit_parallel_event_now(GenWorkerEts, Direction, BatchID, MicrobatchID, Stag
             MicrobatchID,
             StageID
           },
-          case has_matching_scheduler_grant(
-                 ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX),
-                 ExpectedGrant
-               ) of
-            true ->
-              ready;
-            false ->
+          case ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX) of
+            [HeadGrant | _RestGrants] ->
+              case normalize_parallel_scheduler_grant(HeadGrant) of
+                {ok, NormalizedHead = {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID}} ->
+                  case scheduler_grant_matches(
+                         ExpectedGrant,
+                         {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID}
+                       ) of
+                    true ->
+                      ready;
+                    false ->
+                      ?LOG_INFO(
+                        "Worker ~p waiting for matching scheduler grant expected=~p head=~p",
+                        [ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX), ExpectedGrant, NormalizedHead]
+                      ),
+                      wait_for_grant
+                  end;
+                _ ->
+                  wait_for_grant
+              end;
+            _ ->
               wait_for_grant
           end
       end
-  end.
-
-has_matching_scheduler_grant(Grants, ExpectedGrant) ->
-  case pop_matching_scheduler_grant(Grants, ExpectedGrant) of
-    {ok, _MatchedGrant, _RemainingGrants} -> true;
-    not_found -> false
-  end.
-
-pop_matching_scheduler_grant(Grants, ExpectedGrant) ->
-  pop_matching_scheduler_grant(Grants, ExpectedGrant, []).
-
-pop_matching_scheduler_grant([], _ExpectedGrant, _Acc) ->
-  not_found;
-pop_matching_scheduler_grant([Grant | Rest], ExpectedGrant, Acc) ->
-  case normalize_parallel_scheduler_grant(Grant) of
-    {ok, NormalizedGrant} ->
-      case scheduler_grant_matches(ExpectedGrant, NormalizedGrant) of
-        true ->
-          {ok, NormalizedGrant, lists:reverse(Acc) ++ Rest};
-        false ->
-          pop_matching_scheduler_grant(Rest, ExpectedGrant, [Grant | Acc])
-      end;
-    {error, _} ->
-      pop_matching_scheduler_grant(Rest, ExpectedGrant, [Grant | Acc])
   end.
 
 queue_parallel_backward_event(GenWorkerEts, WorkerName, BatchID, MicrobatchID, StageID, TrainTime) ->
