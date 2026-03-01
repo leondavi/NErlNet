@@ -2563,7 +2563,8 @@ ensure_active_pipeline_training_ctx(GenWorkerEts, ModelId, SourceName, BatchID, 
       ets:update_element(GenWorkerEts, parallel_active_batch_ctx, {?ETS_KEYVAL_VAL_IDX, NewCtx}),
       ets:update_element(GenWorkerEts, parallel_total_microbatches, {?ETS_KEYVAL_VAL_IDX, TotalMicrobatches}),
       ets:update_element(GenWorkerEts, parallel_loss_acc, {?ETS_KEYVAL_VAL_IDX, undefined}),
-      ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX, 0.0});
+      ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX, 0.0}),
+      ok;
     Ctx when is_map(Ctx) ->
       case maps:get(batch_id, Ctx, BatchID) of
         BatchID ->
@@ -2880,7 +2881,8 @@ ensure_active_pipeline_predict_ctx(GenWorkerEts, ModelId, SourceName, BatchID, T
       },
       ets:update_element(GenWorkerEts, parallel_active_batch_ctx, {?ETS_KEYVAL_VAL_IDX, NewCtx}),
       ets:update_element(GenWorkerEts, parallel_total_microbatches, {?ETS_KEYVAL_VAL_IDX, TotalMicrobatches}),
-      ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX, 0.0});
+      ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX, 0.0}),
+      ok;
     _ ->
       ok
   end.
