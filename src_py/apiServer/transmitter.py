@@ -161,7 +161,16 @@ class Transmitter:
                     retry_sleep_sec=0.5
                 )
                 if not response.ok: # If Code =/= 200
-                    LOG_ERROR(f"Failed to update {csv_file} to Main Server")
+                    response_preview = ""
+                    try:
+                        response_preview = response.text[:300]
+                    except Exception:
+                        response_preview = "<unavailable>"
+                    raise RuntimeError(
+                        f"Failed to update csv to Main Server. "
+                        f"source={source_name} file={csv_file} status={response.status_code} "
+                        f"response={response_preview}"
+                    )
             except (ConnectionRefusedError, RequestsConnectionError):
                 LOG_ERROR(f"Connection Refused Error: failed to connect to {self.updateCSVAddress}")
                 raise ConnectionRefusedError
@@ -212,7 +221,12 @@ class Transmitter:
         except (ConnectionError, RequestsTimeout):
             LOG_ERROR(f"Connection Error: failed to connect to {self.statisticsAddress}")
             raise ConnectionError
-        event_sync_inst.sync_on_event(event_sync_inst.COMMUNICATION_STATS)
+        comm_stats_timeout_sec = float(os.getenv("NERLNET_COMM_STATS_TIMEOUT_SEC", "120"))
+        event_sync_inst.sync_on_event(
+            event_sync_inst.COMMUNICATION_STATS,
+            timeout_sec=comm_stats_timeout_sec,
+            wait_label="Main Server communication statistics ack"
+        )
         LOG_INFO("Statistics received from Main Server")
 
     def terminate_receiver(self, reciver_address : str, api_server_event_sync_inst : EventSync):

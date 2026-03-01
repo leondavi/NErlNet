@@ -94,6 +94,10 @@ namespace
 		_configured_epochs = get_int_param({"epochs"}, 1);
 		_optimizer_name = to_lower_copy(get_param_or_default({"optimizer", "optim"}, "sgd"));
 		_randomize_weights_on_load = get_bool_param({"w_init_rand"}, false);
+		_optimizer_barrier_max_defers = std::max<int64_t>(
+			1,
+			static_cast<int64_t>(get_int_param({"pipeline_optimizer_barrier_max_defers"}, 20))
+		);
 		if (_configured_epochs < 1)
 		{
 			_configured_epochs = 1;
@@ -104,14 +108,14 @@ namespace
 			maybe_randomize_module_weights();
 		}
 
-			initialize_batch_layout();
-			initialize_pipeline_partition();
-			initialize_optimizer();
+		initialize_batch_layout();
+		initialize_pipeline_partition();
+		initialize_optimizer();
 
 		LogInfo << "Torch worker configured with lr=" << _configured_learning_rate
 				<< ", epochs=" << _configured_epochs
 				<< ", optimizer=" << _optimizer_name
-			<< ", randomize_on_load=" << _randomize_weights_on_load
+				<< ", randomize_on_load=" << _randomize_weights_on_load
 				<< ", has_layout=" << _has_batch_layout
 				<< ", has_optimizer=" << _has_optimizer
 				<< ", pipeline_enabled=" << _pipeline_enabled
@@ -951,6 +955,12 @@ TorchTensor NerlWorkerTorch::train_batch_impl(const TorchTensor &batch, bool def
 		}
 
 		TorchTensor loss = torch::mse_loss(prediction, slices.labels);
+		if (!torch::isfinite(loss).all().item<bool>())
+		{
+			std::ostringstream oss;
+			oss << "Torch worker produced non-finite loss (nan/inf), microbatch=" << microbatch_id;
+			throw std::runtime_error(oss.str());
+		}
 		loss.backward();
 		if (defer_optimizer_step)
 		{
@@ -962,6 +972,7 @@ TorchTensor NerlWorkerTorch::train_batch_impl(const TorchTensor &batch, bool def
 			_optimizer->zero_grad();
 			_has_deferred_gradients = false;
 			_deferred_microbatch_count = 0;
+			_optimizer_barrier_defer_count = 0;
 		}
 
 		_last_loss = loss.detach();
@@ -974,18 +985,29 @@ TorchTensor NerlWorkerTorch::train_batch_impl(const TorchTensor &batch, bool def
 		TorchTensor fallback = slices.inputs.mean().unsqueeze(0);
 		_last_loss = fallback.clone();
 		_last_prediction = slices.inputs.clone();
-		if (!defer_optimizer_step)
+		if (_has_optimizer && _optimizer)
 		{
-			_has_deferred_gradients = false;
-			_deferred_microbatch_count = 0;
+			try
+			{
+				_optimizer->zero_grad();
+			}
+			catch (const std::exception &zero_grad_ex)
+			{
+				LogWarning << "Torch worker failed to clear gradients after train failure: "
+						   << zero_grad_ex.what() << std::endl;
+			}
 		}
-		else
+		_has_deferred_gradients = false;
+		_deferred_microbatch_count = 0;
+		_optimizer_barrier_defer_count = 0;
+		if (defer_optimizer_step)
 		{
-			LogWarning << "Torch deferred microbatch " << microbatch_id << " failed; barrier may flush partial gradients" << std::endl;
+			LogWarning << "Torch deferred microbatch " << microbatch_id
+					   << " failed; cleared deferred gradient state to avoid partial optimizer step"
+					   << std::endl;
 		}
 		return fallback;
 	}
-}
 
 TorchTensor NerlWorkerTorch::train_batch(const TorchTensor &batch)
 {
@@ -1003,26 +1025,50 @@ void NerlWorkerTorch::optimizer_barrier()
 	{
 		_has_deferred_gradients = false;
 		_deferred_microbatch_count = 0;
+		_optimizer_barrier_defer_count = 0;
 		return;
 	}
 
 	if (_pipeline_enabled && !_pipeline_stage_contexts.empty())
 	{
-		LogInfo << "Torch optimizer barrier deferred for stage=" << _pipeline_stage
-				<< " because " << _pipeline_stage_contexts.size()
-				<< " pipeline stage context(s) are still waiting for backward" << std::endl;
+		++_optimizer_barrier_defer_count;
+		if (_optimizer_barrier_defer_count < _optimizer_barrier_max_defers)
+		{
+			LogInfo << "Torch optimizer barrier deferred for stage=" << _pipeline_stage
+					<< " because " << _pipeline_stage_contexts.size()
+					<< " pipeline stage context(s) are still waiting for backward"
+					<< " (defer " << _optimizer_barrier_defer_count
+					<< "/" << _optimizer_barrier_max_defers << ")" << std::endl;
+			return;
+		}
+		LogWarning << "Torch optimizer barrier exceeded defer threshold for stage=" << _pipeline_stage
+				   << "; clearing " << _pipeline_stage_contexts.size()
+				   << " stale stage context(s) and resetting deferred gradients" << std::endl;
+		clear_pipeline_stage_contexts();
+		try
+		{
+			_optimizer->zero_grad();
+		}
+		catch (const std::exception &ex)
+		{
+			LogWarning << "Torch optimizer barrier failed to clear gradients after stale-context reset: "
+					   << ex.what() << std::endl;
+		}
+		_has_deferred_gradients = false;
+		_deferred_microbatch_count = 0;
+		_optimizer_barrier_defer_count = 0;
 		return;
 	}
 
-		if (_has_deferred_gradients && _deferred_microbatch_count > 0)
+	if (_has_deferred_gradients && _deferred_microbatch_count > 0)
+	{
+		try
 		{
-			try
-			{
-				LogInfo << "Torch optimizer barrier applies deferred step stage=" << _pipeline_stage
-						<< " deferred_microbatches=" << _deferred_microbatch_count << std::endl;
-				_optimizer->step();
-				_optimizer->zero_grad();
-			}
+			LogInfo << "Torch optimizer barrier applies deferred step stage=" << _pipeline_stage
+					<< " deferred_microbatches=" << _deferred_microbatch_count << std::endl;
+			_optimizer->step();
+			_optimizer->zero_grad();
+		}
 		catch (const std::exception &ex)
 		{
 			LogWarning << "Torch optimizer_barrier failed: " << ex.what() << std::endl;
@@ -1031,6 +1077,7 @@ void NerlWorkerTorch::optimizer_barrier()
 
 	_has_deferred_gradients = false;
 	_deferred_microbatch_count = 0;
+	_optimizer_barrier_defer_count = 0;
 }
 
 TorchTensor NerlWorkerTorch::predict_batch(const TorchTensor &batch)

@@ -1966,14 +1966,18 @@ handle_parallel_pipeline_inbox(GenWorkerEts, ModelId, WorkerName, _FromWorker, P
         parallel_pipeline_forward_buffer,
         {?ETS_KEYVAL_VAL_IDX, ForwardBuffer ++ [Payload]}
       ),
-      ensure_active_pipeline_training_ctx(
-        GenWorkerEts,
-        ModelId,
-        SourceName,
-        BatchID,
-        TotalMicrobatches
-      ),
-      dispatch_pipeline_buffers(GenWorkerEts, ModelId, WorkerName);
+      case ensure_active_pipeline_training_ctx(
+             GenWorkerEts,
+             ModelId,
+             SourceName,
+             BatchID,
+             TotalMicrobatches
+           ) of
+        ok ->
+          dispatch_pipeline_buffers(GenWorkerEts, ModelId, WorkerName);
+        {error, Reason} ->
+          {abort, Reason}
+      end;
     {pipeline_backward_payload, BatchID, SourceName, TotalMicrobatches, _MicrobatchID, _Grad} ->
       BackwardBuffer = ets:lookup_element(GenWorkerEts, parallel_pipeline_backward_buffer, ?ETS_KEYVAL_VAL_IDX),
       ets:update_element(
@@ -1981,14 +1985,18 @@ handle_parallel_pipeline_inbox(GenWorkerEts, ModelId, WorkerName, _FromWorker, P
         parallel_pipeline_backward_buffer,
         {?ETS_KEYVAL_VAL_IDX, BackwardBuffer ++ [Payload]}
       ),
-      ensure_active_pipeline_training_ctx(
-        GenWorkerEts,
-        ModelId,
-        SourceName,
-        BatchID,
-        TotalMicrobatches
-      ),
-      dispatch_pipeline_buffers(GenWorkerEts, ModelId, WorkerName);
+      case ensure_active_pipeline_training_ctx(
+             GenWorkerEts,
+             ModelId,
+             SourceName,
+             BatchID,
+             TotalMicrobatches
+           ) of
+        ok ->
+          dispatch_pipeline_buffers(GenWorkerEts, ModelId, WorkerName);
+        {error, Reason} ->
+          {abort, Reason}
+      end;
     _ ->
       {abort, {unsupported_pipeline_train_payload, Payload}}
   end.
@@ -2560,8 +2568,33 @@ ensure_active_pipeline_training_ctx(GenWorkerEts, ModelId, SourceName, BatchID, 
       case maps:get(batch_id, Ctx, BatchID) of
         BatchID ->
           ok;
-        _OtherBatch ->
-          ok
+        ActiveBatchID ->
+          case has_pending_runtime_excluding_scheduler_grants(GenWorkerEts) of
+            false ->
+              StageID = get_worker_pipeline_stage(GenWorkerEts),
+              WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+              ?LOG_WARNING(
+                "Worker ~p replacing stale active pipeline context batch=~p with new batch=~p",
+                [WorkerName, ActiveBatchID, BatchID]
+              ),
+              NewCtx = #{
+                model_id => ModelId,
+                source_name => SourceName,
+                batch_id => BatchID,
+                mode => pipeline,
+                stage => StageID,
+                total_microbatches => TotalMicrobatches,
+                forward_completed => 0,
+                backward_completed => 0
+              },
+              ets:update_element(GenWorkerEts, parallel_active_batch_ctx, {?ETS_KEYVAL_VAL_IDX, NewCtx}),
+              ets:update_element(GenWorkerEts, parallel_total_microbatches, {?ETS_KEYVAL_VAL_IDX, TotalMicrobatches}),
+              ets:update_element(GenWorkerEts, parallel_loss_acc, {?ETS_KEYVAL_VAL_IDX, undefined}),
+              ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX, 0.0}),
+              ok;
+            true ->
+              {error, {pipeline_batch_context_mismatch, ActiveBatchID, BatchID}}
+          end
       end;
     _ ->
       ok

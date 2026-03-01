@@ -795,17 +795,17 @@ class Stats():
         comm_stats_router = self.get_communication_stats_routers()
         comm_stats_clients = self.get_communication_stats_clients()
         comm_stats_sources = self.get_communication_stats_sources()
-        bytes = 0
+        total_bytes = 0
         for client in comm_stats_clients:
-            bytes += comm_stats_clients[client]['bytes_sent']
-            bytes += comm_stats_clients[client]['bytes_received']
+            total_bytes += comm_stats_clients[client].get('bytes_sent', 0)
+            total_bytes += comm_stats_clients[client].get('bytes_received', 0)
         for source in comm_stats_sources:
-            bytes += comm_stats_sources[source]['bytes_sent']
-            bytes += comm_stats_sources[source]['bytes_received']
+            total_bytes += comm_stats_sources[source].get('bytes_sent', 0)
+            total_bytes += comm_stats_sources[source].get('bytes_received', 0)
         for router in comm_stats_router:
-            bytes += comm_stats_router[router]['bytes_sent']
-            bytes += comm_stats_router[router]['bytes_received']
-        bytes += comm_stats_main_server['bytes_sent']
-        bytes += comm_stats_main_server['bytes_received']
-        return bytes
+            total_bytes += comm_stats_router[router].get('bytes_sent', 0)
+            total_bytes += comm_stats_router[router].get('bytes_received', 0)
+        total_bytes += comm_stats_main_server.get('bytes_sent', 0)
+        total_bytes += comm_stats_main_server.get('bytes_received', 0)
+        return total_bytes
         

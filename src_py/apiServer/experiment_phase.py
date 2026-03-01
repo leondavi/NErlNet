@@ -37,13 +37,32 @@ class ExperimentPhase():
         self.raw_data_buffer = []
 
     def process_experiment_phase_data(self):
-        assert len(self.raw_data_buffer) == 1, "Expecting only one raw_data in buffer of a single phase"
-        list_of_decoded_data = decode_phase_result_data_json_from_main_server(self.raw_data_buffer[0])
-        for decoded_data in list_of_decoded_data:
-            worker_name, source_name, duration, batch_id, batch_ts, distributed_token, np_tensor = decoded_data
-            client_name = self.network_components.get_client_name_by_worker_name(worker_name)
-            self.nerl_model_db.get_client(client_name).get_worker(worker_name).create_batch(batch_id, source_name, np_tensor, duration, distributed_token, batch_ts)
-        
+        if not self.raw_data_buffer:
+            LOG_WARNING(
+                f"Phase '{self.name}' has empty raw_data_buffer while processing phase data"
+            )
+            return
+
+        if len(self.raw_data_buffer) > 1:
+            LOG_WARNING(
+                f"Phase '{self.name}' received {len(self.raw_data_buffer)} raw result payloads; "
+                "processing all payloads (latest data wins on duplicate batches)"
+            )
+
+        for raw_payload in self.raw_data_buffer:
+            list_of_decoded_data = decode_phase_result_data_json_from_main_server(raw_payload)
+            for decoded_data in list_of_decoded_data:
+                worker_name, source_name, duration, batch_id, batch_ts, distributed_token, np_tensor = decoded_data
+                client_name = self.network_components.get_client_name_by_worker_name(worker_name)
+                self.nerl_model_db.get_client(client_name).get_worker(worker_name).create_batch(
+                    batch_id,
+                    source_name,
+                    np_tensor,
+                    duration,
+                    distributed_token,
+                    batch_ts
+                )
+
         self.clean_raw_data_buffer()
 
     def get_phase_type(self):

@@ -124,6 +124,8 @@ private:
 	bool _has_optimizer{false};
 	bool _has_deferred_gradients{false};
 	int64_t _deferred_microbatch_count{0};
+	int64_t _optimizer_barrier_defer_count{0};
+	int64_t _optimizer_barrier_max_defers{20};
 	bool _pipeline_enabled{false};
 	int64_t _pipeline_stage{0};
 	int64_t _pipeline_world_size{1};
