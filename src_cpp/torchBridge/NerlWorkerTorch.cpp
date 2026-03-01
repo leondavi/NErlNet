@@ -6,6 +6,7 @@
 #include <cctype>
 #include <utility>
 #include <sstream>
+#include <unordered_set>
 
 #include <torch/optim.h>
 
@@ -103,9 +104,9 @@ namespace
 			maybe_randomize_module_weights();
 		}
 
-		initialize_batch_layout();
-		initialize_optimizer();
-		initialize_pipeline_partition();
+			initialize_batch_layout();
+			initialize_pipeline_partition();
+			initialize_optimizer();
 
 		LogInfo << "Torch worker configured with lr=" << _configured_learning_rate
 				<< ", epochs=" << _configured_epochs
@@ -190,7 +191,54 @@ namespace
 		}
 	}
 
-	void NerlWorkerTorch::initialize_optimizer()
+		std::pair<std::vector<torch::Tensor>, bool> NerlWorkerTorch::collect_trainable_parameters_for_optimizer() const
+		{
+			std::vector<torch::Tensor> parameters;
+			std::unordered_set<const c10::TensorImpl *> seen_tensors;
+			const auto append_unique = [&](const torch::Tensor &tensor) mutable
+			{
+				if (!tensor.defined() || !tensor.requires_grad())
+				{
+					return;
+				}
+				const c10::TensorImpl *impl = tensor.unsafeGetTensorImpl();
+				if (impl == nullptr || !seen_tensors.insert(impl).second)
+				{
+					return;
+				}
+				parameters.push_back(tensor);
+			};
+
+			const bool pipeline_stage_scope_requested = _pipeline_enabled && !_pipeline_layers.empty();
+			if (pipeline_stage_scope_requested)
+			{
+				for (size_t idx = _pipeline_stage_start_idx; idx < _pipeline_stage_end_idx; ++idx)
+				{
+					if (idx >= _pipeline_layers.size())
+					{
+						break;
+					}
+					for (const auto &named_param : _pipeline_layers[idx].named_parameters(/*recurse=*/true))
+					{
+						append_unique(named_param.value);
+					}
+				}
+				if (!parameters.empty())
+				{
+					return {std::move(parameters), true};
+				}
+				LogWarning << "Torch worker pipeline stage parameter discovery returned no trainable tensors; "
+						   << "falling back to full model optimizer scope" << std::endl;
+			}
+
+			for (const auto &named_param : _script_module.named_parameters(/*recurse=*/true))
+			{
+				append_unique(named_param.value);
+			}
+			return {std::move(parameters), false};
+		}
+
+		void NerlWorkerTorch::initialize_optimizer()
 	{
 		if (!_has_script_module)
 		{
@@ -204,19 +252,21 @@ namespace
 			_configured_learning_rate = 1.0e-3F;
 		}
 
-		try
-		{
-			_trainable_parameters.clear();
-			for (const auto &named_param : _script_module.named_parameters(/*recurse=*/true))
+			try
 			{
-				_trainable_parameters.push_back(named_param.value);
-			}
-			if (_trainable_parameters.empty())
-			{
-				LogWarning << "Torch worker found no trainable parameters in script module" << std::endl;
-				_has_optimizer = false;
-				return;
-			}
+				const auto [collected_parameters, stage_scoped] = collect_trainable_parameters_for_optimizer();
+				_trainable_parameters = collected_parameters;
+				if (_trainable_parameters.empty())
+				{
+					LogWarning << "Torch worker found no trainable parameters in script module" << std::endl;
+					_has_optimizer = false;
+					return;
+				}
+				LogInfo << "Torch optimizer parameter scope="
+						<< (stage_scoped ? "pipeline_stage" : "full_model")
+						<< " stage=" << _pipeline_stage
+						<< "/" << _pipeline_world_size
+						<< " count=" << _trainable_parameters.size() << std::endl;
 
 			if (_optimizer_name == "adam")
 			{
@@ -964,13 +1014,15 @@ void NerlWorkerTorch::optimizer_barrier()
 		return;
 	}
 
-	if (_has_deferred_gradients && _deferred_microbatch_count > 0)
-	{
-		try
+		if (_has_deferred_gradients && _deferred_microbatch_count > 0)
 		{
-			_optimizer->step();
-			_optimizer->zero_grad();
-		}
+			try
+			{
+				LogInfo << "Torch optimizer barrier applies deferred step stage=" << _pipeline_stage
+						<< " deferred_microbatches=" << _deferred_microbatch_count << std::endl;
+				_optimizer->step();
+				_optimizer->zero_grad();
+			}
 		catch (const std::exception &ex)
 		{
 			LogWarning << "Torch optimizer_barrier failed: " << ex.what() << std::endl;

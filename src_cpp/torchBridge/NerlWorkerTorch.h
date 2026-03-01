@@ -11,6 +11,7 @@
 #include <vector>
 #include <tuple>
 #include <unordered_map>
+#include <utility>
 
 #include "../common/nerlWorker.h"
 #include "worker_definitions_ag.h"
@@ -102,6 +103,7 @@ private:
 	void cache_pipeline_stage_context(long batch_id, long microbatch_id, const TorchTensor &stage_input, const TorchTensor &stage_output);
 	PipelineStageContext pop_pipeline_stage_context(long batch_id, long microbatch_id);
 	void clear_pipeline_stage_contexts();
+	std::pair<std::vector<torch::Tensor>, bool> collect_trainable_parameters_for_optimizer() const;
 	TorchTensor train_batch_impl(const TorchTensor &batch, bool defer_optimizer_step, long microbatch_id);
 
 	TorchTensor _last_prediction;
