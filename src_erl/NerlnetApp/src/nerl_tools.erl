@@ -231,7 +231,10 @@ port_available(Port) ->
   port_available_retry(Port, Retries, SleepMs, Retries).
 
 port_available_retry(Port, Remaining, SleepMs, Initial) ->
-  case gen_tcp:listen(Port, []) of
+  % Use reuseaddr in probe to avoid false negatives during restart windows
+  % where lingering TCP state exists but no active listener owns the port.
+  ListenOpts = [binary, {active, false}, {reuseaddr, true}],
+  case gen_tcp:listen(Port, ListenOpts) of
     {ok, Sock} ->
       ok = gen_tcp:close(Sock),
       true;
