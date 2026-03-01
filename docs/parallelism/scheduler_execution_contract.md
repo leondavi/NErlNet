@@ -29,6 +29,7 @@ This document captures the runtime contract for non-legacy parallel modes (`pipe
 - Grant identity is batch-aware and epoch-scoped:
   - `{Direction, BatchID, MicrobatchID, StageID, PhaseEpoch}`
 - Clients and workers still accept legacy batch-less grant tuples and normalize them to `BatchID=any`.
+- Workers match grants by identity across the queued grant set (not strict head order) so transport-level grant reordering does not stall forward progress or trigger false grant mismatches.
 - Scheduler grant rejections are reported to Super Node as:
   - `{scheduler_grant_rejected, Client, Worker, Direction, BatchID, MicrobatchID, StageID, Reason, PhaseEpoch}`
 
@@ -44,7 +45,7 @@ This document captures the runtime contract for non-legacy parallel modes (`pipe
 - Worker pipeline inbox processing is batch-aware:
   - payloads for non-active batches return `wait_for_batch` and stay buffered.
 - Backward dispatch is grant-aware:
-  - worker selects backward payload by `{BatchID, MicrobatchID}` from the head grant, not strict FIFO alone.
+  - worker selects backward payload by `{BatchID, MicrobatchID}` from queued grants, not strict FIFO alone.
 - This prevents cross-batch state corruption and head-of-line deadlocks when message arrival order differs from grant order.
 - Stream-end drain is stale-grant safe:
   - if `end_stream` is queued and no non-grant runtime work remains, workers drop leftover scheduler grants so `stream_ended` can flush and client phase-close can complete.

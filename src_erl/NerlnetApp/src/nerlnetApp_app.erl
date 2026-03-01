@@ -496,7 +496,7 @@ createMainServer(true,BatchSize,HostName,DeviceName) ->
 %% An ok tuple is returned on success. It contains the pid of the top-level supervisor for the listener.
 init_cowboy_start_clear(ListenerName,{_Host,Port},Dispatcher)->
     %% Wrap cowboy:start_clear/3 so we can capture and persist any failure reasons.
-    TransOpts = [{port,Port}, {reuseaddr,true}],
+    TransOpts = [{port,Port}, {socket_opts, [{reuseaddr, true}]}],
     try cowboy:start_clear(ListenerName, TransOpts, #{env => #{dispatch => Dispatcher}}) of
         {ok, ListenerPid} ->
             start_log({listener_ready, ListenerName}, Port),

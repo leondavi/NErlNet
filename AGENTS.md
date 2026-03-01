@@ -74,6 +74,7 @@
 - Super Node scheduler grants are batch-aware and epoch-scoped:
   - client receives `{grant_scheduler_event, Direction, BatchID, MicrobatchID, StageID, Worker, PhaseEpoch}`
   - worker stores grants as `{Direction, BatchID, MicrobatchID, StageID}` (legacy batch-less grants are normalized to `BatchID=any`).
+- Worker grant matching/consumption is resilient to out-of-order grant delivery: workers search queued grants for the expected `{direction,batch,microbatch,stage}` identity instead of requiring strict head-of-queue order.
 - Non-legacy phases now carry a Super Node epoch (`phase_epoch`): Super Node grants include epoch, clients tag forwarded `parallel_event` meta with epoch, and Super Node ignores stale-epoch events instead of aborting current phase state.
 - Client scheduler-grant rejection payloads now include batch + epoch (`schedulerGrantRejected`) so Super Node can deterministically resolve pending grants.
 - Client idle transition in non-legacy modes is phase-close-gated: clients request `parallelPhaseClose` from Super Node before idling workers, then wait for `phase_close_granted`.
