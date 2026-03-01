@@ -107,6 +107,7 @@
 - In `pipeline` training, backward payload selection is grant-aware by both batch id and microbatch id (`pop_pipeline_backward_payload_for_grant`) to avoid cross-batch collisions.
 - Torch pipeline stage context cache is no longer globally cleared at optimizer barriers or deferred-gradient cycle boundaries; contexts are consumed per `{batch,microbatch}` on backward so overlapped next-batch forwards cannot be erased before their backward arrives.
 - Torch optimizer barrier is stage-context aware in pipeline mode: if unconsumed pipeline stage contexts remain, the barrier defers optimizer step to avoid in-place parameter version invalidation during pending backward passes.
+- Torch optimizer barrier invocation is now synchronous in the worker call path (not train-negotiator fire-and-forget), so optimizer-step ordering is serialized with pipeline stage forward/backward NIF calls.
 - In `pipeline` prediction, non-last stages (including stage0) finalize local batch context after all local microbatches are dispatched and then dequeue deferred source samples, preventing batch-0-only stall.
 - In `pipeline` prediction, stage0 progress mirrors `forward_dispatched` into `forward_completed` so local batch turnover can complete deterministically.
 - In `pipeline` prediction, worker forward `parallel_event` metadata is `predict` (not `training`), which should be reflected in Super Node event logs.

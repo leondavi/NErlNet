@@ -366,18 +366,27 @@ wait(cast, {loss_microbatch, {LossTensor, LossTensorType}, TrainTime, BatchID, S
           ets:update_element(GenWorkerEts, parallel_pending_losses, {?ETS_KEYVAL_VAL_IDX, Remaining}),
           case Remaining of
             0 ->
-              maybe_call_optimizer_barrier(State#workerGeneric_state.modelID),
-              TotalMicrobatches = erlang:max(1, ets:lookup_element(GenWorkerEts, parallel_total_microbatches, ?ETS_KEYVAL_VAL_IDX)),
-              FinalLossTensor = finalize_parallel_loss(UpdatedLossAcc, TotalMicrobatches),
-              FinalTrainTime = UpdatedTimeAcc / TotalMicrobatches,
-              BatchTimeStamp = erlang:system_time(nanosecond),
-              WorkerToken = ets:lookup_element(GenWorkerEts, distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
-              gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,FinalLossTensor , FinalTrainTime , WorkerToken, BatchID , BatchTimeStamp}),
-              NextStateBehavior = DistributedBehaviorFunc(post_train, {GenWorkerEts,[]}),
-              reset_parallel_batch_context(GenWorkerEts),
-              maybe_dispatch_deferred_parallel_sample(GenWorkerEts, NextStateBehavior),
-              maybe_finalize_pending_end_streams(DistributedBehaviorFunc, train),
-              {next_state, NextStateBehavior, State};
+              case maybe_call_optimizer_barrier(State#workerGeneric_state.modelID) of
+                ok ->
+                  TotalMicrobatches = erlang:max(1, ets:lookup_element(GenWorkerEts, parallel_total_microbatches, ?ETS_KEYVAL_VAL_IDX)),
+                  FinalLossTensor = finalize_parallel_loss(UpdatedLossAcc, TotalMicrobatches),
+                  FinalTrainTime = UpdatedTimeAcc / TotalMicrobatches,
+                  BatchTimeStamp = erlang:system_time(nanosecond),
+                  WorkerToken = ets:lookup_element(GenWorkerEts, distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
+                  gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,FinalLossTensor , FinalTrainTime , WorkerToken, BatchID , BatchTimeStamp}),
+                  NextStateBehavior = DistributedBehaviorFunc(post_train, {GenWorkerEts,[]}),
+                  reset_parallel_batch_context(GenWorkerEts),
+                  maybe_dispatch_deferred_parallel_sample(GenWorkerEts, NextStateBehavior),
+                  maybe_finalize_pending_end_streams(DistributedBehaviorFunc, train),
+                  {next_state, NextStateBehavior, State};
+                {error, BarrierReason} ->
+                  notify_worker_parallel_abort(
+                    GenWorkerEts,
+                    {optimizer_barrier_failed, BarrierReason}
+                  ),
+                  reset_parallel_loss_context(GenWorkerEts),
+                  {next_state, wait, State}
+              end;
             _ ->
               case dispatch_queued_parallel_microbatches(GenWorkerEts) of
                 ok ->
@@ -2511,16 +2520,20 @@ maybe_finalize_pipeline_training_batch(GenWorkerEts, WorkerName) ->
               ModelId = maps:get(model_id, Ctx, ets:lookup_element(GenWorkerEts, model_id, ?ETS_KEYVAL_VAL_IDX)),
               SourceName = maps:get(source_name, Ctx, undefined),
               BatchID = maps:get(batch_id, Ctx, undefined),
-              maybe_call_optimizer_barrier(ModelId),
-              case IsLastStage of
-                true ->
-                  maybe_send_pipeline_last_stage_loss(GenWorkerEts, WorkerName, SourceName, BatchID, TotalMicrobatches);
-                false ->
-                  ok
-              end,
-              reset_parallel_batch_context(GenWorkerEts),
-              maybe_dispatch_deferred_parallel_sample(GenWorkerEts, train),
-              ok
+              case maybe_call_optimizer_barrier(ModelId) of
+                ok ->
+                  case IsLastStage of
+                    true ->
+                      maybe_send_pipeline_last_stage_loss(GenWorkerEts, WorkerName, SourceName, BatchID, TotalMicrobatches);
+                    false ->
+                      ok
+                  end,
+                  reset_parallel_batch_context(GenWorkerEts),
+                  maybe_dispatch_deferred_parallel_sample(GenWorkerEts, train),
+                  ok;
+                {error, BarrierReason} ->
+                  {abort, {optimizer_barrier_failed, BarrierReason}}
+              end
           end;
         _ ->
           ok
@@ -3056,7 +3069,24 @@ maybe_call_optimizer_barrier(ModelID) ->
   NifModule = get_backend_module(),
   case erlang:function_exported(NifModule, call_to_optimizer_barrier, 1) of
     true ->
-      catch nif_call(call_to_optimizer_barrier, [ModelID]);
+      try nif_call(call_to_optimizer_barrier, [ModelID]) of
+        ok ->
+          ok;
+        {error, Reason} ->
+          {error, {nif_error, Reason}};
+        {nerlnif, error, Reason} ->
+          {error, {nerlnif_error, Reason}};
+        Unexpected ->
+          ?LOG_WARNING("Unexpected optimizer barrier response from ~p: ~p", [NifModule, Unexpected]),
+          ok
+      catch
+        Class:Reason:Stacktrace ->
+          ?LOG_ERROR(
+            "Optimizer barrier call failed in ~p with class=~p reason=~p stack=~p",
+            [NifModule, Class, Reason, Stacktrace]
+          ),
+          {error, {Class, Reason}}
+      end;
     false ->
       ok
   end.

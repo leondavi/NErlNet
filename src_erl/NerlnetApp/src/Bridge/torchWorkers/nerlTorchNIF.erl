@@ -153,9 +153,7 @@ call_to_train_microbatch(ModelID, {DataTensor, Type}, BatchID, SourceName, Micro
       ok.
 
 call_to_optimizer_barrier(ModelID) ->
-      TrainNegotiatorPID = get(nerlnif_train_negotiator_pid),
-      TrainNegotiatorPID ! {optimizer_barrier, ModelID},
-      ok.
+      optimizer_barrier_nif(ModelID).
 
 call_to_pipeline_stage0_forward(ModelID, {DataTensor, Type}, BatchID, MicrobatchID) ->
       pipeline_stage0_forward_nif(ModelID, DataTensor, Type, BatchID, MicrobatchID).

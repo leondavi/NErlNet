@@ -51,6 +51,8 @@ This document captures the runtime contract for non-legacy parallel modes (`pipe
   - stage contexts are consumed by backward key (`{batch,microbatch}`) and are not globally flushed on optimizer barriers, so next-batch forward contexts remain valid until their backward arrives.
 - Torch optimizer barriers are context-aware:
   - when pipeline stage contexts are still pending backward, optimizer step is deferred to avoid autograd in-place version conflicts.
+- Torch optimizer barriers are worker-synchronous:
+  - barrier NIF execution is invoked directly from the worker control path (not asynchronous train-negotiator fire-and-forget), preventing cross-process ordering races with stage forward/backward calls.
 - Stream-end drain is stale-grant safe:
   - if `end_stream` is queued and no non-grant runtime work remains, workers drop leftover scheduler grants so `stream_ended` can flush and client phase-close can complete.
 
