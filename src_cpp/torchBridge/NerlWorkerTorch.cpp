@@ -1008,6 +1008,7 @@ TorchTensor NerlWorkerTorch::train_batch_impl(const TorchTensor &batch, bool def
 		}
 		return fallback;
 	}
+}
 
 TorchTensor NerlWorkerTorch::train_batch(const TorchTensor &batch)
 {
