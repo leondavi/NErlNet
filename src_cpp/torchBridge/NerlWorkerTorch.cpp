@@ -195,7 +195,7 @@ namespace
 		{
 			std::vector<torch::Tensor> parameters;
 			std::unordered_set<const c10::TensorImpl *> seen_tensors;
-			const auto append_unique = [&](const torch::Tensor &tensor) mutable
+			const auto append_unique = [&](const torch::Tensor &tensor)
 			{
 				if (!tensor.defined() || !tensor.requires_grad())
 				{
