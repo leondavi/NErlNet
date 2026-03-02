@@ -368,6 +368,7 @@ wait(cast, {loss_microbatch, {LossTensor, LossTensorType}, TrainTime, BatchID, S
           Remaining = PendingLosses - 1,
           ets:update_element(GenWorkerEts, parallel_loss_acc, {?ETS_KEYVAL_VAL_IDX, UpdatedLossAcc}),
           ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX, UpdatedTimeAcc}),
+          stats:increment_by_value(get(worker_stats_ets), acc_time_training, trunc(TrainTime)),
           ets:update_element(GenWorkerEts, parallel_pending_losses, {?ETS_KEYVAL_VAL_IDX, Remaining}),
           case Remaining of
             0 ->
@@ -430,6 +431,7 @@ wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceNam
   BatchTimeStamp = erlang:system_time(nanosecond),
   WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
   gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,{LossTensor, LossTensorType} , TrainTime , WorkerToken, BatchID , BatchTimeStamp}),
+  stats:increment_by_value(get(worker_stats_ets), acc_time_training, trunc(TrainTime)),
   NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
   maybe_finalize_pending_end_streams(DistributedBehaviorFunc, train),
   {next_state, NextStateBehavior, State};
@@ -450,6 +452,7 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
       ets:update_element(GenWorkerEts, parallel_active_batch_ctx, {?ETS_KEYVAL_VAL_IDX, NewCtx}),
       ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX,
         ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + TimeNif}),
+      stats:increment_by_value(get(worker_stats_ets), acc_time_prediction, trunc(TimeNif)),
       Remaining = PendingPred - 1,
       ets:update_element(GenWorkerEts, parallel_pending_losses, {?ETS_KEYVAL_VAL_IDX, Remaining}),
       case Remaining =< 0 of
@@ -484,6 +487,7 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
       BatchTimeStamp = erlang:system_time(nanosecond),
       WorkerToken = ets:lookup_element(GenWorkerEts, distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
       gen_statem:cast(get(client_pid),{predictRes,MyName, SourceName, {PredNerlTensor, PredNerlTensorType}, TimeNif , WorkerToken, BatchID , BatchTimeStamp}),
+      stats:increment_by_value(get(worker_stats_ets), acc_time_prediction, trunc(TimeNif)),
       DistributedBehaviorFunc(post_predict, {GenWorkerEts,DistributedWorkerData}),
       maybe_finalize_pending_end_streams(DistributedBehaviorFunc, predict),
       case NextState =:= train orelse NextState =:= predict of
@@ -2149,6 +2153,7 @@ dispatch_pipeline_stage0_forward_microbatch_loop(
                   ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
                 }
               ),
+              stats:increment_by_value(get(worker_stats_ets), acc_time_training, trunc(StageTime)),
               dispatch_pipeline_stage0_forward_microbatch_loop(
                 GenWorkerEts,
                 ModelId,
@@ -2259,6 +2264,7 @@ dispatch_pipeline_stage0_predict_microbatch_loop(
                   ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
                 }
               ),
+              stats:increment_by_value(get(worker_stats_ets), acc_time_prediction, trunc(StageTime)),
               dispatch_pipeline_stage0_predict_microbatch_loop(
                 GenWorkerEts,
                 ModelId,
@@ -2522,6 +2528,7 @@ maybe_process_pipeline_forward_payload(
                           ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
                         }
                       ),
+                      stats:increment_by_value(get(worker_stats_ets), acc_time_training, trunc(StageTime)),
                       update_active_pipeline_batch_ctx(
                         GenWorkerEts,
                         fun(Ctx) ->
@@ -2589,6 +2596,7 @@ maybe_process_pipeline_forward_payload(
                           ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
                         }
                       ),
+                      stats:increment_by_value(get(worker_stats_ets), acc_time_training, trunc(StageTime)),
                       case resolve_pipeline_adjacent_worker(GenWorkerEts, next) of
                         {ok, NextWorker} ->
                           ForwardPayload = {
@@ -2777,6 +2785,7 @@ maybe_process_pipeline_backward_payload(
                       ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
                     }
                   ),
+                  stats:increment_by_value(get(worker_stats_ets), acc_time_training, trunc(StageTime)),
                   case resolve_pipeline_adjacent_worker(GenWorkerEts, prev) of
                     {ok, PrevWorker} ->
                       PrevPayload = {
@@ -3073,6 +3082,7 @@ maybe_process_pipeline_predict_payload(
                       ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + StageTime
                     }
                   ),
+                  stats:increment_by_value(get(worker_stats_ets), acc_time_prediction, trunc(StageTime)),
                   case is_last_pipeline_stage(GenWorkerEts) of
                     true ->
                       processed;

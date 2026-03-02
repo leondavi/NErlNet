@@ -37,6 +37,9 @@
   pending_grant = none,
   pending_grant_issued_ms = 0,
   grant_timeout_ms = 5000,
+  max_observed_grant_latency_ms = 0,
+  adaptive_grant_timeout_ms = 5000,
+  grant_slow_warning_issued = false,
   rejection_streak = 0,
   parallel_active = false,
   phase_start_ms = 0,
@@ -52,7 +55,9 @@
 }).
 
 -define(HEARTBEAT_MISS_FACTOR, 3).
--define(GRANT_TIMEOUT_FACTOR, 6).
+-define(GRANT_TIMEOUT_FACTOR, 10).
+-define(ADAPTIVE_GRANT_TIMEOUT_FACTOR, 3).
+-define(GRANT_SLOW_WARNING_RATIO, 0.6).
 -define(MAX_GRANT_REJECTION_STREAK, 256).
 -define(PARALLEL_DELIVERY_RETRY_FLOOR_MS, 100).
 -define(PARALLEL_DELIVERY_MAX_RETRIES_DEFAULT, 20).
@@ -72,13 +77,14 @@ init({MyName, ManagedClients, HeartbeatMs, MaxInflight, NerlnetGraph}) ->
                            end,
   {RouterHost, RouterPort} = nerl_tools:getShortPath(MyName, RouterProbeDestination, NerlnetGraph),
   erlang:send_after(HeartbeatMs, self(), check_heartbeats),
-  ?LOG_NOTICE("Super node ~p starts with ~p managed clients", [MyName, length(ManagedClients)]),
+  ?LOG_NOTICE("Super node ~p starts with ~p managed clients grant_timeout=~pms", [MyName, length(ManagedClients), GrantTimeoutMs]),
   {ok, #super_node_state{
     my_name = MyName,
     managed_clients = ManagedClients,
     worker_to_client = WorkerToClientMap,
     heartbeat_ms = HeartbeatMs,
     grant_timeout_ms = GrantTimeoutMs,
+    adaptive_grant_timeout_ms = GrantTimeoutMs,
     parallel_delivery_retry_ms = ParallelDeliveryRetryMs,
     parallel_delivery_max_retries = ?PARALLEL_DELIVERY_MAX_RETRIES_DEFAULT,
     max_inflight = MaxInflight,
@@ -495,7 +501,8 @@ maybe_check_pending_grant_timeout(
     parallel_active = ParallelActive,
     pending_grant = PendingGrant,
     pending_grant_issued_ms = PendingGrantIssuedMs,
-    grant_timeout_ms = GrantTimeoutMs,
+    adaptive_grant_timeout_ms = AdaptiveGrantTimeoutMs,
+    grant_slow_warning_issued = SlowWarningIssued,
     last_parallel_event = LastParallelEvent
   },
   NowMs
@@ -503,22 +510,36 @@ maybe_check_pending_grant_timeout(
   case {ParallelActive, PendingGrant, PendingGrantIssuedMs > 0} of
     {true, Grant, true} when Grant =/= none ->
       WaitMs = NowMs - PendingGrantIssuedMs,
-      case WaitMs > GrantTimeoutMs of
+      EffectiveTimeout = AdaptiveGrantTimeoutMs,
+      SlowThresholdMs = trunc(EffectiveTimeout * ?GRANT_SLOW_WARNING_RATIO),
+      StateAfterSlowCheck =
+        case (not SlowWarningIssued) andalso (WaitMs > SlowThresholdMs) of
+          true ->
+            PendingGrantSummary = pending_grant_summary(PendingGrant),
+            ?LOG_WARNING(
+              "Super node slow grant warning: ~p ms elapsed (threshold=~p, slow_at=~p) pending=~p last_event=~p",
+              [WaitMs, EffectiveTimeout, SlowThresholdMs, PendingGrantSummary, LastParallelEvent]
+            ),
+            State#super_node_state{grant_slow_warning_issued = true};
+          false ->
+            State
+        end,
+      case WaitMs > EffectiveTimeout of
         false ->
-          State;
+          StateAfterSlowCheck;
         true ->
-          PendingGrantSummary = pending_grant_summary(PendingGrant),
+          PendingGrantSummary2 = pending_grant_summary(PendingGrant),
           TimeoutReason = {
             scheduler_grant_timeout,
-            PendingGrantSummary,
-            GrantTimeoutMs,
+            PendingGrantSummary2,
+            EffectiveTimeout,
             LastParallelEvent
           },
           ?LOG_WARNING(
             "Super node grant timeout after ~p ms (threshold=~p) pending=~p last_event=~p",
-            [WaitMs, GrantTimeoutMs, PendingGrantSummary, LastParallelEvent]
+            [WaitMs, EffectiveTimeout, PendingGrantSummary2, LastParallelEvent]
           ),
-          maybe_notify_parallel_abort(State, TimeoutReason)
+          maybe_notify_parallel_abort(StateAfterSlowCheck, TimeoutReason)
       end;
     _ ->
       State
@@ -613,6 +634,9 @@ apply_parallel_phase_update(
     scheduler_max_batches = SchedulerMaxBatches,
     pending_grant = none,
     pending_grant_issued_ms = 0,
+    max_observed_grant_latency_ms = 0,
+    adaptive_grant_timeout_ms = State#super_node_state.grant_timeout_ms,
+    grant_slow_warning_issued = false,
     rejection_streak = 0,
     parallel_active = ParallelActive,
     phase_start_ms = PhaseStartMs,
@@ -1474,7 +1498,13 @@ validate_scheduler_grant(
   BatchID,
   PendingGrantRaw,
   ExpectedEvent = {Direction, MicrobatchId, Stage},
-  State = #super_node_state{phase_epoch = PhaseEpoch, scheduler_batch_id = SchedulerBatchID},
+  State = #super_node_state{
+    phase_epoch = PhaseEpoch,
+    scheduler_batch_id = SchedulerBatchID,
+    pending_grant_issued_ms = PendingGrantIssuedMs,
+    max_observed_grant_latency_ms = MaxObservedLatency,
+    grant_timeout_ms = BaseGrantTimeoutMs
+  },
   Cursor
 ) ->
   case normalize_pending_grant(PendingGrantRaw) of
@@ -1506,15 +1536,33 @@ validate_scheduler_grant(
                               UpdatedAckedWorkers = lists:usort([FromWorker | AckedWorkers]),
                               case lists:sort(UpdatedAckedWorkers) =:= lists:sort(GrantedWorkers) of
                                 true ->
+                                  NowMs = erlang:system_time(millisecond),
+                                  GrantLatencyMs = case PendingGrantIssuedMs > 0 of
+                                    true -> NowMs - PendingGrantIssuedMs;
+                                    false -> 0
+                                  end,
+                                  NewMaxObserved = erlang:max(MaxObservedLatency, GrantLatencyMs),
+                                  AdaptiveTimeout = erlang:max(BaseGrantTimeoutMs, NewMaxObserved * ?ADAPTIVE_GRANT_TIMEOUT_FACTOR),
+                                  case NewMaxObserved > MaxObservedLatency of
+                                    true ->
+                                      ?LOG_NOTICE(
+                                        "Super node adaptive grant timeout updated: observed_latency=~pms new_max=~pms adaptive_timeout=~pms base=~pms",
+                                        [GrantLatencyMs, NewMaxObserved, AdaptiveTimeout, BaseGrantTimeoutMs]
+                                      );
+                                    false -> ok
+                                  end,
                                   ?LOG_INFO(
-                                    "Super node grant fully acknowledged workers=~p direction=~p batch=~p microbatch=~p stage=~p epoch=~p event_id=~p",
-                                    [GrantedWorkers, Direction, ResolvedBatchID, MicrobatchId, Stage, GrantEpoch, EventID]
+                                    "Super node grant fully acknowledged workers=~p direction=~p batch=~p microbatch=~p stage=~p epoch=~p event_id=~p latency=~pms",
+                                    [GrantedWorkers, Direction, ResolvedBatchID, MicrobatchId, Stage, GrantEpoch, EventID, GrantLatencyMs]
                                   ),
                                   {ok, State#super_node_state{
                                     scheduler_cursor = Cursor + 1,
                                     scheduler_batch_id = ResolvedBatchID,
                                     pending_grant = none,
-                                    pending_grant_issued_ms = 0
+                                    pending_grant_issued_ms = 0,
+                                    max_observed_grant_latency_ms = NewMaxObserved,
+                                    adaptive_grant_timeout_ms = AdaptiveTimeout,
+                                    grant_slow_warning_issued = false
                                   }};
                                 false ->
                                   ?LOG_INFO(

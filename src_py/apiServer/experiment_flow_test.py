@@ -5,6 +5,7 @@ from apiServer import *
 from runCommand import RunCommand
 from logger import *
 from stats import Stats
+from definitions import format_performance_stats
 
 ExitValue = 0
 
@@ -166,9 +167,12 @@ for f1_score_exp , f1_score_baseline in zip(performence_stats[DIFF_MEASURE_METHO
         LOG_ERROR(f"diff_from_baseline: {diff}")
         ExitValue = 1
 
-print("Performance stats training:")
-print(pretty_dict(perf_stats_train))
-print("Performance stats prediction:")
-print(pretty_dict(perf_stats_predict))
+comm_train = stats_train.get_communication_stats_workers() if stats_train else {}
+comm_predict = stats_predict.get_communication_stats_workers() if stats_predict else {}
+w2c = stats_train.net_comps.get_map_worker_to_client() if stats_train else {}
+print(format_performance_stats(perf_stats_train, perf_stats_predict,
+                               workers_comm_train=comm_train,
+                               workers_comm_predict=comm_predict,
+                               worker_to_client=w2c))
 
 exit(ExitValue)

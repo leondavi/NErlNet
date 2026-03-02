@@ -7,7 +7,7 @@ import time
 import traceback
 
 from apiServer import ApiServer
-from definitions import pretty_dict
+from definitions import pretty_dict, format_performance_stats
 from logger import LOG_ERROR, LOG_INFO
 from runCommand import RunCommand
 
@@ -369,10 +369,13 @@ def main() -> int:
             LOG_INFO("Actual Frequencies:")
             print(f"{stats_predict.get_actual_frequencies_of_sources()}")
 
-        print("Performance stats training:")
-        print(pretty_dict(perf_stats_train))
-        print("Performance stats prediction:")
-        print(pretty_dict(perf_stats_predict))
+        comm_train = stats_train.get_communication_stats_workers() if stats_train else {}
+        comm_predict = stats_predict.get_communication_stats_workers() if stats_predict else {}
+        w2c = stats_train.net_comps.get_map_worker_to_client() if stats_train else {}
+        print(format_performance_stats(perf_stats_train, perf_stats_predict,
+                                       workers_comm_train=comm_train,
+                                       workers_comm_predict=comm_predict,
+                                       worker_to_client=w2c))
         stop_nerlnet(nerlnet_run_cmd)
 
     if exit_value == 0:
