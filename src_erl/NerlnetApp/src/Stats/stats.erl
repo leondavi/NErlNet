@@ -17,7 +17,7 @@
 % performance stats
 -export([generate_performance_stats_ets/0]).
 -export([start_os_mon/0]).
--export([performance_stats_reset/1, communication_stats_reset/1]).
+-export([performance_stats_reset/1, performance_stats_reset_phase/2, communication_stats_reset/1]).
 % perofmance stats getters/setters
 -export([get_time_train_active/1, increment_time_train_active/2]).
 -export([get_time_train_total/1, increment_time_train_total/2]).
@@ -254,6 +254,9 @@ communication_stats_reset(ComStatsEts) ->
     ok.
 
 performance_stats_reset(PerfStatsEts) ->
+    performance_stats_reset_phase(PerfStatsEts, all).
+
+performance_stats_reset_phase(PerfStatsEts, all) ->
     % Reset all performance stats to zero
     ets:update_element(PerfStatsEts, time_train_active, {?STATS_KEYVAL_VAL_IDX, 0}),
     ets:update_element(PerfStatsEts, time_train_total, {?STATS_KEYVAL_VAL_IDX, 0}),
@@ -265,18 +268,57 @@ performance_stats_reset(PerfStatsEts) ->
     ets:update_element(PerfStatsEts, memory_predict_ema_usage, {?STATS_KEYVAL_VAL_IDX, 0}),
     ets:update_element(PerfStatsEts, memory_train_peak_usage, {?STATS_KEYVAL_VAL_IDX, 0}),
     ets:update_element(PerfStatsEts, memory_predict_peak_usage, {?STATS_KEYVAL_VAL_IDX, 0}),
-    % Reset CPU utilization per core
+    reset_cpu_util_per_core(PerfStatsEts, all),
+    ok;
+performance_stats_reset_phase(PerfStatsEts, train) ->
+    % Reset only train-phase performance metrics
+    ets:update_element(PerfStatsEts, time_train_active, {?STATS_KEYVAL_VAL_IDX, 0}),
+    ets:update_element(PerfStatsEts, time_train_total, {?STATS_KEYVAL_VAL_IDX, 0}),
+    ets:update_element(PerfStatsEts, average_gpu_usage_train, {?STATS_KEYVAL_VAL_IDX, 0}),
+    ets:update_element(PerfStatsEts, memory_train_ema_usage, {?STATS_KEYVAL_VAL_IDX, 0}),
+    ets:update_element(PerfStatsEts, memory_train_peak_usage, {?STATS_KEYVAL_VAL_IDX, 0}),
+    reset_cpu_util_per_core(PerfStatsEts, train),
+    ok;
+performance_stats_reset_phase(PerfStatsEts, predict) ->
+    % Reset only predict-phase performance metrics
+    ets:update_element(PerfStatsEts, time_predict_active, {?STATS_KEYVAL_VAL_IDX, 0}),
+    ets:update_element(PerfStatsEts, time_predict_total, {?STATS_KEYVAL_VAL_IDX, 0}),
+    ets:update_element(PerfStatsEts, average_gpu_memory_usage_predict, {?STATS_KEYVAL_VAL_IDX, 0}),
+    ets:update_element(PerfStatsEts, memory_predict_ema_usage, {?STATS_KEYVAL_VAL_IDX, 0}),
+    ets:update_element(PerfStatsEts, memory_predict_peak_usage, {?STATS_KEYVAL_VAL_IDX, 0}),
+    reset_cpu_util_per_core(PerfStatsEts, predict),
+    ok;
+performance_stats_reset_phase(PerfStatsEts, _UnknownPhase) ->
+    performance_stats_reset_phase(PerfStatsEts, all).
+
+reset_cpu_util_per_core(PerfStatsEts, Scope) ->
     NumberOfCores = ets:lookup_element(PerfStatsEts, num_of_cores, ?STATS_KEYVAL_VAL_IDX),
-    lists:foreach(fun(CoreIndex) -> 
-        KeyUtilTrainingPerCoreStr = lists:flatten(io_lib:format("cpu_train_util_core_~p" , [CoreIndex])),
-        KeyUtilTrainingPerCoreAtom = list_to_atom(KeyUtilTrainingPerCoreStr),
-        ets:update_element(PerfStatsEts, KeyUtilTrainingPerCoreAtom, {?STATS_KEYVAL_VAL_IDX, 0}),
-        KeyUtilPredictPerCoreStr = lists:flatten(io_lib:format("cpu_predict_util_core_~p" , [CoreIndex])),
-        KeyUtilPredictPerCoreAtom = list_to_atom(KeyUtilPredictPerCoreStr),
-        ets:update_element(PerfStatsEts, KeyUtilPredictPerCoreAtom, {?STATS_KEYVAL_VAL_IDX, 0})
-    end,
-    lists:seq(0, NumberOfCores - 1)),
-    ok.
+    lists:foreach(
+      fun(CoreIndex) ->
+          case Scope of
+              all ->
+                  reset_cpu_train_util_core(PerfStatsEts, CoreIndex),
+                  reset_cpu_predict_util_core(PerfStatsEts, CoreIndex);
+              train ->
+                  reset_cpu_train_util_core(PerfStatsEts, CoreIndex);
+              predict ->
+                  reset_cpu_predict_util_core(PerfStatsEts, CoreIndex);
+              _ ->
+                  ok
+          end
+      end,
+      lists:seq(0, NumberOfCores - 1)
+    ).
+
+reset_cpu_train_util_core(PerfStatsEts, CoreIndex) ->
+    KeyUtilTrainingPerCoreStr = lists:flatten(io_lib:format("cpu_train_util_core_~p" , [CoreIndex])),
+    KeyUtilTrainingPerCoreAtom = list_to_atom(KeyUtilTrainingPerCoreStr),
+    ets:update_element(PerfStatsEts, KeyUtilTrainingPerCoreAtom, {?STATS_KEYVAL_VAL_IDX, 0}).
+
+reset_cpu_predict_util_core(PerfStatsEts, CoreIndex) ->
+    KeyUtilPredictPerCoreStr = lists:flatten(io_lib:format("cpu_predict_util_core_~p" , [CoreIndex])),
+    KeyUtilPredictPerCoreAtom = list_to_atom(KeyUtilPredictPerCoreStr),
+    ets:update_element(PerfStatsEts, KeyUtilPredictPerCoreAtom, {?STATS_KEYVAL_VAL_IDX, 0}).
 
 %% Performance Stats Methods
 ema_calc(OldValue, NewValue) ->

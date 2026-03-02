@@ -99,8 +99,11 @@ init({MyName,NerlnetGraph, ClientWorkers , WorkerShaMap , WorkerToClientMap , Sh
   ets:insert(EtsRef, {parallel_phase_close_granted, false}),
   ets:insert(EtsRef, {parallel_phase_close_last_request_ms, 0}),
   ets:insert(EtsRef, {parallel_idle_requested, false}),
+  ets:insert(EtsRef, {parallel_workers_drain_ready, []}),
+  ets:insert(EtsRef, {parallel_workers_stream_seen, []}),
   ets:insert(EtsRef, {parallel_delivery_seen_ids, []}),
   ets:insert(EtsRef, {all_workers_done, false}),
+  ets:insert(EtsRef, {active_phase_type, idle}),
   ets:insert(EtsRef, {num_of_fed_servers, 0}), % Will stay 0 if non-federated
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,?MAIN_SERVER_ATOM, NerlnetGraph),
   ets:insert(EtsRef, {my_router,{MyRouterHost,MyRouterPort}}),
@@ -208,6 +211,18 @@ waitforWorkers(cast, In = {parallel_event, FromWorker, Direction, BatchID, Micro
   forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
   {keep_state, State};
 
+waitforWorkers(cast, In = {parallel_worker_drain_ready, WorkerName, ModelPhase}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
+  case handle_parallel_worker_drain_ready(EtsRef, WorkerName, ModelPhase) of
+    {phase_complete, PhaseName} ->
+      maybe_trigger_parallel_phase_close_on_stream_drain(EtsRef, PhaseName);
+    _ ->
+      ok
+  end,
+  {keep_state, State};
+
 waitforWorkers(cast, {parallel_finalize_idle}, State = #client_statem_state{}) ->
   {keep_state, State};
 
@@ -282,6 +297,18 @@ idle(cast, In = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, S
   forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
   {keep_state, State};
 
+idle(cast, In = {parallel_worker_drain_ready, WorkerName, ModelPhase}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
+  case handle_parallel_worker_drain_ready(EtsRef, WorkerName, ModelPhase) of
+    {phase_complete, PhaseName} ->
+      maybe_trigger_parallel_phase_close_on_stream_drain(EtsRef, PhaseName);
+    _ ->
+      ok
+  end,
+  {keep_state, State};
+
 idle(cast, {parallel_finalize_idle}, State = #client_statem_state{}) ->
   {keep_state, State};
 
@@ -308,6 +335,7 @@ idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRe
   erlang:garbage_collect(), % free memory when phase is changed to training
   reset_parallel_phase_close_state(EtsRef),
   ets:update_element(EtsRef, parallel_delivery_seen_ids, {?DATA_IDX, []}),
+  ets:update_element(EtsRef, active_phase_type, {?DATA_IDX, training}),
   ClientStatsEts = get(client_stats_ets),
   PerformanceStatsEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -315,7 +343,8 @@ idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRe
   MessageToCast = {training},
   cast_message_to_workers(EtsRef, MessageToCast),
   ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, false}),
-  stats:performance_stats_reset(PerformanceStatsEts),
+  % Training is the first phase in the flow; reset all phase metrics for a clean experiment baseline.
+  stats:performance_stats_reset_phase(PerformanceStatsEts, all),
   stats:communication_stats_reset(ClientStatsEts),
   stats:tic(ClientStatsEts, time_train_total),
   stats:reset_query_cpu_util_cores(),
@@ -325,13 +354,16 @@ idle(cast, In = {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
   erlang:garbage_collect(), % free memory when phase is changed to predict
   reset_parallel_phase_close_state(EtsRef),
   ets:update_element(EtsRef, parallel_delivery_seen_ids, {?DATA_IDX, []}),
+  ets:update_element(EtsRef, active_phase_type, {?DATA_IDX, prediction}),
   ClientStatsEts = get(client_stats_ets),
   PerformanceStatsEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   MessageToCast = {predict},
   cast_message_to_workers(EtsRef, MessageToCast),
-  stats:performance_stats_reset(PerformanceStatsEts),
+  ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, false}),
+  % Entering prediction should not wipe completed training metrics.
+  stats:performance_stats_reset_phase(PerformanceStatsEts, predict),
   stats:communication_stats_reset(ClientStatsEts),
   stats:tic(ClientStatsEts, time_predict_total), 
   stats:reset_query_cpu_util_cores(),
@@ -416,6 +448,18 @@ training(cast, In = {parallel_event, FromWorker, Direction, BatchID, MicrobatchI
   stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
   forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
   {keep_state, State};
+
+training(cast, In = {parallel_worker_drain_ready, WorkerName, ModelPhase}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
+  case handle_parallel_worker_drain_ready(EtsRef, WorkerName, ModelPhase) of
+    {phase_complete, PhaseName} ->
+      maybe_trigger_parallel_phase_close_on_stream_drain(EtsRef, PhaseName);
+    _ ->
+      ok
+  end,
+  {keep_state, State};
   
 % TODO Validate this state - sample and empty list 
 training(cast, _In = {sample,[]}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -446,6 +490,7 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
 training(cast, {start_stream , {worker, WorkerName, TargetPair}}, State = #client_statem_state{etsRef = EtsRef}) ->
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, TargetPair}]}),
+  mark_worker_stream_seen(EtsRef, WorkerName),
   
   perf_stats_memory_usage_update_train(),
   {keep_state, State};
@@ -455,6 +500,7 @@ training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef =
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, SourceName}]}),
+  mark_worker_stream_seen(EtsRef, WorkerName),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
@@ -483,11 +529,11 @@ training(cast, In = {stream_ended , Pair}, State = #client_statem_state{etsRef =
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   UpdatedListOfActiveWorkersSources = ListOfActiveWorkersSources -- [Pair],
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, UpdatedListOfActiveWorkersSources}),
-  case length(UpdatedListOfActiveWorkersSources) of 
-    0 ->
-      ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true}),
+  case refresh_all_workers_done_state(EtsRef) of
+    true ->
       maybe_trigger_parallel_phase_close_on_stream_drain(EtsRef, training);
-    _ ->  ok
+    false ->
+      ok
   end,
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
 
@@ -596,6 +642,7 @@ predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef})
 predict(cast, {start_stream , {worker, WorkerName, TargetName}}, State = #client_statem_state{etsRef = EtsRef}) ->
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, TargetName}]}),
+  mark_worker_stream_seen(EtsRef, WorkerName),
 
   perf_stats_memory_usage_update_predict(),
   {keep_state, State};
@@ -605,6 +652,7 @@ predict(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef = 
   {SourceName, _ClientName, WorkerName} = binary_to_term(Data),
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, SourceName}]}),
+  mark_worker_stream_seen(EtsRef, WorkerName),
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
@@ -632,11 +680,11 @@ predict(cast, In = {stream_ended , Pair}, State = #client_statem_state{etsRef = 
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   UpdatedListOfActiveWorkersSources = ListOfActiveWorkersSources -- [Pair],
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, UpdatedListOfActiveWorkersSources}),
-  case length(UpdatedListOfActiveWorkersSources) of 
-    0 ->
-      ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true}),
+  case refresh_all_workers_done_state(EtsRef) of
+    true ->
       maybe_trigger_parallel_phase_close_on_stream_drain(EtsRef, prediction);
-    _ ->  ok
+    false ->
+      ok
   end,
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
 
@@ -723,6 +771,18 @@ predict(cast, In = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
   forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
+  {keep_state, State};
+
+predict(cast, In = {parallel_worker_drain_ready, WorkerName, ModelPhase}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
+  case handle_parallel_worker_drain_ready(EtsRef, WorkerName, ModelPhase) of
+    {phase_complete, PhaseName} ->
+      maybe_trigger_parallel_phase_close_on_stream_drain(EtsRef, PhaseName);
+    _ ->
+      ok
+  end,
   {keep_state, State};
 
 %% The source sends message to main server that it has finished
@@ -812,10 +872,92 @@ cast_message_to_workers(EtsRef, Msg) ->
   end,
   lists:foreach(Func, Workers).
 
+normalize_model_phase(training) -> training;
+normalize_model_phase(train) -> training;
+normalize_model_phase(prediction) -> prediction;
+normalize_model_phase(predict) -> prediction;
+normalize_model_phase(idle) -> idle;
+normalize_model_phase(Value) when is_binary(Value) ->
+  normalize_model_phase(binary_to_list(Value));
+normalize_model_phase(Value) when is_list(Value) ->
+  case string:lowercase(string:trim(Value)) of
+    "training" -> training;
+    "train" -> training;
+    "prediction" -> prediction;
+    "predict" -> prediction;
+    "idle" -> idle;
+    _ -> unknown
+  end;
+normalize_model_phase(_) ->
+  unknown.
+
+all_parallel_workers_drain_ready(EtsRef) ->
+  Workers = ets:lookup_element(EtsRef, parallel_workers_stream_seen, ?DATA_IDX),
+  DrainReadyWorkers = ets:lookup_element(EtsRef, parallel_workers_drain_ready, ?DATA_IDX),
+  lists:all(fun(WorkerName) -> lists:member(WorkerName, DrainReadyWorkers) end, Workers).
+
+mark_worker_stream_seen(EtsRef, WorkerNameRaw) ->
+  WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
+  case resolve_worker_name(WorkersOfThisClient, WorkerNameRaw) of
+    {error, _} ->
+      ok;
+    {ok, WorkerName} ->
+      Existing = ets:lookup_element(EtsRef, parallel_workers_stream_seen, ?DATA_IDX),
+      ets:update_element(
+        EtsRef,
+        parallel_workers_stream_seen,
+        {?DATA_IDX, lists:usort([WorkerName | Existing])}
+      )
+  end.
+
+refresh_all_workers_done_state(EtsRef) ->
+  ActiveWorkersStreams = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
+  StreamsDrained = (ActiveWorkersStreams =:= []),
+  RequiresWorkerDrainAcks = should_gate_idle_with_super_close(EtsRef),
+  WorkersDrained = all_parallel_workers_drain_ready(EtsRef),
+  Done = StreamsDrained andalso ((not RequiresWorkerDrainAcks) orelse WorkersDrained),
+  ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, Done}),
+  Done.
+
+handle_parallel_worker_drain_ready(EtsRef, WorkerNameRaw, ModelPhaseRaw) ->
+  WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
+  case resolve_worker_name(WorkersOfThisClient, WorkerNameRaw) of
+    {error, _} ->
+      ignored;
+    {ok, WorkerName} ->
+      ActivePhase = normalize_model_phase(ets:lookup_element(EtsRef, active_phase_type, ?DATA_IDX)),
+      ReportedPhase = normalize_model_phase(ModelPhaseRaw),
+      case {ActivePhase, ReportedPhase} of
+        {idle, _AnyPhase} ->
+          ignored;
+        {unknown, _AnyPhase} ->
+          ignored;
+        {Phase, Phase} ->
+          Existing = ets:lookup_element(EtsRef, parallel_workers_drain_ready, ?DATA_IDX),
+          ets:update_element(
+            EtsRef,
+            parallel_workers_drain_ready,
+            {?DATA_IDX, lists:usort([WorkerName | Existing])}
+          ),
+          case refresh_all_workers_done_state(EtsRef) of
+            true -> {phase_complete, Phase};
+            false -> pending
+          end;
+        _ ->
+          ignored
+      end
+  end.
+
 maybe_trigger_parallel_phase_close_on_stream_drain(EtsRef, PhaseName) ->
   case should_gate_idle_with_super_close(EtsRef) of
     true ->
-      maybe_request_super_phase_close(EtsRef, PhaseName);
+      maybe_request_super_phase_close(EtsRef, PhaseName),
+      case ets:lookup_element(EtsRef, parallel_phase_close_granted, ?DATA_IDX) of
+        true ->
+          gen_statem:cast(get(my_pid), {parallel_finalize_idle});
+        false ->
+          ok
+      end;
     false ->
       ok
   end.
@@ -825,6 +967,8 @@ reset_parallel_phase_close_state(EtsRef) ->
   ets:insert(EtsRef, {parallel_phase_close_granted, false}),
   ets:insert(EtsRef, {parallel_phase_close_last_request_ms, 0}),
   ets:insert(EtsRef, {parallel_idle_requested, false}),
+  ets:insert(EtsRef, {parallel_workers_drain_ready, []}),
+  ets:insert(EtsRef, {parallel_workers_stream_seen, []}),
   ok.
 
 resolve_parallel_phase_epoch(EtsRef, current) ->
@@ -947,6 +1091,7 @@ finalize_training_idle_transition(
   ClientStatsEts,
   ClientPerformanceEts
 ) ->
+  ets:update_element(EtsRef, active_phase_type, {?DATA_IDX, idle}),
   cast_message_to_workers(EtsRef, {idle}),
   Workers = clientWorkersFunctions:get_workers_names(EtsRef),
   ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
@@ -962,6 +1107,7 @@ finalize_predict_idle_transition(
   ClientStatsEts,
   ClientPerformanceEts
 ) ->
+  ets:update_element(EtsRef, active_phase_type, {?DATA_IDX, idle}),
   cast_message_to_workers(EtsRef, {idle}),
   Workers = clientWorkersFunctions:get_workers_names(EtsRef),
   ?LOG_INFO("~p sent idle to workers: ~p , waiting for confirmation...~n",[MyName, ets:lookup_element(EtsRef, workersNames, ?DATA_IDX)]),
@@ -1174,7 +1320,7 @@ apply_parallel_super_command(EtsRef, {parallel_super_command, phase_close_grante
       ets:insert(EtsRef, {parallel_phase_close_granted, true}),
       ets:insert(EtsRef, {parallel_idle_requested, true}),
       ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, []}),
-      ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true}),
+      refresh_all_workers_done_state(EtsRef),
       gen_statem:cast(get(my_pid), {parallel_finalize_idle})
   end;
 apply_parallel_super_command(EtsRef, {phase_close_granted, PhaseEpochRaw}, StateName) ->

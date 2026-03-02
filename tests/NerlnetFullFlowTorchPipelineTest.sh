@@ -32,6 +32,7 @@ MANUAL_START=false
 SELECTED_VARIANTS=()
 CONFIGS_BACKED_UP=false
 VENV_LOADED=false
+RUN_ID="$(date +%s)_$$"
 
 function print()
 {
@@ -85,7 +86,7 @@ function stop_nerlnet()
 
 function cleanup()
 {
-    find "$TEST_BASE_DIR" -maxdepth 2 -type f -name "dc_test.json" -delete 2>/dev/null || true
+    find "$TEST_BASE_DIR" -maxdepth 2 -type f -name "dc_test*.json" -delete 2>/dev/null || true
     if [ "$CONFIGS_BACKED_UP" = true ]; then
         if [ -f "$NERLNET_CONFIG_JSONS_DIR_BACKUP" ]; then
             cp "$NERLNET_CONFIG_JSONS_DIR_BACKUP" "$NERLNET_CONFIG_JSONS_DIR"
@@ -221,7 +222,7 @@ print "========================================"
 for VARIANT in "${TEST_VARIANTS[@]}"; do
     VARIANT_DIR="$TEST_BASE_DIR/$VARIANT"
     DC_NOIP="$VARIANT_DIR/dc_test.json.noip"
-    DC_JSON="$VARIANT_DIR/dc_test.json"
+    DC_JSON="$VARIANT_DIR/dc_test_${RUN_ID}.json"
     CONN_JSON="$VARIANT_DIR/conn_test.json"
     EXP_JSON="$VARIANT_DIR/exp_test.json"
 
@@ -242,11 +243,22 @@ for VARIANT in "${TEST_VARIANTS[@]}"; do
         continue
     fi
 
-    replace_ip_in_json "$DC_NOIP" "$DC_JSON" "$CURRENT_MACHINE_IPV4_ADD"
+    if ! replace_ip_in_json "$DC_NOIP" "$DC_JSON" "$CURRENT_MACHINE_IPV4_ADD"; then
+        print "[$VARIANT] Failed to prepare runtime DC JSON: $DC_JSON"
+        RESULTS[$VARIANT]="FAILED (dc_prepare_failed)"
+        OVERALL_RC=1
+        continue
+    fi
+    if [ ! -f "$DC_JSON" ]; then
+        print "[$VARIANT] Runtime DC JSON missing after preparation: $DC_JSON"
+        RESULTS[$VARIANT]="FAILED (dc_missing)"
+        OVERALL_RC=1
+        continue
+    fi
     echo "$VARIANT_DIR" > "$NERLNET_CONFIG_JSONS_DIR"
 
     export TEST_VARIANT="$VARIANT"
-    export TEST_TARGET_DC_JSON="dc_test.json"
+    export TEST_TARGET_DC_JSON="$(basename "$DC_JSON")"
     export TEST_TARGET_CONN_JSON="conn_test.json"
     export TEST_TARGET_EXP_JSON="exp_test.json"
     export TEST_EXPECT_DATASET_TOKEN="${TEST_EXPECT_DATASET_TOKEN:-synthetic_norm/synthetic_full.csv}"
