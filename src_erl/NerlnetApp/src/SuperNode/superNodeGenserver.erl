@@ -775,6 +775,7 @@ handle_parallel_phase_close_request(
             {true, _} ->
               StateWithRequest;
             {false, true} ->
+              notify_parallel_phase_done(StateWithRequest),
               finalize_parallel_phase_close(StateWithRequest);
             _ ->
               StateWithRequest

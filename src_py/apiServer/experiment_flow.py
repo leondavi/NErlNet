@@ -254,9 +254,13 @@ class ExperimentFlow():
                 )
 
             stage_world_size = infer_stage_world_size(self.network_componenets.get_worker_parallel_map())
-            if stage_world_size < 2:
+            if mode == "pipeline" and stage_world_size < 2:
                 raise ValueError(
                     f"phase '{phase_name}' requires at least 2 pipeline stages"
+                )
+            if mode == "pipeline_tensor" and stage_world_size < 1:
+                raise ValueError(
+                    f"phase '{phase_name}' requires at least 1 pipeline stage"
                 )
 
             if mode == "pipeline":

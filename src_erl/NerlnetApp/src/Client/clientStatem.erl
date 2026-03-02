@@ -484,7 +484,9 @@ training(cast, In = {stream_ended , Pair}, State = #client_statem_state{etsRef =
   UpdatedListOfActiveWorkersSources = ListOfActiveWorkersSources -- [Pair],
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, UpdatedListOfActiveWorkersSources}),
   case length(UpdatedListOfActiveWorkersSources) of 
-    0 ->  ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
+    0 ->
+      ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true}),
+      maybe_trigger_parallel_phase_close_on_stream_drain(EtsRef, training);
     _ ->  ok
   end,
   {next_state, training, State#client_statem_state{etsRef = EtsRef}};
@@ -631,7 +633,9 @@ predict(cast, In = {stream_ended , Pair}, State = #client_statem_state{etsRef = 
   UpdatedListOfActiveWorkersSources = ListOfActiveWorkersSources -- [Pair],
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, UpdatedListOfActiveWorkersSources}),
   case length(UpdatedListOfActiveWorkersSources) of 
-    0 ->  ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true});
+    0 ->
+      ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, true}),
+      maybe_trigger_parallel_phase_close_on_stream_drain(EtsRef, prediction);
     _ ->  ok
   end,
   {next_state, predict, State#client_statem_state{etsRef = EtsRef}};
@@ -807,6 +811,14 @@ cast_message_to_workers(EtsRef, Msg) ->
     stats:increment_messages_sent(ClientStatsEts)
   end,
   lists:foreach(Func, Workers).
+
+maybe_trigger_parallel_phase_close_on_stream_drain(EtsRef, PhaseName) ->
+  case should_gate_idle_with_super_close(EtsRef) of
+    true ->
+      maybe_request_super_phase_close(EtsRef, PhaseName);
+    false ->
+      ok
+  end.
 
 reset_parallel_phase_close_state(EtsRef) ->
   ets:insert(EtsRef, {parallel_phase_close_requested, false}),

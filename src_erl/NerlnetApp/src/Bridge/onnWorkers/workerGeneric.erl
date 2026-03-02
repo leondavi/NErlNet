@@ -376,9 +376,18 @@ wait(cast, {loss_microbatch, {LossTensor, LossTensorType}, TrainTime, BatchID, S
                   gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,FinalLossTensor , FinalTrainTime , WorkerToken, BatchID , BatchTimeStamp}),
                   NextStateBehavior = DistributedBehaviorFunc(post_train, {GenWorkerEts,[]}),
                   reset_parallel_batch_context(GenWorkerEts),
-                  maybe_dispatch_deferred_parallel_sample(GenWorkerEts, NextStateBehavior),
                   maybe_finalize_pending_end_streams(DistributedBehaviorFunc, train),
-                  {next_state, NextStateBehavior, State};
+                  case NextStateBehavior =:= train orelse NextStateBehavior =:= predict of
+                    true ->
+                      case pop_deferred_parallel_sample(GenWorkerEts) of
+                        {ok, DeferredSample} ->
+                          {next_state, NextStateBehavior, State, [{next_event, cast, DeferredSample}]};
+                        empty ->
+                          {next_state, NextStateBehavior, State}
+                      end;
+                    false ->
+                      {next_state, NextStateBehavior, State}
+                  end;
                 {error, BarrierReason} ->
                   notify_worker_parallel_abort(
                     GenWorkerEts,
@@ -421,13 +430,69 @@ wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceNam
   {next_state, NextStateBehavior, State};
 
 wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, nextState = NextState, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
-  BatchTimeStamp = erlang:system_time(nanosecond),
-  WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
-  gen_statem:cast(get(client_pid),{predictRes,MyName, SourceName, {PredNerlTensor, PredNerlTensorType}, TimeNif , WorkerToken, BatchID , BatchTimeStamp}), 
-  DistributedBehaviorFunc(post_predict, {get(generic_worker_ets),DistributedWorkerData}),
-  maybe_finalize_pending_end_streams(DistributedBehaviorFunc, predict),
-  maybe_dispatch_deferred_parallel_sample(get(generic_worker_ets), NextState),
-  {next_state, NextState, State};
+  GenWorkerEts = get(generic_worker_ets),
+  ActiveCtx = ets:lookup_element(GenWorkerEts, parallel_active_batch_ctx, ?ETS_KEYVAL_VAL_IDX),
+  case ActiveCtx of
+    Ctx when is_map(Ctx) andalso is_map_key(mode, Ctx) andalso map_get(mode, Ctx) =:= tensor_predict ->
+      %% Tensor predict mode: accumulate microbatch results
+      ExistingPred = maps:get(predict_acc, Ctx, []),
+      MicrobatchIdx = length(ExistingPred),
+      PendingPred = ets:lookup_element(GenWorkerEts, parallel_pending_losses, ?ETS_KEYVAL_VAL_IDX),
+      NewCtx = Ctx#{
+        predict_acc => ExistingPred ++ [{MicrobatchIdx, {PredNerlTensor, PredNerlTensorType}}],
+        forward_completed => maps:get(forward_completed, Ctx, 0) + 1
+      },
+      ets:update_element(GenWorkerEts, parallel_active_batch_ctx, {?ETS_KEYVAL_VAL_IDX, NewCtx}),
+      ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX,
+        ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX) + TimeNif}),
+      Remaining = PendingPred - 1,
+      ets:update_element(GenWorkerEts, parallel_pending_losses, {?ETS_KEYVAL_VAL_IDX, Remaining}),
+      case Remaining =< 0 of
+        false ->
+          %% More microbatch predictions pending, try dispatch remaining queued microbatches
+          dispatch_queued_parallel_microbatches(GenWorkerEts),
+          {keep_state, State};
+        true ->
+          %% All microbatch predictions received, concatenate and send combined result
+          WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+          FinalCtx = ets:lookup_element(GenWorkerEts, parallel_active_batch_ctx, ?ETS_KEYVAL_VAL_IDX),
+          PredAcc = maps:get(predict_acc, FinalCtx, []),
+          TotalMicrobatches = maps:get(total_microbatches, FinalCtx, 0),
+          maybe_send_pipeline_last_stage_prediction(GenWorkerEts, WorkerName, FinalCtx, PredAcc, TotalMicrobatches),
+          DistributedBehaviorFunc(post_predict, {GenWorkerEts, DistributedWorkerData}),
+          reset_parallel_batch_context(GenWorkerEts),
+          maybe_finalize_pending_end_streams(DistributedBehaviorFunc, predict),
+          case NextState =:= train orelse NextState =:= predict of
+            true ->
+              case pop_deferred_parallel_sample(GenWorkerEts) of
+                {ok, DeferredSample} ->
+                  {next_state, NextState, State, [{next_event, cast, DeferredSample}]};
+                empty ->
+                  {next_state, NextState, State}
+              end;
+            false ->
+              {next_state, NextState, State}
+          end
+      end;
+    _ ->
+      %% Legacy predict result handling
+      BatchTimeStamp = erlang:system_time(nanosecond),
+      WorkerToken = ets:lookup_element(GenWorkerEts, distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
+      gen_statem:cast(get(client_pid),{predictRes,MyName, SourceName, {PredNerlTensor, PredNerlTensorType}, TimeNif , WorkerToken, BatchID , BatchTimeStamp}),
+      DistributedBehaviorFunc(post_predict, {GenWorkerEts,DistributedWorkerData}),
+      maybe_finalize_pending_end_streams(DistributedBehaviorFunc, predict),
+      case NextState =:= train orelse NextState =:= predict of
+        true ->
+          case pop_deferred_parallel_sample(GenWorkerEts) of
+            {ok, DeferredSample} ->
+              {next_state, NextState, State, [{next_event, cast, DeferredSample}]};
+            empty ->
+              {next_state, NextState, State}
+          end;
+        false ->
+          {next_state, NextState, State}
+      end
+  end;
 
 wait(cast, {end_stream , StreamName}, State = #workerGeneric_state{myName = _MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   Phase = get(phase),
@@ -493,8 +558,7 @@ wait(cast, BatchTuple , State = #workerGeneric_state{lastPhase = LastPhase, next
             "Worker ~p replaying deferred parallel sample immediately by transitioning wait->~p",
             [ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX), NextState]
           ),
-          gen_statem:cast(self(), BatchTuple),
-          {next_state, normalize_parallel_next_state(NextState, LastPhase), State};
+          {next_state, normalize_parallel_next_state(NextState, LastPhase), State, [{next_event, cast, BatchTuple}]};
         false ->
           queue_deferred_parallel_sample(GenWorkerEts, BatchTuple),
           {keep_state, State}
@@ -816,8 +880,41 @@ predict(cast, {sample , SourceName , BatchID , {PredictBatchTensor, Type}}, Stat
             {next_state, predict, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}}
         end;
       _ ->
-        nif_call(call_to_predict, [ModelId , {PredictBatchTensor, Type} , BatchID, SourceName]),
-        {next_state, wait, State#workerGeneric_state{nextState = predict , currentBatchID = BatchID}}
+        case maybe_parallel_predict_microbatch_path(GenWorkerEts, ModelId, SourceName, BatchID, {PredictBatchTensor, Type}) of
+          {ok, _ParMode, NumDispatched, RemainingQueue} ->
+            NumMicrobatches = NumDispatched + length(RemainingQueue),
+            ActiveBatchCtx = #{
+              model_id => ModelId,
+              source_name => SourceName,
+              batch_id => BatchID,
+              mode => tensor_predict,
+              total_microbatches => NumMicrobatches,
+              forward_dispatched => NumDispatched,
+              forward_completed => 0,
+              predict_acc => []
+            },
+            ets:update_element(GenWorkerEts, parallel_pending_losses, {?ETS_KEYVAL_VAL_IDX, NumMicrobatches}),
+            ets:update_element(GenWorkerEts, parallel_total_microbatches, {?ETS_KEYVAL_VAL_IDX, NumMicrobatches}),
+            ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX, 0.0}),
+            ets:update_element(GenWorkerEts, parallel_microbatch_queue, {?ETS_KEYVAL_VAL_IDX, RemainingQueue}),
+            ets:update_element(GenWorkerEts, parallel_active_batch_ctx, {?ETS_KEYVAL_VAL_IDX, ActiveBatchCtx}),
+            case NumMicrobatches > 0 of
+              true ->
+                {next_state, wait, State#workerGeneric_state{nextState = predict, currentBatchID = BatchID}};
+              false ->
+                notify_worker_parallel_abort(
+                  GenWorkerEts,
+                  {parallel_predict_path_rejected, BatchID, SourceName, no_microbatches_dispatched}
+                ),
+                reset_parallel_loss_context(GenWorkerEts),
+                {next_state, predict, State#workerGeneric_state{nextState = predict, currentBatchID = BatchID}}
+            end;
+          {abort, AbortReason} ->
+            ?LOG_WARNING("Worker ~p parallel predict microbatch path aborted batch=~p reason=~p, falling back to legacy predict",
+              [State#workerGeneric_state.myName, BatchID, AbortReason]),
+            nif_call(call_to_predict, [ModelId, {PredictBatchTensor, Type}, BatchID, SourceName]),
+            {next_state, wait, State#workerGeneric_state{nextState = predict, currentBatchID = BatchID}}
+        end
     end;
 
 predict(cast, {start_stream , SourceName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
@@ -1704,6 +1801,90 @@ dispatch_parallel_microbatch_list_loop(
       end
   end.
 
+%% Predict microbatch path for tensor/pipeline_tensor modes
+maybe_parallel_predict_microbatch_path(GenWorkerEts, ModelId, SourceName, BatchID, {PredictBatchTensor, PredictBatchType}) ->
+  ParallelExecution = ets:lookup_element(GenWorkerEts, parallel_execution, ?ETS_KEYVAL_VAL_IDX),
+  NumMicrobatches = get_parallel_execution_int(ParallelExecution, [<<"numMicroBatches">>, numMicroBatches], 1),
+  MicroBatchSize = get_parallel_execution_int(ParallelExecution, [<<"microBatchSize">>, microBatchSize], 0),
+  ModeValue = maps:get(<<"mode">>, ParallelExecution, maps:get(mode, ParallelExecution, <<"legacy">>)),
+  ModeLower = string:lowercase(normalize_parallel_mode_value(ModeValue)),
+  NifModule = get_backend_module(),
+  SupportsTorch = (NifModule =:= nerlTorchNIF),
+  HasSuperAuthority = ets:lookup_element(GenWorkerEts, parallel_super_authority, ?ETS_KEYVAL_VAL_IDX),
+  case {ModeLower, SupportsTorch, NumMicrobatches > 0, HasSuperAuthority} of
+    {"pipeline_tensor", true, true, true} ->
+      prepare_and_dispatch_parallel_predict_microbatches(
+        GenWorkerEts, ModelId, SourceName, BatchID,
+        {PredictBatchTensor, PredictBatchType},
+        NumMicrobatches, MicroBatchSize, pipeline_tensor
+      );
+    {"tensor", true, true, true} ->
+      prepare_and_dispatch_parallel_predict_microbatches(
+        GenWorkerEts, ModelId, SourceName, BatchID,
+        {PredictBatchTensor, PredictBatchType},
+        NumMicrobatches, MicroBatchSize, tensor
+      );
+    {_AnyNonLegacyMode, _Supports, _NumValid, false} ->
+      {abort, super_node_authority_required};
+    {_AnyMode, false, _NumValid, _AnyAuthority} ->
+      {abort, torch_backend_required};
+    _ ->
+      {abort, unsupported_parallel_mode}
+  end.
+
+prepare_and_dispatch_parallel_predict_microbatches(
+  GenWorkerEts, ModelId, SourceName, BatchID,
+  BatchTensor, NumMicrobatches, MicroBatchSize, ParallelMode
+) ->
+  case split_batch_into_microbatches(BatchTensor, NumMicrobatches, MicroBatchSize) of
+    [] ->
+      {abort, microbatch_split_failed};
+    MicrobatchList ->
+      WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+      StageID = get_worker_pipeline_stage(GenWorkerEts),
+      case dispatch_parallel_predict_microbatch_list_loop(
+        GenWorkerEts, WorkerName, StageID, ModelId,
+        SourceName, BatchID, MicrobatchList, 0, ParallelMode
+      ) of
+        {ok, NumDispatched, RemainingQueue} ->
+          {ok, ParallelMode, NumDispatched, RemainingQueue};
+        {abort, _Reason} = Abort ->
+          Abort
+      end
+  end.
+
+dispatch_parallel_predict_microbatch_list_loop(
+  _GenWorkerEts, _WorkerName, _StageID, _ModelId,
+  _SourceName, _BatchID, [], NumDispatched, _ParallelMode
+) ->
+  {ok, NumDispatched, []};
+dispatch_parallel_predict_microbatch_list_loop(
+  GenWorkerEts, WorkerName, StageID, ModelId,
+  SourceName, BatchID,
+  [{MicrobatchID, {MicrobatchTensor, MicrobatchType}} | Rest],
+  NumDispatched, ParallelMode
+) ->
+  case maybe_emit_parallel_forward_event(ParallelMode, WorkerName, BatchID, MicrobatchID, StageID) of
+    {error, no_scheduler_grant} ->
+      {ok, NumDispatched, [{MicrobatchID, {MicrobatchTensor, MicrobatchType}} | Rest]};
+    {error, EmitReason} ->
+      {abort, {forward_event_rejected, EmitReason}};
+    ok ->
+      case maybe_apply_tensor_parallel_collectives(
+             GenWorkerEts, ParallelMode, BatchID, MicrobatchID,
+             {MicrobatchTensor, MicrobatchType}
+           ) of
+        {abort, TpAbortReason} ->
+          {abort, {tensor_collective_failed, TpAbortReason}};
+        {ok, {PreparedTensor, PreparedType}} ->
+          nif_call(call_to_predict, [ModelId, {PreparedTensor, PreparedType}, BatchID, SourceName]),
+          dispatch_parallel_predict_microbatch_list_loop(
+            GenWorkerEts, WorkerName, StageID, ModelId,
+            SourceName, BatchID, Rest, NumDispatched + 1, ParallelMode
+          )
+      end
+  end.
+
 dispatch_queued_parallel_microbatches(GenWorkerEts) ->
   ActiveBatchCtx = ets:lookup_element(GenWorkerEts, parallel_active_batch_ctx, ?ETS_KEYVAL_VAL_IDX),
   case ActiveBatchCtx of
@@ -1726,7 +1907,22 @@ dispatch_queued_parallel_microbatches(GenWorkerEts) ->
             {_, undefined} ->
               {abort, missing_parallel_active_batch_id};
             _ ->
-              case dispatch_parallel_microbatch_list_loop(
+              DispatchFun = case ParallelMode of
+                tensor_predict ->
+                  fun(GWE, WN, SID, MID, SN, BID, Q, ND, PM) ->
+                    dispatch_parallel_predict_microbatch_list_loop(GWE, WN, SID, MID, SN, BID, Q, ND, PM)
+                  end;
+                _ ->
+                  fun(GWE, WN, SID, MID, SN, BID, Q, ND, PM) ->
+                    dispatch_parallel_microbatch_list_loop(GWE, WN, SID, MID, SN, BID, Q, ND, PM)
+                  end
+              end,
+              %% For tensor_predict, use the actual TP parallel mode for grant matching
+              DispatchMode = case ParallelMode of
+                tensor_predict -> pipeline_tensor;
+                _ -> ParallelMode
+              end,
+              case DispatchFun(
                      GenWorkerEts,
                      WorkerName,
                      StageID,
@@ -1735,7 +1931,7 @@ dispatch_queued_parallel_microbatches(GenWorkerEts) ->
                      BatchID,
                      Queue,
                      0,
-                     ParallelMode
+                     DispatchMode
                    ) of
                 {ok, _NumDispatched, RemainingQueue} ->
                   ets:update_element(GenWorkerEts, parallel_microbatch_queue, {?ETS_KEYVAL_VAL_IDX, RemainingQueue}),
