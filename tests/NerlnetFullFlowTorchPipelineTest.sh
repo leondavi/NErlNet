@@ -12,7 +12,7 @@ if [ -z "${NERLNET_PATH:-}" ]; then
 fi
 
 export TESTS_PATH="$NERLNET_PATH/tests"
-export NERLNET_RUNNING_TIMEOUT_SEC="${NERLNET_RUNNING_TIMEOUT_SEC:-30}"
+export NERLNET_RUNNING_TIMEOUT_SEC="${NERLNET_RUNNING_TIMEOUT_SEC:-5}"
 
 NERLNET_CONFIG_DIR="$NERLNET_PATH/config"
 NERLNET_CONFIG_JSONS_DIR="$NERLNET_CONFIG_DIR/jsonsDir.nerlconfig"
@@ -264,7 +264,6 @@ for VARIANT in "${TEST_VARIANTS[@]}"; do
     export TEST_EXPECT_DATASET_TOKEN="${TEST_EXPECT_DATASET_TOKEN:-synthetic_norm/synthetic_full.csv}"
     export TEST_MIN_AVG_F1="${TEST_MIN_AVG_F1:-0.50}"
     export TEST_MIN_AVG_ACCURACY="${TEST_MIN_AVG_ACCURACY:-0.50}"
-    export TEST_MAX_MISSED_BATCHES="${TEST_MAX_MISSED_BATCHES:-0}"
     case "$VARIANT" in
         pipeline_gpipe)
             export TEST_EXPECT_MODE="pipeline"

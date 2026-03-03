@@ -163,6 +163,7 @@ waitforWorkers(cast, {parallel_super_command, SuperCommand}, State = #client_sta
   {keep_state, State};
 
 waitforWorkers(cast, {worker_parallel_abort, WorkerName, Reason}, State = #client_statem_state{etsRef = EtsRef}) ->
+  increment_worker_messages_sent(EtsRef, WorkerName, {worker_parallel_abort, WorkerName, Reason}),
   handle_worker_parallel_abort(EtsRef, WorkerName, Reason),
   {keep_state, State};
 
@@ -171,6 +172,7 @@ waitforWorkers(cast, In = {stateChange,WorkerName}, State = #client_statem_state
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  increment_worker_messages_sent(EtsRef, WorkerName, In),
   case NewWaitforWorkers of % TODO Guy here we need to check for keep alive with workers
     [] ->   case NextState of
               idle -> reset_parallel_phase_close_state(EtsRef);
@@ -273,6 +275,7 @@ idle(cast, {parallel_super_command, SuperCommand}, State = #client_statem_state{
   {keep_state, State};
 
 idle(cast, {worker_parallel_abort, WorkerName, Reason}, State = #client_statem_state{etsRef = EtsRef}) ->
+  increment_worker_messages_sent(EtsRef, WorkerName, {worker_parallel_abort, WorkerName, Reason}),
   handle_worker_parallel_abort(EtsRef, WorkerName, Reason),
   {keep_state, State};
 
@@ -411,6 +414,7 @@ training(cast, {parallel_super_command, SuperCommand}, State = #client_statem_st
   {keep_state, State};
 
 training(cast, {worker_parallel_abort, WorkerName, Reason}, State = #client_statem_state{etsRef = EtsRef}) ->
+  increment_worker_messages_sent(EtsRef, WorkerName, {worker_parallel_abort, WorkerName, Reason}),
   handle_worker_parallel_abort(EtsRef, WorkerName, Reason),
   {keep_state, State};
 
@@ -422,6 +426,7 @@ training(cast, MessageIn = {update, {From, To, Data}}, State = #client_statem_st
   if WorkerOfThisClient -> 
     TargetWorkerPID = ets:lookup_element(EtsRef, To, ?WORKER_PID_IDX),
     gen_statem:cast(TargetWorkerPID,{update,From,To, Data}),
+    increment_worker_messages_received(EtsRef, To, {update, From, To, Data}),
     stats:increment_messages_sent(ClientStatsEts),
     stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(Data));
   true ->
@@ -500,6 +505,7 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
   if WorkerOfThisClient ->
       WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
       gen_statem:cast(WorkerPid, {sample, SourceName ,BatchID ,BatchOfSamples}),
+      increment_worker_messages_received(EtsRef, WorkerName, {sample, SourceName, BatchID, BatchOfSamples}),
       stats:increment_messages_sent(ClientStatsEts),
       BatchSize = nerl_tools:calculate_size(BatchOfSamples),
       stats:increment_bytes_sent(ClientStatsEts , BatchSize),
@@ -509,6 +515,7 @@ training(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef}
 
 % This action is used for start_stream triggered from a clients' worker and not source
 training(cast, {start_stream , {worker, WorkerName, TargetPair}}, State = #client_statem_state{etsRef = EtsRef}) ->
+  increment_worker_messages_sent(EtsRef, WorkerName, {start_stream, {worker, WorkerName, TargetPair}}),
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, TargetPair}]}),
   mark_worker_stream_seen(EtsRef, WorkerName),
@@ -527,6 +534,7 @@ training(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef =
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
   gen_statem:cast(WorkerPid, {start_stream, SourceName}),
+  increment_worker_messages_received(EtsRef, WorkerName, {start_stream, SourceName}),
 
   perf_stats_memory_usage_update_train(),  
   {keep_state, State};
@@ -539,6 +547,7 @@ training(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = E
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
   gen_statem:cast(WorkerPid, {end_stream, SourceName}),
+  increment_worker_messages_received(EtsRef, WorkerName, {end_stream, SourceName}),
 
   perf_stats_memory_usage_update_train(),
   {keep_state, State};
@@ -547,6 +556,7 @@ training(cast, In = {stream_ended , Pair}, State = #client_statem_state{etsRef =
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  maybe_record_stream_ended_worker(EtsRef, Pair, In),
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   UpdatedListOfActiveWorkersSources = ListOfActiveWorkersSources -- [Pair],
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, UpdatedListOfActiveWorkersSources}),
@@ -601,6 +611,7 @@ training(cast, In = {loss, WorkerName ,SourceName ,LossTensor ,TimeNIF , WorkerT
   ClientPerformanceEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  increment_worker_messages_sent(EtsRef, WorkerName, In),
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   stats:increment_time_train_active(ClientPerformanceEts, trunc(TimeNIF)), % in microseconds
   MessageBody = {WorkerName , SourceName , LossTensor , TimeNIF , WorkerToken, BatchID , BatchTS},
@@ -637,6 +648,7 @@ predict(cast, {parallel_super_command, SuperCommand}, State = #client_statem_sta
   {keep_state, State};
 
 predict(cast, {worker_parallel_abort, WorkerName, Reason}, State = #client_statem_state{etsRef = EtsRef}) ->
+  increment_worker_messages_sent(EtsRef, WorkerName, {worker_parallel_abort, WorkerName, Reason}),
   handle_worker_parallel_abort(EtsRef, WorkerName, Reason),
   {keep_state, State};
 
@@ -652,6 +664,7 @@ predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef})
     WorkerOfThisClient -> 
       WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
       gen_statem:cast(WorkerPid, {sample, SourceName ,BatchID ,BatchOfSamples}),
+      increment_worker_messages_received(EtsRef, WorkerName, {sample, SourceName, BatchID, BatchOfSamples}),
       stats:increment_messages_sent(ClientStatsEts),
       stats:increment_bytes_sent(ClientStatsEts , nerl_tools:calculate_size(BatchOfSamples)),
       perf_stats_memory_usage_update_predict();
@@ -661,6 +674,7 @@ predict(cast, In = {sample,Body}, State = #client_statem_state{etsRef = EtsRef})
 
 % This action is used for start_stream triggered from a clients' worker and not source
 predict(cast, {start_stream , {worker, WorkerName, TargetName}}, State = #client_statem_state{etsRef = EtsRef}) ->
+  increment_worker_messages_sent(EtsRef, WorkerName, {start_stream, {worker, WorkerName, TargetName}}),
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, ListOfActiveWorkersSources ++ [{WorkerName, TargetName}]}),
   mark_worker_stream_seen(EtsRef, WorkerName),
@@ -679,6 +693,7 @@ predict(cast, In = {start_stream , Data}, State = #client_statem_state{etsRef = 
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
   gen_statem:cast(WorkerPid, {start_stream, SourceName}),
+  increment_worker_messages_received(EtsRef, WorkerName, {start_stream, SourceName}),
 
   perf_stats_memory_usage_update_predict(),
   {keep_state, State};
@@ -690,6 +705,7 @@ predict(cast, In = {end_stream , Data}, State = #client_statem_state{etsRef = Et
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef , WorkerName),
   gen_statem:cast(WorkerPid, {end_stream, SourceName}),
+  increment_worker_messages_received(EtsRef, WorkerName, {end_stream, SourceName}),
 
   perf_stats_memory_usage_update_predict(),
   {keep_state, State};
@@ -698,6 +714,7 @@ predict(cast, In = {stream_ended , Pair}, State = #client_statem_state{etsRef = 
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  maybe_record_stream_ended_worker(EtsRef, Pair, In),
   ListOfActiveWorkersSources = ets:lookup_element(EtsRef, active_workers_streams, ?DATA_IDX),
   UpdatedListOfActiveWorkersSources = ListOfActiveWorkersSources -- [Pair],
   ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, UpdatedListOfActiveWorkersSources}),
@@ -749,6 +766,7 @@ predict(cast, In = {predictRes,WorkerName, SourceName ,{PredictNerlTensor, NetlT
   ClientPerformanceEts = get(performance_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
+  increment_worker_messages_sent(EtsRef, WorkerName, In),
 
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   MessageBody = {WorkerName, SourceName, {PredictNerlTensor , NetlTensorType}, TimeTook, WorkerToken, BatchID, BatchTS}, %% SHOULD INCLUDE TYPE?
@@ -849,6 +867,61 @@ code_change(_OldVsn, StateName, State = #client_statem_state{}, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
+increment_worker_messages_received(EtsRef, WorkerNameRaw, Payload) ->
+  increment_worker_transport_counter(EtsRef, WorkerNameRaw, messages_received, bytes_received, Payload).
+
+increment_worker_messages_sent(EtsRef, WorkerNameRaw, Payload) ->
+  increment_worker_transport_counter(EtsRef, WorkerNameRaw, messages_sent, bytes_sent, Payload).
+
+increment_worker_messages_dropped(EtsRef, WorkerNameRaw) ->
+  increment_worker_transport_counter(EtsRef, WorkerNameRaw, messages_dropped, none, undefined).
+
+increment_worker_transport_counter(EtsRef, WorkerNameRaw, CounterKey, BytesCounterKey, Payload) ->
+  WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
+  case resolve_worker_name(WorkersOfThisClient, WorkerNameRaw) of
+    {error, _} ->
+      ok;
+    {ok, WorkerName} ->
+      EtsStats = get(ets_stats),
+      case ets:lookup(EtsStats, WorkerName) of
+        [] ->
+          ok;
+        [{_WorkerName, WorkerStatsEts}] ->
+          safe_increment_worker_stat(WorkerStatsEts, CounterKey, 1),
+          case BytesCounterKey of
+            none ->
+              ok;
+            _ ->
+              try nerl_tools:calculate_size(Payload) of
+                Bytes when is_integer(Bytes), Bytes > 0 ->
+                  safe_increment_worker_stat(WorkerStatsEts, BytesCounterKey, Bytes);
+                _ ->
+                  ok
+              catch
+                _:_ ->
+                  ok
+              end
+          end
+      end
+  end.
+
+safe_increment_worker_stat(WorkerStatsEts, Key, Value) ->
+  try
+    stats:increment_by_value(WorkerStatsEts, Key, Value),
+    ok
+  catch
+    _:_ ->
+      ok
+  end.
+
+maybe_record_stream_ended_worker(EtsRef, Pair, Payload) ->
+  case Pair of
+    {WorkerName, _SourceOrTarget} ->
+      increment_worker_messages_sent(EtsRef, WorkerName, Payload);
+    _ ->
+      ok
+  end.
+
 % Sends to main server that client is ready
 send_client_is_ready(MyName) ->
   EtsRef = get(client_data),
@@ -896,6 +969,7 @@ cast_message_to_workers(EtsRef, Msg) ->
   Func = fun(WorkerName) ->
     WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef, WorkerName), 
     gen_statem:cast(WorkerPid, Msg),
+    increment_worker_messages_received(EtsRef, WorkerName, Msg),
     stats:increment_messages_sent(ClientStatsEts)
   end,
   lists:foreach(Func, Workers).
@@ -948,6 +1022,11 @@ refresh_all_workers_done_state(EtsRef) ->
   Done.
 
 handle_parallel_worker_drain_ready(EtsRef, WorkerNameRaw, ModelPhaseRaw) ->
+  increment_worker_messages_sent(
+    EtsRef,
+    WorkerNameRaw,
+    {parallel_worker_drain_ready, WorkerNameRaw, ModelPhaseRaw}
+  ),
   WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
   case resolve_worker_name(WorkersOfThisClient, WorkerNameRaw) of
     {error, _} ->
@@ -1504,6 +1583,11 @@ deliver_scheduler_grant_to_worker(EtsRef, Direction, BatchID, MicrobatchID, Stag
         WorkerPid,
         {parallel_scheduler_grant, normalize_parallel_direction(Direction), BatchID, MicrobatchID, StageID}
       ),
+      increment_worker_messages_received(
+        EtsRef,
+        WorkerName,
+        {parallel_scheduler_grant, normalize_parallel_direction(Direction), BatchID, MicrobatchID, StageID}
+      ),
       notify_scheduler_grant_accepted(
         EtsRef,
         WorkerName,
@@ -1534,6 +1618,11 @@ deliver_skip_work_item(EtsRef, Direction, BatchID, MicrobatchID, StageID, Worker
       WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef, WorkerName),
       gen_statem:cast(
         WorkerPid,
+        {parallel_skip_work_item, normalize_parallel_direction(Direction), BatchID, MicrobatchID, StageID, Reason, EventID, PhaseEpoch}
+      ),
+      increment_worker_messages_received(
+        EtsRef,
+        WorkerName,
         {parallel_skip_work_item, normalize_parallel_direction(Direction), BatchID, MicrobatchID, StageID, Reason, EventID, PhaseEpoch}
       ),
       notify_parallel_skip_ack(
@@ -1637,6 +1726,7 @@ create_encoded_stats_str(ListStatsEts) ->
   lists:flatten(lists:map(Func , ListStatsEts)).
 
 handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data) ->
+  increment_worker_messages_sent(EtsRef, FromWorker, {worker_to_worker_msg, FromWorker, ToWorker, Data}),
   ParallelMode = case ets:lookup(EtsRef, parallel_mode) of
                    [] -> legacy;
                    [{parallel_mode, Mode}] -> Mode
@@ -1656,6 +1746,7 @@ handle_w2w_msg_legacy(EtsRef, FromWorker, ToWorker, Data) ->
       W2WPidsMap = ets:lookup_element(EtsRef, w2wcom_pids, ?DATA_IDX),
       TargetWorkerW2WPID = maps:get(ToWorker, W2WPidsMap),
       {ok, _Reply} = gen_server:call(TargetWorkerW2WPID, {worker_to_worker_msg, FromWorker, ToWorker, Data}),
+      increment_worker_messages_received(EtsRef, ToWorker, {worker_to_worker_msg, FromWorker, ToWorker, Data}),
       stats:increment_messages_sent(ClientStatsEts);
     _ ->
       %% Send to the correct client
@@ -1705,10 +1796,12 @@ deliver_parallel_msg(EtsRef, FromWorker, ToWorker, Data) ->
         undefined ->
           notify_parallel_abort(EtsRef, {parallel_target_w2w_missing, ToWorker, FromWorker}),
           stats:increment_bad_messages(ClientStatsEts),
+          increment_worker_messages_dropped(EtsRef, ToWorker),
           {error, {parallel_target_w2w_missing, ToWorker, FromWorker}};
         TargetWorkerW2WPID ->
           try
             {ok, _Reply} = gen_server:call(TargetWorkerW2WPID, {worker_to_worker_msg, FromWorker, ToWorker, Data}),
+            increment_worker_messages_received(EtsRef, ToWorker, {parallel_deliver, FromWorker, ToWorker, Data}),
             stats:increment_messages_sent(ClientStatsEts),
             stats:increment_bytes_sent(ClientStatsEts, nerl_tools:calculate_size({FromWorker, ToWorker, Data})),
             ok
@@ -1716,6 +1809,7 @@ deliver_parallel_msg(EtsRef, FromWorker, ToWorker, Data) ->
             Err:Reason ->
               notify_parallel_abort(EtsRef, {parallel_local_delivery_failed, ToWorker, FromWorker, {Err, Reason}}),
               stats:increment_bad_messages(ClientStatsEts),
+              increment_worker_messages_dropped(EtsRef, ToWorker),
               {error, {parallel_local_delivery_failed, ToWorker, FromWorker, {Err, Reason}}}
           end
       end;
@@ -1781,6 +1875,11 @@ maybe_ack_parallel_delivery(EtsRef, DeliveryId, AckStatus) ->
 
 forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta) ->
   ClientStatsEts = get(client_stats_ets),
+  increment_worker_messages_sent(
+    EtsRef,
+    FromWorker,
+    {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}
+  ),
   SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
   PhaseEpoch = ets:lookup_element(EtsRef, parallel_phase_epoch, ?DATA_IDX),
   EventID = parallel_event_id(FromWorker, Direction, BatchID, MicrobatchID, StageID),
@@ -1823,6 +1922,11 @@ forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, Sta
 
 forward_parallel_skip_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta) ->
   ClientStatsEts = get(client_stats_ets),
+  increment_worker_messages_sent(
+    EtsRef,
+    FromWorker,
+    {parallel_skip_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}
+  ),
   SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
   PhaseEpoch = ets:lookup_element(EtsRef, parallel_phase_epoch, ?DATA_IDX),
   case SuperNode of

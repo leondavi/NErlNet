@@ -191,6 +191,261 @@ def _format_cpu_cores(train_cores, predict_cores):
     return ", ".join(parts) if parts else "N/A"
 
 
+def _safe_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_float(value, default=0.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _render_table(headers, rows, right_align_cols=None, indent="  "):
+    if not rows:
+        return [f"{indent}(no data)"]
+
+    right_align_cols = right_align_cols or set()
+    str_rows = [[str(cell) for cell in row] for row in rows]
+    widths = [len(str(header)) for header in headers]
+
+    for row in str_rows:
+        for idx, cell in enumerate(row):
+            widths[idx] = max(widths[idx], len(cell))
+
+    def _fmt_row(row):
+        parts = []
+        for idx, cell in enumerate(row):
+            if idx in right_align_cols:
+                parts.append(cell.rjust(widths[idx]))
+            else:
+                parts.append(cell.ljust(widths[idx]))
+        return indent + "  ".join(parts)
+
+    lines = [_fmt_row([str(h) for h in headers])]
+    lines.append(indent + "  ".join("─" * width for width in widths))
+    for row in str_rows:
+        lines.append(_fmt_row(row))
+    return lines
+
+
+def format_communication_stats(phase_name,
+                               main_server_stats=None,
+                               workers_stats=None,
+                               sources_stats=None,
+                               clients_stats=None,
+                               super_nodes_stats=None,
+                               routers_stats=None,
+                               actual_frequencies=None):
+    phase_label = str(phase_name).strip() if phase_name is not None else "phase"
+    if not phase_label:
+        phase_label = "phase"
+
+    lines = [f"Communication stats ({phase_label}):"]
+
+    def _transport_rows(entity_stats):
+        rows = []
+        for entity_name in sorted(entity_stats.keys(), key=lambda x: str(x)):
+            stats = entity_stats.get(entity_name, {})
+            rows.append([
+                entity_name,
+                _safe_int(stats.get("messages_received", 0)),
+                _safe_int(stats.get("messages_sent", 0)),
+                _safe_int(stats.get("messages_dropped", 0)),
+                _safe_int(stats.get("bad_messages", 0)),
+                _format_bytes_to_human(_safe_int(stats.get("bytes_received", 0))),
+                _format_bytes_to_human(_safe_int(stats.get("bytes_sent", 0))),
+            ])
+        return rows
+
+    main_stats = main_server_stats or {}
+    lines.append("  Main Server")
+    lines.extend(
+        _render_table(
+            ["Metric", "Value"],
+            [
+                ["Msg. Recv.", _safe_int(main_stats.get("messages_received", 0))],
+                ["Msg. Sent", _safe_int(main_stats.get("messages_sent", 0))],
+                ["Msg. Dropped", _safe_int(main_stats.get("messages_dropped", 0))],
+                ["Bad Msg.", _safe_int(main_stats.get("bad_messages", 0))],
+                ["MB Recv.", _format_bytes_to_human(_safe_int(main_stats.get("bytes_received", 0)))],
+                ["MB Sent", _format_bytes_to_human(_safe_int(main_stats.get("bytes_sent", 0)))],
+            ],
+            right_align_cols={1},
+            indent="    "
+        )
+    )
+
+    super_nodes = super_nodes_stats or {}
+    if super_nodes:
+        lines.append("  Super Nodes: Transport")
+        lines.extend(
+            _render_table(
+                [
+                    "Super Node",
+                    "Msg. Recv.",
+                    "Msg. Sent",
+                    "Msg. Dropped",
+                    "Bad Msg.",
+                    "MB Recv.",
+                    "MB Sent",
+                ],
+                _transport_rows(super_nodes),
+                right_align_cols={1, 2, 3, 4},
+                indent="    "
+            )
+        )
+
+    workers = workers_stats or {}
+    lines.append("  Workers: Transport")
+    lines.extend(
+        _render_table(
+            [
+                "Worker",
+                "Msg. Recv.",
+                "Msg. Sent",
+                "Msg. Dropped",
+                "Bad Msg.",
+                "MB Recv.",
+                "MB Sent",
+            ],
+            _transport_rows(workers),
+            right_align_cols={1, 2, 3, 4},
+            indent="    "
+        )
+    )
+
+    lines.append("  Workers: Batches / Parallel")
+    worker_detail_rows = []
+    for worker_name in sorted(workers.keys(), key=lambda x: str(x)):
+        stats = workers.get(worker_name, {})
+        tp_count = _safe_int(stats.get("tp_collective_count", 0))
+        tp_avg = _safe_float(stats.get("tp_collective_avg_latency_us", 0.0))
+        skipped_total = (
+            _safe_int(stats.get("skip_grant_accept_timeout", 0))
+            + _safe_int(stats.get("skip_payload_delivery_timeout", 0))
+            + _safe_int(stats.get("skip_completion_timeout", 0))
+            + _safe_int(stats.get("skip_phase_close_drain", 0))
+            + _safe_int(stats.get("stale_event_after_skip", 0))
+        )
+        if tp_avg <= 0.0 and tp_count > 0:
+            tp_total = _safe_int(stats.get("tp_collective_latency_us", 0))
+            tp_avg = float(tp_total) / float(tp_count)
+
+        worker_detail_rows.append([
+            worker_name,
+            f"{_safe_int(stats.get('batches_received_train', 0))}/{_safe_int(stats.get('batches_received_predict', 0))}",
+            f"{_safe_int(stats.get('batches_sent_train', 0))}/{_safe_int(stats.get('batches_sent_predict', 0))}",
+            f"{_safe_int(stats.get('batches_completed_train', 0))}/{_safe_int(stats.get('batches_completed_predict', 0))}",
+            f"{_safe_int(stats.get('batches_dropped_train', 0))}/{_safe_int(stats.get('batches_dropped_predict', 0))}",
+            f"{_safe_int(stats.get('drop_legacy_busy_train', 0))}/{_safe_int(stats.get('drop_legacy_busy_predict', 0))}",
+            skipped_total,
+            f"{tp_avg:.1f}",
+        ])
+
+    lines.extend(
+        _render_table(
+            [
+                "Worker",
+                "Recv. Batches (T/P)",
+                "Sent Batches (T/P)",
+                "Completed Batches (T/P)",
+                "Dropped Batches (T/P)",
+                "Legacy Busy (T/P)",
+                "Skipped",
+                "TP Latency (us)",
+            ],
+            worker_detail_rows,
+            right_align_cols={6, 7},
+            indent="    "
+        )
+    )
+
+    sources = sources_stats or {}
+    source_freq = actual_frequencies or {}
+    lines.append("  Sources")
+    source_rows = []
+    for source_name in sorted(sources.keys(), key=lambda x: str(x)):
+        stats = sources.get(source_name, {})
+        freq_val = source_freq.get(source_name, stats.get("actual_frequency", 0.0))
+        source_rows.append([
+            source_name,
+            _safe_int(stats.get("messages_received", 0)),
+            _safe_int(stats.get("messages_sent", 0)),
+            _safe_int(stats.get("messages_dropped", 0)),
+            _safe_int(stats.get("bad_messages", 0)),
+            _format_bytes_to_human(_safe_int(stats.get("bytes_received", 0))),
+            _format_bytes_to_human(_safe_int(stats.get("bytes_sent", 0))),
+            _safe_int(stats.get("batches_sent", 0)),
+            f"{_safe_float(freq_val):.2f}",
+        ])
+
+    lines.extend(
+        _render_table(
+            [
+                "Source",
+                "Msg. Recv.",
+                "Msg. Sent",
+                "Msg. Dropped",
+                "Bad Msg.",
+                "MB Recv.",
+                "MB Sent",
+                "Batches Sent",
+                "Actual Freq (B/s)",
+            ],
+            source_rows,
+            right_align_cols={1, 2, 3, 4, 7, 8},
+            indent="    "
+        )
+    )
+
+    clients = clients_stats or {}
+    if clients:
+        lines.append("  Clients: Transport")
+        lines.extend(
+            _render_table(
+                [
+                    "Client",
+                    "Msg. Recv.",
+                    "Msg. Sent",
+                    "Msg. Dropped",
+                    "Bad Msg.",
+                    "MB Recv.",
+                    "MB Sent",
+                ],
+                _transport_rows(clients),
+                right_align_cols={1, 2, 3, 4},
+                indent="    "
+            )
+        )
+
+    routers = routers_stats or {}
+    if routers:
+        lines.append("  Routers: Transport")
+        lines.extend(
+            _render_table(
+                [
+                    "Router",
+                    "Msg. Recv.",
+                    "Msg. Sent",
+                    "Msg. Dropped",
+                    "Bad Msg.",
+                    "MB Recv.",
+                    "MB Sent",
+                ],
+                _transport_rows(routers),
+                right_align_cols={1, 2, 3, 4},
+                indent="    "
+            )
+        )
+
+    return "\n".join(lines)
+
+
 def format_performance_stats(perf_train, perf_predict,
                              workers_comm_train=None, workers_comm_predict=None,
                              worker_to_client=None):

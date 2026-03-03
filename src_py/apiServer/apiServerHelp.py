@@ -49,6 +49,7 @@ ____________API COMMANDS_____________
 -StatsInst.get_communication_stats_sources()         returns communication statistics for sources
 -StatsInst.get_communication_stats_clients()         returns communication statistics for clients
 -StatsInst.get_communication_stats_routers()         returns communication statistics for routers
+-StatsInst.get_communication_stats_super_nodes()     returns communication statistics for super nodes
 -StatsInst.get_communication_stats_main_server()     returns communication statistics for main server
 -StatsInst.get_loss_ts()                             returns the loss over time
 -StatsInst.get_min_loss()                            returns the minimum loss

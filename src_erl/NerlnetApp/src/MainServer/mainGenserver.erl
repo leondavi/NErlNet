@@ -69,12 +69,8 @@ init({MyName,ClientsNames,BatchSize,WorkersMap,NerlnetGraph , DeviceName}) ->
   put(etsStats, EtsStats), %% All entities including mainServer ets tables statistics
   Entities = [digraph:vertex(NerlnetGraph,Vertex) || Vertex <- digraph:vertices(NerlnetGraph)--[?API_SERVER_ATOM]],
   EntitiesNames = [Name || {Name, _CommTuple} <- Entities],
-  SuperNodes = case catch ets:lookup_element(nerlnet_data, super_nodes, ?DATA_IDX) of
-                 {'EXIT', _} -> [];
-                 SuperNodesMap when is_map(SuperNodesMap) -> maps:keys(SuperNodesMap);
-                 _ -> []
-               end,
-  EntitiesStatsNames = (EntitiesNames -- [?MAIN_SERVER_ATOM]) -- SuperNodes,
+  % Super nodes are full entities in the statistics request/response flow.
+  EntitiesStatsNames = EntitiesNames -- [?MAIN_SERVER_ATOM],
   generate_stats_ets_tables(EntitiesNames),
   ets:insert(MainServerEts , {entities_names_list , EntitiesStatsNames}),
   ets:insert(MainServerEts , {batch_size , BatchSize}),

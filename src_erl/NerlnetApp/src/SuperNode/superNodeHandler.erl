@@ -117,6 +117,13 @@ init(Req0, [Action, SuperNodePid]) ->
           );
         _ -> ok
       end
+    ;
+    statistics ->
+      case binary_to_term_safe(Body) of
+        DecodedBody when DecodedBody =/= undefined ->
+          gen_server:cast(SuperNodePid, {statistics, DecodedBody});
+        _ -> ok
+      end
   end,
   Req = cowboy_req:reply(
     200,

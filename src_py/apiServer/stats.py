@@ -708,6 +708,14 @@ class Stats():
             communication_stats_routers_dict[router_name] = routers_dict[router_name].get_as_dict()
         return communication_stats_routers_dict
 
+    def get_communication_stats_super_nodes(self):
+        # return dictionary of {super_node : {communication_stats}}
+        communication_stats_super_nodes_dict = OrderedDict()
+        super_nodes_dict = self.nerl_comm_db.get_super_nodes()
+        for super_node_name in super_nodes_dict:
+            communication_stats_super_nodes_dict[super_node_name] = super_nodes_dict[super_node_name].get_as_dict()
+        return communication_stats_super_nodes_dict
+
     def get_communication_stats_main_server(self):
         # return dictionary of {main_server : {communication_stats}}
         main_server_communication_stats = self.nerl_comm_db.get_main_server().get_as_dict()
@@ -793,6 +801,7 @@ class Stats():
         # Return the total bytes sent and received in the experiment
         comm_stats_main_server = self.get_communication_stats_main_server()
         comm_stats_router = self.get_communication_stats_routers()
+        comm_stats_super_nodes = self.get_communication_stats_super_nodes()
         comm_stats_clients = self.get_communication_stats_clients()
         comm_stats_sources = self.get_communication_stats_sources()
         total_bytes = 0
@@ -805,6 +814,9 @@ class Stats():
         for router in comm_stats_router:
             total_bytes += comm_stats_router[router].get('bytes_sent', 0)
             total_bytes += comm_stats_router[router].get('bytes_received', 0)
+        for super_node in comm_stats_super_nodes:
+            total_bytes += comm_stats_super_nodes[super_node].get('bytes_sent', 0)
+            total_bytes += comm_stats_super_nodes[super_node].get('bytes_received', 0)
         total_bytes += comm_stats_main_server.get('bytes_sent', 0)
         total_bytes += comm_stats_main_server.get('bytes_received', 0)
         return total_bytes

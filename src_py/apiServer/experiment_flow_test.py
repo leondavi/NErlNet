@@ -5,7 +5,7 @@ from apiServer import *
 from runCommand import RunCommand
 from logger import *
 from stats import Stats
-from definitions import format_performance_stats
+from definitions import format_performance_stats, format_communication_stats
 
 ExitValue = 0
 
@@ -107,29 +107,34 @@ else:
         print_test(stdout, False)
 
 
-LOG_INFO("Communication stats training:")
-
-comm_stats_str = f"main server: {stats_train.get_communication_stats_main_server()}\
-workers: {stats_train.get_communication_stats_workers()}\
-sources: {stats_train.get_communication_stats_sources()}\
-clients: {stats_train.get_communication_stats_clients()}\
-routers: {stats_train.get_communication_stats_routers()}"
-
-LOG_INFO("Actual Frequencies:")
-print(f"{stats_train.get_actual_frequencies_of_sources()}")
+print(
+    format_communication_stats(
+        "training",
+        main_server_stats=stats_train.get_communication_stats_main_server(),
+        workers_stats=stats_train.get_communication_stats_workers(),
+        sources_stats=stats_train.get_communication_stats_sources(),
+        clients_stats=stats_train.get_communication_stats_clients(),
+        super_nodes_stats=stats_train.get_communication_stats_super_nodes(),
+        routers_stats=stats_train.get_communication_stats_routers(),
+        actual_frequencies=stats_train.get_actual_frequencies_of_sources(),
+    )
+)
 
 LOG_INFO("Missed Batches training:")
 #LOG_INFO(stats_train.get_missed_batches())
 
-LOG_INFO("Communication stats prediction:")
-comm_stats_str = f"main server: {stats_predict.get_communication_stats_main_server()}\
-workers: {stats_predict.get_communication_stats_workers()}\
-sources: {stats_predict.get_communication_stats_sources()}\
-clients: {stats_predict.get_communication_stats_clients()}\
-routers: {stats_predict.get_communication_stats_routers()}"
-
-LOG_INFO("Actual Frequencies:")
-print(f"{stats_predict.get_actual_frequencies_of_sources()}")
+print(
+    format_communication_stats(
+        "prediction",
+        main_server_stats=stats_predict.get_communication_stats_main_server(),
+        workers_stats=stats_predict.get_communication_stats_workers(),
+        sources_stats=stats_predict.get_communication_stats_sources(),
+        clients_stats=stats_predict.get_communication_stats_clients(),
+        super_nodes_stats=stats_predict.get_communication_stats_super_nodes(),
+        routers_stats=stats_predict.get_communication_stats_routers(),
+        actual_frequencies=stats_predict.get_actual_frequencies_of_sources(),
+    )
+)
 
 missed_batches = stats_predict.get_missed_batches()
 if missed_batches:

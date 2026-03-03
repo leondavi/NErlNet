@@ -154,6 +154,9 @@ generate_performance_stats_ets() -> %% clients
 
 generate_workers_stats_ets() -> %% workers..
     WorkersStatsEts = ets:new(workers_ets , [set, public]),
+    ets:insert(WorkersStatsEts, {messages_received , 0}),
+    ets:insert(WorkersStatsEts, {messages_sent , 0}),
+    ets:insert(WorkersStatsEts, {messages_dropped , 0}),
     ets:insert(WorkersStatsEts, {bytes_received , 0}),
     ets:insert(WorkersStatsEts, {bytes_sent , 0}),
     ets:insert(WorkersStatsEts, {bad_messages , 0}),

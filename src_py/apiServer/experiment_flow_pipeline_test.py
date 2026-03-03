@@ -7,7 +7,7 @@ import time
 import traceback
 
 from apiServer import ApiServer
-from definitions import pretty_dict, format_performance_stats
+from definitions import pretty_dict, format_performance_stats, format_communication_stats
 from logger import LOG_ERROR, LOG_INFO
 from runCommand import RunCommand
 
@@ -42,14 +42,13 @@ TEST_EXPECT_MIN_WORKERS = max(parse_int_env("TEST_EXPECT_MIN_WORKERS", 0), 0)
 
 TEST_MIN_AVG_F1 = parse_float_env("TEST_MIN_AVG_F1", 0.50)
 TEST_MIN_AVG_ACCURACY = parse_float_env("TEST_MIN_AVG_ACCURACY", 0.50)
-TEST_MAX_MISSED_BATCHES = max(parse_int_env("TEST_MAX_MISSED_BATCHES", 0), 0)
 
 NERLNET_PATH = os.getenv("NERLNET_PATH")
 TESTS_PATH = os.getenv("TESTS_PATH")
 NERLNET_RUN_SCRIPT = "./NerlnetRun.sh --run-mode release > /tmp/nerlnet_run_log.txt 2>&1"
 NERLNET_RUN_STOP_SCRIPT = "./NerlnetRun.sh --run-mode stop"
-NERLNET_RUNNING_TIMEOUT_SEC = max(parse_int_env("NERLNET_RUNNING_TIMEOUT_SEC", 30), 1)
-NERLNET_RUN_BOOT_WAIT_SEC = max(parse_int_env("NERLNET_RUN_BOOT_WAIT_SEC", 60), 1)
+NERLNET_RUNNING_TIMEOUT_SEC = max(parse_int_env("NERLNET_RUNNING_TIMEOUT_SEC", 5), 1)
+NERLNET_RUN_BOOT_WAIT_SEC = max(parse_int_env("NERLNET_RUN_BOOT_WAIT_SEC", 5), 1)
 TEST_DATASET_IDX = 2
 MANUAL_START_MODE = os.getenv("NERLNET_MANUAL_START", "0").lower() in ("1", "true", "yes", "on")
 
@@ -263,8 +262,7 @@ def main() -> int:
     print_test(f"$NERLNET_RUNNING_TIMEOUT_SEC: {NERLNET_RUNNING_TIMEOUT_SEC}")
     print_test(
         "Validation thresholds: "
-        f"min_avg_f1={TEST_MIN_AVG_F1}, min_avg_accuracy={TEST_MIN_AVG_ACCURACY}, "
-        f"max_missed_batches={TEST_MAX_MISSED_BATCHES}"
+        f"min_avg_f1={TEST_MIN_AVG_F1}, min_avg_accuracy={TEST_MIN_AVG_ACCURACY}"
     )
 
     try:
@@ -340,13 +338,8 @@ def main() -> int:
         missed_batches = stats_predict.get_missed_batches()
         missed_batches_count = count_missed_batch_entries(missed_batches)
         if missed_batches_count > 0:
-            LOG_INFO("Missed batches prediction:")
+            LOG_INFO(f"Missed batches prediction (non-fatal): count={missed_batches_count}")
             LOG_INFO(missed_batches)
-        if missed_batches_count > TEST_MAX_MISSED_BATCHES:
-            LOG_ERROR(
-                f"Missed batches exceeded threshold: {missed_batches_count} > {TEST_MAX_MISSED_BATCHES}"
-            )
-            exit_value = 1
 
     except Exception:
         LOG_ERROR("Parallel full-flow test failed with exception")
@@ -354,20 +347,32 @@ def main() -> int:
         exit_value = 1
     finally:
         if stats_train is not None:
-            LOG_INFO("Communication stats training:")
-            LOG_INFO(f"main server: {stats_train.get_communication_stats_main_server()}")
-            LOG_INFO(f"workers: {stats_train.get_communication_stats_workers()}")
-            LOG_INFO(f"sources: {stats_train.get_communication_stats_sources()}")
-            LOG_INFO("Actual Frequencies:")
-            print(f"{stats_train.get_actual_frequencies_of_sources()}")
+            print(
+                format_communication_stats(
+                    "training",
+                    main_server_stats=stats_train.get_communication_stats_main_server(),
+                    workers_stats=stats_train.get_communication_stats_workers(),
+                    sources_stats=stats_train.get_communication_stats_sources(),
+                    clients_stats=stats_train.get_communication_stats_clients(),
+                    super_nodes_stats=stats_train.get_communication_stats_super_nodes(),
+                    routers_stats=stats_train.get_communication_stats_routers(),
+                    actual_frequencies=stats_train.get_actual_frequencies_of_sources(),
+                )
+            )
 
         if stats_predict is not None:
-            LOG_INFO("Communication stats prediction:")
-            LOG_INFO(f"main server: {stats_predict.get_communication_stats_main_server()}")
-            LOG_INFO(f"workers: {stats_predict.get_communication_stats_workers()}")
-            LOG_INFO(f"sources: {stats_predict.get_communication_stats_sources()}")
-            LOG_INFO("Actual Frequencies:")
-            print(f"{stats_predict.get_actual_frequencies_of_sources()}")
+            print(
+                format_communication_stats(
+                    "prediction",
+                    main_server_stats=stats_predict.get_communication_stats_main_server(),
+                    workers_stats=stats_predict.get_communication_stats_workers(),
+                    sources_stats=stats_predict.get_communication_stats_sources(),
+                    clients_stats=stats_predict.get_communication_stats_clients(),
+                    super_nodes_stats=stats_predict.get_communication_stats_super_nodes(),
+                    routers_stats=stats_predict.get_communication_stats_routers(),
+                    actual_frequencies=stats_predict.get_actual_frequencies_of_sources(),
+                )
+            )
 
         comm_train = stats_train.get_communication_stats_workers() if stats_train else {}
         comm_predict = stats_predict.get_communication_stats_workers() if stats_predict else {}

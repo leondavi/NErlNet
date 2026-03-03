@@ -7,6 +7,7 @@
 -behaviour(gen_server).
 
 -include("../nerl_tools.hrl").
+-include("../Stats/stats.hrl").
 
 %% API
 -export([start_link/1]).
@@ -78,6 +79,8 @@ start_link(Args = {MyName, _ManagedClients, _HeartbeatMs, _MaxInflight, _Nerlnet
 init({MyName, ManagedClients, HeartbeatMs, MaxInflight, NerlnetGraph}) ->
   nerl_tools:setup_logger(?MODULE),
   inets:start(),
+  SuperNodeStatsEts = stats:generate_stats_ets(),
+  put(super_node_stats_ets, SuperNodeStatsEts),
   GrantTimeoutMs = erlang:max(5000, HeartbeatMs * ?HEARTBEAT_MISS_FACTOR * 2),
   GrantAcceptTimeoutMs = erlang:max(1500, HeartbeatMs * ?HEARTBEAT_MISS_FACTOR * ?GRANT_ACCEPT_TIMEOUT_FACTOR),
   ParallelDeliveryRetryMs = erlang:max(?PARALLEL_DELIVERY_RETRY_FLOOR_MS, HeartbeatMs div 4),
@@ -106,22 +109,26 @@ init({MyName, ManagedClients, HeartbeatMs, MaxInflight, NerlnetGraph}) ->
   }}.
 
 handle_call(get_state, _From, State = #super_node_state{}) ->
+  record_super_node_received(get_state),
   {reply, State, State};
 handle_call(
   {parallel_phase_update, PhaseName, ParallelMode, ParallelExecution, WorkerParallelMap},
   _From,
   State = #super_node_state{}
 ) ->
+  record_super_node_received({parallel_phase_update, PhaseName, ParallelMode, ParallelExecution, WorkerParallelMap}),
   {Reply, UpdatedState} =
     apply_parallel_phase_update(PhaseName, ParallelMode, ParallelExecution, WorkerParallelMap, State),
   {reply, Reply, UpdatedState};
 handle_call(_Request, _From, State = #super_node_state{}) ->
+  record_super_node_bad_message(_Request),
   {reply, ok, State}.
 
 handle_cast({register_client, ClientName, Workers}, State = #super_node_state{
   managed_clients = ManagedClients,
   client_workers = ClientWorkers
 }) ->
+  record_super_node_received({register_client, ClientName, Workers}),
   case lists:member(ClientName, ManagedClients) of
     true ->
       ?LOG_INFO("Super node registered client ~p workers ~p", [ClientName, Workers]),
@@ -134,6 +141,7 @@ handle_cast({register_client, ClientName, Workers}, State = #super_node_state{
 handle_cast({super_heartbeat, ClientName, TsMs}, State = #super_node_state{
   last_heartbeat = LastHeartbeat
 }) ->
+  record_super_node_received({super_heartbeat, ClientName, TsMs}),
   ?LOG_INFO("Super node heartbeat received from ~p ts_ms=~p", [ClientName, TsMs]),
   UpdatedHeartbeats = maps:put(ClientName, TsMs, LastHeartbeat),
   {noreply, State#super_node_state{last_heartbeat = UpdatedHeartbeats}};
@@ -142,6 +150,7 @@ handle_cast({parallel_worker_message, FromWorker, ToWorker, Data}, State = #supe
   worker_to_client = WorkerToClientMap,
   pending_parallel_deliveries = PendingDeliveries
 }) ->
+  record_super_node_received({parallel_worker_message, FromWorker, ToWorker, Data}),
   ?LOG_INFO("Super node routing parallel worker message from ~p to ~p", [FromWorker, ToWorker]),
   FinalState =
     case maps:get(ToWorker, WorkerToClientMap, undefined) of
@@ -191,6 +200,7 @@ handle_cast({parallel_worker_message, FromWorker, ToWorker, Data}, State = #supe
 handle_cast({parallel_deliver_ack, ClientName, DeliveryId, AckStatus}, State = #super_node_state{
   pending_parallel_deliveries = PendingDeliveries
 }) ->
+  record_super_node_received({parallel_deliver_ack, ClientName, DeliveryId, AckStatus}),
   case maps:get(DeliveryId, PendingDeliveries, undefined) of
     undefined ->
       ?LOG_WARNING(
@@ -229,6 +239,7 @@ handle_cast(
   {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta},
   State = #super_node_state{phase_epoch = PhaseEpoch}
 ) ->
+  record_super_node_received({parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}),
   {EventEpoch, EventMeta} = extract_event_epoch_and_meta(PhaseEpoch, Meta),
   EventID = parallel_event_id(FromWorker, Direction, BatchID, MicrobatchID, StageID),
   ?LOG_INFO(
@@ -278,6 +289,7 @@ handle_cast(
   {parallel_phase_update, PhaseName, ParallelMode, ParallelExecution, WorkerParallelMap},
   State = #super_node_state{}
 ) ->
+  record_super_node_received({parallel_phase_update, PhaseName, ParallelMode, ParallelExecution, WorkerParallelMap}),
   {_, UpdatedState} =
     apply_parallel_phase_update(PhaseName, ParallelMode, ParallelExecution, WorkerParallelMap, State),
   {noreply, UpdatedState};
@@ -286,6 +298,7 @@ handle_cast(
   {parallel_phase_close, ClientName, ClientEpoch},
   State = #super_node_state{}
 ) ->
+  record_super_node_received({parallel_phase_close, ClientName, ClientEpoch}),
   UpdatedState = handle_parallel_phase_close_request(ClientName, ClientEpoch, State),
   {noreply, UpdatedState};
 
@@ -293,6 +306,7 @@ handle_cast(
   {scheduler_grant_rejected, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, RejectReason, ClientEpoch},
   State = #super_node_state{}
 ) ->
+  record_super_node_received({scheduler_grant_rejected, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, RejectReason, ClientEpoch}),
   UpdatedState = handle_scheduler_grant_rejected(
                    ClientName,
                    WorkerName,
@@ -309,6 +323,7 @@ handle_cast(
   {scheduler_grant_rejected, ClientName, WorkerName, Direction, MicrobatchID, StageID, RejectReason, ClientEpoch},
   State = #super_node_state{}
 ) ->
+  record_super_node_received({scheduler_grant_rejected, ClientName, WorkerName, Direction, any, MicrobatchID, StageID, RejectReason, ClientEpoch}),
   UpdatedState = handle_scheduler_grant_rejected(
                    ClientName,
                    WorkerName,
@@ -326,6 +341,7 @@ handle_cast(
   {scheduler_grant_accepted, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, ClientEpoch},
   State = #super_node_state{}
 ) ->
+  record_super_node_received({scheduler_grant_accepted, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, ClientEpoch}),
   UpdatedState = handle_scheduler_grant_accepted(
                    ClientName,
                    WorkerName,
@@ -342,6 +358,7 @@ handle_cast(
   {parallel_skip_ack, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, Reason, EventID, ClientEpoch},
   State = #super_node_state{}
 ) ->
+  record_super_node_received({parallel_skip_ack, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, Reason, EventID, ClientEpoch}),
   UpdatedState = handle_parallel_skip_ack(
                    ClientName,
                    WorkerName,
@@ -360,6 +377,7 @@ handle_cast(
   {parallel_skip_relay_failed, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, Reason, EventID, ClientEpoch},
   State = #super_node_state{}
 ) ->
+  record_super_node_received({parallel_skip_relay_failed, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, Reason, EventID, ClientEpoch}),
   UpdatedState = handle_parallel_skip_relay_failed(
                    ClientName,
                    WorkerName,
@@ -378,6 +396,7 @@ handle_cast(
   {parallel_skip_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta},
   State = #super_node_state{phase_epoch = PhaseEpoch}
 ) ->
+  record_super_node_received({parallel_skip_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}),
   {EventEpoch, EventMeta} = extract_event_epoch_and_meta(PhaseEpoch, Meta),
   UpdatedState = handle_parallel_skip_event(
                    FromWorker,
@@ -391,7 +410,28 @@ handle_cast(
                  ),
   {noreply, UpdatedState};
 
+handle_cast({statistics, Body}, State = #super_node_state{
+  my_name = MyName,
+  my_router = {RouterHost, RouterPort}
+}) ->
+  record_super_node_received({statistics, Body}),
+  case get_super_node_stats_ets() of
+    undefined ->
+      {noreply, State};
+    SuperNodeStatsEts ->
+      StatsEtsStr = stats:encode_ets_to_http_bin_str(SuperNodeStatsEts),
+      StatisticsBody = {MyName, StatsEtsStr},
+      record_super_node_sent(StatisticsBody),
+      try
+        nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody)
+      catch
+        _:_ -> record_super_node_dropped({statistics, StatisticsBody})
+      end,
+      {noreply, State}
+  end;
+
 handle_cast(_Request, State = #super_node_state{}) ->
+  record_super_node_bad_message(_Request),
   {noreply, State}.
 
 handle_info(check_heartbeats, State = #super_node_state{
@@ -429,6 +469,7 @@ handle_info(check_heartbeats, State = #super_node_state{
   {noreply, StateAfterDeliveryRetry};
 
 handle_info(_Info, State = #super_node_state{}) ->
+  record_super_node_bad_message(_Info),
   {noreply, State}.
 
 terminate(_Reason, _State = #super_node_state{}) ->
@@ -442,10 +483,13 @@ notify_parallel_abort(#super_node_state{
   my_router = {RouterHost, RouterPort}
 }, Reason) ->
   MessageBody = {MyName, Reason},
+  record_super_node_sent(MessageBody),
   try
     nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(parallelAbort), MessageBody)
   catch
-    _:_ -> ok
+    _:_ ->
+      record_super_node_dropped({parallelAbort, MessageBody}),
+      ok
   end.
 
 notify_parallel_phase_done(#super_node_state{
@@ -457,6 +501,7 @@ notify_parallel_phase_done(#super_node_state{
   my_router = {RouterHost, RouterPort}
 }) ->
   MessageBody = {MyName, ParallelPhase, ParallelMode, PhaseEpoch, SchedulerBatchID},
+  record_super_node_sent(MessageBody),
   try
     nerl_tools:http_router_request(
       RouterHost,
@@ -466,7 +511,9 @@ notify_parallel_phase_done(#super_node_state{
       MessageBody
     )
   catch
-    _:_ -> ok
+    _:_ ->
+      record_super_node_dropped({parallelPhaseDone, MessageBody}),
+      ok
   end.
 
 allocate_parallel_delivery_id(State = #super_node_state{
@@ -487,6 +534,7 @@ route_parallel_delivery_to_client(
   DestClient,
   MessageBody
 ) ->
+  record_super_node_sent(MessageBody),
   try
     nerl_tools:http_router_request(
       RouterHost,
@@ -498,6 +546,7 @@ route_parallel_delivery_to_client(
     ok
   catch
     Err:Reason ->
+      record_super_node_dropped({parallelDeliver, DestClient, MessageBody, {Err, Reason}}),
       {error, {Err, Reason}}
   end.
 
@@ -941,6 +990,7 @@ send_super_command_to_client(
   ClientName,
   Command
 ) ->
+  record_super_node_sent(Command),
   try
     nerl_tools:http_router_request(
       RouterHost,
@@ -952,7 +1002,54 @@ send_super_command_to_client(
     ok
   catch
     Err:Reason ->
+      record_super_node_dropped({parallelSuperCommand, ClientName, Command, {Err, Reason}}),
       {error, {Err, Reason}}
+  end.
+
+get_super_node_stats_ets() ->
+  get(super_node_stats_ets).
+
+safe_term_size(Term) ->
+  try
+    byte_size(term_to_binary(Term))
+  catch
+    _:_ ->
+      0
+  end.
+
+record_super_node_received(Message) ->
+  case get_super_node_stats_ets() of
+    undefined ->
+      ok;
+    StatsEts ->
+      stats:increment_messages_received(StatsEts),
+      stats:increment_bytes_received(StatsEts, safe_term_size(Message))
+  end.
+
+record_super_node_sent(Message) ->
+  case get_super_node_stats_ets() of
+    undefined ->
+      ok;
+    StatsEts ->
+      stats:increment_messages_sent(StatsEts),
+      stats:increment_bytes_sent(StatsEts, safe_term_size(Message))
+  end.
+
+record_super_node_dropped(_Message) ->
+  case get_super_node_stats_ets() of
+    undefined ->
+      ok;
+    StatsEts ->
+      stats:increment_messages_dropped(StatsEts)
+  end.
+
+record_super_node_bad_message(Message) ->
+  record_super_node_received(Message),
+  case get_super_node_stats_ets() of
+    undefined ->
+      ok;
+    StatsEts ->
+      stats:increment_bad_messages(StatsEts)
   end.
 
 maybe_send_next_scheduler_grant(

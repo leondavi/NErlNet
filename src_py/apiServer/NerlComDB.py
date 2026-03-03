@@ -76,9 +76,37 @@ class RouterComDB(EntityComDB):
             "bad_messages": self.bad_messages
         }
 
+class SuperNodeComDB(EntityComDB):
+    def __init__(self):
+        super().__init__()
+
+    def __add__(self, other):
+        return super().__add__(other)
+
+    def update_stats(self, input_dict):
+        self.messages_received = input_dict["messages_received"]
+        self.messages_sent = input_dict["messages_sent"]
+        self.messages_dropped = input_dict["messages_dropped"]
+        self.bytes_received = input_dict["bytes_received"]
+        self.bytes_sent = input_dict["bytes_sent"]
+        self.bad_messages = input_dict["bad_messages"]
+
+    def get_as_dict(self):
+        return {
+            "messages_received": self.messages_received,
+            "messages_sent": self.messages_sent,
+            "messages_dropped": self.messages_dropped,
+            "bytes_received": self.bytes_received,
+            "bytes_sent": self.bytes_sent,
+            "bad_messages": self.bad_messages
+        }
+
 class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse!
     # based on stats erl
     def __init__(self):
+        self.messages_received = 0
+        self.messages_sent = 0
+        self.messages_dropped = 0
         self.bytes_received = 0
         self.bytes_sent = 0
         self.bad_messages = 0
@@ -105,6 +133,9 @@ class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse
         self.tp_collective_latency_us = 0
 
     def __add__(self, other):
+        self.messages_received += other.messages_received
+        self.messages_sent += other.messages_sent
+        self.messages_dropped += other.messages_dropped
         self.bytes_received += other.bytes_received
         self.bytes_sent += other.bytes_sent
         self.bad_messages += other.bad_messages
@@ -139,6 +170,9 @@ class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse
             else 0.0
         )
         return {
+            "messages_received": self.messages_received,
+            "messages_sent": self.messages_sent,
+            "messages_dropped": self.messages_dropped,
             "bytes_received": self.bytes_received,
             "bytes_sent": self.bytes_sent,
             "bad_messages": self.bad_messages,
@@ -167,6 +201,9 @@ class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse
         }
 
     def update_stats(self, input_dict):
+        self.messages_received = int(input_dict.get("messages_received", 0))
+        self.messages_sent = int(input_dict.get("messages_sent", 0))
+        self.messages_dropped = int(input_dict.get("messages_dropped", 0))
         self.bytes_received = input_dict["bytes_received"]
         self.bytes_sent = input_dict["bytes_sent"]
         self.bad_messages = input_dict["bad_messages"]
@@ -287,6 +324,7 @@ class NerlComDB():
         self.net_comps = networks_components
         self.main_server = MainServerComDB()
         self.routers = {}
+        self.super_nodes = {}
         self.clients = {}
         self.sources = {}
         self.workers = {}
@@ -298,6 +336,10 @@ class NerlComDB():
             if router_name not in self.routers:
                 self.routers[router_name] = RouterComDB()
             self.routers[router_name] = self.routers[router_name] + other.routers[router_name]
+        for super_node_name in other.super_nodes:
+            if super_node_name not in self.super_nodes:
+                self.super_nodes[super_node_name] = SuperNodeComDB()
+            self.super_nodes[super_node_name] = self.super_nodes[super_node_name] + other.super_nodes[super_node_name]
         for client_name in other.clients:
             if client_name not in self.clients:
                 self.clients[client_name] = ClientComDB()
@@ -314,6 +356,9 @@ class NerlComDB():
 
     def add_router(self, router_name):
         self.routers[router_name] = RouterComDB()
+
+    def add_super_node(self, super_node_name):
+        self.super_nodes[super_node_name] = SuperNodeComDB()
     
     def add_client(self, client_name):
         self.clients[client_name] = ClientComDB()
@@ -325,6 +370,11 @@ class NerlComDB():
         if router_name not in self.routers:
             return None
         return self.routers[router_name]
+
+    def get_super_node(self, super_node_name):
+        if super_node_name not in self.super_nodes:
+            return None
+        return self.super_nodes[super_node_name]
     
     def get_client(self, client_name):
         if client_name not in self.clients:
@@ -341,6 +391,9 @@ class NerlComDB():
     
     def get_routers(self):
         return self.routers
+
+    def get_super_nodes(self):
+        return self.super_nodes
     
     def get_clients(self):
         return self.clients
@@ -354,6 +407,8 @@ class NerlComDB():
     def build_dicts(self):
         for router_name in self.net_comps.routers:
             self.add_router(router_name)
+        for super_node_name in self.net_comps.get_super_nodes_list():
+            self.add_super_node(super_node_name)
         for client_name in self.net_comps.clients:
             self.add_client(client_name)
         for source_name in self.net_comps.sources:
@@ -369,6 +424,8 @@ class NerlComDB():
             entity_stats_dict = entity_com_dicts[entity_name]
             if entity_name in self.routers:
                 self.routers[entity_name].update_stats(entity_stats_dict)
+            elif entity_name in self.super_nodes:
+                self.super_nodes[entity_name].update_stats(entity_stats_dict)
             elif entity_name in self.clients:
                 self.clients[entity_name].update_stats(entity_stats_dict)
             elif entity_name in self.sources:

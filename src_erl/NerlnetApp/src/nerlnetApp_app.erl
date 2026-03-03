@@ -446,7 +446,8 @@ createSuperNodes(HostName) ->
                 {"/parallelDeliverAck", superNodeHandler, [parallel_deliver_ack, SuperNodePid]},
                 {"/parallelSkipAck", superNodeHandler, [parallel_skip_ack, SuperNodePid]},
                 {"/parallelSkipRelayFailed", superNodeHandler, [parallel_skip_relay_failed, SuperNodePid]},
-                {"/parallelSkipEvent", superNodeHandler, [parallel_skip_event, SuperNodePid]}
+                {"/parallelSkipEvent", superNodeHandler, [parallel_skip_event, SuperNodePid]},
+                {"/statistics", superNodeHandler, [statistics, SuperNodePid]}
             ]}
         ]),
         init_cowboy_start_clear(SuperNodeName, {HostName, Port}, SuperNodeDispatch)
