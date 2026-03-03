@@ -103,6 +103,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{worker_tp_group_state, TpGroupState}),
   ets:insert(GenWorkerEts,{tp_collective_inbox_buffer, []}),
   ets:insert(GenWorkerEts,{pipeline_nif_worker, false}),
+  ets:insert(GenWorkerEts,{parallel_nif_epoch, 0}),
   InfraModule = select_infra_module(InfraType),
   NormalizedInfraType = normalize_infra_type(InfraType),
   ets:insert(GenWorkerEts,{infra_type, InfraType}),
@@ -235,6 +236,13 @@ idle(cast, {predict}, State = #workerGeneric_state{myName = MyName , distributed
   ?LOG_INFO("Worker ~p is switching to phase predict",[MyName]),
   {next_state, predict, State#workerGeneric_state{lastPhase = predict}};
 
+idle(cast, {pipeline_nif_result, _Continuation, _NifResult}, State) ->
+  GenWorkerEts = get(generic_worker_ets),
+  ets:update_element(GenWorkerEts, pipeline_nif_worker, {?ETS_KEYVAL_VAL_IDX, false}),
+  WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+  ?LOG_WARNING("Worker ~p received stale pipeline NIF result in idle state, discarding", [WorkerName]),
+  {keep_state, State};
+
 idle(cast, _Param, State = #workerGeneric_state{myName = _MyName}) ->
   % io:format("@idle Worker ~p is going to state idle...~n",[MyName]),
   {next_state, idle, State}.
@@ -361,6 +369,8 @@ wait(cast, {pipeline_nif_result, Continuation, NifResult}, State) ->
               {keep_state, State}
           end
       end;
+    stale ->
+      {keep_state, State};
     {abort, Reason} ->
       notify_worker_parallel_abort(GenWorkerEts, Reason),
       reset_parallel_loss_context(GenWorkerEts),
@@ -570,8 +580,6 @@ wait(cast,  {start_stream , StreamName}, State = #workerGeneric_state{lastPhase 
 
 % CANNOT HAPPEN 
 wait(cast, {idle}, State= #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
-  %logger:notice("Waiting, next state - idle"),
-  % io:format("@wait: Got idle message, next state - idle~n"),
   GenWorkerEts = get(generic_worker_ets),
   case has_pending_runtime_excluding_scheduler_grants(GenWorkerEts) of
     true ->
@@ -581,21 +589,32 @@ wait(cast, {idle}, State= #workerGeneric_state{myName = MyName, distributedBehav
             "Worker ~p got idle in wait with orphaned runtime after stream close; dropping stale pending state",
             [MyName]
           ),
+          put(idle_defer_count, 0),
           Phase = get(phase),
           reset_parallel_runtime_for_idle(GenWorkerEts),
           DistributedBehaviorFunc(pre_idle, {GenWorkerEts, Phase}),
           update_client_avilable_worker(MyName),
           {next_state, idle, State#workerGeneric_state{nextState = idle}};
         false ->
-          logger:warning(
-            "Worker ~p got idle in wait state while runtime is still pending; deferring idle transition",
-            [MyName]
-          ),
-          erlang:send_after(10, self(), {'$gen_cast', {idle}}),
-          {keep_state, State}
+          DeferCount = case get(idle_defer_count) of undefined -> 0; N -> N end,
+          case DeferCount >= 50 of
+            true ->
+              logger:warning("Worker ~p forcing idle after ~p idle deferrals with pending runtime", [MyName, DeferCount]),
+              put(idle_defer_count, 0),
+              Phase = get(phase),
+              reset_parallel_runtime_for_idle(GenWorkerEts),
+              DistributedBehaviorFunc(pre_idle, {GenWorkerEts, Phase}),
+              update_client_avilable_worker(MyName),
+              {next_state, idle, State#workerGeneric_state{nextState = idle}};
+            false ->
+              put(idle_defer_count, DeferCount + 1),
+              erlang:send_after(10, self(), {'$gen_cast', {idle}}),
+              {keep_state, State}
+          end
       end;
     false ->
       logger:warning("Worker ~p got idle message in wait state, going to idle state but this is an unexpected behavior",[MyName]),
+      put(idle_defer_count, 0),
       Phase = get(phase),
       reset_parallel_runtime_for_idle(GenWorkerEts),
       DistributedBehaviorFunc(pre_idle, {GenWorkerEts, Phase}),
@@ -727,6 +746,8 @@ train(cast, {pipeline_nif_result, Continuation, NifResult}, State) ->
           reset_parallel_loss_context(GenWorkerEts),
           {keep_state, State}
       end;
+    stale ->
+      {keep_state, State};
     {abort, Reason} ->
       notify_worker_parallel_abort(GenWorkerEts, Reason),
       reset_parallel_loss_context(GenWorkerEts),
@@ -945,6 +966,8 @@ predict(cast, {pipeline_nif_result, Continuation, NifResult}, State) ->
           reset_parallel_loss_context(GenWorkerEts),
           {keep_state, State}
       end;
+    stale ->
+      {keep_state, State};
     {abort, Reason} ->
       notify_worker_parallel_abort(GenWorkerEts, Reason),
       reset_parallel_loss_context(GenWorkerEts),
@@ -1255,13 +1278,13 @@ has_orphaned_runtime_after_phase_close(GenWorkerEts) ->
   ActiveStreams =:= [] andalso
     EndStreamWaitingList =:= [] andalso
     SchedulerGrants =:= [] andalso
-    DeferredSamples =:= [] andalso
     ForwardBuffer =:= [] andalso
     BackwardBuffer =:= [] andalso
     PredictBuffer =:= [] andalso
     PendingBackwardEvents =:= [] andalso
     CollectiveInbox =:= [] andalso
-    (ActiveCtx =/= undefined orelse MicrobatchQueue =/= [] orelse PendingLosses > 0).
+    (ActiveCtx =/= undefined orelse MicrobatchQueue =/= [] orelse
+     PendingLosses > 0 orelse DeferredSamples =/= []).
 
 normalize_phase_for_client(training) -> training;
 normalize_phase_for_client(train) -> training;
@@ -4069,6 +4092,8 @@ normalize_parallel_mode_atom(_) ->
 
 reset_parallel_runtime_for_idle(GenWorkerEts) ->
   reset_parallel_loss_context(GenWorkerEts),
+  ets:update_element(GenWorkerEts, pipeline_nif_worker, {?ETS_KEYVAL_VAL_IDX, false}),
+  ets:update_counter(GenWorkerEts, parallel_nif_epoch, 1),
   ets:update_element(GenWorkerEts, parallel_scheduler_grants, {?ETS_KEYVAL_VAL_IDX, []}),
   ets:update_element(GenWorkerEts, tp_collective_inbox_buffer, {?ETS_KEYVAL_VAL_IDX, []}),
   Mode = normalize_parallel_mode_atom(
@@ -4180,16 +4205,32 @@ nif_call(Function, Args) when is_atom(Function), is_list(Args) ->
 %% Spawns a NIF call in a separate linked process so the worker gen_statem
 %% stays responsive to grants and pipeline payloads during long computations.
 %% The Continuation closure is called with the raw NIF result when it completes.
-async_pipeline_nif(GenWorkerEts, Function, Args, Continuation) ->
+%% A NIF epoch guard ensures stale results from a previous phase are discarded.
+async_pipeline_nif(GenWorkerEts, Function, Args, UserContinuation) ->
   ets:update_element(GenWorkerEts, pipeline_nif_worker, {?ETS_KEYVAL_VAL_IDX, true}),
+  SpawnEpoch = ets:lookup_element(GenWorkerEts, parallel_nif_epoch, ?ETS_KEYVAL_VAL_IDX),
   WorkerPid = self(),
   NifModule = get_backend_module(),
+  SafeContinuation = fun(NifResult) ->
+    CurrentEpoch = ets:lookup_element(GenWorkerEts, parallel_nif_epoch, ?ETS_KEYVAL_VAL_IDX),
+    case SpawnEpoch =:= CurrentEpoch of
+      false ->
+        WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+        ?LOG_WARNING(
+          "Worker ~p discarding stale pipeline NIF result spawn_epoch=~p current_epoch=~p",
+          [WorkerName, SpawnEpoch, CurrentEpoch]
+        ),
+        stale;
+      true ->
+        UserContinuation(NifResult)
+    end
+  end,
   spawn_link(fun() ->
     Result = try erlang:apply(NifModule, Function, Args)
     catch
       error:Err -> {nerlnif, error, Err}
     end,
-    gen_statem:cast(WorkerPid, {pipeline_nif_result, Continuation, Result})
+    gen_statem:cast(WorkerPid, {pipeline_nif_result, SafeContinuation, Result})
   end),
   processed.
 

@@ -1173,7 +1173,7 @@ maybe_finalize_parallel_idle_transition(training, State, MyName, EtsRef, ClientS
   case {IdleRequested, WorkersDone, should_gate_idle_with_super_close(EtsRef), CloseGranted} of
     {true, true, false, _} ->
       finalize_training_idle_transition(State, MyName, EtsRef, ClientStatsEts, ClientPerformanceEts);
-    {true, true, true, true} ->
+    {true, _, true, true} ->
       finalize_training_idle_transition(State, MyName, EtsRef, ClientStatsEts, ClientPerformanceEts);
     _ ->
       {keep_state, State#client_statem_state{etsRef = EtsRef}}
@@ -1185,7 +1185,7 @@ maybe_finalize_parallel_idle_transition(predict, State, MyName, EtsRef, ClientSt
   case {IdleRequested, WorkersDone, should_gate_idle_with_super_close(EtsRef), CloseGranted} of
     {true, true, false, _} ->
       finalize_predict_idle_transition(State, MyName, EtsRef, ClientStatsEts, ClientPerformanceEts);
-    {true, true, true, true} ->
+    {true, _, true, true} ->
       finalize_predict_idle_transition(State, MyName, EtsRef, ClientStatsEts, ClientPerformanceEts);
     _ ->
       {keep_state, State#client_statem_state{etsRef = EtsRef}}
