@@ -211,6 +211,13 @@ waitforWorkers(cast, In = {parallel_event, FromWorker, Direction, BatchID, Micro
   forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
   {keep_state, State};
 
+waitforWorkers(cast, In = {parallel_skip_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
+  forward_parallel_skip_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
+  {keep_state, State};
+
 waitforWorkers(cast, In = {parallel_worker_drain_ready, WorkerName, ModelPhase}, State = #client_statem_state{etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -295,6 +302,13 @@ idle(cast, In = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, S
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
   forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
+  {keep_state, State};
+
+idle(cast, In = {parallel_skip_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
+  forward_parallel_skip_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
   {keep_state, State};
 
 idle(cast, In = {parallel_worker_drain_ready, WorkerName, ModelPhase}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -447,6 +461,13 @@ training(cast, In = {parallel_event, FromWorker, Direction, BatchID, MicrobatchI
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
   forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
+  {keep_state, State};
+
+training(cast, In = {parallel_skip_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
+  forward_parallel_skip_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
   {keep_state, State};
 
 training(cast, In = {parallel_worker_drain_ready, WorkerName, ModelPhase}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -771,6 +792,13 @@ predict(cast, In = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
   forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
+  {keep_state, State};
+
+predict(cast, In = {parallel_skip_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}, State = #client_statem_state{etsRef = EtsRef}) ->
+  ClientStatsEts = get(client_stats_ets),
+  stats:increment_messages_received(ClientStatsEts),
+  stats:increment_bytes_received(ClientStatsEts, nerl_tools:calculate_size(In)),
+  forward_parallel_skip_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta),
   {keep_state, State};
 
 predict(cast, In = {parallel_worker_drain_ready, WorkerName, ModelPhase}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -1182,6 +1210,103 @@ notify_scheduler_grant_rejected(
       end
   end.
 
+notify_scheduler_grant_accepted(
+  EtsRef,
+  WorkerName,
+  Direction,
+  BatchID,
+  MicrobatchID,
+  StageID,
+  GrantEpoch
+) ->
+  SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
+  ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+  case SuperNode of
+    none ->
+      ok;
+    _ ->
+      MessageBody = {scheduler_grant_accepted, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, GrantEpoch},
+      {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+      try
+        nerl_tools:http_router_request(
+          RouterHost,
+          RouterPort,
+          [SuperNode],
+          atom_to_list(schedulerGrantAccepted),
+          MessageBody
+        )
+      catch
+        _:_ ->
+          ok
+      end
+  end.
+
+notify_parallel_skip_ack(
+  EtsRef,
+  WorkerName,
+  Direction,
+  BatchID,
+  MicrobatchID,
+  StageID,
+  Reason,
+  EventID,
+  PhaseEpoch
+) ->
+  SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
+  ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+  case SuperNode of
+    none ->
+      ok;
+    _ ->
+      MessageBody = {parallel_skip_ack, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, Reason, EventID, PhaseEpoch},
+      {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+      try
+        nerl_tools:http_router_request(
+          RouterHost,
+          RouterPort,
+          [SuperNode],
+          atom_to_list(parallelSkipAck),
+          MessageBody
+        )
+      catch
+        _:_ ->
+          ok
+      end
+  end.
+
+notify_parallel_skip_relay_failed(
+  EtsRef,
+  WorkerName,
+  Direction,
+  BatchID,
+  MicrobatchID,
+  StageID,
+  Reason,
+  EventID,
+  PhaseEpoch
+) ->
+  SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
+  ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+  case SuperNode of
+    none ->
+      ok;
+    _ ->
+      MessageBody = {parallel_skip_relay_failed, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, Reason, EventID, PhaseEpoch},
+      {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+      try
+        nerl_tools:http_router_request(
+          RouterHost,
+          RouterPort,
+          [SuperNode],
+          atom_to_list(parallelSkipRelayFailed),
+          MessageBody
+        )
+      catch
+        _:_ ->
+          ok
+      end
+  end.
+
 apply_parallel_mode(EtsRef, Mode, SourceRaw) ->
   Source = normalize_parallel_source(SourceRaw),
   NormalizedMode = normalize_parallel_mode(Mode),
@@ -1305,6 +1430,23 @@ apply_parallel_super_command(
     [ClientName, Direction, BatchID, MicrobatchID, StageID, WorkerName, GrantEpoch]
   ),
   deliver_scheduler_grant(EtsRef, Direction, BatchID, MicrobatchID, StageID, WorkerName, GrantEpoch, StateName);
+apply_parallel_super_command(
+  EtsRef,
+  {parallel_super_command, skip_work_item, Direction, BatchID, MicrobatchID, StageID, WorkerName, Reason, EventID, PhaseEpochRaw},
+  _StateName
+) ->
+  PhaseEpoch = resolve_parallel_phase_epoch(EtsRef, PhaseEpochRaw),
+  deliver_skip_work_item(EtsRef, Direction, BatchID, MicrobatchID, StageID, WorkerName, Reason, EventID, PhaseEpoch);
+apply_parallel_super_command(
+  EtsRef,
+  {parallel_super_command, skip_work_item, Direction, BatchID, MicrobatchID, StageID, WorkerName, Reason, EventID},
+  StateName
+) ->
+  apply_parallel_super_command(
+    EtsRef,
+    {parallel_super_command, skip_work_item, Direction, BatchID, MicrobatchID, StageID, WorkerName, Reason, EventID, current},
+    StateName
+  );
 apply_parallel_super_command(EtsRef, {parallel_super_command, phase_close_granted, PhaseEpochRaw}, _StateName) ->
   PhaseEpoch = resolve_parallel_phase_epoch(EtsRef, PhaseEpochRaw),
   ActiveEpoch = ets:lookup_element(EtsRef, parallel_phase_epoch, ?DATA_IDX),
@@ -1361,6 +1503,49 @@ deliver_scheduler_grant_to_worker(EtsRef, Direction, BatchID, MicrobatchID, Stag
       gen_statem:cast(
         WorkerPid,
         {parallel_scheduler_grant, normalize_parallel_direction(Direction), BatchID, MicrobatchID, StageID}
+      ),
+      notify_scheduler_grant_accepted(
+        EtsRef,
+        WorkerName,
+        Direction,
+        BatchID,
+        MicrobatchID,
+        StageID,
+        GrantEpoch
+      )
+  end.
+
+deliver_skip_work_item(EtsRef, Direction, BatchID, MicrobatchID, StageID, WorkerNameRaw, Reason, EventID, PhaseEpoch) ->
+  WorkersOfThisClient = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
+  case resolve_worker_name(WorkersOfThisClient, WorkerNameRaw) of
+    {error, _} ->
+      notify_parallel_skip_relay_failed(
+        EtsRef,
+        WorkerNameRaw,
+        Direction,
+        BatchID,
+        MicrobatchID,
+        StageID,
+        {non_local_worker, Reason},
+        EventID,
+        PhaseEpoch
+      );
+    {ok, WorkerName} ->
+      WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef, WorkerName),
+      gen_statem:cast(
+        WorkerPid,
+        {parallel_skip_work_item, normalize_parallel_direction(Direction), BatchID, MicrobatchID, StageID, Reason, EventID, PhaseEpoch}
+      ),
+      notify_parallel_skip_ack(
+        EtsRef,
+        WorkerName,
+        Direction,
+        BatchID,
+        MicrobatchID,
+        StageID,
+        Reason,
+        EventID,
+        PhaseEpoch
       )
   end.
 
@@ -1632,6 +1817,34 @@ forward_parallel_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, Sta
             [ClientName, EventID, SuperNode, {Err, Reason}]
           ),
           notify_parallel_abort(EtsRef, {parallel_event_route_failed, EventID, SuperNode, FromWorker, {Err, Reason}}),
+          stats:increment_bad_messages(ClientStatsEts)
+      end
+  end.
+
+forward_parallel_skip_event(EtsRef, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta) ->
+  ClientStatsEts = get(client_stats_ets),
+  SuperNode = ets:lookup_element(EtsRef, super_node, ?DATA_IDX),
+  PhaseEpoch = ets:lookup_element(EtsRef, parallel_phase_epoch, ?DATA_IDX),
+  case SuperNode of
+    none ->
+      notify_parallel_abort(EtsRef, {missing_super_node_parallel_skip_event, FromWorker, Direction}),
+      stats:increment_bad_messages(ClientStatsEts);
+    _ ->
+      TaggedMeta = {parallel_meta, PhaseEpoch, Meta},
+      MessageBody = {parallel_skip_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, TaggedMeta},
+      {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+      try
+        nerl_tools:http_router_request(
+          RouterHost,
+          RouterPort,
+          [SuperNode],
+          atom_to_list(parallelSkipEvent),
+          MessageBody
+        ),
+        stats:increment_messages_sent(ClientStatsEts),
+        stats:increment_bytes_sent(ClientStatsEts, nerl_tools:calculate_size(MessageBody))
+      catch
+        _:_ ->
           stats:increment_bad_messages(ClientStatsEts)
       end
   end.

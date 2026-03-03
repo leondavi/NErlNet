@@ -36,9 +36,12 @@
   scheduler_max_batches = undefined,
   pending_grant = none,
   pending_grant_issued_ms = 0,
+  grant_accept_timeout_ms = 3000,
+  completion_timeout_ms = 5000,
   grant_timeout_ms = 5000,
   max_observed_grant_latency_ms = 0,
   adaptive_grant_timeout_ms = 5000,
+  continue_on_timeout = true,
   grant_slow_warning_issued = false,
   rejection_streak = 0,
   parallel_active = false,
@@ -47,6 +50,11 @@
   phase_close_requested = [],
   phase_close_completed = false,
   last_parallel_event = none,
+  stale_event_after_skip_count = 0,
+  skipped_work_items = #{},
+  skip_reason_counters = #{},
+  timeout_no_progress_marker = none,
+  timeout_no_progress_streak = 0,
   last_abort = {none, 0},
   pending_parallel_deliveries = #{},
   next_parallel_delivery_id = 1,
@@ -61,6 +69,8 @@
 -define(MAX_GRANT_REJECTION_STREAK, 256).
 -define(PARALLEL_DELIVERY_RETRY_FLOOR_MS, 100).
 -define(PARALLEL_DELIVERY_MAX_RETRIES_DEFAULT, 20).
+-define(GRANT_ACCEPT_TIMEOUT_FACTOR, 1).
+-define(NO_PROGRESS_TIMEOUT_STREAK_LIMIT, 3).
 
 start_link(Args = {MyName, _ManagedClients, _HeartbeatMs, _MaxInflight, _NerlnetGraph}) ->
   gen_server:start_link({local, MyName}, ?MODULE, Args, []).
@@ -68,7 +78,8 @@ start_link(Args = {MyName, _ManagedClients, _HeartbeatMs, _MaxInflight, _Nerlnet
 init({MyName, ManagedClients, HeartbeatMs, MaxInflight, NerlnetGraph}) ->
   nerl_tools:setup_logger(?MODULE),
   inets:start(),
-  GrantTimeoutMs = erlang:max(5000, HeartbeatMs * ?HEARTBEAT_MISS_FACTOR * ?GRANT_TIMEOUT_FACTOR),
+  GrantTimeoutMs = erlang:max(5000, HeartbeatMs * ?HEARTBEAT_MISS_FACTOR * 2),
+  GrantAcceptTimeoutMs = erlang:max(1500, HeartbeatMs * ?HEARTBEAT_MISS_FACTOR * ?GRANT_ACCEPT_TIMEOUT_FACTOR),
   ParallelDeliveryRetryMs = erlang:max(?PARALLEL_DELIVERY_RETRY_FLOOR_MS, HeartbeatMs div 4),
   WorkerToClientMap = ets:lookup_element(nerlnet_data, workers, ?DATA_IDX),
   RouterProbeDestination = case ManagedClients of
@@ -83,6 +94,8 @@ init({MyName, ManagedClients, HeartbeatMs, MaxInflight, NerlnetGraph}) ->
     managed_clients = ManagedClients,
     worker_to_client = WorkerToClientMap,
     heartbeat_ms = HeartbeatMs,
+    grant_accept_timeout_ms = GrantAcceptTimeoutMs,
+    completion_timeout_ms = GrantTimeoutMs,
     grant_timeout_ms = GrantTimeoutMs,
     adaptive_grant_timeout_ms = GrantTimeoutMs,
     parallel_delivery_retry_ms = ParallelDeliveryRetryMs,
@@ -140,11 +153,17 @@ handle_cast({parallel_worker_message, FromWorker, ToWorker, Data}, State = #supe
         case route_parallel_delivery_to_client(StateWithDeliveryId, DestClient, MessageBody) of
           ok ->
             DeliveryNowMs = erlang:system_time(millisecond),
+            DeliveryGrantCtx = infer_delivery_grant_context(StateWithDeliveryId, FromWorker, ToWorker, Data),
             DeliveryInfo = #{
               client => DestClient,
               from_worker => FromWorker,
               to_worker => ToWorker,
               data => Data,
+              grant_event_id => maps:get(event_id, DeliveryGrantCtx, undefined),
+              direction => maps:get(direction, DeliveryGrantCtx, undefined),
+              batch_id => maps:get(batch_id, DeliveryGrantCtx, undefined),
+              microbatch_id => maps:get(microbatch_id, DeliveryGrantCtx, undefined),
+              stage_id => maps:get(stage_id, DeliveryGrantCtx, undefined),
               sent_ms => DeliveryNowMs,
               retries => 0
             },
@@ -152,9 +171,18 @@ handle_cast({parallel_worker_message, FromWorker, ToWorker, Data}, State = #supe
               pending_parallel_deliveries = maps:put(DeliveryId, DeliveryInfo, PendingDeliveries)
             };
           {error, RouteReason} ->
-            maybe_notify_parallel_abort(
+            FailedDeliveryGrantCtx = infer_delivery_grant_context(StateWithDeliveryId, FromWorker, ToWorker, Data),
+            handle_delivery_timeout_or_failure(
               StateWithDeliveryId,
-              {route_failed, DestClient, ToWorker, {parallel_delivery, RouteReason}}
+              #{
+                to_worker => ToWorker,
+                direction => maps:get(direction, FailedDeliveryGrantCtx, forward),
+                batch_id => maps:get(batch_id, FailedDeliveryGrantCtx, any),
+                microbatch_id => maps:get(microbatch_id, FailedDeliveryGrantCtx, undefined),
+                stage_id => maps:get(stage_id, FailedDeliveryGrantCtx, 0)
+              },
+              {route_failed, DestClient, ToWorker, {parallel_delivery, RouteReason}},
+              skip_payload_delivery_timeout
             )
         end
     end,
@@ -187,7 +215,13 @@ handle_cast({parallel_deliver_ack, ClientName, DeliveryId, AckStatus}, State = #
             AckStatus,
             maps:get(to_worker, DeliveryInfo, undefined)
           },
-          {noreply, maybe_notify_parallel_abort(State#super_node_state{pending_parallel_deliveries = RemainingDeliveries}, FailureReason)}
+          {noreply,
+            handle_delivery_timeout_or_failure(
+              State#super_node_state{pending_parallel_deliveries = RemainingDeliveries},
+              DeliveryInfo,
+              FailureReason,
+              skip_payload_delivery_timeout
+            )}
       end
   end;
 
@@ -221,14 +255,22 @@ handle_cast(
           phase_epoch => EventEpoch,
           at_ms => EventTsMs
         },
-        rejection_streak = 0
+        rejection_streak = 0,
+        timeout_no_progress_marker = EventID,
+        timeout_no_progress_streak = 0
       },
-      EventPayload = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, EventMeta},
-      case maybe_advance_scheduler(EventPayload, StateWithLastEvent) of
-        {abort, AbortReason, UpdatedState} ->
-          {noreply, maybe_notify_parallel_abort(UpdatedState, AbortReason)};
-        {ok, UpdatedState} ->
-          {noreply, UpdatedState}
+      EventKey = skipped_work_item_key(FromWorker, Direction, BatchID, MicrobatchID, StageID),
+      case is_skipped_work_item(StateWithLastEvent, FromWorker, Direction, BatchID, MicrobatchID, StageID) of
+        true ->
+          {noreply, register_stale_event_after_skip(StateWithLastEvent, EventKey, EventMeta)};
+        false ->
+          EventPayload = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, EventMeta},
+          case maybe_advance_scheduler(EventPayload, StateWithLastEvent) of
+            {abort, AbortReason, UpdatedState} ->
+              {noreply, maybe_notify_parallel_abort(UpdatedState, AbortReason)};
+            {ok, UpdatedState} ->
+              {noreply, UpdatedState}
+          end
       end
   end;
 
@@ -276,6 +318,75 @@ handle_cast(
                    StageID,
                    RejectReason,
                    ClientEpoch,
+                   State
+                 ),
+  {noreply, UpdatedState};
+
+handle_cast(
+  {scheduler_grant_accepted, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, ClientEpoch},
+  State = #super_node_state{}
+) ->
+  UpdatedState = handle_scheduler_grant_accepted(
+                   ClientName,
+                   WorkerName,
+                   Direction,
+                   BatchID,
+                   MicrobatchID,
+                   StageID,
+                   ClientEpoch,
+                   State
+                 ),
+  {noreply, UpdatedState};
+
+handle_cast(
+  {parallel_skip_ack, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, Reason, EventID, ClientEpoch},
+  State = #super_node_state{}
+) ->
+  UpdatedState = handle_parallel_skip_ack(
+                   ClientName,
+                   WorkerName,
+                   Direction,
+                   BatchID,
+                   MicrobatchID,
+                   StageID,
+                   Reason,
+                   EventID,
+                   ClientEpoch,
+                   State
+                 ),
+  {noreply, UpdatedState};
+
+handle_cast(
+  {parallel_skip_relay_failed, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, Reason, EventID, ClientEpoch},
+  State = #super_node_state{}
+) ->
+  UpdatedState = handle_parallel_skip_relay_failed(
+                   ClientName,
+                   WorkerName,
+                   Direction,
+                   BatchID,
+                   MicrobatchID,
+                   StageID,
+                   Reason,
+                   EventID,
+                   ClientEpoch,
+                   State
+                 ),
+  {noreply, UpdatedState};
+
+handle_cast(
+  {parallel_skip_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta},
+  State = #super_node_state{phase_epoch = PhaseEpoch}
+) ->
+  {EventEpoch, EventMeta} = extract_event_epoch_and_meta(PhaseEpoch, Meta),
+  UpdatedState = handle_parallel_skip_event(
+                   FromWorker,
+                   Direction,
+                   BatchID,
+                   MicrobatchID,
+                   StageID,
+                   EventEpoch,
+                   EventMeta,
                    State
                  ),
   {noreply, UpdatedState};
@@ -436,9 +547,11 @@ maybe_retry_pending_parallel_delivery(
                 RetryMs,
                 MaxRetries
               },
-              maybe_notify_parallel_abort(
+              handle_delivery_timeout_or_failure(
                 State#super_node_state{pending_parallel_deliveries = RemainingDeliveries},
-                TimeoutReason
+                DeliveryInfo,
+                TimeoutReason,
+                skip_payload_delivery_timeout
               );
             false ->
               MessageBody = {
@@ -462,9 +575,11 @@ maybe_retry_pending_parallel_delivery(
                     pending_parallel_deliveries = maps:put(DeliveryId, UpdatedInfo, PendingDeliveries)
                   };
                 {error, RouteReason} ->
-                  maybe_notify_parallel_abort(
+                  handle_delivery_timeout_or_failure(
                     State,
-                    {parallel_delivery_retry_route_failed, DeliveryId, DestClient, RouteReason}
+                    DeliveryInfo,
+                    {parallel_delivery_retry_route_failed, DeliveryId, DestClient, RouteReason},
+                    skip_payload_delivery_timeout
                   )
               end
           end
@@ -502,6 +617,8 @@ maybe_check_pending_grant_timeout(
     pending_grant = PendingGrant,
     pending_grant_issued_ms = PendingGrantIssuedMs,
     adaptive_grant_timeout_ms = AdaptiveGrantTimeoutMs,
+    grant_accept_timeout_ms = GrantAcceptTimeoutMs,
+    completion_timeout_ms = CompletionTimeoutMs,
     grant_slow_warning_issued = SlowWarningIssued,
     last_parallel_event = LastParallelEvent
   },
@@ -510,44 +627,128 @@ maybe_check_pending_grant_timeout(
   case {ParallelActive, PendingGrant, PendingGrantIssuedMs > 0} of
     {true, Grant, true} when Grant =/= none ->
       WaitMs = NowMs - PendingGrantIssuedMs,
-      EffectiveTimeout = AdaptiveGrantTimeoutMs,
-      SlowThresholdMs = trunc(EffectiveTimeout * ?GRANT_SLOW_WARNING_RATIO),
+      EffectiveCompletionTimeout = erlang:max(AdaptiveGrantTimeoutMs, CompletionTimeoutMs),
+      SlowThresholdMs = trunc(EffectiveCompletionTimeout * ?GRANT_SLOW_WARNING_RATIO),
       StateAfterSlowCheck =
         case (not SlowWarningIssued) andalso (WaitMs > SlowThresholdMs) of
           true ->
             PendingGrantSummary = pending_grant_summary(PendingGrant),
             ?LOG_WARNING(
-              "Super node slow grant warning: ~p ms elapsed (threshold=~p, slow_at=~p) pending=~p last_event=~p",
-              [WaitMs, EffectiveTimeout, SlowThresholdMs, PendingGrantSummary, LastParallelEvent]
+              "Super node slow grant warning: ~p ms elapsed (accept_timeout=~p completion_timeout=~p slow_at=~p) pending=~p last_event=~p",
+              [WaitMs, GrantAcceptTimeoutMs, EffectiveCompletionTimeout, SlowThresholdMs, PendingGrantSummary, LastParallelEvent]
             ),
             State#super_node_state{grant_slow_warning_issued = true};
           false ->
             State
         end,
-      case WaitMs > EffectiveTimeout of
-        false ->
+      case normalize_pending_grant(PendingGrant) of
+        {error, _Reason} ->
           StateAfterSlowCheck;
-        true ->
-          PendingGrantSummary2 = pending_grant_summary(PendingGrant),
-          TimeoutReason = {
-            scheduler_grant_timeout,
-            PendingGrantSummary2,
-            EffectiveTimeout,
-            LastParallelEvent
-          },
-          ?LOG_WARNING(
-            "Super node grant timeout after ~p ms (threshold=~p) pending=~p last_event=~p",
-            [WaitMs, EffectiveTimeout, PendingGrantSummary2, LastParallelEvent]
-          ),
-          maybe_notify_parallel_abort(StateAfterSlowCheck, TimeoutReason)
+        {ok, Direction, BatchID, MicrobatchID, StageID, GrantedWorkers, AckedWorkers, AcceptedWorkers, SkippedWorkers, EventID, _GrantEpoch} ->
+          AccountedWorkers = lists:usort(AckedWorkers ++ SkippedWorkers),
+          PendingWorkers = lists:subtract(GrantedWorkers, AccountedWorkers),
+          HasAcceptedWorker = (AcceptedWorkers =/= []),
+          case PendingWorkers of
+            [] ->
+              StateAfterSlowCheck;
+            _ ->
+              case {HasAcceptedWorker, WaitMs > GrantAcceptTimeoutMs, WaitMs > EffectiveCompletionTimeout} of
+                {false, true, _} ->
+                  apply_timeout_no_progress_guard(
+                    timeout_pending_grant_to_skip(
+                      StateAfterSlowCheck,
+                      skip_grant_accept_timeout,
+                      {
+                        scheduler_grant_accept_timeout,
+                        pending_grant_summary(PendingGrant),
+                        GrantAcceptTimeoutMs,
+                        LastParallelEvent
+                      },
+                      PendingWorkers
+                    )
+                  );
+                {true, _AnyAcceptTimeout, true} ->
+                  case has_pending_delivery_for_grant(
+                         StateAfterSlowCheck,
+                         Direction,
+                         BatchID,
+                         MicrobatchID,
+                         StageID,
+                         EventID,
+                         PendingWorkers
+                       ) of
+                    true ->
+                      StateAfterSlowCheck;
+                    false ->
+                      apply_timeout_no_progress_guard(
+                        timeout_pending_grant_to_skip(
+                          StateAfterSlowCheck,
+                          skip_completion_timeout,
+                          {
+                            scheduler_grant_completion_timeout,
+                            pending_grant_summary(PendingGrant),
+                            EffectiveCompletionTimeout,
+                            LastParallelEvent
+                          },
+                          PendingWorkers
+                        )
+                      )
+                  end;
+                _ ->
+                  StateAfterSlowCheck
+              end
+          end
       end;
     _ ->
       State
   end.
 
+apply_timeout_no_progress_guard(
+  State = #super_node_state{
+    parallel_active = ParallelActive,
+    phase_close_completed = PhaseCloseCompleted,
+    timeout_no_progress_marker = PrevMarker,
+    timeout_no_progress_streak = PrevStreak,
+    last_parallel_event = LastParallelEvent
+  }
+) ->
+  case {ParallelActive, PhaseCloseCompleted} of
+    {false, _} ->
+      State;
+    {_, true} ->
+      State;
+    {true, false} ->
+      Marker = timeout_progress_marker(LastParallelEvent),
+      {NextMarker, NextStreak} =
+        case Marker =:= PrevMarker of
+          true -> {Marker, PrevStreak + 1};
+          false -> {Marker, 1}
+        end,
+      StateWithStreak = State#super_node_state{
+        timeout_no_progress_marker = NextMarker,
+        timeout_no_progress_streak = NextStreak
+      },
+      case NextStreak >= ?NO_PROGRESS_TIMEOUT_STREAK_LIMIT of
+        false ->
+          StateWithStreak;
+        true ->
+          ?LOG_WARNING(
+            "Super node forcing deterministic phase close after ~p timeout skip(s) without progress marker=~p",
+            [NextStreak, NextMarker]
+          ),
+          notify_parallel_phase_done(StateWithStreak),
+          finalize_parallel_phase_close(StateWithStreak)
+      end
+  end.
+
+timeout_progress_marker(LastParallelEvent) when is_map(LastParallelEvent) ->
+  maps:get(event_id, LastParallelEvent, LastParallelEvent);
+timeout_progress_marker(LastParallelEvent) ->
+  LastParallelEvent.
+
 pending_grant_summary(PendingGrant) ->
   case normalize_pending_grant(PendingGrant) of
-    {ok, Direction, BatchId, MicrobatchId, StageId, GrantedWorkers, AckedWorkers, EventID, GrantEpoch} ->
+    {ok, Direction, BatchId, MicrobatchId, StageId, GrantedWorkers, AckedWorkers, AcceptedWorkers, SkippedWorkers, EventID, GrantEpoch} ->
       #{
         direction => Direction,
         batch_id => BatchId,
@@ -555,6 +756,8 @@ pending_grant_summary(PendingGrant) ->
         stage_id => StageId,
         workers => GrantedWorkers,
         acked_workers => AckedWorkers,
+        accepted_workers => AcceptedWorkers,
+        skipped_workers => SkippedWorkers,
         event_id => EventID,
         phase_epoch => GrantEpoch
       };
@@ -603,9 +806,24 @@ apply_parallel_phase_update(
   }
 ) ->
   PhaseEpoch = PreviousPhaseEpoch + 1,
+  NormalizedParallelExecution = case is_map(ParallelExecution) of
+                                  true -> ParallelExecution;
+                                  false -> #{}
+                                end,
   NormalizedMode = normalize_parallel_mode(ParallelMode),
-  SchedulerTrace = build_scheduler_trace(PhaseName, NormalizedMode, ParallelExecution, WorkerParallelMap),
-  SchedulerMaxBatches = resolve_scheduler_max_batches(ParallelExecution),
+  SchedulerTrace = build_scheduler_trace(PhaseName, NormalizedMode, NormalizedParallelExecution, WorkerParallelMap),
+  SchedulerMaxBatches = resolve_scheduler_max_batches(NormalizedParallelExecution),
+  ContinueOnTimeout = resolve_continue_on_timeout(NormalizedParallelExecution, State#super_node_state.continue_on_timeout),
+  GrantAcceptTimeoutMs = resolve_execution_timeout_ms(
+                           NormalizedParallelExecution,
+                           [<<"grantAcceptTimeoutMs">>, grantAcceptTimeoutMs, <<"grant_accept_timeout_ms">>, grant_accept_timeout_ms],
+                           State#super_node_state.grant_accept_timeout_ms
+                         ),
+  CompletionTimeoutMs = resolve_execution_timeout_ms(
+                          NormalizedParallelExecution,
+                          [<<"completionTimeoutMs">>, completionTimeoutMs, <<"completion_timeout_ms">>, completion_timeout_ms],
+                          State#super_node_state.completion_timeout_ms
+                        ),
   ParallelActive = is_parallel_mode_active(NormalizedMode),
   PhaseStartMs =
     case ParallelActive of
@@ -624,7 +842,7 @@ apply_parallel_phase_update(
   StateAfterPhaseUpdate = State#super_node_state{
     parallel_phase = PhaseName,
     parallel_mode = NormalizedMode,
-    parallel_execution = ParallelExecution,
+    parallel_execution = NormalizedParallelExecution,
     worker_parallel = WorkerParallelMap,
     stage_workers = StageWorkers,
     stage_rr = #{},
@@ -634,8 +852,11 @@ apply_parallel_phase_update(
     scheduler_max_batches = SchedulerMaxBatches,
     pending_grant = none,
     pending_grant_issued_ms = 0,
+    grant_accept_timeout_ms = GrantAcceptTimeoutMs,
+    completion_timeout_ms = CompletionTimeoutMs,
     max_observed_grant_latency_ms = 0,
     adaptive_grant_timeout_ms = State#super_node_state.grant_timeout_ms,
+    continue_on_timeout = ContinueOnTimeout,
     grant_slow_warning_issued = false,
     rejection_streak = 0,
     parallel_active = ParallelActive,
@@ -644,6 +865,11 @@ apply_parallel_phase_update(
     phase_close_requested = [],
     phase_close_completed = false,
     last_parallel_event = none,
+    stale_event_after_skip_count = 0,
+    skipped_work_items = #{},
+    skip_reason_counters = #{},
+    timeout_no_progress_marker = none,
+    timeout_no_progress_streak = 0,
     pending_parallel_deliveries = #{}
   },
   StateAfterConfig = push_parallel_config_to_managed_clients(StateAfterPhaseUpdate),
@@ -827,6 +1053,8 @@ finalize_parallel_phase_close(
     pending_grant_issued_ms = 0,
     rejection_streak = 0,
     phase_close_completed = true,
+    timeout_no_progress_marker = none,
+    timeout_no_progress_streak = 0,
     pending_parallel_deliveries = #{}
   },
   broadcast_phase_close_granted(ClearedState).
@@ -909,7 +1137,7 @@ handle_scheduler_grant_rejected(
               );
             false ->
               case normalize_pending_grant(PendingGrant) of
-                {ok, GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID, GrantedWorkers, AckedWorkers, EventID, GrantEpoch} ->
+                {ok, GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID, GrantedWorkers, AckedWorkers, AcceptedWorkers, SkippedWorkers, EventID, GrantEpoch} ->
                   RejectedBatchID = normalize_scheduler_batch_id(BatchID),
                   ExpectedGrantTuple = {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID},
                   RejectedGrantTuple = {Direction, RejectedBatchID, MicrobatchID, StageID},
@@ -949,6 +1177,8 @@ handle_scheduler_grant_rejected(
                               stage_id => GrantStageID,
                               workers => GrantedWorkers,
                               acked_workers => UpdatedAckedWorkers,
+                              accepted_workers => AcceptedWorkers,
+                              skipped_workers => SkippedWorkers,
                               event_id => EventID,
                               phase_epoch => GrantEpoch
                             }
@@ -960,6 +1190,675 @@ handle_scheduler_grant_rejected(
               end
           end
       end
+  end.
+
+handle_scheduler_grant_accepted(
+  _ClientName,
+  WorkerName,
+  Direction,
+  BatchID,
+  MicrobatchID,
+  StageID,
+  ClientEpoch,
+  State = #super_node_state{
+    phase_epoch = PhaseEpoch,
+    pending_grant = PendingGrant
+  }
+) ->
+  case ClientEpoch =:= PhaseEpoch of
+    false ->
+      State;
+    true ->
+      case normalize_pending_grant(PendingGrant) of
+        {ok, GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID, GrantedWorkers, AckedWorkers, AcceptedWorkers, SkippedWorkers, EventID, GrantEpoch} ->
+          AcceptedBatchID = normalize_scheduler_batch_id(BatchID),
+          ExpectedGrantTuple = {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID},
+          AcceptedGrantTuple = {normalize_scheduler_direction(Direction), AcceptedBatchID, MicrobatchID, StageID},
+          case grant_tuple_matches(ExpectedGrantTuple, AcceptedGrantTuple)
+                 andalso lists:member(WorkerName, GrantedWorkers) of
+            false ->
+              State;
+            true ->
+              UpdatedAcceptedWorkers = lists:usort([WorkerName | AcceptedWorkers]),
+              State#super_node_state{
+                pending_grant = #{
+                  direction => GrantDirection,
+                  batch_id => GrantBatchID,
+                  microbatch_id => GrantMicrobatchID,
+                  stage_id => GrantStageID,
+                  workers => GrantedWorkers,
+                  acked_workers => AckedWorkers,
+                  accepted_workers => UpdatedAcceptedWorkers,
+                  skipped_workers => SkippedWorkers,
+                  event_id => EventID,
+                  phase_epoch => GrantEpoch
+                }
+              }
+          end;
+        _ ->
+          State
+      end
+  end.
+
+handle_parallel_skip_ack(
+  _ClientName,
+  WorkerName,
+  Direction,
+  BatchID,
+  MicrobatchID,
+  StageID,
+  Reason,
+  EventID,
+  ClientEpoch,
+  State = #super_node_state{phase_epoch = PhaseEpoch}
+) ->
+  case ClientEpoch =:= PhaseEpoch of
+    false ->
+      State;
+    true ->
+      StateAfterSkip = mark_worker_skipped_in_pending_grant(
+                         State,
+                         WorkerName,
+                         Direction,
+                         BatchID,
+                         MicrobatchID,
+                         StageID
+                       ),
+      StateWithReason = register_skip_reason_counter(StateAfterSkip, skip_reason_tag(Reason)),
+      StateWithEvent = register_skipped_work_item(
+                         StateWithReason,
+                         WorkerName,
+                         Direction,
+                         BatchID,
+                         MicrobatchID,
+                         StageID,
+                         Reason,
+                         EventID
+                       ),
+      maybe_finalize_pending_grant_resolution(StateWithEvent)
+  end.
+
+handle_parallel_skip_relay_failed(
+  ClientName,
+  WorkerName,
+  Direction,
+  BatchID,
+  MicrobatchID,
+  StageID,
+  Reason,
+  EventID,
+  ClientEpoch,
+  State = #super_node_state{}
+) ->
+  handle_parallel_skip_ack(
+    ClientName,
+    WorkerName,
+    Direction,
+    BatchID,
+    MicrobatchID,
+    StageID,
+    {skip_relay_failed, Reason},
+    EventID,
+    ClientEpoch,
+    State
+  ).
+
+handle_parallel_skip_event(
+  WorkerName,
+  Direction,
+  BatchID,
+  MicrobatchID,
+  StageID,
+  EventEpoch,
+  EventMeta,
+  State = #super_node_state{phase_epoch = PhaseEpoch}
+) ->
+  case EventEpoch =:= PhaseEpoch of
+    false ->
+      State;
+    true ->
+      EventKey = skipped_work_item_key(WorkerName, Direction, BatchID, MicrobatchID, StageID),
+      case is_skipped_work_item(State, WorkerName, Direction, BatchID, MicrobatchID, StageID) of
+        true ->
+          register_stale_event_after_skip(State, EventKey, EventMeta);
+        false ->
+          {SkipReason, SkipEventID} = extract_skip_meta(EventMeta),
+          StateAfterSkip = mark_worker_skipped_in_pending_grant(
+                             State,
+                             WorkerName,
+                             Direction,
+                             BatchID,
+                             MicrobatchID,
+                             StageID
+                           ),
+          StateWithReason = register_skip_reason_counter(StateAfterSkip, skip_reason_tag(SkipReason)),
+          StateWithEvent = register_skipped_work_item(
+                             StateWithReason,
+                             WorkerName,
+                             Direction,
+                             BatchID,
+                             MicrobatchID,
+                             StageID,
+                             SkipReason,
+                             SkipEventID
+                           ),
+          maybe_finalize_pending_grant_resolution(StateWithEvent)
+      end
+  end.
+
+mark_worker_skipped_in_pending_grant(
+  State = #super_node_state{
+    pending_grant = PendingGrant,
+    scheduler_batch_id = SchedulerBatchID
+  },
+  WorkerName,
+  Direction,
+  BatchID,
+  MicrobatchID,
+  StageID
+) ->
+  case normalize_pending_grant(PendingGrant) of
+    {ok, GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID, GrantedWorkers, AckedWorkers, AcceptedWorkers, SkippedWorkers, EventID, GrantEpoch} ->
+      RequestedBatchID = normalize_scheduler_batch_id(BatchID),
+      ResolvedBatchID =
+        case {GrantBatchID, RequestedBatchID, SchedulerBatchID} of
+          {any, any, BatchInt} when is_integer(BatchInt) -> BatchInt;
+          {any, BatchInt, _} -> BatchInt;
+          {BatchInt, _Any, _} -> BatchInt
+        end,
+      ExpectedGrantTuple = {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID},
+      SkipGrantTuple = {normalize_scheduler_direction(Direction), ResolvedBatchID, MicrobatchID, StageID},
+      case grant_tuple_matches(ExpectedGrantTuple, SkipGrantTuple)
+             andalso lists:member(WorkerName, GrantedWorkers) of
+        false ->
+          State;
+        true ->
+          UpdatedSkippedWorkers = lists:usort([WorkerName | SkippedWorkers]),
+          State#super_node_state{
+            pending_grant = #{
+              direction => GrantDirection,
+              batch_id => GrantBatchID,
+              microbatch_id => GrantMicrobatchID,
+              stage_id => GrantStageID,
+              workers => GrantedWorkers,
+              acked_workers => AckedWorkers,
+              accepted_workers => AcceptedWorkers,
+              skipped_workers => UpdatedSkippedWorkers,
+              event_id => EventID,
+              phase_epoch => GrantEpoch
+            }
+          }
+      end;
+    _ ->
+      State
+  end.
+
+grant_tuple_matches({ExpectedDirection, ExpectedBatchID, ExpectedMicrobatchID, ExpectedStageID},
+                    {Direction, BatchID, MicrobatchID, StageID}) ->
+  ExpectedDirection =:= Direction andalso
+    scheduler_batch_matches(ExpectedBatchID, BatchID) andalso
+    ExpectedMicrobatchID =:= MicrobatchID andalso
+    ExpectedStageID =:= StageID.
+
+scheduler_batch_matches(any, _BatchID) ->
+  true;
+scheduler_batch_matches(ExpectedBatchID, BatchID) ->
+  ExpectedBatchID =:= BatchID.
+
+normalize_scheduler_direction(Direction) when is_atom(Direction) ->
+  Direction;
+normalize_scheduler_direction(Direction) when is_binary(Direction) ->
+  normalize_scheduler_direction(binary_to_list(Direction));
+normalize_scheduler_direction(Direction) when is_list(Direction) ->
+  case string:lowercase(string:trim(Direction)) of
+    "backward" -> backward;
+    _ -> forward
+  end;
+normalize_scheduler_direction(_) ->
+  forward.
+
+skip_reason_tag({Tag, _}) when is_atom(Tag) ->
+  Tag;
+skip_reason_tag(Tag) when is_atom(Tag) ->
+  Tag;
+skip_reason_tag(_) ->
+  skip_unknown.
+
+register_skip_reason_counter(
+  State = #super_node_state{skip_reason_counters = SkipReasonCounters},
+  ReasonTag
+) ->
+  ReasonKey = case is_atom(ReasonTag) of true -> ReasonTag; false -> skip_unknown end,
+  Current = maps:get(ReasonKey, SkipReasonCounters, 0),
+  State#super_node_state{
+    skip_reason_counters = maps:put(ReasonKey, Current + 1, SkipReasonCounters)
+  }.
+
+skipped_work_item_key(WorkerName, Direction, BatchID, MicrobatchID, StageID) ->
+  {WorkerName, normalize_scheduler_direction(Direction), normalize_scheduler_batch_id(BatchID), MicrobatchID, StageID}.
+
+is_skipped_work_item(
+  #super_node_state{skipped_work_items = SkippedWorkItems},
+  WorkerName,
+  Direction,
+  BatchID,
+  MicrobatchID,
+  StageID
+) ->
+  ExactKey = skipped_work_item_key(WorkerName, Direction, BatchID, MicrobatchID, StageID),
+  AnyBatchKey = skipped_work_item_key(WorkerName, Direction, any, MicrobatchID, StageID),
+  maps:is_key(ExactKey, SkippedWorkItems) orelse maps:is_key(AnyBatchKey, SkippedWorkItems).
+
+register_skipped_work_item(
+  State = #super_node_state{skipped_work_items = SkippedWorkItems},
+  WorkerName,
+  Direction,
+  BatchID,
+  MicrobatchID,
+  StageID,
+  Reason,
+  EventID
+) ->
+  EventKey = skipped_work_item_key(WorkerName, Direction, BatchID, MicrobatchID, StageID),
+  SkipInfo = #{
+    reason => Reason,
+    event_id => EventID,
+    at_ms => erlang:system_time(millisecond)
+  },
+  State#super_node_state{
+    skipped_work_items = maps:put(EventKey, SkipInfo, SkippedWorkItems)
+  }.
+
+register_stale_event_after_skip(
+  State = #super_node_state{stale_event_after_skip_count = StaleCount},
+  _EventKey,
+  _Meta
+) ->
+  register_skip_reason_counter(
+    State#super_node_state{stale_event_after_skip_count = StaleCount + 1},
+    stale_event_after_skip
+  ).
+
+extract_skip_meta(EventMeta) when is_map(EventMeta) ->
+  {maps:get(reason, EventMeta, skip_worker_reported), maps:get(event_id, EventMeta, undefined)};
+extract_skip_meta({skip_meta, Reason, EventID}) ->
+  {Reason, EventID};
+extract_skip_meta(EventMeta) ->
+  {EventMeta, undefined}.
+
+maybe_finalize_pending_grant_resolution(
+  State = #super_node_state{
+    pending_grant = PendingGrant,
+    scheduler_cursor = Cursor,
+    scheduler_batch_id = SchedulerBatchID
+  }
+) ->
+  case normalize_pending_grant(PendingGrant) of
+    {ok, _Direction, GrantBatchID, _MicrobatchID, _StageID, GrantedWorkers, AckedWorkers, _AcceptedWorkers, SkippedWorkers, _EventID, _GrantEpoch} ->
+      AccountedWorkers = lists:usort(AckedWorkers ++ SkippedWorkers),
+      case lists:sort(AccountedWorkers) =:= lists:sort(GrantedWorkers) of
+        false ->
+          State;
+        true ->
+          ResolvedBatchID =
+            case {GrantBatchID, SchedulerBatchID} of
+              {any, BatchInt} when is_integer(BatchInt) -> BatchInt;
+              {BatchInt, _} -> BatchInt
+            end,
+          StateAfterResolution = State#super_node_state{
+            scheduler_cursor = Cursor + 1,
+            scheduler_batch_id = ResolvedBatchID,
+            pending_grant = none,
+            pending_grant_issued_ms = 0,
+            grant_slow_warning_issued = false
+          },
+          case maybe_send_next_scheduler_grant(StateAfterResolution) of
+            {ok, NextState} ->
+              NextState;
+            {abort, AbortReason, StateOnError} ->
+              maybe_notify_parallel_abort(StateOnError, AbortReason)
+          end
+      end;
+    _ ->
+      State
+  end.
+
+timeout_pending_grant_to_skip(
+  State = #super_node_state{continue_on_timeout = ContinueOnTimeout},
+  SkipReasonTag,
+  TimeoutReason,
+  PendingWorkers
+) ->
+  case ContinueOnTimeout of
+    true ->
+      skip_pending_workers_for_grant(State, SkipReasonTag, TimeoutReason, PendingWorkers);
+    false ->
+      maybe_notify_parallel_abort(State, TimeoutReason)
+  end.
+
+skip_pending_workers_for_grant(
+  State = #super_node_state{pending_grant = PendingGrant, phase_epoch = PhaseEpoch},
+  SkipReasonTag,
+  TimeoutReason,
+  PendingWorkers
+) ->
+  case normalize_pending_grant(PendingGrant) of
+    {ok, Direction, BatchID, MicrobatchID, StageID, _GrantedWorkers, _AckedWorkers, _AcceptedWorkers, _SkippedWorkers, EventID, _GrantEpoch} ->
+      SkipTargets = build_skip_scope_targets(State, PendingWorkers, StageID),
+      ExpandedSkipTargets = expand_skip_scope_targets(
+                              State,
+                              SkipTargets,
+                              Direction,
+                              BatchID,
+                              MicrobatchID
+                            ),
+      StateAfterRelay = relay_skip_command_to_targets(
+                          State,
+                          ExpandedSkipTargets,
+                          Direction,
+                          BatchID,
+                          TimeoutReason,
+                          EventID,
+                          PhaseEpoch
+                        ),
+      StateAfterWorkerSkip =
+        lists:foldl(
+          fun({WorkerName, TargetStageID, TargetMicrobatchID}, AccState) ->
+            register_skipped_work_item(
+              register_skip_reason_counter(
+                mark_worker_skipped_in_pending_grant(
+                  AccState,
+                  WorkerName,
+                  Direction,
+                  BatchID,
+                  TargetMicrobatchID,
+                  TargetStageID
+                ),
+                SkipReasonTag
+              ),
+              WorkerName,
+              Direction,
+              BatchID,
+              TargetMicrobatchID,
+              TargetStageID,
+              TimeoutReason,
+              EventID
+            )
+          end,
+          StateAfterRelay,
+          ExpandedSkipTargets
+        ),
+      maybe_finalize_pending_grant_resolution(StateAfterWorkerSkip);
+    _ ->
+      State
+  end.
+
+build_skip_scope_targets(
+  #super_node_state{
+    parallel_mode = ParallelMode,
+    stage_workers = StageWorkers,
+    worker_parallel = WorkerParallel,
+    worker_to_client = WorkerToClientMap
+  },
+  PendingWorkers,
+  DefaultStageID
+) ->
+  BaseTargets = normalize_skip_targets(PendingWorkers, DefaultStageID, WorkerParallel),
+  ScopedTargets =
+    case ParallelMode of
+      pipeline ->
+        stage_worker_targets(StageWorkers, WorkerParallel);
+      pipeline_tensor ->
+        stage_worker_targets(StageWorkers, WorkerParallel);
+      tensor ->
+        normalize_skip_targets(maps:keys(WorkerToClientMap), DefaultStageID, WorkerParallel);
+      _ ->
+        []
+    end,
+  lists:usort(BaseTargets ++ ScopedTargets).
+
+stage_worker_targets(StageWorkers, WorkerParallel) ->
+  maps:fold(
+    fun(StageID, Workers, AccTargets) ->
+      AccTargets ++ normalize_skip_targets(Workers, StageID, WorkerParallel)
+    end,
+    [],
+    StageWorkers
+  ).
+
+normalize_skip_targets(Workers, DefaultStageID, WorkerParallel) when is_list(Workers) ->
+  lists:usort(
+    [
+      {WorkerName, resolve_worker_stage_for_skip(WorkerName, DefaultStageID, WorkerParallel)}
+      || WorkerName <- Workers
+    ]
+  );
+normalize_skip_targets(_Workers, _DefaultStageID, _WorkerParallel) ->
+  [].
+
+expand_skip_scope_targets(
+  State = #super_node_state{parallel_mode = ParallelMode},
+  BaseTargets,
+  Direction,
+  BatchID,
+  MicrobatchID
+) ->
+  case {ParallelMode, normalize_scheduler_direction(Direction), is_integer(BatchID), is_integer(MicrobatchID)} of
+    {Mode, forward, true, true} when Mode =:= pipeline; Mode =:= pipeline_tensor ->
+      NumMicrobatches = resolve_phase_num_microbatches(State),
+      lists:usort(
+        [
+          {WorkerName, StageID, TargetMicrobatchID}
+          || {WorkerName, StageID} <- BaseTargets,
+             TargetMicrobatchID <- lists:seq(0, NumMicrobatches - 1)
+        ]
+      );
+    _ ->
+      lists:usort(
+        [
+          {WorkerName, StageID, MicrobatchID}
+          || {WorkerName, StageID} <- BaseTargets
+        ]
+      )
+  end.
+
+resolve_phase_num_microbatches(#super_node_state{parallel_execution = ParallelExecution}) when is_map(ParallelExecution) ->
+  RawNumMicrobatches = get_execution_value(
+                        ParallelExecution,
+                        [<<"numMicroBatches">>, numMicroBatches, <<"num_microbatches">>, num_microbatches],
+                        1
+                      ),
+  ParsedNumMicrobatches = normalize_non_negative_int(RawNumMicrobatches, 1),
+  case ParsedNumMicrobatches < 1 of
+    true -> 1;
+    false -> ParsedNumMicrobatches
+  end;
+resolve_phase_num_microbatches(_State) ->
+  1.
+
+resolve_worker_stage_for_skip(WorkerName, DefaultStageID, WorkerParallel) ->
+  case maps:get(WorkerName, WorkerParallel, undefined) of
+    WorkerCfg when is_map(WorkerCfg) ->
+      normalize_non_negative_int(maps:get(pipeline_stage, WorkerCfg, DefaultStageID), DefaultStageID);
+    _ ->
+      DefaultStageID
+  end.
+
+relay_skip_command_to_targets(
+  State,
+  [],
+  _Direction,
+  _BatchID,
+  _Reason,
+  _EventID,
+  _PhaseEpoch
+) ->
+  State;
+relay_skip_command_to_targets(
+  State = #super_node_state{worker_to_client = WorkerToClientMap},
+  [{WorkerName, StageID, TargetMicrobatchID} | Rest],
+  Direction,
+  BatchID,
+  Reason,
+  EventID,
+  PhaseEpoch
+) ->
+  case maps:get(WorkerName, WorkerToClientMap, undefined) of
+    undefined ->
+      relay_skip_command_to_targets(State, Rest, Direction, BatchID, Reason, EventID, PhaseEpoch);
+    ClientName ->
+      Command = {
+        parallel_super_command,
+        skip_work_item,
+        Direction,
+        BatchID,
+        TargetMicrobatchID,
+        StageID,
+        WorkerName,
+        Reason,
+        EventID,
+        PhaseEpoch
+      },
+      StateAfterRoute =
+        case send_super_command_to_client(State, ClientName, Command) of
+          ok ->
+            State;
+          {error, RouteReason} ->
+            (register_skip_reason_counter(
+               State,
+               skip_relay_failed
+             ))#super_node_state{
+              last_parallel_event = #{
+                event_id => EventID,
+                worker => WorkerName,
+                direction => Direction,
+                batch_id => BatchID,
+                microbatch_id => TargetMicrobatchID,
+                stage_id => StageID,
+                phase_epoch => PhaseEpoch,
+                at_ms => erlang:system_time(millisecond),
+                reason => {skip_route_failed, ClientName, RouteReason}
+              }
+            }
+        end,
+      relay_skip_command_to_targets(
+        StateAfterRoute,
+        Rest,
+        Direction,
+        BatchID,
+        Reason,
+        EventID,
+        PhaseEpoch
+      )
+  end.
+
+has_pending_delivery_for_grant(
+  #super_node_state{pending_parallel_deliveries = PendingDeliveries},
+  Direction,
+  BatchID,
+  MicrobatchID,
+  StageID,
+  EventID,
+  PendingWorkers
+) ->
+  lists:any(
+    fun({_DeliveryId, DeliveryInfo}) ->
+      DeliveryEventID = maps:get(grant_event_id, DeliveryInfo, undefined),
+      DeliveryWorker = maps:get(to_worker, DeliveryInfo, undefined),
+      DeliveryDirection = maps:get(direction, DeliveryInfo, undefined),
+      DeliveryBatchID = normalize_scheduler_batch_id(maps:get(batch_id, DeliveryInfo, any)),
+      DeliveryMicrobatchID = maps:get(microbatch_id, DeliveryInfo, undefined),
+      DeliveryStageID = maps:get(stage_id, DeliveryInfo, undefined),
+      (DeliveryEventID =:= EventID) orelse
+        (
+          lists:member(DeliveryWorker, PendingWorkers) andalso
+          DeliveryDirection =:= Direction andalso
+          scheduler_batch_matches(BatchID, DeliveryBatchID) andalso
+          DeliveryMicrobatchID =:= MicrobatchID andalso
+          DeliveryStageID =:= StageID
+        )
+    end,
+    maps:to_list(PendingDeliveries)
+  ).
+
+infer_delivery_grant_context(
+  #super_node_state{pending_grant = PendingGrant, worker_parallel = WorkerParallel},
+  _FromWorker,
+  ToWorker,
+  Data
+) ->
+  {Direction, BatchID, MicrobatchID} = infer_delivery_payload_tokens(Data),
+  StageID = infer_worker_stage(ToWorker, WorkerParallel),
+  case normalize_pending_grant(PendingGrant) of
+    {ok, GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID, _GrantedWorkers, _AckedWorkers, _AcceptedWorkers, _SkippedWorkers, EventID, _GrantEpoch} ->
+      case grant_tuple_matches(
+             {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID},
+             {Direction, BatchID, MicrobatchID, StageID}
+           ) of
+        true ->
+          #{
+            event_id => EventID,
+            direction => Direction,
+            batch_id => BatchID,
+            microbatch_id => MicrobatchID,
+            stage_id => StageID
+          };
+        false ->
+          #{
+            event_id => undefined,
+            direction => Direction,
+            batch_id => BatchID,
+            microbatch_id => MicrobatchID,
+            stage_id => StageID
+          }
+      end;
+    _ ->
+      #{
+        event_id => undefined,
+        direction => Direction,
+        batch_id => BatchID,
+        microbatch_id => MicrobatchID,
+        stage_id => StageID
+      }
+  end.
+
+infer_delivery_payload_tokens({pipeline_forward_payload, BatchID, _SourceName, _TotalMicrobatches, MicrobatchID, _Activation, _Labels}) ->
+  {forward, normalize_scheduler_batch_id(BatchID), MicrobatchID};
+infer_delivery_payload_tokens({pipeline_backward_payload, BatchID, _SourceName, _TotalMicrobatches, MicrobatchID, _Grad}) ->
+  {backward, normalize_scheduler_batch_id(BatchID), MicrobatchID};
+infer_delivery_payload_tokens({pipeline_predict_payload, BatchID, _SourceName, _TotalMicrobatches, MicrobatchID, _Activation}) ->
+  {forward, normalize_scheduler_batch_id(BatchID), MicrobatchID};
+infer_delivery_payload_tokens(_Data) ->
+  {forward, any, undefined}.
+
+infer_worker_stage(WorkerName, WorkerParallel) ->
+  case maps:get(WorkerName, WorkerParallel, undefined) of
+    undefined ->
+      0;
+    WorkerCfg ->
+      normalize_non_negative_int(maps:get(pipeline_stage, WorkerCfg, 0), 0)
+  end.
+
+handle_delivery_timeout_or_failure(
+  State = #super_node_state{},
+  DeliveryInfo,
+  FailureReason,
+  SkipReasonTag
+) ->
+  DeliveryMicrobatchID = maps:get(microbatch_id, DeliveryInfo, undefined),
+  DeliveryWorker = maps:get(to_worker, DeliveryInfo, undefined),
+  case {DeliveryMicrobatchID, DeliveryWorker =/= undefined} of
+    {undefined, _} ->
+      maybe_notify_parallel_abort(State, FailureReason);
+    {_AnyMicrobatch, false} ->
+      maybe_notify_parallel_abort(State, FailureReason);
+    _ ->
+      timeout_pending_grant_to_skip(
+        State,
+        SkipReasonTag,
+        FailureReason,
+        [DeliveryWorker]
+      )
   end.
 
 handle_close_related_grant_rejection(
@@ -1051,7 +1950,10 @@ clear_scheduler_for_abort(State = #super_node_state{}) ->
     pending_grant = none,
     pending_grant_issued_ms = 0,
     rejection_streak = 0,
-    pending_parallel_deliveries = #{}
+    pending_parallel_deliveries = #{},
+    skipped_work_items = #{},
+    timeout_no_progress_marker = none,
+    timeout_no_progress_streak = 0
   }.
 
 issue_next_scheduler_grant(
@@ -1107,39 +2009,102 @@ issue_next_scheduler_grant(
               {abort, Reason, EffectiveState};
             {ok, TargetWorkers, UpdatedStageRoundRobin} ->
               EventID = grant_event_id(PhaseEpoch, Direction, GrantBatchID, MicrobatchId, StageId, TargetWorkers),
-              GrantIssuedMs = erlang:system_time(millisecond),
-              ?LOG_INFO(
-                "Super node issuing scheduler grant direction=~p batch=~p microbatch=~p stage=~p epoch=~p targets=~p cursor=~p event_id=~p",
-                [Direction, GrantBatchID, MicrobatchId, StageId, PhaseEpoch, TargetWorkers, EffectiveCursor, EventID]
-              ),
-              case send_scheduler_grants(
+              PreSkippedWorkers = [
+                WorkerName
+                || WorkerName <- TargetWorkers,
+                   is_skipped_work_item(
                      EffectiveState,
-                     TargetWorkers,
+                     WorkerName,
                      Direction,
                      GrantBatchID,
                      MicrobatchId,
-                     StageId,
-                     PhaseEpoch
-                   ) of
-                ok ->
-                  {ok, EffectiveState#super_node_state{
-                    stage_rr = UpdatedStageRoundRobin,
-                    pending_grant = #{
-                      direction => Direction,
-                      batch_id => GrantBatchID,
-                      microbatch_id => MicrobatchId,
-                      stage_id => StageId,
-                      workers => TargetWorkers,
-                      acked_workers => [],
-                      event_id => EventID,
-                      phase_epoch => PhaseEpoch
-                    },
-                    pending_grant_issued_ms = GrantIssuedMs
-                  }};
-                {error, RouteReason} ->
-                  {abort,
-                   {scheduler_grant_route_failed, TargetWorkers, {Direction, GrantBatchID, MicrobatchId, StageId}, RouteReason},
-                   EffectiveState}
+                     StageId
+                   )
+              ],
+              RoutedWorkers = lists:subtract(TargetWorkers, PreSkippedWorkers),
+              case RoutedWorkers of
+                [] ->
+                  ?LOG_WARNING(
+                    "Super node pre-skipping grant direction=~p batch=~p microbatch=~p stage=~p epoch=~p targets=~p event_id=~p (already skipped)",
+                    [Direction, GrantBatchID, MicrobatchId, StageId, PhaseEpoch, TargetWorkers, EventID]
+                  ),
+                  StateAfterPreSkip =
+                    lists:foldl(
+                      fun(WorkerName, AccState) ->
+                        register_skipped_work_item(
+                          register_skip_reason_counter(
+                            mark_worker_skipped_in_pending_grant(
+                              AccState,
+                              WorkerName,
+                              Direction,
+                              GrantBatchID,
+                              MicrobatchId,
+                              StageId
+                            ),
+                            skip_completion_timeout
+                          ),
+                          WorkerName,
+                          Direction,
+                          GrantBatchID,
+                          MicrobatchId,
+                          StageId,
+                          skip_dependency_scoped,
+                          EventID
+                        )
+                      end,
+                      EffectiveState#super_node_state{stage_rr = UpdatedStageRoundRobin},
+                      TargetWorkers
+                    ),
+                  ResolvedBatchID =
+                    case {GrantBatchID, EffectiveBatchID} of
+                      {any, BatchInt} when is_integer(BatchInt) -> BatchInt;
+                      {BatchInt, _} -> BatchInt
+                    end,
+                  StateAfterResolution = StateAfterPreSkip#super_node_state{
+                    scheduler_cursor = EffectiveCursor + 1,
+                    scheduler_batch_id = ResolvedBatchID,
+                    pending_grant = none,
+                    pending_grant_issued_ms = 0,
+                    grant_slow_warning_issued = false
+                  },
+                  maybe_send_next_scheduler_grant(StateAfterResolution);
+                _ ->
+                  GrantIssuedMs = erlang:system_time(millisecond),
+                  ?LOG_INFO(
+                    "Super node issuing scheduler grant direction=~p batch=~p microbatch=~p stage=~p epoch=~p targets=~p routed=~p preskipped=~p cursor=~p event_id=~p",
+                    [Direction, GrantBatchID, MicrobatchId, StageId, PhaseEpoch, TargetWorkers, RoutedWorkers, PreSkippedWorkers, EffectiveCursor, EventID]
+                  ),
+                  case send_scheduler_grants(
+                         EffectiveState,
+                         RoutedWorkers,
+                         Direction,
+                         GrantBatchID,
+                         MicrobatchId,
+                         StageId,
+                         PhaseEpoch
+                       ) of
+                    ok ->
+                      {ok, EffectiveState#super_node_state{
+                        stage_rr = UpdatedStageRoundRobin,
+                        pending_grant = #{
+                          direction => Direction,
+                          batch_id => GrantBatchID,
+                          microbatch_id => MicrobatchId,
+                          stage_id => StageId,
+                          workers => TargetWorkers,
+                          acked_workers => [],
+                          accepted_workers => [],
+                          skipped_workers => PreSkippedWorkers,
+                          event_id => EventID,
+                          phase_epoch => PhaseEpoch
+                        },
+                        pending_grant_issued_ms = GrantIssuedMs
+                      }};
+                    {error, RouteReason} ->
+                      {abort,
+                       {scheduler_grant_route_failed, RoutedWorkers, {Direction, GrantBatchID, MicrobatchId, StageId}, RouteReason},
+                       EffectiveState}
+                  end
               end
           end
       end
@@ -1359,6 +2324,42 @@ get_execution_int(ParallelExecution, Field, Default) ->
     _:_ -> Default
   end.
 
+resolve_execution_timeout_ms(ParallelExecution, Fields, Default) ->
+  RawValue = get_execution_value(ParallelExecution, Fields, Default),
+  Parsed = normalize_non_negative_int(RawValue, Default),
+  case Parsed < 1 of
+    true -> Default;
+    false -> Parsed
+  end.
+
+resolve_continue_on_timeout(ParallelExecution, Default) ->
+  RawValue = get_execution_value(
+               ParallelExecution,
+               [<<"continueOnTimeout">>, continueOnTimeout, <<"continue_on_timeout">>, continue_on_timeout],
+               Default
+             ),
+  case RawValue of
+    true -> true;
+    false -> false;
+    <<"true">> -> true;
+    <<"false">> -> false;
+    "true" -> true;
+    "false" -> false;
+    1 -> true;
+    0 -> false;
+    _ -> Default
+  end.
+
+get_execution_value(_ParallelExecution, [], Default) ->
+  Default;
+get_execution_value(ParallelExecution, [Field | Rest], Default) ->
+  case maps:find(Field, ParallelExecution) of
+    {ok, Value} ->
+      Value;
+    error ->
+      get_execution_value(ParallelExecution, Rest, Default)
+  end.
+
 infer_pipeline_stage_world_size(WorkerParallelMap) ->
   WorkerCfgList = maps:values(WorkerParallelMap),
   StageList = [maps:get(pipeline_stage, WorkerCfg, 0) || WorkerCfg <- WorkerCfgList],
@@ -1510,7 +2511,7 @@ validate_scheduler_grant(
   case normalize_pending_grant(PendingGrantRaw) of
     {error, NormalizeReason} ->
       {abort, {invalid_pending_grant, PendingGrantRaw, NormalizeReason}, State};
-    {ok, GrantDirection, GrantBatchID, GrantMicrobatchId, GrantStage, GrantedWorkers, AckedWorkers, EventID, GrantEpoch} ->
+    {ok, GrantDirection, GrantBatchID, GrantMicrobatchId, GrantStage, GrantedWorkers, AckedWorkers, AcceptedWorkers, SkippedWorkers, EventID, GrantEpoch} ->
       case {GrantDirection, GrantMicrobatchId, GrantStage} =:= ExpectedEvent of
         false ->
           {abort, {scheduler_grant_mismatch, PendingGrantRaw, ExpectedEvent}, State};
@@ -1578,6 +2579,8 @@ validate_scheduler_grant(
                                       stage_id => Stage,
                                       workers => GrantedWorkers,
                                       acked_workers => UpdatedAckedWorkers,
+                                      accepted_workers => AcceptedWorkers,
+                                      skipped_workers => SkippedWorkers,
                                       event_id => EventID,
                                       phase_epoch => GrantEpoch
                                     }
@@ -1604,10 +2607,14 @@ normalize_pending_grant(PendingGrant) when is_map(PendingGrant) ->
     PhaseEpoch = maps:get(phase_epoch, PendingGrant, 0),
     WorkersRaw = maps:get(workers, PendingGrant),
     AckedRaw = maps:get(acked_workers, PendingGrant, []),
+    AcceptedRaw = maps:get(accepted_workers, PendingGrant, []),
+    SkippedRaw = maps:get(skipped_workers, PendingGrant, []),
     Workers = normalize_granted_workers(WorkersRaw),
     AckedWorkers = normalize_granted_workers(AckedRaw),
+    AcceptedWorkers = normalize_granted_workers(AcceptedRaw),
+    SkippedWorkers = normalize_granted_workers(SkippedRaw),
     EventID = maps:get(event_id, PendingGrant, grant_event_id(PhaseEpoch, Direction, BatchId, MicrobatchId, StageId, Workers)),
-    {ok, Direction, BatchId, MicrobatchId, StageId, Workers, AckedWorkers, EventID, PhaseEpoch}
+    {ok, Direction, BatchId, MicrobatchId, StageId, Workers, AckedWorkers, AcceptedWorkers, SkippedWorkers, EventID, PhaseEpoch}
   catch
     _:Reason ->
       {error, Reason}
@@ -1616,26 +2623,26 @@ normalize_pending_grant({Direction, MicrobatchId, StageId, GrantedWorkers, Acked
   Workers = normalize_granted_workers(GrantedWorkers),
   Acked = normalize_granted_workers(AckedWorkers),
   EventID = grant_event_id(0, Direction, any, MicrobatchId, StageId, Workers),
-  {ok, Direction, any, MicrobatchId, StageId, Workers, Acked, EventID, 0};
+  {ok, Direction, any, MicrobatchId, StageId, Workers, Acked, [], [], EventID, 0};
 normalize_pending_grant({Direction, MicrobatchId, StageId, GrantedWorkers, AckedWorkers, PhaseEpoch}) ->
   Workers = normalize_granted_workers(GrantedWorkers),
   Acked = normalize_granted_workers(AckedWorkers),
   EventID = grant_event_id(PhaseEpoch, Direction, any, MicrobatchId, StageId, Workers),
-  {ok, Direction, any, MicrobatchId, StageId, Workers, Acked, EventID, PhaseEpoch};
+  {ok, Direction, any, MicrobatchId, StageId, Workers, Acked, [], [], EventID, PhaseEpoch};
 normalize_pending_grant({Direction, MicrobatchId, StageId, GrantedWorker}) ->
   Workers = normalize_granted_workers([GrantedWorker]),
   EventID = grant_event_id(0, Direction, any, MicrobatchId, StageId, Workers),
-  {ok, Direction, any, MicrobatchId, StageId, Workers, [], EventID, 0};
+  {ok, Direction, any, MicrobatchId, StageId, Workers, [], [], [], EventID, 0};
 normalize_pending_grant({Direction, MicrobatchId, StageId, GrantedWorker, PhaseEpoch}) when is_integer(PhaseEpoch) ->
   Workers = normalize_granted_workers([GrantedWorker]),
   EventID = grant_event_id(PhaseEpoch, Direction, any, MicrobatchId, StageId, Workers),
-  {ok, Direction, any, MicrobatchId, StageId, Workers, [], EventID, PhaseEpoch};
+  {ok, Direction, any, MicrobatchId, StageId, Workers, [], [], [], EventID, PhaseEpoch};
 normalize_pending_grant({Direction, BatchId, MicrobatchId, StageId, GrantedWorkers, AckedWorkers, PhaseEpoch}) ->
   Workers = normalize_granted_workers(GrantedWorkers),
   Acked = normalize_granted_workers(AckedWorkers),
   NormalizedBatchID = normalize_scheduler_batch_id(BatchId),
   EventID = grant_event_id(PhaseEpoch, Direction, NormalizedBatchID, MicrobatchId, StageId, Workers),
-  {ok, Direction, NormalizedBatchID, MicrobatchId, StageId, Workers, Acked, EventID, PhaseEpoch};
+  {ok, Direction, NormalizedBatchID, MicrobatchId, StageId, Workers, Acked, [], [], EventID, PhaseEpoch};
 normalize_pending_grant(Unexpected) ->
   {error, {unsupported_pending_grant, Unexpected}}.
 

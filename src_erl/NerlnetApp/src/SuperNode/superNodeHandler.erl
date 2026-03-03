@@ -75,6 +75,48 @@ init(Req0, [Action, SuperNodePid]) ->
           );
         _ -> ok
       end
+    ;
+    scheduler_grant_accepted ->
+      case binary_to_term_safe(Body) of
+        {scheduler_grant_accepted, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, PhaseEpoch} ->
+          gen_server:cast(
+            SuperNodePid,
+            {scheduler_grant_accepted, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, PhaseEpoch}
+          );
+        {scheduler_grant_accepted, ClientName, WorkerName, Direction, MicrobatchID, StageID, PhaseEpoch} ->
+          gen_server:cast(
+            SuperNodePid,
+            {scheduler_grant_accepted, ClientName, WorkerName, Direction, any, MicrobatchID, StageID, PhaseEpoch}
+          );
+        _ -> ok
+      end;
+    parallel_skip_ack ->
+      case binary_to_term_safe(Body) of
+        {parallel_skip_ack, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, Reason, EventID, PhaseEpoch} ->
+          gen_server:cast(
+            SuperNodePid,
+            {parallel_skip_ack, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, Reason, EventID, PhaseEpoch}
+          );
+        _ -> ok
+      end;
+    parallel_skip_relay_failed ->
+      case binary_to_term_safe(Body) of
+        {parallel_skip_relay_failed, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, Reason, EventID, PhaseEpoch} ->
+          gen_server:cast(
+            SuperNodePid,
+            {parallel_skip_relay_failed, ClientName, WorkerName, Direction, BatchID, MicrobatchID, StageID, Reason, EventID, PhaseEpoch}
+          );
+        _ -> ok
+      end;
+    parallel_skip_event ->
+      case binary_to_term_safe(Body) of
+        {parallel_skip_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, SkipMeta} ->
+          gen_server:cast(
+            SuperNodePid,
+            {parallel_skip_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, SkipMeta}
+          );
+        _ -> ok
+      end
   end,
   Req = cowboy_req:reply(
     200,

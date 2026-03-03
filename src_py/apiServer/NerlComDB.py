@@ -86,6 +86,13 @@ class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse
         self.batches_received_predict = 0
         self.batches_dropped_train = 0
         self.batches_dropped_predict = 0
+        self.drop_legacy_busy_train = 0
+        self.drop_legacy_busy_predict = 0
+        self.skip_grant_accept_timeout = 0
+        self.skip_payload_delivery_timeout = 0
+        self.skip_completion_timeout = 0
+        self.skip_phase_close_drain = 0
+        self.stale_event_after_skip = 0
         self.batches_sent_train = 0
         self.empty_batches = 0
         self.batches_sent_predict = 0
@@ -105,6 +112,13 @@ class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse
         self.batches_received_predict += other.batches_received_predict
         self.batches_dropped_train += other.batches_dropped_train
         self.batches_dropped_predict += other.batches_dropped_predict
+        self.drop_legacy_busy_train += other.drop_legacy_busy_train
+        self.drop_legacy_busy_predict += other.drop_legacy_busy_predict
+        self.skip_grant_accept_timeout += other.skip_grant_accept_timeout
+        self.skip_payload_delivery_timeout += other.skip_payload_delivery_timeout
+        self.skip_completion_timeout += other.skip_completion_timeout
+        self.skip_phase_close_drain += other.skip_phase_close_drain
+        self.stale_event_after_skip += other.stale_event_after_skip
         self.batches_sent_train += other.batches_sent_train
         self.empty_batches += other.empty_batches
         self.batches_sent_predict += other.batches_sent_predict
@@ -132,6 +146,13 @@ class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse
             "batches_received_predict": self.batches_received_predict,
             "batches_dropped_train": self.batches_dropped_train,
             "batches_dropped_predict": self.batches_dropped_predict,
+            "drop_legacy_busy_train": self.drop_legacy_busy_train,
+            "drop_legacy_busy_predict": self.drop_legacy_busy_predict,
+            "skip_grant_accept_timeout": self.skip_grant_accept_timeout,
+            "skip_payload_delivery_timeout": self.skip_payload_delivery_timeout,
+            "skip_completion_timeout": self.skip_completion_timeout,
+            "skip_phase_close_drain": self.skip_phase_close_drain,
+            "stale_event_after_skip": self.stale_event_after_skip,
             "batches_sent_train": self.batches_sent_train,
             "empty_batches": self.empty_batches,
             "batches_sent_predict": self.batches_sent_predict,
@@ -153,6 +174,13 @@ class WorkerComDB(): # WorkerDB is the ML stats (train, predict) - don't confuse
         self.batches_received_predict = input_dict["batches_received_predict"]
         self.batches_dropped_train = input_dict["batches_dropped_train"]
         self.batches_dropped_predict = input_dict["batches_dropped_predict"]
+        self.drop_legacy_busy_train = int(input_dict.get("drop_legacy_busy_train", 0))
+        self.drop_legacy_busy_predict = int(input_dict.get("drop_legacy_busy_predict", 0))
+        self.skip_grant_accept_timeout = int(input_dict.get("skip_grant_accept_timeout", 0))
+        self.skip_payload_delivery_timeout = int(input_dict.get("skip_payload_delivery_timeout", 0))
+        self.skip_completion_timeout = int(input_dict.get("skip_completion_timeout", 0))
+        self.skip_phase_close_drain = int(input_dict.get("skip_phase_close_drain", 0))
+        self.stale_event_after_skip = int(input_dict.get("stale_event_after_skip", 0))
         self.batches_sent_train = input_dict["batches_sent_train"]
         self.empty_batches = input_dict["empty_batches"]
         self.batches_sent_predict = input_dict["batches_sent_predict"]
@@ -350,4 +378,3 @@ class NerlComDB():
                 self.clients[this_worker_client_name].get_worker(entity_name).update_stats(entity_stats_dict)
             elif entity_name == MAIN_SERVER_STR:
                 self.main_server.update_stats(entity_stats_dict)
-

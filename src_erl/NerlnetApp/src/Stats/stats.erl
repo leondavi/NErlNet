@@ -161,6 +161,13 @@ generate_workers_stats_ets() -> %% workers..
     ets:insert(WorkersStatsEts, {batches_received_predict , 0}), % related with client only
     ets:insert(WorkersStatsEts, {batches_dropped_train , 0}), % related with client only
     ets:insert(WorkersStatsEts, {batches_dropped_predict , 0}), % related with client only
+    ets:insert(WorkersStatsEts, {drop_legacy_busy_train , 0}),
+    ets:insert(WorkersStatsEts, {drop_legacy_busy_predict , 0}),
+    ets:insert(WorkersStatsEts, {skip_grant_accept_timeout , 0}),
+    ets:insert(WorkersStatsEts, {skip_payload_delivery_timeout , 0}),
+    ets:insert(WorkersStatsEts, {skip_completion_timeout , 0}),
+    ets:insert(WorkersStatsEts, {skip_phase_close_drain , 0}),
+    ets:insert(WorkersStatsEts, {stale_event_after_skip , 0}),
     ets:insert(WorkersStatsEts, {batches_sent_train , 0}), % related with source
     ets:insert(WorkersStatsEts, {empty_batches , 0}), % related with source
     ets:insert(WorkersStatsEts, {batches_sent_predict , 0}), % related with source

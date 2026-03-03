@@ -442,7 +442,11 @@ createSuperNodes(HostName) ->
                 {"/parallelEvent", superNodeHandler, [parallel_event, SuperNodePid]},
                 {"/parallelPhaseClose", superNodeHandler, [parallel_phase_close, SuperNodePid]},
                 {"/schedulerGrantRejected", superNodeHandler, [scheduler_grant_rejected, SuperNodePid]},
-                {"/parallelDeliverAck", superNodeHandler, [parallel_deliver_ack, SuperNodePid]}
+                {"/schedulerGrantAccepted", superNodeHandler, [scheduler_grant_accepted, SuperNodePid]},
+                {"/parallelDeliverAck", superNodeHandler, [parallel_deliver_ack, SuperNodePid]},
+                {"/parallelSkipAck", superNodeHandler, [parallel_skip_ack, SuperNodePid]},
+                {"/parallelSkipRelayFailed", superNodeHandler, [parallel_skip_relay_failed, SuperNodePid]},
+                {"/parallelSkipEvent", superNodeHandler, [parallel_skip_event, SuperNodePid]}
             ]}
         ]),
         init_cowboy_start_clear(SuperNodeName, {HostName, Port}, SuperNodeDispatch)
