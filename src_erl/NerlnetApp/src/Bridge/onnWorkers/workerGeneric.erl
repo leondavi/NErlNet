@@ -1465,16 +1465,18 @@ augment_train_params_with_parallel_cfg(TrainParams, WorkerParallelCfg) ->
 
 emit_parallel_event(WorkerName, Direction, BatchID, MicrobatchID, StageID, Meta) ->
   GenWorkerEts = get(generic_worker_ets),
-  EventID = parallel_event_id(WorkerName, Direction, BatchID, MicrobatchID, StageID),
   case maybe_consume_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, MicrobatchID, StageID) of
-    ok ->
+    {ok, GrantedBatchID} ->
+      EmittedBatchID = resolve_emitted_parallel_batch_id(BatchID, GrantedBatchID),
+      EventID = parallel_event_id(WorkerName, Direction, EmittedBatchID, MicrobatchID, StageID),
       ?LOG_INFO(
-        "Worker ~p emits parallel event direction=~p batch=~p microbatch=~p stage=~p event_id=~p (grant-consumed)",
-        [WorkerName, Direction, BatchID, MicrobatchID, StageID, EventID]
+        "Worker ~p emits parallel event direction=~p requested_batch=~p emitted_batch=~p microbatch=~p stage=~p event_id=~p (grant-consumed)",
+        [WorkerName, Direction, BatchID, EmittedBatchID, MicrobatchID, StageID, EventID]
       ),
-      gen_statem:cast(get(client_pid), {parallel_event, WorkerName, Direction, BatchID, MicrobatchID, StageID, Meta}),
-      ok;
+      gen_statem:cast(get(client_pid), {parallel_event, WorkerName, Direction, EmittedBatchID, MicrobatchID, StageID, Meta}),
+      {ok, EmittedBatchID};
     {error, no_scheduler_grant} ->
+      EventID = parallel_event_id(WorkerName, Direction, BatchID, MicrobatchID, StageID),
       ?LOG_INFO(
         "Worker ~p waits for super-node scheduler grant direction=~p batch=~p microbatch=~p stage=~p event_id=~p",
         [WorkerName, Direction, BatchID, MicrobatchID, StageID, EventID]
@@ -1486,6 +1488,14 @@ emit_parallel_event(WorkerName, Direction, BatchID, MicrobatchID, StageID, Meta)
         {scheduler_grant_rejected, WorkerName, Direction, BatchID, MicrobatchID, StageID, GrantReason}
       ),
       {error, GrantReason}
+  end.
+
+resolve_emitted_parallel_batch_id(RequestedBatchID, GrantedBatchID) ->
+  case normalize_parallel_batch_id(GrantedBatchID) of
+    any ->
+      normalize_parallel_batch_id(RequestedBatchID);
+    NormalizedGrantedBatchID ->
+      NormalizedGrantedBatchID
   end.
 
 parallel_event_id(WorkerName, Direction, BatchID, MicrobatchID, StageID) ->
@@ -1579,9 +1589,34 @@ skip_batch_matches(BatchID, GrantBatchID) ->
   BatchID =:= GrantBatchID.
 
 prune_runtime_buffers_for_skip(GenWorkerEts, BatchID, MicrobatchID, StageID) ->
+  prune_active_batch_state_for_skip(GenWorkerEts, BatchID),
   prune_pending_backward_events_for_skip(GenWorkerEts, BatchID, MicrobatchID, StageID),
   prune_pipeline_buffers_for_skip(GenWorkerEts, BatchID, MicrobatchID),
   prune_deferred_samples_for_skip(GenWorkerEts, BatchID).
+
+prune_active_batch_state_for_skip(GenWorkerEts, BatchID) ->
+  ActiveCtx = ets:lookup_element(GenWorkerEts, parallel_active_batch_ctx, ?ETS_KEYVAL_VAL_IDX),
+  case ActiveCtx of
+    Ctx when is_map(Ctx) ->
+      ActiveBatchID = normalize_parallel_batch_id(maps:get(batch_id, Ctx, any)),
+      case skip_batch_matches(BatchID, ActiveBatchID) of
+        false ->
+          ok;
+        true ->
+          %% Clear the local batch context and invalidate in-flight stage
+          %% continuations for the skipped scheduler batch.
+          ets:update_counter(GenWorkerEts, parallel_nif_epoch, 1),
+          ets:update_element(GenWorkerEts, pipeline_nif_worker, {?ETS_KEYVAL_VAL_IDX, false}),
+          ets:update_element(GenWorkerEts, parallel_pending_losses, {?ETS_KEYVAL_VAL_IDX, 0}),
+          ets:update_element(GenWorkerEts, parallel_total_microbatches, {?ETS_KEYVAL_VAL_IDX, 0}),
+          ets:update_element(GenWorkerEts, parallel_loss_acc, {?ETS_KEYVAL_VAL_IDX, undefined}),
+          ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX, 0.0}),
+          ets:update_element(GenWorkerEts, parallel_microbatch_queue, {?ETS_KEYVAL_VAL_IDX, []}),
+          ets:update_element(GenWorkerEts, parallel_active_batch_ctx, {?ETS_KEYVAL_VAL_IDX, undefined})
+      end;
+    _ ->
+      ok
+  end.
 
 prune_pending_backward_events_for_skip(GenWorkerEts, BatchID, MicrobatchID, StageID) ->
   PendingEvents = ets:lookup_element(GenWorkerEts, parallel_pending_backward_events, ?ETS_KEYVAL_VAL_IDX),
@@ -1659,6 +1694,24 @@ maybe_emit_parallel_forward_event(tensor, _WorkerName, _BatchID, _MicrobatchID, 
 maybe_emit_parallel_forward_event(legacy, _WorkerName, _BatchID, _MicrobatchID, _StageID) ->
   ok;
 maybe_emit_parallel_forward_event(Mode, WorkerName, BatchID, MicrobatchID, StageID) ->
+  case maybe_emit_parallel_forward_event_with_batch(
+         Mode,
+         WorkerName,
+         BatchID,
+         MicrobatchID,
+         StageID
+       ) of
+    {ok, _EmittedBatchID} ->
+      ok;
+    Error ->
+      Error
+  end.
+
+maybe_emit_parallel_forward_event_with_batch(tensor, _WorkerName, BatchID, _MicrobatchID, _StageID) ->
+  {ok, normalize_parallel_batch_id(BatchID)};
+maybe_emit_parallel_forward_event_with_batch(legacy, _WorkerName, BatchID, _MicrobatchID, _StageID) ->
+  {ok, normalize_parallel_batch_id(BatchID)};
+maybe_emit_parallel_forward_event_with_batch(Mode, WorkerName, BatchID, MicrobatchID, StageID) ->
   GenWorkerEts = get(generic_worker_ets),
   case can_emit_parallel_event_now(GenWorkerEts, forward, BatchID, MicrobatchID, StageID) of
     ready ->
@@ -1691,7 +1744,12 @@ maybe_emit_parallel_backward_event(_Mode, WorkerName, BatchID, MicrobatchID, Sta
   GenWorkerEts = get(generic_worker_ets),
   case can_emit_parallel_event_now(GenWorkerEts, backward, BatchID, MicrobatchID, StageID) of
     ready ->
-      emit_parallel_event(WorkerName, backward, BatchID, MicrobatchID, StageID, TrainTime);
+      case emit_parallel_event(WorkerName, backward, BatchID, MicrobatchID, StageID, TrainTime) of
+        {ok, _EmittedBatchID} ->
+          ok;
+        Error ->
+          Error
+      end;
     wait_for_grant ->
       queue_parallel_backward_event(
         GenWorkerEts,
@@ -2407,13 +2465,20 @@ dispatch_pipeline_stage0_forward_microbatch_loop(
   [{MicrobatchID, {MicrobatchTensor, MicrobatchType}} | Rest],
   NumDispatched
 ) ->
-  GrantResult = maybe_emit_parallel_forward_event(pipeline, WorkerName, BatchID, MicrobatchID, StageID),
+  GrantResult = maybe_emit_parallel_forward_event_with_batch(
+                  pipeline,
+                  WorkerName,
+                  BatchID,
+                  MicrobatchID,
+                  StageID
+                ),
   case GrantResult of
     {error, no_scheduler_grant} ->
       {ok, NumDispatched, [{MicrobatchID, {MicrobatchTensor, MicrobatchType}} | Rest], TotalMicrobatches};
     {error, EmitReason} ->
       {abort, {pipeline_stage0_forward_grant_rejected, EmitReason}};
-    ok ->
+    {ok, RuntimeBatchID} ->
+      bind_stage0_runtime_batch_id(GenWorkerEts, RuntimeBatchID),
       Continuation = fun(NifResult) ->
         case NifResult of
           {ok, pipeline_stage0_forward, ActivationTensor, ActivationType, LabelsTensor, LabelsType, StageTime} ->
@@ -2421,7 +2486,7 @@ dispatch_pipeline_stage0_forward_microbatch_loop(
               {ok, NextWorker} ->
                 FwdPayload = {
                   pipeline_forward_payload,
-                  BatchID,
+                  RuntimeBatchID,
                   SourceName,
                   TotalMicrobatches,
                   MicrobatchID,
@@ -2444,15 +2509,20 @@ dispatch_pipeline_stage0_forward_microbatch_loop(
             end;
           {nerlnif, error, Reason} ->
             ?LOG_ERROR(
-              "Worker ~p stage0 pipeline NIF failed batch=~p microbatch=~p stage=~p reason=~p",
-              [WorkerName, BatchID, MicrobatchID, StageID, Reason]
+              "Worker ~p stage0 pipeline NIF failed source_batch=~p runtime_batch=~p microbatch=~p stage=~p reason=~p",
+              [WorkerName, BatchID, RuntimeBatchID, MicrobatchID, StageID, Reason]
             ),
             {abort, {pipeline_stage0_forward_nif_error, Reason}};
           Unexpected ->
             {abort, {pipeline_stage0_forward_unexpected, Unexpected}}
         end
       end,
-      async_pipeline_nif(GenWorkerEts, call_to_pipeline_stage0_forward, [ModelId, {MicrobatchTensor, MicrobatchType}, BatchID, MicrobatchID], Continuation),
+      async_pipeline_nif(
+        GenWorkerEts,
+        call_to_pipeline_stage0_forward,
+        [ModelId, {MicrobatchTensor, MicrobatchType}, RuntimeBatchID, MicrobatchID],
+        Continuation
+      ),
       {ok, NumDispatched + 1, Rest, TotalMicrobatches}
   end.
 
@@ -2514,12 +2584,19 @@ dispatch_pipeline_stage0_predict_microbatch_loop(
   [{MicrobatchID, {MicrobatchTensor, MicrobatchType}} | Rest],
   NumDispatched
 ) ->
-  case maybe_emit_parallel_forward_event(pipeline_predict, WorkerName, BatchID, MicrobatchID, StageID) of
+  case maybe_emit_parallel_forward_event_with_batch(
+         pipeline_predict,
+         WorkerName,
+         BatchID,
+         MicrobatchID,
+         StageID
+       ) of
     {error, no_scheduler_grant} ->
       {ok, NumDispatched, [{MicrobatchID, {MicrobatchTensor, MicrobatchType}} | Rest], TotalMicrobatches};
     {error, EmitReason} ->
       {abort, {pipeline_predict_stage0_grant_rejected, EmitReason}};
-    ok ->
+    {ok, RuntimeBatchID} ->
+      bind_stage0_runtime_batch_id(GenWorkerEts, RuntimeBatchID),
       PredStage0Continuation = fun(NifResult) ->
         case NifResult of
           {ok, pipeline_predict_stage0, ActivationTensor, ActivationType, StageTime} ->
@@ -2527,7 +2604,7 @@ dispatch_pipeline_stage0_predict_microbatch_loop(
               {ok, NextWorker} ->
                 PredPayload = {
                   pipeline_predict_payload,
-                  BatchID,
+                  RuntimeBatchID,
                   SourceName,
                   TotalMicrobatches,
                   MicrobatchID,
@@ -2553,7 +2630,12 @@ dispatch_pipeline_stage0_predict_microbatch_loop(
             {abort, {pipeline_predict_stage0_unexpected, Unexpected}}
         end
       end,
-      async_pipeline_nif(GenWorkerEts, call_to_pipeline_predict_stage0_forward, [ModelId, {MicrobatchTensor, MicrobatchType}, BatchID], PredStage0Continuation),
+      async_pipeline_nif(
+        GenWorkerEts,
+        call_to_pipeline_predict_stage0_forward,
+        [ModelId, {MicrobatchTensor, MicrobatchType}, RuntimeBatchID],
+        PredStage0Continuation
+      ),
       {ok, NumDispatched + 1, Rest, TotalMicrobatches}
   end.
 
@@ -3013,9 +3095,8 @@ peek_pipeline_backward_grant(GenWorkerEts) ->
   case ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX) of
     [HeadGrant | _Rest] ->
       case normalize_parallel_scheduler_grant(HeadGrant) of
-        {ok, {backward, _BatchID, MicrobatchID, StageID}} ->
-          %% Use 'any' for batch ID: scheduler and source batch IDs are independent
-          {any, MicrobatchID, StageID};
+        {ok, {backward, GrantBatchID, MicrobatchID, StageID}} ->
+          {GrantBatchID, MicrobatchID, StageID};
         _ ->
           none
       end;
@@ -3217,6 +3298,7 @@ ensure_active_pipeline_training_ctx(GenWorkerEts, ModelId, SourceName, BatchID, 
         model_id => ModelId,
         source_name => SourceName,
         batch_id => BatchID,
+        source_batch_id => BatchID,
         mode => pipeline,
         stage => StageID,
         total_microbatches => TotalMicrobatches,
@@ -3245,6 +3327,7 @@ ensure_active_pipeline_training_ctx(GenWorkerEts, ModelId, SourceName, BatchID, 
                 model_id => ModelId,
                 source_name => SourceName,
                 batch_id => BatchID,
+                source_batch_id => BatchID,
                 mode => pipeline,
                 stage => StageID,
                 total_microbatches => TotalMicrobatches,
@@ -3310,6 +3393,18 @@ update_stage0_forward_progress_ctx(Ctx, NewDispatched, TotalMicrobatches) ->
     forward_completed => erlang:max(ExistingForwardCompleted, NewDispatched),
     total_microbatches => TotalMicrobatches
   }.
+
+bind_stage0_runtime_batch_id(GenWorkerEts, RuntimeBatchID) ->
+  update_active_pipeline_batch_ctx(
+    GenWorkerEts,
+    fun(Ctx) ->
+      SourceBatchID = maps:get(source_batch_id, Ctx, maps:get(batch_id, Ctx, RuntimeBatchID)),
+      Ctx#{
+        source_batch_id => SourceBatchID,
+        batch_id => RuntimeBatchID
+      }
+    end
+  ).
 
 dispatch_pipeline_predict_buffers(GenWorkerEts, ModelId, WorkerName) ->
   case is_pipeline_nif_in_flight(GenWorkerEts) of
@@ -3567,6 +3662,7 @@ ensure_active_pipeline_predict_ctx(GenWorkerEts, ModelId, SourceName, BatchID, T
         model_id => ModelId,
         source_name => SourceName,
         batch_id => BatchID,
+        source_batch_id => BatchID,
         mode => pipeline_predict,
         stage => StageID,
         total_microbatches => TotalMicrobatches,
@@ -3842,31 +3938,24 @@ maybe_consume_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, Microba
          ),
   case is_pipeline_mode_atom(Mode) of
     false ->
-      ok;
+      {ok, normalize_parallel_batch_id(BatchID)};
     true ->
       HasSuperAuthority = ets:lookup_element(GenWorkerEts, parallel_super_authority, ?ETS_KEYVAL_VAL_IDX),
       case HasSuperAuthority of
         false ->
           {error, super_authority_disabled};
         true ->
-          %% In pipeline mode, use 'any' for batch ID matching because
-          %% source batch IDs and scheduler batch IDs are independent
-          %% counters that desynchronize under load.
-          MatchBatchID = case is_pipeline_mode_atom(Mode) of
-                           true -> any;
-                           false -> normalize_parallel_batch_id(BatchID)
-                         end,
           ExpectedGrant = {
             normalize_parallel_direction_atom(Direction),
-            MatchBatchID,
+            expected_parallel_scheduler_batch_id(Mode, Direction, BatchID, StageID),
             MicrobatchID,
             StageID
           },
           Grants = ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX),
           case pop_matching_scheduler_grant(ExpectedGrant, Grants, []) of
-            {ok, _MatchedGrant, RemainingGrants, _MatchedAtHead} ->
+            {ok, {_, MatchedBatchID, _, _}, RemainingGrants, _MatchedAtHead} ->
               ets:update_element(GenWorkerEts, parallel_scheduler_grants, {?ETS_KEYVAL_VAL_IDX, RemainingGrants}),
-              ok;
+              {ok, MatchedBatchID};
             not_found ->
               {error, no_scheduler_grant}
           end
@@ -3886,14 +3975,9 @@ can_emit_parallel_event_now(GenWorkerEts, Direction, BatchID, MicrobatchID, Stag
         false ->
           {error, super_authority_disabled};
         true ->
-          %% Pipeline mode: batch-ID-agnostic grant matching
-          MatchBatchID = case is_pipeline_mode_atom(Mode) of
-                           true -> any;
-                           false -> normalize_parallel_batch_id(BatchID)
-                         end,
           ExpectedGrant = {
             normalize_parallel_direction_atom(Direction),
-            MatchBatchID,
+            expected_parallel_scheduler_batch_id(Mode, Direction, BatchID, StageID),
             MicrobatchID,
             StageID
           },
@@ -3947,7 +4031,7 @@ maybe_dispatch_pending_parallel_backward_events_loop(
       ok;
     {ok, {WorkerName, EventBatchID, MicrobatchID, StageID, TrainTime}, RemainingPendingEvents} ->
       case emit_parallel_event(WorkerName, backward, EventBatchID, MicrobatchID, StageID, TrainTime) of
-        ok ->
+        {ok, _EmittedBatchID} ->
           ets:update_element(
             GenWorkerEts,
             parallel_pending_backward_events,
@@ -3970,9 +4054,8 @@ find_dispatchable_pending_backward_event([], _PendingEvents) ->
   not_found;
 find_dispatchable_pending_backward_event([Grant | Rest], PendingEvents) ->
   case normalize_parallel_scheduler_grant(Grant) of
-    {ok, {backward, _GrantBatchID, MicrobatchID, StageID}} ->
-      %% Use 'any' for batch ID: scheduler and source batch IDs are independent
-      case pop_pending_parallel_backward_event(PendingEvents, any, MicrobatchID, StageID, []) of
+    {ok, {backward, GrantBatchID, MicrobatchID, StageID}} ->
+      case pop_pending_parallel_backward_event(PendingEvents, GrantBatchID, MicrobatchID, StageID, []) of
         not_found ->
           find_dispatchable_pending_backward_event(Rest, PendingEvents);
         {ok, Event, RemainingPendingEvents} ->
@@ -4060,9 +4143,25 @@ scheduler_grant_matches({ExpectedDirection, ExpectedBatchID, ExpectedMicrobatchI
     ExpectedMicrobatchID =:= GrantMicrobatchID andalso
     ExpectedStageID =:= GrantStageID.
 
+expected_parallel_scheduler_batch_id(Mode, Direction, BatchID, StageID) ->
+  NormalizedBatchID = normalize_parallel_batch_id(BatchID),
+  NormalizedDirection = normalize_parallel_direction_atom(Direction),
+  case {is_pipeline_mode_atom(Mode), NormalizedDirection, StageID} of
+    {true, forward, 0} ->
+      %% Stage-0 source ingress can be decoupled from scheduler batch ids.
+      %% Consume grant by direction/microbatch/stage, then tag events/payloads
+      %% with the concrete granted batch id.
+      any;
+    _ ->
+      NormalizedBatchID
+  end.
+
 batch_id_matches(any, _GrantBatchID) ->
   true;
+
 batch_id_matches(_ExpectedBatchID, any) ->
+  %% Keep legacy/bootstrapping compatibility: super node can seed the first
+  %% batch with grant batch=any, then resolve to a concrete batch after event 1.
   true;
 batch_id_matches(ExpectedBatchID, GrantBatchID) ->
   ExpectedBatchID =:= GrantBatchID.
