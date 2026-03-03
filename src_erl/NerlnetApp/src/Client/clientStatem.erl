@@ -1959,6 +1959,7 @@ parallel_event_id(WorkerName, Direction, BatchID, MicrobatchID, StageID) ->
 notify_parallel_abort(EtsRef, Reason) ->
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   ClientName = ets:lookup_element(EtsRef, myName, ?DATA_IDX),
+  ?LOG_ERROR("Client ~p sending parallelAbort reason=~p", [ClientName, Reason]),
   MessageBody = {ClientName, Reason},
   try
     nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(parallelAbort), MessageBody)

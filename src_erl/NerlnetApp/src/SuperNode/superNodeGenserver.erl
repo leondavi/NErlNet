@@ -481,6 +481,7 @@ notify_parallel_abort(#super_node_state{
   my_name = MyName,
   my_router = {RouterHost, RouterPort}
 }, Reason) ->
+  ?LOG_ERROR("SuperNode ~p sending parallelAbort reason=~p", [MyName, Reason]),
   MessageBody = {MyName, Reason},
   record_super_node_sent(MessageBody),
   try

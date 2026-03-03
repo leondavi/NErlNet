@@ -342,7 +342,8 @@ wait(cast, {parallel_pipeline_inbox, FromWorker, Payload}, State = #workerGeneri
 wait(cast, {pipeline_nif_result, Continuation, NifResult}, State) ->
   GenWorkerEts = get(generic_worker_ets),
   ets:update_element(GenWorkerEts, pipeline_nif_worker, {?ETS_KEYVAL_VAL_IDX, false}),
-  case Continuation(NifResult) of
+  ContinuationResult = Continuation(NifResult),
+  case ContinuationResult of
     processed ->
       case State#workerGeneric_state.nextState of
         predict ->
@@ -2406,7 +2407,8 @@ dispatch_pipeline_stage0_forward_microbatch_loop(
   [{MicrobatchID, {MicrobatchTensor, MicrobatchType}} | Rest],
   NumDispatched
 ) ->
-  case maybe_emit_parallel_forward_event(pipeline, WorkerName, BatchID, MicrobatchID, StageID) of
+  GrantResult = maybe_emit_parallel_forward_event(pipeline, WorkerName, BatchID, MicrobatchID, StageID),
+  case GrantResult of
     {error, no_scheduler_grant} ->
       {ok, NumDispatched, [{MicrobatchID, {MicrobatchTensor, MicrobatchType}} | Rest], TotalMicrobatches};
     {error, EmitReason} ->
@@ -2621,7 +2623,8 @@ handle_parallel_pipeline_predict_inbox(GenWorkerEts, ModelId, WorkerName, _FromW
   end.
 
 dispatch_pipeline_buffers(GenWorkerEts, ModelId, WorkerName) ->
-  case is_pipeline_nif_in_flight(GenWorkerEts) of
+  NifFlight = is_pipeline_nif_in_flight(GenWorkerEts),
+  case NifFlight of
     true -> ok;
     false ->
       case dispatch_pipeline_stage0_queue(GenWorkerEts, ModelId, WorkerName) of
@@ -3010,8 +3013,9 @@ peek_pipeline_backward_grant(GenWorkerEts) ->
   case ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX) of
     [HeadGrant | _Rest] ->
       case normalize_parallel_scheduler_grant(HeadGrant) of
-        {ok, {backward, BatchID, MicrobatchID, StageID}} ->
-          {BatchID, MicrobatchID, StageID};
+        {ok, {backward, _BatchID, MicrobatchID, StageID}} ->
+          %% Use 'any' for batch ID: scheduler and source batch IDs are independent
+          {any, MicrobatchID, StageID};
         _ ->
           none
       end;
@@ -3845,9 +3849,16 @@ maybe_consume_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, Microba
         false ->
           {error, super_authority_disabled};
         true ->
+          %% In pipeline mode, use 'any' for batch ID matching because
+          %% source batch IDs and scheduler batch IDs are independent
+          %% counters that desynchronize under load.
+          MatchBatchID = case is_pipeline_mode_atom(Mode) of
+                           true -> any;
+                           false -> normalize_parallel_batch_id(BatchID)
+                         end,
           ExpectedGrant = {
             normalize_parallel_direction_atom(Direction),
-            normalize_parallel_batch_id(BatchID),
+            MatchBatchID,
             MicrobatchID,
             StageID
           },
@@ -3875,9 +3886,14 @@ can_emit_parallel_event_now(GenWorkerEts, Direction, BatchID, MicrobatchID, Stag
         false ->
           {error, super_authority_disabled};
         true ->
+          %% Pipeline mode: batch-ID-agnostic grant matching
+          MatchBatchID = case is_pipeline_mode_atom(Mode) of
+                           true -> any;
+                           false -> normalize_parallel_batch_id(BatchID)
+                         end,
           ExpectedGrant = {
             normalize_parallel_direction_atom(Direction),
-            normalize_parallel_batch_id(BatchID),
+            MatchBatchID,
             MicrobatchID,
             StageID
           },
@@ -3954,8 +3970,9 @@ find_dispatchable_pending_backward_event([], _PendingEvents) ->
   not_found;
 find_dispatchable_pending_backward_event([Grant | Rest], PendingEvents) ->
   case normalize_parallel_scheduler_grant(Grant) of
-    {ok, {backward, GrantBatchID, MicrobatchID, StageID}} ->
-      case pop_pending_parallel_backward_event(PendingEvents, GrantBatchID, MicrobatchID, StageID, []) of
+    {ok, {backward, _GrantBatchID, MicrobatchID, StageID}} ->
+      %% Use 'any' for batch ID: scheduler and source batch IDs are independent
+      case pop_pending_parallel_backward_event(PendingEvents, any, MicrobatchID, StageID, []) of
         not_found ->
           find_dispatchable_pending_backward_event(Rest, PendingEvents);
         {ok, Event, RemainingPendingEvents} ->
@@ -4043,6 +4060,8 @@ scheduler_grant_matches({ExpectedDirection, ExpectedBatchID, ExpectedMicrobatchI
     ExpectedMicrobatchID =:= GrantMicrobatchID andalso
     ExpectedStageID =:= GrantStageID.
 
+batch_id_matches(any, _GrantBatchID) ->
+  true;
 batch_id_matches(_ExpectedBatchID, any) ->
   true;
 batch_id_matches(ExpectedBatchID, GrantBatchID) ->
@@ -4062,6 +4081,7 @@ normalize_parallel_direction_atom(_) ->
 
 notify_worker_parallel_abort(GenWorkerEts, Reason) ->
   WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+  ?LOG_ERROR("Worker ~p sending parallel_abort reason=~p", [WorkerName, Reason]),
   gen_statem:cast(get(client_pid), {worker_parallel_abort, WorkerName, Reason}).
 
 should_preserve_parallel_loss_context(Mode, ParallelExecution) ->
@@ -4202,14 +4222,14 @@ nif_call(Function, Args) when is_atom(Function), is_list(Args) ->
   Module = get_backend_module(),
   erlang:apply(Module, Function, Args).
 
-%% Spawns a NIF call in a separate linked process so the worker gen_statem
-%% stays responsive to grants and pipeline payloads during long computations.
-%% The Continuation closure is called with the raw NIF result when it completes.
-%% A NIF epoch guard ensures stale results from a previous phase are discarded.
+%% Calls a pipeline NIF synchronously on the calling process thread and then
+%% casts the result to self so the existing pipeline_nif_result handlers
+%% process it.  PyTorch models are NOT thread-safe, so the NIF must run on
+%% the same Erlang scheduler thread that owns the model state.
+%% An epoch guard ensures stale results from a previous phase are discarded.
 async_pipeline_nif(GenWorkerEts, Function, Args, UserContinuation) ->
   ets:update_element(GenWorkerEts, pipeline_nif_worker, {?ETS_KEYVAL_VAL_IDX, true}),
   SpawnEpoch = ets:lookup_element(GenWorkerEts, parallel_nif_epoch, ?ETS_KEYVAL_VAL_IDX),
-  WorkerPid = self(),
   NifModule = get_backend_module(),
   SafeContinuation = fun(NifResult) ->
     CurrentEpoch = ets:lookup_element(GenWorkerEts, parallel_nif_epoch, ?ETS_KEYVAL_VAL_IDX),
@@ -4225,13 +4245,11 @@ async_pipeline_nif(GenWorkerEts, Function, Args, UserContinuation) ->
         UserContinuation(NifResult)
     end
   end,
-  spawn_link(fun() ->
-    Result = try erlang:apply(NifModule, Function, Args)
-    catch
-      error:Err -> {nerlnif, error, Err}
-    end,
-    gen_statem:cast(WorkerPid, {pipeline_nif_result, SafeContinuation, Result})
-  end),
+  Result = try erlang:apply(NifModule, Function, Args)
+  catch
+    error:Err -> {nerlnif, error, Err}
+  end,
+  gen_statem:cast(self(), {pipeline_nif_result, SafeContinuation, Result}),
   processed.
 
 is_pipeline_nif_in_flight(GenWorkerEts) ->
