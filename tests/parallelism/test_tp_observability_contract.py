@@ -211,6 +211,7 @@ class _FakeSummaryStats:
                     "TP": 10,
                     "Accuracy": 0.9,
                     "Precision": 0.91,
+                    "Recall": 0.91,
                     "F1": 0.9,
                 }
             ]
@@ -287,6 +288,7 @@ class _FakePipelineSummaryStats:
                     "TP": 10,
                     "Accuracy": 0.9,
                     "Precision": 0.91,
+                    "Recall": 0.91,
                     "F1": 0.9,
                 }
             ]
@@ -428,7 +430,7 @@ class TpObservabilityContractTests(unittest.TestCase):
             self.assertEqual(int(persisted.iloc[0]["w1 TP Collective Count"]), 50)
             self.assertEqual(int(persisted.iloc[0]["w1 TP Collective Latency (us)"]), 5000)
 
-    def test_pipeline_summary_infers_stage_batch_totals_and_avoids_client_full_copy(self):
+    def test_pipeline_summary_infers_stage_batch_totals_and_replicates_client_perf(self):
         stats_obj = _FakePipelineSummaryStats()
         summary = ExperimentSummary([stats_obj])
         row = summary.generate_summary_row(stats_obj)
@@ -437,15 +439,10 @@ class TpObservabilityContractTests(unittest.TestCase):
         self.assertEqual(int(row["w2 Total Batches Prediction"]), 20)
         self.assertGreater(float(row["Effective Samples/Second"]), 0.0)
 
-        # Client predict total is 400 us and should be attributed (not copied in full)
-        # across both workers.
-        total_predict_time = (
-            float(row["w1 Accumulated Time Predict Total"])
-            + float(row["w2 Accumulated Time Predict Total"])
-        )
-        self.assertAlmostEqual(total_predict_time, 400.0, places=5)
-        self.assertLess(float(row["w1 Accumulated Time Predict Total"]), 400.0)
-        self.assertLess(float(row["w2 Accumulated Time Predict Total"]), 400.0)
+        # Client predict total is 400 us wall-clock time. Wall-clock time is a
+        # shared measurement and must be replicated to each worker, not divided.
+        self.assertAlmostEqual(float(row["w1 Accumulated Time Predict Total"]), 400.0, places=5)
+        self.assertAlmostEqual(float(row["w2 Accumulated Time Predict Total"]), 400.0, places=5)
 
 
 if __name__ == "__main__":

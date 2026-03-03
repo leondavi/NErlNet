@@ -3,7 +3,6 @@ from typing import List
 import pandas as pd
 import numpy as np
 import os
-from numbers import Number
 from collections import OrderedDict
 from definitions import PHASE_PREDICTION_STR, PHASE_TRAINING_STR
 from logger import LOG_WARNING
@@ -15,7 +14,7 @@ class ExperimentSummary:
         self.workers = self.stats_list[0].workers_list
         
     def summary_headers(self):
-        headers_ml_comm = ["Batch Size", "Frequency", "Num Of Sources", "Samples/Second", "Effective Samples/Second", "Min. Accuracy", "Avg. Accuracy", "Min. Precision", "Avg. Precision", "Min. F1-Score", "Avg. F1-Score", "WX % Dropped Training", "WX % Dropped Prediction", "WX # Dropped Training", "WX # Dropped Prediction", "WX Total Batches Training", "WX Total Batches Prediction", "WX TP Collective Count", "WX TP Collective Latency (us)", "WX TP Avg Collective Latency (us)"]
+        headers_ml_comm = ["Batch Size", "Frequency", "Num Of Sources", "Samples/Second", "Effective Samples/Second", "Min. Accuracy", "Avg. Accuracy", "Min. Precision", "Avg. Precision", "Min. Recall", "Avg. Recall", "Min. F1-Score", "Avg. F1-Score", "WX % Dropped Training", "WX % Dropped Prediction", "WX # Dropped Training", "WX # Dropped Prediction", "WX Total Batches Training", "WX Total Batches Prediction", "WX TP Collective Count", "WX TP Collective Latency (us)", "WX TP Avg Collective Latency (us)", "WX Skip Grant Accept Timeout", "WX Skip Payload Delivery Timeout", "WX Skip Completion Timeout", "WX Skip Phase Close Drain", "WX Stale Event After Skip", "WX NaN Loss Count"]
         headers_perf = ["WX Accumulated Time Train Active", "WX Accumulated Time Train Total", "WX Accumulated Time Predict Active", "WX Accumulated Time Predict Total", "WX Memory Train EMA Usage", "WX Memory Predict EMA Usage", "WX Memory Train Peak Usage", "WX Memory Predict Peak Usage", "WX Num Of Cores", "WX CPU Train Util Core X", "WX CPU Predict Util Core X"]
         all_headers = headers_ml_comm + headers_perf
         return all_headers
@@ -153,53 +152,23 @@ class ExperimentSummary:
 
         return worker_totals
 
-    def _compute_worker_activity_weights(self, worker_names, worker_totals):
-        activity = OrderedDict()
-        total_activity = 0.0
-        for worker_name in worker_names:
-            totals = worker_totals.get(worker_name, {})
-            score = float(
-                self._safe_int(totals.get("train_total", 0), 0)
-                + self._safe_int(totals.get("predict_total", 0), 0)
-            )
-            activity[worker_name] = score
-            total_activity += score
-        if total_activity <= 0 and worker_names:
-            equal = 1.0 / float(len(worker_names))
-            return {worker_name: equal for worker_name in worker_names}
-        if total_activity <= 0:
-            return {}
-        return {worker_name: score / total_activity for worker_name, score in activity.items()}
+    def _replicate_worker_perf_payload(self, payload):
+        """Replicate client-level performance payload to a worker without scaling.
 
-    def _scale_worker_perf_payload(self, payload, weight):
+        Wall-clock time, memory, CPU utilization, and GPU metrics are
+        system/client-level measurements that are shared across workers.
+        Scaling them by activity weight would incorrectly reduce their
+        values (e.g. halving wall-clock time for 2 equal workers, making
+        Effective Samples/Second 2x too high).  Instead we replicate the
+        client payload unchanged to every worker on that client.
+
+        Per-worker NIF compute times (time_train_active / time_predict_active)
+        are available directly from worker comm stats and should be read from
+        there rather than approximated by splitting the client aggregate.
+        """
         if not payload:
             return {}
-        scaled = dict(payload)
-        fields_to_scale = [
-            "time_train_active",
-            "time_train_total",
-            "time_predict_active",
-            "time_predict_total",
-            "memory_train_ema_usage",
-            "memory_predict_ema_usage",
-            "memory_train_peak_usage",
-            "memory_predict_peak_usage",
-            "average_gpu_usage_train",
-            "average_gpu_memory_usage_predict",
-        ]
-        for field_name in fields_to_scale:
-            value = payload.get(field_name)
-            if isinstance(value, Number):
-                scaled[field_name] = float(value) * weight
-
-        for cpu_field in ("cpu_train_util_per_core", "cpu_predict_util_per_core"):
-            cpu_payload = payload.get(cpu_field)
-            if isinstance(cpu_payload, dict):
-                scaled[cpu_field] = {
-                    core_num: (float(util) * weight if isinstance(util, Number) else util)
-                    for core_num, util in cpu_payload.items()
-                }
-        return scaled
+        return dict(payload)
 
     def _resolve_worker_perf_stats(self, stats_obj, perf_stats, worker_totals, debug=False):
         worker_perf = {worker_name: {} for worker_name in self.workers}
@@ -223,23 +192,20 @@ class ExperimentSummary:
             if client_name:
                 client_to_workers.setdefault(client_name, []).append(worker_name)
 
-        # Attribute client-level payload to workers by activity weight to avoid
-        # duplicating the same client aggregate across every worker.
+        # Replicate client-level payload to each worker on that client.
+        # Client-level metrics (wall-clock time, memory, CPU%) are shared
+        # measurements and must not be scaled/divided among workers.
         for client_name, client_workers in client_to_workers.items():
             payload = perf_stats.get(client_name)
             if not isinstance(payload, dict):
                 continue
-            weights = self._compute_worker_activity_weights(client_workers, worker_totals)
             for worker_name in client_workers:
                 if worker_perf.get(worker_name):
                     continue
-                worker_perf[worker_name] = self._scale_worker_perf_payload(
-                    payload, weights.get(worker_name, 0.0)
-                )
+                worker_perf[worker_name] = self._replicate_worker_perf_payload(payload)
                 if debug:
                     print(
-                        f"Attributed client perf {client_name} -> {worker_name} "
-                        f"with weight={weights.get(worker_name, 0.0):.4f}"
+                        f"Replicated client perf {client_name} -> {worker_name}"
                     )
 
         unresolved = [worker_name for worker_name, payload in worker_perf.items() if not payload]
@@ -247,11 +213,8 @@ class ExperimentSummary:
         if unresolved and len(perf_stats) == 1 and resolved_count == 0:
             only_payload = list(perf_stats.values())[0]
             if isinstance(only_payload, dict):
-                weights = self._compute_worker_activity_weights(self.workers, worker_totals)
                 for worker_name in self.workers:
-                    worker_perf[worker_name] = self._scale_worker_perf_payload(
-                        only_payload, weights.get(worker_name, 0.0)
-                    )
+                    worker_perf[worker_name] = self._replicate_worker_perf_payload(only_payload)
         return worker_perf
 
     def get_model_performance_aggregates(self, stats_obj):
@@ -261,6 +224,7 @@ class ExperimentSummary:
         zero_metrics = {
             'min_accuracy': 0, 'avg_accuracy': 0,
             'min_precision': 0, 'avg_precision': 0,
+            'min_recall': 0, 'avg_recall': 0,
             'min_f1': 0, 'avg_f1': 0,
         }
         try:
@@ -271,7 +235,7 @@ class ExperimentSummary:
             if model_perf_df is None or model_perf_df.empty:
                 return zero_metrics
 
-            metric_columns = ['Accuracy', 'Precision', 'F1']
+            metric_columns = ['Accuracy', 'Precision', 'Recall', 'F1']
             if not all(column in model_perf_df.columns for column in metric_columns):
                 LOG_WARNING(
                     f"Model performance DataFrame is missing required columns {metric_columns}; "
@@ -294,6 +258,7 @@ class ExperimentSummary:
 
             accuracies = metric_df['Accuracy'].values
             precisions = metric_df['Precision'].values
+            recalls = metric_df['Recall'].values
             f1_scores = metric_df['F1'].values
 
             return {
@@ -301,6 +266,8 @@ class ExperimentSummary:
                 'avg_accuracy': np.mean(accuracies),
                 'min_precision': np.min(precisions),
                 'avg_precision': np.mean(precisions),
+                'min_recall': np.min(recalls),
+                'avg_recall': np.mean(recalls),
                 'min_f1': np.min(f1_scores),
                 'avg_f1': np.mean(f1_scores),
             }
@@ -423,16 +390,19 @@ class ExperimentSummary:
                     print(f"\n  Processing worker: {worker_name}")
 
                 client_perf = worker_perf_stats.get(worker_name, {})
+                worker_comm = train_comm_stats.get(worker_name, {})
                 if not client_perf:
                     if debug:
                         print(f"    ✗ No client performance data found for worker {worker_name}")
-                
+
                 # Collect performance data from this training phase
-                if client_perf:
-                    memory_ema = client_perf.get('memory_train_ema_usage', 0)
-                    memory_peak = client_perf.get('memory_train_peak_usage', 0)
-                    time_active = client_perf.get('time_train_active', 0)
-                    time_total = client_perf.get('time_train_total', 0)
+                if client_perf or worker_comm:
+                    memory_ema = client_perf.get('memory_train_ema_usage', 0) if client_perf else 0
+                    memory_peak = client_perf.get('memory_train_peak_usage', 0) if client_perf else 0
+                    # Per-worker NIF compute time from worker comm stats (actual per-worker
+                    # value), not the client-level aggregate from perf stats.
+                    time_active = self._safe_float(worker_comm.get('acc_time_training', 0))
+                    time_total = client_perf.get('time_train_total', 0) if client_perf else 0
                     
                     aggregated[worker_name]['memory_train_ema_usage_list'].append(memory_ema)
                     aggregated[worker_name]['memory_train_peak_usage_list'].append(memory_peak)
@@ -476,45 +446,47 @@ class ExperimentSummary:
         Generate a single row of summary data for one stats object
         """
         row_data = OrderedDict()
-        
+
         # Basic experiment info
         row_data["Batch Size"] = stats_obj.batch_size
         row_data["Frequency"] = stats_obj.freq
         row_data["Num Of Sources"] = stats_obj.num_of_sources
         row_data["Samples/Second"] = self.calculate_samples_per_second(stats_obj)
         row_data["Effective Samples/Second"] = 0
-        
+
         # Model performance aggregates
         model_perf = self.get_model_performance_aggregates(stats_obj)
         row_data["Min. Accuracy"] = model_perf['min_accuracy']
         row_data["Avg. Accuracy"] = model_perf['avg_accuracy']
         row_data["Min. Precision"] = model_perf['min_precision']
         row_data["Avg. Precision"] = model_perf['avg_precision']
+        row_data["Min. Recall"] = model_perf['min_recall']
+        row_data["Avg. Recall"] = model_perf['avg_recall']
         row_data["Min. F1-Score"] = model_perf['min_f1']
         row_data["Avg. F1-Score"] = model_perf['avg_f1']
-        
+
         # Get aggregated training statistics
         training_aggregates = self.get_training_aggregates(stats_obj, debug=debug)
-        
+
         # Communication stats per worker
         comm_stats = stats_obj.get_communication_stats_workers()
         worker_totals = self._compute_worker_batch_totals(stats_obj, comm_stats)
         for worker_name in self.workers:
             worker_comm = comm_stats.get(worker_name, {})
             worker_totals_dict = worker_totals.get(worker_name, {})
-            
+
             # Current prediction phase stats
             predict_received = self._safe_int(worker_totals_dict.get('predict_received', 0), 0)
             predict_dropped = self._safe_int(worker_totals_dict.get('predict_dropped', 0), 0)
             predict_total = self._safe_int(worker_totals_dict.get('predict_total', 0), 0)
             predict_drop_pct = (predict_dropped / predict_total * 100) if predict_total > 0 else 0
-            
+
             # Training batch counts - get from current stats object (prediction phase)
             # instead of aggregating from training phases to avoid double counting
             train_dropped_current = self._safe_int(worker_totals_dict.get('train_dropped', 0), 0)
             train_total_current = self._safe_int(worker_totals_dict.get('train_total', 0), 0)
             train_drop_pct_current = (train_dropped_current / train_total_current * 100) if train_total_current > 0 else 0
-            
+
             row_data[f"{worker_name} % Dropped Training"] = train_drop_pct_current
             row_data[f"{worker_name} % Dropped Prediction"] = predict_drop_pct
             row_data[f"{worker_name} # Dropped Training"] = train_dropped_current
@@ -533,7 +505,15 @@ class ExperimentSummary:
             row_data[f"{worker_name} TP Collective Count"] = tp_collective_count
             row_data[f"{worker_name} TP Collective Latency (us)"] = tp_collective_latency_us
             row_data[f"{worker_name} TP Avg Collective Latency (us)"] = float(tp_collective_avg_latency_us)
-        
+
+            # Pipeline skip counters (accumulated in worker ETS across phases)
+            row_data[f"{worker_name} Skip Grant Accept Timeout"] = int(worker_comm.get('skip_grant_accept_timeout', 0) or 0)
+            row_data[f"{worker_name} Skip Payload Delivery Timeout"] = int(worker_comm.get('skip_payload_delivery_timeout', 0) or 0)
+            row_data[f"{worker_name} Skip Completion Timeout"] = int(worker_comm.get('skip_completion_timeout', 0) or 0)
+            row_data[f"{worker_name} Skip Phase Close Drain"] = int(worker_comm.get('skip_phase_close_drain', 0) or 0)
+            row_data[f"{worker_name} Stale Event After Skip"] = int(worker_comm.get('stale_event_after_skip', 0) or 0)
+            row_data[f"{worker_name} NaN Loss Count"] = int(worker_comm.get('nan_loss_count', 0) or 0)
+
         # Performance stats per worker (from clients)
         perf_stats = stats_obj.get_performance_stats_clients()
         worker_perf_stats = self._resolve_worker_perf_stats(
@@ -542,19 +522,24 @@ class ExperimentSummary:
             worker_totals,
             debug=debug,
         )
-        
+
         # Debug: print available clients to understand the mapping
         if debug:
             print(f"Available clients in performance stats: {list(perf_stats.keys())}")
             print(f"Workers list: {self.workers}")
-        
+
         for worker_name in self.workers:
+            worker_comm = comm_stats.get(worker_name, {})
             client_perf = worker_perf_stats.get(worker_name, {})
-            
+
+            # Per-worker NIF compute time from worker comm stats (actual per-worker
+            # values from the worker ETS, not the scaled client-level aggregate).
+            worker_predict_active = self._safe_float(worker_comm.get('acc_time_prediction', 0))
+
             # Aggregated training performance stats
             if worker_name in training_aggregates:
                 train_agg = training_aggregates[worker_name]
-                
+
                 if debug:
                     print(f"\n=== APPLYING AGGREGATION RULES FOR {worker_name} ===")
                     print(f"Raw training data:")
@@ -562,19 +547,19 @@ class ExperimentSummary:
                     print(f"  time_train_total_list: {train_agg['time_train_total_list']}")
                     print(f"  memory_train_ema_usage_list: {train_agg['memory_train_ema_usage_list']}")
                     print(f"  memory_train_peak_usage_list: {train_agg['memory_train_peak_usage_list']}")
-                
+
                 # Accumulated time (sum across all training phases)
                 accumulated_train_active = sum(train_agg['time_train_active_list'])
                 accumulated_train_total = sum(train_agg['time_train_total_list'])
-                
+
                 # Average EMA memory usage across training phases
-                avg_memory_train_ema = (np.mean(train_agg['memory_train_ema_usage_list']) 
+                avg_memory_train_ema = (np.mean(train_agg['memory_train_ema_usage_list'])
                                        if train_agg['memory_train_ema_usage_list'] else 0)
-                
+
                 # Max peak memory usage across training phases
-                max_memory_train_peak = (max(train_agg['memory_train_peak_usage_list']) 
+                max_memory_train_peak = (max(train_agg['memory_train_peak_usage_list'])
                                         if train_agg['memory_train_peak_usage_list'] else 0)
-                
+
                 if debug:
                     print(f"Applied aggregation rules:")
                     print(f"  accumulated_train_active (sum): {accumulated_train_active}")
@@ -588,44 +573,45 @@ class ExperimentSummary:
                 accumulated_train_total = 0
                 avg_memory_train_ema = 0
                 max_memory_train_peak = 0
-            
-            # Current prediction phase stats
+
+            # Time Active: per-worker NIF compute time from worker comm stats
+            # Time Total: client-level wall-clock time (replicated, not scaled)
             row_data[f"{worker_name} Accumulated Time Train Active"] = accumulated_train_active
             row_data[f"{worker_name} Accumulated Time Train Total"] = accumulated_train_total
-            row_data[f"{worker_name} Accumulated Time Predict Active"] = client_perf.get('time_predict_active', 0)
+            row_data[f"{worker_name} Accumulated Time Predict Active"] = worker_predict_active
             row_data[f"{worker_name} Accumulated Time Predict Total"] = client_perf.get('time_predict_total', 0)
             row_data[f"{worker_name} Memory Train EMA Usage"] = avg_memory_train_ema
             row_data[f"{worker_name} Memory Predict EMA Usage"] = client_perf.get('memory_predict_ema_usage', 0)
             row_data[f"{worker_name} Memory Train Peak Usage"] = max_memory_train_peak
             row_data[f"{worker_name} Memory Predict Peak Usage"] = client_perf.get('memory_predict_peak_usage', 0)
             row_data[f"{worker_name} Num Of Cores"] = client_perf.get('num_of_cores', 0)
-            
+
             if debug:
                 print(f"\n=== FINAL VALUES ASSIGNED TO CSV FOR {worker_name} ===")
                 print(f"  {worker_name} Accumulated Time Train Active: {accumulated_train_active}")
                 print(f"  {worker_name} Accumulated Time Train Total: {accumulated_train_total}")
                 print(f"  {worker_name} Memory Train EMA Usage: {avg_memory_train_ema}")
                 print(f"  {worker_name} Memory Train Peak Usage: {max_memory_train_peak}")
-                print(f"  {worker_name} Accumulated Time Predict Active: {client_perf.get('time_predict_active', 0)}")
+                print(f"  {worker_name} Accumulated Time Predict Active: {worker_predict_active}")
                 print(f"  {worker_name} Memory Predict EMA Usage: {client_perf.get('memory_predict_ema_usage', 0)}")
-            
+
             # CPU utilization per core
             cpu_predict_util = client_perf.get('cpu_predict_util_per_core', {})
             num_cores = client_perf.get('num_of_cores', 0)
-            
+
             for core_num in range(num_cores):
                 # Average CPU training utilization across all training phases
-                if (worker_name in training_aggregates and 
+                if (worker_name in training_aggregates and
                     core_num in training_aggregates[worker_name]['cpu_train_util_per_core_list']):
                     avg_cpu_train_util = np.mean(training_aggregates[worker_name]['cpu_train_util_per_core_list'][core_num])
                 else:
                     avg_cpu_train_util = 0
-                
+
                 row_data[f"{worker_name} CPU Train Util Core {core_num}"] = avg_cpu_train_util
                 row_data[f"{worker_name} CPU Predict Util Core {core_num}"] = cpu_predict_util.get(
                     core_num, cpu_predict_util.get(str(core_num), 0)
                 )
-                
+
                 if debug:
                     print(f"  {worker_name} CPU Train Util Core {core_num}: {avg_cpu_train_util}")
                     print(

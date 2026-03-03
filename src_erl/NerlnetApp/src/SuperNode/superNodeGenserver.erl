@@ -70,8 +70,7 @@
 -define(MAX_GRANT_REJECTION_STREAK, 256).
 -define(PARALLEL_DELIVERY_RETRY_FLOOR_MS, 100).
 -define(PARALLEL_DELIVERY_MAX_RETRIES_DEFAULT, 20).
--define(GRANT_ACCEPT_TIMEOUT_FACTOR, 1).
--define(NO_PROGRESS_TIMEOUT_STREAK_LIMIT, 3).
+-define(GRANT_ACCEPT_TIMEOUT_FACTOR, 3).
 
 start_link(Args = {MyName, _ManagedClients, _HeartbeatMs, _MaxInflight, _NerlnetGraph}) ->
   gen_server:start_link({local, MyName}, ?MODULE, Args, []).
@@ -773,21 +772,10 @@ apply_timeout_no_progress_guard(
           true -> {Marker, PrevStreak + 1};
           false -> {Marker, 1}
         end,
-      StateWithStreak = State#super_node_state{
+      State#super_node_state{
         timeout_no_progress_marker = NextMarker,
         timeout_no_progress_streak = NextStreak
-      },
-      case NextStreak >= ?NO_PROGRESS_TIMEOUT_STREAK_LIMIT of
-        false ->
-          StateWithStreak;
-        true ->
-          ?LOG_WARNING(
-            "Super node forcing deterministic phase close after ~p timeout skip(s) without progress marker=~p",
-            [NextStreak, NextMarker]
-          ),
-          notify_parallel_phase_done(StateWithStreak),
-          finalize_parallel_phase_close(StateWithStreak)
-      end
+      }
   end.
 
 timeout_progress_marker(LastParallelEvent) when is_map(LastParallelEvent) ->
