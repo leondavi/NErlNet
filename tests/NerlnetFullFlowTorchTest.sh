@@ -11,6 +11,9 @@ fi
 
 export TESTS_PATH="$NERLNET_PATH/tests"
 export NERLNET_RUNNING_TIMEOUT_SEC="5"
+export NERLNET_RUN_BOOT_WAIT_SEC="${NERLNET_RUN_BOOT_WAIT_SEC:-5}"
+export NERLNET_START_CASTING_TIMEOUT_SEC="${NERLNET_START_CASTING_TIMEOUT_SEC:-1800}"
+export NERLNET_EVENT_WAIT_PROGRESS_SEC="${NERLNET_EVENT_WAIT_PROGRESS_SEC:-15}"
 
 NERLNET_CONFIG_DIR=$NERLNET_PATH/config
 NERLNET_CONFIG_JSONS_DIR=$NERLNET_CONFIG_DIR/jsonsDir.nerlconfig
@@ -36,6 +39,65 @@ function replace_ip_in_json()
     NEW_IP=$3
     cp $IN_JSON_NOIP $OUT_JSON
     sed -i -e "s/x.x.x.x/$NEW_IP/g" $OUT_JSON
+}
+
+function port_is_listening()
+{
+    local port="$1"
+    ss -ltn "( sport = :$port )" 2>/dev/null | tail -n +2 | grep -q .
+}
+
+function pick_api_receiver_port()
+{
+    local preferred_port="${NERLNET_TEST_API_SERVER_PORT:-8082}"
+    if ! port_is_listening "$preferred_port"; then
+        echo "$preferred_port"
+        return 0
+    fi
+
+    if [ -n "${NERLNET_TEST_API_SERVER_PORT:-}" ]; then
+        print "Requested NERLNET_TEST_API_SERVER_PORT=$preferred_port is already in use"
+        return 1
+    fi
+
+    local candidate
+    for candidate in $(seq 18082 18182); do
+        if ! port_is_listening "$candidate"; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+
+    print "Failed to find a free API receiver port in range 18082-18182"
+    return 1
+}
+
+function set_dc_api_port()
+{
+    local dc_json_path="$1"
+    local api_port="$2"
+    python3 - "$dc_json_path" "$api_port" <<'PY'
+import json
+import sys
+
+dc_path = sys.argv[1]
+api_port = str(int(sys.argv[2]))
+with open(dc_path, "r", encoding="utf-8") as dc_file:
+    dc_data = json.load(dc_file)
+dc_data.setdefault("apiServer", {})["port"] = api_port
+with open(dc_path, "w", encoding="utf-8") as dc_file:
+    json.dump(dc_data, dc_file, indent=4)
+    dc_file.write("\n")
+PY
+}
+
+function stop_nerlnet()
+{
+    (cd "$NERLNET_PATH" && ./NerlnetRun.sh --run-mode stop >/dev/null 2>&1) || true
+    pkill -9 -f "beam.smp" 2>/dev/null || true
+    pkill -9 -f "erlexec" 2>/dev/null || true
+    pkill -9 -f "nerlnetApp" 2>/dev/null || true
+    sleep 2
 }
 
 function print()
@@ -110,9 +172,18 @@ if [ -z "$CURRENT_MACHINE_IPV4_ADD" ]; then
     exit 1
 fi
 print "This machine ipv4 is: $CURRENT_MACHINE_IPV4_ADD"
+
+TEST_API_SERVER_PORT="$(pick_api_receiver_port)" || exit 1
+export NERLNET_TEST_API_SERVER_PORT="$TEST_API_SERVER_PORT"
+print "Using API receiver port: $NERLNET_TEST_API_SERVER_PORT"
+
 sed -i '$a\' $NERLNET_CONFIG_SUBNETS_DIR
 echo "$CURRENT_MACHINE_IPV4_ADD" >> $NERLNET_CONFIG_SUBNETS_DIR
 replace_ip_in_json $TEST_DC_JSON_NOIP $TEST_DC_JSON $CURRENT_MACHINE_IPV4_ADD
+if ! set_dc_api_port "$TEST_DC_JSON" "$NERLNET_TEST_API_SERVER_PORT"; then
+    print "Failed to set API server port in runtime DC JSON: $TEST_DC_JSON"
+    exit 1
+fi
 
 source $TESTS_PATH/set_env.sh
 print "Loaded Virtual Environment: $VIRTUAL_ENV"
@@ -124,8 +195,14 @@ mv $NERLNET_CONFIG_JSONS_DIR $NERLNET_CONFIG_JSONS_DIR_BACKUP
 echo $TEST_INPUT_TORCH_DIR > $NERLNET_CONFIG_JSONS_DIR
 
 print "Execute Python - experiment_flow_test.py"
+if ! $MANUAL_START; then
+    stop_nerlnet
+fi
 python3 src_py/apiServer/experiment_flow_test.py
 env_rc=$?
+if ! $MANUAL_START; then
+    stop_nerlnet
+fi
 
 rm $NERLNET_CONFIG_JSONS_DIR
 print "Restore backup of $NERLNET_CONFIG_JSONS_DIR"

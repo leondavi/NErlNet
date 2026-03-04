@@ -244,6 +244,13 @@ def format_communication_stats(phase_name,
     phase_label = str(phase_name).strip() if phase_name is not None else "phase"
     if not phase_label:
         phase_label = "phase"
+    phase_label_lc = phase_label.lower()
+    if "predict" in phase_label_lc:
+        worker_phase_scope = "predict"
+    elif "train" in phase_label_lc:
+        worker_phase_scope = "train"
+    else:
+        worker_phase_scope = "aggregate"
 
     lines = [f"Communication stats ({phase_label}):"]
 
@@ -301,6 +308,15 @@ def format_communication_stats(phase_name,
         )
 
     workers = workers_stats or {}
+    def _worker_phase_value(stats, train_key: str, predict_key: str):
+        train_value = _safe_int(stats.get(train_key, 0))
+        predict_value = _safe_int(stats.get(predict_key, 0))
+        if worker_phase_scope == "train":
+            return train_value
+        if worker_phase_scope == "predict":
+            return predict_value
+        return train_value + predict_value
+
     lines.append("  Workers: Transport")
     lines.extend(
         _render_table(
@@ -331,6 +347,7 @@ def format_communication_stats(phase_name,
             + _safe_int(stats.get("skip_completion_timeout", 0))
             + _safe_int(stats.get("skip_phase_close_drain", 0))
             + _safe_int(stats.get("stale_event_after_skip", 0))
+            + _safe_int(stats.get("skip_congestion_drop", 0))
         )
         if tp_avg <= 0.0 and tp_count > 0:
             tp_total = _safe_int(stats.get("tp_collective_latency_us", 0))
@@ -338,11 +355,11 @@ def format_communication_stats(phase_name,
 
         worker_detail_rows.append([
             worker_name,
-            f"{_safe_int(stats.get('batches_received_train', 0))}/{_safe_int(stats.get('batches_received_predict', 0))}",
-            f"{_safe_int(stats.get('batches_sent_train', 0))}/{_safe_int(stats.get('batches_sent_predict', 0))}",
-            f"{_safe_int(stats.get('batches_completed_train', 0))}/{_safe_int(stats.get('batches_completed_predict', 0))}",
-            f"{_safe_int(stats.get('batches_dropped_train', 0))}/{_safe_int(stats.get('batches_dropped_predict', 0))}",
-            f"{_safe_int(stats.get('drop_legacy_busy_train', 0))}/{_safe_int(stats.get('drop_legacy_busy_predict', 0))}",
+            _worker_phase_value(stats, "batches_received_train", "batches_received_predict"),
+            _worker_phase_value(stats, "batches_sent_train", "batches_sent_predict"),
+            _worker_phase_value(stats, "batches_completed_train", "batches_completed_predict"),
+            _worker_phase_value(stats, "batches_dropped_train", "batches_dropped_predict"),
+            _worker_phase_value(stats, "drop_legacy_busy_train", "drop_legacy_busy_predict"),
             skipped_total,
             f"{tp_avg:.1f}",
         ])
@@ -351,11 +368,11 @@ def format_communication_stats(phase_name,
         _render_table(
             [
                 "Worker",
-                "Recv. Batches (T/P)",
-                "Sent Batches (T/P)",
-                "Completed Batches (T/P)",
-                "Dropped Batches (T/P)",
-                "Legacy Busy (T/P)",
+                "Recv. Batches",
+                "Sent Batches",
+                "Completed Batches",
+                "Dropped Batches",
+                "Legacy Busy",
                 "Skipped",
                 "TP Latency (us)",
             ],
@@ -502,10 +519,15 @@ def format_performance_stats(perf_train, perf_predict,
             lines.append(f"  {'Total wall-clock time':30s} {_format_us_to_human(t_total):>16s}   {_format_us_to_human(p_total):>16s}")
             lines.append(f"  {'Number of workers':30s} {num_workers_train:>16d}   {num_workers_predict:>16d}")
 
-            # Compute utilization: total NIF time across all workers / (num_workers * wall_time)
+            # Two views are useful:
+            # 1) cluster compute-to-wall ratio (can exceed 100% with overlap)
+            # 2) average per-worker utilization in the wall-clock window
+            t_cluster_util = (t_total_nif / t_total * 100) if t_total > 0 else 0
+            p_cluster_util = (p_total_nif / p_total * 100) if p_total > 0 else 0
             t_util = (t_total_nif / (num_workers_train * t_total) * 100) if (t_total > 0 and num_workers_train > 0) else 0
             p_util = (p_total_nif / (num_workers_predict * p_total) * 100) if (p_total > 0 and num_workers_predict > 0) else 0
-            lines.append(f"  {'Compute utilization':30s} {t_util:>15.2f}%   {p_util:>15.2f}%")
+            lines.append(f"  {'Compute / wall ratio':30s} {t_cluster_util:>15.2f}%   {p_cluster_util:>15.2f}%")
+            lines.append(f"  {'Avg. worker utilization':30s} {t_util:>15.2f}%   {p_util:>15.2f}%")
 
             # Idle fraction
             t_idle = max(0, 100 - t_util)

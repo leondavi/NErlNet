@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Contract checks for scheduler-grant head-order gating in worker runtime."""
+"""Contract checks for worker scheduler-grant matching semantics."""
 
 from __future__ import annotations
 
@@ -8,24 +8,38 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-WORKER_GENERIC = REPO_ROOT / "src_erl" / "NerlnetApp" / "src" / "Bridge" / "onnWorkers" / "workerGeneric.erl"
+WORKER_GENERIC = (
+    REPO_ROOT
+    / "src_erl"
+    / "NerlnetApp"
+    / "src"
+    / "Bridge"
+    / "onnWorkers"
+    / "workerGeneric.erl"
+)
 
 
 class SchedulerGrantOrderToleranceContractTests(unittest.TestCase):
-    def test_worker_runtime_uses_head_grant_matching(self) -> None:
+    def test_worker_runtime_uses_match_based_grant_lookup(self) -> None:
         content = WORKER_GENERIC.read_text(encoding="utf-8")
-        self.assertIn("scheduler_grant_mismatch", content)
-        self.assertIn("waiting for matching scheduler grant expected=~p head=~p", content)
-        self.assertIn("[HeadGrant | RestGrants]", content)
-        self.assertNotIn("pop_matching_scheduler_grant", content)
-        self.assertNotIn("has_matching_scheduler_grant", content)
+        self.assertIn("pop_matching_scheduler_grant", content)
+        self.assertIn("has_matching_scheduler_grant", content)
 
-    def test_worker_consumes_only_head_matching_grant(self) -> None:
+    def test_pipeline_stage0_grants_allow_batch_decoupling(self) -> None:
         content = WORKER_GENERIC.read_text(encoding="utf-8")
-        self.assertIn("case Grants of", content)
-        self.assertIn("[] ->", content)
-        self.assertIn("{error, no_scheduler_grant}", content)
-        self.assertIn("{ok, NormalizedHead", content)
+        # Stage-0 forward events are grant-authoritative on batch-id so the
+        # scheduler does not deadlock when source ingress batch ids drift.
+        self.assertIn("expected_parallel_scheduler_batch_id", content)
+        self.assertIn("{true, forward, 0}", content)
+        self.assertIn("batch_id_matches(any, _GrantBatchID)", content)
+
+    def test_backward_dispatch_uses_grant_batch_id(self) -> None:
+        content = WORKER_GENERIC.read_text(encoding="utf-8")
+        self.assertIn("{ok, {backward, GrantBatchID, MicrobatchID, StageID}}", content)
+        self.assertIn(
+            "pop_pending_parallel_backward_event(PendingEvents, GrantBatchID, MicrobatchID, StageID, [])",
+            content,
+        )
 
 
 if __name__ == "__main__":

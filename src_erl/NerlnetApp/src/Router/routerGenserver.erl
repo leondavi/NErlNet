@@ -56,6 +56,7 @@ init({MyName , _Policy , NerlnetGraph}) -> %% TODO : Add policy to router
 handle_cast({statistics , _Body} , State=#router_genserver_state{etsRef = Routing_table}) ->
   RouterStatsEts = get(router_stats_ets),
   stats:increment_messages_received(RouterStatsEts),
+  stats:increment_bytes_received(RouterStatsEts, safe_term_size({statistics, _Body})),
 
   MyName = get(myName),
   StatsEtsStr = stats:encode_ets_to_http_bin_str(RouterStatsEts),
@@ -63,11 +64,13 @@ handle_cast({statistics , _Body} , State=#router_genserver_state{etsRef = Routin
   [{_Dest,{_Name , MyRouterAddress , MyRouterPort}}] = ets:lookup(Routing_table , MyName), % Router is always owned by itself
   nerl_tools:http_router_request(MyRouterAddress, MyRouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
   stats:increment_messages_sent(RouterStatsEts),
+  stats:increment_bytes_sent(RouterStatsEts, safe_term_size(StatisticsBody)),
   {noreply , State};
 
 handle_cast({unicast,{Dest,Body}}, State = #router_genserver_state{msgCounter = MsgCounter,etsRef=Routing_table }) ->
   RouterStatsEts = get(router_stats_ets),
   stats:increment_messages_received(RouterStatsEts),
+  stats:increment_bytes_received(RouterStatsEts, safe_term_size({unicast, {Dest, Body}})),
   DestAtom = if is_list(Dest)-> list_to_atom(Dest);
                 is_binary(Dest)-> binary_to_atom(Dest);
                 true -> Dest
@@ -90,12 +93,14 @@ handle_cast({unicast,{Dest,Body}}, State = #router_genserver_state{msgCounter = 
   
   nerl_tools:http_request(Host, Port, Action, DataToSend),
   stats:increment_messages_sent(RouterStatsEts),
+  stats:increment_bytes_sent(RouterStatsEts, safe_term_size(DataToSend)),
   {noreply, State#router_genserver_state{msgCounter = MsgCounter+1,etsRef=Routing_table }};
 
 handle_cast({broadcast,{DestList,Body}}, State = #router_genserver_state{etsRef=Routing_table , myName = _MyName}) ->
   RouterStatsEts = get(router_stats_ets),
   %%Destinations = [Dest || Dest <- DestList, Dest =/= get(myName)],
   stats:increment_messages_received(RouterStatsEts),
+  stats:increment_bytes_received(RouterStatsEts, safe_term_size({broadcast, {DestList, Body}})),
   MapFunc=fun(Dest,Acc)->
     %make a map when keys are addreses to send a message to, and values are lists of destination of the message that go throu key addres
     [{Dest,{Name,Host,Port}}] = ets:lookup(Routing_table,Dest),
@@ -130,7 +135,8 @@ handle_cast({broadcast,{DestList,Body}}, State = #router_genserver_state{etsRef=
         Data={DestEntityList,Body}
     end,
     nerl_tools:http_request(Host, Port,Action, term_to_binary(Data)),
-    stats:increment_messages_sent(RouterStatsEts)
+    stats:increment_messages_sent(RouterStatsEts),
+    stats:increment_bytes_sent(RouterStatsEts, safe_term_size(Data))
   end,
   maps:foreach(SendFunc,NextHopMap),
   {noreply, State#router_genserver_state{etsRef=Routing_table }};
@@ -189,3 +195,10 @@ code_change(_OldVsn, State = #router_genserver_state{}, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+safe_term_size(Term) ->
+  try
+    byte_size(term_to_binary(Term))
+  catch
+    _:_ -> 0
+  end.

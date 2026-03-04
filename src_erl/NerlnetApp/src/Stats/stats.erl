@@ -18,6 +18,7 @@
 -export([generate_performance_stats_ets/0]).
 -export([start_os_mon/0]).
 -export([performance_stats_reset/1, performance_stats_reset_phase/2, communication_stats_reset/1]).
+-export([workers_communication_stats_reset/1]).
 % perofmance stats getters/setters
 -export([get_time_train_active/1, increment_time_train_active/2]).
 -export([get_time_train_total/1, increment_time_train_total/2]).
@@ -181,6 +182,10 @@ generate_workers_stats_ets() -> %% workers..
     ets:insert(WorkersStatsEts, {nan_loss_count , 0}),
     ets:insert(WorkersStatsEts, {tp_collective_count , 0}),
     ets:insert(WorkersStatsEts, {tp_collective_latency_us , 0}),
+    ets:insert(WorkersStatsEts, {congestion_drop_deferred_sample , 0}),
+    ets:insert(WorkersStatsEts, {congestion_signal_emitted , 0}),
+    ets:insert(WorkersStatsEts, {congestion_grant_rejected , 0}),
+    ets:insert(WorkersStatsEts, {skip_congestion_drop , 0}),
     WorkersStatsEts.
 
 %% ---- Workers Stats ETS Methods ----%%
@@ -261,6 +266,17 @@ communication_stats_reset(ComStatsEts) ->
     ets:update_element(ComStatsEts, ?STATS_ATOM_BATCHES_DROPPED, {?STATS_KEYVAL_VAL_IDX, 0}), % related with client only
     ets:update_element(ComStatsEts, ?STATS_ATOM_BATCHES_SENT, {?STATS_KEYVAL_VAL_IDX, 0}), % related with source only
     ets:update_element(ComStatsEts, ?STATS_ATOM_ACTUAL_FREQUENCY, {?STATS_KEYVAL_VAL_IDX, 0}), % related with source only
+    ok.
+
+workers_communication_stats_reset(WorkersStatsEts) ->
+    ResetFun = fun({Key, Value}) when is_integer(Value) ->
+                  ets:update_element(WorkersStatsEts, Key, {?STATS_KEYVAL_VAL_IDX, 0});
+                 ({Key, Value}) when is_float(Value) ->
+                  ets:update_element(WorkersStatsEts, Key, {?STATS_KEYVAL_VAL_IDX, 0.0});
+                 (_Other) ->
+                  ok
+               end,
+    lists:foreach(ResetFun, ets:tab2list(WorkersStatsEts)),
     ok.
 
 performance_stats_reset(PerfStatsEts) ->

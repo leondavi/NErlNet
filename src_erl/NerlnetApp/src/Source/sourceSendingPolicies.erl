@@ -9,9 +9,12 @@
 
 %% Sends batch of samples to a client
 % A batch is always {NerlTensor, Type}
-sendBatch(MyName,{NerlTensor, Type}, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
+sendBatch(TransmitterEts, MyName,{NerlTensor, Type}, BatchID,ClientName,WorkerName,RouterHost,RouterPort)->
         ToSend = {MyName , ClientName, WorkerName, BatchID, {NerlTensor, Type}},
-        nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(batch), ToSend).
+        nerl_tools:http_router_request(RouterHost, RouterPort, [ClientName], atom_to_list(batch), ToSend),
+        StatsEts = ets:lookup_element(TransmitterEts, stats_ets, ?DATA_IDX),
+        stats:increment_messages_sent(StatsEts),
+        stats:increment_bytes_sent(StatsEts, safe_term_size(ToSend)).
 
 prepare_and_send(_TransmitterEts, _TimeInterval_ms, _Batch, _BatchIdx, []) -> ok;
 prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [ClientWorkerPair | ClientWorkerPairsTail]) ->
@@ -22,7 +25,7 @@ prepare_and_send(TransmitterEts, TimeInterval_ms, Batch, BatchIdx, [ClientWorker
     {ClientName,WorkerName} = ClientWorkerPair,% TODO Gal is about to perform refactor here with casting support
     MyName = ets:lookup_element(TransmitterEts, my_name, ?DATA_IDX),
     % sending batch
-    sendBatch(MyName,{NerlTensor, Type}, BatchIdx, ClientName,WorkerName,RouterHost,RouterPort),
+    sendBatch(TransmitterEts, MyName,{NerlTensor, Type}, BatchIdx, ClientName,WorkerName,RouterHost,RouterPort),
     % timing handling
     Toc_millisec = timer:now_diff(Tic, erlang:timestamp()) * ?MICRO_TO_MILLI_FACTOR,
     SleepDuration = erlang:max(0,  round(TimeInterval_ms - Toc_millisec)),
@@ -104,3 +107,10 @@ send_method_random(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, B
   SkippedBatches = ets:lookup_element(TransmitterEts, batches_skipped, ?DATA_IDX),
   ets:update_counter(TransmitterEts, batches_sent, length(BatchesListToSend) - SkippedBatches),
   send_method_random(TransmitterEts, Epochs, TimeInterval_ms, ClientWorkerPairs, BatchesListToSend, EpochIdx + 1).
+
+safe_term_size(Term) ->
+    try
+        byte_size(term_to_binary(Term))
+    catch
+        _:_ -> 0
+    end.

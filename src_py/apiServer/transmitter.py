@@ -40,12 +40,26 @@ class Transmitter:
         timeout=None,
         operation: str = "request",
         retries: int = 20,
-        retry_sleep_sec: float = 0.5
+        retry_sleep_sec: float = 0.5,
+        retry_on_status_codes=()
     ):
         last_exc = None
         for attempt in range(1, retries + 1):
             try:
-                return requests.post(url, data=data, files=files, timeout=timeout)
+                response = requests.post(url, data=data, files=files, timeout=timeout)
+                if response.status_code in retry_on_status_codes and attempt < retries:
+                    response_preview = ""
+                    try:
+                        response_preview = response.text[:200]
+                    except Exception:
+                        response_preview = "<unavailable>"
+                    LOG_WARNING(
+                        f"{operation} transient HTTP status ({attempt}/{retries}) for {url}: "
+                        f"{response.status_code} {response_preview!r}. retrying in {retry_sleep_sec:.2f}s"
+                    )
+                    time.sleep(retry_sleep_sec)
+                    continue
+                return response
             except (RequestsConnectionError, RequestsTimeout) as exc:
                 last_exc = exc
                 if attempt < retries:
@@ -115,7 +129,8 @@ class Transmitter:
                 timeout=8,
                 operation="send_jsons_to_devices",
                 retries=20,
-                retry_sleep_sec=0.5
+                retry_sleep_sec=0.5,
+                retry_on_status_codes=(404, 408, 425, 429, 500, 502, 503, 504)
             )
             if not response.ok:
                 response_preview = ""

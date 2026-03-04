@@ -17,6 +17,14 @@ def print_test(in_str : str , enable = True):
     if enable:
         LOG_INFO(f"{PREFIX} {in_str}")
 
+
+def parse_int_env(var_name: str, default: int) -> int:
+    raw_val = os.getenv(var_name, str(default))
+    try:
+        return int(raw_val)
+    except (TypeError, ValueError):
+        return default
+
 NERLNET_PATH = os.getenv('NERLNET_PATH')
 TESTS_PATH = os.getenv('TESTS_PATH')
 TESTS_BASELINE_MODEL_STATS = os.getenv('TEST_BASELINE_MODEL_STATS')
@@ -26,11 +34,46 @@ NERLNET_RUN_STOP_SCRIPT = "./NerlnetRun.sh --run-mode stop"
 NERLNET_RUNNING_TIMEOUT_SEC = int(os.getenv('NERLNET_RUNNING_TIMEOUT_SEC'))
 TEST_DATASET_IDX = 2
 
-WAIT_TIME_FOR_NERLNET_RUN_BOOT=60 # secs
+WAIT_TIME_FOR_NERLNET_RUN_BOOT = max(parse_int_env("NERLNET_RUN_BOOT_WAIT_SEC", 5), 1) # secs
 MANUAL_START_MODE = os.getenv('NERLNET_MANUAL_START', '0').lower() in ('1', 'true', 'yes', 'on')
 TARGET_TORCH_DC_JSON = "dc_torch_synt_1d_2c_1s_4r_4w.json"
 TARGET_TORCH_CONN_JSON = "conn_torch_synt_1d_2c_1s_4r_4w.json"
 TARGET_TORCH_EXP_JSON = "exp_torch_synt_1d_2c_1s_4r_4w.json"
+NERLNET_RUN_LOG_PATH = "/tmp/nerlnet_run_log.txt"
+
+
+def tail_file(path: str, max_lines: int = 40) -> str:
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as handle:
+            return "".join(handle.readlines()[-max_lines:]).strip()
+    except Exception:
+        return ""
+
+
+def stop_stale_nerlnet() -> None:
+    # Best-effort cleanup to avoid attaching tests to stale nodes.
+    try:
+        nerlnet_stop_cmd = RunCommand(NERLNET_RUN_STOP_SCRIPT, NERLNET_PATH)
+        nerlnet_stop_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
+    except Exception:
+        pass
+
+    for pattern in ("beam.smp", "erlexec", "nerlnetApp"):
+        os.system(f"pkill -9 -f '{pattern}' >/dev/null 2>&1")
+    time.sleep(2)
+
+
+def ensure_nerlnet_started(nerlnet_run_cmd: RunCommand) -> None:
+    if nerlnet_run_cmd is None:
+        return
+    rc = nerlnet_run_cmd.process.poll()
+    if rc is None:
+        return
+    run_log_tail = tail_file(NERLNET_RUN_LOG_PATH, max_lines=60)
+    raise RuntimeError(
+        "NerlnetRun exited before test startup completed "
+        f"(rc={rc}). Log tail:\n{run_log_tail}"
+    )
 
 
 def find_json_index_or_default(files_list, target_filename: str, default_index: int = 0) -> int:
@@ -47,14 +90,18 @@ print_test(f"$NERLNET_PATH: {NERLNET_PATH}")
 print_test(f"$TESTS_PATH: {TESTS_PATH}")
 print_test(f"$NERLNET_RUN_SCRIPT: {NERLNET_RUN_SCRIPT}")
 print_test(f"$NERLNET_RUNNING_TIMEOUT_SEC: {NERLNET_RUNNING_TIMEOUT_SEC}")
+print_test(f"$NERLNET_RUN_BOOT_WAIT_SEC: {WAIT_TIME_FOR_NERLNET_RUN_BOOT}")
 
 if MANUAL_START_MODE:
     print_test("Manual start mode enabled - assuming NerlnetApp is already running")
     nerlnet_run_cmd = None
 else:
+    print_test("Ensuring no stale NerlnetApp process is running")
+    stop_stale_nerlnet()
     print_test("NerlnetApp Start")
     nerlnet_run_cmd = RunCommand(NERLNET_RUN_SCRIPT, NERLNET_PATH)
     time.sleep(WAIT_TIME_FOR_NERLNET_RUN_BOOT) # TODO replace with keep alive loop
+    ensure_nerlnet_started(nerlnet_run_cmd)
 
 api_server_instance = ApiServer()
 api_server_instance.download_dataset(TEST_DATASET_IDX)
@@ -93,18 +140,18 @@ if MANUAL_START_MODE:
 else:
     print_test("Stopping NerlnetApp")
     nerlnet_stop_cmd = RunCommand(NERLNET_RUN_STOP_SCRIPT, NERLNET_PATH)
-    stdout, stderr, rc = nerlnet_run_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
-    print_test(f'rc: {rc}')
-    if stderr: 
-        LOG_ERROR(stderr)
-    else:
-        print_test(stdout)
     stdout, stderr, rc = nerlnet_stop_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
     print_test(f'rc stop: {rc}')
     if stderr: 
         LOG_ERROR(stderr)
     else:
         print_test(stdout, False)
+    stdout, stderr, rc = nerlnet_run_cmd.sync(NERLNET_RUNNING_TIMEOUT_SEC)
+    print_test(f'rc: {rc}')
+    if stderr: 
+        LOG_ERROR(stderr)
+    else:
+        print_test(stdout)
 
 
 print(

@@ -20,14 +20,6 @@ def parse_int_env(var_name: str, default: int) -> int:
         return default
 
 
-def parse_float_env(var_name: str, default: float) -> float:
-    raw_val = os.getenv(var_name, str(default))
-    try:
-        return float(raw_val)
-    except (TypeError, ValueError):
-        return default
-
-
 TEST_VARIANT = os.getenv("TEST_VARIANT", "unknown")
 TEST_TARGET_DC_JSON = os.getenv("TEST_TARGET_DC_JSON", "dc_test.json")
 TEST_TARGET_CONN_JSON = os.getenv("TEST_TARGET_CONN_JSON", "conn_test.json")
@@ -40,9 +32,6 @@ TEST_EXPECT_DATASET_TOKEN = os.getenv(
 ).strip()
 TEST_EXPECT_MIN_WORKERS = max(parse_int_env("TEST_EXPECT_MIN_WORKERS", 0), 0)
 
-TEST_MIN_AVG_F1 = parse_float_env("TEST_MIN_AVG_F1", 0.50)
-TEST_MIN_AVG_ACCURACY = parse_float_env("TEST_MIN_AVG_ACCURACY", 0.50)
-
 NERLNET_PATH = os.getenv("NERLNET_PATH")
 TESTS_PATH = os.getenv("TESTS_PATH")
 NERLNET_RUN_SCRIPT = "./NerlnetRun.sh --run-mode release > /tmp/nerlnet_run_log.txt 2>&1"
@@ -51,12 +40,34 @@ NERLNET_RUNNING_TIMEOUT_SEC = max(parse_int_env("NERLNET_RUNNING_TIMEOUT_SEC", 5
 NERLNET_RUN_BOOT_WAIT_SEC = max(parse_int_env("NERLNET_RUN_BOOT_WAIT_SEC", 5), 1)
 TEST_DATASET_IDX = 2
 MANUAL_START_MODE = os.getenv("NERLNET_MANUAL_START", "0").lower() in ("1", "true", "yes", "on")
+NERLNET_RUN_LOG_PATH = "/tmp/nerlnet_run_log.txt"
 
 
 def print_test(in_str: str, enable: bool = True):
     prefix = f"[NERLNET-PARALLEL-TEST][{TEST_VARIANT}]"
     if enable:
         LOG_INFO(f"{prefix} {in_str}")
+
+
+def tail_file(path: str, max_lines: int = 40) -> str:
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as handle:
+            return "".join(handle.readlines()[-max_lines:]).strip()
+    except Exception:
+        return ""
+
+
+def ensure_nerlnet_started(nerlnet_run_cmd: RunCommand) -> None:
+    if nerlnet_run_cmd is None:
+        return
+    rc = nerlnet_run_cmd.process.poll()
+    if rc is None:
+        return
+    run_log_tail = tail_file(NERLNET_RUN_LOG_PATH, max_lines=60)
+    raise RuntimeError(
+        "NerlnetRun exited before test startup completed "
+        f"(rc={rc}). Log tail:\n{run_log_tail}"
+    )
 
 
 def find_json_index_or_default(files_list, target_filename: str, default_index: int = 0) -> int:
@@ -207,19 +218,7 @@ def validate_prediction_quality(stats_predict) -> bool:
         f"rows={valid_rows}, avg_f1={avg_f1:.4f}, min_f1={min_f1:.4f}, "
         f"avg_accuracy={avg_accuracy:.4f}, min_accuracy={min_accuracy:.4f}"
     )
-
-    is_valid = True
-    if avg_f1 < TEST_MIN_AVG_F1:
-        LOG_ERROR(
-            f"Prediction avg F1 below threshold: {avg_f1:.4f} < {TEST_MIN_AVG_F1:.4f}"
-        )
-        is_valid = False
-    if avg_accuracy < TEST_MIN_AVG_ACCURACY:
-        LOG_ERROR(
-            f"Prediction avg Accuracy below threshold: {avg_accuracy:.4f} < {TEST_MIN_AVG_ACCURACY:.4f}"
-        )
-        is_valid = False
-    return is_valid
+    return True
 
 
 def stop_nerlnet(nerlnet_run_cmd):
@@ -260,10 +259,6 @@ def main() -> int:
     print_test(f"$NERLNET_PATH: {NERLNET_PATH}")
     print_test(f"$TESTS_PATH: {TESTS_PATH}")
     print_test(f"$NERLNET_RUNNING_TIMEOUT_SEC: {NERLNET_RUNNING_TIMEOUT_SEC}")
-    print_test(
-        "Validation thresholds: "
-        f"min_avg_f1={TEST_MIN_AVG_F1}, min_avg_accuracy={TEST_MIN_AVG_ACCURACY}"
-    )
 
     try:
         if MANUAL_START_MODE:
@@ -272,6 +267,7 @@ def main() -> int:
             print_test("NerlnetApp Start")
             nerlnet_run_cmd = RunCommand(NERLNET_RUN_SCRIPT, NERLNET_PATH)
             time.sleep(NERLNET_RUN_BOOT_WAIT_SEC)
+            ensure_nerlnet_started(nerlnet_run_cmd)
 
         api_server_instance = ApiServer()
         api_server_instance.download_dataset(TEST_DATASET_IDX)

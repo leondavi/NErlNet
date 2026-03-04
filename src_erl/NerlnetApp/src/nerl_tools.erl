@@ -10,6 +10,7 @@
 -export([calculate_size/1]).
 -export([make_routing_table/4]).
 -export([http_router_request/5]).
+-export([http_router_request_with_retry/6]).
 -export([format_multipart_formdata/3]).
 
 setup_logger(Module) ->
@@ -56,6 +57,23 @@ http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, Body) -
         throw("Empty DestinationsList is given!")
   end.
 
+http_router_request_with_retry(RouterHost, RouterPort, DestinationsList, ActionStr, Body, MaxRetries) ->
+  http_router_retry(RouterHost, RouterPort, DestinationsList, ActionStr, Body, MaxRetries, 0, 100).
+
+http_router_retry(RouterHost, RouterPort, DestinationsList, ActionStr, Body, MaxRetries, Attempt, BackoffMs) ->
+  try
+    http_router_request(RouterHost, RouterPort, DestinationsList, ActionStr, Body)
+  catch
+    Err:Reason:Stack when Attempt < MaxRetries ->
+      ?LOG_WARNING("HTTP routing attempt ~p/~p failed (~p:~p) retrying in ~pms",
+        [Attempt + 1, MaxRetries, Err, Reason, BackoffMs]),
+      receive after BackoffMs -> ok end,
+      http_router_retry(RouterHost, RouterPort, DestinationsList, ActionStr, Body,
+        MaxRetries, Attempt + 1, erlang:min(BackoffMs * 2, 2000));
+    Err:Reason:Stack ->
+      erlang:raise(Err, Reason, Stack)
+  end.
+
 
 http_request(Host, Port, Path, {json, Body}) -> 
   JsonContentType = ?HTTP_CONTENT_TYPE_JSON,
@@ -70,7 +88,8 @@ http_request(Host, Port, Path, ContentType, Body) when is_atom(Body) -> http_req
 http_request(Host, Port, Path, ContentType, Body) when is_binary(Host) -> http_request(binary_to_list(Host), Port,Path, ContentType, Body);
 http_request(Host, Port, Path, ContentType, Body) ->
   URL = "http://" ++ Host ++ ":" ++ integer_to_list(Port) ++ "/" ++ Path, % Path is the action
-  httpc:set_options([{proxy, {{Host, Port},[Host]}}]),
+  %% Avoid mutating global httpc proxy options.
+  %% Per-call host/port routing is already explicit in URL and should remain isolated.
   httpc:request(post,{URL, [], ContentType, Body}, [], []).
 
 get_client_worker_pairs([],_WorkersMap,Ret)-> Ret;

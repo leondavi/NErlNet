@@ -114,6 +114,7 @@ handle_cast({restart, _Body} , State = #main_genserver_state{}) ->
 handle_cast({jsonReceived,Body}, State = #main_genserver_state{}) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
+  stats:increment_bytes_received(StatsEts, safe_term_size({jsonReceived, Body})),
   {DeviceName , TotalNumberOfDevices} = binary_to_term(Body),
   case TotalNumberOfDevices of 
     0 -> ack(atom_to_list(received_jsons_done)); %% if the exeperiment runs on a single device
@@ -132,6 +133,7 @@ handle_cast({jsonReceived,Body}, State = #main_genserver_state{}) ->
       end
   end,
   stats:increment_messages_sent(StatsEts),
+  stats:increment_bytes_sent(StatsEts, safe_term_size(<<"received_jsons_done">>)),
   {noreply, State#main_genserver_state{}};
 
 handle_cast({jsonDistributionError, Reason}, State = #main_genserver_state{}) ->
@@ -148,13 +150,22 @@ handle_cast({clientsPhaseUpdate , PhasePayload}, State = #main_genserver_state{m
   {EffectiveParallelMode, EffectiveSuperNode} =
     apply_parallel_phase_routing(PhaseAtom, ParallelMode, SuperNode, ParallelExecution),
   case PhaseAtom of
-    training ->   stats:increment_messages_received(StatsEts),put(active_phase, training), 
+    training ->   stats:increment_messages_received(StatsEts),
+                  stats:increment_bytes_received(StatsEts, safe_term_size({clientsPhaseUpdate, PhasePayload})),
+                  put(active_phase, training), 
                   update_clients_phase(clientTraining, MyName);
-    prediction -> stats:increment_messages_received(StatsEts),put(active_phase, prediction),
+    prediction -> stats:increment_messages_received(StatsEts),
+                  stats:increment_bytes_received(StatsEts, safe_term_size({clientsPhaseUpdate, PhasePayload})),
+                  put(active_phase, prediction),
                   update_clients_phase(clientPredict, MyName);
     _Else -> ?LOG_ERROR("Wrong phase was received: ~p",[PhaseAtom]), stats:increment_bad_messages(StatsEts)
   end,
   ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
+  stats:increment_messages_sent(StatsEts, length(ListOfClients)),
+  stats:increment_bytes_sent(
+    StatsEts,
+    safe_term_size({clientsPhaseUpdate, PhaseAtom, MyName}) * length(ListOfClients)
+  ),
   {noreply, State#main_genserver_state{
     clientsWaitingList = ListOfClients,
     parallel_mode = EffectiveParallelMode,
@@ -162,6 +173,9 @@ handle_cast({clientsPhaseUpdate , PhasePayload}, State = #main_genserver_state{m
   }};
 
 handle_cast({parallelAbort, Body}, State = #main_genserver_state{myName = MyName, parallel_super_node = SuperNode}) ->
+  StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
+  stats:increment_messages_received(StatsEts),
+  stats:increment_bytes_received(StatsEts, safe_term_size({parallelAbort, Body})),
   AbortMessage = decode_parallel_abort_body(Body),
   ?LOG_ERROR("Parallel abort received by ~p: ~p", [MyName, AbortMessage]),
   ResetPhase = normalize_phase_atom(get(active_phase)),
@@ -191,6 +205,9 @@ handle_cast(
     clientsWaitingList = ClientsWaitingList
   }
 ) ->
+  StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
+  stats:increment_messages_received(StatsEts),
+  stats:increment_bytes_received(StatsEts, safe_term_size({parallelPhaseDone, Body})),
   ParallelDoneMessage = decode_parallel_phase_done_body(Body),
   case {MainState, ParallelMode} of
     {casting, Mode} when Mode =/= legacy ->
@@ -272,9 +289,11 @@ handle_cast({clientsPredict,_Body}, State = #main_genserver_state{myName = MyNam
 handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) ->
     StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
     stats:increment_messages_received(StatsEts),
+    stats:increment_bytes_received(StatsEts, safe_term_size({statistics, Body})),
     if Body == <<"getStatistics">> ->   %% initial message from APIServer, get stats from entities
         statistics_requests_to_entities(), % Broadcast sends - worth 1 message
-        stats:increment_messages_sent(StatsEts);
+        stats:increment_messages_sent(StatsEts),
+        stats:increment_bytes_sent(StatsEts, safe_term_size(<<"getStatistics">>));
       Body == <<>> ->  ?LOG_ERROR("~p: Wrong statistics message",[MyName]);
 
       true ->
@@ -285,6 +304,7 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
           % increase counter_received_stats ets by 1
           ets:update_counter(get(main_server_ets), counter_received_stats, 1),
           stats:increment_messages_received(StatsEts),
+          stats:increment_bytes_received(StatsEts, safe_term_size({From, StatsEtsEncStr})),
 
           ReceivedCounterStatsValue = ets:lookup_element(get(main_server_ets), counter_received_stats, ?DATA_IDX),
           EntitiesNamesList = ets:lookup_element(get(main_server_ets), entities_names_list, ?DATA_IDX),
@@ -300,7 +320,9 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
             StatsToSend = lists:flatten([Func(Entity) || Entity <- EntitiesNamesList] ++ MainServerStr), % add main server to the list
             {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
             ActionStr = atom_to_list(statistics),
-            nerl_tools:http_router_request(RouterHost,RouterPort, [?API_SERVER_ATOM], ActionStr, list_to_binary(StatsToSend)); % update the source with its data
+            nerl_tools:http_router_request(RouterHost,RouterPort, [?API_SERVER_ATOM], ActionStr, list_to_binary(StatsToSend)),
+            stats:increment_messages_sent(StatsEts),
+            stats:increment_bytes_sent(StatsEts, safe_term_size(StatsToSend)); % update the source with its data
             
           true -> wait_for_more_stats 
         end
@@ -320,6 +342,7 @@ handle_cast(
 ) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
+  stats:increment_bytes_received(StatsEts, safe_term_size({sourceDone, Body})),
   SourceName = binary_to_term(Body),
   case (MainState =:= idle) andalso (SourcesCastingList =:= []) of
     true ->
@@ -347,6 +370,7 @@ handle_cast(
       update_clients_phase(PhaseAtom, MyName),
       ListOfClients = ets:lookup_element(get(main_server_ets), clients_names_list, ?DATA_IDX),
       stats:increment_messages_sent(StatsEts),
+      stats:increment_bytes_sent(StatsEts, safe_term_size({clientIdle, MyName})),
       NextState = State#main_genserver_state{state = idle, sourcesCastingList = UpdatedSourcesCastingList, clientsWaitingList = ListOfClients, total_sources = 0};
     _ ->
       NextState = State#main_genserver_state{state = casting, sourcesCastingList = UpdatedSourcesCastingList}
@@ -358,6 +382,7 @@ handle_cast(
 handle_cast({sourceAckDataReady,Body}, State = #main_genserver_state{sourcesWaitingList = WaitingList, total_sources = TotalSources, sources_data_ready_ctr = SourcesDataReadyCtr}) ->
     StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
     stats:increment_messages_received(StatsEts),
+    stats:increment_bytes_received(StatsEts, safe_term_size({sourceAckDataReady, Body})),
     SourceName = binary_to_term(Body),
     NewWaitingList = WaitingList--[SourceName],
     SourcesDataReadyCtrNew = SourcesDataReadyCtr + 1, % The total sources comes from the APIServer - The ApiServer sends each source data in different streams, therefore, 
@@ -371,6 +396,7 @@ handle_cast({sourceAckDataReady,Body}, State = #main_genserver_state{sourcesWait
 handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList = WaitingList}) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
+  stats:increment_bytes_received(StatsEts, safe_term_size({clientAck, Body})),
   ClientName = binary_to_term(Body),
   case lists:member(ClientName, WaitingList) of
     false ->
@@ -392,11 +418,13 @@ handle_cast({clientAck,Body}, State = #main_genserver_state{clientsWaitingList =
                         {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX), % get main_server's router
                         nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(trainRes), {json, PhaseResultsDataMap}),
                         stats:increment_messages_sent(StatsEts),
+                        stats:increment_bytes_sent(StatsEts, safe_term_size({trainRes, PhaseResultsDataMap})),
                         clean_phase_result_data_to_send_ets(); % getting ready for next phase after data was sent to APIServer
                       prediction ->
                         {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX), % get main_server's router
                         nerl_tools:http_router_request(RouterHost, RouterPort, [?API_SERVER_ATOM], atom_to_list(predRes), {json, PhaseResultsDataMap}),
                         stats:increment_messages_sent(StatsEts),
+                        stats:increment_bytes_sent(StatsEts, safe_term_size({predRes, PhaseResultsDataMap})),
                         clean_phase_result_data_to_send_ets();
                       UnexpectedPhase ->
                         % late client ack can arrive after deterministic abort/reset when active_phase was cleared.
@@ -418,6 +446,7 @@ handle_cast({startCasting,SourcesNames}, State = #main_genserver_state{state = i
   put(curr_phase_ack , start_casting_done),
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
+  stats:increment_bytes_received(StatsEts, safe_term_size({startCasting, SourcesNames})),
   SourcesList = re:split(binary_to_list(SourcesNames), "," , [{return, list}]), 
   %% NumOfSampleToSend = lists:last(Splitted),
   %% Sources = lists:sublist(Splitted,length(Splitted)-1),
@@ -425,6 +454,10 @@ handle_cast({startCasting,SourcesNames}, State = #main_genserver_state{state = i
   
   sources_start_casting(SourcesList), % each source gets a unicast message of start casting action
   stats:increment_messages_sent(StatsEts, length(SourcesList)),
+  stats:increment_bytes_sent(
+    StatsEts,
+    safe_term_size({startCasting}) * length(SourcesList)
+  ),
   {noreply, State#main_genserver_state{ state = casting, sourcesCastingList = CastingList++SourcesAtoms}};
 
 
@@ -436,6 +469,7 @@ handle_cast({startCasting,_SourceNames}, State = #main_genserver_state{sourcesWa
 handle_cast({stopCasting, SourceName}, State = #main_genserver_state{state = casting}) ->
     StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
     stats:increment_messages_received(StatsEts),
+    stats:increment_bytes_received(StatsEts, safe_term_size({stopCasting, SourceName})),
   
     {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
     % TODO - implement in source this function when SourceStatem is in cast mode
@@ -455,6 +489,7 @@ handle_cast({lossFunction,<<>>}, State = #main_genserver_state{}) ->
 handle_cast({lossFunction,Body}, State = #main_genserver_state{myName = MyName}) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_received(StatsEts),
+  stats:increment_bytes_received(StatsEts, safe_term_size({lossFunction, Body})),
   try
     case binary_to_term(Body) of
         {WorkerName , SourceName , {LossNerlTensor , LossNerlTensorType} , TimeNIF , WorkerToken, BatchID , BatchTS} ->
@@ -480,6 +515,7 @@ handle_cast({predictRes,Body}, State) ->
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   _BatchSize = ets:lookup_element(get(main_server_ets), batch_size, ?DATA_IDX),
   stats:increment_messages_received(StatsEts),
+  stats:increment_bytes_received(StatsEts, safe_term_size({predictRes, Body})),
   try 
       {WorkerName, SourceName, {NerlTensor, NerlTensorType}, TimeNIF , WorkerToken, BatchID, BatchTS} = binary_to_term(Body),
       Key = atom_to_list(WorkerName) ++ ?PHASE_RES_VALUES_IN_KEY_SEPARATOR ++ atom_to_list(SourceName) ++ 
@@ -794,6 +830,7 @@ ack(MsgStr) ->
   {ok, Response} = retransmission_to_apiserver(HttpRouterRequestFunc, ?VALIDATION_OF_TRANSMISSION_WITH_API_SERVER_NUMOF_TRIALS),
   StatsEts = get_entity_stats_ets(?MAIN_SERVER_ATOM),
   stats:increment_messages_sent(StatsEts),
+  stats:increment_bytes_sent(StatsEts, safe_term_size(MsgStr)),
   case Response of 
     {{_Protocol, _Code = 404, _Meaning}, _Headers, _Body} -> 
           ?LOG_WARNING("Main Server retries again ack send"), ack(MsgStr);    %% Ack not received, retry again
@@ -821,3 +858,10 @@ generate_phase_result_data_map() ->
 
 clean_phase_result_data_to_send_ets() ->
   ets:delete_all_objects(get(phase_res_data_ets)).
+
+safe_term_size(Term) ->
+  try
+    byte_size(term_to_binary(Term))
+  catch
+    _:_ -> 0
+  end.

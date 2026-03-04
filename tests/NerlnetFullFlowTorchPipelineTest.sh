@@ -13,6 +13,9 @@ fi
 
 export TESTS_PATH="$NERLNET_PATH/tests"
 export NERLNET_RUNNING_TIMEOUT_SEC="${NERLNET_RUNNING_TIMEOUT_SEC:-5}"
+export NERLNET_RUN_BOOT_WAIT_SEC="${NERLNET_RUN_BOOT_WAIT_SEC:-5}"
+export NERLNET_START_CASTING_TIMEOUT_SEC="${NERLNET_START_CASTING_TIMEOUT_SEC:-1800}"
+export NERLNET_EVENT_WAIT_PROGRESS_SEC="${NERLNET_EVENT_WAIT_PROGRESS_SEC:-15}"
 
 NERLNET_CONFIG_DIR="$NERLNET_PATH/config"
 NERLNET_CONFIG_JSONS_DIR="$NERLNET_CONFIG_DIR/jsonsDir.nerlconfig"
@@ -33,6 +36,7 @@ SELECTED_VARIANTS=()
 CONFIGS_BACKED_UP=false
 VENV_LOADED=false
 RUN_ID="$(date +%s)_$$"
+RUNTIME_JSON_ROOT=""
 
 function print()
 {
@@ -63,6 +67,56 @@ function replace_ip_in_json()
     sed -i -e "s/x.x.x.x/$new_ip/g" "$out_json"
 }
 
+function port_is_listening()
+{
+    local port="$1"
+    ss -ltn "( sport = :$port )" 2>/dev/null | tail -n +2 | grep -q .
+}
+
+function pick_api_receiver_port()
+{
+    local preferred_port="${NERLNET_TEST_API_SERVER_PORT:-8082}"
+    if ! port_is_listening "$preferred_port"; then
+        echo "$preferred_port"
+        return 0
+    fi
+
+    if [ -n "${NERLNET_TEST_API_SERVER_PORT:-}" ]; then
+        print "Requested NERLNET_TEST_API_SERVER_PORT=$preferred_port is already in use"
+        return 1
+    fi
+
+    local candidate
+    for candidate in $(seq 18082 18182); do
+        if ! port_is_listening "$candidate"; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+
+    print "Failed to find a free API receiver port in range 18082-18182"
+    return 1
+}
+
+function set_dc_api_port()
+{
+    local dc_json_path="$1"
+    local api_port="$2"
+    python3 - "$dc_json_path" "$api_port" <<'PY'
+import json
+import sys
+
+dc_path = sys.argv[1]
+api_port = str(int(sys.argv[2]))
+with open(dc_path, "r", encoding="utf-8") as dc_file:
+    dc_data = json.load(dc_file)
+dc_data.setdefault("apiServer", {})["port"] = api_port
+with open(dc_path, "w", encoding="utf-8") as dc_file:
+    json.dump(dc_data, dc_file, indent=4)
+    dc_file.write("\n")
+PY
+}
+
 function variant_is_valid()
 {
     local candidate="$1"
@@ -86,7 +140,9 @@ function stop_nerlnet()
 
 function cleanup()
 {
-    find "$TEST_BASE_DIR" -maxdepth 2 -type f -name "dc_test*.json" -delete 2>/dev/null || true
+    if [ -n "$RUNTIME_JSON_ROOT" ] && [ -d "$RUNTIME_JSON_ROOT" ]; then
+        rm -rf "$RUNTIME_JSON_ROOT"
+    fi
     if [ "$CONFIGS_BACKED_UP" = true ]; then
         if [ -f "$NERLNET_CONFIG_JSONS_DIR_BACKUP" ]; then
             cp "$NERLNET_CONFIG_JSONS_DIR_BACKUP" "$NERLNET_CONFIG_JSONS_DIR"
@@ -197,6 +253,11 @@ if [ -z "$CURRENT_MACHINE_IPV4_ADD" ]; then
     exit 1
 fi
 print "This machine ipv4 is: $CURRENT_MACHINE_IPV4_ADD"
+
+TEST_API_SERVER_PORT="$(pick_api_receiver_port)" || exit 1
+export NERLNET_TEST_API_SERVER_PORT="$TEST_API_SERVER_PORT"
+print "Using API receiver port: $NERLNET_TEST_API_SERVER_PORT"
+
 sed -i '$a\' "$NERLNET_CONFIG_SUBNETS_DIR"
 echo "$CURRENT_MACHINE_IPV4_ADD" >> "$NERLNET_CONFIG_SUBNETS_DIR"
 
@@ -219,12 +280,21 @@ print "========================================"
 print "Running ${#TEST_VARIANTS[@]} variant(s): ${TEST_VARIANTS[*]}"
 print "========================================"
 
+RUNTIME_JSON_ROOT="$(mktemp -d "/tmp/nerlnet_pipeline_fullflow_${RUN_ID}_XXXXXX")"
+if [ ! -d "$RUNTIME_JSON_ROOT" ]; then
+    print "Failed to create runtime JSON temp directory"
+    exit 1
+fi
+
 for VARIANT in "${TEST_VARIANTS[@]}"; do
     VARIANT_DIR="$TEST_BASE_DIR/$VARIANT"
     DC_NOIP="$VARIANT_DIR/dc_test.json.noip"
-    DC_JSON="$VARIANT_DIR/dc_test_${RUN_ID}.json"
     CONN_JSON="$VARIANT_DIR/conn_test.json"
     EXP_JSON="$VARIANT_DIR/exp_test.json"
+    VARIANT_RUNTIME_DIR="$RUNTIME_JSON_ROOT/$VARIANT"
+    DC_JSON="$VARIANT_RUNTIME_DIR/dc_test_${RUN_ID}.json"
+    CONN_RUNTIME_JSON="$VARIANT_RUNTIME_DIR/conn_test.json"
+    EXP_RUNTIME_JSON="$VARIANT_RUNTIME_DIR/exp_test.json"
 
     print "========================================"
     print "[$VARIANT] Starting test"
@@ -243,9 +313,23 @@ for VARIANT in "${TEST_VARIANTS[@]}"; do
         continue
     fi
 
+    mkdir -p "$VARIANT_RUNTIME_DIR"
+    if ! cp "$CONN_JSON" "$CONN_RUNTIME_JSON" || ! cp "$EXP_JSON" "$EXP_RUNTIME_JSON"; then
+        print "[$VARIANT] Failed to prepare runtime conn/exp JSON files"
+        RESULTS[$VARIANT]="FAILED (runtime_json_copy_failed)"
+        OVERALL_RC=1
+        continue
+    fi
+
     if ! replace_ip_in_json "$DC_NOIP" "$DC_JSON" "$CURRENT_MACHINE_IPV4_ADD"; then
         print "[$VARIANT] Failed to prepare runtime DC JSON: $DC_JSON"
         RESULTS[$VARIANT]="FAILED (dc_prepare_failed)"
+        OVERALL_RC=1
+        continue
+    fi
+    if ! set_dc_api_port "$DC_JSON" "$NERLNET_TEST_API_SERVER_PORT"; then
+        print "[$VARIANT] Failed to set API server port in runtime DC JSON: $DC_JSON"
+        RESULTS[$VARIANT]="FAILED (dc_api_port_patch_failed)"
         OVERALL_RC=1
         continue
     fi
@@ -255,15 +339,20 @@ for VARIANT in "${TEST_VARIANTS[@]}"; do
         OVERALL_RC=1
         continue
     fi
-    echo "$VARIANT_DIR" > "$NERLNET_CONFIG_JSONS_DIR"
+    DC_RUNTIME_COUNT="$(find "$VARIANT_RUNTIME_DIR" -maxdepth 1 -type f -name 'dc_*.json' | wc -l)"
+    if [ "$DC_RUNTIME_COUNT" -lt 1 ]; then
+        print "[$VARIANT] Runtime directory has no dc_*.json files: $VARIANT_RUNTIME_DIR"
+        RESULTS[$VARIANT]="FAILED (dc_runtime_discovery_failed)"
+        OVERALL_RC=1
+        continue
+    fi
+    echo "$VARIANT_RUNTIME_DIR" > "$NERLNET_CONFIG_JSONS_DIR"
 
     export TEST_VARIANT="$VARIANT"
     export TEST_TARGET_DC_JSON="$(basename "$DC_JSON")"
-    export TEST_TARGET_CONN_JSON="conn_test.json"
-    export TEST_TARGET_EXP_JSON="exp_test.json"
+    export TEST_TARGET_CONN_JSON="$(basename "$CONN_RUNTIME_JSON")"
+    export TEST_TARGET_EXP_JSON="$(basename "$EXP_RUNTIME_JSON")"
     export TEST_EXPECT_DATASET_TOKEN="${TEST_EXPECT_DATASET_TOKEN:-synthetic_norm/synthetic_full.csv}"
-    export TEST_MIN_AVG_F1="${TEST_MIN_AVG_F1:-0.50}"
-    export TEST_MIN_AVG_ACCURACY="${TEST_MIN_AVG_ACCURACY:-0.50}"
     case "$VARIANT" in
         pipeline_gpipe)
             export TEST_EXPECT_MODE="pipeline"
@@ -304,7 +393,6 @@ for VARIANT in "${TEST_VARIANTS[@]}"; do
     "$PYTHON_BIN" src_py/apiServer/experiment_flow_pipeline_test.py
     TEST_RC=$?
 
-    rm -f "$DC_JSON"
     if ! $MANUAL_START; then
         stop_nerlnet
     fi

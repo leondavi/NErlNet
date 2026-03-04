@@ -113,6 +113,12 @@ state_name(_EventType, _EventContent, State = #source_statem_state{}) ->
 idle(cast, {batchList, WorkersList, Phase, NumOfBatches, NerlTensorType, CompressedData}, State) ->
   EtsRef = get(source_ets),
   StatsEtsRef = get(source_stats_ets),
+  % Phase-scoped accounting: reset source counters when new phase data arrives.
+  stats:communication_stats_reset(StatsEtsRef),
+  stats:increment_bytes_received(
+    StatsEtsRef,
+    safe_term_size({batchList, WorkersList, Phase, NumOfBatches, NerlTensorType, CompressedData})
+  ),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   BatchSize = ets:lookup_element(EtsRef, batch_size, ?DATA_IDX),
   ?LOG_NOTICE("Source ~p, Receiving and parsing data", [MyName]),
@@ -132,14 +138,16 @@ idle(cast, {batchList, WorkersList, Phase, NumOfBatches, NerlTensorType, Compres
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(dataReady), MyName),
   ?LOG_INFO("~p Ready for casting",[MyName]),
   stats:increment_messages_sent(StatsEtsRef),
+  stats:increment_bytes_sent(StatsEtsRef, safe_term_size(MyName)),
   {next_state, idle, State#source_statem_state{batchesList = NerlTensorBatchesList, nerlTensorType = NerlTensorType}};
 
 
 %% This cast spawns a transmitter of data stream towards NerlClient by casting batches of data from parsed csv file given by cowboy source_server
-idle(cast, {startCasting,_Body}, State = #source_statem_state{batchesList = BatchesList}) ->
+idle(cast, In = {startCasting,_Body}, State = #source_statem_state{batchesList = BatchesList}) ->
   EtsRef = get(source_ets),
   StatsEtsRef = get(source_stats_ets),
   stats:increment_messages_received(StatsEtsRef),
+  stats:increment_bytes_received(StatsEtsRef, safe_term_size(In)),
 
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   Frequency = ets:lookup_element(EtsRef, frequency, ?DATA_IDX),
@@ -174,6 +182,7 @@ idle(cast, {startCasting}, State) ->
   EtsRef = get(source_ets),
   StatsEtsRef = get(source_stats_ets),
   stats:increment_messages_received(StatsEtsRef),
+  stats:increment_bytes_received(StatsEtsRef, safe_term_size({startCasting})),
 
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   ?LOG_WARNING("Source ~p receives message during casting!",[MyName]),
@@ -183,12 +192,14 @@ idle(cast, {startCasting}, State) ->
 idle(cast, {stopCasting}, State) ->
   StatsEtsRef = get(source_stats_ets),
   stats:increment_messages_received(StatsEtsRef),
+  stats:increment_bytes_received(StatsEtsRef, safe_term_size({stopCasting})),
   {next_state, idle, State};
 
 idle(cast, {statistics}, State) ->
   EtsRef = get(source_ets),
   StatsEtsRef = get(source_stats_ets),
   stats:increment_messages_received(StatsEtsRef),
+  stats:increment_bytes_received(StatsEtsRef, safe_term_size({statistics})),
 
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   StatsEtsStr = stats:encode_ets_to_http_bin_str(StatsEtsRef),
@@ -196,12 +207,14 @@ idle(cast, {statistics}, State) ->
   {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
   stats:increment_messages_sent(StatsEtsRef),
+  stats:increment_bytes_sent(StatsEtsRef, safe_term_size(StatisticsBody)),
   {next_state, idle, State#source_statem_state{}};
 
 idle(cast, _EventContent, State) ->
   EtsRef = get(source_ets),
   StatsEtsRef = get(source_stats_ets),
   stats:increment_messages_received(StatsEtsRef),
+  stats:increment_bytes_received(StatsEtsRef, safe_term_size(_EventContent)),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   ?LOG_WARNING("Source ~p receives an unexpected cast event in idle state!",[MyName]),
   {next_state, idle, State#source_statem_state{}}.
@@ -210,30 +223,34 @@ idle(cast, _EventContent, State) ->
 castingData(cast, {stopCasting}, State = #source_statem_state{transmitter_pid = TransmitterPID}) ->
   StatsEtsRef = get(source_stats_ets),
   stats:increment_messages_received(StatsEtsRef),
+  stats:increment_bytes_received(StatsEtsRef, safe_term_size({stopCasting})),
   ?LOG_ERROR("Unsupported yet"),
   TransmitterPID ! {stopCasting}, % TODO - kill transmitter on stop casting
   {next_state, idle, State#source_statem_state{transmitter_pid = none}};
 
-castingData(cast, {startCasting}, State) ->
+castingData(cast, In = {startCasting}, State) ->
   EtsRef = get(source_ets),
   StatsEtsRef = get(source_stats_ets),
   stats:increment_messages_received(StatsEtsRef),
+  stats:increment_bytes_received(StatsEtsRef, safe_term_size(In)),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   ?LOG_WARNING("~p is already casting, but received a startCasting message",[MyName]),
   {next_state, castingData, State};
 
-castingData(cast, {leftOvers,_Tail}, State) ->
+castingData(cast, In = {leftOvers,_Tail}, State) ->
   EtsRef = get(source_ets),
   StatsEtsRef = get(source_stats_ets),
   stats:increment_messages_received(StatsEtsRef),
+  stats:increment_bytes_received(StatsEtsRef, safe_term_size(In)),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   ?LOG_ERROR("Source ~p got leftOvers unhandled case of castingData state - Currently Deprecated!",[MyName]),
   {next_state, idle, State};
 
-castingData(cast, {finishedCasting, BatchesSent}, State) ->
+castingData(cast, In = {finishedCasting, BatchesSent}, State) ->
   EtsRef = get(source_ets),
   StatsEtsRef = get(source_stats_ets),
   stats:increment_messages_received(StatsEtsRef),
+  stats:increment_bytes_received(StatsEtsRef, safe_term_size(In)),
   %% source finished casting %%
   stats:increment_by_value(StatsEtsRef, batches_sent, BatchesSent),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
@@ -241,11 +258,13 @@ castingData(cast, {finishedCasting, BatchesSent}, State) ->
   %%  send an ACK to mainserver that the CSV file is ready
   nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(sourceDone), MyName),
   stats:increment_messages_sent(StatsEtsRef),
+  stats:increment_bytes_sent(StatsEtsRef, safe_term_size(MyName)),
   {next_state, idle, State#source_statem_state{transmitter_pid = none}};
 
 castingData(cast, _EventContent, State = #source_statem_state{ets_ref = EtsRef}) ->
   StatsEtsRef = get(source_stats_ets),
   stats:increment_bad_messages(StatsEtsRef),
+  stats:increment_bytes_received(StatsEtsRef, safe_term_size(_EventContent)),
   MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
   ?LOG_WARNING("Source ~p Received cast event during castingData state",[MyName]),
   {next_state, castingData, State#source_statem_state{}}.
@@ -304,6 +323,7 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
   ets:insert(TransmitterEts, {batches_issue, 0}),
   ets:insert(TransmitterEts, {batches_skipped, 0}),
   ets:insert(TransmitterEts, {current_batch_id, 0}),
+  ets:insert(TransmitterEts, {stats_ets, ets:lookup_element(SourceEtsRef, stats_ets, ?DATA_IDX)}),
   % Message to all workers: "start_stream". Keep this bounded so a single
   % unreachable endpoint cannot stall the transmitter forever.
   {RouterHost, RouterPort} = ets:lookup_element(TransmitterEts, my_router, ?DATA_IDX),
@@ -312,6 +332,7 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
     safe_stream_signal_request(
       RouterHost,
       RouterPort,
+      ets:lookup_element(TransmitterEts, stats_ets, ?DATA_IDX),
       ClientName,
       start_stream,
       ToSend,
@@ -335,6 +356,7 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
     safe_stream_signal_request(
       RouterHost,
       RouterPort,
+      ets:lookup_element(TransmitterEts, stats_ets, ?DATA_IDX),
       ClientName,
       end_stream,
       ToSend,
@@ -358,7 +380,10 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
   end,
 
   gen_statem:cast(SourcePid,{finishedCasting,BatchesSent}),
-  ActualFrequency = 1/(TransmissionTimeTook_sec/BatchesSent),
+  ActualFrequency = case BatchesSent > 0 andalso TransmissionTimeTook_sec > 0 of
+                      true -> 1/(TransmissionTimeTook_sec/BatchesSent);
+                      false -> 0
+                    end,
   ?LOG_INFO("Source ~p Actual Frequency: ~p [B/Sec]",[MyName, ActualFrequency]),
   StatsEtsRef = ets:lookup_element(SourceEtsRef, stats_ets, ?DATA_IDX),
   stats:set_value(StatsEtsRef, actual_frequency, ActualFrequency),
@@ -367,6 +392,7 @@ transmitter(TimeInterval_ms, SourceEtsRef, SourcePid, Epochs ,ClientWorkerPairs,
 safe_stream_signal_request(
   RouterHost,
   RouterPort,
+  StatsEtsRef,
   ClientName,
   ActionAtom,
   Payload,
@@ -379,13 +405,16 @@ safe_stream_signal_request(
     spawn(fun() ->
       Result =
         try
-          nerl_tools:http_router_request(
+          HttpResponse = nerl_tools:http_router_request(
             RouterHost,
             RouterPort,
             [ClientName],
             atom_to_list(ActionAtom),
             Payload
-          )
+          ),
+          stats:increment_messages_sent(StatsEtsRef),
+          stats:increment_bytes_sent(StatsEtsRef, safe_term_size(Payload)),
+          HttpResponse
         catch
           Err:Reason ->
             {error, {Err, Reason}}
@@ -416,4 +445,11 @@ safe_stream_signal_request(
       [SourceName, ActionAtom, ?STREAM_SIGNAL_TIMEOUT_MS, WorkerName, ClientName]
     ),
     ok
+  end.
+
+safe_term_size(Term) ->
+  try
+    byte_size(term_to_binary(Term))
+  catch
+    _:_ -> 0
   end.

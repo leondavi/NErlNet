@@ -10,6 +10,7 @@ import sys
 import os
 import json
 import tempfile
+import socket
 from contextlib import ExitStack
 from singleton import Singleton
 from huggingface_hub import HfApi, snapshot_download
@@ -47,6 +48,10 @@ class ApiServer(metaclass=Singleton):
         self.explicit_json_paths = None
         self.apiserver_event_sync = EventSync() # pay attention! there are two kinds of syncs one for experiment phase events and one for api-server events
         self.next_expertiment_phase_exist = True      # flag to check if there are more phases to run
+        self.receiverThread = None
+        self.receiverProblem = None
+        self._receiver_bind = None  # (ip, port) currently used by this ApiServer receiver thread
+        self._runtime_receiver_port_override = None
 
         # Create a new folder for the results:
         Path(EXPERIMENT_RESULTS_PATH).mkdir(parents=True, exist_ok=True)
@@ -62,6 +67,129 @@ class ApiServer(metaclass=Singleton):
 
     def help(self):
         print(API_SERVER_HELP_STR)        
+
+    @staticmethod
+    def _get_api_server_ip_from_dc(dc_data: dict) -> str:
+        api_device_ip = ""
+        for device in dc_data.get("devices", []):
+            entities_raw = str(device.get("entities", ""))
+            entities = [entity.strip() for entity in entities_raw.split(",") if entity.strip()]
+            if "apiServer" in entities:
+                api_device_ip = str(device.get("ipv4", "")).strip()
+                break
+        if not api_device_ip:
+            raise RuntimeError("Unable to resolve apiServer IP from distributed config devices.")
+        return api_device_ip
+
+    @staticmethod
+    def _get_configured_api_server_port(dc_data: dict) -> int:
+        api_server_cfg = dc_data.get("apiServer", {})
+        raw_port = api_server_cfg.get("port", 0)
+        try:
+            port = int(raw_port)
+        except (TypeError, ValueError):
+            raise RuntimeError(f"Invalid apiServer.port value in distributed config: {raw_port!r}")
+        if port <= 0:
+            raise RuntimeError(f"Invalid apiServer.port value in distributed config: {raw_port!r}")
+        return port
+
+    @staticmethod
+    def _set_api_server_port_in_dc(dc_data: dict, new_port: int):
+        api_server_cfg = dc_data.setdefault("apiServer", {})
+        original_value = api_server_cfg.get("port")
+        if isinstance(original_value, str):
+            api_server_cfg["port"] = str(new_port)
+        else:
+            api_server_cfg["port"] = int(new_port)
+
+    @staticmethod
+    def _parse_receiver_port_candidates_from_env() -> list:
+        default_range = "18082-18182"
+        raw = str(os.getenv("NERLNET_API_RECEIVER_PORT_RANGE", default_range)).strip()
+        tokens = [token.strip() for token in raw.split(",") if token.strip()]
+        candidates = []
+        seen = set()
+        for token in tokens:
+            if "-" in token:
+                start_raw, end_raw = token.split("-", 1)
+                try:
+                    start = int(start_raw.strip())
+                    end = int(end_raw.strip())
+                except ValueError:
+                    continue
+                if end < start:
+                    start, end = end, start
+                for port in range(start, end + 1):
+                    if 0 < port <= 65535 and port not in seen:
+                        candidates.append(port)
+                        seen.add(port)
+            else:
+                try:
+                    port = int(token)
+                except ValueError:
+                    continue
+                if 0 < port <= 65535 and port not in seen:
+                    candidates.append(port)
+                    seen.add(port)
+        return candidates
+
+    @staticmethod
+    def _reserve_ephemeral_port(host: str) -> int:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind((host, 0))
+            return int(sock.getsockname()[1])
+
+    def _find_fallback_receiver_port(self, receiver_ip: str, configured_port: int):
+        for candidate in self._parse_receiver_port_candidates_from_env():
+            if candidate == configured_port:
+                continue
+            if is_port_free(candidate, receiver_ip):
+                return candidate
+        try:
+            ephemeral_candidate = self._reserve_ephemeral_port(receiver_ip)
+            if ephemeral_candidate != configured_port and is_port_free(ephemeral_candidate, receiver_ip):
+                return ephemeral_candidate
+        except OSError:
+            return None
+        return None
+
+    def _resolve_receiver_port(self, receiver_ip: str, configured_port: int) -> int:
+        receiver_thread_alive = self.receiverThread is not None and self.receiverThread.is_alive()
+        active_bind = self._receiver_bind if isinstance(self._receiver_bind, tuple) else None
+
+        if is_port_free(configured_port, receiver_ip):
+            return configured_port
+
+        if receiver_thread_alive and active_bind == (receiver_ip, configured_port):
+            LOG_INFO(
+                f"ApiServer receiver is already running on "
+                f"http://{receiver_ip}:{configured_port}; reusing existing thread"
+            )
+            return configured_port
+
+        if receiver_thread_alive and active_bind and active_bind[0] == receiver_ip:
+            active_port = int(active_bind[1])
+            if not is_port_free(active_port, receiver_ip):
+                LOG_WARNING(
+                    f"Configured ApiServer receiver port is busy "
+                    f"(http://{receiver_ip}:{configured_port}); "
+                    f"reusing active receiver thread on http://{receiver_ip}:{active_port}"
+                )
+                return active_port
+
+        fallback_port = self._find_fallback_receiver_port(receiver_ip, configured_port)
+        if fallback_port is not None:
+            LOG_WARNING(
+                f"Configured ApiServer receiver port is busy "
+                f"(http://{receiver_ip}:{configured_port}); "
+                f"switching to fallback port {fallback_port}"
+            )
+            return fallback_port
+
+        raise RuntimeError(
+            f"ApiServer receiver port is busy at http://{receiver_ip}:{configured_port} "
+            f"and no fallback port could be allocated."
+        )
     
     def __new_experiment(self, experiment_name : str, json_path: str, batch_size: int, network_componenets: NetworkComponents, csv_path = ""):
         assert experiment_name not in self.experiments_dict, "experiment name exists!"
@@ -79,6 +207,18 @@ class ApiServer(metaclass=Singleton):
         self.apiserver_event_sync.reset()
 
         dcData = self.json_dir_parser.json_from_path(dc_json)
+        configured_receiver_ip = self._get_api_server_ip_from_dc(dcData)
+        configured_receiver_port = self._get_configured_api_server_port(dcData)
+        effective_receiver_port = self._resolve_receiver_port(
+            configured_receiver_ip,
+            configured_receiver_port
+        )
+        if effective_receiver_port != configured_receiver_port:
+            self._set_api_server_port_in_dc(dcData, effective_receiver_port)
+            self._runtime_receiver_port_override = int(effective_receiver_port)
+        else:
+            self._runtime_receiver_port_override = None
+
         connData = self.json_dir_parser.json_from_path(conn_map_json)
         batch_size = int(dcData["nerlnetSettings"]["batchSize"])
         self.explicit_json_paths = (dc_json, conn_map_json, experiment_flow_json)
@@ -88,6 +228,7 @@ class ApiServer(metaclass=Singleton):
         # comDB = NerlComDB(globe.components)
         self.__new_experiment(experiment_name, experiment_flow_json, batch_size, globe.components, csv_path) # create new experiment
         self.experiment_focused_on(experiment_name)
+        self.current_exp.reset_comm_stats_snapshot()
         # Reset phase cursor/flag for every new experiment initialization.
         self.current_exp.current_exp_phase_index = 0
         self.next_expertiment_phase_exist = True
@@ -124,12 +265,14 @@ class ApiServer(metaclass=Singleton):
                 (http://{globe.components.receiverIp}:{globe.components.receiverPort})\n\
                 Please change the 'host' and 'port' values for the 'serverAPI' key in the architecture JSON file.\n")
                 sys.exit()
+            self._receiver_bind = (receiver_ip, receiver_port)
         else:
             if hasattr(self, 'receiverThread') and self.receiverThread is not None and self.receiverThread.is_alive():
                 LOG_INFO(
                     f"ApiServer receiver is already running on "
                     f"http://{receiver_ip}:{receiver_port}; reusing existing thread"
                 )
+                self._receiver_bind = (receiver_ip, receiver_port)
             else:
                 LOG_ERROR(
                     f"ApiServer receiver port is already in use: "
@@ -193,13 +336,25 @@ class ApiServer(metaclass=Singleton):
         return components.get_torch_model_assets()
 
     def _prepare_dc_stream(self, stack: ExitStack, dc_path: str, torch_assets: dict):
-        if not torch_assets:
+        has_runtime_receiver_override = self._runtime_receiver_port_override is not None
+        if not torch_assets and not has_runtime_receiver_override:
             return stack.enter_context(open(dc_path, 'rb'))
 
         with open(dc_path, 'r', encoding='utf-8') as dc_file_obj:
             dc_dict = json.load(dc_file_obj)
 
         mutated = False
+        if has_runtime_receiver_override:
+            api_server_section = dc_dict.setdefault("apiServer", {})
+            current_port = api_server_section.get("port")
+            desired_port = self._runtime_receiver_port_override
+            if str(current_port) != str(desired_port):
+                if isinstance(current_port, str):
+                    api_server_section["port"] = str(desired_port)
+                else:
+                    api_server_section["port"] = int(desired_port)
+                mutated = True
+
         model_sha_section = dc_dict.get(KEY_MODEL_SHA, {})
         for model_sha, asset in torch_assets.items():
             if model_sha in model_sha_section:
@@ -252,6 +407,47 @@ class ApiServer(metaclass=Singleton):
     def toc(self, start):
         return time.time() - start
 
+    @staticmethod
+    def _get_timeout_from_env(env_name: str, default_sec: float) -> float:
+        raw_value = os.getenv(env_name, str(default_sec))
+        try:
+            timeout_sec = float(raw_value)
+            if timeout_sec <= 0:
+                raise ValueError("timeout must be > 0")
+            return timeout_sec
+        except (TypeError, ValueError):
+            LOG_WARNING(
+                "Invalid %s='%s'; using default %.1fs",
+                env_name,
+                raw_value,
+                default_sec
+            )
+            return float(default_sec)
+
+    @staticmethod
+    def _get_bool_from_env(env_name: str, default: bool = False) -> bool:
+        raw_value = str(os.getenv(env_name, str(int(default)))).strip().lower()
+        if raw_value in ("1", "true", "yes", "on"):
+            return True
+        if raw_value in ("0", "false", "no", "off"):
+            return False
+        LOG_WARNING(
+            "Invalid %s='%s'; using default %s",
+            env_name,
+            raw_value,
+            default
+        )
+        return default
+
+    @staticmethod
+    def _dataset_csv_exists(path_to_repo: str) -> bool:
+        if not os.path.isdir(path_to_repo):
+            return False
+        try:
+            return any(file_name.endswith(".csv") for file_name in os.listdir(path_to_repo))
+        except OSError:
+            return False
+
     def terminate(self):
         self.apiserver_event_sync.set_event_wait(EventSync.TERMINATE)
         self.transmitter.terminate()
@@ -269,7 +465,12 @@ class ApiServer(metaclass=Singleton):
 
         events_sync_inst.set_event_wait(EventSync.UPDATE_CSV)
         self.transmitter.update_csv(source_files_to_send, sources_pieces_list)
-        events_sync_inst.sync_on_event(EventSync.UPDATE_CSV)
+        update_csv_timeout_sec = self._get_timeout_from_env("NERLNET_UPDATE_CSV_TIMEOUT_SEC", 180)
+        events_sync_inst.sync_on_event(
+            EventSync.UPDATE_CSV,
+            timeout_sec=update_csv_timeout_sec,
+            wait_label=f"{experiment_phase.get_name()} update_csv_done"
+        )
         LOG_INFO("Data is ready in sources")
 
     def run_current_experiment_phase(self):
@@ -291,11 +492,24 @@ class ApiServer(metaclass=Singleton):
                 current_exp_phase.get_phase_type(),
                 current_exp_phase.get_parallel_execution()
             )
-            events_sync_inst.sync_on_event(EventSync.UPDATE_PHASE)
+            update_phase_timeout_sec = self._get_timeout_from_env("NERLNET_UPDATE_PHASE_TIMEOUT_SEC", 180)
+            events_sync_inst.sync_on_event(
+                EventSync.UPDATE_PHASE,
+                timeout_sec=update_phase_timeout_sec,
+                wait_label=f"{current_exp_phase.get_name()} update_phase_done"
+            )
 
             events_sync_inst.set_event_wait(EventSync.START_CASTING)
             self.transmitter.start_casting(current_exp_phase) # Source start sending data to workers
-            events_sync_inst.sync_on_event(EventSync.START_CASTING)
+            start_casting_timeout_sec = self._get_timeout_from_env(
+                "NERLNET_START_CASTING_TIMEOUT_SEC",
+                1800
+            )
+            events_sync_inst.sync_on_event(
+                EventSync.START_CASTING,
+                timeout_sec=start_casting_timeout_sec,
+                wait_label=f"{current_exp_phase.get_name()} start_casting_done"
+            )
 
             LOG_INFO(f"Processing experiment phase data")
             current_exp_phase.process_experiment_phase_data()
@@ -395,6 +609,7 @@ class ApiServer(metaclass=Singleton):
         total_phases = len(current_exp_flow.exp_phase_list)
         # Ensure phase state is reset for each full-flow execution.
         current_exp_flow.current_exp_phase_index = 0
+        current_exp_flow.reset_comm_stats_snapshot()
         self.next_expertiment_phase_exist = True
         
         if total_phases == 0:
@@ -475,13 +690,32 @@ class ApiServer(metaclass=Singleton):
         try:
             if isinstance(repo_idx, int):
                 repo_idx = [repo_idx]
+            force_refresh = self._get_bool_from_env("NERLNET_DATASET_REFRESH", False)
+            offline_only = self._get_bool_from_env("NERLNET_DATASET_OFFLINE", False)
             for repo in repo_ids["datasets"]:
                 if repo["idx"] in repo_idx:
                     repo_id = repo["id"]
                     full_path_to_repo = f'{download_dir_path}/{repo["name"]}'
                     if not os.path.exists(full_path_to_repo):
                         os.makedirs(full_path_to_repo)
-                    snapshot_download(repo_id=repo_id, local_dir=f'{full_path_to_repo}', repo_type="dataset")
+                    local_csv_exists = self._dataset_csv_exists(full_path_to_repo)
+                    if local_csv_exists and not force_refresh:
+                        LOG_INFO(
+                            f"Using cached dataset at {full_path_to_repo} "
+                            f"(set NERLNET_DATASET_REFRESH=1 to re-download)"
+                        )
+                        continue
+                    LOG_INFO(
+                        f"Downloading dataset repo={repo_id} to {full_path_to_repo} "
+                        f"(offline_only={offline_only}, force_refresh={force_refresh})"
+                    )
+                    snapshot_download(
+                        repo_id=repo_id,
+                        local_dir=f'{full_path_to_repo}',
+                        repo_type="dataset",
+                        allow_patterns=["*.csv"],
+                        local_files_only=offline_only
+                    )
                     LOG_INFO(f"Files downloaded to {download_dir_path}/{repo['name']}")
         except RepositoryNotFoundError:
             LOG_INFO(f"Failed to find the repository '{repo}'. Check your '{HF_DATA_REPO_PATHS_JSON}' file or network access.")

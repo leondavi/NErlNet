@@ -94,6 +94,11 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{parallel_pending_backward_events, []}),
   ets:insert(GenWorkerEts,{parallel_active_batch_ctx, undefined}),
   ets:insert(GenWorkerEts,{parallel_deferred_samples, []}),
+  ets:insert(GenWorkerEts,{parallel_congestion_signaled, false}),
+  ets:insert(GenWorkerEts,{congestion_drop_enabled, false}),
+  ets:insert(GenWorkerEts,{deferred_sample_soft_limit, 256}),
+  ets:insert(GenWorkerEts,{pipeline_buffer_cap, 0}),
+  ets:insert(GenWorkerEts,{parallel_microbatches_skipped, 0}),
   ets:insert(GenWorkerEts,{parallel_pipeline_forward_buffer, []}),
   ets:insert(GenWorkerEts,{parallel_pipeline_backward_buffer, []}),
   ets:insert(GenWorkerEts,{parallel_pipeline_predict_buffer, []}),
@@ -115,6 +120,7 @@ init({WorkerName , WorkerArgs , DistributedBehaviorFunc , DistributedWorkerData 
   ets:insert(GenWorkerEts,{active_streams, []}),
   ets:insert(GenWorkerEts,{stream_occuring, false}),
   ets:insert(GenWorkerEts,{end_streams_waiting_list, []}), % Waiting list of messages from client to end_stream with source
+  ets:insert(GenWorkerEts,{end_stream_flush_retries, 0}),
   % Worker to Worker communication module - this is a gen_server
 
   Res = case NormalizedInfraType of
@@ -428,11 +434,14 @@ wait(cast, {loss_microbatch, {LossTensor, LossTensorType}, TrainTime, BatchID, S
             0 ->
               case maybe_call_optimizer_barrier(State#workerGeneric_state.modelID) of
                 ok ->
-                  TotalMicrobatches = erlang:max(1, ets:lookup_element(GenWorkerEts, parallel_total_microbatches, ?ETS_KEYVAL_VAL_IDX)),
+                  TotalMicrobatchesRaw = erlang:max(1, ets:lookup_element(GenWorkerEts, parallel_total_microbatches, ?ETS_KEYVAL_VAL_IDX)),
+                  SkippedMicrobatches = ets:lookup_element(GenWorkerEts, parallel_microbatches_skipped, ?ETS_KEYVAL_VAL_IDX),
+                  TotalMicrobatches = erlang:max(1, TotalMicrobatchesRaw - SkippedMicrobatches),
                   FinalLossTensor = finalize_parallel_loss(UpdatedLossAcc, TotalMicrobatches),
                   FinalTrainTime = UpdatedTimeAcc / TotalMicrobatches,
                   BatchTimeStamp = erlang:system_time(nanosecond),
                   WorkerToken = ets:lookup_element(GenWorkerEts, distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
+                  stats:increment_by_value(get(worker_stats_ets), batches_sent_train, 1),
                   gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,FinalLossTensor , FinalTrainTime , WorkerToken, BatchID , BatchTimeStamp}),
                   NextStateBehavior = DistributedBehaviorFunc(post_train, {GenWorkerEts,[]}),
                   reset_parallel_batch_context(GenWorkerEts),
@@ -475,6 +484,7 @@ wait(cast, {loss_microbatch, {LossTensor, LossTensorType}, TrainTime, BatchID, S
 wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   stats:increment_by_value(get(worker_stats_ets), nan_loss_count, 1),
   WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
+  stats:increment_by_value(get(worker_stats_ets), batches_sent_train, 1),
   gen_statem:cast(get(client_pid),{loss, MyName , SourceName ,nan , TrainTime, WorkerToken ,BatchID}),
   NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
   maybe_finalize_pending_end_streams(DistributedBehaviorFunc, train),
@@ -484,6 +494,7 @@ wait(cast, {loss, nan , TrainTime , BatchID , SourceName}, State = #workerGeneri
 wait(cast, {loss, {LossTensor, LossTensorType} , TrainTime , BatchID , SourceName}, State = #workerGeneric_state{myName = MyName, modelID=_ModelID, distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   BatchTimeStamp = erlang:system_time(nanosecond),
   WorkerToken = ets:lookup_element(get(generic_worker_ets), distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
+  stats:increment_by_value(get(worker_stats_ets), batches_sent_train, 1),
   gen_statem:cast(get(client_pid),{loss, MyName, SourceName ,{LossTensor, LossTensorType} , TrainTime , WorkerToken, BatchID , BatchTimeStamp}),
   stats:increment_by_value(get(worker_stats_ets), acc_time_training, trunc(TrainTime)),
   NextStateBehavior = DistributedBehaviorFunc(post_train, {get(generic_worker_ets),[]}), %% First call sends empty list , then it will be updated by the federated server and clients
@@ -540,6 +551,7 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
       %% Legacy predict result handling
       BatchTimeStamp = erlang:system_time(nanosecond),
       WorkerToken = ets:lookup_element(GenWorkerEts, distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
+      stats:increment_by_value(get(worker_stats_ets), batches_sent_predict, 1),
       gen_statem:cast(get(client_pid),{predictRes,MyName, SourceName, {PredNerlTensor, PredNerlTensorType}, TimeNif , WorkerToken, BatchID , BatchTimeStamp}),
       stats:increment_by_value(get(worker_stats_ets), acc_time_prediction, trunc(TimeNif)),
       DistributedBehaviorFunc(post_predict, {GenWorkerEts,DistributedWorkerData}),
@@ -685,31 +697,37 @@ train(cast, {set_parallel_authority, Enabled}, State) ->
 
 train(cast, {parallel_scheduler_grant, Direction, BatchID, MicrobatchID, StageID}, State) ->
   GenWorkerEts = get(generic_worker_ets),
-  append_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, MicrobatchID, StageID),
-  ParallelMode = normalize_parallel_mode_atom(
-                   ets:lookup_element(GenWorkerEts, parallel_mode, ?ETS_KEYVAL_VAL_IDX)
-                 ),
-  case ParallelMode of
-    pipeline ->
-      case maybe_dispatch_pending_parallel_backward_events(GenWorkerEts) of
-        ok ->
-          case dispatch_pipeline_buffers(GenWorkerEts, State#workerGeneric_state.modelID, State#workerGeneric_state.myName) of
-            ok -> {keep_state, State};
-            {abort, Reason} ->
-              notify_worker_parallel_abort(GenWorkerEts, {pipeline_dispatch_failed, Reason}),
+  case is_buffer_over_cap(GenWorkerEts) of
+    true ->
+      reject_grant_for_congestion(GenWorkerEts, State#workerGeneric_state.myName, Direction, BatchID, MicrobatchID, StageID),
+      {keep_state, State};
+    false ->
+      append_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, MicrobatchID, StageID),
+      ParallelMode = normalize_parallel_mode_atom(
+                       ets:lookup_element(GenWorkerEts, parallel_mode, ?ETS_KEYVAL_VAL_IDX)
+                     ),
+      case ParallelMode of
+        pipeline ->
+          case maybe_dispatch_pending_parallel_backward_events(GenWorkerEts) of
+            ok ->
+              case dispatch_pipeline_buffers(GenWorkerEts, State#workerGeneric_state.modelID, State#workerGeneric_state.myName) of
+                ok -> {keep_state, State};
+                {abort, Reason} ->
+                  notify_worker_parallel_abort(GenWorkerEts, {pipeline_dispatch_failed, Reason}),
+                  reset_parallel_loss_context(GenWorkerEts),
+                  {keep_state, State}
+              end;
+            {abort, PendingDispatchReason} ->
+              notify_worker_parallel_abort(
+                GenWorkerEts,
+                {pending_parallel_backward_dispatch_failed, PendingDispatchReason}
+              ),
               reset_parallel_loss_context(GenWorkerEts),
               {keep_state, State}
           end;
-        {abort, PendingDispatchReason} ->
-          notify_worker_parallel_abort(
-            GenWorkerEts,
-            {pending_parallel_backward_dispatch_failed, PendingDispatchReason}
-          ),
-          reset_parallel_loss_context(GenWorkerEts),
+        _ ->
           {keep_state, State}
-      end;
-    _ ->
-      {keep_state, State}
+      end
   end;
 train(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) ->
   train(cast, {parallel_scheduler_grant, Direction, any, MicrobatchID, StageID}, State);
@@ -921,22 +939,28 @@ predict(cast, {set_parallel_authority, Enabled}, State) ->
 
 predict(cast, {parallel_scheduler_grant, Direction, BatchID, MicrobatchID, StageID}, State) ->
   GenWorkerEts = get(generic_worker_ets),
-  append_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, MicrobatchID, StageID),
-  ParallelMode = normalize_parallel_mode_atom(
-                   ets:lookup_element(GenWorkerEts, parallel_mode, ?ETS_KEYVAL_VAL_IDX)
-                 ),
-  case ParallelMode of
-    pipeline ->
-      case dispatch_pipeline_predict_buffers(GenWorkerEts, State#workerGeneric_state.modelID, State#workerGeneric_state.myName) of
-        ok ->
-          {keep_state, State};
-        {abort, Reason} ->
-          notify_worker_parallel_abort(GenWorkerEts, {pipeline_predict_dispatch_failed, Reason}),
-          reset_parallel_loss_context(GenWorkerEts),
-        {keep_state, State}
-      end;
-    _ ->
-      {keep_state, State}
+  case is_buffer_over_cap(GenWorkerEts) of
+    true ->
+      reject_grant_for_congestion(GenWorkerEts, State#workerGeneric_state.myName, Direction, BatchID, MicrobatchID, StageID),
+      {keep_state, State};
+    false ->
+      append_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, MicrobatchID, StageID),
+      ParallelMode = normalize_parallel_mode_atom(
+                       ets:lookup_element(GenWorkerEts, parallel_mode, ?ETS_KEYVAL_VAL_IDX)
+                     ),
+      case ParallelMode of
+        pipeline ->
+          case dispatch_pipeline_predict_buffers(GenWorkerEts, State#workerGeneric_state.modelID, State#workerGeneric_state.myName) of
+            ok ->
+              {keep_state, State};
+            {abort, Reason} ->
+              notify_worker_parallel_abort(GenWorkerEts, {pipeline_predict_dispatch_failed, Reason}),
+              reset_parallel_loss_context(GenWorkerEts),
+            {keep_state, State}
+          end;
+        _ ->
+          {keep_state, State}
+      end
   end;
 predict(cast, {parallel_scheduler_grant, Direction, MicrobatchID, StageID}, State) ->
   predict(cast, {parallel_scheduler_grant, Direction, any, MicrobatchID, StageID}, State);
@@ -1073,6 +1097,38 @@ predict(cast, {sample , SourceName , BatchID , {PredictBatchTensor, Type}}, Stat
         end
     end;
 
+predict(cast, PredictResMsg = {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , SourceName},
+        State = #workerGeneric_state{myName = MyName, distributedBehaviorFunc = DistributedBehaviorFunc, distributedWorkerData = DistributedWorkerData}) ->
+  GenWorkerEts = get(generic_worker_ets),
+  ActiveCtx = ets:lookup_element(GenWorkerEts, parallel_active_batch_ctx, ?ETS_KEYVAL_VAL_IDX),
+  case ActiveCtx of
+    Ctx when is_map(Ctx) andalso is_map_key(mode, Ctx) andalso map_get(mode, Ctx) =:= tensor_predict ->
+      %% Late tensor microbatch results can arrive while we already transitioned back to predict.
+      %% Reuse wait-state accumulation logic instead of crashing the worker.
+      ?LOG_WARNING(
+        "Worker ~p received late tensor predict result while in predict state; delegating to wait handler batch=~p source=~p",
+        [MyName, BatchID, SourceName]
+      ),
+      wait(cast, PredictResMsg, State);
+    _ ->
+      %% Legacy fallback predict path can complete after the worker already re-entered predict.
+      %% Accept and forward this result instead of treating it as an unknown message.
+      ?LOG_WARNING(
+        "Worker ~p received late predictRes while in predict state; forwarding result batch=~p source=~p",
+        [MyName, BatchID, SourceName]
+      ),
+      BatchTimeStamp = erlang:system_time(nanosecond),
+      WorkerToken = ets:lookup_element(GenWorkerEts, distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
+      gen_statem:cast(
+        get(client_pid),
+        {predictRes, MyName, SourceName, {PredNerlTensor, PredNerlTensorType}, TimeNif, WorkerToken, BatchID, BatchTimeStamp}
+      ),
+      stats:increment_by_value(get(worker_stats_ets), acc_time_prediction, trunc(TimeNif)),
+      NextStateBehavior = DistributedBehaviorFunc(post_predict, {GenWorkerEts, DistributedWorkerData}),
+      maybe_finalize_pending_end_streams(DistributedBehaviorFunc, predict),
+      {next_state, NextStateBehavior, State#workerGeneric_state{nextState = NextStateBehavior}}
+  end;
+
 predict(cast, {start_stream , SourceName}, State = #workerGeneric_state{myName = _MyName , distributedBehaviorFunc = DistributedBehaviorFunc}) ->
   stream_handler(start_stream, predict, SourceName, DistributedBehaviorFunc),
   {next_state, predict, State};
@@ -1199,13 +1255,35 @@ maybe_retry_pending_end_stream_flush(GenWorkerEts, ModelPhase, DistributedBehavi
   EndStreamWaitingList = ets:lookup_element(GenWorkerEts, end_streams_waiting_list, ?ETS_KEYVAL_VAL_IDX),
   case EndStreamWaitingList of
     [] ->
+      ets:update_element(GenWorkerEts, end_stream_flush_retries, {?ETS_KEYVAL_VAL_IDX, 0}),
       ok;
     _ ->
       case can_flush_pending_end_streams(GenWorkerEts) of
         true ->
+          ets:update_element(GenWorkerEts, end_stream_flush_retries, {?ETS_KEYVAL_VAL_IDX, 0}),
           maybe_finalize_pending_end_streams(DistributedBehaviorFunc, ModelPhase);
         false ->
-          schedule_end_stream_flush_retry(ModelPhase)
+          Retries = ets:lookup_element(GenWorkerEts, end_stream_flush_retries, ?ETS_KEYVAL_VAL_IDX),
+          case Retries >= 100 of
+            true ->
+              WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+              ?LOG_WARNING(
+                "Worker ~p force-flushing end_stream after ~p retries (1s drain timeout) waiting_list=~p",
+                [WorkerName, Retries, EndStreamWaitingList]
+              ),
+              ets:update_element(GenWorkerEts, end_stream_flush_retries, {?ETS_KEYVAL_VAL_IDX, 0}),
+              maybe_drop_stale_scheduler_grants_for_stream_end(GenWorkerEts),
+              lists:foreach(
+                fun(StreamName) ->
+                  flush_end_stream(GenWorkerEts, ModelPhase, StreamName, DistributedBehaviorFunc)
+                end,
+                EndStreamWaitingList
+              ),
+              ets:update_element(GenWorkerEts, end_streams_waiting_list, {?ETS_KEYVAL_VAL_IDX, []});
+            false ->
+              ets:update_element(GenWorkerEts, end_stream_flush_retries, {?ETS_KEYVAL_VAL_IDX, Retries + 1}),
+              schedule_end_stream_flush_retry(ModelPhase)
+          end
       end
   end.
 
@@ -1473,7 +1551,8 @@ emit_parallel_event(WorkerName, Direction, BatchID, MicrobatchID, StageID, Meta)
         "Worker ~p emits parallel event direction=~p requested_batch=~p emitted_batch=~p microbatch=~p stage=~p event_id=~p (grant-consumed)",
         [WorkerName, Direction, BatchID, EmittedBatchID, MicrobatchID, StageID, EventID]
       ),
-      gen_statem:cast(get(client_pid), {parallel_event, WorkerName, Direction, EmittedBatchID, MicrobatchID, StageID, Meta}),
+      AugmentedMeta = maybe_augment_meta_with_congestion(GenWorkerEts, Meta),
+      gen_statem:cast(get(client_pid), {parallel_event, WorkerName, Direction, EmittedBatchID, MicrobatchID, StageID, AugmentedMeta}),
       {ok, EmittedBatchID};
     {error, no_scheduler_grant} ->
       EventID = parallel_event_id(WorkerName, Direction, BatchID, MicrobatchID, StageID),
@@ -1501,6 +1580,18 @@ resolve_emitted_parallel_batch_id(RequestedBatchID, GrantedBatchID) ->
 parallel_event_id(WorkerName, Direction, BatchID, MicrobatchID, StageID) ->
   {parallel_event, WorkerName, Direction, BatchID, MicrobatchID, StageID}.
 
+maybe_augment_meta_with_congestion(GenWorkerEts, Meta) ->
+  case ets:lookup_element(GenWorkerEts, congestion_drop_enabled, ?ETS_KEYVAL_VAL_IDX) of
+    true ->
+      case ets:lookup_element(GenWorkerEts, parallel_congestion_signaled, ?ETS_KEYVAL_VAL_IDX) of
+        true ->
+          DeferredLen = length(ets:lookup_element(GenWorkerEts, parallel_deferred_samples, ?ETS_KEYVAL_VAL_IDX)),
+          #{meta => Meta, congestion => DeferredLen};
+        false -> Meta
+      end;
+    false -> Meta
+  end.
+
 handle_parallel_skip_work_item(
   GenWorkerEts,
   WorkerName,
@@ -1517,6 +1608,12 @@ handle_parallel_skip_work_item(
   drop_matching_scheduler_grants_for_skip(GenWorkerEts, NormalizedDirection, NormalizedBatchID, MicrobatchID, StageID),
   prune_runtime_buffers_for_skip(GenWorkerEts, NormalizedBatchID, MicrobatchID, StageID),
   increment_skip_reason_counter(get(worker_stats_ets), Reason),
+  case NormalizedDirection of
+    forward ->
+      ets:update_counter(GenWorkerEts, parallel_microbatches_skipped, 1);
+    _ ->
+      ok
+  end,
   SkipMeta = #{
     reason => Reason,
     event_id => EventID,
@@ -1547,6 +1644,10 @@ skip_reason_counter_key(skip_phase_close_drain) ->
   skip_phase_close_drain;
 skip_reason_counter_key(stale_event_after_skip) ->
   stale_event_after_skip;
+skip_reason_counter_key(skip_congestion_drop) ->
+  skip_congestion_drop;
+skip_reason_counter_key(buffer_congestion) ->
+  congestion_grant_rejected;
 skip_reason_counter_key(_) ->
   none.
 
@@ -2014,9 +2115,14 @@ collect_tp_peer_payloads_loop(
         true ->
           ets:update_element(GenWorkerEts, tp_collective_inbox_buffer, {?ETS_KEYVAL_VAL_IDX, RemainingBuffer}),
           MissingWorkers = [Worker || Worker <- ExpectedWorkers, not maps:is_key(Worker, CollectedAfterBuffer)],
+          WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+          ?LOG_ERROR(
+            "Worker ~p TP collective timeout after ~pms token=~p missing_workers=~p",
+            [WorkerName, TimeoutMs, CollectiveToken, MissingWorkers]
+          ),
           {error, {collective_timeout, CollectiveToken, MissingWorkers}};
         false ->
-          timer:sleep(2),
+          receive after 10 -> ok end,
           FreshMessages = fetch_worker_inbox_messages(GenWorkerEts),
           collect_tp_peer_payloads_loop(
             GenWorkerEts,
@@ -3274,10 +3380,12 @@ maybe_finalize_pipeline_training_batch(GenWorkerEts, WorkerName) ->
   end.
 
 maybe_send_pipeline_last_stage_loss(GenWorkerEts, WorkerName, SourceName, BatchID, TotalMicrobatches) ->
+  SkippedMicrobatches = ets:lookup_element(GenWorkerEts, parallel_microbatches_skipped, ?ETS_KEYVAL_VAL_IDX),
+  EffectiveMicrobatches = erlang:max(1, TotalMicrobatches - SkippedMicrobatches),
   LossAcc = ets:lookup_element(GenWorkerEts, parallel_loss_acc, ?ETS_KEYVAL_VAL_IDX),
-  AvgLossTensor = finalize_parallel_loss(LossAcc, erlang:max(1, TotalMicrobatches)),
+  AvgLossTensor = finalize_parallel_loss(LossAcc, EffectiveMicrobatches),
   TimeAcc = ets:lookup_element(GenWorkerEts, parallel_time_acc, ?ETS_KEYVAL_VAL_IDX),
-  AvgTime = TimeAcc / erlang:max(1, TotalMicrobatches),
+  AvgTime = TimeAcc / EffectiveMicrobatches,
   BatchTimeStamp = erlang:system_time(nanosecond),
   WorkerToken = ets:lookup_element(GenWorkerEts, distributed_system_token, ?ETS_KEYVAL_VAL_IDX),
   ?LOG_INFO(
@@ -3648,6 +3756,7 @@ send_pipeline_prediction_to_client(GenWorkerEts, WorkerName, Ctx, {PredTensor, P
     "Worker ~p pipeline last-stage predict completed batch=~p source=~p microbatches=~p",
     [WorkerName, BatchID, SourceName, TotalMicrobatches]
   ),
+  stats:increment_by_value(get(worker_stats_ets), batches_sent_predict, 1),
   gen_statem:cast(
     get(client_pid),
     {predictRes, WorkerName, SourceName, {PredTensor, PredType}, AvgTime, WorkerToken, BatchID, BatchTimeStamp}
@@ -3897,6 +4006,7 @@ set_worker_parallel_execution(GenWorkerEts, ParallelExecution) ->
                     end,
   ets:update_element(GenWorkerEts, parallel_execution, {?ETS_KEYVAL_VAL_IDX, StoredExecution}),
   ets:update_element(GenWorkerEts, parallel_scheduler_grants, {?ETS_KEYVAL_VAL_IDX, []}),
+  apply_congestion_config(GenWorkerEts, StoredExecution),
   case should_preserve_parallel_loss_context(Mode, StoredExecution) of
     true -> ok;
     false -> reset_parallel_loss_context(GenWorkerEts)
@@ -3916,6 +4026,85 @@ set_worker_parallel_authority(GenWorkerEts, EnabledRaw) ->
       ets:update_element(GenWorkerEts, tp_collective_inbox_buffer, {?ETS_KEYVAL_VAL_IDX, []}),
       ets:update_element(GenWorkerEts, pipeline_nif_worker, {?ETS_KEYVAL_VAL_IDX, false})
   end.
+
+apply_congestion_config(GenWorkerEts, Execution) when is_map(Execution) ->
+  CongestionEnabled = resolve_bool_config(Execution,
+    [<<"congestionDropEnabled">>, congestionDropEnabled, <<"congestion_drop_enabled">>, congestion_drop_enabled],
+    false),
+  SoftLimit = resolve_int_config(Execution,
+    [<<"deferredSampleSoftLimit">>, deferredSampleSoftLimit, <<"deferred_sample_soft_limit">>, deferred_sample_soft_limit],
+    256),
+  BufferCap = resolve_int_config(Execution,
+    [<<"pipelineBufferCap">>, pipelineBufferCap, <<"pipeline_buffer_cap">>, pipeline_buffer_cap],
+    0),
+  ets:update_element(GenWorkerEts, congestion_drop_enabled, {?ETS_KEYVAL_VAL_IDX, CongestionEnabled}),
+  ets:update_element(GenWorkerEts, deferred_sample_soft_limit, {?ETS_KEYVAL_VAL_IDX, erlang:max(1, SoftLimit)}),
+  ets:update_element(GenWorkerEts, pipeline_buffer_cap, {?ETS_KEYVAL_VAL_IDX, erlang:max(0, BufferCap)}),
+  ets:update_element(GenWorkerEts, parallel_congestion_signaled, {?ETS_KEYVAL_VAL_IDX, false}),
+  ets:update_element(GenWorkerEts, parallel_microbatches_skipped, {?ETS_KEYVAL_VAL_IDX, 0}),
+  ok;
+apply_congestion_config(_GenWorkerEts, _Execution) ->
+  ok.
+
+resolve_bool_config(_Map, [], Default) -> Default;
+resolve_bool_config(Map, [Key | Rest], Default) ->
+  case maps:find(Key, Map) of
+    {ok, true} -> true;
+    {ok, false} -> false;
+    {ok, <<"true">>} -> true;
+    {ok, <<"false">>} -> false;
+    {ok, "true"} -> true;
+    {ok, "false"} -> false;
+    {ok, 1} -> true;
+    {ok, 0} -> false;
+    _ -> resolve_bool_config(Map, Rest, Default)
+  end.
+
+resolve_int_config(_Map, [], Default) -> Default;
+resolve_int_config(Map, [Key | Rest], Default) ->
+  case maps:find(Key, Map) of
+    {ok, V} when is_integer(V) -> V;
+    {ok, V} when is_binary(V) ->
+      try binary_to_integer(V) catch _:_ -> resolve_int_config(Map, Rest, Default) end;
+    {ok, V} when is_list(V) ->
+      try list_to_integer(V) catch _:_ -> resolve_int_config(Map, Rest, Default) end;
+    _ -> resolve_int_config(Map, Rest, Default)
+  end.
+
+is_buffer_over_cap(GenWorkerEts) ->
+  CongestionEnabled = ets:lookup_element(GenWorkerEts, congestion_drop_enabled, ?ETS_KEYVAL_VAL_IDX),
+  Cap = ets:lookup_element(GenWorkerEts, pipeline_buffer_cap, ?ETS_KEYVAL_VAL_IDX),
+  case {CongestionEnabled, Cap > 0} of
+    {true, true} ->
+      FwdBuf = ets:lookup_element(GenWorkerEts, parallel_pipeline_forward_buffer, ?ETS_KEYVAL_VAL_IDX),
+      BwdBuf = ets:lookup_element(GenWorkerEts, parallel_pipeline_backward_buffer, ?ETS_KEYVAL_VAL_IDX),
+      PredBuf = ets:lookup_element(GenWorkerEts, parallel_pipeline_predict_buffer, ?ETS_KEYVAL_VAL_IDX),
+      (length(FwdBuf) + length(BwdBuf) + length(PredBuf)) >= Cap;
+    _ -> false
+  end.
+
+reject_grant_for_congestion(GenWorkerEts, WorkerName, Direction, BatchID, MicrobatchID, StageID) ->
+  NormalizedDirection = normalize_parallel_direction_atom(Direction),
+  NormalizedBatchID = normalize_parallel_batch_id(BatchID),
+  FwdBuf = ets:lookup_element(GenWorkerEts, parallel_pipeline_forward_buffer, ?ETS_KEYVAL_VAL_IDX),
+  BwdBuf = ets:lookup_element(GenWorkerEts, parallel_pipeline_backward_buffer, ?ETS_KEYVAL_VAL_IDX),
+  PredBuf = ets:lookup_element(GenWorkerEts, parallel_pipeline_predict_buffer, ?ETS_KEYVAL_VAL_IDX),
+  Cap = ets:lookup_element(GenWorkerEts, pipeline_buffer_cap, ?ETS_KEYVAL_VAL_IDX),
+  ?LOG_WARNING(
+    "Worker ~p rejecting grant for buffer congestion direction=~p batch=~p microbatch=~p stage=~p fwd=~p bwd=~p pred=~p cap=~p",
+    [WorkerName, NormalizedDirection, NormalizedBatchID, MicrobatchID, StageID,
+     length(FwdBuf), length(BwdBuf), length(PredBuf), Cap]
+  ),
+  ets:update_counter(get(worker_stats_ets), congestion_grant_rejected, 1),
+  ets:update_element(GenWorkerEts, parallel_congestion_signaled, {?ETS_KEYVAL_VAL_IDX, true}),
+  SkipMeta = #{
+    reason => buffer_congestion,
+    event_id => {buffer_congestion, WorkerName, NormalizedDirection, NormalizedBatchID, MicrobatchID, StageID}
+  },
+  gen_statem:cast(
+    get(client_pid),
+    {parallel_skip_event, WorkerName, NormalizedDirection, NormalizedBatchID, MicrobatchID, StageID, SkipMeta}
+  ).
 
 append_parallel_scheduler_grant(GenWorkerEts, Direction, BatchID, MicrobatchID, StageID) ->
   Grants = ets:lookup_element(GenWorkerEts, parallel_scheduler_grants, ?ETS_KEYVAL_VAL_IDX),
@@ -4227,12 +4416,15 @@ reset_parallel_runtime_for_idle(GenWorkerEts) ->
   end.
 
 reset_parallel_loss_context(GenWorkerEts) ->
+  DeferredSamples = ets:lookup_element(GenWorkerEts, parallel_deferred_samples, ?ETS_KEYVAL_VAL_IDX),
+  maybe_account_deferred_sample_drop(DeferredSamples),
   reset_parallel_batch_context(GenWorkerEts),
   ets:update_element(GenWorkerEts, parallel_deferred_samples, {?ETS_KEYVAL_VAL_IDX, []}).
 
 reset_parallel_batch_context(GenWorkerEts) ->
   ets:update_element(GenWorkerEts, parallel_pending_losses, {?ETS_KEYVAL_VAL_IDX, 0}),
   ets:update_element(GenWorkerEts, parallel_total_microbatches, {?ETS_KEYVAL_VAL_IDX, 0}),
+  ets:update_element(GenWorkerEts, parallel_microbatches_skipped, {?ETS_KEYVAL_VAL_IDX, 0}),
   ets:update_element(GenWorkerEts, parallel_loss_acc, {?ETS_KEYVAL_VAL_IDX, undefined}),
   ets:update_element(GenWorkerEts, parallel_time_acc, {?ETS_KEYVAL_VAL_IDX, 0.0}),
   ets:update_element(GenWorkerEts, parallel_microbatch_queue, {?ETS_KEYVAL_VAL_IDX, []}),
@@ -4244,7 +4436,42 @@ reset_parallel_batch_context(GenWorkerEts) ->
 
 queue_deferred_parallel_sample(GenWorkerEts, SampleTuple) ->
   DeferredSamples = ets:lookup_element(GenWorkerEts, parallel_deferred_samples, ?ETS_KEYVAL_VAL_IDX),
-  ets:update_element(GenWorkerEts, parallel_deferred_samples, {?ETS_KEYVAL_VAL_IDX, DeferredSamples ++ [SampleTuple]}).
+  QueueLen = length(DeferredSamples),
+  CongestionEnabled = ets:lookup_element(GenWorkerEts, congestion_drop_enabled, ?ETS_KEYVAL_VAL_IDX),
+  SoftLimit = ets:lookup_element(GenWorkerEts, deferred_sample_soft_limit, ?ETS_KEYVAL_VAL_IDX),
+  MaxDeferred = 256,
+  case CongestionEnabled of
+    true ->
+      case QueueLen >= SoftLimit of
+        true ->
+          WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+          ?LOG_WARNING("Worker ~p congestion drop: deferred queue ~p >= soft_limit ~p, dropping incoming sample", [WorkerName, QueueLen, SoftLimit]),
+          increment_phase_drop_counter(current_worker_phase(), 1),
+          ets:update_counter(get(worker_stats_ets), congestion_drop_deferred_sample, 1),
+          ets:update_element(GenWorkerEts, parallel_congestion_signaled, {?ETS_KEYVAL_VAL_IDX, true}),
+          ets:update_counter(get(worker_stats_ets), congestion_signal_emitted, 1),
+          ok;
+        false ->
+          case QueueLen < (SoftLimit div 2) of
+            true ->
+              ets:update_element(GenWorkerEts, parallel_congestion_signaled, {?ETS_KEYVAL_VAL_IDX, false});
+            false ->
+              ok
+          end,
+          ets:update_element(GenWorkerEts, parallel_deferred_samples, {?ETS_KEYVAL_VAL_IDX, DeferredSamples ++ [SampleTuple]})
+      end;
+    false ->
+      case QueueLen >= MaxDeferred of
+        true ->
+          WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+          ?LOG_WARNING("Worker ~p deferred samples queue full (~p), dropping oldest sample", [WorkerName, MaxDeferred]),
+          increment_phase_drop_counter(current_worker_phase(), 1),
+          [_Oldest | Rest] = DeferredSamples,
+          ets:update_element(GenWorkerEts, parallel_deferred_samples, {?ETS_KEYVAL_VAL_IDX, Rest ++ [SampleTuple]});
+        false ->
+          ets:update_element(GenWorkerEts, parallel_deferred_samples, {?ETS_KEYVAL_VAL_IDX, DeferredSamples ++ [SampleTuple]})
+      end
+  end.
 
 pop_deferred_parallel_sample(GenWorkerEts) ->
   DeferredSamples = ets:lookup_element(GenWorkerEts, parallel_deferred_samples, ?ETS_KEYVAL_VAL_IDX),
@@ -4297,6 +4524,40 @@ should_replay_parallel_sample_immediately(GenWorkerEts, NextState) ->
         PredictBuffer =:= [] andalso
         PendingBackwardEvents =:= []
   end.
+
+count_deferred_samples(Samples) ->
+  length([
+    S
+    || S <- Samples,
+       is_tuple(S),
+       tuple_size(S) >= 1,
+       element(1, S) =:= sample
+  ]).
+
+maybe_account_deferred_sample_drop(DeferredSamples) ->
+  DeferredCount = count_deferred_samples(DeferredSamples),
+  case DeferredCount > 0 of
+    true ->
+      increment_phase_drop_counter(current_worker_phase(), DeferredCount);
+    false ->
+      ok
+  end.
+
+current_worker_phase() ->
+  case get(phase) of
+    training -> train;
+    train -> train;
+    prediction -> predict;
+    predict -> predict;
+    _ -> train
+  end.
+
+increment_phase_drop_counter(train, Value) when Value > 0 ->
+  stats:increment_by_value(get(worker_stats_ets), batches_dropped_train, Value);
+increment_phase_drop_counter(predict, Value) when Value > 0 ->
+  stats:increment_by_value(get(worker_stats_ets), batches_dropped_predict, Value);
+increment_phase_drop_counter(_Phase, _Value) ->
+  ok.
 
 
 get_backend_module() ->

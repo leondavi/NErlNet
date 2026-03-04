@@ -69,7 +69,7 @@
 - Distributed systems: if `distributedSystemType > 0`, `distributedSystemToken` length must be 5 (not "none").
 - Torch: `pt_path` must resolve to an existing file; if `pt_checksum` not `placeholder/none`, checksum must match.
 - Torch train params must include keys: `model_path` (auto), `lr`, `epochs`, `optimizer`, `loss`, `input_tensor_shape`, `labels_shape`, `labels_offset`.
-- Torch worker effectively supports `adam` or `sgd` optimizers; loss is fixed to MSE in the runtime.
+- Torch worker effectively supports `adam` or `sgd` optimizers; loss function is configurable via `train_params.loss` (`mse` [default], `cross_entropy`/`ce`, `l1`/`mae`, `huber`/`smooth_l1`).
 - Worker non-legacy pipeline events are scheduler-grant-gated when Super Node authority is enabled.
 - Super Node scheduler grants are batch-aware and epoch-scoped:
   - client receives `{grant_scheduler_event, Direction, BatchID, MicrobatchID, StageID, Worker, PhaseEpoch}`
@@ -88,6 +88,16 @@
 - Worker/Client/Super Node now log a shared deterministic parallel event id tuple: `{parallel_event, Worker, Direction, Batch, Microbatch, Stage}`.
 - Client logs for `parallelEvent` include router latency (`latency_us`) and router reply payload, allowing transport-level confirmation for each forwarded event.
 - Runtime parallel debug logging is opt-in: `NerlnetRun.sh --debug` sets `NERLNET_PARALLEL_DEBUG=1` and enables verbose info logs from parallel control-path modules (Super Node/Client/Worker); default runs keep warnings/errors while suppressing parallel info-level log spam.
+- API phase waits are timeout-bounded and heartbeat-logged:
+  - `NERLNET_UPDATE_CSV_TIMEOUT_SEC` (default 180),
+  - `NERLNET_UPDATE_PHASE_TIMEOUT_SEC` (default 180),
+  - `NERLNET_START_CASTING_TIMEOUT_SEC` (default 1800),
+  - progress heartbeat every `NERLNET_EVENT_WAIT_PROGRESS_SEC` seconds (default 15).
+- API dataset downloads are cache-first for speed:
+  - if local dataset CSVs already exist, download is skipped by default;
+  - use `NERLNET_DATASET_REFRESH=1` to force refresh;
+  - use `NERLNET_DATASET_OFFLINE=1` for local-files-only behavior.
+- Torch pipeline per-layer hot-path logs are opt-in via `NERLNET_TORCH_PIPELINE_LAYER_LOGS=1` to avoid default inference/training slowdown from high-volume layer logging.
 - Super Node keeps pending-grant issue timestamps and runs a watchdog that emits deterministic `scheduler_grant_timeout` aborts with expected grant summary + last seen parallel event metadata.
 - Super Node parallel worker payload transport is now delivery-tracked: each `/parallelDeliver` message carries a delivery id, clients ACK with `/parallelDeliverAck`, and Super Node retries unacked deliveries (`parallel_delivery_retry_ms`) before deterministic `parallel_delivery_timeout` abort.
 - Clients deduplicate retried delivery ids (`parallel_delivery_seen_ids`) so at-least-once transport retries do not duplicate worker payload execution.
@@ -131,9 +141,33 @@
 - Super Node scheduler trace is forward-only for prediction phase (`phaseType=prediction`) even in `mode=pipeline`, preventing backward-grant deadlocks during prediction.
 - Super Node scheduler gate logs now explicitly report non-issuing states (`parallel_active=false`, empty trace, pending grant still open) with cursor/trace context for deadlock triage.
 - Worker scheduler grant handling is match-based (not strict head-of-queue): forward/backward emits can consume any matching `{direction,batch,microbatch,stage}` grant in queue, preventing head-of-line deadlocks from stale or out-of-order grants.
+- Pipeline grant matching is batch-aware for concrete batches, with an explicit stage0-forward exception:
+  - non-stage0 (and backward) events must match the same concrete grant batch id.
+  - stage0 forward grant matching can ignore source-side batch id drift, then rewrites emitted event/payload/runtime batch ids to the consumed concrete grant batch id.
 - Worker scheduler grant enqueue is deduplicated by normalized grant tuple, reducing duplicate-grant buildup under retries and improving interleaved schedule stability.
 - Torch pipeline stage0 prediction now accepts both feature-only microbatches and feature+label-span microbatches, normalizing input shape before local stage execution.
 - Torch stage-training APIs now carry both `batch_id` and `microbatch_id`; delayed backward stage context is keyed by `{batch_id, microbatch_id}` to prevent cross-batch microbatch-id collisions.
+- Torch pipeline loss is scaled by `1/num_microbatches` before backward (Megatron-LM gradient averaging) when `num_microbatches > 1`; configured via `train_params.num_microbatches` or `numMicroBatches`.
+- Torch optimizer barrier max defers is 100 (was 20); exceeding this threshold emits `LogError` with "GRADIENT LOSS" severity and clears stale stage contexts.
+- Torch pipeline NIF entry points (`pipeline_stage0_forward`, `pipeline_stage_forward`, `pipeline_stage_last_forward_backward`, `pipeline_stage_backward`) log `LogError` if wall-clock execution exceeds 30 seconds.
+- TP collective receive loop uses `receive after 10 -> ok end` (not `timer:sleep(2)`) to yield the dirty scheduler properly; capped at 600 iterations (~6s) with `LOG_ERROR` on timeout.
+- Super Node phase-close barrier has a configurable deadline (`phaseCloseDeadlineMs`, default 30000ms); if not all managed clients request close within the deadline, the barrier force-closes with `LOG_WARNING` listing missing clients.
+- Super Node HTTP routing commands (`send_super_command_to_client`, etc.) use `nerl_tools:http_router_request_with_retry/6` with exponential backoff (3 retries by default) instead of single-shot HTTP.
+- Super Node delivery retry ceiling is 120 (was 20), giving 30s at 250ms intervals before abandoning a payload; exceeding retries is a `LOG_ERROR`.
+- Super Node `maxInflightGrants` is configurable in `parallelExecution` config (default: 1); infrastructure for multi-grant window is in place but single-grant behavior is retained.
+- Client dedup ring buffer (`PARALLEL_DELIVERY_SEEN_MAX`) is 8192 entries (was 2048); buffer is epoch-scoped (cleared on phase transitions).
+- Worker end-stream drain polling is bounded: after 100 retries (10ms interval = 1s), force-flushes pending end_streams with `LOG_WARNING` instead of polling indefinitely.
+- Worker deferred samples queue (`parallel_deferred_samples`) is capped at 256 entries; when full, oldest sample is dropped with `LOG_WARNING`.
+- Congestion-aware batch/microbatch dropping is opt-in via `parallelExecution.congestionDropEnabled: true` (default: `false`). No behavioral change unless explicitly configured.
+- Congestion dropping enforces the invariant: a microbatch is either processed at ALL pipeline stages or skipped at ALL stages. The existing `skip_work_item` infrastructure enforces this.
+- Three congestion-drop layers (all disabled by default):
+  - **Layer 0 — Source Ingress Drop**: stage-0 workers drop incoming deferred samples when queue reaches `deferredSampleSoftLimit` (default: 256) and `congestionDropEnabled` is true. Workers set `parallel_congestion_signaled` flag and piggyback queue depth on `parallel_event` Meta.
+  - **Layer 1 — Scheduler Proactive Skip**: Super Node checks worker congestion signals before issuing forward grants. If any target worker's queue depth >= `congestionSkipThreshold` (default: 0 = off), the microbatch is skipped at ALL stages (forward + backward) via `relay_skip_command_to_targets`. Backward grants are never proactively skipped (only forward triggers skip). Skipped microbatch backward entries are auto-detected as pre-skipped when the scheduler cursor reaches them.
+  - **Layer 2 — Worker Buffer Cap**: Workers reject scheduler grants with `buffer_congestion` reason when combined forward+backward pipeline buffer length >= `pipelineBufferCap` (default: 0 = off). Rejections flow through existing `handle_scheduler_grant_rejected` path. `MAX_GRANT_REJECTION_STREAK = 256` circuit breaker prevents infinite rejection loops.
+- New `parallelExecution` config keys for congestion: `congestionDropEnabled` (bool), `deferredSampleSoftLimit` (int), `congestionSkipThreshold` (int), `pipelineBufferCap` (int).
+- When microbatches are skipped within a batch, loss scaling divisor is reduced to `max(1, TotalMicrobatches - SkippedMicrobatches)` in both non-pipeline and pipeline loss finalization paths.
+- Worker stats ETS exposes congestion counters: `congestion_drop_deferred_sample`, `congestion_signal_emitted`, `congestion_grant_rejected`, `skip_congestion_drop`.
+- Super Node tracks per-worker congestion signals (`worker_congestion_signals`) and `congestion_skipped_microbatches` counter.
 
 ## Web planner (web/nerl-planner)
 - `NerlnetPlanner.sh` only runs the planner dev server (`npm install`, `npm run dev -- --open`).
@@ -152,6 +186,7 @@
 - `.github/workflows/pr.yml` runs install, build, NIF tests, and full-flow tests (incl. Torch).
 - Full-flow tests use `tests/inputJsonsFiles` and `tests/inputTorchJsonsFiles` with `src_py/apiServer/experiment_flow_test.py`.
 - `tests/NerlnetFullFlowTorchTest.sh` generates a TorchScript model and runs the pipeline end-to-end.
+- `tests/NerlnetFullFlowTorchTest.sh` and `tests/NerlnetFullFlowTorchPipelineTest.sh` now auto-select a free API receiver port when `8082` is occupied (or honor `NERLNET_TEST_API_SERVER_PORT` when explicitly set), reducing clashes with active notebooks.
 - `tests/NerlnetFullFlowTorchLocalDebug.sh` runs a local Torch flow against supplied JSONs and prints verbose logs via `src_py/apiServer/experiment_flow_local_debug.py`.
 - Parallel contract and scheduler tests live under `tests/parallelism/`.
 - Stage-sliced pipeline contracts are asserted by `tests/parallelism/test_pipeline_stage_execution_contract.py`.

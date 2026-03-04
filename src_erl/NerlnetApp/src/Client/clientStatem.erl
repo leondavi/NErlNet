@@ -29,7 +29,7 @@
 -define(W2W_PID_IDX, 2).
 -define(SERVER, ?MODULE).
 -define(PHASE_CLOSE_RETRY_MS, 1000).
--define(PARALLEL_DELIVERY_SEEN_MAX, 2048).
+-define(PARALLEL_DELIVERY_SEEN_MAX, 8192).
 
 %% client ETS table: {WorkerName, WorkerPid, WorkerArgs, TimingTuple}
 %   myName - Client Name,
@@ -358,6 +358,7 @@ idle(cast, In = {training}, State = #client_statem_state{myName = _MyName, etsRe
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   MessageToCast = {training},
+  reset_workers_phase_stats(EtsRef),
   cast_message_to_workers(EtsRef, MessageToCast),
   ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, false}),
   % Training is the first phase in the flow; reset all phase metrics for a clean experiment baseline.
@@ -377,6 +378,7 @@ idle(cast, In = {predict}, State = #client_statem_state{etsRef = EtsRef}) ->
   stats:increment_messages_received(ClientStatsEts),
   stats:increment_bytes_received(ClientStatsEts , nerl_tools:calculate_size(In)),
   MessageToCast = {predict},
+  reset_workers_phase_stats(EtsRef),
   cast_message_to_workers(EtsRef, MessageToCast),
   ets:update_element(EtsRef, all_workers_done, {?DATA_IDX, false}),
   % Entering prediction should not wipe completed training metrics.
@@ -970,9 +972,23 @@ cast_message_to_workers(EtsRef, Msg) ->
     WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef, WorkerName), 
     gen_statem:cast(WorkerPid, Msg),
     increment_worker_messages_received(EtsRef, WorkerName, Msg),
-    stats:increment_messages_sent(ClientStatsEts)
+    stats:increment_messages_sent(ClientStatsEts),
+    stats:increment_bytes_sent(ClientStatsEts, nerl_tools:calculate_size(Msg))
   end,
   lists:foreach(Func, Workers).
+
+reset_workers_phase_stats(EtsRef) ->
+  EtsStats = get(ets_stats),
+  Workers = ets:lookup_element(EtsRef, workersNames, ?DATA_IDX),
+  ResetFun = fun(WorkerName) ->
+    case ets:lookup(EtsStats, WorkerName) of
+      [{_WorkerName, WorkerStatsEts}] ->
+        stats:workers_communication_stats_reset(WorkerStatsEts);
+      _ ->
+        ok
+    end
+  end,
+  lists:foreach(ResetFun, Workers).
 
 normalize_model_phase(training) -> training;
 normalize_model_phase(train) -> training;

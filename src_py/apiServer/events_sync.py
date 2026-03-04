@@ -1,3 +1,4 @@
+import os
 from time import sleep, monotonic
 from logger import *
 class EventSync():
@@ -19,6 +20,21 @@ class EventSync():
     def __init__(self):
         self.done_actions_dict = self.generate_done_actions_dict()
         self.tracking_dict = self.generate_tracking_dict()
+        self.progress_log_interval_sec = self._parse_progress_log_interval_sec()
+
+    def _parse_progress_log_interval_sec(self) -> float:
+        raw_interval = os.getenv("NERLNET_EVENT_WAIT_PROGRESS_SEC", "15")
+        try:
+            interval = float(raw_interval)
+            if interval <= 0:
+                raise ValueError("interval must be > 0")
+            return interval
+        except (TypeError, ValueError):
+            LOG_WARNING(
+                "Invalid NERLNET_EVENT_WAIT_PROGRESS_SEC='%s'; using 15s",
+                raw_interval
+            )
+            return 15.0
 
     def get_event_done(self, event_done_str: str):
         assert event_done_str in self.done_actions_dict
@@ -34,17 +50,21 @@ class EventSync():
         assert event in self.done_actions_dict.values()
         assert event in self.tracking_dict
         start_time = monotonic()
+        next_progress_log_at = start_time + self.progress_log_interval_sec
+        label = wait_label if wait_label else f"event={event}"
         while self.tracking_dict[event] == self.WAIT:
             if self.get_error_status():
-                label = wait_label if wait_label else f"event={event}"
                 raise RuntimeError(f"Main Server signaled error while waiting for {label}")
             if timeout_sec is not None and timeout_sec >= 0:
                 elapsed = monotonic() - start_time
                 if elapsed > timeout_sec:
-                    label = wait_label if wait_label else f"event={event}"
                     raise TimeoutError(
                         f"Timed out waiting for {label} after {timeout_sec:.1f}s"
                     )
+            now = monotonic()
+            if now >= next_progress_log_at:
+                LOG_INFO(f"Still waiting for {label}; elapsed={now - start_time:.1f}s")
+                next_progress_log_at = now + self.progress_log_interval_sec
             sleep(poll_sec)
     
     def get_event_status(self, event):

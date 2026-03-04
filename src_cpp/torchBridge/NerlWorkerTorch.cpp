@@ -4,9 +4,11 @@
 #include <vector>
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <utility>
 #include <sstream>
 #include <unordered_set>
+#include <chrono>
 
 #include <torch/optim.h>
 
@@ -16,6 +18,27 @@ std::string &blank_string()
 {
 	static std::string empty;
 	return empty;
+}
+
+bool pipeline_layer_logs_enabled()
+{
+	static const bool enabled = []() {
+		const char *raw_value = std::getenv("NERLNET_TORCH_PIPELINE_LAYER_LOGS");
+		if (raw_value == nullptr)
+		{
+			return false;
+		}
+
+		std::string value(raw_value);
+		std::transform(
+			value.begin(),
+			value.end(),
+			value.begin(),
+			[](unsigned char c) { return static_cast<char>(std::tolower(c)); }
+		);
+		return value == "1" || value == "true" || value == "yes" || value == "on";
+	}();
+	return enabled;
 }
 }
 
@@ -61,6 +84,10 @@ namespace
 		load_script_module();
 		LogInfo << "Torch worker script module load finished (has_module=" << _has_script_module << ")" << std::endl;
 		initialize_training_config();
+		if (pipeline_layer_logs_enabled())
+		{
+			LogInfo << "Torch pipeline per-layer logs are enabled via NERLNET_TORCH_PIPELINE_LAYER_LOGS" << std::endl;
+		}
 		LogInfo << "Torch worker training config initialized" << std::endl;
 	}
 
@@ -96,7 +123,14 @@ namespace
 		_randomize_weights_on_load = get_bool_param({"w_init_rand"}, false);
 		_optimizer_barrier_max_defers = std::max<int64_t>(
 			1,
-			static_cast<int64_t>(get_int_param({"pipeline_optimizer_barrier_max_defers"}, 20))
+			static_cast<int64_t>(get_int_param({"pipeline_optimizer_barrier_max_defers"}, 100))
+		);
+		_num_microbatches_for_loss_scale = std::max<int64_t>(
+			1,
+			static_cast<int64_t>(get_int_param({"num_microbatches", "numMicroBatches"}, 1))
+		);
+		_loss_function = parse_loss_function(
+			to_lower_copy(get_param_or_default({"loss", "loss_function", "lossFunction"}, "mse"))
 		);
 		if (_configured_epochs < 1)
 		{
@@ -120,7 +154,37 @@ namespace
 				<< ", has_optimizer=" << _has_optimizer
 				<< ", pipeline_enabled=" << _pipeline_enabled
 				<< ", pipeline_stage=" << _pipeline_stage
-				<< ", pipeline_world_size=" << _pipeline_world_size << std::endl;
+				<< ", pipeline_world_size=" << _pipeline_world_size
+				<< ", optimizer_barrier_max_defers=" << _optimizer_barrier_max_defers
+				<< ", num_microbatches_for_loss_scale=" << _num_microbatches_for_loss_scale
+				<< ", loss_function=" << static_cast<int>(_loss_function) << std::endl;
+	}
+
+	NerlWorkerTorch::LossFunctionType NerlWorkerTorch::parse_loss_function(const std::string &name)
+	{
+		if (name == "cross_entropy" || name == "crossentropy" || name == "ce")
+			return LossFunctionType::CrossEntropy;
+		if (name == "l1" || name == "mae")
+			return LossFunctionType::L1;
+		if (name == "huber" || name == "smooth_l1")
+			return LossFunctionType::Huber;
+		return LossFunctionType::MSE; // default
+	}
+
+	TorchTensor NerlWorkerTorch::compute_loss(const TorchTensor &prediction, const TorchTensor &target) const
+	{
+		switch (_loss_function)
+		{
+		case LossFunctionType::CrossEntropy:
+			return torch::nn::functional::cross_entropy(prediction, target);
+		case LossFunctionType::L1:
+			return torch::l1_loss(prediction, target);
+		case LossFunctionType::Huber:
+			return torch::huber_loss(prediction, target);
+		case LossFunctionType::MSE:
+		default:
+			return torch::mse_loss(prediction, target);
+		}
 	}
 
 	void NerlWorkerTorch::initialize_batch_layout()
@@ -621,6 +685,7 @@ TorchTensor NerlWorkerTorch::run_pipeline_stage_layers(const TorchTensor &stage_
 		return forward_or_clone(stage_input, training_mode);
 	}
 
+	const bool log_pipeline_layers = pipeline_layer_logs_enabled() && microbatch_id == 0;
 	TorchTensor output = stage_input;
 	for (size_t idx = _pipeline_stage_start_idx; idx < _pipeline_stage_end_idx; ++idx)
 	{
@@ -634,7 +699,7 @@ TorchTensor NerlWorkerTorch::run_pipeline_stage_layers(const TorchTensor &stage_
 		{
 			output = output.flatten(1);
 		}
-		if (microbatch_id == 0)
+		if (log_pipeline_layers)
 		{
 			LogInfo << "Torch pipeline layer begin stage=" << _pipeline_stage
 					<< " microbatch=" << microbatch_id
@@ -671,7 +736,7 @@ TorchTensor NerlWorkerTorch::run_pipeline_stage_layers(const TorchTensor &stage_
 			throw std::runtime_error(err.str());
 		}
 		output = out_val.toTensor();
-		if (microbatch_id == 0)
+		if (log_pipeline_layers)
 		{
 			LogInfo << "Torch pipeline layer end stage=" << _pipeline_stage
 					<< " microbatch=" << microbatch_id
@@ -720,6 +785,7 @@ void NerlWorkerTorch::clear_pipeline_stage_contexts()
 
 std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage0_forward(const TorchTensor &batch, long batch_id, long microbatch_id)
 {
+	auto nif_start = std::chrono::steady_clock::now();
 	if (!_pipeline_enabled)
 	{
 		throw std::runtime_error("pipeline_stage0_forward called but pipeline partition is not enabled");
@@ -743,6 +809,14 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage0_forward(co
 	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, true, microbatch_id);
 	cache_pipeline_stage_context(batch_id, microbatch_id, stage_input, stage_output);
 	_last_prediction = stage_output.detach();
+	auto nif_elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+		std::chrono::steady_clock::now() - nif_start).count();
+	if (nif_elapsed_ms > 30000)
+	{
+		LogError << "NIF pipeline_stage0_forward exceeded 30s: " << nif_elapsed_ms
+				 << "ms stage=" << _pipeline_stage << " batch=" << batch_id
+				 << " microbatch=" << microbatch_id << std::endl;
+	}
 	return {stage_output.detach().clone(), slices.labels.detach().clone()};
 }
 
@@ -753,6 +827,7 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_forward(
 	long microbatch_id
 )
 {
+	auto nif_start = std::chrono::steady_clock::now();
 	if (!_pipeline_enabled)
 	{
 		throw std::runtime_error("pipeline_stage_forward called but pipeline partition is not enabled");
@@ -774,6 +849,14 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_forward(
 	TorchTensor stage_output = run_pipeline_stage_layers(stage_input, true, microbatch_id);
 	cache_pipeline_stage_context(batch_id, microbatch_id, stage_input, stage_output);
 	_last_prediction = stage_output.detach();
+	auto nif_elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+		std::chrono::steady_clock::now() - nif_start).count();
+	if (nif_elapsed_ms > 30000)
+	{
+		LogError << "NIF pipeline_stage_forward exceeded 30s: " << nif_elapsed_ms
+				 << "ms stage=" << _pipeline_stage << " batch=" << batch_id
+				 << " microbatch=" << microbatch_id << std::endl;
+	}
 	return {stage_output.detach().clone(), ensure_training_dtype(labels).detach().clone()};
 }
 
@@ -784,6 +867,7 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_last_forwar
 	long microbatch_id
 )
 {
+	auto nif_start = std::chrono::steady_clock::now();
 	if (!_pipeline_enabled)
 	{
 		throw std::runtime_error("pipeline_stage_last_forward_backward called but pipeline partition is not enabled");
@@ -821,7 +905,11 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_last_forwar
 		stage_output = stage_output.reshape(target_labels.sizes());
 	}
 
-	TorchTensor loss = torch::mse_loss(stage_output, target_labels);
+	TorchTensor loss = compute_loss(stage_output, target_labels);
+	if (_num_microbatches_for_loss_scale > 1)
+	{
+		loss = loss / static_cast<double>(_num_microbatches_for_loss_scale);
+	}
 	loss.backward();
 	TorchTensor grad_input = stage_input.grad();
 	if (!grad_input.defined())
@@ -831,11 +919,20 @@ std::tuple<TorchTensor, TorchTensor> NerlWorkerTorch::pipeline_stage_last_forwar
 	++_deferred_microbatch_count;
 	_last_loss = loss.detach();
 	_last_prediction = stage_output.detach();
+	auto nif_elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+		std::chrono::steady_clock::now() - nif_start).count();
+	if (nif_elapsed_ms > 30000)
+	{
+		LogError << "NIF pipeline_stage_last_forward_backward exceeded 30s: " << nif_elapsed_ms
+				 << "ms stage=" << _pipeline_stage << " batch=" << batch_id
+				 << " microbatch=" << microbatch_id << std::endl;
+	}
 	return {_last_loss.clone(), grad_input.detach().clone()};
 }
 
 TorchTensor NerlWorkerTorch::pipeline_stage_backward(const TorchTensor &grad_output, long batch_id, long microbatch_id)
 {
+	auto nif_start = std::chrono::steady_clock::now();
 	if (!_pipeline_enabled)
 	{
 		throw std::runtime_error("pipeline_stage_backward called but pipeline partition is not enabled");
@@ -867,6 +964,14 @@ TorchTensor NerlWorkerTorch::pipeline_stage_backward(const TorchTensor &grad_out
 		grad_input = torch::zeros_like(context.stage_input);
 	}
 	++_deferred_microbatch_count;
+	auto nif_elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+		std::chrono::steady_clock::now() - nif_start).count();
+	if (nif_elapsed_ms > 30000)
+	{
+		LogError << "NIF pipeline_stage_backward exceeded 30s: " << nif_elapsed_ms
+				 << "ms stage=" << _pipeline_stage << " batch=" << batch_id
+				 << " microbatch=" << microbatch_id << std::endl;
+	}
 	return grad_input.detach().clone();
 }
 
@@ -954,7 +1059,11 @@ TorchTensor NerlWorkerTorch::train_batch_impl(const TorchTensor &batch, bool def
 			prediction = prediction.reshape(slices.labels.sizes());
 		}
 
-		TorchTensor loss = torch::mse_loss(prediction, slices.labels);
+		TorchTensor loss = compute_loss(prediction, slices.labels);
+		if (defer_optimizer_step && _num_microbatches_for_loss_scale > 1)
+		{
+			loss = loss / static_cast<double>(_num_microbatches_for_loss_scale);
+		}
 		if (!torch::isfinite(loss).all().item<bool>())
 		{
 			std::ostringstream oss;
@@ -1035,16 +1144,21 @@ void NerlWorkerTorch::optimizer_barrier()
 		++_optimizer_barrier_defer_count;
 		if (_optimizer_barrier_defer_count < _optimizer_barrier_max_defers)
 		{
-			LogInfo << "Torch optimizer barrier deferred for stage=" << _pipeline_stage
-					<< " because " << _pipeline_stage_contexts.size()
-					<< " pipeline stage context(s) are still waiting for backward"
-					<< " (defer " << _optimizer_barrier_defer_count
-					<< "/" << _optimizer_barrier_max_defers << ")" << std::endl;
+			if (pipeline_layer_logs_enabled())
+			{
+				LogInfo << "Torch optimizer barrier deferred for stage=" << _pipeline_stage
+						<< " because " << _pipeline_stage_contexts.size()
+						<< " pipeline stage context(s) are still waiting for backward"
+						<< " (defer " << _optimizer_barrier_defer_count
+						<< "/" << _optimizer_barrier_max_defers << ")" << std::endl;
+			}
 			return;
 		}
-		LogWarning << "Torch optimizer barrier exceeded defer threshold for stage=" << _pipeline_stage
+		LogError << "CRITICAL: optimizer barrier exceeded defer threshold for stage=" << _pipeline_stage
 				   << "; clearing " << _pipeline_stage_contexts.size()
-				   << " stale stage context(s) and resetting deferred gradients" << std::endl;
+				   << " stale stage context(s). Accumulated gradients DISCARDED."
+				   << " defer_count=" << _optimizer_barrier_defer_count
+				   << "/" << _optimizer_barrier_max_defers << std::endl;
 		clear_pipeline_stage_contexts();
 		try
 		{
@@ -1065,8 +1179,11 @@ void NerlWorkerTorch::optimizer_barrier()
 	{
 		try
 		{
-			LogInfo << "Torch optimizer barrier applies deferred step stage=" << _pipeline_stage
-					<< " deferred_microbatches=" << _deferred_microbatch_count << std::endl;
+			if (pipeline_layer_logs_enabled())
+			{
+				LogInfo << "Torch optimizer barrier applies deferred step stage=" << _pipeline_stage
+						<< " deferred_microbatches=" << _deferred_microbatch_count << std::endl;
+			}
 			_optimizer->step();
 			_optimizer->zero_grad();
 		}

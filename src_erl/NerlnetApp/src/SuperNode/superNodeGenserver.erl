@@ -56,11 +56,18 @@
   skip_reason_counters = #{},
   timeout_no_progress_marker = none,
   timeout_no_progress_streak = 0,
+  timeout_no_progress_limit = 12,
   last_abort = {none, 0},
   pending_parallel_deliveries = #{},
   next_parallel_delivery_id = 1,
   parallel_delivery_retry_ms = 250,
-  parallel_delivery_max_retries = 20
+  parallel_delivery_max_retries = 120,
+  phase_close_deadline_ref = undefined,
+  congestion_drop_enabled = false,
+  congestion_skip_threshold = 0,
+  congestion_signal_ttl_ms = 5000,
+  worker_congestion_signals = #{},
+  congestion_skipped_microbatches = 0
 }).
 
 -define(HEARTBEAT_MISS_FACTOR, 3).
@@ -69,8 +76,10 @@
 -define(GRANT_SLOW_WARNING_RATIO, 0.6).
 -define(MAX_GRANT_REJECTION_STREAK, 256).
 -define(PARALLEL_DELIVERY_RETRY_FLOOR_MS, 100).
--define(PARALLEL_DELIVERY_MAX_RETRIES_DEFAULT, 20).
+-define(PARALLEL_DELIVERY_MAX_RETRIES_DEFAULT, 120).
 -define(GRANT_ACCEPT_TIMEOUT_FACTOR, 3).
+-define(PHASE_CLOSE_DEADLINE_MS_DEFAULT, 30000).
+-define(CONGESTION_SIGNAL_TTL_MS_DEFAULT, 5000).
 
 start_link(Args = {MyName, _ManagedClients, _HeartbeatMs, _MaxInflight, _NerlnetGraph}) ->
   gen_server:start_link({local, MyName}, ?MODULE, Args, []).
@@ -145,6 +154,12 @@ handle_cast({super_heartbeat, ClientName, TsMs}, State = #super_node_state{
   UpdatedHeartbeats = maps:put(ClientName, TsMs, LastHeartbeat),
   {noreply, State#super_node_state{last_heartbeat = UpdatedHeartbeats}};
 
+%% NOTE: parallel_worker_message is a delivery-tracked transport path used for
+%% small control/activation payloads that need guaranteed delivery tracking.
+%% The primary pipeline data path (large tensor payloads) flows directly between
+%% workers via w2wCom:send_message in route_pipeline_payload_to_worker, bypassing
+%% the Super Node entirely. This handler does NOT create a hub-and-spoke bottleneck
+%% for bulk data.
 handle_cast({parallel_worker_message, FromWorker, ToWorker, Data}, State = #super_node_state{
   worker_to_client = WorkerToClientMap,
   pending_parallel_deliveries = PendingDeliveries
@@ -236,14 +251,15 @@ handle_cast({parallel_deliver_ack, ClientName, DeliveryId, AckStatus}, State = #
 
 handle_cast(
   {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta},
-  State = #super_node_state{phase_epoch = PhaseEpoch}
+  State = #super_node_state{phase_epoch = PhaseEpoch, worker_congestion_signals = WorkerCongestionSignals}
 ) ->
   record_super_node_received({parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, Meta}),
   {EventEpoch, EventMeta} = extract_event_epoch_and_meta(PhaseEpoch, Meta),
+  {CongestionDepth, CleanMeta} = extract_congestion_from_meta(EventMeta),
   EventID = parallel_event_id(FromWorker, Direction, BatchID, MicrobatchID, StageID),
   ?LOG_INFO(
     "Super node received parallel event worker=~p direction=~p batch=~p microbatch=~p stage=~p epoch=~p event_id=~p meta=~p",
-    [FromWorker, Direction, BatchID, MicrobatchID, StageID, EventEpoch, EventID, EventMeta]
+    [FromWorker, Direction, BatchID, MicrobatchID, StageID, EventEpoch, EventID, CleanMeta]
   ),
   case EventEpoch =:= PhaseEpoch of
     false ->
@@ -254,6 +270,22 @@ handle_cast(
       {noreply, State};
     true ->
       EventTsMs = erlang:system_time(millisecond),
+      UpdatedCongestionSignals = case CongestionDepth of
+        none ->
+          %% Signals are edge-triggered in worker events; if a worker sends a
+          %% normal event without congestion metadata, clear its stale signal.
+          maps:remove(FromWorker, WorkerCongestionSignals);
+        Depth when is_integer(Depth), Depth =< 0 ->
+          maps:remove(FromWorker, WorkerCongestionSignals);
+        Depth when is_integer(Depth) ->
+          maps:put(
+            FromWorker,
+            #{signaled => true, queue_depth => Depth, ts_ms => EventTsMs},
+            WorkerCongestionSignals
+          );
+        _ ->
+          maps:remove(FromWorker, WorkerCongestionSignals)
+      end,
       StateWithLastEvent = State#super_node_state{
         last_parallel_event = #{
           event_id => EventID,
@@ -267,14 +299,15 @@ handle_cast(
         },
         rejection_streak = 0,
         timeout_no_progress_marker = EventID,
-        timeout_no_progress_streak = 0
+        timeout_no_progress_streak = 0,
+        worker_congestion_signals = UpdatedCongestionSignals
       },
       EventKey = skipped_work_item_key(FromWorker, Direction, BatchID, MicrobatchID, StageID),
       case is_skipped_work_item(StateWithLastEvent, FromWorker, Direction, BatchID, MicrobatchID, StageID) of
         true ->
-          {noreply, register_stale_event_after_skip(StateWithLastEvent, EventKey, EventMeta)};
+          {noreply, register_stale_event_after_skip(StateWithLastEvent, EventKey, CleanMeta)};
         false ->
-          EventPayload = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, EventMeta},
+          EventPayload = {parallel_event, FromWorker, Direction, BatchID, MicrobatchID, StageID, CleanMeta},
           case maybe_advance_scheduler(EventPayload, StateWithLastEvent) of
             {abort, AbortReason, UpdatedState} ->
               {noreply, maybe_notify_parallel_abort(UpdatedState, AbortReason)};
@@ -466,6 +499,26 @@ handle_info(check_heartbeats, State = #super_node_state{
   StateAfterDeliveryRetry = maybe_retry_pending_parallel_deliveries(StateAfterGrantTimeoutCheck, NowMs),
   erlang:send_after(HeartbeatMs, self(), check_heartbeats),
   {noreply, StateAfterDeliveryRetry};
+
+handle_info(phase_close_deadline_expired, State = #super_node_state{
+  my_name = MyName,
+  managed_clients = ManagedClients,
+  phase_epoch = PhaseEpoch,
+  phase_close_requested = RequestedClients,
+  phase_close_completed = PhaseCloseCompleted
+}) ->
+  case PhaseCloseCompleted of
+    true ->
+      {noreply, State};
+    false ->
+      MissingClients = lists:subtract(ManagedClients, RequestedClients),
+      ?LOG_WARNING(
+        "Super node ~p phase-close deadline expired epoch=~p; ~p/~p clients responded missing=~p; forcing close",
+        [MyName, PhaseEpoch, length(RequestedClients), length(ManagedClients), MissingClients]
+      ),
+      notify_parallel_phase_done(State),
+      {noreply, finalize_parallel_phase_close(State)}
+  end;
 
 handle_info(_Info, State = #super_node_state{}) ->
   record_super_node_bad_message(_Info),
@@ -758,6 +811,7 @@ apply_timeout_no_progress_guard(
     phase_close_completed = PhaseCloseCompleted,
     timeout_no_progress_marker = PrevMarker,
     timeout_no_progress_streak = PrevStreak,
+    timeout_no_progress_limit = NoProgressLimit,
     last_parallel_event = LastParallelEvent
   }
 ) ->
@@ -773,16 +827,46 @@ apply_timeout_no_progress_guard(
           true -> {Marker, PrevStreak + 1};
           false -> {Marker, 1}
         end,
-      State#super_node_state{
+      StateWithUpdatedProgress = State#super_node_state{
         timeout_no_progress_marker = NextMarker,
         timeout_no_progress_streak = NextStreak
-      }
+      },
+      case (NoProgressLimit > 0) andalso (NextStreak >= NoProgressLimit) of
+        false ->
+          StateWithUpdatedProgress;
+        true ->
+          finalize_no_progress_phase_close(StateWithUpdatedProgress, NextMarker, NextStreak)
+      end
   end.
 
 timeout_progress_marker(LastParallelEvent) when is_map(LastParallelEvent) ->
   maps:get(event_id, LastParallelEvent, LastParallelEvent);
 timeout_progress_marker(LastParallelEvent) ->
   LastParallelEvent.
+
+finalize_no_progress_phase_close(
+  State = #super_node_state{
+    my_name = MyName,
+    timeout_no_progress_limit = NoProgressLimit,
+    last_parallel_event = LastParallelEvent,
+    pending_grant = PendingGrant
+  },
+  Marker,
+  NoProgressStreak
+) ->
+  ?LOG_ERROR(
+    "Super node ~p no-progress watchdog triggered marker=~p streak=~p limit=~p last_event=~p pending=~p; forcing deterministic phase close",
+    [MyName, Marker, NoProgressStreak, NoProgressLimit, LastParallelEvent, pending_grant_summary(PendingGrant)]
+  ),
+  StateWithCounter = register_skip_reason_counter(State, skip_phase_close_drain),
+  StateWithClearedGrant = clear_pending_grant_state(StateWithCounter),
+  notify_parallel_phase_done(StateWithClearedGrant),
+  case StateWithClearedGrant#super_node_state.phase_close_completed of
+    true ->
+      StateWithClearedGrant;
+    false ->
+      finalize_parallel_phase_close(StateWithClearedGrant)
+  end.
 
 pending_grant_summary(PendingGrant) ->
   case normalize_pending_grant(PendingGrant) of
@@ -852,6 +936,10 @@ apply_parallel_phase_update(
   SchedulerTrace = build_scheduler_trace(PhaseName, NormalizedMode, NormalizedParallelExecution, WorkerParallelMap),
   SchedulerMaxBatches = resolve_scheduler_max_batches(NormalizedParallelExecution),
   ContinueOnTimeout = resolve_continue_on_timeout(NormalizedParallelExecution, State#super_node_state.continue_on_timeout),
+  NoProgressLimit = resolve_no_progress_limit(
+                      NormalizedParallelExecution,
+                      State#super_node_state.timeout_no_progress_limit
+                    ),
   GrantAcceptTimeoutMs = resolve_execution_timeout_ms(
                            NormalizedParallelExecution,
                            [<<"grantAcceptTimeoutMs">>, grantAcceptTimeoutMs, <<"grant_accept_timeout_ms">>, grant_accept_timeout_ms],
@@ -862,6 +950,26 @@ apply_parallel_phase_update(
                           [<<"completionTimeoutMs">>, completionTimeoutMs, <<"completion_timeout_ms">>, completion_timeout_ms],
                           State#super_node_state.completion_timeout_ms
                         ),
+  MaxInflight = resolve_execution_timeout_ms(
+                  NormalizedParallelExecution,
+                  [<<"maxInflightGrants">>, maxInflightGrants, <<"max_inflight_grants">>, max_inflight_grants],
+                  State#super_node_state.max_inflight
+                ),
+  CongestionDropEnabled = resolve_congestion_bool(
+                            NormalizedParallelExecution,
+                            [<<"congestionDropEnabled">>, congestionDropEnabled, <<"congestion_drop_enabled">>, congestion_drop_enabled],
+                            false
+                          ),
+  CongestionSkipThreshold = resolve_execution_timeout_ms(
+                              NormalizedParallelExecution,
+                              [<<"congestionSkipThreshold">>, congestionSkipThreshold, <<"congestion_skip_threshold">>, congestion_skip_threshold],
+                              0
+                            ),
+  CongestionSignalTtlMs = resolve_execution_timeout_ms(
+                            NormalizedParallelExecution,
+                            [<<"congestionSignalTtlMs">>, congestionSignalTtlMs, <<"congestion_signal_ttl_ms">>, congestion_signal_ttl_ms],
+                            ?CONGESTION_SIGNAL_TTL_MS_DEFAULT
+                          ),
   ParallelActive = is_parallel_mode_active(NormalizedMode),
   PhaseStartMs =
     case ParallelActive of
@@ -870,8 +978,8 @@ apply_parallel_phase_update(
     end,
   StageWorkers = build_stage_workers(WorkerParallelMap, ManagedClients, WorkerToClientMap),
   ?LOG_INFO(
-    "Super node ~p updated parallel phase ~p mode=~p epoch=~p trace_length=~p max_batches=~p active=~p",
-    [MyName, PhaseName, NormalizedMode, PhaseEpoch, length(SchedulerTrace), SchedulerMaxBatches, ParallelActive]
+    "Super node ~p updated parallel phase ~p mode=~p epoch=~p trace_length=~p max_batches=~p active=~p no_progress_limit=~p",
+    [MyName, PhaseName, NormalizedMode, PhaseEpoch, length(SchedulerTrace), SchedulerMaxBatches, ParallelActive, NoProgressLimit]
   ),
   ?LOG_INFO(
     "Super node ~p phase stage-worker map: ~p",
@@ -888,6 +996,7 @@ apply_parallel_phase_update(
     scheduler_cursor = 0,
     scheduler_batch_id = undefined,
     scheduler_max_batches = SchedulerMaxBatches,
+    max_inflight = MaxInflight,
     pending_grant = none,
     pending_grant_issued_ms = 0,
     grant_accept_timeout_ms = GrantAcceptTimeoutMs,
@@ -908,7 +1017,13 @@ apply_parallel_phase_update(
     skip_reason_counters = #{},
     timeout_no_progress_marker = none,
     timeout_no_progress_streak = 0,
-    pending_parallel_deliveries = #{}
+    timeout_no_progress_limit = NoProgressLimit,
+    pending_parallel_deliveries = #{},
+    congestion_drop_enabled = CongestionDropEnabled,
+    congestion_skip_threshold = CongestionSkipThreshold,
+    congestion_signal_ttl_ms = CongestionSignalTtlMs,
+    worker_congestion_signals = #{},
+    congestion_skipped_microbatches = 0
   },
   StateAfterConfig = push_parallel_config_to_managed_clients(StateAfterPhaseUpdate),
   case maybe_send_next_scheduler_grant(StateAfterConfig) of
@@ -981,12 +1096,13 @@ send_super_command_to_client(
 ) ->
   record_super_node_sent(Command),
   try
-    nerl_tools:http_router_request(
+    nerl_tools:http_router_request_with_retry(
       RouterHost,
       RouterPort,
       [ClientName],
       atom_to_list(parallelSuperCommand),
-      Command
+      Command,
+      3
     ),
     ok
   catch
@@ -1080,7 +1196,8 @@ handle_parallel_phase_close_request(
     managed_clients = ManagedClients,
     phase_epoch = PhaseEpoch,
     phase_close_requested = RequestedClients,
-    phase_close_completed = PhaseCloseCompleted
+    phase_close_completed = PhaseCloseCompleted,
+    parallel_execution = ParallelExecution
   }
 ) ->
   case lists:member(ClientName, ManagedClients) of
@@ -1107,14 +1224,15 @@ handle_parallel_phase_close_request(
             [MyName, ClientName, PhaseEpoch, RequestedCount, ManagedCount]
           ),
           StateWithRequest = State#super_node_state{phase_close_requested = UpdatedRequestedClients},
+          StateWithDeadline = maybe_start_phase_close_deadline(RequestedClients, ParallelExecution, StateWithRequest),
           case {PhaseCloseCompleted, RequestedCount =:= ManagedCount} of
             {true, _} ->
-              StateWithRequest;
+              StateWithDeadline;
             {false, true} ->
-              notify_parallel_phase_done(StateWithRequest),
-              finalize_parallel_phase_close(StateWithRequest);
+              notify_parallel_phase_done(StateWithDeadline),
+              finalize_parallel_phase_close(StateWithDeadline);
             _ ->
-              StateWithRequest
+              StateWithDeadline
           end
       end
   end.
@@ -1122,13 +1240,18 @@ handle_parallel_phase_close_request(
 finalize_parallel_phase_close(
   State = #super_node_state{
     my_name = MyName,
-    phase_epoch = PhaseEpoch
+    phase_epoch = PhaseEpoch,
+    phase_close_deadline_ref = DeadlineRef
   }
 ) ->
   ?LOG_INFO(
     "Super node ~p entering phase-close barrier epoch=~p; disabling scheduler grants and broadcasting close grant",
     [MyName, PhaseEpoch]
   ),
+  case DeadlineRef of
+    undefined -> ok;
+    Ref -> erlang:cancel_timer(Ref)
+  end,
   ClearedState = State#super_node_state{
     parallel_active = false,
     scheduler_trace = [],
@@ -1141,9 +1264,28 @@ finalize_parallel_phase_close(
     phase_close_completed = true,
     timeout_no_progress_marker = none,
     timeout_no_progress_streak = 0,
-    pending_parallel_deliveries = #{}
+    pending_parallel_deliveries = #{},
+    phase_close_deadline_ref = undefined
   },
   broadcast_phase_close_granted(ClearedState).
+
+maybe_start_phase_close_deadline(PreviousRequestedClients, ParallelExecution, State) ->
+  case PreviousRequestedClients of
+    [] ->
+      DeadlineMs = get_phase_close_deadline_ms(ParallelExecution),
+      TimerRef = erlang:send_after(DeadlineMs, self(), phase_close_deadline_expired),
+      State#super_node_state{phase_close_deadline_ref = TimerRef};
+    _ ->
+      State
+  end.
+
+get_phase_close_deadline_ms(ParallelExecution) when is_map(ParallelExecution) ->
+  case maps:get(<<"phaseCloseDeadlineMs">>, ParallelExecution,
+         maps:get(phaseCloseDeadlineMs, ParallelExecution, ?PHASE_CLOSE_DEADLINE_MS_DEFAULT)) of
+    V when is_integer(V), V > 0 -> V;
+    _ -> ?PHASE_CLOSE_DEADLINE_MS_DEFAULT
+  end;
+get_phase_close_deadline_ms(_) -> ?PHASE_CLOSE_DEADLINE_MS_DEFAULT.
 
 broadcast_phase_close_granted(
   State = #super_node_state{
@@ -1914,6 +2056,8 @@ infer_delivery_payload_tokens({pipeline_backward_payload, BatchID, _SourceName, 
   {backward, normalize_scheduler_batch_id(BatchID), MicrobatchID};
 infer_delivery_payload_tokens({pipeline_predict_payload, BatchID, _SourceName, _TotalMicrobatches, MicrobatchID, _Activation}) ->
   {forward, normalize_scheduler_batch_id(BatchID), MicrobatchID};
+infer_delivery_payload_tokens({tp_collective_payload, {tp_collective, BatchID, MicrobatchID, _LayerIndex, _LayerName, _CollectiveMode}, _Rank, _TensorPayload}) ->
+  {forward, normalize_scheduler_batch_id(BatchID), MicrobatchID};
 infer_delivery_payload_tokens(_Data) ->
   {forward, any, undefined}.
 
@@ -1933,12 +2077,31 @@ handle_delivery_timeout_or_failure(
 ) ->
   DeliveryMicrobatchID = maps:get(microbatch_id, DeliveryInfo, undefined),
   DeliveryWorker = maps:get(to_worker, DeliveryInfo, undefined),
-  case {DeliveryMicrobatchID, DeliveryWorker =/= undefined} of
-    {undefined, _} ->
+  ContinueOnTimeout = State#super_node_state.continue_on_timeout,
+  case {ContinueOnTimeout, DeliveryWorker =/= undefined, DeliveryMicrobatchID} of
+    {true, true, undefined} ->
+      ?LOG_WARNING(
+        "Super node continuing after delivery timeout without explicit microbatch id; applying skip via pending grant worker=~p reason=~p",
+        [DeliveryWorker, FailureReason]
+      ),
+      timeout_pending_grant_to_skip(
+        State,
+        SkipReasonTag,
+        FailureReason,
+        [DeliveryWorker]
+      );
+    {true, true, _AnyMicrobatch} ->
+      timeout_pending_grant_to_skip(
+        State,
+        SkipReasonTag,
+        FailureReason,
+        [DeliveryWorker]
+      );
+    {_AnyContinueMode, false, _} ->
       maybe_notify_parallel_abort(State, FailureReason);
-    {_AnyMicrobatch, false} ->
+    {false, _HasWorker, undefined} ->
       maybe_notify_parallel_abort(State, FailureReason);
-    _ ->
+    {false, true, _AnyMicrobatch} ->
       timeout_pending_grant_to_skip(
         State,
         SkipReasonTag,
@@ -1950,7 +2113,8 @@ handle_delivery_timeout_or_failure(
 handle_close_related_grant_rejection(
   State = #super_node_state{
     my_name = MyName,
-    pending_grant = PendingGrant
+    pending_grant = PendingGrant,
+    managed_clients = ManagedClients
   },
   ClientName,
   ClientEpoch,
@@ -1968,10 +2132,18 @@ handle_close_related_grant_rejection(
     true ->
       StateAfterCloseRequest;
     false ->
-      maybe_notify_parallel_abort(
-        clear_scheduler_for_abort(StateAfterCloseRequest),
-        {phase_close_pending_before_global_barrier, ClientName, WorkerName, RejectReason, PendingGrantSummary}
-      )
+      RemainingClients = lists:subtract(
+                           ManagedClients,
+                           StateAfterCloseRequest#super_node_state.phase_close_requested
+                         ),
+      ?LOG_WARNING(
+        "Super node ~p close-related grant rejection is entering close-drain mode epoch=~p; waiting for remaining clients=~p",
+        [MyName, ClientEpoch, RemainingClients]
+      ),
+      %% Do not abort while the phase-close barrier is still converging.
+      %% Keep deterministic progress by freezing scheduler grants and waiting
+      %% for either all close requests or the close-deadline forced close.
+      clear_scheduler_for_abort(StateAfterCloseRequest)
   end.
 
 maybe_abort_rejection_storm(
@@ -2094,6 +2266,16 @@ issue_next_scheduler_grant(
             {error, Reason} ->
               {abort, Reason, EffectiveState};
             {ok, TargetWorkers, UpdatedStageRoundRobin} ->
+              case should_skip_for_congestion(EffectiveState, Direction, TargetWorkers) of
+                true ->
+                  skip_microbatch_for_congestion(
+                    EffectiveState#super_node_state{stage_rr = UpdatedStageRoundRobin},
+                    Direction,
+                    GrantBatchID,
+                    MicrobatchId,
+                    EffectiveCursor
+                  );
+                false ->
               EventID = grant_event_id(PhaseEpoch, Direction, GrantBatchID, MicrobatchId, StageId, TargetWorkers),
               PreSkippedWorkers = [
                 WorkerName
@@ -2191,7 +2373,8 @@ issue_next_scheduler_grant(
                        {scheduler_grant_route_failed, RoutedWorkers, {Direction, GrantBatchID, MicrobatchId, StageId}, RouteReason},
                        EffectiveState}
                   end
-              end
+              end %% case RoutedWorkers
+              end %% case should_skip_for_congestion
           end
       end
   end.
@@ -2213,6 +2396,108 @@ choose_stage_workers(ParallelMode, StageId, StageWorkers, StageRoundRobin) ->
           {ok, [WorkerName], UpdatedRoundRobin}
       end
   end.
+
+should_skip_for_congestion(
+  #super_node_state{
+    congestion_drop_enabled = CongestionDropEnabled,
+    congestion_skip_threshold = CongestionSkipThreshold,
+    congestion_signal_ttl_ms = CongestionSignalTtlMs,
+    worker_congestion_signals = WorkerCongestionSignals
+  },
+  Direction,
+  TargetWorkers
+) ->
+  NowMs = erlang:system_time(millisecond),
+  case {CongestionDropEnabled, CongestionSkipThreshold > 0, Direction} of
+    {false, _, _} -> false;
+    {_, false, _} -> false;
+    {_, _, backward} -> false;
+    {true, true, forward} ->
+      lists:any(
+        fun(WorkerName) ->
+          case maps:get(WorkerName, WorkerCongestionSignals, undefined) of
+            #{
+              signaled := true,
+              queue_depth := Depth,
+              ts_ms := SignalTsMs
+            } when is_integer(Depth), is_integer(SignalTsMs) ->
+              IsFresh =
+                case CongestionSignalTtlMs > 0 of
+                  true -> (NowMs - SignalTsMs) =< CongestionSignalTtlMs;
+                  false -> true
+                end,
+              Depth >= CongestionSkipThreshold andalso IsFresh;
+            _ -> false
+          end
+        end,
+        TargetWorkers
+      )
+  end.
+
+skip_microbatch_for_congestion(
+  State = #super_node_state{
+    my_name = MyName,
+    stage_workers = StageWorkers,
+    worker_parallel = WorkerParallel,
+    phase_epoch = PhaseEpoch,
+    scheduler_batch_id = SchedulerBatchID,
+    congestion_skipped_microbatches = CongestionSkippedCount,
+    worker_congestion_signals = WorkerCongestionSignals
+  },
+  Direction,
+  GrantBatchID,
+  MicrobatchId,
+  EffectiveCursor
+) ->
+  AllStageWorkers = stage_worker_targets(StageWorkers, WorkerParallel),
+  SkipTargets = [{W, S, MicrobatchId} || {W, S} <- AllStageWorkers],
+  EventID = {congestion_skip, PhaseEpoch, Direction, GrantBatchID, MicrobatchId},
+  ?LOG_INFO(
+    "Super node ~p congestion-skipping microbatch direction=~p batch=~p microbatch=~p epoch=~p targets=~p congestion_signals=~p",
+    [MyName, Direction, GrantBatchID, MicrobatchId, PhaseEpoch,
+     [W || {W, _, _} <- SkipTargets],
+     maps:fold(fun(K, V, Acc) -> [{K, maps:get(queue_depth, V, 0)} | Acc] end, [], WorkerCongestionSignals)]
+  ),
+  StateAfterRelay = relay_skip_command_to_targets(
+    State,
+    SkipTargets,
+    Direction,
+    GrantBatchID,
+    {congestion_drop, MicrobatchId},
+    EventID,
+    PhaseEpoch
+  ),
+  StateAfterSkipRegistration =
+    lists:foldl(
+      fun({WorkerName, TargetStageID, TargetMicrobatchID}, AccState) ->
+        register_skipped_work_item(
+          register_skip_reason_counter(AccState, skip_congestion_drop),
+          WorkerName,
+          Direction,
+          GrantBatchID,
+          TargetMicrobatchID,
+          TargetStageID,
+          {congestion_drop, MicrobatchId},
+          EventID
+        )
+      end,
+      StateAfterRelay,
+      SkipTargets
+    ),
+  ResolvedBatchID =
+    case {GrantBatchID, SchedulerBatchID} of
+      {any, BatchInt} when is_integer(BatchInt) -> BatchInt;
+      {BatchInt, _} -> BatchInt
+    end,
+  StateAfterAdvance = StateAfterSkipRegistration#super_node_state{
+    scheduler_cursor = EffectiveCursor + 1,
+    scheduler_batch_id = ResolvedBatchID,
+    pending_grant = none,
+    pending_grant_issued_ms = 0,
+    grant_slow_warning_issued = false,
+    congestion_skipped_microbatches = CongestionSkippedCount + 1
+  },
+  maybe_send_next_scheduler_grant(StateAfterAdvance).
 
 send_scheduler_grants(
   _State,
@@ -2382,6 +2667,17 @@ extract_event_epoch_and_meta(DefaultEpoch, MetaMap) when is_map(MetaMap) ->
 extract_event_epoch_and_meta(DefaultEpoch, Payload) ->
   {DefaultEpoch, Payload}.
 
+extract_congestion_from_meta(MetaMap) when is_map(MetaMap) ->
+  case maps:find(congestion, MetaMap) of
+    {ok, Depth} when is_integer(Depth) ->
+      CleanMeta = maps:get(meta, MetaMap, MetaMap),
+      {Depth, CleanMeta};
+    _ ->
+      {none, MetaMap}
+  end;
+extract_congestion_from_meta(Meta) ->
+  {none, Meta}.
+
 forward_only_trace(Trace) ->
   [Event || Event = {Direction, _MicrobatchId, _StageId} <- Trace, Direction =:= forward].
 
@@ -2434,6 +2730,36 @@ resolve_continue_on_timeout(ParallelExecution, Default) ->
     1 -> true;
     0 -> false;
     _ -> Default
+  end.
+
+resolve_congestion_bool(ParallelExecution, Fields, Default) ->
+  RawValue = get_execution_value(ParallelExecution, Fields, Default),
+  case RawValue of
+    true -> true;
+    false -> false;
+    <<"true">> -> true;
+    <<"false">> -> false;
+    "true" -> true;
+    "false" -> false;
+    1 -> true;
+    0 -> false;
+    _ -> Default
+  end.
+
+resolve_no_progress_limit(ParallelExecution, Default) ->
+  RawValue = get_execution_value(
+               ParallelExecution,
+               [
+                 <<"noProgressLimit">>, noProgressLimit, <<"no_progress_limit">>, no_progress_limit,
+                 <<"noProgressTimeoutLimit">>, noProgressTimeoutLimit, <<"no_progress_timeout_limit">>, no_progress_timeout_limit,
+                 <<"noProgressStreakLimit">>, noProgressStreakLimit, <<"no_progress_streak_limit">>, no_progress_streak_limit
+               ],
+               Default
+             ),
+  Parsed = normalize_non_negative_int(RawValue, Default),
+  case Parsed < 1 of
+    true -> Default;
+    false -> Parsed
   end.
 
 get_execution_value(_ParallelExecution, [], Default) ->

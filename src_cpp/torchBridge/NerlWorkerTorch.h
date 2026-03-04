@@ -140,7 +140,11 @@ public:
 	/** Returns the loss tensor from the most recent training step. */
 	TorchTensor last_loss() const { return _last_loss; }
 
+	enum class LossFunctionType { MSE, CrossEntropy, L1, Huber };
+
 private:
+	static LossFunctionType parse_loss_function(const std::string &name);
+	TorchTensor compute_loss(const TorchTensor &prediction, const TorchTensor &target) const;
 	struct BatchLayout
 	{
 		std::vector<int64_t> input_shape;
@@ -291,7 +295,7 @@ private:
 
 	/**
 	 * Core training implementation shared by train_batch() and train_microbatch().
-	 * Splits the batch, runs forward + MSE loss + backward. When @p defer_optimizer_step
+	 * Splits the batch, runs forward + loss + backward. When @p defer_optimizer_step
 	 * is true, the optimizer step is omitted and _deferred_microbatch_count is incremented
 	 * so optimizer_barrier() can commit the accumulated gradients later. When false, the
 	 * optimizer step is applied immediately and deferred state is reset.
@@ -322,7 +326,9 @@ private:
 	bool _has_deferred_gradients{false};
 	int64_t _deferred_microbatch_count{0};
 	int64_t _optimizer_barrier_defer_count{0};
-	int64_t _optimizer_barrier_max_defers{20};
+	int64_t _optimizer_barrier_max_defers{100};
+	int64_t _num_microbatches_for_loss_scale{1};
+	LossFunctionType _loss_function{LossFunctionType::MSE};
 	bool _pipeline_enabled{false};
 	int64_t _pipeline_stage{0};
 	int64_t _pipeline_world_size{1};

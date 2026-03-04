@@ -39,6 +39,9 @@ class ExperimentFlow():
         self.current_exp_phase_index = 0
         self.exp_flow_json = None
         self.events_sync_inst = EventSync()
+        # Raw communication snapshots are kept here so phase N can be rendered as
+        # (phase N cumulative counters) - (phase N-1 cumulative counters).
+        self._last_comm_stats_snapshot = {}
 
     def get_current_experiment_phase(self) -> ExperimentPhase:
         assert self.current_exp_phase_index < len(self.exp_phase_list) , "current experiment phase index is out of range"
@@ -55,6 +58,83 @@ class ExperimentFlow():
     
     def get_csv_dataset(self):
         return self.csv_dataset
+
+    def reset_comm_stats_snapshot(self):
+        self._last_comm_stats_snapshot = {}
+
+    def to_phase_local_comm_stats(self, entity_com_dicts: dict) -> dict:
+        if not isinstance(entity_com_dicts, dict):
+            return {}
+        phase_reset_entities = (
+            set(self.network_componenets.sources)
+            | set(self.network_componenets.clients)
+            | set(self.network_componenets.get_workers_list())
+        )
+        counter_keys = {
+            "messages_received",
+            "messages_sent",
+            "messages_dropped",
+            "bytes_received",
+            "bytes_sent",
+            "bad_messages",
+            "batches_received",
+            "batches_dropped",
+            "batches_sent",
+            "batches_received_train",
+            "batches_received_predict",
+            "batches_dropped_train",
+            "batches_dropped_predict",
+            "batches_sent_train",
+            "batches_sent_predict",
+            "batches_completed_train",
+            "batches_completed_predict",
+            "empty_batches",
+            "acc_time_training",
+            "acc_time_prediction",
+            "nan_loss_count",
+            "tp_collective_count",
+            "tp_collective_latency_us",
+            "stale_event_after_skip",
+            "congestion_drop_deferred_sample",
+            "congestion_signal_emitted",
+            "congestion_grant_rejected",
+        }
+        counter_prefixes = ("skip_", "drop_")
+        phase_local = {}
+        for entity_name, raw_stats in entity_com_dicts.items():
+            current_stats = raw_stats if isinstance(raw_stats, dict) else {}
+            prev_stats = self._last_comm_stats_snapshot.get(entity_name, {})
+            if entity_name in phase_reset_entities:
+                phase_local[entity_name] = current_stats.copy()
+                continue
+            localized_stats = {}
+            for key, value in current_stats.items():
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    localized_stats[key] = value
+                    continue
+                should_delta = key in counter_keys or key.startswith(counter_prefixes)
+                if not should_delta:
+                    localized_stats[key] = value
+                    continue
+                prev_value = prev_stats.get(key, 0)
+                if isinstance(prev_value, bool) or not isinstance(prev_value, (int, float)):
+                    delta_value = value
+                else:
+                    delta_value = value - prev_value
+                    if delta_value < 0:
+                        # Entity may already reset stats locally between phases.
+                        delta_value = value
+                if isinstance(value, int):
+                    localized_stats[key] = int(delta_value)
+                else:
+                    localized_stats[key] = float(delta_value)
+            phase_local[entity_name] = localized_stats
+
+        self._last_comm_stats_snapshot = {
+            entity_name: (stats_dict.copy() if isinstance(stats_dict, dict) else {})
+            for entity_name, stats_dict in entity_com_dicts.items()
+        }
+        return phase_local
 
     def generate_stats(self, experiment_phase = None) -> Stats:
         if experiment_phase is None:

@@ -143,7 +143,8 @@ createNerlnetInitiator(HostName) ->
                 {'_', [
 
                     {"/sendJsons",jsonHandler, [self()]}, % ApiServer triggers sendJsons action by sending a request to the main server device
-                    {"/isNerlnetDevice",iotHandler, [self()]}
+                    {"/sendJsons/",jsonHandler, [self()]},
+                    {"/isNerlnetDevice",iotHandler, [probe, self()]}
                 ]}
             ]),
             %% cowboy:start_clear(Name, TransOpts, ProtoOpts) - an http_listener
@@ -235,38 +236,238 @@ send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, DevicesL
 send_jsons_to_other_devices(_DCJsonFileBytes, _CommunicationMapFileBytes, _TorchPayloads, []) ->
     ok;
 send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, TorchPayloads, [{DeviceNameAtom, {IPv4, _Entities}} | Tail]) ->
-    ?LOG_INFO("Sending jsons to ~p",[DeviceNameAtom]),
     URL = "http://" ++ IPv4 ++ ":" ++ integer_to_list(?NERLNET_INIT_PORT) ++ "/sendJsons",
-    Boundary = "------WebKitFormBoundaryUscTgwn7KiuepIr1",
-    ContentType = lists:concat(["multipart/form-data; boundary=", Boundary]),
-    Fields = [],
-    BaseFiles = [{?JSON_ADDR++?LOCAL_DC_FILE_NAME, ?LOCAL_DC_FILE_NAME, binary_to_list(DCJsonFileBytes)},
-                 {?JSON_ADDR++?LOCAL_COMM_FILE_NAME, ?LOCAL_COMM_FILE_NAME, binary_to_list(CommunicationMapFileBytes)}],
-    Files = BaseFiles ++ TorchPayloads,
-    ReqBody = nerl_tools:format_multipart_formdata(Boundary, Fields, Files),
-    ReqHeader = [{"Content-Length", integer_to_list(length(ReqBody))}],
+    ?LOG_INFO("Sending jsons to ~p via ~s",[DeviceNameAtom, URL]),
+    case wait_for_device_init_ready(DeviceNameAtom, IPv4) of
+      ok ->
+        Boundary = "------WebKitFormBoundaryUscTgwn7KiuepIr1",
+        ContentType = lists:concat(["multipart/form-data; boundary=", Boundary]),
+        Fields = [],
+        BaseFiles = [{?JSON_ADDR++?LOCAL_DC_FILE_NAME, ?LOCAL_DC_FILE_NAME, binary_to_list(DCJsonFileBytes)},
+                     {?JSON_ADDR++?LOCAL_COMM_FILE_NAME, ?LOCAL_COMM_FILE_NAME, binary_to_list(CommunicationMapFileBytes)}],
+        Files = BaseFiles ++ TorchPayloads,
+        ReqBody = nerl_tools:format_multipart_formdata(Boundary, Fields, Files),
+        ReqHeader = [{"Content-Length", integer_to_list(length(ReqBody))}],
+        case send_jsons_to_device_with_retry(DeviceNameAtom, IPv4, URL, ReqHeader, ContentType, ReqBody) of
+          ok ->
+            send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, TorchPayloads, Tail);
+          {error, Reason} ->
+            {error, Reason}
+        end;
+      {error, Reason} ->
+        {error, Reason}
+    end.
+
+wait_for_device_init_ready(DeviceNameAtom, IPv4) ->
+    ReadyURL = "http://" ++ IPv4 ++ ":" ++ integer_to_list(?NERLNET_INIT_PORT) ++ "/isNerlnetDevice",
+    MaxAttempts = get_env_int("NERLNET_INIT_READY_RETRIES", 60),
+    RetrySleepMs = get_env_int("NERLNET_INIT_READY_RETRY_MS", 500),
+    wait_for_device_init_ready(
+      DeviceNameAtom,
+      IPv4,
+      ReadyURL,
+      1,
+      erlang:max(1, MaxAttempts),
+      erlang:max(50, RetrySleepMs)
+    ).
+
+wait_for_device_init_ready(
+  DeviceNameAtom,
+  IPv4,
+  ReadyURL,
+  Attempt,
+  MaxAttempts,
+  RetrySleepMs
+) ->
+    HttpOpts = [{timeout, 5000}, {connect_timeout, 2000}],
+    ProbeReq = {ReadyURL, [], "application/x-www-form-urlencoded", []},
+    case httpc:request(post, ProbeReq, HttpOpts, []) of
+      {ok, {{_Proto, 200, _Meaning}, _Headers, Body}} ->
+        case is_valid_init_ready_body(Body) of
+          true -> ok;
+          false ->
+            BodyPreview = preview_response_body(Body),
+            case Attempt < MaxAttempts of
+              true ->
+                ?LOG_WARNING(
+                  "Initiator probe returned unexpected body from ~p (~s): ~p. attempt ~p/~p, retry in ~pms",
+                  [DeviceNameAtom, IPv4, BodyPreview, Attempt, MaxAttempts, RetrySleepMs]
+                ),
+                timer:sleep(RetrySleepMs),
+                wait_for_device_init_ready(
+                  DeviceNameAtom,
+                  IPv4,
+                  ReadyURL,
+                  Attempt + 1,
+                  MaxAttempts,
+                  RetrySleepMs
+                );
+              false ->
+                {error, {peer_init_probe_unexpected_body, DeviceNameAtom, IPv4, BodyPreview}}
+            end
+        end;
+      {ok, {{_Proto, Code, Meaning}, _Headers, RespBody}} ->
+        RespPreview = preview_response_body(RespBody),
+        case Attempt < MaxAttempts of
+          true ->
+            ?LOG_WARNING(
+              "Waiting for initiator readiness on ~p (~s): HTTP ~p (~p), attempt ~p/~p, retry in ~pms, response=~p",
+              [DeviceNameAtom, IPv4, Code, Meaning, Attempt, MaxAttempts, RetrySleepMs, RespPreview]
+            ),
+            timer:sleep(RetrySleepMs),
+            wait_for_device_init_ready(
+              DeviceNameAtom,
+              IPv4,
+              ReadyURL,
+              Attempt + 1,
+              MaxAttempts,
+              RetrySleepMs
+            );
+          false ->
+            {error, {peer_init_probe_http_error, DeviceNameAtom, IPv4, Code, Meaning, RespPreview}}
+        end;
+      {error, Reason} ->
+        case Attempt < MaxAttempts of
+          true ->
+            ?LOG_WARNING(
+              "Waiting for initiator readiness on ~p (~s): transport error ~p, attempt ~p/~p, retry in ~pms",
+              [DeviceNameAtom, IPv4, Reason, Attempt, MaxAttempts, RetrySleepMs]
+            ),
+            timer:sleep(RetrySleepMs),
+            wait_for_device_init_ready(
+              DeviceNameAtom,
+              IPv4,
+              ReadyURL,
+              Attempt + 1,
+              MaxAttempts,
+              RetrySleepMs
+            );
+          false ->
+            {error, {peer_init_probe_transport_error, DeviceNameAtom, IPv4, Reason}}
+        end
+    end.
+
+is_valid_init_ready_body(Body0) ->
+    Body = normalize_response_body(Body0),
+    Prefix = "nerlnet_available#host_name#",
+    string:prefix(Body, Prefix) =/= nomatch orelse string:str(Body, Prefix) > 0.
+
+send_jsons_to_device_with_retry(DeviceNameAtom, IPv4, URL, ReqHeader, ContentType, ReqBody) ->
+    MaxAttempts = get_env_int("NERLNET_SEND_JSONS_RETRIES", 120),
+    RetrySleepMs = get_env_int("NERLNET_SEND_JSONS_RETRY_MS", 500),
+    send_jsons_to_device_with_retry(
+      DeviceNameAtom,
+      IPv4,
+      URL,
+      ReqHeader,
+      ContentType,
+      ReqBody,
+      1,
+      erlang:max(1, MaxAttempts),
+      erlang:max(50, RetrySleepMs)
+    ).
+
+send_jsons_to_device_with_retry(
+  DeviceNameAtom,
+  IPv4,
+  URL,
+  ReqHeader,
+  ContentType,
+  ReqBody,
+  Attempt,
+  MaxAttempts,
+  RetrySleepMs
+) ->
     HttpOpts = [{timeout, 60000}, {connect_timeout, 10000}],
     case httpc:request(post, {URL, ReqHeader, ContentType, ReqBody}, HttpOpts, []) of
       {ok, {{_Proto, 200, _Meaning}, _Headers, _RespBody}} ->
-          send_jsons_to_other_devices(DCJsonFileBytes, CommunicationMapFileBytes, TorchPayloads, Tail);
+        ok;
       {ok, {{_Proto, Code, Meaning}, _Headers, RespBody}} ->
-          RespPreview = preview_response_body(RespBody),
-          {error, {peer_send_jsons_http_error, DeviceNameAtom, IPv4, Code, Meaning, RespPreview}};
+        RespPreview = preview_response_body(RespBody),
+        case is_retryable_send_jsons_http_status(Code) andalso Attempt < MaxAttempts of
+          true ->
+            ?LOG_WARNING(
+              "Retrying sendJsons to ~p (~s) via ~s after transient HTTP ~p (~p), attempt ~p/~p, sleep ~pms, response=~p",
+              [DeviceNameAtom, IPv4, URL, Code, Meaning, Attempt, MaxAttempts, RetrySleepMs, RespPreview]
+            ),
+            timer:sleep(RetrySleepMs),
+            send_jsons_to_device_with_retry(
+              DeviceNameAtom,
+              IPv4,
+              URL,
+              ReqHeader,
+              ContentType,
+              ReqBody,
+              Attempt + 1,
+              MaxAttempts,
+              RetrySleepMs
+            );
+          false ->
+            {error, {peer_send_jsons_http_error, DeviceNameAtom, IPv4, Code, Meaning, RespPreview}}
+        end;
       {error, Reason} ->
-          {error, {peer_send_jsons_transport_error, DeviceNameAtom, IPv4, Reason}}
+        case Attempt < MaxAttempts of
+          true ->
+            ?LOG_WARNING(
+              "Retrying sendJsons to ~p (~s) after transport error ~p, attempt ~p/~p, sleep ~pms",
+              [DeviceNameAtom, IPv4, Reason, Attempt, MaxAttempts, RetrySleepMs]
+            ),
+            timer:sleep(RetrySleepMs),
+            send_jsons_to_device_with_retry(
+              DeviceNameAtom,
+              IPv4,
+              URL,
+              ReqHeader,
+              ContentType,
+              ReqBody,
+              Attempt + 1,
+              MaxAttempts,
+              RetrySleepMs
+            );
+          false ->
+            {error, {peer_send_jsons_transport_error, DeviceNameAtom, IPv4, Reason}}
+        end
+    end.
+
+is_retryable_send_jsons_http_status(404) -> true;
+is_retryable_send_jsons_http_status(408) -> true;
+is_retryable_send_jsons_http_status(425) -> true;
+is_retryable_send_jsons_http_status(429) -> true;
+is_retryable_send_jsons_http_status(500) -> true;
+is_retryable_send_jsons_http_status(502) -> true;
+is_retryable_send_jsons_http_status(503) -> true;
+is_retryable_send_jsons_http_status(504) -> true;
+is_retryable_send_jsons_http_status(_) -> false.
+
+get_env_int(EnvName, Default) ->
+    case os:getenv(EnvName) of
+      false ->
+        Default;
+      EnvValue ->
+        case catch list_to_integer(EnvValue) of
+          IntVal when is_integer(IntVal) -> IntVal;
+          _ -> Default
+        end
     end.
 
 preview_response_body(RespBody) when is_binary(RespBody) ->
-    RespList = binary_to_list(RespBody),
-    preview_response_body(RespList);
+    preview_response_body(binary_to_list(RespBody));
 preview_response_body(RespBody) when is_list(RespBody) ->
+    RespBodyTrimmed = string:trim(RespBody),
     MaxLen = 200,
-    case length(RespBody) > MaxLen of
-      true -> lists:sublist(RespBody, MaxLen);
-      false -> RespBody
+    case length(RespBodyTrimmed) > MaxLen of
+      true -> lists:sublist(RespBodyTrimmed, MaxLen);
+      false -> RespBodyTrimmed
     end;
 preview_response_body(RespBody) ->
     io_lib:format("~p", [RespBody]).
+
+normalize_response_body(RespBody) when is_binary(RespBody) ->
+    string:trim(binary_to_list(RespBody));
+normalize_response_body(RespBody) when is_list(RespBody) ->
+    string:trim(RespBody);
+normalize_response_body(RespBody) ->
+    lists:flatten(io_lib:format("~p", [RespBody])).
 
 gather_torch_payloads() ->
     case catch ets:lookup_element(nerlnet_data, torch_models_map, ?DATA_IDX) of
