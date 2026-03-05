@@ -1902,7 +1902,7 @@ prune_deferred_samples_for_skip(GenWorkerEts, BatchID) ->
       end,
       DeferredSamples
     ),
-  ets:update_element(GenWorkerEts, parallel_deferred_samples, {?ETS_KEYVAL_VAL_IDX, RemainingSamples}).
+  set_parallel_deferred_samples(GenWorkerEts, RemainingSamples).
 
 maybe_emit_parallel_forward_event(tensor, _WorkerName, _BatchID, _MicrobatchID, _StageID) ->
   ok;
@@ -4638,7 +4638,7 @@ reset_parallel_loss_context(GenWorkerEts) ->
   DeferredSamples = ets:lookup_element(GenWorkerEts, parallel_deferred_samples, ?ETS_KEYVAL_VAL_IDX),
   maybe_account_deferred_sample_drop(DeferredSamples),
   reset_parallel_batch_context(GenWorkerEts),
-  ets:update_element(GenWorkerEts, parallel_deferred_samples, {?ETS_KEYVAL_VAL_IDX, []}).
+  set_parallel_deferred_samples(GenWorkerEts, []).
 
 reset_parallel_batch_context(GenWorkerEts) ->
   ets:update_element(GenWorkerEts, parallel_pending_losses, {?ETS_KEYVAL_VAL_IDX, 0}),
@@ -4659,36 +4659,35 @@ queue_deferred_parallel_sample(GenWorkerEts, SampleTuple) ->
   CongestionEnabled = ets:lookup_element(GenWorkerEts, congestion_drop_enabled, ?ETS_KEYVAL_VAL_IDX),
   SoftLimit = ets:lookup_element(GenWorkerEts, deferred_sample_soft_limit, ?ETS_KEYVAL_VAL_IDX),
   MaxDeferred = 256,
-  case CongestionEnabled of
+  case requires_coordinated_deferred_sample_handling(GenWorkerEts) of
     true ->
-      case QueueLen >= SoftLimit of
-        true ->
-          WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
-          ?LOG_WARNING("Worker ~p congestion drop: deferred queue ~p >= soft_limit ~p, dropping incoming sample", [WorkerName, QueueLen, SoftLimit]),
-          increment_phase_drop_counter(current_worker_phase(), 1),
-          ets:update_counter(get(worker_stats_ets), congestion_drop_deferred_sample, 1),
-          ets:update_element(GenWorkerEts, parallel_congestion_signaled, {?ETS_KEYVAL_VAL_IDX, true}),
-          ets:update_counter(get(worker_stats_ets), congestion_signal_emitted, 1),
-          ok;
-        false ->
-          case QueueLen < (SoftLimit div 2) of
-            true ->
-              ets:update_element(GenWorkerEts, parallel_congestion_signaled, {?ETS_KEYVAL_VAL_IDX, false});
-            false ->
-              ok
-          end,
-          ets:update_element(GenWorkerEts, parallel_deferred_samples, {?ETS_KEYVAL_VAL_IDX, DeferredSamples ++ [SampleTuple]})
-      end;
+      maybe_log_coordinated_deferred_queue_pressure(GenWorkerEts, QueueLen + 1, SoftLimit, MaxDeferred),
+      set_parallel_deferred_samples(GenWorkerEts, DeferredSamples ++ [SampleTuple]);
     false ->
-      case QueueLen >= MaxDeferred of
+      case CongestionEnabled of
         true ->
-          WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
-          ?LOG_WARNING("Worker ~p deferred samples queue full (~p), dropping oldest sample", [WorkerName, MaxDeferred]),
-          increment_phase_drop_counter(current_worker_phase(), 1),
-          [_Oldest | Rest] = DeferredSamples,
-          ets:update_element(GenWorkerEts, parallel_deferred_samples, {?ETS_KEYVAL_VAL_IDX, Rest ++ [SampleTuple]});
+          case QueueLen >= SoftLimit of
+            true ->
+              WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+              ?LOG_WARNING("Worker ~p congestion drop: deferred queue ~p >= soft_limit ~p, dropping incoming sample", [WorkerName, QueueLen, SoftLimit]),
+              increment_phase_drop_counter(current_worker_phase(), 1),
+              ets:update_counter(get(worker_stats_ets), congestion_drop_deferred_sample, 1),
+              refresh_deferred_sample_congestion_signal(GenWorkerEts),
+              ok;
+            false ->
+              set_parallel_deferred_samples(GenWorkerEts, DeferredSamples ++ [SampleTuple])
+          end;
         false ->
-          ets:update_element(GenWorkerEts, parallel_deferred_samples, {?ETS_KEYVAL_VAL_IDX, DeferredSamples ++ [SampleTuple]})
+          case QueueLen >= MaxDeferred of
+            true ->
+              WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+              ?LOG_WARNING("Worker ~p deferred samples queue full (~p), dropping oldest sample", [WorkerName, MaxDeferred]),
+              increment_phase_drop_counter(current_worker_phase(), 1),
+              [_Oldest | Rest] = DeferredSamples,
+              set_parallel_deferred_samples(GenWorkerEts, Rest ++ [SampleTuple]);
+            false ->
+              set_parallel_deferred_samples(GenWorkerEts, DeferredSamples ++ [SampleTuple])
+          end
       end
   end.
 
@@ -4698,7 +4697,7 @@ pop_deferred_parallel_sample(GenWorkerEts) ->
     [] ->
       empty;
     [SampleTuple | Rest] ->
-      ets:update_element(GenWorkerEts, parallel_deferred_samples, {?ETS_KEYVAL_VAL_IDX, Rest}),
+      set_parallel_deferred_samples(GenWorkerEts, Rest),
       {ok, SampleTuple}
   end.
 
@@ -4721,7 +4720,7 @@ maybe_pop_matching_deferred_sample_for_grants(GenWorkerEts) ->
               DeferredSamples = ets:lookup_element(GenWorkerEts, parallel_deferred_samples, ?ETS_KEYVAL_VAL_IDX),
               case pop_matching_deferred_sample_for_grants(Mode, Grants, StageID, DeferredSamples, []) of
                 {ok, SampleTuple, RemainingSamples} ->
-                  ets:update_element(GenWorkerEts, parallel_deferred_samples, {?ETS_KEYVAL_VAL_IDX, RemainingSamples}),
+                  set_parallel_deferred_samples(GenWorkerEts, RemainingSamples),
                   {ok, SampleTuple};
                 none ->
                   none
@@ -4742,6 +4741,61 @@ maybe_replay_grant_matched_deferred_sample_in_wait(GenWorkerEts, NextState, Last
       {next_state, normalize_parallel_next_state(NextState, LastPhase), State, [{next_event, cast, SampleTuple}]};
     none ->
       {keep_state, State}
+  end.
+
+set_parallel_deferred_samples(GenWorkerEts, DeferredSamples) ->
+  ets:update_element(GenWorkerEts, parallel_deferred_samples, {?ETS_KEYVAL_VAL_IDX, DeferredSamples}),
+  refresh_deferred_sample_congestion_signal(GenWorkerEts).
+
+requires_coordinated_deferred_sample_handling(GenWorkerEts) ->
+  TpGroupState = ets:lookup_element(GenWorkerEts, worker_tp_group_state, ?ETS_KEYVAL_VAL_IDX),
+  TpWorldSize = normalize_tp_int(maps:get(tp_world_size, TpGroupState, 1), 1),
+  TpWorldSize > 1.
+
+refresh_deferred_sample_congestion_signal(GenWorkerEts) ->
+  CongestionEnabled = ets:lookup_element(GenWorkerEts, congestion_drop_enabled, ?ETS_KEYVAL_VAL_IDX),
+  case CongestionEnabled of
+    false ->
+      ets:update_element(GenWorkerEts, parallel_congestion_signaled, {?ETS_KEYVAL_VAL_IDX, false});
+    true ->
+      QueueLen = length(ets:lookup_element(GenWorkerEts, parallel_deferred_samples, ?ETS_KEYVAL_VAL_IDX)),
+      SoftLimit = ets:lookup_element(GenWorkerEts, deferred_sample_soft_limit, ?ETS_KEYVAL_VAL_IDX),
+      Threshold = erlang:max(1, SoftLimit),
+      ClearThreshold = erlang:max(1, Threshold div 2),
+      CurrentSignal = ets:lookup_element(GenWorkerEts, parallel_congestion_signaled, ?ETS_KEYVAL_VAL_IDX),
+      NewSignal =
+        case CurrentSignal of
+          true -> QueueLen >= ClearThreshold;
+          false -> QueueLen >= Threshold
+        end,
+      case {CurrentSignal, NewSignal} of
+        {false, true} ->
+          ets:update_element(GenWorkerEts, parallel_congestion_signaled, {?ETS_KEYVAL_VAL_IDX, true}),
+          ets:update_counter(get(worker_stats_ets), congestion_signal_emitted, 1);
+        {true, false} ->
+          ets:update_element(GenWorkerEts, parallel_congestion_signaled, {?ETS_KEYVAL_VAL_IDX, false});
+        _ ->
+          ok
+      end
+  end.
+
+maybe_log_coordinated_deferred_queue_pressure(GenWorkerEts, NextLen, SoftLimit, MaxDeferred) ->
+  WarningThreshold = erlang:max(erlang:max(1, SoftLimit), MaxDeferred),
+  case NextLen of
+    WarningThreshold ->
+      WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+      ?LOG_WARNING(
+        "Worker ~p deferred queue reached ~p with TP enabled; preserving queue order and relying on coordinated skip/backpressure",
+        [WorkerName, WarningThreshold]
+      );
+    _ when NextLen > WarningThreshold, (NextLen rem 64) =:= 0 ->
+      WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
+      ?LOG_WARNING(
+        "Worker ~p deferred queue remains high (~p) with TP enabled; preserving queue order and relying on coordinated skip/backpressure",
+        [WorkerName, NextLen]
+      );
+    _ ->
+      ok
   end.
 
 has_active_parallel_runtime_work(GenWorkerEts) ->
