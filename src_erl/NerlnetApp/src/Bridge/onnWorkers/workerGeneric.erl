@@ -312,11 +312,24 @@ wait(cast, {parallel_scheduler_grant, Direction, BatchID, MicrobatchID, StageID}
             ok ->
               {keep_state, State};
             {abort, DispatchReason} ->
-              notify_worker_parallel_abort(
-                GenWorkerEts,
-                {queued_parallel_dispatch_failed, DispatchReason}
-              ),
-              reset_parallel_loss_context(GenWorkerEts),
+              case is_nonfatal_tp_batch_abort(DispatchReason) of
+                true ->
+                  handle_nonfatal_tp_batch_abort(
+                    GenWorkerEts,
+                    State#workerGeneric_state.myName,
+                    State#workerGeneric_state.currentBatchID,
+                    undefined,
+                    current_worker_phase(),
+                    DispatchReason
+                  ),
+                  reset_parallel_loss_context(GenWorkerEts);
+                false ->
+                  notify_worker_parallel_abort(
+                    GenWorkerEts,
+                    {queued_parallel_dispatch_failed, DispatchReason}
+                  ),
+                  reset_parallel_loss_context(GenWorkerEts)
+              end,
               {keep_state, State}
           end;
         {abort, PendingDispatchReason} ->
@@ -470,11 +483,24 @@ wait(cast, {loss_microbatch, {LossTensor, LossTensorType}, TrainTime, BatchID, S
                 ok ->
                   {next_state, wait, State};
                 {abort, DispatchReason} ->
-                  notify_worker_parallel_abort(
-                    GenWorkerEts,
-                    {queued_parallel_dispatch_failed, DispatchReason}
-                  ),
-                  reset_parallel_loss_context(GenWorkerEts),
+                  case is_nonfatal_tp_batch_abort(DispatchReason) of
+                    true ->
+                      handle_nonfatal_tp_batch_abort(
+                        GenWorkerEts,
+                        MyName,
+                        BatchID,
+                        SourceName,
+                        train,
+                        DispatchReason
+                      ),
+                      reset_parallel_loss_context(GenWorkerEts);
+                    false ->
+                      notify_worker_parallel_abort(
+                        GenWorkerEts,
+                        {queued_parallel_dispatch_failed, DispatchReason}
+                      ),
+                      reset_parallel_loss_context(GenWorkerEts)
+                  end,
                   {next_state, wait, State}
               end
           end
@@ -523,8 +549,31 @@ wait(cast, {predictRes, PredNerlTensor, PredNerlTensorType, TimeNif, BatchID , S
       case Remaining =< 0 of
         false ->
           %% More microbatch predictions pending, try dispatch remaining queued microbatches
-          dispatch_queued_parallel_microbatches(GenWorkerEts),
-          {keep_state, State};
+          case dispatch_queued_parallel_microbatches(GenWorkerEts) of
+            ok ->
+              {keep_state, State};
+            {abort, DispatchReason} ->
+              case is_nonfatal_tp_batch_abort(DispatchReason) of
+                true ->
+                  handle_nonfatal_tp_batch_abort(
+                    GenWorkerEts,
+                    MyName,
+                    BatchID,
+                    SourceName,
+                    predict,
+                    DispatchReason
+                  ),
+                  reset_parallel_loss_context(GenWorkerEts),
+                  {keep_state, State};
+                false ->
+                  notify_worker_parallel_abort(
+                    GenWorkerEts,
+                    {queued_parallel_dispatch_failed, DispatchReason}
+                  ),
+                  reset_parallel_loss_context(GenWorkerEts),
+                  {keep_state, State}
+              end
+          end;
         true ->
           %% All microbatch predictions received, concatenate and send combined result
           WorkerName = ets:lookup_element(GenWorkerEts, worker_name, ?ETS_KEYVAL_VAL_IDX),
@@ -875,12 +924,26 @@ train(cast, {sample, SourceName ,BatchID ,{NerlTensorOfSamples, NerlTensorType}}
                 {next_state, train, State#workerGeneric_state{nextState = train, currentBatchID = BatchID}}
             end;
           {abort, AbortReason} ->
-            notify_worker_parallel_abort(
-              GenWorkerEts,
-              {parallel_train_path_rejected, BatchID, SourceName, AbortReason}
-            ),
-            reset_parallel_loss_context(GenWorkerEts),
-            {next_state, train, State#workerGeneric_state{nextState = train, currentBatchID = BatchID}}
+            case is_nonfatal_tp_batch_abort(AbortReason) of
+              true ->
+                handle_nonfatal_tp_batch_abort(
+                  GenWorkerEts,
+                  State#workerGeneric_state.myName,
+                  BatchID,
+                  SourceName,
+                  train,
+                  AbortReason
+                ),
+                reset_parallel_loss_context(GenWorkerEts),
+                {next_state, train, State#workerGeneric_state{nextState = train, currentBatchID = BatchID}};
+              false ->
+                notify_worker_parallel_abort(
+                  GenWorkerEts,
+                  {parallel_train_path_rejected, BatchID, SourceName, AbortReason}
+                ),
+                reset_parallel_loss_context(GenWorkerEts),
+                {next_state, train, State#workerGeneric_state{nextState = train, currentBatchID = BatchID}}
+            end
         end
     end;
 
@@ -1082,18 +1145,36 @@ predict(cast, {sample , SourceName , BatchID , {PredictBatchTensor, Type}}, Stat
               true ->
                 {next_state, wait, State#workerGeneric_state{nextState = predict, currentBatchID = BatchID}};
               false ->
-                notify_worker_parallel_abort(
+                handle_nonfatal_tp_batch_abort(
                   GenWorkerEts,
-                  {parallel_predict_path_rejected, BatchID, SourceName, no_microbatches_dispatched}
+                  State#workerGeneric_state.myName,
+                  BatchID,
+                  SourceName,
+                  predict,
+                  no_microbatches_dispatched
                 ),
                 reset_parallel_loss_context(GenWorkerEts),
                 {next_state, predict, State#workerGeneric_state{nextState = predict, currentBatchID = BatchID}}
             end;
           {abort, AbortReason} ->
-            ?LOG_WARNING("Worker ~p parallel predict microbatch path aborted batch=~p reason=~p, falling back to legacy predict",
-              [State#workerGeneric_state.myName, BatchID, AbortReason]),
-            nif_call(call_to_predict, [ModelId, {PredictBatchTensor, Type}, BatchID, SourceName]),
-            {next_state, wait, State#workerGeneric_state{nextState = predict, currentBatchID = BatchID}}
+            case is_nonfatal_tp_batch_abort(AbortReason) of
+              true ->
+                handle_nonfatal_tp_batch_abort(
+                  GenWorkerEts,
+                  State#workerGeneric_state.myName,
+                  BatchID,
+                  SourceName,
+                  predict,
+                  AbortReason
+                ),
+                reset_parallel_loss_context(GenWorkerEts),
+                {next_state, predict, State#workerGeneric_state{nextState = predict, currentBatchID = BatchID}};
+              false ->
+                ?LOG_WARNING("Worker ~p parallel predict microbatch path aborted batch=~p reason=~p, falling back to legacy predict",
+                  [State#workerGeneric_state.myName, BatchID, AbortReason]),
+                nif_call(call_to_predict, [ModelId, {PredictBatchTensor, Type}, BatchID, SourceName]),
+                {next_state, wait, State#workerGeneric_state{nextState = predict, currentBatchID = BatchID}}
+            end
         end
     end;
 
@@ -4541,6 +4622,68 @@ maybe_account_deferred_sample_drop(DeferredSamples) ->
       increment_phase_drop_counter(current_worker_phase(), DeferredCount);
     false ->
       ok
+  end.
+
+is_nonfatal_tp_batch_abort({tensor_collective_failed, _Reason}) ->
+  true;
+is_nonfatal_tp_batch_abort({tp_collective_timeout, _Reason}) ->
+  true;
+is_nonfatal_tp_batch_abort(_Reason) ->
+  false.
+
+handle_nonfatal_tp_batch_abort(
+  GenWorkerEts,
+  WorkerName,
+  BatchID,
+  SourceName,
+  Phase,
+  AbortReason
+) ->
+  StageID = get_worker_pipeline_stage(GenWorkerEts),
+  NormalizedBatchID = normalize_parallel_batch_id(BatchID),
+  MicrobatchIDs = skip_microbatch_ids_for_local_tp_abort(GenWorkerEts),
+  ?LOG_WARNING(
+    "Worker ~p non-fatal TP abort: phase=~p batch=~p source=~p stage=~p reason=~p; emitting local skip events microbatches=~p and continuing",
+    [WorkerName, Phase, NormalizedBatchID, SourceName, StageID, AbortReason, MicrobatchIDs]
+  ),
+  increment_phase_drop_counter(Phase, 1),
+  lists:foreach(
+    fun(MicrobatchID) ->
+      SkipMeta = #{
+        reason => {tp_collective_failed, AbortReason},
+        event_id => {tp_collective_failed, WorkerName, NormalizedBatchID, MicrobatchID, StageID}
+      },
+      gen_statem:cast(
+        get(client_pid),
+        {parallel_skip_event, WorkerName, forward, NormalizedBatchID, MicrobatchID, StageID, SkipMeta}
+      )
+    end,
+    MicrobatchIDs
+  ),
+  ets:update_element(GenWorkerEts, tp_collective_inbox_buffer, {?ETS_KEYVAL_VAL_IDX, []}),
+  ok.
+
+skip_microbatch_ids_for_local_tp_abort(GenWorkerEts) ->
+  ActiveCtx = ets:lookup_element(GenWorkerEts, parallel_active_batch_ctx, ?ETS_KEYVAL_VAL_IDX),
+  NumMicrobatches =
+    case ActiveCtx of
+      Ctx when is_map(Ctx) ->
+        erlang:max(
+          0,
+          normalize_tp_int(
+            maps:get(total_microbatches, Ctx, ets:lookup_element(GenWorkerEts, parallel_total_microbatches, ?ETS_KEYVAL_VAL_IDX)),
+            0
+          )
+        );
+      _ ->
+        erlang:max(
+          0,
+          normalize_tp_int(ets:lookup_element(GenWorkerEts, parallel_total_microbatches, ?ETS_KEYVAL_VAL_IDX), 0)
+        )
+    end,
+  case NumMicrobatches > 0 of
+    true -> lists:seq(0, NumMicrobatches - 1);
+    false -> [0]
   end.
 
 current_worker_phase() ->
