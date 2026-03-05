@@ -1,0 +1,53 @@
+{
+    "experimentName": "synthetic_experiment_PTD_exp2_2dev_pipeline_tensor",
+    "experimentType": "classification",
+    "batchSize": 50,
+    "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/synthetic_norm/synthetic_full.csv",
+    "numOfFeatures": 5,
+    "numOfLabels": 3,
+    "headersNames": "feature1,feature2,feature3",
+    "Phases": [
+        {
+            "phaseName": "Training1",
+            "phaseType": "training",
+            "sourcePieces": [
+                {
+                    "sourceName": "s1",
+                    "startingSample": 0,
+                    "numOfBatches": 1000,
+                    "workers": "w1,w2",
+                    "nerltensorType": "float"
+                }
+            ],
+            "parallelExecution": {
+                "mode": "tensor",
+                "superNode": "super_0",
+                "scheduler": "interleaved",
+                "microBatchSize": 10,
+                "numMicroBatches": 5,
+                "virtualStages": 2
+            }
+        },
+        {
+            "phaseName": "Prediction1",
+            "phaseType": "prediction",
+            "sourcePieces": [
+                {
+                    "sourceName": "s1",
+                    "startingSample": 50000,
+                    "numOfBatches": 1000,
+                    "workers": "w1,w2",
+                    "nerltensorType": "float"
+                }
+            ],
+            "parallelExecution": {
+                "mode": "tensor",
+                "superNode": "super_0",
+                "scheduler": "interleaved",
+                "microBatchSize": 10,
+                "numMicroBatches": 5,
+                "virtualStages": 2
+            }
+        }
+    ]
+}

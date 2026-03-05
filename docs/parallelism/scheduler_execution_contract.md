@@ -29,7 +29,14 @@ This document captures the runtime contract for non-legacy parallel modes (`pipe
 - Grant identity is batch-aware and epoch-scoped:
   - `{Direction, BatchID, MicrobatchID, StageID, PhaseEpoch}`
 - Clients and workers still accept legacy batch-less grant tuples and normalize them to `BatchID=any`.
-- Workers consume scheduler grants from the head of the grant queue only; this preserves scheduler order for forward/backward transitions.
+- Worker grant matching is tuple-based (not strict head-of-queue):
+  - emits can consume any matching `{direction,batch,microbatch,stage}` grant in the local queue.
+  - this avoids head-of-line stalls when stale/out-of-order grants exist.
+- Batch matching is strict for concrete batches except stage-0 forward ingress in pure `pipeline` mode:
+  - for non-stage0 (and for backward), a worker event for batch `B` must match a grant for batch `B`.
+  - for stage0 forward in `pipeline`, grant matching is by `{direction,microbatch,stage}` and the emitted event batch is rewritten to the concrete granted batch id.
+  - `pipeline_tensor` stage0 remains strict-batch so TP collectives stay aligned per `{batch,microbatch}` token.
+  - this keeps scheduler progress deterministic while avoiding TP rank desynchronization.
 - Scheduler grant rejections are reported to Super Node as:
   - `{scheduler_grant_rejected, Client, Worker, Direction, BatchID, MicrobatchID, StageID, Reason, PhaseEpoch}`
 
@@ -44,9 +51,12 @@ This document captures the runtime contract for non-legacy parallel modes (`pipe
 
 - Worker pipeline inbox processing is batch-aware:
   - payloads for non-active batches return `wait_for_batch` and stay buffered.
-- Worker scheduler grants are consumed by tuple match (direction/batch/microbatch/stage), not strict queue head only:
-  - stale/out-of-order grants no longer head-of-line block valid events in interleaved/overlap windows.
+- Worker scheduler grants are consumed by tuple match (direction/batch/microbatch/stage), not strict queue head only.
+- Stage0 forward uses grant-authoritative batch tagging in pure `pipeline` mode:
+  - source ingress batch ids may differ from scheduler batch ids.
+  - workers bind stage0 runtime context/payload/event ids to the consumed grant batch id so downstream stages remain batch-consistent.
 - Worker scheduler grant enqueue is deduplicated by normalized tuple to avoid retry-induced duplicate buildup.
+- Backward grant dispatch also uses the grant batch id (not `any`) when selecting queued backward payloads.
 - Backward dispatch is grant-aware:
   - worker selects backward payload by `{BatchID, MicrobatchID}` from queued grants, not strict FIFO alone.
 - This prevents cross-batch state corruption and head-of-line deadlocks when message arrival order differs from grant order.
@@ -67,3 +77,19 @@ This document captures the runtime contract for non-legacy parallel modes (`pipe
   - rejection storm (`scheduler_grant_rejection_storm`)
   - routing/heartbeat/ownership failures
 - API synchronization maps `parallel_abort` to Main Server error semantics for immediate phase failure handling.
+
+## API wait contract
+
+- API phase synchronization waits are bounded:
+  - `NERLNET_UPDATE_CSV_TIMEOUT_SEC` (default `180`)
+  - `NERLNET_UPDATE_PHASE_TIMEOUT_SEC` (default `180`)
+  - `NERLNET_START_CASTING_TIMEOUT_SEC` (default `1800`)
+- API wait loops now emit heartbeat logs every `NERLNET_EVENT_WAIT_PROGRESS_SEC` seconds (default `15`) while a phase event is still pending.
+- `start_casting_done` remains the phase-completion authority from Main Server to API; bounded waits prevent silent infinite waits and preserve deterministic failure semantics.
+
+## Throughput efficiency knobs
+
+- Dataset fetch now prefers local cache: if target dataset `.csv` files already exist under the local repo directory, the API skips HuggingFace re-download by default.
+- Force dataset refresh with `NERLNET_DATASET_REFRESH=1`.
+- Enforce local/offline dataset usage with `NERLNET_DATASET_OFFLINE=1`.
+- Torch pipeline per-layer hot-path logs are disabled by default and can be enabled only when needed with `NERLNET_TORCH_PIPELINE_LAYER_LOGS=1`.

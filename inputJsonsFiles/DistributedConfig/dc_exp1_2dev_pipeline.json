@@ -1,0 +1,107 @@
+{
+    "nerlnetSettings": {
+        "frequency": "10",
+        "batchSize": "50"
+    },
+    "mainServer": {
+        "port": "8081",
+        "args": ""
+    },
+    "apiServer": {
+        "port": "8082",
+        "args": ""
+    },
+    "routers": [
+        {
+            "name": "r1",
+            "port": "8900",
+            "policy": "0"
+        }
+    ],
+    "sources": [
+        {
+            "name": "s1",
+            "port": "8902",
+            "frequency": "10",
+            "policy": "0",
+            "epochs": "1",
+            "type": "0"
+        }
+    ],
+    "devices": [
+        {
+            "name": "NerlnetPowerfull",
+            "ipv4": "172.31.44.250",
+            "entities": "client_1"
+        },
+        {
+            "name": "NerlControllerG",
+            "ipv4": "172.31.91.176",
+            "entities": "apiServer,r1,mainServer,super_0,s1"
+        }
+    ],
+    "superNodes": [
+        {
+            "name": "super_0",
+            "port": "8901",
+            "managedClients": [
+                "client_1"
+            ],
+            "heartbeatMs": 1000,
+            "maxInflightMicrobatches": 16
+        }
+    ],
+    "clients": [
+        {
+            "name": "client_1",
+            "port": "8900",
+            "workers": "w1,w2",
+            "superNode": "super_0"
+        }
+    ],
+    "workers": [
+        {
+            "name": "w1",
+            "model_sha": "4e948325936aeb3f697a3e2f4869a6d6eb56ed9a13c93c56d4a49508c5af1998",
+            "parallel": {
+                "pipelineStage": 0,
+                "pipelineWorldSize": 2
+            }
+        },
+        {
+            "name": "w2",
+            "model_sha": "4e948325936aeb3f697a3e2f4869a6d6eb56ed9a13c93c56d4a49508c5af1998",
+            "parallel": {
+                "pipelineStage": 1,
+                "pipelineWorldSize": 2
+            }
+        }
+    ],
+    "model_sha": {
+        "4e948325936aeb3f697a3e2f4869a6d6eb56ed9a13c93c56d4a49508c5af1998": {
+            "infraType": "torch",
+            "distributedSystemType": "0",
+            "distributedSystemArgs": "",
+            "distributedSystemToken": "none",
+            "pt_path": "nerl_designer_models/PTD_Test5/model.pt",
+            "pt_format": "torchscript",
+            "pt_checksum": "4e948325936aeb3f697a3e2f4869a6d6eb56ed9a13c93c56d4a49508c5af1998",
+            "pt_description": "5th Try of PTD_Model",
+            "train_params": {
+                "lr": "0.001",
+                "epochs": "1",
+                "optimizer": "adam",
+                "loss": "mse",
+                "batch_size": "50",
+                "input_tensor_shape": "[50, 5]",
+                "labels_offset": "default",
+                "labels_shape": "[50, 3]",
+                "w_init_rand": "True"
+            },
+            "_doc_infraType": " opennn:0 | wolfengine:1 | torch:torch |",
+            "_doc_distributedSystemType": " none:0 | FedClientAvg:1 | FedServerAvg:2 | FedClientWeightedAvgClassification:3 | FedServerWeightedAvgClassification:4 | FedClientAE:5 | FedServerAE:6 | tiles:7 |",
+            "_doc_distributedSystemArgs": "String",
+            "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"
+        }
+    }
+}

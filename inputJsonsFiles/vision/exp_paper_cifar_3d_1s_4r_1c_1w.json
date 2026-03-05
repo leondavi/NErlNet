@@ -1,0 +1,252 @@
+{
+    "experimentName": "cifar10_powerful",
+    "experimentType": "classification",
+    "batchSize": 5,
+    "csvFilePath": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/cifar10/cifar_independent1.csv",
+    "numOfFeatures": "3072",
+    "numOfLabels": "10",
+    "headersNames": "airplane,automobile,bird,cat,deer,dog,frog,horse,ship,truck",
+    "Phases": 
+    [
+       {
+          "phaseName": "training_phase1",
+          "phaseType": "training",
+          "sourcePieces":
+          [
+             {
+                "sourceName": "s1",
+                "startingSample": "0",
+                "numOfBatches": "250",
+                "workers": "w1",
+                "nerltensorType": "float"
+            }
+          ]  
+       },
+       {
+          "phaseName": "training_phase2",
+          "phaseType": "training",
+          "sourcePieces":
+          [
+             {
+                "sourceName": "s1",
+                "startingSample": "1250",
+                "numOfBatches": "250",
+                "workers": "w1",
+                "nerltensorType": "float"
+            }
+          ]  
+       },
+         {
+            "phaseName": "training_phase3",
+            "phaseType": "training",
+            "sourcePieces":
+            [
+               {
+                  "sourceName": "s1",
+                  "startingSample": "2500",
+                  "numOfBatches": "250",
+                  "workers": "w1",
+                  "nerltensorType": "float"
+               }
+            ]
+         },
+         {
+            "phaseName": "training_phase4",
+            "phaseType": "training",
+            "sourcePieces":
+            [
+               {
+                  "sourceName": "s1",
+                  "startingSample": "3750",
+                  "numOfBatches": "250",
+                  "workers": "w1",
+                  "nerltensorType": "float"
+               }
+            ]
+         },
+         {
+            "phaseName": "training_phase5",
+            "phaseType": "training",
+            "sourcePieces":
+            [
+               {
+                  "sourceName": "s1",
+                  "startingSample": "5000",
+                  "numOfBatches": "250",
+                  "workers": "w1",
+                  "nerltensorType": "float"
+               }
+            ]
+         },
+         {
+            "phaseName": "training_phase6",
+            "phaseType": "training",
+            "sourcePieces":
+            [
+               {
+                  "sourceName": "s1",
+                  "startingSample": "6250",
+                  "numOfBatches": "250",
+                  "workers": "w1",
+                  "nerltensorType": "float"
+               }
+            ]
+         },
+         {
+            "phaseName": "training_phase7",
+            "phaseType": "training",
+            "sourcePieces":
+            [
+               {
+                  "sourceName": "s1",
+                  "startingSample": "7500",
+                  "numOfBatches": "250",
+                  "workers": "w1",
+                  "nerltensorType": "float"
+               }
+            ]
+         },
+         {
+            "phaseName": "training_phase8",
+            "phaseType": "training",
+            "sourcePieces":
+            [
+               {
+                  "sourceName": "s1",
+                  "startingSample": "8750",
+                  "numOfBatches": "250",
+                  "workers": "w1",
+                  "nerltensorType": "float"
+               }
+            ]
+         },
+         {
+            "phaseName": "training_phase9",
+            "phaseType": "training",
+            "sourcePieces":
+            [
+               {
+                  "sourceName": "s1",
+                  "startingSample": "10000",
+                  "numOfBatches": "250",
+                  "workers": "w1",
+                  "nerltensorType": "float"
+               }
+            ]
+         },
+         {
+            "phaseName": "training_phase10",
+            "phaseType": "training",
+            "sourcePieces":
+            [
+               {
+                  "sourceName": "s1",
+                  "startingSample": 11250,
+                  "numOfBatches": 250,
+                  "workers":  "w1",
+                  "nerltensorType": "float"
+               }
+            ]
+         },
+         {
+            "phaseName": "training_phase11",
+            "phaseType": "training",
+            "sourcePieces":
+            [
+               {
+                  "sourceName": "s1",
+                  "startingSample": 12500,
+                  "numOfBatches": 250,
+                  "workers":  "w1",
+                  "nerltensorType": "float"
+               }
+            ]
+         },
+         {
+            "phaseName": "training_phase12",
+            "phaseType": "training",
+            "sourcePieces":
+            [
+               {
+                  "sourceName": "s1",
+                  "startingSample": 13750,
+                  "numOfBatches": 250,
+                  "workers":  "w1",
+                  "nerltensorType": "float"
+               }
+            ]
+         },
+         {
+            "phaseName": "training_phase13",
+            "phaseType": "training",
+            "sourcePieces":
+            [
+               {
+                  "sourceName": "s1",
+                  "startingSample": 15000,
+                  "numOfBatches": 250,
+                  "workers":  "w1",
+                  "nerltensorType": "float"
+               }
+            ]
+         },
+         {
+            "phaseName": "training_phase14",
+            "phaseType": "training",
+            "sourcePieces":
+            [
+               {
+                  "sourceName": "s1",
+                  "startingSample": 16250,
+                  "numOfBatches": 250,
+                  "workers":  "w1",
+                  "nerltensorType": "float"
+               }
+            ]
+         },
+         {
+            "phaseName": "training_phase15",
+            "phaseType": "training",
+            "sourcePieces":
+            [
+               {
+                  "sourceName": "s1",
+                  "startingSample": 17500,
+                  "numOfBatches": 250,
+                  "workers":  "w1",
+                  "nerltensorType": "float"
+               }
+            ]
+         },
+         {
+          "phaseName": "training_phase16",
+          "phaseType": "training",
+          "sourcePieces":
+          [
+             {
+                "sourceName": "s1",
+                "startingSample": "18750",
+                "numOfBatches": "250",
+                "workers": "w1",
+                "nerltensorType": "float"
+            }
+          ]  
+       },
+       {
+          "phaseName": "prediction_phase",
+          "phaseType": "prediction",
+          "sourcePieces":
+          [
+            {
+                "sourceName": "s1",
+                "startingSample": "50000",
+                "numOfBatches": "250",
+                "workers": "w1",
+                "nerltensorType": "float"
+            }
+          ]    
+       }
+    ]
+ }
+     
+ 

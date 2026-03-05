@@ -1,0 +1,105 @@
+{
+    "nerlnetSettings": {
+        "frequency": "5",
+        "batchSize": "50"
+    },
+    "mainServer": {
+        "port": "8081",
+        "args": ""
+    },
+    "apiServer": {
+        "port": "8082",
+        "args": ""
+    },
+    "devices": [
+        {
+            "name": "pc1",
+            "ipv4": "x.x.x.x",
+            "entities": "client_1,r1,s1,apiServer,mainServer,super_0"
+        }
+    ],
+    "routers": [
+        {"name": "r1", "port": "28086", "policy": "0"}
+    ],
+    "sources": [
+        {
+            "name": "s1",
+            "port": "28085",
+            "frequency": "5",
+            "policy": "0",
+            "epochs": "1",
+            "type": "0"
+        }
+    ],
+    "superNodes": [
+        {
+            "name": "super_0",
+            "port": "28090",
+            "managedClients": ["client_1"],
+            "heartbeatMs": 5000,
+            "maxInflightMicrobatches": 16
+        }
+    ],
+    "clients": [
+        {
+            "name": "client_1",
+            "port": "28083",
+            "workers": "w1,w2",
+            "superNode": "super_0"
+        }
+    ],
+    "workers": [
+        {
+            "name": "w1",
+            "model_sha": "pipeline_test_model_placeholder",
+            "parallel": {
+                "pipelineStage": 0,
+                "pipelineWorldSize": 1,
+                "tpGroup": "tp_g0",
+                "tpRank": 0,
+                "tpWorldSize": 2
+            }
+        },
+        {
+            "name": "w2",
+            "model_sha": "pipeline_test_model_placeholder",
+            "parallel": {
+                "pipelineStage": 0,
+                "pipelineWorldSize": 1,
+                "tpGroup": "tp_g0",
+                "tpRank": 1,
+                "tpWorldSize": 2
+            }
+        }
+    ],
+    "model_sha": {
+        "pipeline_test_model_placeholder": {
+            "infraType": "torch",
+            "distributedSystemType": "0",
+            "distributedSystemArgs": "",
+            "distributedSystemToken": "none",
+            "pt_path": "tests/inputTorchJsonsFiles/models/placeholder_pipeline.pt",
+            "pt_format": "torchscript",
+            "pt_checksum": "placeholder",
+            "pt_description": "Pipeline TorchScript placeholder for tensor parallelism tests",
+            "train_params": {
+                "lr": "0.001",
+                "epochs": "1",
+                "optimizer": "adam",
+                "loss": "mse",
+                "batch_size": "50",
+                "input_tensor_shape": "[50, 5]",
+                "labels_offset": "default",
+                "labels_shape": "[50, 3]",
+                "w_init_rand": "False"
+            },
+            "tpPlan": [
+                {"layer": "L0_linear", "mode": "column", "shardAxis": 0, "group": "tp_g0"},
+                {"layer": "L1_relu", "mode": "row", "shardAxis": 1, "group": "tp_g0"},
+                {"layer": "L2_linear", "mode": "column", "shardAxis": 0, "group": "tp_g0"},
+                {"layer": "L3_relu", "mode": "row", "shardAxis": 1, "group": "tp_g0"},
+                {"layer": "L4_linear", "mode": "row", "shardAxis": 1, "group": "tp_g0"}
+            ]
+        }
+    }
+}

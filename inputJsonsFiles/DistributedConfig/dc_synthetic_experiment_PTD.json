@@ -1,0 +1,107 @@
+{
+  "nerlnetSettings": {
+    "frequency": "60",
+    "batchSize": "50"
+  },
+  "mainServer": {
+    "port": "8081",
+    "args": ""
+  },
+  "apiServer": {
+    "port": "8082",
+    "args": ""
+  },
+  "devices": [
+    {
+      "name": "NerlnetPowerfull",
+      "ipv4": "172.31.44.250",
+      "entities": "client-1"
+    },
+    {
+      "name": "NerlControllerG",
+      "ipv4": "172.31.91.176",
+      "entities": "apiServer,router-1,mainServer,super-1,source-1"
+    }
+  ],
+  "routers": [
+    {
+      "name": "router-1",
+      "port": "8900",
+      "policy": "0"
+    }
+  ],
+  "sources": [
+    {
+      "name": "source-1",
+      "port": "8902",
+      "frequency": "60",
+      "policy": "0",
+      "epochs": "1",
+      "type": "0"
+    }
+  ],
+  "superNodes": [
+    {
+      "name": "super-1",
+      "port": "8901",
+      "managedClients": [
+        "client-1"
+      ],
+      "heartbeatMs": 1000,
+      "maxInflightMicrobatches": 16
+    }
+  ],
+  "clients": [
+    {
+      "name": "client-1",
+      "port": "8900",
+      "workers": "w1,w2",
+      "superNode": "super-1"
+    }
+  ],
+  "workers": [
+    {
+      "name": "w1",
+      "model_sha": "fed2e4cc757ac7c809feaca48430322d8b41c914ec679616caa2a0c48ee798e8",
+      "parallel": {
+        "pipelineStage": 0,
+        "pipelineWorldSize": 2
+      }
+    },
+    {
+      "name": "w2",
+      "model_sha": "fed2e4cc757ac7c809feaca48430322d8b41c914ec679616caa2a0c48ee798e8",
+      "parallel": {
+        "pipelineStage": 1,
+        "pipelineWorldSize": 2
+      }
+    }
+  ],
+  "model_sha": {
+    "fed2e4cc757ac7c809feaca48430322d8b41c914ec679616caa2a0c48ee798e8": {
+      "infraType": "torch",
+      "distributedSystemType": "0",
+      "distributedSystemArgs": "",
+      "distributedSystemToken": "none",
+      "pt_path": "nerl_designer_models/TestPTD/model.pt",
+      "pt_format": "torchscript",
+      "pt_checksum": "1af559c4fed82c1de3080908579360dbb1c1d9c1d2986a0e3ce0c2bd9cc865dc",
+      "pt_description": "test",
+      "train_params": {
+        "lr": "0.001",
+        "epochs": "1",
+        "optimizer": "adam",
+        "loss": "mse",
+        "batch_size": "50",
+        "input_tensor_shape": "[50, 5]",
+        "labels_offset": "default",
+        "labels_shape": "[50, 3]",
+        "w_init_rand": "True"
+      },
+      "_doc_infraType": " opennn:0 | wolfengine:1 | torch:torch |",
+      "_doc_distributedSystemType": " none:0 | FedClientAvg:1 | FedServerAvg:2 | FedClientWeightedAvgClassification:3 | FedServerWeightedAvgClassification:4 | FedClientAE:5 | FedServerAE:6 | tiles:7 |",
+      "_doc_distributedSystemArgs": "String",
+      "_doc_distributedSystemToken": "Token that associates distributed group of workers and parameter-server"
+    }
+  }
+}

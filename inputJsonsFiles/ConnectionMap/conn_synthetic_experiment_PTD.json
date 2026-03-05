@@ -1,0 +1,26 @@
+{
+  "connectionsMap": {
+    "mainServer": [
+      "apiServer",
+      "router-1"
+    ],
+    "apiServer": [
+      "mainServer"
+    ],
+    "router-1": [
+      "mainServer",
+      "super-1",
+      "source-1",
+      "client-1"
+    ],
+    "super-1": [
+      "router-1"
+    ],
+    "source-1": [
+      "router-1"
+    ],
+    "client-1": [
+      "router-1"
+    ]
+  }
+}

@@ -47,6 +47,13 @@ class TorchParallelNifContractTests(unittest.TestCase):
         self.assertNotIn("Fallback to legacy semantics if no pending parallel accumulation context exists.", content)
         self.assertNotIn("tensor_parallel_runtime_not_implemented", content)
 
+    def test_tp_deferred_queue_uses_coordinated_handling(self) -> None:
+        content = WORKER_GENERIC.read_text(encoding="utf-8")
+        self.assertIn("requires_coordinated_deferred_sample_handling", content)
+        self.assertIn("set_parallel_deferred_samples", content)
+        self.assertIn("preserving queue order and relying on coordinated skip/backpressure", content)
+        self.assertIn("TpWorldSize > 1", content)
+
     def test_torch_erlang_bridge_exports_parallel_training_apis(self) -> None:
         content = TORCH_ERL.read_text(encoding="utf-8")
         self.assertIn("train_microbatch_nif/4", content)
