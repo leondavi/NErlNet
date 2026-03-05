@@ -254,9 +254,11 @@ class ExperimentFlow():
                 f"'{phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, '')}'"
             )
 
-        normalized = {
-            EXPFLOW_PARALLEL_EXECUTION_MODE_FIELD: mode
-        }
+        # Preserve extra runtime knobs from the planner/notebook JSON
+        # (timeouts, congestion controls, etc.) and only normalize/override
+        # the core contract fields validated in this parser.
+        normalized = dict(raw_parallel)
+        normalized[EXPFLOW_PARALLEL_EXECUTION_MODE_FIELD] = mode
         phase_name = phase_dict.get(EXPFLOW_PHASES_PHASE_NAME_FIELD, "")
         if mode != "legacy":
             inferred_max_batches = self._infer_phase_max_batches(source_pieces, phase_name)

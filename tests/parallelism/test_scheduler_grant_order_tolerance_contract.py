@@ -25,12 +25,14 @@ class SchedulerGrantOrderToleranceContractTests(unittest.TestCase):
         self.assertIn("pop_matching_scheduler_grant", content)
         self.assertIn("has_matching_scheduler_grant", content)
 
-    def test_pipeline_stage0_grants_allow_batch_decoupling(self) -> None:
+    def test_pipeline_stage0_grants_allow_batch_decoupling_only_for_pipeline(self) -> None:
         content = WORKER_GENERIC.read_text(encoding="utf-8")
         # Stage-0 forward events are grant-authoritative on batch-id so the
         # scheduler does not deadlock when source ingress batch ids drift.
+        # This applies to pure pipeline mode only; pipeline_tensor keeps strict
+        # batch matching to preserve TP collective token alignment.
         self.assertIn("expected_parallel_scheduler_batch_id", content)
-        self.assertIn("{true, forward, 0}", content)
+        self.assertIn("{pipeline, forward, 0}", content)
         self.assertIn("batch_id_matches(any, _GrantBatchID)", content)
 
     def test_backward_dispatch_uses_grant_batch_id(self) -> None:

@@ -770,31 +770,45 @@ maybe_check_pending_grant_timeout(
                     )
                   );
                 {true, _AnyAcceptTimeout, true} ->
-                  case has_pending_delivery_for_grant(
-                         StateAfterSlowCheck,
+                  case should_defer_pipeline_forward_completion_timeout(
                          Direction,
-                         BatchID,
-                         MicrobatchID,
                          StageID,
-                         EventID,
-                         PendingWorkers
+                         AckedWorkers,
+                         WaitMs,
+                         EffectiveCompletionTimeout
                        ) of
                     true ->
+                      %% Stage>0 forward grants are payload-driven. Before the first stage
+                      %% ACK arrives, timeouting aggressively creates false skip storms under
+                      %% normal upstream compute latency. We defer to no-progress watchdog.
                       StateAfterSlowCheck;
                     false ->
-                      apply_timeout_no_progress_guard(
-                        timeout_pending_grant_to_skip(
-                          StateAfterSlowCheck,
-                          skip_completion_timeout,
-                          {
-                            scheduler_grant_completion_timeout,
-                            pending_grant_summary(PendingGrant),
-                            EffectiveCompletionTimeout,
-                            LastParallelEvent
-                          },
-                          PendingWorkers
-                        )
-                      )
+                      case has_pending_delivery_for_grant(
+                             StateAfterSlowCheck,
+                             Direction,
+                             BatchID,
+                             MicrobatchID,
+                             StageID,
+                             EventID,
+                             PendingWorkers
+                           ) of
+                        true ->
+                          StateAfterSlowCheck;
+                        false ->
+                          apply_timeout_no_progress_guard(
+                            timeout_pending_grant_to_skip(
+                              StateAfterSlowCheck,
+                              skip_completion_timeout,
+                              {
+                                scheduler_grant_completion_timeout,
+                                pending_grant_summary(PendingGrant),
+                                EffectiveCompletionTimeout,
+                                LastParallelEvent
+                              },
+                              PendingWorkers
+                            )
+                          )
+                      end
                   end;
                 _ ->
                   StateAfterSlowCheck
@@ -803,6 +817,21 @@ maybe_check_pending_grant_timeout(
       end;
     _ ->
       State
+  end.
+
+should_defer_pipeline_forward_completion_timeout(
+  Direction,
+  StageID,
+  AckedWorkers,
+  WaitMs,
+  EffectiveCompletionTimeout
+) ->
+  case (Direction =:= forward) andalso is_integer(StageID) andalso StageID > 0 andalso AckedWorkers =:= [] of
+    false ->
+      false;
+    true ->
+      DeferWindowMs = erlang:max(30000, EffectiveCompletionTimeout * 5),
+      WaitMs =< DeferWindowMs
   end.
 
 apply_timeout_no_progress_guard(
@@ -971,6 +1000,7 @@ apply_parallel_phase_update(
                             ?CONGESTION_SIGNAL_TTL_MS_DEFAULT
                           ),
   ParallelActive = is_parallel_mode_active(NormalizedMode),
+  InitialSchedulerBatchID = initial_scheduler_batch_id(NormalizedMode),
   PhaseStartMs =
     case ParallelActive of
       true -> erlang:system_time(millisecond);
@@ -994,7 +1024,7 @@ apply_parallel_phase_update(
     stage_rr = #{},
     scheduler_trace = SchedulerTrace,
     scheduler_cursor = 0,
-    scheduler_batch_id = undefined,
+    scheduler_batch_id = InitialSchedulerBatchID,
     scheduler_max_batches = SchedulerMaxBatches,
     max_inflight = MaxInflight,
     pending_grant = none,
@@ -1032,6 +1062,13 @@ apply_parallel_phase_update(
     {abort, AbortReason, StateOnError} ->
       {ok, maybe_notify_parallel_abort(StateOnError, AbortReason)}
   end.
+
+initial_scheduler_batch_id(pipeline_tensor) ->
+  %% pipeline_tensor requires strict per-batch TP collective alignment from
+  %% the first grant; start from concrete batch 0 instead of legacy `any`.
+  0;
+initial_scheduler_batch_id(_Mode) ->
+  undefined.
 
 build_stage_workers(WorkerParallelMap, ManagedClients, WorkerToClientMap) ->
   maps:fold(
@@ -1570,9 +1607,116 @@ handle_parallel_skip_event(
                              SkipReason,
                              SkipEventID
                            ),
-          maybe_finalize_pending_grant_resolution(StateWithEvent)
+          StateAfterTpGroupSkip = maybe_expand_tp_collective_skip(
+                                    StateWithEvent,
+                                    WorkerName,
+                                    Direction,
+                                    BatchID,
+                                    MicrobatchID,
+                                    StageID,
+                                    SkipReason
+                                  ),
+          maybe_finalize_pending_grant_resolution(StateAfterTpGroupSkip)
       end
   end.
+
+maybe_expand_tp_collective_skip(
+  State = #super_node_state{
+    parallel_mode = ParallelMode,
+    pending_grant = PendingGrant,
+    scheduler_batch_id = SchedulerBatchID
+  },
+  WorkerName,
+  Direction,
+  BatchID,
+  MicrobatchID,
+  StageID,
+  SkipReason
+) ->
+  case {is_tp_collective_skip_reason(SkipReason), ParallelMode} of
+    {true, pipeline_tensor} ->
+      maybe_skip_pending_workers_for_tp_reason(
+        State,
+        PendingGrant,
+        SchedulerBatchID,
+        WorkerName,
+        Direction,
+        BatchID,
+        MicrobatchID,
+        StageID,
+        SkipReason
+      );
+    {true, tensor} ->
+      maybe_skip_pending_workers_for_tp_reason(
+        State,
+        PendingGrant,
+        SchedulerBatchID,
+        WorkerName,
+        Direction,
+        BatchID,
+        MicrobatchID,
+        StageID,
+        SkipReason
+      );
+    _ ->
+      State
+  end.
+
+maybe_skip_pending_workers_for_tp_reason(
+  State,
+  PendingGrant,
+  SchedulerBatchID,
+  WorkerName,
+  Direction,
+  BatchID,
+  MicrobatchID,
+  StageID,
+  SkipReason
+) ->
+  case normalize_pending_grant(PendingGrant) of
+    {ok, GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID, GrantedWorkers, AckedWorkers, _AcceptedWorkers, SkippedWorkers, _EventID, _GrantEpoch} ->
+      RequestedBatchID = normalize_scheduler_batch_id(BatchID),
+      ResolvedBatchID =
+        case {GrantBatchID, RequestedBatchID, SchedulerBatchID} of
+          {any, any, BatchInt} when is_integer(BatchInt) -> BatchInt;
+          {any, BatchInt, _} -> BatchInt;
+          {BatchInt, _Any, _} -> BatchInt
+        end,
+      ExpectedGrantTuple = {GrantDirection, GrantBatchID, GrantMicrobatchID, GrantStageID},
+      SkipGrantTuple = {normalize_scheduler_direction(Direction), ResolvedBatchID, MicrobatchID, StageID},
+      case grant_tuple_matches(ExpectedGrantTuple, SkipGrantTuple)
+             andalso lists:member(WorkerName, GrantedWorkers) of
+        false ->
+          State;
+        true ->
+          AccountedWorkers = lists:usort(AckedWorkers ++ SkippedWorkers),
+          PendingWorkers = lists:delete(WorkerName, lists:subtract(GrantedWorkers, AccountedWorkers)),
+          case PendingWorkers of
+            [] ->
+              State;
+            _ ->
+              skip_pending_workers_for_grant(
+                State,
+                skip_tp_collective_group,
+                {tp_collective_group_skip, SkipReason},
+                PendingWorkers
+              )
+          end
+      end;
+    _ ->
+      State
+  end.
+
+is_tp_collective_skip_reason({tp_collective_failed, _Reason}) ->
+  true;
+is_tp_collective_skip_reason(tp_collective_failed) ->
+  true;
+is_tp_collective_skip_reason({tensor_collective_failed, _Reason}) ->
+  true;
+is_tp_collective_skip_reason(tensor_collective_failed) ->
+  true;
+is_tp_collective_skip_reason(_) ->
+  false.
 
 mark_worker_skipped_in_pending_grant(
   State = #super_node_state{
@@ -1865,44 +2009,18 @@ normalize_skip_targets(_Workers, _DefaultStageID, _WorkerParallel) ->
   [].
 
 expand_skip_scope_targets(
-  State = #super_node_state{parallel_mode = ParallelMode},
+  _State,
   BaseTargets,
-  Direction,
-  BatchID,
+  _Direction,
+  _BatchID,
   MicrobatchID
 ) ->
-  case {ParallelMode, normalize_scheduler_direction(Direction), is_integer(BatchID), is_integer(MicrobatchID)} of
-    {Mode, forward, true, true} when Mode =:= pipeline; Mode =:= pipeline_tensor ->
-      NumMicrobatches = resolve_phase_num_microbatches(State),
-      lists:usort(
-        [
-          {WorkerName, StageID, TargetMicrobatchID}
-          || {WorkerName, StageID} <- BaseTargets,
-             TargetMicrobatchID <- lists:seq(0, NumMicrobatches - 1)
-        ]
-      );
-    _ ->
-      lists:usort(
-        [
-          {WorkerName, StageID, MicrobatchID}
-          || {WorkerName, StageID} <- BaseTargets
-        ]
-      )
-  end.
-
-resolve_phase_num_microbatches(#super_node_state{parallel_execution = ParallelExecution}) when is_map(ParallelExecution) ->
-  RawNumMicrobatches = get_execution_value(
-                        ParallelExecution,
-                        [<<"numMicroBatches">>, numMicroBatches, <<"num_microbatches">>, num_microbatches],
-                        1
-                      ),
-  ParsedNumMicrobatches = normalize_non_negative_int(RawNumMicrobatches, 1),
-  case ParsedNumMicrobatches < 1 of
-    true -> 1;
-    false -> ParsedNumMicrobatches
-  end;
-resolve_phase_num_microbatches(_State) ->
-  1.
+  lists:usort(
+    [
+      {WorkerName, StageID, MicrobatchID}
+      || {WorkerName, StageID} <- BaseTargets
+    ]
+  ).
 
 resolve_worker_stage_for_skip(WorkerName, DefaultStageID, WorkerParallel) ->
   case maps:get(WorkerName, WorkerParallel, undefined) of
@@ -2849,6 +2967,8 @@ maybe_advance_scheduler(
         [FromWorker, Direction, BatchID, MicrobatchId, Stage, Cursor]
       ),
       maybe_send_next_scheduler_grant(UpdatedState);
+    {ignored, UpdatedState} ->
+      {ok, UpdatedState};
     Error ->
       Error
   end;
@@ -2863,6 +2983,8 @@ maybe_advance_scheduler(
         [Direction, BatchID, MicrobatchId, Stage, Cursor]
       ),
       maybe_send_next_scheduler_grant(UpdatedState);
+    {ignored, UpdatedState} ->
+      {ok, UpdatedState};
     Error ->
       Error
   end;
@@ -2890,11 +3012,40 @@ validate_scheduler_event(
     Expected = {Direction, MicrobatchId, Stage} ->
       validate_scheduler_grant(FromWorker, BatchID, PendingGrant, Expected, State, Cursor);
     Expected ->
-      {abort, {scheduler_mismatch, Expected, {Direction, BatchID, MicrobatchId, Stage, FromWorker}}, State}
+      maybe_ignore_scheduler_mismatch(
+        State,
+        FromWorker,
+        Direction,
+        BatchID,
+        MicrobatchId,
+        Stage,
+        Expected
+      )
   catch
     error:badarg ->
       {abort, {scheduler_cursor_out_of_bounds, Cursor, TraceLen}, State}
       end
+  end.
+
+maybe_ignore_scheduler_mismatch(
+  State = #super_node_state{continue_on_timeout = ContinueOnTimeout},
+  FromWorker,
+  Direction,
+  BatchID,
+  MicrobatchId,
+  Stage,
+  ExpectedEvent
+) ->
+  GotEvent = {Direction, BatchID, MicrobatchId, Stage, FromWorker},
+  case ContinueOnTimeout of
+    true ->
+      ?LOG_WARNING(
+        "Super node ignoring out-of-order scheduler event expected=~p got=~p",
+        [ExpectedEvent, GotEvent]
+      ),
+      {ignored, register_skip_reason_counter(State, stale_event_after_skip)};
+    false ->
+      {abort, {scheduler_mismatch, ExpectedEvent, GotEvent}, State}
   end.
 
 validate_scheduler_grant(
@@ -2932,11 +3083,29 @@ validate_scheduler_grant(
             true ->
               case resolve_grant_batch_id_for_event(GrantBatchID, BatchID) of
                 {error, BatchReason} ->
-                  {abort, {scheduler_grant_batch_mismatch, BatchReason, PendingGrantRaw, BatchID}, State};
+                  maybe_ignore_scheduler_grant_batch_mismatch(
+                    State,
+                    FromWorker,
+                    Direction,
+                    BatchID,
+                    MicrobatchId,
+                    Stage,
+                    PendingGrantRaw,
+                    BatchReason
+                  );
                 {ok, ResolvedBatchID} ->
                   case is_integer(SchedulerBatchID) andalso is_integer(ResolvedBatchID) andalso SchedulerBatchID =/= ResolvedBatchID of
                     true ->
-                      {abort, {scheduler_state_batch_mismatch, SchedulerBatchID, ResolvedBatchID, PendingGrantRaw}, State};
+                      maybe_ignore_scheduler_state_batch_mismatch(
+                        State,
+                        FromWorker,
+                        Direction,
+                        ResolvedBatchID,
+                        MicrobatchId,
+                        Stage,
+                        SchedulerBatchID,
+                        PendingGrantRaw
+                      );
                     false ->
                       case (FromWorker =:= undefined) orelse (not lists:member(FromWorker, GrantedWorkers)) of
                         true ->
@@ -3006,6 +3175,48 @@ validate_scheduler_grant(
               {abort, {scheduler_grant_epoch_mismatch, GrantEpoch, PhaseEpoch, PendingGrantRaw}, State}
           end
       end
+  end.
+
+maybe_ignore_scheduler_grant_batch_mismatch(
+  State = #super_node_state{continue_on_timeout = ContinueOnTimeout},
+  FromWorker,
+  Direction,
+  BatchID,
+  MicrobatchId,
+  Stage,
+  PendingGrantRaw,
+  BatchReason
+) ->
+  case ContinueOnTimeout of
+    true ->
+      ?LOG_WARNING(
+        "Super node ignoring scheduler grant batch mismatch reason=~p event={~p,~p,~p,~p,~p} pending=~p",
+        [BatchReason, Direction, BatchID, MicrobatchId, Stage, FromWorker, PendingGrantRaw]
+      ),
+      {ignored, register_skip_reason_counter(State, stale_event_after_skip)};
+    false ->
+      {abort, {scheduler_grant_batch_mismatch, BatchReason, PendingGrantRaw, BatchID}, State}
+  end.
+
+maybe_ignore_scheduler_state_batch_mismatch(
+  State = #super_node_state{continue_on_timeout = ContinueOnTimeout},
+  FromWorker,
+  Direction,
+  ResolvedBatchID,
+  MicrobatchId,
+  Stage,
+  SchedulerBatchID,
+  PendingGrantRaw
+) ->
+  case ContinueOnTimeout of
+    true ->
+      ?LOG_WARNING(
+        "Super node ignoring scheduler state batch mismatch expected_batch=~p event_batch=~p event={~p,~p,~p,~p,~p} pending=~p",
+        [SchedulerBatchID, ResolvedBatchID, Direction, ResolvedBatchID, MicrobatchId, Stage, FromWorker, PendingGrantRaw]
+      ),
+      {ignored, register_skip_reason_counter(State, stale_event_after_skip)};
+    false ->
+      {abort, {scheduler_state_batch_mismatch, SchedulerBatchID, ResolvedBatchID, PendingGrantRaw}, State}
   end.
 
 normalize_pending_grant(none) ->

@@ -196,18 +196,7 @@ idle(cast, {stopCasting}, State) ->
   {next_state, idle, State};
 
 idle(cast, {statistics}, State) ->
-  EtsRef = get(source_ets),
-  StatsEtsRef = get(source_stats_ets),
-  stats:increment_messages_received(StatsEtsRef),
-  stats:increment_bytes_received(StatsEtsRef, safe_term_size({statistics})),
-
-  MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
-  StatsEtsStr = stats:encode_ets_to_http_bin_str(StatsEtsRef),
-  StatisticsBody = {MyName , StatsEtsStr}, 
-  {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatisticsBody),
-  stats:increment_messages_sent(StatsEtsRef),
-  stats:increment_bytes_sent(StatsEtsRef, safe_term_size(StatisticsBody)),
+  send_source_statistics(),
   {next_state, idle, State#source_statem_state{}};
 
 idle(cast, _EventContent, State) ->
@@ -260,6 +249,13 @@ castingData(cast, In = {finishedCasting, BatchesSent}, State) ->
   stats:increment_messages_sent(StatsEtsRef),
   stats:increment_bytes_sent(StatsEtsRef, safe_term_size(MyName)),
   {next_state, idle, State#source_statem_state{transmitter_pid = none}};
+
+% Statistics must be available even while a source is still casting.
+% Parallel phase-close can complete before a source drains its transmitter,
+% and Main Server still needs an ACK from every entity to finalize stats.
+castingData(cast, {statistics}, State) ->
+  send_source_statistics(),
+  {next_state, castingData, State#source_statem_state{}};
 
 castingData(cast, _EventContent, State = #source_statem_state{ets_ref = EtsRef}) ->
   StatsEtsRef = get(source_stats_ets),
@@ -453,3 +449,23 @@ safe_term_size(Term) ->
   catch
     _:_ -> 0
   end.
+
+send_source_statistics() ->
+  EtsRef = get(source_ets),
+  StatsEtsRef = get(source_stats_ets),
+  stats:increment_messages_received(StatsEtsRef),
+  stats:increment_bytes_received(StatsEtsRef, safe_term_size({statistics})),
+
+  MyName = ets:lookup_element(EtsRef, my_name, ?DATA_IDX),
+  StatsEtsStr = stats:encode_ets_to_http_bin_str(StatsEtsRef),
+  StatisticsBody = {MyName, StatsEtsStr},
+  {RouterHost, RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+  nerl_tools:http_router_request(
+    RouterHost,
+    RouterPort,
+    [?MAIN_SERVER_ATOM],
+    atom_to_list(statistics),
+    StatisticsBody
+  ),
+  stats:increment_messages_sent(StatsEtsRef),
+  stats:increment_bytes_sent(StatsEtsRef, safe_term_size(StatisticsBody)).

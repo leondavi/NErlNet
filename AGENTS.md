@@ -141,9 +141,10 @@
 - Super Node scheduler trace is forward-only for prediction phase (`phaseType=prediction`) even in `mode=pipeline`, preventing backward-grant deadlocks during prediction.
 - Super Node scheduler gate logs now explicitly report non-issuing states (`parallel_active=false`, empty trace, pending grant still open) with cursor/trace context for deadlock triage.
 - Worker scheduler grant handling is match-based (not strict head-of-queue): forward/backward emits can consume any matching `{direction,batch,microbatch,stage}` grant in queue, preventing head-of-line deadlocks from stale or out-of-order grants.
-- Pipeline grant matching is batch-aware for concrete batches, with an explicit stage0-forward exception:
+- Pipeline grant matching is batch-aware for concrete batches, with an explicit stage0-forward exception in pure `pipeline` mode:
   - non-stage0 (and backward) events must match the same concrete grant batch id.
-  - stage0 forward grant matching can ignore source-side batch id drift, then rewrites emitted event/payload/runtime batch ids to the consumed concrete grant batch id.
+  - stage0 forward grant matching can ignore source-side batch id drift in `pipeline`, then rewrites emitted event/payload/runtime batch ids to the consumed concrete grant batch id.
+  - `pipeline_tensor` stage0 stays strict-batch so TP ranks remain aligned on `{batch,microbatch}` collective tokens.
 - Worker scheduler grant enqueue is deduplicated by normalized grant tuple, reducing duplicate-grant buildup under retries and improving interleaved schedule stability.
 - Torch pipeline stage0 prediction now accepts both feature-only microbatches and feature+label-span microbatches, normalizing input shape before local stage execution.
 - Torch stage-training APIs now carry both `batch_id` and `microbatch_id`; delayed backward stage context is keyed by `{batch_id, microbatch_id}` to prevent cross-batch microbatch-id collisions.
