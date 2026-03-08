@@ -682,6 +682,417 @@ class Stats():
             df["tp_collective_per_predict_batch"] = per_predict_batch
 
         return df
+
+    def get_parallel_trace_df(self):
+        columns = [
+            "run_label",
+            "phase_name",
+            "phase_type",
+            "worker",
+            "client",
+            "device_ip",
+            "pipeline_stage",
+            "tp_group",
+            "tp_rank",
+            "batch_id",
+            "microbatch_id",
+            "stage_id",
+            "fwd_compute_us",
+            "bwd_compute_us",
+            "predict_compute_us",
+            "act_send_us",
+            "act_recv_wait_us",
+            "grad_send_us",
+            "grad_recv_wait_us",
+            "tp_collective_us",
+            "optimizer_barrier_us",
+            "wait_for_grant_us",
+            "wait_for_input_us",
+            "wait_for_output_slot_us",
+            "wait_other_us",
+            "bytes_act_sent",
+            "bytes_grad_sent",
+            "bytes_tp_collective",
+            "status",
+            "skip_reason",
+        ]
+        raw_records = self.experiment_phase.get_parallel_trace_records()
+        if not raw_records:
+            return pd.DataFrame(columns=columns)
+
+        worker_parallel_map = getattr(self.net_comps, "worker_parallel_map", {}) or {}
+        worker_to_client = getattr(self.net_comps, "map_worker_to_client", {}) or {}
+        entity_to_device = getattr(self.net_comps, "map_entity_to_device", {}) or {}
+        device_to_ip = getattr(self.net_comps, "map_device_to_ip", {}) or {}
+
+        rows = []
+        for record in raw_records:
+            if not isinstance(record, dict):
+                continue
+            worker_name = self._report_text(record.get("worker", ""), "")
+            parallel_cfg = worker_parallel_map.get(worker_name, {}) if worker_name else {}
+            client_name = self._report_text(record.get("client", "") or worker_to_client.get(worker_name, ""), "")
+            device_name = entity_to_device.get(client_name, entity_to_device.get(worker_name, ""))
+            device_ip = self._report_text(record.get("device_ip", "") or device_to_ip.get(device_name, ""), "")
+            stage_id = self._report_safe_int(record.get("stage_id", parallel_cfg.get("pipeline_stage", 0)), 0)
+            batch_id = record.get("batch_id", "any")
+            if isinstance(batch_id, (list, tuple, bytes, bytearray, str)):
+                batch_id = self._report_text(batch_id, "any")
+            row = {
+                "run_label": self.experiment_phase.get_experiment_flow_name(),
+                "phase_name": self.experiment_phase.get_name(),
+                "phase_type": self.experiment_phase.get_phase_type(),
+                "worker": worker_name,
+                "client": client_name,
+                "device_ip": device_ip,
+                "pipeline_stage": self._report_safe_int(record.get("pipeline_stage", parallel_cfg.get("pipeline_stage", stage_id)), stage_id),
+                "tp_group": self._report_text(record.get("tp_group", "") or parallel_cfg.get("tp_group", ""), ""),
+                "tp_rank": self._report_safe_int(record.get("tp_rank", parallel_cfg.get("tp_rank", 0)), 0),
+                "batch_id": batch_id,
+                "microbatch_id": self._report_safe_int(record.get("microbatch_id", 0), 0),
+                "stage_id": stage_id,
+                "fwd_compute_us": self._report_safe_int(record.get("fwd_compute_us", 0), 0),
+                "bwd_compute_us": self._report_safe_int(record.get("bwd_compute_us", 0), 0),
+                "predict_compute_us": self._report_safe_int(record.get("predict_compute_us", 0), 0),
+                "act_send_us": self._report_safe_int(record.get("act_send_us", 0), 0),
+                "act_recv_wait_us": self._report_safe_int(record.get("act_recv_wait_us", 0), 0),
+                "grad_send_us": self._report_safe_int(record.get("grad_send_us", 0), 0),
+                "grad_recv_wait_us": self._report_safe_int(record.get("grad_recv_wait_us", 0), 0),
+                "tp_collective_us": self._report_safe_int(record.get("tp_collective_us", 0), 0),
+                "optimizer_barrier_us": self._report_safe_int(record.get("optimizer_barrier_us", 0), 0),
+                "wait_for_grant_us": self._report_safe_int(record.get("wait_for_grant_us", 0), 0),
+                "wait_for_input_us": self._report_safe_int(record.get("wait_for_input_us", 0), 0),
+                "wait_for_output_slot_us": self._report_safe_int(record.get("wait_for_output_slot_us", 0), 0),
+                "wait_other_us": self._report_safe_int(record.get("wait_other_us", 0), 0),
+                "bytes_act_sent": self._report_safe_int(record.get("bytes_act_sent", 0), 0),
+                "bytes_grad_sent": self._report_safe_int(record.get("bytes_grad_sent", 0), 0),
+                "bytes_tp_collective": self._report_safe_int(record.get("bytes_tp_collective", 0), 0),
+                "status": self._report_text(record.get("status", "partial") or "partial", "partial"),
+                "skip_reason": self._report_text(record.get("skip_reason", "") or "", ""),
+            }
+            rows.append(row)
+
+        df = pd.DataFrame(rows)
+        if df.empty:
+            return pd.DataFrame(columns=columns)
+        for column in columns:
+            if column not in df.columns:
+                df[column] = 0 if column.endswith("_us") or column.startswith("bytes_") else ""
+        return df[columns]
+
+    def get_step_summary_df(self):
+        trace_df = self.get_parallel_trace_df()
+        base_columns = [
+            "run_label",
+            "phase_name",
+            "phase_type",
+            "worker",
+            "client",
+            "device_ip",
+            "pipeline_stage",
+            "tp_group",
+            "tp_rank",
+            "batch_id",
+            "microbatch_id",
+            "stage_id",
+            "status",
+            "skip_reason",
+            "compute_us",
+            "pp_comm_us",
+            "idle_us",
+            "step_time_us",
+            "bubble_fraction",
+            "comm_fraction",
+            "bytes_total_comm",
+        ]
+        if trace_df.empty:
+            return pd.DataFrame(columns=base_columns)
+
+        numeric_cols = [
+            "fwd_compute_us",
+            "bwd_compute_us",
+            "predict_compute_us",
+            "act_send_us",
+            "act_recv_wait_us",
+            "grad_send_us",
+            "grad_recv_wait_us",
+            "tp_collective_us",
+            "optimizer_barrier_us",
+            "wait_for_grant_us",
+            "wait_for_input_us",
+            "wait_for_output_slot_us",
+            "wait_other_us",
+            "bytes_act_sent",
+            "bytes_grad_sent",
+            "bytes_tp_collective",
+        ]
+        group_cols = [
+            "run_label",
+            "phase_name",
+            "phase_type",
+            "worker",
+            "client",
+            "device_ip",
+            "pipeline_stage",
+            "tp_group",
+            "tp_rank",
+            "batch_id",
+            "microbatch_id",
+            "stage_id",
+            "status",
+            "skip_reason",
+        ]
+        summary_df = (
+            trace_df.groupby(group_cols, dropna=False, as_index=False)[numeric_cols]
+            .sum()
+            .sort_values(["worker", "batch_id", "microbatch_id", "stage_id"], kind="stable")
+            .reset_index(drop=True)
+        )
+        summary_df["compute_us"] = (
+            summary_df["fwd_compute_us"]
+            + summary_df["bwd_compute_us"]
+            + summary_df["predict_compute_us"]
+        )
+        summary_df["pp_comm_us"] = (
+            summary_df["act_send_us"]
+            + summary_df["act_recv_wait_us"]
+            + summary_df["grad_send_us"]
+            + summary_df["grad_recv_wait_us"]
+        )
+        summary_df["idle_us"] = (
+            summary_df["wait_for_grant_us"]
+            + summary_df["wait_for_input_us"]
+            + summary_df["wait_for_output_slot_us"]
+            + summary_df["wait_other_us"]
+        )
+        summary_df["step_time_us"] = (
+            summary_df["compute_us"]
+            + summary_df["pp_comm_us"]
+            + summary_df["tp_collective_us"]
+            + summary_df["optimizer_barrier_us"]
+            + summary_df["idle_us"]
+        )
+        summary_df["bubble_fraction"] = np.where(
+            summary_df["step_time_us"] > 0,
+            summary_df["idle_us"] / summary_df["step_time_us"],
+            0.0,
+        )
+        summary_df["comm_fraction"] = np.where(
+            summary_df["step_time_us"] > 0,
+            (summary_df["pp_comm_us"] + summary_df["tp_collective_us"]) / summary_df["step_time_us"],
+            0.0,
+        )
+        summary_df["bytes_total_comm"] = (
+            summary_df["bytes_act_sent"]
+            + summary_df["bytes_grad_sent"]
+            + summary_df["bytes_tp_collective"]
+        )
+        return summary_df
+
+    def get_report_metrics_df(self):
+        columns = [
+            "run_label",
+            "phase_name",
+            "phase_type",
+            "parallel_mode",
+            "scheduler",
+            "num_microbatches",
+            "parallel_worker_slots",
+            "expected_microbatches",
+            "completed_microbatches",
+            "skipped_microbatches",
+            "source_dropped_batches",
+            "wall_clock_sec",
+            "throughput_sps",
+            "avg_step_time_us",
+            "bubble_fraction",
+            "comm_fraction",
+            "scaling_efficiency_vs_p1_t1",
+        ]
+        parallel_execution = self.experiment_phase.get_parallel_execution() or {}
+        summary_df = self.get_step_summary_df()
+        if summary_df.empty:
+            return self._get_report_metrics_fallback(columns, parallel_execution)
+
+        num_microbatches = self._report_safe_int(
+            parallel_execution.get("numMicroBatches", parallel_execution.get("num_microbatches", 1)),
+            1,
+        )
+        phase_batches = sum(source_piece.get_num_of_batches() for source_piece in self.experiment_phase.get_sources_pieces())
+        expected_microbatches = max(0, phase_batches) * max(1, num_microbatches)
+        step_keys = ["batch_id", "microbatch_id"]
+        completed_microbatches = int(
+            summary_df.loc[summary_df["status"] == "completed", step_keys]
+            .drop_duplicates()
+            .shape[0]
+        )
+        skipped_microbatches = int(
+            summary_df.loc[summary_df["status"] == "skipped", step_keys]
+            .drop_duplicates()
+            .shape[0]
+        )
+        workers_comm = self.get_communication_stats_workers()
+        if self.phase == PHASE_TRAINING_STR:
+            source_dropped_batches = sum(
+                self._report_safe_int(worker_stats.get("batches_dropped_train", 0), 0)
+                for worker_stats in workers_comm.values()
+            )
+        else:
+            source_dropped_batches = sum(
+                self._report_safe_int(worker_stats.get("batches_dropped_predict", 0), 0)
+                for worker_stats in workers_comm.values()
+            )
+
+        wall_clock_sec = self._get_phase_wall_clock_sec()
+        micro_batch_size = self._report_safe_int(
+            parallel_execution.get("microBatchSize", parallel_execution.get("micro_batch_size", self.batch_size)),
+            self.batch_size,
+        )
+        throughput_sps = (
+            (completed_microbatches * max(1, micro_batch_size)) / wall_clock_sec
+            if wall_clock_sec > 0
+            else 0.0
+        )
+        avg_step_time_us = float(summary_df["step_time_us"].mean()) if not summary_df.empty else 0.0
+        bubble_fraction = float(summary_df["bubble_fraction"].mean()) if not summary_df.empty else 0.0
+        comm_fraction = float(summary_df["comm_fraction"].mean()) if not summary_df.empty else 0.0
+        parallel_worker_slots = max(1, len({worker for worker in summary_df["worker"].tolist() if worker}))
+
+        row = {
+            "run_label": self.experiment_phase.get_experiment_flow_name(),
+            "phase_name": self.experiment_phase.get_name(),
+            "phase_type": self.experiment_phase.get_phase_type(),
+            "parallel_mode": str(parallel_execution.get("mode", "legacy")),
+            "scheduler": str(parallel_execution.get("scheduler", "")),
+            "num_microbatches": max(1, num_microbatches),
+            "parallel_worker_slots": parallel_worker_slots,
+            "expected_microbatches": expected_microbatches,
+            "completed_microbatches": completed_microbatches,
+            "skipped_microbatches": skipped_microbatches,
+            "source_dropped_batches": source_dropped_batches,
+            "wall_clock_sec": wall_clock_sec,
+            "throughput_sps": throughput_sps,
+            "avg_step_time_us": avg_step_time_us,
+            "bubble_fraction": bubble_fraction,
+            "comm_fraction": comm_fraction,
+            "scaling_efficiency_vs_p1_t1": np.nan,
+        }
+        return pd.DataFrame([row], columns=columns)
+
+    def _get_report_metrics_fallback(self, columns, parallel_execution):
+        # Legacy runs do not emit per-microbatch traces. Fall back to phase-local
+        # communication/performance counters so the report baseline remains valid.
+        num_microbatches = self._report_safe_int(
+            parallel_execution.get("numMicroBatches", parallel_execution.get("num_microbatches", 1)),
+            1,
+        )
+        phase_batches = sum(source_piece.get_num_of_batches() for source_piece in self.experiment_phase.get_sources_pieces())
+        expected_microbatches = max(0, phase_batches) * max(1, num_microbatches)
+        workers_comm = self.get_communication_stats_workers()
+        phase_suffix = "train" if self.phase == PHASE_TRAINING_STR else "predict"
+        received_key = f"batches_received_{phase_suffix}"
+        sent_key = f"batches_sent_{phase_suffix}"
+        completed_key = f"batches_completed_{phase_suffix}"
+        dropped_key = f"batches_dropped_{phase_suffix}"
+        average_time_key = "average_time_training" if self.phase == PHASE_TRAINING_STR else "average_time_prediction"
+        skip_keys = [
+            "skip_grant_accept_timeout",
+            "skip_payload_delivery_timeout",
+            "skip_completion_timeout",
+            "skip_phase_close_drain",
+            "stale_event_after_skip",
+        ]
+
+        received_total = sum(self._report_safe_int(worker_stats.get(received_key, 0), 0) for worker_stats in workers_comm.values())
+        sent_total = sum(self._report_safe_int(worker_stats.get(sent_key, 0), 0) for worker_stats in workers_comm.values())
+        completed_total = sum(self._report_safe_int(worker_stats.get(completed_key, 0), 0) for worker_stats in workers_comm.values())
+        dropped_total = sum(self._report_safe_int(worker_stats.get(dropped_key, 0), 0) for worker_stats in workers_comm.values())
+        skipped_total = sum(
+            self._report_safe_int(worker_stats.get(key, 0), 0)
+            for worker_stats in workers_comm.values()
+            for key in skip_keys
+        )
+        avg_times = [
+            self._report_safe_float(worker_stats.get(average_time_key, 0), 0.0)
+            for worker_stats in workers_comm.values()
+            if self._report_safe_float(worker_stats.get(average_time_key, 0), 0.0) > 0.0
+        ]
+        avg_step_time_us = float(sum(avg_times) / len(avg_times)) if avg_times else np.nan
+        completed_batches = max(completed_total, sent_total, max(0, received_total - dropped_total))
+        wall_clock_sec = self._get_phase_wall_clock_sec()
+        micro_batch_size = self._report_safe_int(
+            parallel_execution.get("microBatchSize", parallel_execution.get("micro_batch_size", self.batch_size)),
+            self.batch_size,
+        )
+        throughput_sps = (
+            (completed_batches * max(1, micro_batch_size)) / wall_clock_sec
+            if wall_clock_sec > 0
+            else 0.0
+        )
+        parallel_worker_slots = max(1, len(workers_comm) or len(self.workers_list))
+
+        row = {
+            "run_label": self.experiment_phase.get_experiment_flow_name(),
+            "phase_name": self.experiment_phase.get_name(),
+            "phase_type": self.experiment_phase.get_phase_type(),
+            "parallel_mode": str(parallel_execution.get("mode", "legacy")),
+            "scheduler": str(parallel_execution.get("scheduler", "")),
+            "num_microbatches": max(1, num_microbatches),
+            "parallel_worker_slots": parallel_worker_slots,
+            "expected_microbatches": expected_microbatches,
+            "completed_microbatches": completed_batches * max(1, num_microbatches),
+            "skipped_microbatches": skipped_total,
+            "source_dropped_batches": dropped_total,
+            "wall_clock_sec": wall_clock_sec,
+            "throughput_sps": throughput_sps,
+            "avg_step_time_us": avg_step_time_us,
+            "bubble_fraction": np.nan,
+            "comm_fraction": np.nan,
+            "scaling_efficiency_vs_p1_t1": np.nan,
+        }
+        return pd.DataFrame([row], columns=columns)
+
+    def _report_safe_int(self, value, default=0):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            try:
+                return int(float(value))
+            except (TypeError, ValueError):
+                return default
+
+    def _report_safe_float(self, value, default=0.0):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _report_text(self, value, default=""):
+        if value is None:
+            return default
+        if isinstance(value, bytes):
+            try:
+                return value.decode("utf-8", errors="ignore")
+            except Exception:
+                return default
+        if isinstance(value, (list, tuple)):
+            if value and all(isinstance(item, int) and 0 <= item <= 255 for item in value):
+                try:
+                    return bytes(value).decode("utf-8", errors="ignore")
+                except Exception:
+                    return default
+        text = str(value)
+        return text if text else default
+
+    def _get_phase_wall_clock_sec(self):
+        perf_clients = self.get_performance_stats_clients()
+        wall_clock_us = 0
+        for perf_stats in perf_clients.values():
+            if self.phase == PHASE_TRAINING_STR:
+                wall_clock_us = max(wall_clock_us, self._report_safe_int(perf_stats.get("time_train_total", 0), 0))
+            else:
+                wall_clock_us = max(wall_clock_us, self._report_safe_int(perf_stats.get("time_predict_total", 0), 0))
+        return float(wall_clock_us) / 1_000_000.0 if wall_clock_us > 0 else 0.0
     
 
     def get_communication_stats_sources(self):

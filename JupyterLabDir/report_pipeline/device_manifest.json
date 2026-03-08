@@ -1,0 +1,41 @@
+{
+  "controller": "controller",
+  "nodes": [
+    {
+      "id": "controller",
+      "name": "NerlControllerG",
+      "ip": "172.31.91.176",
+      "user": "admin",
+      "ssh_key": "~/.ssh/id_rsa",
+      "nerl_dir": "~/workspace/NErlNet",
+      "local": true
+    },
+    {
+      "id": "remote_a",
+      "name": "NerlnetPowerfull",
+      "ip": "172.31.44.250",
+      "user": "ubuntu",
+      "ssh_key": "~/.ssh/id_rsa",
+      "nerl_dir": "~/workspace/NErlNet",
+      "local": false
+    },
+    {
+      "id": "remote_b",
+      "name": "Nerlnet-2Cores-0",
+      "ip": "172.31.84.94",
+      "user": "admin",
+      "ssh_key": "~/.ssh/id_rsa",
+      "nerl_dir": "~/workspace/NErlNet",
+      "local": false
+    },
+    {
+      "id": "remote_c",
+      "name": "Nerlnet-2Cores-1",
+      "ip": "172.31.88.217",
+      "user": "admin",
+      "ssh_key": "~/.ssh/id_rsa",
+      "nerl_dir": "~/workspace/NErlNet",
+      "local": false
+    }
+  ]
+}

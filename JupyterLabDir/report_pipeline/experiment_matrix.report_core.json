@@ -1,0 +1,63 @@
+{
+  "profile": "report_core",
+  "dataset": {
+    "token": "synthetic_norm/synthetic_full.csv",
+    "path": "/tmp/nerlnet/data/NerlnetData-master/nerlnet/synthetic_norm/synthetic_full.csv",
+    "numOfFeatures": 5,
+    "numOfLabels": 3,
+    "headersNames": "Norm(0:1),Norm(4:1),Norm(10:3)",
+    "predictionStartSample": 50000,
+    "nerltensorType": "float"
+  },
+  "model": {
+    "configPath": "nerl_designer_models/PTD_Test5/model.json",
+    "ptPath": "nerl_designer_models/PTD_Test5/model.pt"
+  },
+  "defaults": {
+    "batchSize": 64,
+    "frequency": 5,
+    "trainBatches": 200,
+    "predictBatches": 200,
+    "repeats": 3,
+    "quickRepeats": 1,
+    "instrumentation": {
+      "enabled": true,
+      "traceGranularity": "microbatch"
+    },
+    "parallel": {
+      "superNode": "super_0",
+      "maxInflightMicrobatches": 16,
+      "heartbeatMs": 5000
+    }
+  },
+  "quickLabels": [
+    "baseline_p1_t1_legacy",
+    "sweep_pp2_gpipe_m04",
+    "sweep_pp2_1f1b_m08",
+    "topo_tp2_1f1b_m8",
+    "topo_p2_t2_1f1b_m8"
+  ],
+  "experiments": [
+    {
+      "kind": "baseline_p1_t1_legacy",
+      "label": "baseline_p1_t1_legacy"
+    },
+    {
+      "kind": "sweep_pp2",
+      "schedulers": ["gpipe", "1f1b", "interleaved"],
+      "microbatches": [1, 2, 4, 8, 16, 32]
+    },
+    {
+      "kind": "topo_pp4_1f1b_m8",
+      "label": "topo_pp4_1f1b_m8"
+    },
+    {
+      "kind": "topo_tp2_1f1b_m8",
+      "label": "topo_tp2_1f1b_m8"
+    },
+    {
+      "kind": "topo_p2_t2_1f1b_m8",
+      "label": "topo_p2_t2_1f1b_m8"
+    }
+  ]
+}

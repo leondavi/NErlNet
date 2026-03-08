@@ -90,7 +90,15 @@ class predictRes(Resource):
 
 class statistics(Resource):
     def post(self) -> None:
-        resData = request.get_data().decode('utf-8')
+        parallel_trace_records = []
+        if request.is_json:
+            payload = request.get_json(silent=True) or {}
+            resData = str(payload.get("stats_payload", ""))
+            raw_trace_records = payload.get("parallel_trace_records", [])
+            if isinstance(raw_trace_records, list):
+                parallel_trace_records = raw_trace_records
+        else:
+            resData = request.get_data().decode('utf-8')
         entity_com_dicts, entity_perf_dicts = decode_main_server_ets_str(resData) # dict of dicts 
         current_experiment_flow = globe.experiment_focused_on
         event_sync_inst = current_experiment_flow.get_events_sync()
@@ -98,6 +106,7 @@ class statistics(Resource):
         phase_local_entity_com_dicts = current_experiment_flow.to_phase_local_comm_stats(entity_com_dicts)
         current_experiment_phase.get_nerl_comm_db().update_entities_stats(phase_local_entity_com_dicts)
         current_experiment_phase.get_nerl_perf_db().update_entities_stats(entity_perf_dicts) 
+        current_experiment_phase.add_parallel_trace_records(parallel_trace_records)
         event_sync_inst.set_event_done(event_sync_inst.COMMUNICATION_STATS)
 
         transmitter = receiver.config['TRANSMITTER']

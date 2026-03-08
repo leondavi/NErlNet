@@ -235,6 +235,10 @@ waitforWorkers(cast, In = {parallel_worker_drain_ready, WorkerName, ModelPhase},
 waitforWorkers(cast, {parallel_finalize_idle}, State = #client_statem_state{}) ->
   {keep_state, State};
 
+waitforWorkers(cast, {statistics}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
+  send_client_statistics(MyName, EtsRef),
+  {keep_state, State};
+
 waitforWorkers(cast, In = {NewState}, State = #client_statem_state{myName = _MyName, etsRef = EtsRef}) ->
   ClientStatsEts = get(client_stats_ets),
   stats:increment_messages_received(ClientStatsEts),
@@ -330,19 +334,7 @@ idle(cast, {parallel_finalize_idle}, State = #client_statem_state{}) ->
   {keep_state, State};
 
 idle(cast, _In = {statistics}, State = #client_statem_state{ myName = MyName, etsRef = EtsRef}) ->
-  EtsStats = get(ets_stats),
-  ClientStatsEts = get(client_stats_ets),
-  ClientStatsEncStr = stats:encode_ets_to_http_bin_str(ClientStatsEts),
-  stats:increment_messages_received(ClientStatsEts),
-  ListStatsEts = ets:tab2list(EtsStats) -- [{MyName , ClientStatsEts}], 
-  PerformenceStatsEts = get(performance_stats_ets),
-  ClientPerformenceStatsEncStr = ?PERF_STATS_SEPERATOR ++ stats:encode_ets_to_http_bin_str(PerformenceStatsEts) ++ ?PERF_STATS_SEPERATOR,
-  WorkersStatsEncStr = create_encoded_stats_str(ListStatsEts),
-  DataToSend = ClientStatsEncStr ++ ClientPerformenceStatsEncStr ++ WorkersStatsEncStr,
-  StatsBody = {MyName , DataToSend},
-  {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
-  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatsBody),
-  stats:increment_messages_sent(ClientStatsEts),
+  send_client_statistics(MyName, EtsRef),
 
   erlang:garbage_collect(), % free memory when phase is changed to idle
   {next_state, idle, State};
@@ -409,6 +401,10 @@ training(cast, {set_parallel_execution, ParallelExecution, Source}, State = #cli
 
 training(cast, {set_parallel_execution, ParallelExecution}, State = #client_statem_state{etsRef = EtsRef}) ->
   apply_parallel_execution(EtsRef, ParallelExecution, main_server),
+  {keep_state, State};
+
+training(cast, {statistics}, State = #client_statem_state{myName = MyName, etsRef = EtsRef}) ->
+  send_client_statistics(MyName, EtsRef),
   {keep_state, State};
 
 training(cast, {parallel_super_command, SuperCommand}, State = #client_statem_state{etsRef = EtsRef}) ->
@@ -1077,6 +1073,10 @@ maybe_trigger_parallel_phase_close_on_stream_drain(EtsRef, PhaseName) ->
       maybe_request_super_phase_close(EtsRef, PhaseName),
       case ets:lookup_element(EtsRef, parallel_phase_close_granted, ?DATA_IDX) of
         true ->
+          %% The Super Node close grant is advisory until this client has
+          %% actually drained its local workers. Mark idle requested only at
+          %% the point we know stream/drain conditions are satisfied.
+          ets:insert(EtsRef, {parallel_idle_requested, true}),
           gen_statem:cast(get(my_pid), {parallel_finalize_idle});
         false ->
           ok
@@ -1256,8 +1256,9 @@ scheduler_grant_reject_reason(EtsRef, GrantEpoch, StateName) ->
           {phase_close_waiting_worker_idle_ack, StateName};
         {_AnyState, _AnyIdleRequested, _AnyWorkersDone, true, true} ->
           {phase_close_granted, StateName};
-        {_AnyState, _AnyIdleRequested, _AnyWorkersDone, true, false} ->
-          {phase_close_pending, StateName};
+        %% A close request is advisory until the Super Node grants it. Rejecting
+        %% grants here can desynchronize TP ranks when one client reaches the
+        %% close path earlier than its stage peer.
         _ -> none
       end
   end.
@@ -1555,10 +1556,18 @@ apply_parallel_super_command(EtsRef, {parallel_super_command, phase_close_grante
     true ->
       ?LOG_INFO("Client ~p received phase-close grant epoch=~p", [ClientName, PhaseEpoch]),
       ets:insert(EtsRef, {parallel_phase_close_granted, true}),
-      ets:insert(EtsRef, {parallel_idle_requested, true}),
-      ets:update_element(EtsRef, active_workers_streams, {?DATA_IDX, []}),
-      refresh_all_workers_done_state(EtsRef),
-      gen_statem:cast(get(my_pid), {parallel_finalize_idle})
+      %% Do not force-clear stream bookkeeping or idle immediately here.
+      %% In pipeline_tensor this can strand one TP rank inside a final
+      %% collective while its peer goes idle, which turns close into a late
+      %% collective timeout. Let the client finalize idle only after its own
+      %% worker drain bookkeeping says it is done.
+      case refresh_all_workers_done_state(EtsRef) of
+        true ->
+          ets:insert(EtsRef, {parallel_idle_requested, true}),
+          gen_statem:cast(get(my_pid), {parallel_finalize_idle});
+        false ->
+          ok
+      end
   end;
 apply_parallel_super_command(EtsRef, {phase_close_granted, PhaseEpochRaw}, StateName) ->
   apply_parallel_super_command(EtsRef, {parallel_super_command, phase_close_granted, PhaseEpochRaw}, StateName);
@@ -1740,6 +1749,48 @@ create_encoded_stats_str(ListStatsEts) ->
     ?API_SERVER_ENTITY_SEPERATOR ++ atom_to_list(WorkerName) ++ ?WORKER_SEPERATOR ++ WorkerEncStatsStr
     end,
   lists:flatten(lists:map(Func , ListStatsEts)).
+
+collect_parallel_trace_records(EtsRef, ClientName) ->
+  Workers = clientWorkersFunctions:get_workers_names(EtsRef),
+  lists:flatten(
+    [
+      collect_worker_parallel_trace_records(EtsRef, WorkerName, ClientName)
+      || WorkerName <- Workers
+    ]
+  ).
+
+collect_worker_parallel_trace_records(EtsRef, WorkerName, ClientName) ->
+  WorkerPid = clientWorkersFunctions:get_worker_pid(EtsRef, WorkerName),
+  case catch workerGeneric:get_parallel_trace_records(WorkerPid) of
+    Records when is_list(Records) ->
+      [
+        maybe_attach_client_to_parallel_trace_record(Record, ClientName)
+        || Record <- Records
+      ];
+    _ ->
+      []
+  end.
+
+maybe_attach_client_to_parallel_trace_record(Record, ClientName) when is_map(Record) ->
+  Record#{client => atom_to_list(ClientName)};
+maybe_attach_client_to_parallel_trace_record(Record, _ClientName) ->
+  Record.
+
+send_client_statistics(MyName, EtsRef) ->
+  EtsStats = get(ets_stats),
+  ClientStatsEts = get(client_stats_ets),
+  ClientStatsEncStr = stats:encode_ets_to_http_bin_str(ClientStatsEts),
+  stats:increment_messages_received(ClientStatsEts),
+  ListStatsEts = ets:tab2list(EtsStats) -- [{MyName , ClientStatsEts}],
+  PerformenceStatsEts = get(performance_stats_ets),
+  ClientPerformenceStatsEncStr = ?PERF_STATS_SEPERATOR ++ stats:encode_ets_to_http_bin_str(PerformenceStatsEts) ++ ?PERF_STATS_SEPERATOR,
+  WorkersStatsEncStr = create_encoded_stats_str(ListStatsEts),
+  DataToSend = ClientStatsEncStr ++ ClientPerformenceStatsEncStr ++ WorkersStatsEncStr,
+  TraceRecords = collect_parallel_trace_records(EtsRef, MyName),
+  StatsBody = {MyName, DataToSend, TraceRecords},
+  {RouterHost,RouterPort} = ets:lookup_element(EtsRef, my_router, ?DATA_IDX),
+  nerl_tools:http_router_request(RouterHost, RouterPort, [?MAIN_SERVER_ATOM], atom_to_list(statistics), StatsBody),
+  stats:increment_messages_sent(ClientStatsEts).
 
 handle_w2w_msg(EtsRef, FromWorker, ToWorker, Data) ->
   increment_worker_messages_sent(EtsRef, FromWorker, {worker_to_worker_msg, FromWorker, ToWorker, Data}),

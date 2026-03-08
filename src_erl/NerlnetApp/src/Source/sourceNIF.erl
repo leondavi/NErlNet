@@ -10,8 +10,17 @@
 -on_load(init/0).
 
 init() ->
-    SOURCE_NIF_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?SOURCE_NIF_LIB,
+    BasePath = get_env_or_default("NERLNET_PATH", ?NERLNET_PATH),
+    BuildSuffix = get_env_or_default("NERL_BUILD_TYPE", ?BUILD_TYPE_RELEASE),
+    LibName = get_env_or_default("NERLSOURCE_LIB", ?SOURCE_NIF_LIB),
+    SOURCE_NIF_LIB_PATH = filename:join(BasePath ++ BuildSuffix, LibName),
     erlang:load_nif(SOURCE_NIF_LIB_PATH, 0).
+
+get_env_or_default(Key, Default) ->
+    case os:getenv(Key) of
+        false -> Default;
+        Value -> Value
+    end.
 
 %% make sure nif can be loaded (activates on_load)
 nif_preload() -> done.
@@ -29,4 +38,3 @@ source_get_batches_nif() ->
 
 source_more_batches_nif() ->
     exit(nif_library_not_loaded).
-

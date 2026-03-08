@@ -77,6 +77,7 @@ init({MyName,ClientsNames,BatchSize,WorkersMap,NerlnetGraph , DeviceName}) ->
   ets:insert(MainServerEts , {workers_map , WorkersMap}),
   ets:insert(MainServerEts , {clients_names_list , ClientsNames}),
   ets:insert(MainServerEts , {counter_received_stats, 0}),
+  ets:insert(MainServerEts , {parallel_trace_records_map, #{}}),
   ets:insert(MainServerEts , {json_received_counter, 0}),
   % Getting the router that main server is connected with
   {MyRouterHost,MyRouterPort} = nerl_tools:getShortPath(MyName,hd(ClientsNames),get(nerlnet_graph)),
@@ -291,6 +292,8 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
     stats:increment_messages_received(StatsEts),
     stats:increment_bytes_received(StatsEts, safe_term_size({statistics, Body})),
     if Body == <<"getStatistics">> ->   %% initial message from APIServer, get stats from entities
+        ets:update_element(get(main_server_ets), counter_received_stats, {?STATS_KEYVAL_VAL_IDX, 0}),
+        ets:update_element(get(main_server_ets), parallel_trace_records_map, {?STATS_KEYVAL_VAL_IDX, #{}}),
         statistics_requests_to_entities(), % Broadcast sends - worth 1 message
         stats:increment_messages_sent(StatsEts),
         stats:increment_bytes_sent(StatsEts, safe_term_size(<<"getStatistics">>));
@@ -298,8 +301,15 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
 
       true ->
           %% statistics arrived from Entity
-          {From, StatsEtsEncStr} = binary_to_term(Body),
+          {From, StatsEtsEncStr, TraceRecords} =
+            case binary_to_term(Body) of
+              {From0, StatsEtsEncStr0, TraceRecords0} ->
+                {From0, StatsEtsEncStr0, TraceRecords0};
+              {From0, StatsEtsEncStr0} ->
+                {From0, StatsEtsEncStr0, []}
+            end,
           set_entity_stats_ets_str(From, StatsEtsEncStr),
+          set_entity_parallel_trace_records(From, TraceRecords),
           
           % increase counter_received_stats ets by 1
           ets:update_counter(get(main_server_ets), counter_received_stats, 1),
@@ -318,11 +328,16 @@ handle_cast({statistics,Body}, State = #main_genserver_state{myName = MyName}) -
             MainServerEncStatsEts = stats:encode_ets_to_http_bin_str(get_entity_stats_ets_str(?MAIN_SERVER_ATOM)),
             MainServerStr = atom_to_list(?MAIN_SERVER_ATOM) ++ ?API_SERVER_WITHIN_ENTITY_SEPERATOR ++ MainServerEncStatsEts ++ ?API_SERVER_ENTITY_SEPERATOR,
             StatsToSend = lists:flatten([Func(Entity) || Entity <- EntitiesNamesList] ++ MainServerStr), % add main server to the list
+            TraceRecordsToSend = flatten_parallel_trace_records(),
             {RouterHost,RouterPort} = ets:lookup_element(get(main_server_ets), my_router, ?DATA_IDX),
             ActionStr = atom_to_list(statistics),
-            nerl_tools:http_router_request(RouterHost,RouterPort, [?API_SERVER_ATOM], ActionStr, list_to_binary(StatsToSend)),
+            StatsPayload = #{
+              <<"stats_payload">> => unicode:characters_to_binary(StatsToSend),
+              <<"parallel_trace_records">> => TraceRecordsToSend
+            },
+            nerl_tools:http_router_request(RouterHost,RouterPort, [?API_SERVER_ATOM], ActionStr, {json, StatsPayload}),
             stats:increment_messages_sent(StatsEts),
-            stats:increment_bytes_sent(StatsEts, safe_term_size(StatsToSend)); % update the source with its data
+            stats:increment_bytes_sent(StatsEts, safe_term_size(StatsPayload)); % update the source with its data
             
           true -> wait_for_more_stats 
         end
@@ -810,6 +825,29 @@ get_entity_stats_ets_str(EntityName) ->
 set_entity_stats_ets_str(EntityName , StatsEncStr) ->
   MainServerEtsStats = get(etsStats),
   ets:insert(MainServerEtsStats, {EntityName, StatsEncStr}).
+
+set_entity_parallel_trace_records(EntityName, TraceRecords) ->
+  MainServerEts = get(main_server_ets),
+  ExistingMap =
+    case ets:lookup(MainServerEts, parallel_trace_records_map) of
+      [{parallel_trace_records_map, Map}] when is_map(Map) -> Map;
+      _ -> #{}
+    end,
+  NormalizedRecords =
+    case is_list(TraceRecords) of
+      true -> TraceRecords;
+      false -> []
+    end,
+  ets:insert(MainServerEts, {parallel_trace_records_map, maps:put(EntityName, NormalizedRecords, ExistingMap)}).
+
+flatten_parallel_trace_records() ->
+  MainServerEts = get(main_server_ets),
+  case ets:lookup(MainServerEts, parallel_trace_records_map) of
+    [{parallel_trace_records_map, TraceMap}] when is_map(TraceMap) ->
+      lists:flatten([Records || {_EntityName, Records} <- maps:to_list(TraceMap)]);
+    _ ->
+      []
+  end.
 
 
 sources_start_casting([])->done;

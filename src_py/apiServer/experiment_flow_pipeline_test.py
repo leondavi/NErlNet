@@ -2,6 +2,7 @@
 
 import math
 import os
+import socket
 import sys
 import time
 import traceback
@@ -38,6 +39,10 @@ NERLNET_RUN_SCRIPT = "./NerlnetRun.sh --run-mode release > /tmp/nerlnet_run_log.
 NERLNET_RUN_STOP_SCRIPT = "./NerlnetRun.sh --run-mode stop"
 NERLNET_RUNNING_TIMEOUT_SEC = max(parse_int_env("NERLNET_RUNNING_TIMEOUT_SEC", 5), 1)
 NERLNET_RUN_BOOT_WAIT_SEC = max(parse_int_env("NERLNET_RUN_BOOT_WAIT_SEC", 5), 1)
+NERLNET_RUN_READY_TIMEOUT_SEC = max(
+    parse_int_env("NERLNET_RUN_READY_TIMEOUT_SEC", 30),
+    NERLNET_RUN_BOOT_WAIT_SEC,
+)
 TEST_DATASET_IDX = 2
 MANUAL_START_MODE = os.getenv("NERLNET_MANUAL_START", "0").lower() in ("1", "true", "yes", "on")
 NERLNET_RUN_LOG_PATH = "/tmp/nerlnet_run_log.txt"
@@ -67,6 +72,48 @@ def ensure_nerlnet_started(nerlnet_run_cmd: RunCommand) -> None:
     raise RuntimeError(
         "NerlnetRun exited before test startup completed "
         f"(rc={rc}). Log tail:\n{run_log_tail}"
+    )
+
+
+def resolve_local_probe_hosts() -> list[str]:
+    hosts = []
+    preferred = None
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("1.1.1.1", 80))
+            preferred = sock.getsockname()[0]
+    except OSError:
+        preferred = None
+
+    for candidate in (preferred, "127.0.0.1", "localhost"):
+        if candidate and candidate not in hosts:
+            hosts.append(candidate)
+    return hosts
+
+
+def is_initiator_ready(host: str, port: int = 8484) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
+def wait_for_nerlnet_ready(nerlnet_run_cmd: RunCommand) -> None:
+    deadline = time.time() + NERLNET_RUN_READY_TIMEOUT_SEC
+    probe_hosts = resolve_local_probe_hosts()
+    while time.time() < deadline:
+        ensure_nerlnet_started(nerlnet_run_cmd)
+        for host in probe_hosts:
+            if is_initiator_ready(host):
+                print_test(f"Nerlnet initiator ready on {host}:8484")
+                return
+        time.sleep(0.5)
+
+    run_log_tail = tail_file(NERLNET_RUN_LOG_PATH, max_lines=80)
+    raise RuntimeError(
+        "NerlnetRun did not expose the initiator listener on :8484 "
+        f"within {NERLNET_RUN_READY_TIMEOUT_SEC}s. Log tail:\n{run_log_tail}"
     )
 
 
@@ -259,6 +306,7 @@ def main() -> int:
     print_test(f"$NERLNET_PATH: {NERLNET_PATH}")
     print_test(f"$TESTS_PATH: {TESTS_PATH}")
     print_test(f"$NERLNET_RUNNING_TIMEOUT_SEC: {NERLNET_RUNNING_TIMEOUT_SEC}")
+    print_test(f"$NERLNET_RUN_READY_TIMEOUT_SEC: {NERLNET_RUN_READY_TIMEOUT_SEC}")
 
     try:
         if MANUAL_START_MODE:
@@ -267,7 +315,7 @@ def main() -> int:
             print_test("NerlnetApp Start")
             nerlnet_run_cmd = RunCommand(NERLNET_RUN_SCRIPT, NERLNET_PATH)
             time.sleep(NERLNET_RUN_BOOT_WAIT_SEC)
-            ensure_nerlnet_started(nerlnet_run_cmd)
+            wait_for_nerlnet_ready(nerlnet_run_cmd)
 
         api_server_instance = ApiServer()
         api_server_instance.download_dataset(TEST_DATASET_IDX)

@@ -27,6 +27,7 @@ class ExperimentPhase():
         self.source_pieces_dict = {}  # Dict of SourcePieceDS 
         self.num_of_features = num_of_features
         self.raw_data_buffer = []
+        self.parallel_trace_records = []
         self.network_components = network_components
         self.parallel_execution = parallel_execution or {"mode": "legacy"}
 
@@ -35,6 +36,17 @@ class ExperimentPhase():
 
     def clean_raw_data_buffer(self):
         self.raw_data_buffer = []
+
+    def add_parallel_trace_records(self, records):
+        if not isinstance(records, list):
+            return
+        self.parallel_trace_records.extend(records)
+
+    def get_parallel_trace_records(self):
+        return list(self.parallel_trace_records)
+
+    def clean_parallel_trace_records(self):
+        self.parallel_trace_records = []
 
     def process_experiment_phase_data(self):
         if not self.raw_data_buffer:

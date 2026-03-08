@@ -30,9 +30,8 @@ class NerlFile():
         return f'{self.filepath}/{self.filename}'
 
     def get_json(self):
-        # Opening JSON file
-        f = open(self.get_full_path())
-        self.json = json.load(f)
+        with open(self.get_full_path(), "r", encoding="utf-8") as handle:
+            self.json = json.load(handle)
 
         return self.json
     
@@ -116,4 +115,5 @@ class JsonDirParser():
         return None, None, None
 
     def json_from_path(self, json_path : str) -> dict:
-        return json.load(open(json_path))
+        with open(json_path, "r", encoding="utf-8") as handle:
+            return json.load(handle)

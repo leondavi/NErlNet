@@ -5,7 +5,9 @@
 *.o
 *.beam
 *.pyc
-/JupyterLabDir
+/JupyterLabDir/*
+!/JupyterLabDir/report_pipeline/
+!/JupyterLabDir/report_pipeline/**
 *.csv
 *.orig
 *.lock

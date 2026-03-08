@@ -27,7 +27,10 @@
 
 
 init() ->
-      NELNET_LIB_PATH = ?NERLNET_PATH++?BUILD_TYPE_RELEASE++"/"++?NERLNET_LIB,
+      BasePath = get_env_or_default("NERLNET_PATH", ?NERLNET_PATH),
+      BuildSuffix = get_env_or_default("NERL_BUILD_TYPE", ?BUILD_TYPE_RELEASE),
+      LibName = get_env_or_default("NERLONN_LIB", ?NERLNET_LIB),
+      NELNET_LIB_PATH = filename:join(BasePath ++ BuildSuffix, LibName),
       case catch erlang:load_nif(NELNET_LIB_PATH, 0) of
             ok ->
                   ok;
@@ -37,6 +40,12 @@ init() ->
             {'EXIT', Reason} ->
                   ?LOG_WARNING("[nerlNIF] OpenNN NIF load crashed at ~ts reason: ~p", [NELNET_LIB_PATH, Reason]),
                   ok
+      end.
+
+get_env_or_default(Key, Default) ->
+      case os:getenv(Key) of
+            false -> Default;
+            Value -> Value
       end.
 
 %% make sure nif can be loaded (activates on_load)
